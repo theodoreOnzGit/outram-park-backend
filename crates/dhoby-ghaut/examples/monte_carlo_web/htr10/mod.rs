@@ -38,15 +38,16 @@ use outram_mc_libs::physics::keff::KeffSettings;
 /// The marker type `rung_table!` names.
 pub struct Htr10;
 
-/// The 2026-10-01 k-vs-height table (both libraries, N = 10–20), read at
-/// build time. **Superseded** (#589): measured on a majorant under-bound 14×
-/// at 661 eV in the kernel. Shown faded, for the N not re-measured and for
-/// comparison.
-const SEKER_CSV: &str = include_str!("../../../../nee_soon/verification_and_validation/htr10_seker_2026_10_01_10k/results_table.csv");
-/// The 2026-10-05 re-measurement on the bounded majorant (#589): a subset of
-/// N at 10 000 × [5 + 20], read at build time.
-const SEKER_CSV_BOUNDED: &str =
-    include_str!("../../../../nee_soon/verification_and_validation/htr10_seker_2026_10_05_majorant_fix/results_table.csv");
+/// The 2026-10-07 k-vs-height table (both libraries, N = 10–20, 10 000 ×
+/// [5 + 135] per point on the bounded delta-tracking majorant of #589), read
+/// at build time.
+///
+/// ~~`SEKER_CSV` = the 2026-10-01 record (shown faded, superseded) and
+/// `SEKER_CSV_BOUNDED` = the 2026-10-05 re-measurement at 5 points, 10 000 ×
+/// [5 + 20]~~ **CORRECTED 2026-10-07** (gh:#782): the 2026-10-07 record
+/// re-measures all 22 points at full statistics and supersedes both, so the
+/// demo shows it alone. Both older records stay in `nee_soon`'s V&V folder.
+const SEKER_CSV: &str = include_str!("../../../../nee_soon/verification_and_validation/htr10_seker_2026_10_07_10k/results_table.csv");
 
 /// The fuel-zone record, quoted from
 /// `crates/outram-mc-libs/verification_and_validation/tutorial_rung5/README.md`
@@ -110,7 +111,7 @@ impl McRung for Htr10 {
     fn notes() -> &'static [&'static str] {
         &[
             "Geometry: the HTR-10 core exactly as nee_soon assembles it for the recorded runs (assemble_explicit_triso, 14 rings, N Şeker layers): every slice is the material Geometry::locate finds at each pixel, drawn in this tab's worker. Nothing is re-modelled for the picture.",
-            "Layers: recorded results only (ENDF/B-VIII.0 and VII.0: 10 000 × [5 + 135] per point on 2026-10-01, and 10 000 × [5 + 20] at 5 points on 2026-10-05) against RMC (Li, Yu & Wei 2014) and MCNP (Şeker & Çolak 2003). Nothing is computed in this tab. CAUTION (2026-10-05, #589): the 2026-10-01 k were measured on a majorant under-bound 14× at 661 eV in the kernel. Re-measured 2026-10-05 on the bounded majorant at 5 of the 22 points (bright), 10 000 × [5 + 20]: the shift new − old is −263 ± 147 pcm on average on VIII.0 (−10 to −550 pcm per point) and −332 ± 316 pcm on VII.0 at N = 14, far smaller than the −500 to −3000 pcm predicted. The faded points that were not re-measured were not checked; expect each to carry a shift about this size.",
+            "Layers: recorded results only (ENDF/B-VIII.0 and VII.0: 10 000 × [5 + 135] per point, all 22 points measured 2026-10-07 on the bounded delta-tracking majorant, #589) against RMC (Li, Yu & Wei 2014) and MCNP (Şeker & Çolak 2003). Nothing is computed in this tab. All 22 points are within ±1000 pcm of RMC, 19 of 22 within ±500; the 6 points at N = 10–12 sit 3 to 8σ low. The earlier record (2026-10-01), measured on a majorant under-bound 14× at 661 eV, read 233 ± 45 pcm (VIII.0) and 310 ± 44 pcm (VII.0) higher on average; it is superseded and not shown.",
             "Fuel-zone k∞: a real single-threaded power iteration in this tab's worker, on ENDF/B-VIII.0 processed here at NJOY's tolerance, with delta tracking. A fuel-zone cube, not the reactor.",
             "No k_eff of the core and no neutron tracks here: the recorded core runs took about 9–15 ms of CPU per history (hours for one browser thread) and would need every core material's data.",
             "Education and research only. Not for reactor operation, licensing or safety decisions.",
@@ -193,18 +194,15 @@ impl McRung for Htr10 {
                 lit("RMC (Li, Yu & Wei 2014): the reference", Color32::from_rgb(235, 235, 235), RMC_KEFF_VS_HEIGHT),
                 lit("MCNP vacuum (Şeker & Çolak 2003; Li 2014 Table 3): a gauge", Color32::from_rgb(150, 150, 160), MCNP_TABLE3_KEFF_VS_HEIGHT),
                 lit("MCNP helium (Şeker & Çolak 2003; Li 2014 Table 4): a gauge", Color32::from_rgb(110, 160, 140), MCNP_TABLE4_KEFF_VS_HEIGHT),
-                // Superseded first, faded, so the new points draw on top.
-                ours(SEKER_CSV, "VIII.0", Color32::from_rgb(70, 82, 110), "old majorant, superseded: ENDF/B-VIII.0, 2026-10-01".into(), "(OLD majorant, superseded)"),
-                ours(SEKER_CSV, "VII.0", Color32::from_rgb(112, 88, 66), "old majorant, superseded: ENDF/B-VII.0, 2026-10-01".into(), "(OLD majorant, superseded)"),
-                ours(SEKER_CSV_BOUNDED, "VIII.0", Color32::from_rgb(120, 170, 255), "ours, ENDF/B-VIII.0, bounded majorant (2026-10-05), ±1σ".into(), "(bounded majorant, 2026-10-05)"),
-                ours(SEKER_CSV_BOUNDED, "VII.0", Color32::from_rgb(255, 170, 90), "ours, ENDF/B-VII.0, bounded majorant (2026-10-05), ±1σ".into(), "(bounded majorant, 2026-10-05)"),
+                ours(SEKER_CSV, "VIII.0", Color32::from_rgb(120, 170, 255), "ours, ENDF/B-VIII.0 (2026-10-07), ±1σ".into(), "(2026-10-07)"),
+                ours(SEKER_CSV, "VII.0", Color32::from_rgb(255, 170, 90), "ours, ENDF/B-VII.0 (2026-10-07), ±1σ".into(), "(2026-10-07)"),
                 ];
-                // A library with no re-measured point has no curve.
+                // A library absent from the table has no curve.
                 c.retain(|c| !c.points.is_empty());
                 c
             },
             notes: vec![
-                "Bright points: re-measured 2026-10-05 on the bounded delta-tracking majorant (#589), 10 000 × [5 + 20] per point (σ about 290 pcm), at a subset of N only. Faded points: the 2026-10-01 record (10 000 × [5 + 135]), measured on a majorant under-bound 14× at 661 eV in the kernel, SUPERSEDED; shown for the N not re-measured and for comparison. Where both exist, new − old averages −263 ± 147 pcm on VIII.0, so read a faded point as about 300 pcm too high.",
+                "Our points: the 2026-10-07 record (nee_soon htr10_seker_2026_10_07_10k), 10 000 × [5 + 135] per point (σ about 100 pcm), one seed per point, on the bounded delta-tracking majorant (#589). It supersedes the 2026-10-01 record (majorant under-bound 14× at 661 eV; about 230–310 pcm too high on average) and the 2026-10-05 re-measurement of 5 points at [5 + 20].",
                 "Pebbles on Şeker & Çolak (2003)'s regular 13-ball lattice cell, not the real random bed. The references use the same lattice, so the comparison is like for like with them, not with the reactor.",
                 "Every pebble whole: balls crossing the wall are rejected (gh:#472), so the built height (9.798 N + 6 cm) holds fewer balls than Şeker's; points are compared at equal ball count, by interpolation.",
                 "TRISO particles on a lattice inside each fuel pebble, not randomly packed.",
@@ -356,25 +354,24 @@ mod tests {
         assert_eq!(map[10 * 21 + 10] as usize, nee_soon::htr10_rmc::core_model::mat::KERNEL);
     }
 
-    /// The sweep reads every recorded row: the superseded 2026-10-01 record
-    /// (11 points per library, each with its N), the 2026-10-05
-    /// bounded-majorant re-measurement (#589; a subset of N), and the three
-    /// reference curves. The superseded points say so when selected.
+    /// The sweep reads every recorded row of the 2026-10-07 record (gh:#782;
+    /// 11 points per library, each with its N) and the three reference
+    /// curves, and nothing from the superseded 2026-10-01 / 2026-10-05
+    /// records. Pinned on the record's VII.0 N = 12 row (k = 0.996470).
     #[test]
     fn the_sweep_reads_the_record() {
         let s = Htr10::sweep().unwrap();
         let ours: Vec<_> = s.curves.iter().filter(|c| c.style == LineStyle::Ours).collect();
         assert_eq!(s.curves.len() - ours.len(), 3);
+        assert_eq!(ours.len(), 2);
         for c in &ours {
+            assert_eq!(c.points.len(), 11, "{}", c.label);
             assert!(c.points.iter().all(|p| p.sigma > 0.0 && p.tag.is_some()), "{}", c.label);
+            assert!(c.label.contains("2026-10-07"), "{}", c.label);
         }
-        let old: Vec<_> = ours.iter().filter(|c| c.label.contains("superseded")).collect();
-        assert_eq!(old.len(), 2);
-        assert!(old.iter().all(|c| c.points.len() == 11));
-        let new: Vec<_> = ours.iter().filter(|c| c.label.contains("bounded majorant")).collect();
-        assert!(!new.is_empty() && new.iter().all(|c| !c.points.is_empty()));
-        assert!(s.details(12.0).iter().any(|d| d.contains("0.99566") && d.contains("superseded")), "{:?}", s.details(12.0));
-        assert!(s.details(14.0).iter().any(|d| d.contains("bounded majorant")), "{:?}", s.details(14.0));
+        let d12 = s.details(12.0);
+        assert!(d12.iter().any(|d| d.contains("VII.0 (2026-10-07): k = 0.99647")), "{d12:?}");
+        assert!(d12.iter().all(|d| !d.contains("superseded")), "{d12:?}");
     }
 
     /// The fuel-zone case natively at the slider's defaults, both arms, on

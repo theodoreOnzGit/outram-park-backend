@@ -2,7 +2,9 @@
 //!
 //! - **The core** is `nee_soon::htr10_rmc::core_model::assemble_explicit_triso(14,
 //!   N, 0)`, the builder the recorded k-vs-height runs used
-//!   (`crates/nee_soon/verification_and_validation/htr10_seker_2026_10_01_10k/`)
+//!   (`crates/nee_soon/verification_and_validation/htr10_seker_2026_10_07_10k/`;
+//!   ~~`htr10_seker_2026_10_01_10k/`~~ **CORRECTED 2026-10-07**, gh:#782:
+//!   superseded, same builder and default geometry)
 //!   and the geometry review images were drawn from
 //!   (`htr10_geometry_images/`): Şeker & Çolak (2003)'s 13-ball lattice bed of
 //!   N layers, every pebble whole, TRISO particles on a lattice in each fuel

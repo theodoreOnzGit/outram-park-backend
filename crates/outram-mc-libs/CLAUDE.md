@@ -921,7 +921,11 @@ the maintainer, 2026-10-03; protocols in
   (literal and noise-floor-aware readings — the literal one is expected to
   fail for a perfect surrogate; flagged on #499), `propose_next_runs`
   (active sampling heuristic). `examples/stats_sweep_loo.rs` runs the gate on
-  the committed HTR-10 sweep CSV without transport.
+  the committed HTR-10 sweep CSV without transport. **Measured 2026-10-07
+  (gh:#782), the one exception to "every gate NOT YET MEASURED" above:** on
+  the `htr10_seker_2026_10_07_10k` record the gated degree-2 surrogate FAILS
+  both readings on both libraries (LOO RMSE 352 / 330 pcm against rms σ
+  107 / 106 pcm); see `stats_epic_493/499_surrogate_sweeps.md`.
 
 ### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
 

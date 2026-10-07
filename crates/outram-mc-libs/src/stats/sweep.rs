@@ -30,7 +30,10 @@
 //!
 //! # V&V gate (from #499, fixed in advance), and a caveat found writing it
 //!
-//! On the 22 runs of `nee_soon/verification_and_validation/htr10_seker_2026_10_01_10k`
+//! On the 22 runs of `nee_soon/verification_and_validation/htr10_seker_2026_10_07_10k`
+//! (~~`htr10_seker_2026_10_01_10k`~~ **CORRECTED 2026-10-07**, gh:#782: that
+//! record was measured on a majorant under-bound 14× at 661 eV, gh:#589, and
+//! is superseded at the same statistics)
 //! (11 heights × 2 libraries, one surrogate per library): leave-out
 //! cross-validation error within the per-run MC `σ`, i.e.
 //! `loo_rmse ≤ rms(σ_i)`.
@@ -44,7 +47,16 @@
 //! (`χ²` per point against `1 + p/(n − p)`), and both verdicts; which one the
 //! gate means is the maintainer's call, flagged on #499, not decided here.
 //!
-//! **Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
+//! ~~**Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**~~
+//! **Result (CORRECTED 2026-10-07, gh:#782; first measurement, on the
+//! 2026-10-07 record): the gated degree-2 surrogate FAILS on both libraries,
+//! in both readings.** LOO RMSE 352 pcm against rms σ 107 pcm (VIII.0) and
+//! 330 against 106 pcm (VII.0); χ²/point 10.94 and 10.39 against a noise
+//! floor of 1.38, i.e. 7.9× and 7.5× the floor, outside the 95 % band. The
+//! LOO error is about 3.2 σ, well beyond the ≈ 1.15 σ a correct surrogate
+//! would show, so a quadratic in height does not carry k(H) to MC precision
+//! here. Degree 3 (a degree study, not a gate) passes the floor-aware reading
+//! on both (χ²/pt ÷ floor 1.6 and 1.4). Full table: the runner's doc comment.
 //! Protocol: `verification_and_validation/stats_epic_493/499_surrogate_sweeps.md`;
 //! runner: `examples/stats_sweep_loo.rs` (reads the committed CSV, no
 //! transport).

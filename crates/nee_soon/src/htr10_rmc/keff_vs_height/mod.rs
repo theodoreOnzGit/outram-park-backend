@@ -111,7 +111,9 @@ impl SweepStatistics {
 
     /// The heavy sweep: 10 000 × \[5 inactive + 135 active\], the reference
     /// paper's own statistics (Li, Yu & Wei 2014), as in
-    /// `verification_and_validation/htr10_seker_2026_10_01_10k/`.
+    /// `verification_and_validation/htr10_seker_2026_10_07_10k/` (the current
+    /// record, bounded majorant, gh:#589) and the superseded
+    /// `htr10_seker_2026_10_01_10k/`.
     pub const HEAVY: Self = Self {
         name: "heavy",
         particles: 10_000,

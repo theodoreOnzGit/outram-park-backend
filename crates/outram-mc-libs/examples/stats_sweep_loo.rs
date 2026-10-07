@@ -1,8 +1,12 @@
 //! **#499 V&V runner: leave-one-out validation of a k-vs-height surrogate on
 //! the committed HTR-10 sweep.** No transport is run — it reads
-//! `crates/nee_soon/verification_and_validation/htr10_seker_2026_10_01_10k/results_table.csv`
+//! `crates/nee_soon/verification_and_validation/htr10_seker_2026_10_07_10k/results_table.csv`
 //! (22 full runs: 11 loading heights × ENDF/B-VIII.0 and VII.0, 10 000
-//! histories × [5 + 135]).
+//! histories × [5 + 135], on the bounded delta-tracking majorant of gh:#589).
+//! (~~`htr10_seker_2026_10_01_10k/results_table.csv`~~ **CORRECTED
+//! 2026-10-07** (gh:#782): that record was measured on a majorant under-bound
+//! 14× at 661 eV and is superseded by the 2026-10-07 one, same statistics and
+//! columns.)
 //!
 //! # Methodology (fixed in advance, 2026-10-03)
 //!
@@ -23,7 +27,30 @@
 //!
 //! # Results
 //!
-//! **NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
+//! ~~**NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**~~
+//! **CORRECTED 2026-10-07** (gh:#782): run once, on the 2026-10-07 record
+//! (worktree of `develop` at `065bd710`, release build). No result was ever
+//! recorded on the superseded 2026-10-01 CSV.
+//!
+//! | library | degree | LOO RMSE [pcm] | rms σ [pcm] | literal | χ²/pt | floor | χ²/pt ÷ floor | floor-aware |
+//! |---|---|---|---|---|---|---|---|---|
+//! | VIII.0 | 1 (study) | 1418 | 107 | FAIL | 171.90 | 1.22 | 141 | FAIL |
+//! | VIII.0 | **2 (gated)** | **352** | 107 | **FAIL** | 10.94 | 1.38 | 7.9 | **FAIL** |
+//! | VIII.0 | 3 (study) | 168 | 107 | FAIL | 2.50 | 1.57 | 1.6 | PASS |
+//! | VII.0 | 1 (study) | 1567 | 106 | FAIL | 228.10 | 1.22 | 187 | FAIL |
+//! | VII.0 | **2 (gated)** | **330** | 106 | **FAIL** | 10.39 | 1.38 | 7.5 | **FAIL** |
+//! | VII.0 | 3 (study) | 148 | 106 | FAIL | 2.16 | 1.57 | 1.4 | PASS |
+//!
+//! **The gated degree-2 surrogate fails #499's gate on both libraries, in
+//! both readings:** its LOO error is 3.1–3.3× the per-run σ, and χ²/point is
+//! about 7.5–7.9× the noise floor, far outside the 95 % band. The miss is not
+//! the literal reading's built-in excess (that is ≈ 1.15 σ). A quadratic in
+//! height does not carry k(H) to MC precision on these runs. Degree 3 passes
+//! the floor-aware reading on both, but it is a degree study, not an
+//! alternative gate: switching the gated degree after seeing this would be
+//! choosing the instrument after the result. Jackknife+ intervals and
+//! proposals are printed by the runner; they are surrogate values, not
+//! transport results, and are not recorded here.
 //!
 //! ```text
 //! cargo run --release -p outram-mc-libs --example stats_sweep_loo
@@ -41,7 +68,7 @@ fn main() {
 
     const GATED_DEGREE: usize = 2;
     let csv = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../nee_soon/verification_and_validation/htr10_seker_2026_10_01_10k/results_table.csv");
+        .join("../nee_soon/verification_and_validation/htr10_seker_2026_10_07_10k/results_table.csv");
     let text = match std::fs::read_to_string(&csv) {
         Ok(t) => t,
         Err(e) => {
