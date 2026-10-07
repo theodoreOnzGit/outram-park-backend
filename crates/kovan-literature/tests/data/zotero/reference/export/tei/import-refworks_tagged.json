@@ -1,0 +1,18 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<listBibl xmlns=\"http://www.tei-c.org/ns/1.0\"><biblStruct type=\"bookSection\" xml:id=\"Stansfeld2002\" corresp=\"KVN22222\"><analytic><title level=\"a\">Depression and coronary heart disease</title><author><forename>Stephen</forename><surname>Stansfeld</surname></author><author><forename>Rebecca</forename><surname>Fuhrer</surname></author></analytic><monogr><title level=\"m\">Stress and the heart: Psychosocial pathways to coronary heart disease</title><idno type=\"ISBN\">0727912771 (paperback)</idno><editor><forename>C.T.</forename><surname>Gulford</surname></editor><imprint><pubPlace>Williston, VT, US</pubPlace><biblScope unit=\"volume\">1</biblScope><biblScope unit=\"page\">101-123</biblScope><publisher>BMJ Books</publisher><date>2002</date></imprint></monogr></biblStruct></listBibl>"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<listBibl xmlns=\"http://www.tei-c.org/ns/1.0\"><biblStruct type=\"thesis\" xml:id=\"Catrambone2000\" corresp=\"KVN22222\"><monogr><title level=\"m\">Effect of a case management intervention on symptoms of asthma in high risk children</title><idno type=\"ISBN\">0-599-73664-X</idno><author><forename>C.D.</forename><surname>Catrambone</surname></author><imprint><pubPlace>Oceanside, CA, USA</pubPlace><date>2000</date></imprint></monogr></biblStruct></listBibl>"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<listBibl xmlns=\"http://www.tei-c.org/ns/1.0\"><biblStruct type=\"journalArticle\" xml:id=\"Allan2002\" corresp=\"KVN22222\"><analytic><title level=\"a\">Anger and anger expression in relation to perceptions of social rank, entrapment and depressive symptoms</title><author><forename>Steven</forename><surname>Allan</surname></author><author><forename>Paul</forename><surname>Gilbert</surname></author></analytic><monogr><title level=\"j\">Personality &amp; Individual Differences</title><idno type=\"ISSN\">0191-8869</idno><imprint><biblScope unit=\"volume\">32</biblScope><biblScope unit=\"issue\">3</biblScope><biblScope unit=\"page\">551-565</biblScope><publisher>Elsevier Science, England, [URL:http:// www.elsevier.nl]</publisher><date>2002</date></imprint></monogr></biblStruct></listBibl>"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<listBibl xmlns=\"http://www.tei-c.org/ns/1.0\"><biblStruct type=\"journalArticle\" xml:id=\"Brennan2003\" corresp=\"KVN22222\"><analytic><title level=\"a\">The Empire's New Clothes</title><author><forename>Timothy</forename><surname>Brennan</surname></author></analytic><monogr><title level=\"j\">Critical Inquiry</title><imprint><biblScope unit=\"volume\">29</biblScope><biblScope unit=\"issue\">2</biblScope><biblScope unit=\"page\">337-367</biblScope><date>2003</date></imprint></monogr></biblStruct></listBibl>"
+	}
+}

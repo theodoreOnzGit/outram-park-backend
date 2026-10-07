@@ -30,6 +30,29 @@
 //! | DSpace Intermediate Metadata | yes | — | [`dspace_intermediate_metadata`] (#749, XML) |
 //! | Citavi 5 XML | yes | — | [`citavi5_xml`] (#749, XML) |
 //! | XML ContextObject | yes | — | [`xml_contextobject`] (#749, XML; OpenURL) |
+//! | Note HTML | — | yes | [`note_html`] (#749, DOM) |
+//! | Note Markdown | — | yes | [`note_markdown`] (#749, DOM; turndown) |
+//! | Refer/BibIX | yes | yes | [`refer`] |
+//! | RefWorks Tagged | yes | yes | [`refworks_tagged`] |
+//! | Bookmarks | yes | yes | [`bookmarks`] |
+//! | MEDLINE/nbib | yes | — | [`medline_nbib`] |
+//! | OVID Tagged | yes | — | [`ovid_tagged`] |
+//! | Web of Science Tagged | yes | — | [`wos_tagged`] |
+//! | MAB2 | yes | — | [`mab2`] |
+//! | Datacite JSON | yes | — | [`datacite_json`] |
+//! | OpenAlex JSON | yes | — | [`openalex_json`] |
+//! | CSV | — | yes | [`csv`] |
+//! | COinS | — | yes | [`coins`] |
+//! | Wikipedia Citation Templates | — | yes | [`wikipedia_citation_templates`] |
+//! | Wikidata QuickStatements | — | yes | [`wikidata_quickstatements`] |
+//! | CFF | — | yes | [`cff`] |
+//! | CFF References | — | yes | [`cff_references`] |
+//! | Simple Evernote Export | — | yes | [`evernote`] |
+//!
+//! ~~Not ported from #749's list: Note HTML and Note Markdown (they parse the
+//! note with a DOM, `DOMParser` and XPath; Note Markdown also bundles
+//! turndown), which wait for the XML/DOM layer.~~ **CORRECTED 2026-10-07**:
+//! both ported on the XML/DOM layer (`framework::xml`, `framework::xpath`).
 
 pub mod biblatex;
 pub mod bibtex;
@@ -48,6 +71,25 @@ pub mod primo_normalized_xml;
 pub mod pubmed_xml;
 pub mod tei;
 pub mod xml_contextobject;
+pub mod note_html;
+pub mod note_markdown;
+// Tagged-text, JSON and simple export translators (#749)
+pub mod refer;
+pub mod refworks_tagged;
+pub mod bookmarks;
+pub mod medline_nbib;
+pub mod ovid_tagged;
+pub mod wos_tagged;
+pub mod mab2;
+pub mod datacite_json;
+pub mod openalex_json;
+pub mod csv;
+pub mod coins;
+pub mod wikipedia_citation_templates;
+pub mod wikidata_quickstatements;
+pub mod cff;
+pub mod cff_references;
+pub mod evernote;
 
 use super::framework::options::TranslatorMetadata;
 use super::framework::{
@@ -67,6 +109,39 @@ pub enum Translator {
     Ris,
     /// `CSL JSON.js` (import and export).
     CslJson,
+    // Tagged-text, JSON and simple export translators (#749)
+    /// `ReferBibIX.js` (import and export).
+    Refer,
+    /// `RefWorks Tagged.js` (import and export).
+    RefWorksTagged,
+    /// `Bookmarks.js` (import and export).
+    Bookmarks,
+    /// `MEDLINEnbib.js` (import).
+    MedlineNbib,
+    /// `OVID Tagged.js` (import).
+    OvidTagged,
+    /// `Web of Science Tagged.js` (import).
+    WosTagged,
+    /// `MAB2.js` (import).
+    Mab2,
+    /// `Datacite JSON.js` (import).
+    DataciteJson,
+    /// `OpenAlex JSON.js` (import).
+    OpenAlexJson,
+    /// `CSV.js` (export).
+    Csv,
+    /// `COinS.js` (export).
+    Coins,
+    /// `Wikipedia Citation Templates.js` (export).
+    WikipediaCitationTemplates,
+    /// `Wikidata QuickStatements.js` (export).
+    WikidataQuickStatements,
+    /// `CFF.js` (export).
+    Cff,
+    /// `CFF References.js` (export).
+    CffReferences,
+    /// `Evernote.js` (export).
+    Evernote,
     // XML translators (#749)
     /// `MODS.js` (import and export).
     Mods,
@@ -92,39 +167,59 @@ pub enum Translator {
     Citavi5Xml,
     /// `XML ContextObject.js` (import).
     XmlContextObject,
+    /// `Note HTML.js` (export).
+    NoteHtml,
+    /// `Note Markdown.js` (export).
+    NoteMarkdown,
 }
 
 impl Translator {
-    /// Every ported translator, in the order the translation-server tries
-    /// them for import detection: by `priority`, ties in file-name order
-    /// (its stable sort over `fs.readdir` of the translators directory,
-    /// which lists names in byte order, translators.js:76-104).
-    ///
-    /// ~~`[CslJson, Ris, BibLaTeX, BibTeX]`~~ **CORRECTED 2026-10-07**
-    /// (#749): BibLaTeX.js sorts before CSL JSON.js (checked with
-    /// `fs.readdirSync` on vendor/translators). It is export-only, so the old
-    /// order never changed a detection.
-    pub const ALL: [Translator; 16] = [
-        // priority 25
-        Translator::Tei,
-        // priority 50
+    /// Every ported translator. The import translators come in the order
+    /// the translation-server tries them for import detection: by
+    /// `priority`, ties in file-name order (its stable sort over the
+    /// translators directory, which Node's `readdir` lists in byte order;
+    /// translators.js:76-104; checked with `fs.readdirSync` on
+    /// vendor/translators, 2026-10-07). Export-only translators are not
+    /// tried, so their place does not matter.
+    pub const ALL: [Translator; 34] = [
+        // Import, priority 50.
         Translator::Mets,
         Translator::Mods,
-        // priority 100
-        Translator::BibLaTeX,
+        // Import, priority 100.
+        Translator::Bookmarks,
         Translator::CslJson,
         Translator::Citavi5Xml,
         Translator::CrossrefUnixrefXml,
         Translator::DSpaceIntermediateMetadata,
+        Translator::DataciteJson,
         Translator::EndnoteXml,
+        Translator::Mab2,
         Translator::Marc,
         Translator::MarcXml,
+        Translator::MedlineNbib,
+        Translator::OvidTagged,
+        Translator::OpenAlexJson,
         Translator::PrimoNormalizedXml,
         Translator::PubMedXml,
         Translator::Ris,
+        Translator::RefWorksTagged,
+        Translator::Refer,
+        Translator::WosTagged,
         Translator::XmlContextObject,
-        // priority 200
+        // Import, priority 200.
         Translator::BibTeX,
+        // Export only.
+        Translator::BibLaTeX,
+        Translator::Tei,
+        Translator::Csv,
+        Translator::Coins,
+        Translator::WikipediaCitationTemplates,
+        Translator::WikidataQuickStatements,
+        Translator::Cff,
+        Translator::CffReferences,
+        Translator::Evernote,
+        Translator::NoteHtml,
+        Translator::NoteMarkdown,
     ];
 
     /// The translator's header.
@@ -147,6 +242,24 @@ impl Translator {
             Translator::DSpaceIntermediateMetadata => &dspace_intermediate_metadata::METADATA,
             Translator::Citavi5Xml => &citavi5_xml::METADATA,
             Translator::XmlContextObject => &xml_contextobject::METADATA,
+            Translator::Refer => &refer::METADATA,
+            Translator::RefWorksTagged => &refworks_tagged::METADATA,
+            Translator::Bookmarks => &bookmarks::METADATA,
+            Translator::MedlineNbib => &medline_nbib::METADATA,
+            Translator::OvidTagged => &ovid_tagged::METADATA,
+            Translator::WosTagged => &wos_tagged::METADATA,
+            Translator::Mab2 => &mab2::METADATA,
+            Translator::DataciteJson => &datacite_json::METADATA,
+            Translator::OpenAlexJson => &openalex_json::METADATA,
+            Translator::Csv => &csv::METADATA,
+            Translator::Coins => &coins::METADATA,
+            Translator::WikipediaCitationTemplates => &wikipedia_citation_templates::METADATA,
+            Translator::WikidataQuickStatements => &wikidata_quickstatements::METADATA,
+            Translator::Cff => &cff::METADATA,
+            Translator::CffReferences => &cff_references::METADATA,
+            Translator::Evernote => &evernote::METADATA,
+            Translator::NoteHtml => &note_html::METADATA,
+            Translator::NoteMarkdown => &note_markdown::METADATA,
         }
     }
 
@@ -154,6 +267,10 @@ impl Translator {
     /// formats.js). An import-only translator has none there; it gets a
     /// kovan name (its file name in snake case), which is also the name of
     /// its reference file (`tests/data/zotero/reference/import/<name>.json`).
+    /// formats.js). A translator the server has no name for (an import-only
+    /// translator; Wikidata QuickStatements, CFF, CFF References) has a
+    /// kovan name, its file name in snake case, which is also the name of
+    /// its reference files under `tests/data/zotero/reference/`.
     pub fn format_name(self) -> &'static str {
         match self {
             Translator::BibTeX => "bibtex",
@@ -173,6 +290,24 @@ impl Translator {
             Translator::DSpaceIntermediateMetadata => "dspace_intermediate_metadata",
             Translator::Citavi5Xml => "citavi5_xml",
             Translator::XmlContextObject => "xml_contextobject",
+            Translator::Refer => "refer",
+            Translator::RefWorksTagged => "refworks_tagged",
+            Translator::Bookmarks => "bookmarks",
+            Translator::MedlineNbib => "medline_nbib",
+            Translator::OvidTagged => "ovid_tagged",
+            Translator::WosTagged => "wos_tagged",
+            Translator::Mab2 => "mab2",
+            Translator::DataciteJson => "datacite_json",
+            Translator::OpenAlexJson => "openalex_json",
+            Translator::Csv => "csv",
+            Translator::Coins => "coins",
+            Translator::WikipediaCitationTemplates => "wikipedia",
+            Translator::WikidataQuickStatements => "wikidata_quickstatements",
+            Translator::Cff => "cff",
+            Translator::CffReferences => "cff_references",
+            Translator::Evernote => "evernote",
+            Translator::NoteHtml => "note_html",
+            Translator::NoteMarkdown => "note_markdown",
         }
     }
 
@@ -204,7 +339,6 @@ impl Translator {
             Translator::BibTeX => bibtex::detect_import(&mut ctx),
             Translator::Ris => ris::detect_import(&mut ctx),
             Translator::CslJson => csl_json::detect_import(&mut ctx),
-            Translator::BibLaTeX => false,
             // XML translators (#749)
             Translator::Mods => mods::detect_import(&mut ctx),
             Translator::EndnoteXml => endnote_xml::detect_import(&mut ctx),
@@ -220,6 +354,25 @@ impl Translator {
             Translator::Citavi5Xml => citavi5_xml::detect_import(&mut ctx),
             Translator::XmlContextObject => xml_contextobject::detect_import(&mut ctx),
             Translator::Tei => false,
+            Translator::Refer => refer::detect_import(&mut ctx),
+            Translator::RefWorksTagged => refworks_tagged::detect_import(&mut ctx),
+            Translator::Bookmarks => bookmarks::detect_import(&mut ctx),
+            Translator::MedlineNbib => medline_nbib::detect_import(&mut ctx),
+            Translator::OvidTagged => ovid_tagged::detect_import(&mut ctx),
+            Translator::WosTagged => wos_tagged::detect_import(&mut ctx),
+            Translator::Mab2 => mab2::detect_import(&mut ctx),
+            Translator::DataciteJson => datacite_json::detect_import(&mut ctx),
+            Translator::OpenAlexJson => openalex_json::detect_import(&mut ctx),
+            Translator::BibLaTeX
+            | Translator::Csv
+            | Translator::Coins
+            | Translator::WikipediaCitationTemplates
+            | Translator::WikidataQuickStatements
+            | Translator::Cff
+            | Translator::CffReferences
+            | Translator::Evernote
+            | Translator::NoteHtml
+            | Translator::NoteMarkdown => false,
         }
     }
 
@@ -241,7 +394,6 @@ impl Translator {
             Translator::BibTeX => bibtex::do_import(&mut ctx)?,
             Translator::Ris => ris::do_import(&mut ctx)?,
             Translator::CslJson => csl_json::do_import(&mut ctx)?,
-            Translator::BibLaTeX => unreachable!("checked can_import"),
             // XML translators (#749)
             Translator::Mods => mods::do_import(&mut ctx)?,
             Translator::EndnoteXml => endnote_xml::do_import(&mut ctx)?,
@@ -257,6 +409,25 @@ impl Translator {
             Translator::Citavi5Xml => citavi5_xml::do_import(&mut ctx)?,
             Translator::XmlContextObject => xml_contextobject::do_import(&mut ctx)?,
             Translator::Tei => unreachable!("checked can_import"),
+            Translator::Refer => refer::do_import(&mut ctx)?,
+            Translator::RefWorksTagged => refworks_tagged::do_import(&mut ctx)?,
+            Translator::Bookmarks => bookmarks::do_import(&mut ctx)?,
+            Translator::MedlineNbib => medline_nbib::do_import(&mut ctx)?,
+            Translator::OvidTagged => ovid_tagged::do_import(&mut ctx)?,
+            Translator::WosTagged => wos_tagged::do_import(&mut ctx)?,
+            Translator::Mab2 => mab2::do_import(&mut ctx)?,
+            Translator::DataciteJson => datacite_json::do_import(&mut ctx)?,
+            Translator::OpenAlexJson => openalex_json::do_import(&mut ctx)?,
+            Translator::BibLaTeX
+            | Translator::Csv
+            | Translator::Coins
+            | Translator::WikipediaCitationTemplates
+            | Translator::WikidataQuickStatements
+            | Translator::Cff
+            | Translator::CffReferences
+            | Translator::Evernote
+            | Translator::NoteHtml
+            | Translator::NoteMarkdown => unreachable!("checked can_import"),
         }
         Ok(ctx.finish())
     }
@@ -294,6 +465,26 @@ impl Translator {
             | Translator::DSpaceIntermediateMetadata
             | Translator::Citavi5Xml
             | Translator::XmlContextObject => unreachable!("checked can_export"),
+            Translator::Refer => refer::do_export(&mut ctx)?,
+            Translator::RefWorksTagged => refworks_tagged::do_export(&mut ctx)?,
+            Translator::Bookmarks => bookmarks::do_export(&mut ctx)?,
+            Translator::Csv => csv::do_export(&mut ctx)?,
+            Translator::Coins => coins::do_export(&mut ctx)?,
+            Translator::WikipediaCitationTemplates => {
+                wikipedia_citation_templates::do_export(&mut ctx)?
+            }
+            Translator::WikidataQuickStatements => wikidata_quickstatements::do_export(&mut ctx)?,
+            Translator::Cff => cff::do_export(&mut ctx)?,
+            Translator::CffReferences => cff_references::do_export(&mut ctx)?,
+            Translator::Evernote => evernote::do_export(&mut ctx)?,
+            Translator::NoteHtml => note_html::do_export(&mut ctx)?,
+            Translator::NoteMarkdown => note_markdown::do_export(&mut ctx)?,
+            Translator::MedlineNbib => unreachable!("checked can_export"),
+            Translator::OvidTagged => unreachable!("checked can_export"),
+            Translator::WosTagged => unreachable!("checked can_export"),
+            Translator::Mab2 => unreachable!("checked can_export"),
+            Translator::DataciteJson => unreachable!("checked can_export"),
+            Translator::OpenAlexJson => unreachable!("checked can_export"),
         }
         Ok(ctx.finish())
     }

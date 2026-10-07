@@ -1,0 +1,22 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ1980247\nLAST\tDen\t\"book section from 'Stress and the heart: Psychosocial pathways to coronary heart disease' published in 2002\"\nLAST\tP478\t\"1\"\nLAST\tP304\t\"101-123\"\nLAST\tP1104\t23\nLAST\tP2093\t\"Stephen Stansfeld\"\tP1545\t\"1\"\nLAST\tP2093\t\"Rebecca Fuhrer\"\tP1545\t\"2\"\nLAST\tP577\t+2002-00-00T00:00:00Z/9\nLAST\tLmul\t\"Depression and coronary heart disease\"\nLAST\tLen\t\"Depression and coronary heart disease\"\nLAST\tP1476\tund:\"Depression and coronary heart disease\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ1266946\nLAST\tDen\t\"thesis from 'Rush University, College of Nursing' published in 2000\"\nLAST\tP1104\t141\nLAST\tP2093\t\"C.D. Catrambone\"\tP1545\t\"1\"\nLAST\tP577\t+2000-00-00T00:00:00Z/9\nLAST\tP957\t\"0-599-73664-X\"\nLAST\tLmul\t\"Effect of a case management intervention on symptoms of asthma in high risk children\"\nLAST\tLen\t\"Effect of a case management intervention on symptoms of asthma in high risk children\"\nLAST\tP1476\tund:\"Effect of a case management intervention on symptoms of asthma in high risk children\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Personality & Individual Differences' published in 2002\"\nLAST\tP478\t\"32\"\nLAST\tP433\t\"3\"\nLAST\tP304\t\"551-565\"\nLAST\tP1104\t15\nLAST\tP2093\t\"Steven Allan\"\tP1545\t\"1\"\nLAST\tP2093\t\"Paul Gilbert\"\tP1545\t\"2\"\nLAST\tP577\t+2002-02-00T00:00:00Z/10\nLAST\tLmul\t\"Anger and anger expression in relation to perceptions of social rank, entrapment and depressive symptoms\"\nLAST\tLen\t\"Anger and anger expression in relation to perceptions of social rank, entrapment and depressive symptoms\"\nLAST\tP1476\tund:\"Anger and anger expression in relation to perceptions of social rank, entrapment and depressive symptoms\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Critical Inquiry' published in 2003\"\nLAST\tP478\t\"29\"\nLAST\tP433\t\"2\"\nLAST\tP304\t\"337-367\"\nLAST\tP1104\t31\nLAST\tP2093\t\"Timothy Brennan\"\tP1545\t\"1\"\nLAST\tP577\t+2003-01-01T00:00:00Z/11\nLAST\tLmul\t\"The Empire's New Clothes\"\nLAST\tLen\t\"The Empire's New Clothes\"\nLAST\tP1476\tund:\"The Empire's New Clothes\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

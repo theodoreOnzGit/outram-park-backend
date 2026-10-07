@@ -1,0 +1,127 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase09": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase10": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase11": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase12": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase13": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase14": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase15": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase16": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase17": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase18": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase19": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase20": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase21": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase22": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase23": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"dates_and_markup": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

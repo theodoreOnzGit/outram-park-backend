@@ -479,7 +479,7 @@ fn mods_import_matches_upstream() {
 #[test]
 fn mods_export_matches_upstream() {
     let (d, n, _) = export_diffs(Translator::Mods);
-    assert_eq!(n, 84);
+    assert_eq!(n, 145);
     assert_known(&["export/mods"], d);
 }
 
@@ -489,7 +489,7 @@ fn mods_export_matches_upstream() {
 #[test]
 fn mods_roundtrip_matches_upstream() {
     let (d, n) = roundtrip_diffs(Translator::Mods);
-    assert_eq!(n, 84);
+    assert_eq!(n, 145);
     assert_known(&["roundtrip/mods"], d);
 }
 
@@ -519,7 +519,7 @@ fn endnote_xml_import_matches_upstream() {
 #[test]
 fn endnote_xml_export_matches_upstream() {
     let (d, n, _) = export_diffs(Translator::EndnoteXml);
-    assert_eq!(n, 84);
+    assert_eq!(n, 145);
     assert_known(&["export/endnote_xml"], d);
 }
 
@@ -530,7 +530,7 @@ fn endnote_xml_export_matches_upstream() {
 #[test]
 fn endnote_xml_roundtrip_matches_upstream() {
     let (d, n) = roundtrip_diffs(Translator::EndnoteXml);
-    assert_eq!(n, 84);
+    assert_eq!(n, 145);
     assert_known(&["roundtrip/endnote_xml"], d);
 }
 
@@ -550,7 +550,7 @@ fn endnote_xml_chain_matches_upstream() {
 #[test]
 fn tei_export_matches_upstream() {
     let (d, n, _) = export_diffs(Translator::Tei);
-    assert_eq!(n, 84);
+    assert_eq!(n, 145);
     assert_known(&["export/tei"], d);
 }
 
@@ -656,4 +656,27 @@ fn xml_contextobject_import_matches_upstream() {
     let (d, n, _) = import_diffs(Translator::XmlContextObject);
     assert_eq!(n, 2);
     assert_known(&["import/xml_contextobject"], d);
+}
+
+/// **Note HTML export** of every export list (145). The translation-server
+/// has no format name for it: the references ran exportEndpoint.js
+/// in-process (`scripts/zotero-reference.mjs`, IN-PROCESS UPSTREAM).
+///
+/// **Result:** not yet run.
+#[test]
+fn note_html_export_matches_upstream() {
+    let (d, n, _) = export_diffs(Translator::NoteHtml);
+    assert_eq!(n, 145);
+    assert_known(&["export/note_html"], d);
+}
+
+/// **Note Markdown export** of every export list (145), in-process as Note
+/// HTML.
+///
+/// **Result:** not yet run.
+#[test]
+fn note_markdown_export_matches_upstream() {
+    let (d, n, _) = export_diffs(Translator::NoteMarkdown);
+    assert_eq!(n, 145);
+    assert_known(&["export/note_markdown"], d);
 }

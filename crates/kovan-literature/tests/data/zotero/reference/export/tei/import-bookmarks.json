@@ -1,0 +1,6 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<listBibl xmlns=\"http://www.tei-c.org/ns/1.0\"><biblStruct type=\"webpage\" xml:id=\"zoteroItem_KVN22222\" corresp=\"KVN22222\"><analytic><title level=\"a\">Pond - Pond</title></analytic><monogr><imprint><date/><note type=\"accessed\">2014-03-31T08:06:22Z</note><note type=\"url\">https://pond.imperialviolet.org</note></imprint></monogr></biblStruct></listBibl>"
+	}
+}

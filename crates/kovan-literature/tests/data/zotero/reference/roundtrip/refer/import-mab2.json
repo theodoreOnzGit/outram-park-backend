@@ -1,0 +1,89 @@
+{
+	"kovan_probe": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Hans",
+						"lastName": "Müller",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Kim",
+						"lastName": "Lee",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Deutsche",
+						"lastName": "Forschungsgemeinschaft",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Kernreaktor",
+						"type": 1
+					},
+					{
+						"tag": "Geschicht",
+						"type": 1
+					},
+					{
+						"tag": "Deutschlan",
+						"type": 1
+					}
+				],
+				"edition": "2., überarb. Aufl",
+				"title": "Die Kernreaktortechnik: eine Einführung",
+				"series": "Lehrbuchreihe Physik ; 7",
+				"place": "Berlin",
+				"publisher": "Springer",
+				"ISBN": "3-540-12345-X",
+				"url": "http://example.org/toc.pdf",
+				"language": "ger",
+				"date": "1999"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "film",
+				"creators": [
+					{
+						"firstName": "Rainer Werner",
+						"lastName": "Fassbinder",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Ein Film",
+				"date": "1975"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "manuscript",
+				"creators": [],
+				"tags": [],
+				"title": "Handschrift ohne Autor"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "artwork",
+				"creators": [
+					{
+						"name": "Bauhaus",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Plakat"
+			}
+		]
+	}
+}

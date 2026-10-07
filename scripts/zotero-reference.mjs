@@ -6,6 +6,9 @@
 //
 // WHAT IT DOES
 //
+// (#749: some fixtures go through the same server code loaded in-process
+// instead, see IN-PROCESS UPSTREAM below.)
+//
 // Sends every fixture through a RUNNING Zotero translation-server
 // (https://github.com/zotero/translation-server; default
 // http://127.0.0.1:1969, override with ZOTERO_SERVER) and writes what upstream
@@ -25,8 +28,9 @@
 //                             schema commits; time zone; date; normalisation
 //
 // Fixtures:
-//   * every `testCases` entry of the four translators (vendor/translators,
-//     BibTeX.js, BibLaTeX.js (none), RIS.js, CSL JSON.js), input verbatim;
+//   * every import `testCases` entry of the translators in FORMATS
+//     (vendor/translators; BibTeX.js, RIS.js, CSL JSON.js and, since #749,
+//     the tagged-text and JSON importers), input verbatim;
 //   * crates/kovan-literature/tests/data/zotero/fixtures/import/* (one
 //     upstream file, book_and_child_note.ris from zotero/test/tests/data, and
 //     kovan-authored probes);
@@ -49,6 +53,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 
 const SERVER = process.env.ZOTERO_SERVER || "http://127.0.0.1:1969";
 const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -65,6 +70,27 @@ const FORMATS = {
 	biblatex: { file: "BibLaTeX.js", import: false },
 	ris: { file: "RIS.js", import: true },
 	csljson: { file: "CSL JSON.js", import: true },
+	// Tagged-text, JSON and simple export translators (#749). `inProcess`:
+	// recorded through IN-PROCESS upstream (below). `ext`: the extension of
+	// their files in fixtures/import/ (never ".json", which is CSL JSON's).
+	// `server`: the translation-server's /export format name (formats.js),
+	// when it has one. `export: false`: import only.
+	refer: { file: "ReferBibIX.js", import: true, inProcess: true, ext: ".refer", server: "refer" },
+	refworks_tagged: { file: "RefWorks Tagged.js", import: true, inProcess: true, ext: ".refworks", server: "refworks_tagged" },
+	bookmarks: { file: "Bookmarks.js", import: true, inProcess: true, ext: ".bookmarks", server: "bookmarks" },
+	medline_nbib: { file: "MEDLINEnbib.js", import: true, export: false, inProcess: true, ext: ".nbib" },
+	ovid_tagged: { file: "OVID Tagged.js", import: true, export: false, inProcess: true, ext: ".ovid" },
+	wos_tagged: { file: "Web of Science Tagged.js", import: true, export: false, inProcess: true, ext: ".wos" },
+	mab2: { file: "MAB2.js", import: true, export: false, inProcess: true, ext: ".mab2" },
+	datacite_json: { file: "Datacite JSON.js", import: true, export: false, inProcess: true, ext: ".datacite" },
+	openalex_json: { file: "OpenAlex JSON.js", import: true, export: false, inProcess: true, ext: ".openalex" },
+	csv: { file: "CSV.js", import: false, inProcess: true, server: "csv" },
+	coins: { file: "COinS.js", import: false, inProcess: true, server: "coins" },
+	wikipedia: { file: "Wikipedia Citation Templates.js", import: false, inProcess: true, server: "wikipedia" },
+	wikidata_quickstatements: { file: "Wikidata QuickStatements.js", import: false, inProcess: true },
+	cff: { file: "CFF.js", import: false, inProcess: true },
+	cff_references: { file: "CFF References.js", import: false, inProcess: true },
+	evernote: { file: "Evernote.js", import: false, inProcess: true, server: "evernote" },
 	// XML translators (#749). The key is the translation-server's /export
 	// format name where it has one (mods, endnote_xml, tei: formats.js);
 	// import-only translators have none and are named here. `export: false`:
@@ -83,7 +109,117 @@ const FORMATS = {
 	dspace_intermediate_metadata: { file: "DSpace Intermediate Metadata.js", import: true, export: false },
 	citavi5_xml: { file: "Citavi 5 XML.js", import: true, export: false },
 	xml_contextobject: { file: "XML ContextObject.js", import: true, export: false },
+	// Note exporters (#749, need the XML/DOM layer): no server format name,
+	// so exported in-process.
+	note_html: { file: "Note HTML.js", import: false, inProcess: true },
+	note_markdown: { file: "Note Markdown.js", import: false, inProcess: true },
 };
+
+// The translatorID in a translator file's header.
+function translatorId(file) {
+	const src = fs.readFileSync(path.join(VENDOR, "translators", file), "utf8");
+	return src.match(/"translatorID"\s*:\s*"([^"]+)"/)[1];
+}
+
+// ---------------------------------------------------------------------------
+// IN-PROCESS UPSTREAM (#749). The translation-server's /import always picks a
+// translator by detection, and its /export only knows the formats in
+// formats.js. To run a given import translator, or an export translator
+// with no format name, this script loads the SAME translation-server code
+// (vendor/translation-server: src/zotero.js, translators.js,
+// translation/translate.js, exportEndpoint.js, with the same submodules and
+// the same translators directory) into this Node process and calls it. The
+// running server is not touched. Every result the server can also produce
+// is produced both ways and must agree (crossChecks in the manifest); a
+// disagreement stops the script.
+// ---------------------------------------------------------------------------
+let inProc = null;
+async function inProcess() {
+	if (inProc) return inProc;
+	const ts = path.join(VENDOR, "translation-server");
+	process.env.NODE_CONFIG_DIR = path.join(ts, "config");
+	process.env.NODE_CONFIG = JSON.stringify({ translatorsDirectory: path.join(VENDOR, "translators") });
+	const req = createRequire(path.join(ts, "src/server.js"));
+	const saved = globalThis.Zotero;
+	req("./zotero.js");
+	req("./debug").init(0);
+	await req("./translators").init();
+	inProc = {
+		Translate: req("./translation/translate"),
+		ExportEndpoint: req("./exportEndpoint"),
+		formats: req("./formats"),
+		Zotero: globalThis.Zotero,
+	};
+	globalThis.Zotero = saved;
+	return inProc;
+}
+
+// importEndpoint.js:31-47 with `translate.setTranslator(id)` in place of
+// detection.
+async function inProcessImport(id, text) {
+	const p = await inProcess();
+	const saved = globalThis.Zotero;
+	globalThis.Zotero = p.Zotero;
+	try {
+		const translate = new p.Translate.Import();
+		translate.setString(text || "");
+		translate.setTranslator(id);
+		const items = await translate.translate({ libraryID: 1 });
+		const out = [];
+		items.forEach((item) => out.push(...p.Zotero.Utilities.Item.itemToAPIJSON(item)));
+		// What a client parses from the server's JSON.stringify(newItems).
+		return { status: 200, translatorID: id, items: normalise(JSON.parse(JSON.stringify(out))) };
+	}
+	catch (e) {
+		return { status: 500, translatorID: id, error: String((e && e.message) || e) };
+	}
+	finally {
+		globalThis.Zotero = saved;
+	}
+}
+
+// exportEndpoint.js run as it is, with the format added to its FORMATS table
+// (in this process only) when the server has no name for it.
+async function inProcessExport(format, id, items) {
+	const p = await inProcess();
+	const saved = globalThis.Zotero;
+	globalThis.Zotero = p.Zotero;
+	if (!p.formats.FORMATS[format]) {
+		p.formats.FORMATS[format] = id;
+		p.formats.CONTENT_TYPES[format] = "text/plain";
+	}
+	const ctx = {
+		request: { body: items, query: { format } },
+		response: {},
+		is: () => true,
+		set() {},
+		assert(c, status) {
+			if (!c) {
+				const e = new Error("assert");
+				e.status = status;
+				throw e;
+			}
+		},
+		throw(status, msg) {
+			const e = new Error(msg);
+			e.status = status;
+			throw e;
+		},
+	};
+	try {
+		await p.ExportEndpoint.handle(ctx);
+		return { status: 200, output: ctx.response.body };
+	}
+	catch (e) {
+		return { status: e.status || 500, error: e.message };
+	}
+	finally {
+		globalThis.Zotero = saved;
+	}
+}
+
+const crossChecks = { import: 0, export: 0 };
+const sameJSON = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 const KEY_CHARS = "23456789ABCDEFGHIJKLMNPQRSTUVWXYZ";
 // The n-th (0-based) normalised key: "KVN" then n in base 33 over Zotero's
@@ -182,7 +318,9 @@ async function postExport(format, items) {
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(items),
 	});
-	const body = await res.text();
+	// Decoded keeping a leading U+FEFF: res.text() would strip it (WHATWG
+	// UTF-8 decode), and CSV.js writes one (#749).
+	const body = new TextDecoder("utf-8", { ignoreBOM: true }).decode(await res.arrayBuffer());
 	return res.status === 200 ? { status: 200, output: body } : { status: res.status, error: body };
 }
 
@@ -212,7 +350,7 @@ async function main() {
 				upstreamTestItems: tc.items,
 			});
 		});
-		const ext = { bibtex: ".bib", ris: ".ris", csljson: ".json" }[format];
+		const ext = { bibtex: ".bib", ris: ".ris", csljson: ".json" }[format] || def.ext;
 		for (const f of fixtureFiles.filter((f) => ext && f.endsWith(ext))) {
 			cases.push({
 				name: f.replace(/\.[^.]+$/, ""),
@@ -233,7 +371,25 @@ async function main() {
 		}
 		const inputs = {};
 		for (const c of cases) {
-			Object.assign(c, await postImport(c.input));
+			if (def.inProcess) {
+				// #749: the translator forced, in-process. What the server's
+				// detection picks is recorded beside it; when it picks this
+				// translator, the server's output must be the same.
+				const id = translatorId(def.file);
+				const server = await postImport(c.input);
+				Object.assign(c, await inProcessImport(id, c.input));
+				c.via = "in-process, translator forced (zotero-reference.mjs inProcessImport)";
+				c.serverTranslatorID = server.translatorID;
+				if (server.translatorID === id) {
+					if (!sameJSON(server.items || server.error, c.items || c.error)) {
+						throw new Error(`in-process import differs from the server: ${format} ${c.name}`);
+					}
+					crossChecks.import++;
+				}
+			}
+			else {
+				Object.assign(c, await postImport(c.input));
+			}
 			if (c.items && c.items.length) inputs[c.name] = foldChildNotes(c.items);
 		}
 		write(`import/${format}.json`, cases);
@@ -267,7 +423,21 @@ async function main() {
 			const exp = {};
 			const rt = {};
 			for (const [name, items] of Object.entries(lists)) {
-				exp[name] = await postExport(format, JSON.parse(JSON.stringify(items)));
+				if (def.inProcess && !def.server) {
+					// #749: no server format name: exportEndpoint.js in-process.
+					exp[name] = await inProcessExport(format, translatorId(def.file), JSON.parse(JSON.stringify(items)));
+					exp[name].via = "in-process (zotero-reference.mjs inProcessExport)";
+				}
+				else {
+					exp[name] = await postExport(def.server || format, JSON.parse(JSON.stringify(items)));
+					if (def.inProcess) {
+						const ip = await inProcessExport(def.server, translatorId(def.file), JSON.parse(JSON.stringify(items)));
+						if (ip.status !== exp[name].status || ip.output !== exp[name].output) {
+							throw new Error(`in-process export differs from the server: ${format} ${set}/${name}\n${JSON.stringify(ip)}\n${JSON.stringify(exp[name])}`);
+						}
+						crossChecks.export++;
+					}
+				}
 				if (def.import && exp[name].status === 200) {
 					rt[name] = await postImport(exp[name].output);
 				}
@@ -312,6 +482,10 @@ async function main() {
 		text2html: util.text2html.map(([s, p]) => [s, p, ZU.text2html(s, p)]),
 		trimInternal: util.trimInternal.map((s) => [s, ZU.trimInternal(s)]),
 		removeDiacritics: util.removeDiacritics.map(([s, lc]) => [s, lc, ZU.removeDiacritics(s, lc)]),
+		// #749.
+		capitalizeTitle: (util.capitalizeTitle || []).map((s) => [s, ZU.capitalizeTitle(s, true)]),
+		cleanISBN: (util.cleanISBN || []).map((s) => [s, ZU.cleanISBN(s)]),
+		cleanISSN: (util.cleanISSN || []).map((s) => [s, ZU.cleanISSN(s)]),
 	});
 
 	// 5. Manifest.
@@ -333,7 +507,9 @@ async function main() {
 			"Type/field validity on the server comes from modules/utilities/resource/zoteroTypeSchemaData.js; CSL mappings from modules/zotero-schema/schema.json.",
 			"Normalisation: /import output keys and parentItem only (see scripts/zotero-reference.mjs). Export output is verbatim.",
 			"utcOffsetMinutes is this script's zone; the server ran on the same machine.",
+			"#749 formats (every FORMATS entry with inProcess): imports run in-process with the translator forced (the server's own detection is recorded as serverTranslatorID); exports run through the server when it has a format name, else exportEndpoint.js in-process. crossChecks counts the results produced both ways; all were identical (the script stops otherwise).",
 		],
+		crossChecks,
 	});
 }
 

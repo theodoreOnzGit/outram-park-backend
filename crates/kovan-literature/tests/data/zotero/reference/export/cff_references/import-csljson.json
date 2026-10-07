@@ -1,0 +1,12 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "# This CITATION.cff reference content was generated from Zotero.\nreferences:\n  - title: >-\n      Stochastic biomathematical models: With applications to neuronal modeling\n    type: book\n    editors-series: Lecture notes in mathematics\n    isbn: 978-3-642-32156-6\n    languages: \n      - en\n    publisher: Springer\n    volume: 2058\n    authors: \n      - family-names: Bachar\n        given-names: Mostafa\n    editors: \n      - family-names: Bachar\n        given-names: Mostafa\n    recipients: \n      - family-names: Bachar\n        given-names: Mostafa\n    translators: \n      - family-names: Bachar\n        given-names: Mostafa\n    date-published: 2013-01-01\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"csl_ranges": {
+		"status": 200,
+		"output": "# This CITATION.cff reference content was generated from Zotero.\nreferences:\n  - title: >-\n      A range and a circa date\n    type: journalArticle\n    date-accessed: 2020-01-02\n    pages: 1-10\n    volume: 7\n    authors: \n      - family-names: Smith\n        given-names: John\n      - family-names: Kovan Collaboration\n    editors: \n      - family-names: Smith\n        given-names: John\n      - family-names: Kovan Collaboration\n    recipients: \n      - family-names: Smith\n        given-names: John\n      - family-names: Kovan Collaboration\n    translators: \n      - family-names: Smith\n        given-names: John\n      - family-names: Kovan Collaboration\n    date-published: 2010\n  - title: >-\n      A literal date\n    type: book\n    publisher: Kovan Press\n    date-published: 2021\n  - title: >-\n      A season\n    type: bookSection\n    authors: \n      - family-names: Editor\n        given-names: Ed\n    editors: \n      - family-names: Editor\n        given-names: Ed\n    recipients: \n      - family-names: Editor\n        given-names: Ed\n    translators: \n      - family-names: Editor\n        given-names: Ed\n    date-published: 2021\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

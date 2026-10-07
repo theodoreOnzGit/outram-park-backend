@@ -1,0 +1,72 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n\ncff-version: 1.2.0\nmessage: >-\n  If you use this software, please cite it using the metadata from this file.\ntitle:  >-\n  Title\nabstract: Abstract\ntype: software\nversion: Version\nurl: URL\nkeywords: \n  - Keyword1, Keyword2, Keyword3\n  - Keyword4\n  - Keyword5\nauthors: \n  - family-names: Programmer\ndate-released: 0000\n\ncff-version: 1.2.0\nmessage: >-\n  If you use this dataset, please cite it using the metadata from this file.\ntitle:  >-\n  Title\nabstract: Abstract\ntype: dataset\nversion: Version\nurl: URL\nkeywords: \n  - Keyword1, Keyword2, Keyword3\n  - Keyword4\n  - Keyword5\nauthors: \n  - family-names: Investigators\ndate-released: 0000\n\ncff-version: 1.2.0\nmessage: >-\n  If you use this dataset, please cite it using the metadata from this file.\ntitle:  >-\n  Title\nabstract: Abstract\ntype: dataset\nversion: Date Published\nurl: URL\nkeywords: \n  - Keyword1, Keyword2, Keyword3\n  - Keyword4\n  - Keyword5\nauthors: \n  - family-names: Name1\n    given-names: Author\n  - family-names: Name2\n    given-names: Author\ndate-released: 0000\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n\ncff-version: 1.2.0\nmessage: >-\n  If you use this software, please cite it using the metadata from this file.\ntitle:  >-\n  Program Title\nabstract: Abstract\ntype: software\nversion: Version\nurl: Location/URL\nkeywords: \n  - Keywords1, Keywords2, Keywords3\n  - Keywords4\nauthors: \n  - family-names: Author/Programmer\ndate-released: 0000\n\ncff-version: 1.2.0\nmessage: >-\n  If you use this dataset, please cite it using the metadata from this file.\ntitle:  >-\n  Analytic Title\nabstract: Abstract\ntype: dataset\nversion: Version\nurl: Location/URL\nkeywords: \n  - Keywords1, Keywords2, Keywords3\n  - Keywords4\ndate-released: 0000\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase09": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase10": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n\ncff-version: 1.2.0\nmessage: >-\n  If you use this dataset, please cite it using the metadata from this file.\ntitle:  >-\n  Moving language: Mothers’ verbs correspond to infants’ real-time locomotion\nabstract: How do infants learn language? Infants can only learn the words that they hear. We tested whether infants’ actions affect the words that caregivers say—specifically whether infant locomotion influences caregivers’ language about locomotion. Compared to crawling infants, walkers travel greater distances (Adolph, et al, 2012). Does enhanced locomotion in walkers influence the verbs that caregivers say? We hypothesized that walking creates new opportunities for verb learning. To disentangle locomotor ability from age, we observed same-aged crawlers and walkers (16 13-month-old crawlers and 16 13-month-old walkers) and an older group of walkers (16 18-month-olds) during two hours of activity at home. Mothers’ language was transcribed verbatim. We then identified each “locomotor verb” (e.g., “come,” “bring”) that mothers said, and each bout of infant crawling and walking. Walkers’ enhanced locomotion indeed opened new opportunities for verb learning. Although mothers’ language overall was more frequent to older compared to younger infants, their locomotor verbs were more frequent to walkers than to crawlers. Preliminary findings show that caregivers directed more utterances to 18-month-olds (M = 2,006.00, SD = 579.02) compared to 13-month-old crawlers (M = 1,553.75, SD = 728.42) and walkers (M = 1,363.50, SD = 619.29), F (2, 31) = 3.23, p = .052. Notably, caregivers directed twice as many locomotor verbs to 13- and 18-month-old walkers (M = 53.13, SD = 15.40; M = 53.00, SD = 25.14, respectively) compared with 13-month-old crawlers (M = 25.25, SD = 12.87), F (2, 31) = 5.46, p = .01. Moreover, mothers’ locomotor verbs were related to infants’ moment-to-moment locomotion: Infants who moved more frequently received more locomotor verbs compared to infants who moved less, r(26) = .42, p = .035. Findings indicate that locomotor development leads to more advanced forms of infant activity, which consequently prompts caregivers to use more advanced language.\ntype: dataset\nurl: http://databrary.org/volume/1322\nauthors: \n  - family-names: West\n    given-names: Kelsey Louise\n  - family-names: Tamis-LeMonda\n    given-names: Catherine\n  - family-names: Adolph\n    given-names: Karen\ndate-released: 2021\nidentifiers: \n  - type: doi\n    value: 10.17910/B7.1322\n\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase11": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"book_and_child_note": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"dates_and_entities": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

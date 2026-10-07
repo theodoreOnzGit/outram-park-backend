@@ -1,0 +1,765 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Zenzo Lusaba",
+						"lastName": "Dube",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Gloria Rosi",
+						"lastName": "Murahwe",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "corporate governance",
+						"type": 1
+					},
+					{
+						"tag": "private banking",
+						"type": 1
+					}
+				],
+				"title": "An analysis of corporate governance practices in government controlled versus private banking institutions in Zimbabwe",
+				"date": "2015-01-01",
+				"publisher": "Zenodo",
+				"DOI": "10.5281/zenodo.2548653",
+				"abstractNote": "The significance of good corporate governance practices is of paramount importance. It can be posited that the Zimbabwean banking sector crisis of the period 2003 to 2004 was largely due to poor corporate governance practices. Most of the banking institutions that faced closure in that era were of domestic origin. This crisis however did not affect the Government owned banks. This was a paradox as private banks are seen as profitable compared to Government owned banks. The paper sought to ascertain who between the government and private banks better adhered to corporate governance principles. Twenty one banks were involved in this study. A total of 39 questionnaires were sent, three per bank. Ten face to face interviews were conducted with the banks' directors and managers. The paper unearthed that corporate governance practices are observed by both private banks and government controlled banks; however private banks appear to have a slighter edge. Government owned banks do have good corporate practices in place",
+				"language": "en",
+				"url": "https://zenodo.org/record/2548653"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>Other<br/>This is an open access article distributed under the Creative Commons Attribution License, which permits unrestricted use, distribution, and reproduction in any medium, provided the original work is properly cited.</p>"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "computerProgram",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "doi",
+						"type": 1
+					},
+					{
+						"tag": "metadata",
+						"type": 1
+					},
+					{
+						"tag": "crossref",
+						"type": 1
+					},
+					{
+						"tag": "datacite",
+						"type": 1
+					},
+					{
+						"tag": "schema.org",
+						"type": 1
+					},
+					{
+						"tag": "bibtex",
+						"type": 1
+					},
+					{
+						"tag": "codemeta",
+						"type": 1
+					}
+				],
+				"title": "Bolognese: a Ruby library for conversion of DOI Metadata",
+				"date": "2017-02-25",
+				"company": "DataCite",
+				"DOI": "10.5438/n138-z3mk",
+				"abstractNote": "Ruby gem and command-line utility for conversion of DOI metadata from and to different metadata formats, including schema.org.",
+				"url": "https://github.com/datacite/bolognese"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Natascha",
+						"lastName": "Miljković",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "plagiarism detection",
+						"type": 1
+					},
+					{
+						"tag": "plagiarism detection software",
+						"type": 1
+					},
+					{
+						"tag": "text matching analysis",
+						"type": 1
+					},
+					{
+						"tag": "scientific writing",
+						"type": 1
+					},
+					{
+						"tag": "forms of plagiarism",
+						"type": 1
+					},
+					{
+						"tag": "misconceptions",
+						"type": 1
+					},
+					{
+						"tag": "Plagiatsprüfung",
+						"type": 1
+					},
+					{
+						"tag": "Plagiatsprüfprogramme",
+						"type": 1
+					},
+					{
+						"tag": "Textvergleichsanalysen",
+						"type": 1
+					},
+					{
+						"tag": "wissenschaftlich Schreiben",
+						"type": 1
+					},
+					{
+						"tag": "Plagiatsformen",
+						"type": 1
+					},
+					{
+						"tag": "Falschannahmen",
+						"type": 1
+					},
+					{
+						"tag": "610 Medical sciences; Medicine",
+						"type": 1
+					}
+				],
+				"title": "Mehr Schaden als Nutzen? Problematischer Einsatz von Textvergleichsprogrammen zur vermeintlichen Plagiatsvermeidung",
+				"publicationTitle": "GMS Medizin - Bibliothek - Information; 15(1-2):Doc10",
+				"date": "2015-08-12",
+				"publisher": "German Medical Science GMS Publishing House",
+				"ISSN": "1865-066X",
+				"DOI": "10.3205/mbi000337",
+				"abstractNote": "Die Liste an selbst ernannten Plagiatsprüfprogrammen ist lang und wächst ständig, brauchbar wie propagiert sind jedoch nur wenige davon. Besonders durch die gezielte Werbung der ProgrammherstellerInnen mit dem Begriff Plagiatsdetektion – im Gegensatz zu ihrer einzigen tatsächlichen Funktionsweise, dem bloßen Textvergleich –, haben sich einige falsche Annahmen zu diesen Produkten ergeben, die sich im universitären Bereich leider sehr hartnäckig halten und bei der Konzeptionierung effizienter Präventionsmaßnahmen sogar hinderlich sein können. Als einzige eingesetzte präventive Maßnahme (im weitesten Sinne) sind diese Programme völlig unzureichend und können technisch zudem ohnedies nicht alle Formen von unwissenschaftlichen Schreibverhalten finden.",
+				"language": "de",
+				"url": "http://www.egms.de/en/journals/mbi/2015-15/mbi000337.shtml"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>SeriesInformation<br/>GMS Medizin - Bibliothek - Information; 15(1-2):Doc10</p>"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Irina",
+						"lastName": "Mostovaia",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Nonverbale graphische Ressourcen bei Reparaturen in der interaktionalen informellen Schriftlichkeit am Beispiel der deutschen Chat-Kommunikation via IRC-Chat und WhatsApp",
+				"publicationTitle": "Journal für Medienlinguistik",
+				"pages": "42-79 Seiten",
+				"date": "2018-12-04",
+				"publisher": "Journal für Medienlinguistik",
+				"DOI": "10.21248/jfml.2018.6",
+				"abstractNote": "The aim of this paper is to present the results of an empirical analysis of the use of non-alphabetic graphic signs (e.g. asterisks, slashes, plus signs etc.) in the context of repairs in Russian and German informal electronic communication. The data for the analysis were taken from the “Mobile Communication Database MoCoDa” (https://www.uni-due.de/~hg0263/SMSDB), which contains Russian and German private electronic communication via SMS, WhatsApp and other short message services, and the “Dortmunder Chat-Korpus” (http://www.chatkorpus.tu-dortmund.de/korpora.html). This paper describes the functions of various graphic resources in the context of repairs in both data collections and compares the occurrences of these functions in current Russian and German computer-mediated communication. It concludes that particular signs in both data sets share the same subset of functions, but they differ in terms of how frequently these resources occur in each form of communication.",
+				"language": "de",
+				"url": "https://jfml.org/article/view/6"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>SeriesInformation<br/>Journal für Medienlinguistik, Bd. 1 Nr. 1 (2018)</p>"
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Wynn",
+						"lastName": "Gadkar-Wilcox",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919",
+				"publicationTitle": "The Journal of Transcultural Studies",
+				"pages": "33–52 Pages",
+				"date": "2018-12-20",
+				"publisher": "The Journal of Transcultural Studies",
+				"DOI": "10.17885/heiup.jts.2018.1-2.23812",
+				"abstractNote": "After 1897, as the power of the Nguyen Monarchy was increasingly restricted by a centralizing administration in French Indochina, it sought to retain its relevance by grappling with reformist ideas, especially those associated with Xu Jiyu, Tan Sitong, and Liang Qichao. This paper examines the influence of those thinkers on the policy questions of 1877, 1904, and 1919 and proposes that even when the monarchy was defending more traditional ideas against reform, these new conceptions were fundamentally transforming the thinking of even more conservative elites.",
+				"language": "en",
+				"url": "https://heiup.uni-heidelberg.de/journals/index.php/transcultural/article/view/23812"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>SeriesInformation<br/>The Journal of Transcultural Studies, No 1-2 (2018)</p>"
+			}
+		]
+	},
+	"testCase06": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Elliot",
+						"lastName": "Hogg",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Michele",
+						"lastName": "Tagliati",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Overuse Cervical Dystonia: A Case Report and Literature Review",
+				"publicationTitle": "Tremor and Other Hyperkinetic Movements",
+				"pages": "Tremor and Other Hyperkinetic Movements",
+				"date": "2016-09-14",
+				"publisher": "Tremor and Other Hyperkinetic Movements",
+				"DOI": "10.7916/D8959HR1",
+				"abstractNote": "Background: Overuse or task-specific dystonia has been described in a number of professions characterized by repetitive actions, typically affecting the upper extremities. Cervical dystonia (CD), however, has rarely been associated with overuse. Case Report: We present a case report of typical CD that developed in the context of chronic repetitive movements associated with the patient’s professional occupation as an office manager who spent many hours per day holding a phone to his ear. Discussion: Overuse CD should be suspected when typical symptoms and signs of CD develop in the context of chronic repetitive use or overuse of cervical muscles, especially where exacerbating tasks involve asymmetric postures.",
+				"language": "en",
+				"url": "https://tremorjournal.org/index.php/tremor/article/view/413"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>SeriesInformation<br/>Tremor and Other Hyperkinetic Movements, Tremor and Other Hyperkinetic Movements</p>"
+			}
+		]
+	},
+	"testCase07": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Wynn",
+						"lastName": "Gadkar-Wilcox",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919",
+				"publicationTitle": "The Journal of Transcultural Studies",
+				"pages": "33–52 Pages",
+				"date": "2018-12-20",
+				"publisher": "The Journal of Transcultural Studies",
+				"DOI": "10.17885/heiup.jts.2018.1-2.23812",
+				"abstractNote": "After 1897, as the power of the Nguyen Monarchy was increasingly restricted by a centralizing administration in French Indochina, it sought to retain its relevance by grappling with reformist ideas, especially those associated with Xu Jiyu, Tan Sitong, and Liang Qichao. This paper examines the influence of those thinkers on the policy questions of 1877, 1904, and 1919 and proposes that even when the monarchy was defending more traditional ideas against reform, these new conceptions were fundamentally transforming the thinking of even more conservative elites.",
+				"language": "en",
+				"url": "https://heiup.uni-heidelberg.de/journals/index.php/transcultural/article/view/23812"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>SeriesInformation<br/>The Journal of Transcultural Studies, No 1-2 (2018)</p>"
+			}
+		]
+	},
+	"testCase08": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"testCase09": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Daniel",
+						"lastName": "Walter",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ulrich",
+						"lastName": "Schwätzer",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "FOS: Educational sciences",
+						"type": 1
+					}
+				],
+				"title": "Mathematikapps für die Grundschule analysieren",
+				"publicationTitle": "Zeitschrift für Mathematikdidaktik in Forschung und Praxis",
+				"volume": "4",
+				"date": "2023",
+				"publisher": "Gesellschaft für Didaktik der Mathematik e.V.",
+				"ISSN": "2701-9012",
+				"DOI": "10.48648/YHP7-0G75",
+				"abstractNote": "Die Nutzung digitaler Medien ist derzeit nicht nur bezogen auf den Mathematik-unterricht der Grundschule ein Schwerpunktthema der schulischen Bildung. Dabei wird vor allem der Einsatz von Apps kontrovers diskutiert. Während auf der einen Seite von empirisch erprobten Positivbeispielen berichtet wird, so stehen auf der anderen Seite zahlreiche Apps in der Kritik. Dieser Artikel befasst sich mit der Frage, inwiefern eine kriteriengeleitete Analyse des Bestandes von Mathema-tik–apps sowohl Anliegen der Praxis als auch der Forschung unterstützen kann. Hierzu wird im Theorieteil zunächst der Forschungsstand zur Einschätzung von Mathematikapps dargelegt. Nachdem bestehende Forschungserkenntnisse berich-tet und Kriterien zur Analyse von Apps begründet dargelegt werden, erfolgt die Darstellung von Ergebnissen einer Analyse von 227 Mathematikapps. Die Überle-gungen münden in eine kritische Diskussion, die eine Zusammenfassung der Ergebnisse, Konsequenzen für die Praxis und Forschung sowie Ausführungen zu Grenzen des Beitrags enthält.",
+				"language": "de",
+				"url": "https://zmfp.de/beitraege/mathematikapps-fuer-die-grundschule-analysieren"
+			}
+		]
+	},
+	"testCase10": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Anne",
+						"lastName": "Barron",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Sorry Miss, I Completely Forgot about It: Apologies and Vocatives in Ireland and England",
+				"bookTitle": "Expanding the Landscapes of Irish English Research",
+				"pages": "109-128",
+				"date": "2022",
+				"publisher": "Medien- und Informationszentrum, Leuphana Universität Lüneburg",
+				"ISBN": "978-0-367-85639-7",
+				"DOI": "10.48548/PUBDATA-155",
+				"abstractNote": "The study of the pragmatics of Irish English is a recent endeavour. Since its beginnings, a substantial amount of scholarship has been conducted in a cross-varietal design with the aim of highlighting shared and specific features of Irish English vis-à-vis other varieties of English. A particular focus of such variational pragmatic research has been on speech act realisations. Cross-varietal studies on apologies in Irish English remain, however, limited. The present chapter addresses this research gap in the study of apologies in Irish English. It takes a variational pragmatic approach to the study of remedial apologies, contrasting apologies in Irish English and in English English empirically using comparable data . Specifically, production questionnaire data is investigated and norms of appropriate verbal apologetic behaviour contrasted. The analysis centres on the apology strategies and modification employed across varieties and on their linguistic realisations, and a particular focus is placed on the cross-varietal use of alerters and vocatives in apologising. Findings point to the universality of apology strategies, while also revealing variety-preferential pragmatic differences. Specifically, the Irish English data reveals a higher use of vocatives, many playing a relational function in the data, and thus suggesting higher levels of relational orientation in the Irish English data relative to the English English data. In addition, a higher use of upgrading strategies and explanations, many communicating an active speaker role, is recorded in the Irish English data pointing to a comparatively higher redress of speakers’ loss of positive face.",
+				"language": "en",
+				"url": "https://pubdata.leuphana.de/handle/20.500.14123/175"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Expanding the Landscapes of Irish English Research"
+			}
+		]
+	},
+	"testCase11": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Andreas",
+						"lastName": "Bonnet",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Elena",
+						"lastName": "Bakels",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Uwe",
+						"lastName": "Hericks",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "370 Education",
+						"type": 1
+					},
+					{
+						"tag": "370 Erziehung, Schul- und Bildungswesen",
+						"type": 1
+					},
+					{
+						"tag": "Professionalität",
+						"type": 1
+					},
+					{
+						"tag": "Professionalisierung",
+						"type": 1
+					},
+					{
+						"tag": "Lehrer",
+						"type": 1
+					},
+					{
+						"tag": "Lehramtsstudent",
+						"type": 1
+					},
+					{
+						"tag": "Praxeologie",
+						"type": 1
+					},
+					{
+						"tag": "Entscheidung",
+						"type": 1
+					},
+					{
+						"tag": "Erwartung",
+						"type": 1
+					},
+					{
+						"tag": "Habitus",
+						"type": 1
+					},
+					{
+						"tag": "Norm",
+						"type": 1
+					},
+					{
+						"tag": "Standardisierung",
+						"type": 1
+					},
+					{
+						"tag": "Mathematikunterricht",
+						"type": 1
+					},
+					{
+						"tag": "Englischunterricht",
+						"type": 1
+					},
+					{
+						"tag": "Pädagogisches Handeln",
+						"type": 1
+					},
+					{
+						"tag": "Professionalism",
+						"type": 1
+					},
+					{
+						"tag": "Professionality",
+						"type": 1
+					},
+					{
+						"tag": "Professionalization",
+						"type": 1
+					},
+					{
+						"tag": "Teacher",
+						"type": 1
+					},
+					{
+						"tag": "Student teachers",
+						"type": 1
+					},
+					{
+						"tag": "Expectancy",
+						"type": 1
+					},
+					{
+						"tag": "Habits",
+						"type": 1
+					},
+					{
+						"tag": "Standard setting",
+						"type": 1
+					},
+					{
+						"tag": "Standards",
+						"type": 1
+					},
+					{
+						"tag": "Mathematics lessons",
+						"type": 1
+					},
+					{
+						"tag": "Teaching of mathematics",
+						"type": 1
+					},
+					{
+						"tag": "English language lessons",
+						"type": 1
+					},
+					{
+						"tag": "Teaching of English",
+						"type": 1
+					},
+					{
+						"tag": "Mathematics",
+						"type": 1
+					},
+					{
+						"tag": "FOS: Mathematics",
+						"type": 1
+					}
+				],
+				"title": "Die Professionalisierung von Lehrpersonen aus praxeologischer Perspektive. Professionelles Handeln als Entscheiden",
+				"bookTitle": "Professionalität und Professionalisierung von Lehrpersonen. Perspektiven, theoretische Rahmungen und empirische Zugänge",
+				"pages": "179-196",
+				"volume": "Studien zur Professionsforschung und Lehrer:innenbildung",
+				"date": "2023",
+				"publisher": "Verlag Julius Klinkhardt : Bad Heilbrunn",
+				"ISBN": "978-3-7815-6043-7",
+				"DOI": "10.25656/01:28324",
+				"abstractNote": "Reconstructive research into teacher knowledge has established the crucial role of implicit knowledge. This line of enquiry uses sociological theories and interpretative methods to establish the impact of a-theoretical knowledge or narrative knowledge on teachers’ actions. In this paper we use the praxeological concepts of habitus and norm alongside the systemtheoretical notion of decision-making in order to conceptualize how individuals act in organizational contexts. We exemplify this with first data from our project Professionalisation of Teachers of Maths and English (ProME). This project examines, how teachers of Maths and English navigate the tensions between habitus, organizational norms, and identity-norms in their dairly decision-making. (DIPF/Orig.)",
+				"language": "de",
+				"url": "https://www.pedocs.de/frontdoor.php?source_opus=28324"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>SeriesInformation<br/>Hinzke, Jan-Hendrik [Hrsg.]; Keller-Schneider, Manuela [Hrsg.]: Professionalität und Professionalisierung von Lehrpersonen. Perspektiven, theoretische Rahmungen und empirische Zugänge. Bad Heilbrunn : Verlag Julius Klinkhardt 2023, S. 179-196. - (Studien zur Professionsforschung und Lehrer:innenbildung)</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Professionalität und Professionalisierung von Lehrpersonen. Perspektiven, theoretische Rahmungen und empirische Zugänge"
+			}
+		]
+	},
+	"testCase12": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Adelheid",
+						"lastName": "Rasche",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "G. Ulrich",
+						"lastName": "Großmann",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "gnd/4054289-0",
+						"type": 1
+					},
+					{
+						"tag": "gnd/4039792-0",
+						"type": 1
+					},
+					{
+						"tag": "gnd/4031011-5",
+						"type": 1
+					}
+				],
+				"title": "Luxury in Silk. Eighteenth-Century Fashion: English summary of the book Luxus in Seide",
+				"bookTitle": "Luxus in Seide",
+				"date": "2023",
+				"publisher": "arthistoricum.net",
+				"DOI": "10.11588/ARTHISTORICUM.1141.C16127",
+				"language": "de",
+				"url": "https://books.ub.uni-heidelberg.de//arthistoricum/catalog/book/1141/chapter/16127"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Luxus in Seide"
+			}
+		]
+	},
+	"testCase13": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Viliamu",
+						"lastName": "Iese",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Tolu",
+						"lastName": "Muliaina",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Rahul",
+						"lastName": "Prasad",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Moleen",
+						"lastName": "Nand",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Melanie",
+						"lastName": "Pill",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Sivendra",
+						"lastName": "Michael",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Roslyn",
+						"lastName": "Dass-Nand",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Vasiti",
+						"lastName": "Soko",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Filomena",
+						"lastName": "Nelson",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Filipe",
+						"lastName": "Veisa",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ratu Tevita",
+						"lastName": "Rarokolutu",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Salote",
+						"lastName": "Nasalo",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Otto",
+						"lastName": "Navunicagi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Christian Yves",
+						"lastName": "Amato-Ali",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Michael",
+						"lastName": "Ha’apio",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Morgan",
+						"lastName": "Wairiu",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Elisabeth",
+						"lastName": "Holland",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Louise Marie",
+						"lastName": "Malaki-Faaofo",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Nasoni",
+						"lastName": "Roko",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Alastair",
+						"lastName": "Ward",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Steven",
+						"lastName": "Ratuva",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Climate Change",
+						"type": 1
+					},
+					{
+						"tag": "Pacific Ocean",
+						"type": 1
+					}
+				],
+				"title": "Loss and Damage: Save the Pacific, Save the World",
+				"bookTitle": "Voices of the Pacific Climate Crisis Adaptation and Resilience: Pacific Ocean and Climate Crisis Assessment Report Volume 1",
+				"date": "2024",
+				"publisher": "The Macmillan Brown Centre for Pacific Studies Press and the Pacific Centre for Environment and Sustainable Development",
+				"DOI": "10.26021/15688",
+				"url": "https://ir.canterbury.ac.nz/handle/10092/108154"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Voices of the Pacific Climate Crisis Adaptation and Resilience: Pacific Ocean and Climate Crisis Assessment Report Volume 1"
+			}
+		]
+	},
+	"testCase14": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	}
+}

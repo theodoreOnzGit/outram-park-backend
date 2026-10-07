@@ -69,8 +69,20 @@ system.sql, userdata.sql, triggers.sql (resource/schema/) and itemJSON.json
 
 Each ported file carries a header naming its upstream file(s) and commit.
 
-Dependency added with it: rusqlite (MIT) with SQLite (public domain)
-compiled in through libsqlite3-sys (MIT), native desktop targets only.
+~~Dependency added with it: rusqlite (MIT) with SQLite (public domain)
+compiled in through libsqlite3-sys (MIT), native desktop targets only.~~
+CORRECTED 2026-10-07: the reader's database engine is now turso_core
+0.8.2 (https://github.com/tursodatabase/turso, MIT, Copyright (c) the
+Turso authors), a pure-Rust reimplementation of SQLite, on every target.
+Its dependency tree (checked with `cargo tree`, 2026-10-07) is under MIT,
+Apache-2.0, BSD-2/3-Clause, ISC, Zlib, BSL-1.0 and Unicode-3.0 licences
+(each, or one option of each dual licence, compatible with AGPL-3.0).
+rusqlite (MIT) with SQLite (public domain, through libsqlite3-sys, MIT) is
+a native-only dev-dependency: the tests build Zotero databases with real
+SQLite and compare the reader against it. No SQLite C code is shipped.
+The rollback-journal "hot journal" test in src/zotero/local_library/db.rs
+follows SQLite's pager.c hasHotJournal (SQLite 3.53.2, public domain).
+
 Translators (each file's own header: AGPL-3.0-or-later; a translator without
 a licence header would be treated as AGPL-3.0, maintainer decision
 2026-10-07, #747):
@@ -83,6 +95,37 @@ a licence header would be treated as AGPL-3.0, maintainer decision
                RIS.js      (C) 2006-2023 Simon Kornblith, Aurimas
                            Vinckevicus, Abe Jellinek
                CSL JSON.js (C) 2022 Simon Kornblith and Sebastian Karcher
+
+             Tagged-text, JSON and simple export translators (#749), same
+             commit; AGPL-3.0-or-later unless noted:
+               ReferBibIX.js        Simon Kornblith; no licence text upstream,
+                                    treated as AGPL-3.0 (maintainer decision
+                                    2026-10-07, #747)
+               RefWorks Tagged.js   Simon Kornblith, Aurimas Vinckevicius and
+                                    Sebastian Karcher; no licence text
+                                    upstream, treated as AGPL-3.0 (#747)
+               MAB2.js              Simon Kornblith, Leon Krauthausen (FUB);
+                                    no licence text upstream, treated as
+                                    AGPL-3.0 (#747)
+               Bookmarks.js         (C) 2011 Avram Lyon; GPL-3.0-or-later,
+                                    combined with AGPL-3.0 under section 13
+                                    of both licences
+               Evernote.js          (C) 2012 Volodymir Skipa; GPL-3.0-or-later,
+                                    combined under section 13 of both
+               MEDLINEnbib.js       (C) 2014-15 Sebastian Karcher
+               OVID Tagged.js       (C) 2014 Sebastian Karcher
+               Web of Science Tagged.js (C) 2015-2021 Michael Berkowitz, Avram
+                                    Lyon, and contributors
+               Datacite JSON.js     (C) 2019 Philipp Zumstein
+               OpenAlex JSON.js     (C) 2024 Sebastian Karcher
+               CSV.js               (C) 2014 Philipp Zumstein, Aurimas
+                                    Vinckevicius
+               COinS.js             (C) 2021 Simon Kornblith and Abe Jellinek
+               Wikipedia Citation Templates.js (C) 2017-2019 Simon Kornblith
+               Wikidata QuickStatements.js (C) 2017-2025 Philipp Zumstein with
+                                    contributors
+               CFF.js               (C) 2023 Sebastian Karcher
+               CFF References.js    (C) 2024 Sebastian Karcher, Dave Bunten
 
 Framework (the code the translators run in):
 
@@ -98,7 +141,14 @@ Framework (the code the translators run in):
                       http://lehelk.com/2011/05/06/script-to-remove-diacritics/,
                       semverCompare), utilities_item.js (itemToAPIJSON,
                       itemToLegacyExportFormat, itemFromCSLJSON),
-                      cachedTypes.js
+                      cachedTypes.js; and for #749 utilities.js
+                      (capitalizeTitle, cleanISBN, cleanISSN), openurl.js
+                      (createContextObject; (C) 2009 CHNM),
+                      utilities_item.js (getFirstCreatorFromItemJSON),
+                      cachedTypes.js (getLocalizedString),
+                      resource/zoteroTypeSchemaData.js (creator-type labels)
+  translate (#749)    commit dd524aea9a55: src/utilities_translate.js
+                      (capitalizeTitle override)
   translation-server  https://github.com/zotero/translation-server  commit 3a9d17614896
                       src/importEndpoint.js, src/exportEndpoint.js,
                       src/translation/translate_item.js, src/formats.js,
@@ -111,13 +161,22 @@ scripts/zotero-html-entities.mjs from Python's html.entities.html5 and
 checked entry by entry against jsdom 29.0.1 (MIT).
 
 Code-to-code verification ran upstream (maintainer authorisation,
-2026-10-07): a Zotero translation-server on 127.0.0.1:1969. What it returned
+2026-10-07): a Zotero translation-server on 127.0.0.1:1969, and (#749) the
+same translation-server code loaded into the reference script's own Node
+process, to force an import translator or export to a format the server has
+no name for. What it returned
 is committed under tests/data/zotero/reference/ (scripts/zotero-reference.sh;
 manifest.json records the commits). Those files contain upstream's output and,
 as test inputs, upstream data:
 
   * every `testCases` entry of BibTeX.js, RIS.js and CSL JSON.js
     (translators commit above; AGPL-3.0-or-later);
+  * every import `testCases` entry of the #749 translators above
+    (ReferBibIX.js, RefWorks Tagged.js, Bookmarks.js, MEDLINEnbib.js, OVID
+    Tagged.js, Web of Science Tagged.js, Datacite JSON.js, OpenAlex JSON.js;
+    same commit and licences). They carry bibliographic metadata as the
+    translator authors recorded it (PubMed, OVID, Web of Science, DataCite
+    and OpenAlex records of published works);
   * zotero/test/tests/data/itemJSON.js (Zotero commit 9cbba8c4d281, via
     kovan-common's tests/data/zotero/itemJSON.json; AGPL-3.0-or-later);
   * tests/data/zotero/fixtures/import/book_and_child_note.ris, copied from

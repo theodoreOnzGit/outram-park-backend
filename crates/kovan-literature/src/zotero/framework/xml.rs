@@ -604,6 +604,21 @@ impl XmlDocument {
             .collect()
     }
 
+    /// `document.getElementById(id)`: the first element in tree order with
+    /// an `id` attribute (no namespace) equal to `id`; never for "".
+    pub fn get_element_by_id(&self, id: &str) -> Option<NodeId> {
+        if id.is_empty() {
+            return None;
+        }
+        self.descendants(self.document()).into_iter().find(|&n| {
+            self.element(n).is_some_and(|e| {
+                e.attrs
+                    .iter()
+                    .any(|a| a.namespace.is_none() && a.local == "id" && a.value == id)
+            })
+        })
+    }
+
     /// `querySelectorAll(selectors)` for the selectors the translators use:
     /// a list of compound selectors (type selector or `*`, then
     /// `[attr]`/`[attr="value"]`) joined by descendant combinators. In an

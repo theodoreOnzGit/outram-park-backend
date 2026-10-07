@@ -1,0 +1,18 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"http://d.wanfangdata.com.cn/Periodical_xdqb200902027.aspx\" TAGS=\"参考文献管理 文献管理软件 学术书签网站 Zotero\">参考文献管理工具研究</A>\n</DL>"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://urn.nb.no/URN:NBN:no-nb_digibok_2016062048105\" TAGS=\"Italiensk litteratur,Idealbyer,kjernelitteratur\">Usynlige byer</A>\n</DL>"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n</DL>"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://diesseits.theopodcast.at/home\">Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs & Südtirols</A>\n</DL>"
+	}
+}

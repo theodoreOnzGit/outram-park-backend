@@ -1,0 +1,18 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - 参考文献管理工具研究\r\nAU  - 余敏\r\nAU  - 朱江\r\nAU  - 丁照蕾\r\nT2  - JOURNAL OF MODERN INFORMATION\r\nAB  - 介绍了参考文献管理的基本方法,对参考文献管理工具的主要功能进行了对比,最后分析了参考文献管理的趋势.\r\nDA  - 2009///\r\nPY  - 2009\r\nVL  - 29\r\nIS  - 2\r\nSP  - 94\r\nEP  - 98,93\r\nLA  - chi\r\nUR  - http://d.wanfangdata.com.cn/Periodical_xdqb200902027.aspx\r\nAN  - 北京万方数据股份有限公司\r\nKW  - 参考文献管理 文献管理软件 学术书签网站 Zotero\r\nER  - \r\n\r\n"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "TY  - BOOK\r\nTI  - Usynlige byer\r\nAU  - Calvino, Italo\r\nA3  - Stender Clausen, Jørgen\r\nA4  - Aardal, Jorunn\r\nCY  - Oslo\r\nDA  - 1982///\r\nPY  - 1982\r\nLA  - Flerspråklig, Norsk (Bokmål), Italiensk, Dansk\r\nPB  - Aschehoug\r\nSN  - 8203107354\r\nUR  - https://urn.nb.no/URN:NBN:no-nb_digibok_2016062048105\r\nN1  - Elektronisk reproduksjon [Norge] Nasjonalbiblioteket Digital 2016-11-03\r\nKW  - Italiensk litteratur\r\nKW  - Idealbyer\r\nKW  - kjernelitteratur\r\nER  - \r\n\r\n"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "TY  - BOOK\r\nTI  - Corn\r\nAU  - Newman, W. H.\r\nDA  - 1891///\r\nPY  - 1891\r\nPB  - Uniontown, Ala. : Canebrake Agricultural Experiment Station\r\nKW  - Corn -- Yields\r\nKW  - Corn -- Varieties\r\nKW  - Corn -- Field experiments\r\nER  - \r\n\r\n"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "TY  - SOUND\r\nTI  - Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs & Südtirols\r\nCY  - Wien\r\nDA  - 2021///\r\nPY  - 2021\r\nLA  - German\r\nPB  - Studio Omega, Verein für Christliche Radioarbeit\r\nUR  - https://diesseits.theopodcast.at/home\r\nER  - \r\n\r\n"
+	}
+}

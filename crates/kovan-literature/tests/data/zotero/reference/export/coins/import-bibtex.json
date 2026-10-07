@@ -1,0 +1,102 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=The%20physical%20volcanology%20of%20the%201600%20eruption%20of%20Huaynaputina%2C%20southern%20Peru&amp;rft.jtitle=Bulletin%20of%20Volcanology&amp;rft.volume=62&amp;rft.aufirst=Nancy%20K&amp;rft.aulast=Adams&amp;rft.au=Nancy%20K%20Adams&amp;rft.au=Shanaka%20L%20DeSilva&amp;rft.au=Steven%20Self&amp;rft.au=Guido%20Salas&amp;rft.au=Steven%20Schubring&amp;rft.au=Jason%20L%20Permenter&amp;rft.au=Kendra%20Arbesman&amp;rft.date=2001&amp;rft.pages=493%E2%80%93518&amp;rft.spage=493&amp;rft.epage=518'></span>\n"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=book&amp;rft.btitle=Handbook%20of%20Mathematical%20Functions%20with%20Formulas%2C%20Graphs%2C%20and%20Mathematical%20Tables&amp;rft.place=New%20York&amp;rft.publisher=Dover&amp;rft.edition=ninth%20Dover%20printing%2C%20tenth%20GPO%20printing&amp;rft.aufirst=Milton&amp;rft.aulast=Abramowitz&amp;rft.au=Milton%20Abramowitz&amp;rft.au=Irene%20A.%20Stegun&amp;rft.date=1964'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=urn%3Aisbn%3A0385527403&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=book&amp;rft.btitle=The%20Yankee%20Years&amp;rft.publisher=Doubleday&amp;rft.aufirst=Joe&amp;rft.aulast=Torre&amp;rft.au=Joe%20Torre&amp;rft.au=Tom%20Verducci&amp;rft.date=2008&amp;rft.isbn=0385527403'></span>\n"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=proceeding&amp;rft.atitle=Some%20publication%20title&amp;rft.aufirst=First&amp;rft.aulast=Author&amp;rft.au=First%20Author&amp;rft.au=Second%20Author&amp;rft.pages=330%E2%80%94331'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=book&amp;rft.btitle=Proceedings%20of%20the%20Xth%20Conference%20on%20XYZ&amp;rft.aufirst=First&amp;rft.aulast=Editor&amp;rft.au=First%20Editor&amp;rft.au=Second%20Editor&amp;rft.date=2006-10'></span>\n"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=urn%3Aisbn%3A0-69-697269-4&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=book&amp;rft.btitle=Design%20of%20a%20Carbon%20Fiber%20Composite%20Grid%20Structure%20for%20the%20GLAST%20Spacecraft%20Using%20a%20Novel%20Manufacturing%20Technique&amp;rft.place=Palo%20Alto&amp;rft.publisher=Stanford%20Press&amp;rft.edition=1st%2C&amp;rft.aufirst=Michael%2C%20III&amp;rft.aulast=von%20Hicks&amp;rft.au=Michael%2C%20III%20von%20Hicks&amp;rft.date=2001&amp;rft.isbn=0-69-697269-4'></span>\n"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=USGS%20monitoring%20ecological%20impacts&amp;rft.jtitle=Oil%20%26%20Gas%20Journal&amp;rft.volume=107&amp;rft.issue=29&amp;rft.aufirst=A&amp;rft.aulast=Oliveira&amp;rft.au=A%20Oliveira&amp;rft.date=2009&amp;rft.pages=29'></span>\n"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=non-braking%20space%3A%20%3B%20accented%20characters%3A%20%C3%B1%20and%20%C3%B1%3B%20tilde%20operator%3A%20%E2%88%BC'></span>\n"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1007%2Fs13127-011-0069-8&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Test%20of%20markupconversion%3A%20Italics%2C%20bold%2C%20superscript%2C%20subscript%2C%20and%20small%20caps%3A%20Mitochondrial%20DNA%E2%82%82%20sequences%20suggest%20unexpected%20phylogenetic%20position%20of%20Corso-Sardinian%20grass%20snakes%20(%3Ci%3ENatrix%20cetti%3C%2Fi%3E)%20and%20%3Cb%3Edo%20not%3C%2Fb%3E%20support%20their%20%3Cspan%20style%3D%22small-caps%22%3Especies%20status%3C%2Fspan%3E%2C%20with%20notes%20on%20phylogeography%20and%20subspecies%20delineation%20of%20grass%20snakes.&amp;rft.jtitle=Actes%20du%204%3Csup%3E%C3%A8me%3C%2Fsup%3E%20Congr%C3%A8s%20Fran%C3%A7ais%20d&apos;Acoustique&amp;rft.volume=12&amp;rft.aufirst=U.&amp;rft.aulast=Fritz&amp;rft.au=U.%20Fritz&amp;rft.au=C.%20Corti&amp;rft.au=M.%20P%C3%A4ckert&amp;rft.date=2012&amp;rft.pages=71-80&amp;rft.spage=71&amp;rft.epage=80'></span>\n"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Adc&amp;rft.type=document&amp;rft.title=Public%20Service%20Research%20Foundation&amp;rft.identifier=http%3A%2F%2Fwww.americanrightsatwork.org%2Fblogcategory-275%2F&amp;rft.aufirst=American%20Rights%20at&amp;rft.aulast=Work&amp;rft.au=American%20Rights%20at%20Work&amp;rft.date=2012'></span>\n"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Zotero%3A%20single%20attachment'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Zotero%3A%20multiple%20attachments'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Zotero%3A%20linked%20attachments%20(old)'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Zotero%3A%20linked%20attachments'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Mendeley%3A%20single%20attachment'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Mendeley%3A%20escaped%20characters'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Citavi%3A%20single%20attachment'></span>\n"
+	},
+	"testCase09": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=extbackslash%20extbackslash%7B%7D%3A%20%7B'></span>\n"
+	},
+	"testCase10": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1161%2FCIR.0b013e318288b4dd&amp;rft_id=info%3Apmid%2F23439512&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Increasing%20cardiopulmonary%20resuscitation%20provision%20in%20communities%20with%20low%20bystander%20cardiopulmonary%20resuscitation%20rates%3A%20a%20science%20advisory%20from%20the%20American%20Heart%20Association%20for%20healthcare%20providers%2C%20policymakers%2C%20public%20health%20departments%2C%20and%20community%20leaders&amp;rft.jtitle=Circulation&amp;rft.volume=127&amp;rft.issue=12&amp;rft.aufirst=Comilla&amp;rft.aulast=Sasson&amp;rft.au=Comilla%20Sasson&amp;rft.au=Hendrika%20Meischke&amp;rft.au=Benjamin%20S%20Abella&amp;rft.au=Robert%20A%20Berg&amp;rft.au=Bentley%20J%20Bobrow&amp;rft.au=Paul%20S%20Chan&amp;rft.au=Elisabeth%20Dowling%20Root&amp;rft.au=Michele%20Heisler&amp;rft.au=Jerrold%20H%20Levy&amp;rft.au=Mark%20Link&amp;rft.au=Frederick%20Masoudi&amp;rft.au=Marcus%20Ong&amp;rft.au=Michael%20R%20Sayre&amp;rft.au=John%20S%20Rumsfeld&amp;rft.au=Thomas%20D%20Rea&amp;rft.au=American%20Heart%20Association%20Council%20on%20Quality%20of%20Care%20and%20Outcomes%20Research&amp;rft.au=Emergency%20Cardiovascular%20Care%20Committee&amp;rft.au=Council%20on%20Cardiopulmonary%2C%20Critical%20Care%2C%20Perioperative%20and%20Resuscitation&amp;rft.au=Council%20on%20Clinical%20Cardiology&amp;rft.au=Council%20on%20Cardiovascular%20Surgery%20and%20Anesthesia&amp;rft.date=2013-03&amp;rft.pages=1342%E2%80%931350&amp;rft.spage=1342&amp;rft.epage=1350&amp;rft.issn=1524-4539&amp;rft.language=eng'></span>\n"
+	},
+	"testCase11": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.12345%2F123456&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Testing%20identifier%20import&amp;rft.aufirst=John&amp;rft.aulast=Smith&amp;rft.au=John%20Smith'></span>\n"
+	},
+	"testCase12": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.12345%2F123456&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=bookitem&amp;rft.atitle=Testing%20identifier%20import%20chapter&amp;rft.aufirst=John&amp;rft.aulast=Smith&amp;rft.au=John%20Smith'></span>\n"
+	},
+	"testCase13": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Adissertation&amp;rft.title=Regelbasierte%20Extraktion%20und%20asymmetrische%20Fusion%20bibliographischer%20Informationen&amp;rft.inst=Diplomarbeit%2C%20Universit%C3%A4t%20Trier%2C%20FB%20IV%2C%20DBIS%2FDBLP&amp;rft.degree=Master&apos;s%20Thesis&amp;rft.aufirst=Oliver&amp;rft.aulast=Hoffmann&amp;rft.au=Oliver%20Hoffmann&amp;rft.date=2009'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Adissertation&amp;rft.title=Algorithms%20for%20the%20Bregman%20k-Median%20problem&amp;rft.inst=University%20of%20Paderborn&amp;rft.degree=PhD%20Thesis&amp;rft.aufirst=Marcel%20R.&amp;rft.aulast=Ackermann&amp;rft.au=Marcel%20R.%20Ackermann&amp;rft.date=2009'></span>\n"
+	},
+	"testCase14": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1145%2F1281192.1281230&amp;rft_id=urn%3Aisbn%3A978-1-59593-609-7&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=proceeding&amp;rft.atitle=Trajectory%20Pattern%20Mining&amp;rft.btitle=Proceedings%20of%20the%2013th%20ACM%20SIGKDD%20International%20Conference%20on%20Knowledge%20Discovery%20and%20Data%20Mining&amp;rft.place=New%20York%2C%20NY%2C%20USA&amp;rft.publisher=ACM&amp;rft.series=KDD%20&apos;07&amp;rft.aufirst=Fosca&amp;rft.aulast=Giannotti&amp;rft.au=Fosca%20Giannotti&amp;rft.au=Mirco%20Nanni&amp;rft.au=Fabio%20Pinelli&amp;rft.au=Dino%20Pedreschi&amp;rft.date=2007&amp;rft.pages=330%E2%80%93339&amp;rft.spage=330&amp;rft.epage=339&amp;rft.isbn=978-1-59593-609-7'></span>\n"
+	},
+	"testCase15": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1515%2Fzfsoz-2015-0604&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Die%20Alterung%20der%20Gesellschaft%20und%20der%20Generationenkonflikt%20in%20Europa&amp;rft.jtitle=Zeitschrift%20f%C3%BCr%20Soziologie%20%3A%20ZfS&amp;rft.volume=44&amp;rft.issue=6&amp;rft.aufirst=Elias&amp;rft.aulast=Naumann&amp;rft.au=Elias%20Naumann&amp;rft.au=Moritz%20He%C3%9F&amp;rft.au=Leander%20Steinkopf&amp;rft.date=2015&amp;rft.pages=426%E2%80%93446&amp;rft.spage=426&amp;rft.epage=446&amp;rft.language=Deutsch'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1016%2Fj.aim.2013.04.020&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Higher-order%20Erd%C5%91s-Szekeres%20theorems&amp;rft.jtitle=Advances%20in%20Mathematics&amp;rft.stitle=Adv.%20Math.&amp;rft.volume=244&amp;rft.aufirst=Marek&amp;rft.aulast=Eli%C3%A1%C5%A1&amp;rft.au=Marek%20Eli%C3%A1%C5%A1&amp;rft.au=Ji%C5%99%C3%AD%20Matou%C5%A1ek&amp;rft.date=2013&amp;rft.pages=1%E2%80%9315&amp;rft.spage=1&amp;rft.epage=15&amp;rft.issn=0001-8708'></span>\n"
+	},
+	"testCase16": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=bookitem&amp;rft.atitle=B%C3%BAs%C3%A1haldabyltingin%20%3A%20P%C3%B3lit%C3%ADskt%20jafnr%C3%A6%C3%B0i%20og%20%C3%BE%C3%A1tttaka%20almennings%20%C3%AD%20m%C3%B3tm%C3%A6lum&amp;rft.place=Reykjavik&amp;rft.publisher=F%C3%A9lagsv%C3%ADsindastofnun%20H%C3%A1sk%C3%B3la%20%C3%8Dslands&amp;rft.aufirst=Eva%20H.&amp;rft.aulast=%C3%96nnud%C3%B3ttir&amp;rft.au=Eva%20H.%20%C3%96nnud%C3%B3ttir&amp;rft.date=2011&amp;rft.pages=36%E2%80%9344&amp;rft.spage=36&amp;rft.epage=44&amp;rft.language=isl'></span>\n"
+	},
+	"testCase17": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Adc&amp;rft.type=webpage&amp;rft.title=Zotero&apos;s%20Homepage&amp;rft.identifier=https%3A%2F%2Fwww.zotero.org%2F&amp;rft.aufirst=Corporation%20for%20Digital&amp;rft.aulast=Scholarship&amp;rft.au=Corporation%20for%20Digital%20Scholarship&amp;rft.date=2019'></span>\n"
+	},
+	"testCase18": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=book&amp;rft.btitle=The%20impossible%20%E2%84%A1%E2%80%94book&amp;rft.publisher=D%5C%C3%ABad%20Po%3Csub%3Eeee%3C%2Fsub%3Et%20Society&amp;rft.aufirst=Stefan&amp;rft.aulast=Swe%5C%C4%B1g&amp;rft.au=Stefan%20Swe%5C%C4%B1g&amp;rft.au=Xavier%20D%5C%C3%A9coret&amp;rft.date=1942-03'></span>\n"
+	},
+	"testCase19": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=A%20Rural%20Mobile%20Health%20Obesity%20Wellness%20Intervention%20for%20Older%20Adults%20with%20Obesity&amp;rft.jtitle=BMC%20Geriatrics&amp;rft.aufirst=John%20A.&amp;rft.aulast=Batsis&amp;rft.au=John%20A.%20Batsis&amp;rft.au=Curtis%20L.%20Petersen&amp;rft.au=Matthew%20M.%20Clark&amp;rft.au=Summer%20B.%20Cook&amp;rft.au=David%20Kotz&amp;rft.au=Tyler%20L.%20Gooding&amp;rft.au=Meredith%20N.%20Roderka&amp;rft.au=Rima%20I.%20Al-Nimr&amp;rft.au=Dawna%20M.%20Pidgeon&amp;rft.au=Ann%20Haedrich&amp;rft.au=K.%20C.%20Wright&amp;rft.au=Christina%20Aquila&amp;rft.au=Todd%20A.%20Mackenzie&amp;rft.date=2020-12'></span>\n"
+	},
+	"testCase20": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=report&amp;rft.btitle=Benchmarking%20Methodology%20for%20EVPN%20and%20PBB-EVPN&amp;rft.publisher=Internet%20Engineering%20Task%20Force&amp;rft.aufirst=sudhin&amp;rft.aulast=jacob&amp;rft.au=sudhin%20jacob&amp;rft.au=Kishore%20Tiruveedhula&amp;rft.date=2021-06-18'></span>\n"
+	},
+	"testCase21": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=proceeding&amp;rft.atitle=White%20Functionals%20for%20Anomaly%20Detection%20in%20Dynamical%20Systems&amp;rft.btitle=Advances%20in%20Neural%20Information%20Processing%20Systems&amp;rft.publisher=Curran%20Associates%2C%20Inc.&amp;rft.aufirst=Marco&amp;rft.aulast=Cuturi&amp;rft.au=Marco%20Cuturi&amp;rft.au=Jean-philippe%20Vert&amp;rft.au=Alexandre%20D&apos;%20aspremont&amp;rft.au=Y.%20Bengio&amp;rft.au=D.%20Schuurmans&amp;rft.au=J.%20Lafferty&amp;rft.au=C.%20Williams&amp;rft.au=A.%20Culotta&amp;rft.date=2009'></span>\n"
+	},
+	"testCase22": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1134%2FS1063778823010131&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Production%20of%20%CE%A3%E2%81%B0%20Hyperon%20and%20Search%20of%20%CE%A3%E2%81%B0%20Hypernuclei%20at%20LHC%20with%20ALICE&amp;rft.jtitle=Phys.%20At.%20Nucl.&amp;rft.volume=85&amp;rft.issue=6&amp;rft.aufirst=Alexander&amp;rft.aulast=Borissov&amp;rft.au=Alexander%20Borissov&amp;rft.au=Sergei%20Solokhin&amp;rft.date=2023&amp;rft.pages=970-975&amp;rft.spage=970&amp;rft.epage=975'></span>\n"
+	},
+	"testCase23": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=book&amp;rft.btitle=Poczucie%20jako%C5%9Bci%20%C5%BCycia%20a%20swoboda%20dzia%C5%82ania%20i%20odpowiedzialno%C5%9B%C4%87&amp;rft.publisher=Stowarzyszenie%20Psychologia%20i%20Architektura&amp;rft.aufirst=Romuald&amp;rft.aulast=Derbis&amp;rft.au=Romuald%20Derbis&amp;rft.au=Augustyn%20Ba%C5%84ka&amp;rft.date=1998'></span>\n"
+	},
+	"dates_and_markup": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1234%2Fabc.def&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Dates%20and%20Markup%20in%20%5CemphBib%5CTeX%3A%20a%20kovan%20probe&amp;rft.jtitle=Journal%20of%20Testing%20and%20Probing&amp;rft.volume=12&amp;rft.issue=3&amp;rft.aufirst=John&amp;rft.aulast=Smith&amp;rft.au=John%20Smith&amp;rft.au=Jean%20de%20la%20Fontaine&amp;rft.au=Kovan%20Collaboration&amp;rft.date=2021-05&amp;rft.pages=101%E2%80%93110&amp;rft.spage=101&amp;rft.epage=110'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=urn%3Aisbn%3A978-3-16-148410-0&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=book&amp;rft.btitle=A%20Second%20Record&amp;rft.place=Singapore&amp;rft.publisher=Kovan%20Press&amp;rft.aufirst=Ed&amp;rft.aulast=Editor&amp;rft.au=Ed%20Editor&amp;rft.date=1999&amp;rft.isbn=978-3-16-148410-0'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Adc&amp;rft.type=document&amp;rft.title=Date%20only&amp;rft.date=2021-05'></span>\n"
+	}
+}

@@ -1,0 +1,6 @@
+{
+	"kovan_probe": {
+		"status": 200,
+		"output": "RT Book, Whole\r\nT1 Die Kernreaktortechnik: eine Einführung\r\nA1 Lee, Kim\r\nA1 Deutsche Forschungsgemeinschaft\r\nT2 Lehrbuchreihe Physik ; 7\r\nA3 Müller, Hans\r\nA4 Schmidt, Anna\r\nPP Berlin\r\nFD 1999\r\nYR 1999\r\nED 2., überarb. Aufl\r\nLA ger\r\nPB Springer\r\nSN 3-540-12345-X\r\nUL http://example.org/toc.pdf\r\nK1 Kernreaktor\r\nK1 Geschicht\r\nK1 Deutschlan\r\n\r\n\r\nRT Motion Picture\r\nT1 Ein Film\r\nFD 1975\r\nYR 1975\r\n\r\n\r\nRT Unpublished Material\r\nT1 Handschrift ohne Autor\r\n\r\n\r\nRT Artwork\r\nT1 Plakat\r\n\r\n\r\n"
+	}
+}

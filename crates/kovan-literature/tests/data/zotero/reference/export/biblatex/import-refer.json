@@ -1,0 +1,18 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "\n@article{__2009,\n\ttitle = {参考文献管理工具研究},\n\tvolume = {29},\n\turl = {http://d.wanfangdata.com.cn/Periodical_xdqb200902027.aspx},\n\tabstract = {介绍了参考文献管理的基本方法,对参考文献管理工具的主要功能进行了对比,最后分析了参考文献管理的趋势.},\n\tpages = {94--98,93},\n\tnumber = {2},\n\tjournaltitle = {{JOURNAL} {OF} {MODERN} {INFORMATION}},\n\tauthor = {{余敏} and {朱江} and {丁照蕾}},\n\tdate = {2009},\n\tnote = {Yu Min\nZhu Jiang\nDing Zhaolei},\n\tkeywords = {参考文献管理 文献管理软件 学术书签网站 Zotero},\n}\n"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "\n@book{calvino_usynlige_1982,\n\tlocation = {Oslo},\n\ttitle = {Usynlige byer},\n\tisbn = {8203107354},\n\turl = {https://urn.nb.no/URN:NBN:no-nb_digibok_2016062048105},\n\tpublisher = {Aschehoug},\n\tauthor = {Calvino, Italo},\n\teditor = {Stender Clausen, Jørgen},\n\ttranslator = {Aardal, Jorunn},\n\tdate = {1982},\n\tkeywords = {Italiensk litteratur, Idealbyer, kjernelitteratur},\n}\n"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "\n@book{newman_corn_1891,\n\ttitle = {Corn},\n\tpublisher = {Uniontown, Ala. : Canebrake Agricultural Experiment Station},\n\tauthor = {Newman, W. H.},\n\tdate = {1891},\n\tkeywords = {Corn -- Yields, Corn -- Varieties, Corn -- Field experiments},\n}\n"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "\n@audio{noauthor_diesseits_2021,\n\tlocation = {Wien},\n\ttitle = {Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs \\& Südtirols},\n\turl = {https://diesseits.theopodcast.at/home},\n\tpublisher = {Studio Omega, Verein für Christliche Radioarbeit},\n\tdate = {2021},\n}\n"
+	}
+}

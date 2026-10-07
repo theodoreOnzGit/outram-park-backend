@@ -1,0 +1,1105 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Nancy K.",
+						"lastName": "Adams",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Shanaka L.",
+						"lastName": "DeSilva",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Steven",
+						"lastName": "Self",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Guido",
+						"lastName": "Salas",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Steven",
+						"lastName": "Schubring",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jason L.",
+						"lastName": "Permenter",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Kendra",
+						"lastName": "Arbesman",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Vulcanian eruptions",
+						"type": 1
+					},
+					{
+						"tag": "breadcrust",
+						"type": 1
+					},
+					{
+						"tag": "plinian",
+						"type": 1
+					}
+				],
+				"title": "The physical volcanology of the 1600 eruption of Huaynaputina, southern Peru",
+				"volume": "62",
+				"pages": "493–518",
+				"publicationTitle": "Bulletin of Volcanology",
+				"date": "2001"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Milton",
+						"lastName": "Abramowitz",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Irene A.",
+						"lastName": "Stegun",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"edition": "ninth Dover printing, tenth GPO printing",
+				"title": "Handbook of Mathematical Functions with Formulas, Graphs, and Mathematical Tables",
+				"place": "New York",
+				"publisher": "Dover",
+				"date": "1964"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Joe",
+						"lastName": "Torre",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Tom",
+						"lastName": "Verducci",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "The Yankee Years",
+				"publisher": "Doubleday",
+				"ISBN": "0385527403",
+				"date": "2008"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [
+					{
+						"firstName": "First",
+						"lastName": "Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Second",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Some publication title",
+				"pages": "330—331"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "First",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Second",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "Proceedings of the Xth Conference on XYZ",
+				"date": "2006-10"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Michael",
+						"lastName": "von Hicks",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"edition": "1st,",
+				"title": "Design of a Carbon Fiber Composite Grid Structure for the GLAST Spacecraft Using a Novel Manufacturing Technique",
+				"place": "Palo Alto",
+				"publisher": "Stanford Press",
+				"ISBN": "0-69-697269-4",
+				"date": "2001"
+			}
+		]
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "A.",
+						"lastName": "Oliveira",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "USGS monitoring ecological impacts",
+				"volume": "107",
+				"issue": "29",
+				"pages": "29",
+				"publicationTitle": "Oil & Gas Journal",
+				"date": "2009"
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "non-braking space: ; accented characters: ñ and ñ; tilde operator: ∼"
+			}
+		]
+	},
+	"testCase06": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "U.",
+						"lastName": "Fritz",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "C.",
+						"lastName": "Corti",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "M.",
+						"lastName": "Päckert",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Test of markupconversion: Italics, bold, superscript, subscript, and small caps: Mitochondrial DNA₂ sequences suggest unexpected phylogenetic position of Corso-Sardinian grass snakes (<i>Natrix cetti</i>) and <b>do not</b> support their <span style=\"small-caps\">species status</span>, with notes on phylogeography and subspecies delineation of grass snakes.",
+				"volume": "12",
+				"pages": "71-80",
+				"publicationTitle": "Actes du 4<sup>ème</sup> Congrès Français d'Acoustique",
+				"date": "2012"
+			}
+		]
+	},
+	"testCase07": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "American Rights at",
+						"lastName": "Work",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Public Service Research Foundation",
+				"url": "http://www.americanrightsatwork.org/blogcategory-275/",
+				"date": "2012"
+			}
+		]
+	},
+	"testCase08": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "Zotero: single attachment"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "Zotero: multiple attachments"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "Zotero: linked attachments (old)"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "Zotero: linked attachments"
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "Mendeley: single attachment",
+				"url": "https://forums.zotero.org/discussion/28347/unable-to-get-pdfs-stored-on-computer-into-zotero-standalone/"
+			},
+			{
+				"key": "KVN22227",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "Mendeley: escaped characters"
+			},
+			{
+				"key": "KVN22228",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "Citavi: single attachment",
+				"url": "https://forums.zotero.org/discussion/35909/bibtex-import-from-citavi-including-pdf-attachments/"
+			}
+		]
+	},
+	"testCase09": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "extbackslash extbackslash{}: {"
+			}
+		]
+	},
+	"testCase10": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Comilla",
+						"lastName": "Sasson",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Hendrika",
+						"lastName": "Meischke",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Benjamin S.",
+						"lastName": "Abella",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Robert A.",
+						"lastName": "Berg",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Bentley J.",
+						"lastName": "Bobrow",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Paul S.",
+						"lastName": "Chan",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Elisabeth Dowling",
+						"lastName": "Root",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Michele",
+						"lastName": "Heisler",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jerrold H.",
+						"lastName": "Levy",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Mark",
+						"lastName": "Link",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Frederick",
+						"lastName": "Masoudi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Marcus",
+						"lastName": "Ong",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Michael R.",
+						"lastName": "Sayre",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "John S.",
+						"lastName": "Rumsfeld",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Thomas D.",
+						"lastName": "Rea",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "American Heart Association Council on Quality of Care and Outcomes",
+						"lastName": "Research",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Emergency Cardiovascular Care",
+						"lastName": "Committee",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Critical Care",
+						"lastName": "Council on Cardiopulmonary",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Council on Clinical",
+						"lastName": "Cardiology",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Council on Cardiovascular Surgery and",
+						"lastName": "Anesthesia",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Administrative Personnel",
+						"type": 1
+					},
+					{
+						"tag": "American Heart Association",
+						"type": 1
+					},
+					{
+						"tag": "Cardiopulmonary Resuscitation",
+						"type": 1
+					},
+					{
+						"tag": "Community Health Services",
+						"type": 1
+					},
+					{
+						"tag": "Health Personnel",
+						"type": 1
+					},
+					{
+						"tag": "Heart Arrest",
+						"type": 1
+					},
+					{
+						"tag": "Humans",
+						"type": 1
+					},
+					{
+						"tag": "Leadership",
+						"type": 1
+					},
+					{
+						"tag": "Public Health",
+						"type": 1
+					},
+					{
+						"tag": "United States",
+						"type": 1
+					}
+				],
+				"title": "Increasing cardiopulmonary resuscitation provision in communities with low bystander cardiopulmonary resuscitation rates: a science advisory from the American Heart Association for healthcare providers, policymakers, public health departments, and community leaders",
+				"volume": "127",
+				"issue": "12",
+				"pages": "1342–1350",
+				"language": "eng",
+				"publicationTitle": "Circulation",
+				"date": "2013-03"
+			}
+		]
+	},
+	"testCase11": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "John",
+						"lastName": "Smith",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Testing identifier import"
+			}
+		]
+	},
+	"testCase12": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "John",
+						"lastName": "Smith",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Testing identifier import chapter"
+			}
+		]
+	},
+	"testCase13": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Oliver",
+						"lastName": "Hoffmann",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Regelbasierte Extraktion und asymmetrische Fusion bibliographischer Informationen",
+				"university": "Diplomarbeit, Universität Trier, FB IV, DBIS/DBLP",
+				"thesisType": "Master's Thesis",
+				"url": "http://dblp.uni-trier.de/papers/DiplomarbeitOliverHoffmann.pdf",
+				"date": "2009"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Marcel R.",
+						"lastName": "Ackermann",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Algorithms for the Bregman k-Median problem",
+				"university": "University of Paderborn",
+				"thesisType": "PhD Thesis",
+				"url": "http://digital.ub.uni-paderborn.de/hs/content/titleinfo/1561",
+				"date": "2009"
+			}
+		]
+	},
+	"testCase14": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [
+					{
+						"firstName": "Fosca",
+						"lastName": "Giannotti",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Mirco",
+						"lastName": "Nanni",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Fabio",
+						"lastName": "Pinelli",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Dino",
+						"lastName": "Pedreschi",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "spatio-temporal data mining",
+						"type": 1
+					},
+					{
+						"tag": "trajectory patterns",
+						"type": 1
+					}
+				],
+				"title": "Trajectory Pattern Mining",
+				"series": "KDD '07",
+				"place": "New York, NY, USA",
+				"publisher": "ACM",
+				"pages": "330–339",
+				"ISBN": "978-1-59593-609-7",
+				"url": "http://doi.acm.org/10.1145/1281192.1281230",
+				"proceedingsTitle": "Proceedings of the 13th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining",
+				"date": "2007"
+			}
+		]
+	},
+	"testCase15": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Elias",
+						"lastName": "Naumann",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Moritz",
+						"lastName": "Heß",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Leander",
+						"lastName": "Steinkopf",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Die Alterung der Gesellschaft und der Generationenkonflikt in Europa",
+				"volume": "44",
+				"issue": "6",
+				"place": "Stuttgart",
+				"publisher": "Lucius & Lucius",
+				"pages": "426–446",
+				"url": "https://madoc.bib.uni-mannheim.de/40756/",
+				"language": "Deutsch",
+				"publicationTitle": "Zeitschrift für Soziologie : ZfS",
+				"date": "2015"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Marek",
+						"lastName": "Eliáš",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jiří",
+						"lastName": "Matoušek",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Higher-order Erdős-Szekeres theorems",
+				"volume": "244",
+				"pages": "1–15",
+				"url": "http://dx.doi.org/10.1016/j.aim.2013.04.020",
+				"publicationTitle": "Advances in Mathematics",
+				"date": "2013"
+			}
+		]
+	},
+	"testCase16": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Eva H.",
+						"lastName": "Önnudóttir",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Búsáhaldabyltingin : Pólitískt jafnræði og þátttaka almennings í mótmælum",
+				"place": "Reykjavik",
+				"publisher": "Félagsvísindastofnun Háskóla Íslands",
+				"pages": "36–44",
+				"language": "isl",
+				"date": "2011"
+			}
+		]
+	},
+	"testCase17": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [
+					{
+						"firstName": "Corporation for Digital",
+						"lastName": "Scholarship",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Zotero's Homepage",
+				"url": "https://www.zotero.org/",
+				"date": "2019"
+			}
+		]
+	},
+	"testCase18": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Stefan",
+						"lastName": "Swe\\ıg",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Xavier",
+						"lastName": "D\\écoret",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "The impossible ℡—book",
+				"publisher": "D\\ëad Po<sub>eee</sub>t Society",
+				"date": "1942-03"
+			}
+		]
+	},
+	"testCase19": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "John A.",
+						"lastName": "Batsis",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Curtis L.",
+						"lastName": "Petersen",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Matthew M.",
+						"lastName": "Clark",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Summer B.",
+						"lastName": "Cook",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "David",
+						"lastName": "Kotz",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Tyler L.",
+						"lastName": "Gooding",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Meredith N.",
+						"lastName": "Roderka",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Rima I.",
+						"lastName": "Al-Nimr",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Dawna M.",
+						"lastName": "Pidgeon",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ann",
+						"lastName": "Haedrich",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "K. C.",
+						"lastName": "Wright",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Christina",
+						"lastName": "Aquila",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Todd A.",
+						"lastName": "Mackenzie",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A Rural Mobile Health Obesity Wellness Intervention for Older Adults with Obesity",
+				"rights": "the authors",
+				"url": "https://www.cs.dartmouth.edu/~kotz/research/batsis-rural/index.html",
+				"publicationTitle": "BMC Geriatrics",
+				"date": "2020-12"
+			}
+		]
+	},
+	"testCase20": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "report",
+				"creators": [
+					{
+						"firstName": "sudhin",
+						"lastName": "jacob",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Kishore",
+						"lastName": "Tiruveedhula",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Benchmarking Methodology for EVPN and PBB-EVPN",
+				"institution": "Internet Engineering Task Force",
+				"reportType": "Internet-Draft",
+				"url": "https://datatracker.ietf.org/doc/html/draft-ietf-bmwg-evpntest-09",
+				"abstractNote": "This document defines methodologies for benchmarking EVPN and PBB- EVPN performance. EVPN is defined in RFC 7432, and is being deployed in Service Provider networks. Specifically, this document defines the methodologies for benchmarking EVPN/PBB-EVPN convergence, data plane performance, and control plane performance.",
+				"date": "2021-06-18"
+			}
+		]
+	},
+	"testCase21": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [
+					{
+						"firstName": "Marco",
+						"lastName": "Cuturi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jean-philippe",
+						"lastName": "Vert",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Alexandre",
+						"lastName": "D' aspremont",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Y.",
+						"lastName": "Bengio",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "D.",
+						"lastName": "Schuurmans",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "J.",
+						"lastName": "Lafferty",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "C.",
+						"lastName": "Williams",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "A.",
+						"lastName": "Culotta",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "White Functionals for Anomaly Detection in Dynamical Systems",
+				"volume": "22",
+				"publisher": "Curran Associates, Inc.",
+				"url": "https://proceedings.neurips.cc/paper/2009/file/0188e8b8b014829e2fa0f430f0a95961-Paper.pdf",
+				"proceedingsTitle": "Advances in Neural Information Processing Systems",
+				"date": "2009"
+			}
+		]
+	},
+	"testCase22": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Alexander",
+						"lastName": "Borissov",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Sergei",
+						"lastName": "Solokhin",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Production of Σ⁰ Hyperon and Search of Σ⁰ Hypernuclei at LHC with ALICE",
+				"volume": "85",
+				"issue": "6",
+				"pages": "970-975",
+				"url": "https://cds.cern.ch/record/2855446",
+				"publicationTitle": "Phys. At. Nucl.",
+				"date": "2023"
+			}
+		]
+	},
+	"testCase23": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Romuald",
+						"lastName": "Derbis",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Augustyn",
+						"lastName": "Bańka",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Poczucie jakości życia a swoboda działania i odpowiedzialność",
+				"publisher": "Stowarzyszenie Psychologia i Architektura",
+				"date": "1998"
+			}
+		]
+	},
+	"dates_and_markup": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "John",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jean",
+						"lastName": "de la Fontaine",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Kovan",
+						"lastName": "Collaboration",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "alpha",
+						"type": 1
+					},
+					{
+						"tag": "beta",
+						"type": 1
+					},
+					{
+						"tag": "gamma",
+						"type": 1
+					}
+				],
+				"title": "Dates and Markup in \\emphBib\\TeX: a kovan probe",
+				"volume": "12",
+				"issue": "3",
+				"pages": "101–110",
+				"url": "http://example.com/a?b=c&d=e",
+				"publicationTitle": "Journal of Testing and Probing",
+				"date": "2021-05"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "A Second Record",
+				"place": "Singapore",
+				"publisher": "Kovan Press",
+				"ISBN": "978-3-16-148410-0",
+				"date": "1999"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "book",
+				"creators": [],
+				"tags": [],
+				"title": "Date only",
+				"date": "2021 May"
+			}
+		]
+	}
+}

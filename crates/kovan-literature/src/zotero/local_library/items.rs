@@ -20,7 +20,7 @@
 //! Items of one library, loaded the way `Zotero.Items` loads them and
 //! shaped the way `Zotero.Item#toJSON` writes them.
 
-use super::containers::{cell_text, item_relations, Lookups};
+use super::containers::{item_relations, Lookups};
 use super::open::Caps;
 use super::{AttachmentFile, ReadIssue, ReadReport, ZoteroDbError};
 use kovan_common::zotero::date::{multipart_to_str, sql_to_iso8601};
@@ -29,7 +29,7 @@ use kovan_common::zotero::{
     AnnotationData, AnnotationType, AttachmentData, Creator, CreatorName, CreatorType, Field,
     ItemType, LinkMode, Tag, ZoteroItem,
 };
-use rusqlite::Connection;
+use super::db::{Db, Param};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
@@ -257,7 +257,7 @@ struct Primary {
 }
 
 fn load_primary(
-    conn: &Connection,
+    conn: &Db,
     caps: &Caps,
     lookups: &Lookups,
     library_id: i64,
@@ -300,35 +300,37 @@ fn load_primary(
          LEFT JOIN charsets CS ON (IA.charsetID=CS.charsetID) \
          WHERE O.libraryID=?1 ORDER BY O.itemID"
     );
-    let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt.query_map([library_id], |r| {
-        let type_id: i64 = r.get(1)?;
-        Ok(Primary {
-            id: r.get(0)?,
-            type_name: lookups
-                .item_types
-                .get(&type_id)
-                .cloned()
-                .unwrap_or_else(|| format!("#{type_id}")),
-            date_added: cell_text(r.get_ref(2)?),
-            date_modified: cell_text(r.get_ref(3)?),
-            key: r.get(4)?,
-            version: r.get::<_, Option<i64>>(5)?.unwrap_or(0),
-            deleted: r.get::<_, i64>(6)? != 0,
-            in_publications: r.get::<_, i64>(7)? != 0,
-            parent_attachment: r.get(8)?,
-            parent_note: r.get(9)?,
-            parent_annotation: r.get(10)?,
-            link_mode: r.get(11)?,
-            content_type: cell_text(r.get_ref(12)?),
-            charset: r.get(13)?,
-            path: cell_text(r.get_ref(14)?),
-            storage_mod_time: r.get(15)?,
-            storage_hash: cell_text(r.get_ref(16)?),
-            last_read: r.get(17)?,
-        })
-    })?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    let rows = conn
+        .rows(&sql, &[Param::from(library_id)])?
+        .into_iter()
+        .map(|r| -> Result<_, ZoteroDbError> {
+            let type_id: i64 = r.i64(1)?;
+            Ok(Primary {
+                id: r.i64(0)?,
+                type_name: lookups
+                    .item_types
+                    .get(&type_id)
+                    .cloned()
+                    .unwrap_or_else(|| format!("#{type_id}")),
+                date_added: r.text(2)?,
+                date_modified: r.text(3)?,
+                key: r.string(4)?,
+                version: r.opt_i64(5)?.unwrap_or(0),
+                deleted: r.i64(6)? != 0,
+                in_publications: r.i64(7)? != 0,
+                parent_attachment: r.opt_string(8)?,
+                parent_note: r.opt_string(9)?,
+                parent_annotation: r.opt_string(10)?,
+                link_mode: r.opt_i64(11)?,
+                content_type: r.text(12)?,
+                charset: r.opt_string(13)?,
+                path: r.text(14)?,
+                storage_mod_time: r.opt_i64(15)?,
+                storage_hash: r.text(16)?,
+                last_read: r.opt_i64(17)?,
+            })
+        });
+    rows.collect()
 }
 
 /// `setField(field, value, loadIn=true)` (item.js:662-860) for one stored
@@ -398,7 +400,7 @@ fn issue(ctx: &LibCtx, what: String, reason: String) -> ReadIssue {
 /// Every item of one library, in `itemID` order, with each attachment's
 /// file. See the parent module docs for the table-by-table mapping.
 pub(super) fn load_items(
-    conn: &Connection,
+    conn: &Db,
     caps: &Caps,
     lookups: &Lookups,
     ctx: &LibCtx,
@@ -491,18 +493,15 @@ pub(super) fn load_items(
 
     // itemData (`_loadItemData`; notes have no item data).
     {
-        let mut stmt = conn.prepare(
-            "SELECT I.itemID, D.fieldID, V.value FROM items I \
+        let rows = conn
+            .rows(
+                "SELECT I.itemID, D.fieldID, V.value FROM items I \
              JOIN itemData D USING (itemID) JOIN itemDataValues V USING (valueID) \
              WHERE I.libraryID=?1 ORDER BY I.itemID, D.fieldID",
-        )?;
-        let rows = stmt.query_map([lib], |r| {
-            Ok((
-                r.get::<_, i64>(0)?,
-                r.get::<_, i64>(1)?,
-                cell_text(r.get_ref(2)?),
-            ))
-        })?;
+                &[Param::from(lib)],
+            )?
+            .into_iter()
+            .map(|r| -> Result<_, ZoteroDbError> { Ok((r.i64(0)?, r.i64(1)?, r.text(2)?)) });
         for row in rows {
             let (id, field_id, raw) = row?;
             let Some(&i) = index.get(&id) else { continue };
@@ -535,20 +534,23 @@ pub(super) fn load_items(
 
     // Creators (`_loadCreators`), regular items only in `toJSON`.
     {
-        let mut stmt = conn.prepare(
-            "SELECT IC.itemID, C.firstName, C.lastName, C.fieldMode, IC.creatorTypeID \
+        let rows = conn
+            .rows(
+                "SELECT IC.itemID, C.firstName, C.lastName, C.fieldMode, IC.creatorTypeID \
              FROM items I JOIN itemCreators IC USING (itemID) JOIN creators C USING (creatorID) \
              WHERE I.libraryID=?1 ORDER BY IC.itemID, IC.orderIndex",
-        )?;
-        let rows = stmt.query_map([lib], |r| {
-            Ok((
-                r.get::<_, i64>(0)?,
-                cell_text(r.get_ref(1)?).unwrap_or_default(),
-                cell_text(r.get_ref(2)?).unwrap_or_default(),
-                r.get::<_, Option<i64>>(3)?.unwrap_or(0),
-                r.get::<_, i64>(4)?,
-            ))
-        })?;
+                &[Param::from(lib)],
+            )?
+            .into_iter()
+            .map(|r| -> Result<_, ZoteroDbError> {
+                Ok((
+                    r.i64(0)?,
+                    r.text(1)?.unwrap_or_default(),
+                    r.text(2)?.unwrap_or_default(),
+                    r.opt_i64(3)?.unwrap_or(0),
+                    r.i64(4)?,
+                ))
+            });
         for row in rows {
             let (id, first, last, field_mode, type_id) = row?;
             let Some(&i) = index.get(&id) else { continue };
@@ -584,13 +586,14 @@ pub(super) fn load_items(
     // Notes (`_loadNotes`): notes always carry `note`; attachments only
     // when it is non-empty (`toJSON`, item.js:6081).
     {
-        let mut stmt = conn.prepare(
-            "SELECT N.itemID, N.note FROM items I JOIN itemNotes N USING (itemID) \
+        let rows = conn
+            .rows(
+                "SELECT N.itemID, N.note FROM items I JOIN itemNotes N USING (itemID) \
              WHERE I.libraryID=?1",
-        )?;
-        let rows = stmt.query_map([lib], |r| {
-            Ok((r.get::<_, i64>(0)?, cell_text(r.get_ref(1)?)))
-        })?;
+                &[Param::from(lib)],
+            )?
+            .into_iter()
+            .map(|r| -> Result<_, ZoteroDbError> { Ok((r.i64(0)?, r.text(1)?)) });
         for row in rows {
             let (id, raw) = row?;
             let Some(&i) = index.get(&id) else { continue };
@@ -621,21 +624,22 @@ pub(super) fn load_items(
              A.sortIndex, A.position, A.isExternal \
              FROM items I JOIN itemAnnotations A USING (itemID) WHERE I.libraryID=?1"
         );
-        let mut stmt = conn.prepare(&sql)?;
-        let rows = stmt.query_map([lib], |r| {
-            Ok((
-                r.get::<_, i64>(0)?,
-                r.get::<_, i64>(1)?,
-                cell_text(r.get_ref(2)?),
-                cell_text(r.get_ref(3)?),
-                cell_text(r.get_ref(4)?),
-                cell_text(r.get_ref(5)?),
-                cell_text(r.get_ref(6)?),
-                cell_text(r.get_ref(7)?),
-                cell_text(r.get_ref(8)?),
-                r.get::<_, Option<i64>>(9)?.unwrap_or(0) != 0,
-            ))
-        })?;
+        let rows = conn.rows(&sql, &[Param::from(lib)])?.into_iter().map(
+            |r| -> Result<_, ZoteroDbError> {
+                Ok((
+                    r.i64(0)?,
+                    r.i64(1)?,
+                    r.text(2)?,
+                    r.text(3)?,
+                    r.text(4)?,
+                    r.text(5)?,
+                    r.text(6)?,
+                    r.text(7)?,
+                    r.text(8)?,
+                    r.opt_i64(9)?.unwrap_or(0) != 0,
+                ))
+            },
+        );
         for row in rows {
             let (
                 id,
@@ -687,18 +691,21 @@ pub(super) fn load_items(
     // Tags (`_loadTags` + `Zotero.Tags.cleanData`): the PRIMARY KEY
     // (itemID, tagID) is the order the upstream join visits rows in.
     {
-        let mut stmt = conn.prepare(
-            "SELECT IT.itemID, T.name, IT.type FROM items I \
+        let rows = conn
+            .rows(
+                "SELECT IT.itemID, T.name, IT.type FROM items I \
              JOIN itemTags IT USING (itemID) JOIN tags T USING (tagID) \
              WHERE I.libraryID=?1 ORDER BY IT.itemID, IT.tagID",
-        )?;
-        let rows = stmt.query_map([lib], |r| {
-            Ok((
-                r.get::<_, i64>(0)?,
-                cell_text(r.get_ref(1)?).unwrap_or_default(),
-                r.get::<_, Option<i64>>(2)?.unwrap_or(0),
-            ))
-        })?;
+                &[Param::from(lib)],
+            )?
+            .into_iter()
+            .map(|r| -> Result<_, ZoteroDbError> {
+                Ok((
+                    r.i64(0)?,
+                    r.text(1)?.unwrap_or_default(),
+                    r.opt_i64(2)?.unwrap_or(0),
+                ))
+            });
         for row in rows {
             let (id, name, ty) = row?;
             let Some(&i) = index.get(&id) else { continue };
@@ -727,12 +734,15 @@ pub(super) fn load_items(
 
     // Collections (`_loadCollections`), top-level items only in `toJSON`.
     {
-        let mut stmt = conn.prepare(
-            "SELECT CI.itemID, C.key FROM items I JOIN collectionItems CI USING (itemID) \
+        let rows = conn
+            .rows(
+                "SELECT CI.itemID, C.key FROM items I JOIN collectionItems CI USING (itemID) \
              JOIN collections C USING (collectionID) \
              WHERE I.libraryID=?1 ORDER BY CI.itemID, CI.rowid",
-        )?;
-        let rows = stmt.query_map([lib], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
+                &[Param::from(lib)],
+            )?
+            .into_iter()
+            .map(|r| -> Result<_, ZoteroDbError> { Ok((r.i64(0)?, r.string(1)?)) });
         for row in rows {
             let (id, ckey) = row?;
             let Some(&i) = index.get(&id) else { continue };
