@@ -122,6 +122,12 @@ pub trait LoadedRung {
     fn raster(&mut self, _req: &RasterReq) -> Result<Vec<u8>, String> {
         Err("this rung has no live geometry slice".into())
     }
+    /// Serve one message of the rung's own demo ([`McRung::walk_demo`],
+    /// gh:#785): flat `f64`s in, flat `f64`s out, in a format only the
+    /// rung's module reads. One short computation per message.
+    fn walk(&mut self, _msg: &[f64]) -> Result<Vec<f64>, String> {
+        Err("this rung has no demo of its own".into())
+    }
 }
 
 /// Everything about one rung that the engine and the app need. Implemented
@@ -189,6 +195,12 @@ pub trait McRung {
     /// ([`crate::beds`], gh:#787).
     fn beds() -> bool {
         false
+    }
+    /// A demo with its own main view and panel (gh:#785: a code walk's demo),
+    /// shown as the Watch view `demo`. Its worker side is
+    /// [`LoadedRung::walk`]; its page side is [`crate::walkdemo::WalkDemo`].
+    fn walk_demo() -> Option<crate::walkdemo::WalkKind> {
+        None
     }
 }
 
@@ -279,6 +291,9 @@ macro_rules! rung_table {
                 pub fn beds(self) -> bool {
                     match self { $( Rung::$t => <$crate::$m::$t as McRung>::beds(), )+ }
                 }
+                pub fn walk_demo(self) -> Option<$crate::walkdemo::WalkKind> {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::walk_demo(), )+ }
+                }
                 pub fn has_run(self) -> bool {
                     self.run_default().is_some()
                 }
@@ -329,6 +344,9 @@ macro_rules! rung_table {
                 }
                 pub fn raster(&mut self, req: &RasterReq) -> Result<Vec<u8>, String> {
                     match self { $( Loaded::$t(l) => l.raster(req), )+ }
+                }
+                pub fn walk(&mut self, msg: &[f64]) -> Result<Vec<f64>, String> {
+                    match self { $( Loaded::$t(l) => l.walk(msg), )+ }
                 }
             }
         }

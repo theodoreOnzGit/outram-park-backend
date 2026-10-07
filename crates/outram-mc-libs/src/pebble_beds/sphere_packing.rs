@@ -210,6 +210,38 @@ pub fn pack_spheres(
     packing_fraction: f64,
     seed: u64,
 ) -> Result<Vec<Sphere>, PackingError> {
+    pack_spheres_observed(radius, half_width, packing_fraction, seed, |_| {})
+}
+
+/// One accepted placement of [`pack_spheres_observed`]: the sphere's index in
+/// placement order, its centre, and how many trial centres RSA drew for it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RsaPlacement {
+    /// Index in the returned list, which is the placement order.
+    pub index: usize,
+    /// Centre \[cm\].
+    pub center: Position,
+    /// Trial centres drawn for this sphere: the rejected ones plus the
+    /// accepted one, so at least 1.
+    pub trials: usize,
+}
+
+/// [`pack_spheres`], calling `observe` once per accepted sphere, in placement
+/// order, with the number of trials it took.
+///
+/// **This is the packer, not a copy of it.** [`pack_spheres`] is this function
+/// with a no-op observer, so the two return the same list bit for bit
+/// (`observed_packing_is_pack_spheres_bit_for_bit`). Added 2026-10-07
+/// (GitHub #785) so the rung-5 web demo can show RSA placing particles one at
+/// a time on the real packer, with the trials per placement rising as the cube
+/// fills towards [`MAX_PF_RSA`] (RSA's jamming).
+pub fn pack_spheres_observed(
+    radius: f64,
+    half_width: f64,
+    packing_fraction: f64,
+    seed: u64,
+    mut observe: impl FnMut(RsaPlacement),
+) -> Result<Vec<Sphere>, PackingError> {
     if packing_fraction > MAX_PF_RSA {
         return Err(PackingError::PackingTooDense {
             requested: packing_fraction,
@@ -294,6 +326,11 @@ pub fn pack_spheres(
             // Accept: register in every mesh cell within one diameter.
             let idx = spheres.len();
             spheres.push(Position::new(px, py, pz));
+            observe(RsaPlacement {
+                index: idx,
+                center: Position::new(px, py, pz),
+                trials,
+            });
             for &i in &nearby(px) {
                 for &j in &nearby(py) {
                     for &k in &nearby(pz) {
@@ -662,6 +699,27 @@ mod tests {
         let via_config = cfg.generate().unwrap();
         let direct = pack_spheres(0.05, 1.0, 0.2, 99).unwrap();
         assert_eq!(via_config, direct);
+    }
+
+    /// The observed packer IS the packer: the same list bit for bit, one call
+    /// per sphere in placement order, and the trials per placement rise as the
+    /// cube fills (RSA's jamming), which is what the GitHub #785 demo plots.
+    #[test]
+    fn observed_packing_is_pack_spheres_bit_for_bit() {
+        let mut seen: Vec<RsaPlacement> = Vec::new();
+        let observed = pack_spheres_observed(0.05, 1.0, 0.3, 11, |p| seen.push(p)).unwrap();
+        let plain = pack_spheres(0.05, 1.0, 0.3, 11).unwrap();
+        assert_eq!(observed, plain);
+        assert_eq!(seen.len(), plain.len());
+        for (i, (p, s)) in seen.iter().zip(&plain).enumerate() {
+            assert_eq!(p.index, i);
+            assert_eq!(p.center, s.center);
+            assert!(p.trials >= 1);
+        }
+        let mean =
+            |w: &[RsaPlacement]| w.iter().map(|p| p.trials as f64).sum::<f64>() / w.len() as f64;
+        let tenth = seen.len() / 10;
+        assert!(mean(&seen[seen.len() - tenth..]) > 2.0 * mean(&seen[..tenth]));
     }
 }
 

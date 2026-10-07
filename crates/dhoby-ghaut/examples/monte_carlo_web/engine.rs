@@ -68,6 +68,8 @@ pub enum Request {
     XsCurves,
     /// Rasterise a window of the rung's assembled geometry (gh:#528).
     Raster(crate::raster::RasterReq),
+    /// A message for the rung's own demo (gh:#785), read by its module.
+    Walk(Vec<f64>),
 }
 
 pub enum Event {
@@ -87,6 +89,8 @@ pub enum Event {
     XsCurves(Vec<crate::xs::XsCurve>),
     /// A raster: one byte per pixel ([`crate::raster`]), and how long it took.
     Raster { req: crate::raster::RasterReq, map: Vec<u8>, secs: f64 },
+    /// The rung's own demo's answer to a [`Request::Walk`] (gh:#785).
+    Walk(Vec<f64>),
     Error(String),
 }
 
@@ -135,6 +139,10 @@ pub fn serve(l: &mut Loaded, r: Request, post: &mut impl FnMut(Event)) {
                 Err(e) => post(Event::Error(e)),
             }
         }
+        Request::Walk(msg) => match l.walk(&msg) {
+            Ok(v) => post(Event::Walk(v)),
+            Err(e) => post(Event::Error(e)),
+        },
     }
 }
 
@@ -416,6 +424,10 @@ mod web {
                     js::set(&o, "kind", "raster");
                     js::set(&o, "req", js::f64s(&r.encode()));
                 }
+                Request::Walk(m) => {
+                    js::set(&o, "kind", "walk");
+                    js::set(&o, "data", js::f64s(m));
+                }
             }
             o.into()
         }
@@ -465,6 +477,7 @@ mod web {
                 "kinf_step" => Request::KinfStep,
                 "xs_curves" => Request::XsCurves,
                 "raster" => Request::Raster(crate::raster::RasterReq::decode(&js::get_f64s(v, "req"))?),
+                "walk" => Request::Walk(js::get_f64s(v, "data")),
                 other => return Err(format!("unknown request '{other}'")),
             })
         }
@@ -521,6 +534,10 @@ mod web {
                     js::set(&o, "data", js::f64s(&v));
                     js::set(&o, "labels", labels.as_str());
                 }
+                Event::Walk(m) => {
+                    js::set(&o, "kind", "walk");
+                    js::set(&o, "data", js::f64s(m));
+                }
                 Event::Error(m) => {
                     js::set(&o, "kind", "error");
                     js::set(&o, "message", m.as_str());
@@ -552,6 +569,7 @@ mod web {
                     secs: js::get_f64(v, "secs").unwrap_or(0.0),
                 },
                 "xs_curves" => Event::XsCurves(crate::xs::decode(&js::get_f64s(v, "data"), &js::get_str(v, "labels"))?),
+                "walk" => Event::Walk(js::get_f64s(v, "data")),
                 "error" => Event::Error(js::get_str(v, "message")),
                 other => return Err(format!("unknown message '{other}' from the physics worker")),
             })

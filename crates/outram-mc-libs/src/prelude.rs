@@ -60,8 +60,8 @@ pub use crate::physics::fixed_source::{
     run_fixed_source, FixedSource, FixedSourceResult, FixedSourceSettings,
 };
 pub use crate::dh_universe::{
-    fit_ring_rpt_inner_radius, DhError, DhTreatment, DhUniverse, DispersedParams, PebbleParams,
-    RingRptFit,
+    fit_ring_rpt_inner_radius, is_whole_in_ball, pack_in_ball, BallPacking, BallPackingAttempt,
+    DhError, DhTreatment, DhUniverse, DispersedParams, PebbleParams, RingRptFit,
 };
 pub use crate::physics::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};
 pub use crate::pebble_beds::fhr_pebble::{
@@ -70,7 +70,7 @@ pub use crate::pebble_beds::fhr_pebble::{
 };
 pub use crate::pebble_beds::keff_delta::{run_keff_delta, MaterialQuery};
 pub use crate::pebble_beds::sphere_packing::{
-    pack_spheres, PackedSpheres, PackingConfig, PackingMethod,
+    pack_spheres, pack_spheres_observed, PackedSpheres, PackingConfig, PackingMethod, RsaPlacement,
 };
 pub use crate::pebble_beds::crp_packing::{pack_spheres_crp, CrpError, MAX_PF_CRP};
 pub use crate::pebble_beds::dem_bed::{DemBed, DemBedError};

@@ -957,8 +957,9 @@ impl DhUniverse {
 
         let (geometry, particles) = match treatment {
             DhTreatment::DeltaTracking => {
-                let (packing, realised) =
-                    pack_in_ball(r_particle, params.fuel_zone_radius, pf, params.seed)?;
+                let BallPacking {
+                    packing, realised, ..
+                } = pack_in_ball(r_particle, params.fuel_zone_radius, pf, params.seed)?;
                 achieved_pf = realised;
                 let n = packing.len();
                 let pebble = ExplicitTrisoPebble::new(
@@ -1866,11 +1867,51 @@ impl RingRptFit {
     }
 }
 
+/// One attempt of [`pack_in_ball`]: the fraction RSA was asked for over the
+/// cube, how many spheres it placed there, how many lay wholly inside the
+/// ball, and the fraction those realise inside the ball.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BallPackingAttempt {
+    /// Packing fraction requested of RSA over the cube.
+    pub request: f64,
+    /// Spheres RSA placed in the cube.
+    pub generated: usize,
+    /// Spheres lying wholly inside the ball ([`is_whole_in_ball`]).
+    pub kept: usize,
+    /// `kept * (particle_radius / radius)^3`: the fraction inside the ball.
+    pub realised: f64,
+}
+
+/// What [`pack_in_ball`] returns: the best packing, the fraction it realises
+/// inside the ball, and every attempt in order (the first is the request
+/// itself, the rest the secant rescales).
+#[derive(Debug, Clone)]
+pub struct BallPacking {
+    /// The kept whole particles of the best attempt.
+    pub packing: PackedSpheres,
+    /// Its realised fraction inside the ball.
+    pub realised: f64,
+    /// Every attempt, in order. Kept so the iteration can be shown (the
+    /// GitHub #785 demo replays each one) rather than only its result.
+    pub attempts: Vec<BallPackingAttempt>,
+}
+
+/// Whether a particle of `particle_radius` centred at `center` lies wholly
+/// inside a ball of `radius` at the origin: `|center| + particle_radius <=
+/// radius`. The keep rule of [`pack_in_ball`] (and of
+/// `sphere_packing::cubic_array_in_ball`).
+pub fn is_whole_in_ball(center: Position, particle_radius: f64, radius: f64) -> bool {
+    center.norm() + particle_radius <= radius
+}
+
 /// RSA-pack whole particles into a ball of `radius`, **hitting the requested
 /// packing fraction inside that ball** rather than inside the cube it was
 /// generated in.
 ///
-/// Returns the packing and the fraction it actually realised.
+/// Returns the packing, the fraction it actually realised, and every attempt
+/// ([`BallPacking`]). Public since 2026-10-07 (GitHub #785), so the rung-5 web
+/// demo can show the cut-particle iteration on this function rather than on a
+/// copy of it.
 ///
 /// # Why this needs an iteration at all
 ///
@@ -1916,19 +1957,19 @@ impl RingRptFit {
 /// approximate treatments never pack. If it ever matters, the correction
 /// factor is deterministic in `(particle_radius, radius, packing_fraction,
 /// seed)` and could be cached rather than re-derived.
-fn pack_in_ball(
+pub fn pack_in_ball(
     particle_radius: f64,
     radius: f64,
     packing_fraction: f64,
     seed: u64,
-) -> Result<(PackedSpheres, f64), DhError> {
+) -> Result<BallPacking, DhError> {
     const TOLERANCE: f64 = 2.0e-3; // 0.2 % of the requested fraction
     const MAX_STEPS: usize = 6;
 
     let half = radius + particle_radius;
     let unit = (particle_radius / radius).powi(3); // one sphere's share of the ball
 
-    let attempt = |request: f64| -> Result<(PackedSpheres, f64), DhError> {
+    let attempt = |request: f64| -> Result<(PackedSpheres, BallPackingAttempt), DhError> {
         let cfg = PackingConfig {
             particle_radius,
             packing_fraction: request,
@@ -1939,9 +1980,10 @@ fn pack_in_ball(
         let spheres = cfg
             .generate()
             .map_err(|e| DhError::Packing(format!("{e:?}")))?;
+        let generated = spheres.len();
         let kept: Vec<_> = spheres
             .into_iter()
-            .filter(|s| s.center.norm() + particle_radius <= radius)
+            .filter(|s| is_whole_in_ball(s.center, particle_radius, radius))
             .collect();
         if kept.is_empty() {
             return Err(DhError::Packing(
@@ -1949,14 +1991,22 @@ fn pack_in_ball(
             ));
         }
         let realised = kept.len() as f64 * unit;
+        let record = BallPackingAttempt {
+            request,
+            generated,
+            kept: kept.len(),
+            realised,
+        };
         Ok((
             PackedSpheres::from_spheres(kept, half, particle_radius),
-            realised,
+            record,
         ))
     };
 
     let mut request = packing_fraction;
-    let (mut packing, mut realised) = attempt(request)?;
+    let (packing, first) = attempt(request)?;
+    let mut realised = first.realised;
+    let mut attempts = vec![first];
     let mut best = (packing, realised);
     let mut best_err = (realised / packing_fraction - 1.0).abs();
 
@@ -1968,16 +2018,20 @@ fn pack_in_ball(
         // cannot ask the generator for something it must refuse.
         request = (request * packing_fraction / realised).clamp(1.0e-4, 0.63);
         let (p, r) = attempt(request)?;
-        packing = p;
-        realised = r;
+        realised = r.realised;
+        attempts.push(r);
         let err = (realised / packing_fraction - 1.0).abs();
         if err < best_err {
             best_err = err;
-            best = (packing, realised);
+            best = (p, realised);
         }
     }
 
-    Ok(best)
+    Ok(BallPacking {
+        packing: best.0,
+        realised: best.1,
+        attempts,
+    })
 }
 
 /// Volume-homogenise the five TRISO layers into one particle material.
@@ -2720,6 +2774,45 @@ mod tests {
             u.packing_fraction(),
             u.particle_count()
         );
+    }
+
+    /// `pack_in_ball`'s attempt record is the iteration it ran (GitHub #785):
+    /// the first attempt asks for the target itself and falls short (the cut
+    /// particles), every attempt replays bit for bit through the public
+    /// `pack_spheres` and `is_whole_in_ball`, and the returned packing is the
+    /// best attempt, inside the 0.2 % tolerance.
+    #[test]
+    fn pack_in_ball_records_the_attempts_it_ran() {
+        use crate::pebble_beds::sphere_packing::pack_spheres;
+        let spec = TrisoSpec::FHR_HALEU_UCO;
+        let (r_p, big_r, pf, seed) = (
+            spec.opyc,
+            1.9,
+            spec.packing_fraction,
+            0x0DDF_1234_5678_9ABC_u64 | 1,
+        );
+        let b = pack_in_ball(r_p, big_r, pf, seed).unwrap();
+        assert!(b.attempts.len() >= 2, "{:?}", b.attempts);
+        assert_eq!(b.attempts[0].request, pf);
+        assert!(
+            b.attempts[0].realised < pf,
+            "whole-only at the bare request falls short"
+        );
+        for a in &b.attempts {
+            let s = pack_spheres(r_p, big_r + r_p, a.request, seed).unwrap();
+            assert_eq!(s.len(), a.generated);
+            assert_eq!(
+                s.iter()
+                    .filter(|s| is_whole_in_ball(s.center, r_p, big_r))
+                    .count(),
+                a.kept
+            );
+        }
+        assert!((b.realised / pf - 1.0).abs() <= 2.0e-3);
+        assert!(b
+            .attempts
+            .iter()
+            .any(|a| a.realised == b.realised && a.kept == b.packing.len()));
     }
 
     /// **SCLS must remember geometry across history boundaries.** That is the

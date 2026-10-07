@@ -13,6 +13,7 @@ use crate::history::{outcome_name, History, Stats};
 use crate::keff::{console_line, summary_lines, Generation, KeffConfig, KinfCase, KinfGeneration, LineStyle, CONSOLE_HEADER};
 use crate::raster::Slicer;
 use crate::sweep::RecordedSweep;
+use crate::walkdemo::{Outgoing, WalkDemo};
 use crate::xs::{self, XsCurve};
 use crate::rungs::Mode;
 use crate::table::Rung;
@@ -353,6 +354,20 @@ enum Screen {
     Layers(Layers),
     /// The lattice bed beside the DEM bed (gh:#787).
     Beds(crate::beds::BedsView),
+    /// The rung's own demo (gh:#785, [`crate::walkdemo`]).
+    Walk(WalkDemo),
+}
+
+/// Send a rung demo's messages to the worker.
+fn send_walk(link: Option<&McLink>, out: Vec<Outgoing>) {
+    if let Some(link) = link {
+        for o in out {
+            link.send(match o {
+                Outgoing::Raster(r) => Request::Raster(r),
+                Outgoing::Walk(m) => Request::Walk(m),
+            });
+        }
+    }
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -375,6 +390,8 @@ enum WatchView {
     Layers,
     /// The lattice bed beside a DEM-poured random bed (gh:#787).
     Beds,
+    /// The rung's own demo (gh:#785).
+    Demo,
 }
 
 impl WatchView {
@@ -387,10 +404,11 @@ impl WatchView {
             WatchView::Geometry => "geometry",
             WatchView::Layers => "layers",
             WatchView::Beds => "beds",
+            WatchView::Demo => "demo",
         }
     }
     fn parse(s: &str) -> Option<Self> {
-        let all = [WatchView::Neutrons, WatchView::Generations, WatchView::Kinf, WatchView::Geometry, WatchView::Layers, WatchView::Beds];
+        let all = [WatchView::Neutrons, WatchView::Generations, WatchView::Kinf, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Demo];
         // `fuel` is the htr10 rung's name for its k_inf view.
         if s == "fuel" {
             return Some(WatchView::Kinf);
@@ -407,11 +425,12 @@ impl WatchView {
             WatchView::Geometry => rung.raster_info().is_some(),
             WatchView::Layers => rung.sweep().is_some(),
             WatchView::Beds => rung.beds(),
+            WatchView::Demo => rung.walk_demo().is_some(),
         };
         if has(self) {
             return self;
         }
-        [WatchView::Neutrons, WatchView::Geometry, WatchView::Layers, WatchView::Kinf].into_iter().find(|&v| has(v)).unwrap_or(WatchView::Neutrons)
+        [WatchView::Neutrons, WatchView::Geometry, WatchView::Layers, WatchView::Kinf, WatchView::Demo].into_iter().find(|&v| has(v)).unwrap_or(WatchView::Neutrons)
     }
 }
 
@@ -603,6 +622,9 @@ impl McApp {
                 }
                 Screen::Kinf(k)
             }
+            (Mode::Watch, WatchView::Demo, _) if self.rung.walk_demo().is_some() => {
+                Screen::Walk(WalkDemo::new(self.rung.walk_demo().expect("checked")))
+            }
             (Mode::Watch, _, _) => Screen::Tracks(Tracks::new(link, fast, self.autostart)),
         });
     }
@@ -626,6 +648,12 @@ impl McApp {
                 }
                 (Phase::Ready(Screen::Geometry(sl)), Event::Raster { req, map, secs }) => sl.receive(ctx, req, map, secs),
                 (Phase::Ready(Screen::Layers(ly)), Event::Raster { req, map, secs }) => ly.slicer.receive(ctx, req, map, secs),
+                (Phase::Ready(Screen::Walk(w)), Event::Raster { req, map, secs }) => w.receive_raster(ctx, req, map, secs),
+                (Phase::Ready(Screen::Walk(w)), Event::Walk(m)) => {
+                    if let Err(e) = w.receive(&m) {
+                        self.phase = Phase::Failed(e);
+                    }
+                }
                 (_, Event::XsCurves(c)) => {
                     self.xs_shown = vec![true; c.len()];
                     self.xs = c;
@@ -672,6 +700,7 @@ impl McApp {
                 format!("{name} · layers N = {} · {state}", ly.n)
             }
             Phase::Ready(Screen::Beds(_)) => format!("{name} · liberties: lattice vs random bed"),
+            Phase::Ready(Screen::Walk(w)) => format!("{name} · {}", w.status()),
             Phase::Failed(e) => format!("{name} · FAILED · {e}"),
         };
         if t != self.title {
@@ -705,6 +734,7 @@ impl eframe::App for McApp {
                 }
                 // Raster requests go out from the main view, which knows its size.
                 Screen::Geometry(_) | Screen::Layers(_) | Screen::Beds(_) => {}
+                Screen::Walk(w) => send_walk(Some(link), w.pump()),
             }
         }
         if matches!(self.phase, Phase::Loading(_)) {
@@ -743,7 +773,7 @@ impl McApp {
         let mut want_view: Option<WatchView> = None;
         let link = self.link.as_ref();
         let rung = self.rung;
-        let views = [WatchView::Neutrons, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Generations, WatchView::Kinf]
+        let views = [WatchView::Neutrons, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Generations, WatchView::Kinf, WatchView::Demo]
             .into_iter()
             .filter(|&v| v.for_rung(rung) == v)
             .collect::<Vec<_>>();
@@ -783,6 +813,12 @@ impl McApp {
                 want_view = Self::watch_view_picker(ui, WatchView::Beds, &views);
                 b.panel(ui);
             }
+            Phase::Ready(Screen::Walk(w)) => {
+                if many {
+                    want_view = Self::watch_view_picker(ui, WatchView::Demo, &views);
+                }
+                send_walk(link, w.panel(ui));
+            }
         }
         if let Some(v) = want_view {
             // A view may need other data (htr10's k_inf loads its tapes):
@@ -819,6 +855,7 @@ impl McApp {
                     WatchView::Geometry => "geometry (zoom ladder)",
                     WatchView::Layers => "layers (recorded k)",
                     WatchView::Beds => "liberties: lattice vs random bed",
+                    WatchView::Demo => "the demo",
                 };
                 ui.selectable_value(&mut v, w, label);
             }
@@ -1425,7 +1462,11 @@ impl McApp {
         };
         let painter = full_painter.with_clip_rect(rect);
         let geo_resp = ui.interact(rect, ui.id().with("geometry"), Sense::click_and_drag());
-        if !is_run && !is_kinf && !is_slice && !is_beds {
+        // A rung's own demo splits the view itself (`walkdemo::split`); the
+        // zoom buttons and scale bar belong to its picture.
+        let is_walk = matches!(self.phase, Phase::Ready(Screen::Walk(_)));
+        let zoom_rect = if is_walk { crate::walkdemo::split(full).0 } else { rect };
+        if !is_run && !is_kinf && !is_slice && !is_beds && !is_walk {
             self.view.handle_input(ui, &geo_resp);
             self.rung.draw(&painter, rect, &self.view);
         }
@@ -1580,12 +1621,17 @@ impl McApp {
                     crate::sweep::draw(&full_painter, plot, &ly.sweep, ly.n, text);
                 }
             }
+            Phase::Ready(Screen::Walk(w)) => {
+                let out = w.canvas(ui, rect, &painter, &geo_resp);
+                send_walk(self.link.as_ref(), out);
+            }
         }
 
         let (sview, sview_rect) = match &mut self.phase {
             Phase::Ready(Screen::Geometry(sl)) => (Some(&mut sl.view), rect),
             Phase::Ready(Screen::Layers(ly)) => (Some(&mut ly.slicer.view), rect),
             Phase::Ready(Screen::Beds(b)) => (Some(&mut b.view), rect),
+            Phase::Ready(Screen::Walk(w)) => (Some(w.view_mut()), zoom_rect),
             _ => (None, rect),
         };
         if let Some(v) = &sview {
@@ -1596,10 +1642,10 @@ impl McApp {
         self.panel.reopen_button(ui, full);
         // + / − / Reset. In Run mode and the k∞ plot there is no geometry:
         // they scale the text.
-        if let Some(z) = zoom_buttons(ui, rect) {
+        if let Some(z) = zoom_buttons(ui, zoom_rect) {
             match (is_run || is_kinf, z) {
                 (false, z) => match sview {
-                    Some(v) => apply_zoom(v, rect, z),
+                    Some(v) => apply_zoom(v, zoom_rect, z),
                     None => apply_zoom(&mut self.view, rect, z),
                 },
                 (true, Zoom::In) => self.run_text = (self.run_text * 1.2).min(28.0),

@@ -467,6 +467,12 @@ Unresolved calls inside the functions on this chain:
 
 </div>
 
+*Placeholder (2026-10-07): this walk's own demo, the same history
+surface-tracked and delta-tracked side by side one step at a time on the
+library's code, is being built under
+[#784](https://github.com/theodoreOnzGit/outram-park-backend/issues/784).
+The widget above is drawn by the page's own script, not by the library.*
+
 The only geometry question delta tracking asks is "which material is at this
 point?". For the packed kernels that is
 [`PackedSpheres::is_inside_kernel`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#@@L:crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:fn=is_inside_kernel@@),
@@ -545,29 +551,29 @@ iteration, changing only the answer to "which material is at this point?":
 
 Call chain from `dh_keff_vv.rs::main` to `keff_delta.rs::run_keff_delta_in`: 2 hops, 1 shortest chain. Each step shows its code; the name links to it on GitHub.
 
-**1.** [`dh_keff_vv.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/dh_keff_vv.rs#L520)
+**1.** [`dh_keff_vv.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/dh_keff_vv.rs#L422)
 
-<!-- snippet-check: crates/outram-mc-libs/examples/dh_keff_vv.rs:520 fn main -->
-<!-- snippet-check: crates/outram-mc-libs/examples/dh_keff_vv.rs:691 keff -->
+<!-- snippet-check: crates/outram-mc-libs/examples/dh_keff_vv.rs:422 fn main -->
+<!-- snippet-check: crates/outram-mc-libs/examples/dh_keff_vv.rs:593 keff -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/examples/dh_keff_vv.rs:520:520}}
+{{#include ../../../../../crates/outram-mc-libs/examples/dh_keff_vv.rs:422:422}}
     // …
-{{#include ../../../../../crates/outram-mc-libs/examples/dh_keff_vv.rs:689:692}}
+{{#include ../../../../../crates/outram-mc-libs/examples/dh_keff_vv.rs:591:594}}
     // … (the rest of the function: follow the link above)
 ```
 
-**2.** → [`dh_universe.rs::DhUniverse::keff`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1477) · called at [L691](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/dh_keff_vv.rs#L691) — Solve the eigenvalue for this universe.
+**2.** → [`dh_universe.rs::DhUniverse::keff`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1478) · called at [L593](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/dh_keff_vv.rs#L593) — Solve the eigenvalue for this universe.
 
-<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:1477 fn keff -->
-<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:1488 run_keff_delta_in -->
+<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:1478 fn keff -->
+<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:1489 run_keff_delta_in -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/dh_universe.rs:1477:1489}}
+{{#include ../../../../../crates/outram-mc-libs/src/dh_universe.rs:1478:1490}}
     // … (the rest of the function: follow the link above)
 ```
 
-**3.** → [`keff_delta.rs::run_keff_delta_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L655) · called at [L1488](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1488) — Run fission-source power iteration over a `DeltaDomain` filled with a two-(or-more-)material dispersion medium, transporting each history by delta (Woodcock) tracking.
+**3.** → [`keff_delta.rs::run_keff_delta_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L655) · called at [L1489](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1489) — Run fission-source power iteration over a `DeltaDomain` filled with a two-(or-more-)material dispersion medium, transporting each history by delta (Woodcock) tracking.
 
 <!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:655 fn run_keff_delta_in -->
 
@@ -578,11 +584,20 @@ Call chain from `dh_keff_vv.rs::main` to `keff_delta.rs::run_keff_delta_in`: 2 h
 
 Unresolved calls inside the functions on this chain:
 
-- in [`dh_keff_vv.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/dh_keff_vv.rs#L520):
-  - UNRESOLVED(other): `clone` at [L670](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/dh_keff_vv.rs#L670) (→ [`crates/outram-mc-libs/src/physics/keff.rs:123`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L123)) — resolves to `#[derive(Debug, Clone)]`, not a function body
+- in [`dh_keff_vv.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/dh_keff_vv.rs#L422):
+  - UNRESOLVED(other): `clone` at [L572](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/dh_keff_vv.rs#L572) (→ [`crates/outram-mc-libs/src/physics/keff.rs:123`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L123)) — resolves to `#[derive(Debug, Clone)]`, not a function body
 <!-- /code-walk -->
 
 </div>
+
+<div class="mcw-demo" data-mc-widget="demo" data-src="../../demos/monte-carlo/?rung=dhshort&amp;mode=watch&amp;view=demo" data-label="▶ See what each shortcut sees (demo, one cell, every treatment)"></div>
+
+*The demo builds the cell below with `DhUniverse::pebble` under each
+treatment, in your browser, and draws what that treatment's `material_at`
+answers at every pixel: the call the power iteration makes. Beside it are
+the recorded biases and speed-ups of the table below, with their dates. CLS
+and SCLS store no geometry, so their picture is one sampled flight per pixel
+row, and a redraw gives a different one. No k is computed there.*
 
 **The problem they are judged on** is the FHR reference unit cell of
 [`examples/dh_keff_vv.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/dh_keff_vv.rs):
@@ -680,34 +695,34 @@ particles inside the ball hit the requested fraction to 0.2 %, in
 
 <div class="codewalk">
 
-<!-- code-walk: from=crates/outram-mc-libs/src/dh_universe.rs::DhUniverse::pebble to=crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs::pack_spheres depth=5 -->
+<!-- code-walk: from=crates/outram-mc-libs/src/dh_universe.rs::DhUniverse::pebble to=crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs::pack_spheres_observed depth=6 -->
 <!-- generated by `kovan-cli code-walk-check --update`; edit the comment above, not this -->
 
-Call chain from `dh_universe.rs::DhUniverse::pebble` to `sphere_packing.rs::pack_spheres`: 3 hops, 1 shortest chain. Each step shows its code; the name links to it on GitHub.
+Call chain from `dh_universe.rs::DhUniverse::pebble` to `sphere_packing.rs::pack_spheres_observed`: 4 hops, 1 shortest chain. Each step shows its code; the name links to it on GitHub.
 
 **1.** [`dh_universe.rs::DhUniverse::pebble`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L898) — Build a TRISO fuel pebble under the chosen treatment.
 
 <!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:898 fn pebble -->
-<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:961 pack_in_ball -->
+<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:962 pack_in_ball -->
 
 ```rust,ignore
 {{#include ../../../../../crates/outram-mc-libs/src/dh_universe.rs:898:898}}
     // …
-{{#include ../../../../../crates/outram-mc-libs/src/dh_universe.rs:959:962}}
+{{#include ../../../../../crates/outram-mc-libs/src/dh_universe.rs:960:963}}
     // … (the rest of the function: follow the link above)
 ```
 
-**2.** → [`dh_universe.rs::pack_in_ball`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1919) · called at [L961](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L961) — RSA-pack whole particles into a ball of `radius`, **hitting the requested packing fraction inside that ball** rather than inside the cube it was generated in.
+**2.** → [`dh_universe.rs::pack_in_ball`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1960) · called at [L962](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L962) — RSA-pack whole particles into a ball of `radius`, **hitting the requested packing fraction inside that ball** rather than inside the cube it was generated in.
 
-<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:1919 fn pack_in_ball -->
-<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:1940 generate -->
+<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:1960 fn pack_in_ball -->
+<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:1981 generate -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/dh_universe.rs:1919:1941}}
+{{#include ../../../../../crates/outram-mc-libs/src/dh_universe.rs:1960:1982}}
     // … (the rest of the function: follow the link above)
 ```
 
-**3.** → [`sphere_packing.rs::PackingConfig::generate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L154) · called at [L1940](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1940) — Generate the packed sphere list for this configuration.
+**3.** → [`sphere_packing.rs::PackingConfig::generate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L154) · called at [L1981](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1981) — Generate the packed sphere list for this configuration.
 
 <!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:154 fn generate -->
 <!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:156 pack_spheres -->
@@ -720,22 +735,44 @@ Call chain from `dh_universe.rs::DhUniverse::pebble` to `sphere_packing.rs::pack
 **4.** → [`sphere_packing.rs::pack_spheres`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L207) · called at [L156](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L156) — Random Sequential Addition packing of equal spheres in a cubic domain.
 
 <!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:207 fn pack_spheres -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:213 pack_spheres_observed -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:207:246}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:207:214}}
+```
+
+**5.** → [`sphere_packing.rs::pack_spheres_observed`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L238) · called at [L213](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L213) — `pack_spheres`, calling `observe` once per accepted sphere, in placement order, with the number of trials it took.
+
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:238 fn pack_spheres_observed -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:238:277}}
     // … (the rest of the function: follow the link above)
 ```
 
 Unresolved calls inside the functions on this chain:
 
 - in [`dh_universe.rs::DhUniverse::pebble`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L898):
-  - UNRESOLVED(other): `clone` at [L1103](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1103) (→ [`crates/outram-mc-libs/src/material/material.rs:61`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/material.rs#L61)) — resolves to `#[derive(Debug, Clone)]`, not a function body
-- in [`dh_universe.rs::pack_in_ball`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1919):
-  - UNRESOLVED(closure): `attempt` at [L1959](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1959) (→ [`crates/outram-mc-libs/src/dh_universe.rs:1931`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1931)) — call through a closure or fn-typed binding `attempt`
-  - UNRESOLVED(closure): `attempt` at [L1970](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1970) (→ [`crates/outram-mc-libs/src/dh_universe.rs:1931`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1931)) — call through a closure or fn-typed binding `attempt`
+  - UNRESOLVED(other): `clone` at [L1104](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1104) (→ [`crates/outram-mc-libs/src/material/material.rs:61`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/material.rs#L61)) — resolves to `#[derive(Debug, Clone)]`, not a function body
+- in [`dh_universe.rs::pack_in_ball`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1960):
+  - UNRESOLVED(closure): `attempt` at [L2007](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L2007) (→ [`crates/outram-mc-libs/src/dh_universe.rs:1972`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1972)) — call through a closure or fn-typed binding `attempt`
+  - UNRESOLVED(closure): `attempt` at [L2020](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L2020) (→ [`crates/outram-mc-libs/src/dh_universe.rs:1972`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1972)) — call through a closure or fn-typed binding `attempt`
 <!-- /code-walk -->
 
 </div>
+
+<div class="mcw-demo" data-mc-widget="demo" data-src="../../demos/monte-carlo/?rung=packing&amp;mode=watch&amp;view=demo" data-label="▶ Watch RSA pack this pebble, and drop the cut particles (demo)"></div>
+
+*The demo runs `pack_in_ball` in your browser, then replays the attempt you
+pick through `pack_spheres_observed`, which is `pack_spheres` with an
+observer (the same list, bit for bit), and animates the placements in order
+on the plane z = 0. Switch the cut particles between shown, dropped without a
+word, and `pack_in_ball`'s fix. On this pebble and seed (measured natively,
+2026-10-07): asking RSA for 0.30 of the cube places 54 706 particles, of
+which 25 851 are whole inside the fuel zone, 0.28932; the second attempt asks
+for 0.31107, places 56 725 and keeps 26 795, 0.29989. Near the end of a
+packing RSA needs hundreds of trials per placement (a mean of 332 over the
+last tenth of the first attempt, up to 3186 for one particle).*
 
 The fuel-zone cube of step 2 avoids the problem differently: RSA keeps every
 centre at least one radius from the walls, so no kernel is cut, and the
@@ -784,6 +821,10 @@ shell, neighbouring pebbles and helium. And one more:*
 `assemble_explicit_triso`, N = 12) live in your browser, from the whole
 reactor down to one kernel; each slice is the material
 `Geometry::locate` finds at each pixel, 0.5–2 s per slice there.*
+
+*Placeholder (2026-10-07): the builder-to-transport code walk for this model,
+with its own demo, is being added under
+[#786](https://github.com/theodoreOnzGit/outram-park-backend/issues/786).*
 
 ![One HTR-10 TRISO particle, x-y slice](https://raw.githubusercontent.com/theodoreOnzGit/outram-park-backend/@@COMMIT@@/crates/nee_soon/verification_and_validation/htr10_geometry_images/htr10_xy_triso.png)
 
@@ -1013,14 +1054,18 @@ the predictions, the run logs and the results.
 ## The whole call tree
 
 Everything `htr10_fuel_zone_kinf.rs`'s `main` reaches inside the workspace,
-three calls deep. Generated by `kovan-cli code-walk`.
+three calls deep. Generated by `kovan-cli code-walk`. **Its demo is the HTR-10
+rung**: the fuel-zone k∞ view runs this entry point's model, from the same
+file, stepped one generation at a time in your browser.
+
+<div class="mcw-demo" data-mc-widget="demo" data-src="../../demos/monte-carlo/?rung=htr10&amp;mode=watch&amp;view=fuel" data-label="▶ The HTR-10 rung: run this call tree's model (demo, k∞)"></div>
 
 <div class="codewalk">
 
 <!-- code-walk: from=crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs::main depth=3 -->
 <!-- generated by `kovan-cli code-walk-check --update`; edit the comment above, not this -->
 
-Everything `crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs::main` reaches in the workspace, to 3 hops: 54 functions, 28 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
+Everything `crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs::main` reaches in the workspace, to 3 hops: 52 functions, 21 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
 <div class="cw-node" style="margin-left:0.0em">
 
@@ -1568,16 +1613,16 @@ UNRESOLVED(closure): `mk` at [L102](https://github.com/theodoreOnzGit/outram-par
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`sphere_packing.rs::PackedSpheres::pack`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L340) `pub fn pack(radius: f64, half_width: f64, packing_fraction: f64, seed: u64) -> Result<Self, PackingError>` — Pack a cubic domain by RSA and build the membership grid in one step. · called at [L305](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L305)
+[`sphere_packing.rs::PackedSpheres::pack`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L377) `pub fn pack(radius: f64, half_width: f64, packing_fraction: f64, seed: u64) -> Result<Self, PackingError>` — Pack a cubic domain by RSA and build the membership grid in one step. · called at [L305](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L305)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:340 fn pack -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:346 pack_spheres -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:347 from_spheres -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:377 fn pack -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:383 pack_spheres -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:384 from_spheres -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:340:348}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:377:385}}
 ```
 
 </details>
@@ -1585,138 +1630,49 @@ UNRESOLVED(closure): `mk` at [L102](https://github.com/theodoreOnzGit/outram-par
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`sphere_packing.rs::pack_spheres`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L207) `pub fn pack_spheres(radius: f64, half_width: f64, packing_fraction: f64, seed: u64) -> Result<Vec<Sphere>, PackingError>` — Random Sequential Addition packing of equal spheres in a cubic domain. · called at [L346](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L346)
+[`sphere_packing.rs::pack_spheres`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L207) `pub fn pack_spheres(radius: f64, half_width: f64, packing_fraction: f64, seed: u64) -> Result<Vec<Sphere>, PackingError>` — Random Sequential Addition packing of equal spheres in a cubic domain. · called at [L383](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L383)
 
 <details><summary>code</summary>
 
 <!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:207 fn pack_spheres -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:223 sphere_count -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:245 cell_of -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:246 cell_of -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:247 cell_of -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:275 prn -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:278 cell_of -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:296 new -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:297 nearby -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:298 nearby -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:299 nearby -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:213 pack_spheres_observed -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:207:212}}
-    // …
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:221:224}}
-    // …
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:243:248}}
-    // …
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:273:279}}
-    // …
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:294:300}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:207:214}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`sphere_packing.rs::pack_spheres_observed`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L238) `pub fn pack_spheres_observed(radius: f64, half_width: f64, packing_fraction: f64, seed: u64, mut observe: impl FnMut(RsaPlacement)) -> Result<Vec<Sphere>, PackingError>` — `pack_spheres`, calling `observe` once per accepted sphere, in placement order, with the number of trials it took. · called at [L213](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L213) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:238 fn pack_spheres_observed -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:238:277}}
     // … (the rest of the function: follow the link above)
 ```
 
 </details>
-</div>
-
-<div class="cw-node" style="margin-left:2.7em">
-
-[`sphere_packing.rs::sphere_count`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L172) `fn sphere_count(radius: f64, half_width: f64, packing_fraction: f64) -> usize` — Number of equal-radius spheres a target packing fraction implies in a cube. · called at [L223](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L223) · *(calls below the depth limit not shown)*
-
-<details><summary>code</summary>
-
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:172 fn sphere_count -->
-
-```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:172:176}}
-```
-
-</details>
-</div>
-
-<div class="cw-node" style="margin-left:2.7em">
-
-UNRESOLVED(closure): `cell_of` at [L245](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L245) (→ [`crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:242`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L242)) — call through a closure or fn-typed binding `cell_of`
-
-</div>
-
-<div class="cw-node" style="margin-left:2.7em">
-
-UNRESOLVED(closure): `cell_of` at [L246](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L246) (→ [`crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:242`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L242)) — call through a closure or fn-typed binding `cell_of`
-
-</div>
-
-<div class="cw-node" style="margin-left:2.7em">
-
-UNRESOLVED(closure): `cell_of` at [L247](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L247) (→ [`crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:242`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L242)) — call through a closure or fn-typed binding `cell_of`
-
-</div>
-
-<div class="cw-node" style="margin-left:2.7em">
-
-[`lcg.rs::prn`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L127) `pub fn prn(seed: &mut u64) -> f64` — Advance the seed one step and return a uniform sample in [0, 1). · called at [L275](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L275) · *(calls below the depth limit not shown)*
-
-<details><summary>code</summary>
-
-<!-- snippet-check: crates/petir/src/rng/lcg.rs:127 fn prn -->
-
-```rust,ignore
-{{#include ../../../../../crates/petir/src/rng/lcg.rs:127:138}}
-```
-
-</details>
-</div>
-
-<div class="cw-node" style="margin-left:2.7em">
-
-UNRESOLVED(closure): `cell_of` at [L278](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L278) (→ [`crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:242`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L242)) — call through a closure or fn-typed binding `cell_of`
-
-</div>
-
-<div class="cw-node" style="margin-left:2.7em">
-
-[`position.rs::Position::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-blender/src/csg/position.rs#L64) `pub fn new(x: f64, y: f64, z: f64) -> Self` · called at [L296](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L296) · *(calls below the depth limit not shown)*
-
-<details><summary>code</summary>
-
-<!-- snippet-check: crates/outram-blender/src/csg/position.rs:64 fn new -->
-
-```rust,ignore
-{{#include ../../../../../crates/outram-blender/src/csg/position.rs:64:66}}
-```
-
-</details>
-</div>
-
-<div class="cw-node" style="margin-left:2.7em">
-
-UNRESOLVED(closure): `nearby` at [L297](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L297) (→ [`crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:244`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L244)) — call through a closure or fn-typed binding `nearby`
-
-</div>
-
-<div class="cw-node" style="margin-left:2.7em">
-
-UNRESOLVED(closure): `nearby` at [L298](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L298) (→ [`crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:244`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L244)) — call through a closure or fn-typed binding `nearby`
-
-</div>
-
-<div class="cw-node" style="margin-left:2.7em">
-
-UNRESOLVED(closure): `nearby` at [L299](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L299) (→ [`crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:244`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L244)) — call through a closure or fn-typed binding `nearby`
-
 </div>
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`sphere_packing.rs::PackedSpheres::from_spheres`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L355) `pub fn from_spheres(spheres: Vec<Sphere>, half_width: f64, radius: f64) -> Self` — Build a membership grid over an already-generated packing. · called at [L347](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L347)
+[`sphere_packing.rs::PackedSpheres::from_spheres`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L392) `pub fn from_spheres(spheres: Vec<Sphere>, half_width: f64, radius: f64) -> Self` — Build a membership grid over an already-generated packing. · called at [L384](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L384)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:355 fn from_spheres -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:362 cell_of -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:363 cell_of -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:364 cell_of -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:392 fn from_spheres -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:399 cell_of -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:400 cell_of -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:401 cell_of -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:355:365}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:392:402}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -1725,32 +1681,32 @@ UNRESOLVED(closure): `nearby` at [L299](https://github.com/theodoreOnzGit/outram
 
 <div class="cw-node" style="margin-left:2.7em">
 
-UNRESOLVED(closure): `cell_of` at [L362](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L362) (→ [`crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:358`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L358)) — call through a closure or fn-typed binding `cell_of`
+UNRESOLVED(closure): `cell_of` at [L399](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L399) (→ [`crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:395`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L395)) — call through a closure or fn-typed binding `cell_of`
 
 </div>
 
 <div class="cw-node" style="margin-left:2.7em">
 
-UNRESOLVED(closure): `cell_of` at [L363](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L363) (→ [`crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:358`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L358)) — call through a closure or fn-typed binding `cell_of`
+UNRESOLVED(closure): `cell_of` at [L400](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L400) (→ [`crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:395`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L395)) — call through a closure or fn-typed binding `cell_of`
 
 </div>
 
 <div class="cw-node" style="margin-left:2.7em">
 
-UNRESOLVED(closure): `cell_of` at [L364](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L364) (→ [`crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:358`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L358)) — call through a closure or fn-typed binding `cell_of`
+UNRESOLVED(closure): `cell_of` at [L401](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L401) (→ [`crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:395`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L395)) — call through a closure or fn-typed binding `cell_of`
 
 </div>
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`sphere_packing.rs::PackedSpheres::len`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L484) `pub fn len(&self) -> usize` — Number of packed kernels. · called at [L322](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L322)
+[`sphere_packing.rs::PackedSpheres::len`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L521) `pub fn len(&self) -> usize` — Number of packed kernels. · called at [L322](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L322)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:484 fn len -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:521 fn len -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:484:486}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:521:523}}
 ```
 
 </details>
@@ -1758,14 +1714,14 @@ UNRESOLVED(closure): `cell_of` at [L364](https://github.com/theodoreOnzGit/outra
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`sphere_packing.rs::PackedSpheres::packing_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L508) `pub fn packing_fraction(&self) -> f64` — Realized volumetric packing fraction `N · V_sphere / V_cube`. · called at [L325](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L325)
+[`sphere_packing.rs::PackedSpheres::packing_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L545) `pub fn packing_fraction(&self) -> f64` — Realized volumetric packing fraction `N · V_sphere / V_cube`. · called at [L325](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L325)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:508 fn packing_fraction -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:545 fn packing_fraction -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:508:512}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:545:549}}
 ```
 
 </details>
@@ -2089,15 +2045,15 @@ UNRESOLVED(closure): `majorant_for` at [L373](https://github.com/theodoreOnzGit/
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`sphere_packing.rs::PackedSpheres::is_inside_kernel`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L387) `pub fn is_inside_kernel(&self, p: Position) -> bool` — Is the point `p` \[cm\] inside any packed kernel? · called at [L376](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L376)
+[`sphere_packing.rs::PackedSpheres::is_inside_kernel`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L424) `pub fn is_inside_kernel(&self, p: Position) -> bool` — Is the point `p` \[cm\] inside any packed kernel? · called at [L376](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L376)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:387 fn is_inside_kernel -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:389 cell_of -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:424 fn is_inside_kernel -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:426 cell_of -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:387:390}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:424:427}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -2106,7 +2062,7 @@ UNRESOLVED(closure): `majorant_for` at [L373](https://github.com/theodoreOnzGit/
 
 <div class="cw-node" style="margin-left:1.8em">
 
-UNRESOLVED(closure): `cell_of` at [L389](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L389) (→ [`crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:388`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L388)) — call through a closure or fn-typed binding `cell_of`
+UNRESOLVED(closure): `cell_of` at [L426](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L426) (→ [`crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:425`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L425)) — call through a closure or fn-typed binding `cell_of`
 
 </div>
 

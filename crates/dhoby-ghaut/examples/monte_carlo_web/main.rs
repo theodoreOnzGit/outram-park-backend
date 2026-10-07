@@ -63,6 +63,8 @@ mod beds;
 #[cfg(not(target_os = "android"))]
 #[path = "../common/htr10_beds.rs"]
 mod htr10_beds;
+#[cfg(not(target_os = "android"))]
+mod walkdemo;
 
 // THE RUNG TABLE, in ladder order: one line per rung, `module: MarkerType`,
 // for `examples/monte_carlo_web/<module>/mod.rs` (see `rungs.rs`). Adding a
@@ -74,6 +76,8 @@ rung_table! {
     lumped: Lumped,
     lct008: Lct008,
     triso: Triso,
+    dhshort: DhShort,
+    packing: Packing,
     htr10: Htr10,
 }
 
@@ -529,7 +533,8 @@ mod tests {
             let info = r.info();
             assert!(info.lesson.ends_with(".html") && !info.lesson.starts_with('/'));
             assert!(table::ALL[..i].iter().all(|o| o.info().name != info.name), "duplicate rung name {}", info.name);
-            assert!(!r.jobs().is_empty() && r.half_extent() > 0.0);
+            // A code walk's demo (gh:#785) may need no nuclear data.
+            assert!((!r.jobs().is_empty() || r.walk_demo().is_some()) && r.half_extent() > 0.0);
         }
     }
 }
