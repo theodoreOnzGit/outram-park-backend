@@ -45,6 +45,22 @@
 //!   (`examples/majorant_bound_audit.rs`).
 //! - Runs a fission-source k-eigenvalue power iteration with [`run_keff_delta`],
 //!   every history streamed by delta tracking, and prints the converged k∞.
+//!
+//! # What its number is, and is not (2026-10-04, tutorial rung 5, GitHub #528)
+//!
+//! A walkthrough, not a physics result: the data are the embedded LOW tier
+//! (`Nuclide::from_core`: windowed multipole plus a coarse fast fallback, no
+//! S(alpha,beta)), and the "matrix" is H-1 at an arbitrary density. The
+//! physics-grade delta-tracking checks are `examples/fhr_ring_rpt_endf.rs`
+//! (against OpenMC) and `examples/dh_keff_vv.rs`, both on ENDF/B-VIII.0.
+//!
+//! Checked that it still runs, 2026-10-04, `develop` `5f6a5157b0`,
+//! i9-13900K pinned to one core (shared machine): 1119 kernels, realised
+//! packing fraction 0.3000, **k∞ = 1.87260 ± 0.00294**, 100 generations,
+//! 4.2 s wall (log: `verification_and_validation/tutorial_rung5/logs/
+//! triso_delta_tracking_2026_10_04.log`). That was before the #585 majorant
+//! change above; **not re-run since** (salvaged from the `rung5-528` branch,
+//! gh:#786).
 
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
