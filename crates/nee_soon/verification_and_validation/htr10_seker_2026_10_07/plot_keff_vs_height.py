@@ -120,7 +120,7 @@ def main():
         last = p[-1]
         ax2.annotate("VIII.0" if lib == "e8" else "VII.0",
                      (last["h"] + dodge[lib], (last["k"] - last["rmc"]) * 1e5),
-                     xytext=(8, 0), textcoords="offset points", va="center", color=TEXT2)
+                     xytext=(8, 9 if lib == "e8" else -9), textcoords="offset points", va="center", color=TEXT2)
     ax2.set_ylabel("k − RMC [pcm]")
     ax2.set_xlabel("loading height at equal ball count with Seker's model [cm] (gh:#472)")
     ax2.set_xlim(90, 212)

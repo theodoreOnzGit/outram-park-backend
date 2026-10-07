@@ -5,6 +5,13 @@
 > statistics. Tentative in the sense of gh:#336. Research, education and V&V
 > only; not for any operational use.
 
+> **SUPERSEDED 2026-10-07** by `../htr10_seker_2026_10_07/`, re-run with
+> identical settings after the delta-tracking fixes (#589, #719, #720, #721).
+> VIII.0 moved down by 675 to 809 pcm at every height (now −999, −434,
+> −135 pcm vs RMC); VII.0 moved by +150, +236, −660 pcm. The numbers below
+> stand as what this code produced on 2026-10-01; do not quote them as
+> current, and the close MCNP agreement read below did not survive.
+
 ![k vs height, both libraries](keff_vs_height_endf8_endf7_2026_10_01.png)
 
 The VIII.0-only plot taken before the VII.0 arm finished is
