@@ -231,6 +231,9 @@ fn read_existing(root: &Path, members: &[(String, String)], scope: &[(String, St
             let Some(text) = read(root, &p) else { continue };
             let dir = parent(&p).to_string();
             match FolderIndex::parse(&text) {
+                // A copy written for another folder (a test fixture): not
+                // this folder's cache; never used, never removed.
+                Ok(fi) if fi.dir != dir => {}
                 Ok(fi) => {
                     if let Some(r) = &fi.test_run {
                         e.test_runs.insert(dir.clone(), r.clone());
@@ -443,8 +446,9 @@ pub fn run(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
     let doc = super::call_graph::build_from_scip(&root, Some(&names), ix)?;
     // 5. Inputs.
     let mut hashed = BTreeMap::new();
+    let mut sources: BTreeMap<String, String> = BTreeMap::new();
     for (_, m, _) in doc.functions() {
-        if hashed.contains_key(&m.file) {
+        if sources.contains_key(&m.file) {
             continue;
         }
         let Some(text) = read(&root, &m.file) else { continue };
@@ -454,7 +458,10 @@ pub fn run(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
             }
             Err(e) => eprintln!("index: {}: {e}; its functions are left out", m.file),
         }
+        sources.insert(m.file.clone(), text);
     }
+    let mut quantities = kovan_common::code_index::physical::QuantityNames::default();
+    quantities.learn(sources.values().map(String::as_str));
     let reviews = read_reviews(&root, &members, &scope);
     let existing = read_existing(&root, &members, &scope);
     for p in &existing.recovered {
@@ -486,6 +493,7 @@ pub fn run(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
         test_runs: existing.test_runs.clone(),
         deleted: deleted_by_crate,
         commit,
+        quantities,
     });
     // 6. Plan the writes.
     for (dir, fi) in &built.folders {

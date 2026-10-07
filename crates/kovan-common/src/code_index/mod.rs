@@ -34,6 +34,7 @@ pub mod folders;
 pub mod heal;
 pub mod ids;
 pub mod links;
+pub mod physical;
 pub mod refresh;
 pub mod test_run;
 pub mod upstream_draft;

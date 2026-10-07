@@ -118,6 +118,10 @@ pub fn refresh_folder(
         }
     }
     let a = assign_ids(&located, claims, &priors, commit);
+    // Aliases from this folder only: a refresh does not read the workspace,
+    // and an unchanged function keeps the full run's answer.
+    let mut quantities = super::physical::QuantityNames::default();
+    quantities.learn(files.values().map(String::as_str));
     for (file, pid, h) in parsed {
         let id = a.ids[&pid].clone();
         let prev = prev_by_id.get(id.as_str()).copied();
@@ -134,7 +138,12 @@ pub fn refresh_folder(
         if out_of_date {
             report.out_of_date.push(pid.clone());
         }
+        let physical_interface = match prev {
+            Some(p) if same => p.physical_interface,
+            _ => quantities.is_physical(&h.entry.code),
+        };
         let f = FunctionIndex {
+            physical_interface,
             id,
             name: h.entry.name.clone(),
             qual,

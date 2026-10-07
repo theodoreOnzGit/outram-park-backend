@@ -133,6 +133,12 @@ pub struct FunctionIndex {
     /// out of date: run kovan-cli index", never silently trusted.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub index_out_of_date: bool,
+    /// Added 2026-10-07 (#767, additive): a physical quantity (a `uom`
+    /// type or a workspace alias of one) crosses the signature, so the
+    /// review wizard's units question applies
+    /// ([`crate::code_index::physical`]).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub physical_interface: bool,
 }
 
 fn is_fn(k: &ItemKind) -> bool {
@@ -387,6 +393,7 @@ mod tests {
                     reached_by: vec!["crates/tampines/tests/t.rs::t".into()],
                     test: false,
                     index_out_of_date: false,
+                    physical_interface: false,
                 }],
             },
         );

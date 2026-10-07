@@ -38,6 +38,9 @@
 //!   caller recovers it from the last committed version when the file on
 //!   disk is malformed, and passes none (pending, never passed) when that
 //!   fails too.
+//! - `physical_interface`: a uom quantity or a workspace alias of one in the
+//!   signature ([`super::physical`], aliases learned by the caller from the
+//!   sources in scope).
 //! - `[upstream]` and `[[review]]`: cached from the folder's `review.md`.
 //! - `[[deleted_folder]]`: the crate root folder only, from git
 //!   ([`super::deleted`]).
@@ -81,6 +84,9 @@ pub struct BuildInput {
     pub deleted: BTreeMap<String, Vec<DeletedFolder>>,
     /// The commit the index is built at (minting only).
     pub commit: String,
+    /// uom's quantity names plus the aliases learned from the sources
+    /// ([`super::physical`]), for `physical_interface`.
+    pub quantities: super::physical::QuantityNames,
 }
 
 /// What [`build`] could not do cleanly, for the caller to print.
@@ -153,6 +159,7 @@ pub fn build(input: &BuildInput) -> Built {
         file: String,
         name: String,
         test: bool,
+        physical: bool,
         hash: String,
         doc_hash: String,
         lines: [u32; 2],
@@ -193,6 +200,7 @@ pub fn build(input: &BuildInput) -> Built {
                                     file: file_name(&m.file).to_string(),
                                     name: f.name.clone(),
                                     test: f.test,
+                                    physical: input.quantities.is_physical(&h.entry.code),
                                     hash: h.hashes.hash.clone(),
                                     doc_hash: h.hashes.doc_hash.clone(),
                                     lines: h.entry.lines,
@@ -283,6 +291,7 @@ pub fn build(input: &BuildInput) -> Built {
             reached_by,
             test: r.test,
             index_out_of_date: false,
+            physical_interface: r.physical,
         };
         if let Some(m) = folders
             .get_mut(&r.dir)

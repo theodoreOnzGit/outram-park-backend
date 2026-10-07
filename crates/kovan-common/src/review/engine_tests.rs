@@ -43,6 +43,7 @@ fn fun(id: &str, hash: char, callees: &[&str], tests: &[&str]) -> FunctionIndex 
         reached_by: tests.iter().map(|s| s.to_string()).collect(),
         test: false,
         index_out_of_date: false,
+        physical_interface: false,
     }
 }
 
