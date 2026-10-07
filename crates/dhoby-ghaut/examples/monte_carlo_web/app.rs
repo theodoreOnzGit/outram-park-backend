@@ -351,6 +351,8 @@ enum Screen {
     Kinf(KinfRun),
     Geometry(Slicer),
     Layers(Layers),
+    /// The lattice bed beside the DEM bed (gh:#787).
+    Beds(crate::beds::BedsView),
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -371,6 +373,8 @@ enum WatchView {
     Geometry,
     /// A recorded sweep read with a slider, beside the geometry (gh:#528).
     Layers,
+    /// The lattice bed beside a DEM-poured random bed (gh:#787).
+    Beds,
 }
 
 impl WatchView {
@@ -382,10 +386,11 @@ impl WatchView {
             WatchView::Kinf => "pitch",
             WatchView::Geometry => "geometry",
             WatchView::Layers => "layers",
+            WatchView::Beds => "beds",
         }
     }
     fn parse(s: &str) -> Option<Self> {
-        let all = [WatchView::Neutrons, WatchView::Generations, WatchView::Kinf, WatchView::Geometry, WatchView::Layers];
+        let all = [WatchView::Neutrons, WatchView::Generations, WatchView::Kinf, WatchView::Geometry, WatchView::Layers, WatchView::Beds];
         // `fuel` is the htr10 rung's name for its k_inf view.
         if s == "fuel" {
             return Some(WatchView::Kinf);
@@ -401,6 +406,7 @@ impl WatchView {
             WatchView::Kinf => rung.kinf_case().is_some(),
             WatchView::Geometry => rung.raster_info().is_some(),
             WatchView::Layers => rung.sweep().is_some(),
+            WatchView::Beds => rung.beds(),
         };
         if has(self) {
             return self;
@@ -589,6 +595,7 @@ impl McApp {
                 let info = self.rung.raster_info().expect("a sweep rung draws its geometry");
                 Screen::Layers(Layers { slicer: Slicer::new(info, 0, n), sweep, n })
             }
+            (Mode::Watch, WatchView::Beds, _) if self.rung.beds() => Screen::Beds(crate::beds::BedsView::new()),
             (Mode::Watch, WatchView::Kinf, _) if self.rung.kinf_case().is_some() => {
                 let mut k = KinfRun::new(self.rung.kinf_case().expect("checked"));
                 if self.autostart {
@@ -664,6 +671,7 @@ impl McApp {
                 let state = if ly.slicer.busy() { "slicing" } else if ly.slicer.settled() { "slice ready" } else { "waiting" };
                 format!("{name} · layers N = {} · {state}", ly.n)
             }
+            Phase::Ready(Screen::Beds(_)) => format!("{name} · liberties: lattice vs random bed"),
             Phase::Failed(e) => format!("{name} · FAILED · {e}"),
         };
         if t != self.title {
@@ -696,7 +704,7 @@ impl eframe::App for McApp {
                     }
                 }
                 // Raster requests go out from the main view, which knows its size.
-                Screen::Geometry(_) | Screen::Layers(_) => {}
+                Screen::Geometry(_) | Screen::Layers(_) | Screen::Beds(_) => {}
             }
         }
         if matches!(self.phase, Phase::Loading(_)) {
@@ -735,7 +743,7 @@ impl McApp {
         let mut want_view: Option<WatchView> = None;
         let link = self.link.as_ref();
         let rung = self.rung;
-        let views = [WatchView::Neutrons, WatchView::Geometry, WatchView::Layers, WatchView::Generations, WatchView::Kinf]
+        let views = [WatchView::Neutrons, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Generations, WatchView::Kinf]
             .into_iter()
             .filter(|&v| v.for_rung(rung) == v)
             .collect::<Vec<_>>();
@@ -770,6 +778,10 @@ impl McApp {
             Phase::Ready(Screen::Layers(ly)) => {
                 want_view = Self::watch_view_picker(ui, WatchView::Layers, &views);
                 Self::layers_panel(ui, ly);
+            }
+            Phase::Ready(Screen::Beds(b)) => {
+                want_view = Self::watch_view_picker(ui, WatchView::Beds, &views);
+                b.panel(ui);
             }
         }
         if let Some(v) = want_view {
@@ -806,6 +818,7 @@ impl McApp {
                     WatchView::Kinf => "k∞ (true MC)",
                     WatchView::Geometry => "geometry (zoom ladder)",
                     WatchView::Layers => "layers (recorded k)",
+                    WatchView::Beds => "liberties: lattice vs random bed",
                 };
                 ui.selectable_value(&mut v, w, label);
             }
@@ -1400,6 +1413,7 @@ impl McApp {
         // The layers view splits the same way: the bed beside its plot.
         let is_layers = matches!(self.phase, Phase::Ready(Screen::Layers(_)));
         let is_slice = is_layers || matches!(self.phase, Phase::Ready(Screen::Geometry(_)));
+        let is_beds = matches!(self.phase, Phase::Ready(Screen::Beds(_)));
         let (rect, xs_rect) = if !(xs_on || is_layers) {
             (full, None)
         } else if full.width() >= 700.0 && full.width() > full.height() {
@@ -1411,7 +1425,7 @@ impl McApp {
         };
         let painter = full_painter.with_clip_rect(rect);
         let geo_resp = ui.interact(rect, ui.id().with("geometry"), Sense::click_and_drag());
-        if !is_run && !is_kinf && !is_slice {
+        if !is_run && !is_kinf && !is_slice && !is_beds {
             self.view.handle_input(ui, &geo_resp);
             self.rung.draw(&painter, rect, &self.view);
         }
@@ -1525,6 +1539,7 @@ impl McApp {
                     sl.go(i);
                 }
             }
+            Phase::Ready(Screen::Beds(b)) => b.draw(ui, rect, &painter, &geo_resp),
             Phase::Ready(Screen::Layers(ly)) => {
                 Self::slice_view(ui, rect, &painter, &geo_resp, &mut ly.slicer, self.link.as_ref());
                 if let Some(pr) = xs_rect {
@@ -1570,6 +1585,7 @@ impl McApp {
         let (sview, sview_rect) = match &mut self.phase {
             Phase::Ready(Screen::Geometry(sl)) => (Some(&mut sl.view), rect),
             Phase::Ready(Screen::Layers(ly)) => (Some(&mut ly.slicer.view), rect),
+            Phase::Ready(Screen::Beds(b)) => (Some(&mut b.view), rect),
             _ => (None, rect),
         };
         if let Some(v) = &sview {

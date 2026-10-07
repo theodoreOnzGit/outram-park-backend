@@ -124,6 +124,10 @@ impl McRung for Htr10 {
     fn has_tracks() -> bool {
         false
     }
+    /// The liberties toggle: lattice bed beside the DEM bed (gh:#787).
+    fn beds() -> bool {
+        true
+    }
     fn raster_info() -> Option<RasterInfo> {
         let palette = nee_soon::htr10_rmc::plots::palette().into_iter().map(|(c, n)| (colour(c), n)).collect();
         let xy = |label, centre, half| Preset { label, basis: Basis::Xy, centre, depth: LADDER_Z, half };

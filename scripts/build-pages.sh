@@ -170,6 +170,9 @@ bash crates/dhoby-ghaut/web/nuclear_data/build.sh "$OUT/demos/nuclear-data"
 # The TRISO-ATOPS and fuel failure demo (gh:#540): one app, a rung of the
 # boon-lay lessons at a time; computed in the browser from boon-lay, no data files.
 bash crates/dhoby-ghaut/web/triso_atops/build.sh "$OUT/demos/triso-atops"
+# The DEM pour demo (gh:#787): HTR-10 pebbles poured and settled in the
+# browser by the LIGGGHTS port; the full-size gh:#216 bed is compiled in.
+bash crates/dhoby-ghaut/web/dem/build.sh "$OUT/demos/dem"
 mkdir -p "$OUT/demos/triso-pebble/geometry"
 cp crates/dhoby-ghaut/web/monte_carlo/triso-pebble-redirect.html "$OUT/demos/triso-pebble/index.html"
 printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' \
@@ -262,7 +265,8 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
   demos/nuclear-data/index.html demos/nuclear-data/nuclear_data_web_bg.wasm \
   tutorials/monte-carlo/lct008.html tutorials/monte-carlo/triso.html \
   demos/triso-atops/index.html demos/triso-atops/triso_atops_web_bg.wasm \
-  tutorials/triso-atops/index.html; do
+  tutorials/triso-atops/index.html \
+  demos/dem/index.html demos/dem/dem_web_bg.wasm tutorials/monte-carlo/dem.html; do
   [[ -f "$OUT/$f" ]] || { echo "missing $OUT/$f" >&2; exit 1; }
 done
 

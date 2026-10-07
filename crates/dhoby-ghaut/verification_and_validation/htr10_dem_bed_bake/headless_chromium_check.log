@@ -1,0 +1,24 @@
+== phone 390x844 DPR 2
+  first chunk after 0.565 s: DEM pour · 4000 pebbles · step 20 · 4.6 ms/step
+  +0 s: DEM pour · 4000 pebbles · step 20 · 4.6 ms/step  frames/s 29.3
+  +8 s: DEM pour · 4000 pebbles · step 1666 · 4.5 ms/step  frames/s 29.7
+  +16 s: DEM pour · 4000 pebbles · step 2699 · 12.9 ms/step  frames/s 8.3
+  +24 s: DEM pour · 4000 pebbles · step 3107 · 13.5 ms/step  frames/s 8.3
+  pour running, ~30 s: 357 long tasks, longest 155 ms [[651,53],[704,52],[784,54],[838,52],[917,52],[970,53],[1051,52],[1103,51]]
+  after two zoom-ins: frames/s 6.7
+  zooming during the pour: 37 long tasks, longest 237 ms [[33708,112],[33821,111],[33935,132],[34069,142],[34213,181],[34394,167],[34564,220],[34786,237]]
+  beds view up after 1.56 s: HTR-10: pebbles, TRISO, kernels · liberties: lattice vs random bed
+  beds view: load, decode, 3 s idle: 6 long tasks, longest 358 ms [[637,257],[895,53],[954,54],[1024,296],[1323,247],[1572,358]]
+  beds frames/s idle: 60.0
+== desktop 1280x800 DPR 1
+  first chunk after 1.135 s: DEM pour · 4000 pebbles · step 32 · 11.2 ms/step
+  +0 s: DEM pour · 4000 pebbles · step 42 · 9.0 ms/step  frames/s 9.7
+  +8 s: DEM pour · 4000 pebbles · step 458 · 12.3 ms/step  frames/s 10.0
+  +17 s: DEM pour · 4000 pebbles · step 1136 · 6.4 ms/step  frames/s 10.7
+  +25 s: DEM pour · 4000 pebbles · step 1923 · 7.4 ms/step  frames/s 10.0
+  pour running, ~30 s: 326 long tasks, longest 153 ms [[1142,90],[1232,92],[1327,99],[1431,99],[1532,98],[1632,100],[1735,119],[1856,87]]
+  after two zoom-ins: frames/s 9.3
+  zooming during the pour: 46 long tasks, longest 152 ms [[34574,133],[34708,113],[34826,85],[34915,82],[34998,125],[35124,106],[35231,119],[35353,125]]
+  beds view up after 1.027 s: HTR-10: pebbles, TRISO, kernels · liberties: lattice vs random bed
+  beds view: load, decode, 3 s idle: 4 long tasks, longest 253 ms [[510,108],[779,253],[1033,167],[1203,168]]
+  beds frames/s idle: 60.0

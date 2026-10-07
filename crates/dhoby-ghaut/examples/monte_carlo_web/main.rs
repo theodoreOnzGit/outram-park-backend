@@ -56,6 +56,13 @@ mod xs;
 mod raster;
 #[cfg(not(target_os = "android"))]
 mod sweep;
+// The `htr10` rung's liberties toggle, lattice bed against DEM bed (gh:#787),
+// and the baked beds it draws (shared with `dem_web`).
+#[cfg(not(target_os = "android"))]
+mod beds;
+#[cfg(not(target_os = "android"))]
+#[path = "../common/htr10_beds.rs"]
+mod htr10_beds;
 
 // THE RUNG TABLE, in ladder order: one line per rung, `module: MarkerType`,
 // for `examples/monte_carlo_web/<module>/mod.rs` (see `rungs.rs`). Adding a

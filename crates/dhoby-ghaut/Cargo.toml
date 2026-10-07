@@ -154,6 +154,10 @@ uom = { workspace = true }
 # the zoom ladder shows the solver's geometry, not a re-model. A wasm in-scope
 # crate.
 nee_soon = { workspace = true }
+# The DEM pour demo (gh:#787): the LIGGGHTS port's `htr10_fill` pour, run in
+# the browser's worker, and the `htr10` rung's baked DEM bed. A wasm in-scope
+# crate (its `wasm_par` shim stands in for rayon).
+outram-park-fork-liggghts = { workspace = true }
 
 # Native only: the two studios' stacks. Gated off wasm32 because dev-deps
 # resolve for EVERY example in the package, and outram-blender's `gpu` feature
@@ -259,3 +263,15 @@ path = "examples/triso_atops_web/main.rs"
 [[example]]
 name = "nuclear_data_web"
 path = "examples/nuclear_data_web/main.rs"
+
+# The DEM pour demo (gh:#787): HTR-10 pebbles poured and settled live by the
+# LIGGGHTS port's GranularSystem (`htr10_fill`) in a Web Worker, the packing
+# fraction converging, beside the baked full-size gh:#216 bed (web/dem/).
+# `--bake-beds` writes the `htr10` rung's liberties-toggle beds.
+#
+#   cargo run -p dhoby-ghaut --example dem_web --release [-- --headless 4000 2000]
+#
+# Carries an Android stub `main`.
+[[example]]
+name = "dem_web"
+path = "examples/dem_web/main.rs"

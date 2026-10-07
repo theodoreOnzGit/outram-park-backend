@@ -185,6 +185,11 @@ pub trait McRung {
     fn sweep() -> Option<RecordedSweep> {
         None
     }
+    /// Whether the rung has the lattice-against-random-bed view
+    /// ([`crate::beds`], gh:#787).
+    fn beds() -> bool {
+        false
+    }
 }
 
 /// Generates, from a list `module: Marker`, the `mod` declarations, the
@@ -270,6 +275,9 @@ macro_rules! rung_table {
                 }
                 pub fn kinf_case(self) -> Option<KinfCase> {
                     match self { $( Rung::$t => <$crate::$m::$t as McRung>::kinf_case(), )+ }
+                }
+                pub fn beds(self) -> bool {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::beds(), )+ }
                 }
                 pub fn has_run(self) -> bool {
                     self.run_default().is_some()

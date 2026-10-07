@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<!-- __BUILD__ is the commit, written by build.sh: every file URL carries it,
+     so each deploy is fetched fresh and the page, its wasm and its worker
+     always come from the same build. -->
+<html lang="en" data-build="__BUILD__">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DEM pour demo · OUTRAM PARK</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1014; color: #d8dce4;
+               font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #dem_canvas { display: block; width: 100%; height: 100%; outline: none; }
+  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+             text-align: center; padding: 24px; }
+  #loading .box { max-width: 34em; }
+  #loading .spin { width: 28px; height: 28px; margin: 0 auto 16px; border-radius: 50%;
+                   border: 3px solid #3a4150; border-top-color: #7aa7ff; animation: s 0.9s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  noscript, .err { color: #ff8a8a; }
+</style>
+</head>
+<body>
+<canvas id="dem_canvas"></canvas>
+<div id="loading">
+  <div class="box">
+    <div class="spin"></div>
+    <p><strong>Loading the WebAssembly module…</strong></p>
+    <p>HTR-10 pebbles poured into the reactor vessel and settled by OUTRAM PARK's port of the LIGGGHTS
+      discrete-element code, live in a background worker in this tab, with the packing fraction converging.</p>
+    <p>Research, education and V&amp;V only. Not for reactor operation, licensing, safety decisions or emergency response.</p>
+    <noscript>This demo needs JavaScript and WebAssembly.</noscript>
+  </div>
+</div>
+<script type="module">
+  import init from "./dem_web.js?v=__BUILD__";
+  init({ module_or_path: "./dem_web_bg.wasm?v=__BUILD__" }).catch((e) => {
+    const el = document.getElementById("loading");
+    if (el) el.innerHTML = '<p class="err">Could not start: ' + String(e) + "</p>";
+    console.error(e);
+  });
+</script>
+</body>
+</html>

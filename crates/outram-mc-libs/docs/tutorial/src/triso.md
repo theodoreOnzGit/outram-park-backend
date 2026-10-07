@@ -934,12 +934,27 @@ published 0.61 ([gh:#216](https://github.com/theodoreOnzGit/outram-park-backend/
 `outram-mc-libs` has the seam to hand such a bed to transport
 ([`pebble_beds::dem_bed`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/dem_bed.rs)).
 
-**But no $k_\text{eff}$ of the HTR-10 core on a DEM-settled random bed exists
-in this repository.** Searched 2026-10-05: `crates/nee_soon`,
-`crates/outram-park-fork-liggghts` and `crates/outram-mc-libs`. The DEM seam
+**But no $k_\text{eff}$ result of the HTR-10 core on a DEM-settled random bed
+exists in this repository.** Searched 2026-10-05: `crates/nee_soon`,
+`crates/outram-park-fork-liggghts` and `crates/outram-mc-libs`. ~~The DEM seam
 returns pebble centres only and builds no geometry, and nothing calls it from
-a criticality run. So the effect of the lattice liberty above is **not
-known**, and this page does not estimate it.
+a criticality run.~~ **Corrected 2026-10-07
+([#787](https://github.com/theodoreOnzGit/outram-park-backend/issues/787)):**
+`nee_soon` does build the core from a DEM bed's centres
+(`assemble_explicit_triso_from_centres`, drawn in
+[`htr10_dem_bed_images/`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/nee_soon/verification_and_validation/htr10_dem_bed_images)),
+and one 15 000-history smoke run on it exists, which its own record says is
+not a comparison and shows only that the core transports. So the effect of
+the lattice liberty above is still **not known**, and this page does not
+estimate it.
+
+<div class="mcw-demo" data-mc-widget="demo" data-src="../../demos/monte-carlo/?rung=htr10&amp;mode=watch&amp;view=beds" data-label="▶ The lattice bed beside a poured bed (demo, liberties)"></div>
+
+*The demo cuts the lattice the $k$ runs use and a poured bed holding the same
+16 681 balls by the same plane. They stand at the same height to about a
+millimetre; only the arrangement differs. How such a bed is poured, live, and
+what its filling fraction is: the side page
+[Pouring the HTR-10 bed (DEM)](dem.md).*
 
 ## Run it yourself
 

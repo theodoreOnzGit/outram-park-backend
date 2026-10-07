@@ -7,3 +7,4 @@
 - [Rung 3 — Lumping: why the pile put its uranium in lumps](./lumped.md)
 - [Rung 4 — LEU-COMP-THERM-008: rods in water, the light-water reactor](./lct008.md)
 - [Rung 5 — TRISO: lumps inside lumps, ending in the HTR-10 pebble bed](./triso.md)
+  - [Side page — DEM: pouring the HTR-10 bed](./dem.md)
