@@ -63,8 +63,12 @@ maturity = 1
 # features` shows zero `eframe`/`egui` — the standard Cargo pattern for a
 # platform-specific default feature, the same shape crates like `winit` use.
 [features]
-default = ["gui"]
+default = ["gui", "lookup-net"]
 gui = ["dep:eframe", "dep:egui", "dep:egui-file-dialog"]
+# Identifier lookup over the network (GitHub #756): ureq with rustls (no
+# OpenSSL; ring compiles C/asm). Used only when the user runs a lookup. Off: lookups
+# fail with "not available in this build" (src/lookup_net.rs).
+lookup-net = ["dep:ureq"]
 
 # Exactly three binaries, per the final interface spec on GitHub issue #30
 # (2026-08-21): `kovan` (GUI), `kovan-cli` (agent CLI), `kovan-tui` (terminal
@@ -267,6 +271,11 @@ kopitiam-neovim = "0.2.5"
 eframe = { workspace = true, optional = true }
 egui = { workspace = true, optional = true }
 egui-file-dialog = { workspace = true, optional = true }
+# Identifier lookup (#756), behind the default `lookup-net` feature. Off
+# Android: rustls's `ring` compiles C with the Android NDK's clang, which the
+# workspace's proxy check (`--target aarch64-linux-android` without the NDK)
+# does not have; on Android a lookup reports "not available on this target".
+ureq = { workspace = true, optional = true }
 
 [dev-dependencies]
 # `lopdf` builds a small synthetic PDF fixture for the `lit` end-to-end tests

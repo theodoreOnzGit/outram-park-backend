@@ -1,0 +1,57 @@
+{
+	"name": "arxiv_old",
+	"kind": "identifier",
+	"text": "math/0211159",
+	"identifiers": [
+		{
+			"arXiv": "math/0211159"
+		}
+	],
+	"detected": [
+		"ecddda2e-4fc6-4aea-9f17-ef3b56d7377a"
+	],
+	"status": 200,
+	"translatorUsed": "ecddda2e-4fc6-4aea-9f17-ef3b56d7377a",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "preprint",
+			"creators": [
+				{
+					"firstName": "Grisha",
+					"lastName": "Perelman",
+					"creatorType": "author"
+				}
+			],
+			"tags": [
+				{
+					"tag": "Mathematics - Differential Geometry",
+					"type": 1
+				}
+			],
+			"title": "The entropy formula for the Ricci flow and its geometric applications",
+			"date": "2002-11-11",
+			"abstractNote": "We present a monotonic expression for the Ricci flow, valid in all dimensions and without curvature assumptions. It is interpreted as an entropy for a certain canonical ensemble. Several geometric applications are given. In particular, (1) Ricci flow, considered on the space of riemannian metrics modulo diffeomorphism and scaling, has no nontrivial periodic orbits (that is, other than fixed points); (2) In a region, where singularity is forming in finite time, the injectivity radius is controlled by the curvature; (3) Ricci flow can not quickly turn an almost euclidean region into a very curved one, no matter what happens far away. We also verify several assertions related to Richard Hamilton's program for the proof of Thurston geometrization conjecture for closed three-manifolds, and give a sketch of an eclectic proof of this conjecture, making use of earlier results on collapsing with local lower curvature bound.",
+			"url": "http://arxiv.org/abs/math/0211159",
+			"extra": "arXiv:math/0211159",
+			"repository": "arXiv",
+			"archiveID": "arXiv:math/0211159",
+			"DOI": "10.48550/arXiv.math/0211159",
+			"libraryCatalog": "arXiv.org",
+			"accessDate": "NOW"
+		},
+		{
+			"itemType": "note",
+			"parentItem": "KVN22222",
+			"note": "Comment: 39 pages"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://export.arxiv.org/api/query?id_list=math%2F0211159&max_results=1",
+			"body": null
+		}
+	]
+}

@@ -1,0 +1,31 @@
+{
+	"case": "synthetic_libris_isbn",
+	"input": {
+		"kind": "forced",
+		"translator": "LIBRIS ISBN.js",
+		"search": {
+			"itemType": "book",
+			"ISBN": "978-91-977109-4-7"
+		}
+	},
+	"synthetic": true,
+	"source": "kovan-authored response (2026-10-07, #756) in the shape of a LIBRIS xsearch MARCXML answer; LIBRIS was not contacted (the recorded request failed at the network level). The record content is invented test data, not a real catalogue record.",
+	"exchanges": [
+		{
+			"request": {
+				"method": "GET",
+				"url": "http://libris.kb.se/xsearch?query=ISBN:9789197710947",
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "http://libris.kb.se/xsearch?query=ISBN:9789197710947",
+				"headers": {
+					"content-type": "text/xml; charset=UTF-8"
+				},
+				"body": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xsearch xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" from=\"1\" to=\"1\" records=\"1\">\n<collection xmlns=\"http://www.loc.gov/MARC21/slim\">\n<record>\n<leader>00000cam a2200000 a 4500</leader>\n<controlfield tag=\"001\">kovan-synthetic-1</controlfield>\n<controlfield tag=\"008\">080101s2008    sw            000 0 swe c</controlfield>\n<datafield tag=\"020\" ind1=\" \" ind2=\" \"><subfield code=\"a\">9789197710947</subfield></datafield>\n<datafield tag=\"041\" ind1=\" \" ind2=\" \"><subfield code=\"a\">swe</subfield></datafield>\n<datafield tag=\"100\" ind1=\"1\" ind2=\" \"><subfield code=\"a\">Andersson, Karin</subfield></datafield>\n<datafield tag=\"245\" ind1=\"1\" ind2=\"0\"><subfield code=\"a\">Kärnkraftens historia i Sverige :</subfield><subfield code=\"b\">en översikt /</subfield><subfield code=\"c\">Karin Andersson</subfield></datafield>\n<datafield tag=\"260\" ind1=\" \" ind2=\" \"><subfield code=\"a\">Stockholm :</subfield><subfield code=\"b\">Exempelförlaget,</subfield><subfield code=\"c\">2008</subfield></datafield>\n<datafield tag=\"300\" ind1=\" \" ind2=\" \"><subfield code=\"a\">212 s.</subfield></datafield>\n<datafield tag=\"650\" ind1=\" \" ind2=\"7\"><subfield code=\"a\">Kärnkraft</subfield><subfield code=\"2\">sao</subfield></datafield>\n<datafield tag=\"650\" ind1=\" \" ind2=\"7\"><subfield code=\"a\">Bok</subfield></datafield>\n<datafield tag=\"655\" ind1=\" \" ind2=\"7\"><subfield code=\"a\">Bok</subfield></datafield>\n</record>\n</collection>\n</xsearch>\n",
+				"bodyEncoding": "utf8"
+			}
+		}
+	]
+}

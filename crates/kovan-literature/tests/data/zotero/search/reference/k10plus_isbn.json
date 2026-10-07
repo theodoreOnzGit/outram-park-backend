@@ -1,0 +1,44 @@
+{
+	"name": "k10plus_isbn",
+	"kind": "forced",
+	"translator": "de0eef58-cb39-4410-ada0-6b39f43383f9",
+	"search": {
+		"itemType": "book",
+		"ISBN": "9783830931492"
+	},
+	"status": 200,
+	"translatorUsed": "de0eef58-cb39-4410-ada0-6b39f43383f9",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "book",
+			"creators": [
+				{
+					"firstName": "Wolfgang",
+					"lastName": "Böttcher",
+					"creatorType": "editor"
+				}
+			],
+			"tags": [],
+			"ISBN": "9783830931492 9783830981497",
+			"language": "ger",
+			"abstractNote": "Die DeGEval – Gesellschaft für Evaluation stellt mit diesem Band die Ergebnisse ihrer Tätigkeit in verschiedenen Evaluationsfeldern in Deutschland und Österreich vor. In fast allen gesellschaftlichen Bereichen wird heute in der einen oder anderen Form „evaluiert“ – an einer differenzierten Betrachtung und klaren Definition mangelt es jedoch häufig. Dieser Realität begegnen die Autorinnen und Autoren mit der Forderung nach einer stärkeren Professionalisierung von Evaluation unter Einhaltung von Evaluationsstandards. Die Berichte aus den Arbeitsfeldern der DeGEval geben nicht nur einen Einblick in die Praxis und historische Entwicklung der Evaluation in verschiedenen Politikfeldern unter Betrachtung der jeweils spezifischen Anforderungen und Problemstellungen, sondern liefern zugleich einen anschaulichen Überblick über den aktuellen Stand der Evaluationsforschung. Die eher methodisch angelegten Beiträge am Ende des Bandes, die als Querschnittsbereiche der Evaluation einen Rahmen für die Einzelbetrachtungen bieten, geben einen Ausblick auf Herausforderungen und Perspektiven der Evaluationsforschung und -praxis",
+			"title": "Evaluation in Deutschland und Österreich: Stand und Entwicklungsperspektiven in den Arbeitsfeldern der DeGEval - Gesellschaft für Evaluation",
+			"numPages": "219",
+			"series": "Waxmann-E-Books Soziologie",
+			"place": "Münster",
+			"publisher": "Waxmann",
+			"date": "2014",
+			"libraryCatalog": "K10plus ISBN",
+			"shortTitle": "Evaluation in Deutschland und Österreich"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://sru.k10plus.de/opac-de-627?version=1.1&operation=searchRetrieve&query=pica.isb=9783830931492&maximumRecords=1",
+			"body": null
+		}
+	]
+}

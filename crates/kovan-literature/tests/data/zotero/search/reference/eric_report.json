@@ -1,0 +1,130 @@
+{
+	"name": "eric_report",
+	"kind": "forced",
+	"translator": "e4660e05-a935-43ec-8eec-df0347362e4c",
+	"search": {
+		"ericNumber": "ED616685"
+	},
+	"status": 200,
+	"translatorUsed": "e4660e05-a935-43ec-8eec-df0347362e4c",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "report",
+			"creators": [
+				{
+					"firstName": "Lena",
+					"lastName": "Hildenbrand",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Jennifer",
+					"lastName": "Wiley",
+					"creatorType": "author"
+				}
+			],
+			"tags": [
+				{
+					"tag": "Test Format",
+					"type": 1
+				},
+				{
+					"tag": "Outcomes of Education",
+					"type": 1
+				},
+				{
+					"tag": "Cognitive Processes",
+					"type": 1
+				},
+				{
+					"tag": "Learning Activities",
+					"type": 1
+				},
+				{
+					"tag": "Recall (Psychology)",
+					"type": 1
+				},
+				{
+					"tag": "Multiple Choice Tests",
+					"type": 1
+				},
+				{
+					"tag": "Cues",
+					"type": 1
+				},
+				{
+					"tag": "Language Processing",
+					"type": 1
+				},
+				{
+					"tag": "Testing",
+					"type": 1
+				},
+				{
+					"tag": "Educational Benefits",
+					"type": 1
+				},
+				{
+					"tag": "Test Items",
+					"type": 1
+				},
+				{
+					"tag": "Instructional Effectiveness",
+					"type": 1
+				},
+				{
+					"tag": "Undergraduate Students",
+					"type": 1
+				},
+				{
+					"tag": "Urban Universities",
+					"type": 1
+				},
+				{
+					"tag": "Psychology",
+					"type": 1
+				},
+				{
+					"tag": "Introductory Courses",
+					"type": 1
+				},
+				{
+					"tag": "Prior Learning",
+					"type": 1
+				},
+				{
+					"tag": "Scores",
+					"type": 1
+				},
+				{
+					"tag": "Reading Tests",
+					"type": 1
+				},
+				{
+					"tag": "College Entrance Examinations",
+					"type": 1
+				},
+				{
+					"tag": "Comparative Analysis",
+					"type": 1
+				}
+			],
+			"title": "Can Closed-Ended Practice Tests Promote Understanding from Text?",
+			"abstractNote": "Many studies have demonstrated that testing students on to-be-learned materials can be an effective learning activity. However, past studies have also shown that some practice test formats are more effective than others. Open-ended recall or short answer practice tests may be effective because the questions prompt deeper processing as students must generate an answer. With closed-ended testing formats such as multiple-choice or true-false tests, there are concerns that they may prompt only superficial processing, and that any benefits will not extend to non-practiced information or over time. They also may not be effective for improving comprehension from text as measured by how-and-why questions. The present study explored the utility of practice tests with closed-ended questions to improve learning from text. Results showed closed-ended practice testing can lead to benefits even when the learning outcome was comprehension of text. [This paper was published in: \"Proceedings of the 43rd Annual Conference of the Cognitive Science Society,\" 2021, pp.327-333.]",
+			"language": "English",
+			"date": "2021",
+			"extra": "ERIC Number: ED616685",
+			"url": "https://eric.ed.gov/?id=ED616685",
+			"libraryCatalog": "ERIC",
+			"accessDate": "NOW"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://api.ies.ed.gov/eric/?search=id:ED616685&format=json&fields=*",
+			"body": null
+		}
+	]
+}

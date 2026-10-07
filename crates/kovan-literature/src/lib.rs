@@ -94,6 +94,9 @@ pub use kovan_common::{Author, DocumentType, KovanBenchmark, KovanDocument, Visi
 
 mod bibtex;
 pub mod concept_tree;
+/// The PDF follow-up of identifier lookup (#756): field-by-field review of a
+/// fetched record against an extracted document.
+pub mod lookup_review;
 mod markdown;
 mod metadata;
 mod pdf_import;

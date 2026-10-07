@@ -130,9 +130,38 @@ pub fn clean_issn(issn_str: &str) -> Option<String> {
     })
 }
 
+/// `Zotero.Utilities.toISBN13(isbnStr)` (:576-597, #756): the first ISBN in
+/// the text (not validated) as ISBN-13 with its check digit recomputed;
+/// `None` where upstream throws "ISBN not found".
+pub fn to_isbn13(isbn_str: &str) -> Option<String> {
+    let isbn = clean_isbn(isbn_str, true)?;
+    let mut base = if isbn.len() == 13 {
+        isbn[..12].to_owned()
+    } else {
+        format!("978{}", &isbn[..9])
+    };
+    // `isbn[i] * w`: an "X" in the first 12 places is NaN upstream; it
+    // cannot occur (cleanISBN puts X only last).
+    let sum: u32 = base
+        .bytes()
+        .enumerate()
+        .map(|(i, c)| u32::from(c.wrapping_sub(b'0')) * if i % 2 == 1 { 3 } else { 1 })
+        .sum();
+    let check = (10 - sum % 10) % 10;
+    base.push(char::from(b'0' + check as u8));
+    Some(base)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn to_isbn13_like_upstream() {
+        assert_eq!(to_isbn13("0-8389-8589-0").as_deref(), Some("9780838985892"));
+        assert_eq!(to_isbn13("9780838985899").as_deref(), Some("9780838985892"));
+        assert_eq!(to_isbn13("nothing"), None);
+    }
 
     #[test]
     fn isbn_and_issn() {

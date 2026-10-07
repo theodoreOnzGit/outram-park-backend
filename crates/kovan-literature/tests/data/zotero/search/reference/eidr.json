@@ -1,0 +1,58 @@
+{
+	"name": "eidr",
+	"kind": "identifier",
+	"text": "10.5240/6F7E-EF59-329B-1F0A-8440-2",
+	"identifiers": [
+		{
+			"DOI": "10.5240/6F7E-EF59-329B-1F0A-8440-2"
+		}
+	],
+	"detected": [
+		"79c3d292-0afc-42a1-bd86-7e706fc35aa5",
+		"b28d0d42-8549-4c6d-83fc-8382874a5cb9"
+	],
+	"status": 200,
+	"translatorUsed": "79c3d292-0afc-42a1-bd86-7e706fc35aa5",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "videoRecording",
+			"creators": [
+				{
+					"firstName": "Roy",
+					"lastName": "Rowland",
+					"creatorType": "director"
+				},
+				{
+					"firstName": "Byron",
+					"lastName": "Shores",
+					"creatorType": "castMember"
+				},
+				{
+					"firstName": "C. Henry",
+					"lastName": "Gordon",
+					"creatorType": "castMember"
+				},
+				{
+					"firstName": "Paul",
+					"lastName": "Everton",
+					"creatorType": "castMember"
+				}
+			],
+			"tags": [],
+			"title": "You, the People",
+			"date": "1940-11-30",
+			"place": "US",
+			"runningTime": "1260s",
+			"libraryCatalog": "EIDR"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://resolve.eidr.org/EIDR/object/10.5240/6F7E-EF59-329B-1F0A-8440-2/?type=Full&followAlias=true",
+			"body": null
+		}
+	]
+}

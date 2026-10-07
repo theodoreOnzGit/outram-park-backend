@@ -260,7 +260,8 @@ enum Command {
     Lit(LitCommand),
     /// Zotero: import a Zotero library or file into a Kovan folder, export
     /// to every Zotero format, list formats, duplicates, quick search
-    /// (GitHub #752).
+    /// (GitHub #752), and identifier lookup (`zotero lookup`, GitHub #756;
+    /// uses the network, only when run).
     #[command(subcommand)]
     Zotero(ZoteroCommand),
     /// The "kovan folder" project format (op-63u0's design): rescan a

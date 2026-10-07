@@ -229,6 +229,11 @@ fn gen_unimplemented_method_fails_with_a_clear_error() {
 /// `lit import`/`lit bibtex`/`lit outline` can be exercised end-to-end
 /// offline, without shipping any real (possibly proprietary) PDF fixture.
 fn build_synthetic_pdf(path: &Path) {
+    build_synthetic_pdf_with(path, "Kovan CLI Fixture Report");
+}
+
+/// [`build_synthetic_pdf`] with `text` as the page's one line.
+fn build_synthetic_pdf_with(path: &Path, text: &str) {
     use lopdf::content::{Content, Operation};
     use lopdf::{dictionary, Document, Object, Stream};
 
@@ -252,7 +257,7 @@ fn build_synthetic_pdf(path: &Path) {
             Operation::new("Td", vec![72.into(), 720.into()]),
             Operation::new(
                 "Tj",
-                vec![Object::string_literal("Kovan CLI Fixture Report")],
+                vec![Object::string_literal(text)],
             ),
             Operation::new("ET", vec![]),
         ],
@@ -361,6 +366,40 @@ fn lit_bibtex_missing_pdf_reports_an_error() {
     let out = kovan(&["lit", "bibtex", "/nonexistent/kovan-cli-nope.pdf"]);
     assert!(!out.status.success());
     assert!(!stderr(&out).is_empty());
+}
+
+/// #756: an identifier in the PDF is reported as a lookup on offer; without
+/// `--lookup` nothing goes online and the import succeeds as before.
+#[test]
+fn lit_import_offers_a_lookup_without_going_online() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let pdf = dir.path().join("doi.pdf");
+    build_synthetic_pdf_with(&pdf, "Plasma report doi:10.1109/TPS.1987.4316723");
+    let out = kovan(&["lit", "import", pdf.to_str().unwrap()]);
+    assert!(out.status.success(), "{}", stderr(&out));
+    let text = stdout(&out);
+    assert!(
+        text.contains("lookup_available: DOI 10.1109/TPS.1987.4316723"),
+        "{text}"
+    );
+    assert!(!text.contains("lookup_field"), "{text}");
+}
+
+/// #756: `zotero lookup` on text with no identifier fails cleanly, offline.
+#[test]
+fn zotero_lookup_without_an_identifier_fails_cleanly() {
+    let out = kovan(&["zotero", "lookup", "no identifier in here"]);
+    assert!(!out.status.success());
+    assert!(stderr(&out).contains("no DOI, ISBN"), "{}", stderr(&out));
+}
+
+/// #756: `--save` into this repository is refused before any request.
+#[test]
+fn zotero_lookup_refuses_to_save_into_this_repository() {
+    let here = env!("CARGO_MANIFEST_DIR");
+    let out = kovan(&["zotero", "lookup", "10.1109/TPS.1987.4316723", "--save", "--to", here]);
+    assert!(!out.status.success());
+    assert!(stderr(&out).contains("refusing to write"), "{}", stderr(&out));
 }
 
 // ---------------------------------------------------------------------

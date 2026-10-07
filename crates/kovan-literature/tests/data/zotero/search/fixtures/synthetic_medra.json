@@ -1,0 +1,31 @@
+{
+	"case": "synthetic_medra",
+	"input": {
+		"kind": "forced",
+		"translator": "mEDRA.js",
+		"search": {
+			"itemType": "journalArticle",
+			"DOI": "10.3239/9783656578857"
+		}
+	},
+	"synthetic": true,
+	"source": "kovan-authored HTML shaped as the mEDRA DOI resolution page mEDRA.js scrapes (medra.org was not contacted; the translator is disabled upstream). Values are invented. Written 2026-10-07 for #756.",
+	"exchanges": [
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://www.medra.org/servlet/view?lang=en&doi=10.3239%2F9783656578857",
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "https://www.medra.org/servlet/view?lang=en&doi=10.3239%2F9783656578857",
+				"headers": {
+					"content-type": "text/html;charset=ISO-8859-1"
+				},
+				"body": "<!DOCTYPE html><html><head><title>mEDRA</title></head><body><table><tr><td id='contenuto'><span>DOI Resolution Data:</span><br><table><tr><td>DOI</td><td>10.3239/9783656578857</td></tr><tr><td>Full Title</td><td>A SYNTHETIC TITLE : ON TESTS OF SCRAPERS</td></tr><tr><td>By (author)</td><td>Doe, Jane</td></tr><tr><td>By (author)</td><td>M&amp;#252</td></tr><tr><td>By (author)</td><td>ller, Hans</td></tr><tr><td>By (editor)</td><td>Ignored, Ed</td></tr><tr><td>Product Form</td><td>Digital online (DH)</td></tr><tr><td>Publication date</td><td>2014 / 01 / 15</td></tr><tr><td>Language of text</td><td>German (ger)</td></tr><tr><td>Copyright owner</td><td>Synthetic Verlag</td></tr><tr><td>First page</td><td>1</td></tr><tr><td>Last page</td><td>20</td></tr><tr><td>Copyright year</td><td>2014</td></tr><tr><td>Country of publication</td><td>Germany (DE)</td></tr><tr><td>Other product identifier (ISBN)</td><td>978-3-656-57885-7</td></tr><tr><td>Empty</td><td></td></tr></table><span>Serial Publication Data:</span><table><tr><td>Full Title</td><td>Journal  of Synthetic  Tests : Series A</td></tr><tr><td>ISSN</td><td>1234-5678</td></tr><tr><td>Publisher</td><td>Synthetic Press</td></tr></table></td></tr></table></body></html>",
+				"bodyEncoding": "utf8"
+			}
+		}
+	]
+}

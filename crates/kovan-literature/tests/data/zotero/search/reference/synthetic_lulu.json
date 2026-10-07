@@ -1,0 +1,54 @@
+{
+	"name": "synthetic_lulu",
+	"kind": "forced",
+	"synthetic": true,
+	"translator": "9a0ecbda-c0e9-4a19-84a9-fc8e7c845afa",
+	"search": {
+		"itemType": "book",
+		"ISBN": "9780951470329"
+	},
+	"status": 200,
+	"translatorUsed": "9a0ecbda-c0e9-4a19-84a9-fc8e7c845afa",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "book",
+			"creators": [
+				{
+					"firstName": "Jane Q.",
+					"lastName": "Doe",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "John",
+					"lastName": "Smith",
+					"creatorType": "author"
+				}
+			],
+			"tags": [],
+			"title": "A SYNTHETIC Book About Reactor Kinetics: Theory and Practice",
+			"abstractNote": "First part of the text., more   and   the rest.",
+			"ISBN": "9780951470329",
+			"publisher": "Synthetic Press",
+			"rights": "Standard Copyright License",
+			"language": "English",
+			"date": "2012-03-03",
+			"numPages": "212",
+			"libraryCatalog": "Lulu",
+			"shortTitle": "A SYNTHETIC Book About Reactor Kinetics"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://www.lulu.com/shop/search.ep?keyWords=9780951470329",
+			"body": null
+		},
+		{
+			"method": "GET",
+			"url": "https://www.lulu.com/shop/jane-doe/a-synthetic-book/paperback/product-12345.html",
+			"body": null
+		}
+	]
+}

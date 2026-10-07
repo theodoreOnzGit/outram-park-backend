@@ -105,6 +105,10 @@ pub enum ZoteroCommand {
         #[arg(long, value_enum, default_value = "title-creator-year")]
         mode: SearchModeArg,
     },
+    /// Look up a DOI, ISBN, arXiv ID, ADS bibcode or PMID (or text holding
+    /// one) with Zotero's search translators, print the record, and with
+    /// `--save --to <folder>` write it. Uses the network (GitHub #756).
+    Lookup(crate::commands::zotero_lookup::LookupArgs),
 }
 
 /// `clap`-facing mirror of [`QuickSearchMode`].
@@ -131,6 +135,7 @@ impl From<SearchModeArg> for QuickSearchMode {
 /// Dispatch a parsed [`ZoteroCommand`].
 pub fn run(command: ZoteroCommand) -> Result<(), String> {
     match command {
+        ZoteroCommand::Lookup(args) => crate::commands::zotero_lookup::run(args),
         ZoteroCommand::Formats => {
             formats();
             Ok(())

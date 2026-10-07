@@ -1,0 +1,129 @@
+{
+	"name": "openalex",
+	"kind": "forced",
+	"translator": "432d79fe-79e1-4791-b3e1-baf700710163",
+	"search": {
+		"openAlex": "W2741809807"
+	},
+	"status": 200,
+	"translatorUsed": "432d79fe-79e1-4791-b3e1-baf700710163",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "journalArticle",
+			"creators": [
+				{
+					"firstName": "Heather",
+					"lastName": "Piwowar",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Jason R.",
+					"lastName": "Priem",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Vincent",
+					"lastName": "Larivière",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Juan Pablo",
+					"lastName": "Alperín",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Lisa",
+					"lastName": "Matthias",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Bree",
+					"lastName": "Norlander",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Ashley",
+					"lastName": "Farley",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Jevin D.",
+					"lastName": "West",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Stefanie",
+					"lastName": "Haustein",
+					"creatorType": "author"
+				}
+			],
+			"tags": [
+				{
+					"tag": "open access",
+					"type": 1
+				},
+				{
+					"tag": "Crossref DOIs",
+					"type": 1
+				},
+				{
+					"tag": "Web of Science",
+					"type": 1
+				},
+				{
+					"tag": "Unpaywall",
+					"type": 1
+				},
+				{
+					"tag": "bronze open access",
+					"type": 1
+				},
+				{
+					"tag": "gold open access",
+					"type": 1
+				},
+				{
+					"tag": "green open access",
+					"type": 1
+				},
+				{
+					"tag": "hybrid open access",
+					"type": 1
+				},
+				{
+					"tag": "citation impact",
+					"type": 1
+				},
+				{
+					"tag": "scholarly literature",
+					"type": 1
+				},
+				{
+					"tag": "open access policy",
+					"type": 1
+				}
+			],
+			"title": "The state of OA: a large-scale analysis of the prevalence and impact of Open Access articles",
+			"date": "2018-02-13",
+			"language": "en",
+			"DOI": "10.7717/peerj.4375",
+			"publicationTitle": "PeerJ",
+			"publisher": "PeerJ, Inc.",
+			"ISSN": "2167-8359",
+			"volume": "6",
+			"pages": "e4375",
+			"extra": "OpenAlex: https://openalex.org/W2741809807",
+			"libraryCatalog": "OpenAlex",
+			"shortTitle": "The state of OA"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://api.openalex.org/works?filter=openalex:W2741809807",
+			"body": null
+		}
+	]
+}

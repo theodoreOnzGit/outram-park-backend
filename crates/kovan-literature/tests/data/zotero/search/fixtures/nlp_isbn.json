@@ -1,0 +1,34 @@
+{
+	"case": "nlp_isbn",
+	"input": {
+		"kind": "forced",
+		"translator": "National Library of Poland ISBN.js",
+		"search": {
+			"itemType": "book",
+			"ISBN": "8301136545"
+		}
+	},
+	"recordedOn": "2026-10-07T01:48:21.666Z",
+	"userAgent": "kovan-zotero-reference/0.1 (outram-park-backend kovan-literature; recording public bibliographic metadata fixtures for code-to-code tests; https://github.com/theodoreOnzGit/outram-park-backend)",
+	"exchanges": [
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://data.bn.org.pl/api/institutions/bibs.marcxml?isbnIssn=8301136545",
+				"headers": {
+					"Accept": "*/*"
+				},
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "https://data.bn.org.pl/api/institutions/bibs.marcxml?isbnIssn=8301136545",
+				"headers": {
+					"content-type": "text/xml; charset=utf-8"
+				},
+				"body": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<resp>\n  <nextPage>https://data.bn.org.pl/api/institutions/bibs.marcxml?isbnIssn=8301136545&amp;sinceId=1540416</nextPage>\n  <collection>\n    <record xmlns='http://www.loc.gov/MARC21/slim'><leader>02616nam a2200733 i 4500</leader><controlfield tag='001'>b0000001540415</controlfield><controlfield tag='005'>20260313091519.5</controlfield><controlfield tag='008'>021211s2002    pl a         |001 0 pol  </controlfield><controlfield tag='009'>991019936529705066</controlfield><datafield ind1=' ' ind2=' ' tag='015'><subfield code='a'>UWD 2002/20168</subfield></datafield><datafield ind1=' ' ind2=' ' tag='020'><subfield code='a'>8301136545</subfield></datafield><datafield ind1=' ' ind2=' ' tag='035'><subfield code='a'>991019936529705066</subfield></datafield><datafield ind1=' ' ind2=' ' tag='035'><subfield code='a'>(EXLNZ-48OMNIS_NETWORK)9910189754705606</subfield></datafield><datafield ind1=' ' ind2=' ' tag='035'><subfield code='a'>(PL-WaBN)b15404158-48omnis_nlop</subfield></datafield><datafield ind1=' ' ind2=' ' tag='035'><subfield code='a'>b15404158</subfield></datafield><datafield ind1=' ' ind2=' ' tag='035'><subfield code='a'>(OCoLC)749283337</subfield></datafield><datafield ind1=' ' ind2=' ' tag='035'><subfield code='a'>(PL)b0000001540415</subfield></datafield><datafield ind1=' ' ind2=' ' tag='035'><subfield code='a'>zz2002911114</subfield></datafield><datafield ind1=' ' ind2=' ' tag='040'><subfield code='a'>WA N</subfield><subfield code='c'>WA N</subfield><subfield code='d'>WA N</subfield></datafield><datafield ind1='0' ind2=' ' tag='041'><subfield code='a'>pol</subfield></datafield><datafield ind1=' ' ind2=' ' tag='080'><subfield code='a'>546(075.8)</subfield></datafield><datafield ind1='1' ind2=' ' tag='100'><subfield code='a'>Bielański, Adam</subfield><subfield code='d'>(1912-2016)</subfield></datafield><datafield ind1='1' ind2='0' tag='245'><subfield code='a'>Podstawy chemii nieorganicznej /</subfield><subfield code='c'>Adam Bielański.</subfield></datafield><datafield ind1=' ' ind2=' ' tag='250'><subfield code='a'>Wyd. 5 zm. i popr.</subfield></datafield><datafield ind1=' ' ind2=' ' tag='260'><subfield code='a'>Warszawa :</subfield><subfield code='b'>Wydaw. Naukowe PWN,</subfield><subfield code='c'>2002.</subfield></datafield><datafield ind1=' ' ind2=' ' tag='300'><subfield code='a'>1064 s. :</subfield><subfield code='b'>il. ;</subfield><subfield code='c'>25 cm.</subfield></datafield><datafield ind1=' ' ind2=' ' tag='336'><subfield code='a'>Tekst</subfield><subfield code='b'>txt</subfield><subfield code='2'>rdacontent</subfield></datafield><datafield ind1=' ' ind2=' ' tag='337'><subfield code='a'>Bez urządzenia pośredniczącego</subfield><subfield code='b'>n</subfield><subfield code='2'>rdamedia</subfield></datafield><datafield ind1=' ' ind2=' ' tag='338'><subfield code='a'>Wolumin</subfield><subfield code='b'>nc</subfield><subfield code='2'>rdacarrier</subfield></datafield><datafield ind1=' ' ind2=' ' tag='380'><subfield code='a'>Książki</subfield></datafield><datafield ind1=' ' ind2=' ' tag='380'><subfield code='a'>Publikacje dydaktyczne</subfield></datafield><datafield ind1=' ' ind2=' ' tag='380'><subfield code='a'>Publikacje naukowe</subfield></datafield><datafield ind1=' ' ind2=' ' tag='385'><subfield code='m'>Poziom nauczania</subfield><subfield code='a'>Szkoły wyższe</subfield></datafield><datafield ind1=' ' ind2=' ' tag='500'><subfield code='a'>Indeks.</subfield></datafield><datafield ind1=' ' ind2=' ' tag='504'><subfield code='a'>Indeks.</subfield></datafield><datafield ind1=' ' ind2='7' tag='650'><subfield code='a'>Chemia nieorganiczna</subfield><subfield code='2'>DBN</subfield></datafield><datafield ind1=' ' ind2='0' tag='650'><subfield code='a'>Chemistry, Inorganic</subfield></datafield><datafield ind1=' ' ind2='2' tag='650'><subfield code='a'>Chemia nieorganiczna</subfield></datafield><datafield ind1=' ' ind2='7' tag='655'><subfield code='a'>Podręcznik</subfield><subfield code='2'>DBN</subfield></datafield><datafield ind1='2' ind2=' ' tag='710'><subfield code='a'>Wydawnictwo Naukowe PWN</subfield><subfield code='4'>pbl</subfield></datafield><datafield ind1=' ' ind2=' ' tag='852'><subfield code='8'>22477428840005066</subfield><subfield code='j'>1</subfield><subfield code='h'>2.508.889</subfield><subfield code='b'>BN_PL</subfield><subfield code='p'>30001002104737</subfield><subfield code='c'>bk8</subfield></datafield><datafield ind1=' ' ind2=' ' tag='852'><subfield code='8'>22477428820005066</subfield><subfield code='j'>1</subfield><subfield code='h'>2.152.922 A</subfield><subfield code='b'>BN_PL</subfield><subfield code='p'>777i19434972</subfield><subfield code='c'>bk1</subfield></datafield><datafield ind1=' ' ind2=' ' tag='920'><subfield code='a'>83-01-13654-5</subfield></datafield></record>\n  </collection>\n</resp>\n",
+				"bodyEncoding": "utf8"
+			}
+		}
+	]
+}
