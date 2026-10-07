@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!-- kovan-authored probe (#749): a creator list numbered from rdf:_2, which
+     leaves a hole in upstream's array (an import error upstream). -->
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:dc="http://purl.org/dc/elements/1.1/"
+         xmlns:bib="http://purl.org/net/biblio#"
+         xmlns:foaf="http://xmlns.com/foaf/0.1/">
+  <bib:Book rdf:about="#holes">
+    <dc:title>Holes</dc:title>
+    <bib:authors>
+      <rdf:Seq>
+        <rdf:_2><foaf:Person><foaf:surname>Second</foaf:surname></foaf:Person></rdf:_2>
+      </rdf:Seq>
+    </bib:authors>
+  </bib:Book>
+</rdf:RDF>

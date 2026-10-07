@@ -18,11 +18,26 @@
 //! | BibLaTeX | — | yes | [`biblatex`] |
 //! | RIS | yes | yes | [`ris`] |
 //! | CSL JSON | yes | yes | [`csl_json`] |
+//! | Zotero RDF | — | yes | [`zotero_rdf`] |
+//! | RDF | yes | — | [`rdf`] |
+//! | Bibliontology RDF | yes | yes | [`bibliontology`] |
+//! | Unqualified Dublin Core RDF | — | yes | [`dc_rdf`] |
+//!
+//! The four RDF translators (#749) run on the framework's RDF data mode
+//! ([`super::framework::rdf`]); [`rdf_support`] holds the JavaScript
+//! behaviour they share.
 
 pub mod biblatex;
 pub mod bibtex;
 pub mod csl_json;
 pub mod ris;
+// RDF translators (#749)
+pub mod bibliontology;
+pub mod dc_rdf;
+pub mod rdf;
+pub mod rdf_creator_types;
+pub mod rdf_support;
+pub mod zotero_rdf;
 
 use super::framework::options::TranslatorMetadata;
 use super::framework::{
@@ -42,15 +57,32 @@ pub enum Translator {
     Ris,
     /// `CSL JSON.js` (import and export).
     CslJson,
+    // RDF translators (#749)
+    /// `Zotero RDF.js` (export).
+    ZoteroRdf,
+    /// `RDF.js` (import).
+    Rdf,
+    /// `Bibliontology RDF.js` (import and export).
+    BibliontologyRdf,
+    /// `Unqualified Dublin Core RDF.js` (export).
+    DcRdf,
 }
 
 impl Translator {
     /// Every ported translator, in the order the translation-server tries
     /// them for import detection: by `priority`, ties in file-name order
     /// (its stable sort over the translators directory, translators.js:76-86).
-    pub const ALL: [Translator; 4] = [
+    ///
+    /// The RDF translators (#749): Zotero RDF has priority 25, Bibliontology
+    /// RDF 50, RDF and Unqualified Dublin Core RDF 100 ("RDF.js" sorts
+    /// between "CSL JSON.js" and "RIS.js").
+    pub const ALL: [Translator; 8] = [
+        Translator::ZoteroRdf,
+        Translator::BibliontologyRdf,
         Translator::CslJson,
+        Translator::Rdf,
         Translator::Ris,
+        Translator::DcRdf,
         Translator::BibLaTeX,
         Translator::BibTeX,
     ];
@@ -62,6 +94,10 @@ impl Translator {
             Translator::BibLaTeX => &biblatex::METADATA,
             Translator::Ris => &ris::METADATA,
             Translator::CslJson => &csl_json::METADATA,
+            Translator::ZoteroRdf => &zotero_rdf::METADATA,
+            Translator::Rdf => &rdf::METADATA,
+            Translator::BibliontologyRdf => &bibliontology::METADATA,
+            Translator::DcRdf => &dc_rdf::METADATA,
         }
     }
 
@@ -73,6 +109,11 @@ impl Translator {
             Translator::BibLaTeX => "biblatex",
             Translator::Ris => "ris",
             Translator::CslJson => "csljson",
+            Translator::ZoteroRdf => "rdf_zotero",
+            // RDF.js has no export format; this names its import fixtures.
+            Translator::Rdf => "rdf",
+            Translator::BibliontologyRdf => "rdf_bibliontology",
+            Translator::DcRdf => "rdf_dc",
         }
     }
 
@@ -105,6 +146,9 @@ impl Translator {
             Translator::Ris => ris::detect_import(&mut ctx),
             Translator::CslJson => csl_json::detect_import(&mut ctx),
             Translator::BibLaTeX => false,
+            Translator::Rdf => rdf::detect_import(&mut ctx),
+            Translator::BibliontologyRdf => bibliontology::detect_import(&mut ctx),
+            Translator::ZoteroRdf | Translator::DcRdf => false,
         }
     }
 
@@ -126,7 +170,11 @@ impl Translator {
             Translator::BibTeX => bibtex::do_import(&mut ctx)?,
             Translator::Ris => ris::do_import(&mut ctx)?,
             Translator::CslJson => csl_json::do_import(&mut ctx)?,
-            Translator::BibLaTeX => unreachable!("checked can_import"),
+            Translator::Rdf => rdf::do_import(&mut ctx)?,
+            Translator::BibliontologyRdf => bibliontology::do_import(&mut ctx)?,
+            Translator::BibLaTeX | Translator::ZoteroRdf | Translator::DcRdf => {
+                unreachable!("checked can_import")
+            }
         }
         Ok(ctx.finish())
     }
@@ -138,6 +186,19 @@ impl Translator {
         items: &[JsObject],
         options: &TranslateOptions,
     ) -> Result<String, TranslateError> {
+        self.export_with_collections(items, &[], options)
+    }
+
+    /// Export items and collections (#749): the collections are what
+    /// `Zotero.nextCollection()` hands out, in Zotero's export format (see
+    /// [`ExportContext::set_collections`]); only Zotero RDF reads them.
+    /// [`Translator::export`] passes none, as the translation-server does.
+    pub fn export_with_collections(
+        self,
+        items: &[JsObject],
+        collections: &[JsObject],
+        options: &TranslateOptions,
+    ) -> Result<String, TranslateError> {
         let meta = self.metadata();
         if !meta.can_export() {
             return Err(TranslateError::Unsupported {
@@ -146,11 +207,16 @@ impl Translator {
             });
         }
         let mut ctx = ExportContext::new(items, meta, options.clone());
+        ctx.set_collections(collections.to_vec());
         match self {
             Translator::BibTeX => bibtex::do_export(&mut ctx)?,
             Translator::BibLaTeX => biblatex::do_export(&mut ctx)?,
             Translator::Ris => ris::do_export(&mut ctx)?,
             Translator::CslJson => csl_json::do_export(&mut ctx)?,
+            Translator::ZoteroRdf => zotero_rdf::do_export(&mut ctx, items)?,
+            Translator::BibliontologyRdf => bibliontology::do_export(&mut ctx, items)?,
+            Translator::DcRdf => dc_rdf::do_export(&mut ctx)?,
+            Translator::Rdf => unreachable!("checked can_export"),
         }
         Ok(ctx.finish())
     }

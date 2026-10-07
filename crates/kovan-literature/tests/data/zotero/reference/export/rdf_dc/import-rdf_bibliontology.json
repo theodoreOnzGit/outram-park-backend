@@ -1,0 +1,10 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:about=\"http://libreas.eu/ausgabe29/05kim/\">\n        <dc:title>Semiautomatische Katalogisierung und Normdatenverknüpfung mit Zotero im Index Theologicus</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:creator>Kim, Timotheus Chang-whae</dc:creator>\n        <dc:creator>Zumstein, Philipp</dc:creator>\n        <dc:date>2016</dc:date>\n        <dc:identifier>ISSN 1860-7950</dc:identifier>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"bibo_chapter_and_tags.bibo": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:about=\"urn:isbn:9780306406157, 0306406152\">\n        <dc:title>A Chapter</dc:title>\n        <dc:type>bookSection</dc:type>\n        <dc:creator>Author, Ann</dc:creator>\n        <dc:creator>List-only Organisation</dc:creator>\n        <dc:contributor>Editor, Eve</dc:contributor>\n        <dc:publisher>Probe Press</dc:publisher>\n        <dc:date>2018</dc:date>\n        <dc:identifier>ISBN 9780306406157, 0306406152</dc:identifier>\n    </rdf:Description>\n    <rdf:Description rdf:nodeID=\"n24500\">\n        <dc:title>A Letter</dc:title>\n        <dc:type>letter</dc:type>\n        <dc:contributor>Recipient</dc:contributor>\n    </rdf:Description>\n</rdf:RDF>\n"
+	}
+}

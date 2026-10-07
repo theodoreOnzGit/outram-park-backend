@@ -83,6 +83,14 @@ a licence header would be treated as AGPL-3.0, maintainer decision
                RIS.js      (C) 2006-2023 Simon Kornblith, Aurimas
                            Vinckevicus, Abe Jellinek
                CSL JSON.js (C) 2022 Simon Kornblith and Sebastian Karcher
+               RDF.js      (C) 2011 Center for History and New Media, George
+                           Mason University (Simon Kornblith)
+               Unqualified Dublin Core RDF.js (C) 2008 Simon Kornblith
+               Zotero RDF.js, Bibliontology RDF.js (Simon Kornblith): no
+                           licence text upstream; treated as AGPLv3 as part
+                           of Zotero, maintainer decision 2026-10-07, #747
+               (the RDF translators: src/zotero/translators/zotero_rdf.rs,
+               rdf/, bibliontology/, dc_rdf.rs; #749)
 
 Framework (the code the translators run in):
 
@@ -103,6 +111,65 @@ Framework (the code the translators run in):
                       src/importEndpoint.js, src/exportEndpoint.js,
                       src/translation/translate_item.js, src/formats.js,
                       src/translators.js (detection order)
+  translate (RDF)     https://github.com/zotero/translate           commit dd524aea9a55
+                      src/translation/translate.js (Zotero.RDF, the RDF data
+                      mode of IO.String, parseDOMXML) and src/rdf/ (term.js,
+                      identity.js, rdfparser.js, serialize.js, uri.js), in
+                      src/zotero/framework/rdf/ (#749)
+  utilities (RDF)     resource/zoteroTypeSchemaData.js (creator type order,
+                      src/zotero/translators/rdf_creator_types.rs), utilities.js
+                      cleanISBN, cleanISSN
+
+The RDF library in translate's src/rdf/ (Tim Berners-Lee's AJAW library and
+David Sheets's Tabulator RDF/XML parser) is not AGPL: its files carry the W3C
+Software Notice and License, which is GPL-compatible and asks for its notice
+to accompany copies and for changes to be noted. Changes (2026-10-07):
+translated to Rust (src/zotero/framework/rdf/), the N3 serializer and parser
+and reification not carried over, blank-node ids counted per store instead
+of per process. The notice, as rdfparser.js gives it:
+
+  W3C(R) SOFTWARE NOTICE AND LICENSE
+  http://www.w3.org/Consortium/Legal/2002/copyright-software-20021231
+  This work (and included software, documentation such as READMEs, or other
+  related items) is being provided by the copyright holders under the
+  following license. By obtaining, using and/or copying this work, you (the
+  licensee) agree that you have read, understood, and will comply with the
+  following terms and conditions.
+
+  Permission to copy, modify, and distribute this software and its
+  documentation, with or without modification, for any purpose and without
+  fee or royalty is hereby granted, provided that you include the following
+  on ALL copies of the software and documentation or portions thereof,
+  including modifications:
+
+  1. The full text of this NOTICE in a location viewable to users of the
+  redistributed or derivative work.
+  2. Any pre-existing intellectual property disclaimers, notices, or terms
+  and conditions. If none exist, the W3C Software Short Notice should be
+  included (hypertext is preferred, text is permitted) within the body of
+  any redistributed or derivative code.
+  3. Notice of any changes or modifications to the files, including the date
+  changes were made. (We recommend you provide URIs to the location from
+  which the code is derived.)
+
+  THIS SOFTWARE AND DOCUMENTATION IS PROVIDED "AS IS," AND COPYRIGHT HOLDERS
+  MAKE NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT
+  NOT LIMITED TO, WARRANTIES OF MERCHANTABILITY OR FITNESS FOR ANY
+  PARTICULAR PURPOSE OR THAT THE USE OF THE SOFTWARE OR DOCUMENTATION WILL
+  NOT INFRINGE ANY THIRD PARTY PATENTS, COPYRIGHTS, TRADEMARKS OR OTHER
+  RIGHTS.
+
+  COPYRIGHT HOLDERS WILL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, SPECIAL OR
+  CONSEQUENTIAL DAMAGES ARISING OUT OF ANY USE OF THE SOFTWARE OR
+  DOCUMENTATION.
+
+  The name and trademarks of copyright holders may NOT be used in
+  advertising or publicity pertaining to the software without specific,
+  written prior permission. Title to copyright in this software and any
+  associated documentation will at all times remain with copyright holders.
+
+Dependency added with the RDF translators: xml-rs (MIT), the XML parse under
+the RDF/XML parser.
 
 HTML named character references (src/zotero/framework/html_entities.rs):
 the WHATWG HTML Standard's list (https://html.spec.whatwg.org/, CC BY 4.0,
@@ -111,13 +178,16 @@ scripts/zotero-html-entities.mjs from Python's html.entities.html5 and
 checked entry by entry against jsdom 29.0.1 (MIT).
 
 Code-to-code verification ran upstream (maintainer authorisation,
-2026-10-07): a Zotero translation-server on 127.0.0.1:1969. What it returned
+2026-10-07): a Zotero translation-server on 127.0.0.1:1969, and (for the RDF
+translators, #749) the same server's modules loaded in-process by
+scripts/zotero-reference-inproc.mjs. What it returned
 is committed under tests/data/zotero/reference/ (scripts/zotero-reference.sh;
 manifest.json records the commits). Those files contain upstream's output and,
 as test inputs, upstream data:
 
   * every `testCases` entry of BibTeX.js, RIS.js and CSL JSON.js
-    (translators commit above; AGPL-3.0-or-later);
+    (translators commit above; AGPL-3.0-or-later), and of RDF.js and
+    Bibliontology RDF.js (the latter treated as AGPLv3, see above);
   * zotero/test/tests/data/itemJSON.js (Zotero commit 9cbba8c4d281, via
     kovan-common's tests/data/zotero/itemJSON.json; AGPL-3.0-or-later);
   * tests/data/zotero/fixtures/import/book_and_child_note.ris, copied from

@@ -5432,6 +5432,7 @@ dependencies = [
  "sha2",
  "tempfile",
  "toml",
+ "xml-rs",
 ]
 
 [[package]]

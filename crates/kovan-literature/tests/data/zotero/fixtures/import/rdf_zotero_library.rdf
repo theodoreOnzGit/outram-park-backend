@@ -1,0 +1,98 @@
+<rdf:RDF
+ xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+ xmlns:z="http://www.zotero.org/namespaces/export#"
+ xmlns:dcterms="http://purl.org/dc/terms/"
+ xmlns:dc="http://purl.org/dc/elements/1.1/"
+ xmlns:bib="http://purl.org/net/biblio#"
+ xmlns:foaf="http://xmlns.com/foaf/0.1/"
+ xmlns:link="http://purl.org/rss/1.0/modules/link/"
+ xmlns:prism="http://prismstandard.org/namespaces/1.2/basic/">
+    <!-- kovan-authored probe (#749): Zotero RDF as Zotero desktop writes a
+         library: items, a child note, an attachment, tags, a related item,
+         a standalone note and nested collections. -->
+    <bib:Article rdf:about="#item_1">
+        <z:itemType>journalArticle</z:itemType>
+        <dcterms:isPartOf rdf:resource="urn:issn:0000-0019"/>
+        <bib:authors>
+            <rdf:Seq>
+                <rdf:li>
+                    <foaf:Person>
+                        <foaf:surname>Ng</foaf:surname>
+                        <foaf:givenName>Ada</foaf:givenName>
+                    </foaf:Person>
+                </rdf:li>
+            </rdf:Seq>
+        </bib:authors>
+        <z:seriesEditors>
+            <rdf:Seq>
+                <rdf:li>
+                    <foaf:Person>
+                        <foaf:surname>Series</foaf:surname>
+                        <foaf:givenName>Sam</foaf:givenName>
+                    </foaf:Person>
+                </rdf:li>
+            </rdf:Seq>
+        </z:seriesEditors>
+        <dcterms:isReferencedBy rdf:resource="#item_2"/>
+        <link:link rdf:resource="#item_3"/>
+        <dc:relation rdf:resource="#item_4"/>
+        <dc:subject>manual tag</dc:subject>
+        <dc:subject>
+           <z:AutomaticTag><rdf:value>automatic tag</rdf:value></z:AutomaticTag>
+        </dc:subject>
+        <dc:title>An Article in a Library</dc:title>
+        <dc:date>2020-01-02</dc:date>
+        <bib:pages>1-9</bib:pages>
+        <dc:description>Extra line one
+Extra line two</dc:description>
+        <z:libraryCatalog>Probe Catalog</z:libraryCatalog>
+        <z:shortTitle>Article</z:shortTitle>
+        <dc:identifier>
+            <dcterms:URI>
+               <rdf:value>http://example.org/a1</rdf:value>
+            </dcterms:URI>
+        </dc:identifier>
+        <dcterms:dateSubmitted>2021-02-03 04:05:06</dcterms:dateSubmitted>
+    </bib:Article>
+    <bib:Journal rdf:about="urn:issn:0000-0019">
+        <dc:title>Journal of Libraries</dc:title>
+        <prism:volume>3</prism:volume>
+        <dc:identifier>ISSN 0000-0019</dc:identifier>
+    </bib:Journal>
+    <bib:Memo rdf:about="#item_2">
+       <rdf:value>&lt;p&gt;A child note&lt;/p&gt;</rdf:value>
+       <dc:subject>note tag</dc:subject>
+    </bib:Memo>
+    <z:Attachment rdf:about="#item_3">
+        <z:itemType>attachment</z:itemType>
+        <rdf:resource rdf:resource="files/3/paper.pdf"/>
+        <dc:title>Full Text PDF</dc:title>
+        <dc:identifier>
+            <dcterms:URI>
+               <rdf:value>http://example.org/a1.pdf</rdf:value>
+            </dcterms:URI>
+        </dc:identifier>
+        <dcterms:dateSubmitted>2021-02-03 04:05:07</dcterms:dateSubmitted>
+        <z:linkMode>1</z:linkMode>
+        <link:type>application/pdf</link:type>
+        <dc:description>Attachment note</dc:description>
+    </z:Attachment>
+    <bib:Book rdf:about="#item_4">
+        <z:itemType>book</z:itemType>
+        <dc:title>A Related Book</dc:title>
+        <dc:relation rdf:resource="#item_1"/>
+    </bib:Book>
+    <bib:Memo rdf:about="#item_5">
+       <rdf:value>&lt;p&gt;A standalone note&lt;/p&gt;</rdf:value>
+    </bib:Memo>
+    <z:Collection rdf:about="#collection_1">
+        <dc:title>Top Collection</dc:title>
+        <dcterms:hasPart rdf:resource="#item_1"/>
+        <dcterms:hasPart rdf:resource="#collection_2"/>
+    </z:Collection>
+    <z:Collection rdf:about="#collection_2">
+        <dc:title>Sub Collection</dc:title>
+        <dcterms:hasPart rdf:resource="#item_4"/>
+        <dcterms:hasPart rdf:resource="#item_5"/>
+    </z:Collection>
+</rdf:RDF>

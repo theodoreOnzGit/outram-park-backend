@@ -1,0 +1,249 @@
+{
+	"kovan_library": [
+		{
+			"key": "KLIB0001",
+			"version": 0,
+			"itemType": "journalArticle",
+			"title": "Coupled Probes in a Library",
+			"creators": [
+				{
+					"creatorType": "author",
+					"firstName": "Ada",
+					"lastName": "Ng"
+				},
+				{
+					"creatorType": "author",
+					"name": "Probe Working Group"
+				},
+				{
+					"creatorType": "editor",
+					"firstName": "Eve",
+					"lastName": "Editor"
+				},
+				{
+					"creatorType": "translator",
+					"firstName": "Tam",
+					"lastName": "Translator"
+				}
+			],
+			"publicationTitle": "Journal of Libraries",
+			"journalAbbreviation": "J. Libr.",
+			"volume": "3",
+			"issue": "2",
+			"pages": "10-19",
+			"date": "2020-01-02",
+			"series": "Probe Series",
+			"seriesText": "Series text",
+			"ISSN": "0000-0019",
+			"DOI": "10.5555/klib.1",
+			"url": "http://example.org/klib/1",
+			"accessDate": "2021-02-03T04:05:06Z",
+			"libraryCatalog": "Probe Catalog",
+			"callNumber": "Z699 .P76",
+			"abstractNote": "An abstract.",
+			"extra": "Extra line one\nExtra line two",
+			"language": "en",
+			"rights": "CC0",
+			"shortTitle": "Coupled Probes",
+			"tags": [
+				{
+					"tag": "manual tag"
+				},
+				{
+					"tag": "automatic tag",
+					"type": 1
+				}
+			],
+			"collections": [],
+			"relations": {
+				"dc:relation": [
+					"http://zotero.org/users/0/items/KLIB0002"
+				]
+			},
+			"uri": "http://zotero.org/users/0/items/KLIB0001",
+			"dateAdded": "2021-01-01T00:00:00Z",
+			"dateModified": "2021-01-02T00:00:00Z",
+			"notes": [
+				{
+					"itemID": 101,
+					"itemType": "note",
+					"note": "<p>A child note &amp; <b>markup</b></p>",
+					"relations": {
+						"dc:relation": [
+							"http://zotero.org/users/0/items/KLIB0003"
+						]
+					},
+					"tags": [
+						{
+							"tag": "note tag",
+							"type": 0
+						},
+						{
+							"tag": "note auto tag",
+							"type": 1
+						}
+					],
+					"uri": "http://zotero.org/users/0/items/KNOTE101"
+				}
+			],
+			"attachments": [
+				{
+					"accessDate": "2021-02-03 04:05:07",
+					"charset": "utf-8",
+					"contentType": "application/pdf",
+					"itemID": 201,
+					"itemType": "attachment",
+					"linkMode": 1,
+					"mimeType": "application/pdf",
+					"note": "<p>An attachment note</p>",
+					"path": "storage/KATT0201/paper.pdf",
+					"relations": {},
+					"seeAlso": [],
+					"tags": [
+						{
+							"tag": "attachment tag",
+							"type": 0
+						}
+					],
+					"title": "Full Text PDF",
+					"uniqueFields": {
+						"accessDate": "2021-02-03 04:05:07",
+						"linkMode": 1,
+						"mimeType": "application/pdf",
+						"note": "<p>An attachment note</p>",
+						"title": "Full Text PDF",
+						"url": "http://example.org/klib/1.pdf"
+					},
+					"uri": "http://zotero.org/users/0/items/KATT0201",
+					"url": "http://example.org/klib/1.pdf"
+				}
+			]
+		},
+		{
+			"key": "KLIB0002",
+			"version": 0,
+			"itemType": "book",
+			"title": "A Related Book",
+			"creators": [
+				{
+					"creatorType": "author",
+					"firstName": "Bo",
+					"lastName": "Author"
+				},
+				{
+					"creatorType": "seriesEditor",
+					"firstName": "Sid",
+					"lastName": "Series"
+				}
+			],
+			"publisher": "Probe Press",
+			"place": "Kent Ridge",
+			"series": "Book Series",
+			"seriesNumber": "4",
+			"edition": "2",
+			"numPages": "300",
+			"ISBN": "978-0-306-40615-7",
+			"date": "2018",
+			"tags": [],
+			"collections": [],
+			"relations": {
+				"dc:relation": [
+					"http://zotero.org/users/0/items/KLIB0001"
+				]
+			},
+			"uri": "http://zotero.org/users/0/items/KLIB0002"
+		},
+		{
+			"key": "KLIB0003",
+			"version": 0,
+			"itemType": "webpage",
+			"title": "A Web Page",
+			"creators": [],
+			"websiteTitle": "Probe Site",
+			"websiteType": "Blog",
+			"url": "http://example.org/klib/page",
+			"accessDate": "2022-03-04T05:06:07Z",
+			"tags": [
+				{
+					"tag": "web"
+				}
+			],
+			"collections": [],
+			"relations": {},
+			"uri": "http://zotero.org/users/0/items/KLIB0003"
+		},
+		{
+			"key": "KLIB0004",
+			"version": 0,
+			"itemType": "note",
+			"note": "<p>A standalone note</p>",
+			"tags": [
+				{
+					"tag": "standalone"
+				}
+			],
+			"collections": [],
+			"relations": {},
+			"uri": "http://zotero.org/users/0/items/KLIB0004"
+		},
+		{
+			"key": "KLIB0005",
+			"version": 0,
+			"itemType": "attachment",
+			"linkMode": "linked_url",
+			"title": "A Linked URL",
+			"url": "http://example.org/klib/linked",
+			"accessDate": "2022-05-06T07:08:09Z",
+			"contentType": "text/html",
+			"charset": "utf-8",
+			"note": "",
+			"tags": [],
+			"collections": [],
+			"relations": {},
+			"uri": "http://zotero.org/users/0/items/KLIB0005"
+		},
+		{
+			"key": "KLIB0006",
+			"version": 0,
+			"itemType": "letter",
+			"creators": [
+				{
+					"creatorType": "author",
+					"firstName": "Wri",
+					"lastName": "Ter"
+				},
+				{
+					"creatorType": "recipient",
+					"firstName": "Rec",
+					"lastName": "One"
+				},
+				{
+					"creatorType": "recipient",
+					"firstName": "Rec",
+					"lastName": "Two"
+				}
+			],
+			"letterType": "Postcard",
+			"date": "1901",
+			"tags": [],
+			"collections": [],
+			"relations": {},
+			"uri": "http://zotero.org/users/0/items/KLIB0006"
+		},
+		{
+			"key": "KLIB0007",
+			"version": 0,
+			"itemType": "case",
+			"caseName": "Probe v. Probe",
+			"reporter": "Probe Reports",
+			"reporterVolume": "12",
+			"court": "Probe Court",
+			"dateDecided": "1999-09-09",
+			"creators": [],
+			"tags": [],
+			"collections": [],
+			"relations": {},
+			"uri": "http://zotero.org/users/0/items/KLIB0007"
+		}
+	]
+}

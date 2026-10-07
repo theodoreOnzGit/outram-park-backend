@@ -35,6 +35,7 @@
 //! | [`html`] | `ZU.unescapeHTML` (HTML5 parse, then `textContent`) | utilities.js + the WHATWG parser |
 //! | [`csl`] | `ZU.itemFromCSLJSON` into a translator item, `ZU.itemToCSLJSON` of an export item | utilities_item.js |
 //! | [`js`] | JavaScript string semantics (whitespace, `ToString`, truthiness) | ECMA-262 |
+//! | [`rdf`] | `Zotero.RDF`: an RDF store, RDF/XML parser and serializer (#749) | translate's src/rdf/ |
 //!
 //! **Adding a translator** is one module under `translators/` plus a
 //! variant of [`super::translators::Translator`]: an `import` function over
@@ -66,6 +67,8 @@ pub mod item;
 pub mod item_done;
 pub mod js;
 pub mod options;
+// RDF data mode for the RDF translators (#749).
+pub mod rdf;
 pub mod utilities;
 
 pub use api_json::{fold_child_notes, item_to_api_json, KeyGenerator};

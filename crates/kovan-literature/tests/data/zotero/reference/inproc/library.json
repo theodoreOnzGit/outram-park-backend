@@ -1,0 +1,454 @@
+{
+	"kovan_library": {
+		"source": "fixtures/library/kovan_library.json",
+		"export": {
+			"firstBlankNodeId": 75,
+			"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:z=\"http://www.zotero.org/namespaces/export#\"\n xmlns:dcterms=\"http://purl.org/dc/terms/\"\n xmlns:bib=\"http://purl.org/net/biblio#\"\n xmlns:foaf=\"http://xmlns.com/foaf/0.1/\"\n xmlns:link=\"http://purl.org/rss/1.0/modules/link/\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\"\n xmlns:prism=\"http://prismstandard.org/namespaces/1.2/basic/\"\n xmlns:vcard=\"http://nwalsh.com/rdf/vCard#\">\n    <bib:Article rdf:about=\"http://example.org/klib/1\">\n        <z:itemType>journalArticle</z:itemType>\n        <dcterms:isPartOf rdf:resource=\"urn:issn:0000-0019\"/>\n        <bib:authors>\n            <rdf:Seq>\n                <rdf:li>\n                    <foaf:Person>\n                        <foaf:surname>Ng</foaf:surname>\n                        <foaf:givenName>Ada</foaf:givenName>\n                    </foaf:Person>\n                </rdf:li>\n                <rdf:li>\n                    <foaf:Person>\n                       <foaf:surname>Probe Working Group</foaf:surname>\n                    </foaf:Person>\n                </rdf:li>\n            </rdf:Seq>\n        </bib:authors>\n        <bib:editors>\n            <rdf:Seq>\n                <rdf:li>\n                    <foaf:Person>\n                        <foaf:surname>Editor</foaf:surname>\n                        <foaf:givenName>Eve</foaf:givenName>\n                    </foaf:Person>\n                </rdf:li>\n            </rdf:Seq>\n        </bib:editors>\n        <z:translators>\n            <rdf:Seq>\n                <rdf:li>\n                    <foaf:Person>\n                        <foaf:surname>Translator</foaf:surname>\n                        <foaf:givenName>Tam</foaf:givenName>\n                    </foaf:Person>\n                </rdf:li>\n            </rdf:Seq>\n        </z:translators>\n        <dcterms:isReferencedBy rdf:resource=\"#item_101\"/>\n        <link:link rdf:resource=\"#item_201\"/>\n        <dc:relation rdf:resource=\"urn:isbn:978-0-306-40615-7\"/>\n        <dc:subject>manual tag</dc:subject>\n        <dc:subject>\n           <z:AutomaticTag><rdf:value>automatic tag</rdf:value></z:AutomaticTag>\n        </dc:subject>\n        <dc:title>Coupled Probes in a Library</dc:title>\n        <bib:pages>10-19</bib:pages>\n        <dc:date>2020-01-02</dc:date>\n        <dc:identifier>\n            <dcterms:URI>\n               <rdf:value>http://example.org/klib/1</rdf:value>\n            </dcterms:URI>\n        </dc:identifier>\n        <dcterms:dateSubmitted>2021-02-03 04:05:06</dcterms:dateSubmitted>\n        <z:libraryCatalog>Probe Catalog</z:libraryCatalog>\n        <dc:subject>\n           <dcterms:LCC><rdf:value>Z699 .P76</rdf:value></dcterms:LCC>\n        </dc:subject>\n        <dcterms:abstract>An abstract.</dcterms:abstract>\n        <dc:description>Extra line one\nExtra line two</dc:description>\n        <z:language>en</z:language>\n        <dc:rights>CC0</dc:rights>\n        <z:shortTitle>Coupled Probes</z:shortTitle>\n    </bib:Article>\n    <bib:Journal rdf:about=\"urn:issn:0000-0019\">\n        <dcterms:isPartOf>\n            <bib:Series>\n                <dc:title>Probe Series</dc:title>\n                <dc:description>Series text</dc:description>\n            </bib:Series>\n        </dcterms:isPartOf>\n        <dc:title>Journal of Libraries</dc:title>\n        <dcterms:alternative>J. Libr.</dcterms:alternative>\n        <prism:volume>3</prism:volume>\n        <prism:number>2</prism:number>\n        <dc:identifier>ISSN 0000-0019</dc:identifier>\n        <dc:identifier>DOI 10.5555/klib.1</dc:identifier>\n    </bib:Journal>\n    <bib:Memo rdf:about=\"#item_101\">\n        <rdf:value>&lt;p&gt;A child note &amp;amp; &lt;b&gt;markup&lt;/b&gt;&lt;/p&gt;</rdf:value>\n        <dc:relation rdf:resource=\"http://example.org/klib/page\"/>\n        <dc:subject>note tag</dc:subject>\n        <dc:subject>\n           <z:AutomaticTag><rdf:value>note auto tag</rdf:value></z:AutomaticTag>\n        </dc:subject>\n    </bib:Memo>\n    <z:Attachment rdf:about=\"#item_201\">\n        <z:itemType>attachment</z:itemType>\n        <z:path rdf:resource=\"storage/KATT0201/paper.pdf\"/>\n        <dc:subject>attachment tag</dc:subject>\n        <dcterms:dateSubmitted>2021-02-03 04:05:07</dcterms:dateSubmitted>\n        <z:linkMode>1</z:linkMode>\n        <link:type>application/pdf</link:type>\n        <dc:description>&lt;p&gt;An attachment note&lt;/p&gt;</dc:description>\n        <dc:title>Full Text PDF</dc:title>\n        <dc:identifier>\n            <dcterms:URI>\n               <rdf:value>http://example.org/klib/1.pdf</rdf:value>\n            </dcterms:URI>\n        </dc:identifier>\n    </z:Attachment>\n    <bib:Book rdf:about=\"urn:isbn:978-0-306-40615-7\">\n        <z:itemType>book</z:itemType>\n        <dcterms:isPartOf>\n            <bib:Series>\n               <dc:title>Book Series</dc:title><dc:identifier>4</dc:identifier>\n            </bib:Series>\n        </dcterms:isPartOf>\n        <dc:publisher>\n            <foaf:Organization>\n                <foaf:name>Probe Press</foaf:name>\n                <vcard:adr>\n                    <vcard:Address>\n                       <vcard:locality>Kent Ridge</vcard:locality>\n                    </vcard:Address>\n                </vcard:adr>\n            </foaf:Organization>\n        </dc:publisher>\n        <bib:authors>\n            <rdf:Seq>\n                <rdf:li>\n                    <foaf:Person>\n                        <foaf:surname>Author</foaf:surname>\n                        <foaf:givenName>Bo</foaf:givenName>\n                    </foaf:Person>\n                </rdf:li>\n            </rdf:Seq>\n        </bib:authors>\n        <z:seriesEditors>\n            <rdf:Seq>\n                <rdf:li>\n                    <foaf:Person>\n                        <foaf:surname>Series</foaf:surname>\n                        <foaf:givenName>Sid</foaf:givenName>\n                    </foaf:Person>\n                </rdf:li>\n            </rdf:Seq>\n        </z:seriesEditors>\n        <dc:relation rdf:resource=\"http://example.org/klib/1\"/>\n        <dc:title>A Related Book</dc:title>\n        <prism:edition>2</prism:edition>\n        <z:numPages>300</z:numPages>\n        <dc:identifier>ISBN 978-0-306-40615-7</dc:identifier>\n        <dc:date>2018</dc:date>\n    </bib:Book>\n    <bib:Document rdf:about=\"http://example.org/klib/page\">\n        <z:itemType>webpage</z:itemType>\n        <dcterms:isPartOf>\n           <z:Website><dc:title>Probe Site</dc:title></z:Website>\n        </dcterms:isPartOf>\n        <dc:subject>web</dc:subject>\n        <dc:title>A Web Page</dc:title>\n        <z:type>Blog</z:type>\n        <dc:identifier>\n            <dcterms:URI>\n               <rdf:value>http://example.org/klib/page</rdf:value>\n            </dcterms:URI>\n        </dc:identifier>\n        <dcterms:dateSubmitted>2022-03-04 05:06:07</dcterms:dateSubmitted>\n    </bib:Document>\n    <bib:Memo rdf:about=\"#item_4\">\n        <z:itemType>note</z:itemType>\n        <dc:subject>standalone</dc:subject>\n        <rdf:value>&lt;p&gt;A standalone note&lt;/p&gt;</rdf:value>\n    </bib:Memo>\n    <z:Attachment rdf:about=\"#item_5\">\n        <z:itemType>attachment</z:itemType>\n        <dc:title>A Linked URL</dc:title>\n        <dc:identifier>\n            <dcterms:URI>\n               <rdf:value>http://example.org/klib/linked</rdf:value>\n            </dcterms:URI>\n        </dc:identifier>\n        <dcterms:dateSubmitted>2022-05-06 07:08:09</dcterms:dateSubmitted>\n        <link:type>text/html</link:type>\n    </z:Attachment>\n    <bib:Letter rdf:about=\"#item_6\">\n        <z:itemType>letter</z:itemType>\n        <bib:authors>\n            <rdf:Seq>\n                <rdf:li>\n                    <foaf:Person>\n                        <foaf:surname>Ter</foaf:surname>\n                        <foaf:givenName>Wri</foaf:givenName>\n                    </foaf:Person>\n                </rdf:li>\n            </rdf:Seq>\n        </bib:authors>\n        <z:recipients>\n            <rdf:Seq>\n                <rdf:li>\n                    <foaf:Person>\n                        <foaf:surname>One</foaf:surname>\n                        <foaf:givenName>Rec</foaf:givenName>\n                    </foaf:Person>\n                </rdf:li>\n                <rdf:li>\n                    <foaf:Person>\n                        <foaf:surname>Two</foaf:surname>\n                        <foaf:givenName>Rec</foaf:givenName>\n                    </foaf:Person>\n                </rdf:li>\n            </rdf:Seq>\n        </z:recipients>\n        <z:type>Postcard</z:type>\n        <dc:date>1901</dc:date>\n        <z:displayTitle>[Letter to One and Two]</z:displayTitle>\n    </bib:Letter>\n    <bib:Document rdf:about=\"#item_7\">\n        <z:itemType>case</z:itemType>\n        <dcterms:isPartOf>\n            <bib:CourtReporter>\n               <dc:title>Probe Reports</dc:title><prism:volume>12</prism:volume>\n            </bib:CourtReporter>\n        </dcterms:isPartOf>\n        <dc:title>Probe v. Probe</dc:title>\n        <z:authority>Probe Court</z:authority>\n        <dc:date>1999-09-09</dc:date>\n        <z:displayTitle>Probe v. Probe (Probe Reports)</z:displayTitle>\n    </bib:Document>\n    <z:Collection rdf:about=\"#collection_1\">\n        <dc:title>Top Collection</dc:title>\n        <dcterms:hasPart rdf:resource=\"#collection_2\"/>\n        <dcterms:hasPart rdf:resource=\"http://example.org/klib/1\"/>\n        <dcterms:hasPart rdf:resource=\"#item_6\"/>\n    </z:Collection>\n    <z:Collection rdf:about=\"#collection_2\">\n        <dc:title>Sub Collection</dc:title>\n        <dcterms:hasPart rdf:resource=\"urn:isbn:978-0-306-40615-7\"/>\n    </z:Collection>\n    <z:Collection rdf:about=\"#collection_3\">\n        <dc:title>Second Top Collection</dc:title>\n        <dcterms:hasPart rdf:resource=\"http://example.org/klib/page\"/>\n        <dcterms:hasPart rdf:resource=\"#item_4\"/>\n        <dcterms:hasPart rdf:resource=\"#item_5\"/>\n    </z:Collection>\n</rdf:RDF>\n"
+		},
+		"import": {
+			"firstBlankNodeId": 104,
+			"items": [
+				{
+					"itemType": "journalArticle",
+					"creators": [
+						{
+							"creatorType": "author",
+							"lastName": "Ng",
+							"firstName": "Ada"
+						},
+						{
+							"creatorType": "author",
+							"lastName": "Probe Working Group",
+							"fieldMode": 1
+						},
+						{
+							"creatorType": "editor",
+							"lastName": "Editor",
+							"firstName": "Eve"
+						},
+						{
+							"creatorType": "translator",
+							"lastName": "Translator",
+							"firstName": "Tam"
+						}
+					],
+					"notes": [
+						{
+							"note": "<p>A child note &amp; <b>markup</b></p>",
+							"itemID": "#item_101",
+							"seeAlso": [
+								"http://example.org/klib/page"
+							],
+							"tags": [
+								{
+									"tag": "note tag"
+								},
+								{
+									"tag": "note auto tag",
+									"type": 1
+								}
+							]
+						}
+					],
+					"tags": [
+						{
+							"tag": "manual tag"
+						},
+						{
+							"tag": "automatic tag",
+							"type": 1
+						}
+					],
+					"seeAlso": [
+						"urn:isbn:978-0-306-40615-7"
+					],
+					"attachments": [
+						{
+							"itemType": "attachment",
+							"creators": [],
+							"notes": [],
+							"tags": [
+								{
+									"tag": "attachment tag"
+								}
+							],
+							"seeAlso": [],
+							"attachments": [],
+							"path": "storage/KATT0201/paper.pdf",
+							"mimeType": "application/pdf",
+							"title": "Full Text PDF",
+							"date": "2021-02-03 04:05:07",
+							"accessDate": "2021-02-03 04:05:07",
+							"url": "http://example.org/klib/1.pdf",
+							"itemID": "#item_201",
+							"note": "<p>An attachment note</p>",
+							"linkMode": "1"
+						}
+					],
+					"itemID": "http://example.org/klib/1",
+					"title": "Coupled Probes in a Library",
+					"publicationTitle": "Journal of Libraries",
+					"reporter": "Journal of Libraries",
+					"rights": "CC0",
+					"series": "Probe Series",
+					"seriesText": "Series text",
+					"volume": "3",
+					"issue": "2",
+					"pages": "10-19",
+					"shortTitle": "Coupled Probes",
+					"date": "2020-01-02",
+					"accessDate": "2021-02-03T04:05:06Z",
+					"url": "http://example.org/klib/1",
+					"ISSN": "0000-0019",
+					"DOI": "10.5555/klib.1",
+					"abstractNote": "An abstract.",
+					"journalAbbreviation": "J. Libr.",
+					"language": "en",
+					"extra": "Extra line one\nExtra line two",
+					"callNumber": "Z699 .P76",
+					"translators": "_:n109",
+					"libraryCatalog": "Probe Catalog"
+				},
+				{
+					"itemType": "book",
+					"creators": [
+						{
+							"creatorType": "author",
+							"lastName": "Author",
+							"firstName": "Bo"
+						},
+						{
+							"creatorType": "seriesEditor",
+							"lastName": "Series",
+							"firstName": "Sid"
+						}
+					],
+					"notes": [],
+					"tags": [],
+					"seeAlso": [
+						"http://example.org/klib/1"
+					],
+					"attachments": [],
+					"itemID": "urn:isbn:978-0-306-40615-7",
+					"title": "A Related Book",
+					"series": "Book Series",
+					"seriesNumber": "4",
+					"edition": "2",
+					"versionNumber": "2",
+					"numPages": "300",
+					"publisher": "Probe Press",
+					"place": "Kent Ridge",
+					"institution": "Probe Press",
+					"company": "Probe Press",
+					"label": "Probe Press",
+					"distributor": "Probe Press",
+					"date": "2018",
+					"ISBN": "978-0-306-40615-7",
+					"seriesEditors": "_:n122"
+				},
+				{
+					"itemType": "webpage",
+					"creators": [],
+					"notes": [],
+					"tags": [
+						{
+							"tag": "web"
+						}
+					],
+					"seeAlso": [],
+					"attachments": [],
+					"itemID": "http://example.org/klib/page",
+					"title": "A Web Page",
+					"publicationTitle": "Probe Site",
+					"reporter": "Probe Site",
+					"date": "2022-03-04 05:06:07",
+					"accessDate": "2022-03-04T05:06:07Z",
+					"url": "http://example.org/klib/page",
+					"type": "Blog"
+				},
+				{
+					"itemType": "note",
+					"creators": [],
+					"notes": [],
+					"tags": [
+						{
+							"tag": "standalone"
+						}
+					],
+					"seeAlso": [],
+					"attachments": [],
+					"itemID": "#item_4",
+					"note": "<p>A standalone note</p>"
+				},
+				{
+					"itemType": "attachment",
+					"creators": [],
+					"notes": [],
+					"tags": [],
+					"seeAlso": [],
+					"attachments": [],
+					"itemID": "#item_5",
+					"mimeType": "text/html",
+					"title": "A Linked URL",
+					"date": "2022-05-06 07:08:09",
+					"accessDate": "2022-05-06T07:08:09Z",
+					"url": "http://example.org/klib/linked"
+				},
+				{
+					"itemType": "letter",
+					"creators": [
+						{
+							"creatorType": "author",
+							"lastName": "Ter",
+							"firstName": "Wri"
+						},
+						{
+							"creatorType": "recipient",
+							"lastName": "One",
+							"firstName": "Rec"
+						},
+						{
+							"creatorType": "recipient",
+							"lastName": "Two",
+							"firstName": "Rec"
+						}
+					],
+					"notes": [],
+					"tags": [],
+					"seeAlso": [],
+					"attachments": [],
+					"itemID": "#item_6",
+					"date": "1901",
+					"recipients": "_:n129",
+					"type": "Postcard",
+					"displayTitle": "[Letter to One and Two]"
+				},
+				{
+					"itemType": "case",
+					"creators": [],
+					"notes": [],
+					"tags": [],
+					"seeAlso": [],
+					"attachments": [],
+					"itemID": "#item_7",
+					"title": "Probe v. Probe",
+					"publicationTitle": "Probe Reports",
+					"reporter": "Probe Reports",
+					"volume": "12",
+					"date": "1999-09-09",
+					"authority": "Probe Court",
+					"displayTitle": "Probe v. Probe (Probe Reports)"
+				}
+			],
+			"collections": [
+				{
+					"name": "Top Collection",
+					"children": [
+						{
+							"type": "collection",
+							"name": "Sub Collection",
+							"children": [
+								{
+									"type": "item",
+									"id": "urn:isbn:978-0-306-40615-7"
+								}
+							]
+						},
+						{
+							"type": "item",
+							"id": "http://example.org/klib/1"
+						},
+						{
+							"type": "item",
+							"id": "#item_6"
+						}
+					]
+				},
+				{
+					"name": "Second Top Collection",
+					"children": [
+						{
+							"type": "item",
+							"id": "http://example.org/klib/page"
+						},
+						{
+							"type": "item",
+							"id": "#item_4"
+						},
+						{
+							"type": "item",
+							"id": "#item_5"
+						}
+					]
+				}
+			],
+			"apiItems": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "journalArticle",
+					"creators": [
+						{
+							"firstName": "Ada",
+							"lastName": "Ng",
+							"creatorType": "author"
+						},
+						{
+							"name": "Probe Working Group",
+							"creatorType": "author"
+						},
+						{
+							"firstName": "Eve",
+							"lastName": "Editor",
+							"creatorType": "editor"
+						},
+						{
+							"firstName": "Tam",
+							"lastName": "Translator",
+							"creatorType": "translator"
+						}
+					],
+					"tags": [
+						{
+							"tag": "manual tag",
+							"type": 1
+						},
+						{
+							"tag": "automatic tag",
+							"type": 1
+						}
+					],
+					"title": "Coupled Probes in a Library",
+					"publicationTitle": "Journal of Libraries",
+					"rights": "CC0",
+					"series": "Probe Series",
+					"seriesText": "Series text",
+					"volume": "3",
+					"issue": "2",
+					"pages": "10-19",
+					"shortTitle": "Coupled Probes",
+					"date": "2020-01-02",
+					"accessDate": "2021-02-03T04:05:06Z",
+					"url": "http://example.org/klib/1",
+					"ISSN": "0000-0019",
+					"DOI": "10.5555/klib.1",
+					"abstractNote": "An abstract.",
+					"journalAbbreviation": "J. Libr.",
+					"language": "en",
+					"extra": "Extra line one\nExtra line two",
+					"callNumber": "Z699 .P76",
+					"libraryCatalog": "Probe Catalog"
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "<p>A child note &amp; <b>markup</b></p>"
+				},
+				{
+					"key": "KVN22223",
+					"version": 0,
+					"itemType": "book",
+					"creators": [
+						{
+							"firstName": "Bo",
+							"lastName": "Author",
+							"creatorType": "author"
+						},
+						{
+							"firstName": "Sid",
+							"lastName": "Series",
+							"creatorType": "seriesEditor"
+						}
+					],
+					"tags": [],
+					"title": "A Related Book",
+					"series": "Book Series",
+					"seriesNumber": "4",
+					"edition": "2",
+					"numPages": "300",
+					"publisher": "Probe Press",
+					"place": "Kent Ridge",
+					"date": "2018",
+					"ISBN": "978-0-306-40615-7"
+				},
+				{
+					"key": "KVN22224",
+					"version": 0,
+					"itemType": "webpage",
+					"creators": [],
+					"tags": [
+						{
+							"tag": "web",
+							"type": 1
+						}
+					],
+					"title": "A Web Page",
+					"websiteTitle": "Probe Site",
+					"date": "2022-03-04 05:06:07",
+					"accessDate": "2022-03-04T05:06:07Z",
+					"url": "http://example.org/klib/page",
+					"websiteType": "Blog"
+				},
+				{
+					"key": "KVN22225",
+					"version": 0,
+					"itemType": "note",
+					"creators": [],
+					"tags": [
+						{
+							"tag": "standalone",
+							"type": 1
+						}
+					]
+				},
+				{
+					"key": "KVN22226",
+					"version": 0,
+					"itemType": "attachment",
+					"creators": [],
+					"tags": [],
+					"title": "A Linked URL",
+					"accessDate": "2022-05-06T07:08:09Z",
+					"url": "http://example.org/klib/linked"
+				},
+				{
+					"key": "KVN22227",
+					"version": 0,
+					"itemType": "letter",
+					"creators": [
+						{
+							"firstName": "Wri",
+							"lastName": "Ter",
+							"creatorType": "author"
+						},
+						{
+							"firstName": "Rec",
+							"lastName": "One",
+							"creatorType": "recipient"
+						},
+						{
+							"firstName": "Rec",
+							"lastName": "Two",
+							"creatorType": "recipient"
+						}
+					],
+					"tags": [],
+					"date": "1901",
+					"letterType": "Postcard"
+				},
+				{
+					"key": "KVN22228",
+					"version": 0,
+					"itemType": "case",
+					"creators": [],
+					"tags": [],
+					"caseName": "Probe v. Probe",
+					"reporter": "Probe Reports",
+					"reporterVolume": "12",
+					"dateDecided": "1999-09-09",
+					"court": "Probe Court"
+				}
+			]
+		}
+	}
+}

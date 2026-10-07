@@ -1,0 +1,22 @@
+{
+	"all": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:about=\"http://example.com/a?b=c&amp;d=e\">\n        <dc:title>Dates &amp; markup: a &lt;i&gt;kovan&lt;/i&gt; probe</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:creator>Smith, John</dc:creator>\n        <dc:creator>de la Fontaine, Jean</dc:creator>\n        <dc:creator>Kovan Collaboration</dc:creator>\n        <dc:contributor>Editor, Ed</dc:contributor>\n        <dc:date>2021 May</dc:date>\n        <dc:identifier>ISSN 1234-5678</dc:identifier>\n        <dc:identifier>DOI 10.1234/ABC.def</dc:identifier>\n    </rdf:Description>\n    <rdf:Description rdf:about=\"urn:isbn:978-3-16-148410-0 3161484100\">\n        <dc:title>A Second Record</dc:title>\n        <dc:type>book</dc:type>\n        <dc:contributor>Editor, Ed</dc:contributor>\n        <dc:publisher>Kovan Press</dc:publisher>\n        <dc:date>1999-12-31</dc:date>\n        <dc:identifier>ISBN 978-3-16-148410-0 3161484100</dc:identifier>\n    </rdf:Description>\n    <rdf:Description rdf:nodeID=\"n24452\">\n        <dc:title>Ranges and seasons</dc:title>\n        <dc:type>thesis</dc:type>\n        <dc:creator>Student, Ann</dc:creator>\n        <dc:publisher>Kovan University</dc:publisher>\n        <dc:date>2010-2012</dc:date>\n    </rdf:Description>\n    <rdf:Description rdf:nodeID=\"n24453\">\n        <dc:title>Summer proceedings</dc:title>\n        <dc:type>conferencePaper</dc:type>\n        <dc:date>Summer 2015</dc:date>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"KPROBE22": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:about=\"http://example.com/a?b=c&amp;d=e\">\n        <dc:title>Dates &amp; markup: a &lt;i&gt;kovan&lt;/i&gt; probe</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:creator>Smith, John</dc:creator>\n        <dc:creator>de la Fontaine, Jean</dc:creator>\n        <dc:creator>Kovan Collaboration</dc:creator>\n        <dc:contributor>Editor, Ed</dc:contributor>\n        <dc:date>2021 May</dc:date>\n        <dc:identifier>ISSN 1234-5678</dc:identifier>\n        <dc:identifier>DOI 10.1234/ABC.def</dc:identifier>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"KPROBE33": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:about=\"urn:isbn:978-3-16-148410-0 3161484100\">\n        <dc:title>A Second Record</dc:title>\n        <dc:type>book</dc:type>\n        <dc:contributor>Editor, Ed</dc:contributor>\n        <dc:publisher>Kovan Press</dc:publisher>\n        <dc:date>1999-12-31</dc:date>\n        <dc:identifier>ISBN 978-3-16-148410-0 3161484100</dc:identifier>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"KPROBE44": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n24460\">\n        <dc:title>Ranges and seasons</dc:title>\n        <dc:type>thesis</dc:type>\n        <dc:creator>Student, Ann</dc:creator>\n        <dc:publisher>Kovan University</dc:publisher>\n        <dc:date>2010-2012</dc:date>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"KPROBE55": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n24464\">\n        <dc:title>Summer proceedings</dc:title>\n        <dc:type>conferencePaper</dc:type>\n        <dc:date>Summer 2015</dc:date>\n    </rdf:Description>\n</rdf:RDF>\n"
+	}
+}

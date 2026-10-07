@@ -1,0 +1,765 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "S. A.",
+						"lastName": "Baldwin",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "I.",
+						"lastName": "Fugaccia",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "D. R.",
+						"lastName": "Brown",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "L. V.",
+						"lastName": "Brown",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "S. W.",
+						"lastName": "Scheff",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Blood-brain barrier breach following cortical contusion in the rat",
+				"date": "1996"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "patent",
+				"creators": [],
+				"tags": [],
+				"title": "Method of detecting AIDS virus infection",
+				"issueDate": "1990-02-27"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "document",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Investigators",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Created",
+						"lastName": "By",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Investigators",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Reporter",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institution",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"publisher": "Publisher",
+				"date": "0000 Year Date",
+				"DOI": "10.1234/123456",
+				"archiveLocation": "Accession Number"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"publisher": "Publisher",
+				"date": "0000 Year Date",
+				"ISBN": "ISBN",
+				"archiveLocation": "Accession Number"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"name": "Attribution",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"publisher": "Publisher",
+				"date": "0000 Year",
+				"ISBN": "ISSN/ISBN",
+				"archiveLocation": "Accession Number"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "TODD A.",
+						"lastName": "CASTOE",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "ALEXANDER W.",
+						"lastName": "POOLE",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "WANJUN",
+						"lastName": "GU",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "A. P. JASON de",
+						"lastName": "KONING",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "JUAN M.",
+						"lastName": "DAZA",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "ERIC N.",
+						"lastName": "SMITH",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "DAVID D.",
+						"lastName": "POLLOCK",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Rapid identification of thousands of copperhead snake (Agkistrodon contortrix) microsatellite loci from modest amounts of 454 shotgun genome sequence",
+				"date": "2009",
+				"ISSN": "1755-0998"
+			}
+		]
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bill",
+				"creators": [],
+				"tags": [],
+				"title": "Act Name",
+				"date": "0000 Date"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Monographic",
+						"lastName": "Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Monographic",
+						"lastName": "Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Monographic",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Analytic Title",
+				"publisher": "Publisher Name",
+				"date": "0000 Date",
+				"ISBN": "ISBN",
+				"archiveLocation": "Address/Availability"
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Janice",
+						"lastName": "Light",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "David",
+						"lastName": "McNaughton",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "From Basic to Applied Research to Improve Outcomes for Individuals Who Require Augmentative and Alternative Communication: Potential Contributions of Eye Tracking Research Methods",
+				"publisher": "Informa Allied Health",
+				"date": "2014-06-01",
+				"ISSN": "0743-4618",
+				"DOI": "10.3109/07434618.2014.906498"
+			}
+		]
+	},
+	"testCase06": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Otto",
+						"lastName": "Depenheuer",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Eigentumsverfassung und Finanzkrise",
+				"publisher": "Springer Berlin Heidelberg",
+				"date": "2009",
+				"ISBN": "9783642002304",
+				"DOI": "10.1007/978-3-642-00230-4"
+			}
+		]
+	},
+	"testCase07": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "Deprecated tag test",
+				"date": "1950-01-01"
+			}
+		]
+	},
+	"testCase08": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Danko",
+						"lastName": "Georgiev",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Leon",
+						"lastName": "Bello",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Avishy",
+						"lastName": "Carmi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Eliahu",
+						"lastName": "Cohen",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Mixed author tags"
+			}
+		]
+	},
+	"testCase09": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "C. J.",
+						"lastName": "Bryan",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "L.",
+						"lastName": "Wetmore-Arkader",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "T.",
+						"lastName": "Calvano",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "J. A.",
+						"lastName": "Deatrick",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "V. N.",
+						"lastName": "Giri",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "D. W.",
+						"lastName": "Bruner",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Using focus groups to adapt ethnically appropriate, information-seeking and recruitment messages for a prostate cancer screening program for men at high risk",
+				"date": "2008",
+				"DOI": "10.1016/S0027-9684(15)31340-7"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": []
+			}
+		]
+	},
+	"testCase10": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "dataset",
+				"creators": [
+					{
+						"firstName": "Kelsey Louise",
+						"lastName": "West",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Catherine",
+						"lastName": "Tamis-LeMonda",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Karen",
+						"lastName": "Adolph",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Moving language: Mothers’ verbs correspond to infants’ real-time locomotion",
+				"repository": "Databrary",
+				"date": "2021",
+				"DOI": "10.17910/B7.1322"
+			}
+		]
+	},
+	"testCase11": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "Citavi Item"
+			}
+		]
+	},
+	"book_and_child_note": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [],
+				"tags": [],
+				"title": "Parent"
+			}
+		]
+	},
+	"dates_and_entities": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "John",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jean",
+						"lastName": "de la Fontaine",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Dates & entities: a <i>kovan</i> probe",
+				"date": "2021 May",
+				"DOI": "10.1234/ABC.def"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A second record",
+				"publisher": "Kovan Press",
+				"date": "1999",
+				"ISBN": "978-3-16-148410-0"
+			}
+		]
+	}
+}

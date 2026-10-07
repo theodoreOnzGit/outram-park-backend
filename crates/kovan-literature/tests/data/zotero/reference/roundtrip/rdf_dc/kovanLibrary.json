@@ -1,0 +1,81 @@
+{
+	"kovan_library": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Ada",
+						"lastName": "Ng",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Probe Working",
+						"lastName": "Group",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Coupled Probes in a Library",
+				"rights": "CC0",
+				"date": "2020-01-02",
+				"ISSN": "0000-0019",
+				"DOI": "10.5555/klib.1"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Bo",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A Related Book",
+				"publisher": "Probe Press",
+				"date": "2018",
+				"ISBN": "978-0-306-40615-7"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "A Web Page",
+				"websiteType": "webpage"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "letter",
+				"creators": [
+					{
+						"firstName": "Wri",
+						"lastName": "Ter",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"date": "1901",
+				"letterType": "letter"
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "case",
+				"creators": [],
+				"tags": [],
+				"caseName": "Probe v. Probe",
+				"dateDecided": "1999-09-09"
+			}
+		]
+	}
+}
