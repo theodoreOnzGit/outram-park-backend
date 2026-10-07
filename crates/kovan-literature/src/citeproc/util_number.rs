@@ -404,11 +404,12 @@ pub fn padding(num: &str) -> String {
     static RE: LazyLock<Regex> = LazyLock::new(|| rx(&format!("[{}]*(-?[0-9]+)", js::WS)));
     match RE.captures(num).and_then(|c| c.get(1)) {
         Some(m) => {
-            let n = js::parse_int(m.as_str()).unwrap_or(0);
-            let mut s = if n < 0 {
-                format!("{:.0}", 99999999999999999999.0_f64 + n as f64)
+            // parseInt gives a double: exact for small values, rounded beyond 2^53.
+            let n: f64 = m.as_str().parse::<f64>().unwrap_or(0.0);
+            let mut s = if n < 0.0 {
+                js_integer_string(99999999999999999999.0_f64 + n)
             } else {
-                n.to_string()
+                js_integer_string(n)
             };
             while js::len(&s) < 20 {
                 s = format!("0{s}");
@@ -417,6 +418,27 @@ pub fn padding(num: &str) -> String {
         }
         None => num.to_string(),
     }
+}
+
+/// JS `"" + f` for an integral double below 1e21: the shortest round-trip
+/// digits followed by zeros (`123456789012345680000`).
+fn js_integer_string(f: f64) -> String {
+    if f.abs() < 9.0e15 {
+        return format!("{}", f as i64);
+    }
+    let e = format!("{f:e}");
+    let (mant, exp) = e.split_once('e').unwrap_or((&e, "0"));
+    let neg = mant.starts_with('-');
+    let digits: String = mant.chars().filter(|c| c.is_ascii_digit()).collect();
+    let exp: usize = exp.parse().unwrap_or(0);
+    let mut out = digits.clone();
+    while out.len() < exp + 1 {
+        out.push('0');
+    }
+    if neg {
+        out.insert(0, '-');
+    }
+    out
 }
 
 // ---------------------------------------------------------------------------
@@ -610,7 +632,13 @@ impl Romanizer {
             let numstr: Vec<char> = js::to_js_string(num).chars().rev().collect();
             for (pos, ch) in numstr.iter().enumerate() {
                 let row = ROMAN_NUMERALS.get(pos).ok_or_else(|| {
-                    EngineError::Csl("Cannot read properties of undefined (reading 'NaN')".into())
+                    let n = ch
+                        .to_digit(10)
+                        .map(|d| d.to_string())
+                        .unwrap_or_else(|| "NaN".to_string());
+                    EngineError::Csl(format!(
+                        "Cannot read properties of undefined (reading '{n}')"
+                    ))
                 })?;
                 let piece = match ch.to_digit(10).and_then(|d| row.get(d as usize)) {
                     Some(p) => (*p).to_string(),
@@ -693,8 +721,9 @@ pub struct NumberInfo {
     pub label_visibility: Option<bool>,
     /// `gotosleepability`.
     pub gotosleepability: Option<bool>,
-    /// `particle`: the leading part of a value like `A12`.
-    pub particle: String,
+    /// `particle`: the leading part of a value like `A12`. `None` is JS
+    /// `undefined`, which `manglePageNumbers` can leave behind.
+    pub particle: Option<String>,
     /// `value`.
     pub value: String,
     /// `joiningSuffix`: the separator that follows (`"-"`, `", "`, `" & "`).
@@ -725,7 +754,7 @@ impl NumberInfo {
         put("labelVisibility", self.label_visibility.map(Value::Bool));
         put("numeric", self.numeric.map(Value::Bool));
         put("origLabel", self.orig_label.clone().map(Value::String));
-        put("particle", Some(Value::String(self.particle.clone())));
+        put("particle", self.particle.clone().map(Value::String));
         put("plural", self.plural.map(Value::from));
         put("value", Some(Value::String(self.value.clone())));
         Value::Object(o)
@@ -994,11 +1023,11 @@ fn compose_number_info(
     }
     match PARTICLE_VALUE_RE.captures(val) {
         Some(m) => {
-            info.particle = m.get(1).map(|x| x.as_str()).unwrap_or("").to_string();
+            info.particle = Some(m.get(1).map(|x| x.as_str()).unwrap_or("").to_string());
             info.value = m.get(2).map(|x| x.as_str()).unwrap_or("").to_string();
         }
         None => {
-            info.particle = String::new();
+            info.particle = Some(String::new());
             info.value = val.to_string();
         }
     }
@@ -1456,7 +1485,10 @@ fn mangle_page_numbers(
     if is_page && a.is_some() && b.is_some() {
         let _joined = format!(
             "{}{} - {}{}",
-            values[i - 1].particle, values[i - 1].value, values[i].particle, values[i].value
+            values[i - 1].particle.as_deref().unwrap_or("undefined"),
+            values[i - 1].value,
+            values[i].particle.as_deref().unwrap_or("undefined"),
+            values[i].value
         );
         // PORT-LATER(wave1-output): `me.fun.page_mangler(str)` (util_page_mangler.js)
         return Err(EngineError::NotYetPorted { method: "page_mangler" });
@@ -1482,10 +1514,10 @@ fn mangle_page_numbers(
             &range_delimiter,
             values[i].numeric == Some(true),
         );
-        values[i - 1].particle = g(1).unwrap_or_default();
+        values[i - 1].particle = g(1);
         values[i - 1].value = g(2).unwrap_or_default();
         values[i - 1].joining_suffix = range_delimiter;
-        values[i].particle = g(4).unwrap_or_default();
+        values[i].particle = g(4);
         values[i].value = g(5).unwrap_or_default();
     }
     *count = 0;
@@ -1869,4 +1901,252 @@ fn text_sub_field_name(state: &State, item: &Value, field: &str, locale_type: &s
 /// and `CSL.UPDATE_GROUP_CONTEXT_CONDITION`. JS lines 928-1016.
 pub fn output_numeric_field(_state: &mut State, _varname: &str, _item_id: &str) -> CslResult<()> {
     Err(EngineError::NotYetPorted { method: "CSL.Util.outputNumericField" })
+}
+
+#[cfg(test)]
+mod tests {
+    //! Differential tests against citeproc-js 2.4.63. The reference is
+    //! `tests/data/csl/units/numbers.json`, generated by
+    //! `scripts/csl-units/numbers.cjs` (node, run by hand):
+    //!
+    //! * ~5,200 `processNumber` cases: every numeric value in the CSL test
+    //!   suite's fixtures plus generated ranges, roman numerals, labels
+    //!   (`vol. 3 & 4`, `pp. 12-15`, `2nd ed.`), subsections (`12a-c`),
+    //!   escaped hyphens, `|` and fractions, over the numeric variables, in
+    //!   seven locales and with a translated (`multi`) value, both the input
+    //!   path (`node = false`) and the node path (ranges and styling);
+    //! * `Ordinalizer` and `LongOrdinalizer` for -3..130 (plus larger
+    //!   numbers and strings) in seven locales and four genders;
+    //! * `Romanizer`, `Suffixator` and `padding`.
+    //!
+    //! The locale terms citeproc-js read while producing each answer are
+    //! recorded in the reference (`log`) and replayed through
+    //! [`InputLocale`], so the tests check the number logic, not the locale
+    //! loader. Pass criterion: every output equal to citeproc-js's.
+    use super::*;
+    use serde_json::json;
+
+    const REF: &str = include_str!("../../tests/data/csl/units/numbers.json");
+
+    fn reference() -> Value {
+        serde_json::from_str(REF).expect("reference json")
+    }
+
+    fn terms_from(log: &Value) -> BTreeMap<String, Option<String>> {
+        log.as_object()
+            .map(|o| {
+                o.iter()
+                    .map(|(k, v)| (k.clone(), v.as_str().map(str::to_string)))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn state_for(engine: &Value) -> State {
+        let mut st = State::default();
+        if let Some(o) = engine["opt"].as_object() {
+            st.opt = o.clone();
+        }
+        st.input_locale.terms = terms_from(&engine["log"]);
+        st
+    }
+
+    fn deco_json(d: &[Decoration]) -> Value {
+        Value::Array(
+            d.iter()
+                .map(|x| {
+                    let v = if x.name == "@quotes" && x.value == "true" {
+                        Value::Bool(true)
+                    } else {
+                        Value::String(x.value.clone())
+                    };
+                    json!([x.name, v])
+                })
+                .collect(),
+        )
+    }
+
+    fn node_out(st: &State) -> Value {
+        let mut out = Obj::new();
+        for (k, sn) in &st.tmp.shadow_numbers {
+            let mut o = match sn.to_value() {
+                Value::Object(o) => o,
+                _ => Obj::new(),
+            };
+            if let Some(m) = &sn.master_styling {
+                o.insert(
+                    "_master".into(),
+                    json!({"strings": Value::Object(m.strings.clone()), "decorations": deco_json(&m.decorations)}),
+                );
+            }
+            let styl: Vec<Value> = sn
+                .values
+                .iter()
+                .map(|v| match v {
+                    ShadowValue::Info(NumberInfo { styling: Some(t), .. }) => {
+                        json!({"strings": Value::Object(t.strings.clone()), "decorations": deco_json(&t.decorations)})
+                    }
+                    _ => Value::Null,
+                })
+                .collect();
+            o.insert("_styling".into(), Value::Array(styl));
+            out.insert(k.clone(), Value::Object(o));
+        }
+        Value::Object(out)
+    }
+
+    fn input_out(st: &State) -> Value {
+        let mut o = Obj::new();
+        for (k, sn) in &st.tmp.shadow_numbers {
+            o.insert(k.clone(), sn.to_value());
+        }
+        Value::Object(o)
+    }
+
+    fn node_token() -> Token {
+        let mut t = Token::new("number", TokenType::Singleton);
+        t.set_string("prefix", "(");
+        t.set_string("suffix", ")");
+        t.decorations = vec![Decoration::new("@font-style", "italic")];
+        t
+    }
+
+    #[test]
+    fn process_number_matches_citeproc_js() {
+        let r = reference();
+        let engines = r["engines"].as_object().expect("engines");
+        let mut states: BTreeMap<String, State> = BTreeMap::new();
+        for (name, e) in engines {
+            states.insert(name.clone(), state_for(e));
+        }
+        let mut bad: Vec<String> = Vec::new();
+        let mut n_input = 0usize;
+        let mut n_node = 0usize;
+        for c in r["cases"].as_array().expect("cases") {
+            let st = states.get_mut(c["engine"].as_str().unwrap_or("")).expect("engine");
+            let variable = c["variable"].as_str().unwrap_or("");
+            let item = &c["item"];
+            // input path
+            st.tmp.shadow_numbers = BTreeMap::new();
+            let res = process_number(st, None, Some(item), variable);
+            n_input += 1;
+            match (&res, c.get("error")) {
+                (Ok(()), None) => {
+                    let got = input_out(st);
+                    if got != c["out"] {
+                        bad.push(format!("[{}] {variable} {item}: want {} got {got}", c["engine"], c["out"]));
+                    }
+                }
+                (Err(e), Some(want)) => {
+                    if want.as_str() != Some(&error_text(e)) {
+                        bad.push(format!("[{}] {variable} {item}: want error {want} got {e}", c["engine"]));
+                    }
+                }
+                (r, w) => bad.push(format!("[{}] {variable} {item}: result {r:?} vs reference error {w:?}", c["engine"])),
+            }
+            // node path (reference has it only for the main engine)
+            if c.get("node_out").is_some() || c.get("node_error").is_some() {
+                st.tmp.shadow_numbers = BTreeMap::new();
+                let tok = node_token();
+                let res = process_number(st, Some(&tok), Some(item), variable);
+                n_node += 1;
+                if c["node_mangled"].as_bool() == Some(true) {
+                    if !matches!(res, Err(EngineError::NotYetPorted { method: "page_mangler" })) {
+                        bad.push(format!("node [{}] {variable} {item}: expected page_mangler deferral, got {res:?}", c["engine"]));
+                    }
+                    continue;
+                }
+                match (&res, c.get("node_error")) {
+                    (Ok(()), None) => {
+                        let got = node_out(st);
+                        if got != c["node_out"] {
+                            bad.push(format!("node [{}] {variable} {item}: want {} got {got}", c["engine"], c["node_out"]));
+                        }
+                    }
+                    (Err(e), Some(want)) => {
+                        if want.as_str() != Some(&error_text(e)) {
+                            bad.push(format!("node [{}] {variable} {item}: want error {want} got {e}", c["engine"]));
+                        }
+                    }
+                    (r, w) => bad.push(format!("node [{}] {variable} {item}: result {r:?} vs reference error {w:?}", c["engine"])),
+                }
+            }
+        }
+        assert!(
+            bad.is_empty(),
+            "{} mismatches of {n_input} input + {n_node} node cases, first:\n{}",
+            bad.len(),
+            bad[..bad.len().min(12)].join("\n")
+        );
+        assert!(n_input > 4000 && n_node > 2000, "{n_input} {n_node}");
+    }
+
+    fn error_text(e: &EngineError) -> String {
+        match e {
+            EngineError::Csl(m) => m.clone(),
+            other => other.to_string(),
+        }
+    }
+
+    #[test]
+    fn ordinalizers_match_citeproc_js() {
+        let r = reference();
+        let mut states: BTreeMap<String, State> = BTreeMap::new();
+        for (lang, e) in r["ord_engines"].as_object().expect("engines") {
+            let mut st = state_for(e);
+            st.input_locale.fields = terms_from(&e["fields"]);
+            st.input_locale.ord_101 = e["ord_101"].as_object().map(|o| Value::Object(o.clone()));
+            states.insert(lang.clone(), st);
+        }
+        let mut bad = Vec::new();
+        let mut n = 0;
+        for c in r["ordinal"].as_array().expect("cases") {
+            let st = states.get_mut(c["lang"].as_str().unwrap_or("")).expect("engine");
+            let gender = c["gender"].as_str();
+            n += 1;
+            let got = if c["kind"] == "ordinal" {
+                Ordinalizer::default().format(st, &c["num"], gender)
+            } else {
+                st.tmp.cite_renders_content = false;
+                LongOrdinalizer::format(st, &c["num"], gender)
+            };
+            match (got, c.get("error")) {
+                (Ok(s), None) => {
+                    if Value::String(s.clone()) != c["out"] {
+                        bad.push(format!("{} {} {} {:?}: want {} got {s}", c["lang"], c["kind"], c["num"], gender, c["out"]));
+                    }
+                    if c["kind"] == "long" && c.get("crc").is_some() && c["crc"].as_bool() != Some(st.tmp.cite_renders_content) {
+                        bad.push(format!("{} long {}: cite_renders_content", c["lang"], c["num"]));
+                    }
+                }
+                (Err(e), Some(want)) => {
+                    if want.as_str() != Some(&error_text(&e)) {
+                        bad.push(format!("{} {} {}: want error {want} got {e}", c["lang"], c["kind"], c["num"]));
+                    }
+                }
+                (g, w) => bad.push(format!("{} {} {}: {g:?} vs {w:?}", c["lang"], c["kind"], c["num"])),
+            }
+        }
+        assert!(bad.is_empty(), "{} of {n} differ, first:\n{}", bad.len(), bad[..bad.len().min(12)].join("\n"));
+        assert!(n > 7000);
+    }
+
+    #[test]
+    fn romanizer_suffixator_padding_match_citeproc_js() {
+        let r = reference();
+        for c in r["roman"].as_array().expect("roman") {
+            match (Romanizer::default().format(&c["num"]), c.get("error")) {
+                (Ok(s), None) => assert_eq!(Value::String(s), c["out"], "romanizer {}", c["num"]),
+                (Err(e), Some(w)) => assert_eq!(w.as_str(), Some(error_text(&e).as_str()), "romanizer {}", c["num"]),
+                (g, w) => panic!("romanizer {}: {g:?} vs {w:?}", c["num"]),
+            }
+        }
+        for c in r["suffix"].as_array().expect("suffix") {
+            let s = Suffixator::new(c["slist"].as_str());
+            assert_eq!(Value::String(s.format(c["n"].as_i64().unwrap_or(0))), c["out"], "suffixator {} {}", c["slist"], c["n"]);
+        }
+        for c in r["padding"].as_array().expect("padding") {
+            assert_eq!(Value::String(padding(c["in"].as_str().unwrap_or(""))), c["out"], "padding {}", c["in"]);
+        }
+    }
 }

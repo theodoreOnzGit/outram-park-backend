@@ -38,6 +38,7 @@ use serde_json::Value;
 use super::js::{self, Obj};
 use super::state::State;
 use super::util_number::{input_get_term, TermQuery};
+use super::{CslResult, EngineError};
 
 /// `CSL.Util.Dates.year["long"]`: the number as a string. A falsy `num`
 /// becomes `"0"`, except a boolean, which becomes `""`.
@@ -144,13 +145,19 @@ pub fn year_imperial<F: FnMut(&str) -> Option<String>>(
 }
 
 /// `CSL.Util.Dates.year["short"]`: the last two digits of a four-digit year;
-/// `None` (JS `undefined`) for anything else.
-pub fn year_short(num: &Value) -> Option<String> {
+/// `None` (JS `undefined`) for anything else. `null` is a TypeError
+/// (`num.toString()`), as upstream.
+pub fn year_short(num: &Value) -> CslResult<Option<String>> {
+    if num.is_null() {
+        return Err(EngineError::Csl(
+            "Cannot read properties of undefined (reading 'toString')".into(),
+        ));
+    }
     let s = js::to_js_string(num);
     if !s.is_empty() && js::len(&s) == 4 {
-        Some(js::substr(&s, 2, None))
+        Ok(Some(js::substr(&s, 2, None)))
     } else {
-        None
+        Ok(None)
     }
 }
 
@@ -293,9 +300,14 @@ pub fn month_short(
 
 /// `CSL.Util.Dates.day.numeric` and `.day["long"]` (the same function): the
 /// day as a string. Unlike the year formatters it does not guard a falsy
-/// `num` (JS would throw on `null`; this returns `"null"`).
-pub fn day_numeric(num: &Value) -> String {
-    js::to_js_string(num)
+/// `num`: `null` is a TypeError, as upstream.
+pub fn day_numeric(num: &Value) -> CslResult<String> {
+    if num.is_null() {
+        return Err(EngineError::Csl(
+            "Cannot read properties of undefined (reading 'toString')".into(),
+        ));
+    }
+    Ok(js::to_js_string(num))
 }
 
 /// `CSL.Util.Dates.day["numeric-leading-zeros"]`: two digits, `"00"` for a
@@ -319,4 +331,142 @@ pub fn day_ordinal(
     gender: Option<&str>,
 ) -> super::CslResult<String> {
     state.fun.ordinalizer.format(state, num, gender)
+}
+
+#[cfg(test)]
+mod tests {
+    //! Differential tests against citeproc-js 2.4.63: reference
+    //! `tests/data/csl/units/numbers.json` (generator
+    //! `scripts/csl-units/numbers.cjs`), sections `year`, `month`, `day`,
+    //! `imperial` and, per locale, `ord_engines[lang].dates` (the long and
+    //! short month names with the locale terms citeproc-js read). Inputs are
+    //! numbers, digit strings, text, `null`, `undefined`, booleans.
+    use super::*;
+    use std::collections::BTreeMap;
+
+    const REF: &str = include_str!("../../tests/data/csl/units/numbers.json");
+
+    /// The reference encodes JS `undefined` as `{"undef": true}`.
+    fn input(v: &Value) -> Value {
+        if v.get("undef").is_some() {
+            Value::Null
+        } else {
+            v.clone()
+        }
+    }
+
+    fn out(v: &Value, key: &str) -> Value {
+        v.get(key).cloned().unwrap_or(Value::Null)
+    }
+
+    #[test]
+    fn year_month_day_formatters_match_citeproc_js() {
+        let r: Value = serde_json::from_str(REF).expect("json");
+        for c in r["year"].as_array().expect("year") {
+            let n = input(&c["num"]);
+            assert_eq!(Value::String(year_long(&n)), c["long"], "year.long {n}");
+            match (year_short(&n), c.get("short_error")) {
+                (Ok(v), None) => assert_eq!(
+                    v.map(Value::String).unwrap_or(serde_json::json!({"undef": true})),
+                    c["short"],
+                    "year.short {n}"
+                ),
+                (Err(_), Some(_)) => {}
+                (g, w) => panic!("year.short {n}: {g:?} vs {w:?}"),
+            }
+            assert_eq!(Value::String(year_numeric(&n)), c["numeric"], "year.numeric {n}");
+        }
+        for c in r["month"].as_array().expect("month") {
+            let n = input(&c["num"]);
+            assert_eq!(month_numeric(&n), c["numeric"], "month.numeric {n}");
+            assert_eq!(
+                Value::String(month_numeric_leading_zeros(&n)),
+                c["numeric-leading-zeros"],
+                "month.numeric-leading-zeros {n}"
+            );
+            assert_eq!(Value::from(normalize_month(&n)), c["norm"], "normalizeMonth {n}");
+            let ms = normalize_month_season(&n);
+            assert_eq!(
+                serde_json::json!({"stub": ms.stub, "num": ms.num}),
+                c["norm_season"],
+                "normalizeMonth(.., true) {n}"
+            );
+        }
+        for c in r["day"].as_array().expect("day") {
+            let n = input(&c["num"]);
+            match (day_numeric(&n), c.get("numeric_error")) {
+                (Ok(v), None) => assert_eq!(Value::String(v), c["numeric"], "day.numeric {n}"),
+                (Err(_), Some(_)) => {}
+                (g, w) => panic!("day.numeric {n}: {g:?} vs {w:?}"),
+            }
+            assert_eq!(
+                Value::String(day_numeric_leading_zeros(&n)),
+                c["numeric-leading-zeros"],
+                "day.numeric-leading-zeros {n}"
+            );
+        }
+    }
+
+    #[test]
+    fn month_names_match_citeproc_js_in_seven_locales() {
+        let r: Value = serde_json::from_str(REF).expect("json");
+        let mut n = 0;
+        for (lang, e) in r["ord_engines"].as_object().expect("engines") {
+            let mut st = State::default();
+            st.input_locale.terms = e["log"]
+                .as_object()
+                .map(|o| o.iter().map(|(k, v)| (k.clone(), v.as_str().map(str::to_string))).collect::<BTreeMap<_, _>>())
+                .unwrap_or_default();
+            for c in e["dates"].as_array().expect("dates") {
+                let num = input(&c["num"]);
+                let force = c["force"].as_bool().unwrap_or(false);
+                let got = if c["fn"] == "long" {
+                    month_long(&st, &num, None, force)
+                } else {
+                    month_short(&st, &num, None, force)
+                };
+                n += 1;
+                if c.get("error").is_some() {
+                    continue;
+                }
+                match (got, c.get("out")) {
+                    (Some(s), Some(w)) => assert_eq!(Value::String(s), *w, "{lang} {} {num}", c["fn"]),
+                    (None, None) => assert!(c["undef"].as_bool() == Some(true), "{lang} {} {num}", c["fn"]),
+                    (g, w) => panic!("{lang} {} {num}: {g:?} vs {w:?}", c["fn"]),
+                }
+            }
+        }
+        assert!(n > 500);
+    }
+
+    #[test]
+    fn imperial_years_match_citeproc_js() {
+        let r: Value = serde_json::from_str(REF).expect("json");
+        for c in r["imperial"].as_array().expect("imperial") {
+            let (mo, d) = (c["month"].clone(), c["day"].clone());
+            let mut date_object = Obj::new();
+            date_object.insert("month".into(), mo.clone());
+            date_object.insert("day".into(), d.clone());
+            let bump = |v: &Value| match v.as_i64() {
+                Some(n) if n != 0 => Value::from(n + 1),
+                _ => Value::from(0),
+            };
+            date_object.insert("month_end".into(), bump(&mo));
+            date_object.insert("day_end".into(), bump(&d));
+            let abbr = c["abbr"].as_str().map(str::to_string);
+            let got = year_imperial(
+                &date_object,
+                &c["year"],
+                c["end"].as_bool().unwrap_or(false),
+                |label| {
+                    if label == "\u{5e73}\u{6210}" {
+                        abbr.clone()
+                    } else {
+                        None
+                    }
+                },
+            );
+            assert_eq!(Value::String(got), c["out"], "imperial {c}");
+        }
+    }
 }
