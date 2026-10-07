@@ -1,6 +1,6 @@
 [package]
 name = "raffles"
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 # GPL-3.0-only: upstream RAVEN is Apache-2.0, which is ONE-WAY compatible with
 # GPLv3 (Apache -> GPLv3 is allowed; GPLv3 -> Apache is not). This crate is

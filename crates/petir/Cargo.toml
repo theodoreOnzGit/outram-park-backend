@@ -1,6 +1,6 @@
 [package]
 name = "petir"
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 # GPL-3.0-only. PETIR is a no_std port of parts of the GNU Scientific Library,
 # which is GPL-3.0-OR-LATER -- verified 2026-09-14 by reading GSL's own per-file

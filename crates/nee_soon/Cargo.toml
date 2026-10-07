@@ -1,6 +1,6 @@
 [package]
 name = "nee_soon"
-version = "0.0.2"
+version = "0.0.3"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,9 +8,11 @@ description = "Neutron Energy-dependent Simulation using Open-source Object-Orie
 homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
-# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
-# and never shipped in the packaged crate.
-exclude = ["docs", "verification_and_validation/*.csv"]
+# The V&V records (verification_and_validation/: CSVs, plots, scripts) are
+# not shipped in the packaged crate: nothing reads them at build time, and
+# they took the package from 73 kB to 7.4 MiB (maintainer, 2026-10-07). They
+# stay in the repository.
+exclude = ["docs", "verification_and_validation"]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and

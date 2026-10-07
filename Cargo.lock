@@ -1590,7 +1590,7 @@ dependencies = [
 
 [[package]]
 name = "chem-eng-real-time-process-control-simulator"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "approx",
  "csv",
@@ -3178,7 +3178,7 @@ checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
 name = "farrer-park"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "outram-foam-basic-lib",
  "thiserror 2.0.18",
@@ -6466,7 +6466,7 @@ dependencies = [
 
 [[package]]
 name = "nee_soon"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "njoy-outram-park-fork",
  "outram-blender",
@@ -6527,7 +6527,7 @@ dependencies = [
 
 [[package]]
 name = "njoy-outram-park-fork"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "directories 5.0.1",
  "fs2",
@@ -7229,7 +7229,7 @@ dependencies = [
 
 [[package]]
 name = "outram-blender"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "eframe",
  "egui",
@@ -7252,7 +7252,7 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-appbuilder-lib"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "approx",
  "ndarray",
@@ -7267,7 +7267,7 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-basic-lib"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "approx",
  "ndarray",
@@ -7326,7 +7326,7 @@ dependencies = [
 
 [[package]]
 name = "outram-mc-libs"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "approx",
  "fission-yields-data",
@@ -7391,7 +7391,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-cfmesh"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "eframe",
  "egui",
@@ -7423,7 +7423,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-liggghts"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "approx",
  "burn",
@@ -7704,7 +7704,7 @@ dependencies = [
 
 [[package]]
 name = "petir"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "approx",
  "libm",
@@ -8256,7 +8256,7 @@ checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
 
 [[package]]
 name = "raffles"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "burn",
  "petir",
@@ -9701,7 +9701,7 @@ dependencies = [
 
 [[package]]
 name = "teh-o-prke"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "approx",
  "chem-eng-real-time-process-control-simulator",
@@ -10128,7 +10128,7 @@ checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
 
 [[package]]
 name = "tuas_boussinesq_solver"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "approx",
  "chem-eng-real-time-process-control-simulator",

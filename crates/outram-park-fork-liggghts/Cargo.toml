@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-liggghts"
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 # LICENSING NOTE (see NOTICE): LIGGGHTS-PUBLIC's source headers declare "GNU
 # Public License, version 2 OR LATER", which IS compatible with GPL-3.0 (the
