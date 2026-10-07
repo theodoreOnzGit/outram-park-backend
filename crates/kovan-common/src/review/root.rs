@@ -25,9 +25,19 @@
 //! alg = "ed25519"
 //! public = "<base64>"
 //! created = "2026-10-07"
-//! endorsed_by = { key = "k0", signature = "<base64>" }   # absent for the founding key
 //!
-//! [reviewer.revoked]                # optional
+//! [[reviewer.key.history]]          # append-only lifecycle (#762); state is replayed
+//! event = "created"
+//! date = "2026-10-07"
+//! [[reviewer.key.history]]
+//! event = "endorsed"                # created|endorsed|reset|admitted|retired|unretired|revoked|compromised
+//! date = "2026-10-07"
+//! signer = { reviewer = "github:theodoreOnzGit", key = "k0" }
+//! signature = "<base64>"
+//! # v1 fields (endorsed_by, reset, retired, retired_on, unretired, and the
+//! # reviewer's admitted_by) still load: ReviewRoot::migrate_key_history
+//!
+//! [reviewer.revoked]                # optional: revokes the person
 //! date = "2026-12-01"
 //! compromised_from = "2026-11-20"  # optional: void stamps from this date
 //! by = "github:theodoreOnzGit"
@@ -91,6 +101,12 @@ pub struct KeySignature {
 }
 
 /// `[[reviewer.key]]`: one public key.
+///
+/// **Its lifecycle is the append-only `history`** (maintainer, #762,
+/// 2026-10-07): trust, retirement and revocation are derived by replaying
+/// it ([`crate::review::signing::registry`]). The fields marked *legacy*
+/// below are the #764/#762 v1 form; they still load, and
+/// [`ReviewRoot::migrate_key_history`] moves them into `history`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReviewerKey {
     pub id: String,
@@ -99,25 +115,118 @@ pub struct ReviewerKey {
     /// Base64 public key.
     pub public: String,
     pub created: String,
-    /// The existing key of the same reviewer that endorsed this one; absent
-    /// only for a reviewer's first key.
+    /// *Legacy.* The existing key of the same reviewer that endorsed this
+    /// one; absent only for a reviewer's first key.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub endorsed_by: Option<KeySignature>,
-    /// A deliberate key reset (shown permanently).
+    /// *Legacy.* A deliberate key reset (shown permanently).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub reset: bool,
-    /// Retired (an un-retire clears it).
+    /// *Legacy.* Retired (an un-retire clears it).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub retired: bool,
-    /// The date the key was retired (#762, additive). Stamps the key signs
-    /// on or after it do not count; kept after an un-retire, so the gap
-    /// stays visible.
+    /// *Legacy* (#762 v1). The date the key was retired.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retired_on: Option<String>,
-    /// The un-retirement (#762, additive): signed by **this key itself**,
-    /// which proves the old private key was unlocked (#739 signing comment).
+    /// *Legacy* (#762 v1). The un-retirement, signed by this key itself.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unretired: Option<Unretirement>,
+    /// `[[reviewer.key.history]]`: every lifecycle event of this key, in the
+    /// order it happened. Append-only: entries are never edited or deleted.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub history: Vec<KeyEvent>,
+}
+
+/// What happened to a key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeyEventKind {
+    /// The key was generated (unsigned; its date is `created`).
+    Created,
+    /// Vouched for by a trusted key of the same reviewer.
+    Endorsed,
+    /// A deliberate reset (the old passphrase is lost): vouched for by a
+    /// maintainer, or unsigned for the founding maintainer. Shown forever.
+    Reset,
+    /// The reviewer's admission by a maintainer; only on the first key.
+    Admitted,
+    /// Retired from `date` (unsigned: retiring only takes trust away).
+    Retired,
+    /// Back from `date`; signed by **the key itself** (possession proof).
+    Unretired,
+    /// Revoked from `date` by a maintainer or the key's own reviewer.
+    Revoked,
+    /// Compromised from `date`: void from then on.
+    Compromised,
+}
+
+impl KeyEventKind {
+    /// The wire name.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Created => "created",
+            Self::Endorsed => "endorsed",
+            Self::Reset => "reset",
+            Self::Admitted => "admitted",
+            Self::Retired => "retired",
+            Self::Unretired => "unretired",
+            Self::Revoked => "revoked",
+            Self::Compromised => "compromised",
+        }
+    }
+}
+
+/// Who signed a key event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeySigner {
+    /// The signer's reviewer id. Absent only on events migrated from the
+    /// legacy fields, which did not record it (the eligible signers are
+    /// then searched).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reviewer: Option<String>,
+    /// The signer's key id.
+    pub key: String,
+}
+
+/// `[[reviewer.key.history]]`: one lifecycle event.
+///
+/// ```toml
+/// [[reviewer.key.history]]
+/// event = "unretired"
+/// date = "2026-10-15"
+/// signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+/// signature = "<base64>"
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeyEvent {
+    pub event: KeyEventKind,
+    /// `YYYY-MM-DD`.
+    pub date: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer: Option<KeySigner>,
+    /// Base64 signature over
+    /// [`crate::review::signing::key_event_bytes`] (or, with `legacy`, over
+    /// the v1 statement bytes the migrated field was signed over).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+    /// Migrated from a legacy field: the signature is over the v1 bytes.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub legacy: bool,
+}
+
+impl KeyEvent {
+    /// An unsigned event.
+    pub fn unsigned(event: KeyEventKind, date: &str) -> KeyEvent {
+        KeyEvent { event, date: date.into(), signer: None, signature: None, legacy: false }
+    }
+}
+
+/// A key whose legacy fields were left alone because it already has a
+/// `history` (the history wins; the registry lists it as a warning).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LegacyConflict {
+    pub reviewer: String,
+    pub key: String,
 }
 
 /// `[reviewer.key.unretired]`: a retired key brought back (#762).
@@ -246,6 +355,89 @@ impl ReviewRoot {
     /// The reviewer registered under `id`.
     pub fn reviewer(&self, id: &str) -> Option<&Reviewer> {
         self.reviewers.iter().find(|r| r.id == id)
+    }
+
+    /// Move the legacy key fields (`endorsed_by`, `reset`, `retired`,
+    /// `retired_on`, `unretired`, and the reviewer's `admitted_by`) into each
+    /// key's append-only `history` (#762, maintainer 2026-10-07). Additive:
+    /// a v1 file loads and means what it meant, and signed legacy fields
+    /// become `legacy = true` events whose signatures still verify.
+    ///
+    /// Only a key with an **empty** history is migrated; a key that has a
+    /// history and also legacy fields keeps both untouched and is returned
+    /// as a [`LegacyConflict`] (never a silent merge). Legacy `retired` with
+    /// no date migrates to a `retired` event dated `""`, which the registry
+    /// reads as void from the start (as v1 did).
+    pub fn migrate_key_history(&mut self) -> Vec<LegacyConflict> {
+        let mut conflicts = Vec::new();
+        for r in &mut self.reviewers {
+            let admitted_by = r.admitted_by.take();
+            let mut admission_moved = admitted_by.is_none();
+            for (j, k) in r.keys.iter_mut().enumerate() {
+                let legacy = k.endorsed_by.is_some()
+                    || k.reset
+                    || k.retired
+                    || k.retired_on.is_some()
+                    || k.unretired.is_some()
+                    || (j == 0 && admitted_by.is_some());
+                if !k.history.is_empty() {
+                    if legacy {
+                        conflicts.push(LegacyConflict { reviewer: r.id.clone(), key: k.id.clone() });
+                    }
+                    continue;
+                }
+                let mut h = vec![KeyEvent::unsigned(KeyEventKind::Created, &k.created)];
+                if j == 0 {
+                    if let Some(a) = &admitted_by {
+                        h.push(KeyEvent {
+                            event: KeyEventKind::Admitted,
+                            date: r.admitted.clone().unwrap_or_default(),
+                            signer: Some(KeySigner { reviewer: None, key: a.key.clone() }),
+                            signature: Some(a.signature.clone()),
+                            legacy: true,
+                        });
+                        admission_moved = true;
+                    }
+                }
+                let kind = if k.reset { KeyEventKind::Reset } else { KeyEventKind::Endorsed };
+                match k.endorsed_by.take() {
+                    Some(e) => h.push(KeyEvent {
+                        event: kind,
+                        date: k.created.clone(),
+                        signer: Some(KeySigner { reviewer: None, key: e.key }),
+                        signature: Some(e.signature),
+                        legacy: true,
+                    }),
+                    None if k.reset => h.push(KeyEvent::unsigned(KeyEventKind::Reset, &k.created)),
+                    None => {}
+                }
+                let retired_on = k.retired_on.take();
+                if retired_on.is_some() || k.retired {
+                    let d = retired_on.clone().unwrap_or_default();
+                    h.push(KeyEvent::unsigned(KeyEventKind::Retired, &d));
+                }
+                if let Some(u) = k.unretired.take() {
+                    h.push(KeyEvent {
+                        event: KeyEventKind::Unretired,
+                        date: u.date,
+                        signer: Some(KeySigner { reviewer: Some(r.id.clone()), key: k.id.clone() }),
+                        signature: Some(u.signature),
+                        legacy: true,
+                    });
+                    if k.retired {
+                        // v1: un-retired but still marked retired, date unknown.
+                        h.push(KeyEvent::unsigned(KeyEventKind::Retired, ""));
+                    }
+                }
+                k.reset = false;
+                k.retired = false;
+                k.history = h;
+            }
+            if !admission_moved {
+                r.admitted_by = admitted_by;
+            }
+        }
+        conflicts
     }
 
     /// `existing` (a whole `kovan_root.toml`) with this module's sections
