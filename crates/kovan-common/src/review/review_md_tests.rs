@@ -442,24 +442,3 @@ members = ["{key}"]
     let entries = |d: &ReviewDocument| d.entries.iter().map(|e| e.entry.clone()).collect::<Vec<_>>();
     assert_eq!(entries(&again), entries(&doc));
 }
-
-/// Methodology: the rung is recorded twice, as `[review] rung` and as the
-/// wizard's `rung` answer (#769). When they disagree the review is invalid:
-/// shown as unreadable, never counted. When they agree, or the answer is
-/// absent, it reads.
-///
-/// Result (2026-10-07): passes.
-#[test]
-fn rung_answer_must_match_recorded_rung() {
-    let mut r = review("crates/t/src/a.rs::f", "crates/t/src/a.rs", "github:a");
-    r.review.checklist.insert("rung".into(), "rung_3".into());
-    assert_eq!(validate_review(&r), Ok(()));
-    r.review.checklist.insert("rung".into(), "rung_4".into());
-    assert_eq!(
-        validate_review(&r),
-        Err(FieldError::RungMismatch { recorded: 3, answered: "rung_4".into() })
-    );
-    let doc = parse_review_md(&doc_of(vec![Entry::Review(r)]));
-    assert!(doc.reviews().next().is_none());
-    assert!(doc.unreadable[0].message.contains("rung = 3"));
-}

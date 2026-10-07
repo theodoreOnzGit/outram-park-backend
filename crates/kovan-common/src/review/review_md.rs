@@ -547,17 +547,10 @@ pub fn validate_review(r: &ReviewEntry) -> Result<(), FieldError> {
     if !(3..=4).contains(&b.rung) {
         return Err(FieldError::BadRung(b.rung));
     }
-    // The rung is both `[review] rung` and the wizard's `rung` question
-    // (#769): they must agree.
-    if let Some(a) = b.checklist.get("rung") {
-        let (option, _) = super::wizard::parse_answer(a);
-        if option != format!("rung_{}", b.rung) {
-            return Err(FieldError::RungMismatch {
-                recorded: b.rung,
-                answered: a.clone(),
-            });
-        }
-    }
+    // ~~The rung is both `[review] rung` and the wizard's `rung` question:
+    // they must agree~~ CORRECTED 2026-10-07: the rung is derived, never
+    // answered; the staleness engine recomputes it and an entry whose
+    // recorded rung differs is invalid (`engine::InvalidReason`).
     check_commit("review.commit", &b.commit)?;
     check_hash("review.hash", &b.hash)?;
     check_hash("review.doc_hash", &b.doc_hash)?;

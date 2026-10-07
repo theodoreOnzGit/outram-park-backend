@@ -41,6 +41,9 @@ pub enum StateKind {
     /// `Cargo.lock` changed since the review: a full workspace test at the
     /// new lock clears it, no re-confirm.
     PendingWorkspaceTest,
+    /// The entry reads but contradicts what is derived (e.g. a recorded
+    /// rung the answers and git do not give): shown, never counted.
+    Invalid,
 }
 
 /// How a view should colour a state.
@@ -59,7 +62,7 @@ pub enum Tone {
 
 impl StateKind {
     /// Every kind, in declaration order.
-    pub const ALL: [StateKind; 13] = [
+    pub const ALL: [StateKind; 14] = [
         Self::Valid,
         Self::DirectlyStale,
         Self::DocChanged,
@@ -73,6 +76,7 @@ impl StateKind {
         Self::OutsideScope,
         Self::Unreadable,
         Self::PendingWorkspaceTest,
+        Self::Invalid,
     ];
 
     /// Plain-English label.
@@ -91,6 +95,7 @@ impl StateKind {
             Self::OutsideScope => "outside reviewer scope",
             Self::Unreadable => "review unreadable",
             Self::PendingWorkspaceTest => "pending workspace test",
+            Self::Invalid => "review invalid",
         }
     }
 
@@ -109,6 +114,7 @@ impl StateKind {
                 | Self::Moved
                 | Self::Fixed
                 | Self::Unreadable
+                | Self::Invalid
         )
     }
 
@@ -126,7 +132,8 @@ impl StateKind {
             | Self::NeedsFixOpen
             | Self::Unverified
             | Self::OutsideScope
-            | Self::Unreadable => Tone::Blocked,
+            | Self::Unreadable
+            | Self::Invalid => Tone::Blocked,
         }
     }
 }

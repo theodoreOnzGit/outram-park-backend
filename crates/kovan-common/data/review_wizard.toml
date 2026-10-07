@@ -29,7 +29,10 @@
 #                     available whatever else is answered~~ CORRECTED
 #                     2026-10-07, maintainer on #769: independence gates
 #                     rung 5, not rung 4.)
-#   needs_rung4_gate  choosing it is refused unless rung 4 is open
+#   (~~needs_rung4_gate  choosing it is refused unless rung 4 is open~~
+#    CORRECTED 2026-10-07, maintainer on #769: the user never chooses the
+#    rung; it is derived from vv_evidence, vv_case_author and git, so the
+#    `rung` question and this effect are gone. See `wizard::derived_rung`.)
 #
 # requires_text: the option must carry text of at least 2 characters
 # (`Other: ____`, a justification). On disk the answer is `"<option>"`, or
@@ -605,35 +608,9 @@ section = "§5.2.3"
 page = "18"
 
 # ---------------------------------------------------------------- 13
-# The rung the stamp gives (3 human reviewed, 4 human V&V). Rung 4 is
-# offered only when rung 4 is open: a gate_rung4 answer to vv_evidence and
-# a gate_rung4_author answer to vv_case_author (added 2026-10-07)
-# (#740 U4; ~~and no no_rung4 answer~~ CORRECTED 2026-10-07: independence
-# gates rung 5, not rung 4). review.md's `rung` field must agree.
-[[question]]
-key = "rung"
-text = "Which rung does this review give?"
-applies_when = "always"
-workspace_rule = "Crate maturity gate (HARD RULE)"
-
-[[question.option]]
-key = "rung_3"
-label = "Rung 3: human reviewed"
-effect = "none"
-
-[[question.option]]
-key = "rung_4"
-label = "Rung 4: human V&V"
-effect = "needs_rung4_gate"
-
-# A stamp records rung 3 or 4, so a free-text rung cannot be stamped.
-[[question.option]]
-key = "other"
-label = "Other: ____"
-effect = "block"
-requires_text = true
-
-[[question.source]]
-document = "nureg-km-0006"
-section = "Table 5-11"
-page = "145"
+# ~~The rung the stamp gives (3 human reviewed, 4 human V&V), a question~~
+# CORRECTED 2026-10-07 (maintainer, #769): the user never chooses the rung.
+# It is derived (`wizard::derived_rung`): 4 when vv_evidence is qualifying
+# AND vv_case_author = human_wrote_and_verified AND git shows no agent
+# trailer on the reaching tests' commits; otherwise 3. review.md's `rung`
+# stores the derived value and the engine recomputes it on read.

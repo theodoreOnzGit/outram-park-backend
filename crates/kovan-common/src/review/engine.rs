@@ -27,7 +27,10 @@
 //!    scope**, a revocation or compromise is unverified with that reason,
 //!    anything else unverified with the signature's reason.
 //! 3. **Scope.** A `reviewer` (not a `maintainer`) must have the function's
-//!    file in scope, else **outside scope**.
+//!    file in scope, else **outside scope**. Reviewer and key state are
+//!    read only through the #762 [`Registry`].
+//! 3b. **Rung.** The recorded rung must equal the derived one (see
+//!    **Rungs** below), else **invalid**: shown, never counted.
 //! 4. **Own code.** Hash changed: **directly stale**. Same hash but the
 //!    resolved callees differ from those recorded: also directly stale (a
 //!    callee resolving differently, #739 decision 14).
@@ -51,8 +54,15 @@
 //! no review: it only shows as **review unreadable** when nothing else
 //! stands.
 //!
-//! **Rungs.** A review's rung 4 counts only when the wizard's gate opens it
-//! ([`effective_rung`]); otherwise it counts as rung 3 and is flagged. A
+//! **Rungs.** A stamp's rung is **derived, never chosen** (maintainer,
+//! #769, 2026-10-07; [`crate::review::wizard::derived_rung`]): 4 when the
+//! V&V answers qualify, the V&V case was written and verified by hand, and
+//! git shows no agent trailer on the commits that added the tests reaching
+//! the function ([`GitFacts::test_commit_messages`]); else 3. The engine
+//! recomputes it on read, and a recorded `rung` that differs makes the
+//! review **invalid**: shown, never counted (Leak Before Break).
+//! ~~A review's rung 4 counts only when the wizard's gate opens it,
+//! otherwise it counts as rung 3 and is flagged~~ **CORRECTED 2026-10-07**. A
 //! function is at **rung 5** when, besides its earliest valid review, a
 //! valid review exists by a different reviewer who is not one of the code's
 //! authors (from git), whose wizard answer to `independence` is
@@ -78,7 +88,7 @@ use super::root::{ReviewRoot, Role};
 use super::scope::in_scope;
 use super::signing::registry::Registry;
 use super::signing::{verify_review, SignatureCheck, UnverifiedReason as SigReason};
-use super::wizard::{stamp_gate, Applicability};
+use super::wizard::{derived_rung, stamp_gate, Applicability, TestAuthorship};
 use super::state::StateKind;
 use super::types::{check_tag, TagCheck};
 
@@ -133,6 +143,14 @@ pub struct GitFacts {
     pub code_authors: BTreeMap<String, BTreeSet<String>>,
     /// Deleted function id -> the commit that deleted it.
     pub deleted_in: BTreeMap<String, String>,
+    /// Test id -> the messages of the commits that added (or changed) it,
+    /// for the derived rung's git check. A reaching test missing here makes
+    /// git's view unknown, which gives rung 3.
+    pub test_commit_messages: BTreeMap<String, Vec<String>>,
+    /// The previous committed `kovan_root.toml` (parsed), for the
+    /// append-only check of key histories ([`HistoryWarning`]). `None` when
+    /// there is no earlier commit of it.
+    pub previous_root: Option<ReviewRoot>,
     /// (repository URL, tag) -> the commit the tag points at now, for the
     /// tags the caller could look up (local or vendored clone, `git
     /// ls-remote`). Offline, it is empty and tags show as unchecked.
@@ -279,6 +297,20 @@ pub enum StampState {
     OutsideScope,
     Unreadable { message: String },
     PendingWorkspaceTest { reviewed_lock: String, current_lock: String },
+    /// The entry reads but contradicts what can be derived: shown, never
+    /// counted (Leak Before Break).
+    Invalid(InvalidReason),
+}
+
+/// Why a readable review is invalid.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InvalidReason {
+    /// `[review] rung` is not the rung derived from the answers and git.
+    RungMismatch {
+        recorded: u8,
+        derived: u8,
+        tests: TestAuthorship,
+    },
 }
 
 impl StampState {
@@ -297,19 +329,21 @@ impl StampState {
             Self::OutsideScope => StateKind::OutsideScope,
             Self::Unreadable { .. } => StateKind::Unreadable,
             Self::PendingWorkspaceTest { .. } => StateKind::PendingWorkspaceTest,
+            Self::Invalid(_) => StateKind::Invalid,
         }
     }
 }
 
 /// When no review is valid, the function shows the first of these its
 /// reviews have.
-pub const AGGREGATE_ORDER: [StateKind; 10] = [
+pub const AGGREGATE_ORDER: [StateKind; 11] = [
     StateKind::DirectlyStale,
     StateKind::InheritedStale,
     StateKind::Moved,
     StateKind::DocChanged,
     StateKind::PendingWorkspaceTest,
     StateKind::Unverified,
+    StateKind::Invalid,
     StateKind::OutsideScope,
     StateKind::Deleted,
     StateKind::Unreadable,
@@ -324,10 +358,9 @@ pub struct ReviewReport {
     pub artifact: Option<String>,
     pub date: Option<String>,
     pub state: StampState,
-    /// The rung it counts at (3 or 4), when readable.
+    /// The rung recorded (3 or 4); it counts only when it equals the
+    /// derived rung (else the state is invalid).
     pub rung: Option<u8>,
-    /// Recorded rung 4 without a qualifying Q8 answer: counted as 3.
-    pub rung_capped: bool,
     /// The reviewer's qualification labels, shown beside the stamp
     /// (self-declared ones say so).
     pub qualifications: Vec<String>,
@@ -399,6 +432,53 @@ pub struct Evaluation {
     /// Every upstream tag label with its check; informational only, the
     /// commit pin is what counts.
     pub upstream_tags: Vec<UpstreamTagReport>,
+    /// Key-history entries that were committed before and are now gone or
+    /// changed: loud warnings (append-only check against git).
+    pub history_warnings: Vec<HistoryWarning>,
+}
+
+/// A breach of the append-only key history (#762 follow-up, 2026-10-07):
+/// the file alone cannot show that its LAST entry was deleted, so the
+/// previous committed `kovan_root.toml` is compared. Loud; it does not by
+/// itself change a stamp's state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HistoryWarning {
+    /// A reviewer committed before is gone.
+    ReviewerRemoved { reviewer: String },
+    /// A key committed before is gone.
+    KeyRemoved { reviewer: String, key: String },
+    /// History entry `index` (0-based) of the key is gone.
+    EntryRemoved { reviewer: String, key: String, index: usize },
+    /// History entry `index` was changed.
+    EntryChanged { reviewer: String, key: String, index: usize },
+}
+
+/// Compare the previous committed root with the current one: every
+/// reviewer, key and key-history entry present before must be present now,
+/// unchanged, at the same position (appending is the only change allowed).
+pub fn history_append_only(previous: &ReviewRoot, current: &ReviewRoot) -> Vec<HistoryWarning> {
+    let mut out = Vec::new();
+    for pr in &previous.reviewers {
+        let Some(cr) = current.reviewer(&pr.id) else {
+            out.push(HistoryWarning::ReviewerRemoved { reviewer: pr.id.clone() });
+            continue;
+        };
+        for pk in &pr.keys {
+            let Some(ck) = cr.keys.iter().find(|k| k.id == pk.id) else {
+                out.push(HistoryWarning::KeyRemoved { reviewer: pr.id.clone(), key: pk.id.clone() });
+                continue;
+            };
+            for (i, e) in pk.history.iter().enumerate() {
+                let (reviewer, key) = (pr.id.clone(), pk.id.clone());
+                match ck.history.get(i) {
+                    None => out.push(HistoryWarning::EntryRemoved { reviewer, key, index: i }),
+                    Some(c) if c != e => out.push(HistoryWarning::EntryChanged { reviewer, key, index: i }),
+                    Some(_) => {}
+                }
+            }
+        }
+    }
+    out
 }
 
 impl Evaluation {
@@ -488,13 +568,13 @@ pub fn test_verdict(f: &FunctionIndex, run: Option<&TestRun>, git: &GitFacts) ->
 
 fn authenticity(
     r: &ReviewEntry,
-    root: &ReviewRoot,
     git: &GitFacts,
-    registry: Option<&Registry>,
+    registry: &Registry,
+    policy: SignaturePolicy,
 ) -> Option<Denial> {
-    authenticity_git(r, root, git)
+    authenticity_git(r, git, registry)
         .map(Denial::Unverified)
-        .or_else(|| registry.and_then(|reg| signature(r, reg)))
+        .or_else(|| (policy == SignaturePolicy::Enforce).then(|| signature(r, registry)).flatten())
 }
 
 /// The #762 signature check, mapped onto the engine's states.
@@ -511,7 +591,10 @@ fn signature(r: &ReviewEntry, registry: &Registry) -> Option<Denial> {
     }
 }
 
-fn authenticity_git(r: &ReviewEntry, root: &ReviewRoot, git: &GitFacts) -> Option<UnverifiedReason> {
+/// Git facts, then the reviewer's state, read only through the #762
+/// [`Registry`] (registered, and not revoked or compromised at the stamp's
+/// date).
+fn authenticity_git(r: &ReviewEntry, git: &GitFacts, registry: &Registry) -> Option<UnverifiedReason> {
     let b = &r.review;
     let key = ReviewKey {
         function: r.function_id(),
@@ -534,37 +617,32 @@ fn authenticity_git(r: &ReviewEntry, root: &ReviewRoot, git: &GitFacts) -> Optio
             at_commit: facts.hash_at_commit.clone(),
         });
     }
-    let Some(reviewer) = root.reviewer(&b.by) else {
+    let Some(reviewer) = registry.reviewer(&b.by) else {
         return Some(UnverifiedReason::UnknownReviewer);
     };
-    if let Some(rev) = &reviewer.revoked {
-        if rev.compromised_from.as_deref().is_some_and(|c| b.date.as_str() >= c) {
-            return Some(UnverifiedReason::Compromised);
-        }
-        if b.date >= rev.date {
-            return Some(UnverifiedReason::Revoked);
-        }
+    if let Some(cut) = reviewer.revocation.as_ref().and_then(|v| v.cutoff(&b.date)) {
+        return Some(match cut {
+            SigReason::Compromised { .. } => UnverifiedReason::Compromised,
+            _ => UnverifiedReason::Revoked,
+        });
     }
     None
 }
 
-/// The rung a review counts at, and whether rung 4 was capped to 3: rung 4
-/// counts only when the wizard's gate opens it (#769 `stamp_gate`:
-/// `vv_evidence` is a reference/code-to-code or analytical comparison and
-/// no answer closes it). ~~Gated on checklist `q8`~~ **CORRECTED
-/// 2026-10-07**: `q8` was #764's placeholder; the wizard refuses it, so a
-/// review that still carries it counts at rung 3.
-pub fn effective_rung(r: &ReviewEntry) -> (u8, bool) {
-    let b = &r.review;
-    if b.rung == 4 {
-        if stamp_gate(&b.checklist, Applicability::default()).rung4_allowed {
-            (4, false)
-        } else {
-            (3, true)
-        }
-    } else {
-        (b.rung, false)
+/// Git's view of who wrote the tests reaching `f`: human when every
+/// reaching test has commit facts and none carries the agent trailer.
+pub fn test_authorship(f: &FunctionIndex, git: &GitFacts) -> TestAuthorship {
+    if f.reached_by.is_empty() {
+        return TestAuthorship::Unknown;
     }
+    let mut messages = Vec::new();
+    for t in &f.reached_by {
+        match git.test_commit_messages.get(t) {
+            Some(m) if !m.is_empty() => messages.extend(m.iter().cloned()),
+            _ => return TestAuthorship::Unknown,
+        }
+    }
+    TestAuthorship::from_messages(&messages)
 }
 
 /// Judge every review and function (module doc). Pure and deterministic.
@@ -595,7 +673,7 @@ pub fn evaluate(
         .filter(|f| current.contains_key(f.as_str()))
         .collect();
 
-    let registry = (policy == SignaturePolicy::Enforce).then(|| Registry::build(root));
+    let registry = Registry::build(root);
     let mut ev = Evaluation::default();
     let mut per_fn: BTreeMap<String, Vec<ReviewReport>> = BTreeMap::new();
     let mut deleted: BTreeMap<String, (Vec<ReviewReport>, &FolderReviews, Vec<&ReviewEntry>)> =
@@ -605,14 +683,12 @@ pub fn evaluate(
         for r in fr.doc.reviews() {
             let b = &r.review;
             let fid = r.function_id();
-            let (rung, capped) = effective_rung(r);
             let mut report = ReviewReport {
                 by: b.by.clone(),
                 artifact: Some(r.kovan.id.clone()),
                 date: Some(b.date.clone()),
                 state: StampState::Valid,
-                rung: Some(rung),
-                rung_capped: capped,
+                rung: Some(b.rung),
                 qualifications: qualification_labels(root, &b.by),
                 independent: stamp_gate(&b.checklist, Applicability::default()).independent,
             };
@@ -652,7 +728,7 @@ pub fn evaluate(
             }
             let here = cur.location();
             let tests = test_verdict(cur.f, cur.index.test_run.as_ref(), git);
-            report.state = judge(r, cur, &here, &candidates, matched, tests, &current, root, git, registry.as_ref());
+            report.state = judge(r, cur, &here, &candidates, matched, tests, &current, git, &registry, policy);
             per_fn.entry(cur.f.id.clone()).or_default().push(report);
         }
         // Unreadable entries are no review; attach them where they point.
@@ -682,7 +758,6 @@ pub fn evaluate(
                         message: u.message.clone(),
                     },
                     rung: None,
-                    rung_capped: false,
                     qualifications: Vec::new(),
                     independent: false,
                 }),
@@ -790,6 +865,11 @@ pub fn evaluate(
         });
     }
     ev.upstream_tags = upstream_tags(reviews, git);
+    ev.history_warnings = git
+        .previous_root
+        .as_ref()
+        .map(|p| history_append_only(p, root))
+        .unwrap_or_default();
     ev.id_matches.sort();
     ev
 }
@@ -832,22 +912,33 @@ fn judge(
     matched: bool,
     tests: TestVerdict,
     current: &BTreeMap<&str, Current>,
-    root: &ReviewRoot,
     git: &GitFacts,
-    registry: Option<&Registry>,
+    registry: &Registry,
+    policy: SignaturePolicy,
 ) -> StampState {
     let b = &r.review;
     // 2. Authenticity.
-    match authenticity(r, root, git, registry) {
+    match authenticity(r, git, registry, policy) {
         Some(Denial::Unverified(why)) => return StampState::Unverified(why),
         Some(Denial::OutsideScope) => return StampState::OutsideScope,
         None => {}
     }
-    // 3. Scope.
-    if let Some(rv) = root.reviewer(&b.by) {
+    // 3. Scope, on the actual location (the registry's role and scope).
+    if let Some(rv) = registry.reviewer(&b.by) {
         if rv.role == Role::Reviewer && !in_scope(&rv.scope, &here.file) {
             return StampState::OutsideScope;
         }
+    }
+    // 3b. The derived rung (Leak Before Break): a recorded rung that the
+    // answers and git do not give is invalid, shown and never counted.
+    let tests_by = test_authorship(cur.f, git);
+    let derived = derived_rung(&b.checklist, tests_by).as_u8();
+    if b.rung != derived {
+        return StampState::Invalid(InvalidReason::RungMismatch {
+            recorded: b.rung,
+            derived,
+            tests: tests_by,
+        });
     }
     // 4. Own code.
     if cur.f.hash != b.hash {

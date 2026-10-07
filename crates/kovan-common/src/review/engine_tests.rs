@@ -471,25 +471,123 @@ fn concern_beats_approval() {
     assert_eq!(kind(&ev, F), StateKind::Fixed);
 }
 
-/// Rung 4 is gated by the wizard (#769 `stamp_gate`): a recorded rung 4
-/// counts only when `vv_evidence` opens it; otherwise it counts at rung 3
-/// and is flagged. #764's placeholder `q8` no longer opens it.
+/// The rung is derived, never chosen (maintainer, #769, 2026-10-07). A
+/// recorded rung 4 counts only when the V&V answers qualify, the V&V case
+/// was written and verified by hand, and git shows no agent trailer on the
+/// commits that added the reaching tests; anything else derives rung 3, so
+/// a recorded 4 is invalid (shown, never counted; Leak Before Break). A
+/// recorded 3 where 4 is derived is invalid too: the rung is not a choice.
 #[test]
-fn rung4_gated_by_the_wizard() {
-    let mut r = review(F, M, 'a', &[]);
-    r.review.rung = 4;
-    r.review.checklist.insert("vv_evidence".into(), "unit_tests_only".into());
-    let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &[])])])];
-    let ev = run(&[reviews_in("x", D, vec![r.clone()])], &idx);
-    assert_eq!(ev.functions[&fid(F)].rung, Some(3));
-    assert!(ev.functions[&fid(F)].reviews[0].rung_capped);
-    r.review.checklist.insert("vv_evidence".into(), "analytical_case".into());
-    let ev = run(&[reviews_in("x", D, vec![r.clone()])], &idx);
-    assert_eq!(ev.functions[&fid(F)].rung, Some(4));
-    r.review.checklist.remove("vv_evidence");
-    r.review.checklist.insert("q8".into(), "analytical_case".into());
-    let ev = run(&[reviews_in("x", D, vec![r])], &idx);
-    assert_eq!(ev.functions[&fid(F)].rung, Some(3), "the placeholder key opens nothing");
+fn rung_is_derived_and_a_mismatch_is_invalid() {
+    let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &["t::ok"])])])];
+    let human = "add flash analytical test".to_string();
+    let agent = "add test\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>".to_string();
+    let eval = |r: &ReviewEntry, msgs: Option<&String>| {
+        let revs = [reviews_in("x", D, vec![r.clone()])];
+        let mut g = git_for(&[&revs[0]]);
+        if let Some(m) = msgs {
+            g.test_commit_messages.insert("t::ok".into(), vec![m.clone()]);
+        }
+        evaluate(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked)
+            .functions[&fid(F)]
+            .clone()
+    };
+    let mut r4 = review(F, M, 'a', &[]);
+    r4.review.rung = 4;
+    r4.review.checklist.insert("vv_evidence".into(), "analytical_case".into());
+    r4.review.checklist.insert("vv_case_author".into(), "human_wrote_and_verified".into());
+    let f = eval(&r4, Some(&human));
+    assert_eq!(f.state, StampState::Valid);
+    assert_eq!(f.rung, Some(4));
+    // Git contradicts the human answer: invalid, not counted.
+    let f = eval(&r4, Some(&agent));
+    assert_eq!(
+        f.state,
+        StampState::Invalid(InvalidReason::RungMismatch { recorded: 4, derived: 3, tests: TestAuthorship::Agent })
+    );
+    assert_eq!(f.rung, None);
+    // No commit facts for the reaching test: git cannot agree, so 3.
+    assert_eq!(eval(&r4, None).state.kind(), StateKind::Invalid);
+    // A half-done V&V case derives 3.
+    let mut half = r4.clone();
+    half.review.checklist.insert("vv_case_author".into(), "agent_wrote_or_cowrote".into());
+    assert_eq!(eval(&half, Some(&human)).state.kind(), StateKind::Invalid);
+    half.review.rung = 3;
+    assert_eq!(eval(&half, Some(&human)).rung, Some(3));
+    // #764's placeholder q8 opens nothing.
+    let mut legacy = review(F, M, 'a', &[]);
+    legacy.review.rung = 4;
+    legacy.review.checklist.insert("q8".into(), "analytical_case".into());
+    assert_eq!(eval(&legacy, Some(&human)).state.kind(), StateKind::Invalid);
+    // Recording 3 where 4 is derived is also a mismatch.
+    let mut low = r4.clone();
+    low.review.rung = 3;
+    assert!(matches!(
+        eval(&low, Some(&human)).state,
+        StampState::Invalid(InvalidReason::RungMismatch { recorded: 3, derived: 4, .. })
+    ));
+}
+
+/// The key history is append-only (#762 follow-up): against the previous
+/// committed `kovan_root.toml`, a removed last entry, a changed entry, a
+/// removed key and a removed reviewer each give a loud warning; appending
+/// gives none.
+#[test]
+fn key_history_is_append_only_against_git() {
+    use crate::review::root::{KeyEvent, KeyEventKind, ReviewerKey};
+    let key = |events: Vec<KeyEvent>| ReviewerKey {
+        id: "k1".into(),
+        alg: "ed25519".into(),
+        public: "AAAA".into(),
+        created: "2026-10-07".into(),
+        endorsed_by: None,
+        reset: false,
+        retired: false,
+        retired_on: None,
+        unretired: None,
+        history: events,
+    };
+    let created = KeyEvent::unsigned(KeyEventKind::Created, "2026-10-07");
+    let retired = KeyEvent::unsigned(KeyEventKind::Retired, "2026-11-01");
+    let with = |events: Vec<KeyEvent>| {
+        let mut r = root();
+        r.reviewers[0].keys = vec![key(events)];
+        r
+    };
+    let before = with(vec![created.clone(), retired.clone()]);
+    assert!(history_append_only(&before, &before).is_empty());
+    let mut appended = before.clone();
+    appended.reviewers[0].keys[0]
+        .history
+        .push(KeyEvent::unsigned(KeyEventKind::Unretired, "2026-12-01"));
+    assert!(history_append_only(&before, &appended).is_empty());
+    let last_deleted = with(vec![created.clone()]);
+    assert_eq!(
+        history_append_only(&before, &last_deleted),
+        vec![HistoryWarning::EntryRemoved { reviewer: M.into(), key: "k1".into(), index: 1 }]
+    );
+    let changed = with(vec![created.clone(), KeyEvent::unsigned(KeyEventKind::Retired, "2026-11-02")]);
+    assert_eq!(
+        history_append_only(&before, &changed),
+        vec![HistoryWarning::EntryChanged { reviewer: M.into(), key: "k1".into(), index: 1 }]
+    );
+    let no_key = with(vec![]);
+    let mut no_key = no_key;
+    no_key.reviewers[0].keys.clear();
+    assert_eq!(
+        history_append_only(&before, &no_key),
+        vec![HistoryWarning::KeyRemoved { reviewer: M.into(), key: "k1".into() }]
+    );
+    let mut gone = before.clone();
+    gone.reviewers.remove(0);
+    assert_eq!(history_append_only(&before, &gone), vec![HistoryWarning::ReviewerRemoved { reviewer: M.into() }]);
+    // Wired into evaluate through the git facts.
+    let revs = [reviews_in("x", D, vec![])];
+    let idx = [folder("x", D, &[("a.rs", vec![])])];
+    let mut g = git_for(&[&revs[0]]);
+    g.previous_root = Some(before);
+    let ev = evaluate(&revs, &idx, &last_deleted, &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
+    assert_eq!(ev.history_warnings.len(), 1);
 }
 
 /// Rung 5: a second valid review by someone who is neither the first
@@ -696,6 +794,7 @@ fn enforced_signatures_map_onto_states() {
     let (rf, rk) = keystore::generate(R, "r1", "2026-10-07", pass).unwrap();
     let mut rt = root();
     rt.reviewers.retain(|r| r.id == M || r.id == R);
+    rt.code_review = Some(crate::review::root::CodeReviewSettings { rust_analyzer: None, founder: Some(M.into()) });
     rt.reviewers[0].keys = vec![mf.reviewer_key()];
     rt.reviewers[1].keys = vec![rf.reviewer_key()];
     rt.reviewers[1].admitted = Some("2026-10-07".into());
