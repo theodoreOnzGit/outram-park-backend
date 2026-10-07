@@ -446,6 +446,55 @@ fn main() {
     );
     let maj_idx = if surface_only { usize::MAX } else { 0 };
     let core = assemble_explicit_triso(rings, layers, maj_idx);
+    // `OUTRAM_HTR10_DEM_BED=<csv>` (gh:#787): the SAME driver on a poured bed
+    // instead of Şeker's lattice. The bed is cut to the lattice's own ball
+    // count at these `layers` (or `OUTRAM_HTR10_DEM_CORE_BALLS`), by the rule
+    // the web beds view uses (`explicit_bed::trim_to_core_balls`), with the
+    // literature's 57:43 identity (`paper_fuel_assignment`). Everything else
+    // (data, materials, majorant, source box, entropy mesh, reference read at
+    // the equal-ball-count height) is this example's ordinary path.
+    let core = match std::env::var("OUTRAM_HTR10_DEM_BED") {
+        Err(_) => core,
+        Ok(csv) => {
+            use nee_soon::htr10_rmc::explicit_bed::{
+                assemble_explicit_triso_from_centres, paper_fuel_assignment, read_dem_centres_csv,
+                trim_to_core_balls,
+            };
+            let lattice_balls = core.bed.as_ref().and_then(|b| b.core_balls());
+            let n_core = std::env::var("OUTRAM_HTR10_DEM_CORE_BALLS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .or(lattice_balls);
+            let Some(n_core) = n_core else {
+                println!("REFUSED: the lattice reports no ball count to cut the DEM bed to");
+                return;
+            };
+            let text = match std::fs::read_to_string(&csv) {
+                Ok(t) => t,
+                Err(e) => {
+                    println!("REFUSED: read {csv}: {e}");
+                    return;
+                }
+            };
+            let cut = match read_dem_centres_csv(&text)
+                .and_then(|all| trim_to_core_balls(&all, n_core).map(|c| (all.len(), c)))
+            {
+                Ok(v) => v,
+                Err(e) => {
+                    println!("REFUSED: {csv}: {e}");
+                    return;
+                }
+            };
+            let (n_all, centres) = cut;
+            let fuel = paper_fuel_assignment(&centres);
+            println!(
+                "  BED: DEM {csv}: {n_all} pebbles, cut to {} (every one at or below the floor \
+                 and the lowest {n_core} above it; lattice at {layers} layers holds {lattice_balls:?})",
+                centres.len()
+            );
+            assemble_explicit_triso_from_centres(&centres, &fuel, rings, maj_idx)
+        }
+    };
     // The no-withdrawn-rods modelling assumption (`RodMetalTreatment::
     // NotModelled`): the rod metals were not loaded (they are the last slots),
     // so drop their components, and PROVE that no cell is filled with a

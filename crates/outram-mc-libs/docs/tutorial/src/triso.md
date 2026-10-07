@@ -1070,7 +1070,9 @@ neutrons drawn are the first four of each generation of your own run.*
 (the lattice's 16 681 core pebbles from a settled pour) and the same live
 k run on it. At about 1000 pcm of σ that run cannot resolve a
 lattice-against-random difference; the native random-bed record
-(10 000 × [5 + 135], #787) is pending and has its own marked slot.*
+(10 000 × [5 + 135], #787) ~~is pending and has its own marked slot~~ was
+recorded on 2026-10-08, 0.989293 ± 0.000962, −583 ± 143 pcm from the lattice
+on one pour (see "The real bed is random" below), and the view quotes it.*
 
 **The check** (2026-10-07/08,
 [`htr10_full_core_web/`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/dhoby-ghaut/verification_and_validation/htr10_full_core_web),
@@ -1121,9 +1123,9 @@ Call chain from `htr10_rmc_keff.rs::main` to `core_model.rs::assemble_explicit_t
 Unresolved calls inside the functions on this chain:
 
 - in [`htr10_rmc_keff.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L344):
-  - UNRESOLVED(other): `clone` at [L640](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L640) (→ [`crates/outram-mc-libs/src/physics/keff.rs:123`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L123)) — resolves to `#[derive(Debug, Clone)]`, not a function body
-  - UNRESOLVED(closure): `at` at [L721](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L721) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:719`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L719)) — call through a closure or fn-typed binding `at`
-  - UNRESOLVED(closure): `at` at [L722](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L722) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:719`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L719)) — call through a closure or fn-typed binding `at`
+  - UNRESOLVED(other): `clone` at [L689](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L689) (→ [`crates/outram-mc-libs/src/physics/keff.rs:123`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L123)) — resolves to `#[derive(Debug, Clone)]`, not a function body
+  - UNRESOLVED(closure): `at` at [L770](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L770) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:768`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L768)) — call through a closure or fn-typed binding `at`
+  - UNRESOLVED(closure): `at` at [L771](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L771) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:768`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L768)) — call through a closure or fn-typed binding `at`
 <!-- /code-walk -->
 
 The bed is a hexagonal lattice of Şeker's cells, stacked in axial levels:
@@ -1180,16 +1182,16 @@ Call chain from `htr10_rmc_keff.rs::main` to `handoff.rs::fly_delta_region`: 6 h
 **1.** [`htr10_rmc_keff.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L344)
 
 <!-- snippet-check: crates/nee_soon/examples/htr10_rmc_keff.rs:344 fn main -->
-<!-- snippet-check: crates/nee_soon/examples/htr10_rmc_keff.rs:609 run_keff_csg_hybrid -->
+<!-- snippet-check: crates/nee_soon/examples/htr10_rmc_keff.rs:658 run_keff_csg_hybrid -->
 
 ```rust,ignore
 {{#include ../../../../../crates/nee_soon/examples/htr10_rmc_keff.rs:344:344}}
     // …
-{{#include ../../../../../crates/nee_soon/examples/htr10_rmc_keff.rs:607:610}}
+{{#include ../../../../../crates/nee_soon/examples/htr10_rmc_keff.rs:656:659}}
     // … (the rest of the function: follow the link above)
 ```
 
-**2.** → [`transport_csg.rs::run_keff_csg_hybrid`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L233) · called at [L609](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L609) — **Hybrid k-eigenvalue: delta tracking where a region asks for it, surface tracking everywhere else** (`bn:op-867c`, gh #214).
+**2.** → [`transport_csg.rs::run_keff_csg_hybrid`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L233) · called at [L658](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L658) — **Hybrid k-eigenvalue: delta tracking where a region asks for it, surface tracking everywhere else** (`bn:op-867c`, gh #214).
 
 <!-- snippet-check: crates/outram-mc-libs/src/physics/transport_csg.rs:233 fn run_keff_csg_hybrid -->
 <!-- snippet-check: crates/outram-mc-libs/src/physics/transport_csg.rs:243 run_keff_csg_inner -->
@@ -1299,9 +1301,9 @@ Call chain from `htr10_rmc_keff.rs::main` to `handoff.rs::fly_delta_region`: 6 h
 Unresolved calls inside the functions on this chain:
 
 - in [`htr10_rmc_keff.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L344):
-  - UNRESOLVED(other): `clone` at [L640](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L640) (→ [`crates/outram-mc-libs/src/physics/keff.rs:123`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L123)) — resolves to `#[derive(Debug, Clone)]`, not a function body
-  - UNRESOLVED(closure): `at` at [L721](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L721) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:719`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L719)) — call through a closure or fn-typed binding `at`
-  - UNRESOLVED(closure): `at` at [L722](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L722) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:719`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L719)) — call through a closure or fn-typed binding `at`
+  - UNRESOLVED(other): `clone` at [L689](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L689) (→ [`crates/outram-mc-libs/src/physics/keff.rs:123`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L123)) — resolves to `#[derive(Debug, Clone)]`, not a function body
+  - UNRESOLVED(closure): `at` at [L770](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L770) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:768`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L768)) — call through a closure or fn-typed binding `at`
+  - UNRESOLVED(closure): `at` at [L771](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L771) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:768`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L768)) — call through a closure or fn-typed binding `at`
 - in [`transport_csg.rs::run_keff_csg_seq_progress`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L652):
   - UNRESOLVED(other): `default` at [L703](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L703) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:2534`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2534)) — resolves to `#[derive(Debug, Clone, Copy, Default)]`, not a function body
   - UNRESOLVED(closure): `on_generation` at [L774](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L774) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:667`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L667)) — call through a closure or fn-typed binding `on_generation`
@@ -1679,7 +1681,7 @@ and `RUN_PARAMETERS.md`, and `crates/nee_soon/src/htr10_rmc/`):
 
 | liberty | why | what it may cost |
 |---|---|---|
-| pebbles on **Şeker & Çolak (2003)'s regular 13-ball lattice cell**, not the real random bed | it is the bed both reference models use, so the comparison is like for like with them | like for like with the references, **not with the reactor**; the random bed's effect on k has not been measured (below) |
+| pebbles on **Şeker & Çolak (2003)'s regular 13-ball lattice cell**, not the real random bed | it is the bed both reference models use, so the comparison is like for like with them | like for like with the references, **not with the reactor**; ~~the random bed's effect on k has not been measured (below)~~ **measured 2026-10-08 on one pour: the random bed is −583 ± 143 pcm below the lattice (below)** |
 | **every pebble whole**: balls crossing the wall or the cone are rejected (gh:#472) | a cut pebble is not a pebble; Şeker p.267 does the same | the built bed heights, 9.798 N + 6 cm, differ from Şeker's, so points are compared at **equal ball count**, interpolating the reference between tabulated heights |
 | **TRISO particles on a cubic lattice** inside each fuel pebble, not randomly packed | the reference models use a lattice too, and a lattice is one universe repeated | 8335 whole particles per pebble, as specified (+0.060 % in fuel volume against the lattice that missed it, < 5 pcm); the random-versus-lattice effect has not been measured on this core |
 | helium at an **assumed** atmospheric pressure, 101.33 kPa, 300.15 K | Şeker & Çolak (2003) p.267 states the helium but not its pressure | helium is nearly transparent; not measured |
@@ -1688,7 +1690,7 @@ and `RUN_PARAMETERS.md`, and `crates/nee_soon/src/htr10_rmc/`):
 | references quote **no uncertainty**; MCNP is ENDF/B-VI on an independent model | that is what the papers give | "nσ" above counts our statistics only |
 | one seed per point | 10 000 × 140 generations already took 40–69 min per point on 5 threads of an i9-13900K | the σ is the within-run estimate; no multi-seed pooling |
 
-### The real bed is random, and has not been run
+### The real bed is random, ~~and has not been run~~ and was run once (2026-10-08)
 
 A real pebble bed is a random heap. This workspace can make one: its granular
 solver (`outram-park-fork-liggghts`, a port of the LIGGGHTS discrete-element
@@ -1698,8 +1700,8 @@ published 0.61 ([gh:#216](https://github.com/theodoreOnzGit/outram-park-backend/
 `outram-mc-libs` has the seam to hand such a bed to transport
 ([`pebble_beds::dem_bed`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/dem_bed.rs)).
 
-**But no $k_\text{eff}$ result of the HTR-10 core on a DEM-settled random bed
-exists in this repository.** Searched 2026-10-05: `crates/nee_soon`,
+~~**But no $k_\text{eff}$ result of the HTR-10 core on a DEM-settled random bed
+exists in this repository.**~~ (Corrected 2026-10-08: one exists now, below.) Searched 2026-10-05: `crates/nee_soon`,
 `crates/outram-park-fork-liggghts` and `crates/outram-mc-libs`. ~~The DEM seam
 returns pebble centres only and builds no geometry, and nothing calls it from
 a criticality run.~~ **Corrected 2026-10-07
@@ -1708,9 +1710,37 @@ a criticality run.~~ **Corrected 2026-10-07
 (`assemble_explicit_triso_from_centres`, drawn in
 [`htr10_dem_bed_images/`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/nee_soon/verification_and_validation/htr10_dem_bed_images)),
 and one 15 000-history smoke run on it exists, which its own record says is
-not a comparison and shows only that the core transports. So the effect of
+not a comparison and shows only that the core transports. ~~So the effect of
 the lattice liberty above is still **not known**, and this page does not
-estimate it.
+estimate it.~~
+
+**Run 2026-10-08
+([#787](https://github.com/theodoreOnzGit/outram-park-backend/issues/787),
+record
+[`htr10_dem_bed_keff_2026_10_08/`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/nee_soon/verification_and_validation/htr10_dem_bed_keff_2026_10_08)).**
+The same driver, data and statistics as the table above (10 000 ×
+[5 + 135], ENDF/B-VIII.0), on the gh:#216 pour cut to the lattice's 16 681
+balls:
+
+| bed, 16 681 balls | $k$ ± 1σ | − RMC (0.999419) |
+|---|---|---|
+| Şeker lattice, N = 12 (recorded 2026-10-07) | 0.995125 ± 0.001055 | −429 ± 106 pcm |
+| DEM pour (recorded 2026-10-08) | **0.989293 ± 0.000962** | −1013 ± 96 pcm |
+
+The random bed is **−583 ± 143 pcm** below the lattice, a 4.1σ difference.
+The prediction, written down before the run, was +100 pcm, so it was wrong
+in sign and size.
+
+How to read this number:
+
+- **It is one pour.** One pour is one arrangement. How much $k$ scatters
+  from pour to pour has not been measured. So this is not yet the worth of
+  the lattice liberty. Three more pours (option B on #787) are the
+  follow-up, and they have not been run.
+- **The two models differ in more than the arrangement.** The DEM model has
+  154 more dummy balls in the conus, an ordered filler in the tube below a
+  25 cm DEM stub, and a flat-cut top. Each was expected to be small. None
+  was measured on its own.
 
 <div class="mcw-demo" data-mc-widget="demo" data-src="../../demos/monte-carlo/?rung=htr10&amp;mode=watch&amp;view=beds" data-label="▶ The lattice bed beside a poured bed (demo, liberties)"></div>
 

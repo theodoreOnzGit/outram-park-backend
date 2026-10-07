@@ -235,16 +235,19 @@ the same 16 681 balls above the floor.*
 | balls above the floor | 16 681 | 16 681 |
 | bed surface (99th percentile + r) | 123.6 cm | 123.7 cm |
 | whole-core filling fraction | 0.5999 | 0.5994 |
-| $k_\text{eff}$ | recorded ([step 7](triso.md#7-the-htr-10-pebble-bed)) | **not run** |
+| $k_\text{eff}$ (native, 10 000 × [5 + 135]) | 0.995125 ± 0.001055 (2026-10-07) | ~~**not run**~~ **0.989293 ± 0.000962** (2026-10-08, one pour) |
 
 At the same ball count the two beds stand at the same height to about a
 millimetre, so the lattice does not misplace the fuel in height. What differs
 is the arrangement: rows of balls with straight gaps between them in the
 lattice, none in the poured bed. Neutrons can stream along straight gaps.
-**What that does to $k$ has not been measured.** A smoke run in `nee_soon`
+~~**What that does to $k$ has not been measured.** A smoke run in `nee_soon`
 shows only that a DEM-built core transports without losing particles, and its
 own record says it is not a comparison. No $k$ for the random bed is shown
-here.
+here.~~ **Measured 2026-10-08, on this one pour.** The random bed is
+**−583 ± 143 pcm** below the lattice, which is 4.1σ. How much pours scatter
+from one another is not yet measured, so this is not yet the worth of the
+arrangement. See [step 7](triso.md#7-the-htr-10-pebble-bed).
 
 ## Deliberate liberties on this page
 

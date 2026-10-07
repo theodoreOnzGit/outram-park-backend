@@ -17,7 +17,10 @@
 //!   Re-run on 2026-10-07 for this bake (gh:#787) and found byte-identical;
 //!   provenance, cost and the filling fraction are in
 //!   `crates/dhoby-ghaut/verification_and_validation/htr10_dem_bed_bake/README.md`.
-//!   **No k_eff of this bed is shown anywhere it is drawn.**
+//!   ~~**No k_eff of this bed is shown anywhere it is drawn.**~~ **Since
+//!   2026-10-08 (gh:#787)** the beds view shows its one recorded native k,
+//!   cut to the lattice's 16 681 balls
+//!   (`nee_soon/verification_and_validation/htr10_dem_bed_keff_2026_10_08/`).
 //!
 //! Both are in the DEM frame: metres, `z = 0` at the conus inlet (the bed
 //! floor), the conus below it. Lattice balls centred below [`CLIP_Z_M`] (the

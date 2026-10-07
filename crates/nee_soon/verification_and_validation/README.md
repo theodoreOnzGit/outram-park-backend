@@ -81,6 +81,10 @@ example (`water_critical_point_iapws95.md`).
 - [`htr10_seker_2026_10_07_10k/`](htr10_seker_2026_10_07_10k/README.md) —
   **the current record**: all 22 points (N = 10 to 20, VIII.0 and VII.0) on
   the bounded majorant at 10 000 × [5 + 135]. Supersedes the two above.
+- [`htr10_dem_bed_keff_2026_10_08/`](htr10_dem_bed_keff_2026_10_08/README.md) —
+  the same driver and statistics on a DEM random bed (the gh:#216 pour) cut
+  to the lattice's 16 681 balls: 0.989293 ± 0.000962, −583 ± 143 pcm from
+  the lattice at N = 12 (gh:#787, one pour; the prediction failed).
 - [`htr10_run_all.sh`](htr10_run_all.sh) — the reusable launcher for the
   sweep (`htr10_run_all.sh <out_dir>`; statistics, heights, libraries and
   slots set by environment variables listed in its header).
