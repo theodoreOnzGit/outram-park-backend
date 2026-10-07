@@ -31,6 +31,7 @@
 //! what the Watch view animates: neutrons of the run itself.
 
 pub mod pool;
+pub mod random_bed;
 pub mod screen;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod bake;
@@ -323,7 +324,8 @@ impl CoreWorker {
         self.products.clear();
         let t1 = now();
         let materials = htr10_material_set(&layout, Htr10MaterialConfig::benchmark_default(TEMP_K));
-        let core = nee_soon::htr10_rmc::core_model::assemble_explicit_triso(RINGS, layers, 0);
+        // `layers` is a bed code: N for the lattice, 0 for the DEM bed.
+        let core = random_bed::build_core(layers)?;
         let t2 = now();
         let majorant = keff_vs_height::bed_majorant(&materials, &nuclides);
         let t3 = now();
@@ -344,11 +346,12 @@ impl CoreWorker {
         })
     }
 
-    /// Rebuild the core at `layers` layers.
+    /// Rebuild the core for bed code `layers` ([`random_bed`]: N layers of
+    /// the lattice, or 0 for the DEM random bed).
     pub fn set_layers(&mut self, layers: usize) -> Result<(), String> {
         let m = self.model.as_mut().ok_or("the model is not built")?;
         if m.layers != layers {
-            m.core = nee_soon::htr10_rmc::core_model::assemble_explicit_triso(RINGS, layers, 0);
+            m.core = random_bed::build_core(layers)?;
             m.layers = layers;
         }
         Ok(())

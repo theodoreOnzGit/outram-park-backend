@@ -1066,6 +1066,12 @@ depend on how many workers there are, bit for bit.
 seed and labelled RECORDED. "Run live" starts the pool; from then on the
 neutrons drawn are the first four of each generation of your own run.*
 
+*Once the data are ready the bed can be switched to the DEM random bed
+(the lattice's 16 681 core pebbles from a settled pour) and the same live
+k run on it. At about 1000 pcm of σ that run cannot resolve a
+lattice-against-random difference; the native random-bed record
+(10 000 × [5 + 135], #787) is pending and has its own marked slot.*
+
 **The check** (2026-10-07/08,
 [`htr10_full_core_web/`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/dhoby-ghaut/verification_and_validation/htr10_full_core_web),
 predictions committed first): natively, the same split code at the record's
@@ -1629,17 +1635,17 @@ driver:
 
 Call chain from `mod.rs::CoreWorker::chunk` to `transport_csg.rs::transport_history_vr`: 2 hops, 1 shortest chain. Each step shows its code; the name links to it on GitHub.
 
-**1.** [`mod.rs::CoreWorker::chunk`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs#L384) — Transport one chunk; the result with its tracks thinned.
+**1.** [`mod.rs::CoreWorker::chunk`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs#L387) — Transport one chunk; the result with its tracks thinned.
 
-<!-- snippet-check: crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs:384 fn chunk -->
-<!-- snippet-check: crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs:387 transport_chunk -->
+<!-- snippet-check: crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs:387 fn chunk -->
+<!-- snippet-check: crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs:390 transport_chunk -->
 
 ```rust,ignore
-{{#include ../../../../../crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs:384:388}}
+{{#include ../../../../../crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs:387:391}}
     // … (the rest of the function: follow the link above)
 ```
 
-**2.** → [`transport_csg_distributed.rs::transport_chunk`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg_distributed.rs#L406) · called at [L387](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs#L387) — **Worker side**: transport the histories of `chunk`, each on the stream `run_keff_csg_par` gives it, and return their productions, banks, counts and the traced tracks.
+**2.** → [`transport_csg_distributed.rs::transport_chunk`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg_distributed.rs#L406) · called at [L390](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs#L390) — **Worker side**: transport the histories of `chunk`, each on the stream `run_keff_csg_par` gives it, and return their productions, banks, counts and the traced tracks.
 
 <!-- snippet-check: crates/outram-mc-libs/src/physics/transport_csg_distributed.rs:406 fn transport_chunk -->
 <!-- snippet-check: crates/outram-mc-libs/src/physics/transport_csg_distributed.rs:428 transport_history_vr -->

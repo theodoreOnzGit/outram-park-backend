@@ -296,9 +296,12 @@ impl LoadedRung for Loaded {
         true
     }
     fn raster(&mut self, req: &RasterReq) -> Result<Vec<u8>, String> {
-        let n = (req.param.round() as usize).clamp(10, 20);
+        // The parameter is the core view's bed code (gh:#786): N layers of
+        // the lattice, or 0 for the DEM random bed.
+        let code = req.param.round() as usize;
+        let n = if code == core::random_bed::DEM_BED { code } else { code.clamp(10, 20) };
         if self.core.as_ref().is_none_or(|c| c.0 != n) {
-            self.core = Some((n, model::core(n)));
+            self.core = Some((n, if n == core::random_bed::DEM_BED { core::random_bed::build_core(n)? } else { model::core(n) }));
         }
         let (_, core) = self.core.as_ref().expect("built above");
         Ok(crate::raster::raster(&core.geometry, req))

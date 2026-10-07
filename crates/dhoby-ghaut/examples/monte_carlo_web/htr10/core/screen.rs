@@ -33,6 +33,24 @@ const RECORDED_TRACKS: &[u8] = include_bytes!("../data/core_tracks.bin.z");
 /// Sizes the pool.
 pub const MEASURED_WORKER_MB: f64 = 546.0;
 
+/// **The native random-bed k_eff: a slot, not a value.** Another run (#787,
+/// approved 2026-10-08: the DEM bed cut to 16 681 core pebbles, 10 000 ×
+/// [5 + 135], the record's settings) is in progress; when it is recorded,
+/// put `(k, σ, "record folder, date")` here. Until then the page says
+/// "pending" and shows no number.
+pub const DEM_NATIVE_RECORD: Option<(f64, f64, &str)> = None;
+
+/// What the page says about the random bed's live k, wherever it shows it.
+pub const DEM_CAVEAT: &str = "Random bed: a LOW-STATISTICS DEMO. At 1000 neutrons per generation σ is about 1000 pcm, so it cannot resolve a lattice-against-random difference (any likely one is a few hundred pcm). One pour, one cut; pour-to-pour scatter is not measured.";
+
+/// The native random-bed record as the page prints it.
+pub fn dem_record_line() -> String {
+    match DEM_NATIVE_RECORD {
+        Some((k, s, src)) => format!("Native random-bed k (10 000 × [5 + 135]): {k:.6} ± {s:.6} ({src})"),
+        None => "Native random-bed k (10 000 × [5 + 135]): PENDING, the run is in progress (#787); no value yet.".into(),
+    }
+}
+
 /// One N's row of the record: `(k, σ, RMC at equal ball count)`.
 pub fn record_row(n: usize) -> Option<(f64, f64, f64)> {
     let mut rows = RECORD_CSV.lines();
@@ -203,8 +221,21 @@ pub fn decode_tracks(z: &[u8]) -> Result<Vec<(usize, usize, Track)>, String> {
 /// starts, so this is read at start-up: [`remember_query`]).
 static FORCED_WORKERS: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock::new();
 
-/// Read `?workers=N` before the app rewrites the URL. Call once at start-up.
+/// `?bed=dem` as the page was opened: start on the DEM random bed.
+static FORCED_DEM: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+/// Whether the page was opened with `?bed=dem`.
+pub fn forced_dem() -> bool {
+    *FORCED_DEM.get_or_init(|| {
+        let q = dhoby_ghaut::web_demo::platform::query_pairs();
+        dhoby_ghaut::web_demo::platform::query_value(&q, "bed") == Some("dem")
+    })
+}
+
+/// Read `?workers=N` (and `?bed=dem`) before the app rewrites the URL. Call
+/// once at start-up.
 pub fn remember_query() -> Option<usize> {
+    let _ = forced_dem();
     *FORCED_WORKERS.get_or_init(|| {
         let q = dhoby_ghaut::web_demo::platform::query_pairs();
         dhoby_ghaut::web_demo::platform::query_value(&q, "workers").and_then(|v| v.parse().ok())
@@ -265,7 +296,7 @@ impl CoreScreen {
             pool: None,
             plan: plan(Device::probe(), MEASURED_WORKER_MB, forced),
             forced,
-            layers: super::super::LADDER_N,
+            layers: if forced_dem() { super::random_bed::DEM_BED as f64 } else { super::super::LADDER_N },
             cfg: DEFAULT_RUN,
             recorded,
             next_recorded: 0,
@@ -451,12 +482,17 @@ impl CoreScreen {
                     Pos2::new(rect.left() + 12.0, rect.bottom() - h - 96.0),
                     Pos2::new(rect.right() - 12.0, rect.bottom() - 96.0),
                 );
+                let dem = self.layers as usize == super::random_bed::DEM_BED;
+                // On the random bed the lattice's N = 12 record is the like-for-like
+                // ball count, labelled as the lattice's.
+                let n = if dem { super::super::LADDER_N as usize } else { self.layers as usize };
                 draw_k(
                     painter,
                     plot,
                     &run.gens,
                     run.cfg,
-                    record_row(self.layers as usize),
+                    record_row(n),
+                    if dem { "lattice recorded" } else { "recorded" },
                 );
             }
         }
@@ -562,6 +598,11 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
                 ),
                 white,
             ));
+            v.push((format!("Bed: {}", super::random_bed::label(s.layers)), white));
+            if s.layers == super::random_bed::DEM_BED {
+                v.push((DEM_CAVEAT.to_string(), Color32::from_rgb(250, 200, 80)));
+                v.push((dem_record_line(), white));
+            }
             if let Some(run) = &s.run {
                 let total = run.cfg.n_inactive + run.cfg.n_active;
                 match run.gens.last() {
@@ -630,17 +671,34 @@ fn pool_panel(ui: &mut egui::Ui, p: &mut CorePool, cfg: &mut KeffConfig, layers:
         .as_ref()
         .is_some_and(|r| !r.finished() && r.it.is_some());
     ui.add_enabled_ui(!running, |ui| {
-        let mut n = *layers;
-        ui.add(
-            egui::Slider::new(&mut n, 10.0..=20.0)
-                .step_by(1.0)
-                .fixed_decimals(0)
-                .text("layers N"),
-        );
-        if n != *layers && s.set_layers(n as usize).is_ok() {
-            *layers = n;
+        // The bed (gh:#786, #787): the record's lattice at N layers, or the
+        // DEM random bed cut to the lattice's ball count at N = 12.
+        let dem_code = super::random_bed::DEM_BED as f64;
+        let mut want = *layers;
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Bed:");
+            if ui.selectable_label(*layers != dem_code, "Şeker lattice (the record's)").clicked() && *layers == dem_code {
+                want = super::super::LADDER_N;
+            }
+            if ui.selectable_label(*layers == dem_code, "DEM random bed").clicked() {
+                want = dem_code;
+            }
+        });
+        if want == dem_code {
+            ui.weak(super::random_bed::label(super::random_bed::DEM_BED));
+        } else {
+            let mut n = want;
+            ui.add(egui::Slider::new(&mut n, 10.0..=20.0).step_by(1.0).fixed_decimals(0).text("layers N"));
+            want = n;
+        }
+        if want != *layers && s.set_layers(want as usize).is_ok() {
+            *layers = want;
         }
     });
+    if *layers as usize == super::random_bed::DEM_BED {
+        ui.colored_label(Color32::from_rgb(250, 200, 80), DEM_CAVEAT);
+        ui.label(dem_record_line());
+    }
     ui.strong("Run k_eff (the whole core)");
     egui::Grid::new("core_cfg").num_columns(2).show(ui, |ui| {
         ui.label("neutrons per generation");
@@ -702,7 +760,22 @@ fn pool_panel(ui: &mut egui::Ui, p: &mut CorePool, cfg: &mut KeffConfig, layers:
                 1e3 * g.busy_s / g.gen.counts.histories.max(1) as f64
             ));
         }
-        if let (Some((m, e)), Some((rk, rs, rmc))) = (
+        let dem = *layers as usize == super::random_bed::DEM_BED;
+        if let (true, Some((m, e)), Some((rk, rs, _))) = (
+            dem,
+            run.it.as_ref().and_then(|it| it.k_mean()),
+            record_row(super::super::LADDER_N as usize),
+        ) {
+            ui.label(format!("This run, random bed: {m:.5} ± {e:.5}"));
+            ui.label(dem_record_line());
+            ui.label(format!(
+                "Lattice at the same ball count (N = 12, recorded): {rk:.6} ± {rs:.6}; random − lattice here = {:+.0} ± {:.0} pcm, not resolvable at this σ",
+                (m - rk) * 1e5,
+                (e * e + rs * rs).sqrt() * 1e5
+            ));
+        }
+        if let (false, Some((m, e)), Some((rk, rs, rmc))) = (
+            dem,
             run.it.as_ref().and_then(|it| it.k_mean()),
             record_row(*layers as usize),
         ) {
@@ -721,6 +794,7 @@ fn draw_k(
     gens: &[GenSummary],
     cfg: KeffConfig,
     record: Option<(f64, f64, f64)>,
+    record_label: &str,
 ) {
     painter.rect_filled(rect, 4.0, Color32::from_rgba_unmultiplied(14, 16, 20, 215));
     let total = (cfg.n_inactive + cfg.n_active).max(2) as f64;
@@ -759,7 +833,7 @@ fn draw_k(
         hline(
             k,
             Color32::from_rgb(120, 170, 255),
-            &format!("recorded {k:.4}"),
+            &format!("{record_label} {k:.4}"),
             true,
         );
     }
@@ -845,7 +919,9 @@ mod tests {
         let (k, sigma, rmc) = record_row(12).expect("N = 12");
         assert_eq!((k, sigma, rmc), (0.995125, 0.001055, 0.999419));
         assert!(record_row(9).is_none());
-        assert!(forced_workers().is_none());
+        assert!(DEM_NATIVE_RECORD.is_none() && dem_record_line().contains("PENDING"));
+        assert!(DEM_CAVEAT.contains("cannot resolve"));
+        assert!(forced_workers().is_none() && !forced_dem());
         let recorded = decode_tracks(RECORDED_TRACKS).expect("recorded tracks");
         assert!(!recorded.is_empty());
         assert!(recorded

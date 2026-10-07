@@ -21,5 +21,6 @@ pub fn render_all(dir: &std::path::Path) -> Result<(), String> {
         let (_raw, img) = render_material_slice(&core.geometry, &plot, &pal, title);
         img.write_png(&dir.join(name)).map_err(|e| e.to_string())?;
     }
-    Ok(())
+    // The random bed the core view can run on (gh:#786, #787).
+    super::core::random_bed::render_review(dir)
 }

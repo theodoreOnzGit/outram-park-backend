@@ -133,3 +133,47 @@ starts the live run.
   the likeliest cause, but it was not profiled while it happened. A pool of
   `cores − 1` leaves the page one core only on an otherwise idle machine.
   Follow-up: [gh:#788](https://github.com/theodoreOnzGit/outram-park-backend/issues/788).
+
+## Addendum, 2026-10-08: the DEM random bed in the live k
+
+Predictions: [`PREDICTION.md`](PREDICTION.md), addendum (committed first).
+
+**Methodology.** The core view's bed choice (`htr10/core/random_bed.rs`):
+the #216 pour at µ = 0.1 (`reference-data/liggghts/htr10_conus_presettled_mu10_mur00.csv`,
+compiled in at full precision), every pebble at or below the floor kept and
+the lowest 16 681 above it (the lattice's count at N = 12), the cut of
+`nee_soon/examples/htr10_dem_bed_images.rs`; fuel by `paper_fuel_assignment`;
+`assemble_explicit_triso_from_centres(.., 14, 0)`. Drawn from the assembled
+geometry: `examples/monte_carlo_web/geometry/htr10_{4_dem_core_xz,5_dem_bed_xz,6_dem_bed_xy}.png`
+(checked by eye: a random bed, flat-cut top at about +62 cm, the conus, the
+ordered tube filler below; fuel pebbles show their TRISO). Same run
+settings as the lattice (1000 × [5 + 20], seed 20260917). Browser: headless
+Chromium held to **4** logical CPUs (`taskset -c 12-15`, the page, the GPU
+process and **3 workers**), the i9-13900K shared with a 5-thread native run
+and other agents. Both beds run back to back on that pool.
+
+**Results.**
+
+| | lattice N = 12 | DEM random bed |
+|---|---|---|
+| data ready (3 workers) | 118 s | 109 s |
+| transport, 25 generations | ≈ 163 s (≈ 6.5 s/gen) | ≈ 225 s (≈ 9.0 s/gen) |
+| wall × workers per history | ≈ 19.5 ms | **≈ 27 ms** |
+| wasm memory per worker | 546 MB | 546 MB |
+| page long tasks > 100 ms | 1 (148 ms) | 1 (272 ms), both by the first poll after data loading began; none recorded during transport |
+| k (within-run σ) | 0.98891 ± 0.01045 | **0.99762 ± 0.00851** |
+
+- Random − lattice, live: **+871 ± 1348 pcm (0.6σ), not resolved**, as the
+  page says it cannot be at this σ.
+- **Native random-bed k (10 000 × [5 + 135]): pending** (another agent's run,
+  #787). The page shows a marked "PENDING" slot (`screen.rs`,
+  `DEM_NATIVE_RECORD`) and no number.
+
+| | predicted | measured | |
+|---|---|---|---|
+| D1 per history per worker | 25–50 ms | ≈ 27 ms | held, low end; 1.4× the lattice on the same pool (native smoke suggested 2–2.5×) |
+| D2 run on 3 workers | 4–7 min | ≈ 3.7 min | faster than predicted |
+| D3 core rebuild in a worker | 0.3–1.5 s | not measured separately (inside the 109 s data phase) | — |
+| D4 extra memory | 20–80 MB | none visible (546 MB both; wasm memory grows in large steps) | missed low |
+| D5 long tasks in the DEM run | none | one 272 ms task before transport, none during it | partly held |
+| D6 k | within 2σ of the lattice | 0.6σ | held |
