@@ -156,6 +156,24 @@ tier = "standard"
 file = "kovan-standard-open-corpus/nrc/ML15334A199.pdf"
 licence = "U.S. Government work"
 
+[[document]]
+id = "nureg-br-0167"
+title = "NUREG/BR-0167, Software Quality Assurance Program and Guidelines"
+publisher = "U.S. NRC, Division of Information Support Services, Office of Information Resources Management"
+date = "February 1993"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/nureg-br-0167-1993-sqa-program-and-guidelines.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "doe-std-1172-2003"
+title = "DOE-STD-1172-2003, Safety Software Quality Assurance Functional Area Qualification Standard (superseded by DOE-STD-1172-2011)"
+publisher = "U.S. Department of Energy"
+date = "December 2003"
+tier = "standard"
+file = "kovan-standard-open-corpus/us-doe/doe-std-1172-2003-safety-software-qa-faqs.pdf"
+licence = "DOE standard, Distribution Statement A: approved for public release, distribution unlimited"
+
 [[node]]
 path = "01-national-position"
 title = "National position"

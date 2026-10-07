@@ -854,7 +854,7 @@
 - [ ] **Maintenance rule** · `maintenance-rule` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 17.6; `10cfr50` § 50.65 Requirements for monitoring the effectiveness of maintenance at nuclear power plants; `10cfr53` § 53.715 Maintenance, repair, and inspection programs
 - [ ] **Software quality assurance** · `software-quality-assurance` · origin `outram-park`
-  - sources: `nureg-0800-toc-rev6` Ch. 17; BTP 7-14 (software reviews); `nureg-1520-rev2` 5.4.3.1.7.1 Calculational Method Validation
+  - sources: `nureg-0800-toc-rev6` Ch. 17; BTP 7-14 (software reviews); `nureg-1520-rev2` 5.4.3.1.7.1 Calculational Method Validation; `nureg-br-0167` the NRC's SQA program and guidelines for software developed for NRC staff use (whole document); `doe-std-1172-2003` Required Technical Competencies 1-12
   - why: agreed on #726 as the home of NQA-1-style software QA; the SRP names QA and I&C software reviews but not scientific-software QA.
   - [ ] **Verification and validation records (gates, oracles, recorded results)** · `software-quality-assurance/verification-and-validation-records` · origin `outram-park`
     - sources: `nureg-1520-rev2` 5.4.3.1.7.1

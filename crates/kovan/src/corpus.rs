@@ -478,6 +478,16 @@ const NRC_BASIS: &str = "U.S. Government Work, not subject to copyright: NRC Sit
 const CFR_BASIS: &str = "U.S. federal regulation, a U.S. Government Work not subject to copyright \
 (17 U.S.C. 105); eCFR printout (https://www.ecfr.gov), \"authoritative but unofficial\"";
 
+/// The record for the NRC contractor reports (NUREG/CR) moved out of the
+/// standard corpus on 2026-10-07: they carry no redistribution statement of
+/// their own, and the corpus holds only what is explicitly redistributable
+/// (owner's rule). Cited only, held in the maintainer's private corpus. See
+/// the corpus README, section 7.
+const NUREG_CR_MOVED_BASIS: &str = "NRC contractor report (written by Oak Ridge National Laboratory) with \
+no redistribution statement of its own; moved from the standard corpus to the maintainer's private \
+corpus on 2026-10-07 (owner: \"as long as it is available for redistribution, it is safe in \
+standard corpus\"). Cited only, never redistributed; publicly available from the NRC";
+
 /// The basis for the PHYSOR 2026 papers.
 const PHYSOR_2026_BASIS: &str =
     "CC BY 4.0, as recorded on the paper's Zenodo DOI record (checked 2026-09-22)";
@@ -608,9 +618,9 @@ pub const LITERATURE: &[CorpusLiterature] = &[
         ],
         concept_document: None,
         source_url: Some("https://www.nrc.gov/docs/ML1233/ML12338A215.pdf"),
-        corpus_file: Some("kovan-standard-open-corpus/nrc/ML12338A215.pdf"),
-        status: SourceStatus::VerifiedPublicDomain,
-        status_basis: NRC_BASIS,
+        corpus_file: None,
+        status: SourceStatus::Restricted,
+        status_basis: NUREG_CR_MOVED_BASIS,
     },
     CorpusLiterature {
         id: "nureg-cr-7289",
@@ -633,9 +643,9 @@ pub const LITERATURE: &[CorpusLiterature] = &[
         ],
         concept_document: None,
         source_url: Some("https://www.nrc.gov/docs/ML2206/ML22063A060.pdf"),
-        corpus_file: Some("kovan-standard-open-corpus/nrc/ML22063A060.pdf"),
-        status: SourceStatus::VerifiedPublicDomain,
-        status_basis: NRC_BASIS,
+        corpus_file: None,
+        status: SourceStatus::Restricted,
+        status_basis: NUREG_CR_MOVED_BASIS,
     },
     CorpusLiterature {
         id: "hori2026physor",
@@ -978,6 +988,43 @@ pub const LITERATURE: &[CorpusLiterature] = &[
         status: SourceStatus::VerifiedPublicDomain,
         status_basis: CFR_BASIS,
     },
+    // Software quality assurance (#760, 2026-10-07): filed under the
+    // approved `software-quality-assurance` concept, which cites them.
+    CorpusLiterature {
+        id: "nureg-br-0167",
+        kind: LiteratureKind::Report,
+        title: "Software Quality Assurance Program and Guidelines (NUREG/BR-0167)",
+        authors: &[
+            "U.S. Nuclear Regulatory Commission, Office of Information Resources Management",
+        ],
+        year: Some(1993),
+        topics: &["07-regulatory-framework/quality-assurance/software-quality-assurance"],
+        concept_document: Some("nureg-br-0167"),
+        source_url: None,
+        corpus_file: Some(
+            "kovan-standard-open-corpus/nrc/nureg-br-0167-1993-sqa-program-and-guidelines.pdf",
+        ),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "doe-std-1172-2003",
+        kind: LiteratureKind::Report,
+        title: "Safety Software Quality Assurance Functional Area Qualification Standard \
+                (DOE-STD-1172-2003)",
+        authors: &["U.S. Department of Energy"],
+        year: Some(2003),
+        topics: &["07-regulatory-framework/quality-assurance/software-quality-assurance"],
+        concept_document: Some("doe-std-1172-2003"),
+        source_url: None,
+        corpus_file: Some(
+            "kovan-standard-open-corpus/us-doe/doe-std-1172-2003-safety-software-qa-faqs.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: "DOE technical standard marked \"DISTRIBUTION STATEMENT A. Approved for \
+                       public release; distribution is unlimited.\" (PDF page 1, checked \
+                       2026-10-07; corpus README section 4). Superseded by DOE-STD-1172-2011",
+    },
     // Private tier: cited only. Their PDFs are in the maintainer's private
     // repository and may not be redistributed; no `corpus_file`, so Kovan
     // never looks for them and needs nothing but this metadata. Metadata
@@ -1273,9 +1320,10 @@ mod tests {
     fn literature_and_connections_point_at_real_nodes() {
         assert_eq!(
             LITERATURE.len(),
-            27,
-            "the maintainer's 2026-09-22 set, EPA FGR-11, FGR-13 and FGR-15 (2026-09-28), and \
-             the concept tree's 13 further documents (2026-10-06)"
+            29,
+            "the maintainer's 2026-09-22 set, EPA FGR-11, FGR-13 and FGR-15 (2026-09-28), \
+             the concept tree's 13 further documents (2026-10-06), and the software QA \
+             set NUREG/BR-0167 and DOE-STD-1172-2003 (2026-10-07, #760)"
         );
         let mut ids = HashSet::new();
         for l in LITERATURE {
