@@ -46,6 +46,10 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+      # The HTR-10 core demo (gh:#786) publishes the rod steel's nickel tapes,
+      # which live in the ACE submodule (145 MB), not reference-data/endf/.
+      - name: Fetch the reference-data/ace submodule (nickel tapes)
+        run: git submodule update --init --depth 1 reference-data/ace
       # Pinned (gh:#772): web-kovan's call graph comes from `rust-analyzer
       # scip`, an unstable subcommand, and the SCIP backend was verified
       # against the LSP one with rust-analyzer 1.98.0 (88d9e12 2026-08-18)
