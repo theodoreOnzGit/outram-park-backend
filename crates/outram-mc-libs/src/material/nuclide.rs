@@ -2463,6 +2463,37 @@ impl Nuclide {
         tolerance: f64,
         broadr_errthn: f64,
     ) -> Result<Self, NjoyError> {
+        let processed = Self::process_evaluation(tape, mat, temp_k, tolerance, broadr_errthn)?;
+        Self::from_processed(tape, mat, name, temp_k, processed)
+    }
+
+    /// **The expensive half of [`Self::from_tape`]**: RECONR at 0 K, the 0 K
+    /// elastic grid DBRC needs, BROADR to `temp_k`, and PURR's URR
+    /// probability tables. Most of a nuclide's construction time is here
+    /// (U-235 and U-238: tens of seconds); [`Self::from_processed`] does the
+    /// rest from the tape in a fraction of that.
+    ///
+    /// Split out (gh:#786) so the work can be shared: one process or Web
+    /// Worker runs this, ships the result as `f64`s
+    /// ([`ProcessedEvaluation::to_f64s`](crate::material::processed::ProcessedEvaluation::to_f64s)),
+    /// and every other builds the same nuclide with [`Self::from_processed`].
+    /// [`Self::from_tape`] is exactly these two calls in a row, so the two
+    /// routes cannot drift; `tests/processed_evaluation_round_trip.rs` pins
+    /// that the shipped route is bit for bit the direct one.
+    ///
+    /// `tolerance` is RECONR's, `broadr_errthn` BROADR's thinning tolerance
+    /// (both dimensionless); `temp_k` in K.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::from_tape`]: RECONR or PURR refusing the evaluation.
+    pub fn process_evaluation(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temp_k: f64,
+        tolerance: f64,
+        broadr_errthn: f64,
+    ) -> Result<crate::material::processed::ProcessedEvaluation, NjoyError> {
         use njoy_outram_park_fork::broadr::broaden_result_with_tolerance;
         use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
 
@@ -2475,7 +2506,6 @@ impl Nuclide {
                 temperature: 0.0,
             },
         )?;
-        let awr = recon0.material.awr;
 
         // 3a. Keep the 0 K ELASTIC grid before broadening replaces it. DBRC
         //     needs the unbroadened cross section -- the target motion is
@@ -2501,6 +2531,39 @@ impl Nuclide {
         //    SIGMA1 never runs across the resolved/unresolved seam or over the
         //    energy-averaged data above it (njoy `op-sdbk`).
         let recon = broaden_result_with_tolerance(&recon0, temp_k, broadr_errthn);
+
+        // 8. PURR's URR probability tables (see the note at the end of
+        //    `from_processed` for why they are on by default). They depend on
+        //    the tape alone, so building them here rather than after the rest
+        //    changes nothing.
+        let urr = UrrProbabilityTables::from_endf(tape, mat, temp_k, 20, 16, 2000)?;
+        Ok(crate::material::processed::ProcessedEvaluation { recon, elastic_0k, urr, temp_k })
+    }
+
+    /// **The cheap half of [`Self::from_tape`]**: given the products of
+    /// [`Self::process_evaluation`] for the same `tape`, `mat` and `temp_k`,
+    /// read ν̄, χ, the angular and emission laws and the delayed data off the
+    /// tape and assemble the nuclide, with URR tables and DBRC on by default.
+    ///
+    /// # Errors
+    ///
+    /// A tape section that fails to parse, or `processed` made at another
+    /// temperature (it would carry another temperature's broadening).
+    pub fn from_processed(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        name: &str,
+        temp_k: f64,
+        processed: crate::material::processed::ProcessedEvaluation,
+    ) -> Result<Self, NjoyError> {
+        if processed.temp_k.to_bits() != temp_k.to_bits() {
+            return Err(NjoyError::EndfParse(format!(
+                "{name}: data processed at {} K, asked for at {temp_k} K",
+                processed.temp_k
+            )));
+        }
+        let crate::material::processed::ProcessedEvaluation { recon, elastic_0k, urr, .. } = processed;
+        let awr = recon.material.awr;
 
         // 4. Real energy-dependent ν̄ from MF=1/452 (falls back to ν̄≡0 for a
         //    non-fissionable nuclide, which has no MF=1/452 section).
@@ -2672,7 +2735,12 @@ impl Nuclide {
         // An evaluation with no unresolved range yields `urr = None` and is NOT
         // an error, so `?` here propagates only a genuine parse failure --
         // which a transport code must not silently swallow.
-        let built = built.with_urr_probability_tables(tape, mat, temp_k, 20, 16, 2000)?;
+        //
+        // Since gh:#786 the tables are built in `process_evaluation` (step 8,
+        // `UrrProbabilityTables::from_endf` with the same 20 / 16 / 2000) and
+        // attached here; `with_urr_probability_tables` is that same call.
+        let mut built = built;
+        built.urr = urr;
         Ok(built.with_dbrc(DBRC_DEFAULT_E_MAX_EV))
     }
 

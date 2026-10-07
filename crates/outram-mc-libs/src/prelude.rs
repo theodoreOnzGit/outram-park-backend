@@ -26,6 +26,7 @@ pub use crate::geometry::triso_particle::{
 pub use crate::particle::particle::{Particle, ParticleType};
 pub use crate::material::material::{MacroXs, Material, NuclideComponent};
 pub use crate::material::nuclide::{MicroXS, Nuclide};
+pub use crate::material::processed::ProcessedEvaluation;
 pub use crate::material::speed::SpeedTier;
 pub use crate::material::thermal::{
     CoherentElasticTable, IncoherentElasticTable, ThermalElastic, ThermalScattering,
@@ -51,6 +52,9 @@ pub use crate::physics::search::{
 };
 pub use crate::physics::transport_csg::{
     run_keff_csg, run_keff_csg_reactor_physics, DeltaTallyEstimator, SourceBox,
+};
+pub use crate::physics::transport_csg::distributed::{
+    transport_chunk, ChunkResult, DistributedPowerIteration, GenerationChunk, SourceSite,
 };
 pub use crate::physics::reactor_physics::{
     assemble_six_factors, run_keff_reactor_physics, Estimate, Group, LethargySpectrum,

@@ -4,6 +4,8 @@
 //!   ([`Nuclide`](nuclide::Nuclide)), from embedded, ENDF, ACE or HDF5 data.
 //! - [`material`]: a mixture of nuclides at atom densities, and the
 //!   macroscopic cross sections of that mixture.
+//! - [`processed`]: a nuclide's RECONR/BROADR/PURR products as plain
+//!   numbers, to share the expensive half of building it (gh:#786).
 //! - [`thermal`]: bound-atom S(alpha,beta) thermal scattering.
 //! - [`reaction`]: reaction identifiers used across the above.
 //! - [`speed`]: [`SpeedTier`](speed::SpeedTier), trading accuracy for speed in
@@ -13,6 +15,7 @@
 //! is in [`crate::physics`].
 pub mod material;
 pub mod nuclide;
+pub mod processed;
 pub mod reaction;
 pub mod speed;
 pub mod thermal;

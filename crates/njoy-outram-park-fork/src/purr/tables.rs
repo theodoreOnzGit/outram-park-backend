@@ -602,6 +602,124 @@ impl UrrProbabilityTables {
         }))
     }
 
+    /// Every field as plain `f64`s, **exactly** (no rounding, unlike the ACE
+    /// UNR block, which also redefines `e_low` / `e_high` as the grid ends):
+    /// the form a table crosses a process or Web Worker boundary in
+    /// (gh:#786, the HTR-10 browser demo's worker pool, where one worker
+    /// runs PURR and every other receives its tables). Read back with
+    /// [`Self::from_f64s`]; `from_f64s(&t.to_f64s())` samples bit for bit as
+    /// `t` does (`f64s_round_trip_exactly`).
+    ///
+    /// Layout: `[lssf, e_low, e_high, temperature_k, interpolation,
+    /// inelastic_competition, absorption_competition, n_energy, energy...]`,
+    /// then per energy `[n_bands, cum..., (total, elastic, fission,
+    /// capture)..., heating...]`. Integers are stored as `f64`, exact far
+    /// beyond any flag or count here.
+    pub fn to_f64s(&self) -> Vec<f64> {
+        let mut v = vec![
+            f64::from(self.lssf),
+            self.e_low,
+            self.e_high,
+            self.temperature_k,
+            f64::from(self.interpolation),
+            f64::from(self.inelastic_competition),
+            f64::from(self.absorption_competition),
+            self.energy.len() as f64,
+        ];
+        v.extend_from_slice(&self.energy);
+        for p in &self.points {
+            v.push(p.cum.len() as f64);
+            v.extend_from_slice(&p.cum);
+            for b in &p.value {
+                v.extend_from_slice(b);
+            }
+            v.extend_from_slice(&p.heating);
+        }
+        v
+    }
+
+    /// The inverse of [`Self::to_f64s`].
+    ///
+    /// # Errors
+    ///
+    /// [`NjoyError::EndfParse`] for a vector too short for the counts it
+    /// declares, or with words left over.
+    pub fn from_f64s(v: &[f64]) -> Result<Self, NjoyError> {
+        let bad = |what: &str| NjoyError::EndfParse(format!("URR tables from f64s: {what}"));
+        let mut at = 0usize;
+        let mut take = |n: usize| -> Result<&[f64], NjoyError> {
+            let s = v.get(at..at + n).ok_or_else(|| bad("too short"))?;
+            at += n;
+            Ok(s)
+        };
+        let h = take(8)?;
+        let (lssf, e_low, e_high, temperature_k) = (h[0] as i32, h[1], h[2], h[3]);
+        let (interpolation, inelastic_competition, absorption_competition) = (h[4] as i32, h[5] as i32, h[6] as i32);
+        let n_energy = h[7] as usize;
+        let energy = take(n_energy)?.to_vec();
+        let mut points = Vec::with_capacity(n_energy);
+        for _ in 0..n_energy {
+            let n = take(1)?[0] as usize;
+            let cum = take(n)?.to_vec();
+            let value = take(4 * n)?.chunks_exact(4).map(|c| [c[0], c[1], c[2], c[3]]).collect();
+            let heating = take(n)?.to_vec();
+            points.push(UrrPoint { cum, value, heating });
+        }
+        if at != v.len() {
+            return Err(bad("words left over"));
+        }
+        Ok(Self {
+            lssf,
+            e_low,
+            e_high,
+            temperature_k,
+            interpolation,
+            inelastic_competition,
+            absorption_competition,
+            energy,
+            points,
+        })
+    }
+}
+
+#[cfg(test)]
+mod f64s_tests {
+    use super::*;
+
+    /// A table crosses a worker boundary unchanged: every field, and every
+    /// sample on a fine grid of energies and band variates, bit for bit.
+    #[test]
+    fn f64s_round_trip_exactly() {
+        let point = |s: f64| UrrPoint {
+            cum: vec![0.25, 0.6, 1.0],
+            value: vec![[1.0 * s, 0.5, 0.1, 0.4], [1.3 * s, 0.7, 0.2, 0.4], [0.9 * s, 0.4, 0.1, 0.4]],
+            heating: vec![0.0, 1.0e-3 * s, 0.0],
+        };
+        let t = UrrProbabilityTables {
+            lssf: 1,
+            e_low: 2.0e4,
+            e_high: 1.49e5,
+            temperature_k: 300.15,
+            interpolation: 2,
+            inelastic_competition: 51,
+            absorption_competition: 0,
+            energy: vec![2.0e4, 5.0e4, 1.0e5, 1.49e5],
+            points: vec![point(1.0), point(1.1), point(0.95), point(1.2)],
+        };
+        let v = t.to_f64s();
+        let back = UrrProbabilityTables::from_f64s(&v).expect("decode");
+        assert_eq!(back.to_f64s(), v);
+        for i in 0..400 {
+            let e = 2.0e4 + (1.49e5 - 2.0e4) * f64::from(i) / 400.0;
+            for xi in [0.0, 0.1, 0.25, 0.3, 0.6, 0.61, 0.99] {
+                assert_eq!(format!("{:?}", t.sample(e, xi)), format!("{:?}", back.sample(e, xi)), "e {e}, xi {xi}");
+            }
+        }
+        assert!(UrrProbabilityTables::from_f64s(&v[..v.len() - 1]).is_err());
+        let mut long = v.clone();
+        long.push(0.0);
+        assert!(UrrProbabilityTables::from_f64s(&long).is_err());
+    }
 }
 
 /// PURR's **competition flags** for an unresolved range — a port of the

@@ -358,6 +358,12 @@ pub fn trace_csg_history<O: FnMut(TraceEvent)>(
     .production
 }
 
+/// The power iteration with each generation's histories handed out in
+/// chunks to workers that share only messages (gh:#786); bit for bit
+/// [`run_keff_csg_par`] whatever the chunking.
+#[path = "transport_csg_distributed.rs"]
+pub mod distributed;
+
 /// One finished generation, reported to the `on_generation` callback of
 /// [`run_keff_csg_hybrid_with_progress`] as the run goes, so a UI can print
 /// an `openmc.run()`-style console line while transport continues, as

@@ -1568,6 +1568,10 @@ fn interp_linear(xs: &[f64], ys: &[f64], x: f64) -> f64 {
     }
 }
 
+/// [`ThermalScattering::to_f64s`] / [`ThermalScattering::from_f64s`] (gh:#786).
+#[path = "thermal_f64s.rs"]
+mod f64s;
+
 #[cfg(test)]
 mod tests {
     use super::*;
