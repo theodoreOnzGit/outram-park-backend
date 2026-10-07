@@ -44,7 +44,7 @@ use super::super::review_md::{ArchitectureEntry, ReviewEntry};
 use super::super::root::{
     KeyEvent, KeyEventKind, KeySignature, KeySigner, Revocation, Reviewer, ReviewerKey,
 };
-use super::super::signed_at::{now_utc, parse_rfc3339};
+use super::super::signed_at::{now_local, parse_rfc3339};
 use super::super::types::{reviewer_id_kind, FieldError};
 use super::registry::{check_append_date, open_retirement, LifecycleError};
 use super::{
@@ -439,11 +439,11 @@ impl UnlockedKey {
     }
 
     /// Sign a review this reviewer wrote (`[review] by` must be this key's
-    /// reviewer); sets `[review] signed_at` from the clock, in UTC
-    /// ([`now_utc`]; GitHub #783), and `[review.signature]` over the v2
+    /// reviewer); sets `[review] signed_at` from the clock, in local
+    /// time with its offset ([`now_local`]; GitHub #783), and `[review.signature]` over the v2
     /// signed bytes.
     pub fn sign_review(&self, r: &mut ReviewEntry) -> Result<(), SignError> {
-        self.sign_review_at(r, &now_utc())
+        self.sign_review_at(r, &now_local())
     }
 
     /// [`Self::sign_review`] at a given `signed_at` (RFC 3339 to the second,
@@ -462,7 +462,7 @@ impl UnlockedKey {
     /// Sign an architecture node this reviewer recorded; sets `signed_at`
     /// from the clock as [`Self::sign_review`] does.
     pub fn sign_architecture(&self, a: &mut ArchitectureEntry) -> Result<(), SignError> {
-        self.sign_architecture_at(a, &now_utc())
+        self.sign_architecture_at(a, &now_local())
     }
 
     /// [`Self::sign_architecture`] at a given `signed_at`.

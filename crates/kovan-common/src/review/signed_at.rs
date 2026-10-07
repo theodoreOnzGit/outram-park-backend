@@ -36,12 +36,14 @@
 //! A check whose git time the caller did not supply (`None`) is skipped,
 //! not flagged: no fact, no judgement.
 //!
-//! **No local time zone.** `std` exposes no local zone and the workspace
+//! ~~**No local time zone.** `std` exposes no local zone and the workspace
 //! carries no date crate (the reasoning in `kovan-metrics`' `date` module),
 //! so [`now_utc`], which [`super::signing::keystore::UnlockedKey::sign_review`]
-//! uses, writes UTC (`+00:00`). A caller that knows the local offset signs
-//! with `sign_review_at` instead; the reviewer's `date` must then be the
-//! date in that same offset, or flag 3 shows.
+//! uses, writes UTC (`+00:00`).~~ **CORRECTED 2026-10-07** (maintainer:
+//! add `chrono`): `sign_review` signs [`now_local`], the reviewer's local
+//! time with its offset. The reviewer's `date` must be the date in that same
+//! offset ([`date_of`] gives it), or flag 3 shows. `sign_review_at` still
+//! takes an explicit timestamp, for tests.
 
 use crate::zotero::date::{civil_from_days, days_from_civil};
 
@@ -152,6 +154,26 @@ pub fn now_utc() -> String {
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0);
     format_utc(secs)
+}
+
+/// The clock now in the machine's **local** time zone, RFC 3339 to the
+/// second with its offset (`2026-10-08T07:30:00+08:00`). What
+/// [`super::signing::keystore::UnlockedKey::sign_review`] signs (maintainer,
+/// 2026-10-07: sign in local time). The zone comes from `chrono`'s `Local`
+/// (iana-time-zone); where the zone cannot be read chrono uses UTC, which
+/// the written `+00:00` makes visible. Native only, like [`now_utc`].
+#[cfg(not(target_arch = "wasm32"))]
+pub fn now_local() -> String {
+    chrono::Local::now()
+        .format("%Y-%m-%dT%H:%M:%S%:z")
+        .to_string()
+}
+
+/// The local calendar date (`YYYY-MM-DD`) of a `signed_at`, in the offset it
+/// was written with: the `date` a stamp signed at that moment should carry.
+/// `None` when `signed_at` does not parse.
+pub fn date_of(signed_at: &str) -> Option<String> {
+    parse_rfc3339(signed_at).map(|t| t.local_date(0))
 }
 
 /// One implausibility of a stamp's `signed_at` (module doc). Times are
@@ -299,6 +321,22 @@ mod tests {
         let t = parse_rfc3339(&now).unwrap();
         assert_eq!(t.offset_minutes, 0);
         assert!(t.unix > 1_700_000_000, "{now}");
+    }
+
+    /// The local clock parses, names the machine's own offset, agrees with
+    /// UTC to within a second or two, and its `date_of` is the local date.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn now_local_is_rfc3339_with_the_local_offset() {
+        let now = now_local();
+        let t = parse_rfc3339(&now).unwrap();
+        let utc = parse_rfc3339(&now_utc()).unwrap();
+        assert!((t.unix - utc.unix).abs() <= 2, "{now}");
+        let offset = chrono::Local::now().offset().local_minus_utc() / 60;
+        assert_eq!(t.offset_minutes, offset, "{now}");
+        assert_eq!(date_of(&now).unwrap(), now[..10]);
+        assert_eq!(date_of("2026-10-07T23:30:00-02:00").unwrap(), "2026-10-07");
+        assert_eq!(date_of("not a time"), None);
     }
 
     /// Methodology: each flag of the module doc, on both sides of the 5-min

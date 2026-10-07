@@ -56,6 +56,8 @@ argon2.workspace = true
 aes-gcm.workspace = true
 getrandom.workspace = true
 zeroize.workspace = true
+# The local offset for `signed_at` (#783); signing is desktop-only.
+chrono.workspace = true
 # kovan's platform config folder (the same `ProjectDirs` kovan uses).
 directories.workspace = true
 

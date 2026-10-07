@@ -147,7 +147,8 @@ fn v2_signs_signed_at() {
     assert!(verify_review(rr, &reg).is_verified());
 }
 
-/// `sign_review` and `sign_architecture` stamp the clock in UTC; the `_at`
+/// `sign_review` and `sign_architecture` stamp the clock in local time with
+/// the machine's offset (maintainer, 2026-10-07: `chrono`); the `_at`
 /// forms refuse a timestamp that is not RFC 3339 and leave the entry alone.
 #[test]
 fn signing_sets_signed_at_from_the_clock() {
@@ -155,12 +156,12 @@ fn signing_sets_signed_at_from_the_clock() {
     let reg = Registry::build(&root(vec![person(FOUNDER, Role::Maintainer, vec![fk])]));
     let r = signed(&f, F, "2026-10-07");
     let at = r.review.signed_at.clone().unwrap();
+    let local = chrono::Local::now().offset().local_minus_utc() / 60;
     assert_eq!(
         parse_rfc3339(&at).map(|t| t.offset_minutes),
-        Some(0),
+        Some(local),
         "{at}"
     );
-    assert!(at.ends_with("+00:00"));
     assert!(verify_review(&r, &reg).is_verified());
 
     let mut a = crate::review::review_md::ArchitectureEntry {

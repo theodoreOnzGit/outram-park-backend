@@ -409,6 +409,12 @@ argon2 = "0.5"
 aes-gcm = { version = "0.10", default-features = false, features = ["aes", "alloc"] }
 base64 = "0.22"
 zeroize = "1.8"
+# The local UTC offset for a stamp's `signed_at` (GitHub #783, maintainer
+# 2026-10-07): kovan signs in the reviewer's local time, e.g.
+# 2026-10-08T07:30:00+08:00. Pure Rust; the zone comes from iana-time-zone
+# (/etc/localtime on Linux, a system property on Android, the OS API on
+# Windows/macOS). Already in Cargo.lock via async-opcua. MIT OR Apache-2.0.
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
 
 # GUI / example stack — egui ecosystem pinned to the matched 0.36 series
 # (egui 0.36 requires Rust >= 1.95). Bumped from 0.34.3 (op-9vo6.11,
