@@ -7,7 +7,8 @@
 //! (`code-review/data/`, see `web/build.sh`):
 //!
 //! ```text
-//! build.json            {"commit": "<sha>", "repo": "<owner/name>"}
+//! build.json            {"commit": "<sha>", "repo": "<owner/name>",
+//!                        "call_graph": {...}} (CallGraphStatus, #772)
 //! code_map.json         kovan-cli code-map --format json
 //! graph/index.json      kovan-cli call-graph --split-dir (SplitIndex)
 //! graph/search.json     the same run's SearchIndex, for the search bar
@@ -94,6 +95,49 @@ pub struct BuildInfo {
     pub commit: String,
     #[serde(default = "default_repo")]
     pub repo: String,
+    /// How the call graph was built and which crates it lacks (#772);
+    /// absent in data written before it.
+    #[serde(default)]
+    pub call_graph: Option<CallGraphStatus>,
+}
+
+/// `build.json`'s `call_graph`, written by `web/data.sh` so a partial call
+/// graph is shown, never silent (Leak Before Break, `docs/kovan.md`).
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct CallGraphStatus {
+    /// `scip` or `lsp`.
+    #[serde(default)]
+    pub backend: String,
+    /// `rust-analyzer --version` of the build.
+    #[serde(default)]
+    pub rust_analyzer: String,
+    /// Crates whose graph is the last cached one, built from older source
+    /// (rust-analyzer or that crate's run failed this time).
+    #[serde(default)]
+    pub stale: Vec<String>,
+    /// Crates with no call graph at all in this build.
+    #[serde(default)]
+    pub missing: Vec<String>,
+}
+
+impl CallGraphStatus {
+    /// One line for the page when the graph is partial, else `None`.
+    pub fn warning(&self) -> Option<String> {
+        if self.stale.is_empty() && self.missing.is_empty() {
+            return None;
+        }
+        let mut parts = Vec::new();
+        if !self.stale.is_empty() {
+            parts.push(format!(
+                "STALE (graph from an older commit, lines may be off): {}",
+                self.stale.join(", ")
+            ));
+        }
+        if !self.missing.is_empty() {
+            parts.push(format!("MISSING: {}", self.missing.join(", ")));
+        }
+        Some(format!("Call graph incomplete in this build. {}.", parts.join(". ")))
+    }
 }
 
 fn default_repo() -> String {
@@ -379,5 +423,25 @@ mod tests {
         assert_eq!(l.deep_dives_of("crates/outram-mc-libs/").len(), 1);
         assert!(l.deep_dives_of("crates/kovan").is_empty());
         assert!(l.deep_dives_of("crates/outram-mc").is_empty());
+    }
+
+    /// Leak Before Break (#772): a `build.json` naming stale or missing
+    /// crates gives a warning line; a complete one, or an old `build.json`
+    /// without `call_graph`, gives none.
+    #[test]
+    fn a_partial_call_graph_is_shown() {
+        let old: BuildInfo = serde_json::from_str(r#"{"commit":"abc"}"#).unwrap();
+        assert!(old.call_graph.is_none());
+        let full: BuildInfo = serde_json::from_str(
+            r#"{"commit":"abc","repo":"o/r","call_graph":{"backend":"scip","rust_analyzer":"rust-analyzer 1.98.0","crates":2,"reindexed":2,"stale":[],"missing":[]}}"#,
+        )
+        .unwrap();
+        assert_eq!(full.call_graph.as_ref().unwrap().warning(), None);
+        let part: BuildInfo = serde_json::from_str(
+            r#"{"commit":"abc","call_graph":{"backend":"scip","rust_analyzer":"x","stale":["a","b"],"missing":["c"]}}"#,
+        )
+        .unwrap();
+        let w = part.call_graph.unwrap().warning().unwrap();
+        assert!(w.contains("STALE") && w.contains("a, b") && w.contains("MISSING: c"), "{w}");
     }
 }
