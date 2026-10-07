@@ -622,6 +622,23 @@ builds nothing.
 `docs/<crate>-api.md` mirrors, the V&V logs). Fix the instruction, never the
 receipt.
 
+### Every function an agent writes or changes is reached by a test (HARD RULE)
+
+**Maintainer direction, 2026-10-07 (gh #740, #768).** When an agent writes or
+changes a function, at least one test must reach it **in the same change**.
+"Reach" means through the call graph: a test of a caller counts, so this does
+not call for a trivial unit test per function.
+
+- **Exceptions:** GUI drawing code and `main`/CLI glue, where a test is
+  impractical. Each needs a one-line reason in its doc comment, like a panic
+  justification.
+- **Why:** kovan flags a function no test reaches as *needs improvement*, and
+  a reviewer re-confirming a caller after its callee changes needs passing
+  reaching tests as evidence. Agents add functions far faster than tests get
+  backfilled.
+- **Checking:** `kovan-cli review untested` (gh #768, not built yet) will list
+  violations. Until then the rule is checked by the author.
+
 ### Slow tests and CI (summary)
 
 - A test over **5 minutes** (or one needing heavy reference data) is gated
