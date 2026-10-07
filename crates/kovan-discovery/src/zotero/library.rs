@@ -29,7 +29,7 @@
 //! | `publicationsItems` | items with `inPublications: true` |
 //! | `retractedItems`, `feedItems`, `groupItems` | **no data in a `ZoteroLibrary`**: empty |
 //! | full-text index (`fulltextContent`) | the attachment text the caller supplies with [`SearchLibrary::set_full_text`] |
-//! | saved searches | the searches the caller supplies with [`SearchLibrary::add_saved_search`] |
+//! | saved searches | `ZoteroLibrary::searches` (kovan-common's [`ZoteroSearch`](kovan_common::zotero::search::ZoteroSearch), the stored form), read with [`Search::from_zotero_search`]; and any the caller adds with [`SearchLibrary::add_saved_search`] |
 //!
 //! An item without a key gets the synthetic key `~<n>` (its position in the
 //! flattened list); real Zotero keys are eight characters of
@@ -194,6 +194,9 @@ pub struct SearchLibrary {
     pub(crate) by_key: BTreeMap<String, usize>,
     pub(crate) collections: Vec<ZoteroCollection>,
     pub(crate) saved_searches: Vec<Search>,
+    /// Stored searches of the library that could not be read as a
+    /// [`Search`], by key.
+    pub(crate) saved_search_errors: Vec<(String, super::search::SearchError)>,
     pub(crate) full_text: BTreeMap<String, String>,
     pub(crate) clock: SearchClock,
 }
@@ -254,7 +257,8 @@ fn to_sql_datetime(iso: Option<&str>) -> Option<String> {
 
 impl SearchLibrary {
     /// Build the search tables of `library` (see the module docs), with the
-    /// given clock and no saved searches or full-text content.
+    /// given clock, the library's own saved searches (`ZoteroLibrary::searches`)
+    /// and no full-text content.
     pub fn new(library: &ZoteroLibrary, clock: SearchClock) -> Self {
         let opts = date_options(&clock);
         // Flatten: (item, parent key from nesting).
@@ -336,14 +340,47 @@ impl SearchLibrary {
                 item: it,
             });
         }
-        SearchLibrary {
+        let mut out = SearchLibrary {
             rows,
             by_key,
             collections: library.collections.clone(),
             saved_searches: Vec::new(),
+            saved_search_errors: Vec::new(),
             full_text: BTreeMap::new(),
             clock,
+        };
+        // The library's own saved searches (kovan-common's `ZoteroSearch`,
+        // search.js `toJSON` shape) are the ones `savedSearch` conditions
+        // refer to.
+        for z in &library.searches {
+            match Search::from_zotero_search(z) {
+                Ok(s) => out.saved_searches.push(s),
+                Err(e) => out
+                    .saved_search_errors
+                    .push((z.key.clone().unwrap_or_default(), e)),
+            }
         }
+        out
+    }
+
+    /// The stored saved searches of the library that could not be read
+    /// (an unknown condition or operator), with why. A `savedSearch`
+    /// condition naming one of them fails with that error.
+    pub fn saved_search_errors(&self) -> &[(String, super::search::SearchError)] {
+        &self.saved_search_errors
+    }
+
+    /// Run the saved search with this key (from `ZoteroLibrary::searches`
+    /// or [`SearchLibrary::add_saved_search`]): the keys of the matching
+    /// items, sorted. `None` when no saved search has the key.
+    pub fn run_saved_search(
+        &self,
+        key: &str,
+    ) -> Option<Result<Vec<String>, super::search::SearchError>> {
+        if let Some((_, e)) = self.saved_search_errors.iter().find(|(k, _)| k == key) {
+            return Some(Err(e.clone()));
+        }
+        self.saved_search(key).map(|s| s.run(self))
     }
 
     /// Add a saved search (looked up by its `key` from `savedSearch`

@@ -390,6 +390,7 @@ mod tests {
         let lib = ZoteroLibrary {
             collections: vec![],
             items,
+            ..Default::default()
         };
         find_duplicates(&lib, &DuplicateOptions::default()).sets
     }

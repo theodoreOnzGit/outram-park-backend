@@ -159,6 +159,7 @@ fn lib(items: Vec<ZoteroItem>) -> ZoteroLibrary {
     ZoteroLibrary {
         collections: vec![],
         items,
+        ..Default::default()
     }
 }
 

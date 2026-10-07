@@ -11,9 +11,13 @@
 //! (search.js:893): `{key, version, name, conditions: [{condition, operator,
 //! value}], deleted?}`.
 //!
-//! The conditions are **kept as stored**, not evaluated: running a saved
+//! The conditions are **kept as stored**, not evaluated ~~: running a saved
 //! search needs Zotero's search engine (search.js `_buildQuery`, ~1500 lines
-//! of SQL generation) and is not part of this port. A condition's
+//! of SQL generation) and is not part of this port~~. **CORRECTED
+//! 2026-10-07 (#751)**: the search engine is ported, in memory, as
+//! `kovan_discovery::zotero`; its `SearchLibrary::new` reads these stored
+//! searches and `run_saved_search` evaluates one. This crate still only
+//! stores them. A condition's
 //! `condition` string carries its mode after a slash (`"title/any"`), exactly
 //! as `toJSON` writes it.
 //!

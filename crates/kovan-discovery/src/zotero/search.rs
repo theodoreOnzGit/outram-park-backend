@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use kovan_common::zotero::date::{is_sql_date_time, str_to_date};
 use kovan_common::zotero::schema::type_fields_from_base;
+use kovan_common::zotero::search::{SearchCondition, ZoteroSearch};
 use kovan_common::zotero::{Field, LinkMode};
 use serde_json::{json, Value};
 use unicode_normalization::UnicodeNormalization;
@@ -382,6 +383,41 @@ impl Search {
             o.insert("deleted".into(), json!(true));
         }
         Value::Object(o)
+    }
+
+    /// The search engine's view of a stored saved search: kovan-common's
+    /// [`ZoteroSearch`] (the `toJSON` shape, which is how a library stores
+    /// it) read through [`Search::from_json`] (non-strict, so the
+    /// `childNote` migration applies). A stored condition with a `null`
+    /// operator is read as an empty operator, which `addCondition` rejects
+    /// for every condition that takes operators (search.js:309).
+    pub fn from_zotero_search(stored: &ZoteroSearch) -> Result<Search, SearchError> {
+        let mut s = Search::new();
+        s.from_json(&stored.to_json_value(), false)?;
+        Ok(s)
+    }
+
+    /// This search in kovan-common's stored form ([`ZoteroSearch`]), as
+    /// `toJSON` writes it (search.js:893). A search without a name gets an
+    /// empty one.
+    pub fn to_zotero_search(&self) -> ZoteroSearch {
+        let mut z = ZoteroSearch::new(self.name.clone().unwrap_or_default());
+        z.key = self.key.clone();
+        z.version = self.version;
+        z.deleted = self.deleted.then_some(true);
+        z.conditions = self
+            .conditions
+            .iter()
+            .map(|c| SearchCondition {
+                condition: match &c.mode {
+                    Some(m) => format!("{}/{}", c.condition, m),
+                    None => c.condition.clone(),
+                },
+                operator: Some(c.operator.as_str().to_owned()),
+                value: c.value.clone(),
+            })
+            .collect();
+        z
     }
 
     /// `fromJSON` (search.js:848), including the migration of the obsolete

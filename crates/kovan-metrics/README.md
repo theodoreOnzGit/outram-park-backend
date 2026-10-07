@@ -89,7 +89,7 @@ of the Zotero data model and its `ZoteroItem` -> `KovanDocument` conversion
 
 | API | What |
 |---|---|
-| `LibraryCounts::of(&lib)` | items per item type, per collection (direct and including subcollections), per tag (manual/automatic), per attachment link mode, per annotation type, per relation predicate; top-level, child, trashed and unfiled totals |
+| `LibraryCounts::of(&lib)` | items per item type, per collection (direct and including subcollections), per tag (manual/automatic), per attachment link mode, per annotation type, per relation predicate; saved searches; top-level, child, trashed and unfiled totals |
 | `import_library(&lib) -> (Vec<KovanDocument>, ImportReport)` | converts every top-level, non-trashed regular item with a key; skips children, standalone notes/attachments/annotations, trashed, keyless and duplicate-key items, each with its reason |
 | `.to_markdown()` on both | deterministic Markdown reports (sorted; no time, locale or file system) |
 

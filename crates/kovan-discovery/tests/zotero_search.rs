@@ -247,16 +247,18 @@ impl Fx {
     }
 
     fn lib(&self) -> SearchLibrary {
+        // Saved searches are stored in the library in kovan-common's form
+        // (`ZoteroSearch`, the `toJSON` shape), as a Zotero library holds
+        // them, and read back by `SearchLibrary::new`.
         let zl = ZoteroLibrary {
             collections: self.collections.clone(),
             items: self.items.clone(),
+            searches: self.saved.iter().map(Search::to_zotero_search).collect(),
         };
         let mut l = SearchLibrary::new(&zl, SearchClock::utc(NOW));
+        assert!(l.saved_search_errors().is_empty());
         for (k, t) in &self.text {
             l.set_full_text(k.clone(), t.clone());
-        }
-        for s in &self.saved {
-            l.add_saved_search(s.clone());
         }
         l
     }
@@ -2231,4 +2233,59 @@ fn items_pane_quick_search_collection() {
     )
     .unwrap();
     same(run(&fx, &s), &[&item]);
+}
+
+/// Kovan's own (not upstream): a saved search stored in the library as
+/// kovan-common's `ZoteroSearch` (the shape the Zotero database reader,
+/// #750, produces) is read by `SearchLibrary::new`, runs by key, and
+/// round-trips through `Search::to_zotero_search`; an unreadable stored
+/// search is reported and running it fails with the same error.
+/// Predicted before the run: `["AAAAAAAA"]`, an equal round trip, and an
+/// `InvalidCondition("noSuchCondition")` error.
+#[test]
+fn stored_zotero_searches_are_evaluated() {
+    use kovan_common::zotero::search::{SearchCondition, ZoteroSearch};
+    let mut a = ZoteroItem::new(ItemType::Book);
+    a.key = Some("AAAAAAAA".into());
+    a.set_field(Field::Title, "Neutron transport");
+    let mut b = ZoteroItem::new(ItemType::Book);
+    b.key = Some("BBBBBBBB".into());
+    b.set_field(Field::Title, "Heat transfer");
+    let mut good = ZoteroSearch::new("neutron books");
+    good.key = Some("SSSSSSS1".into());
+    good.conditions.push(SearchCondition {
+        condition: "title".into(),
+        operator: Some("contains".into()),
+        value: "neutron".into(),
+    });
+    let mut bad = ZoteroSearch::new("broken");
+    bad.key = Some("SSSSSSS2".into());
+    bad.conditions.push(SearchCondition {
+        condition: "noSuchCondition".into(),
+        operator: Some("is".into()),
+        value: "x".into(),
+    });
+    let zl = ZoteroLibrary {
+        items: vec![a, b],
+        searches: vec![good.clone(), bad],
+        ..Default::default()
+    };
+    let lib = SearchLibrary::new(&zl, SearchClock::utc(NOW));
+    assert_eq!(
+        lib.run_saved_search("SSSSSSS1"),
+        Some(Ok(vec!["AAAAAAAA".to_owned()]))
+    );
+    assert_eq!(
+        Search::from_zotero_search(&good)
+            .unwrap()
+            .to_zotero_search(),
+        good
+    );
+    let err = SearchError::InvalidCondition("noSuchCondition".into());
+    assert_eq!(
+        lib.saved_search_errors(),
+        &[("SSSSSSS2".to_owned(), err.clone())]
+    );
+    assert_eq!(lib.run_saved_search("SSSSSSS2"), Some(Err(err)));
+    assert_eq!(lib.run_saved_search("NOSUCHKY"), None);
 }

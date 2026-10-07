@@ -28,7 +28,7 @@
 //! let mut item = ZoteroItem::new(ItemType::Book);
 //! item.key = Some("ABCD2345".into());
 //! item.set_field(Field::Title, "Neutron Transport");
-//! let zl = ZoteroLibrary { collections: vec![], items: vec![item] };
+//! let zl = ZoteroLibrary { items: vec![item], ..Default::default() };
 //! let lib = SearchLibrary::new(&zl, SearchClock::utc(0));
 //!
 //! let mut s = Search::new();
@@ -67,7 +67,7 @@
 //! | `includeParentsAndChildren`, `includeParents`, `includeChildren` | 2007-2039, 778-817 | equivalent (a trashed child does not bring in its parent) |
 //! | `recursive` | 1543 | equivalent (non-trashed subcollections, collection.js:852) |
 //! | `collection` (`collectionID`) | 1484-1548 | equivalent; `collectionID` takes a key (no database ids). A missing collection matches nothing (`itemID IN (0)`) |
-//! | `savedSearch` (`savedSearchID`) | 1549-1584 | equivalent for searches supplied with [`SearchLibrary::add_saved_search`]; self-reference skipped as upstream (1523); a cycle is an error (upstream recurses without end); with `includeParents*` upstream emits invalid SQL, so this is an error here |
+//! | `savedSearch` (`savedSearchID`) | 1549-1584 | equivalent for the library's stored searches (`ZoteroLibrary::searches`, kovan-common's `ZoteroSearch`, read by [`SearchLibrary::new`]) and searches added with [`SearchLibrary::add_saved_search`]; self-reference skipped as upstream (1523); a cycle is an error (upstream recurses without end); with `includeParents*` upstream emits invalid SQL, so this is an error here |
 //! | `field` and every field alias (`title`, `publicationTitle`, ...) | 1436-1461 | equivalent, including the base-field mapping (`fieldID IN (base, type fields)`) and accent/case folding of the normalized column |
 //! | `datefield` aliases (`date`, `filingDate`, `accessDate`, ...) | 1721-1875 | equivalent: date fields compared on their stored multipart form, `accessDate` as a local date; text operators compare the stored text |
 //! | `numberfield` aliases (`pages`, `numPages`, ...) | 1893-1904 | equivalent (`CAST AS INT` with the canonical-integer guard) |
@@ -119,6 +119,10 @@
 //! a database reload of the conversion the ported line-10 case covers),
 //! "should collect params in order" (SQL bind parameters), and "should
 //! populate normalized columns ... on backfill" (a schema migration).
+//! One kovan-own test (`stored_zotero_searches_are_evaluated`) checks that
+//! saved searches stored as kovan-common's `ZoteroSearch` (the form the
+//! Zotero database reader, #750, produces) are read, run by key and
+//! round-trip; the upstream fixture stores its saved searches the same way.
 //! searchQueryTest.js (the `field:value` query language of searchQuery.js)
 //! and advancedSearchTest.js (the dialog UI) are outside this port.
 //!

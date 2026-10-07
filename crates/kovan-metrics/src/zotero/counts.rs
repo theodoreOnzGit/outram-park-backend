@@ -72,6 +72,8 @@ pub struct LibraryCounts {
     pub annotation_types: BTreeMap<String, usize>,
     /// Relation predicate (`dc:relation`, `owl:sameAs`, ...) -> objects.
     pub relation_predicates: BTreeMap<String, usize>,
+    /// Saved searches (`ZoteroLibrary::searches`).
+    pub saved_searches: usize,
 }
 
 /// Every item of the library, with whether it was nested in another item.
@@ -135,6 +137,7 @@ impl LibraryCounts {
             }
         }
         c.collections = collection_counts(lib, &items);
+        c.saved_searches = lib.searches.len();
         c
     }
 
@@ -142,17 +145,18 @@ impl LibraryCounts {
     pub fn to_markdown(&self) -> String {
         let mut s = String::new();
         s.push_str("# Zotero library counts\n\n");
-        s.push_str("| Items | Top-level | Children | In the trash | Unfiled (top-level regular) | Collections | Tags |\n");
-        s.push_str("|---:|---:|---:|---:|---:|---:|---:|\n");
+        s.push_str("| Items | Top-level | Children | In the trash | Unfiled (top-level regular) | Collections | Tags | Saved searches |\n");
+        s.push_str("|---:|---:|---:|---:|---:|---:|---:|---:|\n");
         s.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} | {} |\n\n",
+            "| {} | {} | {} | {} | {} | {} | {} | {} |\n\n",
             self.items,
             self.top_level,
             self.children,
             self.trashed,
             self.unfiled,
             self.collections.len(),
-            self.tags.len()
+            self.tags.len(),
+            self.saved_searches
         ));
         table(&mut s, "Item types", "Item type", &self.by_item_type);
         s.push_str("## Collections\n\n");

@@ -55,6 +55,7 @@ fn item_json_library() -> ZoteroLibrary {
     ZoteroLibrary {
         collections: Vec::new(),
         items,
+        ..Default::default()
     }
 }
 
@@ -248,6 +249,7 @@ fn hand_built() -> ZoteroLibrary {
     ZoteroLibrary {
         collections: vec![child, parent],
         items: vec![a, b, c, d, e, f],
+        ..Default::default()
     }
 }
 
@@ -295,6 +297,7 @@ fn hand_built_library_counts() {
     assert_eq!(c.link_modes.get("imported_url"), Some(&1));
     assert_eq!(c.annotation_types.get("highlight"), Some(&1));
     assert_eq!(c.relation_predicates.get("dc:relation"), Some(&2));
+    assert_eq!(c.saved_searches, 0);
     assert_eq!(
         c.collections,
         vec![
@@ -382,6 +385,7 @@ fn duplicate_and_missing_keys_are_skipped() {
     let lib = ZoteroLibrary {
         collections: Vec::new(),
         items: vec![first, keyless, second],
+        ..Default::default()
     };
     let (docs, r) = import_library(&lib);
     assert_eq!(docs.len(), 1);

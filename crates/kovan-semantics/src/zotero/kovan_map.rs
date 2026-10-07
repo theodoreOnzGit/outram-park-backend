@@ -460,6 +460,7 @@ mod tests {
         let lib = ZoteroLibrary {
             collections: vec![child, parent],
             items: vec![a, b, c],
+            ..Default::default()
         };
         let m = map_library(&lib, &lib_uri);
         assert_eq!(m.citekeys["CCCCCCCC"], "smith2020-2");
