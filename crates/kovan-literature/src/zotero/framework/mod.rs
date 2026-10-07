@@ -67,6 +67,12 @@ pub mod item_done;
 pub mod js;
 pub mod options;
 pub mod utilities;
+// XML translators (#749): DOM, parser, serializer, XPath, child translators.
+pub mod child;
+pub mod xml;
+pub mod xml_parse;
+pub mod xml_serialize;
+pub mod xpath;
 
 pub use api_json::{fold_child_notes, item_to_api_json, KeyGenerator};
 pub use context::{

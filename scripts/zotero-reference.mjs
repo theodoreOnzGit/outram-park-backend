@@ -65,6 +65,24 @@ const FORMATS = {
 	biblatex: { file: "BibLaTeX.js", import: false },
 	ris: { file: "RIS.js", import: true },
 	csljson: { file: "CSL JSON.js", import: true },
+	// XML translators (#749). The key is the translation-server's /export
+	// format name where it has one (mods, endnote_xml, tei: formats.js);
+	// import-only translators have none and are named here. `export: false`:
+	// no export. `chain`: the import fixtures' items are exported and
+	// re-imported in this format only (written to chain_inputs/ and chain/,
+	// not export_inputs/, so the other formats' export sets stay as they are).
+	mods: { file: "MODS.js", import: true, chain: true },
+	endnote_xml: { file: "Endnote XML.js", import: true, chain: true },
+	tei: { file: "TEI.js", import: false },
+	crossref_unixref_xml: { file: "Crossref Unixref XML.js", import: true, export: false },
+	marcxml: { file: "MARCXML.js", import: true, export: false },
+	marc: { file: "MARC.js", import: true, export: false },
+	pubmed_xml: { file: "PubMed XML.js", import: true, export: false },
+	mets: { file: "METS.js", import: true, export: false },
+	primo_normalized_xml: { file: "Primo Normalized XML.js", import: true, export: false },
+	dspace_intermediate_metadata: { file: "DSpace Intermediate Metadata.js", import: true, export: false },
+	citavi5_xml: { file: "Citavi 5 XML.js", import: true, export: false },
+	xml_contextobject: { file: "XML ContextObject.js", import: true, export: false },
 };
 
 const KEY_CHARS = "23456789ABCDEFGHIJKLMNPQRSTUVWXYZ";
@@ -181,6 +199,7 @@ async function main() {
 	// 1. Import fixtures.
 	const fixtureDir = path.join(DATA, "fixtures/import");
 	const fixtureFiles = fs.readdirSync(fixtureDir).sort();
+	const chainInputs = {};
 	for (const [format, def] of Object.entries(FORMATS)) {
 		if (!def.import) continue;
 		const cases = [];
@@ -194,12 +213,23 @@ async function main() {
 			});
 		});
 		const ext = { bibtex: ".bib", ris: ".ris", csljson: ".json" }[format];
-		for (const f of fixtureFiles.filter((f) => f.endsWith(ext))) {
+		for (const f of fixtureFiles.filter((f) => ext && f.endsWith(ext))) {
 			cases.push({
 				name: f.replace(/\.[^.]+$/, ""),
 				source: `fixtures/import/${f}`,
 				input: fs.readFileSync(path.join(fixtureDir, f), "utf8"),
 			});
+		}
+		// XML translators (#749): fixtures/import/<format>/* (every file).
+		const sub = path.join(fixtureDir, format);
+		if (fs.existsSync(sub) && fs.statSync(sub).isDirectory()) {
+			for (const f of fs.readdirSync(sub).sort()) {
+				cases.push({
+					name: f.replace(/\.[^.]+$/, ""),
+					source: `fixtures/import/${format}/${f}`,
+					input: fs.readFileSync(path.join(sub, f), "utf8"),
+				});
+			}
 		}
 		const inputs = {};
 		for (const c of cases) {
@@ -207,7 +237,10 @@ async function main() {
 			if (c.items && c.items.length) inputs[c.name] = foldChildNotes(c.items);
 		}
 		write(`import/${format}.json`, cases);
-		exportInputs[`import-${format}`] = inputs;
+		// The XML translators' fixtures (#749) are not export sets for every
+		// format (see FORMATS); only the original three are.
+		if (def.chain) chainInputs[format] = inputs;
+		else if (ext) exportInputs[`import-${format}`] = inputs;
 	}
 
 	// 2. Export inputs from upstream's item JSON and the kovan probes.
@@ -229,6 +262,7 @@ async function main() {
 
 	// 3. Export every list in every format; re-import what can be imported.
 	for (const [format, def] of Object.entries(FORMATS)) {
+		if (def.export === false) continue;
 		for (const [set, lists] of Object.entries(exportInputs)) {
 			const exp = {};
 			const rt = {};
@@ -241,6 +275,19 @@ async function main() {
 			write(`export/${format}/${set}.json`, exp);
 			if (def.import) write(`roundtrip/${format}/${set}.json`, rt);
 		}
+	}
+
+	// 3b. XML translators (#749): each import fixture's items exported in
+	// the same format and re-imported (the import -> export -> import chain).
+	for (const [format, inputs] of Object.entries(chainInputs)) {
+		write(`chain_inputs/${format}.json`, inputs);
+		const out = {};
+		for (const [name, items] of Object.entries(inputs)) {
+			const exp = await postExport(format, JSON.parse(JSON.stringify(items)));
+			out[name] = { export: exp };
+			if (exp.status === 200) out[name].reimport = await postImport(exp.output);
+		}
+		write(`chain/${format}.json`, out);
 	}
 
 	// 4. Zotero.Utilities helpers the translators call, run directly from the
