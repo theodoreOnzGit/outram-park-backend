@@ -10,6 +10,8 @@ use crate::review::index::{FunctionIndex, ItemKind, ModuleIndex};
 use crate::review::review_md::{
     Entry, EntryMeta, NeedsFixBody, NeedsFixEntry, ParsedEntry, ReviewBody, Unreadable,
 };
+use crate::review::state::FlagKind;
+use crate::review::wizard::GateReason;
 use crate::review::root::{
     Qualification, QualificationBasis, QualificationRecord, Reviewer,
 };
@@ -69,6 +71,27 @@ fn folder(krate: &str, dir: &str, files: &[(&str, Vec<FunctionIndex>)]) -> Folde
     idx
 }
 
+/// A complete wizard answer set that stamps at rung 3 (the gate is re-run
+/// on read, so a review without one is invalid).
+fn clean() -> BTreeMap<String, String> {
+    [
+        ("doc_matches_behaviour", "yes"),
+        ("limits_and_guards", "guarded_returns_result"),
+        ("error_handling", "returns_result"),
+        ("numerical_hazards", "none_found"),
+        ("test_reach", "reached_and_checked"),
+        ("vv_evidence", "unit_tests_only"),
+        ("vv_case_author", "agent_wrote_or_cowrote"),
+        ("maintainability", "yes"),
+        ("independence", "someone_else"),
+        ("unintended_function", "no"),
+        ("coding_standards", "yes"),
+    ]
+    .iter()
+    .map(|(k, v)| (k.to_string(), v.to_string()))
+    .collect()
+}
+
 /// A review of `id` (target = where it was), hash `hash`.
 fn review(id: &str, by: &str, hash: char, callees: &[(&str, char)]) -> ReviewEntry {
     let qual = id.split_once(".rs::").map(|(_, q)| q).unwrap();
@@ -92,7 +115,7 @@ fn review(id: &str, by: &str, hash: char, callees: &[(&str, char)]) -> ReviewEnt
             doc_hash: h('d'),
             cargo_lock: Some(h('1')),
             callees: callees.iter().map(|(c, x)| (fid(c), h(*x))).collect(),
-            checklist: BTreeMap::new(),
+            checklist: clean(),
             no_concept: None,
             authorship: None,
             moved: vec![],
@@ -170,6 +193,7 @@ fn git_for(rs: &[&FolderReviews]) -> GitFacts {
                         after_certified: true,
                         agent_trailer: false,
                     }),
+                    tests_at_review: None,
                 },
             );
         }
@@ -507,7 +531,12 @@ fn rung_is_derived_and_a_mismatch_is_invalid() {
         let revs = [reviews_in("x", D, vec![r.clone()])];
         let mut g = git_for(&[&revs[0]]);
         if let Some(m) = msgs {
-            g.test_commit_messages.insert("t::ok".into(), vec![m.clone()]);
+            // Git facts as of the review commit (maintainer on #765).
+            let key = ReviewKey { function: fid(F), by: M.into() };
+            g.stamps.get_mut(&key).unwrap().tests_at_review = Some(TestsAtReview {
+                reached_by: vec!["t::ok".into()],
+                commit_messages: [("t::ok".to_string(), vec![m.clone()])].into(),
+            });
         }
         eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked)
             .functions[&fid(F)]
@@ -728,23 +757,159 @@ fn scope_registry_and_signature() {
     );
 }
 
-/// The same text found twice (an identical copy): the review is moved with
-/// both candidates, for the maintainer to say which is the original.
+/// The same text found twice (an identical copy): the review shows on
+/// BOTH candidates, each moved (awaiting acknowledge, "which is the
+/// original?") and flagged as duplicate code (maintainer on #765,
+/// 2026-10-07; ~~shown on the first candidate only~~ CORRECTED).
 #[test]
-fn identical_copies_ask_which_is_original() {
+fn identical_copies_show_the_review_on_both() {
     let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
     let (g1, g2) = ("crates/x/src/a.rs::g1", "crates/x/src/a.rs::g2");
     let ev = run(&revs, &[folder("x", D, &[("a.rs", vec![fun(g1, 'a', &[], &[]), fun(g2, 'a', &[], &[])])])]);
-    // The review is shown on the first candidate by id (ids are opaque, so
-    // either copy), listing both.
     let mut want = vec![fid(g1), fid(g2)];
     want.sort();
-    match &ev.functions[&want[0]].state {
-        StampState::Moved { candidates, .. } => assert_eq!(candidates, &want),
-        s => panic!("{s:?}"),
+    for (i, id) in want.iter().enumerate() {
+        let f = &ev.functions[id];
+        match &f.state {
+            StampState::Moved { candidates, .. } => assert_eq!(candidates, &want),
+            s => panic!("{s:?}"),
+        }
+        assert_eq!(f.reviews.len(), 1);
+        assert_eq!(f.flags, vec![FunctionFlag::DuplicateCode { copies: vec![want[1 - i].clone()] }]);
+        assert_eq!(f.flags[0].kind(), FlagKind::DuplicateCode);
     }
-    assert_eq!(ev.functions[&want[1]].state.kind(), StateKind::New);
     assert!(ev.id_matches.is_empty());
+}
+
+/// The wizard gate is re-run on read (maintainer on #765, 2026-10-07): a
+/// stamp whose answers it now blocks is invalid (shown, not counted): an
+/// unanswered question, a blocking answer, a legacy key, and an upstream
+/// fidelity question that applies because the folder is a port.
+#[test]
+fn a_blocked_gate_at_read_time_is_invalid() {
+    let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &[])])])];
+    let state = |r: ReviewEntry| run(&[reviews_in("x", D, vec![r])], &idx).functions[&fid(F)].state.clone();
+    assert_eq!(state(review(F, M, 'a', &[])), StampState::Valid);
+    let mut missing = review(F, M, 'a', &[]);
+    missing.review.checklist.remove("error_handling");
+    assert_eq!(
+        state(missing),
+        StampState::Invalid(InvalidReason::GateBlocked(vec![GateReason::Unanswered("error_handling".into())]))
+    );
+    let mut blocking = review(F, M, 'a', &[]);
+    blocking.review.checklist.insert("error_handling".into(), "falls_back_silently".into());
+    assert_eq!(
+        state(blocking),
+        StampState::Invalid(InvalidReason::GateBlocked(vec![GateReason::Answer(crate::review::wizard::Choice {
+            question: "error_handling".into(),
+            option: "falls_back_silently".into(),
+        })]))
+    );
+    let mut legacy = review(F, M, 'a', &[]);
+    legacy.review.checklist.insert("q1".into(), "yes".into());
+    assert!(matches!(state(legacy), StampState::Invalid(InvalidReason::GateBlocked(_))));
+    // A port folder makes upstream_fidelity applicable.
+    use crate::review::review_md::{UpstreamEntry, UpstreamTable};
+    let mut fr = reviews_in("x", D, vec![review(F, M, 'a', &[])]);
+    fr.doc.entries.push(ParsedEntry {
+        heading: "u".into(),
+        line: 9,
+        entry: Entry::Upstream(UpstreamEntry {
+            kovan: EntryMeta {
+                id: "upstream".into(),
+                kind: "upstream".into(),
+                origin: None,
+                created: "c".into(),
+                modified: "m".into(),
+                target: None,
+            },
+            upstream: UpstreamTable {
+                is_port: true,
+                repository: None,
+                commit: Some(SHA.into()),
+                tag: None,
+                files: BTreeMap::new(),
+                routines: BTreeMap::new(),
+                confirmed_by: M.into(),
+                date: "2026-10-07".into(),
+            },
+        }),
+        body: String::new(),
+    });
+    let ev = run(std::slice::from_ref(&fr), &idx);
+    assert_eq!(
+        ev.functions[&fid(F)].state,
+        StampState::Invalid(InvalidReason::GateBlocked(vec![GateReason::Unanswered("upstream_fidelity".into())]))
+    );
+    assert!(!StateKind::Invalid.counts());
+}
+
+/// "New test reaches reviewed function" (maintainer on #765, 2026-10-07):
+/// a test reaching the function now that did not reach it at the review
+/// commit is flagged and listed as an engine output; the stamp stays valid.
+/// Without review-time facts nothing is flagged (no claim is made).
+#[test]
+fn new_reaching_test_is_flagged_and_does_not_void() {
+    let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &["t::ok", "t::ok2"])])])];
+    let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
+    let mut g = git_for(&[&revs[0]]);
+    assert!(eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked)
+        .new_reaching_tests
+        .is_empty());
+    let key = ReviewKey { function: fid(F), by: M.into() };
+    g.stamps.get_mut(&key).unwrap().tests_at_review = Some(TestsAtReview {
+        reached_by: vec!["t::ok".into()],
+        commit_messages: BTreeMap::new(),
+    });
+    let ev = eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
+    let f = &ev.functions[&fid(F)];
+    assert_eq!(f.state, StampState::Valid);
+    let rid = revs[0].doc.reviews().next().unwrap().kovan.id.clone();
+    assert_eq!(f.flags, vec![FunctionFlag::NewReachingTests { review: rid.clone(), tests: vec!["t::ok2".into()] }]);
+    assert_eq!(
+        ev.new_reaching_tests,
+        vec![NewReachingTest { test: "t::ok2".into(), function: fid(F), review: rid }]
+    );
+}
+
+/// The rung is judged from the tests that reached the function at the
+/// review commit, not today's: a later agent-written test changes nothing.
+#[test]
+fn rung_uses_reach_at_the_review_commit() {
+    let human = "add analytical test".to_string();
+    let agent = "add test\n\nClaude-Session: https://claude.ai/code/s".to_string();
+    let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &["t::ok", "t::ok2"])])])];
+    let mut r4 = review(F, M, 'a', &[]);
+    r4.review.rung = 4;
+    r4.review.checklist.insert("vv_evidence".into(), "analytical_case".into());
+    r4.review.checklist.insert("vv_case_author".into(), "human_wrote_and_verified".into());
+    let revs = [reviews_in("x", D, vec![r4])];
+    let mut g = git_for(&[&revs[0]]);
+    g.stamps.get_mut(&ReviewKey { function: fid(F), by: M.into() }).unwrap().tests_at_review =
+        Some(TestsAtReview {
+            reached_by: vec!["t::ok".into()],
+            commit_messages: [("t::ok".to_string(), vec![human])].into(),
+        });
+    let _ = agent; // t::ok2 (added later, by an agent) is not consulted
+    let ev = eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
+    assert_eq!(ev.functions[&fid(F)].state, StampState::Valid);
+    assert_eq!(ev.functions[&fid(F)].rung, Some(4));
+    assert_eq!(ev.new_reaching_tests.len(), 1);
+}
+
+/// A copy without git (crates.io) that carries a publish-time record (#773)
+/// is reported as such, distinct from having no facts at all.
+#[test]
+fn publish_record_hook() {
+    let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
+    let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &[])])])];
+    let mut g = GitFacts::default();
+    g.publish_records.insert(
+        ReviewKey { function: fid(F), by: M.into() },
+        PublishRecord { published_from: SHA.into(), raw: "…".into() },
+    );
+    let ev = eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
+    assert_eq!(ev.functions[&fid(F)].state, StampState::Unverified(UnverifiedReason::PublishRecordNotChecked));
 }
 
 /// Determinism: the same inputs in a different order give the same result.
@@ -784,7 +949,10 @@ fn upstream_tag_moved_is_reported() {
             date: "2026-10-07".into(),
         },
     };
-    let mut fr = reviews_in("x", D, vec![review(F, M, 'a', &[])]);
+    // The folder is a port, so the review answers upstream fidelity.
+    let mut rv = review(F, M, 'a', &[]);
+    rv.review.checklist.insert("upstream_fidelity".into(), "matches".into());
+    let mut fr = reviews_in("x", D, vec![rv]);
     fr.doc.entries.push(ParsedEntry { heading: "u".into(), line: 9, entry: Entry::Upstream(up), body: String::new() });
     let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &[])])])];
     let mut g = git_for(&[&fr]);
