@@ -42,6 +42,15 @@ exclude = [
     # corpus and the maintainer's open corpus, as PDFs). Repo-only, never
     # packaged: the crate is a library, not a PDF distribution.
     "/reactor-literature/",
+    # The Zotero port's code-to-code verification (GitHub #747, #752): the
+    # upstream reference outputs, fixtures and Zotero schema copies under
+    # /tests/data/zotero/ (about 16 MB, 600+ files), and the tests and helper
+    # that read them. Repo-only (maintainer, 2026-10-07): they are only
+    # meaningful with the repository's harness, and a test shipped without its
+    # data would fail when run from the published crate.
+    "/tests/data/zotero/",
+    "/tests/zotero_*.rs",
+    "/tests/zotero_db/",
 ]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
