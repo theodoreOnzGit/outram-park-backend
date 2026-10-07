@@ -5390,7 +5390,10 @@ dependencies = [
  "grep-searcher",
  "ignore",
  "kovan-common",
+ "regex",
+ "serde_json",
  "tempfile",
+ "unicode-normalization",
 ]
 
 [[package]]
@@ -5424,6 +5427,7 @@ dependencies = [
  "kovan-common",
  "kovan-discovery",
  "regex",
+ "serde_json",
  "tempfile",
 ]
 

@@ -39,6 +39,31 @@ From the CLI: `kovan-cli symbols . --lang rust`, `kovan-cli summary . --lang rus
 and `kovan-cli agent-docs-gen`. The public API mirror is
 [`docs/kovan-semantics-api.md`](docs/kovan-semantics-api.md).
 
+## Zotero: duplicates, relations, merge (`zotero` module, #751)
+
+A port of Zotero's duplicate detection (`duplicates.js`), relations model
+(`relations.js`, `dataObject.js`, `uri.js`) and item merge
+(`mergeItems.mjs`, which `Zotero.Items.merge` calls), run over
+`kovan_common::zotero::ZoteroLibrary` in memory, plus a mapping of Zotero
+relations, collections and tags onto kovan's `[[relation]]` and concept
+schema, produced as data for a later step to write (no kovan schema
+changes).
+
+| Function | What |
+|---|---|
+| `zotero::find_duplicates` | duplicate sets by ISBN, DOI, normalised title + creators + year |
+| `zotero::merge_items` | merge items into a master, as a pure function returning the new library |
+| `zotero::merge_pane_order`, `zotero::field_alternatives` | the duplicates pane's choice of master and its per-field alternatives |
+| `zotero::relations::*` | predicates, item/collection URIs, add/remove/set, subjects of a URI, `updateUser`, `purge`, linked items |
+| `zotero::map_library` | relations, collections, tags -> `paper:`/`collection:` drafts, with every loss recorded |
+
+Upstream Zotero cannot run here and the local translation server does not
+expose these functions, so the reference is upstream's own tests, ported in
+`tests/zotero_upstream.rs` (77 cases, all passing; see
+[`docs/zotero-port.md`](docs/zotero-port.md) for the list, the evidence
+model for attachment files, and what is not ported). AI draft, not yet
+human-reviewed.
+
 ## Bookkeeping status
 
 > Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping

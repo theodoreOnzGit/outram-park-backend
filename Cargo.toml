@@ -308,6 +308,10 @@ grep-searcher = "0.1"        # ripgrep engine — deterministic text search ...
 grep-regex = "0.1"           # ... its regex matcher
 grep-matcher = "0.1"         # ... shared matcher trait
 regex = "1"                  # pure-Rust, Android-friendly regex — capture extraction in kovan-semantics' ripgrep-first symbol scanner
+# Unicode NFKD/NFC for kovan-discovery's port of Zotero's search normalisation
+# (`normalizeForSearch`, GitHub #751). Already in Cargo.lock (0.1.25, via
+# idna); pure Rust, Android- and wasm-clean.
+unicode-normalization = "0.1"
 # Rust parser for kovan's review stamps (GitHub #739): locating a function by
 # its code-walk path and hashing its tokens. Already in Cargo.lock through the
 # proc-macro stack (syn 2.0.118, proc-macro2 1.0.106, quote 1.0.45), so no new

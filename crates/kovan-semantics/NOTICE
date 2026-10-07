@@ -25,3 +25,44 @@ No version of this crate had been published to crates.io.
 Dependents: no crate outside the kovan family depends on this one (checked
 with `cargo metadata`, 2026-10-07); `dhoby-ghaut`, which depends on `kovan`,
 has been AGPL-3.0-only since 2026-10-05.
+
+Upstream: Zotero (2026-10-07, GitHub #747, #751)
+------------------------------------------------
+
+`src/zotero/` and `tests/zotero_upstream.rs` port parts of Zotero (added
+after the relicense above, which is why that check found no third-party
+code). Zotero is free software under the GNU Affero General Public
+License, version 3 or (at your option) any later version; this crate takes
+it under AGPL-3.0-only.
+
+  Copyright (c) Corporation for Digital Scholarship, Vienna, Virginia, USA
+  (older files: (c) 2009 Center for History and New Media, George Mason
+  University, Fairfax, Virginia, USA). https://www.zotero.org
+
+Sources read (upstream code was read, not run):
+
+  zotero     https://github.com/zotero/zotero      commit 9cbba8c4d281
+             chrome/content/zotero/xpcom/duplicates.js,
+             chrome/content/zotero/mergeItems.mjs (Zotero.Items.merge),
+             xpcom/data/items.js (merge, moveChildItems),
+             xpcom/data/relations.js, xpcom/data/dataObject.js (relations),
+             xpcom/data/item.js (addRelatedItem, _getRelatedItems,
+             _eraseData, addTag, multiDiff), xpcom/data/notes.js
+             (replaceAllItemKeys), xpcom/data/dataObjectUtilities.js
+             (diff), xpcom/uri.js, elements/duplicatesMergePane.js;
+             tests test/tests/duplicatesTest.js, relationsTest.js,
+             mergeItemsTest.js, dataObjectTest.js, itemTest.js
+  utilities  https://github.com/zotero/utilities   commit 4051881d59c6
+             utilities.js (cleanISBN, toISBN13, removeDiacritics and its
+             _diacriticsRemovalMap, which upstream credits to
+             http://lehelk.com/2011/05/06/script-to-remove-diacritics/),
+             test/tests/utilitiesTest.js
+
+`src/zotero/diacritics_generated.rs` is the upstream map transcribed
+mechanically. No upstream test data file is copied; the ported tests build
+their fixtures in code. `src/zotero/kovan_map.rs` ports no upstream code
+(it is kovan's own mapping); it also re-implements kovan's own
+`classify::slugify` from `crates/kovan` (same copyright holder as this
+crate), which is `pub(crate)` there.
+
+Each ported file carries a header naming its upstream file(s) and commit.

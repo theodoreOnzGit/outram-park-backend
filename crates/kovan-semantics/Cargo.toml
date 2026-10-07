@@ -33,6 +33,9 @@ kovan-discovery.workspace = true
 # lines that kovan-discovery's ripgrep engine already located. Android-friendly
 # (no system libs), keeping the DEFAULT build deterministic + offline.
 regex.workspace = true
+# Zotero item JSON in `zotero::merge::field_alternatives` (`Item#multiDiff`
+# works on `toJSON()`); already in the tree through kovan-common.
+serde_json.workspace = true
 
 # Language-native semantics are the source of truth once wired:
 #   Rust    -> rust-analyzer crates (ra_ap_syntax / ra_ap_hir / ra_ap_ide)
