@@ -42,6 +42,7 @@ pub mod stamps;
 pub mod symbols;
 pub mod tokens;
 pub mod workspace;
+pub mod zotero;
 
 use clap::ValueEnum;
 

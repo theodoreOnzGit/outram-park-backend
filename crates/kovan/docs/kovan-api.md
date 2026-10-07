@@ -140,6 +140,11 @@ pub struct BranchInfo {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -179,6 +184,10 @@ pub struct BranchInfo {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -260,6 +269,11 @@ pub struct BranchInfo {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -348,6 +362,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -382,6 +401,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -482,6 +506,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -534,6 +563,11 @@ pub struct RemoteInfo {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -573,6 +607,10 @@ pub struct RemoteInfo {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -654,6 +692,11 @@ pub struct RemoteInfo {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -955,7 +998,7 @@ pub struct DigitiseApp {
   ```
 
 - ```rust
-  pub fn start_up(self: &mut Self, folder_given: bool) { /* ... */ }
+  pub fn start_up(self: &mut Self, _folder_given: bool) { /* ... */ }
   ```
   What the real application does once at start, and tests never do
 
@@ -982,6 +1025,11 @@ pub struct DigitiseApp {
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Default**
   - ```rust
     fn default() -> Self { /* ... */ }
@@ -1006,6 +1054,11 @@ pub struct DigitiseApp {
 
   - ```rust
     fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -1080,6 +1133,11 @@ pub struct DigitiseApp {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WithSubscriber**
 ## Module `artifact`
 
@@ -1100,7 +1158,7 @@ GitHub, GitLab, a text editor and any coding agent can read without knowing
 anything about Kovan.
 
 ````markdown
-## Graphite temperature assumption
+# Graphite temperature assumption
 
 ```toml
 [kovan]
@@ -1119,6 +1177,42 @@ topics = ["htgrs/materials"]
 
 Graphite temperature here appears to represent nominal operating conditions.
 ````
+
+~~`## Graphite temperature assumption`~~ **CORRECTED 2026-10-06**: the
+example above used a level-2 heading, which [`parse_document`] has not
+read as an artifact since GH issue #35 (2026-09-08) made a single `#` the
+only artifact level ([`ARTIFACT_LEVEL`]).
+
+# Heading levels: one schema for notes, lessons, walkthroughs and recipes
+
+Decided in GH issue #743 (2026-10-06). The same rules hold for a
+literature note, a lesson, a deep dive, a review walkthrough and a recipe:
+
+| Heading | Meaning |
+|---|---|
+| `#` + a fenced `toml` block holding `[kovan]` | **An artifact.** The page's own `#` title is always the **header artifact** (`# <citekey>` with `kind = "paper"` for a literature note). There is no level-2 artifact. |
+| `##` | Free prose structure inside the artifact. |
+| `###` | **Data**: a CSV series ([`SERIES_START`], [`SERIES_PREFIX`], [`SERIES_END`]) or an embedded code block (a walk step's snippet, a code walk's hops). |
+| the **last** `##` | The **review sign-off**, e.g. `## Review: ⚠ AI draft, not reviewed`. It is to be *generated* from `review/stamps.toml` (GH issue #739) and excluded from the content hash; nothing here generates or checks it yet. It closes the artifact. |
+
+All of these are body text to the parser: only a `#` starts a block, so
+`##`/`###` (and a fence's own `#` lines) never split an artifact.
+
+# Who wrote it: `origin`
+
+`[kovan] origin = "ai" | "human"` ([`Origin`], GH issue #743) records
+authorship. It is optional, **human when absent**, and written back only
+when it was set, so a note from before the field existed re-serialises
+byte for byte.
+
+# Anchors: `[[relation]]`
+
+An artifact names the code it explains and the literature it cites with
+`[[relation]]` tables ([`crate::relation::Relations`]): the existing
+relation kinds, a target that may be a `code:` path
+(`code:<file>::<Type::name>[@L<line>]`, [`crate::relation::CodeTarget`]),
+and optional `page`, `quote` and `commit`. A relation artifact in
+`mindmap.md` keeps its single `[relation]` table.
 
 # An ordinary TOML fence stays ordinary
 
@@ -1155,7 +1249,9 @@ pub mod artifact { /* ... */ }
 
 - `Other("#[serde(rename_all = \"snake_case\")]")`
 
-The kinds of artifact §14 defines.
+The kinds of artifact §14 defines, plus the four GH issue #743 added for
+lessons, walkthroughs, code walks and recipes (2026-10-06, added for the
+maintainer to dogfood).
 
 Deliberately a small vocabulary — §14: "Keep the vocabulary small until
 dogfooding proves more types necessary." Adding a variant forces every
@@ -1172,6 +1268,10 @@ pub enum ArtifactKind {
     DigitisedGraph,
     Relation,
     Mindmap,
+    LessonSection,
+    WalkStep,
+    CodeWalk,
+    RecipeStep,
 }
 ```
 
@@ -1226,7 +1326,42 @@ connectors, relationships to use the same artifact schema").
 A saved mindmap — its own metadata in the same `[kovan]`/TOML shape
 as every other artifact, rather than a private file format.
 
+###### `LessonSection`
+
+One section of a lesson (a tutorial rung page or a deep-dive
+chapter): prose that teaches, anchored by `[[relation]]` links to the
+code and literature it explains (GH issue #743, 2026-10-06).
+
+###### `WalkStep`
+
+One step of a review walkthrough: a claim about one piece of code,
+its `code:` anchor and the literature that backs it, with the source
+snippet as a `###` data block (GH issue #743).
+
+###### `CodeWalk`
+
+A code walk: a chain of calls through the code, each hop a `code:`
+target, its generated hops carried as `###` data (GH issue #743; the
+artifact form of a lesson's `<!-- code-walk: -->` block).
+
+###### `RecipeStep`
+
+One step of a recipe (an input deck or workflow a reader follows by
+hand), anchored to the code it drives (GH issue #743).
+
 ##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn as_str(self: Self) -> &'static str { /* ... */ }
+  ```
+  The snake_case wire name, as written in `[kovan] kind`.
+
+- ```rust
+  pub fn is_lesson_kind(self: Self) -> bool { /* ... */ }
+  ```
+  Whether this is one of the prose kinds GH issue #743 added for
 
 ###### Trait Implementations
 
@@ -1254,6 +1389,11 @@ as every other artifact, rather than a private file format.
 - **CloneToUninit**
   - ```rust
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
     ```
 
 - **Copy**
@@ -1304,6 +1444,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -1393,6 +1537,246 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Enum `Origin`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+Who wrote an artifact: `[kovan] origin = "ai" | "human"` (GH issue #743).
+
+Optional on disk, and **human when absent**, so every note written before
+the field existed reads as it always did. It records authorship, not
+review: an AI-written artifact a human has reviewed is still `ai`; its
+review state is the generated `## Review:` sign-off (GH issue #739).
+
+```rust
+pub enum Origin {
+    Ai,
+    Human,
+}
+```
+
+##### Variants
+
+###### `Ai`
+
+Written by an AI assistant (an untrusted draft until reviewed).
+
+###### `Human`
+
+Written by a person. The default.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn as_str(self: Self) -> &'static str { /* ... */ }
+  ```
+  The wire name, `"ai"` or `"human"`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Origin { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Origin { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Origin) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **ReadPrimitive**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SerializableAny**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1494,6 +1878,11 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -1538,6 +1927,10 @@ Fields:
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -1653,6 +2046,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -1736,6 +2134,11 @@ pub struct Region {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -1774,6 +2177,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -1873,6 +2281,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -1948,6 +2361,11 @@ pub struct SourceAnchor {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -1990,6 +2408,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -2087,6 +2510,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -2164,6 +2592,11 @@ pub struct Extraction {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -2211,6 +2644,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -2302,6 +2739,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -2317,6 +2759,7 @@ pub struct ArtifactMeta {
     pub created: String,
     pub modified: String,
     pub reviewed: Option<String>,
+    pub origin: Option<Origin>,
 }
 ```
 
@@ -2329,8 +2772,16 @@ pub struct ArtifactMeta {
 | `created` | `String` | RFC 3339 timestamp of creation, e.g. `"2026-08-31T15:04:32+08:00"`.<br>Kept as a string: Kovan never does arithmetic on it, and adding a<br>date/time crate to compare two values it only ever displays and sorts<br>would not earn its place. |
 | `modified` | `String` | RFC 3339 timestamp of the last modification. |
 | `reviewed` | `Option<String>` | RFC 3339 timestamp of human review, when a human has reviewed it (§14).<br>Absent means unreviewed — which for a digitised dataset is the only<br>state a machine may ever write. |
+| `origin` | `Option<Origin>` | Who wrote it, as written (GH issue #743). `None` when the key is<br>absent, which means human ([`ArtifactMeta::origin`]); kept as an<br>`Option` so a note without the key re-serialises without it, byte for<br>byte. |
 
 ##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn origin(self: &Self) -> Origin { /* ... */ }
+  ```
+  Who wrote the artifact, with an absent `origin` read as
 
 ###### Trait Implementations
 
@@ -2358,6 +2809,11 @@ pub struct ArtifactMeta {
 - **CloneToUninit**
   - ```rust
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
     ```
 
 - **Debug**
@@ -2407,6 +2863,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -2498,6 +2958,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -2512,7 +2977,7 @@ pub struct ArtifactToml {
     pub source: Option<SourceAnchor>,
     pub classification: crate::entity::Classification,
     pub extraction: Option<Extraction>,
-    pub relation: Option<crate::relation::RelationRecord>,
+    pub relation: Option<crate::relation::Relations>,
     pub connections: Vec<String>,
 }
 ```
@@ -2525,7 +2990,7 @@ pub struct ArtifactToml {
 | `source` | `Option<SourceAnchor>` | Where in the source it points (§15). Absent for a free-standing note. |
 | `classification` | `crate::entity::Classification` | Fine-grained classification (§16). Feeds the mindmap. Omitted from<br>the written TOML when empty, so an unclassified note stays terse. |
 | `extraction` | `Option<Extraction>` | Extraction provenance (§19, §20). Digitised kinds only. |
-| `relation` | `Option<crate::relation::RelationRecord>` | User-authored relations to other nodes, **sourced from this<br>artifact** (op-30um.1) — one `[[relation]]` table per<br>[`crate::relation::UserRelation`], with the `source` half of that<br>triple implicit (it is always the artifact this TOML belongs to).<br>Omitted from the written TOML when empty, so an artifact with no<br>hand-drawn connections stays exactly as terse as it was before this<br>field existed. See `crate::relation`'s module docs for why this is<br>the relation's on-disk home rather than a separate store. |
+| `relation` | `Option<crate::relation::Relations>` | The artifact's relations, in either of two shapes<br>([`crate::relation::Relations`]):<br><br>- a single `[relation]` table, the body of a `kind = "relation"`<br>  artifact in `mindmap.md`, with both `source` and `target` explicit;<br>- one or more `[[relation]]` tables, the **anchors** of any other<br>  artifact (GH issue #743): the code it explains (`code:` targets) and<br>  the literature it cites, `source` omitted because it is this<br>  artifact.<br><br>~~One `[[relation]]` table per `UserRelation`, with the `source`<br>implicit.~~ **CORRECTED 2026-10-06**: the field held a single<br>`[relation]` table with an explicit `source` (GH issue #35,<br>2026-09-08); the array form was added by GH issue #743. Omitted from<br>the written TOML when absent, and each shape re-serialises as the<br>shape it was read in. |
 | `connections` | `Vec<String>` | Ids of the relation artifacts in the mindmap document that name this<br>artifact at either end — the back half of a two-way reference.<br><br>The relation artifact lives in `mindmap.md` and points *out* at the<br>paper and artifact it came from; this list points *back* at it, so a<br>reader holding either file can find the other without scanning the<br>library (maintainer direction, GH issue #35, 2026-09-08: "they<br>should reference each other"). |
 
 ##### Implementations
@@ -2556,6 +3021,11 @@ pub struct ArtifactToml {
 - **CloneToUninit**
   - ```rust
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
     ```
 
 - **Debug**
@@ -2595,6 +3065,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -2686,6 +3161,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -2734,6 +3214,16 @@ pub struct Artifact {
   Whether a human has marked this reviewed (§14).
 
 - ```rust
+  pub fn origin(self: &Self) -> Origin { /* ... */ }
+  ```
+  Who wrote it (GH issue #743); human when `origin` is absent.
+
+- ```rust
+  pub fn relations(self: &Self) -> &[crate::relation::RelationRecord] { /* ... */ }
+  ```
+  Every relation record this artifact carries, in file order: the one
+
+- ```rust
   pub fn csv_block(self: &Self) -> Option<&str> { /* ... */ }
   ```
   The first fenced `csv` block in the body, if any — the payload of a
@@ -2771,6 +3261,11 @@ pub struct Artifact {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -2800,6 +3295,11 @@ pub struct Artifact {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -2883,6 +3383,11 @@ pub struct Artifact {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -2950,6 +3455,11 @@ pub struct ParsedDocument {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -2984,6 +3494,11 @@ pub struct ParsedDocument {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -3073,6 +3588,11 @@ pub struct ParsedDocument {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -3125,6 +3645,11 @@ pub struct SeriesBlock {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -3164,6 +3689,10 @@ pub struct SeriesBlock {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -3247,6 +3776,11 @@ pub struct SeriesBlock {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -3281,19 +3815,6 @@ pub fn parse_document(markdown: &str) -> ParsedDocument { /* ... */ }
 
 #### Function `render_csv_body`
 
-Render `heading`/`toml`/`body` as the Markdown block §13 defines:
-heading, immediately followed by a fenced `toml` block, followed by the
-body. The exact counterpart to [`parse_document`] — text produced here
-re-parses to an equivalent [`Artifact`] (see the round-trip test below).
-
-`level` is the heading depth, 1 for `#` through 6 for `######` — same
-meaning as [`Artifact::level`].
-
-# Errors
-
-Only if `toml`'s own TOML serialisation fails, which cannot happen for
-its field types (see [`ArtifactToml`]'s fields) — the `Result` spares
-callers an `unwrap`.
 Wrap `csv_data` — the header row plus data rows, and nothing else — as a
 sentinel-delimited fenced CSV body ready for
 [`render_artifact_block`].
@@ -3368,6 +3889,23 @@ pub fn render_latex_body(latex: &str) -> String { /* ... */ }
 ```
 
 #### Function `render_artifact_block`
+
+Render `heading`/`toml`/`body` as the Markdown block §13 defines:
+heading, immediately followed by a fenced `toml` block, followed by the
+body. The exact counterpart to [`parse_document`] — text produced here
+re-parses to an equivalent [`Artifact`] (see the round-trip test below).
+
+`level` is the heading depth, 1 for `#` through 6 for `######` — same
+meaning as [`Artifact::level`].
+
+(This comment used to sit on [`render_csv_body`] by mistake; moved
+2026-10-06.)
+
+# Errors
+
+Only if `toml`'s own TOML serialisation fails, which cannot happen for
+its field types (see [`ArtifactToml`]'s fields) — the `Result` spares
+callers an `unwrap`.
 
 ```rust
 pub fn render_artifact_block(level: u8, heading: &str, payload: &ArtifactToml, body: &str) -> Result<String, String> { /* ... */ }
@@ -3529,6 +4067,11 @@ pub struct Candidate {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -3568,6 +4111,10 @@ pub struct Candidate {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -3649,6 +4196,11 @@ pub struct Candidate {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -3734,6 +4286,10 @@ A project collection, identified by [`crate::graph::collection_node`].
     fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
     ```
 
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -3774,6 +4330,10 @@ A project collection, identified by [`crate::graph::collection_node`].
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -3872,6 +4432,11 @@ A project collection, identified by [`crate::graph::collection_node`].
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -3928,6 +4493,11 @@ pub struct LibraryCandidate {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -3967,6 +4537,10 @@ pub struct LibraryCandidate {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -4048,6 +4622,11 @@ pub struct LibraryCandidate {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4297,6 +4876,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -4331,6 +4915,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -4429,6 +5018,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4520,6 +5114,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -4554,6 +5153,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -4654,6 +5258,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -4721,6 +5330,11 @@ The concept is gone; drop the reference.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -4760,6 +5374,10 @@ The concept is gone; drop the reference.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -4843,6 +5461,11 @@ The concept is gone; drop the reference.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -4923,6 +5546,11 @@ pub struct LegacyCsvSection {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -4952,6 +5580,11 @@ pub struct LegacyCsvSection {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -5033,6 +5666,11 @@ pub struct LegacyCsvSection {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5346,6 +5984,51 @@ Does not save the session — the caller decides when to write to disk.
 pub fn migrate_legacy_csv_sections(session: &mut crate::session::PaperSession, page_px: [f32; 2]) -> Result<usize, ClassifyError> { /* ... */ }
 ```
 
+## Module `code_map`
+
+The code map of a Cargo workspace from its `[package.metadata.kovan]`
+tags (GitHub #734): model, layout and SVG. GUI-free; see [`code_map`].
+The **code map** of a Cargo workspace (GitHub #734).
+
+The model, layout and SVG moved on 2026-10-06 to the wasm-clean
+[`kovan_common::code_map`], so web-kovan (`kovan-web`, GitHub #736) can
+draw the same map in a browser. Everything is re-exported here under its
+old path (`kovan::code_map::{CodeMap, layout, svg, ...}`). What stays is
+the one part that does I/O: running `cargo metadata`.
+
+```rust
+pub mod code_map { /* ... */ }
+```
+
+### Functions
+
+#### Function `run_cargo_metadata`
+
+Run `cargo metadata --format-version 1 --no-deps` in `workspace` and
+return its JSON. Uses `$CARGO` when set (inside `cargo test`), else
+`cargo` from `PATH`. The one function of the code map that does I/O.
+
+```rust
+pub fn run_cargo_metadata(workspace: &std::path::Path, offline: bool) -> Result<String, String> { /* ... */ }
+```
+
+#### Function `load_workspace`
+
+Build the map of the workspace at `workspace` (cargo metadata, then
+[`CodeMap::from_cargo_metadata`]), errors joined one per line.
+
+```rust
+pub fn load_workspace(workspace: &std::path::Path) -> Result<CodeMap, String> { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `kovan_common::code_map::*`
+
+```rust
+pub use kovan_common::code_map::*;
+```
+
 ## Module `concept_ops`
 
 Full CRUD on a user's concepts — rename, move and delete — as a single
@@ -5469,6 +6152,11 @@ Delete it and its subtree, dropping every reference to any of them.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -5508,6 +6196,10 @@ Delete it and its subtree, dropping every reference to any of them.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -5589,6 +6281,11 @@ Delete it and its subtree, dropping every reference to any of them.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5692,6 +6389,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -5726,6 +6428,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -5826,6 +6533,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -5898,6 +6610,11 @@ pub struct Plan {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -5927,6 +6644,11 @@ pub struct Plan {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -6002,6 +6724,11 @@ pub struct Plan {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -6163,6 +6890,11 @@ One crate name per line.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -6203,6 +6935,10 @@ One crate name per line.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -6286,6 +7022,11 @@ One crate name per line.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -6352,6 +7093,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -6386,6 +7132,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -6486,6 +7237,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -6553,6 +7309,11 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -6592,6 +7353,10 @@ Fields:
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -6673,6 +7438,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -6887,6 +7657,11 @@ Every crate under `crates/`, creating mirrors that do not yet exist.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -6927,6 +7702,10 @@ Every crate under `crates/`, creating mirrors that do not yet exist.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -7010,6 +7789,11 @@ Every crate under `crates/`, creating mirrors that do not yet exist.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -7045,6 +7829,151 @@ of `crate_dir` and `all` is expected — the CLI enforces that.
 
 ```rust
 pub fn run(workspace_root: &std::path::Path, crate_dir: Option<&str>, all: bool, include_missing: bool, private: bool) -> io::Result<()> { /* ... */ }
+```
+
+## Module `call_graph`
+
+`kovan-cli call-graph`: the workspace call graph, crate → module/example
+→ function, with each function's source, as deterministic JSON for the
+code-review UI (GitHub #737, part of #735). The data model and the
+sorting live in [`crate::call_graph`]; this module finds the code and
+resolves the calls.
+
+# How it is built
+
+1. `cargo metadata --no-deps` ([`crate::code_map::run_cargo_metadata`])
+   lists each crate's targets. The scope is every member, or `--crates`.
+   Maturity comes from the same `[package.metadata.kovan]` tags the code
+   map reads ([`crate::code_map::CodeMap::from_cargo_metadata`]).
+2. For the lib target, every example target and (schema 2, #746) every
+   integration-test target (`tests/*.rs`, kept in `CrateGraph::tests`),
+   the module tree is read from the root file's `mod` declarations
+   ([`crate::call_graph::modules`]), so a multi-file example such as
+   `examples/htgr_sim_v1/` is a tree of modules too. Bins and benches are
+   not included. ~~Tests are not included.~~ **CORRECTED 2026-10-06**:
+   integration tests are, so the walk from a test can start there. Each
+   file's attribution header is read into `Module::upstream`
+   ([`crate::call_graph::upstream`]).
+3. Every `fn` in those files is found by `code-walk`'s source scanner
+   (`code_walk::source::FileIndex`), which supplies the qualified name,
+   signature, doc sentence and body range.
+4. Each function's body is expanded by `code-walk`'s builder
+   (`code_walk::builder::Workspace::expand`): every call-shaped token is
+   sent to rust-analyzer (through the keep-warm `lsp_daemon`, one batched
+   request per function) and becomes a resolved call, a call into std or
+   a dependency (counted, dropped), or an `UNRESOLVED(<kind>)` gap. No
+   call is guessed. Every call site is kept, not only the first per pair.
+5. Schema 2 (#746): the code-walk blocks of every Markdown page under
+   `docs/` and `crates/*/docs/` become `Function::cited_by`
+   ([`crate::call_graph::citations`]); one `git log` over the scope's
+   crate folders gives each file's `history`
+   ([`crate::call_graph::history`]); `assemble` then walks the graph
+   from every test and example into `Function::reached_by`
+   ([`crate::call_graph::reach`]).
+
+Known limits are `code-walk`'s: trait-method calls stop at
+`UNRESOLVED(trait)`; a call to a derived method (`Default::default()` on
+a `#[derive(Default)]` type) is `UNRESOLVED(other)`; macro bodies are
+not entered; a `fn` nested in a body is listed on its own and its calls
+are also counted in the outer body; a function value written as a path
+(`.map(other_crate::leaf)`) is not seen at all, only a bare name
+(`.map(leaf)`) is (found 2026-10-06 while writing
+`tests/call_graph_rust_analyzer.rs`).
+
+# Cost
+
+One rust-analyzer definition query per call-shaped token. Measured
+2026-10-06 (16-core desktop, rust-analyzer 1.98.0) on
+`outram-park-digital-twin-engine` (lib and its 4 examples) plus
+`boon-lay` (lib and 5 examples): 3632 functions, 37641 queries, 127 s
+with a cold rust-analyzer (about 60 s of it indexing the workspace) and
+50 s warm; the two runs' JSON (10.5 MB) was byte-identical.
+
+```rust
+pub mod call_graph { /* ... */ }
+```
+
+### Functions
+
+#### Function `build`
+
+Builds the call graph of `scope` (every member when `None`).
+
+```rust
+pub fn build(root: &std::path::Path, scope: Option<&[String]>) -> Result<crate::call_graph::CallGraphDoc, String> { /* ... */ }
+```
+
+#### Function `run`
+
+`kovan-cli call-graph`: build and write to `out`, or stdout.
+
+```rust
+pub fn run(root: &std::path::Path, crates: Option<Vec<String>>, out: Option<std::path::PathBuf>) -> Result<(), String> { /* ... */ }
+```
+
+#### Function `run_split`
+
+`kovan-cli call-graph --split-dir <dir>`: build, then write one
+`<crate>.json` per crate (no source text) and an `index.json`
+([`crate::call_graph::split`], for web-kovan, GitHub #736). The index
+carries every review stamp's state, judged on the working tree by
+[`crate::review_stamps::check`]; with no `review/stamps.toml` it is
+empty. Files already in `dir` that the split does not name are left
+alone.
+
+```rust
+pub fn run_split(root: &std::path::Path, crates: Option<Vec<String>>, dir: &std::path::Path) -> Result<(), String> { /* ... */ }
+```
+
+#### Function `run_merge`
+
+`kovan-cli call-graph --merge <files> [-o | --split-dir]`: merge
+documents written by separate runs (one per crate, the incremental site
+build, #745) with [`crate::call_graph::CallGraphDoc::merge`], then write
+them as one document or split.
+
+```rust
+pub fn run_merge(root: &std::path::Path, files: &[std::path::PathBuf], out: Option<std::path::PathBuf>, split_dir: Option<std::path::PathBuf>) -> Result<(), String> { /* ... */ }
+```
+
+#### Function `stamp_states`
+
+Every stamp in `review/stamps.toml`, judged on the working tree, in the
+form the web reads. Artifact stamps and unchecked ones are left out
+(the web shows functions only).
+
+```rust
+pub fn stamp_states(root: &std::path::Path) -> Result<Vec<crate::call_graph::split::StampState>, String> { /* ... */ }
+```
+
+#### Function `run_keys`
+
+`kovan-cli call-graph-keys`: one line `<crate> <key>` per workspace
+member (or `crates`), the cache key of its call-graph data in the
+incremental site build (#745, maintainer 2026-10-06). The key is the
+SHA-256 of:
+
+- every file `cargo package --list` puts in the crate that exists on disk
+  (path and contents; files cargo generates, such as `Cargo.toml.orig`
+  and `.cargo_vcs_info.json`, are not on disk and do not count), so
+  whatever `exclude` leaves out cannot invalidate it;
+- the keys of its workspace dependencies (normal and build, optional
+  included), so it is transitive: a change anywhere below a crate
+  re-indexes it, since its calls resolve into that code;
+- `rust-analyzer --version` and the call graph's schema version.
+
+Deterministic: same tree, same keys.
+
+```rust
+pub fn run_keys(root: &std::path::Path, crates: Option<Vec<String>>) -> Result<(), String> { /* ... */ }
+```
+
+#### Function `parse_crates`
+
+Splits `a,b , c` into crate names.
+
+```rust
+pub fn parse_crates(s: &str) -> Vec<String> { /* ... */ }
 ```
 
 ## Module `ci`
@@ -7172,6 +8101,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -7196,6 +8130,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -7294,6 +8233,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -7350,6 +8294,11 @@ pub struct SmokeEntry {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -7389,6 +8338,10 @@ pub struct SmokeEntry {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -7472,6 +8425,11 @@ pub struct SmokeEntry {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -7528,6 +8486,11 @@ pub struct KnownFailure {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -7567,6 +8530,10 @@ pub struct KnownFailure {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -7650,6 +8617,11 @@ pub struct KnownFailure {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -7702,6 +8674,11 @@ pub struct SmokeList {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -7746,6 +8723,10 @@ pub struct SmokeList {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -7835,6 +8816,11 @@ pub struct SmokeList {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -7885,6 +8871,247 @@ Default location of the smoke list, relative to the workspace root.
 pub const DEFAULT_LIST: &str = "ci/smoke-tests.toml";
 ```
 
+## Module `code_map`
+
+`kovan-cli code-map`: the workspace's code map as data (GitHub #734).
+
+Runs `cargo metadata --format-version 1 --no-deps` in the workspace and
+writes the [`crate::code_map::CodeMap`] as JSON (`--format json`, the
+default) or the drawn map as a standalone SVG (`--format svg`). Both are
+deterministic: the same `Cargo.toml`s give byte-identical files. The
+static site (`scripts/build-pages.sh`) writes both at build time; the
+desktop GUI's Code Map view reads the JSON or runs the same metadata
+itself. No rust-analyzer is involved.
+
+Exits with an error when a tag is malformed. A placement rule broken
+(a crate below a dependency's row, …) is printed as a warning and the
+map is still written: the test `tests/code_map_tags.rs` is the gate.
+
+```rust
+pub mod code_map { /* ... */ }
+```
+
+### Types
+
+#### Enum `Format`
+
+Output format.
+
+```rust
+pub enum Format {
+    Json,
+    Svg,
+}
+```
+
+##### Variants
+
+###### `Json`
+
+The `CodeMap` (crates, tags, required edges) as pretty JSON.
+
+###### `Svg`
+
+The drawn map, a standalone SVG.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Format { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Format) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **ValueEnum**
+  - ```rust
+    fn value_variants<''a>() -> &'a [Self] { /* ... */ }
+    ```
+
+  - ```rust
+    fn to_possible_value<''a>(self: &Self) -> ::std::option::Option<clap::builder::PossibleValue> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `render`
+
+Build the map of `root` and render it in `format`.
+
+```rust
+pub fn render(root: &std::path::Path, format: Format) -> Result<String, String> { /* ... */ }
+```
+
+#### Function `run`
+
+Run `kovan-cli code-map`: write to `out`, or stdout when `None`.
+
+```rust
+pub fn run(root: &std::path::Path, format: Format, out: Option<std::path::PathBuf>) -> Result<(), String> { /* ... */ }
+```
+
 ## Module `code_walk`
 
 `kovan-cli code-walk` and `code-walk-check` — call chains from an entry
@@ -7912,7 +9139,10 @@ method when the bare name is ambiguous in that file.
 
 # Output
 
-Markdown (a nested list for mdBook `{{#include}}`), Mermaid, or JSON. Each
+Markdown (a nested list for mdBook `{{#include}}`; in a lesson block, a
+concept path is numbered steps with each hop's code inline and, since
+2026-10-06, a tree is indented blocks with each function's code inline,
+see `render`'s module doc), Mermaid, or JSON. Each
 hop carries a permalink with the `@@COMMIT@@` placeholder the Pages build
 fills in, its signature, the first sentence of its doc comment and the
 line it is called from. A call the tool cannot follow — a trait method, a closure or fn
@@ -7959,6 +9189,11 @@ line ranges are fixed when the walk is generated and re-checked by
 comment (file, line, the text that line must hold) that
 `scripts/build-pages.sh` verifies without rust-analyzer, so a range that
 drifted fails the site build instead of showing the wrong lines.
+
+**Trees too (2026-10-06).** A tree block in a lesson (no `to=`) shows each
+expanded function's code the same way, folded behind a `<details>` toggle
+when the tree has more than [`TREE_OPEN_MAX_NODES`] functions; see
+`markdown_lines_inline`.
 
 ```rust
 pub mod render { /* ... */ }
@@ -8039,6 +9274,11 @@ The explored graph, chains and gaps as JSON.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -8084,6 +9324,10 @@ The explored graph, chains and gaps as JSON.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -8171,6 +9415,11 @@ The explored graph, chains and gaps as JSON.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **ValueEnum**
@@ -8394,6 +9643,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -8418,6 +9672,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -8516,6 +9775,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -8580,6 +9844,11 @@ pub enum RootFinderArg {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Downcast**
   - ```rust
@@ -8605,6 +9874,11 @@ pub enum RootFinderArg {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -8686,6 +9960,11 @@ pub enum RootFinderArg {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **ValueEnum**
   - ```rust
     fn value_variants<''a>() -> &'a [Self] { /* ... */ }
@@ -8765,6 +10044,11 @@ pub enum LinearSolverArg {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Downcast**
   - ```rust
@@ -8790,6 +10074,11 @@ pub enum LinearSolverArg {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -8871,6 +10160,11 @@ pub enum LinearSolverArg {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **ValueEnum**
   - ```rust
     fn value_variants<''a>() -> &'a [Self] { /* ... */ }
@@ -8935,6 +10229,11 @@ pub enum NonlinearSolverArg {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Downcast**
   - ```rust
@@ -8960,6 +10259,11 @@ pub enum NonlinearSolverArg {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -9041,6 +10345,11 @@ pub enum NonlinearSolverArg {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **ValueEnum**
   - ```rust
     fn value_variants<''a>() -> &'a [Self] { /* ... */ }
@@ -9111,6 +10420,11 @@ pub enum OdeSolverArg {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Downcast**
   - ```rust
@@ -9136,6 +10450,11 @@ pub enum OdeSolverArg {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -9217,6 +10536,11 @@ pub enum OdeSolverArg {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **ValueEnum**
   - ```rust
     fn value_variants<''a>() -> &'a [Self] { /* ... */ }
@@ -9278,6 +10602,11 @@ pub enum PdeSchemeArg {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Downcast**
   - ```rust
@@ -9303,6 +10632,11 @@ pub enum PdeSchemeArg {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -9382,6 +10716,11 @@ pub enum PdeSchemeArg {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **ValueEnum**
@@ -9566,6 +10905,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9590,6 +10934,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -9686,6 +11035,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -9889,6 +11243,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9913,6 +11272,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -10009,6 +11373,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -10212,6 +11581,11 @@ pub struct ToolSpec {
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -10236,6 +11610,11 @@ pub struct ToolSpec {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -10304,6 +11683,11 @@ pub struct ToolSpec {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -10360,6 +11744,11 @@ Binary missing (or `--force` was given): run `cargo install`.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -10400,6 +11789,10 @@ Binary missing (or `--force` was given): run `cargo install`.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -10481,6 +11874,11 @@ Binary missing (or `--force` was given): run `cargo install`.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -10603,6 +12001,53 @@ A message if `path` cannot be read, or if `start > end`.
 
 ```rust
 pub fn run(path: std::path::PathBuf, start: usize, end: usize) -> Result<(), String> { /* ... */ }
+```
+
+## Module `stamps`
+
+`kovan-cli stamps-check`, `stamps-levels` and `stamp`: the command-line
+face of [`crate::review_stamps`] (GitHub #739).
+
+- `stamps-check [--workspace DIR] [--diff A..B]` prints one line per
+  stamp in scope (VALID, VOID with the reason and the stamped permalink,
+  UNCHECKED for artifact
+  stamps) and exits non-zero when any stamp in scope is VOID. It never
+  edits `review/stamps.toml`.
+- `stamps-levels <crate>` reports which human-rung maturity claims in the
+  crate's `Cargo.toml` tag are supported by valid stamps. Report only.
+- `stamp <function> --rung N --reviewer NAME --i-am-the-reviewer` creates
+  a stamp. **AI agents must never run it**: a stamp records a human
+  review and is the maintainer's alone. Without `--i-am-the-reviewer` it
+  refuses.
+
+```rust
+pub mod stamps { /* ... */ }
+```
+
+### Functions
+
+#### Function `run_check`
+
+`stamps-check`: `Err` (a non-zero exit) when a stamp in scope is void.
+
+```rust
+pub fn run_check(root: &std::path::Path, diff: Option<String>, repo_url: &str) -> Result<(), String> { /* ... */ }
+```
+
+#### Function `run_levels`
+
+`stamps-levels`.
+
+```rust
+pub fn run_levels(root: &std::path::Path, crate_name: &str) -> Result<(), String> { /* ... */ }
+```
+
+#### Function `run_stamp`
+
+`stamp`. Refuses unless `i_am_the_reviewer`.
+
+```rust
+pub fn run_stamp(root: &std::path::Path, function: &str, rung: u8, reviewer: &str, note: &str, i_am_the_reviewer: bool) -> Result<(), String> { /* ... */ }
 ```
 
 ## Module `symbols`
@@ -10749,6 +12194,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -10773,6 +12223,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -10869,6 +12324,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -10998,6 +12458,484 @@ bundle is several megabytes of generated copies; if it is placed inside some
 pub fn output_dir(explicit: Option<&std::path::Path>, name: &str) -> io::Result<(std::path::PathBuf, String)> { /* ... */ }
 ```
 
+## Module `zotero`
+
+`kovan-cli zotero` — Zotero import into a Kovan folder, export to every
+Zotero format, the format list, duplicate detection and quick search
+(GitHub #752, epic #747). The work is in [`crate::zotero`]; this is the
+`clap` surface and the printing.
+
+Translators are listed from `Translator::ALL` and their own metadata, so
+a translator added to kovan-literature appears here with no change.
+
+```rust
+pub mod zotero { /* ... */ }
+```
+
+### Types
+
+#### Enum `ZoteroCommand`
+
+`kovan-cli zotero <subcommand>`.
+
+```rust
+pub enum ZoteroCommand {
+    Formats,
+    Import {
+        source: std::path::PathBuf,
+        to: std::path::PathBuf,
+        format: Option<String>,
+        include_trashed: bool,
+        copy_attachments: bool,
+        dry_run: bool,
+        init: bool,
+        topics: Vec<String>,
+        base_attachment_path: Option<std::path::PathBuf>,
+        allow_inside_repo: bool,
+    },
+    Export {
+        format: String,
+        from: Vec<std::path::PathBuf>,
+        out: Option<std::path::PathBuf>,
+        force: bool,
+        allow_inside_repo: bool,
+    },
+    Duplicates {
+        corpus: Vec<std::path::PathBuf>,
+    },
+    Search {
+        corpus: std::path::PathBuf,
+        text: String,
+        mode: SearchModeArg,
+    },
+}
+```
+
+##### Variants
+
+###### `Formats`
+
+List the Zotero translators: format name, directions, label, file
+extension.
+
+###### `Import`
+
+Import a Zotero data folder (the folder holding `zotero.sqlite`) or a
+file in any importable format into a Kovan folder, as papers.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `source` | `std::path::PathBuf` | A Zotero data folder, or a file (BibTeX, RIS, CSL JSON, ...). |
+| `to` | `std::path::PathBuf` | The Kovan folder to import into (it must already be one unless<br>`--init`). |
+| `format` | `Option<String>` | The file's format (`kovan-cli zotero formats`); detected when<br>omitted. Ignored for a data folder. |
+| `include_trashed` | `bool` | Import items in Zotero's trash too. |
+| `copy_attachments` | `bool` | Copy each PDF into the folder's proprietary repository instead of<br>referencing it where it is. |
+| `dry_run` | `bool` | Report what would be written, and write nothing. |
+| `init` | `bool` | Create a new Kovan folder at `--to` first. |
+| `topics` | `Vec<String>` | File every imported paper under this topic path (repeatable);<br>default `unsorted`. |
+| `base_attachment_path` | `Option<std::path::PathBuf>` | Zotero's "Linked Attachment Base Directory", to resolve linked<br>files stored relative to it. |
+| `allow_inside_repo` | `bool` | Allow a target inside the outram-park-backend repository or<br>reactor-literature (refused by default: data policy). |
+
+###### `Export`
+
+Export kovan documents in a Zotero format.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `format` | `String` | The format (`kovan-cli zotero formats`, export direction). |
+| `from` | `Vec<std::path::PathBuf>` | Kovan folders, `.json` KovanDocument files or folders of them<br>(default: the Kovan folder containing the current directory). |
+| `out` | `Option<std::path::PathBuf>` | The output file (default: standard output). |
+| `force` | `bool` | Overwrite an existing output file. |
+| `allow_inside_repo` | `bool` | Allow an output file inside the outram-park-backend repository or<br>reactor-literature (refused by default: data policy). |
+
+###### `Duplicates`
+
+Report sets of probable duplicates (Zotero's duplicate detection).
+Report only; nothing is merged or changed.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `corpus` | `Vec<std::path::PathBuf>` | Kovan folders, `.json` KovanDocument files or folders of them. |
+
+###### `Search`
+
+Zotero's quick search over a corpus: prints the matching papers.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `corpus` | `std::path::PathBuf` | A Kovan folder, `.json` KovanDocument file or folder of them. |
+| `text` | `String` | The quick-search text. |
+| `mode` | `SearchModeArg` | Which fields are searched. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **FromArgMatches**
+  - ```rust
+    fn from_arg_matches(__clap_arg_matches: &clap::ArgMatches) -> ::std::result::Result<Self, clap::Error> { /* ... */ }
+    ```
+
+  - ```rust
+    fn from_arg_matches_mut(__clap_arg_matches: &mut clap::ArgMatches) -> ::std::result::Result<Self, clap::Error> { /* ... */ }
+    ```
+
+  - ```rust
+    fn update_from_arg_matches(self: &mut Self, __clap_arg_matches: &clap::ArgMatches) -> ::std::result::Result<(), clap::Error> { /* ... */ }
+    ```
+
+  - ```rust
+    fn update_from_arg_matches_mut<''b>(self: &mut Self, __clap_arg_matches: &mut clap::ArgMatches) -> ::std::result::Result<(), clap::Error> { /* ... */ }
+    ```
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Subcommand**
+  - ```rust
+    fn augment_subcommands<''b>(__clap_app: clap::Command) -> clap::Command { /* ... */ }
+    ```
+
+  - ```rust
+    fn augment_subcommands_for_update<''b>(__clap_app: clap::Command) -> clap::Command { /* ... */ }
+    ```
+
+  - ```rust
+    fn has_subcommand(__clap_name: &str) -> bool { /* ... */ }
+    ```
+
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Enum `SearchModeArg`
+
+`clap`-facing mirror of [`QuickSearchMode`].
+
+```rust
+pub enum SearchModeArg {
+    TitleCreatorYear,
+    Fields,
+    Everything,
+}
+```
+
+##### Variants
+
+###### `TitleCreatorYear`
+
+Title, creator, year.
+
+###### `Fields`
+
+All fields and tags.
+
+###### `Everything`
+
+Everything, including notes.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SearchModeArg { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+  - ```rust
+    fn from(m: SearchModeArg) -> Self { /* ... */ }
+    ```
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **ValueEnum**
+  - ```rust
+    fn value_variants<''a>() -> &'a [Self] { /* ... */ }
+    ```
+
+  - ```rust
+    fn to_possible_value<''a>(self: &Self) -> ::std::option::Option<clap::builder::PossibleValue> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `run`
+
+Dispatch a parsed [`ZoteroCommand`].
+
+```rust
+pub fn run(command: ZoteroCommand) -> Result<(), String> { /* ... */ }
+```
+
 ### Types
 
 #### Enum `KindArg`
@@ -11053,6 +12991,11 @@ pub enum KindArg {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Downcast**
   - ```rust
@@ -11078,6 +13021,11 @@ pub enum KindArg {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -11159,6 +13107,11 @@ pub enum KindArg {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **ValueEnum**
   - ```rust
     fn value_variants<''a>() -> &'a [Self] { /* ... */ }
@@ -11232,6 +13185,11 @@ pub enum LangArg {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Downcast**
   - ```rust
@@ -11257,6 +13215,11 @@ pub enum LangArg {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -11336,6 +13299,11 @@ pub enum LangArg {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **ValueEnum**
@@ -11444,6 +13412,11 @@ pub struct Connection {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -11483,6 +13456,10 @@ pub struct Connection {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -11566,6 +13543,11 @@ pub struct Connection {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -11646,6 +13628,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -11680,6 +13667,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -11780,6 +13772,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -11852,14 +13849,29 @@ the binary so the mind map always has a nuclear-engineering backbone, with
 no Kovan folder open, offline, and with no PDFs (maintainer brief,
 2026-09-22). That is:
 
-- [`TOPICS`]: the topic hierarchy, as data. The types are not specific to
-  this taxonomy; extending it means adding rows.
+- ~~[`TOPICS`]: the topic hierarchy, as data (44 hand-written
+  `nuclear-engineering/...` rows).~~ **REPLACED 2026-10-06** (maintainer,
+  GitHub #724/#727: "Levels 1–3 should be in the standard kovan mindmap
+  (replacing the existing one)"): [`topics`], the concept tree's levels
+  1–3 read from `kovan_literature::concept_tree` (the 19 IAEA Milestones
+  issues, the regulatory review categories under them, and the approved
+  and deferred concepts), under one virtual root, [`ROOT_TOPIC`]. Paths
+  are the concept paths themselves (`02-nuclear-safety/nuclear-design/…`),
+  so a `kovan.toml` classification naming one resolves directly. The old
+  44 paths are no longer corpus topics; a user library that has folders
+  under `topics/nuclear-engineering/` keeps them as its own (library
+  namespace) topics, exactly as any other user topic.
 - [`LITERATURE`]: curated literature identities and metadata, supplied by
   the maintainer (#250, 2026-09-22) and read from the documents
   themselves; nothing bibliographic is invented here. The PDFs are in
-  [`CORPUS_REPOSITORY_URL`].
+  [`CORPUS_REPOSITORY_URL`]. Since 2026-10-06 it also holds every
+  `[[document]]` the concept tree cites ([`CorpusLiterature::concept_document`]):
+  the standard-tier ones with their corpus file, the two private-tier
+  IAEA ones as citation-only entries, so Kovan never needs the private
+  repository.
 - [`CONNECTIONS`]: curated relationships between corpus nodes, carrying
-  [`ConnectionOrigin::KovanCorpus`] so the GUI can refuse to edit them.
+  [`ConnectionOrigin::KovanCorpus`] so the GUI can refuse to edit them;
+  [`curated_connections`] adds the concept tree's cross-links to them.
 
 What does not belong here: PDFs (never shipped in the crate; they live in
 ~~a library's `literature/kovan-open-corpus/`~~ **CORRECTED 2026-09-22**:
@@ -11878,6 +13890,11 @@ tree is its own structure, and a topic that *is* an ontology concept links
 to it through [`OntologyLink`], a typed value the compiler checks, so the
 two cannot drift and search can use the ontology's aliases.
 
+The same holds for the concept tree that replaced the old topics: its
+nesting is "where a regulator reviews this", not "is a kind of". Only
+the three tree nodes that plainly *are* an ontology concept carry a link
+([`ONTOLOGY_LINKS`]).
+
 ```rust
 pub mod corpus { /* ... */ }
 ```
@@ -11893,6 +13910,7 @@ pub struct CorpusTopic {
     pub path: &'static str,
     pub title: &'static str,
     pub ontology: Option<OntologyLink>,
+    pub concept: Option<&'static kovan_literature::ConceptNode>,
 }
 ```
 
@@ -11900,9 +13918,10 @@ pub struct CorpusTopic {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `path` | `&'static str` | Slash-separated path, parent first; the last segment is this topic's<br>slug. The parent is the path with its last segment removed. |
+| `path` | `&'static str` | Slash-separated path, parent first; the last segment is this topic's<br>slug. Since 2026-10-06 this is the concept path itself, with no root<br>prefix (`02-nuclear-safety/nuclear-design`), or [`ROOT_TOPIC`] for the<br>virtual root. |
 | `title` | `&'static str` | Display name. |
 | `ontology` | `Option<OntologyLink>` | The ontology concept this topic is, if it is one. |
+| `concept` | `Option<&'static kovan_literature::ConceptNode>` | The concept-tree node behind this topic: its level, sources,<br>cross-links, origin and status. `None` only for [`ROOT_TOPIC`]. |
 
 ##### Implementations
 
@@ -11916,7 +13935,17 @@ pub struct CorpusTopic {
 - ```rust
   pub fn parent_path(self: &Self) -> Option<&'static str> { /* ... */ }
   ```
-  The parent topic's path, or `None` for the root.
+  The parent topic's path, or `None` for the root. A level-1 issue's
+
+- ```rust
+  pub fn level(self: &Self) -> usize { /* ... */ }
+  ```
+  The concept-tree level: 0 for the virtual root, 1 for an IAEA issue,
+
+- ```rust
+  pub fn deferred(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the concept is `deferred` (placed, awaiting sources): a map
 
 - ```rust
   pub fn aliases(self: &Self) -> Vec<&'static str> { /* ... */ }
@@ -11949,6 +13978,11 @@ pub struct CorpusTopic {
 - **CloneToUninit**
   - ```rust
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
     ```
 
 - **Copy**
@@ -11991,6 +14025,10 @@ pub struct CorpusTopic {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -12072,6 +14110,11 @@ pub struct CorpusTopic {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -12165,6 +14208,11 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -12205,6 +14253,10 @@ Fields:
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -12288,6 +14340,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -12357,6 +14414,11 @@ Anything the other kinds do not describe.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -12397,6 +14459,10 @@ Anything the other kinds do not describe.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -12478,6 +14544,11 @@ Anything the other kinds do not describe.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -12563,6 +14634,11 @@ Restricted or local-only.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -12603,6 +14679,10 @@ Restricted or local-only.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -12686,6 +14766,11 @@ Restricted or local-only.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -12703,6 +14788,7 @@ pub struct CorpusLiterature {
     pub authors: &'static [&'static str],
     pub year: Option<u16>,
     pub topics: &'static [&'static str],
+    pub concept_document: Option<&'static str>,
     pub source_url: Option<&'static str>,
     pub corpus_file: Option<&'static str>,
     pub status: SourceStatus,
@@ -12719,7 +14805,8 @@ pub struct CorpusLiterature {
 | `title` | `&'static str` |  |
 | `authors` | `&'static [&'static str]` | Authors or issuing organisation, in citation order. |
 | `year` | `Option<u16>` |  |
-| `topics` | `&'static [&'static str]` | Paths of the [`TOPICS`] this entry is filed under. It appears as a<br>citation of each. |
+| `topics` | `&'static [&'static str]` | Concept paths ([`topics`]) this entry is filed under by hand, from<br>its abstract and contents. It appears as a citation of each. (Until<br>2026-10-06 these were paths of the old `TOPICS` table, all under<br>`nuclear-engineering/`; every one was re-filed under the concept<br>tree that day.) [`Self::filed_under`] adds the nodes that cite the<br>entry as a source. |
+| `concept_document` | `Option<&'static str>` | The concept-tree `[[document]]` id this entry is, when the tree cites<br>it (`concept_skeleton.toml`). Every node whose sources name that<br>document files the entry too, so a node's sources are among its<br>citations on the map. |
 | `source_url` | `Option<&'static str>` | Where the source can be read or obtained, if known: a DOI link, or<br>the publisher's own copy. |
 | `corpus_file` | `Option<&'static str>` | The PDF's path inside [`CORPUS_REPOSITORY_URL`], for a<br>[`SourceStatus::redistributable`] entry whose PDF is held there. |
 | `status` | `SourceStatus` |  |
@@ -12733,6 +14820,16 @@ pub struct CorpusLiterature {
   pub fn id(self: &Self) -> NodeId { /* ... */ }
   ```
   This entry's node id.
+
+- ```rust
+  pub fn filed_under(self: &Self) -> Vec<&'static str> { /* ... */ }
+  ```
+  Every concept path this entry is filed under: [`Self::topics`], then
+
+- ```rust
+  pub fn classification_topics(self: &Self) -> Vec<&'static str> { /* ... */ }
+  ```
+  Where a user's notes paper for this entry is classified
 
 ###### Trait Implementations
 
@@ -12760,6 +14857,11 @@ pub struct CorpusLiterature {
 - **CloneToUninit**
   - ```rust
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
     ```
 
 - **Copy**
@@ -12802,6 +14904,10 @@ pub struct CorpusLiterature {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -12885,6 +14991,11 @@ pub struct CorpusLiterature {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -12946,6 +15057,11 @@ pub enum ConnectionOrigin {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -12986,6 +15102,10 @@ pub enum ConnectionOrigin {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -13069,6 +15189,11 @@ pub enum ConnectionOrigin {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -13126,6 +15251,11 @@ pub struct CorpusConnection {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -13166,6 +15296,10 @@ pub struct CorpusConnection {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -13249,11 +15383,243 @@ pub struct CorpusConnection {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `CuratedConnection`
+
+A curated connection as typed node ids: [`CONNECTIONS`] parsed, plus one
+per concept-tree cross-link. Every one is
+[`ConnectionOrigin::KovanCorpus`]: shown on the map, never editable.
+
+```rust
+pub struct CuratedConnection {
+    pub source: crate::node_id::NodeId,
+    pub target: crate::node_id::NodeId,
+    pub relation: crate::relation::RelationKind,
+    pub basis: String,
+    pub origin: ConnectionOrigin,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `source` | `crate::node_id::NodeId` |  |
+| `target` | `crate::node_id::NodeId` |  |
+| `relation` | `crate::relation::RelationKind` |  |
+| `basis` | `String` | The evidence: a document's statement for [`CONNECTIONS`], the tree<br>file for a cross-link. |
+| `origin` | `ConnectionOrigin` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CuratedConnection { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CuratedConnection) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
 - **WithSubscriber**
 ### Functions
+
+#### Function `topics`
+
+Every standard-map topic: [`ROOT_TOPIC`], then levels 1–3 of the concept
+tree, parents before children. Replaces the old `TOPICS` table
+(2026-10-06).
+
+```rust
+pub fn topics() -> &'static [CorpusTopic] { /* ... */ }
+```
+
+#### Function `curated_connections`
+
+Every curated connection: [`CONNECTIONS`], then the concept tree's
+cross-links (`cross_links` in `concept_skeleton.toml` and
+`concept_proposals.toml`; one home path, a dotted link to each other
+node a concept belongs to), in tree order. Built once.
+
+```rust
+pub fn curated_connections() -> &'static [CuratedConnection] { /* ... */ }
+```
+
+#### Function `curated_connections_for`
+
+The curated connections touching `node`, at either end, each with its
+**other** end: what a map star centred on `node` draws as read-only link
+cards.
+
+```rust
+pub fn curated_connections_for(node: &crate::node_id::NodeId) -> Vec<(&'static CuratedConnection, &'static crate::node_id::NodeId)> { /* ... */ }
+```
 
 #### Function `topic_at`
 
@@ -13265,29 +15631,46 @@ pub fn topic_at(path: &str) -> Option<&'static CorpusTopic> { /* ... */ }
 
 #### Function `children_of`
 
-The direct children of the topic at `path`, in table order.
+The direct children of the topic at `path`, in tree order: the 19 IAEA
+issues for [`ROOT_TOPIC`].
 
 ```rust
-pub fn children_of(path: &str) -> impl Iterator<Item = &'static CorpusTopic> + ''_ { /* ... */ }
+pub fn children_of(path: &str) -> impl Iterator<Item = &'static CorpusTopic> { /* ... */ }
 ```
 
 #### Function `literature_in`
 
-The literature filed under the topic at `path`.
+The literature filed under the topic at `path`
+([`CorpusLiterature::filed_under`]), in [`LITERATURE`] order.
 
 ```rust
-pub fn literature_in(path: &str) -> impl Iterator<Item = &'static CorpusLiterature> + ''_ { /* ... */ }
+pub fn literature_in(path: &str) -> impl Iterator<Item = &'static CorpusLiterature> { /* ... */ }
+```
+
+#### Function `has_literature`
+
+Whether any literature is filed at `path` or anywhere below it, counting
+a node's citation of its own sources. The hook a "show empty nodes"
+toggle reads (#724: "empty is greyed, not hidden"). Because nearly every
+node cites a standard-corpus document, this is true almost everywhere;
+[`has_classified_literature`] is the stricter reading.
+
+```rust
+pub fn has_literature(path: &str) -> bool { /* ... */ }
+```
+
+#### Function `has_classified_literature`
+
+Whether literature is filed **by hand** ([`CorpusLiterature::topics`])
+at `path` or below: literature *about* the node, as opposed to the
+regulatory text that defines it. The likelier meaning of "greyed" for
+the Literature tab; the maintainer has not chosen between the two.
+
+```rust
+pub fn has_classified_literature(path: &str) -> bool { /* ... */ }
 ```
 
 ### Constants and Statics
-
-#### Constant `ROOT_TOPIC`
-
-The root topic's path.
-
-```rust
-pub const ROOT_TOPIC: &str = "nuclear-engineering";
-```
 
 #### Constant `CORPUS_REPOSITORY_URL`
 
@@ -13321,13 +15704,48 @@ maintainer, who edits it with Git directly).
 pub const STANDARD_CORPUS_FOLDER: &str = "kovan-standard-open-corpus";
 ```
 
-#### Constant `TOPICS`
+#### Constant `ROOT_TOPIC`
 
-The initial nuclear-engineering hierarchy (maintainer brief, 2026-09-22).
-Parents come before children. Extend by adding rows.
+The virtual root's path: the single centre of the standard map, whose
+children are the 19 IAEA Milestones issues in IAEA order.
+
+It is not a concept of the tree (the tree has 19 roots) and it can never
+collide with one: every concept path starts with a numbered level-1
+segment (`NN-…`, enforced by `kovan-literature`'s
+`tests/concept_skeleton.rs`), and the underscore keeps it out of reach of
+any user topic too, since Kovan's slugs are lower-case letters, digits and
+hyphens only (`classify::slugify`). The level-1 issues do **not** carry it
+as a prefix: their paths are exactly the concept paths, and
+[`CorpusTopic::parent_path`] supplies the root as their parent.
+
+~~`"nuclear-engineering"`~~ until 2026-10-06, when the concept tree
+replaced the old topics.
 
 ```rust
-pub const TOPICS: &[CorpusTopic] = _;
+pub const ROOT_TOPIC: &str = "iaea_milestones";
+```
+
+#### Constant `ROOT_TITLE`
+
+The virtual root's title.
+
+```rust
+pub const ROOT_TITLE: &str = "Nuclear knowledge (IAEA Milestones)";
+```
+
+#### Constant `ONTOLOGY_LINKS`
+
+The concept-tree nodes that **are** a `kovan_semantics` ontology concept,
+so search can use the ontology's names and aliases. Only exact matches:
+the tree's nesting is a review structure, and a node that merely belongs
+to a reactor type (a pebble-bed core configuration under HTGR, say) is
+not linked. The old topics' links (Transport, Diffusion, Natural
+Circulation, HTGR, FHR, MSR) were re-pointed here where the tree has the
+same concept; Diffusion, HTGR and FHR have no node that is that concept,
+so they have no link.
+
+```rust
+pub const ONTOLOGY_LINKS: &[(&str, OntologyLink)] = _;
 ```
 
 #### Constant `LITERATURE`
@@ -13339,7 +15757,11 @@ Reports (FGR-11, 13, 15) added on 2026-09-28 (maintainer request). **Only docume
 2026-09-22); the maintainer's own open literature (`theodore-open-corpus/`,
 including the TUAS paper, which was listed here until then) is not. Titles, authors and years are read
 from each document's own title and front-matter pages; topics from its
-abstract and contents. The citations between entries are in
+abstract and contents (re-filed under the concept tree on 2026-10-06).
+Since 2026-10-06 the list also holds every document the concept tree
+cites (see the block comment above those entries). Only the metadata is
+compiled into Kovan; the PDFs stay in the corpus repository and open from
+its checkout when one is present. The citations between entries are in
 [`CONNECTIONS`] (NUREG-2201 and NUREG/KM-0006 also cite NUREG-0800, but
 chapters 19.2 and 15.0.2, not the Section 4.2 held here, so those are not
 connections).
@@ -13389,6 +15811,11 @@ What belongs here, and nothing GUI-side:
   place keeps every file that is there.
 - **Nothing is pulled blindly.** An existing repository is returned as it is
   ([`RepoState::Existing`]); updating one is an explicit, separate action.
+  **One exception, 2026-10-06:** Kovan's own application-data clone of the
+  standard corpus, in the folder the user chose for it, is fast-forwarded
+  at every start ([`update_standard_corpus`]), and only when nothing local
+  would be lost.
+  A Kovan folder's own corpus repositories are still never pulled here.
 - **Failures are values, never panics**, so a failed clone (offline, no
   `git`, a bad URL) leaves the caller free to carry on: the built-in map
   never depends on any of this (epic #247).
@@ -13474,6 +15901,11 @@ as one, or an existing repository at the path adopted as one.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -13514,6 +15946,10 @@ as one, or an existing repository at the path adopted as one.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -13595,6 +16031,11 @@ as one, or an existing repository at the path adopted as one.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -13686,6 +16127,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -13720,6 +16166,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -13824,6 +16275,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -13872,6 +16328,11 @@ pub struct CorporaSetup {
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -13901,6 +16362,11 @@ pub struct CorporaSetup {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -13967,6 +16433,11 @@ pub struct CorporaSetup {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -14053,11 +16524,55 @@ Set up one corpus repository at `dir` inside `root`.
 pub fn ensure_corpus(root: &crate::root::KovanRoot, dir: &std::path::Path, remote: Option<&str>, branch: Option<&str>) -> Result<RepoState, CorpusRepoError> { /* ... */ }
 ```
 
+#### Function `default_standard_corpus_dir`
+
+The folder Kovan suggests for its standard corpus, and the one it used
+before the user chose (until 2026-10-06): the platform application-data
+folder (`~/.local/share/kovan/standard-corpus` on Linux). `None` when the
+platform reports no home directory.
+
+```rust
+pub fn default_standard_corpus_dir() -> Option<std::path::PathBuf> { /* ... */ }
+```
+
+#### Function `chosen_standard_corpus_dir`
+
+The folder the user chose for the standard corpus (maintainer direction,
+2026-10-06: *"when kovan opens, the user also needs to specify an empty
+folder (or existing one) for the public corpus, so that kovan knows where
+to dump the pdfs"*), or `None` when they have not chosen one yet.
+
+```rust
+pub fn chosen_standard_corpus_dir() -> Option<std::path::PathBuf> { /* ... */ }
+```
+
+#### Function `choose_standard_corpus_dir`
+
+Record `dir` as the standard-corpus folder.
+
+```rust
+pub fn choose_standard_corpus_dir(dir: &std::path::Path) -> std::io::Result<()> { /* ... */ }
+```
+
+#### Function `check_standard_corpus_folder`
+
+Whether `dir` can hold the standard corpus: it does not exist yet, is
+empty, or is already a clone of `remote` (which is then refreshed).
+Anything else is refused with the reason, so Kovan never clones over a
+folder of someone's files or adopts some other repository.
+
+```rust
+pub fn check_standard_corpus_folder(dir: &std::path::Path, remote: &str) -> Result<(), String> { /* ... */ }
+```
+
 #### Function `standard_corpus_dir`
 
-Where Kovan keeps its clone of the standard corpus: the platform
-application-data folder (`~/.local/share/kovan/` on Linux), shared by every
-Kovan folder. `None` when the platform reports no home directory.
+Where Kovan keeps its clone of the standard corpus: ~~the platform
+application-data folder, shared by every Kovan folder~~ **CHANGED
+2026-10-06:** the folder the user chose
+([`chosen_standard_corpus_dir`]), else the old application-data default
+([`default_standard_corpus_dir`]), which is still searched so an earlier
+clone keeps working. Shared by every Kovan folder.
 
 ```rust
 pub fn standard_corpus_dir() -> Option<std::path::PathBuf> { /* ... */ }
@@ -14071,6 +16586,35 @@ if it is not there yet (#253). An existing clone is left as it is.
 
 ```rust
 pub fn ensure_standard_corpus() -> Result<RepoState, CorpusRepoError> { /* ... */ }
+```
+
+#### Function `update_standard_corpus`
+
+Bring the standard-corpus clone at `dir` up to its remote branch,
+cloning it first if it is not there (maintainer direction, 2026-10-06:
+*"when kovan opens, the standard corpus should always refresh on open"*).
+Run in the background at every start, on the folder the user chose
+([`chosen_standard_corpus_dir`]).
+
+Before this, the clone was made once and never updated, so documents
+added to the corpus later stayed "not downloaded" for good.
+
+Only this clone is updated, never a Kovan folder's corpus repositories
+(those follow the folder's Pull and Save). It is fast-forwarded only when
+nothing local would be lost ([`crate::save_push::follow_branch`]); a
+clone with local changes is left alone and reported.
+
+```rust
+pub fn update_standard_corpus(dir: &std::path::Path) -> Result<crate::save_push::CorpusPullOutcome, CorpusRepoError> { /* ... */ }
+```
+
+#### Function `update_standard_corpus_in`
+
+[`update_standard_corpus`] for a clone at `dir` of `remote`'s `branch`,
+so tests can use a local repository instead of the network.
+
+```rust
+pub fn update_standard_corpus_in(dir: &std::path::Path, remote: &str, branch: &str) -> Result<crate::save_push::CorpusPullOutcome, CorpusRepoError> { /* ... */ }
 ```
 
 #### Function `standard_corpus_pdf`
@@ -14324,6 +16868,10 @@ The user's proprietary literature, in private repositories only.
     fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
     ```
 
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -14364,6 +16912,10 @@ The user's proprietary literature, in private repositories only.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -14462,6 +17014,11 @@ The user's proprietary literature, in private repositories only.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -14525,6 +17082,11 @@ pub struct CorpusRepoConfig {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -14572,6 +17134,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -14663,6 +17229,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -14738,6 +17309,11 @@ pub struct RepoTiers {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -14790,6 +17366,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -14887,6 +17467,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -14941,6 +17526,11 @@ pub struct BuiltinRepo {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -14981,6 +17571,10 @@ pub struct BuiltinRepo {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -15064,6 +17658,11 @@ pub struct BuiltinRepo {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -15125,6 +17724,11 @@ A `[[repos.<tier>]]` entry.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -15165,6 +17769,10 @@ A `[[repos.<tier>]]` entry.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -15248,6 +17856,11 @@ A `[[repos.<tier>]]` entry.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -15327,6 +17940,11 @@ pub struct CorpusRepo {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -15366,6 +17984,10 @@ pub struct CorpusRepo {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -15449,6 +18071,11 @@ pub struct CorpusRepo {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -15501,6 +18128,11 @@ pub struct RepoRef {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -15540,6 +18172,10 @@ pub struct RepoRef {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -15621,6 +18257,11 @@ pub struct RepoRef {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -16008,6 +18649,11 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -16046,6 +18692,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -16137,6 +18788,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -16189,6 +18845,11 @@ pub struct AxisValueSpec {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -16227,6 +18888,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -16318,6 +18984,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -16375,6 +19046,11 @@ pub struct AutoDigitiseConfig {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -16413,6 +19089,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -16502,6 +19183,11 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -16610,6 +19296,11 @@ axis). Reference values must be strictly positive.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -16663,6 +19354,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -16784,6 +19479,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -16843,6 +19543,11 @@ pub struct AxisRef {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -16881,6 +19586,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -16972,6 +19682,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -17047,6 +19762,11 @@ pub struct AxisCalibration {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -17085,6 +19805,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -17174,6 +19899,11 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -17283,6 +20013,11 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -17321,6 +20056,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -17412,6 +20152,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -17465,6 +20210,11 @@ pub struct PixelPoint {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -17503,6 +20253,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -17592,6 +20347,11 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -17701,6 +20461,11 @@ pub struct ParallelogramCalibration {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -17739,6 +20504,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -17828,6 +20598,11 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -17929,6 +20704,11 @@ pub struct FigureSource {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -17976,6 +20756,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -18067,6 +20851,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -18145,6 +20934,11 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -18192,6 +20986,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -18283,6 +21081,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -18344,6 +21147,11 @@ hand); the reviewer takes responsibility for the method.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -18392,6 +21200,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -18483,6 +21295,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -18553,6 +21370,11 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -18600,6 +21422,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -18691,6 +21517,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -18764,6 +21595,11 @@ pub struct DigitisedPoint {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -18801,6 +21637,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -18892,6 +21733,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -18949,6 +21795,11 @@ pub struct TraceRecord {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -18986,6 +21837,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -19075,6 +21931,11 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -19209,6 +22070,11 @@ pub struct DigitisedDataset {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -19246,6 +22112,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -19335,6 +22206,11 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -19491,6 +22367,11 @@ pub struct PixelRect {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -19539,6 +22420,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -19630,6 +22515,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -19683,6 +22573,11 @@ pub struct DetectConfig {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -19726,6 +22621,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -19821,6 +22721,11 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -20012,6 +22917,11 @@ pub struct AutoArgs {
     fn command_for_update<''b>() -> clap::Command { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -20041,6 +22951,11 @@ pub struct AutoArgs {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -20134,6 +23049,11 @@ pub struct AutoArgs {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -20253,6 +23173,11 @@ pub struct Startup {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -20287,6 +23212,11 @@ pub struct Startup {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -20368,6 +23298,11 @@ pub struct Startup {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -20490,6 +23425,11 @@ As scanned.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -20535,6 +23475,10 @@ As scanned.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -20622,6 +23566,11 @@ As scanned.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -20729,6 +23678,11 @@ pub struct PlotRaster {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -20768,6 +23722,10 @@ pub struct PlotRaster {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -20849,6 +23807,11 @@ pub struct PlotRaster {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -20947,6 +23910,11 @@ pub struct SyntheticPlotSpec {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -20977,6 +23945,11 @@ pub struct SyntheticPlotSpec {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -21052,6 +24025,11 @@ pub struct SyntheticPlotSpec {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -21177,6 +24155,11 @@ pub struct CellPos {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -21222,6 +24205,10 @@ pub struct CellPos {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -21311,6 +24298,11 @@ pub struct CellPos {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -21374,6 +24366,11 @@ pub struct CellRange {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -21414,6 +24411,10 @@ pub struct CellRange {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -21497,6 +24498,11 @@ pub struct CellRange {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -21551,6 +24557,11 @@ pub struct CellChange {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -21590,6 +24601,10 @@ pub struct CellChange {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -21673,6 +24688,11 @@ pub struct CellChange {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -21730,6 +24750,11 @@ pub enum Direction {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -21770,6 +24795,10 @@ pub enum Direction {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -21853,6 +24882,11 @@ pub enum Direction {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -21891,6 +24925,11 @@ pub struct CsvLoadError(/* private field */);
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -21925,6 +24964,11 @@ pub struct CsvLoadError(/* private field */);
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -22023,6 +25067,11 @@ pub struct CsvLoadError(/* private field */);
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -22189,6 +25238,11 @@ pub struct TableGrid {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -22223,6 +25277,11 @@ pub struct TableGrid {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -22304,6 +25363,11 @@ pub struct TableGrid {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -22478,6 +25542,11 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -22526,6 +25595,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -22617,6 +25690,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -22684,6 +25762,11 @@ default.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -22732,6 +25815,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -22823,6 +25910,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -22882,6 +25974,11 @@ pub struct TraceConfig {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -22925,6 +26022,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -23022,6 +26124,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -23076,6 +26183,11 @@ pub struct PixelTracePoint {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -23114,6 +26226,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -23205,6 +26322,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -23265,6 +26387,11 @@ pub struct SnapConfig {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -23308,6 +26435,11 @@ where
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -23403,6 +26535,11 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -23573,6 +26710,11 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -23617,6 +26759,10 @@ Fields:
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -23730,6 +26876,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -23943,6 +27094,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -23977,6 +27133,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -24077,6 +27238,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -24157,6 +27323,11 @@ machinery, differing only in semantics (§6).
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -24205,6 +27376,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -24296,6 +27471,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -24369,6 +27549,11 @@ committed.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -24422,6 +27607,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -24519,6 +27708,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -24612,6 +27806,11 @@ preserved.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -24665,6 +27864,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -24762,6 +27965,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -24786,7 +27994,7 @@ pub struct SourceRef {
 |------|------|---------------|
 | `access` | `Access` | Redistribution status. Defaults to [`Access::Restricted`]. |
 | `storage` | `StorageMode` | How this source participates in Git. Defaults to<br>[`StorageMode::Local`] — see that variant's doc for why this is<br>always a safe, zero-configuration default. |
-| `pdf` | `Option<std::path::PathBuf>` | Path to the source PDF, relative to the entity's own directory (so a<br>library stays relocatable). `None` for a paper catalogued from<br>metadata alone, with no document held locally. |
+| `pdf` | `Option<std::path::PathBuf>` | Path to the source PDF, relative to the entity's own directory (so a<br>library stays relocatable). `None` for a paper catalogued from<br>metadata alone, with no document held locally. May also be an<br>absolute path, for a file referenced where it is rather than stored<br>in the library (a Zotero attachment, `kovan-cli zotero import`<br>without `--copy-attachments`); readers join it onto the entity<br>directory, which leaves an absolute path unchanged. |
 | `corpus` | `Option<String>` | The Kovan standard-corpus id ([`crate::corpus::CorpusLiterature::id`])<br>this paper holds the user's notes for, when it is one. The PDF is then<br>found through [`crate::standard_corpus::StandardCorpus`] wherever the<br>corpus is checked out, so `pdf` may be absent or stale without the<br>paper losing its document (GitHub issue on standard-corpus<br>documents not being recognised as ingested, 2026-09-30). |
 | `repo` | `Option<String>` | The name of the corpus repository ([`crate::corpus_tiers::CorpusRepo::name`])<br>the PDF was stored in or found in at ingest (GitHub issue #458: a<br>tier may hold several repositories). `None` for a paper ingested<br>before that, or whose PDF is in no corpus repository. |
 
@@ -24818,6 +28026,11 @@ pub struct SourceRef {
 - **CloneToUninit**
   - ```rust
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
     ```
 
 - **Debug**
@@ -24872,6 +28085,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -24969,6 +28186,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -25043,6 +28265,11 @@ pub struct Classification {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -25095,6 +28322,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -25192,6 +28423,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -25282,6 +28518,10 @@ pub struct CiteKey(/* private field */);
     fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
     ```
 
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -25334,6 +28574,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -25483,6 +28727,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -25630,6 +28879,11 @@ where
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -25677,6 +28931,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -25766,6 +29024,11 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -25929,6 +29192,11 @@ pub struct HashCache {
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -25963,6 +29231,11 @@ pub struct HashCache {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -26037,6 +29310,11 @@ pub struct HashCache {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -26059,36 +29337,6 @@ File name of the cache inside [`crate::root::KovanRoot::state_dir`].
 
 ```rust
 pub const CACHE_FILE: &str = "pdf-sha256.json";
-```
-
-## Module `fuzzy`
-
-Fuzzy matching for Kovan's finders (the PDF reader's literature finder).
-
-Ported from `fuzzy_score` in
-`crates/njoy-outram-park-fork/src/bin/njoy-tui/nuclides.rs` (the njoy TUI's
-nuclide finder), which lives in another crate's binary and so cannot be
-depended on. Same algorithm, same constants; keep the two in step. Hand
-rolled, as there, rather than a new fuzzy-matching dependency.
-
-```rust
-pub mod fuzzy { /* ... */ }
-```
-
-### Functions
-
-#### Function `fuzzy_score`
-
-Score how well `query` matches `candidate`, or `None` if it does not.
-Both are lowercased here, so the match is case-insensitive.
-
-- **Substring** matches score highest (1000+), with a bonus for a prefix
-  match and for a tighter candidate.
-- **Subsequence** matches (every query character in order, fzf-style)
-  score below any substring, penalised by how spread out they are.
-
-```rust
-pub fn fuzzy_score(query: &str, candidate: &str) -> Option<i32> { /* ... */ }
 ```
 
 ## Module `graph`
@@ -26194,6 +29442,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -26228,6 +29481,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -26328,6 +29586,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -26397,6 +29660,10 @@ An explicit `[@citekey]` citation.
     fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
     ```
 
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -26445,6 +29712,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -26546,6 +29817,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -26605,6 +29881,10 @@ pub struct Edge {
     fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
     ```
 
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -26652,6 +29932,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -26753,6 +30037,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -26838,6 +30127,11 @@ pub struct KnowledgeGraph {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -26890,6 +30184,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -26987,6 +30285,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -27039,6 +30342,11 @@ pub struct WikiLinkRef {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -27078,6 +30386,10 @@ pub struct WikiLinkRef {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -27159,6 +30471,11 @@ pub struct WikiLinkRef {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -27308,6 +30625,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -27342,6 +30664,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -27442,6 +30769,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -27505,6 +30837,11 @@ pub struct PaperEntry {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -27552,6 +30889,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -27643,6 +30984,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -27697,6 +31043,11 @@ pub struct CollectionEntry {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -27744,6 +31095,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -27833,6 +31188,11 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -27926,6 +31286,11 @@ pub struct KnowledgeIndex {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -27978,6 +31343,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -28073,6 +31442,11 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -28283,6 +31657,11 @@ so and offer the way out, rather than vanishing from the menu.
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -28307,6 +31686,11 @@ so and offer the way out, rather than vanishing from the menu.
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -28373,6 +31757,11 @@ so and offer the way out, rather than vanishing from the menu.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -28447,6 +31836,11 @@ pub struct LiteratureCard {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -28491,6 +31885,10 @@ pub struct LiteratureCard {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -28580,6 +31978,11 @@ pub struct LiteratureCard {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -28645,6 +32048,11 @@ pub struct Citation {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -28684,6 +32092,10 @@ pub struct Citation {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -28767,6 +32179,11 @@ pub struct Citation {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -28820,6 +32237,11 @@ pub struct BibCache {
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -28854,6 +32276,11 @@ pub struct BibCache {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -28928,6 +32355,11 @@ pub struct BibCache {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -28936,7 +32368,7 @@ pub struct BibCache {
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"gui\"), span: crates/kovan/src/mindmap.rs:665:11: 665:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/kovan/src/mindmap.rs:665:32: 665:53 (#0) }, crates/kovan/src/mindmap.rs:665:31: 665:54 (#0))], crates/kovan/src/mindmap.rs:665:10: 665:55 (#0))])]")`
+- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"gui\"), span: crates/kovan/src/mindmap.rs:695:11: 695:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/kovan/src/mindmap.rs:695:32: 695:53 (#0) }, crates/kovan/src/mindmap.rs:695:31: 695:54 (#0))], crates/kovan/src/mindmap.rs:695:10: 695:55 (#0))])]")`
 
 The user's links, cached like [`BibCache`]: both files are re-read only
 when their modification time or length changes, so drawing the map does
@@ -28974,6 +32406,11 @@ pub struct LinkCache {
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Default**
   - ```rust
     fn default() -> LinkCache { /* ... */ }
@@ -29003,6 +32440,11 @@ pub struct LinkCache {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -29077,6 +32519,11 @@ pub struct LinkCache {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -29085,7 +32532,7 @@ pub struct LinkCache {
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"gui\"), span: crates/kovan/src/mindmap.rs:983:11: 983:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/kovan/src/mindmap.rs:983:32: 983:53 (#0) }, crates/kovan/src/mindmap.rs:983:31: 983:54 (#0))], crates/kovan/src/mindmap.rs:983:10: 983:55 (#0))])]")`
+- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"gui\"), span: crates/kovan/src/mindmap.rs:1034:11: 1034:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/kovan/src/mindmap.rs:1034:32: 1034:53 (#0) }, crates/kovan/src/mindmap.rs:1034:31: 1034:54 (#0))], crates/kovan/src/mindmap.rs:1034:10: 1034:55 (#0))])]")`
 
 ```rust
 pub struct MindmapState {
@@ -29126,11 +32573,16 @@ pub struct MindmapState {
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Default**
   - ```rust
     fn default() -> Self { /* ... */ }
     ```
-    Opens on the corpus root, so a fresh Kovan shows Nuclear Engineering
+    Opens on the corpus root, so a fresh Kovan shows the standard map
 
 - **Downcast**
   - ```rust
@@ -29156,6 +32608,11 @@ pub struct MindmapState {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -29228,6 +32685,11 @@ pub struct MindmapState {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -29302,364 +32764,6 @@ pub mod mindmap_layout { /* ... */ }
 
 ### Types
 
-#### Struct `Point`
-
-A point in world space (the same space [`layout`] places nodes in).
-
-```rust
-pub struct Point {
-    pub x: f64,
-    pub y: f64,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `x` | `f64` |  |
-| `y` | `f64` |  |
-
-##### Implementations
-
-###### Methods
-
-- ```rust
-  pub fn new(x: f64, y: f64) -> Self { /* ... */ }
-  ```
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> Point { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-  - ```rust
-    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
-    ```
-
-  - ```rust
-    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
-    ```
-
-  - ```rust
-    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
-    ```
-
-  - ```rust
-    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
-    ```
-
-- **DowncastSync**
-  - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
-    ```
-
-- **ErasedDestructor**
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Instrument**
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &Point) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **SimdFrom**
-  - ```rust
-    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
-    ```
-
-- **SimdInto**
-  - ```rust
-    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
-    ```
-
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
-- **WithSubscriber**
-#### Struct `Bounds`
-
-An axis-aligned bounding box in world space, as produced by
-[`bounds_for`].
-
-```rust
-pub struct Bounds {
-    pub min_x: f64,
-    pub min_y: f64,
-    pub max_x: f64,
-    pub max_y: f64,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `min_x` | `f64` |  |
-| `min_y` | `f64` |  |
-| `max_x` | `f64` |  |
-| `max_y` | `f64` |  |
-
-##### Implementations
-
-###### Methods
-
-- ```rust
-  pub fn width(self: &Self) -> f64 { /* ... */ }
-  ```
-  Width, floored at `1.0` so a single-point or degenerate bounds
-
-- ```rust
-  pub fn height(self: &Self) -> f64 { /* ... */ }
-  ```
-  Height, floored at `1.0` — see [`width`](Self::width).
-
-- ```rust
-  pub fn centre(self: &Self) -> Point { /* ... */ }
-  ```
-  The bounds' centre point.
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> Bounds { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-  - ```rust
-    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
-    ```
-
-  - ```rust
-    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
-    ```
-
-  - ```rust
-    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
-    ```
-
-  - ```rust
-    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
-    ```
-
-- **DowncastSync**
-  - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
-    ```
-
-- **ErasedDestructor**
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Instrument**
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &Bounds) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **SimdFrom**
-  - ```rust
-    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
-    ```
-
-- **SimdInto**
-  - ```rust
-    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
-    ```
-
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
-- **WithSubscriber**
 #### Struct `Camera`
 
 The mindmap camera: a viewport size, a zoom factor, and a world-space
@@ -29736,6 +32840,11 @@ pub struct Camera {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -29766,6 +32875,11 @@ pub struct Camera {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -29849,6 +32963,11 @@ pub struct Camera {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -29927,6 +33046,11 @@ pub struct LayoutState {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -29961,6 +33085,11 @@ pub struct LayoutState {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -30044,6 +33173,11 @@ pub struct LayoutState {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -30117,6 +33251,28 @@ fixture then can't distinguish from another.
 
 ```rust
 pub fn ascii_render(model: &crate::mindmap_model::MindmapModel, state: &LayoutState, _width: usize) -> String { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `Bounds`
+
+[`Point`] and [`Bounds`] moved 2026-10-06 to `kovan_common::geometry`
+(wasm-clean, for web-kovan, GitHub #736); re-exported so every
+`crate::mindmap_layout::Point` path keeps working.
+
+```rust
+pub use kovan_common::geometry::Bounds;
+```
+
+#### Re-export `Point`
+
+[`Point`] and [`Bounds`] moved 2026-10-06 to `kovan_common::geometry`
+(wasm-clean, for web-kovan, GitHub #736); re-exported so every
+`crate::mindmap_layout::Point` path keeps working.
+
+```rust
+pub use kovan_common::geometry::Point;
 ```
 
 ## Module `mindmap_model`
@@ -30253,6 +33409,11 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -30293,6 +33454,10 @@ Fields:
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -30376,6 +33541,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -30442,6 +33612,11 @@ pub struct MapNode {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -30481,6 +33656,10 @@ pub struct MapNode {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -30564,6 +33743,11 @@ pub struct MapNode {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -30624,6 +33808,11 @@ pub struct MapEdge {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -30663,6 +33852,10 @@ pub struct MapEdge {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -30746,6 +33939,11 @@ pub struct MapEdge {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -30809,6 +34007,11 @@ pub struct TypedEdge {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -30848,6 +34051,10 @@ pub struct TypedEdge {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -30931,6 +34138,11 @@ pub struct TypedEdge {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -30988,6 +34200,11 @@ pub enum DetailLevel {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -31028,6 +34245,10 @@ pub enum DetailLevel {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -31111,6 +34332,11 @@ pub enum DetailLevel {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -31160,6 +34386,11 @@ pub struct UnknownNodeError(pub String);
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -31204,6 +34435,10 @@ pub struct UnknownNodeError(pub String);
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -31317,6 +34552,11 @@ pub struct UnknownNodeError(pub String);
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -31461,6 +34701,11 @@ pub struct MindmapModel {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -31495,6 +34740,11 @@ pub struct MindmapModel {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -31578,6 +34828,11 @@ pub struct MindmapModel {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -31599,616 +34854,6 @@ Expansion/selection/zoom all start at the [`MindmapModel::new`] default
 
 ```rust
 pub fn build_model(root: &crate::root::KovanRoot, index: &crate::index::KnowledgeIndex, graph: &crate::graph::KnowledgeGraph, user_edges: &[TypedEdge]) -> MindmapModel { /* ... */ }
-```
-
-## Module `mindmap_view`
-
-Geometry of the Mindmap page's star view and its pan/zoom viewport
-(GitHub issue #243, epic #241). GUI-free, so it is tested headlessly and
-builds everywhere this crate does.
-
-What belongs here: where each card of the drill-in star goes
-([`star_positions`]), the star's extent ([`star_bounds`]), and the
-arithmetic of the scrollable canvas it is drawn on ([`CanvasLayout`]):
-how big the canvas is at a zoom, where a world point lands on it, and the
-**pan limit**: 25 % of the map's own size past each edge (maintainer
-direction, 2026-09-22), plus half a viewport width sideways (added the same
-day, for more horizontal room; see [`HORIZONTAL_PAN_VIEWPORT_FRACTION`]).
-
-What does not belong here: drawing, input, or which nodes exist. The egui
-page is [`crate::mindmap`]; the node set comes from the knowledge index.
-
-# Why not `crate::mindmap_layout::Camera`
-
-That camera maps world space straight onto the viewport, with no scroll
-bars and nothing that limits panning. The page instead draws on an
-`egui::ScrollArea` canvas, which gives both, with the same approach as the
-`htgr_sim_v1` v1.1 plant view in `outram-park-digital-twin-engine`
-(`examples/htgr_sim_v1/app/plant_v1_1.rs`, `content_layout`). The logic is
-ported, not shared: that crate is not a dependency of this one. The
-difference is the margin: there it is 40 % of the viewport, here 25 % of
-the content plus, horizontally, half the viewport.
-
-# Units
-
-World units are points at zoom 1. A card is [`CARD_SIZE`] world units; at
-zoom `z` it is drawn `z` times that size, text included.
-
-```rust
-pub mod mindmap_view { /* ... */ }
-```
-
-### Types
-
-#### Struct `StarLayout`
-
-Where a whole star goes when some ring cards are expanded in place
-(GitHub issue #246): `ring[i]` is ring card `i`, and `fans[i]` holds the
-positions of its sub-concepts (empty unless card `i` is expanded).
-
-```rust
-pub struct StarLayout {
-    pub ring: Vec<crate::mindmap_layout::Point>,
-    pub fans: Vec<Vec<crate::mindmap_layout::Point>>,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `ring` | `Vec<crate::mindmap_layout::Point>` |  |
-| `fans` | `Vec<Vec<crate::mindmap_layout::Point>>` |  |
-
-##### Implementations
-
-###### Methods
-
-- ```rust
-  pub fn all_points(self: &Self) -> impl Iterator<Item = Point> + ''_ { /* ... */ }
-  ```
-  Every card centre in the layout: ring, then each fan in order.
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> StarLayout { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-  - ```rust
-    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
-    ```
-
-  - ```rust
-    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
-    ```
-
-  - ```rust
-    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
-    ```
-
-  - ```rust
-    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
-    ```
-
-- **DowncastSync**
-  - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
-    ```
-
-- **ErasedDestructor**
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Instrument**
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &StarLayout) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **SimdFrom**
-  - ```rust
-    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
-    ```
-
-- **SimdInto**
-  - ```rust
-    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
-    ```
-
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
-- **WithSubscriber**
-#### Struct `CanvasLayout`
-
-The scrollable canvas the star is drawn on, at one zoom and viewport size.
-
-The canvas is the map at `zoom`, plus a margin of [`PAN_MARGIN_FRACTION`]
-of the drawn map's width and height on every side, so the scroll area lets
-the view travel exactly that far past each edge and no further.
-Horizontally the margin also gains [`HORIZONTAL_PAN_VIEWPORT_FRACTION`] of
-the viewport width. When the canvas would still be smaller than the
-viewport on an axis, it is widened to the viewport and the map is centred
-on that axis (nothing to scroll there).
-
-```rust
-pub struct CanvasLayout {
-    pub origin: (f64, f64),
-    pub size: (f64, f64),
-    pub zoom: f64,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `origin` | `(f64, f64)` | Where the world origin lands on the canvas, points from its top left. |
-| `size` | `(f64, f64)` | Canvas size, points. |
-| `zoom` | `f64` | World-to-canvas scale. |
-
-##### Implementations
-
-###### Methods
-
-- ```rust
-  pub fn new(bounds: Bounds, zoom: f64, viewport: (f64, f64)) -> Self { /* ... */ }
-  ```
-  Lay out `bounds` at `zoom` in a viewport of `viewport` points.
-
-- ```rust
-  pub fn to_canvas(self: &Self, p: Point) -> (f64, f64) { /* ... */ }
-  ```
-  Canvas position, points, of world point `p`.
-
-- ```rust
-  pub fn to_world(self: &Self, c: (f64, f64)) -> Point { /* ... */ }
-  ```
-  World point at canvas position `c`: the inverse of [`Self::to_canvas`].
-
-- ```rust
-  pub fn offset_centring(self: &Self, p: Point, viewport: (f64, f64)) -> (f64, f64) { /* ... */ }
-  ```
-  The scroll offset that puts world point `p` at the middle of a
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> CanvasLayout { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-  - ```rust
-    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
-    ```
-
-  - ```rust
-    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
-    ```
-
-  - ```rust
-    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
-    ```
-
-  - ```rust
-    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
-    ```
-
-- **DowncastSync**
-  - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
-    ```
-
-- **ErasedDestructor**
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Instrument**
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &CanvasLayout) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **SimdFrom**
-  - ```rust
-    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
-    ```
-
-- **SimdInto**
-  - ```rust
-    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
-    ```
-
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
-- **WithSubscriber**
-### Functions
-
-#### Function `star_positions`
-
-Where the `n` cards around the centre of the star go, in world units, with
-the centre card (the concept you are on) at the origin.
-
-The cards sit evenly on one ring, the first at the top and the rest
-clockwise. The ring is as small as it can be without two cards touching
-(checked in `no_two_cards_overlap`):
-
-- neighbours on the ring are a chord `2 r sin(pi / n)` apart, which must be
-  at least a card diagonal plus [`CARD_GAP`];
-- every ring card must also clear the centre card, so `r` is at least one
-  diagonal plus the gap.
-
-Measuring by the diagonal is conservative (cards are wider than tall), but
-it holds in every direction, so there is no angle at which two cards meet.
-
-```rust
-pub fn star_positions(n: usize) -> Vec<crate::mindmap_layout::Point> { /* ... */ }
-```
-
-#### Function `star_layout`
-
-Lay out a star whose ring card `i` has `fan_sizes[i]` sub-concepts shown
-(zero for a collapsed card), with no two cards overlapping.
-
-The ring starts at the radius [`star_positions`] would use. Expanded fans
-can reach into their neighbours, so while any two cards (centre, ring or
-fan) are closer than a card plus [`CARD_GAP`], the ring radius grows by
-10 % and everything is placed again. This always ends: neighbouring ring
-cards separate in proportion to the radius while each fan keeps its size.
-The loop is capped at [`MAX_RING_GROWTH_STEPS`] as a guard, never reached
-in the tested range.
-
-```rust
-pub fn star_layout(fan_sizes: &[usize]) -> StarLayout { /* ... */ }
-```
-
-#### Function `star_layout_with_parent`
-
-[`star_layout`], rotated half a step when the "up one level" card is drawn
-above the star (GitHub issue #283).
-
-[`star_positions`] puts ring card 0 exactly straight up, which is where
-the dotted connector to the parent card and the Up button on it go — the
-card would cover both. Turning the ring by half a step (`pi / n`) puts the
-*gap* between two ring cards at the top instead, for every `n`.
-
-~~Radii are untouched, so no card moves relative to any other.~~
-**CORRECTED 2026-09-23** — a rotated star can come out with a *larger*
-ring: [`cards_collide`] compares axis-aligned boxes, which is not
-rotation-invariant (cards are 170 x 46, so two of them side by side need
-far more room than two stacked), so the growth loop can fire for the
-turned ring where it did not for the straight one. Seen at `n = 10`. The
-invariant that holds is the one that matters: no two cards overlap, and no
-card sits in the corridor straight up.
-
-`has_parent = false` is exactly [`star_layout`].
-
-```rust
-pub fn star_layout_with_parent(fan_sizes: &[usize], has_parent: bool) -> StarLayout { /* ... */ }
-```
-
-#### Function `parent_position`
-
-Where the "up one level" card goes: straight above the star, one card
-spacing clear of the furthest card in `layout` (#283).
-
-Measuring from the **furthest** card, not the ring radius, is what keeps
-it clear of an expanded fan that reaches further out than the ring does.
-One spacing (a card diagonal plus [`CARD_GAP`]) is enough on its own: any
-card near enough on the x axis to matter lies at most `furthest` from the
-centre, so it is at least a spacing below this card on the y axis, and
-[`cards_collide`] needs both axes to be close.
-
-```rust
-pub fn parent_position(layout: &StarLayout) -> crate::mindmap_layout::Point { /* ... */ }
-```
-
-#### Function `up_button_centre`
-
-Where the Up button's box sits on the dotted run between the centre card's
-top edge and the parent card's bottom edge (#283).
-
-The middle of that run, **but never nearer the star than the furthest card
-reaches**. Half-way is the obvious place and is where it ends up when
-there is no ring at all, but an expanded fan can swing a card up to within
-a few points of the corridor — one was found sitting exactly on the button
-at `n = 3` — and a button drawn under a card cannot be pressed. Pushing it
-past the furthest card's radius clears *every* card whatever its angle:
-each one has `|y| <= furthest`, so the gap on the y axis alone is then
-more than half the two boxes' heights, and [`cards_collide`]-style overlap
-needs both axes to be close.
-
-```rust
-pub fn up_button_centre(layout: &StarLayout) -> crate::mindmap_layout::Point { /* ... */ }
-```
-
-#### Function `connector`
-
-A connector between two cards: a cubic Bézier curve `[start, control 1,
-control 2, end]` in world units, from an edge of one card to an edge of
-the other (maintainer direction, 2026-09-22: "a smooth curved line from
-edge to edge, not to the centre of the box").
-
-**Which edges** depends on where the cards sit relative to each other:
-the connector runs along the axis with the larger clear gap between them.
-Side by side, it leaves the facing left/right edges at their midpoints;
-one above the other, the facing top/bottom edges. It leaves and arrives at
-right angles to those edges, the control points pulled out along the same
-axis by half the distance between the ends (at least [`CARD_GAP`]), which
-is what makes it read as one smooth S or arc.
-
-`None` when the cards overlap on both axes (possible with pinned cards):
-there is no clear edge to join, and a curve through the cards would be
-noise. A drawing rule, nothing physical.
-
-```rust
-pub fn connector(a: crate::mindmap_layout::Point, b: crate::mindmap_layout::Point) -> Option<[crate::mindmap_layout::Point; 4]> { /* ... */ }
-```
-
-#### Function `star_bounds`
-
-The world-space box that holds every card: the centre card at the origin
-(when `has_centre`) and a card at each of `ring`.
-
-```rust
-pub fn star_bounds(has_centre: bool, ring: &[crate::mindmap_layout::Point]) -> crate::mindmap_layout::Bounds { /* ... */ }
-```
-
-#### Function `fit_zoom`
-
-The zoom at which `bounds` fits inside `viewport`, margins excluded.
-
-```rust
-pub fn fit_zoom(bounds: crate::mindmap_layout::Bounds, viewport: (f64, f64)) -> f64 { /* ... */ }
-```
-
-### Constants and Statics
-
-#### Constant `CARD_SIZE`
-
-A card's size in world units (points at zoom 1). A drawing choice.
-
-```rust
-pub const CARD_SIZE: (f64, f64) = _;
-```
-
-#### Constant `CARD_GAP`
-
-Least clear space between two cards, world units. A drawing choice.
-
-```rust
-pub const CARD_GAP: f64 = 24.0;
-```
-
-#### Constant `PAN_MARGIN_FRACTION`
-
-How far past each edge of the map the view can pan, as a fraction of the
-map's own width and height (maintainer direction, 2026-09-22: "don't let
-me scroll past 25% of where the mindmap content is").
-
-```rust
-pub const PAN_MARGIN_FRACTION: f64 = 0.25;
-```
-
-#### Constant `HORIZONTAL_PAN_VIEWPORT_FRACTION`
-
-Extra horizontal pan room, as a fraction of the viewport width, added on
-each side on top of [`PAN_MARGIN_FRACTION`] (maintainer direction,
-2026-09-22: "give me more horizontal space to pan around"). Half a
-viewport lets either side edge of the map be brought to the middle of the
-screen, even at Fit, where the map is usually narrower than the window and
-the content margin alone left nothing to scroll sideways. Vertical pan
-room is unchanged. A viewing margin, nothing physical.
-
-```rust
-pub const HORIZONTAL_PAN_VIEWPORT_FRACTION: f64 = 0.5;
-```
-
-#### Constant `UP_BUTTON_SIZE`
-
-The Up button's box, in world units — the box drawn **on** the dotted
-connector between the centre card and the parent card (#283). A drawing
-choice, sized to hold one arrow glyph.
-
-```rust
-pub const UP_BUTTON_SIZE: (f64, f64) = _;
-```
-
-#### Constant `MAX_RING_GROWTH_STEPS`
-
-Guard on [`star_layout`]'s ring growth: 1.1^200 is about 2e8, far past any
-radius a real star needs.
-
-```rust
-pub const MAX_RING_GROWTH_STEPS: usize = 200;
 ```
 
 ## Module `navigation`
@@ -32341,6 +34986,11 @@ pub struct NavHistory<L> {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -32370,6 +35020,11 @@ pub struct NavHistory<L> {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -32453,6 +35108,11 @@ pub struct NavHistory<L> {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -32519,8 +35179,9 @@ pub enum Namespace {
 
 ###### `Corpus`
 
-The built-in nuclear-engineering corpus compiled into Kovan
-([`crate::corpus`]). Read-only.
+The built-in standard map and the standard corpus's metadata, both
+compiled into Kovan ([`crate::corpus`]; the corpus PDFs are not:
+they are opened from the corpus repository's checkout). Read-only.
 
 ###### `Library`
 
@@ -32563,6 +35224,10 @@ The Kovan folder the user has open.
     fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
     ```
 
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -32603,6 +35268,10 @@ The Kovan folder the user has open.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -32701,6 +35370,11 @@ The Kovan folder the user has open.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -32765,6 +35439,10 @@ corpus id.
     fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
     ```
 
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -32805,6 +35483,10 @@ corpus id.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -32903,6 +35585,11 @@ corpus id.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -32993,6 +35680,10 @@ pub struct NodeId {
     fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
     ```
 
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -33037,6 +35728,10 @@ pub struct NodeId {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -33165,6 +35860,11 @@ pub struct NodeId {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -33255,6 +35955,11 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -33299,6 +36004,10 @@ Fields:
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -33412,6 +36121,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -33670,6 +36384,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -33704,6 +36423,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -33804,6 +36528,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -33872,6 +36601,11 @@ Same file name, different content: a warning, not a duplicate.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -33911,6 +36645,10 @@ Same file name, different content: a warning, not a duplicate.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -33992,6 +36730,11 @@ Same file name, different content: a warning, not a duplicate.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -34103,6 +36846,11 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -34147,6 +36895,10 @@ Fields:
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -34260,6 +37012,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -34331,6 +37088,11 @@ pub struct IngestPreview {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -34360,6 +37122,11 @@ pub struct IngestPreview {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -34435,6 +37202,11 @@ pub struct IngestPreview {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -34495,6 +37267,11 @@ pub struct IngestChoice {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -34524,6 +37301,11 @@ pub struct IngestChoice {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -34601,6 +37383,11 @@ pub struct IngestChoice {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -34622,9 +37409,13 @@ pub fn find_existing(root: &crate::root::KovanRoot, corpus: &crate::standard_cor
 
 The repositories an ingest form may offer for a document with `access`
 (#458), in tier order: for a restricted document only the proprietary
-repositories; for an open one every writable repository (open,
-`writable` standard, and proprietary, where keeping an open document
-private is always safe). Each is accepted by [`resolve_target`].
+repositories; for an open one only the open tiers (open, and `writable`
+standard). ~~For an open one every writable repository, including
+proprietary, "where keeping an open document private is always safe".~~
+**CHANGED 2026-10-06 (maintainer):** open and proprietary literature are
+kept strictly apart, so the dropdown for open literature never lists a
+proprietary repository, and vice versa. Each is accepted by
+[`resolve_target`].
 
 ```rust
 pub fn target_choices(root: &crate::root::KovanRoot, access: crate::entity::Access) -> Vec<crate::corpus_tiers::CorpusRepo> { /* ... */ }
@@ -34804,6 +37595,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -34838,6 +37634,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -34938,6 +37739,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -35024,6 +37830,11 @@ pub struct PaperSession {
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -35053,6 +37864,11 @@ pub struct PaperSession {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -35119,6 +37935,11 @@ pub struct PaperSession {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -35257,6 +38078,11 @@ pulled, or a citation-only entry).
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -35296,6 +38122,10 @@ pulled, or a citation-only entry).
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -35377,6 +38207,11 @@ pulled, or a citation-only entry).
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -35466,6 +38301,11 @@ pub struct StandardCorpus {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -35510,6 +38350,10 @@ pub struct StandardCorpus {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -35599,6 +38443,11 @@ pub struct StandardCorpus {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -35665,6 +38514,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -35699,6 +38553,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -35797,6 +38656,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -36061,6 +38925,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -36095,6 +38964,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -36195,6 +39069,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -36265,6 +39144,11 @@ pub struct SectionRanges {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -36317,6 +39201,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -36414,6 +39302,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -36470,6 +39363,11 @@ pub struct DocumentEntry {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -36517,6 +39415,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -36608,6 +39510,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -36663,6 +39570,11 @@ pub struct ProjectIndex {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -36710,6 +39622,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -36801,6 +39717,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -36858,6 +39779,11 @@ pub struct SectionContent {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -36897,6 +39823,10 @@ pub struct SectionContent {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -36978,6 +39908,11 @@ pub struct SectionContent {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -37187,9 +40122,12 @@ A paper's `kovan.toml` and a topic/project's `kovan.toml`
 ([`crate::entity::EntityConfig`]) have no fenced-TOML-block mechanism —
 that machinery ([`crate::artifact::parse_document`],
 [`crate::artifact::render_artifact_block`]) exists only for artifacts
-inside a paper's research Markdown. So [`add_connection`] only accepts a
-`source` that parses as `artifact:<citekey>#<id>`
-([`crate::graph::artifact_node`]'s own format). Every entry point this
+inside a paper's research Markdown. So [`add_connection`] ~~only accepts a
+`source` that parses as `artifact:<citekey>#<id>`~~ **CORRECTED
+2026-10-07** (the code accepts more; found by the Zotero port, #751):
+accepts a `source` that belongs to a paper, i.e. `artifact:<citekey>#<id>`
+([`crate::graph::artifact_node`]'s own format) or `paper:<citekey>`
+(`owning_paper`); a `collection:` source is refused. Every entry point this
 epic wires up (the PDF canvas's annotation right-click menu, op-30um.3)
 only ever draws a connection *from* an annotation or other page-anchored
 artifact, so this costs nothing in practice today. A `target`, by
@@ -37348,6 +40286,11 @@ The source implements a method/model the target describes.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -37396,6 +40339,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -37487,6 +40434,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -37513,7 +40465,7 @@ pub struct UserRelation {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `id` | `String` | Stable id, unique within the library. Generated once by<br>[`add_connection`] and never recomputed. |
-| `source` | `crate::graph::NodeId` | The node this relation originates from. Always an artifact node<br>identity (`artifact:<citekey>#<id>`) in the current implementation —<br>see the module docs' "Restriction accepted for v1". |
+| `source` | `crate::graph::NodeId` | The node this relation originates from: a node that belongs to a<br>paper, `artifact:<citekey>#<id>` or `paper:<citekey>` (~~always an<br>artifact node~~ CORRECTED 2026-10-07, `owning_paper` accepts both) —<br>see the module docs' "Restriction accepted for v1". |
 | `target` | `crate::graph::NodeId` | The node this relation points at. Any node identity string —<br>`paper:`, `artifact:` or `collection:`. |
 | `kind` | `RelationKind` | What kind of relationship this is. |
 
@@ -37545,6 +40497,11 @@ pub struct UserRelation {
 - **CloneToUninit**
   - ```rust
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
     ```
 
 - **Debug**
@@ -37586,6 +40543,10 @@ pub struct UserRelation {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -37669,6 +40630,11 @@ pub struct UserRelation {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -37682,11 +40648,21 @@ record nested inside the thing it starts from, so nothing about it is
 implied by where it is written. The id lives in `[kovan] id`, like every
 other artifact's.
 
+The same record is also an **anchor** (GH issue #743): a `[[relation]]`
+table on a lesson, walk-step or any other artifact, naming the code it
+explains or the literature it cites. An anchor omits `source` (it is the
+artifact the table is in) and may carry `page`, `quote` and `commit`.
+Every one of those is optional and skipped when absent, so a relation
+written before #743 re-serialises byte for byte.
+
 ```rust
 pub struct RelationRecord {
     pub source: crate::graph::NodeId,
     pub target: crate::graph::NodeId,
     pub kind: RelationKind,
+    pub page: Option<u32>,
+    pub quote: Option<String>,
+    pub commit: Option<String>,
 }
 ```
 
@@ -37694,11 +40670,26 @@ pub struct RelationRecord {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `source` | `crate::graph::NodeId` | The node this relation starts at. |
-| `target` | `crate::graph::NodeId` | The node this relation points at. |
+| `source` | `crate::graph::NodeId` | The node this relation starts at. Empty in an anchor, where it is<br>implicitly the artifact the `[[relation]]` table belongs to. |
+| `target` | `crate::graph::NodeId` | The node this relation points at: a graph id (`paper:`, `artifact:`,<br>`collection:`), a typed [`crate::node_id::NodeId`] string, or a<br>`code:` target ([`CodeTarget`]). |
 | `kind` | `RelationKind` | What kind of relationship this is. |
+| `page` | `Option<u32>` | The 1-based page of a literature target the anchor points at. |
+| `quote` | `Option<String>` | A short quotation from the target, as the reader would search for it. |
+| `commit` | `Option<String>` | The git commit a `code:` target was read at, so a later reader can<br>see the code the claim was made about. |
 
 ##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new</* synthetic */ impl Into<String>: Into<String>, /* synthetic */ impl Into<String>: Into<String>>(source: impl Into<String>, target: impl Into<String>, kind: RelationKind) -> Self { /* ... */ }
+  ```
+  A record with only `source`, `target` and `kind`: the shape every
+
+- ```rust
+  pub fn code_target(self: &Self) -> Option<CodeTarget> { /* ... */ }
+  ```
+  The `code:` target, when the target is one.
 
 ###### Trait Implementations
 
@@ -37726,6 +40717,11 @@ pub struct RelationRecord {
 - **CloneToUninit**
   - ```rust
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
     ```
 
 - **Debug**
@@ -37775,6 +40771,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -37866,6 +40866,503 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Enum `Relations`
+
+**Attributes:**
+
+- `Other("#[serde(untagged)]")`
+
+An artifact's `relation` key, in the shape it was written
+([`crate::artifact::ArtifactToml::relation`]).
+
+Untagged, so each shape reads from and writes back to its own TOML form:
+a single `[relation]` table, or an array of `[[relation]]` tables.
+
+```rust
+pub enum Relations {
+    One(RelationRecord),
+    Many(Vec<RelationRecord>),
+}
+```
+
+##### Variants
+
+###### `One`
+
+`[relation]`: the body of a `kind = "relation"` artifact.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `RelationRecord` |  |
+
+###### `Many`
+
+`[[relation]]`: an artifact's anchors (GH issue #743).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<RelationRecord>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn records(self: &Self) -> &[RelationRecord] { /* ... */ }
+  ```
+  The records, in file order.
+
+- ```rust
+  pub fn records_mut(self: &mut Self) -> &mut [RelationRecord] { /* ... */ }
+  ```
+  The records, mutably.
+
+- ```rust
+  pub fn one(self: &Self) -> Option<&RelationRecord> { /* ... */ }
+  ```
+  The single record of a relation artifact; `None` for the array form.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Relations { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Relations) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SerializableAny**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `CodeTarget`
+
+A `code:` relation target (GH issue #743), in the code-walk path form:
+
+```text
+code:<path/to/file.rs>::<Type::name>[@L<line>]
+code:crates/boon-lay/src/release.rs::FuelParticle::release_fraction
+code:crates/kovan/src/artifact.rs::parse_document@L640
+```
+
+`@L<line>` is optional and only disambiguates two items with the same
+path in one file, such as `cfg` twins (GH issue #739). The path is
+repo-relative. Kovan does not resolve the target yet; desktop kovan shows
+it as a link card with no navigation, which arrives with web-kovan.
+
+```rust
+pub struct CodeTarget {
+    pub file: String,
+    pub item: String,
+    pub line: Option<u32>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `file` | `String` | The repo-relative file path, e.g. `crates/kovan/src/artifact.rs`. |
+| `item` | `String` | The item path inside the file, e.g. `Artifact::csv_block`. |
+| `line` | `Option<u32>` | The 1-based line that disambiguates same-named items, if given. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn parse(target: &str) -> Option<Self> { /* ... */ }
+  ```
+  Read `code:<file>::<item>[@L<line>]`. `None` for anything else,
+
+- ```rust
+  pub fn is_code(target: &str) -> bool { /* ... */ }
+  ```
+  Whether `target` is in the `code:` namespace at all (well-formed or
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CodeTarget { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CodeTarget) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToCompactString**
+  - ```rust
+    fn try_to_compact_string(self: &Self) -> Result<CompactString, ToCompactStringError> { /* ... */ }
+    ```
+
+- **ToLine**
+  - ```rust
+    fn to_line(self: &Self) -> Line<''_> { /* ... */ }
+    ```
+
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToSmolStr**
+  - ```rust
+    fn to_smolstr(self: &Self) -> SmolStr { /* ... */ }
+    ```
+
+- **ToSpan**
+  - ```rust
+    fn to_span(self: &Self) -> Span<''_> { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **ToText**
+  - ```rust
+    fn to_text(self: &Self) -> Text<''_> { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -37892,8 +41389,10 @@ pub enum RelationError {
 
 ###### `SourceNotArtifact`
 
-`source` did not parse as `artifact:<citekey>#<id>` — only an
-artifact node may be a relation's source (see the module docs).
+`source` does not belong to a paper: it is neither
+`artifact:<citekey>#<id>` nor `paper:<citekey>` (see the module docs;
+~~only an artifact node~~ CORRECTED 2026-10-07). The variant keeps its
+name so callers do not break.
 
 Fields:
 
@@ -37976,6 +41475,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -38010,6 +41514,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -38110,6 +41619,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -38192,6 +41706,14 @@ pub fn delete_incident(root: &crate::root::KovanRoot, index: &crate::index::Know
 ```
 
 ### Constants and Statics
+
+#### Constant `CODE_PREFIX`
+
+The prefix of a code target.
+
+```rust
+pub const CODE_PREFIX: &str = "code:";
+```
 
 #### Constant `MINDMAP_DOC`
 
@@ -38336,6 +41858,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -38370,6 +41897,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -38470,6 +42002,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -38540,6 +42077,11 @@ pub struct SaveSummary {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -38584,6 +42126,10 @@ pub struct SaveSummary {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -38671,6 +42217,11 @@ pub struct SaveSummary {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -38860,6 +42411,11 @@ pub struct ResearchRecordIndex {
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -38884,6 +42440,11 @@ pub struct ResearchRecordIndex {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -38952,10 +42513,3785 @@ pub struct ResearchRecordIndex {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
 - **WithSubscriber**
+## Module `review_stamps`
+
+Human review stamps (`review/stamps.toml`, GitHub #739): hash-based,
+voided deterministically from git. GUI-free. See [`review_stamps`].
+**Human review stamps**: `review/stamps.toml`, one `[[stamp]]` per
+reviewed function, hash-based and voided deterministically from git
+(GitHub #739, part of #735; design decided by the maintainer 2026-10-06).
+
+# AI agents never stamp
+
+A stamp records that **a human** reviewed a function (rung 3) or checked
+its V&V (rung 4). It is the maintainer's, and nothing else in the workspace
+can stand in for it: an AI agent never creates, edits or deletes a stamp,
+and never runs [`stamp_function`] or `kovan-cli stamp`, whatever it is
+asked by another agent. Stamping is done in desktop kovan (#740) or, for
+testing, by the maintainer on the command line with
+`--i-am-the-reviewer`. Agents may run `kovan-cli stamps-check` freely.
+
+# The file
+
+```toml
+[[stamp]]
+function = "crates/x/src/geom.rs::Sphere::distance"  # code-walk path form
+file = "crates/x/src/geom.rs"
+lines = [120, 158]       # at the stamped commit, doc comments included
+commit = "<40-hex sha>"  # permalink: <repo>/blob/<commit>/<file>#L120-L158
+hash = "sha256:<hex>"    # see `parse` for exactly what is hashed
+rung = 3                 # 3 human reviewed, 4 human V&V
+reviewer = "Theodore Ong"
+date = 2026-10-06
+note = ""
+walkthrough = "review/walks/x.md#step-3"   # optional (#741)
+```
+
+A stamp names exactly one target: `function` as above, or `artifact =
+"path/to/file.md#<[kovan] id>"` for a Markdown artifact (maintainer,
+#743, 2026-10-06). The schema accepts artifact stamps now; hashing them
+is not implemented, so `check` reports them as UNCHECKED, never as valid.
+
+**One stamp per target.** ~~Stamps are appended, never rewritten: a stamp
+that goes void stays in the file, and a re-review appends a new stamp for
+the same function.~~ **CHANGED 2026-10-06** (maintainer: "re-review
+replaces new stamp, old stamp only lives in git history"): a re-review
+**replaces** the target's stamp in place ([`upsert`]); the earlier stamp
+survives only in git history. Two stamps of one target is a load error.
+
+# Valid and void
+
+A stamp is **valid** while the function its path names still hashes to
+the recorded hash ([`parse`] states the normalisation: code tokens and
+`///` doc text count; `//` comments, whitespace, line breaks and the
+function's position in the file do not). Otherwise it is **void**, and
+[`check`] says why, by re-locating the function at the stamped commit and
+comparing the two parts: code changed, doc comment changed, both, function
+not found, path ambiguous, file missing, or file not parseable.
+
+Every void stamp in scope is a failure (there is no superseded state, since
+a re-review replaces the stamp), and `kovan-cli stamps-check` exits
+non-zero, so CI can gate on it. With `--diff A..B` only stamps whose
+function lines the diff touches (at `A` or at `B`) are in scope, and they
+are judged at `B`; without it every stamp is judged on the working tree.
+
+[`levels`] turns valid stamps into the derived maturity of a crate's
+tagged parts (#733, #735).
+
+```rust
+pub mod review_stamps { /* ... */ }
+```
+
+### Modules
+
+## Module `git`
+
+The few `git` queries the stamps need, through the `git` command line
+(as `advanced_git` and `corpus_repos` do): file content at a revision,
+whether a file is clean, `HEAD`, and the changed line ranges of a diff.
+
+Every path is relative to the workspace directory, `/`-separated; `git`
+runs with that directory as its working directory, `rev:./path` reads a
+file relative to it and `git diff --relative` reports paths relative to it,
+so a workspace checked out inside another repository still works.
+
+```rust
+pub mod git { /* ... */ }
+```
+
+### Types
+
+#### Struct `Hunk`
+
+One hunk of a zero-context diff: the old and new line ranges, 1-based
+`(start, count)`. A count of zero is a pure insertion or deletion; the
+other side then carries the lines.
+
+```rust
+pub struct Hunk {
+    pub old: (u32, u32),
+    pub new: (u32, u32),
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `old` | `(u32, u32)` |  |
+| `new` | `(u32, u32)` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn touches_old(self: &Self, a: u32, b: u32) -> bool { /* ... */ }
+  ```
+  Whether the hunk changes any old line in `[a, b]`.
+
+- ```rust
+  pub fn touches_new(self: &Self, a: u32, b: u32) -> bool { /* ... */ }
+  ```
+  Whether the hunk changes any new line in `[a, b]`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Hunk { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Hunk) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `git`
+
+Run `git` in `dir`; stdout on success, the command and stderr otherwise.
+
+```rust
+pub fn git(dir: &std::path::Path, args: &[&str]) -> Result<String, String> { /* ... */ }
+```
+
+#### Function `rev_parse`
+
+The full commit id `rev` names.
+
+```rust
+pub fn rev_parse(dir: &std::path::Path, rev: &str) -> Result<String, String> { /* ... */ }
+```
+
+#### Function `show`
+
+`file` (relative to `dir`) as it is at `rev`, or `None` when the
+revision does not contain it (or the revision is not in this clone).
+
+```rust
+pub fn show(dir: &std::path::Path, rev: &str, file: &str) -> Option<String> { /* ... */ }
+```
+
+#### Function `is_dirty`
+
+Whether `file` differs from `HEAD` in the index or the working tree, or
+is untracked.
+
+```rust
+pub fn is_dirty(dir: &std::path::Path, file: &str) -> Result<bool, String> { /* ... */ }
+```
+
+#### Function `resolve_range`
+
+The two revisions a `--diff` range compares: `A..B`, `A...B` (from the
+merge base) or `A..` / `A...` (to `HEAD`). Both resolved to commit ids.
+
+```rust
+pub fn resolve_range(dir: &std::path::Path, range: &str) -> Result<(String, String), String> { /* ... */ }
+```
+
+#### Function `diff_hunks`
+
+The changed hunks per file between two commits, from
+`git diff --unified=0 --no-renames --relative`: a renamed file is a
+deletion plus an addition, so a stamp on the old path is in scope.
+Paths are relative to `dir`.
+
+```rust
+pub fn diff_hunks(dir: &std::path::Path, old: &str, new: &str) -> Result<std::collections::BTreeMap<String, Vec<Hunk>>, String> { /* ... */ }
+```
+
+#### Function `parse_diff`
+
+Parse unified-diff text into hunks per file. A file is keyed by its old
+path when it has one (a deletion or modification) and by its new path
+otherwise; with `--no-renames` the two are the same for a modification.
+
+```rust
+pub fn parse_diff(text: &str) -> std::collections::BTreeMap<String, Vec<Hunk>> { /* ... */ }
+```
+
+## Module `levels`
+
+**Derived maturity** from valid stamps (#739 feeding #735): for one
+crate, is each human-rung claim in its `Cargo.toml` tag backed by stamps?
+
+The tag (#733, parsed by [`crate::code_map`]) gives the crate's
+`maturity` (its lowest part) and `maturity_modules` (modules rated
+higher). Rungs 0-2 are AI rungs that stamps do not speak to; rungs 3
+(human reviewed) and 4 (human V&V) are what a stamp records. So a claim
+at rung 3 or 4 is **SUPPORTED** when every function in its scope has a
+valid stamp at that rung or higher, and **UNSUPPORTED** otherwise, with
+the functions that fall short listed. A claim at rung 0-2 is reported as
+not applicable.
+
+**Scope.** The crate claim covers the library: `lib.rs` in the library's
+folder and every module reachable from it through `mod name;` and inline
+`mod name { ... }`. A module claim covers that module and its
+submodules. Excluded: `#[cfg(test)]` modules and `#[test]` functions (the
+tests are not the code being reviewed), examples, binaries, and
+integration tests. A `mod` with a `#[path]` attribute is not followed and
+is listed as a problem, which makes a claim unsupported rather than
+silently smaller. A module with no functions (constants and types only)
+cannot be supported by stamps yet, and says so.
+
+This only reports. It never edits a `Cargo.toml`.
+
+```rust
+pub mod levels { /* ... */ }
+```
+
+### Types
+
+#### Enum `Support`
+
+Whether a claim is backed by stamps.
+
+```rust
+pub enum Support {
+    Supported,
+    Unsupported(String),
+    NotApplicable,
+}
+```
+
+##### Variants
+
+###### `Supported`
+
+###### `Unsupported`
+
+Why not, in one line.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotApplicable`
+
+Rungs 0-2: stamps record human review only.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Support { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Support) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `Claim`
+
+One claim from the tag, judged.
+
+```rust
+pub struct Claim {
+    pub scope: String,
+    pub level: u8,
+    pub functions: usize,
+    pub at_level: usize,
+    pub below_level: Vec<String>,
+    pub void: Vec<String>,
+    pub unstamped: Vec<String>,
+    pub problems: Vec<String>,
+    pub support: Support,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `scope` | `String` | `crate`, or the module path from the library root (`a::b`). |
+| `level` | `u8` |  |
+| `functions` | `usize` | Functions in scope (tests excluded). |
+| `at_level` | `usize` | Functions with a valid stamp at `level` or above. |
+| `below_level` | `Vec<String>` | `file::Type::name`, valid stamp below `level`. |
+| `void` | `Vec<String>` | `file::Type::name`, only void stamps. |
+| `unstamped` | `Vec<String>` | `file::Type::name`, never stamped. |
+| `problems` | `Vec<String>` | Modules not found or not followed, files that do not parse. |
+| `support` | `Support` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Claim { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Claim) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `DerivedLevels`
+
+The derived levels of one crate.
+
+```rust
+pub struct DerivedLevels {
+    pub crate_name: String,
+    pub claims: Vec<Claim>,
+    pub from_stamps: Option<u8>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `crate_name` | `String` |  |
+| `claims` | `Vec<Claim>` | The crate claim first, then each `maturity_modules` entry in order. |
+| `from_stamps` | `Option<u8>` | The lowest valid rung over every library function, when every one has<br>a valid stamp; `None` otherwise (stamps cannot place the crate). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DerivedLevels { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DerivedLevels) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `derived_levels`
+
+[`derived_levels_for`] the crate `crate_name` of the workspace at
+`workspace`, its tag read through `cargo metadata`.
+
+```rust
+pub fn derived_levels(workspace: &std::path::Path, crate_name: &str) -> Result<DerivedLevels, String> { /* ... */ }
+```
+
+#### Function `derived_levels_for`
+
+The derived levels of `node`, judged on the working tree's stamps.
+
+```rust
+pub fn derived_levels_for(workspace: &std::path::Path, node: &crate::code_map::CrateNode) -> Result<DerivedLevels, String> { /* ... */ }
+```
+
+#### Function `render`
+
+The report `kovan-cli stamps-levels` prints.
+
+```rust
+pub fn render(d: &DerivedLevels) -> String { /* ... */ }
+```
+
+## Module `parse`
+
+Finding a function in one Rust source file with a real parser (`syn`),
+and the normalised text a stamp's hash is taken over.
+
+# Which functions exist
+
+Every `fn` item the parser sees at item level: free functions, methods in
+`impl` blocks, and trait methods (with or without a default body), at any
+depth of inline `mod name { ... }`. A function nested inside another
+function's body is part of that function's code, not an item of its own,
+so it cannot be stamped by itself. (`code-walk`'s text scanner does see
+nested `fn`s; that is the one place the two differ.)
+
+# How a path names one
+
+Exactly as `kovan-cli code-walk` names it (`commands/code_walk/source.rs`
+`FileIndex::find`): `name` matches every function so named in the file;
+`Owner::name` matches a method whose `impl` self type, or whose trait,
+has the last path segment `Owner` (generics and references dropped), or a
+method declared in `trait Owner`. More than one match is an ambiguity, and
+the caller is told to qualify the path.
+
+# The normalisation the hash is taken over
+
+A function's stamp text has two parts, built from the parsed item:
+
+- **Doc**: the item's own outer doc attributes, in order — every `///`
+  line and `/** */` block (the compiler turns both into
+  `#[doc = "..."]`), and any `#[doc = "literal"]` written out. The text of
+  all of them is split into lines; a line that is blank after trimming is
+  a paragraph break; within a paragraph the words are joined by single
+  spaces. So re-wrapping or re-indenting a doc paragraph keeps the text,
+  while changing, adding, removing or reordering a word, or adding or
+  removing a paragraph break, changes it.
+- **Code**: every other token of the item — its other attributes
+  (`#[inline]`, `#[cfg(...)]`, a non-literal `#[doc = ...]`), visibility,
+  signature and body — as the parser's token trees, each written as its
+  text followed by one space: identifiers and literals as written
+  (`1.0` and `1.` differ, as do `"a"` and `r"a"`), punctuation one
+  character at a time with its joint/alone spacing dropped, and groups as
+  their delimiter, contents, closing delimiter. Ordinary comments (`//`,
+  `/* */`) never reach the token stream, and neither does any whitespace
+  or line break, so rustfmt-style reformatting and comment edits leave the
+  code text unchanged; changing any token changes it. Doc comments on
+  items *nested inside the body* stay as `#[doc = "..."]` tokens of the
+  code.
+
+Neither part depends on where the function sits in the file, so moving a
+function keeps its stamp; the line numbers are reported separately.
+
+```rust
+pub mod parse { /* ... */ }
+```
+
+### Types
+
+#### Enum `Container`
+
+The block a function is declared in.
+
+```rust
+pub enum Container {
+    Free,
+    Impl {
+        self_ty: String,
+        trait_name: Option<String>,
+    },
+    Trait {
+        name: String,
+    },
+}
+```
+
+##### Variants
+
+###### `Free`
+
+A free function, at file level or inside an inline `mod`.
+
+###### `Impl`
+
+Inside `impl Type` or `impl Trait for Type`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `self_ty` | `String` |  |
+| `trait_name` | `Option<String>` |  |
+
+###### `Trait`
+
+Declared in `trait Name { ... }`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Container { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Container) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `FnEntry`
+
+One function found in a file.
+
+```rust
+pub struct FnEntry {
+    pub name: String,
+    pub container: Container,
+    pub lines: [u32; 2],
+    pub doc: String,
+    pub code: String,
+    pub is_test: bool,
+    pub inline_parents: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` |  |
+| `container` | `Container` |  |
+| `lines` | `[u32; 2]` | 1-based inclusive line range, from the first outer attribute (doc<br>comments included) to the closing brace or `;`. |
+| `doc` | `String` | The normalised doc text (module doc above). |
+| `code` | `String` | The normalised code text (module doc above). |
+| `is_test` | `bool` | Inside a `#[cfg(test)]` module, or itself `#[test]` / `#[cfg(test)]`. |
+| `inline_parents` | `Vec<String>` | Inline modules enclosing the function, outermost first. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn qualname(self: &Self) -> String { /* ... */ }
+  ```
+  `Type::name` for a method, `Trait::name` for a trait declaration,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FnEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FnEntry) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `ModDecl`
+
+A `mod name;` declaration (no inline body) found in a file.
+
+```rust
+pub struct ModDecl {
+    pub inline_parents: Vec<String>,
+    pub name: String,
+    pub is_test: bool,
+    pub has_path_attr: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inline_parents` | `Vec<String>` | Inline modules enclosing the declaration, outermost first. |
+| `name` | `String` |  |
+| `is_test` | `bool` | Under `#[cfg(test)]` (directly or through an enclosing module). |
+| `has_path_attr` | `bool` | Carries a `#[path = ...]` attribute, which this module does not follow. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ModDecl { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ModDecl) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `ParsedFile`
+
+Everything parsed out of one file.
+
+```rust
+pub struct ParsedFile {
+    pub fns: Vec<FnEntry>,
+    pub mods: Vec<ModDecl>,
+    pub inline_mods: Vec<Vec<String>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fns` | `Vec<FnEntry>` |  |
+| `mods` | `Vec<ModDecl>` |  |
+| `inline_mods` | `Vec<Vec<String>>` | Every inline `mod name { ... }`, as its full inline path. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ParsedFile { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ParsedFile { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **ReadPrimitive**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Enum `LocateError`
+
+Why a path did not name exactly one function.
+
+```rust
+pub enum LocateError {
+    Parse(String),
+    NotFound,
+    Ambiguous(Vec<String>),
+}
+```
+
+##### Variants
+
+###### `Parse`
+
+The file is not valid Rust as far as `syn` can tell.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotFound`
+
+###### `Ambiguous`
+
+Several functions match; their qualified names and first lines.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<String>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LocateError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LocateError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToCompactString**
+  - ```rust
+    fn try_to_compact_string(self: &Self) -> Result<CompactString, ToCompactStringError> { /* ... */ }
+    ```
+
+- **ToLine**
+  - ```rust
+    fn to_line(self: &Self) -> Line<''_> { /* ... */ }
+    ```
+
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToSmolStr**
+  - ```rust
+    fn to_smolstr(self: &Self) -> SmolStr { /* ... */ }
+    ```
+
+- **ToSpan**
+  - ```rust
+    fn to_span(self: &Self) -> Span<''_> { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **ToText**
+  - ```rust
+    fn to_text(self: &Self) -> Text<''_> { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `parse_file`
+
+Parse `text` and list its functions and `mod name;` declarations.
+
+```rust
+pub fn parse_file(text: &str) -> Result<ParsedFile, String> { /* ... */ }
+```
+
+#### Function `locate`
+
+The one function `qual` (`name` or `Owner::name`) names in `text`.
+
+```rust
+pub fn locate(text: &str, qual: &str) -> Result<FnEntry, LocateError> { /* ... */ }
+```
+
+#### Function `matches`
+
+`code-walk`'s matching rule (module doc).
+
+```rust
+pub fn matches(f: &FnEntry, qual: &str) -> bool { /* ... */ }
+```
+
+#### Function `stamp_hash`
+
+The stamp hash of a function's normalised doc and code text:
+`sha256:` and the lowercase hex SHA-256 of
+`"kovan-review-stamp-v1\ndoc\n" + doc + "\ncode\n" + code`.
+
+```rust
+pub fn stamp_hash(doc: &str, code: &str) -> String { /* ... */ }
+```
+
+#### Function `normalise_doc`
+
+Paragraphs of single-spaced words, separated by a blank line.
+
+```rust
+pub fn normalise_doc(docs: &[String]) -> String { /* ... */ }
+```
+
+### Types
+
+#### Enum `Target`
+
+What a stamp is of: exactly one of `function` or `artifact` is set.
+
+```rust
+pub enum Target {
+    Function(String),
+    Artifact(String),
+}
+```
+
+##### Variants
+
+###### `Function`
+
+`path/to/file.rs::name` or `path/to/file.rs::Type::name`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Artifact`
+
+`path/to/file.md#<[kovan] id>`: a Markdown `#` block with a `[kovan]`
+TOML block (maintainer, #743, 2026-10-06). Its hash will cover the
+block from its heading to the next `#`, without the generated
+`## Review: …` sign-off line. **Not checked yet**: the schema accepts
+it so that stamps are not function-only, and `check` reports such a
+stamp as [`Verdict::Unchecked`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Target { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Target) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `Stamp`
+
+One review stamp (module doc).
+
+```rust
+pub struct Stamp {
+    pub function: Option<String>,
+    pub artifact: Option<String>,
+    pub file: String,
+    pub lines: [u32; 2],
+    pub commit: String,
+    pub hash: String,
+    pub rung: u8,
+    pub reviewer: String,
+    pub date: toml::value::Datetime,
+    pub note: String,
+    pub walkthrough: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `function` | `Option<String>` | `path/to/file.rs::name` or `path/to/file.rs::Type::name`. |
+| `artifact` | `Option<String>` | `path/to/file.md#id` ([`Target::Artifact`]); exclusive with `function`. |
+| `file` | `String` |  |
+| `lines` | `[u32; 2]` | 1-based inclusive line range at `commit`, doc comments included. |
+| `commit` | `String` | The full commit id the stamp was taken at. |
+| `hash` | `String` | `sha256:<hex>` ([`parse::stamp_hash`]). |
+| `rung` | `u8` | 3 human reviewed, 4 human V&V. |
+| `reviewer` | `String` |  |
+| `date` | `toml::value::Datetime` |  |
+| `note` | `String` |  |
+| `walkthrough` | `Option<String>` | `review/walks/<file>.md#step-N` (#741). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn target(self: &Self) -> Option<Target> { /* ... */ }
+  ```
+  The function or artifact stamped; `None` when the record sets both
+
+- ```rust
+  pub fn target_name(self: &Self) -> &str { /* ... */ }
+  ```
+  The `function` or `artifact` string, for display and matching.
+
+- ```rust
+  pub fn permalink(self: &Self, repo_url: &str) -> String { /* ... */ }
+  ```
+  `<repo>/blob/<commit>/<file>#L<a>-L<b>`: the code as it was stamped.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Stamp { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Stamp) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SerializableAny**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Enum `Scope`
+
+Which stamps a check covers.
+
+```rust
+pub enum Scope {
+    All,
+    Diff(String),
+}
+```
+
+##### Variants
+
+###### `All`
+
+Every stamp, judged on the working tree.
+
+###### `Diff`
+
+Only stamps whose function lines the diff of this range touches,
+judged at the range's end (`A..B`, `A...B`, `A..`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Scope { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Scope) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Enum `VoidReason`
+
+Why a stamp is void.
+
+```rust
+pub enum VoidReason {
+    CodeChanged,
+    DocChanged,
+    CodeAndDocChanged,
+    Changed,
+    FunctionNotFound,
+    Ambiguous(Vec<String>),
+    FileMissing,
+    FileDoesNotParse(String),
+}
+```
+
+##### Variants
+
+###### `CodeChanged`
+
+The code tokens changed; the doc text did not.
+
+###### `DocChanged`
+
+The `///` doc text changed; the code did not.
+
+###### `CodeAndDocChanged`
+
+###### `Changed`
+
+The hash differs, and the stamped commit is not in this clone (or
+the function cannot be found there), so which part changed is unknown.
+
+###### `FunctionNotFound`
+
+The file no longer contains a function the path names.
+
+###### `Ambiguous`
+
+The path now names several functions.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<String>` |  |
+
+###### `FileMissing`
+
+###### `FileDoesNotParse`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> VoidReason { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &VoidReason) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToCompactString**
+  - ```rust
+    fn try_to_compact_string(self: &Self) -> Result<CompactString, ToCompactStringError> { /* ... */ }
+    ```
+
+- **ToLine**
+  - ```rust
+    fn to_line(self: &Self) -> Line<''_> { /* ... */ }
+    ```
+
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToSmolStr**
+  - ```rust
+    fn to_smolstr(self: &Self) -> SmolStr { /* ... */ }
+    ```
+
+- **ToSpan**
+  - ```rust
+    fn to_span(self: &Self) -> Span<''_> { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **ToText**
+  - ```rust
+    fn to_text(self: &Self) -> Text<''_> { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Enum `Verdict`
+
+The verdict on one stamp.
+
+```rust
+pub enum Verdict {
+    Valid,
+    Void(VoidReason),
+    Unchecked(String),
+}
+```
+
+##### Variants
+
+###### `Valid`
+
+###### `Void`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `VoidReason` |  |
+
+###### `Unchecked`
+
+Not judged, with the reason: an artifact stamp, whose hashing is not
+implemented yet (#743). Neither valid nor a failure; counted apart.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Verdict { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Verdict) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `StampCheck`
+
+One stamp, checked.
+
+```rust
+pub struct StampCheck {
+    pub index: usize,
+    pub stamp: Stamp,
+    pub verdict: Verdict,
+    pub now_lines: Option<[u32; 2]>,
+    pub qualname: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` | 0-based position in `stamps.toml`. |
+| `stamp` | `Stamp` |  |
+| `verdict` | `Verdict` |  |
+| `now_lines` | `Option<[u32; 2]>` | Where the function is now, when it is found. |
+| `qualname` | `Option<String>` | `Type::name` / `name` of the function found, when found. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_failure(self: &Self) -> bool { /* ... */ }
+  ```
+  Void: what makes `stamps-check` fail.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> StampCheck { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &StampCheck) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `CheckReport`
+
+The result of [`check`].
+
+```rust
+pub struct CheckReport {
+    pub recorded: usize,
+    pub judged_at: String,
+    pub range: Option<(String, String)>,
+    pub checked: Vec<StampCheck>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `recorded` | `usize` | Stamps in `stamps.toml`. |
+| `judged_at` | `String` | What the stamps were judged against: `working tree`, or a commit id. |
+| `range` | `Option<(String, String)>` | `None` for [`Scope::All`]; the resolved `old..new` for a diff. |
+| `checked` | `Vec<StampCheck>` | The stamps in scope, in file order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn failures(self: &Self) -> impl Iterator<Item = &StampCheck> { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CheckReport { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CheckReport) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `load`
+
+Every stamp in `<workspace>/review/stamps.toml`, in file order; none when
+the file does not exist. A malformed stamp is an error naming it.
+
+```rust
+pub fn load(workspace: &std::path::Path) -> Result<Vec<Stamp>, String> { /* ... */ }
+```
+
+#### Function `upsert`
+
+Writes `stamp` into `<workspace>/review/stamps.toml`: it **replaces** the
+existing stamp of the same target in place, or is added at the end when
+the target has none (maintainer, 2026-10-06: a re-review replaces the
+stamp; the old one lives only in git history). The file is rewritten as
+[`TEMPLATE`] plus one `[[stamp]]` block per stamp, in file order, so the
+same stamps always give the same bytes. Creates the file and the
+`review/` folder when missing.
+
+```rust
+pub fn upsert(workspace: &std::path::Path, stamp: &Stamp) -> Result<(), String> { /* ... */ }
+```
+
+#### Function `stamp_function`
+
+**Creates a stamp: for desktop kovan's Review action (#740) and the
+maintainer only. AI agents must never call this** (module doc).
+
+Locates `function_path` (code-walk form) in the file as committed at
+`HEAD`, records its lines, `HEAD`'s commit id and its hash, dates it
+today (UTC), writes it to `review/stamps.toml` ([`upsert`]: replacing the
+function's earlier stamp, if any) and returns it. Refuses
+when `rung` is not 3 or 4, the reviewer is blank, the path does not name
+exactly one function, or the function's file has uncommitted changes
+(staged, unstaged or untracked) — so the hash and the permalink are of
+code anyone can see at that commit.
+
+```rust
+pub fn stamp_function(workspace: &std::path::Path, function_path: &str, rung: u8, reviewer: &str, note: &str) -> Result<Stamp, String> { /* ... */ }
+```
+
+#### Function `check`
+
+Re-hash the stamped functions in `scope` (module doc). Never writes.
+
+```rust
+pub fn check(workspace: &std::path::Path, scope: &Scope) -> Result<CheckReport, String> { /* ... */ }
+```
+
+#### Function `render_report`
+
+The report `kovan-cli stamps-check` prints: one line per stamp in scope,
+then a summary line. Deterministic for a given repository state.
+
+```rust
+pub fn render_report(r: &CheckReport, repo_url: &str) -> String { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `STAMPS_FILE`
+
+Where the stamps live, relative to the workspace root.
+
+```rust
+pub const STAMPS_FILE: &str = "review/stamps.toml";
+```
+
+#### Constant `DEFAULT_REPO_URL`
+
+The repository permalinks point into (shared with `code-walk`).
+
+```rust
+pub const DEFAULT_REPO_URL: &str = crate::commands::code_walk::render::DEFAULT_REPO_URL;
+```
+
+#### Constant `TEMPLATE`
+
+The header a new `review/stamps.toml` starts with.
+
+```rust
+pub const TEMPLATE: &str = "\
+# Human review stamps (GitHub #739). One [[stamp]] per reviewed function.
+#
+# Written by desktop kovan's Review action (or, for testing, by the maintainer
+# with `kovan-cli stamp ... --i-am-the-reviewer`). AI AGENTS NEVER STAMP: a
+# stamp records a HUMAN review, and only the maintainer adds one.
+#
+# Never edit or delete a stamp by hand. `kovan-cli stamps-check` reports a
+# stamp whose function has changed as VOID. One stamp per function: a
+# re-review REPLACES its stamp here, and the earlier one lives only in git
+# history.
+#
+# Fields: function (code-walk path) OR artifact (file.md#id, not checked
+# yet), file, lines = [start, end] and commit
+# (the permalink to the stamped code), hash (sha256 of the function's code
+# tokens and /// doc text; see crates/kovan/src/review_stamps/parse.rs),
+# rung (3 human reviewed, 4 human V&V), reviewer, date, note, and an
+# optional walkthrough link (review/walks/<file>.md#step-N).
+";
+```
+
+### Re-exports
+
+#### Re-export `derived_levels`
+
+```rust
+pub use levels::derived_levels;
+```
+
+#### Re-export `derived_levels_for`
+
+```rust
+pub use levels::derived_levels_for;
+```
+
+#### Re-export `Claim`
+
+```rust
+pub use levels::Claim;
+```
+
+#### Re-export `DerivedLevels`
+
+```rust
+pub use levels::DerivedLevels;
+```
+
+#### Re-export `Support`
+
+```rust
+pub use levels::Support;
+```
+
 ## Module `recent`
 
 Recently opened papers — local, derived state in `.kovan/`, surfaced
@@ -39070,6 +46406,11 @@ pub struct RecentPapers {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -39122,6 +46463,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -39217,6 +46562,11 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -39451,6 +46801,11 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -39485,6 +46840,11 @@ Fields:
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -39585,6 +46945,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -39637,6 +47002,11 @@ pub struct LibraryMeta {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -39684,6 +47054,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -39775,6 +47149,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -39846,6 +47225,11 @@ pub struct RootPaths {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -39898,6 +47282,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -39995,6 +47383,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -40058,6 +47451,11 @@ pub struct PrivateSubmoduleConfig {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -40105,6 +47503,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -40196,6 +47598,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -40261,6 +47668,11 @@ pub struct CorporaConfig {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -40313,6 +47725,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -40410,6 +47826,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -40470,6 +47891,11 @@ pub struct SaveConfig {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -40522,6 +47948,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -40619,6 +48049,11 @@ where
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -40698,6 +48133,11 @@ pub struct RootConfig {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -40745,6 +48185,10 @@ where
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -40834,6 +48278,11 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -41066,6 +48515,11 @@ pub struct KovanRoot {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -41105,6 +48559,10 @@ pub struct KovanRoot {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -41186,6 +48644,11 @@ pub struct KovanRoot {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -41371,6 +48834,11 @@ anyone filed it there.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -41411,6 +48879,10 @@ anyone filed it there.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -41494,6 +48966,11 @@ anyone filed it there.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -41550,6 +49027,11 @@ pub struct RuntimeConcept {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -41589,6 +49071,10 @@ pub struct RuntimeConcept {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -41672,6 +49158,11 @@ pub struct RuntimeConcept {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -41744,6 +49235,17 @@ top, where there is nowhere to go.
 
 ```rust
 pub fn up_one_level(current: Option<&crate::node_id::NodeId>) -> Option<Option<crate::node_id::NodeId>> { /* ... */ }
+```
+
+#### Function `parent_of`
+
+The concept one level above `id`, canonicalised: the path's parent, or
+for a level-1 corpus issue the corpus root ([`corpus::ROOT_TOPIC`]),
+whose path is not a prefix of theirs (2026-10-06: the standard map's
+paths are the concept paths, with no root segment). `None` at the top.
+
+```rust
+pub fn parent_of(id: &crate::node_id::NodeId) -> Option<crate::node_id::NodeId> { /* ... */ }
 ```
 
 #### Function `canonical_concept`
@@ -41958,6 +49460,11 @@ The Kovan folder's own repository.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -41998,6 +49505,10 @@ The Kovan folder's own repository.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -42079,6 +49590,11 @@ The Kovan folder's own repository.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -42206,6 +49722,11 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -42245,6 +49766,10 @@ Fields:
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -42328,6 +49853,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -42391,6 +49921,11 @@ pub struct RepoPush {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -42430,6 +49965,10 @@ pub struct RepoPush {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -42513,6 +50052,11 @@ pub struct RepoPush {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -42592,6 +50136,11 @@ pub struct PushReport {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -42636,6 +50185,10 @@ pub struct PushReport {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -42725,6 +50278,11 @@ pub struct PushReport {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -42798,6 +50356,11 @@ The read-only standard corpus.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -42838,6 +50401,10 @@ The read-only standard corpus.
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -42919,6 +50486,11 @@ The read-only standard corpus.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -43063,6 +50635,11 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -43102,6 +50679,10 @@ Fields:
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -43185,6 +50766,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -43248,6 +50834,11 @@ pub struct CorpusPull {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -43287,6 +50878,10 @@ pub struct CorpusPull {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -43368,6 +50963,11 @@ pub struct CorpusPull {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -43555,6 +51155,11 @@ pub struct PdfJumpTarget {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -43585,6 +51190,11 @@ pub struct PdfJumpTarget {
 - **DowncastSync**
   - ```rust
     fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -43668,6 +51278,11 @@ pub struct PdfJumpTarget {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -43749,6 +51364,11 @@ pub struct SyncController {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -43794,6 +51414,10 @@ pub struct SyncController {
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -43881,6 +51505,11 @@ pub struct SyncController {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -43998,6 +51627,11 @@ Absorbed the standalone `kovan-digitise-tui` binary on 2026-08-21
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -44043,6 +51677,10 @@ Absorbed the standalone `kovan-digitise-tui` binary on 2026-08-21
 
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -44132,6 +51770,11 @@ Absorbed the standalone `kovan-digitise-tui` binary on 2026-08-21
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -44192,6 +51835,11 @@ pub struct App {
     ```
 
 - **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
 - **Default**
   - ```rust
     fn default() -> App { /* ... */ }
@@ -44216,6 +51864,11 @@ pub struct App {
 
   - ```rust
     fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -44290,6 +51943,11 @@ pub struct App {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WithSubscriber**
 ### Functions
@@ -44303,5 +51961,1859 @@ error can leave the user's terminal in raw mode).
 
 ```rust
 pub fn run() -> std::io::Result<()> { /* ... */ }
+```
+
+## Module `zotero`
+
+Zotero import into a Kovan folder and export from it (GitHub #752,
+epic #747); `kovan-cli zotero` is its front end.
+Zotero in a Kovan folder: import a Zotero library (or a file in any
+importable Zotero format) as papers, and load a folder's papers back as
+Zotero items for export, duplicate detection and search. The CLI front
+end is `kovan-cli zotero` ([`crate::commands::zotero`]).
+
+## Where an imported item lands
+
+In the **same layout as a PDF ingested through [`crate::ingest`]**, so the
+rest of kovan (index, Wiki, mind map, PDF reader) sees it with no change:
+
+```text
+<kovan folder>/
+├── bibliography.bib                      one entry per paper, APPENDED (existing bytes kept)
+├── papers/<year|undated>/<citekey>/
+│   ├── kovan.toml                         paper entity, access = "restricted", topic "unsorted"
+│   ├── <citekey>.md                       the canonical Markdown stub (`## Summary`)
+│   └── <citekey>.kovan-document.json      NEW, additive: the full KovanDocument, Zotero item included
+├── literature/proprietary/<citekey>.pdf   only with --copy-attachments
+└── zotero-imports/<UTC time>.md           the import report (kovan-metrics' Markdown + what was written)
+```
+
+The citekey and bibliography entry come from `kovan_literature::to_bibtex`
+on the imported [`KovanDocument`], exactly as ingestion derives them from
+a PDF's metadata. A PDF attachment is **referenced in place** (an absolute
+`[source] pdf` path into the Zotero `storage/` folder) unless the caller
+asks for it to be copied into the folder's proprietary repository.
+
+## Schema safety (maintainer rule, #747: "kovan schemas never break")
+
+Nothing existing is re-typed, renamed or rewritten. `kovan.toml`,
+`kovan_root.toml` and the Markdown stub are written by the existing code
+([`crate::entity::EntityConfig::save_paper`]) in the existing format; the
+one new file per paper (`<citekey>.kovan-document.json`) is kovan-common's
+existing canonical serde form of [`KovanDocument`] (what `kovan-cli lit
+import --json-out` writes), which nothing else reads, so a folder without
+it is simply a folder with no Zotero papers. The bibliography is
+**appended to**, not re-rendered, so every existing entry stays
+byte-identical. Every new file is created with `create_new`: nothing
+existing is overwritten. Proved by `tests/zotero_cli.rs`.
+
+## Data policy
+
+A Zotero library is the user's own, usually proprietary, data. Every
+imported paper is `access = "restricted"` (the Zotero conversion records
+no redistribution right; `DATA_POLICY.md`). [`protected_location`] refuses
+a target inside the outram-park-backend repository or the
+`reactor-literature` open-literature submodule; the CLI only overrides it
+with an explicit flag.
+
+```rust
+pub mod zotero { /* ... */ }
+```
+
+### Modules
+
+## Module `import`
+
+Import a Zotero data folder, or a file in any importable Zotero format,
+into a Kovan folder: [`read_source`] → [`plan`] → [`write`] (the module
+docs of [`super`] give the layout and the schema-safety argument).
+
+Reuse, not reimplementation: the data folder is read by
+`kovan_literature::zotero::local_library::read_data_folder`; a file is
+read by the ported Zotero translator ([`Translator::import`], detected
+with [`detect_import`]); both become [`KovanDocument`]s through
+`local_library::import::import` (children grouped in Zotero's export
+shape, `zotero_item` kept), and the loss accounting is kovan-metrics'
+`import_library` report.
+
+```rust
+pub mod import { /* ... */ }
+```
+
+### Types
+
+#### Enum `ImportSource`
+
+What is being imported.
+
+```rust
+pub enum ImportSource {
+    DataFolder(std::path::PathBuf),
+    File {
+        path: std::path::PathBuf,
+        translator: kovan_literature::zotero::translators::Translator,
+    },
+}
+```
+
+##### Variants
+
+###### `DataFolder`
+
+A Zotero data folder (holding `zotero.sqlite`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::path::PathBuf` |  |
+
+###### `File`
+
+A file, read with this import translator.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path` | `std::path::PathBuf` | The file. |
+| `translator` | `kovan_literature::zotero::translators::Translator` | The translator. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ImportSource { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ImportSource) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `SourceOptions`
+
+How to read the source.
+
+```rust
+pub struct SourceOptions {
+    pub base_attachment_path: Option<std::path::PathBuf>,
+    pub first_key_index: u64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `base_attachment_path` | `Option<std::path::PathBuf>` | Zotero's `baseAttachmentPath` preference, to resolve linked files<br>stored relative to it (`attachments:` paths). Data folders only. |
+| `first_key_index` | `u64` | The first generated item key for a file import (see<br>[`next_generated_key_index`]); data-folder items keep their keys. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SourceOptions { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> SourceOptions { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SourceOptions) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **ReadPrimitive**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `PlanOptions`
+
+What to import, and how.
+
+```rust
+pub struct PlanOptions {
+    pub include_trashed: bool,
+    pub topics: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `include_trashed` | `bool` | Import Zotero's trashed items too. |
+| `topics` | `Vec<String>` | Topic paths to file every paper under (default: `unsorted`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PlanOptions { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> PlanOptions { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PlanOptions) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **ReadPrimitive**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `PlannedPaper`
+
+One paper to write.
+
+```rust
+pub struct PlannedPaper {
+    pub citekey: String,
+    pub library_id: i64,
+    pub key: String,
+    pub document: kovan_common::KovanDocument,
+    pub bib: kovan_literature::BibEntry,
+    pub dir: std::path::PathBuf,
+    pub attachment: Option<std::path::PathBuf>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `citekey` | `String` | Its citekey (directory and file name). |
+| `library_id` | `i64` | The Zotero library and key it came from. |
+| `key` | `String` | The Zotero item key. |
+| `document` | `kovan_common::KovanDocument` | The document (written as `<citekey>.kovan-document.json`). |
+| `bib` | `kovan_literature::BibEntry` | The bibliography entry. |
+| `dir` | `std::path::PathBuf` | The paper directory, `papers/<year|undated>/<citekey>/`. |
+| `attachment` | `Option<std::path::PathBuf>` | The attachment file to reference (or copy), when one is on disk. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PlannedPaper { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PlannedPaper) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `ImportPlan`
+
+What an import would do.
+
+```rust
+pub struct ImportPlan {
+    pub papers: Vec<PlannedPaper>,
+    pub already_present: Vec<(String, String)>,
+    pub renamed: Vec<(String, String)>,
+    pub attachment_missing: Vec<String>,
+    pub losses: kovan_literature::zotero::local_library::import::Losses,
+    pub libraries: Vec<(String, kovan_common::zotero::ZoteroLibrary)>,
+    pub read_notes: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `papers` | `Vec<PlannedPaper>` | Papers to write. |
+| `already_present` | `Vec<(String, String)>` | Documents already in the folder (same id): `(id, existing citekey)`.<br>Not written again. |
+| `renamed` | `Vec<(String, String)>` | Citekeys taken by another paper (or earlier in this import), so<br>given a suffix: `(wanted, used)`. Nothing existing is touched. |
+| `attachment_missing` | `Vec<String>` | Ids of documents whose recorded attachment path is not a file on disk. |
+| `losses` | `kovan_literature::zotero::local_library::import::Losses` | What the local-library import did not carry. |
+| `libraries` | `Vec<(String, kovan_common::zotero::ZoteroLibrary)>` | The libraries, for the report. |
+| `read_notes` | `Vec<String>` | The reader's notes and skipped/dropped counts. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ImportPlan { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ImportPlan { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ImportPlan) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **ReadPrimitive**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `WriteOptions`
+
+How to write.
+
+```rust
+pub struct WriteOptions {
+    pub copy_attachments: bool,
+    pub topics: Vec<String>,
+    pub source_description: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `copy_attachments` | `bool` | Copy each attachment into the folder's proprietary repository<br>(default: reference it where it is). |
+| `topics` | `Vec<String>` | Topic paths to file every paper under. |
+| `source_description` | `String` | What was imported, for the report. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> WriteOptions { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> WriteOptions { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &WriteOptions) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **ReadPrimitive**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `ImportOutcome`
+
+What [`write`] wrote.
+
+```rust
+pub struct ImportOutcome {
+    pub papers: Vec<std::path::PathBuf>,
+    pub copied: Vec<std::path::PathBuf>,
+    pub referenced: usize,
+    pub copy_collisions: Vec<std::path::PathBuf>,
+    pub report: Option<std::path::PathBuf>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `papers` | `Vec<std::path::PathBuf>` | The paper directories written. |
+| `copied` | `Vec<std::path::PathBuf>` | Attachments copied into the folder. |
+| `referenced` | `usize` | Attachments referenced in place. |
+| `copy_collisions` | `Vec<std::path::PathBuf>` | Attachments not copied because the destination file existed<br>(referenced in place instead). |
+| `report` | `Option<std::path::PathBuf>` | The report file. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ImportOutcome { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ImportOutcome { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ImportOutcome) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **ReadPrimitive**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `detect_source`
+
+Work out what `source` is: a Zotero data folder (a directory holding
+`zotero.sqlite` or `zotero.sqlite.bak`, or the `zotero.sqlite` file
+itself), else a file whose format is `format` (a translator's format
+name, [`Translator::format_name`]) or, without one, the first import
+translator whose `detectImport` accepts it, in the translation-server's
+order ([`detect_import`]).
+
+```rust
+pub fn detect_source(source: &std::path::Path, format: Option<&str>) -> Result<ImportSource, String> { /* ... */ }
+```
+
+#### Function `read_source`
+
+Read `source` into the shape the local-library import takes: a data
+folder as Zotero stores it, or a file's items as one user library (keys
+generated from [`SourceOptions::first_key_index`]).
+
+```rust
+pub fn read_source(source: &ImportSource, opts: &SourceOptions) -> Result<kovan_literature::zotero::local_library::ZoteroDataFolder, String> { /* ... */ }
+```
+
+#### Function `next_generated_key_index`
+
+The first generated-key index not used by any imported paper of `root`,
+so a second file import into the same folder does not reuse the keys
+(and so the ids, `zotero:KVN…`) of the first.
+
+```rust
+pub fn next_generated_key_index(root: &crate::root::KovanRoot) -> u64 { /* ... */ }
+```
+
+#### Function `existing_documents`
+
+Every imported paper of `root`: document id → citekey.
+
+```rust
+pub fn existing_documents(root: &crate::root::KovanRoot) -> std::collections::BTreeMap<String, String> { /* ... */ }
+```
+
+#### Function `plan`
+
+Plan the import of `folder` into `root`; reads `root`, writes nothing.
+
+```rust
+pub fn plan(root: &crate::root::KovanRoot, folder: &kovan_literature::zotero::local_library::ZoteroDataFolder, opts: &PlanOptions) -> Result<ImportPlan, String> { /* ... */ }
+```
+
+#### Function `write`
+
+Write `plan` into `root`: the bibliography entries, then each paper's
+`kovan.toml`, Markdown stub and document file, then the report. Nothing
+existing is overwritten; a paper directory that appeared since planning
+is an error before anything is written.
+
+```rust
+pub fn write(root: &crate::root::KovanRoot, plan: &ImportPlan, opts: &WriteOptions) -> Result<ImportOutcome, String> { /* ... */ }
+```
+
+#### Function `report_markdown`
+
+The import report: what was written, then kovan-metrics' per-library
+loss accounting and counts.
+
+```rust
+pub fn report_markdown(plan: &ImportPlan, out: &ImportOutcome, opts: &WriteOptions) -> String { /* ... */ }
+```
+
+## Module `load`
+
+Load kovan documents as Zotero items, for export, duplicate detection
+and search.
+
+| Source | Each item comes from |
+|---|---|
+| a Kovan folder, paper with a `<citekey>.kovan-document.json` | that [`KovanDocument`] through `ZoteroItem::from_kovan_document`; **lossless** when it carries `zotero_item` (an imported Zotero item) |
+| a Kovan folder, paper without one (ingested from a PDF) | its bibliography entry, read by the ported Zotero **BibTeX import translator** (the paper has no `KovanDocument`; the bibliography is its bibliographic truth, §9) |
+| a `.json` file | a [`KovanDocument`] (`kovan-cli lit import --json-out`) or a JSON array of them |
+| any other folder | every `.json` [`KovanDocument`] under it (e.g. `local_library::import::write_documents` output) |
+
+Items are returned in a fixed order (papers by directory, files by path),
+each with a unique key: an item without one gets a generated key
+(`KVN…`, `KeyGenerator`) not used by any other item.
+
+```rust
+pub mod load { /* ... */ }
+```
+
+### Types
+
+#### Struct `CorpusItem`
+
+One loaded item.
+
+```rust
+pub struct CorpusItem {
+    pub label: String,
+    pub item: kovan_common::zotero::ZoteroItem,
+    pub lossless: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `label` | `String` | Where it came from: the citekey, or the file. |
+| `item` | `kovan_common::zotero::ZoteroItem` | The item, children (attachments, notes) nested in Zotero's export<br>shape. |
+| `lossless` | `bool` | Whether it came from a stored Zotero item (`zotero_item`), so exports<br>losslessly. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CorpusItem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CorpusItem) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `load_items`
+
+The items of `sources`, plus warnings for what could not be read.
+
+```rust
+pub fn load_items(sources: &[std::path::PathBuf]) -> Result<(Vec<CorpusItem>, Vec<String>), String> { /* ... */ }
+```
+
+#### Function `as_library`
+
+The items as one library (duplicate detection and search run on a
+library), item order kept.
+
+```rust
+pub fn as_library(items: &[CorpusItem]) -> kovan_common::zotero::ZoteroLibrary { /* ... */ }
+```
+
+### Functions
+
+#### Function `document_path`
+
+The document file of the paper in `paper_dir` (whose directory name is
+its citekey).
+
+```rust
+pub fn document_path(paper_dir: &std::path::Path) -> std::path::PathBuf { /* ... */ }
+```
+
+#### Function `protected_location`
+
+The protected location `target` is inside, with what it is, or `None`.
+
+Protected (data policy, #747): any checkout of this repository
+(outram-park-backend, found by its layout or, for the build this binary
+came from, by its source path) and any folder named `reactor-literature`
+(the open-literature submodule, which is published). A Zotero library is
+the user's own data and goes to their own Kovan folder.
+
+```rust
+pub fn protected_location(target: &std::path::Path) -> Option<(std::path::PathBuf, &'static str)> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DOCUMENT_SUFFIX`
+
+The suffix of the per-paper file holding the full [`KovanDocument`] of an
+imported item: `papers/<year>/<citekey>/<citekey>.kovan-document.json`.
+
+```rust
+pub const DOCUMENT_SUFFIX: &str = ".kovan-document.json";
+```
+
+#### Constant `REPORT_DIR`
+
+The folder (under the Kovan folder) the import reports are written to.
+
+```rust
+pub const REPORT_DIR: &str = "zotero-imports";
+```
+
+### Re-exports
+
+#### Re-export `KovanDocument`
+
+```rust
+pub use kovan_common::KovanDocument;
+```
+
+## Re-exports
+
+### Re-export `call_graph`
+
+The workspace call graph, crate → module → function, with function
+source (GitHub #737). Moved 2026-10-06 to the wasm-clean
+[`kovan_common::call_graph`] for web-kovan (#736); re-exported here.
+
+```rust
+pub use kovan_common::call_graph;
+```
+
+### Re-export `fuzzy`
+
+Moved 2026-10-06 to the wasm-clean [`kovan_common::fuzzy`] (web-kovan's
+search bar, #736); re-exported here under its old path.
+
+```rust
+pub use kovan_common::fuzzy;
+```
+
+### Re-export `mindmap_view`
+
+Moved 2026-10-06 to the wasm-clean [`kovan_common::mindmap_view`] for
+web-kovan (#736); re-exported here under its old path.
+
+```rust
+pub use kovan_common::mindmap_view;
 ```
 

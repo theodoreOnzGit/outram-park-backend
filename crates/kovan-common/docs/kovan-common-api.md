@@ -11601,6 +11601,23 @@ Fields:
 - **UnwindSafe**
 ### Functions
 
+#### Function `csl_date_to_edtf`
+
+`cslDateToEDTF` (:68): a CSL date with a range or circa flag as EDTF, or
+`None`.
+
+```rust
+pub fn csl_date_to_edtf(d: &serde_json::Map<String, serde_json::Value>) -> Option<String> { /* ... */ }
+```
+
+#### Function `date_exports_as_literal`
+
+`dateExportsAsLiteral` (:134).
+
+```rust
+pub fn date_exports_as_literal(s: &str, opts: &super::date::DateOptions) -> bool { /* ... */ }
+```
+
 #### Function `unescape_html`
 
 `Zotero.Utilities.unescapeHTML` (utilities.js:699) without a DOM: strip
@@ -13895,7 +13912,16 @@ or a magazine article.
 
 Because the item is kept in `zotero_item`, Zotero -> kovan -> Zotero is
 lossless: [`ZoteroItem::from_kovan_document`] starts from the stored item
-and only overwrites what kovan holds (tested).
+and only overwrites what kovan holds ~~(tested)~~. **CORRECTED
+2026-10-07 (#752):** it was lossless only for items carrying a
+`citationKey` and no stored file, which is all the `itemJSON` fixtures
+tested. An item without `citationKey` came back with its derived slug
+as a new `citationKey`, and a `source_path` pointing at a stored
+attachment's file (`storage/<KEY>/<filename>`, as the local-library
+import sets it) came back as an extra linked-file attachment. Both are
+fixed: the slug is written only when it differs from the one the stored
+item gives, and a stored attachment's own file is recognised. Tested
+here and end to end in kovan's `tests/zotero_cli.rs`.
 
 ## kovan -> Zotero ([`ZoteroItem::from_kovan_document`])
 
@@ -14260,9 +14286,13 @@ A Zotero saved search, in the JSON shape of `Zotero.Search#toJSON`
 (search.js:893): `{key, version, name, conditions: [{condition, operator,
 value}], deleted?}`.
 
-The conditions are **kept as stored**, not evaluated: running a saved
+The conditions are **kept as stored**, not evaluated ~~: running a saved
 search needs Zotero's search engine (search.js `_buildQuery`, ~1500 lines
-of SQL generation) and is not part of this port. A condition's
+of SQL generation) and is not part of this port~~. **CORRECTED
+2026-10-07 (#751)**: the search engine is ported, in memory, as
+`kovan_discovery::zotero`; its `SearchLibrary::new` reads these stored
+searches and `run_saved_search` evaluates one. This crate still only
+stores them. A condition's
 `condition` string carries its mode after a slash (`"title/any"`), exactly
 as `toJSON` writes it.
 

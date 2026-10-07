@@ -136,6 +136,20 @@ kovan-cli lit bibtex doc.json
 kovan-cli lit outline paper.pdf
 ```
 
+Zotero: import a Zotero data folder or a BibTeX/RIS/CSL JSON/... file into
+a Kovan folder the user names, export to any Zotero format. Only ever act on
+paths the user gives; never point `--to` or `-o` inside this repository (it
+is refused) and never read a user's Zotero library unasked:
+
+```bash
+kovan-cli zotero formats                                   # translators + directions
+kovan-cli zotero import ~/Zotero --to ~/kovan-folder --dry-run
+kovan-cli zotero import library.ris --to ~/kovan-folder
+kovan-cli zotero export --format bibtex --from ~/kovan-folder -o out.bib
+kovan-cli zotero duplicates ~/kovan-folder
+kovan-cli zotero search ~/kovan-folder "pebble bed"
+```
+
 Generate numerical-method source from the codegen catalogue:
 
 ```bash
@@ -166,6 +180,7 @@ The emitted dataset is always `UNREVIEWED` — a human marks it reviewed in
 | `discover` / `search` / `scan` | yes | Repository discovery/search |
 | `symbols` / `summary` | yes | Symbol catalogue / Markdown artifact |
 | `lit` | yes | PDF import / BibTeX / literature outline |
+| `zotero` | yes | Zotero import into a Kovan folder, export to every Zotero format, duplicates, quick search |
 | `gen` / `methods` | yes | Numerical-method code generation |
 | `digitise` | yes | Fully automatic graph digitiser |
 | `tokens` / `historian` | yes | Per-commit API-token accounting |

@@ -25,6 +25,12 @@
 //! kovan-cli lit import paper.pdf --json-out doc.json
 //! kovan-cli lit bibtex doc.json
 //! kovan-cli lit outline paper.pdf
+//! kovan-cli zotero formats
+//! kovan-cli zotero import ~/Zotero --to ~/my-kovan-folder --dry-run
+//! kovan-cli zotero import library.bib --to ~/my-kovan-folder
+//! kovan-cli zotero export --format ris --from ~/my-kovan-folder -o library.ris
+//! kovan-cli zotero duplicates ~/my-kovan-folder
+//! kovan-cli zotero search ~/my-kovan-folder "pebble bed"
 //! kovan-cli setup --dry-run
 //! kovan-cli digitise --image fig7.png --x-scale log --x-range 1,1e6 \
 //!     --y-scale log --y-range 0.1,10 --figure "Fig. 7" --json fig7.json
@@ -47,7 +53,9 @@
 //! `discover`, `search`, `scan`, and `methods` wrap `kovan-discovery` and
 //! `kovan-codegen`'s catalogue directly. `symbols`/`summary` wrap
 //! `kovan-semantics`'s ripgrep-first extractor. `lit` wraps `kovan-literature`'s
-//! PDF → Markdown → `KovanDocument` → BibTeX pipeline. `gen` wraps
+//! PDF → Markdown → `KovanDocument` → BibTeX pipeline. `zotero` wraps
+//! [`kovan::zotero`] — Zotero import into a Kovan folder and export to every
+//! ported Zotero translator (GitHub #752, see `commands::zotero`). `gen` wraps
 //! `kovan-codegen::generate`; entries not yet backed by a template report
 //! `CodegenError::Unimplemented` as a CLI error (see `kovan-cli methods` for
 //! which ones those are). `digitise` wraps
@@ -90,6 +98,7 @@ use commands::ci::CiCommand;
 use commands::lit::LitCommand;
 use commands::project::ProjectCommand;
 use commands::tokens::TokensCommand;
+use commands::zotero::ZoteroCommand;
 use commands::{KindArg, LangArg};
 use kovan::digitiser::frontend::AutoArgs;
 
@@ -249,6 +258,11 @@ enum Command {
     /// (`kovan-literature`).
     #[command(subcommand)]
     Lit(LitCommand),
+    /// Zotero: import a Zotero library or file into a Kovan folder, export
+    /// to every Zotero format, list formats, duplicates, quick search
+    /// (GitHub #752).
+    #[command(subcommand)]
+    Zotero(ZoteroCommand),
     /// The "kovan folder" project format (op-63u0's design): rescan a
     /// project and rewrite its `kovan.toml` index.
     #[command(subcommand)]
@@ -635,6 +649,7 @@ fn run(command: Command) -> Result<(), String> {
         }
         Command::Ci(cmd) => commands::ci::run(cmd),
         Command::Lit(cmd) => commands::lit::run(cmd),
+        Command::Zotero(cmd) => commands::zotero::run(cmd),
         Command::Project(cmd) => commands::project::run(cmd),
         Command::Symbols {
             root,
@@ -962,6 +977,50 @@ mod tests {
             }
             _ => panic!("wrong variant"),
         }
+    }
+
+    #[test]
+    fn zotero_import_and_export_parse() {
+        let cli = parse(&[
+            "zotero",
+            "import",
+            "lib.ris",
+            "--to",
+            "k",
+            "--dry-run",
+            "--topic",
+            "a/b",
+            "--topic",
+            "c",
+        ]);
+        match cli.command {
+            Command::Zotero(ZoteroCommand::Import {
+                source,
+                to,
+                dry_run,
+                topics,
+                format,
+                ..
+            }) => {
+                assert_eq!(source, PathBuf::from("lib.ris"));
+                assert_eq!(to, PathBuf::from("k"));
+                assert!(dry_run);
+                assert_eq!(topics, vec!["a/b".to_string(), "c".to_string()]);
+                assert_eq!(format, None);
+            }
+            _ => panic!("wrong variant"),
+        }
+        let cli = parse(&[
+            "zotero", "export", "--format", "ris", "--from", "a", "b", "-o", "x",
+        ]);
+        match cli.command {
+            Command::Zotero(ZoteroCommand::Export { from, out, .. }) => {
+                assert_eq!(from, vec![PathBuf::from("a"), PathBuf::from("b")]);
+                assert_eq!(out, Some(PathBuf::from("x")));
+            }
+            _ => panic!("wrong variant"),
+        }
+        assert!(Cli::try_parse_from(["kovan-cli", "zotero", "import", "x"]).is_err());
     }
 
     #[test]

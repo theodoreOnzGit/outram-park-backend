@@ -250,7 +250,11 @@ pub struct SourceRef {
     pub storage: StorageMode,
     /// Path to the source PDF, relative to the entity's own directory (so a
     /// library stays relocatable). `None` for a paper catalogued from
-    /// metadata alone, with no document held locally.
+    /// metadata alone, with no document held locally. May also be an
+    /// absolute path, for a file referenced where it is rather than stored
+    /// in the library (a Zotero attachment, `kovan-cli zotero import`
+    /// without `--copy-attachments`); readers join it onto the entity
+    /// directory, which leaves an absolute path unchanged.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pdf: Option<PathBuf>,
     /// The Kovan standard-corpus id ([`crate::corpus::CorpusLiterature::id`])

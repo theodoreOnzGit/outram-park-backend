@@ -43,7 +43,16 @@
 //!
 //! Because the item is kept in `zotero_item`, Zotero -> kovan -> Zotero is
 //! lossless: [`ZoteroItem::from_kovan_document`] starts from the stored item
-//! and only overwrites what kovan holds (tested).
+//! and only overwrites what kovan holds ~~(tested)~~. **CORRECTED
+//! 2026-10-07 (#752):** it was lossless only for items carrying a
+//! `citationKey` and no stored file, which is all the `itemJSON` fixtures
+//! tested. An item without `citationKey` came back with its derived slug
+//! as a new `citationKey`, and a `source_path` pointing at a stored
+//! attachment's file (`storage/<KEY>/<filename>`, as the local-library
+//! import sets it) came back as an extra linked-file attachment. Both are
+//! fixed: the slug is written only when it differs from the one the stored
+//! item gives, and a stored attachment's own file is recognised. Tested
+//! here and end to end in kovan's `tests/zotero_cli.rs`.
 //!
 //! ## kovan -> Zotero ([`ZoteroItem::from_kovan_document`])
 //!
@@ -284,14 +293,23 @@ impl ZoteroItem {
                 .filter(|s| !s.is_empty())
                 .map(String::as_str),
         );
-        put(
-            &mut item,
-            &mut to_extra,
-            Field::CitationKey,
-            Some(&doc.slug)
-                .filter(|s| !s.is_empty())
-                .map(String::as_str),
-        );
+        // The slug is written back only when kovan changed it: an item
+        // without `citationKey` gets a derived slug (`slug_from`), which must
+        // not come back as a new `citationKey`.
+        let slug_unchanged = doc
+            .zotero_item
+            .as_ref()
+            .is_some_and(|z| z.to_kovan_document().slug == doc.slug);
+        if !slug_unchanged {
+            put(
+                &mut item,
+                &mut to_extra,
+                Field::CitationKey,
+                Some(&doc.slug)
+                    .filter(|s| !s.is_empty())
+                    .map(String::as_str),
+            );
+        }
         // The DOI may already live in Extra; leave it there if it matches.
         let doi_in_extra = item.field(Field::Extra).and_then(|e| extra_line(e, "DOI"));
         if field_from_type_and_base(t, Field::Doi).is_some()
@@ -440,10 +458,24 @@ impl ZoteroItem {
         }
 
         if let Some(path) = doc.source_path.as_deref() {
-            let present = item
-                .attachments
-                .iter()
-                .any(|a| a.attachment.as_ref().and_then(|d| d.path.as_deref()) == Some(path));
+            // A stored file is `<data dir>/storage/<KEY>/<filename>`
+            // (item.js `getFilePath`): the file of that attachment (or of
+            // this item, a standalone attachment), not a new linked file.
+            let stored_here = |a: &ZoteroItem| {
+                let (Some(key), Some(name)) = (
+                    a.key.as_deref(),
+                    a.attachment.as_ref().and_then(|d| d.filename.as_deref()),
+                ) else {
+                    return false;
+                };
+                let mut parts = path.rsplit(['/', '\\']);
+                parts.next() == Some(name) && parts.next() == Some(key)
+            };
+            let present = stored_here(&item)
+                || item.attachments.iter().any(|a| {
+                    a.attachment.as_ref().and_then(|d| d.path.as_deref()) == Some(path)
+                        || stored_here(a)
+                });
             if !present {
                 let mut a = ZoteroItem::new(ItemType::Attachment);
                 let name = path.rsplit(['/', '\\']).next().unwrap_or(path);

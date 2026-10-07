@@ -517,6 +517,46 @@ fn zotero_to_kovan_to_zotero_is_lossless() {
     }
 }
 
+/// **Methodology.** The two cases the `itemJSON` fixtures do not cover (all
+/// 37 carry a `citationKey` and no file): an item with no `citationKey`,
+/// and a stored PDF child whose file the local-library import puts in
+/// `source_path` (`<data dir>/storage/<KEY>/<filename>`); also a standalone
+/// stored attachment. Kovan -> Zotero must give the item back unchanged.
+///
+/// **Result (2026-10-07, #752):** failed before the fix, found by kovan's
+/// `tests/zotero_cli.rs` (the derived slug came back as `citationKey`, the
+/// file as an extra linked-file attachment); passes after it. A changed
+/// slug is still written to `citationKey`.
+#[test]
+fn round_trip_is_lossless_without_citation_key_and_with_a_stored_file() {
+    let mut item = ZoteroItem::from_json_value(&serde_json::json!({
+        "key": "ARTICLE1", "itemType": "journalArticle", "title": "Pebble bed",
+        "date": "2010", "creators": [{"creatorType": "author", "firstName": "Ada",
+        "lastName": "Lovelace"}], "tags": [], "collections": [], "relations": {}}))
+    .unwrap();
+    let pdf = ZoteroItem::from_json_value(&serde_json::json!({
+        "key": "PDFSTOR1", "itemType": "attachment", "parentItem": "ARTICLE1",
+        "title": "Full Text PDF", "linkMode": "imported_file",
+        "contentType": "application/pdf", "filename": "paper.pdf",
+        "tags": [], "relations": {}}))
+    .unwrap();
+    item.attachments.push(pdf.clone());
+    let mut doc = item.to_kovan_document();
+    assert_eq!(doc.slug, "lovelace2010");
+    doc.source_path = Some("/home/me/Zotero/storage/PDFSTOR1/paper.pdf".into());
+    assert_eq!(ZoteroItem::from_kovan_document(&doc), item);
+
+    let mut standalone = pdf;
+    standalone.parent_item = None;
+    let mut sdoc = standalone.to_kovan_document();
+    sdoc.source_path = Some("/home/me/Zotero/storage/PDFSTOR1/paper.pdf".into());
+    assert_eq!(ZoteroItem::from_kovan_document(&sdoc), standalone);
+
+    doc.slug = "my-own-key".into();
+    let edited = ZoteroItem::from_kovan_document(&doc);
+    assert_eq!(edited.field(Field::CitationKey), Some("my-own-key"));
+}
+
 /// **Methodology.** Spot values of the Zotero -> kovan map on the
 /// `journalArticle`, `report` and `thesis` fixtures.
 ///
