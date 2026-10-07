@@ -307,7 +307,7 @@ fn data_folder_import_export_reimport_round_trip() {
         .filter(|t| t.metadata().can_export())
     {
         let o = tmp.path().join(format!("export.{}", t.format_name()));
-        ok(&[
+        let args = [
             "zotero",
             "export",
             "--format",
@@ -316,7 +316,26 @@ fn data_folder_import_export_reimport_round_trip() {
             s(&lib),
             "-o",
             s(&o),
-        ]);
+        ];
+        // Bibliontology RDF cannot export this library, upstream included:
+        // the library holds every Zotero item type, and the translator's type
+        // table lacks preprint, dataset and standard, so upstream throws
+        // "TypeError: Cannot read properties of undefined (reading '0')" (the
+        // 11 failing lists in kovan-literature's RDF references, made by
+        // running upstream). The port reproduces upstream's error; the CLI
+        // must report it and fail. Added 2026-10-07 when the RDF translators
+        // landed after this test was written.
+        if t.format_name() == "rdf_bibliontology" {
+            let out = kovan(&args);
+            assert!(!out.status.success(), "rdf_bibliontology should fail");
+            let err = String::from_utf8_lossy(&out.stderr);
+            assert!(
+                err.contains("Cannot read properties of undefined (reading '0')"),
+                "{err}"
+            );
+            continue;
+        }
+        ok(&args);
         let text = std::fs::read_to_string(&o).unwrap();
         // Note HTML and Note Markdown export only top-level notes; this
         // library imports none (a standalone note is reported, not imported),
