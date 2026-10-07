@@ -15,6 +15,8 @@
 //!                                   highlights, upstream confirmation,
 //!                                   deleted-functions history,
 //!                                   architecture nodes         -> [`review_md`]
+//! data/review_wizard.toml           the wizard's questions, sources and
+//!                                   stamp gate (#769, embedded) -> [`wizard`]
 //! ```
 //!
 //! # From source to state
@@ -55,3 +57,4 @@ pub mod rust_items;
 pub mod scope;
 pub mod signing;
 pub mod types;
+pub mod wizard;

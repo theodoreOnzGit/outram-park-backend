@@ -73,8 +73,8 @@ fn doc_of(entries: Vec<Entry>) -> String {
 fn every_entry_kind_round_trips() {
     let mut r = review("crates/t/src/steam.rs::flash", "crates/t/src/steam.rs", "github:theodoreOnzGit");
     r.review.callees.insert("crates/t/src/steam.rs::sat".into(), h('d'));
-    r.review.checklist.insert("q1".into(), "yes".into());
-    r.review.checklist.insert("q8".into(), "reference_code_to_code".into());
+    r.review.checklist.insert("doc_matches_behaviour".into(), "yes".into());
+    r.review.checklist.insert("vv_evidence".into(), "reference_code_to_code".into());
     r.review.rung = 4;
     r.review.authorship = Some(ChangeAuthorship {
         kind: AuthorshipKind::Mixed,
@@ -289,7 +289,7 @@ fn signed_bytes_cover_the_certifying_fields() {
     e.review.callees.insert("x".into(), h('f'));
     edits.push(e);
     let mut e = base.clone();
-    e.review.checklist.insert("q8".into(), "analytical_case".into());
+    e.review.checklist.insert("vv_evidence".into(), "analytical_case".into());
     edits.push(e);
     let mut e = base.clone();
     e.review.authorship = Some(ChangeAuthorship {

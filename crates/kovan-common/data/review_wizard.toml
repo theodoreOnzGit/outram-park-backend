@@ -1,0 +1,595 @@
+# The kovan code-review wizard's question set (GitHub #769; wizard rules on
+# #740, maintainer 2026-10-07). Read by `kovan_common::review::wizard`, which
+# embeds this file with `include_str!` so desktop kovan, web-kovan (wasm) and
+# CI ask the same questions and apply the same stamp gate.
+#
+# Keys are STABLE: they are written into review.md (`[review.checklist]`) and
+# must never be renamed. Add a question or an option; never repurpose a key.
+#
+# applies_when: always | port | physical_interface
+#   port               the folder's kovan.toml [upstream] table (or the
+#                      wizard's "Is this a port?") declares the function a port
+#   physical_interface a physical quantity crosses the function's interface
+#
+# effect (what choosing the option does to the stamp):
+#   none              no effect
+#   prompt_needs_fix  asks "Mark as Needs fix instead?"; the stamp is allowed
+#   block             the stamp is refused
+#   flag              recorded as "needs improvement"; never blocks
+#   gate_rung4        opens rung 4 (V&V evidence of the qualifying kinds)
+#   no_rung4          rung 4 is not available whatever else is answered
+#   needs_rung4_gate  choosing it is refused unless rung 4 is open
+#
+# requires_text: the option must carry text of at least 2 characters
+# (`Other: ____`, a justification). On disk the answer is `"<option>"`, or
+# `"<option>: <text>"` for these options.
+#
+# Sources: ONLY the clauses recorded on #769 (research agent, 2026-10-07; every
+# cited page was read). `document` is the kovan standard-corpus id
+# (crates/kovan/src/corpus.rs), checked by kovan's tests/review_wizard_sources.rs.
+# `quote` is filled only where #769 records quoted wording. A question or
+# option that rests on a workspace rule names it in `workspace_rule` instead of
+# a citation.
+#
+# Abbreviations on #769: BR = NUREG/BR-0167 (nureg-br-0167); DOEG = DOE G
+# 414.1-4 (doe-g-414.1-4); STD = DOE-STD-1172-2003 (doe-std-1172-2003); KM =
+# NUREG/KM-0006 (nureg-km-0006); AppB = 10 CFR 50 App. B (10cfr50).
+
+version = 1
+
+# ---------------------------------------------------------------- 1
+[[question]]
+key = "doc_matches_behaviour"
+text = "Does the function do what its doc comment says it does?"
+applies_when = "always"
+
+[[question.option]]
+key = "yes"
+label = "Yes"
+effect = "none"
+
+[[question.option]]
+key = "partly"
+label = "Partly: some of the doc is wrong or out of date"
+effect = "prompt_needs_fix"
+
+[[question.option]]
+key = "no"
+label = "No"
+effect = "block"
+
+[[question.option]]
+key = "no_doc"
+label = "There is no doc comment"
+effect = "prompt_needs_fix"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question.source]]
+document = "nureg-br-0167"
+section = "§4.5"
+page = "13"
+
+[[question.source]]
+document = "nureg-br-0167"
+section = "§3.2.2.5"
+page = "10"
+
+[[question.source]]
+document = "doe-g-414.1-4"
+section = "F.5.6, criterion 2"
+page = "F-14"
+
+# ---------------------------------------------------------------- 2
+[[question]]
+key = "upstream_fidelity"
+text = "Does it do what the upstream routine does?"
+applies_when = "port"
+workspace_rule = "Debugging a port: read upstream first (HARD RULE)"
+
+[[question.option]]
+key = "matches"
+label = "Yes, it matches upstream"
+effect = "none"
+
+[[question.option]]
+key = "deviation_documented"
+label = "It deviates, and the deviation is documented and justified in its doc comment"
+effect = "none"
+
+[[question.option]]
+key = "deviation_not_documented"
+label = "It deviates, and the deviation is not documented"
+effect = "block"
+action = "document_deviation"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question.source]]
+document = "10cfr50"
+section = "Appendix B, Criterion III"
+
+[[question.source]]
+document = "doe-g-414.1-4"
+section = "§3.3.2"
+page = "11"
+
+[[question.source]]
+document = "doe-g-414.1-4"
+section = "§5.2.6"
+page = "24-25"
+
+# ---------------------------------------------------------------- 3
+[[question]]
+key = "limits_and_guards"
+text = "Are the allowable input ranges guarded, and what happens outside them?"
+applies_when = "always"
+workspace_rule = "Error handling: Result is preferred to panics (maintainer, #740, 2026-10-07; not yet a CLAUDE.md rule)"
+
+[[question.option]]
+key = "guarded_returns_result"
+label = "Guarded: out-of-range input returns a Result error (preferred)"
+effect = "none"
+
+[[question.option]]
+key = "guarded_panics_justified"
+label = "Guarded: out-of-range input panics, justified: ____"
+effect = "none"
+requires_text = true
+
+[[question.option]]
+key = "guard_present_range_undocumented"
+label = "A guard is present, but the range is not documented"
+effect = "prompt_needs_fix"
+
+[[question.option]]
+key = "guard_missing"
+label = "A guard is missing"
+effect = "block"
+
+[[question.option]]
+key = "no_limits"
+label = "No limits apply, explained: ____"
+effect = "none"
+requires_text = true
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question.source]]
+document = "doe-g-414.1-4"
+section = "F.5.6"
+page = "F-14"
+quote = "allowable input/output ranges"
+
+[[question.source]]
+document = "nureg-km-0006"
+page = "64-65"
+
+[[question.source]]
+document = "nureg-br-0167"
+section = "§3.2.4.1"
+page = "11"
+
+# ---------------------------------------------------------------- 4
+# Narrowed on #769 (2026-10-07) to whether units are documented; the `uom`
+# half moved to coding_standards.
+[[question]]
+key = "units_documented"
+text = "Are the units of every physical quantity at its interface documented?"
+applies_when = "physical_interface"
+
+[[question.option]]
+key = "yes"
+label = "Yes"
+effect = "none"
+
+[[question.option]]
+key = "not_documented"
+label = "No, some units are not documented"
+effect = "prompt_needs_fix"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question.source]]
+document = "nureg-km-0006"
+page = "64"
+
+[[question.source]]
+document = "doe-g-414.1-4"
+section = "F.5.6"
+
+# ---------------------------------------------------------------- 5
+[[question]]
+key = "error_handling"
+text = "What does it do when something goes wrong?"
+applies_when = "always"
+workspace_rule = "Error handling: Result is preferred to panics (maintainer, #740, 2026-10-07; not yet a CLAUDE.md rule)"
+
+[[question.option]]
+key = "returns_result"
+label = "Returns a Result (preferred)"
+effect = "none"
+
+[[question.option]]
+key = "panics_justified"
+label = "Panics, justified: ____"
+effect = "none"
+requires_text = true
+
+[[question.option]]
+key = "falls_back_reported"
+label = "Falls back and reports it through the return type (a Result, or an outcome enum with a fallback variant)"
+effect = "none"
+
+[[question.option]]
+key = "falls_back_silently"
+label = "Falls back with no signal to the caller"
+effect = "block"
+
+[[question.option]]
+key = "cannot_happen"
+label = "Nothing can go wrong, explained: ____"
+effect = "none"
+requires_text = true
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question.source]]
+document = "doe-g-414.1-4"
+section = "F.5.6"
+
+[[question.source]]
+document = "doe-g-414.1-4"
+section = "§5.2.7"
+page = "26"
+
+[[question.source]]
+document = "nureg-br-0167"
+section = "§2.2"
+page = "5"
+
+[[question.source]]
+document = "nureg-br-0167"
+page = "11"
+
+[[question.source]]
+document = "doe-g-414.1-4"
+page = "27"
+quote = "detect and report"
+
+# ---------------------------------------------------------------- 6
+[[question]]
+key = "numerical_hazards"
+text = "Are there numerical hazards (division by zero, cancellation, overflow, NaN, an iteration that may not converge)?"
+applies_when = "always"
+
+[[question.option]]
+key = "none_found"
+label = "None found"
+effect = "none"
+
+[[question.option]]
+key = "handled"
+label = "Yes, and each is handled"
+effect = "none"
+
+[[question.option]]
+key = "tolerance_not_justified"
+label = "An iteration or convergence tolerance is not justified"
+effect = "block"
+
+[[question.option]]
+key = "possible_problem"
+label = "Yes, a possible problem is not handled"
+effect = "block"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question.source]]
+document = "nureg-km-0006"
+section = "§5.4.2.2 (VR-4, VR-5)"
+page = "170-171"
+
+[[question.source]]
+document = "doe-g-414.1-4"
+page = "26"
+
+# ---------------------------------------------------------------- 7
+[[question]]
+key = "test_reach"
+text = "Does a test reach this function?"
+applies_when = "always"
+
+[[question.option]]
+key = "reached_and_checked"
+label = "Yes, and a test checks what it returns"
+effect = "none"
+
+[[question.option]]
+key = "reached_not_checked"
+label = "A test reaches it but checks nothing it returns"
+effect = "flag"
+
+[[question.option]]
+key = "no_test_reaches"
+label = "No test reaches it (needs improvement)"
+effect = "flag"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question.source]]
+document = "nureg-br-0167"
+section = "§3.2.4"
+page = "10"
+
+[[question.source]]
+document = "doe-g-414.1-4"
+section = "§5.2.8"
+page = "28"
+
+# The non-blocking flag is tailoring (#769).
+[[question.source]]
+document = "nureg-br-0167"
+section = "§2.1 (tailoring)"
+page = "5"
+
+# ---------------------------------------------------------------- 8
+[[question]]
+key = "vv_evidence"
+text = "What verification and validation evidence covers this function?"
+applies_when = "always"
+
+[[question.option]]
+key = "reference_code_to_code"
+label = "Comparison against a reference or another code (code-to-code)"
+effect = "gate_rung4"
+
+[[question.option]]
+key = "analytical_case"
+label = "An analytical (closed-form or manufactured) case"
+effect = "gate_rung4"
+
+[[question.option]]
+key = "convergence_order_study"
+label = "A convergence / order-of-accuracy study"
+effect = "gate_rung4"
+
+[[question.option]]
+key = "unit_tests_only"
+label = "Unit tests only"
+effect = "none"
+
+[[question.option]]
+key = "none_yet"
+label = "None yet"
+effect = "none"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question.source]]
+document = "nureg-km-0006"
+section = "Table 5-11"
+page = "145"
+
+[[question.source]]
+document = "10cfr50"
+section = "Appendix B, Criterion III"
+
+# ---------------------------------------------------------------- 9
+[[question]]
+key = "maintainability"
+text = "Could a future maintainer read and change it safely?"
+applies_when = "always"
+
+[[question.option]]
+key = "yes"
+label = "Yes"
+effect = "none"
+
+[[question.option]]
+key = "too_complex_split"
+label = "Too complex; it should be split"
+effect = "prompt_needs_fix"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question.source]]
+document = "doe-g-414.1-4"
+section = "§5.2.6"
+page = "25"
+
+[[question.source]]
+document = "doe-std-1172-2003"
+section = "competency 9"
+page = "9"
+
+[[question.source]]
+document = "nureg-br-0167"
+section = "§4.3"
+page = "13"
+
+# ---------------------------------------------------------------- 10
+# Pre-filled from git (commit author plus agent trailer); see
+# `wizard::independence_prefill`.
+[[question]]
+key = "independence"
+text = "Who wrote this function?"
+applies_when = "always"
+prefill = "git_authorship"
+
+[[question.option]]
+key = "someone_else"
+label = "Someone else, or an AI agent"
+effect = "none"
+
+[[question.option]]
+key = "self_check"
+label = "I wrote it (self-check)"
+effect = "no_rung4"
+
+# An unstated author cannot show independence, so it cannot open rung 4.
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "no_rung4"
+requires_text = true
+
+[[question.source]]
+document = "10cfr50"
+section = "Appendix B, Criterion III"
+
+[[question.source]]
+document = "doe-g-414.1-4"
+section = "F.5.8, criterion 5"
+page = "F-15"
+
+[[question.source]]
+document = "doe-std-1172-2003"
+page = "8"
+
+[[question.source]]
+document = "nureg-km-0006"
+section = "PCMM-3"
+
+# ---------------------------------------------------------------- 11
+[[question]]
+key = "unintended_function"
+text = "Does it do anything beyond what its doc says?"
+applies_when = "always"
+
+[[question.option]]
+key = "no"
+label = "No"
+effect = "none"
+
+[[question.option]]
+key = "yes_documented"
+label = "Yes, and it is documented"
+effect = "none"
+
+[[question.option]]
+key = "yes_undocumented"
+label = "Yes, and it is not documented"
+effect = "block"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question.source]]
+document = "doe-g-414.1-4"
+section = "F.5.8, objective"
+page = "F-15"
+
+[[question.source]]
+document = "doe-g-414.1-4"
+page = "24-25"
+
+# ---------------------------------------------------------------- 12
+[[question]]
+key = "coding_standards"
+text = "Does it follow the workspace coding rules (enums not dyn, no Box, no lifetimes, uom where a physical quantity crosses an API)?"
+applies_when = "always"
+workspace_rule = "Rust design rules (mandatory)"
+
+[[question.option]]
+key = "yes"
+label = "Yes"
+effect = "none"
+
+[[question.option]]
+key = "deviates_justified"
+label = "Deviates, justified: ____"
+effect = "none"
+requires_text = true
+
+[[question.option]]
+key = "deviates_not_justified"
+label = "Deviates, not justified"
+effect = "prompt_needs_fix"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question.source]]
+document = "nureg-br-0167"
+section = "§2.4"
+page = "5"
+
+[[question.source]]
+document = "nureg-br-0167"
+section = "§5.2.3"
+page = "18"
+
+# ---------------------------------------------------------------- 13
+# The rung the stamp gives (3 human reviewed, 4 human V&V). Rung 4 is
+# offered only when rung 4 is open: a gate_rung4 answer to vv_evidence and
+# no no_rung4 answer (#740 U4). review.md's `rung` field must agree.
+[[question]]
+key = "rung"
+text = "Which rung does this review give?"
+applies_when = "always"
+workspace_rule = "Crate maturity gate (HARD RULE)"
+
+[[question.option]]
+key = "rung_3"
+label = "Rung 3: human reviewed"
+effect = "none"
+
+[[question.option]]
+key = "rung_4"
+label = "Rung 4: human V&V"
+effect = "needs_rung4_gate"
+
+# A stamp records rung 3 or 4, so a free-text rung cannot be stamped.
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "block"
+requires_text = true
+
+[[question.source]]
+document = "nureg-km-0006"
+section = "Table 5-11"
+page = "145"
