@@ -146,9 +146,15 @@ impl ScipResolver {
         )
     }
 
-    /// Where `sym`, referenced from `rel` through a path starting `lead`,
-    /// is defined, as an LSP answer would give it.
-    fn site_of(&mut self, rel: &str, sym: crate::scip::Sym, lead: Option<&str>) -> Option<Site> {
+    /// Where `sym`, referenced at 0-based `line` of `rel` through a path
+    /// starting `lead`, is defined, as an LSP answer would give it.
+    fn site_of(
+        &mut self,
+        rel: &str,
+        line: u32,
+        sym: crate::scip::Sym,
+        lead: Option<&str>,
+    ) -> Option<Site> {
         use crate::scip::Sym;
         let ix = &self.index;
         match sym {
@@ -158,7 +164,7 @@ impl ScipResolver {
                 let text = cached_line(&mut self.lines, &self.root, rel, d.line);
                 Some((self.root.join(rel), d.line, doc.encoding.char_col_of_units(&text, d.start)))
             }
-            Sym::Global(_) => match ix.nearest_definition(sym, rel, lead) {
+            Sym::Global(_) => match ix.nearest_definition(sym, rel, line, lead) {
                 Some(d) => {
                     let doc = &ix.documents[d.doc as usize];
                     let text = cached_line(&mut self.lines, &self.root, &doc.path, d.line);
@@ -181,10 +187,17 @@ impl ScipResolver {
         for &[l, c] in positions {
             let text = cached_line(&mut self.lines, &self.root, &rel, l);
             let mut syms = Vec::new();
+            let mut own = None;
             if let Some(doc) = self.index.document(&rel) {
                 let enc = doc.encoding;
                 let u = enc.units_of_char_col(&text, c);
                 for o in doc.at(l, u).filter(|o| o.end_line == o.line) {
+                    // A definition answers with itself, as the LSP does (a
+                    // nested `fn helper(` the scanner took for a call).
+                    if o.is_definition() {
+                        own = Some((self.root.join(&rel), l, c));
+                        continue;
+                    }
                     let ec = enc.char_col_of_units(&text, o.end);
                     let tok: String = text
                         .chars()
@@ -197,9 +210,9 @@ impl ScipResolver {
                 }
             }
             let lead = path_head(&text, c);
-            let mut sites = Vec::new();
+            let mut sites: Vec<Site> = own.into_iter().collect();
             for s in syms {
-                if let Some(site) = self.site_of(&rel, s, lead.as_deref()) {
+                if let Some(site) = self.site_of(&rel, l, s, lead.as_deref()) {
                     if !sites.contains(&site) {
                         sites.push(site);
                     }
@@ -257,7 +270,7 @@ impl ScipResolver {
         }
         let mut out = Vec::new();
         for (line, token, sym, lead) in found {
-            if let Some(site) = self.site_of(rel, sym, lead.as_deref()) {
+            if let Some(site) = self.site_of(rel, line, sym, lead.as_deref()) {
                 out.push(ExtraRef {
                     line,
                     ident: is_ident_token(&token),

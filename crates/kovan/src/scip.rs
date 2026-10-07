@@ -228,8 +228,29 @@ impl ScipIndex {
             Ok(())
         })?;
         docs.sort_by(|a, b| a.path.cmp(&b.path));
-        // A file indexed twice keeps one copy; its occurrences are the same.
-        docs.dedup_by(|a, b| a.path == b.path);
+        // A file indexed twice (a `#[path]` module of a test that is also a
+        // binary's root, a module shared by two examples) is one document
+        // with the global occurrences of both copies: each copy defines its
+        // own symbols, and dropping one lost its definitions (#757). Locals
+        // are kept from the first copy only, since each copy numbers its
+        // own.
+        let mut merged: Vec<Document> = Vec::with_capacity(docs.len());
+        for d in docs {
+            match merged.last_mut() {
+                Some(last) if last.path == d.path => {
+                    last.occurrences.extend(
+                        d.occurrences
+                            .into_iter()
+                            .filter(|o| matches!(o.symbol, Sym::Global(_))),
+                    );
+                    last.occurrences
+                        .sort_by_key(|o| (o.line, o.start, o.end_line, o.end, o.symbol, o.roles));
+                    last.occurrences.dedup();
+                }
+                _ => merged.push(d),
+            }
+        }
+        let docs = merged;
         ix.defs = vec![Vec::new(); ix.symbol_ids.len()];
         for (k, d) in docs.iter().enumerate() {
             ix.by_path.insert(d.path.clone(), k as u32);
@@ -408,13 +429,21 @@ impl ScipIndex {
         matches!(sym, Sym::Global(g) if self.generated.contains(&g))
     }
 
-    /// The definition of `sym` nearest to a reference in file `from`: the
-    /// same file first, then the most shared leading folders, then the
-    /// first by `(path, line)`. `lead` is the first segment of the path the
+    /// The definition of `sym` nearest to a reference at 0-based line
+    /// `from_line` of file `from`: the same file first (there, the nearest
+    /// line: two helpers nested in different functions of one file share a
+    /// symbol), then the most shared leading folders, then the first by
+    /// `(path, line)`. `lead` is the first segment of the path the
     /// reference is written with (`my_crate` in `my_crate::a::f`), if any:
     /// when it is the symbol's own package's library name, only library
     /// definitions are candidates. `None` when it has none in the index.
-    pub fn nearest_definition(&self, sym: Sym, from: &str, lead: Option<&str>) -> Option<DefSite> {
+    pub fn nearest_definition(
+        &self,
+        sym: Sym,
+        from: &str,
+        from_line: u32,
+        lead: Option<&str>,
+    ) -> Option<DefSite> {
         let all = self.definitions(sym);
         if all.len() <= 1 {
             return all.first().copied();
@@ -438,7 +467,13 @@ impl ScipIndex {
                 .zip(from.split('/'))
                 .take_while(|(a, b)| a == b)
                 .count();
-            (p == from, shared)
+            let same = p == from;
+            let closeness = if same {
+                u32::MAX - d.line.abs_diff(from_line)
+            } else {
+                0
+            };
+            (same, shared, closeness)
         };
         // max_by_key keeps the LAST maximum; iterate reversed so the first
         // (smallest path, line) wins a tie.
@@ -632,14 +667,14 @@ mod tests {
         // From the example, the example's own definition; from elsewhere in
         // src, the library's.
         let near = ix
-            .nearest_definition(r.symbol, "crates/app/examples/x/main.rs", None)
+            .nearest_definition(r.symbol, "crates/app/examples/x/main.rs", 0, None)
             .unwrap();
         assert_eq!(
             (ix.documents[near.doc as usize].path.as_str(), near.line),
             ("crates/app/examples/x/m.rs", 3)
         );
         let near = ix
-            .nearest_definition(r.symbol, "crates/app/src/lib.rs", None)
+            .nearest_definition(r.symbol, "crates/app/src/lib.rs", 0, None)
             .unwrap();
         assert_eq!(
             (ix.documents[near.doc as usize].path.as_str(), near.line),
@@ -648,11 +683,11 @@ mod tests {
         // Written through the library's crate name from the example: the
         // library's, although the example's own copy is nearer.
         let near = ix
-            .nearest_definition(r.symbol, "crates/app/examples/x/main.rs", Some("app"))
+            .nearest_definition(r.symbol, "crates/app/examples/x/main.rs", 0, Some("app"))
             .unwrap();
         assert_eq!(ix.documents[near.doc as usize].path, "crates/app/src/m.rs");
         let near = ix
-            .nearest_definition(r.symbol, "crates/app/examples/x/main.rs", Some("crate"))
+            .nearest_definition(r.symbol, "crates/app/examples/x/main.rs", 0, Some("crate"))
             .unwrap();
         assert_eq!(
             ix.documents[near.doc as usize].path,
@@ -698,6 +733,54 @@ mod tests {
         assert!(ix.is_generated(d.at(2, 4).next().unwrap().symbol));
         assert!(!ix.is_generated(d.at(3, 4).next().unwrap().symbol));
         assert_eq!(package_of(derived), Some("app"));
+    }
+
+    /// Methodology: a file indexed twice (two documents, one path) keeps
+    /// both copies' definitions; two definitions of one symbol in one file
+    /// resolve to the one nearer the reference.
+    ///
+    /// Result (2026-10-07): passes.
+    #[test]
+    fn duplicate_documents_merge_and_same_file_picks_nearest() {
+        let a = "rust-analyzer cargo app 0.1.0 bin/f().";
+        let b = "rust-analyzer cargo app 0.1.0 t/f().";
+        let h = "rust-analyzer cargo app 0.1.0 m/helper().";
+        let first = [(&[1u32, 3, 4][..], a, 1u64), (&[2, 0, 1], "local 1", 1)];
+        let second = [(&[1u32, 3, 4][..], b, 1u64), (&[2, 0, 1], "local 1", 1)];
+        let nested = [
+            (&[3u32, 7, 13][..], h, 1u64),
+            (&[40, 7, 13], h, 1),
+            (&[44, 4, 10], h, 0),
+        ];
+        let ix = ScipIndex::decode(&encode::index(
+            "1",
+            &[("x.rs", &first), ("x.rs", &second), ("n.rs", &nested)],
+        ))
+        .unwrap();
+        assert_eq!(ix.documents.len(), 2);
+        let x = ix.document("x.rs").unwrap();
+        assert_eq!(x.occurrences.len(), 3, "both globals, one local");
+        for o in x
+            .occurrences
+            .iter()
+            .filter(|o| matches!(o.symbol, Sym::Global(_)))
+        {
+            assert_eq!(ix.definitions(o.symbol).len(), 1);
+        }
+        let n = ix.document("n.rs").unwrap();
+        let r = n.at(44, 4).next().unwrap();
+        assert_eq!(
+            ix.nearest_definition(r.symbol, "n.rs", 44, None)
+                .unwrap()
+                .line,
+            40
+        );
+        assert_eq!(
+            ix.nearest_definition(r.symbol, "n.rs", 5, None)
+                .unwrap()
+                .line,
+            3
+        );
     }
 
     /// Methodology: char columns convert to and from UTF-8 and UTF-16 units
