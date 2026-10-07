@@ -23340,6 +23340,11 @@ a literature library without them reads as before:
 rust_analyzer = "0.3.2645"       # pinned version; a mismatch re-indexes
 founder = "github:theodoreOnzGit" # the founding maintainer (#762)
 
+[[code_review.rust_analyzer_used]] # append-only: the versions index runs used
+version = "1.98.0"
+date = "2026-10-07"
+commit = "<HEAD sha>"              # or "none" (no commit yet)
+
 [[reviewer]]
 id = "github:theodoreOnzGit"     # github:/gitlab:/orcid: or an email
 name = "Theodore Ong"            # display only
@@ -23409,6 +23414,7 @@ pub mod root { /* ... */ }
 pub struct CodeReviewSettings {
     pub rust_analyzer: Option<String>,
     pub founder: Option<String>,
+    pub rust_analyzer_used: Vec<RustAnalyzerUsed>,
 }
 ```
 
@@ -23418,6 +23424,7 @@ pub struct CodeReviewSettings {
 |------|------|---------------|
 | `rust_analyzer` | `Option<String>` | The pinned rust-analyzer version (D4): a mismatch warns and<br>regenerates the index. |
 | `founder` | `Option<String>` | The founding maintainer's reviewer id (#762, additive; maintainer,<br>2026-10-07): the one reviewer whose first key is trusted on first<br>use. Absent or unknown means no founder, so nothing is trusted<br>([`crate::review::signing::registry::FounderProblem`]). |
+| `rust_analyzer_used` | `Vec<RustAnalyzerUsed>` | Every rust-analyzer version an index run used, oldest first<br>(`[[code_review.rust_analyzer_used]]`; maintainer, 2026-10-07: "just<br>record the versions of rust analyzer that were used, never overwrite<br>the comments based on the new versions"). Additive: absent in older<br>roots, ignored by readers that predate it. A run never changes<br>[`Self::rust_analyzer`] (the pin); it only appends here, as text, with<br>[`append_rust_analyzer_used`]. |
 
 ##### Implementations
 
@@ -23492,6 +23499,137 @@ where
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &CodeReviewSettings) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RustAnalyzerUsed`
+
+One `[[code_review.rust_analyzer_used]]` entry: the rust-analyzer
+version an index run used, the date (`YYYY-MM-DD`) and the `HEAD` commit
+it ran at (`"none"` in a repository with no commit yet).
+
+```rust
+pub struct RustAnalyzerUsed {
+    pub version: String,
+    pub date: String,
+    pub commit: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `version` | `String` |  |
+| `date` | `String` |  |
+| `commit` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RustAnalyzerUsed { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> RustAnalyzerUsed { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RustAnalyzerUsed) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -25582,6 +25720,11 @@ pub struct ReviewRoot {
   Read the review sections from a whole `kovan_root.toml`; every other
 
 - ```rust
+  pub fn rust_analyzer_history(self: &Self) -> &[RustAnalyzerUsed] { /* ... */ }
+  ```
+  The recorded `[[code_review.rust_analyzer_used]]` entries, oldest
+
+- ```rust
   pub fn reviewer(self: &Self, id: &str) -> Option<&Reviewer> { /* ... */ }
   ```
   The reviewer registered under `id`.
@@ -25877,6 +26020,24 @@ Fields:
 - **UnsafeUnpin**
 - **UnwindSafe**
 ### Functions
+
+#### Function `append_rust_analyzer_used`
+
+`existing` (a whole `kovan_root.toml`) with `used` appended as a new
+`[[code_review.rust_analyzer_used]]` entry, **as text at the end**: every
+existing byte, comments included, is kept, so `existing` is a prefix of
+the result (unlike [`ReviewRoot::write_into`], which re-serialises).
+
+`Ok(None)`: nothing to append, because the last recorded version is
+`used.version` already. `Err`: `existing` does not parse (the caller's
+corrupt-root flow applies), `used.date` is not a date, or the appended
+text would not read back as exactly one more entry (for example a root
+that spells `rust_analyzer_used` as an inline array); nothing is written
+then.
+
+```rust
+pub fn append_rust_analyzer_used(existing: &str, used: &RustAnalyzerUsed) -> Result<Option<String>, RootError> { /* ... */ }
+```
 
 #### Function `area_covers`
 
@@ -26684,12 +26845,14 @@ on a slightly slow clock, must not raise a flag. For the date check, a
 A check whose git time the caller did not supply (`None`) is skipped,
 not flagged: no fact, no judgement.
 
-**No local time zone.** `std` exposes no local zone and the workspace
+~~**No local time zone.** `std` exposes no local zone and the workspace
 carries no date crate (the reasoning in `kovan-metrics`' `date` module),
 so [`now_utc`], which [`super::signing::keystore::UnlockedKey::sign_review`]
-uses, writes UTC (`+00:00`). A caller that knows the local offset signs
-with `sign_review_at` instead; the reviewer's `date` must then be the
-date in that same offset, or flag 3 shows.
+uses, writes UTC (`+00:00`).~~ **CORRECTED 2026-10-07** (maintainer:
+add `chrono`): `sign_review` signs [`now_local`], the reviewer's local
+time with its offset. The reviewer's `date` must be the date in that same
+offset ([`date_of`] gives it), or flag 3 shows. `sign_review_at` still
+takes an explicit timestamp, for tests.
 
 ```rust
 pub mod signed_at { /* ... */ }
@@ -27004,13 +27167,40 @@ pub fn format_utc(unix: i64) -> String { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/kovan-common/src/review/signed_at.rs:148:11: 148:33 (#0) }, crates/kovan-common/src/review/signed_at.rs:148:10: 148:34 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/kovan-common/src/review/signed_at.rs:150:11: 150:33 (#0) }, crates/kovan-common/src/review/signed_at.rs:150:10: 150:34 (#0))])]")`
 
 The clock now, as [`format_utc`]. Native only (`SystemTime::now` panics
 on wasm32-unknown-unknown); a clock before 1970 reads as the epoch.
 
 ```rust
 pub fn now_utc() -> String { /* ... */ }
+```
+
+#### Function `now_local`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/kovan-common/src/review/signed_at.rs:165:11: 165:33 (#0) }, crates/kovan-common/src/review/signed_at.rs:165:10: 165:34 (#0))])]")`
+
+The clock now in the machine's **local** time zone, RFC 3339 to the
+second with its offset (`2026-10-08T07:30:00+08:00`). What
+[`super::signing::keystore::UnlockedKey::sign_review`] signs (maintainer,
+2026-10-07: sign in local time). The zone comes from `chrono`'s `Local`
+(iana-time-zone); where the zone cannot be read chrono uses UTC, which
+the written `+00:00` makes visible. Native only, like [`now_utc`].
+
+```rust
+pub fn now_local() -> String { /* ... */ }
+```
+
+#### Function `date_of`
+
+The local calendar date (`YYYY-MM-DD`) of a `signed_at`, in the offset it
+was written with: the `date` a stamp signed at that moment should carry.
+`None` when `signed_at` does not parse.
+
+```rust
+pub fn date_of(signed_at: &str) -> Option<String> { /* ... */ }
 ```
 
 #### Function `plausibility`
