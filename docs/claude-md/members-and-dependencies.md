@@ -74,7 +74,7 @@ applies: only to crates declared mature".
 | `kovan-codegen` | KOVAN deterministic code generation for known numerical methods, and (since 2026-10-07, #748) the Zotero schema tables from `schema.json`. Not an AI assistant | |
 | `kovan-metrics` | KOVAN repository accounting — token trailers and the historian report | |
 | `kovan-web` | **web-kovan** (2026-10-06, #736): the read-only Code Review UI in egui, built for wasm32 and published at `code-review/` on Pages; `Mode::Desktop` reserved for desktop kovan's stamping. AGPL-3.0-only | |
-| `kovan` (bins `kovan`, `kovan-cli`, `kovan-tui`) | KOVAN's three front ends: `kovan` = **human GUI** (egui, digitiser window); `kovan-cli` = **agent CLI**; `kovan-tui` = **human TUI** (ratatui, Android/Termux-usable) | |
+| `kovan` (bins `kovan`, `kovan-cli`, `kovan-tui`; package `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` since 2026-10-07, so `cargo -p` uses the long name) | KOVAN's three front ends: `kovan` = **human GUI** (egui, digitiser window); `kovan-cli` = **agent CLI**; `kovan-tui` = **human TUI** (ratatui, Android/Termux-usable) | |
 
 > **KOVAN** is the deterministic *knowledge* layer (literature + semantics +
 > codegen), interfaced three ways, all binaries of the single `kovan` crate.

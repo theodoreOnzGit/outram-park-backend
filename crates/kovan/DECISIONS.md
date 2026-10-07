@@ -2497,3 +2497,16 @@ the AGPL applies from the next release. Each crate carries a `NOTICE`.
 **Consequence.** The licence boundary is now the family, not `kovan` alone:
 a crate outside it that takes any kovan crate as a library dependency
 inherits the AGPL question (see `NOTICE`, "Workspace boundary").
+
+## The package is published as `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` (2026-10-07)
+
+**Decision (maintainer, 2026-10-07):** the short name `kovan` on crates.io belongs to an unrelated crate (vertexclique/kovan, a memory-reclamation library). The app's package is therefore KOVAN's backronym spelled out, plus `-kovan`: `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` (57 characters, free on crates.io when checked).
+
+**The backronym also changed** from "Knowledge Oriented V&V Analysis for Nuclear science and engineering" to **"Knowledge Oriented V&V Analysis for Nuclear Sciences"**. Every README and the startup screen were updated, and each kovan README now says where the app is published.
+
+**What did not change:**
+- the library name: `[lib] name = "kovan"`, so code writes `kovan::…` (dhoby-ghaut renames the dependency back with `package = …`);
+- the binaries: `kovan`, `kovan-cli`, `kovan-tui`;
+- the folder: `crates/kovan`.
+
+**What did change:** `cargo -p` and `cargo install` take the long name. Every script, CI workflow, hook and doc that ran `cargo … -p kovan` was updated (17 files). Older entries in this file keep their `-p kovan` commands as the record of what was run.

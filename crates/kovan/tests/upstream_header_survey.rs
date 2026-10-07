@@ -10,7 +10,7 @@
 //! measuring instrument, `#[ignore]`d so the suite stays quick:
 //!
 //! ```text
-//! cargo test --release -j 6 -p kovan --test upstream_header_survey -- --ignored --nocapture
+//! cargo test --release -j 6 -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --test upstream_header_survey -- --ignored --nocapture
 //! ```
 //!
 //! **Result (2026-10-06, develop at 2f2cf7d599):** recorded in

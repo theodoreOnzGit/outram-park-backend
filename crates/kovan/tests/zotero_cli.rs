@@ -34,7 +34,7 @@
 //!    bibliography's old text as an exact prefix, and the same index entry
 //!    for the old paper, after a Zotero import into it.
 //!
-//! **Results (2026-10-07, `cargo test --release -p kovan --test
+//! **Results (2026-10-07, `cargo test --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --test
 //! zotero_cli`):** predictions 1 and 3-6 held on the first run. **Prediction
 //! 2 was refuted:** the article (no `citationKey`, a stored PDF) came back
 //! with its derived slug as a new `citationKey` and its stored file as an

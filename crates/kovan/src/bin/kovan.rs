@@ -20,7 +20,7 @@
 //!
 //! Desktop-only by policy; Android gets a redirect message instead of a
 //! window, handled inside `kovan::digitiser::gui::run` itself. `gui` is a
-//! **default** feature (see `Cargo.toml`), so a plain `cargo run -p kovan
+//! **default** feature (see `Cargo.toml`), so a plain `cargo run -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan
 //! --bin kovan` builds it on desktop with no extra flag, while still
 //! resolving to nothing on an Android target (no `--no-default-features`
 //! needed there either).

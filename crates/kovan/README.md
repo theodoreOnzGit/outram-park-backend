@@ -1,7 +1,14 @@
 # kovan
 
 **KOVAN** — **K**nowledge **O**riented **V**&V **A**nalysis for **N**uclear
-science and engineering.
+**S**ciences.
+
+> **On crates.io (2026-10-07):** the KOVAN app is published as
+> `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan`, its backronym
+> spelled out (`kovan` on crates.io is an unrelated crate). Install it with
+> `cargo install knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan`;
+> the binaries are still `kovan`, `kovan-cli` and `kovan-tui`, and the library
+> is still `kovan`.
 
 The startup screen carries this expansion (`src/app/home.rs`); everywhere else
 the plain "KOVAN" is used, per GH issue #35's 2026-09-01 checkpoint §1.
@@ -153,15 +160,15 @@ cargo install --path crates/kovan --bin kovan-cli
 kovan-cli --help
 
 # or without installing to ~/.cargo/bin:
-cargo build --release -p kovan --bin kovan-cli
+cargo build --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan-cli
 ./target/release/kovan-cli --help
 
 # TUI (human-facing)
-cargo build --release -p kovan --bin kovan-tui
+cargo build --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan-tui
 ./target/release/kovan-tui
 
 # GUI (the graph digitiser window — see "Graph digitiser" below)
-cargo build --release -p kovan --bin kovan --features gui
+cargo build --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan --features gui
 ./target/release/kovan
 ```
 
@@ -379,7 +386,7 @@ Kovan folder, run the opt-in test, which imports into a temporary folder
 (deleted afterwards) and prints counts only:
 
 ```bash
-KOVAN_ZOTERO_DATA_DIR=~/Zotero cargo test --release -p kovan --test zotero_cli \
+KOVAN_ZOTERO_DATA_DIR=~/Zotero cargo test --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --test zotero_cli \
     opt_in_real_library_import_counts -- --nocapture
 ```
 
@@ -668,7 +675,7 @@ AGPL-3.0-only too, by maintainer direction; see `NOTICE`. The digitiser stays
 here.) See the workspace
 `CLAUDE.md` "Graph digitisation: dogfood kovan-digitise" for the
 mandated-tool context; that section's `-p kovan-literature` invocations now
-read `-p kovan`.
+read `-p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan`.
 
 Extract `(x, y)` data points from a plot image with a full calibration +
 provenance record (`DigitisedDataset`): load an image, calibrate the axes
@@ -692,7 +699,7 @@ crate — collapsed from five standalone binaries to three later the same day
   below for why):
 
   ```bash
-  cargo run --release -p kovan --bin kovan --features gui [image-path]
+  cargo run --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan --features gui [image-path]
   ```
 
   Used to have a same-behaviour twin, `kovan-digitise-gui`, back when
@@ -777,9 +784,9 @@ Android/Termux-usable, not just buildable** — every screen and subcommand,
 including the Digitiser tab, actually runs there:
 
 ```bash
-cargo check --release -p kovan --bin kovan-cli --target aarch64-linux-android
-cargo check --release -p kovan --bin kovan-tui --target aarch64-linux-android
-cargo check --release -p kovan --all-targets --target aarch64-linux-android
+cargo check --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan-cli --target aarch64-linux-android
+cargo check --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan-tui --target aarch64-linux-android
+cargo check --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --all-targets --target aarch64-linux-android
 ```
 
 > **CORRECTED 2026-09-18 — the third command above did NOT pass until that
@@ -815,7 +822,7 @@ and that same change removed the *technical* reason for gating `pub mod
 tui;` at all. The gate was dropped in the same change: `kovan-tui` is now a
 single, ungated `main()` with no Android stub, and the whole seven-tab TUI
 — not just the digitiser — is Android-buildable and Android-runnable.
-Confirmed 2026-08-21: `cargo check -p kovan --all-targets --target
+Confirmed 2026-08-21: `cargo check -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --all-targets --target
 aarch64-linux-android` is clean. This directly serves GitHub issue #30's
 stated reason for wanting exactly `kovan`/`kovan-cli`/`kovan-tui`: Android
 usability.
@@ -824,7 +831,7 @@ usability.
 and sits behind the `gui` feature — a **default** feature everywhere except
 Android, where its `eframe`/`egui` dependencies are additionally
 target-gated off, so building this crate with its default feature set —
-what a plain `cargo build -p kovan` or an Android/Termux build does — never
+what a plain `cargo build -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` or an Android/Termux build does — never
 pulls egui/eframe into the dependency graph there. `kovan` itself has no
 Android build (the redirect message it *would* print lives inside
 [`kovan::digitiser::gui::run`], since that function is used on Android by
@@ -833,7 +840,7 @@ nothing — no binary in this crate calls it there).
 ## Testing
 
 ```bash
-cargo test --release -p kovan
+cargo test --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan
 ```
 
 - `src/bin/kovan-cli.rs` unit tests — `clap` argument-parsing coverage for

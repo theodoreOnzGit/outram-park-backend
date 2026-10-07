@@ -100,7 +100,7 @@ jobs:
 
       - name: Build kovan-cli (the CI selector)
         shell: bash
-        run: cargo build --release -q -p kovan --bin kovan-cli
+        run: cargo build --release -q -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan-cli
 
       - name: Which crates are top-level?
         id: top
@@ -148,7 +148,7 @@ jobs:
       # passing is printed as NOW PASSING: propose closing its issue.
       - name: Known failures
         shell: bash
-        run: cargo run --release -q -p kovan --bin kovan-cli -- ci known-failures
+        run: cargo run --release -q -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan-cli -- ci known-failures
 
   # ── Compile-only platforms ─────────────────────────────────────────────────
   android:

@@ -1,8 +1,15 @@
 # kovan-semantics
 
 **KOVAN** — **K**nowledge **O**riented **V**&V **A**nalysis for **N**uclear
-science and engineering. This crate is part of KOVAN: it turns a source tree
+**S**ciences. This crate is part of KOVAN: it turns a source tree
 into a catalogue of symbols and Markdown summaries.
+
+> **On crates.io (2026-10-07):** the KOVAN app is published as
+> `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan`, its backronym
+> spelled out (`kovan` on crates.io is an unrelated crate). Install it with
+> `cargo install knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan`;
+> the binaries are still `kovan`, `kovan-cli` and `kovan-tui`, and the library
+> is still `kovan`.
 
 > ⚠️ **Research, education and V&V only.** Not for nuclear facility operation,
 > reactor control, licensing, safety-critical decisions or emergency response.

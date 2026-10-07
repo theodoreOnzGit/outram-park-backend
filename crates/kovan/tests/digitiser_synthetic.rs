@@ -29,7 +29,7 @@
 //! curve, default `TraceConfig`); numbers below are copied from that run's
 //! output, not predicted. **The digitiser relocated from `kovan-literature`
 //! to `kovan` on 2026-08-21** (this file moved with it — same test, same
-//! numbers, now run as `cargo test -p kovan --release --test
+//! numbers, now run as `cargo test -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --release --test
 //! digitiser_synthetic -- --nocapture`); the command above is the historical
 //! record of how these particular numbers were produced, not a live
 //! instruction.

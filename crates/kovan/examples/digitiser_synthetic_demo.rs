@@ -7,7 +7,7 @@
 //! you can also try the CLI on it:
 //!
 //! ```text
-//! cargo run --release -p kovan --example digitiser_synthetic_demo
+//! cargo run --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --example digitiser_synthetic_demo
 //! kovan-cli digitise --image digitiser_demo_loglog.png \
 //!     --x-scale log --x-range 1,1e6 --y-scale log --y-range 0.1,10 \
 //!     --figure "synthetic demo" --json demo.json --csv demo.csv

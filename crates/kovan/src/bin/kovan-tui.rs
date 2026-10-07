@@ -13,7 +13,7 @@
 //! `kovan-digitise-tui` binary's Android behaviour — see this crate's
 //! `NOTICE`/`Cargo.toml`), which also made the *whole* TUI, not just the
 //! digitiser, buildable and runnable on Android. Confirmed 2026-08-21:
-//! `cargo check -p kovan --all-targets --target aarch64-linux-android` is
+//! `cargo check -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --all-targets --target aarch64-linux-android` is
 //! clean with `pub mod tui;` unconditional in `src/lib.rs`. This matters
 //! directly for GitHub issue #30's final interface spec, which asked for
 //! exactly these three binaries specifically so `kovan` stays usable on

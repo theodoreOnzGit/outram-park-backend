@@ -30,7 +30,7 @@ cp docs/site/code-map/index.html "$OUT/code-map/"
 mkdir -p "$OUT/kovan-schema"
 cp docs/site/kovan-schema/index.html "$OUT/kovan-schema/"
 code_map() {
-  cargo run --release -q -j "${PAGES_JOBS:-3}" -p kovan --no-default-features --bin kovan-cli -- \
+  cargo run --release -q -j "${PAGES_JOBS:-3}" -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli -- \
     code-map --workspace . "$@"
 }
 code_map --format svg -o "$OUT/code-map/code_map.svg"
@@ -114,7 +114,7 @@ if grep -rqs -- '<!-- code-walk:' "${walk_dirs[@]}"; then
   # when the component is absent, and that stub fails as soon as it is run
   # (it took down every Pages build on 2026-10-04). Ask it for its version.
   if rust-analyzer --version >/dev/null 2>&1; then
-    cargo run --release -q -p kovan --no-default-features --bin kovan-cli -- \
+    cargo run --release -q -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli -- \
       code-walk-check "${walk_dirs[@]}"
   elif [[ -n "${CODE_WALK_REQUIRED:-}" ]]; then
     echo "code walks need rust-analyzer (rustup component add rust-analyzer)" >&2

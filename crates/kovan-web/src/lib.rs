@@ -1,7 +1,7 @@
 //! # kovan-web — web-kovan, the Code Review UI
 //!
 //! **KOVAN-WEB**: **K**nowledge **O**riented **V**&V **A**nalysis for
-//! **N**uclear, on the **Web**. The read-only Code Review UI of the kovan
+//! **N**uclear **S**ciences, on the **Web**. The read-only Code Review UI of the kovan
 //! family (GitHub #735, #736, #738), written once in egui so that the same
 //! UI runs in the browser (wasm32, published on GitHub Pages at
 //! `code-review/`) and, later, inside desktop kovan with stamping added.

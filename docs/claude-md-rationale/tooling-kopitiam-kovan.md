@@ -137,7 +137,7 @@ ingested document inside the project's own knowledge layer with its metadata
 and provenance intact, instead of leaving a loose Markdown file with no record
 of where it came from.
 
-- Build it from the workspace (`cargo build --release -p kovan --bin kovan`) — it is a
+- Build it from the workspace (`cargo build --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan`) — it is a
   member crate, not something to `cargo install` from crates.io.
 - **Respect the open/proprietary split.** Public, openly published literature
   goes under `crates/kovan-literature/open/` and is committable; anything
@@ -192,9 +192,9 @@ digitiser/TUI/CLI binaries to exactly three later the same day**, per
 GitHub issue #30's final interface spec:
 
 ```bash
-cargo build --release -p kovan --bin kovan-cli                # CLI: `kovan-cli digitise`
-cargo build --release -p kovan --bin kovan-tui                # TUI: Digitiser tab
-cargo build --release -p kovan --bin kovan --features gui     # GUI
+cargo build --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan-cli                # CLI: `kovan-cli digitise`
+cargo build --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan-tui                # TUI: Digitiser tab
+cargo build --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan --features gui     # GUI
 ```
 
 - **`kovan-cli digitise` is the agent path** — fully automatic, scriptable,

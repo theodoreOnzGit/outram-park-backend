@@ -112,7 +112,7 @@ AGPL question.
 Android / Termux
 -----------------
 
-`kopitiam-pdf` was checked (`cargo tree -p kovan`, 2026-08-21) to carry no
+`kopitiam-pdf` was checked (`cargo tree -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan`, 2026-08-21) to carry no
 `-sys` / C-toolchain dependency anywhere in its tree — it and its
 transitive dependencies (`pdf-extract`, `lopdf`, `image`, and their own
 codec dependencies) are all pure Rust. It is not target-gated off Android in

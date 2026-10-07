@@ -41,7 +41,7 @@ cd "$root"
 JOBS="${PAGES_JOBS:-3}"
 CACHE="${KOVAN_INDEX_CACHE:-$root/target/kovan-index}"
 BUDGET="${KOVAN_INDEX_BUDGET:-0}"
-cargo build --release -q -j "$JOBS" -p kovan --no-default-features --bin kovan-cli
+cargo build --release -q -j "$JOBS" -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli
 kc="$root/target/release/kovan-cli"
 trap '"$kc" lsp-daemon-stop --root "$root" >/dev/null 2>&1 || true' EXIT
 

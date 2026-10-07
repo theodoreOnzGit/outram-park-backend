@@ -1,13 +1,20 @@
 [package]
-name = "kovan"
-description = "KOVAN — CLI (agent-facing), TUI and GUI (human-facing) front ends over the KOVAN knowledge layer."
+# Published name (maintainer, 2026-10-07): KOVAN's backronym spelled out, plus
+# `-kovan`. The short name `kovan` on crates.io belongs to an unrelated crate
+# (vertexclique/kovan). The library is still `kovan` ([lib] below) and the
+# binaries keep their names, so code and commands say `kovan`; only `cargo -p`
+# and `cargo install` use the long package name.
+name = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan"
+description = "KOVAN (Knowledge Oriented V&V Analysis for Nuclear Sciences): CLI (agent-facing), TUI and GUI (human-facing) front ends over the KOVAN knowledge layer."
 version = "0.0.0"
 edition.workspace = true
 # AGPL-3.0-only, NOT `license.workspace = true` (GPL-3.0-only) — deliberate,
 # maintainer-directed divergence from the workspace default (2026-08-21) to
 # depend on `kopitiam-pdf` (also AGPL-3.0-only). See NOTICE in this directory
 # for the full relicense record and the workspace-boundary rule it sets: this
-# is the ONLY AGPL-3.0-only crate in OUTRAM PARK, `kopitiam-pdf` is declared
+# is the ONLY AGPL-3.0-only crate in OUTRAM PARK (~~ONLY~~ CORRECTED
+# 2026-10-07: the whole kovan family is AGPL-3.0-only now; see NOTICE),
+# `kopitiam-pdf` is declared
 # here (not in the root `[workspace.dependencies]`) so no other crate can
 # pick it up by accident, and nothing else in the workspace may depend on
 # `kovan` without re-examining that boundary.
@@ -53,13 +60,13 @@ maturity = 1
 # kovan-literature's `digitise-gui`) since this crate owns it outright.
 #
 # `gui` is a DEFAULT feature — desktop builds get the `kovan` GUI binary with
-# a plain `cargo build -p kovan`, no `--features gui` needed — but stays Android-free
+# a plain `cargo build -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan`, no `--features gui` needed — but stays Android-free
 # with no `--no-default-features` needed either: `eframe`/`egui` are declared
 # only under the `[target.'cfg(not(target_os = "android"))'.dependencies]`
 # table below, so on an Android build those deps simply do not exist in that
 # target's dependency graph at all, and `gui`'s `dep:eframe`/`dep:egui`
 # requirement resolves to nothing there rather than erroring. Confirmed
-# 2026-08-21: `cargo tree -p kovan --target aarch64-linux-android -e
+# 2026-08-21: `cargo tree -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --target aarch64-linux-android -e
 # features` shows zero `eframe`/`egui` — the standard Cargo pattern for a
 # platform-specific default feature, the same shape crates like `winit` use.
 [features]
@@ -76,6 +83,12 @@ lookup-net = ["dep:ureq"]
 # `kovan-digitise`, `kovan-digitise-tui`) — `kovan-digitise` folded into
 # `kovan-cli digitise`, `kovan-digitise-tui`'s review screen became
 # `kovan-tui`'s Digitiser tab. See NOTICE and `src/tui/digitiser.rs`.
+# The library keeps the short name, so dependents and the binaries write
+# `kovan::…` (package renamed 2026-10-07, see [package] above).
+[lib]
+name = "kovan"
+path = "src/lib.rs"
+
 [[bin]]
 name = "kovan"
 path = "src/bin/kovan.rs"
@@ -151,7 +164,7 @@ directories.workspace = true
 # box, transparently — no feature gate, no call-site change here. Still
 # pure-Rust/Android-Termux-clean (`hayro` carries no C/C++/Fortran anywhere
 # in its own dependency chain either) and license-compatible with this
-# crate's AGPL-3.0-only. Verified via `cargo tree -p kovan | grep hayro`
+# crate's AGPL-3.0-only. Verified via `cargo tree -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan | grep hayro`
 # after the bump.
 
 # 0.3.2 (op-9vo6.11, kopitiam#96): the reusable reader (kopitiam-pdf's own
@@ -240,7 +253,7 @@ sha2.workspace = true
 # had no technical reason left either (it existed only because ratatui used
 # to be Android-gated) — it was dropped the same day, so `kovan-tui` is now
 # genuinely Android/Termux-usable end to end, not just Android-buildable.
-# Confirmed 2026-08-21: `cargo check -p kovan --all-targets --target
+# Confirmed 2026-08-21: `cargo check -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --all-targets --target
 # aarch64-linux-android` is clean with the full `tui` module (all seven
 # tabs, including the digitiser) compiled in. This matters directly for
 # GitHub issue #30's final interface spec, whose stated reason for wanting
