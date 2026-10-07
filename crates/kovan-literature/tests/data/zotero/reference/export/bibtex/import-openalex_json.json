@@ -1,0 +1,34 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "\n@article{akerlof_labor_1982,\n\ttitle = {Labor {Contracts} as {Partial} {Gift} {Exchange}},\n\tvolume = {97},\n\tissn = {0033-5533},\n\tdoi = {10.2307/1885099},\n\tlanguage = {en},\n\tnumber = {4},\n\tjournal = {The Quarterly Journal of Economics},\n\tpublisher = {Oxford University Press},\n\tauthor = {Akerlof, George A.},\n\tmonth = nov,\n\tyear = {1982},\n\tnote = {OpenAlex: https://openalex.org/W2099326003},\n\tkeywords = {labor, exchange, gift},\n\tpages = {543},\n}\n"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "\n@article{bertrand_are_2004,\n\ttitle = {Are {Emily} and {Greg} {More} {Employable} {Than} {Lakisha} and {Jamal}? {A} {Field} {Experiment} on {Labor} {Market} {Discrimination}},\n\tvolume = {94},\n\tissn = {1944-7981},\n\tdoi = {10.1257/0002828042002561},\n\tlanguage = {en},\n\tnumber = {4},\n\tjournal = {The American Economic Review},\n\tpublisher = {American Economic Association},\n\tauthor = {Bertrand, Marianne and Mullainathan, Sendhil},\n\tmonth = sep,\n\tyear = {2004},\n\tnote = {OpenAlex: https://openalex.org/W3123223998},\n\tkeywords = {labor market discrimination, emily},\n\tpages = {991--1013},\n}\n"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "\n@incollection{camerer_effects_1999,\n\ttitle = {The {Effects} of {Financial} {Incentives} in {Experiments}: {A} {Review} and {Capital}-{Labor}-{Production} {Framework}},\n\tdoi = {10.1007/978-94-017-1406-8_2},\n\tlanguage = {en},\n\tbooktitle = {Springer {eBooks}},\n\tpublisher = {Springer Nature},\n\tauthor = {Camerer, Colin F. and Hogarth, Robin M.},\n\tmonth = jan,\n\tyear = {1999},\n\tnote = {OpenAlex: https://openalex.org/W2105705711},\n\tkeywords = {financial incentives, experiments, capital-labor-production},\n\tpages = {7--48},\n}\n"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "\n@book{cooper_clinical_2014,\n\ttitle = {Clinical {Labor}},\n\tdoi = {10.1215/9780822377009},\n\tpublisher = {Duke University Press},\n\tauthor = {Cooper, Melinda and Waldby, Catherine},\n\tmonth = jan,\n\tyear = {2014},\n\tnote = {OpenAlex: https://openalex.org/W4234549826},\n\tkeywords = {labor, clinical},\n}\n"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "\n@phdthesis{stepanic_gulag_2017,\n\ttitle = {The {GULag} and {Laogai}: {A} {Comparative} {Study} of {Forced} {Labor} through {Camp} {Literature}},\n\tdoi = {10.18130/v3v002},\n\tlanguage = {en},\n\tschool = {University of Virginia},\n\tauthor = {Stepanic, Stanley Joseph},\n\tmonth = aug,\n\tyear = {2017},\n\tnote = {OpenAlex: https://openalex.org/W2257674859},\n\tkeywords = {gulag, forced labor, camp, laogai},\n}\n"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "\n@article{wentworth_audibility_1965,\n\ttitle = {On the audibility of amplifier phase distortion},\n\tvolume = {AU-13},\n\tissn = {1558-2663},\n\tdoi = {10.1109/tau.1965.1161805},\n\tlanguage = {en},\n\tnumber = {4},\n\tjournal = {IEEE Transactions on Audio},\n\tpublisher = {Institute of Electrical and Electronics Engineers},\n\tauthor = {Wentworth, G.},\n\tmonth = jul,\n\tyear = {1965},\n\tnote = {OpenAlex: https://openalex.org/W2046245907},\n\tkeywords = {amplifier phase distortion, audibility},\n\tpages = {99},\n}\n\n@article{noauthor_notices_1983,\n\ttitle = {Notices},\n\tvolume = {308},\n\tissn = {0028-4793},\n\tdoi = {10.1056/nejm198301133080228},\n\tnumber = {2},\n\tjournal = {The New England Journal of Medicine},\n\tpublisher = {Massachusetts Medical Society},\n\tmonth = jan,\n\tyear = {1983},\n\tnote = {OpenAlex: https://openalex.org/W4237963058},\n\tpages = {112},\n}\n\n@incollection{strydom_big_2020,\n\ttitle = {The {Big} {Data} {Research} {Ecosystem}},\n\tdoi = {10.4018/978-1-7998-7705-9.ch090},\n\tlanguage = {en},\n\tbooktitle = {{IGI} {Global} {eBooks}},\n\tpublisher = {IGI Global},\n\tauthor = {Strydom, Moses John and Buckley, Sheryl},\n\tmonth = nov,\n\tyear = {2020},\n\tnote = {OpenAlex: https://openalex.org/W4239223537},\n\tkeywords = {big data research ecosystem, big data},\n\tpages = {2027--2057},\n}\n\n@article{nevzgodina_relative_1966,\n\ttitle = {Relative {Biological} {Effectiveness} of {High} {Energy} {Protons} {Affecting} {Cabbage} {Seeds}},\n\tissn = {1820-6069},\n\tlanguage = {de},\n\tjournal = {Genetika},\n\tpublisher = {Serbian Genetics Society},\n\tauthor = {Nevzgodina, L. V. and Кузнецов, В. Г. and {Sychkov}},\n\tmonth = aug,\n\tyear = {1966},\n\tnote = {OpenAlex: https://openalex.org/W78857221},\n\tkeywords = {cabbage seeds, high energy protons, relative biological effectiveness},\n}\n\n@article{pang_reasons_2012,\n\ttitle = {Reasons and {Preventions} of the {Credit} {Risk} with {Village} {Banks}},\n\tlanguage = {en},\n\tjournal = {Journal of Shangqiu Vocational and Technical College},\n\tauthor = {Pang, Ying},\n\tmonth = jan,\n\tyear = {2012},\n\tnote = {OpenAlex: https://openalex.org/W2358372115},\n\tkeywords = {credit risk, preventions},\n}\n"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "\n@inproceedings{volpi_generalizing_2018,\n\ttitle = {Generalizing to {Unseen} {Domains} via {Adversarial} {Data} {Augmentation}},\n\tvolume = {31},\n\tlanguage = {en},\n\tbooktitle = {Neural {Information} {Processing} {Systems}},\n\tauthor = {Volpi, Riccardo and Namkoong, Hongseok and Şener, Ozan and Duchi, John C. and Murino, Vittorio and Savarese, Silvio},\n\tmonth = may,\n\tyear = {2018},\n\tnote = {OpenAlex: https://openalex.org/W2962935454},\n\tkeywords = {Domain Adaptation, Unsupervised Learning, Adversarial Examples, Transfer Learning, Representation Learning},\n\tpages = {5334--5344},\n}\n"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "\n@misc{pedregosa_scikit-learn:_2012,\n\ttitle = {Scikit-learn: {Machine} {Learning} in {Python}},\n\tdoi = {10.48550/arxiv.1201.0490},\n\tlanguage = {en},\n\tpublisher = {Cornell University},\n\tauthor = {Pedregosa, Fabián and Varoquaux, Gaël and Gramfort, Alexandre and Michel, Vincent and Thirion, Bertrand and Grisel, Olivier and Blondel, Mathieu and Prettenhofer, Peter and Weiss, Ron J. and Dubourg, Vincent and Vanderplas, Jake and Passos, Alexandre and Cournapeau, David and Brucher, Matthieu and Perrot, Marc de and Duchesnay, Édouard},\n\tmonth = jan,\n\tyear = {2012},\n\tnote = {OpenAlex: https://openalex.org/W2101234009},\n\tkeywords = {Python, Robust Learning},\n}\n"
+	}
+}

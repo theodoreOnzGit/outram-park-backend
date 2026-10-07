@@ -1,0 +1,12 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ3331189\nLAST\tDen\t\"book published in 2013\"\nLAST\tP478\t\"2058\"\nLAST\tP1104\t206\nLAST\tP2093\t\"Mostafa Bachar\"\tP1545\t\"1\"\nLAST\tP577\t+2013-01-01T00:00:00Z/11\nLAST\tP212\t\"978-3-642-32156-6\"\nLAST\tLmul\t\"Stochastic biomathematical models: With applications to neuronal modeling\"\nLAST\tLen\t\"Stochastic biomathematical models: With applications to neuronal modeling\"\nLAST\tP1476\ten:\"Stochastic biomathematical models: With applications to neuronal modeling\"\nLAST\tP407\tQ1860\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"csl_ranges": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Journal of Testing' published in 2010\"\nLAST\tP478\t\"7\"\nLAST\tP304\t\"1-10\"\nLAST\tP1104\t10\nLAST\tP2093\t\"John Smith\"\tP1545\t\"1\"\nLAST\tP2093\t\"Kovan Collaboration\"\tP1545\t\"2\"\nLAST\tP577\t+2010-00-00T00:00:00Z/9\nLAST\tLmul\t\"A range and a circa date\"\nLAST\tLen\t\"A range and a circa date\"\nLAST\tP1476\tund:\"A range and a circa date\"\nCREATE\nLAST\tP31\tQ3331189\nLAST\tDen\t\"book published in 2021\"\nLAST\tP1104\t300\nLAST\tP577\t+2021-00-00T00:00:00Z/9\nLAST\tLmul\t\"A literal date\"\nLAST\tLen\t\"A literal date\"\nLAST\tP1476\tund:\"A literal date\"\nCREATE\nLAST\tP31\tQ1980247\nLAST\tDen\t\"book section from 'A Book' published in 2021\"\nLAST\tP577\t+2021-00-00T00:00:00Z/9\nLAST\tLmul\t\"A season\"\nLAST\tLen\t\"A season\"\nLAST\tP1476\tund:\"A season\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

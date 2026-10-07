@@ -1,0 +1,34 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "software",
+						"type": 1
+					},
+					{
+						"tag": "security",
+						"type": 1
+					},
+					{
+						"tag": "social_networking",
+						"type": 1
+					},
+					{
+						"tag": "todo",
+						"type": 1
+					}
+				],
+				"title": "Pond - Pond",
+				"url": "https://pond.imperialviolet.org"
+			}
+		]
+	}
+}

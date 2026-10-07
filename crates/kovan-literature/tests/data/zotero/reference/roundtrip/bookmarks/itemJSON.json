@@ -1,0 +1,896 @@
+{
+	"artwork": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"audioRecording": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"bill": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"blogPost": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"book": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"bookSection": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"case": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"computerProgram": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"conferencePaper": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"dataset": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"dictionaryEntry": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"document": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"email": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"encyclopediaArticle": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"film": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"forumPost": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"hearing": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"instantMessage": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"interview": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"journalArticle": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"letter": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"magazineArticle": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"manuscript": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"map": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"newspaperArticle": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"patent": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"podcast": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"preprint": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"presentation": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"radioBroadcast": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"report": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"standard": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"statute": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"thesis": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"tvBroadcast": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"videoRecording": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"webpage": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	},
+	"all": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN22227",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN22228",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN22229",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222A",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222B",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222C",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222D",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222E",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222F",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222G",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222H",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222I",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222J",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222K",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222L",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222M",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222N",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222P",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222Q",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222R",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222S",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222T",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222U",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222V",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222W",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222X",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222Y",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN2222Z",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN22232",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN22233",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN22234",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			},
+			{
+				"key": "KVN22235",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "http://www.example.com"
+			}
+		]
+	}
+}

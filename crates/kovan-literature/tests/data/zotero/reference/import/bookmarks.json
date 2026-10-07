@@ -1,0 +1,62 @@
+[
+	{
+		"name": "testCase00",
+		"source": "translators/Bookmarks.js testCases[0]",
+		"input": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\" /><!-- This is an automatically generated file. -->\n<TITLE>Bookmarks</TITLE>\n<H1 LAST_MODIFIED=\"1396239625\">Bookmarks for anarcat from SemanticScuttle</H1>\n<DL>\n        <DT><A HREF=\"https://pond.imperialviolet.org\" description=\"For secure, synchronous communication we have OTR and, when run over Tor, this is pretty good. But while we have secure asynchronous messaging in the form of PGP email, it's not forward secure and it gratuitously leaks traffic information. While a desire for forward secure PGP is hardly new, it still hasn't materialised in a widely usable manner.\n\nAdditionally, email is used predominately for insecure communications (mailing lists, etc) and is useful because it allows previously unconnected people to communicate as long as a (public) email address is known to one party. But the flip side to this is that volume and spam are driving people to use centralised email services. These provide such huge benefits to the majority of email communication, so it's unlikely that this trend is going to reverse. But, even with PGP, these services are trusted with hugely valuable traffic information if any party uses them.\n\nSo Pond is not email. Pond is forward secure, asynchronous messaging for the discerning. Pond messages are asynchronous, but are not a record; they expire automatically a week after they are received. Pond seeks to prevent leaking traffic information against everyone except a global passive attacker.\"  hash=\"192dd9819b1e763872f6cf6a9ac1be26\" tags=\"software,security,social_networking,todo\" ADD_DATE=\"1396253182\" >Pond - Pond</a>\n\n",
+		"upstreamTestItems": [
+			{
+				"itemType": "webpage",
+				"creators": [],
+				"notes": [],
+				"tags": [
+					"software",
+					"security",
+					"social_networking",
+					"todo"
+				],
+				"seeAlso": [],
+				"attachments": [],
+				"title": "Pond - Pond",
+				"id": 0,
+				"itemID": 0,
+				"url": "https://pond.imperialviolet.org",
+				"abstractNote": "For secure, synchronous communication we have OTR and, when run over Tor, this is pretty good. But while we have secure asynchronous messaging in the form of PGP email, it's not forward secure and it gratuitously leaks traffic information. While a desire for forward secure PGP is hardly new, it still hasn't materialised in a widely usable manner.\n\nAdditionally, email is used predominately for insecure communications (mailing lists, etc) and is useful because it allows previously unconnected people to communicate as long as a (public) email address is known to one party. But the flip side to this is that volume and spam are driving people to use centralised email services. These provide such huge benefits to the majority of email communication, so it's unlikely that this trend is going to reverse. But, even with PGP, these services are trusted with hugely valuable traffic information if any party uses them.\n\nSo Pond is not email. Pond is forward secure, asynchronous messaging for the discerning. Pond messages are asynchronous, but are not a record; they expire automatically a week after they are received. Pond seeks to prevent leaking traffic information against everyone except a global passive attacker.",
+				"accessDate": "2014-03-31 08:06:22"
+			}
+		],
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "software",
+						"type": 1
+					},
+					{
+						"tag": "security",
+						"type": 1
+					},
+					{
+						"tag": "social_networking",
+						"type": 1
+					},
+					{
+						"tag": "todo",
+						"type": 1
+					}
+				],
+				"title": "Pond - Pond",
+				"url": "https://pond.imperialviolet.org",
+				"abstractNote": "For secure, synchronous communication we have OTR and, when run over Tor, this is pretty good. But while we have secure asynchronous messaging in the form of PGP email, it's not forward secure and it gratuitously leaks traffic information. While a desire for forward secure PGP is hardly new, it still hasn't materialised in a widely usable manner.\n\nAdditionally, email is used predominately for insecure communications (mailing lists, etc) and is useful because it allows previously unconnected people to communicate as long as a (public) email address is known to one party. But the flip side to this is that volume and spam are driving people to use centralised email services. These provide such huge benefits to the majority of email communication, so it's unlikely that this trend is going to reverse. But, even with PGP, these services are trusted with hugely valuable traffic information if any party uses them.\n\nSo Pond is not email. Pond is forward secure, asynchronous messaging for the discerning. Pond messages are asynchronous, but are not a record; they expire automatically a week after they are received. Pond seeks to prevent leaking traffic information against everyone except a global passive attacker.",
+				"accessDate": "2014-03-31T08:06:22Z"
+			}
+		],
+		"via": "in-process, translator forced (zotero-reference.mjs inProcessImport)",
+		"serverTranslatorID": "4e7119e0-02be-4848-86ef-79a64185aad8"
+	}
+]
