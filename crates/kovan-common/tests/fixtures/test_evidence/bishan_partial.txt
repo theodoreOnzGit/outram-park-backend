@@ -1,0 +1,17 @@
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+   Compiling typenum v1.20.1
+   Compiling uom v0.38.0
+   Compiling bishan v0.0.1 (/WS/crates/bishan)
+{"reason":"compiler-artifact","package_id":"path+file:///WS/crates/bishan#0.0.1","manifest_path":"/WS/crates/bishan/Cargo.toml","target":{"kind":["lib"],"crate_types":["lib"],"name":"bishan","src_path":"/WS/crates/bishan/src/lib.rs","edition":"2021","doc":true,"doctest":true,"test":true},"profile":{"opt_level":"3","debuginfo":0,"debug_assertions":false,"overflow_checks":true,"test":true},"features":[],"filenames":["/WS/target/release/deps/bishan-00ec31a04e6514b6"],"executable":"/WS/target/release/deps/bishan-00ec31a04e6514b6","fresh":false}
+{"reason":"build-finished","success":true}
+    Finished `release` profile [optimized] target(s) in 7.65s
+     Running unittests src/lib.rs (target/release/deps/bishan-00ec31a04e6514b6)
+
+running 3 tests
+test tests::the_scope_is_recorded ... ok
+test building::tests::atoms_are_conserved_and_small_steps_equal_one_big_step ... ok
+test building::tests::the_steady_building_passes_inflow_less_decay ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

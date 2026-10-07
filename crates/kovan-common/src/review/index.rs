@@ -148,7 +148,9 @@ pub enum Suite {
     Quick,
 }
 
-/// `[test_run]`: the evidence `kovan-cli test` recorded (D4).
+/// `[test_run]`: the evidence `kovan-cli test` recorded (D4), projected onto
+/// test ids from the workspace's `kovan_test_evidence.toml` by
+/// [`super::evidence::map::to_test_run`] (only counted, full-suite runs).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TestRun {
     pub commit: String,

@@ -1,0 +1,53 @@
+   Compiling evfix v0.1.0 (/WS/crates/evfix)
+{"reason":"compiler-artifact","package_id":"path+file:///WS/crates/evfix#0.1.0","manifest_path":"/WS/crates/evfix/Cargo.toml","target":{"kind":["lib"],"crate_types":["lib"],"name":"evfix","src_path":"/WS/crates/evfix/src/lib.rs","edition":"2021","doc":true,"doctest":true,"test":true},"profile":{"opt_level":"3","debuginfo":0,"debug_assertions":false,"overflow_checks":false,"test":false},"features":[],"filenames":["/WS/crates/evfix/target/release/deps/libevfix-115395cba9bae675.rlib","/WS/crates/evfix/target/release/deps/libevfix-115395cba9bae675.rmeta"],"executable":null,"fresh":false}
+{"reason":"compiler-artifact","package_id":"path+file:///WS/crates/evfix#0.1.0","manifest_path":"/WS/crates/evfix/Cargo.toml","target":{"kind":["test"],"crate_types":["bin"],"name":"crash","src_path":"/WS/crates/evfix/tests/crash.rs","edition":"2021","doc":false,"doctest":false,"test":true},"profile":{"opt_level":"3","debuginfo":0,"debug_assertions":false,"overflow_checks":false,"test":true},"features":[],"filenames":["/WS/crates/evfix/target/release/deps/crash-b0e1a9d416bd9cc2"],"executable":"/WS/crates/evfix/target/release/deps/crash-b0e1a9d416bd9cc2","fresh":false}
+{"reason":"compiler-artifact","package_id":"path+file:///WS/crates/evfix#0.1.0","manifest_path":"/WS/crates/evfix/Cargo.toml","target":{"kind":["test"],"crate_types":["bin"],"name":"integration","src_path":"/WS/crates/evfix/tests/integration.rs","edition":"2021","doc":false,"doctest":false,"test":true},"profile":{"opt_level":"3","debuginfo":0,"debug_assertions":false,"overflow_checks":false,"test":true},"features":[],"filenames":["/WS/crates/evfix/target/release/deps/integration-73583cfeb37cb3a0"],"executable":"/WS/crates/evfix/target/release/deps/integration-73583cfeb37cb3a0","fresh":false}
+{"reason":"compiler-artifact","package_id":"path+file:///WS/crates/evfix#0.1.0","manifest_path":"/WS/crates/evfix/Cargo.toml","target":{"kind":["lib"],"crate_types":["lib"],"name":"evfix","src_path":"/WS/crates/evfix/src/lib.rs","edition":"2021","doc":true,"doctest":true,"test":true},"profile":{"opt_level":"3","debuginfo":0,"debug_assertions":false,"overflow_checks":false,"test":true},"features":[],"filenames":["/WS/crates/evfix/target/release/deps/evfix-8fc73da9278117bb"],"executable":"/WS/crates/evfix/target/release/deps/evfix-8fc73da9278117bb","fresh":false}
+{"reason":"build-finished","success":true}
+    Finished `release` profile [optimized] target(s) in 0.15s
+     Running unittests src/lib.rs (target/release/deps/evfix-8fc73da9278117bb)
+
+running 6 tests
+test geom::tests::area_is_positive ... ok
+test tests::slow ... ignored, takes hours
+test tests::adds ... ok
+test geom::tests::inner::nested_ok ... ok
+test tests::fails ... FAILED
+test tests::panics - should panic ... ok
+
+failures:
+
+---- tests::fails stdout ----
+
+thread 'tests::fails' (1) panicked at src/lib.rs:9:26:
+assertion `left == right` failed: deliberate failure
+  left: 2
+ right: 3
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::fails
+
+test result: FAILED. 4 passed; 1 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`
+     Running tests/crash.rs (target/release/deps/crash-b0e1a9d416bd9cc2)
+
+running 2 tests
+test a_first ... ok
+error: test failed, to rerun pass `--test crash`
+
+Caused by:
+  process didn't exit successfully: `/WS/crates/evfix/target/release/deps/crash-b0e1a9d416bd9cc2` (signal: 6, SIGABRT: process abort signal)
+     Running tests/integration.rs (target/release/deps/integration-73583cfeb37cb3a0)
+
+running 2 tests
+test helpers::helper_test ... ok
+test integration_adds ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: 2 targets failed:
+    `--lib`
+    `--test crash`
