@@ -46,6 +46,7 @@
 //! kovan-cli code-walk-check crates/x/docs/lessons --update
 //! kovan-cli stamps-check --diff HEAD~1..HEAD
 //! kovan-cli stamps-levels tampines-steam-tables
+//! kovan-cli test -j 1 -p bishan        # partial; the full suite is `kovan-cli test`
 //! kovan-cli lsp-daemon-stop --root .
 //! kovan-cli project regen /path/to/my-kovan-folder
 //! ```
@@ -570,6 +571,27 @@ enum Command {
         #[arg(long)]
         workspace: Option<PathBuf>,
     },
+    /// Runs `cargo test --workspace --lib --tests --release` (plus
+    /// `--no-fail-fast`) and records the passing set, the commit and the
+    /// Cargo.lock hash as test evidence (GitHub #766). Extra arguments go to
+    /// cargo (`-j 1`, `-p x`, `-- filter`); anything that narrows the run
+    /// records it as PARTIAL, never counted. Counted runs write
+    /// `kovan_test_evidence.toml`; others `target/kovan/test_evidence_last.toml`.
+    /// The full suite takes hours (long tests are on by default).
+    Test {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        root: Option<PathBuf>,
+        /// Run even with uncommitted build inputs (recorded dirty, not counted).
+        #[arg(long)]
+        allow_dirty: bool,
+        /// Write the evidence here instead.
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Arguments passed to `cargo test`, after kovan-cli's own flags.
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        cargo_args: Vec<String>,
+    },
     /// Internal: runs the keep-warm rust-analyzer daemon in the foreground
     /// for one workspace root (op-fdph). Spawned automatically and detached
     /// by `def`/`sig`/`refs`'s client-side logic the first time one of them
@@ -818,6 +840,16 @@ fn run(command: Command) -> Result<(), String> {
                 .map_err(|error| error.to_string())?;
             commands::stamps::run_stamp(&root, &function, rung, &reviewer, &note, i_am_the_reviewer)
         }
+        Command::Test {
+            root,
+            allow_dirty,
+            out,
+            cargo_args,
+        } => {
+            let (root, _) = commands::workspace::resolve(root.as_deref())
+                .map_err(|error| error.to_string())?;
+            commands::test_evidence::run(&root, &cargo_args, allow_dirty, out)
+        }
         Command::LspDaemonServe { root } => commands::lsp_daemon::serve(root),
         Command::LspDaemonStop { root } => commands::lsp_daemon::stop(root),
     }
@@ -877,6 +909,23 @@ mod tests {
         let mut full = vec!["kovan-cli"];
         full.extend_from_slice(args);
         Cli::try_parse_from(full).expect("args should parse")
+    }
+
+    #[test]
+    fn test_passes_cargo_arguments_through() {
+        let cli = parse(&["test", "--allow-dirty", "-j", "1", "-p", "bishan", "--", "flash"]);
+        match cli.command {
+            Command::Test {
+                allow_dirty,
+                cargo_args,
+                root,
+                out,
+            } => {
+                assert!(allow_dirty && root.is_none() && out.is_none());
+                assert_eq!(cargo_args, vec!["-j", "1", "-p", "bishan", "--", "flash"]);
+            }
+            _ => panic!("wrong variant"),
+        }
     }
 
     #[test]

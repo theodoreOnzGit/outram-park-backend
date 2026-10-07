@@ -40,6 +40,8 @@ pub mod skill_gen;
 pub mod slice;
 pub mod stamps;
 pub mod symbols;
+/// `kovan-cli test` (GitHub #766).
+pub mod test_evidence;
 pub mod tokens;
 pub mod workspace;
 pub mod zotero;

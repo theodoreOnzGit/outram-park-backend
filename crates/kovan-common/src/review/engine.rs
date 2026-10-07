@@ -74,14 +74,18 @@
 //! area cannot reach rung 5. Below rung 5 qualification is shown
 //! ([`ReviewReport::qualifications`]) and never enforced; scope is.
 //!
-//! **Test evidence** is the folder's `[test_run]` ([`TestVerdict`]): only a
-//! full-suite run at the current `Cargo.lock` that the caller says is
-//! current counts, and tests edited in the change never count.
+//! **Test evidence** is the folder's `[test_run]`, judged by #766's
+//! [`reach_verdict`] (full suite only, current `Cargo.lock`, edited tests
+//! never count as passes), plus the engine's own check that the function's
+//! hash at the run's commit is its hash now ([`GitFacts::hashes_at_test_run`];
+//! [`TestVerdict::ChangedSinceRun`] otherwise). ~~A run "the caller says is
+//! current" counts~~ **CORRECTED 2026-10-07**: the check is per function.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::artifact::relation::CodeTarget;
 
+use super::evidence::verdict::{reach_verdict, ReachVerdict};
 use super::index::{FolderIndex, FunctionIndex, Suite, TestRun};
 use super::review_md::{DeletedFunction, FixStatus, ReviewDocument, ReviewEntry};
 use super::root::{ReviewRoot, Role};
@@ -135,9 +139,11 @@ pub struct GitFacts {
     pub head: String,
     /// `sha256:` hash of the current `Cargo.lock`.
     pub cargo_lock: String,
-    /// No code changed between the `[test_run]` commit and now (the caller
-    /// checks; kovan's own files do not count as code).
-    pub test_run_current: bool,
+    /// Function id -> its hash at the `[test_run]` commit (#766: "the engine
+    /// still checks that the function hash is unchanged since the evidence
+    /// commit"). A function missing here is treated as changed: the run
+    /// does not speak for it.
+    pub hashes_at_test_run: BTreeMap<String, String>,
     pub stamps: BTreeMap<ReviewKey, StampFacts>,
     /// Function id -> the reviewer ids of the people who wrote its code.
     pub code_authors: BTreeMap<String, BTreeSet<String>>,
@@ -230,27 +236,24 @@ enum Denial {
 /// The reaching-test verdict for one function.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TestVerdict {
-    /// No test reaches it (or only tests edited in the change do).
-    NoTests { edited_only: bool },
-    /// Every counting reaching test passed.
-    Passed { tests: usize },
-    /// These counting reaching tests failed.
-    Failing(Vec<String>),
-    /// No usable evidence yet.
-    Pending(EvidenceGap),
+    /// #766's verdict ([`reach_verdict`]), for a function whose hash is
+    /// unchanged since the run.
+    Reach(ReachVerdict),
+    /// The function's hash at the run's commit differs from now, or is not
+    /// known: the recorded run cannot speak for it (pending).
+    ChangedSinceRun,
 }
 
-/// Why the test evidence does not count yet.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EvidenceGap {
-    NoTestRun,
-    NotFullSuite,
-    /// Code changed since the run.
-    NotCurrent,
-    /// The run was at a different `Cargo.lock`.
-    OtherLock,
-    /// These reaching tests are in neither the passed nor the failed list.
-    NotRun(Vec<String>),
+impl TestVerdict {
+    /// Whether a re-confirm may be given: every counting reaching test
+    /// passed, or no test reaches the function (the separate "untested"
+    /// flag). Passing tests are necessary, never sufficient (#739 D6).
+    pub fn allows_reconfirm(&self) -> bool {
+        matches!(
+            self,
+            Self::Reach(ReachVerdict::Passed { .. } | ReachVerdict::NoReachingTests)
+        )
+    }
 }
 
 /// Why a review is directly stale.
@@ -524,46 +527,20 @@ impl Current<'_> {
     }
 }
 
-/// The reaching-test verdict of `f` from its folder's `test_run`.
+/// The reaching-test verdict of `f` from its folder's `test_run`: #766's
+/// [`reach_verdict`], unless a run exists and `f`'s hash at the run's commit
+/// is not its hash now.
 pub fn test_verdict(f: &FunctionIndex, run: Option<&TestRun>, git: &GitFacts) -> TestVerdict {
-    let edited: BTreeSet<&String> = run.map(|r| r.edited.iter().collect()).unwrap_or_default();
-    let counting: Vec<&String> = f.reached_by.iter().filter(|t| !edited.contains(t)).collect();
-    if counting.is_empty() {
-        return TestVerdict::NoTests {
-            edited_only: !f.reached_by.is_empty(),
-        };
+    let v = reach_verdict(&f.reached_by, run, &git.cargo_lock);
+    match v {
+        ReachVerdict::NoReachingTests | ReachVerdict::Pending(_) => TestVerdict::Reach(v),
+        _ if !unchanged_since_run(f, git) => TestVerdict::ChangedSinceRun,
+        _ => TestVerdict::Reach(v),
     }
-    let Some(run) = run else {
-        return TestVerdict::Pending(EvidenceGap::NoTestRun);
-    };
-    if run.suite != Suite::Full {
-        return TestVerdict::Pending(EvidenceGap::NotFullSuite);
-    }
-    if !git.test_run_current {
-        return TestVerdict::Pending(EvidenceGap::NotCurrent);
-    }
-    if run.cargo_lock != git.cargo_lock {
-        return TestVerdict::Pending(EvidenceGap::OtherLock);
-    }
-    let failing: Vec<String> = counting
-        .iter()
-        .filter(|t| run.failed.contains(t))
-        .map(|t| (*t).clone())
-        .collect();
-    if !failing.is_empty() {
-        return TestVerdict::Failing(failing);
-    }
-    let not_run: Vec<String> = counting
-        .iter()
-        .filter(|t| !run.passed.contains(t))
-        .map(|t| (*t).clone())
-        .collect();
-    if !not_run.is_empty() {
-        return TestVerdict::Pending(EvidenceGap::NotRun(not_run));
-    }
-    TestVerdict::Passed {
-        tests: counting.len(),
-    }
+}
+
+fn unchanged_since_run(f: &FunctionIndex, git: &GitFacts) -> bool {
+    git.hashes_at_test_run.get(&f.id) == Some(&f.hash)
 }
 
 fn authenticity(
@@ -981,7 +958,7 @@ fn judge(
         .map(|(id, _)| id.clone())
         .collect();
     if !changed.is_empty() {
-        let blocked = !matches!(tests, TestVerdict::Passed { .. } | TestVerdict::NoTests { .. });
+        let blocked = !tests.allows_reconfirm();
         return StampState::InheritedStale {
             cause: InheritedCause::Callees(changed),
             tests,
@@ -996,12 +973,16 @@ fn judge(
     if let Some(lock) = &b.cargo_lock {
         if *lock != git.cargo_lock {
             return match tests {
-                TestVerdict::Failing(_) => StampState::InheritedStale {
+                TestVerdict::Reach(ReachVerdict::Failed { .. }) => StampState::InheritedStale {
                     cause: InheritedCause::LockTestFailed,
                     tests,
                     blocked: true,
                 },
-                _ if full_run_at_current_lock(cur.index.test_run.as_ref(), git) => StampState::Valid,
+                _ if full_run_at_current_lock(cur.index.test_run.as_ref(), git)
+                    && unchanged_since_run(cur.f, git) =>
+                {
+                    StampState::Valid
+                }
                 _ => StampState::PendingWorkspaceTest {
                     reviewed_lock: lock.clone(),
                     current_lock: git.cargo_lock.clone(),
@@ -1013,7 +994,7 @@ fn judge(
 }
 
 fn full_run_at_current_lock(run: Option<&TestRun>, git: &GitFacts) -> bool {
-    run.is_some_and(|r| r.suite == Suite::Full && r.cargo_lock == git.cargo_lock && git.test_run_current)
+    run.is_some_and(|r| r.suite == Suite::Full && r.cargo_lock == git.cargo_lock)
 }
 
 fn aggregate(reviews: &[ReviewReport]) -> StampState {

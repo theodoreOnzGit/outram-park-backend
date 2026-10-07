@@ -19,6 +19,10 @@
 //!                                   stamp gate (#769, embedded) -> [`wizard`]
 //! ```
 //!
+//! Test evidence (#766) is a fourth, workspace-level file,
+//! `kovan_test_evidence.toml`, written by `kovan-cli test`; `kovan.toml`'s
+//! `[test_run]` is projected from it -> [`evidence`].
+//!
 //! # From source to state
 //!
 //! ```text
@@ -57,6 +61,7 @@
 //!   `implements` relations: [`engine::evaluate`] takes them as data.
 
 pub mod engine;
+pub mod evidence;
 pub mod hash;
 pub mod id;
 pub mod index;

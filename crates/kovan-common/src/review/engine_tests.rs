@@ -153,7 +153,6 @@ fn git_for(rs: &[&FolderReviews]) -> GitFacts {
     let mut g = GitFacts {
         head: "f".repeat(40),
         cargo_lock: h('1'),
-        test_run_current: true,
         ..GitFacts::default()
     };
     for fr in rs {
@@ -177,9 +176,28 @@ fn git_for(rs: &[&FolderReviews]) -> GitFacts {
     g
 }
 
+/// [`evaluate`] with the run's hashes filled in for every function the
+/// test did not set: by default nothing changed since the recorded run.
+fn eval(
+    revs: &[FolderReviews],
+    idx: &[FolderIndex],
+    rt: &ReviewRoot,
+    g: &GitFacts,
+    concepts: &ConceptAreas,
+    policy: SignaturePolicy,
+) -> Evaluation {
+    let mut g = g.clone();
+    for i in idx {
+        for (_, f) in i.functions() {
+            g.hashes_at_test_run.entry(f.id.clone()).or_insert_with(|| f.hash.clone());
+        }
+    }
+    evaluate(revs, idx, rt, &g, concepts, policy)
+}
+
 fn run(revs: &[FolderReviews], idx: &[FolderIndex]) -> Evaluation {
     let refs: Vec<&FolderReviews> = revs.iter().collect();
-    evaluate(revs, idx, &root(), &git_for(&refs), &ConceptAreas::new(), SignaturePolicy::NotChecked)
+    eval(revs, idx, &root(), &git_for(&refs), &ConceptAreas::new(), SignaturePolicy::NotChecked)
 }
 
 fn kind(ev: &Evaluation, path: &str) -> StateKind {
@@ -223,7 +241,7 @@ fn d6_rename_only_review_follows() {
         StampState::Moved { from, to, tests, .. } => {
             assert_eq!(from.as_ref().unwrap().qual, "f");
             assert_eq!(to.qual, "g");
-            assert_eq!(*tests, TestVerdict::Passed { tests: 1 });
+            assert_eq!(*tests, TestVerdict::Reach(ReachVerdict::Passed { passed: vec!["t::ok".into()], not_run: vec![] }));
         }
         s => panic!("{s:?}"),
     }
@@ -306,7 +324,7 @@ fn d6_function_delete_history_in_folder() {
     let mut g = git_for(&refs);
     g.deleted_in.insert(fid(F), "9".repeat(40));
     let idx = [folder("x", D, &[("a.rs", vec![fun("crates/x/src/a.rs::other", 'q', &[], &[])])])];
-    let ev = evaluate(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
+    let ev = eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
     assert_eq!(ev.deleted[0].reviews.len(), 2);
     let h = &ev.history[0];
     assert_eq!(h.placement, HistoryPlacement::FolderReviewMd { dir: D.into() });
@@ -351,7 +369,7 @@ fn d6_callee_change_needs_reconfirm_and_failing_test_blocks() {
         StampState::InheritedStale { cause, blocked, tests } => {
             assert_eq!(*cause, InheritedCause::Callees(vec![fid(g)]));
             assert!(!blocked);
-            assert_eq!(*tests, TestVerdict::Passed { tests: 1 });
+            assert_eq!(*tests, TestVerdict::Reach(ReachVerdict::Passed { passed: vec!["t::ok".into()], not_run: vec![] }));
         }
         s => panic!("{s:?}"),
     }
@@ -360,7 +378,7 @@ fn d6_callee_change_needs_reconfirm_and_failing_test_blocks() {
     match &ev.functions[&fid(F)].state {
         StampState::InheritedStale { blocked, tests, .. } => {
             assert!(*blocked);
-            assert_eq!(*tests, TestVerdict::Failing(vec!["t::bad".into()]));
+            assert_eq!(*tests, TestVerdict::Reach(ReachVerdict::Failed { failed: vec!["t::bad".into()] }));
         }
         s => panic!("{s:?}"),
     }
@@ -368,7 +386,7 @@ fn d6_callee_change_needs_reconfirm_and_failing_test_blocks() {
     let ev = run(&revs, &idx(&["t::edited"]));
     assert!(matches!(
         &ev.functions[&fid(F)].state,
-        StampState::InheritedStale { tests: TestVerdict::NoTests { edited_only: true }, .. }
+        StampState::InheritedStale { tests: TestVerdict::Reach(ReachVerdict::NoneRan { .. }), blocked: true, .. }
     ));
 }
 
@@ -385,7 +403,7 @@ fn d6_cargo_lock_change_pending_until_full_pass() {
     let ev_at = |run_lock: char, tests: &[&str], g: &GitFacts| {
         let mut idx = folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], tests)])]);
         idx.test_run.as_mut().unwrap().cargo_lock = h(run_lock);
-        evaluate(&revs, &[idx], &root(), g, &ConceptAreas::new(), SignaturePolicy::NotChecked)
+        eval(&revs, &[idx], &root(), g, &ConceptAreas::new(), SignaturePolicy::NotChecked)
     };
     assert_eq!(kind(&ev_at('1', &["t::ok"], &g), F), StateKind::PendingWorkspaceTest);
     assert_eq!(kind(&ev_at('2', &["t::ok"], &g), F), StateKind::Valid);
@@ -395,9 +413,11 @@ fn d6_cargo_lock_change_pending_until_full_pass() {
         &failing.functions[&fid(F)].state,
         StampState::InheritedStale { cause: InheritedCause::LockTestFailed, blocked: true, .. }
     ));
-    let mut quick = g.clone();
-    quick.test_run_current = false;
-    assert_eq!(kind(&ev_at('2', &["t::ok"], &quick), F), StateKind::PendingWorkspaceTest);
+    // The function changed since the recorded run: the run does not speak
+    // for it, so the stamp stays pending.
+    let mut changed = g.clone();
+    changed.hashes_at_test_run.insert(fid(F), h('z'));
+    assert_eq!(kind(&ev_at('2', &["t::ok"], &changed), F), StateKind::PendingWorkspaceTest);
 }
 
 /// D6 time-bound stamps: the hash recomputed at the certified commit must
@@ -412,7 +432,7 @@ fn d6_time_bound_stamps() {
     let state_with = |facts: StampFacts| {
         let mut g = git_for(&refs);
         g.stamps.insert(key.clone(), facts);
-        evaluate(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked).functions[&fid(F)]
+        eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked).functions[&fid(F)]
             .state
             .clone()
     };
@@ -432,7 +452,7 @@ fn d6_time_bound_stamps() {
     let mut f = good;
     f.added_in = None;
     assert_eq!(state_with(f), StampState::Unverified(UnverifiedReason::NotCommitted));
-    let ev = evaluate(&revs, &idx, &root(), &GitFacts::default(), &ConceptAreas::new(), SignaturePolicy::NotChecked);
+    let ev = eval(&revs, &idx, &root(), &GitFacts::default(), &ConceptAreas::new(), SignaturePolicy::NotChecked);
     assert_eq!(ev.functions[&fid(F)].state, StampState::Unverified(UnverifiedReason::NoGitFacts));
 }
 
@@ -488,7 +508,7 @@ fn rung_is_derived_and_a_mismatch_is_invalid() {
         if let Some(m) = msgs {
             g.test_commit_messages.insert("t::ok".into(), vec![m.clone()]);
         }
-        evaluate(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked)
+        eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked)
             .functions[&fid(F)]
             .clone()
     };
@@ -586,7 +606,7 @@ fn key_history_is_append_only_against_git() {
     let idx = [folder("x", D, &[("a.rs", vec![])])];
     let mut g = git_for(&[&revs[0]]);
     g.previous_root = Some(before);
-    let ev = evaluate(&revs, &idx, &last_deleted, &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
+    let ev = eval(&revs, &idx, &last_deleted, &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
     assert_eq!(ev.history_warnings.len(), 1);
 }
 
@@ -613,10 +633,10 @@ fn rung5_needs_independent_qualified_second_reviewer() {
     })];
     let areas: ConceptAreas = [(fid(F), ["concept:thermal-hydraulics/natural-circulation".to_string()].into())].into();
     let rung = |rt: &ReviewRoot, g: &GitFacts, a: &ConceptAreas| {
-        evaluate(&revs, &idx, rt, g, a, SignaturePolicy::NotChecked).functions[&fid(F)].rung
+        eval(&revs, &idx, rt, g, a, SignaturePolicy::NotChecked).functions[&fid(F)].rung
     };
     assert_eq!(rung(&rt, &g, &areas), Some(5));
-    let ev = evaluate(&revs, &idx, &rt, &g, &areas, SignaturePolicy::NotChecked);
+    let ev = eval(&revs, &idx, &rt, &g, &areas, SignaturePolicy::NotChecked);
     let shown = &ev.functions[&fid(F)].reviews.iter().find(|r| r.by == R).unwrap().qualifications;
     assert_eq!(shown, &vec!["thermal-hydraulics (self-study; self-declared)".to_string()]);
     assert_eq!(rung(&rt, &g, &ConceptAreas::new()), Some(3), "no known area");
@@ -637,12 +657,12 @@ fn rung5_needs_independent_qualified_second_reviewer() {
             }
         }
         let revs2 = [reviews_in("x", D, vec![review(F, M, 'a', &[]), sc])];
-        let ev = evaluate(&revs2, &idx, &rt, &git_for(&[&revs2[0]]), &areas, SignaturePolicy::NotChecked);
+        let ev = eval(&revs2, &idx, &rt, &git_for(&[&revs2[0]]), &areas, SignaturePolicy::NotChecked);
         assert_eq!(ev.functions[&fid(F)].rung, Some(3), "{who:?}");
         assert_eq!(ev.functions[&fid(F)].state, StampState::Valid);
     }
     let single = [reviews_in("x", D, vec![review(F, R, 'a', &[])])];
-    let ev = evaluate(&single, &idx, &rt, &git_for(&[&single[0]]), &areas, SignaturePolicy::NotChecked);
+    let ev = eval(&single, &idx, &rt, &git_for(&[&single[0]]), &areas, SignaturePolicy::NotChecked);
     assert_eq!(ev.functions[&fid(F)].rung, Some(3), "one reviewer is never rung 5");
 }
 
@@ -697,10 +717,10 @@ fn scope_registry_and_signature() {
         by: M.into(),
         signature: None,
     });
-    let ev = evaluate(&revs, &idx, &rt, &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
+    let ev = eval(&revs, &idx, &rt, &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
     assert_eq!(ev.functions[&fid(F)].state, StampState::Unverified(UnverifiedReason::Revoked));
 
-    let ev = evaluate(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::Enforce);
+    let ev = eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::Enforce);
     assert_eq!(
         ev.functions[&fid(F)].state,
         StampState::Unverified(UnverifiedReason::Signature(SigReason::NoSignature))
@@ -768,7 +788,7 @@ fn upstream_tag_moved_is_reported() {
     let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &[])])])];
     let mut g = git_for(&[&fr]);
     let tags = |g: &GitFacts| {
-        evaluate(std::slice::from_ref(&fr), &idx, &root(), g, &ConceptAreas::new(), SignaturePolicy::NotChecked)
+        eval(std::slice::from_ref(&fr), &idx, &root(), g, &ConceptAreas::new(), SignaturePolicy::NotChecked)
             .upstream_tags
     };
     assert_eq!(tags(&g)[0].check, TagCheck::Unchecked);
@@ -777,7 +797,7 @@ fn upstream_tag_moved_is_reported() {
     g.tag_commits.insert((repo, "v6.4.1".into()), "fedcba9".into());
     let t = tags(&g);
     assert_eq!(t[0].check, TagCheck::Moved { now: "fedcba9".into() });
-    let ev = evaluate(std::slice::from_ref(&fr), &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
+    let ev = eval(std::slice::from_ref(&fr), &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
     assert_eq!(kind(&ev, F), StateKind::Valid, "a moved tag does not touch stamps");
 }
 
@@ -815,7 +835,7 @@ fn enforced_signatures_map_onto_states() {
         folder("y", "crates/y/src", &[("a.rs", vec![fun(other, 'a', &[], &[])])]),
     ];
     let g = git_for(&[&revs[0], &revs[1]]);
-    let ev = evaluate(&revs, &idx, &rt, &g, &ConceptAreas::new(), SignaturePolicy::Enforce);
+    let ev = eval(&revs, &idx, &rt, &g, &ConceptAreas::new(), SignaturePolicy::Enforce);
     let f = &ev.functions[&fid(F)];
     assert_eq!(f.state, StampState::Valid);
     let by_r = f.reviews.iter().find(|r| r.by == R).unwrap();
