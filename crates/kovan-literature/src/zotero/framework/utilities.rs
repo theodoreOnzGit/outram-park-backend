@@ -468,6 +468,30 @@ pub fn get_creators_for_type(item_type: &str) -> Vec<&'static str> {
         .unwrap_or_default()
 }
 
+/// `Zotero.Date.strToISO(str)` (date.js:600-614, the same in utilities
+/// 1dd38e27edf8 and 4051881d59c6) on kovan-common's `strToDate`, with
+/// upstream's truthiness: `if (date.year)` is true for any non-empty year
+/// string, including `"0"` (what `strToDate("0000")` gives), so
+/// `strToISO("0000")` is `"0000"` (checked by running upstream's date.js,
+/// 2026-10-07). kovan-common's
+/// [`str_to_iso`](kovan_common::zotero::date::str_to_iso) returns `None` for
+/// a `"0"` year; this one is used by the translators.
+pub fn str_to_iso(s: &str, opts: &kovan_common::zotero::date::DateOptions) -> Option<String> {
+    let d = kovan_common::zotero::date::str_to_date(s, opts);
+    let year = d.year.filter(|y| !y.is_empty())?;
+    let mut out = lpad(&year, "0", 4);
+    // `parseInt(date.month) == date.month`: true for a numeric month.
+    if let Some(m) = d.month {
+        out.push('-');
+        out.push_str(&lpad(&(m + 1).to_string(), "0", 2));
+        if let Some(day) = d.day.filter(|d| *d != 0) {
+            out.push('-');
+            out.push_str(&lpad(&day.to_string(), "0", 2));
+        }
+    }
+    Some(out)
+}
+
 /// `Zotero.Utilities.fieldIsValidForType(field, type)` (:1308-1310).
 pub fn field_is_valid_for_type(field: &str, item_type: &str) -> bool {
     match (Field::from_name(field), ItemType::from_name(item_type)) {
