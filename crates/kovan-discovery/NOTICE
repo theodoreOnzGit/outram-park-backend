@@ -26,3 +26,41 @@ GPL-3.0-only; the AGPL applies from the next published version.
 Dependents: no crate outside the kovan family depends on this one (checked
 with `cargo metadata`, 2026-10-07); `dhoby-ghaut`, which depends on `kovan`,
 has been AGPL-3.0-only since 2026-10-05.
+
+Upstream: Zotero (2026-10-07, GitHub #747, #751)
+------------------------------------------------
+
+`src/zotero/` and `tests/zotero_search.rs` port parts of Zotero. (The
+"Copyright" paragraph above records the crate as free of third-party code
+at the relicense on 2026-10-07; this port, added the same day, is the first
+third-party code in it.) Zotero is free software under the GNU Affero
+General Public License, version 3 or (at your option) any later version;
+this crate takes it under AGPL-3.0-only.
+
+  Copyright (c) Corporation for Digital Scholarship, Vienna, Virginia, USA
+  (older files: (c) 2006-2016 Center for History and New Media, George Mason
+  University, Fairfax, Virginia, USA). https://www.zotero.org
+
+Sources read (upstream code was read, not run):
+
+  zotero     https://github.com/zotero/zotero      commit 9cbba8c4d281
+             chrome/content/zotero/xpcom/data/search.js,
+             data/searchConditions.js, data/collection.js (getDescendents),
+             data/item.js (setField storage of date fields, itemNotes rows),
+             xpcom/fulltext.js (findTextInString, findItemsWithContent,
+             canSearchContent, canSearchNotes, getNoteContentSQL),
+             xpcom/utilities_internal.js (normalizeForSearch),
+             xpcom/collectionTreeRow.js (getSearchObject),
+             xpcom/attachments.js and xpcom/annotations.js (link-mode and
+             annotation-type numbers), resource/schema/system.sql
+             (fileTypes, fileTypeMimeTypes), test/tests/searchTest.js and
+             test/content/support.js (ported as tests/zotero_search.rs)
+  utilities  https://github.com/zotero/utilities   commit 4051881d59c6
+             utilities.js (allowedKeyChars, isValidObjectKey)
+
+The test fixture's full-text strings are the text content of Zotero's test
+files test/tests/data/search/{foo,foobar}.html and the output of `pdftotext`
+(poppler) on test/tests/data/search/baz.pdf and test/tests/data/test.pdf
+(AGPL-3.0, same copyright); the files themselves are not copied.
+
+Each ported file carries a header naming its upstream file(s) and commit.
