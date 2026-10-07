@@ -24,6 +24,14 @@ repository.workspace = true
 # `open` at *any* depth — which silently excluded `generated/bibtex/open/`, the
 # one part of the archive that is meant to ship. Keep the slashes.
 exclude = [
+    # citeproc-js port verification (GitHub #790, #791): citeproc-js's output
+    # on the CSL test suite and the site bib, and the tests that read it.
+    # Repo-only (maintainer, 2026-10-08): it stays on GitHub, never in the
+    # published crate. data/csl/ does ship: the library compiles apa.csl and
+    # the locale in, with their CC BY-SA attribution README.
+    "/tests/data/csl/",
+    "/tests/citeproc_*.rs",
+    "/tests/csl_vs_citeproc_js.rs",
     "docs",
     "/open/",
     "/proprietary/",
