@@ -84,11 +84,12 @@ fi
 cp -r "$DOC_TARGET/doc" "$OUT/api"
 rm -rf "$OUT/api/src" "$OUT/api/.lock"
 
-# web-kovan (gh:#736, #745): the read-only Code Review UI at code-review/,
-# egui built for wasm32. data.sh writes its data (code map, the call graph of
-# every crate, incremental through target/kovan-index, needs rust-analyzer,
-# skipped with a warning without it; and the rustdoc pages above, so it only
-# links to pages that exist). Source text is not copied: the page fetches it
+# web-kovan (gh:#736, #745, #772): the read-only Code Review UI at
+# code-review/, egui built for wasm32. data.sh writes its data (code map; the
+# call graph of every crate from one `rust-analyzer scip` index, incremental
+# through target/kovan-index; a crate it cannot rebuild keeps its last cached
+# graph and is named in the log and on the page; and the rustdoc pages above,
+# so it only links to pages that exist). Source text is not copied: the page fetches it
 # from the repository at $COMMIT. The JS code-map/ page stays for now.
 PAGES_COMMIT="$COMMIT" bash crates/kovan-web/web/data.sh "$OUT/code-review/data" "$OUT/api"
 bash crates/kovan-web/web/build.sh "$OUT/code-review"

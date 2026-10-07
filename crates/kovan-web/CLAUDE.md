@@ -40,11 +40,17 @@ what is on screen.
 `web/data.sh` writes the data folder (`kovan_web::data` lists the files):
 the code map, the call graph split one file per crate without source text,
 `search.json`, the rustdoc pages that exist, and `build.json` (the commit the
-source panel fetches files at). The call graph is incremental: per-crate
-documents cached under `target/kovan-index/<crate>/<key>.json`, keyed by
+source panel fetches files at, and since #772 the call graph's backend and
+its stale or missing crates, shown on the map panel). The call graph is
+incremental: per-crate documents cached under
+~~`target/kovan-index/<crate>/<key>.json`~~ **CORRECTED 2026-10-07 (#772)**
+`target/kovan-index/<backend>/<crate>/<key>.json`, keyed by
 `kovan-cli call-graph-keys`, merged with `call-graph --merge`;
-`data.sh --check` pins that a merge equals one run. Nothing generated is
-committed.
+`data.sh --check` pins that a merge equals one run. The backend is SCIP by
+default (one `rust-analyzer scip` over the workspace, about 4 min and 16 GiB
+peak; `KOVAN_CALL_GRAPH_BACKEND=lsp` for the old per-call LSP path). A crate
+that cannot be rebuilt keeps its last cached graph and is named as stale,
+never silently (Leak Before Break). Nothing generated is committed.
 
 ## Known gaps (2026-10-06)
 

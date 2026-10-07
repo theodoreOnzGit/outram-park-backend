@@ -69,7 +69,15 @@ always indexes the whole workspace.
 
 The LSP figure is about twice the 941 s #757 recorded earlier the same day,
 because other agents were building on the same machine. Both runs here
-shared those conditions. Peak memory was not measured.
+shared those conditions. ~~Peak memory was not measured.~~ **Measured
+2026-10-07 (#772)**, at commit `9fdaf254e3` with the same rust-analyzer:
+`rust-analyzer scip` over the whole workspace peaked at **16.4 GiB resident**
+(VmHWM 17,209,892 kB with `--num-threads 4`, 17,181,372 kB with 1 thread;
+cgroup peak 16.8 GiB including its build-script `cargo check`), in 198 s
+and 301 s. Under a 15 GiB memory cap it was OOM-killed after 218 s. Two runs
+over the same tree wrote byte-identical indexes. This matters for CI: a
+16 GB GitHub-hosted runner cannot hold it without swap (see
+`.github/workflows/pages.yml`).
 
 ### Edges
 
