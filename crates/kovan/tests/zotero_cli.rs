@@ -318,11 +318,22 @@ fn data_folder_import_export_reimport_round_trip() {
             s(&o),
         ]);
         let text = std::fs::read_to_string(&o).unwrap();
-        assert!(
-            !text.trim().is_empty(),
-            "{} export is empty",
-            t.format_name()
-        );
+        // Note HTML and Note Markdown export only top-level notes; this
+        // library imports none (a standalone note is reported, not imported),
+        // so upstream Zotero writes an empty note container: nothing for Note
+        // Markdown, an empty HTML shell for Note HTML (both read from
+        // kovan-literature's reference/export/note_*/ files, made by running
+        // upstream). Added 2026-10-07 when those translators landed after
+        // this test was written.
+        match t.format_name() {
+            "note_markdown" => assert_eq!(text, "", "note_markdown"),
+            "note_html" => assert_eq!(
+                text,
+                "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+                "note_html"
+            ),
+            name => assert!(!text.trim().is_empty(), "{name} export is empty"),
+        }
     }
     // ... and the round-trip formats come back with the same titles.
     let want_titles = titles(&loaded);
