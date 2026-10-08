@@ -25,10 +25,21 @@
 //! A fixture whose run reaches a part of the port that is not written yet
 //! (`NotYetPorted`) is reported as *blocked*, not as a failure.
 //!
-//! **Results.** Printed by the test (`cargo test --release -p kovan-literature
-//! --lib citeproc::util_names_output::driver_tests -- --nocapture`); the
-//! figures at the time of writing are in the porting report and in the doc
-//! comment of [`names_fixtures_match_citeproc_js`].
+//! **Results (2026-10-08, citeproc-js 2.4.63, test suite `6eefc5b0`).** Printed
+//! by the tests (`cargo test --release -p kovan-literature --lib
+//! citeproc::util_names_output::driver_tests -- --nocapture`):
+//!
+//! * fixtures: 131 of the 304 fixtures of the areas `name` (67 of 111),
+//!   `nameattr` (54 of 97), `nameorder` (6 of 6), `etal` (1 of 4),
+//!   `bugreports` (3 of 83) and `substitute` (0 of 7) are names-only styles
+//!   the driver can run; **all 131 render exactly what citeproc-js rendered**.
+//!   The other 173 need `cs:text`, `cs:group`, `cs:number`, `cs:date`
+//!   or `cs:sort` (the render, dates and engine parts of the port), or the
+//!   `CITATIONS` section; the engine's own fixture harness covers them once
+//!   those are integrated;
+//! * generated styles: 700 random names-only styles x 31 items, 65,137
+//!   outputs compared, all equal; 1,363 calls where citeproc-js throws, where
+//!   the port also fails (see [`names_e2e_matches_citeproc_js`]).
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -267,7 +278,7 @@ fn style_is_names_only(csl: &str) -> Result<(), String> {
 
 /// What `CSL.getCite` does around the token loop, for a names-only style:
 /// the layout tokens are replaced by their effect.
-fn get_cite(st: &mut State, item_data: &Value, cite: &Value) -> CslResult<()> {
+fn get_cite(st: &mut State, item_data: &Value, cite: &Value, sort_mode: bool) -> CslResult<()> {
     let bib = st.tmp.area == "bibliography";
     st.tmp.cite_renders_content = false;
     st.tmp.probably_rendered_something = false;
@@ -315,7 +326,7 @@ fn get_cite(st: &mut State, item_data: &Value, cite: &Value) -> CslResult<()> {
             next = nxt;
             continue;
         }
-        next = run_token(st, bib, next, item_data, cite)?;
+        next = run_token(st, bib, sort_mode, next, item_data, cite)?;
     }
     // layout END
     if bib {
@@ -338,12 +349,14 @@ fn get_cite(st: &mut State, item_data: &Value, cite: &Value) -> CslResult<()> {
 fn run_token(
     st: &mut State,
     bib: bool,
+    sort_mode: bool,
     idx: usize,
     item: &Value,
     cite: &Value,
 ) -> CslResult<usize> {
     use crate::citeproc::attributes::AttributesExec;
     use crate::citeproc::exec::Exec;
+    use crate::citeproc::node_names::NodeNamesExec;
     let mut token = std::mem::take(&mut tokens_mut(st, bib)[idx]);
     let r = (|| -> CslResult<usize> {
         let mut next = token.next.unwrap_or(NEXT_UNDEFINED);
@@ -363,6 +376,17 @@ fn run_token(
                 Exec::Attributes(AttributesExec::VariableCheckOutput) => {
                     check_for_output(st, &token, item)?;
                     None
+                }
+                Exec::NodeNames(NodeNamesExec::Output { .. }) if sort_mode => {
+                    // What the generator's wrapper does around `outputNames`:
+                    // a sort key renders names with `sort_key_flag` on and a
+                    // sort extension (the layout's own execs reset the flag).
+                    st.tmp.sort_key_flag = true;
+                    st.tmp.extension = "_sort".to_string();
+                    let r = exec.run(st, &mut token, item, cite);
+                    st.tmp.sort_key_flag = false;
+                    st.tmp.extension = String::new();
+                    r?
                 }
                 other => other.run(st, &mut token, item, cite)?,
             };
@@ -473,7 +497,7 @@ fn reset_queue(st: &mut State) {
 }
 
 /// `makeCitationCluster(items)` for plain strings (see the module docs).
-fn render_cluster(st: &mut State, cites: &[Value]) -> CslResult<String> {
+fn render_cluster(st: &mut State, cites: &[Value], sort_mode: bool) -> CslResult<String> {
     // this.output.checkNestedBrace = new CSL.checkNestedBrace(this)
     st.output.check_nested_brace = Some(CheckNestedBrace::new(st));
     st.tmp.last_primary_names_string = None;
@@ -498,7 +522,7 @@ fn render_cluster(st: &mut State, cites: &[Value]) -> CslResult<String> {
             st.tmp.term_predecessor = false;
         }
         let last_collapsed = st.tmp.have_collapsed;
-        get_cite(st, &item_data, cite)?;
+        get_cite(st, &item_data, cite, sort_mode)?;
         splice.push(splice_delimiter(st, last_collapsed, &layout_delimiter));
     }
     // output.queue: one blob per cite
@@ -645,7 +669,7 @@ fn render_bibliography(st: &mut State, ids: &[String]) -> CslResult<String> {
         queue::start_tag(st, QueueId::Output, "bib_entry", Some(&bib_entry))?;
         st.tmp.term_predecessor = false;
         st.tmp.shadow_numbers.clear();
-        get_cite(st, &item, &Value::Null)?;
+        get_cite(st, &item, &Value::Null, false)?;
         queue::end_tag(st, QueueId::Output, Some("bib_entry"))?;
         let root_blob = st.output.root;
         let top: Vec<_> = match root_blob.map(|r| st.blobs.get(r).blobs.clone()) {
@@ -808,7 +832,7 @@ fn run_fixture(
         });
     }
     for cites in &clusters {
-        match render_cluster(&mut st, cites) {
+        match render_cluster(&mut st, cites, false) {
             Ok(s) => outs.push(s),
             Err(EngineError::NotYetPorted { method }) => {
                 return Ok(Err(format!("blocked: {method}")));
@@ -826,7 +850,10 @@ fn run_fixture(
 /// is rendered through the ported `cs:names` code and compared with the
 /// output citeproc-js 2.4.63 produced (`test_suite_reference.json`).
 ///
-/// **Results.** Printed per area by the test.
+/// **Results (2026-10-08).** 131 fixtures run, 131 equal, 0 differ; per area:
+/// name 67 of 111, nameattr 54 of 97, nameorder 6 of 6, etal 1 of 4,
+/// bugreports 3 of 83, substitute 0 of 7 (the rest need nodes outside the
+/// names subsystem; see the module docs).
 #[test]
 fn names_fixtures_match_citeproc_js() {
     let dir = root().join("vendor/csl-test-suite/processor-tests/humans");
@@ -1007,6 +1034,24 @@ fn build_abbreviations_verbatim(raw: &Value) -> crate::citeproc::Abbreviations {
 /// **Pass criterion.** Every output equal; where citeproc-js throws, the port
 /// must return an error for that call (the messages are not compared: Rust
 /// reports the same TypeError or SyntaxError in its own wording).
+///
+/// **Run state.** As in citeproc-js, nothing is reset between calls: after an
+/// exception citeproc-js leaves its output queue and `tmp` as they were,
+/// and the following call sees them; the port must leave the same trace
+/// (the driver neither resets the queue nor the blob arena, except where
+/// `updateItems` would have emptied the queue). Citations are rendered
+/// before `updateItems` so that the registry's disambiguation data, which is
+/// the engine's, does not take part (with it, `citeStart` replaces the
+/// `et-al` truncation by the counts `getAmbiguousCite` stored).
+///
+/// **Results (2026-10-08, citeproc-js 2.4.63).** 700 styles, 31 items; per
+/// style one cluster per item (plain, `suppress-author`, rendered as a sort
+/// key) and one with all items, and the bibliography: 65,137 outputs
+/// compared, 0 differ; 1,363 calls fail in citeproc-js and in the port: 729
+/// `TypeError ... 'first_blob'` (a `classic` item's abbreviation blob under
+/// `collapse`, see DEVIATIONS candidates), 377 `TypeError ... 'blobs'` and 242
+/// `SyntaxError: "undefined" is not valid JSON` (a `cs:name` with
+/// `delimiter=""` and no `and`), 15 of them inside `updateItems`.
 #[test]
 fn names_e2e_matches_citeproc_js() {
     let Some(locales) = load_locales() else {
@@ -1042,7 +1087,7 @@ fn names_e2e_matches_citeproc_js() {
                 .as_array()
                 .map(|a| a[i].clone())
                 .unwrap_or(Value::Null);
-            let got = render_cluster(&mut st, &[json!({ "id": id })]);
+            let got = render_cluster(&mut st, &[json!({ "id": id })], false);
             any_error |= got.is_err();
             compare_one(
                 ci,
@@ -1056,11 +1101,33 @@ fn names_e2e_matches_citeproc_js() {
             );
         }
         for (i, id) in ids.iter().enumerate() {
+            let want = &out["sort"]
+                .as_array()
+                .map(|a| a[i].clone())
+                .unwrap_or(Value::Null);
+            let got = render_cluster(&mut st, &[json!({ "id": id })], true);
+            any_error |= got.is_err();
+            compare_one(
+                ci,
+                &format!("sort key {id}"),
+                &got,
+                want,
+                out.get("build_error").is_some(),
+                &mut compared,
+                &mut error_parity,
+                &mut bad,
+            );
+        }
+        for (i, id) in ids.iter().enumerate() {
             let want = &out["sa"]
                 .as_array()
                 .map(|a| a[i].clone())
                 .unwrap_or(Value::Null);
-            let got = render_cluster(&mut st, &[json!({ "id": id, "suppress-author": true })]);
+            let got = render_cluster(
+                &mut st,
+                &[json!({ "id": id, "suppress-author": true })],
+                false,
+            );
             any_error |= got.is_err();
             compare_one(
                 ci,
@@ -1074,7 +1141,7 @@ fn names_e2e_matches_citeproc_js() {
             );
         }
         let all: Vec<Value> = ids.iter().map(|id| json!({ "id": id })).collect();
-        let got = render_cluster(&mut st, &all);
+        let got = render_cluster(&mut st, &all, false);
         any_error |= got.is_err();
         if let Some(want) = out.get("multi") {
             compare_one(
@@ -1088,9 +1155,22 @@ fn names_e2e_matches_citeproc_js() {
                 &mut bad,
             );
         }
+        let cites_failed = any_error;
         let got = render_bibliography(&mut st, &ids);
         any_error |= got.is_err();
-        if let Some(want) = out.get("bib") {
+        if out.get("update").is_some() {
+            // `updateItems` threw while rendering an item for ambiguity
+            // (getAmbiguousCite: the same tokens, in look-ahead mode); the
+            // plain renderings above must have failed too.
+            if cites_failed {
+                error_parity += 1;
+            } else {
+                bad.push(format!(
+                    "case {ci}: updateItems threw ({}) but no cite failed",
+                    out["update"]
+                ));
+            }
+        } else if let Some(want) = out.get("bib") {
             compare_one(
                 ci,
                 "bibliography",

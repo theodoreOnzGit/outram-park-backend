@@ -133,9 +133,10 @@ function genStyle() {
   const labelAttrs = attrs({ form: chance(0.7) ? labelForm : undefined, prefix: chance(0.3) ? ' (' : undefined, suffix: chance(0.3) ? ')' : undefined, plural: chance(0.1) ? pick(['always', 'never', 'contextual']) : undefined });
   const inst = chance(0.5) ? `<institution${attrs(Object.assign({}, optAttr('institution-parts', ['long', 'short', 'short-long', 'long-short'], 0.7), optAttr('use-first', ['1', '2'], 0.3), optAttr('use-last', ['1'], 0.15), optAttr('stop-last', ['1'], 0.1), optAttr('reverse-order', ['true'], 0.1), optAttr('delimiter', [', ', ' - '], 0.2), optAttr('and', ['text', 'symbol', 'none'], 0.3)))}>${chance(0.6) ? `<institution-part name="long"${attrs({ 'if-short': chance(0.3) ? 'true' : undefined, 'font-style': chance(0.3) ? 'italic' : undefined })}/>` : ''}${chance(0.6) ? `<institution-part name="short"${attrs({ 'font-weight': chance(0.3) ? 'bold' : undefined })}/>` : ''}</institution>` : '';
   const substVar = pick(['editor', 'editor translator', 'translator']);
-  const subst = chance(0.5) ? (chance(0.6) ? `<substitute><names variable="${substVar}"/></substitute>` : `<substitute><names variable="${substVar}"><name${attrs(optAttr('and', ['text', 'symbol'], 0.5))}/>${chance(0.5) ? '<label form="short" prefix=", "/>' : ''}</names></substitute>`) : '';
+  const substReq = chance(0.4) ? ' require-match="true"' : '';
+  const subst = chance(0.5) ? (chance(0.6) ? `<substitute><names variable="${substVar}"${substVar.includes(' ') ? substReq : ''}/></substitute>` : `<substitute><names variable="${substVar}"><name${attrs(optAttr('and', ['text', 'symbol'], 0.5))}/>${chance(0.5) ? '<label form="short" prefix=", "/>' : ''}</names></substitute>`) : '';
   const variable = pick(['author', 'author', 'author', 'author editor', 'editor translator']);
-  const namesAttrs = attrs(Object.assign({ variable }, optAttr('delimiter', [' / ', '; '], 0.15), optAttr('prefix', ['(', '['], 0.15), optAttr('suffix', [')', '.'], 0.15), optAttr('font-style', ['italic'], 0.1)));
+  const namesAttrs = attrs(Object.assign({ variable }, variable.includes(' ') ? optAttr('require-match', ['true'], 0.5) : {}, optAttr('delimiter', [' / ', '; '], 0.15), optAttr('prefix', ['(', '['], 0.15), optAttr('suffix', [')', '.'], 0.15), optAttr('font-style', ['italic'], 0.1)));
   const nameEl = chance(0.9) ? `<name${attrs(Object.assign({}, chance(0.7) ? nameOnly : {}, chance(0.3) ? common : {}))}>${nameParts.join('')}</name>` : '';
   const lbl = labelPos === 'none' ? '' : `<label${labelAttrs}/>`;
   const body = labelPos === 'before' ? `${lbl}${nameEl}${etal}${inst}${subst}` : `${nameEl}${etal}${lbl}${inst}${subst}`;
@@ -143,7 +144,8 @@ function genStyle() {
   const bibLayoutAttrs = attrs(Object.assign({}, optAttr('suffix', ['.'], 0.4), optAttr('prefix', ['> '], 0.1)));
   const bibAttrs = attrs(Object.assign({}, chance(0.3) ? common : {}, optAttr('hanging-indent', ['true'], 0.1), chance(0.35) ? { 'subsequent-author-substitute': pick(['---', '——', '']), 'subsequent-author-substitute-rule': pick(['complete-all', 'complete-each', 'partial-each', 'partial-first']) } : {}));
   const citAttrs = attrs(Object.assign({}, chance(0.7) ? common : {}, chance(0.3) ? { collapse: 'year' } : {}, chance(0.1) ? { 'cite-group-delimiter': ', ' } : {}));
-  const style = `<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0"${attrs(styleAttrs)}><info><id>http://example.org/s</id><title>S</title><updated>2020-01-01T00:00:00+00:00</updated></info><citation${citAttrs}><layout${layoutAttrs}><names${namesAttrs}>${body}</names></layout></citation><bibliography${bibAttrs}><layout${bibLayoutAttrs}><names${namesAttrs}>${body}</names></layout></bibliography></style>`;
+  const klass = chance(0.15) ? "note" : "in-text";
+  const style = `<style xmlns="http://purl.org/net/xbiblio/csl" class="${klass}" version="1.0"${attrs(styleAttrs)}><info><id>http://example.org/s</id><title>S</title><updated>2020-01-01T00:00:00+00:00</updated></info><citation${citAttrs}><layout${layoutAttrs}><names${namesAttrs}>${body}</names></layout></citation><bibliography${bibAttrs}><layout${bibLayoutAttrs}><names${namesAttrs}>${body}</names></layout></bibliography></style>`;
   const options = {};
   if (chance(0.1)) options.spoof_institutional_affiliations = true;
   if (chance(0.08)) options.parse_names = false;
@@ -156,7 +158,7 @@ function genStyle() {
 function runStyle(spec) {
   const sys = makeSys(POOL);
   for (const o of Object.keys(spec.options)) sys[o] = spec.options[o];
-  const out = { cites: [], sa: [], multi: null, bib: null };
+  const out = { cites: [], sa: [], sort: [], multi: null, bib: null };
   let style;
   try {
     style = new CSL.Engine(sys, spec.style, 'en-US');
@@ -176,15 +178,35 @@ function runStyle(spec) {
   for (const id of ids) {
     try { out.cites.push({ v: style.makeCitationCluster([{ id }]) }); } catch (e) { out.cites.push({ e: String(e && e.message || e) }); }
   }
+  // Names rendered the way a sort key renders them: sort_key_flag on and a
+  // sort extension, for the duration of outputNames only (the layout resets
+  // the flag, and nothing else the names closures run reads it).
+  const origOutput = CSL.NameOutput.prototype.outputNames;
+  CSL.NameOutput.prototype.outputNames = function () {
+    this.state.tmp.sort_key_flag = true;
+    this.state.tmp.extension = '_sort';
+    try { return origOutput.call(this); } finally { this.state.tmp.sort_key_flag = false; this.state.tmp.extension = ''; }
+  };
+  for (const id of ids) {
+    try { out.sort.push({ v: style.makeCitationCluster([{ id }]) }); } catch (e) { out.sort.push({ e: String(e && e.message || e) }); }
+  }
+  CSL.NameOutput.prototype.outputNames = origOutput;
   for (const id of ids) {
     try { out.sa.push({ v: style.makeCitationCluster([{ id, 'suppress-author': true }]) }); } catch (e) { out.sa.push({ e: String(e && e.message || e) }); }
   }
   try { out.multi = { v: style.makeCitationCluster(ids.map((id) => ({ id }))) }; } catch (e) { out.multi = { e: String(e && e.message || e) }; }
-  try {
-    style.updateItems(ids);
-    const b = style.makeBibliography();
-    out.bib = { v: b[0].bibstart + b[1].join('') + b[0].bibend };
-  } catch (e) { out.bib = { e: String(e && e.message || e) }; }
+  // updateItems renders every item once through getAmbiguousCite (the citation
+  // tokens, just_looking, suppress_decorations): record its failure apart.
+  let updated = true;
+  try { style.updateItems(ids); } catch (e) { out.update = { e: String(e && e.message || e) }; updated = false; }
+  if (updated) {
+    try {
+      const b = style.makeBibliography();
+      out.bib = { v: b[0].bibstart + b[1].join('') + b[0].bibend };
+    } catch (e) { out.bib = { e: String(e && e.message || e) }; }
+  } else {
+    out.bib = { skipped: true };
+  }
   return out;
 }
 
@@ -195,7 +217,7 @@ const cases = specs.map((s) => Object.assign({ style: s.style, options: s.option
 const stats = { cases: cases.length, errors: 0, outputs: 0 };
 for (const c of cases) {
   if (c.out.build_error) { stats.errors++; continue; }
-  for (const x of c.out.cites.concat(c.out.sa, [c.out.multi, c.out.bib])) { if (x.e) stats.errors++; else stats.outputs++; }
+  for (const x of c.out.cites.concat(c.out.sa, c.out.sort, [c.out.multi, c.out.bib])) { if (x.e) stats.errors++; else if (!x.skipped) stats.outputs++; }
 }
 console.error(JSON.stringify(stats));
 write('names_e2e', { pool: POOL, acache: ACACHE, cases });
