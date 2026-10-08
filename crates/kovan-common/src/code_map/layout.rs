@@ -19,7 +19,9 @@
 //!   in the box sits at, plus both ends of every range. A column is as wide
 //!   as the most crates any one row puts at that level (ties sit side by
 //!   side, sorted by name, at most [`MAX_TIES`] abreast before wrapping to
-//!   a lane below); a column only a range touches is half a card.
+//!   a lane below; **row 2 stacks its ties one above another**,
+//!   [`ROW2_TIES`], since 2026-10-08); a column only a range touches is half
+//!   a card.
 //! - A **range** crate spans from the left of its `hi` column to the right of
 //!   its `lo` column, on its own lane below the single-level crates of its
 //!   row (lanes assigned greedily, widest range first, so ranges that do not
@@ -60,6 +62,17 @@ pub const GUTTER: f64 = 70.0;
 /// maintainer's rules: without it the six `outram-foam-*` crates at
 /// fidelity 3 made the map about seven times wider than tall.
 pub const MAX_TIES: usize = 3;
+/// Crates of one fidelity level side by side in **row 2** (domain solvers):
+/// one, so they stack (maintainer, 2026-10-08: "make row 2 stack on each
+/// other so row 2 becomes thicker", to keep the map from being too wide).
+/// Row 2 holds most crates (eight in thermal hydraulics, five of them at
+/// F3), so it set the width of every topic box.
+pub const ROW2_TIES: usize = 1;
+
+/// How many crates of one fidelity level sit side by side in `row`.
+pub fn ties_in_row(row: u8) -> usize {
+    if row == 2 { ROW2_TIES } else { MAX_TIES }
+}
 /// Topic boxes per band (maintainer, 2026-10-06: two rows of four).
 pub const BOXES_PER_BAND: usize = 4;
 /// Width of the strip inside a topic box's left edge that labels its rows.
@@ -226,8 +239,12 @@ fn topic_box<'a>(topic: Topic, crates: &[&'a CrateNode]) -> TopicBox<'a> {
     let mut cols = Vec::new();
     let mut x = 0.0;
     for &k in keys.iter().rev() {
-        let n = count.iter().filter(|((_, col), _)| *col == k).map(|(_, n)| *n).max().unwrap_or(0);
-        let n = n.min(MAX_TIES);
+        let n = count
+            .iter()
+            .filter(|((_, col), _)| *col == k)
+            .map(|((row, _), n)| (*n).min(ties_in_row(*row)))
+            .max()
+            .unwrap_or(0);
         let w = if n == 0 { 0.5 * CARD_W } else { n as f64 * CARD_W + (n - 1) as f64 * GAP };
         if !cols.is_empty() {
             x += GAP;
@@ -248,15 +265,16 @@ fn topic_box<'a>(topic: Topic, crates: &[&'a CrateNode]) -> TopicBox<'a> {
         // Occupied column-index intervals per lane.
         let mut occupied: Vec<Vec<(usize, usize)>> = vec![Vec::new()];
         let mut placed_in: BTreeMap<Col, usize> = BTreeMap::new();
+        let ties = ties_in_row(row);
         for c in points {
             let i = col_of(hi_col(c));
             let k = placed_in.entry(hi_col(c)).or_default();
-            let lane = *k / MAX_TIES;
+            let lane = *k / ties;
             while lanes.len() <= lane {
                 lanes.push(Vec::new());
                 occupied.push(Vec::new());
             }
-            lanes[lane].push((c, cols[i].1 + (*k % MAX_TIES) as f64 * (CARD_W + GAP), CARD_W));
+            lanes[lane].push((c, cols[i].1 + (*k % ties) as f64 * (CARD_W + GAP), CARD_W));
             *k += 1;
             occupied[lane].push((i, i));
         }
@@ -513,6 +531,21 @@ mod tests {
         assert!(l.labels.iter().all(|x| !x.tip.is_empty()));
         assert!(l.labels.iter().any(|x| x.tip == "Row 3: coupled multiphysics"));
         assert!(l.labels.iter().any(|x| x.tip == "F4: brute force (Monte Carlo, first-principles data)"));
+        assert!(check(&m, &l).is_empty(), "{:#?}", check(&m, &l));
+    }
+
+    /// Row 2 stacks crates of one fidelity level (gh: maintainer,
+    /// 2026-10-08): the fixture's two row-2 F3 crates in the Risk box,
+    /// pflotran and redhill, share a column and sit one above the other.
+    #[test]
+    fn row_2_ties_stack_one_above_another() {
+        let m = map();
+        let l = layout(&m);
+        let (a, b) = (l.card("pflotran").unwrap().rect, l.card("redhill").unwrap().rect);
+        assert!((a.x - b.x).abs() < 1e-9, "same column");
+        assert!((a.y - b.y).abs() >= CARD_H, "stacked");
+        assert_eq!(ties_in_row(2), 1);
+        assert_eq!(ties_in_row(3), MAX_TIES);
         assert!(check(&m, &l).is_empty(), "{:#?}", check(&m, &l));
     }
 
