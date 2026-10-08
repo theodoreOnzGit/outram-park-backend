@@ -51,7 +51,7 @@ for (const type of types) for (const section of sections) for (const locator of 
   const item = {}; if (locator !== undefined) item.locator = locator; if (label !== undefined) item.label = label;
   const I = JSON.parse(JSON.stringify(Item)), i = JSON.parse(JSON.stringify(item));
   const c = { Item, item };
-  try { CSL.Engine.prototype.remapSectionVariable.call({}, [[I, i]]); c.Item_out = plain(I); c.item_out = plain(i); } catch (err) { c.error = String(err.message); }
+  try { CSL.Engine.prototype.remapSectionVariable.call({}, [[I, i]]); c.Item_out = plain(I); c.item_out = plain(i); } catch (err) { c.error = String(err && err.message ? err.message : err); }
   remap.push(c);
 }
 out.remap = remap;
@@ -62,7 +62,7 @@ for (const ext of [true, false]) for (const type of ['bill', 'legislation', 'boo
   const Item = {}; if (type) Item.type = type; if (num !== undefined) Item.number = num;
   const fake = { opt: { development_extensions: { consolidate_legal_items: ext } }, tmp: { shadow_numbers: pre ? { number: { values: [] } } : {} } };
   const c = { Item, ext, pre };
-  try { CSL.Engine.prototype.setNumberLabels.call(fake, JSON.parse(JSON.stringify(Item))); c.out = plain(fake.tmp.shadow_numbers); } catch (err) { c.error = String(err.message); }
+  try { CSL.Engine.prototype.setNumberLabels.call(fake, JSON.parse(JSON.stringify(Item))); c.out = plain(fake.tmp.shadow_numbers); } catch (err) { c.error = String(err && err.message ? err.message : err); }
   snl.push(c);
 }
 out.set_number_labels = snl;
@@ -73,7 +73,7 @@ for (const ext of [true, false]) for (const loc of [undefined, '', '12', '12 ', 
   const item = { id: 'x' }; if (loc !== undefined) item.locator = loc;
   const fake = { opt: { development_extensions: { locator_date_and_revision: ext } }, fun: { dateparser: CSL.DateParser } };
   const c = { item, ext };
-  try { c.out = plain(CSL.parseLocator.call(fake, JSON.parse(JSON.stringify(item)))); } catch (err) { c.error = String(err.message); }
+  try { c.out = plain(CSL.parseLocator.call(fake, JSON.parse(JSON.stringify(item)))); } catch (err) { c.error = String(err && err.message ? err.message : err); }
   pl.push(c);
 }
 out.parse_locator = pl;
@@ -106,7 +106,7 @@ for (const lang of ['en-US', 'fr-FR']) {
           }
         }
         c.item_out = plain(it); c.Item_out = plain(I);
-      } catch (err) { c.error = String(err.message); }
+      } catch (err) { c.error = String(err && err.message ? err.message : err); }
       cii.push(c);
     }
   }
@@ -161,7 +161,7 @@ for (const lang of ['en-US', 'fr-FR', 'de-DE']) {
                       const s = eng.tmp.shadow_numbers[k];
                       c.shadow_extra[k] = { labelForm: s.labelForm === undefined ? null : s.labelForm, labelDecorations: plain(s.labelDecorations), labelCapitalizeIfFirst: s.labelCapitalizeIfFirst === undefined ? null : s.labelCapitalizeIfFirst };
                     }
-                  } catch (err) { c.error = String(err.message); }
+                  } catch (err) { c.error = String(err && err.message ? err.message : err); }
                   labelCases.push(c);
                 }
               }

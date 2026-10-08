@@ -66,7 +66,7 @@ const out = { variants: VARIANTS, particles: [], cases: [], n_fixture: nFixture 
 for (const n of names) {
   const c = { name: plain(n) };
   const copy = plain(n);
-  try { CSL.parseParticles(copy); c.particles = plain(copy); } catch (e) { c.particles_error = String(e.message); }
+  try { CSL.parseParticles(copy); c.particles = plain(copy); } catch (e) { c.particles_error = String(e && e.message ? e.message : e); }
   c.v = VARIANTS.map((v) => {
     const r = {};
     const f = fake(v);
@@ -75,16 +75,16 @@ for (const n of names) {
       if (!forStatic.family) forStatic.family = '';
       if (!forStatic.given) forStatic.given = '';
       r.static_ordering = f.getStaticOrder(forStatic, v.refresh);
-    } catch (e) { r.static_error = String(e.message); }
+    } catch (e) { r.static_error = String(e && e.message ? e.message : e); }
     try {
       const nn = f._normalizeNameInput(plain(n));
       r.norm = plain(nn);
-    } catch (e) { r.norm_error = String(e.message); }
+    } catch (e) { r.norm_error = String(e && e.message ? e.message : e); }
     try {
       const raw = plain(n);
       r.static_raw = f.getStaticOrder(raw, v.refresh);
-    } catch (e) { r.static_raw_error = String(e.message); }
-    try { r.romanesque = f._isRomanesque(plain(n)); } catch (e) { r.romanesque_error = String(e.message); }
+    } catch (e) { r.static_raw_error = String(e && e.message ? e.message : e); }
+    try { r.romanesque = f._isRomanesque(plain(n)); } catch (e) { r.romanesque_error = String(e && e.message ? e.message : e); }
     return r;
   });
   out.cases.push(c);

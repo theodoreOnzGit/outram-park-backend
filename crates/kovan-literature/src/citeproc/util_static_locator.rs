@@ -86,7 +86,9 @@ const LEGAL_TYPES: [&str; 5] = ["bill", "gazette", "legislation", "regulation", 
 fn str_of(o: &Obj, key: &str, path: &str) -> CslResult<String> {
     match o.get(key) {
         Some(Value::String(s)) => Ok(s.clone()),
-        _ => Err(EngineError::Csl(format!("{path}.trim is not a function"))),
+        _ => Err(EngineError::BadInput(format!(
+            "{path}.trim is not a function"
+        ))),
     }
 }
 
@@ -153,7 +155,9 @@ pub fn remap_section_variable_one(item_obj: &mut Obj, cite_item: &mut Obj) -> Cs
                 if m1 == "p." && section_master_label.as_deref() != Some("p.") {
                     locator = m2;
                 }
-                if ["[", "(", ".", ",", ";", ":", "?"].contains(&js::slice(&locator, 0, Some(1)).as_str()) {
+                if ["[", "(", ".", ",", ";", ":", "?"]
+                    .contains(&js::slice(&locator, 0, Some(1)).as_str())
+                {
                     space = "";
                 }
             } else {
@@ -213,7 +217,10 @@ pub fn set_number_labels(state: &mut State, item: &Value) {
     let value = js::to_js_string(item.get("number").unwrap_or(&Value::Null)).replace('\\', "");
     // Get first word, parse out labels only if it parses
     static WS_RE: LazyLock<Regex> = LazyLock::new(|| rx(&format!("[{}]+", js::WS)));
-    let firstword = js::split(&WS_RE, &value).into_iter().next().unwrap_or_default();
+    let firstword = js::split(&WS_RE, &value)
+        .into_iter()
+        .next()
+        .unwrap_or_default();
     let firstlabel = statute_subdiv_strings(&firstword);
     if let Some(fl) = firstlabel {
         // Get list and match
@@ -372,14 +379,18 @@ mod tests {
 
     fn err_text(e: &EngineError) -> String {
         match e {
-            EngineError::Csl(m) => m.clone(),
+            EngineError::BadInput(m) => m.clone(),
             o => o.to_string(),
         }
     }
 
     fn terms_from(log: &Value) -> BTreeMap<String, Option<String>> {
         log.as_object()
-            .map(|o| o.iter().map(|(k, v)| (k.clone(), v.as_str().map(str::to_string))).collect())
+            .map(|o| {
+                o.iter()
+                    .map(|(k, v)| (k.clone(), v.as_str().map(str::to_string)))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -413,7 +424,9 @@ mod tests {
                 json!({"consolidate_legal_items": c["ext"]}),
             );
             if c["pre"].as_bool() == Some(true) {
-                st.tmp.shadow_numbers.insert("number".into(), ShadowNumber::default());
+                st.tmp
+                    .shadow_numbers
+                    .insert("number".into(), ShadowNumber::default());
             }
             set_number_labels(&mut st, &c["Item"]);
             let mut got = Obj::new();

@@ -72,7 +72,7 @@ function stage(parser, label, added) {
       try {
         c[k] = plain(parser[f](s));
       } catch (e) {
-        c[k + '_error'] = String(e.message);
+        c[k + '_error'] = String(e && e.message ? e.message : e);
       }
     }
     rec.cases.push(c);
@@ -115,7 +115,7 @@ out.month_lists = MONTH_LISTS;
     try {
       c.out = plain(CSL.Engine.prototype.dateParseArray.call({}, JSON.parse(JSON.stringify(o))));
     } catch (e) {
-      c.error = String(e.message);
+      c.error = String(e && e.message ? e.message : e);
     }
     out.date_parse_array.push(c);
   }

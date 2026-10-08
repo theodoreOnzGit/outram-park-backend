@@ -149,7 +149,7 @@ pub fn year_imperial<F: FnMut(&str) -> Option<String>>(
 /// (`num.toString()`), as upstream.
 pub fn year_short(num: &Value) -> CslResult<Option<String>> {
     if num.is_null() {
-        return Err(EngineError::Csl(
+        return Err(EngineError::BadInput(
             "Cannot read properties of undefined (reading 'toString')".into(),
         ));
     }
@@ -217,7 +217,10 @@ pub fn normalize_month(num: &Value) -> i64 {
 /// (and 17-24 folded back by 4s) as `season-01` to `season-04`.
 pub fn normalize_month_season(num: &Value) -> MonthSeason {
     let n = month_input_int(num);
-    let mut res = MonthSeason { stub: "month-", num: n };
+    let mut res = MonthSeason {
+        stub: "month-",
+        num: n,
+    };
     if res.num < 1 || res.num > 24 {
         res.num = 0;
     } else {
@@ -303,7 +306,7 @@ pub fn month_short(
 /// `num`: `null` is a TypeError, as upstream.
 pub fn day_numeric(num: &Value) -> CslResult<String> {
     if num.is_null() {
-        return Err(EngineError::Csl(
+        return Err(EngineError::BadInput(
             "Cannot read properties of undefined (reading 'toString')".into(),
         ));
     }
@@ -325,11 +328,7 @@ pub fn day_numeric_leading_zeros(num: &Value) -> String {
 }
 
 /// `CSL.Util.Dates.day.ordinal`: `state.fun.ordinalizer.format(num, gender)`.
-pub fn day_ordinal(
-    state: &State,
-    num: &Value,
-    gender: Option<&str>,
-) -> super::CslResult<String> {
+pub fn day_ordinal(state: &State, num: &Value, gender: Option<&str>) -> super::CslResult<String> {
     state.fun.ordinalizer.format(state, num, gender)
 }
 
@@ -367,14 +366,19 @@ mod tests {
             assert_eq!(Value::String(year_long(&n)), c["long"], "year.long {n}");
             match (year_short(&n), c.get("short_error")) {
                 (Ok(v), None) => assert_eq!(
-                    v.map(Value::String).unwrap_or(serde_json::json!({"undef": true})),
+                    v.map(Value::String)
+                        .unwrap_or(serde_json::json!({"undef": true})),
                     c["short"],
                     "year.short {n}"
                 ),
                 (Err(_), Some(_)) => {}
                 (g, w) => panic!("year.short {n}: {g:?} vs {w:?}"),
             }
-            assert_eq!(Value::String(year_numeric(&n)), c["numeric"], "year.numeric {n}");
+            assert_eq!(
+                Value::String(year_numeric(&n)),
+                c["numeric"],
+                "year.numeric {n}"
+            );
         }
         for c in r["month"].as_array().expect("month") {
             let n = input(&c["num"]);
@@ -384,7 +388,11 @@ mod tests {
                 c["numeric-leading-zeros"],
                 "month.numeric-leading-zeros {n}"
             );
-            assert_eq!(Value::from(normalize_month(&n)), c["norm"], "normalizeMonth {n}");
+            assert_eq!(
+                Value::from(normalize_month(&n)),
+                c["norm"],
+                "normalizeMonth {n}"
+            );
             let ms = normalize_month_season(&n);
             assert_eq!(
                 serde_json::json!({"stub": ms.stub, "num": ms.num}),
@@ -415,7 +423,11 @@ mod tests {
             let mut st = State::default();
             st.input_locale.terms = e["log"]
                 .as_object()
-                .map(|o| o.iter().map(|(k, v)| (k.clone(), v.as_str().map(str::to_string))).collect::<BTreeMap<_, _>>())
+                .map(|o| {
+                    o.iter()
+                        .map(|(k, v)| (k.clone(), v.as_str().map(str::to_string)))
+                        .collect::<BTreeMap<_, _>>()
+                })
                 .unwrap_or_default();
             for c in e["dates"].as_array().expect("dates") {
                 let num = input(&c["num"]);
@@ -430,8 +442,14 @@ mod tests {
                     continue;
                 }
                 match (got, c.get("out")) {
-                    (Some(s), Some(w)) => assert_eq!(Value::String(s), *w, "{lang} {} {num}", c["fn"]),
-                    (None, None) => assert!(c["undef"].as_bool() == Some(true), "{lang} {} {num}", c["fn"]),
+                    (Some(s), Some(w)) => {
+                        assert_eq!(Value::String(s), *w, "{lang} {} {num}", c["fn"])
+                    }
+                    (None, None) => assert!(
+                        c["undef"].as_bool() == Some(true),
+                        "{lang} {} {num}",
+                        c["fn"]
+                    ),
                     (g, w) => panic!("{lang} {} {num}: {g:?} vs {w:?}", c["fn"]),
                 }
             }

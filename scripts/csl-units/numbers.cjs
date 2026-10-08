@@ -140,7 +140,7 @@ for (const spec of engineList) {
         if (withNode) { c.node_out = nodeOut(e); c.node_mangled = mangled; }
         else c.out = plain(e.tmp.shadow_numbers);
       } catch (err) {
-        c[withNode ? 'node_error' : 'error'] = String(err.message);
+        c[withNode ? 'node_error' : 'error'] = String(err && err.message ? err.message : err);
       }
     }
     cases.push(c);
@@ -165,19 +165,19 @@ for (const lang of LANGS) {
   for (let n = -3; n <= 130; n++) {
     for (const g of [undefined, 'masculine', 'feminine', 'neuter']) {
       const c = { lang, kind: 'ordinal', num: n, gender: g || null };
-      try { c.out = e.fun.ordinalizer.format(n, g); } catch (err) { c.error = String(err.message); }
+      try { c.out = e.fun.ordinalizer.format(n, g); } catch (err) { c.error = String(err && err.message ? err.message : err); }
       ordinal.push(c);
       const c2 = { lang, kind: 'long', num: n, gender: g || null };
-      try { e.tmp.cite_renders_content = false; c2.out = e.fun.long_ordinalizer.format(n, g); c2.crc = e.tmp.cite_renders_content; } catch (err) { c2.error = String(err.message); }
+      try { e.tmp.cite_renders_content = false; c2.out = e.fun.long_ordinalizer.format(n, g); c2.crc = e.tmp.cite_renders_content; } catch (err) { c2.error = String(err && err.message ? err.message : err); }
       ordinal.push(c2);
     }
   }
   for (const n of [200, 201, 202, 203, 204, 211, 212, 213, 1000, 1001, 1011, 1012, 1013, 2012, 9999, 10, 110, 210, '5', '05', '12', 'x', '1x']) {
     const c = { lang, kind: 'ordinal', num: n, gender: null };
-    try { c.out = e.fun.ordinalizer.format(n); } catch (err) { c.error = String(err.message); }
+    try { c.out = e.fun.ordinalizer.format(n); } catch (err) { c.error = String(err && err.message ? err.message : err); }
     ordinal.push(c);
     const c2 = { lang, kind: 'long', num: n, gender: null };
-    try { c2.out = e.fun.long_ordinalizer.format(n); } catch (err) { c2.error = String(err.message); }
+    try { c2.out = e.fun.long_ordinalizer.format(n); } catch (err) { c2.error = String(err && err.message ? err.message : err); }
     ordinal.push(c2);
   }
   CSL.Engine.getField = origField;
@@ -187,7 +187,7 @@ for (const lang of LANGS) {
     for (const [fn, key] of [['long', 'long'], ['short', 'short']]) {
       for (const force of [false, true]) {
         const c = { num: num === undefined ? { undef: true } : num, fn: key, force };
-        try { c.out = CSL.Util.Dates.month[fn](e, num, undefined, force); if (c.out === undefined) c.undef = true; } catch (err) { c.error = String(err.message); }
+        try { c.out = CSL.Util.Dates.month[fn](e, num, undefined, force); if (c.out === undefined) c.undef = true; } catch (err) { c.error = String(err && err.message ? err.message : err); }
         ord_engines[lang].dates.push(c);
       }
     }
@@ -196,7 +196,7 @@ for (const lang of LANGS) {
 const roman = [];
 for (const n of [0, 1, 4, 9, 14, 40, 90, 400, 900, 1994, 3999, 4000, 5000, 5999, 6000, 6001, -1, -12, -99999, 1.5, '12', 'x', '']) {
   const c = { num: n };
-  try { c.out = new CSL.Util.Romanizer().format(n); } catch (err) { c.error = String(err.message); }
+  try { c.out = new CSL.Util.Romanizer().format(n); } catch (err) { c.error = String(err && err.message ? err.message : err); }
   roman.push(c);
 }
 const suffix = [];
@@ -212,7 +212,7 @@ const year = [];
 for (const num of [2012, '2012', 12, 0, '', null, undefined, false, true, -5, '-5', 'abc', 1999.5, 99999, 123, 12345]) {
   const c = { num: num === undefined ? { undef: true } : num };
   for (const fn of ['long', 'short', 'numeric']) {
-    try { const r = CSL.Util.Dates.year[fn]({}, num); c[fn] = r === undefined ? { undef: true } : r; } catch (err) { c[fn + '_error'] = String(err.message); }
+    try { const r = CSL.Util.Dates.year[fn]({}, num); c[fn] = r === undefined ? { undef: true } : r; } catch (err) { c[fn + '_error'] = String(err && err.message ? err.message : err); }
   }
   year.push(c);
 }
@@ -220,7 +220,7 @@ const month = [];
 for (const num of [0, 1, 5, 12, 13, 16, 17, 24, 25, '3', 'x', null, undefined, false, '']) {
   const c = { num: num === undefined ? { undef: true } : num };
   for (const fn of ['numeric', 'numeric-leading-zeros']) {
-    try { const r = CSL.Util.Dates.month[fn]({}, num); c[fn] = r === undefined ? { undef: true } : r; } catch (err) { c[fn + '_error'] = String(err.message); }
+    try { const r = CSL.Util.Dates.month[fn]({}, num); c[fn] = r === undefined ? { undef: true } : r; } catch (err) { c[fn + '_error'] = String(err && err.message ? err.message : err); }
   }
   c.norm = CSL.Util.Dates.normalizeMonth(num);
   c.norm_season = CSL.Util.Dates.normalizeMonth(num, true);
@@ -230,7 +230,7 @@ const day = [];
 for (const num of [1, 5, 12, 0, '', null, '3', '03', 'x']) {
   const c = { num };
   for (const fn of ['numeric', 'long', 'numeric-leading-zeros']) {
-    try { const r = CSL.Util.Dates.day[fn]({}, num); c[fn] = r; } catch (err) { c[fn + '_error'] = String(err.message); }
+    try { const r = CSL.Util.Dates.day[fn]({}, num); c[fn] = r; } catch (err) { c[fn + '_error'] = String(err && err.message ? err.message : err); }
   }
   day.push(c);
 }

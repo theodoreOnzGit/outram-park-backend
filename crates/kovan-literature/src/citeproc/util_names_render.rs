@@ -138,7 +138,10 @@ mod input_side {
                 name.insert(key.to_string(), v.clone());
             }
         }
-        name.insert("comma-dropping-particle".into(), Value::String(String::new()));
+        name.insert(
+            "comma-dropping-particle".into(),
+            Value::String(String::new()),
+        );
         for key in ["block_initialize", "multi"] {
             if let Some(v) = value.get(key) {
                 name.insert(key.to_string(), v.clone());
@@ -172,13 +175,16 @@ mod input_side {
             let family = match name.get("family") {
                 Some(Value::String(s)) => s.clone(),
                 _ => {
-                    return Err(EngineError::Csl(
+                    return Err(EngineError::BadInput(
                         "name.family.slice is not a function".to_string(),
                     ))
                 }
             };
             if js::slice(&family, 0, Some(1)) == "\"" && js::slice(&family, -1, None) == "\"" {
-                name.insert("family".into(), Value::String(js::slice(&family, 1, Some(-1))));
+                name.insert(
+                    "family".into(),
+                    Value::String(js::slice(&family, 1, Some(-1))),
+                );
                 noparse = true;
                 name.insert("parse-names".into(), Value::from(0));
             }
@@ -202,17 +208,19 @@ mod input_side {
         let family = match name.get("family") {
             Some(Value::String(s)) => s.clone(),
             None => {
-                return Err(EngineError::Csl(
+                return Err(EngineError::BadInput(
                     "Cannot read properties of undefined (reading 'replace')".into(),
                 ))
             }
             Some(Value::Null) => {
-                return Err(EngineError::Csl(
+                return Err(EngineError::BadInput(
                     "Cannot read properties of null (reading 'replace')".into(),
                 ))
             }
             Some(_) => {
-                return Err(EngineError::Csl("name.family.replace is not a function".into()))
+                return Err(EngineError::BadInput(
+                    "name.family.replace is not a function".into(),
+                ))
             }
         };
         let mut ret = 2;
@@ -263,7 +271,13 @@ mod input_side {
             return Ok(true);
         }
         let lang_vi_hu = |s: &str| s == "vi" || s == "hu";
-        if multi_main.is_none() && ctx.item_language.as_deref().map(lang_vi_hu).unwrap_or(false) {
+        if multi_main.is_none()
+            && ctx
+                .item_language
+                .as_deref()
+                .map(lang_vi_hu)
+                .unwrap_or(false)
+        {
             return Ok(true);
         }
         if let Some(m) = &multi_main {
@@ -285,9 +299,7 @@ mod input_side {
 }
 
 #[allow(unused_imports)]
-pub use input_side::{
-    get_static_order, is_romanesque, normalize_name_input, parse_name, NameInputCtx,
-};
+pub use input_side::{get_static_order, is_romanesque, normalize_name_input, parse_name, NameInputCtx};
 
 #[cfg(test)]
 mod input_side_tests {
@@ -307,7 +319,7 @@ mod input_side_tests {
 
     fn err_text(e: &super::super::EngineError) -> String {
         match e {
-            super::super::EngineError::Csl(m) => m.clone(),
+            super::super::EngineError::BadInput(m) => m.clone(),
             o => o.to_string(),
         }
     }
@@ -335,14 +347,28 @@ mod input_side_tests {
                         for_static.insert(k.into(), Value::String(String::new()));
                     }
                 }
-                match (get_static_order(&ctx, &for_static, refresh), want.get("static_error")) {
-                    (Ok(b), None) => assert_eq!(Value::Bool(b), want["static_ordering"], "static {name} {v}"),
-                    (Err(e), Some(w)) => assert_eq!(w.as_str(), Some(err_text(&e).as_str()), "static {name}"),
+                match (
+                    get_static_order(&ctx, &for_static, refresh),
+                    want.get("static_error"),
+                ) {
+                    (Ok(b), None) => {
+                        assert_eq!(Value::Bool(b), want["static_ordering"], "static {name} {v}")
+                    }
+                    (Err(e), Some(w)) => {
+                        assert_eq!(w.as_str(), Some(err_text(&e).as_str()), "static {name}")
+                    }
                     (g, w) => panic!("static {name} [{}]: {g:?} vs {w:?}", v["name"]),
                 }
-                match (get_static_order(&ctx, nobj, refresh), want.get("static_raw_error")) {
-                    (Ok(b), None) => assert_eq!(Value::Bool(b), want["static_raw"], "static_raw {name} {v}"),
-                    (Err(e), Some(w)) => assert_eq!(w.as_str(), Some(err_text(&e).as_str()), "static_raw {name}"),
+                match (
+                    get_static_order(&ctx, nobj, refresh),
+                    want.get("static_raw_error"),
+                ) {
+                    (Ok(b), None) => {
+                        assert_eq!(Value::Bool(b), want["static_raw"], "static_raw {name} {v}")
+                    }
+                    (Err(e), Some(w)) => {
+                        assert_eq!(w.as_str(), Some(err_text(&e).as_str()), "static_raw {name}")
+                    }
                     (g, w) => panic!("static_raw {name} [{}]: {g:?} vs {w:?}", v["name"]),
                 }
                 match (normalize_name_input(&ctx, name), want.get("norm_error")) {
@@ -351,12 +377,18 @@ mod input_side_tests {
                         crate::citeproc::build_retrieve_item::canon_numbers(&mut got);
                         assert_eq!(got, want["norm"], "norm {name} [{}]", v["name"])
                     }
-                    (Err(e), Some(w)) => assert_eq!(w.as_str(), Some(err_text(&e).as_str()), "norm {name}"),
+                    (Err(e), Some(w)) => {
+                        assert_eq!(w.as_str(), Some(err_text(&e).as_str()), "norm {name}")
+                    }
                     (g, w) => panic!("norm {name} [{}]: {g:?} vs {w:?}", v["name"]),
                 }
                 match (is_romanesque(&ctx, nobj), want.get("romanesque_error")) {
-                    (Ok(b), None) => assert_eq!(Value::from(b), want["romanesque"], "romanesque {name}"),
-                    (Err(e), Some(w)) => assert_eq!(w.as_str(), Some(err_text(&e).as_str()), "romanesque {name}"),
+                    (Ok(b), None) => {
+                        assert_eq!(Value::from(b), want["romanesque"], "romanesque {name}")
+                    }
+                    (Err(e), Some(w)) => {
+                        assert_eq!(w.as_str(), Some(err_text(&e).as_str()), "romanesque {name}")
+                    }
                     (g, w) => panic!("romanesque {name}: {g:?} vs {w:?}"),
                 }
                 n += 1;

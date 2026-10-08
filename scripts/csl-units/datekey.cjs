@@ -34,7 +34,7 @@ for (const raw of dates) {
             c.out = appended;
             c.token_dateparts = token.dateparts;
           } catch (err) {
-            c.error = String(err.message);
+            c.error = String(err && err.message ? err.message : err);
           }
           cases.push(c);
         }

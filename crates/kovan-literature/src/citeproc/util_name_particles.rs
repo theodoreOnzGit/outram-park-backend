@@ -102,8 +102,14 @@ const PARTICLE_LIST: [(&str, &[(Range, Range)]); 222] = [
     ("de die", &[(None, Some((0, 2)))]),
     ("de l", &[(None, Some((0, 2)))]),
     ("de l'", &[(None, Some((0, 2)))]),
-    ("de la", &[(None, Some((0, 2))), (Some((0, 1)), Some((1, 2)))]),
-    ("de las", &[(None, Some((0, 2))), (Some((0, 1)), Some((1, 2)))]),
+    (
+        "de la",
+        &[(None, Some((0, 2))), (Some((0, 1)), Some((1, 2)))],
+    ),
+    (
+        "de las",
+        &[(None, Some((0, 2))), (Some((0, 1)), Some((1, 2)))],
+    ),
     ("de le", &[(None, Some((0, 2)))]),
     ("de li", &[(None, Some((0, 2))), (Some((0, 2)), None)]),
     ("de van der", &[(None, Some((0, 3)))]),
@@ -266,19 +272,15 @@ const DOT: &str = "[^\\n\\r\\u{2028}\\u{2029}]";
 // DUP-CHECK: load.js CSL.PARTICLE_GIVEN_REGEXP
 // /^([^ ]+(?:ʻ |’ | |\' ) *)(.+)$/
 static PARTICLE_GIVEN_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(&format!(
-        "^([^ ]+(?:\u{02bb} |\u{2019} | |' ) *)({DOT}+)$"
-    ))
-    .unwrap_or_else(|e| panic!("static regex: {e}"))
+    Regex::new(&format!("^([^ ]+(?:\u{02bb} |\u{2019} | |' ) *)({DOT}+)$"))
+        .unwrap_or_else(|e| panic!("static regex: {e}"))
 });
 
 // DUP-CHECK: load.js CSL.PARTICLE_FAMILY_REGEXP
 // /^([^ ]+(?:\-|ʻ|’| |\') *)(.+)$/
 static PARTICLE_FAMILY_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(&format!(
-        "^([^ ]+(?:-|\u{02bb}|\u{2019}| |') *)({DOT}+)$"
-    ))
-    .unwrap_or_else(|e| panic!("static regex: {e}"))
+    Regex::new(&format!("^([^ ]+(?:-|\u{02bb}|\u{2019}| |') *)({DOT}+)$"))
+        .unwrap_or_else(|e| panic!("static regex: {e}"))
 });
 
 /// `/^[-\'ʻ’\s]*(.).*$/`.
@@ -300,7 +302,7 @@ static SUFFIX_COMMA_RE: LazyLock<Regex> = LazyLock::new(|| {
 /// string: undefined / null have no properties; anything else has no such
 /// method.
 fn not_a_string(v: Option<&Value>, what: &str, method: &str) -> EngineError {
-    EngineError::Csl(match v {
+    EngineError::BadInput(match v {
         None => format!("Cannot read properties of undefined (reading '{method}')"),
         Some(Value::Null) => format!("Cannot read properties of null (reading '{method}')"),
         Some(_) => format!("{what}.{method} is not a function"),
@@ -329,7 +331,11 @@ fn split_particles(name_value: &str, first_name_flag: bool) -> (bool, String, Ve
         };
         let g1 = caps.get(1).map(|m| m.as_str()).unwrap_or("");
         let g2 = caps.get(2).map(|m| m.as_str()).unwrap_or("").to_string();
-        let m1 = if first_name_flag { reverse(g1) } else { g1.to_string() };
+        let m1 = if first_name_flag {
+            reverse(g1)
+        } else {
+            g1.to_string()
+        };
         let first_char = FIRST_CHAR_RE.replace(&m1, "${1}").into_owned();
         has_particle = !first_char.is_empty() && first_char.to_uppercase() != first_char;
         if !has_particle {
@@ -400,7 +406,8 @@ fn parse_suffix(name_obj: &mut Obj) -> CslResult<()> {
         .chars()
         .filter(|c| !(c.is_whitespace() || *c == '\u{feff}'))
         .collect();
-    if possible_suffix.replace('.', "") == "et al" && !js::get_truthy(name_obj, "dropping-particle") {
+    if possible_suffix.replace('.', "") == "et al" && !js::get_truthy(name_obj, "dropping-particle")
+    {
         // This hack covers the case where "et al." is explicitly used in the
         // authorship information of the work.
         name_obj.insert("dropping-particle".into(), Value::String(possible_suffix));
@@ -411,7 +418,10 @@ fn parse_suffix(name_obj: &mut Obj) -> CslResult<()> {
         }
         name_obj.insert("suffix".into(), Value::String(possible_suffix));
     }
-    name_obj.insert("given".into(), Value::String(js::slice(&given, 0, Some(idx))));
+    name_obj.insert(
+        "given".into(),
+        Value::String(js::slice(&given, 0, Some(idx))),
+    );
     Ok(())
 }
 
@@ -470,15 +480,19 @@ mod tests {
         let r: Value = serde_json::from_str(REF).expect("json");
         let mut n = 0;
         for c in r["cases"].as_array().expect("cases") {
-            let Value::Object(name) = &c["name"] else { continue };
+            let Value::Object(name) = &c["name"] else {
+                continue;
+            };
             let mut copy = name.clone();
             let res = parse_particles(&mut copy);
             n += 1;
             match (res, c.get("particles_error")) {
-                (Ok(()), None) => assert_eq!(Value::Object(copy), c["particles"], "name {}", c["name"]),
+                (Ok(()), None) => {
+                    assert_eq!(Value::Object(copy), c["particles"], "name {}", c["name"])
+                }
                 (Err(e), Some(w)) => assert_eq!(
                     Some(match &e {
-                        EngineError::Csl(m) => m.as_str(),
+                        EngineError::BadInput(m) => m.as_str(),
                         _ => "",
                     }),
                     w.as_str(),

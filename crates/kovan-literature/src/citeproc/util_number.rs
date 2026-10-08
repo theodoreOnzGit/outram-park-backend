@@ -245,15 +245,21 @@ const ROMAN_NUMERALS: [&[&str]; 4] = [
 // DUP-CHECK: load.js CSL.SUFFIX_CHARS
 const SUFFIX_CHARS: &str = "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z";
 // DUP-CHECK: load.js CSL.LOOSE
+/// `CSL.LOOSE`: `getField` returns `undefined` for a missing term.
 pub const LOOSE: i64 = 0;
 // DUP-CHECK: load.js CSL.STRICT
+/// `CSL.STRICT`: a missing term is a `CSL.error`.
 pub const STRICT: i64 = 1;
 // DUP-CHECK: load.js CSL.TOLERANT
+/// `CSL.TOLERANT`: `getTerm` turns a missing term into `""`.
 pub const TOLERANT: i64 = 2;
 
 /// `CSL.STATUTE_SUBDIV_STRINGS[key]`.
 pub(crate) fn statute_subdiv_strings(key: &str) -> Option<&'static str> {
-    STATUTE_SUBDIV_STRINGS.iter().find(|p| p.0 == key).map(|p| p.1)
+    STATUTE_SUBDIV_STRINGS
+        .iter()
+        .find(|p| p.0 == key)
+        .map(|p| p.1)
 }
 
 /// `CSL.STATUTE_SUBDIV_STRINGS_REVERSE[key]`.
@@ -341,7 +347,9 @@ impl TermQuery {
             self.form.as_deref().unwrap_or("~"),
             self.plural,
             self.gender.as_deref().unwrap_or("~"),
-            self.mode.map(|m| m.to_string()).unwrap_or_else(|| "~".into()),
+            self.mode
+                .map(|m| m.to_string())
+                .unwrap_or_else(|| "~".into()),
             u8::from(self.force_default_locale)
         )
     }
@@ -468,7 +476,11 @@ impl LongOrdinalizer {
                 }
             }
         };
-        let num_s = if numeric_lt_10 { format!("0{n_str}") } else { n_str };
+        let num_s = if numeric_lt_10 {
+            format!("0{n_str}")
+        } else {
+            n_str
+        };
         let ret = input_get_field(
             state,
             LOOSE,
@@ -531,7 +543,12 @@ impl Ordinalizer {
         // `suffix` is a JS value that may stay undefined (then it is appended
         // as the text "undefined", as upstream does).
         let mut suffix: Option<String>;
-        if let Some(ordinfo) = state.input_locale.ord_101.as_ref().filter(|v| js::truthy(v)) {
+        if let Some(ordinfo) = state
+            .input_locale
+            .ord_101
+            .as_ref()
+            .filter(|v| js::truthy(v))
+        {
             let get = |name: &str| -> Option<String> {
                 let mut q = TermQuery::new(name);
                 q.gender = gender.map(str::to_string);
@@ -542,7 +559,7 @@ impl Ordinalizer {
             let two = js::slice(&s, len - 2, None);
             let one = js::slice(&s, len - 1, None);
             let missing = |key: &str| {
-                EngineError::Csl(format!(
+                EngineError::BadInput(format!(
                     "Cannot read properties of undefined (reading '{key}')"
                 ))
             };
@@ -558,7 +575,9 @@ impl Ordinalizer {
                 if let Some(t) = pick(whole, &s) {
                     suffix = get(&t);
                 } else if let Some(t) = pick(
-                    ordinfo.get("last-two-digits").ok_or_else(|| missing(&two))?,
+                    ordinfo
+                        .get("last-two-digits")
+                        .ok_or_else(|| missing(&two))?,
                     &two,
                 ) {
                     suffix = get(&t);
@@ -574,7 +593,7 @@ impl Ordinalizer {
             }
         } else {
             let suffixes = Self::suffixes(state, gender).ok_or_else(|| {
-                EngineError::Csl("Cannot read properties of undefined (reading '3')".into())
+                EngineError::BadInput("Cannot read properties of undefined (reading '3')".into())
             })?;
             let n = parsed.map(|n| n as f64).unwrap_or(f64::NAN);
             let idx = if (n / 10.0) % 10.0 == 1.0 || (n > 10.0 && n < 20.0) {
@@ -636,7 +655,7 @@ impl Romanizer {
                         .to_digit(10)
                         .map(|d| d.to_string())
                         .unwrap_or_else(|| "NaN".to_string());
-                    EngineError::Csl(format!(
+                    EngineError::BadInput(format!(
                         "Cannot read properties of undefined (reading '{n}')"
                     ))
                 })?;
@@ -748,7 +767,10 @@ impl NumberInfo {
         };
         put("collapsible", self.collapsible.map(Value::Bool));
         put("gotosleepability", self.gotosleepability.map(Value::Bool));
-        put("joiningSuffix", Some(Value::String(self.joining_suffix.clone())));
+        put(
+            "joiningSuffix",
+            Some(Value::String(self.joining_suffix.clone())),
+        );
         put("label", self.label.clone().map(Value::String));
         put("labelSuffix", self.label_suffix.clone().map(Value::String));
         put("labelVisibility", self.label_visibility.map(Value::Bool));
@@ -916,16 +938,11 @@ static AND_RE: LazyLock<Regex> = LazyLock::new(|| rx(&js_pattern_to_rust("^\\s*&
 static ALPHA_END_RE: LazyLock<Regex> = LazyLock::new(|| rx("[a-zA-Z]$"));
 static ALPHA_START_RE: LazyLock<Regex> = LazyLock::new(|| rx("^[a-zA-Z]"));
 static FIRST_WORD_RE: LazyLock<Regex> = LazyLock::new(|| rx("^([^ ]+)"));
-static LABEL_PARTS_RE: LazyLock<Regex> = LazyLock::new(|| {
-    rx(&format!(
-        "([{ws}]*)([^{ws}]+)([{ws}]*)",
-        ws = js::WS
-    ))
-});
+static LABEL_PARTS_RE: LazyLock<Regex> =
+    LazyLock::new(|| rx(&format!("([{ws}]*)([^{ws}]+)([{ws}]*)", ws = js::WS)));
 static PARTICLE_VALUE_RE: LazyLock<Regex> =
     LazyLock::new(|| rx("^([0-9]*[a-zA-Z]+0*)?([0-9]+(?:[a-zA-Z]*|[-,a-zA-Z]+))$"));
-static FIRST_DASH_RE: LazyLock<Regex> =
-    LazyLock::new(|| rx(&js_pattern_to_rust("\\s*-\\s*")));
+static FIRST_DASH_RE: LazyLock<Regex> = LazyLock::new(|| rx(&js_pattern_to_rust("\\s*-\\s*")));
 static SUBSECTION_RE: LazyLock<Regex> = LazyLock::new(|| {
     rx("^(?:(?:[a-z]|[a-z][a-z]|[a-z][a-z][a-z]|[a-z][a-z][a-z][a-z])\\.  *)*[0-9]+[,a-zA-Z]+$")
 });
@@ -956,7 +973,10 @@ fn parse_int_auto(s: &str) -> Option<i64> {
         _ => (false, t),
     };
     if rest.starts_with("0x") || rest.starts_with("0X") {
-        let digits: String = rest[2..].chars().take_while(|c| c.is_ascii_hexdigit()).collect();
+        let digits: String = rest[2..]
+            .chars()
+            .take_while(|c| c.is_ascii_hexdigit())
+            .collect();
         if digits.is_empty() {
             return None;
         }
@@ -1011,7 +1031,7 @@ fn compose_number_info(
     }
     if !label.is_empty() {
         let m = LABEL_PARTS_RE.captures(&label).ok_or_else(|| {
-            EngineError::Csl("Cannot read properties of null (reading '2')".into())
+            EngineError::BadInput("Cannot read properties of null (reading '2')".into())
         })?;
         let m2 = m.get(2).map(|x| x.as_str()).unwrap_or("");
         let m3 = m.get(3).map(|x| x.as_str()).unwrap_or("");
@@ -1074,7 +1094,7 @@ struct Joiners {
 
 fn compile_joiner(src: &str) -> CslResult<Regex> {
     Regex::new(&js_pattern_to_rust(src))
-        .map_err(|e| EngineError::Csl(format!("Invalid regular expression: {e}")))
+        .map_err(|e| EngineError::BadInput(format!("Invalid regular expression: {e}")))
 }
 
 fn build_joiners(state: &State) -> CslResult<(Joiners, String)> {
@@ -1132,7 +1152,10 @@ fn parse_string(
         mystr = str_.clone();
     }
     // Split chunks and collate delimiters.
-    let mut m: Vec<String> = jmrex.find_iter(&mystr).map(|x| x.as_str().to_string()).collect();
+    let mut m: Vec<String> = jmrex
+        .find_iter(&mystr)
+        .map(|x| x.as_str().to_string())
+        .collect();
     let mut elems: Vec<String>;
     if !m.is_empty() {
         let lst: Vec<String> = js::split(jsrex, &mystr);
@@ -1220,7 +1243,11 @@ fn parse_string(
                     } else {
                         js::trim(&lst[j]).to_string()
                     };
-                    let joiner = if j == n - 1 { elems.get(i + 1).map(String::as_str) } else { None };
+                    let joiner = if j == n - 1 {
+                        elems.get(i + 1).map(String::as_str)
+                    } else {
+                        None
+                    };
                     values.push(compose_number_info(
                         variable,
                         real_variable,
@@ -1258,7 +1285,11 @@ fn parse_string(
 fn set_spaces(values: &mut [NumberInfo]) {
     for i in 0..values.len().saturating_sub(1) {
         if values[i].joining_suffix.is_empty()
-            && values[i + 1].label.as_deref().map(|l| !l.is_empty()).unwrap_or(false)
+            && values[i + 1]
+                .label
+                .as_deref()
+                .map(|l| !l.is_empty())
+                .unwrap_or(false)
         {
             values[i].joining_suffix = " ".to_string();
         }
@@ -1266,11 +1297,7 @@ fn set_spaces(values: &mut [NumberInfo]) {
 }
 
 /// `fixNumericAndCount(values, i, currentLabelInfo)`.
-fn fix_numeric_and_count(
-    values: &mut [NumberInfo],
-    i: usize,
-    cli: &mut LabelInfo,
-) {
+fn fix_numeric_and_count(values: &mut [NumberInfo], i: usize, cli: &mut LabelInfo) {
     let master_joining = values[cli.pos].joining_suffix.clone();
     let master_value = values[cli.pos].value.clone();
     let val = values[i].value.clone();
@@ -1331,7 +1358,7 @@ fn fix_label_visibility(
     cli: &LabelInfo,
 ) -> CslResult<()> {
     let label = cli.label.as_deref().ok_or_else(|| {
-        EngineError::Csl("Cannot read properties of undefined (reading 'slice')".into())
+        EngineError::BadInput("Cannot read properties of undefined (reading 'slice')".into())
     })?;
     if js::slice(label, 0, Some(4)) != "var:" {
         if cli.pos == 0 {
@@ -1442,7 +1469,15 @@ fn fixup_range_delimiter(
     let mut rd = range_delimiter.to_string();
     if has_term && rd == "-" && is_numeric {
         if is_page
-            || ["locator", "locator-extra", "issue", "volume", "edition", "number"].contains(&variable)
+            || [
+                "locator",
+                "locator-extra",
+                "issue",
+                "volume",
+                "edition",
+                "number",
+            ]
+            .contains(&variable)
         {
             rd = input_get_term_name(state, Some("page-range-delimiter"))
                 .filter(|t| !t.is_empty())
@@ -1481,7 +1516,13 @@ fn mangle_page_numbers(
     if !page_range_format
         && matches!((js::parse_int(&values[i - 1].value), js::parse_int(&values[i].value)), (Some(x), Some(y)) if x > y)
     {
-        let jd = fixup_range_delimiter(state, variable, &values[i], &values[i - 1].joining_suffix, true);
+        let jd = fixup_range_delimiter(
+            state,
+            variable,
+            &values[i],
+            &values[i - 1].joining_suffix,
+            true,
+        );
         values[i - 1].joining_suffix = jd;
         return Ok(());
     }
@@ -1495,12 +1536,16 @@ fn mangle_page_numbers(
             values[i].particle.as_deref().unwrap_or("undefined"),
             values[i].value
         );
-        // PORT-LATER(wave1-output): `me.fun.page_mangler(str)` (util_page_mangler.js)
-        return Err(EngineError::NotYetPorted { method: "page_mangler" });
+        // PORT-LATER(wave1-output): util_number.js:668, needs `state.fun.page_mangler` (util_page_mangler.js)
+        return Err(EngineError::NotYetPorted {
+            method: "page_mangler",
+        });
     } else {
-        if NUM_OR_ROMAN_RE.is_match(&values[i - 1].value) && NUM_OR_ROMAN_RE.is_match(&values[i].value) {
-            values[i - 1].joining_suffix =
-                input_get_term_name(state, Some("page-range-delimiter")).unwrap_or_else(|| "undefined".into());
+        if NUM_OR_ROMAN_RE.is_match(&values[i - 1].value)
+            && NUM_OR_ROMAN_RE.is_match(&values[i].value)
+        {
+            values[i - 1].joining_suffix = input_get_term_name(state, Some("page-range-delimiter"))
+                .unwrap_or_else(|| "undefined".into());
         }
         s = format!(
             "{}{}{}",
@@ -1531,13 +1576,27 @@ fn mangle_page_numbers(
 
 /// `fixRanges(values)` (only with a node): collapse `12-15` style ranges.
 /// Needs `page_mangler` for page ranges (deferred).
-pub fn fix_ranges(state: &State, variable: &str, node_given: bool, values: &mut [NumberInfo]) -> CslResult<()> {
+pub fn fix_ranges(
+    state: &State,
+    variable: &str,
+    node_given: bool,
+    values: &mut [NumberInfo],
+) -> CslResult<()> {
     if !node_given {
         return Ok(());
     }
     if ![
-        "page", "chapter-number", "collection-number", "edition", "issue", "number",
-        "number-of-pages", "number-of-volumes", "volume", "locator", "locator-extra",
+        "page",
+        "chapter-number",
+        "collection-number",
+        "edition",
+        "issue",
+        "number",
+        "number-of-pages",
+        "number-of-volumes",
+        "volume",
+        "locator",
+        "locator-extra",
     ]
     .contains(&variable)
     {
@@ -1580,23 +1639,32 @@ pub fn fix_ranges(state: &State, variable: &str, node_given: bool, values: &mut 
 /// value and return the master styling token. Quotation marks around the
 /// whole value move into the master styling as an `@quotes` decoration.
 ///
-/// PORT-LATER(wave2): `newnode.formatter = node.formatter` and
-/// `newnode.gender = node.gender` for tokens: `Token` has no `formatter`
-/// field yet (the dump records its name); `gender` is copied through
-/// `Token::extra`.
+/// PORT-LATER(wave2): util_number.js:581, needs a `formatter` field on
+/// `Token` (`newnode.formatter = node.formatter`; the dump records its
+/// name). `newnode.gender = node.gender` is copied through `Token::extra`.
 pub fn set_styling(state: &State, node: &Token, values: &mut [NumberInfo]) -> Token {
     let just_looking = state.tmp.just_looking;
     let mut master_node = node.clone_token();
     let mut master_styling = Token::new("", TokenType::Start);
     if !just_looking {
         master_styling.decorations = std::mem::take(&mut master_node.decorations);
-        master_styling
-            .strings
-            .insert("prefix".into(), master_node.strings.get("prefix").cloned().unwrap_or(Value::Null));
+        master_styling.strings.insert(
+            "prefix".into(),
+            master_node
+                .strings
+                .get("prefix")
+                .cloned()
+                .unwrap_or(Value::Null),
+        );
         master_node.set_string("prefix", "");
-        master_styling
-            .strings
-            .insert("suffix".into(), master_node.strings.get("suffix").cloned().unwrap_or(Value::Null));
+        master_styling.strings.insert(
+            "suffix".into(),
+            master_node
+                .strings
+                .get("suffix")
+                .cloned()
+                .unwrap_or(Value::Null),
+        );
         master_node.set_string("suffix", "");
     }
     if !values.is_empty() {
@@ -1616,7 +1684,9 @@ pub fn set_styling(state: &State, node: &Token, values: &mut [NumberInfo]) -> To
             if first_quoted && last_quoted {
                 values[0].value = js::slice(&values[0].value, 1, None);
                 values[last].value = js::slice(&values[last].value, 0, Some(-1));
-                master_styling.decorations.push(Decoration::new("@quotes", "true"));
+                master_styling
+                    .decorations
+                    .push(Decoration::new("@quotes", "true"));
             }
         }
     }
@@ -1640,7 +1710,10 @@ fn number_abbreviation(
     let normval = super::build_retrieve_item::normalize_abbrevs_key(real_variable, Some(val));
     super::build_retrieve_item::abbreviation_lookup(
         state,
-        item.get("jurisdiction").filter(|j| js::truthy(j)).map(js::to_js_string).as_deref(),
+        item.get("jurisdiction")
+            .filter(|j| js::truthy(j))
+            .map(js::to_js_string)
+            .as_deref(),
         "number",
         &normval,
     )
@@ -1665,14 +1738,26 @@ pub fn process_number(
     variable: &str,
 ) -> CslResult<()> {
     let real_variable = variable.to_string();
-    let variable = if variable == "page-first" { "page" } else { variable };
+    let variable = if variable == "page-first" {
+        "page"
+    } else {
+        variable
+    };
     let mut sn = state
         .tmp
         .shadow_numbers
         .remove(&real_variable)
         .unwrap_or_default();
     let existed_with_values = !sn.values.is_empty();
-    let res = process_number_inner(state, node, item, variable, &real_variable, &mut sn, existed_with_values);
+    let res = process_number_inner(
+        state,
+        node,
+        item,
+        variable,
+        &real_variable,
+        &mut sn,
+        existed_with_values,
+    );
     state.tmp.shadow_numbers.insert(real_variable, sn);
     res
 }
@@ -1712,7 +1797,7 @@ fn process_number_inner(
             .get("cite-lang-prefs")
             .and_then(|p| p.get(role))
             .ok_or_else(|| {
-                EngineError::Csl("Cannot read properties of undefined (reading '0')".into())
+                EngineError::BadInput("Cannot read properties of undefined (reading '0')".into())
             })?;
         let locale_type = prefs
             .as_array()
@@ -1724,13 +1809,18 @@ fn process_number_inner(
         val = item.get(real_variable).cloned().unwrap_or(Value::Null);
     }
 
-    if js::truthy(&val) && real_variable == "number" && item.get("type").and_then(Value::as_str) == Some("legal_case") {
+    if js::truthy(&val)
+        && real_variable == "number"
+        && item.get("type").and_then(Value::as_str) == Some("legal_case")
+    {
         match &val {
             Value::String(s) => {
                 val = Value::String(LEGAL_HYPHEN_RE.replace_all(s, "\\-").into_owned());
             }
             _ => {
-                return Err(EngineError::Csl("val.replace is not a function".into()));
+                return Err(EngineError::BadInput(
+                    "val.replace is not a function".into(),
+                ));
             }
         }
     }
@@ -1782,7 +1872,9 @@ fn process_number_inner(
                     .map(|t| ShadowLabel::Term(t.to_string()));
                 if variable == "number"
                     && sn.label == Some(ShadowLabel::Term("issue".into()))
-                    && input_get_term_name(state, Some("number")).map(|t| !t.is_empty()).unwrap_or(false)
+                    && input_get_term_name(state, Some("number"))
+                        .map(|t| !t.is_empty())
+                        .unwrap_or(false)
                 {
                     sn.label = Some(ShadowLabel::Term("number".into()));
                 }
@@ -1805,7 +1897,7 @@ fn process_number_inner(
                     }
                 }
                 ShadowValue::Raw(_) => {
-                    return Err(EngineError::Csl(
+                    return Err(EngineError::BadInput(
                         "Cannot read properties of undefined (reading 'indexOf')".into(),
                     ));
                 }
@@ -1824,7 +1916,7 @@ fn process_number_inner(
                     }
                 }
                 ShadowValue::Raw(_) => {
-                    return Err(EngineError::Csl(
+                    return Err(EngineError::BadInput(
                         "Cannot read properties of undefined (reading 'match')".into(),
                     ));
                 }
@@ -1879,13 +1971,22 @@ fn text_sub_field_name(state: &State, item: &Value, field: &str, locale_type: &s
         has_val = true;
     }
     if !has_val {
-        let keys = item.get("multi").and_then(|m| m.get("_keys")).and_then(|k| k.get(field));
+        let keys = item
+            .get("multi")
+            .and_then(|m| m.get("_keys"))
+            .and_then(|k| k.get(field));
         for opt in &opts {
             let o = opt.split(|c| c == '-' || c == '_').next().unwrap_or("");
-            if let Some(v) = keys.and_then(|k| k.get(opt.as_str())).filter(|v| !opt.is_empty() && js::truthy(v)) {
+            if let Some(v) = keys
+                .and_then(|k| k.get(opt.as_str()))
+                .filter(|v| !opt.is_empty() && js::truthy(v))
+            {
                 name = v.clone();
                 break;
-            } else if let Some(v) = keys.and_then(|k| k.get(o)).filter(|v| !o.is_empty() && js::truthy(v)) {
+            } else if let Some(v) = keys
+                .and_then(|k| k.get(o))
+                .filter(|v| !o.is_empty() && js::truthy(v))
+            {
                 name = v.clone();
                 break;
             }
@@ -1901,11 +2002,14 @@ fn text_sub_field_name(state: &State, item: &Value, field: &str, locale_type: &s
 /// numeric variable through the output queue (labels, numeric blobs,
 /// styling).
 ///
-/// PORT-LATER(wave2): needs `state.output` (`Queue::open_level`, `append`,
-/// `close_level`), `NumericBlob`, `CSL.Output.Formatters["capitalize-first"]`
-/// and `CSL.UPDATE_GROUP_CONTEXT_CONDITION`. JS lines 928-1016.
+/// PORT-LATER(wave2): util_number.js:902-1016, needs `state.output`
+/// (`Queue::open_level`, `append`, `close_level`), `NumericBlob`,
+/// `CSL.Output.Formatters["capitalize-first"]` and
+/// `CSL.UPDATE_GROUP_CONTEXT_CONDITION`.
 pub fn output_numeric_field(_state: &mut State, _varname: &str, _item_id: &str) -> CslResult<()> {
-    Err(EngineError::NotYetPorted { method: "CSL.Util.outputNumericField" })
+    Err(EngineError::NotYetPorted {
+        method: "CSL.Util.outputNumericField",
+    })
 }
 
 #[cfg(test)]
@@ -2028,7 +2132,9 @@ mod tests {
         let mut n_input = 0usize;
         let mut n_node = 0usize;
         for c in r["cases"].as_array().expect("cases") {
-            let st = states.get_mut(c["engine"].as_str().unwrap_or("")).expect("engine");
+            let st = states
+                .get_mut(c["engine"].as_str().unwrap_or(""))
+                .expect("engine");
             let variable = c["variable"].as_str().unwrap_or("");
             let item = &c["item"];
             // input path
@@ -2039,15 +2145,24 @@ mod tests {
                 (Ok(()), None) => {
                     let got = input_out(st);
                     if got != c["out"] {
-                        bad.push(format!("[{}] {variable} {item}: want {} got {got}", c["engine"], c["out"]));
+                        bad.push(format!(
+                            "[{}] {variable} {item}: want {} got {got}",
+                            c["engine"], c["out"]
+                        ));
                     }
                 }
                 (Err(e), Some(want)) => {
                     if want.as_str() != Some(&error_text(e)) {
-                        bad.push(format!("[{}] {variable} {item}: want error {want} got {e}", c["engine"]));
+                        bad.push(format!(
+                            "[{}] {variable} {item}: want error {want} got {e}",
+                            c["engine"]
+                        ));
                     }
                 }
-                (r, w) => bad.push(format!("[{}] {variable} {item}: result {r:?} vs reference error {w:?}", c["engine"])),
+                (r, w) => bad.push(format!(
+                    "[{}] {variable} {item}: result {r:?} vs reference error {w:?}",
+                    c["engine"]
+                )),
             }
             // node path (reference has it only for the main engine)
             if c.get("node_out").is_some() || c.get("node_error").is_some() {
@@ -2056,7 +2171,12 @@ mod tests {
                 let res = process_number(st, Some(&tok), Some(item), variable);
                 n_node += 1;
                 if c["node_mangled"].as_bool() == Some(true) {
-                    if !matches!(res, Err(EngineError::NotYetPorted { method: "page_mangler" })) {
+                    if !matches!(
+                        res,
+                        Err(EngineError::NotYetPorted {
+                            method: "page_mangler"
+                        })
+                    ) {
                         bad.push(format!("node [{}] {variable} {item}: expected page_mangler deferral, got {res:?}", c["engine"]));
                     }
                     continue;
@@ -2065,15 +2185,24 @@ mod tests {
                     (Ok(()), None) => {
                         let got = node_out(st);
                         if got != c["node_out"] {
-                            bad.push(format!("node [{}] {variable} {item}: want {} got {got}", c["engine"], c["node_out"]));
+                            bad.push(format!(
+                                "node [{}] {variable} {item}: want {} got {got}",
+                                c["engine"], c["node_out"]
+                            ));
                         }
                     }
                     (Err(e), Some(want)) => {
                         if want.as_str() != Some(&error_text(e)) {
-                            bad.push(format!("node [{}] {variable} {item}: want error {want} got {e}", c["engine"]));
+                            bad.push(format!(
+                                "node [{}] {variable} {item}: want error {want} got {e}",
+                                c["engine"]
+                            ));
                         }
                     }
-                    (r, w) => bad.push(format!("node [{}] {variable} {item}: result {r:?} vs reference error {w:?}", c["engine"])),
+                    (r, w) => bad.push(format!(
+                        "node [{}] {variable} {item}: result {r:?} vs reference error {w:?}",
+                        c["engine"]
+                    )),
                 }
             }
         }
@@ -2088,7 +2217,7 @@ mod tests {
 
     fn error_text(e: &EngineError) -> String {
         match e {
-            EngineError::Csl(m) => m.clone(),
+            EngineError::BadInput(m) => m.clone(),
             other => other.to_string(),
         }
     }
@@ -2106,7 +2235,9 @@ mod tests {
         let mut bad = Vec::new();
         let mut n = 0;
         for c in r["ordinal"].as_array().expect("cases") {
-            let st = states.get_mut(c["lang"].as_str().unwrap_or("")).expect("engine");
+            let st = states
+                .get_mut(c["lang"].as_str().unwrap_or(""))
+                .expect("engine");
             let gender = c["gender"].as_str();
             n += 1;
             let got = if c["kind"] == "ordinal" {
@@ -2118,21 +2249,41 @@ mod tests {
             match (got, c.get("error")) {
                 (Ok(s), None) => {
                     if Value::String(s.clone()) != c["out"] {
-                        bad.push(format!("{} {} {} {:?}: want {} got {s}", c["lang"], c["kind"], c["num"], gender, c["out"]));
+                        bad.push(format!(
+                            "{} {} {} {:?}: want {} got {s}",
+                            c["lang"], c["kind"], c["num"], gender, c["out"]
+                        ));
                     }
-                    if c["kind"] == "long" && c.get("crc").is_some() && c["crc"].as_bool() != Some(st.tmp.cite_renders_content) {
-                        bad.push(format!("{} long {}: cite_renders_content", c["lang"], c["num"]));
+                    if c["kind"] == "long"
+                        && c.get("crc").is_some()
+                        && c["crc"].as_bool() != Some(st.tmp.cite_renders_content)
+                    {
+                        bad.push(format!(
+                            "{} long {}: cite_renders_content",
+                            c["lang"], c["num"]
+                        ));
                     }
                 }
                 (Err(e), Some(want)) => {
                     if want.as_str() != Some(&error_text(&e)) {
-                        bad.push(format!("{} {} {}: want error {want} got {e}", c["lang"], c["kind"], c["num"]));
+                        bad.push(format!(
+                            "{} {} {}: want error {want} got {e}",
+                            c["lang"], c["kind"], c["num"]
+                        ));
                     }
                 }
-                (g, w) => bad.push(format!("{} {} {}: {g:?} vs {w:?}", c["lang"], c["kind"], c["num"])),
+                (g, w) => bad.push(format!(
+                    "{} {} {}: {g:?} vs {w:?}",
+                    c["lang"], c["kind"], c["num"]
+                )),
             }
         }
-        assert!(bad.is_empty(), "{} of {n} differ, first:\n{}", bad.len(), bad[..bad.len().min(12)].join("\n"));
+        assert!(
+            bad.is_empty(),
+            "{} of {n} differ, first:\n{}",
+            bad.len(),
+            bad[..bad.len().min(12)].join("\n")
+        );
         assert!(n > 7000);
     }
 
@@ -2142,16 +2293,32 @@ mod tests {
         for c in r["roman"].as_array().expect("roman") {
             match (Romanizer::default().format(&c["num"]), c.get("error")) {
                 (Ok(s), None) => assert_eq!(Value::String(s), c["out"], "romanizer {}", c["num"]),
-                (Err(e), Some(w)) => assert_eq!(w.as_str(), Some(error_text(&e).as_str()), "romanizer {}", c["num"]),
+                (Err(e), Some(w)) => assert_eq!(
+                    w.as_str(),
+                    Some(error_text(&e).as_str()),
+                    "romanizer {}",
+                    c["num"]
+                ),
                 (g, w) => panic!("romanizer {}: {g:?} vs {w:?}", c["num"]),
             }
         }
         for c in r["suffix"].as_array().expect("suffix") {
             let s = Suffixator::new(c["slist"].as_str());
-            assert_eq!(Value::String(s.format(c["n"].as_i64().unwrap_or(0))), c["out"], "suffixator {} {}", c["slist"], c["n"]);
+            assert_eq!(
+                Value::String(s.format(c["n"].as_i64().unwrap_or(0))),
+                c["out"],
+                "suffixator {} {}",
+                c["slist"],
+                c["n"]
+            );
         }
         for c in r["padding"].as_array().expect("padding") {
-            assert_eq!(Value::String(padding(c["in"].as_str().unwrap_or(""))), c["out"], "padding {}", c["in"]);
+            assert_eq!(
+                Value::String(padding(c["in"].as_str().unwrap_or(""))),
+                c["out"],
+                "padding {}",
+                c["in"]
+            );
         }
     }
 }

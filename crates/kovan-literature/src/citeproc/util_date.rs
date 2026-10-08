@@ -115,9 +115,9 @@ pub fn date_sort_key_parts(
 /// does on `this`) and returns the strings to append. `tmp_extension` is
 /// `state.tmp.extension`.
 ///
-/// PORT-LATER(queue.js / wave1-output): the JS then calls
-/// `state.output.append(part, macroFlag)` for each part; the caller must do
-/// that with the returned [`DateSortKey`] once `Queue::append` exists.
+/// PORT-LATER(wave1-output): util_date.js:49,56, needs `Queue::append`: the
+/// JS then calls `state.output.append(part, macroFlag)` for each part; the
+/// caller must do that with the returned [`DateSortKey`].
 pub fn date_as_sort_key(
     state: &State,
     token: &mut Token,
@@ -129,7 +129,7 @@ pub fn date_as_sort_key(
         .variables
         .first()
         .cloned()
-        .ok_or_else(|| EngineError::Csl("dateAsSortKey: token has no variable".into()))?;
+        .ok_or_else(|| EngineError::BadInput("dateAsSortKey: token has no variable".into()))?;
     let macro_flag = if is_macro && tmp_extension {
         "macro-with-date"
     } else {
@@ -175,6 +175,7 @@ pub fn date_parse_array(date_obj: &Obj) -> CslResult<Obj> {
                 let l0 = dp[0].as_array().map(Vec::len).unwrap_or(0);
                 let l1 = dp[1].as_array().map(Vec::len).unwrap_or(0);
                 if l0 != l1 {
+                    // CSL.error(...): upstream throws the string "citeproc-js error: ..."
                     return Err(EngineError::Csl(
                         "CSL data error: element mismatch in date range input.".to_string(),
                     ));
@@ -235,6 +236,26 @@ mod tests {
     const REF: &str = include_str!("../../tests/data/csl/units/datekey.json");
 
     #[test]
+    fn date_parse_array_matches_citeproc_js() {
+        let r: Value =
+            serde_json::from_str(include_str!("../../tests/data/csl/units/dateparser.json"))
+                .expect("json");
+        let mut n = 0;
+        for c in r["date_parse_array"].as_array().expect("cases") {
+            let Value::Object(input) = &c["in"] else {
+                continue;
+            };
+            n += 1;
+            match (date_parse_array(input), c.get("error")) {
+                (Ok(o), None) => assert_eq!(Value::Object(o), c["out"], "{c}"),
+                (Err(e), Some(w)) => assert_eq!(Some(e.to_string().as_str()), w.as_str(), "{c}"),
+                (g, w) => panic!("{c}: {g:?} vs {w:?}"),
+            }
+        }
+        assert!(n > 100, "{n}");
+    }
+
+    #[test]
     fn date_sort_keys_match_citeproc_js() {
         let r: Value = serde_json::from_str(REF).expect("json");
         let state = State::default();
@@ -243,7 +264,9 @@ mod tests {
             let mut token = Token::new("key", TokenType::Singleton);
             token.variables = vec!["issued".to_string()];
             if let Some(dp) = c["dateparts"].as_array() {
-                token.extra.insert("dateparts".into(), Value::Array(dp.clone()));
+                token
+                    .extra
+                    .insert("dateparts".into(), Value::Array(dp.clone()));
             }
             let is_macro = c["isMacro"].as_bool().unwrap_or(false);
             let ext = c["ext"].as_bool().unwrap_or(false);

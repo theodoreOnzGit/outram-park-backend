@@ -28,9 +28,7 @@ use serde_json::Value;
 use super::js;
 use super::obj_token::{Decoration, Token};
 use super::state::State;
-use super::util_number::{
-    input_get_term, process_number, ShadowNumber, TermQuery, TOLERANT,
-};
+use super::util_number::{input_get_term, process_number, ShadowNumber, TermQuery, TOLERANT};
 use super::{CslResult, EngineError};
 
 /// The parts of `state.tmp` that `evaluateLabel` / `castLabel` use.
@@ -68,7 +66,11 @@ pub fn evaluate_label(
         if let Some(ci) = cite_item {
             if js::truthy_opt(ci.get("label")) {
                 let label = js::to_js_string(ci.get("label").unwrap_or(&Value::Null));
-                myterm = Some(if label == "sub verbo" { "sub-verbo".into() } else { label });
+                myterm = Some(if label == "sub verbo" {
+                    "sub-verbo".into()
+                } else {
+                    label
+                });
             }
         }
         if myterm.as_deref().map(str::is_empty).unwrap_or(true) {
@@ -101,7 +103,10 @@ pub fn evaluate_label(
                     .unwrap_or_default();
                 (
                     sn.plural,
-                    sn.label_form.as_deref().map(|f| !f.is_empty()).unwrap_or(false),
+                    sn.label_form
+                        .as_deref()
+                        .map(|f| !f.is_empty())
+                        .unwrap_or(false),
                     sn.label_decorations.is_some(),
                 )
             };
@@ -122,7 +127,9 @@ pub fn evaluate_label(
             }
             if ["locator", "number", "page"].contains(&term.as_str()) {
                 let sn: Option<&ShadowNumber> = state.tmp.shadow_numbers.get(&term);
-                if let Some(super::util_number::ShadowLabel::Term(t)) = sn.and_then(|s| s.label.as_ref()) {
+                if let Some(super::util_number::ShadowLabel::Term(t)) =
+                    sn.and_then(|s| s.label.as_ref())
+                {
                     if !t.is_empty() {
                         myterm = Some(t.clone());
                     }
@@ -152,9 +159,9 @@ pub fn evaluate_label(
 /// node's (or group's) form, capitalised and with periods stripped as the
 /// node asks.
 ///
-/// PORT-LATER(wave1-output): `CSL.Output.Formatters["capitalize-first"]`
-/// (formatters.js) for `capitalize-first` labels: returns
-/// `NotYetPorted` in that case.
+/// PORT-LATER(wave1-output): util_label.js:68, needs
+/// `CSL.Output.Formatters["capitalize-first"]` (formatters.js); a label that
+/// asks for it returns `NotYetPorted`.
 pub fn cast_label(
     state: &State,
     node: &Token,
@@ -172,18 +179,29 @@ pub fn cast_label(
             label_form = Some(Value::String(tip_form.clone()));
         }
     }
-    if let Some(c) = ctx.tip_label_capitalize_if_first.as_ref().filter(|c| js::truthy(c)) {
+    if let Some(c) = ctx
+        .tip_label_capitalize_if_first
+        .as_ref()
+        .filter(|c| js::truthy(c))
+    {
         label_capitalize_if_first = Some(c.clone());
     }
     let ret = match term {
         None => None,
         Some(t) => {
             let mut q = TermQuery::new(t);
-            q.form = label_form.as_ref().and_then(Value::as_str).map(str::to_string);
+            q.form = label_form
+                .as_ref()
+                .and_then(Value::as_str)
+                .map(str::to_string);
             q.plural = plural.unwrap_or(0);
             q.mode = Some(mode);
             q.force_default_locale = js::truthy_opt(node.extra.get("default_locale"))
-                || node.strings.get("default_locale").map(js::truthy).unwrap_or(false);
+                || node
+                    .strings
+                    .get("default_locale")
+                    .map(js::truthy)
+                    .unwrap_or(false);
             input_get_term(state, &q)
         }
     };
@@ -192,12 +210,16 @@ pub fn cast_label(
         Some(r) => r,
         None if mode == TOLERANT => String::new(),
         None => {
-            return Err(EngineError::Csl(
+            return Err(EngineError::BadInput(
                 "Cannot read properties of undefined (reading 'replace')".into(),
             ))
         }
     };
-    if label_capitalize_if_first.as_ref().map(js::truthy).unwrap_or(false) {
+    if label_capitalize_if_first
+        .as_ref()
+        .map(js::truthy)
+        .unwrap_or(false)
+    {
         return Err(EngineError::NotYetPorted {
             method: "CSL.Output.Formatters[\"capitalize-first\"]",
         });
@@ -249,36 +271,62 @@ mod tests {
             st.opt = e["opt"].as_object().cloned().unwrap_or_default();
             st.input_locale.terms = e["log"]
                 .as_object()
-                .map(|o| o.iter().map(|(k, v)| (k.clone(), v.as_str().map(str::to_string))).collect::<BTreeMap<_, _>>())
+                .map(|o| {
+                    o.iter()
+                        .map(|(k, v)| (k.clone(), v.as_str().map(str::to_string)))
+                        .collect::<BTreeMap<_, _>>()
+                })
                 .unwrap_or_default();
             let mut node = Token::new("label", TokenType::Singleton);
-            node.strings = c["node"]["strings"].as_object().cloned().unwrap_or_else(Obj::new);
+            node.strings = c["node"]["strings"]
+                .as_object()
+                .cloned()
+                .unwrap_or_else(Obj::new);
             node.decorations = c["node"]["decorations"]
                 .as_array()
                 .map(|a| {
                     a.iter()
-                        .map(|d| Decoration::new(d[0].as_str().unwrap_or(""), d[1].as_str().unwrap_or("")))
+                        .map(|d| {
+                            Decoration::new(
+                                d[0].as_str().unwrap_or(""),
+                                d[1].as_str().unwrap_or(""),
+                            )
+                        })
                         .collect()
                 })
                 .unwrap_or_default();
-            node.extra.insert("cslid".into(), c["node"]["cslid"].clone());
+            node.extra
+                .insert("cslid".into(), c["node"]["cslid"].clone());
             if c["node"]["default_locale"].as_bool() == Some(true) {
-                node.extra.insert("default_locale".into(), Value::Bool(true));
+                node.extra
+                    .insert("default_locale".into(), Value::Bool(true));
             }
             let mut ctx = LabelContext {
                 tip_label_form: c["tip_form"].as_str().map(str::to_string),
                 strip_periods: c["strip"].as_bool().unwrap_or(false),
                 ..LabelContext::default()
             };
-            let cite = if c["cite"].is_null() { None } else { Some(&c["cite"]) };
+            let cite = if c["cite"].is_null() {
+                None
+            } else {
+                Some(&c["cite"])
+            };
             let res = evaluate_label(&mut st, &mut node, &mut ctx, &c["Item"], cite);
             n += 1;
-            let cap = node.strings.get("capitalize_if_first").map(js::truthy).unwrap_or(false);
+            let cap = node
+                .strings
+                .get("capitalize_if_first")
+                .map(js::truthy)
+                .unwrap_or(false);
             match (res, c.get("error")) {
                 (Err(EngineError::NotYetPorted { .. }), _) if cap => deferred += 1,
                 (Ok(s), None) => {
                     assert_eq!(Value::String(s), c["out"], "label {c}");
-                    assert_eq!(Value::Bool(ctx.tip_label_static), c["tip_static"], "label_static {c}");
+                    assert_eq!(
+                        Value::Bool(ctx.tip_label_static),
+                        c["tip_static"],
+                        "label_static {c}"
+                    );
                     let deco: Vec<Value> = node
                         .decorations
                         .iter()
@@ -287,7 +335,11 @@ mod tests {
                             None => json!([d.name, d.value]),
                         })
                         .collect();
-                    assert_eq!(Value::Array(deco), c["node_decorations"], "node decorations {c}");
+                    assert_eq!(
+                        Value::Array(deco),
+                        c["node_decorations"],
+                        "node decorations {c}"
+                    );
                     let mut shadow = Obj::new();
                     for (k, v) in &st.tmp.shadow_numbers {
                         shadow.insert(k.clone(), v.to_value());
@@ -297,7 +349,7 @@ mod tests {
                 (Err(e), Some(w)) => assert_eq!(
                     w.as_str(),
                     Some(match &e {
-                        EngineError::Csl(m) => m.as_str(),
+                        EngineError::BadInput(m) => m.as_str(),
                         _ => "",
                     }),
                     "{c}"
