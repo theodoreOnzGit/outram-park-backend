@@ -28,9 +28,10 @@
 //! (the token) while a style runs: `@variable`'s first closure rewrites
 //! `this.variables` in place, `@text-case` rewrites `this.strings`.
 //! `Exec::run` receives `&mut Token` (the engine takes the token out of its
-//! list while it runs, see `State::token_exec`), and both bodies are ported.
-//! `@variable`'s second closure ("check for output") still waits for the
-//! rendering wave: it mutates the item.
+//! list while it runs, see `State::token_exec`), and all three bodies are ported.
+//! `@variable`'s second closure ("check for output") mutates the *item* for
+//! a string `authority` or `committee`; that write goes through
+//! `util_transform::set_item_prop` (see its module docs).
 
 use std::sync::LazyLock;
 
@@ -349,8 +350,9 @@ fn variable_check_output(
                         .iter()
                         .map(|(k, v)| {
                             let s = js::to_js_string(v);
-                            let chars: Vec<String> =
-                                (0..js::len(&s) as i64).map(|i| js::char_at(&s, i)).collect();
+                            let chars: Vec<String> = (0..js::len(&s) as i64)
+                                .map(|i| js::char_at(&s, i))
+                                .collect();
                             (k.clone(), chars)
                         })
                         .collect(),
@@ -462,7 +464,10 @@ fn variable_check_output(
                 output = true;
             }
             break;
-        } else if matches!(cur, Some(Value::Object(_)) | Some(Value::Array(_)) | Some(Value::Null)) {
+        } else if matches!(
+            cur,
+            Some(Value::Object(_)) | Some(Value::Array(_)) | Some(Value::Null)
+        ) {
             break;
         } else if matches!(&cur, Some(Value::String(s)) if !s.is_empty()) {
             output = true;
@@ -493,10 +498,7 @@ fn variable_check_output(
                 .map(js::truthy)
                 .unwrap_or(false)
                 && state.tmp.area == "bibliography"
-                && matches!(
-                    get_item_prop(state, item, variable),
-                    Some(Value::String(_))
-                )
+                && matches!(get_item_prop(state, item, variable), Some(Value::String(_)))
             {
                 // PORT-LATER(w2-names): `state.tmp.name_node.top =
                 // state.output.current.value(); state.tmp.rendered_name.push(
@@ -506,13 +508,15 @@ fn variable_check_output(
                 });
             }
         }
-        state.tmp.can_substitute.replace_literal(Value::Bool(false))?;
+        state
+            .tmp
+            .can_substitute
+            .replace_literal(Value::Bool(false))?;
     } else {
         super::node_group::tip_mut(state)?.variable_attempt = true;
     }
     Ok(())
 }
-
 
 /// The condition closures `src/attributes.js` stores in `token.tests` /
 /// `token.test` (PORTING.md §4). Each variant is one `maketest(...)` closure
@@ -953,7 +957,10 @@ impl AttributesTest {
                 let default_locale = default_locale(state);
                 let mut langspec: Option<LangSpec> = None;
                 if js::truthy_opt(item.get("language")) {
-                    let lang = item.get("language").map(js::to_js_string).unwrap_or_default();
+                    let lang = item
+                        .get("language")
+                        .map(js::to_js_string)
+                        .unwrap_or_default();
                     let ls = locale_resolve(&lang, Some(&default_locale));
                     if ls.best != default_locale {
                         langspec = Some(ls);

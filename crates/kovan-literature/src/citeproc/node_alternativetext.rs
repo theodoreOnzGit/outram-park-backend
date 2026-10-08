@@ -42,8 +42,10 @@ impl NodeAlternativetextExec {
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
         match self {
-            // PORT-LATER(wave2): node_alternativetext.js:5-8, needs
-            // state.refetchItem (build.js) and CSL.getCite (api_cite.js).
+            // PORT-LATER(w2-engine): node_alternativetext.js:5-8 is
+            // `Item = state.refetchItem(Item.id); CSL.getCite.call(state, Item)`;
+            // `refetchItem` exists (build.rs, registry stub) but `CSL.getCite`
+            // (api_cite.js) is the engine agent's.
             NodeAlternativetextExec::RefetchAndGetCite => Err(EngineError::NotYetPorted {
                 method: "node_alternativetext.js:5 closure",
             }),

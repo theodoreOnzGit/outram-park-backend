@@ -57,7 +57,11 @@ impl NodeNumberExec {
                 };
                 // `if ("undefined" === typeof item) var item = {}`
                 let empty = Value::Object(js::Obj::new());
-                let cite = if cite_item.is_null() { &empty } else { cite_item };
+                let cite = if cite_item.is_null() {
+                    &empty
+                } else {
+                    cite_item
+                };
                 let is_locator = varname == "locator" || varname == "locator-extra";
                 if is_locator {
                     if state.tmp.just_looking {

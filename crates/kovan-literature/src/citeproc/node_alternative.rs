@@ -71,7 +71,8 @@ impl NodeAlternativeExec {
                         .and_then(|d| d.get(0))
                         .map(js::to_js_string)
                         .unwrap_or_default();
-                    let langspec = locale_resolve(&js::to_js_string(&lang_name), Some(&default_locale));
+                    let langspec =
+                        locale_resolve(&js::to_js_string(&lang_name), Some(&default_locale));
 
                     if js::truthy_opt(state.opt.get("multi_layout")) {
                         let layouts: Vec<Value> = state

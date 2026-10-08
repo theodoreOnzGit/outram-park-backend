@@ -137,6 +137,20 @@ pub struct RenderTmp {
     pub old_item: Option<Value>,
     /// `oldLang` (node_alternative.js).
     pub old_lang: Option<String>,
+    /// The part of `state.registry.registry[id]` the rendering nodes read
+    /// (`seq`, `disambig.year_suffix`), by item id. A stand-in until the
+    /// registry is ported (registry.js, the engine agent); the tests fill it
+    /// from citeproc-js's registry. Empty means "no registry".
+    pub registry_view: BTreeMap<String, RegistryView>,
+}
+
+/// One entry of [`RenderTmp::registry_view`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct RegistryView {
+    /// `registry[id].seq`.
+    pub seq: i64,
+    /// `registry[id].disambig.year_suffix` (`false` for none).
+    pub year_suffix: Value,
 }
 
 // ---------------------------------------------------------------------------
@@ -674,7 +688,9 @@ pub fn get_text_sub_field(
             let tc = ret.token.string_opt("text-case");
             let tc_plain = !tc.as_deref().map(|t| !t.is_empty()).unwrap_or(false);
             if !used_orig
-                && (tc_plain || tc.as_deref() == Some("sentence") || tc.as_deref() == Some("normal"))
+                && (tc_plain
+                    || tc.as_deref() == Some("sentence")
+                    || tc.as_deref() == Some("normal"))
             {
                 let lang: Option<String> = if using_orig { None } else { ret.locale.clone() };
                 let seg = js::slice(&field, 0, Some(-5));
@@ -1340,7 +1356,10 @@ mod fixture_tests {
         let (mut ok, mut badn, mut blocked, mut skipped) = (0, 0, 0, 0);
         println!("area            exact  differs  blocked  skipped");
         for (a, c) in &by_area {
-            println!("{a:<14} {:>6} {:>8} {:>8} {:>8}", c.ok, c.bad, c.blocked, c.skipped);
+            println!(
+                "{a:<14} {:>6} {:>8} {:>8} {:>8}",
+                c.ok, c.bad, c.blocked, c.skipped
+            );
             ok += c.ok;
             badn += c.bad;
             blocked += c.blocked;
@@ -1405,7 +1424,12 @@ mod render_case_tests {
             let (cite, bib) = run_case(c, &locales);
             for (kind, got, want, err) in [
                 ("citation", cite, &c["citation"], &c["citation_error"]),
-                ("bibliography", bib, &c["bibliography"], &c["bibliography_error"]),
+                (
+                    "bibliography",
+                    bib,
+                    &c["bibliography"],
+                    &c["bibliography_error"],
+                ),
             ] {
                 if err.is_string() {
                     if got.is_ok() {
@@ -1437,7 +1461,11 @@ mod render_case_tests {
                 }
             }
         }
-        println!("render cases: {} x2, exact {ok}, blocked {blocked}, differing {}", cases.len(), bad.len());
+        println!(
+            "render cases: {} x2, exact {ok}, blocked {blocked}, differing {}",
+            cases.len(),
+            bad.len()
+        );
         for (w, n) in &why {
             println!("blocked x{n}: {w}");
         }

@@ -28,8 +28,8 @@
 //! the plural / numeric / collapsible flags. It is complete here.
 //! `processNumber(node, ...)` additionally mangles ranges and builds the
 //! styling tokens: [`fix_ranges`] (with `state.fun.page_mangler`) and
-//! [`set_styling`] are ported; `CSL.Util.outputNumericField` renders through
-//! the output queue and is deferred ([`output_numeric_field`]).
+//! [`set_styling`] are ported, and so is `CSL.Util.outputNumericField`, which
+//! renders the result through the output queue ([`output_numeric_field`]).
 //!
 //! # Locale terms
 //!
@@ -1766,7 +1766,9 @@ pub fn output_numeric_field(state: &mut State, varname: &str, item_id: &str) -> 
     use super::queue::{self, AppendArg, FormatRef, QueueId};
 
     let undefined = |what: &str| {
-        EngineError::BadInput(format!("Cannot read properties of undefined (reading '{what}')"))
+        EngineError::BadInput(format!(
+            "Cannot read properties of undefined (reading '{what}')"
+        ))
     };
     let sn: ShadowNumber = state
         .tmp
@@ -1833,7 +1835,8 @@ pub fn output_numeric_field(state: &mut State, varname: &str, item_id: &str) -> 
                     label = Some(if !l.contains("%s") { String::new() } else { l });
                 }
                 if label.as_deref().map(str::is_empty).unwrap_or(true) {
-                    label = state.get_term(&ln, form_for.as_deref(), num.plural, None, None, false)?;
+                    label =
+                        state.get_term(&ln, form_for.as_deref(), num.plural, None, None, false)?;
                 }
                 if label_capitalize_if_first {
                     label = Some(capitalize_first(state, label.as_deref().unwrap_or("")));
@@ -1857,9 +1860,11 @@ pub fn output_numeric_field(state: &mut State, varname: &str, item_id: &str) -> 
         let label_len = label.as_deref().map(js::len).unwrap_or(0) as i64;
         if label_placeholder_pos > 0 && label_placeholder_pos < (label_len - 2) {
             let l = label.clone().unwrap_or_default();
-            let prefix = num_styling.string("prefix") + &js::slice(&l, 0, Some(label_placeholder_pos));
+            let prefix =
+                num_styling.string("prefix") + &js::slice(&l, 0, Some(label_placeholder_pos));
             num_styling.set_string("prefix", &prefix);
-            let suffix = js::slice(&l, label_placeholder_pos + 2, None) + &num_styling.string("suffix");
+            let suffix =
+                js::slice(&l, label_placeholder_pos + 2, None) + &num_styling.string("suffix");
             num_styling.set_string("suffix", &suffix);
         } else if num.label_visibility == Some(true) {
             if label.as_deref().map(str::is_empty).unwrap_or(true) {
@@ -1917,9 +1922,7 @@ pub fn output_numeric_field(state: &mut State, varname: &str, item_id: &str) -> 
         if num.collapsible == Some(true) {
             let is_pos_int = {
                 let v = &num.value;
-                !v.is_empty()
-                    && v.bytes().all(|b| b.is_ascii_digit())
-                    && !v.starts_with('0')
+                !v.is_empty() && v.bytes().all(|b| b.is_ascii_digit()) && !v.starts_with('0')
             };
             let parsed = js::parse_int(&num.value).filter(|n| *n <= 9_007_199_254_740_991);
             let blob = if let (true, Some(n)) = (is_pos_int, parsed) {

@@ -35,7 +35,17 @@ const chance = (p) => rnd() < p;
 const range = (n) => Array.from({ length: n }, (_, i) => i);
 
 // ---- the runner's sys (scripts/csl-testsuite-reference.cjs) ----
-function Sys(items, acache) {
+function variableWrapper(params, prePunct, str, postPunct) {
+  if (params.variableNames[0] === 'title' && params.itemData.URL && params.context === 'citation' && params.position === 'first') {
+    return prePunct + '<a href="' + params.itemData.URL + '">' + str + '</a>' + postPunct;
+  } else if (params.variableNames[0] === 'first-reference-note-number' && params.context === 'citation' && params.position !== 'first') {
+    return prePunct + '<b>' + str + '</b>' + postPunct;
+  }
+  return prePunct + str + postPunct;
+}
+
+function Sys(items, acache, wrap) {
+  if (wrap) this.variableWrapper = variableWrapper;
   this._acache = Object.assign({ default: new CSL.AbbreviationSegments() }, acache || {});
   this._cache = {};
   for (const it of items) this._cache[it.id] = it;
@@ -122,6 +132,7 @@ function genItem(n) {
   put('archive', pick(['National Archives']), 0.1);
   put('archive_location', pick(['Box 3']), 0.1);
   put('language', pick(LANGS), 0.35);
+  put('citation-label', pick(['Smi01', 'Doe99']), 1);
   if (chance(0.5)) it.issued = chance(0.7) ? { 'date-parts': [[1990 + Math.floor(rnd() * 30), 1 + Math.floor(rnd() * 12)]] } : { literal: 'forthcoming' };
   if (chance(0.15)) it.accessed = { 'date-parts': [[2020, 1, 2]] };
   if (chance(0.2)) it.jurisdiction = pick(['us', 'us:c:ma', 'uk']);
@@ -185,7 +196,7 @@ let macroDefs = [];
 let macroCeiling = null; // a macro body may only call macros defined before it
 
 function genNode(depth, ctx) {
-  const kinds = ['text-var', 'text-var', 'text-var', 'text-term', 'text-value', 'label', 'number', 'group', 'group', 'choose', 'macro'];
+  const kinds = ['text-var', 'text-var', 'text-var', 'registry-var', 'text-term', 'text-value', 'label', 'number', 'group', 'group', 'choose', 'macro'];
   if (depth >= 3) kinds.splice(kinds.indexOf('group'), 2);
   if (depth >= 3) kinds.splice(kinds.indexOf('choose'), 1);
   const k = pick(kinds);
@@ -199,6 +210,10 @@ function genNode(depth, ctx) {
       if (chance(0.1)) a.push(`strip-periods="true"`);
       if (chance(0.25)) a.push(`text-case="${pick(CASES)}"`);
       if (chance(0.05)) a.push(`plural="${pick(['always', 'never', 'contextual'])}"`);
+      return `<text ${a.join(' ')} ${fa}/>`;
+    }
+    case 'registry-var': {
+      const a = [`variable="${pick(['citation-number', 'year-suffix', 'citation-label'])}"`];
       return `<text ${a.join(' ')} ${fa}/>`;
     }
     case 'text-term': {
@@ -337,20 +352,26 @@ function citeItems(items) {
 
 function runCase(c) {
   const out = { citation: null, bibliography: null, citation_error: null, bibliography_error: null };
-  const sys = new Sys(c.input, c.abbreviations ? normalizeAbbrevs(c.abbreviations) : {});
+  out.registry = {};
+  const sys = new Sys(c.input, c.abbreviations ? normalizeAbbrevs(c.abbreviations) : {}, !!(c.options && c.options.variableWrapper));
   const mk = () => {
     const e = new CSL.Engine(sys, c.csl, c.lang || '');
     if (c.format && c.format !== 'html') e.setOutputFormat(c.format);
     e.setLangPrefsForCites(c.langparams);
     if (c.tags) { e.setLangTagsForCslTranslation(c.tags.translat); e.setLangTagsForCslTransliteration(c.tags.translit); }
     if (c.multiaffix) e.setLangPrefsForCiteAffixes(c.multiaffix);
-    for (const k in c.options || {}) e.opt.development_extensions[k] = c.options[k];
+    for (const k in c.options || {}) if (k !== 'variableWrapper') e.opt.development_extensions[k] = c.options[k];
     e.updateItems(c.input.map((i) => i.id));
     // updateItems renders every item once (disambiguation); the Rust driver has no registry,
     // so drop the one piece of state that rendering leaves behind and the styles can see.
     e.tmp.just_did_number = false;
+    for (const id in (c.year_suffix || {})) e.registry.registry[id].disambig.year_suffix = c.year_suffix[id];
     return e;
   };
+  try {
+    const probe = mk();
+    for (const i of c.input) out.registry[i.id] = { seq: probe.registry.registry[i.id].seq, year_suffix: probe.registry.registry[i.id].disambig.year_suffix };
+  } catch (err) { /* reported below */ }
   try {
     out.citation = mk().makeCitationCluster(c.citation_items).replace(/\r\n?/g, '\n');
   } catch (err) { out.citation_error = String(err && err.message || err).split('\n')[0]; }
@@ -398,7 +419,10 @@ function genFocusedItem(n) {
   if (chance(0.3)) it['title-short'] = it['title-short'] || 'Short T.';
   if (chance(0.3)) it['container-title-short'] = 'Short C.';
   if (chance(0.2)) it['language-name'] = 'ja';
-  if (chance(0.15)) { it['language-name'] = 'ja'; it['language-name-original'] = 'English'; }
+  if (chance(0.35)) { it['language-name'] = pick(['ja', 'fr', 'en', 'de']); it['language-name-original'] = 'English'; }
+  if (chance(0.3)) it['alt-title'] = 'Alt Title';
+  if (chance(0.3)) it['alt-container-title'] = 'Alt Journal';
+  if (chance(0.2)) it['alt-publisher'] = 'Alt Press';
   if (chance(0.3)) it.jurisdiction = pick(['us', 'us:c:ma', 'uk']);
   if (chance(0.3)) it.country = pick(['us', 'jp', 'GB']);
   return it;
@@ -414,7 +438,8 @@ function genFocusedStyle() {
     const f = fmtAttrs(false);
     return `<text ${a.join(' ')} ${f}/>`;
   });
-  const grouped = chance(0.5) ? `<group delimiter="${esc(pick([', ', ' | ', '. ']))}">${nodes.join('')}</group>` : nodes.join('');
+  let grouped = chance(0.5) ? `<group delimiter="${esc(pick([', ', ' | ', '. ']))}">${nodes.join('')}</group>` : nodes.join('');
+  if (chance(0.3)) grouped = `<alternative>${grouped}</alternative>` + (chance(0.5) ? '<choose><if context="alternative"><text value="ALT"/></if><else><text value="MAIN"/></else></choose>' : '');
   const cls = pick(['in-text', 'note']);
   return `<style xmlns="http://purl.org/net/xbiblio/csl" class="${cls}" version="1.0">
   <info><id>x</id><title>x</title><updated>2009-08-10T04:49:00+09:00</updated></info>
@@ -469,9 +494,11 @@ for (let n = 0; n < N; n++) {
   }
   const ab = genAbbrevs(items);
   if (ab) c.abbreviations = ab;
+  if (chance(0.5)) { c.year_suffix = {}; for (const it of items) c.year_suffix[it.id] = chance(0.7) ? Math.floor(rnd() * 30) : false; }
   if (chance(0.15)) c.options = { strict_text_case_locales: true };
   if (chance(0.15)) c.options = Object.assign(c.options || {}, { wrap_url_and_doi: true });
   if (chance(0.1)) c.options = Object.assign(c.options || {}, { consolidate_legal_items: true });
+  if (chance(0.12)) c.options = Object.assign(c.options || {}, { variableWrapper: true });
   if (chance(0.1)) c.options = Object.assign(c.options || {}, { force_title_abbrev_fallback: true });
   Object.assign(c, runCase(c));
   cases.push(c);

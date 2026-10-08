@@ -14,7 +14,6 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-
 //! Port of `src/node_group.js`: `CSL.Node.group`.
 //!
 //! # Group suppression
@@ -85,12 +84,7 @@ pub fn tip_mut(state: &mut State) -> CslResult<&mut GroupContext> {
 /// `state.tmp.group_context.tip`. An empty stack gives a default context
 /// (every read of `tip.x` is then `undefined`, as on JS's `{}`).
 pub fn tip(state: &State) -> GroupContext {
-    state
-        .tmp
-        .group_context
-        .tip()
-        .cloned()
-        .unwrap_or_default()
+    state.tmp.group_context.tip().cloned().unwrap_or_default()
 }
 
 /// `Object.assign(base || {}, add)` on JSON objects: `base` is updated in
@@ -138,7 +132,9 @@ impl NodeGroupExec {
                 Ok(None)
             }
             NodeGroupExec::PublisherSpecialStart => {
-                if js::truthy_opt(item.get("publisher")) && js::truthy_opt(item.get("publisher-place")) {
+                if js::truthy_opt(item.get("publisher"))
+                    && js::truthy_opt(item.get("publisher-place"))
+                {
                     let split = |v: &Value| -> usize {
                         let s = js::to_js_string(v);
                         let re = regex::Regex::new(&format!(r";[{}]*", js::WS)).ok();
@@ -162,8 +158,8 @@ impl NodeGroupExec {
             NodeGroupExec::RunJurisTokens => {
                 // This will run the juris- token list.
                 let mut item_item = item;
-                let cite_has_best = js::truthy(_cite_item)
-                    && js::truthy_opt(_cite_item.get("best-jurisdiction"));
+                let cite_has_best =
+                    js::truthy(_cite_item) && js::truthy_opt(_cite_item.get("best-jurisdiction"));
                 let juris = token
                     .extra
                     .get("juris")
@@ -210,7 +206,11 @@ fn group_start(state: &mut State, token: &mut Token) -> CslResult<()> {
     queue::start_tag(state, QueueId::Output, "group", Some(token))?;
 
     if js::truthy_opt(token.strings.get("label_form_override")) {
-        let ovr = token.strings.get("label_form_override").cloned().unwrap_or(Value::Null);
+        let ovr = token
+            .strings
+            .get("label_form_override")
+            .cloned()
+            .unwrap_or(Value::Null);
         let t = tip_mut(state)?;
         if !js::truthy(&t.label_form) {
             t.label_form = ovr;
@@ -313,19 +313,31 @@ fn group_start(state: &mut State, token: &mut Token) -> CslResult<()> {
             ..GroupContext::default()
         };
         if js::truthy_opt(token.extra.get("non_parallel")) {
-            let add = token.extra.get("non_parallel").cloned().unwrap_or(Value::Null);
+            let add = token
+                .extra
+                .get("non_parallel")
+                .cloned()
+                .unwrap_or(Value::Null);
             let t = tip_mut(state)?;
             assign(&mut t.non_parallel, &add);
             context.non_parallel = t.non_parallel.clone();
         }
         if js::truthy_opt(token.extra.get("parallel_first")) {
-            let add = token.extra.get("parallel_first").cloned().unwrap_or(Value::Null);
+            let add = token
+                .extra
+                .get("parallel_first")
+                .cloned()
+                .unwrap_or(Value::Null);
             let t = tip_mut(state)?;
             assign(&mut t.parallel_first, &add);
             context.parallel_first = t.parallel_first.clone();
         }
         if js::truthy_opt(token.extra.get("parallel_last")) {
-            let add = token.extra.get("parallel_last").cloned().unwrap_or(Value::Null);
+            let add = token
+                .extra
+                .get("parallel_last")
+                .cloned()
+                .unwrap_or(Value::Null);
             let t = tip_mut(state)?;
             assign(&mut t.parallel_last, &add);
             context.parallel_last = t.parallel_last.clone();
@@ -518,7 +530,11 @@ impl NodeGroupTest {
                 // `Item` is mutated (`best-jurisdiction`) upstream; the copy
                 // carries it for this call.
                 let mut item_full = item.clone();
-                let cite = if js::truthy(cite_item) { Some(cite_item) } else { None };
+                let cite = if js::truthy(cite_item) {
+                    Some(cite_item)
+                } else {
+                    None
+                };
                 load::init_jurisdiction_macros(state, &mut item_full, cite, macro_name)
             }
         }

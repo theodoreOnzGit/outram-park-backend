@@ -160,9 +160,7 @@ impl NodeTextExec {
                     // XXX END
 
                     let real0 = variables_real(token).first().cloned().unwrap_or_default();
-                    if (real0 == "locator" || real0 == "locator-extra")
-                        && !state.tmp.just_looking
-                    {
+                    if (real0 == "locator" || real0 == "locator-extra") && !state.tmp.just_looking {
                         state.tmp.done_vars.push(real0);
                     }
                 }
@@ -238,7 +236,9 @@ impl NodeTextExec {
 
 /// `"" + Item.id`.
 fn item_id(item: &Value) -> String {
-    item.get("id").map(js::to_js_string).unwrap_or_else(|| "undefined".to_string())
+    item.get("id")
+        .map(js::to_js_string)
+        .unwrap_or_else(|| "undefined".to_string())
 }
 
 /// `"" + value` for the result of `getVariable` (`undefined` is only
@@ -248,7 +248,12 @@ fn js_value_string(v: Option<Value>) -> String {
 }
 
 /// `state.getVariable(Item, varname, form)`.
-fn get_variable(state: &State, item: &Value, varname: &str, form: &str) -> CslResult<Option<Value>> {
+fn get_variable(
+    state: &State,
+    item: &Value,
+    varname: &str,
+    form: &str,
+) -> CslResult<Option<Value>> {
     match item.as_object() {
         Some(o) => state.get_variable(o, varname, Some(form), None),
         None => Ok(None),
@@ -271,22 +276,35 @@ fn append_text(state: &mut State, text: &str, token: &Token) -> CslResult<()> {
 
 /// `state.registry.registry[id].seq`.
 ///
-/// PORT-LATER(w2-engine): the registry (registry.js) is not ported; its owner
-/// replaces this body. Errors where upstream would read an unregistered item.
-fn registry_seq(_state: &State, _id: &str) -> CslResult<i64> {
-    Err(EngineError::NotYetPorted {
-        method: "state.registry.registry[id].seq",
-    })
+/// PORT-LATER(w2-engine): the registry (registry.js) is not ported. Until it
+/// is, the entry comes from `state.tmp.render.registry_view` (which the tests
+/// fill from citeproc-js's registry); its owner replaces this body with the
+/// registry lookup. Errors where upstream would read an unregistered item.
+fn registry_seq(state: &State, id: &str) -> CslResult<i64> {
+    match state.tmp.render.registry_view.get(id) {
+        Some(v) => Ok(v.seq),
+        None => Err(EngineError::NotYetPorted {
+            method: "state.registry.registry[id].seq",
+        }),
+    }
 }
 
 /// `state.registry.registry[id].disambig.year_suffix`: `None` when the item
 /// has no registry entry, else the value (`false` when there is no suffix).
 ///
 /// PORT-LATER(w2-engine): as [`registry_seq`].
-fn registry_year_suffix(_state: &State, _id: &str) -> CslResult<Option<Value>> {
-    Err(EngineError::NotYetPorted {
-        method: "state.registry.registry[id].disambig.year_suffix",
-    })
+fn registry_year_suffix(state: &State, id: &str) -> CslResult<Option<Value>> {
+    if state.tmp.render.registry_view.is_empty() {
+        return Err(EngineError::NotYetPorted {
+            method: "state.registry.registry[id].disambig.year_suffix",
+        });
+    }
+    Ok(state
+        .tmp
+        .render
+        .registry_view
+        .get(id)
+        .map(|v| v.year_suffix.clone()))
 }
 
 /// `state.bibliography_sort.tmp.citation_number_map[seq]` when the map exists
@@ -354,7 +372,10 @@ fn citation_number(
         }
         let seq = registry_seq(state, &id)?;
         let num = if state.tmp.area != "bibliography_sort"
-            && state.bibliography_sort.tmp.contains_key("citation_number_map")
+            && state
+                .bibliography_sort
+                .tmp
+                .contains_key("citation_number_map")
             && state
                 .bibliography_sort
                 .opt
@@ -412,9 +433,8 @@ fn year_suffix(state: &mut State, token: &mut Token, item: &Value) -> CslResult<
         return Ok(());
     }
     //state.output.append(state.registry.registry[Item.id].disambig[2],this);
-    let num = js::parse_int_value(&ys).ok_or_else(|| {
-        EngineError::BadInput("year_suffix is not a number".into())
-    })?;
+    let num = js::parse_int_value(&ys)
+        .ok_or_else(|| EngineError::BadInput("year_suffix is not a number".into()))?;
     let tmp_area = state.tmp.area.clone();
     if let Some(d) = area_ref(state, &tmp_area)?.opt.get("cite_group_delimiter") {
         if js::truthy(d) {
@@ -458,7 +478,10 @@ fn year_suffix(state: &mut State, token: &mut Token, item: &Value) -> CslResult<
 fn citation_label(state: &mut State, token: &mut Token, item: &Value) -> CslResult<()> {
     let mut label: String;
     if js::truthy_opt(item.get("citation-label")) {
-        label = item.get("citation-label").map(js::to_js_string).unwrap_or_default();
+        label = item
+            .get("citation-label")
+            .map(js::to_js_string)
+            .unwrap_or_default();
     } else {
         // PORT-LATER(w2-engine): `state.getCitationLabel(Item)`
         // (util_citationlabel.js).
@@ -470,9 +493,8 @@ fn citation_label(state: &mut State, token: &mut Token, item: &Value) -> CslResu
         let mut suffix = String::new();
         let ys = registry_year_suffix(state, &item_id(item))?;
         if let Some(ys) = ys.filter(|v| *v != Value::Bool(false)) {
-            let num = js::parse_int_value(&ys).ok_or_else(|| {
-                EngineError::BadInput("year_suffix is not a number".into())
-            })?;
+            let num = js::parse_int_value(&ys)
+                .ok_or_else(|| EngineError::BadInput("year_suffix is not a number".into()))?;
             suffix = state.fun.suffixator.format(num);
         }
         label.push_str(&suffix);

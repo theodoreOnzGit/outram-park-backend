@@ -127,13 +127,19 @@ fn read_sections(text: &str) -> Result<BTreeMap<String, Vec<String>>, String> {
     for line in text.replace("\r\n", "\n").split('\n') {
         if let Some(m) = open.captures(line) {
             if !state.is_empty() {
-                return Err(format!("attempted to open tag {} before {section} closed", &m[1]));
+                return Err(format!(
+                    "attempted to open tag {} before {section} closed",
+                    &m[1]
+                ));
             }
             section = m[1].to_string();
             state = "opening";
         } else if let Some(m) = close.captures(line) {
             if section != m[1] {
-                return Err(format!("expected closing tag {section} but found {}", &m[1]));
+                return Err(format!(
+                    "expected closing tag {section} but found {}",
+                    &m[1]
+                ));
             }
             state = "closing";
             if section == "RESULT" && !obj.contains_key(&section) {
@@ -279,8 +285,26 @@ pub(super) fn build_engine(
     fx: &Fixture,
     locales: &Arc<BTreeMap<String, String>>,
 ) -> CslResult<(Engine, Vec<String>)> {
-    let sys = Sys::new(&fx.input, locales.clone())?;
+    let mut sys = Sys::new(&fx.input, locales.clone())?;
+    // The runner copies the fixture's OPTIONS onto `sys` before the Engine is built
+    // (`this[option] = OPTIONS[option]`), which is what makes `variableWrapper` visible
+    // to the build.
+    if let Some(options) = &fx.options {
+        for (k, v) in options {
+            sys.options.insert(k.clone(), v.clone());
+        }
+    }
     let mut engine = Engine::new(sys, &fx.csl, &fx.lang)?;
+    if fx.options.as_ref().and_then(|o| o.get("variableWrapper")).is_some_and(js::truthy)
+        && !engine.state().fun.host_hooks.variable_wrapper
+    {
+        // build.rs `State::new` sets `host_hooks.variable_wrapper` and then replaces
+        // `s.fun` with `Fun::new()`, so the hook is lost before the token lists are
+        // built (a defect of the build stage, reported to the integrator).
+        return Err(EngineError::BadInput(
+            "DRIVER: variableWrapper lost by State::new (build.rs resets s.fun)".into(),
+        ));
+    }
     if let Some(f) = &fx.format {
         crate::citeproc::formats::set_output_format(engine.state_mut(), f)?;
     }
@@ -303,7 +327,10 @@ pub(super) fn build_engine(
             }
         }
     }
-    if submodes.iter().any(|s| s == "suppress_trailing_punctuation") {
+    if submodes
+        .iter()
+        .any(|s| s == "suppress_trailing_punctuation")
+    {
         engine.set_suppress_trailing_punctuation(true);
     }
     if let Some(options) = &fx.options {
@@ -361,7 +388,11 @@ pub(super) fn build_engine(
 
 /// The `[start, end]` indexes of the one `cs:layout` of the citation.
 fn layout_range(state: &State, bibliography: bool) -> Option<(usize, usize)> {
-    let toks = if bibliography { &state.bibliography.tokens } else { &state.citation.tokens };
+    let toks = if bibliography {
+        &state.bibliography.tokens
+    } else {
+        &state.citation.tokens
+    };
     let starts: Vec<usize> = toks
         .iter()
         .enumerate()
@@ -397,7 +428,10 @@ fn get_cite(
     // citeStart
     state.tmp.lang_array = Vec::new();
     if let Some(Value::String(lang)) = item_full.get("language") {
-        let m: String = lang.chars().take_while(|c| c.is_ascii_alphabetic()).collect();
+        let m: String = lang
+            .chars()
+            .take_while(|c| c.is_ascii_alphabetic())
+            .collect();
         if !m.is_empty() {
             state.tmp.lang_array.push(m.to_lowercase());
         }
@@ -419,10 +453,14 @@ fn get_cite(
     {
         state.tmp.render.abbrev_trimmer = Some(Default::default());
     }
-    state.splice_delimiter = (if bibliography { &state.bibliography } else { &state.citation })
-        .opt
-        .get("layout_delimiter")
-        .map(js::to_js_string);
+    state.splice_delimiter = (if bibliography {
+        &state.bibliography
+    } else {
+        &state.citation
+    })
+    .opt
+    .get("layout_delimiter")
+    .map(js::to_js_string);
     state.bibliography_sort.keys = Vec::new();
     state.citation_sort.keys = Vec::new();
     state.tmp.last_cite_locale = None;
@@ -520,7 +558,8 @@ fn get_cite(
                             }
                             _ => {
                                 return Err(EngineError::BadInput(
-                                    "Cannot read properties of undefined (reading 'strings')".into(),
+                                    "Cannot read properties of undefined (reading 'strings')"
+                                        .into(),
                                 ))
                             }
                         }
@@ -538,7 +577,11 @@ fn get_cite(
             }
             None => {
                 next = state.token_exec(
-                    if bibliography { &TokenList::Bibliography } else { &TokenList::Citation },
+                    if bibliography {
+                        &TokenList::Bibliography
+                    } else {
+                        &TokenList::Citation
+                    },
                     next,
                     item_full,
                     item,
@@ -584,14 +627,18 @@ fn get_splice_delimiter(state: &mut State, last_locator: bool, last_collapsed: b
         let a = Some(js::to_js_string(&after));
         let collapse = state.citation.opt.get("collapse").cloned();
         let collapse_ys = collapse.as_ref().and_then(Value::as_str) == Some("year-suffix");
-        if last_locator || (last_collapsed && !have_collapsed) || (!last_collapsed && !have_collapsed && !collapse_ys) {
+        if last_locator
+            || (last_collapsed && !have_collapsed)
+            || (!last_collapsed && !have_collapsed && !collapse_ys)
+        {
             state.splice_delimiter = a;
         } else {
             state.splice_delimiter = layout_delimiter;
         }
     } else if have_collapsed
         && js::get_str(&state.opt, "xclass") == Some("in-text")
-        && state.opt.get("update_mode").and_then(Value::as_i64) != Some(crate::citeproc::load::NUMERIC)
+        && state.opt.get("update_mode").and_then(Value::as_i64)
+            != Some(crate::citeproc::load::NUMERIC)
     {
         state.splice_delimiter = Some(", ".to_string());
     } else if pos > 0 && js::truthy(state.tmp.cite_locales.get(pos - 1).unwrap_or(&Value::Null)) {
@@ -677,7 +724,8 @@ pub(super) fn make_citation_cluster(state: &mut State, raw_list: &[Value]) -> Cs
         .to_string();
     let use_layout_prefix = cnb.update(&format!("{layout_prefix}{citation_prefix}"));
     state.output.check_nested_brace = Some(cnb);
-    let suppress_trailing_punctuation = js::truthy_opt(state.citation.opt.get("suppressTrailingPunctuation"));
+    let suppress_trailing_punctuation =
+        js::truthy_opt(state.citation.opt.get("suppressTrailingPunctuation"));
 
     let mut myparams: Vec<(Option<String>, bool, bool)> = Vec::new();
     // `item` of the JS loop is still bound after it (the last cite processed).
@@ -760,7 +808,10 @@ pub(super) fn make_citation_cluster(state: &mut State, raw_list: &[Value]) -> Cs
             }
         }
         if let Some(BlobChild::Blob(b)) = children.first() {
-            state.blobs.get_mut(*b).set_string("prefix", &use_layout_prefix);
+            state
+                .blobs
+                .get_mut(*b)
+                .set_string("prefix", &use_layout_prefix);
         }
     }
     if crate::citeproc::load::dev_ext_truthy(state, "clean_up_csl_flaws") {
@@ -786,7 +837,8 @@ pub(super) fn make_citation_cluster(state: &mut State, raw_list: &[Value]) -> Cs
         let mut composite: Vec<Rendered> = composite.into_list();
         if composite.is_empty() && !js::truthy_opt(last_item.get("suppress-author")) {
             if pos == 0 {
-                let pre = txt_esc.escape(js::get_str(&state.citation.opt, "layout_prefix").unwrap_or(""));
+                let pre =
+                    txt_esc.escape(js::get_str(&state.citation.opt, "layout_prefix").unwrap_or(""));
                 let suf = if pos == myblobs.len() - 1 {
                     txt_esc.escape(js::get_str(&state.citation.opt, "layout_suffix").unwrap_or(""))
                 } else {
@@ -796,13 +848,17 @@ pub(super) fn make_citation_cluster(state: &mut State, raw_list: &[Value]) -> Cs
                     "{pre}[CSL STYLE ERROR: reference with no printed form.]{suf}"
                 )));
             } else if pos == myblobs.len() - 1 {
-                let esc = txt_esc.escape(js::get_str(&state.citation.opt, "layout_suffix").unwrap_or(""));
+                let esc =
+                    txt_esc.escape(js::get_str(&state.citation.opt, "layout_suffix").unwrap_or(""));
                 match objects.last_mut() {
                     Some(Rendered::Str(s)) => s.push_str(&esc),
                     Some(Rendered::Blob(b)) => {
                         let b = *b;
                         let cur = state.blobs.get(b).string("suffix");
-                        state.blobs.get_mut(b).set_string("suffix", &format!("{cur}{esc}"));
+                        state
+                            .blobs
+                            .get_mut(b)
+                            .set_string("suffix", &format!("{cur}{esc}"));
                     }
                     _ => {}
                 }
@@ -873,7 +929,14 @@ pub(super) fn make_citation_cluster(state: &mut State, raw_list: &[Value]) -> Cs
             }
             let any_author_only = js::truthy_opt(last_item.get("author-only"));
             if !any_author_only {
-                result = crate::citeproc::formats::decorate(state, None, &d.name, &d.value, Some(&result), None)?;
+                result = crate::citeproc::formats::decorate(
+                    state,
+                    None,
+                    &d.name,
+                    &d.value,
+                    Some(&result),
+                    None,
+                )?;
             }
         }
     }
@@ -885,10 +948,7 @@ pub(super) fn make_citation_cluster(state: &mut State, raw_list: &[Value]) -> Cs
 }
 
 /// Run one fixture through the driver.
-pub(super) fn run_fixture(
-    fx: &Fixture,
-    locales: &Arc<BTreeMap<String, String>>,
-) -> Outcome {
+pub(super) fn run_fixture(fx: &Fixture, locales: &Arc<BTreeMap<String, String>>) -> Outcome {
     let mut mode = fx.mode.split('-');
     let mode_name = mode.next().unwrap_or("");
     let submodes: Vec<&str> = mode.collect();
@@ -940,7 +1000,9 @@ pub(super) fn run_fixture(
             Some(s) => s,
             None => {
                 if !engine.state().bibliography_sort.tokens.is_empty() {
-                    return Outcome::Skipped("DRIVER: registry order needs a bibliography sort".into());
+                    return Outcome::Skipped(
+                        "DRIVER: registry order needs a bibliography sort".into(),
+                    );
                 }
                 synthesized = vec![ids
                     .iter()
@@ -978,8 +1040,12 @@ fn layout_closure(state: &State, idx: usize, bibliography: bool) -> Option<Layou
     for e in &tok.execs {
         match e {
             Exec::NodeLayout(NodeLayoutExec::CitationPrefix) => return Some(LayoutKind::Prefix),
-            Exec::NodeLayout(NodeLayoutExec::CitationSuffix) => return Some(LayoutKind::CiteSuffix),
-            Exec::NodeLayout(NodeLayoutExec::BibliographySuffix) => return Some(LayoutKind::BibSuffix),
+            Exec::NodeLayout(NodeLayoutExec::CitationSuffix) => {
+                return Some(LayoutKind::CiteSuffix)
+            }
+            Exec::NodeLayout(NodeLayoutExec::BibliographySuffix) => {
+                return Some(LayoutKind::BibSuffix)
+            }
             _ => {}
         }
     }
@@ -1012,7 +1078,9 @@ pub(super) fn make_bibliography(state: &mut State, ids: &[String]) -> CslResult<
     if state.bibliography.opt.contains_key("exclude_types")
         || state.bibliography.opt.contains_key("exclude_with_fields")
     {
-        return Err(EngineError::BadInput("DRIVER: bibliography exclusions".into()));
+        return Err(EngineError::BadInput(
+            "DRIVER: bibliography exclusions".into(),
+        ));
     }
     state.tmp.area = "bibliography".to_string();
     state.tmp.root = "bibliography".to_string();
@@ -1033,11 +1101,10 @@ pub(super) fn make_bibliography(state: &mut State, ids: &[String]) -> CslResult<
         bib_entry.decorations.extend(layout_decorations.clone());
         queue::start_tag(state, QueueId::Output, "bib_entry", Some(&bib_entry))?;
         if let Some(cur) = queue::current(state, QueueId::Output) {
-            state
-                .blobs
-                .get_mut(cur)
-                .extra
-                .insert("system_id".into(), item_full.get("id").cloned().unwrap_or(Value::Null));
+            state.blobs.get_mut(cur).extra.insert(
+                "system_id".into(),
+                item_full.get("id").cloned().unwrap_or(Value::Null),
+            );
         }
         state.tmp.term_predecessor = false;
         state.tmp.shadow_numbers = BTreeMap::new();
@@ -1089,7 +1156,9 @@ pub(super) fn make_bibliography(state: &mut State, ids: &[String]) -> CslResult<
         };
         if !first.is_empty() {
             entries.push(first);
-        } else if state.opt.get("update_mode").and_then(Value::as_i64) == Some(crate::citeproc::load::NUMERIC) {
+        } else if state.opt.get("update_mode").and_then(Value::as_i64)
+            == Some(crate::citeproc::load::NUMERIC)
+        {
             return Err(EngineError::BadInput("DRIVER: numeric empty entry".into()));
         }
     }
@@ -1129,7 +1198,10 @@ pub(super) fn case_fixture(c: &Value) -> Fixture {
         multiaffix: c.get("multiaffix").cloned(),
         options: c.get("options").and_then(|o| o.as_object().cloned()),
         lang: c["lang"].as_str().unwrap_or("").to_string(),
-        format: c["format"].as_str().filter(|f| *f != "html").map(str::to_string),
+        format: c["format"]
+            .as_str()
+            .filter(|f| *f != "html")
+            .map(str::to_string),
         tags: c.get("tags").cloned(),
     }
 }
@@ -1147,6 +1219,7 @@ pub(super) fn run_case(
         .collect();
     let cite = (|| -> Result<String, String> {
         let (mut engine, _) = build_engine(&fx, locales).map_err(|e| e.to_string())?;
+        apply_registry(&mut engine, c);
         let set = fx.citation_items.clone().unwrap_or_default();
         let set = set.first().cloned().unwrap_or_default();
         make_citation_cluster(engine.state_mut(), &set)
@@ -1155,9 +1228,26 @@ pub(super) fn run_case(
     })();
     let bib = (|| -> Result<String, String> {
         let (mut engine, _) = build_engine(&fx, locales).map_err(|e| e.to_string())?;
+        apply_registry(&mut engine, c);
         make_bibliography(engine.state_mut(), &ids)
             .map(|s| s.replace("\r\n", "\n").replace('\r', "\n"))
             .map_err(|e| e.to_string())
     })();
     (cite, bib)
+}
+
+/// Fill the stand-in registry (`registry_view`) from the case's `registry`
+/// (citeproc-js's `registry.registry[id].seq` / `disambig.year_suffix`).
+fn apply_registry(engine: &mut Engine, c: &Value) {
+    if let Some(Value::Object(reg)) = c.get("registry") {
+        for (id, v) in reg {
+            engine.state_mut().tmp.render.registry_view.insert(
+                id.clone(),
+                crate::citeproc::util_transform::RegistryView {
+                    seq: v.get("seq").and_then(Value::as_i64).unwrap_or(0),
+                    year_suffix: v.get("year_suffix").cloned().unwrap_or(Value::Bool(false)),
+                },
+            );
+        }
+    }
 }
