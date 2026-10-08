@@ -175,7 +175,6 @@ pub fn arr_entry<'o>(obj: &'o mut Obj, key: &str) -> &'o mut Vec<Value> {
     slot.as_array_mut().expect("slot was just made an array")
 }
 
-
 /// `state.opt["default-locale"][0]` (`"en-US"` when absent).
 pub fn default_locale(state: &State) -> String {
     state
@@ -455,8 +454,8 @@ impl AttributesTest {
             }),
             // attributes.js:41-61.
             AttributesTest::IsNumeric { variable } => {
-                let use_cite = js::truthy(cite_item)
-                    && (variable == "locator" || variable == "locator-extra");
+                let use_cite =
+                    js::truthy(cite_item) && (variable == "locator" || variable == "locator-extra");
                 let myitem = if use_cite { cite_item } else { item };
                 let Some(val) = myitem.get(variable.as_str()).filter(|v| js::truthy(v)) else {
                     return Ok(false);
@@ -1276,10 +1275,7 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
             state.set_opt(token, "et-al-min", int_or_nan(val));
         }
         "@et-al-use-first" => {
-            state.set_opt(token,
-                "et-al-use-first",
-                int_or_nan(js::parse_int(arg)),
-            );
+            state.set_opt(token, "et-al-use-first", int_or_nan(js::parse_int(arg)));
         }
         "@et-al-use-last" => {
             state.set_opt(token, "et-al-use-last", Value::Bool(arg == "true"));
@@ -1290,7 +1286,8 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
             state.set_opt(token, "et-al-subsequent-min", int_or_nan(val));
         }
         "@et-al-subsequent-use-first" => {
-            state.set_opt(token,
+            state.set_opt(
+                token,
                 "et-al-subsequent-use-first",
                 int_or_nan(js::parse_int(arg)),
             );
@@ -1306,14 +1303,12 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
                 .insert("suppress-max".into(), int_or_nan(js::parse_int(arg)));
         }
         "@and" => state.set_opt(token, "and", Value::String(arg.into())),
-        "@delimiter-precedes-last" => state.set_opt(token,
-            "delimiter-precedes-last",
-            Value::String(arg.into()),
-        ),
-        "@delimiter-precedes-et-al" => state.set_opt(token,
-            "delimiter-precedes-et-al",
-            Value::String(arg.into()),
-        ),
+        "@delimiter-precedes-last" => {
+            state.set_opt(token, "delimiter-precedes-last", Value::String(arg.into()))
+        }
+        "@delimiter-precedes-et-al" => {
+            state.set_opt(token, "delimiter-precedes-et-al", Value::String(arg.into()))
+        }
         "@initialize-with" => state.set_opt(token, "initialize-with", Value::String(arg.into())),
         "@initialize" => {
             if arg == "false" {
@@ -1331,10 +1326,7 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
                     .extra
                     .insert("name-as-sort-order".into(), Value::String(arg.into()));
             } else {
-                state.set_opt(token,
-                    "name-as-sort-order",
-                    Value::String(arg.into()),
-                );
+                state.set_opt(token, "name-as-sort-order", Value::String(arg.into()));
             }
         }
         "@sort-separator" => state.set_opt(token, "sort-separator", Value::String(arg.into())),
@@ -1752,27 +1744,28 @@ mod tests {
     /// Every `locales-<lang>.xml` of `vendor/citeproc-js/locale` (the runner's
     /// `retrieveLocale`, processing instructions dropped); empty when `vendor/` is absent.
     fn test_locales() -> std::sync::Arc<std::collections::BTreeMap<String, String>> {
-        static LOCALES: std::sync::LazyLock<std::sync::Arc<std::collections::BTreeMap<String, String>>> =
-            std::sync::LazyLock::new(|| {
-                let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../vendor/citeproc-js/locale");
-                let pi = Regex::new(r"\s*<\?[^>]*\?>\s*\n").expect("static");
-                let mut map = std::collections::BTreeMap::new();
-                if let Ok(read) = std::fs::read_dir(&dir) {
-                    for entry in read.flatten() {
-                        let file = entry.file_name().to_string_lossy().to_string();
-                        if let Some(lang) = file
-                            .strip_prefix("locales-")
-                            .and_then(|f| f.strip_suffix(".xml"))
-                        {
-                            if let Ok(xml) = std::fs::read_to_string(entry.path()) {
-                                map.insert(lang.to_string(), pi.replace_all(&xml, "").to_string());
-                            }
+        static LOCALES: std::sync::LazyLock<
+            std::sync::Arc<std::collections::BTreeMap<String, String>>,
+        > = std::sync::LazyLock::new(|| {
+            let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../vendor/citeproc-js/locale");
+            let pi = Regex::new(r"\s*<\?[^>]*\?>\s*\n").expect("static");
+            let mut map = std::collections::BTreeMap::new();
+            if let Ok(read) = std::fs::read_dir(&dir) {
+                for entry in read.flatten() {
+                    let file = entry.file_name().to_string_lossy().to_string();
+                    if let Some(lang) = file
+                        .strip_prefix("locales-")
+                        .and_then(|f| f.strip_suffix(".xml"))
+                    {
+                        if let Ok(xml) = std::fs::read_to_string(entry.path()) {
+                            map.insert(lang.to_string(), pi.replace_all(&xml, "").to_string());
                         }
                     }
                 }
-                std::sync::Arc::new(map)
-            });
+            }
+            std::sync::Arc::new(map)
+        });
         LOCALES.clone()
     }
 
@@ -1990,7 +1983,9 @@ mod tests {
             }
         } else if tokentype == TokenType::End && attr("@variable").is_some() {
             token.extra.insert("hasVariable".into(), Value::Bool(true));
-            if crate::citeproc::load::DATE_VARIABLES.contains(&attr("@variable").unwrap_or_default().as_str()) {
+            if crate::citeproc::load::DATE_VARIABLES
+                .contains(&attr("@variable").unwrap_or_default().as_str())
+            {
                 token.variables = var_stack.pop().unwrap_or_default();
             }
         }

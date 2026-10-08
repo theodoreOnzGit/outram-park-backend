@@ -63,7 +63,11 @@ fn put(terms: &mut Obj, name: &str, form: &str, plural: usize, gender: Option<&s
 /// * `ord_101`: `locale.ord["1.0.1"]`, if the locale has it.
 ///
 /// A `null` answer (JS `undefined`) adds nothing.
-pub(crate) fn logged_locale(terms: &Value, fields: Option<&Value>, ord_101: Option<&Value>) -> Locale {
+pub(crate) fn logged_locale(
+    terms: &Value,
+    fields: Option<&Value>,
+    ord_101: Option<&Value>,
+) -> Locale {
     let mut locale = Locale::new();
     if let Some(o) = terms.as_object() {
         for (key, v) in o {
@@ -106,9 +110,7 @@ pub(crate) fn install_locale(state: &mut State, locale: Locale) {
         .and_then(Value::as_str)
         .map(str::to_string)
         .unwrap_or_else(|| "en-US".to_string());
-    state
-        .opt
-        .insert("lang".into(), Value::String(lang.clone()));
+    state.opt.insert("lang".into(), Value::String(lang.clone()));
     if let Some(d) = state
         .opt
         .get("default-locale")

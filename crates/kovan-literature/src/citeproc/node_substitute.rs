@@ -46,7 +46,10 @@ impl NodeSubstituteExec {
             NodeSubstituteExec::Start => {
                 state.tmp.can_block_substitute = true;
                 if !state.tmp.value.is_empty() && !state.tmp.common_term_match_fail {
-                    state.tmp.can_substitute.replace_literal(Value::Bool(false))?;
+                    state
+                        .tmp
+                        .can_substitute
+                        .replace_literal(Value::Bool(false))?;
                 }
                 state.tmp.common_term_match_fail = false;
                 Ok(None)
@@ -95,7 +98,12 @@ pub fn build(
         let mut if_singleton = Token::new("if", TokenType::Singleton);
         if_singleton.tests_defined = true;
         if_singleton.tests = vec![Test::NodeSubstitute(NodeSubstituteTest::ValueRendered)];
-        if_singleton.test = Some(state.fun.match_.any(&if_singleton, state, &if_singleton.tests));
+        if_singleton.test = Some(
+            state
+                .fun
+                .match_
+                .any(&if_singleton, state, &if_singleton.tests),
+        );
         target.push(if_singleton);
 
         token

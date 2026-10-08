@@ -1232,7 +1232,6 @@ pub fn title_field_splits(seg: &str) -> TitleFieldSplits {
 // ----------------------------------------------------------------------
 // Case conversion.
 
-
 /// Whether `tag` passes JS's `Intl` structural check for a language tag
 /// (approximation of `CanonicalizeLocaleList`; a failing tag makes
 /// `toLocale*Case` throw, which citeproc-js catches by falling back to
@@ -1302,7 +1301,6 @@ pub fn to_locale_lower_case(state: &State, s: &str) -> String {
     }
     s.to_lowercase()
 }
-
 
 // ----------------------------------------------------------------------
 // Brace nesting.
@@ -1737,7 +1735,6 @@ pub(crate) fn type_error(msg: &str) -> EngineError {
     EngineError::BadInput(msg.to_string())
 }
 
-
 /// A JS object of title parts whose values may be `undefined` (`None`),
 /// `false` or strings.
 type TitleVals = BTreeMap<String, Option<Value>>;
@@ -1859,7 +1856,10 @@ pub fn extract_title_and_subtitle(
                             set(
                                 &mut vals,
                                 &t_sub,
-                                TITLE_SPLIT_REGEXP.matchfirst.replace(&tail, "").into_owned(),
+                                TITLE_SPLIT_REGEXP
+                                    .matchfirst
+                                    .replace(&tail, "")
+                                    .into_owned(),
                             );
                             if dev_ext_truthy(state, "force_short_title_casing_alignment") {
                                 vals.insert(t_short.clone(), vals.get(&t_main).cloned().flatten());
@@ -1971,7 +1971,6 @@ pub fn extract_title_and_subtitle(
     }
     Ok(())
 }
-
 
 /// `CSL.TITLE_SPLIT(str)`: split a title at its sub-title joins, returning
 /// `[main, join, sub, join, sub, ...]`. A split point preceded by a word
@@ -2442,7 +2441,6 @@ pub fn get_safe_escape(state: &State) -> SafeEscape {
         thin_hack: active && thin && format == Format::Html,
     }
 }
-
 
 // ----------------------------------------------------------------------
 // Group context conditions (comma-safe, empty-label, ...).

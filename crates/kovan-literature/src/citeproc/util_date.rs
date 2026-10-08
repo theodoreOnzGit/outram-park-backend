@@ -32,7 +32,6 @@ use super::load::{DATE_PARTS, DATE_PARTS_INTERNAL};
 use super::util_dates;
 use super::{CslResult, EngineError};
 
-
 /// The strings `CSL.dateAsSortKey` appends to the output queue, in order,
 /// and the flag they are appended with.
 #[derive(Debug, Clone, PartialEq, Eq)]

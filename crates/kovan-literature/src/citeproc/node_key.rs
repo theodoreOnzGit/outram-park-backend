@@ -218,13 +218,12 @@ fn build_into(state: &mut State, this: &Token, target: &mut Vec<Token>) -> CslRe
         .push(Exec::NodeKey(NodeKeyExec::OpenLevelEmpty));
 
     // sort direction
-    let sort_direction: Vec<Value> = if this.strings.get("sort_direction").and_then(Value::as_i64)
-        == Some(DESCENDING)
-    {
-        vec![Value::from(1), Value::from(-1)]
-    } else {
-        vec![Value::from(-1), Value::from(1)]
-    };
+    let sort_direction: Vec<Value> =
+        if this.strings.get("sort_direction").and_then(Value::as_i64) == Some(DESCENDING) {
+            vec![Value::from(1), Value::from(-1)]
+        } else {
+            vec![Value::from(-1), Value::from(1)]
+        };
     let area = state.build.area.clone();
     attributes::arr_entry(
         &mut attributes::area_mut(state, &area)?.opt,

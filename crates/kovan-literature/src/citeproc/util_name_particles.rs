@@ -269,7 +269,9 @@ const PARTICLE_LIST: [(&str, &[(Range, Range)]); 222] = [
 /// JS `.`: anything but `\n`, `\r`, U+2028, U+2029.
 const DOT: &str = "[^\\n\\r\\u{2028}\\u{2029}]";
 
-use super::load::{PARTICLE_FAMILY_REGEXP as PARTICLE_FAMILY_RE, PARTICLE_GIVEN_REGEXP as PARTICLE_GIVEN_RE};
+use super::load::{
+    PARTICLE_FAMILY_REGEXP as PARTICLE_FAMILY_RE, PARTICLE_GIVEN_REGEXP as PARTICLE_GIVEN_RE,
+};
 
 /// `/^[-\'ʻ’\s]*(.).*$/`.
 static FIRST_CHAR_RE: LazyLock<Regex> = LazyLock::new(|| {

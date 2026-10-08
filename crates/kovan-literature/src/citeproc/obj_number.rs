@@ -138,7 +138,12 @@ impl NumFormatter {
     /// A `Text` number with the suffixator or the romanizer does arithmetic
     /// on a string in JS (and loops forever in the suffixator); that is an
     /// `Err` here. The ordinalizers `parseInt` their argument, as upstream.
-    pub fn format(&self, state: &mut State, num: &NumArg, gender: Option<&str>) -> CslResult<String> {
+    pub fn format(
+        &self,
+        state: &mut State,
+        num: &NumArg,
+        gender: Option<&str>,
+    ) -> CslResult<String> {
         let as_value = |num: &NumArg| match num {
             NumArg::Number(n) => Value::from(*n),
             NumArg::Text(t) => Value::String(t.clone()),

@@ -43,14 +43,14 @@ mod input_side {
     use super::super::util_name_particles::parse_particles;
     use super::super::{CslResult, EngineError};
     use super::super::load::{
-        ROMANESQUE_REGEXP as ROMANESQUE_RE, STARTSWITH_ROMANESQUE_REGEXP as STARTSWITH_ROMANESQUE_RE,
+        ROMANESQUE_REGEXP as ROMANESQUE_RE,
+        STARTSWITH_ROMANESQUE_REGEXP as STARTSWITH_ROMANESQUE_RE,
         VIETNAMESE_NAMES as VIETNAMESE_NAMES_RE, VIETNAMESE_SPECIALS as VIETNAMESE_SPECIALS_RE,
     };
 
     fn rx(src: &str) -> Regex {
         Regex::new(src).unwrap_or_else(|e| panic!("invalid static regex {src:?}: {e}"))
     }
-
 
     /// What `NameOutput` reads from its `state` and `Item` in the input-side
     /// methods.

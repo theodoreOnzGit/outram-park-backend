@@ -94,7 +94,11 @@ impl UtilConditionsExec {
             }
             UtilConditionsExec::ClosingJump => {
                 // JS: var next = this[state.tmp.jump.value()]; return next;
-                let which = state.tmp.jump.value().and_then(|v| v.as_str().map(str::to_string));
+                let which = state
+                    .tmp
+                    .jump
+                    .value()
+                    .and_then(|v| v.as_str().map(str::to_string));
                 Ok(match which.as_deref() {
                     Some("succeed") => token.succeed,
                     Some("fail") => token.fail,

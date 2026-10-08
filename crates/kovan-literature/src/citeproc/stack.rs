@@ -76,7 +76,9 @@ pub struct Stack<T> {
 impl<T: Clone> Stack<T> {
     /// `new CSL.Stack()`: empty.
     pub fn new() -> Self {
-        Stack { mystack: Vec::new() }
+        Stack {
+            mystack: Vec::new(),
+        }
     }
 
     /// `new CSL.Stack(val, CSL.LITERAL)` (or with a truthy `val`): one element.
@@ -161,7 +163,11 @@ impl<T: Clone + JsFalsy> Stack<T> {
 
     /// `replace(val)` without `literal`.
     pub fn replace(&mut self, val: T) -> Result<(), crate::citeproc::EngineError> {
-        let v = if val.is_truthy() { val } else { T::empty_string() };
+        let v = if val.is_truthy() {
+            val
+        } else {
+            T::empty_string()
+        };
         self.replace_literal(v)
     }
 }

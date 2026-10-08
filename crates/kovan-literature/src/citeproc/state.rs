@@ -111,8 +111,8 @@ pub struct State {
     // ---- fields: wave1-build (load, xmljson, build, util_locale, attributes) ----
 
     // ---- fields: wave1-nodes ----
-    // DUP-CHECK: state.js. `state.intext_sort` (node_intext.js): only
-    // `opt.sort_directions` is ever set.
+    /// `state.intext_sort` (node_intext.js; not in the state.js constructor):
+    /// only its `opt.sort_directions` is ever set.
     pub intext_sort: Area,
     /// `state.build_layout_locale_flag` (node_layout.js:259; a misspelling of
     /// `state.build.layout_locale_flag` upstream, kept as its own flag).
@@ -136,7 +136,6 @@ pub struct State {
     /// registry (wave4); `build_retrieve_item.rs` reads and writes this
     /// field until `Registry::refhash` exists.
     pub item_refhash: BTreeMap<String, serde_json::Value>,
-
     // ---- fields: wave1-output (queue, formats, formatters, flip-flop, page) ----
 
     // ---- fields: wave2 (rendering nodes, api_cite core) ----
@@ -642,7 +641,6 @@ pub struct Tmp {
     pub offset_characters: usize,
     /// `tmp.term_predecessor_name` (queue.js).
     pub term_predecessor_name: bool,
-
     // ---- fields: wave2 ----
 
     // ---- fields: wave3 ----
@@ -919,13 +917,6 @@ pub struct Fun {
     // ---- fields: wave1-build ----
     /// `match`: `new CSL.Util.Match()` (src/util.js).
     pub match_: Match,
-    // PORT-LATER(util_number): `Fun.suffixator` (CSL.Util.Suffixator), `romanizer`,
-    // `ordinalizer` (CSL.Util.Ordinalizer(state)), `long_ordinalizer` are
-    // constructed by CSL.Engine.Fun (state.js) and live in src/util_number.js
-    // (wave1-input). `page_mangler` / `year_mangler`
-    // (CSL.Util.PageRangeMangler.getFunction, build.js) are src/util_page.js
-    // (wave1-output). Declare them in your own `Fun` block.
-
     // ---- fields: wave1-input ----
     /// `ordinalizer`.
     pub ordinalizer: Ordinalizer,
@@ -951,13 +942,14 @@ pub struct Fun {
     /// Which optional `sys` callbacks the host provides (JS tests
     /// `state.sys.variableWrapper` etc. for existence).
     pub host_hooks: super::formats::HostHooks,
-
     // ---- fields: wave2 ----
 }
 
 impl Fun {
-    /// `new CSL.Engine.Fun(state)`: what this port can construct. See the
-    /// PORT-LATER note on the struct for the `util_number` members.
+    /// `new CSL.Engine.Fun(state)`: the helper objects with their defaults.
+    /// `State::new` then builds the ones that read the locale (`flipflopper`,
+    /// `page_mangler`, `year_mangler`, `skip_words_rex`) and sets `decorate`
+    /// (`setOutputFormat`), as the `CSL.Engine` constructor does.
     pub fn new() -> Fun {
         Fun::default()
     }

@@ -294,10 +294,7 @@ pub fn get_term(state: &State, name: &str) -> String {
 /// `state.getOpt(name)` as a boolean flag: `state.locale[opt.lang].opts[name]`
 /// (`false` when unset or when the locale is missing).
 pub fn get_opt_flag(state: &State, name: &str) -> bool {
-    state
-        .get_opt(name)
-        .map(|v| js::truthy(&v))
-        .unwrap_or(false)
+    state.get_opt(name).map(|v| js::truthy(&v)).unwrap_or(false)
 }
 
 // ---------------------------------------------------------------------------

@@ -69,8 +69,8 @@ use super::load::{get_safe_escape, CheckNestedBrace, SafeEscape, TERMINAL_PUNCTU
 use super::formatters;
 use super::js;
 use super::obj_blob::{
-    drop_first, drop_last, first_char, last_char, Blob, BlobChild, BlobContent,
-    BlobId, BlobKind, Blobs, JS_WS_CLASS,
+    drop_first, drop_last, first_char, last_char, Blob, BlobChild, BlobContent, BlobId, BlobKind,
+    Blobs, JS_WS_CLASS,
 };
 use super::load::{END, SEEN, START, SUCCESSOR, SUPPRESS};
 use super::obj_number::{self, NumArg};
@@ -79,7 +79,6 @@ use super::stack::Stack;
 use super::state::{Area, State};
 use super::util_flipflop;
 use super::{CslResult, EngineError};
-
 
 /// Which of the engine's two output queues a call addresses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -198,7 +197,6 @@ pub enum StringParent {
     /// A blob.
     Blob(BlobId),
 }
-
 
 /// `CSL.Output.Queue`.
 #[derive(Debug, Clone, PartialEq)]
@@ -510,9 +508,7 @@ pub fn start_tag(
 ) -> CslResult<()> {
     let mut name = name.to_string();
     let mut token = token.cloned();
-    if state.tmp.doing_macro_with_date
-        && !state.tmp.extension.is_empty()
-    {
+    if state.tmp.doing_macro_with_date && !state.tmp.extension.is_empty() {
         token = Some(q_ref(state, q).empty.clone());
         name = "empty".to_string();
     }
@@ -2450,7 +2446,9 @@ mod tests {
                 for (k, v) in op[1].as_object().unwrap() {
                     match k.as_str() {
                         "doing-macro-with-date" => st.tmp.doing_macro_with_date = js::truthy(v),
-                        "extension" => st.tmp.extension = v.as_str().unwrap_or_default().to_string(),
+                        "extension" => {
+                            st.tmp.extension = v.as_str().unwrap_or_default().to_string()
+                        }
                         other => panic!("tmp {other}"),
                     }
                 }

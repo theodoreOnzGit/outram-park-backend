@@ -200,9 +200,12 @@ impl UtilSubstituteTest {
         _cite_item: &Value,
     ) -> CslResult<bool> {
         match self {
-            UtilSubstituteTest::CanSubstitute => {
-                Ok(state.tmp.can_substitute.value().map(js::truthy).unwrap_or(false))
-            }
+            UtilSubstituteTest::CanSubstitute => Ok(state
+                .tmp
+                .can_substitute
+                .value()
+                .map(js::truthy)
+                .unwrap_or(false)),
         }
     }
 }

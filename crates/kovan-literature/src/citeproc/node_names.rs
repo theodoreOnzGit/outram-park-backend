@@ -183,8 +183,17 @@ impl NodeNamesExec {
                 method: "node_names.js:66 closure",
             }),
             NodeNamesExec::Unset => {
-                if !state.tmp.can_substitute.pop().map(|v| js::truthy(&v)).unwrap_or(false) {
-                    state.tmp.can_substitute.replace_literal(Value::Bool(false))?;
+                if !state
+                    .tmp
+                    .can_substitute
+                    .pop()
+                    .map(|v| js::truthy(&v))
+                    .unwrap_or(false)
+                {
+                    state
+                        .tmp
+                        .can_substitute
+                        .replace_literal(Value::Bool(false))?;
                 }
                 // For posterity ... (see node_names.js:177-189)
                 if state.tmp.can_substitute.len() == 1 {

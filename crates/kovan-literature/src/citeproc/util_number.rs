@@ -300,7 +300,12 @@ impl Ordinalizer {
     /// `Ordinalizer.prototype.format(num, gender)`: `num` with its ordinal
     /// suffix, per the locale's CSL 1.0.1 `ord` rules when present, else
     /// the four-suffix English-style rule.
-    pub fn format(&self, state: &mut State, num: &Value, gender: Option<&str>) -> CslResult<String> {
+    pub fn format(
+        &self,
+        state: &mut State,
+        num: &Value,
+        gender: Option<&str>,
+    ) -> CslResult<String> {
         let parsed = js::parse_int_value(num);
         let mut s = match parsed {
             Some(n) => n.to_string(),

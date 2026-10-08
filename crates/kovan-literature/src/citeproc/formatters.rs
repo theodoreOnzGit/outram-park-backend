@@ -22,7 +22,7 @@
 //! Entry point: [`apply`] (`CSL.Output.Formatters[name](state, string)`), or
 //! the named functions ([`lowercase`], [`title`], ...).
 //!
-//! # Integration points (for the integrator)
+//! # Integration points
 //!
 //! * **Skip words.** `title` and the last-word rule read
 //!   `state.locale[state.opt.lang].opts["skip-words-regexp"]`, built in
@@ -46,7 +46,6 @@ use super::obj_blob::{js_trim, JS_WS_CLASS};
 use super::util_processor::{Doppeler, DoppelerSplit};
 use super::state::State;
 use super::{CslResult, EngineError};
-
 
 /// The regexp build.js's `makeRegExp(lst)` builds from the `skip-words` list:
 /// `(?:(?:[?!:]*\s+|-|^)(?:w1|w2|...)(?=[!?:]*\s+|-|$))` (flag `g`).

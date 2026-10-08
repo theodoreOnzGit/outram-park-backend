@@ -118,7 +118,11 @@ fn token_entries(t: &Token, nested: bool, closure_counts: bool) -> Vec<(String, 
         }
     }
     if let Some(m) = &t.postponed_macro {
-        put("postponed_macro", "postponed_macro", Value::String(m.clone()));
+        put(
+            "postponed_macro",
+            "postponed_macro",
+            Value::String(m.clone()),
+        );
     }
     for (k, v) in &t.extra {
         let mut v = v.clone();

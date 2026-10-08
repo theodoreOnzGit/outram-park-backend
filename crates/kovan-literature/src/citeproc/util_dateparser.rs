@@ -38,7 +38,6 @@ use serde_json::Value;
 use super::js::{self, Obj};
 use super::load::DATE_PARTS_ALL;
 
-
 /// The Japanese imperial epochs and their year offsets (`epochPairs`).
 const EPOCH_PAIRS: [(&str, i64); 4] = [
     ("\u{660E}\u{6CBB}", 1867),

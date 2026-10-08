@@ -16,7 +16,6 @@
 
 //! Port of `src/node_sort.js`: `CSL.Node.sort`.
 
-
 use serde_json::Value;
 
 use super::attributes::{self, area_mut, area_ref};
