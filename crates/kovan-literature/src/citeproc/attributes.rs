@@ -39,8 +39,9 @@ use serde_json::Value;
 
 use super::exec::{Exec, Test};
 use super::js::{self, Obj};
+use super::util_number::{process_number, ShadowLabel, ShadowNumber, ShadowValue};
 use super::load::{
-    position_map, DESCENDING, GIVENNAME_DISAMBIGUATION_RULES, POSITION,
+    position_map, DESCENDING, GIVENNAME_DISAMBIGUATION_RULES, NUMERIC_VARIABLES, POSITION,
 };
 use super::obj_token::{Token, TokenType};
 use super::state::{Area, State};
@@ -184,6 +185,24 @@ pub fn default_locale(state: &State) -> String {
         .and_then(|v| v.as_str())
         .unwrap_or("en-US")
         .to_string()
+}
+
+/// `state.tmp.shadow_numbers[variable]` after `processNumber`; reading a
+/// property of it when it is missing is a TypeError upstream.
+fn shadow<'s>(state: &'s State, variable: &str) -> CslResult<&'s ShadowNumber> {
+    state.tmp.shadow_numbers.get(variable).ok_or_else(|| {
+        EngineError::BadInput(format!(
+            "Cannot read properties of undefined (reading '{variable}')"
+        ))
+    })
+}
+
+/// A shadow number's `label` as JS truthiness sees it: `None` for `false`.
+fn shadow_label(sn: &ShadowNumber) -> Option<String> {
+    match &sn.label {
+        Some(ShadowLabel::Term(t)) if !t.is_empty() => Some(t.clone()),
+        _ => None,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -434,11 +453,33 @@ impl AttributesTest {
             AttributesTest::DisambiguateBackref => Err(EngineError::NotYetPorted {
                 method: "attributes.js:@disambiguate backreference closure",
             }),
-            // PORT-LATER(wave1-input): attributes.js:36-62, needs
-            // state.processNumber and state.tmp.shadow_numbers.
-            AttributesTest::IsNumeric { .. } => Err(EngineError::NotYetPorted {
-                method: "attributes.js:@is-numeric closure",
-            }),
+            // attributes.js:41-61.
+            AttributesTest::IsNumeric { variable } => {
+                let use_cite = js::truthy(cite_item)
+                    && (variable == "locator" || variable == "locator-extra");
+                let myitem = if use_cite { cite_item } else { item };
+                let Some(val) = myitem.get(variable.as_str()).filter(|v| js::truthy(v)) else {
+                    return Ok(false);
+                };
+                if NUMERIC_VARIABLES.contains(&variable.as_str()) {
+                    if !state.tmp.shadow_numbers.contains_key(variable.as_str()) {
+                        let myitem = myitem.clone();
+                        process_number(state, None, Some(&myitem), variable)?;
+                    }
+                    Ok(shadow(state, variable)?.numeric == Some(true))
+                } else if variable == "title" || variable == "version" {
+                    // myitem[variable].slice(-1) === "" + parseInt(...slice(-1), 10)
+                    let Value::String(s) = val else {
+                        return Err(EngineError::BadInput(format!(
+                            "myitem[variable].slice is not a function ({variable})"
+                        )));
+                    };
+                    let last = js::slice(s, -1, None);
+                    Ok(js::parse_int(&last).map(|n| n.to_string()) == Some(last))
+                } else {
+                    Ok(false)
+                }
+            }
             AttributesTest::IsUncertainDate { variable } => {
                 // Item[v] && Item[v].circa
                 Ok(item
@@ -446,11 +487,13 @@ impl AttributesTest {
                     .map(|d| js::truthy(d) && js::truthy_opt(d.get("circa")))
                     .unwrap_or(false))
             }
-            // PORT-LATER(wave1-input): attributes.js:78-90, needs
-            // state.processNumber(false, item, "locator") / shadow_numbers.
-            AttributesTest::Locator { .. } => Err(EngineError::NotYetPorted {
-                method: "attributes.js:@locator closure",
-            }),
+            // attributes.js:95-104: the label of the cite's locator.
+            AttributesTest::Locator { trylabel } => {
+                let myitem = cite_item.clone();
+                process_number(state, None, Some(&myitem), "locator")?;
+                let label = shadow_label(shadow(state, "locator")?);
+                Ok(label.as_deref() == Some(trylabel.as_str()))
+            }
             AttributesTest::PositionNear => {
                 // item && MAP[item.position] >= MAP[SUBSEQUENT(1)] && item["near-note"]
                 let pos = cite_item.get("position").and_then(Value::as_i64);
@@ -513,7 +556,7 @@ impl AttributesTest {
                 ) && js::truthy(cite_item);
                 let myitem = if use_cite { cite_item } else { item };
                 if variable == "hereinafter" && js::truthy_opt(myitem.get("id")) {
-                    // PORT-LATER(wave1-build): attributes.js:~410, needs
+                    // PORT-LATER(wave2): attributes.js:~410, needs
                     // state.sys.getAbbreviation and state.transform.abbrevs.
                     return Err(EngineError::NotYetPorted {
                         method: "attributes.js:@variable hereinafter test",
@@ -528,16 +571,32 @@ impl AttributesTest {
                     _ => Ok(false),
                 }
             }
-            // PORT-LATER(wave1-input): attributes.js:428-450, needs
-            // state.processNumber and state.tmp.shadow_numbers.page.
-            AttributesTest::Page { .. } => Err(EngineError::NotYetPorted {
-                method: "attributes.js:@page closure",
-            }),
-            // PORT-LATER(wave1-input): attributes.js:458-472, needs
-            // state.processNumber and state.tmp.shadow_numbers.number.
-            AttributesTest::Number { .. } => Err(EngineError::NotYetPorted {
-                method: "attributes.js:@number closure",
-            }),
+            // attributes.js:428-450.
+            AttributesTest::Page { trylabel } => {
+                let myitem = item.clone();
+                process_number(state, None, Some(&myitem), "page")?;
+                let label = match shadow_label(shadow(state, "page")?) {
+                    None => "page".to_string(),
+                    Some(l) if l == "sub verbo" => "sub-verbo".to_string(),
+                    Some(l) => l,
+                };
+                if let Some(sn) = state.tmp.shadow_numbers.get_mut("page") {
+                    if let Some(ShadowValue::Info(v0)) = sn.values.first_mut() {
+                        if v0.gotosleepability == Some(true) {
+                            v0.label_visibility = Some(false);
+                        }
+                    }
+                }
+                Ok(*trylabel == label)
+            }
+            // attributes.js:458-472.
+            AttributesTest::Number { trylabel } => {
+                let myitem = item.clone();
+                process_number(state, None, Some(&myitem), "number")?;
+                let label =
+                    shadow_label(shadow(state, "number")?).unwrap_or_else(|| "number".to_string());
+                Ok(*trylabel == label)
+            }
             AttributesTest::Jurisdiction { tryjurisdictions } => {
                 Ok(match item.get("jurisdiction").filter(|v| js::truthy(v)) {
                     Some(Value::String(j)) => tryjurisdictions.iter().any(|t| t == j),
@@ -646,7 +705,7 @@ impl AttributesTest {
                 Ok(res)
             }
             AttributesTest::AlternativeNodeInternal => Ok(!state.tmp.abort_alternative),
-            // PORT-LATER(wave1-output): attributes.js:~800-835, needs
+            // PORT-LATER(wave2): attributes.js:~800-835, needs
             // state.output.openLevel("empty") and
             // state.output.current.value().new_locale (queue.rs). Captured:
             // locale_list, locale_bares, locale.
@@ -2151,5 +2210,73 @@ mod tests {
         assert_eq!(skipped, EXPECTED_SKIPS.to_vec());
         assert_eq!(rejected, 1);
         assert!(compared >= 75, "compared {compared}");
+    }
+
+    /// Differential test of the `processNumber`-based condition closures
+    /// (`@is-numeric`, `@locator`, `@page`, `@number`) against citeproc-js
+    /// 2.4.63 (`scripts/csl-units/attribute_tests.cjs`, data in
+    /// `tests/data/csl/units/attribute_tests.json`).
+    ///
+    /// **Method.** For every item and cite item of the CSL test suite's
+    /// fixtures, in en-US and de-DE, the closure is built by the attribute
+    /// handler on a fresh `if` token and evaluated once with
+    /// `tmp.shadow_numbers` reset, on an engine built from a minimal style.
+    /// **Pass criterion:** every result (true / false / error message) equal.
+    /// **Result (2026-10-08):** 6,244 cases, all equal. Needs `vendor/` (the
+    /// locale files); skipped, with a message, when it is absent.
+    #[test]
+    fn number_condition_tests_match_citeproc_js() {
+        const DATA: &str = include_str!("../../tests/data/csl/units/attribute_tests.json");
+        const STYLE: &str = r#"<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0">
+  <info><id/><title/><updated>2009-08-10T04:49:00+09:00</updated></info>
+  <citation><layout><text variable="title"/></layout></citation>
+</style>"#;
+        let locales = test_locales();
+        if locales.is_empty() {
+            eprintln!("skipped: vendor/citeproc-js/locale is absent");
+            return;
+        }
+        let data: Value = serde_json::from_str(DATA).expect("attribute_tests.json parses");
+        let mut engines: std::collections::BTreeMap<String, State> = Default::default();
+        let mut bad = Vec::new();
+        let cases = data["cases"].as_array().cloned().unwrap_or_default();
+        for c in &cases {
+            let lang = c["lang"].as_str().unwrap_or("en-US").to_string();
+            if !engines.contains_key(&lang) {
+                let mut sys = crate::citeproc::Sys::default();
+                sys.locales = locales.clone();
+                let st = State::new(sys, STYLE, &lang, false).expect("engine");
+                engines.insert(lang.clone(), st);
+            }
+            let st = engines.get_mut(&lang).expect("engine");
+            let mut tok = Token::new("if", TokenType::Start);
+            let attr = c["attr"].as_str().unwrap_or("");
+            apply(st, &mut tok, attr, c["arg"].as_str().unwrap_or("")).expect("attribute");
+            st.tmp.shadow_numbers = Default::default();
+            let test = tok.tests[0].clone();
+            let got = test.eval(st, &mut tok, &c["Item"], &c["item"]);
+            let ok = match (&got, c.get("error")) {
+                (Ok(r), None) => Value::Bool(*r) == c["r"],
+                (Err(e), Some(w)) => {
+                    w.as_str()
+                        == Some(match e {
+                            EngineError::BadInput(m) => m.as_str(),
+                            _ => "",
+                        })
+                }
+                _ => false,
+            };
+            if !ok {
+                bad.push(format!("{c}: got {got:?}"));
+            }
+        }
+        assert!(cases.len() > 5000, "{}", cases.len());
+        assert!(
+            bad.is_empty(),
+            "{} of {} differ, first 10:\n{}",
+            bad.len(),
+            cases.len(),
+            bad[..bad.len().min(10)].join("\n")
+        );
     }
 }

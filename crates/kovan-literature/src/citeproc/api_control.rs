@@ -75,8 +75,8 @@ impl State {
     /// `setOutputFormat(mode)`: `opt.mode = mode` and `fun.decorate =
     /// CSL.Mode(mode)`.
     ///
-    /// PORT-LATER(queue): upstream also creates `this.output[mode] = {tmp:
-    /// {}}` on the output queue if it has none (wave1-output owns `Queue`).
+    /// Upstream also creates `this.output[mode] = {tmp: {}}` on the output
+    /// queue if it has none; nothing reads that bag, so it is not kept.
     pub fn set_output_format(&mut self, mode: &str) -> CslResult<()> {
         self.opt
             .insert("mode".into(), Value::String(mode.to_string()));

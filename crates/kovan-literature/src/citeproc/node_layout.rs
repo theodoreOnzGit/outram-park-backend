@@ -66,7 +66,7 @@ impl NodeLayoutExec {
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
         match self {
-            // PORT-LATER(wave1-output): node_layout.js:50-66, needs
+            // PORT-LATER(wave2): node_layout.js:50-66, needs
             // state.output.startTag + current.value() fields (queue.rs) and
             // state.sys.wrapCitationEntry.
             NodeLayoutExec::CiteEntryStart => Err(EngineError::NotYetPorted {
@@ -87,32 +87,32 @@ impl NodeLayoutExec {
                 state.tmp.nameset_counter = 0;
                 Ok(None)
             }
-            // PORT-LATER(wave1-output): node_layout.js:114-117, needs
+            // PORT-LATER(wave2): node_layout.js:114-117, needs
             // state.output.openLevel(new CSL.Token()) (queue.rs).
             NodeLayoutExec::OpenLevel => Err(EngineError::NotYetPorted {
                 method: "node_layout.js:114 closure",
             }),
-            // PORT-LATER(wave1-output): node_layout.js:122-131, needs
+            // PORT-LATER(wave2): node_layout.js:122-131, needs
             // CSL.checkPrefixSpaceAppend, state.output.checkNestedBrace,
             // CSL.checkIgnorePredecessor and state.output.append.
             NodeLayoutExec::CitationPrefix => Err(EngineError::NotYetPorted {
                 method: "node_layout.js:122 closure",
             }),
-            // PORT-LATER(wave1-output): node_layout.js:11-33, needs
+            // PORT-LATER(wave2): node_layout.js:11-33, needs
             // state.output.current.value() and endTag("bib_other").
             NodeLayoutExec::BibliographySuffix => Err(EngineError::NotYetPorted {
                 method: "node_layout.js:11 closure",
             }),
-            // PORT-LATER(wave1-output): node_layout.js:~230-239, needs
+            // PORT-LATER(wave2): node_layout.js:~230-239, needs
             // CSL.checkSuffixSpacePrepend, checkNestedBrace and output.append.
             NodeLayoutExec::CitationSuffix => Err(EngineError::NotYetPorted {
                 method: "node_layout.js:230 closure",
             }),
-            // PORT-LATER(wave1-output): node_layout.js:~245, needs output.closeLevel.
+            // PORT-LATER(wave2): node_layout.js:~245, needs output.closeLevel.
             NodeLayoutExec::CloseLevel => Err(EngineError::NotYetPorted {
                 method: "node_layout.js:245 closure",
             }),
-            // PORT-LATER(wave1-output): node_layout.js:~248-257, needs output.endTag.
+            // PORT-LATER(wave2): node_layout.js:~248-257, needs output.endTag.
             NodeLayoutExec::CiteEntryEnd => Err(EngineError::NotYetPorted {
                 method: "node_layout.js:248 closure",
             }),

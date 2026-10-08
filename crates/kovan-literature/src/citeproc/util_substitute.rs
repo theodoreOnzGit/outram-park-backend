@@ -138,37 +138,37 @@ impl UtilSubstituteExec {
                 }
                 Ok(None)
             }
-            // PORT-LATER(wave1-output): util_substitute.js:79-84, needs
+            // PORT-LATER(wave2): util_substitute.js:79-84, needs
             // state.output.startTag("bib_first", bib_first) (queue.rs) and
             // writes bib_first.strings.first_blob on the captured token.
             UtilSubstituteExec::BibFirstSecondFieldAlign => Err(EngineError::NotYetPorted {
                 method: "util_substitute.js:79 closure",
             }),
-            // PORT-LATER(wave1-output): util_substitute.js:92-95, as above.
+            // PORT-LATER(wave2): util_substitute.js:92-95, as above.
             UtilSubstituteExec::BibFirstDisplay => Err(EngineError::NotYetPorted {
                 method: "util_substitute.js:92 closure",
             }),
-            // PORT-LATER(wave1-output): util_substitute.js:118-170, needs
+            // PORT-LATER(wave2): util_substitute.js:118-170, needs
             // state.output.startTag("variable_entry", ...) and
             // state.output.current.value().params (queue.rs).
             UtilSubstituteExec::VariableEntryStart => Err(EngineError::NotYetPorted {
                 method: "util_substitute.js:118 closure",
             }),
-            // PORT-LATER(wave1-output): util_substitute.js:~180, needs
+            // PORT-LATER(wave2): util_substitute.js:~180, needs
             // state.output.endTag("variable_entry").
             UtilSubstituteExec::VariableEntryEnd => Err(EngineError::NotYetPorted {
                 method: "util_substitute.js:180 closure",
             }),
-            // PORT-LATER(wave1-output): util_substitute.js:~200, needs
+            // PORT-LATER(wave2): util_substitute.js:~200, needs
             // state.output.endTag("bib_first").
             UtilSubstituteExec::BibFirstEnd => Err(EngineError::NotYetPorted {
                 method: "util_substitute.js:200 closure",
             }),
-            // PORT-LATER(wave1-output): util_substitute.js:~207, needs endTag.
+            // PORT-LATER(wave2): util_substitute.js:~207, needs endTag.
             UtilSubstituteExec::BibFirstEndGroup => Err(EngineError::NotYetPorted {
                 method: "util_substitute.js:207 closure",
             }),
-            // PORT-LATER(wave1-output): util_substitute.js:~216, needs startTag.
+            // PORT-LATER(wave2): util_substitute.js:~216, needs startTag.
             UtilSubstituteExec::BibOtherStart => Err(EngineError::NotYetPorted {
                 method: "util_substitute.js:216 closure",
             }),
@@ -293,7 +293,7 @@ pub fn substitute_start(
         target.push(if_start);
     }
 
-    if state.sys_variable_wrapper && variables_real_len(token) > 0 {
+    if state.fun.host_hooks.variable_wrapper && variables_real_len(token) > 0 {
         token
             .execs
             .push(Exec::UtilSubstitute(UtilSubstituteExec::VariableEntryStart));
@@ -324,7 +324,7 @@ pub struct SubstituteEnd {
 pub fn substitute_end(state: &mut State, token: &Token) -> CslResult<SubstituteEnd> {
     let mut out = SubstituteEnd::default();
     let has_variable = js::truthy_opt(token.extra.get("hasVariable"));
-    if state.sys_variable_wrapper && (has_variable || variables_real_len(token) > 0) {
+    if state.fun.host_hooks.variable_wrapper && (has_variable || variables_real_len(token) > 0) {
         out.execs
             .push(Exec::UtilSubstitute(UtilSubstituteExec::VariableEntryEnd));
     }

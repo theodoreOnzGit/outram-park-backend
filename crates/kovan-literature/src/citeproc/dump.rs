@@ -42,10 +42,12 @@
 //!
 //! # Known limits of the token form
 //!
-//! `tests_n` is emitted when the token has tests. citeproc-js also has tokens
-//! whose `tests` array exists but is empty (it prints `tests_n: 0`); the
-//! foundation's `Token` cannot tell that from "no array", so those differ
-//! until the node builders record it (see the report of wave1-build).
+//! `tests_n` is emitted when the token's `tests` array exists
+//! ([`Token::tests_defined`], set by every builder that creates it) or is
+//! non-empty, so a token with `tests: []` prints `tests_n: 0` as in
+//! citeproc-js. Tokens reached inside another token (the `label` and `et-al`
+//! tokens a `names` token carries) are stored as JSON in `Token::extra` and
+//! printed as stored.
 
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};

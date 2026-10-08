@@ -91,7 +91,8 @@ impl State {
             csl_version: "1.0".to_string(),
             ..State::default()
         };
-        s.variable_wrapper_prepunct = js::truthy_opt(sys.options.get("variableWrapper"));
+        // `this.sys.variableWrapper` exists (the runner copies OPTIONS onto sys).
+        s.fun.host_hooks.variable_wrapper = js::truthy_opt(sys.options.get("variableWrapper"));
         // `this.sys.AbbreviationSegments = CSL.AbbreviationSegments`,
         // `CSL.stringCompare = this.sys.stringCompare`: no counterpart.
         s.sys = sys;

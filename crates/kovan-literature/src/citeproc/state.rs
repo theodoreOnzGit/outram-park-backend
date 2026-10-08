@@ -117,8 +117,6 @@ pub struct State {
     /// `state.build_layout_locale_flag` (node_layout.js:259; a misspelling of
     /// `state.build.layout_locale_flag` upstream, kept as its own flag).
     pub build_layout_locale_flag: bool,
-    /// `sys.variableWrapper` is installed (`Engine::set_variable_wrapper`).
-    pub sys_variable_wrapper: bool,
 
     /// Whether `this.registry` has been assigned yet. `CSL.SET_COURT_CLASSES`
     /// (load.js) tests `state.registry` for "defined" to tell an in-style
@@ -129,11 +127,9 @@ pub struct State {
     /// `version` (`this.version = CSL.version` in `configureTokenLists`) is
     /// `undefined` in 2.4.63 and so is not modelled.
     ///
-    /// `CSL.VARIABLE_WRAPPER_PREPUNCT_REX` is a module global that the
-    /// constructor sets when `sys.variableWrapper` is truthy (build.js);
-    /// here the flag it is set under. The regex is
-    /// `load::variable_wrapper_prepunct_rex()`.
-    pub variable_wrapper_prepunct: bool,
+    /// Whether `sys.variableWrapper` exists (which also decides whether the
+    /// constructor sets the module global `CSL.VARIABLE_WRAPPER_PREPUNCT_REX`,
+    /// `load::variable_wrapper_prepunct_rex()`) is `fun.host_hooks.variable_wrapper`.
     // ---- fields: wave1-input (dates, numbers, name particles, retrieveItem) ----
     /// PROVISIONAL (wave1-input): `registry.refhash`, the normalised items
     /// by id that `retrieveItem` returns on later calls. Belongs to the

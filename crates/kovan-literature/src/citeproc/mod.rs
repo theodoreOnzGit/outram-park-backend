@@ -642,6 +642,7 @@ impl Engine {
     /// citation to the item's URL, bolds a back-reference number).
     pub fn set_variable_wrapper(&mut self, on: bool) {
         self.variable_wrapper = on;
+        self.state.fun.host_hooks.variable_wrapper = on;
     }
 
     /// Whether the `variableWrapper` is installed.
