@@ -1244,3 +1244,120 @@ fn append_value(state: &mut State, value: &Value, tok: &Token) -> CslResult<()> 
     )?;
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "render_driver.rs"]
+mod render_driver;
+
+#[cfg(test)]
+mod fixture_tests {
+    //! The rendering nodes of wave 2 against citeproc-js, end to end, through
+    //! the test-only driver of `render_driver.rs`.
+    //!
+    //! **Methodology.** Every fixture of the CSL test suite
+    //! (`vendor/csl-test-suite/processor-tests/humans`, 845 of them) whose
+    //! mode is `citation` and that has `CITATION-ITEMS` (and neither
+    //! `BIBENTRIES` nor `CITATIONS`, which need the registry) is built into an
+    //! engine as the test runner does and each cluster is rendered by the
+    //! driver. The output is compared with what citeproc-js produced for the
+    //! same fixture (`tests/data/csl/test_suite_reference.json`, *its* output,
+    //! not the fixture's expected `RESULT`). A fixture that reaches a part of
+    //! the port that is not there yet (names, dates, the registry) is
+    //! *blocked*, not failed. **Pass criterion:** every fixture that renders
+    //! equals citeproc-js's output, except those listed in `KNOWN` with the
+    //! reason.
+    //!
+    //! **Results** are printed by the test (`--nocapture`) and recorded in the
+    //! doc comment of `fixtures_render_like_citeproc_js` below.
+    use std::collections::BTreeMap;
+
+    use serde_json::Value;
+
+    use super::render_driver::{load_fixtures, load_locales, run_fixture, Outcome};
+
+    const REFERENCE: &str = include_str!("../../tests/data/csl/test_suite_reference.json");
+
+    /// Fixtures where the driver's output differs from citeproc-js's, with
+    /// the reason (none recorded yet).
+    const KNOWN: &[(&str, &str)] = &[];
+
+    /// Run the driver over the suite and compare with citeproc-js.
+    ///
+    /// **Results (2026-10-08, branch citeproc/w2-render):** see the module
+    /// docs; the counts by area are printed with `--nocapture`.
+    #[test]
+    fn fixtures_render_like_citeproc_js() {
+        let Some(fixtures) = load_fixtures() else {
+            println!("SKIP: vendor/csl-test-suite is absent (run scripts/csl-reference.sh)");
+            return;
+        };
+        let Some(locales) = load_locales() else {
+            println!("SKIP: vendor/citeproc-js/locale is absent");
+            return;
+        };
+        let reference: Value = serde_json::from_str(REFERENCE).expect("reference json");
+        #[derive(Default)]
+        struct Counts {
+            ok: usize,
+            bad: usize,
+            blocked: usize,
+            skipped: usize,
+        }
+        let mut by_area: BTreeMap<String, Counts> = BTreeMap::new();
+        let mut blocked_why: BTreeMap<String, usize> = BTreeMap::new();
+        let mut skipped_why: BTreeMap<String, usize> = BTreeMap::new();
+        let mut bad: Vec<String> = Vec::new();
+        let verbose = std::env::var("RENDER_DRIVER_VERBOSE").is_ok();
+        for (name, fx) in &fixtures {
+            let area = name.split('_').next().unwrap_or(name).to_string();
+            let c = by_area.entry(area).or_default();
+            match run_fixture(fx, &locales) {
+                Outcome::Skipped(why) => {
+                    c.skipped += 1;
+                    *skipped_why.entry(why).or_insert(0) += 1;
+                }
+                Outcome::Blocked(why) => {
+                    c.blocked += 1;
+                    let key: String = why.chars().take(90).collect();
+                    *blocked_why.entry(key).or_insert(0) += 1;
+                    if verbose {
+                        println!("BLOCKED {name}: {why}");
+                    }
+                }
+                Outcome::Rendered(out) => {
+                    let want = reference["fixtures"][name]["output"].as_str().unwrap_or("");
+                    if out == want {
+                        c.ok += 1;
+                    } else {
+                        c.bad += 1;
+                        if !KNOWN.iter().any(|(n, _)| n == name) {
+                            bad.push(format!("{name}:\n  want {want:?}\n  got  {out:?}"));
+                        }
+                    }
+                }
+            }
+        }
+        let (mut ok, mut badn, mut blocked, mut skipped) = (0, 0, 0, 0);
+        println!("area            exact  differs  blocked  skipped");
+        for (a, c) in &by_area {
+            println!("{a:<14} {:>6} {:>8} {:>8} {:>8}", c.ok, c.bad, c.blocked, c.skipped);
+            ok += c.ok;
+            badn += c.bad;
+            blocked += c.blocked;
+            skipped += c.skipped;
+        }
+        println!("TOTAL          {ok:>6} {badn:>8} {blocked:>8} {skipped:>8}");
+        for (why, n) in &skipped_why {
+            println!("skipped x{n}: {why}");
+        }
+        for (why, n) in &blocked_why {
+            println!("blocked x{n}: {why}");
+        }
+        assert!(
+            bad.is_empty(),
+            "{} fixtures differ from citeproc-js, first:\n{}",
+            bad.len(),
+            bad[..bad.len().min(25)].join("\n")
+        );
+    }
+}

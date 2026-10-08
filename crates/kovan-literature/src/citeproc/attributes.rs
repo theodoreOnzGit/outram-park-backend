@@ -41,10 +41,13 @@ use super::exec::{Exec, Test};
 use super::js::{self, Obj};
 use super::util_number::{process_number, ShadowLabel, ShadowNumber, ShadowValue};
 use super::load::{
-    position_map, DESCENDING, GIVENNAME_DISAMBIGUATION_RULES, NUMERIC_VARIABLES, POSITION,
+    dev_ext_truthy, position_map, DATE_VARIABLES, DESCENDING, GIVENNAME_DISAMBIGUATION_RULES,
+    NUMERIC_VARIABLES, POSITION,
 };
 use super::obj_token::{Token, TokenType};
+use super::queue::{self, FormatRef, QueueId};
 use super::state::{Area, State};
+use super::util_transform::{get_item_prop, set_item_prop};
 use super::util_locale::{locale_resolve, LangSpec};
 use super::{CslResult, EngineError};
 // ---------------------------------------------------------------------------
@@ -232,7 +235,7 @@ impl AttributesExec {
         state: &mut State,
         token: &mut Token,
         item: &Value,
-        _cite_item: &Value,
+        cite_item: &Value,
     ) -> CslResult<Option<usize>> {
         match self {
             // attributes.js:~150-165. The `variables_real` list is kept in
@@ -255,12 +258,10 @@ impl AttributesExec {
                 }
                 Ok(None)
             }
-            // PORT-LATER(wave2): attributes.js:166-300, mutates Item (authority,
-            // committee split), reads state.transform.abbrevs, writes
-            // state.tmp.group_context.tip / name_node / output.current.
-            AttributesExec::VariableCheckOutput => Err(EngineError::NotYetPorted {
-                method: "attributes.js:@variable check-for-output closure",
-            }),
+            AttributesExec::VariableCheckOutput => {
+                variable_check_output(state, token, item, cite_item)?;
+                Ok(None)
+            }
             // attributes.js:1493-1503.
             AttributesExec::TextCase { arg } => {
                 if arg == "normal" {
@@ -278,6 +279,240 @@ impl AttributesExec {
         }
     }
 }
+
+/// The "check for output" closure of `@variable` on `cs:names`, `cs:date`,
+/// `cs:text` and `cs:number` (attributes.js:166-300): decide whether the
+/// element will render something, and raise the group flags accordingly.
+fn variable_check_output(
+    state: &mut State,
+    token: &mut Token,
+    item: &Value,
+    cite_item: &Value,
+) -> CslResult<()> {
+    let has_cite = js::truthy(cite_item);
+    let mut output = false;
+    let variables: Vec<String> = token.variables.clone();
+    for v0 in &variables {
+        let mut variable = v0.clone();
+        // `Item[variable]` as the closure sees it: a split of authority or
+        // committee rewrites it (see util_transform's module docs).
+        let mut cur: Option<Value> = item.get(variable.as_str()).cloned();
+        if (variable == "authority" || variable == "committee")
+            && matches!(cur, Some(Value::String(_)))
+            && token.name == "names"
+        {
+            // Great! So for each of these, we split.
+            // And we only recombine everything if the length
+            // of all the splits matches.
+
+            // Preflight
+            let mut is_valid = true;
+            static SEMI_RE: LazyLock<Regex> = LazyLock::new(|| {
+                #[allow(clippy::expect_used)]
+                Regex::new(&format!("[{ws}]*;[{ws}]*", ws = js::WS)).expect("static regex")
+            });
+            let text = js::to_js_string(cur.as_ref().unwrap_or(&Value::Null));
+            let mut raw_names: Vec<String> = js::split(&SEMI_RE, &text);
+            let multi_keys: Option<Value> = item
+                .get("multi")
+                .filter(|m| js::truthy(m))
+                .map(|m| m.get("_keys").cloned().unwrap_or(Value::Null));
+            let var_keys: Option<Value> = match &multi_keys {
+                Some(Value::Null) => {
+                    return Err(EngineError::BadInput(format!(
+                        "Cannot read properties of undefined (reading '{variable}')"
+                    )))
+                }
+                Some(k) => k.get(variable.as_str()).filter(|v| js::truthy(v)).cloned(),
+                None => None,
+            };
+            // langTag -> list (split) or the single string (invalid case)
+            let mut raw_multi: Vec<(String, Vec<String>)> = Vec::new();
+            if let Some(Value::Object(by_lang)) = &var_keys {
+                for (lang_tag, v) in by_lang {
+                    let parts = js::split(&SEMI_RE, &js::to_js_string(v));
+                    let n = parts.len();
+                    raw_multi.push((lang_tag.clone(), parts));
+                    if n != raw_names.len() {
+                        is_valid = false;
+                        break;
+                    }
+                }
+            }
+            if !is_valid {
+                raw_names = vec![text.clone()];
+                // `rawMultiNames = Item.multi._keys[variable]`: the strings
+                // themselves, which `rawMultiNames[langTag][j]` then indexes
+                // by character.
+                raw_multi = match &var_keys {
+                    Some(Value::Object(by_lang)) => by_lang
+                        .iter()
+                        .map(|(k, v)| {
+                            let s = js::to_js_string(v);
+                            let chars: Vec<String> =
+                                (0..js::len(&s) as i64).map(|i| js::char_at(&s, i)).collect();
+                            (k.clone(), chars)
+                        })
+                        .collect(),
+                    _ => Vec::new(),
+                };
+            }
+            let mut names: Vec<Value> = Vec::new();
+            for (j, name) in raw_names.iter().enumerate() {
+                let mut key_obj = js::Obj::new();
+                for (lang_tag, list) in &raw_multi {
+                    let mut child = js::Obj::new();
+                    if let Some(lit) = list.get(j) {
+                        child.insert("literal".into(), Value::String(lit.clone()));
+                    }
+                    key_obj.insert(lang_tag.clone(), Value::Object(child));
+                }
+                let mut multi = js::Obj::new();
+                multi.insert("_key".into(), Value::Object(key_obj));
+                let mut parent = js::Obj::new();
+                parent.insert("literal".into(), Value::String(name.clone()));
+                parent.insert("multi".into(), Value::Object(multi));
+                names.push(Value::Object(parent));
+            }
+            let arr = Value::Array(names);
+            set_item_prop(state, item, &variable, arr.clone());
+            cur = Some(arr);
+        }
+        if token.string_opt("form").as_deref() == Some("short") && !js::truthy_opt(cur.as_ref()) {
+            if variable == "title" {
+                variable = "title-short".to_string();
+            } else if variable == "container-title" {
+                variable = "container-title-short".to_string();
+            }
+            cur = item.get(variable.as_str()).cloned();
+        }
+        if variable == "year-suffix" {
+            // year-suffix always signals that it produces output,
+            // even when it doesn't. This permits it to be used with
+            // the "no date" term inside a group used exclusively
+            // to control formatting.
+            output = true;
+            break;
+        } else if DATE_VARIABLES.contains(&variable.as_str()) {
+            if dev_ext_truthy(state, "locator_date_and_revision") && variable == "locator-date" {
+                // If locator-date is set, it's valid.
+                output = true;
+                break;
+            }
+            if let Some(d) = cur.as_ref().filter(|d| js::truthy(d)) {
+                let dateparts: Vec<String> = match token.extra.get("dateparts") {
+                    Some(Value::Array(a)) => a.iter().map(js::to_js_string).collect(),
+                    _ => {
+                        return Err(EngineError::BadInput(
+                            "Cannot read properties of undefined (reading 'indexOf')".into(),
+                        ))
+                    }
+                };
+                if let Value::Object(o) = d {
+                    for (key, val) in o {
+                        if !dateparts.contains(key) && key != "literal" {
+                            continue;
+                        }
+                        if js::truthy(val) {
+                            output = true;
+                            break;
+                        }
+                    }
+                }
+                if output {
+                    break;
+                }
+            }
+        } else if variable == "locator" {
+            if has_cite && js::truthy_opt(cite_item.get("locator")) {
+                output = true;
+            }
+            break;
+        } else if variable == "locator-extra" {
+            if has_cite && js::truthy_opt(cite_item.get("locator-extra")) {
+                output = true;
+            }
+            break;
+        } else if variable == "citation-number" || variable == "citation-label" {
+            output = true;
+            break;
+        } else if variable == "first-reference-note-number" {
+            if has_cite && js::truthy_opt(cite_item.get("first-reference-note-number")) {
+                output = true;
+            }
+            break;
+        } else if variable == "first-container-reference-note-number" {
+            if has_cite && js::truthy_opt(cite_item.get("first-container-reference-note-number")) {
+                output = true;
+            }
+            break;
+        } else if variable == "hereinafter" {
+            let id = item.get("id");
+            if js::truthy_opt(id)
+                && state
+                    .transform
+                    .abbrev(
+                        "default",
+                        "hereinafter",
+                        &id.map(js::to_js_string).unwrap_or_default(),
+                    )
+                    .map(|a| !a.is_empty())
+                    .unwrap_or(false)
+            {
+                output = true;
+            }
+            break;
+        } else if matches!(cur, Some(Value::Object(_)) | Some(Value::Array(_)) | Some(Value::Null)) {
+            break;
+        } else if matches!(&cur, Some(Value::String(s)) if !s.is_empty()) {
+            output = true;
+            break;
+        } else if matches!(cur, Some(Value::Number(_))) {
+            output = true;
+            break;
+        }
+        if output {
+            break;
+        }
+    }
+    if output {
+        let real: Vec<String> = match token.extra.get("variables_real") {
+            Some(Value::Array(a)) => a.iter().map(js::to_js_string).collect(),
+            _ => Vec::new(),
+        };
+        for variable in &real {
+            if variable != "citation-number" || state.tmp.area != "bibliography" {
+                state.tmp.cite_renders_content = true;
+            }
+            super::node_group::tip_mut(state)?.variable_success = true;
+            // For util_substitute.js, subsequent-author-substitute
+            if state
+                .tmp
+                .can_substitute
+                .value()
+                .map(js::truthy)
+                .unwrap_or(false)
+                && state.tmp.area == "bibliography"
+                && matches!(
+                    get_item_prop(state, item, variable),
+                    Some(Value::String(_))
+                )
+            {
+                // PORT-LATER(w2-names): `state.tmp.name_node.top =
+                // state.output.current.value(); state.tmp.rendered_name.push(
+                // Item[variable])` belong to the cs:names code.
+                return Err(EngineError::NotYetPorted {
+                    method: "attributes.js:@variable state.tmp.rendered_name.push",
+                });
+            }
+        }
+        state.tmp.can_substitute.replace_literal(Value::Bool(false))?;
+    } else {
+        super::node_group::tip_mut(state)?.variable_attempt = true;
+    }
+    Ok(())
+}
+
 
 /// The condition closures `src/attributes.js` stores in `token.tests` /
 /// `token.test` (PORTING.md §4). Each variant is one `maketest(...)` closure
@@ -555,11 +790,16 @@ impl AttributesTest {
                 ) && js::truthy(cite_item);
                 let myitem = if use_cite { cite_item } else { item };
                 if variable == "hereinafter" && js::truthy_opt(myitem.get("id")) {
-                    // PORT-LATER(wave2): attributes.js:~410, needs
-                    // state.sys.getAbbreviation and state.transform.abbrevs.
-                    return Err(EngineError::NotYetPorted {
-                        method: "attributes.js:@variable hereinafter test",
-                    });
+                    // We don't run loadAbbreviation() here; it is run by the
+                    // application-supplied retrieveItem() if hereinafter
+                    // functionality is to be used, so this key will always
+                    // exist in memory, possibly with a nil value.
+                    let id = myitem.get("id").map(js::to_js_string).unwrap_or_default();
+                    return Ok(state
+                        .transform
+                        .abbrev("default", "hereinafter", &id)
+                        .map(|a| !a.is_empty())
+                        .unwrap_or(false));
                 }
                 match myitem.get(variable.as_str()) {
                     Some(v) if js::truthy(v) => match v {
@@ -704,17 +944,48 @@ impl AttributesTest {
                 Ok(res)
             }
             AttributesTest::AlternativeNodeInternal => Ok(!state.tmp.abort_alternative),
-            // PORT-LATER(wave2): attributes.js:~800-835, needs
-            // state.output.openLevel("empty") and
-            // state.output.current.value().new_locale (queue.rs). Captured:
-            // locale_list, locale_bares, locale.
-            AttributesTest::LocaleInternal { .. } => Err(EngineError::NotYetPorted {
-                method: "attributes.js:@locale-internal closure",
-            }),
-            // PORT-LATER(wave2): attributes.js:~845, needs CSL.GET_COURT_CLASS.
-            AttributesTest::CourtClass { .. } => Err(EngineError::NotYetPorted {
-                method: "attributes.js:@court-class closure",
-            }),
+            AttributesTest::LocaleInternal {
+                locale_list,
+                locale_bares,
+                locale,
+            } => {
+                let mut res = false;
+                let default_locale = default_locale(state);
+                let mut langspec: Option<LangSpec> = None;
+                if js::truthy_opt(item.get("language")) {
+                    let lang = item.get("language").map(js::to_js_string).unwrap_or_default();
+                    let ls = locale_resolve(&lang, Some(&default_locale));
+                    if ls.best != default_locale {
+                        langspec = Some(ls);
+                    }
+                }
+                if let Some(ls) = langspec {
+                    // We attempt to match a specific locale from the
+                    // list of parameters.  If that fails, we fall back
+                    // to the base locale of the first element.  The
+                    // locale applied is always the first local
+                    // in the list of parameters (or base locale, for a
+                    // single two-character language code)
+                    let matched = locale_list.iter().any(|l| ls.best == l.best)
+                        || locale_bares.contains(&ls.bare);
+                    if matched {
+                        set_lang(state, locale);
+                        state.tmp.last_cite_locale = Some(locale.clone());
+                        // Set empty group open tag with locale set marker
+                        queue::open_level(state, QueueId::Output, FormatRef::Name("empty".into()))?;
+                        if let Some(cur) = queue::current(state, QueueId::Output) {
+                            state.blobs.get_mut(cur).new_locale = Some(locale.clone());
+                        }
+                        res = true;
+                    }
+                }
+                Ok(res)
+            }
+            AttributesTest::CourtClass { tryclass } => {
+                // (called as a method of CSL, so `this.lang` is undefined)
+                let cls = super::load::get_court_class(state, None, item, false);
+                Ok(cls == *tryclass)
+            }
             AttributesTest::ContainerMultiple { retval } => {
                 let key = str_of(item, "container_id");
                 let n = state
