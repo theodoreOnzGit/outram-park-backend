@@ -67,7 +67,11 @@ pub fn ambig_config_diff(a: &AmbigConfig, b: &AmbigConfig) -> CslResult<bool> {
         if a.names[pos] != b.names[pos] {
             return Ok(true);
         }
-        let llen = a.givens.get(pos).map(|g| givens_loop_bound(g)).unwrap_or(f64::NAN);
+        let llen = a
+            .givens
+            .get(pos)
+            .map(|g| givens_loop_bound(g))
+            .unwrap_or(f64::NAN);
         let mut ppos = 0usize;
         while (ppos as f64) < llen {
             let av = a.givens.get(pos).and_then(|g| g.get(ppos));
@@ -231,7 +235,9 @@ mod tests {
         // names differ
         assert!(ambig_config_diff(&a, &cfg(&[3], &[&[0, 1]], json!(false), json!(0))).unwrap());
         // `disambiguate` is compared loosely: false == 0, but 0 != 1
-        assert!(!ambig_config_diff(&a, &cfg(&[2], &[&[0, 1]], json!(false), json!(false))).unwrap());
+        assert!(
+            !ambig_config_diff(&a, &cfg(&[2], &[&[0, 1]], json!(false), json!(false))).unwrap()
+        );
         assert!(ambig_config_diff(&a, &cfg(&[2], &[&[0, 1]], json!(false), json!(1))).unwrap());
         // `year_suffix` is compared strictly: false !== "0"
         assert!(ambig_config_diff(&a, &cfg(&[2], &[&[0, 1]], json!("0"), json!(0))).unwrap());

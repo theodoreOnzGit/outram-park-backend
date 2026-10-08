@@ -119,18 +119,29 @@ pub fn start_citation(state: &mut State, sorted_items: &mut [(Value, Obj)]) -> C
     for i in 0..sorted_items.len() - 1 {
         let mut fresh_match_list = false;
         let mut info: BTreeMap<String, bool> = BTreeMap::new();
-        let see_also = sorted_items[i].0.get("seeAlso").and_then(Value::as_array).cloned();
+        let see_also = sorted_items[i]
+            .0
+            .get("seeAlso")
+            .and_then(Value::as_array)
+            .cloned();
         if see_also.as_ref().map(|a| !a.is_empty()).unwrap_or(false) && !parallel_match_list {
             fresh_match_list = true;
             let see_also = see_also.unwrap_or_default();
-            let mut list: Vec<Value> = vec![sorted_items[i].0.get("id").cloned().unwrap_or(Value::Null)];
+            let mut list: Vec<Value> =
+                vec![sorted_items[i].0.get("id").cloned().unwrap_or(Value::Null)];
             list.extend(see_also);
             parallel_match_list = true;
             let mut temp_match_list = list.clone();
-            sorted_items[i].1.insert("parallel".into(), Value::String("first".into()));
+            sorted_items[i]
+                .1
+                .insert("parallel".into(), Value::String("first".into()));
             let remainder = sorted_items.len() - i;
             for j in 0..remainder {
-                let item_id = sorted_items[i + j].0.get("id").cloned().unwrap_or(Value::Null);
+                let item_id = sorted_items[i + j]
+                    .0
+                    .get("id")
+                    .cloned()
+                    .unwrap_or(Value::Null);
                 let ididx = temp_match_list.iter().position(|x| *x == item_id);
                 idx_end = IdxEnd::False;
                 if ididx.is_none() {
@@ -214,7 +225,9 @@ pub fn start_citation(state: &mut State, sorted_items: &mut [(Value, Obj)]) -> C
     for (start, end) in sibling_ranges {
         let master_id = super::registry::id_key(sorted_items[start].0.get("id"));
         let token = state.registry.registry.get_mut(&master_id).ok_or_else(|| {
-            EngineError::Csl("TypeError: Cannot set properties of undefined (setting 'master')".into())
+            EngineError::Csl(
+                "TypeError: Cannot set properties of undefined (setting 'master')".into(),
+            )
         })?;
         token.master = true;
         token.siblings = Some(Vec::new());
@@ -258,11 +271,14 @@ pub fn check_repeats(state: &State, params: &GroupContext) -> CslResult<bool> {
         return Ok(false);
     };
     let empty: BTreeMap<String, bool> = BTreeMap::new();
-    let lookup = |arr: &dyn Fn(i64) -> Option<BTreeMap<String, bool>>| -> CslResult<BTreeMap<String, bool>> {
-        arr(idx).ok_or_else(|| {
-            EngineError::Csl("TypeError: Cannot read properties of undefined (reading 'START')".into())
-        })
-    };
+    let lookup =
+        |arr: &dyn Fn(i64) -> Option<BTreeMap<String, bool>>| -> CslResult<BTreeMap<String, bool>> {
+            arr(idx).ok_or_else(|| {
+                EngineError::Csl(
+                    "TypeError: Cannot read properties of undefined (reading 'START')".into(),
+                )
+            })
+        };
     if let Some(keys) = param_keys(&params.parallel_first) {
         let arr = |i: i64| -> Option<BTreeMap<String, bool>> {
             if i == 0 {
@@ -274,7 +290,9 @@ pub fn check_repeats(state: &State, params: &GroupContext) -> CslResult<bool> {
         let at = lookup(&arr)?;
         let mut ret = true;
         for varname in keys {
-            if !at.get(&varname).copied().unwrap_or(false) || at.get("START").copied().unwrap_or(false) {
+            if !at.get(&varname).copied().unwrap_or(false)
+                || at.get("START").copied().unwrap_or(false)
+            {
                 // true --> suppress the entry
                 // Test here evaluates as "all", not "any"
                 ret = false;
@@ -295,7 +313,9 @@ pub fn check_repeats(state: &State, params: &GroupContext) -> CslResult<bool> {
         let at = lookup(&arr)?;
         let mut ret = true;
         for varname in keys {
-            if !at.get(&varname).copied().unwrap_or(false) || at.get("END").copied().unwrap_or(false) {
+            if !at.get(&varname).copied().unwrap_or(false)
+                || at.get("END").copied().unwrap_or(false)
+            {
                 // "all" match, as above.
                 ret = false;
             }

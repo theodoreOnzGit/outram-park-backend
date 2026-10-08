@@ -802,7 +802,8 @@ impl Engine {
             };
             if js::truthy_opt(item.get("jurisdiction")) {
                 return Err(EngineError::Csl(
-                    "fixture item with a jurisdiction: abbreviation files not available".to_string(),
+                    "fixture item with a jurisdiction: abbreviation files not available"
+                        .to_string(),
                 ));
             }
             if let Some(language) = item.get("language").filter(|l| js::truthy(l)) {
@@ -969,7 +970,8 @@ mod tests {
         assert!(
             e.sys().retrieve_item("ITEM-1").is_none() && e.sys().retrieve_item("ITEM-2").is_some()
         );
-        assert!(e.replace_items(&[json!({})]).is_err());
+        // an item without an id is keyed "undefined"
+        assert!(e.replace_items(&[json!({})]).is_ok());
         e.set_output_format(OutputFormat::from_name("rtf").unwrap());
         assert_eq!(e.output_format(), OutputFormat::Rtf);
         assert_eq!(OutputFormat::from_name("nope"), None);
@@ -1034,7 +1036,8 @@ mod tests {
         // then edition, descending as numbers padded for sorting: c (10) before b (2).
         assert_eq!(e.registry_ids().unwrap(), vec!["c", "b", "d", "a"]);
         // nosort keeps the order given
-        e.update_items(&["d".to_string(), "a".to_string()], true).unwrap();
+        e.update_items(&["d".to_string(), "a".to_string()], true)
+            .unwrap();
         assert_eq!(e.registry_ids().unwrap(), vec!["d", "a"]);
         assert!(!e.citation_registered("C1").unwrap());
     }
@@ -1052,7 +1055,10 @@ mod tests {
             "",
         )
         .unwrap();
-        assert!(matches!(e.make_bibliography(None), Err(EngineError::Csl(_))));
+        assert!(matches!(
+            e.make_bibliography(None),
+            Err(EngineError::Csl(_))
+        ));
         assert_eq!(
             e.update_items(&["nope".to_string()], false).is_err(),
             true,
@@ -1075,7 +1081,11 @@ mod tests {
             json!({"id": "a", "language": "Ja<En"}),
             json!({"id": "b", "jurisdiction": "us"}),
         ];
-        let sys = Sys::new(&items, Arc::new(crate::citeproc::test_support::minimal_locales())).unwrap();
+        let sys = Sys::new(
+            &items,
+            Arc::new(crate::citeproc::test_support::minimal_locales()),
+        )
+        .unwrap();
         let mut e = Engine::new(sys, SORT_STYLE, "").unwrap();
         let ci = |id: &str| CitationItem::from_json(&json!({"id": id})).unwrap();
         e.preload_abbreviations(&[ci("a")]).unwrap();

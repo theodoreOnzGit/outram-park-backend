@@ -449,7 +449,11 @@ pub fn addname(state: &mut State, item_id: &str, nameobj: &Value, pos: i64) -> C
         }
     }
     if !pkey.is_empty() && !ikey.is_empty() && !skey.is_empty() {
-        if let Some(i) = nr.namereg.get_mut(&pkey).and_then(|p| p.ikey.get_mut(&ikey)) {
+        if let Some(i) = nr
+            .namereg
+            .get_mut(&pkey)
+            .and_then(|p| p.ikey.get_mut(&ikey))
+        {
             if !i.skey.contains_key(&skey) {
                 i.skey.insert(
                     skey.clone(),
@@ -490,7 +494,9 @@ mod tests {
         assert_eq!(strip_periods("J.R.  R.  "), "J R R");
         assert_eq!(strip_periods(""), "");
         // `/[,\!]* ([^,]+)$/`: "John et al" has the lower-case tail "et al", which is cut.
-        let m = LOWER_SUFFIX.captures("John et al").map(|c| c[1].to_string());
+        let m = LOWER_SUFFIX
+            .captures("John et al")
+            .map(|c| c[1].to_string());
         assert_eq!(m.as_deref(), Some("et al"));
         assert_eq!(LOWER_SUFFIX_CUT.replace("Anna jr", "").as_ref(), "Anna");
     }

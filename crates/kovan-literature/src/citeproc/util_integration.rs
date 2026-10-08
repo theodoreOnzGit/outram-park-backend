@@ -46,7 +46,12 @@ impl State {
     /// generator (the draw is not observable except through the ID).
     pub fn set_citation_id(&mut self, citation: CitId, force: bool) -> Option<String> {
         let mut ret = None;
-        let has_id = !self.registry.citationreg.get(citation).citation_id.is_empty();
+        let has_id = !self
+            .registry
+            .citationreg
+            .get(citation)
+            .citation_id
+            .is_empty();
         if !has_id || force {
             // splitmix64 step over a counter held in the registry
             self.registry.citation_id_counter = self
@@ -61,7 +66,12 @@ impl State {
             loop {
                 let direction;
                 let candidate = format!("a{}", base32(id));
-                if !self.registry.citationreg.citation_by_id.contains_key(&candidate) {
+                if !self
+                    .registry
+                    .citationreg
+                    .citation_by_id
+                    .contains_key(&candidate)
+                {
                     self.registry.citationreg.get_mut(citation).citation_id = candidate;
                     break;
                 } else if id < 50_000_000_000_000 {
@@ -78,7 +88,10 @@ impl State {
             ret = Some(id.to_string());
         }
         let cid = self.registry.citationreg.get(citation).citation_id.clone();
-        self.registry.citationreg.citation_by_id.insert(cid, citation);
+        self.registry
+            .citationreg
+            .citation_by_id
+            .insert(cid, citation);
         ret
     }
 }

@@ -123,10 +123,11 @@ mod tests {
         let id = reg.alloc(rec);
         reg.citation_by_id.insert("c1".into(), id);
         reg.citation_by_index.push(id);
-        reg.get_mut(id)
-            .properties
-            .insert("index".into(), json!(0));
-        assert_eq!(reg.get(reg.by_id("c1").unwrap()).properties["index"], json!(0));
+        reg.get_mut(id).properties.insert("index".into(), json!(0));
+        assert_eq!(
+            reg.get(reg.by_id("c1").unwrap()).properties["index"],
+            json!(0)
+        );
         assert_eq!(reg.get(id).note_index(), 3);
         assert!(reg.by_id("zz").is_none());
         assert!(reg.citations_by_item_id.is_none());

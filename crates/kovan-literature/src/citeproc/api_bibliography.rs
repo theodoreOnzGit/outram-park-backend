@@ -86,7 +86,10 @@ impl State {
     /// `cs:bibliography`). `bibsection` is the filter object (`include`,
     /// `exclude`, `select`, `quash`, `page_start`, `page_length`) or a string
     /// (the `citation_number_slug`).
-    pub fn make_bibliography(&mut self, bibsection: Option<&Value>) -> CslResult<Option<BibliographyResult>> {
+    pub fn make_bibliography(
+        &mut self,
+        bibsection: Option<&Value>,
+    ) -> CslResult<Option<BibliographyResult>> {
         let mut bibsection: Option<Value> = bibsection.filter(|b| js::truthy(b)).cloned();
         let exclude_types = self.bibliography.opt.get("exclude_types").cloned();
         let exclude_fields = self.bibliography.opt.get("exclude_with_fields").cloned();
@@ -128,11 +131,19 @@ impl State {
         params.insert("maxoffset".into(), Value::from(0));
         params.insert(
             "entryspacing".into(),
-            self.bibliography.opt.get("entry-spacing").cloned().unwrap_or(Value::Null),
+            self.bibliography
+                .opt
+                .get("entry-spacing")
+                .cloned()
+                .unwrap_or(Value::Null),
         );
         params.insert(
             "linespacing".into(),
-            self.bibliography.opt.get("line-spacing").cloned().unwrap_or(Value::Null),
+            self.bibliography
+                .opt
+                .get("line-spacing")
+                .cloned()
+                .unwrap_or(Value::Null),
         );
         params.insert("second-field-align".into(), Value::Bool(false));
         params.insert("entry_ids".into(), Value::Array(entry_ids));
@@ -164,9 +175,13 @@ impl State {
             "bibstart".into(),
             Value::String(self.fun.decorate.bibstart().to_string()),
         );
-        params.insert("bibend".into(), Value::String(self.fun.decorate.bibend().to_string()));
+        params.insert(
+            "bibend".into(),
+            Value::String(self.fun.decorate.bibend().to_string()),
+        );
 
-        self.opt.insert("citation_number_slug".into(), Value::Bool(false));
+        self.opt
+            .insert("citation_number_slug".into(), Value::Bool(false));
         Ok(Some(BibliographyResult {
             params,
             entry_strings,
@@ -207,7 +222,10 @@ impl State {
         if paged {
             if let Some(b) = bibsection {
                 if b.get("page_start") != Some(&Value::Bool(true)) {
-                    let page_start = b.get("page_start").map(js::to_js_string).unwrap_or_default();
+                    let page_start = b
+                        .get("page_start")
+                        .map(js::to_js_string)
+                        .unwrap_or_default();
                     for id in &input {
                         skips.insert(id.clone());
                         if page_start == *id {
@@ -250,7 +268,9 @@ impl State {
                         .opt
                         .get("consolidate_containers")
                         .and_then(Value::as_array)
-                        .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'indexOf')"))?;
+                        .ok_or_else(|| {
+                            type_error("Cannot read properties of undefined (reading 'indexOf')")
+                        })?;
                     let ty = o.get("type").and_then(Value::as_str).unwrap_or("");
                     if consolidate.iter().any(|t| t.as_str() == Some(ty)) {
                         if consolidated_ids.contains(&c) {
@@ -376,13 +396,16 @@ impl State {
                 let embed = self.fun.host_hooks.embed_bibliography_entry;
                 match item.get("system_id").filter(|v| js::truthy(v)) {
                     Some(sid) if embed => {
-                        self.blobs.get_mut(cur).extra.insert("item_id".into(), sid.clone());
-                    }
-                    _ => {
                         self.blobs
                             .get_mut(cur)
                             .extra
-                            .insert("system_id".into(), item.get("id").cloned().unwrap_or(Value::Null));
+                            .insert("item_id".into(), sid.clone());
+                    }
+                    _ => {
+                        self.blobs.get_mut(cur).extra.insert(
+                            "system_id".into(),
+                            item.get("id").cloned().unwrap_or(Value::Null),
+                        );
                     }
                 }
             }
@@ -390,9 +413,14 @@ impl State {
             // 2019-06-25 Hacked to conform to new parallels evaluation method
             // 2020-04-25 Revised to work with latest, and final, parallel-first/parallel-last attributes
             let mut entry_item_ids: Vec<String> = Vec::new();
-            let token = self.registry.registry.get(&item_id).cloned().ok_or_else(|| {
-                type_error("Cannot read properties of undefined (reading 'master')")
-            })?;
+            let token = self
+                .registry
+                .registry
+                .get(&item_id)
+                .cloned()
+                .ok_or_else(|| {
+                    type_error("Cannot read properties of undefined (reading 'master')")
+                })?;
             if token.master && !paged {
                 // Fetch item content
                 let mut sorted_items: Vec<(Value, Obj)> = Vec::new();
@@ -413,9 +441,13 @@ impl State {
                     .map(js::to_js_string)
                     .unwrap_or_else(|| ", ".to_string());
                 if let Some(BlobChild::Blob(first_blob)) =
-                    queue::queue_children(self, QueueId::Output).first().cloned()
+                    queue::queue_children(self, QueueId::Output)
+                        .first()
+                        .cloned()
                 {
-                    self.blobs.get_mut(first_blob).set_string("delimiter", &delimiter);
+                    self.blobs
+                        .get_mut(first_blob)
+                        .set_string("delimiter", &delimiter);
                 }
                 self.tmp.term_predecessor = false;
                 self.tmp.cite_index = 0;
@@ -475,8 +507,13 @@ impl State {
             )?;
             let mut res: Option<Rendered> = rendered.into_list().into_iter().next();
             let res_empty = res.as_ref().map(|r| !r.is_truthy()).unwrap_or(true);
-            if res_empty && self.opt.get("update_mode").and_then(Value::as_i64) == Some(super::load::NUMERIC) {
-                let err = format!("{}. [CSL STYLE ERROR: reference with no printed form.]", ret.len() + 1);
+            if res_empty
+                && self.opt.get("update_mode").and_then(Value::as_i64) == Some(super::load::NUMERIC)
+            {
+                let err = format!(
+                    "{}. [CSL STYLE ERROR: reference with no printed form.]",
+                    ret.len() + 1
+                );
                 res = Some(Rendered::Str(formats::decorate(
                     self,
                     None,
@@ -514,7 +551,9 @@ impl State {
     /// (api_bibliography.js:329-345): put the layout prefix on the first blob
     /// of the entry.
     fn prefix_first_blob(&mut self) -> CslResult<()> {
-        let Some(BlobChild::Blob(entry)) = queue::queue_children(self, QueueId::Output).first().cloned()
+        let Some(BlobChild::Blob(entry)) = queue::queue_children(self, QueueId::Output)
+            .first()
+            .cloned()
         else {
             return Ok(());
         };
@@ -569,7 +608,9 @@ impl State {
                     .set_string("prefix", &format!("{layout_prefix}{current}"));
                 Ok(())
             }
-            _ => Err(type_error("Cannot read properties of undefined (reading 'strings')")),
+            _ => Err(type_error(
+                "Cannot read properties of undefined (reading 'strings')",
+            )),
         }
     }
 }
@@ -595,7 +636,13 @@ mod tests {
         assert!(!eval_spec(&json!("a"), None));
         assert!(!eval_spec(&json!("a"), Some(&json!({"year": 1}))));
         let item = json!({"type": "book", "keyword": ["x", "y"]});
-        assert!(spec_matches(&item, &json!({"field": "keyword", "value": "y"})));
-        assert!(!spec_matches(&item, &json!({"field": "type", "value": "article"})));
+        assert!(spec_matches(
+            &item,
+            &json!({"field": "keyword", "value": "y"})
+        ));
+        assert!(!spec_matches(
+            &item,
+            &json!({"field": "type", "value": "article"})
+        ));
     }
 }

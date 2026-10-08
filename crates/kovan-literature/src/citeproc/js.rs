@@ -491,8 +491,9 @@ mod collation_tests {
 
     #[test]
     fn locale_compare_agrees_with_node_icu() {
-        let data: Value = serde_json::from_str(include_str!("../../tests/data/csl/units/collation.json"))
-            .expect("collation.json");
+        let data: Value =
+            serde_json::from_str(include_str!("../../tests/data/csl/units/collation.json"))
+                .expect("collation.json");
         let strings: Vec<&str> = data["strings"]
             .as_array()
             .expect("strings")
@@ -549,10 +550,17 @@ mod collation_tests {
     fn the_sort_sep_probe_orders_the_symbol_before_letters() {
         // build.js:185: 'dale|'.localeCompare('daleb', locale) > -1 selects "@".
         for loc in ["en-US", "fr-FR", "de-DE", "zh-TW", "ar", "gx", ""] {
-            assert_eq!(locale_compare("dale|", "daleb", loc), Ordering::Less, "{loc}");
+            assert_eq!(
+                locale_compare("dale|", "daleb", loc),
+                Ordering::Less,
+                "{loc}"
+            );
         }
         // Equality in the sense of `!a.localeCompare(b)`: canonically equivalent strings are equal.
-        assert_eq!(locale_compare("e\u{301}", "\u{e9}", "en-US"), Ordering::Equal);
+        assert_eq!(
+            locale_compare("e\u{301}", "\u{e9}", "en-US"),
+            Ordering::Equal
+        );
         assert_ne!(locale_compare("e", "E", "en-US"), Ordering::Equal);
         assert_eq!(locale_compare_sort("e", "E", "en-US"), Ordering::Equal);
         assert_eq!(locale_compare_sort("a2", "a10", "en-US"), Ordering::Less);

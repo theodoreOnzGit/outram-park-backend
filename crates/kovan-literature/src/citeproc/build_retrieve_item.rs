@@ -225,7 +225,12 @@ pub fn retrieve_item(state: &mut State, id: &str) -> CslResult<Value> {
     if !state.tmp.loaded_item_ids.get(id).copied().unwrap_or(false) {
         state.tmp.loaded_item_ids.insert(id.to_string(), true);
     } else {
-        return Ok(state.registry.refhash.get(id).cloned().unwrap_or(Value::Null));
+        return Ok(state
+            .registry
+            .refhash
+            .get(id)
+            .cloned()
+            .unwrap_or(Value::Null));
     }
 
     if matches!(
@@ -546,7 +551,12 @@ pub fn retrieve_item(state: &mut State, id: &str) -> CslResult<Value> {
     } else {
         state.registry.refhash.insert(id.to_string(), new_item);
     }
-    Ok(state.registry.refhash.get(id).cloned().unwrap_or(Value::Null))
+    Ok(state
+        .registry
+        .refhash
+        .get(id)
+        .cloned()
+        .unwrap_or(Value::Null))
 }
 
 // ---------------------------------------------------------------------------

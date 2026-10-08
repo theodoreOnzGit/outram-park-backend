@@ -866,9 +866,9 @@ fn the_parser_reads_real_fixtures() {
 }
 
 #[test]
-fn the_driver_reaches_the_engine_and_stops_at_not_yet_ported() {
-    // The driver ported from the runner is exercised end to end up to the
-    // first Engine call that needs a later stage.
+fn the_driver_reaches_the_engine_and_reports_errors_instead_of_panicking() {
+    // The driver ported from the runner is exercised end to end on a style
+    // with no rendering: every call returns a result, none panics.
     let sample = "\
 >>===== MODE =====>>
 citation
@@ -888,32 +888,17 @@ x
 ";
     let locales = Arc::new(BTreeMap::new());
     let fx = parse_fixture_text("x_y", sample).unwrap();
-    assert!(matches!(
-        run_fixture(&fx, &locales),
-        Err(EngineError::NotYetPorted {
-            method: "updateItems"
-        })
-    ));
+    let _ = run_fixture(&fx, &locales);
 
     let bib = sample.replace("citation\n", "bibliography-header-rtf-nosort\n");
     let fx = parse_fixture_text("x_y", &bib).unwrap();
-    assert!(matches!(
-        run_fixture(&fx, &locales),
-        Err(EngineError::NotYetPorted {
-            method: "updateItems"
-        })
-    ));
+    let _ = run_fixture(&fx, &locales);
 
     let with_citations = format!(
         "{sample}\n>>===== CITATIONS =====>>\n[[{{\"citationID\":\"C1\",\"citationItems\":[{{\"id\":\"ITEM-1\"}}],\"properties\":{{\"noteIndex\":0}}}},[],[]]]\n<<===== CITATIONS =====<<\n\n>>===== OPTIONS =====>>\n{{\"variableWrapper\": true, \"x\": 1}}\n<<===== OPTIONS =====<<\n\n>>===== LANGPARAMS =====>>\n{{\"langs\": {{\"translat\": [\"de\"], \"translit\": [\"ja\"]}}, \"titles\": [\"translit\"]}}\n<<===== LANGPARAMS =====<<\n\n>>===== ABBREVIATIONS =====>>\n{{\"default\": {{\"container-title\": {{\"The J. of Things.\": \"JT\"}}}}}}\n<<===== ABBREVIATIONS =====<<\n"
     );
     let fx = parse_fixture_text("x_y", &with_citations).unwrap();
-    assert!(matches!(
-        run_fixture(&fx, &locales),
-        Err(EngineError::NotYetPorted {
-            method: "processCitationCluster"
-        })
-    ));
+    let _ = run_fixture(&fx, &locales);
 
     let mut bad_mode = fx.clone();
     bad_mode.mode = "all".to_string();
@@ -939,8 +924,8 @@ fn abbreviation_keys_are_normalised_as_the_runner_does() {
 
 #[test]
 fn update_doc_keeps_the_document_the_way_the_runner_does() {
-    // Needs process_citation_cluster, which is not ported: the call fails and the
-    // document is left untouched.
+    // The cluster names a "pre" citation the engine never registered: the call
+    // fails (citeproc-js: a TypeError) and the document is left untouched.
     let mut engine = Engine::new(Sys::default(), "<style/>", "en-US").unwrap();
     let mut doc = vec![DocEntry {
         prefix: "..".into(),
@@ -950,10 +935,7 @@ fn update_doc_keeps_the_document_the_way_the_runner_does() {
     let cites = vec![
         json!([{"citationID": "C1", "citationItems": [], "properties": {"noteIndex": 0}}, [["C0", 0]], []]),
     ];
-    assert!(matches!(
-        update_doc(&mut engine, &cites, &mut doc),
-        Err(EngineError::NotYetPorted { .. })
-    ));
+    assert!(update_doc(&mut engine, &cites, &mut doc).is_err());
     assert_eq!(doc.len(), 1);
     assert!(matches!(
         update_doc(&mut engine, &[json!([1])], &mut doc),
@@ -979,7 +961,6 @@ fn js_coercions_match_javascript() {
     assert_eq!(js_string(&Value::Null), "");
     assert_eq!(js_string(&json!(true)), "true");
 }
-
 
 /// `CITEPROC_SUITE_REPORT=1 cargo test --release -p kovan-literature --test
 /// citeproc_test_suite -- --nocapture report_per_area`: run EVERY fixture
@@ -1010,7 +991,10 @@ fn report_per_area() {
                 continue;
             }
         }
-        let want = fixtures_ref[name]["output"].as_str().unwrap_or("").to_string();
+        let want = fixtures_ref[name]["output"]
+            .as_str()
+            .unwrap_or("")
+            .to_string();
         let got = std::panic::catch_unwind(|| run_fixture(fx, &locales));
         let (got, is_error) = match got {
             Ok(Ok(s)) => (s, false),
@@ -1041,7 +1025,10 @@ fn report_per_area() {
         }
     }
     let (mut t, mut a, mut b, mut c) = (0, 0, 0, 0);
-    println!("{:<14} {:>5} {:>8} {:>8} {:>7}", "area", "total", "=cslJS", "=RESULT", "errors");
+    println!(
+        "{:<14} {:>5} {:>8} {:>8} {:>7}",
+        "area", "total", "=cslJS", "=RESULT", "errors"
+    );
     for (area, (total, same, result, err)) in &by_area {
         println!("{area:<14} {total:>5} {same:>8} {result:>8} {err:>7}");
         t += total;

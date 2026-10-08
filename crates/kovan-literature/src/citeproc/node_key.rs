@@ -154,9 +154,7 @@ impl NodeKeyExec {
                 };
                 // Code currently in util_number.js
                 let arg = match num {
-                    Some(n) if js::truthy(&n) => {
-                        AppendArg::Text(padding(&js::to_js_string(&n)))
-                    }
+                    Some(n) if js::truthy(&n) => AppendArg::Text(padding(&js::to_js_string(&n))),
                     Some(Value::Null) | None => AppendArg::Undefined,
                     Some(other) => AppendArg::Text(js::to_js_string(&other)),
                 };
@@ -248,7 +246,8 @@ impl NodeKeyExec {
             }
             NodeKeyExec::StoreKey => {
                 let children = queue::queue_children(state, QueueId::Output);
-                let rendered = queue::string(state, QueueId::Output, &children, StringParent::None)?;
+                let rendered =
+                    queue::string(state, QueueId::Output, &children, StringParent::None)?;
                 // (`state.sys.normalizeUnicode` is a host hook the port does not model.)
                 let keystring = match rendered {
                     Rendered::Str(s) => s,
@@ -266,10 +265,7 @@ impl NodeKeyExec {
                     Value::String(format!("{}{}", keystring.replace(' ', &sort_sep), sort_sep))
                 };
                 let root = state.area_ref(&state.tmp.area.clone()).root.clone();
-                state
-                    .area_mut(&format!("{root}_sort"))
-                    .keys
-                    .push(keystring);
+                state.area_mut(&format!("{root}_sort")).keys.push(keystring);
                 state.tmp.value = Vec::new();
                 Ok(None)
             }
@@ -283,7 +279,8 @@ impl NodeKeyExec {
                     .and_then(|t| t.disambig)
                     .ok_or_else(|| {
                         EngineError::Csl(
-                            "TypeError: Cannot read properties of undefined (reading 'disambig')".into(),
+                            "TypeError: Cannot read properties of undefined (reading 'disambig')"
+                                .into(),
                         )
                     })?;
                 let mut year_suffix = state.ambig(disambig).year_suffix.clone();

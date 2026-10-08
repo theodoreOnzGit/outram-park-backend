@@ -430,7 +430,8 @@ impl Disambiguation {
             let reg = &state.registry;
             let st: &State = state;
             sort_with(&mut tokens, |a, b| {
-                reg.sorter.compare_keys(st, keyed_of(reg, a), keyed_of(reg, b))
+                reg.sorter
+                    .compare_keys(st, keyed_of(reg, a), keyed_of(reg, b))
             })?;
         }
         for (pos, id) in tokens.iter().enumerate() {
@@ -440,7 +441,9 @@ impl Disambiguation {
                 .registry
                 .get(id)
                 .and_then(|t| t.disambig)
-                .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'disambig')"))?;
+                .ok_or_else(|| {
+                    type_error("Cannot read properties of undefined (reading 'disambig')")
+                })?;
             self.register(state, id, base)?;
             if ambig_config_diff(&state.ambig(old_base).clone(), &state.ambig(base).clone())? {
                 state.tmp.tainted_item_ids.insert(id.clone(), true);
@@ -597,7 +600,10 @@ impl Disambiguation {
             // `a[0] > b[0]` compares the max-names ARRAYS, as strings
             // ("10" < "2"): candidate quirk C16 in DEVIATIONS.md.
             bundles.sort_by(|a, b| {
-                let (sa, sb) = (js::to_js_string(&Value::Array(a.0.clone())), js::to_js_string(&Value::Array(b.0.clone())));
+                let (sa, sb) = (
+                    js::to_js_string(&Value::Array(a.0.clone())),
+                    js::to_js_string(&Value::Array(b.0.clone())),
+                );
                 match sa.encode_utf16().cmp(sb.encode_utf16()) {
                     Ordering::Equal => compare_ids(a.1.get("id"), b.1.get("id")),
                     other => other,
@@ -627,7 +633,10 @@ impl Disambiguation {
 
         Self::pad(state, self.base);
         Self::pad(state, self.betterbase);
-        let (base, better) = (Self::cfg(self.base, "base")?, Self::cfg(self.betterbase, "betterbase")?);
+        let (base, better) = (
+            Self::cfg(self.base, "base")?,
+            Self::cfg(self.betterbase, "betterbase")?,
+        );
         state.ambig_mut(base).year_suffix = Value::Bool(false);
         state.ambig_mut(base).disambiguate = Value::Bool(false);
         state.ambig_mut(better).year_suffix = Value::Bool(false);
@@ -669,7 +678,9 @@ impl Disambiguation {
             .registry
             .get(&id)
             .and_then(|t| t.disambig)
-            .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'disambig')"))?;
+            .ok_or_else(|| {
+                type_error("Cannot read properties of undefined (reading 'disambig')")
+            })?;
         // Slice the nested lists as well. Without this, disambiguate_YearSuffixFiftyTwoEntriesByCite fails.
         state.ambig_mut(reg_disambig).givens = settings_givens;
         self.namesets_max = Some(state.ambig(reg_disambig).names.len() as i64 - 1);
@@ -748,11 +759,18 @@ impl Disambiguation {
                     .ambig_mut(better_id)
                     .givens
                     .get_mut(gnameset)
-                    .ok_or_else(|| type_error("Cannot set properties of undefined (setting 'gname')"))?;
+                    .ok_or_else(|| {
+                        type_error("Cannot set properties of undefined (setting 'gname')")
+                    })?;
                 set_index(row, gname, v);
             }
         }
-        let n = state.ambig(base_id).names.get(gnameset).copied().unwrap_or(0);
+        let n = state
+            .ambig(base_id)
+            .names
+            .get(gnameset)
+            .copied()
+            .unwrap_or(0);
         set_index(&mut state.ambig_mut(better_id).names, gnameset, n);
         Ok(())
     }
@@ -795,10 +813,7 @@ fn as_js_number(v: &Value) -> Option<f64> {
     }
 }
 
-fn keyed_of<'a>(
-    reg: &'a super::registry::Registry,
-    id: &str,
-) -> super::registry::SortKeyed<'a> {
+fn keyed_of<'a>(reg: &'a super::registry::Registry, id: &str) -> super::registry::SortKeyed<'a> {
     match reg.registry.get(id) {
         Some(t) => super::registry::SortKeyed {
             sortkeys: t.sortkeys.as_deref().unwrap_or(&[]),
@@ -838,7 +853,8 @@ mod tests {
     fn modes_follow_the_style_options_and_their_order() {
         let mut s = State::default();
         assert!(Disambiguation::new(&s).modes.is_empty());
-        s.opt.insert("disambiguate-add-names".into(), Value::Bool(true));
+        s.opt
+            .insert("disambiguate-add-names".into(), Value::Bool(true));
         s.opt
             .insert("disambiguate-add-year-suffix".into(), Value::Bool(true));
         s.opt.insert("has_disambiguate".into(), Value::Bool(true));
@@ -859,12 +875,33 @@ mod tests {
     #[test]
     fn item_ids_compare_like_js() {
         let j = |v: serde_json::Value| v;
-        assert_eq!(compare_ids(Some(&j(serde_json::json!("ITEM-2"))), Some(&j(serde_json::json!("ITEM-10")))), Ordering::Greater);
+        assert_eq!(
+            compare_ids(
+                Some(&j(serde_json::json!("ITEM-2"))),
+                Some(&j(serde_json::json!("ITEM-10")))
+            ),
+            Ordering::Greater
+        );
         // two strings compare as strings, even numeric-looking ones
-        assert_eq!(compare_ids(Some(&serde_json::json!("2")), Some(&serde_json::json!("10"))), Ordering::Greater);
-        assert_eq!(compare_ids(Some(&serde_json::json!(2)), Some(&serde_json::json!(10))), Ordering::Less);
-        assert_eq!(compare_ids(Some(&serde_json::json!(2)), Some(&serde_json::json!("x"))), Ordering::Equal);
-        assert_eq!(compare_ids(Some(&serde_json::json!(2)), Some(&serde_json::json!("10"))), Ordering::Less);
+        assert_eq!(
+            compare_ids(
+                Some(&serde_json::json!("2")),
+                Some(&serde_json::json!("10"))
+            ),
+            Ordering::Greater
+        );
+        assert_eq!(
+            compare_ids(Some(&serde_json::json!(2)), Some(&serde_json::json!(10))),
+            Ordering::Less
+        );
+        assert_eq!(
+            compare_ids(Some(&serde_json::json!(2)), Some(&serde_json::json!("x"))),
+            Ordering::Equal
+        );
+        assert_eq!(
+            compare_ids(Some(&serde_json::json!(2)), Some(&serde_json::json!("10"))),
+            Ordering::Less
+        );
         assert_eq!(as_js_number(&serde_json::json!(" 7 ")), Some(7.0));
         assert_eq!(as_js_number(&serde_json::json!("a")), None);
     }

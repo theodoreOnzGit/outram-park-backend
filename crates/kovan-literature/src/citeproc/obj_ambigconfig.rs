@@ -103,7 +103,10 @@ impl AmbigConfig {
     /// `givens[pos][i]` (`None` is `undefined`, also when `givens[pos]` is,
     /// where JS would throw: callers check [`AmbigConfig::has_givens`]).
     pub fn given(&self, pos: i64, i: usize) -> Option<i64> {
-        self.givens.get(pos.max(0) as usize).and_then(|g| g.get(i)).copied()
+        self.givens
+            .get(pos.max(0) as usize)
+            .and_then(|g| g.get(i))
+            .copied()
     }
 
     /// `givens[pos][i] === undefined`.

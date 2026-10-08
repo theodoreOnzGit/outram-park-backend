@@ -122,7 +122,8 @@ impl NodeLayoutExec {
                 // trimmer is not available in getAmbiguousCite
                 if !state.tmp.just_looking && js::truthy_opt(item.get("jurisdiction")) {
                     if let Some(trimmer) = &state.tmp.abbrev_trimmer {
-                        let jurisdiction = js::to_js_string(item.get("jurisdiction").unwrap_or(&Value::Null));
+                        let jurisdiction =
+                            js::to_js_string(item.get("jurisdiction").unwrap_or(&Value::Null));
                         let fields: Vec<String> = trimmer
                             .quashes
                             .get(&jurisdiction)
@@ -173,7 +174,11 @@ impl NodeLayoutExec {
             NodeLayoutExec::BibliographySuffix => {
                 // Suppress suffix on all but the last item in bibliography parallels
                 if !state.tmp.parallel_and_not_last {
-                    let locale = state.tmp.last_cite_locale.clone().unwrap_or_else(|| "false".to_string());
+                    let locale = state
+                        .tmp
+                        .last_cite_locale
+                        .clone()
+                        .unwrap_or_else(|| "false".to_string());
                     let own = state
                         .tmp
                         .cite_affixes
@@ -199,7 +204,10 @@ impl NodeLayoutExec {
                     // immediate child of the layout, which we assume will be a
                     // @display group node.
                     let top = queue::current(state, QueueId::Output).ok_or_else(|| {
-                        EngineError::Csl("TypeError: Cannot read properties of undefined (reading 'strings')".into())
+                        EngineError::Csl(
+                            "TypeError: Cannot read properties of undefined (reading 'strings')"
+                                .into(),
+                        )
                     })?;
                     if js::truthy_opt(state.opt.get("using_display")) {
                         let last = match &state.blobs.get(top).blobs {
@@ -230,7 +238,12 @@ impl NodeLayoutExec {
                     if !state.tmp.just_looking {
                         suffix = update_nested_brace(state, &suffix)?;
                     }
-                    queue::append_simple(state, QueueId::Output, suffix.as_str(), FormatRef::Token(token.clone()))?;
+                    queue::append_simple(
+                        state,
+                        QueueId::Output,
+                        suffix.as_str(),
+                        FormatRef::Token(token.clone()),
+                    )?;
                 }
                 Ok(None)
             }
@@ -268,7 +281,9 @@ fn update_nested_brace(state: &mut State, s: &str) -> CslResult<String> {
         .as_mut()
         .map(|c| c.update(s))
         .ok_or_else(|| {
-            EngineError::Csl("TypeError: Cannot read properties of undefined (reading 'update')".into())
+            EngineError::Csl(
+                "TypeError: Cannot read properties of undefined (reading 'update')".into(),
+            )
         })
 }
 

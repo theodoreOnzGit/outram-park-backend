@@ -488,12 +488,14 @@ impl AttributesTest {
                 let id = super::registry::id_key(item.get("id"));
                 let token = state.registry.registry.get(&id).ok_or_else(|| {
                     EngineError::Csl(
-                        "TypeError: Cannot read properties of undefined (reading 'disambig')".to_string(),
+                        "TypeError: Cannot read properties of undefined (reading 'disambig')"
+                            .to_string(),
                     )
                 })?;
                 let disambig = token.disambig.ok_or_else(|| {
                     EngineError::Csl(
-                        "TypeError: Cannot read properties of false (reading 'disambiguate')".to_string(),
+                        "TypeError: Cannot read properties of false (reading 'disambiguate')"
+                            .to_string(),
                     )
                 })?;
                 Ok(js::truthy(&state.ambig(disambig).disambiguate)

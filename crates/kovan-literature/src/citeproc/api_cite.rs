@@ -271,12 +271,20 @@ impl State {
 
         self.cite_end(item, cite_item)?;
         // Odd place for this, but it seems to fit here
-        if !self.tmp.cite_renders_content && !self.tmp.just_looking && self.tmp.area == "bibliography" {
+        if !self.tmp.cite_renders_content
+            && !self.tmp.just_looking
+            && self.tmp.area == "bibliography"
+        {
             let mut error_object = Obj::new();
             error_object.insert("index".into(), Value::from(self.tmp.bibliography_pos));
             error_object.insert("itemID".into(), Value::String(item_value_id(item)));
-            error_object.insert("error_code".into(), Value::from(load::ERROR_NO_RENDERED_FORM));
-            self.tmp.bibliography_errors.push(Value::Object(error_object));
+            error_object.insert(
+                "error_code".into(),
+                Value::from(load::ERROR_NO_RENDERED_FORM),
+            );
+            self.tmp
+                .bibliography_errors
+                .push(Value::Object(error_object));
         }
         self.tmp.area = area_orig;
         Ok(item_value_id(item))
@@ -403,8 +411,10 @@ impl State {
                 let d = token.disambig.ok_or_else(|| {
                     type_error("Cannot read properties of false (reading 'names')")
                 })?;
-                self.tmp.disambig_restore =
-                    Some(super::util_disambig::clone_ambig_config(self.ambig(d), None));
+                self.tmp.disambig_restore = Some(super::util_disambig::clone_ambig_config(
+                    self.ambig(d),
+                    None,
+                ));
             }
         }
         // XXX This only applied to the "number" variable itself? Huh?
@@ -496,12 +506,9 @@ impl State {
         visual_form: bool,
         cite_item: Option<&Obj>,
     ) -> CslResult<Rendered> {
-        let flags = self
-            .tmp
-            .group_context
-            .tip()
-            .cloned()
-            .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'term_intended')"))?;
+        let flags = self.tmp.group_context.tip().cloned().ok_or_else(|| {
+            type_error("Cannot read properties of undefined (reading 'term_intended')")
+        })?;
         let old_term_sibling_layer = GroupContext {
             term_intended: flags.term_intended,
             variable_attempt: flags.variable_attempt,
@@ -544,7 +551,9 @@ impl State {
             .and_then(|m| m.get(&item_id))
             .map(|l| !l.is_empty())
             .unwrap_or(false);
-        if self.registry.registry.contains_key(&item_id) && has_citations && visual_form
+        if self.registry.registry.contains_key(&item_id)
+            && has_citations
+            && visual_form
             && js::get_str(&self.citation.opt, "givenname-disambiguation-rule") == Some("by-cite")
         {
             if let Some(n) = self
@@ -596,11 +605,10 @@ impl State {
     /// `getCitationCluster` and `getBibliographyEntries`). With `record`, the
     /// last character `fix` saw becomes `tmp.last_chr` (`getCitationCluster`).
     pub fn adjust_output_queue(&mut self, record: bool) -> CslResult<()> {
-        let adjust = self
-            .output
-            .adjust
-            .clone()
-            .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'upward')"))?;
+        let adjust =
+            self.output.adjust.clone().ok_or_else(|| {
+                type_error("Cannot read properties of undefined (reading 'upward')")
+            })?;
         for child in queue::queue_children(self, QueueId::Output) {
             if let BlobChild::Blob(id) = child {
                 adjust.upward(&mut self.blobs, id);
@@ -628,7 +636,11 @@ impl State {
         let after_collapse = self.citation.opt.get("after-collapse-delimiter").cloned();
         if let Some(acd) = after_collapse {
             let acd_s = js::to_js_string(&acd);
-            let layout_delimiter = self.citation.opt.get("layout_delimiter").map(js::to_js_string);
+            let layout_delimiter = self
+                .citation
+                .opt
+                .get("layout_delimiter")
+                .map(js::to_js_string);
             let collapse_is_year_suffix =
                 self.citation.opt.get("collapse").and_then(Value::as_str) == Some("year-suffix");
             if last_locator
@@ -703,7 +715,8 @@ fn undefined_or_string(v: &Value) -> String {
 
 /// JS `x.slice(-1)` of an optional JSON string.
 fn last_char_of(v: Option<&Value>) -> String {
-    v.map(|s| js::slice(&js::to_js_string(s), -1, None)).unwrap_or_default()
+    v.map(|s| js::slice(&js::to_js_string(s), -1, None))
+        .unwrap_or_default()
 }
 
 impl State {
@@ -769,7 +782,8 @@ impl State {
             self.tmp.abbrev_trimmer = Some(AbbrevTrimmer::default());
         }
 
-        let layout_prefix = js::get_string(&self.citation.opt, "layout_prefix").unwrap_or_else(|| "undefined".into());
+        let layout_prefix = js::get_string(&self.citation.opt, "layout_prefix")
+            .unwrap_or_else(|| "undefined".into());
         let use_layout_prefix = self
             .output
             .check_nested_brace
@@ -922,7 +936,10 @@ impl State {
                 error_object.insert("noteIndex".into(), self.tmp.citation_note_index.clone());
                 error_object.insert("itemID".into(), Value::String(item_value_id(&item_data)));
                 error_object.insert("citationItems_pos".into(), Value::from(pos));
-                error_object.insert("error_code".into(), Value::from(load::ERROR_NO_RENDERED_FORM));
+                error_object.insert(
+                    "error_code".into(),
+                    Value::from(load::ERROR_NO_RENDERED_FORM),
+                );
                 self.tmp.citation_errors.push(Value::Object(error_object));
             }
             let mut splice = self.get_splice_delimiter(last_locator, last_collapsed, pos);
@@ -990,7 +1007,8 @@ impl State {
                 .unwrap_or_default();
             citation_suffix = check_suffix_space_prepend(self, &suffix);
         }
-        let mut suffix = js::get_string(&self.citation.opt, "layout_suffix").unwrap_or_else(|| "undefined".into());
+        let mut suffix = js::get_string(&self.citation.opt, "layout_suffix")
+            .unwrap_or_else(|| "undefined".into());
         let last_locale = self.tmp.cite_locales.last().cloned();
         //
         // Must have a value to take effect.  Use zero width space to force empty suffix.
@@ -1032,7 +1050,9 @@ impl State {
                     }
                 }
                 if let Some(first) = qb.first() {
-                    self.blobs.get_mut(*first).set_string("prefix", &use_layout_prefix);
+                    self.blobs
+                        .get_mut(*first)
+                        .set_string("prefix", &use_layout_prefix);
                 }
             }
         }
@@ -1075,7 +1095,9 @@ impl State {
                     let mut s = s;
                     if s.is_empty() {
                         if self.dev_ext("throw_on_empty") {
-                            return Err(EngineError::Csl("Citation would render no content".into()));
+                            return Err(EngineError::Csl(
+                                "Citation would render no content".into(),
+                            ));
                         } else {
                             s = "[NO_PRINTED_FORM]".to_string();
                         }
@@ -1087,12 +1109,16 @@ impl State {
             let item_suppress_author = last_item
                 .as_ref()
                 .map(|i| js::truthy_opt(i.get("suppress-author")))
-                .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'suppress-author')"))?;
+                .ok_or_else(|| {
+                    type_error("Cannot read properties of undefined (reading 'suppress-author')")
+                })?;
             if composite.is_empty() && !item_suppress_author {
                 if pos == 0 {
                     let err_str = "[CSL STYLE ERROR: reference with no printed form.]";
-                    let layout_prefix = js::get_string(&self.citation.opt, "layout_prefix").unwrap_or_default();
-                    let layout_suffix = js::get_string(&self.citation.opt, "layout_suffix").unwrap_or_default();
+                    let layout_prefix =
+                        js::get_string(&self.citation.opt, "layout_prefix").unwrap_or_default();
+                    let layout_suffix =
+                        js::get_string(&self.citation.opt, "layout_suffix").unwrap_or_default();
                     let pre_str = txt_esc.escape(&layout_prefix);
                     let suf_str = if pos == myblobs.len() - 1 {
                         txt_esc.escape(&layout_suffix)
@@ -1101,14 +1127,16 @@ impl State {
                     };
                     composite.push(Rendered::Str(format!("{pre_str}{err_str}{suf_str}")));
                 } else if pos == myblobs.len() - 1 {
-                    let layout_suffix = js::get_string(&self.citation.opt, "layout_suffix").unwrap_or_default();
+                    let layout_suffix =
+                        js::get_string(&self.citation.opt, "layout_suffix").unwrap_or_default();
                     match objects.last_mut() {
                         Some(Rendered::Str(s)) => s.push_str(&txt_esc.escape(&layout_suffix)),
                         Some(Rendered::Blob(b)) => {
                             let cur = self.blobs.get(*b).string("suffix");
-                            self.blobs
-                                .get_mut(*b)
-                                .set_string("suffix", &format!("{cur}{}", txt_esc.escape(&layout_suffix)));
+                            self.blobs.get_mut(*b).set_string(
+                                "suffix",
+                                &format!("{cur}{}", txt_esc.escape(&layout_suffix)),
+                            );
                         }
                         _ => {}
                     }
@@ -1227,7 +1255,9 @@ impl State {
     /// property of `undefined`.
     pub(crate) fn item_data(&self, id: &str) -> CslResult<Value> {
         self.registry.refhash.get(id).cloned().ok_or_else(|| {
-            type_error(&format!("Cannot read properties of undefined (reading 'id') [item {id}]"))
+            type_error(&format!(
+                "Cannot read properties of undefined (reading 'id') [item {id}]"
+            ))
         })
     }
 
@@ -1253,11 +1283,9 @@ impl State {
 
     /// Sort a citation's `sortedItems` with `citation.srt.compareCompositeKeys`.
     pub(crate) fn sort_cite_items(&mut self, cid: CitId) -> CslResult<()> {
-        let comparifier = self
-            .citation
-            .srt
-            .clone()
-            .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'compareCompositeKeys')"))?;
+        let comparifier = self.citation.srt.clone().ok_or_else(|| {
+            type_error("Cannot read properties of undefined (reading 'compareCompositeKeys')")
+        })?;
         let mut items = std::mem::take(&mut self.registry.citationreg.get_mut(cid).sorted_items);
         let r = {
             let st: &State = self;
@@ -1278,7 +1306,9 @@ impl State {
     fn set_cite_sortkeys(&mut self, cid: CitId) -> CslResult<()> {
         let n = self.registry.citationreg.get(cid).sorted_items.len();
         for i in 0..n {
-            let id = self.registry.citationreg.get(cid).sorted_items[i].item_id.clone();
+            let id = self.registry.citationreg.get(cid).sorted_items[i]
+                .item_id
+                .clone();
             let item = self.item_data(&id)?;
             let keys = self.get_sort_keys(&item, "citation_sort")?;
             self.registry.citationreg.get_mut(cid).sorted_items[i]
@@ -1310,7 +1340,8 @@ impl State {
                 .properties
                 .insert("mode".into(), Value::String(mode.to_string()));
         };
-        if js::get_str(&self.registry.citationreg.get(cid).properties, "mode") == Some("composite") {
+        if js::get_str(&self.registry.citationreg.get(cid).properties, "mode") == Some("composite")
+        {
             set_mode(self, "author-only");
             let mut first_chunk = self.get_citation_cluster(input, Some(cid))?;
             set_mode(self, "suppress-author");
@@ -1324,7 +1355,12 @@ impl State {
                 .filter(|v| js::truthy(v))
                 .map(js::to_js_string);
             if let Some(infix) = infix {
-                queue::append_simple(self, QueueId::Output, infix.as_str(), queue::FormatRef::None)?;
+                queue::append_simple(
+                    self,
+                    QueueId::Output,
+                    infix.as_str(),
+                    queue::FormatRef::None,
+                )?;
                 let r = queue::string(
                     self,
                     QueueId::Output,
@@ -1343,14 +1379,20 @@ impl State {
             let head = js::slice(&second_chunk, 0, Some(1));
             if !first_chunk.is_empty()
                 && !second_chunk.is_empty()
-                && (SWAPPING_PUNCTUATION.contains(&head.as_str()) || head == "\u{2019}" || head == "'")
+                && (SWAPPING_PUNCTUATION.contains(&head.as_str())
+                    || head == "\u{2019}"
+                    || head == "'")
             {
                 first_chunk.push_str(&second_chunk);
                 second_present = false;
             }
             let chunks = [
                 first_chunk,
-                if second_present { second_chunk } else { String::new() },
+                if second_present {
+                    second_chunk
+                } else {
+                    String::new()
+                },
                 third_chunk,
             ];
             Ok(chunks
@@ -1400,7 +1442,9 @@ impl State {
                     *cite = c;
                 }
                 if new_item != *item_data {
-                    self.registry.refhash.insert(item_value_id(&new_item), new_item.clone());
+                    self.registry
+                        .refhash
+                        .insert(item_value_id(&new_item), new_item.clone());
                     *item_data = new_item;
                 }
             }
@@ -1434,7 +1478,11 @@ impl State {
             let c = self.registry.citationreg.get(cid);
             citations_pre.push(CitationPos {
                 citation_id: c.citation_id.clone(),
-                note_index: c.properties.get("noteIndex").cloned().unwrap_or(Value::Null),
+                note_index: c
+                    .properties
+                    .get("noteIndex")
+                    .cloned()
+                    .unwrap_or(Value::Null),
             });
         }
         // Drop the data segment to return a list of pos/string pairs.
@@ -1455,7 +1503,12 @@ impl State {
         self.set_output_format(new_mode)?;
         // Avoids generating unwanted ibids, if the citationID already exists in document
         citation.citation_id = None;
-        let ret = self.process_citation_cluster(citation, citations_pre, citations_post, ClusterFlag::Preview);
+        let ret = self.process_citation_cluster(
+            citation,
+            citations_pre,
+            citations_post,
+            ClusterFlag::Preview,
+        );
         self.set_output_format(&old_mode)?;
         Ok(ret?.preview.unwrap_or_default())
     }
@@ -1524,7 +1577,9 @@ impl State {
                     .registry
                     .citationreg
                     .by_id(&pos.citation_id)
-                    .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'citationItems')"))?;
+                    .ok_or_else(|| {
+                        type_error("Cannot read properties of undefined (reading 'citationItems')")
+                    })?;
                 for ci in &self.registry.citationreg.get(c).citation_items {
                     new_item_ids.insert(obj_id(ci));
                 }
@@ -1549,7 +1604,11 @@ impl State {
                                 .registry
                                 .get(&other)
                                 .and_then(|t| t.disambig)
-                                .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'disambig')"))?;
+                                .ok_or_else(|| {
+                                    type_error(
+                                        "Cannot read properties of undefined (reading 'disambig')",
+                                    )
+                                })?;
                             old_ambigs.insert(
                                 other,
                                 super::util_disambig::clone_ambig_config(self.ambig(d), None),
@@ -1609,9 +1668,13 @@ impl State {
                     pre.citation_id
                 )));
             }
-            let pc = self.registry.citationreg.by_id(&pre.citation_id).ok_or_else(|| {
-                type_error("Cannot read properties of undefined (reading 'properties')")
-            })?;
+            let pc = self
+                .registry
+                .citationreg
+                .by_id(&pre.citation_id)
+                .ok_or_else(|| {
+                    type_error("Cannot read properties of undefined (reading 'properties')")
+                })?;
             self.registry
                 .citationreg
                 .get_mut(pc)
@@ -1634,9 +1697,13 @@ impl State {
                     post.citation_id
                 )));
             }
-            let pc = self.registry.citationreg.by_id(&post.citation_id).ok_or_else(|| {
-                type_error("Cannot read properties of undefined (reading 'properties')")
-            })?;
+            let pc = self
+                .registry
+                .citationreg
+                .by_id(&post.citation_id)
+                .ok_or_else(|| {
+                    type_error("Cannot read properties of undefined (reading 'properties')")
+                })?;
             self.registry
                 .citationreg
                 .get_mut(pc)
@@ -1726,9 +1793,8 @@ impl State {
             self.update_items(&update_items, false, false, true)?;
         }
 
-        let unsorted = |s: &State| {
-            js::truthy_opt(s.registry.citationreg.get(cid).properties.get("unsorted"))
-        };
+        let unsorted =
+            |s: &State| js::truthy_opt(s.registry.citationreg.get(cid).properties.get("unsorted"));
         let n_sorted = self.registry.citationreg.get(cid).sorted_items.len();
         let citation_number_sort = js::truthy_opt(self.opt.get("citation_number_sort"));
         if !citation_number_sort && n_sorted > 1 && !self.citation_sort.tokens.is_empty() {
@@ -1740,7 +1806,9 @@ impl State {
             if js::truthy_opt(self.opt.get("grouped_sort")) && !unsorted(self) {
                 // Insert authorstring as key.
                 for i in 0..n_sorted {
-                    let id = self.registry.citationreg.get(cid).sorted_items[i].item_id.clone();
+                    let id = self.registry.citationreg.get(cid).sorted_items[i]
+                        .item_id
+                        .clone();
                     let sortkeys = self.registry.citationreg.get(cid).sorted_items[i]
                         .item
                         .get("sortkeys")
@@ -1826,7 +1894,11 @@ impl State {
                 &mut rerun_akeys,
             )?;
         }
-        if citation_number_sort && n_sorted > 1 && !self.citation_sort.tokens.is_empty() && !unsorted(self) {
+        if citation_number_sort
+            && n_sorted > 1
+            && !self.citation_sort.tokens.is_empty()
+            && !unsorted(self)
+        {
             self.set_cite_sortkeys(cid)?;
             self.sort_cite_items(cid)?;
         }
@@ -1879,7 +1951,9 @@ impl State {
                 if let Some(t) = self.registry.registry.get_mut(&key) {
                     t.disambig = Some(restored);
                 } else {
-                    return Err(type_error("Cannot set properties of undefined (setting 'disambig')"));
+                    return Err(type_error(
+                        "Cannot set properties of undefined (setting 'disambig')",
+                    ));
                 }
             }
         } else {
@@ -1902,7 +1976,13 @@ impl State {
                 let mycitation = self.registry.citationreg.by_id(&key).ok_or_else(|| {
                     type_error("Cannot read properties of undefined (reading 'properties')")
                 })?;
-                if !js::truthy_opt(self.registry.citationreg.get(mycitation).properties.get("unsorted")) {
+                if !js::truthy_opt(
+                    self.registry
+                        .citationreg
+                        .get(mycitation)
+                        .properties
+                        .get("unsorted"),
+                ) {
                     self.set_cite_sortkeys(mycitation)?;
                     self.sort_cite_items(mycitation)?;
                 }
@@ -1916,7 +1996,12 @@ impl State {
                 };
                 self.tmp.citation_pos = index.clone();
                 self.tmp.citation_note_index = note_index;
-                let mid = self.registry.citationreg.get(mycitation).citation_id.clone();
+                let mid = self
+                    .registry
+                    .citationreg
+                    .get(mycitation)
+                    .citation_id
+                    .clone();
                 self.tmp.citation_id = Value::String(mid.clone());
                 let text = self.process_cluster_text(mycitation)?;
                 ret.push((js::parse_int_value(&index).unwrap_or(0), text, mid));
@@ -2004,20 +2089,31 @@ impl State {
                 if j > 0 && note_index.map(|n| n != 0).unwrap_or(false) {
                     let prev_note =
                         note_of(&self.registry.citationreg.get(citations[j - 1]).properties);
-                    if prev_note.zip(note_index).map(|(p, n)| p > n).unwrap_or(false) {
+                    if prev_note
+                        .zip(note_index)
+                        .map(|(p, n)| p > n)
+                        .unwrap_or(false)
+                    {
                         citations_in_note = BTreeMap::new();
                         first_ref = BTreeMap::new();
                         last_ref = BTreeMap::new();
                         first_container_ref = BTreeMap::new();
                     }
                 }
-                let n_items = self.registry.citationreg.get(onecitation).sorted_items.len();
+                let n_items = self
+                    .registry
+                    .citationreg
+                    .get(onecitation)
+                    .sorted_items
+                    .len();
                 for k in 0..n_items {
                     let parallel = self.registry.citationreg.get(onecitation).sorted_items[k]
                         .item
                         .get("parallel")
                         .cloned();
-                    if js::truthy_opt(parallel.as_ref()) && parallel.as_ref().and_then(Value::as_str) != Some("first") {
+                    if js::truthy_opt(parallel.as_ref())
+                        && parallel.as_ref().and_then(Value::as_str) != Some("first")
+                    {
                         continue;
                     }
                     let key = note_index.unwrap_or(i64::MIN);
@@ -2052,7 +2148,8 @@ impl State {
                         .unwrap_or_else(|| item_id.clone());
                     let last_id = if let Some(l) = legislation_id {
                         js::to_js_string(l)
-                    } else if let Some(c) = item_data.get("container_id").filter(|v| js::truthy(v)) {
+                    } else if let Some(c) = item_data.get("container_id").filter(|v| js::truthy(v))
+                    {
                         js::to_js_string(c)
                     } else {
                         item_id.clone()
@@ -2064,7 +2161,8 @@ impl State {
                         // incitationid is only reached in the else branch
                         // following "undefined" === typeof first_ref[myid]
                         // below
-                        let prev_sorted = &self.registry.citationreg.get(onecitation).sorted_items[k - 1];
+                        let prev_sorted =
+                            &self.registry.citationreg.get(onecitation).sorted_items[k - 1];
                         let prev_item = self.item_data(&prev_sorted.item_id)?;
                         if let Some(l) = prev_item.get("legislation_id").filter(|v| js::truthy(v)) {
                             incitationid = Some(l.clone());
@@ -2085,10 +2183,18 @@ impl State {
                             //}
                         }
                     }
-                    let onecitation_id = self.registry.citationreg.get(onecitation).citation_id.clone();
+                    let onecitation_id = self
+                        .registry
+                        .citationreg
+                        .get(onecitation)
+                        .citation_id
+                        .clone();
                     let one_note = note_of(&self.registry.citationreg.get(onecitation).properties);
-                    let one_mode = js::get_str(&self.registry.citationreg.get(onecitation).properties, "mode")
-                        .map(str::to_string);
+                    let one_mode = js::get_str(
+                        &self.registry.citationreg.get(onecitation).properties,
+                        "mode",
+                    )
+                    .map(str::to_string);
                     // Don't touch item data of other cites when previewing
                     if flag == ClusterFlag::Preview && onecitation_id != current_id {
                         let cite_item_id = obj_id(&sorted.item);
@@ -2108,9 +2214,14 @@ impl State {
                         .cloned();
                     let old_near = sorted.item.get("near-note").cloned();
                     {
-                        let item = &mut self.registry.citationreg.get_mut(onecitation).sorted_items[k].item;
+                        let item = &mut self.registry.citationreg.get_mut(onecitation).sorted_items
+                            [k]
+                            .item;
                         item.insert("first-reference-note-number".into(), Value::from(0));
-                        item.insert("first-container-reference-note-number".into(), Value::from(0));
+                        item.insert(
+                            "first-container-reference-note-number".into(),
+                            Value::from(0),
+                        );
                         item.insert("near-note".into(), Value::Bool(false));
                     }
                     let by_item_len = self
@@ -2165,7 +2276,9 @@ impl State {
 
                     // So ... we run an independent test on first_ref[first_id]], and let this ride.
                     let position: i64;
-                    if !last_ref.contains_key(&last_id) && one_mode.as_deref() != Some("author-only") {
+                    if !last_ref.contains_key(&last_id)
+                        && one_mode.as_deref() != Some("author-only")
+                    {
                         first_ref.insert(first_id.clone(), one_note);
                         last_ref.insert(last_id.clone(), one_note);
                         first_container_ref.insert(last_id.clone(), one_note);
@@ -2176,7 +2289,8 @@ impl State {
                         //
                         let mut ibidme = false;
                         let mut suprame = false;
-                        let prev_citation: Option<CitId> = if j > 0 { Some(citations[j - 1]) } else { None };
+                        let prev_citation: Option<CitId> =
+                            if j > 0 { Some(citations[j - 1]) } else { None };
                         let this_citation = citations[j];
                         // XXX Ugly, but This is used in the second else-if branch condition below.
                         if let Some(prev) = prev_citation {
@@ -2196,14 +2310,17 @@ impl State {
                             let prev_rec = self.registry.citationreg.get(prev);
                             if let Some(first) = prev_rec.sorted_items.first() {
                                 // `prevCitation.sortedItems[0].slice(-1)[0]` is the cite item
-                                if let Some(l) = first.item.get("legislation_id").filter(|v| js::truthy(v)) {
+                                if let Some(l) =
+                                    first.item.get("legislation_id").filter(|v| js::truthy(v))
+                                {
                                     oldlastid = Some(l.clone());
                                 }
                             }
                         }
                         let prev_note = prev_citation
                             .and_then(|p| note_of(&self.registry.citationreg.get(p).properties));
-                        let this_note = note_of(&self.registry.citationreg.get(this_citation).properties);
+                        let this_note =
+                            note_of(&self.registry.citationreg.get(this_citation).properties);
                         let first_id_value = Value::String(first_id.clone());
                         if j > 0 && k == 0 && prev_note != this_note {
                             // Case 1: source in previous onecitation
@@ -2225,11 +2342,17 @@ impl State {
                             })?;
                             let prev_item_data = self.item_data(&first_prev.item_id)?;
                             let mut oldid = prev_item_data.get("id").cloned();
-                            if let Some(l) = prev_item_data.get("legislation_id").filter(|v| js::truthy(v)) {
+                            if let Some(l) = prev_item_data
+                                .get("legislation_id")
+                                .filter(|v| js::truthy(v))
+                            {
                                 oldid = Some(l.clone());
                             }
                             if loose_eq(oldid.as_ref(), Some(&first_id_value))
-                                && prev_note.zip(this_note).map(|(p, t)| p >= t - 1).unwrap_or(false)
+                                && prev_note
+                                    .zip(this_note)
+                                    .map(|(p, t)| p >= t - 1)
+                                    .unwrap_or(false)
                             {
                                 let prevxloc = first_prev.item.get("locator-extra");
                                 let this_first = self
@@ -2238,10 +2361,17 @@ impl State {
                                     .get(this_citation)
                                     .sorted_items
                                     .first()
-                                    .ok_or_else(|| type_error("Cannot read properties of undefined (reading '1')"))?;
+                                    .ok_or_else(|| {
+                                        type_error(
+                                            "Cannot read properties of undefined (reading '1')",
+                                        )
+                                    })?;
                                 let thisxloc = this_first.item.get("locator-extra");
-                                let count_prev = prev_note.and_then(|p| citations_in_note.get(&p)).copied();
-                                if (count_prev == Some(1) || prev_note == Some(0)) && prevxloc == thisxloc {
+                                let count_prev =
+                                    prev_note.and_then(|p| citations_in_note.get(&p)).copied();
+                                if (count_prev == Some(1) || prev_note == Some(0))
+                                    && prevxloc == thisxloc
+                                {
                                     useme = true;
                                 }
                             }
@@ -2294,7 +2424,9 @@ impl State {
                                     .sorted_items
                                     .first()
                                     .ok_or_else(|| {
-                                        type_error("Cannot read properties of undefined (reading '1')")
+                                        type_error(
+                                            "Cannot read properties of undefined (reading '1')",
+                                        )
                                     })?
                                     .item
                                     .clone()
@@ -2307,7 +2439,9 @@ impl State {
                                     .unwrap_or_default();
                                 prev_locator = format!(
                                     "{}{}",
-                                    js::to_js_string(prev_obj.get("locator").unwrap_or(&Value::Null)),
+                                    js::to_js_string(
+                                        prev_obj.get("locator").unwrap_or(&Value::Null)
+                                    ),
                                     prev_label
                                 );
                             }
@@ -2376,7 +2510,12 @@ impl State {
                             }
                             let fcr = first_container_ref.get(&last_id).copied().flatten();
                             if fcr != one_note {
-                                let item = &mut self.registry.citationreg.get_mut(onecitation).sorted_items[k].item;
+                                let item = &mut self
+                                    .registry
+                                    .citationreg
+                                    .get_mut(onecitation)
+                                    .sorted_items[k]
+                                    .item;
                                 set_opt_int(item, "first-container-reference-note-number", fcr);
                                 if let Some(t) = self.registry.registry.get_mut(&item_id) {
                                     t.first_container_reference_note_number = fcr;
@@ -2384,7 +2523,12 @@ impl State {
                             }
                             let fr = first_ref.get(&first_id).copied().flatten();
                             if fr != one_note {
-                                let item = &mut self.registry.citationreg.get_mut(onecitation).sorted_items[k].item;
+                                let item = &mut self
+                                    .registry
+                                    .citationreg
+                                    .get_mut(onecitation)
+                                    .sorted_items[k]
+                                    .item;
                                 set_opt_int(item, "first-reference-note-number", fr);
                                 if let Some(t) = self.registry.registry.get_mut(&item_id) {
                                     // Try this instead?
@@ -2417,7 +2561,9 @@ impl State {
                             .insert("near-note".into(), Value::Bool(true));
                     }
                     if onecitation_id != current_id {
-                        let now = self.registry.citationreg.get(onecitation).sorted_items[k].item.clone();
+                        let now = self.registry.citationreg.get(onecitation).sorted_items[k]
+                            .item
+                            .clone();
                         for (param, old) in [
                             ("position", &old_position),
                             ("first-reference-note-number", &old_frnn),
@@ -2426,19 +2572,37 @@ impl State {
                             if now.get(param) != old.as_ref() {
                                 if let Some(t) = self.registry.registry.get(&item_id) {
                                     if param == "first-reference-note-number" {
-                                        rerun_akeys.insert(t.ambig.clone().unwrap_or_else(|| "false".into()));
+                                        rerun_akeys.insert(
+                                            t.ambig.clone().unwrap_or_else(|| "false".into()),
+                                        );
                                         self.tmp.tainted_item_ids.insert(item_id.clone(), true);
                                     }
                                 }
-                                self.tmp.tainted_citation_ids.insert(onecitation_id.clone(), true);
+                                self.tmp
+                                    .tainted_citation_ids
+                                    .insert(onecitation_id.clone(), true);
                             }
                         }
                     }
                     let _ = &old_fcrnn;
                     if self.fun.host_hooks.variable_wrapper {
-                        let index = self.registry.citationreg.get(onecitation).properties.get("index").cloned();
-                        let note = self.registry.citationreg.get(onecitation).properties.get("noteIndex").cloned();
-                        let item = &mut self.registry.citationreg.get_mut(onecitation).sorted_items[k].item;
+                        let index = self
+                            .registry
+                            .citationreg
+                            .get(onecitation)
+                            .properties
+                            .get("index")
+                            .cloned();
+                        let note = self
+                            .registry
+                            .citationreg
+                            .get(onecitation)
+                            .properties
+                            .get("noteIndex")
+                            .cloned();
+                        let item = &mut self.registry.citationreg.get_mut(onecitation).sorted_items
+                            [k]
+                            .item;
                         match index {
                             Some(v) => item.insert("index".into(), v),
                             None => item.remove("index"),
@@ -2524,8 +2688,14 @@ mod tests {
         let b = id.as_bytes();
         let generated = b.len() >= 7
             && b[0] == b'a'
-            && b[1..].iter().all(|c| c.is_ascii_digit() || (b'a'..=b'v').contains(c));
-        if generated { "GEN".to_string() } else { id.to_string() }
+            && b[1..]
+                .iter()
+                .all(|c| c.is_ascii_digit() || (b'a'..=b'v').contains(c));
+        if generated {
+            "GEN".to_string()
+        } else {
+            id.to_string()
+        }
     }
 
     /// What `scripts/csl-units/engine.cjs`'s `snapshot` records, from the state.
@@ -2582,7 +2752,10 @@ mod tests {
             for si in &c.sorted_items {
                 let mut so = Obj::new();
                 so.insert("id".into(), Value::String(si.item_id.clone()));
-                so.insert("cid".into(), si.item.get("id").cloned().unwrap_or(Value::Null));
+                so.insert(
+                    "cid".into(),
+                    si.item.get("id").cloned().unwrap_or(Value::Null),
+                );
                 for (k, from) in [
                     ("position", "position"),
                     ("frnn", "first-reference-note-number"),
@@ -2617,7 +2790,12 @@ mod tests {
             }
             snap.insert("byItem".into(), Value::Object(m));
         }
-        let mut ids: Vec<String> = reg.citationreg.citation_by_id.keys().map(|k| gen(k)).collect();
+        let mut ids: Vec<String> = reg
+            .citationreg
+            .citation_by_id
+            .keys()
+            .map(|k| gen(k))
+            .collect();
         ids.sort();
         snap.insert("citationById".into(), json!(ids));
         Value::Object(snap)
@@ -2661,7 +2839,11 @@ mod tests {
 
     fn citation_refs(v: &Value) -> Vec<CitationRef> {
         v.as_array()
-            .map(|a| a.iter().map(|r| CitationRef::from_json(r).expect("ref")).collect())
+            .map(|a| {
+                a.iter()
+                    .map(|r| CitationRef::from_json(r).expect("ref"))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -2680,7 +2862,8 @@ mod tests {
             let name = sc["name"].as_str().unwrap_or("?");
             let items: Vec<Value> = sc["items"].as_array().cloned().unwrap_or_default();
             let sys = Sys::new(&items, locales.clone()).expect("sys");
-            let mut e = Engine::new(sys, sc["style"].as_str().unwrap_or(""), "en-US").expect("engine");
+            let mut e =
+                Engine::new(sys, sc["style"].as_str().unwrap_or(""), "en-US").expect("engine");
             if sc["result"].get("error").is_some() {
                 continue;
             }
@@ -2713,22 +2896,43 @@ mod tests {
                                 Citation::from_json(&v)
                             })?;
                             let c = if op["citation"].get("properties").is_none() {
-                                Citation { properties: None, ..c }
+                                Citation {
+                                    properties: None,
+                                    ..c
+                                }
                             } else {
                                 c
                             };
-                            let (pre, post) = (citation_refs(&op["pre"]), citation_refs(&op["post"]));
+                            let (pre, post) =
+                                (citation_refs(&op["pre"]), citation_refs(&op["post"]));
                             match op["op"].as_str().unwrap_or("") {
                                 "process" => {
                                     let updates = e.process_citation_cluster(&c, &pre, &post)?;
-                                    got.insert("ret".into(), json!(updates.iter().map(|u| json!([u.index, u.text, gen(&u.citation_id)])).collect::<Vec<_>>()));
+                                    got.insert(
+                                        "ret".into(),
+                                        json!(updates
+                                            .iter()
+                                            .map(|u| json!([u.index, u.text, gen(&u.citation_id)]))
+                                            .collect::<Vec<_>>()),
+                                    );
                                 }
                                 "append" => {
                                     let updates = e.append_citation_cluster(&c)?;
-                                    got.insert("ret".into(), json!(updates.iter().map(|u| json!([u.index, u.text, gen(&u.citation_id)])).collect::<Vec<_>>()));
+                                    got.insert(
+                                        "ret".into(),
+                                        json!(updates
+                                            .iter()
+                                            .map(|u| json!([u.index, u.text, gen(&u.citation_id)]))
+                                            .collect::<Vec<_>>()),
+                                    );
                                 }
                                 _ => {
-                                    let text = e.preview_citation_cluster(&c, &pre, &post, crate::citeproc::OutputFormat::Html)?;
+                                    let text = e.preview_citation_cluster(
+                                        &c,
+                                        &pre,
+                                        &post,
+                                        crate::citeproc::OutputFormat::Html,
+                                    )?;
                                     got.insert("text".into(), Value::String(text));
                                 }
                             }
@@ -2736,9 +2940,16 @@ mod tests {
                         "make" => {
                             let items: Vec<CitationItem> = op["items"]
                                 .as_array()
-                                .map(|a| a.iter().map(|i| CitationItem::from_json(i).expect("item")).collect())
+                                .map(|a| {
+                                    a.iter()
+                                        .map(|i| CitationItem::from_json(i).expect("item"))
+                                        .collect()
+                                })
                                 .unwrap_or_default();
-                            got.insert("text".into(), Value::String(e.make_citation_cluster(&items)?));
+                            got.insert(
+                                "text".into(),
+                                Value::String(e.make_citation_cluster(&items)?),
+                            );
                         }
                         "bib" if want.get("bib") == Some(&Value::Bool(false)) => {
                             // `makeBibliography()` returns `false` for a style without a
@@ -2765,13 +2976,21 @@ mod tests {
                         // Both threw. JS TypeError texts are not reproduced; CSL.error texts are.
                         let m = msg.as_str().unwrap_or("");
                         if let Some(rest) = m.strip_prefix("citeproc-js error: ") {
-                            assert_eq!(err.to_string(), format!("citeproc-js error: {rest}"), "{at}");
+                            assert_eq!(
+                                err.to_string(),
+                                format!("citeproc-js error: {rest}"),
+                                "{at}"
+                            );
                         }
                         // state after an exception is not compared
                         break;
                     }
-                    (Ok(()), Some(msg)) => panic!("{at}: citeproc-js threw {msg} and the port did not"),
-                    (Err(err), None) => panic!("{at}: the port failed ({err}) and citeproc-js did not"),
+                    (Ok(()), Some(msg)) => {
+                        panic!("{at}: citeproc-js threw {msg} and the port did not")
+                    }
+                    (Err(err), None) => {
+                        panic!("{at}: the port failed ({err}) and citeproc-js did not")
+                    }
                 }
                 for key in ["ret", "text", "bib"] {
                     let w = want.get(key).cloned();
@@ -2822,7 +3041,9 @@ mod tests {
             .opt
             .insert("after-collapse-delimiter".into(), json!(" | "));
         assert_eq!(s.get_splice_delimiter(true, false, 1), Some(" | ".into()));
-        s.citation.opt.insert("collapse".into(), json!("year-suffix"));
+        s.citation
+            .opt
+            .insert("collapse".into(), json!("year-suffix"));
         assert_eq!(s.get_splice_delimiter(false, false, 1), Some("; ".into()));
     }
 }

@@ -742,7 +742,6 @@ pub struct Tmp {
     pub use_cite_group_delimiter: bool,
     /// `backref_index`.
     pub backref_index: Vec<Value>,
-
     // ---- fields: wave5 ----
 }
 

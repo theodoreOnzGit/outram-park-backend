@@ -57,7 +57,11 @@ static WS_RUN: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 fn upper_first(s: &str) -> String {
-    format!("{}{}", js::slice(s, 0, Some(1)).to_uppercase(), js::slice(s, 1, None))
+    format!(
+        "{}{}",
+        js::slice(s, 0, Some(1)).to_uppercase(),
+        js::slice(s, 1, None)
+    )
 }
 
 /// `myname.slice(0,1).toUpperCase() + myname.slice(1).toLowerCase()` when the
@@ -134,10 +138,15 @@ impl State {
             config = if names.len() > params.len() {
                 params.last().cloned()
             } else {
-                names.len().checked_sub(1).and_then(|i| params.get(i).cloned())
+                names
+                    .len()
+                    .checked_sub(1)
+                    .and_then(|i| params.get(i).cloned())
             };
             let cfg = config.clone().ok_or_else(|| {
-                EngineError::Csl("TypeError: Cannot read properties of undefined (reading 'authors')".into())
+                EngineError::Csl(
+                    "TypeError: Cannot read properties of undefined (reading 'authors')".into(),
+                )
             })?;
             for (j, name_in) in names.iter().enumerate() {
                 if j == cfg.authors.len() {
@@ -191,7 +200,9 @@ impl State {
                 }
                 let joined = lst.concat();
                 let first = params.first().ok_or_else(|| {
-                    EngineError::Csl("TypeError: Cannot read properties of undefined (reading 'authors')".into())
+                    EngineError::Csl(
+                        "TypeError: Cannot read properties of undefined (reading 'authors')".into(),
+                    )
                 })?;
                 let n = first.authors.first().copied().unwrap_or(0);
                 let s = js::slice(&joined, 0, Some(n as i64));
@@ -221,12 +232,26 @@ mod tests {
     #[test]
     fn trigraph_params_parse_the_default_definition() {
         let mut s = State::default();
-        s.opt
-            .insert("trigraph".into(), Value::String("Aaaa00:AaAa00:AaAA00:AAAA00".into()));
+        s.opt.insert(
+            "trigraph".into(),
+            Value::String("Aaaa00:AaAa00:AaAA00:AAAA00".into()),
+        );
         let p = s.get_trigraph_params().unwrap();
         assert_eq!(p.len(), 4);
-        assert_eq!(p[0], TrigraphConfig { authors: vec![4], year: 2 });
-        assert_eq!(p[1], TrigraphConfig { authors: vec![2, 2], year: 2 });
+        assert_eq!(
+            p[0],
+            TrigraphConfig {
+                authors: vec![4],
+                year: 2
+            }
+        );
+        assert_eq!(
+            p[1],
+            TrigraphConfig {
+                authors: vec![2, 2],
+                year: 2
+            }
+        );
         assert_eq!(p[2].authors, vec![2, 1, 1]);
         assert_eq!(p[3].authors, vec![1, 1, 1, 1]);
         s.opt.insert("trigraph".into(), Value::String("xA".into()));

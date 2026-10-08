@@ -64,7 +64,11 @@ impl State {
 
     /// `updateUncitedItems(idList, nosort)`: register `id_list` as uncited
     /// items (kept in the bibliography without being cited).
-    pub fn update_uncited_items(&mut self, id_list: &[String], nosort: bool) -> CslResult<Vec<String>> {
+    pub fn update_uncited_items(
+        &mut self,
+        id_list: &[String],
+        nosort: bool,
+    ) -> CslResult<Vec<String>> {
         let old_area = self.tmp.area.clone();
         let old_root = self.tmp.root.clone();
         let old_extension = self.tmp.extension.clone();
@@ -181,7 +185,9 @@ impl State {
                     ret.push(None);
                 }
                 let p = pre.get(index).ok_or_else(|| {
-                    EngineError::Csl("TypeError: Cannot read properties of undefined (reading '0')".into())
+                    EngineError::Csl(
+                        "TypeError: Cannot read properties of undefined (reading '0')".into(),
+                    )
                 })?;
                 ret[index] = Some((p.citation_id.clone(), p.note_index.clone(), text));
             }
@@ -273,7 +279,11 @@ impl State {
                 let r = self.registry.citationreg.get(*c);
                 CitationPos {
                     citation_id: r.citation_id.clone(),
-                    note_index: r.properties.get("noteIndex").cloned().unwrap_or(Value::Null),
+                    note_index: r
+                        .properties
+                        .get("noteIndex")
+                        .cloned()
+                        .unwrap_or(Value::Null),
                 }
             })
             .collect();
@@ -287,14 +297,15 @@ impl State {
                 citation_items: rec.citation_items.clone(),
                 properties: Some(rec.properties.clone()),
             };
-            let res = self.process_citation_cluster(input, &[], &citation_list[1..], ClusterFlag::None)?;
+            let res =
+                self.process_citation_cluster(input, &[], &citation_list[1..], ClusterFlag::None)?;
             Ok(res.updates)
         } else {
-            self.registry = registry::Registry::new(registry::Comparifier::new(self, "bibliography_sort"));
+            self.registry =
+                registry::Registry::new(registry::Comparifier::new(self, "bibliography_sort"));
             self.tmp = Tmp::new();
             self.disambiguate = super::disambig_cites::Disambiguation::new(self);
             Ok(Vec::new())
         }
     }
 }
-

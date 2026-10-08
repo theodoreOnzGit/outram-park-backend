@@ -387,7 +387,11 @@ impl Registry {
     pub fn year_suffix(&self, id: &str) -> Option<Value> {
         let d = self.registry.get(id)?.disambig?;
         let v = &self.ambig_pool.get(d.0)?.year_suffix;
-        if *v == Value::Bool(false) { None } else { Some(v.clone()) }
+        if *v == Value::Bool(false) {
+            None
+        } else {
+            Some(v.clone())
+        }
     }
 
     /// `getSortedIds()`: the ids of `reflist`.
@@ -565,7 +569,12 @@ pub fn dodeletes(state: &mut State, myhash: &BTreeSet<String>) -> CslResult<()> 
         // 3d-0. Remove parallel id references and realign
         // parallel ID refs.
         //
-        if let Some(siblings) = state.registry.registry.get(&key).and_then(|t| t.siblings.clone()) {
+        if let Some(siblings) = state
+            .registry
+            .registry
+            .get(&key)
+            .and_then(|t| t.siblings.clone())
+        {
             if siblings.len() == 1 {
                 let lone = siblings[0].clone();
                 let lone_token = state.registry.registry.get_mut(&lone).ok_or_else(|| {
@@ -578,13 +587,20 @@ pub fn dodeletes(state: &mut State, myhash: &BTreeSet<String>) -> CslResult<()> 
                 }
             } else if siblings.len() > 1 {
                 let mut remove_ids = vec![key.clone()];
-                let is_master = state.registry.registry.get(&key).map(|t| t.master).unwrap_or(false);
+                let is_master = state
+                    .registry
+                    .registry
+                    .get(&key)
+                    .map(|t| t.master)
+                    .unwrap_or(false);
                 if is_master {
                     let newmaster_id = siblings[0].clone();
                     if let Some(newmaster) = state.registry.registry.get_mut(&newmaster_id) {
                         newmaster.master = true;
                     } else {
-                        return Err(type_error("Cannot set properties of undefined (setting 'master')"));
+                        return Err(type_error(
+                            "Cannot set properties of undefined (setting 'master')",
+                        ));
                     }
                     // newmaster.parallel_delimiter is set externally, if at all
                     remove_ids.push(newmaster_id);
@@ -640,7 +656,9 @@ pub fn doinserts(state: &mut State, mylist: &[String]) -> CslResult<()> {
         //  4c. Add names in items to be inserted to names reg
         //      (implicit in getAmbiguousCite).
         //
-        let akey = state.get_ambiguous_cite(&item_data, None, false, None)?.to_js_string();
+        let akey = state
+            .get_ambiguous_cite(&item_data, None, false, None)?
+            .to_js_string();
         state.registry.ambigs_touched.insert(akey.clone());
         //
         //  4d. Record ambig pool key on akey list (used for updating further
@@ -704,10 +722,9 @@ pub fn rebuildlist(state: &mut State, nosort: bool) -> CslResult<()> {
         // XXX Just memo inserts -- actual insert happens below, at last "sort"
         //
         for (pos, item) in mylist.iter().enumerate() {
-            let token = reg
-                .registry
-                .get_mut(item)
-                .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'newItem')"))?;
+            let token = reg.registry.get_mut(item).ok_or_else(|| {
+                type_error("Cannot read properties of undefined (reading 'newItem')")
+            })?;
             if token.new_item {
                 reg.reflist_inserts.push(item.clone());
             }
@@ -749,9 +766,9 @@ pub fn dorefreshes(state: &mut State) -> CslResult<()> {
         if let Some(t) = state.registry.registry.get_mut(&key) {
             t.sortkeys = None;
         }
-        let mut item = state
-            .refetch_item(&key)
-            .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'legislation_id')"))?;
+        let mut item = state.refetch_item(&key).ok_or_else(|| {
+            type_error("Cannot read properties of undefined (reading 'legislation_id')")
+        })?;
 
         // `"undefined" === typeof akey` is never true for a registered token
         // (`ambig` is `false` or a string), as upstream.
@@ -771,7 +788,9 @@ pub fn dorefreshes(state: &mut State) -> CslResult<()> {
                     .get(&lookup)
                     .and_then(|v| v.first())
                     .cloned()
-                    .ok_or_else(|| type_error("Cannot read properties of undefined (reading '0')"))?;
+                    .ok_or_else(|| {
+                        type_error("Cannot read properties of undefined (reading '0')")
+                    })?;
                 item = state.refetch_item(&lone_key).ok_or_else(|| {
                     type_error("Cannot read properties of undefined (reading 'legislation_id')")
                 })?;
@@ -780,10 +799,14 @@ pub fn dorefreshes(state: &mut State) -> CslResult<()> {
                     .registry
                     .registry
                     .get_mut(&lone_key)
-                    .ok_or_else(|| type_error("Cannot set properties of undefined (setting 'disambig')"))?
+                    .ok_or_else(|| {
+                        type_error("Cannot set properties of undefined (setting 'disambig')")
+                    })?
                     .disambig = Some(fresh);
                 state.tmp.disambig_settings = None;
-                let new_akey = state.get_ambiguous_cite(&item, None, false, None)?.to_js_string();
+                let new_akey = state
+                    .get_ambiguous_cite(&item, None, false, None)?
+                    .to_js_string();
                 akey = Some(new_akey.clone());
                 let abase = state.get_ambig_config();
                 register_ambig_token(state, &new_akey, &lone_key, abase)?;
@@ -856,7 +879,9 @@ pub fn renumber(state: &mut State) {
             t.seq = seq;
         }
         if descending {
-            if let Some(Value::Object(map)) = state.bibliography_sort.tmp.get_mut("citation_number_map") {
+            if let Some(Value::Object(map)) =
+                state.bibliography_sort.tmp.get_mut("citation_number_map")
+            {
                 map.insert(seq.to_string(), Value::from(len as i64 - seq + 1));
             }
         }
@@ -880,13 +905,16 @@ pub fn setsortkeys(state: &mut State) -> CslResult<()> {
     let mylist = state.registry.mylist.clone();
     for key in mylist {
         // The last of these conditions may create some thrashing on styles that do not require sorting.
-        let token = state
-            .registry
-            .registry
-            .get(&key)
-            .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'sortkeys')"))?;
+        let token = state.registry.registry.get(&key).ok_or_else(|| {
+            type_error("Cannot read properties of undefined (reading 'sortkeys')")
+        })?;
         if state.registry.touched.contains(&key)
-            || state.tmp.tainted_item_ids.get(&key).copied().unwrap_or(false)
+            || state
+                .tmp
+                .tainted_item_ids
+                .get(&key)
+                .copied()
+                .unwrap_or(false)
             || token.sortkeys.is_none()
         {
             let item = retrieve_item(state, &key)?;
@@ -929,7 +957,11 @@ fn location_of(
         .sorter
         .compare_keys(state, reg.keyed(element), reg.keyed(&array[pivot]))?;
     if end - start <= 1 {
-        return Ok(if c == -1 { pivot as i64 - 1 } else { pivot as i64 });
+        return Ok(if c == -1 {
+            pivot as i64 - 1
+        } else {
+            pivot as i64
+        });
     }
     match c {
         -1 => location_of(state, element, array, start, pivot),
@@ -958,11 +990,10 @@ pub fn sorttokens(state: &mut State, nosort: bool) -> CslResult<()> {
     let mylist = state.registry.mylist.clone();
     state.registry.reflist_inserts = Vec::new();
     for item in &mylist {
-        let token = state
-            .registry
-            .registry
-            .get(item)
-            .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'newItem')"))?;
+        let token =
+            state.registry.registry.get(item).ok_or_else(|| {
+                type_error("Cannot read properties of undefined (reading 'newItem')")
+            })?;
         if token.new_item {
             state.registry.reflist_inserts.push(item.clone());
         }
@@ -1052,7 +1083,11 @@ pub fn register_ambig_token(
         }
     }
 
-    let pool = state.registry.ambigcites.entry(akey.to_string()).or_default();
+    let pool = state
+        .registry
+        .ambigcites
+        .entry(akey.to_string())
+        .or_default();
     if !pool.iter().any(|x| x == id) {
         pool.push(id.to_string());
     }
@@ -1111,10 +1146,7 @@ mod tests {
     use super::*;
 
     fn keyed(keys: &[Option<&str>], seq: Option<i64>) -> (Vec<Option<String>>, Option<i64>) {
-        (
-            keys.iter().map(|k| k.map(str::to_string)).collect(),
-            seq,
-        )
+        (keys.iter().map(|k| k.map(str::to_string)).collect(), seq)
     }
 
     fn state_with_directions(dirs: &[[i64; 2]]) -> State {
@@ -1130,12 +1162,22 @@ mod tests {
         s
     }
 
-    fn cmp(s: &State, a: &(Vec<Option<String>>, Option<i64>), b: &(Vec<Option<String>>, Option<i64>)) -> i32 {
+    fn cmp(
+        s: &State,
+        a: &(Vec<Option<String>>, Option<i64>),
+        b: &(Vec<Option<String>>, Option<i64>),
+    ) -> i32 {
         Comparifier::new(s, "bibliography_sort")
             .compare_keys(
                 s,
-                SortKeyed { sortkeys: &a.0, seq: a.1 },
-                SortKeyed { sortkeys: &b.0, seq: b.1 },
+                SortKeyed {
+                    sortkeys: &a.0,
+                    seq: a.1,
+                },
+                SortKeyed {
+                    sortkeys: &b.0,
+                    seq: b.1,
+                },
             )
             .unwrap()
     }
@@ -1165,8 +1207,14 @@ mod tests {
         assert!(comparifier
             .compare_keys(
                 &s,
-                SortKeyed { sortkeys: &long.0, seq: long.1 },
-                SortKeyed { sortkeys: &longer.0, seq: longer.1 }
+                SortKeyed {
+                    sortkeys: &long.0,
+                    seq: long.1
+                },
+                SortKeyed {
+                    sortkeys: &longer.0,
+                    seq: longer.1
+                }
             )
             .is_err());
     }
@@ -1175,7 +1223,11 @@ mod tests {
     fn init_removes_earlier_duplicates_and_resets_the_scratch_sets() {
         let mut s = State::default();
         s.registry.refreshes.insert("x".into());
-        init(&mut s, vec!["a".into(), "b".into(), "a".into(), "c".into()], false);
+        init(
+            &mut s,
+            vec!["a".into(), "b".into(), "a".into(), "c".into()],
+            false,
+        );
         assert_eq!(s.registry.mylist, vec!["b", "a", "c"]);
         assert!(s.registry.refreshes.is_empty());
         init(&mut s, vec!["z".into(), "b".into()], true);
@@ -1199,7 +1251,14 @@ mod tests {
     fn location_of_finds_the_insertion_point_like_the_binary_search_upstream() {
         let mut s = state_with_directions(&[[-1, 1]]);
         s.registry.sorter = Comparifier::new(&s, "bibliography_sort");
-        for (id, key, seq) in [("a", "apple", 1), ("c", "cherry", 2), ("e", "elder", 3), ("b", "banana", 4), ("z", "zebra", 5), ("0", "aardvark", 6)] {
+        for (id, key, seq) in [
+            ("a", "apple", 1),
+            ("c", "cherry", 2),
+            ("e", "elder", 3),
+            ("b", "banana", 4),
+            ("z", "zebra", 5),
+            ("0", "aardvark", 6),
+        ] {
             let mut t = RegistryItem::new(id);
             t.sortkeys = Some(vec![Some(key.to_string())]);
             t.seq = seq;
