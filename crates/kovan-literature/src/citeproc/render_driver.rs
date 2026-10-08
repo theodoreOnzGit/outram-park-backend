@@ -108,6 +108,12 @@ pub(super) struct Fixture {
     pub langparams: Option<Value>,
     pub multiaffix: Option<Value>,
     pub options: Option<Obj>,
+    /// The engine language (`new CSL.Engine(sys, style, lang)`), `""` for none.
+    pub lang: String,
+    /// An output format set after construction (`setOutputFormat`).
+    pub format: Option<String>,
+    /// `{translit: [...], translat: [...]}` language tags.
+    pub tags: Option<Value>,
 }
 
 fn read_sections(text: &str) -> Result<BTreeMap<String, Vec<String>>, String> {
@@ -200,6 +206,9 @@ pub(super) fn parse_fixture(name: &str, text: &str) -> Result<Fixture, String> {
         langparams: json_of("LANGPARAMS")?,
         multiaffix: json_of("MULTIAFFIX")?,
         options,
+        lang: String::new(),
+        format: None,
+        tags: None,
     })
 }
 
@@ -271,7 +280,19 @@ pub(super) fn build_engine(
     locales: &Arc<BTreeMap<String, String>>,
 ) -> CslResult<(Engine, Vec<String>)> {
     let sys = Sys::new(&fx.input, locales.clone())?;
-    let mut engine = Engine::new(sys, &fx.csl, "")?;
+    let mut engine = Engine::new(sys, &fx.csl, &fx.lang)?;
+    if let Some(f) = &fx.format {
+        crate::citeproc::formats::set_output_format(engine.state_mut(), f)?;
+    }
+    if let Some(t) = &fx.tags {
+        let strs = |v: Option<&Value>| -> Vec<String> {
+            v.and_then(Value::as_array)
+                .map(|a| a.iter().map(js_string).collect())
+                .unwrap_or_default()
+        };
+        engine.set_lang_tags_for_csl_translation(strs(t.get("translat")));
+        engine.set_lang_tags_for_csl_transliteration(strs(t.get("translit")));
+    }
     let mut mode = fx.mode.split('-');
     let _mode_name = mode.next();
     let submodes: Vec<String> = mode.map(str::to_string).collect();
@@ -489,9 +510,18 @@ fn get_cite(
                 // @display group node.
                 if let Some(cur) = queue::current(state, QueueId::Output) {
                     if js::truthy_opt(state.opt.get("using_display")) {
-                        if let BlobContent::List(l) = &state.blobs.get(cur).blobs {
-                            if let Some(BlobChild::Blob(last)) = l.last().cloned() {
-                                state.blobs.get_mut(last).set_string("suffix", &suffix);
+                        let last = match &state.blobs.get(cur).blobs {
+                            BlobContent::List(l) => l.last().cloned(),
+                            BlobContent::Text(_) => None,
+                        };
+                        match last {
+                            Some(BlobChild::Blob(last)) => {
+                                state.blobs.get_mut(last).set_string("suffix", &suffix)
+                            }
+                            _ => {
+                                return Err(EngineError::BadInput(
+                                    "Cannot read properties of undefined (reading 'strings')".into(),
+                                ))
                             }
                         }
                     } else {
@@ -634,7 +664,7 @@ pub(super) fn make_citation_cluster(state: &mut State, raw_list: &[Value]) -> Cs
     let txt_esc = get_safe_escape(state);
     state.tmp.area = "citation".to_string();
     state.tmp.root = "citation".to_string();
-    let mut objects: Vec<String> = Vec::new();
+    let mut objects: Vec<Rendered> = Vec::new();
     state.tmp.last_suffix_used = String::new();
     state.tmp.last_names_used = Vec::new();
     state.tmp.last_years_used = Vec::new();
@@ -650,9 +680,12 @@ pub(super) fn make_citation_cluster(state: &mut State, raw_list: &[Value]) -> Cs
     let suppress_trailing_punctuation = js::truthy_opt(state.citation.opt.get("suppressTrailingPunctuation"));
 
     let mut myparams: Vec<(Option<String>, bool, bool)> = Vec::new();
+    // `item` of the JS loop is still bound after it (the last cite processed).
+    let mut last_item = Value::Null;
     let len = input_list.len();
     for pos in 0..len {
         let (item_full, item) = (input_list[pos].0.clone(), input_list[pos].1.clone());
+        last_item = item.clone();
         let last_collapsed = state.tmp.render.have_collapsed;
         let last_locator = pos > 0 && js::truthy_opt(input_list[pos - 1].1.get("locator"));
         // Reset shadow_numbers here, suppress reset in getCite()
@@ -751,9 +784,8 @@ pub(super) fn make_citation_cluster(state: &mut State, raw_list: &[Value]) -> Cs
         let composite = queue::string(state, QueueId::Output, &queue_now, StringParent::None)?;
         state.tmp.suppress_decorations = false;
         let mut composite: Vec<Rendered> = composite.into_list();
-        if composite.is_empty() && !js::truthy_opt(input_list[pos].1.get("suppress-author")) {
-            let item_pos = pos;
-            if item_pos == 0 {
+        if composite.is_empty() && !js::truthy_opt(last_item.get("suppress-author")) {
+            if pos == 0 {
                 let pre = txt_esc.escape(js::get_str(&state.citation.opt, "layout_prefix").unwrap_or(""));
                 let suf = if pos == myblobs.len() - 1 {
                     txt_esc.escape(js::get_str(&state.citation.opt, "layout_suffix").unwrap_or(""))
@@ -764,36 +796,68 @@ pub(super) fn make_citation_cluster(state: &mut State, raw_list: &[Value]) -> Cs
                     "{pre}[CSL STYLE ERROR: reference with no printed form.]{suf}"
                 )));
             } else if pos == myblobs.len() - 1 {
-                if let Some(last) = objects.last_mut() {
-                    last.push_str(&txt_esc.escape(
-                        js::get_str(&state.citation.opt, "layout_suffix").unwrap_or(""),
-                    ));
+                let esc = txt_esc.escape(js::get_str(&state.citation.opt, "layout_suffix").unwrap_or(""));
+                match objects.last_mut() {
+                    Some(Rendered::Str(s)) => s.push_str(&esc),
+                    Some(Rendered::Blob(b)) => {
+                        let b = *b;
+                        let cur = state.blobs.get(b).string("suffix");
+                        state.blobs.get_mut(b).set_string("suffix", &format!("{cur}{esc}"));
+                    }
+                    _ => {}
                 }
             }
         }
-        if composite.len() > 1 || composite.iter().any(|r| !matches!(r, Rendered::Str(_))) {
-            return Err(EngineError::BadInput("DRIVER: composite of several parts".into()));
+        // `var buffer = []` re-initialises the (function-scoped) variable on
+        // every pass, so the `buffer.length` branches of the JS never run.
+        let mut buffer: Vec<Rendered> = Vec::new();
+        composite.reverse();
+        if let Some(compie) = composite.pop() {
+            buffer.push(compie);
         }
-        let mut buffer: Vec<String> = composite
-            .into_iter()
-            .filter_map(|r| match r {
-                Rendered::Str(s) => Some(s),
-                _ => None,
-            })
-            .collect();
+        let llen = composite.len();
+        for ppos in 0..llen {
+            let obj = composite.get(ppos).cloned();
+            if let Some(Rendered::Str(s)) = obj {
+                let sd = state.splice_delimiter.clone().unwrap_or_default();
+                buffer.push(Rendered::Str(format!("{}{}", txt_esc.escape(&sd), s)));
+                continue;
+            }
+            if let Some(compie) = composite.pop() {
+                buffer.push(compie);
+            }
+        }
         if buffer.is_empty() && !js::truthy_opt(input_list[pos].1.get("suppress-author")) {
             empties += 1;
         }
-        if let Some(first) = buffer.first_mut() {
-            if pos > 0 {
-                let sd = state.splice_delimiter.clone().unwrap_or_default();
-                *first = format!("{}{}", txt_esc.escape(&sd), first);
+        if buffer.len() > 1 && !matches!(buffer[0], Rendered::Str(_)) {
+            let r = queue::render_blobs(state, QueueId::Output, buffer, "", false, None)?;
+            buffer = vec![r];
+        }
+        if !buffer.is_empty() {
+            let sd = state.splice_delimiter.clone().unwrap_or_default();
+            match &mut buffer[0] {
+                Rendered::Str(s) => {
+                    if pos > 0 {
+                        *s = format!("{}{}", txt_esc.escape(&sd), s);
+                    }
+                }
+                Rendered::Blob(b) => {
+                    let b = *b;
+                    state.blobs.get_mut(b).splice_prefix =
+                        Some(if pos > 0 { sd } else { String::new() });
+                }
+                Rendered::List(_) => {}
             }
         }
         objects.extend(buffer);
     }
     let _ = (empties, root_id(state));
-    let mut result: String = objects.concat();
+    let rendered = queue::render_blobs(state, QueueId::Output, objects, "", false, None)?;
+    let mut result: String = match rendered {
+        Rendered::Str(s) => s,
+        other => other.to_js_string(),
+    };
     if !result.is_empty() && !state.tmp.suppress_decorations {
         let decs = state
             .citation
@@ -807,10 +871,7 @@ pub(super) fn make_citation_cluster(state: &mut State, raw_list: &[Value]) -> Cs
             if d.value == "normal" {
                 continue;
             }
-            let any_author_only = input_list
-                .last()
-                .map(|(_, i)| js::truthy_opt(i.get("author-only")))
-                .unwrap_or(false);
+            let any_author_only = js::truthy_opt(last_item.get("author-only"));
             if !any_author_only {
                 result = crate::citeproc::formats::decorate(state, None, &d.name, &d.value, Some(&result), None)?;
             }
@@ -955,7 +1016,6 @@ pub(super) fn make_bibliography(state: &mut State, ids: &[String]) -> CslResult<
     }
     state.tmp.area = "bibliography".to_string();
     state.tmp.root = "bibliography".to_string();
-    state.output.check_nested_brace = Some(CheckNestedBrace::new(state));
     let mut entries: Vec<String> = Vec::new();
     let layout_decorations = state
         .bibliography
@@ -1048,4 +1108,56 @@ fn blob_children(state: &State, id: BlobId) -> Vec<BlobChild> {
         BlobContent::List(l) => l.clone(),
         BlobContent::Text(_) => Vec::new(),
     }
+}
+
+/// A case of `tests/data/csl/units/render.json` (generated by
+/// `scripts/csl-units/render.cjs`) as a fixture.
+pub(super) fn case_fixture(c: &Value) -> Fixture {
+    let items = c["citation_items"].as_array().cloned().unwrap_or_default();
+    Fixture {
+        name: c["name"].as_str().unwrap_or("").to_string(),
+        csl: c["csl"].as_str().unwrap_or("").to_string(),
+        mode: "citation".to_string(),
+        input: c["input"].as_array().cloned().unwrap_or_default(),
+        abbreviations: c.get("abbreviations").cloned(),
+        has_bibentries: false,
+        has_bibsection: false,
+        bibentries: None,
+        has_citations: false,
+        citation_items: Some(vec![items]),
+        langparams: c.get("langparams").cloned(),
+        multiaffix: c.get("multiaffix").cloned(),
+        options: c.get("options").and_then(|o| o.as_object().cloned()),
+        lang: c["lang"].as_str().unwrap_or("").to_string(),
+        format: c["format"].as_str().filter(|f| *f != "html").map(str::to_string),
+        tags: c.get("tags").cloned(),
+    }
+}
+
+/// Render a generated case both ways: `(citation, bibliography)` results.
+pub(super) fn run_case(
+    c: &Value,
+    locales: &Arc<BTreeMap<String, String>>,
+) -> (Result<String, String>, Result<String, String>) {
+    let fx = case_fixture(c);
+    let ids: Vec<String> = fx
+        .input
+        .iter()
+        .map(|i| i.get("id").map(js::to_js_string).unwrap_or_default())
+        .collect();
+    let cite = (|| -> Result<String, String> {
+        let (mut engine, _) = build_engine(&fx, locales).map_err(|e| e.to_string())?;
+        let set = fx.citation_items.clone().unwrap_or_default();
+        let set = set.first().cloned().unwrap_or_default();
+        make_citation_cluster(engine.state_mut(), &set)
+            .map(|s| s.replace("\r\n", "\n").replace('\r', "\n"))
+            .map_err(|e| e.to_string())
+    })();
+    let bib = (|| -> Result<String, String> {
+        let (mut engine, _) = build_engine(&fx, locales).map_err(|e| e.to_string())?;
+        make_bibliography(engine.state_mut(), &ids)
+            .map(|s| s.replace("\r\n", "\n").replace('\r', "\n"))
+            .map_err(|e| e.to_string())
+    })();
+    (cite, bib)
 }

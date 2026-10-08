@@ -1361,3 +1361,91 @@ mod fixture_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod render_case_tests {
+    //! Randomly generated styles and items against citeproc-js.
+    //!
+    //! **Methodology.** `scripts/csl-units/render.cjs` (node, seeded, run by
+    //! hand) generated 500 styles without names or dates (nested groups with
+    //! and without rendered variables, `cs:choose` with every condition
+    //! attribute and `match` mode, `cs:text` variables / terms / values /
+    //! macros with quotes, strip-periods, text-case, affixes, decorations and
+    //! `display`, `cs:label`, `cs:number` in every form) and 1 to 3 random
+    //! items each (multilingual fields, abbreviations of titles, containers,
+    //! places and numbers, locators and cite affixes), in six locales and
+    //! five output formats. Each was run through citeproc-js 2.4.63 the way
+    //! the test runner does (`updateItems`, `makeCitationCluster`,
+    //! `makeBibliography`); the outputs are in
+    //! `tests/data/csl/units/render.json`. The port renders the same through
+    //! the test-only driver (`render_driver.rs`).
+    //!
+    //! **Pass criterion.** Every case where citeproc-js produced output
+    //! equals the port's output, and a case where citeproc-js threw makes the
+    //! port return an error as well (the messages are not compared).
+    use serde_json::Value;
+
+    use super::render_driver::{load_locales, run_case};
+
+    const REF: &str = include_str!("../../tests/data/csl/units/render.json");
+
+    /// **Results (2026-10-08, branch citeproc/w2-render):** printed by the
+    /// test with `--nocapture`.
+    #[test]
+    fn render_cases_match_citeproc_js() {
+        let Some(locales) = load_locales() else {
+            println!("SKIP: vendor/citeproc-js/locale is absent");
+            return;
+        };
+        let reference: Value = serde_json::from_str(REF).expect("render.json");
+        let cases = reference["cases"].as_array().expect("cases");
+        let (mut ok, mut blocked, mut bad) = (0usize, 0usize, Vec::<String>::new());
+        let mut why: std::collections::BTreeMap<String, usize> = Default::default();
+        for c in cases {
+            let (cite, bib) = run_case(c, &locales);
+            for (kind, got, want, err) in [
+                ("citation", cite, &c["citation"], &c["citation_error"]),
+                ("bibliography", bib, &c["bibliography"], &c["bibliography_error"]),
+            ] {
+                if err.is_string() {
+                    if got.is_ok() {
+                        bad.push(format!(
+                            "{} {kind}: citeproc-js threw {err}, port rendered {got:?}",
+                            c["name"]
+                        ));
+                    } else {
+                        ok += 1;
+                    }
+                    continue;
+                }
+                match got {
+                    Err(e) if e.contains("not ported yet") || e.contains("DRIVER") => {
+                        blocked += 1;
+                        *why.entry(e.chars().take(80).collect()).or_default() += 1;
+                    }
+                    Err(e) => bad.push(format!("{} {kind}: port failed: {e}", c["name"])),
+                    Ok(s) => {
+                        if want.as_str() == Some(s.as_str()) {
+                            ok += 1;
+                        } else {
+                            bad.push(format!(
+                                "{} {kind}:\n  want {want}\n  got  {s:?}\n  csl {}",
+                                c["name"], c["csl"]
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        println!("render cases: {} x2, exact {ok}, blocked {blocked}, differing {}", cases.len(), bad.len());
+        for (w, n) in &why {
+            println!("blocked x{n}: {w}");
+        }
+        assert!(
+            bad.is_empty(),
+            "{} outputs differ from citeproc-js, first:\n{}",
+            bad.len(),
+            bad[..bad.len().min(6)].join("\n")
+        );
+    }
+}
