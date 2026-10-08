@@ -73,7 +73,10 @@ pub fn token_value(t: &Token, nested: bool, closure_counts: bool) -> Value {
             t.decorations
                 .iter()
                 .map(|d| {
-                    let mut a = vec![Value::String(d.name.clone()), Value::String(d.value.clone())];
+                    let mut a = vec![
+                        Value::String(d.name.clone()),
+                        Value::String(d.value.clone()),
+                    ];
                     if let Some(x) = &d.extra {
                         a.push(Value::String(x.clone()));
                     }
@@ -230,4 +233,100 @@ pub fn reduce_reference_style(v: &Value) -> Value {
     let mut c = v.clone();
     strip(&mut c);
     c
+}
+
+// ----------------------------------------------------------------------
+// Exact text, in the key order the reference script prints.
+//
+// The reference script's section objects are *literals*: only the objects
+// that pass through `canon` have sorted keys, the section wrappers keep the
+// order they were written in (`style`: csl_version, processor_version, opt,
+// areas in `CSL.AREAS` order each as root/tokens/opt, macros sorted,
+// cite_affixes, names_level; `locale`: locale, gender). The digest is of that
+// text, so the digests are computed from [`style_text`] and [`locale_text`].
+
+fn json(v: &Value) -> String {
+    serde_json::to_string(v).unwrap_or_default()
+}
+
+fn tokens_text(ts: &[Token], closure_counts: bool) -> String {
+    json(&tokens_value(ts, closure_counts))
+}
+
+/// The `style` section as the exact JSON text the reference script's
+/// `JSON.stringify` prints.
+pub fn style_text(engine: &Engine, closure_counts: bool) -> String {
+    let s = engine.state();
+    let mut out = String::from("{");
+    out.push_str(&format!(
+        "\"csl_version\":{},",
+        json(&Value::String(s.csl_version.clone()))
+    ));
+    out.push_str(&format!(
+        "\"processor_version\":{},",
+        json(&Value::String(s.processor_version.clone()))
+    ));
+    out.push_str(&format!("\"opt\":{},", json(&Value::Object(s.opt.clone()))));
+    out.push_str("\"areas\":{");
+    for (i, a) in load::AREAS.iter().enumerate() {
+        let area = s.area_ref(a);
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&format!(
+            "{}:{{\"root\":{},\"tokens\":{},\"opt\":{}}}",
+            json(&Value::String((*a).to_string())),
+            json(&Value::String(area.root.clone())),
+            tokens_text(&area.tokens, closure_counts),
+            json(&Value::Object(area.opt.clone()))
+        ));
+    }
+    out.push_str("},\"macros\":{");
+    for (i, (k, v)) in s.macros.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&format!(
+            "{}:{}",
+            json(&Value::String(k.clone())),
+            tokens_text(v, closure_counts)
+        ));
+    }
+    out.push_str(&format!(
+        "}},\"cite_affixes\":{},\"names_level\":{}}}",
+        json(&Value::Object(s.tmp.cite_affixes.clone())),
+        s.build.names_level
+    ));
+    out
+}
+
+/// The `locale` section as exact JSON text (see [`style_text`]).
+pub fn locale_text(engine: &Engine) -> String {
+    let s = engine.state();
+    if s.locale.values().any(|l| l.cyclic) {
+        return format!("{{\"error\":\"{STACK_OVERFLOW}\"}}");
+    }
+    let mut out = String::from("{\"locale\":{");
+    for (i, (lang, l)) in s.locale.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&format!(
+            "{}:{}",
+            json(&Value::String(lang.clone())),
+            json(&l.to_value())
+        ));
+    }
+    out.push_str(&format!(
+        "}},\"gender\":{}}}",
+        json(s.opt.get("gender").unwrap_or(&Value::Null))
+    ));
+    out
+}
+
+/// Hex SHA-256 of a text.
+pub fn digest_text(text: &str) -> String {
+    let mut h = Sha256::new();
+    h.update(text.as_bytes());
+    h.finalize().iter().map(|b| format!("{b:02x}")).collect()
 }

@@ -292,6 +292,37 @@ impl XmlJson {
         x
     }
 
+    /// The node and its subtree as the exact text `JSON.stringify` gives the
+    /// JS object: keys in the order `name`, `attrs` (insertion order),
+    /// `children`. The intermediate test digests it.
+    pub fn to_json_text(&self, id: NodeId) -> String {
+        let n = self.node(id);
+        let q = |s: &str| serde_json::to_string(s).unwrap_or_default();
+        let mut out = format!("{{\"name\":{},\"attrs\":{{", q(&n.name));
+        for (i, (k, v)) in n.attrs.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            out.push_str(&format!(
+                "{}:{}",
+                q(k),
+                serde_json::to_string(v).unwrap_or_default()
+            ));
+        }
+        out.push_str("},\"children\":[");
+        for (i, c) in n.children.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            match c {
+                XmlChild::Text(t) => out.push_str(&q(t)),
+                XmlChild::Node(c) => out.push_str(&self.to_json_text(*c)),
+            }
+        }
+        out.push_str("]}");
+        out
+    }
+
     /// The node and its subtree as JSON (see [`XmlTree::to_value`]).
     pub fn to_value(&self, id: NodeId) -> Value {
         self.export_tree(id).to_value()
@@ -927,9 +958,8 @@ fn listify_string(input: &str) -> Vec<String> {
 
 /// `_getAttributes(elem)`: the attribute names found by the global match.
 fn get_attributes(elem: &str) -> Vec<String> {
-    static ATTR: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"([^'"=\t ]+)=(?:"[^"]*"|'[^']*')"#).expect("static regex")
-    });
+    static ATTR: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r#"([^'"=\t ]+)=(?:"[^"]*"|'[^']*')"#).expect("static regex"));
     ATTR.find_iter(elem)
         .map(|m| {
             let t = m.as_str();

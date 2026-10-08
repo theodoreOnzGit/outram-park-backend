@@ -27,7 +27,7 @@
 //! path exists, but is **untested** (nothing can reach it).
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::{Arc, LazyLock};
+use std::sync::LazyLock;
 
 use regex::Regex;
 
@@ -46,7 +46,7 @@ pub struct Juris {
     /// the module's `law-module` says otherwise).
     pub types: BTreeSet<String>,
     /// The module's compiled macros by name (`juris-main`, ...).
-    pub macros: BTreeMap<String, Arc<Vec<Token>>>,
+    pub macros: BTreeMap<String, Vec<Token>>,
 }
 
 impl State {
@@ -88,7 +88,8 @@ impl State {
         static WS: LazyLock<Regex> =
             LazyLock::new(|| Regex::new(&format!("{}+", load::WS_CLASS)).expect("static"));
         let mut my_fallback: Option<String> = None;
-        self.juris.insert(jurisdiction.to_string(), Juris::default());
+        self.juris
+            .insert(jurisdiction.to_string(), Juris::default());
         let mut my_xml = system::setup_xml(xml_source)?;
         if let Some(root) = my_xml.data_obj {
             my_xml.add_missing_name_nodes(root, &mut Vec::new());
@@ -158,7 +159,7 @@ impl State {
                 break;
             }
             if let Some(j) = self.juris.get_mut(jurisdiction) {
-                j.macros.insert(name, Arc::new(tokens));
+                j.macros.insert(name, tokens);
             }
         }
         self.csl_xml = saved;
@@ -171,7 +172,10 @@ impl State {
     /// locale's `jurisdiction-preference`s (last first, then none), marking
     /// jurisdictions "seen" in `opt.jurisdictions_seen`. Returns the sources
     /// found, in the order found (later finds replace earlier ones).
-    pub fn retrieve_all_style_modules(&mut self, jurisdiction_list: &[String]) -> Vec<(String, String)> {
+    pub fn retrieve_all_style_modules(
+        &mut self,
+        jurisdiction_list: &[String],
+    ) -> Vec<(String, String)> {
         let mut ret: Vec<(String, String)> = Vec::new();
         let preferences: Vec<String> = self
             .locale
@@ -199,7 +203,9 @@ impl State {
                 // If we fail and we've run out of preferences, mark as "seen"
                 // Otherwise mark as "seen" if we get something.
                 if (res.is_none() && preference.is_empty()) || res.is_some() {
-                    if let Some(serde_json::Value::Object(s)) = self.opt.get_mut("jurisdictions_seen") {
+                    if let Some(serde_json::Value::Object(s)) =
+                        self.opt.get_mut("jurisdictions_seen")
+                    {
                         s.insert(jurisdiction.clone(), serde_json::Value::Bool(true));
                     }
                 }
@@ -225,7 +231,8 @@ mod tests {
     #[test]
     fn jurisdiction_list_walks_up_and_ends_with_us() {
         let mut st = State::default();
-        st.opt.insert("jurisdiction_fallbacks".into(), json!({"us:c": "ca"}));
+        st.opt
+            .insert("jurisdiction_fallbacks".into(), json!({"us:c": "ca"}));
         assert_eq!(
             st.get_jurisdiction_list("us:c:ma"),
             vec!["us:c:ma", "us:c", "ca", "us"]

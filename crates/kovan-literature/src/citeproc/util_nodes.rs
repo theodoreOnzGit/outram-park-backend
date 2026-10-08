@@ -76,7 +76,7 @@ impl UtilNodesExec {
     pub fn run(
         &self,
         state: &mut State,
-        _token: &Token,
+        _token: &mut Token,
         item: &Value,
         cite_item: &Value,
     ) -> CslResult<Option<usize>> {
@@ -88,20 +88,42 @@ impl UtilNodesExec {
                 Ok(None)
             }
             UtilNodesExec::RunMacro { macro_name } => {
-                let tokens = state.macros.get(macro_name).cloned().ok_or_else(|| {
-                    EngineError::Csl(
-                        "TypeError: Cannot read properties of undefined (reading 'length')"
-                            .to_string(),
-                    )
-                })?;
+                let list = TokenList::Macro(macro_name.clone());
                 let mut next = 0usize;
-                while next < tokens.len() {
-                    next = state.token_exec(&tokens[next], item, cite_item)?;
+                loop {
+                    let len = state.macros.get(macro_name).map(Vec::len).ok_or_else(|| {
+                        EngineError::Csl(
+                            "TypeError: Cannot read properties of undefined (reading 'length')"
+                                .to_string(),
+                        )
+                    })?;
+                    if next >= len {
+                        break;
+                    }
+                    next = state.token_exec(&list, next, item, cite_item)?;
                 }
                 Ok(None)
             }
         }
     }
+}
+
+/// Where a built token list lives in the state, for `token_exec` (a token is
+/// addressed by list and index, never by reference: its closures mutate it).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TokenList {
+    /// `state.citation.tokens`.
+    Citation,
+    /// `state.bibliography.tokens`.
+    Bibliography,
+    /// `state.intext.tokens`.
+    Intext,
+    /// `state.citation_sort.tokens`.
+    CitationSort,
+    /// `state.bibliography_sort.tokens`.
+    BibliographySort,
+    /// `state.macros[name]`.
+    Macro(String),
 }
 
 /// What `CSL.getMacroTarget` returned.
@@ -221,8 +243,26 @@ pub fn node_configure(
 }
 
 impl State {
-    /// `CSL.tokenExec.call(state, token, Item, item)`: run one token and
-    /// return the index of the next one to run.
+    /// The token list `list` of the state, if it exists.
+    pub fn token_list_mut(&mut self, list: &TokenList) -> Option<&mut Vec<Token>> {
+        match list {
+            TokenList::Citation => Some(&mut self.citation.tokens),
+            TokenList::Bibliography => Some(&mut self.bibliography.tokens),
+            TokenList::Intext => Some(&mut self.intext.tokens),
+            TokenList::CitationSort => Some(&mut self.citation_sort.tokens),
+            TokenList::BibliographySort => Some(&mut self.bibliography_sort.tokens),
+            TokenList::Macro(name) => self.macros.get_mut(name),
+        }
+    }
+
+    /// `CSL.tokenExec.call(state, token, Item, item)` for the token at
+    /// `list[idx]`: run it and return the index of the next one to run.
+    ///
+    /// Upstream closures mutate their own token and the mutation persists, so
+    /// the token is **taken out** of its list (`std::mem::take`) while its
+    /// test and execs run on `&mut Token`, and put back afterwards (also on
+    /// error). Execution only recurses into *other* tokens (a macro that
+    /// calls itself is an error at build time), so the take is safe.
     ///
     /// If the token has a `test`, evaluate it, record `"succeed"` or
     /// `"fail"` on the `tmp.jump` stack and start from the token's
@@ -231,27 +271,54 @@ impl State {
     /// is returned for a missing index.
     pub fn token_exec(
         &mut self,
-        token: &Token,
+        list: &TokenList,
+        idx: usize,
+        item: &Value,
+        cite_item: &Value,
+    ) -> CslResult<usize> {
+        let missing = || {
+            EngineError::Csl("TypeError: Cannot read properties of undefined (token)".to_string())
+        };
+        let mut token = {
+            let tokens = self.token_list_mut(list).ok_or_else(missing)?;
+            std::mem::take(tokens.get_mut(idx).ok_or_else(missing)?)
+        };
+        let r = self.run_token(&mut token, item, cite_item);
+        if let Some(slot) = self.token_list_mut(list).and_then(|t| t.get_mut(idx)) {
+            *slot = token;
+        }
+        r
+    }
+
+    /// The body of `CSL.tokenExec` on a token that is out of its list.
+    fn run_token(
+        &mut self,
+        token: &mut Token,
         item: &Value,
         cite_item: &Value,
     ) -> CslResult<usize> {
         let mut next = token.next.unwrap_or(NEXT_UNDEFINED);
-        if let Some(test) = &token.test {
+        if let Some(test) = token.test.clone() {
             if test.eval(self, token, item, cite_item)? {
-                self.tmp.jump.replace(Value::String("succeed".to_string()))?;
+                self.tmp
+                    .jump
+                    .replace(Value::String("succeed".to_string()))?;
                 next = token.succeed.unwrap_or(NEXT_UNDEFINED);
             } else {
                 self.tmp.jump.replace(Value::String("fail".to_string()))?;
                 next = token.fail.unwrap_or(NEXT_UNDEFINED);
             }
         }
-        for exec in &token.execs {
+        let mut i = 0;
+        while i < token.execs.len() {
+            let exec = token.execs[i].clone();
             if let Some(maybenext) = exec.run(self, token, item, cite_item)? {
                 // `if (maybenext)`: index 0 is falsy.
                 if maybenext != 0 {
                     next = maybenext;
                 }
             }
+            i += 1;
         }
         Ok(next)
     }
@@ -282,7 +349,11 @@ impl State {
             .get_nodes_by_name(self.csl_xml.data_obj, "macro", &mkey);
         if !macro_nodes.is_empty() {
             macroid = self.csl_xml.get_attribute_value(macro_nodes[0], "cslid");
-            has_date = js::truthy(&self.csl_xml.get_attribute_value(macro_nodes[0], "macro-has-date"));
+            has_date = js::truthy(
+                &self
+                    .csl_xml
+                    .get_attribute_value(macro_nodes[0], "macro-has-date"),
+            );
         }
         if has_date {
             mkey = format!(
@@ -333,15 +404,16 @@ impl State {
                 let mut mytarget: Vec<Token> = Vec::new();
                 self.build_macro(&mut mytarget, &macro_nodes)?;
                 self.configure_macro(Some(&mut mytarget))?;
-                self.macros
-                    .insert(mkey.clone(), std::sync::Arc::new(mytarget));
+                self.macros.insert(mkey.clone(), mytarget);
             }
         }
         if self.build.extension.is_empty() {
             let mut text_node = Token::new("text", TokenType::Singleton);
-            text_node.execs.push(Exec::UtilNodes(UtilNodesExec::RunMacro {
-                macro_name: mkey.clone(),
-            }));
+            text_node
+                .execs
+                .push(Exec::UtilNodes(UtilNodesExec::RunMacro {
+                    macro_name: mkey.clone(),
+                }));
             target.push(text_node);
         }
 
@@ -380,7 +452,11 @@ impl State {
 
     /// `CSL.buildMacro.call(state, mytarget, macro_nodes)`: build the first
     /// of `macro_nodes` (and its subtree) into `mytarget`.
-    pub fn build_macro(&mut self, mytarget: &mut Vec<Token>, macro_nodes: &[NodeId]) -> CslResult<()> {
+    pub fn build_macro(
+        &mut self,
+        mytarget: &mut Vec<Token>,
+        macro_nodes: &[NodeId],
+    ) -> CslResult<()> {
         let mynode: Vec<XmlChild> = macro_nodes
             .first()
             .map(|n| vec![XmlChild::Node(*n)])
@@ -487,5 +563,59 @@ impl State {
         // True flags real nodes in the style
         node_build(self, &name, token, explicit_target, true)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn token_exec_runs_a_macro_and_puts_the_token_back() {
+        let mut st = State::default();
+        let mut a = Token::new("group", TokenType::Start);
+        a.next = Some(1);
+        let mut b = Token::new("group", TokenType::End);
+        b.next = Some(2);
+        st.macros.insert("m".to_string(), vec![a, b]);
+        let mut caller = Token::new("text", TokenType::Singleton);
+        caller.next = Some(5);
+        caller.execs.push(Exec::UtilNodes(UtilNodesExec::RunMacro {
+            macro_name: "m".to_string(),
+        }));
+        st.citation.tokens = vec![caller];
+        let next = st
+            .token_exec(&TokenList::Citation, 0, &Value::Null, &Value::Null)
+            .unwrap();
+        assert_eq!(
+            next, 5,
+            "the macro run returns nothing, so token.next stands"
+        );
+        assert_eq!(st.citation.tokens[0].execs.len(), 1, "token put back");
+        assert!(st
+            .token_exec(&TokenList::Citation, 3, &Value::Null, &Value::Null)
+            .is_err());
+        assert_eq!(
+            st.token_exec(&TokenList::Macro("m".into()), 1, &Value::Null, &Value::Null)
+                .unwrap(),
+            2
+        );
+    }
+
+    #[test]
+    fn dispatch_knows_exactly_the_csl_node_names() {
+        for n in [
+            "text",
+            "if",
+            "else-if",
+            "date-part",
+            "#comment",
+            "name-part",
+            "alternative-text",
+        ] {
+            assert!(node_exists(n), "{n}");
+        }
+        assert!(!node_exists("style"));
+        assert!(!node_exists("term"));
     }
 }

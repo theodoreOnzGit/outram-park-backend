@@ -35,7 +35,6 @@
 //! `decorate`).
 
 use std::collections::BTreeMap;
-use std::sync::LazyLock;
 
 use regex::Regex;
 use serde_json::Value;
@@ -171,9 +170,13 @@ pub fn mode_from_formats(mode: &str, params: &[(String, FormatEntry)]) -> CslRes
         let func = match val {
             FormatEntry::Str(s) if s.contains("%%STRING%%") => {
                 if s.contains("%%PARAM%%") {
-                    DecorFn::Substitute2 { template: s.clone() }
+                    DecorFn::Substitute2 {
+                        template: s.clone(),
+                    }
                 } else {
-                    DecorFn::Substitute1 { template: s.clone() }
+                    DecorFn::Substitute1 {
+                        template: s.clone(),
+                    }
                 }
             }
             FormatEntry::False => DecorFn::Passthrough,
@@ -196,7 +199,9 @@ pub fn mode_from_formats(mode: &str, params: &[(String, FormatEntry)]) -> CslRes
             }
         }
     }
-    Ok(Decorate { entries: decorations })
+    Ok(Decorate {
+        entries: decorations,
+    })
 }
 
 /// `CSL.Mode(mode)`: [`mode_from_formats`] over [`output_formats`].
@@ -253,8 +258,8 @@ impl Doppeler {
     pub fn new(rex_str: &str, string_mangler: Option<fn(&str) -> String>) -> CslResult<Doppeler> {
         let match_rex = Regex::new(&format!("({rex_str})"))
             .map_err(|e| EngineError::Csl(format!("SyntaxError: {e}")))?;
-        let split_rex = Regex::new(rex_str)
-            .map_err(|e| EngineError::Csl(format!("SyntaxError: {e}")))?;
+        let split_rex =
+            Regex::new(rex_str).map_err(|e| EngineError::Csl(format!("SyntaxError: {e}")))?;
         Ok(Doppeler {
             match_rex,
             split_rex,
@@ -326,23 +331,27 @@ impl State {
             let mut use_param = false;
             let mut all_the_decor: Vec<Vec<(String, String)>> = Vec::new();
             if self.tmp.area == "citation" {
-                let layout: Vec<(String, String)> = match self.citation.opt.get("layout_decorations")
-                {
-                    Some(Value::Array(a)) => a
-                        .iter()
-                        .map(|d| {
-                            (
-                                d.get(0).map(js::to_js_string).unwrap_or_default(),
-                                d.get(1).map(js::to_js_string).unwrap_or_default(),
-                            )
-                        })
-                        .collect(),
-                    _ => Vec::new(),
-                };
+                let layout: Vec<(String, String)> =
+                    match self.citation.opt.get("layout_decorations") {
+                        Some(Value::Array(a)) => a
+                            .iter()
+                            .map(|d| {
+                                (
+                                    d.get(0).map(js::to_js_string).unwrap_or_default(),
+                                    d.get(1).map(js::to_js_string).unwrap_or_default(),
+                                )
+                            })
+                            .collect(),
+                        _ => Vec::new(),
+                    };
                 all_the_decor.push(layout);
             }
             for d in &blob.alldecor {
-                all_the_decor.push(d.iter().map(|x| (x.name.clone(), x.value.clone())).collect());
+                all_the_decor.push(
+                    d.iter()
+                        .map(|x| (x.name.clone(), x.value.clone()))
+                        .collect(),
+                );
             }
             for k in (0..all_the_decor.len()).rev() {
                 for n in (0..all_the_decor[k].len()).rev() {
@@ -367,19 +376,36 @@ mod tests {
     fn mode_builds_group_and_text_entries() {
         let params = vec![
             ("bibstart".to_string(), FormatEntry::Str("<div>".into())),
-            ("text_escape".to_string(), FormatEntry::Function("text_escape".into())),
-            ("@font-style/italic".to_string(), FormatEntry::Str("<i>%%STRING%%</i>".into())),
+            (
+                "text_escape".to_string(),
+                FormatEntry::Function("text_escape".into()),
+            ),
+            (
+                "@font-style/italic".to_string(),
+                FormatEntry::Str("<i>%%STRING%%</i>".into()),
+            ),
             ("@font-weight/light".to_string(), FormatEntry::False),
-            ("@a/b".to_string(), FormatEntry::Str("%%PARAM%%:%%STRING%%".into())),
+            (
+                "@a/b".to_string(),
+                FormatEntry::Str("%%PARAM%%:%%STRING%%".into()),
+            ),
         ];
         let d = mode_from_formats("html", &params).unwrap();
         assert_eq!(d.text("bibstart"), Some("<div>"));
-        assert_eq!(d.leaf("font-style", "italic").unwrap().apply("x").as_deref(), Some("<i>x</i>"));
-        assert_eq!(d.leaf("font-weight", "light"), Some(&DecorFn::Passthrough));
-        let two = d.leaf("a", "b").unwrap().with_param("P").unwrap();
+        assert_eq!(
+            d.leaf("@font-style", "italic")
+                .unwrap()
+                .apply("x")
+                .as_deref(),
+            Some("<i>x</i>")
+        );
+        assert_eq!(d.leaf("@font-weight", "light"), Some(&DecorFn::Passthrough));
+        let two = d.leaf("@a", "b").unwrap().with_param("P").unwrap();
         assert_eq!(two.apply("S").as_deref(), Some("P:S"));
         assert_eq!(two.apply("").as_deref(), Some(""));
-        assert!(mode_from_formats("html", &[("@x/y".into(), FormatEntry::Str("no".into()))]).is_err());
+        assert!(
+            mode_from_formats("html", &[("@x/y".into(), FormatEntry::Str("no".into()))]).is_err()
+        );
     }
 
     #[test]
@@ -394,7 +420,11 @@ mod tests {
         let d = set_decorations(&st, &mut attrs);
         let names: Vec<_> = d.iter().map(|x| x.name.as_str()).collect();
         assert_eq!(names, vec!["@font-style", "@font-weight"]);
-        assert_eq!(attrs.len(), 2, "empty @quotes stays, as upstream's `if (attributes[key])`");
+        assert_eq!(
+            attrs.len(),
+            2,
+            "empty @quotes stays, as upstream's `if (attributes[key])`"
+        );
     }
 
     #[test]

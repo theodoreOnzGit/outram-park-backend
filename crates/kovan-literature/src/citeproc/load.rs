@@ -541,17 +541,10 @@ pub const FIELD_CATEGORY_REMAP: &[(&str, &str)] = &[
 ];
 
 /// `CSL.GENDERS`.
-pub const GENDERS: &[&str] = &[
-    "masculine",
-    "feminine",
-];
+pub const GENDERS: &[&str] = &["masculine", "feminine"];
 
 /// `CSL.POSITION_TEST_VARS`.
-pub const POSITION_TEST_VARS: &[&str] = &[
-    "position",
-    "first-reference-note-number",
-    "near-note",
-];
+pub const POSITION_TEST_VARS: &[&str] = &["position", "first-reference-note-number", "near-note"];
 
 /// `CSL.AREAS`.
 pub const AREAS: &[&str] = &[
@@ -571,48 +564,20 @@ pub const CITE_FIELDS: &[&str] = &[
 ];
 
 /// `CSL.SWAPPING_PUNCTUATION`.
-pub const SWAPPING_PUNCTUATION: &[&str] = &[
-    ".",
-    "!",
-    "?",
-    ":",
-    ",",
-];
+pub const SWAPPING_PUNCTUATION: &[&str] = &[".", "!", "?", ":", ","];
 
 /// `CSL.TERMINAL_PUNCTUATION`.
-pub const TERMINAL_PUNCTUATION: &[&str] = &[
-    ":",
-    ".",
-    ";",
-    "!",
-    "?",
-    " ",
-];
+pub const TERMINAL_PUNCTUATION: &[&str] = &[":", ".", ";", "!", "?", " "];
 
 /// `CSL.DATE_PARTS`.
-pub const DATE_PARTS: &[&str] = &[
-    "year",
-    "month",
-    "day",
-];
+pub const DATE_PARTS: &[&str] = &["year", "month", "day"];
 
 /// `CSL.DATE_PARTS_ALL`.
-pub const DATE_PARTS_ALL: &[&str] = &[
-    "year",
-    "month",
-    "day",
-    "season",
-];
+pub const DATE_PARTS_ALL: &[&str] = &["year", "month", "day", "season"];
 
 /// `CSL.DATE_PARTS_INTERNAL`.
-pub const DATE_PARTS_INTERNAL: &[&str] = &[
-    "year",
-    "month",
-    "day",
-    "year_end",
-    "month_end",
-    "day_end",
-];
+pub const DATE_PARTS_INTERNAL: &[&str] =
+    &["year", "month", "day", "year_end", "month_end", "day_end"];
 
 /// `CSL.NAME_PARTS`.
 pub const NAME_PARTS: &[&str] = &[
@@ -660,12 +625,7 @@ pub const NAME_ATTRIBUTES: &[&str] = &[
 ];
 
 /// `CSL.DISPLAY_CLASSES`.
-pub const DISPLAY_CLASSES: &[&str] = &[
-    "block",
-    "left-margin",
-    "right-inline",
-    "indent",
-];
+pub const DISPLAY_CLASSES: &[&str] = &["block", "left-margin", "right-inline", "indent"];
 
 /// `CSL.NAME_VARIABLES`.
 pub const NAME_VARIABLES: &[&str] = &[
@@ -770,10 +730,7 @@ pub const DATE_VARIABLES: &[&str] = &[
 ];
 
 /// `CSL.VARIABLES_WITH_SHORT_FORM`.
-pub const VARIABLES_WITH_SHORT_FORM: &[&str] = &[
-    "title",
-    "container-title",
-];
+pub const VARIABLES_WITH_SHORT_FORM: &[&str] = &["title", "container-title"];
 
 /// `CSL.SKIP_WORDS`: the default `skip-words` of a locale's `opts`.
 pub const SKIP_WORDS: &[&str] = &[
@@ -1593,7 +1550,10 @@ pub fn parse_note_field_hacks(
             } else {
                 item.insert(key.clone(), Value::String(val));
             }
-            if valid_fields_for_type.map(|v| js::get_truthy(v, &key)).unwrap_or(true) {
+            if valid_fields_for_type
+                .map(|v| js::get_truthy(v, &key))
+                .unwrap_or(true)
+            {
                 lines[i] = String::new();
             }
         }
@@ -1615,8 +1575,9 @@ pub fn parse_note_field_hacks(
 
 fn strip_tags_and_trailing_space(prefix: &str) -> String {
     static TAGS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^>]+>").expect("static"));
-    static TRAIL: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new("[\"'\u{201d}\u{2019}\u{00bb}\u{202f}\u{00a0} ]+$").expect("static"));
+    static TRAIL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new("[\"'\u{201d}\u{2019}\u{00bb}\u{202f}\u{00a0} ]+$").expect("static")
+    });
     let s = TAGS.replace_all(prefix, "");
     TRAIL.replace_all(&s, "").into_owned()
 }
@@ -1741,7 +1702,10 @@ pub fn title_split(s: &str) -> Vec<String> {
         let iu = i as usize;
         lst[iu] = js::trim(&lst[iu]).to_string();
         let last = js::slice(&lst[iu], -1, None);
-        let m_i = m.get(iu).cloned().unwrap_or_else(|| "undefined".to_string());
+        let m_i = m
+            .get(iu)
+            .cloned()
+            .unwrap_or_else(|| "undefined".to_string());
         if !lst[iu].is_empty() && last.to_lowercase() != last {
             // recombine
             let next = lst.remove(iu + 1);
@@ -1839,7 +1803,9 @@ impl State {
                     }
                 }
                 fn get(vals: &[(String, Option<Value>)], k: &str) -> Option<Value> {
-                    vals.iter().find(|(a, _)| a == k).and_then(|(_, v)| v.clone())
+                    vals.iter()
+                        .find(|(a, _)| a == k)
+                        .and_then(|(_, v)| v.clone())
                 }
                 if let Some(lang) = &lang {
                     let keys = item
@@ -1848,10 +1814,18 @@ impl State {
                         .cloned()
                         .unwrap_or(Value::Null);
                     if js::truthy_opt(keys.get(&title.title)) {
-                        set(&mut vals, &title.title, keys[&title.title].get(lang).cloned());
+                        set(
+                            &mut vals,
+                            &title.title,
+                            keys[&title.title].get(lang).cloned(),
+                        );
                     }
                     if js::truthy_opt(keys.get(&title.short)) {
-                        set(&mut vals, &title.short, keys[&title.short].get(lang).cloned());
+                        set(
+                            &mut vals,
+                            &title.short,
+                            keys[&title.short].get(lang).cloned(),
+                        );
                     }
                 } else {
                     set(&mut vals, &title.title, item.get(&title.title).cloned());
@@ -1881,8 +1855,8 @@ impl State {
                         set_str(&mut vals, &title.subjoin, "");
                         set_str(&mut vals, &title.sub, "");
                     } else if js::truthy_opt(short_title.as_ref()) {
-                        let short_text = text_of(short_title.as_ref().unwrap_or(&Value::Null))?
-                            .to_string();
+                        let short_text =
+                            text_of(short_title.as_ref().unwrap_or(&Value::Null))?.to_string();
                         static QE_END: LazyLock<Regex> =
                             LazyLock::new(|| Regex::new(r"[?!]+$").expect("static"));
                         static QE_START: LazyLock<Regex> =
@@ -1899,11 +1873,7 @@ impl State {
                                 Regex::new(&format!("[?!]+({WS_CLASS}*)$")).expect("static")
                             });
                             set_str(&mut vals, &title.main, &top);
-                            set_str(
-                                &mut vals,
-                                &title.subjoin,
-                                &QE_WS.replace(&m1, "${1}"),
-                            );
+                            set_str(&mut vals, &title.subjoin, &QE_WS.replace(&m1, "${1}"));
                             set_str(
                                 &mut vals,
                                 &title.sub,
@@ -1934,9 +1904,8 @@ impl State {
                             if dev("implicit_short_title")
                                 && js::get_str(item, "type") != Some("legal_case")
                             {
-                                static NUMERIC_MAIN: LazyLock<Regex> = LazyLock::new(|| {
-                                    Regex::new(r"^[\-.\[0-9]+$").expect("static")
-                                });
+                                static NUMERIC_MAIN: LazyLock<Regex> =
+                                    LazyLock::new(|| Regex::new(r"^[\-.\[0-9]+$").expect("static"));
                                 if !js::get_truthy(item, &title.short)
                                     && !NUMERIC_MAIN.is_match(&split_title[0])
                                 {
@@ -2174,7 +2143,9 @@ impl SafeEscape {
     pub fn apply(&self, txt: &str) -> String {
         match self {
             SafeEscape::Identity => txt.to_string(),
-            SafeEscape::Format { thin_space_hack, .. } => {
+            SafeEscape::Format {
+                thin_space_hack, ..
+            } => {
                 let mut t = txt.to_string();
                 if *thin_space_hack {
                     t = t.replace(
@@ -2199,7 +2170,9 @@ pub fn get_safe_escape(state: &State) -> SafeEscape {
             .unwrap_or(false)
             && js::get_str(&state.opt, "mode") == Some("html");
         SafeEscape::Format {
-            mode: js::get_str(&state.opt, "mode").unwrap_or("html").to_string(),
+            mode: js::get_str(&state.opt, "mode")
+                .unwrap_or("html")
+                .to_string(),
             thin_space_hack: hack,
         }
     } else {
@@ -2255,7 +2228,10 @@ pub fn update_group_context_condition(
             .unwrap_or(false)
         {
             state.tmp.just_did_number = false;
-        } else if token.map(|t| js::truthy_opt(t.strings.get("suffix"))).unwrap_or(false) {
+        } else if token
+            .map(|t| js::truthy_opt(t.strings.get("suffix")))
+            .unwrap_or(false)
+        {
             state.tmp.just_did_number = false;
         } else if let Some(s) = s.filter(|s| !s.is_empty()) {
             state.tmp.just_did_number = s.ends_with(|c: char| c.is_ascii_digit());
@@ -2266,10 +2242,7 @@ pub fn update_group_context_condition(
 /// `CSL.EVALUATE_GROUP_CONDITION(state, flags)`: `force_suppress` for a
 /// conditional group once its content is known. `None` is upstream's early
 /// `return;` (the context condition is not enabled).
-pub fn evaluate_group_condition(
-    state: &State,
-    flags: &super::state::GroupContext,
-) -> Option<bool> {
+pub fn evaluate_group_condition(state: &State, flags: &super::state::GroupContext) -> Option<bool> {
     if !js::get_truthy(&state.opt, "use_context_condition") {
         return None;
     }
@@ -2283,7 +2256,8 @@ pub fn evaluate_group_condition(
         testres = termtxt.is_empty() || termtxt.contains("%s");
     } else if cond.test == "comma-safe" || cond.test == "comma-safe-numbers-only" {
         let locale_term = !termtxt.is_empty();
-        let term_start_alpha = locale_term && ALL_ROMANESQUE_REGEXP.is_match(&js::slice(termtxt, 0, Some(1)));
+        let term_start_alpha =
+            locale_term && ALL_ROMANESQUE_REGEXP.is_match(&js::slice(termtxt, 0, Some(1)));
         let require = js::get_str(&state.opt, "require_comma_on_symbol");
         if state.tmp.just_did_number {
             if cond.value_term {
@@ -2417,9 +2391,10 @@ pub fn set_court_classes(
                 .opts
                 .entry(class_type.to_string())
                 .or_insert_with(|| Value::Object(Obj::new()));
-            let by_country = by_type
-                .as_object_mut()
-                .map(|o| o.entry(country).or_insert_with(|| Value::Object(Obj::new())));
+            let by_country = by_type.as_object_mut().map(|o| {
+                o.entry(country)
+                    .or_insert_with(|| Value::Object(Obj::new()))
+            });
             if let Some(Value::Object(by_country)) = by_country {
                 for court in courts {
                     by_country.insert(court, Value::String(cls.clone()));
@@ -2553,7 +2528,7 @@ mod tests {
     fn tables_have_upstream_sizes() {
         assert_eq!(NAME_VARIABLES.len(), 28);
         assert_eq!(DATE_VARIABLES.len(), 10);
-        assert_eq!(SKIP_WORDS.len(), 133);
+        assert_eq!(SKIP_WORDS.len(), 135);
         assert_eq!(statute_subdiv_string("vol."), Some("volume"));
         assert_eq!(lang_base("en"), Some("en_US"));
         assert_eq!(superscript('\u{2122}'), Some("TM"));
@@ -2562,12 +2537,12 @@ mod tests {
 
     #[test]
     fn title_split_recombines_after_capitals() {
-        assert_eq!(
-            title_split("Foo: bar baz"),
-            vec!["Foo", ": ", "bar baz"]
-        );
+        assert_eq!(title_split("Foo: bar baz"), vec!["Foo", ": ", "bar baz"]);
         // "U.S. Foo" does not split at ". " after a capital letter.
-        assert_eq!(title_split("The U.S. Constitution"), vec!["The U.S. Constitution"]);
+        assert_eq!(
+            title_split("The U.S. Constitution"),
+            vec!["The U.S. Constitution"]
+        );
     }
 
     #[test]
@@ -2578,5 +2553,351 @@ mod tests {
         assert_eq!(check_prefix_space_append(&st, "("), "(");
         assert_eq!(check_suffix_space_prepend(&st, "abc"), " abc");
         assert_eq!(check_suffix_space_prepend(&st, ", abc"), ", abc");
+    }
+}
+
+/// Differential tests against citeproc-js 2.4.63: `tests/data/csl/units/load.json`
+/// (generated by `scripts/csl-units/load.cjs`) holds what the bundled
+/// citeproc-js returns for batteries of inputs; these replay them.
+#[cfg(test)]
+mod diff_tests {
+    use super::*;
+    use serde_json::json;
+
+    const REF: &str = include_str!("../../tests/data/csl/units/load.json");
+
+    fn reference() -> Value {
+        serde_json::from_str(REF).expect("load.json")
+    }
+
+    fn regex_by_name(name: &str) -> &'static Regex {
+        match name {
+            "LOCATOR_LABELS_REGEXP" => &LOCATOR_LABELS_REGEXP,
+            "STATUTE_SUBDIV_PLAIN_REGEX" => &STATUTE_SUBDIV_PLAIN_REGEX,
+            "STATUTE_SUBDIV_PLAIN_REGEX_FRONT" => &STATUTE_SUBDIV_PLAIN_REGEX_FRONT,
+            "PREFIX_PUNCTUATION" => &PREFIX_PUNCTUATION,
+            "SUFFIX_PUNCTUATION" => &SUFFIX_PUNCTUATION,
+            "NUMBER_REGEXP" => &NUMBER_REGEXP,
+            "NAME_INITIAL_REGEXP" => &NAME_INITIAL_REGEXP,
+            "ROMANESQUE_REGEXP" => &ROMANESQUE_REGEXP,
+            "ROMANESQUE_NOT_REGEXP" => &ROMANESQUE_NOT_REGEXP,
+            "STARTSWITH_ROMANESQUE_REGEXP" => &STARTSWITH_ROMANESQUE_REGEXP,
+            "ENDSWITH_ROMANESQUE_REGEXP" => &ENDSWITH_ROMANESQUE_REGEXP,
+            "ALL_ROMANESQUE_REGEXP" => &ALL_ROMANESQUE_REGEXP,
+            "VIETNAMESE_SPECIALS" => &VIETNAMESE_SPECIALS,
+            "VIETNAMESE_NAMES" => &VIETNAMESE_NAMES,
+            "NOTE_FIELDS_REGEXP" => &NOTE_FIELDS_REGEXP,
+            "NOTE_FIELD_REGEXP" => &NOTE_FIELD_REGEXP,
+            "PARTICLE_GIVEN_REGEXP" => &PARTICLE_GIVEN_REGEXP,
+            "PARTICLE_FAMILY_REGEXP" => &PARTICLE_FAMILY_REGEXP,
+            "SUPERSCRIPTS_REGEXP" => &SUPERSCRIPTS_REGEXP,
+            "match" => &TITLE_SPLIT_REGEXP.match_,
+            "matchfirst" => &TITLE_SPLIT_REGEXP.matchfirst,
+            "split" => &TITLE_SPLIT_REGEXP.split,
+            other => panic!("no regex {other}"),
+        }
+    }
+
+    /// `re.exec(s)` as the generator prints it: `null`, `[index, m0, m1...]`;
+    /// or, for a global regex, `s.match(re)`.
+    fn exec(name: &str, global: bool, s: &str) -> Value {
+        let re = regex_by_name(name);
+        if global {
+            let all: Vec<Value> = re
+                .find_iter(s)
+                .map(|m| Value::String(m.as_str().to_string()))
+                .collect();
+            return if all.is_empty() {
+                Value::Null
+            } else {
+                Value::Array(all)
+            };
+        }
+        match re.captures(s) {
+            None => Value::Null,
+            Some(c) => {
+                let m0 = c.get(0).expect("group 0");
+                let mut v = vec![json!(js::len(&s[..m0.start()]))];
+                for i in 0..c.len() {
+                    v.push(c.get(i).map(|m| json!(m.as_str())).unwrap_or(Value::Null));
+                }
+                Value::Array(v)
+            }
+        }
+    }
+
+    #[test]
+    fn regexes_behave_like_citeproc_js() {
+        let r = reference();
+        let strings: Vec<String> = r["strings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s.as_str().unwrap().to_string())
+            .collect();
+        let global = [
+            "ROMANESQUE_NOT_REGEXP",
+            "NOTE_FIELDS_REGEXP",
+            "SUPERSCRIPTS_REGEXP",
+        ];
+        let mut checked = 0;
+        for (name, results) in r["regexes"].as_object().unwrap() {
+            for (s, want) in strings.iter().zip(results.as_array().unwrap()) {
+                let got = exec(name, global.contains(&name.as_str()), s);
+                assert_eq!(&got, want, "{name} on {s:?}");
+                checked += 1;
+            }
+        }
+        for (name, results) in r["title_split_regexp"].as_object().unwrap() {
+            for (s, want) in strings.iter().zip(results.as_array().unwrap()) {
+                let got = exec(name, name == "match", s);
+                assert_eq!(&got, want, "TITLE_SPLIT_REGEXP.{name} on {s:?}");
+                checked += 1;
+            }
+        }
+        assert!(checked > 1900, "{checked}");
+    }
+
+    #[test]
+    fn locale_strings_and_resolution() {
+        let r = reference();
+        for e in r["normalize_locale_str"].as_array().unwrap() {
+            let got = normalize_locale_str(e[0].as_str().unwrap());
+            assert_eq!(got.map(Value::String).unwrap_or(Value::Null), e[1], "{e}");
+        }
+        for e in r["locale_resolve"].as_array().unwrap() {
+            let key = e[0].as_str().unwrap();
+            let (s, d) = key
+                .split_once('|')
+                .map(|(a, b)| (a, Some(b)))
+                .unwrap_or((key, None));
+            let got = super::super::util_locale::locale_resolve(s, d);
+            let mut want = e[1].clone();
+            // `generic` is only present (true) in JS when the input was bare.
+            let generic = want.as_object_mut().and_then(|o| o.remove("generic"));
+            assert_eq!(got.base, want["base"].as_str().unwrap(), "{e}");
+            assert_eq!(got.best, want["best"].as_str().unwrap(), "{e}");
+            assert_eq!(got.bare, want["bare"].as_str().unwrap(), "{e}");
+            assert_eq!(got.generic, generic.is_some(), "{e}");
+        }
+    }
+
+    #[test]
+    fn title_split_and_spacing_checks() {
+        let r = reference();
+        for e in r["title_split"].as_array().unwrap() {
+            let got = title_split(e[0].as_str().unwrap());
+            let want: Vec<String> = e[1]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|x| x.as_str().unwrap().to_string())
+                .collect();
+            assert_eq!(got, want, "TITLE_SPLIT {}", e[0]);
+        }
+        let st = State::default();
+        for e in r["prefix_space_append"].as_array().unwrap() {
+            assert_eq!(
+                check_prefix_space_append(&st, e[0].as_str().unwrap()),
+                e[1].as_str().unwrap(),
+                "checkPrefixSpaceAppend {}",
+                e[0]
+            );
+        }
+        for e in r["suffix_space_prepend"].as_array().unwrap() {
+            assert_eq!(
+                check_suffix_space_prepend(&st, e[0].as_str().unwrap()),
+                e[1].as_str().unwrap(),
+                "checkSuffixSpacePrepend {}",
+                e[0]
+            );
+        }
+        for e in r["ignore_predecessor"].as_array().unwrap() {
+            let mut st = State::default();
+            st.tmp.term_predecessor = true;
+            let got = check_ignore_predecessor(&mut st, e[0].as_str().unwrap());
+            assert_eq!(json!(got), e[1], "checkIgnorePredecessor {}", e[0]);
+            assert_eq!(
+                json!(st.tmp.term_predecessor),
+                e[2],
+                "term_predecessor {}",
+                e[0]
+            );
+        }
+    }
+
+    #[test]
+    fn nested_braces() {
+        let r = reference();
+        for e in r["nested_brace"].as_array().unwrap() {
+            let mut st = State::default();
+            st.opt.insert("xclass".into(), json!("note"));
+            let mut c = CheckNestedBrace::new(&st);
+            let s = e[0].as_str().unwrap();
+            assert_eq!(c.update(s), e[1].as_str().unwrap(), "{s}");
+            assert_eq!(json!(c.depth), e[2]);
+            assert_eq!(c.update(s), e[3].as_str().unwrap(), "{s} (second)");
+            assert_eq!(json!(c.depth), e[4]);
+        }
+    }
+
+    #[test]
+    fn title_and_subtitle_extraction() {
+        let r = reference();
+        for e in r["extract_title"].as_array().unwrap() {
+            let mut st = State::default();
+            let mut dev = Obj::new();
+            for (k, v) in e[1].as_object().unwrap() {
+                dev.insert(k.clone(), v.clone());
+            }
+            st.opt
+                .insert("development_extensions".into(), Value::Object(dev));
+            let mut item = e[0].as_object().unwrap().clone();
+            let r = st.extract_title_and_subtitle(&mut item, e[2].as_bool().unwrap());
+            assert!(r.is_ok(), "{e}: {r:?}");
+            assert_eq!(
+                &Value::Object(item),
+                &e[3],
+                "extractTitleAndSubtitle {} {} {}",
+                e[0],
+                e[1],
+                e[2]
+            );
+        }
+    }
+
+    #[test]
+    fn note_field_hacks() {
+        let r = reference();
+        for e in r["note_hacks"].as_array().unwrap() {
+            let mut item = Obj::new();
+            item.insert("note".into(), e[0].clone());
+            parse_note_field_hacks(&mut item, None, false).unwrap();
+            assert_eq!(Value::Object(item), e[1], "parseNoteFieldHacks {}", e[0]);
+        }
+    }
+
+    #[test]
+    fn noise_words() {
+        let r = reference();
+        for e in r["demote"].as_array().unwrap() {
+            let mut st = State::default();
+            st.opt.insert("lang".into(), json!("en-US"));
+            let mut l = super::super::util_locale::Locale::new();
+            l.opts
+                .insert("leading-noise-words".into(), json!(["the", "of", "a"]));
+            st.locale.insert("en-US".into(), l);
+            let got = demote_noise_words(&st, e[0].as_str().unwrap(), e[1].as_str().unwrap());
+            assert_eq!(&json!(got), &e[2], "demoteNoiseWords {} {}", e[0], e[1]);
+        }
+    }
+
+    #[test]
+    fn tables_equal_the_upstream_objects() {
+        let r = reference();
+        let t = &r["tables"];
+        let strs = |a: &[&str]| json!(a);
+        assert_eq!(strs(NAME_VARIABLES), t["NAME_VARIABLES"]);
+        assert_eq!(strs(CREATORS), t["CREATORS"]);
+        assert_eq!(strs(NUMERIC_VARIABLES), t["NUMERIC_VARIABLES"]);
+        assert_eq!(strs(DATE_VARIABLES), t["DATE_VARIABLES"]);
+        assert_eq!(strs(SKIP_WORDS), t["SKIP_WORDS"]);
+        assert_eq!(strs(FORMAT_KEY_SEQUENCE), t["FORMAT_KEY_SEQUENCE"]);
+        assert_eq!(strs(AREAS), t["AREAS"]);
+        assert_eq!(strs(MULTI_FIELDS), t["MULTI_FIELDS"]);
+        assert_eq!(strs(SYS_OPTIONS), t["SYS_OPTIONS"]);
+        let pairs = |p: &[(&str, &str)]| {
+            Value::Object(p.iter().map(|(k, v)| (k.to_string(), json!(v))).collect())
+        };
+        assert_eq!(pairs(LANGS), t["LANGS"]);
+        assert_eq!(pairs(LANG_BASES), t["LANG_BASES"]);
+        assert_eq!(pairs(STATUTE_SUBDIV_STRINGS), t["STATUTE_SUBDIV_STRINGS"]);
+        assert_eq!(pairs(LOCATOR_LABELS_MAP), t["LOCATOR_LABELS_MAP"]);
+        assert_eq!(pairs(FIELD_CATEGORY_REMAP), t["FIELD_CATEGORY_REMAP"]);
+        assert_eq!(pairs(LANG_PREFS_MAP), t["LangPrefsMap"]);
+        let sup: Obj = SUPERSCRIPTS
+            .iter()
+            .map(|(k, v)| (k.to_string(), json!(v)))
+            .collect();
+        assert_eq!(Value::Object(sup), t["SUPERSCRIPTS"]);
+        assert_eq!(
+            json!(ROMAN_NUMERALS
+                .iter()
+                .map(|r| r.to_vec())
+                .collect::<Vec<_>>()),
+            t["ROMAN_NUMERALS"]
+        );
+        for (k, v) in t["POSITION_MAP"].as_object().unwrap() {
+            assert_eq!(position_map(k.parse().unwrap()), v.as_i64());
+        }
+    }
+
+    #[test]
+    fn setters_of_api_control_and_util_processor() {
+        let r = reference();
+        for e in r["lang_tags"].as_array().unwrap() {
+            let tags: Vec<String> = e[0]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|x| x.as_str().unwrap().to_string())
+                .collect();
+            let mut st = State::default();
+            st.set_lang_tags_for_csl_transliteration(Some(&tags));
+            st.set_lang_tags_for_csl_translation(Some(&tags));
+            st.opt.insert("locale-sort".into(), json!([]));
+            st.set_lang_tags_for_csl_sort(Some(&tags));
+            assert_eq!(st.opt["locale-translit"], e[1], "{}", e[0]);
+            assert_eq!(st.opt["locale-translat"], e[2], "{}", e[0]);
+            assert_eq!(st.opt["locale-sort"], e[3], "{}", e[0]);
+        }
+        for e in r["lang_prefs"].as_array().unwrap() {
+            let mut st = State::default();
+            st.opt = super::super::state::new_opt();
+            let obj: std::collections::BTreeMap<String, Vec<String>> = e[0]
+                .as_object()
+                .unwrap()
+                .iter()
+                .map(|(k, v)| {
+                    (
+                        k.clone(),
+                        v.as_array()
+                            .unwrap()
+                            .iter()
+                            .map(|x| x.as_str().unwrap().to_string())
+                            .collect(),
+                    )
+                })
+                .collect();
+            st.set_lang_prefs_for_cites(&obj, None);
+            assert_eq!(st.opt["cite-lang-prefs"], e[1], "{}", e[0]);
+        }
+        for e in r["cite_affixes"].as_array().unwrap() {
+            let mut st = State::default();
+            st.opt = super::super::state::new_opt();
+            st.set_lang_prefs_for_cite_affixes(e[0].as_array().unwrap());
+            assert_eq!(st.opt["citeAffixes"], e[1], "{}", e[0]);
+        }
+        for e in r["decorations"].as_array().unwrap() {
+            let mut attrs: Vec<(String, Value)> = e[0]
+                .as_object()
+                .unwrap()
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            let d = super::super::util_processor::set_decorations(&State::default(), &mut attrs);
+            let got: Vec<Value> = d.iter().map(|x| json!([x.name, x.value])).collect();
+            assert_eq!(Value::Array(got), e[1], "{}", e[0]);
+            let left: Obj = attrs.into_iter().collect();
+            assert_eq!(Value::Object(left), e[2]);
+        }
+        for e in r["doppeler"].as_array().unwrap() {
+            let d =
+                super::super::util_processor::Doppeler::new(e[0].as_str().unwrap(), None).unwrap();
+            let sp = d.split(e[1].as_str().unwrap());
+            assert_eq!(json!(sp.tags), e[2]["tags"], "{} {}", e[0], e[1]);
+            assert_eq!(json!(sp.strings), e[2]["strings"], "{} {}", e[0], e[1]);
+            assert_eq!(json!(d.join(&sp)), e[3]);
+        }
     }
 }

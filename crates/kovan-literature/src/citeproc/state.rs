@@ -32,7 +32,6 @@
 //! the intermediate dump compares `opt` and the areas' `opt` with citeproc-js.
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
 
 use serde_json::{json, Value};
 
@@ -93,7 +92,7 @@ pub struct State {
     pub locale: BTreeMap<String, Locale>,
     /// `locale_opts`, `locale_dates` etc. live inside [`Locale`].
     /// `macros`: each macro's configured token list, by name.
-    pub macros: BTreeMap<String, Arc<Vec<Token>>>,
+    pub macros: BTreeMap<String, Vec<Token>>,
     /// `registry`.
     pub registry: Registry,
     /// `disambiguate`.
@@ -124,7 +123,6 @@ pub struct State {
     /// here the flag it is set under. The regex is
     /// `load::variable_wrapper_prepunct_rex()`.
     pub variable_wrapper_prepunct: bool,
-
     // ---- fields: wave1-input (dates, numbers, name particles, retrieveItem) ----
 
     // ---- fields: wave1-output (queue, formats, formatters, flip-flop, page) ----
@@ -359,7 +357,7 @@ pub struct Area {
     /// `opt`.
     pub opt: Obj,
     /// `tokens`: the configured token list.
-    pub tokens: Arc<Vec<Token>>,
+    pub tokens: Vec<Token>,
     /// `root`: `"citation"`, `"bibliography"` or `"intext"`.
     pub root: String,
     /// `srt` (citation and bibliography only).
@@ -399,7 +397,7 @@ impl Area {
     pub fn new_citation() -> Area {
         Area {
             opt: Area::rendering_opt(),
-            tokens: Arc::new(Vec::new()),
+            tokens: Vec::new(),
             root: "citation".to_string(),
             srt: Some(Comparifier::default()),
             keys: Vec::new(),
@@ -423,7 +421,7 @@ impl Area {
                 "sort_locales": [],
                 "max_number_of_names": 0
             })),
-            tokens: Arc::new(Vec::new()),
+            tokens: Vec::new(),
             root: "bibliography".to_string(),
             srt: None,
             keys: Vec::new(),
@@ -440,7 +438,7 @@ impl Area {
                 "citation_number_sort_direction": 2,
                 "citation_number_secondary": false
             })),
-            tokens: Arc::new(Vec::new()),
+            tokens: Vec::new(),
             root: "bibliography".to_string(),
             srt: None,
             keys: Vec::new(),
@@ -455,7 +453,7 @@ impl Area {
                 "sort_directions": [],
                 "topdecor": []
             })),
-            tokens: Arc::new(Vec::new()),
+            tokens: Vec::new(),
             root: "citation".to_string(),
             srt: None,
             keys: Vec::new(),
@@ -467,7 +465,7 @@ impl Area {
     pub fn new_intext() -> Area {
         Area {
             opt: Area::rendering_opt(),
-            tokens: Arc::new(Vec::new()),
+            tokens: Vec::new(),
             root: "intext".to_string(),
             srt: None,
             keys: Vec::new(),
@@ -580,7 +578,6 @@ pub struct Tmp {
     pub doing_macro_with_date: bool,
     /// `just_did_number` (group context conditions, load.js).
     pub just_did_number: bool,
-
     // ---- fields: wave1-input ----
 
     // ---- fields: wave1-output ----
@@ -746,7 +743,6 @@ pub struct Build {
     pub sort_flag: Value,
     /// `area_return` (node_sort.js).
     pub area_return: Option<String>,
-
     // ---- fields: wave2 ----
 
     // ---- fields: wave3 ----

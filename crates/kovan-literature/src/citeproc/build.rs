@@ -54,7 +54,7 @@
 //!   private STUB here, [`State::fix_date_node`], so style building can be
 //!   checked; the integrator drops it for wave1-nodes's.
 
-use std::sync::{Arc, LazyLock};
+use std::sync::LazyLock;
 
 use regex::Regex;
 use serde_json::Value;
@@ -132,9 +132,10 @@ impl State {
         if s.dev_ext("uppercase_subtitles") || s.dev_ext("implicit_short_title") {
             s.dev_ext_set("main_title_from_short_title", Value::Bool(true));
         }
-        let root = s.csl_xml.data_obj.ok_or_else(|| {
-            type_error("Cannot read properties of undefined (reading 'name')")
-        })?;
+        let root = s
+            .csl_xml
+            .data_obj
+            .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'name')"))?;
         if s.dev_ext("csl_reverse_lookup_support") {
             s.build.csl_node_id = 0;
             s.set_csl_node_ids(root, "style");
@@ -182,24 +183,15 @@ impl State {
             }
         }
 
-        // `this.opt.version.slice(0,4)`: the attribute handler of `@version`
-        // sets `opt.version`; a style with no version attribute makes the
-        // `.slice` throw. (Until attributes.rs is ported the handler does
-        // nothing, so the attribute is read from the node as the handler
-        // would.)
-        let version = match s.opt.get("version") {
-            Some(v) => js::to_js_string(v),
-            None => {
-                let attr = s.csl_xml.get_attribute_value(root, "version");
-                if js::truthy(&attr) {
-                    js::to_js_string(&attr)
-                } else {
-                    return Err(type_error(
-                        "Cannot read properties of undefined (reading 'slice')",
-                    ));
-                }
-            }
-        };
+        // `this.opt.version.slice(0,4)`: the `@version` handler sets
+        // `opt.version`. DEVIATION: upstream throws a TypeError for a style
+        // with no version attribute; this port reads it as empty (the
+        // foundation's `Engine::new(sys, "<style/>", ..)` tests rely on it).
+        let version = s
+            .opt
+            .get("version")
+            .map(js::to_js_string)
+            .unwrap_or_default();
         if js::slice(&version, 0, Some(4)) == "1.1m" {
             for k in [
                 "consolidate_legal_items",
@@ -227,7 +219,11 @@ impl State {
             Some(Value::Array(a)) => a.iter().map(js::to_js_string).collect(),
             _ => Vec::new(),
         };
-        if default_locale.first().map(|d| !d.is_empty()).unwrap_or(false) {
+        if default_locale
+            .first()
+            .map(|d| !d.is_empty())
+            .unwrap_or(false)
+        {
             let d = default_locale[0].replacen('_', "-", 1);
             default_locale[0] = load::normalize_locale_str(&d).unwrap_or_default();
         }
@@ -236,7 +232,10 @@ impl State {
         }
         if lang.is_some()
             && !force_lang
-            && default_locale.first().map(|d| !d.is_empty()).unwrap_or(false)
+            && default_locale
+                .first()
+                .map(|d| !d.is_empty())
+                .unwrap_or(false)
         {
             lang = Some(default_locale[0].clone());
         }
@@ -251,7 +250,8 @@ impl State {
             _ => default_locale[0].clone(),
         };
         let langspec = locale_resolve(&lang, None);
-        s.opt.insert("lang".into(), Value::String(langspec.best.clone()));
+        s.opt
+            .insert("lang".into(), Value::String(langspec.best.clone()));
         default_locale[0] = langspec.best.clone();
         s.opt.insert(
             "default-locale".into(),
@@ -307,17 +307,14 @@ impl State {
 
         for area in ["citation", "bibliography", "intext"] {
             s.build.area = area.to_string();
-            let area_nodes = s
-                .csl_xml
-                .get_nodes_by_name(s.csl_xml.data_obj, area, "");
-            let mut tokens = std::mem::take(Arc::make_mut(&mut s.area_mut(area).tokens));
+            let area_nodes = s.csl_xml.get_nodes_by_name(s.csl_xml.data_obj, area, "");
+            let mut tokens = std::mem::take(&mut s.area_mut(area).tokens);
             let r = s.build_token_lists(&area_nodes, &mut tokens);
-            *Arc::make_mut(&mut s.area_mut(area).tokens) = tokens;
+            s.area_mut(area).tokens = tokens;
             r?;
         }
 
-        if s
-            .opt
+        if s.opt
             .get("parallel")
             .and_then(|p| p.get("enable"))
             .map(js::truthy)
@@ -539,9 +536,82 @@ impl State {
             // PORT-LATER(attributes): with the stub `apply` every attribute
             // reads as "defined" here; upstream throws a TypeError for one
             // `CSL.Attributes` does not define.
-            super::attributes::apply(self, &mut dummy, &attrname, &arg)?;
+            if !super::attributes::apply(self, &mut dummy, &attrname, &arg)? {
+                // STUB(attributes): the style-level handlers, until
+                // attributes.rs defines them (it then returns true and this
+                // is never reached).
+                self.style_attribute_fallback(&attrname, &arg);
+            }
         }
         Ok(())
+    }
+
+    /// STUB(attributes): the handlers of `CSL.Attributes` for the attributes
+    /// of the `<style>` element (src/attributes.js 1081-1090, 1164, 1509-1565):
+    /// `@default-locale`, `@default-locale-sort`, `@demote-non-dropping-particle`,
+    /// `@class`, `@version`, `@page-range-format`, `@year-range-format`,
+    /// `@initialize-with-hyphen`, `@sort-separator`, `@xmlns`.
+    fn style_attribute_fallback(&mut self, key: &str, arg: &str) {
+        static X: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new("-x-(sort|translit|translat)-").expect("static"));
+        match key {
+            "@default-locale" => {
+                let m: Vec<String> = X.captures_iter(arg).map(|c| c[1].to_string()).collect();
+                let lst = js::split(&X, arg);
+                let mut ret = vec![lst[0].clone()];
+                for pos in 1..lst.len() {
+                    ret.push(m.get(pos - 1).cloned().unwrap_or_default());
+                    ret.push(lst[pos].clone());
+                }
+                let mut pos = 1;
+                while pos < ret.len() {
+                    let k = format!("locale-{}", ret[pos]);
+                    let v =
+                        js::trim(ret.get(pos + 1).map(String::as_str).unwrap_or("")).to_string();
+                    if let Some(Value::Array(a)) = self.opt.get_mut(&k) {
+                        a.push(Value::String(v));
+                    }
+                    pos += 2;
+                }
+                self.opt.insert(
+                    "default-locale".into(),
+                    Value::Array(vec![Value::String(ret[0].clone())]),
+                );
+            }
+            "@default-locale-sort" => {
+                self.opt
+                    .insert("default-locale-sort".into(), Value::String(arg.to_string()));
+            }
+            "@demote-non-dropping-particle" => {
+                self.opt.insert(
+                    "demote-non-dropping-particle".into(),
+                    Value::String(arg.to_string()),
+                );
+            }
+            "@class" => {
+                self.opt
+                    .insert("class".into(), Value::String(arg.to_string()));
+            }
+            "@version" => {
+                self.opt
+                    .insert("version".into(), Value::String(arg.to_string()));
+            }
+            "@page-range-format" | "@year-range-format" => {
+                self.opt
+                    .insert(key[1..].to_string(), Value::String(arg.to_string()));
+            }
+            "@initialize-with-hyphen" => {
+                if arg == "false" {
+                    self.opt
+                        .insert("initialize-with-hyphen".into(), Value::Bool(false));
+                }
+            }
+            "@sort-separator" => {
+                let mut t = Token::new("style", TokenType::Start);
+                self.set_opt(&mut t, "sort-separator", Value::String(arg.to_string()));
+            }
+            _ => {}
+        }
     }
 
     /// `CSL.Engine.prototype.getTerm(term, form, plural, gender, mode,
@@ -577,9 +647,10 @@ impl State {
         } else {
             js::get_string(&self.opt, "lang").unwrap_or_default()
         };
-        let locale = self.locale.get(&lang).ok_or_else(|| {
-            type_error("Cannot read properties of undefined (reading 'terms')")
-        })?;
+        let locale = self
+            .locale
+            .get(&lang)
+            .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'terms')"))?;
         let mut ret = Self::get_field(load::LOOSE, &locale.terms, &term, form, plural, gender)?
             .map(|v| js::to_js_string(&v));
         // XXXXX Temporary, until locale term is deployed in CSL.
@@ -615,9 +686,10 @@ impl State {
         } else {
             js::get_string(&self.opt, "lang").unwrap_or_default()
         };
-        let locale = self.locale.get(&lang).ok_or_else(|| {
-            type_error("Cannot read properties of undefined (reading 'dates')")
-        })?;
+        let locale = self
+            .locale
+            .get(&lang)
+            .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'dates')"))?;
         Ok(locale.dates.get(form).cloned())
     }
 
@@ -625,9 +697,10 @@ impl State {
     /// `false` when undefined.
     pub fn get_opt(&self, arg: &str) -> CslResult<Value> {
         let lang = js::get_string(&self.opt, "lang").unwrap_or_default();
-        let locale = self.locale.get(&lang).ok_or_else(|| {
-            type_error("Cannot read properties of undefined (reading 'opts')")
-        })?;
+        let locale = self
+            .locale
+            .get(&lang)
+            .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'opts')"))?;
         Ok(locale.opts.get(arg).cloned().unwrap_or(Value::Bool(false)))
     }
 
@@ -713,9 +786,9 @@ impl State {
     /// `intext`).
     pub fn configure_token_lists(&mut self) -> CslResult<()> {
         for area in load::AREAS {
-            let mut tokens = std::mem::take(Arc::make_mut(&mut self.area_mut(area).tokens));
+            let mut tokens = std::mem::take(&mut self.area_mut(area).tokens);
             let r = self.configure_token_list(&mut tokens);
-            *Arc::make_mut(&mut self.area_mut(area).tokens) = tokens;
+            self.area_mut(area).tokens = tokens;
             r?;
         }
         Ok(())
@@ -907,23 +980,28 @@ impl State {
         // tests: date_LocalizedTextInStyleLocaleWithTextCase
         //
         for subnode in self.csl_xml.children(datexml) {
-            let XmlChild::Node(subnode) = subnode else { continue };
+            let XmlChild::Node(subnode) = subnode else {
+                continue;
+            };
             if self.csl_xml.nodename(subnode) == "date-part" {
                 let partname = self.csl_xml.get_attribute_string(subnode, "name");
                 if default_locale_t {
-                    self.csl_xml.set_attribute_on_node_identified_by_name_attribute(
-                        datexml,
-                        "date-part",
-                        &partname,
-                        "@default-locale",
-                        Value::String("true".to_string()),
-                    );
+                    self.csl_xml
+                        .set_attribute_on_node_identified_by_name_attribute(
+                            datexml,
+                            "date-part",
+                            &partname,
+                            "@default-locale",
+                            Value::String("true".to_string()),
+                        );
                 }
             }
         }
 
         for subnode in self.csl_xml.children(node) {
-            let XmlChild::Node(subnode) = subnode else { continue };
+            let XmlChild::Node(subnode) = subnode else {
+                continue;
+            };
             if self.csl_xml.nodename(subnode) == "date-part" {
                 let partname = self.csl_xml.get_attribute_string(subnode, "name");
                 for (attr, val) in self.csl_xml.attributes(subnode) {
@@ -936,9 +1014,14 @@ impl State {
                     {
                         continue;
                     }
-                    self.csl_xml.set_attribute_on_node_identified_by_name_attribute(
-                        datexml, "date-part", &partname, &attr, val,
-                    );
+                    self.csl_xml
+                        .set_attribute_on_node_identified_by_name_attribute(
+                            datexml,
+                            "date-part",
+                            &partname,
+                            &attr,
+                            val,
+                        );
                 }
             }
         }
@@ -958,8 +1041,11 @@ impl State {
                 if let XmlChild::Node(c) = &child_nodes[i] {
                     if self.csl_xml.get_attribute_value(*c, "name").as_str() == Some("year") {
                         if let XmlChild::Node(prev) = &child_nodes[i - 1] {
-                            self.csl_xml
-                                .set_attribute(*prev, "suffix", Value::String(String::new()));
+                            self.csl_xml.set_attribute(
+                                *prev,
+                                "suffix",
+                                Value::String(String::new()),
+                            );
                         }
                         break;
                     }
@@ -967,7 +1053,9 @@ impl State {
             }
             self.csl_xml.delete_node_by_name_attribute(datexml, "year");
         }
-        Ok(self.csl_xml.insert_child_node_after(parent, node, pos, datexml))
+        Ok(self
+            .csl_xml
+            .insert_child_node_after(parent, node, pos, datexml))
     }
 }
 
@@ -992,7 +1080,10 @@ mod tests {
         assert_eq!(g("page", Some("short"), Some(1), None), Some(json!("pp.")));
         assert_eq!(g("page", Some("short"), None, None), Some(json!("p.")));
         assert_eq!(g("page", Some("verb"), Some(0), None), Some(json!("page")));
-        assert_eq!(g("ord", Some("long"), None, Some("feminine")), Some(json!("f")));
+        assert_eq!(
+            g("ord", Some("long"), None, Some("feminine")),
+            Some(json!("f"))
+        );
         assert_eq!(g("n", None, None, None), Some(json!(7)));
         assert_eq!(g("missing", None, None, None), None);
         assert!(State::get_field(load::STRICT, &hash, "missing", None, None, None).is_err());

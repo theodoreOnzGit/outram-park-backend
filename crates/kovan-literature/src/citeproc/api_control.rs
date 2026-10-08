@@ -78,7 +78,8 @@ impl State {
     /// PORT-LATER(queue): upstream also creates `this.output[mode] = {tmp:
     /// {}}` on the output queue if it has none (wave1-output owns `Queue`).
     pub fn set_output_format(&mut self, mode: &str) -> CslResult<()> {
-        self.opt.insert("mode".into(), Value::String(mode.to_string()));
+        self.opt
+            .insert("mode".into(), Value::String(mode.to_string()));
         self.fun.decorate = util_processor::mode(mode)?;
         Ok(())
     }
@@ -208,9 +209,17 @@ impl State {
                     .and_then(|s| s.get_mut(&key))
                     .and_then(Value::as_object_mut);
                 if let Some(slot) = slot {
-                    let blank = |v: Value| if js::truthy(&v) { v } else { Value::String(String::new()) };
+                    let blank = |v: Value| {
+                        if js::truthy(&v) {
+                            v
+                        } else {
+                            Value::String(String::new())
+                        }
+                    };
                     if count % 8 == 4 {
-                        if !js::truthy_opt(slot.get("prefix")) && !js::truthy_opt(slot.get("suffix")) {
+                        if !js::truthy_opt(slot.get("prefix"))
+                            && !js::truthy_opt(slot.get("suffix"))
+                        {
                             slot.insert("prefix".into(), blank(get(count)));
                             let sfx = if js::truthy(&get(count)) {
                                 get(count + 1)
@@ -281,7 +290,11 @@ mod tests {
         let mut obj = BTreeMap::new();
         obj.insert(
             "titles".to_string(),
-            vec!["orig".to_string(), "translat".to_string(), "translit".to_string()],
+            vec![
+                "orig".to_string(),
+                "translat".to_string(),
+                "translit".to_string(),
+            ],
         );
         st.set_lang_prefs_for_cites(&obj, None);
         assert_eq!(

@@ -282,12 +282,12 @@ impl State {
         r?;
         let best = langspec.best.clone();
         {
-            let loc = self
-                .locale
-                .get_mut(&best)
-                .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'terms')"))?;
+            let loc = self.locale.get_mut(&best).ok_or_else(|| {
+                type_error("Cannot read properties of undefined (reading 'terms')")
+            })?;
             if !loc.terms.contains_key("page-range-delimiter") {
-                let fr_pt = ["fr", "pt"].contains(&js::slice(&best, 0, Some(2)).to_lowercase().as_str());
+                let fr_pt =
+                    ["fr", "pt"].contains(&js::slice(&best, 0, Some(2)).to_lowercase().as_str());
                 loc.terms.insert(
                     "page-range-delimiter".into(),
                     Value::String(if fr_pt { "-" } else { "\u{2013}" }.to_string()),
@@ -376,8 +376,8 @@ impl State {
                     let lang = js::to_js_string(&lang_attr);
                     let style_options = myxml.get_nodes_by_name(Some(blob), "style-options", "");
                     if !lang.is_empty() && !style_options.is_empty() {
-                        let jurispref = myxml
-                            .get_attribute_value(style_options[0], "jurisdiction-preference");
+                        let jurispref =
+                            myxml.get_attribute_value(style_options[0], "jurisdiction-preference");
                         if js::truthy(&jurispref) {
                             let loc = self
                                 .locale
@@ -438,7 +438,9 @@ impl State {
     ) -> CslResult<()> {
         // If we are setting CSL 1.0.1 ordinals inside a style, wipe the
         // slate clean and start over.
-        let has_csl_ordinals_101 = !myxml.get_nodes_by_name(locale, "term", "ordinal").is_empty();
+        let has_csl_ordinals_101 = !myxml
+            .get_nodes_by_name(locale, "term", "ordinal")
+            .is_empty();
         if has_csl_ordinals_101 {
             if let Some(Value::Object(keys)) = loc.ord.get("keys").cloned() {
                 for key in keys.keys() {
@@ -521,7 +523,10 @@ impl State {
                 );
             }
             // The value for this term/form.
-            let value = if !myxml.get_nodes_by_name(Some(term), "multiple", "").is_empty() {
+            let value = if !myxml
+                .get_nodes_by_name(Some(term), "multiple", "")
+                .is_empty()
+            {
                 let single = node_value_text(myxml.get_node_value(term, Some("single")))?;
                 if single.contains("%s") {
                     has_placeholder_term = true;
@@ -691,7 +696,10 @@ mod tests {
     #[test]
     fn locale_resolve_follows_upstream() {
         let l = locale_resolve("en", None);
-        assert_eq!((l.base.as_str(), l.best.as_str(), l.bare.as_str()), ("en-US", "en-US", "en"));
+        assert_eq!(
+            (l.base.as_str(), l.best.as_str(), l.bare.as_str()),
+            ("en-US", "en-US", "en")
+        );
         assert!(l.generic);
         let l = locale_resolve("fr-CA", None);
         assert_eq!((l.base.as_str(), l.best.as_str()), ("fr-FR", "fr-CA"));

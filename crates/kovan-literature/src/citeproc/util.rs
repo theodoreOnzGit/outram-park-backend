@@ -98,14 +98,14 @@ impl UtilTest {
     pub fn eval(
         &self,
         state: &mut State,
-        token: &Token,
+        token: &mut Token,
         item: &Value,
         cite_item: &Value,
     ) -> CslResult<bool> {
         match self {
             UtilTest::Any(tests) => {
                 for t in tests {
-                    if t.eval(state, token, item, cite_item)? {
+                    if t.eval(state, &mut *token, item, cite_item)? {
                         return Ok(true);
                     }
                 }
@@ -113,7 +113,7 @@ impl UtilTest {
             }
             UtilTest::None(tests) => {
                 for t in tests {
-                    if t.eval(state, token, item, cite_item)? {
+                    if t.eval(state, &mut *token, item, cite_item)? {
                         return Ok(false);
                     }
                 }
@@ -121,7 +121,7 @@ impl UtilTest {
             }
             UtilTest::All(tests) => {
                 for t in tests {
-                    if !t.eval(state, token, item, cite_item)? {
+                    if !t.eval(state, &mut *token, item, cite_item)? {
                         return Ok(false);
                     }
                 }
@@ -129,7 +129,7 @@ impl UtilTest {
             }
             UtilTest::Nand(tests) => {
                 for t in tests {
-                    if !t.eval(state, token, item, cite_item)? {
+                    if !t.eval(state, &mut *token, item, cite_item)? {
                         return Ok(true);
                     }
                 }

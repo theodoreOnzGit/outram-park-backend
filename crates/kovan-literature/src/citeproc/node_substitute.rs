@@ -31,7 +31,7 @@ impl NodeSubstituteExec {
     pub fn run(
         &self,
         _state: &mut State,
-        _token: &Token,
+        _token: &mut Token,
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
@@ -49,7 +49,7 @@ impl NodeSubstituteTest {
     pub fn eval(
         &self,
         _state: &mut State,
-        _token: &Token,
+        _token: &mut Token,
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<bool> {
