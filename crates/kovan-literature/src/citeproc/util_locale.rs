@@ -69,6 +69,20 @@ pub struct LangSpec {
     pub generic: bool,
 }
 
+impl LangSpec {
+    /// The JS object `{base, best, bare[, generic: true]}` as JSON.
+    pub fn to_value(&self) -> Value {
+        let mut o = Obj::new();
+        o.insert("base".into(), Value::String(self.base.clone()));
+        o.insert("best".into(), Value::String(self.best.clone()));
+        o.insert("bare".into(), Value::String(self.bare.clone()));
+        if self.generic {
+            o.insert("generic".into(), Value::Bool(true));
+        }
+        Value::Object(o)
+    }
+}
+
 /// `CSL.localeResolve(langstr, defaultLocale)`.
 ///
 /// `default_locale` defaults to `"en-US"`; an empty `langstr` resolves to it.

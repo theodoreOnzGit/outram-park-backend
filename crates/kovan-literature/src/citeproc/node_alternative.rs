@@ -74,15 +74,15 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if token.tokentype == TokenType::Start {
         let choose_tok = Token::new("choose", TokenType::Start);
-        node_choose::build(state, choose_tok, target, false)?;
+        node_choose::build(state, choose_tok, target, None)?;
 
         let mut if_tok = Token::new("if", TokenType::Start);
         attributes::apply(state, &mut if_tok, "@alternative-node-internal", "")?;
-        node_if::build(state, if_tok, target, false)?;
+        node_if::build(state, if_tok, target, None)?;
 
         token
             .execs
@@ -90,20 +90,20 @@ pub fn build(
         target.push(token);
 
         let choose_tok = Token::new("choose", TokenType::Start);
-        node_choose::build(state, choose_tok, target, false)?;
+        node_choose::build(state, choose_tok, target, None)?;
 
         let mut if_tok = Token::new("if", TokenType::Start);
         attributes::apply(state, &mut if_tok, "@alternative-node-internal", "")?;
         if_tok
             .execs
             .push(Exec::NodeAlternative(NodeAlternativeExec::AbortAlternative));
-        node_if::build(state, if_tok, target, false)?;
+        node_if::build(state, if_tok, target, None)?;
     } else if token.tokentype == TokenType::End {
         let if_tok = Token::new("if", TokenType::End);
-        node_if::build(state, if_tok, target, false)?;
+        node_if::build(state, if_tok, target, None)?;
 
         let choose_tok = Token::new("choose", TokenType::End);
-        node_choose::build(state, choose_tok, target, false)?;
+        node_choose::build(state, choose_tok, target, None)?;
 
         token
             .execs
@@ -111,10 +111,10 @@ pub fn build(
         target.push(token);
 
         let if_tok = Token::new("if", TokenType::End);
-        node_if::build(state, if_tok, target, false)?;
+        node_if::build(state, if_tok, target, None)?;
 
         let choose_tok = Token::new("choose", TokenType::End);
-        node_choose::build(state, choose_tok, target, false)?;
+        node_choose::build(state, choose_tok, target, None)?;
     }
     Ok(())
 }

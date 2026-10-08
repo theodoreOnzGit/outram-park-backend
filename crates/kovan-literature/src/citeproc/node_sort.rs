@@ -16,7 +16,6 @@
 
 //! Port of `src/node_sort.js`: `CSL.Node.sort`.
 
-use std::sync::Arc;
 
 use serde_json::Value;
 
@@ -56,7 +55,7 @@ impl NodeSortExec {
                         .filter(|v| js::truthy(v))
                         .map(js::to_js_string)
                         .unwrap_or_default();
-                    let langspec = attributes::locale_resolve(&language, &dl);
+                    let langspec = super::util_locale::locale_resolve(&language, Some(&dl));
                     // state[state.tmp.area.slice(0,-5)].opt.sort_locales
                     let area_name = js::slice(&state.tmp.area, 0, Some(-5));
                     let sort_locales: Vec<Value> = area_ref(state, &area_name)?
@@ -113,10 +112,10 @@ pub fn with_sort_target<R>(
     f: impl FnOnce(&mut State, &mut Vec<Token>) -> CslResult<R>,
 ) -> CslResult<R> {
     let name = format!("{}_sort", state.build.root);
-    let mut list = std::mem::take(Arc::make_mut(&mut area_mut(state, &name)?.tokens));
+    let mut list = std::mem::take(&mut area_mut(state, &name)?.tokens);
     let result = f(state, &mut list);
     if let Ok(area) = area_mut(state, &name) {
-        *Arc::make_mut(&mut area.tokens) = list;
+        area.tokens = list;
     }
     result
 }
@@ -127,7 +126,7 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     _target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if token.tokentype == TokenType::Start {
         if state.build.area == "citation" {

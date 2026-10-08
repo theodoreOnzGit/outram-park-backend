@@ -25,7 +25,7 @@ pub fn build(
     _state: &mut State,
     token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     target.push(token);
     Ok(())

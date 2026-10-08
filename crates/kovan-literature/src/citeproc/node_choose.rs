@@ -47,7 +47,7 @@ impl NodeChooseExec {
     ) -> CslResult<Option<usize>> {
         match self {
             NodeChooseExec::Open => {
-                state.tmp.jump.push_literal(None);
+                state.tmp.jump.push_literal(Value::Null);
                 Ok(None)
             }
             NodeChooseExec::Close => {
@@ -64,7 +64,7 @@ pub fn build(
     _state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     let func = match token.tokentype {
         TokenType::Start => NodeChooseExec::Open,

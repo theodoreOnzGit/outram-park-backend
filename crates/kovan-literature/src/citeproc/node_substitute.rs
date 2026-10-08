@@ -47,7 +47,7 @@ impl NodeSubstituteExec {
             NodeSubstituteExec::Start => {
                 state.tmp.can_block_substitute = true;
                 if !state.tmp.value.is_empty() && !state.tmp.common_term_match_fail {
-                    state.tmp.can_substitute.replace_literal(false)?;
+                    state.tmp.can_substitute.replace_literal(Value::Bool(false))?;
                 }
                 state.tmp.common_term_match_fail = false;
                 Ok(None)
@@ -87,12 +87,12 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if token.tokentype == TokenType::Start {
         // set conditional
         let choose_start = Token::new("choose", TokenType::Start);
-        node_choose::build(state, choose_start, target, false)?;
+        node_choose::build(state, choose_start, target, None)?;
         let mut if_singleton = Token::new("if", TokenType::Singleton);
         if_singleton.tests_defined = true;
         if_singleton.tests = vec![Test::NodeSubstitute(NodeSubstituteTest::ValueRendered)];
@@ -109,7 +109,7 @@ pub fn build(
     } else if token.tokentype == TokenType::End {
         target.push(token);
         let choose_end = Token::new("choose", TokenType::End);
-        node_choose::build(state, choose_end, target, false)?;
+        node_choose::build(state, choose_end, target, None)?;
     }
     Ok(())
 }

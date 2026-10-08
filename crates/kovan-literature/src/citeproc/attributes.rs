@@ -37,157 +37,14 @@ use serde_json::Value;
 
 use super::exec::{Exec, Test};
 use super::js::{self, Obj};
+use super::load::{
+    position_map, DESCENDING, GIVENNAME_DISAMBIGUATION_RULES, POSITION,
+};
 use super::obj_token::{Token, TokenType};
 use super::state::{Area, State};
+use super::util_locale::{locale_resolve, LangSpec};
 use super::util_conditions;
 use super::{CslResult, EngineError};
-
-// ---------------------------------------------------------------------------
-// Constants of load.js that this file and the node builders need.
-// STUB(load.rs): the owner of load.js defines these; the integrator replaces
-// this block with references to that module.
-// ---------------------------------------------------------------------------
-
-/// `CSL.START`.
-pub const START: i64 = 0;
-/// `CSL.DESCENDING`.
-pub const DESCENDING: i64 = 1;
-/// `CSL.ASCENDING`.
-pub const ASCENDING: i64 = 2;
-/// `CSL.NUMERIC` (update_mode / bib_mode).
-pub const NUMERIC: i64 = 1;
-/// `CSL.POSITION` (update_mode).
-pub const POSITION: i64 = 2;
-/// `CSL.TRIGRAPH` (bib_mode).
-pub const TRIGRAPH: i64 = 3;
-/// `CSL.GIVENNAME_DISAMBIGUATION_RULES`.
-pub const GIVENNAME_DISAMBIGUATION_RULES: [&str; 5] = [
-    "all-names",
-    "all-names-with-initials",
-    "primary-name",
-    "primary-name-with-initials",
-    "by-cite",
-];
-/// `CSL.NUMERIC_VARIABLES`.
-pub const NUMERIC_VARIABLES: [&str; 20] = [
-    "call-number",
-    "chapter-number",
-    "collection-number",
-    "division",
-    "edition",
-    "page",
-    "issue",
-    "locator",
-    "locator-extra",
-    "number",
-    "number-of-pages",
-    "number-of-volumes",
-    "part-number",
-    "printing-number",
-    "section",
-    "supplement-number",
-    "version",
-    "volume",
-    "supplement",
-    "citation-number",
-];
-/// `CSL.DATE_VARIABLES`.
-pub const DATE_VARIABLES: [&str; 10] = [
-    "locator-date",
-    "issued",
-    "event-date",
-    "accessed",
-    "original-date",
-    "publication-date",
-    "available-date",
-    "submitted",
-    "alt-issued",
-    "alt-event",
-];
-/// `CSL.NAME_VARIABLES`.
-pub const NAME_VARIABLES: [&str; 28] = [
-    "author",
-    "chair",
-    "collection-editor",
-    "compiler",
-    "composer",
-    "container-author",
-    "contributor",
-    "curator",
-    "director",
-    "editor",
-    "editor-translator",
-    "editorial-director",
-    "executive-producer",
-    "guest",
-    "host",
-    "illustrator",
-    "interviewer",
-    "narrator",
-    "organizer",
-    "original-author",
-    "performer",
-    "producer",
-    "recipient",
-    "reviewed-author",
-    "script-writer",
-    "series-creator",
-    "translator",
-    "commenter",
-];
-/// `CSL.MULTI_FIELDS`.
-pub const MULTI_FIELDS: [&str; 15] = [
-    "event",
-    "publisher",
-    "publisher-place",
-    "event-place",
-    "title",
-    "container-title",
-    "collection-title",
-    "authority",
-    "genre",
-    "title-short",
-    "medium",
-    "country",
-    "jurisdiction",
-    "archive",
-    "archive-place",
-];
-/// `CSL.CITE_FIELDS`.
-pub const CITE_FIELDS: [&str; 4] = [
-    "first-reference-note-number",
-    "first-container-reference-note-number",
-    "locator",
-    "locator-extra",
-];
-/// `CSL.DISPLAY_CLASSES`.
-pub const DISPLAY_CLASSES: [&str; 4] = ["block", "left-margin", "right-inline", "indent"];
-
-/// `CSL.STARTSWITH_ROMANESQUE_REGEXP.test(s)`.
-pub fn starts_with_romanesque(s: &str) -> bool {
-    static RE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(
-            "^[&a-zA-Z\u{0e01}-\u{0e5b}\u{00c0}-\u{017f}\u{0370}-\u{03ff}\u{0400}-\u{052f}\
-             \u{0590}-\u{05d4}\u{05d6}-\u{05ff}\u{1f00}-\u{1fff}\u{0600}-\u{06ff}\u{200c}\
-             \u{200d}\u{200e}\u{0218}\u{0219}\u{021a}\u{021b}\u{202a}-\u{202e}]",
-        )
-        .expect("static regex")
-    });
-    RE.is_match(s)
-}
-
-/// `CSL.POSITION_MAP[n]`.
-pub fn position_map(n: i64) -> Option<i64> {
-    match n {
-        0 => Some(0),
-        4 => Some(1),
-        1 => Some(2),
-        2 => Some(3),
-        3 => Some(4),
-        _ => None,
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Small JS helpers.
 // ---------------------------------------------------------------------------
@@ -264,143 +121,6 @@ fn any_truthy_entry(v: &Value) -> bool {
     }
 }
 
-// ---------------------------------------------------------------------------
-// STUBs for engine methods owned by wave1-build (build.js, util_locale.js).
-// ---------------------------------------------------------------------------
-
-/// `CSL.localeResolve(langstr, defaultLocale)` result (util_locale.js:3).
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct LocaleSpec {
-    /// `base`, e.g. `en-US`.
-    pub base: String,
-    /// `best`.
-    pub best: String,
-    /// `bare`, e.g. `en`.
-    pub bare: String,
-    /// `generic` (only set when the language had no region).
-    pub generic: bool,
-}
-
-impl LocaleSpec {
-    /// The JS object `{base, best, bare[, generic: true]}` as JSON.
-    pub fn to_value(&self) -> Value {
-        let mut o = Obj::new();
-        o.insert("base".into(), Value::String(self.base.clone()));
-        o.insert("best".into(), Value::String(self.best.clone()));
-        o.insert("bare".into(), Value::String(self.bare.clone()));
-        if self.generic {
-            o.insert("generic".into(), Value::Bool(true));
-        }
-        Value::Object(o)
-    }
-}
-
-/// `CSL.LANG_BASES[lang]`.
-fn lang_base(lang: &str) -> Option<&'static str> {
-    Some(match lang {
-        "af" => "af_ZA",
-        "ar" => "ar",
-        "bg" => "bg_BG",
-        "ca" => "ca_AD",
-        "cs" => "cs_CZ",
-        "da" => "da_DK",
-        "de" => "de_DE",
-        "el" => "el_GR",
-        "en" => "en_US",
-        "es" => "es_ES",
-        "et" => "et_EE",
-        "eu" => "eu",
-        "fa" => "fa_IR",
-        "fi" => "fi_FI",
-        "fr" => "fr_FR",
-        "he" => "he_IL",
-        "hr" => "hr-HR",
-        "hu" => "hu_HU",
-        "is" => "is_IS",
-        "it" => "it_IT",
-        "ja" => "ja_JP",
-        "km" => "km_KH",
-        "ko" => "ko_KR",
-        "lt" => "lt_LT",
-        "lv" => "lv-LV",
-        "mn" => "mn_MN",
-        "nb" => "nb_NO",
-        "nl" => "nl_NL",
-        "nn" => "nn-NO",
-        "pl" => "pl_PL",
-        "pt" => "pt_PT",
-        "ro" => "ro_RO",
-        "ru" => "ru_RU",
-        "sk" => "sk_SK",
-        "sl" => "sl_SI",
-        "sr" => "sr_RS",
-        "sv" => "sv_SE",
-        "th" => "th_TH",
-        "tr" => "tr_TR",
-        "uk" => "uk_UA",
-        "vi" => "vi_VN",
-        "zh" => "zh_CN",
-        _ => return None,
-    })
-}
-
-/// `CSL.localeResolve(langstr, defaultLocale)` (util_locale.js:3).
-/// STUB(util_locale.rs): the owner of util_locale.js defines the real one;
-/// this is a faithful copy so the node builders compile and test now.
-pub fn locale_resolve(langstr: &str, default_locale: &str) -> LocaleSpec {
-    let default_locale = if default_locale.is_empty() {
-        "en-US"
-    } else {
-        default_locale
-    };
-    let langstr = if langstr.is_empty() {
-        default_locale
-    } else {
-        langstr
-    };
-    let langlst: Vec<&str> = langstr.split(['-', '_']).collect();
-    let Some(base) = lang_base(langlst[0]) else {
-        return LocaleSpec {
-            base: default_locale.to_string(),
-            best: langstr.to_string(),
-            bare: langlst[0].to_string(),
-            generic: false,
-        };
-    };
-    let generic = langlst.len() == 1;
-    let best = if langlst.len() == 1 || langlst[1] == "x" {
-        base.replacen('_', "-", 1)
-    } else {
-        langlst[..2].join("-")
-    };
-    LocaleSpec {
-        base: base.replacen('_', "-", 1),
-        best,
-        bare: langlst[0].to_string(),
-        generic,
-    }
-}
-
-/// `state.opt["default-locale"][0]` (`"en-US"` when absent).
-pub fn default_locale(state: &State) -> String {
-    state
-        .opt
-        .get("default-locale")
-        .and_then(|v| v.get(0))
-        .and_then(|v| v.as_str())
-        .unwrap_or("en-US")
-        .to_string()
-}
-
-/// `state.localeConfigure(langspec, beShy)` (util_locale.js:44).
-/// STUB(util_locale.rs): reports not-ported; the integrator replaces it.
-pub fn locale_configure(_state: &mut State, _spec: &LocaleSpec, _be_shy: bool) -> CslResult<()> {
-    // PORT-LATER(wave1-build): util_locale.js:44 localeConfigure, needs locale loading.
-    Err(EngineError::NotYetPorted {
-        method: "util_locale.js:44 CSL.Engine.prototype.localeConfigure",
-    })
-}
-
 /// `state[name]` for the five areas (`citation`, `bibliography`, `intext`,
 /// `citation_sort`, `bibliography_sort`); any other name is the JS
 /// `TypeError` of reading `.opt` of `undefined`.
@@ -453,74 +173,16 @@ pub fn arr_entry<'o>(obj: &'o mut Obj, key: &str) -> &'o mut Vec<Value> {
     slot.as_array_mut().expect("slot was just made an array")
 }
 
-/// `state.setOpt(token, name, value)` (build.js:776).
-/// STUB(build.rs): faithful copy; the integrator may point it at the real one.
-pub fn set_opt(state: &mut State, token: &mut Token, name: &str, value: Value) {
-    if token.name == "style" || token.name == "cslstyle" {
-        obj_entry(&mut state.opt, "inheritedAttributes").insert(name.to_string(), value.clone());
-        obj_entry(&mut state.citation.opt, "inheritedAttributes")
-            .insert(name.to_string(), value.clone());
-        obj_entry(&mut state.bibliography.opt, "inheritedAttributes")
-            .insert(name.to_string(), value);
-    } else if token.name == "citation" || token.name == "bibliography" {
-        let area = if token.name == "citation" {
-            &mut state.citation
-        } else {
-            &mut state.bibliography
-        };
-        obj_entry(&mut area.opt, "inheritedAttributes").insert(name.to_string(), value);
-    } else {
-        token.strings.insert(name.to_string(), value);
-    }
-}
 
-/// `state.inheritOpt(token, attrname, parentname, defaultValue)`
-/// (build.js:789). `None` is JS `undefined`.
-/// STUB(build.rs): faithful copy; the integrator may point it at the real one.
-pub fn inherit_opt(
-    state: &State,
-    token: &Token,
-    attrname: &str,
-    parentname: Option<&str>,
-    default_value: Option<Value>,
-) -> CslResult<Option<Value>> {
-    if let Some(v) = token.strings.get(attrname) {
-        return Ok(Some(v.clone()));
-    }
-    let root = state.tmp.root.clone().ok_or_else(|| {
-        EngineError::Csl("TypeError: state[state.tmp.root] with undefined root".into())
-    })?;
-    let area = area_ref(state, &root)?;
-    let key = match parentname {
-        Some(p) if !p.is_empty() => p,
-        _ => attrname,
-    };
-    let parent = area.opt.get("inheritedAttributes").and_then(|o| o.get(key));
-    match parent {
-        Some(v) => Ok(Some(v.clone())),
-        None => Ok(default_value),
-    }
-}
-
-/// STUB(util_nodes.rs): `CSL.expandMacro.call(state, token, target)`
-/// (util_nodes.js). The owner of util_nodes.js defines the real one.
-pub fn expand_macro_stub(
-    _state: &mut State,
-    _token: Token,
-    _target: &mut Vec<Token>,
-) -> CslResult<()> {
-    // PORT-LATER(wave1-build): util_nodes.js CSL.expandMacro.
-    Err(EngineError::NotYetPorted {
-        method: "util_nodes.js CSL.expandMacro",
-    })
-}
-
-/// `state.getTerm(...)` at build time. STUB(build.rs): not available yet.
-pub fn get_term_stub(_state: &State, _name: &str) -> CslResult<String> {
-    // PORT-LATER(wave1-build): build.js getTerm, needs the merged locale terms.
-    Err(EngineError::NotYetPorted {
-        method: "build.js CSL.Engine.prototype.getTerm",
-    })
+/// `state.opt["default-locale"][0]` (`"en-US"` when absent).
+pub fn default_locale(state: &State) -> String {
+    state
+        .opt
+        .get("default-locale")
+        .and_then(|v| v.get(0))
+        .and_then(|v| v.as_str())
+        .unwrap_or("en-US")
+        .to_string()
 }
 
 // ---------------------------------------------------------------------------
@@ -673,7 +335,7 @@ pub enum AttributesTest {
     /// `maketest(locale_list, locale_default, locale_bares)` closure.
     Locale {
         /// `locale_list`.
-        locale_list: Vec<LocaleSpec>,
+        locale_list: Vec<LangSpec>,
         /// `locale_default`.
         locale_default: String,
         /// `locale_bares`.
@@ -684,7 +346,7 @@ pub enum AttributesTest {
     /// `@locale-internal` (attributes.js:~790): `maketest(me)`.
     LocaleInternal {
         /// `me.locale_list`.
-        locale_list: Vec<LocaleSpec>,
+        locale_list: Vec<LangSpec>,
         /// `me.locale_bares`.
         locale_bares: Vec<String>,
         /// `me.locale`.
@@ -942,7 +604,7 @@ impl AttributesTest {
                     None => locale_default.clone(),
                     Some(v) => js::to_js_string(v),
                 };
-                let langspec = locale_resolve(&lang, locale_default);
+                let langspec = locale_resolve(&lang, Some(locale_default));
                 let mut res = false;
                 for l in locale_list {
                     if langspec.best == l.best {
@@ -1520,38 +1182,34 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
                 );
             }
         }
-        "@names-delimiter" => set_opt(state, token, "names-delimiter", Value::String(arg.into())),
-        "@name-form" => set_opt(state, token, "name-form", Value::String(arg.into())),
+        "@names-delimiter" => state.set_opt(token, "names-delimiter", Value::String(arg.into())),
+        "@name-form" => state.set_opt(token, "name-form", Value::String(arg.into())),
         "@subgroup-delimiter" => token.set_string("subgroup-delimiter", arg),
         "@subgroup-delimiter-precedes-last" => {
             token.set_string("subgroup-delimiter-precedes-last", arg)
         }
-        "@name-delimiter" => set_opt(state, token, "name-delimiter", Value::String(arg.into())),
+        "@name-delimiter" => state.set_opt(token, "name-delimiter", Value::String(arg.into())),
         "@et-al-min" => {
             let val = js::parse_int(arg);
             bump_max_names(state, val)?;
-            set_opt(state, token, "et-al-min", int_or_nan(val));
+            state.set_opt(token, "et-al-min", int_or_nan(val));
         }
         "@et-al-use-first" => {
-            set_opt(
-                state,
-                token,
+            state.set_opt(token,
                 "et-al-use-first",
                 int_or_nan(js::parse_int(arg)),
             );
         }
         "@et-al-use-last" => {
-            set_opt(state, token, "et-al-use-last", Value::Bool(arg == "true"));
+            state.set_opt(token, "et-al-use-last", Value::Bool(arg == "true"));
         }
         "@et-al-subsequent-min" => {
             let val = js::parse_int(arg);
             bump_max_names(state, val)?;
-            set_opt(state, token, "et-al-subsequent-min", int_or_nan(val));
+            state.set_opt(token, "et-al-subsequent-min", int_or_nan(val));
         }
         "@et-al-subsequent-use-first" => {
-            set_opt(
-                state,
-                token,
+            state.set_opt(token,
                 "et-al-subsequent-use-first",
                 int_or_nan(js::parse_int(arg)),
             );
@@ -1566,23 +1224,19 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
                 .strings
                 .insert("suppress-max".into(), int_or_nan(js::parse_int(arg)));
         }
-        "@and" => set_opt(state, token, "and", Value::String(arg.into())),
-        "@delimiter-precedes-last" => set_opt(
-            state,
-            token,
+        "@and" => state.set_opt(token, "and", Value::String(arg.into())),
+        "@delimiter-precedes-last" => state.set_opt(token,
             "delimiter-precedes-last",
             Value::String(arg.into()),
         ),
-        "@delimiter-precedes-et-al" => set_opt(
-            state,
-            token,
+        "@delimiter-precedes-et-al" => state.set_opt(token,
             "delimiter-precedes-et-al",
             Value::String(arg.into()),
         ),
-        "@initialize-with" => set_opt(state, token, "initialize-with", Value::String(arg.into())),
+        "@initialize-with" => state.set_opt(token, "initialize-with", Value::String(arg.into())),
         "@initialize" => {
             if arg == "false" {
-                set_opt(state, token, "initialize", Value::Bool(false));
+                state.set_opt(token, "initialize", Value::Bool(false));
             }
         }
         "@name-as-reverse-order" => {
@@ -1596,15 +1250,13 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
                     .extra
                     .insert("name-as-sort-order".into(), Value::String(arg.into()));
             } else {
-                set_opt(
-                    state,
-                    token,
+                state.set_opt(token,
                     "name-as-sort-order",
                     Value::String(arg.into()),
                 );
             }
         }
-        "@sort-separator" => set_opt(state, token, "sort-separator", Value::String(arg.into())),
+        "@sort-separator" => state.set_opt(token, "sort-separator", Value::String(arg.into())),
         "@require-match" => {
             if arg == "true" {
                 token.extra.insert("requireMatch".into(), Value::Bool(true));
@@ -1831,7 +1483,7 @@ fn apply_locale(state: &mut State, token: &mut Token, arg: &str) -> CslResult<()
             // so that they can be used when generating sort keys. See node_sort.js.
             let locales = split_ws(arg);
             let mut sort_locale = Obj::new();
-            let master = locale_resolve(&locales[0], &locale_default);
+            let master = locale_resolve(&locales[0], Some(&locale_default));
             locale_data.push(master.to_value());
             // Upstream keys by `localeMaster.generic`, a boolean: the key is
             // the string "true". Kept as is.
@@ -1842,7 +1494,7 @@ fn apply_locale(state: &mut State, token: &mut Token, arg: &str) -> CslResult<()
             };
             sort_locale.insert(key, Value::String(master.best.clone()));
             for l in &locales[1..] {
-                let servant = locale_resolve(l, &locale_default);
+                let servant = locale_resolve(l, Some(&locale_default));
                 locale_data.push(servant.to_value());
                 let key = if servant.generic {
                     "true".to_string()
@@ -1861,16 +1513,16 @@ fn apply_locale(state: &mut State, token: &mut Token, arg: &str) -> CslResult<()
         // For if and if-else
         let lst = split_ws(arg);
         let mut locale_bares: Vec<String> = Vec::new();
-        let mut locale_list: Vec<LocaleSpec> = Vec::new();
+        let mut locale_list: Vec<LangSpec> = Vec::new();
         for lang in &lst {
-            let langspec = locale_resolve(lang, &locale_default);
+            let langspec = locale_resolve(lang, Some(&locale_default));
             if js::len(lang) == 2 {
                 // For fallback
                 locale_bares.push(langspec.bare.clone());
             }
             // Load the locale terms etc.
             // (second argument causes immediate return if locale already exists)
-            locale_configure(state, &langspec, true)?;
+            state.locale_configure(&langspec, true)?;
             locale_list.push(langspec);
         }
         token.tests.push(atest(AttributesTest::Locale {
@@ -1887,15 +1539,15 @@ fn apply_locale_internal(state: &mut State, token: &mut Token, arg: &str) -> Csl
     let lst = split_ws(arg);
     let dl = default_locale(state);
     let mut locale_bares: Vec<String> = Vec::new();
-    let mut locale_list: Vec<LocaleSpec> = Vec::new();
+    let mut locale_list: Vec<LangSpec> = Vec::new();
     for lang in &lst {
-        let langspec = locale_resolve(lang, &dl);
+        let langspec = locale_resolve(lang, Some(&dl));
         if js::len(lang) == 2 {
             // For fallback
             locale_bares.push(langspec.bare.clone());
         }
         // Load the locale terms etc.
-        locale_configure(state, &langspec, false)?;
+        state.locale_configure(&langspec, false)?;
         locale_list.push(langspec);
     }
     // Set locale tag on node
@@ -1913,7 +1565,7 @@ fn apply_locale_internal(state: &mut State, token: &mut Token, arg: &str) -> Csl
     // Locales to test
     token.extra.insert(
         "locale_list".into(),
-        Value::Array(locale_list.iter().map(LocaleSpec::to_value).collect()),
+        Value::Array(locale_list.iter().map(LangSpec::to_value).collect()),
     );
     token.tests.push(atest(AttributesTest::LocaleInternal {
         locale_list,
@@ -2004,20 +1656,42 @@ mod tests {
         node_institutionpart, node_intext, node_key, node_label, node_layout, node_macro,
         node_name, node_namepart, node_names, node_number, node_sort, node_substitute, node_text,
     };
-    use std::sync::Arc;
 
     const DATA: &str = include_str!("../../tests/data/csl/units/build_tokens.json");
 
     /// Cases that end in `NotYetPorted` today, and why.
-    const EXPECTED_SKIPS: [&str; 7] = [
-        "macro_in_text",                    // CSL.expandMacro (util_nodes.js)
-        "layout_locale",                    // localeConfigure (util_locale.js)
-        "if_locale",                        // localeConfigure
-        "sort_key_macro",                   // CSL.expandMacro
-        "date_with_form",                   // CSL.Util.fixDateNode host (xmljson.js)
-        "text_collapse_citation_number",    // state.getTerm (build.js)
-        "text_collapse_year_suffix_ranged", // state.getTerm
+    const EXPECTED_SKIPS: [&str; 3] = [
+        "macro_in_text",  // needs the style's <macro> node (cslXml); see build_case
+        "sort_key_macro", // same
+        "date_with_form", // CSL.Util.fixDateNode host: needs cslXml
     ];
+
+    /// Every `locales-<lang>.xml` of `vendor/citeproc-js/locale` (the runner's
+    /// `retrieveLocale`, processing instructions dropped); empty when `vendor/` is absent.
+    fn test_locales() -> std::sync::Arc<std::collections::BTreeMap<String, String>> {
+        static LOCALES: std::sync::LazyLock<std::sync::Arc<std::collections::BTreeMap<String, String>>> =
+            std::sync::LazyLock::new(|| {
+                let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../vendor/citeproc-js/locale");
+                let pi = Regex::new(r"\s*<\?[^>]*\?>\s*\n").expect("static");
+                let mut map = std::collections::BTreeMap::new();
+                if let Ok(read) = std::fs::read_dir(&dir) {
+                    for entry in read.flatten() {
+                        let file = entry.file_name().to_string_lossy().to_string();
+                        if let Some(lang) = file
+                            .strip_prefix("locales-")
+                            .and_then(|f| f.strip_suffix(".xml"))
+                        {
+                            if let Ok(xml) = std::fs::read_to_string(entry.path()) {
+                                map.insert(lang.to_string(), pi.replace_all(&xml, "").to_string());
+                            }
+                        }
+                    }
+                }
+                std::sync::Arc::new(map)
+            });
+        LOCALES.clone()
+    }
 
     fn obj(v: Value) -> Obj {
         match v {
@@ -2072,7 +1746,7 @@ mod tests {
         s.citation_sort.root = "citation".into();
         s.bibliography_sort.root = "bibliography".into();
         s.tmp.area = "citation".into();
-        s.tmp.root = Some("citation".into());
+        s.tmp.root = "citation".into();
         s.tmp.cite_affixes = obj(serde_json::json!({
             "citation": false, "bibliography": false,
             "citation_sort": false, "bibliography_sort": false,
@@ -2089,13 +1763,15 @@ mod tests {
         apply(&mut s, &mut style, "@sort-separator", ", ")?;
         s.opt
             .insert("default-locale-sort".into(), Value::String("en-US".into()));
+        s.sys.locales = test_locales();
+        s.locale_configure(&locale_resolve("en-US", None), false)?;
         Ok(s)
     }
 
     fn dispatch_build(state: &mut State, token: Token, target: &mut Vec<Token>) -> CslResult<()> {
         macro_rules! go {
             ($m:ident) => {
-                $m::build(state, token, target, true)
+                $m::build(state, token, target, Some(true))
             };
         }
         match token.name.clone().as_str() {
@@ -2180,9 +1856,9 @@ mod tests {
         area: &str,
         f: impl FnOnce(&mut State, &mut Vec<Token>) -> CslResult<R>,
     ) -> CslResult<R> {
-        let mut list = std::mem::take(Arc::make_mut(&mut area_mut(state, area)?.tokens));
+        let mut list = std::mem::take(&mut area_mut(state, area)?.tokens);
         let r = f(state, &mut list);
-        *Arc::make_mut(&mut area_mut(state, area)?.tokens) = list;
+        area_mut(state, area)?.tokens = list;
         r
     }
 
@@ -2223,14 +1899,14 @@ mod tests {
                 apply(state, &mut token, key, val)?;
             }
             if attr("@variable")
-                .map(|v| DATE_VARIABLES.contains(&v.as_str()))
+                .map(|v| crate::citeproc::load::DATE_VARIABLES.contains(&v.as_str()))
                 .unwrap_or(false)
             {
                 var_stack.push(token.variables.clone());
             }
         } else if tokentype == TokenType::End && attr("@variable").is_some() {
             token.extra.insert("hasVariable".into(), Value::Bool(true));
-            if DATE_VARIABLES.contains(&attr("@variable").unwrap_or_default().as_str()) {
+            if crate::citeproc::load::DATE_VARIABLES.contains(&attr("@variable").unwrap_or_default().as_str()) {
                 token.variables = var_stack.pop().unwrap_or_default();
             }
         }
@@ -2279,9 +1955,12 @@ mod tests {
         let class = case["class"].as_str().unwrap_or("in-text");
         let mut state = fresh_state(class)?;
         let nodes = case["nodes"].as_array().cloned().unwrap_or_default();
-        if case.get("macros").is_some() {
+        // A `macro` attribute needs the style's `<macro>` node (`cslid`,
+        // `macro-has-date`), which this replay has no `cslXml` for; the real
+        // engine covers macros in tests/citeproc_intermediate.rs.
+        if case["nodes"].to_string().contains("[\"macro\",") {
             return Err(EngineError::NotYetPorted {
-                method: "util_nodes.js CSL.expandMacro",
+                method: "util_nodes.js CSL.expandMacro (needs cslXml)",
             });
         }
         for area in ["citation", "bibliography", "intext"] {
@@ -2305,9 +1984,9 @@ mod tests {
             "bibliography_sort",
             "intext",
         ] {
-            let mut list = std::mem::take(Arc::make_mut(&mut area_mut(&mut state, area)?.tokens));
+            let mut list = std::mem::take(&mut area_mut(&mut state, area)?.tokens);
             let r = configure_token_list(&mut state, &mut list);
-            *Arc::make_mut(&mut area_mut(&mut state, area)?.tokens) = list;
+            area_mut(&mut state, area)?.tokens = list;
             r?;
         }
         Ok(state)

@@ -24,7 +24,8 @@
 
 use serde_json::Value;
 
-use super::attributes::{self, inherit_opt, DATE_VARIABLES, NAME_VARIABLES, NUMERIC_VARIABLES};
+use super::attributes;
+use super::load::{DATE_VARIABLES, DESCENDING, NAME_VARIABLES, NUMERIC_VARIABLES};
 use super::exec::Exec;
 use super::js;
 use super::node_institution;
@@ -101,17 +102,17 @@ impl NodeKeyExec {
             }),
             NodeKeyExec::EtAlInit => {
                 state.tmp.sort_key_flag = true;
-                if let Some(v) = inherit_opt(state, token, "et-al-min", None, None)? {
+                if let Some(v) = state.inherit_opt(token, "et-al-min", None, None) {
                     if js::truthy(&v) {
                         state.tmp.et_al_min = Some(v);
                     }
                 }
-                if let Some(v) = inherit_opt(state, token, "et-al-use-first", None, None)? {
+                if let Some(v) = state.inherit_opt(token, "et-al-use-first", None, None) {
                     if js::truthy(&v) {
                         state.tmp.et_al_use_first = Some(v);
                     }
                 }
-                if let Some(v) = inherit_opt(state, token, "et-al-use-last", None, None)? {
+                if let Some(v) = state.inherit_opt(token, "et-al-use-last", None, None) {
                     if v.is_boolean() {
                         state.tmp.et_al_use_last = Some(v);
                     }
@@ -183,7 +184,7 @@ pub fn build(
     state: &mut State,
     token: Token,
     _target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     with_sort_target(state, |state, target| build_into(state, &token, target))
 }
@@ -197,12 +198,12 @@ fn opt_value(v: Option<Value>, strings: &mut super::js::Obj, key: &str) {
 fn build_into(state: &mut State, this: &Token, target: &mut Vec<Token>) -> CslResult<()> {
     let mut start_key = Token::new("key", TokenType::Start);
 
-    state.tmp.root = Some(state.build.root.clone());
+    state.tmp.root = state.build.root.clone();
 
     // The params object for build and runtime (tmp) really shouldn't have been separated.
     // Oh, well.
     for k in ["et-al-min", "et-al-use-first", "et-al-use-last"] {
-        let v = inherit_opt(state, this, k, None, None)?;
+        let v = state.inherit_opt(this, k, None, None);
         opt_value(v, &mut start_key.strings, k);
     }
 
@@ -218,7 +219,7 @@ fn build_into(state: &mut State, this: &Token, target: &mut Vec<Token>) -> CslRe
 
     // sort direction
     let sort_direction: Vec<Value> = if this.strings.get("sort_direction").and_then(Value::as_i64)
-        == Some(attributes::DESCENDING)
+        == Some(DESCENDING)
     {
         vec![Value::from(1), Value::from(-1)]
     } else {
@@ -253,25 +254,25 @@ fn build_into(state: &mut State, this: &Token, target: &mut Vec<Token>) -> CslRe
             // Start tag
             let mut names_start_token = Token::new("names", TokenType::Start);
             names_start_token.variables = this.variables.clone();
-            node_names::build(state, names_start_token, target, false)?;
+            node_names::build(state, names_start_token, target, None)?;
             //
             // Name tag
             let mut name_token = Token::new("name", TokenType::Singleton);
             name_token.set_string("name-as-sort-order", "all");
             name_token.set_string("sort-separator", " ");
             for k in ["et-al-use-last", "et-al-min", "et-al-use-first"] {
-                let v = inherit_opt(state, this, k, None, None)?;
+                let v = state.inherit_opt(this, k, None, None);
                 opt_value(v, &mut name_token.strings, k);
             }
-            node_name::build(state, name_token, target, false)?;
+            node_name::build(state, name_token, target, None)?;
             //
             // Institution tag
             let institution_token = Token::new("institution", TokenType::Singleton);
-            node_institution::build(state, institution_token, target, false)?;
+            node_institution::build(state, institution_token, target, None)?;
             //
             // End tag
             let names_end_token = Token::new("names", TokenType::End);
-            node_names::build(state, names_end_token, target, false)?;
+            node_names::build(state, names_end_token, target, None)?;
         } else {
             let mut single_text = Token::new("text", TokenType::Singleton);
             if let Some(sd) = this.strings.get("sort_direction") {
@@ -318,7 +319,7 @@ fn build_into(state: &mut State, this: &Token, target: &mut Vec<Token>) -> CslRe
             token.strings.insert("sort_direction".into(), sd.clone());
         }
         token.postponed_macro = this.postponed_macro.clone();
-        attributes::expand_macro_stub(state, token, target)?;
+        state.expand_macro(&token, target)?;
     }
     //
     // ops to output the key string result to an array go

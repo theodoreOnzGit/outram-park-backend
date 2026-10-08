@@ -146,7 +146,7 @@ pub fn node_build(
     name: &str,
     token: Token,
     target: &mut Vec<Token>,
-    real_group: bool,
+    real_group: Option<bool>,
 ) -> CslResult<bool> {
     use super::*;
     match name {
@@ -358,10 +358,10 @@ impl State {
         if has_date {
             mkey = format!(
                 "{mkey}@{}",
-                self.build
-                    .current_default_locale
-                    .clone()
-                    .unwrap_or_else(|| "undefined".to_string())
+                match &self.build.current_default_locale {
+                    Value::Null => "undefined".to_string(),
+                    v => js::to_js_string(v),
+                }
             );
             macro_key_token
                 .execs
@@ -387,7 +387,7 @@ impl State {
                 .insert("update_mode".into(), Value::from(load::POSITION));
         }
         // Macro group is treated as a real node in the style
-        node_build(self, "group", macro_key_token, target, true)?;
+        node_build(self, "group", macro_key_token, target, Some(true))?;
 
         // `if (!this.cslXml.getNodeValue(macro_nodes)) CSL.error("CSL style
         // error: undefined macro ...")`: getNodeValue of a list is the list,
@@ -433,7 +433,7 @@ impl State {
                 .insert("juris".into(), Value::String(mkey.clone()));
         }
         // Macro group is treated as a real node in the style
-        node_build(self, "group", end_of_macro, target, true)?;
+        node_build(self, "group", end_of_macro, target, Some(true))?;
 
         self.build.macro_stack.pop();
         Ok(())
@@ -496,7 +496,7 @@ impl State {
         var_stack: &mut Vec<Vec<String>>,
     ) -> CslResult<()> {
         let name = self.csl_xml.nodename(node);
-        if let Some(skip) = self.build.skip.as_str() {
+        if let Some(skip) = self.build.skip.as_deref() {
             if skip != name {
                 return Ok(());
             }
@@ -561,7 +561,7 @@ impl State {
         // and terms).
         //
         // True flags real nodes in the style
-        node_build(self, &name, token, explicit_target, true)?;
+        node_build(self, &name, token, explicit_target, Some(true))?;
         Ok(())
     }
 }

@@ -43,7 +43,7 @@ impl NodeIntextExec {
         match self {
             NodeIntextExec::SetArea => {
                 state.tmp.area = "intext".to_string();
-                state.tmp.root = Some("intext".to_string());
+                state.tmp.root = "intext".to_string();
                 state.tmp.extension = String::new();
                 Ok(None)
             }
@@ -56,7 +56,7 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if token.tokentype == TokenType::Start {
         state.build.area = "intext".to_string();

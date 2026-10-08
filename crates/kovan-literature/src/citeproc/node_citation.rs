@@ -46,7 +46,7 @@ impl NodeCitationExec {
         match self {
             NodeCitationExec::SetArea => {
                 state.tmp.area = "citation".to_string();
-                state.tmp.root = Some("citation".to_string());
+                state.tmp.root = "citation".to_string();
                 state.tmp.extension = String::new();
                 Ok(None)
             }
@@ -72,7 +72,7 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if token.tokentype == TokenType::Start {
         state.build.area = "citation".to_string();
@@ -99,10 +99,10 @@ pub fn build(
         let c = and_length(state.citation.opt.get("cite_group_delimiter"));
         let cde: Option<Value> = if !c.as_ref().map(js::truthy).unwrap_or(false) {
             c
-        } else if update_mode == Some(super::attributes::POSITION) {
+        } else if update_mode == Some(super::load::POSITION) {
             Some(Value::Bool(false))
         } else {
-            Some(Value::Bool(update_mode != Some(super::attributes::NUMERIC)))
+            Some(Value::Bool(update_mode != Some(super::load::NUMERIC)))
         };
         let grouped_sort = if ab.as_ref().map(js::truthy).unwrap_or(false) {
             ab

@@ -28,7 +28,7 @@
 
 use serde_json::Value;
 
-use super::attributes::DISPLAY_CLASSES;
+use super::load::DISPLAY_CLASSES;
 use super::exec::{Exec, Test};
 use super::js;
 use super::node_choose;
@@ -202,7 +202,7 @@ impl UtilSubstituteTest {
     ) -> CslResult<bool> {
         match self {
             UtilSubstituteTest::CanSubstitute => {
-                Ok(state.tmp.can_substitute.value().copied().unwrap_or(false))
+                Ok(state.tmp.can_substitute.value().map(js::truthy).unwrap_or(false))
             }
         }
     }
@@ -281,7 +281,7 @@ pub fn substitute_start(
         // All top-level elements in a substitute environment get
         // wrapped in conditionals.
         let choose_start = Token::new("choose", TokenType::Start);
-        node_choose::build(state, choose_start, target, false)?;
+        node_choose::build(state, choose_start, target, None)?;
         let mut if_start = Token::new("if", TokenType::Start);
         //
         // Set a test of the shadow if token to skip this
@@ -369,7 +369,7 @@ pub fn substitute_end(state: &mut State, token: &Token) -> CslResult<SubstituteE
         let if_end = Token::new("if", TokenType::End);
         out.tokens.push(if_end);
         let choose_end = Token::new("choose", TokenType::End);
-        node_choose::build(state, choose_end, &mut out.tokens, false)?;
+        node_choose::build(state, choose_end, &mut out.tokens, None)?;
     }
 
     // `this.variables_real !== "title"` compares an array to a string: always

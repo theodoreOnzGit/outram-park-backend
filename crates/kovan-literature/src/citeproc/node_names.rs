@@ -183,8 +183,8 @@ impl NodeNamesExec {
                 method: "node_names.js:66 closure",
             }),
             NodeNamesExec::Unset => {
-                if !state.tmp.can_substitute.pop().unwrap_or(false) {
-                    state.tmp.can_substitute.replace_literal(false)?;
+                if !state.tmp.can_substitute.pop().map(|v| js::truthy(&v)).unwrap_or(false) {
+                    state.tmp.can_substitute.replace_literal(Value::Bool(false))?;
                 }
                 // For posterity ... (see node_names.js:177-189)
                 if state.tmp.can_substitute.len() == 1 {
@@ -201,7 +201,7 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if token.tokentype == TokenType::Start || token.tokentype == TokenType::Singleton {
         util_substitute::substitute_start(state, &mut token, target)?;

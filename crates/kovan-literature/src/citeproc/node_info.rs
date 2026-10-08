@@ -27,7 +27,7 @@ pub fn build(
     state: &mut State,
     token: Token,
     _target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if token.tokentype == TokenType::Start {
         state.build.skip = Some("info".to_string());

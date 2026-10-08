@@ -30,7 +30,7 @@ pub fn build(
     state: &mut State,
     token: Token,
     _target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if let Some(name) = token.string_opt("name") {
         state.build.name_parts.insert(name, token_to_value(&token));

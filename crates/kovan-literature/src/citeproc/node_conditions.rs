@@ -35,7 +35,7 @@ pub fn build(
     state: &mut State,
     token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if token.tokentype == TokenType::Start {
         engine(state)?.add_match(target, token.extra.get("match"))?;

@@ -513,14 +513,6 @@ pub fn js_replace_first(subject: &str, pattern: &str, replacement: &str) -> Stri
     out
 }
 
-/// `CSL.substituteOne(template)(state, list)`.
-fn substitute_one(template: &str, list: Option<&str>) -> String {
-    match list {
-        None | Some("") => String::new(),
-        Some(l) => js_replace_first(template, "%%STRING%%", l),
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Func {
     QuotesTrue,
@@ -737,7 +729,7 @@ pub fn decorate(
             "no {} decorator for {name}/{value}",
             format.mode_name()
         ))),
-        Some(Entry::Tpl(t)) => Ok(substitute_one(t, s)),
+        Some(Entry::Tpl(t)) => Ok(super::util_processor::substitute_one(t, s)),
         Some(Entry::Passthrough) => Ok(s.unwrap_or("").to_string()),
         Some(Entry::Func(f)) => run_func(format, f, state, blob, s, extra),
     }

@@ -140,7 +140,7 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     let locale_raw: Option<String> = token
         .extra
@@ -262,7 +262,7 @@ pub fn build(
                 // if build_layout_locale_flag is true,
                 // write cs:else START to the token list.
                 let tok = Token::new("else", TokenType::Start);
-                node_else::build(state, tok, target, false)?;
+                node_else::build(state, tok, target, None)?;
             }
         } // !this.locale_raw
 
@@ -273,16 +273,16 @@ pub fn build(
                 // write cs:choose START and cs:if START
                 // to the token list.
                 let choose_tok = Token::new("choose", TokenType::Start);
-                node_choose::build(state, choose_tok, target, false)?;
+                node_choose::build(state, choose_tok, target, None)?;
                 my_tok.name = "if".to_string();
                 attributes::apply(state, &mut my_tok, "@locale-internal", raw)?;
-                node_if::build(state, my_tok.clone(), target, false)?;
+                node_if::build(state, my_tok.clone(), target, None)?;
             } else {
                 // if build_layout_locale_flag is true,
                 // write cs:else-if START to the token list.
                 my_tok.name = "else-if".to_string();
                 attributes::apply(state, &mut my_tok, "@locale-internal", raw)?;
-                node_elseif::build(state, my_tok.clone(), target, false)?;
+                node_elseif::build(state, my_tok.clone(), target, None)?;
             }
             // cite_affixes for this node
             let locale = my_tok
@@ -317,7 +317,7 @@ pub fn build(
                 my_tok.name = "if".to_string();
                 my_tok.tokentype = TokenType::End;
                 attributes::apply(state, &mut my_tok, "@locale-internal", raw)?;
-                node_if::build(state, my_tok, target, false)?;
+                node_if::build(state, my_tok, target, None)?;
                 state.build.layout_locale_flag = true;
             } else {
                 // If layout_locale_flag is true, write cs:else-if END
@@ -325,7 +325,7 @@ pub fn build(
                 my_tok.name = "else-if".to_string();
                 my_tok.tokentype = TokenType::End;
                 attributes::apply(state, &mut my_tok, "@locale-internal", raw)?;
-                node_elseif::build(state, my_tok, target, false)?;
+                node_elseif::build(state, my_tok, target, None)?;
             }
         }
         if locale_raw.is_none() {
@@ -336,9 +336,9 @@ pub fn build(
                 // and cs:choose END to the token list.
                 if state.build.layout_locale_flag {
                     let tok = Token::new("else", TokenType::End);
-                    node_else::build(state, tok, target, false)?;
+                    node_else::build(state, tok, target, None)?;
                     let tok = Token::new("choose", TokenType::End);
-                    node_choose::build(state, tok, target, false)?;
+                    node_choose::build(state, tok, target, None)?;
                 }
             }
             state.build_layout_locale_flag = true;

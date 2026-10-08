@@ -58,7 +58,7 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if state.build.area == "citation" || state.build.area == "bibliography" {
         token.execs.push(Exec::NodeEtal(NodeEtalExec::SetEtalNode));

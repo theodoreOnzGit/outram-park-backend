@@ -28,7 +28,7 @@ pub fn build(
     state: &mut State,
     token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if token.tokentype == TokenType::Singleton {
         let test = util_conditions::match_combine(&token, &token.tests)?;

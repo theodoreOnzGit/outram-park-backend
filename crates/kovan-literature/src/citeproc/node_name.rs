@@ -18,7 +18,7 @@
 
 use serde_json::Value;
 
-use super::attributes::{inherit_opt, POSITION};
+use super::load::POSITION;
 use super::exec::Exec;
 use super::js;
 use super::obj_token::{Token, TokenType};
@@ -62,13 +62,13 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if token.tokentype == TokenType::Singleton || token.tokentype == TokenType::Start {
-        let old_tmp_root: Option<String> = state.tmp.root.clone();
-        if old_tmp_root.is_none() {
-            state.tmp.root = Some("citation".to_string());
-        }
+        // JS: `if ("undefined" === typeof state.tmp.root) { state.tmp.root =
+        // "citation" } else { oldTmpRoot = state.tmp.root }`. `Tmp::new` always
+        // sets `root`, so only the else-branch is reachable.
+        let old_tmp_root: String = state.tmp.root.clone();
         // Many CSL styles set et-al-[min|use-first]
         // and et-al-subsequent-[min|use-first] to the same
         // value.
@@ -81,10 +81,10 @@ pub fn build(
                 ("et-al-subsequent-min", "et-al-min"),
                 ("et-al-subsequent-use-first", "et-al-use-first"),
             ] {
-                let a = inherit_opt(state, &token, sub, None, None)?;
+                let a = state.inherit_opt(&token, sub, None, None);
                 if let Some(a) = a {
                     if js::truthy(&a) {
-                        let b = inherit_opt(state, &token, plain, None, None)?;
+                        let b = state.inherit_opt(&token, plain, None, None);
                         if b.as_ref() != Some(&a) || is_nan(&a) {
                             state
                                 .opt

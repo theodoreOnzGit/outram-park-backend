@@ -27,7 +27,7 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     util_conditions::top_node(state, &mut token, target)?;
     target.push(token);

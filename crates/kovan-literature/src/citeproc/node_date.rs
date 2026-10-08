@@ -162,7 +162,7 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if token.tokentype == TokenType::Start || token.tokentype == TokenType::Singleton {
         // used to collect rendered date part names in node_datepart,

@@ -425,43 +425,6 @@ pub fn layout_decorations(state: &State) -> Option<Vec<Decoration>> {
         .and_then(decorations_from_value)
 }
 
-/// `state.citation.opt.layout_decorations`.
-fn citation_layout_decorations(state: &State) -> Vec<Decoration> {
-    state
-        .citation
-        .opt
-        .get("layout_decorations")
-        .and_then(decorations_from_value)
-        .unwrap_or_default()
-}
-
-/// `CSL.Engine.prototype.normalDecorIsOrphan(blob, params)`
-/// (util_processor.js:161). // DUP-CHECK: util_processor.js
-///
-/// True when `params` is a `normal` decoration with no non-`normal`
-/// decoration of the same attribute on the blob or its ancestors.
-pub fn normal_decor_is_orphan(state: &State, blob: BlobId, params: &Decoration) -> bool {
-    if params.value == "normal" {
-        let mut use_param = false;
-        let mut all: Vec<Vec<Decoration>> = Vec::new();
-        if state.tmp.area == "citation" {
-            all.push(citation_layout_decorations(state));
-        }
-        all.extend(state.blobs.get(blob).alldecor.iter().cloned());
-        for set in all.iter().rev() {
-            for d in set.iter().rev() {
-                if d.name == params.name && d.value != "normal" {
-                    use_param = true;
-                }
-            }
-        }
-        if !use_param {
-            return true;
-        }
-    }
-    false
-}
-
 /// `state.registry.registry[id].offset = offset` if the registry has `id`;
 /// returns whether it did (queue.js:421). // STUB(registry.rs)
 ///
@@ -600,12 +563,7 @@ pub fn start_tag(
     let mut name = name.to_string();
     let mut token = token.cloned();
     if state.tmp.doing_macro_with_date
-        && state
-            .tmp
-            .extension
-            .as_deref()
-            .map(|e| !e.is_empty())
-            .unwrap_or(false)
+        && !state.tmp.extension.is_empty()
     {
         token = Some(q_ref(state, q).empty.clone());
         name = "empty".to_string();
@@ -749,10 +707,8 @@ pub fn append(
         other => other,
     };
     if !not_serious {
-        if let Some(et) = &state.tmp.element_trace {
-            if et.value().map(String::as_str) == Some("suppress-me") {
-                return Ok(false);
-            }
+        if state.tmp.element_trace.value().map(String::as_str) == Some("suppress-me") {
+            return Ok(false);
         }
     }
     // Resolve the token.
@@ -907,7 +863,7 @@ pub fn append(
                 //
                 blob.blobs = BlobContent::Text(formatters::apply(state, &tc, &text)?);
             }
-            if state.tmp.strip_periods && !no_strip_periods {
+            if state.tmp.strip_periods != 0 && !no_strip_periods {
                 if let BlobContent::Text(bt) = &blob.blobs {
                     let r = RE_STRIP_PERIODS.replace_all(bt, "${1}").into_owned();
                     blob.blobs = BlobContent::Text(r);
@@ -1077,7 +1033,7 @@ pub fn string(
                         if params.name == "@showid" {
                             continue;
                         }
-                        if normal_decor_is_orphan(state, blobjr, params) {
+                        if state.normal_decor_is_orphan(blobjr, params) {
                             continue;
                         }
                         b = decorate(
@@ -1260,7 +1216,7 @@ pub fn string(
                     }
                     // (upstream passes `blobjr`, the last child of the loop)
                     if let Some(lc) = last_child {
-                        if normal_decor_is_orphan(state, lc, params) {
+                        if state.normal_decor_is_orphan(lc, params) {
                             continue;
                         }
                     }
@@ -1557,13 +1513,13 @@ pub fn render_blobs(
                     if let Some(tc) = tc {
                         s = formatters::apply(state, &tc, &s)?;
                     }
-                    if !s.is_empty() && state.tmp.strip_periods {
+                    if !s.is_empty() && state.tmp.strip_periods != 0 {
                         s = RE_STRIP_PERIODS.replace_all(&s, "${1}").into_owned();
                     }
                     if !state.tmp.suppress_decorations {
                         let decs = state.blobs.get(id).decorations.clone();
                         for params in decs.iter() {
-                            if normal_decor_is_orphan(state, id, params) {
+                            if state.normal_decor_is_orphan(id, params) {
                                 continue;
                             }
                             s = decorate(
@@ -2546,7 +2502,7 @@ mod tests {
                 for (k, v) in op[1].as_object().unwrap() {
                     match k.as_str() {
                         "doing-macro-with-date" => st.tmp.doing_macro_with_date = js::truthy(v),
-                        "extension" => st.tmp.extension = v.as_str().map(str::to_string),
+                        "extension" => st.tmp.extension = v.as_str().unwrap_or_default().to_string(),
                         other => panic!("tmp {other}"),
                     }
                 }
@@ -2568,7 +2524,7 @@ mod tests {
         let piq = cfg["piq"].as_bool().unwrap_or(false);
         st.opt.insert("punctuation-in-quote".into(), json!(piq));
         st.output.adjust = Some(Adjust::new(piq));
-        st.tmp.strip_periods = js::truthy(&cfg["strip"]);
+        st.tmp.strip_periods = i64::from(js::truthy(&cfg["strip"]));
         st.tmp.just_looking = js::truthy(&cfg["just_looking"]);
         st.tmp.suppress_decorations = js::truthy(&cfg["suppress"]);
         if js::truthy(&cfg["note"]) {

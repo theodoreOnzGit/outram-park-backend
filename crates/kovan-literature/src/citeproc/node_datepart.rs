@@ -64,7 +64,7 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if !super::js::truthy_opt(token.strings.get("form")) {
         token.set_string("form", "long");

@@ -18,9 +18,8 @@
 
 use serde_json::Value;
 
-use super::attributes::{
-    area_ref, expand_macro_stub, get_term_stub, CITE_FIELDS, MULTI_FIELDS, NUMERIC, TRIGRAPH,
-};
+use super::attributes::area_ref;
+use super::load::{CITE_FIELDS, MULTI_FIELDS, NUMERIC, TRIGRAPH};
 use super::exec::Exec;
 use super::js;
 use super::node_group;
@@ -144,15 +143,15 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if let Some(macro_name) = token.postponed_macro.clone() {
         let mut group_start = token.clone_token();
         group_start.name = "group".to_string();
         group_start.tokentype = TokenType::Start;
-        node_group::build(state, group_start, target, false)?;
+        node_group::build(state, group_start, target, None)?;
 
-        expand_macro_stub(state, token.clone(), target)?;
+        state.expand_macro(&token, target)?;
 
         let mut group_end = token.clone_token();
         group_end.name = "group".to_string();
@@ -162,7 +161,7 @@ pub fn build(
                 .extra
                 .insert("isJurisLocatorLabel".into(), Value::Bool(true));
         }
-        node_group::build(state, group_end, target, false)?;
+        node_group::build(state, group_end, target, None)?;
         return Ok(());
     }
 
@@ -215,8 +214,11 @@ pub fn build(
                 .as_deref()
                 == Some("citation-number")
             {
-                let t = get_term_stub(state, "citation-range-delimiter")?;
-                token.extra.insert("range_prefix".into(), Value::String(t));
+                let t = state.get_term("citation-range-delimiter", None, None, None, None, false)?;
+                token.extra.insert(
+                    "range_prefix".into(),
+                    t.map(Value::String).unwrap_or(Value::Null),
+                );
             }
             let ld = area_opt(state, &state.build.area.clone(), "layout_delimiter")?;
             set_opt_extra(&mut token, "successor_prefix", ld.clone());
@@ -233,8 +235,11 @@ pub fn build(
                 .as_deref()
                 == Some("year-suffix-ranged")
             {
-                let t = get_term_stub(state, "citation-range-delimiter")?;
-                token.extra.insert("range_prefix".into(), Value::String(t));
+                let t = state.get_term("citation-range-delimiter", None, None, None, None, false)?;
+                token.extra.insert(
+                    "range_prefix".into(),
+                    t.map(Value::String).unwrap_or(Value::Null),
+                );
             }
             let build_area = state.build.area.clone();
             let ld = area_opt(state, &build_area, "layout_delimiter")?;

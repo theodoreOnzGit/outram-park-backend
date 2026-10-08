@@ -112,11 +112,13 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    real_group: bool,
+    real_group: Option<bool>,
 ) -> CslResult<()> {
-    token
-        .extra
-        .insert("realGroup".into(), Value::Bool(real_group));
+    // `this.realGroup = realGroup`: `undefined` (omitted from the dump) when the
+    // caller passes no third argument.
+    if let Some(rg) = real_group {
+        token.extra.insert("realGroup".into(), Value::Bool(rg));
+    }
     let juris: Option<String> = token
         .extra
         .get("juris")
@@ -165,7 +167,7 @@ pub fn build(
             //
             // `this` is not pushed to the target before the juris scaffolding.
             let choose_start = Token::new("choose", TokenType::Start);
-            node_choose::build(state, choose_start, target, false)?;
+            node_choose::build(state, choose_start, target, None)?;
 
             let mut if_start = Token::new("if", TokenType::Start);
             if_start.tests_defined = true;
@@ -187,9 +189,9 @@ pub fn build(
             target.push(text_node);
 
             let if_end = Token::new("if", TokenType::End);
-            node_if::build(state, if_end, target, false)?;
+            node_if::build(state, if_end, target, None)?;
             let else_start = Token::new("else", TokenType::Start);
-            node_else::build(state, else_start, target, false)?;
+            node_else::build(state, else_start, target, None)?;
         }
     }
 
@@ -211,9 +213,9 @@ pub fn build(
 
         if juris.is_some() {
             let else_end = Token::new("else", TokenType::End);
-            node_else::build(state, else_end, target, false)?;
+            node_else::build(state, else_end, target, None)?;
             let choose_end = Token::new("choose", TokenType::End);
-            node_choose::build(state, choose_end, target, false)?;
+            node_choose::build(state, choose_end, target, None)?;
         }
     }
 

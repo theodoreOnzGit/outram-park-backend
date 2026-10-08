@@ -61,7 +61,7 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     util_substitute::substitute_start(state, &mut token, target)?;
     //

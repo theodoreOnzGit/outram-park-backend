@@ -52,7 +52,6 @@ use super::util_number::{
 };
 use super::util_modules::Juris;
 use super::util_parallel::Parallel;
-use super::util_processor::Decorate;
 use super::util_transform::Transform;
 use super::xmljson::XmlJson;
 use super::Sys;
@@ -582,7 +581,7 @@ pub struct Tmp {
     /// `strip_periods`.
     pub strip_periods: i64,
     /// `shadow_numbers`.
-    pub shadow_numbers: Obj,
+    pub shadow_numbers: BTreeMap<String, ShadowNumber>,
     /// `authority_stop_last`.
     pub authority_stop_last: i64,
     /// `loadedItemIDs`.
@@ -602,54 +601,57 @@ pub struct Tmp {
     pub doing_macro_with_date: bool,
     /// `just_did_number` (group context conditions, load.js).
     pub just_did_number: bool,
-    // ---- fields: wave1-input ----
-    /// `shadow_numbers`: parsed numeric variables by variable name
-    /// (`processNumber`, util_number.js).
-    pub shadow_numbers: BTreeMap<String, ShadowNumber>,
-    /// `just_looking` (read by `processNumber`'s `setStyling`; set by the
-    /// wave that runs the "just looking" pass: another agent may add it too).
+    // ---- fields: wave1-nodes (integrated; not in the state.js constructor) ----
+    /// `conditions`: the cs:if/cs:else-if being filled by cs:conditions.
+    pub conditions: Option<super::util_conditions::ConditionsEngine>,
+    /// `last_cite_locale`.
+    pub last_cite_locale: Option<String>,
+    /// `etal_node`: the cs:et-al token (as `node_names::token_to_value`).
+    pub etal_node: Option<Value>,
+    /// `etal_term`.
+    pub etal_term: Option<String>,
+    /// `abort_alternative`.
+    pub abort_alternative: bool,
+    /// `date_object` (`false` when the date is not rendered).
+    pub date_object: Value,
+    /// `donesies`.
+    pub donesies: Vec<String>,
+    /// `dateparts`.
+    pub dateparts: Vec<String>,
+    /// `date_collapse_at`.
+    pub date_collapse_at: Vec<String>,
+    /// `date_token` (set at build time by cs:date).
+    pub date_token: Option<Token>,
+    /// `just_looking` (also read by `processNumber`'s `setStyling` and the
+    /// queue; set by the pass that renders "just looking").
     pub just_looking: bool,
-    /// `cite_renders_content` (`getTerm` and `LongOrdinalizer.format` set
-    /// it; may also be added by the wave that owns citation rendering).
-    pub cite_renders_content: bool,
-    /// `loadedItemIDs`: ids `retrieveItem` has already loaded.
-    pub loaded_item_ids: BTreeMap<String, bool>,
-    /// `taintedItemIDs`: ids whose normalised item changed on a re-fetch.
-    pub tainted_item_ids: BTreeMap<String, bool>,
+    /// `done_vars`.
+    pub done_vars: Vec<String>,
+    /// `sort_key_flag`.
+    pub sort_key_flag: bool,
+    /// `can_block_substitute`.
+    pub can_block_substitute: bool,
+    /// `common_term_match_fail`.
+    pub common_term_match_fail: bool,
+    /// `probably_rendered_something`.
+    pub probably_rendered_something: bool,
+    /// `container_item_count`, `container_item_pos` (keyed by container_id).
+    pub container_item_count: Obj,
+    pub container_item_pos: Obj,
+    /// `et-al-min`, `et-al-use-first`, `et-al-use-last` (`None` = undefined).
+    pub et_al_min: Option<Value>,
+    pub et_al_use_first: Option<Value>,
+    pub et_al_use_last: Option<Value>,
+    /// `lang_sort_hold` (node_sort.js).
+    pub lang_sort_hold: Option<String>,
 
-    // ---- fields: wave1-output ----
-    // (agent wave1-output: queue.js, formats.js, formatters.js,
-    // util_flipflop.js, util_page.js, obj_number.js read these.)
-    /// `tmp.area`: `"citation"`, `"bibliography"`, `"intext"`,
-    /// `"citation_sort"` or `"bibliography_sort"`. // DUP-CHECK: state.js / api_*.js
-    pub area: String,
-    /// `tmp.just_looking`. // DUP-CHECK: state.js
-    pub just_looking: bool,
-    /// `tmp.strip_periods` (a counter in JS; only its truthiness is read
-    /// here). // DUP-CHECK: state.js
-    pub strip_periods: bool,
-    /// `tmp.suppress_decorations`. // DUP-CHECK: state.js
-    pub suppress_decorations: bool,
+    // ---- fields: wave1-output (queue.js) ----
     /// `tmp.count_offset_characters`: `false`, or the item id whose
-    /// `first_blob` switched counting on. // DUP-CHECK: queue.js
+    /// `first_blob` switched counting on (queue.js).
     pub count_offset_characters: Option<String>,
-    /// `tmp.offset_characters`. // DUP-CHECK: queue.js
+    /// `tmp.offset_characters` (queue.js).
     pub offset_characters: usize,
-    /// `tmp.element_trace` (`CSL.Stack` of element names; `None` before it
-    /// is created). // DUP-CHECK: state.js
-    pub element_trace: Option<super::stack::Stack<String>>,
-    /// `tmp["doing-macro-with-date"]`. // DUP-CHECK: state.js
-    pub doing_macro_with_date: bool,
-    /// `tmp.extension` (only its truthiness is read here). // DUP-CHECK: state.js
-    pub extension: Option<String>,
-    /// `tmp.lang_array` (`api_cite.js:1513`): the locale tags
-    /// `toLocaleUpperCase` is called with. // DUP-CHECK: api_cite.js
-    pub lang_array: Vec<String>,
-    /// `tmp.term_predecessor`. // DUP-CHECK: state.js
-    pub term_predecessor: bool,
-    /// `tmp.in_cite_predecessor`. // DUP-CHECK: state.js
-    pub in_cite_predecessor: bool,
-    /// `tmp.term_predecessor_name`. // DUP-CHECK: state.js
+    /// `tmp.term_predecessor_name` (queue.js).
     pub term_predecessor_name: bool,
 
     // ---- fields: wave2 ----
@@ -709,7 +711,7 @@ impl Tmp {
             cite_locales: Vec::new(),
             cite_affixes,
             strip_periods: 0,
-            shadow_numbers: Obj::new(),
+            shadow_numbers: BTreeMap::new(),
             authority_stop_last: 0,
             loaded_item_ids: BTreeMap::new(),
             condition_counter: 0,
@@ -719,6 +721,31 @@ impl Tmp {
             cite_renders_content: false,
             doing_macro_with_date: false,
             just_did_number: false,
+            conditions: None,
+            last_cite_locale: None,
+            etal_node: None,
+            etal_term: None,
+            abort_alternative: false,
+            date_object: Value::Bool(false),
+            donesies: Vec::new(),
+            dateparts: Vec::new(),
+            date_collapse_at: Vec::new(),
+            date_token: None,
+            just_looking: false,
+            done_vars: Vec::new(),
+            sort_key_flag: false,
+            can_block_substitute: false,
+            common_term_match_fail: false,
+            probably_rendered_something: false,
+            container_item_count: Obj::new(),
+            container_item_pos: Obj::new(),
+            et_al_min: None,
+            et_al_use_first: None,
+            et_al_use_last: None,
+            lang_sort_hold: None,
+            count_offset_characters: None,
+            offset_characters: 0,
+            term_predecessor_name: false,
         }
     }
 }
@@ -740,8 +767,8 @@ pub struct Build {
     pub in_bibliography: bool,
     /// `in_style`.
     pub in_style: bool,
-    /// `skip`: `false`, or the node name being skipped.
-    pub skip: Value,
+    /// `skip`: `None` is JS `false`; `Some("info")` while inside cs:info.
+    pub skip: Option<String>,
     /// `postponed_macro`.
     pub postponed_macro: Value,
     /// `layout_flag`.
@@ -750,8 +777,9 @@ pub struct Build {
     pub name: Value,
     /// `names_variables`: `[[]]`.
     pub names_variables: Vec<Vec<String>>,
-    /// `name_label`: `[{}]`.
-    pub name_label: Vec<Obj>,
+    /// `name_label`: `[{}]`, kept as ordered (variable, {before, after}) pairs
+    /// because `Object.keys` order matters (tokens as `node_names::token_to_value`).
+    pub name_label: Vec<Vec<(String, Value)>>,
     /// `form`.
     pub form: Value,
     /// `term`.
@@ -763,7 +791,7 @@ pub struct Build {
     /// `text`.
     pub text: Value,
     /// `lang`.
-    pub lang: Value,
+    pub lang: Option<String>,
     /// `area`: `"citation"` initially.
     pub area: String,
     /// `root`.
@@ -786,33 +814,36 @@ pub struct Build {
     pub csl_node_id: i64,
     /// `current_default_locale` (attributes.js `@default-locale`;
     /// `undefined` until then, and `expandMacro` concatenates it as such).
-    pub current_default_locale: Option<String>,
+    pub current_default_locale: Value,
     /// `date_key`.
     pub date_key: bool,
     /// `date_variables` (a copy of the date token's `variables`).
     pub date_variables: Vec<String>,
     /// `date_parts`.
-    pub date_parts: Value,
+    pub date_parts: Vec<String>,
     /// `layout_locale_flag`.
-    pub layout_locale_flag: Value,
+    pub layout_locale_flag: bool,
     /// `name_flag`.
-    pub name_flag: Value,
+    pub name_flag: bool,
     /// `names_flag`.
-    pub names_flag: Value,
+    pub names_flag: bool,
     /// `name_delimiter`.
     pub name_delimiter: Value,
     /// `cls`.
-    pub cls: Value,
+    pub cls: Option<String>,
     /// `has_institution`.
-    pub has_institution: Value,
+    pub has_institution: bool,
     /// `plural`.
     pub plural: Value,
     /// `["publisher-special"]`.
-    pub publisher_special: Value,
+    pub publisher_special: bool,
     /// `sort_flag` (node_sort.js).
     pub sort_flag: Value,
     /// `area_return` (node_sort.js).
     pub area_return: Option<String>,
+    /// `state.build[this.strings.name] = this` of cs:name-part: "family",
+    /// "given", as token values (node_namepart.js; wave1-nodes).
+    pub name_parts: Obj,
     // ---- fields: wave2 ----
 
     // ---- fields: wave3 ----
@@ -829,18 +860,18 @@ impl Build {
             alternate_term: Value::Bool(false),
             in_bibliography: false,
             in_style: false,
-            skip: Value::Bool(false),
+            skip: None,
             postponed_macro: Value::Bool(false),
             layout_flag: false,
             name: Value::Bool(false),
             names_variables: vec![Vec::new()],
-            name_label: vec![Obj::new()],
+            name_label: vec![Vec::new()],
             form: Value::Bool(false),
             term: Value::Bool(false),
             macro_: Obj::new(),
             macro_stack: Vec::new(),
             text: Value::Bool(false),
-            lang: Value::Bool(false),
+            lang: None,
             area: "citation".to_string(),
             root: "citation".to_string(),
             extension: String::new(),
@@ -850,20 +881,21 @@ impl Build {
             render_seen: false,
             bibliography_key_pos: 0,
             csl_node_id: 0,
-            current_default_locale: None,
+            current_default_locale: Value::Null,
             date_key: false,
             date_variables: Vec::new(),
-            date_parts: Value::Null,
-            layout_locale_flag: Value::Null,
-            name_flag: Value::Null,
-            names_flag: Value::Null,
+            date_parts: Vec::new(),
+            layout_locale_flag: false,
+            name_flag: false,
+            names_flag: false,
             name_delimiter: Value::Null,
-            cls: Value::Null,
-            has_institution: Value::Null,
+            cls: None,
+            has_institution: false,
             plural: Value::Null,
-            publisher_special: Value::Null,
+            publisher_special: false,
             sort_flag: Value::Null,
             area_return: None,
+            name_parts: Obj::new(),
         }
     }
 }
@@ -886,9 +918,6 @@ pub struct Fun {
     // ---- fields: wave1-build ----
     /// `match`: `new CSL.Util.Match()` (src/util.js).
     pub match_: Match,
-    /// `decorate`: `CSL.Mode(mode)` (src/util_processor.js), set by
-    /// `setOutputFormat`.
-    pub decorate: Decorate,
     // PORT-LATER(util_number): `Fun.suffixator` (CSL.Util.Suffixator), `romanizer`,
     // `ordinalizer` (CSL.Util.Ordinalizer(state)), `long_ordinalizer` are
     // constructed by CSL.Engine.Fun (state.js) and live in src/util_number.js

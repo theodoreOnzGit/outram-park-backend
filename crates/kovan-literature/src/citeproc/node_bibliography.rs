@@ -44,7 +44,7 @@ impl NodeBibliographyExec {
         match self {
             NodeBibliographyExec::SetArea => {
                 state.tmp.area = "bibliography".to_string();
-                state.tmp.root = Some("bibliography".to_string());
+                state.tmp.root = "bibliography".to_string();
                 state.tmp.extension = String::new();
                 Ok(None)
             }
@@ -57,7 +57,7 @@ pub fn build(
     state: &mut State,
     mut token: Token,
     target: &mut Vec<Token>,
-    _real_group: bool,
+    _real_group: Option<bool>,
 ) -> CslResult<()> {
     if token.tokentype == TokenType::Start {
         state.build.area = "bibliography".to_string();
