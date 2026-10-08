@@ -24,6 +24,7 @@ use super::js;
 use super::load::NAME_PARTS;
 use super::state::State;
 use super::util_names_output::NameOutput;
+use super::util_transform::get_item_prop;
 use super::CslResult;
 
 /// JS `a != b` (abstract inequality) for the scalar values a name part can
@@ -127,9 +128,9 @@ impl NameOutput {
             st.tmp.done_vars.push(self.variables[1].clone());
             return Ok(false);
         }
-        let first_set = self.item.get(self.variables[0].as_str());
-        let second_set = self.item.get(self.variables[1].as_str());
-        let perfect_match = compare_namesets(first_set, second_set);
+        let first_set = get_item_prop(st, &self.item, self.variables[0].as_str());
+        let second_set = get_item_prop(st, &self.item, self.variables[1].as_str());
+        let perfect_match = compare_namesets(first_set.as_ref(), second_set.as_ref());
         if perfect_match {
             st.tmp.done_vars.push(self.variables[0].clone());
             st.tmp.done_vars.push(self.variables[1].clone());

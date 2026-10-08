@@ -31,7 +31,8 @@
 //! list while it runs, see `State::token_exec`), and all three bodies are ported.
 //! `@variable`'s second closure ("check for output") mutates the *item* for
 //! a string `authority` or `committee`; that write goes through
-//! `util_transform::set_item_prop` (see its module docs).
+//! `util_transform::set_item_prop` (see its module docs); the names output reads
+//! the split back through `get_item_prop` (GitHub #808).
 
 use std::sync::LazyLock;
 

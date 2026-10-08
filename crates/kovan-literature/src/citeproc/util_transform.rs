@@ -37,8 +37,17 @@
 //! goes through [`set_item_prop`], which stores into the provisional item
 //! cache `state.registry.refhash` (the registry's `refhash` upstream), where the
 //! next `retrieveItem` finds it, and [`get_item_prop`] reads it back for the
-//! rest of the same pass. When the registry lands, both functions are the one
-//! place to point at it.
+//! rest of the same pass.
+//!
+//! **Why a read must go through [`get_item_prop`] (GitHub #808).** Upstream
+//! renders with the very object `refhash[id]` holds, so a write is seen by every
+//! later read of `Item` in the same call. The port renders with a *clone* taken
+//! before the write (`retrieve_item` returns a copy), so a reader of a variable
+//! the write can change must ask the cache: `NameOutput` reads the item's name
+//! variables with [`get_item_prop`], which is what makes a bibliography's
+//! first rendering of a string `authority` see the split the `@variable` closure
+//! has just made (the first retrieval of the item in a bibliography-only style).
+//! When the registry lands, both functions are the one place to point at it.
 
 use std::collections::BTreeMap;
 use std::sync::LazyLock;

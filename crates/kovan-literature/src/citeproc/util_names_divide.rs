@@ -24,6 +24,7 @@ use super::build_retrieve_item::normalize_abbrevs_key;
 use super::js::{self, Obj};
 use super::state::State;
 use super::util_names::get_raw_name;
+use super::util_transform::get_item_prop;
 use super::util_names_output::{js_num, NameOutput};
 use super::util_names_tests::is_person;
 use super::CslResult;
@@ -51,7 +52,7 @@ impl NameOutput {
                 self.keys.push(v.clone());
             }
             self.variable_offset.insert(v.clone(), self.nameset_offset);
-            let mut values = self.normalize_variable_value(v);
+            let mut values = self.normalize_variable_value(st, v);
             let name = self.name_token()?.clone();
             let suppress_min = name.strings.get("suppress-min").cloned();
             let suppress_max = name.strings.get("suppress-max").cloned();
@@ -105,9 +106,11 @@ impl NameOutput {
 
     /// `CSL.NameOutput.prototype._normalizeVariableValue(Item, variable)`:
     /// the names of `variable` as a fresh list (a string or number becomes
-    /// one literal name; a lone object a one-element list).
-    pub fn normalize_variable_value(&mut self, variable: &str) -> Vec<Value> {
-        match self.item.get(variable).cloned() {
+    /// one literal name; a lone object a one-element list). Read through
+    /// [`get_item_prop`], because upstream's `Item` is the shared object the
+    /// `@variable` closure has just rewritten with the `authority` split (#808).
+    pub fn normalize_variable_value(&mut self, st: &State, variable: &str) -> Vec<Value> {
+        match get_item_prop(st, &self.item, variable) {
             Some(Value::String(s)) => {
                 // name variable is string or number, not array. Attempting to fix.
                 let mut o = Obj::new();

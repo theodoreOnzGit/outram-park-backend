@@ -646,3 +646,169 @@ mod tests {
         ));
     }
 }
+
+/// Differential replay of the `authority` / `committee` split (GitHub #808).
+///
+/// **Methodology.** `scripts/csl-units/authority_split.cjs` renders, with
+/// citeproc-js 2.4.63, a pool of 44 items (single, two, three-with-spaces,
+/// trailing-`;`, leading-`;`, empty, six names, `|` institution parts,
+/// `committee`, both variables, an `author` beside the authority, array and
+/// number values, multilingual `_keys` data with matching and non-matching
+/// split counts, legal types, duplicates for year-suffix disambiguation,
+/// non-ASCII) through five styles (a bibliography-only `cs:names`, a
+/// names-only style, a note style, an author-date style whose `author`
+/// substitutes the authority, and a control that renders `author` through the same institution settings as the note style), each in: a citation by a fresh engine; a
+/// bibliography by a fresh engine, so that the bibliography is the first
+/// thing to retrieve the item (the case the port got wrong); the same after
+/// the item was cited; and, per style, the whole pool in one bibliography and
+/// in one cluster plus bibliography. The replay uses the public [`Engine`] the
+/// same way and compares every string. The generator's `sys` is the test runner's (it has `getAbbreviation` and
+/// `normalizeAbbrevsKey`, over an empty abbreviation cache), which is what the
+/// port models: without them citeproc-js renders an `institution-parts="short-long"`
+/// name twice.
+///
+/// **Pass criterion.** Every output equal; where citeproc-js throws (a `multi`
+/// object without `_keys` makes the split read `undefined[variable]`), the
+/// port returns an error.
+///
+/// **Results (2026-10-08, citeproc-js 2.4.63).** 230 cases, 659 outputs and 11
+/// shared errors; before the fix, the bibliography of every item with a
+/// string `authority` or `committee` differed: the bibliography-only style (the first retrieval of the item is the bibliography) rendered the unsplit string, and so did every name-rendering path that read `NameOutput.item` directly.
+#[cfg(test)]
+mod authority_split_tests {
+    use std::collections::BTreeMap;
+    use std::sync::Arc;
+
+    use serde_json::{json, Value};
+
+    use crate::citeproc::test_support::minimal_locales;
+    use crate::citeproc::{CitationItem, Engine, EngineError, Sys};
+
+    const REFERENCE: &str = include_str!("../../tests/data/csl/units/authority_split.json");
+
+    fn engine(style: &str, pool: &[Value]) -> Result<Engine, EngineError> {
+        let sys = Sys::new(pool, Arc::new(minimal_locales()))?;
+        let mut e = Engine::new(sys, style, "en-US")?;
+        let mut prefs: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for (k, v) in [
+            ("persons", vec!["translit"]),
+            ("institutions", vec!["translit"]),
+            ("titles", vec!["translit", "translat"]),
+            ("journals", vec!["translit"]),
+            ("publishers", vec!["translat"]),
+            ("places", vec!["translat"]),
+        ] {
+            prefs.insert(k.into(), v.into_iter().map(str::to_string).collect());
+        }
+        e.set_lang_prefs_for_cites(prefs);
+        Ok(e)
+    }
+
+    fn cite(e: &mut Engine, ids: &[String]) -> Result<String, EngineError> {
+        let items: Vec<CitationItem> = ids
+            .iter()
+            .map(|id| CitationItem::from_json(&json!({ "id": id })))
+            .collect::<Result<_, _>>()?;
+        e.make_citation_cluster(&items)
+    }
+
+    fn bib(e: &mut Engine) -> Result<String, EngineError> {
+        Ok(e.make_bibliography(None)?.joined())
+    }
+
+    fn check(
+        what: &str,
+        got: Result<String, EngineError>,
+        want: &Value,
+        bad: &mut Vec<String>,
+    ) -> (usize, usize) {
+        match (got, want.get("v"), want.get("e")) {
+            (Ok(g), Some(w), _) if Some(g.as_str()) == w.as_str() => (1, 0),
+            (Ok(g), Some(w), _) => {
+                bad.push(format!("{what}\n    got:  {g:?}\n    want: {w}"));
+                (1, 0)
+            }
+            (Err(_), _, Some(_)) => (0, 1),
+            (g, w, e) => {
+                bad.push(format!("{what}: got {g:?}, want v={w:?} e={e:?}"));
+                (0, 0)
+            }
+        }
+    }
+
+    #[test]
+    fn authority_and_committee_strings_split_in_every_area_as_in_citeproc_js() {
+        let r: Value = serde_json::from_str(REFERENCE).expect("authority_split.json");
+        let pool: Vec<Value> = r["pool"].as_array().cloned().expect("pool");
+        let pool_ids: Vec<String> = pool
+            .iter()
+            .filter_map(|i| i["id"].as_str().map(str::to_string))
+            .filter(|i| i != "M09")
+            .collect();
+        let (mut compared, mut errors) = (0, 0);
+        let mut bad: Vec<String> = Vec::new();
+        for c in r["cases"].as_array().expect("cases") {
+            let style = r["styles"][c["style"].as_str().expect("style")]
+                .as_str()
+                .expect("style text");
+            let id = c["id"].as_str().expect("id").to_string();
+            let tag = format!("{} {}", c["style"], id);
+            let mut tally = |(a, b): (usize, usize)| {
+                compared += a;
+                errors += b;
+            };
+            match id.as_str() {
+                "*" => {
+                    let got = engine(style, &pool).and_then(|mut e| {
+                        e.update_items(&pool_ids, false)?;
+                        bib(&mut e)
+                    });
+                    tally(check(&format!("{tag} bib"), got, &c["bib"], &mut bad));
+                }
+                "**" => {
+                    let got = engine(style, &pool).and_then(|mut e| {
+                        let cl = cite(&mut e, &pool_ids)?;
+                        e.update_items(&pool_ids, false)?;
+                        Ok(format!("{cl}\n{}", bib(&mut e)?))
+                    });
+                    tally(check(
+                        &format!("{tag} cite+bib"),
+                        got,
+                        &c["cite_then_bib"],
+                        &mut bad,
+                    ));
+                }
+                _ => {
+                    let ids = [id.clone()];
+                    let got = engine(style, &pool).and_then(|mut e| cite(&mut e, &ids));
+                    tally(check(&format!("{tag} cite"), got, &c["cite"], &mut bad));
+                    let got = engine(style, &pool).and_then(|mut e| {
+                        e.update_items(&ids, false)?;
+                        bib(&mut e)
+                    });
+                    tally(check(&format!("{tag} bib"), got, &c["bib"], &mut bad));
+                    let got = engine(style, &pool).and_then(|mut e| {
+                        cite(&mut e, &ids)?;
+                        e.update_items(&ids, false)?;
+                        bib(&mut e)
+                    });
+                    tally(check(
+                        &format!("{tag} bib after cite"),
+                        got,
+                        &c["bib_after_cite"],
+                        &mut bad,
+                    ));
+                }
+            }
+        }
+        println!(
+            "{compared} outputs compared, {errors} shared errors, {} differ",
+            bad.len()
+        );
+        for b in bad.iter().take(25) {
+            println!("DIFF {b}");
+        }
+        assert!(bad.is_empty(), "{} outputs differ", bad.len());
+        assert!(compared >= 640 && errors == 11, "{compared} {errors}");
+    }
+}

@@ -598,7 +598,7 @@ impl Disambiguation {
                 bundles.push((self.max_names_of(&item), item));
             }
             // `a[0] > b[0]` compares the max-names ARRAYS, as strings
-            // ("10" < "2"): candidate quirk C16 in DEVIATIONS.md.
+            // ("10" < "2"): candidate quirk C20 in DEVIATIONS.md.
             bundles.sort_by(|a, b| {
                 let (sa, sb) = (
                     js::to_js_string(&Value::Array(a.0.clone())),

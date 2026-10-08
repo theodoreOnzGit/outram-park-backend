@@ -53,6 +53,7 @@ use super::queue::{self, AppendArg, FormatRef, QueueId, Rendered, StringParent};
 use super::state::State;
 use super::util_names::get_raw_name;
 use super::util_names_render::NameInputCtx;
+use super::util_transform::get_item_prop;
 use super::{CslResult, EngineError};
 
 /// `state.tmp.name_node`: `{children, top, string}`.
@@ -580,7 +581,8 @@ impl NameOutput {
         st.tmp.etal_node = None;
         st.tmp.etal_term = None;
         for v in &self.variables {
-            let iv = self.item.get(v.as_str());
+            let iv = get_item_prop(st, &self.item, v);
+            let iv = iv.as_ref();
             if has_length(iv) {
                 if let Some(iv) = iv {
                     concat_into(&mut st.tmp.value, iv);
@@ -669,7 +671,8 @@ impl NameOutput {
             st.tmp.value = Vec::new();
 
             for v in &self.variables {
-                let iv = self.item.get(v.as_str());
+                let iv = get_item_prop(st, &self.item, v);
+                let iv = iv.as_ref();
                 if has_length(iv) {
                     if let Some(iv) = iv {
                         concat_into(&mut st.tmp.value, iv);
@@ -895,8 +898,8 @@ impl NameOutput {
             // Just grab the string values in the name
             let mut name_node_string: Vec<String> = Vec::new();
             if let Some(first) = variables.first() {
-                if let Some(Value::Array(nameobjs)) = self.item.get(first.as_str()) {
-                    for n in nameobjs {
+                if let Some(Value::Array(nameobjs)) = get_item_prop(st, &self.item, first) {
+                    for n in &nameobjs {
                         let sub = get_raw_name(n);
                         if !sub.is_empty() {
                             name_node_string.push(sub);
@@ -1089,8 +1092,12 @@ impl NameOutput {
         }
         if self.nameset_base == 0
             && has_value(
-                self.item
-                    .get(self.variables.first().map(String::as_str).unwrap_or("")),
+                get_item_prop(
+                    st,
+                    &self.item,
+                    self.variables.first().map(String::as_str).unwrap_or(""),
+                )
+                .as_ref(),
             )
             && self.first_creator_variable.is_none()
         {
