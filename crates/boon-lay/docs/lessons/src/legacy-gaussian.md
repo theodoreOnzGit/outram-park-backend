@@ -62,6 +62,6 @@ TrisoCell::try_get_diffusion_coefficient  (rung 1)
 <!-- references:begin -->
 ## References
 
-<p class="csl-entry" id="ref-jiang2023fission" style="padding-left: 2em; text-indent: -2em;">Jiang, W., Toptan, A., Hales, J. D., Spencer, B. W., & Novascone, S. R. (2023). <span style="font-style: italic;">Fission product transport in TRISO particles and pebbles</span>. Idaho National Lab.(INL), Idaho Falls, ID (United States).</p>
+<p class="csl-entry" id="ref-jiang2023fission" style="padding-left: 2em; text-indent: -2em;">Jiang, W., Toptan, A., Hales, J. D., Spencer, B. W., &#38; Novascone, S. R. (2023). <i>Fission product transport in TRISO particles and pebbles</i>. Idaho National Lab.(INL), Idaho Falls, ID (United States).</p>
 
 <!-- references:end -->

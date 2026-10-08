@@ -2004,10 +2004,10 @@ This page changes whenever `develop` does; it was built from
 <!-- references:begin -->
 ## References
 
-<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A., & others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <span style="font-style: italic;">Nuclear Data Sheets</span>, <span style="font-style: italic;">148</span>, 1–142. <a href="https://doi.org/10.1016/j.nds.2018.02.001">https://doi.org/10.1016/j.nds.2018.02.001</a></p>
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
 
-<p class="csl-entry" id="ref-iaeatecdoc1382" style="padding-left: 2em; text-indent: -2em;">International Atomic Energy Agency. (2003). <span style="font-style: italic;">Evaluation of High Temperature Gas Cooled Reactor Performance</span> (IAEA-TECDOC-1382). International Atomic Energy Agency.</p>
+<p class="csl-entry" id="ref-iaeatecdoc1382" style="padding-left: 2em; text-indent: -2em;">International Atomic Energy Agency. (2003). <i>Evaluation of High Temperature Gas Cooled Reactor Performance</i> (IAEA-TECDOC-1382). International Atomic Energy Agency.</p>
 
-<p class="csl-entry" id="ref-li2014htr10rmc" style="padding-left: 2em; text-indent: -2em;">Li, W., Yu, G., & Wei, C. (2014, October). Research on Benchmark Calculation and Analysis of HTR-10 with RMC Code. <span style="font-style: italic;">7th International Topical Meeting on High Temperature Reactor Technology (HTR 2014)</span>.</p>
+<p class="csl-entry" id="ref-li2014htr10rmc" style="padding-left: 2em; text-indent: -2em;">Li, W., Yu, G., &#38; Wei, C. (2014, October). Research on Benchmark Calculation and Analysis of HTR-10 with RMC Code. <i>7th International Topical Meeting on High Temperature Reactor Technology (HTR 2014)</i>.</p>
 
 <!-- references:end -->

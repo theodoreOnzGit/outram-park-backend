@@ -276,8 +276,8 @@ much? Section 4.9 of the DEM crate's V&V has the answer to check against.
 <!-- references:begin -->
 ## References
 
-<p class="csl-entry" id="ref-iaeatecdoc1382" style="padding-left: 2em; text-indent: -2em;">International Atomic Energy Agency. (2003). <span style="font-style: italic;">Evaluation of High Temperature Gas Cooled Reactor Performance</span> (IAEA-TECDOC-1382). International Atomic Energy Agency.</p>
+<p class="csl-entry" id="ref-iaeatecdoc1382" style="padding-left: 2em; text-indent: -2em;">International Atomic Energy Agency. (2003). <i>Evaluation of High Temperature Gas Cooled Reactor Performance</i> (IAEA-TECDOC-1382). International Atomic Energy Agency.</p>
 
-<p class="csl-entry" id="ref-kloss2012models" style="padding-left: 2em; text-indent: -2em;">Kloss, C., Goniva, C., Hager, A., Amberger, S., & Pirker, S. (2012). Models, Algorithms and Validation for Opensource DEM and CFD-DEM. <span style="font-style: italic;">Progress in Computational Fluid Dynamics, An International Journal</span>, <span style="font-style: italic;">12</span>(2/3), 140–152. <a href="https://doi.org/10.1504/PCFD.2012.047457">https://doi.org/10.1504/PCFD.2012.047457</a></p>
+<p class="csl-entry" id="ref-kloss2012models" style="padding-left: 2em; text-indent: -2em;">Kloss, C., Goniva, C., Hager, A., Amberger, S., &#38; Pirker, S. (2012). Models, Algorithms and Validation for Opensource DEM and CFD-DEM. <i>Progress in Computational Fluid Dynamics, An International Journal</i>, <i>12</i>(2/3), 140–152. https://doi.org/10.1504/PCFD.2012.047457</p>
 
 <!-- references:end -->
