@@ -33,13 +33,6 @@
 //!   ([`queue::queue_children`]); `getCitationCluster` replaces it with
 //!   `[blob]` for each cite exactly as upstream does.
 //!
-//! # Left for other agents
-//!
-//! * `new CSL.NameOutput(this, Item, item)` in `getCite` (util_names.js, the
-//!   names port: `PORT-LATER(w2-names)`).
-//! * `this.transform.loadAbbreviation("default", "hereinafter", Item.id,
-//!   Item.language)` in `processCitationCluster` (util_transform.js, the
-//!   render port: `PORT-LATER(w2-render)`).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::LazyLock;
@@ -1638,8 +1631,18 @@ impl State {
             let id = obj_id(&item);
             let item_data = retrieve_item(self, &id)?;
             if js::truthy_opt(item_data.get("id")) {
-                // PORT-LATER(w2-render): this.transform.loadAbbreviation("default",
-                // "hereinafter", Item.id, Item.language) (util_transform.js)
+                let hid = item_data.get("id").map(js::to_js_string).unwrap_or_default();
+                let lang = item_data
+                    .get("language")
+                    .filter(|l| js::truthy(l))
+                    .map(js::to_js_string);
+                super::util_transform::load_abbreviation(
+                    self,
+                    Some("default"),
+                    "hereinafter",
+                    &hid,
+                    lang.as_deref(),
+                );
             }
             let mut item_obj = item_data.as_object().cloned().unwrap_or_default();
             citation_item_input(self, &mut item_obj, &mut item)?;

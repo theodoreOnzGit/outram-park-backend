@@ -177,6 +177,9 @@ pub struct NameOutput {
     pub given_decor: Option<Token>,
     /// `this.label`.
     pub label: BTreeMap<String, LabelPair>,
+    /// The label tokens whose `@text-case` closure ran since names START
+    /// (see `NameOutput::apply_label_text_case`).
+    pub label_text_case: Vec<Token>,
     /// `this.etal_style`, `etal_term`, `etal_prefix_single`,
     /// `etal_prefix_multiple`, `etal_suffix` (set by the `cs:names` closure).
     pub etal_style: EtalStyle,
@@ -587,6 +590,7 @@ impl NameOutput {
         self.et_al = None;
         // REMOVE THIS
         self.with = None;
+        self.label_text_case.clear();
 
         self.name = None;
         self.name_and = None;
@@ -1281,4 +1285,43 @@ pub(crate) mod testing {
         serde_json::from_str(include_str!("../../tests/data/csl/units/names_output.json"))
             .expect("names_output.json")
     });
+}
+
+impl NameOutput {
+    /// Replay the `@text-case` closures of the labels of this `cs:names`.
+    /// In citeproc-js the label token in `this.label` is the very object in the
+    /// token list, so the closure of its `@text-case` attribute (run between
+    /// names START and END) changes it. The port keeps a snapshot taken at
+    /// build, so the recorded list tokens are applied to the snapshot tokens
+    /// that equal them but for `text-case`.
+    pub fn apply_label_text_case(&mut self) {
+        let recorded = self.label_text_case.clone();
+        for token in &recorded {
+            let strip = |t: &Token| {
+                let mut s = t.strings.clone();
+                s.remove("text-case");
+                s
+            };
+            for pair in self.label.values_mut() {
+                for slot in [pair.before.as_mut(), pair.after.as_mut()]
+                    .into_iter()
+                    .flatten()
+                {
+                    let same = slot.name == "label"
+                        && strip(slot) == strip(token)
+                        && slot.decorations == token.decorations
+                        && slot.variables == token.variables
+                        && match slot.strings.get("text-case") {
+                            None => true,
+                            Some(v) => token.strings.get("text-case") == Some(v),
+                        };
+                    if same {
+                        if let Some(v) = token.strings.get("text-case") {
+                            slot.strings.insert("text-case".to_string(), v.clone());
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

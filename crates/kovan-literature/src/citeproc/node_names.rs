@@ -479,6 +479,7 @@ fn run_output(
     // XXX label style should be set per variable, since they may differ
     // XXX with full-form nested names constructs
     no.label = labels_from_value(token.extra.get("label"));
+    no.apply_label_text_case();
 
     no.etal_style = etal_style;
     no.etal_term = etal_term;

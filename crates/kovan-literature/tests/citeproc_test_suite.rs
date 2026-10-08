@@ -979,7 +979,8 @@ fn report_per_area() {
     let Ok(mode) = std::env::var("CITEPROC_SUITE_REPORT") else {
         return;
     };
-    let detail = mode == "2";
+    let detail = mode == "2" || mode == "3";
+    let full = mode == "3";
     let (Some(fixtures), Some(locales)) = (load_fixtures(), load_locales()) else {
         return;
     };
@@ -1023,8 +1024,8 @@ fn report_per_area() {
         } else if got != want && detail {
             println!(
                 "  DIFF {name}\n    citeproc-js: {:?}\n    port:        {:?}",
-                want.lines().next().unwrap_or(""),
-                got.lines().next().unwrap_or("")
+                if full { want.as_str() } else { want.lines().next().unwrap_or("") },
+                if full { got.as_str() } else { got.lines().next().unwrap_or("") }
             );
         }
     }

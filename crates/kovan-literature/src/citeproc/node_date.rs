@@ -288,7 +288,11 @@ fn open_tag(state: &mut State, token: &mut Token, item: &Value) -> CslResult<Opt
 
 /// The "mergeoutput" closure of `CSL.Node.date.build` (node_date.js:155-162).
 fn close_tag(state: &mut State, token: &mut Token, item: &Value) -> CslResult<Option<usize>> {
-    let var0 = token.variables.first().cloned();
+    // The END token shares its `variables` array with the START token.
+    let var0 = match &state.tmp.date_alias_variables {
+        Some(v) => v.first().cloned(),
+        None => token.variables.first().cloned(),
+    };
     if !js::truthy_opt(var0.and_then(|v| item.get(v.as_str()).cloned()).as_ref()) {
         return Ok(None);
     }

@@ -439,9 +439,9 @@ impl Area {
 
     /// `new CSL.Engine.Citation(state)`.
     ///
-    /// PORT-LATER(registry): upstream also sets
+    /// Upstream also sets
     /// `this.srt = new CSL.Registry.Comparifier(state, "citation_sort")`
-    /// (registry.js:675, wave4); a default comparifier stands in.
+    /// (registry.js:675); the port's `Comparifier` reads the area each time, so a default one is equivalent.
     pub fn new_citation() -> Area {
         Area {
             opt: Area::rendering_opt(),
@@ -689,6 +689,11 @@ pub struct Tmp {
     pub old_item: Option<Value>,
     /// `oldLang` (node_alternative.js).
     pub old_lang: Option<String>,
+    /// The `variables` array a `cs:date` START shares with its END token in
+    /// citeproc-js (`var_stack`, util_nodes.js:239-246): the START's
+    /// `@variable` closure empties and refills it in place, so the END token
+    /// sees the result. `None` until a date START has run.
+    pub date_alias_variables: Option<Vec<String>>,
 
     // ---- fields: wave3 ----
     /// `tmp.name_node` (`{children, top, string}`; `{}` at `getCite`, a fresh
@@ -898,6 +903,7 @@ impl Tmp {
             backref_index: Vec::new(),
             old_item: None,
             old_lang: None,
+            date_alias_variables: None,
             name_node: Default::default(),
             rendered_name: None,
             last_rendered_name: Value::Bool(false),

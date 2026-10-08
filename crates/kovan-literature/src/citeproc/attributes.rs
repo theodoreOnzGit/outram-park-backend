@@ -257,6 +257,10 @@ impl AttributesExec {
                         state.tmp.done_vars.push(v.clone());
                     }
                 }
+                // The array is shared with the END token (util_nodes.js:239-246).
+                if token.name == "date" && token.tokentype == TokenType::Start {
+                    state.tmp.date_alias_variables = Some(token.variables.clone());
+                }
                 Ok(None)
             }
             AttributesExec::VariableCheckOutput => {
@@ -273,6 +277,15 @@ impl AttributesExec {
                     token.set_string("text-case", arg);
                     if arg == "title" && item_truthy(item, "jurisdiction") {
                         token.set_string("text-case", "passthrough");
+                    }
+                    // In citeproc-js the label token of a cs:names is the same
+                    // object as the one in the token list, so its own `@text-case`
+                    // closure (run between names START and END) changes what
+                    // `NameOutput.label` sees. The port builds the labels from a snapshot at
+                    // names END, so the
+                    // closure records the token and `NameOutput::apply_label_text_case` replays it.
+                    if token.name == "label" && !token.strings.contains_key("term") {
+                        state.name_output.label_text_case.push(token.clone());
                     }
                 }
                 Ok(None)
