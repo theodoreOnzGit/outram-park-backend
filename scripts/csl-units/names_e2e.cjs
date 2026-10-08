@@ -47,6 +47,7 @@ const POOL = [
   { id: 'I28', type: 'book', title: 'EmptyAuth', author: [], editor: [P('Roe', 'Jane')] },
   { id: 'I29', type: 'book', title: 'NumAuth', author: 5 },
   { id: 'I30', type: 'report', title: 'Corp3', author: [{ literal: 'A | B | C | Department of Education' }, { literal: 'Acme Corporation' }] },
+  { id: 'I31', type: 'book', title: 'Sixty', author: Array.from({ length: 60 }, (_, i) => P('Author' + (i + 1), 'N' + (i + 1))) },
   { id: 'I20', type: 'book', title: 'LitMix', author: [{ literal: 'The Foo | Bar Group' }, { literal: 'Solo' }] },
 ];
 
@@ -108,8 +109,8 @@ function genStyle() {
     optAttr('and', ['text', 'symbol'], 0.5),
     optAttr('delimiter-precedes-last', ['contextual', 'always', 'never', 'after-inverted-name'], 0.5),
     optAttr('delimiter-precedes-et-al', ['contextual', 'always', 'never', 'after-inverted-name'], 0.3),
-    optAttr('et-al-min', ['2', '3', '4', '8'], 0.5),
-    optAttr('et-al-use-first', ['1', '2', '3'], 0.5),
+    optAttr('et-al-min', ['1', '2', '3', '4', '8'], 0.5),
+    optAttr('et-al-use-first', ['1', '1', '2', '3'], 0.5),
     optAttr('et-al-use-last', ['true', 'false'], 0.2),
     optAttr('initialize-with', ['.', '. ', '', ' ', ' '], 0.4),
     optAttr('name-as-sort-order', ['first', 'all'], 0.4),
@@ -146,7 +147,7 @@ function genStyle() {
   const options = {};
   if (chance(0.1)) options.spoof_institutional_affiliations = true;
   if (chance(0.08)) options.parse_names = false;
-  if (chance(0.05)) options.etal_min_etal_usefirst_hack = true;
+  if (chance(0.12)) options.etal_min_etal_usefirst_hack = true;
   const lang = chance(0.2) ? { translit: ['ja-Latn'], translat: ['en'], persons: pick([['translit'], ['translit', 'translat'], ['translat'], ['orig', 'translit']]), institutions: pick([['translit'], ['orig']]) } : null;
   return { style, options, lang };
 }
@@ -169,7 +170,9 @@ function runStyle(spec) {
   }
   style.setLangPrefsForCites(lp);
   const ids = POOL.map((i) => i.id);
-  try { style.updateItems(ids); } catch (e) { return { build_error: 'updateItems: ' + String(e && e.message || e) }; }
+  // Cites are rendered BEFORE updateItems: with the items in the registry,
+  // citeStart takes the cite's name counts from the registry's disambiguation
+  // data (the registry is the engine's, not the names code's).
   for (const id of ids) {
     try { out.cites.push({ v: style.makeCitationCluster([{ id }]) }); } catch (e) { out.cites.push({ e: String(e && e.message || e) }); }
   }
@@ -178,6 +181,7 @@ function runStyle(spec) {
   }
   try { out.multi = { v: style.makeCitationCluster(ids.map((id) => ({ id }))) }; } catch (e) { out.multi = { e: String(e && e.message || e) }; }
   try {
+    style.updateItems(ids);
     const b = style.makeBibliography();
     out.bib = { v: b[0].bibstart + b[1].join('') + b[0].bibend };
   } catch (e) { out.bib = { e: String(e && e.message || e) }; }

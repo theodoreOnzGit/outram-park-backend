@@ -462,6 +462,11 @@ fn splice_delimiter(st: &State, _last_collapsed: bool, layout_delimiter: &str) -
 /// was, and the next call sees it.
 fn fresh_output(st: &mut State) {
     st.blobs.clear();
+    reset_queue(st);
+}
+
+/// An empty output queue with `adjust` set (the blob arena is kept).
+fn reset_queue(st: &mut State) {
     st.output = Queue::default();
     let piq = crate::citeproc::formats::get_opt_flag(st, "punctuation-in-quote");
     st.output.adjust = Some(Adjust::new(piq));
@@ -616,6 +621,9 @@ fn render_cluster(st: &mut State, cites: &[Value]) -> CslResult<String> {
 /// runner's `bibstart + entries + bibend`.
 fn render_bibliography(st: &mut State, ids: &[String]) -> CslResult<String> {
     use crate::citeproc::obj_token::Decoration;
+    // `updateItems` (which `makeBibliography` needs first) renders every item
+    // through `getAmbiguousCite`, whose `output.string()` empties the queue.
+    reset_queue(st);
     st.output.check_nested_brace = Some(CheckNestedBrace::new(st));
     st.tmp.area = "bibliography".to_string();
     st.tmp.root = "bibliography".to_string();
