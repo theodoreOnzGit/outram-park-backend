@@ -563,7 +563,8 @@ if (argv('--case')) {
   const c = argv('--case');
   const dump = c.startsWith('site:') ? siteCase(SITE_STYLES.find((s) => s.name === c.slice(5))) : fixtureCase(c);
   const sect = argv('--section');
-  process.stdout.write(JSON.stringify(sect ? dump[sect] : dump, null, 1) + '\n');
+  if (args.indexOf('--raw') > -1) process.stdout.write(jsonOf(dump[sect]));
+  else process.stdout.write(JSON.stringify(sect ? dump[sect] : dump, null, 1) + '\n');
   process.exit(0);
 }
 

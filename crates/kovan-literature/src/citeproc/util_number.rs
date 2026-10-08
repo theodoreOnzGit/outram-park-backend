@@ -48,7 +48,6 @@
 //! itself; `parseString`'s "and" handling tests `lst[i]` for both ends. All
 //! reproduced.
 
-use std::collections::BTreeMap;
 use std::sync::LazyLock;
 
 use regex::Regex;

@@ -837,6 +837,16 @@ pub struct Build {
     /// `state.build[this.strings.name] = this` of cs:name-part: "family",
     /// "given", as token values (node_namepart.js; wave1-nodes).
     pub name_parts: Obj,
+    /// How deep `run_builder` is (`CSL.makeBuilder` calls nested through
+    /// macros): 1 is an area's own token list, more is a macro's. Rust-only:
+    /// upstream builds straight into `state.<area>.tokens`, which this port
+    /// takes out of the state while it builds (see `bibliography_tokens_len`).
+    pub builder_depth: usize,
+    /// `state.bibliography.tokens.length` as `@display` (attributes.js) reads
+    /// it while the bibliography list is out of the state being built:
+    /// updated by `xml_to_token` for the bibliography's own list, and set to
+    /// the final length once the area is built.
+    pub bibliography_tokens_len: usize,
     // ---- fields: wave2 ----
 
     // ---- fields: wave3 ----
@@ -889,6 +899,8 @@ impl Build {
             sort_flag: Value::Null,
             area_return: None,
             name_parts: Obj::new(),
+            builder_depth: 0,
+            bibliography_tokens_len: 0,
         }
     }
 }

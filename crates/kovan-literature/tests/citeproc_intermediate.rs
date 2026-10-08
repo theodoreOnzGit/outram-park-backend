@@ -15,7 +15,8 @@
 //              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 //! The citeproc-js port's **build stage** against citeproc-js's intermediate
-//! state (GitHub #792, epic #790): the `style` and `locale` sections.
+//! state (GitHub #792, epic #790): `style`, `locale`, `items`, `names`,
+//! `numbers` and `citation_items` of the dump, plus the parsed style (`xml`).
 //!
 //! **Methodology.** `scripts/csl-intermediate-reference.cjs` built an
 //! `Engine` for each of the 845 fixtures of the CSL test suite (set up exactly
@@ -27,22 +28,25 @@
 //! them with [`kovan_literature::citeproc::dump`] (the same canonical form,
 //! see that module) and compares digests.
 //!
-//! Three forms are compared per case:
+//! Sections compared per case:
 //!
 //! * **`locale`**: `engine.locale` (terms, opts, dates, ordinals, noun
-//!   genders) for every language loaded, and `opt.gender`. Depends only on
-//!   the XML parser, `localeConfigure`/`localeSet` and the constructor.
+//!   genders) for every language loaded, and `opt.gender`.
 //! * **`style`** (full): `opt`, the five areas' `opt`/`root`/tokens, the
 //!   macros, `tmp.cite_affixes`, `build.names_level`, with each token's
-//!   closure counts (`execs_n`, `tests_n`, `has_test`). Depends on the style
-//!   build *and* on the node builders and attribute handlers
-//!   (`attributes.rs`, `node_*.rs`, ported by another agent): their closure
-//!   counts, strings, variables.
+//!   closure counts (`execs_n`, `tests_n`, `has_test`), in the reference
+//!   script's property order (see `dump::token_text`).
 //! * **`style_reduced`**: the same without the closure counts, against
 //!   `tests/data/csl/intermediate_reference_reduced.json`
-//!   (`scripts/csl-intermediate-reduced.cjs`). Still depends on the
-//!   attribute handlers and builders for the token contents, but not on how
-//!   many closures they register.
+//!   (`scripts/csl-intermediate-reduced.cjs`).
+//! * **`xml`**: the parsed style (`engine.cslXml`) after the constructor's
+//!   normalisations, against `intermediate_reference_xml.json`.
+//! * **`items`**, **`names`**, **`numbers`**, **`citation_items`**: the
+//!   input side (`retrieveItem`, the name parser's input half,
+//!   `processNumber(false, ...)`, the `parseLocator` steps of
+//!   `makeCitationCluster`), computed on the same engine by
+//!   `dump::input_sections` over the fixture's INPUT and citation lists (with
+//!   the runner's ABBREVIATIONS and Turkish months applied).
 //!
 //! **Pass criterion.** Every case whose digest differs from citeproc-js's must
 //! be listed, with a reason, in `tests/data/csl/intermediate_known_differences.json`
@@ -52,16 +56,18 @@
 //! reason and skip.
 //!
 //! **To diff a failing case**, run with `INTERMEDIATE_DUMP=<case>[:section]`
-//! (section `style`, `style_reduced`, `locale`; default `style`) to print the
-//! port's section as JSON, and compare with
-//! `node scripts/csl-intermediate-reference.cjs --case <case> --section style`.
-//! `INTERMEDIATE_PRINT_DIFFERENCES=1` prints the list of differing cases per
-//! section in the known-differences file's `cases` format.
+//! (section `style`, `style_reduced`, `locale`, `xml`, `items`, `names`,
+//! `numbers`, `citation_items`; default `style`; a site case is `site:<style>`)
+//! to build only that case and print the port's section as JSON, and compare
+//! with `node scripts/csl-intermediate-reference.cjs --case <case> --section style`.
+//! Add `INTERMEDIATE_RAW=1` to print the exact digested text between
+//! `RAW>>` and `<<RAW` (compare `... --raw`). `INTERMEDIATE_PRINT_DIFFERENCES=1`
+//! prints the list of differing cases per section in the known-differences
+//! file's `cases` format.
 //!
-//! **Results (2026-10-08, branch wave1-build, before the node builders and
-//! `attributes.rs` of wave1-nodes are merged in).** See the constant
-//! `RESULTS_NOTE` below, which the test prints; the numbers there are the
-//! ones measured on that branch.
+//! **Results (2026-10-08, wave 1 integrated, branch citeproc/integ1).** All
+//! eight sections equal citeproc-js's for all 850 cases (845 fixtures + 5
+//! site styles); no known differences. See `RESULTS_NOTE`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
@@ -78,7 +84,7 @@ const XML: &str = include_str!("data/csl/intermediate_reference_xml.json");
 const KNOWN: &str = include_str!("data/csl/intermediate_known_differences.json");
 
 /// What this branch measured (filled in by the author; printed by the test).
-const RESULTS_NOTE: &str = "measured 2026-10-08 on branch citeproc/w1-build (without wave1-nodes): locale 850/850, xml see RESULTS line, style 0/850, style_reduced 0/850";
+const RESULTS_NOTE: &str = "measured 2026-10-08 on branch citeproc/integ1 (wave 1 integrated): locale 850/850, xml 850/850, style 850/850, style_reduced 850/850, items 850/850, names 850/850, numbers 850/850, citation_items 850/850";
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -289,6 +295,13 @@ fn fixture_engine(fx: &Fixture, locales: &Arc<BTreeMap<String, String>>) -> Resu
         .cloned()
         .collect();
     let mut sys = Sys::new(&items, locales.clone()).map_err(|e| e.to_string())?;
+    // The runner's cache is keyed by `item.id`: an item without one lands under
+    // the key `"undefined"` (the last such item wins), which `retrieveItem("undefined")` finds.
+    if let Some(anon) = fx.input.iter().rev().find(|i| i.get("id").is_none()) {
+        let mut map = (*sys.items).clone();
+        map.insert("undefined".to_string(), anon.clone());
+        sys.items = Arc::new(map);
+    }
     // `this[option] = this.test.OPTIONS[option]` on the runner's sys.
     if let Some(options) = &fx.options {
         for (k, v) in options {
@@ -407,6 +420,18 @@ fn site_engine(file: &str, lang: &str) -> Result<Engine, String> {
 
 // ----------------------------------------------------------------- compare
 
+/// `case[:section]` of `INTERMEDIATE_DUMP`; a site case is `site:<style>`.
+fn split_selector(sel: &str) -> (String, String) {
+    let skip = usize::from(sel.starts_with("site:"));
+    let mut parts = sel.splitn(skip + 2, ':');
+    let mut case = parts.next().unwrap_or_default().to_string();
+    if skip == 1 {
+        case = format!("{case}:{}", parts.next().unwrap_or_default());
+    }
+    let section = parts.next().unwrap_or("style").to_string();
+    (case, section)
+}
+
 /// The compared sections.
 const SECTION_NAMES: [&str; 8] = [
     "style",
@@ -483,8 +508,22 @@ fn built_of(
                 .map(|r| engine.state().csl_xml.to_json_text(r))
                 .unwrap_or_default();
             let input = dump::input_sections(&mut engine, inputs, lists);
-            if let Some(sel) = dump_selector {
-                let (_, section) = sel.split_once(':').unwrap_or((sel, "style"));
+            if std::env::var("INTERMEDIATE_RAW").is_ok() {
+                if let Some(section) = dump_selector {
+                    let text = match section {
+                        "locale" => &locale,
+                        "style_reduced" => &reduced,
+                        "xml" => &xml,
+                        "items" => &input.items,
+                        "names" => &input.names,
+                        "numbers" => &input.numbers,
+                        "citation_items" => &input.citation_items,
+                        _ => &style,
+                    };
+                    print!("RAW>>{text}<<RAW");
+                }
+            }
+            if let Some(section) = dump_selector {
                 let text = match section {
                     "locale" => &locale,
                     "style_reduced" => &reduced,
@@ -542,7 +581,9 @@ fn the_intermediate_dump_matches_citeproc_js_except_the_recorded_differences() {
     let reference: Value = serde_json::from_str(DIGESTS).expect("reference digests");
     let reduced: Value = serde_json::from_str(REDUCED).expect("reduced digests");
     let xml_ref: Value = serde_json::from_str(XML).expect("xml digests");
+    // INTERMEDIATE_DUMP=<case>[:section]: build and print that one case only.
     let dump_sel = std::env::var("INTERMEDIATE_DUMP").ok();
+    let only: Option<(String, String)> = dump_sel.as_deref().map(split_selector);
     let site_items: Vec<Value> = serde_json::from_str(
         &std::fs::read_to_string(
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/csl/items.json"),
@@ -555,9 +596,10 @@ fn the_intermediate_dump_matches_citeproc_js_except_the_recorded_differences() {
     let mut cases: Vec<(String, Built, &Value, &Value, &Value)> = Vec::new();
     for (name, _, file, lang) in SITE_STYLES.iter().map(|(n, f, l)| (n, 0, f, l)) {
         let key = format!("site:{name}");
-        let sel = dump_sel
-            .as_deref()
-            .filter(|s| s.split(':').next() == Some(&key) || s.starts_with(&format!("{key}:")));
+        if only.as_ref().is_some_and(|(c, _)| *c != key) {
+            continue;
+        }
+        let sel = only.as_ref().map(|(_, s)| s.as_str());
         let b = built_of(&key, site_engine(file, lang), &site_items, &[], sel);
         cases.push((
             key,
@@ -568,9 +610,10 @@ fn the_intermediate_dump_matches_citeproc_js_except_the_recorded_differences() {
         ));
     }
     for (name, fx) in &fixtures {
-        let sel = dump_sel
-            .as_deref()
-            .filter(|s| s.split(':').next() == Some(name.as_str()));
+        if only.as_ref().is_some_and(|(c, _)| c != name) {
+            continue;
+        }
+        let sel = only.as_ref().map(|(_, s)| s.as_str());
         let b = built_of(
             name,
             fixture_engine(fx, &locales),
@@ -585,6 +628,9 @@ fn the_intermediate_dump_matches_citeproc_js_except_the_recorded_differences() {
             &reduced["fixtures"][name],
             &xml_ref["fixtures"][name],
         ));
+    }
+    if only.is_some() {
+        return;
     }
     assert_eq!(cases.len(), 850, "845 fixtures and 5 site styles");
 

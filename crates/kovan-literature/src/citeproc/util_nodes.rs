@@ -511,6 +511,10 @@ impl State {
         if !node_exists(&name) {
             return Err(EngineError::Csl(format!("Undefined node name \"{name}\".")));
         }
+        if self.build.builder_depth == 1 && self.build.area == "bibliography" {
+            // `state.bibliography.tokens.length` for `@display`.
+            self.build.bibliography_tokens_len = explicit_target.len();
+        }
         let mut attributes = self.csl_xml.attributes(node);
         let decorations = util_processor::set_decorations(self, &mut attributes);
         let mut token = Token::new(&name, tokentype);

@@ -63,17 +63,21 @@ use super::Engine;
 /// cyclic locale.
 pub const STACK_OVERFLOW: &str = "Maximum call stack size exceeded";
 
-/// A token as the canonical form prints it. `nested` is true for a token
-/// reached inside another (its jump indices are dropped). With
-/// `closure_counts` false, `execs_n`, `tests_n` and `has_test` are left out
-/// (the "reduced" form).
-pub fn token_value(t: &Token, nested: bool, closure_counts: bool) -> Value {
-    let mut o = Map::new();
-    o.insert("name".into(), Value::String(t.name.clone()));
-    o.insert("tokentype".into(), Value::from(t.tokentype.as_js()));
-    o.insert("strings".into(), Value::Object(t.strings.clone()));
-    o.insert(
-        "decorations".into(),
+/// The entries of a token as the reference script's `canon` emits them, in
+/// the order it emits them: `(JS property name, key in the dump, value)`,
+/// sorted by the JS property name. A closure-bearing property is renamed
+/// *after* the sort (`execs` to `execs_n`, `tests` to `tests_n`, `test` to
+/// `has_test`), so `has_test` sits where `test` sorts, which is not where
+/// `has_test` would sort; the digest is of the text, so the order matters.
+fn token_entries(t: &Token, nested: bool, closure_counts: bool) -> Vec<(String, String, Value)> {
+    let mut e: Vec<(String, String, Value)> = Vec::new();
+    let mut put = |orig: &str, key: &str, v: Value| e.push((orig.to_string(), key.to_string(), v));
+    put("name", "name", Value::String(t.name.clone()));
+    put("tokentype", "tokentype", Value::from(t.tokentype.as_js()));
+    put("strings", "strings", Value::Object(t.strings.clone()));
+    put(
+        "decorations",
+        "decorations",
         Value::Array(
             t.decorations
                 .iter()
@@ -90,37 +94,87 @@ pub fn token_value(t: &Token, nested: bool, closure_counts: bool) -> Value {
                 .collect(),
         ),
     );
-    o.insert(
-        "variables".into(),
+    put(
+        "variables",
+        "variables",
         Value::Array(t.variables.iter().cloned().map(Value::String).collect()),
     );
     if closure_counts {
-        o.insert("execs_n".into(), Value::from(t.execs.len()));
+        put("execs", "execs_n", Value::from(t.execs.len()));
         if t.tests_defined || !t.tests.is_empty() {
-            o.insert("tests_n".into(), Value::from(t.tests.len()));
+            put("tests", "tests_n", Value::from(t.tests.len()));
         }
         if t.test.is_some() {
-            o.insert("has_test".into(), Value::Bool(true));
+            put("test", "has_test", Value::Bool(true));
         }
     }
     if !nested {
-        if let Some(n) = t.next {
-            o.insert("next".into(), Value::from(n));
-        }
-        if let Some(n) = t.succeed {
-            o.insert("succeed".into(), Value::from(n));
-        }
-        if let Some(n) = t.fail {
-            o.insert("fail".into(), Value::from(n));
+        for (k, v) in [("next", t.next), ("succeed", t.succeed), ("fail", t.fail)] {
+            if let Some(n) = v {
+                put(k, k, Value::from(n));
+            }
         }
     }
     if let Some(m) = &t.postponed_macro {
-        o.insert("postponed_macro".into(), Value::String(m.clone()));
+        put("postponed_macro", "postponed_macro", Value::String(m.clone()));
     }
     for (k, v) in &t.extra {
-        o.insert(k.clone(), v.clone());
+        let mut v = v.clone();
+        if !closure_counts {
+            strip_closure_counts(&mut v);
+        }
+        put(k, k, v);
+    }
+    e.sort_by(|a, b| a.0.encode_utf16().cmp(b.0.encode_utf16()));
+    e
+}
+
+/// `stripClosureCounts` of `scripts/csl-intermediate-reduced.cjs`: drop
+/// `execs_n`, `tests_n` and `has_test` from every token-like object (one with
+/// a `tokentype`) inside `v`, e.g. the `label`/`etal` tokens a `names` token
+/// carries.
+fn strip_closure_counts(v: &mut Value) {
+    match v {
+        Value::Array(a) => a.iter_mut().for_each(strip_closure_counts),
+        Value::Object(o) => {
+            if o.contains_key("tokentype") {
+                for k in ["execs_n", "tests_n", "has_test"] {
+                    o.remove(k);
+                }
+            }
+            o.values_mut().for_each(strip_closure_counts);
+        }
+        _ => {}
+    }
+}
+
+/// A token as the canonical form prints it, as a [`Value`] (keys sorted by
+/// their dump name; see [`token_text`] for the exact reference order).
+/// `nested` is true for a token reached inside another (its jump indices are
+/// dropped). With `closure_counts` false, `execs_n`, `tests_n` and `has_test`
+/// are left out (the "reduced" form).
+pub fn token_value(t: &Token, nested: bool, closure_counts: bool) -> Value {
+    let mut o = Map::new();
+    for (_, key, v) in token_entries(t, nested, closure_counts) {
+        o.insert(key, v);
     }
     Value::Object(o)
+}
+
+/// A token as the exact JSON text the reference script's `JSON.stringify`
+/// prints: properties in the order [`token_entries`] gives.
+pub fn token_text(t: &Token, nested: bool, closure_counts: bool) -> String {
+    let mut out = String::from("{");
+    for (i, (_, key, v)) in token_entries(t, nested, closure_counts).iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&serde_json::to_string(key).unwrap_or_default());
+        out.push(':');
+        out.push_str(&serde_json::to_string(v).unwrap_or_default());
+    }
+    out.push('}');
+    out
 }
 
 fn tokens_value(ts: &[Token], closure_counts: bool) -> Value {
@@ -255,7 +309,11 @@ fn json(v: &Value) -> String {
 }
 
 fn tokens_text(ts: &[Token], closure_counts: bool) -> String {
-    json(&tokens_value(ts, closure_counts))
+    let body: Vec<String> = ts
+        .iter()
+        .map(|t| token_text(t, false, closure_counts))
+        .collect();
+    format!("[{}]", body.join(","))
 }
 
 /// The `style` section as the exact JSON text the reference script's

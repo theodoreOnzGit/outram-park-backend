@@ -310,6 +310,9 @@ impl State {
             let area_nodes = s.csl_xml.get_nodes_by_name(s.csl_xml.data_obj, area, "");
             let mut tokens = std::mem::take(&mut s.area_mut(area).tokens);
             let r = s.build_token_lists(&area_nodes, &mut tokens);
+            if area == "bibliography" {
+                s.build.bibliography_tokens_len = tokens.len();
+            }
             s.area_mut(area).tokens = tokens;
             r?;
         }
@@ -455,7 +458,10 @@ impl State {
     pub fn run_builder(&mut self, nodes: &[XmlChild], target: &mut Vec<Token>) -> CslResult<()> {
         let mut var_stack: Vec<Vec<String>> = Vec::new();
         let mut node_stack: Vec<NodeId> = Vec::new();
-        self.build_style(nodes, None, target, &mut var_stack, &mut node_stack)
+        self.build.builder_depth += 1;
+        let r = self.build_style(nodes, None, target, &mut var_stack, &mut node_stack);
+        self.build.builder_depth -= 1;
+        r
     }
 
     /// `buildStyle(nodes, parent, node_stack)` inside `CSL.makeBuilder`.

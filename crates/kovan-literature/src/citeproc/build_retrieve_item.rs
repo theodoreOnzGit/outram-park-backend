@@ -1193,7 +1193,7 @@ pub(crate) fn items_section(state: &mut State, inputs: &[Value]) -> (OJson, Vec<
     let mut out: Vec<(String, OJson)> = Vec::new();
     let mut norm = Vec::new();
     for it in inputs {
-        let id = js::to_js_string(it.get("id").unwrap_or(&Value::Null));
+        let id = id_key(it.get("id"));
         match retrieve_item(state, &id) {
             Ok(i) => {
                 let mut c = i.clone();
@@ -1308,7 +1308,7 @@ pub(crate) fn citation_items_section(state: &mut State, lists: &[Vec<Value>]) ->
                     Value::Object(o) => o.clone(),
                     _ => Obj::new(),
                 };
-                let id = js::to_js_string(item.get("id").unwrap_or(&Value::Null));
+                let id = id_key(item.get("id"));
                 let item_val = retrieve_item(state, &id)?;
                 let mut item_obj = match item_val {
                     Value::Object(o) => o,

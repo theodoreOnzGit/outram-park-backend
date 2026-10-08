@@ -1432,7 +1432,9 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
             }
         }
         "@display" => {
-            if state.bibliography.tokens.len() == 2 {
+            // `state.bibliography.tokens.length`, with the list out of the
+            // state while it is built (see `Build::bibliography_tokens_len`).
+            if state.build.bibliography_tokens_len == 2 {
                 set_opt_flag(state, "using_display", Value::Bool(true));
             }
             token.set_string("cls", arg);
@@ -1891,6 +1893,7 @@ mod tests {
             .unwrap_or_default();
         let attr = |k: &str| attrs.iter().find(|(a, _)| a == k).map(|(_, v)| v.clone());
         let mut token = Token::new(&name, tokentype);
+        state.build.bibliography_tokens_len = state.bibliography.tokens.len();
         if tokentype != TokenType::End || ["if", "else-if", "layout"].contains(&name.as_str()) {
             for (key, val) in &attrs {
                 if tokentype == TokenType::End && key != "@language" && key != "@locale" {
