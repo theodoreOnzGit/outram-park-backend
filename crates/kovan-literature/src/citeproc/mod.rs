@@ -360,13 +360,10 @@ impl Sys {
 }
 
 /// The `id` of a CSL-JSON item or citation item, as a string. citeproc-js keys
-/// its registry by `"" + id`, so a number is accepted and stringified.
+/// its registry by `"" + id`, so a number is accepted and stringified, and an
+/// item without an `id` (the test suite has a few) is keyed `"undefined"`.
 pub fn item_id(item: &Value) -> Result<String, EngineError> {
-    match item.get("id") {
-        Some(Value::String(s)) => Ok(s.clone()),
-        Some(Value::Number(n)) => Ok(n.to_string()),
-        _ => Err(EngineError::BadInput(format!("item without an id: {item}"))),
-    }
+    Ok(registry::id_key(item.get("id")))
 }
 
 /// `setOutputFormat`: the formats the test suite uses.
@@ -957,10 +954,9 @@ mod tests {
         assert!(sys.retrieve_item("7").is_some());
         assert!(sys.retrieve_item("b").is_none());
         assert_eq!(sys.retrieve_locale("en-US"), None);
-        assert!(matches!(
-            Sys::new(&[json!({"type": "book"})], Arc::new(BTreeMap::new())),
-            Err(EngineError::BadInput(_))
-        ));
+        // an item without an id is keyed "undefined", as `"" + undefined` is in JS
+        let sys = Sys::new(&[json!({"type": "book"})], Arc::new(BTreeMap::new())).unwrap();
+        assert!(sys.retrieve_item("undefined").is_some());
     }
 
     #[test]

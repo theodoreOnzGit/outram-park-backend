@@ -285,11 +285,11 @@ impl State {
                 }
             } else {
                 item = self.item_data(&input[i])?;
-                if skips.contains(&js::to_js_string(item.get("id").unwrap_or(&Value::Null))) {
+                if skips.contains(&super::registry::id_key(item.get("id"))) {
                     continue;
                 }
             }
-            let item_id = js::to_js_string(item.get("id").unwrap_or(&Value::Null));
+            let item_id = super::registry::id_key(item.get("id"));
             if let Some(bs) = bibsection {
                 let mut include = true;
                 if js::truthy_opt(bs.get("include")) {
@@ -425,7 +425,7 @@ impl State {
                     let cite = Value::Object(sorted_items[j].1.clone());
                     entry_item_ids.push(self.get_cite(&sorted_items[j].0, &cite, None, false)?);
                     self.tmp.cite_index += 1;
-                    skips.insert(js::to_js_string(sorted_items[j].0.get("id").unwrap_or(&Value::Null)));
+                    skips.insert(super::registry::id_key(sorted_items[j].0.get("id")));
                 }
                 self.tmp.parallel_and_not_last = false;
             } else if token.siblings.is_none() {

@@ -105,7 +105,7 @@ impl NodeLayoutExec {
                 if suppressed && item_type != Some("treaty") && item_type != Some("patent") {
                     state.tmp.done_vars.push("country".to_string());
                 }
-                let id = js::to_js_string(item.get("id").unwrap_or(&Value::Null));
+                let id = super::registry::id_key(item.get("id"));
                 if !state.tmp.just_looking
                     && state
                         .registry

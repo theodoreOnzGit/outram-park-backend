@@ -381,6 +381,15 @@ impl Registry {
         }
     }
 
+    /// `registry.registry[id].disambig.year_suffix` (`None` when the item is
+    /// not registered or its suffix is `false`): the value `cs:date-part` and
+    /// `cs:text variable="year-suffix"` turn into a letter.
+    pub fn year_suffix(&self, id: &str) -> Option<Value> {
+        let d = self.registry.get(id)?.disambig?;
+        let v = &self.ambig_pool.get(d.0)?.year_suffix;
+        if *v == Value::Bool(false) { None } else { Some(v.clone()) }
+    }
+
     /// `getSortedIds()`: the ids of `reflist`.
     pub fn get_sorted_ids(&self) -> Vec<String> {
         self.reflist.clone()
@@ -398,6 +407,15 @@ impl Registry {
                 seq: None,
             },
         }
+    }
+}
+
+/// `"" + id` for the `id` property of an item (`None` is an absent `id`,
+/// which JS prints as `"undefined"`: the test suite has items without one).
+pub fn id_key(id: Option<&Value>) -> String {
+    match id {
+        None => "undefined".to_string(),
+        Some(v) => js::to_js_string(v),
     }
 }
 
@@ -622,7 +640,7 @@ pub fn doinserts(state: &mut State, mylist: &[String]) -> CslResult<()> {
         //  4c. Add names in items to be inserted to names reg
         //      (implicit in getAmbiguousCite).
         //
-        let akey = state.get_ambiguous_cite(&item_data, None, false, None)?;
+        let akey = state.get_ambiguous_cite(&item_data, None, false, None)?.to_js_string();
         state.registry.ambigs_touched.insert(akey.clone());
         //
         //  4d. Record ambig pool key on akey list (used for updating further
@@ -765,7 +783,7 @@ pub fn dorefreshes(state: &mut State) -> CslResult<()> {
                     .ok_or_else(|| type_error("Cannot set properties of undefined (setting 'disambig')"))?
                     .disambig = Some(fresh);
                 state.tmp.disambig_settings = None;
-                let new_akey = state.get_ambiguous_cite(&item, None, false, None)?;
+                let new_akey = state.get_ambiguous_cite(&item, None, false, None)?.to_js_string();
                 akey = Some(new_akey.clone());
                 let abase = state.get_ambig_config();
                 register_ambig_token(state, &new_akey, &lone_key, abase)?;

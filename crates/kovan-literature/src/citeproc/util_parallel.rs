@@ -212,7 +212,7 @@ pub fn start_citation(state: &mut State, sorted_items: &mut [(Value, Obj)]) -> C
 
     // Set no-repeat info here?
     for (start, end) in sibling_ranges {
-        let master_id = js::to_js_string(sorted_items[start].0.get("id").unwrap_or(&Value::Null));
+        let master_id = super::registry::id_key(sorted_items[start].0.get("id"));
         let token = state.registry.registry.get_mut(&master_id).ok_or_else(|| {
             EngineError::Csl("TypeError: Cannot set properties of undefined (setting 'master')".into())
         })?;

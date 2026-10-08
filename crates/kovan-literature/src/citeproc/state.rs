@@ -364,8 +364,8 @@ pub struct AbbrevTrimmer {
 /// collection number.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct IssuedDate {
-    /// The blob owning `list`.
-    pub list_parent: BlobId,
+    /// The parent blob whose `blobs` array is JS `list`.
+    pub list: BlobId,
     /// `pos`.
     pub pos: usize,
 }

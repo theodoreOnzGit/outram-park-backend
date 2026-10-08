@@ -36,6 +36,7 @@ use serde_json::Value;
 
 use super::js;
 use super::obj_ambigconfig::{AmbigConfig, AmbigId};
+use super::queue::Rendered;
 use super::registry::{register_ambig_token, sort_with};
 use super::state::State;
 use super::util_disambig::ambig_config_diff;
@@ -73,7 +74,7 @@ pub struct Disambiguation {
     /// `Item`: the id of the item being scanned.
     pub item: String,
     /// `ItemCite`.
-    pub item_cite: String,
+    pub item_cite: Option<Rendered>,
     /// `partners`.
     pub partners: Vec<String>,
     /// `nonpartners`.
@@ -231,7 +232,7 @@ impl Disambiguation {
         let first = list.1[0].clone();
         let first_item = refetch(state, &first)?;
         self.item = first.clone();
-        self.item_cite = state.get_ambiguous_cite(&first_item, self.base, true, None)?;
+        self.item_cite = Some(state.get_ambiguous_cite(&first_item, self.base, true, None)?);
 
         self.partners = vec![first];
         self.nonpartners = Vec::new();
@@ -240,7 +241,13 @@ impl Disambiguation {
         for other in list.1.iter().skip(1) {
             let other_item = refetch(state, other)?;
             let other_cite = state.get_ambiguous_cite(&other_item, self.base, true, None)?;
-            if self.item_cite == other_cite {
+            // `this.ItemCite === otherItemCite`: strings compare by value; an
+            // empty cite is an empty array (`[]`), and two arrays are never `===`.
+            let same = match (&self.item_cite, &other_cite) {
+                (Some(Rendered::Str(a)), Rendered::Str(b)) => a == b,
+                _ => false,
+            };
+            if same {
                 clashes += 1;
                 self.partners.push(other.clone());
             } else {
@@ -768,7 +775,7 @@ fn refetch(state: &State, id: &str) -> CslResult<Value> {
 
 /// `Item.id` as a string (the registry key).
 fn item_id_string(item: &Value) -> String {
-    item.get("id").map(js::to_js_string).unwrap_or_default()
+    super::registry::id_key(item.get("id"))
 }
 
 /// JS `Number(v)` for an item id value: numbers as themselves, strings

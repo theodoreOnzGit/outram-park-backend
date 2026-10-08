@@ -453,7 +453,7 @@ impl AttributesTest {
         match self {
             // attributes.js:6-24.
             AttributesTest::Disambiguate => {
-                let id = js::to_js_string(item.get("id").unwrap_or(&Value::Null));
+                let id = super::registry::id_key(item.get("id"));
                 if state.tmp.area == "bibliography" {
                     let reg_disambig = state
                         .registry
@@ -485,7 +485,7 @@ impl AttributesTest {
             }
             // attributes.js:25-31.
             AttributesTest::DisambiguateBackref => {
-                let id = js::to_js_string(item.get("id").unwrap_or(&Value::Null));
+                let id = super::registry::id_key(item.get("id"));
                 let token = state.registry.registry.get(&id).ok_or_else(|| {
                     EngineError::Csl(
                         "TypeError: Cannot read properties of undefined (reading 'disambig')".to_string(),

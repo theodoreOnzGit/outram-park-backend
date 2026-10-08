@@ -129,7 +129,7 @@ impl NodeKeyExec {
                         Value::from(if descending { DESCENDING } else { ASCENDING }),
                     );
                 }
-                let id = js::to_js_string(item.get("id").unwrap_or(&Value::Null));
+                let id = super::registry::id_key(item.get("id"));
                 let seq = state
                     .registry
                     .registry
@@ -275,7 +275,7 @@ impl NodeKeyExec {
             }
             NodeKeyExec::YearSuffixKey => {
                 // year-suffix Key
-                let id = js::to_js_string(item.get("id").unwrap_or(&Value::Null));
+                let id = super::registry::id_key(item.get("id"));
                 let disambig = state
                     .registry
                     .registry

@@ -119,12 +119,12 @@ pub struct ClusterResult {
 }
 
 fn obj_id(item: &Obj) -> String {
-    js::to_js_string(item.get("id").unwrap_or(&Value::Null))
+    super::registry::id_key(item.get("id"))
 }
 
 /// `Item.id` of a registered item value, as a string.
 fn item_value_id(item: &Value) -> String {
-    js::to_js_string(item.get("id").unwrap_or(&Value::Null))
+    super::registry::id_key(item.get("id"))
 }
 
 /// JS `a == b` between two optional values (`undefined == undefined` is true),
@@ -453,13 +453,13 @@ impl State {
 
         if let Some(issued) = self.tmp.issued_date {
             if self.tmp.renders_collection_number {
-                let list_len = match &self.blobs.get(issued.list_parent).blobs {
+                let list_len = match &self.blobs.get(issued.list).blobs {
                     BlobContent::List(l) => l.len(),
                     BlobContent::Text(_) => 0,
                 };
                 let mut buf: Vec<BlobChild> = Vec::new();
                 let mut i = list_len as i64 - 1;
-                if let BlobContent::List(list) = &mut self.blobs.get_mut(issued.list_parent).blobs {
+                if let BlobContent::List(list) = &mut self.blobs.get_mut(issued.list).blobs {
                     while i > issued.pos as i64 {
                         if let Some(c) = list.pop() {
                             buf.push(c);
@@ -484,13 +484,18 @@ impl State {
     /// the undisambiguated cite of `Item` without decorations (used by the
     /// registry to find ambiguous cites). `disambig` is the config to render
     /// with (it is shared with the name code, which writes into it).
+    ///
+    /// Returns what `output.string` returned: a string, or, when the cite
+    /// rendered nothing, an empty *array* (see `Disambiguation::scan_items`:
+    /// two such results are never `===`). Use [`Rendered::to_js_string`] for
+    /// the ambiguous-cite key.
     pub fn get_ambiguous_cite(
         &mut self,
         item: &Value,
         disambig: Option<AmbigId>,
         visual_form: bool,
         cite_item: Option<&Obj>,
-    ) -> CslResult<String> {
+    ) -> CslResult<Rendered> {
         let flags = self
             .tmp
             .group_context
@@ -583,7 +588,7 @@ impl State {
         self.tmp.suppress_decorations = orig_suppress_decorations;
         // Cache the result.
         self.tmp.group_context.replace(old_term_sibling_layer)?;
-        Ok(ret.to_js_string())
+        Ok(ret)
     }
 
     /// The `upward`, `leftward`, `downward`, `fix` passes over every blob of
@@ -2461,7 +2466,7 @@ mod tests {
     //! replayed. The position machinery and the rest of the cluster API are
     //! checked against `engine.json` (`scripts/csl-units/engine.cjs`) in
     //! `tests/citeproc_engine_units.rs`.
-    use std::collections::BTreeMap;
+    use std::sync::Arc;
 
     use serde_json::json;
 
@@ -2507,6 +2512,288 @@ mod tests {
         assert!(n > 800);
     }
 
+    // ---- the engine against citeproc-js: tests/data/csl/units/engine.json ----
+
+    use super::super::{Citation, CitationItem, CitationRef, Engine, Sys};
+
+    const ENGINE_REF: &str = include_str!("../../tests/data/csl/units/engine.json");
+
+    /// citeproc-js generates a random `citationID` ("a" + base 32) for a
+    /// citation without one; the reference calls them all `GEN`.
+    fn gen(id: &str) -> String {
+        let b = id.as_bytes();
+        let generated = b.len() >= 7
+            && b[0] == b'a'
+            && b[1..].iter().all(|c| c.is_ascii_digit() || (b'a'..=b'v').contains(c));
+        if generated { "GEN".to_string() } else { id.to_string() }
+    }
+
+    /// What `scripts/csl-units/engine.cjs`'s `snapshot` records, from the state.
+    fn snapshot(st: &State) -> Value {
+        let reg = &st.registry;
+        let keep = |o: &Obj, from: &str| o.get(from).cloned();
+        let mut tokens = Obj::new();
+        for (id, t) in &reg.registry {
+            let mut o = Obj::new();
+            o.insert("seq".into(), Value::from(t.seq));
+            o.insert("offset".into(), Value::from(t.offset));
+            if let Some(a) = &t.ambig {
+                o.insert("ambig".into(), Value::String(a.clone()));
+            }
+            if let Some(k) = &t.sortkeys {
+                o.insert("sortkeys".into(), registry::sortkeys_to_value(k));
+            }
+            if t.new_item {
+                o.insert("newItem".into(), Value::Bool(true));
+            }
+            if let Some(d) = t.disambig {
+                let d = st.ambig(d);
+                let mut dd = Obj::new();
+                dd.insert("names".into(), json!(d.names));
+                dd.insert("givens".into(), json!(d.givens));
+                if d.year_suffix != Value::Bool(false) {
+                    dd.insert("year_suffix".into(), d.year_suffix.clone());
+                }
+                dd.insert("disambiguate".into(), d.disambiguate.clone());
+                o.insert("disambig".into(), Value::Object(dd));
+            }
+            for (k, v) in [
+                ("frnn", t.first_reference_note_number),
+                ("fcrnn", t.first_container_reference_note_number),
+                ("count", t.citation_count),
+            ] {
+                if let Some(n) = v {
+                    o.insert(k.into(), Value::from(n));
+                }
+            }
+            tokens.insert(id.clone(), Value::Object(o));
+        }
+        let mut citations = Vec::new();
+        for cid in &reg.citationreg.citation_by_index {
+            let c = reg.citationreg.get(*cid);
+            let mut o = Obj::new();
+            o.insert("id".into(), Value::String(gen(&c.citation_id)));
+            for (k, from) in [("noteIndex", "noteIndex"), ("index", "index")] {
+                if let Some(v) = keep(&c.properties, from) {
+                    o.insert(k.into(), v);
+                }
+            }
+            let mut sorted = Vec::new();
+            for si in &c.sorted_items {
+                let mut so = Obj::new();
+                so.insert("id".into(), Value::String(si.item_id.clone()));
+                so.insert("cid".into(), si.item.get("id").cloned().unwrap_or(Value::Null));
+                for (k, from) in [
+                    ("position", "position"),
+                    ("frnn", "first-reference-note-number"),
+                    ("fcrnn", "first-container-reference-note-number"),
+                    ("near", "near-note"),
+                    ("sortkeys", "sortkeys"),
+                    ("locator", "locator"),
+                    ("label", "label"),
+                    ("xloc", "locator-extra"),
+                ] {
+                    if let Some(v) = keep(&si.item, from) {
+                        so.insert(k.into(), v);
+                    }
+                }
+                sorted.push(Value::Object(so));
+            }
+            o.insert("sorted".into(), Value::Array(sorted));
+            citations.push(Value::Object(o));
+        }
+        let mut snap = Obj::new();
+        snap.insert("reflist".into(), json!(reg.reflist));
+        snap.insert("tokens".into(), Value::Object(tokens));
+        snap.insert("citations".into(), Value::Array(citations));
+        if let Some(by) = &reg.citationreg.citations_by_item_id {
+            let mut m = Obj::new();
+            for (k, list) in by {
+                let ids: Vec<String> = list
+                    .iter()
+                    .map(|c| gen(&reg.citationreg.get(*c).citation_id))
+                    .collect();
+                m.insert(k.clone(), json!(ids));
+            }
+            snap.insert("byItem".into(), Value::Object(m));
+        }
+        let mut ids: Vec<String> = reg.citationreg.citation_by_id.keys().map(|k| gen(k)).collect();
+        ids.sort();
+        snap.insert("citationById".into(), json!(ids));
+        Value::Object(snap)
+    }
+
+    /// The first place two JSON values differ, as a path and the two values.
+    fn first_diff(a: &Value, b: &Value, path: &str) -> Option<String> {
+        match (a, b) {
+            (Value::Object(x), Value::Object(y)) => {
+                for k in x.keys().chain(y.keys()) {
+                    let sub = format!("{path}.{k}");
+                    match (x.get(k), y.get(k)) {
+                        (Some(p), Some(q)) => {
+                            if let Some(d) = first_diff(p, q, &sub) {
+                                return Some(d);
+                            }
+                        }
+                        (p, q) => return Some(format!("{sub}: port {p:?} citeproc-js {q:?}")),
+                    }
+                }
+                None
+            }
+            (Value::Array(x), Value::Array(y)) => {
+                for i in 0..x.len().max(y.len()) {
+                    let sub = format!("{path}[{i}]");
+                    match (x.get(i), y.get(i)) {
+                        (Some(p), Some(q)) => {
+                            if let Some(d) = first_diff(p, q, &sub) {
+                                return Some(d);
+                            }
+                        }
+                        (p, q) => return Some(format!("{sub}: port {p:?} citeproc-js {q:?}")),
+                    }
+                }
+                None
+            }
+            _ if a == b => None,
+            _ => Some(format!("{path}: port {a} citeproc-js {b}")),
+        }
+    }
+
+    fn citation_refs(v: &Value) -> Vec<CitationRef> {
+        v.as_array()
+            .map(|a| a.iter().map(|r| CitationRef::from_json(r).expect("ref")).collect())
+            .unwrap_or_default()
+    }
+
+    /// Replays every scenario of `engine.json` (97 scenarios, 908 steps:
+    /// bibliography ordering, `makeCitationCluster`, and `processCitationCluster`
+    /// over random documents with note and in-text styles, edits, deletions,
+    /// previews and appends) and compares after each step the registry, the
+    /// citations' cite positions and sort keys, and the call's result with the
+    /// state citeproc-js holds.
+    #[test]
+    fn the_engine_matches_citeproc_js_scenario_by_scenario() {
+        let r: Value = serde_json::from_str(ENGINE_REF).expect("engine.json");
+        let locales = Arc::new(super::super::test_support::minimal_locales());
+        let (mut steps, mut compared) = (0, 0);
+        for sc in r["scenarios"].as_array().expect("scenarios") {
+            let name = sc["name"].as_str().unwrap_or("?");
+            let items: Vec<Value> = sc["items"].as_array().cloned().unwrap_or_default();
+            let sys = Sys::new(&items, locales.clone()).expect("sys");
+            let mut e = Engine::new(sys, sc["style"].as_str().unwrap_or(""), "en-US").expect("engine");
+            if sc["result"].get("error").is_some() {
+                continue;
+            }
+            for (n, (op, want)) in sc["ops"]
+                .as_array()
+                .expect("ops")
+                .iter()
+                .zip(sc["result"]["steps"].as_array().expect("steps"))
+                .enumerate()
+            {
+                steps += 1;
+                let at = format!("{name} step {n} ({})", op["op"]);
+                let mut got = Obj::new();
+                let outcome: Result<(), EngineError> = (|| {
+                    match op["op"].as_str().unwrap_or("") {
+                        "update" => {
+                            let ids: Vec<String> = op["ids"]
+                                .as_array()
+                                .map(|a| a.iter().map(|i| js::to_js_string(i)).collect())
+                                .unwrap_or_default();
+                            e.update_items(&ids, op["nosort"].as_bool().unwrap_or(false))?;
+                        }
+                        "process" | "append" | "preview" => {
+                            let c = Citation::from_json(&op["citation"]).or_else(|_| {
+                                // a citation without a citationID or properties
+                                let mut v = op["citation"].clone();
+                                if v.get("citationID").is_none() {
+                                    v["citationID"] = Value::String(String::new());
+                                }
+                                Citation::from_json(&v)
+                            })?;
+                            let c = if op["citation"].get("properties").is_none() {
+                                Citation { properties: None, ..c }
+                            } else {
+                                c
+                            };
+                            let (pre, post) = (citation_refs(&op["pre"]), citation_refs(&op["post"]));
+                            match op["op"].as_str().unwrap_or("") {
+                                "process" => {
+                                    let updates = e.process_citation_cluster(&c, &pre, &post)?;
+                                    got.insert("ret".into(), json!(updates.iter().map(|u| json!([u.index, u.text, gen(&u.citation_id)])).collect::<Vec<_>>()));
+                                }
+                                "append" => {
+                                    let updates = e.append_citation_cluster(&c)?;
+                                    got.insert("ret".into(), json!(updates.iter().map(|u| json!([u.index, u.text, gen(&u.citation_id)])).collect::<Vec<_>>()));
+                                }
+                                _ => {
+                                    let text = e.preview_citation_cluster(&c, &pre, &post, crate::citeproc::OutputFormat::Html)?;
+                                    got.insert("text".into(), Value::String(text));
+                                }
+                            }
+                        }
+                        "make" => {
+                            let items: Vec<CitationItem> = op["items"]
+                                .as_array()
+                                .map(|a| a.iter().map(|i| CitationItem::from_json(i).expect("item")).collect())
+                                .unwrap_or_default();
+                            got.insert("text".into(), Value::String(e.make_citation_cluster(&items)?));
+                        }
+                        "bib" if want.get("bib") == Some(&Value::Bool(false)) => {
+                            // `makeBibliography()` returns `false` for a style without a
+                            // bibliography; the Engine reports it as the TypeError the runner hits.
+                            assert!(e.make_bibliography(op.get("section")).is_err(), "{at}");
+                        }
+                        "bib" => {
+                            let b = e.make_bibliography(op.get("section"))?;
+                            got.insert(
+                                "bib".into(),
+                                json!({"params": b.params, "entries": b.entries}),
+                            );
+                        }
+                        "replace" => {
+                            e.replace_items(&op["items"].as_array().cloned().unwrap_or_default())?;
+                        }
+                        other => panic!("{at}: unknown op {other}"),
+                    }
+                    Ok(())
+                })();
+                match (&outcome, want.get("error")) {
+                    (Ok(()), None) => {}
+                    (Err(err), Some(msg)) => {
+                        // Both threw. JS TypeError texts are not reproduced; CSL.error texts are.
+                        let m = msg.as_str().unwrap_or("");
+                        if let Some(rest) = m.strip_prefix("citeproc-js error: ") {
+                            assert_eq!(err.to_string(), format!("citeproc-js error: {rest}"), "{at}");
+                        }
+                        // state after an exception is not compared
+                        break;
+                    }
+                    (Ok(()), Some(msg)) => panic!("{at}: citeproc-js threw {msg} and the port did not"),
+                    (Err(err), None) => panic!("{at}: the port failed ({err}) and citeproc-js did not"),
+                }
+                for key in ["ret", "text", "bib"] {
+                    let w = want.get(key).cloned();
+                    // citeproc-js `bib: false` has no counterpart (the port errors); both are checked above.
+                    if let Some(w) = w.filter(|w| *w != Value::Bool(false)) {
+                        let g = got.get(key).cloned().unwrap_or(Value::Null);
+                        if let Some(d) = first_diff(&g, &w, key) {
+                            panic!("{at}: {d}");
+                        }
+                    }
+                }
+                let snap = snapshot(e.state());
+                if let Some(d) = first_diff(&snap, &want["snap"], "snap") {
+                    panic!("{at}: {d}");
+                }
+                compared += 1;
+            }
+        }
+        assert!(steps > 800, "{steps} steps");
+        println!("engine.json: {steps} steps, {compared} compared with citeproc-js");
+    }
+
     #[test]
     fn loose_equality_follows_javascript() {
         assert!(loose_eq(None, None));
@@ -2537,6 +2824,5 @@ mod tests {
         assert_eq!(s.get_splice_delimiter(true, false, 1), Some(" | ".into()));
         s.citation.opt.insert("collapse".into(), json!("year-suffix"));
         assert_eq!(s.get_splice_delimiter(false, false, 1), Some("; ".into()));
-        let _ = BTreeMap::<String, String>::new();
     }
 }

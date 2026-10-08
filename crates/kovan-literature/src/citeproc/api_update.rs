@@ -145,7 +145,7 @@ impl State {
         let mut item_ids: Vec<String> = Vec::new();
         for c in citations {
             for item in &c.citation_items {
-                let id = js::to_js_string(item.get("id").unwrap_or(&Value::Null));
+                let id = super::registry::id_key(item.get("id"));
                 if !done_ids.contains(&id) {
                     item_ids.push(id.clone());
                 }
@@ -250,7 +250,7 @@ impl State {
                 if !item.contains_key("sortkeys") {
                     item.insert("sortkeys".into(), Value::Array(Vec::new()));
                 }
-                let id = js::to_js_string(item.get("id").unwrap_or(&Value::Null));
+                let id = super::registry::id_key(item.get("id"));
                 retrieve_item(self, &id)?;
                 item_list.push(id.clone());
                 sorted.push(SortedItem { item_id: id, item });
