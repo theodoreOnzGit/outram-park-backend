@@ -3494,28 +3494,6 @@
   {
     "author": [
       {
-        "family": "Leppänen",
-        "given": "Jaakko"
-      }
-    ],
-    "container-title": "Annals of Nuclear Energy",
-    "id": "leppanen2017use",
-    "issued": {
-      "date-parts": [
-        [
-          2017
-        ]
-      ]
-    },
-    "page": "161–167",
-    "publisher": "Elsevier",
-    "title": "On the use of delta-tracking and the collision flux estimator in the Serpent 2 Monte Carlo particle transport code",
-    "type": "article-journal",
-    "volume": "105"
-  },
-  {
-    "author": [
-      {
         "family": "Leung",
         "given": "Kenneth"
       },
@@ -4641,33 +4619,6 @@
     "type": "article-journal"
   },
   {
-    "URL": "https://arxiv.org/abs/2608.17504",
-    "author": [
-      {
-        "family": "Ong",
-        "given": "Theodore Kay Chen"
-      },
-      {
-        "family": "Wong",
-        "given": "Ethan Yew Hoe"
-      },
-      {
-        "family": "Xiao",
-        "given": "Sicong"
-      }
-    ],
-    "id": "ong2026outrampark_arxiv",
-    "issued": {
-      "date-parts": [
-        [
-          2026
-        ]
-      ]
-    },
-    "title": "Agentic Porting, Construction and Initial Verification and Validation of Libraries within the Open Source Unified TRAnsient Multi-Phase Advanced Reactor simulation Kit (Outram Park) Part I: Thermal Hydraulics",
-    "type": "document"
-  },
-  {
     "URL": "https://github.com/theodoreOnzGit/outram-park-backend",
     "author": [
       {
@@ -5485,40 +5436,6 @@
     "volume": "219"
   },
   {
-    "author": [
-      {
-        "family": "Tan",
-        "given": "Zhe Chuan"
-      },
-      {
-        "family": "Feng",
-        "given": "Zhi Yuan"
-      },
-      {
-        "family": "Chan",
-        "given": "Kok Yue"
-      },
-      {
-        "family": "Wang",
-        "given": "Kan"
-      }
-    ],
-    "container-title": "Annals of Nuclear Energy",
-    "id": "tan2025semi",
-    "issued": {
-      "date-parts": [
-        [
-          2025
-        ]
-      ]
-    },
-    "page": "111436",
-    "publisher": "Elsevier",
-    "title": "A semi-implicit Chord Length Sampling method for dispersion fuel analysis",
-    "type": "article-journal",
-    "volume": "219"
-  },
-  {
     "URL": "https://www.mom.gov.sg/newsroom/speeches/2026/0303-minister-speech-for-cos-2026",
     "accessed": {
       "date-parts": [
@@ -6054,35 +5971,6 @@
     "publisher": "University of California, Berkeley",
     "title": "Coupled neutronics and thermal-hydraulics modeling for pebble-bed Fluoride-Salt-Cooled, High-Temperature Reactor (FHR)",
     "type": "book"
-  },
-  {
-    "author": [
-      {
-        "family": "Wanlin",
-        "given": "Li"
-      },
-      {
-        "family": "Ganglin",
-        "given": "Yu"
-      },
-      {
-        "family": "Chunlin",
-        "given": "Wei"
-      }
-    ],
-    "container-title": "7th International Topical Meeting on High Temperature Reactor Technology: The modular HTR is advancing towards reality. Papers and Presentations",
-    "id": "wanlin2014research",
-    "issue": "INIS-CN–17M1840",
-    "issued": {
-      "date-parts": [
-        [
-          2014
-        ]
-      ]
-    },
-    "page": "6–6",
-    "title": "Research on Benchmark Calculation and Analysis of HTR-10 with RMC Code",
-    "type": "paper-conference"
   },
   {
     "URL": "https://github.com/openmc-dev/openmc/pull/3971",

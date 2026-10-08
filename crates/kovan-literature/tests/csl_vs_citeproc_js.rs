@@ -32,8 +32,9 @@
 //! finding, never a tolerance. Set `CSL_DUMP_DIFFERENCES=<file>` to write the
 //! current differences in that file's format.
 //!
-//! **Results (2026-10-08, #797).** 0 differences: 223 items x 3 parts x 5
-//! styles = 3,345 comparisons and 5 bibliography orders all equal citeproc-js
+//! **Results (2026-10-08, #797; re-run on the 219-entry .bib after the four
+//! duplicates were removed, #789).** 0 differences: 219 items x 3 parts x 5
+//! styles = 3,285 comparisons (it was 223 items, 3,345 comparisons, before) and 5 bibliography orders all equal citeproc-js
 //! 2.4.63 (`known_differences.json` is empty; no registered deviation affects
 //! the site set). The test is capable of failing: altering one reference
 //! value is reported as an unlisted difference.
@@ -246,7 +247,7 @@ fn the_reference_was_made_from_the_csl_json_this_crate_produces() {
 #[test]
 fn apa_matches_citeproc_js_except_the_recorded_differences() {
     let compared = check_styles(&[("apa", REFERENCE)]);
-    assert_eq!(compared, 669);
+    assert_eq!(compared, 657);
 }
 
 #[test]
@@ -327,5 +328,5 @@ fn other_styles_match_citeproc_js_except_the_recorded_differences() {
             include_str!("data/csl/reference_vancouver.json"),
         ),
     ]);
-    assert_eq!(compared, 4 * 669);
+    assert_eq!(compared, 4 * 657);
 }

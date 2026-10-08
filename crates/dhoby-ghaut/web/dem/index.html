@@ -18,6 +18,17 @@
                    border: 3px solid #3a4150; border-top-color: #7aa7ff; animation: s 0.9s linear infinite; }
   @keyframes s { to { transform: rotate(360deg); } }
   noscript, .err { color: #ff8a8a; }
+  #loading a, #refs a { color: #7aa7ff; }
+  /* References (gh:#789): a collapsed button fixed in the corner, so the full-page main view is
+     untouched; opened, the list scrolls inside a box that never exceeds the screen width. */
+  #refs { position: fixed; right: 8px; bottom: 8px; z-index: 10; max-width: calc(100vw - 16px); font-size: 13px; }
+  #refs summary { cursor: pointer; width: max-content; margin-left: auto; padding: 6px 10px;
+                  background: #1b1f27; border: 1px solid #3a4150; border-radius: 6px; }
+  #refs .refs-body { width: min(36em, calc(100vw - 16px)); max-height: 55vh; overflow: auto; margin-top: 4px;
+                     padding: 2px 12px; background: #14171d; border: 1px solid #3a4150; border-radius: 6px;
+                     overflow-wrap: anywhere; }
+  #refs h2 { font-size: 14px; margin: 8px 0; }
+  #refs p.csl-entry { margin: 0 0 8px; }
 </style>
 </head>
 <body>
@@ -29,9 +40,34 @@
     <p>HTR-10 pebbles poured into the reactor vessel and settled by OUTRAM PARK's port of the LIGGGHTS
       discrete-element code, live in a background worker in this tab, with the packing fraction converging.</p>
     <p>Research, education and V&amp;V only. Not for reactor operation, licensing, safety decisions or emergency response.</p>
+    <p>Methods and data: the discrete-element method follows LIGGGHTS <a href="#ref-kloss2012models">(Kloss et al., 2012)</a>, and the HTR-10 vessel and pebble data are from IAEA-TECDOC-1382 <a href="#ref-iaeatecdoc1382">(International Atomic Energy Agency, 2003)</a>.</p>
     <noscript>This demo needs JavaScript and WebAssembly.</noscript>
   </div>
 </div>
+<details id="refs">
+  <summary>References</summary>
+  <div class="refs-body">
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-iaeatecdoc1382" style="padding-left: 2em; text-indent: -2em;">International Atomic Energy Agency. (2003). <i>Evaluation of High Temperature Gas Cooled Reactor Performance</i> (IAEA-TECDOC-1382). International Atomic Energy Agency.</p>
+
+<p class="csl-entry" id="ref-kloss2012models" style="padding-left: 2em; text-indent: -2em;">Kloss, C., Goniva, C., Hager, A., Amberger, S., &#38; Pirker, S. (2012). Models, Algorithms and Validation for Opensource DEM and CFD-DEM. <i>Progress in Computational Fluid Dynamics, An International Journal</i>, <i>12</i>(2/3), 140–152. https://doi.org/10.1504/PCFD.2012.047457</p>
+
+<!-- references:end -->
+  </div>
+</details>
+<script>
+  // A citation link in the loading text opens the list at its entry.
+  addEventListener("hashchange", function () {
+    var d = document.getElementById("refs");
+    if (d && location.hash.indexOf("#ref-") === 0) {
+      d.open = true;
+      var t = document.getElementById(location.hash.slice(1));
+      if (t) t.scrollIntoView();
+    }
+  });
+</script>
 <script type="module">
   import init from "./dem_web.js?v=__BUILD__";
   init({ module_or_path: "./dem_web_bg.wasm?v=__BUILD__" }).catch((e) => {
