@@ -1173,3 +1173,25 @@ pub(super) fn cast_label_in_group(
     }
     Ok(r)
 }
+
+#[cfg(test)]
+#[path = "util_names_output_tests.rs"]
+mod driver_tests;
+
+/// Test support shared by the differential tests of the names subsystem.
+#[cfg(test)]
+pub(crate) mod testing {
+    use std::sync::LazyLock;
+
+    use serde_json::Value;
+
+    /// `tests/data/csl/units/names_output.json` (generator
+    /// `scripts/csl-units/names_output.cjs`): citeproc-js 2.4.63's answers for
+    /// `CSL.Util.Names.*`, `getName`, `fixupInstitution`, `_trimInstitution`,
+    /// `isPerson` and `_compareNamesets`.
+    pub(crate) static REFERENCE: LazyLock<Value> = LazyLock::new(|| {
+        #[allow(clippy::expect_used)]
+        serde_json::from_str(include_str!("../../tests/data/csl/units/names_output.json"))
+            .expect("names_output.json")
+    });
+}

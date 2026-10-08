@@ -343,3 +343,81 @@ pub fn get_raw_name(name: &Value) -> String {
     }
     ret.join(" ")
 }
+
+#[cfg(test)]
+mod tests {
+    //! Differential tests against citeproc-js 2.4.63 for `CSL.Util.Names`:
+    //! reference `tests/data/csl/units/names_output.json`, section `util`
+    //! (generator `scripts/csl-units/names_output.cjs`).
+    //!
+    //! * `initializeWith` over ~480 given names and suffixes (every
+    //!   `given`/`suffix` of a sample of the fixtures' names, plus edge cases:
+    //!   hyphens, particles, tags, non-Latin scripts, non-breaking spaces),
+    //!   20 terminators (`.`, `%s`, `%s.`, `﻿`, `$&`, ...), both values of
+    //!   `normalizeOnly`, and `initialize-with-hyphen` unset / false / true
+    //!   (the last two over the edge cases only): about 14,500 cases;
+    //! * `unInitialize`, `mergetag`, `tagonly`, `notag`, `getRawName`.
+    //!
+    //! Pass criterion: every result equal to citeproc-js's.
+    use serde_json::Value;
+
+    use super::*;
+    use crate::citeproc::util_names_output::testing::REFERENCE;
+
+    fn state(hyphen: &Value) -> State {
+        let mut st = State::default();
+        if !hyphen.is_null() {
+            st.opt.insert("initialize-with-hyphen".into(), hyphen.clone());
+        }
+        st.tmp.lang_array = vec!["en".to_string()];
+        st
+    }
+
+    #[test]
+    fn initialize_with_matches_citeproc_js() {
+        let mut n = 0;
+        for set in REFERENCE["util"]["names"].as_array().expect("names") {
+            let st = state(&set["hyphen"]);
+            for row in set["rows"].as_array().expect("rows") {
+                let g = row[0].as_str().expect("g");
+                let t = row[1].as_str().expect("t");
+                let normalize = row[2].as_bool().expect("n");
+                let got = initialize_with(&st, g, t, normalize);
+                assert_eq!(
+                    Some(got.as_str()),
+                    row[3].as_str(),
+                    "initializeWith({g:?}, {t:?}, {normalize}) hyphen={}",
+                    set["hyphen"]
+                );
+                n += 1;
+            }
+        }
+        assert!(n > 14000, "{n}");
+    }
+
+    #[test]
+    fn small_helpers_match_citeproc_js() {
+        let st = state(&Value::Null);
+        for r in REFERENCE["util"]["unInit"].as_array().expect("unInit") {
+            assert_eq!(
+                Some(un_initialize(&st, r["g"].as_str().expect("g")).as_str()),
+                r["v"].as_str()
+            );
+        }
+        for r in REFERENCE["util"]["mergetag"].as_array().expect("mergetag") {
+            let (a, b) = (r["a"].as_str().expect("a"), r["b"].as_str().expect("b"));
+            assert_eq!(Some(mergetag(&st, a, b).as_str()), r["v"].as_str(), "mergetag({a:?}, {b:?})");
+        }
+        for r in REFERENCE["util"]["tagonly"].as_array().expect("tagonly") {
+            let s = r["s"].as_str().expect("s");
+            assert_eq!(Some(tagonly(&st, s).as_str()), r["v"].as_str(), "tagonly({s:?})");
+        }
+        for r in REFERENCE["util"]["notag"].as_array().expect("notag") {
+            let s = r["s"].as_str().expect("s");
+            assert_eq!(Some(notag(s).as_str()), r["v"].as_str(), "notag({s:?})");
+        }
+        for r in REFERENCE["util"]["getRaw"].as_array().expect("getRaw") {
+            assert_eq!(Some(get_raw_name(&r["n"]).as_str()), r["v"].as_str(), "{}", r["n"]);
+        }
+    }
+}

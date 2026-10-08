@@ -210,3 +210,31 @@ impl NameOutput {
         compare_namesets_slices(base, nameset)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    //! Differential test against citeproc-js 2.4.63 for `_compareNamesets`:
+    //! reference `tests/data/csl/units/names_output.json`, section
+    //! `person.compare` (all 121 ordered pairs of eleven name lists: equal,
+    //! different lengths, a missing, empty or null `given`, suffixes,
+    //! particles, literals, and `undefined` arguments). Pass criterion: equal
+    //! results (including `undefined != ""`).
+    use super::*;
+    use crate::citeproc::util_names_output::testing::REFERENCE;
+
+    #[test]
+    fn compare_namesets_matches_citeproc_js() {
+        let rows = REFERENCE["person"]["compare"].as_array().expect("rows");
+        let mut equal = 0;
+        for r in rows {
+            let got = if r.get("undefinedA").is_some() {
+                compare_namesets(None, r.get("b"))
+            } else {
+                compare_namesets(r.get("a"), r.get("b"))
+            };
+            assert_eq!(Some(got), r["v"].as_bool(), "{} vs {}", r["a"], r["b"]);
+            equal += usize::from(got);
+        }
+        assert!(rows.len() > 120 && equal > 5 && equal < rows.len());
+    }
+}

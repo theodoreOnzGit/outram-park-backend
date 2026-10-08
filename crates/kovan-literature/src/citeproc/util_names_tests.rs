@@ -36,3 +36,26 @@ pub fn is_person(value: &Value) -> bool {
     let get = |k: &str| js::truthy_opt(value.get(k));
     !(get("literal") || (!get("given") && get("family") && get("isInstitution")))
 }
+
+#[cfg(test)]
+mod tests {
+    //! Differential test against citeproc-js 2.4.63 for `isPerson`: reference
+    //! `tests/data/csl/units/names_output.json`, section `person.isPerson`
+    //! (nine edge-case names and 300 names of the fixtures). Pass criterion:
+    //! equal results.
+    use super::*;
+    use crate::citeproc::util_names_output::testing::REFERENCE;
+
+    #[test]
+    fn is_person_matches_citeproc_js() {
+        let rows = REFERENCE["person"]["isPerson"].as_array().expect("rows");
+        assert!(rows.len() > 300);
+        let mut persons = 0;
+        for r in rows {
+            let got = is_person(&r["n"]);
+            assert_eq!(Some(got), r["v"].as_bool(), "isPerson({})", r["n"]);
+            persons += usize::from(got);
+        }
+        assert!(persons > 100 && persons < rows.len());
+    }
+}

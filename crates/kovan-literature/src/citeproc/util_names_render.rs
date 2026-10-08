@@ -463,6 +463,9 @@ mod output_side {
         };
 
         let mut found_tag = true;
+        // The `multi._key` entry `name` was switched to (upstream mutates it
+        // in place, inside the caller's name).
+        let mut switched_key: Option<String> = None;
         if slot_localeset != "locale-orig" {
             found_tag = false;
             if js::truthy_opt(cur.get("multi")) {
@@ -487,6 +490,7 @@ mod output_side {
                             None => sub.remove("isInstitution"),
                         };
                         cur = sub;
+                        switched_key = Some(key.clone());
                         // Set name formatting params
                         name_params = get_name_params(st, ctx, &key)?;
                         name_params.transliterated = Some(true);
@@ -528,6 +532,19 @@ mod output_side {
         if js::get_truthy(&cur, "literal") {
             cur.remove("family");
             cur.remove("given");
+        }
+        // (the in-place mutations above hit the caller's `multi._key[tag]`)
+        match &switched_key {
+            Some(key) => {
+                if let Some(slot) = name
+                    .get_mut("multi")
+                    .and_then(|m| m.get_mut("_key"))
+                    .and_then(|k| k.get_mut(key.as_str()))
+                {
+                    *slot = Value::Object(cur.clone());
+                }
+            }
+            None => *name = Value::Object(cur.clone()),
         }
         // var clone the item before writing into it
         let mut clone = Obj::new();
@@ -2058,5 +2075,249 @@ mod input_side_tests {
             }
         }
         assert!(n > 15000, "{n}");
+    }
+}
+
+#[cfg(test)]
+mod output_side_tests {
+    //! Differential tests against citeproc-js 2.4.63 for the output side of
+    //! util_names_render.js that can run without the output queue:
+    //! reference `tests/data/csl/units/names_output.json`
+    //! (generator `scripts/csl-units/names_output.cjs`).
+    //!
+    //! * `getName`: 265 names (a sample of the fixtures' plus generated ones with
+    //!   `multi` forms, particles, institutions, literals) × 4 settings
+    //!   (item language, `locale-translit` / `-translat` lists, parse-names,
+    //!   Vietnamese detection; locale options `name-as-sort-order`,
+    //!   `name-as-reverse-order`, `name-never-short`) × 4 slots × `fallback` ×
+    //!   `stopOrig`: the returned name, `usedOrig`, errors, and the state of the
+    //!   caller's name afterwards (upstream normalises it in place);
+    //! * `fixupInstitution`: 15 institution names × 18 `cs:institution`
+    //!   settings (`form`, `institution-parts`, `use-first`, `use-last`,
+    //!   `stop-first`, `stop-last`, `reverse-order`) × 5 items (jurisdiction,
+    //!   dates) × `legacy_institution_name_ordering` × `just_looking`, against
+    //!   an abbreviation table with entire-name and part abbreviations,
+    //!   `>>2001>>` date cut-offs and `#1!field>>>` quash markers: the long
+    //!   and short lists, and `done_vars` afterwards (5,400 cases);
+    //! * `_trimInstitution` over the same settings.
+    //!
+    //! Pass criterion: every result equal to citeproc-js's.
+    use serde_json::Value;
+
+    use super::*;
+    use crate::citeproc::build_retrieve_item::canon_numbers;
+    use crate::citeproc::js::Obj;
+    use crate::citeproc::obj_token::{Token, TokenType};
+    use crate::citeproc::state::State;
+    use crate::citeproc::EngineError;
+    use crate::citeproc::util_locale::Locale;
+    use crate::citeproc::util_names_output::testing::REFERENCE;
+    use crate::citeproc::util_names_output::NameOutput;
+
+    fn get_name_state(v: &Value) -> (State, NameInputCtx) {
+        let mut st = State::default();
+        let strings = |k: &str| -> Value {
+            v.get(k)
+                .cloned()
+                .unwrap_or_else(|| Value::Array(Vec::new()))
+        };
+        st.opt.insert("default-locale".into(), serde_json::json!(["en-US"]));
+        st.opt.insert("locale-translit".into(), strings("translit"));
+        st.opt.insert("locale-translat".into(), strings("translat"));
+        st.opt.insert("locale-sort".into(), strings("sort"));
+        let locale = |opts: Value| {
+            let mut l = Locale::new();
+            if let Value::Object(o) = opts {
+                l.opts = o;
+            }
+            l
+        };
+        st.locale.insert(
+            "en-US".into(),
+            locale(serde_json::json!({
+                "name-as-sort-order": {"ja": true, "zh": true, "ko": true},
+                "name-as-reverse-order": {"hu": true},
+                "name-never-short": {"ja": true}
+            })),
+        );
+        st.locale.insert(
+            "ja-JP".into(),
+            locale(serde_json::json!({
+                "name-as-sort-order": {"ja": true},
+                "name-as-reverse-order": {},
+                "name-never-short": {"zh": true}
+            })),
+        );
+        st.locale.insert("fr-FR".into(), locale(serde_json::json!({})));
+        let ctx = NameInputCtx {
+            parse_names: v.get("parse").and_then(Value::as_bool).unwrap_or(true),
+            auto_vietnamese_names: v.get("vn").and_then(Value::as_bool).unwrap_or(false),
+            item_language: v.get("lang").and_then(Value::as_str).map(str::to_string),
+        };
+        (st, ctx)
+    }
+
+    #[test]
+    fn get_name_matches_citeproc_js() {
+        let r = &REFERENCE["getName"];
+        let variants = r["variants"].as_array().expect("variants");
+        let slots: Vec<&str> = r["slots"]
+            .as_array()
+            .expect("slots")
+            .iter()
+            .filter_map(Value::as_str)
+            .collect();
+        let mut n = 0;
+        for c in r["cases"].as_array().expect("cases") {
+            for (vi, v) in variants.iter().enumerate() {
+                let (st, ctx) = get_name_state(v);
+                let mut want_iter = c["v"][vi].as_array().expect("row").iter();
+                for slot in &slots {
+                    for fallback in [true, false] {
+                        for stop in [None, Some(true)] {
+                            let want = want_iter.next().expect("want");
+                            let mut name = c["name"].clone();
+                            let got = get_name(&st, &ctx, &mut name, slot, fallback, stop);
+                            match (got, want.get("e")) {
+                                (Ok(g), None) => {
+                                    let mut gn = g.name.map(Value::Object).unwrap_or(Value::Bool(false));
+                                    canon_numbers(&mut gn);
+                                    assert_eq!(
+                                        gn,
+                                        want["name"].clone().as_object().map(|_| want["name"].clone()).unwrap_or(Value::Bool(false)),
+                                        "getName {} [{}] {slot} fb={fallback} stop={stop:?}",
+                                        c["name"],
+                                        v["name"]
+                                    );
+                                    let uo = match g.used_orig {
+                                        Some(b) => Value::Bool(b),
+                                        None => Value::Null,
+                                    };
+                                    assert_eq!(uo, want["usedOrig"], "usedOrig {} [{}] {slot}", c["name"], v["name"]);
+                                }
+                                (Err(e), Some(w)) => {
+                                    let text = match &e {
+                                        EngineError::BadInput(m) => m.clone(),
+                                        o => o.to_string(),
+                                    };
+                                    assert_eq!(w.as_str(), Some(text.as_str()), "{}", c["name"]);
+                                }
+                                (g, w) => panic!("getName {} [{}] {slot}: {g:?} vs {w:?}", c["name"], v["name"]),
+                            }
+                            if want.get("e").is_none() {
+                                canon_numbers(&mut name);
+                                assert_eq!(name, want["after"], "caller's name after getName {} [{}] {slot}", c["name"], v["name"]);
+                            }
+                            n += 1;
+                        }
+                    }
+                }
+            }
+        }
+        assert!(n > 8000, "{n}");
+    }
+
+    fn inst_output(strings: &Value, item: &Value, legacy: bool, abbrevs: &Value) -> (State, NameOutput) {
+        let mut st = State::default();
+        st.opt.insert(
+            "development_extensions".into(),
+            serde_json::json!({ "legacy_institution_name_ordering": legacy }),
+        );
+        let mut table = crate::citeproc::Abbreviations::new();
+        if let Value::Object(by_j) = abbrevs {
+            for (j, cats) in by_j {
+                for (cat, keys) in cats.as_object().into_iter().flatten() {
+                    for (k, v) in keys.as_object().into_iter().flatten() {
+                        table
+                            .entry(j.clone())
+                            .or_default()
+                            .entry(cat.clone())
+                            .or_default()
+                            .insert(k.clone(), v.as_str().unwrap_or_default().to_string());
+                    }
+                }
+            }
+        }
+        st.sys.abbreviations = table;
+        let mut tok = Token::new("institution", TokenType::Start);
+        if let Value::Object(o) = strings {
+            for (k, v) in o {
+                tok.strings.insert(k.clone(), v.clone());
+            }
+        }
+        let mut no = NameOutput::new(item, &Value::Null);
+        no.institution = Some(tok);
+        (st, no)
+    }
+
+    #[test]
+    fn fixup_institution_matches_citeproc_js() {
+        let r = &REFERENCE["inst"];
+        let names = r["names"].as_array().expect("names");
+        let strings = r["strings"].as_array().expect("strings");
+        let items = r["items"].as_array().expect("items");
+        let mut n = 0;
+        let (mut errors, mut abbreviated, mut quashed) = (0, 0, 0);
+        for c in r["cases"].as_array().expect("cases") {
+            let nm = c["n"].as_str().expect("n");
+            errors += usize::from(c.get("e").is_some());
+            quashed += usize::from(c["done"].as_array().map(|d| !d.is_empty()).unwrap_or(false));
+            abbreviated += usize::from(
+                c["v"]["long"] != c["v"]["short"] && c["v"]["short"].as_array().map(|s| !s.is_empty()).unwrap_or(false),
+            );
+            assert!(names.iter().any(|x| x.as_str() == Some(nm)));
+            let (mut st, no) = inst_output(
+                &strings[c["s"].as_u64().expect("s") as usize],
+                &items[c["i"].as_u64().expect("i") as usize],
+                c["l"].as_bool().expect("l"),
+                &r["abbrevs"],
+            );
+            st.tmp.just_looking = c["j"].as_bool().expect("j");
+            let mut name = Obj::new();
+            name.insert("literal".into(), Value::String(nm.to_string()));
+            let got = no.fixup_institution(&mut st, name, "author", Some(0));
+            match (got, c.get("e")) {
+                (Ok(g), None) => {
+                    let want = &c["v"];
+                    assert_eq!(
+                        serde_json::json!({"long": g.long, "short": g.short}),
+                        *want,
+                        "fixupInstitution({nm:?}) settings={} item={}",
+                        r["strings"][c["s"].as_u64().unwrap_or(0) as usize],
+                        r["items"][c["i"].as_u64().unwrap_or(0) as usize]
+                    );
+                }
+                (Err(e), Some(w)) => {
+                    assert!(
+                        matches!(&e, EngineError::BadInput(_)),
+                        "{e:?} vs {w}"
+                    );
+                }
+                (g, w) => panic!("fixupInstitution({nm:?}): {g:?} vs {w:?}"),
+            }
+            assert_eq!(
+                serde_json::json!(st.tmp.done_vars),
+                c["done"],
+                "done_vars after fixupInstitution({nm:?}) settings={}",
+                r["strings"][c["s"].as_u64().unwrap_or(0) as usize]
+            );
+            n += 1;
+        }
+        assert!(n > 5000, "{n}");
+        // The reference is not vacuous: it has abbreviated short forms and quashes.
+        assert!(abbreviated > 1000 && quashed > 100, "{errors} {abbreviated} {quashed}");
+        let mut t = 0;
+        for c in r["trim"].as_array().expect("trim") {
+            let (_st, no) = inst_output(&strings[c["s"].as_u64().expect("s") as usize], &Value::Null, false, &Value::Null);
+            let lst: Vec<String> = c["l"]
+                .as_array()
+                .expect("l")
+                .iter()
+                .filter_map(|x| x.as_str().map(str::to_string))
+                .collect();
+            assert_eq!(serde_json::json!(no.trim_institution(&lst)), c["v"], "{c}");
+            t += 1;
+        }
+        assert!(t > 50);
     }
 }
