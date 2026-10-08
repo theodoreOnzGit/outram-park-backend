@@ -204,13 +204,13 @@ mod tests {
     fn clone_copies_four_fields_and_resets_the_rest() {
         let mut c = cfg(&[2, 1], &[&[0, 1], &[2]], json!("3"), json!(true));
         c.minval = 9;
-        c.use_initials = Some(true);
+        c.use_initials = true;
         let k = clone_ambig_config(&c, None);
         assert_eq!(k.names, vec![2, 1]);
         assert_eq!(k.givens, vec![vec![0, 1], vec![2]]);
         assert_eq!(k.year_suffix, json!("3"));
         assert_eq!(k.disambiguate, json!(true));
-        assert_eq!((k.minval, k.use_initials), (1, None));
+        assert_eq!((k.minval, k.use_initials), (1, false));
         let old = cfg(&[], &[], json!(false), json!(5));
         let k2 = clone_ambig_config(&c, Some(&old));
         assert_eq!((k2.year_suffix, k2.disambiguate), (json!(false), json!(5)));

@@ -59,8 +59,9 @@ pub struct AmbigConfig {
     pub year_suffix: Value,
     /// `disambiguate`.
     pub disambiguate: Value,
-    /// `use_initials` (set by util_names_disambig.js; `undefined` until then).
-    pub use_initials: Option<bool>,
+    /// `use_initials` (set by util_names_disambig.js; `undefined` until then,
+    /// read as `false`).
+    pub use_initials: bool,
 }
 
 impl Default for AmbigConfig {
@@ -73,7 +74,71 @@ impl Default for AmbigConfig {
             givens: Vec::new(),
             year_suffix: Value::Bool(false),
             disambiguate: Value::from(0),
-            use_initials: None,
+            use_initials: false,
+        }
+    }
+}
+
+/// Element-wise accessors for the name code (util_names_*.js), which writes
+/// `names[pos]` and `givens[pos][i]` of `tmp.disambig_settings` one element at
+/// a time. JS arrays can have holes (`undefined` elements); here a hole reads
+/// as absent from [`AmbigConfig::given`] when it is past the end, and is
+/// stored as `0` when an element beyond the end is written (upstream's
+/// `padBase` gives every shown name a level, `0` by default, anyway).
+impl AmbigConfig {
+    /// `names[pos] = value`.
+    pub fn set_names(&mut self, pos: i64, value: i64) {
+        let pos = pos.max(0) as usize;
+        while self.names.len() <= pos {
+            self.names.push(0);
+        }
+        self.names[pos] = value;
+    }
+
+    /// `givens[pos]` is defined (a row, even an empty one, is truthy in JS).
+    pub fn has_givens(&self, pos: i64) -> bool {
+        (pos.max(0) as usize) < self.givens.len() && pos >= 0
+    }
+
+    /// `givens[pos][i]` (`None` is `undefined`, also when `givens[pos]` is,
+    /// where JS would throw: callers check [`AmbigConfig::has_givens`]).
+    pub fn given(&self, pos: i64, i: usize) -> Option<i64> {
+        self.givens.get(pos.max(0) as usize).and_then(|g| g.get(i)).copied()
+    }
+
+    /// `givens[pos][i] === undefined`.
+    pub fn given_is_undefined(&self, pos: i64, i: usize) -> bool {
+        self.given(pos, i).is_none()
+    }
+
+    /// `if (!givens[pos]) givens[pos] = []` (and the rows before it).
+    pub fn ensure_row(&mut self, pos: usize) {
+        while self.givens.len() <= pos {
+            self.givens.push(Vec::new());
+        }
+    }
+
+    /// `givens[pos].push(value)` (an `undefined` value is stored as `0`).
+    pub fn push_given(&mut self, pos: i64, value: Option<i64>) {
+        let pos = pos.max(0) as usize;
+        self.ensure_row(pos);
+        self.givens[pos].push(value.unwrap_or(0));
+    }
+
+    /// `givens[pos][i] = value` (holes are stored as `0`).
+    pub fn set_given(&mut self, pos: i64, i: usize, value: Option<i64>) {
+        let pos = pos.max(0) as usize;
+        self.ensure_row(pos);
+        while self.givens[pos].len() <= i {
+            self.givens[pos].push(0);
+        }
+        self.givens[pos][i] = value.unwrap_or(0);
+    }
+
+    /// `for (j = 0; j < pos + 1; j++) if (!givens[j]) givens[j] = [];`
+    pub fn fill_rows_to(&mut self, pos: i64) {
+        for j in 0..=(pos.max(0) as usize) {
+            self.ensure_row(j);
         }
     }
 }
@@ -89,6 +154,22 @@ mod tests {
         assert_eq!(c.minval, 1);
         assert_eq!(c.year_suffix, Value::Bool(false));
         assert_eq!(c.disambiguate, Value::from(0));
-        assert_eq!(c.use_initials, None);
+        assert!(!c.use_initials);
+    }
+
+    #[test]
+    fn element_accessors_grow_like_js_arrays() {
+        let mut c = AmbigConfig::default();
+        assert!(!c.has_givens(0));
+        c.push_given(1, Some(2));
+        assert!(c.has_givens(0) && c.has_givens(1) && !c.has_givens(2));
+        assert_eq!(c.given(1, 0), Some(2));
+        assert!(c.given_is_undefined(0, 0));
+        c.set_given(1, 3, Some(1));
+        assert_eq!(c.givens[1], vec![2, 0, 0, 1]);
+        c.set_names(2, 5);
+        assert_eq!(c.names, vec![0, 0, 5]);
+        c.fill_rows_to(3);
+        assert_eq!(c.givens.len(), 4);
     }
 }
