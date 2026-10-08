@@ -40,6 +40,13 @@ const POOL = [
   { id: 'I21', type: 'book', title: 'Dup', author: [P('Doe', 'John')] },
   { id: 'I22', type: 'classic', title: 'Poetics', author: [P('Aristotle', '')] },
   { id: 'I23', type: 'book', title: 'Dup2', author: [P('Doe', 'John'), P('Roe', 'Jane')] },
+  { id: 'I24', type: 'book', title: 'StrAuthor', author: 'String Author' },
+  { id: 'I25', type: 'book', title: 'ObjAuthor', author: P('Single', 'Object') },
+  { id: 'I26', type: 'book', title: 'Quoted', author: [P('"Doe Jones"', 'John'), P('Smith', 'Ann', { 'parse-names': false }), P('von Neumann', 'John'), P('Foo', 'Bar', { 'static-particles': true })] },
+  { id: 'I27', type: 'report', title: 'InstFlag', author: [{ family: 'Acme', isInstitution: true }, { family: 'Foo', given: '', isInstitution: true }] },
+  { id: 'I28', type: 'book', title: 'EmptyAuth', author: [], editor: [P('Roe', 'Jane')] },
+  { id: 'I29', type: 'book', title: 'NumAuth', author: 5 },
+  { id: 'I30', type: 'report', title: 'Corp3', author: [{ literal: 'A | B | C | Department of Education' }, { literal: 'Acme Corporation' }] },
   { id: 'I20', type: 'book', title: 'LitMix', author: [{ literal: 'The Foo | Bar Group' }, { literal: 'Solo' }] },
 ];
 
@@ -134,7 +141,7 @@ function genStyle() {
   const layoutAttrs = attrs(Object.assign({}, optAttr('delimiter', ['; ', ' | '], 0.4), optAttr('prefix', ['(', '['], 0.2), optAttr('suffix', [')', '.'], 0.3)));
   const bibLayoutAttrs = attrs(Object.assign({}, optAttr('suffix', ['.'], 0.4), optAttr('prefix', ['> '], 0.1)));
   const bibAttrs = attrs(Object.assign({}, chance(0.3) ? common : {}, optAttr('hanging-indent', ['true'], 0.1), chance(0.35) ? { 'subsequent-author-substitute': pick(['---', '——', '']), 'subsequent-author-substitute-rule': pick(['complete-all', 'complete-each', 'partial-each', 'partial-first']) } : {}));
-  const citAttrs = attrs(Object.assign({}, chance(0.7) ? common : {}));
+  const citAttrs = attrs(Object.assign({}, chance(0.7) ? common : {}, chance(0.3) ? { collapse: 'year' } : {}, chance(0.1) ? { 'cite-group-delimiter': ', ' } : {}));
   const style = `<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0"${attrs(styleAttrs)}><info><id>http://example.org/s</id><title>S</title><updated>2020-01-01T00:00:00+00:00</updated></info><citation${citAttrs}><layout${layoutAttrs}><names${namesAttrs}>${body}</names></layout></citation><bibliography${bibAttrs}><layout${bibLayoutAttrs}><names${namesAttrs}>${body}</names></layout></bibliography></style>`;
   const options = {};
   if (chance(0.1)) options.spoof_institutional_affiliations = true;
@@ -148,7 +155,7 @@ function genStyle() {
 function runStyle(spec) {
   const sys = makeSys(POOL);
   for (const o of Object.keys(spec.options)) sys[o] = spec.options[o];
-  const out = { cites: [], multi: null, bib: null };
+  const out = { cites: [], sa: [], multi: null, bib: null };
   let style;
   try {
     style = new CSL.Engine(sys, spec.style, 'en-US');
@@ -166,6 +173,9 @@ function runStyle(spec) {
   for (const id of ids) {
     try { out.cites.push({ v: style.makeCitationCluster([{ id }]) }); } catch (e) { out.cites.push({ e: String(e && e.message || e) }); }
   }
+  for (const id of ids) {
+    try { out.sa.push({ v: style.makeCitationCluster([{ id, 'suppress-author': true }]) }); } catch (e) { out.sa.push({ e: String(e && e.message || e) }); }
+  }
   try { out.multi = { v: style.makeCitationCluster(ids.map((id) => ({ id }))) }; } catch (e) { out.multi = { e: String(e && e.message || e) }; }
   try {
     const b = style.makeBibliography();
@@ -174,14 +184,14 @@ function runStyle(spec) {
   return out;
 }
 
-const N = 420;
+const N = 700;
 const specs = [];
 for (let i = 0; i < N; i++) specs.push(genStyle());
 const cases = specs.map((s) => Object.assign({ style: s.style, options: s.options, lang: s.lang }, { out: runStyle(s) }));
 const stats = { cases: cases.length, errors: 0, outputs: 0 };
 for (const c of cases) {
   if (c.out.build_error) { stats.errors++; continue; }
-  for (const x of c.out.cites.concat([c.out.multi, c.out.bib])) { if (x.e) stats.errors++; else stats.outputs++; }
+  for (const x of c.out.cites.concat(c.out.sa, [c.out.multi, c.out.bib])) { if (x.e) stats.errors++; else stats.outputs++; }
 }
 console.error(JSON.stringify(stats));
 write('names_e2e', { pool: POOL, acache: ACACHE, cases });

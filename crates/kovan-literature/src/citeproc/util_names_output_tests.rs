@@ -45,7 +45,7 @@ use crate::citeproc::obj_token::{Token, TokenType};
 use crate::citeproc::queue::{self, Adjust, FormatRef, Queue, QueueId, Rendered, StringParent};
 use crate::citeproc::state::State;
 use crate::citeproc::util_nodes::NEXT_UNDEFINED;
-use crate::citeproc::util_names_output::NameNode;
+use crate::citeproc::util_names_output::has_length;
 use crate::citeproc::{item_id, CslResult, EngineError, Sys};
 
 const REFERENCE: &str = include_str!("../../tests/data/csl/test_suite_reference.json");
@@ -249,17 +249,9 @@ fn get_cite(st: &mut State, item_data: &Value, cite: &Value) -> CslResult<()> {
     }
     st.tmp.lang_array.push(js::get_string(&st.opt, "lang").unwrap_or_default());
     st.tmp.shadow_numbers.clear();
-    st.tmp.subsequent_author_substitute_ok = !st.tmp.suppress_decorations;
-    st.tmp.have_collapsed = false;
-    st.tmp.name_ambig = Default::default();
-    st.tmp.names_used = Vec::new();
-    st.tmp.nameset_counter = 0;
+    st.tmp.have_collapsed = st.tmp.area == "citation" && has_length(st.citation.opt.get("collapse"));
     st.tmp.years_used = Vec::new();
-    st.tmp.names_max.clear();
-    st.tmp.first_name_string = None;
-    st.tmp.authority_stop_last = 0;
-    st.tmp.name_node = NameNode::default();
-    st.new_name_output(item_data, cite);
+    st.names_cite_start(item_data, cite);
     // layout START: done_vars, rendered_name, sort_key_flag, nameset_counter, openLevel
     st.tmp.done_vars = Vec::new();
     if js::truthy_opt(cite.get("author-only")) {
@@ -405,12 +397,35 @@ fn check_for_output(st: &mut State, token: &Token, item: &Value) -> CslResult<()
     Ok(())
 }
 
-/// `makeCitationCluster(items)` for plain strings (see the module docs).
-fn render_cluster(st: &mut State, cites: &[Value]) -> CslResult<String> {
+/// `CSL.getSpliceDelimiter` (api_cite.js:1011) without `after-collapse-delimiter`
+/// and per-locale delimiters, which the generated styles do not use: the
+/// delimiter between this cite and the one before it.
+fn splice_delimiter(st: &State, _last_collapsed: bool, layout_delimiter: &str) -> String {
+    if st.tmp.use_cite_group_delimiter {
+        return js::get_string(&st.citation.opt, "cite_group_delimiter").unwrap_or_default();
+    }
+    let in_text = st.opt.get("xclass").and_then(Value::as_str) == Some("in-text");
+    let numeric = st.opt.get("update_mode").and_then(Value::as_i64) == Some(crate::citeproc::load::NUMERIC);
+    if st.tmp.have_collapsed && in_text && !numeric {
+        return ", ".to_string();
+    }
+    layout_delimiter.to_string()
+}
+
+/// What the engine constructor leaves in `state.output`: an empty queue with
+/// `adjust` set. Unlike an engine call, the drivers below never reset the
+/// queue or the blob arena: after an error citeproc-js leaves its queue as it
+/// was, and the next call sees it.
+fn fresh_output(st: &mut State) {
     st.blobs.clear();
     st.output = Queue::default();
     let piq = crate::citeproc::formats::get_opt_flag(st, "punctuation-in-quote");
     st.output.adjust = Some(Adjust::new(piq));
+}
+
+/// `makeCitationCluster(items)` for plain strings (see the module docs).
+fn render_cluster(st: &mut State, cites: &[Value]) -> CslResult<String> {
+    // this.output.checkNestedBrace = new CSL.checkNestedBrace(this)
     st.output.check_nested_brace = Some(CheckNestedBrace::new(st));
     st.tmp.last_primary_names_string = None;
     st.tmp.area = "citation".to_string();
@@ -425,6 +440,7 @@ fn render_cluster(st: &mut State, cites: &[Value]) -> CslResult<String> {
         Some(c) => c.update(&layout_prefix),
         None => layout_prefix.clone(),
     };
+    let mut splice: Vec<String> = Vec::new();
     for (pos, cite) in cites.iter().enumerate() {
         let id = item_id(cite)?;
         st.tmp.shadow_numbers.clear();
@@ -433,7 +449,9 @@ fn render_cluster(st: &mut State, cites: &[Value]) -> CslResult<String> {
         if pos == 0 {
             st.tmp.term_predecessor = false;
         }
+        let last_collapsed = st.tmp.have_collapsed;
         get_cite(st, &item_data, cite)?;
+        splice.push(splice_delimiter(st, last_collapsed, &layout_delimiter));
     }
     // output.queue: one blob per cite
     let root_blob = st.output.root;
@@ -504,6 +522,7 @@ fn render_cluster(st: &mut State, cites: &[Value]) -> CslResult<String> {
                 }
             }
         }
+        let sd = splice.get(pos).cloned().unwrap_or_else(|| layout_delimiter.clone());
         // composite.reverse(); first = pop(); then the rest, in reversed order
         let mut buffer: Vec<String> = Vec::new();
         let mut rest: Vec<String> = strings;
@@ -512,11 +531,11 @@ fn render_cluster(st: &mut State, cites: &[Value]) -> CslResult<String> {
             buffer.push(first);
         }
         for obj in rest.iter() {
-            buffer.push(format!("{}{}", txt_esc(st, &layout_delimiter), obj));
+            buffer.push(format!("{}{}", txt_esc(st, &sd), obj));
         }
         if let Some(b0) = buffer.first_mut() {
             if pos > 0 {
-                *b0 = format!("{}{}", txt_esc(st, &layout_delimiter), b0);
+                *b0 = format!("{}{}", txt_esc(st, &sd), b0);
             }
         }
         objects.extend(buffer);
@@ -533,10 +552,6 @@ fn render_cluster(st: &mut State, cites: &[Value]) -> CslResult<String> {
 /// runner's `bibstart + entries + bibend`.
 fn render_bibliography(st: &mut State, ids: &[String]) -> CslResult<String> {
     use crate::citeproc::obj_token::Decoration;
-    st.blobs.clear();
-    st.output = Queue::default();
-    let piq = crate::citeproc::formats::get_opt_flag(st, "punctuation-in-quote");
-    st.output.adjust = Some(Adjust::new(piq));
     st.output.check_nested_brace = Some(CheckNestedBrace::new(st));
     st.tmp.area = "bibliography".to_string();
     st.tmp.root = "bibliography".to_string();
@@ -637,6 +652,7 @@ fn run_fixture(
         }
     }
     let mut st = State::new(sys, &fx.csl, "", false).map_err(|e| e.to_string())?;
+    fresh_output(&mut st);
     if let Some(options) = &fx.options {
         for (k, v) in options {
             st.dev_ext_set(k, v.clone());
@@ -829,6 +845,7 @@ fn e2e_state(
     }
     let style = case["style"].as_str().ok_or("style")?;
     let mut st = State::new(sys, style, "en-US", false).map_err(|e| e.to_string())?;
+    fresh_output(&mut st);
     for (k, v) in &options {
         st.dev_ext_set(k, v.clone());
     }
@@ -923,6 +940,12 @@ fn names_e2e_matches_citeproc_js() {
             any_error |= got.is_err();
             compare_one(ci, &format!("cite {id}"), &got, want, out.get("build_error").is_some(), &mut compared, &mut error_parity, &mut bad);
         }
+        for (i, id) in ids.iter().enumerate() {
+            let want = &out["sa"].as_array().map(|a| a[i].clone()).unwrap_or(Value::Null);
+            let got = render_cluster(&mut st, &[json!({ "id": id, "suppress-author": true })]);
+            any_error |= got.is_err();
+            compare_one(ci, &format!("suppress-author {id}"), &got, want, out.get("build_error").is_some(), &mut compared, &mut error_parity, &mut bad);
+        }
         let all: Vec<Value> = ids.iter().map(|id| json!({ "id": id })).collect();
         let got = render_cluster(&mut st, &all);
         any_error |= got.is_err();
@@ -944,7 +967,8 @@ fn names_e2e_matches_citeproc_js() {
         }
     }
     println!("{compared} outputs compared, {error_parity} error cases agree, {} differ", bad.len());
-    for b in bad.iter().take(25) {
+    let show = if std::env::var("NAMES_E2E_ALL").is_ok() { usize::MAX } else { 25 };
+    for b in bad.iter().take(show) {
         println!("DIFF {b}");
     }
     assert!(bad.is_empty(), "{} generated cases differ", bad.len());

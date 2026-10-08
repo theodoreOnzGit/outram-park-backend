@@ -268,6 +268,26 @@ impl State {
         self.name_output = NameOutput::new(item, cite_item);
     }
 
+    /// The names-related part of `CSL.citeStart` + `CSL.getCite`
+    /// (api_cite.js:1487-1488, 1526-1531, 1577-1606), for the engine to call
+    /// where it starts rendering one cite: fresh name disambiguation settings
+    /// (`tmp.disambig_settings = new CSL.AmbigConfig()`; kept in
+    /// `tmp.name_ambig` until `AmbigConfig` has these members), `names_used`,
+    /// `nameset_counter`, `names_max`, `first_name_string`,
+    /// `authority_stop_last`, `tmp.name_node = {}`, and
+    /// `this.nameOutput = new CSL.NameOutput(this, Item, item)`.
+    pub fn names_cite_start(&mut self, item: &Value, cite_item: &Value) {
+        self.tmp.subsequent_author_substitute_ok = !self.tmp.suppress_decorations;
+        self.tmp.name_ambig = Default::default();
+        self.tmp.names_used = Vec::new();
+        self.tmp.nameset_counter = 0;
+        self.tmp.names_max.clear();
+        self.tmp.first_name_string = None;
+        self.tmp.authority_stop_last = 0;
+        self.tmp.name_node = NameNode::default();
+        self.new_name_output(item, cite_item);
+    }
+
     /// `state.nameOutput.init(names)`.
     pub fn name_output_init(&mut self, names: &Token) -> CslResult<()> {
         let mut no = std::mem::take(&mut self.name_output);
@@ -338,7 +358,7 @@ pub(super) fn slice_head<T: Clone>(list: &[T], n: f64) -> Vec<T> {
 
 /// Whether `value && value.length` is truthy for an `Item[variable]`-like
 /// value (a non-empty array or string).
-pub(super) fn has_length(v: Option<&Value>) -> bool {
+pub(crate) fn has_length(v: Option<&Value>) -> bool {
     match v {
         Some(Value::Array(a)) => !a.is_empty(),
         Some(Value::String(s)) => !s.is_empty(),
@@ -421,6 +441,17 @@ pub(super) fn q_append_blob(
     if !token.strings.contains_key("delimiter") {
         token.set_string("delimiter", "");
     }
+    // `append(undefined)` allocates the queue's root on first use and
+    // otherwise does nothing.
+    queue::append(
+        st,
+        QueueId::Output,
+        AppendArg::Undefined,
+        FormatRef::None,
+        true,
+        false,
+        false,
+    )?;
     let curr = queue::current(st, QueueId::Output).ok_or_else(|| {
         EngineError::Csl("TypeError: Cannot read properties of undefined (reading 'push')".into())
     })?;

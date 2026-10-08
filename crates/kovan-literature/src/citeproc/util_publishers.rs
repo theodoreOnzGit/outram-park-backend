@@ -202,3 +202,42 @@ impl PublisherOutput {
 fn not_a_function() -> EngineError {
     EngineError::BadInput("this._purgeEmptyBlobs is not a function".to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    //! `CSL.PublisherOutput.prototype.render()` against citeproc-js 2.4.63:
+    //! upstream throws `TypeError: this._purgeEmptyBlobs is not a function` (see
+    //! the module docs); the port returns an error at the same step. The
+    //! throw was confirmed on 2026-10-08 with
+    //! `scripts/csl-units/names_e2e.cjs`'s engine setup and a `cs:group` with
+    //! `subgroup-delimiter` over an item with `publisher: "A; B"` and
+    //! `publisher-place: "X; Y"` (the fixtures of the CSL test suite never do
+    //! this).
+    use super::*;
+    use crate::citeproc::obj_token::TokenType;
+
+    #[test]
+    fn render_fails_as_upstream_does() {
+        let mut st = State::default();
+        let mut group = Token::new("group", TokenType::Start);
+        group.set_string("subgroup-delimiter", "; ");
+        group.set_string("delimiter", ", ");
+        let mut po = PublisherOutput::new(
+            &group,
+            vec!["A".to_string(), "B".to_string()],
+            vec!["X".to_string(), "Y".to_string()],
+        );
+        po.varlist = vec!["publisher".to_string(), "publisher-place".to_string()];
+        let err = po.render(&mut st).err();
+        assert_eq!(
+            err,
+            Some(EngineError::BadInput(
+                "this._purgeEmptyBlobs is not a function".to_string()
+            ))
+        );
+        // The work before the throw happened: the two list elements were
+        // rendered into blobs.
+        assert_eq!(po.publisher_blobs.len(), 2);
+        assert_eq!(po.publisher_place_blobs.len(), 2);
+    }
+}
