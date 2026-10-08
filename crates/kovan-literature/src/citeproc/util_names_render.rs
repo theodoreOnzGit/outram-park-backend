@@ -1630,12 +1630,17 @@ mod output_side {
                         "Cannot set properties of undefined (setting 'freeters')",
                     ));
                 };
-                if j.is_none() {
-                    spec.freeters = val;
+                if let Some(j) = j {
+                    // DEVIATION(D10): citeproc-js writes `etal_spec[pos].persons = val`,
+                    // replacing the array by a number, so later `persons[j]`
+                    // reads are `undefined` and the "et al." is dropped. We
+                    // write `persons[j] = val` (a hole reads as `undefined`, -1).
+                    if spec.persons.len() <= j {
+                        spec.persons.resize(j + 1, -1);
+                    }
+                    spec.persons[j] = val;
                 } else {
-                    // `etal_spec[pos].persons = val` replaces the array by a
-                    // number: later `persons[j]` reads are `undefined`.
-                    spec.persons = Vec::new();
+                    spec.freeters = val;
                 }
                 name.insert(
                     "comma-dropping-particle".into(),

@@ -197,9 +197,10 @@ impl NodeGroupExec {
             }
             NodeGroupExec::PublisherSpecialEnd => {
                 // if (state.publisherOutput) { render(); state.publisherOutput = false }
+                // DEVIATION(D9): render() joins the pairs; citeproc-js always throws here.
                 if let Some(mut po) = state.publisher_output.take() {
                     if let Err(e) = po.render(state) {
-                        // The throw leaves `state.publisherOutput` set.
+                        // (citeproc-js: a throw leaves `state.publisherOutput` set.)
                         state.publisher_output = Some(po);
                         return Err(e);
                     }

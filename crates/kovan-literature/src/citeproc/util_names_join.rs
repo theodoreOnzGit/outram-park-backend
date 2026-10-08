@@ -42,20 +42,14 @@ pub fn purge_empty_blobs(st: &State, blobs: Vec<Option<BlobId>>) -> Vec<Option<B
 }
 
 /// `CSL.NameOutput.prototype._join` (also `CSL.PublisherOutput.prototype._join`,
-/// which cannot run it: see util_publishers.rs). `purge` is false only for
-/// that case's un-purged body.
+/// which citeproc-js cannot run; DEVIATION(D9): we do, see util_publishers.rs).
 pub fn join_blobs(
     st: &mut State,
     blobs: Vec<Option<BlobId>>,
     delimiter: &str,
     final_join: Option<BlobId>,
-    purge: bool,
 ) -> CslResult<Option<BlobId>> {
-    let mut blobs = if purge {
-        purge_empty_blobs(st, blobs)
-    } else {
-        blobs
-    };
+    let mut blobs = purge_empty_blobs(st, blobs);
     if blobs.is_empty() {
         return Ok(None);
     }
@@ -354,7 +348,7 @@ impl NameOutput {
         delimiter: &str,
         final_join: Option<BlobId>,
     ) -> CslResult<Option<BlobId>> {
-        join_blobs(st, blobs, delimiter, final_join, true)
+        join_blobs(st, blobs, delimiter, final_join)
     }
 
     /// `CSL.NameOutput.prototype._getToken(tokenname)`: the `cs:name` token,

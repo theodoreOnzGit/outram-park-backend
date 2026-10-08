@@ -154,7 +154,7 @@ fn setup(state: &mut State, token: &mut Token) -> CslResult<()> {
         _ => {}
     }
 
-    let mut and: Option<BlobPair> = None;
+    let and: Option<BlobPair>;
     if and_opt.as_ref().map(js::truthy).unwrap_or(false) {
         q_append_str(
             state,
@@ -190,7 +190,11 @@ fn setup(state: &mut State, token: &mut Token) -> CslResult<()> {
             single: Some(single),
             multiple: Some(multiple),
         });
-    } else if !name_delimiter.is_empty() {
+    } else {
+        // DEVIATION(D11): citeproc-js tests `else if (state.tmp.name_delimiter)`,
+        // which is falsy for the valid CSL 1.0.2 `delimiter=""`, leaves
+        // `this.and` empty, and later fails (`"undefined" is not valid JSON`).
+        // We treat "" as a delimiter like any other.
         // This is a little weird, but it works.
         let single = plain_blob(state, &name_delimiter, "", "");
         let multiple = plain_blob(state, &name_delimiter, "", "");

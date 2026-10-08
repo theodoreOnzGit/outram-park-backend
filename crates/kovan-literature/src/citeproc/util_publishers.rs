@@ -18,23 +18,26 @@
 //! parallel `publisher` and `publisher-place` lists (`"A; B"`, `"X; Y"`)
 //! under `cs:group` elements that carry `subgroup-delimiter`.
 //!
-//! **Upstream cannot run this.** `PublisherOutput.prototype._join` is
-//! assigned `CSL.NameOutput.prototype._join`, which begins with
+//! **DEVIATION(D9) — upstream cannot run this.** In citeproc-js
+//! `PublisherOutput.prototype._join` is assigned
+//! `CSL.NameOutput.prototype._join`, which begins with
 //! `this._purgeEmptyBlobs(blobs)`; `PublisherOutput` has no such method, so
-//! `render()` throws a TypeError at `composePublishers` (and again at
-//! `joinPublishers` for an empty list). No fixture of the CSL test suite
-//! reaches it (the first group with `subgroup-delimiter` and an item with
-//! `;`-separated publishers and places would). The port reproduces the work
-//! done before the throw (`clearVars`, `composeAndBlob`, `composeElements`) and
-//! returns the same TypeError. There is no spec text or fixture saying what
-//! was intended (`subgroup-delimiter` is a citeproc-js extension), so this
-//! is not registered as a deviation; it is listed as a candidate in the
-//! porting report.
+//! `render()` always throws `this._purgeEmptyBlobs is not a function` at
+//! `composePublishers` (after `clearVars`, `composeAndBlob` and
+//! `composeElements` ran, leaving `state.publisherOutput` set). No fixture of
+//! the CSL test suite reaches it. We do what the code is written to do: join
+//! each publisher/place pair with the group delimiter and the pairs with
+//! `subgroup-delimiter` and the `and` blob, using the existing purge-empty
+//! join ([`super::util_names_join::join_blobs`]). One consequence kept from
+//! upstream's `_join(blobs, delimiter, finalJoin)`: it has three parameters, so
+//! `joinPublishers` passes the `and` blob `single` and the fourth argument
+//! (`multiple`) is never read. See `DEVIATIONS.md` D9.
 
 use super::obj_blob::BlobId;
 use super::obj_token::{Token, TokenType};
 use super::queue::FormatRef;
 use super::state::State;
+use super::util_names_join::join_blobs;
 use super::util_names_output::{q_append_blob, q_append_str, q_pop_blob, BlobPair};
 use super::{CslResult, EngineError};
 
@@ -179,23 +182,64 @@ impl PublisherOutput {
         Ok(())
     }
 
-    /// `CSL.PublisherOutput.prototype.composePublishers()`: pairs each
-    /// publisher with its place by `_join`, which upstream cannot call (see
-    /// the module docs).
-    pub fn compose_publishers(&mut self, _st: &mut State) -> CslResult<()> {
-        if self.publisher_list.is_empty() {
-            return Ok(());
+    /// `CSL.PublisherOutput.prototype.composePublishers()`: pair each
+    /// publisher with its place, in the order the style rendered them
+    /// (`varlist`), joined by the group delimiter.
+    ///
+    /// DEVIATION(D9): citeproc-js throws in `_join` (module docs).
+    pub fn compose_publishers(&mut self, st: &mut State) -> CslResult<()> {
+        let delimiter = self
+            .group_tok
+            .string_opt("delimiter")
+            .unwrap_or_default();
+        let (Some(first), Some(second)) = (self.varlist.first(), self.varlist.get(1)) else {
+            if self.publisher_list.is_empty() {
+                return Ok(());
+            }
+            return Err(EngineError::BadInput(
+                "Cannot read properties of undefined (reading '0')".to_string(),
+            ));
+        };
+        let (first, second) = (first.clone(), second.clone());
+        let list_of = |po: &PublisherOutput, name: &str| -> Vec<Option<BlobId>> {
+            if name == "publisher" {
+                po.publisher_blobs.clone()
+            } else {
+                po.publisher_place_blobs.clone()
+            }
+        };
+        let (a, b) = (list_of(self, &first), list_of(self, &second));
+        let mut joined: Vec<Option<BlobId>> = Vec::new();
+        for i in 0..self.publisher_list.len() {
+            let pair = vec![
+                a.get(i).copied().flatten(),
+                b.get(i).copied().flatten(),
+            ];
+            joined.push(join_blobs(st, pair, &delimiter, None)?);
         }
-        Err(not_a_function())
+        // `this["publisher-list"][i] = ...`
+        self.publisher_blobs = joined;
+        Ok(())
     }
 
-    /// `CSL.PublisherOutput.prototype.joinPublishers()`: `_join` again (see
-    /// the module docs); the body after it is kept for when it can run.
+    /// `CSL.PublisherOutput.prototype.joinPublishers()`: join the pairs with
+    /// `subgroup-delimiter` (and the `and` blob) and append the result.
+    ///
+    /// DEVIATION(D9): citeproc-js throws in `_join` (module docs).
     pub fn join_publishers(&mut self, st: &mut State) -> CslResult<()> {
-        // var publishers = this._join(blobs, subgroup-delimiter, and.single, and.multiple, group_tok);
-        // `_join` is NameOutput's, which calls this._purgeEmptyBlobs first.
-        let _ = st;
-        Err(not_a_function())
+        let delimiter = self
+            .group_tok
+            .string_opt("subgroup-delimiter")
+            .unwrap_or_default();
+        // `_join` takes three parameters: `and_blob.multiple` is never read.
+        let publishers = join_blobs(
+            st,
+            self.publisher_blobs.clone(),
+            &delimiter,
+            self.and_blob.single,
+        )?;
+        q_append_blob(st, publishers, FormatRef::Name("literal".into()), false)?;
+        Ok(())
     }
 
     /// `CSL.PublisherOutput.prototype.clearVars()`.
@@ -206,25 +250,20 @@ impl PublisherOutput {
     }
 }
 
-fn not_a_function() -> EngineError {
-    EngineError::BadInput("this._purgeEmptyBlobs is not a function".to_string())
-}
-
 #[cfg(test)]
 mod tests {
-    //! `CSL.PublisherOutput.prototype.render()` against citeproc-js 2.4.63:
-    //! upstream throws `TypeError: this._purgeEmptyBlobs is not a function` (see
-    //! the module docs); the port returns an error at the same step. The
-    //! throw was confirmed on 2026-10-08 with
-    //! `scripts/csl-units/names_e2e.cjs`'s engine setup and a `cs:group` with
-    //! `subgroup-delimiter` over an item with `publisher: "A; B"` and
-    //! `publisher-place: "X; Y"` (the fixtures of the CSL test suite never do
-    //! this).
+    //! `CSL.PublisherOutput.prototype.render()`. citeproc-js 2.4.63 throws
+    //! `TypeError: this._purgeEmptyBlobs is not a function` (confirmed
+    //! 2026-10-08 with `scripts/csl-units/names_e2e.cjs`'s engine setup and a
+    //! `cs:group` with `subgroup-delimiter` over an item with
+    //! `publisher: "A; B"` and `publisher-place: "X; Y"`); DEVIATION(D9): the
+    //! port joins the pairs instead. The rendered text is pinned end to end in
+    //! `deviation_tests_d6_d12.rs` (D9).
     use super::*;
     use crate::citeproc::obj_token::TokenType;
 
     #[test]
-    fn render_fails_as_upstream_does() {
+    fn render_joins_the_pairs_instead_of_throwing_as_upstream_does_d9() {
         let mut st = State::default();
         let mut group = Token::new("group", TokenType::Start);
         group.set_string("subgroup-delimiter", "; ");
@@ -235,16 +274,10 @@ mod tests {
             vec!["X".to_string(), "Y".to_string()],
         );
         po.varlist = vec!["publisher".to_string(), "publisher-place".to_string()];
-        let err = po.render(&mut st).err();
-        assert_eq!(
-            err,
-            Some(EngineError::BadInput(
-                "this._purgeEmptyBlobs is not a function".to_string()
-            ))
-        );
-        // The work before the throw happened: the two list elements were
-        // rendered into blobs.
+        assert_eq!(po.render(&mut st), Ok(()));
+        // The two list elements were rendered into blobs, then paired.
         assert_eq!(po.publisher_blobs.len(), 2);
         assert_eq!(po.publisher_place_blobs.len(), 2);
+        assert!(po.publisher_blobs.iter().all(Option::is_some));
     }
 }
