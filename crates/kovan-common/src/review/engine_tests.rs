@@ -16,20 +16,20 @@ use crate::review::root::{
     Qualification, QualificationBasis, QualificationRecord, Reviewer,
 };
 
-const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
-const M: &str = "github:m";
-const R: &str = "github:r";
+pub(super) const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
+pub(super) const M: &str = "github:m";
+pub(super) const R: &str = "github:r";
 
 /// The stable id of the test function first seen at `path`.
-fn fid(path: &str) -> String {
+pub(super) fn fid(path: &str) -> String {
     mint_fn_id(path, "t", "t")
 }
 
-fn h(c: char) -> String {
+pub(super) fn h(c: char) -> String {
     format!("sha256:{}", c.to_string().repeat(64))
 }
 
-fn fun(id: &str, hash: char, callees: &[&str], tests: &[&str]) -> FunctionIndex {
+pub(super) fn fun(id: &str, hash: char, callees: &[&str], tests: &[&str]) -> FunctionIndex {
     let qual = id.rsplit_once(".rs::").map(|(_, q)| q.to_string()).unwrap_or_default();
     FunctionIndex {
         id: fid(id),
@@ -49,7 +49,7 @@ fn fun(id: &str, hash: char, callees: &[&str], tests: &[&str]) -> FunctionIndex 
 
 /// An index of `dir` holding `file` with `fns` (ids may name another file:
 /// the indexer keeps a moved function's id).
-fn folder(krate: &str, dir: &str, files: &[(&str, Vec<FunctionIndex>)]) -> FolderIndex {
+pub(super) fn folder(krate: &str, dir: &str, files: &[(&str, Vec<FunctionIndex>)]) -> FolderIndex {
     let mut idx = FolderIndex::new(krate, dir);
     idx.crate_root = dir.ends_with("/src");
     for (file, fns) in files {
@@ -74,7 +74,7 @@ fn folder(krate: &str, dir: &str, files: &[(&str, Vec<FunctionIndex>)]) -> Folde
 
 /// A complete wizard answer set that stamps at rung 3 (the gate is re-run
 /// on read, so a review without one is invalid).
-fn clean() -> BTreeMap<String, String> {
+pub(super) fn clean() -> BTreeMap<String, String> {
     [
         ("doc_matches_behaviour", "yes"),
         ("limits_and_guards", "guarded_returns_result"),
@@ -94,7 +94,7 @@ fn clean() -> BTreeMap<String, String> {
 }
 
 /// A review of `id` (target = where it was), hash `hash`.
-fn review(id: &str, by: &str, hash: char, callees: &[(&str, char)]) -> ReviewEntry {
+pub(super) fn review(id: &str, by: &str, hash: char, callees: &[(&str, char)]) -> ReviewEntry {
     let qual = id.split_once(".rs::").map(|(_, q)| q).unwrap();
     ReviewEntry {
         kovan: EntryMeta {
@@ -121,6 +121,7 @@ fn review(id: &str, by: &str, hash: char, callees: &[(&str, char)]) -> ReviewEnt
             no_concept: None,
             authorship: None,
             moved: vec![],
+            separation_attestation: None,
             signature: None,
         },
         relations: vec![],
@@ -143,7 +144,7 @@ fn entries(e: Vec<Entry>) -> ReviewDocument {
     }
 }
 
-fn reviews_in(krate: &str, dir: &str, rs: Vec<ReviewEntry>) -> FolderReviews {
+pub(super) fn reviews_in(krate: &str, dir: &str, rs: Vec<ReviewEntry>) -> FolderReviews {
     FolderReviews {
         krate: krate.into(),
         dir: dir.into(),
@@ -151,7 +152,7 @@ fn reviews_in(krate: &str, dir: &str, rs: Vec<ReviewEntry>) -> FolderReviews {
     }
 }
 
-fn root() -> ReviewRoot {
+pub(super) fn root() -> ReviewRoot {
     let rv = |id: &str, role: Role, scope: &[&str]| Reviewer {
         id: id.into(),
         name: None,
@@ -162,6 +163,8 @@ fn root() -> ReviewRoot {
         admitted_by: None,
         keys: vec![],
         revoked: None,
+        organisations: vec![],
+        separations: vec![],
     };
     ReviewRoot {
         code_review: None,
@@ -175,7 +178,7 @@ fn root() -> ReviewRoot {
 }
 
 /// Git facts that make every given review authentic.
-fn git_for(rs: &[&FolderReviews]) -> GitFacts {
+pub(super) fn git_for(rs: &[&FolderReviews]) -> GitFacts {
     let mut g = GitFacts {
         head: "f".repeat(40),
         cargo_lock: h('1'),
@@ -207,7 +210,7 @@ fn git_for(rs: &[&FolderReviews]) -> GitFacts {
 
 /// [`evaluate`] with the run's hashes filled in for every function the
 /// test did not set: by default nothing changed since the recorded run.
-fn eval(
+pub(super) fn eval(
     revs: &[FolderReviews],
     idx: &[FolderIndex],
     rt: &ReviewRoot,
@@ -233,8 +236,8 @@ fn kind(ev: &Evaluation, path: &str) -> StateKind {
     ev.functions[&fid(path)].state.kind()
 }
 
-const D: &str = "crates/x/src";
-const F: &str = "crates/x/src/a.rs::f";
+pub(super) const D: &str = "crates/x/src";
+pub(super) const F: &str = "crates/x/src/a.rs::f";
 
 /// Baseline: an unchanged reviewed function is valid at rung 3; an
 /// unreviewed one is new; a changed one is directly stale; a doc-only edit
@@ -644,11 +647,18 @@ fn key_history_is_append_only_against_git() {
     assert_eq!(ev.history_warnings.len(), 1);
 }
 
-/// Rung 5: a second valid review by someone who is neither the first
+/// ~~Rung 5: a second valid review by someone who is neither the first
 /// reviewer nor a code author, who answered `independence = someone_else`,
-/// and who holds a qualification covering the function's concept area. Without the area, the qualification or the
-/// independence it stays at the reviews' own rung. Qualification is shown
-/// but not enforced below rung 5.
+/// and who holds a qualification covering the function's concept area.~~
+/// **CORRECTED 2026-10-08** (GitHub #809): that second review is no longer
+/// rung 5. The same setup now stays at the reviews' own rung (3), and the
+/// function's rung-5 report names why: no hand-written V&V case, no
+/// organisations recorded, no separation attestation. Without the area, the
+/// qualification or the independence those misses are added too.
+/// Qualification is shown but not enforced below rung 5. The new rule's
+/// scenarios are in `engine_ivv_tests.rs`.
+///
+/// Result (2026-10-08): passes.
 #[test]
 fn rung5_needs_independent_qualified_second_reviewer() {
     let mut second = review(F, R, 'a', &[]);
@@ -669,8 +679,27 @@ fn rung5_needs_independent_qualified_second_reviewer() {
     let rung = |rt: &ReviewRoot, g: &GitFacts, a: &ConceptAreas| {
         eval(&revs, &idx, rt, g, a, SignaturePolicy::NotChecked).functions[&fid(F)].rung
     };
-    assert_eq!(rung(&rt, &g, &areas), Some(5));
+    // ~~Some(5)~~ CORRECTED 2026-10-08: a second review alone is not IV&V.
+    assert_eq!(rung(&rt, &g, &areas), Some(3));
     let ev = eval(&revs, &idx, &rt, &g, &areas, SignaturePolicy::NotChecked);
+    let ivv = &ev.functions[&fid(F)].independent_vv;
+    assert_eq!(ivv.passed, None);
+    let by_r = ivv.candidates.iter().find(|c| c.by == R).unwrap();
+    assert_eq!(
+        by_r.misses,
+        vec![
+            crate::review::ivv::Rung5Miss::NoHumanVvCase(vec![
+                crate::review::ivv::VvCaseProblem::NoQualifyingEvidence,
+                crate::review::ivv::VvCaseProblem::NotWrittenByHand,
+                crate::review::ivv::VvCaseProblem::TestAuthorshipUnknown,
+            ]),
+            crate::review::ivv::Rung5Miss::ReviewerOrganisation(crate::review::ivv::OrganisationProblem::NotRecorded),
+            crate::review::ivv::Rung5Miss::DevelopingOrganisation(crate::review::ivv::OrganisationProblem::NotRecorded),
+            crate::review::ivv::Rung5Miss::NoAttestation,
+        ]
+    );
+    // No attestation named: the misses are reasons, not a flag.
+    assert!(ev.functions[&fid(F)].flags.is_empty());
     let shown = &ev.functions[&fid(F)].reviews.iter().find(|r| r.by == R).unwrap().qualifications;
     assert_eq!(shown, &vec!["thermal-hydraulics (self-study; self-declared)".to_string()]);
     assert_eq!(rung(&rt, &g, &ConceptAreas::new()), Some(3), "no known area");
@@ -987,7 +1016,7 @@ fn enforced_signatures_map_onto_states() {
     let (rf, rk) = keystore::generate(R, "r1", "2026-10-07", pass).unwrap();
     let mut rt = root();
     rt.reviewers.retain(|r| r.id == M || r.id == R);
-    rt.code_review = Some(crate::review::root::CodeReviewSettings { rust_analyzer: None, founder: Some(M.into()), rust_analyzer_used: vec![] });
+    rt.code_review = Some(crate::review::root::CodeReviewSettings { rust_analyzer: None, founder: Some(M.into()), rust_analyzer_used: vec![], developing_organisation: vec![] });
     rt.reviewers[0].keys = vec![mf.reviewer_key()];
     rt.reviewers[1].keys = vec![rf.reviewer_key()];
     rt.reviewers[1].admitted = Some("2026-10-07".into());

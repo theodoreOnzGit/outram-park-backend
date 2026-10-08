@@ -24,9 +24,10 @@
 #                     "rung 4 = writing AND verifying a V&V case by hand").
 #                     (~~gate_rung4 alone opens rung 4~~ CORRECTED 2026-10-07)
 #   not_independent   the reviewer is not independent of the code: the stamp
-#                     counts at rung 3 or 4 but cannot be the independent
-#                     second review for rung 5. (~~no_rung4: rung 4 is not
-#                     available whatever else is answered~~ CORRECTED
+#                     counts at rung 3 or 4 but cannot be ~~the independent
+#                     second review for rung 5~~ (CORRECTED 2026-10-08, #809)
+#                     rung 5's independent V&V case. (~~no_rung4: rung 4 is
+#                     not available whatever else is answered~~ CORRECTED
 #                     2026-10-07, maintainer on #769: independence gates
 #                     rung 5, not rung 4.)
 #   (~~needs_rung4_gate  choosing it is refused unless rung 4 is open~~
@@ -490,9 +491,27 @@ page = "13"
 # ---------------------------------------------------------------- 10
 # Pre-filled from git (commit author plus agent trailer); see
 # `wizard::independence_prefill`.
+#
+# Rung 5 (GitHub #809, maintainer decisions 2026-10-08) is IV&V by an
+# organisation "both technically and managerially separate from the
+# organization responsible for developing the software" (NUREG/BR-0167
+# §3.1 p. 6). ~~Answering someone_else made the stamp a candidate second
+# review for rung 5~~ CORRECTED 2026-10-08: someone_else is now ONE of
+# rung 5's conditions. The others are not wizard answers, because an answer
+# would be an unsigned self-declaration of what the registry already
+# records under signature: the reviewer's `[[reviewer.organisation]]`
+# (maintainer-signed) must differ from the developing organisation
+# (`[[code_review.developing_organisation]]`, maintainer-signed), and the
+# review must name the reviewer's own signed `[[reviewer.separation]]`
+# attestation (`[review] separation_attestation`), with a GitHub issue as
+# its audit record; the review must also be a hand-written V&V case (rung
+# 4). No organisation or attestation question is added: an always-asked new
+# question would leave every existing stamp with an unanswered applicable
+# question, which the gate re-run on read makes invalid. See
+# `kovan_common::review::ivv`.
 [[question]]
 key = "independence"
-text = "Who wrote this function?"
+text = "Who wrote this function? (Rung 5, independent V&V, also needs your organisation to be technically and managerially separate from the developing organisation, shown by your signed separation attestation.)"
 applies_when = "always"
 prefill = "git_authorship"
 
@@ -531,6 +550,13 @@ page = "8"
 [[question.source]]
 document = "nureg-km-0006"
 section = "PCMM-3"
+
+# Rung 5 as IV&V (GitHub #809, 2026-10-08), read from the standard-corpus PDF.
+[[question.source]]
+document = "nureg-br-0167"
+section = "§3.1"
+page = "6"
+quote = "Independent verification and validation (IV&V) is verification and validation by an organization that is both technically and managerially separate from the organization responsible for developing the software."
 
 # ---------------------------------------------------------------- 11
 [[question]]

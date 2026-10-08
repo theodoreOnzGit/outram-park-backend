@@ -112,10 +112,19 @@ A full path reads:
   publications** (today: TUAS, Ong, Xiao & Peterson 2025,
   doi:10.1016/j.jandt.2025.03.006), which enter the standard corpus. Unpublished
   work is visible only in Code Review.
-- **Implementation maturity** (level 4) is shown as one of four rungs:
-  (1) AI translated or constructed, (2) AI V&V, (3) human reviewed,
+- **Implementation maturity** (level 4) is shown as one of ~~four~~ five
+  rungs: (1) AI translated or constructed, (2) AI V&V, (3) human reviewed,
   (4) human V&V (a human builds a code-to-code verification or validation case
-  through the API or GUI). Handwritten code starts at rung 3.
+  through the API or GUI), **(5) independent V&V (IV&V)** (**CORRECTED
+  2026-10-08**, GitHub #809: the review engine derives rung 5, which this
+  list omitted): a rung-4 V&V case written and verified by hand by a
+  qualified reviewer from an organisation "both technically and managerially
+  separate from the organization responsible for developing the software"
+  (NUREG/BR-0167 §3.1 p. 6), shown by registry organisations and the
+  reviewer's signed separation attestation with a GitHub issue as its audit
+  record. ~~Rung 5 was a second independent review stamp~~ (the 2026-10-07
+  rule, never used). Rules: `kovan_common::review::ivv`. Handwritten code
+  starts at rung 3.
 - **Compatibility.** Levels 1–2 change rarely; level 3 never breaks a
   published path (a move leaves an alias, a deletion becomes `deprecated`);
   level 4 follows the code and is regenerated, with a staleness check.
@@ -504,6 +513,8 @@ kovan-cli code-walk-check crates/outram-mc-libs/docs/lessons [--update]
 function a **human** reviewed (rung 3) or whose V&V a human checked
 (rung 4): its code-walk path, file, lines and commit (the permalink), a
 hash, the rung, reviewer, date, a note and an optional walkthrough link.
+Rung 5 (IV&V, GitHub #809) is never a stamp's rung: the review engine
+derives it per function (`kovan_common::review::ivv`).
 **AI agents never stamp**; stamping is the maintainer's, in desktop kovan
 (#740) or with `kovan-cli stamp ... --i-am-the-reviewer`.
 

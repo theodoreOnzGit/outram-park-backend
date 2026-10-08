@@ -64,6 +64,7 @@
 //! callee="<id>" "<hash>"          (one line per callee, sorted by id)
 //! checklist="<q>" "<answer>"      (one line per answer, sorted)
 //! no_concept="…"                  (or "")
+//! separation_attestation="<id>"   (v3 only; GitHub #809)
 //! relation="<kind>" "<target>"    (one line per relation, in order)
 //! ```
 //!
@@ -82,6 +83,16 @@
 //! nodes follow the same rule. Whether `signed_at` is *plausible* is the
 //! staleness engine's flag ([`super::signed_at::plausibility`]), never a
 //! verification failure here.
+//!
+//! **v3 (GitHub #809, 2026-10-08).** A review that names a separation
+//! attestation (`separation_attestation`, the stamp's claim to rung 5,
+//! IV&V; [`super::ivv`]) is signed as **v3**: the first line reads
+//! `kovan-review-signature-v3`, `signed_at=` follows `date=` when present
+//! (as in v2), and a `separation_attestation="<id>"` line follows
+//! `no_concept=`. A stamp without one keeps its v1 or v2 bytes exactly, so
+//! every earlier signature still verifies; adding, removing or changing
+//! the attestation id of a signed stamp is an edit to signed bytes
+//! ([`UnverifiedReason::BadSignature`]).
 //!
 //! **Location is not signed (2026-10-07, with the hybrid id).** `path` and
 //! the `[[review.moved]]` records are where the function is now and how it
@@ -104,7 +115,13 @@
 //! [`unretire_bytes`] that migrated `legacy` events were signed over) use
 //! the same line format, each
 //! under its own first line, so a signature over one kind of statement can
-//! never be replayed as another.
+//! never be replayed as another. GitHub #809 adds three, each under its own
+//! header: [`developing_organisation_bytes`]
+//! (`kovan-developing-organisation-v1`, maintainer-signed),
+//! [`reviewer_organisation_bytes`] (`kovan-reviewer-organisation-v1`,
+//! maintainer-signed) and [`separation_attestation_bytes`]
+//! (`kovan-separation-attestation-v1`, signed by the independent reviewer
+//! alone).
 
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine as _;
@@ -112,7 +129,10 @@ use ed25519_dalek::{Signature as EdSignature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
 use super::review_md::{ArchitectureEntry, ReviewEntry};
-use super::root::{KeyEvent, KeyEventKind, Revocation, Reviewer, ReviewerKey, Role};
+use super::root::{
+    DevelopingOrganisation, KeyEvent, KeyEventKind, KeySigner, Revocation, Reviewer, ReviewerKey,
+    ReviewerOrganisation, Role, SeparationAttestation,
+};
 use super::scope::in_scope;
 
 pub mod registry;
@@ -131,6 +151,10 @@ mod history_tests;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "signing/signed_at_tests.rs"]
 mod signed_at_tests;
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "signing/ivv_tests.rs"]
+mod ivv_tests;
 
 use registry::{KeyStatus, Registry};
 
@@ -169,6 +193,16 @@ fn stamp_header(signed_at: Option<&str>) -> String {
     }
 }
 
+/// The first line of a review's signed bytes: v3 when it names a separation
+/// attestation (GitHub #809), else [`stamp_header`]'s v1 or v2 (module doc,
+/// "v3").
+fn review_header(signed_at: Option<&str>, separation_attestation: Option<&str>) -> String {
+    match separation_attestation {
+        Some(_) => String::from("kovan-review-signature-v3\n"),
+        None => stamp_header(signed_at),
+    }
+}
+
 /// The `signed_at` line of a v2 stamp, right after `date`; nothing in v1.
 fn signed_at_line(out: &mut String, signed_at: Option<&str>) {
     if let Some(t) = signed_at {
@@ -179,7 +213,7 @@ fn signed_at_line(out: &mut String, signed_at: Option<&str>) {
 /// The bytes a review's signature is taken over (module doc).
 pub fn signed_bytes(r: &ReviewEntry) -> Vec<u8> {
     let b = &r.review;
-    let mut s = stamp_header(b.signed_at.as_deref());
+    let mut s = review_header(b.signed_at.as_deref(), b.separation_attestation.as_deref());
     line(&mut s, "kind", &["review"]);
     line(&mut s, "target", &[&r.function_id()]);
     line(&mut s, "by", &[&b.by]);
@@ -207,10 +241,73 @@ pub fn signed_bytes(r: &ReviewEntry) -> Vec<u8> {
         line(&mut s, "checklist", &[k, v]);
     }
     line(&mut s, "no_concept", &[b.no_concept.as_deref().unwrap_or("")]);
+    if let Some(a) = &b.separation_attestation {
+        line(&mut s, "separation_attestation", &[a]);
+    }
     for rel in &r.relations {
         line(&mut s, "relation", &[rel.kind.as_str(), &rel.target]);
     }
     s.into_bytes()
+}
+
+/// The statement every separation attestation signs (GitHub #809), in
+/// NUREG/BR-0167's own words (§3.1 p. 6, and the glossary p. 55, read from
+/// the standard-corpus PDF `nureg-br-0167`). Part of
+/// [`separation_attestation_bytes`]: a change to this text is a new header
+/// version, never an edit, or every attestation signed before it would
+/// stop verifying.
+pub const SEPARATION_STATEMENT: &str = "The organisation named here is both technically and \
+managerially separate from the developing organisation named here, as NUREG/BR-0167 (1993) \
+\u{a7}3.1 p. 6 defines IV&V: \"Independent verification and validation (IV&V) is verification \
+and validation by an organization that is both technically and managerially separate from the \
+organization responsible for developing the software.\"";
+
+/// The bytes a maintainer signs to record a developing organisation (GitHub
+/// #809): `crate` (`""` for the workspace-wide entry, so a workspace entry
+/// cannot be replayed as a crate override or the reverse), the name, the
+/// date, and the signer.
+pub fn developing_organisation_bytes(e: &DevelopingOrganisation) -> Vec<u8> {
+    let mut s = String::from("kovan-developing-organisation-v1\n");
+    line(&mut s, "crate", &[e.krate.as_deref().unwrap_or("")]);
+    line(&mut s, "name", &[&e.name]);
+    line(&mut s, "date", &[&e.date]);
+    signer_line(&mut s, e.signer.as_ref());
+    s.into_bytes()
+}
+
+/// The bytes a maintainer signs to record that `reviewer` belongs to an
+/// organisation from a date (GitHub #809).
+pub fn reviewer_organisation_bytes(reviewer: &str, e: &ReviewerOrganisation) -> Vec<u8> {
+    let mut s = String::from("kovan-reviewer-organisation-v1\n");
+    line(&mut s, "reviewer", &[reviewer]);
+    line(&mut s, "name", &[&e.name]);
+    line(&mut s, "date", &[&e.date]);
+    signer_line(&mut s, e.signer.as_ref());
+    s.into_bytes()
+}
+
+/// The bytes `reviewer` signs, alone, to attest separation (GitHub #809):
+/// the attestation's id, both organisations, the date, the audit record
+/// (`""` when absent), the signing key and [`SEPARATION_STATEMENT`].
+pub fn separation_attestation_bytes(reviewer: &str, a: &SeparationAttestation) -> Vec<u8> {
+    let mut s = String::from("kovan-separation-attestation-v1\n");
+    line(&mut s, "reviewer", &[reviewer]);
+    line(&mut s, "id", &[&a.id]);
+    line(&mut s, "organisation", &[&a.organisation]);
+    line(&mut s, "developing_organisation", &[&a.developing_organisation]);
+    line(&mut s, "date", &[&a.date]);
+    line(&mut s, "audit_record", &[a.audit_record.as_deref().unwrap_or("")]);
+    line(&mut s, "key", &[a.key.as_deref().unwrap_or("")]);
+    line(&mut s, "statement", &[SEPARATION_STATEMENT]);
+    s.into_bytes()
+}
+
+fn signer_line(s: &mut String, signer: Option<&KeySigner>) {
+    let (sr, sk) = match signer {
+        Some(sg) => (sg.reviewer.as_deref().unwrap_or(""), sg.key.as_str()),
+        None => ("", ""),
+    };
+    line(s, "signer", &[sr, sk]);
 }
 
 /// The bytes an architecture node's signature is taken over: the same

@@ -17,6 +17,13 @@
 //! date = "2026-10-07"
 //! commit = "<HEAD sha>"              # or "none" (no commit yet)
 //!
+//! [[code_review.developing_organisation]] # append-only, maintainer-signed (#809)
+//! name = "Outram Park project (NUS)"
+//! date = "2026-10-08"
+//! signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+//! signature = "<base64>"
+//! # crate = "tampines"              # optional: a per-crate override
+//!
 //! [[reviewer]]
 //! id = "github:theodoreOnzGit"     # github:/gitlab:/orcid: or an email
 //! name = "Theodore Ong"            # display only
@@ -49,6 +56,21 @@
 //! # v1 fields (endorsed_by, reset, retired, retired_on, unretired, and the
 //! # reviewer's admitted_by) still load: ReviewRoot::migrate_key_history
 //!
+//! [[reviewer.organisation]]        # append-only, maintainer-signed (#809)
+//! name = "Example IV&V Ltd"
+//! date = "2026-10-08"
+//! signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+//! signature = "<base64>"
+//!
+//! [[reviewer.separation]]          # the reviewer's own signed attestation (#809)
+//! id = "sep-2026-10-08"
+//! organisation = "Example IV&V Ltd"
+//! developing_organisation = "Outram Park project (NUS)"
+//! date = "2026-10-08"
+//! audit_record = "https://github.com/<owner>/<repo>/issues/<n>"
+//! key = "r1"
+//! signature = "<base64>"
+//!
 //! [reviewer.revoked]                # optional: revokes the person
 //! date = "2026-12-01"
 //! compromised_from = "2026-11-20"  # optional: void stamps from this date
@@ -62,6 +84,10 @@
 //! function = "crates/old-crate/src/lib.rs::f"
 //! …
 //! ```
+//!
+//! The developing organisation, reviewer organisations and separation
+//! attestations (GitHub #809) are what rung 5 rests on: see
+//! [`crate::review::ivv`].
 //!
 //! ~~Signatures and endorsements are stored but **not verified**: the crypto is
 //! GitHub #762.~~ **CORRECTED 2026-10-07 (#762)**: signatures, endorsements,
@@ -99,6 +125,132 @@ pub struct CodeReviewSettings {
     /// [`append_rust_analyzer_used`].
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rust_analyzer_used: Vec<RustAnalyzerUsed>,
+    /// `[[code_review.developing_organisation]]` (GitHub #809, maintainer
+    /// 2026-10-08): the organisation responsible for developing the
+    /// software, which rung 5's independent organisation must be separate
+    /// from. Append-only, each entry maintainer-signed: an entry without
+    /// `crate` is workspace-wide; one with `crate` overrides it for that
+    /// crate ([`DevelopingOrganisation`]). Additive: absent in older roots.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub developing_organisation: Vec<DevelopingOrganisation>,
+}
+
+/// One `[[code_review.developing_organisation]]` entry (GitHub #809): from
+/// `date` on, `name` is the organisation responsible for developing the
+/// software, workspace-wide or (with `crate`) for one crate.
+///
+/// ```toml
+/// [[code_review.developing_organisation]]
+/// name = "Outram Park project (NUS)"
+/// date = "2026-10-08"
+/// signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+/// signature = "<base64>"
+///
+/// [[code_review.developing_organisation]]   # a per-crate override
+/// crate = "tampines"
+/// name = "Tampines group"
+/// date = "2026-10-08"
+/// signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+/// signature = "<base64>"
+/// ```
+///
+/// **Append-only**: a change is a new entry, never an edit (the engine's
+/// [`crate::review::engine::history_append_only`] warns on an edit or a
+/// removal). Signed by an admitted maintainer over
+/// [`crate::review::signing::developing_organisation_bytes`]
+/// (`kovan-developing-organisation-v1`). The entry in force for a crate at
+/// a date is the last one for that crate dated on or before it, else the
+/// last workspace-wide one ([`crate::review::ivv`]).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DevelopingOrganisation {
+    /// The crate (its package name, as `kovan.toml` records it) this entry
+    /// overrides; absent for the workspace-wide entry.
+    #[serde(default, rename = "crate", skip_serializing_if = "Option::is_none")]
+    pub krate: Option<String>,
+    pub name: String,
+    /// `YYYY-MM-DD`: in force from this date.
+    pub date: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer: Option<KeySigner>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+}
+
+/// One `[[reviewer.organisation]]` entry (GitHub #809): from `date` on, the
+/// reviewer belongs to `name`. Registry state, signed by an admitted
+/// maintainer over [`crate::review::signing::reviewer_organisation_bytes`]
+/// (`kovan-reviewer-organisation-v1`), like an admission. Append-only: the
+/// entry in force at a date is the last one dated on or before it.
+///
+/// ```toml
+/// [[reviewer.organisation]]
+/// name = "Example IV&V Ltd"
+/// date = "2026-10-08"
+/// signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+/// signature = "<base64>"
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewerOrganisation {
+    pub name: String,
+    /// `YYYY-MM-DD`.
+    pub date: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer: Option<KeySigner>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+}
+
+/// One `[[reviewer.separation]]` entry: the **separation attestation**
+/// (GitHub #809, maintainer 2026-10-08). Signed by the reviewer alone (no
+/// countersignature), with one of its own keys, over
+/// [`crate::review::signing::separation_attestation_bytes`]
+/// (`kovan-separation-attestation-v1`), which includes the fixed statement
+/// [`crate::review::signing::SEPARATION_STATEMENT`]: that `organisation` is
+/// both technically and managerially separate from
+/// `developing_organisation` (NUREG/BR-0167 §3.1 p. 6).
+///
+/// **Where it lives: per reviewer, for one (reviewer organisation,
+/// developing organisation) pair**, not per review. Separation is a fact
+/// about two organisations, not about one function, so one attestation
+/// covers every review the reviewer gives for that pair; each review that
+/// relies on it names it (`[review] separation_attestation = "<id>"`,
+/// signed into the stamp), so a reader sees which attestation a rung 5
+/// rests on. Append-only like the key history.
+///
+/// ```toml
+/// [[reviewer.separation]]
+/// id = "sep-2026-10-08"
+/// organisation = "Example IV&V Ltd"
+/// developing_organisation = "Outram Park project (NUS)"
+/// date = "2026-10-08"
+/// audit_record = "https://github.com/theodoreOnzGit/outram-park-backend/issues/809"
+/// key = "r1"
+/// signature = "<base64>"
+/// ```
+///
+/// `audit_record` must be a public GitHub issue URL
+/// (`https://github.com/<owner>/<repo>/issues/<n>`, open or closed); it is
+/// optional in the schema only so that a missing one reads and is shown as
+/// the reason there is no rung 5. Kovan checks its form, never its content
+/// (offline): it is shown labelled
+/// [`crate::review::ivv::AUDIT_RECORD_LABEL`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SeparationAttestation {
+    /// Unique among this reviewer's attestations; reviews name it.
+    pub id: String,
+    /// The reviewer's organisation.
+    pub organisation: String,
+    /// The organisation responsible for developing the software.
+    pub developing_organisation: String,
+    /// `YYYY-MM-DD`.
+    pub date: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audit_record: Option<String>,
+    /// The reviewer's signing key id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
 }
 
 /// One `[[code_review.rust_analyzer_used]]` entry: the rust-analyzer
@@ -476,6 +628,15 @@ pub struct Reviewer {
     pub keys: Vec<ReviewerKey>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revoked: Option<Revocation>,
+    /// `[[reviewer.organisation]]` (GitHub #809): the organisation this
+    /// reviewer belongs to, append-only and maintainer-signed. Rung 5 needs
+    /// it to differ from the developing organisation. Additive.
+    #[serde(default, rename = "organisation", skip_serializing_if = "Vec::is_empty")]
+    pub organisations: Vec<ReviewerOrganisation>,
+    /// `[[reviewer.separation]]` (GitHub #809): this reviewer's signed
+    /// separation attestations ([`SeparationAttestation`]). Additive.
+    #[serde(default, rename = "separation", skip_serializing_if = "Vec::is_empty")]
+    pub separations: Vec<SeparationAttestation>,
 }
 
 /// `[[deleted_crate]]`: a crate renamed or deleted, with its review history
@@ -841,7 +1002,9 @@ self_declared = true
         let v1 = include_str!("../../tests/fixtures/review/v1/kovan_root.toml");
         let v2 = include_str!("../../tests/fixtures/review/v2/kovan_root.toml");
         let commented = "# keep me\nschema_version = 1 # inline\n[code_review]\nrust_analyzer = \"0.3.2645\" # the pin\n# trailing, no newline";
-        for old in [v1, v2, ROOT, commented] {
+        let v3 = include_str!("../../tests/fixtures/review/v3/kovan_root.toml");
+        let v4 = include_str!("../../tests/fixtures/review/v4/kovan_root.toml");
+        for old in [v1, v2, v3, v4, ROOT, commented] {
             let pin = ReviewRoot::parse(old).unwrap().code_review.unwrap().rust_analyzer;
             let a = append_rust_analyzer_used(old, &used("1.98.0", "2026-10-07")).unwrap().unwrap();
             assert!(a.starts_with(old), "old text must be a prefix");
@@ -892,6 +1055,46 @@ self_declared = true
         assert_eq!((cr.rust_analyzer.as_deref(), cr.founder), (Some("0.3.2645"), None));
         for f in [include_str!("../../tests/fixtures/review/v1/kovan_root.toml"), v2] {
             assert!(ReviewRoot::parse(f).unwrap().rust_analyzer_history().is_empty());
+        }
+    }
+
+    /// Methodology: the GitHub #809 records (schemas never break). The v4
+    /// fixture's workspace developing organisation and per-crate override,
+    /// reviewer organisations and separation attestation read with every
+    /// field, round-trip through [`ReviewRoot::write_into`], and the v1 to
+    /// v3 fixtures read with none of them and write none of them back.
+    ///
+    /// Result (2026-10-08): passes.
+    #[test]
+    fn ivv_records_read_round_trip_and_are_absent_before_v4() {
+        let v4 = include_str!("../../tests/fixtures/review/v4/kovan_root.toml");
+        let r = ReviewRoot::parse(v4).unwrap();
+        let devs = &r.code_review.as_ref().unwrap().developing_organisation;
+        assert_eq!(devs.len(), 2);
+        assert_eq!((devs[0].krate.as_deref(), devs[0].name.as_str()), (None, "Outram Park project"));
+        assert_eq!((devs[1].krate.as_deref(), devs[1].name.as_str()), (Some("tampines"), "Tampines group"));
+        assert_eq!(devs[1].signer.as_ref().unwrap().key, "k1");
+        assert_eq!(r.reviewers[1].organisations[0].name, "Example IV&V Ltd");
+        let a = &r.reviewers[1].separations[0];
+        assert_eq!((a.id.as_str(), a.key.as_deref()), ("sep-2026-10-08", Some("o1")));
+        assert_eq!(
+            a.audit_record.as_deref(),
+            Some("https://github.com/theodoreOnzGit/outram-park-backend/issues/809")
+        );
+        let written = r.write_into(v4).unwrap();
+        assert!(written.contains("crate = \"tampines\""), "{written}");
+        assert_eq!(ReviewRoot::parse(&written).unwrap(), r);
+        for old in [
+            include_str!("../../tests/fixtures/review/v1/kovan_root.toml"),
+            include_str!("../../tests/fixtures/review/v2/kovan_root.toml"),
+            include_str!("../../tests/fixtures/review/v3/kovan_root.toml"),
+            ROOT,
+        ] {
+            let o = ReviewRoot::parse(old).unwrap();
+            assert!(o.code_review.as_ref().map_or(true, |c| c.developing_organisation.is_empty()));
+            assert!(o.reviewers.iter().all(|x| x.organisations.is_empty() && x.separations.is_empty()));
+            let back = o.write_into(old).unwrap();
+            assert!(!back.contains("organisation") && !back.contains("separation"), "{back}");
         }
     }
 }

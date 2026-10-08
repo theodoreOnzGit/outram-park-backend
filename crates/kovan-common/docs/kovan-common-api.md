@@ -12403,6 +12403,9 @@ attribution trailer as unverified.
 - Resolving a function's concept areas (for rung 5) from its review's
   `implements` relations: [`engine::evaluate`] takes them as data.
 
+Rung 5 is IV&V by a technically and managerially separate organisation
+(GitHub #809, NUREG/BR-0167 §3.1): [`crate::review::ivv`].
+
 ```rust
 pub mod review { /* ... */ }
 ```
@@ -12500,16 +12503,34 @@ day than `date`, each with 5 minutes' clock skew;
 same commit the authenticity rule checks. A v1 stamp (no `signed_at`) is
 never flagged.
 ~~A review's rung 4 counts only when the wizard's gate opens it,
-otherwise it counts as rung 3 and is flagged~~ **CORRECTED 2026-10-07**. A
-function is at **rung 5** when, besides its earliest valid review, a
+otherwise it counts as rung 3 and is flagged~~ **CORRECTED 2026-10-07**.
+~~A function is at **rung 5** when, besides its earliest valid review, a
 valid review exists by a different reviewer who is not one of the code's
 authors (from git), whose wizard answer to `independence` is
 `someone_else` ([`ReviewReport::independent`]; maintainer on #769,
 2026-10-07: independence gates rung 5, not rung 4) **and** who holds a
 qualification covering every concept
 area of the function ([`ConceptAreas`]; maintainer, #739, 2026-10-07:
-"only rung 5 enforces qualification"). A function with no known concept
-area cannot reach rung 5. Below rung 5 qualification is shown
+"only rung 5 enforces qualification").~~ **CORRECTED 2026-10-08**
+(GitHub #809; maintainer decisions 2026-10-08) — rung 5 is
+**independent verification and validation (IV&V)** in NUREG/BR-0167's
+sense (§3.1 p. 6: "verification and validation by an organization that
+is both technically and managerially separate from the organization
+responsible for developing the software"). A function is at rung 5 when
+a valid review is an **independent V&V case** (it derives rung 4 on its
+own: a qualifying `vv_evidence`, written and verified by hand, git
+agreeing) by a reviewer who is qualified in every concept area of the
+function ([`ConceptAreas`]), is neither a code author nor the first
+reviewer, answered `independence = someone_else`, whose registry
+organisation differs from the developing organisation in force for the
+function's crate, and whose review names a valid signed separation
+attestation with a GitHub-issue audit record. A second review stamp
+alone no longer reaches rung 5. The rules and every reason a candidate
+misses are in [`super::ivv`]; the result is
+[`FunctionReport::independent_vv`], and a review that names an
+attestation but misses raises [`FunctionFlag::IndependentVvNotCounted`]
+(Leak Before Break: never a silent downgrade). A function with no known
+concept area cannot reach rung 5. Below rung 5 qualification is shown
 ([`ReviewReport::qualifications`]) and never enforced; scope is.
 
 **Test evidence** is the folder's `[test_run]`, judged by #766's
@@ -14609,6 +14630,10 @@ pub enum FunctionFlag {
         review: String,
         problems: Vec<super::signed_at::SignedAtProblem>,
     },
+    IndependentVvNotCounted {
+        review: String,
+        misses: Vec<super::ivv::Rung5Miss>,
+    },
 }
 ```
 
@@ -14649,6 +14674,18 @@ Fields:
 |------|------|---------------|
 | `review` | `String` |  |
 | `problems` | `Vec<super::signed_at::SignedAtProblem>` |  |
+
+###### `IndependentVvNotCounted`
+
+A valid review names a separation attestation (it claims rung 5,
+IV&V) but misses it (GitHub #809): every reason is listed.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `review` | `String` |  |
+| `misses` | `Vec<super::ivv::Rung5Miss>` |  |
 
 ##### Implementations
 
@@ -14883,6 +14920,8 @@ pub struct ReviewReport {
     pub rung: Option<u8>,
     pub qualifications: Vec<String>,
     pub independent: bool,
+    pub vv_case: Vec<super::ivv::VvCaseProblem>,
+    pub separation_attestation: Option<String>,
 }
 ```
 
@@ -14896,7 +14935,9 @@ pub struct ReviewReport {
 | `state` | `StampState` |  |
 | `rung` | `Option<u8>` | The rung recorded (3 or 4); it counts only when it equals the<br>derived rung (else the state is invalid). |
 | `qualifications` | `Vec<String>` | The reviewer's qualification labels, shown beside the stamp<br>(self-declared ones say so). |
-| `independent` | `bool` | The wizard says the reviewer is independent of the code<br>(`independence = "someone_else"`): may be rung 5's second review. |
+| `independent` | `bool` | The wizard says the reviewer is independent of the code<br>`independence = "someone_else"`): one of rung 5's conditions<br>([`super::ivv`]). |
+| `vv_case` | `Vec<super::ivv::VvCaseProblem>` | Why this review is not a hand-written V&V case (empty: it derives<br>rung 4); rung 5's first condition ([`super::ivv::vv_case_problems`]). |
+| `separation_attestation` | `Option<String>` | The separation attestation the review names, if any (GitHub #809). |
 
 ##### Implementations
 
@@ -15001,6 +15042,7 @@ pub struct FunctionReport {
     pub untested: bool,
     pub blocked_by: Vec<String>,
     pub flags: Vec<FunctionFlag>,
+    pub independent_vv: super::ivv::IndependentVv,
 }
 ```
 
@@ -15016,6 +15058,7 @@ pub struct FunctionReport {
 | `untested` | `bool` | The standing "no test reaches this function" flag. |
 | `blocked_by` | `Vec<String>` | Workspace callees whose own state does not count (bottom-up). |
 | `flags` | `Vec<FunctionFlag>` | Flags that never void a stamp ([`FunctionFlag`]). |
+| `independent_vv` | `super::ivv::IndependentVv` | Rung 5, IV&V (GitHub #809): the review that gives it, if any, and<br>every valid review with the reasons it does not ([`super::ivv`]). |
 
 ##### Implementations
 
@@ -15620,6 +15663,7 @@ pub struct Evaluation {
     pub upstream_tags: Vec<UpstreamTagReport>,
     pub history_warnings: Vec<HistoryWarning>,
     pub new_reaching_tests: Vec<NewReachingTest>,
+    pub ivv_warnings: Vec<super::ivv::RecordWarning>,
 }
 ```
 
@@ -15635,6 +15679,7 @@ pub struct Evaluation {
 | `upstream_tags` | `Vec<UpstreamTagReport>` | Every upstream tag label with its check; informational only, the<br>commit pin is what counts. |
 | `history_warnings` | `Vec<HistoryWarning>` | Key-history entries that were committed before and are now gone or<br>changed: loud warnings (append-only check against git). |
 | `new_reaching_tests` | `Vec<NewReachingTest>` | Tests that started reaching a reviewed function after its review. |
+| `ivv_warnings` | `Vec<super::ivv::RecordWarning>` | Organisation records and separation attestations that do not<br>verify, whether or not a review relies on them (GitHub #809;<br>[`super::ivv::record_warnings`]). |
 
 ##### Implementations
 
@@ -15763,6 +15808,14 @@ pub enum HistoryWarning {
         key: String,
         index: usize,
     },
+    RecordRemoved {
+        list: super::ivv::RecordList,
+        index: usize,
+    },
+    RecordChanged {
+        list: super::ivv::RecordList,
+        index: usize,
+    },
 }
 ```
 
@@ -15811,6 +15864,29 @@ Fields:
 |------|------|---------------|
 | `reviewer` | `String` |  |
 | `key` | `String` |  |
+| `index` | `usize` |  |
+
+###### `RecordRemoved`
+
+Entry `index` of an append-only organisation or attestation list
+(GitHub #809) is gone.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `list` | `super::ivv::RecordList` |  |
+| `index` | `usize` |  |
+
+###### `RecordChanged`
+
+Entry `index` of such a list was changed.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `list` | `super::ivv::RecordList` |  |
 | `index` | `usize` |  |
 
 ##### Implementations
@@ -15909,6 +15985,8 @@ Fields:
 Compare the previous committed root with the current one: every
 reviewer, key and key-history entry present before must be present now,
 unchanged, at the same position (appending is the only change allowed).
+The same holds for the organisation records and separation attestations
+(GitHub #809).
 
 ```rust
 pub fn history_append_only(previous: &super::root::ReviewRoot, current: &super::root::ReviewRoot) -> Vec<HistoryWarning> { /* ... */ }
@@ -20509,6 +20587,2177 @@ pub const INDEX_SCHEMA_VERSION: u32 = 1;
 pub const CODE_FOLDER_KIND: &str = "code_folder";
 ```
 
+## Module `ivv`
+
+**Rung 5: independent verification and validation (IV&V)** (GitHub
+#809; maintainer decisions, 2026-10-08).
+
+# The definition
+
+NUREG/BR-0167 (1993), §3.1 p. 6, read from the standard-corpus PDF
+(`nureg-br-0167`):
+
+> Independent verification and validation (IV&V) is verification and
+> validation by an organization that is both technically and managerially
+> separate from the organization responsible for developing the software.
+
+and the glossary (Appendix B, p. 55): "Verification and validation by an
+organization that is both technically and managerially separate from the
+organization responsible for developing the software." BR-0167 treats
+IV&V as optional and is written for NRC staff software, not plant
+software, so Kovan uses it by analogy.
+
+~~Rung 5 is a second valid review by a different reviewer who is not a
+code author, answered `independence = someone_else` and is qualified in
+every concept area of the function~~ **CORRECTED 2026-10-08** (#809):
+that was an independent *review* by an *individual*, not IV&V by a
+separate *organisation*. A second review stamp alone no longer reaches
+rung 5.
+
+# What rung 5 needs now
+
+A function is at rung 5 when one of its valid reviews (a *candidate*)
+meets **all** of these, each judged at the review's `date`:
+
+1. **An independent V&V case**: the review derives rung 4 on its own (a
+   qualifying `vv_evidence` answer, `vv_case_author =
+   human_wrote_and_verified`, and git showing no agent trailer on the
+   reaching tests' commits at the review commit): the same human-only
+   gate as rung 4 ([`vv_case_problems`]). The ladder only adds
+   requirements going up (maintainer decision 2).
+2. **Qualified** in every concept area of the function (enforced as
+   before; decision 1). A function with no known concept area cannot
+   reach rung 5.
+3. **Not the code's author** (from git) and **not the first reviewer**
+   (the earliest valid review's reviewer), and its `independence` answer
+   is not `not_independent`.
+4. **A different organisation.** The reviewer's
+   `[[reviewer.organisation]]` in force at the review date differs from
+   the developing organisation in force for the function's crate
+   (`[[code_review.developing_organisation]]`, a per-crate entry
+   overriding the workspace one; decision 3). Both are maintainer-signed,
+   append-only registry records. Names are compared after trimming,
+   collapsing white space and ignoring case ([`same_organisation`]);
+   anything else is the signing maintainer's spelling.
+5. **A valid signed separation attestation.** The review names one
+   (`[review] separation_attestation`, signed into the stamp) of the
+   reviewer's `[[reviewer.separation]]` entries; it verifies against the
+   reviewer's own trusted key (no countersignature), is dated on or
+   before the review, names the same two organisations, and names a
+   public GitHub issue as its audit record, open or closed
+   ([`parse_audit_record`]).
+
+# Leak Before Break
+
+Every reason a candidate misses is a [`Rung5Miss`], kept on the
+function's [`IndependentVv`] report; nothing is silently downgraded. A
+review that names an attestation and still misses also raises the
+function flag "independent V&V not counted"
+([`super::engine::FunctionFlag::IndependentVvNotCounted`]). A
+registry record (organisation or attestation) that does not verify is
+listed in [`super::engine::Evaluation::ivv_warnings`] even when no review
+relies on it.
+
+**What kovan cannot check.** The audit record's issue is shown, never
+fetched: kovan is offline, so its existence and content are not verified,
+and it is labelled [`AUDIT_RECORD_LABEL`]. Whether the two organisations
+really are separate is the reviewer's signed attestation, not a fact
+kovan derives.
+
+**Signature policy.** With [`SignaturePolicy::NotChecked`] the
+organisation and attestation signatures are not checked either (as for
+stamps); every other rule above still applies.
+
+No migration: rungs are derived, never stored, and no stamp claimed the
+old rung 5 (maintainer decision 4).
+
+```rust
+pub mod ivv { /* ... */ }
+```
+
+### Types
+
+#### Struct `AuditRecord`
+
+A public GitHub issue named as an attestation's audit record.
+
+```rust
+pub struct AuditRecord {
+    pub url: String,
+    pub owner: String,
+    pub repo: String,
+    pub number: u64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `url` | `String` |  |
+| `owner` | `String` |  |
+| `repo` | `String` |  |
+| `number` | `u64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn shown(self: &Self) -> String { /* ... */ }
+  ```
+  The link as it is shown: `audit record (not verified by kovan): <url>`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AuditRecord { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AuditRecord) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `AuditRecordProblem`
+
+Why an audit record is not a GitHub issue URL.
+
+```rust
+pub enum AuditRecordProblem {
+    Missing,
+    NotAnIssueUrl(String),
+    BadOwner(String),
+    BadRepo(String),
+    BadNumber(String),
+}
+```
+
+##### Variants
+
+###### `Missing`
+
+The attestation names none.
+
+###### `NotAnIssueUrl`
+
+Not of the form `https://github.com/<owner>/<repo>/issues/<n>`
+(another host, `http`, a pull request, a trailing path, a query or a
+fragment, white space).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `BadOwner`
+
+The owner is not a GitHub user or organisation name (1 to 39 ASCII
+letters, digits or hyphens, not starting or ending with a hyphen).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `BadRepo`
+
+The repository is not a GitHub repository name (1 to 100 ASCII
+letters, digits, `.`, `_` or `-`; not `.` or `..`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `BadNumber`
+
+The issue number is not a positive decimal integer without a leading
+zero.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AuditRecordProblem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AuditRecordProblem) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `VvCaseProblem`
+
+Why a review's V&V case is not an independent, hand-written one (rung
+5's condition 1; the rung-4 gate, [`super::wizard::derived_rung`]).
+
+```rust
+pub enum VvCaseProblem {
+    NoQualifyingEvidence,
+    NotWrittenByHand,
+    TestsByAgent,
+    TestAuthorshipUnknown,
+}
+```
+
+##### Variants
+
+###### `NoQualifyingEvidence`
+
+`vv_evidence` is not code-to-code, analytical or convergence.
+
+###### `NotWrittenByHand`
+
+`vv_case_author` is not `human_wrote_and_verified`.
+
+###### `TestsByAgent`
+
+Git shows the agent trailer on a commit that added a reaching test
+(an AI-authored V&V case).
+
+###### `TestAuthorshipUnknown`
+
+Git's view of the reaching tests' authorship is not known (no
+reaching test, or no commit facts).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> VvCaseProblem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &VvCaseProblem) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &VvCaseProblem) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &VvCaseProblem) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `OrganisationScope`
+
+Which record gave an organisation.
+
+```rust
+pub enum OrganisationScope {
+    Workspace,
+    Crate(String),
+    Reviewer(String),
+}
+```
+
+##### Variants
+
+###### `Workspace`
+
+The workspace-wide `[[code_review.developing_organisation]]`.
+
+###### `Crate`
+
+A per-crate override (`crate = "<name>"`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Reviewer`
+
+A reviewer's `[[reviewer.organisation]]`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> OrganisationScope { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &OrganisationScope) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `OrganisationInForce`
+
+The organisation record in force at a date.
+
+```rust
+pub struct OrganisationInForce {
+    pub name: String,
+    pub date: String,
+    pub scope: OrganisationScope,
+    pub signed_by: Option<(String, String)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` |  |
+| `date` | `String` | The record's own date. |
+| `scope` | `OrganisationScope` |  |
+| `signed_by` | `Option<(String, String)>` | The maintainer (reviewer id, key id) whose signature verified;<br>`None` when signatures are not checked. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> OrganisationInForce { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &OrganisationInForce) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `OrganisationProblem`
+
+Why no organisation is in force.
+
+```rust
+pub enum OrganisationProblem {
+    NotRecorded,
+    BadDate(String),
+    Unverified {
+        date: String,
+        problem: super::signing::registry::SignerProblem,
+    },
+}
+```
+
+##### Variants
+
+###### `NotRecorded`
+
+No record dated on or before the date.
+
+###### `BadDate`
+
+The record in force has a date that is not `YYYY-MM-DD`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Unverified`
+
+The record in force is unsigned or its signature does not count.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `date` | `String` |  |
+| `problem` | `super::signing::registry::SignerProblem` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> OrganisationProblem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &OrganisationProblem) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `AttestationProblem`
+
+Why a separation attestation does not count.
+
+```rust
+pub enum AttestationProblem {
+    NotFound {
+        id: String,
+    },
+    Ambiguous {
+        id: String,
+    },
+    BadDate(String),
+    Unverified(super::signing::registry::SignerProblem),
+    DatedAfterReview {
+        attested: String,
+        reviewed: String,
+    },
+    OtherOrganisations {
+        organisation: String,
+        developing_organisation: String,
+    },
+    AuditRecord(AuditRecordProblem),
+}
+```
+
+##### Variants
+
+###### `NotFound`
+
+The reviewer has no `[[reviewer.separation]]` with this id.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` |  |
+
+###### `Ambiguous`
+
+More than one has this id: which one the stamp means is unknown.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` |  |
+
+###### `BadDate`
+
+Its date is not `YYYY-MM-DD`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Unverified`
+
+Unsigned, or its signature does not verify against one of the
+reviewer's own trusted, active keys.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::signing::registry::SignerProblem` |  |
+
+###### `DatedAfterReview`
+
+Dated after the review that relies on it.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `attested` | `String` |  |
+| `reviewed` | `String` |  |
+
+###### `OtherOrganisations`
+
+It names organisations other than those in force at the review.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `organisation` | `String` |  |
+| `developing_organisation` | `String` |  |
+
+###### `AuditRecord`
+
+Its audit record is missing or is not a GitHub issue URL.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `AuditRecordProblem` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AttestationProblem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AttestationProblem) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `AttestationCheck`
+
+One attestation, judged on its own (lookup, date, signature, audit
+record); the review-dependent checks are [`judge_function`]'s.
+
+```rust
+pub struct AttestationCheck {
+    pub attestation: Option<super::root::SeparationAttestation>,
+    pub audit_record: Option<AuditRecord>,
+    pub problems: Vec<AttestationProblem>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `attestation` | `Option<super::root::SeparationAttestation>` |  |
+| `audit_record` | `Option<AuditRecord>` |  |
+| `problems` | `Vec<AttestationProblem>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AttestationCheck { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AttestationCheck) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Rung5Miss`
+
+Why one candidate review does not give rung 5. Every one is shown.
+
+```rust
+pub enum Rung5Miss {
+    FirstReviewer,
+    CodeAuthor,
+    NotIndependent,
+    NoHumanVvCase(Vec<VvCaseProblem>),
+    NoConceptArea,
+    NotQualified {
+        areas: Vec<String>,
+    },
+    ReviewerOrganisation(OrganisationProblem),
+    DevelopingOrganisation(OrganisationProblem),
+    SameOrganisation {
+        organisation: String,
+    },
+    NoAttestation,
+    Attestation(AttestationProblem),
+}
+```
+
+##### Variants
+
+###### `FirstReviewer`
+
+The reviewer gave the function's earliest valid review.
+
+###### `CodeAuthor`
+
+The reviewer is one of the code's authors (git).
+
+###### `NotIndependent`
+
+The `independence` answer is `not_independent` (a self-check or an
+unstated author), or unanswered.
+
+###### `NoHumanVvCase`
+
+The review is not an independent, hand-written V&V case.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<VvCaseProblem>` |  |
+
+###### `NoConceptArea`
+
+The function has no known concept area.
+
+###### `NotQualified`
+
+No qualification covers these concept areas.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `areas` | `Vec<String>` |  |
+
+###### `ReviewerOrganisation`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `OrganisationProblem` |  |
+
+###### `DevelopingOrganisation`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `OrganisationProblem` |  |
+
+###### `SameOrganisation`
+
+The reviewer's organisation is the developing organisation.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `organisation` | `String` |  |
+
+###### `NoAttestation`
+
+The review names no separation attestation.
+
+###### `Attestation`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `AttestationProblem` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn reason(self: &Self) -> String { /* ... */ }
+  ```
+  Plain-English reason, for every view.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Rung5Miss { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Rung5Miss) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Rung5Candidate`
+
+One valid review judged as a rung-5 candidate.
+
+```rust
+pub struct Rung5Candidate {
+    pub review: Option<String>,
+    pub by: String,
+    pub date: Option<String>,
+    pub attestation: Option<String>,
+    pub misses: Vec<Rung5Miss>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `review` | `Option<String>` | The review's artifact id. |
+| `by` | `String` |  |
+| `date` | `Option<String>` |  |
+| `attestation` | `Option<String>` | The attestation the review names. |
+| `misses` | `Vec<Rung5Miss>` | Empty: this review gives rung 5. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Rung5Candidate { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Rung5Candidate) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Rung5Pass`
+
+The review that gives rung 5, and what it rests on.
+
+```rust
+pub struct Rung5Pass {
+    pub review: Option<String>,
+    pub by: String,
+    pub organisation: OrganisationInForce,
+    pub developing_organisation: OrganisationInForce,
+    pub attestation: String,
+    pub audit_record: AuditRecord,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `review` | `Option<String>` |  |
+| `by` | `String` |  |
+| `organisation` | `OrganisationInForce` |  |
+| `developing_organisation` | `OrganisationInForce` |  |
+| `attestation` | `String` | The attestation's id. |
+| `audit_record` | `AuditRecord` | Shown with [`AUDIT_RECORD_LABEL`]; never fetched. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Rung5Pass { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Rung5Pass) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `IndependentVv`
+
+A function's rung-5 judgement: the pass, if any, and every valid review
+with its misses.
+
+```rust
+pub struct IndependentVv {
+    pub passed: Option<Rung5Pass>,
+    pub candidates: Vec<Rung5Candidate>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `passed` | `Option<Rung5Pass>` |  |
+| `candidates` | `Vec<Rung5Candidate>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IndependentVv { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> IndependentVv { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IndependentVv) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `RecordList`
+
+Which append-only list a registry record is in.
+
+```rust
+pub enum RecordList {
+    DevelopingOrganisation,
+    ReviewerOrganisation {
+        reviewer: String,
+    },
+    SeparationAttestation {
+        reviewer: String,
+    },
+}
+```
+
+##### Variants
+
+###### `DevelopingOrganisation`
+
+`[[code_review.developing_organisation]]`.
+
+###### `ReviewerOrganisation`
+
+`[[reviewer.organisation]]` of this reviewer.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+
+###### `SeparationAttestation`
+
+`[[reviewer.separation]]` of this reviewer.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RecordList { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &RecordList) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RecordList) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &RecordList) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `RecordProblem`
+
+What is wrong with one registry record.
+
+```rust
+pub enum RecordProblem {
+    Organisation(OrganisationProblem),
+    Attestation(AttestationProblem),
+}
+```
+
+##### Variants
+
+###### `Organisation`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `OrganisationProblem` |  |
+
+###### `Attestation`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `AttestationProblem` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RecordProblem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RecordProblem) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RecordWarning`
+
+A registry record that does not verify (loud, whether or not a review
+relies on it).
+
+```rust
+pub struct RecordWarning {
+    pub list: RecordList,
+    pub index: usize,
+    pub problem: RecordProblem,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `list` | `RecordList` |  |
+| `index` | `usize` | 0-based position in its list. |
+| `problem` | `RecordProblem` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RecordWarning { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RecordWarning) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `parse_audit_record`
+
+Check that `url` is `https://github.com/<owner>/<repo>/issues/<n>`.
+
+```rust
+pub fn parse_audit_record(url: &str) -> Result<AuditRecord, AuditRecordProblem> { /* ... */ }
+```
+
+#### Function `vv_case_problems`
+
+Every reason the answers and git do not give a hand-written V&V case;
+empty exactly when the review derives rung 4.
+
+```rust
+pub fn vv_case_problems(answers: &std::collections::BTreeMap<String, String>, tests: super::wizard::TestAuthorship) -> Vec<VvCaseProblem> { /* ... */ }
+```
+
+#### Function `same_organisation`
+
+Organisation names compare equal after trimming, collapsing white space
+and ignoring case.
+
+```rust
+pub fn same_organisation(a: &str, b: &str) -> bool { /* ... */ }
+```
+
+#### Function `developing_organisation`
+
+The developing organisation in force for `krate` at `as_of`: the last
+override for `krate` dated on or before it, else the last workspace-wide
+entry.
+
+```rust
+pub fn developing_organisation(root: &super::root::ReviewRoot, registry: &super::signing::registry::Registry, krate: &str, as_of: &str, policy: super::engine::SignaturePolicy) -> Result<OrganisationInForce, OrganisationProblem> { /* ... */ }
+```
+
+#### Function `reviewer_organisation`
+
+The organisation `reviewer` belongs to at `as_of`.
+
+```rust
+pub fn reviewer_organisation(root: &super::root::ReviewRoot, registry: &super::signing::registry::Registry, reviewer: &str, as_of: &str, policy: super::engine::SignaturePolicy) -> Result<OrganisationInForce, OrganisationProblem> { /* ... */ }
+```
+
+#### Function `check_attestation`
+
+Look up `reviewer`'s attestation `id` and check it on its own.
+
+```rust
+pub fn check_attestation(root: &super::root::ReviewRoot, registry: &super::signing::registry::Registry, reviewer: &str, id: &str, policy: super::engine::SignaturePolicy) -> AttestationCheck { /* ... */ }
+```
+
+#### Function `judge_function`
+
+**Attributes:**
+
+- `Other("#[allow(clippy::too_many_arguments)]")`
+
+Judge every valid review of function `id` (in crate `krate`) as a rung-5
+candidate (module doc). Pure.
+
+```rust
+pub fn judge_function(id: &str, krate: &str, reviews: &[super::engine::ReviewReport], authors: &std::collections::BTreeSet<String>, root: &super::root::ReviewRoot, registry: &super::signing::registry::Registry, concepts: &super::engine::ConceptAreas, policy: super::engine::SignaturePolicy) -> IndependentVv { /* ... */ }
+```
+
+#### Function `record_warnings`
+
+Every organisation record and attestation in `root` that does not
+verify, or whose date or audit record is malformed, or whose id is not
+unique. Nothing with [`SignaturePolicy::NotChecked`] but dates, audit
+records and ids.
+
+```rust
+pub fn record_warnings(root: &super::root::ReviewRoot, registry: &super::signing::registry::Registry, policy: super::engine::SignaturePolicy) -> Vec<RecordWarning> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `AUDIT_RECORD_LABEL`
+
+How the audit record is labelled wherever it is shown: kovan checks the
+URL's form only.
+
+```rust
+pub const AUDIT_RECORD_LABEL: &str = "audit record (not verified by kovan)";
+```
+
 ## Module `review_md`
 
 **`review.md`**: the human-owned review record of one folder (maintainer,
@@ -20562,6 +22811,7 @@ commit = "<40 hex>"
 hash = "sha256:<64 hex>"
 doc_hash = "sha256:<64 hex>"
 cargo_lock = "sha256:<64 hex>"
+separation_attestation = "sep-2026-10-08"  (#809; only on an IV&V stamp)
 
 [review.callees]
 "crates/tampines/src/steam.rs::saturation" = "sha256:<64 hex>"
@@ -20877,6 +23127,7 @@ pub struct ReviewBody {
     pub no_concept: Option<String>,
     pub authorship: Option<super::types::ChangeAuthorship>,
     pub moved: Vec<MoveRecord>,
+    pub separation_attestation: Option<String>,
     pub signature: Option<super::signing::Signature>,
 }
 ```
@@ -20888,7 +23139,7 @@ pub struct ReviewBody {
 | `function` | `Option<String>` | First-version join key (the call-graph key); only on an entry<br>written before the hybrid id, and cleared by the migration. |
 | `path` | `Option<String>` | The function's current location, `file.rs::Type::name`. |
 | `by` | `String` | `github:` / `gitlab:` / `orcid:` / email. |
-| `rung` | `u8` | 3 human reviewed, 4 human V&V (gated on `vv_evidence` and<br>`independence`: [`super::wizard::stamp_gate`]). 5 is derived. |
+| `rung` | `u8` | 3 human reviewed, 4 human V&V (~~gated on `vv_evidence` and<br>`independence`~~ **CORRECTED 2026-10-08**: derived from `vv_evidence`,<br>`vv_case_author` and git, [`super::wizard::derived_rung`]). 5 is never<br>recorded: the engine derives it per function ([`super::ivv`]). |
 | `date` | `String` | `YYYY-MM-DD`. |
 | `signed_at` | `Option<String>` | When the stamp was signed: RFC 3339 to the second, with its UTC<br>offset (GitHub #783; [`super::signed_at`]). Signed (the v2 signed<br>bytes); absent on a stamp signed before #783, which stays v1. |
 | `commit` | `String` | The commit the review certifies. |
@@ -20900,6 +23151,7 @@ pub struct ReviewBody {
 | `no_concept` | `Option<String>` | The "no concept" reason, when the function links no concept. |
 | `authorship` | `Option<super::types::ChangeAuthorship>` | Who authored the change reviewed (#764, from #771, 2026-10-07). |
 | `moved` | `Vec<MoveRecord>` |  |
+| `separation_attestation` | `Option<String>` | The id of the reviewer's `[[reviewer.separation]]` attestation this<br>review relies on for rung 5, IV&V (GitHub #809; [`super::ivv`]).<br>Signed (the v3 signed bytes, [`super::signing`]); absent on every<br>stamp that does not claim independence from the developing<br>organisation, which keeps its v1/v2 bytes. |
 | `signature` | `Option<super::signing::Signature>` | Ed25519 over [`super::signing::signed_bytes`]; checked by<br>[`super::signing::verify_review`] (#762). |
 
 ##### Implementations
@@ -23345,6 +25597,13 @@ version = "1.98.0"
 date = "2026-10-07"
 commit = "<HEAD sha>"              # or "none" (no commit yet)
 
+[[code_review.developing_organisation]] # append-only, maintainer-signed (#809)
+name = "Outram Park project (NUS)"
+date = "2026-10-08"
+signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+signature = "<base64>"
+# crate = "tampines"              # optional: a per-crate override
+
 [[reviewer]]
 id = "github:theodoreOnzGit"     # github:/gitlab:/orcid: or an email
 name = "Theodore Ong"            # display only
@@ -23377,6 +25636,21 @@ signature = "<base64>"
 # v1 fields (endorsed_by, reset, retired, retired_on, unretired, and the
 # reviewer's admitted_by) still load: ReviewRoot::migrate_key_history
 
+[[reviewer.organisation]]        # append-only, maintainer-signed (#809)
+name = "Example IV&V Ltd"
+date = "2026-10-08"
+signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+signature = "<base64>"
+
+[[reviewer.separation]]          # the reviewer's own signed attestation (#809)
+id = "sep-2026-10-08"
+organisation = "Example IV&V Ltd"
+developing_organisation = "Outram Park project (NUS)"
+date = "2026-10-08"
+audit_record = "https://github.com/<owner>/<repo>/issues/<n>"
+key = "r1"
+signature = "<base64>"
+
 [reviewer.revoked]                # optional: revokes the person
 date = "2026-12-01"
 compromised_from = "2026-11-20"  # optional: void stamps from this date
@@ -23390,6 +25664,10 @@ deleted_commit = "<sha>"
 function = "crates/old-crate/src/lib.rs::f"
 …
 ```
+
+The developing organisation, reviewer organisations and separation
+attestations (GitHub #809) are what rung 5 rests on: see
+[`crate::review::ivv`].
 
 ~~Signatures and endorsements are stored but **not verified**: the crypto is
 GitHub #762.~~ **CORRECTED 2026-10-07 (#762)**: signatures, endorsements,
@@ -23415,6 +25693,7 @@ pub struct CodeReviewSettings {
     pub rust_analyzer: Option<String>,
     pub founder: Option<String>,
     pub rust_analyzer_used: Vec<RustAnalyzerUsed>,
+    pub developing_organisation: Vec<DevelopingOrganisation>,
 }
 ```
 
@@ -23425,6 +25704,7 @@ pub struct CodeReviewSettings {
 | `rust_analyzer` | `Option<String>` | The pinned rust-analyzer version (D4): a mismatch warns and<br>regenerates the index. |
 | `founder` | `Option<String>` | The founding maintainer's reviewer id (#762, additive; maintainer,<br>2026-10-07): the one reviewer whose first key is trusted on first<br>use. Absent or unknown means no founder, so nothing is trusted<br>([`crate::review::signing::registry::FounderProblem`]). |
 | `rust_analyzer_used` | `Vec<RustAnalyzerUsed>` | Every rust-analyzer version an index run used, oldest first<br>(`[[code_review.rust_analyzer_used]]`; maintainer, 2026-10-07: "just<br>record the versions of rust analyzer that were used, never overwrite<br>the comments based on the new versions"). Additive: absent in older<br>roots, ignored by readers that predate it. A run never changes<br>[`Self::rust_analyzer`] (the pin); it only appends here, as text, with<br>[`append_rust_analyzer_used`]. |
+| `developing_organisation` | `Vec<DevelopingOrganisation>` | `[[code_review.developing_organisation]]` (GitHub #809, maintainer<br>2026-10-08): the organisation responsible for developing the<br>software, which rung 5's independent organisation must be separate<br>from. Append-only, each entry maintainer-signed: an entry without<br>`crate` is workspace-wide; one with `crate` overrides it for that<br>crate ([`DevelopingOrganisation`]). Additive: absent in older roots. |
 
 ##### Implementations
 
@@ -23499,6 +25779,462 @@ where
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &CodeReviewSettings) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `DevelopingOrganisation`
+
+One `[[code_review.developing_organisation]]` entry (GitHub #809): from
+`date` on, `name` is the organisation responsible for developing the
+software, workspace-wide or (with `crate`) for one crate.
+
+```toml
+[[code_review.developing_organisation]]
+name = "Outram Park project (NUS)"
+date = "2026-10-08"
+signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+signature = "<base64>"
+
+[[code_review.developing_organisation]]   # a per-crate override
+crate = "tampines"
+name = "Tampines group"
+date = "2026-10-08"
+signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+signature = "<base64>"
+```
+
+**Append-only**: a change is a new entry, never an edit (the engine's
+[`crate::review::engine::history_append_only`] warns on an edit or a
+removal). Signed by an admitted maintainer over
+[`crate::review::signing::developing_organisation_bytes`]
+(`kovan-developing-organisation-v1`). The entry in force for a crate at
+a date is the last one for that crate dated on or before it, else the
+last workspace-wide one ([`crate::review::ivv`]).
+
+```rust
+pub struct DevelopingOrganisation {
+    pub krate: Option<String>,
+    pub name: String,
+    pub date: String,
+    pub signer: Option<KeySigner>,
+    pub signature: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `krate` | `Option<String>` | The crate (its package name, as `kovan.toml` records it) this entry<br>overrides; absent for the workspace-wide entry. |
+| `name` | `String` |  |
+| `date` | `String` | `YYYY-MM-DD`: in force from this date. |
+| `signer` | `Option<KeySigner>` |  |
+| `signature` | `Option<String>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DevelopingOrganisation { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DevelopingOrganisation) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ReviewerOrganisation`
+
+One `[[reviewer.organisation]]` entry (GitHub #809): from `date` on, the
+reviewer belongs to `name`. Registry state, signed by an admitted
+maintainer over [`crate::review::signing::reviewer_organisation_bytes`]
+(`kovan-reviewer-organisation-v1`), like an admission. Append-only: the
+entry in force at a date is the last one dated on or before it.
+
+```toml
+[[reviewer.organisation]]
+name = "Example IV&V Ltd"
+date = "2026-10-08"
+signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+signature = "<base64>"
+```
+
+```rust
+pub struct ReviewerOrganisation {
+    pub name: String,
+    pub date: String,
+    pub signer: Option<KeySigner>,
+    pub signature: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` |  |
+| `date` | `String` | `YYYY-MM-DD`. |
+| `signer` | `Option<KeySigner>` |  |
+| `signature` | `Option<String>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReviewerOrganisation { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReviewerOrganisation) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SeparationAttestation`
+
+One `[[reviewer.separation]]` entry: the **separation attestation**
+(GitHub #809, maintainer 2026-10-08). Signed by the reviewer alone (no
+countersignature), with one of its own keys, over
+[`crate::review::signing::separation_attestation_bytes`]
+(`kovan-separation-attestation-v1`), which includes the fixed statement
+[`crate::review::signing::SEPARATION_STATEMENT`]: that `organisation` is
+both technically and managerially separate from
+`developing_organisation` (NUREG/BR-0167 §3.1 p. 6).
+
+**Where it lives: per reviewer, for one (reviewer organisation,
+developing organisation) pair**, not per review. Separation is a fact
+about two organisations, not about one function, so one attestation
+covers every review the reviewer gives for that pair; each review that
+relies on it names it (`[review] separation_attestation = "<id>"`,
+signed into the stamp), so a reader sees which attestation a rung 5
+rests on. Append-only like the key history.
+
+```toml
+[[reviewer.separation]]
+id = "sep-2026-10-08"
+organisation = "Example IV&V Ltd"
+developing_organisation = "Outram Park project (NUS)"
+date = "2026-10-08"
+audit_record = "https://github.com/theodoreOnzGit/outram-park-backend/issues/809"
+key = "r1"
+signature = "<base64>"
+```
+
+`audit_record` must be a public GitHub issue URL
+(`https://github.com/<owner>/<repo>/issues/<n>`, open or closed); it is
+optional in the schema only so that a missing one reads and is shown as
+the reason there is no rung 5. Kovan checks its form, never its content
+(offline): it is shown labelled
+[`crate::review::ivv::AUDIT_RECORD_LABEL`].
+
+```rust
+pub struct SeparationAttestation {
+    pub id: String,
+    pub organisation: String,
+    pub developing_organisation: String,
+    pub date: String,
+    pub audit_record: Option<String>,
+    pub key: Option<String>,
+    pub signature: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` | Unique among this reviewer's attestations; reviews name it. |
+| `organisation` | `String` | The reviewer's organisation. |
+| `developing_organisation` | `String` | The organisation responsible for developing the software. |
+| `date` | `String` | `YYYY-MM-DD`. |
+| `audit_record` | `Option<String>` |  |
+| `key` | `Option<String>` | The reviewer's signing key id. |
+| `signature` | `Option<String>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SeparationAttestation { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SeparationAttestation) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -25440,6 +28176,8 @@ pub struct Reviewer {
     pub admitted_by: Option<KeySignature>,
     pub keys: Vec<ReviewerKey>,
     pub revoked: Option<Revocation>,
+    pub organisations: Vec<ReviewerOrganisation>,
+    pub separations: Vec<SeparationAttestation>,
 }
 ```
 
@@ -25456,6 +28194,8 @@ pub struct Reviewer {
 | `admitted_by` | `Option<KeySignature>` | The maintainer signature that admitted this reviewer; absent for the<br>founding maintainer (trusted on first use). |
 | `keys` | `Vec<ReviewerKey>` |  |
 | `revoked` | `Option<Revocation>` |  |
+| `organisations` | `Vec<ReviewerOrganisation>` | `[[reviewer.organisation]]` (GitHub #809): the organisation this<br>reviewer belongs to, append-only and maintainer-signed. Rung 5 needs<br>it to differ from the developing organisation. Additive. |
+| `separations` | `Vec<SeparationAttestation>` | `[[reviewer.separation]]` (GitHub #809): this reviewer's signed<br>separation attestations ([`SeparationAttestation`]). Additive. |
 
 ##### Implementations
 
@@ -27292,6 +30032,7 @@ session="https://…"            (one line per session, sorted)
 callee="<id>" "<hash>"          (one line per callee, sorted by id)
 checklist="<q>" "<answer>"      (one line per answer, sorted)
 no_concept="…"                  (or "")
+separation_attestation="<id>"   (v3 only; GitHub #809)
 relation="<kind>" "<target>"    (one line per relation, in order)
 ```
 
@@ -27310,6 +30051,16 @@ which form a signature is over without parsing the rest. Architecture
 nodes follow the same rule. Whether `signed_at` is *plausible* is the
 staleness engine's flag ([`super::signed_at::plausibility`]), never a
 verification failure here.
+
+**v3 (GitHub #809, 2026-10-08).** A review that names a separation
+attestation (`separation_attestation`, the stamp's claim to rung 5,
+IV&V; [`super::ivv`]) is signed as **v3**: the first line reads
+`kovan-review-signature-v3`, `signed_at=` follows `date=` when present
+(as in v2), and a `separation_attestation="<id>"` line follows
+`no_concept=`. A stamp without one keeps its v1 or v2 bytes exactly, so
+every earlier signature still verifies; adding, removing or changing
+the attestation id of a signed stamp is an edit to signed bytes
+([`UnverifiedReason::BadSignature`]).
 
 **Location is not signed (2026-10-07, with the hybrid id).** `path` and
 the `[[review.moved]]` records are where the function is now and how it
@@ -27332,7 +30083,13 @@ revocation; and the v1 [`endorsement_bytes`], [`admission_bytes`],
 [`unretire_bytes`] that migrated `legacy` events were signed over) use
 the same line format, each
 under its own first line, so a signature over one kind of statement can
-never be replayed as another.
+never be replayed as another. GitHub #809 adds three, each under its own
+header: [`developing_organisation_bytes`]
+(`kovan-developing-organisation-v1`, maintainer-signed),
+[`reviewer_organisation_bytes`] (`kovan-reviewer-organisation-v1`,
+maintainer-signed) and [`separation_attestation_bytes`]
+(`kovan-separation-attestation-v1`, signed by the independent reviewer
+alone).
 
 ```rust
 pub mod signing { /* ... */ }
@@ -29791,7 +32548,7 @@ pub fn retire_key(k: &mut super::super::root::ReviewerKey, date: &str) -> Result
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/kovan-common/src/review/signing.rs:120:11: 120:33 (#0) }, crates/kovan-common/src/review/signing.rs:120:10: 120:34 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/kovan-common/src/review/signing.rs:140:11: 140:33 (#0) }, crates/kovan-common/src/review/signing.rs:140:10: 140:34 (#0))])]")`
 
 **The keystore**: one ed25519 key per reviewer, generated inside kovan,
 its private half encrypted at rest (GitHub #762; #739 "Stamp signing
@@ -30113,6 +32870,7 @@ pub enum SignError {
     BadDate(String),
     Lifecycle(super::registry::LifecycleError),
     BadSignedAt(String),
+    BadAuditRecord(super::super::ivv::AuditRecordProblem),
 }
 ```
 
@@ -30177,6 +32935,17 @@ Fields:
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `String` |  |
+
+###### `BadAuditRecord`
+
+[`UnlockedKey::attest_separation`] was given no audit record, or one
+that is not a GitHub issue URL (GitHub #809).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::super::ivv::AuditRecordProblem` |  |
 
 ##### Implementations
 
@@ -30764,6 +33533,21 @@ pub struct UnlockedKey {
   pub fn revoke_key(self: &Self, owner: &str, k: &mut ReviewerKey, date: &str, compromised: bool) -> Result<(), SignError> { /* ... */ }
   ```
   Revoke one key of `owner` from `date` (`compromised`: it leaked, and
+
+- ```rust
+  pub fn sign_developing_organisation(self: &Self, e: &mut DevelopingOrganisation) -> Result<(), SignError> { /* ... */ }
+  ```
+  Sign a `[[code_review.developing_organisation]]` entry (GitHub
+
+- ```rust
+  pub fn sign_reviewer_organisation(self: &Self, reviewer: &str, e: &mut ReviewerOrganisation) -> Result<(), SignError> { /* ... */ }
+  ```
+  Sign a `[[reviewer.organisation]]` entry of `reviewer` as a
+
+- ```rust
+  pub fn attest_separation(self: &Self, a: &mut SeparationAttestation) -> Result<(), SignError> { /* ... */ }
+  ```
+  Sign a separation attestation as **this key's own reviewer**, alone
 
 - ```rust
   pub fn unretire(self: &Self, k: &mut ReviewerKey, date: &str) -> Result<(), SignError> { /* ... */ }
@@ -31842,6 +34626,36 @@ The bytes a review's signature is taken over (module doc).
 pub fn signed_bytes(r: &super::review_md::ReviewEntry) -> Vec<u8> { /* ... */ }
 ```
 
+#### Function `developing_organisation_bytes`
+
+The bytes a maintainer signs to record a developing organisation (GitHub
+#809): `crate` (`""` for the workspace-wide entry, so a workspace entry
+cannot be replayed as a crate override or the reverse), the name, the
+date, and the signer.
+
+```rust
+pub fn developing_organisation_bytes(e: &super::root::DevelopingOrganisation) -> Vec<u8> { /* ... */ }
+```
+
+#### Function `reviewer_organisation_bytes`
+
+The bytes a maintainer signs to record that `reviewer` belongs to an
+organisation from a date (GitHub #809).
+
+```rust
+pub fn reviewer_organisation_bytes(reviewer: &str, e: &super::root::ReviewerOrganisation) -> Vec<u8> { /* ... */ }
+```
+
+#### Function `separation_attestation_bytes`
+
+The bytes `reviewer` signs, alone, to attest separation (GitHub #809):
+the attestation's id, both organisations, the date, the audit record
+(`""` when absent), the signing key and [`SEPARATION_STATEMENT`].
+
+```rust
+pub fn separation_attestation_bytes(reviewer: &str, a: &super::root::SeparationAttestation) -> Vec<u8> { /* ... */ }
+```
+
 #### Function `architecture_signed_bytes`
 
 The bytes an architecture node's signature is taken over: the same
@@ -31980,6 +34794,23 @@ The only signature algorithm (#739 signing comment).
 
 ```rust
 pub const ALG: &str = "ed25519";
+```
+
+#### Constant `SEPARATION_STATEMENT`
+
+The statement every separation attestation signs (GitHub #809), in
+NUREG/BR-0167's own words (§3.1 p. 6, and the glossary p. 55, read from
+the standard-corpus PDF `nureg-br-0167`). Part of
+[`separation_attestation_bytes`]: a change to this text is a new header
+version, never an edit, or every attestation signed before it would
+stop verifying.
+
+```rust
+pub const SEPARATION_STATEMENT: &str = "The organisation named here is both technically and \
+managerially separate from the developing organisation named here, as NUREG/BR-0167 (1993) \
+\u{a7}3.1 p. 6 defines IV&V: \"Independent verification and validation (IV&V) is verification \
+and validation by an organization that is both technically and managerially separate from the \
+organization responsible for developing the software.\"";
 ```
 
 ## Module `state`
@@ -32370,6 +35201,7 @@ pub enum FlagKind {
     NewReachingTest,
     DuplicateCode,
     ImplausibleSigningTime,
+    IndependentVvNotCounted,
 }
 ```
 
@@ -32389,6 +35221,12 @@ The same code exists more than once; the review shows on each copy.
 A review's `signed_at` is implausible: before the reviewed commit,
 after the commit that added the stamp, or on another day than its
 `date` (GitHub #783). Tamper evidence; the stamp still counts.
+
+###### `IndependentVvNotCounted`
+
+A valid review names a separation attestation (it claims rung 5,
+IV&V) but misses it; the reasons are listed (GitHub #809). The stamp
+still counts at its own rung.
 
 ##### Implementations
 
@@ -33725,7 +36563,11 @@ about who wrote the tests reaching the function):
            │     2026-10-07, maintainer on #769: independence gates
            │     rung 5, not rung 4)
            ├─ independent = independence answered, no not_independent
-           │    answer (self-check / other): may be rung 5's second review
+           │    answer (self-check / other): ~~may be rung 5's second
+           │    review~~ CORRECTED 2026-10-08 (#809): one of rung 5's
+           │    conditions; the rest (a separate organisation, a signed
+           │    separation attestation) are registry records, judged by
+           │    `super::ivv`, not answers
            └─ rung = derived_rung(answers, git): 4 when rung4_allowed AND
                 git shows no agent trailer on the reaching tests' commits,
                 else 3. The reviewer never chooses it (maintainer, #769,
@@ -33753,8 +36595,9 @@ pub mod wizard { /* ... */ }
 #### Enum `Rung`
 
 The rung a stamp gives, derived, never chosen (maintainer, #769,
-2026-10-07). Rung 5 is not a stamp's rung: it is two independent
-stamps, derived by the staleness engine.
+2026-10-07). Rung 5 is not a stamp's rung: ~~it is two independent
+stamps~~ **CORRECTED 2026-10-08** (#809) it is IV&V, derived per function
+by the staleness engine ([`super::ivv`]).
 
 ```rust
 pub enum Rung {
@@ -34504,7 +37347,8 @@ the other half (maintainer, #769, 2026-10-07).
 ###### `NotIndependent`
 
 The reviewer is not independent of the code: the stamp still counts
-at rung 3 or 4, but cannot be rung 5's independent second review.
+at rung 3 or 4, but cannot be ~~rung 5's independent second review~~
+(**CORRECTED 2026-10-08**, #809) rung 5's independent V&V case.
 ~~`NoRung4`: rung 4 is closed whatever else is answered~~
 **CORRECTED 2026-10-07** (maintainer, #769). `no_rung4` still reads.
 
@@ -35954,7 +38798,7 @@ pub struct GateResult {
 | `prompts` | `Vec<Choice>` | Answers that ask "Mark as Needs fix instead?". |
 | `flags` | `Vec<Choice>` | Needs-improvement flags (never block). |
 | `rung4_allowed` | `bool` | A `gate_rung4` answer and a `gate_rung4_author` answer (~~and no<br>`no_rung4` answer~~ CORRECTED 2026-10-07: independence does not close<br>rung 4; the hand-written V&V case opens it with the evidence). |
-| `independent` | `bool` | `independence` is answered and no answer is `not_independent`: this<br>stamp may be the independent second review for rung 5. |
+| `independent` | `bool` | `independence` is answered and no answer is `not_independent`: one of<br>rung 5's conditions (~~this stamp may be the independent second review<br>for rung 5~~ **CORRECTED 2026-10-08**, #809: rung 5 is IV&V,<br>[`super::ivv`]). |
 | `rung` | `Rung` | The rung the stamp gives ([`derived_rung`]). |
 
 ##### Implementations
@@ -36133,7 +38977,7 @@ pub fn independence_prefill(reviewer_is_author: bool, authorship: super::types::
 The question set, embedded at compile time (works in wasm).
 
 ```rust
-pub const WIZARD_TOML: &str = "# The kovan code-review wizard\'s question set (GitHub #769; wizard rules on\n# #740, maintainer 2026-10-07). Read by `kovan_common::review::wizard`, which\n# embeds this file with `include_str!` so desktop kovan, web-kovan (wasm) and\n# CI ask the same questions and apply the same stamp gate.\n#\n# Keys are STABLE: they are written into review.md (`[review.checklist]`) and\n# must never be renamed. Add a question or an option; never repurpose a key.\n#\n# applies_when: always | port | physical_interface\n#   port               the folder\'s kovan.toml [upstream] table (or the\n#                      wizard\'s \"Is this a port?\") declares the function a port\n#   physical_interface a physical quantity crosses the function\'s interface\n#\n# effect (what choosing the option does to the stamp):\n#   none              no effect\n#   prompt_needs_fix  asks \"Mark as Needs fix instead?\"; the stamp is allowed\n#   block             the stamp is refused\n#   flag              recorded as \"needs improvement\"; never blocks\n#   gate_rung4        V&V evidence of the qualifying kinds: one half of\n#                     opening rung 4\n#   gate_rung4_author the V&V case was written and verified by hand by a\n#                     human, without AI agents: the other half. Rung 4 opens\n#                     only with both (maintainer, #769/#739, 2026-10-07:\n#                     \"rung 4 = writing AND verifying a V&V case by hand\").\n#                     (~~gate_rung4 alone opens rung 4~~ CORRECTED 2026-10-07)\n#   not_independent   the reviewer is not independent of the code: the stamp\n#                     counts at rung 3 or 4 but cannot be the independent\n#                     second review for rung 5. (~~no_rung4: rung 4 is not\n#                     available whatever else is answered~~ CORRECTED\n#                     2026-10-07, maintainer on #769: independence gates\n#                     rung 5, not rung 4.)\n#   (~~needs_rung4_gate  choosing it is refused unless rung 4 is open~~\n#    CORRECTED 2026-10-07, maintainer on #769: the user never chooses the\n#    rung; it is derived from vv_evidence, vv_case_author and git, so the\n#    `rung` question and this effect are gone. See `wizard::derived_rung`.)\n#\n# requires_text: the option must carry text of at least 2 characters\n# (`Other: ____`, a justification). On disk the answer is `\"<option>\"`, or\n# `\"<option>: <text>\"` for these options.\n#\n# Sources: ONLY the clauses recorded on #769 (research agent, 2026-10-07; every\n# cited page was read). `document` is the kovan standard-corpus id\n# (crates/kovan/src/corpus.rs), checked by kovan\'s tests/review_wizard_sources.rs.\n# `quote` is filled only where #769 records quoted wording. A question or\n# option that rests on a workspace rule names it in `workspace_rule` instead of\n# a citation.\n#\n# Abbreviations on #769: BR = NUREG/BR-0167 (nureg-br-0167); DOEG = DOE G\n# 414.1-4 (doe-g-414.1-4); STD = DOE-STD-1172-2003 (doe-std-1172-2003); KM =\n# NUREG/KM-0006 (nureg-km-0006); AppB = 10 CFR 50 App. B (10cfr50).\n\nversion = 1\n\n# ---------------------------------------------------------------- 1\n[[question]]\nkey = \"doc_matches_behaviour\"\ntext = \"Does the function do what its doc comment says it does?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"partly\"\nlabel = \"Partly: some of the doc is wrong or out of date\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"no\"\nlabel = \"No\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"no_doc\"\nlabel = \"There is no doc comment\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}4.5\"\npage = \"13\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}3.2.2.5\"\npage = \"10\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6, criterion 2\"\npage = \"F-14\"\n\n# ---------------------------------------------------------------- 2\n[[question]]\nkey = \"upstream_fidelity\"\ntext = \"Does it do what the upstream routine does?\"\napplies_when = \"port\"\nworkspace_rule = \"Debugging a port: read upstream first (HARD RULE)\"\n\n[[question.option]]\nkey = \"matches\"\nlabel = \"Yes, it matches upstream\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"deviation_documented\"\nlabel = \"It deviates, and the deviation is documented and justified in its doc comment\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"deviation_not_documented\"\nlabel = \"It deviates, and the deviation is not documented\"\neffect = \"block\"\naction = \"document_deviation\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"10cfr50\"\nsection = \"Appendix B, Criterion III\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}3.3.2\"\npage = \"11\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.6\"\npage = \"24-25\"\n\n# ---------------------------------------------------------------- 3\n[[question]]\nkey = \"limits_and_guards\"\ntext = \"Are the allowable input ranges guarded, and what happens outside them?\"\napplies_when = \"always\"\nworkspace_rule = \"Error handling: Result is preferred to panics (maintainer, #740, 2026-10-07; not yet a CLAUDE.md rule)\"\n\n[[question.option]]\nkey = \"guarded_returns_result\"\nlabel = \"Guarded: out-of-range input returns a Result error (preferred)\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"guarded_panics_justified\"\nlabel = \"Guarded: out-of-range input panics, justified: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"guard_present_range_undocumented\"\nlabel = \"A guard is present, but the range is not documented\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"guard_missing\"\nlabel = \"A guard is missing\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"no_limits\"\nlabel = \"No limits apply, explained: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6\"\npage = \"F-14\"\nquote = \"allowable input/output ranges\"\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\npage = \"64-65\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}3.2.4.1\"\npage = \"11\"\n\n# ---------------------------------------------------------------- 4\n# Narrowed on #769 (2026-10-07) to whether units are documented; the `uom`\n# half moved to coding_standards.\n[[question]]\nkey = \"units_documented\"\ntext = \"Are the units of every physical quantity at its interface documented?\"\napplies_when = \"physical_interface\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"not_documented\"\nlabel = \"No, some units are not documented\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\npage = \"64\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6\"\n\n# ---------------------------------------------------------------- 5\n[[question]]\nkey = \"error_handling\"\ntext = \"What does it do when something goes wrong?\"\napplies_when = \"always\"\nworkspace_rule = \"Error handling: Result is preferred to panics (maintainer, #740, 2026-10-07; not yet a CLAUDE.md rule)\"\n\n[[question.option]]\nkey = \"returns_result\"\nlabel = \"Returns a Result (preferred)\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"panics_justified\"\nlabel = \"Panics, justified: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"falls_back_reported\"\nlabel = \"Falls back and reports it through the return type (a Result, or an outcome enum with a fallback variant)\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"falls_back_silently\"\nlabel = \"Falls back with no signal to the caller\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"cannot_happen\"\nlabel = \"Nothing can go wrong, explained: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.7\"\npage = \"26\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}2.2\"\npage = \"5\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\npage = \"11\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\npage = \"27\"\nquote = \"detect and report\"\n\n# ---------------------------------------------------------------- 6\n[[question]]\nkey = \"numerical_hazards\"\ntext = \"Are there numerical hazards (division by zero, cancellation, overflow, NaN, an iteration that may not converge)?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"none_found\"\nlabel = \"None found\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"handled\"\nlabel = \"Yes, and each is handled\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"tolerance_not_justified\"\nlabel = \"An iteration or convergence tolerance is not justified\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"possible_problem\"\nlabel = \"Yes, a possible problem is not handled\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\nsection = \"\u{a7}5.4.2.2 (VR-4, VR-5)\"\npage = \"170-171\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\npage = \"26\"\n\n# ---------------------------------------------------------------- 7\n[[question]]\nkey = \"test_reach\"\ntext = \"Does a test reach this function?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"reached_and_checked\"\nlabel = \"Yes, and a test checks what it returns\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"reached_not_checked\"\nlabel = \"A test reaches it but checks nothing it returns\"\neffect = \"flag\"\n\n[[question.option]]\nkey = \"no_test_reaches\"\nlabel = \"No test reaches it (needs improvement)\"\neffect = \"flag\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}3.2.4\"\npage = \"10\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.8\"\npage = \"28\"\n\n# The non-blocking flag is tailoring (#769).\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}2.1 (tailoring)\"\npage = \"5\"\n\n# ---------------------------------------------------------------- 8\n[[question]]\nkey = \"vv_evidence\"\ntext = \"What verification and validation evidence covers this function?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"reference_code_to_code\"\nlabel = \"Comparison against a reference or another code (code-to-code)\"\neffect = \"gate_rung4\"\n\n[[question.option]]\nkey = \"analytical_case\"\nlabel = \"An analytical (closed-form or manufactured) case\"\neffect = \"gate_rung4\"\n\n[[question.option]]\nkey = \"convergence_order_study\"\nlabel = \"A convergence / order-of-accuracy study\"\neffect = \"gate_rung4\"\n\n[[question.option]]\nkey = \"unit_tests_only\"\nlabel = \"Unit tests only\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"none_yet\"\nlabel = \"None yet\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\nsection = \"Table 5-11\"\npage = \"145\"\n\n[[question.source]]\ndocument = \"10cfr50\"\nsection = \"Appendix B, Criterion III\"\n\n# ---------------------------------------------------------------- 8b\n# Who wrote the V&V case (maintainer, #769/#739, 2026-10-07). Pre-filled from\n# git: the commits that added the tests reaching the function, read with\n# `types::agent_trailer` (`wizard::vv_case_author_prefill`). Git can check\n# only the writing; \"verified by hand\" is the reviewer\'s signed attestation.\n# The engine refuses rung 4 when git shows an agent trailer on those commits.\n[[question]]\nkey = \"vv_case_author\"\ntext = \"Who wrote the V&V case?\"\napplies_when = \"always\"\nworkspace_rule = \"Rung 4 is a V&V case written and verified by hand by a human, without AI agents; LSP/IDE tooling allowed (maintainer, #769/#739, 2026-10-07)\"\nprefill = \"git_test_authorship\"\n\n[[question.option]]\nkey = \"human_wrote_and_verified\"\nlabel = \"A human wrote the V&V case and verified its result by hand, without AI agents (LSP/IDE tooling allowed)\"\neffect = \"gate_rung4_author\"\n\n[[question.option]]\nkey = \"agent_wrote_or_cowrote\"\nlabel = \"An AI agent wrote or co-wrote it\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n# ---------------------------------------------------------------- 9\n[[question]]\nkey = \"maintainability\"\ntext = \"Could a future maintainer read and change it safely?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"too_complex_split\"\nlabel = \"Too complex; it should be split\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.6\"\npage = \"25\"\n\n[[question.source]]\ndocument = \"doe-std-1172-2003\"\nsection = \"competency 9\"\npage = \"9\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}4.3\"\npage = \"13\"\n\n# ---------------------------------------------------------------- 10\n# Pre-filled from git (commit author plus agent trailer); see\n# `wizard::independence_prefill`.\n[[question]]\nkey = \"independence\"\ntext = \"Who wrote this function?\"\napplies_when = \"always\"\nprefill = \"git_authorship\"\n\n[[question.option]]\nkey = \"someone_else\"\nlabel = \"Someone else, or an AI agent\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"self_check\"\nlabel = \"I wrote it (self-check)\"\neffect = \"not_independent\"\n\n# An unstated author cannot show independence, so it cannot be the\n# independent review for rung 5 (~~cannot open rung 4~~ CORRECTED\n# 2026-10-07).\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"not_independent\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"10cfr50\"\nsection = \"Appendix B, Criterion III\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.8, criterion 5\"\npage = \"F-15\"\n\n[[question.source]]\ndocument = \"doe-std-1172-2003\"\npage = \"8\"\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\nsection = \"PCMM-3\"\n\n# ---------------------------------------------------------------- 11\n[[question]]\nkey = \"unintended_function\"\ntext = \"Does it do anything beyond what its doc says?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"no\"\nlabel = \"No\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"yes_documented\"\nlabel = \"Yes, and it is documented\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"yes_undocumented\"\nlabel = \"Yes, and it is not documented\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.8, objective\"\npage = \"F-15\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\npage = \"24-25\"\n\n# ---------------------------------------------------------------- 12\n[[question]]\nkey = \"coding_standards\"\ntext = \"Does it follow the workspace coding rules (enums not dyn, no Box, no lifetimes, uom where a physical quantity crosses an API)?\"\napplies_when = \"always\"\nworkspace_rule = \"Rust design rules (mandatory)\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"deviates_justified\"\nlabel = \"Deviates, justified: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"deviates_not_justified\"\nlabel = \"Deviates, not justified\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}2.4\"\npage = \"5\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}5.2.3\"\npage = \"18\"\n\n# ---------------------------------------------------------------- 13\n# ~~The rung the stamp gives (3 human reviewed, 4 human V&V), a question~~\n# CORRECTED 2026-10-07 (maintainer, #769): the user never chooses the rung.\n# It is derived (`wizard::derived_rung`): 4 when vv_evidence is qualifying\n# AND vv_case_author = human_wrote_and_verified AND git shows no agent\n# trailer on the reaching tests\' commits; otherwise 3. review.md\'s `rung`\n# stores the derived value and the engine recomputes it on read.\n";
+pub const WIZARD_TOML: &str = "# The kovan code-review wizard\'s question set (GitHub #769; wizard rules on\n# #740, maintainer 2026-10-07). Read by `kovan_common::review::wizard`, which\n# embeds this file with `include_str!` so desktop kovan, web-kovan (wasm) and\n# CI ask the same questions and apply the same stamp gate.\n#\n# Keys are STABLE: they are written into review.md (`[review.checklist]`) and\n# must never be renamed. Add a question or an option; never repurpose a key.\n#\n# applies_when: always | port | physical_interface\n#   port               the folder\'s kovan.toml [upstream] table (or the\n#                      wizard\'s \"Is this a port?\") declares the function a port\n#   physical_interface a physical quantity crosses the function\'s interface\n#\n# effect (what choosing the option does to the stamp):\n#   none              no effect\n#   prompt_needs_fix  asks \"Mark as Needs fix instead?\"; the stamp is allowed\n#   block             the stamp is refused\n#   flag              recorded as \"needs improvement\"; never blocks\n#   gate_rung4        V&V evidence of the qualifying kinds: one half of\n#                     opening rung 4\n#   gate_rung4_author the V&V case was written and verified by hand by a\n#                     human, without AI agents: the other half. Rung 4 opens\n#                     only with both (maintainer, #769/#739, 2026-10-07:\n#                     \"rung 4 = writing AND verifying a V&V case by hand\").\n#                     (~~gate_rung4 alone opens rung 4~~ CORRECTED 2026-10-07)\n#   not_independent   the reviewer is not independent of the code: the stamp\n#                     counts at rung 3 or 4 but cannot be ~~the independent\n#                     second review for rung 5~~ (CORRECTED 2026-10-08, #809)\n#                     rung 5\'s independent V&V case. (~~no_rung4: rung 4 is\n#                     not available whatever else is answered~~ CORRECTED\n#                     2026-10-07, maintainer on #769: independence gates\n#                     rung 5, not rung 4.)\n#   (~~needs_rung4_gate  choosing it is refused unless rung 4 is open~~\n#    CORRECTED 2026-10-07, maintainer on #769: the user never chooses the\n#    rung; it is derived from vv_evidence, vv_case_author and git, so the\n#    `rung` question and this effect are gone. See `wizard::derived_rung`.)\n#\n# requires_text: the option must carry text of at least 2 characters\n# (`Other: ____`, a justification). On disk the answer is `\"<option>\"`, or\n# `\"<option>: <text>\"` for these options.\n#\n# Sources: ONLY the clauses recorded on #769 (research agent, 2026-10-07; every\n# cited page was read). `document` is the kovan standard-corpus id\n# (crates/kovan/src/corpus.rs), checked by kovan\'s tests/review_wizard_sources.rs.\n# `quote` is filled only where #769 records quoted wording. A question or\n# option that rests on a workspace rule names it in `workspace_rule` instead of\n# a citation.\n#\n# Abbreviations on #769: BR = NUREG/BR-0167 (nureg-br-0167); DOEG = DOE G\n# 414.1-4 (doe-g-414.1-4); STD = DOE-STD-1172-2003 (doe-std-1172-2003); KM =\n# NUREG/KM-0006 (nureg-km-0006); AppB = 10 CFR 50 App. B (10cfr50).\n\nversion = 1\n\n# ---------------------------------------------------------------- 1\n[[question]]\nkey = \"doc_matches_behaviour\"\ntext = \"Does the function do what its doc comment says it does?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"partly\"\nlabel = \"Partly: some of the doc is wrong or out of date\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"no\"\nlabel = \"No\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"no_doc\"\nlabel = \"There is no doc comment\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}4.5\"\npage = \"13\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}3.2.2.5\"\npage = \"10\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6, criterion 2\"\npage = \"F-14\"\n\n# ---------------------------------------------------------------- 2\n[[question]]\nkey = \"upstream_fidelity\"\ntext = \"Does it do what the upstream routine does?\"\napplies_when = \"port\"\nworkspace_rule = \"Debugging a port: read upstream first (HARD RULE)\"\n\n[[question.option]]\nkey = \"matches\"\nlabel = \"Yes, it matches upstream\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"deviation_documented\"\nlabel = \"It deviates, and the deviation is documented and justified in its doc comment\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"deviation_not_documented\"\nlabel = \"It deviates, and the deviation is not documented\"\neffect = \"block\"\naction = \"document_deviation\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"10cfr50\"\nsection = \"Appendix B, Criterion III\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}3.3.2\"\npage = \"11\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.6\"\npage = \"24-25\"\n\n# ---------------------------------------------------------------- 3\n[[question]]\nkey = \"limits_and_guards\"\ntext = \"Are the allowable input ranges guarded, and what happens outside them?\"\napplies_when = \"always\"\nworkspace_rule = \"Error handling: Result is preferred to panics (maintainer, #740, 2026-10-07; not yet a CLAUDE.md rule)\"\n\n[[question.option]]\nkey = \"guarded_returns_result\"\nlabel = \"Guarded: out-of-range input returns a Result error (preferred)\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"guarded_panics_justified\"\nlabel = \"Guarded: out-of-range input panics, justified: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"guard_present_range_undocumented\"\nlabel = \"A guard is present, but the range is not documented\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"guard_missing\"\nlabel = \"A guard is missing\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"no_limits\"\nlabel = \"No limits apply, explained: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6\"\npage = \"F-14\"\nquote = \"allowable input/output ranges\"\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\npage = \"64-65\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}3.2.4.1\"\npage = \"11\"\n\n# ---------------------------------------------------------------- 4\n# Narrowed on #769 (2026-10-07) to whether units are documented; the `uom`\n# half moved to coding_standards.\n[[question]]\nkey = \"units_documented\"\ntext = \"Are the units of every physical quantity at its interface documented?\"\napplies_when = \"physical_interface\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"not_documented\"\nlabel = \"No, some units are not documented\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\npage = \"64\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6\"\n\n# ---------------------------------------------------------------- 5\n[[question]]\nkey = \"error_handling\"\ntext = \"What does it do when something goes wrong?\"\napplies_when = \"always\"\nworkspace_rule = \"Error handling: Result is preferred to panics (maintainer, #740, 2026-10-07; not yet a CLAUDE.md rule)\"\n\n[[question.option]]\nkey = \"returns_result\"\nlabel = \"Returns a Result (preferred)\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"panics_justified\"\nlabel = \"Panics, justified: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"falls_back_reported\"\nlabel = \"Falls back and reports it through the return type (a Result, or an outcome enum with a fallback variant)\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"falls_back_silently\"\nlabel = \"Falls back with no signal to the caller\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"cannot_happen\"\nlabel = \"Nothing can go wrong, explained: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.7\"\npage = \"26\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}2.2\"\npage = \"5\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\npage = \"11\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\npage = \"27\"\nquote = \"detect and report\"\n\n# ---------------------------------------------------------------- 6\n[[question]]\nkey = \"numerical_hazards\"\ntext = \"Are there numerical hazards (division by zero, cancellation, overflow, NaN, an iteration that may not converge)?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"none_found\"\nlabel = \"None found\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"handled\"\nlabel = \"Yes, and each is handled\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"tolerance_not_justified\"\nlabel = \"An iteration or convergence tolerance is not justified\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"possible_problem\"\nlabel = \"Yes, a possible problem is not handled\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\nsection = \"\u{a7}5.4.2.2 (VR-4, VR-5)\"\npage = \"170-171\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\npage = \"26\"\n\n# ---------------------------------------------------------------- 7\n[[question]]\nkey = \"test_reach\"\ntext = \"Does a test reach this function?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"reached_and_checked\"\nlabel = \"Yes, and a test checks what it returns\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"reached_not_checked\"\nlabel = \"A test reaches it but checks nothing it returns\"\neffect = \"flag\"\n\n[[question.option]]\nkey = \"no_test_reaches\"\nlabel = \"No test reaches it (needs improvement)\"\neffect = \"flag\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}3.2.4\"\npage = \"10\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.8\"\npage = \"28\"\n\n# The non-blocking flag is tailoring (#769).\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}2.1 (tailoring)\"\npage = \"5\"\n\n# ---------------------------------------------------------------- 8\n[[question]]\nkey = \"vv_evidence\"\ntext = \"What verification and validation evidence covers this function?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"reference_code_to_code\"\nlabel = \"Comparison against a reference or another code (code-to-code)\"\neffect = \"gate_rung4\"\n\n[[question.option]]\nkey = \"analytical_case\"\nlabel = \"An analytical (closed-form or manufactured) case\"\neffect = \"gate_rung4\"\n\n[[question.option]]\nkey = \"convergence_order_study\"\nlabel = \"A convergence / order-of-accuracy study\"\neffect = \"gate_rung4\"\n\n[[question.option]]\nkey = \"unit_tests_only\"\nlabel = \"Unit tests only\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"none_yet\"\nlabel = \"None yet\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\nsection = \"Table 5-11\"\npage = \"145\"\n\n[[question.source]]\ndocument = \"10cfr50\"\nsection = \"Appendix B, Criterion III\"\n\n# ---------------------------------------------------------------- 8b\n# Who wrote the V&V case (maintainer, #769/#739, 2026-10-07). Pre-filled from\n# git: the commits that added the tests reaching the function, read with\n# `types::agent_trailer` (`wizard::vv_case_author_prefill`). Git can check\n# only the writing; \"verified by hand\" is the reviewer\'s signed attestation.\n# The engine refuses rung 4 when git shows an agent trailer on those commits.\n[[question]]\nkey = \"vv_case_author\"\ntext = \"Who wrote the V&V case?\"\napplies_when = \"always\"\nworkspace_rule = \"Rung 4 is a V&V case written and verified by hand by a human, without AI agents; LSP/IDE tooling allowed (maintainer, #769/#739, 2026-10-07)\"\nprefill = \"git_test_authorship\"\n\n[[question.option]]\nkey = \"human_wrote_and_verified\"\nlabel = \"A human wrote the V&V case and verified its result by hand, without AI agents (LSP/IDE tooling allowed)\"\neffect = \"gate_rung4_author\"\n\n[[question.option]]\nkey = \"agent_wrote_or_cowrote\"\nlabel = \"An AI agent wrote or co-wrote it\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n# ---------------------------------------------------------------- 9\n[[question]]\nkey = \"maintainability\"\ntext = \"Could a future maintainer read and change it safely?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"too_complex_split\"\nlabel = \"Too complex; it should be split\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.6\"\npage = \"25\"\n\n[[question.source]]\ndocument = \"doe-std-1172-2003\"\nsection = \"competency 9\"\npage = \"9\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}4.3\"\npage = \"13\"\n\n# ---------------------------------------------------------------- 10\n# Pre-filled from git (commit author plus agent trailer); see\n# `wizard::independence_prefill`.\n#\n# Rung 5 (GitHub #809, maintainer decisions 2026-10-08) is IV&V by an\n# organisation \"both technically and managerially separate from the\n# organization responsible for developing the software\" (NUREG/BR-0167\n# \u{a7}3.1 p. 6). ~~Answering someone_else made the stamp a candidate second\n# review for rung 5~~ CORRECTED 2026-10-08: someone_else is now ONE of\n# rung 5\'s conditions. The others are not wizard answers, because an answer\n# would be an unsigned self-declaration of what the registry already\n# records under signature: the reviewer\'s `[[reviewer.organisation]]`\n# (maintainer-signed) must differ from the developing organisation\n# (`[[code_review.developing_organisation]]`, maintainer-signed), and the\n# review must name the reviewer\'s own signed `[[reviewer.separation]]`\n# attestation (`[review] separation_attestation`), with a GitHub issue as\n# its audit record; the review must also be a hand-written V&V case (rung\n# 4). No organisation or attestation question is added: an always-asked new\n# question would leave every existing stamp with an unanswered applicable\n# question, which the gate re-run on read makes invalid. See\n# `kovan_common::review::ivv`.\n[[question]]\nkey = \"independence\"\ntext = \"Who wrote this function? (Rung 5, independent V&V, also needs your organisation to be technically and managerially separate from the developing organisation, shown by your signed separation attestation.)\"\napplies_when = \"always\"\nprefill = \"git_authorship\"\n\n[[question.option]]\nkey = \"someone_else\"\nlabel = \"Someone else, or an AI agent\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"self_check\"\nlabel = \"I wrote it (self-check)\"\neffect = \"not_independent\"\n\n# An unstated author cannot show independence, so it cannot be the\n# independent review for rung 5 (~~cannot open rung 4~~ CORRECTED\n# 2026-10-07).\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"not_independent\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"10cfr50\"\nsection = \"Appendix B, Criterion III\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.8, criterion 5\"\npage = \"F-15\"\n\n[[question.source]]\ndocument = \"doe-std-1172-2003\"\npage = \"8\"\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\nsection = \"PCMM-3\"\n\n# Rung 5 as IV&V (GitHub #809, 2026-10-08), read from the standard-corpus PDF.\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}3.1\"\npage = \"6\"\nquote = \"Independent verification and validation (IV&V) is verification and validation by an organization that is both technically and managerially separate from the organization responsible for developing the software.\"\n\n# ---------------------------------------------------------------- 11\n[[question]]\nkey = \"unintended_function\"\ntext = \"Does it do anything beyond what its doc says?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"no\"\nlabel = \"No\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"yes_documented\"\nlabel = \"Yes, and it is documented\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"yes_undocumented\"\nlabel = \"Yes, and it is not documented\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.8, objective\"\npage = \"F-15\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\npage = \"24-25\"\n\n# ---------------------------------------------------------------- 12\n[[question]]\nkey = \"coding_standards\"\ntext = \"Does it follow the workspace coding rules (enums not dyn, no Box, no lifetimes, uom where a physical quantity crosses an API)?\"\napplies_when = \"always\"\nworkspace_rule = \"Rust design rules (mandatory)\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"deviates_justified\"\nlabel = \"Deviates, justified: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"deviates_not_justified\"\nlabel = \"Deviates, not justified\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}2.4\"\npage = \"5\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}5.2.3\"\npage = \"18\"\n\n# ---------------------------------------------------------------- 13\n# ~~The rung the stamp gives (3 human reviewed, 4 human V&V), a question~~\n# CORRECTED 2026-10-07 (maintainer, #769): the user never chooses the rung.\n# It is derived (`wizard::derived_rung`): 4 when vv_evidence is qualifying\n# AND vv_case_author = human_wrote_and_verified AND git shows no agent\n# trailer on the reaching tests\' commits; otherwise 3. review.md\'s `rung`\n# stores the derived value and the engine recomputes it on read.\n";
 ```
 
 #### Constant `LEGACY_PLACEHOLDER_KEYS`

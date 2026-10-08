@@ -153,13 +153,18 @@ pub enum FlagKind {
     /// after the commit that added the stamp, or on another day than its
     /// `date` (GitHub #783). Tamper evidence; the stamp still counts.
     ImplausibleSigningTime,
+    /// A valid review names a separation attestation (it claims rung 5,
+    /// IV&V) but misses it; the reasons are listed (GitHub #809). The stamp
+    /// still counts at its own rung.
+    IndependentVvNotCounted,
 }
 
 impl FlagKind {
-    pub const ALL: [FlagKind; 3] = [
+    pub const ALL: [FlagKind; 4] = [
         Self::NewReachingTest,
         Self::DuplicateCode,
         Self::ImplausibleSigningTime,
+        Self::IndependentVvNotCounted,
     ];
 
     pub fn label(self) -> &'static str {
@@ -167,6 +172,7 @@ impl FlagKind {
             Self::NewReachingTest => "new test reaches reviewed function",
             Self::DuplicateCode => "duplicate code",
             Self::ImplausibleSigningTime => "implausible signing time",
+            Self::IndependentVvNotCounted => "independent V&V not counted",
         }
     }
 
