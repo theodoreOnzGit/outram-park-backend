@@ -2,7 +2,8 @@
 //
 // Upstream:    citeproc-js, https://github.com/juris-m/citeproc-js
 // Source:      src/obj_blob.js, src/obj_number.js (CSL.NumericBlob: its
-//              fields here; its methods in obj_number.rs)
+//              fields here; its methods in obj_number.rs), src/queue.js
+//              (the blob-tree helpers shared by queue.rs)
 // Version:     2.4.63, commit 73bc1b44bc7d54d0bfec4e070fd27f5efe024ff9
 // Copyright:   (c) 2009-2019 Frank Bennett
 // Licence:     AGPL-3.0, taken from upstream's "CPAL-1.0 or AGPL-3.0-or-later"
@@ -28,8 +29,77 @@
 //! between calls (nothing outlives a call except rendered strings).
 
 use super::js::Obj;
+use super::obj_number::NumFormatter;
 use super::obj_token::{Decoration, Token};
 use serde_json::Value;
+
+/// The characters JS's `\s` matches, exactly, as the inside of a regex
+/// character class (ECMA-262 WhiteSpace + LineTerminator). Differs from
+/// `js::WS` (which is Rust `\s` plus U+FEFF) in that Rust's `\s` also
+/// matches U+0085, which JS does not. Used by the output-side files.
+pub const JS_WS_CLASS: &str = r"\t\n\x0B\x0C\r \x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}";
+
+// DUP-CHECK: load.js CSL.ROMANESQUE_REGEXP
+/// `CSL.ROMANESQUE_REGEXP.source`: one character of a "romanesque" script
+/// (as a regex character class, for building larger patterns). The
+/// `CSL.ROMANESQUE_REGEXP` itself is [`romanesque_regexp`].
+pub const ROMANESQUE_CLASS: &str = "[-0-9a-zA-Z\\x{0e01}-\\x{0e5b}\\x{00c0}-\\x{017f}\\x{0370}-\\x{03ff}\\x{0400}-\\x{052f}\\x{0590}-\\x{05d4}\\x{05d6}-\\x{05ff}\\x{1f00}-\\x{1fff}\\x{0600}-\\x{06ff}\\x{200c}\\x{200d}\\x{200e}\\x{0218}\\x{0219}\\x{021a}\\x{021b}\\x{202a}-\\x{202e}]";
+
+/// `CSL.ROMANESQUE_REGEXP` (unanchored, single character).
+pub fn romanesque_regexp() -> &'static regex::Regex {
+    static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        #[allow(clippy::expect_used)]
+        regex::Regex::new(ROMANESQUE_CLASS).expect("constant regex")
+    });
+    &RE
+}
+
+/// JS whitespace for one character (see [`JS_WS_CLASS`]).
+pub fn is_js_ws(c: char) -> bool {
+    matches!(
+        c,
+        '\t' | '\n' | '\u{0B}' | '\u{0C}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
+            ..='\u{200a}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{202f}'
+                | '\u{205f}'
+                | '\u{3000}'
+                | '\u{feff}'
+    )
+}
+
+/// JS `s.trim()`, exactly.
+pub fn js_trim(s: &str) -> &str {
+    s.trim_matches(is_js_ws)
+}
+
+/// JS `s.slice(0, 1)`, by character (differs from JS only for astral
+/// characters, where JS yields half a surrogate pair).
+pub fn first_char(s: &str) -> &str {
+    match s.chars().next() {
+        Some(c) => &s[..c.len_utf8()],
+        None => "",
+    }
+}
+
+/// JS `s.slice(-1)`, by character.
+pub fn last_char(s: &str) -> &str {
+    match s.chars().next_back() {
+        Some(c) => &s[s.len() - c.len_utf8()..],
+        None => "",
+    }
+}
+
+/// JS `s.slice(1)`, by character.
+pub fn drop_first(s: &str) -> &str {
+    &s[first_char(s).len()..]
+}
+
+/// JS `s.slice(0, -1)`, by character.
+pub fn drop_last(s: &str) -> &str {
+    &s[..s.len() - last_char(s).len()]
+}
 
 /// An index into the blob arena.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -108,9 +178,14 @@ pub struct Blob {
     pub splice_prefix: Option<String>,
     /// `suppress_splice_prefix`.
     pub suppress_splice_prefix: Option<bool>,
-    /// `formatter`: the number formatter's name (`"default"`, `"roman"`, ...);
-    /// see obj_number.rs.
-    pub formatter: Option<String>,
+    /// `formatter`: the number formatter object (see [`NumFormatter`]).
+    pub formatter: Option<NumFormatter>,
+    /// `num` when it is a JS *string* (`new CSL.NumericBlob(state, p, "2a",
+    /// ...)`; util_number.js passes `num.value` unparsed when it is not a
+    /// plain integer). Then `"number" === typeof blob.num` is false but
+    /// `blob.num` is defined. Exactly one of `num` / `num_text` is set on a
+    /// `NumericBlob`.
+    pub num_text: Option<String>,
     /// `type` (`this.formatter.format(1)`).
     pub numeric_type: Option<String>,
     /// `UGLY_DELIMITER_SUPPRESS_HACK`.
@@ -132,17 +207,22 @@ impl Blob {
         };
         match token {
             Some(t) => {
-                b.strings.insert("prefix".into(), Value::String(String::new()));
-                b.strings.insert("suffix".into(), Value::String(String::new()));
+                b.strings
+                    .insert("prefix".into(), Value::String(String::new()));
+                b.strings
+                    .insert("suffix".into(), Value::String(String::new()));
                 for (k, v) in &t.strings {
                     b.strings.insert(k.clone(), v.clone());
                 }
                 b.decorations = t.decorations.clone();
             }
             None => {
-                b.strings.insert("prefix".into(), Value::String(String::new()));
-                b.strings.insert("suffix".into(), Value::String(String::new()));
-                b.strings.insert("delimiter".into(), Value::String(String::new()));
+                b.strings
+                    .insert("prefix".into(), Value::String(String::new()));
+                b.strings
+                    .insert("suffix".into(), Value::String(String::new()));
+                b.strings
+                    .insert("delimiter".into(), Value::String(String::new()));
             }
         }
         b.blobs = match text {
@@ -151,6 +231,22 @@ impl Blob {
         };
         b.alldecor = vec![b.decorations.clone()];
         b
+    }
+
+    /// `typeof blob.num !== "undefined"` (a NumericBlob, number or string).
+    pub fn has_num(&self) -> bool {
+        self.num.is_some() || self.num_text.is_some()
+    }
+
+    /// `"number" === typeof blob.num`.
+    pub fn num_is_number(&self) -> bool {
+        self.num.is_some()
+    }
+
+    /// `blob.strings[key] = value` for a string value.
+    pub fn set_string(&mut self, key: &str, value: &str) {
+        self.strings
+            .insert(key.to_string(), Value::String(value.to_string()));
     }
 
     /// `blob.strings[key]` as a string, `""` when absent.
@@ -181,7 +277,12 @@ impl Blobs {
     }
 
     /// `new CSL.Blob(childBlob)`: a plain blob whose list holds `child`.
-    pub fn new_blob_wrapping(&mut self, child: BlobId, token: Option<&Token>, levelname: Option<&str>) -> BlobId {
+    pub fn new_blob_wrapping(
+        &mut self,
+        child: BlobId,
+        token: Option<&Token>,
+        levelname: Option<&str>,
+    ) -> BlobId {
         let mut b = Blob::new(None, token, levelname);
         b.blobs = BlobContent::List(vec![BlobChild::Blob(child)]);
         self.add(b)
@@ -200,16 +301,43 @@ impl Blobs {
     /// `CSL.Blob.prototype.push(blob)`: append `child` to `parent`'s list
     /// after appending the parent's `alldecor` to the child's. Upstream
     /// errors when `parent` is a leaf.
-    pub fn push(&mut self, parent: BlobId, child: BlobId) -> Result<(), crate::citeproc::EngineError> {
+    pub fn push(
+        &mut self,
+        parent: BlobId,
+        child: BlobId,
+    ) -> Result<(), crate::citeproc::EngineError> {
         if self.get(parent).is_leaf() {
             return Err(crate::citeproc::EngineError::Csl(
                 "Attempt to push blob onto string object".into(),
             ));
         }
-        let parent_decor = self.get(parent).alldecor.clone();
-        self.get_mut(child).alldecor.extend(parent_decor);
+        // The queue's root is a plain JS array: `push` there is Array.push,
+        // which does not touch `alldecor`.
+        if self.get(parent).kind != BlobKind::RootArray {
+            let parent_decor = self.get(parent).alldecor.clone();
+            self.get_mut(child).alldecor.extend(parent_decor);
+        }
         if let BlobContent::List(l) = &mut self.get_mut(parent).blobs {
             l.push(BlobChild::Blob(child));
+        }
+        Ok(())
+    }
+
+    /// `CSL.Blob.prototype.push` for a bare string child (JS pushes a raw
+    /// string onto the list: `append(str, "literal")` with a non-blob
+    /// `str`). No `alldecor` update (a string has none).
+    pub fn push_str(
+        &mut self,
+        parent: BlobId,
+        child: String,
+    ) -> Result<(), crate::citeproc::EngineError> {
+        if self.get(parent).is_leaf() {
+            return Err(crate::citeproc::EngineError::Csl(
+                "Attempt to push blob onto string object".into(),
+            ));
+        }
+        if let BlobContent::List(l) = &mut self.get_mut(parent).blobs {
+            l.push(BlobChild::Str(child));
         }
         Ok(())
     }
@@ -238,5 +366,80 @@ mod tests {
         assert_eq!(arena.get(child).string("delimiter"), "");
         assert_eq!(arena.get(child).alldecor.len(), 2);
         assert!(arena.push(child, parent).is_err());
+    }
+}
+
+/// Test support shared by the differential tests of the output side:
+/// serialise a blob tree exactly as `scripts/csl-units/common.cjs`'s `ser`
+/// does, so Rust results can be compared with citeproc-js's.
+#[cfg(test)]
+pub(crate) mod testing {
+    use super::*;
+    use serde_json::json;
+
+    fn decor_json(d: &Decoration) -> Value {
+        json!([d.name, d.value])
+    }
+
+    /// `ser(blob, {alldecor})` of the generator scripts.
+    pub(crate) fn ser_blob(blobs: &Blobs, id: BlobId, alldecor: bool) -> Value {
+        let b = blobs.get(id);
+        let mut o = serde_json::Map::new();
+        o.insert("s".into(), Value::Object(b.strings.clone()));
+        o.insert(
+            "d".into(),
+            Value::Array(b.decorations.iter().map(decor_json).collect()),
+        );
+        if alldecor {
+            o.insert(
+                "a".into(),
+                Value::Array(
+                    b.alldecor
+                        .iter()
+                        .map(|set| Value::Array(set.iter().map(decor_json).collect()))
+                        .collect(),
+                ),
+            );
+        }
+        match &b.blobs {
+            BlobContent::Text(t) => {
+                o.insert("t".into(), Value::String(t.clone()));
+            }
+            BlobContent::List(l) => {
+                o.insert(
+                    "t".into(),
+                    Value::Array(l.iter().map(|c| ser_child(blobs, c, alldecor)).collect()),
+                );
+            }
+        }
+        if b.has_num() {
+            match (b.num, &b.num_text) {
+                (Some(n), _) => {
+                    o.insert("num".into(), json!(n));
+                }
+                (None, Some(t)) => {
+                    o.insert("num".into(), json!(t));
+                }
+                _ => {}
+            }
+            if let Some(st) = b.status {
+                o.insert("status".into(), json!(st));
+            }
+        }
+        if let Some(p) = b.punctuation_in_quote {
+            o.insert("piq".into(), json!(p));
+        }
+        if let Some(p) = b.particle.as_ref().filter(|p| !p.is_empty()) {
+            o.insert("particle".into(), json!(p));
+        }
+        Value::Object(o)
+    }
+
+    /// Serialise a list child.
+    pub(crate) fn ser_child(blobs: &Blobs, c: &BlobChild, alldecor: bool) -> Value {
+        match c {
+            BlobChild::Str(s) => json!({ "str": s }),
+            BlobChild::Blob(id) => ser_blob(blobs, *id, alldecor),
+        }
     }
 }
