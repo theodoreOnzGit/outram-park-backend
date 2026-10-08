@@ -7,13 +7,36 @@ several that disagree. Read it in full before touching a file here.
 ## 0. What "port" means here
 
 - We translate `vendor/citeproc-js/src/*.js` (commit `73bc1b44`, citeproc-js
-  2.4.63) **function by function, branch by branch**, keeping its quirks. The
-  pass criterion is *citeproc-js's output*, not the CSL spec and not the
-  fixture's `RESULT`: if citeproc-js does something odd, so do we.
-- Do **not** redesign, simplify or "fix" upstream behaviour. If you are sure
-  upstream is wrong, port it anyway and record it in the known-differences
-  file only if the port's output then *differs* from citeproc-js (it should
-  not).
+  2.4.63) **function by function, branch by branch**. citeproc-js is the
+  blueprint: we do not invent CSL processing from scratch, and its intended
+  behaviour (including Zotero conventions such as punctuation migration,
+  disambiguation order, empty-group suppression) is ported as is.
+- **Quirks that contradict CSL's intent are flagged, not ported**
+  (maintainer direction 2026-10-08, superseding "keep every quirk"). A quirk
+  is behaviour that comes from an implementation accident rather than a
+  design decision: a JS language artefact (UTF-16 surrogate halves,
+  `"undefined"` leaking into output, a non-transitive sort comparator,
+  removing from an array while iterating it), a bug, or stale bundled data.
+  **"Intent" is decided in this order, and nowhere else:**
+  1. the CSL 1.0.2 specification text;
+  2. the CSL test suite's expected `RESULT` for the relevant fixture;
+  3. citeproc-js's behaviour, where 1 and 2 are both silent (then it is not
+     a quirk: port it).
+- **How to flag one.** Do not port the quirk; implement the intended
+  behaviour, put `// DEVIATION(Dnn): <one line>` at the code site, and add
+  entry `Dnn` to `DEVIATIONS.md` (JS location, what citeproc-js does, what we
+  do, the spec section or fixture that justifies it, the outputs affected).
+  Take the next free number. **A deviation needs evidence**: a spec quote or a
+  fixture `RESULT`. "It looks odd" is not evidence; if you cannot cite 1 or 2,
+  port the behaviour and, if you still think it is wrong, list it under
+  "Candidates" in `DEVIATIONS.md` for the maintainer to decide.
+- Internal behaviour that cannot change output (object key order used only
+  internally, how an error is raised on input we never receive) is not a
+  quirk: port it however reads most clearly.
+- **Verification follows the same rule.** The pass criterion is still
+  citeproc-js's output, except where a registered deviation explains the
+  difference: every entry in a known-differences file cites its `Dnn`, and an
+  unexplained difference fails.
 - Do **not** consult other CSL engines (hayagriva, citeproc-rs, pandoc
   citeproc) for behaviour. The JS source is the only reference.
 - Fetch the sources with `scripts/csl-reference.sh` (or see §9). They live
