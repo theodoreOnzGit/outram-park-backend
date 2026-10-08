@@ -362,7 +362,9 @@ mod tests {
     /// The fixture's SVG, pinned by length and an FNV-1a hash (re-pinned
     /// 2026-10-06 for the two-band layout and the label tooltips, #734;
     /// re-pinned 2026-10-08 for row 2 stacking its ties, which moves the
-    /// fixture's redhill under pflotran, looked at in the real map): a
+    /// fixture's redhill under pflotran, and again the same day for row 3
+    /// stacking and knowledge management as a column on the left, each
+    /// looked at in the real map): a
     /// change here is a change to the drawing, to be looked at, not only
     /// re-pinned.
     #[test]
@@ -375,7 +377,7 @@ mod tests {
     }
 
     const PINNED_LEN: usize = 20041;
-    const PINNED_HASH: &str = "8fdc23b7f5b86c24";
+    const PINNED_HASH: &str = "4ac0fef1bae71c48";
 
     #[test]
     fn text_is_escaped() {
