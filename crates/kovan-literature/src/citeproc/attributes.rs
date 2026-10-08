@@ -431,6 +431,16 @@ static IS_MULTIPLE_RE: LazyLock<Regex> = LazyLock::new(|| {
     .expect("static regex")
 });
 
+/// JS `Number(v)` for the values `disambiguate` takes (`false`, `true`,
+/// numbers): `NaN` otherwise.
+fn js_number(v: &Value) -> f64 {
+    match v {
+        Value::Bool(b) => f64::from(u8::from(*b)),
+        Value::Number(n) => n.as_f64().unwrap_or(f64::NAN),
+        _ => f64::NAN,
+    }
+}
+
 impl AttributesTest {
     /// Evaluate the condition: `test(Item, item)`.
     pub fn eval(
@@ -441,17 +451,54 @@ impl AttributesTest {
         cite_item: &Value,
     ) -> CslResult<bool> {
         match self {
-            // PORT-LATER(wave4): attributes.js:6-24, needs
-            // state.registry.registry[Item.id].disambig and
-            // state.tmp.disambig_settings / disambiguate_count (registry.rs).
-            AttributesTest::Disambiguate => Err(EngineError::NotYetPorted {
-                method: "attributes.js:@disambiguate closure",
-            }),
-            // PORT-LATER(wave4): attributes.js:25-31, needs
-            // state.registry.registry[Item.id].disambig / citation-count.
-            AttributesTest::DisambiguateBackref => Err(EngineError::NotYetPorted {
-                method: "attributes.js:@disambiguate backreference closure",
-            }),
+            // attributes.js:6-24.
+            AttributesTest::Disambiguate => {
+                let id = js::to_js_string(item.get("id").unwrap_or(&Value::Null));
+                if state.tmp.area == "bibliography" {
+                    let reg_disambig = state
+                        .registry
+                        .registry
+                        .get(&id)
+                        .and_then(|t| t.disambig)
+                        .ok_or_else(|| {
+                            EngineError::Csl(
+                                "TypeError: Cannot read properties of undefined (reading 'disambig')"
+                                    .to_string(),
+                            )
+                        })?;
+                    let bound = js_number(&state.ambig(reg_disambig).disambiguate);
+                    if (state.tmp.disambiguate_count as f64) < bound {
+                        state.tmp.disambiguate_count += 1;
+                        return Ok(true);
+                    }
+                } else {
+                    state.tmp.disambiguate_max_max += 1;
+                    let settings = state.disambig_settings().disambiguate.clone();
+                    if js::truthy(&settings)
+                        && (state.tmp.disambiguate_count as f64) < js_number(&settings)
+                    {
+                        state.tmp.disambiguate_count += 1;
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+            // attributes.js:25-31.
+            AttributesTest::DisambiguateBackref => {
+                let id = js::to_js_string(item.get("id").unwrap_or(&Value::Null));
+                let token = state.registry.registry.get(&id).ok_or_else(|| {
+                    EngineError::Csl(
+                        "TypeError: Cannot read properties of undefined (reading 'disambig')".to_string(),
+                    )
+                })?;
+                let disambig = token.disambig.ok_or_else(|| {
+                    EngineError::Csl(
+                        "TypeError: Cannot read properties of false (reading 'disambiguate')".to_string(),
+                    )
+                })?;
+                Ok(js::truthy(&state.ambig(disambig).disambiguate)
+                    && token.citation_count.map(|c| c > 1).unwrap_or(false))
+            }
             // attributes.js:41-61.
             AttributesTest::IsNumeric { variable } => {
                 let use_cite =

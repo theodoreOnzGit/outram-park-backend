@@ -131,9 +131,8 @@ pub fn build(
                 dirs.insert(0, firstkey);
             }
         }
-        // PORT-LATER(wave4): node_citation.js:60, `new CSL.Registry.Comparifier(
-        // state, "citation_sort")`; needs registry.js Comparifier constructor.
-        state.citation.srt = Some(Comparifier::default());
+        // node_citation.js:60
+        state.citation.srt = Some(Comparifier::new(state, "citation_sort"));
     }
     target.push(token);
     Ok(())

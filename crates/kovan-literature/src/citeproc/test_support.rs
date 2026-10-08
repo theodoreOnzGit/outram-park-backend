@@ -146,3 +146,19 @@ pub(crate) fn install_output_locale(state: &mut State, piq: bool) {
         .insert("lang".into(), Value::String("en-US".into()));
     install_locale(state, locale);
 }
+
+/// The `en-US` locale the crate ships (`data/csl/locales-en-US.xml`, CC BY-SA),
+/// the way the CSL test runner serves it (`retrieveLocale` drops processing
+/// instructions): enough for an [`Engine`](super::Engine) to build a style in
+/// a test that does not read `vendor/`.
+pub(crate) fn minimal_locales() -> std::collections::BTreeMap<String, String> {
+    let xml = include_str!("../../data/csl/locales-en-US.xml");
+    let cleaned: String = xml
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("<?"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let mut m = std::collections::BTreeMap::new();
+    m.insert("en-US".to_string(), cleaned);
+    m
+}

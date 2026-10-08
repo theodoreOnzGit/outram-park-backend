@@ -13,7 +13,7 @@
 //              (LICENSE at the commit above; see this crate's NOTICE).
 // Modified:    2026-10-08, by the OUTRAM PARK contributors. This file is a
 //              Rust translation (port) of the files named above, modified
-//              from the original; nothing is ported yet (#791 is the harness).
+//              from the original.
 // No warranty: this program is distributed in the hope that it will be
 //              useful, but WITHOUT ANY WARRANTY; without even the implied
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
@@ -21,15 +21,19 @@
 
 //! A Rust port of citeproc-js 2.4.63, Zotero's CSL engine (epic #790).
 //!
-//! **Status: the build stage is ported (#792).** [`Engine::new`] parses the style,
-//! merges its locales and builds the token lists, as `new CSL.Engine` does;
-//! every [`Engine`] method that would process a citation still returns
-//! [`EngineError::NotYetPorted`]. This module
-//! fixes the API the later stages (#792 to #797) fill in, and
-//! `tests/citeproc_test_suite.rs` is the harness they are verified against:
-//! it runs the CSL test suite's fixtures through this [`Engine`] the way
-//! `scripts/csl-testsuite-reference.cjs` runs them through citeproc-js, and
-//! compares with what citeproc-js produced.
+//! **Status: the engine API is ported (#795, #796).** [`Engine::new`] parses
+//! the style, merges its locales and builds the token lists, as `new
+//! CSL.Engine` does; the processing methods ([`Engine::update_items`],
+//! [`Engine::make_citation_cluster`], [`Engine::process_citation_cluster`],
+//! [`Engine::append_citation_cluster`], [`Engine::make_bibliography`], ...)
+//! run citeproc-js's registry, disambiguation, sorting and cite-position
+//! machinery. What they can render depends on the rendering stages: a method
+//! reaching a part of citeproc-js that is not ported yet (`grep -rn
+//! PORT-LATER src/citeproc/`) returns [`EngineError::NotYetPorted`].
+//! `tests/citeproc_test_suite.rs` is the harness the port is verified
+//! against: it runs the CSL test suite's fixtures through this [`Engine`] the
+//! way `scripts/csl-testsuite-reference.cjs` runs them through citeproc-js,
+//! and compares with what citeproc-js produced.
 //!
 //! # API (names mirror citeproc-js)
 //!
@@ -417,6 +421,9 @@ pub struct Citation {
     pub citation_id: String,
     pub citation_items: Vec<CitationItem>,
     pub note_index: i64,
+    /// `properties` as given (`noteIndex`, `mode`, `prefix`, `suffix`,
+    /// `infix`, `unsorted`, ...); `None` when the citation has none.
+    pub properties: Option<js::Obj>,
 }
 
 impl Citation {
@@ -446,10 +453,15 @@ impl Citation {
             .and_then(|p| p.get("noteIndex"))
             .and_then(Value::as_i64)
             .unwrap_or(0);
+        let properties = match value.get("properties") {
+            Some(Value::Object(o)) => Some(o.clone()),
+            _ => None,
+        };
         Ok(Citation {
             citation_id,
             citation_items,
             note_index,
+            properties,
         })
     }
 }
@@ -610,15 +622,20 @@ impl Engine {
     /// `setOutputFormat`.
     pub fn set_output_format(&mut self, format: OutputFormat) {
         self.output_format = format;
-        let name = match format {
+        // `setOutputFormat` only fails if the format table is malformed.
+        let _ = self.state.set_output_format(Engine::mode_name(format));
+    }
+
+    /// The `CSL.Output.Formats` key of an output format (`plain` is `text`,
+    /// `xslfo` is `fo`).
+    fn mode_name(format: OutputFormat) -> &'static str {
+        match format {
             OutputFormat::Html => "html",
             OutputFormat::Rtf => "rtf",
-            OutputFormat::Plain => "plain",
+            OutputFormat::Plain => "text",
             OutputFormat::Asciidoc => "asciidoc",
-            OutputFormat::Xslfo => "xslfo",
-        };
-        // `setOutputFormat` only fails if the format table is malformed.
-        let _ = self.state.set_output_format(name);
+            OutputFormat::Xslfo => "fo",
+        }
     }
 
     /// The current output format.
@@ -747,77 +764,171 @@ impl Engine {
     }
 
     /// `updateItems(ids, nosort)`: register `ids` as the bibliography's items.
-    pub fn update_items(&mut self, _ids: &[String], _nosort: bool) -> Result<(), EngineError> {
-        Err(EngineError::NotYetPorted {
-            method: "updateItems",
-        })
+    pub fn update_items(&mut self, ids: &[String], nosort: bool) -> Result<(), EngineError> {
+        self.state.update_items(ids, nosort, false, false)?;
+        Ok(())
     }
 
     /// The ids of `registry.reflist`, in bibliography order.
     pub fn registry_ids(&self) -> Result<Vec<String>, EngineError> {
-        Err(EngineError::NotYetPorted {
-            method: "registry.reflist",
-        })
+        Ok(self.state.registry.get_sorted_ids())
     }
 
     /// Whether `registry.citationreg.citationById[id]` exists.
-    pub fn citation_registered(&self, _citation_id: &str) -> Result<bool, EngineError> {
-        Err(EngineError::NotYetPorted {
-            method: "registry.citationreg.citationById",
-        })
+    pub fn citation_registered(&self, citation_id: &str) -> Result<bool, EngineError> {
+        Ok(self.state.registry.citationreg.by_id(citation_id).is_some())
     }
 
     /// The test runner's `preloadAbbreviations(CSL, style, citation, acache)`
-    /// for one citation's items: copies matching entries of
-    /// [`Sys::abbreviations`] into the engine's abbreviation tables.
-    pub fn preload_abbreviations(&mut self, _items: &[CitationItem]) -> Result<(), EngineError> {
-        Err(EngineError::NotYetPorted {
-            method: "preloadAbbreviations",
-        })
+    /// for one citation's items (lib/preload.js).
+    ///
+    /// The runner registers, for the values of each item, the abbreviations
+    /// of its cache in the style's `transform.abbrevs`; this port's
+    /// abbreviation lookup reads [`Sys::abbreviations`] directly
+    /// ([`build_retrieve_item::abbreviation_lookup`]), which gives the same
+    /// answers, so only the runner's other effect remains: it sets
+    /// `language-name` and `language-name-original` on the raw item
+    /// (`sys.retrieveItem(id)` returns the runner's own object). Like
+    /// `scripts/csl-testsuite-reference.cjs`, an item with a `jurisdiction`
+    /// is an error (the runner would read abbreviation files).
+    pub fn preload_abbreviations(&mut self, items: &[CitationItem]) -> Result<(), EngineError> {
+        for citation_item in items {
+            let id = citation_item.id.clone();
+            let Some(raw) = Arc::make_mut(&mut self.state.sys.items).get_mut(&id) else {
+                return Err(EngineError::Csl(
+                    "TypeError: Cannot read properties of undefined (reading 'jurisdiction')"
+                        .to_string(),
+                ));
+            };
+            let Value::Object(item) = raw else {
+                continue;
+            };
+            if js::truthy_opt(item.get("jurisdiction")) {
+                return Err(EngineError::Csl(
+                    "fixture item with a jurisdiction: abbreviation files not available".to_string(),
+                ));
+            }
+            if let Some(language) = item.get("language").filter(|l| js::truthy(l)) {
+                let lang = js::to_js_string(language).to_lowercase();
+                let parts: Vec<&str> = lang.split('<').collect();
+                item.insert("language-name".into(), Value::String(parts[0].to_string()));
+                if parts.len() == 2 {
+                    item.insert(
+                        "language-name-original".into(),
+                        Value::String(parts[1].to_string()),
+                    );
+                }
+            }
+        }
+        Ok(())
     }
 
     /// `makeCitationCluster(citationItems)`.
-    pub fn make_citation_cluster(
-        &mut self,
-        _items: &[CitationItem],
-    ) -> Result<String, EngineError> {
-        Err(EngineError::NotYetPorted {
-            method: "makeCitationCluster",
-        })
+    pub fn make_citation_cluster(&mut self, items: &[CitationItem]) -> Result<String, EngineError> {
+        let objs: Vec<js::Obj> = items
+            .iter()
+            .map(|i| i.fields.as_object().cloned().unwrap_or_default())
+            .collect();
+        self.state.make_citation_cluster(&objs)
+    }
+
+    /// The `processCitationCluster` input for a [`Citation`].
+    fn citation_input(citation: &Citation) -> api_cite::CitationInput {
+        api_cite::CitationInput {
+            citation_id: Some(citation.citation_id.clone()),
+            citation_items: citation
+                .citation_items
+                .iter()
+                .map(|i| i.fields.as_object().cloned().unwrap_or_default())
+                .collect(),
+            properties: citation.properties.clone(),
+        }
+    }
+
+    /// The `[citationID, noteIndex]` lists of `processCitationCluster`.
+    fn citation_positions(refs: &[CitationRef]) -> Vec<api_cite::CitationPos> {
+        refs.iter()
+            .map(|r| api_cite::CitationPos {
+                citation_id: r.citation_id.clone(),
+                note_index: Value::from(r.note_index),
+            })
+            .collect()
+    }
+
+    /// The `[index, string, citationID]` triples of a result.
+    fn cluster_updates(result: api_cite::ClusterResult) -> Vec<ClusterUpdate> {
+        result
+            .updates
+            .into_iter()
+            .map(|(index, text, citation_id)| ClusterUpdate {
+                index: index.max(0) as usize,
+                text,
+                citation_id,
+            })
+            .collect()
     }
 
     /// `processCitationCluster(citation, pre, post)`: the updates to the
     /// document, `[index, string, citationID]` each.
     pub fn process_citation_cluster(
         &mut self,
-        _citation: &Citation,
-        _pre: &[CitationRef],
-        _post: &[CitationRef],
+        citation: &Citation,
+        pre: &[CitationRef],
+        post: &[CitationRef],
     ) -> Result<Vec<ClusterUpdate>, EngineError> {
-        Err(EngineError::NotYetPorted {
-            method: "processCitationCluster",
-        })
+        let result = self.state.process_citation_cluster(
+            Engine::citation_input(citation),
+            &Engine::citation_positions(pre),
+            &Engine::citation_positions(post),
+            api_cite::ClusterFlag::None,
+        )?;
+        Ok(Engine::cluster_updates(result))
     }
 
     /// `appendCitationCluster(citation)`: `processCitationCluster` with the
     /// citation at the end of the document.
     pub fn append_citation_cluster(
         &mut self,
-        _citation: &Citation,
+        citation: &Citation,
     ) -> Result<Vec<ClusterUpdate>, EngineError> {
-        Err(EngineError::NotYetPorted {
-            method: "appendCitationCluster",
-        })
+        let result = self
+            .state
+            .append_citation_cluster(Engine::citation_input(citation))?;
+        Ok(Engine::cluster_updates(result))
+    }
+
+    /// `previewCitationCluster(citation, pre, post, newMode)`: the text the
+    /// citation would have at this position, leaving the registry as found.
+    pub fn preview_citation_cluster(
+        &mut self,
+        citation: &Citation,
+        pre: &[CitationRef],
+        post: &[CitationRef],
+        format: OutputFormat,
+    ) -> Result<String, EngineError> {
+        self.state.preview_citation_cluster(
+            Engine::citation_input(citation),
+            &Engine::citation_positions(pre),
+            &Engine::citation_positions(post),
+            Engine::mode_name(format),
+        )
     }
 
     /// `makeBibliography(bibsection?)`.
     pub fn make_bibliography(
         &mut self,
-        _bibsection: Option<&Value>,
+        bibsection: Option<&Value>,
     ) -> Result<Bibliography, EngineError> {
-        Err(EngineError::NotYetPorted {
-            method: "makeBibliography",
-        })
+        match self.state.make_bibliography(bibsection)? {
+            Some(result) => Ok(Bibliography {
+                params: result.params.into_iter().collect(),
+                entries: result.entry_strings,
+            }),
+            // `makeBibliography()` returns `false` for a style without a bibliography.
+            None => Err(EngineError::Csl(
+                "TypeError: Cannot read properties of undefined (reading 'bibstart')".to_string(),
+            )),
+        }
     }
 }
 
@@ -890,50 +1001,97 @@ mod tests {
         ));
     }
 
+    /// A style whose layouts render nothing (so the tests need no rendering
+    /// stage) and whose bibliography sorts by publisher, then by edition
+    /// descending.
+    const SORT_STYLE: &str = r#"<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0">
+  <citation><layout/></citation>
+  <bibliography>
+    <sort><key variable="publisher"/><key variable="edition" sort="descending"/></sort>
+    <layout/>
+  </bibliography>
+</style>"#;
+
+    fn sorting_engine() -> Engine {
+        let items = [
+            json!({"id": "a", "type": "book", "publisher": "Zed", "edition": "1"}),
+            json!({"id": "b", "type": "book", "publisher": "alpha", "edition": "2"}),
+            json!({"id": "c", "type": "book", "publisher": "Alpha", "edition": "10"}),
+            json!({"id": "d", "type": "book", "publisher": "The Beta"}),
+        ];
+        let sys = Sys::new(&items, Arc::new(BTreeMap::new())).unwrap();
+        // The test locales are tiny; give the engine the en-US the build needs.
+        let locales = crate::citeproc::test_support::minimal_locales();
+        let sys = Sys {
+            locales: Arc::new(locales),
+            ..sys
+        };
+        Engine::new(sys, SORT_STYLE, "").unwrap()
+    }
+
     #[test]
-    fn every_processing_call_is_not_yet_ported_and_none_panics() {
-        let mut e = engine();
-        let item = CitationItem::from_json(&json!({"id": "ITEM-1"})).unwrap();
+    fn update_items_registers_and_sorts_by_the_bibliography_keys() {
+        let mut e = sorting_engine();
+        let ids = ["a", "b", "c", "d"].map(String::from);
+        e.update_items(&ids, false).unwrap();
+        // publisher (case-insensitively, `The` stripped): alpha/Alpha, Beta, Zed;
+        // then edition, descending as numbers padded for sorting: c (10) before b (2).
+        assert_eq!(e.registry_ids().unwrap(), vec!["c", "b", "d", "a"]);
+        // nosort keeps the order given
+        e.update_items(&["d".to_string(), "a".to_string()], true).unwrap();
+        assert_eq!(e.registry_ids().unwrap(), vec!["d", "a"]);
+        assert!(!e.citation_registered("C1").unwrap());
+    }
+
+    #[test]
+    fn a_style_without_a_bibliography_gives_an_error_not_a_panic() {
+        let sys = Sys::new(
+            &[json!({"id": "x", "type": "book"})],
+            Arc::new(crate::citeproc::test_support::minimal_locales()),
+        )
+        .unwrap();
+        let mut e = Engine::new(
+            sys,
+            r#"<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0"><citation><layout/></citation></style>"#,
+            "",
+        )
+        .unwrap();
+        assert!(matches!(e.make_bibliography(None), Err(EngineError::Csl(_))));
+        assert_eq!(
+            e.update_items(&["nope".to_string()], false).is_err(),
+            true,
+            "an unknown item id is an error, as JSON.parse(undefined) is upstream"
+        );
         let citation = Citation::from_json(&json!({
             "citationID": "C1",
-            "citationItems": [{"id": "ITEM-1"}],
-            "properties": {"noteIndex": 1}
+            "citationItems": [{"id": "x"}],
+            "properties": {"noteIndex": 0}
         }))
         .unwrap();
-        assert_eq!(citation.note_index, 1);
-        let nyp = |method: &'static str| Err::<(), _>(EngineError::NotYetPorted { method });
-        assert_eq!(
-            e.update_items(&["ITEM-1".to_string()], false),
-            nyp("updateItems")
-        );
-        assert!(matches!(
-            e.registry_ids(),
-            Err(EngineError::NotYetPorted { .. })
-        ));
-        assert!(matches!(
-            e.citation_registered("C1"),
-            Err(EngineError::NotYetPorted { .. })
-        ));
-        assert_eq!(
-            e.preload_abbreviations(std::slice::from_ref(&item)),
-            nyp("preloadAbbreviations")
-        );
-        assert!(matches!(
-            e.make_citation_cluster(&[item]),
-            Err(EngineError::NotYetPorted { .. })
-        ));
-        assert!(matches!(
-            e.process_citation_cluster(&citation, &[], &[]),
-            Err(EngineError::NotYetPorted { .. })
-        ));
-        assert!(matches!(
-            e.append_citation_cluster(&citation),
-            Err(EngineError::NotYetPorted { .. })
-        ));
-        assert!(matches!(
-            e.make_bibliography(None),
-            Err(EngineError::NotYetPorted { .. })
-        ));
+        assert!(!e.citation_registered("C1").unwrap());
+        e.process_citation_cluster(&citation, &[], &[]).unwrap();
+        assert!(e.citation_registered("C1").unwrap());
+    }
+
+    #[test]
+    fn preload_abbreviations_sets_language_names_and_refuses_jurisdictions() {
+        let items = [
+            json!({"id": "a", "language": "Ja<En"}),
+            json!({"id": "b", "jurisdiction": "us"}),
+        ];
+        let sys = Sys::new(&items, Arc::new(crate::citeproc::test_support::minimal_locales())).unwrap();
+        let mut e = Engine::new(sys, SORT_STYLE, "").unwrap();
+        let ci = |id: &str| CitationItem::from_json(&json!({"id": id})).unwrap();
+        e.preload_abbreviations(&[ci("a")]).unwrap();
+        let a = e.sys().retrieve_item("a").unwrap();
+        assert_eq!(a["language-name"], json!("ja"));
+        assert_eq!(a["language-name-original"], json!("en"));
+        assert!(e.preload_abbreviations(&[ci("b")]).is_err());
+        assert!(e.preload_abbreviations(&[ci("zz")]).is_err());
+    }
+
+    #[test]
+    fn the_processing_error_type_prints() {
         assert_eq!(
             EngineError::NotYetPorted {
                 method: "updateItems"

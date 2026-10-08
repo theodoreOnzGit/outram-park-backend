@@ -56,7 +56,7 @@
 //! * Calls that would raise a JS TypeError (an unbalanced `closeLevel`, a
 //!   bare string inside a list that `string()` walks) return `Err`.
 //! * Stand-ins: `getOpt("punctuation-in-quote")` ([`formats::get_opt_flag`]),
-//!   the registry `offset` write ([`registry_set_offset`], `PORT-LATER`).
+//!   the registry `offset` write ([`registry_set_offset`]).
 
 use std::collections::BTreeMap;
 use std::sync::LazyLock;
@@ -372,11 +372,17 @@ pub fn layout_decorations(state: &State) -> Option<Vec<Decoration>> {
 }
 
 /// `state.registry.registry[id].offset = offset` if the registry has `id`;
-/// returns whether it did (queue.js:421). // STUB(registry.rs)
-///
-/// PORT-LATER(registry offset): queue.js:420-424, needs `state.registry.registry` (wave4 registry port). Returns `false`, so counting is never switched off here.
-pub fn registry_set_offset(_state: &mut State, _id: &str, _offset: usize) -> bool {
-    false
+/// returns whether it did (queue.js:420-424): the registry token's `offset`
+/// is the number of characters before the entry text, for
+/// `second-field-align`.
+pub fn registry_set_offset(state: &mut State, id: &str, offset: usize) -> bool {
+    match state.registry.registry.get_mut(id) {
+        Some(token) => {
+            token.offset = offset as i64;
+            true
+        }
+        None => false,
+    }
 }
 
 fn dev_ext(state: &State, key: &str) -> bool {

@@ -25,7 +25,7 @@
 use serde_json::Value;
 
 use super::attributes;
-use super::load::{DATE_VARIABLES, DESCENDING, NAME_VARIABLES, NUMERIC_VARIABLES};
+use super::load::{self, ASCENDING, DATE_VARIABLES, DESCENDING, NAME_VARIABLES, NUMERIC_VARIABLES};
 use super::exec::Exec;
 use super::js;
 use super::node_institution;
@@ -33,7 +33,9 @@ use super::node_name;
 use super::node_names;
 use super::node_sort::with_sort_target;
 use super::obj_token::{Token, TokenType};
+use super::queue::{self, AppendArg, FormatRef, QueueId, Rendered, StringParent};
 use super::state::State;
+use super::util_number::padding;
 use super::{CslResult, EngineError};
 
 /// The closures `src/node_key.js` stores in `token.execs` (PORTING.md §4).
@@ -88,18 +90,17 @@ impl NodeKeyExec {
         state: &mut State,
         token: &mut Token,
         item: &Value,
-        _cite_item: &Value,
+        cite_item: &Value,
     ) -> CslResult<Option<usize>> {
         match self {
             NodeKeyExec::InitDoneVars => {
                 state.tmp.done_vars = Vec::new();
                 Ok(None)
             }
-            // PORT-LATER(wave2): node_key.js:24, needs
-            // state.output.openLevel("empty") (queue.rs).
-            NodeKeyExec::OpenLevelEmpty => Err(EngineError::NotYetPorted {
-                method: "node_key.js:24 closure",
-            }),
+            NodeKeyExec::OpenLevelEmpty => {
+                queue::open_level(state, QueueId::Output, FormatRef::Name("empty".to_string()))?;
+                Ok(None)
+            }
             NodeKeyExec::EtAlInit => {
                 state.tmp.sort_key_flag = true;
                 if let Some(v) = state.inherit_opt(token, "et-al-min", None, None) {
@@ -119,54 +120,181 @@ impl NodeKeyExec {
                 }
                 Ok(None)
             }
-            // PORT-LATER(wave4): node_key.js:98-117, needs
-            // state.registry.registry[Item.id].seq, CSL.Util.padding and
-            // state.output.append; state.bibliography_sort.tmp.citation_number_map.
-            NodeKeyExec::CitationNumber => Err(EngineError::NotYetPorted {
-                method: "node_key.js:98 closure",
-            }),
-            // PORT-LATER(wave2): node_key.js:119-128, needs
-            // CSL.Util.padding and state.output.append (queue.rs). Captured: variable.
-            NodeKeyExec::NumericVariable { .. } => Err(EngineError::NotYetPorted {
-                method: "node_key.js:119 closure",
-            }),
-            // PORT-LATER(wave2): node_key.js:131-134, needs state.getCitationLabel
-            // and state.output.append.
-            NodeKeyExec::CitationLabel => Err(EngineError::NotYetPorted {
-                method: "node_key.js:131 closure",
-            }),
+            NodeKeyExec::CitationNumber => {
+                if state.tmp.area == "bibliography_sort" {
+                    let descending = token.strings.get("sort_direction").and_then(Value::as_i64)
+                        == Some(DESCENDING);
+                    state.bibliography_sort.opt.insert(
+                        "citation_number_sort_direction".into(),
+                        Value::from(if descending { DESCENDING } else { ASCENDING }),
+                    );
+                }
+                let id = js::to_js_string(item.get("id").unwrap_or(&Value::Null));
+                let seq = state
+                    .registry
+                    .registry
+                    .get(&id)
+                    .map(|t| t.seq)
+                    .ok_or_else(|| {
+                        EngineError::Csl(
+                            "TypeError: Cannot read properties of undefined (reading 'seq')".into(),
+                        )
+                    })?;
+                let num: Option<Value> = if state.tmp.area == "citation_sort"
+                    && js::truthy_opt(state.bibliography_sort.tmp.get("citation_number_map"))
+                {
+                    state
+                        .bibliography_sort
+                        .tmp
+                        .get("citation_number_map")
+                        .and_then(|m| m.get(seq.to_string()))
+                        .cloned()
+                } else {
+                    Some(Value::from(seq))
+                };
+                // Code currently in util_number.js
+                let arg = match num {
+                    Some(n) if js::truthy(&n) => {
+                        AppendArg::Text(padding(&js::to_js_string(&n)))
+                    }
+                    Some(Value::Null) | None => AppendArg::Undefined,
+                    Some(other) => AppendArg::Text(js::to_js_string(&other)),
+                };
+                queue::append(
+                    state,
+                    QueueId::Output,
+                    arg,
+                    FormatRef::Token(token.clone()),
+                    false,
+                    false,
+                    false,
+                )?;
+                Ok(None)
+            }
+            NodeKeyExec::NumericVariable { variable } => {
+                let num = item.get(variable.as_str()).cloned();
+                // XXX What if this is NaN?
+                let arg = match num {
+                    Some(Value::String(s)) if !s.is_empty() => AppendArg::Text(padding(&s)),
+                    Some(Value::String(s)) => AppendArg::Text(s),
+                    Some(v) if js::truthy(&v) => {
+                        // `CSL.Util.padding(num)` calls `num.match(...)`.
+                        return Err(EngineError::Csl(
+                            "TypeError: num.match is not a function".to_string(),
+                        ));
+                    }
+                    Some(Value::Number(_)) => AppendArg::Number(0.0),
+                    Some(_) | None => AppendArg::Undefined,
+                };
+                queue::append(
+                    state,
+                    QueueId::Output,
+                    arg,
+                    FormatRef::Token(token.clone()),
+                    false,
+                    false,
+                    false,
+                )?;
+                Ok(None)
+            }
+            NodeKeyExec::CitationLabel => {
+                let trigraph = state.get_citation_label(item)?;
+                queue::append(
+                    state,
+                    QueueId::Output,
+                    AppendArg::Text(trigraph),
+                    FormatRef::Token(token.clone()),
+                    false,
+                    false,
+                    false,
+                )?;
+                Ok(None)
+            }
             // node_key.js:137: `func = CSL.dateAsSortKey` (util_date.js).
             NodeKeyExec::DateAsSortKey => {
                 super::util_date::date_as_sort_key(state, token, item, false)?;
                 Ok(None)
             }
-            // PORT-LATER(wave2): node_key.js:139-145, needs
+            // PORT-LATER(w2-render): node_key.js:139-145, needs
             // state.transform.getOutputFunction (util_transform.js).
             NodeKeyExec::TitleTransform { .. } => Err(EngineError::NotYetPorted {
                 method: "node_key.js:145 state.transform.getOutputFunction",
             }),
-            // PORT-LATER(wave2): node_key.js:147-153, needs
-            // CSL.INIT_JURISDICTION_MACROS / CSL.GET_COURT_CLASS.
-            NodeKeyExec::CourtClass => Err(EngineError::NotYetPorted {
-                method: "node_key.js:147 closure",
-            }),
-            // PORT-LATER(wave2): node_key.js:155-160, needs
-            // state.output.append (queue.rs). Captured: variable.
-            NodeKeyExec::PlainVariable { .. } => Err(EngineError::NotYetPorted {
-                method: "node_key.js:155 closure",
-            }),
-            // PORT-LATER(wave2): node_key.js:187-211, needs
-            // state.output.string(state, state.output.queue) (queue.rs) and
-            // sys.normalizeUnicode.
-            NodeKeyExec::StoreKey => Err(EngineError::NotYetPorted {
-                method: "node_key.js:187 closure",
-            }),
-            // PORT-LATER(wave4): node_key.js:216-224, needs
-            // state.registry.registry[Item.id].disambig.year_suffix and
-            // CSL.Util.padding.
-            NodeKeyExec::YearSuffixKey => Err(EngineError::NotYetPorted {
-                method: "node_key.js:216 closure",
-            }),
+            NodeKeyExec::CourtClass => {
+                let mut full = item.clone();
+                load::init_jurisdiction_macros(state, &mut full, Some(cite_item), "juris-main")?;
+                // true is for sortKey mode
+                let cls = load::get_court_class(state, None, item, true);
+                queue::append_simple(state, QueueId::Output, cls.as_str(), "empty")?;
+                Ok(None)
+            }
+            NodeKeyExec::PlainVariable { variable } => {
+                let arg = match item.get(variable.as_str()) {
+                    None | Some(Value::Null) => AppendArg::Undefined,
+                    Some(Value::String(s)) => AppendArg::Text(s.clone()),
+                    Some(Value::Number(n)) => AppendArg::Number(n.as_f64().unwrap_or(f64::NAN)),
+                    Some(other) => AppendArg::Text(js::to_js_string(other)),
+                };
+                queue::append(
+                    state,
+                    QueueId::Output,
+                    arg,
+                    FormatRef::Name("empty".to_string()),
+                    false,
+                    false,
+                    false,
+                )?;
+                Ok(None)
+            }
+            NodeKeyExec::StoreKey => {
+                let children = queue::queue_children(state, QueueId::Output);
+                let rendered = queue::string(state, QueueId::Output, &children, StringParent::None)?;
+                // (`state.sys.normalizeUnicode` is a host hook the port does not model.)
+                let keystring = match rendered {
+                    Rendered::Str(s) => s,
+                    // `keystring.split` of an array is a TypeError upstream.
+                    _ => {
+                        return Err(EngineError::Csl(
+                            "TypeError: keystring.split is not a function".to_string(),
+                        ))
+                    }
+                };
+                let sort_sep = js::get_string(&state.opt, "sort_sep").unwrap_or_default();
+                let keystring = if keystring.is_empty() {
+                    Value::Null
+                } else {
+                    Value::String(format!("{}{}", keystring.replace(' ', &sort_sep), sort_sep))
+                };
+                let root = state.area_ref(&state.tmp.area.clone()).root.clone();
+                state
+                    .area_mut(&format!("{root}_sort"))
+                    .keys
+                    .push(keystring);
+                state.tmp.value = Vec::new();
+                Ok(None)
+            }
+            NodeKeyExec::YearSuffixKey => {
+                // year-suffix Key
+                let id = js::to_js_string(item.get("id").unwrap_or(&Value::Null));
+                let disambig = state
+                    .registry
+                    .registry
+                    .get(&id)
+                    .and_then(|t| t.disambig)
+                    .ok_or_else(|| {
+                        EngineError::Csl(
+                            "TypeError: Cannot read properties of undefined (reading 'disambig')".into(),
+                        )
+                    })?;
+                let mut year_suffix = state.ambig(disambig).year_suffix.clone();
+                if !js::truthy(&year_suffix) {
+                    year_suffix = Value::from(0);
+                }
+                let key = padding(&js::to_js_string(&year_suffix));
+                let area = state.tmp.area.clone();
+                state.area_mut(&area).keys.push(Value::String(key));
+                Ok(None)
+            }
             NodeKeyExec::ResetKeyParams => {
                 state.tmp.et_al_min = None;
                 state.tmp.et_al_use_first = None;

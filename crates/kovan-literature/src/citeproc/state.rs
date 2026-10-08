@@ -37,7 +37,7 @@ use serde_json::{json, Value};
 
 use super::disambig_cites::Disambiguation;
 use super::js::Obj;
-use super::obj_ambigconfig::AmbigConfig;
+use super::obj_ambigconfig::{AmbigConfig, AmbigId};
 use super::obj_blob::{BlobId, Blobs};
 use super::obj_token::Token;
 use super::queue::Queue;
@@ -123,19 +123,15 @@ pub struct State {
     /// declaration (during `localeConfigure`, before the registry exists)
     /// from an in-module one. `CSL.Engine` sets it after `localeConfigure`.
     pub has_registry: bool,
-    /// `setParseNames` is a method in JS (build.js); there is no field.
-    /// `version` (`this.version = CSL.version` in `configureTokenLists`) is
-    /// `undefined` in 2.4.63 and so is not modelled.
-    ///
-    /// Whether `sys.variableWrapper` exists (which also decides whether the
-    /// constructor sets the module global `CSL.VARIABLE_WRAPPER_PREPUNCT_REX`,
-    /// `load::variable_wrapper_prepunct_rex()`) is `fun.host_hooks.variable_wrapper`.
+    // `setParseNames` is a method in JS (build.js); there is no field.
+    // `version` (`this.version = CSL.version` in `configureTokenLists`) is
+    // `undefined` in 2.4.63 and so is not modelled.
+    //
+    // Whether `sys.variableWrapper` exists (which also decides whether the
+    // constructor sets the module global `CSL.VARIABLE_WRAPPER_PREPUNCT_REX`,
+    // `load::variable_wrapper_prepunct_rex()`) is `fun.host_hooks.variable_wrapper`.
     // ---- fields: wave1-input (dates, numbers, name particles, retrieveItem) ----
-    /// PROVISIONAL (wave1-input): `registry.refhash`, the normalised items
-    /// by id that `retrieveItem` returns on later calls. Belongs to the
-    /// registry (wave4); `build_retrieve_item.rs` reads and writes this
-    /// field until `Registry::refhash` exists.
-    pub item_refhash: BTreeMap<String, serde_json::Value>,
+    // (`item_refhash`, the provisional `registry.refhash`, is now `registry.refhash`: engine, wave4.)
     // ---- fields: wave1-output (queue, formats, formatters, flip-flop, page) ----
 
     // ---- fields: wave2 (rendering nodes, api_cite core) ----
@@ -351,6 +347,29 @@ pub struct GroupCondition {
     pub value_term: bool,
 }
 
+/// `state.tmp.abbrev_trimmer`: `{QUASHES: {jurisdiction: {field: true}},
+/// LAST_TO_FIRST: {varname: true}}` (api_cite.js makes it with an empty
+/// `QUASHES`; util_transform.js and node_group.js fill it).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct AbbrevTrimmer {
+    /// `QUASHES`.
+    pub quashes: BTreeMap<String, BTreeMap<String, bool>>,
+    /// `LAST_TO_FIRST` (`None` is `undefined`).
+    pub last_to_first: Option<BTreeMap<String, bool>>,
+}
+
+/// `state.tmp.issued_date` (node_date.js:144-147): the parent blob whose
+/// `blobs` list `{list, pos}` points into, and the position of the date's
+/// blob in it. `citeEnd` pops the date when the cite also rendered the
+/// collection number.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IssuedDate {
+    /// The blob owning `list`.
+    pub list_parent: BlobId,
+    /// `pos`.
+    pub pos: usize,
+}
+
 impl JsFalsy for GroupContext {
     /// An object is always truthy.
     fn is_truthy(&self) -> bool {
@@ -544,14 +563,20 @@ pub struct Tmp {
     pub tainted_citation_ids: BTreeMap<String, bool>,
     /// `initialize_with`.
     pub initialize_with: Stack<Value>,
-    /// `disambig_request` (`false`, later an object).
-    pub disambig_request: Value,
+    /// `disambig_request` (`false`, later an object): a handle into the
+    /// registry's pool of [`AmbigConfig`]s (`None` is `false`). CHANGED in
+    /// wave4 from `Value`: the object is shared with the registry, the
+    /// disambiguator and `disambig_settings` (see [`AmbigId`]); read it with
+    /// [`State::disambig_request`](State::disambig_request).
+    pub disambig_request: Option<AmbigId>,
     /// `["name-as-sort-order"]`.
     pub name_as_sort_order: Value,
     /// `suppress_decorations`.
     pub suppress_decorations: bool,
-    /// `disambig_settings`.
-    pub disambig_settings: AmbigConfig,
+    /// `disambig_settings`: a handle into the registry's pool (`None` is
+    /// `false`; [`State::disambig_settings_mut`](State::disambig_settings_mut)
+    /// allocates on first use). CHANGED in wave4 from `AmbigConfig`.
+    pub disambig_settings: Option<AmbigId>,
     /// `bib_sort_keys`.
     pub bib_sort_keys: Vec<Value>,
     /// `prefix`: `new CSL.Stack("", CSL.LITERAL)`.
@@ -646,6 +671,77 @@ pub struct Tmp {
     // ---- fields: wave3 ----
 
     // ---- fields: wave4 ----
+    /// `abbrev_trimmer` (api_cite.js `citeStart`, getCitationCluster): `None`
+    /// is `undefined`.
+    pub abbrev_trimmer: Option<AbbrevTrimmer>,
+    /// `authorstring_request` (api_cite.js, read by the name output).
+    pub authorstring_request: bool,
+    /// `bibliography_errors` (api_bibliography.js).
+    pub bibliography_errors: Vec<Value>,
+    /// `bibliography_pos`.
+    pub bibliography_pos: i64,
+    /// `citation_errors` (api_cite.js).
+    pub citation_errors: Vec<Value>,
+    /// `citation_id`, `citation_pos`, `citation_note_index` (error reporting;
+    /// `null` is `undefined`).
+    pub citation_id: Value,
+    pub citation_pos: Value,
+    pub citation_note_index: Value,
+    /// `cite_index` (the position of the cite in its cluster).
+    pub cite_index: i64,
+    /// `cut_var`.
+    pub cut_var: bool,
+    /// `disambig_override`.
+    pub disambig_override: bool,
+    /// `disambig_restore` (a copy of an item's config; `None` is `false`).
+    pub disambig_restore: Option<AmbigConfig>,
+    /// `disambiguate_count`, `disambiguate_maxMax`.
+    pub disambiguate_count: i64,
+    pub disambiguate_max_max: i64,
+    /// `first_name_string` (`false` or the string).
+    pub first_name_string: Value,
+    /// `has_done_year_suffix`.
+    pub has_done_year_suffix: bool,
+    /// `have_collapsed`.
+    pub have_collapsed: bool,
+    /// `issued_date` (set by node_date.js): `None` is `false`.
+    pub issued_date: Option<IssuedDate>,
+    /// `renders_collection_number` (set by node_number.js).
+    pub renders_collection_number: bool,
+    /// `last_chr` (the last character the output adjuster saw).
+    pub last_chr: Option<String>,
+    /// `last_primary_names_string`.
+    pub last_primary_names_string: Value,
+    /// `lastchr`.
+    pub lastchr: String,
+    /// `last_rendered_name` (`false` or the name strings of the previous
+    /// bibliography entry; read by util_substitute.js).
+    pub last_rendered_name: Value,
+    /// `name_node` (`{}` per cite; used by the names code).
+    pub name_node: Value,
+    /// `parallel_and_not_last`.
+    pub parallel_and_not_last: bool,
+    /// `prevItemID`.
+    pub prev_item_id: Option<String>,
+    /// `render_seen` (reset per cite by `citeStart`; `build.render_seen` is the
+    /// build-time twin).
+    pub render_seen: bool,
+    /// `rendered_name` (`false` per cite; set by node_layout.js, used by the
+    /// names code).
+    pub rendered_name: Value,
+    /// `same_author_as_previous_cite`.
+    pub same_author_as_previous_cite: bool,
+    /// `splice_delimiter` (`None` is `undefined`/`false`).
+    pub splice_delimiter: Option<String>,
+    /// `subsequent_author_substitute_ok`.
+    pub subsequent_author_substitute_ok: bool,
+    /// `suppress_repeats` (util_parallel.js): `None` is `undefined`, the
+    /// entries `{varname: bool, ORPHAN, START, END, SIBLING}`.
+    pub suppress_repeats: Option<Vec<BTreeMap<String, bool>>>,
+    /// `use_cite_group_delimiter`.
+    pub use_cite_group_delimiter: bool,
+    /// `backref_index`.
+    pub backref_index: Vec<Value>,
 
     // ---- fields: wave5 ----
 }
@@ -687,10 +783,10 @@ impl Tmp {
             tainted_item_ids: BTreeMap::new(),
             tainted_citation_ids: BTreeMap::new(),
             initialize_with: Stack::new(),
-            disambig_request: Value::Bool(false),
+            disambig_request: None,
             name_as_sort_order: Value::Bool(false),
             suppress_decorations: false,
-            disambig_settings: AmbigConfig::default(),
+            disambig_settings: None,
             bib_sort_keys: Vec::new(),
             prefix: Stack::with(String::new()),
             suffix: Stack::with(String::new()),
@@ -733,6 +829,40 @@ impl Tmp {
             count_offset_characters: None,
             offset_characters: 0,
             term_predecessor_name: false,
+            abbrev_trimmer: None,
+            authorstring_request: false,
+            bibliography_errors: Vec::new(),
+            bibliography_pos: 0,
+            citation_errors: Vec::new(),
+            citation_id: Value::Null,
+            citation_pos: Value::Null,
+            citation_note_index: Value::Null,
+            cite_index: 0,
+            cut_var: false,
+            disambig_override: false,
+            disambig_restore: None,
+            disambiguate_count: 0,
+            disambiguate_max_max: 0,
+            first_name_string: Value::Bool(false),
+            has_done_year_suffix: false,
+            have_collapsed: false,
+            issued_date: None,
+            renders_collection_number: false,
+            last_chr: None,
+            last_primary_names_string: Value::Bool(false),
+            lastchr: String::new(),
+            last_rendered_name: Value::Bool(false),
+            name_node: Value::Null,
+            parallel_and_not_last: false,
+            prev_item_id: None,
+            rendered_name: Value::Bool(false),
+            render_seen: false,
+            same_author_as_previous_cite: false,
+            splice_delimiter: None,
+            subsequent_author_substitute_ok: false,
+            suppress_repeats: None,
+            use_cite_group_delimiter: false,
+            backref_index: Vec::new(),
         }
     }
 }

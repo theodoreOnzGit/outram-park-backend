@@ -297,9 +297,11 @@ impl State {
         let punctuation_in_quote = js::truthy(&s.get_opt("punctuation-in-quote")?);
         s.output.adjust = Some(Adjust::new(punctuation_in_quote));
 
-        // PORT-LATER(registry): `this.registry = new CSL.Registry(this)`
-        // (registry.js, wave4); the default stands in.
-        s.registry = Default::default();
+        // `this.registry = new CSL.Registry(this)`
+        s.registry = super::registry::Registry::new(super::registry::Comparifier::new(
+            &s,
+            "bibliography_sort",
+        ));
         s.has_registry = true;
 
         // XXX For modular jurisdiction support, parameterize buildTokenLists().
@@ -327,16 +329,16 @@ impl State {
             .map(js::truthy)
             .unwrap_or(false)
         {
-            // PORT-LATER(util_parallel): `new CSL.Parallel(this)`.
-            s.parallel = Some(Default::default());
+            // `this.parallel = new CSL.Parallel(this)`.
+            s.parallel = Some(super::util_parallel::Parallel::new());
         }
 
         s.juris = Default::default();
 
         s.configure_token_lists()?;
 
-        // PORT-LATER(disambig_cites): `new CSL.Disambiguation(this)`.
-        s.disambiguate = Default::default();
+        // `this.disambiguate = new CSL.Disambiguation(this)`.
+        s.disambiguate = super::disambig_cites::Disambiguation::new(&s);
 
         s.splice_delimiter = None;
 
@@ -797,11 +799,8 @@ impl State {
         Ok(())
     }
 
-    /// `CSL.Engine.prototype.refetchItems(ids)`.
-    ///
-    /// PORT-LATER(registry): `this.registry.refhash` is a wave4/wave1-input
-    /// field; until it exists there is nothing to fetch, so every id gives
-    /// `None`.
+    /// `CSL.Engine.prototype.refetchItems(ids)`: the items of `registry.refhash`
+    /// for `ids` (`None` for an id not there, JS `undefined`).
     pub fn refetch_items(&self, ids: &[Value]) -> Vec<Option<Value>> {
         ids.iter()
             .map(|id| self.refetch_item(&js::to_js_string(id)))
@@ -809,9 +808,8 @@ impl State {
     }
 
     /// `CSL.Engine.prototype.refetchItem(id)`: `this.registry.refhash[id]`.
-    /// PORT-LATER(registry): see [`State::refetch_items`].
-    pub fn refetch_item(&self, _id: &str) -> Option<Value> {
-        None
+    pub fn refetch_item(&self, id: &str) -> Option<Value> {
+        self.registry.refhash.get(id).cloned()
     }
 
     /// `CSL.Engine.prototype.setOpt(token, name, value)` (executed during

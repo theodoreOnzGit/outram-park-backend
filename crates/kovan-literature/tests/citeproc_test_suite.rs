@@ -979,3 +979,81 @@ fn js_coercions_match_javascript() {
     assert_eq!(js_string(&Value::Null), "");
     assert_eq!(js_string(&json!(true)), "true");
 }
+
+
+/// `CITEPROC_SUITE_REPORT=1 cargo test --release -p kovan-literature --test
+/// citeproc_test_suite -- --nocapture report_per_area`: run EVERY fixture
+/// (whatever `ported_areas.json` says) and print, per area, how many fixtures
+/// the port reproduces citeproc-js on, how many also equal the fixture's own
+/// `RESULT`, and how many stop at an error; then the most common error
+/// messages. `CITEPROC_SUITE_REPORT=2` also lists each differing fixture
+/// with the first line of its error or of both outputs. Without the variable
+/// the test does nothing, so the ordinary run stays quiet.
+#[test]
+fn report_per_area() {
+    let Ok(mode) = std::env::var("CITEPROC_SUITE_REPORT") else {
+        return;
+    };
+    let detail = mode == "2";
+    let (Some(fixtures), Some(locales)) = (load_fixtures(), load_locales()) else {
+        return;
+    };
+    let reference = reference();
+    let fixtures_ref = reference["fixtures"].as_object().unwrap();
+    // area -> (total, same as citeproc-js, same as RESULT, errors)
+    let mut by_area: BTreeMap<String, (usize, usize, usize, usize)> = BTreeMap::new();
+    let mut errors: BTreeMap<String, usize> = BTreeMap::new();
+    let only = std::env::var("CITEPROC_SUITE_ONLY").ok();
+    for (name, fx) in &fixtures {
+        if let Some(o) = &only {
+            if !name.starts_with(o.as_str()) {
+                continue;
+            }
+        }
+        let want = fixtures_ref[name]["output"].as_str().unwrap_or("").to_string();
+        let got = std::panic::catch_unwind(|| run_fixture(fx, &locales));
+        let (got, is_error) = match got {
+            Ok(Ok(s)) => (s, false),
+            Ok(Err(e)) => (format!("ERROR: {e}"), true),
+            Err(_) => ("ERROR: panic".to_string(), true),
+        };
+        let slot = by_area.entry(area_of(name).to_string()).or_default();
+        slot.0 += 1;
+        if got == want {
+            slot.1 += 1;
+        }
+        if got == fx.result {
+            slot.2 += 1;
+        }
+        if is_error {
+            slot.3 += 1;
+            let first = got.lines().next().unwrap_or("").to_string();
+            *errors.entry(first.clone()).or_default() += 1;
+            if detail {
+                println!("  ERR  {name}: {first}");
+            }
+        } else if got != want && detail {
+            println!(
+                "  DIFF {name}\n    citeproc-js: {:?}\n    port:        {:?}",
+                want.lines().next().unwrap_or(""),
+                got.lines().next().unwrap_or("")
+            );
+        }
+    }
+    let (mut t, mut a, mut b, mut c) = (0, 0, 0, 0);
+    println!("{:<14} {:>5} {:>8} {:>8} {:>7}", "area", "total", "=cslJS", "=RESULT", "errors");
+    for (area, (total, same, result, err)) in &by_area {
+        println!("{area:<14} {total:>5} {same:>8} {result:>8} {err:>7}");
+        t += total;
+        a += same;
+        b += result;
+        c += err;
+    }
+    println!("{:<14} {:>5} {:>8} {:>8} {:>7}", "ALL", t, a, b, c);
+    let mut top: Vec<(&String, &usize)> = errors.iter().collect();
+    top.sort_by(|x, y| y.1.cmp(x.1));
+    println!("most common errors:");
+    for (msg, n) in top.iter().take(25) {
+        println!("  {n:>4}  {msg}");
+    }
+}

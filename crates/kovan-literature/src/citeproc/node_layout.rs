@@ -21,12 +21,15 @@ use serde_json::Value;
 use super::attributes::{self, area_mut};
 use super::exec::Exec;
 use super::js;
+use super::load::{check_ignore_predecessor, check_prefix_space_append, check_suffix_space_prepend};
 use super::node_choose;
 use super::node_else;
 use super::node_elseif;
 use super::node_if;
 use super::node_names::decorations_to_value;
+use super::obj_blob::{BlobChild, BlobContent};
 use super::obj_token::{Token, TokenType};
+use super::queue::{self, AppendArg, FormatRef, QueueId};
 use super::state::State;
 use super::{CslResult, EngineError};
 
@@ -61,23 +64,78 @@ impl NodeLayoutExec {
     pub fn run(
         &self,
         state: &mut State,
-        _token: &mut Token,
-        _item: &Value,
-        _cite_item: &Value,
+        token: &mut Token,
+        item: &Value,
+        cite_item: &Value,
     ) -> CslResult<Option<usize>> {
         match self {
-            // PORT-LATER(wave2): node_layout.js:50-66, needs
-            // state.output.startTag + current.value() fields (queue.rs) and
-            // state.sys.wrapCitationEntry.
-            NodeLayoutExec::CiteEntryStart => Err(EngineError::NotYetPorted {
-                method: "node_layout.js:50 closure",
-            }),
-            // PORT-LATER(wave4): node_layout.js:78-100, needs
-            // state.registry.registry[Item.id].parallel (registry.rs),
-            // state.tmp.abbrev_trimmer and state.opt.suppressedJurisdictions.
-            NodeLayoutExec::InitDoneVars => Err(EngineError::NotYetPorted {
-                method: "node_layout.js:78 closure",
-            }),
+            NodeLayoutExec::CiteEntryStart => {
+                if wraps_citation_entry(state, item) {
+                    // PORT-LATER(sys.wrapCitationEntry): the host's
+                    // `wrapCitationEntry` callback is not modelled (`Sys` is data
+                    // only); `HostHooks::wrap_citation_entry` is never set.
+                    return Err(EngineError::NotYetPorted {
+                        method: "sys.wrapCitationEntry",
+                    });
+                }
+                Ok(None)
+            }
+            NodeLayoutExec::InitDoneVars => {
+                //
+                // done_vars is used to prevent the repeated
+                // rendering of variables
+                //
+                // initalize done vars
+                state.tmp.done_vars = Vec::new();
+                if js::truthy_opt(cite_item.get("author-only")) {
+                    state.tmp.done_vars.push("locator".to_string());
+                }
+                let country = item.get("country").filter(|c| js::truthy(c));
+                let suppressed = country
+                    .map(|c| {
+                        js::truthy_opt(
+                            state
+                                .opt
+                                .get("suppressedJurisdictions")
+                                .and_then(|s| s.get(js::to_js_string(c))),
+                        )
+                    })
+                    .unwrap_or(false);
+                let item_type = item.get("type").and_then(Value::as_str);
+                if suppressed && item_type != Some("treaty") && item_type != Some("patent") {
+                    state.tmp.done_vars.push("country".to_string());
+                }
+                let id = js::to_js_string(item.get("id").unwrap_or(&Value::Null));
+                if !state.tmp.just_looking
+                    && state
+                        .registry
+                        .registry
+                        .get(&id)
+                        .map(|t| js::truthy_opt(t.parallel.as_ref()))
+                        .unwrap_or(false)
+                {
+                    state
+                        .tmp
+                        .done_vars
+                        .push("first-reference-note-number".to_string());
+                }
+                // trimmer is not available in getAmbiguousCite
+                if !state.tmp.just_looking && js::truthy_opt(item.get("jurisdiction")) {
+                    if let Some(trimmer) = &state.tmp.abbrev_trimmer {
+                        let jurisdiction = js::to_js_string(item.get("jurisdiction").unwrap_or(&Value::Null));
+                        let fields: Vec<String> = trimmer
+                            .quashes
+                            .get(&jurisdiction)
+                            .map(|q| q.keys().cloned().collect())
+                            .unwrap_or_default();
+                        state.tmp.done_vars.extend(fields);
+                    }
+                }
+
+                //CSL.debug(" === init rendered_name === ");
+                state.tmp.rendered_name = Value::Bool(false);
+                Ok(None)
+            }
             NodeLayoutExec::ClearSortKeyFlag => {
                 // just in case
                 state.tmp.sort_key_flag = false;
@@ -87,37 +145,131 @@ impl NodeLayoutExec {
                 state.tmp.nameset_counter = 0;
                 Ok(None)
             }
-            // PORT-LATER(wave2): node_layout.js:114-117, needs
-            // state.output.openLevel(new CSL.Token()) (queue.rs).
-            NodeLayoutExec::OpenLevel => Err(EngineError::NotYetPorted {
-                method: "node_layout.js:114 closure",
-            }),
-            // PORT-LATER(wave2): node_layout.js:122-131, needs
-            // CSL.checkPrefixSpaceAppend, state.output.checkNestedBrace,
-            // CSL.checkIgnorePredecessor and state.output.append.
-            NodeLayoutExec::CitationPrefix => Err(EngineError::NotYetPorted {
-                method: "node_layout.js:122 closure",
-            }),
-            // PORT-LATER(wave2): node_layout.js:11-33, needs
-            // state.output.current.value() and endTag("bib_other").
-            NodeLayoutExec::BibliographySuffix => Err(EngineError::NotYetPorted {
-                method: "node_layout.js:11 closure",
-            }),
-            // PORT-LATER(wave2): node_layout.js:~230-239, needs
-            // CSL.checkSuffixSpacePrepend, checkNestedBrace and output.append.
-            NodeLayoutExec::CitationSuffix => Err(EngineError::NotYetPorted {
-                method: "node_layout.js:230 closure",
-            }),
-            // PORT-LATER(wave2): node_layout.js:~245, needs output.closeLevel.
-            NodeLayoutExec::CloseLevel => Err(EngineError::NotYetPorted {
-                method: "node_layout.js:245 closure",
-            }),
-            // PORT-LATER(wave2): node_layout.js:~248-257, needs output.endTag.
-            NodeLayoutExec::CiteEntryEnd => Err(EngineError::NotYetPorted {
-                method: "node_layout.js:248 closure",
-            }),
+            NodeLayoutExec::OpenLevel => {
+                // `var tok = new CSL.Token(); state.output.openLevel(tok)`
+                let tok = Token::new("", TokenType::Start);
+                queue::open_level(state, QueueId::Output, FormatRef::Token(tok))?;
+                Ok(None)
+            }
+            NodeLayoutExec::CitationPrefix => {
+                if let Some(prefix) = cite_item.get("prefix").filter(|p| js::truthy(p)) {
+                    let mut prefix = check_prefix_space_append(state, &js::to_js_string(prefix));
+                    if !state.tmp.just_looking {
+                        prefix = update_nested_brace(state, &prefix)?;
+                    }
+                    let ignore_predecessor = check_ignore_predecessor(state, &prefix);
+                    queue::append(
+                        state,
+                        QueueId::Output,
+                        AppendArg::Text(prefix),
+                        FormatRef::Token(token.clone()),
+                        false,
+                        ignore_predecessor,
+                        false,
+                    )?;
+                }
+                Ok(None)
+            }
+            NodeLayoutExec::BibliographySuffix => {
+                // Suppress suffix on all but the last item in bibliography parallels
+                if !state.tmp.parallel_and_not_last {
+                    let locale = state.tmp.last_cite_locale.clone().unwrap_or_else(|| "false".to_string());
+                    let own = state
+                        .tmp
+                        .cite_affixes
+                        .get(&state.tmp.area)
+                        .and_then(|a| a.get(&locale))
+                        .filter(|a| js::truthy(a))
+                        .map(|a| a.get("suffix").cloned().unwrap_or(Value::Null));
+                    let suffix = match own {
+                        Some(s) => s,
+                        None => state
+                            .bibliography
+                            .opt
+                            .get("layout_suffix")
+                            .cloned()
+                            .unwrap_or(Value::Null),
+                    };
+                    let suffix = match suffix {
+                        Value::Null => String::new(),
+                        other => js::to_js_string(&other),
+                    };
+
+                    // If @display is used, layout suffix is placed on the last
+                    // immediate child of the layout, which we assume will be a
+                    // @display group node.
+                    let top = queue::current(state, QueueId::Output).ok_or_else(|| {
+                        EngineError::Csl("TypeError: Cannot read properties of undefined (reading 'strings')".into())
+                    })?;
+                    if js::truthy_opt(state.opt.get("using_display")) {
+                        let last = match &state.blobs.get(top).blobs {
+                            BlobContent::List(l) => l.last().cloned(),
+                            BlobContent::Text(_) => None,
+                        };
+                        match last {
+                            Some(BlobChild::Blob(b)) => state.blobs.get_mut(b).set_string("suffix", &suffix),
+                            _ => {
+                                return Err(EngineError::Csl(
+                                    "TypeError: Cannot read properties of undefined (reading 'strings')".into(),
+                                ))
+                            }
+                        }
+                    } else {
+                        state.blobs.get_mut(top).set_string("suffix", &suffix);
+                    }
+                }
+                if js::truthy_opt(state.bibliography.opt.get("second-field-align")) {
+                    // closes bib_other
+                    queue::end_tag(state, QueueId::Output, Some("bib_other"))?;
+                }
+                Ok(None)
+            }
+            NodeLayoutExec::CitationSuffix => {
+                if let Some(suffix) = cite_item.get("suffix").filter(|s| js::truthy(s)) {
+                    let mut suffix = check_suffix_space_prepend(state, &js::to_js_string(suffix));
+                    if !state.tmp.just_looking {
+                        suffix = update_nested_brace(state, &suffix)?;
+                    }
+                    queue::append_simple(state, QueueId::Output, suffix.as_str(), FormatRef::Token(token.clone()))?;
+                }
+                Ok(None)
+            }
+            NodeLayoutExec::CloseLevel => {
+                queue::close_level(state, QueueId::Output, None)?;
+                Ok(None)
+            }
+            NodeLayoutExec::CiteEntryEnd => {
+                if wraps_citation_entry(state, item) {
+                    // closes citation link wrapper
+                    queue::end_tag(state, QueueId::Output, None)?;
+                }
+                Ok(None)
+            }
         }
     }
+}
+
+/// `state.opt.development_extensions.apply_citation_wrapper &&
+/// state.sys.wrapCitationEntry && !state.tmp.just_looking && Item.system_id &&
+/// state.tmp.area === "citation"`.
+fn wraps_citation_entry(state: &State, item: &Value) -> bool {
+    state.dev_ext("apply_citation_wrapper")
+        && state.fun.host_hooks.wrap_citation_entry
+        && !state.tmp.just_looking
+        && js::truthy_opt(item.get("system_id"))
+        && state.tmp.area == "citation"
+}
+
+/// `state.output.checkNestedBrace.update(s)`.
+fn update_nested_brace(state: &mut State, s: &str) -> CslResult<String> {
+    state
+        .output
+        .check_nested_brace
+        .as_mut()
+        .map(|c| c.update(s))
+        .ok_or_else(|| {
+            EngineError::Csl("TypeError: Cannot read properties of undefined (reading 'update')".into())
+        })
 }
 
 fn cite_affixes_truthy(state: &State, area: &str) -> bool {

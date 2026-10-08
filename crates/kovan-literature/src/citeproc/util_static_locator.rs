@@ -19,12 +19,9 @@
 //! Port of `src/util_static_locator.js`: `remapSectionVariable` (fold a legal
 //! item's `section` into the cite's `locator`) and `setNumberLabels`.
 //!
-//! The last section, `citation-item input`, holds the input steps
-//! `makeCitationCluster` applies to each citation item before rendering
-//! (`src/api_cite.js`, the loop over `citation.citationItems`): copy the
-//! item, `CSL.parseLocator` (`load::parse_locator`), `remapSectionVariable`,
-//! and the `locator_label_parse` step. They stay here until the wave that
-//! ports api_cite.js moves them into `api_cite.rs`.
+//! (The citation-item input steps of `processCitationCluster` that used to
+//! follow here, `CSL.parseLocator`, `remapSectionVariable` and the
+//! `locator_label_parse` step, moved to `api_cite.rs`: `citation_item_input`.)
 
 use std::sync::LazyLock;
 
@@ -34,10 +31,10 @@ use serde_json::Value;
 use super::js::{self, Obj};
 use super::state::State;
 use super::load::{
-    locator_labels_map, parse_locator, statute_subdiv_string, statute_subdiv_string_reverse,
-    LOCATOR_LABELS_REGEXP, STATUTE_SUBDIV_PLAIN_REGEX, STATUTE_SUBDIV_PLAIN_REGEX_FRONT,
+    statute_subdiv_string, statute_subdiv_string_reverse, STATUTE_SUBDIV_PLAIN_REGEX,
+    STATUTE_SUBDIV_PLAIN_REGEX_FRONT,
 };
-use super::util_number::{input_get_term_name, ShadowLabel, ShadowNumber, ShadowValue};
+use super::util_number::{ShadowLabel, ShadowNumber, ShadowValue};
 use super::{CslResult, EngineError};
 
 /// JS `.`: anything but `\n`, `\r`, U+2028, U+2029.
@@ -223,60 +220,6 @@ pub fn set_number_labels(state: &mut State, item: &Value) {
     state.tmp.shadow_numbers.insert("number".into(), sn);
 }
 
-// ---- citation-item input (api_cite.js, load.js) ----
-
-/// The per-citation-item input steps of `makeCitationCluster`
-/// (`src/api_cite.js:131-154`) applied to `item` (already a shallow copy of
-/// the caller's citation item) and its `Item`:
-/// `CSL.parseLocator`; `remapSectionVariable` when
-/// `consolidate_legal_items`; and, with `locator_label_parse`, moving an
-/// embedded label such as `"ch. 3"` out of a plain locator into
-/// `item.label` when the locale has a term for it.
-///
-/// `Item` may be mutated (`remapSectionVariable` rewrites `Item.section`).
-pub fn citation_item_input(state: &mut State, item_obj: &mut Obj, item: &mut Obj) -> CslResult<()> {
-    parse_locator(state, item);
-    let ext = |name: &str| {
-        state
-            .opt
-            .get("development_extensions")
-            .and_then(|d| d.get(name))
-            .map(js::truthy)
-            .unwrap_or(false)
-    };
-    if ext("consolidate_legal_items") {
-        remap_section_variable_one(item_obj, item)?;
-    }
-    if ext("locator_label_parse") {
-        let is_legal = item_obj
-            .get("type")
-            .and_then(Value::as_str)
-            .map(|t| LEGAL_TYPES.contains(&t))
-            .unwrap_or(false);
-        let label_is_page_or_none = !js::get_truthy(item, "label")
-            || item.get("label").and_then(Value::as_str) == Some("page");
-        if js::get_truthy(item, "locator") && !is_legal && label_is_page_or_none {
-            let locator = js::to_js_string(item.get("locator").unwrap_or(&Value::Null));
-            if let Some(m) = LOCATOR_LABELS_REGEXP.captures(&locator) {
-                let m2 = m.get(2).map(|x| x.as_str()).unwrap_or("");
-                let m3 = m.get(3).map(|x| x.as_str()).unwrap_or("");
-                let try_label = locator_labels_map(m2);
-                if input_get_term_name(state, try_label)
-                    .map(|t| !t.is_empty())
-                    .unwrap_or(false)
-                {
-                    item.insert(
-                        "label".into(),
-                        Value::String(try_label.unwrap_or("").to_string()),
-                    );
-                    item.insert("locator".into(), Value::String(m3.to_string()));
-                }
-            }
-        }
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     //! Differential tests against citeproc-js 2.4.63: reference
@@ -297,6 +240,7 @@ mod tests {
 
     use serde_json::json;
 
+    use super::super::load::parse_locator;
     use super::*;
 
     const REF: &str = include_str!("../../tests/data/csl/units/locator.json");
@@ -378,32 +322,5 @@ mod tests {
             parse_locator(&mut st, &mut item);
             assert_eq!(Value::Object(item), c["out"], "{c}");
         }
-    }
-
-    #[test]
-    fn citation_item_input_matches_citeproc_js() {
-        let r: Value = serde_json::from_str(REF).expect("json");
-        let mut n = 0;
-        for c in r["citation_item_input"].as_array().expect("cases") {
-            let e = &r["cii_engines"][c["engine"].as_str().unwrap_or("")];
-            let mut st = State::default();
-            st.opt = obj(&e["opt"]);
-            super::super::test_support::install_locale(
-                &mut st,
-                super::super::test_support::logged_locale(&e["log"], None, None),
-            );
-            let (mut item_obj, mut item) = (obj(&c["Item"]), obj(&c["ci"]));
-            let res = citation_item_input(&mut st, &mut item_obj, &mut item);
-            n += 1;
-            match (res, c.get("error")) {
-                (Ok(()), None) => {
-                    assert_eq!(Value::Object(item), c["item_out"], "item {c}");
-                    assert_eq!(Value::Object(item_obj), c["Item_out"], "Item {c}");
-                }
-                (Err(e), Some(w)) => assert_eq!(w.as_str(), Some(err_text(&e).as_str()), "{c}"),
-                (g, w) => panic!("{c}: {g:?} vs {w:?}"),
-            }
-        }
-        assert!(n > 800);
     }
 }

@@ -31,9 +31,7 @@
 //! # Integration points
 //!
 //! * `registry.refhash` (the cache `retrieveItem` returns from on later
-//!   calls) is [`State::item_refhash`], a provisional field in the
-//!   `wave1-input` block of `state.rs`; point it at the registry when that
-//!   exists.
+//!   calls) is `state.registry.refhash` (`registry.rs`).
 //! * Abbreviations (`transform.loadAbbreviation` / `sys.getAbbreviation`):
 //!   [`abbreviation_lookup`] answers from `state.sys.abbreviations` the way
 //!   the CSL test runner's `getAbbreviation` does (jurisdiction fallback
@@ -68,7 +66,7 @@ use super::load::{
 use super::state::State;
 use super::util_names_render::{get_static_order, normalize_name_input, NameInputCtx};
 use super::util_number::process_number;
-use super::util_static_locator::citation_item_input;
+use super::api_cite::citation_item_input;
 use super::{CslResult, EngineError};
 
 fn rx(src: &str) -> Regex {
@@ -227,7 +225,7 @@ pub fn retrieve_item(state: &mut State, id: &str) -> CslResult<Value> {
     if !state.tmp.loaded_item_ids.get(id).copied().unwrap_or(false) {
         state.tmp.loaded_item_ids.insert(id.to_string(), true);
     } else {
-        return Ok(state.item_refhash.get(id).cloned().unwrap_or(Value::Null));
+        return Ok(state.registry.refhash.get(id).cloned().unwrap_or(Value::Null));
     }
 
     if matches!(
@@ -539,16 +537,16 @@ pub fn retrieve_item(state: &mut State, id: &str) -> CslResult<Value> {
     }
 
     let new_item = Value::Object(item);
-    if let Some(existing) = state.item_refhash.get(id).cloned() {
+    if let Some(existing) = state.registry.refhash.get(id).cloned() {
         if existing != new_item {
             let item_id = js::to_js_string(new_item.get("id").unwrap_or(&Value::Null));
             state.tmp.tainted_item_ids.insert(item_id, true);
-            state.item_refhash.insert(id.to_string(), new_item);
+            state.registry.refhash.insert(id.to_string(), new_item);
         }
     } else {
-        state.item_refhash.insert(id.to_string(), new_item);
+        state.registry.refhash.insert(id.to_string(), new_item);
     }
-    Ok(state.item_refhash.get(id).cloned().unwrap_or(Value::Null))
+    Ok(state.registry.refhash.get(id).cloned().unwrap_or(Value::Null))
 }
 
 // ---------------------------------------------------------------------------
@@ -798,7 +796,7 @@ pub(crate) fn citation_items_section(state: &mut State, lists: &[Vec<Value>]) ->
                 };
                 citation_item_input(state, &mut item_obj, &mut item)?;
                 // `Item` is the cached object: remapSectionVariable edits it in place.
-                state.item_refhash.insert(id, Value::Object(item_obj));
+                state.registry.refhash.insert(id, Value::Object(item_obj));
                 let mut v = Value::Object(item);
                 canon_numbers(&mut v);
                 Ok(v)
