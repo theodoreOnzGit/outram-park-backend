@@ -19,7 +19,7 @@ const path = require('path');
 const { freshCSL, write, root } = require('./common.cjs');
 const CSL = freshCSL();
 
-const LANGS = ['en-US', 'de-DE', 'fr-FR', 'ja-JP', 'zh-CN'];
+const LANGS = ['en-US', 'de-DE', 'fr-FR', 'ja-JP', 'zh-CN', 'es-ES', 'ru-RU', 'ko-KR'];
 const localeDir = path.join(root, 'vendor/citeproc-js/locale');
 
 // ---------------------------------------------------------------- items
@@ -96,14 +96,14 @@ items.push({ id: 'legis1', type: 'legislation', issued: dates.y });
 
 // --------------------------------------------------------------- styles
 const NS = 'xmlns="http://purl.org/net/xbiblio/csl"';
-function style(layout, root) {
+function style(layout, root, cit) {
   return `<style ${NS} class="note" version="1.0"${root || ''}>
   <info><id/><title/><updated>2009-08-10T04:49:00+09:00</updated></info>
-  <citation><layout>${layout}</layout></citation>
+  <citation${cit || ''}><layout>${layout}</layout></citation>
 </style>`;
 }
 const styles = {};
-const add = (id, layout, root) => { styles[id] = style(layout, root); };
+const add = (id, layout, root, cit) => { styles[id] = style(layout, root, cit); };
 
 // Explicit date-part children (no form).
 const monthForms = ['long', 'short', 'numeric', 'numeric-leading-zeros'];
@@ -135,6 +135,10 @@ add('ex_two_dates', '<date variable="issued" suffix=" / "><date-part name="year"
 add('ex_accessed', '<date variable="accessed"><date-part name="month" suffix=" "/><date-part name="day" suffix=", "/><date-part name="year"/></date>');
 add('ex_accessed_issued', '<date variable="accessed" suffix="; "><date-part name="year"/></date><date variable="issued"><date-part name="year"/></date>');
 add('ex_nonexistent', '<date variable="issued"><date-part name="year" suffix="!"/></date><date variable="nosuchdate"><date-part name="year"/></date>');
+add('grp_delim', '<group delimiter=", "><date variable="issued" form="text"/><date variable="accessed" form="numeric"/></group>');
+add('grp_affix', '<group prefix="[" suffix="]" delimiter="; "><date variable="issued"><date-part name="year"/></date><date variable="original-date"><date-part name="year"/></date></group>');
+add('grp_nested', '<group delimiter=" / "><group delimiter="-"><date variable="issued" date-parts="year" form="numeric"/><date variable="accessed" date-parts="year" form="numeric"/></group><date variable="original-date" form="text" date-parts="year-month"/></group>');
+add('grp_newline', '<group delimiter="&#x0A;"><date variable="issued" form="text" date-parts="year-month-day"/><date variable="issued" form="text" date-parts="year-month"/><date variable="issued" form="text" date-parts="year"/><date variable="issued" form="numeric" date-parts="year-month-day"/><date variable="issued" form="numeric" date-parts="year-month"/><date variable="issued" form="numeric" date-parts="year"/></group>');
 add('ex_empty_date', '<date variable="issued"/>');
 
 // Localised forms.
@@ -165,7 +169,14 @@ for (const f of ['expanded', 'minimal', 'minimal-two', 'chicago', 'chicago-16'])
 }
 // Year-suffix collapse option (read by date-part; the registry is not involved
 // for the cite alone).
-add('collapse_ys', '<date variable="issued"><date-part name="year"/></date>', ' ');
+// Year-suffix collapsing: the year of a cite that repeats the previous cite's
+// year is suppressed (node_datepart.js: years_used / last_years_used).
+const ysDate = '<date variable="issued"><date-part name="month" suffix=" "/><date-part name="year"/></date>';
+add('ys_collapse', ysDate, '', ' collapse="year-suffix" disambiguate-add-year-suffix="true"');
+add('ysr_collapse', ysDate, '', ' collapse="year-suffix-ranged" disambiguate-add-year-suffix="true"');
+add('ys_noadd', ysDate, '', ' collapse="year-suffix"');
+add('ys_year_collapse', ysDate, '', ' collapse="year" disambiguate-add-year-suffix="true"');
+add('ys_range', '<date variable="issued"><date-part name="year"/></date>', '', ' collapse="year-suffix" disambiguate-add-year-suffix="true"');
 
 // ---------------------------------------------------------------- run
 function readLocale(lang) {
@@ -189,7 +200,9 @@ function makeSys() {
   };
 }
 
+let lastIssued = null;
 function renderOne(state, id) {
+  lastIssued = null;
   const Item = state.retrieveItem(id);
   state.tmp.area = 'citation';
   state.tmp.root = 'citation';
@@ -199,6 +212,9 @@ function renderOne(state, id) {
   state.tmp.has_done_year_suffix = false;
   state.tmp.cite_renders_content = false;
   state.tmp.probably_rendered_something = false;
+  state.tmp.issued_date = false;
+  // citeStart: have_collapsed
+  state.tmp.have_collapsed = !!(state.citation.opt.collapse && state.citation.opt.collapse.length);
   const toks = state.citation.tokens;
   // The @variable check-for-output closure (attributes.js) only maintains
   // group-context flags; the port's copy is another agent's, so both sides drop it.
@@ -210,6 +226,13 @@ function renderOne(state, id) {
   let next = 0;
   while (next < toks.length) {
     const t = toks[next];
+    if (t.name === 'group') {
+      // Stand-in for node_group.js (another agent's file): the group's output
+      // level, without its suppress-if-empty logic. The Rust driver does the same.
+      if (t.tokentype === CSL.START) state.output.startTag('group', t); else state.output.endTag();
+      next = t.next;
+      continue;
+    }
     if (!(t.name === 'date' || t.name === 'date-part' || (t.name === 'text' && t.variables_real !== undefined))) {
       next = t.next;
     } else {
@@ -217,6 +240,12 @@ function renderOne(state, id) {
     }
   }
   state.output.closeLevel();
+  // citeEnd: last_years_used
+  state.tmp.last_years_used = state.tmp.years_used.slice();
+  // tmp.issued_date: where the date blob sits in its parent (api_cite.js reads it).
+  lastIssued = state.tmp.issued_date
+    ? { pos: state.tmp.issued_date.pos, len: state.tmp.issued_date.list.length }
+    : null;
   for (let i = 0; i < state.output.queue.length; i++) CSL.Output.Queue.purgeEmptyBlobs(state.output.queue[i]);
   if (state.opt.development_extensions.clean_up_csl_flaws) {
     for (let j = 0; j < state.output.queue.length; j++) {
@@ -240,9 +269,11 @@ for (const [sid, xml] of Object.entries(styles)) {
       continue;
     }
     const outs = {};
+    const issued = {};
     for (const it of items) {
       try {
         outs[it.id] = JSON.parse(JSON.stringify(renderOne(state, it.id)));
+        if (lastIssued) issued[it.id] = lastIssued;
       } catch (e) {
         outs[it.id] = { error: true };
         errors.push(`${sid}|${lang}|${it.id}: ${e && e.message || e}`);
@@ -250,6 +281,7 @@ for (const [sid, xml] of Object.entries(styles)) {
       }
     }
     results[`${sid}|${lang}`] = outs;
+    if (Object.keys(issued).length) results[`${sid}|${lang}|issued`] = issued;
   }
 }
 console.log('styles', Object.keys(styles).length, 'items', items.length, 'langs', LANGS.length, 'throws', errors.length);

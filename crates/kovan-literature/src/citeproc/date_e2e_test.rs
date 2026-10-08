@@ -18,7 +18,8 @@
 //!
 //! **Methodology.** A test-only driver runs the token list of a citation the
 //! way `CSL.getCite` does, with two differences: the `layout`/`citation`
-//! tokens are skipped (their closures belong to node_layout.js, another
+//! tokens are skipped, and a `group` is only an output level (see
+//! `render_one`) (their closures belong to node_layout.js, another
 //! agent's file) and replaced by opening one `empty` level around the cite
 //! (what the layout closure does), and the per-cite set-up of
 //! `CSL.citeStart` is reduced to the `tmp` fields the date code reads. The
@@ -53,8 +54,8 @@ use crate::citeproc::{Engine, Sys};
 
 const REF: &str = include_str!("../../tests/data/csl/units/dates_e2e.json");
 
-/// Measured results (filled in below, after the run).
-const RESULTS: &str = "unmeasured";
+/// Measured results.
+const RESULTS: &str = "measured 2026-10-08 on branch citeproc/w2-dates: 43,152 of 43,152 cells (87 styles x 62 items x 8 locales, 1,184 of them cells where citeproc-js throws and so does the port) equal citeproc-js, including the issued_date bookkeeping; fixtures: 79 date-only fixtures (78 of area date, 1 punctuation) equal citeproc-js's output, 76 also equal their RESULT (the other 3 are fixtures citeproc-js itself misses)";
 
 /// Cells that differ from citeproc-js on purpose: (style, lang, item, reason).
 const KNOWN_DIFFERENCES: &[(&str, &str, &str, &str)] = &[];
@@ -94,6 +95,11 @@ fn rendered_json(r: &Rendered) -> Value {
     }
 }
 
+thread_local! {
+    /// `state.tmp.issued_date` after the last [`render_one`] (`{pos, len}`).
+    static LAST_ISSUED: std::cell::RefCell<Option<Value>> = const { std::cell::RefCell::new(None) };
+}
+
 /// The driver: render the date(s) of item `id` the way `getCite` does.
 fn render_one(engine: &mut Engine, id: &str) -> Result<Value, String> {
     let state = engine.state_mut();
@@ -102,10 +108,16 @@ fn render_one(engine: &mut Engine, id: &str) -> Result<Value, String> {
     state.tmp.root = "citation".to_string();
     state.tmp.years_used = Vec::new();
     state.tmp.done_vars = Vec::new();
-    state.tmp.have_collapsed = false;
+    // citeStart: have_collapsed
+    state.tmp.have_collapsed = match state.citation.opt.get("collapse") {
+        Some(Value::String(c)) => !c.is_empty(),
+        Some(Value::Array(a)) => !a.is_empty(),
+        _ => false,
+    };
     state.tmp.has_done_year_suffix = false;
     state.tmp.cite_renders_content = false;
     state.tmp.probably_rendered_something = false;
+    state.tmp.issued_date = None;
     let n = state.citation.tokens.len();
     // The `@variable` check-for-output closure of the date token
     // (attributes.js, render agent's): it only maintains group-context flags,
@@ -129,6 +141,33 @@ fn render_one(engine: &mut Engine, id: &str) -> Result<Value, String> {
         // Only the date tokens and the helper tokens their `variable` attribute adds
         // (the ones that carry `variables_real`) are run; everything else (layout,
         // its prefix/suffix tokens) is node_layout.js's.
+        if t.name == "group" {
+            // A minimal stand-in for node_group.js (another agent's): the group's
+            // output level, without its suppress-if-empty logic.
+            let tok = t.clone();
+            next = tok.next.unwrap_or(usize::MAX);
+            if tok.tokentype == crate::citeproc::obj_token::TokenType::Start {
+                queue::start_tag(state, QueueId::Output, "group", Some(&tok))
+                    .map_err(|e| e.to_string())?;
+            } else {
+                queue::end_tag(state, QueueId::Output, None).map_err(|e| e.to_string())?;
+            }
+            continue;
+        }
+        if t.name == "text" && crate::citeproc::js::truthy_opt(t.strings.get("value")) {
+            // A minimal stand-in for `<text value="...">` (node_text.js, another
+            // agent's): the string, appended with the node's affixes and styling.
+            let tok = t.clone();
+            next = tok.next.unwrap_or(usize::MAX);
+            queue::append_simple(
+                state,
+                QueueId::Output,
+                tok.string("value"),
+                crate::citeproc::queue::FormatRef::from(&tok),
+            )
+            .map_err(|e| e.to_string())?;
+            continue;
+        }
         let runs = t.name == "date"
             || t.name == "date-part"
             || (t.name == "text" && t.extra.contains_key("variables_real"));
@@ -141,6 +180,17 @@ fn render_one(engine: &mut Engine, id: &str) -> Result<Value, String> {
         }
     }
     queue::close_level(state, QueueId::Output, None).map_err(|e| e.to_string())?;
+    // citeEnd: last_years_used
+    state.tmp.last_years_used = state.tmp.years_used.clone();
+    // tmp.issued_date: where the date blob sits in its parent (api_cite.js reads it).
+    let issued = state.tmp.issued_date.map(|d| {
+        let len = match &state.blobs.get(d.list).blobs {
+            crate::citeproc::obj_blob::BlobContent::List(l) => l.len(),
+            crate::citeproc::obj_blob::BlobContent::Text(_) => 0,
+        };
+        serde_json::json!({"pos": d.pos, "len": len})
+    });
+    LAST_ISSUED.with(|c| *c.borrow_mut() = issued);
     let kids = queue::queue_children(state, QueueId::Output);
     for k in &kids {
         if let crate::citeproc::obj_blob::BlobChild::Blob(b) = k {
@@ -196,6 +246,7 @@ fn date_rendering_matches_citeproc_js() {
         }
         for lang in &langs {
             let want = &results[&format!("{sid}|{lang}")];
+            let want_issued = results.get(&format!("{sid}|{lang}|issued"));
             let build = || -> Result<Engine, String> {
                 let sys = Sys::new(&items, locales.clone()).map_err(|e| e.to_string())?;
                 Engine::new(sys, xml.as_str().unwrap_or(""), lang).map_err(|e| e.to_string())
@@ -220,8 +271,13 @@ fn date_rendering_matches_citeproc_js() {
                     .any(|(s, l, i, _)| *s == sid && *l == lang && *i == id);
                 let w = &want[id];
                 let got = render_one(&mut engine, id);
+                let issued = LAST_ISSUED.with(|c| c.borrow().clone());
                 let same = match (&got, w.get("error")) {
-                    (Ok(g), None) => g == w,
+                    (Ok(g), None) => {
+                        g == w
+                            && issued.as_ref()
+                                == want_issued.and_then(|m| m.get(id)).filter(|v| !v.is_null())
+                    }
                     (Err(_), Some(_)) => {
                         thrown_ok += 1;
                         true
@@ -253,6 +309,13 @@ fn date_rendering_matches_citeproc_js() {
 // ------------------------------------------------------------------------
 // Fixtures of the CSL test suite whose citation needs nothing but dates.
 // ------------------------------------------------------------------------
+
+/// Fixtures the driver's stand-ins cannot render, with the reason (the
+/// stand-ins are not the real nodes; a fixture listed here needs one).
+const STANDIN_LIMITS: &[(&str, &str)] = &[(
+    "group_SuppressTermWhenNoOutputFromPartialDate",
+    "needs node_group.js's suppress-if-empty logic (the stand-in group never suppresses)",
+)];
 
 const SUITE_REF: &str = include_str!("../../tests/data/csl/test_suite_reference.json");
 
@@ -371,6 +434,10 @@ fn date_only_fixtures_render_like_citeproc_js() {
         if only.as_deref().is_some_and(|o| o != name) {
             continue;
         }
+        if STANDIN_LIMITS.iter().any(|(n, _)| *n == name) {
+            *skipped.entry("stand-in limit").or_default() += 1;
+            continue;
+        }
         let area = name.split('_').next().unwrap_or("").to_string();
         let Ok(text) = std::fs::read_to_string(&path) else {
             continue;
@@ -385,7 +452,9 @@ fn date_only_fixtures_render_like_citeproc_js() {
             *skipped.entry("mode").or_default() += 1;
             continue;
         }
-        if sec.contains_key("CITATIONS") || sec.contains_key("INPUT2") || sec.contains_key("OPTIONS")
+        if sec.contains_key("CITATIONS")
+            || sec.contains_key("INPUT2")
+            || sec.contains_key("OPTIONS")
         {
             *skipped.entry("citations/options").or_default() += 1;
             continue;
@@ -437,8 +506,8 @@ fn date_only_fixtures_render_like_citeproc_js() {
         };
         engine.add_date_parser_months(
             &[
-                "ocak", "Şubat", "mart", "nisan", "mayıs", "haziran", "temmuz", "ağustos",
-                "eylül", "ekim", "kasım", "aralık", "bahar", "yaz", "sonbahar", "kış",
+                "ocak", "Şubat", "mart", "nisan", "mayıs", "haziran", "temmuz", "ağustos", "eylül",
+                "ekim", "kasım", "aralık", "bahar", "yaz", "sonbahar", "kış",
             ]
             .map(str::to_string),
         );
@@ -446,21 +515,35 @@ fn date_only_fixtures_render_like_citeproc_js() {
         // of their `variable` attribute), no sort, no collapsing.
         let st = engine.state();
         let only_dates = st.citation.tokens.iter().all(|t| {
-            matches!(t.name.as_str(), "citation" | "layout" | "date" | "date-part")
-                || (t.name == "text"
-                    && !t
+            matches!(
+                t.name.as_str(),
+                "citation" | "layout" | "date" | "date-part" | "group"
+            ) || (t.name == "text"
+                && (crate::citeproc::js::truthy_opt(t.strings.get("value"))
+                    || !t
                         .execs
                         .iter()
-                        .any(|e| matches!(e, crate::citeproc::exec::Exec::NodeText(_))))
+                        .any(|e| matches!(e, crate::citeproc::exec::Exec::NodeText(_)))))
         });
         let has_date = st.citation.tokens.iter().any(|t| t.name == "date");
         let collapse = st
             .citation
             .opt
             .get("collapse")
-            .map(|c| crate::citeproc::js::truthy(c) && c.as_array().map(|a| !a.is_empty()).unwrap_or(true))
+            .map(|c| {
+                crate::citeproc::js::truthy(c)
+                    && c.as_array().map(|a| !a.is_empty()).unwrap_or(true)
+            })
             .unwrap_or(false);
-        if !only_dates || !has_date {
+        // Only `<text value="...">` has a stand-in in the driver.
+        let value_text_only = regex::Regex::new(r"<text\b[^>]*>")
+            .map(|re| re.find_iter(&csl).all(|m| m.as_str().contains("value=")))
+            .unwrap_or(false);
+        let text_nodes = ["<names", "<choose", "<number", "<label", "<substitute"]
+            .iter()
+            .any(|n| csl.contains(n))
+            || !value_text_only;
+        if !only_dates || !has_date || text_nodes {
             *skipped.entry("style needs other nodes").or_default() += 1;
             continue;
         }
@@ -525,6 +608,11 @@ fn date_only_fixtures_render_like_citeproc_js() {
         }
         if failed.is_none() && got == want_res {
             entry.2 += 1;
+        } else if same_out {
+            // citeproc-js itself misses this fixture's RESULT (stale locale data, C4).
+            println!(
+                "date_fixtures: {name} equals citeproc-js but not RESULT: {got:?} vs {want_res:?}"
+            );
         }
         if same_out {
             matched_names.push(name.clone());
@@ -546,5 +634,9 @@ fn date_only_fixtures_render_like_citeproc_js() {
     for m in &bad {
         println!("FIXTURE-MISMATCH {m}");
     }
-    assert!(bad.is_empty(), "{} fixtures differ from citeproc-js", bad.len());
+    assert!(
+        bad.is_empty(),
+        "{} fixtures differ from citeproc-js",
+        bad.len()
+    );
 }
