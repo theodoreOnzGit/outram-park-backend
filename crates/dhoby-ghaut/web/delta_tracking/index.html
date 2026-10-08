@@ -15,6 +15,17 @@
                    border: 3px solid #3a4150; border-top-color: #7aa7ff; animation: s 0.9s linear infinite; }
   @keyframes s { to { transform: rotate(360deg); } }
   noscript, .err { color: #ff8a8a; }
+  #loading a, #refs a { color: #7aa7ff; }
+  /* References (gh:#789): a collapsed button fixed in the corner, so the full-page main view is
+     untouched; opened, the list scrolls inside a box that never exceeds the screen width. */
+  #refs { position: fixed; right: 8px; bottom: 8px; z-index: 10; max-width: calc(100vw - 16px); font-size: 13px; }
+  #refs summary { cursor: pointer; width: max-content; margin-left: auto; padding: 6px 10px;
+                  background: #1b1f27; border: 1px solid #3a4150; border-radius: 6px; }
+  #refs .refs-body { width: min(36em, calc(100vw - 16px)); max-height: 55vh; overflow: auto; margin-top: 4px;
+                     padding: 2px 12px; background: #14171d; border: 1px solid #3a4150; border-radius: 6px;
+                     overflow-wrap: anywhere; }
+  #refs h2 { font-size: 14px; margin: 8px 0; }
+  #refs p.csl-entry { margin: 0 0 8px; }
 </style>
 </head>
 <body>
@@ -27,9 +38,40 @@
       NJOY port, in a background worker so the page stays responsive, and the delta-tracking majorant
       is built. That takes a minute or two.</p>
     <p>Research, education and V&amp;V only.</p>
+    <p>Methods and data: delta tracking follows Leppänen <a href="#ref-leppanen2010delta">(Leppänen, 2010)</a> <a href="#ref-leppanen2017delta">(Leppänen, 2017)</a>; transport follows OpenMC <a href="#ref-romano2015openmc">(Romano et al., 2015)</a>; cross sections come from ENDF/B-VIII.0 <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>, processed by an NJOY port <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>.</p>
     <noscript>This demo needs JavaScript and WebAssembly.</noscript>
   </div>
 </div>
+<details id="refs">
+  <summary>References</summary>
+  <div class="refs-body">
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-leppanen2010delta" style="padding-left: 2em; text-indent: -2em;">Leppänen, J. (2010). Performance of Woodcock Delta-Tracking in Lattice Physics Applications Using the Serpent Monte Carlo Reactor Physics Burnup Calculation Code. <i>Annals of Nuclear Energy</i>, <i>37</i>(5), 715–722. https://doi.org/10.1016/j.anucene.2010.01.011</p>
+
+<p class="csl-entry" id="ref-leppanen2017delta" style="padding-left: 2em; text-indent: -2em;">Leppänen, J. (2017). On the Use of Delta-Tracking and the Collision Flux Estimator in the Serpent 2 Monte Carlo Particle Transport Code. <i>Annals of Nuclear Energy</i>, <i>105</i>, 161–167. https://doi.org/10.1016/j.anucene.2017.03.006</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., &#38; Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <i>Annals of Nuclear Energy</i>, <i>82</i>, 90–97.</p>
+
+<!-- references:end -->
+  </div>
+</details>
+<script>
+  // A citation link in the loading text opens the list at its entry.
+  addEventListener("hashchange", function () {
+    var d = document.getElementById("refs");
+    if (d && location.hash.indexOf("#ref-") === 0) {
+      d.open = true;
+      var t = document.getElementById(location.hash.slice(1));
+      if (t) t.scrollIntoView();
+    }
+  });
+</script>
 <script type="module">
   import init from "./delta_tracking_web.js";
   init().catch((e) => {
