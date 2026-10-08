@@ -75,9 +75,20 @@ def summarise(rows):
     return out
 
 
+# Godiva route 4 was extended from 32 to 288 seeds on 2026-10-05 (#546);
+# seeds 1-32 reproduce the campaign rows bit for bit, so the 288 replace them.
+GODIVA_R4_288 = PER_SEED.parent / "per_seed_keff_godiva_route4_288_2026_10_05.csv"
+
+
 def main():
     with PER_SEED.open(newline="") as fh:
         rows = list(csv.DictReader(fh))
+    if GODIVA_R4_288.exists():
+        rows = [r for r in rows if not (r["case"] == "godiva" and r["route"] == "route4")]
+        with GODIVA_R4_288.open(newline="") as fh:
+            for r in csv.DictReader(fh):
+                r["route"] = "route4"
+                rows.append(r)
     s = summarise(rows)
 
     (OUT / "data").mkdir(parents=True, exist_ok=True)
@@ -151,7 +162,7 @@ def main():
             # Routes at different seed counts: say which, rather than print the
             # largest as if every route had it.
             seeds = "seeds per route " + "/".join(str(n) for n in ns)
-        top.set_title(f"{title}\n{seeds}; error bar = sem over seeds",
+        top.set_title(f"{title}\n{seeds}\nerror bar = sem over seeds",
                       fontsize=9, loc="left")
         for ax in (top, bot):
             ax.grid(axis="y", color=GRID, lw=0.8)
@@ -167,9 +178,9 @@ def main():
                           label=lab.replace("\n", " + ")) for i, (_, lab) in enumerate(ROUTES)]
     fig.legend(handles=handles, loc="outside lower center", ncol=5, frameon=False, fontsize=8.5)
     fig.suptitle("Four ICSBEP cases by transport code and nuclear-data route — ENDF/B-VIII.0, 293.6 K\n"
-                 "2026-09-30: routes 3-5 at outram-mc 0414bc8277 (after the OpenMC-parity audit, #407); lattice at 96 "
-                 "seeds on routes 1 and 3-5. Every cell within 2σ of route 1 except the lattice on route 3 "
-                 "(−18 ± 8 pcm, 2.3σ); Godiva route 4 is at the 2σ edge. See the V&V record.",
+                 "2026-09-30, routes 3-5 at outram-mc 0414bc8277 (after the OpenMC-parity audit, #407); lattice at 96 seeds on routes 1 and 3-5; "
+                 "Godiva route 4 at 288 seeds (2026-10-05, #546). Every cell within 2σ of route 1 except the lattice on route 3 "
+                 "(−18 ± 8 pcm, 2.3σ). See the V&V record.",
                  fontsize=10, x=0.01, ha="left", linespacing=1.5)
     (OUT / "figures").mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT / "figures" / "five_route_keff.png", dpi=200, metadata={"Software": None},

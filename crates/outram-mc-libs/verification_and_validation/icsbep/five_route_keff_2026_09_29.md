@@ -23,6 +23,20 @@ kept for the history.
 Launcher: `five_route_keff/run_all.sh`. Data: `five_route_keff/data/`. Figure:
 [`five_route_keff/figures/five_route_keff.png`](five_route_keff/figures/five_route_keff.png).
 
+**Figure and geometry, 2026-10-08.** The figure is redrawn with Godiva route 4
+at its 288 seeds (2026-10-05, #546: −26 ± 23 pcm, −1.1σ, against route 1)
+instead of 32; `make_figure.py` now takes the 288-seed file when present, and
+its title no longer says "Godiva route 4 is at the 2σ edge", which those seeds
+disproved. Every other cell is unchanged. Each case's geometry, top down, is in
+[`five_route_keff/figures/geometry/`](five_route_keff/figures/geometry/),
+drawn by `icsbep_five_route_keff --draw <dir>` from the same `case()` the runs
+use (no nuclear data; Godiva, which runs as a bare sphere, is drawn as the
+one-sphere geometry of its radius). Pages redraws them on every build
+(`icsbep/`). Checked by eye: Godiva r = 8.74 cm; Jemima core r = 19.05 cm in
+the natural-U reflector to 26.64 cm; HST-009 solution to 11.52 cm, the 0.159 cm
+Al tank, water to 35 cm; LCT-008 the stepped core of clad fuel pins in borated
+water inside r = 76.2 cm.
+
 > **2026-09-29: the homogenised-sphere LCT-008 case (`lct008s`) and all its
 > results were deleted at the maintainer's direction because it was the wrong
 > model; the case-1 lattice below replaces it.**

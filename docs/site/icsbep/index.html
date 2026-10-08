@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ICSBEP five-route k_eff</title>
+<meta name="description" content="Four ICSBEP critical benchmarks run by two transport codes on two nuclear-data processors: the k_eff comparison and each case's geometry, top down.">
+<link rel="stylesheet" href="../style.css">
+<!--
+  The five-route ICSBEP page. Static text; scripts/build-pages.sh draws the
+  geometry PNGs at build time with
+  `icsbep_five_route_keff --draw` (the same case() the runs use; no nuclear
+  data) and copies the committed k_eff figure. Mobile-first: images scale to
+  the column, never wider than the page.
+-->
+<style>
+.top, main, footer { max-width: 900px; }
+figure { margin: 1.5rem 0; }
+figure img { width: 100%; height: auto; border: 1px solid #ddd; }
+figcaption { font-size: 0.9rem; color: #555; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Four ICSBEP cases, five code &times; data routes</h1>
+  <p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> AI-assisted draft, not human-reviewed. Not for reactor operation, licensing or safety decisions.</p>
+</header>
+<main>
+  <p>Godiva (HEU-MET-FAST-001), Jemima (IEU-MET-FAST-002), HEU-SOL-THERM-009 case 1 and the LEU-COMP-THERM-008 case 1 lattice, each run on five routes: OpenMC or outram-mc, reading NJOY2016 or Rust-NJOY data, via ACE or direct ENDF. ENDF/B-VIII.0 at 293.6 K. Methodology, every number and its history: <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff_2026_09_29.md">the V&amp;V record</a>.</p>
+
+  <figure>
+    <img src="five_route_keff.png" alt="k_eff of the four cases on the five routes, and each route's difference from route 1 (OpenMC with NJOY2016 data) in pcm.">
+    <figcaption>k_eff by route (top) and the difference from route 1, OpenMC + NJOY2016 (bottom). Error bars are the standard error over independent seeds. The experiment bands on Jemima, HST-009 and LCT-008 are stand-ins, not handbook values (the ICSBEP handbook is licence-restricted).</figcaption>
+  </figure>
+
+  <h2>Geometry, top down</h2>
+  <p>Each picture is an x-y slice of the geometry the solver runs on, by material, drawn at build time from the same model code as the runs. Godiva runs as a bare homogeneous sphere and is drawn as the one-sphere geometry of the same radius.</p>
+  <figure><img src="godiva_xy.png" alt="Godiva: a bare HEU sphere of radius 8.7407 cm." loading="lazy"><figcaption>Godiva, z = 0.</figcaption></figure>
+  <figure><img src="jemima_xy.png" alt="Jemima at the core midplane: an oralloy core cylinder inside a natural-uranium radial reflector." loading="lazy"><figcaption>Jemima, core midplane z = 23.60 cm.</figcaption></figure>
+  <figure><img src="hst009_xy.png" alt="HEU-SOL-THERM-009 case 1: the uranium oxyfluoride solution sphere in a water reflector." loading="lazy"><figcaption>HEU-SOL-THERM-009 case 1, z = 0.</figcaption></figure>
+  <figure><img src="hst009_xy_tank.png" alt="A 1 cm window across the 0.159 cm aluminium tank wall between the solution and the water." loading="lazy"><figcaption>HEU-SOL-THERM-009: the aluminium tank wall, 1 cm window.</figcaption></figure>
+  <figure><img src="lct008_xy_core.png" alt="LEU-COMP-THERM-008 case 1: the whole core lattice of fuel pins in borated water." loading="lazy"><figcaption>LEU-COMP-THERM-008 case 1 lattice, whole core, z = 0.</figcaption></figure>
+  <figure><img src="lct008_xy_zoom.png" alt="LEU-COMP-THERM-008: 24 cm around the centre, fuel pins with aluminium cladding in water." loading="lazy"><figcaption>LEU-COMP-THERM-008: 24 cm around the centre, fuel, cladding and water.</figcaption></figure>
+</main>
+</body>
+</html>

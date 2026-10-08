@@ -74,6 +74,7 @@ use std::time::Instant;
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
+use outram_mc_libs::geometry::plot::{render_material_slice, PlotBasis, Rgb, SlicePlot};
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind, ZCylinder, ZPlane};
 use outram_mc_libs::geometry::universe::Universe;
@@ -397,8 +398,93 @@ fn load_ace(dir: &Path, name: &str) -> Nuclide {
     n
 }
 
+/// The geometry a case's solver sees, as CSG. Godiva runs as a bare
+/// homogeneous sphere through `run_keff` (no CSG), so it is drawn as the
+/// one-sphere CSG of the same radius; every other case is drawn from the
+/// very `Geometry` its runs use.
+fn drawable(c: &Case) -> Geometry {
+    match &c.model {
+        Model::Csg(g, _) => g.clone(),
+        Model::Sphere(r) => Geometry {
+            surfaces: vec![SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: *r, bc: BoundaryType::Vacuum })],
+            cells: vec![Cell::material(
+                1,
+                vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }],
+                0,
+                TEMP_K,
+            )],
+            universes: vec![Universe { id: 0, cell_indices: vec![0] }],
+            lattices: vec![],
+            root_universe: 0,
+        },
+    }
+}
+
+/// One top-down (x-y) slice to draw: file stem, case, slice height z [cm],
+/// window width [cm], window centre (x, y) [cm], title.
+const SLICES: [(&str, &str, f64, f64, (f64, f64), &str); 6] = [
+    ("godiva_xy", "godiva", 0.0, 20.0, (0.0, 0.0), "GODIVA HEU-MET-FAST-001, X-Y AT Z = 0 (BARE SPHERE R = 8.7407 CM)"),
+    ("jemima_xy", "jemima", 23.5955, 56.0, (0.0, 0.0), "JEMIMA IEU-MET-FAST-002, X-Y AT CORE MIDPLANE Z = 23.60 CM"),
+    ("hst009_xy", "hst009", 0.0, 74.0, (0.0, 0.0), "HEU-SOL-THERM-009 CASE 1, X-Y AT Z = 0"),
+    ("hst009_xy_tank", "hst009", 0.0, 1.0, (11.597, 0.0), "HEU-SOL-THERM-009 CASE 1, X-Y AT Z = 0: THE 0.159 CM AL TANK WALL (1 CM WINDOW)"),
+    ("lct008_xy_core", "lct008", 0.0, 160.0, (0.0, 0.0), "LEU-COMP-THERM-008 CASE 1 LATTICE, X-Y AT Z = 0 (WHOLE CORE)"),
+    ("lct008_xy_zoom", "lct008", 0.0, 24.0, (0.0, 0.0), "LEU-COMP-THERM-008 CASE 1 LATTICE, X-Y AT Z = 0 (24 CM AROUND THE CENTRE)"),
+];
+
+/// Colour for material `i` of a case, keyed on what the material is.
+/// Order matters: cladding before fuel ("cladding for fuel"), and
+/// aluminium matched as "alumin" ("oralloy" and "natural" contain "al").
+fn colour_for(name: &str, i: usize) -> Rgb {
+    let n = name.to_ascii_lowercase();
+    if n.contains("reflector") && n.contains("uranium") {
+        Rgb::new(120, 90, 170)
+    } else if n.contains("alumin") || n.contains("clad") || n.contains("tank") {
+        Rgb::new(160, 160, 160)
+    } else if n.contains("solution") || n.contains("fuel") || n.contains("uo2") || n.contains("heu") || n.contains("oralloy") {
+        Rgb::new(220, 60, 40)
+    } else if n.contains("water") || n.contains("h2o") {
+        Rgb::new(70, 130, 220)
+    } else {
+        // Anything else: a fixed, distinct colour per index.
+        const OTHER: [(u8, u8, u8); 6] = [(240, 170, 40), (60, 170, 110), (170, 90, 200), (90, 200, 210), (200, 120, 90), (130, 160, 60)];
+        let (r, g, b) = OTHER[i % OTHER.len()];
+        Rgb::new(r, g, b)
+    }
+}
+
+/// **`--draw <dir>`**: the five-route cases' geometry, top down (x-y), by
+/// material, with legend and cm axes (the crate's geometry-drawing rule),
+/// from the same `case()` the runs use. Needs no nuclear data.
+fn draw_all(dir: &Path) {
+    std::fs::create_dir_all(dir).expect("plot dir");
+    for (stem, name, z, width, (x0, y0), title) in SLICES {
+        let c = case(name);
+        let g = drawable(&c);
+        let plot = SlicePlot {
+            origin: Position::new(x0, y0, z),
+            basis: PlotBasis::Xy,
+            width: [width, width],
+            pixels: [1000, 1000],
+            level: None,
+            show_overlaps: true,
+            meshlines: None,
+        };
+        let labels: Vec<String> = c.materials.iter().map(|(n, _)| n.to_ascii_uppercase()).collect();
+        let palette: Vec<(Rgb, &str)> =
+            c.materials.iter().enumerate().map(|(i, (n, _))| (colour_for(n, i), labels[i].as_str())).collect();
+        let (_raw, img) = render_material_slice(&g, &plot, &palette, title);
+        let path = dir.join(format!("{stem}.png"));
+        img.write_png(&path).expect("write png");
+        eprintln!("  drew {}", path.display());
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(dir) = flag(&args, "--draw") {
+        draw_all(Path::new(&dir));
+        return;
+    }
     let case_name = flag(&args, "--case").expect("--case");
     let route = flag(&args, "--route").expect("--route endf|ace");
     let label = flag(&args, "--label").unwrap_or_else(|| route.clone());
@@ -724,5 +810,30 @@ fn main() {
         )
         .expect("csv row");
         f.flush().expect("flush csv");
+    }
+}
+
+#[cfg(test)]
+mod draw_tests {
+    use super::*;
+
+    /// The `--draw` helpers: material colours are keyed on what a material
+    /// is (cladding before fuel, aluminium not matched on "al"), and Godiva,
+    /// which runs as a bare sphere, is drawn as one sphere of its radius.
+    #[test]
+    fn draw_helpers_colour_by_material_and_draw_godiva_as_its_sphere() {
+        let grey = Rgb::new(160, 160, 160);
+        let red = Rgb::new(220, 60, 40);
+        assert_eq!(colour_for("Aluminum 6061 cladding for fuel", 2), grey);
+        assert_eq!(colour_for("oralloy core", 0), red);
+        assert_eq!(colour_for("natural uranium reflector", 1), Rgb::new(120, 90, 170));
+        assert_eq!(colour_for("water reflector", 2), Rgb::new(70, 130, 220));
+        let g = drawable(&case("godiva"));
+        assert_eq!(g.cells.len(), 1);
+        match &g.surfaces[0] {
+            SurfaceKind::Sphere(s) => assert!((s.r - 8.7407).abs() < 1e-12),
+            _ => panic!("Godiva is drawn as a sphere"),
+        }
+        assert_eq!(SLICES.len(), 6);
     }
 }

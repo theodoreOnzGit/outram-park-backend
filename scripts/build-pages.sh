@@ -35,6 +35,17 @@ code_map() {
 }
 code_map --format svg -o "$OUT/code-map/code_map.svg"
 code_map --format json -o "$OUT/code-map/code_map.json"
+# The five-route ICSBEP page: the committed k_eff figure, and each case's
+# geometry top down, drawn here from the same case() the runs use (no nuclear
+# data needed), so the pictures cannot drift from the model.
+mkdir -p "$OUT/icsbep"
+cp docs/site/icsbep/index.html "$OUT/icsbep/"
+cp crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff/figures/five_route_keff.png "$OUT/icsbep/"
+cargo run --release -q -j "${PAGES_JOBS:-3}" -p outram-mc-libs --features endf-pebble-cases \
+  --example icsbep_five_route_keff -- --draw "$OUT/icsbep"
+for f in godiva_xy jemima_xy hst009_xy hst009_xy_tank lct008_xy_core lct008_xy_zoom; do
+  [[ -f "$OUT/icsbep/$f.png" ]] || { echo "missing icsbep/$f.png" >&2; exit 1; }
+done
 # The code map is also a navigation strip on every lesson and API page
 # (docs/site/code-map-bar.js, maintainer 2026-10-06). It sends a tap on a
 # crate to the crate's deep dive or rustdoc, so it needs to know which books
