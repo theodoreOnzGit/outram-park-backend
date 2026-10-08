@@ -112,6 +112,26 @@ silently.** It aims to be **tamper-evident, not tamper-proof**:
   forgeable, so this is tamper evidence, not proof; the ed25519 key is what
   stops forgery. Details: `kovan_common::review::signed_at`.
 
+- **Rung 5 is independent V&V, and every reason a function misses it is
+  shown** (gh #809, maintainer decisions 2026-10-08). ~~Rung 5 is a second
+  valid review by an independent, qualified reviewer~~ **CORRECTED
+  2026-10-08**: rung 5 is IV&V as NUREG/BR-0167 (§3.1 p. 6) defines it,
+  "verification and validation by an organization that is both technically
+  and managerially separate from the organization responsible for
+  developing the software". It needs a hand-written V&V case (the rung-4
+  gate) by a reviewer qualified in every concept area of the function, who
+  is neither a code author nor the first reviewer; the reviewer's
+  maintainer-signed `[[reviewer.organisation]]` must differ from the
+  maintainer-signed developing organisation in `kovan_root.toml`
+  (`[[code_review.developing_organisation]]`, with per-crate overrides;
+  both append-only); and the review must name the reviewer's own signed
+  `[[reviewer.separation]]` attestation, whose audit record is a public
+  GitHub issue URL. Same organisation, no attestation, a malformed URL, an
+  unqualified reviewer, an AI-authored V&V case: each is a listed reason,
+  never a silent downgrade. Kovan checks the URL's form only and shows the
+  link as "audit record (not verified by kovan)": it cannot fetch the issue
+  offline. Details: `kovan_common::review::ivv`.
+
 Deliberate, skilled forgery is out of scope for the open repository. Tamper
 evidence is what an open repository can guarantee. Qualification to NQA-1 would
 be done on a frozen private copy.
