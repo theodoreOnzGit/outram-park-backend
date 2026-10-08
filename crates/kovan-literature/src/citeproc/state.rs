@@ -1,4 +1,4 @@
-// Part of the kovan port of citeproc-js (GitHub #790).
+// Part of the kovan port of citeproc-js (GitHub #790, #792).
 //
 // Upstream:    citeproc-js, https://github.com/juris-m/citeproc-js
 // Source:      src/state.js (CSL.Engine.Opt, .Tmp, .Build, .Fun,
@@ -25,23 +25,34 @@
 //! marked with your agent's name; do not reorder or rename other fields. The
 //! subsystem structs (`Queue`, `Registry`, `XmlJson`, ...) are defined in their
 //! own files and filled in by their owners.
+//!
+//! The constructors of src/state.js live here: [`new_opt`] (`CSL.Engine.Opt`),
+//! [`Tmp::new`], [`Build::new`], [`Fun::new`], [`Configure::new`] and the five
+//! [`Area`] constructors. Each reproduces upstream's defaults exactly, since
+//! the intermediate dump compares `opt` and the areas' `opt` with citeproc-js.
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
+
+use serde_json::{json, Value};
 
 use super::disambig_cites::Disambiguation;
 use super::js::Obj;
-use super::obj_blob::Blobs;
+use super::obj_ambigconfig::AmbigConfig;
+use super::obj_blob::{BlobId, Blobs};
 use super::obj_token::Token;
 use super::queue::Queue;
 use super::registry::{Comparifier, Registry};
+use super::stack::{JsFalsy, Stack};
+use super::util::Match;
 use super::util_dateparser::DateParser;
 use super::util_flipflop::FlipFlopper;
 use super::util_locale::Locale;
 use super::util_number::{
     InputLocale, LongOrdinalizer, Ordinalizer, Romanizer, ShadowNumber, Suffixator,
 };
+use super::util_modules::Juris;
 use super::util_parallel::Parallel;
+use super::util_processor::Decorate;
 use super::util_transform::Transform;
 use super::xmljson::XmlJson;
 use super::Sys;
@@ -84,7 +95,7 @@ pub struct State {
     pub locale: BTreeMap<String, Locale>,
     /// `locale_opts`, `locale_dates` etc. live inside [`Locale`].
     /// `macros`: each macro's configured token list, by name.
-    pub macros: BTreeMap<String, Arc<Vec<Token>>>,
+    pub macros: BTreeMap<String, Vec<Token>>,
     /// `registry`.
     pub registry: Registry,
     /// `disambiguate`.
@@ -93,8 +104,10 @@ pub struct State {
     pub transform: Transform,
     /// `parallel` (only when `opt.parallel.enable`).
     pub parallel: Option<Parallel>,
-    /// `juris`.
-    pub juris: Obj,
+    /// `juris`: the loaded style modules by jurisdiction (src/util_modules.js);
+    /// was an `Obj` in the foundation commit, changed because a module holds
+    /// token lists.
+    pub juris: BTreeMap<String, Juris>,
     /// `splice_delimiter`.
     pub splice_delimiter: Option<String>,
 
@@ -110,6 +123,20 @@ pub struct State {
     /// `sys.variableWrapper` is installed (`Engine::set_variable_wrapper`).
     pub sys_variable_wrapper: bool,
 
+    /// Whether `this.registry` has been assigned yet. `CSL.SET_COURT_CLASSES`
+    /// (load.js) tests `state.registry` for "defined" to tell an in-style
+    /// declaration (during `localeConfigure`, before the registry exists)
+    /// from an in-module one. `CSL.Engine` sets it after `localeConfigure`.
+    pub has_registry: bool,
+    /// `setParseNames` is a method in JS (build.js); there is no field.
+    /// `version` (`this.version = CSL.version` in `configureTokenLists`) is
+    /// `undefined` in 2.4.63 and so is not modelled.
+    ///
+    /// `CSL.VARIABLE_WRAPPER_PREPUNCT_REX` is a module global that the
+    /// constructor sets when `sys.variableWrapper` is truthy (build.js);
+    /// here the flag it is set under. The regex is
+    /// `load::variable_wrapper_prepunct_rex()`.
+    pub variable_wrapper_prepunct: bool,
     // ---- fields: wave1-input (dates, numbers, name particles, retrieveItem) ----
     /// PROVISIONAL (wave1-input): the locale terms and `ord["1.0.1"]` that
     /// `util_number.rs` and `util_dates.rs` read, answered by
@@ -133,6 +160,220 @@ pub struct State {
     // ---- fields: wave5 (citations API, bibliography) ----
 }
 
+/// A `Value` from a `json!` object literal, as an [`Obj`].
+fn obj(v: Value) -> Obj {
+    match v {
+        Value::Object(m) => m,
+        _ => Obj::new(),
+    }
+}
+
+/// `CSL.Engine.Opt`: the engine's `opt` bag with upstream's defaults.
+///
+/// Keys are those of src/state.js lines 3-135; `development_extensions` holds
+/// the 31 flags upstream initialises. Later code adds more keys (`version`,
+/// `lang`, `xclass`, `styleID`, ... from the build).
+pub fn new_opt() -> Obj {
+    let affix = || {
+        json!({
+            "locale-orig": {"prefix": "", "suffix": ""},
+            "locale-translit": {"prefix": "", "suffix": ""},
+            "locale-translat": {"prefix": "", "suffix": ""}
+        })
+    };
+    let mut o = Obj::new();
+    let mut put = |k: &str, v: Value| {
+        o.insert(k.to_string(), v);
+    };
+    put("parallel", json!({"enable": false}));
+    put("has_disambiguate", json!(false));
+    put("mode", json!("html"));
+    put("dates", json!({}));
+    put("jurisdictions_seen", json!({}));
+    put("suppressedJurisdictions", json!({}));
+    put("inheritedAttributes", json!({}));
+    put("locale-sort", json!([]));
+    put("locale-translit", json!([]));
+    put("locale-translat", json!([]));
+    put(
+        "citeAffixes",
+        json!({
+            "persons": affix(),
+            "institutions": affix(),
+            "titles": affix(),
+            "journals": affix(),
+            "publishers": affix(),
+            "places": affix()
+        }),
+    );
+    put("default-locale", json!([]));
+    put("update_mode", json!(0));
+    put("bib_mode", json!(0));
+    put("sort_citations", json!(false));
+    put("et-al-min", json!(0));
+    put("et-al-use-first", json!(1));
+    put("et-al-use-last", json!(false));
+    put("et-al-subsequent-min", json!(false));
+    put("et-al-subsequent-use-first", json!(false));
+    put("demote-non-dropping-particle", json!("display-and-sort"));
+    put("parse-names", json!(true));
+    put("citation_number_slug", json!(false));
+    put("trigraph", json!("Aaaa00:AaAa00:AaAA00:AAAA00"));
+    put("nodenames", json!([]));
+    put("gender", json!({}));
+    put(
+        "cite-lang-prefs",
+        json!({
+            "persons": ["orig"],
+            "institutions": ["orig"],
+            "titles": ["orig"],
+            "journals": ["orig"],
+            "publishers": ["orig"],
+            "places": ["orig"],
+            "number": ["orig"]
+        }),
+    );
+    put("has_layout_locale", json!(false));
+    put("disable_duplicate_year_suppression", json!([]));
+    put("use_context_condition", json!(false));
+    put("jurisdiction_fallbacks", json!({}));
+    let mut dev = Obj::new();
+    for (k, v) in [
+        ("field_hack", true),
+        ("allow_field_hack_date_override", true),
+        ("locator_date_and_revision", true),
+        ("locator_label_parse", true),
+        ("raw_date_parsing", true),
+        ("clean_up_csl_flaws", true),
+        ("consolidate_legal_items", false),
+        ("csl_reverse_lookup_support", false),
+        ("wrap_url_and_doi", false),
+        ("thin_non_breaking_space_html_hack", false),
+        ("apply_citation_wrapper", false),
+        ("main_title_from_short_title", false),
+        ("uppercase_subtitles", false),
+        ("normalize_lang_keys_to_lowercase", false),
+        ("strict_text_case_locales", false),
+        ("expect_and_symbol_form", false),
+        ("require_explicit_legal_case_title_short", false),
+        ("spoof_institutional_affiliations", false),
+        ("force_jurisdiction", false),
+        ("parse_names", true),
+        ("hanging_indent_legacy_number", false),
+        ("throw_on_empty", false),
+        ("strict_inputs", true),
+        ("prioritize_disambiguate_condition", false),
+        ("force_short_title_casing_alignment", true),
+        ("implicit_short_title", false),
+        ("force_title_abbrev_fallback", false),
+        ("split_container_title", false),
+        ("legacy_institution_name_ordering", false),
+        ("etal_min_etal_usefirst_hack", false),
+    ] {
+        dev.insert(k.to_string(), Value::Bool(v));
+    }
+    put("development_extensions", Value::Object(dev));
+    o
+}
+
+/// One entry of `state.tmp.group_context`: the flags of the group being
+/// rendered (the object literal in `CSL.Engine.Tmp`, plus the properties
+/// node_group.js and friends add to it later).
+///
+/// JS `undefined` and `false` mixtures are [`Value`]s (`Null` = `undefined`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct GroupContext {
+    /// `term_intended`.
+    pub term_intended: bool,
+    /// `variable_attempt`.
+    pub variable_attempt: bool,
+    /// `variable_success`.
+    pub variable_success: bool,
+    /// `output_tip` (a blob of the output queue, `undefined` initially).
+    pub output_tip: Option<BlobId>,
+    /// `label_form`.
+    pub label_form: Value,
+    /// `label_capitalize_if_first` (added by node_group.js).
+    pub label_capitalize_if_first: Value,
+    /// `label_static` (added by node_group.js).
+    pub label_static: Value,
+    /// `parallel_first`.
+    pub parallel_first: Value,
+    /// `parallel_last`.
+    pub parallel_last: Value,
+    /// `parallel_delimiter_override`.
+    pub parallel_delimiter_override: Value,
+    /// `parallel_delimiter_override_on_suppress` (node_group.js).
+    pub parallel_delimiter_override_on_suppress: Value,
+    /// `non_parallel` (node_group.js).
+    pub non_parallel: Value,
+    /// `parallel_last_override` (node_group.js).
+    pub parallel_last_override: Value,
+    /// `variable_success_parent` (node_group.js).
+    pub variable_success_parent: Value,
+    /// `condition`: `false`, or the conditional-group test (`None` = `false`).
+    pub condition: Option<GroupCondition>,
+    /// `force_suppress`.
+    pub force_suppress: bool,
+    /// `done_vars`.
+    pub done_vars: Vec<String>,
+    /// `value_seen` (set by `UPDATE_GROUP_CONTEXT_CONDITION`).
+    pub value_seen: bool,
+}
+
+impl Default for GroupContext {
+    /// The object literal passed to `new CSL.Stack({...})` in `CSL.Engine.Tmp`.
+    fn default() -> Self {
+        GroupContext {
+            term_intended: false,
+            variable_attempt: false,
+            variable_success: false,
+            output_tip: None,
+            label_form: Value::Null,
+            label_capitalize_if_first: Value::Null,
+            label_static: Value::Null,
+            parallel_first: Value::Null,
+            parallel_last: Value::Null,
+            parallel_delimiter_override: Value::Null,
+            parallel_delimiter_override_on_suppress: Value::Null,
+            non_parallel: Value::Null,
+            parallel_last_override: Value::Null,
+            variable_success_parent: Value::Null,
+            condition: None,
+            force_suppress: false,
+            done_vars: Vec::new(),
+            value_seen: false,
+        }
+    }
+}
+
+/// `group_context.tip.condition`: the `{test, not, termtxt, valueTerm}`
+/// object of a conditional group (`@has-publisher...`/`label` conditions;
+/// node_group.js sets `test` and `not`, `UPDATE_GROUP_CONTEXT_CONDITION` the
+/// rest).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct GroupCondition {
+    /// `test`: `"empty-label"`, `"empty-label-no-decor"`, `"comma-safe"`,
+    /// `"comma-safe-numbers-only"`, ...
+    pub test: String,
+    /// `not`.
+    pub not: bool,
+    /// `termtxt` (`undefined` until the first term is seen).
+    pub termtxt: Option<String>,
+    /// `valueTerm` (truthiness only).
+    pub value_term: bool,
+}
+
+impl JsFalsy for GroupContext {
+    /// An object is always truthy.
+    fn is_truthy(&self) -> bool {
+        true
+    }
+    fn empty_string() -> Self {
+        GroupContext::default()
+    }
+}
+
 /// One rendering or sorting area: `CSL.Engine.Citation`, `.Bibliography`,
 /// `.InText`, `.CitationSort`, `.BibliographySort`.
 #[derive(Debug, Clone, Default)]
@@ -140,7 +381,7 @@ pub struct Area {
     /// `opt`.
     pub opt: Obj,
     /// `tokens`: the configured token list.
-    pub tokens: Arc<Vec<Token>>,
+    pub tokens: Vec<Token>,
     /// `root`: `"citation"`, `"bibliography"` or `"intext"`.
     pub root: String,
     /// `srt` (citation and bibliography only).
@@ -151,84 +392,216 @@ pub struct Area {
     pub tmp: Obj,
 }
 
+impl Area {
+    /// The `opt` that `CSL.Engine.Citation` and `CSL.Engine.InText` build.
+    fn rendering_opt() -> Obj {
+        obj(json!({
+            "inheritedAttributes": {},
+            "collapse": [],
+            "disambiguate-add-names": false,
+            "disambiguate-add-givenname": false,
+            "disambiguate-add-year-suffix": false,
+            "givenname-disambiguation-rule": "by-cite",
+            "near-note-distance": 5,
+            "topdecor": [],
+            "layout_decorations": [],
+            "layout_prefix": "",
+            "layout_suffix": "",
+            "layout_delimiter": "",
+            "sort_locales": [],
+            "max_number_of_names": 0
+        }))
+    }
+
+    /// `new CSL.Engine.Citation(state)`.
+    ///
+    /// PORT-LATER(registry): upstream also sets
+    /// `this.srt = new CSL.Registry.Comparifier(state, "citation_sort")`
+    /// (registry.js:675, wave4); a default comparifier stands in.
+    pub fn new_citation() -> Area {
+        Area {
+            opt: Area::rendering_opt(),
+            tokens: Vec::new(),
+            root: "citation".to_string(),
+            srt: Some(Comparifier::default()),
+            keys: Vec::new(),
+            tmp: Obj::new(),
+        }
+    }
+
+    /// `new CSL.Engine.Bibliography()`.
+    pub fn new_bibliography() -> Area {
+        Area {
+            opt: obj(json!({
+                "inheritedAttributes": {},
+                "collapse": [],
+                "topdecor": [],
+                "layout_decorations": [],
+                "layout_prefix": "",
+                "layout_suffix": "",
+                "layout_delimiter": "",
+                "line-spacing": 1,
+                "entry-spacing": 1,
+                "sort_locales": [],
+                "max_number_of_names": 0
+            })),
+            tokens: Vec::new(),
+            root: "bibliography".to_string(),
+            srt: None,
+            keys: Vec::new(),
+            tmp: Obj::new(),
+        }
+    }
+
+    /// `new CSL.Engine.BibliographySort()`.
+    pub fn new_bibliography_sort() -> Area {
+        Area {
+            opt: obj(json!({
+                "sort_directions": [],
+                "topdecor": [],
+                "citation_number_sort_direction": 2,
+                "citation_number_secondary": false
+            })),
+            tokens: Vec::new(),
+            root: "bibliography".to_string(),
+            srt: None,
+            keys: Vec::new(),
+            tmp: Obj::new(),
+        }
+    }
+
+    /// `new CSL.Engine.CitationSort()`.
+    pub fn new_citation_sort() -> Area {
+        Area {
+            opt: obj(json!({
+                "sort_directions": [],
+                "topdecor": []
+            })),
+            tokens: Vec::new(),
+            root: "citation".to_string(),
+            srt: None,
+            keys: Vec::new(),
+            tmp: Obj::new(),
+        }
+    }
+
+    /// `new CSL.Engine.InText()`.
+    pub fn new_intext() -> Area {
+        Area {
+            opt: Area::rendering_opt(),
+            tokens: Vec::new(),
+            root: "intext".to_string(),
+            srt: None,
+            keys: Vec::new(),
+            tmp: Obj::new(),
+        }
+    }
+}
+
 /// `CSL.Engine.Tmp`: per-render scratch state.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Tmp {
     // ---- fields: wave1-build ----
-
-    // ---- fields: wave1-nodes ----
-    // DUP-CHECK: state.js for every field of this block.
-    /// `area`: "citation", "bibliography", "intext", "citation_sort", ...
+    /// `names_max` (a stack of counts).
+    pub names_max: Stack<Value>,
+    /// `names_base`.
+    pub names_base: Stack<Value>,
+    /// `givens_base`.
+    pub givens_base: Stack<Value>,
+    /// `value`: field values collected by `@value`/`@variable`.
+    pub value: Vec<Value>,
+    /// `namepart_decorations`.
+    pub namepart_decorations: Obj,
+    /// `namepart_type` (`false` initially).
+    pub namepart_type: Value,
+    /// `area`: `"citation"` initially.
     pub area: String,
-    /// `root`; `None` is JS `undefined` (node_name.js tests for it).
-    pub root: Option<String>,
-    /// `extension`: "" or "_sort".
+    /// `root`.
+    pub root: String,
+    /// `extension`.
     pub extension: String,
-    /// `jump`: values are "succeed" / "fail"; `None` is the `undefined`
-    /// that cs:choose pushes (node_choose.js).
-    pub jump: super::stack::Stack<Option<String>>,
-    /// `conditions`: the cs:if/cs:else-if being filled by cs:conditions.
-    pub conditions: Option<super::util_conditions::ConditionsEngine>,
-    /// `condition_counter`.
-    pub condition_counter: i64,
-    /// `condition_lang_counter_arr`.
-    pub condition_lang_counter_arr: Vec<i64>,
-    /// `condition_lang_val_arr`.
-    pub condition_lang_val_arr: Vec<String>,
-    /// `cite_affixes`: per area `false` or {locale: {delimiter, suffix}}.
-    pub cite_affixes: Obj,
-    /// `last_cite_locale`.
-    pub last_cite_locale: Option<String>,
-    /// `etal_node`: the cs:et-al token (as `node_names::token_to_value`).
-    pub etal_node: Option<serde_json::Value>,
-    /// `etal_term`.
-    pub etal_term: Option<String>,
-    /// `abort_alternative`.
-    pub abort_alternative: bool,
-    /// `date_object` (`false` when the date is not rendered).
-    pub date_object: serde_json::Value,
-    /// `donesies`.
-    pub donesies: Vec<String>,
-    /// `dateparts`.
-    pub dateparts: Vec<String>,
-    /// `date_collapse_at`.
-    pub date_collapse_at: Vec<String>,
+    /// `can_substitute`: `new CSL.Stack(0, CSL.LITERAL)`; holds `0` and booleans.
+    pub can_substitute: Stack<Value>,
     /// `element_rendered_ok`.
     pub element_rendered_ok: bool,
-    /// `date_token` (set at build time by cs:date).
-    pub date_token: Option<Token>,
-    /// `just_looking`.
-    pub just_looking: bool,
-    /// `done_vars`.
-    pub done_vars: Vec<String>,
-    /// `sort_key_flag`.
-    pub sort_key_flag: bool,
+    /// `element_trace`: `new CSL.Stack("style")`.
+    pub element_trace: Stack<String>,
     /// `nameset_counter`.
     pub nameset_counter: i64,
+    /// `group_context`.
+    pub group_context: Stack<GroupContext>,
+    /// `term_predecessor`.
+    pub term_predecessor: bool,
+    /// `in_cite_predecessor`.
+    pub in_cite_predecessor: bool,
+    /// `jump`: `new CSL.Stack(0, CSL.LITERAL)`; holds `0`, `"succeed"`,
+    /// `"fail"` and (`push(undefined, LITERAL)`) `null` for `undefined`.
+    pub jump: Stack<Value>,
+    /// `decorations`.
+    pub decorations: Stack<Value>,
+    /// `tokenstore_stack`.
+    pub tokenstore_stack: Stack<Value>,
+    /// `last_suffix_used`.
+    pub last_suffix_used: String,
+    /// `last_names_used`.
+    pub last_names_used: Vec<Value>,
+    /// `last_years_used`.
+    pub last_years_used: Vec<Value>,
+    /// `years_used`.
+    pub years_used: Vec<Value>,
+    /// `names_used`.
+    pub names_used: Vec<Value>,
+    /// `taintedItemIDs`.
+    pub tainted_item_ids: BTreeMap<String, bool>,
+    /// `taintedCitationIDs`.
+    pub tainted_citation_ids: BTreeMap<String, bool>,
+    /// `initialize_with`.
+    pub initialize_with: Stack<Value>,
+    /// `disambig_request` (`false`, later an object).
+    pub disambig_request: Value,
+    /// `["name-as-sort-order"]`.
+    pub name_as_sort_order: Value,
+    /// `suppress_decorations`.
+    pub suppress_decorations: bool,
+    /// `disambig_settings`.
+    pub disambig_settings: AmbigConfig,
+    /// `bib_sort_keys`.
+    pub bib_sort_keys: Vec<Value>,
+    /// `prefix`: `new CSL.Stack("", CSL.LITERAL)`.
+    pub prefix: Stack<String>,
+    /// `suffix`.
+    pub suffix: Stack<String>,
+    /// `delimiter`.
+    pub delimiter: Stack<String>,
+    /// `cite_locales`.
+    pub cite_locales: Vec<Value>,
+    /// `cite_affixes`: `{citation: false, bibliography: false,
+    /// citation_sort: false, bibliography_sort: false}`, filled by
+    /// node_layout.js with per-locale `{delimiter, suffix}` objects.
+    pub cite_affixes: Obj,
     /// `strip_periods`.
     pub strip_periods: i64,
-    /// `can_substitute`.
-    pub can_substitute: super::stack::Stack<bool>,
-    /// `can_block_substitute`.
-    pub can_block_substitute: bool,
-    /// `common_term_match_fail`.
-    pub common_term_match_fail: bool,
-    /// `value`.
-    pub value: Vec<serde_json::Value>,
-    /// `element_trace`.
-    pub element_trace: super::stack::Stack<String>,
-    /// `probably_rendered_something`.
-    pub probably_rendered_something: bool,
-    /// `container_item_count`, `container_item_pos` (keyed by container_id).
-    pub container_item_count: Obj,
-    pub container_item_pos: Obj,
-    /// `et-al-min`, `et-al-use-first`, `et-al-use-last` (`None` = undefined).
-    pub et_al_min: Option<serde_json::Value>,
-    pub et_al_use_first: Option<serde_json::Value>,
-    pub et_al_use_last: Option<serde_json::Value>,
-    /// `lang_sort_hold` (node_sort.js).
-    pub lang_sort_hold: Option<String>,
-
+    /// `shadow_numbers`.
+    pub shadow_numbers: Obj,
+    /// `authority_stop_last`.
+    pub authority_stop_last: i64,
+    /// `loadedItemIDs`.
+    pub loaded_item_ids: BTreeMap<String, bool>,
+    /// `condition_counter`.
+    pub condition_counter: i64,
+    /// `condition_lang_val_arr`.
+    pub condition_lang_val_arr: Vec<String>,
+    /// `condition_lang_counter_arr`.
+    pub condition_lang_counter_arr: Vec<i64>,
+    /// Not set by the constructor; read/written by later code:
+    /// `lang_array` (api_cite.js:1513, read by `CSL.toLocaleUpperCase`).
+    pub lang_array: Vec<String>,
+    /// `cite_renders_content` (set by `getTerm`).
+    pub cite_renders_content: bool,
+    /// `tmp["doing-macro-with-date"]` (set by `expandMacro`'s closures).
+    pub doing_macro_with_date: bool,
+    /// `just_did_number` (group context conditions, load.js).
+    pub just_did_number: bool,
     // ---- fields: wave1-input ----
     /// `shadow_numbers`: parsed numeric variables by variable name
     /// (`processNumber`, util_number.js).
@@ -288,56 +661,158 @@ pub struct Tmp {
     // ---- fields: wave5 ----
 }
 
+impl Tmp {
+    /// `new CSL.Engine.Tmp()`.
+    pub fn new() -> Tmp {
+        let cite_affixes = obj(json!({
+            "citation": false,
+            "bibliography": false,
+            "citation_sort": false,
+            "bibliography_sort": false
+        }));
+        Tmp {
+            names_max: Stack::new(),
+            names_base: Stack::new(),
+            givens_base: Stack::new(),
+            value: Vec::new(),
+            namepart_decorations: Obj::new(),
+            namepart_type: Value::Bool(false),
+            area: "citation".to_string(),
+            root: "citation".to_string(),
+            extension: String::new(),
+            can_substitute: Stack::with(Value::from(0)),
+            element_rendered_ok: false,
+            element_trace: Stack::with_nonliteral("style".to_string()),
+            nameset_counter: 0,
+            group_context: Stack::with(GroupContext::default()),
+            term_predecessor: false,
+            in_cite_predecessor: false,
+            jump: Stack::with(Value::from(0)),
+            decorations: Stack::new(),
+            tokenstore_stack: Stack::new(),
+            last_suffix_used: String::new(),
+            last_names_used: Vec::new(),
+            last_years_used: Vec::new(),
+            years_used: Vec::new(),
+            names_used: Vec::new(),
+            tainted_item_ids: BTreeMap::new(),
+            tainted_citation_ids: BTreeMap::new(),
+            initialize_with: Stack::new(),
+            disambig_request: Value::Bool(false),
+            name_as_sort_order: Value::Bool(false),
+            suppress_decorations: false,
+            disambig_settings: AmbigConfig::default(),
+            bib_sort_keys: Vec::new(),
+            prefix: Stack::with(String::new()),
+            suffix: Stack::with(String::new()),
+            delimiter: Stack::with(String::new()),
+            cite_locales: Vec::new(),
+            cite_affixes,
+            strip_periods: 0,
+            shadow_numbers: Obj::new(),
+            authority_stop_last: 0,
+            loaded_item_ids: BTreeMap::new(),
+            condition_counter: 0,
+            condition_lang_val_arr: Vec::new(),
+            condition_lang_counter_arr: Vec::new(),
+            lang_array: Vec::new(),
+            cite_renders_content: false,
+            doing_macro_with_date: false,
+            just_did_number: false,
+        }
+    }
+}
+
+impl Default for Tmp {
+    fn default() -> Self {
+        Tmp::new()
+    }
+}
+
 /// `CSL.Engine.Build`: state while compiling the style.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Build {
     // ---- fields: wave1-build ----
-
-    // ---- fields: wave1-nodes ----
-    // DUP-CHECK: state.js for every field of this block.
-    /// `area`, `root`, `extension`.
-    pub area: String,
-    pub root: String,
-    pub extension: String,
-    /// `skip`: `Some("info")` while inside cs:info, `None` is JS `false`.
-    pub skip: Option<String>,
-    /// `substitute_level` (starts as `Stack(0, LITERAL)`).
-    pub substitute_level: super::stack::Stack<i64>,
-    /// `names_level`, `render_nesting_level`.
-    pub names_level: i64,
-    pub render_nesting_level: i64,
-    /// `cls` (a truthy string while a display block is open).
-    pub cls: Option<String>,
-    /// `date_parts`, `date_variables`, `date_key`.
-    pub date_parts: Vec<String>,
-    pub date_variables: Vec<String>,
-    pub date_key: bool,
-    /// `names_variables` (a stack of variable lists) and `name_label` (a
-    /// stack of {variable: {before, after}} kept as ordered pairs because
-    /// `Object.keys` order matters; tokens as `node_names::token_to_value`).
-    pub names_variables: Vec<Vec<String>>,
-    pub name_label: Vec<Vec<(String, serde_json::Value)>>,
-    pub name_flag: bool,
-    pub names_flag: bool,
-    /// `state.build[this.strings.name] = this` of cs:name-part: "family",
-    /// "given" (and "et-al" / "with" if ever set), as token values.
-    pub name_parts: Obj,
-    /// `layout_flag`, `layout_locale_flag`.
+    /// `["alternate-term"]`: the localisation key of the alternative et-al
+    /// term (`false` initially).
+    pub alternate_term: Value,
+    /// `in_bibliography`.
+    pub in_bibliography: bool,
+    /// `in_style`.
+    pub in_style: bool,
+    /// `skip`: `false`, or the node name being skipped.
+    pub skip: Value,
+    /// `postponed_macro`.
+    pub postponed_macro: Value,
+    /// `layout_flag`.
     pub layout_flag: bool,
-    pub layout_locale_flag: bool,
-    /// `current_default_locale` (a string or the `default-locale` list).
-    pub current_default_locale: serde_json::Value,
-    /// `publisher-special`.
-    pub publisher_special: bool,
+    /// `name`.
+    pub name: Value,
+    /// `names_variables`: `[[]]`.
+    pub names_variables: Vec<Vec<String>>,
+    /// `name_label`: `[{}]`.
+    pub name_label: Vec<Obj>,
+    /// `form`.
+    pub form: Value,
+    /// `term`.
+    pub term: Value,
+    /// `macro`: `{}` (the macros themselves are discarded after the build).
+    pub macro_: Obj,
+    /// `macro_stack`: the macro build stack (infinite-loop guard).
+    pub macro_stack: Vec<String>,
+    /// `text`.
+    pub text: Value,
+    /// `lang`.
+    pub lang: Value,
+    /// `area`: `"citation"` initially.
+    pub area: String,
+    /// `root`.
+    pub root: String,
+    /// `extension`.
+    pub extension: String,
+    /// `substitute_level`: `new CSL.Stack(0, CSL.LITERAL)`.
+    pub substitute_level: Stack<i64>,
+    /// `names_level`.
+    pub names_level: i64,
+    /// `render_nesting_level`.
+    pub render_nesting_level: i64,
+    /// `render_seen`.
+    pub render_seen: bool,
+    /// `bibliography_key_pos`.
+    pub bibliography_key_pos: i64,
+    /// Not set by the constructor; written by the builders (a sampling of
+    /// what `grep 'build\.' src/*.js` finds; wave1-nodes may add more):
+    /// `cslNodeId` (build.js, `csl_reverse_lookup_support`).
+    pub csl_node_id: i64,
+    /// `current_default_locale` (attributes.js `@default-locale`;
+    /// `undefined` until then, and `expandMacro` concatenates it as such).
+    pub current_default_locale: Option<String>,
+    /// `date_key`.
+    pub date_key: bool,
+    /// `date_variables` (a copy of the date token's `variables`).
+    pub date_variables: Vec<String>,
+    /// `date_parts`.
+    pub date_parts: Value,
+    /// `layout_locale_flag`.
+    pub layout_locale_flag: Value,
+    /// `name_flag`.
+    pub name_flag: Value,
+    /// `names_flag`.
+    pub names_flag: Value,
+    /// `name_delimiter`.
+    pub name_delimiter: Value,
+    /// `cls`.
+    pub cls: Value,
     /// `has_institution`.
-    pub has_institution: bool,
-    /// `term`, `form`, `plural` (cs:text resets them to `false`).
-    pub term: serde_json::Value,
-    pub form: serde_json::Value,
-    pub plural: serde_json::Value,
-    /// `lang` (set by the `lang` attribute).
-    pub lang: Option<String>,
-
+    pub has_institution: Value,
+    /// `plural`.
+    pub plural: Value,
+    /// `["publisher-special"]`.
+    pub publisher_special: Value,
+    /// `sort_flag` (node_sort.js).
+    pub sort_flag: Value,
+    /// `area_return` (node_sort.js).
+    pub area_return: Option<String>,
     // ---- fields: wave2 ----
 
     // ---- fields: wave3 ----
@@ -345,6 +820,58 @@ pub struct Build {
     // ---- fields: wave4 ----
 
     // ---- fields: wave5 ----
+}
+
+impl Build {
+    /// `new CSL.Engine.Build()`.
+    pub fn new() -> Build {
+        Build {
+            alternate_term: Value::Bool(false),
+            in_bibliography: false,
+            in_style: false,
+            skip: Value::Bool(false),
+            postponed_macro: Value::Bool(false),
+            layout_flag: false,
+            name: Value::Bool(false),
+            names_variables: vec![Vec::new()],
+            name_label: vec![Obj::new()],
+            form: Value::Bool(false),
+            term: Value::Bool(false),
+            macro_: Obj::new(),
+            macro_stack: Vec::new(),
+            text: Value::Bool(false),
+            lang: Value::Bool(false),
+            area: "citation".to_string(),
+            root: "citation".to_string(),
+            extension: String::new(),
+            substitute_level: Stack::with(0),
+            names_level: 0,
+            render_nesting_level: 0,
+            render_seen: false,
+            bibliography_key_pos: 0,
+            csl_node_id: 0,
+            current_default_locale: None,
+            date_key: false,
+            date_variables: Vec::new(),
+            date_parts: Value::Null,
+            layout_locale_flag: Value::Null,
+            name_flag: Value::Null,
+            names_flag: Value::Null,
+            name_delimiter: Value::Null,
+            cls: Value::Null,
+            has_institution: Value::Null,
+            plural: Value::Null,
+            publisher_special: Value::Null,
+            sort_flag: Value::Null,
+            area_return: None,
+        }
+    }
+}
+
+impl Default for Build {
+    fn default() -> Self {
+        Build::new()
+    }
 }
 
 /// `CSL.Engine.Fun`: helper objects (`match`, `suffixator`, `romanizer`,
@@ -357,6 +884,17 @@ pub struct Fun {
     /// `flipflopper`.
     pub flipflopper: FlipFlopper,
     // ---- fields: wave1-build ----
+    /// `match`: `new CSL.Util.Match()` (src/util.js).
+    pub match_: Match,
+    /// `decorate`: `CSL.Mode(mode)` (src/util_processor.js), set by
+    /// `setOutputFormat`.
+    pub decorate: Decorate,
+    // PORT-LATER(util_number): `Fun.suffixator` (CSL.Util.Suffixator), `romanizer`,
+    // `ordinalizer` (CSL.Util.Ordinalizer(state)), `long_ordinalizer` are
+    // constructed by CSL.Engine.Fun (state.js) and live in src/util_number.js
+    // (wave1-input). `page_mangler` / `year_mangler`
+    // (CSL.Util.PageRangeMangler.getFunction, build.js) are src/util_page.js
+    // (wave1-output). Declare them in your own `Fun` block.
 
     // ---- fields: wave1-input ----
     /// `ordinalizer`.
@@ -387,6 +925,14 @@ pub struct Fun {
     // ---- fields: wave2 ----
 }
 
+impl Fun {
+    /// `new CSL.Engine.Fun(state)`: what this port can construct. See the
+    /// PORT-LATER note on the struct for the `util_number` members.
+    pub fn new() -> Fun {
+        Fun::default()
+    }
+}
+
 /// `CSL.Engine.Configure`: the back-to-front jump-index pass.
 #[derive(Debug, Clone, Default)]
 pub struct Configure {
@@ -394,4 +940,11 @@ pub struct Configure {
     pub tests: Vec<usize>,
     pub fail: Vec<usize>,
     pub succeed: Vec<usize>,
+}
+
+impl Configure {
+    /// `new CSL.Engine.Configure()`.
+    pub fn new() -> Configure {
+        Configure::default()
+    }
 }

@@ -37,7 +37,7 @@ impl NodeLabelExec {
     pub fn run(
         &self,
         _state: &mut State,
-        _token: &Token,
+        _token: &mut Token,
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {

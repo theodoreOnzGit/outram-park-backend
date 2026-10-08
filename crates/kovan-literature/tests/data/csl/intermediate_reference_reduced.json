@@ -1,0 +1,2563 @@
+{
+ "meta": {
+  "engine": "citeproc-js 2.4.63",
+  "node": "v22.22.2",
+  "generator": "scripts/csl-intermediate-reduced.cjs",
+  "digest": "SHA-256 of JSON.stringify of the style section with execs_n, tests_n and has_test removed from every token",
+  "fixtures": 845
+ },
+ "site": {
+  "apa": {
+   "style_reduced": "e4b1df92d964b66122d891c7c163ad280631cd33a7df70cda10f6683bd0ecd6a"
+  },
+  "chicago-author-date": {
+   "style_reduced": "d7f30acfe0df0c512b132e3d4db6b587acf70c19845b29bbff4452bec97ec1f9"
+  },
+  "ieee": {
+   "style_reduced": "e22f3194a0b1f1d77691c6e399d865921aa0583243313c8527ddfd7064648797"
+  },
+  "nature": {
+   "style_reduced": "0eb48418eb473ad4a4171b8958c15006f3af8bbd7c1cdcfc5d87f9e74c97de00"
+  },
+  "vancouver": {
+   "style_reduced": "c56e0b3c18356b61141b4e01aee7c183723a6ede81b292ed5f4ff875e9ce7307"
+  }
+ },
+ "fixtures": {
+  "affix_CommaAfterQuote": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "affix_InterveningEmpty": {
+   "style_reduced": "228057987d83b27a090c17892246120db53035924482fa3d9ce92c32d5ee6a7d"
+  },
+  "affix_MovingPunctuation": {
+   "style_reduced": "6f81a0ea55899960c35afa81a0a267c5def000ddce94370ddb421691b39d2e58"
+  },
+  "affix_PrefixFullCitationTextOnly": {
+   "style_reduced": "ce205f376b1010e182d8a286e85c581ebd85897fca0d11ecb538b11210e934a3"
+  },
+  "affix_PrefixWithDecorations": {
+   "style_reduced": "ce205f376b1010e182d8a286e85c581ebd85897fca0d11ecb538b11210e934a3"
+  },
+  "affix_SpaceWithQuotes": {
+   "style_reduced": "a038ec16a6ec1b8fc4aa18b962108732c6882eae512c3022e786c4e950654af3"
+  },
+  "affix_TextNodeWithMacro": {
+   "style_reduced": "c8e4b9a8c90ca15852507c727ccf549f0fb5a0d40ccce4c54a61dd652698ecdf"
+  },
+  "affix_WithCommas": {
+   "style_reduced": "e5fb4f02987aad0b61414f2e7ca5877b68500022e964fa48042e9dca5e8e19f4"
+  },
+  "affix_WordProcessorAffixNoSpace": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "bugreports_Abnt": {
+   "style_reduced": "aa12a3360e6cc10d408f1f1a6ebe9285dc4b9d4113b484362034ba3c6148704c"
+  },
+  "bugreports_AccidentalAllCaps": {
+   "style_reduced": "2fa3d74e15c7e7d6a8772442d1451b7ec7a221a7c67e0635ed9fe16246d21f9f"
+  },
+  "bugreports_AllCapsLeakage": {
+   "style_reduced": "2fa3d74e15c7e7d6a8772442d1451b7ec7a221a7c67e0635ed9fe16246d21f9f"
+  },
+  "bugreports_ApostropheOnParticle": {
+   "style_reduced": "40cdaec776a0a1e06f860922d050c3fb2c7fe1d7b4bf6dd333db0481d4d03af5"
+  },
+  "bugreports_ArabicLocale": {
+   "style_reduced": "3e68436c7b91efc390a4a8163f5cb5252a8c93fa91e37c7d61c4c611adba8001"
+  },
+  "bugreports_AsaSpacing": {
+   "style_reduced": "bec4dc73af213c638a3f510f1a44a88ebf489ebc77a7ebb389cd12e9c7440ca6"
+  },
+  "bugreports_AsmJournals": {
+   "style_reduced": "0dee51a3796b5af9cf80405a1540441f935eb93bff7b63e1ec4cf930f1f5a450"
+  },
+  "bugreports_AuthorPosition": {
+   "style_reduced": "24fe3e60e5fa7a91e21ce0f12dd208e4ef948d2041593e815578cf23eaaf3473"
+  },
+  "bugreports_AuthorYear": {
+   "style_reduced": "bcfbd1e19f9ea6e53630ffebb9ab9784e13d696ab11f9f9793ebd0464574c340"
+  },
+  "bugreports_AutomaticallyDeleteItemsFails": {
+   "style_reduced": "fda884afd5bb31f2e463c5050b446cb0de9cb1f36401ed026f0ba2bddfe7efbb"
+  },
+  "bugreports_BadCitationUpdate": {
+   "style_reduced": "fc99529f9e276eb5884ca0fac904921fd4b1a7940d731ed6f118a32a3d081235"
+  },
+  "bugreports_BadDelimiterBeforeCollapse": {
+   "style_reduced": "be929b344f832d7a970def013a1e144c9d8f8d0d6b7988c90b7f99fefadc31ba"
+  },
+  "bugreports_ByBy": {
+   "style_reduced": "64878db8ae08a7e7de3e39fb6bbdb52ac020c27a3cb183281fab01953167fcbf"
+  },
+  "bugreports_CapsAfterOneWordPrefix": {
+   "style_reduced": "5fda455288577b0b6266d3f38954e6900ef82fba353b675728332787bae6cf6b"
+  },
+  "bugreports_ChicagoAuthorDateLooping": {
+   "style_reduced": "0034fc01d820c16508910459c23f08db324e3a25a24a703cb8f2a8a178422495"
+  },
+  "bugreports_ChineseCharactersFamilyOnlyPluralLabel": {
+   "style_reduced": "18c131f891bbec60f4d570e1d7ded14e8d1719d265d27761fac277d432fcec6d"
+  },
+  "bugreports_CitationSortsWithEtAl": {
+   "style_reduced": "ddb4b14ab479174fe2d85d0ccfd088f72e415ff2088852a2d959d0bcd20b2b33"
+  },
+  "bugreports_CollapseFailure": {
+   "style_reduced": "0c93e6deb65f1c25df050cf017b3cd0a0658ebdaa6e1fbc1b9bd3717715a65ea"
+  },
+  "bugreports_ContainerTitleShort": {
+   "style_reduced": "2da42a8bd229d0a9da6fd8bc79863bf94946bbf09b1914f0e12bc9d797131ce0"
+  },
+  "bugreports_ContentPunctuationDuplicate1": {
+   "style_reduced": "3ab1c30881ba9b104dfa931240aa1bfce07dd2e1a84f528f363c6cfe52d20a91"
+  },
+  "bugreports_ContextualPluralWithMainItemFields": {
+   "style_reduced": "1e1e8c20bc605f2a072186a39ddbfaaddb77698a741302269d4ccd6ac01248fb"
+  },
+  "bugreports_CreepingAddNames": {
+   "style_reduced": "0ee847dd6460de8f0d4cda06e552a2c20e4cd9610d4340a986bdb47acac6f77c"
+  },
+  "bugreports_DelimiterOnLayout": {
+   "style_reduced": "9488304221837e641a496e141a8bb75f8707ec29bc0277324ec6c34fcfc5f500"
+  },
+  "bugreports_DelimitersOnLocator": {
+   "style_reduced": "09af4d341e585a15ada570f5963b3c13f65117b4dfbc94899d41a805a0f60a8d"
+  },
+  "bugreports_DemoPageFullCiteCruftOnSubsequent": {
+   "style_reduced": "0d4d987cfd997d95bd34f4b48f71dd30d868d6e3633563a5c270121a94174eb1"
+  },
+  "bugreports_DisambiguationAddNames": {
+   "style_reduced": "62feefbf29dbbf16343d1746ca975dab1c8c68c9b501212354aad31024393243"
+  },
+  "bugreports_DisambiguationAddNamesBibliography": {
+   "style_reduced": "62feefbf29dbbf16343d1746ca975dab1c8c68c9b501212354aad31024393243"
+  },
+  "bugreports_DoubleEncodedAngleBraces": {
+   "style_reduced": "84e4ca6f869a78de077879744c5e91b5ee14ac591fc744d9e11e4e7c7610cc98"
+  },
+  "bugreports_DroppingGroupDelimiterSpace": {
+   "style_reduced": "4c7959b8e181b4be1e0ca89c8defa634533e2f18cfebbb8b0eabc6963628530c"
+  },
+  "bugreports_DuplicateSpaces": {
+   "style_reduced": "fda884afd5bb31f2e463c5050b446cb0de9cb1f36401ed026f0ba2bddfe7efbb"
+  },
+  "bugreports_DuplicateSpaces2": {
+   "style_reduced": "25417093b3cb9f1c3b6b463a9f3f8c9376999e4ceb3cfc5491eec9dd26c93d1b"
+  },
+  "bugreports_DuplicateSpaces3": {
+   "style_reduced": "54d5aafd725d2be788523b9a3bd37cde338542c61b0e45e8cfad0aceac4305e4"
+  },
+  "bugreports_DuplicateTerminalPunctuationInBibliography": {
+   "style_reduced": "0ee847dd6460de8f0d4cda06e552a2c20e4cd9610d4340a986bdb47acac6f77c"
+  },
+  "bugreports_EmptyIfMatchNoneFail": {
+   "style_reduced": "e54550aa9cbaa5313bc34a7a0dcc44a6f6e370522d1ac7c94c2140ad41c2f446"
+  },
+  "bugreports_EnvAndUrb": {
+   "style_reduced": "0409eeb7474ce318607ee8701018678e50a5fc36ae0333ca14226a974fc16a51"
+  },
+  "bugreports_EtAlSubsequent": {
+   "style_reduced": "d36a05b28aa9d71c362eb218c36244835e331474e0e8dd307661be7aacf2c516"
+  },
+  "bugreports_FourAndFour": {
+   "style_reduced": "f0aa6a3f97eeaad9c6bb8a8801b27b8cb21ad695ece117bdf9a451ce97f28e03"
+  },
+  "bugreports_FrenchApostrophe": {
+   "style_reduced": "2c9df366f48c7e74bcef3284d5a2f9a17f1bc77fb14165f93b8db55b326c74af"
+  },
+  "bugreports_GreekStyleProblems": {
+   "style_reduced": "1ea52b8a1ba4671564f06f3b24baef4747017890e6c77c419c9d9b599f6e9fc9"
+  },
+  "bugreports_GreekStyleTwoEditors": {
+   "style_reduced": "1ea52b8a1ba4671564f06f3b24baef4747017890e6c77c419c9d9b599f6e9fc9"
+  },
+  "bugreports_IeeePunctuation": {
+   "style_reduced": "fda884afd5bb31f2e463c5050b446cb0de9cb1f36401ed026f0ba2bddfe7efbb"
+  },
+  "bugreports_LabelsOutOfPlace": {
+   "style_reduced": "f0aa6a3f97eeaad9c6bb8a8801b27b8cb21ad695ece117bdf9a451ce97f28e03"
+  },
+  "bugreports_LegislationCrash": {
+   "style_reduced": "14feef8c4cd2d00de3afde3e833832840a823eb093095de24dd919610ab46c52"
+  },
+  "bugreports_MatchedAuthorAndDate": {
+   "style_reduced": "e6aec6f1dbbf4dfcb78906fc33552d56f56b4db244ecf2652a7ce9b941ef05d3"
+  },
+  "bugreports_MissingItemInJoin": {
+   "style_reduced": "072b485b72c40974c81a506eeaf1031bf7b453402740a7da1aa08ae01b4a545a"
+  },
+  "bugreports_MovePunctuationInsideQuotesForLocator": {
+   "style_reduced": "f0aa6a3f97eeaad9c6bb8a8801b27b8cb21ad695ece117bdf9a451ce97f28e03"
+  },
+  "bugreports_NoCaseEscape": {
+   "style_reduced": "7a4b0656fbfbfb10cdeffca5349733df77e629676fe3f9f951da750095da0ce9"
+  },
+  "bugreports_NoEventInNestedMacroWithOldProcessor": {
+   "style_reduced": "cb78f8f45fae317753a918fd4229ccbe18bf6f9995d613e12cf2d4b9596c6500"
+  },
+  "bugreports_NoTitle": {
+   "style_reduced": "bcfbd1e19f9ea6e53630ffebb9ab9784e13d696ab11f9f9793ebd0464574c340"
+  },
+  "bugreports_NumberAffixEscape": {
+   "style_reduced": "38feabb5496600cebea1eb9b2e313d933f3ffeecab5f120d010fd8afc74ba478"
+  },
+  "bugreports_NumberInMacroWithVerticalAlign": {
+   "style_reduced": "70e2797f42128e3aa50bea17273143956bc00211017e9caf6e54eb42f79df57d"
+  },
+  "bugreports_OldMhraDisambiguationFailure": {
+   "style_reduced": "f5d14521090b6198a0c4ccc50dd0e4f14a27b0c2d303ade6133852bd0dc751ec"
+  },
+  "bugreports_OverwriteCitationItems": {
+   "style_reduced": "ea98e95c35a138319f24d94e467ebfba709e42cdff831e9ea9903fb84eb4bedb"
+  },
+  "bugreports_ProcessorHang1": {
+   "style_reduced": "5d6277240d28b7c1693ca613feefa03a1f330e3a4911fceeb253d1709949220c"
+  },
+  "bugreports_SectionAndLocator": {
+   "style_reduced": "02a9b210d4867d0a346f974f983d4577b20a386c5b0ca5a0bf259f34c7172974"
+  },
+  "bugreports_SelfLink": {
+   "style_reduced": "0e29fd47b614d116eb44ff93996266b67af4483ab8e7cafbc0a1ef4d77ce8799"
+  },
+  "bugreports_SimpleBib": {
+   "style_reduced": "ae61d2ff1aecd5d36333d0ed62adadcac172a5385e382eee2d8d7666c4f8161b"
+  },
+  "bugreports_SingleQuote": {
+   "style_reduced": "fda884afd5bb31f2e463c5050b446cb0de9cb1f36401ed026f0ba2bddfe7efbb"
+  },
+  "bugreports_SingleQuoteXml": {
+   "style_reduced": "02ad4113f454276488cdf17b4b89da66abf1a6b1df2e8fcb2d08abe4c87771af"
+  },
+  "bugreports_SingletonIfMatchNoneFail": {
+   "style_reduced": "e54550aa9cbaa5313bc34a7a0dcc44a6f6e370522d1ac7c94c2140ad41c2f446"
+  },
+  "bugreports_SmallCapsEscape": {
+   "style_reduced": "7a4b0656fbfbfb10cdeffca5349733df77e629676fe3f9f951da750095da0ce9"
+  },
+  "bugreports_SortSecondaryKey": {
+   "style_reduced": "62feefbf29dbbf16343d1746ca975dab1c8c68c9b501212354aad31024393243"
+  },
+  "bugreports_SortSecondaryKeyBibliography": {
+   "style_reduced": "62feefbf29dbbf16343d1746ca975dab1c8c68c9b501212354aad31024393243"
+  },
+  "bugreports_SortedIeeeItalicsFail": {
+   "style_reduced": "d161c3b84db584389c72b348aa9a132b39d2d1a78c908d0f02005dc8bc604840"
+  },
+  "bugreports_StyleError001": {
+   "style_reduced": "e991dfd4c85b04f8ed595abfed304a4b888f1694c60a0fbf88508867d045ab2a"
+  },
+  "bugreports_ThesisUniversityAppearsTwice": {
+   "style_reduced": "f0aa6a3f97eeaad9c6bb8a8801b27b8cb21ad695ece117bdf9a451ce97f28e03"
+  },
+  "bugreports_TitleCase": {
+   "style_reduced": "92cf5eee1d24eac4ac785a5e4e9a778ecf63ee338721275e3d30eee8308dde30"
+  },
+  "bugreports_UndefinedBeforeVal": {
+   "style_reduced": "a369f09e663f28ccfbc6aa8ad594f30e327c22a0121e7adfe330090fcb4e8e35"
+  },
+  "bugreports_UndefinedInName": {
+   "style_reduced": "a84992b4057f9e2551367bcc93641ce0d7570fafbb11060103534fdfbdbc7e3a"
+  },
+  "bugreports_UndefinedInName2": {
+   "style_reduced": "16462f83a0c6e2839a39cb53ac1e75b4f2156904492ae79ea3957f636cb824f2"
+  },
+  "bugreports_UndefinedInName3": {
+   "style_reduced": "a7a80aadaf941cef6f7f22bca9e058b94c8d30f81138ddb36c0dd4ad4431349f"
+  },
+  "bugreports_UndefinedNotString": {
+   "style_reduced": "e33ae84b3d4828131915816e5d69b23a27cfb30f2cebbeb76b58bbda8b951885"
+  },
+  "bugreports_UndefinedStr": {
+   "style_reduced": "40920cc16b1f58e70bf0a6c035580cf4bdd79b64751240bb84aaf7086ebd6d84"
+  },
+  "bugreports_UnisaHarvardInitialization": {
+   "style_reduced": "8376060a7505e625742f9d24bbf3ba658c0c52f9106b0aacad1bf5ca6d974198"
+  },
+  "bugreports_YearSuffixInHarvard1": {
+   "style_reduced": "b9ab730d26c80b74c28c0cf40ac17366f2d66f8af554233ef4d1ec1be62bfd0c"
+  },
+  "bugreports_YearSuffixLingers": {
+   "style_reduced": "fd7f8ca95cc91fdf2ec63367ff5e4658ab670a3ef6be92ef26f7e2b80c21c00c"
+  },
+  "bugreports_disambigHang": {
+   "style_reduced": "0b2103874cb04f6ae03b7cd02fc90625ac2dc9ec0484d3b44357f0f2c28d8c82"
+  },
+  "bugreports_disambiguate": {
+   "style_reduced": "bcfbd1e19f9ea6e53630ffebb9ab9784e13d696ab11f9f9793ebd0464574c340"
+  },
+  "bugreports_effingBug": {
+   "style_reduced": "f3246d90989639eeb55854f68451c0d69a2fc69378000656b2aea03d0a1bcad5"
+  },
+  "bugreports_ikeyOne": {
+   "style_reduced": "8799285df8f7f55d4da09f495ee35420d7ed6fb331db6d31a36eec63af99be4a"
+  },
+  "bugreports_parenthesis": {
+   "style_reduced": "25417093b3cb9f1c3b6b463a9f3f8c9376999e4ceb3cfc5491eec9dd26c93d1b"
+  },
+  "bugreports_parseName": {
+   "style_reduced": "4a24834681669c4e4fc526ae05ee95e1a3f2a6c4ed62c3e5cbe2792691e4ded2"
+  },
+  "bugreports_undefinedCrash": {
+   "style_reduced": "24e5aa9c77f58c07363faba2a513c122ca397d4e7a394ad2024b5ed448fda4c6"
+  },
+  "collapse_AuthorCollapse": {
+   "style_reduced": "69fb021d353a04e4b32dea9781ae59f236254d82bc89d41461e5df7ac08456e6"
+  },
+  "collapse_AuthorCollapseDifferentAuthorsOneWithEtAl": {
+   "style_reduced": "49d13b4a6a5b27ca4974ca07373b75d6a4cbd79da25d15c047a133d9f644eb51"
+  },
+  "collapse_AuthorCollapseNoDate": {
+   "style_reduced": "69fb021d353a04e4b32dea9781ae59f236254d82bc89d41461e5df7ac08456e6"
+  },
+  "collapse_AuthorCollapseNoDateSorted": {
+   "style_reduced": "02bc7954217813b3f71cfcde1f04409957b51afdbc2f3c2b1d2a6e5b37806ac1"
+  },
+  "collapse_ChicagoAfterCollapse": {
+   "style_reduced": "f574e046ca1cb68c39beeb2b506a55ace39181190aa10af0131ee7bf0bfbd75f"
+  },
+  "collapse_CitationNumberRangesInsert": {
+   "style_reduced": "fa0a0474fe7db6b9562100a60f7967cf0f2b1b1a0946c1a9eb6688881b6b802f"
+  },
+  "collapse_CitationNumberRangesMixed": {
+   "style_reduced": "031b3cd5cbe5224eeefc5dfa4621a254824f0df58ea38ad7164eb271ee6005f3"
+  },
+  "collapse_CitationNumberRangesMixed2": {
+   "style_reduced": "031b3cd5cbe5224eeefc5dfa4621a254824f0df58ea38ad7164eb271ee6005f3"
+  },
+  "collapse_CitationNumberRangesMixed3": {
+   "style_reduced": "031b3cd5cbe5224eeefc5dfa4621a254824f0df58ea38ad7164eb271ee6005f3"
+  },
+  "collapse_CitationNumberRangesOneOnly": {
+   "style_reduced": "e33a780ecbba377676bf0b842358a459d07ad93157c7fbcb94b0f86802c6975d"
+  },
+  "collapse_CitationNumberRangesWithAffixes": {
+   "style_reduced": "7bd95641b4d39b78e65c5300efc2adcea680972741b0ae4a77c6785cce2ec26b"
+  },
+  "collapse_CitationNumberRangesWithAffixesGrouped": {
+   "style_reduced": "17022bd1a0a10cc6d89ab7adec4968d114fd86e218c19ee3e614d4ad784511ec"
+  },
+  "collapse_CitationNumberRangesWithAffixesGroupedLocator": {
+   "style_reduced": "17022bd1a0a10cc6d89ab7adec4968d114fd86e218c19ee3e614d4ad784511ec"
+  },
+  "collapse_CitationNumberRangesWithAffixesNoCollapse": {
+   "style_reduced": "e5aa2dafba93d4b069a49bebf1a4dfb90b41922cdacb4e8d29da5517fa4e32f3"
+  },
+  "collapse_NumericDuplicate": {
+   "style_reduced": "0b46ae93ba81346d1b6f74c41fb7711c0436c4b4e53b69050cd55ba73345577d"
+  },
+  "collapse_NumericDuplicate2": {
+   "style_reduced": "70b76fd30fb09ddc440c613fec1328c75eecf3b0012b6739c7c9f8d620dafd9c"
+  },
+  "collapse_TrailingDelimiter": {
+   "style_reduced": "5cd6c63c6b76c2d9d21bb2cfa71b4a329202ef716227e855aaeebf6120552845"
+  },
+  "collapse_YearSuffixCollapse": {
+   "style_reduced": "0f487d82c54804273dc62f06b6f57366e33c5d79ce729e8aa7d553b2d1c46f18"
+  },
+  "collapse_YearSuffixCollapseNoRange": {
+   "style_reduced": "6d42a9b0bac9d6ec826cc3c3bc6860c153651e39c39f23e5f3482db6f6a8019d"
+  },
+  "collapse_YearSuffixCollapseNoYearSuffixDelimiter": {
+   "style_reduced": "f1c5d8dbe095c9afb95738d95d0184cd44c6611aa02d044fae6ee444718ddb8f"
+  },
+  "collapse_YearSuffixImplicitCollapseNoYearSuffixDelimiter": {
+   "style_reduced": "82d23583c64772faeb1a7e56e55be9ca89dbe323f5689e2514c56700e8dd84ca"
+  },
+  "condition_EmptyDate": {
+   "style_reduced": "afa609421ad4b5f7af8dad8d513bbe46598172f791f952166865c4ab665d9d29"
+  },
+  "condition_EmptyIsNumericFalse": {
+   "style_reduced": "6446336686559315e6be7f7c501ce957329f704e852b425fc1844e74e556f508"
+  },
+  "condition_EmptyIsUncertainDateFalse": {
+   "style_reduced": "29eab26c9176c8581b8a14ebde16aba999622a51f94fe88c06193c9dfd798c3a"
+  },
+  "condition_EmptyShortTitleFalse": {
+   "style_reduced": "84531b4df656c72f9deed9dae2ad52c0dfa6d31f74a019b46dd4ae5d3a4c962f"
+  },
+  "condition_FirstNullAny": {
+   "style_reduced": "d816995e5bc3331542e34653aeea9aba5dcdb27ee211fee3b1853ba5413c1ea3"
+  },
+  "condition_LocatorIsFalse": {
+   "style_reduced": "4aa6cc00d98ffe917a280135a282f251202a5c8cba8f0cc1e961a12f243ce791"
+  },
+  "condition_MatchAll": {
+   "style_reduced": "c903fc965e4383b41c58c13d7be9a46f9884b00365726311eca74936a9d73a20"
+  },
+  "condition_NameAndTextVars": {
+   "style_reduced": "6b5ad30db440ea5488c3f4fe0801d568ca39a56f55f73d49c24d2012e9251465"
+  },
+  "condition_NumberIsNumeric": {
+   "style_reduced": "36cd7ce2ffea384bd74c54e83e1827b54c9997997452db91bea062b8bed11bbf"
+  },
+  "condition_NumeralIsNumeric": {
+   "style_reduced": "36cd7ce2ffea384bd74c54e83e1827b54c9997997452db91bea062b8bed11bbf"
+  },
+  "condition_NumeralWithTextIsNumeric": {
+   "style_reduced": "36cd7ce2ffea384bd74c54e83e1827b54c9997997452db91bea062b8bed11bbf"
+  },
+  "condition_RefTypeBranching": {
+   "style_reduced": "b5656a9bfe5b2d7a96f97dcc4e2268e3ce55ea6d9e779ca860622eebf5d1393a"
+  },
+  "condition_SingletonIfMatchNone": {
+   "style_reduced": "01fbd077fcb9d8a68e7c58c8c501e3fda6bb5a7187eb20a6c942be0df2de701e"
+  },
+  "condition_TextIsNotNumeric": {
+   "style_reduced": "36cd7ce2ffea384bd74c54e83e1827b54c9997997452db91bea062b8bed11bbf"
+  },
+  "condition_VariableAll": {
+   "style_reduced": "06d3440e840502bb010c829dbf608518b4d7b810fd5b2bad18460fc11f0750eb"
+  },
+  "condition_VariableAny": {
+   "style_reduced": "0a6a799eb745815393ab7d0feb4975da8aeafc47986ade60dccb2a7d8c74f2c6"
+  },
+  "condition_VariableNone": {
+   "style_reduced": "334cca76d7ff558110ac3ae8c5ea5e69d57542ddb4db1daf6ae0263e0536c86b"
+  },
+  "date_Accessed": {
+   "style_reduced": "c7cb99adbcc0628dbf0dedbd73a0126ea033dfd63de7abb276c5ab71a6fb0fc6"
+  },
+  "date_AccessedCrash": {
+   "style_reduced": "634b41efcb25301157260b5959c6a60192b06d1ade9cc045f403f05791f6f38e"
+  },
+  "date_DateAD": {
+   "style_reduced": "63330dc10dd0db69b52c81fba53fd3d168833443f118d077ae3e19c31cd73681"
+  },
+  "date_DateBC": {
+   "style_reduced": "63330dc10dd0db69b52c81fba53fd3d168833443f118d077ae3e19c31cd73681"
+  },
+  "date_DateNoDateNoTest": {
+   "style_reduced": "63330dc10dd0db69b52c81fba53fd3d168833443f118d077ae3e19c31cd73681"
+  },
+  "date_DateNoDateWithTest": {
+   "style_reduced": "fe9494e0f464efd4428255872be8127e1ca1cd42725cffabf60b8c06771e024d"
+  },
+  "date_DayOrdinalDayOneOnly": {
+   "style_reduced": "e3568387164622ebdc8a2397f7c9b0111e2a192e9a76e39066502400b45ef8a9"
+  },
+  "date_DisappearingBug": {
+   "style_reduced": "516e9e92fa740fc8f78a6b27f32031642a171bb4f288a08639603fdb9330e4fd"
+  },
+  "date_EmptyStrings": {
+   "style_reduced": "0b3938734d7f208db22642184438da2e75e419b39deaacc9a6931b0e7e6ddcf5"
+  },
+  "date_IgnoreNonexistentSort": {
+   "style_reduced": "424bb5172d06bcb61c16db7ac83a93eb7d9e325a055fdff4fa6ff93df231f843"
+  },
+  "date_InPress": {
+   "style_reduced": "8e278a9b350acbdf70bfdab63443b0c198ea09604fbe0bd582d06017c08dd8dc"
+  },
+  "date_January": {
+   "style_reduced": "bc31aa9dcd7957bf4721741442a36bdcd2e6ab40cc8ecf90b640f2d392410405"
+  },
+  "date_KeyVariable": {
+   "style_reduced": "4504ab95cdf0bb9d3147a52c9af5c5f92c84da643d530556cfbea1182d3ad5c9"
+  },
+  "date_LiteralFailGracefullyIfNoValue": {
+   "style_reduced": "1044ddc2fbe8579dfb45ef64be139bc6d49e529f4709cc7abfc37f7b431847b9"
+  },
+  "date_LocalizedDateFormats-af-ZA": {
+   "style_reduced": "87715ef8867a9d148f1e04eb48a81c20396b41aa520e8f1c9c3c771a032e5823"
+  },
+  "date_LocalizedDateFormats-ar-AR": {
+   "style_reduced": "3800d60938527e9f7ab9e9c757d6676833eed4d3ecd54674e34861a5acca7383"
+  },
+  "date_LocalizedDateFormats-bg-BG": {
+   "style_reduced": "5e222880042078c46ea5f2ff04035d9eaa14939e6a73732f8e7eca29630233b8"
+  },
+  "date_LocalizedDateFormats-ca-AD": {
+   "style_reduced": "53d9983e12e280d3b8eb2a32fcf6cf4b20268bddcb0c6a682eaa6c917da959ba"
+  },
+  "date_LocalizedDateFormats-cs-CZ": {
+   "style_reduced": "ad739f40d2580f00fa32cc55eaf3471921ee28bbafa88b82fd4a5fbd34041086"
+  },
+  "date_LocalizedDateFormats-da-DK": {
+   "style_reduced": "89e16e76868683ddb2333052215452b9557fcf6673122bd63b961600188a6afc"
+  },
+  "date_LocalizedDateFormats-de-AT": {
+   "style_reduced": "bd25951154ce4e3ecb1854ff3c7a978b4afd63132a2c10fb98116fbe8efa0c2c"
+  },
+  "date_LocalizedDateFormats-de-CH": {
+   "style_reduced": "604f560c8fafa3f2e9788eb4f5de049609311612349a8ca1dee562258f950094"
+  },
+  "date_LocalizedDateFormats-de-DE": {
+   "style_reduced": "604f560c8fafa3f2e9788eb4f5de049609311612349a8ca1dee562258f950094"
+  },
+  "date_LocalizedDateFormats-el-GR": {
+   "style_reduced": "bd25951154ce4e3ecb1854ff3c7a978b4afd63132a2c10fb98116fbe8efa0c2c"
+  },
+  "date_LocalizedDateFormats-en-US": {
+   "style_reduced": "c4a5693008dc4191ef51d773d0f537163ce75b6a1392998c0a8f885cdd0f0678"
+  },
+  "date_LocalizedDateFormats-es-ES": {
+   "style_reduced": "53d9983e12e280d3b8eb2a32fcf6cf4b20268bddcb0c6a682eaa6c917da959ba"
+  },
+  "date_LocalizedDateFormats-et-EE": {
+   "style_reduced": "604f560c8fafa3f2e9788eb4f5de049609311612349a8ca1dee562258f950094"
+  },
+  "date_LocalizedDateFormats-fr-FR": {
+   "style_reduced": "bd25951154ce4e3ecb1854ff3c7a978b4afd63132a2c10fb98116fbe8efa0c2c"
+  },
+  "date_LocalizedDateFormats-he-IL": {
+   "style_reduced": "bd25951154ce4e3ecb1854ff3c7a978b4afd63132a2c10fb98116fbe8efa0c2c"
+  },
+  "date_LocalizedDateFormats-hu-HU": {
+   "style_reduced": "885ab05d3ca1c8ff95b1af046dad4e14d0f8445c32d89ceccb5672910f5f19bd"
+  },
+  "date_LocalizedDateFormats-is-IS": {
+   "style_reduced": "604f560c8fafa3f2e9788eb4f5de049609311612349a8ca1dee562258f950094"
+  },
+  "date_LocalizedDateFormats-it-IT": {
+   "style_reduced": "bd25951154ce4e3ecb1854ff3c7a978b4afd63132a2c10fb98116fbe8efa0c2c"
+  },
+  "date_LocalizedDateFormats-ja-JP": {
+   "style_reduced": "bf8c8728915adc4fc12ff23030bf252a36db37d7e3e2999d8dd3969355f99950"
+  },
+  "date_LocalizedDateFormats-kh-KH": {
+   "style_reduced": "a0ef2b1bbe19c749b64d06ce917d755e09928a286c208347dce8a0ced3150254"
+  },
+  "date_LocalizedDateFormats-ko-KR": {
+   "style_reduced": "be05c39c5f927145ca23344ca0c79e2281bc52761ffd2ce7428ce289f49d7452"
+  },
+  "date_LocalizedDateFormats-mn-MN": {
+   "style_reduced": "6f8a3a9e92f718304c3f08e1a5aa5cda715321f3ed552e9e54869acf2df2f0cc"
+  },
+  "date_LocalizedDateFormats-nb-NO": {
+   "style_reduced": "ad739f40d2580f00fa32cc55eaf3471921ee28bbafa88b82fd4a5fbd34041086"
+  },
+  "date_LocalizedDateFormats-nl-NL": {
+   "style_reduced": "9e5636eb1d3399b60eac537fbef01e03c0ea511ff0960d4a9178172305c17330"
+  },
+  "date_LocalizedDateFormats-pl-PL": {
+   "style_reduced": "cc789decd0cbed43b7acb1502b3d4dd3517097efd86257719b4629ac8a5c2baa"
+  },
+  "date_LocalizedDateFormats-pt-BR": {
+   "style_reduced": "53d9983e12e280d3b8eb2a32fcf6cf4b20268bddcb0c6a682eaa6c917da959ba"
+  },
+  "date_LocalizedDateFormats-pt-PT": {
+   "style_reduced": "53d9983e12e280d3b8eb2a32fcf6cf4b20268bddcb0c6a682eaa6c917da959ba"
+  },
+  "date_LocalizedDateFormats-ro-RO": {
+   "style_reduced": "5fdc4b82e035dba2b250af1dbc93ad68030e484bc686b51097b55a3524cb21ad"
+  },
+  "date_LocalizedDateFormats-ru-RU": {
+   "style_reduced": "85aafc24586b84863aa93d4e1f8a49106404eb1be0ccb37b18cbc46029c746c7"
+  },
+  "date_LocalizedDateFormats-sk-SK": {
+   "style_reduced": "f591404a258b575c409f0ecd6780dbfc486b85253a8de6bd3243afdb90cb491d"
+  },
+  "date_LocalizedDateFormats-sl-SL": {
+   "style_reduced": "7239cc8821ece3fcf438d72b5f7216e9bc3f924a3acc4b5d0064e2f0c1d543ce"
+  },
+  "date_LocalizedDateFormats-sr-RS": {
+   "style_reduced": "7239cc8821ece3fcf438d72b5f7216e9bc3f924a3acc4b5d0064e2f0c1d543ce"
+  },
+  "date_LocalizedDateFormats-sv-SE": {
+   "style_reduced": "6dfc77f111c66a1d0745f665b69096af699b4b4d7d0cf0cc9394bd082930a4df"
+  },
+  "date_LocalizedDateFormats-th-TH": {
+   "style_reduced": "bd25951154ce4e3ecb1854ff3c7a978b4afd63132a2c10fb98116fbe8efa0c2c"
+  },
+  "date_LocalizedDateFormats-tr-TR": {
+   "style_reduced": "96050b8c96b71e21365d2168e8b81981b729b7cb2a05e64a2a565121a555f418"
+  },
+  "date_LocalizedDateFormats-uk-UA": {
+   "style_reduced": "a8c2754fb36acb1567abbb4290876eb29c2fc6c551e976a80e102f8cf1508fe7"
+  },
+  "date_LocalizedDateFormats-vi-VN": {
+   "style_reduced": "bd25951154ce4e3ecb1854ff3c7a978b4afd63132a2c10fb98116fbe8efa0c2c"
+  },
+  "date_LocalizedDateFormats-zh-CN": {
+   "style_reduced": "96a843a9f3b6ff19e0306b749eec6c1e813ba8380d01c0a7d7290af76d32bab5"
+  },
+  "date_LocalizedDateFormats-zh-TW": {
+   "style_reduced": "6f95687e3e799c035add742b31ab690cd52eccc675145d59afe26b33334d3bd7"
+  },
+  "date_LocalizedNumericDefault": {
+   "style_reduced": "638c11fb4847cd9520436860a67efac855033b841cf6346e8cffaffd6565e49c"
+  },
+  "date_LocalizedNumericDefaultMissingDay": {
+   "style_reduced": "638c11fb4847cd9520436860a67efac855033b841cf6346e8cffaffd6565e49c"
+  },
+  "date_LocalizedNumericDefaultWithAffixes": {
+   "style_reduced": "41067538f58790a753f8da78ad9a413d802008cdace2e0e427c2dfbe76574827"
+  },
+  "date_LocalizedNumericYear": {
+   "style_reduced": "cf536632c5bfc0db8656e42fcee5a83058b8c55f5c6878446bd469a1942f2ea6"
+  },
+  "date_LocalizedNumericYearMonth": {
+   "style_reduced": "2af426f094a6a97517c592df9c8f472544638156a131029d8635b80651de1ba0"
+  },
+  "date_LocalizedNumericYearRange": {
+   "style_reduced": "2af426f094a6a97517c592df9c8f472544638156a131029d8635b80651de1ba0"
+  },
+  "date_LocalizedNumericYearWithAffixes": {
+   "style_reduced": "41067538f58790a753f8da78ad9a413d802008cdace2e0e427c2dfbe76574827"
+  },
+  "date_LocalizedTextDefault": {
+   "style_reduced": "7e02e3a2bdea7087395ce8af49c1567bdc8a8b42ccdfca32220747bccfaec784"
+  },
+  "date_LocalizedTextDefaultMissingDay": {
+   "style_reduced": "7e02e3a2bdea7087395ce8af49c1567bdc8a8b42ccdfca32220747bccfaec784"
+  },
+  "date_LocalizedTextDefaultWithAffixes": {
+   "style_reduced": "d97af711a815fb5d071041ddb3f538737d9ed0ad2571df2b2db5d06a6407add3"
+  },
+  "date_LocalizedTextInStyleLocaleWithTextCase": {
+   "style_reduced": "d1e1ae22c1879fd9e20641d3a3c846a3cedb93da9cc822f578187e846f3708cd"
+  },
+  "date_LocalizedTextMonthFormOverride": {
+   "style_reduced": "d1e1ae22c1879fd9e20641d3a3c846a3cedb93da9cc822f578187e846f3708cd"
+  },
+  "date_LocalizedTextYear": {
+   "style_reduced": "a1baeceddde456ee81ccefe4da16a181ed36c454a549487e6070d8b971c9cd72"
+  },
+  "date_LocalizedTextYearMonth": {
+   "style_reduced": "0d7b4dbdd7bf28239733c81a813c3f67ae586f43f88c9b2adfe39878c888b498"
+  },
+  "date_LocalizedTextYearWithAffixes": {
+   "style_reduced": "db43fdaa474309186de2d77ae93d1300115efacda58820850326dae5c56bc024"
+  },
+  "date_LocalizedWithInStyleFormatting": {
+   "style_reduced": "4a74a8ff1020cdec978c8a4c386f9db14a054ad98596ad215b0ef5cec6d71a08"
+  },
+  "date_LongMonth": {
+   "style_reduced": "a0ddaa2dfa269acce3d4f12c7c6191cb94212c3325cba8accba4ade257df8665"
+  },
+  "date_LopsidedDataYearSuffixCollapse": {
+   "style_reduced": "d1e26b623ad53dad65412028ee21fdabdc5377139b12b241f9ee7614523a54e2"
+  },
+  "date_MaskNonexistentWithCondition": {
+   "style_reduced": "cab076aa931a00b810c6726aa6542c5ffe71e8c2f2edf8809c7f2b10a354473f"
+  },
+  "date_NegativeDateSort": {
+   "style_reduced": "ae3cc5104d226e79868c7cc3a255aa87c07a2910abdc730703c1a16cbc5a6853"
+  },
+  "date_NegativeDateSortViaMacro": {
+   "style_reduced": "6cb1bc8c7c4443926e3be23b6a095a0d34350d916428d8e241d836bb27aaad71"
+  },
+  "date_NegativeDateSortViaMacroOnYearMonthOnly": {
+   "style_reduced": "d0b673b791784d19c71b50b5f6ede57ca8728c41b6ad8e38aded3a0bb992cb03"
+  },
+  "date_NoDate": {
+   "style_reduced": "b87b82cb6e1443ea229df0854e52d3d9da25d8752a8afce2587551e4a55b564f"
+  },
+  "date_NonexistentSortReverseBibliography": {
+   "style_reduced": "167361cfea861858dae31b18acad93ff0fa8214f4938561335b72e591c8e9db2"
+  },
+  "date_NonexistentSortReverseCitation": {
+   "style_reduced": "2bcc4bfe82a1d647fd15331e1fda7c2f18bfda9c8d8e8e5fcc53e70270849879"
+  },
+  "date_OtherAlone": {
+   "style_reduced": "63330dc10dd0db69b52c81fba53fd3d168833443f118d077ae3e19c31cd73681"
+  },
+  "date_OtherWithDate": {
+   "style_reduced": "a0ddaa2dfa269acce3d4f12c7c6191cb94212c3325cba8accba4ade257df8665"
+  },
+  "date_RangeDelimiter": {
+   "style_reduced": "eb1088b6d5cd67dd12d99d7bd5529f50614cf89c62671099b4ae83fa39d415de"
+  },
+  "date_SeasonRange1": {
+   "style_reduced": "bc31aa9dcd7957bf4721741442a36bdcd2e6ab40cc8ecf90b640f2d392410405"
+  },
+  "date_SeasonRange2": {
+   "style_reduced": "bc31aa9dcd7957bf4721741442a36bdcd2e6ab40cc8ecf90b640f2d392410405"
+  },
+  "date_SeasonRange3": {
+   "style_reduced": "bc31aa9dcd7957bf4721741442a36bdcd2e6ab40cc8ecf90b640f2d392410405"
+  },
+  "date_SeasonSubstituteInGroup": {
+   "style_reduced": "a425308885bf0e9ca6de9bc67a3c2cf17513dab87f4ffd445407040ed28c578a"
+  },
+  "date_SortEmptyDatesBibliography": {
+   "style_reduced": "0d46740e68827f7660c4384390b81f6e07e7de915cee03230173584a22b4c096"
+  },
+  "date_SortEmptyDatesCitation": {
+   "style_reduced": "6164500ff2381941cc190541216903f30816d2ed12843bcec2a2144aedd06ca5"
+  },
+  "date_String": {
+   "style_reduced": "7743b1fd7904be414b30f604c35ff79af427d36045b4cd666affe60ebc938c48"
+  },
+  "date_TextFormFulldateDayRange": {
+   "style_reduced": "1b494e453322fbdfc3b95a3eb7dd1daa72fd177b1dd07d45db834bd6668f56cb"
+  },
+  "date_TextFormFulldateMonthRange": {
+   "style_reduced": "1b494e453322fbdfc3b95a3eb7dd1daa72fd177b1dd07d45db834bd6668f56cb"
+  },
+  "date_TextFormFulldateYearRange": {
+   "style_reduced": "1b494e453322fbdfc3b95a3eb7dd1daa72fd177b1dd07d45db834bd6668f56cb"
+  },
+  "date_TextFormMonthdateMonthRange": {
+   "style_reduced": "1b494e453322fbdfc3b95a3eb7dd1daa72fd177b1dd07d45db834bd6668f56cb"
+  },
+  "date_TextFormMonthdateYearRange": {
+   "style_reduced": "1b494e453322fbdfc3b95a3eb7dd1daa72fd177b1dd07d45db834bd6668f56cb"
+  },
+  "date_TextFormYeardateYearRange": {
+   "style_reduced": "1b494e453322fbdfc3b95a3eb7dd1daa72fd177b1dd07d45db834bd6668f56cb"
+  },
+  "date_TextFormYeardateYearRangeOpen": {
+   "style_reduced": "1b494e453322fbdfc3b95a3eb7dd1daa72fd177b1dd07d45db834bd6668f56cb"
+  },
+  "date_Uncertain": {
+   "style_reduced": "c98c0c87e4d02d8aa919c89891b183f1ab2cc76722d9c77a7073c01d4a462d3f"
+  },
+  "date_VariousInvalidDates": {
+   "style_reduced": "16cb57d0a5c50d29a0852f8622ef9ee6430429f47dae868979454b00e06a17f7"
+  },
+  "date_YearSuffixDelimiter": {
+   "style_reduced": "472eaa17252753892ed529956c017b66fa16e85e6276b8f96a42724e0f591cda"
+  },
+  "date_YearSuffixImplicitWithNoDate": {
+   "style_reduced": "a59bf4be72d9822ec79c5fe05cb21a2859dc32bdf79a26aa2d676c471aa200e3"
+  },
+  "date_YearSuffixImplicitWithNoDateOneOnly": {
+   "style_reduced": "a59bf4be72d9822ec79c5fe05cb21a2859dc32bdf79a26aa2d676c471aa200e3"
+  },
+  "date_YearSuffixWithNoDate": {
+   "style_reduced": "a59bf4be72d9822ec79c5fe05cb21a2859dc32bdf79a26aa2d676c471aa200e3"
+  },
+  "decorations_AndTermUnaffectedByNameDecorations": {
+   "style_reduced": "73eda98c86ee9b329a6861cfc1e852f0c95b5a2a9a2da30e45c4cf1980e00726"
+  },
+  "decorations_Baseline": {
+   "style_reduced": "b6201548933fe66db7e94452f9ad39b5f548d62cf279e0246d4cc50baf9861c8"
+  },
+  "decorations_NestedQuotes": {
+   "style_reduced": "cb8690e815a79868515ae50e228d4829611af57907d3b4ea7f8ccd04d5cc0462"
+  },
+  "decorations_NestedQuotesInnerReverse": {
+   "style_reduced": "cb8690e815a79868515ae50e228d4829611af57907d3b4ea7f8ccd04d5cc0462"
+  },
+  "decorations_NoNormalWithoutDecoration": {
+   "style_reduced": "94e12da3b0288773d6375814a5b8f0ba467a6b793078959f669d34d9d3733bac"
+  },
+  "decorations_SimpleFlipFlop": {
+   "style_reduced": "21f0cbd6be559331244a5e709f6833e2294712744fdd930c45f5c6a0d99e1ece"
+  },
+  "decorations_SimpleQuotes": {
+   "style_reduced": "f697aae844549b353b6c7d5db97d1aa9031358389be7a2f93a52df76a4241485"
+  },
+  "disambiguate_AddNamesFailure": {
+   "style_reduced": "8d75ce7e1d41bc1bfd86a722bce67c752633dfb6ffe85bdb65733ba42a7e9b3f"
+  },
+  "disambiguate_AddNamesFailureWithAddGivenname": {
+   "style_reduced": "ee46919df81f0a6b38868a43c1cefc4757dde6f747ac9e944ebefd6b3f02f09d"
+  },
+  "disambiguate_AddNamesSuccess": {
+   "style_reduced": "8d75ce7e1d41bc1bfd86a722bce67c752633dfb6ffe85bdb65733ba42a7e9b3f"
+  },
+  "disambiguate_AllNamesBaseNameCountOnFailureIfYearSuffixAvailable": {
+   "style_reduced": "466e546e2bbeb37e4f3c6af0f9be7a73b3199e90aba65d3d5cbc9e246b050fce"
+  },
+  "disambiguate_AllNamesGenerally": {
+   "style_reduced": "6548fcd2a513370ecd70cbf5e8e3b0b662a7bd29d32d72bc7f703d19aa4a398e"
+  },
+  "disambiguate_AllNamesSimpleSequence": {
+   "style_reduced": "977dd85a682cdab46bb124fb478714437ac4b036d6bab9f4891c6e15650f4858"
+  },
+  "disambiguate_AllNamesWithInitialsBibliography": {
+   "style_reduced": "f3bc22a33af895bf227a89dae086edc15cc90973ee2fd01c9d01bca8c4262e16"
+  },
+  "disambiguate_AllNamesWithInitialsGenerally": {
+   "style_reduced": "6668afb4fa11b017d48db42d611458d36fa346ea29ec876344b8791d53e80139"
+  },
+  "disambiguate_AndreaEg1a": {
+   "style_reduced": "adcbfd051a41a6f3b9feef7cdce6b6e9b7dd80caca54b1ad124c1367512d6ef8"
+  },
+  "disambiguate_AndreaEg1b": {
+   "style_reduced": "d471d4365cae2368307b3d3c01dc080a1ba3858c3b2351702d9144ecbda06e61"
+  },
+  "disambiguate_AndreaEg1c": {
+   "style_reduced": "6bff8c795fa786d621a034fc27cf14fd7b82707d05ccd21acdba4282fc438480"
+  },
+  "disambiguate_AndreaEg2": {
+   "style_reduced": "045aa99e48fe193ff0253a83346edf80b96a7964ac1c7932ebec3bb4709019ba"
+  },
+  "disambiguate_AndreaEg3": {
+   "style_reduced": "ac5666f574e0909bf5ff2f4a5e2c6619574eebaaf6b37434a9a53a49fa84a981"
+  },
+  "disambiguate_AndreaEg4": {
+   "style_reduced": "d471d4365cae2368307b3d3c01dc080a1ba3858c3b2351702d9144ecbda06e61"
+  },
+  "disambiguate_AndreaEg5": {
+   "style_reduced": "79023b60db49b1adc10a77830d47c5d3beaea1cf33edd1d520140616595da751"
+  },
+  "disambiguate_BasedOnEtAlSubsequent": {
+   "style_reduced": "4020f909b4d6c71ff7023024d475f12c03688f4c414d91937feca9aca0ce7bdf"
+  },
+  "disambiguate_BasedOnSubsequentFormWithBackref2": {
+   "style_reduced": "013a7bc61b1630bdda71ac304b200da2dc7bea75dbc1963b991f4b68e30f91df"
+  },
+  "disambiguate_ByCiteBaseNameCountOnFailureIfYearSuffixAvailable": {
+   "style_reduced": "e801baf4155a4376031fc18d61de4eaade45218fec1f93c5aec243fb269cc91b"
+  },
+  "disambiguate_ByCiteDisambiguateCondition": {
+   "style_reduced": "d12ac45880b4e7d7dcde23474d4ba5b8c8d98825515b0af1c93050fa9fe48a3d"
+  },
+  "disambiguate_ByCiteGivennameExpandCrossNestedNames": {
+   "style_reduced": "c9e22083e7712325a35bd094ae4985b42a78d1bd4f06ebf2cc2ad0278b6211dd"
+  },
+  "disambiguate_ByCiteGivennameNoShortFormInitializeWith": {
+   "style_reduced": "c7285a0fd94bdf6095b51513c80beab5c86544824c81e6759ce888f59f907b1a"
+  },
+  "disambiguate_ByCiteGivennameShortFormInitializeWith": {
+   "style_reduced": "22e7275108ee4fcdf4c74ca0039bd287a4b6cdeee0e1e99011145eb60026300c"
+  },
+  "disambiguate_ByCiteGivennameShortFormNoInitializeWith": {
+   "style_reduced": "f1735e173853ea62dfe4c0815bee10529193d64cead4a343d23dfe9cf39388aa"
+  },
+  "disambiguate_ByCiteIncremental1": {
+   "style_reduced": "ec89ac285dccc7fe3bff49a91b51ea399d4cb689021b3e1d0cc3ba2166290c2b"
+  },
+  "disambiguate_ByCiteIncremental2": {
+   "style_reduced": "ec89ac285dccc7fe3bff49a91b51ea399d4cb689021b3e1d0cc3ba2166290c2b"
+  },
+  "disambiguate_ByCiteIsDefault": {
+   "style_reduced": "d2b7a6297eb0136d77f00ebcb2658a0d3db418dcda2effa9c2a9889f5ac35bdd"
+  },
+  "disambiguate_ByCiteMinimalGivennameExpandMinimalNames": {
+   "style_reduced": "730f81c8ac8a129f5581dee2816695c596226a6a69e1b85bb99f65f9029ff6b0"
+  },
+  "disambiguate_ByCiteRetainNamesOnFailureIfYearSuffixNotAvailable": {
+   "style_reduced": "baeb5b0d17c4d61c493e2cf5c506663d226c90e3f4710fbb4102812bd1492065"
+  },
+  "disambiguate_ByCiteTwoAuthorsSameCite": {
+   "style_reduced": "ffbb23e416d5eb1b126ee09a02c930ac67f9538b1ea5040a4114751c725bf9c1"
+  },
+  "disambiguate_ByCiteTwoAuthorsSameFamilyName": {
+   "style_reduced": "700b7aaac4a7efb0a4fb9d10698dae391b64232e3468832c0370c5305525ead1"
+  },
+  "disambiguate_CitationLabelDefault": {
+   "style_reduced": "b35b7c5c74a124b5ae1adb8a1de6008593990d295ed4223735c0ad2df6e820f0"
+  },
+  "disambiguate_CitationLabelInData": {
+   "style_reduced": "b35b7c5c74a124b5ae1adb8a1de6008593990d295ed4223735c0ad2df6e820f0"
+  },
+  "disambiguate_DifferentSpacingInInitials": {
+   "style_reduced": "1b6e6e7c11ce873370e28b3cf370682cb1cceb49af152c0eefd4cb4656b9eb99"
+  },
+  "disambiguate_DisambiguateTrueAndYearSuffixOne": {
+   "style_reduced": "59f8f8f509be9f75171fafef688b4778325ad5ae483a194bb75e3bba197b1baf"
+  },
+  "disambiguate_DisambiguateTrueReflectedInBibliography": {
+   "style_reduced": "b72a0908236ae7ea50ca5d48aff00ad12afd251505fb938ed4b60425c3c4560d"
+  },
+  "disambiguate_DisambiguateWithThree": {
+   "style_reduced": "adf9d6be61f5ceee4591f5d786b1f77007284a25d8dbdfbecd95fe84acb74017"
+  },
+  "disambiguate_DisambiguateWithThree2": {
+   "style_reduced": "9c11910d710576d0fbdcea342176ea40c46cbff5fea614ea60c5bd549e1455aa"
+  },
+  "disambiguate_DisambiguationHang": {
+   "style_reduced": "cb854cf2b09a24f86d4a33a594cf14d601e60d9af16b03270b7a3a760c7cbfc1"
+  },
+  "disambiguate_ExtraTextCitation": {
+   "style_reduced": "9891748418448fef8a501fe71feb4419d0ce1c57ef3cb39236701d08d5081562"
+  },
+  "disambiguate_FailWithYearSuffix": {
+   "style_reduced": "0034fc01d820c16508910459c23f08db324e3a25a24a703cb8f2a8a178422495"
+  },
+  "disambiguate_FamilyNameOnly": {
+   "style_reduced": "119a539234c78337ad9b95c7afe1b69d2c26760bc3e56a293caf9b922f597184"
+  },
+  "disambiguate_HonorFullnameInBibliography": {
+   "style_reduced": "cad16dd96706a465b87510da8081c9f1aaa44ad6c1955df3c5b67bbec33f69ca"
+  },
+  "disambiguate_ImplicitYearSuffixOnceOnly": {
+   "style_reduced": "d8d04a06015054ecc656d178718994c8fde25263539edf55a3a6620a9d126508"
+  },
+  "disambiguate_IncrementalExtraText": {
+   "style_reduced": "f2d84a014182ce3c33098b360a39dbc8f23bedcde4b07ac253100e6c3c9a17ad"
+  },
+  "disambiguate_InitializeWithButNoDisambiguation": {
+   "style_reduced": "d2bbce5ae47ec9e2b5d6e5a3c9279a3b1c253a1b2db729286471ef85ea09bd13"
+  },
+  "disambiguate_LastOnlyFailWithByCite": {
+   "style_reduced": "bedd32fe4c470d362c6b816d71070d65c974eabde194c80a64d4927826b61074"
+  },
+  "disambiguate_NoTextElementUsesYearSuffixVariable": {
+   "style_reduced": "f25326b42a9b2ae450f01416e7b78cc50a8e0b65594ee7a2bc9c3cfdebd2ab4e"
+  },
+  "disambiguate_PrimaryNameGenerally": {
+   "style_reduced": "9e4220585aa1c381f61c119cb1363047033a6ea0e98bfd0e43b6ff98b6af27c4"
+  },
+  "disambiguate_PrimaryNameWithInitialsLimitedToPrimary": {
+   "style_reduced": "97f9abb41501db6a8444346e8ef8a0a320b29835c6f93c9d637e16a1e04e62c2"
+  },
+  "disambiguate_PrimaryNameWithNonDroppingParticle": {
+   "style_reduced": "5e5903d880af6b8df7e249c1b599409055659c0911cd83e2671d6086e7896cec"
+  },
+  "disambiguate_PrimaryNameWithParticle": {
+   "style_reduced": "b6f2095c4b268c3cb9c9bd4ed29ca1304511efd512e4a8e24b2ba7b1a11792f2"
+  },
+  "disambiguate_SetsOfNames": {
+   "style_reduced": "fa8f96bdd563d742a38d69990dfca3a1be26f0e09635f8368c3e6735197d1099"
+  },
+  "disambiguate_SkipAccessedYearSuffix": {
+   "style_reduced": "3bb01fbb7f73b4c207081385cca329939647c0c8e8f7c5acacd6e916d1093031"
+  },
+  "disambiguate_ThreeNoAuthorNoTitleEntries": {
+   "style_reduced": "b184ec5cf9ed1acf06b5ede25394c9089b14b40bd58ded2f417d2f82678819c5"
+  },
+  "disambiguate_ToInitialOnly": {
+   "style_reduced": "e43f1c7b92be2487947c3bdb3b844f752c0821759a43a9434050584de8ff8cd1"
+  },
+  "disambiguate_Trigraph": {
+   "style_reduced": "1aaa7d6eabd3d006c6206d9aee3b521f927d6ff124081c074f3101c18f6e691d"
+  },
+  "disambiguate_WithOriginalYear": {
+   "style_reduced": "60d5c455b334caec9472b8976fb48ee3a1a0f1765312bdcd0e7565df565a2fa8"
+  },
+  "disambiguate_YearCollapseWithInstitution": {
+   "style_reduced": "7bc0f81cec805840d36ac371a77fb5be36f69e60e485cbfd7fdc665dc39015a5"
+  },
+  "disambiguate_YearSuffixAndSort": {
+   "style_reduced": "fbce1e253b404c2a4c366da3a194367721a9b365763ac9a5c3225b81c93f94e8"
+  },
+  "disambiguate_YearSuffixAtTwoLevels": {
+   "style_reduced": "5f6132a6a7b0f1057e6f6bddf3c704e457b806af79f91d40f19e6c6436a55550"
+  },
+  "disambiguate_YearSuffixFiftyTwoEntries": {
+   "style_reduced": "49da386f07739a4d3f82f1d6efefa82d0e3005588a1e842413cf5f12f5053f84"
+  },
+  "disambiguate_YearSuffixFiftyTwoEntriesByCite": {
+   "style_reduced": "5fa3695271da0c3fa0687a40ea3d8964aff211a663c84e0fe174d9d50b557924"
+  },
+  "disambiguate_YearSuffixMacroSameYearExplicit": {
+   "style_reduced": "4ef544a726b532f204a0a21ce7f0fea428c7a240ba1fcfdd2ac0525a0f57a6d6"
+  },
+  "disambiguate_YearSuffixMacroSameYearImplicit": {
+   "style_reduced": "fe723b83a4c8106207e7b6263cc3128c6cfe52a7f00fa18e51f8304d0687b9d8"
+  },
+  "disambiguate_YearSuffixMidInsert": {
+   "style_reduced": "0034fc01d820c16508910459c23f08db324e3a25a24a703cb8f2a8a178422495"
+  },
+  "disambiguate_YearSuffixMixedDates": {
+   "style_reduced": "1f511e736d87166fbdef1caa51c144b293d51f985f257ca4bffd9404e0e08e32"
+  },
+  "disambiguate_YearSuffixTwoPairsBibliography": {
+   "style_reduced": "de51b0d3ce3a59403f374ba45da52dcb937850ac12a5b4972e684d6b2477e534"
+  },
+  "disambiguate_YearSuffixTwoPairsFirstNameBibliography": {
+   "style_reduced": "94210a505f693e8c2bdfe6f24ceb15522ba9ca197a9b5d43307f962637aaa9af"
+  },
+  "disambiguate_YearSuffixTwoPairsFullNamesBibliography": {
+   "style_reduced": "1d034c5ce7d9b11cba0688ed8f06815568b269436124c6d2c0afbe9fec01680c"
+  },
+  "disambiguate_YearSuffixWithEtAlSubsequent": {
+   "style_reduced": "7bc0f81cec805840d36ac371a77fb5be36f69e60e485cbfd7fdc665dc39015a5"
+  },
+  "disambiguate_YearSuffixWithMixedCreatorTypes": {
+   "style_reduced": "b9e9d5380c366f1830fdbb33009bd7411d9b56d89d3c943526c08c7a92814196"
+  },
+  "display_AuthorAsHeading": {
+   "style_reduced": "c04c37df9f4a920b4499e844697fbd6131b9bc12b22e78eefb3f1854a6600ab3"
+  },
+  "display_DisplayBlock": {
+   "style_reduced": "5fcdcdd1d4ce8d18512dabb93f32e667a7fad50fedb09c876b0e2825424f87fa"
+  },
+  "display_LostSuffix": {
+   "style_reduced": "afb569cf2b95bfbd6d2381389de4ede7ddc49373e244edc5457a5527aa4c1983"
+  },
+  "display_SecondFieldAlignClone": {
+   "style_reduced": "f5df246e65ce57ed25506fd56d2539218476cc679f0fdabb1c15ce5776ae6725"
+  },
+  "display_SecondFieldAlignMigratePunctuation": {
+   "style_reduced": "fda884afd5bb31f2e463c5050b446cb0de9cb1f36401ed026f0ba2bddfe7efbb"
+  },
+  "etal_CitationAndBibliographyDecorationsInBibliography": {
+   "style_reduced": "56ad2b6d93de758ed0579efba415acea7391b799678d209eabe98dbfa4d489cf"
+  },
+  "etal_CitationAndBibliographyDecorationsInCitation": {
+   "style_reduced": "56ad2b6d93de758ed0579efba415acea7391b799678d209eabe98dbfa4d489cf"
+  },
+  "etal_ShortFormOfName": {
+   "style_reduced": "5ed8f628d6b745860f20a678b579a230f4c777a213969ae46722a9f0193f6820"
+  },
+  "etal_UseZeroFirst": {
+   "style_reduced": "71d8596a5ba0078f07bb3f33061aa7afe87109d4d5a36ccae80a5c78558c8990"
+  },
+  "flipflop_ApostropheInsideTag": {
+   "style_reduced": "c884472af5839c2acc99a41f71d8c5e8c076de5bc38ee43254e25f9ba28fdf68"
+  },
+  "flipflop_Apostrophes": {
+   "style_reduced": "9be3bccea5694cba8d5b598af9565f949d88b884051520ca1d323f2c1622f50b"
+  },
+  "flipflop_BoldfaceNodeLevelMarkup": {
+   "style_reduced": "239e1a3bdcbb81cfb64e7222e05cde185a3de50a937be1a2ee8e3873adcce56b"
+  },
+  "flipflop_CompleteCiteInPrefix": {
+   "style_reduced": "a038ec16a6ec1b8fc4aa18b962108732c6882eae512c3022e786c4e950654af3"
+  },
+  "flipflop_ItalicsFlipped": {
+   "style_reduced": "21f0cbd6be559331244a5e709f6833e2294712744fdd930c45f5c6a0d99e1ece"
+  },
+  "flipflop_ItalicsSimple": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "flipflop_ItalicsWithOk": {
+   "style_reduced": "18eac2b5e6079c1220240cee4069ba717f0eb7f09340b7ce427efcbacb087640"
+  },
+  "flipflop_ItalicsWithOkAndTextcase": {
+   "style_reduced": "fefee84735615295b41de1eac7ad2442a46726713ffb69ea3124c767f91cdf75"
+  },
+  "flipflop_LeadingMarkupWithApostrophe": {
+   "style_reduced": "aa636c270b70429ff88757cd34b66aefaf1940b77691d9daa1e30acbd1a4c8f1"
+  },
+  "flipflop_LeadingSingleQuote": {
+   "style_reduced": "cb8690e815a79868515ae50e228d4829611af57907d3b4ea7f8ccd04d5cc0462"
+  },
+  "flipflop_LongComplexPrefix": {
+   "style_reduced": "a038ec16a6ec1b8fc4aa18b962108732c6882eae512c3022e786c4e950654af3"
+  },
+  "flipflop_NumericField": {
+   "style_reduced": "925ebb2e2a18d9f28b9769a37ee356f4c6752c7f88d79144e7d64ff1c353508f"
+  },
+  "flipflop_OrphanQuote": {
+   "style_reduced": "a038ec16a6ec1b8fc4aa18b962108732c6882eae512c3022e786c4e950654af3"
+  },
+  "flipflop_QuotesInFieldNotOnNode": {
+   "style_reduced": "63046f423dfdf6c1975b305e4e54cd747d9192374f161f3fd830ae8fa8b7d30b"
+  },
+  "flipflop_QuotesNodeLevelMarkup": {
+   "style_reduced": "2eb45b8890962c3beacb8191b0d645e8f0f6a2bf419fb0698966146b3136a380"
+  },
+  "flipflop_SingleBeforeColon": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "flipflop_SingleQuotesOnItalics": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "flipflop_SmallCaps": {
+   "style_reduced": "89e33124a0ede11d9357ea5262af7db3dbdd6a321b6afd02c160f4498f666b7a"
+  },
+  "flipflop_StartingApostrophe": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "form_TitleShort": {
+   "style_reduced": "dce2d650bfe2ca4f1511e022b2260be85e186d77e38f56264fac531c7895c344"
+  },
+  "form_TitleShortNoLong": {
+   "style_reduced": "dce2d650bfe2ca4f1511e022b2260be85e186d77e38f56264fac531c7895c344"
+  },
+  "form_TitleTestNoLongFalse": {
+   "style_reduced": "05ecbf13efb7e76aab57e2dc1e69542ecc8519a2f5dd44b508a035c10f58745c"
+  },
+  "fullstyles_ABdNT": {
+   "style_reduced": "451743da036631aed9f93a928f722731923e1fa116b181430db38ea617a89187"
+  },
+  "fullstyles_APA": {
+   "style_reduced": "1de4157fb0470a1332892a265d895d8bef5555586e8f2dee18114eda7d4a8ea5"
+  },
+  "fullstyles_ChicagoArticleTitleQuestion": {
+   "style_reduced": "c85d1925591398c3e3f4e02b935b3db9b713b87314e37ea329218a9cff5f86b6"
+  },
+  "fullstyles_ChicagoAuthorDateSimple": {
+   "style_reduced": "6a2b63910216db2f5dba66005d32221f95aed0f6ced871b7920339310a7b7945"
+  },
+  "fullstyles_ChicagoNoteWithBibliographyWithPublisher": {
+   "style_reduced": "f0aa6a3f97eeaad9c6bb8a8801b27b8cb21ad695ece117bdf9a451ce97f28e03"
+  },
+  "group_ComplexNesting": {
+   "style_reduced": "7d69d741b79fc1451bfdf87fd3f4866928d2bb92913891f66337864c7bb37c5c"
+  },
+  "group_LegalWithAuthorDate": {
+   "style_reduced": "9af207de23ad171e22a30bbed8be3ba21fba687d758dd78d0e3fad2c8bfc382f"
+  },
+  "group_ShortOutputOnly": {
+   "style_reduced": "10cc6ebd0b50a4633c351cc8fc394daba8af3cc9cac3d4a72f287cd8ab409f57"
+  },
+  "group_SuppressTermInMacro": {
+   "style_reduced": "0e862bef06fd5c0c4387cec72acc2fdf7b15308cf61ecb6ef35cce4cc6e8c51e"
+  },
+  "group_SuppressTermWhenNoOutputFromPartialDate": {
+   "style_reduced": "2288648e519ea8de030901f4b2312facd036836be2015950ec1fb5814e7bd19c"
+  },
+  "group_SuppressValueWithEmptySubgroup": {
+   "style_reduced": "8bc45bd3e8ac29e1d34e48399cbc143304a89c1f36d4e9cb44a83cab5d688626"
+  },
+  "group_SuppressWithEmptyNestedDateNode": {
+   "style_reduced": "b9ab730d26c80b74c28c0cf40ac17366f2d66f8af554233ef4d1ec1be62bfd0c"
+  },
+  "integration_CitationSort": {
+   "style_reduced": "2219e018ce97a42b286c87480af52f023c6611d0b52185272b45e9edde66f1bd"
+  },
+  "integration_CitationSortTwice": {
+   "style_reduced": "1ebb482fe81fea0b98a160aae65b559840aaf5e70911d0381007e27d488951b7"
+  },
+  "integration_DeleteName": {
+   "style_reduced": "6d4734af0a675373b96d2a40df1485fd59ecdb60d912228c8d109837cdba9bd3"
+  },
+  "integration_DisambiguateAddGivenname1": {
+   "style_reduced": "ee46919df81f0a6b38868a43c1cefc4757dde6f747ac9e944ebefd6b3f02f09d"
+  },
+  "integration_DisambiguateAddGivenname2": {
+   "style_reduced": "ee46919df81f0a6b38868a43c1cefc4757dde6f747ac9e944ebefd6b3f02f09d"
+  },
+  "integration_DuplicateItem": {
+   "style_reduced": "16a061ab5f723ccd9a3dee53a4eec575fdaf9153e22f884554533ecbdb750b3c"
+  },
+  "integration_DuplicateItem2": {
+   "style_reduced": "16a061ab5f723ccd9a3dee53a4eec575fdaf9153e22f884554533ecbdb750b3c"
+  },
+  "integration_FirstReferenceNoteNumberPositionChange": {
+   "style_reduced": "7ea6ff8676fdde6283eae44db617e72276ee6ca9d4f7b4ae161e6e1738d6a2ab"
+  },
+  "integration_IbidOnInsert": {
+   "style_reduced": "43ee2f17a95757baa7b35536311f5bad36d11e60adc6989def12d194973e5343"
+  },
+  "integration_IbidWithDifferentLocators": {
+   "style_reduced": "5da6f37377004a8cfe9e57d53ed99432ff4560b82015497753754f2574379933"
+  },
+  "integration_SimpleFirstReferenceNoteNumber": {
+   "style_reduced": "7ea6ff8676fdde6283eae44db617e72276ee6ca9d4f7b4ae161e6e1738d6a2ab"
+  },
+  "integration_SimpleIbid": {
+   "style_reduced": "5da6f37377004a8cfe9e57d53ed99432ff4560b82015497753754f2574379933"
+  },
+  "integration_SubsequentWhenInterveningFootnote": {
+   "style_reduced": "6dc7f87ffd09c128d0d18b5f10c0d32cf2b8f3573c98deb037057dbaec781ca1"
+  },
+  "integration_YearSuffixOnOffOn": {
+   "style_reduced": "f63113103cfd4368337c1c2304d4298898cb2bbf98fca9b94d4c884997962557"
+  },
+  "label_CollapsedPageNumberPluralDetection": {
+   "style_reduced": "7437f8b53c2192ac1506c20059f05c582ad6bebe3dd1f722658f787c08f0012d"
+  },
+  "label_CompactNamesAfterFullNames": {
+   "style_reduced": "9106703e6a087b341458dc7f423385188784c9ffc12e207c1d34d993084ec57a"
+  },
+  "label_EditorTranslator1": {
+   "style_reduced": "694cd0456c228e5dd8a06dcaa2474ac76941362e17e3b8625dc8b007290294a1"
+  },
+  "label_EditorTranslator2": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "label_EmptyLabelVanish": {
+   "style_reduced": "6a1c9acf360e94bf9ce6dbdaf70b1c6e6b27147fce90d24a9daf6647fa7a3bde"
+  },
+  "label_EmptyLabelVanishPage": {
+   "style_reduced": "78319f59fbb0ec4ea112719c07d5aae0e8a47047cc122c9f3e298237f970d923"
+  },
+  "label_ImplicitForm": {
+   "style_reduced": "9504451414df8fd4d31f947e4f7d8112e13815cdc345f99b7b3c1bce91db6cfe"
+  },
+  "label_MissingReturnsEmpty": {
+   "style_reduced": "f852f6f79bd537175df8085fd62703141c153cc1794446eb31be3ab58a864c0b"
+  },
+  "label_NameLabelThroughSubstitute": {
+   "style_reduced": "7c87eda79abed86154c39b51c24a3c08e0ceb8f3dfb0b4d90aa5169290bc467f"
+  },
+  "label_NoFirstCharCapWithInTextClass": {
+   "style_reduced": "733ac57db3ede2b774f97521e99a92b27b2b0e32722b3c86d0007de124399add"
+  },
+  "label_NonexistentNameVariableLabel": {
+   "style_reduced": "c235dd46fccafb11aed74f9a3daf8416fb73646ea8fd8952fee29b793db9a05b"
+  },
+  "label_PluralNumberOfVolumes": {
+   "style_reduced": "ee1252ff57dc9fef329549e6801de792a553a51e7d03c954298cc721cc121a4f"
+  },
+  "label_PluralPagesWithAlphaPrefix": {
+   "style_reduced": "6d8d4e87711d87aec6a887fffa07d8935b2249ad75760eb4b278463440aa7467"
+  },
+  "label_PluralWithAmpersand": {
+   "style_reduced": "364631d9c5cc0b30fb108b97555ebcf1f939fdc9809eb1e5806ec0d862d76785"
+  },
+  "label_PluralWithAnd": {
+   "style_reduced": "364631d9c5cc0b30fb108b97555ebcf1f939fdc9809eb1e5806ec0d862d76785"
+  },
+  "label_PluralWithCommaAnd": {
+   "style_reduced": "364631d9c5cc0b30fb108b97555ebcf1f939fdc9809eb1e5806ec0d862d76785"
+  },
+  "label_PluralWithCommaLocalizedAnd": {
+   "style_reduced": "978db4efa81152f5d2985474547625841d61cf196f4abe9c1968a42f5bd42133"
+  },
+  "label_PluralWithLocalizedAmpersand": {
+   "style_reduced": "364631d9c5cc0b30fb108b97555ebcf1f939fdc9809eb1e5806ec0d862d76785"
+  },
+  "label_PluralWithLocalizedAnd": {
+   "style_reduced": "978db4efa81152f5d2985474547625841d61cf196f4abe9c1968a42f5bd42133"
+  },
+  "locale_EmptyDate": {
+   "style_reduced": "938435f198f3f4f436ee94d6c0dc7135000a40f302adf8dee703e2868a35bb90"
+  },
+  "locale_EmptyPlusOverrideDate": {
+   "style_reduced": "938435f198f3f4f436ee94d6c0dc7135000a40f302adf8dee703e2868a35bb90"
+  },
+  "locale_EmptyPlusOverrideStyleOpt": {
+   "style_reduced": "7bb663b83a961e32d29f721444235128ba56d226ce85b54718319bc58c70a868"
+  },
+  "locale_EmptyPlusOverrideTerm": {
+   "style_reduced": "49d970b0f32ac785cb92d664befd60c94d9c84a91bf9e495eff438658de78e9d"
+  },
+  "locale_EmptyStyleOpt": {
+   "style_reduced": "7bb663b83a961e32d29f721444235128ba56d226ce85b54718319bc58c70a868"
+  },
+  "locale_EmptyTerm": {
+   "style_reduced": "067a3983791a7b0deb5608c461c77086215af633dcdc43b9e26525b2d9f1c300"
+  },
+  "locale_ForceEmptyAndOthersTerm": {
+   "style_reduced": "4fb72ed610e1520df6a34cb0c4885ad60a3f59c547490bdb20948a176ec72ead"
+  },
+  "locale_ForceEmptyEtAlTerm": {
+   "style_reduced": "e43402f5a16efd8ada61f3dac89dee60c8f95d782e2e1dec3705eb810f49da32"
+  },
+  "locale_NonExistentLocaleDef": {
+   "style_reduced": "c73805f9d2a4260167d24e5def925af7a30ca2427c6c5ab1d5db86da6854a215"
+  },
+  "locale_OverloadWithEmptyString": {
+   "style_reduced": "7b72f901cfd9da98640da230806f837132331c9e9c6d0ca71da675f6dd91de63"
+  },
+  "locale_PageRangeDelimiterTermDefined": {
+   "style_reduced": "4194c2a9f44f4d45d931d25c066d88bafc16c2b39098e3f60a93a1d40ba95cb4"
+  },
+  "locale_PageRangeDelimiterTermFrenchUndef": {
+   "style_reduced": "be4add0cc86965380a8f6244e31af138fd9c3ff707ff734ed15ec5a965be7856"
+  },
+  "locale_PageRangeDelimiterTermUndefined": {
+   "style_reduced": "4194c2a9f44f4d45d931d25c066d88bafc16c2b39098e3f60a93a1d40ba95cb4"
+  },
+  "locale_SpecificDate": {
+   "style_reduced": "938435f198f3f4f436ee94d6c0dc7135000a40f302adf8dee703e2868a35bb90"
+  },
+  "locale_SpecificStyleOpt": {
+   "style_reduced": "7bb663b83a961e32d29f721444235128ba56d226ce85b54718319bc58c70a868"
+  },
+  "locale_SpecificTerm": {
+   "style_reduced": "067a3983791a7b0deb5608c461c77086215af633dcdc43b9e26525b2d9f1c300"
+  },
+  "locale_TitleCaseEmptyLangEmptyLocale": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "locale_TitleCaseEmptyLangNonEnglishLocale": {
+   "style_reduced": "451e971ec06b49bfc31d50a220234866f23a397505fa009cc70a765d4fbfe308"
+  },
+  "locale_TitleCaseGarbageLangEmptyLocale": {
+   "style_reduced": "a038ec16a6ec1b8fc4aa18b962108732c6882eae512c3022e786c4e950654af3"
+  },
+  "locale_TitleCaseGarbageLangEnglishLocale": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "locale_TitleCaseGarbageLangNonEnglishLocale": {
+   "style_reduced": "451e971ec06b49bfc31d50a220234866f23a397505fa009cc70a765d4fbfe308"
+  },
+  "locale_TitleCaseNonEnglishLangUpperEmptyLocale": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "locale_UnknownTerm": {
+   "style_reduced": "075dc00853cf4c80bf0ad993f7f3249d966229824c842857b7c29cd5cb375e27"
+  },
+  "locator_SimpleLocators": {
+   "style_reduced": "8524d2d5ec3807656919514f7672390e647dd7e33effbf082f8719e20a9c839e"
+  },
+  "locator_SingularEmbeddedLabelAfterPlural": {
+   "style_reduced": "fb5a8bb156c0ebb5fd38377fc8e63e8515a706e5bfa28e13f6d4438515c8c69f"
+  },
+  "locator_TermSelection": {
+   "style_reduced": "da501647405837800aa248af9d7a2033a0a130b56c747f18c7a2a5d95a50d279"
+  },
+  "locator_TrickyEntryForPlurals": {
+   "style_reduced": "da501647405837800aa248af9d7a2033a0a130b56c747f18c7a2a5d95a50d279"
+  },
+  "locator_WithLeadingSpace": {
+   "style_reduced": "46685a08c18f113b84d5b17d1daea066457102405314cc3a5ebb2268c431520f"
+  },
+  "locator_WorkaroundTestForSubVerbo": {
+   "style_reduced": "f0c8889ef4535b627bb73865bc7a749228da2171a2756261961a4c8d6aba7415"
+  },
+  "magic_AllowRepeatDateRenderings": {
+   "style_reduced": "61e9b8013affea6435d7df0941571beb0201a7cf6e172daedd289a34ebb61bb8"
+  },
+  "magic_CapitalizeFirstOccurringNameParticle": {
+   "style_reduced": "36a01c0a598d7c8ecb8682ddbf554b706d7ad19cd3ee5fc8a8d665377ea3eb82"
+  },
+  "magic_CapitalizeFirstOccurringTerm": {
+   "style_reduced": "83f1e28870b1fbcde27ef777e07c1efb668f4b7438afdc9ba9d585275bccf4d3"
+  },
+  "magic_CitationLabelInBibliography": {
+   "style_reduced": "0a67c9bdb89a49f53129e483ce86b49d6a596440e617ba26c5c0be2d45897377"
+  },
+  "magic_CitationLabelInCitation": {
+   "style_reduced": "0a67c9bdb89a49f53129e483ce86b49d6a596440e617ba26c5c0be2d45897377"
+  },
+  "magic_EntrySpacingDouble": {
+   "style_reduced": "cdf6074c010fddd3158ecd97711d121826599a8dfbe114998a09cc19dda7bac9"
+  },
+  "magic_HangingIndent": {
+   "style_reduced": "1294b4c82bbe7813bd056c9d21a7a71b1b8f317e934d8080ff1e6ec6c3f27c6e"
+  },
+  "magic_ImplicitYearSuffixDelimiter": {
+   "style_reduced": "0c9cd7b0eac730abc4192962289eadd7cb2ed43b45a0910c962a3bcf7b41c60c"
+  },
+  "magic_ImplicitYearSuffixExplicitDelimiter": {
+   "style_reduced": "cf9dbb8f1262641b6ac699aba9bc4b6c2634e8361ef4042f832160f290bddcbc"
+  },
+  "magic_LineSpacingDouble": {
+   "style_reduced": "aa10185ad2752923aefc598a2a035758eee56cfea78e0783d30c2b0f3a976fa1"
+  },
+  "magic_LineSpacingTripleStretch": {
+   "style_reduced": "dba906728a5af4f53479613f76e62ca36e6af6f82c23ffdcf202bffbae6cca12"
+  },
+  "magic_NameParticle": {
+   "style_reduced": "64b8be96455d8f7c7dfb9b4818cd1120837f3761bd8f70e5a61890d5f220454d"
+  },
+  "magic_NameSuffixNoComma": {
+   "style_reduced": "40cdaec776a0a1e06f860922d050c3fb2c7fe1d7b4bf6dd333db0481d4d03af5"
+  },
+  "magic_NameSuffixWithComma": {
+   "style_reduced": "40cdaec776a0a1e06f860922d050c3fb2c7fe1d7b4bf6dd333db0481d4d03af5"
+  },
+  "magic_NumberRangeEnglish": {
+   "style_reduced": "4194c2a9f44f4d45d931d25c066d88bafc16c2b39098e3f60a93a1d40ba95cb4"
+  },
+  "magic_NumberRangeFrench": {
+   "style_reduced": "be4add0cc86965380a8f6244e31af138fd9c3ff707ff734ed15ec5a965be7856"
+  },
+  "magic_PunctuationInQuoteDefaultEnglishDelimiter": {
+   "style_reduced": "8fc7d06bc302ccf124c1347092b83775387db60e0b55fab0bd347be602fffa14"
+  },
+  "magic_PunctuationInQuoteDefaultEnglishSuffix": {
+   "style_reduced": "8f92c0cd37aa788f8b7575476b7b95eb7b227bc1d0d6cc589262bc9d098e7ed9"
+  },
+  "magic_PunctuationInQuoteDelimiterTrue": {
+   "style_reduced": "8fc7d06bc302ccf124c1347092b83775387db60e0b55fab0bd347be602fffa14"
+  },
+  "magic_PunctuationInQuoteFalse": {
+   "style_reduced": "8fc7d06bc302ccf124c1347092b83775387db60e0b55fab0bd347be602fffa14"
+  },
+  "magic_PunctuationInQuoteFalseSuppressExtra": {
+   "style_reduced": "10b57e5ebb82124bc3efed79504407dbd139d9837bbd0cd537764b75ca71c41b"
+  },
+  "magic_PunctuationInQuoteNested": {
+   "style_reduced": "714479c7b425f656fc98110cb09b91f0cd5c3681d87909945c4310a7cdcfbfee"
+  },
+  "magic_PunctuationInQuoteSuffixTrue": {
+   "style_reduced": "d37aba337495c082103223c3ee2096855040dcc0f4688a051d7fd7b66b99eb2d"
+  },
+  "magic_PunctuationInQuoteTrueSuppressExtra": {
+   "style_reduced": "0cb6fe3164066c11ba98b7ac0f334dd939469f7be6523a2403e0c93db97796dd"
+  },
+  "magic_QuotesAndBraces1": {
+   "style_reduced": "64e42dc4bd13d4d863a771a6b4c15767c32fbc920a677f4cfdba1218fc2e8307"
+  },
+  "magic_QuotesAndBraces2": {
+   "style_reduced": "64e42dc4bd13d4d863a771a6b4c15767c32fbc920a677f4cfdba1218fc2e8307"
+  },
+  "magic_SecondFieldAlign": {
+   "style_reduced": "5b43880f43dbad05cf02157c7925e55e4f7b0fbb390d4d79d8ecb63b7f1d889f"
+  },
+  "magic_StripPeriodsExcludeAffixes": {
+   "style_reduced": "f23ea713dfb5b3e6d09addaaae93492a618ec6ee7b9f2d9a32e225ddf8aa3ed6"
+  },
+  "magic_StripPeriodsFalse": {
+   "style_reduced": "efc6de585ccaef31fd239a8226d5e915c78b5c91f5e0854f1c3ff476bc63a885"
+  },
+  "magic_StripPeriodsTrue": {
+   "style_reduced": "a69de70ba5d947d976bbcca9a975a5c218befdc5f4430194ba8278dcc0e91e9b"
+  },
+  "magic_StripPeriodsTrueShortForm": {
+   "style_reduced": "7263453ddbf4589eae3212915c6a3f533933491fe5719d6384eedb2f3524ec7e"
+  },
+  "magic_SubsequentAuthorSubstitute": {
+   "style_reduced": "920510364b2a479ca21be0250c11cb6c2a587b80dda5cc295429a403d76b333f"
+  },
+  "magic_SubsequentAuthorSubstituteNotFooled": {
+   "style_reduced": "f0bc68c317e18ad28b5c9191c6e7b578025a23d4a421d0c1ce3075522e58b58d"
+  },
+  "magic_SubsequentAuthorSubstituteOfTitleField": {
+   "style_reduced": "82a18787180de2a0faf19a76157c6b88b6e1273b3a0e1ec2c3d8839518e57476"
+  },
+  "magic_SuperscriptChars": {
+   "style_reduced": "356a54be7793db150ba769cfc2731842b899789effb9a06caeb8fb453cfa5ff7"
+  },
+  "magic_SuppressDuplicateVariableRendering": {
+   "style_reduced": "4a9122d5322be9f507faa922c5e320eb4d3739b93ba2dea7a5a8c50993403ebf"
+  },
+  "magic_SuppressLayoutDelimiterIfPrefixComma": {
+   "style_reduced": "a038ec16a6ec1b8fc4aa18b962108732c6882eae512c3022e786c4e950654af3"
+  },
+  "magic_TermCapitalizationWithPrefix": {
+   "style_reduced": "c99735146e093856ae4723808b3e0c80d294a2c8af0498e7f201d1bdeaef2c47"
+  },
+  "magic_TextRangeEnglish": {
+   "style_reduced": "4194c2a9f44f4d45d931d25c066d88bafc16c2b39098e3f60a93a1d40ba95cb4"
+  },
+  "magic_TextRangeFrench": {
+   "style_reduced": "be4add0cc86965380a8f6244e31af138fd9c3ff707ff734ed15ec5a965be7856"
+  },
+  "name_AfterInvertedName": {
+   "style_reduced": "5058178bcc994fa98db009c0a0044b7d6ea06b248d0d06b46cb8aad278d78793"
+  },
+  "name_AllCapsInitialsUntouched": {
+   "style_reduced": "a2c3898037614ad88fcc4c8a23cd01c7cee5466958b6915d3b44dfe4845188e9"
+  },
+  "name_AndTextDelimiterPrecedesLastAlways": {
+   "style_reduced": "b2b67073b9de7c81ef622f7981638c9aab421f5f67bd858372f9a6146940c5b4"
+  },
+  "name_ApostropheInGivenName": {
+   "style_reduced": "b3c42749d4bd2b7a54bdaca76b7b5b59736002a4e9f86d38050585f0df731caa"
+  },
+  "name_ArabicShortForms": {
+   "style_reduced": "aa636c270b70429ff88757cd34b66aefaf1940b77691d9daa1e30acbd1a4c8f1"
+  },
+  "name_ArticularNameAsSortOrder": {
+   "style_reduced": "6ec8e0bf1b0e76a5e57f43333791abcdb6a98e3ef9a9ea3f9ebbcd1d498bb3c3"
+  },
+  "name_ArticularPlain": {
+   "style_reduced": "40cdaec776a0a1e06f860922d050c3fb2c7fe1d7b4bf6dd333db0481d4d03af5"
+  },
+  "name_ArticularShortForm": {
+   "style_reduced": "36a01c0a598d7c8ecb8682ddbf554b706d7ad19cd3ee5fc8a8d665377ea3eb82"
+  },
+  "name_ArticularShortFormCommaSuffix": {
+   "style_reduced": "36a01c0a598d7c8ecb8682ddbf554b706d7ad19cd3ee5fc8a8d665377ea3eb82"
+  },
+  "name_ArticularWithComma": {
+   "style_reduced": "40cdaec776a0a1e06f860922d050c3fb2c7fe1d7b4bf6dd333db0481d4d03af5"
+  },
+  "name_ArticularWithCommaNameAsSortOrder": {
+   "style_reduced": "6ec8e0bf1b0e76a5e57f43333791abcdb6a98e3ef9a9ea3f9ebbcd1d498bb3c3"
+  },
+  "name_AsianGlyphs": {
+   "style_reduced": "40cdaec776a0a1e06f860922d050c3fb2c7fe1d7b4bf6dd333db0481d4d03af5"
+  },
+  "name_AuthorCount": {
+   "style_reduced": "6bc7814798a4a41afc9a8e20bd103298d83ac3c00d5a28e8014ee72736f48295"
+  },
+  "name_AuthorCountWithMultipleVariables": {
+   "style_reduced": "d89cd60edaceae40ba7a4a4b943d0b50e806003340d89bfb381cb0f9394247ce"
+  },
+  "name_AuthorCountWithSameVarContentAndCombinedTermFail": {
+   "style_reduced": "d89cd60edaceae40ba7a4a4b943d0b50e806003340d89bfb381cb0f9394247ce"
+  },
+  "name_AuthorCountWithSameVarContentAndCombinedTermSucceed": {
+   "style_reduced": "d89cd60edaceae40ba7a4a4b943d0b50e806003340d89bfb381cb0f9394247ce"
+  },
+  "name_AuthorEditorCount": {
+   "style_reduced": "d89cd60edaceae40ba7a4a4b943d0b50e806003340d89bfb381cb0f9394247ce"
+  },
+  "name_BibliographyNameFormNeverShrinks": {
+   "style_reduced": "76d1c4891f3e4e802f718dc1d04f295cbe15497193f9671f0fed40f1aed99a1c"
+  },
+  "name_CelticClanName": {
+   "style_reduced": "40cdaec776a0a1e06f860922d050c3fb2c7fe1d7b4bf6dd333db0481d4d03af5"
+  },
+  "name_CeltsAndToffsCrowdedInitials": {
+   "style_reduced": "b542619008c1ec16e8b2ff02d507479c93ce36190fe06bd35a188d352a9d7fdb"
+  },
+  "name_CeltsAndToffsNoHyphens": {
+   "style_reduced": "4e6eb4c035320b09bfb6364288f8db666c36f1ce6ca89759937d1f64cf73be4e"
+  },
+  "name_CeltsAndToffsSpacedInitials": {
+   "style_reduced": "d0fba55eba97415193fb3b09c2f06d09fe54e154e29c9de673d53710ba3def8a"
+  },
+  "name_CeltsAndToffsWithHyphens": {
+   "style_reduced": "b542619008c1ec16e8b2ff02d507479c93ce36190fe06bd35a188d352a9d7fdb"
+  },
+  "name_CiteGroupDelimiterWithYearCollapse": {
+   "style_reduced": "aa362836b4a12f92819c0606f6974b4abbbc5b1d1ed88d89846724c5ac4a05f4"
+  },
+  "name_CiteGroupDelimiterWithYearSuffixCollapse": {
+   "style_reduced": "787f322443e88a643c518a468024f23b40d3e75b9f3dae580bb3beef41da7baf"
+  },
+  "name_CiteGroupDelimiterWithYearSuffixCollapse2": {
+   "style_reduced": "4ea17aaf0fd36426774b25f8d1dce38c7840784e3a351ef3d15eae7ffae83564"
+  },
+  "name_CiteGroupDelimiterWithYearSuffixCollapse3": {
+   "style_reduced": "b0077ac915c1d1b2ecb4b7dce9012b202074e6abbe32355bc57abee43973b736"
+  },
+  "name_CollapseRoleLabels": {
+   "style_reduced": "39ebcd968d35e0a691154fd5d0ace6394770a31ea0ee35010df696a26d42a68c"
+  },
+  "name_Delimiter": {
+   "style_reduced": "f4aa9c21b244debcd383dc9612910bdee8970e832917990efd56d485173f2967"
+  },
+  "name_DelimiterAfterInverted": {
+   "style_reduced": "8b1a539a4ce5e552d017796cb57bc52aef3adbb06fcd7f7f9d109fcfc2599e0b"
+  },
+  "name_EditorTranslatorBoth": {
+   "style_reduced": "eff28b470bfd21b986a0bea62f64933ab660a33692882db18e68930355ddf5fd"
+  },
+  "name_EditorTranslatorSameEmptyTerm": {
+   "style_reduced": "8c85a9b1ade0cde9a2f926d451f25047d829a32ec0b258cef06aee3bbda9a7f2"
+  },
+  "name_EditorTranslatorSameWithTerm": {
+   "style_reduced": "d815968e57474ab409b0f231fbfef491d743999e26ce5dfddaa3dae2e6175782"
+  },
+  "name_EditorTranslatorWithTranslatorOnlyBib": {
+   "style_reduced": "eff28b470bfd21b986a0bea62f64933ab660a33692882db18e68930355ddf5fd"
+  },
+  "name_EtAlKanji": {
+   "style_reduced": "f43d789af7b7c0fa9c2c9de1db01297b916dd070d505689f45ac676d512bd470"
+  },
+  "name_EtAlUseLast": {
+   "style_reduced": "43fc96c6278152f36960ceedc135d4f010962a2656327ec45ee3b6daeb96695c"
+  },
+  "name_EtAlWithCombined": {
+   "style_reduced": "0be8177f1dd5c8d030c0aa6c14c25b14879ecc19b71b391f5b35761807c5891e"
+  },
+  "name_FirstInitialFullForm": {
+   "style_reduced": "e41c9957f3f2d3154af5975548cfcf3fde2f9e827a6a378fe996899b0b7e229b"
+  },
+  "name_FormattingOfParticles": {
+   "style_reduced": "82c8cf50ae620b987d1a3ca54a6af19e50294cd5bb6ad629d763ed4b696c7a25"
+  },
+  "name_GreekSimple": {
+   "style_reduced": "40cdaec776a0a1e06f860922d050c3fb2c7fe1d7b4bf6dd333db0481d4d03af5"
+  },
+  "name_HebrewAnd": {
+   "style_reduced": "713526e920de3a0ea69c3e5b45d07a59eabfbb304014020983a071e4e379e748"
+  },
+  "name_HierarchicalDelimiter": {
+   "style_reduced": "2ec97005af148c568e8558f4133eb9aa1edaba675657468614db06b57832e261"
+  },
+  "name_HyphenatedFirstName": {
+   "style_reduced": "fa0af136a0ef82c942ebf6239ed7844c8c50efe61f29df6f9add183696abb97a"
+  },
+  "name_HyphenatedNonDroppingParticle1": {
+   "style_reduced": "5b063443da29654a3d75afddfb5cc2ad130f69e962bacf6b0d5dd5b343b9206a"
+  },
+  "name_HyphenatedNonDroppingParticle2": {
+   "style_reduced": "c1bfcd4a0d99436c958364d50ecdc770cf5c1ac7c031b2319d65df0d0f3f215d"
+  },
+  "name_InTextMarkupInitialize": {
+   "style_reduced": "600bcd905f448581f5cfc5d99d2f3240538d1142e705df76f4518495e9aceec9"
+  },
+  "name_InTextMarkupNormalizeInitials": {
+   "style_reduced": "600bcd905f448581f5cfc5d99d2f3240538d1142e705df76f4518495e9aceec9"
+  },
+  "name_InheritAttributesEtAlStyle": {
+   "style_reduced": "c877769aad7d0e2c019ff0c6f906ff7d4c3b95c70e482085a020d80133816fbd"
+  },
+  "name_InitialsInitializeFalse": {
+   "style_reduced": "2bb0a6d7b1b1b9931a244af87b49e64951b6a180393bbb29d3c7c6a66bf1f8b3"
+  },
+  "name_InitialsInitializeFalseEmpty": {
+   "style_reduced": "31195a565428854ebdcc63464e8c1e4d6ce13225f48362d38f43c9f35426fa06"
+  },
+  "name_InitialsInitializeFalsePeriod": {
+   "style_reduced": "d9c74929f1adfd68e1434b4b5bd033915b5983c452f9bff9ea2b6f67c68c26f2"
+  },
+  "name_InitialsInitializeFalsePeriodSpace": {
+   "style_reduced": "1861bdec659221fe0a10299e9bffe33a3ecadf7297677fea5a37d7bbf3da3cb9"
+  },
+  "name_InitialsInitializeTrue": {
+   "style_reduced": "64878bc72b867c61de80639fafc62f6b4168244293263372e419bb5fd82e076d"
+  },
+  "name_InitialsInitializeTrueEmpty": {
+   "style_reduced": "cc238a5196efe8b94a879dd2e873ffaea15a4ed1bf7c2fb0f5b644c767144e60"
+  },
+  "name_InitialsInitializeTruePeriod": {
+   "style_reduced": "f42812b5f6453b5c7b73505572ee143d0266437da8d0344a5c1c2942e6df6c55"
+  },
+  "name_InitialsInitializeTruePeriodSpace": {
+   "style_reduced": "a53fd0c927d0cf3a18a8bb0000155b0e60a7f2dfc147c8852e1d0ef8f51bb988"
+  },
+  "name_Institution": {
+   "style_reduced": "40cdaec776a0a1e06f860922d050c3fb2c7fe1d7b4bf6dd333db0481d4d03af5"
+  },
+  "name_InstitutionDecoration": {
+   "style_reduced": "0a40b4817c90432ad19b186c6447fcf25ba375c85f3a93d551f4dcd40bb6f7a1"
+  },
+  "name_LabelAfterPlural": {
+   "style_reduced": "38d74017bd4c4b097199027d68c702b3363ce1a03d49bd90a54b59d2f3cea70e"
+  },
+  "name_LabelAfterPluralDecorations": {
+   "style_reduced": "760d3f558348865e3df36a096cbe5c4810d9fdf8d7f690406c3eb5e71a570d42"
+  },
+  "name_LabelFormatBug": {
+   "style_reduced": "d93618bc22d64a07c706e428a71dc320e28c387afbe8672ec06254179f8dd235"
+  },
+  "name_LiteralWithComma": {
+   "style_reduced": "6142fbf9d9b60f11ce871d2e1b431ebeed4bfc71388ec60a77eec376ee52c445"
+  },
+  "name_LongAbbreviation": {
+   "style_reduced": "94fc21058d008823b924ea0958b17dfa63b988e3c4cc4c4573271932c2e14d00"
+  },
+  "name_LowercaseSurnameSuffix": {
+   "style_reduced": "2252d1b1b67c3b258f0a29625a0d935bfa2f1fe35a7fa9680c22f7701de7df1c"
+  },
+  "name_MultipleLiteral": {
+   "style_reduced": "ddc9531707f42d9747d46a942ad6123b2b5fa498fe460436b479130ac73b0a47"
+  },
+  "name_NoNameNode": {
+   "style_reduced": "40cdaec776a0a1e06f860922d050c3fb2c7fe1d7b4bf6dd333db0481d4d03af5"
+  },
+  "name_NonDroppingParticleDefault": {
+   "style_reduced": "6ec8e0bf1b0e76a5e57f43333791abcdb6a98e3ef9a9ea3f9ebbcd1d498bb3c3"
+  },
+  "name_OnlyFamilyname": {
+   "style_reduced": "94fc21058d008823b924ea0958b17dfa63b988e3c4cc4c4573271932c2e14d00"
+  },
+  "name_OnlyGivenname": {
+   "style_reduced": "94fc21058d008823b924ea0958b17dfa63b988e3c4cc4c4573271932c2e14d00"
+  },
+  "name_OverridingHierarchicalDelimiter": {
+   "style_reduced": "47e34d813ba42b1809be70545b29fafc77d6bf5cc656b783b61a9b97c3ee6245"
+  },
+  "name_ParseNames": {
+   "style_reduced": "03f1ddf68610f23649870f81bff508b525613007b78c410c0f4cb008abe365f1"
+  },
+  "name_ParsedCommaDelimitedDroppingParticleSortOrderingWithoutAffixes": {
+   "style_reduced": "70d12f9faf0fbe92b584087ddd4eec009af766b7dfd817607e6b849146448353"
+  },
+  "name_ParsedDroppingParticleWithAffixes": {
+   "style_reduced": "912a308a2366cb9a7192e9d11a98b1792a1604ffeb12c52354c06f00834080b5"
+  },
+  "name_ParsedDroppingParticleWithApostrophe": {
+   "style_reduced": "a87e2fface3aa458074e5e9e4ef281799639a15d75d22c5410dca169cedbc3d4"
+  },
+  "name_ParsedNonDroppingParticleWithAffixes": {
+   "style_reduced": "8cb18519514f095bfde7c749e25f8fd4ee9b5b84c50a6af48e6ea87fe582ff55"
+  },
+  "name_ParsedNonDroppingParticleWithApostrophe": {
+   "style_reduced": "912a308a2366cb9a7192e9d11a98b1792a1604ffeb12c52354c06f00834080b5"
+  },
+  "name_ParsedUpperCaseNonDroppingParticle": {
+   "style_reduced": "912a308a2366cb9a7192e9d11a98b1792a1604ffeb12c52354c06f00834080b5"
+  },
+  "name_ParticleCaps1": {
+   "style_reduced": "99f4745d745ec7a82a6c35b63f8e271be7eec6f4ba4b444a81ac38a93cfd2a75"
+  },
+  "name_ParticleCaps2": {
+   "style_reduced": "88b8470734b5cd36e5f5f4a5d75273521b7339457b2a84b1ad3e1997db38fcd0"
+  },
+  "name_ParticleCaps3": {
+   "style_reduced": "43a2b2818ba18d2fe4d3326903507a42cde3fbce1c58c69a207653603319131b"
+  },
+  "name_ParticleFormatting": {
+   "style_reduced": "70d12f9faf0fbe92b584087ddd4eec009af766b7dfd817607e6b849146448353"
+  },
+  "name_ParticleParse1": {
+   "style_reduced": "c8ba168d38ecf7c21f1df5888375c67e11b5b5c4d2196e3d4931fc82e0e4e666"
+  },
+  "name_ParticlesDemoteNonDroppingNever": {
+   "style_reduced": "06cf1015761b019903d1fc3aa9753479c269791bdd7c99a67675060b78e6fe9a"
+  },
+  "name_PeriodAfterInitials": {
+   "style_reduced": "59364f131a24d883fdd2c402b6494ad2c35767a9861391512c84b921030b28fe"
+  },
+  "name_QuashOrdinaryVariableRenderedViaSubstitute": {
+   "style_reduced": "c72cc4e57d4751c39ada167647528b4bbcf99bd76f5acc823bfcbf03a0e6962f"
+  },
+  "name_RomanianTwo": {
+   "style_reduced": "19a885556321ee63a718250d1c9c4aec3834b723f8f53c0cfe2aeff4fa60011d"
+  },
+  "name_SemicolonWithAnd": {
+   "style_reduced": "dc3cbe0acea55d04b4d7e194df283df79b68fd20531acec78a3b9c9cdc940afd"
+  },
+  "name_SplitInitials": {
+   "style_reduced": "2252d1b1b67c3b258f0a29625a0d935bfa2f1fe35a7fa9680c22f7701de7df1c"
+  },
+  "name_SubsequentAuthorSubstituteMultipleNames": {
+   "style_reduced": "504c7af66f080f55a0cddbc0f60d28be291728fc65f6dc3facff778aaa2f922e"
+  },
+  "name_SubsequentAuthorSubstituteSingleField": {
+   "style_reduced": "55b1762fea5deb729be770211d8cd149cb9f73d954794eae0a2bcf446fcf9548"
+  },
+  "name_SubstituteInheritLabel": {
+   "style_reduced": "9e303a64e51b11340608d749ae67513fed82e86230c06de2eb012c29f881b61d"
+  },
+  "name_SubstituteMacroInheritDecorations": {
+   "style_reduced": "66c975cd1f76a382e795b12074ea9032a248db29b2ddd51d70e4c6c4b53df6df"
+  },
+  "name_SubstituteName": {
+   "style_reduced": "dd41e34b4f67abfa0efee35d7bcbda3c45b5f85f9a06135f74369c3b0eadb19f"
+  },
+  "name_SubstituteOnDateGroupSpanFail": {
+   "style_reduced": "47c9c8fa756f95177fc448e48b9a02095e75e41ded69aeff0f6dddb3ea678330"
+  },
+  "name_SubstituteOnGroupSpanGroupSpanFail": {
+   "style_reduced": "58a57ffcc2f9f990c1d62dbf21044de46f191d68479eb9768d95f6c924adc119"
+  },
+  "name_SubstituteOnMacroGroupSpanFail": {
+   "style_reduced": "955a2fc8364a36616bdccb4bac8c86047bb99e94366aee5e2d735d5b64425f85"
+  },
+  "name_SubstituteOnNamesSingletonGroupSpanFail": {
+   "style_reduced": "5d331279f06e624bf3840dd37cc893d1159ae0e3371b084f8250a6e3c7d14949"
+  },
+  "name_SubstituteOnNamesSpanGroupSpanFail": {
+   "style_reduced": "91d3e91f2382c00e497eb3bd3ffababba7a91b59b06156bdc87da455bd94c9f6"
+  },
+  "name_SubstituteOnNamesSpanNamesSpanFail": {
+   "style_reduced": "7bd4e751849b42627d6499a2903f1d199f17ede700297a49fc348f9977f101a7"
+  },
+  "name_SubstituteOnNumberGroupSpanFail": {
+   "style_reduced": "df44f277e70f78b1027c8866655deddc78cf5f24cb8062f9b9c6d104dbebf0e7"
+  },
+  "name_SubstitutePartialEach": {
+   "style_reduced": "1f04049df88f49fdca275c57d52eb433444746c672bc9332a1a61e2e6e3a5cd5"
+  },
+  "name_TwoRolesSameRenderingSeparateRoleLabels": {
+   "style_reduced": "4fa7d5575031fffcb699f8019b45b8007c62053b7e5026454fd63588d759eb82"
+  },
+  "name_WesternArticularLowercase": {
+   "style_reduced": "40cdaec776a0a1e06f860922d050c3fb2c7fe1d7b4bf6dd333db0481d4d03af5"
+  },
+  "name_WesternPrimaryFontStyle": {
+   "style_reduced": "8186f4ba7ff183c811c8684d27e2bf3cf54c47da5b91aaf22c1447a3405ac921"
+  },
+  "name_WesternPrimaryFontStyleTwoAuthors": {
+   "style_reduced": "9ce8062739c0666f3bb34578715ec6d96f9b664425d47d5c6a4216a0026eb736"
+  },
+  "name_WesternSimple": {
+   "style_reduced": "40cdaec776a0a1e06f860922d050c3fb2c7fe1d7b4bf6dd333db0481d4d03af5"
+  },
+  "name_WesternTwoAuthors": {
+   "style_reduced": "40cdaec776a0a1e06f860922d050c3fb2c7fe1d7b4bf6dd333db0481d4d03af5"
+  },
+  "name_WithNonBreakingSpace": {
+   "style_reduced": "b940960811eb6774f9702b7c6e544a87d3d541d44af0a0c1ee47486cfb80940a"
+  },
+  "name_namepartAffixes": {
+   "style_reduced": "fde4429eeebf45a7e97c07cd0d18c59b4f6c7d510a4a388c9154f9387f232ede"
+  },
+  "name_namepartAffixesNameAsSortOrder": {
+   "style_reduced": "94e3a2c87c2c8e0dc29e8f4d4545104f40911b8906d07a7e7a59bad638ec90cd"
+  },
+  "name_namepartAffixesNameAsSortOrderDemoteNonDroppingParticle": {
+   "style_reduced": "57ce71a0dfaf1c2cb41095e177923b20ffcb687aeb4ec229a79730f91cc70285"
+  },
+  "nameattr_AndOnBibliographyInBibliography": {
+   "style_reduced": "3a1e57df8a76c0afe3ea4e21a88750b839e7d72538da49e45f16afca3955ede0"
+  },
+  "nameattr_AndOnBibliographyInCitation": {
+   "style_reduced": "a3cf009dbb3439b9eb932b9e7be6775967612f24a4fa07d682246790de267c72"
+  },
+  "nameattr_AndOnCitationInBibliography": {
+   "style_reduced": "65108a1c5eb6135ee30a0869fb6dba0f468e7cffbf749ba8b9751a8b8335a832"
+  },
+  "nameattr_AndOnCitationInCitation": {
+   "style_reduced": "1c997360165b3703287beeab96fa10b1a3d3ce9a2c4f25452125512f9ed5f0e3"
+  },
+  "nameattr_AndOnNamesInBibliography": {
+   "style_reduced": "68cec23e29283ef88c28c6a8782460bcd47b71858fffa67f56575e92c0b6ebdc"
+  },
+  "nameattr_AndOnNamesInCitation": {
+   "style_reduced": "713526e920de3a0ea69c3e5b45d07a59eabfbb304014020983a071e4e379e748"
+  },
+  "nameattr_AndOnStyleInBibliography": {
+   "style_reduced": "3a1e57df8a76c0afe3ea4e21a88750b839e7d72538da49e45f16afca3955ede0"
+  },
+  "nameattr_AndOnStyleInCitation": {
+   "style_reduced": "3a1e57df8a76c0afe3ea4e21a88750b839e7d72538da49e45f16afca3955ede0"
+  },
+  "nameattr_DelimiterPrecedesEtAlOnBibliographyInBibliography": {
+   "style_reduced": "facd17555144904f11e2608ce234273fd77c06162605f7c494db30121fa18ba3"
+  },
+  "nameattr_DelimiterPrecedesEtAlOnBibliographyInCitation": {
+   "style_reduced": "338e7f03ead09d624e6f13cd02682cd1bcd133b99c374dd54a6d475a4159e6c4"
+  },
+  "nameattr_DelimiterPrecedesEtAlOnCitationInBibliography": {
+   "style_reduced": "d57be8010eab8380c4a1bf28c3cf46515728f626a96c7e4214a70c0a37b6410e"
+  },
+  "nameattr_DelimiterPrecedesEtAlOnCitationInCitation": {
+   "style_reduced": "4e65d8116d5f3b25f26fd1dbc6180421dbc10ae93e86978c4b7ca3d5cb8aab9e"
+  },
+  "nameattr_DelimiterPrecedesEtAlOnNamesInBibliography": {
+   "style_reduced": "5734cb14e979ae7f1ca2344aae3a7fba17d41865324b423b91d6e2537dcad4d7"
+  },
+  "nameattr_DelimiterPrecedesEtAlOnNamesInCitation": {
+   "style_reduced": "da4218640f19943a049e9732586b138ce444fa416553a24bb892765d7af16c6f"
+  },
+  "nameattr_DelimiterPrecedesEtAlOnStyleInBibliography": {
+   "style_reduced": "296311d418317bb061c41e4adfe0f4a667c5823163a95dba66e80c6cc5a15797"
+  },
+  "nameattr_DelimiterPrecedesEtAlOnStyleInCitation": {
+   "style_reduced": "45bc8bf82ac703521c8462385f4b3a3a5e80353360b163b567115ae374149ee7"
+  },
+  "nameattr_DelimiterPrecedesLastOnBibliographyInBibliography": {
+   "style_reduced": "4826d3a101252b6f29b04406ca502290720c417ab88a0c978f35d660296ee9cb"
+  },
+  "nameattr_DelimiterPrecedesLastOnBibliographyInCitation": {
+   "style_reduced": "7a47ee37f9ad5d256ba0ab965eb32fb15ed37796302a400468918216045bd72c"
+  },
+  "nameattr_DelimiterPrecedesLastOnCitationInBibliography": {
+   "style_reduced": "089478dd31469af3ed2b2af0d240bc47669f65b62cb2c4ca567e8aaa88f25687"
+  },
+  "nameattr_DelimiterPrecedesLastOnCitationInCitation": {
+   "style_reduced": "d94629cdfcf45686357f863030f3fa350780f4a9ac57d469597a1ad4ddeba451"
+  },
+  "nameattr_DelimiterPrecedesLastOnNamesInBibliography": {
+   "style_reduced": "b56e0a63734c37b608183017f3f20dc43e5caeadd52a4292eb88e4785e63bc92"
+  },
+  "nameattr_DelimiterPrecedesLastOnNamesInCitation": {
+   "style_reduced": "9ddbf0616a10261e482760a36ced0ff42d14c1714094e66bcb5913a39b4d9f0c"
+  },
+  "nameattr_DelimiterPrecedesLastOnStyleInBibliography": {
+   "style_reduced": "c7b1c9e62c1c6a9b817dd91d219f59d5b33fb48fa5daddf6f57c694c44eee65d"
+  },
+  "nameattr_DelimiterPrecedesLastOnStyleInCitation": {
+   "style_reduced": "d696aef86239601fec13aa0c80c7b793fc2a76abf1255f79faed1aa0b3322e09"
+  },
+  "nameattr_EtAlMinOnBibliographyInBibliography": {
+   "style_reduced": "cc32065f1f83ca31507247ef7d69e4b886c90ad51e773a6cc0c02fe4b7ee0108"
+  },
+  "nameattr_EtAlMinOnBibliographyInCitation": {
+   "style_reduced": "a35aafff07bd6a7fbe114bf94f4ccd0bbe9ea59210ba2389622f8c8076578e08"
+  },
+  "nameattr_EtAlMinOnCitationInBibliography": {
+   "style_reduced": "642c1012958077fd21998b6ba17550472eaa35686de5d7c9a62f82a8d0c50f18"
+  },
+  "nameattr_EtAlMinOnCitationInCitation": {
+   "style_reduced": "c4e61e2376058e6e513326e85bd4659e8b90a184a278b9acaa332a22cff1f6c5"
+  },
+  "nameattr_EtAlMinOnNamesInBibliography": {
+   "style_reduced": "6daa51053b7b1b4e4c38ace8c76dabb99808e89c9150146b9514293b87dd45a4"
+  },
+  "nameattr_EtAlMinOnNamesInCitation": {
+   "style_reduced": "b31789d6b3179a5791d8af0cf509ffc7f79bf796a50f47d7682959444a463237"
+  },
+  "nameattr_EtAlMinOnStyleInBibliography": {
+   "style_reduced": "6daa51053b7b1b4e4c38ace8c76dabb99808e89c9150146b9514293b87dd45a4"
+  },
+  "nameattr_EtAlMinOnStyleInCitation": {
+   "style_reduced": "b31789d6b3179a5791d8af0cf509ffc7f79bf796a50f47d7682959444a463237"
+  },
+  "nameattr_EtAlSubsequentMinOnBibliographyInBibliography": {
+   "style_reduced": "7ce673165cca5a80120ea2e5204050f5c3480c353e76d070e3cb08004acf3662"
+  },
+  "nameattr_EtAlSubsequentMinOnBibliographyInCitation": {
+   "style_reduced": "60cdc6167f7fcdb50e246e76a0aa764ecb4a8fb85d51420865b44ab7517f1489"
+  },
+  "nameattr_EtAlSubsequentMinOnCitationInBibliography": {
+   "style_reduced": "b2ecbe188407e0d6106843c58c000ce34ed46628e2b0558fcfd397846b6f2ea7"
+  },
+  "nameattr_EtAlSubsequentMinOnNamesInBibliography": {
+   "style_reduced": "e4b8040ddcf2e389aaf4843362653ee6bc58401c9b91aa5c9c70391c4a686b12"
+  },
+  "nameattr_EtAlSubsequentMinOnStyleInBibliography": {
+   "style_reduced": "e4b8040ddcf2e389aaf4843362653ee6bc58401c9b91aa5c9c70391c4a686b12"
+  },
+  "nameattr_EtAlSubsequentUseFirstOnBibliographyInBibliography": {
+   "style_reduced": "ebdcea86434ade5e0cedce8251e32d3db392b542536f269501e4578d58df3938"
+  },
+  "nameattr_EtAlSubsequentUseFirstOnBibliographyInCitation": {
+   "style_reduced": "782aa1fed0c6c0b928dbebc7bfd4ab90c66c22d5bbabd51cd05db2abc14b6239"
+  },
+  "nameattr_EtAlSubsequentUseFirstOnCitationInBibliography": {
+   "style_reduced": "b1029cb0bde488a2755d8c7b18516f0b18c0e295e452a55b1ba6bb6f7ea1efec"
+  },
+  "nameattr_EtAlSubsequentUseFirstOnStyleInBibliography": {
+   "style_reduced": "33726ffdc01067fc6c78434ec9d27f8fb222a1e361841665e63b23266dbf07cc"
+  },
+  "nameattr_EtAlUseFirstOnBibliographyInBibliography": {
+   "style_reduced": "fc8c69d996fef8a2c48c5625420c7268287f58b2d3c273f654ccea65a23dbbc6"
+  },
+  "nameattr_EtAlUseFirstOnBibliographyInCitation": {
+   "style_reduced": "75ef1c496bd62b3fe9c22f568366e3c94150cc355b2f4fabd55a864d17f2e864"
+  },
+  "nameattr_EtAlUseFirstOnCitationInBibliography": {
+   "style_reduced": "90c99fb45d94c6df5604008a46ccbc915854ea6ce18741866f438e3c2547000f"
+  },
+  "nameattr_EtAlUseFirstOnCitationInCitation": {
+   "style_reduced": "90c99fb45d94c6df5604008a46ccbc915854ea6ce18741866f438e3c2547000f"
+  },
+  "nameattr_EtAlUseFirstOnNamesInBibliography": {
+   "style_reduced": "f9c9cf0ad905739f31840166dcd3e11baa3e7de8d14278e9ecabdee5762cb4fa"
+  },
+  "nameattr_EtAlUseFirstOnNamesInCitation": {
+   "style_reduced": "6daeb8d8d3d3feb86c92978b2fed88a1570ca0bd5e025c68913dfad34f5f704b"
+  },
+  "nameattr_EtAlUseFirstOnStyleInBibliography": {
+   "style_reduced": "c45eb7603fd85b7e3e86b88a86c4727c3dafd496a84be4f931e3b0bc0189f2c9"
+  },
+  "nameattr_EtAlUseFirstOnStyleInCitation": {
+   "style_reduced": "6daeb8d8d3d3feb86c92978b2fed88a1570ca0bd5e025c68913dfad34f5f704b"
+  },
+  "nameattr_InitializeWithOnBibliographyInBibliography": {
+   "style_reduced": "d06bfdbe46b90a1e19045e871581d8e484a9d02b7dafa4b7f16a013ed3742a39"
+  },
+  "nameattr_InitializeWithOnBibliographyInCitation": {
+   "style_reduced": "86bd4031901853de19347814aba340ee6704af54079fab5b2bb59a876a0ff5d1"
+  },
+  "nameattr_InitializeWithOnCitationInBibliography": {
+   "style_reduced": "a7520016ee341629ee3a8fb5869529beb578670e4595c412a31cdcee36ad3164"
+  },
+  "nameattr_InitializeWithOnCitationInCitation": {
+   "style_reduced": "ed719f7846886e4f2f651adc639d29c63b998f21f9ad798232afd2d2c6b2e79c"
+  },
+  "nameattr_InitializeWithOnNamesInBibliography": {
+   "style_reduced": "614046ffa26c07797a659ffc3b378baa93f029cec4fb7e89516011bfa722de76"
+  },
+  "nameattr_InitializeWithOnNamesInCitation": {
+   "style_reduced": "fa0af136a0ef82c942ebf6239ed7844c8c50efe61f29df6f9add183696abb97a"
+  },
+  "nameattr_InitializeWithOnStyleInBibliography": {
+   "style_reduced": "f56e74b6cf6b5558e2953b0c660269b1540f72b3d5d898b3e51cc599e8b18300"
+  },
+  "nameattr_InitializeWithOnStyleInCitation": {
+   "style_reduced": "716f757d5fd0fd5b16693acc9ae48a84edeccbde29761085232f7d021f246e26"
+  },
+  "nameattr_NameAsSortOrderOnBibliographyInBibliography": {
+   "style_reduced": "502a2787cdf4eed23da9d4c4f5cd773604bb593605fdb1447b60da0dccbdafa0"
+  },
+  "nameattr_NameAsSortOrderOnBibliographyInCitation": {
+   "style_reduced": "82396add41f66163acde780da8567c2093452ed8680ae794994e587003742542"
+  },
+  "nameattr_NameAsSortOrderOnCitationInBibliography": {
+   "style_reduced": "081a80d381906f648b3b86d41d4fe83cd4604f81bb7407db52911185e4d06982"
+  },
+  "nameattr_NameAsSortOrderOnCitationInCitation": {
+   "style_reduced": "c9b77f60740fea34c26e13c6e2f1de7951e808dba8af1f2f40e7b560e34d6ab5"
+  },
+  "nameattr_NameAsSortOrderOnNamesInBibliography": {
+   "style_reduced": "85b4c8bf16aed0951205e3f7269d2e1d3140a748153fe79194259b6e6a87b21a"
+  },
+  "nameattr_NameAsSortOrderOnNamesInCitation": {
+   "style_reduced": "4abf6d56674cc0629977d3a27430558e3a247e29a4253c7930d8d0d00bfbec18"
+  },
+  "nameattr_NameAsSortOrderOnStyleInBibliography": {
+   "style_reduced": "5322b52c5211c7e488cfe4283a740adcc02e017f53663ad119fabb0eca21da2f"
+  },
+  "nameattr_NameAsSortOrderOnStyleInCitation": {
+   "style_reduced": "4abf6d56674cc0629977d3a27430558e3a247e29a4253c7930d8d0d00bfbec18"
+  },
+  "nameattr_NameDelimiterOnBibliographyInBibliography": {
+   "style_reduced": "24d97a582de56dd19c57a5f0876b0105bb3115ec1d69ed37f1a930d409b00e9b"
+  },
+  "nameattr_NameDelimiterOnBibliographyInCitation": {
+   "style_reduced": "f2ff7f7aa1c01e1d4658c075a115153110353dd291fb0a8efd72d86018b5c029"
+  },
+  "nameattr_NameDelimiterOnCitationInBibliography": {
+   "style_reduced": "3747e6bd44deefda4c6a4c37f7fe7782c00db37f1e7142d444f8e6d896bb3695"
+  },
+  "nameattr_NameDelimiterOnCitationInCitation": {
+   "style_reduced": "dfd4c3183027eb18ffac30b361639d8ce7170eb34626fdeeff98ed5343521242"
+  },
+  "nameattr_NameDelimiterOnNamesInBibliography": {
+   "style_reduced": "f510c39586d0f466addb0a5e56b560baaeb8be44f123ab873cc6700dd504279c"
+  },
+  "nameattr_NameDelimiterOnNamesInCitation": {
+   "style_reduced": "09f8549f281295f24b1d8e28ac983c19ddb29a0fc57c047940311e9331897518"
+  },
+  "nameattr_NameDelimiterOnStyleInBibliography": {
+   "style_reduced": "9a1ca8ecd0d58d16d15a96de6c43a33b8c882d5586ab6dbf5128b7a68e9e7bfb"
+  },
+  "nameattr_NameDelimiterOnStyleInCitation": {
+   "style_reduced": "eca1ef01f063e52ca583acae073d68d44352ad71418c0b9d7a958ea5fdecd6db"
+  },
+  "nameattr_NameFormOnBibliographyInBibliography": {
+   "style_reduced": "ebeb9d1bd0a290e1b24ec7acf61194d97c12f33bccb3345b42b2d1226028a5b5"
+  },
+  "nameattr_NameFormOnBibliographyInCitation": {
+   "style_reduced": "e34f837c07dcd67a768a1b5ad601d3a87c6519a70ebd2a108785b8dc9aa4be69"
+  },
+  "nameattr_NameFormOnCitationInBibliography": {
+   "style_reduced": "aba41cf4aa1e8b1a6abe10f9456e6088aaa50760d2b7c99927535adcfa2df2fb"
+  },
+  "nameattr_NameFormOnCitationInCitation": {
+   "style_reduced": "aba41cf4aa1e8b1a6abe10f9456e6088aaa50760d2b7c99927535adcfa2df2fb"
+  },
+  "nameattr_NameFormOnNamesInBibliography": {
+   "style_reduced": "87afc861395076f80627872f134e36ff2e5fda819b933c7486aa78e3099ef27c"
+  },
+  "nameattr_NameFormOnNamesInCitation": {
+   "style_reduced": "36a01c0a598d7c8ecb8682ddbf554b706d7ad19cd3ee5fc8a8d665377ea3eb82"
+  },
+  "nameattr_NameFormOnStyleInBibliography": {
+   "style_reduced": "d3587ef1c88e764dc51d3247b11cbec10c0035a06dc56ad1451cb1f1b725eacb"
+  },
+  "nameattr_NameFormOnStyleInCitation": {
+   "style_reduced": "042a2461620e4ad0a9a67f5052e58852361683e7dbe9c1a2d092a533a329e5c0"
+  },
+  "nameattr_NamesDelimiterOnBibliographyInBibliography": {
+   "style_reduced": "08eb206e35a1bdca4a6822ed9ceab8f2784199316ff484d3500c44aa3164882d"
+  },
+  "nameattr_NamesDelimiterOnBibliographyInCitation": {
+   "style_reduced": "5075dfae2e3634b8a17abbaa0f5f6f52ab1c699136abe8487dd5fcb344a54541"
+  },
+  "nameattr_NamesDelimiterOnCitationInBibliography": {
+   "style_reduced": "22cfaf8a83f24f772a57b5cacd3100236d4f9d27d45603836f7a552f9bc1a2a3"
+  },
+  "nameattr_NamesDelimiterOnCitationInCitation": {
+   "style_reduced": "0d9e14d5d647fcc85013bd7012cbb22dd66ea54aac0bca53820fc6327ad6ee65"
+  },
+  "nameattr_NamesDelimiterOnNamesInBibliography": {
+   "style_reduced": "c881058cd244823bc03ced48739257eefaab99a2177a5c980af489e1f6c8d000"
+  },
+  "nameattr_NamesDelimiterOnNamesInCitation": {
+   "style_reduced": "ee7a3ebd3ce83ee3f1161b804408b97832cdaaf63f36a516929822fe0cf47f14"
+  },
+  "nameattr_NamesDelimiterOnStyleInBibliography": {
+   "style_reduced": "08eb206e35a1bdca4a6822ed9ceab8f2784199316ff484d3500c44aa3164882d"
+  },
+  "nameattr_NamesDelimiterOnStyleInCitation": {
+   "style_reduced": "3cae9f8e75a9d67c5b8f78ccd97b92350214c93281062b827cc3372e48675f83"
+  },
+  "nameattr_SortSeparatorOnBibliographyInBibliography": {
+   "style_reduced": "d3496ff5aadb05db6ddcf48ba183c4605e5703dbcc0c24320e805db0db0f9457"
+  },
+  "nameattr_SortSeparatorOnBibliographyInCitation": {
+   "style_reduced": "9605811a30cad9f7b75b2c692a0666d818802ebe096a871660af3ffa3e77726d"
+  },
+  "nameattr_SortSeparatorOnCitationInBibliography": {
+   "style_reduced": "ef6fec85755e1df85614489aefe83050171b5d4461ada8ac88e311a9dfe25e69"
+  },
+  "nameattr_SortSeparatorOnCitationInCitation": {
+   "style_reduced": "6ec8e0bf1b0e76a5e57f43333791abcdb6a98e3ef9a9ea3f9ebbcd1d498bb3c3"
+  },
+  "nameattr_SortSeparatorOnNamesInBibliography": {
+   "style_reduced": "88c239b6886a983e834448d73a9c2f5e05f15b44df5a0ebabd938ea745ffdfee"
+  },
+  "nameattr_SortSeparatorOnNamesInCitation": {
+   "style_reduced": "64b8be96455d8f7c7dfb9b4818cd1120837f3761bd8f70e5a61890d5f220454d"
+  },
+  "nameattr_SortSeparatorOnStyleInBibliography": {
+   "style_reduced": "d3496ff5aadb05db6ddcf48ba183c4605e5703dbcc0c24320e805db0db0f9457"
+  },
+  "nameattr_SortSeparatorOnStyleInCitation": {
+   "style_reduced": "6ec8e0bf1b0e76a5e57f43333791abcdb6a98e3ef9a9ea3f9ebbcd1d498bb3c3"
+  },
+  "nameorder_Long": {
+   "style_reduced": "40cdaec776a0a1e06f860922d050c3fb2c7fe1d7b4bf6dd333db0481d4d03af5"
+  },
+  "nameorder_LongNameAsSortDemoteDisplayAndSort": {
+   "style_reduced": "6ec8e0bf1b0e76a5e57f43333791abcdb6a98e3ef9a9ea3f9ebbcd1d498bb3c3"
+  },
+  "nameorder_LongNameAsSortDemoteNever": {
+   "style_reduced": "f59688e0ae2b833c44388dcf742d03d45eece2be3b1c5019293dcfc39aa63a19"
+  },
+  "nameorder_Short": {
+   "style_reduced": "36a01c0a598d7c8ecb8682ddbf554b706d7ad19cd3ee5fc8a8d665377ea3eb82"
+  },
+  "nameorder_ShortDemoteDisplayAndSort": {
+   "style_reduced": "36a01c0a598d7c8ecb8682ddbf554b706d7ad19cd3ee5fc8a8d665377ea3eb82"
+  },
+  "nameorder_ShortNameAsSortDemoteNever": {
+   "style_reduced": "2d4a21c9e068970c4f70d93cce40a6420c7d3ff9a5b1a650296d9a3cd5f06822"
+  },
+  "namespaces_NonNada3": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "number_FailingDelimiters": {
+   "style_reduced": "ee92fe52e15479c4e6030490930f72fe8377c1703d2e390c9b3fac6d7f92bd67"
+  },
+  "number_IsNumericWithAlpha": {
+   "style_reduced": "6fd9fddefbcb2d094b89c48634754348a570ece590563ba9245ec07827e9bd99"
+  },
+  "number_LeadingZeros": {
+   "style_reduced": "a685328aea00d148805e0135df9fe0db2551d9abaf2596ec035278494b45e55f"
+  },
+  "number_LimitOrdinalsToDayOne": {
+   "style_reduced": "e430af24370c0f686e692f53f87b547825c0ae0ab5178553fde185c1f8e82d16"
+  },
+  "number_MixedPageRange": {
+   "style_reduced": "2f9e03905d236d7e8830fc9bc877099ac729098478869f38b71730fd0dccba94"
+  },
+  "number_MixedText": {
+   "style_reduced": "d56f51fe5e2bd6bb1a47826424dcf277288419b8c5ff37b121d43fa83976f66a"
+  },
+  "number_NewOrdinalsEdition": {
+   "style_reduced": "53454fc4ec16cc7ddcba1c535f5a0f10f4c302caee1745ae6af71c5ce64492e9"
+  },
+  "number_NewOrdinalsWithGenderChange": {
+   "style_reduced": "27accd32a0d6d1991464344c50360c75c3159148cf031e38a1068cfdd5292a93"
+  },
+  "number_OrdinalSpacing": {
+   "style_reduced": "20a2a8edaed13aa0f722b35c523770ff30e0da59f82de7683158ec6526b9567d"
+  },
+  "number_PageFirst": {
+   "style_reduced": "9b2e26341bf60ceb27a2685e37ff7b5290667af076d040d8d9825d04f1dd555e"
+  },
+  "number_PageRange": {
+   "style_reduced": "4194c2a9f44f4d45d931d25c066d88bafc16c2b39098e3f60a93a1d40ba95cb4"
+  },
+  "number_PlainHyphenOrEnDashAlwaysPlural": {
+   "style_reduced": "e08ae8d5eb4085fb48430fc8a8ed36ae2754942e9dfc84af3de664eba152c276"
+  },
+  "number_PreserveDelimiter": {
+   "style_reduced": "67ba67b0adcba860eab684484fb2867586ee019c7b6fdf919b4e15316c7dc72d"
+  },
+  "number_SeparateOrdinalNamespaces": {
+   "style_reduced": "ebb732d927ae3bffbf99c4145cd00a81bbeffd79105ac94cd1a28c62f9f37b78"
+  },
+  "number_SimpleNumberArabic": {
+   "style_reduced": "673496ac76641f18133db92ea4d004d8ab5b903270b7f2d9fd38565299c78417"
+  },
+  "number_SimpleNumberOrdinalLong": {
+   "style_reduced": "f4aa805bf2c0367e9deeb1d630fe50b515cecc9604eb5bd188de91f53ca4afa7"
+  },
+  "number_SimpleNumberOrdinalShort": {
+   "style_reduced": "9ba50d532f676dcb0313fe4717d8b6ce5d805a214115b53223f67c62152fc50c"
+  },
+  "number_SimpleNumberRoman": {
+   "style_reduced": "91917a5b0074dbd5ee80aea16a58d95bf89d058ac2d6f67ab2a0faf5049c2608"
+  },
+  "number_SpacesMakeIsNumericFalse": {
+   "style_reduced": "15b06c4bf6658ba079b15ecb872e65a1424afe311a9357226c39914297a7c1c4"
+  },
+  "number_StrangeError": {
+   "style_reduced": "be4add0cc86965380a8f6244e31af138fd9c3ff707ff734ed15ec5a965be7856"
+  },
+  "page_Chicago": {
+   "style_reduced": "83bc598eb8d1d20ff804a05c77d4fb171efd13b026b793ef3bcb8729851beb58"
+  },
+  "page_Chicago16": {
+   "style_reduced": "211bf3a979a7220a40fc00e56744b9ea39b0334e1b3ea1138acba043892b2467"
+  },
+  "page_ChicagoWeird": {
+   "style_reduced": "83bc598eb8d1d20ff804a05c77d4fb171efd13b026b793ef3bcb8729851beb58"
+  },
+  "page_Expand": {
+   "style_reduced": "dda02345f217d7ead50f8570def75a0ccb0fcae8a060b90e779fbc85a78217fc"
+  },
+  "page_ExpandWeirdComposite": {
+   "style_reduced": "dda02345f217d7ead50f8570def75a0ccb0fcae8a060b90e779fbc85a78217fc"
+  },
+  "page_Minimal": {
+   "style_reduced": "8394a321f2d7662441b32d79aa3ed7385bdf3ba1ef2bb2e77fc13b16ad7909ec"
+  },
+  "page_NoOption": {
+   "style_reduced": "f57676f044412d75d41d58b334fb13969217dd1ad8e8ebda6be50571ec379110"
+  },
+  "page_NumberPageFirst": {
+   "style_reduced": "2872c696f28564de4bc7afaf2c3f49132eeb4ccf7d843822194a0433eff4750b"
+  },
+  "page_PluralDetectWithEndash": {
+   "style_reduced": "2872c696f28564de4bc7afaf2c3f49132eeb4ccf7d843822194a0433eff4750b"
+  },
+  "page_WithLocaleAndWeirdDelimiter": {
+   "style_reduced": "edb5014ecfa72fa93f656c8447198dcbb36de1c06b59b2e2d476d681a80154e0"
+  },
+  "plural_LabelForced": {
+   "style_reduced": "008ecf6e3828a87e99ad26f15b4d319fe93b7d5c4336faed3383955bec2e39ff"
+  },
+  "plural_NameLabelAlways": {
+   "style_reduced": "d5feb26dd918da85499886f584a656d0bf600a4902f3b90091c27eaa98f8ed01"
+  },
+  "plural_NameLabelContextualPlural": {
+   "style_reduced": "982d1adf59ef2cdd1b6bf63ed6bab0d25be51d7eff960b267d4a48b6d91627b2"
+  },
+  "plural_NameLabelContextualSingular": {
+   "style_reduced": "7d8e6e6ac44d2f63db42529802c3a2c8fdcce8a104f9a1931551c4d6f211bfa5"
+  },
+  "plural_NameLabelDefaultPlural": {
+   "style_reduced": "7d34e547513e9cc950c632e91ad772701df32700318ca43e32316dff7f5ae691"
+  },
+  "plural_NameLabelDefaultSingular": {
+   "style_reduced": "d6391e9205f8c88e5b94568407819bfec008e224c5ac6aa213c690356ff9bf65"
+  },
+  "plural_NameLabelNever": {
+   "style_reduced": "49ac8009d360d5b7eca691c4b3b2ed0402359221f6206000ea71db320954c7e0"
+  },
+  "position_FalseInBibliography": {
+   "style_reduced": "72756871d690eb1f3dfc0538f4901a923971d4e3d3289d4e868ce82519a0aaa1"
+  },
+  "position_FirstTrueOnlyOnce": {
+   "style_reduced": "08afca10f4aa96cd8b8797b1f77b6fdd992c03c5a596f457c034118617f7983e"
+  },
+  "position_IbidInText": {
+   "style_reduced": "0d35b44e743827ab4611ef888cc60a4f5a70f82c0b3299224f5c6b2594d8d0e5"
+  },
+  "position_IbidSeparateCiteSameNote": {
+   "style_reduced": "a4cb5b5056bbc4330ce15e46418b4a1ea52bd9495903922610a915a6240b0c8f"
+  },
+  "position_IbidWithLocator": {
+   "style_reduced": "4d66b794767d4e523ff2b0fda472cf6a4bbaab3be2270cb1e0026ade0b5a980e"
+  },
+  "position_IbidWithMultipleSoloCitesInBackref": {
+   "style_reduced": "59fee8694436af9cc8d9decad9a5038486b6f8b14660c37f7683f088058403bc"
+  },
+  "position_IbidWithPrefixFullStop": {
+   "style_reduced": "f6739cf49585f9e5ad4215c6446581f6f6e88033ab52f712035c4bce8cd469e2"
+  },
+  "position_IbidWithSuffix": {
+   "style_reduced": "b5cc58c7c6863a72bc7993d92b2756a57fdc5f0fd25c16f2f06ad77332a70ea3"
+  },
+  "position_IfIbidIsTrueThenSubsequentIsTrue": {
+   "style_reduced": "70d78da55770d2ae3ebb2d0ff9bc29487b7f893136d57fc671ad751faab67e28"
+  },
+  "position_IfIbidWithLocatorIsTrueThenIbidIsTrue": {
+   "style_reduced": "d4172aa1ab9c4d8b94f8b417c95a4e84f038803d724bcfe6c78df3357caf6667"
+  },
+  "position_NearNoteFalse": {
+   "style_reduced": "90895b0af6f66ba30cfb19389db15c8ad275cd8728fe0f47b6cbebec812414e7"
+  },
+  "position_NearNoteSameNote": {
+   "style_reduced": "23f9bc08ae7f0d8f248b05e3d13c3afe67b6c7b3310e10b696577cb93a24da87"
+  },
+  "position_NearNoteUnsupported": {
+   "style_reduced": "983f773015c24dbfffaf5afaaa622a7855f1d331e2bad5da7dbbea18b87a1e7d"
+  },
+  "position_NearNoteWithPlugin": {
+   "style_reduced": "3c5097da7df8badb49d401e8662a38181b4423454dd84569d671d0ef792e8435"
+  },
+  "position_ResetNoteNumbers": {
+   "style_reduced": "08a44c87da816111397e417f9e5a237c0561ca12129c0394b1f105e2e54cc261"
+  },
+  "position_TrueInCitation": {
+   "style_reduced": "f715826d02fef0b47d138553d2be6214e8afbdc897bbc66baec53f27844c6d26"
+  },
+  "punctuation_DateStripPeriods": {
+   "style_reduced": "913b74e82632ed0fb1030856a42c023fada9cf900dec16942f906a2c11aeec90"
+  },
+  "punctuation_DefaultYearSuffixDelimiter": {
+   "style_reduced": "941b0f78fc1edd5583deaff2cad61d13b804f39bac412ee5f42b8bd9753965ee"
+  },
+  "punctuation_DelimiterWithStripPeriodsAndSubstitute1": {
+   "style_reduced": "e69ac14a8c6f31f8c1ca08eec83a788353f3c7877be5b0364002f879c2e5e3b2"
+  },
+  "punctuation_DelimiterWithStripPeriodsAndSubstitute2": {
+   "style_reduced": "5b07e405341b8c74469188b202c0c20473aa4bc40526e9b0482d91b5bcc85c44"
+  },
+  "punctuation_DelimiterWithStripPeriodsAndSubstitute3": {
+   "style_reduced": "5b07e405341b8c74469188b202c0c20473aa4bc40526e9b0482d91b5bcc85c44"
+  },
+  "punctuation_DoNotSuppressColonAfterPeriod": {
+   "style_reduced": "2a3f82b13063d63197ebf0e25d7bb86b063c9f0246380f4655928abe08dd70f4"
+  },
+  "punctuation_FieldDuplicates": {
+   "style_reduced": "5156a5cfbc176b0def4bcc6e6b3ab3b54fda74163b36e78df2706e63508ad5ee"
+  },
+  "punctuation_FrenchOrthography": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "punctuation_FullMontyField": {
+   "style_reduced": "ff22946f2b1ee19c09bfe13a3360a940fc3abecacb3f8210627c688aed86bbcd"
+  },
+  "punctuation_FullMontyPlain": {
+   "style_reduced": "4209d8b9cdc006898314343134c580b6950ea20cc76462d25a9a8d0b280a5bc7"
+  },
+  "punctuation_FullMontyQuotesIn": {
+   "style_reduced": "51faf8cf9bf9b1a431af19922d0c0856c6e702fd3316eb3840b79181f4a4a288"
+  },
+  "punctuation_FullMontyQuotesOut": {
+   "style_reduced": "51faf8cf9bf9b1a431af19922d0c0856c6e702fd3316eb3840b79181f4a4a288"
+  },
+  "punctuation_NoSuppressOfPeriodBeforeSemicolon": {
+   "style_reduced": "fd315dad89e751bd8b855a9ed76277b1b4826a02f4af7e081dafe0ece049d97d"
+  },
+  "punctuation_OnMacro": {
+   "style_reduced": "b10f1aca632f633956ebfa40d8603d345a9c633c7751b224e211b4fbafd490b9"
+  },
+  "punctuation_SemicolonDelimiter": {
+   "style_reduced": "50b23190aae58b10a99f818d094fbaf5aec63872b5aa6fbe83365029281cbc64"
+  },
+  "punctuation_SuppressPrefixPeriodForDelimiterSemicolon": {
+   "style_reduced": "f0aa6a3f97eeaad9c6bb8a8801b27b8cb21ad695ece117bdf9a451ce97f28e03"
+  },
+  "quotes_Punctuation": {
+   "style_reduced": "d4e424117135b71cc7f207d316fccb472ddb0650a1855acefd2877ed59fc33c4"
+  },
+  "quotes_PunctuationNasty": {
+   "style_reduced": "6d87464faf85cc2a6a14209948f1b22fdcd5226d68b7075a999b1e1ab4800bcc"
+  },
+  "quotes_PunctuationWithInnerQuote": {
+   "style_reduced": "a620e37b87d7b93b7ea161fdeb7e9521ee6aea8cda8f919d40dfeb77673d6433"
+  },
+  "quotes_QuotesUnderQuotesFalse": {
+   "style_reduced": "bc83d5a078af6c47c9a3642df3475af33f5a75632599842e96f022bff68bc067"
+  },
+  "simplespace_case1": {
+   "style_reduced": "b9ab730d26c80b74c28c0cf40ac17366f2d66f8af554233ef4d1ec1be62bfd0c"
+  },
+  "sort_AguStyle": {
+   "style_reduced": "89a439dfc85c1f8d5e51dc672c3b370251b5844cb546ea1eb4bfad6b44fa53e3"
+  },
+  "sort_AguStyleReverseGroups": {
+   "style_reduced": "cb1fd9213d6bbf5a49a7a4e9652dcf1ceb9a1fce221234d8283ee9da69b4b5fc"
+  },
+  "sort_AuthorDateWithYearSuffix": {
+   "style_reduced": "156c669a9d2bf3016704681f017712b2ac068a77e9597722b2f333062391a9ef"
+  },
+  "sort_BibliographyResortOnUpdate": {
+   "style_reduced": "d500d995407cd314aa7f925214e7945b86e8f5d3ecee197c20d7d8a132435732"
+  },
+  "sort_CaseInsensitiveBibliography": {
+   "style_reduced": "2b16a81a0b82965fc20edf9f8add5867f83f2a8538b991d96220a79552fdf5bb"
+  },
+  "sort_CaseInsensitiveCitation": {
+   "style_reduced": "9e930cb15967d67e1f37fb644c665a8f63628a5e90b32d01bdf0e07264252aac"
+  },
+  "sort_ChangeInNameSort": {
+   "style_reduced": "eca04d784ff08f3a6f827e20f443c293ad05e6a6bec16bd87c7f1b25677d6326"
+  },
+  "sort_ChicagoYearSuffix1": {
+   "style_reduced": "6a2b63910216db2f5dba66005d32221f95aed0f6ced871b7920339310a7b7945"
+  },
+  "sort_ChicagoYearSuffix2": {
+   "style_reduced": "6a2b63910216db2f5dba66005d32221f95aed0f6ced871b7920339310a7b7945"
+  },
+  "sort_Citation": {
+   "style_reduced": "760c849652157d640df36840be0d2ad2cafee1c53b1aed3c1d6f099348c72392"
+  },
+  "sort_CitationNumberPrimaryAscendingViaMacroBibliography": {
+   "style_reduced": "0228b3b861ffd29c22ab3040d19336241b9050f33d69f914ec448967a0514c34"
+  },
+  "sort_CitationNumberPrimaryAscendingViaMacroCitation": {
+   "style_reduced": "ef99f59006748ff1dc4af5060cdf0317d07476a86bad30cfc43b3333fd3270db"
+  },
+  "sort_CitationNumberPrimaryAscendingViaVariableBibliography": {
+   "style_reduced": "83b31b931b2cbc5b378e359dbe4e1c313eae76cde40ce3a9f9f822d11e25f55f"
+  },
+  "sort_CitationNumberPrimaryAscendingViaVariableCitation": {
+   "style_reduced": "7faadfe72fe14d29df27e6a9e1a3c5e38d4c32ae31e5eb0e8790ed1076b787c9"
+  },
+  "sort_CitationSecondaryKey": {
+   "style_reduced": "5da40a07aa02e201d0cff25681b6a0f54944cf16083a9fe980ae435f8aac7a94"
+  },
+  "sort_CiteGroupDelimiter": {
+   "style_reduced": "525a98466ab2abcad6f0b74b38080a6d28cfbde9fa84252025429f52ec4d8851"
+  },
+  "sort_ConditionalMacroDates": {
+   "style_reduced": "1fa1e02ca81258224a4e50fde482b37c4547881f22c6d3b09773bf496b3ae632"
+  },
+  "sort_DaleDalebout": {
+   "style_reduced": "38fa347432e10aac22f8654f5c81830b5ad50bd83d51c60bd51cd971c18ebce9"
+  },
+  "sort_DateMacroSortWithSecondFieldAlign": {
+   "style_reduced": "7db183acb1fbb36bb2102ba43b2a78f1e3f5a96f293e9f28845b78998aef132b"
+  },
+  "sort_DateVariable": {
+   "style_reduced": "a595eeb0ed70fb68add6c7ace846416235829dbb364acc79b45351e58b49612e"
+  },
+  "sort_DateVariableMixedElementsAscendingA": {
+   "style_reduced": "a595eeb0ed70fb68add6c7ace846416235829dbb364acc79b45351e58b49612e"
+  },
+  "sort_DateVariableMixedElementsAscendingB": {
+   "style_reduced": "a595eeb0ed70fb68add6c7ace846416235829dbb364acc79b45351e58b49612e"
+  },
+  "sort_DateVariableMixedElementsDescendingA": {
+   "style_reduced": "3e690ed17e01089cc875ec5befd4f91b61cc3abde361d0d8ef84273121340107"
+  },
+  "sort_DateVariableMixedElementsDescendingB": {
+   "style_reduced": "3e690ed17e01089cc875ec5befd4f91b61cc3abde361d0d8ef84273121340107"
+  },
+  "sort_DateVariableRange": {
+   "style_reduced": "a595eeb0ed70fb68add6c7ace846416235829dbb364acc79b45351e58b49612e"
+  },
+  "sort_DateVariableRangeMixed": {
+   "style_reduced": "a595eeb0ed70fb68add6c7ace846416235829dbb364acc79b45351e58b49612e"
+  },
+  "sort_DropNameLabelInSort": {
+   "style_reduced": "4ff3d490ecb578ae4647db6f322713e6c5dfcbebb513ca954d369c3a7fd3c551"
+  },
+  "sort_EtAlUseLast": {
+   "style_reduced": "bac7f66cdda95a36ae888f639b11a2624e09662126ad6e061358f225cac7806c"
+  },
+  "sort_FamilyOnly": {
+   "style_reduced": "61ce94607220034f797171488ca66e95808d295913886a2d8ad96abf6c3f4d54"
+  },
+  "sort_GroupedByAuthorstring": {
+   "style_reduced": "47cefe90eb1a44c9db54fc7aa8757a6b2da79ab349a8b76549b47697348e6dc7"
+  },
+  "sort_LatinUnicode": {
+   "style_reduced": "b45e60d39f60b8094048b69e59e47be22433478f45fcf13990175a247ff8902e"
+  },
+  "sort_LeadingA": {
+   "style_reduced": "8c2812e6878cc89055a2b4afab9fc1e894779b2a64c2335c35973dc0bb14764b"
+  },
+  "sort_LeadingApostropheOnNameParticle": {
+   "style_reduced": "ad0d1cd86fd6022dd2b2ab1c9de5d3c2d2058f608df57f1e86d00a8b9481ffe9"
+  },
+  "sort_LocalizedDateLimitedParts": {
+   "style_reduced": "b680655a6d5a6f80eb68fc442574cfd3df9f5b5332d346a953a2ce19f103d910"
+  },
+  "sort_NameImplicitSortOrderAndForm": {
+   "style_reduced": "8e5e2f95b197d40e12bef14a29399919c382a949c8fb8d02f3259c015e10d2a9"
+  },
+  "sort_NameParticleInNameSortFalse": {
+   "style_reduced": "a720b88b3a9ce1e203b86ca559b6a5b65a658603c28f40eb92cb5b707c837967"
+  },
+  "sort_NameParticleInNameSortTrue": {
+   "style_reduced": "c89072059ceab18b07153aefb4de2371a4a4a1ac7a357f43afef3590f4270fb3"
+  },
+  "sort_NameVariable": {
+   "style_reduced": "6d86403548e991a16709892d97c01b5a643682c43ad415b2a9311243155189ff"
+  },
+  "sort_NamesUseLast": {
+   "style_reduced": "7a61eb1a1dc5b1a545cb1b644b71c8245dd56acd103e117fa06aab4eb6374150"
+  },
+  "sort_NumberOfAuthorsAsKey": {
+   "style_reduced": "4d07c2816564f2d157009db89cad8ed28a4e028074dcde74ef4fd30600de51a9"
+  },
+  "sort_OmittedBibRefMixedNumericStyle": {
+   "style_reduced": "057d6ec2cbc2ee47f8081d48a5915f422f471bc55cdb5bf800e459eb4df14b22"
+  },
+  "sort_OmittedBibRefNonNumericStyle": {
+   "style_reduced": "26219babc730755a1be86f34f9995643a81e21179be5952122e6e77187fc9c38"
+  },
+  "sort_Quotes": {
+   "style_reduced": "8cad70c6d29462a3797e306afb7f2d7c664d5551acdff4fcb9718cdfa77f9c0b"
+  },
+  "sort_RangeUnaffected": {
+   "style_reduced": "0efe1554eeb7bd06bcafe083b156f00876bb87088f4a15069639c1a2aece703c"
+  },
+  "sort_SeparateAuthorsAndOthers": {
+   "style_reduced": "d129f5b287a2965b81fce2c1b139a2bf5f8fd252a3c0ed1b5cfb0e3ddfb151d8"
+  },
+  "sort_StatusFieldAscending": {
+   "style_reduced": "abb4d59fd20684c1d740d7bda0eb25ecb565c6104d78eaa0114ee3f946cc417b"
+  },
+  "sort_StatusFieldDescending": {
+   "style_reduced": "a4b2a49e03b4a427c3908c9b125e0b489015c60eaff7bfec2a12d5a87372467f"
+  },
+  "sort_StripMarkup": {
+   "style_reduced": "63c082d6d486babc213fb4c641429d9e8865d074f2c4967994fb8a8d06b4d983"
+  },
+  "sort_SubstituteTitle": {
+   "style_reduced": "7d69d741b79fc1451bfdf87fd3f4866928d2bb92913891f66337864c7bb37c5c"
+  },
+  "sort_TestInheritance": {
+   "style_reduced": "42d0b0100f4e3fcb0c07d8b1038ac888a0c8cbbaff754445d3363a938eed7353"
+  },
+  "sort_VariousNameMacros1": {
+   "style_reduced": "c8a30dcbfb4a3ecc3462bb6747d9dc23c1b995a12504b50e1baab09df99665c4"
+  },
+  "sort_VariousNameMacros2": {
+   "style_reduced": "f29f560ec653bbc49717dcc4d7a0ac8f21a43c2e2cb5295f52455200ceec19bd"
+  },
+  "sort_VariousNameMacros3": {
+   "style_reduced": "5b44b5f6bae2f31497b80fc731eec43e045c4931b0c78dadf4b942f908a7b06a"
+  },
+  "sort_WithAndInOneEntry": {
+   "style_reduced": "2ae4178e6975482e179175d2020589cb51f7fe21282656e4251eaa91d7c852af"
+  },
+  "sortseparator_SortSeparatorEmpty": {
+   "style_reduced": "016eb98d88d185ba8fb8b2d350cbc79dcf674541915d3983b3cab57ee0cb9891"
+  },
+  "substitute_RepeatedNamesOk": {
+   "style_reduced": "e9d96170661a446c453eb267d631653fc9efa5572671ea47f5f260d914951f63"
+  },
+  "substitute_SharedMacro": {
+   "style_reduced": "d7f7f3a9b30caceec4011200294e263e27b23ab6ab7b04658c5a29e2cf09344c"
+  },
+  "substitute_SubstituteOnlyOnceString": {
+   "style_reduced": "3c7bb7655159dc5473028bf879a280e83090854cad08964d1c8e1c77635c4a64"
+  },
+  "substitute_SubstituteOnlyOnceTerm": {
+   "style_reduced": "aead9a17d00e2d41009c3ca8ef8d9b4c5058b13b8fcf6c076e5239c96e1b210d"
+  },
+  "substitute_SubstituteOnlyOnceTermEmpty": {
+   "style_reduced": "60daf03003fe398888c82564fb3c7ecfd655c799fb41225f5f0b66d9bce42661"
+  },
+  "substitute_SubstituteOnlyOnceVariable": {
+   "style_reduced": "1e19c06ce06a9d070853aec17fbf9b0b9337b1732ca3696d5dd2194547f62859"
+  },
+  "substitute_SuppressOrdinaryVariable": {
+   "style_reduced": "99cd72163e2967f83ec00582a12470d47c2b155ac7a5ebc7638c13b103292bbd"
+  },
+  "testers_FirstAutoGeneratedZoteroPluginTest": {
+   "style_reduced": "f0aa6a3f97eeaad9c6bb8a8801b27b8cb21ad695ece117bdf9a451ce97f28e03"
+  },
+  "testers_SecondAutoGeneratedZoteroPluginTest": {
+   "style_reduced": "f0aa6a3f97eeaad9c6bb8a8801b27b8cb21ad695ece117bdf9a451ce97f28e03"
+  },
+  "textcase_AfterQuote": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_CapitalizeAll": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_CapitalizeFirst": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_CapitalizeFirstWithDecor": {
+   "style_reduced": "21f0cbd6be559331244a5e709f6833e2294712744fdd930c45f5c6a0d99e1ece"
+  },
+  "textcase_CapitalsUntouched": {
+   "style_reduced": "cd525344e87d3d222112a768fe3f20a6dbf18eb5113a8f8aaccf11d2e89d5c3a"
+  },
+  "textcase_ImplicitNocase": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_InQuotes": {
+   "style_reduced": "a038ec16a6ec1b8fc4aa18b962108732c6882eae512c3022e786c4e950654af3"
+  },
+  "textcase_LastChar": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_LocaleUnicode": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_Lowercase": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_NoSpaceBeforeApostrophe": {
+   "style_reduced": "d0a9e0681ac046db0a9bea6225c83c94472ff164e63c087105674b6e0278d939"
+  },
+  "textcase_NonEnglishChars": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_RepeatedTitleBug": {
+   "style_reduced": "516e9e92fa740fc8f78a6b27f32031642a171bb4f288a08639603fdb9330e4fd"
+  },
+  "textcase_SentenceCapitalization": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_SkipNameParticlesInTitleCase": {
+   "style_reduced": "a038ec16a6ec1b8fc4aa18b962108732c6882eae512c3022e786c4e950654af3"
+  },
+  "textcase_StopWordBeforeHyphen": {
+   "style_reduced": "a0128075dd4e149c286ca9f07c27d0d9a588c01b75623ce4a65bfb71659ed642"
+  },
+  "textcase_TitleCapitalization": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_TitleCapitalization2": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_TitleCaseNonEnglish": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_TitleCaseNonEnglish2": {
+   "style_reduced": "8198f475c2e3e7aab802d964c7994c5571843ed888b08e7496cbd3dba3e32ea1"
+  },
+  "textcase_TitleCaseWithCleverBrandName": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_TitleCaseWithFinalNocase": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_TitleCaseWithHyphens": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_TitleCaseWithInitials": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_TitleCaseWithNonBreakSpace": {
+   "style_reduced": "d7442324e123c7afff22ffd2bf90df974a4c32c5be8e22764bcbaefc72c14624"
+  },
+  "textcase_TitleCaseWithVolumeTitle": {
+   "style_reduced": "f7a38c5bae4c9399e53e27582f7b0895bb7e0c524e50240cea77fa5de2c7d37d"
+  },
+  "textcase_TitleWithCircumflex": {
+   "style_reduced": "cb8690e815a79868515ae50e228d4829611af57907d3b4ea7f8ccd04d5cc0462"
+  },
+  "textcase_TitleWithEmDash": {
+   "style_reduced": "a038ec16a6ec1b8fc4aa18b962108732c6882eae512c3022e786c4e950654af3"
+  },
+  "textcase_TitleWithEnDash": {
+   "style_reduced": "a038ec16a6ec1b8fc4aa18b962108732c6882eae512c3022e786c4e950654af3"
+  },
+  "textcase_Uppercase": {
+   "style_reduced": "52bd0850e3301a8d1e2a95f3bd93f333fa05d9820e727315188c389c7681a6e1"
+  },
+  "textcase_UppercaseNumber": {
+   "style_reduced": "91917a5b0074dbd5ee80aea16a58d95bf89d058ac2d6f67ab2a0faf5049c2608"
+  },
+  "unicode_NonBreakingSpace": {
+   "style_reduced": "3cbb23a723700dbd05372ae40c204d39456a565b4c3f75576f732a3d01b0e58b"
+  },
+  "variables_ContainerTitleShort": {
+   "style_reduced": "5dfdfefcd991ec760b124cfdec1366572e33c52c167b5c8eb228ab66cefb7cfa"
+  },
+  "variables_ContainerTitleShort2": {
+   "style_reduced": "5dfdfefcd991ec760b124cfdec1366572e33c52c167b5c8eb228ab66cefb7cfa"
+  },
+  "variables_TitleShortOnShortTitleNoTitle": {
+   "style_reduced": "5b761e8fcb6a030d7c302588cb3b3db379aaa03133752912dd1519b996ef565c"
+  },
+  "variables_TitleShortOnShortTitleNoTitleCondition": {
+   "style_reduced": "cf8cb9f38d25400bd5e49ea98818b4695c0ccb14c799ddbbb681538db95eda79"
+  },
+  "variables_TitleShortOnShortTitleNoTitleGroup": {
+   "style_reduced": "1257bd820ca742c98fa4e17058178cf58c2d419e7848f6da2210b8da0d1291ad"
+  },
+  "virtual_PageFirst": {
+   "style_reduced": "8aa497d2defce6f74fc4b4fdff5b5e93d7ec298955e7206499d99516edbf78dc"
+  }
+ }
+}

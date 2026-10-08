@@ -21,8 +21,10 @@
 
 //! A Rust port of citeproc-js 2.4.63, Zotero's CSL engine (epic #790).
 //!
-//! **Status: a skeleton. Nothing is ported.** Every [`Engine`] method that
-//! would process a citation returns [`EngineError::NotYetPorted`]. This module
+//! **Status: the build stage is ported (#792).** [`Engine::new`] parses the style,
+//! merges its locales and builds the token lists, as `new CSL.Engine` does;
+//! every [`Engine`] method that would process a citation still returns
+//! [`EngineError::NotYetPorted`]. This module
 //! fixes the API the later stages (#792 to #797) fill in, and
 //! `tests/citeproc_test_suite.rs` is the harness they are verified against:
 //! it runs the CSL test suite's fixtures through this [`Engine`] the way
@@ -76,6 +78,8 @@ pub(crate) mod disambig_citations;
 pub(crate) mod disambig_cites;
 #[allow(dead_code)]
 pub(crate) mod disambig_names;
+#[doc(hidden)]
+pub mod dump;
 #[allow(dead_code)]
 pub(crate) mod exec;
 #[allow(dead_code)]
@@ -298,6 +302,12 @@ pub struct Sys {
     pub locales: Arc<BTreeMap<String, String>>,
     /// The abbreviation cache (`getAbbreviation`).
     pub abbreviations: Abbreviations,
+    /// The other properties the host put on its `sys` object: the test
+    /// runner copies the fixture's `OPTIONS` onto it (`this[option] =
+    /// OPTIONS[option]`). `CSL.Engine` reads the boolean ones named in
+    /// `CSL.SYS_OPTIONS` into `opt.development_extensions`, and
+    /// `variableWrapper`.
+    pub options: BTreeMap<String, Value>,
 }
 
 impl Sys {
@@ -316,7 +326,20 @@ impl Sys {
             items: Arc::new(map),
             locales,
             abbreviations: Abbreviations::new(),
+            options: BTreeMap::new(),
         })
+    }
+
+    /// Whether the sys has a `retrieveStyleModule` hook (style modules,
+    /// src/util_modules.js). The test runner's hook returns `null` for every
+    /// jurisdiction, and this port models the hook as absent: false.
+    pub fn has_retrieve_style_module(&self) -> bool {
+        false
+    }
+
+    /// `sys.retrieveStyleModule(jurisdiction, preference)`: always `None`.
+    pub fn retrieve_style_module(&self, _jurisdiction: &str, _preference: &str) -> Option<String> {
+        None
     }
 
     /// `retrieveItem(id)`.
@@ -496,11 +519,14 @@ impl Bibliography {
 }
 
 /// `new CSL.Engine(sys, style, lang)` and the document it processes.
+///
+/// Construction runs the ported constructor ([`state::State::new`], build.js):
+/// the style is parsed, its locales merged and its token lists built. The
+/// processing methods (everything that renders) are not ported yet.
 #[derive(Debug, Clone)]
 pub struct Engine {
-    sys: Sys,
+    state: state::State,
     style: String,
-    lang: String,
     output_format: OutputFormat,
     development_extensions: BTreeMap<String, Value>,
     variable_wrapper: bool,
@@ -512,21 +538,21 @@ pub struct Engine {
 }
 
 impl Engine {
-    /// `new CSL.Engine(sys, style, lang)`. `style` is the CSL XML, `lang` the
-    /// language tag (default `"en-US"` in citeproc-js when empty). The style
-    /// is not parsed yet (#792).
+    /// `new CSL.Engine(sys, style, lang)`. `style` is the CSL XML (or its
+    /// serialized JSON form), `lang` the language tag (`""` for none: the
+    /// style's `default-locale`, else `"en-US"`, as in citeproc-js).
+    ///
+    /// Fails like the constructor does: on a style that cannot be parsed, a
+    /// `<style>` attribute with no handler, an unknown node name, a macro
+    /// that calls itself, and so on (see [`EngineError::Csl`]).
     pub fn new(sys: Sys, style: &str, lang: &str) -> Result<Engine, EngineError> {
         if style.trim().is_empty() {
             return Err(EngineError::BadInput("empty style".to_string()));
         }
+        let state = state::State::new(sys, style, lang, false)?;
         Ok(Engine {
-            sys,
+            state,
             style: style.to_string(),
-            lang: if lang.is_empty() {
-                "en-US".to_string()
-            } else {
-                lang.to_string()
-            },
             output_format: OutputFormat::default(),
             development_extensions: BTreeMap::new(),
             variable_wrapper: false,
@@ -538,19 +564,34 @@ impl Engine {
         })
     }
 
+    /// The ported engine state (what `this` is in citeproc-js). For the
+    /// intermediate dump ([`dump`]) and tests.
+    #[doc(hidden)]
+    pub fn state(&self) -> &state::State {
+        &self.state
+    }
+
+    /// Mutable access to the engine state. For tests.
+    #[doc(hidden)]
+    pub fn state_mut(&mut self) -> &mut state::State {
+        &mut self.state
+    }
+
     /// The `sys` the engine was built with.
     pub fn sys(&self) -> &Sys {
-        &self.sys
+        &self.state.sys
     }
 
     /// Replace the items `retrieveItem` serves, keeping the engine's state:
     /// the test runner's `INPUT2` step (`this.test.INPUT = INPUT2;
     /// this._setCache()`) changes the item database under a live engine.
     pub fn replace_items(&mut self, items: &[Value]) -> Result<(), EngineError> {
-        self.sys = Sys::new(items, self.sys.locales.clone()).map(|fresh| Sys {
-            abbreviations: std::mem::take(&mut self.sys.abbreviations),
+        let fresh = Sys::new(items, self.state.sys.locales.clone())?;
+        self.state.sys = Sys {
+            abbreviations: std::mem::take(&mut self.state.sys.abbreviations),
+            options: std::mem::take(&mut self.state.sys.options),
             ..fresh
-        })?;
+        };
         Ok(())
     }
 
@@ -559,14 +600,23 @@ impl Engine {
         &self.style
     }
 
-    /// The engine's language.
+    /// The engine's language (`opt.lang`, the best locale chosen).
     pub fn lang(&self) -> &str {
-        &self.lang
+        js::get_str(&self.state.opt, "lang").unwrap_or("")
     }
 
     /// `setOutputFormat`.
     pub fn set_output_format(&mut self, format: OutputFormat) {
         self.output_format = format;
+        let name = match format {
+            OutputFormat::Html => "html",
+            OutputFormat::Rtf => "rtf",
+            OutputFormat::Plain => "plain",
+            OutputFormat::Asciidoc => "asciidoc",
+            OutputFormat::Xslfo => "xslfo",
+        };
+        // `setOutputFormat` only fails if the format table is malformed.
+        let _ = self.state.set_output_format(name);
     }
 
     /// The current output format.
@@ -577,6 +627,7 @@ impl Engine {
     /// `opt.development_extensions[name] = value`, as the test runner sets the
     /// fixture's `OPTIONS`.
     pub fn set_development_extension(&mut self, name: &str, value: Value) {
+        self.state.dev_ext_set(name, value.clone());
         self.development_extensions.insert(name.to_string(), value);
     }
 
@@ -598,6 +649,7 @@ impl Engine {
 
     /// `citation.opt.suppressTrailingPunctuation = on`.
     pub fn set_suppress_trailing_punctuation(&mut self, on: bool) {
+        self.state.set_suppress_trailing_punctuation(on);
         self.suppress_trailing_punctuation = on;
     }
 
@@ -608,6 +660,7 @@ impl Engine {
 
     /// `setLangPrefsForCites({ persons: [...], titles: [...], ... })`.
     pub fn set_lang_prefs_for_cites(&mut self, prefs: BTreeMap<String, Vec<String>>) {
+        self.state.set_lang_prefs_for_cites(&prefs, None);
         self.lang_prefs_for_cites = prefs;
     }
 
@@ -618,6 +671,9 @@ impl Engine {
 
     /// `setLangPrefsForCiteAffixes(multiaffix)`.
     pub fn set_lang_prefs_for_cite_affixes(&mut self, affixes: Value) {
+        if let Value::Array(list) = &affixes {
+            self.state.set_lang_prefs_for_cite_affixes(list);
+        }
         self.lang_prefs_for_cite_affixes = Some(affixes);
     }
 
@@ -628,11 +684,13 @@ impl Engine {
 
     /// `setLangTagsForCslTranslation(tags)`.
     pub fn set_lang_tags_for_csl_translation(&mut self, tags: Vec<String>) {
+        self.state.set_lang_tags_for_csl_translation(Some(&tags));
         self.lang_tags_translation = tags;
     }
 
     /// `setLangTagsForCslTransliteration(tags)`.
     pub fn set_lang_tags_for_csl_transliteration(&mut self, tags: Vec<String>) {
+        self.state.set_lang_tags_for_csl_transliteration(Some(&tags));
         self.lang_tags_transliteration = tags;
     }
 

@@ -67,7 +67,7 @@ impl Exec {
     pub fn run(
         &self,
         state: &mut State,
-        token: &Token,
+        token: &mut Token,
         item: &Value,
         cite_item: &Value,
     ) -> CslResult<Option<usize>> {
@@ -110,6 +110,9 @@ pub enum Test {
     NodeSubstitute(super::node_substitute::NodeSubstituteTest),
     UtilConditions(super::util_conditions::UtilConditionsTest),
     UtilSubstitute(super::util_substitute::UtilSubstituteTest),
+    /// `CSL.Util.Match`'s evaluators (any/none/all/nand over `tests`); added by
+    /// wave1-build (src/util.js).
+    Util(super::util::UtilTest),
 }
 
 impl Test {
@@ -118,7 +121,7 @@ impl Test {
     pub fn eval(
         &self,
         state: &mut State,
-        token: &Token,
+        token: &mut Token,
         item: &Value,
         cite_item: &Value,
     ) -> CslResult<bool> {
@@ -128,6 +131,7 @@ impl Test {
             Test::NodeSubstitute(t) => t.eval(state, token, item, cite_item),
             Test::UtilConditions(t) => t.eval(state, token, item, cite_item),
             Test::UtilSubstitute(t) => t.eval(state, token, item, cite_item),
+            Test::Util(t) => t.eval(state, token, item, cite_item),
         }
     }
 }
