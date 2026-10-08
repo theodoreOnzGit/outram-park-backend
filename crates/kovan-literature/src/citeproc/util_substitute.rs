@@ -83,7 +83,7 @@ impl UtilSubstituteExec {
         &self,
         state: &mut State,
         token: &mut Token,
-        _item: &Value,
+        item: &Value,
         cite_item: &Value,
     ) -> CslResult<Option<usize>> {
         match self {
@@ -172,13 +172,183 @@ impl UtilSubstituteExec {
             UtilSubstituteExec::BibOtherStart => Err(EngineError::NotYetPorted {
                 method: "util_substitute.js:216 closure",
             }),
-            // PORT-LATER(wave3): util_substitute.js:~234-330, needs
-            // state.tmp.name_node / rendered_name / last_rendered_name and CSL.Blob.
-            UtilSubstituteExec::AuthorSubstitute { .. } => Err(EngineError::NotYetPorted {
-                method: "util_substitute.js:234 closure",
-            }),
+            UtilSubstituteExec::AuthorSubstitute { substitution_name } => {
+                author_substitute(state, token, item, substitution_name)?;
+                Ok(None)
+            }
         }
     }
+}
+
+/// The subsequent-author-substitute closure of `CSL.Util.substituteEnd`
+/// (util_substitute.js:234-342), run on the `cs:names` or `cs:text` token
+/// `token` for `Item = item`: replace the rendered names that repeat those of
+/// the previous bibliography entry by
+/// `bibliography.opt["subsequent-author-substitute"]`.
+fn author_substitute(
+    state: &mut State,
+    token: &Token,
+    item: &Value,
+    substitution_name: &str,
+) -> CslResult<()> {
+    use super::obj_blob::{Blob, BlobChild, BlobContent};
+    use std::cmp::Ordering;
+
+    if state.tmp.area != "bibliography" {
+        return Ok(());
+    }
+    let Some(Value::String(substitute)) = state
+        .bibliography
+        .opt
+        .get("subsequent-author-substitute")
+        .cloned()
+    else {
+        return Ok(());
+    };
+    // `this.variables_real` is an array; `Item[array]` looks up the
+    // comma-joined key.
+    let variables_real: Option<Vec<String>> = token
+        .extra
+        .get("variables_real")
+        .and_then(Value::as_array)
+        .map(|a| a.iter().map(js::to_js_string).collect());
+    if let Some(vr) = &variables_real {
+        if !js::truthy_opt(item.get(vr.join(",").as_str())) {
+            return Ok(());
+        }
+    }
+    // The logic of these two is not obvious. The effect is to enable placeholder substitution
+    // on a text macro name substitution, without printing both the text macro AND the placeholder.
+    // See https://forums.zotero.org/discussion/comment/350407
+    if variables_real.is_some() && substitution_name == "names" {
+        return Ok(());
+    }
+
+    let subrule = state
+        .bibliography
+        .opt
+        .get("subsequent-author-substitute-rule")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let printing = !state.tmp.suppress_decorations;
+    if printing && state.tmp.subsequent_author_substitute_ok {
+        if let Some(rendered) = state.tmp.rendered_name.clone() {
+            let new_blob = |state: &mut State| {
+                state
+                    .blobs
+                    .add(Blob::new(Some(&substitute), None, None))
+            };
+            let same = |a: &str, b: &str| js::locale_compare(a, b, "en") == Ordering::Equal;
+            if matches!(subrule.as_deref(), Some("partial-each") | Some("partial-first")) {
+                let mut dosub = true;
+                let mut rendered_name: Vec<Value> = Vec::new();
+                let children = state.tmp.name_node.children.clone();
+                let last = state.tmp.last_rendered_name.clone();
+                for (i, child) in children.iter().enumerate() {
+                    let name = rendered.get(i).cloned();
+                    let last_len: Option<usize> = match &last {
+                        Value::Array(a) => Some(a.len()),
+                        Value::String(t) if !t.is_empty() => Some(js::len(t)),
+                        _ => None,
+                    };
+                    let last_i: String = match &last {
+                        Value::Array(a) => a.get(i).map(js::to_js_string),
+                        Value::String(t) => Some(js::char_at(t, i as i64)).filter(|c| !c.is_empty()),
+                        _ => None,
+                    }
+                    .unwrap_or_else(|| "undefined".to_string());
+                    let name_s = name.as_ref().filter(|n| js::truthy(n)).map(js::to_js_string);
+                    if dosub
+                        && last_len.map(|l| l as i64 > i as i64 - 1).unwrap_or(false)
+                        && name_s.as_deref().map(|n| same(n, &last_i)).unwrap_or(false)
+                    {
+                        let str_ = new_blob(state);
+                        let Some(child) = child else {
+                            return Err(super::load::type_error(
+                                "Cannot create property 'blobs' on boolean 'false'",
+                            ));
+                        };
+                        state.blobs.get_mut(*child).blobs =
+                            BlobContent::List(vec![BlobChild::Blob(str_)]);
+                        if subrule.as_deref() == Some("partial-first") {
+                            dosub = false;
+                        }
+                    } else {
+                        dosub = false;
+                    }
+                    rendered_name.push(name.unwrap_or(Value::Null));
+                }
+                // might want to slice this?
+                state.tmp.last_rendered_name = Value::Array(rendered_name);
+            } else if subrule.as_deref() == Some("complete-each") {
+                let rendered_name = rendered
+                    .iter()
+                    .map(js::to_js_string)
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if !rendered_name.is_empty() {
+                    let last = state.tmp.last_rendered_name.clone();
+                    if js::truthy(&last) && same(&rendered_name, &js::to_js_string(&last)) {
+                        let children = state.tmp.name_node.children.clone();
+                        for child in children {
+                            let str_ = new_blob(state);
+                            let Some(child) = child else {
+                                return Err(super::load::type_error(
+                                    "Cannot create property 'blobs' on boolean 'false'",
+                                ));
+                            };
+                            state.blobs.get_mut(child).blobs =
+                                BlobContent::List(vec![BlobChild::Blob(str_)]);
+                        }
+                    }
+                    state.tmp.last_rendered_name = Value::String(rendered_name);
+                }
+            } else {
+                let rendered_name = rendered
+                    .iter()
+                    .map(js::to_js_string)
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if !rendered_name.is_empty() {
+                    let last = state.tmp.last_rendered_name.clone();
+                    if js::truthy(&last) && same(&rendered_name, &js::to_js_string(&last)) {
+                        let str_ = new_blob(state);
+                        let top = state.tmp.name_node.top.ok_or_else(|| {
+                            super::load::type_error(
+                                "Cannot read properties of undefined (reading 'blobs')",
+                            )
+                        })?;
+                        if let Some(label_blob) = state.tmp.label_blob {
+                            state.blobs.get_mut(top).blobs = BlobContent::List(vec![
+                                BlobChild::Blob(str_),
+                                BlobChild::Blob(label_blob),
+                            ]);
+                        } else {
+                            let first = match &state.blobs.get(top).blobs {
+                                BlobContent::List(l) => l.first().cloned(),
+                                BlobContent::Text(_) => None,
+                            };
+                            match first {
+                                Some(BlobChild::Blob(b)) => {
+                                    state.blobs.get_mut(b).blobs =
+                                        BlobContent::List(vec![BlobChild::Blob(str_)]);
+                                }
+                                Some(BlobChild::Str(_)) => {}
+                                None => {
+                                    state.blobs.get_mut(top).blobs =
+                                        BlobContent::List(vec![BlobChild::Blob(str_)]);
+                                }
+                            }
+                        }
+                        state.tmp.substituted_variable = Some(substitution_name.to_string());
+                    }
+                    state.tmp.last_rendered_name = Value::String(rendered_name);
+                }
+            }
+            state.tmp.subsequent_author_substitute_ok = false;
+        }
+    }
+    Ok(())
 }
 
 /// The condition closures `src/util_substitute.js` stores in `token.tests`

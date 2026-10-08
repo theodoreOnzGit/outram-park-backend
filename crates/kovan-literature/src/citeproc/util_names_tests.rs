@@ -14,4 +14,25 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/util_names_tests.js`. **Not yet ported** (epic #790).
+
+//! Port of `src/util_names_tests.js`: `CSL.NameOutput.prototype.isPerson`.
+
+use serde_json::Value;
+
+use super::js;
+use super::util_names_output::NameOutput;
+
+impl NameOutput {
+    /// `CSL.NameOutput.prototype.isPerson(value)`: false for a literal name
+    /// and for an institution given only as a family name.
+    pub fn is_person(&self, value: &Value) -> bool {
+        is_person(value)
+    }
+}
+
+/// `CSL.NameOutput.prototype.isPerson(value)` (it reads nothing from
+/// `this`).
+pub fn is_person(value: &Value) -> bool {
+    let get = |k: &str| js::truthy_opt(value.get(k));
+    !(get("literal") || (!get("given") && get("family") && get("isInstitution")))
+}

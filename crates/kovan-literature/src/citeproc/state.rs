@@ -141,6 +141,18 @@ pub struct State {
     // ---- fields: wave2 (rendering nodes, api_cite core) ----
 
     // ---- fields: wave3 (names) ----
+    /// `state.nameOutput` (`new CSL.NameOutput(state, Item, item)`, api_cite.js:1488):
+    /// the names renderer of the cite being rendered. Replace it with
+    /// [`State::new_name_output`] where upstream constructs one.
+    pub name_output: super::util_names_output::NameOutput,
+    /// What `NameOutput.getName` reads from `this.Item` and `this.state` (set
+    /// by [`State::new_name_output`]); a separate field so `getName` stays
+    /// callable while `name_output` is taken out of the state for a method
+    /// call (the registry's `evalname` calls it from inside `disambigNames`).
+    pub name_input_ctx: super::util_names_render::NameInputCtx,
+    /// `state.publisherOutput` (node_group.js:174; `undefined` until a group
+    /// with a publisher/place pair builds it).
+    pub publisher_output: Option<super::util_publishers::PublisherOutput>,
 
     // ---- fields: wave4 (registry, disambiguation, sort) ----
 
@@ -644,6 +656,54 @@ pub struct Tmp {
     // ---- fields: wave2 ----
 
     // ---- fields: wave3 ----
+    /// `tmp.name_node` (`{children, top, string}`; `{}` at `getCite`, a fresh
+    /// object at each `cs:names` START). Also written by attributes.js,
+    /// util_transform.js and node_layout.js upstream.
+    pub name_node: super::util_names_output::NameNode,
+    /// `tmp.rendered_name`: `None` is JS `false`/`undefined`; the strings of
+    /// the names rendered so far in the bibliography (and, from
+    /// attributes.js:373, the raw `Item[variable]` of a substituted text).
+    pub rendered_name: Option<Vec<Value>>,
+    /// `tmp.last_rendered_name` (`false`, an array of strings, or one string).
+    pub last_rendered_name: Value,
+    /// `tmp.label_blob` (`false` = `None`).
+    pub label_blob: Option<BlobId>,
+    /// `tmp.subsequent_author_substitute_ok`.
+    pub subsequent_author_substitute_ok: bool,
+    /// `tmp.substituted_variable`.
+    pub substituted_variable: Option<String>,
+    /// `tmp.first_name_string` (`false` = `None`).
+    pub first_name_string: Option<String>,
+    /// `tmp.authorstring_request` (set by api_cite.js).
+    pub authorstring_request: bool,
+    /// `tmp.last_primary_names_string` (`false`/`undefined` = `None`).
+    pub last_primary_names_string: Option<String>,
+    /// `tmp.have_collapsed`.
+    pub have_collapsed: bool,
+    /// `tmp.use_cite_group_delimiter`.
+    pub use_cite_group_delimiter: bool,
+    /// `tmp.name_delimiter` (set by the `cs:name` closure).
+    pub name_delimiter: Option<String>,
+    /// `tmp.institution_delimiter` (set by the `cs:institution` closure).
+    pub institution_delimiter: Option<String>,
+    /// `tmp.and_term` (set by the `cs:name` closure).
+    pub and_term: Option<String>,
+    /// `tmp["delimiter-precedes-et-al"]`.
+    pub delimiter_precedes_et_al: Option<String>,
+    /// `tmp["publisher-list"]`, `["publisher-place-list"]`,
+    /// `["publisher-group-token"]` (`false` after `clearVars`; only ever read
+    /// by util_transform.js).
+    pub publisher_list: bool,
+    /// `tmp["publisher-token"]` and `tmp["publisher-place-token"]`.
+    pub publisher_token: Option<Token>,
+    pub publisher_place_token: Option<Token>,
+    /// The name disambiguation settings `tmp.disambig_settings` carries that
+    /// util_names_*.js reads and writes: see
+    /// [`super::util_names_disambig::NameDisambigSettings`]. Lives here, not in
+    /// `AmbigConfig` (obj_ambigconfig.rs is the engine agent's); the
+    /// integrator should merge the two (the JS object is one:
+    /// `tmp.disambig_settings.names/.givens/.use_initials`).
+    pub name_ambig: super::util_names_disambig::NameDisambigSettings,
 
     // ---- fields: wave4 ----
 
@@ -733,6 +793,25 @@ impl Tmp {
             count_offset_characters: None,
             offset_characters: 0,
             term_predecessor_name: false,
+            name_node: Default::default(),
+            rendered_name: None,
+            last_rendered_name: Value::Bool(false),
+            label_blob: None,
+            subsequent_author_substitute_ok: false,
+            substituted_variable: None,
+            first_name_string: None,
+            authorstring_request: false,
+            last_primary_names_string: None,
+            have_collapsed: false,
+            use_cite_group_delimiter: false,
+            name_delimiter: None,
+            institution_delimiter: None,
+            and_term: None,
+            delimiter_precedes_et_al: None,
+            publisher_list: false,
+            publisher_token: None,
+            publisher_place_token: None,
+            name_ambig: Default::default(),
         }
     }
 }
@@ -844,6 +923,12 @@ pub struct Build {
     // ---- fields: wave2 ----
 
     // ---- fields: wave3 ----
+    /// The closures (`execs`) of the `cs:name-part` tokens held in
+    /// [`Build::name_parts`] (which keeps only their JSON form, where closures
+    /// are counted, not stored): `family` and `given`. node_names.js END copies
+    /// them into the `Output` closure it builds (they run on the name-part
+    /// clones in `outputNames`). Rust-only: upstream keeps the tokens.
+    pub name_part_execs: BTreeMap<String, Vec<super::exec::Exec>>,
 
     // ---- fields: wave4 ----
 
@@ -895,6 +980,7 @@ impl Build {
             name_parts: Obj::new(),
             builder_depth: 0,
             bibliography_tokens_len: 0,
+            name_part_execs: BTreeMap::new(),
         }
     }
 }
