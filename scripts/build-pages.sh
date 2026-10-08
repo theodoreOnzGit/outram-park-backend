@@ -141,6 +141,15 @@ done < <(grep -rhoE -- '<!-- snippet-check: [^ ]+:[0-9]+ [^>]*-->' "${walk_dirs[
            | sed -E 's/^<!-- snippet-check: //; s/ -->$//' | sort -u)
 (( bad == 0 )) || { echo "regenerate with: kovan-cli code-walk-check --update <book>" >&2; exit 1; }
 
+# Citations (gh:#789, #797): every `[...](#ref-KEY)` link in a deep dive or a
+# tutorial must name a key of docs/site/references.bib, and each page's
+# reference list between `<!-- references:begin/end -->` must be what the
+# citeproc-js port (kovan_literature::csl, APA 7) renders now. Check mode
+# fails on a stale list or an unknown key; the fix is
+# `kovan-cli references --update --bib docs/site/references.bib <book>`.
+cargo run --release -q -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli -- \
+  references --bib docs/site/references.bib "${walk_dirs[@]}"
+
 # Deep-dive books.
 while read -r name dir; do
   [[ -z "$name" || "$name" == \#* ]] && continue
