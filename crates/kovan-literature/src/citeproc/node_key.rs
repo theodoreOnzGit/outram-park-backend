@@ -86,7 +86,7 @@ impl NodeKeyExec {
     pub fn run(
         &self,
         state: &mut State,
-        token: &Token,
+        token: &mut Token,
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {

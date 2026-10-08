@@ -119,3 +119,28 @@ pub(crate) fn install_locale(state: &mut State, locale: Locale) {
     }
     state.locale.insert(lang, locale);
 }
+
+/// Install an en-US locale holding only what the output code reads through
+/// `getTerm` / `getOpt`: the four quote terms, the page, year and citation
+/// range delimiters, and `opts["punctuation-in-quote"]` (`piq`).
+pub(crate) fn install_output_locale(state: &mut State, piq: bool) {
+    let mut locale = Locale::new();
+    for (name, val) in [
+        ("open-quote", "\u{201C}"),
+        ("close-quote", "\u{201D}"),
+        ("open-inner-quote", "\u{2018}"),
+        ("close-inner-quote", "\u{2019}"),
+        ("page-range-delimiter", "\u{2013}"),
+        ("year-range-delimiter", "\u{2013}"),
+        ("citation-range-delimiter", "\u{2013}"),
+    ] {
+        put(&mut locale.terms, name, "long", 0, None, val);
+    }
+    locale
+        .opts
+        .insert("punctuation-in-quote".into(), Value::Bool(piq));
+    state
+        .opt
+        .insert("lang".into(), Value::String("en-US".into()));
+    install_locale(state, locale);
+}

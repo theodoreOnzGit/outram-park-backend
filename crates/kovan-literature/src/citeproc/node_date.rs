@@ -46,7 +46,7 @@ impl NodeDateExec {
     pub fn run(
         &self,
         state: &mut State,
-        token: &Token,
+        token: &mut Token,
         item: &Value,
         cite_item: &Value,
     ) -> CslResult<Option<usize>> {

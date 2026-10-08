@@ -47,9 +47,8 @@
 //! # Terms
 //!
 //! `state.getTerm("open-quote")` and `state.getOpt("punctuation-in-quote")`
-//! belong to build.js (another agent). [`get_term`] and [`get_opt_flag`]
-//! here are **stand-ins** (`// STUB(build.rs)`) with the en-US values;
-//! the integrator redirects them to `State::get_term` / `State::get_opt`.
+//! are `State::get_term_no_flag` / `State::get_opt` (build.rs); [`get_term`]
+//! and [`get_opt_flag`] are thin readers over them.
 
 use std::sync::LazyLock;
 
@@ -443,28 +442,25 @@ pub fn safe_escape(state: &State) -> SafeEscape {
 // Stand-ins for build.js (see the module docs)
 // ---------------------------------------------------------------------------
 
-/// `state.getTerm(name)` for the four quote terms. // STUB(build.rs): State::get_term
-///
-/// Returns the en-US values; replace with the locale lookup.
-pub fn get_term(_state: &State, name: &str) -> String {
-    match name {
-        "open-quote" => "\u{201C}".to_string(),
-        "close-quote" => "\u{201D}".to_string(),
-        "open-inner-quote" => "\u{2018}".to_string(),
-        "close-inner-quote" => "\u{2019}".to_string(),
-        "page-range-delimiter" | "year-range-delimiter" | "citation-range-delimiter" => {
-            "\u{2013}".to_string()
-        }
-        _ => String::new(),
-    }
+/// `state.getTerm(name)` as a string (`""` for `undefined`, which JS would
+/// splice in as the text "undefined"; every locale defines the terms read
+/// here). Without `getTerm`'s `cite_renders_content` side effect, see
+/// [`State::get_term_no_flag`].
+pub fn get_term(state: &State, name: &str) -> String {
+    state
+        .get_term_no_flag(name, None, None, None, None, false)
+        .ok()
+        .flatten()
+        .unwrap_or_default()
 }
 
-/// `state.getOpt(name)` as a boolean flag. // STUB(build.rs): State::get_opt
-///
-/// JS reads `state.locale[lang].opts[name]`; the stand-in reads
-/// `state.opt[name]` and is `false` when unset.
+/// `state.getOpt(name)` as a boolean flag: `state.locale[opt.lang].opts[name]`
+/// (`false` when unset or when the locale is missing).
 pub fn get_opt_flag(state: &State, name: &str) -> bool {
-    state.opt.get(name).map(js::truthy).unwrap_or(false)
+    state
+        .get_opt(name)
+        .map(|v| js::truthy(&v))
+        .unwrap_or(false)
 }
 
 // ---------------------------------------------------------------------------
@@ -1081,6 +1077,7 @@ mod tests {
 
     fn state_for(mode: &str, hook: bool) -> State {
         let mut st = State::default();
+        crate::citeproc::test_support::install_output_locale(&mut st, false);
         set_output_format(&mut st, mode).unwrap();
         st.tmp.area = "citation".to_string();
         st.opt.insert(

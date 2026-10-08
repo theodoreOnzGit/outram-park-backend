@@ -25,7 +25,6 @@ use super::node_else;
 use super::node_if;
 use super::obj_token::{Token, TokenType};
 use super::state::State;
-use super::util_conditions::{self, MatchKind};
 use super::util_substitute;
 use super::{CslResult, EngineError};
 
@@ -176,7 +175,7 @@ pub fn build(
                 .push(Test::NodeGroup(NodeGroupTest::InitJurisdictionMacros {
                     macro_name: juris_name.clone(),
                 }));
-            if_start.test = Some(util_conditions::match_test(MatchKind::Any, &if_start.tests));
+            if_start.test = Some(state.fun.match_.any(&if_start, state, &if_start.tests));
             target.push(if_start);
             let mut text_node = Token::new("text", TokenType::Singleton);
             // This will run the juris- token list.

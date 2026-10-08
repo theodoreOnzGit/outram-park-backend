@@ -26,9 +26,11 @@
 //!
 //! **Token mutation at run time.** Several upstream closures mutate `this`
 //! (the token) while a style runs: `@variable`'s first closure rewrites
-//! `this.variables` in place, `@text-case` rewrites `this.strings`. The
-//! foundation's `Exec::run` receives `&Token`, so those bodies are deferred
-//! until the integrator decides where run-time token state lives.
+//! `this.variables` in place, `@text-case` rewrites `this.strings`.
+//! `Exec::run` receives `&mut Token` (the engine takes the token out of its
+//! list while it runs, see `State::token_exec`), and both bodies are ported.
+//! `@variable`'s second closure ("check for output") still waits for the
+//! rendering wave: it mutates the item.
 
 use std::sync::LazyLock;
 
@@ -43,7 +45,6 @@ use super::load::{
 use super::obj_token::{Token, TokenType};
 use super::state::{Area, State};
 use super::util_locale::{locale_resolve, LangSpec};
-use super::util_conditions;
 use super::{CslResult, EngineError};
 // ---------------------------------------------------------------------------
 // Small JS helpers.
@@ -210,29 +211,52 @@ impl AttributesExec {
     /// Run the closure.
     pub fn run(
         &self,
-        _state: &mut State,
-        _token: &Token,
-        _item: &Value,
+        state: &mut State,
+        token: &mut Token,
+        item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
         match self {
-            // PORT-LATER(integrator): attributes.js:150-165, rewrites
-            // this.variables in place at run time; needs run-time mutable
-            // token state (Exec::run receives &Token) and state.tmp.done_vars.
-            AttributesExec::VariableSetNames => Err(EngineError::NotYetPorted {
-                method: "attributes.js:@variable set-variable-names closure",
-            }),
+            // attributes.js:~150-165. The `variables_real` list is kept in
+            // `token.extra`; `this.variables` is cleared in place and refilled
+            // with the variables that are not already in `done_vars`.
+            AttributesExec::VariableSetNames => {
+                let real: Vec<String> = match token.extra.get("variables_real") {
+                    Some(Value::Array(a)) => a.iter().map(js::to_js_string).collect(),
+                    _ => Vec::new(),
+                };
+                token.variables.clear();
+                for v in &real {
+                    // set variable name if not quashed
+                    if !state.tmp.done_vars.contains(v) {
+                        token.variables.push(v.clone());
+                    }
+                    if state.tmp.can_block_substitute {
+                        state.tmp.done_vars.push(v.clone());
+                    }
+                }
+                Ok(None)
+            }
             // PORT-LATER(wave2): attributes.js:166-300, mutates Item (authority,
             // committee split), reads state.transform.abbrevs, writes
             // state.tmp.group_context.tip / name_node / output.current.
             AttributesExec::VariableCheckOutput => Err(EngineError::NotYetPorted {
                 method: "attributes.js:@variable check-for-output closure",
             }),
-            // PORT-LATER(integrator): attributes.js:1521-1535, rewrites
-            // this.strings / this.text_case_normal on the running token.
-            AttributesExec::TextCase { .. } => Err(EngineError::NotYetPorted {
-                method: "attributes.js:@text-case closure",
-            }),
+            // attributes.js:1493-1503.
+            AttributesExec::TextCase { arg } => {
+                if arg == "normal" {
+                    token
+                        .extra
+                        .insert("text_case_normal".into(), Value::Bool(true));
+                } else {
+                    token.set_string("text-case", arg);
+                    if arg == "title" && item_truthy(item, "jurisdiction") {
+                        token.set_string("text-case", "passthrough");
+                    }
+                }
+                Ok(None)
+            }
         }
     }
 }
@@ -394,7 +418,7 @@ impl AttributesTest {
     pub fn eval(
         &self,
         state: &mut State,
-        _token: &Token,
+        _token: &mut Token,
         item: &Value,
         cite_item: &Value,
     ) -> CslResult<bool> {
@@ -868,10 +892,8 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
                 .into_iter()
                 .map(|mytype| atest(AttributesTest::Type { mytype }))
                 .collect();
-            token.tests.push(util_conditions::match_test(
-                util_conditions::MatchKind::Any,
-                &tests,
-            ));
+            let combined = state.fun.match_.any(token, state, &tests);
+            token.tests.push(combined);
         }
         "@variable" => {
             token.variables = split_ws(arg);

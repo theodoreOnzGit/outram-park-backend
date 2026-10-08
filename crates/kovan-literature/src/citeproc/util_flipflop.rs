@@ -872,6 +872,7 @@ mod tests {
         let cases = v["cases"].as_array().unwrap();
         assert!(cases.len() > 4000);
         let mut st = State::default();
+        crate::citeproc::test_support::install_output_locale(&mut st, false);
         st.tmp.area = "citation".to_string();
         let empty = Token::new("empty", crate::citeproc::obj_token::TokenType::Start);
         let mut bad = Vec::new();

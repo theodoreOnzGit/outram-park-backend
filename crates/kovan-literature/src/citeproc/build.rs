@@ -2,7 +2,6 @@
 //
 // Upstream:    citeproc-js, https://github.com/juris-m/citeproc-js
 // Source:      src/build.js (all but CSL.Engine.prototype.retrieveItem, which is build_retrieve_item.rs),
-//              src/util_datenode.js (CSL.Util.fixDateNode, as a private STUB)
 // Version:     2.4.63, commit 73bc1b44bc7d54d0bfec4e070fd27f5efe024ff9
 // Copyright:   (c) 2009-2019 Frank Bennett
 // Licence:     AGPL-3.0, taken from upstream's "CPAL-1.0 or AGPL-3.0-or-later"
@@ -43,16 +42,11 @@
 //! 6. the helper objects (`dateparser`, `flipflopper`, the ordinalizers, the
 //!    page and year manglers) and `setOutputFormat("html")`.
 //!
-//! # PORT-LATER seams (other agents' files)
+//! # Still defaulted
 //!
-//! * `new CSL.Output.Queue.adjust(getOpt('punctuation-in-quote'))` (queue.js);
-//! * `fun.ordinalizer.init(state)`, `long_ordinalizer.init(state)`
-//!   (util_number.js) and `PageRangeMangler.getFunction` (util_page.js);
-//! * `new CSL.Registry`, `new CSL.Disambiguation`, `new CSL.Parallel`,
-//!   `new CSL.Util.FlipFlopper` (their defaults are used);
-//! * `CSL.Util.fixDateNode` (util_datenode.js, wave1-nodes) is a faithful
-//!   private STUB here, [`State::fix_date_node`], so style building can be
-//!   checked; the integrator drops it for wave1-nodes's.
+//! `new CSL.Registry(this)`, `new CSL.Disambiguation(this)` and
+//! `new CSL.Parallel(this)` (their files are later waves') keep their
+//! defaults; `refetchItem(s)` returns nothing until the registry exists.
 
 use std::sync::LazyLock;
 
@@ -62,9 +56,13 @@ use serde_json::Value;
 use super::js::{self, Obj};
 use super::load;
 use super::obj_token::{Token, TokenType};
+use super::queue::Adjust;
 use super::state::{new_opt, Area, Build, Configure, Fun, State, Tmp};
+use super::util_dateparser::DateParser;
+use super::util_flipflop::FlipFlopper;
 use super::util_locale::{locale_resolve, regexp_value};
 use super::util_nodes;
+use super::util_page::PageRangeMangler;
 use super::xmljson::{NodeId, XmlChild, XmlTree};
 use super::{system, CslResult, EngineError, Sys};
 
@@ -288,10 +286,9 @@ impl State {
                 .insert("skip-words-regexp".into(), regexp_value(&source));
         }
 
-        // PORT-LATER(queue): `this.output.adjust = new
-        // CSL.Output.Queue.adjust(this.getOpt('punctuation-in-quote'))`
-        // (queue.js, wave1-output).
-        let _punctuation_in_quote = s.get_opt("punctuation-in-quote")?;
+        // this.output.adjust = new CSL.Output.Queue.adjust(this.getOpt('punctuation-in-quote'));
+        let punctuation_in_quote = js::truthy(&s.get_opt("punctuation-in-quote")?);
+        s.output.adjust = Some(Adjust::new(punctuation_in_quote));
 
         // PORT-LATER(registry): `this.registry = new CSL.Registry(this)`
         // (registry.js, wave4); the default stands in.
@@ -339,29 +336,30 @@ impl State {
         //
         // date parser
         //
-        // PORT-LATER(util_dateparser): `this.fun.dateparser = CSL.DateParser`.
+        // `this.fun.dateparser = CSL.DateParser` (upstream's one shared
+        // instance; this port keeps one per engine, which is equivalent since
+        // `addDateParserMonths` is idempotent: checked by the reference script).
+        s.fun.dateparser = DateParser::new();
         //
         // flip-flopper for inline markup
         //
-        // PORT-LATER(util_flipflop): `new CSL.Util.FlipFlopper(this)`.
+        s.fun.flipflopper = FlipFlopper::new(&s);
         //
         // utility functions for quotes
         //
         s.set_close_quotes_array()?;
         //
-        // configure ordinal numbers generator
-        //
-        // PORT-LATER(util_number): `this.fun.ordinalizer.init(this)`.
-        //
-        // configure long ordinal numbers generator
-        //
-        // PORT-LATER(util_number): `this.fun.long_ordinalizer.init(this)`.
+        // configure ordinal numbers generator, and long ordinal numbers
+        // generator: `this.fun.ordinalizer.init(this)` and
+        // `this.fun.long_ordinalizer.init(this)` fill per-locale suffix caches;
+        // this port's `Ordinalizer` / `LongOrdinalizer` read the locale on each
+        // call instead (same answers, the locale does not change), so there is
+        // nothing to initialise.
         //
         // set up page mangler
         //
-        // PORT-LATER(util_page): `this.fun.page_mangler =
-        // CSL.Util.PageRangeMangler.getFunction(this, "page")`, and the same
-        // for `"year"` (`year_mangler`).
+        s.fun.page_mangler = PageRangeMangler::get_function(&s, "page");
+        s.fun.year_mangler = PageRangeMangler::get_function(&s, "year");
 
         s.set_output_format("html")?;
         Ok(s)
@@ -539,85 +537,14 @@ impl State {
         let mut dummy = Token::new(&self.csl_xml.nodename(root), TokenType::Start);
         for (attrname, value) in self.csl_xml.attributes(root) {
             let arg = js::to_js_string(&value);
-            // PORT-LATER(attributes): with the stub `apply` every attribute
-            // reads as "defined" here; upstream throws a TypeError for one
-            // `CSL.Attributes` does not define.
             if !super::attributes::apply(self, &mut dummy, &attrname, &arg)? {
-                // STUB(attributes): the style-level handlers, until
-                // attributes.rs defines them (it then returns true and this
-                // is never reached).
-                self.style_attribute_fallback(&attrname, &arg);
+                // `CSL.Attributes[attrname]` is undefined: `.call` of it throws.
+                return Err(type_error(
+                    "Cannot read properties of undefined (reading 'call')",
+                ));
             }
         }
         Ok(())
-    }
-
-    /// STUB(attributes): the handlers of `CSL.Attributes` for the attributes
-    /// of the `<style>` element (src/attributes.js 1081-1090, 1164, 1509-1565):
-    /// `@default-locale`, `@default-locale-sort`, `@demote-non-dropping-particle`,
-    /// `@class`, `@version`, `@page-range-format`, `@year-range-format`,
-    /// `@initialize-with-hyphen`, `@sort-separator`, `@xmlns`.
-    fn style_attribute_fallback(&mut self, key: &str, arg: &str) {
-        static X: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new("-x-(sort|translit|translat)-").expect("static"));
-        match key {
-            "@default-locale" => {
-                let m: Vec<String> = X.captures_iter(arg).map(|c| c[1].to_string()).collect();
-                let lst = js::split(&X, arg);
-                let mut ret = vec![lst[0].clone()];
-                for pos in 1..lst.len() {
-                    ret.push(m.get(pos - 1).cloned().unwrap_or_default());
-                    ret.push(lst[pos].clone());
-                }
-                let mut pos = 1;
-                while pos < ret.len() {
-                    let k = format!("locale-{}", ret[pos]);
-                    let v =
-                        js::trim(ret.get(pos + 1).map(String::as_str).unwrap_or("")).to_string();
-                    if let Some(Value::Array(a)) = self.opt.get_mut(&k) {
-                        a.push(Value::String(v));
-                    }
-                    pos += 2;
-                }
-                self.opt.insert(
-                    "default-locale".into(),
-                    Value::Array(vec![Value::String(ret[0].clone())]),
-                );
-            }
-            "@default-locale-sort" => {
-                self.opt
-                    .insert("default-locale-sort".into(), Value::String(arg.to_string()));
-            }
-            "@demote-non-dropping-particle" => {
-                self.opt.insert(
-                    "demote-non-dropping-particle".into(),
-                    Value::String(arg.to_string()),
-                );
-            }
-            "@class" => {
-                self.opt
-                    .insert("class".into(), Value::String(arg.to_string()));
-            }
-            "@version" => {
-                self.opt
-                    .insert("version".into(), Value::String(arg.to_string()));
-            }
-            "@page-range-format" | "@year-range-format" => {
-                self.opt
-                    .insert(key[1..].to_string(), Value::String(arg.to_string()));
-            }
-            "@initialize-with-hyphen" => {
-                if arg == "false" {
-                    self.opt
-                        .insert("initialize-with-hyphen".into(), Value::Bool(false));
-                }
-            }
-            "@sort-separator" => {
-                let mut t = Token::new("style", TokenType::Start);
-                self.set_opt(&mut t, "sort-separator", Value::String(arg.to_string()));
-            }
-            _ => {}
-        }
     }
 
     /// `CSL.Engine.prototype.getTerm(term, form, plural, gender, mode,
@@ -628,9 +555,30 @@ impl State {
     /// `None` is JS `undefined` (no such term; with `mode` `TOLERANT` the
     /// result is `Some("")`, with `STRICT` an error). A term written in all
     /// upper case is lower-cased first. A non-empty result sets
-    /// `tmp.cite_renders_content`.
+    /// `tmp.cite_renders_content` (build.js:382).
     pub fn get_term(
         &mut self,
+        term: &str,
+        form: Option<&str>,
+        plural: Option<i64>,
+        gender: Option<&str>,
+        mode: Option<i64>,
+        force_default_locale: bool,
+    ) -> CslResult<Option<String>> {
+        let ret = self.get_term_no_flag(term, form, plural, gender, mode, force_default_locale)?;
+        if ret.as_deref().map(|r| !r.is_empty()).unwrap_or(false) {
+            self.tmp.cite_renders_content = true;
+        }
+        Ok(ret)
+    }
+
+    /// [`State::get_term`] without its one side effect (setting
+    /// `tmp.cite_renders_content`), for readers that only hold `&State`: the
+    /// quote terms of the output decorators ([`super::formats`]), and the
+    /// range-delimiter terms the page mangler and the flip-flopper read when
+    /// they are built.
+    pub fn get_term_no_flag(
+        &self,
         term: &str,
         form: Option<&str>,
         plural: Option<i64>,
@@ -672,9 +620,6 @@ impl State {
             } else if mode == Some(load::TOLERANT) {
                 ret = Some(String::new());
             }
-        }
-        if ret.as_deref().map(|r| !r.is_empty()).unwrap_or(false) {
-            self.tmp.cite_renders_content = true;
         }
         Ok(ret)
     }
@@ -910,158 +855,6 @@ impl State {
             Some(v) => Some(v.clone()),
             None => default_value,
         }
-    }
-
-    /// `CSL.Util.fixDateNode.call(state, parent, pos, node)` (src/util_datenode.js).
-    ///
-    /// STUB(util_datenode): a faithful private copy so that style building
-    /// can be verified without wave1-nodes's file; the integrator replaces it.
-    /// Replaces the `<date>` node `node` (child `pos` of `parent`) by a copy
-    /// of the locale's date template of the same `form`, carrying over the
-    /// style's `variable`, affixes, `date-parts` (dropping month/day/year
-    /// parts) and per-`date-part` attributes. Returns `parent`.
-    pub fn fix_date_node(&mut self, parent: NodeId, pos: usize, node: NodeId) -> CslResult<NodeId> {
-        let default_locale = self.csl_xml.get_attribute_value(node, "default-locale");
-
-        // Raise date flag, used to control inclusion of year-suffix key in sorts
-        // This may be a little reckless: not sure what happens on no-date conditions
-        self.build.date_key = true;
-
-        let form = self.csl_xml.get_attribute_string(node, "form");
-        let default_locale_t = js::truthy(&default_locale);
-        let lingo = if default_locale_t {
-            self.opt
-                .get("default-locale")
-                .and_then(|d| d.get(0))
-                .map(js::to_js_string)
-                .unwrap_or_default()
-        } else {
-            self.csl_xml.get_attribute_string(node, "lingo")
-        };
-
-        let Some(template) = self.get_date(&form, default_locale_t)? else {
-            return Ok(parent);
-        };
-
-        let dateparts = self.csl_xml.get_attribute_value(node, "date-parts");
-
-        let variable = self.csl_xml.get_attribute_value(node, "variable");
-        let prefix = self.csl_xml.get_attribute_value(node, "prefix");
-        let suffix = self.csl_xml.get_attribute_value(node, "suffix");
-        let display = self.csl_xml.get_attribute_value(node, "display");
-        let cslid = self.csl_xml.get_attribute_value(node, "cslid");
-
-        //
-        // Xml: Copy a node
-        //
-        let datexml = self.csl_xml.node_copy_tree(&template);
-        let lang = js::get_string(&self.opt, "lang").unwrap_or_default();
-        self.csl_xml
-            .set_attribute(datexml, "lingo", Value::String(lang.clone()));
-        self.csl_xml
-            .set_attribute(datexml, "form", Value::String(form));
-        self.csl_xml.set_attribute(datexml, "date-parts", dateparts);
-        self.csl_xml.set_attribute(datexml, "cslid", cslid);
-        //
-        // Xml: Set attribute
-        //
-        self.csl_xml.set_attribute(datexml, "variable", variable);
-        self.csl_xml
-            .set_attribute(datexml, "default-locale", default_locale.clone());
-        if js::truthy(&prefix) {
-            self.csl_xml.set_attribute(datexml, "prefix", prefix);
-        }
-        if js::truthy(&suffix) {
-            self.csl_xml.set_attribute(datexml, "suffix", suffix);
-        }
-        if js::truthy(&display) {
-            self.csl_xml.set_attribute(datexml, "display", display);
-        }
-        //
-        // Step through any date-part children of the layout date node,
-        // and lay their attributes onto the corresponding node in the
-        // locale template node copy.
-        //
-        // tests: language_BaseLocale
-        // tests: date_LocalizedTextInStyleLocaleWithTextCase
-        //
-        for subnode in self.csl_xml.children(datexml) {
-            let XmlChild::Node(subnode) = subnode else {
-                continue;
-            };
-            if self.csl_xml.nodename(subnode) == "date-part" {
-                let partname = self.csl_xml.get_attribute_string(subnode, "name");
-                if default_locale_t {
-                    self.csl_xml
-                        .set_attribute_on_node_identified_by_name_attribute(
-                            datexml,
-                            "date-part",
-                            &partname,
-                            "@default-locale",
-                            Value::String("true".to_string()),
-                        );
-                }
-            }
-        }
-
-        for subnode in self.csl_xml.children(node) {
-            let XmlChild::Node(subnode) = subnode else {
-                continue;
-            };
-            if self.csl_xml.nodename(subnode) == "date-part" {
-                let partname = self.csl_xml.get_attribute_string(subnode, "name");
-                for (attr, val) in self.csl_xml.attributes(subnode) {
-                    if attr == "@name" {
-                        continue;
-                    }
-                    if !lingo.is_empty()
-                        && lingo != lang
-                        && ["@suffix", "@prefix", "@form"].contains(&attr.as_str())
-                    {
-                        continue;
-                    }
-                    self.csl_xml
-                        .set_attribute_on_node_identified_by_name_attribute(
-                            datexml,
-                            "date-part",
-                            &partname,
-                            &attr,
-                            val,
-                        );
-                }
-            }
-        }
-
-        let date_parts_attr = self.csl_xml.get_attribute_string(node, "date-parts");
-        if date_parts_attr == "year" {
-            //
-            // Xml: Find one node by attribute and delete
-            //
-            self.csl_xml.delete_node_by_name_attribute(datexml, "month");
-            self.csl_xml.delete_node_by_name_attribute(datexml, "day");
-        } else if date_parts_attr == "year-month" {
-            self.csl_xml.delete_node_by_name_attribute(datexml, "day");
-        } else if date_parts_attr == "month-day" {
-            let child_nodes = self.csl_xml.children(datexml);
-            for i in 1..child_nodes.len() {
-                if let XmlChild::Node(c) = &child_nodes[i] {
-                    if self.csl_xml.get_attribute_value(*c, "name").as_str() == Some("year") {
-                        if let XmlChild::Node(prev) = &child_nodes[i - 1] {
-                            self.csl_xml.set_attribute(
-                                *prev,
-                                "suffix",
-                                Value::String(String::new()),
-                            );
-                        }
-                        break;
-                    }
-                }
-            }
-            self.csl_xml.delete_node_by_name_attribute(datexml, "year");
-        }
-        Ok(self
-            .csl_xml
-            .insert_child_node_after(parent, node, pos, datexml))
     }
 }
 

@@ -41,7 +41,7 @@ pub fn build(
         engine(state)?.add_match(target, token.extra.get("match"))?;
     }
     if token.tokentype == TokenType::End {
-        engine(state)?.match_combine(target)?;
+        engine(state)?.match_combine(state, target)?;
     }
     Ok(())
 }

@@ -31,7 +31,7 @@ pub fn build(
     _real_group: Option<bool>,
 ) -> CslResult<()> {
     if token.tokentype == TokenType::Singleton {
-        let test = util_conditions::match_combine(&token, &token.tests)?;
+        let test = util_conditions::match_combine(state, &token, &token.tests)?;
         let engine = state.tmp.conditions.clone().ok_or_else(|| {
             EngineError::Csl("TypeError: state.tmp.conditions is undefined".into())
         })?;

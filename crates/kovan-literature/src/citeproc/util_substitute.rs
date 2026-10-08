@@ -34,7 +34,6 @@ use super::js;
 use super::node_choose;
 use super::obj_token::{Decoration, Token, TokenType};
 use super::state::State;
-use super::util_conditions;
 use super::{CslResult, EngineError};
 
 /// The closures `src/util_substitute.js` stores in `token.execs`
@@ -83,7 +82,7 @@ impl UtilSubstituteExec {
     pub fn run(
         &self,
         state: &mut State,
-        token: &Token,
+        token: &mut Token,
         _item: &Value,
         cite_item: &Value,
     ) -> CslResult<Option<usize>> {
@@ -196,7 +195,7 @@ impl UtilSubstituteTest {
     pub fn eval(
         &self,
         state: &mut State,
-        _token: &Token,
+        _token: &mut Token,
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<bool> {
@@ -290,10 +289,7 @@ pub fn substitute_start(
         if_start
             .tests
             .push(Test::UtilSubstitute(UtilSubstituteTest::CanSubstitute));
-        if_start.test = Some(util_conditions::match_test(
-            util_conditions::MatchKind::Any,
-            &if_start.tests,
-        ));
+        if_start.test = Some(state.fun.match_.any(&if_start, state, &if_start.tests));
         target.push(if_start);
     }
 

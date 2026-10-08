@@ -2515,14 +2515,14 @@ mod tests {
     fn run_seq(seq: &Value) -> Vec<Value> {
         let cfg = &seq["cfg"];
         let mut st = State::default();
+        let piq = cfg["piq"].as_bool().unwrap_or(false);
+        crate::citeproc::test_support::install_output_locale(&mut st, piq);
         crate::citeproc::formats::set_output_format(
             &mut st,
             cfg["mode"].as_str().unwrap_or("html"),
         )
         .unwrap();
         st.tmp.area = cfg["area"].as_str().unwrap_or("citation").to_string();
-        let piq = cfg["piq"].as_bool().unwrap_or(false);
-        st.opt.insert("punctuation-in-quote".into(), json!(piq));
         st.output.adjust = Some(Adjust::new(piq));
         st.tmp.strip_periods = i64::from(js::truthy(&cfg["strip"]));
         st.tmp.just_looking = js::truthy(&cfg["just_looking"]);

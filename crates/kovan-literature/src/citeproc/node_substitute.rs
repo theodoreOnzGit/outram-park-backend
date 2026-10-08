@@ -22,7 +22,6 @@ use super::exec::{Exec, Test};
 use super::node_choose;
 use super::obj_token::{Token, TokenType};
 use super::state::State;
-use super::util_conditions::{self, MatchKind};
 use super::CslResult;
 
 /// The closures `src/node_substitute.js` stores in `token.execs`
@@ -39,7 +38,7 @@ impl NodeSubstituteExec {
     pub fn run(
         &self,
         state: &mut State,
-        _token: &Token,
+        _token: &mut Token,
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
@@ -70,7 +69,7 @@ impl NodeSubstituteTest {
     pub fn eval(
         &self,
         state: &mut State,
-        _token: &Token,
+        _token: &mut Token,
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<bool> {
@@ -96,10 +95,7 @@ pub fn build(
         let mut if_singleton = Token::new("if", TokenType::Singleton);
         if_singleton.tests_defined = true;
         if_singleton.tests = vec![Test::NodeSubstitute(NodeSubstituteTest::ValueRendered)];
-        if_singleton.test = Some(util_conditions::match_test(
-            MatchKind::Any,
-            &if_singleton.tests,
-        ));
+        if_singleton.test = Some(state.fun.match_.any(&if_singleton, state, &if_singleton.tests));
         target.push(if_singleton);
 
         token

@@ -21,10 +21,11 @@
 //!
 //! A conditional token (`cs:if`, `cs:else-if`, `cs:condition`, ...) collects
 //! `tests` (attribute handlers push them) and one `test` that combines them
-//! with a match mode. Upstream's `match.any(token, state, tests)` returns a
-//! closure over the `tests` *array*; here [`UtilConditionsTest::Match`]
-//! carries a copy of the tests at the moment of combination (always after the
-//! last test was pushed, so the copy is equivalent).
+//! with a match mode. Upstream's `match.any(token, state, tests)` (util.js,
+//! [`super::util::Match`]) returns a closure over the `tests` *array*; here
+//! [`super::util::UtilTest`] carries a copy of the tests at the moment of
+//! combination (always after the last test was pushed, so the copy is
+//! equivalent).
 
 use serde_json::Value;
 
@@ -33,53 +34,6 @@ use super::js;
 use super::obj_token::{Token, TokenType};
 use super::state::State;
 use super::{CslResult, EngineError};
-
-/// The match modes of `CSL.Util.Match`: `any`, `none`, `all`, `nand`; an
-/// undefined `match` attribute behaves as `all` (`this[undefined] = this.all`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MatchKind {
-    /// `match="any"`.
-    Any,
-    /// `match="none"`.
-    None,
-    /// `match="all"` (and no `match` attribute).
-    All,
-    /// `match="nand"`.
-    Nand,
-}
-
-impl MatchKind {
-    /// `state.fun.match[name]`. `None` (undefined) selects `all`; an unknown
-    /// name is a JS `TypeError` ("... is not a function"), here a
-    /// [`EngineError::Csl`].
-    pub fn from_name(name: Option<&str>) -> CslResult<MatchKind> {
-        match name {
-            None | Some("undefined") | Some("all") => Ok(MatchKind::All),
-            Some("any") => Ok(MatchKind::Any),
-            Some("none") => Ok(MatchKind::None),
-            Some("nand") => Ok(MatchKind::Nand),
-            Some(other) => Err(EngineError::Csl(format!(
-                "TypeError: state.fun.match.{other} is not a function"
-            ))),
-        }
-    }
-}
-
-/// `state.fun.match[token.match](token, state, tests)`: the combined test.
-/// Reads the token's `match` property (`token.extra["match"]`).
-pub fn match_combine(token: &Token, tests: &[Test]) -> CslResult<Test> {
-    let name = token.extra.get("match").map(js::to_js_string);
-    let kind = MatchKind::from_name(name.as_deref())?;
-    Ok(match_test(kind, tests))
-}
-
-/// `state.fun.match.<kind>(token, state, tests)`.
-pub fn match_test(kind: MatchKind, tests: &[Test]) -> Test {
-    Test::UtilConditions(UtilConditionsTest::Match {
-        kind,
-        tests: tests.to_vec(),
-    })
-}
 
 /// The closures `src/util_conditions.js` stores in `token.execs`
 /// (PORTING.md §4).
@@ -100,7 +54,7 @@ impl UtilConditionsExec {
     pub fn run(
         &self,
         state: &mut State,
-        token: &Token,
+        token: &mut Token,
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
@@ -152,52 +106,6 @@ impl UtilConditionsExec {
     }
 }
 
-/// The condition closures `src/util_conditions.js` / `src/util.js` store in
-/// `token.test` (PORTING.md §4).
-#[derive(Debug, Clone, PartialEq)]
-pub enum UtilConditionsTest {
-    /// `CSL.Util.Match` `any` / `none` / `all` / `nand` over `tests`.
-    Match {
-        /// The match mode.
-        kind: MatchKind,
-        /// A copy of the combined tests, in order.
-        tests: Vec<Test>,
-    },
-}
-
-impl UtilConditionsTest {
-    /// Evaluate the condition (`function (Item, item)` of util.js:8-52).
-    pub fn eval(
-        &self,
-        state: &mut State,
-        token: &mut Token,
-        item: &Value,
-        cite_item: &Value,
-    ) -> CslResult<bool> {
-        match self {
-            UtilConditionsTest::Match { kind, tests } => {
-                for t in tests {
-                    let result = t.eval(state, token, item, cite_item)?;
-                    match kind {
-                        MatchKind::Any if result => return Ok(true),
-                        MatchKind::None if result => return Ok(false),
-                        MatchKind::All | MatchKind::Nand if !result => {
-                            return Ok(*kind == MatchKind::Nand)
-                        }
-                        _ => {}
-                    }
-                }
-                Ok(match kind {
-                    MatchKind::Any => false,
-                    MatchKind::None => true,
-                    MatchKind::All => true,
-                    MatchKind::Nand => false,
-                })
-            }
-        }
-    }
-}
-
 /// `CSL.Conditions.Engine`: collects the tests of a `cs:if` / `cs:else-if`
 /// built from `cs:conditions` / `cs:condition` children. Upstream holds the
 /// token by reference; the token has been pushed to the target token list
@@ -240,12 +148,19 @@ impl ConditionsEngine {
     }
 
     /// `CSL.Conditions.Engine.prototype.matchCombine`.
-    pub fn match_combine(&self, target: &mut [Token]) -> CslResult<()> {
+    pub fn match_combine(&self, state: &State, target: &mut [Token]) -> CslResult<()> {
         let tok = self.token(target)?;
-        let combined = match_combine(tok, &tok.tests.clone())?;
+        let combined = match_combine(state, tok, &tok.tests.clone())?;
         tok.test = Some(combined);
         Ok(())
     }
+}
+
+/// `state.fun.match[token.match](token, state, tests)`: the combined test.
+/// Reads the token's `match` property (`token.extra["match"]`).
+pub fn match_combine(state: &State, token: &Token, tests: &[Test]) -> CslResult<Test> {
+    let name = token.extra.get("match").map(js::to_js_string);
+    state.fun.match_.build(name.as_deref(), token, state, tests)
 }
 
 /// `CSL.Conditions.TopNode.call(token, state)`, shared by `cs:if` and
@@ -265,7 +180,7 @@ pub fn top_node(state: &mut State, token: &mut Token, target: &[Token]) -> CslRe
             });
         } else {
             // The usual.
-            token.test = Some(match_combine(token, &token.tests.clone())?);
+            token.test = Some(match_combine(state, token, &token.tests.clone())?);
         }
         if state.build.substitute_level.value().copied() == Some(0) {
             token.execs.push(super::exec::Exec::UtilConditions(
