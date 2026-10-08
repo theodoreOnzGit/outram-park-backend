@@ -311,7 +311,6 @@ serde_json = "1.0"           # KovanDocument (de)serialisation, generated artifa
 # engine, MIT OR Apache-2.0, pure Rust. Default features (BibLaTeX input,
 # bundled style archive) off; the items come from our own Zotero import as
 # CSL-JSON, and the style and locale files are pinned in kovan-literature/data/csl.
-hayagriva = { version = "0.10.1", default-features = false, features = ["csl-json"] }
 toml = "0.8"                 # metadata / config
 pulldown-cmark = { version = "0.12", default-features = false }  # the only Markdown parser KOVAN starts with
 ignore = "0.4"               # fd/ripgrep's walker: .gitignore-aware file discovery
@@ -325,7 +324,7 @@ regex = "1"                  # pure-Rust, Android-friendly regex — capture ext
 unicode-normalization = "0.1"
 # The citeproc-js port's collation (`citeproc::js::locale_compare`, GitHub #795): ICU4X, the
 # same CLDR collation data node's ICU uses for `localeCompare`. Unicode-3.0 licence
-# (permissive, GPL- and AGPL-compatible). Already in Cargo.lock (2.3.x, via hayagriva and
+# (permissive, GPL- and AGPL-compatible). Already in Cargo.lock (2.3.x, via hayagriva (since removed, #797) and
 # turso_core), so no new crate enters the tree; pure Rust, wasm- and Android-clean.
 icu_collator = "2"
 icu_locale_core = "2"
