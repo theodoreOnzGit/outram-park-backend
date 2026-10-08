@@ -13,7 +13,7 @@
 //               splice_prefix, gender, formatter: "default"|"suffixator"|"romanizer"} }
 // Token ref   null | "name" | tokenSpec
 'use strict';
-const { CSL, makeEngine, ser, serRes, writeUnits, prng } = require('./common.cjs');
+const { CSL, makeEngine, ser, serRes, writeUnits, prng } = require('./common_output.cjs');
 
 function mkTok(sp) {
   const t = new CSL.Token(sp.n || 'x', CSL.SINGLETON);

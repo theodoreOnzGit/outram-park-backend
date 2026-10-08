@@ -5,7 +5,7 @@
 //                hook: bool, r: output | {error} }] } },
 //     safe: [{ area, mode, thin, s, r }] }
 'use strict';
-const { CSL, makeEngine, writeUnits } = require('./common.cjs');
+const { CSL, makeEngine, writeUnits } = require('./common_output.cjs');
 
 const MODES = ['html', 'text', 'rtf', 'asciidoc', 'fo', 'latex'];
 

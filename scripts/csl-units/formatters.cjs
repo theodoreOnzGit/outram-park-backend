@@ -3,7 +3,7 @@
 //   [{ s: input, la: tmp.lang_array or null, r: [lowercase, uppercase,
 //      capitalize-first, capitalize-all, sentence, title] }]
 'use strict';
-const { CSL, makeEngine, fixtureStrings, writeUnits, prng } = require('./common.cjs');
+const { CSL, makeEngine, fixtureStrings, writeUnits, prng } = require('./common_output.cjs');
 
 const NAMES = ['lowercase', 'uppercase', 'capitalize-first', 'capitalize-all', 'sentence', 'title'];
 

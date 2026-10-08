@@ -5,7 +5,7 @@
 // All cases run in order on ONE engine, because the flip-flopper keeps
 // state between calls (the outer quote form is mutated and stays mutated).
 'use strict';
-const { CSL, makeEngine, fixtureStrings, ser, writeUnits, prng } = require('./common.cjs');
+const { CSL, makeEngine, fixtureStrings, ser, writeUnits, prng } = require('./common_output.cjs');
 
 const edge = [
   '', 'plain', ' leading', 'trailing ', '<i>it</i>', 'a <i>it</i> b', '<i>a <i>b</i> c</i>', '<b>b</b>',

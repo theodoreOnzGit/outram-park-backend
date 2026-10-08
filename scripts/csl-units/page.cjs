@@ -3,7 +3,7 @@
 //   { formats, strings, runs: [{ t: "page"|"year", f: format|null, y: isyear,
 //                                out: [output | {error}] aligned with strings }] }
 'use strict';
-const { CSL, makeEngine, fixtureStrings, writeUnits, prng } = require('./common.cjs');
+const { CSL, makeEngine, fixtureStrings, writeUnits, prng } = require('./common_output.cjs');
 
 const FORMATS = [null, 'expanded', 'minimal', 'minimal-two', 'chicago', 'chicago-15', 'chicago-16'];
 const rand = prng(793793);

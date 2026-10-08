@@ -38,6 +38,9 @@ use super::registry::{Comparifier, Registry};
 use super::util_dateparser::DateParser;
 use super::util_flipflop::FlipFlopper;
 use super::util_locale::Locale;
+use super::util_number::{
+    InputLocale, LongOrdinalizer, Ordinalizer, Romanizer, ShadowNumber, Suffixator,
+};
 use super::util_parallel::Parallel;
 use super::util_transform::Transform;
 use super::xmljson::XmlJson;
@@ -108,6 +111,16 @@ pub struct State {
     pub sys_variable_wrapper: bool,
 
     // ---- fields: wave1-input (dates, numbers, name particles, retrieveItem) ----
+    /// PROVISIONAL (wave1-input): the locale terms and `ord["1.0.1"]` that
+    /// `util_number.rs` and `util_dates.rs` read, answered by
+    /// `input_get_term` / `input_get_field`. The integrator replaces those
+    /// two functions with `State::get_term` / `getField` and removes this.
+    pub input_locale: InputLocale,
+    /// PROVISIONAL (wave1-input): `registry.refhash`, the normalised items
+    /// by id that `retrieveItem` returns on later calls. Belongs to the
+    /// registry (wave4); `build_retrieve_item.rs` reads and writes this
+    /// field until `Registry::refhash` exists.
+    pub item_refhash: BTreeMap<String, serde_json::Value>,
 
     // ---- fields: wave1-output (queue, formats, formatters, flip-flop, page) ----
 
@@ -217,6 +230,19 @@ pub struct Tmp {
     pub lang_sort_hold: Option<String>,
 
     // ---- fields: wave1-input ----
+    /// `shadow_numbers`: parsed numeric variables by variable name
+    /// (`processNumber`, util_number.js).
+    pub shadow_numbers: BTreeMap<String, ShadowNumber>,
+    /// `just_looking` (read by `processNumber`'s `setStyling`; set by the
+    /// wave that runs the "just looking" pass: another agent may add it too).
+    pub just_looking: bool,
+    /// `cite_renders_content` (`getTerm` and `LongOrdinalizer.format` set
+    /// it; may also be added by the wave that owns citation rendering).
+    pub cite_renders_content: bool,
+    /// `loadedItemIDs`: ids `retrieveItem` has already loaded.
+    pub loaded_item_ids: BTreeMap<String, bool>,
+    /// `taintedItemIDs`: ids whose normalised item changed on a re-fetch.
+    pub tainted_item_ids: BTreeMap<String, bool>,
 
     // ---- fields: wave1-output ----
     // (agent wave1-output: queue.js, formats.js, formatters.js,
@@ -333,6 +359,14 @@ pub struct Fun {
     // ---- fields: wave1-build ----
 
     // ---- fields: wave1-input ----
+    /// `ordinalizer`.
+    pub ordinalizer: Ordinalizer,
+    /// `long_ordinalizer`.
+    pub long_ordinalizer: LongOrdinalizer,
+    /// `romanizer`.
+    pub romanizer: Romanizer,
+    /// `suffixator`.
+    pub suffixator: Suffixator,
 
     // ---- fields: wave1-output ----
     /// `decorate` (`CSL.Mode(mode)`, set by `setOutputFormat`): the output
