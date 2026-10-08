@@ -256,7 +256,7 @@ pub fn set_number_labels(state: &mut State, item: &Value) {
 /// `locator_date_and_revision`, split `locator|date rest` into `locator`,
 /// `locator-date` (a parsed date object) and `locator-extra`; then strip
 /// trailing whitespace from `locator`. `item` is mutated.
-pub fn parse_locator(state: &State, item: &mut Obj) {
+pub fn parse_locator(state: &mut State, item: &mut Obj) {
     let ext = state
         .opt
         .get("development_extensions")
@@ -306,7 +306,7 @@ pub fn parse_locator(state: &State, item: &mut Obj) {
 /// `item.label` when the locale has a term for it.
 ///
 /// `Item` may be mutated (`remapSectionVariable` rewrites `Item.section`).
-pub fn citation_item_input(state: &State, item_obj: &mut Obj, item: &mut Obj) -> CslResult<()> {
+pub fn citation_item_input(state: &mut State, item_obj: &mut Obj, item: &mut Obj) -> CslResult<()> {
     parse_locator(state, item);
     let ext = |name: &str| {
         state
@@ -447,7 +447,7 @@ mod tests {
                 json!({"locator_date_and_revision": c["ext"]}),
             );
             let mut item = obj(&c["item"]);
-            parse_locator(&st, &mut item);
+            parse_locator(&mut st, &mut item);
             assert_eq!(Value::Object(item), c["out"], "{c}");
         }
     }
@@ -460,9 +460,12 @@ mod tests {
             let e = &r["cii_engines"][c["engine"].as_str().unwrap_or("")];
             let mut st = State::default();
             st.opt = obj(&e["opt"]);
-            st.input_locale.terms = terms_from(&e["log"]);
+            super::super::test_support::install_locale(
+                &mut st,
+                super::super::test_support::logged_locale(&e["log"], None, None),
+            );
             let (mut item_obj, mut item) = (obj(&c["Item"]), obj(&c["ci"]));
-            let res = citation_item_input(&st, &mut item_obj, &mut item);
+            let res = citation_item_input(&mut st, &mut item_obj, &mut item);
             n += 1;
             match (res, c.get("error")) {
                 (Ok(()), None) => {

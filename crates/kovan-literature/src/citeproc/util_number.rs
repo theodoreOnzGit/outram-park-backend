@@ -32,16 +32,14 @@
 //! token `formatter` copy); `CSL.Util.outputNumericField` renders through the
 //! output queue and is deferred ([`output_numeric_field`]).
 //!
-//! # Locale terms (integration point)
+//! # Locale terms
 //!
 //! citeproc-js reads locale terms through `state.getTerm(...)` and
-//! `CSL.Engine.getField(...)` (build.js, `Locale`; ported by wave1-build).
-//! Until `State::get_term` exists every term read in this port goes through
-//! [`input_get_term`] / [`input_get_field`], which answer from the
-//! provisional table `state.input_locale` ([`InputLocale`]). **The integrator
-//! replaces the body of those two functions** with calls to `State::get_term`
-//! and `Engine::get_field`; nothing else here changes. The same table also
-//! carries `locale[lang].ord["1.0.1"]` for [`Ordinalizer`].
+//! `CSL.Engine.getField(...)` (build.js). Every term read in this file goes
+//! through [`input_get_term`] / [`input_get_field`], thin wrappers over
+//! `State::get_term` / `State::get_field` (which set
+//! `tmp.cite_renders_content` as upstream does, so the readers take
+//! `&mut State`). [`Ordinalizer`] reads `locale[lang].ord["1.0.1"]` directly.
 //!
 //! # Quirks kept on purpose
 //!
@@ -287,23 +285,8 @@ fn rx(src: &str) -> Regex {
 }
 
 // ---------------------------------------------------------------------------
-// Provisional locale access (see the module docs).
+// Locale access
 // ---------------------------------------------------------------------------
-
-/// Provisional stand-in for `state.locale[lang]` as far as this file reads
-/// it: the answers to `getTerm` / `getField` queries (keyed by
-/// [`TermQuery::key`]) and `locale[lang].ord["1.0.1"]`.
-///
-/// Absent key = JS `undefined` (term missing).
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct InputLocale {
-    /// `getTerm` answers by [`TermQuery::key`]; `None` = `undefined`.
-    pub terms: BTreeMap<String, Option<String>>,
-    /// `CSL.Engine.getField` answers by [`field_key`].
-    pub fields: BTreeMap<String, Option<String>>,
-    /// `state.locale[state.opt.lang].ord["1.0.1"]`, when the locale has it.
-    pub ord_101: Option<Value>,
-}
 
 /// The arguments of `state.getTerm(term, form, plural, gender, mode,
 /// forceDefaultLocale)`, normalised: `form` / `gender` `None` for
@@ -355,45 +338,49 @@ impl TermQuery {
     }
 }
 
-/// The key of a `CSL.Engine.getField(mode, terms, term, form, plural,
-/// gender)` query in [`InputLocale::fields`].
-pub fn field_key(mode: i64, name: &str, form: &str, plural: i64, gender: Option<&str>) -> String {
-    format!("{mode}|{name}|{form}|{plural}|{}", gender.unwrap_or("~"))
-}
-
-/// `state.getTerm(...)`, provisionally: the answer recorded for `q` in
-/// `state.input_locale`, `None` (JS `undefined`) if there is none.
-///
-/// INTEGRATION: replace the body with `State::get_term` (build.js).
-pub fn input_get_term(state: &State, q: &TermQuery) -> Option<String> {
-    state.input_locale.terms.get(&q.key()).cloned().flatten()
+/// `state.getTerm(term, form, plural, gender, mode, forceDefaultLocale)` for
+/// the query `q`: [`State::get_term`], `None` for JS `undefined`.
+pub fn input_get_term(state: &mut State, q: &TermQuery) -> Option<String> {
+    // An `Err` is the TypeError of a missing `state.locale[state.opt.lang]`,
+    // which the constructor rules out; it reads as `undefined` here.
+    state
+        .get_term(
+            &q.name,
+            q.form.as_deref(),
+            Some(q.plural),
+            q.gender.as_deref(),
+            q.mode,
+            q.force_default_locale,
+        )
+        .ok()
+        .flatten()
 }
 
 /// `getTerm(name)` with only the name given; `None` name is
 /// `getTerm(undefined)`, which is `undefined`.
-pub fn input_get_term_name(state: &State, name: Option<&str>) -> Option<String> {
+pub fn input_get_term_name(state: &mut State, name: Option<&str>) -> Option<String> {
     name.and_then(|n| input_get_term(state, &TermQuery::new(n)))
 }
 
-/// `CSL.Engine.getField(mode, locale.terms, name, form, plural, gender)`,
-/// provisionally (see [`input_get_term`]).
+/// `CSL.Engine.getField(mode, state.locale[state.opt.lang].terms, name, form,
+/// plural, gender)` ([`State::get_field`]); `None` is JS `undefined`.
 pub fn input_get_field(
-    state: &State,
+    state: &mut State,
     mode: i64,
     name: &str,
     form: &str,
     plural: i64,
     gender: Option<&str>,
 ) -> Option<String> {
-    state
-        .input_locale
-        .fields
-        .get(&field_key(mode, name, form, plural, gender))
-        .cloned()
+    let lang = opt_lang(state);
+    let locale = state.locale.get(&lang)?;
+    State::get_field(mode, &locale.terms, name, Some(form), Some(plural), gender)
+        .ok()
         .flatten()
+        .map(|v| js::to_js_string(&v))
 }
 
-fn opt_lang(state: &State) -> String {
+fn opt_lang(state: &mut State) -> String {
     state
         .opt
         .get("lang")
@@ -515,7 +502,7 @@ impl Ordinalizer {
     /// `Ordinalizer.prototype.init()` for one gender: the four suffixes
     /// `ordinal-01..04` (long form), or `None` when one is missing (upstream
     /// then deletes the gender's entry).
-    fn suffixes(state: &State, gender: Option<&str>) -> Option<Vec<String>> {
+    fn suffixes(state: &mut State, gender: Option<&str>) -> Option<Vec<String>> {
         let mut out = Vec::new();
         for j in 1..5 {
             let mut q = TermQuery::new(&format!("ordinal-0{j}"));
@@ -529,7 +516,7 @@ impl Ordinalizer {
     /// `Ordinalizer.prototype.format(num, gender)`: `num` with its ordinal
     /// suffix, per the locale's CSL 1.0.1 `ord` rules when present, else
     /// the four-suffix English-style rule.
-    pub fn format(&self, state: &State, num: &Value, gender: Option<&str>) -> CslResult<String> {
+    pub fn format(&self, state: &mut State, num: &Value, gender: Option<&str>) -> CslResult<String> {
         let parsed = js::parse_int_value(num);
         let mut s = match parsed {
             Some(n) => n.to_string(),
@@ -543,18 +530,21 @@ impl Ordinalizer {
         // `suffix` is a JS value that may stay undefined (then it is appended
         // as the text "undefined", as upstream does).
         let mut suffix: Option<String>;
-        if let Some(ordinfo) = state
-            .input_locale
-            .ord_101
-            .as_ref()
+        // `state.locale[state.opt.lang].ord["1.0.1"]`
+        let lang = opt_lang(state);
+        let ord_101: Option<Value> = state
+            .locale
+            .get(&lang)
+            .and_then(|l| l.ord.get("1.0.1"))
             .filter(|v| js::truthy(v))
-        {
-            let get = |name: &str| -> Option<String> {
+            .cloned();
+        if let Some(ordinfo) = ord_101.as_ref() {
+            let get = |state: &mut State, name: &str| -> Option<String> {
                 let mut q = TermQuery::new(name);
                 q.gender = gender.map(str::to_string);
                 input_get_term(state, &q)
             };
-            suffix = get("ordinal");
+            suffix = get(state, "ordinal");
             let len = js::len(&s) as i64;
             let two = js::slice(&s, len - 2, None);
             let one = js::slice(&s, len - 1, None);
@@ -573,19 +563,19 @@ impl Ordinalizer {
                 };
                 let whole = ordinfo.get("whole-number").ok_or_else(|| missing(&s))?;
                 if let Some(t) = pick(whole, &s) {
-                    suffix = get(&t);
+                    suffix = get(state, &t);
                 } else if let Some(t) = pick(
                     ordinfo
                         .get("last-two-digits")
                         .ok_or_else(|| missing(&two))?,
                     &two,
                 ) {
-                    suffix = get(&t);
+                    suffix = get(state, &t);
                 } else if let Some(t) = pick(
                     ordinfo.get("last-digit").ok_or_else(|| missing(&one))?,
                     &one,
                 ) {
-                    suffix = get(&t);
+                    suffix = get(state, &t);
                 }
                 if suffix.as_deref().map(|x| !x.is_empty()).unwrap_or(false) {
                     break;
@@ -614,7 +604,7 @@ impl Ordinalizer {
     }
 
     /// Which genders `init()` would keep suffix tables for (for tests).
-    pub fn init_genders(&self, state: &State) -> Vec<Option<String>> {
+    pub fn init_genders(&self, state: &mut State) -> Vec<Option<String>> {
         ORD_GENDERS
             .iter()
             .filter(|g| Self::suffixes(state, **g).is_some())
@@ -1097,7 +1087,7 @@ fn compile_joiner(src: &str) -> CslResult<Regex> {
         .map_err(|e| EngineError::BadInput(format!("Invalid regular expression: {e}")))
 }
 
-fn build_joiners(state: &State) -> CslResult<(Joiners, String)> {
+fn build_joiners(state: &mut State) -> CslResult<(Joiners, String)> {
     let lang = opt_lang(state);
     let and_term = input_get_term_name(state, Some("and"));
     let (jm_src, js_src) = joiner_sources(&lang, and_term.as_deref());
@@ -1124,7 +1114,7 @@ fn build_joiners(state: &State) -> CslResult<(Joiners, String)> {
 /// `parseString(str, defaultLabel)`.
 #[allow(clippy::too_many_arguments)]
 fn parse_string(
-    state: &State,
+    state: &mut State,
     joiners: &Joiners,
     locale_amp: &str,
     item: &Value,
@@ -1352,7 +1342,7 @@ fn fix_numeric_and_count(values: &mut [NumberInfo], i: usize, cli: &mut LabelInf
 
 /// `fixLabelVisibility(values, groupStartPos, currentLabelInfo)`.
 fn fix_label_visibility(
-    state: &State,
+    state: &mut State,
     variable: &str,
     values: &mut [NumberInfo],
     cli: &LabelInfo,
@@ -1381,7 +1371,7 @@ fn fix_label_visibility(
 
 /// `setPluralsAndNumerics(values)`.
 fn set_plurals_and_numerics(
-    state: &State,
+    state: &mut State,
     item: &Value,
     variable: &str,
     real_variable: &str,
@@ -1435,7 +1425,7 @@ fn strip_hyphen_backslash(s: &str) -> String {
 }
 
 /// `checkTerm(variable, val)`.
-fn check_term(state: &State, variable: &str, val: &NumberInfo) -> bool {
+fn check_term(state: &mut State, variable: &str, val: &NumberInfo) -> bool {
     if ["locator", "locator-extra", "page"].contains(&variable) {
         let label = match val.orig_label.as_deref().filter(|l| !l.is_empty()) {
             Some(o) => o,
@@ -1458,7 +1448,7 @@ fn check_page(variable: &str, val: &NumberInfo) -> bool {
 
 /// `fixupRangeDelimiter(variable, val, rangeDelimiter, isNumeric)`.
 fn fixup_range_delimiter(
-    state: &State,
+    state: &mut State,
     variable: &str,
     val: &NumberInfo,
     range_delimiter: &str,
@@ -1494,7 +1484,7 @@ fn fixup_range_delimiter(
 
 /// `manglePageNumbers(values, i, currentInfo)`.
 fn mangle_page_numbers(
-    state: &State,
+    state: &mut State,
     variable: &str,
     values: &mut [NumberInfo],
     i: usize,
@@ -1577,7 +1567,7 @@ fn mangle_page_numbers(
 /// `fixRanges(values)` (only with a node): collapse `12-15` style ranges.
 /// Needs `page_mangler` for page ranges (deferred).
 pub fn fix_ranges(
-    state: &State,
+    state: &mut State,
     variable: &str,
     node_given: bool,
     values: &mut [NumberInfo],
@@ -1642,7 +1632,7 @@ pub fn fix_ranges(
 /// PORT-LATER(wave2): util_number.js:581, needs a `formatter` field on
 /// `Token` (`newnode.formatter = node.formatter`; the dump records its
 /// name). `newnode.gender = node.gender` is copied through `Token::extra`.
-pub fn set_styling(state: &State, node: &Token, values: &mut [NumberInfo]) -> Token {
+pub fn set_styling(state: &mut State, node: &Token, values: &mut [NumberInfo]) -> Token {
     let just_looking = state.tmp.just_looking;
     let mut master_node = node.clone_token();
     let mut master_styling = Token::new("", TokenType::Start);
@@ -1702,7 +1692,7 @@ pub fn set_styling(state: &State, node: &Token, values: &mut [NumberInfo]) -> To
 /// the abbreviation for `val` in the `number` category, or `None`. See
 /// [`super::build_retrieve_item::abbreviation_lookup`].
 fn number_abbreviation(
-    state: &State,
+    state: &mut State,
     item: &Value,
     real_variable: &str,
     val: &str,
@@ -1763,7 +1753,7 @@ pub fn process_number(
 }
 
 fn process_number_inner(
-    state: &State,
+    state: &mut State,
     node: Option<&Token>,
     item: Option<&Value>,
     variable: &str,
@@ -1950,7 +1940,7 @@ fn take_infos(values: &mut Vec<ShadowValue>) -> Vec<NumberInfo> {
 ///
 /// DUP-CHECK: util_transform.js `getTextSubField` (reduced; the full
 /// function belongs to the transform port).
-fn text_sub_field_name(state: &State, item: &Value, field: &str, locale_type: &str) -> Value {
+fn text_sub_field_name(state: &mut State, item: &Value, field: &str, locale_type: &str) -> Value {
     let item_field = item.get(field).cloned().unwrap_or(Value::Null);
     if !js::truthy(&item_field) {
         return Value::String(String::new());
@@ -2029,8 +2019,8 @@ mod tests {
     //! * `Romanizer`, `Suffixator` and `padding`.
     //!
     //! The locale terms citeproc-js read while producing each answer are
-    //! recorded in the reference (`log`) and replayed through
-    //! [`InputLocale`], so the tests check the number logic, not the locale
+    //! recorded in the reference (`log`) and replayed through a synthesised
+    //! locale (`test_support::logged_locale`), so the tests check the number logic, not the locale
     //! loader. Pass criterion: every output equal to citeproc-js's.
     use super::*;
     use serde_json::json;
@@ -2056,7 +2046,10 @@ mod tests {
         if let Some(o) = engine["opt"].as_object() {
             st.opt = o.clone();
         }
-        st.input_locale.terms = terms_from(&engine["log"]);
+        super::super::test_support::install_locale(
+            &mut st,
+            super::super::test_support::logged_locale(&engine["log"], None, None),
+        );
         st
     }
 
@@ -2228,8 +2221,14 @@ mod tests {
         let mut states: BTreeMap<String, State> = BTreeMap::new();
         for (lang, e) in r["ord_engines"].as_object().expect("engines") {
             let mut st = state_for(e);
-            st.input_locale.fields = terms_from(&e["fields"]);
-            st.input_locale.ord_101 = e["ord_101"].as_object().map(|o| Value::Object(o.clone()));
+            super::super::test_support::install_locale(
+                &mut st,
+                super::super::test_support::logged_locale(
+                    &e["log"],
+                    Some(&e["fields"]),
+                    Some(&e["ord_101"]),
+                ),
+            );
             states.insert(lang.clone(), st);
         }
         let mut bad = Vec::new();

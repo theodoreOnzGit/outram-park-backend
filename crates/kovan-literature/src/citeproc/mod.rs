@@ -232,6 +232,8 @@ pub(crate) mod util_number;
 pub(crate) mod util_page;
 #[allow(dead_code)]
 pub(crate) mod util_parallel;
+#[cfg(test)]
+pub(crate) mod test_support;
 #[allow(dead_code)]
 pub(crate) mod util_processor;
 #[allow(dead_code)]
@@ -692,6 +694,48 @@ impl Engine {
     pub fn set_lang_tags_for_csl_transliteration(&mut self, tags: Vec<String>) {
         self.state.set_lang_tags_for_csl_transliteration(Some(&tags));
         self.lang_tags_transliteration = tags;
+    }
+
+    /// `style.fun.dateparser.addDateParserMonths(months)`: extra month names
+    /// for the date parser (the test runner adds Turkish ones).
+    pub fn add_date_parser_months(&mut self, months: &[String]) {
+        self.state.fun.dateparser.add_date_parser_months(months);
+    }
+
+    /// The test runner's abbreviation set-up (`this._acache = Object.assign(
+    /// this._acache, abbrevs)` after normalising every key with
+    /// `sys.normalizeAbbrevsKey("title", key)`, except jurisdiction places and
+    /// court segments): `abbreviations` is the fixture's `ABBREVIATIONS`
+    /// object `{jurisdiction: {segment: {key: abbreviation}}}`.
+    pub fn set_runner_abbreviations(&mut self, abbreviations: &Value) {
+        let Some(jurisdictions) = abbreviations.as_object() else {
+            return;
+        };
+        for (jurisd, segments) in jurisdictions {
+            let mut by_segment = BTreeMap::new();
+            for (segment, keys) in segments.as_object().into_iter().flatten() {
+                let mut by_key = BTreeMap::new();
+                for (key, value) in keys.as_object().into_iter().flatten() {
+                    let is_jurisdiction =
+                        jurisd == "default" && segment == "place" && key.to_uppercase() == *key;
+                    let is_court = ["institution-entire", "institution-part"].contains(&segment.as_str())
+                        && segment.to_lowercase() == *segment;
+                    let normkey = if !is_jurisdiction && !is_court {
+                        build_retrieve_item::normalize_abbrevs_key("title", Some(key))
+                    } else {
+                        key.clone()
+                    };
+                    if let Some(s) = value.as_str() {
+                        by_key.insert(normkey, s.to_string());
+                    }
+                }
+                by_segment.insert(segment.clone(), by_key);
+            }
+            self.state
+                .sys
+                .abbreviations
+                .insert(jurisd.clone(), by_segment);
+        }
     }
 
     /// The tags set for CSL translation and transliteration.

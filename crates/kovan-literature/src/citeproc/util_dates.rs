@@ -259,7 +259,7 @@ pub fn month_numeric_leading_zeros(num: &Value) -> String {
 }
 
 fn month_term(
-    state: &State,
+    state: &mut State,
     num: &Value,
     form: &str,
     force_default_locale: bool,
@@ -283,7 +283,7 @@ fn month_term(
 /// `Some("")` for an out-of-range month, `None` if the term is missing
 /// (JS `undefined`). `gender` is unused upstream.
 pub fn month_long(
-    state: &State,
+    state: &mut State,
     num: &Value,
     _gender: Option<&str>,
     force_default_locale: bool,
@@ -293,7 +293,7 @@ pub fn month_long(
 
 /// `CSL.Util.Dates.month["short"]`: as [`month_long`], short form.
 pub fn month_short(
-    state: &State,
+    state: &mut State,
     num: &Value,
     _gender: Option<&str>,
     force_default_locale: bool,
@@ -328,8 +328,8 @@ pub fn day_numeric_leading_zeros(num: &Value) -> String {
 }
 
 /// `CSL.Util.Dates.day.ordinal`: `state.fun.ordinalizer.format(num, gender)`.
-pub fn day_ordinal(state: &State, num: &Value, gender: Option<&str>) -> super::CslResult<String> {
-    state.fun.ordinalizer.format(state, num, gender)
+pub fn day_ordinal(state: &mut State, num: &Value, gender: Option<&str>) -> super::CslResult<String> {
+    state.fun.ordinalizer.clone().format(state, num, gender)
 }
 
 #[cfg(test)]
@@ -341,7 +341,6 @@ mod tests {
     //! short month names with the locale terms citeproc-js read). Inputs are
     //! numbers, digit strings, text, `null`, `undefined`, booleans.
     use super::*;
-    use std::collections::BTreeMap;
 
     const REF: &str = include_str!("../../tests/data/csl/units/numbers.json");
 
@@ -421,21 +420,22 @@ mod tests {
         let mut n = 0;
         for (lang, e) in r["ord_engines"].as_object().expect("engines") {
             let mut st = State::default();
-            st.input_locale.terms = e["log"]
-                .as_object()
-                .map(|o| {
-                    o.iter()
-                        .map(|(k, v)| (k.clone(), v.as_str().map(str::to_string)))
-                        .collect::<BTreeMap<_, _>>()
-                })
-                .unwrap_or_default();
+            st.opt.insert("lang".into(), Value::String(lang.clone()));
+            st.opt.insert(
+                "default-locale".into(),
+                Value::Array(vec![Value::String(lang.clone())]),
+            );
+            super::super::test_support::install_locale(
+                &mut st,
+                super::super::test_support::logged_locale(&e["log"], None, None),
+            );
             for c in e["dates"].as_array().expect("dates") {
                 let num = input(&c["num"]);
                 let force = c["force"].as_bool().unwrap_or(false);
                 let got = if c["fn"] == "long" {
-                    month_long(&st, &num, None, force)
+                    month_long(&mut st, &num, None, force)
                 } else {
-                    month_short(&st, &num, None, force)
+                    month_short(&mut st, &num, None, force)
                 };
                 n += 1;
                 if c.get("error").is_some() {

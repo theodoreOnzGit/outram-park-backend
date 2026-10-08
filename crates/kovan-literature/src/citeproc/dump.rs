@@ -16,7 +16,9 @@
 
 //! The intermediate dump of an [`Engine`]'s built state in the canonical form
 //! of `scripts/csl-intermediate-reference.cjs` (GitHub #792): the `style` and
-//! `locale` sections, which `tests/citeproc_intermediate.rs` compares by
+//! `locale` sections and, through [`input_sections`], the four input-side
+//! sections (`items`, `names`, `numbers`, `citation_items`), which
+//! `tests/citeproc_intermediate.rs` compares by
 //! SHA-256 with what citeproc-js produced.
 //!
 //! # The canonical form
@@ -48,6 +50,9 @@
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
+use super::build_retrieve_item::{
+    citation_items_section, items_section, names_section, numbers_section,
+};
 use super::js::Obj;
 use super::load;
 use super::obj_token::Token;
@@ -91,7 +96,7 @@ pub fn token_value(t: &Token, nested: bool, closure_counts: bool) -> Value {
     );
     if closure_counts {
         o.insert("execs_n".into(), Value::from(t.execs.len()));
-        if !t.tests.is_empty() {
+        if t.tests_defined || !t.tests.is_empty() {
             o.insert("tests_n".into(), Value::from(t.tests.len()));
         }
         if t.test.is_some() {
@@ -322,6 +327,44 @@ pub fn locale_text(engine: &Engine) -> String {
         json(s.opt.get("gender").unwrap_or(&Value::Null))
     ));
     out
+}
+
+/// The four input-side sections of the dump (`items`, `names`, `numbers`,
+/// `citation_items`) as the exact JSON text the reference script prints (object
+/// keys in JS enumeration order), ready for [`digest_text`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct InputSectionTexts {
+    /// `engine.retrieveItem(id)` for every input item, by id.
+    pub items: String,
+    /// The input side of the name renderer, per name.
+    pub names: String,
+    /// `processNumber(false, Item, variable)`'s parsed numbers.
+    pub numbers: String,
+    /// The citation items after `makeCitationCluster`'s input steps.
+    pub citation_items: String,
+}
+
+/// Compute the input-side sections for `engine`, over the fixture's `inputs`
+/// (its INPUT items, in order) and `lists` (each `CITATION-ITEMS` entry, then
+/// each `CITATIONS` entry's `citationItems`). Runs `retrieveItem` and
+/// `processNumber`, so it changes the engine's item cache as the reference
+/// script does.
+pub fn input_sections(
+    engine: &mut Engine,
+    inputs: &[Value],
+    lists: &[Vec<Value>],
+) -> InputSectionTexts {
+    let st = engine.state_mut();
+    let (items, norm) = items_section(st, inputs);
+    let names = names_section(st, &norm);
+    let numbers = numbers_section(st, &norm);
+    let citation_items = citation_items_section(st, lists);
+    InputSectionTexts {
+        items: items.to_js_string(),
+        names: names.to_js_string(),
+        numbers: numbers.to_js_string(),
+        citation_items: citation_items.to_js_string(),
+    }
 }
 
 /// Hex SHA-256 of a text.

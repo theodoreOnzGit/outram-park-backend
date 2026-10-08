@@ -1420,11 +1420,11 @@ mod tests {
                 .opt
                 .insert("track_container_items".into(), ctx["track"].clone());
         }
-        if let Some(t) = terms.and_then(Value::as_object) {
-            st.input_locale.terms = t
-                .iter()
-                .map(|(k, v)| (k.clone(), v.as_str().map(str::to_string)))
-                .collect();
+        if let Some(t) = terms {
+            super::super::test_support::install_locale(
+                &mut st,
+                super::super::test_support::logged_locale(t, None, None),
+            );
         }
         let mut map = BTreeMap::new();
         for it in items {

@@ -47,9 +47,7 @@ use super::util::Match;
 use super::util_dateparser::DateParser;
 use super::util_flipflop::FlipFlopper;
 use super::util_locale::Locale;
-use super::util_number::{
-    InputLocale, LongOrdinalizer, Ordinalizer, Romanizer, ShadowNumber, Suffixator,
-};
+use super::util_number::{LongOrdinalizer, Ordinalizer, Romanizer, ShadowNumber, Suffixator};
 use super::util_modules::Juris;
 use super::util_parallel::Parallel;
 use super::util_transform::Transform;
@@ -137,11 +135,6 @@ pub struct State {
     /// `load::variable_wrapper_prepunct_rex()`.
     pub variable_wrapper_prepunct: bool,
     // ---- fields: wave1-input (dates, numbers, name particles, retrieveItem) ----
-    /// PROVISIONAL (wave1-input): the locale terms and `ord["1.0.1"]` that
-    /// `util_number.rs` and `util_dates.rs` read, answered by
-    /// `input_get_term` / `input_get_field`. The integrator replaces those
-    /// two functions with `State::get_term` / `getField` and removes this.
-    pub input_locale: InputLocale,
     /// PROVISIONAL (wave1-input): `registry.refhash`, the normalised items
     /// by id that `retrieveItem` returns on later calls. Belongs to the
     /// registry (wave4); `build_retrieve_item.rs` reads and writes this

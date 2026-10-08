@@ -163,7 +163,7 @@ pub fn evaluate_label(
 /// `CSL.Output.Formatters["capitalize-first"]` (formatters.js); a label that
 /// asks for it returns `NotYetPorted`.
 pub fn cast_label(
-    state: &State,
+    state: &mut State,
     node: &Token,
     ctx: &mut LabelContext,
     term: Option<&str>,
@@ -250,7 +250,6 @@ mod tests {
     //! recorded in `shadow_numbers`. Labels asking for `capitalize-first`
     //! reach the output formatters (not ported here) and must report
     //! `NotYetPorted`.
-    use std::collections::BTreeMap;
 
     use serde_json::json;
 
@@ -269,14 +268,10 @@ mod tests {
             let e = &r["label_engines"][c["engine"].as_str().unwrap_or("")];
             let mut st = State::default();
             st.opt = e["opt"].as_object().cloned().unwrap_or_default();
-            st.input_locale.terms = e["log"]
-                .as_object()
-                .map(|o| {
-                    o.iter()
-                        .map(|(k, v)| (k.clone(), v.as_str().map(str::to_string)))
-                        .collect::<BTreeMap<_, _>>()
-                })
-                .unwrap_or_default();
+            super::super::test_support::install_locale(
+                &mut st,
+                super::super::test_support::logged_locale(&e["log"], None, None),
+            );
             let mut node = Token::new("label", TokenType::Singleton);
             node.strings = c["node"]["strings"]
                 .as_object()

@@ -133,6 +133,9 @@ struct Fixture {
     langparams: Option<Value>,
     multiaffix: Option<Value>,
     options: Option<Map<String, Value>>,
+    abbreviations: Option<Value>,
+    citation_items: Option<Value>,
+    citations: Option<Value>,
 }
 
 /// The runner's line-by-line section reader (see tests/citeproc_test_suite.rs
@@ -205,6 +208,9 @@ fn parse_fixture_text(name: &str, text: &str) -> Result<Fixture, String> {
         langparams: json_of("LANGPARAMS")?,
         multiaffix: json_of("MULTIAFFIX")?,
         options,
+        abbreviations: json_of("ABBREVIATIONS")?,
+        citation_items: json_of("CITATION-ITEMS")?,
+        citations: json_of("CITATIONS")?,
     })
 }
 
@@ -290,6 +296,7 @@ fn fixture_engine(fx: &Fixture, locales: &Arc<BTreeMap<String, String>>) -> Resu
         }
     }
     let mut engine = Engine::new(sys, &fx.csl, "").map_err(|e| e.to_string())?;
+    engine.add_date_parser_months(&TURKISH_MONTHS.map(str::to_string));
     let mode: Vec<&str> = if fx.mode.is_empty() {
         vec!["all"]
     } else {
@@ -345,8 +352,17 @@ fn fixture_engine(fx: &Fixture, locales: &Arc<BTreeMap<String, String>>) -> Resu
     if let Some(m) = &fx.multiaffix {
         engine.set_lang_prefs_for_cite_affixes(m.clone());
     }
+    if let Some(a) = &fx.abbreviations {
+        engine.set_runner_abbreviations(a);
+    }
     Ok(engine)
 }
+
+/// The runner's Turkish month names (`addDateParserMonths` before the first `updateItems`).
+const TURKISH_MONTHS: [&str; 16] = [
+    "ocak", "Şubat", "mart", "nisan", "mayıs", "haziran", "temmuz", "ağustos", "eylül", "ekim",
+    "kasım", "aralık", "bahar", "yaz", "sonbahar", "kış",
+];
 
 /// The site styles of the reference script: (name, file, locale).
 const SITE_STYLES: [(&str, &str, &str); 5] = [
@@ -391,6 +407,41 @@ fn site_engine(file: &str, lang: &str) -> Result<Engine, String> {
 
 // ----------------------------------------------------------------- compare
 
+/// The compared sections.
+const SECTION_NAMES: [&str; 8] = [
+    "style",
+    "style_reduced",
+    "locale",
+    "xml",
+    "items",
+    "names",
+    "numbers",
+    "citation_items",
+];
+
+/// The citation-item lists of a fixture: each `CITATION-ITEMS` entry, then
+/// each `CITATIONS` entry's `citationItems` (the reference script's order).
+fn citation_lists(fx: &Fixture) -> Vec<Vec<Value>> {
+    let mut lists: Vec<Vec<Value>> = Vec::new();
+    if let Some(Value::Array(a)) = &fx.citation_items {
+        for c in a {
+            lists.push(c.as_array().cloned().unwrap_or_default());
+        }
+    }
+    if let Some(Value::Array(a)) = &fx.citations {
+        for c in a {
+            lists.push(
+                c.get(0)
+                    .and_then(|c0| c0.get("citationItems"))
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_default(),
+            );
+        }
+    }
+    lists
+}
+
 /// What one case produced: the three digests, or the constructor's error.
 #[derive(Debug, Clone)]
 enum Built {
@@ -399,11 +450,21 @@ enum Built {
         style_reduced: String,
         locale: String,
         xml: String,
+        items: String,
+        names: String,
+        numbers: String,
+        citation_items: String,
     },
     Error,
 }
 
-fn built_of(name: &str, engine: Result<Engine, String>, dump_selector: Option<&str>) -> Built {
+fn built_of(
+    name: &str,
+    engine: Result<Engine, String>,
+    inputs: &[Value],
+    lists: &[Vec<Value>],
+    dump_selector: Option<&str>,
+) -> Built {
     match engine {
         Err(e) => {
             if std::env::var("INTERMEDIATE_PRINT_DIFFERENCES").is_ok() {
@@ -411,7 +472,7 @@ fn built_of(name: &str, engine: Result<Engine, String>, dump_selector: Option<&s
             }
             Built::Error
         }
-        Ok(engine) => {
+        Ok(mut engine) => {
             let style = dump::style_text(&engine, true);
             let reduced = dump::style_text(&engine, false);
             let locale = dump::locale_text(&engine);
@@ -421,12 +482,17 @@ fn built_of(name: &str, engine: Result<Engine, String>, dump_selector: Option<&s
                 .data_obj
                 .map(|r| engine.state().csl_xml.to_json_text(r))
                 .unwrap_or_default();
+            let input = dump::input_sections(&mut engine, inputs, lists);
             if let Some(sel) = dump_selector {
                 let (_, section) = sel.split_once(':').unwrap_or((sel, "style"));
                 let text = match section {
                     "locale" => &locale,
                     "style_reduced" => &reduced,
                     "xml" => &xml,
+                    "items" => &input.items,
+                    "names" => &input.names,
+                    "numbers" => &input.numbers,
+                    "citation_items" => &input.citation_items,
                     _ => &style,
                 };
                 let v: Value = serde_json::from_str(text).unwrap_or(Value::Null);
@@ -437,6 +503,10 @@ fn built_of(name: &str, engine: Result<Engine, String>, dump_selector: Option<&s
                 style_reduced: dump::digest_text(&reduced),
                 locale: dump::digest_text(&locale),
                 xml: dump::digest_text(&xml),
+                items: dump::digest_text(&input.items),
+                names: dump::digest_text(&input.names),
+                numbers: dump::digest_text(&input.numbers),
+                citation_items: dump::digest_text(&input.citation_items),
             }
         }
     }
@@ -473,6 +543,13 @@ fn the_intermediate_dump_matches_citeproc_js_except_the_recorded_differences() {
     let reduced: Value = serde_json::from_str(REDUCED).expect("reduced digests");
     let xml_ref: Value = serde_json::from_str(XML).expect("xml digests");
     let dump_sel = std::env::var("INTERMEDIATE_DUMP").ok();
+    let site_items: Vec<Value> = serde_json::from_str(
+        &std::fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/csl/items.json"),
+        )
+        .expect("items.json"),
+    )
+    .expect("items.json parses");
 
     // case name -> built
     let mut cases: Vec<(String, Built, &Value, &Value, &Value)> = Vec::new();
@@ -481,7 +558,7 @@ fn the_intermediate_dump_matches_citeproc_js_except_the_recorded_differences() {
         let sel = dump_sel
             .as_deref()
             .filter(|s| s.split(':').next() == Some(&key) || s.starts_with(&format!("{key}:")));
-        let b = built_of(&key, site_engine(file, lang), sel);
+        let b = built_of(&key, site_engine(file, lang), &site_items, &[], sel);
         cases.push((
             key,
             b,
@@ -494,7 +571,13 @@ fn the_intermediate_dump_matches_citeproc_js_except_the_recorded_differences() {
         let sel = dump_sel
             .as_deref()
             .filter(|s| s.split(':').next() == Some(name.as_str()));
-        let b = built_of(name, fixture_engine(fx, &locales), sel);
+        let b = built_of(
+            name,
+            fixture_engine(fx, &locales),
+            &fx.input,
+            &citation_lists(fx),
+            sel,
+        );
         cases.push((
             name.clone(),
             b,
@@ -510,7 +593,7 @@ fn the_intermediate_dump_matches_citeproc_js_except_the_recorded_differences() {
     for (case, built, r, rr, rx) in &cases {
         match built {
             Built::Error => {
-                for s in ["style", "style_reduced", "locale", "xml"] {
+                for s in SECTION_NAMES {
                     differing.entry(s).or_default().push(case.clone());
                 }
             }
@@ -519,12 +602,20 @@ fn the_intermediate_dump_matches_citeproc_js_except_the_recorded_differences() {
                 style_reduced,
                 locale,
                 xml,
+                items,
+                names,
+                numbers,
+                citation_items,
             } => {
                 for (section, ours, theirs) in [
                     ("style", style, r["style"].as_str()),
                     ("style_reduced", style_reduced, rr["style_reduced"].as_str()),
                     ("locale", locale, r["locale"].as_str()),
                     ("xml", xml, rx.as_str()),
+                    ("items", items, r["items"].as_str()),
+                    ("names", names, r["names"].as_str()),
+                    ("numbers", numbers, r["numbers"].as_str()),
+                    ("citation_items", citation_items, r["citation_items"].as_str()),
                 ] {
                     if Some(ours.as_str()) == theirs {
                         *counts.entry(section).or_default() += 1;
@@ -600,7 +691,7 @@ fn the_committed_references_cover_the_same_cases() {
     let known = known_groups();
     for (section, case) in known.keys() {
         assert!(
-            ["style", "style_reduced", "locale", "xml"].contains(&section.as_str()),
+            SECTION_NAMES.contains(&section.as_str()),
             "unknown section {section}"
         );
         let in_site = case
