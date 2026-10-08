@@ -33,6 +33,12 @@ pub fn build(
     _real_group: Option<bool>,
 ) -> CslResult<()> {
     if let Some(name) = token.string_opt("name") {
+        // The closures are kept beside the JSON form (which only counts
+        // them): node_names.rs END hands them to the names closure.
+        state
+            .build
+            .name_part_execs
+            .insert(name.clone(), token.execs.clone());
         state.build.name_parts.insert(name, token_to_value(&token));
     }
     Ok(())

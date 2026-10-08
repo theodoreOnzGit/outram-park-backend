@@ -138,21 +138,24 @@ pub fn get_item_prop(state: &State, item: &Value, key: &str) -> Option<Value> {
 // ---------------------------------------------------------------------------
 
 /// `state.publisherOutput` (util_publishers.js, created by the group closure
-/// of node_group.js). PORT-LATER(w2-names): util_publishers.js is not ported,
-/// so there is never one, and `publisherCheck` returns false.
-fn publisher_output_present(_state: &State) -> bool {
-    false
+/// of node_group.js): truthy while a publisher/place bundle is open.
+fn publisher_output_present(state: &State) -> bool {
+    state.publisher_output.is_some()
 }
 
-/// `state.tmp["publisher-list"]` (set by util_publishers.js). PORT-LATER(w2-names).
-fn publisher_list_active(_state: &State) -> bool {
-    false
+/// `state.tmp["publisher-list"]` (cleared by `PublisherOutput::clearVars`,
+/// never set truthy by citeproc-js 2.4.63).
+fn publisher_list_active(state: &State) -> bool {
+    state.tmp.publisher_list
 }
 
 /// `state.tmp.name_node.children.push(state.output.current.value())`
 /// (getOutputFunction's last statement, run inside cs:substitute).
-/// PORT-LATER(w2-names): `tmp.name_node` belongs to the cs:names code.
-fn name_node_push_current(_state: &mut State) -> CslResult<()> {
+fn name_node_push_current(state: &mut State) -> CslResult<()> {
+    let cur = queue::current(state, QueueId::Output).ok_or_else(|| {
+        EngineError::Csl("TypeError: state.output.current.value() is undefined".into())
+    })?;
+    state.tmp.name_node.children.push(Some(cur));
     Ok(())
 }
 
@@ -273,6 +276,28 @@ pub fn load_abbreviation(
         }
         return j;
     }
+    got
+}
+
+/// The idiom `jurisdiction = transform.loadAbbreviation(jurisdiction, category,
+/// key, lang); transform.abbrevs[jurisdiction][category][key]` of the names
+/// code (util_names_render.js:1027-1063, util_names_divide.js:138-140,
+/// util_names_output.js:394-397): `jurisdiction` is updated to the key
+/// `loadAbbreviation` returns; the abbreviation is `None` when falsy.
+pub fn load_and_get_abbreviation(
+    state: &mut State,
+    jurisdiction: &mut Option<String>,
+    category: &str,
+    key: &str,
+    lang: Option<&str>,
+) -> Option<String> {
+    let j = load_abbreviation(state, jurisdiction.as_deref(), category, key, lang);
+    let got = state
+        .transform
+        .abbrev(&j, category, key)
+        .filter(|v| !v.is_empty())
+        .map(str::to_string);
+    *jurisdiction = Some(j);
     got
 }
 
@@ -762,11 +787,59 @@ pub fn quash_check(
 }
 
 /// The internal `publisherCheck(tok, Item, primary, family_var)`: whether the
-/// publisher bundle took over `primary`.
-/// PORT-LATER(w2-names): needs `state.publisherOutput`
-/// (util_publishers.js); there is never one, so this is false.
-fn publisher_check(state: &State, _tok: &Token, primary: &Value) -> bool {
-    publisher_output_present(state) && js::truthy(primary)
+/// publisher bundle took over `primary` (util_transform.js:371-392). The
+/// bundle is rendered at the close of the group (`PublisherOutput::render`).
+fn publisher_check(
+    state: &mut State,
+    tok: &Token,
+    item: &Value,
+    primary: &Value,
+    family_var: Option<&str>,
+) -> CslResult<bool> {
+    static SEMI: LazyLock<Regex> = LazyLock::new(|| {
+        #[allow(clippy::expect_used)]
+        Regex::new(&format!(";[{}]*", js::WS)).expect("static regex")
+    });
+    let varname = tok.variables.first().cloned().unwrap_or_default();
+    if !publisher_output_present(state) || !js::truthy(primary) {
+        return Ok(false);
+    }
+    if varname != "publisher" && varname != "publisher-place" {
+        return Ok(false);
+    }
+    // In this case, the publisher bundle will be rendered
+    // at the close of the group, by the closing group node.
+    let s = expect_string(primary, "primary.split")?;
+    let mut lst = js::split(&SEMI, &s);
+    // Abbreviate each of the items in the list here!
+    if let Some(fv) = family_var {
+        for entry in lst.iter_mut() {
+            let v = abbreviate(state, tok, item, None, &Value::String(entry.clone()), fv, true)?;
+            *entry = js::to_js_string(&v);
+        }
+    }
+    if let Some(po) = state.publisher_output.as_mut() {
+        if varname == "publisher" {
+            po.publisher_token = Some(tok.clone());
+        } else {
+            po.publisher_place_token = Some(tok.clone());
+        }
+        po.varlist.push(varname.clone());
+        let target = if varname == "publisher" {
+            &mut po.publisher_list
+        } else {
+            &mut po.publisher_place_list
+        };
+        if lst.len() == target.len() {
+            *target = lst;
+        }
+    }
+    if varname == "publisher" {
+        state.tmp.publisher_token = Some(tok.clone());
+    } else {
+        state.tmp.publisher_place_token = Some(tok.clone());
+    }
+    Ok(true)
 }
 
 // ---------------------------------------------------------------------------
@@ -937,7 +1010,11 @@ pub fn run_output_function(
     // Problem for multilingual: we really should be checking for sanity on
     // the basis of the output strings to be actually used. (also below)
     if publisher_list_active(state) {
-        // state.tmp["publisher-token"] = this; ... return null
+        if var0 == "publisher" {
+            state.tmp.publisher_token = Some(token.clone());
+        } else if var0 == "publisher-place" {
+            state.tmp.publisher_place_token = Some(token.clone());
+        }
         return Ok(None);
     }
 
@@ -988,7 +1065,7 @@ pub fn run_output_function(
             }
         }
     }
-    if publisher_check(state, token, &primary) {
+    if publisher_check(state, token, item, &primary, family_var)? {
         state.tmp.lang_array = old_lang_array;
         return Ok(None);
     }

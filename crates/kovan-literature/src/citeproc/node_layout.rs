@@ -134,7 +134,7 @@ impl NodeLayoutExec {
                 }
 
                 //CSL.debug(" === init rendered_name === ");
-                state.tmp.rendered_name = Value::Bool(false);
+                state.tmp.rendered_name = None;
                 Ok(None)
             }
             NodeLayoutExec::ClearSortKeyFlag => {

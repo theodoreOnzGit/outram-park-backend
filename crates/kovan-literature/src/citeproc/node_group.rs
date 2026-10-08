@@ -141,22 +141,23 @@ impl NodeGroupExec {
                 if js::truthy_opt(item.get("publisher"))
                     && js::truthy_opt(item.get("publisher-place"))
                 {
-                    let split = |v: &Value| -> usize {
-                        let s = js::to_js_string(v);
-                        let re = regex::Regex::new(&format!(r";[{}]*", js::WS)).ok();
-                        match re {
-                            Some(re) => js::split(&re, &s).len(),
-                            None => 1,
+                    let split = |v: Option<&Value>| -> Vec<String> {
+                        let s = v.map(js::to_js_string).unwrap_or_default();
+                        match regex::Regex::new(&format!(r";[{}]*", js::WS)) {
+                            Ok(re) => js::split(&re, &s),
+                            Err(_) => vec![s],
                         }
                     };
-                    let publisher_n = item.get("publisher").map(split).unwrap_or(0);
-                    let place_n = item.get("publisher-place").map(split).unwrap_or(0);
-                    if publisher_n > 1 && publisher_n == place_n {
-                        // PORT-LATER(w2-names): `state.publisherOutput = new
-                        // CSL.PublisherOutput(state, this)` (util_publishers.js).
-                        return Err(EngineError::NotYetPorted {
-                            method: "node_group.js:174 new CSL.PublisherOutput",
-                        });
+                    let publisher_lst = split(item.get("publisher"));
+                    let place_lst = split(item.get("publisher-place"));
+                    if publisher_lst.len() > 1 && publisher_lst.len() == place_lst.len() {
+                        // `state.publisherOutput = new CSL.PublisherOutput(state, this)`
+                        // plus the two list assignments.
+                        state.publisher_output = Some(super::util_publishers::PublisherOutput::new(
+                            token,
+                            publisher_lst,
+                            place_lst,
+                        ));
                     }
                 }
                 Ok(None)
@@ -196,7 +197,13 @@ impl NodeGroupExec {
             }
             NodeGroupExec::PublisherSpecialEnd => {
                 // if (state.publisherOutput) { render(); state.publisherOutput = false }
-                // PORT-LATER(w2-names): there is never a publisherOutput yet.
+                if let Some(mut po) = state.publisher_output.take() {
+                    if let Err(e) = po.render(state) {
+                        // The throw leaves `state.publisherOutput` set.
+                        state.publisher_output = Some(po);
+                        return Err(e);
+                    }
+                }
                 Ok(None)
             }
             NodeGroupExec::End => {

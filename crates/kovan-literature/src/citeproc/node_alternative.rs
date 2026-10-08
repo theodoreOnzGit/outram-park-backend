@@ -234,10 +234,11 @@ fn set_refhash(state: &mut State, item: &Value, value: Option<Value>) {
     }
 }
 
-/// `state.nameOutput = new CSL.NameOutput(state, item)`.
-/// PORT-LATER(w2-names): util_names.js is not ported; the integrator wires
-/// this to the names code's constructor.
-fn new_name_output(_state: &mut State, _item: Option<&Value>) {}
+/// `state.nameOutput = new CSL.NameOutput(state, item)` (no citation item).
+fn new_name_output(state: &mut State, item: Option<&Value>) {
+    let null = Value::Null;
+    state.new_name_output(item.unwrap_or(&null), &null);
+}
 
 /// `CSL.Node.alternative.build.call(token, state, target)`.
 pub fn build(

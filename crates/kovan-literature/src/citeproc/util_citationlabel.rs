@@ -18,9 +18,8 @@
 //! `citation-label` variable ("Smi00", "ABC99") built from the first
 //! author's family name, or the title, and the year.
 //!
-//! `this.nameOutput.getName(name, "locale-translit", true)` (the names port)
-//! is stood in for by the name itself (`PORT-LATER(w2-names)`): it only
-//! matters for names with transliterated variants.
+//! `this.nameOutput.getName(name, "locale-translit", true)` is the names
+//! port's `State::name_output_get_name`.
 
 use std::sync::LazyLock;
 
@@ -153,8 +152,10 @@ impl State {
                     break;
                 }
                 // `this.nameOutput.getName(names[j], "locale-translit", true).name`
-                // PORT-LATER(w2-names)
-                let name = name_in;
+                let mut name_copy = name_in.clone();
+                let got = self.name_output_get_name(&mut name_copy, "locale-translit", true, None)?;
+                let name = Value::Object(got.name.unwrap_or_default());
+                let name = &name;
                 if let Some(family) = name.get("family").filter(|v| js::truthy(v)) {
                     myname = js::to_js_string(family);
                     myname = LEADING_PARTICLE.replace(&myname, "").into_owned();

@@ -21,7 +21,7 @@ use serde_json::Value;
 use super::exec::Exec;
 use super::obj_token::Token;
 use super::state::State;
-use super::{CslResult, EngineError};
+use super::CslResult;
 
 /// The closures `src/node_institutionpart.js` stores in `token.execs`
 /// (PORTING.md §4).
@@ -42,23 +42,24 @@ impl NodeInstitutionpartExec {
     /// Run the closure.
     pub fn run(
         &self,
-        _state: &mut State,
-        _token: &mut Token,
+        state: &mut State,
+        token: &mut Token,
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
         match self {
-            // PORT-LATER(wave3): node_institutionpart.js:6-18, needs
-            // state.nameOutput.institutionpart (CSL.NameOutput).
-            NodeInstitutionpartExec::LongWithShort => Err(EngineError::NotYetPorted {
-                method: "node_institutionpart.js:6 closure",
-            }),
-            NodeInstitutionpartExec::Long => Err(EngineError::NotYetPorted {
-                method: "node_institutionpart.js:10 closure",
-            }),
-            NodeInstitutionpartExec::Short => Err(EngineError::NotYetPorted {
-                method: "node_institutionpart.js:16 closure",
-            }),
+            NodeInstitutionpartExec::LongWithShort => {
+                state.name_output.institutionpart.long_with_short = Some(token.clone());
+                Ok(None)
+            }
+            NodeInstitutionpartExec::Long => {
+                state.name_output.institutionpart.long = Some(token.clone());
+                Ok(None)
+            }
+            NodeInstitutionpartExec::Short => {
+                state.name_output.institutionpart.short = Some(token.clone());
+                Ok(None)
+            }
             NodeInstitutionpartExec::Undefined => Ok(None),
         }
     }

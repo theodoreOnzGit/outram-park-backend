@@ -116,3 +116,26 @@ Locations are the port's files; the JS locations are in the names.
   Port: `util_number.rs`.
 - **C28 — The seventh argument of `getTextSubField` is ignored**
   (util_transform.js). Port: `util_transform.rs` (`get_text_sub_field`).
+- **C29 — `init`/`reinit` use `for (var i in ...)` with `done_vars.slice(i+1)`**
+  where `i` is a string key (util_names_output.js:53-58, 88-94); the slice
+  start is a string-to-number coercion. Port: `util_names_output.rs`.
+- **C30 — `PublisherOutput.render` always throws** `this._purgeEmptyBlobs is
+  not a function` (util_publishers.js), after `clearVars`, `composeAndBlob` and
+  `composeElements` ran; `state.publisherOutput` stays set. Port:
+  `util_publishers.rs`, `node_group.rs` (`PublisherSpecialEnd`).
+- **C31 — `_composeOneInstitutionPart`: `citeAffixes[slot.primary]` is never
+  defined**, so the italic block is dead (util_names_render.js). Port:
+  `util_names_render.rs`.
+- **C32 — `_droppingParticle` overwrites `etal_spec[pos]`** (an array) with
+  `1` or `2` (util_names_*.js). Port: `util_names_*.rs`.
+- **C33 — `truncatePersonalNameLists` keeps a stale `v` and discards the
+  result of `_truncateNameList(institutions)`** (util_names_truncate.js).
+  Port: `util_names_truncate.rs`.
+- **C34 — citeproc-js crashes reproduced as errors:** a classic abbreviation
+  under `collapse` (`first_blob` TypeError), `cs:name delimiter=""` without
+  `and` (`JSON.parse(undefined)`), an empty institution `and`
+  (`undefined.blobs`). Port: `util_names_output.rs`, `util_names_render.rs`.
+- **C35 — `getName` deletes `family`/`given` from the caller's name object
+  for literal names** (util_names_render.js). The port works on a copy at the
+  registry call sites (`disambig_names.rs::registry_name`,
+  `util_citationlabel.rs`), so the caller's object is not mutated there.

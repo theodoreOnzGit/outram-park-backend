@@ -24,13 +24,9 @@
 //! ([`addname`], [`evalname`], [`delitems`]), each computing its own keys with
 //! [`set_keys`].
 //!
-//! **Dependencies on the names port (wave 3).** upstream calls
-//! `state.nameOutput.getName(nameobj, "locale-translit", true)` and
-//! `CSL.Util.Names.initializeWith(state, skey, "%s")`. Neither exists in this
-//! crate yet: [`registry_name`] stands in for the first (the name with
-//! `family` and `given` normalised to strings, which is all the key code
-//! reads from it) and the second returns `NotYetPorted`, so registering a
-//! name fails until `util_names.rs` provides it (`PORT-LATER(w2-names)`).
+//! Upstream calls `state.nameOutput.getName(nameobj, "locale-translit", true)`
+//! and `CSL.Util.Names.initializeWith(state, skey, "%s")`: [`registry_name`] and
+//! [`initialize_with`] call the names port (util_names_render.rs, util_names.rs).
 
 use std::collections::BTreeMap;
 use std::sync::LazyLock;
@@ -40,7 +36,7 @@ use serde_json::Value;
 
 use super::js;
 use super::state::State;
-use super::{CslResult, EngineError};
+use super::CslResult;
 
 /// `namereg[pkey].ikey[ikey].skey[skey]`: `{items}`.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -116,27 +112,18 @@ fn name_part(nameobj: &Value, key: &str) -> String {
     }
 }
 
-/// Stand-in for `state.nameOutput.getName(nameobj, "locale-translit",
-/// true).name` (util_names_render.js:858, the names port): the name with
-/// `family` and `given` as strings. PORT-LATER(w2-names).
-fn registry_name(_state: &State, nameobj: &Value) -> Value {
+/// `state.nameOutput.getName(nameobj, "locale-translit", true).name`
+/// (util_names_render.js:858). The caller's name is not mutated here (upstream
+/// deletes `family`/`given` from a literal name in place: candidate C35).
+fn registry_name(state: &State, nameobj: &Value) -> CslResult<Value> {
     let mut n = nameobj.clone();
-    if let Value::Object(o) = &mut n {
-        for k in ["family", "given"] {
-            if !o.get(k).map(js::truthy).unwrap_or(false) {
-                o.insert(k.to_string(), Value::String(String::new()));
-            }
-        }
-    }
-    n
+    let got = state.name_output_get_name(&mut n, "locale-translit", true, None)?;
+    Ok(Value::Object(got.name.unwrap_or_default()))
 }
 
-/// `CSL.Util.Names.initializeWith(state, name, terminator)` (util_names.js:42,
-/// the names port). PORT-LATER(w2-names): not available in this crate yet.
-fn initialize_with(_state: &State, _name: &str, _terminator: &str) -> CslResult<String> {
-    Err(EngineError::NotYetPorted {
-        method: "CSL.Util.Names.initializeWith",
-    })
+/// `CSL.Util.Names.initializeWith(state, name, terminator)` (util_names.js:42).
+fn initialize_with(state: &State, name: &str, terminator: &str) -> CslResult<String> {
+    Ok(super::util_names::initialize_with(state, name, terminator, false))
 }
 
 /// `set_keys(state, itemid, nameobj)`: the `(pkey, ikey, skey)` of a name.
@@ -186,7 +173,7 @@ pub fn evalname(
     if js::slice(&state.tmp.area, 0, Some(12)) == "bibliography" && form.is_none_or(str::is_empty) {
         return Ok(Some(if initials.is_some() { 1 } else { 2 }));
     }
-    let nameobj = registry_name(state, nameobj);
+    let nameobj = registry_name(state, nameobj)?;
     let (pkey, ikey, _skey) = set_keys(state, item_id, &nameobj)?;
     //
     // possible options are:
@@ -391,7 +378,7 @@ pub fn delitems(state: &mut State, ids: &[String]) -> CslResult<BTreeMap<String,
 /// the by-cite behaviour, and then set the names-based expanded form when the
 /// final makeCitationCluster rendering is output (upstream's comment).
 pub fn addname(state: &mut State, item_id: &str, nameobj: &Value, pos: i64) -> CslResult<()> {
-    let nameobj = registry_name(state, nameobj);
+    let nameobj = registry_name(state, nameobj)?;
 
     if let Some(rule) = js::get_str(&state.citation.opt, "givenname-disambiguation-rule") {
         if js::slice(rule, 0, Some(8)) == "primary-" && pos != 0 {
@@ -502,13 +489,11 @@ mod tests {
     }
 
     #[test]
-    fn registering_without_the_names_port_reports_it() {
+    fn registering_a_name_records_its_keys() {
         let mut s = State::default();
         let name = serde_json::json!({"family": "Doe", "given": "Jane"});
-        assert!(matches!(
-            addname(&mut s, "ITEM-1", &name, 0),
-            Err(EngineError::NotYetPorted { .. })
-        ));
+        assert!(addname(&mut s, "ITEM-1", &name, 0).is_ok());
+        assert!(s.registry.namereg.namereg.contains_key("Doe"));
         assert_eq!(delitems(&mut s, &["ITEM-1".to_string()]).unwrap().len(), 0);
     }
 }

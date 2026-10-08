@@ -19,9 +19,14 @@
 use serde_json::Value;
 
 use super::exec::Exec;
+use super::js;
+use super::load::STARTSWITH_ROMANESQUE_REGEXP;
+use super::obj_blob::Blob;
 use super::obj_token::{Token, TokenType};
+use super::queue::FormatRef;
 use super::state::State;
-use super::{CslResult, EngineError};
+use super::util_names_output::{q_append_str, q_pop_blob_required, BlobPair};
+use super::CslResult;
 
 /// The closures `src/node_institution.js` stores in `token.execs`
 /// (PORTING.md §4).
@@ -37,21 +42,157 @@ impl NodeInstitutionExec {
     /// Run the closure.
     pub fn run(
         &self,
-        _state: &mut State,
-        _token: &mut Token,
+        state: &mut State,
+        token: &mut Token,
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
         match self {
-            // PORT-LATER(wave3): node_institution.js:5-76, needs state.getTerm,
-            // state.output.append/pop and CSL.Blob (queue.rs), CSL.NameOutput
-            // (state.nameOutput.institution = this), and it writes
-            // this.and_term / and_prefix_* / and on the running token.
-            NodeInstitutionExec::Setup => Err(EngineError::NotYetPorted {
-                method: "node_institution.js:5 closure",
-            }),
+            NodeInstitutionExec::Setup => {
+                setup(state, token)?;
+                Ok(None)
+            }
         }
     }
+}
+
+/// The closure `CSL.Node.institution.build` pushes (node_institution.js:5-76).
+/// `this.and_term` persists on the token between runs, as in JS (it is kept in
+/// `token.extra["and_term"]`).
+fn setup(state: &mut State, token: &mut Token) -> CslResult<()> {
+    let institution_delimiter: Option<String> = match token.strings.get("delimiter") {
+        Some(Value::String(s)) => Some(s.clone()),
+        _ => state.tmp.name_delimiter.clone(),
+    };
+    state.tmp.institution_delimiter = institution_delimiter.clone();
+
+    // This is the same code for the same result as in node_name.js,
+    // but when cs:institution comes on stream, it may produce
+    // different results.
+    let and_opt = state.inherit_opt(token, "and", None, None);
+    match and_opt.as_ref().and_then(Value::as_str) {
+        Some("text") => set_and_term(
+            token,
+            state.get_term("and", Some("long"), Some(0), None, None, false)?,
+        ),
+        Some("symbol") => {
+            let expect = js::truthy_opt(
+                state
+                    .opt
+                    .get("development_extensions")
+                    .and_then(|d| d.get("expect_and_symbol_form")),
+            );
+            if expect {
+                set_and_term(
+                    token,
+                    state.get_term("and", Some("symbol"), Some(0), None, None, false)?,
+                )
+            } else {
+                set_and_term(token, Some("&".to_string()))
+            }
+        }
+        Some("none") => set_and_term(token, institution_delimiter.clone()),
+        _ => {}
+    }
+    if !token.extra.contains_key("and_term") {
+        if let Some(t) = state.tmp.and_term.clone().filter(|t| !t.is_empty()) {
+            // this.and_term = state.getTerm("and", "long", 0);
+            set_and_term(token, Some(t));
+        }
+    }
+    let and_term: Option<String> = token.extra.get("and_term").map(js::to_js_string);
+    let (mut and_prefix_single, mut and_prefix_multiple, and_suffix): (String, String, String);
+    // `RegExp.test(undefined)` tests the string "undefined".
+    if STARTSWITH_ROMANESQUE_REGEXP.is_match(and_term.as_deref().unwrap_or("undefined")) {
+        and_prefix_single = " ".to_string();
+        and_prefix_multiple = ", ".to_string();
+        if let Some(d) = &institution_delimiter {
+            and_prefix_multiple = d.clone();
+        }
+        and_suffix = " ".to_string();
+    } else {
+        and_prefix_single = String::new();
+        and_prefix_multiple = String::new();
+        and_suffix = String::new();
+    }
+    let inst_delim = institution_delimiter
+        .clone()
+        .unwrap_or_else(|| "undefined".to_string());
+    let dpl = state.inherit_opt(token, "delimiter-precedes-last", None, None);
+    match dpl.as_ref().and_then(Value::as_str) {
+        Some("always") => and_prefix_single = inst_delim.clone(),
+        Some("never") => {
+            // Slightly fragile: could test for charset here to make
+            // this more certain.
+            if !and_prefix_multiple.is_empty() {
+                and_prefix_multiple = " ".to_string();
+            }
+        }
+        _ => {}
+    }
+
+    let and: BlobPair;
+    if and_term.is_some() {
+        q_append_str(
+            state,
+            and_term.as_deref(),
+            FormatRef::Name("empty".into()),
+            true,
+        )?;
+        let single = q_pop_blob_required(state)?;
+        state
+            .blobs
+            .get_mut(single)
+            .set_string("prefix", &and_prefix_single);
+        state
+            .blobs
+            .get_mut(single)
+            .set_string("suffix", &and_suffix);
+        q_append_str(
+            state,
+            and_term.as_deref(),
+            FormatRef::Name("empty".into()),
+            true,
+        )?;
+        let multiple = q_pop_blob_required(state)?;
+        state
+            .blobs
+            .get_mut(multiple)
+            .set_string("prefix", &and_prefix_multiple);
+        state
+            .blobs
+            .get_mut(multiple)
+            .set_string("suffix", &and_suffix);
+        and = BlobPair {
+            single: Some(single),
+            multiple: Some(multiple),
+        };
+    } else {
+        // `"undefined" !== this.strings.delimiter` is always true.
+        let mk = |state: &mut State| {
+            let mut b = Blob::new(Some(&inst_delim), None, None);
+            b.set_string("prefix", "");
+            b.set_string("suffix", "");
+            state.blobs.add(b)
+        };
+        let single = mk(state);
+        let multiple = mk(state);
+        and = BlobPair {
+            single: Some(single),
+            multiple: Some(multiple),
+        };
+    }
+    state.name_output.institution = Some(token.clone());
+    state.name_output.institution_and = Some(and);
+    Ok(())
+}
+
+/// `this.and_term = value` (`undefined` removes the property).
+fn set_and_term(token: &mut Token, value: Option<String>) {
+    match value {
+        Some(v) => token.extra.insert("and_term".into(), Value::String(v)),
+        None => token.extra.remove("and_term"),
+    };
 }
 
 /// `CSL.Node.institution.build.call(token, state, target)`.

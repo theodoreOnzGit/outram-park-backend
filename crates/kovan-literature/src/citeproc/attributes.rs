@@ -500,12 +500,16 @@ fn variable_check_output(
                 && state.tmp.area == "bibliography"
                 && matches!(get_item_prop(state, item, variable), Some(Value::String(_)))
             {
-                // PORT-LATER(w2-names): `state.tmp.name_node.top =
-                // state.output.current.value(); state.tmp.rendered_name.push(
-                // Item[variable])` belong to the cs:names code.
-                return Err(EngineError::NotYetPorted {
-                    method: "attributes.js:@variable state.tmp.rendered_name.push",
-                });
+                state.tmp.name_node.top = queue::current(state, QueueId::Output);
+                let value = get_item_prop(state, item, variable).unwrap_or(Value::Null);
+                match state.tmp.rendered_name.as_mut() {
+                    Some(v) => v.push(value),
+                    None => {
+                        return Err(EngineError::Csl(
+                            "TypeError: Cannot read properties of false (reading 'push')".into(),
+                        ))
+                    }
+                }
             }
         }
         state

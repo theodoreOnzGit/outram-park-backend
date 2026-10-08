@@ -254,9 +254,8 @@ impl State {
 
         self.cite_start(item, cite_item, block_shadow_number_reset)?;
         let mut next: usize = 0;
-        self.tmp.name_node = Value::Object(Obj::new());
-        // PORT-LATER(w2-names): `this.nameOutput = new CSL.NameOutput(this, Item, item)`
-        // (util_names.js; the state field is the names agent's).
+        self.tmp.name_node = Default::default();
+        self.new_name_output(item, cite_item);
 
         // rerun?
         loop {
@@ -419,7 +418,7 @@ impl State {
         }
         // XXX This only applied to the "number" variable itself? Huh?
         //this.setNumberLabels(Item);
-        self.tmp.first_name_string = Value::Bool(false);
+        self.tmp.first_name_string = None;
         self.tmp.authority_stop_last = 0;
         Ok(())
     }
@@ -767,7 +766,7 @@ impl State {
                 citation_prefix = check_prefix_space_append(self, &js::to_js_string(prefix));
             }
         }
-        self.tmp.last_primary_names_string = Value::Bool(false);
+        self.tmp.last_primary_names_string = None;
         let txt_esc = get_safe_escape(self);
         self.tmp.area = "citation".to_string();
         self.tmp.root = "citation".to_string();
