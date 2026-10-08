@@ -159,6 +159,12 @@ impl State {
         self.ambig_mut(id)
     }
 
+    /// `state.tmp.disambig_settings` for a reader holding only `&State`
+    /// (`None` when no cite has set it up yet).
+    pub fn disambig_settings_ref(&self) -> Option<&AmbigConfig> {
+        self.tmp.disambig_settings.map(|id| self.ambig(id))
+    }
+
     /// `state.tmp.disambig_request` (`None` is JS `false`).
     pub fn disambig_request(&self) -> Option<&AmbigConfig> {
         self.tmp.disambig_request.map(|id| self.ambig(id))
