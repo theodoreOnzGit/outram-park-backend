@@ -21,9 +21,10 @@ use serde_json::Value;
 use super::exec::Exec;
 use super::js;
 use super::obj_token::{Token, TokenType};
+use super::queue::{self, FormatRef, QueueId, StringParent};
 use super::state::State;
 use super::util_substitute;
-use super::{CslResult, EngineError};
+use super::CslResult;
 
 /// The closures `src/node_date.js` stores in `token.execs` (PORTING.md §4).
 #[derive(Debug, Clone, PartialEq)]
@@ -92,12 +93,7 @@ impl NodeDateExec {
                     // date-parts and (b) in the *_end data.
                     // (note to self: remember that season is a
                     // fallback var when month and day are empty)
-                    let dateparts: Vec<String> = token
-                        .extra
-                        .get("dateparts")
-                        .and_then(Value::as_array)
-                        .map(|a| a.iter().map(js::to_js_string).collect())
-                        .unwrap_or_default();
+                    let dateparts: Vec<String> = dateparts_of(token)?;
                     let get = |k: &str| date_obj.get(k);
                     for part in &dateparts {
                         if get(&format!("{part}_end")).is_some() {
@@ -142,17 +138,8 @@ impl NodeDateExec {
                 super::util_date::date_macro_as_sort_key(state, token, item)?;
                 Ok(None)
             }
-            // PORT-LATER(wave2): node_date.js:121-151, needs
-            // state.output.startTag("date", this) and
-            // state.output.current.mystack (queue.rs).
-            NodeDateExec::OpenTag => Err(EngineError::NotYetPorted {
-                method: "node_date.js:121 closure",
-            }),
-            // PORT-LATER(wave2): node_date.js:155-162, needs
-            // state.output.endTag() (queue.rs).
-            NodeDateExec::CloseTag => Err(EngineError::NotYetPorted {
-                method: "node_date.js:155 closure",
-            }),
+            NodeDateExec::OpenTag => open_tag(state, token, item),
+            NodeDateExec::CloseTag => close_tag(state, token, item),
         }
     }
 }
@@ -168,14 +155,17 @@ pub fn build(
         // used to collect rendered date part names in node_datepart,
         // for passing through to node_key, for use in dates embedded
         // in macros
-        // PORT-LATER(wave2): node_date.js:12,17 need
-        // state.dateput.string(state, state.dateput.queue) and
-        // state.dateput.openLevel(this) (queue.rs); the dateput queue is not
-        // touched yet.
+        // The dateput queue is reset (rendering and clearing whatever the
+        // previous date node left in it) and a level for this date opened
+        // at BUILD time; the run-time closures of cs:date-part continue from
+        // that state (node_datepart.js).
+        let pending = queue::queue_children(state, QueueId::Dateput);
+        queue::string(state, QueueId::Dateput, &pending, StringParent::None)?;
         let mut date_token = token.clone_token();
         date_token.set_string("prefix", "");
         date_token.set_string("suffix", "");
         state.tmp.date_token = Some(date_token);
+        queue::open_level(state, QueueId::Dateput, FormatRef::Token(token.clone()))?;
         state.build.date_parts = Vec::new();
         state.build.date_variables = token.variables.clone();
         if state.build.extension.is_empty() {
@@ -208,4 +198,100 @@ pub fn build(
         target.push(token);
         Ok(())
     }
+}
+
+/// `this.dateparts` of a `cs:date` token (set by `configureTokenList` on START
+/// tokens only). Reading `.length` of it on a token without it (a
+/// `cs:date` with no `date-part` children is a SINGLETON) is a TypeError in
+/// citeproc-js, and so here.
+fn dateparts_of(token: &Token) -> CslResult<Vec<String>> {
+    match token.extra.get("dateparts").and_then(Value::as_array) {
+        Some(a) => Ok(a.iter().map(js::to_js_string).collect()),
+        None => Err(super::EngineError::Csl(
+            "TypeError: Cannot read properties of undefined (reading 'length')".to_string(),
+        )),
+    }
+}
+
+/// The "newoutput" closure of `CSL.Node.date.build` (node_date.js:121-151):
+/// open the `date` tag, and (for a legal item whose year equals its
+/// collection-number) remember where the date blob sits so that the cite
+/// can drop it again (`state.tmp.issued_date`, read by api_cite.js:1642).
+fn open_tag(state: &mut State, token: &mut Token, item: &Value) -> CslResult<Option<usize>> {
+    let var0 = token.variables.first().cloned();
+    let Some(var0) = var0.filter(|v| js::truthy_opt(item.get(v.as_str()))) else {
+        return Ok(None);
+    };
+    queue::start_tag(state, QueueId::Output, "date", Some(token))?;
+    let item_type = item.get("type").and_then(Value::as_str).unwrap_or("");
+    // `disable_duplicate_year_suppression.indexOf(Item.country) === -1`
+    let country_listed = match (
+        state.opt.get("disable_duplicate_year_suppression"),
+        item.get("country"),
+    ) {
+        (Some(Value::Array(a)), Some(c)) => a.iter().any(|x| x == c),
+        _ => false,
+    };
+    // `"" + Item["collection-number"] === "" + state.tmp.date_object.year`
+    let js_str = |v: Option<&Value>| match v {
+        Some(v) => js::to_js_string(v),
+        None => "undefined".to_string(),
+    };
+    let same_year =
+        js_str(item.get("collection-number")) == js_str(state.tmp.date_object.get("year"));
+    let preconditions = var0 == "issued"
+        && (item_type == "legal_case" || item_type == "legislation")
+        && !country_listed
+        && state.tmp.extension.is_empty()
+        && same_year;
+    // `this.dateparts.length` is only read once the conditions before it hold.
+    if preconditions && {
+        let dateparts = dateparts_of(token)?;
+        dateparts.len() == 1 && dateparts[0] == "year"
+    } {
+        // Set up to (maybe) suppress the year if we're not sorting, and
+        // it's the same as the collection-number, and we would render
+        // only the year, with not month or day, and this is a legal_case item.
+        // We save a pointer to the blob parent and its position here. The
+        // blob will be popped from output if at the end of processing for
+        // this cite we find that we have rendered the collection-number
+        // variable also.
+        let has_year_key = state
+            .tmp
+            .date_object
+            .as_object()
+            .map(|o| o.keys().any(|k| js::slice(k, 0, Some(4)) == "year"))
+            .unwrap_or(false);
+        if has_year_key {
+            // `state.output.current.mystack.slice(-2)[0].blobs`
+            let stack = &state.output.current.mystack;
+            let parent = stack
+                .len()
+                .checked_sub(2)
+                .and_then(|i| stack.get(i))
+                .or_else(|| stack.first())
+                .copied();
+            if let Some(list) = parent {
+                let n = match &state.blobs.get(list).blobs {
+                    super::obj_blob::BlobContent::List(l) => l.len(),
+                    super::obj_blob::BlobContent::Text(_) => 0,
+                };
+                state.tmp.issued_date = Some(super::state::IssuedDate {
+                    list,
+                    pos: n.saturating_sub(1),
+                });
+            }
+        }
+    }
+    Ok(None)
+}
+
+/// The "mergeoutput" closure of `CSL.Node.date.build` (node_date.js:155-162).
+fn close_tag(state: &mut State, token: &mut Token, item: &Value) -> CslResult<Option<usize>> {
+    let var0 = token.variables.first().cloned();
+    if !js::truthy_opt(var0.and_then(|v| item.get(v.as_str()).cloned()).as_ref()) {
+        return Ok(None);
+    }
+    queue::end_tag(state, QueueId::Output, None)?;
+    Ok(None)
 }

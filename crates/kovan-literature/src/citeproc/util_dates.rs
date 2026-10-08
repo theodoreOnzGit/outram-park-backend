@@ -334,6 +334,24 @@ pub fn day_ordinal(
     state.fun.ordinalizer.clone().format(state, num, gender)
 }
 
+impl State {
+    /// `CSL.Util.Dates.year.imperial(state, num, end)` with the engine's own
+    /// `state.tmp.date_object` ([`year_imperial`] takes it as a parameter).
+    ///
+    /// PORT-LATER(w2-render): the abbreviation step (`sys.normalizeAbbrevsKey`,
+    /// `state.transform.abbrevs['default']['number']` and
+    /// `state.transform.loadAbbreviation`, util_transform.js) is the render
+    /// agent's; until it exists the era label is never replaced, which is what
+    /// upstream does when the host supplies no abbreviations.
+    pub fn year_imperial(&mut self, num: &Value, end: bool) -> CslResult<String> {
+        let date_object: Obj = match &self.tmp.date_object {
+            Value::Object(o) => o.clone(),
+            _ => Obj::new(),
+        };
+        Ok(year_imperial(&date_object, num, end, |_label| None))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     //! Differential tests against citeproc-js 2.4.63: reference
