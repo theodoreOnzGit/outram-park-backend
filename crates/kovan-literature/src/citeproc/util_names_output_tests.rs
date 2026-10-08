@@ -61,6 +61,9 @@ struct Fixture {
     mode: String,
     citation_items: Option<Vec<Vec<Value>>>,
     abbreviations: Option<Value>,
+    options: Option<Obj>,
+    langparams: Option<Obj>,
+    multiaffix: Option<Vec<Value>>,
     /// Sections present that the driver does not model.
     unsupported: Vec<&'static str>,
 }
@@ -112,9 +115,19 @@ fn parse_fixture(text: &str) -> Result<Fixture, String> {
         None => None,
     };
     let abbreviations = section(text, "ABBREVIATIONS").and_then(|s| serde_json::from_str(&s).ok());
+    let json_obj = |name: &str| -> Option<Obj> {
+        section(text, name)
+            .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+            .and_then(|v| v.as_object().cloned())
+    };
+    let options = json_obj("OPTIONS");
+    let langparams = json_obj("LANGPARAMS");
+    let multiaffix = section(text, "MULTIAFFIX")
+        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        .and_then(|v| v.as_array().cloned());
     let mut unsupported = Vec::new();
     for s in SECTIONS {
-        if ["BIBSECTION", "CITATIONS", "OPTIONS", "OPTIONZ", "INPUT2", "LANGPARAMS", "MULTIAFFIX", "BIBENTRIES"]
+        if ["BIBSECTION", "CITATIONS", "OPTIONZ", "INPUT2", "BIBENTRIES"]
             .contains(&s)
             && section(text, s).is_some()
         {
@@ -127,6 +140,9 @@ fn parse_fixture(text: &str) -> Result<Fixture, String> {
         mode,
         citation_items,
         abbreviations,
+        options,
+        langparams,
+        multiaffix,
         unsupported,
     })
 }
@@ -236,6 +252,12 @@ fn get_cite(st: &mut State, item_data: &Value, cite: &Value) -> CslResult<()> {
     st.tmp.subsequent_author_substitute_ok = !st.tmp.suppress_decorations;
     st.tmp.have_collapsed = false;
     st.tmp.name_ambig = Default::default();
+    st.tmp.names_used = Vec::new();
+    st.tmp.nameset_counter = 0;
+    st.tmp.years_used = Vec::new();
+    st.tmp.names_max.clear();
+    st.tmp.first_name_string = None;
+    st.tmp.authority_stop_last = 0;
     st.tmp.name_node = NameNode::default();
     st.new_name_output(item_data, cite);
     // layout START: done_vars, rendered_name, sort_key_flag, nameset_counter, openLevel
@@ -606,7 +628,20 @@ fn run_fixture(
     if let Some(raw) = &fx.abbreviations {
         sys.abbreviations = build_abbreviations(raw);
     }
+    if let Some(options) = &fx.options {
+        if options.contains_key("variableWrapper") {
+            return Ok(Err("option variableWrapper".to_string()));
+        }
+        for (k, v) in options {
+            sys.options.insert(k.clone(), v.clone());
+        }
+    }
     let mut st = State::new(sys, &fx.csl, "", false).map_err(|e| e.to_string())?;
+    if let Some(options) = &fx.options {
+        for (k, v) in options {
+            st.dev_ext_set(k, v.clone());
+        }
+    }
     // the runner's defaults
     let mut lang_params: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (k, v) in [
@@ -619,7 +654,32 @@ fn run_fixture(
     ] {
         lang_params.insert(k.to_string(), v.into_iter().map(str::to_string).collect());
     }
+    if let Some(lp) = &fx.langparams {
+        let strings = |v: &Value| -> Vec<String> {
+            v.as_array()
+                .map(|a| a.iter().map(js::to_js_string).collect())
+                .unwrap_or_default()
+        };
+        for (key, value) in lp {
+            if key == "langs" {
+                let translat = value.get("translat").map(strings);
+                if let Some(t) = &translat {
+                    st.set_lang_tags_for_csl_translation(Some(t));
+                }
+                // As the runner does: it passes `translat` here as well.
+                if value.get("translit").is_some() {
+                    let t = translat.unwrap_or_default();
+                    st.set_lang_tags_for_csl_transliteration(Some(&t));
+                }
+                continue;
+            }
+            lang_params.insert(key.clone(), strings(value));
+        }
+    }
     st.set_lang_prefs_for_cites(&lang_params, None);
+    if let Some(m) = &fx.multiaffix {
+        st.set_lang_prefs_for_cite_affixes(m);
+    }
 
     let clusters: Vec<Vec<Value>> = match fx.citation_items.clone() {
         Some(c) => c,
@@ -745,4 +805,174 @@ fn names_fixtures_match_citeproc_js() {
     }
     let _ = Obj::new();
     assert!(failures.is_empty(), "{} fixtures differ", failures.len());
+}
+
+// ---------------------------------------------------------------------------
+// Generated names-only styles against citeproc-js
+// ---------------------------------------------------------------------------
+
+const E2E_REFERENCE: &str = include_str!("../../tests/data/csl/units/names_e2e.json");
+
+/// `build_state` for the generated cases: the pool items, the runner's
+/// abbreviation cache, the `OPTIONS` and `LANGPARAMS` of the case.
+fn e2e_state(
+    case: &Value,
+    pool: &[Value],
+    acache: &Value,
+    locales: &Arc<BTreeMap<String, String>>,
+) -> Result<State, String> {
+    let mut sys = Sys::new(pool, locales.clone()).map_err(|e| e.to_string())?;
+    sys.abbreviations = build_abbreviations_verbatim(acache);
+    let options = case["options"].as_object().cloned().unwrap_or_default();
+    for (k, v) in &options {
+        sys.options.insert(k.clone(), v.clone());
+    }
+    let style = case["style"].as_str().ok_or("style")?;
+    let mut st = State::new(sys, style, "en-US", false).map_err(|e| e.to_string())?;
+    for (k, v) in &options {
+        st.dev_ext_set(k, v.clone());
+    }
+    let mut lp: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for (k, v) in [
+        ("persons", vec!["translit"]),
+        ("institutions", vec!["translit"]),
+        ("titles", vec!["translit", "translat"]),
+        ("journals", vec!["translit"]),
+        ("publishers", vec!["translat"]),
+        ("places", vec!["translat"]),
+    ] {
+        lp.insert(k.to_string(), v.into_iter().map(str::to_string).collect());
+    }
+    if let Some(l) = case["lang"].as_object() {
+        let strings = |v: &Value| -> Vec<String> {
+            v.as_array()
+                .map(|a| a.iter().map(js::to_js_string).collect())
+                .unwrap_or_default()
+        };
+        let translat = strings(&l["translat"]);
+        st.set_lang_tags_for_csl_translation(Some(&translat));
+        st.set_lang_tags_for_csl_transliteration(Some(&translat));
+        lp.insert("persons".into(), strings(&l["persons"]));
+        lp.insert("institutions".into(), strings(&l["institutions"]));
+    }
+    st.set_lang_prefs_for_cites(&lp, None);
+    Ok(st)
+}
+
+/// The abbreviation cache of the generator (keys already normalised).
+fn build_abbreviations_verbatim(raw: &Value) -> crate::citeproc::Abbreviations {
+    let mut out = crate::citeproc::Abbreviations::new();
+    for (j, segs) in raw.as_object().into_iter().flatten() {
+        for (seg, keys) in segs.as_object().into_iter().flatten() {
+            for (k, v) in keys.as_object().into_iter().flatten() {
+                out.entry(j.clone())
+                    .or_default()
+                    .entry(seg.clone())
+                    .or_default()
+                    .insert(k.clone(), js::to_js_string(v));
+            }
+        }
+    }
+    out
+}
+
+/// 420 generated names-only styles (random combinations of the attributes
+/// of `cs:name`, `cs:names`, `cs:et-al`, `cs:label`, `cs:institution`,
+/// `cs:substitute`, the name-parts, the style options `initialize-with-hyphen`
+/// and `demote-non-dropping-particle`, the development extensions
+/// `spoof_institutional_affiliations`, `parse_names` and
+/// `etal_min_etal_usefirst_hack`, and multilingual language preferences),
+/// rendered in citation mode (one cluster per item of a pool of twenty items,
+/// and one cluster with all of them) and in bibliography mode, compared with
+/// citeproc-js 2.4.63's output (`tests/data/csl/units/names_e2e.json`,
+/// generator `scripts/csl-units/names_e2e.cjs`).
+///
+/// **Pass criterion.** Every output equal; where citeproc-js throws, the port
+/// must return an error for that call (the messages are not compared: Rust
+/// reports the same TypeError or SyntaxError in its own wording).
+#[test]
+fn names_e2e_matches_citeproc_js() {
+    let Some(locales) = load_locales() else {
+        println!("SKIP: vendor/citeproc-js/locale is absent (run scripts/csl-reference.sh)");
+        return;
+    };
+    let r: Value = serde_json::from_str(E2E_REFERENCE).expect("names_e2e.json");
+    let pool: Vec<Value> = r["pool"].as_array().cloned().expect("pool");
+    let ids: Vec<String> = pool.iter().filter_map(|i| i["id"].as_str().map(str::to_string)).collect();
+    let mut compared = 0;
+    let mut error_parity = 0;
+    let mut bad: Vec<String> = Vec::new();
+    for (ci, case) in r["cases"].as_array().expect("cases").iter().enumerate() {
+        let mut st = match e2e_state(case, &pool, &r["acache"], &locales) {
+            Ok(st) => st,
+            Err(e) => {
+                // citeproc-js threw while building the engine.
+                if case["out"].get("build_error").is_some() {
+                    error_parity += 1;
+                } else {
+                    bad.push(format!("case {ci}: build failed: {e}"));
+                }
+                continue;
+            }
+        };
+        let out = &case["out"];
+        let mut any_error = false;
+        for (i, id) in ids.iter().enumerate() {
+            let want = &out["cites"].as_array().map(|a| a[i].clone()).unwrap_or(Value::Null);
+            let got = render_cluster(&mut st, &[json!({ "id": id })]);
+            any_error |= got.is_err();
+            compare_one(ci, &format!("cite {id}"), &got, want, out.get("build_error").is_some(), &mut compared, &mut error_parity, &mut bad);
+        }
+        let all: Vec<Value> = ids.iter().map(|id| json!({ "id": id })).collect();
+        let got = render_cluster(&mut st, &all);
+        any_error |= got.is_err();
+        if let Some(want) = out.get("multi") {
+            compare_one(ci, "all cites", &got, want, out.get("build_error").is_some(), &mut compared, &mut error_parity, &mut bad);
+        }
+        let got = render_bibliography(&mut st, &ids);
+        any_error |= got.is_err();
+        if let Some(want) = out.get("bib") {
+            compare_one(ci, "bibliography", &got, want, out.get("build_error").is_some(), &mut compared, &mut error_parity, &mut bad);
+        }
+        if out.get("build_error").is_some() {
+            // updateItems threw while rendering one of the items.
+            if any_error {
+                error_parity += 1;
+            } else {
+                bad.push(format!("case {ci}: citeproc-js threw ({}) but the port did not", out["build_error"]));
+            }
+        }
+    }
+    println!("{compared} outputs compared, {error_parity} error cases agree, {} differ", bad.len());
+    for b in bad.iter().take(25) {
+        println!("DIFF {b}");
+    }
+    assert!(bad.is_empty(), "{} generated cases differ", bad.len());
+    assert!(compared > 8000, "{compared}");
+}
+
+#[allow(clippy::too_many_arguments)]
+fn compare_one(
+    case: usize,
+    what: &str,
+    got: &CslResult<String>,
+    want: &Value,
+    build_failed: bool,
+    compared: &mut usize,
+    error_parity: &mut usize,
+    bad: &mut Vec<String>,
+) {
+    if build_failed && want.is_null() {
+        return;
+    }
+    match (got, want.get("v"), want.get("e")) {
+        (Ok(g), Some(w), _) => {
+            *compared += 1;
+            if Some(g.as_str()) != w.as_str() {
+                bad.push(format!("case {case} {what}:\n    got:  {g:?}\n    want: {w}"));
+            }
+        }
+        (Err(_), _, Some(_)) => *error_parity += 1,
+        (g, w, e) => bad.push(format!("case {case} {what}: got {g:?}, want v={w:?} e={e:?}")),
+    }
 }
