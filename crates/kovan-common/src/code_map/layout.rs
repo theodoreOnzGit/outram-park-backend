@@ -30,8 +30,14 @@
 //!   lanes any box of that band needs in it.
 //! - The **utilities base** (rows 1, then 0) spans the pyramid's width below
 //!   the topic boxes, each row's crates centred.
-//! - The **knowledge-management box** stands to the right, from the app band
-//!   to the bottom of the base; each of its crates sits in its own row's band.
+//! - ~~The **knowledge-management box** stands to the right, from the app band
+//!   to the bottom of the base; each of its crates sits in its own row's band.~~
+//!   **CORRECTED 2026-10-08** (maintainer: "Knowledge management is a column
+//!   on the left"): the knowledge-management box is **one card wide, left of
+//!   the row gutter**, from the app band to the bottom of the base. Its
+//!   crates stack one per lane, each in its own row's band; a band row (or a
+//!   base row) is made tall enough for the knowledge-management crates it
+//!   holds, so rows still line up across the map.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -69,9 +75,11 @@ pub const MAX_TIES: usize = 3;
 /// F3), so it set the width of every topic box.
 pub const ROW2_TIES: usize = 1;
 
-/// How many crates of one fidelity level sit side by side in `row`.
+/// How many crates of one fidelity level sit side by side in `row`. Row 3
+/// stacks too (maintainer, 2026-10-08: "Neutronics can be stacked"; its
+/// three row-3 crates were the only row-3 ties).
 pub fn ties_in_row(row: u8) -> usize {
-    if row == 2 { ROW2_TIES } else { MAX_TIES }
+    if row == 2 || row == 3 { ROW2_TIES } else { MAX_TIES }
 }
 /// Topic boxes per band (maintainer, 2026-10-06: two rows of four).
 pub const BOXES_PER_BAND: usize = 4;
@@ -337,6 +345,8 @@ pub fn layout(map: &CodeMap) -> Layout {
     let lanes_in = |band: &[TopicBox], row: u8| -> usize {
         band.iter().filter_map(|b| b.rows.get(&row)).map(Vec::len).max().unwrap_or(0).max(1)
     };
+    // Knowledge-management crates stack one per lane in their row's band.
+    let km_in = |row: u8| -> usize { km.iter().filter(|c| c.row == row).count() };
     let box_w = |b: &TopicBox| ROW_TAG + b.inner_w + 2.0 * PAD;
     let band_w: Vec<f64> =
         bands.iter().map(|band| band.iter().map(box_w).sum::<f64>() + (band.len() - 1) as f64 * BOX_GAP).collect();
@@ -366,7 +376,7 @@ pub fn layout(map: &CodeMap) -> Layout {
     for (i, band) in bands.iter().enumerate() {
         let mut y = band_top + HEADER;
         for &r in band_rows[i].iter().rev() {
-            let n = lanes_in(band, r);
+            let n = if i == 0 { lanes_in(band, r).max(km_in(r)) } else { lanes_in(band, r) };
             let h = n as f64 * CARD_H + (n - 1) as f64 * GAP;
             band_y.insert((i, r), (y, h));
             y += h + BAND_GAP;
@@ -382,7 +392,8 @@ pub fn layout(map: &CodeMap) -> Layout {
     for &r in base_rows.iter().rev() {
         base_y.insert(r, y);
         labels.push(Label { x: -0.5 * GUTTER, y: y + 0.5 * CARD_H, text: format!("row {r}"), tip: row_meaning(r).into() });
-        y += CARD_H + BAND_GAP;
+        let n = km_in(r).max(1);
+        y += n as f64 * CARD_H + (n - 1) as f64 * GAP + BAND_GAP;
     }
     let base_bottom = y - BAND_GAP + PAD;
     labels.push(Label { x: -0.5 * GUTTER, y: app_top + HEADER + 0.5 * CARD_H, text: "row 4".into(), tip: row_meaning(4).into() });
@@ -444,11 +455,10 @@ pub fn layout(map: &CodeMap) -> Layout {
         }
     }
 
-    // Knowledge management, to the right, full height.
+    // Knowledge management: one card wide, left of the row gutter, full height.
     let km_rows: BTreeSet<u8> = km.iter().map(|c| c.row).collect();
-    let most = km_rows.iter().map(|r| km.iter().filter(|c| c.row == *r).count()).max().unwrap_or(1).max(1);
-    let km_w = most as f64 * CARD_W + (most - 1) as f64 * GAP + 2.0 * PAD;
-    let km_x = base_w + 2.0 * BOX_GAP;
+    let km_w = CARD_W + 2.0 * PAD;
+    let km_x = -GUTTER - BOX_GAP - km_w;
     let km_rect = Rect { x: km_x, y: app_top, w: km_w, h: base_bottom - app_top };
     frames.push(Frame {
         kind: FrameKind::KnowledgeManagement,
@@ -459,14 +469,12 @@ pub fn layout(map: &CodeMap) -> Layout {
     let f = frames.len() - 1;
     for &r in &km_rows {
         let row: Vec<&&CrateNode> = km.iter().filter(|c| c.row == r).collect();
-        let w = row.len() as f64 * CARD_W + (row.len() - 1) as f64 * GAP;
-        let mut cx = km_x + 0.5 * km_w - 0.5 * w;
         // A row with no band of its own (row 4 is the app band) still has one.
-        let y = band_y.get(&(0, r)).map(|b| b.0).or_else(|| base_y.get(&r).copied()).unwrap_or(app_top + HEADER);
+        let mut y = band_y.get(&(0, r)).map(|b| b.0).or_else(|| base_y.get(&r).copied()).unwrap_or(app_top + HEADER);
         for c in row {
-            let rect = Rect { x: cx, y, w: CARD_W, h: CARD_H };
+            let rect = Rect { x: km_x + PAD, y, w: CARD_W, h: CARD_H };
             cards.insert(c.name.clone(), Card { name: c.name.clone(), rect, frame: f });
-            cx += CARD_W + GAP;
+            y += CARD_H + GAP;
         }
     }
 
@@ -545,7 +553,24 @@ mod tests {
         assert!((a.x - b.x).abs() < 1e-9, "same column");
         assert!((a.y - b.y).abs() >= CARD_H, "stacked");
         assert_eq!(ties_in_row(2), 1);
-        assert_eq!(ties_in_row(3), MAX_TIES);
+        assert_eq!(ties_in_row(4), MAX_TIES);
+        assert!(check(&m, &l).is_empty(), "{:#?}", check(&m, &l));
+    }
+
+    /// Knowledge management is one column left of the row gutter
+    /// (maintainer, 2026-10-08): every one of its cards shares one x, the
+    /// box ends left of every other box, and the checks still pass.
+    #[test]
+    fn knowledge_management_is_one_column_on_the_left() {
+        let m = map();
+        let l = layout(&m);
+        let km = l.frames.iter().position(|f| f.kind == FrameKind::KnowledgeManagement).unwrap();
+        let xs: BTreeSet<i64> = l.cards.iter().filter(|c| c.frame == km).map(|c| c.rect.x as i64).collect();
+        assert!(xs.len() <= 1, "one column: {xs:?}");
+        let r = l.frames[km].rect;
+        assert!(r.right() <= -GUTTER);
+        assert!(l.frames.iter().filter(|f| f.kind != FrameKind::KnowledgeManagement).all(|f| f.rect.x >= 0.0));
+        assert_eq!(ties_in_row(3), 1);
         assert!(check(&m, &l).is_empty(), "{:#?}", check(&m, &l));
     }
 
