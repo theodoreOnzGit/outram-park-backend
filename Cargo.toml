@@ -323,6 +323,12 @@ regex = "1"                  # pure-Rust, Android-friendly regex — capture ext
 # (`normalizeForSearch`, GitHub #751). Already in Cargo.lock (0.1.25, via
 # idna); pure Rust, Android- and wasm-clean.
 unicode-normalization = "0.1"
+# The citeproc-js port's collation (`citeproc::js::locale_compare`, GitHub #795): ICU4X, the
+# same CLDR collation data node's ICU uses for `localeCompare`. Unicode-3.0 licence
+# (permissive, GPL- and AGPL-compatible). Already in Cargo.lock (2.3.x, via hayagriva and
+# turso_core), so no new crate enters the tree; pure Rust, wasm- and Android-clean.
+icu_collator = "2"
+icu_locale_core = "2"
 # Rust parser for kovan's review stamps (GitHub #739): locating a function by
 # its code-walk path and hashing its tokens. Already in Cargo.lock through the
 # proc-macro stack (syn 2.0.118, proc-macro2 1.0.106, quote 1.0.45), so no new

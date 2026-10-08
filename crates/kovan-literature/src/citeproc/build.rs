@@ -70,15 +70,17 @@ fn type_error(what: &str) -> EngineError {
     EngineError::Csl(format!("TypeError: {what}"))
 }
 
-/// The value of `sort_sep`: `'dale|'.localeCompare('daleb', locale) > -1`
-/// selects `"@"`, otherwise `"|"`. ICU's root collation puts the symbol `|`
-/// before letters, so `'dale|'` sorts before `'daleb'`, the comparison is
-/// `-1` and the answer is `"|"` for every locale citeproc-js was run with.
-///
-/// PORT-LATER(collation, #795): call `js::locale_compare` once the
-/// provisional collator orders punctuation before letters.
-fn sort_sep(_default_locale_sort: &str) -> &'static str {
-    "|"
+/// The value of `sort_sep` (build.js:185): `'dale|'.localeCompare('daleb', locale) > -1`
+/// selects `"@"`, otherwise `"|"`. ICU puts the symbol `|` before letters, so the
+/// comparison is `-1` and the answer is `"|"` for every locale tried (the 16 the
+/// suite uses are checked in `js::collation_tests`); the probe is run for real so
+/// a locale that collates otherwise would get `"@"` as in citeproc-js.
+fn sort_sep(default_locale_sort: &str) -> &'static str {
+    if js::locale_compare("dale|", "daleb", default_locale_sort) != std::cmp::Ordering::Less {
+        "@"
+    } else {
+        "|"
+    }
 }
 
 impl State {

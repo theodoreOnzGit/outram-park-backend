@@ -423,3 +423,13 @@ Verification data and tools (#791):
     `scripts/csl-citeproc-sources.cjs` is its lib/sources.js verbatim). MIT is
     compatible with AGPL-3.0; the files carry the attribution.
   * CSL styles and locales: CC BY-SA 3.0, `data/csl/README.md`.
+
+Dependency: ICU4X collation (2026-10-08, GitHub #795)
+-----------------------------------------------------
+
+`citeproc::js::locale_compare` uses `icu_collator`, `icu_collator_data` and
+`icu_locale_core` (ICU4X, https://github.com/unicode-org/icu4x), licensed
+under the Unicode License v3 (SPDX `Unicode-3.0`):
+Copyright (c) 2020-2024 Unicode, Inc. The licence text ships in each crate's
+`LICENSE`; its notice is kept with copies of the crates and their data, as it
+requires. Decision and measurements: DECISIONS.md.

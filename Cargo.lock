@@ -5814,6 +5814,8 @@ version = "0.0.1"
 dependencies = [
  "hayagriva",
  "html5ever",
+ "icu_collator",
+ "icu_locale_core",
  "kovan-common",
  "lopdf",
  "pdf-extract",
@@ -5826,7 +5828,6 @@ dependencies = [
  "tempfile",
  "toml",
  "turso_core",
- "unicode-normalization",
 ]
 
 [[package]]

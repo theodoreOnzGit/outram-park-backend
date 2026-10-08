@@ -194,3 +194,55 @@ Per the task, recorded here instead of created (do not touch the broken export):
   a `Vec<KovanDocument>` into `generated/bibtex/`, with de-duplicated keys.
 - **op-5v5.common1** — Add `assets`/`page_count` (and optional journal locator)
   fields + a builder to `kovan-common::KovanDocument` (see above).
+
+## Collation for the citeproc port (GitHub #795, epic #790) — 2026-10-08
+
+**Decision: `icu_collator` (ICU4X) 2.x, behind `citeproc::js::locale_compare`.**
+citeproc-js sorts and compares with node's ICU (`String.prototype.localeCompare`;
+sort.js builds its comparator with `{sensitivity: "base", ignorePunctuation: true,
+numeric: true}`; build.js probes `'dale|'.localeCompare('daleb', locale)` to choose
+`sort_sep`; util_substitute.js tests `!a.localeCompare(b)`). The port needs the same
+order, not a similar one: a different tie-break reorders a bibliography or a
+year-suffix run.
+
+**What was built.** `js::locale_compare` (default options), `js::locale_compare_sort`
+(the sort comparator's options) and `js::locale_compare_with`, the single place every
+comparison goes through. One `CollatorBorrowed` is cached per `(locale, options)`.
+`sensitivity: "base"` is `Strength::Primary`, `ignorePunctuation` is
+`AlternateHandling::Shifted`, `numeric` is the `CollationNumericOrdering::True`
+preference; an unparsable tag collates as root (node throws a RangeError there).
+`build.rs`'s `sort_sep` now runs the real `'dale|'.localeCompare('daleb', ...)` probe
+(it was a hardcoded `"|"`); the answer is `"|"` for all 16 locales the suite names.
+
+**Why this one.**
+
+| Candidate | Verdict |
+|---|---|
+| `icu_collator` 2.3 (ICU4X) | **Chosen.** Pure Rust, compiled CLDR data (CLDR 48.2.1, ICU release-78.1rc) against node 22.22.2's ICU 78.2 / CLDR 48, so the root order and the tailorings are the same release. Already in `Cargo.lock` (via `hayagriva` and `turso_core`), so no new crate enters the tree. `cargo check --release --target wasm32-unknown-unknown` is clean. |
+| the previous stand-in (NFD, strip marks, lowercase, compare) | Rejected: no punctuation or digit handling, no tailorings, and it ordered `|` after letters. |
+| `rust_icu` / ICU4C bindings | Rejected: C library, not buildable for Android/Termux or wasm. |
+| a DUCET/CLDR-root-only crate | Rejected: no locale tailorings (da, ro, el, ar, zh, km occur in the suite). |
+
+**Licence.** `icu_collator` and `icu_collator_data` are `Unicode-3.0` (SPDX; the licence
+text is the crate's `LICENSE`: "UNICODE LICENSE V3", read 2026-10-08). It is permissive:
+the only condition is to keep the copyright and permission notice with copies of the data
+files or software, and there is no copyleft, advertising clause or field-of-use limit, so
+it is compatible with this crate's AGPL-3.0-only. (It is also the licence of the Unicode
+data in the `icu_*` crates the tree already carries.)
+
+**Measured agreement** (`js::collation_tests::locale_compare_agrees_with_node_icu`, data
+`tests/data/csl/units/collation.json`, generator `scripts/csl-units/collation.cjs`):
+10,030 strings (every string value of the fixtures' INPUT items and of `items.json`;
+upper/lower/NFC/NFD/accent/bracket/quote/hyphen/trailing-`|`/digit variants; sort-key-shaped
+`word|word|` forms; a hand list of hard cases: `ß æ ø ł ñ ǆ ﬁ İ ı`, Greek, Cyrillic, Arabic,
+Thai, Khmer, kana, CJK, an emoji, zero-width and soft-hyphen characters, `van der`/`O'`/`Mc`
+names) in 18,004 pairs (every neighbour pair of node's sorted order, plus all pairs of the
+hand list) under the 16 locales the suite's styles name (`en-US en-GB en fr-FR fr fr-CA
+de-DE da-DK ro-RO pt-BR el ar zh-TW km-KH gx en-US-x-sort-ja-alalc97`) with both option
+sets: **576,128 comparisons, 0 mismatches (100 %)** against node v22.22.2 (ICU 78.2,
+Unicode 17.0, CLDR 48). The test fails on any difference.
+
+**Limits.** The reference is node 22.22.2; a different node/ICU release may differ in
+tailorings that changed between CLDR releases. Fixtures compare through citeproc-js's
+`toLocaleLowerCase` first (`load::to_locale_lower_case`), which is not part of this
+decision. The data adds a few MB to the binary.

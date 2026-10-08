@@ -20,6 +20,8 @@
 //! the same answer on every input.
 
 use std::cmp::Ordering;
+use std::collections::BTreeMap;
+use std::sync::{Arc, LazyLock, Mutex};
 
 use serde_json::{Map, Value};
 
@@ -283,40 +285,82 @@ pub fn trim(s: &str) -> &str {
     s.trim_matches(|c: char| c.is_whitespace() || c == '\u{feff}')
 }
 
-/// JS `a.localeCompare(b, lang)` as node's ICU computes it.
+/// Which options a `localeCompare` call uses.
 ///
-/// **Provisional** (PORTING.md §8): the #795 owner replaces this with a real
-/// ICU-equivalent collator. Until then: compare case-insensitively on the
-/// NFD form with diacritics stripped, then by diacritics, then by case
-/// (lower before upper, as ICU's default tertiary order).
-pub fn locale_compare(a: &str, b: &str, _lang: &str) -> Ordering {
-    use unicode_normalization::UnicodeNormalization;
-    let base = |s: &str| -> String {
-        s.nfd()
-            .filter(|c| !('\u{300}'..='\u{36f}').contains(c))
-            .flat_map(char::to_lowercase)
-            .collect()
-    };
-    let p = base(a).cmp(&base(b));
-    if p != Ordering::Equal {
-        return p;
+/// citeproc-js calls `a.localeCompare(b, locale)` with no options (build.js's
+/// `sort_sep` probe and the "same name as previous" tests of
+/// util_substitute.js): [`Collation::Default`], ICU's tertiary strength with
+/// punctuation not ignored. Its sort comparator (sort.js `getSortCompare`)
+/// passes `{sensitivity: "base", ignorePunctuation: true, numeric: true}`:
+/// [`Collation::Sort`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Collation {
+    /// `localeCompare(that, locale)`.
+    Default,
+    /// `localeCompare(that, locale, {sensitivity: "base", ignorePunctuation: true, numeric: true})`.
+    Sort,
+}
+
+type SharedCollator = Arc<icu_collator::CollatorBorrowed<'static>>;
+
+/// One collator per `(locale, options)`: building one parses the locale and
+/// loads the data, far too slow to repeat for every comparison.
+static COLLATORS: LazyLock<Mutex<BTreeMap<(String, Collation), Option<SharedCollator>>>> =
+    LazyLock::new(|| Mutex::new(BTreeMap::new()));
+
+/// The ICU4X collator for `lang` (BCP 47, `_` tolerated) and `kind`. An
+/// unparsable tag collates as the root locale, where node would throw a
+/// `RangeError`; `None` only if the compiled data cannot serve the request.
+fn collator_for(lang: &str, kind: Collation) -> Option<SharedCollator> {
+    use icu_collator::options::{AlternateHandling, CollatorOptions, Strength};
+    use icu_collator::preferences::CollationNumericOrdering;
+    use icu_collator::{Collator, CollatorPreferences};
+    let key = (lang.to_string(), kind);
+    let mut cache = COLLATORS.lock().ok()?;
+    if let Some(found) = cache.get(&key) {
+        return found.clone();
     }
-    let s = |x: &str| -> String { x.nfd().flat_map(char::to_lowercase).collect() };
-    let q = s(a).cmp(&s(b));
-    if q != Ordering::Equal {
-        return q;
+    let locale: icu_locale_core::Locale = lang
+        .replace('_', "-")
+        .parse()
+        .unwrap_or(icu_locale_core::Locale::UNKNOWN);
+    let mut prefs = CollatorPreferences::from(&locale);
+    let mut options = CollatorOptions::default();
+    if kind == Collation::Sort {
+        // sensitivity: "base"
+        options.strength = Some(Strength::Primary);
+        // ignorePunctuation: true
+        options.alternate_handling = Some(AlternateHandling::Shifted);
+        // numeric: true
+        prefs.numeric_ordering = Some(CollationNumericOrdering::True);
     }
-    // Tertiary: lowercase first.
-    for (x, y) in a.chars().zip(b.chars()) {
-        if x != y {
-            return match (x.is_lowercase(), y.is_lowercase()) {
-                (true, false) => Ordering::Less,
-                (false, true) => Ordering::Greater,
-                _ => x.cmp(&y),
-            };
-        }
+    let made = Collator::try_new(prefs, options).ok().map(Arc::new);
+    cache.insert(key, made.clone());
+    made
+}
+
+/// JS `a.localeCompare(b, lang)` as node's ICU computes it ([`Collation::Default`]),
+/// with ICU4X (`icu_collator`, CLDR 48 like node 22's ICU 78): see
+/// DECISIONS.md "Collation for the citeproc port" for the decision and the
+/// measured agreement. **The single place every comparison goes through.**
+pub fn locale_compare(a: &str, b: &str, lang: &str) -> Ordering {
+    locale_compare_with(a, b, lang, Collation::Default)
+}
+
+/// [`locale_compare`] with the options of citeproc-js's sort comparator
+/// ([`Collation::Sort`]).
+pub fn locale_compare_sort(a: &str, b: &str, lang: &str) -> Ordering {
+    locale_compare_with(a, b, lang, Collation::Sort)
+}
+
+/// `a.localeCompare(b, lang, options)` for one of citeproc-js's two option
+/// sets. Falls back to code point order if no collator can be built (not
+/// reachable with the compiled data).
+pub fn locale_compare_with(a: &str, b: &str, lang: &str, kind: Collation) -> Ordering {
+    match collator_for(lang, kind) {
+        Some(c) => c.compare(a, b),
+        None => a.cmp(b),
     }
-    a.len().cmp(&b.len())
 }
 
 /// `-1`, `0` or `1`, the integer a JS comparator returns.
@@ -428,5 +472,89 @@ mod tests {
             split(&regex::Regex::new("").unwrap(), "abc"),
             vec!["a", "b", "c"]
         );
+    }
+}
+
+#[cfg(test)]
+mod collation_tests {
+    //! Differential test of [`locale_compare`] against node's ICU
+    //! (GitHub #795; decision and results in `DECISIONS.md`). Reference:
+    //! `tests/data/csl/units/collation.json`, generated by
+    //! `scripts/csl-units/collation.cjs` (node 22.22.2, ICU 78.2, CLDR 48):
+    //! 10,030 strings (every string of the fixtures' INPUT items and of
+    //! `items.json`, plus generated case, diacritic, punctuation, number and
+    //! script variants and a hand-written list of hard cases) in 18,004
+    //! pairs, compared under the 16 locales the suite's styles name and under
+    //! both option sets citeproc-js uses.
+    use super::*;
+    use serde_json::Value;
+
+    #[test]
+    fn locale_compare_agrees_with_node_icu() {
+        let data: Value = serde_json::from_str(include_str!("../../tests/data/csl/units/collation.json"))
+            .expect("collation.json");
+        let strings: Vec<&str> = data["strings"]
+            .as_array()
+            .expect("strings")
+            .iter()
+            .map(|s| s.as_str().expect("string"))
+            .collect();
+        let pairs: Vec<usize> = data["pairs"]
+            .as_array()
+            .expect("pairs")
+            .iter()
+            .map(|n| n.as_u64().expect("index") as usize)
+            .collect();
+        let mut total = 0usize;
+        let mut mismatches: Vec<String> = Vec::new();
+        for (kind, name) in [(Collation::Default, "default"), (Collation::Sort, "sort")] {
+            for (locale, results) in data[name].as_object().expect("results") {
+                let results = results.as_str().expect("result string").as_bytes();
+                assert_eq!(results.len() * 2, pairs.len());
+                for (n, want) in results.iter().enumerate() {
+                    let (a, b) = (strings[pairs[2 * n]], strings[pairs[2 * n + 1]]);
+                    let got = match locale_compare_with(a, b, locale, kind) {
+                        Ordering::Less => b'<',
+                        Ordering::Equal => b'=',
+                        Ordering::Greater => b'>',
+                    };
+                    total += 1;
+                    if got != *want {
+                        mismatches.push(format!(
+                            "{name} {locale}: {a:?} vs {b:?}: node {} icu4x {}",
+                            *want as char, got as char
+                        ));
+                    }
+                }
+            }
+        }
+        println!(
+            "collation: {} comparisons, {} mismatches ({:.4}% agreement)",
+            total,
+            mismatches.len(),
+            100.0 * (total - mismatches.len()) as f64 / total as f64
+        );
+        for m in mismatches.iter().take(60) {
+            println!("  {m}");
+        }
+        assert!(
+            mismatches.is_empty(),
+            "{} of {} comparisons differ from node's ICU",
+            mismatches.len(),
+            total
+        );
+    }
+
+    #[test]
+    fn the_sort_sep_probe_orders_the_symbol_before_letters() {
+        // build.js:185: 'dale|'.localeCompare('daleb', locale) > -1 selects "@".
+        for loc in ["en-US", "fr-FR", "de-DE", "zh-TW", "ar", "gx", ""] {
+            assert_eq!(locale_compare("dale|", "daleb", loc), Ordering::Less, "{loc}");
+        }
+        // Equality in the sense of `!a.localeCompare(b)`: canonically equivalent strings are equal.
+        assert_eq!(locale_compare("e\u{301}", "\u{e9}", "en-US"), Ordering::Equal);
+        assert_ne!(locale_compare("e", "E", "en-US"), Ordering::Equal);
+        assert_eq!(locale_compare_sort("e", "E", "en-US"), Ordering::Equal);
+        assert_eq!(locale_compare_sort("a2", "a10", "en-US"), Ordering::Less);
     }
 }
