@@ -81,61 +81,61 @@ Update to C3 (#802), 2026-10-08: the unbound-`this` TypeError is reached by
 Behaviour is unchanged: the port reproduces citeproc-js for each of these.
 Locations are the port's files; the JS locations are in the names.
 
-- **C16 — `CSL.Util.Dates.year["short"]` returns `undefined`** for a year that
+- **C16 (#808) — `CSL.Util.Dates.year["short"]` returns `undefined`** for a year that
   is not four digits, so `undefined` is printed (e.g. `March undefinedAD`); the
   same leak happens for the long/short month names when the locale lacks the
   term. Port: `util_dates.rs` (`year_short`, the month functions);
   `node_datepart.rs`.
-- **C17 — `ad_end` / `bc_end` are computed in the date-part closure and never
+- **C17 (#808) — `ad_end` / `bc_end` are computed in the date-part closure and never
   used** (node_datepart.js), so the end of a collapsed date range takes the
   start year's AD/BC label. Port: `node_datepart.rs` (`render`).
-- **C18 — Empty cites are compared with `===` as arrays**, which is never
+- **C18 (#808) — Empty cites are compared with `===` as arrays**, which is never
   true (api_cite.js; mirrored). Port: `api_cite.rs`.
-- **C19 — `_locationOf` uses `end || length`** (sort.js / registry.js), so an
+- **C19 (#808) — `_locationOf` uses `end || length`** (sort.js / registry.js), so an
   `end` of 0 is read as "the whole list". Port: `registry.rs` / `sort.rs`.
-- **C20 — `initVars` compares arrays as strings** (sort.js; numeric keys sort
+- **C20 (#808) — `initVars` compares arrays as strings** (sort.js; numeric keys sort
   as text). Port: `sort.rs`.
-- **C21 — An item without an `id` is keyed `"undefined"`** in the registry and
+- **C21 (#808) — An item without an `id` is keyed `"undefined"`** in the registry and
   caches (api_cite.js, registry.js). Port: `api_cite.rs`, `registry.rs`.
-- **C22 — `makeBibliography` returns `false` for a style without a
+- **C22 (#808) — `makeBibliography` returns `false` for a style without a
   `cs:bibliography`** (api_bibliography.js); the port returns an `Err`.
   Port: `api_bibliography.rs`, `mod.rs`.
-- **C23 — `state.tmp.multi_layout` is read but never assigned**
+- **C23 (#808) — `state.tmp.multi_layout` is read but never assigned**
   (util_transform.js:477 and :502; `state.opt.multi_layout` is the assigned
   one), so the branches are dead. Port: `util_transform.rs`
   (`run_output_function`).
-- **C24 — `localesets[0] === "locale-orig"` dead branch** in the same
+- **C24 (#808) — `localesets[0] === "locale-orig"` dead branch** in the same
   closure. Port: `util_transform.rs`.
-- **C25 — The authority/committee split indexes a string** and takes one
+- **C25 (#808) — The authority/committee split indexes a string** and takes one
   character (util_transform.js). Port: `util_transform.rs`.
-- **C26 — The group END `done_vars` removal loop skips an element after each
+- **C26 (#808) — The group END `done_vars` removal loop skips an element after each
   removal** (node_group.js, 2019-04-15 block: splices while iterating).
   Port: `node_group.rs` (`group_end`); same family as C1.
-- **C27 — `outputNumericField` appends `"undefined"` when `labelSuffix` is
+- **C27 (#808) — `outputNumericField` appends `"undefined"` when `labelSuffix` is
   undefined and does not recompute `labelPlaceholderPos`** (util_number.js).
   Port: `util_number.rs`.
-- **C28 — The seventh argument of `getTextSubField` is ignored**
+- **C28 (#808) — The seventh argument of `getTextSubField` is ignored**
   (util_transform.js). Port: `util_transform.rs` (`get_text_sub_field`).
-- **C29 — `init`/`reinit` use `for (var i in ...)` with `done_vars.slice(i+1)`**
+- **C29 (#808) — `init`/`reinit` use `for (var i in ...)` with `done_vars.slice(i+1)`**
   where `i` is a string key (util_names_output.js:53-58, 88-94); the slice
   start is a string-to-number coercion. Port: `util_names_output.rs`.
-- **C30 — `PublisherOutput.render` always throws** `this._purgeEmptyBlobs is
+- **C30 (#808) — `PublisherOutput.render` always throws** `this._purgeEmptyBlobs is
   not a function` (util_publishers.js), after `clearVars`, `composeAndBlob` and
   `composeElements` ran; `state.publisherOutput` stays set. Port:
   `util_publishers.rs`, `node_group.rs` (`PublisherSpecialEnd`).
-- **C31 — `_composeOneInstitutionPart`: `citeAffixes[slot.primary]` is never
+- **C31 (#808) — `_composeOneInstitutionPart`: `citeAffixes[slot.primary]` is never
   defined**, so the italic block is dead (util_names_render.js). Port:
   `util_names_render.rs`.
-- **C32 — `_droppingParticle` overwrites `etal_spec[pos]`** (an array) with
+- **C32 (#808) — `_droppingParticle` overwrites `etal_spec[pos]`** (an array) with
   `1` or `2` (util_names_*.js). Port: `util_names_*.rs`.
-- **C33 — `truncatePersonalNameLists` keeps a stale `v` and discards the
+- **C33 (#808) — `truncatePersonalNameLists` keeps a stale `v` and discards the
   result of `_truncateNameList(institutions)`** (util_names_truncate.js).
   Port: `util_names_truncate.rs`.
-- **C34 — citeproc-js crashes reproduced as errors:** a classic abbreviation
+- **C34 (#808) — citeproc-js crashes reproduced as errors:** a classic abbreviation
   under `collapse` (`first_blob` TypeError), `cs:name delimiter=""` without
   `and` (`JSON.parse(undefined)`), an empty institution `and`
   (`undefined.blobs`). Port: `util_names_output.rs`, `util_names_render.rs`.
-- **C35 — `getName` deletes `family`/`given` from the caller's name object
+- **C35 (#808) — `getName` deletes `family`/`given` from the caller's name object
   for literal names** (util_names_render.js). The port works on a copy at the
   registry call sites (`disambig_names.rs::registry_name`,
   `util_citationlabel.rs`), so the caller's object is not mutated there.
