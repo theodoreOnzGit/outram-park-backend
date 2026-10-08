@@ -27,10 +27,9 @@
 //! `state.tmp.shadow_numbers[variable]` with the parsed values, labels and
 //! the plural / numeric / collapsible flags. It is complete here.
 //! `processNumber(node, ...)` additionally mangles ranges and builds the
-//! styling tokens: [`fix_ranges`] and [`set_styling`] are ported, with the
-//! two things they need from other files deferred (`page_mangler`, and the
-//! token `formatter` copy); `CSL.Util.outputNumericField` renders through the
-//! output queue and is deferred ([`output_numeric_field`]).
+//! styling tokens: [`fix_ranges`] (with `state.fun.page_mangler`) and
+//! [`set_styling`] are ported; `CSL.Util.outputNumericField` renders through
+//! the output queue and is deferred ([`output_numeric_field`]).
 //!
 //! # Locale terms
 //!
@@ -1304,17 +1303,16 @@ fn mangle_page_numbers(
     let is_page = check_page(variable, &values[i]);
     let s: String;
     if is_page && a.is_some() && b.is_some() {
-        let _joined = format!(
+        let joined = format!(
             "{}{} - {}{}",
             values[i - 1].particle.as_deref().unwrap_or("undefined"),
             values[i - 1].value,
             values[i].particle.as_deref().unwrap_or("undefined"),
             values[i].value
         );
-        // PORT-LATER(wave1-output): util_number.js:668, needs `state.fun.page_mangler` (util_page_mangler.js)
-        return Err(EngineError::NotYetPorted {
-            method: "page_mangler",
-        });
+        // `me.fun.page_mangler(str)` (one argument: `isyear` is undefined).
+        let mangler = state.fun.page_mangler.clone();
+        s = mangler.mangle(&joined, false)?;
     } else {
         if NUM_OR_ROMAN_RE.is_match(&values[i - 1].value)
             && NUM_OR_ROMAN_RE.is_match(&values[i].value)
@@ -1350,7 +1348,7 @@ fn mangle_page_numbers(
 }
 
 /// `fixRanges(values)` (only with a node): collapse `12-15` style ranges.
-/// Needs `page_mangler` for page ranges (deferred).
+/// Page ranges go through `state.fun.page_mangler`.
 pub fn fix_ranges(
     state: &mut State,
     variable: &str,
@@ -1414,9 +1412,7 @@ pub fn fix_ranges(
 /// value and return the master styling token. Quotation marks around the
 /// whole value move into the master styling as an `@quotes` decoration.
 ///
-/// PORT-LATER(wave2): util_number.js:581, needs a `formatter` field on
-/// `Token` (`newnode.formatter = node.formatter`; the dump records its
-/// name). `newnode.gender = node.gender` is copied through `Token::extra`.
+/// `gender` and `formatter` are copied through `Token::extra`.
 pub fn set_styling(state: &mut State, node: &Token, values: &mut [NumberInfo]) -> Token {
     let just_looking = state.tmp.just_looking;
     let mut master_node = node.clone_token();
@@ -1442,12 +1438,23 @@ pub fn set_styling(state: &mut State, node: &Token, values: &mut [NumberInfo]) -
         );
         master_node.set_string("suffix", "");
     }
+    let master_label = values.first().map(|v| v.label.clone());
     if !values.is_empty() {
         for v in values.iter_mut() {
             let mut newnode = master_node.clone_token();
             if let Some(g) = node.extra.get("gender") {
                 newnode.extra.insert("gender".into(), g.clone());
             }
+            // `newnode.formatter = node.formatter` (the formatter is kept in
+            // `extra["formatter"]`, see obj_number.rs).
+            if master_label.as_ref() == Some(&v.label) {
+                if let Some(f) = node.extra.get("formatter") {
+                    newnode.extra.insert("formatter".into(), f.clone());
+                }
+            }
+            // `if (val.numeric) newnode.successor_prefix = val.successor_prefix`:
+            // nothing in util_number.js sets `val.successor_prefix`, so this
+            // assigns `undefined` to a property `cloneToken` never copies.
             let suffix = newnode.string("suffix") + &strip_hyphen_backslash(&v.joining_suffix);
             newnode.set_string("suffix", &suffix);
             v.styling = Some(newnode);
@@ -1836,6 +1843,7 @@ mod tests {
             &mut st,
             super::super::test_support::logged_locale(&engine["log"], None, None),
         );
+        st.fun.page_mangler = super::super::util_page::PageRangeMangler::get_function(&st, "page");
         st
     }
 
@@ -1949,17 +1957,6 @@ mod tests {
                 let tok = node_token();
                 let res = process_number(st, Some(&tok), Some(item), variable);
                 n_node += 1;
-                if c["node_mangled"].as_bool() == Some(true) {
-                    if !matches!(
-                        res,
-                        Err(EngineError::NotYetPorted {
-                            method: "page_mangler"
-                        })
-                    ) {
-                        bad.push(format!("node [{}] {variable} {item}: expected page_mangler deferral, got {res:?}", c["engine"]));
-                    }
-                    continue;
-                }
                 match (&res, c.get("node_error")) {
                     (Ok(()), None) => {
                         let got = node_out(st);
