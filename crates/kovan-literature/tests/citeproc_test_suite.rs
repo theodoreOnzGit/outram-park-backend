@@ -33,9 +33,19 @@
 //! the fixture's `RESULT`:** citeproc-js itself fails some fixtures (see
 //! Results) and where it does, the port must reproduce citeproc-js.
 //!
+//! **Locales: current, not citeproc-js's pinned ones (D13).** The port runs on
+//! `vendor/csl-locales` (`citation-style-language/locales` at `a89adec`,
+//! 2026-09-10, CC BY-SA 3.0; the same commit as the site's
+//! `data/csl/locales-en-*.xml`), while the committed reference was made with
+//! citeproc-js's pinned 2019 locales. So 13 fixtures are *expected* to differ
+//! from citeproc-js, each because the current locale gives the fixture's own
+//! `RESULT`; they are listed in `test_suite_known_differences.json` citing D13
+//! (`DEVIATIONS.md`). `citeproc_intermediate.rs` stays on the pinned locales:
+//! it compares engine state with digests made with them.
+//!
 //! **Fixtures are not committed.** The suite carries no licence file and the
 //! #790 licence decision keeps it in the git-ignored `vendor/csl-test-suite`
-//! (and the locales in `vendor/citeproc-js/locale`), fetched by
+//! (and the locales in `vendor/csl-locales`, D13), fetched by
 //! `scripts/csl-reference.sh`. When `vendor/` is absent the tests that need
 //! the fixtures print a reason and skip; the rest still run.
 //!
@@ -50,13 +60,25 @@
 //! any other difference, or a listed one that no longer occurs, fails. A listed
 //! difference is a recorded finding, never a tolerance.
 //!
-//! **Results (2026-10-08, stage 0, the harness).** 0 areas ported, 0 fixtures
+//! **Background (stage 0, the harness).** Originally 0 areas ported, 0 fixtures
 //! compared. citeproc-js 2.4.63 itself fails 16 of the 845 fixtures
 //! (`test_suite_reference.json` `meta`): bugreports 1, collapse 1, date 5,
 //! decorations 1, label 1, magic 1, name 3, page 1, punctuation 1, textcase 1.
 //! At least nine are the pinned locales being older than the suite
 //! (`<term name="ad">` is `AD` there, ` AD` in the suite's `RESULT`;
 //! `tran.`/`trans.`); results per stage are recorded as stages land.
+//!
+//! **Results (2026-10-08, all 37 areas, current locales `a89adec`, D13).**
+//! 845 fixtures compared: the port equals the fixture's own `RESULT` on **842**
+//! (829 with citeproc-js's pinned 2019 locales) and equals citeproc-js's
+//! committed output on 832. The other 13 differ from citeproc-js and each
+//! equals its own `RESULT` (asserted by `equals_result` in the known-differences
+//! file): AD/BC spacing 6, `tran.`/`trans.` 3 plus `label_EditorTranslator1`
+//! (its number label), `Jun`/`June` 2, `name_EtAlWithCombined`. No fixture
+//! regresses. The 3 `RESULT` misses left (`decorations_Baseline`, `page_Chicago`,
+//! `textcase_TitleCaseWithVolumeTitle`) are citeproc-js behaviour, not locale
+//! data. Measured with `CITEPROC_SUITE_REPORT=3 cargo test --release -p
+//! kovan-literature --test citeproc_test_suite report_per_area`.
 //! Not replicated from the runner: JS's non-transitive `Array.sort`
 //! comparator corner (`updateDoc` sorts by position, stable here), and
 //! `MODE all` (no fixture uses it).
@@ -84,7 +106,7 @@ fn fixture_dir() -> PathBuf {
 }
 
 fn locale_dir() -> PathBuf {
-    workspace_root().join("vendor/citeproc-js/locale")
+    workspace_root().join("vendor/csl-locales")
 }
 
 /// Print why a vendor-dependent test is skipped.
@@ -286,7 +308,7 @@ fn load_fixtures() -> Option<BTreeMap<String, Fixture>> {
     Some(out)
 }
 
-/// Every `locales-<lang>.xml` of `vendor/citeproc-js/locale`, with the
+/// Every `locales-<lang>.xml` of `vendor/csl-locales` (D13), with the
 /// runner's `retrieveLocale` clean-up (processing instructions dropped).
 fn load_locales() -> Option<Arc<BTreeMap<String, String>>> {
     let dir = locale_dir();
@@ -716,6 +738,16 @@ fn the_ported_fixtures_match_citeproc_js_except_the_recorded_differences() {
         }
     }
     println!("compared {compared} fixtures, {} differ", diffs.len());
+    // A listed entry marked `equals_result` claims the port's output is the
+    // fixture's own RESULT (the evidence for D13); check the claim.
+    for l in listed.iter().filter(|l| l["equals_result"] == json!(true)) {
+        let name = l["fixture"].as_str().unwrap();
+        assert_eq!(
+            l["port"].as_str().unwrap(),
+            fixtures[name].result,
+            "{name}: listed as equal to the fixture RESULT, but it is not"
+        );
+    }
     let core = |v: &Value| json!({ "fixture": v["fixture"], "citeproc_js": v["citeproc_js"], "port": v["port"] });
     let listed_core: Vec<Value> = listed.iter().map(core).collect();
     let unlisted: Vec<&Value> = diffs.iter().filter(|d| !listed_core.contains(d)).collect();

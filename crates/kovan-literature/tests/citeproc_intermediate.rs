@@ -48,6 +48,13 @@
 //!   `dump::input_sections` over the fixture's INPUT and citation lists (with
 //!   the runner's ABBREVIATIONS and Turkish months applied).
 //!
+//! **Locales: the pinned ones, on purpose (D13).** This test reads
+//! `vendor/citeproc-js/locale` (the 2019 locales citeproc-js 2.4.63 pins),
+//! because the committed digests were made with them and this test verifies
+//! the engine's internal state against those digests. `citeproc_test_suite.rs`
+//! instead runs the fixtures on the current locales (`vendor/csl-locales`,
+//! `DEVIATIONS.md` D13); do not point this file there.
+//!
 //! **Pass criterion.** Every case whose digest differs from citeproc-js's must
 //! be listed, with a reason, in `tests/data/csl/intermediate_known_differences.json`
 //! (groups of `{section, reason, cases}`); any other difference fails, and so

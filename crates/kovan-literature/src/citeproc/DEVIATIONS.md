@@ -116,6 +116,39 @@ intent), **affects** (which outputs change; "none observed" until measured).
   845 fixtures or the site set. In the date end-to-end replay
   (`date_e2e_test.rs`), see its `KNOWN_DIFFERENCES`. Test: `node_datepart.rs`
   `deviation_tests`.
+### D13 — The port is verified and shipped with current CSL locale data
+- **Where:** locale data, not code: `tests/citeproc_test_suite.rs` reads
+  `vendor/csl-locales` (`citation-style-language/locales` at `a89adec`,
+  2026-09-10; fetched by `scripts/csl-reference.sh`) instead of
+  `vendor/citeproc-js/locale`.
+- **citeproc-js does:** citeproc-js 2.4.63 pins the 2019 locales
+  (`6b0cb46`, 2019-02-25), so e.g. `AD` is `AD` (not ` AD`), `tran.` for
+  translator, `Jun` for June.
+- **We do:** the port is verified and shipped with the current locales, the
+  same commit as the site's `data/csl/locales-en-*.xml` (byte-identical).
+  `tests/citeproc_intermediate.rs` stays on the pinned locales, because it
+  compares engine state with citeproc-js's committed digests, made with them.
+- **Evidence:** the fixtures' own `RESULT`: 842 of 845 equal it with the
+  current locales (829 with the pinned ones). Exactly 13 fixtures now differ
+  from citeproc-js's committed output and each equals its own `RESULT`:
+  AD/BC spacing (6: `collapse_AuthorCollapseNoDateSorted`, `date_DateAD`,
+  `date_DateBC`, `date_NegativeDateSort*` x3), `tran.` -> `trans.` (4:
+  `name_EditorTranslatorSameWithTerm`,
+  `magic_SubsequentAuthorSubstituteNotFooled`,
+  `name_SubsequentAuthorSubstituteMultipleNames`, `label_EditorTranslator1`),
+  `Jun` -> `June` (2: `punctuation_DateStripPeriods`,
+  `bugreports_SortedIeeeItalicsFail`), and `name_EtAlWithCombined`. No
+  fixture regresses. The 3 remaining `RESULT` misses (`decorations_Baseline`,
+  `page_Chicago`, `textcase_TitleCaseWithVolumeTitle`) are unchanged
+  citeproc-js behaviour, not locale data. Measured 2026-10-08 (#803).
+- **Affects:** those 13 fixtures (listed in
+  `tests/data/csl/test_suite_known_differences.json`, each citing D13). **The
+  site set is unchanged**: both sides already used `a89adec`; with the pinned
+  locales instead, 4 Vancouver bibliography entries would lose the "Report"
+  label.
+- **Licence:** the locales are CC BY-SA 3.0 (locales repo `README.md`
+  "Licensing"; `<rights>` in each file). Attribution: mention the CSL project
+  and link CitationStyles.org; keep the translator listings as is.
 
 ## Candidates (maintainer to decide)
 
@@ -136,7 +169,7 @@ been found yet. Until decided, **the port reproduces citeproc-js**.
   `locale_attributes_on_nodes_add_nothing_as_upstream`). No caller in the
   engine; no fixture or site style has a `locale` attribute on a layout or
   condition.
-- **C4 (#803) — Stale bundled locales. MEASURED 2026-10-08.** citeproc-js
+- ~~**C4 (#803) — Stale bundled locales. MEASURED 2026-10-08.** citeproc-js
   2.4.63's `locale/` is pinned at `6b0cb46` (2019-02-25). With the CSL locales
   repository at `ec17593` (2026-04-01, the last commit before the suite's
   `6eefc5b0`) or at HEAD `a89adec` (2026-09-10) — identical fixture outputs —
@@ -151,7 +184,7 @@ been found yet. Until decided, **the port reproduces citeproc-js**.
   bibliography entries lose the "Report" label. Locales are CC BY-SA 3.0
   (locales repo README; `<rights>` in each file). **Ready to register** as a
   data deviation if the maintainer chooses the newer locales for the fixture
-  harness (the 13 comparisons would cite it).
+  harness (the 13 comparisons would cite it).~~ → registered as D13 on 2026-10-08.
 - **C5 (#804) — Greek and Lithuanian `toLocaleUpperCase`. FIXED 2026-10-08.**
   ~~MEASURED 2026-10-08: a gap, not a quirk. The port's non-Turkic path
   (`s.to_uppercase()`) is **wrong against citeproc-js** for `el` (V8 strips
