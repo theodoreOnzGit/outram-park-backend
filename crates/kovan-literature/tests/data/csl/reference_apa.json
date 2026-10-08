@@ -1,7 +1,7 @@
 {
  "meta": {
   "engine": "citeproc-js 2.4.63",
-  "node": "v12.22.9",
+  "node": "v22.22.2",
   "style": "kovan-literature/data/csl/apa.csl",
   "locale": "kovan-literature/data/csl/locales-en-US.xml"
  },
@@ -105,7 +105,6 @@
   "leipzig2021role",
   "leppanen2010delta",
   "leppanen2017delta",
-  "leppanen2017use",
   "leppanen2013development",
   "leung2011modelling",
   "Lietal2013",
@@ -152,7 +151,6 @@
   "ong2026openmcdepletionb",
   "ong2026outramparkbackend",
   "ong2026tampinessteamtables",
-  "ong2026outrampark_arxiv",
   "ong2026outramparkpart1",
   "ong2026outramneutronics",
   "ong2024tuas",
@@ -189,7 +187,6 @@
   "tan_mom_cos_2026",
   "tan2025scls",
   "tan2024rsa",
-  "tan2025semi",
   "tangsriwong2020modeling",
   "tarafdar2019trifecta",
   "tarafdar2007technostress",
@@ -209,7 +206,6 @@
   "Wangetal2013",
   "wang2018coupled",
   "WangLi2013",
-  "wanlin2014research",
   "wendt2026delta",
   "wong_singapore_budget_2026_ai",
   "wong2024effects",
@@ -812,14 +808,9 @@
    "bibliography": "<div class=\"csl-entry\">Leppänen, J. &#38; others. (2013). Development of a dynamic simulation mode in Serpent 2 Monte Carlo code. <i>Proceedings of M&#38;c</i>, 5–9.</div>"
   },
   "leppanen2017delta": {
-   "parenthetical": "(Leppänen, 2017a)",
-   "narrative": "Leppänen (2017a)",
-   "bibliography": "<div class=\"csl-entry\">Leppänen, J. (2017a). On the Use of Delta-Tracking and the Collision Flux Estimator in the Serpent 2 Monte Carlo Particle Transport Code. <i>Annals of Nuclear Energy</i>, <i>105</i>, 161–167. https://doi.org/10.1016/j.anucene.2017.03.006</div>"
-  },
-  "leppanen2017use": {
-   "parenthetical": "(Leppänen, 2017b)",
-   "narrative": "Leppänen (2017b)",
-   "bibliography": "<div class=\"csl-entry\">Leppänen, J. (2017b). On the use of delta-tracking and the collision flux estimator in the Serpent 2 Monte Carlo particle transport code. <i>Annals of Nuclear Energy</i>, <i>105</i>, 161–167.</div>"
+   "parenthetical": "(Leppänen, 2017)",
+   "narrative": "Leppänen (2017)",
+   "bibliography": "<div class=\"csl-entry\">Leppänen, J. (2017). On the Use of Delta-Tracking and the Collision Flux Estimator in the Serpent 2 Monte Carlo Particle Transport Code. <i>Annals of Nuclear Energy</i>, <i>105</i>, 161–167. https://doi.org/10.1016/j.anucene.2017.03.006</div>"
   },
   "leung2011modelling": {
    "parenthetical": "(Leung et al., 2011)",
@@ -1026,20 +1017,15 @@
    "narrative": "T. K. C. Ong &#38; Xiao (2026)",
    "bibliography": "<div class=\"csl-entry\">Ong, T. K. C., &#38; Xiao, S. (2026). Agentic Porting, Construction and Initial Verification and Validation of Libraries within the Open Source Unified TRAnsient Multi-Physics Advanced Reactor simulation Kit (Outram Park) Part II: Nuclear Data and Neutronics. <i>arXiv Preprint arXiv:2609.15258</i>.</div>"
   },
-  "ong2026outrampark_arxiv": {
-   "parenthetical": "(T. K. C. Ong et al., 2026a)",
-   "narrative": "T. K. C. Ong et al. (2026a)",
-   "bibliography": "<div class=\"csl-entry\">Ong, T. K. C., Wong, E. Y. H., &#38; Xiao, S. (2026a). <i>Agentic Porting, Construction and Initial Verification and Validation of Libraries within the Open Source Unified TRAnsient Multi-Phase Advanced Reactor simulation Kit (Outram Park) Part I: Thermal Hydraulics</i>. https://arxiv.org/abs/2608.17504</div>"
-  },
   "ong2026outramparkbackend": {
    "parenthetical": "(T. K. C. Ong, 2026e)",
    "narrative": "T. K. C. Ong (2026e)",
    "bibliography": "<div class=\"csl-entry\">Ong, T. K. C. (2026e). <i>Outram Park Backend: Open-source TRAnsient Multi-Phase Advanced Reactor simulator Kit</i>. GitHub. https://github.com/theodoreOnzGit/outram-park-backend</div>"
   },
   "ong2026outramparkpart1": {
-   "parenthetical": "(T. K. C. Ong et al., 2026b)",
-   "narrative": "T. K. C. Ong et al. (2026b)",
-   "bibliography": "<div class=\"csl-entry\">Ong, T. K. C., Wong, E. Y. H., &#38; Xiao, S. (2026b, August). <i>Agentic Porting, Construction and Initial Verification and Validation of Libraries within the Open Source Unified TRAnsient Multi-Phase Advanced Reactor simulation Kit (Outram Park) Part I: Thermal Hydraulics</i>. https://arxiv.org/abs/2608.17504</div>"
+   "parenthetical": "(T. K. C. Ong et al., 2026)",
+   "narrative": "T. K. C. Ong et al. (2026)",
+   "bibliography": "<div class=\"csl-entry\">Ong, T. K. C., Wong, E. Y. H., &#38; Xiao, S. (2026, August). <i>Agentic Porting, Construction and Initial Verification and Validation of Libraries within the Open Source Unified TRAnsient Multi-Phase Advanced Reactor simulation Kit (Outram Park) Part I: Thermal Hydraulics</i>. https://arxiv.org/abs/2608.17504</div>"
   },
   "ong2026tampinessteamtables": {
    "parenthetical": "(T. K. C. Ong, 2026f)",
@@ -1162,14 +1148,9 @@
    "bibliography": "<div class=\"csl-entry\">Tan, Z. C., Feng, Z., &#38; Wang, K. (2024). An Improved Parallel Random Sequential Addition Algorithm in RMC Code for Dispersion Fuel Analysis. <i>Annals of Nuclear Energy</i>, <i>201</i>, 110439. https://doi.org/10.1016/j.anucene.2024.110439</div>"
   },
   "tan2025scls": {
-   "parenthetical": "(Z. C. Tan et al., 2025a)",
-   "narrative": "Z. C. Tan et al. (2025a)",
-   "bibliography": "<div class=\"csl-entry\">Tan, Z. C., Feng, Z., Chan, K. Y., &#38; Wang, K. (2025a). A Semi-Implicit Chord Length Sampling Method for Dispersion Fuel Analysis. <i>Annals of Nuclear Energy</i>, <i>219</i>, 111436. https://doi.org/10.1016/j.anucene.2025.111436</div>"
-  },
-  "tan2025semi": {
-   "parenthetical": "(Z. C. Tan et al., 2025b)",
-   "narrative": "Z. C. Tan et al. (2025b)",
-   "bibliography": "<div class=\"csl-entry\">Tan, Z. C., Feng, Z. Y., Chan, K. Y., &#38; Wang, K. (2025b). A semi-implicit Chord Length Sampling method for dispersion fuel analysis. <i>Annals of Nuclear Energy</i>, <i>219</i>, 111436.</div>"
+   "parenthetical": "(Z. C. Tan et al., 2025)",
+   "narrative": "Z. C. Tan et al. (2025)",
+   "bibliography": "<div class=\"csl-entry\">Tan, Z. C., Feng, Z., Chan, K. Y., &#38; Wang, K. (2025). A Semi-Implicit Chord Length Sampling Method for Dispersion Fuel Analysis. <i>Annals of Nuclear Energy</i>, <i>219</i>, 111436. https://doi.org/10.1016/j.anucene.2025.111436</div>"
   },
   "tan_mom_cos_2026": {
    "parenthetical": "(S. L. Tan, 2026)",
@@ -1255,11 +1236,6 @@
    "parenthetical": "(X. Wang, 2018)",
    "narrative": "X. Wang (2018)",
    "bibliography": "<div class=\"csl-entry\">Wang, X. (2018). <i>Coupled neutronics and thermal-hydraulics modeling for pebble-bed Fluoride-Salt-Cooled, High-Temperature Reactor (FHR)</i>. University of California, Berkeley.</div>"
-  },
-  "wanlin2014research": {
-   "parenthetical": "(Wanlin et al., 2014)",
-   "narrative": "Wanlin et al. (2014)",
-   "bibliography": "<div class=\"csl-entry\">Wanlin, L., Ganglin, Y., &#38; Chunlin, W. (2014). Research on Benchmark Calculation and Analysis of HTR-10 with RMC Code. <i>7th International Topical Meeting on High Temperature Reactor Technology: The Modular HTR Is Advancing towards Reality. Papers and Presentations</i>, (INIS-CN–17M1840), 6–6.</div>"
   },
   "wendt2026delta": {
    "parenthetical": "(Wendt, 2026)",

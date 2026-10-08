@@ -1,7 +1,7 @@
 {
  "meta": {
   "engine": "citeproc-js 2.4.63",
-  "node": "v12.22.9",
+  "node": "v22.22.2",
   "generator": "scripts/csl-intermediate-reference.cjs",
   "sections": [
    "style",
@@ -47247,25 +47247,6 @@
      "type": "article-journal",
      "volume": "105"
     },
-    "leppanen2017use": {
-     "author": [
-      {
-       "family": "Leppänen",
-       "given": "Jaakko"
-      }
-     ],
-     "container-title": "Annals of Nuclear Energy",
-     "id": "leppanen2017use",
-     "issued": {
-      "year": 2017
-     },
-     "page": "161–167",
-     "page-first": "161",
-     "publisher": "Elsevier",
-     "title": "On the use of delta-tracking and the collision flux estimator in the Serpent 2 Monte Carlo particle transport code",
-     "type": "article-journal",
-     "volume": "105"
-    },
     "leung2011modelling": {
      "author": [
       {
@@ -48244,29 +48225,6 @@
      "title": "Agentic Porting, Construction and Initial Verification and Validation of Libraries within the Open Source Unified TRAnsient Multi-Physics Advanced Reactor simulation Kit (Outram Park) Part II: Nuclear Data and Neutronics",
      "type": "article-journal"
     },
-    "ong2026outrampark_arxiv": {
-     "URL": "https://arxiv.org/abs/2608.17504",
-     "author": [
-      {
-       "family": "Ong",
-       "given": "Theodore Kay Chen"
-      },
-      {
-       "family": "Wong",
-       "given": "Ethan Yew Hoe"
-      },
-      {
-       "family": "Xiao",
-       "given": "Sicong"
-      }
-     ],
-     "id": "ong2026outrampark_arxiv",
-     "issued": {
-      "year": 2026
-     },
-     "title": "Agentic Porting, Construction and Initial Verification and Validation of Libraries within the Open Source Unified TRAnsient Multi-Phase Advanced Reactor simulation Kit (Outram Park) Part I: Thermal Hydraulics",
-     "type": "document"
-    },
     "ong2026outramparkbackend": {
      "URL": "https://github.com/theodoreOnzGit/outram-park-backend",
      "author": [
@@ -48982,37 +48940,6 @@
      "type": "article-journal",
      "volume": "219"
     },
-    "tan2025semi": {
-     "author": [
-      {
-       "family": "Tan",
-       "given": "Zhe Chuan"
-      },
-      {
-       "family": "Feng",
-       "given": "Zhi Yuan"
-      },
-      {
-       "family": "Chan",
-       "given": "Kok Yue"
-      },
-      {
-       "family": "Wang",
-       "given": "Kan"
-      }
-     ],
-     "container-title": "Annals of Nuclear Energy",
-     "id": "tan2025semi",
-     "issued": {
-      "year": 2025
-     },
-     "page": "111436",
-     "page-first": "111436",
-     "publisher": "Elsevier",
-     "title": "A semi-implicit Chord Length Sampling method for dispersion fuel analysis",
-     "type": "article-journal",
-     "volume": "219"
-    },
     "tan_mom_cos_2026": {
      "URL": "https://www.mom.gov.sg/newsroom/speeches/2026/0303-minister-speech-for-cos-2026",
      "accessed": {
@@ -49476,32 +49403,6 @@
      "publisher": "University of California, Berkeley",
      "title": "Coupled neutronics and thermal-hydraulics modeling for pebble-bed Fluoride-Salt-Cooled, High-Temperature Reactor (FHR)",
      "type": "book"
-    },
-    "wanlin2014research": {
-     "author": [
-      {
-       "family": "Wanlin",
-       "given": "Li"
-      },
-      {
-       "family": "Ganglin",
-       "given": "Yu"
-      },
-      {
-       "family": "Chunlin",
-       "given": "Wei"
-      }
-     ],
-     "container-title": "7th International Topical Meeting on High Temperature Reactor Technology: The modular HTR is advancing towards reality. Papers and Presentations",
-     "id": "wanlin2014research",
-     "issue": "INIS-CN–17M1840",
-     "issued": {
-      "year": 2014
-     },
-     "page": "6–6",
-     "page-first": "6",
-     "title": "Research on Benchmark Calculation and Analysis of HTR-10 with RMC Code",
-     "type": "paper-conference"
     },
     "wendt2026delta": {
      "URL": "https://github.com/openmc-dev/openmc/pull/3971",
@@ -53357,18 +53258,6 @@
       }
      ]
     },
-    "leppanen2017use": {
-     "author": [
-      {
-       "static_ordering": false,
-       "name": {
-        "comma-dropping-particle": "",
-        "family": "Leppänen",
-        "given": "Jaakko"
-       }
-      }
-     ]
-    },
     "leung2011modelling": {
      "author": [
       {
@@ -54413,34 +54302,6 @@
       }
      ]
     },
-    "ong2026outrampark_arxiv": {
-     "author": [
-      {
-       "static_ordering": false,
-       "name": {
-        "comma-dropping-particle": "",
-        "family": "Ong",
-        "given": "Theodore Kay Chen"
-       }
-      },
-      {
-       "static_ordering": false,
-       "name": {
-        "comma-dropping-particle": "",
-        "family": "Wong",
-        "given": "Ethan Yew Hoe"
-       }
-      },
-      {
-       "static_ordering": false,
-       "name": {
-        "comma-dropping-particle": "",
-        "family": "Xiao",
-        "given": "Sicong"
-       }
-      }
-     ]
-    },
     "ong2026outramparkbackend": {
      "author": [
       {
@@ -55219,42 +55080,6 @@
       }
      ]
     },
-    "tan2025semi": {
-     "author": [
-      {
-       "static_ordering": false,
-       "name": {
-        "comma-dropping-particle": "",
-        "family": "Tan",
-        "given": "Zhe Chuan"
-       }
-      },
-      {
-       "static_ordering": false,
-       "name": {
-        "comma-dropping-particle": "",
-        "family": "Feng",
-        "given": "Zhi Yuan"
-       }
-      },
-      {
-       "static_ordering": false,
-       "name": {
-        "comma-dropping-particle": "",
-        "family": "Chan",
-        "given": "Kok Yue"
-       }
-      },
-      {
-       "static_ordering": false,
-       "name": {
-        "comma-dropping-particle": "",
-        "family": "Wang",
-        "given": "Kan"
-       }
-      }
-     ]
-    },
     "tan_mom_cos_2026": {
      "author": [
       {
@@ -55758,34 +55583,6 @@
         "comma-dropping-particle": "",
         "family": "Wang",
         "given": "Xin"
-       }
-      }
-     ]
-    },
-    "wanlin2014research": {
-     "author": [
-      {
-       "static_ordering": false,
-       "name": {
-        "comma-dropping-particle": "",
-        "family": "Wanlin",
-        "given": "Li"
-       }
-      },
-      {
-       "static_ordering": false,
-       "name": {
-        "comma-dropping-particle": "",
-        "family": "Ganglin",
-        "given": "Yu"
-       }
-      },
-      {
-       "static_ordering": false,
-       "name": {
-        "comma-dropping-particle": "",
-        "family": "Chunlin",
-        "given": "Wei"
        }
       }
      ]
@@ -62994,86 +62791,6 @@
       }
      }
     },
-    "leppanen2017use": {
-     "page": {
-      "page": {
-       "collapsible": true,
-       "label": "page",
-       "numeric": true,
-       "plural": 1,
-       "values": [
-        {
-         "collapsible": true,
-         "joiningSuffix": "-",
-         "label": "p.",
-         "labelSuffix": " ",
-         "labelVisibility": false,
-         "numeric": true,
-         "origLabel": "",
-         "particle": "",
-         "plural": 1,
-         "value": "161"
-        },
-        {
-         "collapsible": true,
-         "joiningSuffix": "",
-         "label": "p.",
-         "labelSuffix": " ",
-         "labelVisibility": false,
-         "numeric": true,
-         "origLabel": "",
-         "particle": "",
-         "plural": 1,
-         "value": "167"
-        }
-       ]
-      }
-     },
-     "volume": {
-      "volume": {
-       "collapsible": true,
-       "label": "volume",
-       "numeric": true,
-       "plural": 0,
-       "values": [
-        {
-         "collapsible": true,
-         "joiningSuffix": "",
-         "label": "vol.",
-         "labelSuffix": " ",
-         "labelVisibility": false,
-         "numeric": true,
-         "origLabel": "",
-         "particle": "",
-         "plural": 0,
-         "value": "105"
-        }
-       ]
-      }
-     },
-     "page-first": {
-      "page-first": {
-       "collapsible": true,
-       "label": "page",
-       "numeric": true,
-       "plural": 0,
-       "values": [
-        {
-         "collapsible": true,
-         "joiningSuffix": "",
-         "label": "p.",
-         "labelSuffix": " ",
-         "labelVisibility": false,
-         "numeric": true,
-         "origLabel": "",
-         "particle": "",
-         "plural": 0,
-         "value": "161"
-        }
-       ]
-      }
-     }
-    },
     "leung2011modelling": {},
     "li2014htr10rmc": {},
     "li2014melcor": {
@@ -64401,7 +64118,6 @@
     "ong2026openmcdepletiona": {},
     "ong2026openmcdepletionb": {},
     "ong2026outramneutronics": {},
-    "ong2026outrampark_arxiv": {},
     "ong2026outramparkbackend": {},
     "ong2026outramparkpart1": {},
     "ong2026tampinessteamtables": {},
@@ -65645,74 +65361,6 @@
       }
      }
     },
-    "tan2025semi": {
-     "page": {
-      "page": {
-       "collapsible": true,
-       "label": "page",
-       "numeric": true,
-       "plural": 0,
-       "values": [
-        {
-         "collapsible": true,
-         "joiningSuffix": "",
-         "label": "p.",
-         "labelSuffix": " ",
-         "labelVisibility": false,
-         "numeric": true,
-         "origLabel": "",
-         "particle": "",
-         "plural": 0,
-         "value": "111436"
-        }
-       ]
-      }
-     },
-     "volume": {
-      "volume": {
-       "collapsible": true,
-       "label": "volume",
-       "numeric": true,
-       "plural": 0,
-       "values": [
-        {
-         "collapsible": true,
-         "joiningSuffix": "",
-         "label": "vol.",
-         "labelSuffix": " ",
-         "labelVisibility": false,
-         "numeric": true,
-         "origLabel": "",
-         "particle": "",
-         "plural": 0,
-         "value": "219"
-        }
-       ]
-      }
-     },
-     "page-first": {
-      "page-first": {
-       "collapsible": true,
-       "label": "page",
-       "numeric": true,
-       "plural": 0,
-       "values": [
-        {
-         "collapsible": true,
-         "joiningSuffix": "",
-         "label": "p.",
-         "labelSuffix": " ",
-         "labelVisibility": false,
-         "numeric": true,
-         "origLabel": "",
-         "particle": "",
-         "plural": 0,
-         "value": "111436"
-        }
-       ]
-      }
-     }
-    },
     "tan_mom_cos_2026": {},
     "tangsriwong2020modeling": {
      "page": {
@@ -66449,110 +66097,6 @@
      }
     },
     "wang2018coupled": {},
-    "wanlin2014research": {
-     "page": {
-      "page": {
-       "collapsible": true,
-       "label": "page",
-       "numeric": true,
-       "plural": 1,
-       "values": [
-        {
-         "collapsible": true,
-         "joiningSuffix": "-",
-         "label": "p.",
-         "labelSuffix": " ",
-         "labelVisibility": false,
-         "numeric": true,
-         "origLabel": "",
-         "particle": "",
-         "plural": 1,
-         "value": "6"
-        },
-        {
-         "collapsible": true,
-         "joiningSuffix": "",
-         "label": "p.",
-         "labelSuffix": " ",
-         "labelVisibility": false,
-         "numeric": true,
-         "origLabel": "",
-         "particle": "",
-         "plural": 1,
-         "value": "6"
-        }
-       ]
-      }
-     },
-     "issue": {
-      "issue": {
-       "collapsible": false,
-       "label": "issue",
-       "numeric": false,
-       "plural": 0,
-       "values": [
-        {
-         "collapsible": false,
-         "joiningSuffix": "-",
-         "label": "no.",
-         "labelSuffix": " ",
-         "labelVisibility": false,
-         "numeric": false,
-         "origLabel": "",
-         "particle": "",
-         "plural": 0,
-         "value": "INIS"
-        },
-        {
-         "collapsible": false,
-         "joiningSuffix": "–",
-         "label": "no.",
-         "labelSuffix": " ",
-         "labelVisibility": false,
-         "numeric": false,
-         "origLabel": "",
-         "particle": "",
-         "plural": 0,
-         "value": "CN"
-        },
-        {
-         "collapsible": false,
-         "joiningSuffix": "",
-         "label": "no.",
-         "labelSuffix": " ",
-         "labelVisibility": false,
-         "numeric": false,
-         "origLabel": "",
-         "particle": "17M",
-         "plural": 0,
-         "value": "1840"
-        }
-       ]
-      }
-     },
-     "page-first": {
-      "page-first": {
-       "collapsible": true,
-       "label": "page",
-       "numeric": true,
-       "plural": 0,
-       "values": [
-        {
-         "collapsible": true,
-         "joiningSuffix": "",
-         "label": "p.",
-         "labelSuffix": " ",
-         "labelVisibility": false,
-         "numeric": true,
-         "origLabel": "",
-         "particle": "",
-         "plural": 0,
-         "value": "6"
-        }
-       ]
-      }
-     }
-    },
     "wendt2026delta": {},
     "wong2024effects": {
      "page": {
