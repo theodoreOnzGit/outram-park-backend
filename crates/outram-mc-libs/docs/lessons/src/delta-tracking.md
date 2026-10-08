@@ -125,8 +125,8 @@ have not been re-recorded since.
 <!-- references:begin -->
 ## References
 
-<p class="csl-entry" id="ref-leppanen2010delta" style="padding-left: 2em; text-indent: -2em;">Leppänen, J. (2010). Performance of Woodcock Delta-Tracking in Lattice Physics Applications Using the Serpent Monte Carlo Reactor Physics Burnup Calculation Code. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">37</span>(5), 715–722. <a href="https://doi.org/10.1016/j.anucene.2010.01.011">https://doi.org/10.1016/j.anucene.2010.01.011</a></p>
+<p class="csl-entry" id="ref-leppanen2010delta" style="padding-left: 2em; text-indent: -2em;">Leppänen, J. (2010). Performance of Woodcock Delta-Tracking in Lattice Physics Applications Using the Serpent Monte Carlo Reactor Physics Burnup Calculation Code. <i>Annals of Nuclear Energy</i>, <i>37</i>(5), 715–722. https://doi.org/10.1016/j.anucene.2010.01.011</p>
 
-<p class="csl-entry" id="ref-leppanen2017delta" style="padding-left: 2em; text-indent: -2em;">Leppänen, J. (2017). On the Use of Delta-Tracking and the Collision Flux Estimator in the Serpent 2 Monte Carlo Particle Transport Code. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">105</span>, 161–167. <a href="https://doi.org/10.1016/j.anucene.2017.03.006">https://doi.org/10.1016/j.anucene.2017.03.006</a></p>
+<p class="csl-entry" id="ref-leppanen2017delta" style="padding-left: 2em; text-indent: -2em;">Leppänen, J. (2017). On the Use of Delta-Tracking and the Collision Flux Estimator in the Serpent 2 Monte Carlo Particle Transport Code. <i>Annals of Nuclear Energy</i>, <i>105</i>, 161–167. https://doi.org/10.1016/j.anucene.2017.03.006</p>
 
 <!-- references:end -->

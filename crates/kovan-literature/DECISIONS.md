@@ -218,7 +218,7 @@ preference; an unparsable tag collates as root (node throws a RangeError there).
 
 | Candidate | Verdict |
 |---|---|
-| `icu_collator` 2.3 (ICU4X) | **Chosen.** Pure Rust, compiled CLDR data (CLDR 48.2.1, ICU release-78.1rc) against node 22.22.2's ICU 78.2 / CLDR 48, so the root order and the tailorings are the same release. Already in `Cargo.lock` (via `hayagriva` and `turso_core`), so no new crate enters the tree. `cargo check --release --target wasm32-unknown-unknown` is clean. |
+| `icu_collator` 2.3 (ICU4X) | **Chosen.** Pure Rust, compiled CLDR data (CLDR 48.2.1, ICU release-78.1rc) against node 22.22.2's ICU 78.2 / CLDR 48, so the root order and the tailorings are the same release. Already in `Cargo.lock` (via ~~`hayagriva` and~~ **CORRECTED 2026-10-08 (#797): hayagriva is removed; `turso_core` still pulls it in**), so no new crate enters the tree. `cargo check --release --target wasm32-unknown-unknown` is clean. |
 | the previous stand-in (NFD, strip marks, lowercase, compare) | Rejected: no punctuation or digit handling, no tailorings, and it ordered `|` after letters. |
 | `rust_icu` / ICU4C bindings | Rejected: C library, not buildable for Android/Termux or wasm. |
 | a DUCET/CLDR-root-only crate | Rejected: no locale tailorings (da, ro, el, ar, zh, km occur in the suite). |

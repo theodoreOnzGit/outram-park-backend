@@ -15,7 +15,7 @@
 
 use std::path::{Path, PathBuf};
 
-use kovan_literature::csl::{cite_page, CslLibrary, CslStyle, LOCALE_EN_US};
+use kovan_literature::csl::{cite_html_page, cite_page, CslLibrary, CslStyle, LOCALE_EN_US};
 
 /// What `run` was asked to do, parsed from the CLI.
 #[derive(Debug, Clone)]
@@ -26,7 +26,8 @@ pub struct ReferencesArgs {
     pub update: bool,
     /// The `.bib` file.
     pub bib: PathBuf,
-    /// A CSL style file; `None` is APA 7 (pinned in kovan-literature).
+    /// A CSL style file, or the name of a pinned style (`apa`,
+    /// `chicago-author-date`, `ieee`, `nature`, `vancouver`); `None` is APA 7.
     pub style: Option<PathBuf>,
     /// Write the library as a CSL-JSON array here and do nothing else.
     pub csl_json_out: Option<PathBuf>,
@@ -53,10 +54,17 @@ pub fn run(args: ReferencesArgs) -> Result<(), String> {
 
     let style = match &args.style {
         None => CslStyle::apa(),
-        Some(p) => {
-            let xml = std::fs::read_to_string(p).map_err(|e| format!("reading {}: {e}", p.display()))?;
-            CslStyle::from_xml(&xml, LOCALE_EN_US)?
-        }
+        Some(p) => match (!p.exists())
+            .then(|| CslStyle::bundled(&p.to_string_lossy()))
+            .flatten()
+        {
+            Some(bundled) => bundled,
+            None => {
+                let xml = std::fs::read_to_string(p)
+                    .map_err(|e| format!("reading {}: {e}", p.display()))?;
+                CslStyle::from_xml(&xml, LOCALE_EN_US)?
+            }
+        },
     };
 
     let mut pages = Vec::new();
@@ -114,9 +122,14 @@ pub fn check_pages(
     let mut report = PagesReport::default();
     let mut all_keys = std::collections::BTreeSet::new();
     for page in pages {
-        let text =
-            std::fs::read_to_string(page).map_err(|e| format!("reading {}: {e}", page.display()))?;
-        match cite_page(&text, lib, style) {
+        let text = std::fs::read_to_string(page)
+            .map_err(|e| format!("reading {}: {e}", page.display()))?;
+        let cited = if page.extension().is_some_and(|x| x == "html") {
+            cite_html_page(&text, lib, style)
+        } else {
+            cite_page(&text, lib, style)
+        };
+        match cited {
             Err(errors) => {
                 for e in errors {
                     report.problems.push(format!("{}: {e}", page.display()));
@@ -133,7 +146,10 @@ pub fn check_pages(
                             .map_err(|e| format!("writing {}: {e}", page.display()))?;
                         report.rewritten += 1;
                     } else {
-                        report.problems.push(format!("{}: citations or reference list out of date", page.display()));
+                        report.problems.push(format!(
+                            "{}: citations or reference list out of date",
+                            page.display()
+                        ));
                     }
                 }
             }
@@ -195,7 +211,10 @@ mod tests {
         assert_eq!(upd.rewritten, 1);
         let a = std::fs::read_to_string(dir.join("book/a.md")).unwrap();
         assert!(a.contains("[(Romano & Forget, 2015)](#ref-openmc)"), "{a}");
-        assert!(check_pages(&pages, &lib, &style, false).unwrap().problems.is_empty());
+        assert!(check_pages(&pages, &lib, &style, false)
+            .unwrap()
+            .problems
+            .is_empty());
 
         // The CLI path end to end, CSL-JSON dump included.
         let out = dir.join("items.json");
@@ -207,7 +226,8 @@ mod tests {
             csl_json_out: Some(out.clone()),
         })
         .unwrap();
-        let items: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(out).unwrap()).unwrap();
+        let items: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(out).unwrap()).unwrap();
         assert_eq!(items[0]["id"], "openmc");
         run(ReferencesArgs {
             paths: vec![dir.join("book")],
@@ -217,6 +237,33 @@ mod tests {
             csl_json_out: None,
         })
         .unwrap();
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn an_html_page_named_on_the_command_line_is_cited_and_a_style_can_be_named() {
+        let dir =
+            std::env::temp_dir().join(format!("kovan-references-html-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("refs.bib"), BIB).unwrap();
+        let page = dir.join("index.html");
+        std::fs::write(&page, "<p>See <a href=\"#ref-openmc\"></a>.</p>\n").unwrap();
+        let args = |update| ReferencesArgs {
+            paths: vec![page.clone()],
+            update,
+            bib: dir.join("refs.bib"),
+            style: Some(PathBuf::from("ieee")),
+            csl_json_out: None,
+        };
+        assert!(run(args(false)).is_err(), "stale before the update");
+        run(args(true)).unwrap();
+        let text = std::fs::read_to_string(&page).unwrap();
+        assert!(text.contains("<a href=\"#ref-openmc\">[1]</a>"), "{text}");
+        assert!(
+            text.contains("<h2>References</h2>") && text.contains("id=\"ref-openmc\""),
+            "{text}"
+        );
+        run(args(false)).unwrap();
         std::fs::remove_dir_all(&dir).ok();
     }
 }

@@ -98,6 +98,6 @@ train.
 <!-- references:begin -->
 ## References
 
-<p class="csl-entry" id="ref-ong2026boonlay" style="padding-left: 2em; text-indent: -2em;">Ong, T. K. C. (2026,). <span style="font-style: italic;">boon-lay: BOmbardment Open source Nuclide simulation Laboratory Algorithm for Yields (BOON LAY)</span>. GitHub. <a href="https://github.com/theodoreOnzGit/boon-lay">https://github.com/theodoreOnzGit/boon-lay</a></p>
+<p class="csl-entry" id="ref-ong2026boonlay" style="padding-left: 2em; text-indent: -2em;">Ong, T. K. C. (2026). <i>boon-lay: BOmbardment Open source Nuclide simulation Laboratory Algorithm for Yields (BOON LAY)</i>. GitHub. https://github.com/theodoreOnzGit/boon-lay</p>
 
 <!-- references:end -->

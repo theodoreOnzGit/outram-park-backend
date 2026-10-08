@@ -100,8 +100,8 @@ where the statistics cannot resolve the effect, rather than a number.
 <!-- references:begin -->
 ## References
 
-<p class="csl-entry" id="ref-briggs2003international" style="padding-left: 2em; text-indent: -2em;">Briggs, J. B., Scott, L., & Nouri, A. (2003). The international criticality safety benchmark evaluation project. <span style="font-style: italic;">Nuclear Science and Engineering</span>, <span style="font-style: italic;">145</span>(1), 1–10.</p>
+<p class="csl-entry" id="ref-briggs2003international" style="padding-left: 2em; text-indent: -2em;">Briggs, J. B., Scott, L., &#38; Nouri, A. (2003). The international criticality safety benchmark evaluation project. <i>Nuclear Science and Engineering</i>, <i>145</i>(1), 1–10.</p>
 
-<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., & Conlin, J. L. (2017). <span style="font-style: italic;">The NJOY Nuclear Data Processing System, Version 2016</span> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. <a href="https://www.osti.gov/biblio/1338791">https://www.osti.gov/biblio/1338791</a></p>
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
 
 <!-- references:end -->
