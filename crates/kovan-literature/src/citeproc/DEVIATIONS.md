@@ -61,3 +61,17 @@ been found yet. Until decided, **the port reproduces citeproc-js**.
 - **C5 (#804) — Greek and Lithuanian `toLocaleUpperCase`** are locale-specific in V8
   and only the Turkic rules are implemented here. A gap, not a quirk; listed
   so it is not forgotten.
+- **C6 (#806) — `NAME_REX` typo**: `spans+class` where `\s+class` was meant
+  (formatters.js; port `formatters.rs`), so name splitting never sees a
+  `<span class="nocase">`.
+- **C7–C15 (#807) — minor candidates found in the wave-1 integration**: number
+  parsing branches that never fire (C7), unanchored default month matchers
+  (C8), `year_numeric`'s `slice(0, -0)` (C9), the `"true"` sort-locale key
+  (C10), `translit` listed twice in cite-affix forms (C11), `"undefined"`
+  printed for a missing ordinal suffix or term (C12), falsy `Stack.push`
+  storing `""` (C13), the misspelt `build_layout_locale_flag` (C14), cyclic
+  gender terms in the locale merge (C15). Details and port locations in #807.
+
+Update to C3 (#802), 2026-10-08: the unbound-`this` TypeError is reached by
+**any `locale` attribute on `cs:layout`, `cs:if` or a condition**, which CSL
+1.0.2 allows; the spec text is the evidence, so C3 is ready to register.
