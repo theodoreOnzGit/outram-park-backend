@@ -14,7 +14,6 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-
 //! Port of `src/util_names_tests.js`: `CSL.NameOutput.prototype.isPerson`.
 
 use serde_json::Value;

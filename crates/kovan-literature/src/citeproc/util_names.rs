@@ -14,7 +14,6 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-
 //! Port of `src/util_names.js`: `CSL.Util.Names`, the pure string helpers
 //! that initialise, un-initialise and compare personal names.
 //!
@@ -45,7 +44,8 @@ fn rx(src: &str) -> Regex {
 }
 
 static RE_LEADING_TAGS: LazyLock<Regex> = LazyLock::new(|| rx("^(?:<[^>]+>)*"));
-static RE_WS_HYPHEN_WS: LazyLock<Regex> = LazyLock::new(|| rx(&format!("[{JS_WS_CLASS}]*-[{JS_WS_CLASS}]*")));
+static RE_WS_HYPHEN_WS: LazyLock<Regex> =
+    LazyLock::new(|| rx(&format!("[{JS_WS_CLASS}]*-[{JS_WS_CLASS}]*")));
 static RE_WS_RUN: LazyLock<Regex> = LazyLock::new(|| rx(&format!("[{JS_WS_CLASS}]+")));
 static RE_HYPHEN_LOWER: LazyLock<Regex> = LazyLock::new(|| rx("-([a-z])"));
 static RE_ENDASH_LOWER: LazyLock<Regex> = LazyLock::new(|| rx("\u{2013}([a-z])"));
@@ -84,7 +84,12 @@ pub fn un_initialize(_state: &State, name: &str) -> String {
 /// reduce the given-name string `name` to initials, each followed by
 /// `terminator` (`"%s"` in the terminator is replaced by the initial);
 /// with `normalize_only` only the existing initials are normalised.
-pub fn initialize_with(state: &State, name: &str, terminator: &str, normalize_only: bool) -> String {
+pub fn initialize_with(
+    state: &State,
+    name: &str,
+    terminator: &str,
+    normalize_only: bool,
+) -> String {
     if name.is_empty() {
         return String::new();
     }
@@ -106,7 +111,9 @@ pub fn initialize_with(state: &State, name: &str, terminator: &str, normalize_on
     // so that they can be selectively normalized.
     name = RE_WS_HYPHEN_WS.replace_all(&name, "-").into_owned();
     name = RE_WS_RUN.replace_all(&name, " ").into_owned();
-    name = RE_HYPHEN_LOWER.replace_all(&name, "\u{2013}${1}").into_owned();
+    name = RE_HYPHEN_LOWER
+        .replace_all(&name, "\u{2013}${1}")
+        .into_owned();
 
     // for (i = name.length-2; i > -1; i--) if "." not followed by " ": insert one
     let mut chars: Vec<char> = name.chars().collect();
@@ -367,7 +374,8 @@ mod tests {
     fn state(hyphen: &Value) -> State {
         let mut st = State::default();
         if !hyphen.is_null() {
-            st.opt.insert("initialize-with-hyphen".into(), hyphen.clone());
+            st.opt
+                .insert("initialize-with-hyphen".into(), hyphen.clone());
         }
         st.tmp.lang_array = vec!["en".to_string()];
         st
@@ -406,18 +414,31 @@ mod tests {
         }
         for r in REFERENCE["util"]["mergetag"].as_array().expect("mergetag") {
             let (a, b) = (r["a"].as_str().expect("a"), r["b"].as_str().expect("b"));
-            assert_eq!(Some(mergetag(&st, a, b).as_str()), r["v"].as_str(), "mergetag({a:?}, {b:?})");
+            assert_eq!(
+                Some(mergetag(&st, a, b).as_str()),
+                r["v"].as_str(),
+                "mergetag({a:?}, {b:?})"
+            );
         }
         for r in REFERENCE["util"]["tagonly"].as_array().expect("tagonly") {
             let s = r["s"].as_str().expect("s");
-            assert_eq!(Some(tagonly(&st, s).as_str()), r["v"].as_str(), "tagonly({s:?})");
+            assert_eq!(
+                Some(tagonly(&st, s).as_str()),
+                r["v"].as_str(),
+                "tagonly({s:?})"
+            );
         }
         for r in REFERENCE["util"]["notag"].as_array().expect("notag") {
             let s = r["s"].as_str().expect("s");
             assert_eq!(Some(notag(s).as_str()), r["v"].as_str(), "notag({s:?})");
         }
         for r in REFERENCE["util"]["getRaw"].as_array().expect("getRaw") {
-            assert_eq!(Some(get_raw_name(&r["n"]).as_str()), r["v"].as_str(), "{}", r["n"]);
+            assert_eq!(
+                Some(get_raw_name(&r["n"]).as_str()),
+                r["v"].as_str(),
+                "{}",
+                r["n"]
+            );
         }
     }
 }

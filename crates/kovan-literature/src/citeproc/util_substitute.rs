@@ -233,13 +233,13 @@ fn author_substitute(
     let printing = !state.tmp.suppress_decorations;
     if printing && state.tmp.subsequent_author_substitute_ok {
         if let Some(rendered) = state.tmp.rendered_name.clone() {
-            let new_blob = |state: &mut State| {
-                state
-                    .blobs
-                    .add(Blob::new(Some(&substitute), None, None))
-            };
+            let new_blob =
+                |state: &mut State| state.blobs.add(Blob::new(Some(&substitute), None, None));
             let same = |a: &str, b: &str| js::locale_compare(a, b, "en") == Ordering::Equal;
-            if matches!(subrule.as_deref(), Some("partial-each") | Some("partial-first")) {
+            if matches!(
+                subrule.as_deref(),
+                Some("partial-each") | Some("partial-first")
+            ) {
                 let mut dosub = true;
                 let mut rendered_name: Vec<Value> = Vec::new();
                 let children = state.tmp.name_node.children.clone();
@@ -253,11 +253,16 @@ fn author_substitute(
                     };
                     let last_i: String = match &last {
                         Value::Array(a) => a.get(i).map(js::to_js_string),
-                        Value::String(t) => Some(js::char_at(t, i as i64)).filter(|c| !c.is_empty()),
+                        Value::String(t) => {
+                            Some(js::char_at(t, i as i64)).filter(|c| !c.is_empty())
+                        }
                         _ => None,
                     }
                     .unwrap_or_else(|| "undefined".to_string());
-                    let name_s = name.as_ref().filter(|n| js::truthy(n)).map(js::to_js_string);
+                    let name_s = name
+                        .as_ref()
+                        .filter(|n| js::truthy(n))
+                        .map(js::to_js_string);
                     if dosub
                         && last_len.map(|l| l as i64 > i as i64 - 1).unwrap_or(false)
                         && name_s.as_deref().map(|n| same(n, &last_i)).unwrap_or(false)

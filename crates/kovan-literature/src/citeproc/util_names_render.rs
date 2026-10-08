@@ -383,15 +383,19 @@ mod output_side {
             .and_then(|d| d.get(0))
             .map(js::to_js_string)
             .unwrap_or_default();
-        let langspec = locale_resolve(ctx.item_language.as_deref().unwrap_or(""), Some(&default_locale));
+        let langspec = locale_resolve(
+            ctx.item_language.as_deref().unwrap_or(""),
+            Some(&default_locale),
+        );
         let try_locale = if st.locale.contains_key(&langspec.best) {
             langspec.best.clone()
         } else {
             default_locale
         };
-        let locale = st.locale.get(&try_locale).ok_or_else(|| {
-            type_error("Cannot read properties of undefined (reading 'opts')")
-        })?;
+        let locale = st
+            .locale
+            .get(&try_locale)
+            .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'opts')"))?;
         let name_as_sort_order = locale.opts.get("name-as-sort-order");
         let name_as_reverse_order = locale.opts.get("name-as-reverse-order");
         let name_never_short = locale.opts.get("name-never-short");
@@ -444,7 +448,9 @@ mod output_side {
         };
         // Normalize to string
         {
-            let o = name.as_object_mut().ok_or_else(|| prim_err(&Value::Bool(false)))?;
+            let o = name
+                .as_object_mut()
+                .ok_or_else(|| prim_err(&Value::Bool(false)))?;
             if !js::get_truthy(o, "family") {
                 o.insert("family".into(), Value::String(String::new()));
             }
@@ -555,18 +561,39 @@ mod output_side {
         };
         put("family", cur.get("family").cloned());
         put("given", cur.get("given").cloned());
-        put("non-dropping-particle", cur.get("non-dropping-particle").cloned());
+        put(
+            "non-dropping-particle",
+            cur.get("non-dropping-particle").cloned(),
+        );
         put("dropping-particle", cur.get("dropping-particle").cloned());
         put("suffix", cur.get("suffix").cloned());
-        put("static-ordering", name_params.static_ordering.map(Value::Bool));
+        put(
+            "static-ordering",
+            name_params.static_ordering.map(Value::Bool),
+        );
         put("static-particles", cur.get("static-particles").cloned());
-        put("reverse-ordering", name_params.reverse_ordering.map(Value::Bool));
-        put("full-form-always", name_params.full_form_always.map(Value::Bool));
+        put(
+            "reverse-ordering",
+            name_params.reverse_ordering.map(Value::Bool),
+        );
+        put(
+            "full-form-always",
+            name_params.full_form_always.map(Value::Bool),
+        );
         put("parse-names", cur.get("parse-names").cloned());
         put("comma-suffix", cur.get("comma-suffix").cloned());
-        put("comma-dropping-particle", cur.get("comma-dropping-particle").cloned());
-        put("transliterated", name_params.transliterated.map(Value::Bool));
-        put("block_initialize", name_params.block_initialize.map(Value::Bool));
+        put(
+            "comma-dropping-particle",
+            cur.get("comma-dropping-particle").cloned(),
+        );
+        put(
+            "transliterated",
+            name_params.transliterated.map(Value::Bool),
+        );
+        put(
+            "block_initialize",
+            name_params.block_initialize.map(Value::Bool),
+        );
         put("literal", cur.get("literal").cloned());
         put("isInstitution", cur.get("isInstitution").cloned());
         put("multi", cur.get("multi").cloned());
@@ -606,7 +633,14 @@ mod output_side {
             fallback: bool,
             stop_orig: Option<bool>,
         ) -> CslResult<GotName> {
-            get_name(self, &self.name_input_ctx, name, slot_localeset, fallback, stop_orig)
+            get_name(
+                self,
+                &self.name_input_ctx,
+                name,
+                slot_localeset,
+                fallback,
+                stop_orig,
+            )
         }
     }
 
@@ -684,7 +718,14 @@ mod output_side {
             fallback: bool,
             stop_orig: Option<bool>,
         ) -> CslResult<GotName> {
-            get_name(st, &self.input_ctx(st), name, slot_localeset, fallback, stop_orig)
+            get_name(
+                st,
+                &self.input_ctx(st),
+                name,
+                slot_localeset,
+                fallback,
+                stop_orig,
+            )
         }
 
         /// `CSL.NameOutput.prototype.getNameParams` is internal to
@@ -716,14 +757,13 @@ mod output_side {
             consider_sort_key: bool,
             skip_falsy_entries: bool,
         ) -> Slot {
-            let is_inst = js::truthy_opt(name.get("isInstitution")) || js::truthy_opt(name.get("literal"));
+            let is_inst =
+                js::truthy_opt(name.get("isInstitution")) || js::truthy_opt(name.get("literal"));
             let prefs = st.opt.get("cite-lang-prefs");
             let localesets: Option<Vec<Value>> = if !st.tmp.extension.is_empty() {
                 Some(vec![Value::String("sort".into())])
             } else {
-                match prefs
-                    .and_then(|p| p.get(if is_inst { "institutions" } else { "persons" }))
-                {
+                match prefs.and_then(|p| p.get(if is_inst { "institutions" } else { "persons" })) {
                     Some(Value::Array(a)) => Some(a.clone()),
                     _ => None,
                 }
@@ -753,11 +793,12 @@ mod output_side {
                 None => slot.primary = "locale-translat".to_string(),
             }
             let xclass_note = st.opt.get("xclass").and_then(Value::as_str) == Some("note");
-            let item_no_position = js::truthy(&self.cite_item)
-                && !js::truthy_opt(self.cite_item.get("position"));
+            let item_no_position =
+                js::truthy(&self.cite_item) && !js::truthy_opt(self.cite_item.get("position"));
             let area = st.tmp.area.as_str();
             if (consider_sort_key && st.tmp.sort_key_flag)
-                || (area != "bibliography" && !(area == "citation" && xclass_note && item_no_position))
+                || (area != "bibliography"
+                    && !(area == "citation" && xclass_note && item_no_position))
             {
                 slot.secondary = None;
                 slot.tertiary = None;
@@ -829,7 +870,8 @@ mod output_side {
                     // true invokes fallback
                     self.set_rendered_name(st, &name)?;
                     // XXXX FROM HERE (instututions)
-                    let institution = self.render_institution_name(st, &v, &mut name, &slot, Some(j))?;
+                    let institution =
+                        self.render_institution_name(st, &v, &mut name, &slot, Some(j))?;
                     blobs.push(institution);
                 }
                 if n_inst > 0 {
@@ -882,7 +924,11 @@ mod output_side {
                 })
             };
             let n_l = [long_of(&primary), long_of(&secondary), long_of(&tertiary)];
-            let n_s = [short_of(&primary), short_of(&secondary), short_of(&tertiary)];
+            let n_s = [
+                short_of(&primary),
+                short_of(&secondary),
+                short_of(&tertiary),
+            ];
             let parts = self
                 .institution
                 .as_ref()
@@ -898,11 +944,13 @@ mod output_side {
                     // No multilingual for pure short form institution names.
                     if !primary_ref.short.is_empty() {
                         let short_style = self.get_short_style();
-                        institution = vec![self.compose_one_institution_part(st, n_s, slot, &short_style)?];
+                        institution =
+                            vec![self.compose_one_institution_part(st, n_s, slot, &short_style)?];
                     } else {
                         // Fail over to long.
                         let long_style = self.get_long_style(primary_ref);
-                        institution = vec![self.compose_one_institution_part(st, n_l, slot, &long_style)?];
+                        institution =
+                            vec![self.compose_one_institution_part(st, n_l, slot, &long_style)?];
                     }
                 }
                 Some("short-long") => {
@@ -926,7 +974,8 @@ mod output_side {
                 }
                 _ => {
                     let long_style = self.get_long_style(primary_ref);
-                    institution = vec![self.compose_one_institution_part(st, n_l, slot, &long_style)?];
+                    institution =
+                        vec![self.compose_one_institution_part(st, n_l, slot, &long_style)?];
                 }
             }
             let blob = self.join(st, institution, " ", None)?;
@@ -955,11 +1004,7 @@ mod output_side {
             let mut tertiary: Option<BlobId> = None;
             if let Some(n0) = &names[0] {
                 let mut primary_tok = style.clone_token();
-                if js::truthy_opt(
-                    st.opt
-                        .get("citeAffixes")
-                        .and_then(|c| c.get(&slot.primary)),
-                ) {
+                if js::truthy_opt(st.opt.get("citeAffixes").and_then(|c| c.get(&slot.primary))) {
                     let prefix = st
                         .opt
                         .get("citeAffixes")
@@ -977,7 +1022,9 @@ mod output_side {
                             }
                         }
                         if !has_italic {
-                            primary_tok.decorations.push(Decoration::new("@font-style", "italic"));
+                            primary_tok
+                                .decorations
+                                .push(Decoration::new("@font-style", "italic"));
                         }
                     }
                 }
@@ -1006,8 +1053,12 @@ mod output_side {
                     }
                 }
                 let mut secondary_outer = Token::new("", TokenType::Start);
-                secondary_outer.decorations.push(Decoration::new("@font-style", "normal"));
-                secondary_outer.decorations.push(Decoration::new("@font-weight", "normal"));
+                secondary_outer
+                    .decorations
+                    .push(Decoration::new("@font-style", "normal"));
+                secondary_outer
+                    .decorations
+                    .push(Decoration::new("@font-weight", "normal"));
                 q_open_level(st, FormatRef::Token(secondary_outer))?;
                 q_append_blob(st, secondary, FormatRef::Token(secondary_tok), false)?;
                 q_close_level(st)?;
@@ -1023,8 +1074,12 @@ mod output_side {
                     }
                 }
                 let mut tertiary_outer = Token::new("", TokenType::Start);
-                tertiary_outer.decorations.push(Decoration::new("@font-style", "normal"));
-                tertiary_outer.decorations.push(Decoration::new("@font-weight", "normal"));
+                tertiary_outer
+                    .decorations
+                    .push(Decoration::new("@font-style", "normal"));
+                tertiary_outer
+                    .decorations
+                    .push(Decoration::new("@font-weight", "normal"));
                 q_open_level(st, FormatRef::Token(tertiary_outer))?;
                 q_append_blob(st, tertiary, FormatRef::Token(tertiary_tok), false)?;
                 q_close_level(st)?;
@@ -1091,7 +1146,12 @@ mod output_side {
                 if !inst.strings.contains_key("part-separator") {
                     inst.strings.insert(
                         "part-separator".into(),
-                        Value::String(st.tmp.name_delimiter.clone().unwrap_or_else(|| "undefined".into())),
+                        Value::String(
+                            st.tmp
+                                .name_delimiter
+                                .clone()
+                                .unwrap_or_else(|| "undefined".into()),
+                        ),
                     );
                 }
                 inst.string("part-separator")
@@ -1124,7 +1184,8 @@ mod output_side {
                     let is_plain = !js::truthy_opt(values[i].get("literal"))
                         && !js::truthy_opt(values[i].get("isInstitution"));
                     if is_plain {
-                        let name_blob = self.render_personal_name(st, v, &mut values[i], &slot, pos, i, j)?;
+                        let name_blob =
+                            self.render_personal_name(st, v, &mut values[i], &slot, pos, i, j)?;
                         let name_token = self.name_token()?.clone_token();
                         q_append_blob(st, name_blob, FormatRef::Token(name_token), true)?;
                         names.push(q_pop_blob(st)?);
@@ -1250,12 +1311,15 @@ mod output_side {
                 .get("default-locale")
                 .and_then(|d| d.get(0))
                 .map(js::to_js_string)
-                .ok_or_else(|| type_error("Cannot read properties of undefined (reading 'slice')"))?;
-            let nbspace = if ["fr", "ru", "cs"].contains(&js::slice(&default_locale0, 0, Some(2)).as_str()) {
-                "\u{a0}"
-            } else {
-                " "
-            };
+                .ok_or_else(|| {
+                    type_error("Cannot read properties of undefined (reading 'slice')")
+                })?;
+            let nbspace =
+                if ["fr", "ru", "cs"].contains(&js::slice(&default_locale0, 0, Some(2)).as_str()) {
+                    "\u{a0}"
+                } else {
+                    " "
+                };
             let comma_dp = name
                 .get("comma-dropping-particle")
                 .map(js::to_js_string)
@@ -1287,23 +1351,34 @@ mod output_side {
                     .map(js::to_js_string)
                     .unwrap_or_else(|| "undefined".to_string());
                 if dnd.as_deref() == Some("never") {
-                    let mut merged = self.join(st, vec![non_dropping_particle, family], nbspace, None)?;
+                    let mut merged =
+                        self.join(st, vec![non_dropping_particle, family], nbspace, None)?;
                     merged = self.join(st, vec![merged, dropping_particle], " ", None)?;
                     merged = self.join(st, vec![merged, given], &sort_sep_opt, None)?;
                     blob = self.join(st, vec![merged, suffix], " ", None)?;
                 } else {
-                    let second = self.join(st, vec![given, dropping_particle, non_dropping_particle], " ", None)?;
+                    let second = self.join(
+                        st,
+                        vec![given, dropping_particle, non_dropping_particle],
+                        " ",
+                        None,
+                    )?;
                     let merged = self.join(st, vec![family, second], &sort_sep_opt, None)?;
                     blob = self.join(st, vec![merged, suffix], " ", None)?;
                 }
             } else {
                 let nasso = self.inherit_name_opt(st, "name-as-sort-order", None, None)?;
                 let nasso = nasso.as_ref().and_then(Value::as_str);
-                if nasso == Some("all") || (nasso == Some("first") && i == 0 && (j == Some(0) || j.is_none())) {
+                if nasso == Some("all")
+                    || (nasso == Some("first") && i == 0 && (j == Some(0) || j.is_none()))
+                {
                     //
                     // Discretionary sort ordering and inversions
                     //
-                    if matches!(name.get("given").and_then(Value::as_str), Some("Lord") | Some("Lady")) {
+                    if matches!(
+                        name.get("given").and_then(Value::as_str),
+                        Some("Lord") | Some("Lady")
+                    ) {
                         sort_sep = ", ".to_string();
                     }
                     let dnd = st
@@ -1330,7 +1405,8 @@ mod output_side {
                             None,
                         )?;
                         // This would be a problem with al-Ghazali. Avoided by has_hyphenated_non_dropping_particle check above.
-                        let second = self.join(st, vec![second0, non_dropping_particle], " ", None)?;
+                        let second =
+                            self.join(st, vec![second0, non_dropping_particle], " ", None)?;
                         if let (Some(sec), Some((p, s))) = (second, &given_tok_affixes) {
                             st.blobs.get_mut(sec).set_string("prefix", p);
                             st.blobs.get_mut(sec).set_string("suffix", s);
@@ -1387,7 +1463,8 @@ mod output_side {
                         && js::truthy_opt(name.get("family"))
                         && !js::truthy_opt(name.get("non-dropping-particle"))
                     {
-                        let dp = js::to_js_string(name.get("dropping-particle").unwrap_or(&Value::Null));
+                        let dp =
+                            js::to_js_string(name.get("dropping-particle").unwrap_or(&Value::Null));
                         let last = js::slice(&dp, -1, None);
                         if ["'", "\u{2bc}", "\u{2019}", "-"].contains(&last.as_str())
                             && js::slice(&dp, 0, Some(-1)) != "de"
@@ -1426,7 +1503,10 @@ mod output_side {
                         ));
                     };
                     if !st.blobs.get(second_id).string("prefix").is_empty() {
-                        name.insert("comma-dropping-particle".into(), Value::String(String::new()));
+                        name.insert(
+                            "comma-dropping-particle".into(),
+                            Value::String(String::new()),
+                        );
                     }
                     let comma_dp_now = name
                         .get("comma-dropping-particle")
@@ -1435,14 +1515,20 @@ mod output_side {
 
                     let iw = self.inherit_name_opt(st, "initialize-with", None, None)?;
                     let space = if iw.as_ref().map(js::truthy).unwrap_or(false)
-                        && RE_NBSP_FEFF.is_match(&iw.as_ref().map(js::to_js_string).unwrap_or_default())
+                        && RE_NBSP_FEFF
+                            .is_match(&iw.as_ref().map(js::to_js_string).unwrap_or_default())
                         && given_info.initialization_level == Some(1)
                     {
                         nbspace
                     } else {
                         " "
                     };
-                    blob = self.join(st, vec![given, second], &format!("{comma_dp_now}{space}"), None)?;
+                    blob = self.join(
+                        st,
+                        vec![given, second],
+                        &format!("{comma_dp_now}{space}"),
+                        None,
+                    )?;
                 }
             }
             // XXX Just generally assume for the present that personal names render something
@@ -1493,7 +1579,11 @@ mod output_side {
         }
 
         /// `CSL.NameOutput.prototype._nonDroppingParticle(name)`.
-        pub fn non_dropping_particle(&mut self, st: &mut State, name: &Obj) -> CslResult<Option<BlobId>> {
+        pub fn non_dropping_particle(
+            &mut self,
+            st: &mut State,
+            name: &Obj,
+        ) -> CslResult<Option<BlobId>> {
             let mut ndp = name_get(name, "non-dropping-particle");
             if st.tmp.sort_key_flag {
                 if let Some(n) = ndp.as_mut() {
@@ -1536,7 +1626,9 @@ mod output_side {
                 let val = if use_last { 2 } else { 1 };
                 let key = pos.to_string();
                 let Some(spec) = self.etal_spec_mut(&key) else {
-                    return Err(type_error("Cannot set properties of undefined (setting 'freeters')"));
+                    return Err(type_error(
+                        "Cannot set properties of undefined (setting 'freeters')",
+                    ));
                 };
                 if j.is_none() {
                     spec.freeters = val;
@@ -1545,7 +1637,10 @@ mod output_side {
                     // number: later `persons[j]` reads are `undefined`.
                     spec.persons = Vec::new();
                 }
-                name.insert("comma-dropping-particle".into(), Value::String(String::new()));
+                name.insert(
+                    "comma-dropping-particle".into(),
+                    Value::String(String::new()),
+                );
             } else {
                 let gr = self.decor_ref("given");
                 if q_append_str(st, s.as_deref(), gr, true)? {
@@ -1557,7 +1652,10 @@ mod output_side {
 
         /// `CSL.NameOutput.prototype._familyName(name)`.
         pub fn family_name(&mut self, st: &mut State, name: &Obj) -> CslResult<Option<BlobId>> {
-            let fam = name.get("family").filter(|v| !v.is_null()).map(js::to_js_string);
+            let fam = name
+                .get("family")
+                .filter(|v| !v.is_null())
+                .map(js::to_js_string);
             let s = self.strip_periods(st, "family", fam.as_deref());
             let fr = self.decor_ref("family");
             if q_append_str(st, s.as_deref(), fr, true)? {
@@ -1587,8 +1685,8 @@ mod output_side {
             let initialize_is_turned_on =
                 self.inherit_name_opt(st, "initialize", None, None)? != Some(Value::Bool(false));
             let iw = self.inherit_name_opt(st, "initialize-with", None, None)?;
-            let mut has_initialize_with =
-                matches!(iw, Some(Value::String(_))) && !js::truthy_opt(name.get("block_initialize"));
+            let mut has_initialize_with = matches!(iw, Some(Value::String(_)))
+                && !js::truthy_opt(name.get("block_initialize"));
             let use_level: i64;
             if js::truthy_opt(name.get("full-form-always")) {
                 use_level = 2;
@@ -1626,10 +1724,16 @@ mod output_side {
                 let given = name_get_or_empty(name, "given");
                 if has_initialize_with {
                     let initialize_with_s = self
-                        .inherit_name_opt(st, "initialize-with", None, Some(Value::String(String::new())))?
+                        .inherit_name_opt(
+                            st,
+                            "initialize-with",
+                            None,
+                            Some(Value::String(String::new())),
+                        )?
                         .map(|v| js::to_js_string(&v))
                         .unwrap_or_default();
-                    let new = initialize_with(st, &given, &initialize_with_s, !initialize_is_turned_on);
+                    let new =
+                        initialize_with(st, &given, &initialize_with_s, !initialize_is_turned_on);
                     name.insert("given".into(), Value::String(new));
                 } else {
                     let new = un_initialize(st, &given);
@@ -1646,7 +1750,10 @@ mod output_side {
                 name.insert("given".into(), Value::String(new));
             }
 
-            let g = name.get("given").filter(|v| !v.is_null()).map(js::to_js_string);
+            let g = name
+                .get("given")
+                .filter(|v| !v.is_null())
+                .map(js::to_js_string);
             let s = self.strip_periods(st, "given", g.as_deref());
             let gr = self.decor_ref("given");
             let rendered = q_append_str(st, s.as_deref(), gr, true)?;
@@ -1665,7 +1772,10 @@ mod output_side {
 
         /// `CSL.NameOutput.prototype._nameSuffix(name)`.
         pub fn name_suffix(&mut self, st: &mut State, name: &Obj) -> CslResult<Option<BlobId>> {
-            let mut s: Option<String> = name.get("suffix").filter(|v| !v.is_null()).map(js::to_js_string);
+            let mut s: Option<String> = name
+                .get("suffix")
+                .filter(|v| !v.is_null())
+                .map(js::to_js_string);
             let iw = self.inherit_name_opt(st, "initialize-with", None, None)?;
             if s.as_deref().map(|x| !x.is_empty()).unwrap_or(false) {
                 if let Some(Value::String(iw_s)) = &iw {
@@ -1783,21 +1893,30 @@ mod output_side {
             // Normalize longNameStr and shortNameStr
             if inst.string_opt("form").as_deref() == Some("short") {
                 // STUB(util_transform): loadAbbreviation + abbrevs[jurisdiction][category][key]
-                if let Some(a) =
-                    abbreviation_lookup(st, jurisdiction.as_deref(), "institution-entire", &long_name_str)?
-                {
+                if let Some(a) = abbreviation_lookup(
+                    st,
+                    jurisdiction.as_deref(),
+                    "institution-entire",
+                    &long_name_str,
+                )? {
                     long_name_str = a;
-                } else if let Some(a) =
-                    abbreviation_lookup(st, jurisdiction.as_deref(), "institution-part", &long_name_str)?
-                {
+                } else if let Some(a) = abbreviation_lookup(
+                    st,
+                    jurisdiction.as_deref(),
+                    "institution-part",
+                    &long_name_str,
+                )? {
                     long_name_str = a;
                 }
                 long_name_str = self.quash_checks(st, jurisdiction.as_deref(), &long_name_str)?;
             }
             if parts_short_family {
-                if let Some(a) =
-                    abbreviation_lookup(st, jurisdiction.as_deref(), "institution-part", &short_name_str)?
-                {
+                if let Some(a) = abbreviation_lookup(
+                    st,
+                    jurisdiction.as_deref(),
+                    "institution-part",
+                    &short_name_str,
+                )? {
                     short_name_str = a;
                 }
                 short_name_str = self.quash_checks(st, jurisdiction.as_deref(), &short_name_str)?;
@@ -1817,9 +1936,12 @@ mod output_side {
                 while j > -1 {
                     let ju = j as usize;
                     let abbrev_key = ret.short[ju].clone();
-                    if let Some(a) =
-                        abbreviation_lookup(st, jurisdiction.as_deref(), "institution-part", &abbrev_key)?
-                    {
+                    if let Some(a) = abbreviation_lookup(
+                        st,
+                        jurisdiction.as_deref(),
+                        "institution-part",
+                        &abbrev_key,
+                    )? {
                         ret.short[ju] = a;
                     }
                     if ret.short[ju].contains('|') {
@@ -1857,7 +1979,12 @@ mod output_side {
         }
 
         /// `CSL.NameOutput.prototype._quashChecks(jurisdiction, str)`.
-        pub fn quash_checks(&self, st: &mut State, _jurisdiction: Option<&str>, s: &str) -> CslResult<String> {
+        pub fn quash_checks(
+            &self,
+            st: &mut State,
+            _jurisdiction: Option<&str>,
+            s: &str,
+        ) -> CslResult<String> {
             let s = stub_quash_check(st, s);
             // If the abbreviation has date cut-offs, find the most recent
             // abbreviation within scope.
@@ -1975,7 +2102,6 @@ mod output_side {
         }
         rest
     }
-
 }
 
 #[allow(unused_imports)]
@@ -2121,7 +2247,8 @@ mod output_side_tests {
                 .cloned()
                 .unwrap_or_else(|| Value::Array(Vec::new()))
         };
-        st.opt.insert("default-locale".into(), serde_json::json!(["en-US"]));
+        st.opt
+            .insert("default-locale".into(), serde_json::json!(["en-US"]));
         st.opt.insert("locale-translit".into(), strings("translit"));
         st.opt.insert("locale-translat".into(), strings("translat"));
         st.opt.insert("locale-sort".into(), strings("sort"));
@@ -2148,7 +2275,8 @@ mod output_side_tests {
                 "name-never-short": {"zh": true}
             })),
         );
-        st.locale.insert("fr-FR".into(), locale(serde_json::json!({})));
+        st.locale
+            .insert("fr-FR".into(), locale(serde_json::json!({})));
         let ctx = NameInputCtx {
             parse_names: v.get("parse").and_then(Value::as_bool).unwrap_or(true),
             auto_vietnamese_names: v.get("vn").and_then(Value::as_bool).unwrap_or(false),
@@ -2180,11 +2308,16 @@ mod output_side_tests {
                             let got = get_name(&st, &ctx, &mut name, slot, fallback, stop);
                             match (got, want.get("e")) {
                                 (Ok(g), None) => {
-                                    let mut gn = g.name.map(Value::Object).unwrap_or(Value::Bool(false));
+                                    let mut gn =
+                                        g.name.map(Value::Object).unwrap_or(Value::Bool(false));
                                     canon_numbers(&mut gn);
                                     assert_eq!(
                                         gn,
-                                        want["name"].clone().as_object().map(|_| want["name"].clone()).unwrap_or(Value::Bool(false)),
+                                        want["name"]
+                                            .clone()
+                                            .as_object()
+                                            .map(|_| want["name"].clone())
+                                            .unwrap_or(Value::Bool(false)),
                                         "getName {} [{}] {slot} fb={fallback} stop={stop:?}",
                                         c["name"],
                                         v["name"]
@@ -2193,7 +2326,11 @@ mod output_side_tests {
                                         Some(b) => Value::Bool(b),
                                         None => Value::Null,
                                     };
-                                    assert_eq!(uo, want["usedOrig"], "usedOrig {} [{}] {slot}", c["name"], v["name"]);
+                                    assert_eq!(
+                                        uo, want["usedOrig"],
+                                        "usedOrig {} [{}] {slot}",
+                                        c["name"], v["name"]
+                                    );
                                 }
                                 (Err(e), Some(w)) => {
                                     let text = match &e {
@@ -2202,11 +2339,18 @@ mod output_side_tests {
                                     };
                                     assert_eq!(w.as_str(), Some(text.as_str()), "{}", c["name"]);
                                 }
-                                (g, w) => panic!("getName {} [{}] {slot}: {g:?} vs {w:?}", c["name"], v["name"]),
+                                (g, w) => panic!(
+                                    "getName {} [{}] {slot}: {g:?} vs {w:?}",
+                                    c["name"], v["name"]
+                                ),
                             }
                             if want.get("e").is_none() {
                                 canon_numbers(&mut name);
-                                assert_eq!(name, want["after"], "caller's name after getName {} [{}] {slot}", c["name"], v["name"]);
+                                assert_eq!(
+                                    name, want["after"],
+                                    "caller's name after getName {} [{}] {slot}",
+                                    c["name"], v["name"]
+                                );
                             }
                             n += 1;
                         }
@@ -2217,7 +2361,12 @@ mod output_side_tests {
         assert!(n > 8000, "{n}");
     }
 
-    fn inst_output(strings: &Value, item: &Value, legacy: bool, abbrevs: &Value) -> (State, NameOutput) {
+    fn inst_output(
+        strings: &Value,
+        item: &Value,
+        legacy: bool,
+        abbrevs: &Value,
+    ) -> (State, NameOutput) {
         let mut st = State::default();
         st.opt.insert(
             "development_extensions".into(),
@@ -2263,7 +2412,11 @@ mod output_side_tests {
             errors += usize::from(c.get("e").is_some());
             quashed += usize::from(c["done"].as_array().map(|d| !d.is_empty()).unwrap_or(false));
             abbreviated += usize::from(
-                c["v"]["long"] != c["v"]["short"] && c["v"]["short"].as_array().map(|s| !s.is_empty()).unwrap_or(false),
+                c["v"]["long"] != c["v"]["short"]
+                    && c["v"]["short"]
+                        .as_array()
+                        .map(|s| !s.is_empty())
+                        .unwrap_or(false),
             );
             assert!(names.iter().any(|x| x.as_str() == Some(nm)));
             let (mut st, no) = inst_output(
@@ -2288,10 +2441,7 @@ mod output_side_tests {
                     );
                 }
                 (Err(e), Some(w)) => {
-                    assert!(
-                        matches!(&e, EngineError::BadInput(_)),
-                        "{e:?} vs {w}"
-                    );
+                    assert!(matches!(&e, EngineError::BadInput(_)), "{e:?} vs {w}");
                 }
                 (g, w) => panic!("fixupInstitution({nm:?}): {g:?} vs {w:?}"),
             }
@@ -2305,10 +2455,18 @@ mod output_side_tests {
         }
         assert!(n > 5000, "{n}");
         // The reference is not vacuous: it has abbreviated short forms and quashes.
-        assert!(abbreviated > 1000 && quashed > 100, "{errors} {abbreviated} {quashed}");
+        assert!(
+            abbreviated > 1000 && quashed > 100,
+            "{errors} {abbreviated} {quashed}"
+        );
         let mut t = 0;
         for c in r["trim"].as_array().expect("trim") {
-            let (_st, no) = inst_output(&strings[c["s"].as_u64().expect("s") as usize], &Value::Null, false, &Value::Null);
+            let (_st, no) = inst_output(
+                &strings[c["s"].as_u64().expect("s") as usize],
+                &Value::Null,
+                false,
+                &Value::Null,
+            );
             let lst: Vec<String> = c["l"]
                 .as_array()
                 .expect("l")

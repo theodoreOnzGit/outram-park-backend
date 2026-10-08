@@ -14,7 +14,6 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-
 //! Port of `src/util_names_join.js`: joining rendered names with
 //! delimiters, `and`, et-al and ellipsis
 //! (`CSL.NameOutput.prototype._join` and its callers).
@@ -52,7 +51,11 @@ pub fn join_blobs(
     final_join: Option<BlobId>,
     purge: bool,
 ) -> CslResult<Option<BlobId>> {
-    let mut blobs = if purge { purge_empty_blobs(st, blobs) } else { blobs };
+    let mut blobs = if purge {
+        purge_empty_blobs(st, blobs)
+    } else {
+        blobs
+    };
     if blobs.is_empty() {
         return Ok(None);
     }
@@ -62,7 +65,9 @@ pub fn join_blobs(
                 None => {
                     if let Some(b0) = blobs[0] {
                         let s = st.blobs.get(b0).string("suffix");
-                        st.blobs.get_mut(b0).set_string("suffix", &format!("{s}{delimiter}"));
+                        st.blobs
+                            .get_mut(b0)
+                            .set_string("suffix", &format!("{s}{delimiter}"));
                     }
                 }
                 Some(fj) => {
@@ -75,7 +80,9 @@ pub fn join_blobs(
             let n = blobs.len() - offset;
             for b in blobs.iter().take(n).flatten() {
                 let s = st.blobs.get(*b).string("suffix");
-                st.blobs.get_mut(*b).set_string("suffix", &format!("{s}{delimiter}"));
+                st.blobs
+                    .get_mut(*b)
+                    .set_string("suffix", &format!("{s}{delimiter}"));
             }
             blobs.push(final_join);
             blobs.push(blob);
@@ -168,7 +175,11 @@ impl NameOutput {
         blobs: Vec<Option<BlobId>>,
     ) -> CslResult<Option<BlobId>> {
         let blobs = purge_empty_blobs(st, blobs);
-        let delim = st.tmp.name_delimiter.clone().unwrap_or_else(|| "undefined".into());
+        let delim = st
+            .tmp
+            .name_delimiter
+            .clone()
+            .unwrap_or_else(|| "undefined".into());
         let ret = self.join(st, blobs, &delim, None)?;
         match ret {
             Some(r) => {
@@ -249,7 +260,9 @@ impl NameOutput {
         if blobs.len() > 1 {
             let multiple = blobs.len() > 2;
             let last_is_institution = match blobs[blobs.len() - 1] {
-                Some(b) => crate::citeproc::js::truthy_opt(st.blobs.get(b).extra.get("isInstitution")),
+                Some(b) => {
+                    crate::citeproc::js::truthy_opt(st.blobs.get(b).extra.get("isInstitution"))
+                }
                 None => false,
             };
             let pair: Option<BlobPair> = if last_is_institution {
@@ -260,9 +273,7 @@ impl NameOutput {
             let src = pair
                 .and_then(|p| if multiple { p.multiple } else { p.single })
                 .ok_or_else(|| {
-                    EngineError::Csl(
-                        "SyntaxError: \"undefined\" is not valid JSON".to_string(),
-                    )
+                    EngineError::Csl("SyntaxError: \"undefined\" is not valid JSON".to_string())
                 })?;
             // finalJoin = JSON.parse(JSON.stringify(finalJoin));
             let copy = clone_blob_deep(st, src);
@@ -356,7 +367,9 @@ impl NameOutput {
         match tokenname {
             "name" => Ok(self.name_token()?.clone()),
             "names" => Ok(self.names.clone()),
-            _ => Err(super::load::type_error("Cannot read properties of undefined (reading 'strings')")),
+            _ => Err(super::load::type_error(
+                "Cannot read properties of undefined (reading 'strings')",
+            )),
         }
     }
 }

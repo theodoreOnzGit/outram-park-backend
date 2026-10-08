@@ -14,7 +14,6 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-
 //! Port of `src/util_publishers.js`: `CSL.PublisherOutput`, which joins
 //! parallel `publisher` and `publisher-place` lists (`"A; B"`, `"X; Y"`)
 //! under `cs:group` elements that carry `subgroup-delimiter`.
@@ -63,7 +62,11 @@ pub struct PublisherOutput {
 impl PublisherOutput {
     /// `new CSL.PublisherOutput(state, group_tok)` followed by the two list
     /// assignments of node_group.js:174-176.
-    pub fn new(group_tok: &Token, publisher_list: Vec<String>, publisher_place_list: Vec<String>) -> PublisherOutput {
+    pub fn new(
+        group_tok: &Token,
+        publisher_list: Vec<String>,
+        publisher_place_list: Vec<String>,
+    ) -> PublisherOutput {
         PublisherOutput {
             group_tok: group_tok.clone(),
             varlist: Vec::new(),
@@ -109,7 +112,11 @@ impl PublisherOutput {
 
         self.and_blob = BlobPair::default();
         if and_term.is_some() {
-            match self.group_tok.string_opt("subgroup-delimiter-precedes-last").as_deref() {
+            match self
+                .group_tok
+                .string_opt("subgroup-delimiter-precedes-last")
+                .as_deref()
+            {
                 Some("always") => self.and_blob.single = with_delim,
                 Some("never") => {
                     self.and_blob.single = no_delim;

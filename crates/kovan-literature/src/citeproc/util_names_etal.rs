@@ -14,7 +14,6 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-
 //! Port of `src/util_names_etal.js`:
 //! `CSL.NameOutput.prototype.setEtAlParameters` and `_setEtAlParameter`.
 

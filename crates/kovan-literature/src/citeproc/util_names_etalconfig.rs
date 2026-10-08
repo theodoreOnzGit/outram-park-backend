@@ -34,7 +34,9 @@ impl NameOutput {
 
         q_append_str(st, term.as_deref(), style.clone(), true)?;
         let single = q_pop_blob_required(st)?;
-        st.blobs.get_mut(single).set_string("suffix", &self.etal_suffix);
+        st.blobs
+            .get_mut(single)
+            .set_string("suffix", &self.etal_suffix);
         st.blobs
             .get_mut(single)
             .set_string("prefix", &self.etal_prefix_single);
@@ -74,7 +76,13 @@ impl NameOutput {
             } else {
                 self.etal_min = self.inherit_name_opt(st, "et-al-min", None, None)?;
             }
-            if st.tmp.et_al_use_first.as_ref().map(js::truthy).unwrap_or(false) {
+            if st
+                .tmp
+                .et_al_use_first
+                .as_ref()
+                .map(js::truthy)
+                .unwrap_or(false)
+            {
                 self.etal_use_first = st.tmp.et_al_use_first.clone();
             } else {
                 self.etal_use_first = self.inherit_name_opt(st, "et-al-use-first", None, None)?;

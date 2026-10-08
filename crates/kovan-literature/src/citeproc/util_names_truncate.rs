@@ -14,7 +14,6 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-
 //! Port of `src/util_names_truncate.js`:
 //! `CSL.NameOutput.prototype.truncatePersonalNameLists` and
 //! `_truncateNameList`.
@@ -69,7 +68,11 @@ impl NameOutput {
                 .get("development_extensions")
                 .and_then(|d| d.get("etal_min_etal_usefirst_hack")),
         );
-        let is_one = |x: &Option<Value>| x.as_ref().map(|x| js_num(Some(x)) == 1.0 && x.is_number()).unwrap_or(false);
+        let is_one = |x: &Option<Value>| {
+            x.as_ref()
+                .map(|x| js_num(Some(x)) == 1.0 && x.is_number())
+                .unwrap_or(false)
+        };
         let chopvar: Option<String> = if hack
             && is_one(&self.etal_min)
             && is_one(&self.etal_use_first)
@@ -117,10 +120,8 @@ impl NameOutput {
                             if let Some(g) = self.persons.get_mut(&var).and_then(|p| p.get_mut(j)) {
                                 g.remove(0);
                             }
-                            if let Some(c) = self
-                                .persons_count
-                                .get_mut(&var)
-                                .and_then(|p| p.get_mut(j))
+                            if let Some(c) =
+                                self.persons_count.get_mut(&var).and_then(|p| p.get_mut(j))
                             {
                                 *c -= 1;
                             }
@@ -142,7 +143,12 @@ impl NameOutput {
                         }
                     }
                 }
-                if !self.institutions.get(&var).map(Vec::is_empty).unwrap_or(true) {
+                if !self
+                    .institutions
+                    .get(&var)
+                    .map(Vec::is_empty)
+                    .unwrap_or(true)
+                {
                     if self.please_chop.as_deref() == Some(var.as_str()) {
                         if let Some(i) = self.institutions.get_mut(&var) {
                             i.remove(0);
@@ -173,7 +179,12 @@ impl NameOutput {
                     "Cannot read properties of undefined (reading 'length')",
                 ));
             };
-            if !self.institutions.get(&var).map(Vec::is_empty).unwrap_or(true) {
+            if !self
+                .institutions
+                .get(&var)
+                .map(Vec::is_empty)
+                .unwrap_or(true)
+            {
                 self.nameset_offset += 1;
             }
             let groups = self.persons.get(&var).cloned().unwrap_or_default();
@@ -192,10 +203,7 @@ impl NameOutput {
     pub fn truncate_name_list(&self, st: &State, lst: &[Value]) -> Vec<Value> {
         let root = st.area_ref(&st.tmp.area).root.clone();
         let max = st.area_ref(&root).opt.get("max_number_of_names");
-        if js::truthy_opt(max)
-            && lst.len() > 50
-            && (lst.len() as f64) > js_num(max) + 2.0
-        {
+        if js::truthy_opt(max) && lst.len() > 50 && (lst.len() as f64) > js_num(max) + 2.0 {
             // Preserve the last name in the list, in case we're rendering with a PI ellipsis (et-al-use-last)
             let limit = js_num(max);
             let mut out = super::util_names_output::slice_head(lst, limit + 1.0);

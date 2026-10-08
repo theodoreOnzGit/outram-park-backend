@@ -57,7 +57,12 @@ impl NodeNameExec {
 
 /// A standalone `new CSL.Blob(str)` with the given prefix and suffix, in the
 /// arena.
-fn plain_blob(state: &mut State, text: &str, prefix: &str, suffix: &str) -> super::obj_blob::BlobId {
+fn plain_blob(
+    state: &mut State,
+    text: &str,
+    prefix: &str,
+    suffix: &str,
+) -> super::obj_blob::BlobId {
     let mut b = Blob::new(Some(text), None, None);
     b.set_string("prefix", prefix);
     b.set_string("suffix", suffix);
@@ -75,7 +80,12 @@ fn setup(state: &mut State, token: &mut Token) -> CslResult<()> {
     // Use default delimiter as fallback, in a way that allows explicit
     // empty strings.
     let name_delimiter: String = state
-        .inherit_opt(token, "delimiter", Some("name-delimiter"), Some(Value::String(", ".into())))
+        .inherit_opt(
+            token,
+            "delimiter",
+            Some("name-delimiter"),
+            Some(Value::String(", ".into())),
+        )
         .map(|v| js::to_js_string(&v))
         .unwrap_or_default();
     state.tmp.name_delimiter = Some(name_delimiter.clone());
@@ -87,7 +97,10 @@ fn setup(state: &mut State, token: &mut Token) -> CslResult<()> {
     let and_opt = state.inherit_opt(token, "and", None, None);
     let and_str = and_opt.as_ref().and_then(Value::as_str).map(str::to_string);
     if and_str.as_deref() == Some("text") {
-        set_and_term(token, state.get_term("and", Some("long"), Some(0), None, None, false)?);
+        set_and_term(
+            token,
+            state.get_term("and", Some("long"), Some(0), None, None, false)?,
+        );
     } else if and_str.as_deref() == Some("symbol") {
         let expect = js::truthy_opt(
             state
@@ -96,7 +109,10 @@ fn setup(state: &mut State, token: &mut Token) -> CslResult<()> {
                 .and_then(|d| d.get("expect_and_symbol_form")),
         );
         if expect {
-            set_and_term(token, state.get_term("and", Some("symbol"), Some(0), None, None, false)?);
+            set_and_term(
+                token,
+                state.get_term("and", Some("symbol"), Some(0), None, None, false)?,
+            );
         } else {
             set_and_term(token, Some("&".to_string()));
         }
@@ -140,14 +156,36 @@ fn setup(state: &mut State, token: &mut Token) -> CslResult<()> {
 
     let mut and: Option<BlobPair> = None;
     if and_opt.as_ref().map(js::truthy).unwrap_or(false) {
-        q_append_str(state, and_term.as_deref(), FormatRef::Name("empty".into()), true)?;
+        q_append_str(
+            state,
+            and_term.as_deref(),
+            FormatRef::Name("empty".into()),
+            true,
+        )?;
         let single = q_pop_blob_required(state)?;
-        state.blobs.get_mut(single).set_string("prefix", &and_prefix_single);
-        state.blobs.get_mut(single).set_string("suffix", &and_suffix);
-        q_append_str(state, and_term.as_deref(), FormatRef::Name("empty".into()), true)?;
+        state
+            .blobs
+            .get_mut(single)
+            .set_string("prefix", &and_prefix_single);
+        state
+            .blobs
+            .get_mut(single)
+            .set_string("suffix", &and_suffix);
+        q_append_str(
+            state,
+            and_term.as_deref(),
+            FormatRef::Name("empty".into()),
+            true,
+        )?;
         let multiple = q_pop_blob_required(state)?;
-        state.blobs.get_mut(multiple).set_string("prefix", &and_prefix_multiple);
-        state.blobs.get_mut(multiple).set_string("suffix", &and_suffix);
+        state
+            .blobs
+            .get_mut(multiple)
+            .set_string("prefix", &and_prefix_multiple);
+        state
+            .blobs
+            .get_mut(multiple)
+            .set_string("suffix", &and_suffix);
         and = Some(BlobPair {
             single: Some(single),
             multiple: Some(multiple),
@@ -163,7 +201,11 @@ fn setup(state: &mut State, token: &mut Token) -> CslResult<()> {
     }
 
     let mut ellipsis: Option<BlobPair> = None;
-    if js::truthy_opt(state.inherit_opt(token, "et-al-use-last", None, None).as_ref()) {
+    if js::truthy_opt(
+        state
+            .inherit_opt(token, "et-al-use-last", None, None)
+            .as_ref(),
+    ) {
         // We use the dedicated Unicode ellipsis character because
         // it is recommended by some editors, and can be more easily
         // identified for find and replace operations.
@@ -178,8 +220,18 @@ fn setup(state: &mut State, token: &mut Token) -> CslResult<()> {
         let ellipsis_prefix_single = " ";
         let ellipsis_prefix_multiple = name_delimiter.clone();
         let ellipsis_suffix = " ";
-        let single = plain_blob(state, ellipsis_term, ellipsis_prefix_single, ellipsis_suffix);
-        let multiple = plain_blob(state, ellipsis_term, &ellipsis_prefix_multiple, ellipsis_suffix);
+        let single = plain_blob(
+            state,
+            ellipsis_term,
+            ellipsis_prefix_single,
+            ellipsis_suffix,
+        );
+        let multiple = plain_blob(
+            state,
+            ellipsis_term,
+            &ellipsis_prefix_multiple,
+            ellipsis_suffix,
+        );
         ellipsis = Some(BlobPair {
             single: Some(single),
             multiple: Some(multiple),

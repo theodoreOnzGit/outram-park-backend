@@ -14,7 +14,6 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-
 //! Port of `src/util_names_divide.js`: splitting a names variable into
 //! freestanding names, persons with affiliations and institutions
 //! (`CSL.NameOutput.prototype.divideAndTransliterateNames` and helpers).
@@ -69,7 +68,8 @@ impl NameOutput {
             self.get_freeters(st, v, &mut values)?;
             self.get_persons_and_institutions(st, v, &values)?;
             if spoof {
-                let is_zero = |x: Option<&Value>| x.map(|x| js_num(Some(x)) == 0.0).unwrap_or(false);
+                let is_zero =
+                    |x: Option<&Value>| x.map(|x| js_num(Some(x)) == 0.0).unwrap_or(false);
                 if is_zero(name.strings.get("suppress-min")) {
                     self.freeters.insert(v.clone(), Vec::new());
                     if let Some(p) = self.persons.get_mut(v) {
@@ -116,7 +116,10 @@ impl NameOutput {
             }
             Some(Value::Number(n)) => {
                 let mut o = Obj::new();
-                o.insert("literal".into(), Value::String(js::to_js_string(&Value::Number(n))));
+                o.insert(
+                    "literal".into(),
+                    Value::String(js::to_js_string(&Value::Number(n))),
+                );
                 vec![Value::Object(o)]
             }
             Some(Value::Array(a)) => a,
@@ -233,14 +236,16 @@ impl NameOutput {
         let ty = self.item.get("type").and_then(Value::as_str);
         if matches!(ty, Some("interview") | Some("personal_communication")) {
             let author = get_raw_name(&name);
-            let suppress = js::truthy(&self.cite_item) && js::truthy_opt(self.cite_item.get("suppress-author"));
+            let suppress = js::truthy(&self.cite_item)
+                && js::truthy_opt(self.cite_item.get("suppress-author"));
             if !author.is_empty() && !suppress {
                 // sys.getAbbreviation and sys.normalizeAbbrevsKey exist (the
                 // host's sys; build_retrieve_item.rs).
                 let normalized_key = normalize_abbrevs_key("author", Some(&author));
                 // STUB(util_transform): loadAbbreviation("default", "nickname", ...)
                 // then abbrevs["default"].nickname[key].
-                let my_local_name = abbreviation_lookup(st, Some("default"), "nickname", &normalized_key)?;
+                let my_local_name =
+                    abbreviation_lookup(st, Some("default"), "nickname", &normalized_key)?;
                 if let Some(local) = my_local_name {
                     if local == "!here>>>" {
                         return Ok(Value::Bool(false));
@@ -255,4 +260,3 @@ impl NameOutput {
         Ok(name)
     }
 }
-

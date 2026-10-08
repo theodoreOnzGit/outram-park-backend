@@ -90,10 +90,7 @@ const SECTIONS: [&str; 18] = [
 ];
 
 fn section(text: &str, name: &str) -> Option<String> {
-    let re = Regex::new(&format!(
-        r"(?s)>>=+ {name} =+>>\n(.*?)<<=+ {name} =+<<"
-    ))
-    .ok()?;
+    let re = Regex::new(&format!(r"(?s)>>=+ {name} =+>>\n(.*?)<<=+ {name} =+<<")).ok()?;
     re.captures(text)
         .and_then(|c| c.get(1))
         .map(|m| m.as_str().to_string())
@@ -127,8 +124,7 @@ fn parse_fixture(text: &str) -> Result<Fixture, String> {
         .and_then(|v| v.as_array().cloned());
     let mut unsupported = Vec::new();
     for s in SECTIONS {
-        if ["BIBSECTION", "CITATIONS", "OPTIONZ", "INPUT2", "BIBENTRIES"]
-            .contains(&s)
+        if ["BIBSECTION", "CITATIONS", "OPTIONZ", "INPUT2", "BIBENTRIES"].contains(&s)
             && section(text, s).is_some()
         {
             unsupported.push(s);
@@ -212,11 +208,46 @@ fn build_abbreviations(raw: &Value) -> crate::citeproc::Abbreviations {
 fn style_is_names_only(csl: &str) -> Result<(), String> {
     let re = Regex::new(r"<([a-z-]+)[ >/]").map_err(|e| e.to_string())?;
     let allowed = [
-        "style", "info", "id", "title", "updated", "link", "category", "author", "contributor",
-        "summary", "rights", "terms", "locale", "term", "single", "multiple", "citation",
-        "bibliography", "layout", "names", "name", "name-part", "et-al", "substitute",
-        "institution", "institution-part", "label", "macro", "title-short", "issn", "eissn",
-        "issnl", "email", "uri", "published", "date", "choose", "if", "else-if", "else",
+        "style",
+        "info",
+        "id",
+        "title",
+        "updated",
+        "link",
+        "category",
+        "author",
+        "contributor",
+        "summary",
+        "rights",
+        "terms",
+        "locale",
+        "term",
+        "single",
+        "multiple",
+        "citation",
+        "bibliography",
+        "layout",
+        "names",
+        "name",
+        "name-part",
+        "et-al",
+        "substitute",
+        "institution",
+        "institution-part",
+        "label",
+        "macro",
+        "title-short",
+        "issn",
+        "eissn",
+        "issnl",
+        "email",
+        "uri",
+        "published",
+        "date",
+        "choose",
+        "if",
+        "else-if",
+        "else",
     ];
     for c in re.captures_iter(csl) {
         let e = c.get(1).map(|m| m.as_str()).unwrap_or("");
@@ -243,13 +274,19 @@ fn get_cite(st: &mut State, item_data: &Value, cite: &Value) -> CslResult<()> {
     // CSL.citeStart
     st.tmp.lang_array = Vec::new();
     if let Some(l) = item_data.get("language").and_then(Value::as_str) {
-        if let Some(m) = Regex::new(r"^([a-zA-Z]+).*").ok().and_then(|re| re.captures(l)) {
+        if let Some(m) = Regex::new(r"^([a-zA-Z]+).*")
+            .ok()
+            .and_then(|re| re.captures(l))
+        {
             st.tmp.lang_array.push(m[1].to_lowercase());
         }
     }
-    st.tmp.lang_array.push(js::get_string(&st.opt, "lang").unwrap_or_default());
+    st.tmp
+        .lang_array
+        .push(js::get_string(&st.opt, "lang").unwrap_or_default());
     st.tmp.shadow_numbers.clear();
-    st.tmp.have_collapsed = st.tmp.area == "citation" && has_length(st.citation.opt.get("collapse"));
+    st.tmp.have_collapsed =
+        st.tmp.area == "citation" && has_length(st.citation.opt.get("collapse"));
     st.tmp.years_used = Vec::new();
     st.names_cite_start(item_data, cite);
     // layout START: done_vars, rendered_name, sort_key_flag, nameset_counter, openLevel
@@ -298,7 +335,13 @@ fn get_cite(st: &mut State, item_data: &Value, cite: &Value) -> CslResult<()> {
 /// agent's, not written yet) replaced by [`check_for_output`] for names
 /// tokens. Same sequence as `State::token_exec`: take the token out, test,
 /// run the closures in order, put it back.
-fn run_token(st: &mut State, bib: bool, idx: usize, item: &Value, cite: &Value) -> CslResult<usize> {
+fn run_token(
+    st: &mut State,
+    bib: bool,
+    idx: usize,
+    item: &Value,
+    cite: &Value,
+) -> CslResult<usize> {
     use crate::citeproc::attributes::AttributesExec;
     use crate::citeproc::exec::Exec;
     let mut token = std::mem::take(&mut tokens_mut(st, bib)[idx]);
@@ -405,7 +448,8 @@ fn splice_delimiter(st: &State, _last_collapsed: bool, layout_delimiter: &str) -
         return js::get_string(&st.citation.opt, "cite_group_delimiter").unwrap_or_default();
     }
     let in_text = st.opt.get("xclass").and_then(Value::as_str) == Some("in-text");
-    let numeric = st.opt.get("update_mode").and_then(Value::as_i64) == Some(crate::citeproc::load::NUMERIC);
+    let numeric =
+        st.opt.get("update_mode").and_then(Value::as_i64) == Some(crate::citeproc::load::NUMERIC);
     if st.tmp.have_collapsed && in_text && !numeric {
         return ", ".to_string();
     }
@@ -434,8 +478,7 @@ fn render_cluster(st: &mut State, cites: &[Value]) -> CslResult<String> {
     st.tmp.cite_locales = Vec::new();
     let layout_prefix = js::get_string(&st.citation.opt, "layout_prefix").unwrap_or_default();
     let layout_suffix = js::get_string(&st.citation.opt, "layout_suffix").unwrap_or_default();
-    let layout_delimiter =
-        js::get_string(&st.citation.opt, "layout_delimiter").unwrap_or_default();
+    let layout_delimiter = js::get_string(&st.citation.opt, "layout_delimiter").unwrap_or_default();
     let use_layout_prefix = match st.output.check_nested_brace.as_mut() {
         Some(c) => c.update(&layout_prefix),
         None => layout_prefix.clone(),
@@ -478,7 +521,9 @@ fn render_cluster(st: &mut State, cites: &[Value]) -> CslResult<String> {
     }
     if let (Some(first), Some(last)) = (blobs.first(), blobs.last()) {
         st.blobs.get_mut(*last).set_string("suffix", &suffix);
-        st.blobs.get_mut(*first).set_string("prefix", &use_layout_prefix);
+        st.blobs
+            .get_mut(*first)
+            .set_string("prefix", &use_layout_prefix);
     }
     if st.dev_ext("clean_up_csl_flaws") {
         if let Some(adjust) = st.output.adjust.clone() {
@@ -494,7 +539,12 @@ fn render_cluster(st: &mut State, cites: &[Value]) -> CslResult<String> {
     let mut objects: Vec<String> = Vec::new();
     for (pos, b) in blobs.iter().enumerate() {
         // this.output.queue = [myblobs[pos]]; composite = this.output.string(...)
-        let composite = queue::string(st, QueueId::Output, &[BlobChild::Blob(*b)], StringParent::None)?;
+        let composite = queue::string(
+            st,
+            QueueId::Output,
+            &[BlobChild::Blob(*b)],
+            StringParent::None,
+        )?;
         let mut strings: Vec<String> = Vec::new();
         for r in composite.into_list() {
             match r {
@@ -508,21 +558,35 @@ fn render_cluster(st: &mut State, cites: &[Value]) -> CslResult<String> {
         }
         if strings.is_empty() && !js::truthy_opt(cites[pos].get("suppress-author")) {
             if pos == 0 {
-                let pre = txt_esc(st, &js::get_string(&st.citation.opt, "layout_prefix").unwrap_or_default());
+                let pre = txt_esc(
+                    st,
+                    &js::get_string(&st.citation.opt, "layout_prefix").unwrap_or_default(),
+                );
                 let suf = if pos == blobs.len() - 1 {
-                    txt_esc(st, &js::get_string(&st.citation.opt, "layout_suffix").unwrap_or_default())
+                    txt_esc(
+                        st,
+                        &js::get_string(&st.citation.opt, "layout_suffix").unwrap_or_default(),
+                    )
                 } else {
                     String::new()
                 };
-                strings.push(format!("{pre}[CSL STYLE ERROR: reference with no printed form.]{suf}"));
+                strings.push(format!(
+                    "{pre}[CSL STYLE ERROR: reference with no printed form.]{suf}"
+                ));
             } else if pos == blobs.len() - 1 {
-                let suf = txt_esc(st, &js::get_string(&st.citation.opt, "layout_suffix").unwrap_or_default());
+                let suf = txt_esc(
+                    st,
+                    &js::get_string(&st.citation.opt, "layout_suffix").unwrap_or_default(),
+                );
                 if let Some(last) = objects.last_mut() {
                     last.push_str(&suf);
                 }
             }
         }
-        let sd = splice.get(pos).cloned().unwrap_or_else(|| layout_delimiter.clone());
+        let sd = splice
+            .get(pos)
+            .cloned()
+            .unwrap_or_else(|| layout_delimiter.clone());
         // composite.reverse(); first = pop(); then the rest, in reversed order
         let mut buffer: Vec<String> = Vec::new();
         let mut rest: Vec<String> = strings;
@@ -562,7 +626,12 @@ fn render_bibliography(st: &mut State, ids: &[String]) -> CslResult<String> {
         let item = retrieve_item(st, id)?;
         let mut bib_entry = Token::new("group", TokenType::Start);
         bib_entry.decorations = vec![Decoration::new("@bibliography", "entry")];
-        if let Some(d) = st.bibliography.opt.get("layout_decorations").and_then(queue::decorations_from_value) {
+        if let Some(d) = st
+            .bibliography
+            .opt
+            .get("layout_decorations")
+            .and_then(queue::decorations_from_value)
+        {
             bib_entry.decorations.extend(d);
         }
         queue::start_tag(st, QueueId::Output, "bib_entry", Some(&bib_entry))?;
@@ -588,7 +657,9 @@ fn render_bibliography(st: &mut State, ids: &[String]) -> CslResult<String> {
                     if let BlobContent::List(l0) = st.blobs.get(*b0).blobs.clone() {
                         if let Some(BlobChild::Blob(topblob)) = l0.first() {
                             let p = st.blobs.get(*topblob).string("prefix");
-                            st.blobs.get_mut(*topblob).set_string("prefix", &format!("{layout_prefix}{p}"));
+                            st.blobs
+                                .get_mut(*topblob)
+                                .set_string("prefix", &format!("{layout_prefix}{p}"));
                         }
                     }
                 }
@@ -618,7 +689,12 @@ fn render_bibliography(st: &mut State, ids: &[String]) -> CslResult<String> {
         }
     }
     let f = st.fun.decorate;
-    Ok(format!("{}{}{}", f.bibstart(), entries.concat(), f.bibend()))
+    Ok(format!(
+        "{}{}{}",
+        f.bibstart(),
+        entries.concat(),
+        f.bibend()
+    ))
 }
 
 /// Run one fixture; `Ok(None)` when the driver does not model it.
@@ -710,7 +786,11 @@ fn run_fixture(
     };
     let mut outs: Vec<String> = Vec::new();
     if bib_mode {
-        let ids: Vec<String> = fx.input.iter().map(|i| item_id(i).unwrap_or_default()).collect();
+        let ids: Vec<String> = fx
+            .input
+            .iter()
+            .map(|i| item_id(i).unwrap_or_default())
+            .collect();
         // The runner's default: citations first (none here), then the bibliography.
         let _ = &clusters;
         return Ok(match render_bibliography(&mut st, &ids) {
@@ -747,14 +827,24 @@ fn names_fixtures_match_citeproc_js() {
         return;
     };
     let Ok(read) = std::fs::read_dir(&dir) else {
-        println!("SKIP: {} is absent (run scripts/csl-reference.sh)", dir.display());
+        println!(
+            "SKIP: {} is absent (run scripts/csl-reference.sh)",
+            dir.display()
+        );
         return;
     };
     let reference: Value = serde_json::from_str(REFERENCE).expect("reference");
     let fixtures = reference["fixtures"].as_object().expect("fixtures");
     let mut files: Vec<_> = read.flatten().collect();
     files.sort_by_key(|e| e.file_name());
-    let areas = ["name", "nameattr", "nameorder", "etal", "substitute", "bugreports"];
+    let areas = [
+        "name",
+        "nameattr",
+        "nameorder",
+        "etal",
+        "substitute",
+        "bugreports",
+    ];
     #[derive(Default)]
     struct Tally {
         total: usize,
@@ -769,7 +859,9 @@ fn names_fixtures_match_citeproc_js() {
     let mut skipped: BTreeMap<String, usize> = BTreeMap::new();
     for e in files {
         let file = e.file_name().to_string_lossy().to_string();
-        let Some(stem) = file.strip_suffix(".txt") else { continue };
+        let Some(stem) = file.strip_suffix(".txt") else {
+            continue;
+        };
         let area = stem.split('_').next().unwrap_or("");
         if !areas.contains(&area) {
             continue;
@@ -915,7 +1007,10 @@ fn names_e2e_matches_citeproc_js() {
     };
     let r: Value = serde_json::from_str(E2E_REFERENCE).expect("names_e2e.json");
     let pool: Vec<Value> = r["pool"].as_array().cloned().expect("pool");
-    let ids: Vec<String> = pool.iter().filter_map(|i| i["id"].as_str().map(str::to_string)).collect();
+    let ids: Vec<String> = pool
+        .iter()
+        .filter_map(|i| i["id"].as_str().map(str::to_string))
+        .collect();
     let mut compared = 0;
     let mut error_parity = 0;
     let mut bad: Vec<String> = Vec::new();
@@ -935,39 +1030,91 @@ fn names_e2e_matches_citeproc_js() {
         let out = &case["out"];
         let mut any_error = false;
         for (i, id) in ids.iter().enumerate() {
-            let want = &out["cites"].as_array().map(|a| a[i].clone()).unwrap_or(Value::Null);
+            let want = &out["cites"]
+                .as_array()
+                .map(|a| a[i].clone())
+                .unwrap_or(Value::Null);
             let got = render_cluster(&mut st, &[json!({ "id": id })]);
             any_error |= got.is_err();
-            compare_one(ci, &format!("cite {id}"), &got, want, out.get("build_error").is_some(), &mut compared, &mut error_parity, &mut bad);
+            compare_one(
+                ci,
+                &format!("cite {id}"),
+                &got,
+                want,
+                out.get("build_error").is_some(),
+                &mut compared,
+                &mut error_parity,
+                &mut bad,
+            );
         }
         for (i, id) in ids.iter().enumerate() {
-            let want = &out["sa"].as_array().map(|a| a[i].clone()).unwrap_or(Value::Null);
+            let want = &out["sa"]
+                .as_array()
+                .map(|a| a[i].clone())
+                .unwrap_or(Value::Null);
             let got = render_cluster(&mut st, &[json!({ "id": id, "suppress-author": true })]);
             any_error |= got.is_err();
-            compare_one(ci, &format!("suppress-author {id}"), &got, want, out.get("build_error").is_some(), &mut compared, &mut error_parity, &mut bad);
+            compare_one(
+                ci,
+                &format!("suppress-author {id}"),
+                &got,
+                want,
+                out.get("build_error").is_some(),
+                &mut compared,
+                &mut error_parity,
+                &mut bad,
+            );
         }
         let all: Vec<Value> = ids.iter().map(|id| json!({ "id": id })).collect();
         let got = render_cluster(&mut st, &all);
         any_error |= got.is_err();
         if let Some(want) = out.get("multi") {
-            compare_one(ci, "all cites", &got, want, out.get("build_error").is_some(), &mut compared, &mut error_parity, &mut bad);
+            compare_one(
+                ci,
+                "all cites",
+                &got,
+                want,
+                out.get("build_error").is_some(),
+                &mut compared,
+                &mut error_parity,
+                &mut bad,
+            );
         }
         let got = render_bibliography(&mut st, &ids);
         any_error |= got.is_err();
         if let Some(want) = out.get("bib") {
-            compare_one(ci, "bibliography", &got, want, out.get("build_error").is_some(), &mut compared, &mut error_parity, &mut bad);
+            compare_one(
+                ci,
+                "bibliography",
+                &got,
+                want,
+                out.get("build_error").is_some(),
+                &mut compared,
+                &mut error_parity,
+                &mut bad,
+            );
         }
         if out.get("build_error").is_some() {
             // updateItems threw while rendering one of the items.
             if any_error {
                 error_parity += 1;
             } else {
-                bad.push(format!("case {ci}: citeproc-js threw ({}) but the port did not", out["build_error"]));
+                bad.push(format!(
+                    "case {ci}: citeproc-js threw ({}) but the port did not",
+                    out["build_error"]
+                ));
             }
         }
     }
-    println!("{compared} outputs compared, {error_parity} error cases agree, {} differ", bad.len());
-    let show = if std::env::var("NAMES_E2E_ALL").is_ok() { usize::MAX } else { 25 };
+    println!(
+        "{compared} outputs compared, {error_parity} error cases agree, {} differ",
+        bad.len()
+    );
+    let show = if std::env::var("NAMES_E2E_ALL").is_ok() {
+        usize::MAX
+    } else {
+        25
+    };
     for b in bad.iter().take(show) {
         println!("DIFF {b}");
     }
@@ -993,10 +1140,14 @@ fn compare_one(
         (Ok(g), Some(w), _) => {
             *compared += 1;
             if Some(g.as_str()) != w.as_str() {
-                bad.push(format!("case {case} {what}:\n    got:  {g:?}\n    want: {w}"));
+                bad.push(format!(
+                    "case {case} {what}:\n    got:  {g:?}\n    want: {w}"
+                ));
             }
         }
         (Err(_), _, Some(_)) => *error_parity += 1,
-        (g, w, e) => bad.push(format!("case {case} {what}: got {g:?}, want v={w:?} e={e:?}")),
+        (g, w, e) => bad.push(format!(
+            "case {case} {what}: got {g:?}, want v={w:?} e={e:?}"
+        )),
     }
 }

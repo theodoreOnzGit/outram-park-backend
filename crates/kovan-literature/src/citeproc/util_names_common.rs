@@ -14,7 +14,6 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-
 //! Port of `src/util_names_common.js`:
 //! `CSL.NameOutput.prototype.checkCommonAuthor`, `setCommonTerm` and
 //! `_compareNamesets` (also `CSL.Util.Names.compareNamesets`).
@@ -37,7 +36,10 @@ fn loose_ne(a: Option<&Value>, b: Option<&Value>) -> bool {
     let (a, b) = (a.unwrap_or(&Value::Null), b.unwrap_or(&Value::Null));
     match (a, b) {
         (Value::String(x), Value::String(y)) => x != y,
-        (Value::Object(_), _) | (_, Value::Object(_)) | (Value::Array(_), _) | (_, Value::Array(_)) => {
+        (Value::Object(_), _)
+        | (_, Value::Object(_))
+        | (Value::Array(_), _)
+        | (_, Value::Array(_)) => {
             // Objects compare by identity; distinct values are never equal.
             true
         }
@@ -47,7 +49,11 @@ fn loose_ne(a: Option<&Value>, b: Option<&Value>) -> bool {
                 Value::Number(n) => n.as_f64(),
                 Value::String(s) => {
                     let t = js::trim(s);
-                    Some(if t.is_empty() { 0.0 } else { t.parse::<f64>().unwrap_or(f64::NAN) })
+                    Some(if t.is_empty() {
+                        0.0
+                    } else {
+                        t.parse::<f64>().unwrap_or(f64::NAN)
+                    })
                 }
                 _ => None,
             };

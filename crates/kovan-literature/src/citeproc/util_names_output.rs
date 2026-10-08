@@ -14,7 +14,6 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-
 //! Port of `src/util_names_output.js`: `CSL.NameOutput`, the object that
 //! renders the names of one `cs:names` element, with the methods defined in
 //! the other `util_names_*.js` files (each in its own Rust file as an
@@ -352,7 +351,11 @@ pub(super) fn js_num(v: Option<&Value>) -> f64 {
 pub(super) fn slice_head<T: Clone>(list: &[T], n: f64) -> Vec<T> {
     let len = list.len() as f64;
     let n = if n.is_nan() { 0.0 } else { n.trunc() };
-    let end = if n < 0.0 { (len + n).max(0.0) } else { n.min(len) };
+    let end = if n < 0.0 {
+        (len + n).max(0.0)
+    } else {
+        n.min(len)
+    };
     list[..end as usize].to_vec()
 }
 
@@ -433,7 +436,9 @@ pub(super) fn q_append_blob(
         FormatRef::None => st.output.empty.clone(),
         FormatRef::Name(n) if n.is_empty() => st.output.empty.clone(),
         FormatRef::Name(n) => queue::get_token(st, QueueId::Output, &n).ok_or_else(|| {
-            EngineError::Csl(format!("CSL processor error: unknown format token name: {n}"))
+            EngineError::Csl(format!(
+                "CSL processor error: unknown format token name: {n}"
+            ))
         })?,
         FormatRef::Token(t) => t,
     };
@@ -476,7 +481,9 @@ pub(super) fn q_pop_blob(st: &mut State) -> CslResult<Option<BlobId>> {
 /// TypeError when there is none.
 pub(super) fn q_pop_blob_required(st: &mut State) -> CslResult<BlobId> {
     q_pop_blob(st)?.ok_or_else(|| {
-        EngineError::Csl("TypeError: Cannot read properties of undefined (reading 'strings')".into())
+        EngineError::Csl(
+            "TypeError: Cannot read properties of undefined (reading 'strings')".into(),
+        )
     })
 }
 
@@ -534,7 +541,11 @@ pub(super) fn name_obj_mut(v: &mut Value) -> CslResult<&mut Obj> {
         Value::Object(o) => Ok(o),
         other => Err(EngineError::BadInput(format!(
             "Cannot create property 'family' on {} '{}'",
-            if other.is_boolean() { "boolean" } else { "string" },
+            if other.is_boolean() {
+                "boolean"
+            } else {
+                "string"
+            },
             js::to_js_string(other)
         ))),
     }
@@ -798,10 +809,12 @@ impl NameOutput {
                         .and_then(|p| p.get(j))
                         .copied()
                         .flatten();
-                    institution_sets.push(self.join_persons_and_institutions(st, vec![person, inst])?);
+                    institution_sets
+                        .push(self.join_persons_and_institutions(st, vec![person, inst])?);
                 }
                 if n_inst > 0 {
-                    let mut pos = self.nameset_base + self.variable_offset.get(v).copied().unwrap_or(0);
+                    let mut pos =
+                        self.nameset_base + self.variable_offset.get(v).copied().unwrap_or(0);
                     // this.freeters[v].length: a blob (or false) has none
                     // after renderAllNames, an unrendered empty list has 0.
                     if self.rendered_freeters_length(v) {
@@ -833,7 +846,12 @@ impl NameOutput {
         }
         for b in &blob_list {
             // notSerious
-            q_append(st, AppendArg::Blob(*b), FormatRef::Name("literal".into()), true)?;
+            q_append(
+                st,
+                AppendArg::Blob(*b),
+                FormatRef::Name("literal".into()),
+                true,
+            )?;
         }
         if !st.tmp.just_looking && !blob_list.is_empty() {
             st.tmp.probably_rendered_something = true;
@@ -856,7 +874,12 @@ impl NameOutput {
             let prefix = self.names.string("prefix");
             update_group_context_condition(st, Some(&prefix), false, Some(&self.names), None);
         }
-        q_append(st, AppendArg::Blob(blob), FormatRef::Token(names_token), false)?;
+        q_append(
+            st,
+            AppendArg::Blob(blob),
+            FormatRef::Token(names_token),
+            false,
+        )?;
         if st.tmp.term_predecessor_name {
             st.tmp.term_predecessor = true;
         }
@@ -956,12 +979,7 @@ impl NameOutput {
     }
 
     /// `CSL.NameOutput.prototype._applyLabels(blob, v)`.
-    pub fn apply_labels(
-        &mut self,
-        st: &mut State,
-        blob: BlobId,
-        v: &str,
-    ) -> CslResult<BlobId> {
+    pub fn apply_labels(&mut self, st: &mut State, blob: BlobId, v: &str) -> CslResult<BlobId> {
         let Some(lv) = self.label_variable.clone() else {
             return Ok(blob);
         };
@@ -992,7 +1010,12 @@ impl NameOutput {
             let txt = self.build_label(st, v, plural, "before", &lv)?;
             q_open_level(st, FormatRef::Name("empty".into()))?;
             q_append_str(st, txt.as_deref(), FormatRef::Token(before.clone()), true)?;
-            q_append(st, AppendArg::Blob(blob), FormatRef::Name("literal".into()), true)?;
+            q_append(
+                st,
+                AppendArg::Blob(blob),
+                FormatRef::Name("literal".into()),
+                true,
+            )?;
             q_close_level_named(st, "empty")?;
             blob = q_pop_blob_required(st)?;
         } else if let Some(after) = &label.after {
@@ -1001,7 +1024,12 @@ impl NameOutput {
             }
             let txt = self.build_label(st, v, plural, "after", &lv)?;
             q_open_level(st, FormatRef::Name("empty".into()))?;
-            q_append(st, AppendArg::Blob(blob), FormatRef::Name("literal".into()), true)?;
+            q_append(
+                st,
+                AppendArg::Blob(blob),
+                FormatRef::Name("literal".into()),
+                true,
+            )?;
             q_append_str(st, txt.as_deref(), FormatRef::Token(after.clone()), true)?;
             st.tmp.label_blob = q_pop_blob(st)?;
             let label_blob = st.tmp.label_blob;
@@ -1026,10 +1054,13 @@ impl NameOutput {
             Some(c) => c.clone(),
             None => term.to_string(),
         };
-        let node = self
-            .label
-            .get(v)
-            .and_then(|l| if position == "before" { l.before.clone() } else { l.after.clone() });
+        let node = self.label.get(v).and_then(|l| {
+            if position == "before" {
+                l.before.clone()
+            } else {
+                l.after.clone()
+            }
+        });
         match node {
             Some(node) => Ok(Some(cast_label_in_group(st, &node, &term, plural)?)),
             None => Ok(None),
@@ -1048,7 +1079,10 @@ impl NameOutput {
             return Ok(());
         }
         if self.nameset_base == 0
-            && has_value(self.item.get(self.variables.first().map(String::as_str).unwrap_or("")))
+            && has_value(
+                self.item
+                    .get(self.variables.first().map(String::as_str).unwrap_or("")),
+            )
             && self.first_creator_variable.is_none()
         {
             self.first_creator_variable = self.variables.first().cloned();
@@ -1196,7 +1230,14 @@ pub(super) fn cast_label_in_group(
         tip_label_static: false,
         strip_periods: st.tmp.strip_periods != 0,
     };
-    let r = cast_label(st, node, &mut ctx, Some(term), Some(plural), super::load::TOLERANT)?;
+    let r = cast_label(
+        st,
+        node,
+        &mut ctx,
+        Some(term),
+        Some(plural),
+        super::load::TOLERANT,
+    )?;
     if ctx.tip_label_static {
         if let Some(t) = st.tmp.group_context.tip_mut() {
             t.label_static = Value::Bool(true);

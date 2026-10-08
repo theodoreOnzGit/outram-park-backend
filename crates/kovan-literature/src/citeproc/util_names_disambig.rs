@@ -14,7 +14,6 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-
 //! Port of `src/util_names_disambig.js`:
 //! `CSL.NameOutput.prototype.disambigNames` and `_runDisambigNames`, and the
 //! part of `tmp.disambig_settings` (`CSL.AmbigConfig`) they read and write.
@@ -229,7 +228,10 @@ impl NameOutput {
             }
 
             let myinitials = self.inherit_name_opt(st, "initialize-with", None, None)?;
-            let myinitials_str = myinitials.as_ref().and_then(Value::as_str).map(str::to_string);
+            let myinitials_str = myinitials
+                .as_ref()
+                .and_then(Value::as_str)
+                .map(str::to_string);
             namereg_addname(st, &item_id, name, i);
             if !st.tmp.name_ambig.has_givens(pos) {
                 // Holes can appear in the list, probably due to institutional
@@ -239,12 +241,14 @@ impl NameOutput {
             let chk = st.tmp.name_ambig.given(pos, i);
             let myform = self.form_opt(st)?;
             if chk.is_none() {
-                let p = namereg_evalname(st, &item_id, name, i, 0, &myform, myinitials_str.as_deref());
+                let p =
+                    namereg_evalname(st, &item_id, name, i, 0, &myform, myinitials_str.as_deref());
                 st.tmp.name_ambig.push_given(pos, p);
             }
             //
             // set the display mode default for givennames if required
-            let paramx = namereg_evalname(st, &item_id, name, i, 0, &myform, myinitials_str.as_deref());
+            let paramx =
+                namereg_evalname(st, &item_id, name, i, 0, &myform, myinitials_str.as_deref());
             let mut param: Option<i64>;
             if js::truthy(&st.tmp.disambig_request) {
                 //
@@ -318,7 +322,12 @@ impl NameOutput {
     /// `this.state.inheritOpt(this.name, "form", "name-form", "long")`.
     pub(super) fn form_opt(&self, st: &State) -> CslResult<String> {
         Ok(self
-            .inherit_name_opt(st, "form", Some("name-form"), Some(Value::String("long".into())))?
+            .inherit_name_opt(
+                st,
+                "form",
+                Some("name-form"),
+                Some(Value::String("long".into())),
+            )?
             .map(|v| js::to_js_string(&v))
             .unwrap_or_default())
     }

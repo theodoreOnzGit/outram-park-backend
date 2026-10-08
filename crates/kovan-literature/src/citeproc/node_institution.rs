@@ -71,9 +71,10 @@ fn setup(state: &mut State, token: &mut Token) -> CslResult<()> {
     // different results.
     let and_opt = state.inherit_opt(token, "and", None, None);
     match and_opt.as_ref().and_then(Value::as_str) {
-        Some("text") => {
-            set_and_term(token, state.get_term("and", Some("long"), Some(0), None, None, false)?)
-        }
+        Some("text") => set_and_term(
+            token,
+            state.get_term("and", Some("long"), Some(0), None, None, false)?,
+        ),
         Some("symbol") => {
             let expect = js::truthy_opt(
                 state
@@ -82,7 +83,10 @@ fn setup(state: &mut State, token: &mut Token) -> CslResult<()> {
                     .and_then(|d| d.get("expect_and_symbol_form")),
             );
             if expect {
-                set_and_term(token, state.get_term("and", Some("symbol"), Some(0), None, None, false)?)
+                set_and_term(
+                    token,
+                    state.get_term("and", Some("symbol"), Some(0), None, None, false)?,
+                )
             } else {
                 set_and_term(token, Some("&".to_string()))
             }
@@ -111,7 +115,9 @@ fn setup(state: &mut State, token: &mut Token) -> CslResult<()> {
         and_prefix_multiple = String::new();
         and_suffix = String::new();
     }
-    let inst_delim = institution_delimiter.clone().unwrap_or_else(|| "undefined".to_string());
+    let inst_delim = institution_delimiter
+        .clone()
+        .unwrap_or_else(|| "undefined".to_string());
     let dpl = state.inherit_opt(token, "delimiter-precedes-last", None, None);
     match dpl.as_ref().and_then(Value::as_str) {
         Some("always") => and_prefix_single = inst_delim.clone(),
@@ -127,14 +133,36 @@ fn setup(state: &mut State, token: &mut Token) -> CslResult<()> {
 
     let and: BlobPair;
     if and_term.is_some() {
-        q_append_str(state, and_term.as_deref(), FormatRef::Name("empty".into()), true)?;
+        q_append_str(
+            state,
+            and_term.as_deref(),
+            FormatRef::Name("empty".into()),
+            true,
+        )?;
         let single = q_pop_blob_required(state)?;
-        state.blobs.get_mut(single).set_string("prefix", &and_prefix_single);
-        state.blobs.get_mut(single).set_string("suffix", &and_suffix);
-        q_append_str(state, and_term.as_deref(), FormatRef::Name("empty".into()), true)?;
+        state
+            .blobs
+            .get_mut(single)
+            .set_string("prefix", &and_prefix_single);
+        state
+            .blobs
+            .get_mut(single)
+            .set_string("suffix", &and_suffix);
+        q_append_str(
+            state,
+            and_term.as_deref(),
+            FormatRef::Name("empty".into()),
+            true,
+        )?;
         let multiple = q_pop_blob_required(state)?;
-        state.blobs.get_mut(multiple).set_string("prefix", &and_prefix_multiple);
-        state.blobs.get_mut(multiple).set_string("suffix", &and_suffix);
+        state
+            .blobs
+            .get_mut(multiple)
+            .set_string("prefix", &and_prefix_multiple);
+        state
+            .blobs
+            .get_mut(multiple)
+            .set_string("suffix", &and_suffix);
         and = BlobPair {
             single: Some(single),
             multiple: Some(multiple),
