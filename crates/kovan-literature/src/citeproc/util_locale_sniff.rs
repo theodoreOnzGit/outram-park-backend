@@ -17,20 +17,26 @@
 //! `CSL.getLocaleNames` (src/util_locale_sniff.js): which locales a style
 //! uses, for a host that wants to preload them.
 //!
-//! **Upstream bug kept.** `sniffLocaleOnOneNodeName` calls
-//! `this.extendLocaleList(...)`, but `extendLocaleList` is a plain nested
-//! function and `this` is `undefined` in the strict-mode bundle, so as soon
-//! as a `layout`, `if`, `else-if` or `condition` node carries a `locale`
-//! attribute upstream throws a TypeError. This port returns the same error.
+//! **What upstream actually returns.** `sniffLocaleOnOneNodeName(nodeName)` is
+//! declared with one parameter but called as
+//! `sniffLocaleOnOneNodeName(stylexml, localeIDs, nodeNames[i])`, so its
+//! `nodeName` is the `stylexml` object, `getNodesByName` matches no node, and
+//! the loop body (with its `this.extendLocaleList`, which would throw) is never
+//! reached. citeproc-js 2.4.63 therefore returns `en-US`, the preferred locale
+//! and the style's `default-locale` only, whatever `locale` attributes the
+//! `layout`/`if`/`else-if`/`condition` nodes carry (checked in node 22 with the
+//! npm bundle, 2026-10-08, #802). The port does the same.
+//!
+//! ~~Earlier versions of this file returned a TypeError as soon as such a node
+//! carried a `locale` attribute, describing it as an upstream bug kept.~~
+//! **CORRECTED 2026-10-08** (#802): that was a divergence from citeproc-js,
+//! which never throws here. Nothing in the engine calls this function; the
+//! `locale` attributes themselves (a CSL-M extension, not CSL 1.0.2) are
+//! handled by `@locale` / `@locale-internal` in attributes.rs and node_layout.rs.
 
-use std::sync::LazyLock;
-
-use regex::Regex;
-
-use super::js;
 use super::system;
 use super::util_locale::locale_resolve;
-use super::{CslResult, EngineError};
+use super::CslResult;
 
 /// `extendLocaleList(localeList, locale)`: append the `base` and `best` of
 /// `locale` if not already present.
@@ -62,18 +68,9 @@ pub fn get_locale_names(myxml: &str, preferred_locale: Option<&str>) -> CslResul
         None => String::new(),
     };
     extend_locale_list(&mut locale_ids, &default_locale);
-    static SPACES: LazyLock<Regex> = LazyLock::new(|| Regex::new(" +").expect("static"));
-    for node_name in ["layout", "if", "else-if", "condition"] {
-        for n in stylexml.get_nodes_by_name(stylexml.data_obj, node_name, "") {
-            let node_locales = stylexml.get_attribute_string(n, "locale");
-            if !node_locales.is_empty() && !js::split(&SPACES, &node_locales).is_empty() {
-                return Err(EngineError::Csl(
-                    "TypeError: Cannot read properties of undefined (reading 'extendLocaleList')"
-                        .to_string(),
-                ));
-            }
-        }
-    }
+    // The node sniffing loop (`sniffLocaleOnOneNodeName` over layout, if,
+    // else-if, condition) matches no node upstream (see the module docs), so
+    // it contributes nothing and is not ported.
     Ok(locale_ids)
 }
 
@@ -91,8 +88,14 @@ mod tests {
     }
 
     #[test]
-    fn a_locale_attribute_reaches_the_upstream_bug() {
-        let style = r#"<style class="note" version="1.0"><citation><layout locale="fr"/></citation></style>"#;
-        assert!(get_locale_names(style, None).is_err());
+    fn locale_attributes_on_nodes_add_nothing_as_upstream() {
+        // citeproc-js 2.4.63 in node 22: getLocaleNames on a style whose
+        // layout and if carry locale="fr-FR", preferred locale en-GB,
+        // default-locale de-DE, returns ["en-US","en-GB","de-DE"], no throw.
+        let style = r#"<style class="note" version="1.0" default-locale="de-DE"><citation><layout locale="fr-FR"><choose><if locale="fr-FR"><text value="x"/></if></choose></layout></citation></style>"#;
+        assert_eq!(
+            get_locale_names(style, Some("en-GB")).unwrap(),
+            vec!["en-US", "en-GB", "de-DE"]
+        );
     }
 }

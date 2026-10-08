@@ -49,18 +49,39 @@ been found yet. Until decided, **the port reproduces citeproc-js**.
   entry), so the decoration lookup then fails. Probably a bug; needs the
   spec's rich-text markup section and a fixture to confirm the intended flip
   (to `normal`).
-- **C3 (#802) — `CSL.getLocaleNames` throws a TypeError** through an unbound `this`
-  (util_locale_sniff.js). Only reached through an API path the suite does not
-  use.
-- **C4 (#803) — Stale bundled locales.** citeproc-js 2.4.63's pinned `locale/`
-  predates the test suite at `6eefc5b0`, so at least 9 of citeproc-js's 16
-  fixture failures are locale data (`AD` vs ` AD`, `tran.` vs `trans.`). This
-  is data, not engine code: the decision is which locale files the port ships
-  and is verified with. The fixture `RESULT` shows the intended (newer)
-  terms.
-- **C5 (#804) — Greek and Lithuanian `toLocaleUpperCase`** are locale-specific in V8
-  and only the Turkic rules are implemented here. A gap, not a quirk; listed
-  so it is not forgotten.
+- **C3 (#802) — RESOLVED 2026-10-08, not a quirk: it was a port defect.**
+  ~~`CSL.getLocaleNames` throws a TypeError through an unbound `this`~~:
+  measured in node 22 with citeproc-js 2.4.63, it does **not** throw.
+  `sniffLocaleOnOneNodeName(nodeName)` is called with `stylexml` as its first
+  argument, matches no node, and never reaches the `this.` line, so it returns
+  `en-US`, the preferred locale and the `default-locale` only. The port threw;
+  it now returns what citeproc-js returns (`util_locale_sniff.rs`, test
+  `locale_attributes_on_nodes_add_nothing_as_upstream`). No caller in the
+  engine; no fixture or site style has a `locale` attribute on a layout or
+  condition.
+- **C4 (#803) — Stale bundled locales. MEASURED 2026-10-08.** citeproc-js
+  2.4.63's `locale/` is pinned at `6b0cb46` (2019-02-25). With the CSL locales
+  repository at `ec17593` (2026-04-01, the last commit before the suite's
+  `6eefc5b0`) or at HEAD `a89adec` (2026-09-10) — identical fixture outputs —
+  the port equals the fixtures' own `RESULT` on **842 of 845** (829 with the
+  pinned locales): **13 of citeproc-js's 16 misses are fixed and none
+  regress**. The 13: AD/BC spacing (6), `tran.`→`trans.` (4), `Jun`→`June`
+  (2), one term change (`name_EtAlWithCombined`). The 3 still missing
+  (`decorations_Baseline`, `page_Chicago`, `textcase_TitleCaseWithVolumeTitle`)
+  are not locale data. The **site** already uses `a89adec`
+  (`data/csl/locales-en-US.xml`, `locales-en-GB.xml` byte-identical), on
+  both sides of its comparison; with the pinned locales instead, 4 Vancouver
+  bibliography entries lose the "Report" label. Locales are CC BY-SA 3.0
+  (locales repo README; `<rights>` in each file). **Ready to register** as a
+  data deviation if the maintainer chooses the newer locales for the fixture
+  harness (the 13 comparisons would cite it).
+- **C5 (#804) — Greek and Lithuanian `toLocaleUpperCase`. MEASURED 2026-10-08:
+  a gap, not a quirk.** The port's non-Turkic path (`s.to_uppercase()`) is
+  **wrong against citeproc-js** for `el` (V8 strips tonos and adds dialytika:
+  `άλφα ΜΆΙΟΣ` → node `ΑΛΦΑ ΜΑΪΟΣ`, port `ΆΛΦΑ ΜΆΙΟΣ`) and `lt` (dot above
+  dropped after i/j). No effect on the 845 fixtures (their Greek text only
+  reaches lowercasing) or the site set (no `el`/`lt` items). Fix = implement
+  the el/lt special casing with differential tests against node.
 - **C6 (#806) — `NAME_REX` typo**: `spans+class` where `\s+class` was meant
   (formatters.js; port `formatters.rs`), so name splitting never sees a
   `<span class="nocase">`.
@@ -72,9 +93,14 @@ been found yet. Until decided, **the port reproduces citeproc-js**.
   storing `""` (C13), the misspelt `build_layout_locale_flag` (C14), cyclic
   gender terms in the locale merge (C15). Details and port locations in #807.
 
-Update to C3 (#802), 2026-10-08: the unbound-`this` TypeError is reached by
+~~Update to C3 (#802), 2026-10-08: the unbound-`this` TypeError is reached by
 **any `locale` attribute on `cs:layout`, `cs:if` or a condition**, which CSL
-1.0.2 allows; the spec text is the evidence, so C3 is ready to register.
+1.0.2 allows; the spec text is the evidence, so C3 is ready to register.~~
+**CORRECTED 2026-10-08** (measurement in #802): both halves were wrong.
+citeproc-js never throws there (see C3 above), and the CSL 1.0.2
+specification (`documentation/specification.rst`, master) has no `locale`
+attribute on `cs:layout` or conditions — that is a CSL-M (Juris-M) extension
+citeproc-js implements in `@locale`. There was no spec evidence to cite.
 
 ### Candidates from the wave-2 integration (2026-10-08)
 
