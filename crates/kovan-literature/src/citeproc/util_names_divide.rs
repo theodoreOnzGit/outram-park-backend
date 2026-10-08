@@ -24,7 +24,7 @@ use super::build_retrieve_item::normalize_abbrevs_key;
 use super::js::{self, Obj};
 use super::state::State;
 use super::util_names::get_raw_name;
-use super::util_transform::get_item_prop;
+use super::util_transform::{get_item_prop, set_item_prop};
 use super::util_names_output::{js_num, NameOutput};
 use super::util_names_tests::is_person;
 use super::CslResult;
@@ -109,7 +109,7 @@ impl NameOutput {
     /// one literal name; a lone object a one-element list). Read through
     /// [`get_item_prop`], because upstream's `Item` is the shared object the
     /// `@variable` closure has just rewritten with the `authority` split (#808).
-    pub fn normalize_variable_value(&mut self, st: &State, variable: &str) -> Vec<Value> {
+    pub fn normalize_variable_value(&mut self, st: &mut State, variable: &str) -> Vec<Value> {
         match get_item_prop(st, &self.item, variable) {
             Some(Value::String(s)) => {
                 // name variable is string or number, not array. Attempting to fix.
@@ -128,9 +128,15 @@ impl NameOutput {
             Some(Value::Array(a)) => a,
             Some(v) if js::truthy(&v) => {
                 // name variable is object, not array. Attempting to fix.
+                // Upstream writes `Item[variable] = [Item[variable]]` into the
+                // shared item (= registry.refhash[id]), so later reads see the
+                // array: write both this clone and the registry's item.
+                let fixed = Value::Array(vec![v.clone()]);
                 if let Value::Object(o) = &mut self.item {
-                    o.insert(variable.to_string(), Value::Array(vec![v.clone()]));
+                    o.insert(variable.to_string(), fixed.clone());
                 }
+                let item = self.item.clone();
+                set_item_prop(st, &item, variable, fixed);
                 vec![v]
             }
             _ => Vec::new(),
@@ -266,5 +272,40 @@ impl NameOutput {
             }
         }
         Ok(name)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use serde_json::json;
+
+    use crate::citeproc::{CitationItem, Engine, Sys};
+
+    /// A name variable given as a lone object instead of an array
+    /// (`_normalizeVariableValue`'s "Attempting to fix" branch): citeproc-js
+    /// 2.4.63 in node 22 renders this style's citation as `Jane Doe` and its
+    /// bibliography entry as `<div class="csl-entry">Jane Doe. T</div>`
+    /// (checked 2026-10-08), the fix being written into the shared item.
+    #[test]
+    fn an_object_valued_name_variable_renders_as_citeproc_js_does() {
+        let style = r#"<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0"><info><id/><title/><updated>2020-01-01T00:00:00+00:00</updated></info><citation><layout><names variable="author"><name/></names></layout></citation><bibliography><layout><names variable="author"><name/></names><text variable="title" prefix=". "/></layout></bibliography></style>"#;
+        let items = [json!({"id": "A", "type": "book", "title": "T",
+                             "author": {"family": "Doe", "given": "Jane"}})];
+        let sys = Sys::new(
+            &items,
+            Arc::new(crate::citeproc::test_support::minimal_locales()),
+        )
+        .unwrap();
+        let mut e = Engine::new(sys, style, "").unwrap();
+        e.update_items(&["A".to_string()], false).unwrap();
+        let cite = CitationItem::from_json(&json!({"id": "A"})).unwrap();
+        assert_eq!(e.make_citation_cluster(&[cite]).unwrap(), "Jane Doe");
+        let bib = e.make_bibliography(None).unwrap();
+        assert_eq!(
+            bib.entries.concat(),
+            "  <div class=\"csl-entry\">Jane Doe. T</div>\n"
+        );
     }
 }
