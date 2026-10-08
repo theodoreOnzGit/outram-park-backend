@@ -306,6 +306,9 @@ pub struct GroupContext {
     pub done_vars: Vec<String>,
     /// `value_seen` (set by `UPDATE_GROUP_CONTEXT_CONDITION`).
     pub value_seen: bool,
+    /// `old_term_predecessor` (the context literal of node_group.js: the
+    /// value of `tmp.term_predecessor` when the group started).
+    pub old_term_predecessor: bool,
 }
 
 impl Default for GroupContext {
@@ -330,6 +333,7 @@ impl Default for GroupContext {
             force_suppress: false,
             done_vars: Vec::new(),
             value_seen: false,
+            old_term_predecessor: false,
         }
     }
 }
@@ -642,6 +646,10 @@ pub struct Tmp {
     /// `tmp.term_predecessor_name` (queue.js).
     pub term_predecessor_name: bool,
     // ---- fields: wave2 ----
+    /// The `state.tmp` properties the rendering nodes read and write that the
+    /// constructor does not set (`abbrev_trimmer`, `have_collapsed`, `render_seen`,
+    /// ...); see [`RenderTmp`](super::util_transform::RenderTmp).
+    pub render: super::util_transform::RenderTmp,
 
     // ---- fields: wave3 ----
 
@@ -733,6 +741,7 @@ impl Tmp {
             count_offset_characters: None,
             offset_characters: 0,
             term_predecessor_name: false,
+            render: Default::default(),
         }
     }
 }

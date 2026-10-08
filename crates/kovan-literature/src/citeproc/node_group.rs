@@ -14,17 +14,44 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
+
 //! Port of `src/node_group.js`: `CSL.Node.group`.
+//!
+//! # Group suppression
+//!
+//! A group renders only if something inside it did. Every `cs:group` START
+//! pushes a context onto `state.tmp.group_context` (a [`GroupContext`]:
+//! `variable_attempt`, `variable_success`, `term_intended`, `condition`,
+//! `force_suppress`, ...) and every END pops it and decides: when no variable
+//! succeeded (and no term was intended without an attempted variable), or a
+//! conditional group (`require`/`reject`) wants to be suppressed, the group's
+//! blob is popped off the output again and the parent context learns of the
+//! failed attempt. `cs:text variable`, `cs:number`, `cs:date`, `cs:names` and
+//! the label code raise the flags of the tip context as they render.
+//!
+//! # Differences from JS that are not behaviour
+//!
+//! * Upstream's `condition` of a nested context is the very object of its
+//!   parent's (UPDATE_GROUP_CONTEXT_CONDITION sets `termtxt` on both). Here
+//!   each context owns a copy and the END closure copies the child's
+//!   condition back into the parent's tip, which is when the parent reads it.
+//! * `Object.assign(non_parallel, this.non_parallel)` mutates the parent's
+//!   object in place; the merge is done on the parent's tip as well.
+//! * `state.output.current.value().parent = ...` is a blob property nothing
+//!   reads; it is stored as `blob.extra["parent"]` (the id of the blob).
 
 use serde_json::Value;
 
 use super::exec::{Exec, Test};
 use super::js;
+use super::load::{self, evaluate_group_condition, update_group_context_condition};
 use super::node_choose;
 use super::node_else;
 use super::node_if;
+use super::obj_blob::BlobContent;
 use super::obj_token::{Token, TokenType};
-use super::state::State;
+use super::queue::{self, QueueId};
+use super::state::{GroupCondition, GroupContext, State};
 use super::util_substitute;
 use super::{CslResult, EngineError};
 
@@ -47,32 +74,422 @@ pub enum NodeGroupExec {
     End,
 }
 
+/// `state.tmp.group_context.tip`, mutably. An empty stack is the JS
+/// `TypeError` of writing to the `tip` of an exhausted stack.
+pub fn tip_mut(state: &mut State) -> CslResult<&mut GroupContext> {
+    state.tmp.group_context.tip_mut().ok_or_else(|| {
+        EngineError::BadInput("Cannot set properties of undefined (group_context.tip)".into())
+    })
+}
+
+/// `state.tmp.group_context.tip`. An empty stack gives a default context
+/// (every read of `tip.x` is then `undefined`, as on JS's `{}`).
+pub fn tip(state: &State) -> GroupContext {
+    state
+        .tmp
+        .group_context
+        .tip()
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// `Object.assign(base || {}, add)` on JSON objects: `base` is updated in
+/// place and returned.
+fn assign(base: &mut Value, add: &Value) {
+    if !base.is_object() {
+        *base = Value::Object(js::Obj::new());
+    }
+    if let (Value::Object(b), Value::Object(a)) = (&mut *base, add) {
+        for (k, v) in a {
+            b.insert(k.clone(), v.clone());
+        }
+    }
+}
+
+/// `state.output.current.value().blobs.pop()` when the open level is a list.
+fn pop_last_child(state: &mut State) {
+    if let Some(cur) = queue::current(state, QueueId::Output) {
+        if let BlobContent::List(l) = &mut state.blobs.get_mut(cur).blobs {
+            l.pop();
+        }
+    }
+}
+
+/// `registry.registry[Item.id].parallel_delimiter_override = ...` and the
+/// parallel-cite machinery of the group END closure.
+/// PORT-LATER(w2-engine): needs `state.registry` (registry.js) and
+/// `state.parallel.checkRepeats` (util_parallel.js).
+fn parallel_not_ported(method: &'static str) -> EngineError {
+    EngineError::NotYetPorted { method }
+}
+
 impl NodeGroupExec {
     /// Run the closure.
     pub fn run(
         &self,
-        _state: &mut State,
-        _token: &mut Token,
-        _item: &Value,
+        state: &mut State,
+        token: &mut Token,
+        item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
-        // PORT-LATER(wave2): every closure of node_group.js works on the output
-        // queue (state.output.startTag/endTag/current, queue.rs) and on
-        // state.tmp.group_context (the group-context stack with its flag
-        // objects; CSL.UPDATE_GROUP_CONTEXT_CONDITION / EVALUATE_GROUP_CONDITION),
-        // state.parallel.checkRepeats, state.tmp.suppress_repeats and
-        // CSL.PublisherOutput / CSL.tokenExec. `this.realGroup`, `parallel_*`,
-        // `non_parallel` and the label overrides are token data (extra /
-        // strings) already set by the builder and attributes.
-        let method = match self {
-            NodeGroupExec::Start => "node_group.js:20 closure",
-            NodeGroupExec::PublisherSpecialStart => "node_group.js:160 closure",
-            NodeGroupExec::RunJurisTokens => "node_group.js:229 closure",
-            NodeGroupExec::PublisherSpecialEnd => "node_group.js:270 closure",
-            NodeGroupExec::End => "node_group.js:282 closure",
-        };
-        Err(EngineError::NotYetPorted { method })
+        match self {
+            NodeGroupExec::Start => {
+                group_start(state, token)?;
+                Ok(None)
+            }
+            NodeGroupExec::PublisherSpecialStart => {
+                if js::truthy_opt(item.get("publisher")) && js::truthy_opt(item.get("publisher-place")) {
+                    let split = |v: &Value| -> usize {
+                        let s = js::to_js_string(v);
+                        let re = regex::Regex::new(&format!(r";[{}]*", js::WS)).ok();
+                        match re {
+                            Some(re) => js::split(&re, &s).len(),
+                            None => 1,
+                        }
+                    };
+                    let publisher_n = item.get("publisher").map(split).unwrap_or(0);
+                    let place_n = item.get("publisher-place").map(split).unwrap_or(0);
+                    if publisher_n > 1 && publisher_n == place_n {
+                        // PORT-LATER(w2-names): `state.publisherOutput = new
+                        // CSL.PublisherOutput(state, this)` (util_publishers.js).
+                        return Err(EngineError::NotYetPorted {
+                            method: "node_group.js:174 new CSL.PublisherOutput",
+                        });
+                    }
+                }
+                Ok(None)
+            }
+            NodeGroupExec::RunJurisTokens => {
+                // This will run the juris- token list.
+                let mut item_item = item;
+                let cite_has_best = js::truthy(_cite_item)
+                    && js::truthy_opt(_cite_item.get("best-jurisdiction"));
+                let juris = token
+                    .extra
+                    .get("juris")
+                    .map(js::to_js_string)
+                    .unwrap_or_default();
+                if cite_has_best && juris == "juris-locator" {
+                    item_item = _cite_item;
+                }
+                let best = item_item
+                    .get("best-jurisdiction")
+                    .map(js::to_js_string)
+                    .unwrap_or_else(|| "undefined".to_string());
+                let Some(module) = state.juris.get(&best) else {
+                    return Err(EngineError::BadInput(
+                        "Cannot read properties of undefined (reading 'juris-...')".into(),
+                    ));
+                };
+                if module.macros.contains_key(&juris) {
+                    // PORT-LATER(w2-engine): token lists of style modules are
+                    // not addressable by `State::token_exec` (util_nodes.rs
+                    // `TokenList` has no module variant); the test runner
+                    // loads no modules, so this is not reached.
+                    return Err(EngineError::NotYetPorted {
+                        method: "node_group.js:229 run state.juris[...] tokens",
+                    });
+                }
+                Ok(None)
+            }
+            NodeGroupExec::PublisherSpecialEnd => {
+                // if (state.publisherOutput) { render(); state.publisherOutput = false }
+                // PORT-LATER(w2-names): there is never a publisherOutput yet.
+                Ok(None)
+            }
+            NodeGroupExec::End => {
+                group_end(state, token, item)?;
+                Ok(None)
+            }
+        }
     }
+}
+
+/// The "newoutput" closure (node_group.js:20-150).
+fn group_start(state: &mut State, token: &mut Token) -> CslResult<()> {
+    queue::start_tag(state, QueueId::Output, "group", Some(token))?;
+
+    if js::truthy_opt(token.strings.get("label_form_override")) {
+        let ovr = token.strings.get("label_form_override").cloned().unwrap_or(Value::Null);
+        let t = tip_mut(state)?;
+        if !js::truthy(&t.label_form) {
+            t.label_form = ovr;
+        }
+    }
+
+    if js::truthy_opt(token.strings.get("label_capitalize_if_first_override")) {
+        let ovr = token
+            .strings
+            .get("label_capitalize_if_first_override")
+            .cloned()
+            .unwrap_or(Value::Null);
+        let t = tip_mut(state)?;
+        if !js::truthy(&t.label_capitalize_if_first) {
+            t.label_capitalize_if_first = ovr;
+        }
+    }
+
+    if js::truthy_opt(token.extra.get("realGroup")) {
+        if tip(state).condition.is_some() {
+            let prefix = token.string("prefix");
+            update_group_context_condition(state, Some(&prefix), false, Some(token), None);
+        }
+
+        // XXX Can we do something better for length here?
+        if !state.tmp.group_context.is_empty() {
+            let parent = tip(state).output_tip;
+            if let Some(cur) = queue::current(state, QueueId::Output) {
+                let v = parent.map(|b| Value::from(b.0)).unwrap_or(Value::Null);
+                state.blobs.get_mut(cur).extra.insert("parent".into(), v);
+            }
+        }
+
+        // fieldcontextflag
+        let mut label_form = tip(state).label_form;
+        if !js::truthy(&label_form) {
+            label_form = token
+                .strings
+                .get("label_form_override")
+                .cloned()
+                .unwrap_or(Value::Null);
+        }
+
+        let mut label_capitalize_if_first = tip(state).label_capitalize_if_first;
+        if !js::truthy(&label_capitalize_if_first) {
+            label_capitalize_if_first = token
+                .strings
+                .get("label_capitalize_if_first")
+                .cloned()
+                .unwrap_or(Value::Null);
+        }
+        let parent_tip = tip(state);
+        let condition: Option<GroupCondition>;
+        let force_suppress: bool;
+        if parent_tip.condition.is_some() {
+            condition = parent_tip.condition.clone();
+            force_suppress = parent_tip.force_suppress;
+            //force_suppress: false;
+        } else if js::truthy_opt(token.strings.get("reject")) {
+            condition = Some(GroupCondition {
+                test: token.string("reject"),
+                not: true,
+                ..GroupCondition::default()
+            });
+            force_suppress = false;
+        } else if js::truthy_opt(token.strings.get("require")) {
+            condition = Some(GroupCondition {
+                test: token.string("require"),
+                not: false,
+                ..GroupCondition::default()
+            });
+            force_suppress = false;
+        } else {
+            condition = None;
+            force_suppress = false;
+        }
+        let mut context = GroupContext {
+            old_term_predecessor: state.tmp.term_predecessor,
+            term_intended: false,
+            variable_attempt: false,
+            variable_success: false,
+            variable_success_parent: Value::Bool(parent_tip.variable_success),
+            output_tip: queue::current(state, QueueId::Output),
+            label_form,
+            label_static: parent_tip.label_static.clone(),
+            label_capitalize_if_first,
+            parallel_delimiter_override: token
+                .strings
+                .get("set_parallel_delimiter_override")
+                .cloned()
+                .unwrap_or(Value::Null),
+            parallel_delimiter_override_on_suppress: token
+                .strings
+                .get("set_parallel_delimiter_override_on_suppress")
+                .cloned()
+                .unwrap_or(Value::Null),
+            condition,
+            force_suppress,
+            done_vars: parent_tip.done_vars.clone(),
+            ..GroupContext::default()
+        };
+        if js::truthy_opt(token.extra.get("non_parallel")) {
+            let add = token.extra.get("non_parallel").cloned().unwrap_or(Value::Null);
+            let t = tip_mut(state)?;
+            assign(&mut t.non_parallel, &add);
+            context.non_parallel = t.non_parallel.clone();
+        }
+        if js::truthy_opt(token.extra.get("parallel_first")) {
+            let add = token.extra.get("parallel_first").cloned().unwrap_or(Value::Null);
+            let t = tip_mut(state)?;
+            assign(&mut t.parallel_first, &add);
+            context.parallel_first = t.parallel_first.clone();
+        }
+        if js::truthy_opt(token.extra.get("parallel_last")) {
+            let add = token.extra.get("parallel_last").cloned().unwrap_or(Value::Null);
+            let t = tip_mut(state)?;
+            assign(&mut t.parallel_last, &add);
+            context.parallel_last = t.parallel_last.clone();
+        }
+        if let Some(l2f) = state
+            .tmp
+            .render
+            .abbrev_trimmer
+            .as_ref()
+            .and_then(|t| t.last_to_first.clone())
+        {
+            if js::truthy(&context.parallel_last) {
+                if !js::truthy(&context.parallel_first) {
+                    context.parallel_first = Value::Object(js::Obj::new());
+                }
+                for varname in l2f.keys() {
+                    if js::truthy_opt(context.parallel_last.get(varname.as_str())) {
+                        if let Value::Object(pf) = &mut context.parallel_first {
+                            pf.insert(varname.clone(), Value::Bool(true));
+                        }
+                        if let Value::Object(pl) = &mut context.parallel_last {
+                            pl.remove(varname.as_str());
+                        }
+                    }
+                }
+            }
+        }
+
+        state.tmp.group_context.push_literal(context);
+
+        if state.tmp.render.abbrev_trimmer.is_some()
+            && js::truthy_opt(token.extra.get("parallel_last_to_first"))
+        {
+            let vars: Vec<String> = token
+                .extra
+                .get("parallel_last_to_first")
+                .and_then(Value::as_object)
+                .map(|o| o.keys().cloned().collect())
+                .unwrap_or_default();
+            if let Some(trimmer) = state.tmp.render.abbrev_trimmer.as_mut() {
+                let l2f = trimmer.last_to_first.get_or_insert_with(Default::default);
+                for varname in vars {
+                    l2f.insert(varname, true);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The "quashnonfields" closure (node_group.js:~282-385).
+fn group_end(state: &mut State, token: &mut Token, _item: &Value) -> CslResult<()> {
+    if tip(state).condition.is_none() {
+        let cur = queue::current(state, QueueId::Output);
+        if let Some(cur) = cur {
+            if js::truthy_opt(state.blobs.get(cur).strings.get("suffix")) {
+                state.tmp.just_did_number = false;
+            }
+        }
+    }
+    queue::end_tag(state, QueueId::Output, None)?;
+    if js::truthy_opt(token.extra.get("realGroup")) {
+        let mut flags = state.tmp.group_context.pop().ok_or_else(|| {
+            EngineError::BadInput("Cannot read properties of undefined (group_context.pop)".into())
+        })?;
+        if js::truthy(&flags.parallel_delimiter_override) {
+            tip_mut(state)?.parallel_delimiter_override = flags.parallel_delimiter_override.clone();
+            if !state.tmp.just_looking {
+                // registry.registry[Item.id].master ... = flags.parallel_delimiter_override
+                return Err(parallel_not_ported(
+                    "node_group.js:279 state.registry.registry[Item.id].master",
+                ));
+            }
+        }
+        if js::truthy(&flags.parallel_delimiter_override_on_suppress) {
+            tip_mut(state)?.parallel_delimiter_override_on_suppress =
+                flags.parallel_delimiter_override_on_suppress.clone();
+        }
+        if state.tmp.area == "bibliography_sort" {
+            let citation_number_idx = flags.done_vars.iter().position(|v| v == "citation-number");
+            if js::truthy_opt(token.strings.get("sort_direction"))
+                && citation_number_idx.is_some()
+                && state.tmp.group_context.len() == 1
+            {
+                let dir = if token.strings.get("sort_direction").and_then(Value::as_i64)
+                    == Some(load::DESCENDING)
+                {
+                    load::DESCENDING
+                } else {
+                    load::ASCENDING
+                };
+                state
+                    .bibliography_sort
+                    .opt
+                    .insert("citation_number_sort_direction".into(), Value::from(dir));
+                if let Some(i) = citation_number_idx {
+                    flags.done_vars.remove(i);
+                }
+            }
+        }
+        if flags.condition.is_some() {
+            // `undefined` (the context condition is not enabled) is falsy.
+            flags.force_suppress = evaluate_group_condition(state, &flags).unwrap_or(false);
+        }
+        // The popped context shared its condition object with the parent
+        // context upstream (see the module docs): hand its state back.
+        if let Some(t) = state.tmp.group_context.tip_mut() {
+            if t.condition.is_some() {
+                t.condition = flags.condition.clone();
+                t.force_suppress = flags.force_suppress;
+            }
+        }
+
+        if !flags.force_suppress
+            && (flags.variable_success || (flags.term_intended && !flags.variable_attempt))
+        {
+            if !js::truthy_opt(token.extra.get("isJurisLocatorLabel")) {
+                tip_mut(state)?.variable_success = true;
+            }
+            if !state.tmp.just_looking
+                && (js::truthy(&flags.non_parallel)
+                    || js::truthy(&flags.parallel_last)
+                    || js::truthy(&flags.parallel_first)
+                    || js::truthy(&flags.parallel_delimiter_override)
+                    || js::truthy(&flags.parallel_delimiter_override_on_suppress))
+            {
+                // Returns true ONLY if all variables listed on this group are repeats.
+                return Err(parallel_not_ported(
+                    "node_group.js:323 state.parallel.checkRepeats",
+                ));
+            }
+        } else {
+            state.tmp.term_predecessor = flags.old_term_predecessor;
+            {
+                let t = tip_mut(state)?;
+                t.variable_attempt = flags.variable_attempt;
+                if flags.force_suppress && t.condition.is_none() {
+                    t.variable_attempt = true;
+                    t.variable_success = js::truthy(&flags.variable_success_parent);
+                }
+            }
+            if flags.force_suppress {
+                // 2019-04-15
+                // This is removing variables done within the group we're
+                // leaving from global done_vars? How does that make sense?
+                // Ah. This is a FAILURE. So removing from done_vars allows it
+                // to re-render later in the cite if desired.
+                // Currently no tests fail from removing the condition, but
+                // leaving it in.
+                for done_var in &flags.done_vars {
+                    // `jlen` is fixed before the loop while the array shrinks
+                    // under it, as upstream's is.
+                    let jlen = state.tmp.done_vars.len();
+                    for j in 0..jlen {
+                        if state.tmp.done_vars.get(j) == Some(done_var) {
+                            state.tmp.done_vars.remove(j);
+                        }
+                    }
+                }
+            }
+            pop_last_child(state);
+        }
+    }
+    Ok(())
 }
 
 /// The condition closures `src/node_group.js` stores in `token.tests` /
@@ -91,17 +508,19 @@ impl NodeGroupTest {
     /// Evaluate the condition.
     pub fn eval(
         &self,
-        _state: &mut State,
+        state: &mut State,
         _token: &mut Token,
-        _item: &Value,
-        _cite_item: &Value,
+        item: &Value,
+        cite_item: &Value,
     ) -> CslResult<bool> {
         match self {
-            // PORT-LATER(wave2): node_group.js:215-222, CSL.INIT_JURISDICTION_MACROS
-            // (jurisdiction macro loading; not in the files of this wave).
-            NodeGroupTest::InitJurisdictionMacros { .. } => Err(EngineError::NotYetPorted {
-                method: "node_group.js:215 CSL.INIT_JURISDICTION_MACROS",
-            }),
+            NodeGroupTest::InitJurisdictionMacros { macro_name } => {
+                // `Item` is mutated (`best-jurisdiction`) upstream; the copy
+                // carries it for this call.
+                let mut item_full = item.clone();
+                let cite = if js::truthy(cite_item) { Some(cite_item) } else { None };
+                load::init_jurisdiction_macros(state, &mut item_full, cite, macro_name)
+            }
         }
     }
 }

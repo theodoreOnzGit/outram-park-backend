@@ -32,6 +32,7 @@ use serde_json::Value;
 use super::exec::Test;
 use super::js;
 use super::obj_token::{Token, TokenType};
+use super::queue::{self, QueueId};
 use super::state::State;
 use super::{CslResult, EngineError};
 
@@ -82,13 +83,17 @@ impl UtilConditionsExec {
                     }
                 }
                 if js::truthy_opt(token.extra.get("locale_default")) {
-                    // PORT-LATER(wave2): util_conditions.js:36-39, needs
-                    // state.output.current.value().old_locale = this.locale_default;
-                    // state.output.closeLevel("empty") (queue.rs), then
-                    // state.opt.lang = this.locale_default.
-                    return Err(EngineError::NotYetPorted {
-                        method: "util_conditions.js:36 closure (output.closeLevel)",
-                    });
+                    // Open output tag with locale marker
+                    let ld = token
+                        .extra
+                        .get("locale_default")
+                        .map(js::to_js_string)
+                        .unwrap_or_default();
+                    if let Some(cur) = queue::current(state, QueueId::Output) {
+                        state.blobs.get_mut(cur).old_locale = Some(ld.clone());
+                    }
+                    queue::close_level(state, QueueId::Output, Some("empty"))?;
+                    state.opt.insert("lang".into(), Value::String(ld));
                 }
                 Ok(None)
             }

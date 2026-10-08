@@ -33,6 +33,7 @@ use super::exec::{Exec, Test};
 use super::js;
 use super::node_choose;
 use super::obj_token::{Decoration, Token, TokenType};
+use super::queue::{self, QueueId};
 use super::state::State;
 use super::{CslResult, EngineError};
 
@@ -83,7 +84,7 @@ impl UtilSubstituteExec {
         &self,
         state: &mut State,
         token: &mut Token,
-        _item: &Value,
+        item: &Value,
         cite_item: &Value,
     ) -> CslResult<Option<usize>> {
         match self {
@@ -138,45 +139,171 @@ impl UtilSubstituteExec {
                 }
                 Ok(None)
             }
-            // PORT-LATER(wave2): util_substitute.js:79-84, needs
-            // state.output.startTag("bib_first", bib_first) (queue.rs) and
-            // writes bib_first.strings.first_blob on the captured token.
-            UtilSubstituteExec::BibFirstSecondFieldAlign => Err(EngineError::NotYetPorted {
-                method: "util_substitute.js:79 closure",
-            }),
-            // PORT-LATER(wave2): util_substitute.js:92-95, as above.
-            UtilSubstituteExec::BibFirstDisplay => Err(EngineError::NotYetPorted {
-                method: "util_substitute.js:92 closure",
-            }),
-            // PORT-LATER(wave2): util_substitute.js:118-170, needs
-            // state.output.startTag("variable_entry", ...) and
-            // state.output.current.value().params (queue.rs).
-            UtilSubstituteExec::VariableEntryStart => Err(EngineError::NotYetPorted {
-                method: "util_substitute.js:118 closure",
-            }),
-            // PORT-LATER(wave2): util_substitute.js:~180, needs
-            // state.output.endTag("variable_entry").
-            UtilSubstituteExec::VariableEntryEnd => Err(EngineError::NotYetPorted {
-                method: "util_substitute.js:180 closure",
-            }),
-            // PORT-LATER(wave2): util_substitute.js:~200, needs
-            // state.output.endTag("bib_first").
-            UtilSubstituteExec::BibFirstEnd => Err(EngineError::NotYetPorted {
-                method: "util_substitute.js:200 closure",
-            }),
-            // PORT-LATER(wave2): util_substitute.js:~207, needs endTag.
-            UtilSubstituteExec::BibFirstEndGroup => Err(EngineError::NotYetPorted {
-                method: "util_substitute.js:207 closure",
-            }),
-            // PORT-LATER(wave2): util_substitute.js:~216, needs startTag.
-            UtilSubstituteExec::BibOtherStart => Err(EngineError::NotYetPorted {
-                method: "util_substitute.js:216 closure",
-            }),
-            // PORT-LATER(wave3): util_substitute.js:~234-330, needs
-            // state.tmp.name_node / rendered_name / last_rendered_name and CSL.Blob.
-            UtilSubstituteExec::AuthorSubstitute { .. } => Err(EngineError::NotYetPorted {
-                method: "util_substitute.js:234 closure",
-            }),
+            UtilSubstituteExec::BibFirstSecondFieldAlign => {
+                // `bib_first` is this very token (the closure captured it).
+                if !state.tmp.render.render_seen {
+                    token.strings.insert(
+                        "first_blob".into(),
+                        item.get("id").cloned().unwrap_or(Value::Null),
+                    );
+                    queue::start_tag(state, QueueId::Output, "bib_first", Some(token))?;
+                }
+                Ok(None)
+            }
+            UtilSubstituteExec::BibFirstDisplay => {
+                token.strings.insert(
+                    "first_blob".into(),
+                    item.get("id").cloned().unwrap_or(Value::Null),
+                );
+                queue::start_tag(state, QueueId::Output, "bib_first", Some(token))?;
+                Ok(None)
+            }
+            UtilSubstituteExec::VariableEntryStart => {
+                if !state.tmp.just_looking && !state.tmp.suppress_decorations {
+                    // Attach item data and variable names.
+                    // Do with them what you will.
+                    let mut variable_entry = Token::new("text", TokenType::Start);
+                    variable_entry.decorations = vec![Decoration::new("@showid", "true")];
+                    queue::start_tag(
+                        state,
+                        QueueId::Output,
+                        "variable_entry",
+                        Some(&variable_entry),
+                    )?;
+                    let has_cite = js::truthy(cite_item);
+                    let cite_num = |key: &str| -> Value {
+                        if has_cite && js::truthy_opt(cite_item.get(key)) {
+                            cite_item.get(key).cloned().unwrap_or(Value::from(0))
+                        } else {
+                            Value::from(0)
+                        }
+                    };
+                    let mut position: Value = if has_cite {
+                        cite_item.get("position").cloned().unwrap_or(Value::Null)
+                    } else {
+                        Value::Null
+                    };
+                    if !js::truthy(&position) {
+                        position = Value::from(0);
+                    }
+                    let position_map = [
+                        "first",
+                        "container-subsequent",
+                        "subsequent",
+                        "ibid",
+                        "ibid-with-locator",
+                    ];
+                    let position_name = position
+                        .as_u64()
+                        .and_then(|p| position_map.get(p as usize))
+                        .map(|s| Value::String((*s).to_string()))
+                        .unwrap_or(Value::Null);
+                    let mut params = js::Obj::new();
+                    params.insert("itemData".into(), item.clone());
+                    params.insert(
+                        "variableNames".into(),
+                        Value::Array(
+                            token
+                                .variables
+                                .iter()
+                                .map(|v| Value::String(v.clone()))
+                                .collect(),
+                        ),
+                    );
+                    params.insert("context".into(), Value::String(state.tmp.area.clone()));
+                    params.insert(
+                        "xclass".into(),
+                        state.opt.get("xclass").cloned().unwrap_or(Value::Null),
+                    );
+                    params.insert("position".into(), position_name);
+                    params.insert("note-number".into(), cite_num("noteIndex"));
+                    params.insert(
+                        "first-reference-note-number".into(),
+                        cite_num("first-reference-note-number"),
+                    );
+                    params.insert(
+                        "first-container-reference-note-number".into(),
+                        cite_num("first-container-reference-note-number"),
+                    );
+                    // XXX Will this EVER happen?
+                    params.insert("citation-number".into(), cite_num("citation-number"));
+                    params.insert("index".into(), cite_num("index"));
+                    params.insert(
+                        "mode".into(),
+                        state.opt.get("mode").cloned().unwrap_or(Value::Null),
+                    );
+                    if let Some(cur) = queue::current(state, QueueId::Output) {
+                        state
+                            .blobs
+                            .get_mut(cur)
+                            .extra
+                            .insert("params".into(), Value::Object(params));
+                    }
+                }
+                Ok(None)
+            }
+            UtilSubstituteExec::VariableEntryEnd => {
+                if !state.tmp.just_looking && !state.tmp.suppress_decorations {
+                    queue::end_tag(state, QueueId::Output, Some("variable_entry"))?;
+                }
+                Ok(None)
+            }
+            UtilSubstituteExec::BibFirstEnd => {
+                queue::end_tag(state, QueueId::Output, Some("bib_first"))?;
+                Ok(None)
+            }
+            UtilSubstituteExec::BibFirstEndGroup => {
+                // first func end
+                if !state.tmp.render.render_seen {
+                    queue::end_tag(state, QueueId::Output, Some("bib_first"))?; // closes bib_first
+                }
+                Ok(None)
+            }
+            UtilSubstituteExec::BibOtherStart => {
+                if !state.tmp.render.render_seen {
+                    state.tmp.render.render_seen = true;
+                    queue::start_tag(state, QueueId::Output, "bib_other", Some(token))?;
+                }
+                Ok(None)
+            }
+            UtilSubstituteExec::AuthorSubstitute { substitution_name } => {
+                // The guards of the closure (util_substitute.js:~250-264).
+                if state.tmp.area != "bibliography" {
+                    return Ok(None);
+                }
+                if !matches!(
+                    state.bibliography.opt.get("subsequent-author-substitute"),
+                    Some(Value::String(_))
+                ) {
+                    return Ok(None);
+                }
+                // `this.variables_real` is an array, so `Item[this.variables_real]`
+                // reads the key its comma-joined text spells.
+                let vr_key = token
+                    .extra
+                    .get("variables_real")
+                    .map(js::to_js_string)
+                    .unwrap_or_default();
+                if token.extra.contains_key("variables_real")
+                    && !js::truthy_opt(item.get(vr_key.as_str()))
+                {
+                    return Ok(None);
+                }
+                // The logic of these two is not obvious. The effect is to
+                // enable placeholder substitution on a text macro name
+                // substitution, without printing both the text macro AND the
+                // placeholder.
+                if token.extra.contains_key("variables_real") && substitution_name == "names" {
+                    return Ok(None);
+                }
+                // PORT-LATER(w2-names): the rest of the closure works on
+                // state.tmp.rendered_name / name_node / last_rendered_name /
+                // label_blob (the cs:names code) and
+                // state.tmp.subsequent_author_substitute_ok (citeStart).
+                Err(EngineError::NotYetPorted {
+                    method: "util_substitute.js:~265 subsequent-author-substitute",
+                })
+            }
         }
     }
 }
