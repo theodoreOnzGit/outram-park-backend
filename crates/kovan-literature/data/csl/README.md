@@ -16,3 +16,22 @@ Pinned copies used by `kovan_literature::csl` and by the citeproc-js reference
 Fetched 2026-10-08 (#791 added the four styles and `locales-en-GB.xml`), unmodified. The licence and author credits are in each
 file's `<info>` block. To update, fetch a new commit, then re-run
 `scripts/csl-reference.sh` and the comparison test.
+
+## Locale provenance and attribution
+
+- **Source:** [citation-style-language/locales](https://github.com/citation-style-language/locales),
+  commit `a89adece41013402236e2c9020972d7e931fbab8` (2026-09-10), files
+  `locales-en-US.xml` and `locales-en-GB.xml` byte-identical to that commit
+  (checked 2026-10-08 with `cmp` against a clone at the pinned commit).
+- **Licence:** CC BY-SA 3.0 (locales repository `README.md`, "Licensing"; the
+  `<rights license="http://creativecommons.org/licenses/by-sa/3.0/">` element in
+  each file). The repository has no LICENSE file.
+- **Attribution:** these locale files come from the CSL project
+  ([CitationStyles.org](https://citationstyles.org/)). The translator listings
+  in each file's `<info>` block are kept as is.
+- **Use in tests:** `scripts/csl-reference.sh` also clones the full locales
+  repository at the same commit into the git-ignored `vendor/csl-locales`, which
+  `tests/citeproc_test_suite.rs` uses for the CSL test suite fixtures
+  (`src/citeproc/DEVIATIONS.md` D13). citeproc-js 2.4.63's own pinned 2019
+  locales (`6b0cb46`) are used only to produce the committed reference outputs
+  and by `tests/citeproc_intermediate.rs`.

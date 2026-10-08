@@ -16,6 +16,8 @@
 # 4. Runs the CSL test suite's processor fixtures through citeproc-js exactly
 #    as its own test runner does: tests/data/csl/test_suite_reference.json
 #    (scripts/csl-testsuite-reference.cjs).
+#    The reference uses citeproc-js's pinned 2019 locales; tests/citeproc_test_suite.rs
+#    runs the port on the CURRENT locales (vendor/csl-locales, D13).
 #
 # citeproc-js is installed with npm into target/csl-reference/ (git-ignored),
 # pinned to CITEPROC_VERSION. Needs node (12 is enough), npm and git. Review
@@ -27,6 +29,10 @@ set -euo pipefail
 CITEPROC_VERSION="${CITEPROC_VERSION:-2.4.63}"
 CITEPROC_JS_COMMIT=73bc1b44bc7d54d0bfec4e070fd27f5efe024ff9
 CSL_TEST_SUITE_COMMIT=6eefc5b07c6969ab8999e48542acbcc131cba864
+# Current CSL locale data (2026-09-10; byte-identical to the site's
+# crates/kovan-literature/data/csl/locales-en-*.xml). CC BY-SA 3.0. The test
+# suite fixtures are verified against it (DEVIATIONS.md D13).
+CSL_LOCALES_COMMIT=a89adece41013402236e2c9020972d7e931fbab8
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
@@ -49,6 +55,7 @@ fetch() { # <url> <dir> <commit>
 }
 fetch https://github.com/juris-m/citeproc-js vendor/citeproc-js "$CITEPROC_JS_COMMIT"
 fetch https://github.com/citation-style-language/test-suite vendor/csl-test-suite "$CSL_TEST_SUITE_COMMIT"
+fetch https://github.com/citation-style-language/locales vendor/csl-locales "$CSL_LOCALES_COMMIT"
 # The locales citeproc-js 2.4.63 pins: the directory its test runner reads.
 git -C vendor/citeproc-js submodule update --init --quiet locale
 
