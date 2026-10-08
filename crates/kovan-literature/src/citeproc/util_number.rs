@@ -27,10 +27,9 @@
 //! `state.tmp.shadow_numbers[variable]` with the parsed values, labels and
 //! the plural / numeric / collapsible flags. It is complete here.
 //! `processNumber(node, ...)` additionally mangles ranges and builds the
-//! styling tokens: [`fix_ranges`] and [`set_styling`] are ported, with the
-//! two things they need from other files deferred (`page_mangler`, and the
-//! token `formatter` copy); `CSL.Util.outputNumericField` renders through the
-//! output queue and is deferred ([`output_numeric_field`]).
+//! styling tokens: [`fix_ranges`] (with `state.fun.page_mangler`) and
+//! [`set_styling`] are ported; `CSL.Util.outputNumericField` renders through
+//! the output queue and is deferred ([`output_numeric_field`]).
 //!
 //! # Locale terms
 //!
@@ -58,224 +57,10 @@ use super::obj_token::{Decoration, Token, TokenType};
 use super::state::State;
 use super::{CslResult, EngineError};
 
-// DUP-CHECK: load.js CSL.STATUTE_SUBDIV_STRINGS
-/// `CSL.STATUTE_SUBDIV_STRINGS` (abbreviated label to term).
-const STATUTE_SUBDIV_STRINGS: [(&str, &str); 46] = [
-    ("vrs.", "verse"),
-    ("sv.", "sub-verbo"),
-    ("subpara.", "subparagraph"),
-    ("op.", "opus"),
-    ("subch.", "subchapter"),
-    ("add.", "addendum"),
-    ("amend.", "amendment"),
-    ("annot.", "annotation"),
-    ("app.", "appendix"),
-    ("art.", "article"),
-    ("bibliog.", "bibliography"),
-    ("bk.", "book"),
-    ("ch.", "chapter"),
-    ("cl.", "clause"),
-    ("col.", "column"),
-    ("cmt.", "comment"),
-    ("dec.", "decision"),
-    ("dept.", "department"),
-    ("ex.", "example"),
-    ("fig.", "figure"),
-    ("fld.", "field"),
-    ("fol.", "folio"),
-    ("n.", "note"),
-    ("hypo.", "hypothetical"),
-    ("illus.", "illustration"),
-    ("intro.", "introduction"),
-    ("l.", "line"),
-    ("no.", "issue"),
-    ("p.", "page"),
-    ("pp.", "page"),
-    ("para.", "paragraph"),
-    ("pt.", "part"),
-    ("pmbl.", "preamble"),
-    ("princ.", "principle"),
-    ("pub.", "publication"),
-    ("r.", "rule"),
-    ("rn.", "randnummer"),
-    ("sched.", "schedule"),
-    ("sec.", "section"),
-    ("ser.", "series,"),
-    ("subdiv.", "subdivision"),
-    ("subsec.", "subsection"),
-    ("supp.", "supplement"),
-    ("tbl.", "table"),
-    ("tit.", "title"),
-    ("vol.", "volume"),
-];
-// DUP-CHECK: load.js CSL.STATUTE_SUBDIV_STRINGS_REVERSE
-/// `CSL.STATUTE_SUBDIV_STRINGS_REVERSE` (term to abbreviated label).
-const STATUTE_SUBDIV_STRINGS_REVERSE: [(&str, &str); 46] = [
-    ("verse", "vrs."),
-    ("sub-verbo", "sv."),
-    ("sub verbo", "sv."),
-    ("subparagraph", "subpara."),
-    ("opus", "op."),
-    ("subchapter", "subch."),
-    ("addendum", "add."),
-    ("amendment", "amend."),
-    ("annotation", "annot."),
-    ("appendix", "app."),
-    ("article", "art."),
-    ("bibliography", "bibliog."),
-    ("book", "bk."),
-    ("chapter", "ch."),
-    ("clause", "cl."),
-    ("column", "col."),
-    ("comment", "cmt."),
-    ("decision", "dec."),
-    ("department", "dept."),
-    ("example", "ex."),
-    ("figure", "fig."),
-    ("field", "fld."),
-    ("folio", "fol."),
-    ("note", "n."),
-    ("hypothetical", "hypo."),
-    ("illustration", "illus."),
-    ("introduction", "intro."),
-    ("line", "l."),
-    ("issue", "no."),
-    ("page", "p."),
-    ("paragraph", "para."),
-    ("part", "pt."),
-    ("preamble", "pmbl."),
-    ("principle", "princ."),
-    ("publication", "pub."),
-    ("rule", "r."),
-    ("randnummer", "rn."),
-    ("schedule", "sched."),
-    ("section", "sec."),
-    ("series,", "ser."),
-    ("subdivision", "subdiv."),
-    ("subsection", "subsec."),
-    ("supplement", "supp."),
-    ("table", "tbl."),
-    ("title", "tit."),
-    ("volume", "vol."),
-];
-// DUP-CHECK: load.js CSL.LOCATOR_LABELS_MAP
-/// `CSL.LOCATOR_LABELS_MAP`.
-const LOCATOR_LABELS_MAP: [(&str, &str); 46] = [
-    ("vrs", "verse"),
-    ("sv", "sub-verbo"),
-    ("subpara", "subparagraph"),
-    ("op", "opus"),
-    ("subch", "subchapter"),
-    ("add", "addendum"),
-    ("amend", "amendment"),
-    ("annot", "annotation"),
-    ("app", "appendix"),
-    ("art", "article"),
-    ("bibliog", "bibliography"),
-    ("bk", "book"),
-    ("ch", "chapter"),
-    ("cl", "clause"),
-    ("col", "column"),
-    ("cmt", "comment"),
-    ("dec", "decision"),
-    ("dept", "department"),
-    ("ex", "example"),
-    ("fig", "figure"),
-    ("fld", "field"),
-    ("fol", "folio"),
-    ("n", "note"),
-    ("hypo", "hypothetical"),
-    ("illus", "illustration"),
-    ("intro", "introduction"),
-    ("l", "line"),
-    ("no", "issue"),
-    ("p", "page"),
-    ("pp", "page"),
-    ("para", "paragraph"),
-    ("pt", "part"),
-    ("pmbl", "preamble"),
-    ("princ", "principle"),
-    ("pub", "publication"),
-    ("r", "rule"),
-    ("rn", "randnummer"),
-    ("sched", "schedule"),
-    ("sec", "section"),
-    ("ser", "series,"),
-    ("subdiv", "subdivision"),
-    ("subsec", "subsection"),
-    ("supp", "supplement"),
-    ("tbl", "table"),
-    ("tit", "title"),
-    ("vol", "volume"),
-];
-// DUP-CHECK: load.js CSL.LangPrefsMap
-/// `CSL.LangPrefsMap` (variable to language-role).
-const LANG_PREFS_MAP: [(&str, &str); 18] = [
-    ("title", "titles"),
-    ("title-short", "titles"),
-    ("event", "titles"),
-    ("genre", "titles"),
-    ("medium", "titles"),
-    ("container-title", "journals"),
-    ("collection-title", "titles"),
-    ("archive", "journals"),
-    ("publisher", "publishers"),
-    ("authority", "publishers"),
-    ("publisher-place", "places"),
-    ("event-place", "places"),
-    ("archive-place", "places"),
-    ("jurisdiction", "places"),
-    ("number", "places"),
-    ("edition", "places"),
-    ("issue", "places"),
-    ("volume", "places"),
-];
-// DUP-CHECK: load.js CSL.ROMAN_NUMERALS
-/// `CSL.ROMAN_NUMERALS`: per decimal position, the numeral for digit 0..=9 (position 3 has 0..=5).
-const ROMAN_NUMERALS: [&[&str]; 4] = [
-    &["", "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix"],
-    &["", "x", "xx", "xxx", "xl", "l", "lx", "lxx", "lxxx", "xc"],
-    &["", "c", "cc", "ccc", "cd", "d", "dc", "dcc", "dccc", "cm"],
-    &["", "m", "mm", "mmm", "mmmm", "mmmmm"],
-];
-
-// DUP-CHECK: load.js CSL.SUFFIX_CHARS
-const SUFFIX_CHARS: &str = "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z";
-// DUP-CHECK: load.js CSL.LOOSE
-/// `CSL.LOOSE`: `getField` returns `undefined` for a missing term.
-pub const LOOSE: i64 = 0;
-// DUP-CHECK: load.js CSL.STRICT
-/// `CSL.STRICT`: a missing term is a `CSL.error`.
-pub const STRICT: i64 = 1;
-// DUP-CHECK: load.js CSL.TOLERANT
-/// `CSL.TOLERANT`: `getTerm` turns a missing term into `""`.
-pub const TOLERANT: i64 = 2;
-
-/// `CSL.STATUTE_SUBDIV_STRINGS[key]`.
-pub(crate) fn statute_subdiv_strings(key: &str) -> Option<&'static str> {
-    STATUTE_SUBDIV_STRINGS
-        .iter()
-        .find(|p| p.0 == key)
-        .map(|p| p.1)
-}
-
-/// `CSL.STATUTE_SUBDIV_STRINGS_REVERSE[key]`.
-pub(crate) fn statute_subdiv_strings_reverse(key: &str) -> Option<&'static str> {
-    STATUTE_SUBDIV_STRINGS_REVERSE
-        .iter()
-        .find(|p| p.0 == key)
-        .map(|p| p.1)
-}
-
-/// `CSL.LOCATOR_LABELS_MAP[key]`.
-pub(crate) fn locator_labels_map(key: &str) -> Option<&'static str> {
-    LOCATOR_LABELS_MAP.iter().find(|p| p.0 == key).map(|p| p.1)
-}
-
-/// `CSL.LangPrefsMap[key]`.
-pub(crate) fn lang_prefs_map(key: &str) -> Option<&'static str> {
-    LANG_PREFS_MAP.iter().find(|p| p.0 == key).map(|p| p.1)
-}
+use super::load::{
+    lang_prefs_map, statute_subdiv_string, statute_subdiv_string_reverse, LOOSE, ROMAN_NUMERALS,
+    SUFFIX_CHARS,
+};
 
 fn rx(src: &str) -> Regex {
     // Static patterns only; a failure here is a programming error caught by
@@ -515,7 +300,12 @@ impl Ordinalizer {
     /// `Ordinalizer.prototype.format(num, gender)`: `num` with its ordinal
     /// suffix, per the locale's CSL 1.0.1 `ord` rules when present, else
     /// the four-suffix English-style rule.
-    pub fn format(&self, state: &mut State, num: &Value, gender: Option<&str>) -> CslResult<String> {
+    pub fn format(
+        &self,
+        state: &mut State,
+        num: &Value,
+        gender: Option<&str>,
+    ) -> CslResult<String> {
         let parsed = js::parse_int_value(num);
         let mut s = match parsed {
             Some(n) => n.to_string(),
@@ -985,14 +775,14 @@ fn normalize_field_value(item: &Value, variable: &str, s: &str) -> String {
     let mut str_ = js::trim(s).to_string();
     if let Some(m) = FIRST_WORD_RE.captures(&str_) {
         let first = m.get(1).map(|x| x.as_str()).unwrap_or("");
-        if statute_subdiv_strings(first).is_none() {
+        if statute_subdiv_string(first).is_none() {
             let embedded = if ["locator", "locator-extra", "page"].contains(&variable) {
                 match item.get("label").filter(|l| js::truthy(l)) {
-                    Some(l) => statute_subdiv_strings_reverse(&js::to_js_string(l)),
+                    Some(l) => statute_subdiv_string_reverse(&js::to_js_string(l)),
                     None => Some("p."),
                 }
             } else {
-                statute_subdiv_strings_reverse(variable)
+                statute_subdiv_string_reverse(variable)
             };
             if let Some(e) = embedded {
                 str_ = format!("{e} {str_}");
@@ -1015,7 +805,7 @@ fn compose_number_info(
     let joining_suffix = joining_suffix.unwrap_or("");
     let mut info = NumberInfo::default();
     let mut label = label.to_string();
-    if label.is_empty() && statute_subdiv_strings_reverse(variable).is_none() {
+    if label.is_empty() && statute_subdiv_string_reverse(variable).is_none() {
         label = format!("var:{variable}");
     }
     if !label.is_empty() {
@@ -1198,7 +988,7 @@ fn parse_string(
             // merge bad leading label into content
             if !mm.is_empty() {
                 let slug = js::trim(&mm[0]).to_string();
-                let sub = statute_subdiv_strings(&slug);
+                let sub = statute_subdiv_string(&slug);
                 let not_a_label = sub.is_none()
                     || input_get_term_name(state, sub).is_none()
                     || (!["locator", "number", "locator-extra", "page"].contains(&variable)
@@ -1352,12 +1142,12 @@ fn fix_label_visibility(
     if js::slice(label, 0, Some(4)) != "var:" {
         if cli.pos == 0 {
             if ["locator", "number", "locator-extra", "page"].contains(&variable) {
-                if input_get_term_name(state, statute_subdiv_strings(label)).is_none() {
+                if input_get_term_name(state, statute_subdiv_string(label)).is_none() {
                     values[cli.pos].label_visibility = Some(true);
                 }
             }
             if !["locator", "number", "locator-extra", "page"].contains(&variable)
-                && statute_subdiv_strings(label) != Some(variable)
+                && statute_subdiv_string(label) != Some(variable)
             {
                 values[0].label_visibility = Some(true);
             }
@@ -1430,7 +1220,7 @@ fn check_term(state: &mut State, variable: &str, val: &NumberInfo) -> bool {
             Some(o) => o,
             None => val.label.as_deref().unwrap_or(""),
         };
-        input_get_term_name(state, statute_subdiv_strings(label))
+        input_get_term_name(state, statute_subdiv_string(label))
             .map(|t| !t.is_empty())
             .unwrap_or(false)
     } else {
@@ -1518,17 +1308,16 @@ fn mangle_page_numbers(
     let is_page = check_page(variable, &values[i]);
     let s: String;
     if is_page && a.is_some() && b.is_some() {
-        let _joined = format!(
+        let joined = format!(
             "{}{} - {}{}",
             values[i - 1].particle.as_deref().unwrap_or("undefined"),
             values[i - 1].value,
             values[i].particle.as_deref().unwrap_or("undefined"),
             values[i].value
         );
-        // PORT-LATER(wave1-output): util_number.js:668, needs `state.fun.page_mangler` (util_page_mangler.js)
-        return Err(EngineError::NotYetPorted {
-            method: "page_mangler",
-        });
+        // `me.fun.page_mangler(str)` (one argument: `isyear` is undefined).
+        let mangler = state.fun.page_mangler.clone();
+        s = mangler.mangle(&joined, false)?;
     } else {
         if NUM_OR_ROMAN_RE.is_match(&values[i - 1].value)
             && NUM_OR_ROMAN_RE.is_match(&values[i].value)
@@ -1564,7 +1353,7 @@ fn mangle_page_numbers(
 }
 
 /// `fixRanges(values)` (only with a node): collapse `12-15` style ranges.
-/// Needs `page_mangler` for page ranges (deferred).
+/// Page ranges go through `state.fun.page_mangler`.
 pub fn fix_ranges(
     state: &mut State,
     variable: &str,
@@ -1628,9 +1417,7 @@ pub fn fix_ranges(
 /// value and return the master styling token. Quotation marks around the
 /// whole value move into the master styling as an `@quotes` decoration.
 ///
-/// PORT-LATER(wave2): util_number.js:581, needs a `formatter` field on
-/// `Token` (`newnode.formatter = node.formatter`; the dump records its
-/// name). `newnode.gender = node.gender` is copied through `Token::extra`.
+/// `gender` and `formatter` are copied through `Token::extra`.
 pub fn set_styling(state: &mut State, node: &Token, values: &mut [NumberInfo]) -> Token {
     let just_looking = state.tmp.just_looking;
     let mut master_node = node.clone_token();
@@ -1656,12 +1443,23 @@ pub fn set_styling(state: &mut State, node: &Token, values: &mut [NumberInfo]) -
         );
         master_node.set_string("suffix", "");
     }
+    let master_label = values.first().map(|v| v.label.clone());
     if !values.is_empty() {
         for v in values.iter_mut() {
             let mut newnode = master_node.clone_token();
             if let Some(g) = node.extra.get("gender") {
                 newnode.extra.insert("gender".into(), g.clone());
             }
+            // `newnode.formatter = node.formatter` (the formatter is kept in
+            // `extra["formatter"]`, see obj_number.rs).
+            if master_label.as_ref() == Some(&v.label) {
+                if let Some(f) = node.extra.get("formatter") {
+                    newnode.extra.insert("formatter".into(), f.clone());
+                }
+            }
+            // `if (val.numeric) newnode.successor_prefix = val.successor_prefix`:
+            // nothing in util_number.js sets `val.successor_prefix`, so this
+            // assigns `undefined` to a property `cloneToken` never copies.
             let suffix = newnode.string("suffix") + &strip_hyphen_backslash(&v.joining_suffix);
             newnode.set_string("suffix", &suffix);
             v.styling = Some(newnode);
@@ -1825,7 +1623,7 @@ fn process_number_inner(
     // Process only if there is a value.
     if val.is_string() || val.is_number() {
         let vs = js::to_js_string(&val);
-        let default_label = statute_subdiv_strings_reverse(variable).unwrap_or("");
+        let default_label = statute_subdiv_string_reverse(variable).unwrap_or("");
 
         if sn.values.is_empty() {
             let mut values = parse_string(
@@ -1857,7 +1655,7 @@ fn process_number_inner(
                 sn.label = v0
                     .label
                     .as_deref()
-                    .and_then(statute_subdiv_strings)
+                    .and_then(statute_subdiv_string)
                     .map(|t| ShadowLabel::Term(t.to_string()));
                 if variable == "number"
                     && sn.label == Some(ShadowLabel::Term("issue".into()))
@@ -2050,6 +1848,7 @@ mod tests {
             &mut st,
             super::super::test_support::logged_locale(&engine["log"], None, None),
         );
+        st.fun.page_mangler = super::super::util_page::PageRangeMangler::get_function(&st, "page");
         st
     }
 
@@ -2163,17 +1962,6 @@ mod tests {
                 let tok = node_token();
                 let res = process_number(st, Some(&tok), Some(item), variable);
                 n_node += 1;
-                if c["node_mangled"].as_bool() == Some(true) {
-                    if !matches!(
-                        res,
-                        Err(EngineError::NotYetPorted {
-                            method: "page_mangler"
-                        })
-                    ) {
-                        bad.push(format!("node [{}] {variable} {item}: expected page_mangler deferral, got {res:?}", c["engine"]));
-                    }
-                    continue;
-                }
                 match (&res, c.get("node_error")) {
                     (Ok(()), None) => {
                         let got = node_out(st);

@@ -21,13 +21,11 @@
 //! for [`month_numeric`]). Here `num` is a [`serde_json::Value`] (a JS number
 //! or string; `Value::Null` stands for `undefined`/`null`).
 //!
-//! # Integration points (what still has to be attached)
+//! # Integration points
 //!
-//! * [`month_long`] / [`month_short`] call `state.getTerm(...)`. Until
-//!   `State::get_term` exists they go through
-//!   [`input_get_term`](super::util_number::input_get_term), the provisional
-//!   term lookup in `util_number.rs` (the integrator swaps its body for
-//!   `State::get_term`).
+//! * [`month_long`] / [`month_short`] call `state.getTerm(...)` through
+//!   [`input_get_term`](super::util_number::input_get_term), a thin wrapper
+//!   over `State::get_term`.
 //! * [`year_imperial`] needs `state.tmp.date_object` (set by `node_date.js`)
 //!   and the abbreviation transform (`util_transform.js`
 //!   `loadAbbreviation`); both are passed in, see its docs.
@@ -328,7 +326,11 @@ pub fn day_numeric_leading_zeros(num: &Value) -> String {
 }
 
 /// `CSL.Util.Dates.day.ordinal`: `state.fun.ordinalizer.format(num, gender)`.
-pub fn day_ordinal(state: &mut State, num: &Value, gender: Option<&str>) -> super::CslResult<String> {
+pub fn day_ordinal(
+    state: &mut State,
+    num: &Value,
+    gender: Option<&str>,
+) -> super::CslResult<String> {
     state.fun.ordinalizer.clone().format(state, num, gender)
 }
 

@@ -35,14 +35,18 @@
 //! `CSL.Util`/`CSL.Output`/`CSL.Node` live in their own files.
 //! `CSL.error` is `Err(EngineError::Csl(..))`; `CSL.debug` is dropped.
 
+use std::collections::BTreeMap;
 use std::sync::LazyLock;
 
 use regex::Regex;
 use serde_json::Value;
 
+use super::formats::{current_format, text_escape, Format};
+use super::formatters;
 use super::js::{self, Obj};
 use super::obj_token::Token;
 use super::state::State;
+use super::util_name_particles::parse_particles;
 use super::xmljson::{NodeId, XmlJson};
 use super::{CslResult, EngineError};
 
@@ -903,6 +907,9 @@ pub const SYS_OPTIONS: &[&str] = &[
 ];
 
 /// `CSL.ROMAN_NUMERALS`.
+/// `CSL.SUFFIX_CHARS`: the year-suffix alphabet, comma-separated.
+pub const SUFFIX_CHARS: &str = "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z";
+
 pub const ROMAN_NUMERALS: [&[&str]; 4] = [
     &["", "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix"],
     &["", "x", "xx", "xxx", "xl", "l", "lx", "lxx", "lxxx", "xc"],
@@ -1225,52 +1232,74 @@ pub fn title_field_splits(seg: &str) -> TitleFieldSplits {
 // ----------------------------------------------------------------------
 // Case conversion.
 
-/// Whether the first language tag of `arr` selects Turkic casing.
-fn turkic(arr: &[String]) -> bool {
-    arr.first()
-        .map(|t| {
-            let p = t.split(['-', '_']).next().unwrap_or("").to_lowercase();
-            p == "tr" || p == "az"
-        })
-        .unwrap_or(false)
+/// Whether `tag` passes JS's `Intl` structural check for a language tag
+/// (approximation of `CanonicalizeLocaleList`; a failing tag makes
+/// `toLocale*Case` throw, which citeproc-js catches by falling back to
+/// `toUpperCase`/`toLowerCase`).
+fn is_valid_lang_tag(tag: &str) -> bool {
+    static RE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$").expect("static citeproc regex")
+    });
+    RE.is_match(tag)
+}
+
+/// The special-casing language of `state.tmp.lang_array` (first element
+/// decides, as `String.prototype.toLocaleUpperCase` does; any invalid tag
+/// makes the whole call fall back to the plain method).
+#[derive(PartialEq)]
+enum CaseLang {
+    Plain,
+    Turkic,
+}
+
+fn case_lang(state: &State) -> CaseLang {
+    let arr = &state.tmp.lang_array;
+    if arr.iter().any(|t| !is_valid_lang_tag(t)) {
+        return CaseLang::Plain;
+    }
+    match arr.first() {
+        Some(first) => {
+            let primary = first.split('-').next().unwrap_or("").to_ascii_lowercase();
+            if primary == "tr" || primary == "az" {
+                CaseLang::Turkic
+            } else {
+                CaseLang::Plain
+            }
+        }
+        None => CaseLang::Plain,
+    }
 }
 
 /// `CSL.toLocaleUpperCase.call(state, str)`: `str.toLocaleUpperCase(
-/// state.tmp.lang_array)`. Locale-sensitive casing is implemented for the
-/// Turkic languages (`i` to `İ`); other tags use the root mapping, which is
-/// what ICU does for them except Lithuanian and Greek (not ported).
+/// state.tmp.lang_array)`, falling back to `toUpperCase()` when the tag list
+/// is invalid. Reproduced: Turkic `i` to `\u{130}`. Not reproduced:
+/// Lithuanian's retained-dot rules.
 pub fn to_locale_upper_case(state: &State, s: &str) -> String {
-    if turkic(&state.tmp.lang_array) {
-        let mut out = String::new();
-        for c in s.chars() {
-            match c {
-                'i' => out.push('\u{130}'),
-                'ı' => out.push('I'),
-                c => out.extend(c.to_uppercase()),
-            }
-        }
-        out
-    } else {
-        s.to_uppercase()
+    if case_lang(state) == CaseLang::Turkic {
+        let pre: String = s
+            .chars()
+            .map(|c| if c == 'i' { '\u{130}' } else { c })
+            .collect();
+        return pre.to_uppercase();
     }
+    s.to_uppercase()
 }
 
-/// `CSL.toLocaleLowerCase.call(state, str)`; see [`to_locale_upper_case`]
-/// (Turkic: `I` to `ı`, `İ` to `i`).
+/// `CSL.toLocaleLowerCase.call(state, str)`; see [`to_locale_upper_case`].
 pub fn to_locale_lower_case(state: &State, s: &str) -> String {
-    if turkic(&state.tmp.lang_array) {
-        let mut out = String::new();
-        for c in s.chars() {
-            match c {
-                'I' => out.push('\u{131}'),
-                '\u{130}' => out.push('i'),
-                c => out.extend(c.to_lowercase()),
-            }
-        }
-        out
-    } else {
-        s.to_lowercase()
+    if case_lang(state) == CaseLang::Turkic {
+        let pre = s.replace("I\u{307}", "i");
+        let pre: String = pre
+            .chars()
+            .map(|c| match c {
+                'I' => '\u{131}',
+                '\u{130}' => 'i',
+                other => other,
+            })
+            .collect();
+        return pre.to_lowercase();
     }
+    s.to_lowercase()
 }
 
 // ----------------------------------------------------------------------
@@ -1372,51 +1401,36 @@ pub fn get_abbrevs_domain(state: &State, country: &str, lang: &str) -> Option<St
 // ----------------------------------------------------------------------
 // Locators and note fields.
 
-/// A date-parser seam. `CSL.DateParser.parseDateToObject` (src/util_dateparser.js,
-/// wave1-input) is not ported yet: this returns `null`.
-///
-/// PORT-LATER(util_dateparser): replace with
-/// `state.fun.dateparser.parse_date_to_object(raw)`.
-fn parse_date_to_object(_state: &State, _raw: &str) -> Value {
-    Value::Null
-}
-
-/// A date-parser seam: `CSL.DateParser.parseDateToArray(str)` (the engine
-/// singleton). PORT-LATER(util_dateparser): returns `null` until ported.
-fn parse_date_to_array(_raw: &str) -> Value {
-    Value::Null
-}
-
-/// A name-particle seam: `CSL.parseParticles(name)` (src/util_name_particles.js,
-/// wave1-input). PORT-LATER(util_name_particles): leaves `name` unchanged.
-fn parse_particles(_name: &mut Obj) {}
-
-/// `CSL.parseLocator.call(state, item)`: splits `locator|date extra` into
-/// `locator`, `locator-date` and `locator-extra` when
-/// `locator_date_and_revision` is on, and trims trailing space of `locator`.
+/// `CSL.parseLocator.call(state, item)` (load.js): with
+/// `locator_date_and_revision`, split `locator|date rest` into `locator`,
+/// `locator-date` (a parsed date object) and `locator-extra`; then strip
+/// trailing whitespace from `locator`. `item` is mutated.
 pub fn parse_locator(state: &State, item: &mut Obj) {
-    let ext_on = state
+    let ext = state
         .opt
         .get("development_extensions")
         .and_then(|d| d.get("locator_date_and_revision"))
         .map(js::truthy)
         .unwrap_or(false);
-    if ext_on && js::get_truthy(item, "locator") {
-        let loc = js::get_string(item, "locator").unwrap_or_default();
-        item.insert("locator".into(), Value::String(loc.clone()));
-        let idx = js::index_of(&loc, "|", 0);
+    if ext && js::get_truthy(item, "locator") {
+        let locator = js::to_js_string(item.get("locator").unwrap_or(&Value::Null));
+        item.insert("locator".into(), Value::String(locator.clone()));
+        let idx = js::index_of(&locator, "|", 0);
         if idx > -1 {
-            let mut raw_locator = loc.clone();
+            let mut raw_locator = locator.clone();
             item.insert(
                 "locator".into(),
                 Value::String(js::slice(&raw_locator, 0, Some(idx))),
             );
             raw_locator = js::slice(&raw_locator, idx + 1, None);
-            static DATE: LazyLock<Regex> =
-                LazyLock::new(|| Regex::new(r"^([0-9]{4}-[0-9]{2}-[0-9]{2})").expect("static"));
-            if let Some(m) = DATE.captures(&raw_locator) {
-                let m1 = m[1].to_string();
-                item.insert("locator-date".into(), parse_date_to_object(state, &m1));
+            static DATE_RE: LazyLock<Regex> =
+                LazyLock::new(|| rx_static(&format!("^([0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}){DOT}*")));
+            if let Some(m) = DATE_RE.captures(&raw_locator) {
+                let m1 = m.get(1).map(|x| x.as_str()).unwrap_or("").to_string();
+                item.insert(
+                    "locator-date".into(),
+                    Value::Object(state.fun.dateparser.parse_date_to_object(&m1)),
+                );
                 raw_locator = js::slice(&raw_locator, js::len(&m1) as i64, None);
             }
             item.insert(
@@ -1426,13 +1440,9 @@ pub fn parse_locator(state: &State, item: &mut Obj) {
         }
     }
     if js::get_truthy(item, "locator") {
-        static TRAILING: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new(&format!("{WS_CLASS}+$")).expect("static"));
-        let loc = js::get_string(item, "locator").unwrap_or_default();
-        item.insert(
-            "locator".into(),
-            Value::String(TRAILING.replace(&loc, "").into_owned()),
-        );
+        let l = js::to_js_string(item.get("locator").unwrap_or(&Value::Null));
+        let trimmed = l.trim_end_matches(|c: char| c.is_whitespace() || c == '\u{feff}');
+        item.insert("locator".into(), Value::String(trimmed.to_string()));
     }
 }
 
@@ -1442,6 +1452,7 @@ pub fn parse_locator(state: &State, item: &mut Obj) {
 /// set reaches `this.isDateString`, which does not exist on `CSL`, so a date
 /// field with one throws, as upstream.
 pub fn parse_note_field_hacks(
+    state: &State,
     item: &mut Obj,
     valid_fields_for_type: Option<&Obj>,
     allow_date_override: bool,
@@ -1508,7 +1519,10 @@ pub fn parse_note_field_hacks(
             lines[i] = String::new();
         } else if DATE_VARIABLES.contains(&bare) {
             if !js::get_truthy(item, &key) || allow_date_override {
-                item.insert(key.clone(), parse_date_to_array(&val));
+                item.insert(
+                    key.clone(),
+                    Value::Object(state.fun.dateparser.parse_date_to_array(&val)),
+                );
                 let ok = match valid_fields_for_type {
                     None => true,
                     Some(v) => {
@@ -1543,7 +1557,7 @@ pub fn parse_note_field_hacks(
                         let mut name = Obj::new();
                         name.insert("family".into(), Value::String(lst[0].clone()));
                         name.insert("given".into(), Value::String(lst[1].clone()));
-                        parse_particles(&mut name);
+                        parse_particles(&mut name)?;
                         slot.push(Value::Object(name));
                     }
                 }
@@ -1683,6 +1697,281 @@ pub fn demote_noise_words(state: &State, fld: &str, drop_or_demote: &str) -> Str
     }
 }
 
+/// `Regex::new` of a pattern that is a compile-time constant of this file.
+fn rx_static(src: &str) -> Regex {
+    Regex::new(src).unwrap_or_else(|e| panic!("invalid static regex {src:?}: {e}"))
+}
+
+/// `development_extensions[name]` of `state.opt`, `None` when absent.
+pub(crate) fn dev_ext<'a>(state: &'a State, name: &str) -> Option<&'a Value> {
+    state
+        .opt
+        .get("development_extensions")
+        .and_then(|d| d.get(name))
+}
+
+/// Truthiness of `state.opt.development_extensions[name]`.
+pub(crate) fn dev_ext_truthy(state: &State, name: &str) -> bool {
+    dev_ext(state, name).map(js::truthy).unwrap_or(false)
+}
+
+/// `obj[key] = value` where `value` may be JS `undefined` (the key is then
+/// dropped from this data model).
+pub(crate) fn set_or_remove(obj: &mut Obj, key: &str, value: Option<Value>) {
+    match value {
+        Some(v) => {
+            obj.insert(key.to_string(), v);
+        }
+        None => {
+            obj.remove(key);
+        }
+    }
+}
+
+/// A JS `TypeError` raised by reading a property of `undefined` and the like,
+/// as the message JS gives it (no `citeproc-js error:` prefix: it is not a
+/// `CSL.error`).
+pub(crate) fn type_error(msg: &str) -> EngineError {
+    EngineError::BadInput(msg.to_string())
+}
+
+/// A JS object of title parts whose values may be `undefined` (`None`),
+/// `false` or strings.
+type TitleVals = BTreeMap<String, Option<Value>>;
+
+fn vals_str(vals: &TitleVals, key: &str) -> Option<String> {
+    match vals.get(key) {
+        Some(Some(Value::String(s))) => Some(s.clone()),
+        _ => None,
+    }
+}
+
+fn vals_truthy(vals: &TitleVals, key: &str) -> bool {
+    matches!(vals.get(key), Some(Some(v)) if js::truthy(v))
+}
+
+/// `CSL.extractTitleAndSubtitle.call(state, Item, narrowSpaceLocale)` (load.js)
+/// (`main_title_from_short_title`): fill `title-main`, `title-sub`,
+/// `title-subjoin` (and `container-` variants with `split_container_title`)
+/// from `title` and `title-short`, per language of `Item.multi`.
+pub fn extract_title_and_subtitle(
+    state: &State,
+    item: &mut Obj,
+    narrow_space_locale: bool,
+) -> CslResult<()> {
+    let narrow_space = if narrow_space_locale { "\u{202f}" } else { "" };
+    let mut segments = vec![""];
+    if dev_ext_truthy(state, "split_container_title") {
+        segments.push("container-");
+    }
+    for seg in segments {
+        let t_title = format!("{seg}title");
+        let t_short = format!("{seg}title-short");
+        let t_main = format!("{seg}title-main");
+        let t_sub = format!("{seg}title-sub");
+        let t_subjoin = format!("{seg}title-subjoin");
+        let mut langs: Vec<Option<String>> = vec![None];
+        let has_multi = js::truthy_opt(item.get("multi"));
+        if has_multi {
+            let keys = item
+                .get("multi")
+                .and_then(|m| m.get("_keys"))
+                .ok_or_else(|| {
+                    type_error(&format!(
+                        "Cannot read properties of undefined (reading '{t_short}')"
+                    ))
+                })?;
+            if let Some(Value::Object(o)) = keys.get(&t_short) {
+                for lang in o.keys() {
+                    langs.push(Some(lang.clone()));
+                }
+            }
+        }
+        for lang in langs {
+            let mut vals: TitleVals = BTreeMap::new();
+            if let Some(lang) = &lang {
+                let keys = item
+                    .get("multi")
+                    .and_then(|m| m.get("_keys"))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                if js::truthy_opt(keys.get(&t_title)) {
+                    vals.insert(
+                        t_title.clone(),
+                        keys.get(&t_title)
+                            .and_then(|k| k.get(lang.as_str()))
+                            .cloned(),
+                    );
+                }
+                if js::truthy_opt(keys.get(&t_short)) {
+                    vals.insert(
+                        t_short.clone(),
+                        keys.get(&t_short)
+                            .and_then(|k| k.get(lang.as_str()))
+                            .cloned(),
+                    );
+                }
+            } else {
+                vals.insert(t_title.clone(), item.get(&t_title).cloned());
+                vals.insert(t_short.clone(), item.get(&t_short).cloned());
+            }
+            vals.insert(t_main.clone(), vals.get(&t_title).cloned().flatten());
+            vals.insert(t_sub.clone(), Some(Value::Bool(false)));
+            let short_title = vals_str(&vals, &t_short);
+            if vals_truthy(&vals, &t_title) {
+                let title = vals_str(&vals, &t_title)
+                    .ok_or_else(|| type_error("vals[title.title].toLowerCase is not a function"))?;
+                let set = |vals: &mut TitleVals, k: &str, v: String| {
+                    vals.insert(k.to_string(), Some(Value::String(v)));
+                };
+                match short_title.as_deref().filter(|s| !s.is_empty()) {
+                    Some(st) if st.to_lowercase() == title.to_lowercase() => {
+                        set(&mut vals, &t_main, title.clone());
+                        set(&mut vals, &t_subjoin, String::new());
+                        set(&mut vals, &t_sub, String::new());
+                    }
+                    Some(st) => {
+                        // check for valid match to shortTitle
+                        static TRAIL_Q: LazyLock<Regex> = LazyLock::new(|| rx_static("[?!]+$"));
+                        static LEAD_Q: LazyLock<Regex> = LazyLock::new(|| rx_static("^[?!]+"));
+                        static TRAIL_Q_WS: LazyLock<Regex> =
+                            LazyLock::new(|| rx_static(&format!("[?!]+([{}]*)$", js::WS)));
+                        let cut = TRAIL_Q.replace(st, "").into_owned();
+                        let tail = js::slice(&title, js::len(&cut) as i64, None);
+                        let tail_nolead = LEAD_Q.replace(&tail, "").into_owned();
+                        let top = js::trim(&title.replacen(&tail_nolead, "", 1)).to_string();
+                        let m = TITLE_SPLIT_REGEXP.matchfirst.captures(&tail);
+                        if m.is_some() && top.to_lowercase() == st.to_lowercase() {
+                            let m1 = m
+                                .as_ref()
+                                .and_then(|c| c.get(1))
+                                .map(|x| x.as_str())
+                                .unwrap_or("");
+                            set(&mut vals, &t_main, top.clone());
+                            set(
+                                &mut vals,
+                                &t_subjoin,
+                                TRAIL_Q_WS.replace(m1, "${1}").into_owned(),
+                            );
+                            set(
+                                &mut vals,
+                                &t_sub,
+                                TITLE_SPLIT_REGEXP
+                                    .matchfirst
+                                    .replace(&tail, "")
+                                    .into_owned(),
+                            );
+                            if dev_ext_truthy(state, "force_short_title_casing_alignment") {
+                                vals.insert(t_short.clone(), vals.get(&t_main).cloned().flatten());
+                            }
+                        } else {
+                            let split_title = title_split(&title);
+                            if split_title.len() == 3 {
+                                set(&mut vals, &t_main, split_title[0].clone());
+                                set(&mut vals, &t_subjoin, split_title[1].clone());
+                                set(&mut vals, &t_sub, split_title[2].clone());
+                            } else {
+                                set(&mut vals, &t_main, title.clone());
+                                set(&mut vals, &t_subjoin, String::new());
+                                set(&mut vals, &t_sub, String::new());
+                            }
+                        }
+                    }
+                    None => {
+                        let split_title = title_split(&title);
+                        if split_title.len() == 3 {
+                            set(&mut vals, &t_main, split_title[0].clone());
+                            set(&mut vals, &t_subjoin, split_title[1].clone());
+                            set(&mut vals, &t_sub, split_title[2].clone());
+                            if dev_ext_truthy(state, "implicit_short_title")
+                                && item.get("type").and_then(Value::as_str) != Some("legal_case")
+                            {
+                                static MAIN_PUNCT_ONLY: LazyLock<Regex> =
+                                    LazyLock::new(|| rx_static("^[-.\\[0-9]+$"));
+                                let main = vals_str(&vals, &t_main).unwrap_or_default();
+                                if !js::truthy_opt(item.get(&t_short))
+                                    && !MAIN_PUNCT_ONLY.is_match(&main)
+                                {
+                                    let mut punct =
+                                        js::trim(&vals_str(&vals, &t_subjoin).unwrap_or_default())
+                                            .to_string();
+                                    if punct != "?" && punct != "!" {
+                                        punct = String::new();
+                                    }
+                                    set(&mut vals, &t_short, format!("{main}{punct}"));
+                                }
+                            }
+                        } else {
+                            set(&mut vals, &t_main, title.clone());
+                            set(&mut vals, &t_subjoin, String::new());
+                            set(&mut vals, &t_sub, String::new());
+                        }
+                    }
+                }
+                if vals_truthy(&vals, &t_subjoin) {
+                    let subjoin = vals_str(&vals, &t_subjoin).unwrap_or_default();
+                    static QE: LazyLock<Regex> = LazyLock::new(|| rx_static("([?!])"));
+                    static TRAIL_WS: LazyLock<Regex> =
+                        LazyLock::new(|| rx_static(&format!("([{}]*)$", js::WS)));
+                    if QE.is_match(&subjoin) {
+                        let m1 = TRAIL_WS
+                            .captures(&subjoin)
+                            .and_then(|c| c.get(1))
+                            .map(|x| x.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let main = vals_str(&vals, &t_main).unwrap_or_default();
+                        vals.insert(
+                            t_main.clone(),
+                            Some(Value::String(format!(
+                                "{main}{narrow_space}{}",
+                                js::trim(&subjoin)
+                            ))),
+                        );
+                        vals.insert(t_subjoin.clone(), Some(Value::String(m1)));
+                    }
+                }
+            }
+            if vals_truthy(&vals, &t_subjoin) {
+                let mut subjoin = vals_str(&vals, &t_subjoin).unwrap_or_default();
+                if subjoin.contains(':') {
+                    subjoin = format!("{narrow_space}: ");
+                }
+                if subjoin.contains('-') || subjoin.contains('\u{2014}') {
+                    subjoin = "\u{2014}".to_string();
+                }
+                vals.insert(t_subjoin.clone(), Some(Value::String(subjoin)));
+            }
+            if let Some(lang) = &lang {
+                for (key, v) in &vals {
+                    let multi = item
+                        .get_mut("multi")
+                        .and_then(Value::as_object_mut)
+                        .ok_or_else(|| type_error("Item.multi is undefined"))?;
+                    let keys = multi
+                        .get_mut("_keys")
+                        .and_then(Value::as_object_mut)
+                        .ok_or_else(|| type_error("Item.multi._keys is undefined"))?;
+                    let slot = keys
+                        .entry(key.clone())
+                        .or_insert_with(|| Value::Object(Obj::new()));
+                    if !js::truthy(slot) {
+                        *slot = Value::Object(Obj::new());
+                    }
+                    if let Some(o) = slot.as_object_mut() {
+                        set_or_remove(o, lang, v.clone());
+                    }
+                }
+            } else {
+                for (key, v) in &vals {
+                    set_or_remove(item, key, v.clone());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 /// `CSL.TITLE_SPLIT(str)`: split a title at its sub-title joins, returning
 /// `[main, join, sub, join, sub, ...]`. A split point preceded by a word
 /// that ends in a capital is recombined into the preceding text, so
@@ -1717,18 +2006,6 @@ pub fn title_split(s: &str) -> Vec<String> {
         i -= 1;
     }
     lst
-}
-
-/// A formatter seam. `CSL.Output.Formatters.sentence(state, str)`
-/// (src/formatters.js, wave1-output). PORT-LATER(formatters): identity.
-fn formatter_sentence(_state: &State, s: &str) -> String {
-    s.to_string()
-}
-
-/// A formatter seam. `CSL.Output.Formatters["capitalize-first"](state, str)`
-/// (src/formatters.js, wave1-output). PORT-LATER(formatters): identity.
-fn formatter_capitalize_first(_state: &State, s: &str) -> String {
-    s.to_string()
 }
 
 fn js_type_error(what: &str) -> EngineError {
@@ -2008,10 +2285,6 @@ impl State {
     /// the title, optionally sentence-cased, rebuilt from its main/sub parts
     /// (or, for `uppercase_subtitles`, with each part capitalised). Always the
     /// full title, never the short one (upstream's comment).
-    ///
-    /// PORT-LATER(formatters): `CSL.Output.Formatters.sentence` and
-    /// `["capitalize-first"]` are src/formatters.js (wave1-output); they are
-    /// identity stand-ins in this file.
     pub fn titlecase_sentence_or_normal(
         &self,
         item: &Obj,
@@ -2045,8 +2318,8 @@ impl State {
             let sub_join = s(get(&title.subjoin));
             let mut sub_title = s(get(&title.sub));
             if sentence_case {
-                main_title = formatter_sentence(self, &main_title);
-                sub_title = formatter_sentence(self, &sub_title);
+                main_title = formatters::sentence(self, &main_title);
+                sub_title = formatters::sentence(self, &sub_title);
             } else if self
                 .opt
                 .get("development_extensions")
@@ -2054,13 +2327,13 @@ impl State {
                 .map(js::truthy)
                 .unwrap_or(false)
             {
-                sub_title = formatter_capitalize_first(self, &sub_title);
+                sub_title = formatters::capitalize_first(self, &sub_title);
             }
             Ok(format!("{main_title}{sub_join}{sub_title}"))
         } else if js::truthy_opt(get(&title.title).as_ref()) {
             let whole = s(get(&title.title));
             if sentence_case {
-                Ok(formatter_sentence(self, &whole))
+                Ok(formatters::sentence(self, &whole))
             } else if self
                 .opt
                 .get("development_extensions")
@@ -2072,7 +2345,7 @@ impl State {
                 let mut splits = title_split(&whole);
                 let mut i = 0;
                 while i < splits.len() {
-                    splits[i] = formatter_capitalize_first(self, &splits[i]);
+                    splits[i] = formatters::capitalize_first(self, &splits[i]);
                     i += 2;
                 }
                 let mut i = 1;
@@ -2118,65 +2391,54 @@ impl State {
     }
 }
 
-/// What `CSL.getSafeEscape(state)` returns: the text escaper for the area.
-#[derive(Debug, Clone, PartialEq)]
-pub enum SafeEscape {
-    /// `function (txt) { return txt; }`: outside citations and bibliographies.
-    Identity,
-    /// `CSL.Output.Formats[mode].text_escape`, optionally after the thin
-    /// space hack.
-    Format {
-        /// `state.opt.mode`.
-        mode: String,
-        /// Whether `thin_non_breaking_space_html_hack` applies
-        /// (HTML mode only).
-        thin_space_hack: bool,
-    },
+/// What `CSL.getSafeEscape(state)` returns: the escaper to use for the
+/// current area (load.js:1026). Evaluate it with [`SafeEscape::escape`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SafeEscape {
+    /// `false`: the identity function (area is not citation/bibliography).
+    active: bool,
+    format: Format,
+    /// The `thin_non_breaking_space_html_hack` callback is on.
+    thin_hack: bool,
 }
 
 impl SafeEscape {
-    /// Apply the escaper to `txt`.
-    ///
-    /// PORT-LATER(formats): `CSL.Output.Formats[mode].text_escape` is
-    /// src/formats.js (wave1-output); until then the format's escaping is the
-    /// identity here and only the thin-space callback is applied.
-    pub fn apply(&self, txt: &str) -> String {
-        match self {
-            SafeEscape::Identity => txt.to_string(),
-            SafeEscape::Format {
-                thin_space_hack, ..
-            } => {
-                let mut t = txt.to_string();
-                if *thin_space_hack {
-                    t = t.replace(
-                        '\u{202f}',
-                        "<span style=\"white-space:nowrap\">&thinsp;</span>",
-                    );
-                }
-                t
-            }
+    /// Apply the escaper.
+    pub fn escape(&self, txt: &str) -> String {
+        if !self.active {
+            return txt.to_string();
         }
+        if self.thin_hack {
+            let t = txt.replace(
+                '\u{202f}',
+                "<span style=\"white-space:nowrap\">&thinsp;</span>",
+            );
+            return text_escape(self.format, &t);
+        }
+        text_escape(self.format, txt)
     }
 }
 
 /// `CSL.getSafeEscape(state)`.
+///
+/// Reads `state.tmp.area`, `state.opt.mode` and
+/// `state.opt.development_extensions.thin_non_breaking_space_html_hack`
+/// (an object inside `state.opt`).
 pub fn get_safe_escape(state: &State) -> SafeEscape {
-    if state.tmp.area == "bibliography" || state.tmp.area == "citation" {
-        let hack = state
-            .opt
-            .get("development_extensions")
-            .and_then(|d| d.get("thin_non_breaking_space_html_hack"))
-            .map(js::truthy)
-            .unwrap_or(false)
-            && js::get_str(&state.opt, "mode") == Some("html");
-        SafeEscape::Format {
-            mode: js::get_str(&state.opt, "mode")
-                .unwrap_or("html")
-                .to_string(),
-            thin_space_hack: hack,
-        }
-    } else {
-        SafeEscape::Identity
+    let area = state.tmp.area.as_str();
+    let active = area == "bibliography" || area == "citation";
+    let format = current_format(state);
+    let thin = state
+        .opt
+        .get("development_extensions")
+        .and_then(Value::as_object)
+        .and_then(|o| o.get("thin_non_breaking_space_html_hack"))
+        .map(js::truthy)
+        .unwrap_or(false);
+    SafeEscape {
+        active,
+        format,
+        thin_hack: active && thin && format == Format::Html,
     }
 }
 
@@ -2772,7 +3034,7 @@ mod diff_tests {
         for e in r["note_hacks"].as_array().unwrap() {
             let mut item = Obj::new();
             item.insert("note".into(), e[0].clone());
-            parse_note_field_hacks(&mut item, None, false).unwrap();
+            parse_note_field_hacks(&State::default(), &mut item, None, false).unwrap();
             assert_eq!(Value::Object(item), e[1], "parseNoteFieldHacks {}", e[0]);
         }
     }

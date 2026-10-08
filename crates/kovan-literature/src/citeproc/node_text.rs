@@ -214,7 +214,8 @@ pub fn build(
                 .as_deref()
                 == Some("citation-number")
             {
-                let t = state.get_term("citation-range-delimiter", None, None, None, None, false)?;
+                let t =
+                    state.get_term("citation-range-delimiter", None, None, None, None, false)?;
                 token.extra.insert(
                     "range_prefix".into(),
                     t.map(Value::String).unwrap_or(Value::Null),
@@ -235,7 +236,8 @@ pub fn build(
                 .as_deref()
                 == Some("year-suffix-ranged")
             {
-                let t = state.get_term("citation-range-delimiter", None, None, None, None, false)?;
+                let t =
+                    state.get_term("citation-range-delimiter", None, None, None, None, false)?;
                 token.extra.insert(
                     "range_prefix".into(),
                     t.map(Value::String).unwrap_or(Value::Null),

@@ -153,7 +153,11 @@ pub fn slice(s: &str, start: i64, end: Option<i64>) -> String {
         let l = s.len();
         let a = resolve(start, l);
         let b = end.map(|e| resolve(e, l)).unwrap_or(l);
-        return if a < b { s[a..b].to_string() } else { String::new() };
+        return if a < b {
+            s[a..b].to_string()
+        } else {
+            String::new()
+        };
     }
     let u = units(s);
     let l = u.len();
@@ -240,7 +244,11 @@ pub fn split_with_captures(re: &regex::Regex, s: &str) -> Vec<Option<String>> {
     // tried at positions q < size only, and a match whose end equals the last
     // split point p (an empty match there) is skipped.
     if s.is_empty() {
-        return if re.is_match(s) { Vec::new() } else { vec![Some(String::new())] };
+        return if re.is_match(s) {
+            Vec::new()
+        } else {
+            vec![Some(String::new())]
+        };
     }
     let mut out = Vec::new();
     let mut last = 0;
@@ -346,7 +354,15 @@ mod tests {
         for v in [json!(""), json!(0), json!(0.0), json!(null), json!(false)] {
             assert!(!truthy(&v), "{v} should be falsy");
         }
-        for v in [json!("0"), json!(" "), json!(1), json!(-1.5), json!([]), json!({}), json!(true)] {
+        for v in [
+            json!("0"),
+            json!(" "),
+            json!(1),
+            json!(-1.5),
+            json!([]),
+            json!({}),
+            json!(true),
+        ] {
             assert!(truthy(&v), "{v} should be truthy");
         }
         assert!(!truthy_opt(None));
@@ -403,8 +419,14 @@ mod tests {
                 Some("c".into())
             ]
         );
-        assert_eq!(split(&regex::Regex::new(",").unwrap(), ""), vec![String::new()]);
+        assert_eq!(
+            split(&regex::Regex::new(",").unwrap(), ""),
+            vec![String::new()]
+        );
         // "abc".split(/(?:)/) is ["a", "b", "c"] in JS.
-        assert_eq!(split(&regex::Regex::new("").unwrap(), "abc"), vec!["a", "b", "c"]);
+        assert_eq!(
+            split(&regex::Regex::new("").unwrap(), "abc"),
+            vec!["a", "b", "c"]
+        );
     }
 }

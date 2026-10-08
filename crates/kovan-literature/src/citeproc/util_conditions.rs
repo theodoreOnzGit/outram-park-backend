@@ -82,7 +82,7 @@ impl UtilConditionsExec {
                     }
                 }
                 if js::truthy_opt(token.extra.get("locale_default")) {
-                    // PORT-LATER(wave1-output): util_conditions.js:36-39, needs
+                    // PORT-LATER(wave2): util_conditions.js:36-39, needs
                     // state.output.current.value().old_locale = this.locale_default;
                     // state.output.closeLevel("empty") (queue.rs), then
                     // state.opt.lang = this.locale_default.
@@ -94,7 +94,11 @@ impl UtilConditionsExec {
             }
             UtilConditionsExec::ClosingJump => {
                 // JS: var next = this[state.tmp.jump.value()]; return next;
-                let which = state.tmp.jump.value().and_then(|v| v.as_str().map(str::to_string));
+                let which = state
+                    .tmp
+                    .jump
+                    .value()
+                    .and_then(|v| v.as_str().map(str::to_string));
                 Ok(match which.as_deref() {
                     Some("succeed") => token.succeed,
                     Some("fail") => token.fail,

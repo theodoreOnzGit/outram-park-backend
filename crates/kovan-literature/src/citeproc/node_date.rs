@@ -137,18 +137,18 @@ impl NodeDateExec {
                 }
                 Ok(None)
             }
-            // PORT-LATER(wave1-input): node_date.js:21, `CSL.dateMacroAsSortKey`
-            // (util_date.js) is not ported yet.
-            NodeDateExec::DateMacroAsSortKey => Err(EngineError::NotYetPorted {
-                method: "util_date.js CSL.dateMacroAsSortKey",
-            }),
-            // PORT-LATER(wave1-output): node_date.js:121-151, needs
+            // node_date.js:21: `CSL.dateMacroAsSortKey` (util_date.js).
+            NodeDateExec::DateMacroAsSortKey => {
+                super::util_date::date_macro_as_sort_key(state, token, item)?;
+                Ok(None)
+            }
+            // PORT-LATER(wave2): node_date.js:121-151, needs
             // state.output.startTag("date", this) and
             // state.output.current.mystack (queue.rs).
             NodeDateExec::OpenTag => Err(EngineError::NotYetPorted {
                 method: "node_date.js:121 closure",
             }),
-            // PORT-LATER(wave1-output): node_date.js:155-162, needs
+            // PORT-LATER(wave2): node_date.js:155-162, needs
             // state.output.endTag() (queue.rs).
             NodeDateExec::CloseTag => Err(EngineError::NotYetPorted {
                 method: "node_date.js:155 closure",
@@ -168,7 +168,7 @@ pub fn build(
         // used to collect rendered date part names in node_datepart,
         // for passing through to node_key, for use in dates embedded
         // in macros
-        // PORT-LATER(wave1-output): node_date.js:12,17 need
+        // PORT-LATER(wave2): node_date.js:12,17 need
         // state.dateput.string(state, state.dateput.queue) and
         // state.dateput.openLevel(this) (queue.rs); the dateput queue is not
         // touched yet.

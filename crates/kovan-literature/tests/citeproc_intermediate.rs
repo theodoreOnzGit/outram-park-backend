@@ -661,7 +661,11 @@ fn the_intermediate_dump_matches_citeproc_js_except_the_recorded_differences() {
                     ("items", items, r["items"].as_str()),
                     ("names", names, r["names"].as_str()),
                     ("numbers", numbers, r["numbers"].as_str()),
-                    ("citation_items", citation_items, r["citation_items"].as_str()),
+                    (
+                        "citation_items",
+                        citation_items,
+                        r["citation_items"].as_str(),
+                    ),
                 ] {
                     if Some(ours.as_str()) == theirs {
                         *counts.entry(section).or_default() += 1;

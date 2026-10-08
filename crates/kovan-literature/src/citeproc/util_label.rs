@@ -28,7 +28,8 @@ use serde_json::Value;
 use super::js;
 use super::obj_token::{Decoration, Token};
 use super::state::State;
-use super::util_number::{input_get_term, process_number, ShadowNumber, TermQuery, TOLERANT};
+use super::load::TOLERANT;
+use super::util_number::{input_get_term, process_number, ShadowNumber, TermQuery};
 use super::{CslResult, EngineError};
 
 /// The parts of `state.tmp` that `evaluateLabel` / `castLabel` use.
@@ -158,10 +159,6 @@ pub fn evaluate_label(
 /// `CSL.castLabel(state, node, term, plural, mode)`: the label term in the
 /// node's (or group's) form, capitalised and with periods stripped as the
 /// node asks.
-///
-/// PORT-LATER(wave1-output): util_label.js:68, needs
-/// `CSL.Output.Formatters["capitalize-first"]` (formatters.js); a label that
-/// asks for it returns `NotYetPorted`.
 pub fn cast_label(
     state: &mut State,
     node: &Token,
@@ -220,9 +217,7 @@ pub fn cast_label(
         .map(js::truthy)
         .unwrap_or(false)
     {
-        return Err(EngineError::NotYetPorted {
-            method: "CSL.Output.Formatters[\"capitalize-first\"]",
-        });
+        ret = super::formatters::capitalize_first(state, &ret);
     }
     // Tag: strip-periods-block
     if ctx.strip_periods {
@@ -247,9 +242,8 @@ mod tests {
     //! label forms, strip-periods, default-locale and reverse-lookup
     //! settings, items and locators, in three locales. Compared: the label
     //! text, `label_static`, the node's decorations and the label fields
-    //! recorded in `shadow_numbers`. Labels asking for `capitalize-first`
-    //! reach the output formatters (not ported here) and must report
-    //! `NotYetPorted`.
+    //! recorded in `shadow_numbers`, including the labels that ask for
+    //! `capitalize-first` (formatters.rs).
 
     use serde_json::json;
 
@@ -263,7 +257,7 @@ mod tests {
     fn evaluate_label_matches_citeproc_js() {
         let r: Value = serde_json::from_str(REF).expect("json");
         let mut n = 0;
-        let mut deferred = 0;
+        let mut capitalized = 0;
         for c in r["label_cases"].as_array().expect("cases") {
             let e = &r["label_engines"][c["engine"].as_str().unwrap_or("")];
             let mut st = State::default();
@@ -308,13 +302,15 @@ mod tests {
             };
             let res = evaluate_label(&mut st, &mut node, &mut ctx, &c["Item"], cite);
             n += 1;
-            let cap = node
+            if node
                 .strings
                 .get("capitalize_if_first")
                 .map(js::truthy)
-                .unwrap_or(false);
+                .unwrap_or(false)
+            {
+                capitalized += 1;
+            }
             match (res, c.get("error")) {
-                (Err(EngineError::NotYetPorted { .. }), _) if cap => deferred += 1,
                 (Ok(s), None) => {
                     assert_eq!(Value::String(s), c["out"], "label {c}");
                     assert_eq!(
@@ -352,6 +348,6 @@ mod tests {
                 (g, w) => panic!("{c}: {g:?} vs {w:?}"),
             }
         }
-        assert!(n > 1500 && deferred > 0, "{n} {deferred}");
+        assert!(n > 1500 && capitalized > 0, "{n} {capitalized}");
     }
 }

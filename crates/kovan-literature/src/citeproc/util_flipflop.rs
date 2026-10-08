@@ -31,8 +31,7 @@
 //!
 //! * `new CSL.Util.FlipFlopper(state)` reads the four quote terms with
 //!   `state.getTerm`; [`FlipFlopper::new`] does that through
-//!   [`formats::get_term`](super::formats::get_term), a stand-in for
-//!   `State::get_term`. If `state.fun.flipflopper` was never built,
+//!   [`formats::get_term`](super::formats::get_term) (`State::get_term_no_flag`). If `state.fun.flipflopper` was never built,
 //!   [`process_tags`] builds it on first use.
 //! * `state[state.tmp.area].opt.layout_decorations` is read through
 //!   [`queue::layout_decorations`](super::queue::layout_decorations).
@@ -42,7 +41,8 @@ use std::sync::LazyLock;
 use regex::Regex;
 
 use super::formats::get_term;
-use super::obj_blob::{Blob, BlobChild, BlobContent, BlobId, JS_WS_CLASS, ROMANESQUE_CLASS};
+use super::load::ROMANESQUE_REGEXP;
+use super::obj_blob::{Blob, BlobChild, BlobContent, BlobId, JS_WS_CLASS};
 use super::obj_token::{Decoration, Token};
 use super::queue::layout_decorations;
 use super::state::State;
@@ -351,8 +351,12 @@ static RE_NOCASE: LazyLock<Regex> = LazyLock::new(|| {
 });
 static RE_LEADING_WS_QUOTE: LazyLock<Regex> =
     LazyLock::new(|| re(&format!("^[{ws}]+['\"]", ws = JS_WS_CLASS)));
-static RE_APOSTROPHE: LazyLock<Regex> =
-    LazyLock::new(|| re(&format!("({r})\u{2019}({r})", r = ROMANESQUE_CLASS)));
+static RE_APOSTROPHE: LazyLock<Regex> = LazyLock::new(|| {
+    re(&format!(
+        "({r})\u{2019}({r})",
+        r = ROMANESQUE_REGEXP.as_str()
+    ))
+});
 
 /// `_doppelString(str)`.
 fn doppel_string(b: &Built, s: &str) -> DoppelStr {

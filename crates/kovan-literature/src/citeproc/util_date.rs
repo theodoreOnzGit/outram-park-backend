@@ -17,24 +17,20 @@
 //! Port of `src/util_date.js`: `CSL.dateMacroAsSortKey`, `CSL.dateAsSortKey`
 //! and `CSL.Engine.prototype.dateParseArray`.
 //!
-//! `dateAsSortKey` appends strings to the output queue (`state.output`,
-//! `queue.js`, ported elsewhere). It is split into [`date_sort_key_parts`],
-//! which computes exactly the strings upstream appends and in what order, and
-//! [`date_as_sort_key`], which is the JS function's shape; the latter hands the
-//! parts to the queue (PORT-LATER, see its docs).
+//! `dateAsSortKey` appends strings to the output queue (`state.output`). It is
+//! split into [`date_sort_key_parts`], which computes exactly the strings
+//! upstream appends and in what order, and [`date_as_sort_key`], which is the
+//! JS function: it appends them.
 
 use serde_json::Value;
 
 use super::js::{self, Obj};
 use super::obj_token::Token;
+use super::queue::{self, QueueId};
 use super::state::State;
+use super::load::{DATE_PARTS, DATE_PARTS_INTERNAL};
 use super::util_dates;
 use super::{CslResult, EngineError};
-
-// DUP-CHECK: load.js CSL.DATE_PARTS
-const DATE_PARTS: [&str; 3] = ["year", "month", "day"];
-// DUP-CHECK: load.js CSL.DATE_PARTS_INTERNAL
-const DATE_PARTS_INTERNAL: [&str; 6] = ["year", "month", "day", "year_end", "month_end", "day_end"];
 
 /// The strings `CSL.dateAsSortKey` appends to the output queue, in order,
 /// and the flag they are appended with.
@@ -80,7 +76,7 @@ pub fn date_sort_key_parts(
             let mut value = Value::from(0);
             let e = elem.strip_suffix("_end").unwrap_or(elem);
             if js::get_truthy(&dp, elem) && dateparts.iter().any(|d| d == e) {
-                value = dp.get(elem).cloned().unwrap_or(Value::Null);
+                value = dp.get(*elem).cloned().unwrap_or(Value::Null);
             }
             if js::slice(elem, 0, Some(4)) == "year" {
                 let mut yr = util_dates::year_numeric(&value);
@@ -109,28 +105,24 @@ pub fn date_sort_key_parts(
     Ok(parts)
 }
 
-/// `CSL.dateAsSortKey.call(token, state, Item, isMacro)`.
+/// `CSL.dateAsSortKey.call(token, state, Item, isMacro)`: append the sort key
+/// of the token's date variable to `state.output`, one
+/// `state.output.append(part, macroFlag)` per part (util_date.js:49,56).
 ///
 /// Sets `token.dateparts` to `["year","month","day"]` when unset (as the JS
-/// does on `this`) and returns the strings to append. `tmp_extension` is
-/// `state.tmp.extension`.
-///
-/// PORT-LATER(wave1-output): util_date.js:49,56, needs `Queue::append`: the
-/// JS then calls `state.output.append(part, macroFlag)` for each part; the
-/// caller must do that with the returned [`DateSortKey`].
+/// does on `this`). Returns what was appended, for inspection.
 pub fn date_as_sort_key(
-    state: &State,
+    state: &mut State,
     token: &mut Token,
     item: &Value,
     is_macro: bool,
-    tmp_extension: bool,
 ) -> CslResult<DateSortKey> {
     let variable = token
         .variables
         .first()
         .cloned()
         .ok_or_else(|| EngineError::BadInput("dateAsSortKey: token has no variable".into()))?;
-    let macro_flag = if is_macro && tmp_extension {
+    let macro_flag = if is_macro && !state.tmp.extension.is_empty() {
         "macro-with-date"
     } else {
         "empty"
@@ -148,18 +140,20 @@ pub fn date_as_sort_key(
         .map(|a| a.iter().map(js::to_js_string).collect())
         .unwrap_or_default();
     let parts = date_sort_key_parts(state, item, &variable, &dateparts)?;
+    for part in &parts {
+        queue::append_simple(state, QueueId::Output, part.as_str(), macro_flag)?;
+    }
     Ok(DateSortKey { macro_flag, parts })
 }
 
 /// `CSL.dateMacroAsSortKey.call(token, state, Item)`: [`date_as_sort_key`]
 /// with `isMacro = true`.
 pub fn date_macro_as_sort_key(
-    state: &State,
+    state: &mut State,
     token: &mut Token,
     item: &Value,
-    tmp_extension: bool,
 ) -> CslResult<DateSortKey> {
-    date_as_sort_key(state, token, item, true, tmp_extension)
+    date_as_sort_key(state, token, item, true)
 }
 
 /// `CSL.Engine.prototype.dateParseArray(date_obj)`: turn a CSL-JSON date
@@ -258,9 +252,9 @@ mod tests {
     #[test]
     fn date_sort_keys_match_citeproc_js() {
         let r: Value = serde_json::from_str(REF).expect("json");
-        let state = State::default();
         let mut n = 0;
         for c in r["cases"].as_array().expect("cases") {
+            let mut state = State::default();
             let mut token = Token::new("key", TokenType::Singleton);
             token.variables = vec!["issued".to_string()];
             if let Some(dp) = c["dateparts"].as_array() {
@@ -270,7 +264,14 @@ mod tests {
             }
             let is_macro = c["isMacro"].as_bool().unwrap_or(false);
             let ext = c["ext"].as_bool().unwrap_or(false);
-            let got = date_as_sort_key(&state, &mut token, &c["item"], is_macro, ext);
+            if ext {
+                state.tmp.extension = "_sort".to_string();
+            }
+            // As inside the macro whose date this is (`doing-macro-with-date`, set
+            // by expandMacro's closure): the queue then accepts the
+            // "macro-with-date" token name.
+            state.tmp.doing_macro_with_date = is_macro && ext;
+            let got = date_as_sort_key(&mut state, &mut token, &c["item"], is_macro);
             n += 1;
             match (got, c.get("error")) {
                 (Ok(k), None) => {

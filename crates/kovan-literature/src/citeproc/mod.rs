@@ -642,6 +642,7 @@ impl Engine {
     /// citation to the item's URL, bolds a back-reference number).
     pub fn set_variable_wrapper(&mut self, on: bool) {
         self.variable_wrapper = on;
+        self.state.fun.host_hooks.variable_wrapper = on;
     }
 
     /// Whether the `variableWrapper` is installed.
@@ -692,7 +693,8 @@ impl Engine {
 
     /// `setLangTagsForCslTransliteration(tags)`.
     pub fn set_lang_tags_for_csl_transliteration(&mut self, tags: Vec<String>) {
-        self.state.set_lang_tags_for_csl_transliteration(Some(&tags));
+        self.state
+            .set_lang_tags_for_csl_transliteration(Some(&tags));
         self.lang_tags_transliteration = tags;
     }
 
@@ -718,7 +720,8 @@ impl Engine {
                 for (key, value) in keys.as_object().into_iter().flatten() {
                     let is_jurisdiction =
                         jurisd == "default" && segment == "place" && key.to_uppercase() == *key;
-                    let is_court = ["institution-entire", "institution-part"].contains(&segment.as_str())
+                    let is_court = ["institution-entire", "institution-part"]
+                        .contains(&segment.as_str())
                         && segment.to_lowercase() == *segment;
                     let normkey = if !is_jurisdiction && !is_court {
                         build_retrieve_item::normalize_abbrevs_key("title", Some(key))

@@ -36,9 +36,7 @@ use regex::Regex;
 use serde_json::Value;
 
 use super::js::{self, Obj};
-
-// DUP-CHECK: load.js CSL.DATE_PARTS_ALL
-const DATE_PARTS_ALL: [&str; 4] = ["year", "month", "day", "season"];
+use super::load::DATE_PARTS_ALL;
 
 /// The Japanese imperial epochs and their year offsets (`epochPairs`).
 const EPOCH_PAIRS: [(&str, i64); 4] = [
@@ -740,7 +738,7 @@ impl DateParser {
             for item in DATE_PARTS_ALL {
                 let end = format!("{item}_end");
                 if part_truthy(&thedate, item) && !part_truthy(&thedate, &end) {
-                    if let Some(v) = thedate.get(item).cloned() {
+                    if let Some(v) = thedate.get(*item).cloned() {
                         thedate.insert(end, v);
                     }
                 } else if !part_truthy(&thedate, item) && part_truthy(&thedate, &end) {

@@ -1,9 +1,9 @@
 // Part of the kovan port of citeproc-js (GitHub #790).
 //
 // Upstream:    citeproc-js, https://github.com/juris-m/citeproc-js
-// Source:      src/formats.js, src/util_processor.js (CSL.Mode,
-//              CSL.substituteOne: the decorator lookup), src/load.js
-//              (CSL.getSafeEscape, CSL.SUPERSCRIPTS, CSL.SWAPPING_PUNCTUATION)
+// Source:      src/formats.js (CSL.Mode and CSL.substituteOne, the decorator
+//              lookup, are util_processor.rs; CSL.getSafeEscape and the
+//              constants are load.rs)
 // Version:     2.4.63, commit 73bc1b44bc7d54d0bfec4e070fd27f5efe024ff9
 // Copyright:   (c) 2009-2019 Frank Bennett
 // Licence:     AGPL-3.0, taken from upstream's "CPAL-1.0 or AGPL-3.0-or-later"
@@ -31,8 +31,8 @@
 //!   `CSL.substituteOne` (including JS's `$`-patterns in `String.replace`
 //!   replacement text); a `false` entry is `passthrough`; a function entry
 //!   is the Rust function of the same name.
-//! * `CSL.getSafeEscape(state)` (load.js) is [`safe_escape`]; `text_escape`
-//!   is [`text_escape`].
+//! * `CSL.getSafeEscape(state)` (load.js) is `load::get_safe_escape`; the
+//!   format's `text_escape` is [`text_escape`].
 //!
 //! # Host callbacks
 //!
@@ -60,119 +60,7 @@ use super::obj_blob::{Blob, JS_WS_CLASS};
 use super::state::State;
 use super::{CslResult, EngineError, OutputFormat};
 
-// DUP-CHECK: load.js CSL.SWAPPING_PUNCTUATION
-/// `CSL.SWAPPING_PUNCTUATION`.
-pub const SWAPPING_PUNCTUATION: [&str; 5] = [".", "!", "?", ":", ","];
-
-// DUP-CHECK: load.js CSL.SUPERSCRIPTS / CSL.SUPERSCRIPTS_REGEXP
-/// `CSL.SUPERSCRIPTS`: superscript characters and the plain text they stand
-/// for. `CSL.SUPERSCRIPTS_REGEXP` is the character class of the keys.
-pub const SUPERSCRIPTS: &[(char, &str)] = &[
-    ('\u{aa}', "\u{61}"),
-    ('\u{b2}', "\u{32}"),
-    ('\u{b3}', "\u{33}"),
-    ('\u{b9}', "\u{31}"),
-    ('\u{ba}', "\u{6f}"),
-    ('\u{2b0}', "\u{68}"),
-    ('\u{2b1}', "\u{266}"),
-    ('\u{2b2}', "\u{6a}"),
-    ('\u{2b3}', "\u{72}"),
-    ('\u{2b4}', "\u{279}"),
-    ('\u{2b5}', "\u{27b}"),
-    ('\u{2b6}', "\u{281}"),
-    ('\u{2b7}', "\u{77}"),
-    ('\u{2b8}', "\u{79}"),
-    ('\u{2e0}', "\u{263}"),
-    ('\u{2e1}', "\u{6c}"),
-    ('\u{2e2}', "\u{73}"),
-    ('\u{2e3}', "\u{78}"),
-    ('\u{2e4}', "\u{295}"),
-    ('\u{1d2c}', "\u{41}"),
-    ('\u{1d2d}', "\u{c6}"),
-    ('\u{1d2e}', "\u{42}"),
-    ('\u{1d30}', "\u{44}"),
-    ('\u{1d31}', "\u{45}"),
-    ('\u{1d32}', "\u{18e}"),
-    ('\u{1d33}', "\u{47}"),
-    ('\u{1d34}', "\u{48}"),
-    ('\u{1d35}', "\u{49}"),
-    ('\u{1d36}', "\u{4a}"),
-    ('\u{1d37}', "\u{4b}"),
-    ('\u{1d38}', "\u{4c}"),
-    ('\u{1d39}', "\u{4d}"),
-    ('\u{1d3a}', "\u{4e}"),
-    ('\u{1d3c}', "\u{4f}"),
-    ('\u{1d3d}', "\u{222}"),
-    ('\u{1d3e}', "\u{50}"),
-    ('\u{1d3f}', "\u{52}"),
-    ('\u{1d40}', "\u{54}"),
-    ('\u{1d41}', "\u{55}"),
-    ('\u{1d42}', "\u{57}"),
-    ('\u{1d43}', "\u{61}"),
-    ('\u{1d44}', "\u{250}"),
-    ('\u{1d45}', "\u{251}"),
-    ('\u{1d46}', "\u{1d02}"),
-    ('\u{1d47}', "\u{62}"),
-    ('\u{1d48}', "\u{64}"),
-    ('\u{1d49}', "\u{65}"),
-    ('\u{1d4a}', "\u{259}"),
-    ('\u{1d4b}', "\u{25b}"),
-    ('\u{1d4c}', "\u{25c}"),
-    ('\u{1d4d}', "\u{67}"),
-    ('\u{1d4f}', "\u{6b}"),
-    ('\u{1d50}', "\u{6d}"),
-    ('\u{1d51}', "\u{14b}"),
-    ('\u{1d52}', "\u{6f}"),
-    ('\u{1d53}', "\u{254}"),
-    ('\u{1d54}', "\u{1d16}"),
-    ('\u{1d55}', "\u{1d17}"),
-    ('\u{1d56}', "\u{70}"),
-    ('\u{1d57}', "\u{74}"),
-    ('\u{1d58}', "\u{75}"),
-    ('\u{1d59}', "\u{1d1d}"),
-    ('\u{1d5a}', "\u{26f}"),
-    ('\u{1d5b}', "\u{76}"),
-    ('\u{1d5c}', "\u{1d25}"),
-    ('\u{1d5d}', "\u{3b2}"),
-    ('\u{1d5e}', "\u{3b3}"),
-    ('\u{1d5f}', "\u{3b4}"),
-    ('\u{1d60}', "\u{3c6}"),
-    ('\u{1d61}', "\u{3c7}"),
-    ('\u{2070}', "\u{30}"),
-    ('\u{2071}', "\u{69}"),
-    ('\u{2074}', "\u{34}"),
-    ('\u{2075}', "\u{35}"),
-    ('\u{2076}', "\u{36}"),
-    ('\u{2077}', "\u{37}"),
-    ('\u{2078}', "\u{38}"),
-    ('\u{2079}', "\u{39}"),
-    ('\u{207a}', "\u{2b}"),
-    ('\u{207b}', "\u{2212}"),
-    ('\u{207c}', "\u{3d}"),
-    ('\u{207d}', "\u{28}"),
-    ('\u{207e}', "\u{29}"),
-    ('\u{207f}', "\u{6e}"),
-    ('\u{2120}', "\u{53}\u{4d}"),
-    ('\u{2122}', "\u{54}\u{4d}"),
-    ('\u{3192}', "\u{4e00}"),
-    ('\u{3193}', "\u{4e8c}"),
-    ('\u{3194}', "\u{4e09}"),
-    ('\u{3195}', "\u{56db}"),
-    ('\u{3196}', "\u{4e0a}"),
-    ('\u{3197}', "\u{4e2d}"),
-    ('\u{3198}', "\u{4e0b}"),
-    ('\u{3199}', "\u{7532}"),
-    ('\u{319a}', "\u{4e59}"),
-    ('\u{319b}', "\u{4e19}"),
-    ('\u{319c}', "\u{4e01}"),
-    ('\u{319d}', "\u{5929}"),
-    ('\u{319e}', "\u{5730}"),
-    ('\u{319f}', "\u{4eba}"),
-    ('\u{2c0}', "\u{294}"),
-    ('\u{2c1}', "\u{295}"),
-    ('\u{6e5}', "\u{648}"),
-    ('\u{6e6}', "\u{64a}"),
-];
+use super::load::{SUPERSCRIPTS, SWAPPING_PUNCTUATION};
 
 /// The plain text `CSL.SUPERSCRIPTS[c]` for a superscript character.
 pub fn superscript_for(c: char) -> Option<&'static str> {
@@ -387,59 +275,8 @@ pub fn text_escape(format: Format, text: &str) -> String {
     }
 }
 
-/// What `CSL.getSafeEscape(state)` returns: the escaper to use for the
-/// current area (load.js:1026). Evaluate it with [`SafeEscape::escape`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SafeEscape {
-    /// `false`: the identity function (area is not citation/bibliography).
-    active: bool,
-    format: Format,
-    /// The `thin_non_breaking_space_html_hack` callback is on.
-    thin_hack: bool,
-}
-
-impl SafeEscape {
-    /// Apply the escaper.
-    pub fn escape(&self, txt: &str) -> String {
-        if !self.active {
-            return txt.to_string();
-        }
-        if self.thin_hack {
-            let t = txt.replace(
-                '\u{202f}',
-                "<span style=\"white-space:nowrap\">&thinsp;</span>",
-            );
-            return text_escape(self.format, &t);
-        }
-        text_escape(self.format, txt)
-    }
-}
-
-/// `CSL.getSafeEscape(state)`. // DUP-CHECK: load.js CSL.getSafeEscape
-///
-/// Reads `state.tmp.area`, `state.opt.mode` and
-/// `state.opt.development_extensions.thin_non_breaking_space_html_hack`
-/// (an object inside `state.opt`).
-pub fn safe_escape(state: &State) -> SafeEscape {
-    let area = state.tmp.area.as_str();
-    let active = area == "bibliography" || area == "citation";
-    let format = current_format(state);
-    let thin = state
-        .opt
-        .get("development_extensions")
-        .and_then(Value::as_object)
-        .and_then(|o| o.get("thin_non_breaking_space_html_hack"))
-        .map(js::truthy)
-        .unwrap_or(false);
-    SafeEscape {
-        active,
-        format,
-        thin_hack: active && thin && format == Format::Html,
-    }
-}
-
 // ---------------------------------------------------------------------------
-// Stand-ins for build.js (see the module docs)
+// Readers of build.js (see the module docs)
 // ---------------------------------------------------------------------------
 
 /// `state.getTerm(name)` as a string (`""` for `undefined`, which JS would
@@ -457,10 +294,7 @@ pub fn get_term(state: &State, name: &str) -> String {
 /// `state.getOpt(name)` as a boolean flag: `state.locale[opt.lang].opts[name]`
 /// (`false` when unset or when the locale is missing).
 pub fn get_opt_flag(state: &State, name: &str) -> bool {
-    state
-        .get_opt(name)
-        .map(|v| js::truthy(&v))
-        .unwrap_or(false)
+    state.get_opt(name).map(|v| js::truthy(&v)).unwrap_or(false)
 }
 
 // ---------------------------------------------------------------------------
@@ -1184,7 +1018,7 @@ mod tests {
                 "development_extensions".into(),
                 serde_json::json!({ "thin_non_breaking_space_html_hack": c["thin"] }),
             );
-            let got = safe_escape(&st).escape(c["s"].as_str().unwrap());
+            let got = crate::citeproc::load::get_safe_escape(&st).escape(c["s"].as_str().unwrap());
             if c["r"].as_str() != Some(got.as_str()) {
                 bad.push(format!("{c}: got {got:?}"));
             }

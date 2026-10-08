@@ -64,23 +64,21 @@ use std::sync::LazyLock;
 use regex::Regex;
 use serde_json::Value;
 
-use super::formats::{decorate, get_opt_flag, safe_escape, SafeEscape};
+use super::formats::{decorate, get_opt_flag};
+use super::load::{get_safe_escape, CheckNestedBrace, SafeEscape, TERMINAL_PUNCTUATION};
 use super::formatters;
 use super::js;
 use super::obj_blob::{
-    drop_first, drop_last, first_char, last_char, romanesque_regexp, Blob, BlobChild, BlobContent,
-    BlobId, BlobKind, Blobs, JS_WS_CLASS,
+    drop_first, drop_last, first_char, last_char, Blob, BlobChild, BlobContent, BlobId, BlobKind,
+    Blobs, JS_WS_CLASS,
 };
-use super::obj_number::{self, NumArg, END, SEEN, START, SUCCESSOR, SUPPRESS};
+use super::load::{END, SEEN, START, SUCCESSOR, SUPPRESS};
+use super::obj_number::{self, NumArg};
 use super::obj_token::{Decoration, Token, TokenType};
 use super::stack::Stack;
 use super::state::{Area, State};
 use super::util_flipflop;
 use super::{CslResult, EngineError};
-
-// DUP-CHECK: load.js CSL.TERMINAL_PUNCTUATION
-/// `CSL.TERMINAL_PUNCTUATION`.
-pub const TERMINAL_PUNCTUATION: [&str; 6] = [":", ".", ";", "!", "?", " "];
 
 /// Which of the engine's two output queues a call addresses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -198,58 +196,6 @@ pub enum StringParent {
     Bool(bool),
     /// A blob.
     Blob(BlobId),
-}
-
-/// `CSL.checkNestedBrace(state)` (load.js:248): flips nested parentheses in
-/// affixes to brackets in note styles. `update` is `this.update`.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct CheckNestedBrace {
-    /// `state.opt.xclass === "note"`; otherwise `update` is the identity.
-    pub note: bool,
-    /// `this.depth`.
-    pub depth: i64,
-}
-
-impl CheckNestedBrace {
-    /// `new CSL.checkNestedBrace(state)`; `xclass_is_note` is
-    /// `state.opt.xclass === "note"`.
-    pub fn new(xclass_is_note: bool) -> CheckNestedBrace {
-        // DUP-CHECK: load.js CSL.checkNestedBrace
-        CheckNestedBrace {
-            note: xclass_is_note,
-            depth: 0,
-        }
-    }
-
-    /// `this.update(str)`.
-    pub fn update(&mut self, s: &str) -> String {
-        if !self.note {
-            return s.to_string();
-        }
-        let mut out = String::with_capacity(s.len());
-        for c in s.chars() {
-            match c {
-                '(' => {
-                    if self.depth % 2 == 1 {
-                        out.push('[');
-                    } else {
-                        out.push('(');
-                    }
-                    self.depth += 1;
-                }
-                ')' => {
-                    if self.depth % 2 == 0 {
-                        out.push(']');
-                    } else {
-                        out.push(')');
-                    }
-                    self.depth -= 1;
-                }
-                other => out.push(other),
-            }
-        }
-        out
-    }
 }
 
 /// `CSL.Output.Queue`.
@@ -562,9 +508,7 @@ pub fn start_tag(
 ) -> CslResult<()> {
     let mut name = name.to_string();
     let mut token = token.cloned();
-    if state.tmp.doing_macro_with_date
-        && !state.tmp.extension.is_empty()
-    {
+    if state.tmp.doing_macro_with_date && !state.tmp.extension.is_empty() {
         token = Some(q_ref(state, q).empty.clone());
         name = "empty".to_string();
     }
@@ -876,7 +820,7 @@ pub fn append(
                     blob.punctuation_in_quote = Some(get_opt_flag(state, "punctuation-in-quote"));
                 }
                 let has_roman = match &blob.blobs {
-                    BlobContent::Text(t) => romanesque_regexp().is_match(t),
+                    BlobContent::Text(t) => super::load::ROMANESQUE_REGEXP.is_match(t),
                     BlobContent::List(_) => false,
                 };
                 if !has_roman && blob.decorations[i].name == "@font-style" {
@@ -949,7 +893,7 @@ pub fn string(
     parent: StringParent,
 ) -> CslResult<Rendered> {
     ensure(state, q);
-    let txt_esc: SafeEscape = safe_escape(state);
+    let txt_esc: SafeEscape = get_safe_escape(state);
     let blobs: Vec<BlobChild> = myblobs.to_vec();
     let mut ret: Vec<Rendered> = Vec::new();
 
@@ -1337,7 +1281,7 @@ pub fn render_blobs(
     parent: Option<BlobId>,
 ) -> CslResult<Rendered> {
     ensure(state, q);
-    let txt_esc = safe_escape(state);
+    let txt_esc = get_safe_escape(state);
     let mut blobs = blobs;
     let len = blobs.len();
     let mut ret = Rendered::Str(String::new());
@@ -2502,7 +2446,9 @@ mod tests {
                 for (k, v) in op[1].as_object().unwrap() {
                     match k.as_str() {
                         "doing-macro-with-date" => st.tmp.doing_macro_with_date = js::truthy(v),
-                        "extension" => st.tmp.extension = v.as_str().unwrap_or_default().to_string(),
+                        "extension" => {
+                            st.tmp.extension = v.as_str().unwrap_or_default().to_string()
+                        }
                         other => panic!("tmp {other}"),
                     }
                 }
@@ -2528,7 +2474,8 @@ mod tests {
         st.tmp.just_looking = js::truthy(&cfg["just_looking"]);
         st.tmp.suppress_decorations = js::truthy(&cfg["suppress"]);
         if js::truthy(&cfg["note"]) {
-            st.output.check_nested_brace = Some(CheckNestedBrace::new(true));
+            st.opt.insert("xclass".into(), json!("note"));
+            st.output.check_nested_brace = Some(CheckNestedBrace::new(&st));
         }
         let q = if cfg["q"].as_str() == Some("dateput") {
             QueueId::Dateput
@@ -2593,9 +2540,11 @@ mod tests {
 
     #[test]
     fn nested_brace_flips_in_notes() {
-        let mut c = CheckNestedBrace::new(true);
+        let mut note = State::default();
+        note.opt.insert("xclass".into(), json!("note"));
+        let mut c = CheckNestedBrace::new(&note);
         assert_eq!(c.update("(a (b))"), "(a [b])");
-        let mut d = CheckNestedBrace::new(false);
+        let mut d = CheckNestedBrace::new(&State::default());
         assert_eq!(d.update("(x"), "(x");
     }
 }

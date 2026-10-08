@@ -87,7 +87,7 @@ impl NodeKeyExec {
         &self,
         state: &mut State,
         token: &mut Token,
-        _item: &Value,
+        item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
         match self {
@@ -95,7 +95,7 @@ impl NodeKeyExec {
                 state.tmp.done_vars = Vec::new();
                 Ok(None)
             }
-            // PORT-LATER(wave1-output): node_key.js:24, needs
+            // PORT-LATER(wave2): node_key.js:24, needs
             // state.output.openLevel("empty") (queue.rs).
             NodeKeyExec::OpenLevelEmpty => Err(EngineError::NotYetPorted {
                 method: "node_key.js:24 closure",
@@ -125,7 +125,7 @@ impl NodeKeyExec {
             NodeKeyExec::CitationNumber => Err(EngineError::NotYetPorted {
                 method: "node_key.js:98 closure",
             }),
-            // PORT-LATER(wave1-output): node_key.js:119-128, needs
+            // PORT-LATER(wave2): node_key.js:119-128, needs
             // CSL.Util.padding and state.output.append (queue.rs). Captured: variable.
             NodeKeyExec::NumericVariable { .. } => Err(EngineError::NotYetPorted {
                 method: "node_key.js:119 closure",
@@ -135,11 +135,11 @@ impl NodeKeyExec {
             NodeKeyExec::CitationLabel => Err(EngineError::NotYetPorted {
                 method: "node_key.js:131 closure",
             }),
-            // PORT-LATER(wave1-input): node_key.js:137, CSL.dateAsSortKey
-            // (util_date.js) is not ported yet.
-            NodeKeyExec::DateAsSortKey => Err(EngineError::NotYetPorted {
-                method: "node_key.js:137 CSL.dateAsSortKey",
-            }),
+            // node_key.js:137: `func = CSL.dateAsSortKey` (util_date.js).
+            NodeKeyExec::DateAsSortKey => {
+                super::util_date::date_as_sort_key(state, token, item, false)?;
+                Ok(None)
+            }
             // PORT-LATER(wave2): node_key.js:139-145, needs
             // state.transform.getOutputFunction (util_transform.js).
             NodeKeyExec::TitleTransform { .. } => Err(EngineError::NotYetPorted {
@@ -150,12 +150,12 @@ impl NodeKeyExec {
             NodeKeyExec::CourtClass => Err(EngineError::NotYetPorted {
                 method: "node_key.js:147 closure",
             }),
-            // PORT-LATER(wave1-output): node_key.js:155-160, needs
+            // PORT-LATER(wave2): node_key.js:155-160, needs
             // state.output.append (queue.rs). Captured: variable.
             NodeKeyExec::PlainVariable { .. } => Err(EngineError::NotYetPorted {
                 method: "node_key.js:155 closure",
             }),
-            // PORT-LATER(wave1-output): node_key.js:187-211, needs
+            // PORT-LATER(wave2): node_key.js:187-211, needs
             // state.output.string(state, state.output.queue) (queue.rs) and
             // sys.normalizeUnicode.
             NodeKeyExec::StoreKey => Err(EngineError::NotYetPorted {
@@ -218,13 +218,12 @@ fn build_into(state: &mut State, this: &Token, target: &mut Vec<Token>) -> CslRe
         .push(Exec::NodeKey(NodeKeyExec::OpenLevelEmpty));
 
     // sort direction
-    let sort_direction: Vec<Value> = if this.strings.get("sort_direction").and_then(Value::as_i64)
-        == Some(DESCENDING)
-    {
-        vec![Value::from(1), Value::from(-1)]
-    } else {
-        vec![Value::from(-1), Value::from(1)]
-    };
+    let sort_direction: Vec<Value> =
+        if this.strings.get("sort_direction").and_then(Value::as_i64) == Some(DESCENDING) {
+            vec![Value::from(1), Value::from(-1)]
+        } else {
+            vec![Value::from(-1), Value::from(1)]
+        };
     let area = state.build.area.clone();
     attributes::arr_entry(
         &mut attributes::area_mut(state, &area)?.opt,
