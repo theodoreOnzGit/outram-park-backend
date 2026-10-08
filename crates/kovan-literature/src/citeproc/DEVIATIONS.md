@@ -41,23 +41,23 @@ intent), **affects** (which outputs change; "none observed" until measured).
 Behaviour that looks accidental but for which no spec or fixture evidence has
 been found yet. Until decided, **the port reproduces citeproc-js**.
 
-- **C1 — `deleteNodeByNameAttribute` skips the node after each deletion**
+- **C1 (#800) — `deleteNodeByNameAttribute` skips the node after each deletion**
   (xmljson.js; it removes from an array while iterating it). Whether this ever
   changes a rendered output is not yet measured.
-- **C2 — The flip-flopper turns `oblique` into `"undefined"`** for `<i>` inside
+- **C2 (#801) — The flip-flopper turns `oblique` into `"undefined"`** for `<i>` inside
   an oblique context (util_flipflop.js: the flip table has no `oblique`
   entry), so the decoration lookup then fails. Probably a bug; needs the
   spec's rich-text markup section and a fixture to confirm the intended flip
   (to `normal`).
-- **C3 — `CSL.getLocaleNames` throws a TypeError** through an unbound `this`
+- **C3 (#802) — `CSL.getLocaleNames` throws a TypeError** through an unbound `this`
   (util_locale_sniff.js). Only reached through an API path the suite does not
   use.
-- **C4 — Stale bundled locales.** citeproc-js 2.4.63's pinned `locale/`
+- **C4 (#803) — Stale bundled locales.** citeproc-js 2.4.63's pinned `locale/`
   predates the test suite at `6eefc5b0`, so at least 9 of citeproc-js's 16
   fixture failures are locale data (`AD` vs ` AD`, `tran.` vs `trans.`). This
   is data, not engine code: the decision is which locale files the port ships
   and is verified with. The fixture `RESULT` shows the intended (newer)
   terms.
-- **C5 — Greek and Lithuanian `toLocaleUpperCase`** are locale-specific in V8
+- **C5 (#804) — Greek and Lithuanian `toLocaleUpperCase`** are locale-specific in V8
   and only the Turkic rules are implemented here. A gap, not a quirk; listed
   so it is not forgotten.
