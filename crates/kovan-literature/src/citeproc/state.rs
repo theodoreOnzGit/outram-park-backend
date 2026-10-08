@@ -648,6 +648,26 @@ pub struct Tmp {
     // ---- fields: wave4 ----
 
     // ---- fields: wave5 ----
+    /// `have_collapsed` (set by the citation API during collapsing; read by
+    /// `cs:date-part`). Another wave-2 agent (engine) may also add it.
+    pub have_collapsed: bool,
+    /// `has_done_year_suffix` (reset by the citation API per cite; set by
+    /// `cs:date-part` when it emits the year-suffix blob).
+    pub has_done_year_suffix: bool,
+    /// `issued_date`: set by `cs:date` (node_date.js:144-148) for a legal
+    /// item whose year equals its collection-number; read by api_cite.js
+    /// (1642-1654). `None` is JS `false`/`undefined`.
+    pub issued_date: Option<IssuedDate>,
+}
+
+/// `state.tmp.issued_date` (`{list, pos}`): `list` is the `blobs` array of a
+/// parent blob (here the parent's id), `pos` the index of the date blob in it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IssuedDate {
+    /// The parent blob whose children array is `list`.
+    pub list: BlobId,
+    /// `pos`.
+    pub pos: usize,
 }
 
 impl Tmp {
@@ -733,6 +753,9 @@ impl Tmp {
             count_offset_characters: None,
             offset_characters: 0,
             term_predecessor_name: false,
+            have_collapsed: false,
+            has_done_year_suffix: false,
+            issued_date: None,
         }
     }
 }
