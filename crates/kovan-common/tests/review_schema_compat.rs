@@ -17,7 +17,13 @@
 //! 2026-10-07) is v2 plus `signed_at` on the review and the architecture
 //! node; v1 and v2 load with `signed_at` absent and still re-emit without
 //! it (`signing/signed_at_tests.rs` pins a signed v1 `review.md` byte for
-//! byte, and its signatures).
+//! byte, and its signatures). v4 (GitHub #809, 2026-10-08) is v3 plus the
+//! rung-5 IV&V records: `[[code_review.developing_organisation]]` (one
+//! workspace entry, one per-crate override), `[[reviewer.organisation]]`,
+//! `[[reviewer.separation]]`, and `separation_attestation` on a review;
+//! v1 to v3 load with all of them absent, re-emit without them, and their
+//! `review.md` renders byte for byte as before
+//! (`old_files_write_back_unchanged`).
 
 use std::path::Path;
 
@@ -63,6 +69,21 @@ fn every_committed_review_fixture_loads() {
         if !v3_or_later {
             assert!(!render_review_md(&doc.entries).unwrap().contains("signed_at"));
         }
+        // The #809 records exist from v4 on, and never appear from nowhere.
+        let v4_or_later = !matches!(dir.file_name().and_then(|n| n.to_str()), Some("v1" | "v2" | "v3"));
+        let has_ivv = doc.reviews().any(|r| r.review.separation_attestation.is_some())
+            && r.code_review.as_ref().is_some_and(|c| c.developing_organisation.len() == 2)
+            && r.reviewers.iter().any(|x| !x.organisations.is_empty())
+            && r.reviewers.iter().any(|x| !x.separations.is_empty());
+        assert_eq!(has_ivv, v4_or_later, "{}", dir.display());
+        if !v4_or_later {
+            let md_out = render_review_md(&doc.entries).unwrap();
+            assert!(!md_out.contains("separation_attestation"));
+            let root_out = r.write_into(&root).unwrap();
+            for key in ["developing_organisation", "reviewer.organisation", "reviewer.separation"] {
+                assert!(!root_out.contains(key), "{}: {key}", dir.display());
+            }
+        }
         let again = parse_review_md(&render_review_md(&doc.entries).unwrap());
         let strip = |d: &kovan_common::review::review_md::ReviewDocument| {
             d.entries
@@ -103,4 +124,59 @@ fn v1_placeholder_checklist_keys_load_but_the_wizard_refuses_them() {
             use_instead: new.into(),
         })));
     }
+}
+
+/// **Old files write back unchanged** (GitHub #809: schemas never break).
+///
+/// Methodology: the fixtures were written by hand (an inline array where
+/// the renderer writes one per line), so the byte check is on files the
+/// renderer wrote: for v1, v2 and v3, `review.md` is rendered once, and that
+/// rendering must read and render again to exactly the same bytes, with no
+/// `separation_attestation` anywhere (the field is absent, so serde skips
+/// it). A `review.md` written by the pre-#809 renderer and signed then is
+/// pinned byte for byte, with its signatures, by
+/// `signing/signed_at_tests.rs` (`old_review_md_loads_unchanged`,
+/// `v1_fixture_bytes_identical_and_verified`). And a reader shaped like the
+/// pre-#809 schema (no organisation, attestation or
+/// `separation_attestation` fields; serde ignores unknown keys) reads the
+/// v4 root and review, so an older kovan can still open a newer workspace.
+///
+/// Result (2026-10-08): passes for v1, v2 and v3; v4 reads in the old
+/// shape and is itself a fixed point of the renderer.
+#[test]
+fn old_files_write_back_unchanged() {
+    let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/review");
+    for v in ["v1", "v2", "v3"] {
+        let md = std::fs::read_to_string(base.join(v).join("review.md")).unwrap();
+        let once = render_review_md(&parse_review_md(&md).entries).unwrap();
+        let twice = render_review_md(&parse_review_md(&once).entries).unwrap();
+        assert_eq!(twice, once, "{v}: a written file writes back byte for byte");
+        assert!(!once.contains("separation_attestation"), "{v}");
+    }
+    #[derive(serde::Deserialize)]
+    struct OldReviewer {
+        id: String,
+    }
+    #[derive(serde::Deserialize)]
+    struct OldCodeReview {
+        rust_analyzer: Option<String>,
+    }
+    #[derive(serde::Deserialize)]
+    struct OldRoot {
+        code_review: Option<OldCodeReview>,
+        reviewer: Vec<OldReviewer>,
+    }
+    let v4 = std::fs::read_to_string(base.join("v4/kovan_root.toml")).unwrap();
+    let old: OldRoot = toml::from_str(&v4).unwrap();
+    assert_eq!(old.code_review.unwrap().rust_analyzer.as_deref(), Some("0.3.2645"));
+    assert_eq!(old.reviewer.len(), 2);
+    assert_eq!(old.reviewer[1].id, "orcid:0000-0002-1825-0097");
+    let md = std::fs::read_to_string(base.join("v4/review.md")).unwrap();
+    let doc = parse_review_md(&md);
+    assert!(doc.unreadable.is_empty());
+    let r = doc.reviews().next().unwrap();
+    assert_eq!(r.review.separation_attestation.as_deref(), Some("sep-2026-10-08"));
+    let once = render_review_md(&doc.entries).unwrap();
+    assert!(once.contains("separation_attestation = \"sep-2026-10-08\""));
+    assert_eq!(render_review_md(&parse_review_md(&once).entries).unwrap(), once);
 }

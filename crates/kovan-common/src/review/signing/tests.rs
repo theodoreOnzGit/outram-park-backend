@@ -61,6 +61,7 @@ pub(super) fn review_entry(function: &str, by: &str, date: &str) -> ReviewEntry 
             no_concept: None,
             authorship: None,
             moved: vec![],
+            separation_attestation: None,
             signature: None,
         },
         relations: vec![],
@@ -90,6 +91,8 @@ pub(super) fn person(id: &str, role: Role, keys: Vec<ReviewerKey>) -> Reviewer {
         admitted_by: None,
         keys,
         revoked: None,
+        organisations: vec![],
+        separations: vec![],
     }
 }
 
@@ -104,6 +107,7 @@ pub(super) fn root_with_founder(founder: Option<&str>, reviewers: Vec<Reviewer>)
             rust_analyzer: None,
             founder: founder.map(str::to_string),
             rust_analyzer_used: vec![],
+            developing_organisation: vec![],
         }),
         reviewers,
         deleted_crates: vec![],

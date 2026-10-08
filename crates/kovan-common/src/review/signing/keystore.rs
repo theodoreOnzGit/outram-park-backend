@@ -42,12 +42,15 @@ use zeroize::Zeroizing;
 
 use super::super::review_md::{ArchitectureEntry, ReviewEntry};
 use super::super::root::{
+    DevelopingOrganisation, ReviewerOrganisation, SeparationAttestation,
     KeyEvent, KeyEventKind, KeySignature, KeySigner, Revocation, Reviewer, ReviewerKey,
 };
 use super::super::signed_at::{now_local, parse_rfc3339};
 use super::super::types::{reviewer_id_kind, FieldError};
 use super::registry::{check_append_date, open_retirement, LifecycleError};
+use super::super::ivv::{parse_audit_record, AuditRecordProblem};
 use super::{
+    developing_organisation_bytes, reviewer_organisation_bytes, separation_attestation_bytes,
     architecture_signed_bytes, decode_fixed, encode_b64, is_date, key_event_bytes, line,
     revocation_bytes, signed_bytes, Signature, ALG,
 };
@@ -148,6 +151,9 @@ pub enum SignError {
     /// A `signed_at` given to [`UnlockedKey::sign_review_at`] is not RFC
     /// 3339 to the second with an offset ([`parse_rfc3339`]).
     BadSignedAt(String),
+    /// [`UnlockedKey::attest_separation`] was given no audit record, or one
+    /// that is not a GitHub issue URL (GitHub #809).
+    BadAuditRecord(AuditRecordProblem),
 }
 
 impl std::fmt::Display for SignError {
@@ -162,6 +168,10 @@ impl std::fmt::Display for SignError {
             Self::BadDate(d) => write!(f, "bad date {d:?}"),
             Self::Lifecycle(e) => write!(f, "{e}"),
             Self::BadSignedAt(t) => write!(f, "signed_at {t:?} is not RFC 3339 to the second"),
+            Self::BadAuditRecord(p) => write!(
+                f,
+                "the audit record must be https://github.com/<owner>/<repo>/issues/<n> ({p:?})"
+            ),
         }
     }
 }
@@ -546,6 +556,52 @@ impl UnlockedKey {
     ) -> Result<(), SignError> {
         let kind = if compromised { KeyEventKind::Compromised } else { KeyEventKind::Revoked };
         self.sign_event(owner, k, kind, date, "", None)
+    }
+
+    /// This key as the `signer` of a registry statement.
+    fn as_signer(&self) -> KeySigner {
+        KeySigner { reviewer: Some(self.reviewer.clone()), key: self.key.clone() }
+    }
+
+    /// Sign a `[[code_review.developing_organisation]]` entry (GitHub
+    /// #809): sets `signer` to this key and `signature` over
+    /// [`developing_organisation_bytes`]. It counts only if this key is an
+    /// admitted maintainer's, trusted and active at `e.date` (checked by
+    /// [`crate::review::ivv`], not here). Refuses a malformed date.
+    pub fn sign_developing_organisation(&self, e: &mut DevelopingOrganisation) -> Result<(), SignError> {
+        if !is_date(&e.date) {
+            return Err(SignError::BadDate(e.date.clone()));
+        }
+        e.signer = Some(self.as_signer());
+        e.signature = Some(self.sign(&developing_organisation_bytes(e)));
+        Ok(())
+    }
+
+    /// Sign a `[[reviewer.organisation]]` entry of `reviewer` as a
+    /// maintainer (GitHub #809), as [`Self::sign_developing_organisation`].
+    pub fn sign_reviewer_organisation(&self, reviewer: &str, e: &mut ReviewerOrganisation) -> Result<(), SignError> {
+        if !is_date(&e.date) {
+            return Err(SignError::BadDate(e.date.clone()));
+        }
+        e.signer = Some(self.as_signer());
+        e.signature = Some(self.sign(&reviewer_organisation_bytes(reviewer, e)));
+        Ok(())
+    }
+
+    /// Sign a separation attestation as **this key's own reviewer**, alone
+    /// (GitHub #809): sets `key` and `signature` over
+    /// [`separation_attestation_bytes`], which carries the fixed
+    /// [`super::SEPARATION_STATEMENT`]. Refuses a malformed date and a
+    /// missing or malformed audit record (it would never count).
+    pub fn attest_separation(&self, a: &mut SeparationAttestation) -> Result<(), SignError> {
+        if !is_date(&a.date) {
+            return Err(SignError::BadDate(a.date.clone()));
+        }
+        let url = a.audit_record.as_deref().ok_or(SignError::BadAuditRecord(AuditRecordProblem::Missing))?;
+        parse_audit_record(url).map_err(SignError::BadAuditRecord)?;
+        a.key = Some(self.key.clone());
+        a.signature = Some(self.sign(&separation_attestation_bytes(&self.reviewer, a)));
+        Ok(())
     }
 
     /// Un-retire **this** key from `date`: the possession proof (#739),

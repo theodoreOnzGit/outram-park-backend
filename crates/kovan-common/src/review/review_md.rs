@@ -49,6 +49,7 @@
 //! hash = "sha256:<64 hex>"
 //! doc_hash = "sha256:<64 hex>"
 //! cargo_lock = "sha256:<64 hex>"
+//! separation_attestation = "sep-2026-10-08"  (#809; only on an IV&V stamp)
 //!
 //! [review.callees]
 //! "crates/tampines/src/steam.rs::saturation" = "sha256:<64 hex>"
@@ -141,8 +142,10 @@ pub struct ReviewBody {
     pub path: Option<String>,
     /// `github:` / `gitlab:` / `orcid:` / email.
     pub by: String,
-    /// 3 human reviewed, 4 human V&V (gated on `vv_evidence` and
-    /// `independence`: [`super::wizard::stamp_gate`]). 5 is derived.
+    /// 3 human reviewed, 4 human V&V (~~gated on `vv_evidence` and
+    /// `independence`~~ **CORRECTED 2026-10-08**: derived from `vv_evidence`,
+    /// `vv_case_author` and git, [`super::wizard::derived_rung`]). 5 is never
+    /// recorded: the engine derives it per function ([`super::ivv`]).
     pub rung: u8,
     /// `YYYY-MM-DD`.
     pub date: String,
@@ -175,6 +178,13 @@ pub struct ReviewBody {
     pub authorship: Option<ChangeAuthorship>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub moved: Vec<MoveRecord>,
+    /// The id of the reviewer's `[[reviewer.separation]]` attestation this
+    /// review relies on for rung 5, IV&V (GitHub #809; [`super::ivv`]).
+    /// Signed (the v3 signed bytes, [`super::signing`]); absent on every
+    /// stamp that does not claim independence from the developing
+    /// organisation, which keeps its v1/v2 bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub separation_attestation: Option<String>,
     /// Ed25519 over [`super::signing::signed_bytes`]; checked by
     /// [`super::signing::verify_review`] (#762).
     #[serde(default, skip_serializing_if = "Option::is_none")]

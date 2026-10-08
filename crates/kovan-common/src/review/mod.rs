@@ -64,12 +64,16 @@
 //!   vocabulary in [`state`].
 //! - Resolving a function's concept areas (for rung 5) from its review's
 //!   `implements` relations: [`engine::evaluate`] takes them as data.
+//!
+//! Rung 5 is IV&V by a technically and managerially separate organisation
+//! (GitHub #809, NUREG/BR-0167 §3.1): [`crate::review::ivv`].
 
 pub mod engine;
 pub mod evidence;
 pub mod hash;
 pub mod id;
 pub mod index;
+pub mod ivv;
 pub mod review_md;
 pub mod root;
 pub mod rust_items;

@@ -48,6 +48,7 @@ pub(crate) fn review(function: &str, _file: &str, by: &str) -> ReviewEntry {
             no_concept: None,
             authorship: None,
             moved: vec![],
+            separation_attestation: None,
             signature: None,
         },
         relations: vec![],
@@ -443,4 +444,27 @@ members = ["{key}"]
     assert!(again.migrated.is_empty());
     let entries = |d: &ReviewDocument| d.entries.iter().map(|e| e.entry.clone()).collect::<Vec<_>>();
     assert_eq!(entries(&again), entries(&doc));
+}
+
+/// Methodology: the GitHub #809 `separation_attestation` on a review is
+/// additive: a review without one renders no such key and reads back
+/// without one; a review with one renders `separation_attestation = "…"`
+/// in `[review]`, reads back with it, and re-renders byte for byte.
+///
+/// Result (2026-10-08): passes.
+#[test]
+fn separation_attestation_is_additive() {
+    let plain = review("crates/t/src/steam.rs::flash", "steam.rs", "github:theodoreOnzGit");
+    let text = doc_of(vec![Entry::Review(plain.clone())]);
+    assert!(!text.contains("separation_attestation"));
+    let back = parse_review_md(&text);
+    assert_eq!(back.reviews().next().unwrap().review.separation_attestation, None);
+    let mut ivv = plain;
+    ivv.review.separation_attestation = Some("sep-2026-10-08".into());
+    let text = doc_of(vec![Entry::Review(ivv.clone())]);
+    assert!(text.contains("separation_attestation = \"sep-2026-10-08\""), "{text}");
+    let back = parse_review_md(&text);
+    assert!(back.unreadable.is_empty(), "{:?}", back.unreadable);
+    assert_eq!(back.reviews().next().unwrap(), &ivv);
+    assert_eq!(render_review_md(&back.entries).unwrap(), text);
 }

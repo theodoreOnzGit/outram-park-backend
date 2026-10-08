@@ -762,7 +762,7 @@ fn check_self_signed(
 /// not be revoked on or before that date. The key must be active (not
 /// retired, revoked or compromised) at `dated`, the statement's own date
 /// (#762 Q4).
-fn find_signer(
+pub(crate) fn find_signer(
     state: &[ReviewerTrust],
     candidates: &[usize],
     signer: &KeySigner,
@@ -831,7 +831,7 @@ fn find_signer(
 }
 
 /// Admitted maintainers other than `except`.
-fn maintainers(state: &[ReviewerTrust], except: Option<usize>) -> Vec<usize> {
+pub(crate) fn maintainers(state: &[ReviewerTrust], except: Option<usize>) -> Vec<usize> {
     (0..state.len())
         .filter(|&m| Some(m) != except && state[m].role == Role::Maintainer && state[m].is_admitted())
         .collect()

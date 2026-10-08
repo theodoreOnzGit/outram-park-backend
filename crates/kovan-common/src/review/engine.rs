@@ -87,16 +87,34 @@
 //! same commit the authenticity rule checks. A v1 stamp (no `signed_at`) is
 //! never flagged.
 //! ~~A review's rung 4 counts only when the wizard's gate opens it,
-//! otherwise it counts as rung 3 and is flagged~~ **CORRECTED 2026-10-07**. A
-//! function is at **rung 5** when, besides its earliest valid review, a
+//! otherwise it counts as rung 3 and is flagged~~ **CORRECTED 2026-10-07**.
+//! ~~A function is at **rung 5** when, besides its earliest valid review, a
 //! valid review exists by a different reviewer who is not one of the code's
 //! authors (from git), whose wizard answer to `independence` is
 //! `someone_else` ([`ReviewReport::independent`]; maintainer on #769,
 //! 2026-10-07: independence gates rung 5, not rung 4) **and** who holds a
 //! qualification covering every concept
 //! area of the function ([`ConceptAreas`]; maintainer, #739, 2026-10-07:
-//! "only rung 5 enforces qualification"). A function with no known concept
-//! area cannot reach rung 5. Below rung 5 qualification is shown
+//! "only rung 5 enforces qualification").~~ **CORRECTED 2026-10-08**
+//! (GitHub #809; maintainer decisions 2026-10-08) — rung 5 is
+//! **independent verification and validation (IV&V)** in NUREG/BR-0167's
+//! sense (§3.1 p. 6: "verification and validation by an organization that
+//! is both technically and managerially separate from the organization
+//! responsible for developing the software"). A function is at rung 5 when
+//! a valid review is an **independent V&V case** (it derives rung 4 on its
+//! own: a qualifying `vv_evidence`, written and verified by hand, git
+//! agreeing) by a reviewer who is qualified in every concept area of the
+//! function ([`ConceptAreas`]), is neither a code author nor the first
+//! reviewer, answered `independence = someone_else`, whose registry
+//! organisation differs from the developing organisation in force for the
+//! function's crate, and whose review names a valid signed separation
+//! attestation with a GitHub-issue audit record. A second review stamp
+//! alone no longer reaches rung 5. The rules and every reason a candidate
+//! misses are in [`super::ivv`]; the result is
+//! [`FunctionReport::independent_vv`], and a review that names an
+//! attestation but misses raises [`FunctionFlag::IndependentVvNotCounted`]
+//! (Leak Before Break: never a silent downgrade). A function with no known
+//! concept area cannot reach rung 5. Below rung 5 qualification is shown
 //! ([`ReviewReport::qualifications`]) and never enforced; scope is.
 //!
 //! **Test evidence** is the folder's `[test_run]`, judged by #766's
@@ -112,6 +130,7 @@ use crate::artifact::relation::CodeTarget;
 
 use super::evidence::verdict::{reach_verdict, ReachVerdict};
 use super::index::{FolderIndex, FunctionIndex, Suite, TestRun};
+use super::ivv::{judge_function, record_warnings, IndependentVv, RecordList, RecordWarning, Rung5Miss, VvCaseProblem};
 use super::review_md::{DeletedFunction, FixStatus, ReviewDocument, ReviewEntry};
 use super::root::{ReviewRoot, Role};
 use super::scope::in_scope;
@@ -417,6 +436,9 @@ pub enum FunctionFlag {
     /// (#783, [`super::signed_at::plausibility`]): tamper evidence, never a
     /// void.
     ImplausibleSignedAt { review: String, problems: Vec<SignedAtProblem> },
+    /// A valid review names a separation attestation (it claims rung 5,
+    /// IV&V) but misses it (GitHub #809): every reason is listed.
+    IndependentVvNotCounted { review: String, misses: Vec<Rung5Miss> },
 }
 
 impl FunctionFlag {
@@ -425,6 +447,7 @@ impl FunctionFlag {
             Self::NewReachingTests { .. } => FlagKind::NewReachingTest,
             Self::DuplicateCode { .. } => FlagKind::DuplicateCode,
             Self::ImplausibleSignedAt { .. } => FlagKind::ImplausibleSigningTime,
+            Self::IndependentVvNotCounted { .. } => FlagKind::IndependentVvNotCounted,
         }
     }
 }
@@ -490,8 +513,14 @@ pub struct ReviewReport {
     /// (self-declared ones say so).
     pub qualifications: Vec<String>,
     /// The wizard says the reviewer is independent of the code
-    /// (`independence = "someone_else"`): may be rung 5's second review.
+    /// `independence = "someone_else"`): one of rung 5's conditions
+    /// ([`super::ivv`]).
     pub independent: bool,
+    /// Why this review is not a hand-written V&V case (empty: it derives
+    /// rung 4); rung 5's first condition ([`super::ivv::vv_case_problems`]).
+    pub vv_case: Vec<VvCaseProblem>,
+    /// The separation attestation the review names, if any (GitHub #809).
+    pub separation_attestation: Option<String>,
 }
 
 /// One function, judged.
@@ -510,6 +539,9 @@ pub struct FunctionReport {
     pub blocked_by: Vec<String>,
     /// Flags that never void a stamp ([`FunctionFlag`]).
     pub flags: Vec<FunctionFlag>,
+    /// Rung 5, IV&V (GitHub #809): the review that gives it, if any, and
+    /// every valid review with the reasons it does not ([`super::ivv`]).
+    pub independent_vv: IndependentVv,
 }
 
 /// Where a deleted function's history row goes (#739 D6).
@@ -564,6 +596,10 @@ pub struct Evaluation {
     pub history_warnings: Vec<HistoryWarning>,
     /// Tests that started reaching a reviewed function after its review.
     pub new_reaching_tests: Vec<NewReachingTest>,
+    /// Organisation records and separation attestations that do not
+    /// verify, whether or not a review relies on them (GitHub #809;
+    /// [`super::ivv::record_warnings`]).
+    pub ivv_warnings: Vec<RecordWarning>,
 }
 
 /// A breach of the append-only key history (#762 follow-up, 2026-10-07):
@@ -580,18 +616,49 @@ pub enum HistoryWarning {
     EntryRemoved { reviewer: String, key: String, index: usize },
     /// History entry `index` was changed.
     EntryChanged { reviewer: String, key: String, index: usize },
+    /// Entry `index` of an append-only organisation or attestation list
+    /// (GitHub #809) is gone.
+    RecordRemoved { list: RecordList, index: usize },
+    /// Entry `index` of such a list was changed.
+    RecordChanged { list: RecordList, index: usize },
+}
+
+/// Append-only check of one list: every entry before must be there now,
+/// unchanged, at the same position.
+fn records_append_only<T: PartialEq>(
+    previous: &[T],
+    current: &[T],
+    list: impl Fn() -> RecordList,
+    out: &mut Vec<HistoryWarning>,
+) {
+    for (index, e) in previous.iter().enumerate() {
+        match current.get(index) {
+            None => out.push(HistoryWarning::RecordRemoved { list: list(), index }),
+            Some(c) if c != e => out.push(HistoryWarning::RecordChanged { list: list(), index }),
+            Some(_) => {}
+        }
+    }
 }
 
 /// Compare the previous committed root with the current one: every
 /// reviewer, key and key-history entry present before must be present now,
 /// unchanged, at the same position (appending is the only change allowed).
+/// The same holds for the organisation records and separation attestations
+/// (GitHub #809).
 pub fn history_append_only(previous: &ReviewRoot, current: &ReviewRoot) -> Vec<HistoryWarning> {
     let mut out = Vec::new();
+    let devs = |r: &ReviewRoot| {
+        r.code_review.as_ref().map(|c| c.developing_organisation.clone()).unwrap_or_default()
+    };
+    records_append_only(&devs(previous), &devs(current), || RecordList::DevelopingOrganisation, &mut out);
     for pr in &previous.reviewers {
         let Some(cr) = current.reviewer(&pr.id) else {
             out.push(HistoryWarning::ReviewerRemoved { reviewer: pr.id.clone() });
             continue;
         };
+        let reviewer = || pr.id.clone();
+        records_append_only(&pr.organisations, &cr.organisations, || RecordList::ReviewerOrganisation { reviewer: reviewer() }, &mut out);
+        records_append_only(&pr.separations, &cr.separations, || RecordList::SeparationAttestation { reviewer: reviewer() }, &mut out);
         for pk in &pr.keys {
             let Some(ck) = cr.keys.iter().find(|k| k.id == pk.id) else {
                 out.push(HistoryWarning::KeyRemoved { reviewer: pr.id.clone(), key: pk.id.clone() });
@@ -783,6 +850,8 @@ pub fn evaluate(
                 rung: Some(b.rung),
                 qualifications: qualification_labels(root, &b.by),
                 independent: stamp_gate(&b.checklist, Applicability::default()).independent,
+                vv_case: Vec::new(),
+                separation_attestation: b.separation_attestation.clone(),
             };
             let is_port = fr.doc.upstream().is_some_and(|u| u.is_port);
             // 1. Find the function.
@@ -829,6 +898,10 @@ pub fn evaluate(
             };
             let stamp_facts = git.stamps.get(&ReviewKey { function: fid.clone(), by: b.by.clone() });
             let at_review = stamp_facts.and_then(|f| f.tests_at_review.as_ref());
+            report.vv_case = super::ivv::vv_case_problems(
+                &b.checklist,
+                at_review.map(TestsAtReview::authorship).unwrap_or_default(),
+            );
             // #783: flags only, judged once per review.
             let timing = plausibility(
                 b.signed_at.as_deref(),
@@ -907,6 +980,8 @@ pub fn evaluate(
                     rung: None,
                     qualifications: Vec::new(),
                     independent: false,
+                    vv_case: Vec::new(),
+                    separation_attestation: None,
                 }),
                 None => ev.orphan_unreadable.push(OrphanUnreadable {
                     dir: fr.dir.clone(),
@@ -958,7 +1033,19 @@ pub fn evaluate(
     for (id, cur) in &current {
         let mut reviews = per_fn.remove(*id).unwrap_or_default();
         reviews.sort_by(|a, b| (&a.by, &a.artifact).cmp(&(&b.by, &b.artifact)));
-        let rung = function_rung(id, &reviews, git, root, concepts);
+        let no_authors = BTreeSet::new();
+        let authors = git.code_authors.get(*id).unwrap_or(&no_authors);
+        let ivv = judge_function(id, &cur.index.krate, &reviews, authors, root, &registry, concepts, policy);
+        let rung = function_rung(&reviews, &ivv);
+        let mut fn_flags = flags.remove(*id).unwrap_or_default();
+        for c in &ivv.candidates {
+            if c.attestation.is_some() && !c.misses.is_empty() {
+                fn_flags.push(FunctionFlag::IndependentVvNotCounted {
+                    review: c.review.clone().unwrap_or_default(),
+                    misses: c.misses.clone(),
+                });
+            }
+        }
         let state = match fixes.remove(*id) {
             Some(s) => s,
             None => aggregate(&reviews),
@@ -973,7 +1060,8 @@ pub fn evaluate(
                 reviews,
                 untested: !cur.f.test && cur.f.reached_by.is_empty(),
                 blocked_by: Vec::new(),
-                flags: flags.remove(*id).unwrap_or_default(),
+                flags: fn_flags,
+                independent_vv: ivv,
             },
         );
     }
@@ -1011,6 +1099,7 @@ pub fn evaluate(
             untested: false,
             blocked_by: Vec::new(),
             flags: Vec::new(),
+            independent_vv: IndependentVv::default(),
         });
     }
     ev.upstream_tags = upstream_tags(reviews, git);
@@ -1019,6 +1108,7 @@ pub fn evaluate(
         .as_ref()
         .map(|p| history_append_only(p, root))
         .unwrap_or_default();
+    ev.ivv_warnings = record_warnings(root, &registry, policy);
     ev.id_matches.sort();
     ev.new_reaching_tests.sort();
     ev.new_reaching_tests.dedup();
@@ -1205,49 +1295,14 @@ fn qualification_labels(root: &ReviewRoot, by: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Whether `by` holds qualifications covering every concept area of `id`.
-fn qualified_for(root: &ReviewRoot, by: &str, id: &str, concepts: &ConceptAreas) -> bool {
-    let Some(areas) = concepts.get(id).filter(|a| !a.is_empty()) else {
-        return false;
-    };
-    let Some(r) = root.reviewer(by) else {
-        return false;
-    };
-    areas
-        .iter()
-        .all(|c| r.qualification.iter().any(|q| q.qualifies_for(c)))
-}
-
-fn function_rung(
-    id: &str,
-    reviews: &[ReviewReport],
-    git: &GitFacts,
-    root: &ReviewRoot,
-    concepts: &ConceptAreas,
-) -> Option<u8> {
-    let mut valid: Vec<&ReviewReport> = reviews
-        .iter()
-        .filter(|r| r.state.kind() == StateKind::Valid)
-        .collect();
-    if valid.is_empty() {
-        return None;
-    }
-    valid.sort_by(|a, b| (&a.date, &a.by).cmp(&(&b.date, &b.by)));
-    let first = valid[0];
-    let no_authors = BTreeSet::new();
-    let authors = git.code_authors.get(id).unwrap_or(&no_authors);
-    let independent = valid[1..]
-        .iter()
-        .any(|r| {
-            r.independent
-                && r.by != first.by
-                && !authors.contains(&r.by)
-                && qualified_for(root, &r.by, id, concepts)
-        });
-    if independent {
-        return Some(5);
-    }
-    valid.iter().filter_map(|r| r.rung).max()
+/// The function's rung: 5 when [`super::ivv::judge_function`] found an
+/// IV&V review, else the highest rung among its valid reviews.
+/// ~~5 when a later valid review is by an independent, qualified,
+/// non-author reviewer~~ **CORRECTED 2026-10-08** (#809, module doc).
+fn function_rung(reviews: &[ReviewReport], ivv: &IndependentVv) -> Option<u8> {
+    let valid = reviews.iter().filter(|r| r.state.kind() == StateKind::Valid);
+    let best = valid.filter_map(|r| r.rung).max()?;
+    Some(if ivv.passed.is_some() { 5 } else { best })
 }
 
 fn history_row(function: &str, entries: &[&ReviewEntry], git: &GitFacts) -> DeletedFunction {
@@ -1295,3 +1350,7 @@ fn placement(fr: &FolderReviews, indexes: &[FolderIndex]) -> HistoryPlacement {
 #[cfg(test)]
 #[path = "engine_tests.rs"]
 mod tests;
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "engine_ivv_tests.rs"]
+mod ivv_tests;

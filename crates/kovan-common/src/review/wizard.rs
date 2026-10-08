@@ -41,7 +41,11 @@
 //!            │     2026-10-07, maintainer on #769: independence gates
 //!            │     rung 5, not rung 4)
 //!            ├─ independent = independence answered, no not_independent
-//!            │    answer (self-check / other): may be rung 5's second review
+//!            │    answer (self-check / other): ~~may be rung 5's second
+//!            │    review~~ CORRECTED 2026-10-08 (#809): one of rung 5's
+//!            │    conditions; the rest (a separate organisation, a signed
+//!            │    separation attestation) are registry records, judged by
+//!            │    `super::ivv`, not answers
 //!            └─ rung = derived_rung(answers, git): 4 when rung4_allowed AND
 //!                 git shows no agent trailer on the reaching tests' commits,
 //!                 else 3. The reviewer never chooses it (maintainer, #769,
@@ -90,8 +94,9 @@ pub const LEGACY_PLACEHOLDER_KEYS: &[(&str, &str)] = &[
 pub const LEGACY_RUNG_KEYS: &[&str] = &["q10", "rung"];
 
 /// The rung a stamp gives, derived, never chosen (maintainer, #769,
-/// 2026-10-07). Rung 5 is not a stamp's rung: it is two independent
-/// stamps, derived by the staleness engine.
+/// 2026-10-07). Rung 5 is not a stamp's rung: ~~it is two independent
+/// stamps~~ **CORRECTED 2026-10-08** (#809) it is IV&V, derived per function
+/// by the staleness engine ([`super::ivv`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Rung {
     /// Human reviewed.
@@ -183,7 +188,8 @@ pub enum Effect {
     /// the other half (maintainer, #769, 2026-10-07).
     GateRung4Author,
     /// The reviewer is not independent of the code: the stamp still counts
-    /// at rung 3 or 4, but cannot be rung 5's independent second review.
+    /// at rung 3 or 4, but cannot be ~~rung 5's independent second review~~
+    /// (**CORRECTED 2026-10-08**, #809) rung 5's independent V&V case.
     /// ~~`NoRung4`: rung 4 is closed whatever else is answered~~
     /// **CORRECTED 2026-10-07** (maintainer, #769). `no_rung4` still reads.
     #[serde(alias = "no_rung4")]
@@ -418,8 +424,10 @@ pub struct GateResult {
     /// `no_rung4` answer~~ CORRECTED 2026-10-07: independence does not close
     /// rung 4; the hand-written V&V case opens it with the evidence).
     pub rung4_allowed: bool,
-    /// `independence` is answered and no answer is `not_independent`: this
-    /// stamp may be the independent second review for rung 5.
+    /// `independence` is answered and no answer is `not_independent`: one of
+    /// rung 5's conditions (~~this stamp may be the independent second review
+    /// for rung 5~~ **CORRECTED 2026-10-08**, #809: rung 5 is IV&V,
+    /// [`super::ivv`]).
     pub independent: bool,
     /// The rung the stamp gives ([`derived_rung`]).
     pub rung: Rung,
@@ -1276,6 +1284,54 @@ requires_text = true
                 key: "q8".into(),
                 use_instead: "vv_evidence".into()
             })));
+    }
+
+    /// Methodology: the `independence` question after GitHub #809 (rung 5 is
+    /// IV&V by a technically and managerially separate organisation). Its
+    /// key and option keys are unchanged (stable on disk); its text names
+    /// the new rung-5 conditions; it cites NUREG/BR-0167 §3.1 p. 6 with the
+    /// definition quoted exactly as the standard-corpus PDF reads; `other`
+    /// still needs at least 2 characters of text and still marks the stamp
+    /// not independent; and no question was added, so every answer set that
+    /// stamped before still stamps (an added always-asked question would
+    /// leave old stamps with an unanswered question, invalid on read).
+    ///
+    /// Result (2026-10-08): passes; 13 questions, as before.
+    #[test]
+    fn independence_question_cites_br0167_for_ivv() {
+        let w = ReviewWizard::embedded();
+        assert_eq!(w.questions.len(), 13);
+        let q = w.question("independence").unwrap();
+        let opts: Vec<&str> = q.options.iter().map(|o| o.key.as_str()).collect();
+        assert_eq!(opts, ["someone_else", "self_check", "other"]);
+        assert!(q.text.starts_with("Who wrote this function?"), "{}", q.text);
+        assert!(q.text.contains("technically and managerially separate"), "{}", q.text);
+        assert!(q.text.contains("separation attestation"), "{}", q.text);
+        let br = q
+            .sources
+            .iter()
+            .find(|s| s.document == "nureg-br-0167")
+            .expect("a NUREG/BR-0167 source");
+        assert_eq!((br.section.as_deref(), br.page.as_deref()), (Some("§3.1"), Some("6")));
+        assert_eq!(
+            br.quote.as_deref(),
+            Some(
+                "Independent verification and validation (IV&V) is verification and validation by an \
+                 organization that is both technically and managerially separate from the organization \
+                 responsible for developing the software."
+            )
+        );
+        let (question, option) = ("independence".to_string(), "other".to_string());
+        assert_eq!(
+            w.check_answer("independence", "other: x", NONE),
+            Err(AnswerError::TextRequired { question, option })
+        );
+        assert_eq!(w.check_answer("independence", "other: ok", NONE).unwrap().effect, Effect::NotIndependent);
+        let mut m = clean();
+        m.insert("independence".into(), "other: pair-programmed".into());
+        let g = stamp_gate(&m, NONE);
+        assert!(g.stampable() && !g.independent);
+        assert!(stamp_gate(&clean(), NONE).independent);
     }
 
     /// Methodology: re-review pre-fill keeps the previous valid answers,
