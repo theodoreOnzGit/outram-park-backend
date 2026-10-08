@@ -31,8 +31,8 @@
 //!   `CSL.substituteOne` (including JS's `$`-patterns in `String.replace`
 //!   replacement text); a `false` entry is `passthrough`; a function entry
 //!   is the Rust function of the same name.
-//! * `CSL.getSafeEscape(state)` (load.js) is [`safe_escape`]; `text_escape`
-//!   is [`text_escape`].
+//! * `CSL.getSafeEscape(state)` (load.js) is `load::get_safe_escape`; the
+//!   format's `text_escape` is [`text_escape`].
 //!
 //! # Host callbacks
 //!
@@ -387,59 +387,8 @@ pub fn text_escape(format: Format, text: &str) -> String {
     }
 }
 
-/// What `CSL.getSafeEscape(state)` returns: the escaper to use for the
-/// current area (load.js:1026). Evaluate it with [`SafeEscape::escape`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SafeEscape {
-    /// `false`: the identity function (area is not citation/bibliography).
-    active: bool,
-    format: Format,
-    /// The `thin_non_breaking_space_html_hack` callback is on.
-    thin_hack: bool,
-}
-
-impl SafeEscape {
-    /// Apply the escaper.
-    pub fn escape(&self, txt: &str) -> String {
-        if !self.active {
-            return txt.to_string();
-        }
-        if self.thin_hack {
-            let t = txt.replace(
-                '\u{202f}',
-                "<span style=\"white-space:nowrap\">&thinsp;</span>",
-            );
-            return text_escape(self.format, &t);
-        }
-        text_escape(self.format, txt)
-    }
-}
-
-/// `CSL.getSafeEscape(state)`. // DUP-CHECK: load.js CSL.getSafeEscape
-///
-/// Reads `state.tmp.area`, `state.opt.mode` and
-/// `state.opt.development_extensions.thin_non_breaking_space_html_hack`
-/// (an object inside `state.opt`).
-pub fn safe_escape(state: &State) -> SafeEscape {
-    let area = state.tmp.area.as_str();
-    let active = area == "bibliography" || area == "citation";
-    let format = current_format(state);
-    let thin = state
-        .opt
-        .get("development_extensions")
-        .and_then(Value::as_object)
-        .and_then(|o| o.get("thin_non_breaking_space_html_hack"))
-        .map(js::truthy)
-        .unwrap_or(false);
-    SafeEscape {
-        active,
-        format,
-        thin_hack: active && thin && format == Format::Html,
-    }
-}
-
 // ---------------------------------------------------------------------------
-// Stand-ins for build.js (see the module docs)
+// Readers of build.js (see the module docs)
 // ---------------------------------------------------------------------------
 
 /// `state.getTerm(name)` as a string (`""` for `undefined`, which JS would
@@ -1184,7 +1133,7 @@ mod tests {
                 "development_extensions".into(),
                 serde_json::json!({ "thin_non_breaking_space_html_hack": c["thin"] }),
             );
-            let got = safe_escape(&st).escape(c["s"].as_str().unwrap());
+            let got = crate::citeproc::load::get_safe_escape(&st).escape(c["s"].as_str().unwrap());
             if c["r"].as_str() != Some(got.as_str()) {
                 bad.push(format!("{c}: got {got:?}"));
             }

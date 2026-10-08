@@ -64,7 +64,8 @@ use std::sync::LazyLock;
 use regex::Regex;
 use serde_json::Value;
 
-use super::formats::{decorate, get_opt_flag, safe_escape, SafeEscape};
+use super::formats::{decorate, get_opt_flag};
+use super::load::{get_safe_escape, SafeEscape};
 use super::formatters;
 use super::js;
 use super::obj_blob::{
@@ -949,7 +950,7 @@ pub fn string(
     parent: StringParent,
 ) -> CslResult<Rendered> {
     ensure(state, q);
-    let txt_esc: SafeEscape = safe_escape(state);
+    let txt_esc: SafeEscape = get_safe_escape(state);
     let blobs: Vec<BlobChild> = myblobs.to_vec();
     let mut ret: Vec<Rendered> = Vec::new();
 
@@ -1337,7 +1338,7 @@ pub fn render_blobs(
     parent: Option<BlobId>,
 ) -> CslResult<Rendered> {
     ensure(state, q);
-    let txt_esc = safe_escape(state);
+    let txt_esc = get_safe_escape(state);
     let mut blobs = blobs;
     let len = blobs.len();
     let mut ret = Rendered::Str(String::new());
