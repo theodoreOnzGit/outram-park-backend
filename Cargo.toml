@@ -328,6 +328,14 @@ unicode-normalization = "0.1"
 # turso_core), so no new crate enters the tree; pure Rust, wasm- and Android-clean.
 icu_collator = "2"
 icu_locale_core = "2"
+# Locale-specific upper/lower casing (el, lt, tr, az) as V8/ICU does it: the port of
+# citeproc-js CSL.toLocaleUpperCase/LowerCase (GitHub #804). ICU4X; Unicode-3.0 licence
+# (GPL-/AGPL-compatible); pure Rust, wasm- and Android-clean.
+icu_casemap = "2"
+# Decomposition and Cased/Case_Ignorable for the hand-ported ICU Greek upper-casing
+# (citeproc::greek_upper, #804). Unicode-3.0; already in Cargo.lock via icu_collator.
+icu_normalizer = "2"
+icu_properties = "2"
 # Rust parser for kovan's review stamps (GitHub #739): locating a function by
 # its code-walk path and hashing its tokens. Already in Cargo.lock through the
 # proc-macro stack (syn 2.0.118, proc-macro2 1.0.106, quote 1.0.45), so no new

@@ -75,13 +75,28 @@ been found yet. Until decided, **the port reproduces citeproc-js**.
   (locales repo README; `<rights>` in each file). **Ready to register** as a
   data deviation if the maintainer chooses the newer locales for the fixture
   harness (the 13 comparisons would cite it).
-- **C5 (#804) — Greek and Lithuanian `toLocaleUpperCase`. MEASURED 2026-10-08:
-  a gap, not a quirk.** The port's non-Turkic path (`s.to_uppercase()`) is
-  **wrong against citeproc-js** for `el` (V8 strips tonos and adds dialytika:
-  `άλφα ΜΆΙΟΣ` → node `ΑΛΦΑ ΜΑΪΟΣ`, port `ΆΛΦΑ ΜΆΙΟΣ`) and `lt` (dot above
-  dropped after i/j). No effect on the 845 fixtures (their Greek text only
-  reaches lowercasing) or the site set (no `el`/`lt` items). Fix = implement
-  the el/lt special casing with differential tests against node.
+- **C5 (#804) — Greek and Lithuanian `toLocaleUpperCase`. FIXED 2026-10-08.**
+  ~~MEASURED 2026-10-08: a gap, not a quirk. The port's non-Turkic path
+  (`s.to_uppercase()`) is **wrong against citeproc-js** for `el` (V8 strips
+  tonos and adds dialytika: `άλφα ΜΆΙΟΣ` → node `ΑΛΦΑ ΜΑΪΟΣ`, port
+  `ΆΛΦΑ ΜΆΙΟΣ`) and `lt` (dot above dropped after i/j). No effect on the 845
+  fixtures (their Greek text only reaches lowercasing) or the site set (no
+  `el`/`lt` items). Fix = implement the el/lt special casing with differential
+  tests against node.~~ **FIXED**: `load::to_locale_upper_case` /
+  `to_locale_lower_case` now take V8's choice of language (the **first** list
+  element only, validated as a BCP 47 tag and canonicalised, so `ell`/`gre` =
+  `el`; later elements are never looked at, e.g. `["en-US","xx_invalid"]` does
+  not throw, `["el","tr"]` is Greek) and then use ICU4X `icu_casemap`
+  (Unicode-3.0) for `el` lower, `lt` upper/lower and `tr`/`az`, plus a
+  hand port of ICU's `GreekUpper::toUpper` (`citeproc/greek_upper.rs`) for `el`
+  upper, because ICU4X's own Greek upper path disagrees with node on combining
+  marks after consonants and on accented vowels followed by further marks.
+  Also corrected: the old "any invalid tag in the list falls back" rule was
+  wrong against node (only the first element matters). Differential
+  (`scripts/csl-units/locale_case.cjs`, node 22.22.2 / ICU 78.2): 12,038
+  strings x 44 lang arrays x upper/lower = **1,059,344 comparisons, 0
+  mismatches** (`load::locale_case_tests`). First attempt with ICU4X alone:
+  12,888 mismatches, all `el` upper.
 - **C6 (#806) — `NAME_REX` typo**: `spans+class` where `\s+class` was meant
   (formatters.js; port `formatters.rs`), so name splitting never sees a
   `<span class="nocase">`.

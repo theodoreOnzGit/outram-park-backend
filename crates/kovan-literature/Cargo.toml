@@ -89,6 +89,9 @@ regex.workspace = true
 # Collation for `citeproc::js::locale_compare` (#795, DECISIONS.md): ICU4X, as node's ICU.
 icu_collator.workspace = true
 icu_locale_core.workspace = true
+icu_casemap.workspace = true
+icu_normalizer.workspace = true
+icu_properties.workspace = true
 # HTML parsing for the note exporters (Note HTML, Note Markdown; #749): the
 # WHATWG algorithm jsdom's parse5 implements. MIT OR Apache-2.0, pure Rust.
 html5ever.workspace = true

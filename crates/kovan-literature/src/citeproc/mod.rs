@@ -88,6 +88,7 @@ pub mod dump;
 pub(crate) mod exec;
 #[allow(dead_code)]
 pub(crate) mod formats;
+pub(crate) mod greek_upper;
 #[allow(dead_code)]
 pub(crate) mod formatters;
 #[allow(dead_code)]

@@ -1232,74 +1232,88 @@ pub fn title_field_splits(seg: &str) -> TitleFieldSplits {
 // ----------------------------------------------------------------------
 // Case conversion.
 
-/// Whether `tag` passes JS's `Intl` structural check for a language tag
-/// (approximation of `CanonicalizeLocaleList`; a failing tag makes
-/// `toLocale*Case` throw, which citeproc-js catches by falling back to
-/// `toUpperCase`/`toLowerCase`).
-fn is_valid_lang_tag(tag: &str) -> bool {
-    static RE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$").expect("static citeproc regex")
-    });
-    RE.is_match(tag)
-}
-
-/// The special-casing language of `state.tmp.lang_array` (first element
-/// decides, as `String.prototype.toLocaleUpperCase` does; any invalid tag
-/// makes the whole call fall back to the plain method).
-#[derive(PartialEq)]
-enum CaseLang {
-    Plain,
-    Turkic,
-}
-
-fn case_lang(state: &State) -> CaseLang {
-    let arr = &state.tmp.lang_array;
-    if arr.iter().any(|t| !is_valid_lang_tag(t)) {
-        return CaseLang::Plain;
-    }
-    match arr.first() {
-        Some(first) => {
-            let primary = first.split('-').next().unwrap_or("").to_ascii_lowercase();
-            if primary == "tr" || primary == "az" {
-                CaseLang::Turkic
-            } else {
-                CaseLang::Plain
+/// The case-mapping language chosen by `String.prototype.toLocale*Case(
+/// locales)` in V8: `None` means the call throws (a `RangeError`, which
+/// citeproc-js catches by falling back to `toUpperCase`/`toLowerCase`), and
+/// `Some(lang)` is the canonical primary language subtag that ICU's
+/// `u_strToUpper`/`u_strToLower` tailor on (`el`, `lt`, `tr`, `az` have
+/// special casing; any other language behaves as root).
+///
+/// **Measured against node 22 / ICU 78** (`scripts/csl-units/locale_case.cjs`):
+/// V8 looks at the **first** element of the list only. Later elements are
+/// never validated (`["en-US","xx_invalid"]` does not throw, `["el","tr"]`
+/// is Greek) and an invalid first element throws even when a valid one
+/// follows (`["xx_invalid","el"]`). The first tag must be a structurally
+/// valid BCP 47 / Unicode LDML `unicode_locale_id` (underscores, empty
+/// subtags, one-letter languages and repeated variants or singletons are
+/// rejected), and is canonicalised, so `ELL`/`gre` mean `el`, `tur` means
+/// `tr`, `aze` means `az` and `lit` means `lt`.
+fn case_language(state: &State) -> Option<String> {
+    let first = state.tmp.lang_array.first()?;
+    let loc = icu_locale_core::Locale::try_from_str(first).ok()?;
+    // A repeated extension singleton (`en-a-b-a-c`) is a RangeError in V8
+    // but not an error in the ICU4X parser.
+    let mut seen: Vec<char> = Vec::new();
+    for part in first.split('-') {
+        if part.len() == 1 {
+            let c = part.chars().next()?.to_ascii_lowercase();
+            if c == 'x' {
+                break;
             }
+            if seen.contains(&c) {
+                return None;
+            }
+            seen.push(c);
         }
-        None => CaseLang::Plain,
+    }
+    let lang = loc.id.language.as_str();
+    Some(
+        match lang {
+            "ell" | "gre" => "el",
+            "tur" => "tr",
+            "aze" => "az",
+            "lit" => "lt",
+            other => other,
+        }
+        .to_string(),
+    )
+}
+
+/// The language identifier ICU casing is tailored on, for a language that
+/// has special casing (`el`, `lt`, `tr`, `az`); `None` for root casing.
+fn tailored_langid(lang: &str) -> Option<icu_locale_core::LanguageIdentifier> {
+    match lang {
+        "el" | "lt" | "tr" | "az" => lang.parse().ok(),
+        _ => None,
     }
 }
 
 /// `CSL.toLocaleUpperCase.call(state, str)`: `str.toLocaleUpperCase(
-/// state.tmp.lang_array)`, falling back to `toUpperCase()` when the tag list
-/// is invalid. Reproduced: Turkic `i` to `\u{130}`. Not reproduced:
-/// Lithuanian's retained-dot rules.
+/// state.tmp.lang_array)`, falling back to `toUpperCase()` when V8 throws.
+///
+/// Locale-specific mappings come from ICU4X's `CaseMapper`, the same
+/// algorithm as V8's ICU: Turkic dotted I; Greek (`GreekUpper`: tonos and
+/// other accents dropped, dialytika added, ypogegrammeni expanded);
+/// Lithuanian (retained dot above). Cited: ICU `ustrcase.cpp`
+/// (`toUpper`), `ucase.cpp` (`ucase_toFullUpper`), and the ICU4X
+/// `icu_casemap` crate. #804.
 pub fn to_locale_upper_case(state: &State, s: &str) -> String {
-    if case_lang(state) == CaseLang::Turkic {
-        let pre: String = s
-            .chars()
-            .map(|c| if c == 'i' { '\u{130}' } else { c })
-            .collect();
-        return pre.to_uppercase();
+    let lang = case_language(state);
+    if lang.as_deref() == Some("el") {
+        return super::greek_upper::greek_upper(s);
     }
-    s.to_uppercase()
+    match lang.as_deref().and_then(tailored_langid) {
+        Some(id) => icu_casemap::CaseMapper::new().uppercase_to_string(s, &id).into_owned(),
+        None => s.to_uppercase(),
+    }
 }
 
 /// `CSL.toLocaleLowerCase.call(state, str)`; see [`to_locale_upper_case`].
 pub fn to_locale_lower_case(state: &State, s: &str) -> String {
-    if case_lang(state) == CaseLang::Turkic {
-        let pre = s.replace("I\u{307}", "i");
-        let pre: String = pre
-            .chars()
-            .map(|c| match c {
-                'I' => '\u{131}',
-                '\u{130}' => 'i',
-                other => other,
-            })
-            .collect();
-        return pre.to_lowercase();
+    match case_language(state).as_deref().and_then(tailored_langid) {
+        Some(id) => icu_casemap::CaseMapper::new().lowercase_to_string(s, &id).into_owned(),
+        None => s.to_lowercase(),
     }
-    s.to_lowercase()
 }
 
 // ----------------------------------------------------------------------
@@ -3161,5 +3175,78 @@ mod diff_tests {
             assert_eq!(json!(sp.strings), e[2]["strings"], "{} {}", e[0], e[1]);
             assert_eq!(json!(d.join(&sp)), e[3]);
         }
+    }
+}
+
+#[cfg(test)]
+mod locale_case_tests {
+    //! Differential test of [`to_locale_upper_case`] / [`to_locale_lower_case`]
+    //! against node's V8/ICU (GitHub #804). Reference:
+    //! `tests/data/csl/units/locale_case.json`, generated by
+    //! `scripts/csl-units/locale_case.cjs` (node and ICU versions are in the
+    //! file): 12,038 strings (every Greek code point and Greek-block letter
+    //! with every combining mark singly and in pairs, vowel + iota/upsilon
+    //! sequences in both orders, polytonic forms, final sigma, Lithuanian
+    //! i/j/i-ogonek/I-grave/acute/tilde with combining marks, de, nl, tr, az
+    //! and plain samples, 1,500 random mixtures) under 44 `lang_array`s
+    //! (el, el-GR, lt, tr, az, en-US, el+en-US in both orders, invalid tags
+    //! in first and later position, empty, 3-letter aliases, extension
+    //! subtags), each upper and lower, via `toLocale*Case(arr)` with
+    //! load.js's try/catch fallback: 1,059,344 comparisons.
+    //! Pass criterion: 0 mismatches. Result: see
+    //! `DEVIATIONS.md` C5.
+    use super::*;
+
+    #[test]
+    fn locale_case_agrees_with_node_icu() {
+        let data: Value =
+            serde_json::from_str(include_str!("../../tests/data/csl/units/locale_case.json"))
+                .expect("locale_case.json");
+        let strings: Vec<&str> = data["strings"]
+            .as_array()
+            .expect("strings")
+            .iter()
+            .map(|s| s.as_str().expect("string"))
+            .collect();
+        let mut total = 0usize;
+        let mut bad: Vec<String> = Vec::new();
+        for row in data["rows"].as_array().expect("rows") {
+            let mut st = State::default();
+            st.tmp.lang_array = row["langs"]
+                .as_array()
+                .expect("langs")
+                .iter()
+                .map(|x| x.as_str().expect("tag").to_string())
+                .collect();
+            let mut want: Vec<(String, String)> = strings
+                .iter()
+                .map(|s| (s.to_uppercase(), s.to_lowercase()))
+                .collect();
+            for d in row["diffs"].as_array().expect("diffs") {
+                let i = d[0].as_u64().expect("index") as usize;
+                want[i] = (
+                    d[1].as_str().expect("up").to_string(),
+                    d[2].as_str().expect("lo").to_string(),
+                );
+            }
+            for (s, (wu, wl)) in strings.iter().zip(&want) {
+                total += 2;
+                let gu = to_locale_upper_case(&st, s);
+                let gl = to_locale_lower_case(&st, s);
+                if &gu != wu {
+                    bad.push(format!("{:?} upper {:?}: node {wu:?} port {gu:?}", st.tmp.lang_array, s));
+                }
+                if &gl != wl {
+                    bad.push(format!("{:?} lower {:?}: node {wl:?} port {gl:?}", st.tmp.lang_array, s));
+                }
+            }
+        }
+        println!("locale case: {total} comparisons, {} mismatches", bad.len());
+        assert!(
+            bad.is_empty(),
+            "{} mismatches, first 25:\n{}",
+            bad.len(),
+            bad.iter().take(25).cloned().collect::<Vec<_>>().join("\n")
+        );
     }
 }

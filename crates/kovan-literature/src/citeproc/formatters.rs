@@ -31,8 +31,8 @@
 //!   When it is `None` (a bare test state), the default English list
 //!   `CSL.SKIP_WORDS` is used.
 //! * **Locale-aware case.** `CSL.toLocaleUpperCase` / `toLocaleLowerCase`
-//!   are load.js's (`load::to_locale_upper_case`, Turkic dotted/dotless i
-//!   reproduced, Lithuanian not).
+//!   are load.js's (`load::to_locale_upper_case`, Turkic, Greek and
+//!   Lithuanian casing as V8/ICU does it, #804).
 //! * **`CSL.Doppeler`** is util_processor.js's (`util_processor::Doppeler`);
 //!   formatters.js instantiates it three times at load time, here as
 //!   statics.
