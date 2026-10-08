@@ -168,7 +168,12 @@ impl FlipFlopper {
                 closer: "</i>",
                 attr: Some("@font-style"),
                 outer: Some("italic"),
-                flipflop: ff_i(&[("italic", "normal"), ("normal", "italic")]),
+                // DEVIATION(D3): upstream has no `oblique` entry, so `<i>` inside an oblique context crashes; flip it to normal, as for italic.
+                flipflop: ff_i(&[
+                    ("italic", "normal"),
+                    ("oblique", "normal"),
+                    ("normal", "italic"),
+                ]),
             },
             Base {
                 key: "<b>",
@@ -176,7 +181,8 @@ impl FlipFlopper {
                 closer: "</b>",
                 attr: Some("@font-weight"),
                 outer: Some("bold"),
-                flipflop: ff_i(&[("bold", "normal"), ("normal", "bold")]),
+                // DEVIATION(D3): upstream has no `light` entry, so `<b>` inside a light context crashes; light is not bold, so the toggle adds bold.
+                flipflop: ff_i(&[("bold", "normal"), ("light", "bold"), ("normal", "bold")]),
             },
             Base {
                 key: "<sup>",
@@ -879,6 +885,7 @@ mod tests {
         crate::citeproc::test_support::install_output_locale(&mut st, false);
         st.tmp.area = "citation".to_string();
         let empty = Token::new("empty", crate::citeproc::obj_token::TokenType::Start);
+        let mut deviations = 0;
         let mut bad = Vec::new();
         for c in cases {
             let s = c["s"].as_str().unwrap();
@@ -907,6 +914,22 @@ mod tests {
             let want: Value =
                 serde_json::from_str(&c["out"].to_string().replace(",null]", ",\"undefined\"]"))
                     .unwrap();
+            // DEVIATION(D3): citeproc-js flips `<i>` inside an `oblique` context to
+            // `undefined` (above); the port flips it to `normal`, so such a tree
+            // differs by design. Pin that it is exactly the oblique contexts, that
+            // the port produces no `undefined`, and count them.
+            if want.to_string().contains("\"undefined\"") {
+                let ctx = format!("{} {}", c["d"], c["l"]);
+                assert!(
+                    ctx.contains("oblique") || ctx.contains("light"),
+                    "{s:?}: {ctx}"
+                );
+                assert!(!got.to_string().contains("undefined"), "{s:?}: {got}");
+                assert!(got.get("error").is_none(), "{s:?}: {got}");
+                deviations += 1;
+                st.blobs.clear();
+                continue;
+            }
             if got != want {
                 bad.push(format!(
                     "{s:?} ctx d={} l={}\n   got  {}\n   want {}",
@@ -915,11 +938,94 @@ mod tests {
             }
             st.blobs.clear();
         }
+        assert_eq!(deviations, 4, "D3: reference trees with an undefined flip");
         assert!(
             bad.is_empty(),
             "{} mismatches, first 6:\n{}",
             bad.len(),
             bad.iter().take(6).cloned().collect::<Vec<_>>().join("\n")
         );
+    }
+}
+
+/// Registered deviation D3 (`<i>` inside `oblique`, `<b>` inside `light`),
+/// GitHub #801.
+///
+/// **Methodology.** `scripts/csl-units/deviations_dqa.cjs` renders a layout with
+/// `font-style="oblique"` and the title `a <i>b</i> c`, and a layout with
+/// `font-weight="light"` and the title `a <b>b</b> c`, with citeproc-js 2.4.63
+/// (`CITEPROC_MODULE=.../citeproc_commonjs.js node
+/// scripts/csl-units/deviations_dqa.cjs`; recorded in
+/// `tests/data/csl/units/deviations_dqa.json`). Controls: `bold` + `<b>` and
+/// `italic` + `<i>`, which flip to `normal` in both engines.
+///
+/// **Results (2026-10-08).** citeproc-js throws `Cannot read properties of
+/// undefined (reading 'call')` for both probes (the flip table has no
+/// `oblique` or `light` entry, so the decorator lookup is on `undefined`); the
+/// port gave "no html decorator for @font-style/undefined" before D3 and now
+/// gives `<em>a <span style="font-style:normal;">b</span> c</em>` and
+/// `a <b>b</b> c` (the html format has no wrapper for `light`).
+#[cfg(test)]
+mod deviation_tests {
+    use std::sync::Arc;
+
+    use serde_json::{json, Value};
+
+    use crate::citeproc::test_support::minimal_locales;
+    use crate::citeproc::{CitationItem, Engine, Sys};
+
+    const REF: &str = include_str!("../../tests/data/csl/units/deviations_dqa.json");
+
+    fn render(case: &Value, items: &[Value]) -> Result<String, String> {
+        let sys = Sys::new(items, Arc::new(minimal_locales())).map_err(|e| e.to_string())?;
+        let mut e = Engine::new(sys, case["style"].as_str().unwrap_or(""), "en-US")
+            .map_err(|e| e.to_string())?;
+        let cite =
+            CitationItem::from_json(&json!({"id": case["id"]})).map_err(|e| e.to_string())?;
+        e.make_citation_cluster(&[cite]).map_err(|e| e.to_string())
+    }
+
+    #[test]
+    fn italic_in_oblique_and_bold_in_light_flip_instead_of_crashing() {
+        let r: Value = serde_json::from_str(REF).expect("deviations_dqa.json");
+        let items: Vec<Value> = r["items"].as_array().cloned().expect("items");
+        // (case, citeproc-js output or error, intended output)
+        let table: [(&str, Result<&str, &str>, &str); 4] = [
+            (
+                "oblique-i",
+                Err("Cannot read properties of undefined (reading 'call')"),
+                "<em>a <span style=\"font-style:normal;\">b</span> c</em>",
+            ),
+            (
+                "light-b",
+                Err("Cannot read properties of undefined (reading 'call')"),
+                "a <b>b</b> c",
+            ),
+            (
+                "bold-b",
+                Ok("<b>a <span style=\"font-weight:normal;\">b</span> c</b>"),
+                "<b>a <span style=\"font-weight:normal;\">b</span> c</b>",
+            ),
+            (
+                "italic-i",
+                Ok("<i>a <span style=\"font-style:normal;\">b</span> c</i>"),
+                "<i>a <span style=\"font-style:normal;\">b</span> c</i>",
+            ),
+        ];
+        for (name, js, intended) in table {
+            let case = r["cases"]
+                .as_array()
+                .and_then(|a| a.iter().find(|c| c["name"] == name))
+                .unwrap_or_else(|| panic!("no probe {name}"));
+            match js {
+                Ok(v) => assert_eq!(case["js"]["v"].as_str(), Some(v), "{name}: citeproc-js"),
+                Err(e) => assert_eq!(case["js"]["e"].as_str(), Some(e), "{name}: citeproc-js"),
+            }
+            assert_eq!(
+                render(case, &items).unwrap_or_else(|e| panic!("{name}: {e}")),
+                intended,
+                "{name} (D3): port output"
+            );
+        }
     }
 }

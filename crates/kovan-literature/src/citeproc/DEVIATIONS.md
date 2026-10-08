@@ -36,6 +36,87 @@ intent), **affects** (which outputs change; "none observed" until measured).
   decision. Valid styles are unaffected.
 - **Affects:** no valid style; only the port's own minimal test styles.
 
+### D3 — `<i>` inside `oblique` and `<b>` inside `light` flip instead of crashing (C2, #801)
+- **Where:** util_flipflop.js, the `_nestingData` flip tables of `<i>`
+  (`@font-style`) and `<b>` (`@font-weight`); port `util_flipflop.rs`
+  (`FlipFlopper::build`).
+- **citeproc-js does:** the `<i>` table has only `italic` and `normal`, the
+  `<b>` table only `bold` and `normal`. Inside a layout or element whose
+  `font-style` is `oblique`, or whose `font-weight` is `light`, the lookup
+  gives `undefined` and the html formatter throws `TypeError: Cannot read
+  properties of undefined (reading 'call')`.
+- **We do:** `<i>` inside `oblique` flips to `normal` (as inside `italic`);
+  `<b>` inside `light` flips to `bold` (light is not bold, so the toggle adds
+  bold; inside `bold` it already flips to `normal`). Maintainer decision
+  2026-10-08.
+- **Evidence:** CSL 1.0.2 lists `normal`/`italic`/`oblique` as the values of
+  `font-style` and `normal`/`bold`/`light` as those of `font-weight`, so a
+  crash on valid input is never the intended behaviour (no spec passage on how
+  `<i>`/`<b>` flip; none of the 845 fixtures uses either value).
+- **Affects:** only styles with `font-style="oblique"` or
+  `font-weight="light"` on an ancestor of text containing `<i>` / `<b>`; none
+  in the 845 fixtures or the 223-item site set. Probe output
+  (`font-style="oblique"`, title `a <i>b</i> c`): `<em>a <span
+  style="font-style:normal;">b</span> c</em>`; (`font-weight="light"`, title
+  `a <b>b</b> c`): `a <b>b</b> c` (the html format has no wrapper for
+  `light`, so the outer text is bare). Test: `util_flipflop.rs`
+  `deviation_tests`.
+
+### D4 — A non-four-digit year with `form="short"`, and a missing month term, no longer print "undefined" (C16, #808)
+- **Where:** util_dates.js `CSL.Util.Dates.year["short"]` and
+  `CSL.Util.Dates.month["long"|"short"]`, as called by `formatAndStrip` in
+  node_datepart.js; port `node_datepart.rs` (`call_dates_formatter`);
+  `util_dates.rs` itself still returns `None` (JS `undefined`) so its
+  differential tests against citeproc-js stand.
+- **citeproc-js does:** `year["short"]` returns `undefined` unless the year is
+  four digits, and `""+undefined` is printed (`March undefined AD` for 99,
+  `undefined` for 500); a month name whose term is missing from every locale
+  also prints `undefined`.
+- **We do:** a year that is not four digits uses the long form (99 gives
+  `March 99 AD`, 12345 `March 12345`, -5 `March 5 BC`, 500 `March 500`); a
+  missing month term gives the empty string.
+- **Evidence:** CSL 1.0.2 gives `"short"` only as "e.g. 05" for the year; the
+  literal word "undefined" is a JS artefact, never a spec output. The long
+  form is the minimal fallback (maintainer decision 2026-10-08).
+- **Affects:** none in the 845 fixtures or the site set. (The en-US locale
+  bundled here has `<term name="ad"> AD</term>` with a leading space, so the
+  probe strings carry a space before `AD`/`BC`; the issue text, measured
+  with the older bundled locale, had none.) Test: `node_datepart.rs`
+  `deviation_tests`.
+
+### D5 — Each end of a BC-to-AD date range carries its own era label (C17, #808)
+- **Where:** node_datepart.js, the date-part closure: `ad_end`/`bc_end` are
+  computed and never read; port `node_datepart.rs` (`render`), two sites.
+- **citeproc-js does:** (a) with the year before the collapsed parts, the end
+  year takes the START year's label: -200 March to 200 May gives
+  `200 BC-March–200 BC-May`; (b) when the year is the last part (the "ready"
+  branch), the start year has no label and the start's label is appended once
+  after the end year: `[[-200,3,1],[200,5,2]]` gives `March 1, 200–May 2,
+  200 BC`, where AD 200 is labelled BC.
+- **We do:** (a) the end year takes `ad_end`/`bc_end`: `200 BC-March–200
+  AD-May`. (b) when the two ends have DIFFERENT labels (BC to AD, or AD to a
+  year from 500 on, which has none), each end carries its own: `March 1, 200
+  BC–May 2, 200 AD`; `100`..`600` gives `March 1, 100 AD–May 2, 600`. When
+  both ends have the SAME label (both BC, both AD, both none) citeproc-js's
+  single trailing label is kept: `March 1, 300–May 2, 200 BC`. **Choice made
+  here:** the issue says the intended string for (b) is `March 1, 200 BC–May 2,
+  200 AD` but does not say what a same-era range should do; labelling both
+  ends there would also turn the conventional `300–200 BC` into `300 BC–200
+  BC`, a change nothing motivates, so only a range whose ends disagree is
+  changed. (Same-era output is identical to citeproc-js at both sites.)
+  One further consequence: under `collapse="year-suffix"` the start year of
+  `[[-44,3,15],[-43,4,16]]` is suppressed (it repeats the previous cite), so
+  its label is empty while the end year's is `BC`; the ends then "differ" and
+  the end year keeps its `BC` (`March –April 43 BC`; citeproc-js dropped the
+  era altogether, `March –April 43`).
+- **Evidence:** a range labelled BC at both ends when its end is AD is
+  plainly wrong; CSL 1.0.2 has no text on era labels in ranges (maintainer
+  decision 2026-10-08).
+- **Affects:** only ranges whose ends have different era labels; none in the
+  845 fixtures or the site set. In the date end-to-end replay
+  (`date_e2e_test.rs`), see its `KNOWN_DIFFERENCES`. Test: `node_datepart.rs`
+  `deviation_tests`.
+
 ## Candidates (maintainer to decide)
 
 Behaviour that looks accidental but for which no spec or fixture evidence has
@@ -44,11 +125,7 @@ been found yet. Until decided, **the port reproduces citeproc-js**.
 - **C1 (#800) — `deleteNodeByNameAttribute` skips the node after each deletion**
   (xmljson.js; it removes from an array while iterating it). Whether this ever
   changes a rendered output is not yet measured.
-- **C2 (#801) — The flip-flopper turns `oblique` into `"undefined"`** for `<i>` inside
-  an oblique context (util_flipflop.js: the flip table has no `oblique`
-  entry), so the decoration lookup then fails. Probably a bug; needs the
-  spec's rich-text markup section and a fixture to confirm the intended flip
-  (to `normal`).
+- ~~**C2 (#801) — The flip-flopper turns `oblique` into `"undefined"`** for `<i>` inside an oblique context (util_flipflop.js: the flip table has no `oblique` entry), so the decoration lookup then fails.~~ → registered as D3 on 2026-10-08.
 - **C3 (#802) — RESOLVED 2026-10-08, not a quirk: it was a port defect.**
   ~~`CSL.getLocaleNames` throws a TypeError through an unbound `this`~~:
   measured in node 22 with citeproc-js 2.4.63, it does **not** throw.
@@ -122,14 +199,8 @@ citeproc-js implements in `@locale`. There was no spec evidence to cite.
 Behaviour is unchanged: the port reproduces citeproc-js for each of these.
 Locations are the port's files; the JS locations are in the names.
 
-- **C16 (#808) — `CSL.Util.Dates.year["short"]` returns `undefined`** for a year that
-  is not four digits, so `undefined` is printed (e.g. `March undefinedAD`); the
-  same leak happens for the long/short month names when the locale lacks the
-  term. Port: `util_dates.rs` (`year_short`, the month functions);
-  `node_datepart.rs`.
-- **C17 (#808) — `ad_end` / `bc_end` are computed in the date-part closure and never
-  used** (node_datepart.js), so the end of a collapsed date range takes the
-  start year's AD/BC label. Port: `node_datepart.rs` (`render`).
+- ~~**C16 (#808) — `CSL.Util.Dates.year["short"]` returns `undefined`** for a year that is not four digits, so `undefined` is printed; the same leak happens for the month names when the locale lacks the term.~~ → registered as D4 on 2026-10-08.
+- ~~**C17 (#808) — `ad_end` / `bc_end` are computed in the date-part closure and never used** (node_datepart.js), so the end of a collapsed date range takes the start year's AD/BC label.~~ → registered as D5 on 2026-10-08.
 - **C18 (#808) — Empty cites are compared with `===` as arrays**, which is never
   true (api_cite.js; mirrored). Port: `api_cite.rs`.
 - **C19 (#808) — `_locationOf` uses `end || length`** (sort.js / registry.js), so an

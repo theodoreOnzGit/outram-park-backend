@@ -37,7 +37,7 @@
 //!
 //! **Pass criterion.** Every cell equals citeproc-js's (the JSON of the
 //! array `output.string` returns), except cells listed in
-//! [`KNOWN_DIFFERENCES`] with a reason.
+//! [`DEVIATION_CELLS`] (registered deviations D4 and D5).
 //!
 //! **Results.** See [`RESULTS`].
 
@@ -57,8 +57,17 @@ const REF: &str = include_str!("../../tests/data/csl/units/dates_e2e.json");
 /// Measured results.
 const RESULTS: &str = "measured 2026-10-08 on branch citeproc/w2-dates: 43,152 of 43,152 cells (87 styles x 62 items x 8 locales, 1,184 of them cells where citeproc-js throws and so does the port) equal citeproc-js, including the issued_date bookkeeping; fixtures: 79 date-only fixtures (78 of area date, 1 punctuation) equal citeproc-js's output, 76 also equal their RESULT (the other 3 are fixtures citeproc-js itself misses)";
 
-/// Cells that differ from citeproc-js on purpose: (style, lang, item, reason).
-const KNOWN_DIFFERENCES: &[(&str, &str, &str, &str)] = &[];
+/// Cells that differ from citeproc-js on purpose, as `{"D4": ["style|lang|item", ..], "D5": [..]}`
+/// (`tests/data/csl/units/dates_e2e_deviations.json`). The listing is exact: a
+/// listed cell that no longer differs fails the test, and so does an unlisted
+/// difference. D4 cells are those whose style has a `year` part with
+/// `form="short"` (GitHub #808, C16); D5 cells are the rest, all of them items
+/// with a range whose two ends have different era labels (`d_bc_ad_range`,
+/// `d_ad_range2`), plus `d_bc_range_full` under the three year-suffix collapse
+/// styles, where the start year is suppressed so only the end year is printed
+/// and now keeps its own `BC` (C17). Regenerate with
+/// `DATES_E2E_WRITE_DEVIATIONS=<path>` after a deliberate change.
+const DEVIATION_CELLS: &str = include_str!("../../tests/data/csl/units/dates_e2e_deviations.json");
 
 fn locale_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../vendor/citeproc-js/locale")
@@ -238,6 +247,21 @@ fn date_rendering_matches_citeproc_js() {
         .collect();
     let results = r["results"].as_object().expect("results");
     let only = std::env::var("DATES_E2E_STYLE").ok();
+    let listed: BTreeMap<String, String> = {
+        let v: Value = serde_json::from_str(DEVIATION_CELLS).expect("deviation cells");
+        let mut m = BTreeMap::new();
+        for (dev, cells) in v.as_object().expect("object") {
+            for c in cells.as_array().expect("array") {
+                m.insert(c.as_str().unwrap_or("").to_string(), dev.clone());
+            }
+        }
+        m
+    };
+    let year_short = regex::Regex::new(
+        r#"<date-part[^>]*name="year"[^>]*form="short"|<date-part[^>]*form="short"[^>]*name="year""#,
+    )
+    .expect("regex");
+    let mut differing: BTreeMap<String, String> = BTreeMap::new();
     let (mut total, mut ok, mut thrown_ok) = (0usize, 0usize, 0usize);
     let mut bad: Vec<String> = Vec::new();
     for (sid, xml) in styles {
@@ -266,9 +290,7 @@ fn date_rendering_matches_citeproc_js() {
             for it in &items {
                 let id = it["id"].as_str().unwrap_or("");
                 total += 1;
-                let known = KNOWN_DIFFERENCES
-                    .iter()
-                    .any(|(s, l, i, _)| *s == sid && *l == lang && *i == id);
+                let cell = format!("{sid}|{lang}|{id}");
                 let w = &want[id];
                 let got = render_one(&mut engine, id);
                 let issued = LAST_ISSUED.with(|c| c.borrow().clone());
@@ -289,7 +311,15 @@ fn date_rendering_matches_citeproc_js() {
                         engine = e;
                     }
                 }
-                if same || known {
+                if !same {
+                    let dev = if year_short.is_match(xml.as_str().unwrap_or("")) {
+                        "D4"
+                    } else {
+                        "D5"
+                    };
+                    differing.insert(cell.clone(), dev.to_string());
+                }
+                if same || listed.contains_key(&cell) {
                     ok += 1;
                 } else {
                     bad.push(format!("{sid}|{lang}|{id}: got {got:?} want {w}"));
@@ -302,6 +332,19 @@ fn date_rendering_matches_citeproc_js() {
     );
     for b in bad.iter().take(60) {
         println!("MISMATCH {b}");
+    }
+    if let Ok(path) = std::env::var("DATES_E2E_WRITE_DEVIATIONS") {
+        let mut out: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for (cell, dev) in &differing {
+            out.entry(dev.clone()).or_default().push(cell.clone());
+        }
+        std::fs::write(&path, serde_json::to_string(&out).expect("json") + "\n").expect("write");
+    }
+    if only.is_none() {
+        assert_eq!(
+            differing, listed,
+            "the listed deviation cells are exactly the differing ones"
+        );
     }
     assert!(bad.is_empty(), "{} mismatching cells", bad.len());
 }

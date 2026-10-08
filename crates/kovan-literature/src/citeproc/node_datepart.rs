@@ -242,8 +242,9 @@ fn type_error_not_function(name: &str, form: &str) -> EngineError {
 /// `"" + CSL.Util.Dates[name][form](state, val, gender, default_locale)`.
 ///
 /// The formatters return `undefined` in places (month names without a
-/// term, a non-four-digit `short` year); `"" + undefined` is `"undefined"`,
-/// as upstream.
+/// term, a non-four-digit `short` year); upstream prints `"" + undefined`,
+/// i.e. `"undefined"`. DEVIATION(D4): we print the empty string for a missing
+/// month term and the long form for a non-four-digit `short` year.
 fn call_dates_formatter(
     state: &mut State,
     name: &str,
@@ -252,10 +253,15 @@ fn call_dates_formatter(
     gender: Option<&str>,
     default_locale: bool,
 ) -> CslResult<String> {
-    let undef = |o: Option<String>| o.unwrap_or_else(|| "undefined".to_string());
+    // DEVIATION(D4): a missing month term is the empty string, not "undefined".
+    let undef = |o: Option<String>| o.unwrap_or_default();
     match (name, form) {
         ("year", "long") => Ok(util_dates::year_long(val)),
-        ("year", "short") => Ok(undef(util_dates::year_short(val)?)),
+        ("year", "short") => Ok(match util_dates::year_short(val)? {
+            Some(s) => s,
+            // DEVIATION(D4): a year that is not four digits falls back to the long form.
+            None => util_dates::year_long(val),
+        }),
         ("year", "numeric") => Ok(util_dates::year_numeric(val)),
         // `imperial(state, num, end)` receives the *gender* as `end`.
         ("year", "imperial") => {
@@ -399,6 +405,11 @@ fn render(
     if value != Dv::Undef {
         let mut bc: Option<String> = None;
         let mut ad: Option<String> = None;
+        let mut bc_end: Option<String> = None;
+        let mut ad_end: Option<String> = None;
+        // DEVIATION(D5): set when the era labels of a range were already placed, each
+        // after its own end.
+        let mut era_labels_placed = false;
         if name == "year" {
             if let Some(v) = value.parse_int() {
                 if v < 500 && v > 0 {
@@ -411,12 +422,13 @@ fn render(
             }
             if value_end.truthy() {
                 if let Some(v) = value_end.parse_int() {
-                    // `ad_end` and `bc_end` are computed upstream and never read.
+                    // DEVIATION(D5): upstream computes `ad_end` and `bc_end` and never
+                    // reads them; we use them (see the two sites below).
                     if v < 500 && v > 0 {
-                        let _ad_end = term_or_false(state, "ad")?;
+                        ad_end = term_or_false(state, "ad")?;
                     }
                     if v < 0 {
-                        let _bc_end = term_or_false(state, "bc")?;
+                        bc_end = term_or_false(state, "bc")?;
                         value_end = Dv::Num((v * -1) as f64);
                     }
                 }
@@ -494,12 +506,35 @@ fn render(
                     if first_date {
                         clear_first_prefix(state)?;
                     }
+                    // DEVIATION(D5): when the two ends have different era labels (BC to
+                    // AD, or AD to a year past 500), each end carries its own label; the
+                    // end's goes here, the start's right after the start year below.
+                    // Upstream puts the start's label after the end year. Ends with the
+                    // same label keep upstream's single trailing label ("300-200 BC").
+                    era_labels_placed =
+                        bc.clone().or(ad.clone()) != bc_end.clone().or(ad_end.clone());
+                    if era_labels_placed {
+                        if let Some(l) = bc_end.clone().or(ad_end.clone()) {
+                            queue::append_simple(
+                                state,
+                                QueueId::Dateput,
+                                l.as_str(),
+                                FormatRef::None,
+                            )?;
+                        }
+                    }
                 }
                 last_string_output = value.js_string_if_truthy();
                 append_this(state, QueueId::Output, &value, token)?;
                 let curr = queue::current(state, QueueId::Output).ok_or_else(no_level)?;
                 if let Some(BlobChild::Blob(b)) = last_child(state, curr) {
                     state.blobs.get_mut(b).set_string("suffix", "");
+                }
+                if era_labels_placed {
+                    // DEVIATION(D5): the start year's own label, before the delimiter.
+                    if let Some(l) = bc.clone().or(ad.clone()) {
+                        queue::append_simple(state, QueueId::Output, l.as_str(), FormatRef::None)?;
+                    }
                 }
 
                 match token
@@ -577,7 +612,8 @@ fn render(
                         if first_date {
                             clear_first_prefix(state)?;
                         }
-                        if let Some(bc) = &bc {
+                        // DEVIATION(D5): the end year takes its own era label (upstream: the start year's).
+                        if let Some(bc) = &bc_end {
                             last_string_output = bc.clone();
                             queue::append_simple(
                                 state,
@@ -586,7 +622,7 @@ fn render(
                                 FormatRef::None,
                             )?;
                         }
-                        if let Some(ad) = &ad {
+                        if let Some(ad) = &ad_end {
                             last_string_output = ad.clone();
                             queue::append_simple(
                                 state,
@@ -604,13 +640,22 @@ fn render(
             append_this(state, QueueId::Output, &value, token)?;
         }
 
-        if let Some(bc) = &bc {
-            last_string_output = bc.clone();
-            queue::append_simple(state, QueueId::Output, bc.as_str(), FormatRef::None)?;
+        if era_labels_placed {
+            // The text now ends with the end year's label, or its digits.
+            last_string_output = bc_end
+                .clone()
+                .or(ad_end.clone())
+                .unwrap_or_else(|| value_end.js_string_if_truthy());
         }
-        if let Some(ad) = &ad {
-            last_string_output = ad.clone();
-            queue::append_simple(state, QueueId::Output, ad.as_str(), FormatRef::None)?;
+        if !era_labels_placed {
+            if let Some(bc) = &bc {
+                last_string_output = bc.clone();
+                queue::append_simple(state, QueueId::Output, bc.as_str(), FormatRef::None)?;
+            }
+            if let Some(ad) = &ad {
+                last_string_output = ad.clone();
+                queue::append_simple(state, QueueId::Output, ad.as_str(), FormatRef::None)?;
+            }
         }
         queue::close_level(state, QueueId::Output, None)?;
     } else if name == "month" {
@@ -798,3 +843,127 @@ pub fn build(
 #[cfg(test)]
 #[path = "date_e2e_test.rs"]
 mod date_e2e_test;
+
+/// Registered deviations D4 (`year form="short"` and the missing month term)
+/// and D5 (the era label of each end of a BC-to-AD range), GitHub #808.
+///
+/// **Methodology.** `scripts/csl-units/deviations_dqa.cjs` (run with
+/// `CITEPROC_MODULE=.../node_modules/citeproc/citeproc_commonjs.js node
+/// scripts/csl-units/deviations_dqa.cjs`) renders each probe with citeproc-js
+/// 2.4.63 through `makeCitationCluster`, with this crate's `locales-en-US.xml`,
+/// and records the output in `tests/data/csl/units/deviations_dqa.json`. This
+/// test asserts (a) the recorded citeproc-js output is what the table below
+/// says it is, and (b) the port gives the intended output, which differs for
+/// the reason in the table.
+///
+/// **Results (2026-10-08).** Every probe: the port gives the "intended" column
+/// and citeproc-js the "citeproc-js" column; probes whose two columns are equal
+/// are controls (the deviation must not touch them).
+#[cfg(test)]
+mod deviation_tests {
+    use std::sync::Arc;
+
+    use serde_json::{json, Value};
+
+    use crate::citeproc::test_support::minimal_locales;
+    use crate::citeproc::{CitationItem, Engine, Sys};
+
+    const REF: &str = include_str!("../../tests/data/csl/units/deviations_dqa.json");
+
+    /// (case, citeproc-js, intended, deviation)
+    const TABLE: &[(&str, &str, &str, &str)] = &[
+        // D4: a year that is not four digits, form="short".
+        ("short-year-99", "March undefined AD", "March 99 AD", "D4"),
+        ("short-year-12345", "March undefined", "March 12345", "D4"),
+        ("short-year-450", "March undefined AD", "March 450 AD", "D4"),
+        ("short-year--5", "March undefined BC", "March 5 BC", "D4"),
+        ("short-year-500", "March undefined", "March 500", "D4"),
+        ("short-year-only-99", "undefined AD", "99 AD", "D4"),
+        // control: a four-digit year is still shortened.
+        ("short-year-2004", "March 04", "March 04", "D4"),
+        // D4: a missing month term.
+        ("missing-month-term", "undefined 2004", "2004", "D4"),
+        ("missing-month-term-short", "undefined 2004", "2004", "D4"),
+        // D5 (a): year-first parts, the end year takes its own label.
+        (
+            "range-year-first",
+            "200 BC-March\u{2013}200 BC-May",
+            "200 BC-March\u{2013}200 AD-May",
+            "D5",
+        ),
+        // D5 (b): year last, the two ends have different labels.
+        (
+            "range-ready-mdy",
+            "March 1, 200\u{2013}May 2, 200 BC",
+            "March 1, 200 BC\u{2013}May 2, 200 AD",
+            "D5",
+        ),
+        (
+            "range-ready-mdy-ad-to-ad-big",
+            "March 1, 100\u{2013}May 2, 600 AD",
+            "March 1, 100 AD\u{2013}May 2, 600",
+            "D5",
+        ),
+        (
+            "range-ready-mdy-bc-to-bc-end-ad",
+            "March 1, 5\u{2013}May 2, 5 BC",
+            "March 1, 5 BC\u{2013}May 2, 5 AD",
+            "D5",
+        ),
+        // D5 controls: both ends have the same label, so the single trailing
+        // label ("300-200 BC") is kept, as in citeproc-js.
+        (
+            "range-ready-mdy-both-ad",
+            "March 1, 100\u{2013}May 2, 200 AD",
+            "March 1, 100\u{2013}May 2, 200 AD",
+            "D5",
+        ),
+        (
+            "range-ready-mdy-both-bc",
+            "March 1, 300\u{2013}May 2, 200 BC",
+            "March 1, 300\u{2013}May 2, 200 BC",
+            "D5",
+        ),
+    ];
+
+    fn render(case: &Value, items: &[Value]) -> Result<String, String> {
+        let mut locales = minimal_locales();
+        if case["noMonth03"].as_bool() == Some(true) {
+            for xml in locales.values_mut() {
+                *xml = xml
+                    .lines()
+                    .filter(|l| !l.contains("name=\"month-03\""))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+            }
+        }
+        let sys = Sys::new(items, Arc::new(locales)).map_err(|e| e.to_string())?;
+        let mut e = Engine::new(sys, case["style"].as_str().unwrap_or(""), "en-US")
+            .map_err(|e| e.to_string())?;
+        let cite =
+            CitationItem::from_json(&json!({"id": case["id"]})).map_err(|e| e.to_string())?;
+        e.make_citation_cluster(&[cite]).map_err(|e| e.to_string())
+    }
+
+    #[test]
+    fn short_years_missing_months_and_range_eras_deviate_as_registered() {
+        let r: Value = serde_json::from_str(REF).expect("deviations_dqa.json");
+        let items: Vec<Value> = r["items"].as_array().cloned().expect("items");
+        let mut seen = 0;
+        for (name, js, intended, dev) in TABLE {
+            let case = r["cases"]
+                .as_array()
+                .and_then(|a| a.iter().find(|c| c["name"] == *name))
+                .unwrap_or_else(|| panic!("no probe {name}"));
+            assert_eq!(
+                case["js"]["v"].as_str(),
+                Some(*js),
+                "{name}: recorded citeproc-js output"
+            );
+            let got = render(case, &items).unwrap_or_else(|e| panic!("{name}: {e}"));
+            assert_eq!(got, *intended, "{name} ({dev}): port output");
+            seen += 1;
+        }
+        assert_eq!(seen, TABLE.len());
+    }
+}
