@@ -1222,6 +1222,14 @@ fn names_e2e_matches_citeproc_js() {
     }
     assert!(bad.is_empty(), "{} generated cases differ", bad.len());
     assert!(compared > 8000, "{compared}");
+    // Pinned (2026-10-08): the excused counts may not drift silently. A change
+    // in either means a D11/D12 throw case or its after-crash tail changed;
+    // re-examine it before updating these numbers.
+    assert_eq!(tally.deviations, 1348, "D11/D12 throws not reproduced");
+    assert_eq!(
+        tally.after_deviation, 381,
+        "differing outputs after a citeproc-js D11/D12 throw"
+    );
 }
 
 /// Whether a recorded citeproc-js throw is one of the bugs the port
