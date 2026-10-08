@@ -302,6 +302,9 @@ pub struct GroupContext {
     pub done_vars: Vec<String>,
     /// `value_seen` (set by `UPDATE_GROUP_CONTEXT_CONDITION`).
     pub value_seen: bool,
+    /// `old_term_predecessor` (the context literal of node_group.js: the
+    /// value of `tmp.term_predecessor` when the group started).
+    pub old_term_predecessor: bool,
 }
 
 impl Default for GroupContext {
@@ -326,6 +329,7 @@ impl Default for GroupContext {
             force_suppress: false,
             done_vars: Vec::new(),
             value_seen: false,
+            old_term_predecessor: false,
         }
     }
 }
@@ -356,6 +360,8 @@ pub struct AbbrevTrimmer {
     pub quashes: BTreeMap<String, BTreeMap<String, bool>>,
     /// `LAST_TO_FIRST` (`None` is `undefined`).
     pub last_to_first: Option<BTreeMap<String, bool>>,
+    /// `trimmer[jurisdiction][field] = value` (util_transform.js `quashCheck`).
+    pub fields: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 /// `state.tmp.issued_date` (node_date.js:144-147): the parent blob whose
@@ -667,6 +673,10 @@ pub struct Tmp {
     /// `tmp.term_predecessor_name` (queue.js).
     pub term_predecessor_name: bool,
     // ---- fields: wave2 ----
+    /// `oldItem` (node_alternative.js).
+    pub old_item: Option<Value>,
+    /// `oldLang` (node_alternative.js).
+    pub old_lang: Option<String>,
 
     // ---- fields: wave3 ----
 
@@ -862,6 +872,8 @@ impl Tmp {
             suppress_repeats: None,
             use_cite_group_delimiter: false,
             backref_index: Vec::new(),
+            old_item: None,
+            old_lang: None,
         }
     }
 }

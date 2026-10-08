@@ -36,17 +36,23 @@ impl NodeAlternativetextExec {
     /// Run the closure.
     pub fn run(
         &self,
-        _state: &mut State,
+        state: &mut State,
         _token: &mut Token,
-        _item: &Value,
+        item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
         match self {
-            // PORT-LATER(wave2): node_alternativetext.js:5-8, needs
-            // state.refetchItem (build.js) and CSL.getCite (api_cite.js).
-            NodeAlternativetextExec::RefetchAndGetCite => Err(EngineError::NotYetPorted {
-                method: "node_alternativetext.js:5 closure",
-            }),
+            NodeAlternativetextExec::RefetchAndGetCite => {
+                let id = item.get("id").map(super::js::to_js_string).unwrap_or_default();
+                let Some(refetched) = state.refetch_item(&id) else {
+                    return Err(EngineError::Csl(format!(
+                        "TypeError: Item is undefined (refetchItem({id}))"
+                    )));
+                };
+                // `CSL.getCite.call(state, Item)`: no citation item.
+                state.get_cite(&refetched, &Value::Null, None, false)?;
+                Ok(None)
+            }
         }
     }
 }

@@ -20,12 +20,14 @@ use serde_json::Value;
 
 use super::attributes;
 use super::exec::Exec;
+use super::js::{self, Obj};
 use super::node_choose;
 use super::node_if;
 use super::obj_token::{Token, TokenType};
+use super::queue::{self, FormatRef, QueueId};
 use super::state::State;
+use super::util_locale::locale_resolve;
 use super::{CslResult, EngineError};
-
 /// The closures `src/node_alternative.js` stores in `token.execs`
 /// (PORTING.md §4).
 #[derive(Debug, Clone, PartialEq)]
@@ -45,29 +47,197 @@ impl NodeAlternativeExec {
     pub fn run(
         &self,
         state: &mut State,
-        _token: &mut Token,
-        _item: &Value,
+        token: &mut Token,
+        item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
         match self {
-            // PORT-LATER(wave2): node_alternative.js:14-85, needs
-            // state.output.openLevel (queue.rs), state.registry.refhash and
-            // CSL.NameOutput (state.nameOutput = new CSL.NameOutput(state, newItem)).
-            NodeAlternativeExec::Start => Err(EngineError::NotYetPorted {
-                method: "node_alternative.js:14 closure",
-            }),
+            NodeAlternativeExec::Start => {
+                state.tmp.old_item = Some(item.clone());
+                state.tmp.old_lang = js::get_string(&state.opt, "lang");
+                state.tmp.abort_alternative = true;
+
+                let mut new_item: Option<Value> = None;
+                if js::truthy_opt(item.get("language-name"))
+                    && js::truthy_opt(item.get("language-name-original"))
+                {
+                    let mut ni: Obj = item.as_object().cloned().unwrap_or_default();
+
+                    let lang_name = ni.get("language-name").cloned().unwrap_or(Value::Null);
+                    ni.insert("language".into(), lang_name.clone());
+                    let default_locale = state
+                        .opt
+                        .get("default-locale")
+                        .and_then(|d| d.get(0))
+                        .map(js::to_js_string)
+                        .unwrap_or_default();
+                    let langspec =
+                        locale_resolve(&js::to_js_string(&lang_name), Some(&default_locale));
+
+                    if js::truthy_opt(state.opt.get("multi_layout")) {
+                        let layouts: Vec<Value> = state
+                            .opt
+                            .get("multi_layout")
+                            .and_then(Value::as_array)
+                            .cloned()
+                            .unwrap_or_default();
+                        for locale_list in &layouts {
+                            let mut gotlang: Option<String> = None;
+                            for tryspec in locale_list.as_array().into_iter().flatten() {
+                                let field = |k: &str| {
+                                    tryspec.get(k).and_then(Value::as_str).map(str::to_string)
+                                };
+                                if Some(langspec.best.clone()) == field("best")
+                                    || Some(langspec.base.clone()) == field("base")
+                                    || Some(langspec.bare.clone()) == field("bare")
+                                {
+                                    gotlang = locale_list
+                                        .get(0)
+                                        .and_then(|l| l.get("best"))
+                                        .map(js::to_js_string);
+                                    break;
+                                }
+                            }
+                            let gotlang = gotlang.unwrap_or_else(|| default_locale.clone());
+                            state.opt.insert("lang".into(), Value::String(gotlang));
+                        }
+                    }
+
+                    let keys: Vec<String> = ni.keys().cloned().collect();
+                    for key in &keys {
+                        if !["id", "type", "language", "multi"].contains(&key.as_str())
+                            && js::slice(key, 0, Some(4)) != "alt-"
+                        {
+                            let multi_keys = ni
+                                .get("multi")
+                                .filter(|m| js::truthy(m))
+                                .map(|m| m.get("_keys").cloned().unwrap_or(Value::Null));
+                            let multi_has_key = match &multi_keys {
+                                Some(Value::Null) => {
+                                    return Err(EngineError::BadInput(format!(
+                                        "Cannot read properties of undefined (reading '{key}')"
+                                    )))
+                                }
+                                Some(k) => js::truthy_opt(k.get(key.as_str())),
+                                None => false,
+                            };
+                            if multi_has_key {
+                                let mut deleteme = true;
+                                if let Some(Value::Object(langs)) =
+                                    multi_keys.as_ref().and_then(|k| k.get(key.as_str()))
+                                {
+                                    for lang in langs.keys() {
+                                        if langspec.bare == leading_alpha(lang) {
+                                            deleteme = false;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if deleteme {
+                                    ni.remove(key);
+                                }
+                            } else {
+                                ni.remove(key);
+                            }
+                        }
+                    }
+                    // (for-in does not visit keys added during the loop.)
+                    let keys: Vec<String> = ni.keys().cloned().collect();
+                    for key in &keys {
+                        if js::slice(key, 0, Some(4)) == "alt-" {
+                            let v = ni.get(key).cloned().unwrap_or(Value::Null);
+                            ni.insert(js::slice(key, 4, None), v);
+                            state.tmp.abort_alternative = false;
+                        } else {
+                            let multi_keys: Option<Value> = ni
+                                .get("multi")
+                                .filter(|m| js::truthy(m))
+                                .and_then(|m| m.get("_keys").cloned())
+                                .filter(|k| js::truthy(k));
+                            if let Some(mk) = multi_keys {
+                                if !js::truthy_opt(ni.get(&format!("alt-{key}")))
+                                    && js::truthy_opt(mk.get(key.as_str()))
+                                {
+                                    let by = |spec: &str| -> Option<Value> {
+                                        mk.get(key.as_str())
+                                            .and_then(|k| k.get(spec))
+                                            .filter(|v| js::truthy(v))
+                                            .cloned()
+                                    };
+                                    let found = by(&langspec.best)
+                                        .or_else(|| by(&langspec.base))
+                                        .or_else(|| by(&langspec.bare));
+                                    if let Some(v) = found {
+                                        ni.insert(key.clone(), v);
+                                        state.tmp.abort_alternative = false;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    new_item = Some(Value::Object(ni));
+                }
+
+                queue::open_level(state, QueueId::Output, FormatRef::Token(token.clone()))?;
+                set_refhash(state, item, new_item.clone());
+                new_name_output(state, new_item.as_ref());
+                Ok(None)
+            }
             NodeAlternativeExec::AbortAlternative => {
                 state.tmp.abort_alternative = true;
                 Ok(None)
             }
-            // PORT-LATER(wave2): node_alternative.js:110-116, needs
-            // state.output.closeLevel, state.registry.refhash, CSL.NameOutput.
-            NodeAlternativeExec::End => Err(EngineError::NotYetPorted {
-                method: "node_alternative.js:110 closure",
-            }),
+            NodeAlternativeExec::End => {
+                queue::close_level(state, QueueId::Output, None)?;
+                let old = state.tmp.old_item.clone();
+                set_refhash(state, item, old.clone());
+                match state.tmp.old_lang.clone() {
+                    Some(l) => {
+                        state.opt.insert("lang".into(), Value::String(l));
+                    }
+                    None => {
+                        state.opt.remove("lang");
+                    }
+                }
+                new_name_output(state, old.as_ref());
+                state.tmp.abort_alternative = false;
+                Ok(None)
+            }
         }
     }
 }
+
+/// `lang.replace(/^([a-zA-Z]+).*/, "$1")`: the leading run of ASCII letters
+/// (the whole string when there is none to match, as `replace` leaves it).
+fn leading_alpha(lang: &str) -> String {
+    let n = lang.chars().take_while(|c| c.is_ascii_alphabetic()).count();
+    if n == 0 {
+        lang.to_string()
+    } else {
+        lang.chars().take(n).collect()
+    }
+}
+
+/// `state.registry.refhash[Item.id] = item` (`None` is `undefined`).
+
+fn set_refhash(state: &mut State, item: &Value, value: Option<Value>) {
+    let Some(id) = item.get("id").map(js::to_js_string) else {
+        return;
+    };
+    match value {
+        Some(v) => {
+            state.registry.refhash.insert(id, v);
+        }
+        None => {
+            state.registry.refhash.remove(&id);
+        }
+    }
+}
+
+/// `state.nameOutput = new CSL.NameOutput(state, item)`.
+/// PORT-LATER(w2-names): util_names.js is not ported; the integrator wires
+/// this to the names code's constructor.
+fn new_name_output(_state: &mut State, _item: Option<&Value>) {}
 
 /// `CSL.Node.alternative.build.call(token, state, target)`.
 pub fn build(

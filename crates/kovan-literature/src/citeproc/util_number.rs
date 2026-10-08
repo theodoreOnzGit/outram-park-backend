@@ -28,8 +28,8 @@
 //! the plural / numeric / collapsible flags. It is complete here.
 //! `processNumber(node, ...)` additionally mangles ranges and builds the
 //! styling tokens: [`fix_ranges`] (with `state.fun.page_mangler`) and
-//! [`set_styling`] are ported; `CSL.Util.outputNumericField` renders through
-//! the output queue and is deferred ([`output_numeric_field`]).
+//! [`set_styling`] are ported, and so is `CSL.Util.outputNumericField`, which
+//! renders the result through the output queue ([`output_numeric_field`]).
 //!
 //! # Locale terms
 //!
@@ -1591,7 +1591,7 @@ fn process_number_inner(
             .and_then(|a| a.first())
             .map(js::to_js_string)
             .unwrap_or_else(|| "undefined".to_string());
-        val = text_sub_field_name(state, item, real_variable, &format!("locale-{locale_type}"));
+        val = text_sub_field_name(state, item, real_variable, &format!("locale-{locale_type}"))?;
     } else {
         val = item.get(real_variable).cloned().unwrap_or(Value::Null);
     }
@@ -1731,72 +1731,282 @@ fn take_infos(values: &mut Vec<ShadowValue>) -> Vec<NumberInfo> {
 }
 
 /// `this.transform.getTextSubField(ItemObject, field, locale_type, true).name`
-/// as `processNumber` uses it, for the plain (non-title, non-`-short`)
-/// fields `LangPrefsMap` lists for numbers (`number`, `edition`, `issue`,
-/// `volume`). `Value::Null` is JS `""`/falsy absence.
-///
-/// DUP-CHECK: util_transform.js `getTextSubField` (reduced; the full
-/// function belongs to the transform port).
-fn text_sub_field_name(state: &mut State, item: &Value, field: &str, locale_type: &str) -> Value {
-    let item_field = item.get(field).cloned().unwrap_or(Value::Null);
-    if !js::truthy(&item_field) {
-        return Value::String(String::new());
-    }
-    let opts: Vec<String> = state
-        .opt
-        .get(locale_type)
-        .and_then(Value::as_array)
-        .map(|a| a.iter().map(js::to_js_string).collect())
-        .unwrap_or_default();
-    let mut name = Value::String(String::new());
-    let mut has_val = false;
-    if locale_type == "locale-orig" {
-        name = item_field.clone();
-        has_val = true;
-    } else if opts.is_empty() {
-        name = item_field.clone();
-        has_val = true;
-    }
-    if !has_val {
-        let keys = item
-            .get("multi")
-            .and_then(|m| m.get("_keys"))
-            .and_then(|k| k.get(field));
-        for opt in &opts {
-            let o = opt.split(|c| c == '-' || c == '_').next().unwrap_or("");
-            if let Some(v) = keys
-                .and_then(|k| k.get(opt.as_str()))
-                .filter(|v| !opt.is_empty() && js::truthy(v))
-            {
-                name = v.clone();
-                break;
-            } else if let Some(v) = keys
-                .and_then(|k| k.get(o))
-                .filter(|v| !o.is_empty() && js::truthy(v))
-            {
-                name = v.clone();
-                break;
-            }
-        }
-        if !js::truthy(&name) {
-            name = item_field;
-        }
-    }
-    name
+/// as `processNumber` calls it: as a method of the transform, so `this` is
+/// not a token. `Value::Null` is JS `undefined`.
+fn text_sub_field_name(
+    state: &mut State,
+    item: &Value,
+    field: &str,
+    locale_type: &str,
+) -> CslResult<Value> {
+    Ok(super::util_transform::get_text_sub_field(
+        state,
+        None,
+        item,
+        field,
+        Some(locale_type),
+        true,
+        false,
+        None,
+    )?
+    .name)
 }
 
 /// `CSL.Util.outputNumericField(state, varname, itemID)`: render a parsed
-/// numeric variable through the output queue (labels, numeric blobs,
-/// styling).
+/// numeric variable (`state.tmp.shadow_numbers[varname]`, filled by
+/// [`process_number`] with a node) through the output queue: the labels, the
+/// numeric blobs of the collapsible values and the styling of the rest.
 ///
-/// PORT-LATER(wave2): util_number.js:902-1016, needs `state.output`
-/// (`Queue::open_level`, `append`, `close_level`), `NumericBlob`,
-/// `CSL.Output.Formatters["capitalize-first"]` and
-/// `CSL.UPDATE_GROUP_CONTEXT_CONDITION`.
-pub fn output_numeric_field(_state: &mut State, _varname: &str, _item_id: &str) -> CslResult<()> {
-    Err(EngineError::NotYetPorted {
-        method: "CSL.Util.outputNumericField",
-    })
+/// `item_id` is `Item.id`, the id the numeric blobs carry for cross-item
+/// joining.
+pub fn output_numeric_field(state: &mut State, varname: &str, item_id: &str) -> CslResult<()> {
+    use super::formatters::capitalize_first;
+    use super::load::statute_subdiv_string;
+    use super::obj_number::{new_numeric_blob, NumArg};
+    use super::queue::{self, AppendArg, FormatRef, QueueId};
+
+    let undefined = |what: &str| {
+        EngineError::BadInput(format!(
+            "Cannot read properties of undefined (reading '{what}')"
+        ))
+    };
+    let sn: ShadowNumber = state
+        .tmp
+        .shadow_numbers
+        .get(varname)
+        .cloned()
+        .ok_or_else(|| undefined("masterStyling"))?;
+    let master_styling = sn.master_styling.clone();
+    queue::open_level(
+        state,
+        QueueId::Output,
+        match &master_styling {
+            Some(t) => FormatRef::Token(t.clone()),
+            None => FormatRef::None,
+        },
+    )?;
+    let nums = sn.values.clone();
+    let master_label: Option<String> = match nums.first() {
+        Some(ShadowValue::Info(i)) => i.label.clone(),
+        _ => None,
+    };
+    let label_form = sn.label_form.clone().filter(|f| !f.is_empty());
+    let try_static = super::node_group::tip(state).label_static;
+    let try_static = js::truthy(&try_static);
+    let embedded_label_form: String = match &label_form {
+        Some(f) => f.clone(),
+        None => "short".to_string(),
+    };
+    let label_capitalize_if_first = sn
+        .label_capitalize_if_first
+        .as_ref()
+        .map(js::truthy)
+        .unwrap_or(false);
+    let label_decorations: Vec<Decoration> = sn.label_decorations.clone().unwrap_or_default();
+    let mut last_label_name: Option<String> = None;
+    // `var labelName;` is function-scoped upstream: it keeps its value from
+    // the previous pass of the loop.
+    let mut label_name: Option<String> = None;
+
+    for (i, numv) in nums.iter().enumerate() {
+        let ShadowValue::Info(num) = numv else {
+            return Err(EngineError::BadInput(
+                "Cannot read properties of undefined (reading 'strings')".into(),
+            ));
+        };
+        let mut label: Option<String> = Some(String::new());
+        if let Some(nl) = num.label.as_ref().filter(|l| !l.is_empty()) {
+            if js::slice(nl, 0, Some(4)) == "var:" {
+                label_name = Some(js::slice(nl, 4, None));
+            } else {
+                label_name = statute_subdiv_string(nl).map(str::to_string);
+            }
+            if let Some(ln) = label_name.clone().filter(|l| !l.is_empty()) {
+                // Simplify this some day.
+                let is_master = Some(nl) == master_label.as_ref();
+                let form_for = if is_master {
+                    label_form.clone()
+                } else {
+                    Some(embedded_label_form.clone())
+                };
+                if try_static {
+                    let l = state.get_term(&ln, Some("static"), num.plural, None, None, false)?;
+                    let l = l.ok_or_else(|| undefined("indexOf"))?;
+                    label = Some(if !l.contains("%s") { String::new() } else { l });
+                }
+                if label.as_deref().map(str::is_empty).unwrap_or(true) {
+                    label =
+                        state.get_term(&ln, form_for.as_deref(), num.plural, None, None, false)?;
+                }
+                if label_capitalize_if_first {
+                    label = Some(capitalize_first(state, label.as_deref().unwrap_or("")));
+                }
+            }
+        }
+        let mut label_placeholder_pos: i64 = -1;
+        if let Some(l) = label.as_deref().filter(|l| !l.is_empty()) {
+            label_placeholder_pos = js::index_of(l, "%s", 0);
+        }
+        let styling = num.styling.as_ref().ok_or_else(|| {
+            EngineError::BadInput("Cannot read properties of undefined (reading 'name')".into())
+        })?;
+        let mut num_styling = styling.clone_token();
+        for k in ["formatter", "gender"] {
+            if let Some(v) = styling.extra.get(k) {
+                num_styling.extra.insert(k.to_string(), v.clone());
+            }
+        }
+
+        let label_len = label.as_deref().map(js::len).unwrap_or(0) as i64;
+        if label_placeholder_pos > 0 && label_placeholder_pos < (label_len - 2) {
+            let l = label.clone().unwrap_or_default();
+            let prefix =
+                num_styling.string("prefix") + &js::slice(&l, 0, Some(label_placeholder_pos));
+            num_styling.set_string("prefix", &prefix);
+            let suffix =
+                js::slice(&l, label_placeholder_pos + 2, None) + &num_styling.string("suffix");
+            num_styling.set_string("suffix", &suffix);
+        } else if num.label_visibility == Some(true) {
+            if label.as_deref().map(str::is_empty).unwrap_or(true) {
+                label = num.label.clone();
+                label_name = num.label.clone();
+            }
+            let l = label.clone().unwrap_or_default();
+            let label_len = js::len(&l) as i64;
+            if label_placeholder_pos > 0 {
+                let mut prefix_label_styling = Token::new("", TokenType::Start);
+                prefix_label_styling.decorations = label_decorations.clone();
+                queue::append(
+                    state,
+                    QueueId::Output,
+                    AppendArg::Text(js::slice(&l, 0, Some(label_placeholder_pos))),
+                    FormatRef::Token(prefix_label_styling),
+                    false,
+                    false,
+                    false,
+                )?;
+            } else if label_placeholder_pos == label_len - 2 || label_placeholder_pos == -1 {
+                // And add a trailing delimiter.
+                let text = format!(
+                    "{}{}",
+                    l,
+                    num.label_suffix.as_deref().unwrap_or("undefined")
+                );
+                queue::append(
+                    state,
+                    QueueId::Output,
+                    AppendArg::Text(text),
+                    FormatRef::Name("empty".into()),
+                    false,
+                    false,
+                    false,
+                )?;
+            }
+        }
+        let ms = master_styling.as_ref().ok_or_else(|| {
+            EngineError::BadInput("Cannot read properties of undefined (reading 'strings')".into())
+        })?;
+        let prefix_str = ms.string_opt("prefix");
+        let cond_value = format!(
+            "{}{}",
+            num.particle.as_deref().unwrap_or("undefined"),
+            num.value
+        );
+        super::load::update_group_context_condition(
+            state,
+            prefix_str.as_deref(),
+            false,
+            Some(ms),
+            Some(&cond_value),
+        );
+        if num.collapsible == Some(true) {
+            let is_pos_int = {
+                let v = &num.value;
+                !v.is_empty() && v.bytes().all(|b| b.is_ascii_digit()) && !v.starts_with('0')
+            };
+            let parsed = js::parse_int(&num.value).filter(|n| *n <= 9_007_199_254_740_991);
+            let blob = if let (true, Some(n)) = (is_pos_int, parsed) {
+                new_numeric_blob(
+                    state,
+                    num.particle.as_deref(),
+                    NumArg::Number(n),
+                    Some(&num_styling),
+                    Some(item_id),
+                )?
+            } else {
+                new_numeric_blob(
+                    state,
+                    num.particle.as_deref(),
+                    NumArg::Text(num.value.clone()),
+                    Some(&num_styling),
+                    Some(item_id),
+                )?
+            };
+            if state.blobs.get(blob).gender.is_none() {
+                let lang = js::get_str(&state.opt, "lang").unwrap_or("").to_string();
+                let g = state
+                    .locale
+                    .get(&lang)
+                    .ok_or_else(|| undefined("noun-genders"))?
+                    .noun_genders
+                    .get(varname)
+                    .and_then(Value::as_str)
+                    .map(str::to_string);
+                state.blobs.get_mut(blob).gender = g;
+            }
+            queue::append(
+                state,
+                QueueId::Output,
+                AppendArg::Blob(blob),
+                FormatRef::Name("literal".into()),
+                false,
+                false,
+                false,
+            )?;
+        } else {
+            let text = format!(
+                "{}{}",
+                num.particle.as_deref().unwrap_or("undefined"),
+                num.value
+            );
+            queue::append(
+                state,
+                QueueId::Output,
+                AppendArg::Text(text),
+                FormatRef::Token(num_styling),
+                false,
+                false,
+                false,
+            )?;
+        }
+        if label_placeholder_pos == 0 {
+            let l = label.clone().unwrap_or_default();
+            let label_len = js::len(&l) as i64;
+            if label_placeholder_pos < (label_len - 2) {
+                // Only and always if this is the last entry of this label
+                if last_label_name.is_none() {
+                    last_label_name = label_name.clone();
+                }
+                if label_name != last_label_name || i == nums.len() - 1 {
+                    let mut suffix_label_styling = Token::new("", TokenType::Start);
+                    suffix_label_styling.decorations = label_decorations.clone();
+                    queue::append(
+                        state,
+                        QueueId::Output,
+                        AppendArg::Text(js::slice(&l, label_placeholder_pos + 2, None)),
+                        FormatRef::Token(suffix_label_styling),
+                        false,
+                        false,
+                        false,
+                    )?;
+                }
+            }
+        }
+        last_label_name = label_name.clone();
+        state.tmp.term_predecessor = true;
+    }
+    queue::close_level(state, QueueId::Output, None)?;
+    Ok(())
 }
 
 #[cfg(test)]

@@ -495,6 +495,10 @@ fn run_fixture(
     locales: &Arc<BTreeMap<String, String>>,
 ) -> Result<String, EngineError> {
     let mut sys = Sys::new(&fx.input, locales.clone())?;
+    // `Sys.run` copies OPTIONS.variableWrapper onto sys BEFORE `new CSL.Engine`.
+    if fx.options.as_ref().and_then(|o| o.get("variableWrapper")).is_some_and(truthy) {
+        sys.options.insert("variableWrapper".to_string(), Value::Bool(true));
+    }
     if let Some(raw) = &fx.abbreviations {
         sys.abbreviations = build_abbreviations(raw);
     }

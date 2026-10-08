@@ -560,13 +560,14 @@ impl Engine {
         if style.trim().is_empty() {
             return Err(EngineError::BadInput("empty style".to_string()));
         }
+        let variable_wrapper = js::truthy_opt(sys.options.get("variableWrapper"));
         let state = state::State::new(sys, style, lang, false)?;
         Ok(Engine {
             state,
             style: style.to_string(),
             output_format: OutputFormat::default(),
             development_extensions: BTreeMap::new(),
-            variable_wrapper: false,
+            variable_wrapper,
             suppress_trailing_punctuation: false,
             lang_prefs_for_cites: BTreeMap::new(),
             lang_prefs_for_cite_affixes: None,

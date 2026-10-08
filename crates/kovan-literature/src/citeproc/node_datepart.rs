@@ -327,12 +327,10 @@ fn term_or_false(state: &mut State, name: &str) -> CslResult<Option<String>> {
         .filter(|t| !t.is_empty()))
 }
 
-/// `STUB(registry.rs)`: `state.registry.registry[Item.id]` and its
-/// `disambig.year_suffix`. `None` when the registry has no entry for the
-/// item (the registry is the engine agent's, and does not exist yet).
-// PORT-LATER(w2-engine): registry.js — `state.registry.registry[Item.id].disambig.year_suffix`.
-fn registry_year_suffix(_state: &State, _id: &str) -> Option<Value> {
-    None
+/// `state.registry.registry[Item.id].disambig.year_suffix` (`None` for no entry
+/// or `false`).
+fn registry_year_suffix(state: &State, id: &str) -> Option<Value> {
+    state.registry.year_suffix(id)
 }
 
 /// The closure of `CSL.Node["date-part"].build` (node_datepart.js:38-305).

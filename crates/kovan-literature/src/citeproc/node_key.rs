@@ -213,11 +213,24 @@ impl NodeKeyExec {
                 super::util_date::date_as_sort_key(state, token, item, false)?;
                 Ok(None)
             }
-            // PORT-LATER(w2-render): node_key.js:139-145, needs
-            // state.transform.getOutputFunction (util_transform.js).
-            NodeKeyExec::TitleTransform { .. } => Err(EngineError::NotYetPorted {
-                method: "node_key.js:145 state.transform.getOutputFunction",
-            }),
+            // node_key.js:139-145: `getOutputFunction(this.variables, "title",
+            // false, false, true)`, where `this` is the key token (the closure
+            // reads that array, not the text token's).
+            NodeKeyExec::TitleTransform {
+                variables,
+                abbrevfam,
+            } => {
+                let mut t = token.clone();
+                t.variables = variables.clone();
+                super::util_transform::run_output_function(
+                    state,
+                    &t,
+                    Some(abbrevfam.as_str()),
+                    None,
+                    item,
+                    cite_item,
+                )
+            }
             NodeKeyExec::CourtClass => {
                 let mut full = item.clone();
                 load::init_jurisdiction_macros(state, &mut full, Some(cite_item), "juris-main")?;

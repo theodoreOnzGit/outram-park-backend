@@ -94,7 +94,7 @@ impl State {
             ..State::default()
         };
         // `this.sys.variableWrapper` exists (the runner copies OPTIONS onto sys).
-        s.fun.host_hooks.variable_wrapper = js::truthy_opt(sys.options.get("variableWrapper"));
+        let variable_wrapper = js::truthy_opt(sys.options.get("variableWrapper"));
         // `this.sys.AbbreviationSegments = CSL.AbbreviationSegments`,
         // `CSL.stringCompare = this.sys.stringCompare`: no counterpart.
         s.sys = sys;
@@ -104,6 +104,8 @@ impl State {
         s.tmp = Tmp::new();
         s.build = Build::new();
         s.fun = Fun::new();
+        // Set AFTER `Fun::new()` (which would otherwise reset the hook).
+        s.fun.host_hooks.variable_wrapper = variable_wrapper;
 
         s.configure = Configure::new();
         // Build citation before citation_sort in order to pick up

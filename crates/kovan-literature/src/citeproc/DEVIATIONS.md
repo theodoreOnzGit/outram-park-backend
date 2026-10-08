@@ -75,3 +75,44 @@ been found yet. Until decided, **the port reproduces citeproc-js**.
 Update to C3 (#802), 2026-10-08: the unbound-`this` TypeError is reached by
 **any `locale` attribute on `cs:layout`, `cs:if` or a condition**, which CSL
 1.0.2 allows; the spec text is the evidence, so C3 is ready to register.
+
+### Candidates from the wave-2 integration (2026-10-08)
+
+Behaviour is unchanged: the port reproduces citeproc-js for each of these.
+Locations are the port's files; the JS locations are in the names.
+
+- **C16 — `CSL.Util.Dates.year["short"]` returns `undefined`** for a year that
+  is not four digits, so `undefined` is printed (e.g. `March undefinedAD`); the
+  same leak happens for the long/short month names when the locale lacks the
+  term. Port: `util_dates.rs` (`year_short`, the month functions);
+  `node_datepart.rs`.
+- **C17 — `ad_end` / `bc_end` are computed in the date-part closure and never
+  used** (node_datepart.js), so the end of a collapsed date range takes the
+  start year's AD/BC label. Port: `node_datepart.rs` (`render`).
+- **C18 — Empty cites are compared with `===` as arrays**, which is never
+  true (api_cite.js; mirrored). Port: `api_cite.rs`.
+- **C19 — `_locationOf` uses `end || length`** (sort.js / registry.js), so an
+  `end` of 0 is read as "the whole list". Port: `registry.rs` / `sort.rs`.
+- **C20 — `initVars` compares arrays as strings** (sort.js; numeric keys sort
+  as text). Port: `sort.rs`.
+- **C21 — An item without an `id` is keyed `"undefined"`** in the registry and
+  caches (api_cite.js, registry.js). Port: `api_cite.rs`, `registry.rs`.
+- **C22 — `makeBibliography` returns `false` for a style without a
+  `cs:bibliography`** (api_bibliography.js); the port returns an `Err`.
+  Port: `api_bibliography.rs`, `mod.rs`.
+- **C23 — `state.tmp.multi_layout` is read but never assigned**
+  (util_transform.js:477 and :502; `state.opt.multi_layout` is the assigned
+  one), so the branches are dead. Port: `util_transform.rs`
+  (`run_output_function`).
+- **C24 — `localesets[0] === "locale-orig"` dead branch** in the same
+  closure. Port: `util_transform.rs`.
+- **C25 — The authority/committee split indexes a string** and takes one
+  character (util_transform.js). Port: `util_transform.rs`.
+- **C26 — The group END `done_vars` removal loop skips an element after each
+  removal** (node_group.js, 2019-04-15 block: splices while iterating).
+  Port: `node_group.rs` (`group_end`); same family as C1.
+- **C27 — `outputNumericField` appends `"undefined"` when `labelSuffix` is
+  undefined and does not recompute `labelPlaceholderPos`** (util_number.js).
+  Port: `util_number.rs`.
+- **C28 — The seventh argument of `getTextSubField` is ignored**
+  (util_transform.js). Port: `util_transform.rs` (`get_text_sub_field`).

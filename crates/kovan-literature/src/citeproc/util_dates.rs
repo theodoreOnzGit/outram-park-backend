@@ -337,18 +337,31 @@ pub fn day_ordinal(
 impl State {
     /// `CSL.Util.Dates.year.imperial(state, num, end)` with the engine's own
     /// `state.tmp.date_object` ([`year_imperial`] takes it as a parameter).
-    ///
-    /// PORT-LATER(w2-render): the abbreviation step (`sys.normalizeAbbrevsKey`,
-    /// `state.transform.abbrevs['default']['number']` and
-    /// `state.transform.loadAbbreviation`, util_transform.js) is the render
-    /// agent's; until it exists the era label is never replaced, which is what
-    /// upstream does when the host supplies no abbreviations.
+    /// The era label goes through the `default`/`number` abbreviations
+    /// (`sys.normalizeAbbrevsKey`, `transform.abbrevs`,
+    /// `transform.loadAbbreviation`; util_dates.js:72-86).
     pub fn year_imperial(&mut self, num: &Value, end: bool) -> CslResult<String> {
         let date_object: Obj = match &self.tmp.date_object {
             Value::Object(o) => o.clone(),
             _ => Obj::new(),
         };
-        Ok(year_imperial(&date_object, num, end, |_label| None))
+        Ok(year_imperial(&date_object, num, end, |label| {
+            // The first argument of normalizeAbbrevsKey need not name the
+            // exact variable.
+            let key = super::build_retrieve_item::normalize_abbrevs_key("number", Some(label));
+            let known = |s: &State| {
+                s.transform
+                    .abbrev("default", "number", &key)
+                    .filter(|v| !v.is_empty())
+                    .map(str::to_string)
+            };
+            if known(self).is_none() {
+                // loadAbbreviation normally takes an item as fourth argument.
+                // It is not available here.
+                super::util_transform::load_abbreviation(self, Some("default"), "number", &key, None);
+            }
+            known(self)
+        }))
     }
 }
 
