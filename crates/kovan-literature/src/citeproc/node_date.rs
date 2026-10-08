@@ -93,12 +93,7 @@ impl NodeDateExec {
                     // date-parts and (b) in the *_end data.
                     // (note to self: remember that season is a
                     // fallback var when month and day are empty)
-                    let dateparts: Vec<String> = token
-                        .extra
-                        .get("dateparts")
-                        .and_then(Value::as_array)
-                        .map(|a| a.iter().map(js::to_js_string).collect())
-                        .unwrap_or_default();
+                    let dateparts: Vec<String> = dateparts_of(token)?;
                     let get = |k: &str| date_obj.get(k);
                     for part in &dateparts {
                         if get(&format!("{part}_end")).is_some() {
@@ -205,6 +200,19 @@ pub fn build(
     }
 }
 
+/// `this.dateparts` of a `cs:date` token (set by `configureTokenList` on START
+/// tokens only). Reading `.length` of it on a token without it (a
+/// `cs:date` with no `date-part` children is a SINGLETON) is a TypeError in
+/// citeproc-js, and so here.
+fn dateparts_of(token: &Token) -> CslResult<Vec<String>> {
+    match token.extra.get("dateparts").and_then(Value::as_array) {
+        Some(a) => Ok(a.iter().map(js::to_js_string).collect()),
+        None => Err(super::EngineError::Csl(
+            "TypeError: Cannot read properties of undefined (reading 'length')".to_string(),
+        )),
+    }
+}
+
 /// The "newoutput" closure of `CSL.Node.date.build` (node_date.js:121-151):
 /// open the `date` tag, and (for a legal item whose year equals its
 /// collection-number) remember where the date blob sits so that the cite
@@ -216,12 +224,6 @@ fn open_tag(state: &mut State, token: &mut Token, item: &Value) -> CslResult<Opt
     };
     queue::start_tag(state, QueueId::Output, "date", Some(token))?;
     let item_type = item.get("type").and_then(Value::as_str).unwrap_or("");
-    let dateparts: Vec<String> = token
-        .extra
-        .get("dateparts")
-        .and_then(Value::as_array)
-        .map(|a| a.iter().map(js::to_js_string).collect())
-        .unwrap_or_default();
     // `disable_duplicate_year_suppression.indexOf(Item.country) === -1`
     let country_listed = match (
         state.opt.get("disable_duplicate_year_suppression"),
@@ -237,14 +239,16 @@ fn open_tag(state: &mut State, token: &mut Token, item: &Value) -> CslResult<Opt
     };
     let same_year =
         js_str(item.get("collection-number")) == js_str(state.tmp.date_object.get("year"));
-    if var0 == "issued"
+    let preconditions = var0 == "issued"
         && (item_type == "legal_case" || item_type == "legislation")
         && !country_listed
         && state.tmp.extension.is_empty()
-        && same_year
-        && dateparts.len() == 1
-        && dateparts[0] == "year"
-    {
+        && same_year;
+    // `this.dateparts.length` is only read once the conditions before it hold.
+    if preconditions && {
+        let dateparts = dateparts_of(token)?;
+        dateparts.len() == 1 && dateparts[0] == "year"
+    } {
         // Set up to (maybe) suppress the year if we're not sorting, and
         // it's the same as the collection-number, and we would render
         // only the year, with not month or day, and this is a legal_case item.

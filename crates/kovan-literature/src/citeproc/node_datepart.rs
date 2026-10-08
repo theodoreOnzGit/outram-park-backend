@@ -796,3 +796,7 @@ pub fn build(
     target.push(token);
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "date_e2e_test.rs"]
+mod date_e2e_test;
