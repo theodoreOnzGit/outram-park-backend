@@ -628,10 +628,14 @@ impl NameOutput {
     /// if (idx > -1) done_vars = done_vars.slice(0, idx).concat(done_vars.slice(i+1)); }`.
     /// `i` is the *string* key, so `i+1` concatenates: `"0"+1 = "01"` and
     /// `"1"+1 = "11"`; `slice` then reads `1`, `11`, `21`, ... (not `idx+1`).
+    ///
+    /// DEVIATION(D8): we remove exactly the one entry (`slice(idx+1)`), as the
+    /// code intends; citeproc-js leaves the variable blocked (DEVIATIONS.md D8).
     fn unwind_done_vars(&self, st: &mut State) {
-        for (i, var) in self.variables.iter().enumerate() {
+        for var in &self.variables {
             if let Some(idx) = st.tmp.done_vars.iter().position(|d| d == var) {
-                let skip: usize = format!("{i}1").parse().unwrap_or(usize::MAX);
+                // DEVIATION(D8): upstream skips `format!("{i}1")` entries.
+                let skip: usize = idx + 1;
                 let mut next: Vec<String> = st.tmp.done_vars[..idx].to_vec();
                 if skip < st.tmp.done_vars.len() {
                     next.extend(st.tmp.done_vars[skip..].iter().cloned());
@@ -1203,11 +1207,12 @@ fn last_child_string(st: &mut State, top: BlobId) -> CslResult<Option<String>> {
     };
     let children = match &st.blobs.get(last).blobs {
         BlobContent::List(l) => l.clone(),
-        BlobContent::Text(_) => {
-            return Err(super::load::type_error(
-                "Cannot read properties of undefined (reading 'strings')",
-            ))
-        }
+        // DEVIATION(D12): the last blob is a leaf (an abbreviation's text, as
+        // for a `classic` item). citeproc-js passes that string to
+        // `output.string`, which indexes it by character and throws on
+        // `first_blob`; we use the leaf's own text (and `""` for an empty
+        // leaf, as `if (myqueue)` does). Best judgement, no spec or fixture.
+        BlobContent::Text(t) => return Ok(Some(t.clone())),
     };
     let r = queue::string(st, QueueId::Output, &children, StringParent::Bool(false))?;
     Ok(match r {

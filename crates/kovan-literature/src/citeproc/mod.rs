@@ -239,6 +239,8 @@ pub(crate) mod util_page;
 pub(crate) mod util_parallel;
 #[cfg(test)]
 pub(crate) mod test_support;
+#[cfg(test)]
+mod deviation_tests_d6_d12;
 #[allow(dead_code)]
 pub(crate) mod util_processor;
 #[allow(dead_code)]

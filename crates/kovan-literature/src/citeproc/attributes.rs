@@ -357,17 +357,17 @@ fn variable_check_output(
             if !is_valid {
                 raw_names = vec![text.clone()];
                 // `rawMultiNames = Item.multi._keys[variable]`: the strings
-                // themselves, which `rawMultiNames[langTag][j]` then indexes
-                // by character.
+                // themselves. DEVIATION(D6): citeproc-js then indexes
+                // `rawMultiNames[langTag][j]` by *character* (j = 0 takes the
+                // first one); we keep the whole translation string, as the
+                // "only recombine everything if the lengths match" comment
+                // above intends.
                 raw_multi = match &var_keys {
                     Some(Value::Object(by_lang)) => by_lang
                         .iter()
                         .map(|(k, v)| {
                             let s = js::to_js_string(v);
-                            let chars: Vec<String> = (0..js::len(&s) as i64)
-                                .map(|i| js::char_at(&s, i))
-                                .collect();
-                            (k.clone(), chars)
+                            (k.clone(), if s.is_empty() { Vec::new() } else { vec![s] })
                         })
                         .collect(),
                     _ => Vec::new(),

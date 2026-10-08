@@ -1087,8 +1087,9 @@ pub fn run_output_function(
     let mut secondary_locale: Option<String> = None;
     let mut tertiary_locale: Option<String> = None;
     if let Some(slot) = secondary_slot.clone() {
-        // (upstream passes `family_var` as a 7th argument, which the
-        // function does not read; its 6th, `family_var`, is null.)
+        // DEVIATION(D7): upstream passes `family_var` as a 7th argument, which
+        // the function does not read, so its 6th (`family_var`) is null here
+        // and the short-form logic is skipped for the secondary slot. We pass it.
         res = get_text_sub_field(
             state,
             Some(token),
@@ -1097,7 +1098,7 @@ pub fn run_output_function(
             Some(&slot),
             false,
             res.used_orig,
-            None,
+            family_var,
         )?;
         secondary = res.name.clone();
         secondary_locale = res.locale.clone();
@@ -1111,6 +1112,7 @@ pub fn run_output_function(
         }
     }
     if let Some(slot) = tertiary_slot.clone() {
+        // DEVIATION(D7): as for the secondary slot, `family_var` is passed.
         res = get_text_sub_field(
             state,
             Some(token),
@@ -1119,7 +1121,7 @@ pub fn run_output_function(
             Some(&slot),
             false,
             res.used_orig,
-            None,
+            family_var,
         )?;
         tertiary = res.name.clone();
         tertiary_locale = res.locale.clone();
@@ -1452,6 +1454,19 @@ mod render_case_tests {
 
     const REF: &str = include_str!("../../tests/data/csl/units/render.json");
 
+    /// **Known differences: D7 (`DEVIATIONS.md`).** Four outputs of three cases
+    /// differ on purpose: each renders a `form="short"` title, container title or
+    /// authority whose secondary (translation) slot citeproc-js leaves in the
+    /// *long* form (it ignores the seventh argument of `getTextSubField`), and the
+    /// port renders short. The listing is exact: each entry must still differ, and
+    /// no other output may.
+    const D7_KNOWN: [(&str, &str); 4] = [
+        ("focused-157", "citation"),
+        ("focused-157", "bibliography"),
+        ("focused-269", "bibliography"),
+        ("focused-284", "bibliography"),
+    ];
+
     /// **Results (2026-10-08, branch citeproc/w2-render):** printed by the
     /// test with `--nocapture`.
     #[test]
@@ -1463,6 +1478,7 @@ mod render_case_tests {
         let reference: Value = serde_json::from_str(REF).expect("render.json");
         let cases = reference["cases"].as_array().expect("cases");
         let (mut ok, mut blocked, mut bad) = (0usize, 0usize, Vec::<String>::new());
+        let mut d7_seen: Vec<(String, String)> = Vec::new();
         let mut why: std::collections::BTreeMap<String, usize> = Default::default();
         for c in cases {
             let (cite, bib) = run_case(c, &locales);
@@ -1493,8 +1509,12 @@ mod render_case_tests {
                     }
                     Err(e) => bad.push(format!("{} {kind}: port failed: {e}", c["name"])),
                     Ok(s) => {
+                        let name = c["name"].as_str().unwrap_or("");
                         if want.as_str() == Some(s.as_str()) {
                             ok += 1;
+                        } else if D7_KNOWN.contains(&(name, kind)) {
+                            // DEVIATION(D7): the secondary slot takes the short form.
+                            d7_seen.push((name.to_string(), kind.to_string()));
                         } else {
                             bad.push(format!(
                                 "{} {kind}:\n  want {want}\n  got  {s:?}\n  csl {}",
@@ -1503,6 +1523,11 @@ mod render_case_tests {
                         }
                     }
                 }
+            }
+        }
+        for (n, k) in D7_KNOWN {
+            if !d7_seen.contains(&(n.to_string(), k.to_string())) {
+                bad.push(format!("{n} {k}: listed as D7 but equals citeproc-js (or was not run)"));
             }
         }
         println!(
