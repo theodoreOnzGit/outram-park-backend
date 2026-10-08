@@ -28,7 +28,8 @@ use serde_json::Value;
 use super::js;
 use super::obj_token::{Decoration, Token};
 use super::state::State;
-use super::util_number::{input_get_term, process_number, ShadowNumber, TermQuery, TOLERANT};
+use super::load::TOLERANT;
+use super::util_number::{input_get_term, process_number, ShadowNumber, TermQuery};
 use super::{CslResult, EngineError};
 
 /// The parts of `state.tmp` that `evaluateLabel` / `castLabel` use.

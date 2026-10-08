@@ -2,8 +2,8 @@
 //
 // Upstream:    citeproc-js, https://github.com/juris-m/citeproc-js
 // Source:      src/util_static_locator.js; plus, in the "citation-item input" section,
-//              CSL.parseLocator (src/load.js) and the per-item input steps of
-//              makeCitationCluster (src/api_cite.js:131-154)
+//              the per-item input steps of makeCitationCluster
+//              (src/api_cite.js:131-154)
 // Version:     2.4.63, commit 73bc1b44bc7d54d0bfec4e070fd27f5efe024ff9
 // Copyright:   (c) 2009-2019 Frank Bennett
 // Licence:     AGPL-3.0, taken from upstream's "CPAL-1.0 or AGPL-3.0-or-later"
@@ -22,10 +22,9 @@
 //! The last section, `citation-item input`, holds the input steps
 //! `makeCitationCluster` applies to each citation item before rendering
 //! (`src/api_cite.js`, the loop over `citation.citationItems`): copy the
-//! item, `CSL.parseLocator` (`src/load.js`), `remapSectionVariable`, and the
-//! `locator_label_parse` step. They live here, not in `api_cite.rs`, only
-//! because the agent that owns this file ported them; the integrator may
-//! move them.
+//! item, `CSL.parseLocator` (`load::parse_locator`), `remapSectionVariable`,
+//! and the `locator_label_parse` step. They stay here until the wave that
+//! ports api_cite.js moves them into `api_cite.rs`.
 
 use std::sync::LazyLock;
 
@@ -34,45 +33,19 @@ use serde_json::Value;
 
 use super::js::{self, Obj};
 use super::state::State;
-use super::util_number::{
-    input_get_term_name, locator_labels_map, statute_subdiv_strings,
-    statute_subdiv_strings_reverse, ShadowLabel, ShadowNumber, ShadowValue,
+use super::load::{
+    locator_labels_map, parse_locator, statute_subdiv_string, statute_subdiv_string_reverse,
+    LOCATOR_LABELS_REGEXP, STATUTE_SUBDIV_PLAIN_REGEX, STATUTE_SUBDIV_PLAIN_REGEX_FRONT,
 };
+use super::util_number::{input_get_term_name, ShadowLabel, ShadowNumber, ShadowValue};
 use super::{CslResult, EngineError};
 
 /// JS `.`: anything but `\n`, `\r`, U+2028, U+2029.
 const DOT: &str = "[^\\n\\r\\u{2028}\\u{2029}]";
 
-/// The alternation of subdivision abbreviations used by the three
-/// `STATUTE_SUBDIV_*` / `LOCATOR_LABELS_REGEXP` patterns.
-const SUBDIV_ABBREVS: &str = "vrs|sv|subpara|op|subch|add|amend|annot|app|art|bibliog|bk|ch|cl|col|cmt|dec|dept|div|ex|fig|fld|fol|n|hypo|illus|intro|l|no|p|pp|para|pt|pmbl|princ|pub|r|rn|sched|sec|ser|subdiv|subsec|supp|tbl|tit|vol";
-
 fn rx(src: &str) -> Regex {
     Regex::new(src).unwrap_or_else(|e| panic!("invalid static regex {src:?}: {e}"))
 }
-
-// DUP-CHECK: load.js CSL.STATUTE_SUBDIV_PLAIN_REGEX_FRONT
-// /(?:^\s*[.,;]*\s*(?:vrs|...|vol)\. *)/
-static STATUTE_SUBDIV_PLAIN_REGEX_FRONT: LazyLock<Regex> = LazyLock::new(|| {
-    rx(&format!(
-        "(?:^[{ws}]*[.,;]*[{ws}]*(?:{SUBDIV_ABBREVS})\\. *)",
-        ws = js::WS
-    ))
-});
-
-// DUP-CHECK: load.js CSL.STATUTE_SUBDIV_PLAIN_REGEX
-// /(?:(?:^| )(?:vrs|...|vol)\. *)/
-static STATUTE_SUBDIV_PLAIN_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| rx(&format!("(?:(?:^| )(?:{SUBDIV_ABBREVS})\\. *)")));
-
-// DUP-CHECK: load.js CSL.LOCATOR_LABELS_REGEXP
-// new RegExp("^((vrs|...|vol)\\.)\\s+(.*)")
-static LOCATOR_LABELS_REGEXP: LazyLock<Regex> = LazyLock::new(|| {
-    rx(&format!(
-        "^(({SUBDIV_ABBREVS})\\.)[{ws}]+({DOT}*)",
-        ws = js::WS
-    ))
-});
 
 /// `/^([^ ]*)\s*(.*)/`.
 static LOCATOR_HEAD_RE: LazyLock<Regex> =
@@ -115,7 +88,7 @@ pub fn remap_section_variable_one(item_obj: &mut Obj, cite_item: &mut Obj) -> Cs
                 let label = js::to_js_string(cite_item.get("label").unwrap_or(&Value::Null));
                 format!(
                     "{} {}",
-                    statute_subdiv_strings_reverse(&label).unwrap_or("undefined"),
+                    statute_subdiv_string_reverse(&label).unwrap_or("undefined"),
                     locator
                 )
             } else {
@@ -221,7 +194,7 @@ pub fn set_number_labels(state: &mut State, item: &Value) {
         .into_iter()
         .next()
         .unwrap_or_default();
-    let firstlabel = statute_subdiv_strings(&firstword);
+    let firstlabel = statute_subdiv_string(&firstword);
     if let Some(fl) = firstlabel {
         // Get list and match
         let splt = js::split(&STATUTE_SUBDIV_PLAIN_REGEX, &value);
@@ -251,51 +224,6 @@ pub fn set_number_labels(state: &mut State, item: &Value) {
 }
 
 // ---- citation-item input (api_cite.js, load.js) ----
-
-/// `CSL.parseLocator.call(state, item)` (load.js): with
-/// `locator_date_and_revision`, split `locator|date rest` into `locator`,
-/// `locator-date` (a parsed date object) and `locator-extra`; then strip
-/// trailing whitespace from `locator`. `item` is mutated.
-pub fn parse_locator(state: &mut State, item: &mut Obj) {
-    let ext = state
-        .opt
-        .get("development_extensions")
-        .and_then(|d| d.get("locator_date_and_revision"))
-        .map(js::truthy)
-        .unwrap_or(false);
-    if ext && js::get_truthy(item, "locator") {
-        let locator = js::to_js_string(item.get("locator").unwrap_or(&Value::Null));
-        item.insert("locator".into(), Value::String(locator.clone()));
-        let idx = js::index_of(&locator, "|", 0);
-        if idx > -1 {
-            let mut raw_locator = locator.clone();
-            item.insert(
-                "locator".into(),
-                Value::String(js::slice(&raw_locator, 0, Some(idx))),
-            );
-            raw_locator = js::slice(&raw_locator, idx + 1, None);
-            static DATE_RE: LazyLock<Regex> =
-                LazyLock::new(|| rx(&format!("^([0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}){DOT}*")));
-            if let Some(m) = DATE_RE.captures(&raw_locator) {
-                let m1 = m.get(1).map(|x| x.as_str()).unwrap_or("").to_string();
-                item.insert(
-                    "locator-date".into(),
-                    Value::Object(state.fun.dateparser.parse_date_to_object(&m1)),
-                );
-                raw_locator = js::slice(&raw_locator, js::len(&m1) as i64, None);
-            }
-            item.insert(
-                "locator-extra".into(),
-                Value::String(js::trim(&raw_locator).to_string()),
-            );
-        }
-    }
-    if js::get_truthy(item, "locator") {
-        let l = js::to_js_string(item.get("locator").unwrap_or(&Value::Null));
-        let trimmed = l.trim_end_matches(|c: char| c.is_whitespace() || c == '\u{feff}');
-        item.insert("locator".into(), Value::String(trimmed.to_string()));
-    }
-}
 
 /// The per-citation-item input steps of `makeCitationCluster`
 /// (`src/api_cite.js:131-154`) applied to `item` (already a shallow copy of

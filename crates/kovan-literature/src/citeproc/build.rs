@@ -285,6 +285,10 @@ impl State {
             l.opts
                 .insert("skip-words-regexp".into(), regexp_value(&source));
         }
+        // The compiled form the text-case formatters use (formatters.rs).
+        // A list Rust's regex cannot compile (JS regexp syntax it lacks) leaves
+        // it unset, and the formatters fall back to the default list.
+        s.fun.skip_words_rex = super::formatters::make_skip_words_regex(&lst).ok();
 
         // this.output.adjust = new CSL.Output.Queue.adjust(this.getOpt('punctuation-in-quote'));
         let punctuation_in_quote = js::truthy(&s.get_opt("punctuation-in-quote")?);

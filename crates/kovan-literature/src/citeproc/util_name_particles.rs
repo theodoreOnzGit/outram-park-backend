@@ -269,19 +269,7 @@ const PARTICLE_LIST: [(&str, &[(Range, Range)]); 222] = [
 /// JS `.`: anything but `\n`, `\r`, U+2028, U+2029.
 const DOT: &str = "[^\\n\\r\\u{2028}\\u{2029}]";
 
-// DUP-CHECK: load.js CSL.PARTICLE_GIVEN_REGEXP
-// /^([^ ]+(?:ʻ |’ | |\' ) *)(.+)$/
-static PARTICLE_GIVEN_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(&format!("^([^ ]+(?:\u{02bb} |\u{2019} | |' ) *)({DOT}+)$"))
-        .unwrap_or_else(|e| panic!("static regex: {e}"))
-});
-
-// DUP-CHECK: load.js CSL.PARTICLE_FAMILY_REGEXP
-// /^([^ ]+(?:\-|ʻ|’| |\') *)(.+)$/
-static PARTICLE_FAMILY_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(&format!("^([^ ]+(?:-|\u{02bb}|\u{2019}| |') *)({DOT}+)$"))
-        .unwrap_or_else(|e| panic!("static regex: {e}"))
-});
+use super::load::{PARTICLE_FAMILY_REGEXP as PARTICLE_FAMILY_RE, PARTICLE_GIVEN_REGEXP as PARTICLE_GIVEN_RE};
 
 /// `/^[-\'ʻ’\s]*(.).*$/`.
 static FIRST_CHAR_RE: LazyLock<Regex> = LazyLock::new(|| {

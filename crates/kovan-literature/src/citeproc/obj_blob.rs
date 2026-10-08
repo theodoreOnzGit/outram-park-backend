@@ -39,21 +39,6 @@ use serde_json::Value;
 /// matches U+0085, which JS does not. Used by the output-side files.
 pub const JS_WS_CLASS: &str = r"\t\n\x0B\x0C\r \x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}";
 
-// DUP-CHECK: load.js CSL.ROMANESQUE_REGEXP
-/// `CSL.ROMANESQUE_REGEXP.source`: one character of a "romanesque" script
-/// (as a regex character class, for building larger patterns). The
-/// `CSL.ROMANESQUE_REGEXP` itself is [`romanesque_regexp`].
-pub const ROMANESQUE_CLASS: &str = "[-0-9a-zA-Z\\x{0e01}-\\x{0e5b}\\x{00c0}-\\x{017f}\\x{0370}-\\x{03ff}\\x{0400}-\\x{052f}\\x{0590}-\\x{05d4}\\x{05d6}-\\x{05ff}\\x{1f00}-\\x{1fff}\\x{0600}-\\x{06ff}\\x{200c}\\x{200d}\\x{200e}\\x{0218}\\x{0219}\\x{021a}\\x{021b}\\x{202a}-\\x{202e}]";
-
-/// `CSL.ROMANESQUE_REGEXP` (unanchored, single character).
-pub fn romanesque_regexp() -> &'static regex::Regex {
-    static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        #[allow(clippy::expect_used)]
-        regex::Regex::new(ROMANESQUE_CLASS).expect("constant regex")
-    });
-    &RE
-}
-
 /// JS whitespace for one character (see [`JS_WS_CLASS`]).
 pub fn is_js_ws(c: char) -> bool {
     matches!(

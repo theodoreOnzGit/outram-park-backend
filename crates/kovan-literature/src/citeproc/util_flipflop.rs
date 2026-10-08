@@ -42,7 +42,8 @@ use std::sync::LazyLock;
 use regex::Regex;
 
 use super::formats::get_term;
-use super::obj_blob::{Blob, BlobChild, BlobContent, BlobId, JS_WS_CLASS, ROMANESQUE_CLASS};
+use super::load::ROMANESQUE_REGEXP;
+use super::obj_blob::{Blob, BlobChild, BlobContent, BlobId, JS_WS_CLASS};
 use super::obj_token::{Decoration, Token};
 use super::queue::layout_decorations;
 use super::state::State;
@@ -352,7 +353,7 @@ static RE_NOCASE: LazyLock<Regex> = LazyLock::new(|| {
 static RE_LEADING_WS_QUOTE: LazyLock<Regex> =
     LazyLock::new(|| re(&format!("^[{ws}]+['\"]", ws = JS_WS_CLASS)));
 static RE_APOSTROPHE: LazyLock<Regex> =
-    LazyLock::new(|| re(&format!("({r})\u{2019}({r})", r = ROMANESQUE_CLASS)));
+    LazyLock::new(|| re(&format!("({r})\u{2019}({r})", r = ROMANESQUE_REGEXP.as_str())));
 
 /// `_doppelString(str)`.
 fn doppel_string(b: &Built, s: &str) -> DoppelStr {

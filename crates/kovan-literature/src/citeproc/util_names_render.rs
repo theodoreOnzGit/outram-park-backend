@@ -34,7 +34,6 @@
 // free functions below.
 
 mod input_side {
-    use std::sync::LazyLock;
 
     use regex::Regex;
     use serde_json::Value;
@@ -43,35 +42,15 @@ mod input_side {
     use super::super::state::State;
     use super::super::util_name_particles::parse_particles;
     use super::super::{CslResult, EngineError};
+    use super::super::load::{
+        ROMANESQUE_REGEXP as ROMANESQUE_RE, STARTSWITH_ROMANESQUE_REGEXP as STARTSWITH_ROMANESQUE_RE,
+        VIETNAMESE_NAMES as VIETNAMESE_NAMES_RE, VIETNAMESE_SPECIALS as VIETNAMESE_SPECIALS_RE,
+    };
 
     fn rx(src: &str) -> Regex {
         Regex::new(src).unwrap_or_else(|e| panic!("invalid static regex {src:?}: {e}"))
     }
 
-    /// The letter ranges of `CSL.ROMANESQUE_REGEXP` without the leading `-0-9`.
-    const ROMANESQUE_LETTERS: &str = "a-zA-Z\\x{0e01}-\\x{0e5b}\\x{00c0}-\\x{017f}\\x{0370}-\\x{03ff}\\x{0400}-\\x{052f}\\x{0590}-\\x{05d4}\\x{05d6}-\\x{05ff}\\x{1f00}-\\x{1fff}\\x{0600}-\\x{06ff}\\x{200c}\\x{200d}\\x{200e}\\x{0218}\\x{0219}\\x{021a}\\x{021b}\\x{202a}-\\x{202e}";
-
-    // DUP-CHECK: load.js CSL.ROMANESQUE_REGEXP
-    static ROMANESQUE_RE: LazyLock<Regex> =
-        LazyLock::new(|| rx(&format!("[-0-9{ROMANESQUE_LETTERS}]")));
-
-    // DUP-CHECK: load.js CSL.STARTSWITH_ROMANESQUE_REGEXP
-    static STARTSWITH_ROMANESQUE_RE: LazyLock<Regex> =
-        LazyLock::new(|| rx(&format!("^[&{ROMANESQUE_LETTERS}]")));
-
-    const VIETNAMESE_SPECIAL_CLASS: &str = "\\x{00c0}-\\x{00c3}\\x{00c8}-\\x{00ca}\\x{00cc}\\x{00cd}\\x{00d2}-\\x{00d5}\\x{00d9}\\x{00da}\\x{00dd}\\x{00e0}-\\x{00e3}\\x{00e8}-\\x{00ea}\\x{00ec}\\x{00ed}\\x{00f2}-\\x{00f5}\\x{00f9}\\x{00fa}\\x{00fd}\\x{0101}\\x{0103}\\x{0110}\\x{0111}\\x{0128}\\x{0129}\\x{0168}\\x{0169}\\x{01a0}\\x{01a1}\\x{01af}\\x{01b0}\\x{1ea0}-\\x{1ef9}";
-
-    // DUP-CHECK: load.js CSL.VIETNAMESE_SPECIALS
-    static VIETNAMESE_SPECIALS_RE: LazyLock<Regex> =
-        LazyLock::new(|| rx(&format!("[{VIETNAMESE_SPECIAL_CLASS}]")));
-
-    // DUP-CHECK: load.js CSL.VIETNAMESE_NAMES
-    static VIETNAMESE_NAMES_RE: LazyLock<Regex> = LazyLock::new(|| {
-        rx(&format!(
-            "^(?:(?:[.AaBbCcDdEeGgHhIiKkLlMmNnOoPpQqRrSsTtUuVvXxYy {VIETNAMESE_SPECIAL_CLASS}]{{2,6}})([{ws}]+|$))+$",
-            ws = js::WS
-        ))
-    });
 
     /// What `NameOutput` reads from its `state` and `Item` in the input-side
     /// methods.

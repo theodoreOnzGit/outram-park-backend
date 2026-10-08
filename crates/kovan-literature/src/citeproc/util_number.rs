@@ -58,224 +58,10 @@ use super::obj_token::{Decoration, Token, TokenType};
 use super::state::State;
 use super::{CslResult, EngineError};
 
-// DUP-CHECK: load.js CSL.STATUTE_SUBDIV_STRINGS
-/// `CSL.STATUTE_SUBDIV_STRINGS` (abbreviated label to term).
-const STATUTE_SUBDIV_STRINGS: [(&str, &str); 46] = [
-    ("vrs.", "verse"),
-    ("sv.", "sub-verbo"),
-    ("subpara.", "subparagraph"),
-    ("op.", "opus"),
-    ("subch.", "subchapter"),
-    ("add.", "addendum"),
-    ("amend.", "amendment"),
-    ("annot.", "annotation"),
-    ("app.", "appendix"),
-    ("art.", "article"),
-    ("bibliog.", "bibliography"),
-    ("bk.", "book"),
-    ("ch.", "chapter"),
-    ("cl.", "clause"),
-    ("col.", "column"),
-    ("cmt.", "comment"),
-    ("dec.", "decision"),
-    ("dept.", "department"),
-    ("ex.", "example"),
-    ("fig.", "figure"),
-    ("fld.", "field"),
-    ("fol.", "folio"),
-    ("n.", "note"),
-    ("hypo.", "hypothetical"),
-    ("illus.", "illustration"),
-    ("intro.", "introduction"),
-    ("l.", "line"),
-    ("no.", "issue"),
-    ("p.", "page"),
-    ("pp.", "page"),
-    ("para.", "paragraph"),
-    ("pt.", "part"),
-    ("pmbl.", "preamble"),
-    ("princ.", "principle"),
-    ("pub.", "publication"),
-    ("r.", "rule"),
-    ("rn.", "randnummer"),
-    ("sched.", "schedule"),
-    ("sec.", "section"),
-    ("ser.", "series,"),
-    ("subdiv.", "subdivision"),
-    ("subsec.", "subsection"),
-    ("supp.", "supplement"),
-    ("tbl.", "table"),
-    ("tit.", "title"),
-    ("vol.", "volume"),
-];
-// DUP-CHECK: load.js CSL.STATUTE_SUBDIV_STRINGS_REVERSE
-/// `CSL.STATUTE_SUBDIV_STRINGS_REVERSE` (term to abbreviated label).
-const STATUTE_SUBDIV_STRINGS_REVERSE: [(&str, &str); 46] = [
-    ("verse", "vrs."),
-    ("sub-verbo", "sv."),
-    ("sub verbo", "sv."),
-    ("subparagraph", "subpara."),
-    ("opus", "op."),
-    ("subchapter", "subch."),
-    ("addendum", "add."),
-    ("amendment", "amend."),
-    ("annotation", "annot."),
-    ("appendix", "app."),
-    ("article", "art."),
-    ("bibliography", "bibliog."),
-    ("book", "bk."),
-    ("chapter", "ch."),
-    ("clause", "cl."),
-    ("column", "col."),
-    ("comment", "cmt."),
-    ("decision", "dec."),
-    ("department", "dept."),
-    ("example", "ex."),
-    ("figure", "fig."),
-    ("field", "fld."),
-    ("folio", "fol."),
-    ("note", "n."),
-    ("hypothetical", "hypo."),
-    ("illustration", "illus."),
-    ("introduction", "intro."),
-    ("line", "l."),
-    ("issue", "no."),
-    ("page", "p."),
-    ("paragraph", "para."),
-    ("part", "pt."),
-    ("preamble", "pmbl."),
-    ("principle", "princ."),
-    ("publication", "pub."),
-    ("rule", "r."),
-    ("randnummer", "rn."),
-    ("schedule", "sched."),
-    ("section", "sec."),
-    ("series,", "ser."),
-    ("subdivision", "subdiv."),
-    ("subsection", "subsec."),
-    ("supplement", "supp."),
-    ("table", "tbl."),
-    ("title", "tit."),
-    ("volume", "vol."),
-];
-// DUP-CHECK: load.js CSL.LOCATOR_LABELS_MAP
-/// `CSL.LOCATOR_LABELS_MAP`.
-const LOCATOR_LABELS_MAP: [(&str, &str); 46] = [
-    ("vrs", "verse"),
-    ("sv", "sub-verbo"),
-    ("subpara", "subparagraph"),
-    ("op", "opus"),
-    ("subch", "subchapter"),
-    ("add", "addendum"),
-    ("amend", "amendment"),
-    ("annot", "annotation"),
-    ("app", "appendix"),
-    ("art", "article"),
-    ("bibliog", "bibliography"),
-    ("bk", "book"),
-    ("ch", "chapter"),
-    ("cl", "clause"),
-    ("col", "column"),
-    ("cmt", "comment"),
-    ("dec", "decision"),
-    ("dept", "department"),
-    ("ex", "example"),
-    ("fig", "figure"),
-    ("fld", "field"),
-    ("fol", "folio"),
-    ("n", "note"),
-    ("hypo", "hypothetical"),
-    ("illus", "illustration"),
-    ("intro", "introduction"),
-    ("l", "line"),
-    ("no", "issue"),
-    ("p", "page"),
-    ("pp", "page"),
-    ("para", "paragraph"),
-    ("pt", "part"),
-    ("pmbl", "preamble"),
-    ("princ", "principle"),
-    ("pub", "publication"),
-    ("r", "rule"),
-    ("rn", "randnummer"),
-    ("sched", "schedule"),
-    ("sec", "section"),
-    ("ser", "series,"),
-    ("subdiv", "subdivision"),
-    ("subsec", "subsection"),
-    ("supp", "supplement"),
-    ("tbl", "table"),
-    ("tit", "title"),
-    ("vol", "volume"),
-];
-// DUP-CHECK: load.js CSL.LangPrefsMap
-/// `CSL.LangPrefsMap` (variable to language-role).
-const LANG_PREFS_MAP: [(&str, &str); 18] = [
-    ("title", "titles"),
-    ("title-short", "titles"),
-    ("event", "titles"),
-    ("genre", "titles"),
-    ("medium", "titles"),
-    ("container-title", "journals"),
-    ("collection-title", "titles"),
-    ("archive", "journals"),
-    ("publisher", "publishers"),
-    ("authority", "publishers"),
-    ("publisher-place", "places"),
-    ("event-place", "places"),
-    ("archive-place", "places"),
-    ("jurisdiction", "places"),
-    ("number", "places"),
-    ("edition", "places"),
-    ("issue", "places"),
-    ("volume", "places"),
-];
-// DUP-CHECK: load.js CSL.ROMAN_NUMERALS
-/// `CSL.ROMAN_NUMERALS`: per decimal position, the numeral for digit 0..=9 (position 3 has 0..=5).
-const ROMAN_NUMERALS: [&[&str]; 4] = [
-    &["", "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix"],
-    &["", "x", "xx", "xxx", "xl", "l", "lx", "lxx", "lxxx", "xc"],
-    &["", "c", "cc", "ccc", "cd", "d", "dc", "dcc", "dccc", "cm"],
-    &["", "m", "mm", "mmm", "mmmm", "mmmmm"],
-];
-
-// DUP-CHECK: load.js CSL.SUFFIX_CHARS
-const SUFFIX_CHARS: &str = "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z";
-// DUP-CHECK: load.js CSL.LOOSE
-/// `CSL.LOOSE`: `getField` returns `undefined` for a missing term.
-pub const LOOSE: i64 = 0;
-// DUP-CHECK: load.js CSL.STRICT
-/// `CSL.STRICT`: a missing term is a `CSL.error`.
-pub const STRICT: i64 = 1;
-// DUP-CHECK: load.js CSL.TOLERANT
-/// `CSL.TOLERANT`: `getTerm` turns a missing term into `""`.
-pub const TOLERANT: i64 = 2;
-
-/// `CSL.STATUTE_SUBDIV_STRINGS[key]`.
-pub(crate) fn statute_subdiv_strings(key: &str) -> Option<&'static str> {
-    STATUTE_SUBDIV_STRINGS
-        .iter()
-        .find(|p| p.0 == key)
-        .map(|p| p.1)
-}
-
-/// `CSL.STATUTE_SUBDIV_STRINGS_REVERSE[key]`.
-pub(crate) fn statute_subdiv_strings_reverse(key: &str) -> Option<&'static str> {
-    STATUTE_SUBDIV_STRINGS_REVERSE
-        .iter()
-        .find(|p| p.0 == key)
-        .map(|p| p.1)
-}
-
-/// `CSL.LOCATOR_LABELS_MAP[key]`.
-pub(crate) fn locator_labels_map(key: &str) -> Option<&'static str> {
-    LOCATOR_LABELS_MAP.iter().find(|p| p.0 == key).map(|p| p.1)
-}
-
-/// `CSL.LangPrefsMap[key]`.
-pub(crate) fn lang_prefs_map(key: &str) -> Option<&'static str> {
-    LANG_PREFS_MAP.iter().find(|p| p.0 == key).map(|p| p.1)
-}
+use super::load::{
+    lang_prefs_map, statute_subdiv_string, statute_subdiv_string_reverse, LOOSE, ROMAN_NUMERALS,
+    SUFFIX_CHARS,
+};
 
 fn rx(src: &str) -> Regex {
     // Static patterns only; a failure here is a programming error caught by
@@ -985,14 +771,14 @@ fn normalize_field_value(item: &Value, variable: &str, s: &str) -> String {
     let mut str_ = js::trim(s).to_string();
     if let Some(m) = FIRST_WORD_RE.captures(&str_) {
         let first = m.get(1).map(|x| x.as_str()).unwrap_or("");
-        if statute_subdiv_strings(first).is_none() {
+        if statute_subdiv_string(first).is_none() {
             let embedded = if ["locator", "locator-extra", "page"].contains(&variable) {
                 match item.get("label").filter(|l| js::truthy(l)) {
-                    Some(l) => statute_subdiv_strings_reverse(&js::to_js_string(l)),
+                    Some(l) => statute_subdiv_string_reverse(&js::to_js_string(l)),
                     None => Some("p."),
                 }
             } else {
-                statute_subdiv_strings_reverse(variable)
+                statute_subdiv_string_reverse(variable)
             };
             if let Some(e) = embedded {
                 str_ = format!("{e} {str_}");
@@ -1015,7 +801,7 @@ fn compose_number_info(
     let joining_suffix = joining_suffix.unwrap_or("");
     let mut info = NumberInfo::default();
     let mut label = label.to_string();
-    if label.is_empty() && statute_subdiv_strings_reverse(variable).is_none() {
+    if label.is_empty() && statute_subdiv_string_reverse(variable).is_none() {
         label = format!("var:{variable}");
     }
     if !label.is_empty() {
@@ -1198,7 +984,7 @@ fn parse_string(
             // merge bad leading label into content
             if !mm.is_empty() {
                 let slug = js::trim(&mm[0]).to_string();
-                let sub = statute_subdiv_strings(&slug);
+                let sub = statute_subdiv_string(&slug);
                 let not_a_label = sub.is_none()
                     || input_get_term_name(state, sub).is_none()
                     || (!["locator", "number", "locator-extra", "page"].contains(&variable)
@@ -1352,12 +1138,12 @@ fn fix_label_visibility(
     if js::slice(label, 0, Some(4)) != "var:" {
         if cli.pos == 0 {
             if ["locator", "number", "locator-extra", "page"].contains(&variable) {
-                if input_get_term_name(state, statute_subdiv_strings(label)).is_none() {
+                if input_get_term_name(state, statute_subdiv_string(label)).is_none() {
                     values[cli.pos].label_visibility = Some(true);
                 }
             }
             if !["locator", "number", "locator-extra", "page"].contains(&variable)
-                && statute_subdiv_strings(label) != Some(variable)
+                && statute_subdiv_string(label) != Some(variable)
             {
                 values[0].label_visibility = Some(true);
             }
@@ -1430,7 +1216,7 @@ fn check_term(state: &mut State, variable: &str, val: &NumberInfo) -> bool {
             Some(o) => o,
             None => val.label.as_deref().unwrap_or(""),
         };
-        input_get_term_name(state, statute_subdiv_strings(label))
+        input_get_term_name(state, statute_subdiv_string(label))
             .map(|t| !t.is_empty())
             .unwrap_or(false)
     } else {
@@ -1825,7 +1611,7 @@ fn process_number_inner(
     // Process only if there is a value.
     if val.is_string() || val.is_number() {
         let vs = js::to_js_string(&val);
-        let default_label = statute_subdiv_strings_reverse(variable).unwrap_or("");
+        let default_label = statute_subdiv_string_reverse(variable).unwrap_or("");
 
         if sn.values.is_empty() {
             let mut values = parse_string(
@@ -1857,7 +1643,7 @@ fn process_number_inner(
                 sn.label = v0
                     .label
                     .as_deref()
-                    .and_then(statute_subdiv_strings)
+                    .and_then(statute_subdiv_string)
                     .map(|t| ShadowLabel::Term(t.to_string()));
                 if variable == "number"
                     && sn.label == Some(ShadowLabel::Term("issue".into()))

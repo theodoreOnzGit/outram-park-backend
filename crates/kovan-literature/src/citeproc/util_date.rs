@@ -28,13 +28,10 @@ use serde_json::Value;
 use super::js::{self, Obj};
 use super::obj_token::Token;
 use super::state::State;
+use super::load::{DATE_PARTS, DATE_PARTS_INTERNAL};
 use super::util_dates;
 use super::{CslResult, EngineError};
 
-// DUP-CHECK: load.js CSL.DATE_PARTS
-const DATE_PARTS: [&str; 3] = ["year", "month", "day"];
-// DUP-CHECK: load.js CSL.DATE_PARTS_INTERNAL
-const DATE_PARTS_INTERNAL: [&str; 6] = ["year", "month", "day", "year_end", "month_end", "day_end"];
 
 /// The strings `CSL.dateAsSortKey` appends to the output queue, in order,
 /// and the flag they are appended with.
@@ -80,7 +77,7 @@ pub fn date_sort_key_parts(
             let mut value = Value::from(0);
             let e = elem.strip_suffix("_end").unwrap_or(elem);
             if js::get_truthy(&dp, elem) && dateparts.iter().any(|d| d == e) {
-                value = dp.get(elem).cloned().unwrap_or(Value::Null);
+                value = dp.get(*elem).cloned().unwrap_or(Value::Null);
             }
             if js::slice(elem, 0, Some(4)) == "year" {
                 let mut yr = util_dates::year_numeric(&value);

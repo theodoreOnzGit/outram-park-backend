@@ -1,10 +1,8 @@
 // Part of the kovan port of citeproc-js (GitHub #790).
 //
 // Upstream:    citeproc-js, https://github.com/juris-m/citeproc-js
-// Source:      src/formatters.js, src/util_processor.js (CSL.Doppeler only,
-//              which formatters.js instantiates), src/load.js
-//              (CSL.toLocaleUpperCase, CSL.toLocaleLowerCase, CSL.SKIP_WORDS)
-//              and src/build.js (the skip-words regexp, `makeRegExp`)
+// Source:      src/formatters.js, and src/build.js (the skip-words regexp,
+//              `makeRegExp`)
 // Version:     2.4.63, commit 73bc1b44bc7d54d0bfec4e070fd27f5efe024ff9
 // Copyright:   (c) 2009-2019 Frank Bennett
 // Licence:     AGPL-3.0, taken from upstream's "CPAL-1.0 or AGPL-3.0-or-later"
@@ -19,7 +17,7 @@
 
 //! `CSL.Output.Formatters`: the text-case transforms (`lowercase`,
 //! `uppercase`, `capitalize-first`, `capitalize-all`, `sentence`, `title`) and
-//! `passthrough`, plus the `CSL.Doppeler` splitter they are built on.
+//! `passthrough`, and the three `CSL.Doppeler` splitters they are built on.
 //!
 //! Entry point: [`apply`] (`CSL.Output.Formatters[name](state, string)`), or
 //! the named functions ([`lowercase`], [`title`], ...).
@@ -29,163 +27,26 @@
 //! * **Skip words.** `title` and the last-word rule read
 //!   `state.locale[state.opt.lang].opts["skip-words-regexp"]`, built in
 //!   build.js by `makeRegExp(skip-words)`. That is [`make_skip_words_regex`]
-//!   here; the build port stores the result in `state.fun.skip_words_rex`
-//!   (field added by this file's owner). When it is `None`, the default
-//!   English list `CSL.SKIP_WORDS` is used.
-//! * **Locale-aware case.** `CSL.toLocaleUpperCase` reads
-//!   `state.tmp.lang_array`; see [`to_locale_upper_case`] for what is and is
-//!   not reproduced (Turkic dotted/dotless i yes, Lithuanian no).
-//! * **`CSL.Doppeler`** is defined in util_processor.js; it is ported here
-//!   because formatters.js instantiates it three times at load time
-//!   (`// DUP-CHECK: util_processor.js CSL.Doppeler`).
+//!   here; `State::new` stores the result in `state.fun.skip_words_rex`.
+//!   When it is `None` (a bare test state), the default English list
+//!   `CSL.SKIP_WORDS` is used.
+//! * **Locale-aware case.** `CSL.toLocaleUpperCase` / `toLocaleLowerCase`
+//!   are load.js's (`load::to_locale_upper_case`, Turkic dotted/dotless i
+//!   reproduced, Lithuanian not).
+//! * **`CSL.Doppeler`** is util_processor.js's (`util_processor::Doppeler`);
+//!   formatters.js instantiates it three times at load time, here as
+//!   statics.
 
 use std::sync::LazyLock;
 
 use regex::Regex;
 
+use super::load::{to_locale_lower_case, to_locale_upper_case, SKIP_WORDS};
 use super::obj_blob::{js_trim, JS_WS_CLASS};
+use super::util_processor::{Doppeler, DoppelerSplit};
 use super::state::State;
 use super::{CslResult, EngineError};
 
-// DUP-CHECK: load.js CSL.SKIP_WORDS
-/// `CSL.SKIP_WORDS`: the default English stop-word list (regexp sources).
-pub const SKIP_WORDS: &[&str] = &[
-    "about",
-    "above",
-    "across",
-    "afore",
-    "after",
-    "against",
-    "al",
-    "along",
-    "alongside",
-    "amid",
-    "amidst",
-    "among",
-    "amongst",
-    "anenst",
-    "apropos",
-    "apud",
-    "around",
-    "as",
-    "aside",
-    "astride",
-    "at",
-    "athwart",
-    "atop",
-    "barring",
-    "before",
-    "behind",
-    "below",
-    "beneath",
-    "beside",
-    "besides",
-    "between",
-    "beyond",
-    "but",
-    "by",
-    "circa",
-    "despite",
-    "down",
-    "during",
-    "et",
-    "except",
-    "for",
-    "forenenst",
-    "from",
-    "given",
-    "in",
-    "inside",
-    "into",
-    "lest",
-    "like",
-    "modulo",
-    "near",
-    "next",
-    "notwithstanding",
-    "of",
-    "off",
-    "on",
-    "onto",
-    "out",
-    "over",
-    "per",
-    "plus",
-    "pro",
-    "qua",
-    "sans",
-    "since",
-    "than",
-    "through",
-    " thru",
-    "throughout",
-    "thruout",
-    "till",
-    "to",
-    "toward",
-    "towards",
-    "under",
-    "underneath",
-    "until",
-    "unto",
-    "up",
-    "upon",
-    "versus",
-    "vs.",
-    "v.",
-    "vs",
-    "v",
-    "via",
-    "vis-à-vis",
-    "with",
-    "within",
-    "without",
-    "according to",
-    "ahead of",
-    "apart from",
-    "as for",
-    "as of",
-    "as per",
-    "as regards",
-    "aside from",
-    "back to",
-    "because of",
-    "close to",
-    "due to",
-    "except for",
-    "far from",
-    "inside of",
-    "instead of",
-    "near to",
-    "next to",
-    "on to",
-    "out from",
-    "out of",
-    "outside of",
-    "prior to",
-    "pursuant to",
-    "rather than",
-    "regardless of",
-    "such as",
-    "that of",
-    "up to",
-    "where as",
-    "or",
-    "yet",
-    "so",
-    "for",
-    "and",
-    "nor",
-    "a",
-    "an",
-    "the",
-    "de",
-    "d'",
-    "von",
-    "van",
-    "c",
-    "ca",
-];
 
 /// The regexp build.js's `makeRegExp(lst)` builds from the `skip-words` list:
 /// `(?:(?:[?!:]*\s+|-|^)(?:w1|w2|...)(?=[!?:]*\s+|-|$))` (flag `g`).
@@ -229,35 +90,6 @@ fn skip_words_rex(state: &State) -> Regex {
 // CSL.Doppeler
 // ---------------------------------------------------------------------------
 
-/// The string mangler a [`Doppeler`] runs before splitting.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Mangler {
-    None,
-    /// The `tagDoppel` mangler in formatters.js (normalises span markup).
-    TagDoppel,
-}
-
-/// The result of `Doppeler.split`: `strings` has one more element than
-/// `tags`. `orig_strings` is a copy of `strings` taken after the apostrophe
-/// fix (JS: absent when there is no tag at all).
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct Doppel {
-    /// The separators (`tags`).
-    pub tags: Vec<String>,
-    /// The pieces between them.
-    pub strings: Vec<String>,
-    /// `origStrings`.
-    pub orig_strings: Vec<String>,
-}
-
-/// `CSL.Doppeler(rexStr, stringMangler)`: splits a string around the matches
-/// of a regexp, keeping the matches (`tags`) and the pieces (`strings`).
-#[derive(Debug, Clone)]
-pub struct Doppeler {
-    match_rex: Regex,
-    mangler: Mangler,
-}
-
 static RE_NOCASE_SPAN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
         r#"(<span)[{ws}]+(class="no(?:case|decor)")[^>]*(>)"#,
@@ -273,70 +105,19 @@ static RE_SMALLCAPS_SPAN: LazyLock<Regex> = LazyLock::new(|| {
     .unwrap_or_else(|_| unreachable_regex())
 });
 
-impl Doppeler {
-    fn new(rex_str: &str, mangler: Mangler) -> Doppeler {
-        Doppeler {
-            match_rex: Regex::new(rex_str).unwrap_or_else(|_| unreachable_regex()),
-            mangler,
-        }
-    }
+/// The `tagDoppel` string mangler of formatters.js: normalise the nocase /
+/// nodecor span and the small-caps span markup before splitting.
+fn tag_doppel_mangle(s: &str) -> String {
+    let a = RE_NOCASE_SPAN.replace_all(s, "${1} ${2}${3}").into_owned();
+    RE_SMALLCAPS_SPAN
+        .replace_all(&a, "${1} ${2} ${3};${4}${5}")
+        .into_owned()
+}
 
-    /// `Doppeler.prototype.split` (the `this.split` closure).
-    pub fn split(&self, s: &str) -> Doppel {
-        // Normalize markup
-        let mangled;
-        let s = match self.mangler {
-            Mangler::None => s,
-            Mangler::TagDoppel => {
-                let a = RE_NOCASE_SPAN.replace_all(s, "${1} ${2}${3}").into_owned();
-                mangled = RE_SMALLCAPS_SPAN
-                    .replace_all(&a, "${1} ${2} ${3};${4}${5}")
-                    .into_owned();
-                mangled.as_str()
-            }
-        };
-        let mut tags: Vec<String> = self
-            .match_rex
-            .find_iter(s)
-            .map(|m| m.as_str().to_string())
-            .collect();
-        if tags.is_empty() {
-            return Doppel {
-                tags: Vec::new(),
-                strings: vec![s.to_string()],
-                orig_strings: Vec::new(),
-            };
-        }
-        let mut strings: Vec<String> = self.match_rex.split(s).map(str::to_string).collect();
-        for i in (0..tags.len()).rev() {
-            if tags[i] == "'" && !strings[i + 1].is_empty() {
-                // Fixes https://forums.zotero.org/discussion/comment/294317
-                strings[i + 1] = format!("{}{}", tags[i], strings[i + 1]);
-                tags[i] = String::new();
-            }
-        }
-        Doppel {
-            tags,
-            orig_strings: strings.clone(),
-            strings,
-        }
-    }
-
-    /// `Doppeler.prototype.join`.
-    pub fn join(&self, obj: &Doppel) -> String {
-        // lst = obj.strings.slice(-1); then for i = last tag ... 0 push
-        // tags[i], strings[i]; reverse; join("").
-        let mut lst: Vec<&str> = Vec::new();
-        if let Some(last) = obj.strings.last() {
-            lst.push(last);
-        }
-        for i in (0..obj.tags.len()).rev() {
-            lst.push(&obj.tags[i]);
-            lst.push(obj.strings.get(i).map(String::as_str).unwrap_or(""));
-        }
-        lst.reverse();
-        lst.concat()
-    }
+/// `new CSL.Doppeler(rex, mangler)` of a constant pattern.
+fn doppeler(rex: &str, mangler: Option<fn(&str) -> String>) -> Doppeler {
+    #[allow(clippy::expect_used)]
+    Doppeler::new(rex, mangler).expect("constant Doppeler pattern")
 }
 
 // The three instances formatters.js creates at load time.
@@ -349,98 +130,22 @@ const NAME_REX: &str =
     "(?:[-\\s]*</*(?:spans+class=\"no(?:case|decor)\"|i|sc|b|sub|sup)>[-\\s]*|[-\\s]+)";
 
 static TAG_DOPPEL: LazyLock<Doppeler> =
-    LazyLock::new(|| Doppeler::new(TAG_REX, Mangler::TagDoppel));
+    LazyLock::new(|| doppeler(TAG_REX, Some(tag_doppel_mangle)));
 static NAME_DOPPEL: LazyLock<Doppeler> = LazyLock::new(|| {
     // `[-\s]` uses JS whitespace.
     let rex = NAME_REX.replace("\\s", JS_WS_CLASS);
-    Doppeler::new(&rex, Mangler::None)
+    doppeler(&rex, None)
 });
 static WORD_DOPPEL: LazyLock<Doppeler> = LazyLock::new(|| {
-    Doppeler::new(
+    doppeler(
         "(?:[\u{00A0}\u{0020}\u{00A0}\u{2000}-\u{200B}\u{205F}\u{3000}]+)",
-        Mangler::None,
+        None,
     )
 });
 
 /// `CSL.Output.Formatters.nameDoppel`.
 pub fn name_doppel() -> &'static Doppeler {
     &NAME_DOPPEL
-}
-
-// ---------------------------------------------------------------------------
-// Locale-aware case
-// ---------------------------------------------------------------------------
-
-/// Whether `tag` passes JS's `Intl` structural check for a language tag
-/// (approximation of `CanonicalizeLocaleList`; a failing tag makes
-/// `toLocale*Case` throw, which citeproc-js catches by falling back to
-/// `toUpperCase`/`toLowerCase`).
-fn is_valid_lang_tag(tag: &str) -> bool {
-    static RE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$").unwrap_or_else(|_| unreachable_regex())
-    });
-    RE.is_match(tag)
-}
-
-/// The special-casing language of `state.tmp.lang_array` (first element
-/// decides, as `String.prototype.toLocaleUpperCase` does; any invalid tag
-/// makes the whole call fall back to the plain method).
-#[derive(PartialEq)]
-enum CaseLang {
-    Plain,
-    Turkic,
-}
-
-fn case_lang(state: &State) -> CaseLang {
-    let arr = &state.tmp.lang_array;
-    if arr.iter().any(|t| !is_valid_lang_tag(t)) {
-        return CaseLang::Plain;
-    }
-    match arr.first() {
-        Some(first) => {
-            let primary = first.split('-').next().unwrap_or("").to_ascii_lowercase();
-            if primary == "tr" || primary == "az" {
-                CaseLang::Turkic
-            } else {
-                CaseLang::Plain
-            }
-        }
-        None => CaseLang::Plain,
-    }
-}
-
-/// `CSL.toLocaleUpperCase.call(state, str)`: `str.toLocaleUpperCase(
-/// state.tmp.lang_array)`, falling back to `toUpperCase()` when the tag list
-/// is invalid. Reproduced: Turkic `i` to `\u{130}`. Not reproduced:
-/// Lithuanian's retained-dot rules.
-pub fn to_locale_upper_case(state: &State, s: &str) -> String {
-    // DUP-CHECK: load.js CSL.toLocaleUpperCase
-    if case_lang(state) == CaseLang::Turkic {
-        let pre: String = s
-            .chars()
-            .map(|c| if c == 'i' { '\u{130}' } else { c })
-            .collect();
-        return pre.to_uppercase();
-    }
-    s.to_uppercase()
-}
-
-/// `CSL.toLocaleLowerCase.call(state, str)`; see [`to_locale_upper_case`].
-pub fn to_locale_lower_case(state: &State, s: &str) -> String {
-    // DUP-CHECK: load.js CSL.toLocaleLowerCase
-    if case_lang(state) == CaseLang::Turkic {
-        let pre = s.replace("I\u{307}", "i");
-        let pre: String = pre
-            .chars()
-            .map(|c| match c {
-                'I' => '\u{131}',
-                '\u{130}' => 'i',
-                other => other,
-            })
-            .collect();
-        return pre.to_lowercase();
-    }
-    s.to_lowercase()
 }
 
 // ---------------------------------------------------------------------------
@@ -511,7 +216,7 @@ struct Config {
     is_first: Option<bool>,
     last_word_pos: Option<(usize, usize)>,
     skip_words_rex: Option<Regex>,
-    doppel: Doppel,
+    doppel: DoppelerSplit,
 }
 
 fn tag_params(tag: &str) -> Option<&'static str> {
@@ -827,7 +532,7 @@ fn new_config(
         is_first,
         last_word_pos: None,
         skip_words_rex: skip,
-        doppel: Doppel::default(),
+        doppel: DoppelerSplit::default(),
     }
 }
 
@@ -937,7 +642,7 @@ mod tests {
     fn default_skip_words_regex_compiles() {
         let lst: Vec<String> = SKIP_WORDS.iter().map(|s| s.to_string()).collect();
         assert!(make_skip_words_regex(&lst).is_ok());
-        assert!(NAME_DOPPEL.match_rex.is_match("a - b"));
+        assert_eq!(NAME_DOPPEL.split("a - b").tags.len(), 1);
     }
 
     #[test]

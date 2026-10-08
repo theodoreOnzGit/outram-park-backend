@@ -907,6 +907,9 @@ pub const SYS_OPTIONS: &[&str] = &[
 ];
 
 /// `CSL.ROMAN_NUMERALS`.
+/// `CSL.SUFFIX_CHARS`: the year-suffix alphabet, comma-separated.
+pub const SUFFIX_CHARS: &str = "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z";
+
 pub const ROMAN_NUMERALS: [&[&str]; 4] = [
     &["", "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix"],
     &["", "x", "xx", "xxx", "xl", "l", "lx", "lxx", "lxxx", "xc"],
@@ -1229,53 +1232,77 @@ pub fn title_field_splits(seg: &str) -> TitleFieldSplits {
 // ----------------------------------------------------------------------
 // Case conversion.
 
-/// Whether the first language tag of `arr` selects Turkic casing.
-fn turkic(arr: &[String]) -> bool {
-    arr.first()
-        .map(|t| {
-            let p = t.split(['-', '_']).next().unwrap_or("").to_lowercase();
-            p == "tr" || p == "az"
-        })
-        .unwrap_or(false)
+
+/// Whether `tag` passes JS's `Intl` structural check for a language tag
+/// (approximation of `CanonicalizeLocaleList`; a failing tag makes
+/// `toLocale*Case` throw, which citeproc-js catches by falling back to
+/// `toUpperCase`/`toLowerCase`).
+fn is_valid_lang_tag(tag: &str) -> bool {
+    static RE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$").expect("static citeproc regex")
+    });
+    RE.is_match(tag)
+}
+
+/// The special-casing language of `state.tmp.lang_array` (first element
+/// decides, as `String.prototype.toLocaleUpperCase` does; any invalid tag
+/// makes the whole call fall back to the plain method).
+#[derive(PartialEq)]
+enum CaseLang {
+    Plain,
+    Turkic,
+}
+
+fn case_lang(state: &State) -> CaseLang {
+    let arr = &state.tmp.lang_array;
+    if arr.iter().any(|t| !is_valid_lang_tag(t)) {
+        return CaseLang::Plain;
+    }
+    match arr.first() {
+        Some(first) => {
+            let primary = first.split('-').next().unwrap_or("").to_ascii_lowercase();
+            if primary == "tr" || primary == "az" {
+                CaseLang::Turkic
+            } else {
+                CaseLang::Plain
+            }
+        }
+        None => CaseLang::Plain,
+    }
 }
 
 /// `CSL.toLocaleUpperCase.call(state, str)`: `str.toLocaleUpperCase(
-/// state.tmp.lang_array)`. Locale-sensitive casing is implemented for the
-/// Turkic languages (`i` to `İ`); other tags use the root mapping, which is
-/// what ICU does for them except Lithuanian and Greek (not ported).
+/// state.tmp.lang_array)`, falling back to `toUpperCase()` when the tag list
+/// is invalid. Reproduced: Turkic `i` to `\u{130}`. Not reproduced:
+/// Lithuanian's retained-dot rules.
 pub fn to_locale_upper_case(state: &State, s: &str) -> String {
-    if turkic(&state.tmp.lang_array) {
-        let mut out = String::new();
-        for c in s.chars() {
-            match c {
-                'i' => out.push('\u{130}'),
-                'ı' => out.push('I'),
-                c => out.extend(c.to_uppercase()),
-            }
-        }
-        out
-    } else {
-        s.to_uppercase()
+    if case_lang(state) == CaseLang::Turkic {
+        let pre: String = s
+            .chars()
+            .map(|c| if c == 'i' { '\u{130}' } else { c })
+            .collect();
+        return pre.to_uppercase();
     }
+    s.to_uppercase()
 }
 
-/// `CSL.toLocaleLowerCase.call(state, str)`; see [`to_locale_upper_case`]
-/// (Turkic: `I` to `ı`, `İ` to `i`).
+/// `CSL.toLocaleLowerCase.call(state, str)`; see [`to_locale_upper_case`].
 pub fn to_locale_lower_case(state: &State, s: &str) -> String {
-    if turkic(&state.tmp.lang_array) {
-        let mut out = String::new();
-        for c in s.chars() {
-            match c {
-                'I' => out.push('\u{131}'),
-                '\u{130}' => out.push('i'),
-                c => out.extend(c.to_lowercase()),
-            }
-        }
-        out
-    } else {
-        s.to_lowercase()
+    if case_lang(state) == CaseLang::Turkic {
+        let pre = s.replace("I\u{307}", "i");
+        let pre: String = pre
+            .chars()
+            .map(|c| match c {
+                'I' => '\u{131}',
+                '\u{130}' => 'i',
+                other => other,
+            })
+            .collect();
+        return pre.to_lowercase();
     }
+    s.to_lowercase()
 }
+
 
 // ----------------------------------------------------------------------
 // Brace nesting.
@@ -1376,31 +1403,32 @@ pub fn get_abbrevs_domain(state: &State, country: &str, lang: &str) -> Option<St
 // ----------------------------------------------------------------------
 // Locators and note fields.
 
-/// `CSL.parseLocator.call(state, item)`: splits `locator|date extra` into
-/// `locator`, `locator-date` and `locator-extra` when
-/// `locator_date_and_revision` is on, and trims trailing space of `locator`.
+/// `CSL.parseLocator.call(state, item)` (load.js): with
+/// `locator_date_and_revision`, split `locator|date rest` into `locator`,
+/// `locator-date` (a parsed date object) and `locator-extra`; then strip
+/// trailing whitespace from `locator`. `item` is mutated.
 pub fn parse_locator(state: &State, item: &mut Obj) {
-    let ext_on = state
+    let ext = state
         .opt
         .get("development_extensions")
         .and_then(|d| d.get("locator_date_and_revision"))
         .map(js::truthy)
         .unwrap_or(false);
-    if ext_on && js::get_truthy(item, "locator") {
-        let loc = js::get_string(item, "locator").unwrap_or_default();
-        item.insert("locator".into(), Value::String(loc.clone()));
-        let idx = js::index_of(&loc, "|", 0);
+    if ext && js::get_truthy(item, "locator") {
+        let locator = js::to_js_string(item.get("locator").unwrap_or(&Value::Null));
+        item.insert("locator".into(), Value::String(locator.clone()));
+        let idx = js::index_of(&locator, "|", 0);
         if idx > -1 {
-            let mut raw_locator = loc.clone();
+            let mut raw_locator = locator.clone();
             item.insert(
                 "locator".into(),
                 Value::String(js::slice(&raw_locator, 0, Some(idx))),
             );
             raw_locator = js::slice(&raw_locator, idx + 1, None);
-            static DATE: LazyLock<Regex> =
-                LazyLock::new(|| Regex::new(r"^([0-9]{4}-[0-9]{2}-[0-9]{2})").expect("static"));
-            if let Some(m) = DATE.captures(&raw_locator) {
-                let m1 = m[1].to_string();
+            static DATE_RE: LazyLock<Regex> =
+                LazyLock::new(|| rx_static(&format!("^([0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}){DOT}*")));
+            if let Some(m) = DATE_RE.captures(&raw_locator) {
+                let m1 = m.get(1).map(|x| x.as_str()).unwrap_or("").to_string();
                 item.insert(
                     "locator-date".into(),
                     Value::Object(state.fun.dateparser.parse_date_to_object(&m1)),
@@ -1414,13 +1442,9 @@ pub fn parse_locator(state: &State, item: &mut Obj) {
         }
     }
     if js::get_truthy(item, "locator") {
-        static TRAILING: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new(&format!("{WS_CLASS}+$")).expect("static"));
-        let loc = js::get_string(item, "locator").unwrap_or_default();
-        item.insert(
-            "locator".into(),
-            Value::String(TRAILING.replace(&loc, "").into_owned()),
-        );
+        let l = js::to_js_string(item.get("locator").unwrap_or(&Value::Null));
+        let trimmed = l.trim_end_matches(|c: char| c.is_whitespace() || c == '\u{feff}');
+        item.insert("locator".into(), Value::String(trimmed.to_string()));
     }
 }
 

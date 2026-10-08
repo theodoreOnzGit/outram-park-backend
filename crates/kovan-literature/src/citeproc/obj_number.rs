@@ -30,12 +30,14 @@
 //! CSL.SUFFIX_CHARS)`, `state.fun.romanizer`, ...). Here they are the enum
 //! [`NumFormatter`]. A node builder that stores a formatter on a token puts it
 //! in `token.extra["formatter"]` as JSON via [`NumFormatter::to_value`]
-//! (`"default"`, `"romanizer"`, `"ordinalizer"`, `"long-ordinalizer"`, or
+//! (`"default"`, `"romanizer"`, `"ordinalizer"`, `"long_ordinalizer"`, or
 //! `{"type":"suffixator","slist":"a,b,..."}`); [`new_numeric_blob`] reads it
 //! back with [`NumFormatter::from_value`].
 //!
-//! `Ordinalizer` and `LongOrdinalizer` read the locale (`getTerm`, `ord`),
-//! which is another agent's; their `format` is a `PORT-LATER`.
+//! The formatters themselves are util_number.js's ([`Suffixator`],
+//! [`Romanizer`], `Ordinalizer`, [`LongOrdinalizer`] in `util_number.rs`);
+//! [`NumFormatter`] only names which one a blob carries. Its JSON names match
+//! the ones the intermediate dump gives a token's `formatter`.
 
 use serde_json::Value;
 
@@ -46,33 +48,9 @@ use super::obj_token::Token;
 use super::state::State;
 use super::{CslResult, EngineError};
 
-// DUP-CHECK: load.js CSL.START / CSL.END / CSL.SUCCESSOR /
-// CSL.SUCCESSOR_OF_SUCCESSOR / CSL.SUPPRESS / CSL.SEEN
-/// `CSL.START`.
-pub const START: i64 = 0;
-/// `CSL.END`.
-pub const END: i64 = 1;
-/// `CSL.SUCCESSOR`.
-pub const SUCCESSOR: i64 = 3;
-/// `CSL.SUCCESSOR_OF_SUCCESSOR`.
-pub const SUCCESSOR_OF_SUCCESSOR: i64 = 4;
-/// `CSL.SUPPRESS`.
-pub const SUPPRESS: i64 = 5;
-/// `CSL.SEEN`.
-pub const SEEN: i64 = 6;
-
-// DUP-CHECK: load.js CSL.SUFFIX_CHARS
-/// `CSL.SUFFIX_CHARS`.
-pub const SUFFIX_CHARS: &str = "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z";
-
-// DUP-CHECK: load.js CSL.ROMAN_NUMERALS
-/// `CSL.ROMAN_NUMERALS`: units, tens, hundreds, thousands.
-pub const ROMAN_NUMERALS: [&[&str]; 4] = [
-    &["", "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix"],
-    &["", "x", "xx", "xxx", "xl", "l", "lx", "lxx", "lxxx", "xc"],
-    &["", "c", "cc", "ccc", "cd", "d", "dc", "dcc", "dccc", "cm"],
-    &["", "m", "mm", "mmm", "mmmm", "mmmmm"],
-];
+use super::load::{END, SEEN, START, SUCCESSOR, SUCCESSOR_OF_SUCCESSOR, SUPPRESS};
+use super::load::SUFFIX_CHARS;
+use super::util_number::{LongOrdinalizer, Romanizer, Suffixator};
 
 /// A number formatter object: `CSL.Output.DefaultFormatter`,
 /// `CSL.Util.Suffixator`, `CSL.Util.Romanizer`, `CSL.Util.Ordinalizer`,
@@ -122,7 +100,7 @@ impl NumFormatter {
                 "default" => Some(NumFormatter::Default),
                 "romanizer" => Some(NumFormatter::Romanizer),
                 "ordinalizer" => Some(NumFormatter::Ordinalizer),
-                "long-ordinalizer" => Some(NumFormatter::LongOrdinalizer),
+                "long_ordinalizer" => Some(NumFormatter::LongOrdinalizer),
                 "suffixator" => Some(NumFormatter::suffixator(None)),
                 _ => None,
             },
@@ -143,7 +121,7 @@ impl NumFormatter {
             NumFormatter::Default => Value::String("default".into()),
             NumFormatter::Romanizer => Value::String("romanizer".into()),
             NumFormatter::Ordinalizer => Value::String("ordinalizer".into()),
-            NumFormatter::LongOrdinalizer => Value::String("long-ordinalizer".into()),
+            NumFormatter::LongOrdinalizer => Value::String("long_ordinalizer".into()),
             NumFormatter::Suffixator { slist } => {
                 let mut o = serde_json::Map::new();
                 o.insert("type".into(), Value::String("suffixator".into()));
@@ -153,68 +131,34 @@ impl NumFormatter {
         }
     }
 
-    /// `formatter.format(num, gender)`.
+    /// `formatter.format(num, gender)`: `DefaultFormatter.prototype.format`,
+    /// or the util_number.js formatter objects ([`Suffixator`],
+    /// [`Romanizer`], `state.fun.ordinalizer`, [`LongOrdinalizer`]).
     ///
-    /// `DefaultFormatter.prototype.format`, `Suffixator.prototype.format`,
-    /// `Romanizer.prototype.format`. A `Text` number with a non-default
-    /// formatter does arithmetic on a string in JS (and loops forever in the
-    /// suffixator); that is an `Err` here.
-    pub fn format(&self, _state: &State, num: &NumArg, _gender: Option<&str>) -> CslResult<String> {
+    /// A `Text` number with the suffixator or the romanizer does arithmetic
+    /// on a string in JS (and loops forever in the suffixator); that is an
+    /// `Err` here. The ordinalizers `parseInt` their argument, as upstream.
+    pub fn format(&self, state: &mut State, num: &NumArg, gender: Option<&str>) -> CslResult<String> {
+        let as_value = |num: &NumArg| match num {
+            NumArg::Number(n) => Value::from(*n),
+            NumArg::Text(t) => Value::String(t.clone()),
+        };
         match (self, num) {
             (NumFormatter::Default, NumArg::Number(n)) => Ok(n.to_string()),
             (NumFormatter::Default, NumArg::Text(t)) => Ok(t.clone()),
-            (NumFormatter::Suffixator { slist }, NumArg::Number(n)) => {
-                // CSL.Util.Suffixator.prototype.format
-                let mut n = *n + 1;
-                let mut key = String::new();
-                loop {
-                    let x = if n % 26 == 0 { 26 } else { n % 26 };
-                    let piece = if x >= 1 {
-                        slist.get((x - 1) as usize).cloned()
-                    } else {
-                        None
-                    };
-                    key = format!(
-                        "{}{}",
-                        piece.unwrap_or_else(|| "undefined".to_string()),
-                        key
-                    );
-                    n = (n - x) / 26;
-                    if n == 0 {
-                        break;
-                    }
-                }
-                Ok(key)
+            (NumFormatter::Suffixator { slist }, NumArg::Number(n)) => Ok(Suffixator {
+                slist: slist.clone(),
             }
+            .format(*n)),
             (NumFormatter::Romanizer, NumArg::Number(n)) => {
-                // CSL.Util.Romanizer.prototype.format
-                let mut ret = String::new();
-                if *n < 6000 {
-                    let digits: Vec<char> = n.to_string().chars().rev().collect();
-                    for (pos, ch) in digits.iter().enumerate() {
-                        let table = ROMAN_NUMERALS.get(pos).ok_or_else(|| {
-                            EngineError::Csl("Romanizer: more than four digits".into())
-                        })?;
-                        let piece = match ch.to_digit(10) {
-                            Some(d) => table.get(d as usize).copied().unwrap_or("undefined"),
-                            None => "undefined",
-                        };
-                        ret = format!("{piece}{ret}");
-                    }
-                }
-                Ok(ret)
+                Romanizer::default().format(&Value::from(*n))
             }
-            (NumFormatter::Ordinalizer, _) => {
-                // PORT-LATER(Ordinalizer.format): util_number.js:69-117, needs state.locale / getTerm (wave1-build, wave1-input)
-                Err(EngineError::NotYetPorted {
-                    method: "CSL.Util.Ordinalizer.format",
-                })
+            (NumFormatter::Ordinalizer, num) => {
+                let ordinalizer = state.fun.ordinalizer.clone();
+                ordinalizer.format(state, &as_value(num), gender)
             }
-            (NumFormatter::LongOrdinalizer, _) => {
-                // PORT-LATER(LongOrdinalizer.format): util_number.js:24-44, needs CSL.Engine.getField on locale terms
-                Err(EngineError::NotYetPorted {
-                    method: "CSL.Util.LongOrdinalizer.format",
-                })
+            (NumFormatter::LongOrdinalizer, num) => {
+                LongOrdinalizer::format(state, &as_value(num), gender)
             }
             (_, NumArg::Text(_)) => Err(EngineError::Csl(
                 "number formatter applied to a non-numeric string".into(),
@@ -394,18 +338,18 @@ mod tests {
 
     #[test]
     fn suffixator_and_romanizer_follow_upstream() {
-        let st = State::default();
+        let mut st = State::default();
         let s = NumFormatter::suffixator(None);
-        let f = |n| s.format(&st, &NumArg::Number(n), None).unwrap();
+        let mut f = |n| s.format(&mut st, &NumArg::Number(n), None).unwrap();
         assert_eq!(f(0), "a");
         assert_eq!(f(1), "b");
         assert_eq!(f(25), "z");
         assert_eq!(f(26), "aa");
         let r = NumFormatter::Romanizer;
         assert_eq!(
-            r.format(&st, &NumArg::Number(1994), None).unwrap(),
+            r.format(&mut st, &NumArg::Number(1994), None).unwrap(),
             "mcmxciv"
         );
-        assert_eq!(r.format(&st, &NumArg::Number(6000), None).unwrap(), "");
+        assert_eq!(r.format(&mut st, &NumArg::Number(6000), None).unwrap(), "");
     }
 }
