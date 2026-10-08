@@ -1428,10 +1428,7 @@ mod tests {
         }
         let mut map = BTreeMap::new();
         for it in items {
-            map.insert(
-                js::to_js_string(it.get("id").unwrap_or(&Value::Null)),
-                it.clone(),
-            );
+            map.insert(id_key(it.get("id")), it.clone());
         }
         st.sys.items = Arc::new(map);
         if let Some(a) = abbrevs.and_then(Value::as_object) {

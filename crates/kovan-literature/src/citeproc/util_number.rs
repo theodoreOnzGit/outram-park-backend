@@ -2022,6 +2022,7 @@ mod tests {
     //! locale (`test_support::logged_locale`), so the tests check the number logic, not the locale
     //! loader. Pass criterion: every output equal to citeproc-js's.
     use super::*;
+    use std::collections::BTreeMap;
     use serde_json::json;
 
     const REF: &str = include_str!("../../tests/data/csl/units/numbers.json");
