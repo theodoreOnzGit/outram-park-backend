@@ -50,6 +50,9 @@ pub enum Event {
         delta: Trace,
     },
     Gen(GenResult),
+    /// Where the loaded data came from (processed now or this browser's
+    /// cache) and any cache notes, gh:#818.
+    DataInfo(String),
     Error(String),
 }
 
@@ -76,6 +79,25 @@ pub struct Engine {
     run: Option<Run>,
     low: Option<(f64, Majorant)>,
     newest_load: u32,
+    /// Natively, what this engine processed (gh:#818); in the browser the
+    /// cache is IndexedDB, read per load.
+    #[cfg(not(target_arch = "wasm32"))]
+    store: crate::processed_cache::DataStore,
+}
+
+/// One line on where a load's data came from, and the cache's notes
+/// (gh:#818): [`Event::DataInfo`].
+pub fn data_info(store: &mut crate::processed_cache::DataStore) -> String {
+    let (sources, notes) = store.take_report();
+    let mut s = format!(
+        "Nuclear data: {}.",
+        dhoby_ghaut::web_demo::data_cache::Source::summarize(sources.iter().map(|(_, s)| s))
+    );
+    for n in notes {
+        s.push(' ');
+        s.push_str(&n);
+    }
+    s
 }
 
 impl Engine {
@@ -143,7 +165,11 @@ impl dhoby_ghaut::web_demo::link::NativeEngine for Engine {
                 while let Some(job) = b.next_job() {
                     post(Event::JobStarted { id, index });
                     let t = std::time::Instant::now();
-                    if let Err(e) = crate::native_tape(job.tape).and_then(|bytes| b.step(&bytes)) {
+                    let store = &mut self.store;
+                    if let Err(e) = crate::native_tape(job.tape).and_then(|bytes| {
+                        store.begin_tape(&bytes);
+                        b.step(&bytes, store)
+                    }) {
                         post(Event::Error(format!("{}: {e}", job.label)));
                         return;
                     }
@@ -154,6 +180,7 @@ impl dhoby_ghaut::web_demo::link::NativeEngine for Engine {
                     });
                     index += 1;
                 }
+                post(Event::DataInfo(data_info(&mut self.store)));
                 post(Event::JobStarted { id, index });
                 match b.finish() {
                     Ok(data) => {
@@ -281,6 +308,10 @@ mod web {
                     js::set(&o, "kind", "gen");
                     js::set(&o, "data", js::f64s(&wire::encode_gen(g)));
                 }
+                Event::DataInfo(m) => {
+                    js::set(&o, "kind", "data_info");
+                    js::set(&o, "message", m.as_str());
+                }
                 Event::Error(m) => {
                     js::set(&o, "kind", "error");
                     js::set(&o, "message", m.as_str());
@@ -296,6 +327,7 @@ mod web {
                     id: id(),
                     index: idx(),
                 },
+                "data_info" => Event::DataInfo(js::get_str(v, "message")),
                 "done" => Event::JobDone {
                     id: id(),
                     index: idx(),
@@ -394,6 +426,9 @@ mod web {
         // Every download is issued before the first (blocking) job.
         let promises: Vec<js_sys::Promise> = urls.iter().map(|u| fetch_start(u)).collect();
         let mut b = model::DataBuilder::default();
+        // The shared cache (gh:#818), as the Monte Carlo demo's loads use it.
+        let mut store = crate::processed_cache::DataStore::browser();
+        let mut health = crate::processed_cache::web::Health::default();
         for (index, (p, url)) in promises.into_iter().zip(&urls).enumerate() {
             let z = fetch_promise(p, url).await?;
             if superseded() {
@@ -401,14 +436,15 @@ mod web {
             }
             post.post(Event::JobStarted { id, index });
             let t = js_sys::Date::now();
-            b.step(&crate::tapes::decompress(&z)?)
+            let bytes = crate::tapes::decompress(&z)?;
+            crate::processed_cache::web::before_step(&mut store, &bytes, &mut health).await;
+            b.step(&bytes, &mut store)
                 .map_err(|e| format!("{}: {e}", model::JOBS[index].label))?;
-            post.post(Event::JobDone {
-                id,
-                index,
-                secs: (js_sys::Date::now() - t) / 1000.0,
-            });
+            let secs = (js_sys::Date::now() - t) / 1000.0;
+            crate::processed_cache::web::after_step(&mut store, &mut health).await;
+            post.post(Event::JobDone { id, index, secs });
         }
+        post.post(Event::DataInfo(data_info(&mut store)));
         if superseded() {
             return Ok(None);
         }

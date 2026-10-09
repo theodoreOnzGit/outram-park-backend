@@ -83,18 +83,17 @@ impl DataBuilder {
     /// Process the next job from its (covariance-stripped) tape bytes:
     /// RECONR + BROADR to [`TEMP_K`] (URR tables and DBRC on, the library
     /// default), or THERMR for the S(α,β) law.
-    pub fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
+    /// The expensive half comes from `store` when it holds it (gh:#818).
+    pub fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         let i = self.nuclides.len() + usize::from(self.sab.is_some());
         let (label, _) = *JOBS.get(i).ok_or("no job left")?;
         let (tape, mat) = read_tape(bytes, label)?;
         if i < N_NUCLIDES {
             let name = spec::TAPES_CHEAP[i].0;
-            let n = Nuclide::from_tape_with_speed(&tape, mat, name, TEMP_K, SPEED)
-                .map_err(|e| format!("{label}: {e}"))?;
+            let n = store.nuclide(bytes, &tape, mat, name, TEMP_K, SPEED, label)?;
             self.nuclides.push(n);
         } else {
-            let s = ThermalScattering::from_tape(&tape, mat, TEMP_K, "c_H_in_H2O")
-                .map_err(|e| format!("{label}: {e}"))?;
+            let s = store.thermal(bytes, &tape, mat, TEMP_K, "c_H_in_H2O", label)?;
             self.sab = Some(s);
         }
         Ok(())

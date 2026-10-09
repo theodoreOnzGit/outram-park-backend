@@ -202,8 +202,8 @@ impl RungBuilder for model::DataBuilder {
     fn new(_tier: Tier) -> Self {
         model::DataBuilder::default()
     }
-    fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
-        model::DataBuilder::step(self, bytes)
+    fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
+        model::DataBuilder::step(self, bytes, store)
     }
     fn finish(self) -> Result<Loaded, String> {
         Ok(Loaded { phys: sim::Physics::new(model::DataBuilder::finish(self)?), chain: sim::Chain::new(CHAIN_SEED), kinf: None })
@@ -341,7 +341,7 @@ mod tests {
         let mut b = model::DataBuilder::default();
         for (_, tape) in model::JOBS {
             let raw = std::fs::read(njoy_outram_park_fork::reference_data::reference_endf(tape).expect("tape")).expect("read");
-            b.step(&crate::tapes::strip_covariances(&raw)).expect("step");
+            b.step(&crate::tapes::strip_covariances(&raw), &mut crate::processed_cache::DataStore::off()).expect("step");
         }
         let mut l = Loaded { phys: sim::Physics::new(b.finish().expect("finish")), chain: sim::Chain::new(1), kinf: None };
         let t = std::time::Instant::now();
@@ -377,7 +377,7 @@ mod tests {
             let t = std::time::Instant::now();
             let path = njoy_outram_park_fork::reference_data::reference_endf(tape).expect("tape");
             let raw = std::fs::read(path).expect("read");
-            b.step(&crate::tapes::strip_covariances(&raw)).expect("step");
+            b.step(&crate::tapes::strip_covariances(&raw), &mut crate::processed_cache::DataStore::off()).expect("step");
             eprintln!("  {label:<16} {:6.1} s", t.elapsed().as_secs_f64());
         }
         let phys = sim::Physics::new(b.finish().expect("finish"));

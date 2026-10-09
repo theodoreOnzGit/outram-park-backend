@@ -346,15 +346,15 @@ const N_SI28: usize = 9;
 const N_SI29: usize = 10;
 const N_SI30: usize = 11;
 
+/// A nuclide straight from the tape, no cache: the reference the
+/// covariance-stripping test of `monte_carlo_web` compares against
+/// (`delta_tracking_web`, which shares this file, does not use it).
+#[allow(dead_code)]
 pub fn nuclide_from_bytes(bytes: &[u8], name: &str) -> Result<Nuclide, String> {
     let (tape, mat) = read_tape(bytes, name)?;
     Nuclide::from_tape_with_speed(&tape, mat, name, TEMPERATURE_K, SPEED).map_err(|e| format!("{name}: {e}"))
 }
 
-pub fn graphite_sab_from_bytes(bytes: &[u8]) -> Result<ThermalScattering, String> {
-    let (tape, mat) = read_tape(bytes, "graphite S(a,b)")?;
-    ThermalScattering::from_tape(&tape, mat, TEMPERATURE_K, "c_Graphite").map_err(|e| format!("graphite S(a,b): {e}"))
-}
 
 /// Incremental processing, one [`Job`] per call, so a UI can redraw between
 /// the (long, blocking) jobs.
@@ -369,12 +369,19 @@ impl DataBuilder {
     pub fn next_job(&self) -> Option<Job> {
         JOBS.get(self.done).copied()
     }
-    /// Process the next job from its (covariance-stripped) tape bytes.
-    pub fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
+    /// Process the next job from its (covariance-stripped) tape bytes, the
+    /// expensive half from `store` when it holds it (gh:#818): the same
+    /// nuclide as [`nuclide_from_bytes`], bit for bit.
+    pub fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         let job = self.next_job().ok_or("no job left")?;
+        let (tape, mat) = read_tape(bytes, job.label)?;
         match job.kind {
-            JobKind::Nuclide => self.nuclides.push(nuclide_from_bytes(bytes, job.label)?),
-            JobKind::GraphiteSab => self.sab = Some(graphite_sab_from_bytes(bytes)?),
+            JobKind::Nuclide => {
+                self.nuclides.push(store.nuclide(bytes, &tape, mat, job.label, TEMPERATURE_K, SPEED, job.label)?)
+            }
+            JobKind::GraphiteSab => {
+                self.sab = Some(store.thermal(bytes, &tape, mat, TEMPERATURE_K, "c_Graphite", job.label)?)
+            }
         }
         self.done += 1;
         Ok(())

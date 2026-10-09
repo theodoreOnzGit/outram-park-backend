@@ -138,8 +138,8 @@ impl RungBuilder for model::DataBuilder {
     fn new(_tier: Tier) -> Self {
         model::DataBuilder::default()
     }
-    fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
-        model::DataBuilder::step(self, bytes)
+    fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
+        model::DataBuilder::step(self, bytes, store)
     }
     fn finish(self) -> Result<Loaded, String> {
         Ok(Loaded { phys: sim::Physics::new(model::DataBuilder::finish(self)?), chain: sim::Chain::new(CHAIN_SEED) })

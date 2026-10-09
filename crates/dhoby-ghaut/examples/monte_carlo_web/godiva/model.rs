@@ -51,12 +51,12 @@ impl DataBuilder {
     /// Process the next job from its (covariance-stripped) tape bytes, as
     /// `godiva_keff_endf_local.rs` does from the file: RECONR + BROADR to
     /// [`TEMPERATURE_K`] at this builder's tier.
-    pub fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
+    /// The expensive half comes from `store` when it holds it (gh:#818).
+    pub fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         let i = self.nuclides.len();
         let (name, _, _) = *godiva::NUCLIDES.get(i).ok_or("no job left")?;
         let (tape, mat) = read_tape(bytes, name)?;
-        let n = Nuclide::from_tape_with_speed(&tape, mat, name, TEMPERATURE_K, self.tier)
-            .map_err(|e| format!("{name}: {e}"))?;
+        let n = store.nuclide(bytes, &tape, mat, name, TEMPERATURE_K, self.tier, name)?;
         self.nuclides.push(n);
         Ok(())
     }

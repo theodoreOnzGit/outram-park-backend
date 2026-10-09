@@ -113,6 +113,10 @@ outram-foam-basic-lib = { workspace = true }
 kopitiam-pdf = { version = "0.4.3", default-features = false, features = ["egui"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+# `web_demo::data_cache` (gh:#818): SHA-256 of tapes (the cache key) and of
+# cached products (corruption check). Pure Rust; natively it comes from the
+# section above.
+sha2 = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 js-sys = { workspace = true }

@@ -57,14 +57,17 @@ impl DataBuilder {
 
     /// RECONR + BROADR at 600 K and tolerance 0.001 ([`SpeedTier::Fast`]),
     /// or THERMR for the graphite law.
-    pub fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
+    /// The expensive half comes from `store` when it holds it (gh:#818).
+    pub fn step(
+        &mut self,
+        bytes: &[u8],
+        store: &mut crate::processed_cache::DataStore,
+    ) -> Result<(), String> {
         let i = self.done.len() + usize::from(self.sab.is_some());
         let (label, _) = *JOBS.get(i).ok_or("no job left")?;
         let (tape, mat) = read_tape(bytes, label)?;
         if i < NAMES.len() {
-            let n =
-                Nuclide::from_tape_with_speed(&tape, mat, NAMES[i], fhr::TEMP_K, SpeedTier::Fast)
-                    .map_err(|e| format!("{label}: {e}"))?;
+            let n = store.nuclide(bytes, &tape, mat, NAMES[i], fhr::TEMP_K, SpeedTier::Fast, label)?;
             self.done.push(n);
         } else {
             let mat = if mat == GRAPHITE_MAT {
@@ -72,10 +75,7 @@ impl DataBuilder {
             } else {
                 return Err(format!("{label}: MAT {mat}, expected {GRAPHITE_MAT}"));
             };
-            self.sab = Some(
-                ThermalScattering::from_tape(&tape, mat, fhr::TEMP_K, "c_Graphite")
-                    .map_err(|e| format!("{label}: {e}"))?,
-            );
+            self.sab = Some(store.thermal(bytes, &tape, mat, fhr::TEMP_K, "c_Graphite", label)?);
         }
         Ok(())
     }
@@ -127,7 +127,7 @@ mod tests {
             )
             .expect("read");
             let t = std::time::Instant::now();
-            b.step(&crate::tapes::strip_covariances(&raw))
+            b.step(&crate::tapes::strip_covariances(&raw), &mut crate::processed_cache::DataStore::off())
                 .expect("step");
             eprintln!("  {label:<16} {:6.1} s", t.elapsed().as_secs_f64());
         }

@@ -73,16 +73,16 @@ impl DataBuilder {
     }
     /// The next tape: RECONR + BROADR at [`TEMP_K`], tolerance 0.001, or the
     /// graphite law (THERMR).
-    pub fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
+    /// The expensive half comes from `store` when it holds it (gh:#818).
+    pub fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         let i = self.nuclides.len() + usize::from(self.sab.is_some());
         let (label, _) = *JOBS.get(i).ok_or("no job left")?;
         let (tape, mat) = read_tape(bytes, label)?;
         if i < fz::ENDF_TAPES.len() {
-            let n = Nuclide::from_tape_with_speed(&tape, mat, fz::ENDF_TAPES[i].0, TEMP_K, SpeedTier::Fast)
-                .map_err(|e| format!("{label}: {e}"))?;
+            let n = store.nuclide(bytes, &tape, mat, fz::ENDF_TAPES[i].0, TEMP_K, SpeedTier::Fast, label)?;
             self.nuclides.push(n);
         } else {
-            self.sab = Some(ThermalScattering::from_tape(&tape, mat, TEMP_K, "c_Graphite").map_err(|e| format!("{label}: {e}"))?);
+            self.sab = Some(store.thermal(bytes, &tape, mat, TEMP_K, "c_Graphite", label)?);
         }
         Ok(())
     }

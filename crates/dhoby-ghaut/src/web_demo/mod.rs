@@ -24,7 +24,9 @@
 //! panel), [`lesson`] (the rung table and the "What's happening here?" link
 //! to the lesson page), [`platform`] (clock, page title, URL query), and
 //! [`pool`] (how many Web Workers to start for work that splits, sized to
-//! the device's cores, memory and screen; gh:#786).
+//! the device's cores, memory and screen; gh:#786), and [`data_cache`]
+//! (processed nuclear data kept in the browser's IndexedDB, shared by every
+//! demo page of the site and surviving reloads; gh:#818).
 //!
 //! # A new track app, step by step
 //!
@@ -53,6 +55,7 @@
 //! Everything here is presentation and plumbing: no physics (the crate rule).
 //! Gated off Android with the rest of the windowing stack.
 
+pub mod data_cache;
 pub mod lesson;
 pub mod link;
 pub mod loading;

@@ -91,7 +91,9 @@ pub trait RungBuilder: Sized {
     type Loaded: LoadedRung;
     fn new(tier: Tier) -> Self;
     /// Process the next tape from its (covariance-stripped) bytes.
-    fn step(&mut self, bytes: &[u8]) -> Result<(), String>;
+    /// `store` is the shared processed-data cache (gh:#818,
+    /// `common/processed_cache.rs`): build every nuclide and law through it.
+    fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String>;
     fn finish(self) -> Result<Self::Loaded, String>;
 }
 
@@ -319,8 +321,8 @@ macro_rules! rung_table {
             pub enum Builder { $( $t(<$crate::$m::$t as McRung>::Builder), )+ }
 
             impl Builder {
-                pub fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
-                    match self { $( Builder::$t(b) => RungBuilder::step(b, bytes), )+ }
+                pub fn step(&mut self, bytes: &[u8], store: &mut $crate::processed_cache::DataStore) -> Result<(), String> {
+                    match self { $( Builder::$t(b) => RungBuilder::step(b, bytes, store), )+ }
                 }
                 pub fn finish(self) -> Result<Loaded, String> {
                     Ok(match self { $( Builder::$t(b) => Loaded::$t(RungBuilder::finish(b)?), )+ })

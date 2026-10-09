@@ -33,6 +33,12 @@ mod model;
 #[cfg(not(target_os = "android"))]
 #[path = "../monte_carlo_web/tapes.rs"]
 mod tapes;
+// The processed nuclear data every demo shares, cached in the browser
+// (gh:#818): this demo reads the products the Monte Carlo demo's `triso`
+// rung made (same tapes, settings and keys), and the other way round.
+#[cfg(not(target_os = "android"))]
+#[path = "../common/processed_cache.rs"]
+mod processed_cache;
 #[cfg(not(target_os = "android"))]
 mod physics;
 #[cfg(not(target_os = "android"))]
@@ -68,7 +74,7 @@ fn load_native(mut report: impl FnMut(&str, f64)) -> Result<physics::Physics, St
     while let Some(job) = b.next_job() {
         let t = std::time::Instant::now();
         native_tape(job.tape)
-            .and_then(|bytes| b.step(&bytes))
+            .and_then(|bytes| b.step(&bytes, &mut processed_cache::DataStore::off()))
             .map_err(|e| format!("{}: {e}", job.label))?;
         report(job.label, t.elapsed().as_secs_f64());
     }

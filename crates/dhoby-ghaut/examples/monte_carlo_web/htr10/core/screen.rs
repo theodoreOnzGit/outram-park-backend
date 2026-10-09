@@ -615,16 +615,21 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
     let mut v = Vec::new();
     let el = now_s() - s.started_s;
     match &s.phase {
-        PoolPhase::Processing => v.push((
-            format!(
-                "Processing nuclear data in {} workers: {}/{} jobs, {:.0} % · {el:.0} s",
-                s.workers,
-                s.secs.iter().filter(|x| x.is_some()).count(),
-                s.secs.len(),
-                100.0 * s.progress()
-            ),
-            white,
-        )),
+        PoolPhase::Processing => {
+            v.push((
+                format!(
+                    "Processing nuclear data in {} workers: {}/{} jobs, {:.0} % · {el:.0} s",
+                    s.workers,
+                    s.secs.iter().filter(|x| x.is_some()).count(),
+                    s.secs.len(),
+                    100.0 * s.progress()
+                ),
+                white,
+            ));
+            if s.sources.iter().any(Option::is_some) {
+                v.push((format!("So far: {}", s.data_source()), white));
+            }
+        }
         PoolPhase::Assembling => v.push((
             format!(
                 "Building nuclides, core and majorant in every worker: {}/{} · {el:.0} s",
@@ -647,6 +652,8 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
                 ),
                 white,
             ));
+            // Where the data came from (gh:#818, Leak Before Break).
+            v.push((format!("Nuclear data: {}", s.data_source()), white));
             v.push((format!("Bed: {}", super::random_bed::label(s.layers)), white));
             if s.layers == super::random_bed::DEM_BED {
                 v.push((DEM_CAVEAT.to_string(), Color32::from_rgb(250, 200, 80)));
@@ -788,7 +795,8 @@ fn pool_panel(
     }
     let ready = s.phase == PoolPhase::Ready;
     egui::CollapsingHeader::new(format!("Data: {:.0} % ({} workers)", 100.0 * s.progress(), s.workers)).default_open(!ready).show(ui, |ui| {
-        egui::Grid::new("core_jobs").num_columns(3).striped(true).show(ui, |ui| {
+        ui.label(format!("Nuclear data: {}", s.data_source()));
+        egui::Grid::new("core_jobs").num_columns(4).striped(true).show(ui, |ui| {
             for (j, l) in s.labels.iter().enumerate() {
                 ui.label(l);
                 ui.label(format!("w{}", s.owner[j] + 1));
@@ -796,6 +804,11 @@ fn pool_panel(
                     (Some(t), _) => format!("{t:.1} s"),
                     (None, true) => "…".into(),
                     (None, false) => "queued".into(),
+                });
+                ui.label(match &s.sources[j] {
+                    Some(dhoby_ghaut::web_demo::data_cache::Source::Cached { .. }) => "cached",
+                    Some(_) => "processed",
+                    None => "",
                 });
                 ui.end_row();
             }
@@ -1066,6 +1079,7 @@ mod tests {
                 job: j,
                 secs: 0.0,
                 data: dhoby_ghaut::web_demo::link::Floats::from_vec(vec![0.0]),
+                source: dhoby_ghaut::web_demo::data_cache::Source::Processed,
             };
             p.state.on_event(0, ev, 0.0);
         }

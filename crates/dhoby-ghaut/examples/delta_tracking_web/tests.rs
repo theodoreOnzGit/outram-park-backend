@@ -446,6 +446,7 @@ fn the_engine_thread_loads_traces_and_runs() {
     link.send(Request::Load { id: 1 });
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(900);
     let (mut ready, mut traced, mut gens, mut jobs) = (false, false, 0, 0);
+    let mut info: Option<String> = None;
     while !(traced && gens == 2) {
         assert!(
             std::time::Instant::now() < deadline,
@@ -488,10 +489,15 @@ fn the_engine_thread_loads_traces_and_runs() {
                 }
                 Event::Error(m) => panic!("engine: {m}"),
                 Event::JobStarted { .. } => {}
+                Event::DataInfo(m) => info = Some(m),
             }
         }
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
     assert!(ready);
     assert_eq!(jobs, engine::job_labels().len());
+    // gh:#818: the load says where its data came from (a fresh engine
+    // processes every tape).
+    let info = info.expect("a DataInfo event");
+    assert!(info.contains("all 11 processed now"), "{info}");
 }

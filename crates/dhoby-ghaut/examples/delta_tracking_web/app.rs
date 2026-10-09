@@ -95,6 +95,8 @@ pub struct App {
     step_predict: StepPredictions,
     many_predict: ManyPredictions,
     majorant: Option<(f64, usize)>,
+    /// Where the data came from and any cache notes (gh:#818).
+    data_info: Option<String>,
     load_timings: Vec<(&'static str, f64)>,
     load_total_s: f64,
     autostart: bool,
@@ -186,6 +188,7 @@ impl App {
                 ),
             },
             majorant: None,
+            data_info: None,
             load_timings: Vec::new(),
             load_total_s: 0.0,
             autostart: autostart(),
@@ -238,6 +241,10 @@ impl App {
                         r.failed();
                     }
                     self.phase = Phase::Failed(m);
+                }
+                (_, Event::DataInfo(m)) => {
+                    log::info!("{m}");
+                    self.data_info = Some(m);
                 }
                 (Phase::Loading(l), Event::JobStarted { index, .. }) => l.job_started(index),
                 (Phase::Loading(l), Event::JobDone { index, secs, .. }) => l.job_done(index, secs),
@@ -491,6 +498,11 @@ impl App {
                 ui.label(format!("• The majorant here took {secs:.1} s to build and has {points} energy points."));
             }
         });
+        if let Some(m) = &self.data_info {
+            // Where the data came from (gh:#818, Leak Before Break). The cache
+            // is shared with the Monte Carlo demo, whose panel clears it.
+            ui.label(egui::RichText::new(m).small());
+        }
         if !self.load_timings.is_empty() {
             egui::CollapsingHeader::new(format!("Data processing: {:.0} s", self.load_total_s))
                 .show(ui, |ui| {

@@ -17,6 +17,7 @@ use crate::walkdemo::{Outgoing, WalkDemo};
 use crate::xs::{self, XsCurve};
 use crate::rungs::Mode;
 use crate::table::Rung;
+use dhoby_ghaut::web_demo::data_cache::Source;
 use dhoby_ghaut::web_demo::lesson::{self, Rung as _};
 use dhoby_ghaut::web_demo::link::Link;
 use dhoby_ghaut::web_demo::loading::Loading;
@@ -42,13 +43,16 @@ struct LoadState {
     /// The tier actually processed (after the rung's own choice).
     tier: Tier,
     loading: Loading,
+    /// Per job: processed now, or read from the browser's cache (gh:#818).
+    sources: Vec<Option<Source>>,
 }
 
 impl LoadState {
     fn new(rung: Rung, requested: Tier) -> Self {
         let tier = rung.tier(requested);
-        let labels = rung.jobs_for(tier).iter().map(|j| j.0).collect();
-        Self { rung, tier, loading: Loading::new(labels, rung.job_weights(tier)) }
+        let labels: Vec<&'static str> = rung.jobs_for(tier).iter().map(|j| j.0).collect();
+        let sources = vec![None; labels.len()];
+        Self { rung, tier, loading: Loading::new(labels, rung.job_weights(tier)), sources }
     }
     fn tolerance(&self) -> &'static str {
         match self.tier {
@@ -356,8 +360,10 @@ enum Screen {
     Beds(crate::beds::BedsView),
     /// The rung's own demo (gh:#785, [`crate::walkdemo`]).
     Walk(WalkDemo),
-    /// The whole HTR-10 core on a worker pool (gh:#786).
-    Core(crate::htr10::core::screen::CoreScreen),
+    /// The whole HTR-10 core on a worker pool (gh:#786). The view itself is
+    /// [`McApp::core`], held by the app so its pool and processed data
+    /// outlive a switch to another view or rung (gh:#818).
+    Core,
 }
 
 /// Send a rung demo's messages to the worker.
@@ -478,6 +484,18 @@ pub struct McApp {
     xs_on: bool,
     /// The reader's finished `k_inf` runs this session, for the loaded rung.
     kinf_points: Vec<KinfPoint>,
+    /// The whole-core view, made the first time it is shown and then kept
+    /// for the session: its worker pool, their processed data and any run
+    /// survive a switch to another view or rung (gh:#818; until 2026-10-09
+    /// the view was rebuilt on every switch and the old pool's workers,
+    /// about 545 MB each, were left running unreachable).
+    core: Option<crate::htr10::core::screen::CoreScreen>,
+    /// Where the loaded rung's data came from, per job (gh:#818).
+    data_sources: Vec<Source>,
+    /// Cache notes this session (misses with a reason, storage notes).
+    data_notes: Vec<String>,
+    /// What the cache holds, as the engine last reported it.
+    cache_info: Option<String>,
 }
 
 impl McApp {
@@ -524,9 +542,14 @@ impl McApp {
             xs_shown: Vec::new(),
             xs_on: true,
             kinf_points: Vec::new(),
+            core: None,
+            data_sources: Vec::new(),
+            data_notes: Vec::new(),
+            cache_info: None,
         };
         match link {
             Ok(l) => {
+                l.send(Request::CacheInfo);
                 app.link = Some(l);
                 app.switch(rung, mode);
             }
@@ -624,8 +647,13 @@ impl McApp {
             }
             (Mode::Watch, WatchView::Beds, _) if self.rung.beds() => Screen::Beds(crate::beds::BedsView::new()),
             (Mode::Watch, WatchView::Core, _) if self.rung.has_core_pool() && self.rung.raster_info().is_some() => {
-                let info = self.rung.raster_info().expect("checked");
-                Screen::Core(crate::htr10::core::screen::CoreScreen::new(info, self.speed_at_1ev, self.autostart))
+                // Made once and kept (gh:#818): coming back to this view
+                // finds the pool, its data and any run as they were.
+                if self.core.is_none() {
+                    let info = self.rung.raster_info().expect("checked");
+                    self.core = Some(crate::htr10::core::screen::CoreScreen::new(info, self.speed_at_1ev, self.autostart));
+                }
+                Screen::Core
             }
             (Mode::Watch, WatchView::Kinf, _) if self.rung.kinf_case().is_some() => {
                 let mut k = KinfRun::new(self.rung.kinf_case().expect("checked"));
@@ -647,8 +675,23 @@ impl McApp {
             match (&mut self.phase, e) {
                 (_, Event::Error(m)) => self.phase = Phase::Failed(m),
                 (Phase::Loading(l), Event::JobStarted { id, index }) if id == self.load_id => l.loading.job_started(index),
-                (Phase::Loading(l), Event::JobDone { id, index, secs }) if id == self.load_id => l.loading.job_done(index, secs),
+                (Phase::Loading(l), Event::JobDone { id, index, secs, source }) if id == self.load_id => {
+                    l.loading.job_done(index, secs);
+                    if let Some(s) = l.sources.get_mut(index) {
+                        *s = Some(source);
+                    }
+                }
+                (_, Event::DataNote(m)) => {
+                    log::warn!("nuclear-data cache: {m}");
+                    self.data_notes.push(m);
+                }
+                (_, Event::CacheInfo(m)) => self.cache_info = Some(m),
                 (Phase::Loading(l), Event::Ready { id }) if id == self.load_id => {
+                    self.data_sources = l.sources.iter().flatten().cloned().collect();
+                    log::info!("{} data: {}", l.rung.info().title, Source::summarize(self.data_sources.iter()));
+                    if let Some(link) = &self.link {
+                        link.send(Request::CacheInfo);
+                    }
                     self.load_timings = l.loading.timings();
                     self.load_total_s = now_s() - l.loading.started;
                     self.loaded = Some((l.rung, l.tier));
@@ -666,7 +709,11 @@ impl McApp {
                         self.phase = Phase::Failed(e);
                     }
                 }
-                (Phase::Ready(Screen::Core(c)), Event::Raster { req, map, secs }) => c.slicer.receive(ctx, req, map, secs),
+                (Phase::Ready(Screen::Core), Event::Raster { req, map, secs }) => {
+                    if let Some(c) = self.core.as_mut() {
+                        c.slicer.receive(ctx, req, map, secs);
+                    }
+                }
                 (_, Event::XsCurves(c)) => {
                     self.xs_shown = vec![true; c.len()];
                     self.xs = c;
@@ -715,7 +762,7 @@ impl McApp {
             }
             Phase::Ready(Screen::Beds(_)) => format!("{name} · liberties: lattice vs random bed"),
             Phase::Ready(Screen::Walk(w)) => format!("{name} · {}", w.status()),
-            Phase::Ready(Screen::Core(c)) => format!("{name} · {}", c.title()),
+            Phase::Ready(Screen::Core) => format!("{name} · {}", self.core.as_ref().map(|c| c.title()).unwrap_or_default()),
             Phase::Failed(e) => format!("{name} · FAILED · {e}"),
         };
         if t != self.title {
@@ -750,8 +797,13 @@ impl eframe::App for McApp {
                 // Raster requests go out from the main view, which knows its size.
                 Screen::Geometry(_) | Screen::Layers(_) | Screen::Beds(_) => {}
                 Screen::Walk(w) => send_walk(Some(link), w.pump()),
-                Screen::Core(c) => c.pump(&ctx),
+                Screen::Core => {}
             }
+        }
+        // The core's pool keeps working whatever is on screen (gh:#818): its
+        // relays, generations and runs go on behind another view or rung.
+        if let Some(c) = self.core.as_mut() {
+            c.pump(&ctx);
         }
         if matches!(self.phase, Phase::Loading(_)) {
             // Elapsed time and the progress bar keep moving between events.
@@ -835,9 +887,11 @@ impl McApp {
                 }
                 send_walk(link, w.panel(ui));
             }
-            Phase::Ready(Screen::Core(c)) => {
+            Phase::Ready(Screen::Core) => {
                 want_view = Self::watch_view_picker(ui, WatchView::Core, &views);
-                c.panel(ui);
+                if let Some(c) = self.core.as_mut() {
+                    c.panel(ui);
+                }
             }
         }
         if let Some(v) = want_view {
@@ -857,6 +911,44 @@ impl McApp {
             egui::CollapsingHeader::new(format!("Data processing: {:.0} s", self.load_total_s)).show(ui, |ui| {
                 for (l, s) in &self.load_timings {
                     ui.label(format!("{l:<16} {s:6.1} s"));
+                }
+            });
+        }
+        self.cache_panel(ui);
+    }
+
+    /// The shared nuclear-data cache (gh:#818): where this rung's data came
+    /// from, what the cache holds, its notes, and the "Clear" control. GUI
+    /// drawing (the test rule's exception); the decisions are
+    /// `Source::summarize` and the engine's `ClearCache` / `CacheInfo`.
+    fn cache_panel(&mut self, ui: &mut egui::Ui) {
+        ui.separator();
+        ui.strong("Nuclear data");
+        if !self.data_sources.is_empty() {
+            ui.label(format!("This rung's data: {}.", Source::summarize(self.data_sources.iter())));
+        }
+        if let Some(c) = self.core.as_ref().and_then(|c| c.pool.as_ref()) {
+            ui.label(format!("Whole-core pool: {}.", c.state.data_source()));
+        }
+        ui.label(format!("Cache: {}.", self.cache_info.as_deref().unwrap_or("asking…")));
+        ui.weak("Processed nuclides are kept in this browser (IndexedDB, this site only), keyed by each tape's contents, the processing settings and the code version, so a reload, another demo page or a discarded tab reads them back instead of processing again.");
+        ui.horizontal_wrapped(|ui| {
+            if ui.add(egui::Button::new("🗑 Clear cached nuclear data").min_size(egui::vec2(0.0, 36.0))).clicked() {
+                if let Some(link) = &self.link {
+                    link.send(Request::ClearCache);
+                }
+                self.cache_info = None;
+            }
+            if ui.add(egui::Button::new("↻ Refresh").min_size(egui::vec2(0.0, 36.0))).clicked() {
+                if let Some(link) = &self.link {
+                    link.send(Request::CacheInfo);
+                }
+            }
+        });
+        if !self.data_notes.is_empty() {
+            egui::CollapsingHeader::new(format!("Cache notes ({})", self.data_notes.len())).default_open(true).show(ui, |ui| {
+                for n in self.data_notes.iter().rev().take(12) {
+                    ui.colored_label(Color32::from_rgb(250, 200, 80), n);
                 }
             });
         }
@@ -1471,7 +1563,7 @@ impl McApp {
         // The layers view splits the same way: the bed beside its plot.
         let is_layers = matches!(self.phase, Phase::Ready(Screen::Layers(_)));
         let is_beds = matches!(self.phase, Phase::Ready(Screen::Beds(_)));
-        let is_slice = is_layers || matches!(self.phase, Phase::Ready(Screen::Geometry(_) | Screen::Core(_)));
+        let is_slice = is_layers || matches!(self.phase, Phase::Ready(Screen::Geometry(_) | Screen::Core));
         let (rect, xs_rect) = if !(xs_on || is_layers) {
             (full, None)
         } else if full.width() >= 700.0 && full.width() > full.height() {
@@ -1499,7 +1591,14 @@ impl McApp {
         match &mut self.phase {
             Phase::Loading(l) => {
                 let title = "Simulation loading…";
-                l.loading.card(&painter, rect, title, rung.loading_note(l.tier));
+                // Where the data are coming from (gh:#818), under the rung's
+                // own note.
+                let note = match (rung.loading_note(l.tier), l.sources.iter().any(Option::is_some)) {
+                    (n, false) => n.map(str::to_string),
+                    (None, true) => Some(format!("So far: {}.", Source::summarize(l.sources.iter().flatten()))),
+                    (Some(n), true) => Some(format!("{n}\nSo far: {}.", Source::summarize(l.sources.iter().flatten()))),
+                };
+                l.loading.card(&painter, rect, title, note.as_deref());
             }
             Phase::Failed(e) => {
                 painter.text(rect.center(), egui::Align2::CENTER_CENTER, format!("Failed: {e}"), egui::FontId::proportional(15.0), Color32::from_rgb(255, 110, 110));
@@ -1602,7 +1701,11 @@ impl McApp {
                 }
             }
             Phase::Ready(Screen::Beds(b)) => b.draw(ui, rect, &painter, &geo_resp),
-            Phase::Ready(Screen::Core(c)) => c.canvas(ui, rect, &painter, &geo_resp, self.link.as_ref()),
+            Phase::Ready(Screen::Core) => {
+                if let Some(c) = self.core.as_mut() {
+                    c.canvas(ui, rect, &painter, &geo_resp, self.link.as_ref());
+                }
+            }
             Phase::Ready(Screen::Layers(ly)) => {
                 Self::slice_view(ui, rect, &painter, &geo_resp, &mut ly.slicer, self.link.as_ref());
                 if let Some(pr) = xs_rect {
@@ -1654,7 +1757,7 @@ impl McApp {
             Phase::Ready(Screen::Layers(ly)) => (Some(&mut ly.slicer.view), rect),
             Phase::Ready(Screen::Beds(b)) => (Some(&mut b.view), rect),
             Phase::Ready(Screen::Walk(w)) => (Some(w.view_mut()), zoom_rect),
-            Phase::Ready(Screen::Core(c)) => (Some(&mut c.slicer.view), rect),
+            Phase::Ready(Screen::Core) => (self.core.as_mut().map(|c| &mut c.slicer.view), rect),
             _ => (None, rect),
         };
         if let Some(v) = &sview {

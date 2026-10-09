@@ -99,7 +99,7 @@ impl RungBuilder for Builder {
     fn new(_tier: Tier) -> Self {
         Builder
     }
-    fn step(&mut self, _bytes: &[u8]) -> Result<(), String> {
+    fn step(&mut self, _bytes: &[u8], _store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         Err("the packing rung processes no tapes".into())
     }
     fn finish(self) -> Result<Loaded, String> {

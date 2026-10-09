@@ -114,8 +114,8 @@ impl RungBuilder for Builder {
     fn new(tier: Tier) -> Self {
         Builder(model::DataBuilder::new(tier.speed()))
     }
-    fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
-        self.0.step(bytes)
+    fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
+        self.0.step(bytes, store)
     }
     fn finish(self) -> Result<Loaded, String> {
         let phys = sim::Physics {
@@ -194,7 +194,7 @@ pub(crate) mod tests {
             let t = std::time::Instant::now();
             let path = njoy_outram_park_fork::reference_data::reference_endf(tape).expect("tape");
             let raw = std::fs::read(path).expect("read");
-            b.step(&crate::tapes::strip_covariances(&raw)).expect("step");
+            b.step(&crate::tapes::strip_covariances(&raw), &mut crate::processed_cache::DataStore::off()).expect("step");
             eprintln!("  {label:<16} {:6.1} s", t.elapsed().as_secs_f64());
         }
         b.finish().expect("finish")

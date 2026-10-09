@@ -40,6 +40,7 @@
 
 use super::{schedule, AssemblyReport, CoreEv, CoreReq};
 use crate::keff::KeffConfig;
+use dhoby_ghaut::web_demo::data_cache::Source;
 use dhoby_ghaut::web_demo::link::{Floats, BAD_MESSAGE};
 use outram_mc_libs::physics::transport_csg::distributed::{
     ChunkResult, DistributedGeneration, DistributedPowerIteration, GenerationChunk, SourceSite,
@@ -204,6 +205,8 @@ pub struct PoolState {
     pub owner: Vec<usize>,
     pub started: Vec<bool>,
     pub secs: Vec<Option<f64>>,
+    /// Per job: processed now, or read from the browser's cache (gh:#818).
+    pub sources: Vec<Option<Source>>,
     /// Products awaiting relay, dropped once relayed to every other worker.
     products: Vec<Option<(Floats, usize)>>,
     relay: VecDeque<(usize, usize)>,
@@ -257,6 +260,7 @@ impl PoolState {
             owner,
             started: vec![false; n],
             secs: vec![None; n],
+            sources: vec![None; n],
             products: (0..n).map(|_| None).collect(),
             relay: VecDeque::new(),
             process_sent: false,
@@ -275,6 +279,13 @@ impl PoolState {
             log: Vec::new(),
             out: Vec::new(),
         }
+    }
+
+    /// Where the data came from, one line (gh:#818: Leak Before Break, the
+    /// page shows it): how many products were read from this browser's
+    /// cache and how many processed now.
+    pub fn data_source(&self) -> String {
+        Source::summarize(self.sources.iter().flatten())
     }
 
     /// Workers still alive.
@@ -350,9 +361,22 @@ impl PoolState {
                     *s = true;
                 }
             }
-            CoreEv::Product { job, secs, data } => {
+            CoreEv::DataNote(m) => self.note(format!("worker {}: {m}", w + 1)),
+            CoreEv::Product {
+                job,
+                secs,
+                data,
+                source,
+            } => {
                 if job < self.secs.len() {
                     self.secs[job] = Some(secs);
+                    log::info!(
+                        "htr10 core: {} {} ({secs:.1} s, worker {})",
+                        self.labels.get(job).map_or("?", String::as_str),
+                        source.describe(),
+                        w + 1
+                    );
+                    self.sources[job] = Some(source);
                     let others: Vec<usize> = (0..self.workers).filter(|&v| v != w).collect();
                     for &v in &others {
                         self.relay.push_back((v, job));
@@ -917,6 +941,7 @@ mod tests {
                         job: j,
                         secs: 1.0,
                         data: Floats::from_vec(vec![j as f64; 4]),
+                        source: Source::Processed,
                     },
                     1.0,
                 );
@@ -1147,6 +1172,7 @@ mod tests {
                     job: 0,
                     secs: 0.0,
                     data: Floats::from_vec(vec![1.0]),
+                    source: Source::Cached { created_ms: 0.0, code: "test".into() },
                 },
                 0.0,
             );

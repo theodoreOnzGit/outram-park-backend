@@ -1087,6 +1087,16 @@ all 25 generations. **The miss to show:** in two of five desktop runs, under
 heavy machine load, the page itself stalled for up to 1.4 s, which the
 no-lag rule forbids; quiet reruns had no stall.
 
+Since 2026-10-09 (gh:#818) the processed data are kept in your browser
+(IndexedDB, keyed by each tape's contents, the processing settings and the
+code version), and the page says where its data came from. Held to 4 cores
+of an i9-13900K,
+a first visit was ready in 112 s and a reload in 22 s, with all 36 products
+read back and the same $k$ in all 25 generations, bit for bit
+([`nuclear_data_cache_web/`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/dhoby-ghaut/verification_and_validation/nuclear_data_cache_web)).
+The reload is not instant: every worker still rebuilds its nuclides and the
+bed majorant.
+
 #### From the builder to transport (code walk)
 
 The recorded runs build the core with `assemble_explicit_triso`, whose CSG
@@ -1637,17 +1647,17 @@ driver:
 
 Call chain from `mod.rs::CoreWorker::chunk` to `transport_csg.rs::transport_history_vr`: 2 hops, 1 shortest chain. Each step shows its code; the name links to it on GitHub.
 
-**1.** [`mod.rs::CoreWorker::chunk`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs#L387) — Transport one chunk; the result with its tracks thinned.
+**1.** [`mod.rs::CoreWorker::chunk`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs#L471) — Transport one chunk; the result with its tracks thinned.
 
-<!-- snippet-check: crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs:387 fn chunk -->
-<!-- snippet-check: crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs:390 transport_chunk -->
+<!-- snippet-check: crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs:471 fn chunk -->
+<!-- snippet-check: crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs:474 transport_chunk -->
 
 ```rust,ignore
-{{#include ../../../../../crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs:387:391}}
+{{#include ../../../../../crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs:471:475}}
     // … (the rest of the function: follow the link above)
 ```
 
-**2.** → [`transport_csg_distributed.rs::transport_chunk`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg_distributed.rs#L406) · called at [L390](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs#L390) — **Worker side**: transport the histories of `chunk`, each on the stream `run_keff_csg_par` gives it, and return their productions, banks, counts and the traced tracks.
+**2.** → [`transport_csg_distributed.rs::transport_chunk`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg_distributed.rs#L406) · called at [L474](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/examples/monte_carlo_web/htr10/core/mod.rs#L474) — **Worker side**: transport the histories of `chunk`, each on the stream `run_keff_csg_par` gives it, and return their productions, banks, counts and the traced tracks.
 
 <!-- snippet-check: crates/outram-mc-libs/src/physics/transport_csg_distributed.rs:406 fn transport_chunk -->
 <!-- snippet-check: crates/outram-mc-libs/src/physics/transport_csg_distributed.rs:428 transport_history_vr -->

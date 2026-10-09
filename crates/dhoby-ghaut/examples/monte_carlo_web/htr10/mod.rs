@@ -259,8 +259,8 @@ impl RungBuilder for model::DataBuilder {
     fn new(tier: Tier) -> Self {
         model::DataBuilder::new(tier)
     }
-    fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
-        model::DataBuilder::step(self, bytes)
+    fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
+        model::DataBuilder::step(self, bytes, store)
     }
     fn finish(self) -> Result<Loaded, String> {
         Ok(Loaded { core: None, fuel: model::DataBuilder::finish(self)?, run: None })
@@ -400,7 +400,7 @@ mod tests {
         for (label, tape) in model::JOBS {
             let raw = std::fs::read(njoy_outram_park_fork::reference_data::reference_endf(tape).expect("tape")).expect("read");
             let t1 = std::time::Instant::now();
-            b.step(&crate::tapes::strip_covariances(&raw)).expect("step");
+            b.step(&crate::tapes::strip_covariances(&raw), &mut crate::processed_cache::DataStore::off()).expect("step");
             eprintln!("  {label:<16} {:6.1} s", t1.elapsed().as_secs_f64());
         }
         let mut l = Loaded { core: None, fuel: b.finish().expect("finish"), run: None };

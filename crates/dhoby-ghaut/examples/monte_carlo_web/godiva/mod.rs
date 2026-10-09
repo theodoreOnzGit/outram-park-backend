@@ -132,8 +132,8 @@ impl RungBuilder for model::DataBuilder {
     fn new(tier: Tier) -> Self {
         model::DataBuilder::new(tier.speed())
     }
-    fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
-        model::DataBuilder::step(self, bytes)
+    fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
+        model::DataBuilder::step(self, bytes, store)
     }
     fn finish(self) -> Result<sim::Loaded, String> {
         let data = model::DataBuilder::finish(self)?;

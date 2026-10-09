@@ -69,6 +69,7 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
 | no-lag plumbing | `web_demo::link` | `Link<Req, Ev>` (UI side, `send` / non-blocking `drain`), `NativeEngine` + `start_native` (a thread), `WorkerEngine` + `worker_main` + `start_web` (a module Web Worker on the same wasm, with the hello handshake), `Message` + `js` helpers, `fetch_start` / `fetch_promise` |
 | loading | `web_demo::loading` | `Loading`: per-job progress weighted by cost, `card` on the main view, `grid` in the panel |
 | rungs and lessons | `web_demo::lesson` | trait `Rung` (`all`, `name`, `title`, `lesson`), `from_query` (`?rung=`), `lesson_url`, `whats_happening`, `picker` |
+| nuclear-data cache | `web_demo::data_cache` | (gh:#818) `Record` (a processed product's exact `f64` words, key, code version, SHA-256), `Miss` (why a lookup missed, with the note the page shows), `Source` (processed now / from this browser's cache, `summarize`), `Summary`, `PutError` (quota), and `idb` (IndexedDB glue on the site's origin, wasm only). The physics side, keys and `DataStore`, is `examples/common/processed_cache.rs` |
 | platform | `web_demo::platform` | `now_s` (no `Instant` on wasm), `set_title`, `query_pairs` (URL query, or `--key value` natively), `set_query`, `autostart`, `keep_canvas_at_device_pixels` (canvas backing store = CSS size × `devicePixelRatio`; `Panel::show` calls it every frame, gh:#556) |
 
 ### A new track's demo (nuclear data, dispersion, fuel performance, …)
@@ -100,7 +101,11 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
    `job_weights`, `half_extent`, `draw`, `notes`, and optionally
    `run_default` (gives it Run k_eff), `watch_generations`, `reference`,
    `loading_note`, `legend`. Its `Builder` implements `RungBuilder` (one tape
-   per `step`) producing a type implementing `LoadedRung` (`run_next` traced
+   per `step`; **since 2026-10-09 (gh:#818) `step` takes the shared
+   `processed_cache::DataStore`: build every nuclide with `store.nuclide(..)`
+   and every thermal law with `store.thermal(..)`, never
+   `Nuclide::from_tape_with_speed` directly, so the browser cache and the
+   page's "processed now / from cache" line cover the rung**) producing a type implementing `LoadedRung` (`run_next` traced
    history; `keff_start` / `keff_step` / `keff_finished`, or an error for a
    rung without Run). `godiva/` is the worked example with Run k_eff,
    `triso/` without. Optional since 2026-10-05 (gh:#549): a small `k_inf`

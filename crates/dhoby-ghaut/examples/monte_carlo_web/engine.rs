@@ -22,6 +22,8 @@
 
 use crate::history::History;
 use crate::keff::{Generation, KeffConfig, KinfGeneration};
+use crate::processed_cache::DataStore;
+use dhoby_ghaut::web_demo::data_cache::Source;
 use crate::table::{Loaded, Rung};
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::material::speed::SpeedTier;
@@ -73,11 +75,22 @@ pub enum Request {
     /// A request to one member of the HTR-10 core's worker pool (gh:#786);
     /// needs no loaded rung.
     Core(crate::htr10::core::CoreReq),
+    /// Remove every cached product (gh:#818), then report as [`Request::CacheInfo`].
+    ClearCache,
+    /// What the cache holds ([`Event::CacheInfo`]).
+    CacheInfo,
 }
 
 pub enum Event {
     JobStarted { id: u32, index: usize },
-    JobDone { id: u32, index: usize, secs: f64 },
+    /// A tape's products are built; `source` says whether they were
+    /// processed now or read from the browser's cache (gh:#818).
+    JobDone { id: u32, index: usize, secs: f64, source: Source },
+    /// Something the page must show about the cache (a miss with a reason,
+    /// storage unavailable, quota full), gh:#818.
+    DataNote(String),
+    /// What the cache holds, as the page prints it (or why it cannot say).
+    CacheInfo(String),
     Ready { id: u32 },
     History { h: History, animate: bool },
     /// The source before the first generation of a just-started iteration.
@@ -102,7 +115,7 @@ pub enum Event {
 /// Serve one non-load request on loaded data.
 pub fn serve(l: &mut Loaded, r: Request, post: &mut impl FnMut(Event)) {
     match r {
-        Request::Load { .. } | Request::Core(_) => {} // the platform's jobs
+        Request::Load { .. } | Request::Core(_) | Request::ClearCache | Request::CacheInfo => {} // the platform's jobs
         Request::Run { n, animate } => {
             for _ in 0..n {
                 post(Event::History { h: l.run_next(), animate });
@@ -170,6 +183,21 @@ pub struct McEngine {
     newest_load: u32,
     /// This engine as a member of the HTR-10 core's pool (gh:#786).
     core: std::sync::Arc<std::sync::RwLock<crate::htr10::core::CoreWorker>>,
+    /// Natively, every product this engine processed, so a rung switched
+    /// away from and back to is not processed again (gh:#818). In the
+    /// browser the cache is IndexedDB, read per load.
+    #[cfg(not(target_arch = "wasm32"))]
+    store: DataStore,
+}
+
+/// Where the product a builder step just made came from, and the notes it
+/// left: the step's [`Event::JobDone`] and [`Event::DataNote`]s.
+pub fn step_report(store: &mut DataStore) -> (Source, Vec<String>) {
+    let (sources, notes) = store.take_report();
+    // A step makes one product (a tape's nuclide or its law); an empty list
+    // is a builder that made none (a rung that loads no data).
+    let source = sources.into_iter().last().map_or(Source::Processed, |(_, s)| s);
+    (source, notes)
 }
 
 // ─── Native: an engine thread ────────────────────────────────────────────────
@@ -182,7 +210,7 @@ impl dhoby_ghaut::web_demo::link::NativeEngine for McEngine {
         match req {
             Request::Load { id, rung, tier } => {
                 self.loaded = None;
-                match native_load(id, rung, tier, post) {
+                match native_load(id, rung, tier, &mut self.store, post) {
                     Ok(l) => {
                         self.loaded = Some(l);
                         post(Event::Ready { id });
@@ -197,6 +225,14 @@ impl dhoby_ghaut::web_demo::link::NativeEngine for McEngine {
                     crate::htr10::core::serve_native(&mut w, r, post);
                 }
             }
+            // Natively the cache is this engine's memory (gh:#818).
+            Request::ClearCache => {
+                self.store.clear();
+                post(Event::CacheInfo(format!("in this program's memory: {}", self.store.summary().describe())));
+            }
+            Request::CacheInfo => {
+                post(Event::CacheInfo(format!("in this program's memory: {}", self.store.summary().describe())));
+            }
             r => match self.loaded.as_mut() {
                 Some(l) => serve(l, r, post),
                 None => post(Event::Error("no data loaded".into())),
@@ -205,15 +241,22 @@ impl dhoby_ghaut::web_demo::link::NativeEngine for McEngine {
     }
 }
 
-/// Process a rung's tapes from `reference-data/endf/`, posting progress.
+/// Process a rung's tapes from `reference-data/endf/`, posting progress,
+/// through `store` (the engine's memory of what it processed, gh:#818).
 #[cfg(not(target_arch = "wasm32"))]
-pub fn native_load(id: u32, rung: Rung, tier: Tier, post: &mut impl FnMut(Event)) -> Result<Loaded, String> {
+pub fn native_load(id: u32, rung: Rung, tier: Tier, store: &mut DataStore, post: &mut impl FnMut(Event)) -> Result<Loaded, String> {
     let mut b = rung.builder(tier);
     for (index, (label, tape)) in rung.jobs_for(rung.tier(tier)).iter().enumerate() {
         post(Event::JobStarted { id, index });
         let t = std::time::Instant::now();
-        crate::native_tape(tape).and_then(|bytes| b.step(&bytes)).map_err(|e| format!("{label}: {e}"))?;
-        post(Event::JobDone { id, index, secs: t.elapsed().as_secs_f64() });
+        let bytes = crate::native_tape(tape).map_err(|e| format!("{label}: {e}"))?;
+        store.begin_tape(&bytes);
+        b.step(&bytes, store).map_err(|e| format!("{label}: {e}"))?;
+        let (source, notes) = step_report(store);
+        for n in notes {
+            post(Event::DataNote(n));
+        }
+        post(Event::JobDone { id, index, secs: t.elapsed().as_secs_f64(), source });
     }
     b.finish()
 }
@@ -392,11 +435,30 @@ pub fn decode_generation(v: &[f64]) -> Result<Generation, String> {
 // ─── Browser: messages as JS objects, and the worker ─────────────────────────
 
 #[cfg(target_arch = "wasm32")]
-mod web {
+pub mod web {
     use super::*;
     use dhoby_ghaut::web_demo::link::{fetch_promise, fetch_start, js, Message, Poster, WorkerEngine};
     use std::sync::{Arc, RwLock};
     use wasm_bindgen::JsValue;
+
+    /// A [`Source`] on a message: `src_ms` (NaN: processed now) and `src_code`.
+    pub fn set_source(o: &js_sys::Object, s: &Source) {
+        match s {
+            Source::Processed => js::set(o, "src_ms", f64::NAN),
+            Source::Cached { created_ms, code } => {
+                js::set(o, "src_ms", *created_ms);
+                js::set(o, "src_code", code.as_str());
+            }
+        }
+    }
+
+    /// The inverse of [`set_source`].
+    pub fn get_source(v: &JsValue) -> Source {
+        match js::get_f64(v, "src_ms").filter(|x| !x.is_nan()) {
+            Some(created_ms) => Source::Cached { created_ms, code: js::get_str(v, "src_code") },
+            None => Source::Processed,
+        }
+    }
 
     impl Message for Request {
         fn to_js(&self) -> JsValue {
@@ -443,6 +505,8 @@ mod web {
                     js::set(&o, "data", js::f64s(m));
                 }
                 Request::Core(r) => r.to_js(&o),
+                Request::ClearCache => js::set(&o, "kind", "clear_cache"),
+                Request::CacheInfo => js::set(&o, "kind", "cache_info"),
             }
             o.into()
         }
@@ -497,6 +561,8 @@ mod web {
                 "xs_curves" => Request::XsCurves,
                 "raster" => Request::Raster(crate::raster::RasterReq::decode(&js::get_f64s(v, "req"))?),
                 "walk" => Request::Walk(js::get_f64s(v, "data")),
+                "clear_cache" => Request::ClearCache,
+                "cache_info" => Request::CacheInfo,
                 other => return Err(format!("unknown request '{other}'")),
             })
         }
@@ -511,11 +577,20 @@ mod web {
                     js::set(&o, "id", *id as f64);
                     js::set(&o, "index", *index as f64);
                 }
-                Event::JobDone { id, index, secs } => {
+                Event::JobDone { id, index, secs, source } => {
                     js::set(&o, "kind", "done");
                     js::set(&o, "id", *id as f64);
                     js::set(&o, "index", *index as f64);
                     js::set(&o, "secs", *secs);
+                    set_source(&o, source);
+                }
+                Event::DataNote(m) => {
+                    js::set(&o, "kind", "data_note");
+                    js::set(&o, "message", m.as_str());
+                }
+                Event::CacheInfo(m) => {
+                    js::set(&o, "kind", "cache_info");
+                    js::set(&o, "message", m.as_str());
                 }
                 Event::Ready { id } => {
                     js::set(&o, "kind", "ready");
@@ -573,7 +648,9 @@ mod web {
             let idx = || js::get_f64(v, "index").unwrap_or(0.0) as usize;
             Ok(match js::get_str(v, "kind").as_str() {
                 "started" => Event::JobStarted { id: id(), index: idx() },
-                "done" => Event::JobDone { id: id(), index: idx(), secs: js::get_f64(v, "secs").unwrap_or(0.0) },
+                "done" => Event::JobDone { id: id(), index: idx(), secs: js::get_f64(v, "secs").unwrap_or(0.0), source: get_source(v) },
+                "data_note" => Event::DataNote(js::get_str(v, "message")),
+                "cache_info" => Event::CacheInfo(js::get_str(v, "message")),
                 "ready" => Event::Ready { id: id() },
                 "history" => Event::History {
                     h: decode_history(&js::get_f64s(v, "data"))?,
@@ -633,6 +710,24 @@ mod web {
                         crate::htr10::core::web::handle(&core, r, post);
                     }
                 }
+                // The browser's cache (gh:#818), read and cleared here so the
+                // page never touches IndexedDB itself.
+                Request::ClearCache | Request::CacheInfo => {
+                    let clear = matches!(req, Request::ClearCache);
+                    wasm_bindgen_futures::spawn_local(async move {
+                        use dhoby_ghaut::web_demo::data_cache::idb;
+                        if clear {
+                            match idb::clear().await {
+                                Ok(()) => post.post(Event::DataNote("The cached nuclear data were cleared: the next load processes every tape.".into())),
+                                Err(e) => post.post(Event::DataNote(format!("The cache could not be cleared ({e})."))),
+                            }
+                        }
+                        post.post(Event::CacheInfo(match idb::summary().await {
+                            Ok(s) => format!("in this browser: {}", s.describe()),
+                            Err(e) => format!("unavailable in this browser ({e}): data are processed and not cached"),
+                        }));
+                    });
+                }
                 r => {
                     if let Ok(mut g) = state.write() {
                         match g.loaded.as_mut() {
@@ -655,6 +750,11 @@ mod web {
         let urls: Vec<String> = jobs.iter().map(|(_, t)| format!("data/{}", crate::tapes::wire_name(t))).collect();
         let promises: Vec<js_sys::Promise> = urls.iter().map(|u| fetch_start(u)).collect();
         let mut b = rung.builder(tier);
+        // The shared cache (gh:#818): each tape's products are read from
+        // IndexedDB before its step and what was processed is saved after.
+        // Its failures become notes; none stops the load.
+        let mut store = DataStore::browser();
+        let mut health = crate::processed_cache::web::Health::default();
         for (index, (((label, _), p), url)) in jobs.iter().zip(promises).zip(&urls).enumerate() {
             let z = fetch_promise(p, url).await?;
             if superseded() {
@@ -662,8 +762,16 @@ mod web {
             }
             post.post(Event::JobStarted { id, index });
             let t = js_sys::Date::now();
-            b.step(&crate::tapes::decompress(&z)?).map_err(|e| format!("{label}: {e}"))?;
-            post.post(Event::JobDone { id, index, secs: (js_sys::Date::now() - t) / 1000.0 });
+            let bytes = crate::tapes::decompress(&z)?;
+            crate::processed_cache::web::before_step(&mut store, &bytes, &mut health).await;
+            b.step(&bytes, &mut store).map_err(|e| format!("{label}: {e}"))?;
+            let secs = (js_sys::Date::now() - t) / 1000.0;
+            crate::processed_cache::web::after_step(&mut store, &mut health).await;
+            let (source, notes) = step_report(&mut store);
+            for n in notes {
+                post.post(Event::DataNote(n));
+            }
+            post.post(Event::JobDone { id, index, secs, source });
         }
         if superseded() {
             return Ok(None);

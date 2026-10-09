@@ -40,7 +40,11 @@ use crate::keff::KeffConfig;
 use dhoby_ghaut::web_demo::link::Floats;
 use nee_soon::htr10_rmc::core_model::AssembledCore;
 use nee_soon::htr10_rmc::data::{Htr10DataConfig, Htr10NuclideLayout, Tape};
-use nee_soon::htr10_rmc::data_jobs::{assemble_slots, process_job, JobProduct, ProcessingJob};
+use crate::processed_cache::DataStore;
+use dhoby_ghaut::web_demo::data_cache::Source;
+use nee_soon::htr10_rmc::data_jobs::{
+    assemble_slots, process_job, JobProduct, ProcessingJob, TOLERANCE,
+};
 use nee_soon::htr10_rmc::keff_vs_height;
 use nee_soon::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig};
 use njoy_outram_park_fork::endf::tape::Tape as EndfTape;
@@ -219,12 +223,16 @@ pub enum CoreEv {
     JobStarted {
         job: usize,
     },
-    /// A finished job's product ([`JobProduct::to_f64s`]).
+    /// A finished job's product ([`JobProduct::to_f64s`]), and whether it was
+    /// processed now or read from the browser's cache (gh:#818).
     Product {
         job: usize,
         secs: f64,
         data: Floats,
+        source: Source,
     },
+    /// Something the page must show about the cache (gh:#818).
+    DataNote(String),
     Assembled(AssemblyReport),
     /// A run's initial source (`SourceSite::encode`), the source stream's
     /// state after it, and the entropy mesh (`[lower×3, upper×3, dims×3]`),
@@ -264,10 +272,66 @@ pub struct CoreWorker {
     /// Every job's product as it arrives (own and relayed).
     pub products: Vec<Option<Floats>>,
     pub model: Option<CoreModel>,
+    /// Natively, what this worker processed (gh:#818); in the browser the
+    /// cache is IndexedDB, read per job.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub cache: DataStore,
+}
+
+/// **Run job `i` through the shared cache** (gh:#818): a tape's RECONR +
+/// BROADR + PURR product (under the same key every demo uses for that tape
+/// and settings) or a law, read back from `store` when it holds it, else
+/// processed and handed to `store` to be saved. The product is
+/// [`run_job`]'s, bit for bit (`a_cached_job_is_the_processed_job`).
+/// Returns the product's words and where it came from.
+///
+/// # Errors
+///
+/// The tape is missing or unreadable, or processing failed.
+pub fn run_job_cached(
+    i: usize,
+    tape: Option<&[u8]>,
+    store: &mut DataStore,
+) -> Result<(Floats, Source), String> {
+    let jobs = jobs()?;
+    let job = jobs.get(i).ok_or("no such job")?;
+    let cfg = Htr10DataConfig::default();
+    let t_k = cfg.temperature.get::<uom::si::thermodynamic_temperature::kelvin>();
+    let label = job.label();
+    let t = match tape {
+        Some(b) => Some(EndfTape::read(std::io::Cursor::new(b)).map_err(|e| format!("{label}: {e}"))?),
+        None => None,
+    };
+    let product = match (job, tape, t.as_ref()) {
+        (ProcessingJob::Tape { .. }, Some(b), Some(t)) => {
+            let mat = *t
+                .materials()
+                .first()
+                .ok_or_else(|| format!("{label}: no material on the tape"))?;
+            JobProduct::Nuclide(store.evaluation(b, t, mat, t_k, TOLERANCE, TOLERANCE, &label)?)
+        }
+        (ProcessingJob::Law(_), _, _) => {
+            let source = match tape {
+                Some(b) => store.tape_sha(b),
+                None => format!("leapr-{label}"),
+            };
+            let key = crate::processed_cache::law_key(&source, 0, t_k, &label);
+            JobProduct::Law(store.law(&key, &label, || match process_job(job, &cfg, t.as_ref()) {
+                Ok(JobProduct::Law(l)) => Ok(l),
+                Ok(JobProduct::Nuclide(_)) => Err(format!("{label}: not a law")),
+                Err(e) => Err(e.to_string()),
+            })?)
+        }
+        _ => return Err(format!("{label}: its tape was not supplied")),
+    };
+    let source = store.sources.last().map_or(Source::Processed, |(_, s)| s.clone());
+    Ok((Floats::from_vec(product.to_f64s()), source))
 }
 
 /// Run job `i` from its tape's bytes (covariance-stripped, inflated), or
-/// none for a LEAPR law.
+/// none for a LEAPR law, with no cache: what the native bake runs, and the
+/// reference [`run_job_cached`] is tested against.
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub fn run_job(i: usize, tape: Option<&[u8]>) -> Result<Floats, String> {
     let jobs = jobs()?;
     let job = jobs.get(i).ok_or("no such job")?;
@@ -465,12 +529,20 @@ pub fn serve_native(w: &mut CoreWorker, req: CoreReq, post: &mut impl FnMut(crat
                         Some(t) => Some(native_tape(&t)?),
                         None => None,
                     };
-                    let data = run_job(i, bytes.as_deref())?;
+                    if let Some(b) = &bytes {
+                        w.cache.begin_tape(b);
+                    }
+                    let (data, source) = run_job_cached(i, bytes.as_deref(), &mut w.cache)?;
+                    let (_, notes) = w.cache.take_report();
+                    for n in notes {
+                        send(CoreEv::DataNote(n));
+                    }
                     w.store(i, data.clone());
                     send(CoreEv::Product {
                         job: i,
                         secs: t0.elapsed().as_secs_f64(),
                         data,
+                        source,
                     });
                 }
             }
@@ -637,11 +709,16 @@ pub mod web {
                     js::set(o, "kind", "core_started");
                     js::set(o, "job", *job as f64);
                 }
-                CoreEv::Product { job, secs, data } => {
+                CoreEv::Product { job, secs, data, source } => {
                     js::set(o, "kind", "core_done");
                     js::set(o, "job", *job as f64);
                     js::set(o, "secs", *secs);
                     js::set(o, "data", data.js());
+                    crate::engine::web::set_source(o, source);
+                }
+                CoreEv::DataNote(m) => {
+                    js::set(o, "kind", "core_data_note");
+                    js::set(o, "message", m.as_str());
                 }
                 CoreEv::Assembled(r) => {
                     js::set(o, "kind", "core_assembled");
@@ -678,7 +755,9 @@ pub mod web {
                     job: js::get_f64(v, "job").unwrap_or(0.0) as usize,
                     secs: js::get_f64(v, "secs").unwrap_or(0.0),
                     data,
+                    source: crate::engine::web::get_source(v),
                 }),
+                "core_data_note" => Ok(CoreEv::DataNote(js::get_str(v, "message"))),
                 "core_assembled" => {
                     AssemblyReport::from_words(&js::get_f64s(v, "data")).map(CoreEv::Assembled)
                 }
@@ -745,6 +824,8 @@ pub mod web {
                         Ok(a) => a,
                         Err(e) => return fail(e),
                     };
+                    let mut store = DataStore::browser();
+                    let mut health = crate::processed_cache::web::Health::default();
                     for i in list {
                         send(CoreEv::JobStarted { job: i });
                         let t0 = js_sys::Date::now();
@@ -757,8 +838,20 @@ pub mod web {
                             Some(Err(e)) => return fail(e.to_string()),
                             None => return fail(format!("no job {i}")),
                         };
-                        match run_job(i, bytes.as_deref()) {
-                            Ok(data) => {
+                        // The shared cache (gh:#818): this job's products
+                        // read from IndexedDB first (a LEAPR law has no
+                        // tape: its key starts `leapr-<label>`).
+                        use crate::processed_cache::web as cache;
+                        match &bytes {
+                            Some(b) => cache::before_step(&mut store, b, &mut health).await,
+                            None => {
+                                let label = all.get(i).map(|j| j.label()).unwrap_or_default();
+                                let prefix = crate::processed_cache::tape_prefix(&format!("leapr-{label}"));
+                                cache::before_prefix(&mut store, &prefix, &mut health).await;
+                            }
+                        }
+                        match run_job_cached(i, bytes.as_deref(), &mut store) {
+                            Ok((data, source)) => {
                                 if let Ok(mut w) = core.write() {
                                     w.store(i, data.clone());
                                 }
@@ -766,7 +859,15 @@ pub mod web {
                                     job: i,
                                     secs: (js_sys::Date::now() - t0) / 1000.0,
                                     data,
+                                    source,
                                 });
+                                // Saved after the product is on its way, so
+                                // the relay never waits for the write.
+                                cache::after_step(&mut store, &mut health).await;
+                                let (_, notes) = store.take_report();
+                                for n in notes {
+                                    send(CoreEv::DataNote(n));
+                                }
                             }
                             Err(e) => return fail(e),
                         }
@@ -864,6 +965,52 @@ pub mod web {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+
+    /// **A cached job is the processed job, bit for bit** (gh:#818): the
+    /// cheapest tape job and the Si-in-SiC law (THERMR, tens of seconds) are
+    /// run through a store, the records offered to a second store as the
+    /// browser does, and run again. Pass: the words are [`run_job`]'s (the
+    /// path every recorded run took) word for word, both times; the second
+    /// run reports the cache and processes nothing.
+    ///
+    /// Results, 2026-10-09 (release): O-16 (the cheapest tape job), 76 849
+    /// words, and Si-in-SiC, 229 552 words, identical processed and cached.
+    #[test]
+    fn a_cached_job_is_the_processed_job() {
+        let all = jobs().expect("jobs");
+        let cfg = Htr10DataConfig::default();
+        let cheap = (0..all.len())
+            .filter(|&i| matches!(all[i], ProcessingJob::Tape { .. }))
+            .min_by(|&a, &b| job_cost(&all[a]).total_cmp(&job_cost(&all[b])))
+            .expect("a tape job");
+        let law = all.iter().position(|j| j.label() == "Si-in-SiC S(a,b)").expect("Si-in-SiC");
+        for i in [cheap, law] {
+            let Some(t) = all[i].tape(&cfg).expect("tape") else {
+                continue;
+            };
+            let Ok(bytes) = native_tape(&t) else {
+                eprintln!("SKIP {}: tape not present", all[i].label());
+                continue;
+            };
+            let want: Vec<u64> = run_job(i, Some(&bytes)).expect("direct").to_vec().iter().map(|x| x.to_bits()).collect();
+            let mut first = DataStore::browser();
+            first.begin_tape(&bytes);
+            let (made, src) = run_job_cached(i, Some(&bytes), &mut first).expect("made");
+            assert_eq!(src, Source::Processed);
+            assert_eq!(made.to_vec().iter().map(|x| x.to_bits()).collect::<Vec<_>>(), want, "{}: processed", all[i].label());
+            let mut second = DataStore::browser();
+            second.begin_tape(&bytes);
+            second.offer(first.take_fresh());
+            let (cached, src) = run_job_cached(i, Some(&bytes), &mut second).expect("cached");
+            assert!(matches!(src, Source::Cached { .. }), "{}: {src:?}", all[i].label());
+            assert!(second.take_fresh().is_empty());
+            assert_eq!(cached.to_vec().iter().map(|x| x.to_bits()).collect::<Vec<_>>(), want, "{}: cached", all[i].label());
+            eprintln!("{}: {} words identical, processed and cached", all[i].label(), want.len());
+        }
+        // A LEAPR law's key has no tape: `leapr-<label>`.
+        let mut s = DataStore::off();
+        assert!(run_job_cached(cheap, None, &mut s).is_err(), "a tape job needs its tape");
+    }
 
     /// The jobs are the layout's (no drift), every one has a cost, and the
     /// schedule deals every job exactly once, longest first, balancing load.

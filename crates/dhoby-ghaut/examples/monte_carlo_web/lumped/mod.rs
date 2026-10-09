@@ -99,8 +99,8 @@ impl RungBuilder for Builder {
     fn new(tier: Tier) -> Self {
         Builder(ugraphite::model::DataBuilder::new(tier.speed()))
     }
-    fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
-        self.0.step(bytes)
+    fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
+        self.0.step(bytes, store)
     }
     fn finish(self) -> Result<Loaded, String> {
         let phys = sim::Physics {

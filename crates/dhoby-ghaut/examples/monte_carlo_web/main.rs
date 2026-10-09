@@ -65,6 +65,11 @@ mod beds;
 mod htr10_beds;
 #[cfg(not(target_os = "android"))]
 mod walkdemo;
+// The processed nuclear data every demo shares, cached in the browser
+// (gh:#818; shared with `delta_tracking_web`).
+#[cfg(not(target_os = "android"))]
+#[path = "../common/processed_cache.rs"]
+mod processed_cache;
 
 // THE RUNG TABLE, in ladder order: one line per rung, `module: MarkerType`,
 // for `examples/monte_carlo_web/<module>/mod.rs` (see `rungs.rs`). Adding a
@@ -108,7 +113,8 @@ fn load_native(rung: table::Rung, tier: engine::Tier, mut report: impl FnMut(&st
             report(jobs[index].0, secs);
         }
     };
-    engine::native_load(0, rung, tier, &mut post)
+    // The headless tools process every tape (no cache), as before #818.
+    engine::native_load(0, rung, tier, &mut processed_cache::DataStore::off(), &mut post)
 }
 
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
@@ -512,6 +518,59 @@ mod tests {
         let want: Vec<String> =
             triso::sim::headless_csv(physics(), 5, engine::CHAIN_SEED).lines().skip(1).map(str::to_owned).collect();
         assert_eq!(got, want);
+
+        // gh:#818: the engine keeps what it processed. Loading the rung again
+        // (a rung switched away from and back to) reads every product back,
+        // says so per job, and gives the same histories; the cache reports
+        // its size and clears.
+        let wait = |want_ready: u32| {
+            let (mut sources, mut info, mut ready) = (Vec::new(), Vec::new(), false);
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(900);
+            while !(ready && !info.is_empty()) {
+                assert!(std::time::Instant::now() < deadline, "engine thread timed out");
+                for e in link.drain() {
+                    match e {
+                        engine::Event::JobDone { source, .. } => sources.push(source),
+                        engine::Event::Ready { id } if id == want_ready => {
+                            ready = true;
+                            link.send(engine::Request::CacheInfo);
+                        }
+                        engine::Event::CacheInfo(m) => info.push(m),
+                        engine::Event::Error(m) => panic!("engine: {m}"),
+                        _ => {}
+                    }
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            (sources, info)
+        };
+        link.send(engine::Request::Load { id: 8, rung: Rung::Triso, tier: Tier::Loose });
+        let (sources, info) = wait(8);
+        assert_eq!(sources.len(), triso::model::JOBS.len());
+        assert!(sources.iter().all(|s| matches!(s, dhoby_ghaut::web_demo::data_cache::Source::Cached { .. })), "{sources:?}");
+        assert!(info[0].contains("11 products"), "{info:?}");
+        link.send(engine::Request::Run { n: 5, animate: true });
+        let mut again = Vec::new();
+        while again.len() < 5 {
+            for e in link.drain() {
+                if let engine::Event::History { h, .. } = e {
+                    again.push(history::csv_row(&h));
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert_eq!(again, want, "the same neutrons from the cached data");
+        link.send(engine::Request::ClearCache);
+        let mut cleared = None;
+        while cleared.is_none() {
+            for e in link.drain() {
+                if let engine::Event::CacheInfo(m) = e {
+                    cleared = Some(m);
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert!(cleared.is_some_and(|m| m.ends_with("empty")));
     }
 
     #[test]

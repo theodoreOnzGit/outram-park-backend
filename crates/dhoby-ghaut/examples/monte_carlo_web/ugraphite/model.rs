@@ -67,18 +67,17 @@ impl DataBuilder {
     pub fn new(tier: SpeedTier) -> Self {
         Self { tier, nuclides: Vec::new(), sab: None }
     }
-    pub fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
+    /// The expensive half comes from `store` when it holds it (gh:#818).
+    pub fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         let i = self.nuclides.len() + self.sab.is_some() as usize;
         let (label, _) = *JOBS.get(i).ok_or("no job left")?;
         let (tape, mat) = read_tape(bytes, label)?;
         if i < vv::TAPES.len() {
             let name = vv::TAPES[i].0;
-            let n = Nuclide::from_tape_with_speed(&tape, mat, name, TEMPERATURE_K, self.tier)
-                .map_err(|e| format!("{label}: {e}"))?;
+            let n = store.nuclide(bytes, &tape, mat, name, TEMPERATURE_K, self.tier, label)?;
             self.nuclides.push(n);
         } else {
-            let law = ThermalScattering::from_tape(&tape, mat, TEMPERATURE_K, "c_Graphite")
-                .map_err(|e| format!("{label}: {e}"))?;
+            let law = store.thermal(bytes, &tape, mat, TEMPERATURE_K, "c_Graphite", label)?;
             self.sab = Some(law);
         }
         Ok(())
