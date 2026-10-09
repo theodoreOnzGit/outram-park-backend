@@ -87,7 +87,11 @@ pub fn card_subtitle(c: &CrateNode) -> String {
 /// The hover text: row, topic, fidelity, maturity, higher-rated modules and
 /// the description, one per line.
 pub fn tooltip(map: &CodeMap, c: &CrateNode) -> String {
-    let mut t = format!("{}\nrow {} \u{b7} topic {}", c.name, c.row, c.topic.as_str());
+    let mut t = c.name.clone();
+    if let Some(b) = &c.backronym {
+        let _ = write!(t, "\n{b}");
+    }
+    let _ = write!(t, "\nrow {} \u{b7} topic {}", c.row, c.topic.as_str());
     match c.fidelity {
         Some(Fidelity::Level(l)) => {
             let _ = write!(t, "\nfidelity {l} ({})", Fidelity::level_meaning(l));
@@ -357,6 +361,8 @@ mod tests {
         assert!(s.contains("class=\"card m0\" data-crate=\"redhill\""));
         assert!(s.contains("region_1 at 3 (human reviewed): reviewed"));
         assert!(s.contains("M2 \u{b7} parts at 3 \u{b7} F0"));
+        // The backronym is the tooltip's second line (#815).
+        assert!(s.contains("sembawang\nSevere-accident Evolution and Melt Behaviour"));
     }
 
     /// The fixture's SVG, pinned by length and an FNV-1a hash (re-pinned
@@ -364,7 +370,9 @@ mod tests {
     /// re-pinned 2026-10-08 for row 2 stacking its ties, which moves the
     /// fixture's redhill under pflotran, and again the same day for row 3
     /// stacking and knowledge management as a column on the left, each
-    /// looked at in the real map): a
+    /// looked at in the real map; re-pinned 2026-10-09 for the backronym line
+    /// in sembawang's tooltip, #815: +96 bytes, exactly "\n" and the
+    /// 95-character backronym, no other change): a
     /// change here is a change to the drawing, to be looked at, not only
     /// re-pinned.
     #[test]
@@ -376,8 +384,8 @@ mod tests {
         assert_eq!((s.len(), format!("{h:016x}")), (PINNED_LEN, PINNED_HASH.to_string()), "SVG changed");
     }
 
-    const PINNED_LEN: usize = 20041;
-    const PINNED_HASH: &str = "4ac0fef1bae71c48";
+    const PINNED_LEN: usize = 20137;
+    const PINNED_HASH: &str = "57a14dc27993e1dd";
 
     #[test]
     fn text_is_escaped() {

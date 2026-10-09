@@ -875,6 +875,7 @@ mod tests {
             crates: vec![kovan_common::code_map::CrateNode {
                 name: "bl".into(),
                 description: None,
+                backronym: None,
                 row: 2,
                 topic: kovan_common::code_map::Topic::Risk,
                 fidelity: None,

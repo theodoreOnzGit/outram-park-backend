@@ -539,8 +539,9 @@ kovan-cli stamps-levels tampines-steam-tables # which rung-3/4 tags stamps suppo
 ### `code-map` — the workspace's code map (`commands::code_map`, GitHub #734)
 
 Every crate placed by the `[package.metadata.kovan]` tag in its
-`Cargo.toml` (row, topic, fidelity, maturity, higher-rated modules; the tags
-are documented in `tests/code_map_tags.rs`), with its required dependencies.
+`Cargo.toml` (row, topic, fidelity, maturity, higher-rated modules and,
+optionally, the crate's backronym (#815); the tags are documented in
+`tests/code_map_tags.rs`), with its required dependencies.
 `--format json` (default) writes the data, `--format svg` the drawn map:
 the outram-park root, one box per row-4 app, the topic boxes as columns
 through rows 3 and 2 with fidelity high to low left to right, the shared

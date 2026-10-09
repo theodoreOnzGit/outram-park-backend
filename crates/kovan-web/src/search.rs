@@ -8,6 +8,11 @@
 //! `live_pools.rs::step`: "live" matches the module path, "step" the name.
 //! A term that matches the name itself scores a bonus, so a function called
 //! `step` ranks above one merely in a module mentioning it.
+//!
+//! A crate is also found by its backronym (GitHub #815), but only when every
+//! term is a plain substring of it: "melt behaviour" finds sembawang. The
+//! backronym is kept out of the fuzzy text, because a long phrase contains
+//! almost any letter sequence and would match nearly every query.
 
 use kovan_common::call_graph::split::SearchIndex;
 use kovan_common::code_map::CodeMap;
@@ -53,13 +58,19 @@ pub fn search(query: &str, map: &CodeMap, index: Option<&SearchIndex>, limit: us
     }
     let mut out = Vec::new();
     for c in &map.crates {
-        if let Some(s) = score(&terms, &c.name, &c.name) {
+        let by_backronym = c
+            .backronym
+            .as_deref()
+            .map(str::to_lowercase)
+            .filter(|b| terms.iter().all(|t| b.contains(t.as_str())))
+            .map(|_| 0);
+        if let Some(s) = score(&terms, &c.name, &c.name).or(by_backronym) {
             out.push(SearchResult {
                 hit: Hit::Crate(c.name.clone()),
                 score: s + 100,
                 kind: "crate",
                 label: c.name.clone(),
-                detail: c.description.clone().unwrap_or_default(),
+                detail: c.backronym.clone().or_else(|| c.description.clone()).unwrap_or_default(),
             });
         }
     }
@@ -127,5 +138,38 @@ mod tests {
         assert!(r.iter().all(|x| x.detail.contains("live_pools")));
         assert!(search("", &map, Some(&ix), 5).is_empty());
         assert!(search("zzzz", &map, Some(&ix), 5).is_empty());
+    }
+
+    /// "melt behaviour" finds sembawang by its backronym (#815), and a word
+    /// that is not in the backronym does not.
+    #[test]
+    fn a_crate_is_found_by_its_backronym() {
+        let node = |name: &str, backronym: Option<&str>| kovan_common::code_map::CrateNode {
+            name: name.into(),
+            description: Some(format!("the {name} crate")),
+            backronym: backronym.map(Into::into),
+            row: 3,
+            topic: kovan_common::code_map::Topic::Risk,
+            fidelity: None,
+            maturity: 1,
+            maturity_modules: vec![],
+            lib_dir: None,
+            dir: None,
+        };
+        let map = CodeMap {
+            root: "r".into(),
+            crates: vec![
+                node("sembawang", Some("Severe-accident Evolution and Melt Behaviour Analysis Workbench for Advanced Nuclear Geometries")),
+                node("changi", None),
+            ],
+            edges: vec![],
+        };
+        let r = search("melt behaviour", &map, None, 5);
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].hit, Hit::Crate("sembawang".into()));
+        assert!(r[0].detail.starts_with("Severe-accident"), "the backronym is the detail line");
+        assert!(search("melt dispersion", &map, None, 5).is_empty());
+        // The name still matches as before, with the backronym as detail.
+        assert_eq!(search("sembawang", &map, None, 5)[0].hit, Hit::Crate("sembawang".into()));
     }
 }

@@ -327,6 +327,7 @@ fn node(dir: &Path, maturity: u8, modules: &[(&str, u8)]) -> CrateNode {
     CrateNode {
         name: "demo".into(),
         description: None,
+        backronym: None,
         row: 1,
         topic: Topic::Utility,
         fidelity: None,

@@ -581,6 +581,9 @@ fn details(ui: &mut egui::Ui, map: &CodeMap, selected: Option<&str>, go_to: &mut
         return;
     };
     ui.heading(&c.name);
+    if let Some(b) = &c.backronym {
+        ui.label(egui::RichText::new(b).italics());
+    }
     if let Some(d) = &c.description {
         ui.label(d);
     }

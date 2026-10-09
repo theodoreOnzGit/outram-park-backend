@@ -273,6 +273,7 @@ a.big small { display:block; font-size:.8rem; font-weight:500; opacity:.9; word-
       deps.length + ", needed by " + users.length +
       (panel.classList.contains("folded") ? ". Details » for more." : ".");
     var h = "<h2>" + esc(c.name) + "</h2>";
+    if (c.backronym) h += "<p><i>" + esc(c.backronym) + "</i></p>";
     if (c.description) h += "<p>" + esc(c.description) + "</p>";
     h += "<p><b>Row</b> " + c.row + " &middot; <b>topic</b> " + esc(c.topic) + "<br><b>Fidelity</b> " + fidText(c.fidelity) +
          "<br><b>Maturity</b> " + c.maturity + " &mdash; " + MAT[c.maturity] + "</p>";

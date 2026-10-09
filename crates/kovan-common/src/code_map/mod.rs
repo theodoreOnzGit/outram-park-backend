@@ -17,6 +17,8 @@
 //!
 //! A card carries the crate's name, maturity (0 concept .. 4 human V&V, the
 //! crate's lowest part) and fidelity (0 lumped .. 4 brute force, or a range).
+//! Its tooltip and detail panel also give the crate's backronym, when the tag
+//! has one (`backronym`, GitHub #815).
 //! The meaning of every tag is documented, and checked against the
 //! dependency graph, in `crates/kovan/tests/code_map_tags.rs`.
 //!
@@ -250,6 +252,10 @@ pub struct CrateNode {
     /// The `description` from `Cargo.toml`, if any.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// The crate's MRT-station backronym spelled out, from `backronym` in
+    /// the tag (`docs/ecosystem-naming.md`), if it has one (GitHub #815).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backronym: Option<String>,
     /// Degree of integration: 0-1 utilities, 2 domain solvers, 3 coupled
     /// multiphysics, 4 integrated GUI apps.
     pub row: u8,
@@ -385,6 +391,14 @@ fn read_tag(p: &Package, root: Option<&str>, errors: &mut Vec<String>) -> Option
             ));
         }
     }
+    let backronym = match &t["backronym"] {
+        serde_json::Value::Null => None,
+        serde_json::Value::String(b) if !b.trim().is_empty() => Some(b.trim().to_string()),
+        v => {
+            errors.push(format!("{name}: backronym must be a non-empty string, found {v}"));
+            None
+        }
+    };
     let maturity = level(&t["maturity"]);
     if maturity.is_none() {
         errors.push(format!("{name}: maturity must be 0..=4, found {}", t["maturity"]));
@@ -418,6 +432,7 @@ fn read_tag(p: &Package, root: Option<&str>, errors: &mut Vec<String>) -> Option
         dir: dir_of(p, root),
         name: name.clone(),
         description: p.description.clone().filter(|d| !d.trim().is_empty()),
+        backronym,
         row: row?,
         topic: topic?,
         fidelity,
@@ -487,6 +502,7 @@ impl CodeMap {
                     return Some(CrateNode {
                         name: p.name.clone(),
                         description: p.description.clone().filter(|d| !d.trim().is_empty()),
+                        backronym: None,
                         row: 0,
                         topic: Topic::Utility,
                         fidelity: None,
@@ -606,7 +622,7 @@ pub mod fixture {
             pkg("redhill", r#"{"row":2,"topic":"risk","fidelity":3,"maturity":0}"#, &[]),
             pkg("buangkok", r#"{"row":2,"topic":"risk","fidelity":1,"maturity":2}"#, &[]),
             pkg("bishan", r#"{"row":2,"topic":"risk","fidelity":0,"maturity":1}"#, &[]),
-            pkg("sembawang", r#"{"row":3,"topic":"risk","fidelity":0,"maturity":1}"#, &[("buangkok", None, false)]),
+            pkg("sembawang", r#"{"row":3,"topic":"risk","fidelity":0,"maturity":1,"backronym":"Severe-accident Evolution and Melt Behaviour Analysis Workbench for Advanced Nuclear Geometries"}"#, &[("buangkok", None, false)]),
             pkg("steam", r#"{"row":2,"topic":"thermal-hydraulics","fidelity":0,"maturity":2,"maturity_modules":[{"module":"region_1","level":3,"why":"reviewed"}]}"#, &[]),
             pkg("util", r#"{"row":0,"topic":"utility","maturity":2}"#, &[]),
             pkg("mesh", r#"{"row":1,"topic":"utility","maturity":2}"#, &[("util", None, false)]),
@@ -656,6 +672,8 @@ mod tests {
         assert_eq!(map.get("steam").unwrap().maturity_summary(), "2 \u{b7} parts at 3");
         assert_eq!(map.dependents("util"), vec!["app-b", "mc", "mesh", "raffles"]);
         assert_eq!(map.get("mc").unwrap().dir.as_deref(), Some("crates/mc"));
+        assert!(map.get("sembawang").unwrap().backronym.as_deref().is_some_and(|b| b.starts_with("Severe-accident")));
+        assert_eq!(map.get("mc").unwrap().backronym, None);
         assert!(map.placement_problems().is_empty(), "{:?}", map.placement_problems());
     }
 
@@ -664,6 +682,7 @@ mod tests {
         let map = CodeMap::from_cargo_metadata(&fixture::json()).unwrap();
         let s = serde_json::to_string(&map).unwrap();
         assert!(s.contains(r#""fidelity":[0,4]"#) && s.contains(r#""fidelity":4"#));
+        assert_eq!(s.matches(r#""backronym":"#).count(), 1, "only sembawang carries one");
         let back: CodeMap = serde_json::from_str(&s).unwrap();
         let mut expected = map.clone();
         expected.crates.iter_mut().for_each(|c| c.lib_dir = None);
@@ -675,11 +694,13 @@ mod tests {
         let json = r#"{"packages":[
             {"name":"a","metadata":null},
             {"name":"b","metadata":{"kovan":{"row":7,"topic":"risk","fidelity":[3,1],"maturity":1}}},
-            {"name":"c","metadata":{"kovan":{"row":1,"topic":"utility","maturity":2,"maturity_modules":[{"module":"x","level":1,"why":""}]}}}
+            {"name":"c","metadata":{"kovan":{"row":1,"topic":"utility","maturity":2,"maturity_modules":[{"module":"x","level":1,"why":""}]}}},
+            {"name":"d","metadata":{"kovan":{"row":1,"topic":"utility","maturity":2,"backronym":3}}},
+            {"name":"e","metadata":{"kovan":{"row":1,"topic":"utility","maturity":2,"backronym":" "}}}
         ]}"#;
         let errors = CodeMap::from_cargo_metadata(json).unwrap_err();
         let all = errors.join("\n");
-        for needle in ["a: no [package.metadata.kovan]", "b: row", "b: fidelity range", "c: x needs a why", "c: x level 1"] {
+        for needle in ["a: no [package.metadata.kovan]", "b: row", "b: fidelity range", "c: x needs a why", "c: x level 1", "d: backronym", "e: backronym"] {
             assert!(all.contains(needle), "missing {needle:?} in\n{all}");
         }
     }

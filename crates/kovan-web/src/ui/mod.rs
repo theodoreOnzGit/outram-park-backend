@@ -731,6 +731,9 @@ impl CodeReview {
 
     fn crate_panel(&mut self, ui: &mut egui::Ui, snap: &Snap, krate: &str) {
         if let Some(c) = snap.map.as_ref().and_then(|m| m.get(krate)) {
+            if let Some(b) = &c.backronym {
+                ui.label(egui::RichText::new(b).italics());
+            }
             if let Some(d) = &c.description {
                 ui.label(d);
             }

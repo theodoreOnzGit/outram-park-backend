@@ -19,7 +19,10 @@
 //!   default, we go with lowest level to be fair");
 //! - optionally `[[package.metadata.kovan.maturity_modules]]`, the modules
 //!   rated higher than the crate, each with `module` (a path from the
-//!   library root, `a::b`), `level` and `why`.
+//!   library root, `a::b`), `level` and `why`;
+//! - optionally `backronym` (GitHub #815), the MRT-station backronym spelled
+//!   out as `docs/ecosystem-naming.md` sets it. The code map shows it in the
+//!   crate's tooltip and detail panel.
 //!
 //! What is checked, reading the tags through `cargo metadata` so nothing is
 //! copied by hand:
@@ -30,7 +33,10 @@
 //!   dev-dependencies do not count: the row is what the crate needs to
 //!   build);
 //! - every listed module exists in the crate's source, is rated above the
-//!   crate itself, and says why.
+//!   crate itself, and says why;
+//! - a backronym spells the crate's name: the capital initials of its words
+//!   (a hyphenated word counts once) are the name in capitals. sembawang
+//!   carries one.
 //!
 //! Since 2026-10-06 (#734) the tags are read by the same parser the map is
 //! drawn from, `kovan::code_map::CodeMap::from_cargo_metadata` (which reports
@@ -81,4 +87,24 @@ fn the_real_workspace_lays_out_cleanly() {
     let raffles = l.card("raffles").expect("raffles is a member").rect;
     assert!((raffles.x - (risk.x + layout::PAD + layout::ROW_TAG)).abs() < 1e-6 && (raffles.right() - (risk.right() - layout::PAD)).abs() < 1e-6,
         "raffles spans the whole Risk box: {raffles:?} in {risk:?}");
+}
+
+/// The capital initials of a backronym's words, a hyphenated word counting
+/// once: "Severe-accident Evolution and Melt ..." gives "SEM...".
+fn initials(backronym: &str) -> String {
+    backronym.split_whitespace().filter_map(|w| w.chars().next()).filter(|c| c.is_uppercase()).collect()
+}
+
+#[test]
+fn every_backronym_spells_its_crate_name() {
+    let map = workspace();
+    let mut with = Vec::new();
+    for c in &map.crates {
+        if let Some(b) = &c.backronym {
+            let name: String = c.name.chars().filter(|c| c.is_alphanumeric()).collect::<String>().to_uppercase();
+            assert_eq!(initials(b), name, "{}: backronym {b:?} does not spell the name", c.name);
+            with.push(c.name.as_str());
+        }
+    }
+    assert!(with.contains(&"sembawang"), "sembawang carries its backronym (#815): {with:?}");
 }
