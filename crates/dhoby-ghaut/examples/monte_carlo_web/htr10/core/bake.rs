@@ -156,7 +156,7 @@ pub fn run(
     ),
     String,
 > {
-    let super::CoreEv::Source { sites, seed, mesh } = w.source(&cfg)? else {
+    let super::CoreEv::Source { sites, seed, mesh, .. } = w.source(&cfg, 1)? else {
         return Err("no source".into());
     };
     let sites =

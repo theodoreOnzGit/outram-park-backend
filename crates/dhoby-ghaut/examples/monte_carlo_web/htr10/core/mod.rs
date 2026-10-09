@@ -157,11 +157,20 @@ pub enum CoreReq {
     Assemble { layers: usize },
     /// Rebuild the core at another layer count (nothing else changes).
     Layers { layers: usize },
-    /// Sample a run's initial source.
-    Source { cfg: KeffConfig },
-    /// Transport one chunk of a generation (`GenerationChunk::to_f64s`).
-    Chunk { cfg: KeffConfig, data: Floats },
+    /// Sample a run's initial source. `epoch` is the run's (gh:#817): the
+    /// reply carries it back, so a reply to a replaced run is recognised.
+    Source { cfg: KeffConfig, epoch: u32 },
+    /// Transport one chunk of a generation (`GenerationChunk::to_f64s`), for
+    /// the run `epoch`.
+    Chunk {
+        cfg: KeffConfig,
+        data: Floats,
+        epoch: u32,
+    },
 }
+
+/// The epoch of a request that belongs to no run (processing, assembly).
+pub const NO_RUN: u32 = 0;
 
 /// What a worker built, and what it cost.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -218,17 +227,26 @@ pub enum CoreEv {
     },
     Assembled(AssemblyReport),
     /// A run's initial source (`SourceSite::encode`), the source stream's
-    /// state after it, and the entropy mesh (`[lower×3, upper×3, dims×3]`).
+    /// state after it, and the entropy mesh (`[lower×3, upper×3, dims×3]`),
+    /// for the run `epoch`.
     Source {
         sites: Floats,
         seed: u64,
         mesh: [f64; 9],
+        epoch: u32,
     },
-    /// A chunk's result (`ChunkResult::to_f64s`, tracks thinned).
+    /// A chunk's result (`ChunkResult::to_f64s`, tracks thinned), for the
+    /// run `epoch`.
     ChunkDone {
         data: Floats,
         secs: f64,
+        epoch: u32,
     },
+    /// A request failed in a worker that is still alive and still holds its
+    /// data (gh:#817): a download, a decode, a chunk. `epoch` is the run's,
+    /// or [`NO_RUN`]. The page decides whether that fails the pool (while
+    /// the data are being built) or only the run.
+    Failed { message: String, epoch: u32 },
 }
 
 /// The model a worker transports through.
@@ -357,8 +375,9 @@ impl CoreWorker {
         Ok(())
     }
 
-    /// A run's initial source, the source stream after it, and the mesh.
-    pub fn source(&self, cfg: &KeffConfig) -> Result<CoreEv, String> {
+    /// A run's initial source, the source stream after it, and the mesh,
+    /// tagged with the run's `epoch`.
+    pub fn source(&self, cfg: &KeffConfig, epoch: u32) -> Result<CoreEv, String> {
         let m = self.model.as_ref().ok_or("the model is not built")?;
         let (sites, seed) = DistributedPowerIteration::initial_source(
             &m.core.geometry,
@@ -380,6 +399,7 @@ impl CoreWorker {
             ),
             seed,
             mesh: w,
+            epoch,
         })
     }
 
@@ -423,6 +443,12 @@ pub fn native_tape(t: &Tape) -> Result<Vec<u8>, String> {
 pub fn serve_native(w: &mut CoreWorker, req: CoreReq, post: &mut impl FnMut(crate::engine::Event)) {
     use crate::engine::Event;
     let mut send = |e: CoreEv| post(Event::Core(e));
+    // The run a failure belongs to (gh:#817): a failed chunk fails its run,
+    // not the pool; the worker keeps its data.
+    let epoch = match &req {
+        CoreReq::Source { epoch, .. } | CoreReq::Chunk { epoch, .. } => *epoch,
+        _ => NO_RUN,
+    };
     let r: Result<(), String> = (|| {
         match req {
             CoreReq::Process { jobs: list } => {
@@ -474,20 +500,24 @@ pub fn serve_native(w: &mut CoreWorker, req: CoreReq, post: &mut impl FnMut(crat
                     }));
                 }
             }
-            CoreReq::Source { cfg } => send(w.source(&cfg)?),
-            CoreReq::Chunk { cfg, data } => {
+            CoreReq::Source { cfg, epoch } => send(w.source(&cfg, epoch)?),
+            CoreReq::Chunk { cfg, data, epoch } => {
                 let t0 = std::time::Instant::now();
                 let out = w.chunk(&cfg, &data.to_vec())?;
                 send(CoreEv::ChunkDone {
                     data: Floats::from_vec(out),
                     secs: t0.elapsed().as_secs_f64(),
+                    epoch,
                 });
             }
         }
         Ok(())
     })();
     if let Err(e) = r {
-        post(crate::engine::Event::Error(format!("core worker: {e}")));
+        post(Event::Core(CoreEv::Failed {
+            message: format!("core worker: {e}"),
+            epoch,
+        }));
     }
 }
 
@@ -550,14 +580,16 @@ pub mod web {
                     js::set(o, "kind", "core_layers");
                     js::set(o, "layers", *layers as f64);
                 }
-                CoreReq::Source { cfg } => {
+                CoreReq::Source { cfg, epoch } => {
                     js::set(o, "kind", "core_source");
                     js::set(o, "cfg", js::f64s(&cfg_words(cfg)));
+                    js::set(o, "epoch", *epoch as f64);
                 }
-                CoreReq::Chunk { cfg, data } => {
+                CoreReq::Chunk { cfg, data, epoch } => {
                     js::set(o, "kind", "core_chunk");
                     js::set(o, "cfg", js::f64s(&cfg_words(cfg)));
                     js::set(o, "data", data.js());
+                    js::set(o, "epoch", *epoch as f64);
                 }
             }
         }
@@ -582,13 +614,15 @@ pub mod web {
                 "core_layers" => Ok(CoreReq::Layers {
                     layers: n("layers"),
                 }),
-                "core_source" => {
-                    cfg_from(&js::get_f64s(v, "cfg")).map(|cfg| CoreReq::Source { cfg })
-                }
+                "core_source" => cfg_from(&js::get_f64s(v, "cfg")).map(|cfg| CoreReq::Source {
+                    cfg,
+                    epoch: n("epoch") as u32,
+                }),
                 "core_chunk" => cfg_from(&js::get_f64s(v, "cfg")).and_then(|cfg| {
                     Ok(CoreReq::Chunk {
                         cfg,
                         data: floats("data")?,
+                        epoch: n("epoch") as u32,
                     })
                 }),
                 _ => return None,
@@ -613,21 +647,29 @@ pub mod web {
                     js::set(o, "kind", "core_assembled");
                     js::set(o, "data", js::f64s(&r.words()));
                 }
-                CoreEv::Source { sites, seed, mesh } => {
+                CoreEv::Source { sites, seed, mesh, epoch } => {
                     js::set(o, "kind", "core_source");
                     js::set(o, "data", sites.js());
                     js::set(o, "seed", js::f64s(&seed_words(*seed)));
                     js::set(o, "mesh", js::f64s(mesh));
+                    js::set(o, "epoch", *epoch as f64);
                 }
-                CoreEv::ChunkDone { data, secs } => {
+                CoreEv::ChunkDone { data, secs, epoch } => {
                     js::set(o, "kind", "core_chunk");
                     js::set(o, "data", data.js());
                     js::set(o, "secs", *secs);
+                    js::set(o, "epoch", *epoch as f64);
+                }
+                CoreEv::Failed { message, epoch } => {
+                    js::set(o, "kind", "core_failed");
+                    js::set(o, "message", message.as_str());
+                    js::set(o, "epoch", *epoch as f64);
                 }
             }
         }
         pub fn from_js(kind: &str, v: &JsValue) -> Option<Result<Self, String>> {
             let floats = |k: &str| Floats::get(v, k).ok_or_else(|| format!("{kind}: no {k}"));
+            let epoch = || js::get_f64(v, "epoch").unwrap_or(0.0) as u32;
             Some(match kind {
                 "core_started" => Ok(CoreEv::JobStarted {
                     job: js::get_f64(v, "job").unwrap_or(0.0) as usize,
@@ -652,11 +694,17 @@ pub mod web {
                         sites,
                         seed: seed_from_words(s[0], s[1]),
                         mesh,
+                        epoch: epoch(),
                     })
                 }),
                 "core_chunk" => floats("data").map(|data| CoreEv::ChunkDone {
                     data,
                     secs: js::get_f64(v, "secs").unwrap_or(0.0),
+                    epoch: epoch(),
+                }),
+                "core_failed" => Ok(CoreEv::Failed {
+                    message: js::get_str(v, "message"),
+                    epoch: epoch(),
                 }),
                 _ => return None,
             })
@@ -672,7 +720,18 @@ pub mod web {
     /// they come); the processing itself blocks this worker only.
     pub fn handle(core: &Arc<RwLock<CoreWorker>>, req: CoreReq, post: Poster<Event>) {
         let send = move |e: CoreEv| post.post(Event::Core(e));
-        let fail = move |e: String| post.post(Event::Error(format!("core worker: {e}")));
+        // A failed request is not a dead worker (gh:#817): it says so as a
+        // core event, tagged with its run, and the page decides what fails.
+        let epoch = match &req {
+            CoreReq::Source { epoch, .. } | CoreReq::Chunk { epoch, .. } => *epoch,
+            _ => NO_RUN,
+        };
+        let fail = move |e: String| {
+            post.post(Event::Core(CoreEv::Failed {
+                message: format!("core worker: {e}"),
+                epoch,
+            }))
+        };
         match req {
             CoreReq::Product { job, data } => {
                 if let Ok(mut w) = core.write() {
@@ -775,15 +834,15 @@ pub mod web {
                 },
                 Err(_) => fail("worker state poisoned".into()),
             },
-            CoreReq::Source { cfg } => match core
+            CoreReq::Source { cfg, epoch } => match core
                 .read()
                 .map_err(|_| "poisoned".to_string())
-                .and_then(|w| w.source(&cfg))
+                .and_then(|w| w.source(&cfg, epoch))
             {
                 Ok(ev) => send(ev),
                 Err(e) => fail(e),
             },
-            CoreReq::Chunk { cfg, data } => {
+            CoreReq::Chunk { cfg, data, epoch } => {
                 let t0 = js_sys::Date::now();
                 match core
                     .read()
@@ -793,6 +852,7 @@ pub mod web {
                     Ok(out) => send(CoreEv::ChunkDone {
                         data: Floats::from_vec(out),
                         secs: (js_sys::Date::now() - t0) / 1000.0,
+                        epoch,
                     }),
                     Err(e) => fail(e),
                 }

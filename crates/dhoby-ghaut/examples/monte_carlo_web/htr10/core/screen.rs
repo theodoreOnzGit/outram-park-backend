@@ -8,7 +8,7 @@
 //! are processed, the tracks come from the run itself: the first
 //! [`super::TRACED_PER_GENERATION`] histories of every generation.
 
-use super::pool::{CorePool, GenSummary, Note, PoolPhase};
+use super::pool::{CorePool, GenSummary, Note, PoolPhase, PoolState, RestartKind, RunOrigin};
 use super::{DEFAULT_RUN, RECORD_SEED};
 use crate::anim::{animated_speed, draw_track, energy_bar, fmt_speed, legend_markers, Anim};
 use crate::history::History;
@@ -351,6 +351,18 @@ impl CoreScreen {
         }
     }
 
+    /// No worker is left (gh:#817): stop the old pool's workers (a dropped
+    /// link would leave a Web Worker running) and start a new pool.
+    pub fn reprocess(&mut self, ctx: &egui::Context) {
+        if let Some(p) = self.pool.take() {
+            log::warn!("htr10 core: reprocessing: stopping the old pool of {} workers", p.state.workers);
+            p.terminate();
+        }
+        self.live = false;
+        self.queue.clear();
+        self.start_pool(ctx);
+    }
+
     /// Each frame: the pool's events, the next track, autostart.
     pub fn pump(&mut self, ctx: &egui::Context) {
         if self.autostart && self.pool.is_none() {
@@ -404,7 +416,10 @@ impl CoreScreen {
         }
     }
 
-    /// The main view: slice, tracks, status.
+    /// The main view: slice, tracks, status, and the restart buttons after a
+    /// failed run. GUI drawing, not reached by a test (the test rule's
+    /// exception); its decisions are `restart_wanted`, `restart_labels` and
+    /// `restart`, which are.
     pub fn canvas(
         &mut self,
         ui: &mut egui::Ui,
@@ -482,6 +497,28 @@ impl CoreScreen {
             painter.galley(Pos2::new(rect.left() + 12.0, y), g, c);
             y += h + 6.0;
         }
+        // The restart buttons on the main view too, so they show with the
+        // panel folded on a phone (gh:#817; the mobile-first rule's status
+        // on the main view).
+        let w = (rect.width() - 24.0).clamp(120.0, 340.0);
+        let mut reprocess = false;
+        if let Some(p) = self.pool.as_mut() {
+            if restart_wanted(&p.state) {
+                for (kind, label) in restart_labels(&p.state) {
+                    let b = Rect::from_min_size(Pos2::new(rect.left() + 8.0, y), Vec2::new(w, 36.0));
+                    if ui.put(b, egui::Button::new(label)).clicked() {
+                        restart(&mut p.state, kind);
+                    }
+                    y += 42.0;
+                }
+            } else if matches!(p.state.phase, PoolPhase::Failed(_)) {
+                let b = Rect::from_min_size(Pos2::new(rect.left() + 8.0, y), Vec2::new(w, 36.0));
+                reprocess = ui.put(b, egui::Button::new("⟳ Reprocess the data (new workers)")).clicked();
+            }
+        }
+        if reprocess {
+            self.reprocess(ui.ctx());
+        }
         // The k plot along the bottom once a run has generations.
         if let Some(run) = self.pool.as_ref().and_then(|p| p.state.run.as_ref()) {
             if !run.gens.is_empty() {
@@ -554,7 +591,11 @@ impl CoreScreen {
                     self.start_pool(&ctx);
                 }
             }
-            Some(p) => pool_panel(ui, p, &mut self.cfg, &mut self.layers),
+            Some(p) => {
+                if let Some(PoolAction::Reprocess) = pool_panel(ui, p, &mut self.cfg, &mut self.layers) {
+                    self.reprocess(&ctx);
+                }
+            }
         }
         ui.separator();
         egui::CollapsingHeader::new("The whole-core view: what it is, and is not")
@@ -611,9 +652,20 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
                 v.push((DEM_CAVEAT.to_string(), Color32::from_rgb(250, 200, 80)));
                 v.push((dem_record_line(), white));
             }
+            let amber = Color32::from_rgb(250, 200, 80);
+            if s.live_workers() < s.workers {
+                v.push((dead_line(s), amber));
+            }
             if let Some(run) = &s.run {
                 let total = run.cfg.n_inactive + run.cfg.n_active;
+                if let RunOrigin::Restart { .. } = run.origin {
+                    v.push((format!("This is {}.", run.describe()), amber));
+                }
+                if let Some(e) = &run.failed {
+                    v.push((format!("⚠ {e}"), Color32::from_rgb(255, 110, 110)));
+                }
                 match run.gens.last() {
+                    None if run.failed.is_some() => {}
                     None => v.push(("k_eff: sampling the initial source…".into(), white)),
                     Some(g) => {
                         let mean = g.gen.k_mean.map_or(String::from("(inactive)"), |(m, e)| {
@@ -640,9 +692,100 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
     v
 }
 
-fn pool_panel(ui: &mut egui::Ui, p: &mut CorePool, cfg: &mut KeffConfig, layers: &mut f64) {
+/// Which workers have stopped, and why (gh:#817).
+fn dead_line(s: &PoolState) -> String {
+    let dead: Vec<String> = (0..s.workers)
+        .filter_map(|w| s.died[w].as_ref().map(|why| format!("worker {} ({why})", w + 1)))
+        .collect();
+    format!(
+        "{} of {} workers left; their data are intact. Stopped: {}.",
+        s.live_workers(),
+        s.workers,
+        dead.join("; ")
+    )
+}
+
+/// The labels of the two restart buttons (gh:#817).
+fn restart_labels(s: &PoolState) -> [(RestartKind, String); 2] {
+    let n = s.live_workers();
+    [
+        (
+            RestartKind::Parallel,
+            format!("↻ Restart run in parallel ({n} worker{})", if n == 1 { "" } else { "s" }),
+        ),
+        (RestartKind::Serial, "↻ Restart run serially (1 worker)".to_string()),
+    ]
+}
+
+/// Restart the failed run, reporting a refusal in the console.
+fn restart(s: &mut PoolState, kind: RestartKind) {
+    if let Err(e) = s.restart_run(kind, now_s()) {
+        log::warn!("htr10 core: restart refused: {e}");
+    }
+}
+
+/// The run failed and the data are intact: offer the restarts.
+fn restart_wanted(s: &PoolState) -> bool {
+    s.phase == PoolPhase::Ready && s.run.as_ref().is_some_and(|r| r.failed.is_some())
+}
+
+/// What a button asked of the screen that the pool cannot do itself.
+pub enum PoolAction {
+    /// Stop every worker and process the data again (no worker left).
+    Reprocess,
+}
+
+/// The pool's part of the side panel. GUI drawing, not reached by a test
+/// (the test rule's exception); its decisions are tested through
+/// `restart_wanted`, `restart_labels`, `restart` and `dead_line`.
+fn pool_panel(
+    ui: &mut egui::Ui,
+    p: &mut CorePool,
+    cfg: &mut KeffConfig,
+    layers: &mut f64,
+) -> Option<PoolAction> {
     let s = &mut p.state;
     ui.label(format!("Pool: {}", p.plan.reason));
+    let red = Color32::from_rgb(255, 110, 110);
+    let amber = Color32::from_rgb(250, 200, 80);
+    if let PoolPhase::Failed(e) = &s.phase {
+        ui.colored_label(red, e);
+        if ui
+            .add(egui::Button::new("⟳ Reprocess the data (new workers)").min_size(Vec2::new(0.0, 36.0)))
+            .clicked()
+        {
+            return Some(PoolAction::Reprocess);
+        }
+    }
+    if s.live_workers() < s.workers {
+        ui.colored_label(amber, dead_line(s));
+    }
+    if restart_wanted(s) {
+        if let Some(e) = s.run.as_ref().and_then(|r| r.failed.clone()) {
+            ui.colored_label(red, e);
+        }
+        for (kind, label) in restart_labels(s) {
+            if ui
+                .add(egui::Button::new(label).min_size(Vec2::new(0.0, 36.0)))
+                .clicked()
+            {
+                restart(s, kind);
+            }
+        }
+    }
+    if !s.log.is_empty() {
+        egui::CollapsingHeader::new(format!(
+            "Pool log ({} entries, {} stale replies discarded)",
+            s.log.len(),
+            s.stale_discarded
+        ))
+        .default_open(false)
+        .show(ui, |ui| {
+            for l in &s.log {
+                ui.weak(l);
+            }
+        });
+    }
     let ready = s.phase == PoolPhase::Ready;
     egui::CollapsingHeader::new(format!("Data: {:.0} % ({} workers)", 100.0 * s.progress(), s.workers)).default_open(!ready).show(ui, |ui| {
         egui::Grid::new("core_jobs").num_columns(3).striped(true).show(ui, |ui| {
@@ -672,11 +815,12 @@ fn pool_panel(ui: &mut egui::Ui, p: &mut CorePool, cfg: &mut KeffConfig, layers:
         }
     });
     if !ready {
-        return;
+        return None;
     }
     // Going from the moment it starts, including while the initial source is
-    // sampled: a second Start in that window queued generation 0 twice.
-    let running = s.run.as_ref().is_some_and(|r| !r.finished());
+    // sampled: a second Start in that window queued generation 0 twice. A
+    // failed run is not going (gh:#817).
+    let running = s.run.as_ref().is_some_and(|r| r.going());
     ui.add_enabled_ui(!running, |ui| {
         // The bed (gh:#786, #787): the record's lattice at N layers, or the
         // DEM random bed cut to the lattice's ball count at N = 12.
@@ -739,6 +883,12 @@ fn pool_panel(ui: &mut egui::Ui, p: &mut CorePool, cfg: &mut KeffConfig, layers:
         }
     });
     if let Some(run) = &s.run {
+        // What kind of run this is (a restart says how, gh:#817).
+        let mut what = run.describe();
+        if let RunOrigin::Restart { after, .. } = &run.origin {
+            what.push_str(&format!(", after: {after}"));
+        }
+        ui.weak(what);
         for g in run.gens.iter().rev().take(8).rev() {
             let mean = g
                 .gen
@@ -792,6 +942,7 @@ fn pool_panel(ui: &mut egui::Ui, p: &mut CorePool, cfg: &mut KeffConfig, layers:
             ui.weak("Your ± is the spread of this run's active generations, a within-run σ that understates the true one.");
         }
     }
+    None
 }
 
 /// k by generation, the running mean, the record and RMC.
@@ -895,6 +1046,77 @@ pub const NOTES: &[&str] = &[
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+    use crate::htr10::core::{AssemblyReport, CoreEv};
+
+    /// After a failed run the screen offers both restarts (on the live
+    /// workers, and on one), says which workers stopped, and draws the
+    /// failure on the main view; "Reprocess" replaces the pool (gh:#817).
+    #[test]
+    fn a_failed_run_offers_both_restarts_and_names_the_dead() {
+        let ctx = egui::Context::default();
+        let plan = Plan {
+            workers: 3,
+            reason: "test".into(),
+        };
+        let mut p = CorePool::start(&ctx, plan, 12).expect("pool");
+        // Data ready without processing anything (the protocol is scripted).
+        let n = p.state.labels.len();
+        for j in 0..n {
+            let ev = CoreEv::Product {
+                job: j,
+                secs: 0.0,
+                data: dhoby_ghaut::web_demo::link::Floats::from_vec(vec![0.0]),
+            };
+            p.state.on_event(0, ev, 0.0);
+        }
+        while !p.state.outbox(usize::MAX).is_empty() {}
+        for w in 0..3 {
+            let r = AssemblyReport {
+                layers: 12,
+                tapes_s: 0.0,
+                nuclides_s: 0.0,
+                geometry_s: 0.0,
+                majorant_s: 0.0,
+                memory_mb: 1.0,
+            };
+            p.state.on_event(w, CoreEv::Assembled(r), 0.0);
+        }
+        assert_eq!(p.state.phase, PoolPhase::Ready);
+        assert!(!restart_wanted(&p.state));
+        p.state.start_run(DEFAULT_RUN, 0.0).expect("start");
+        let failed = CoreEv::Failed {
+            message: "core worker: boom".into(),
+            epoch: 1,
+        };
+        p.state.on_event(0, failed, 0.0);
+        assert!(restart_wanted(&p.state));
+        p.state.on_error(2, "physics worker: out of memory".into());
+        let [(k0, l0), (k1, l1)] = restart_labels(&p.state);
+        assert_eq!((k0, k1), (RestartKind::Parallel, RestartKind::Serial));
+        assert!(l0.contains("in parallel (2 workers)") && l1.contains("serially (1 worker)"));
+        assert!(dead_line(&p.state).contains("2 of 3 workers left") && dead_line(&p.state).contains("worker 3"));
+        let lines: Vec<String> = status_lines(&p).into_iter().map(|(l, _)| l).collect();
+        assert!(lines.iter().any(|l| l.contains("boom")), "{lines:?}");
+        assert!(lines.iter().any(|l| l.contains("2 of 3 workers left")), "{lines:?}");
+        restart(&mut p.state, RestartKind::Serial);
+        assert!(!restart_wanted(&p.state));
+        let lines: Vec<String> = status_lines(&p).into_iter().map(|(l, _)| l).collect();
+        assert!(lines.iter().any(|l| l.contains("serial restart")), "{lines:?}");
+        // A refused restart only logs.
+        restart(&mut p.state, RestartKind::Parallel);
+        p.terminate();
+        // Reprocess: the old pool is stopped and a new one started.
+        let info = crate::table::Rung::Htr10.raster_info().expect("raster");
+        let mut screen = CoreScreen::new(info, 1.0, false);
+        screen.pool = Some(p);
+        screen.reprocess(&ctx);
+        let fresh = screen.pool.as_ref().expect("a new pool");
+        assert_eq!(fresh.state.phase, PoolPhase::Processing);
+        assert!(fresh.state.log.is_empty());
+        if let Some(p) = screen.pool.take() {
+            p.terminate();
+        }
+    }
 
     /// Tracks survive the file, the record's rows are read, the view frame
     /// swaps y and z, and the recorded tracks committed with the demo decode.

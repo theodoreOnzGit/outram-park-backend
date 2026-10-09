@@ -25,6 +25,13 @@
 
 use std::sync::{Arc, RwLock};
 
+/// How a [`Link`] reports a reply it could not read (the worker is alive;
+/// one of its replies was lost). An error event that does NOT start with this
+/// comes from the worker itself failing (its `onerror`, or a panic, after
+/// which its state cannot be trusted). A pool tells the two apart by this
+/// prefix (gh:#817): a lost reply fails a run, a dead worker loses its data.
+pub const BAD_MESSAGE: &str = "bad message from the worker";
+
 /// What crosses between the UI and the engine. Natively anything `Send + Sync` is a
 /// message; in the browser it must also turn into a JS object and back.
 #[cfg(not(target_arch = "wasm32"))]
@@ -45,12 +52,15 @@ pub trait Message: Sized + 'static {
 pub struct Mailbox<R, E> {
     pub events: Vec<E>,
     pub requests: Vec<R>,
+    /// Set by [`Link::terminate`]: the engine thread drops what it is sent
+    /// and exits; nothing more is delivered.
+    pub closed: bool,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 impl<R, E> Default for Mailbox<R, E> {
     fn default() -> Self {
-        Self { events: Vec::new(), requests: Vec::new() }
+        Self { events: Vec::new(), requests: Vec::new(), closed: false }
     }
 }
 
@@ -76,7 +86,9 @@ impl<R: Message, E: Message> Link<R, E> {
             #[cfg(not(target_arch = "wasm32"))]
             Link::Native(m) => {
                 if let Ok(mut m) = m.write() {
-                    m.requests.push(r);
+                    if !m.closed {
+                        m.requests.push(r);
+                    }
                 }
             }
             #[cfg(target_arch = "wasm32")]
@@ -90,6 +102,28 @@ impl<R: Message, E: Message> Link<R, E> {
                 }
                 let _ = worker.post_message(&msg);
             }
+        }
+    }
+
+    /// Stop the engine for good, freeing what it holds: in the browser the
+    /// worker is terminated at once (its memory, hundreds of MB for a pool
+    /// member, goes with it); natively the engine thread exits after the
+    /// request it is serving, dropping the engine and its data, and nothing
+    /// more is delivered.
+    /// Dropping a `Link` does NOT stop a Web Worker: its message handler keeps
+    /// it alive, so a page that replaces a pool must terminate the old one.
+    pub fn terminate(&self) {
+        match self {
+            #[cfg(not(target_arch = "wasm32"))]
+            Link::Native(m) => {
+                if let Ok(mut m) = m.write() {
+                    m.closed = true;
+                    m.requests.clear();
+                    m.events.clear();
+                }
+            }
+            #[cfg(target_arch = "wasm32")]
+            Link::Web { worker, .. } => worker.terminate(),
         }
     }
 
@@ -189,11 +223,16 @@ pub fn start_native<N: NativeEngine>(mut engine: N, repaint: impl Fn() + Send + 
     std::thread::spawn(move || {
         let mut post = |e: N::Ev| {
             if let Ok(mut m) = m.write() {
-                m.events.push(e);
+                if !m.closed {
+                    m.events.push(e);
+                }
             }
             repaint();
         };
         loop {
+            if m.read().map_or(true, |m| m.closed) {
+                return;
+            }
             let requests = m.write().map(|mut m| std::mem::take(&mut m.requests)).unwrap_or_default();
             if requests.is_empty() {
                 std::thread::sleep(std::time::Duration::from_millis(3));
@@ -302,7 +341,7 @@ mod web {
                 }
                 return;
             }
-            let e = E::from_js(&data).unwrap_or_else(|m| on_error(format!("bad message from the worker: {m}")));
+            let e = E::from_js(&data).unwrap_or_else(|m| on_error(format!("{}: {m}", super::BAD_MESSAGE)));
             if let Ok(mut i) = ib.write() {
                 i.push(e);
             }
@@ -405,3 +444,46 @@ mod web {
 
 #[cfg(target_arch = "wasm32")]
 pub use web::{fetch_promise, fetch_start};
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+
+    /// Echoes each request back as an event.
+    struct Echo;
+    impl NativeEngine for Echo {
+        type Req = u32;
+        type Ev = u32;
+        fn handle(&mut self, req: u32, post: &mut impl FnMut(u32)) {
+            post(req);
+        }
+    }
+
+    fn wait_for(link: &Link<u32, u32>, n: usize) -> Vec<u32> {
+        let mut got = Vec::new();
+        for _ in 0..2000 {
+            got.extend(link.drain());
+            if got.len() >= n {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        got
+    }
+
+    /// A native link delivers in order; once terminated it takes nothing
+    /// more and delivers nothing more (gh:#817: a replaced pool is stopped,
+    /// not leaked); a bad reply is reported under [`BAD_MESSAGE`].
+    #[test]
+    fn a_terminated_link_delivers_nothing_more() {
+        let link = start_native(Echo, || {});
+        link.send(1);
+        link.send(2);
+        assert_eq!(wait_for(&link, 2), vec![1, 2]);
+        link.terminate();
+        link.send(3);
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        assert!(link.drain().is_empty());
+        assert!(BAD_MESSAGE.starts_with("bad message"));
+    }
+}
