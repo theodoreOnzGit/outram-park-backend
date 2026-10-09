@@ -203,7 +203,7 @@ impl PoolState {
                 if let Some(b) = self.busy.get_mut(w) {
                     *b = false;
                 }
-                if let Some(run) = self.run.as_mut() {
+                if let Some(run) = self.run.as_mut().filter(|r| r.it.is_none()) {
                     match SourceSite::decode(&sites.to_vec()) {
                         Ok(s) => {
                             run.it = Some(DistributedPowerIteration::from_initial_source(
@@ -215,8 +215,12 @@ impl PoolState {
                             run.gen_started_s = now_s;
                             Self::cut(run, self.workers);
                         }
-                        Err(e) => self.phase = PoolPhase::Failed(e),
+                        Err(e) => {
+                            self.phase = PoolPhase::Failed(unreadable("the initial source", w, &e));
+                        }
                     }
+                } else {
+                    log::warn!("htr10 core: ignored an initial source from worker {} that no run is waiting for", w + 1);
                 }
             }
             CoreEv::ChunkDone { data, secs } => {
@@ -229,9 +233,12 @@ impl PoolState {
                             run.results.push(r);
                             run.gen_busy_s += secs;
                         }
-                        Err(e) => self.phase = PoolPhase::Failed(e),
+                        Err(e) => {
+                            self.phase = PoolPhase::Failed(unreadable("a chunk result", w, &e));
+                        }
                     }
                     if run.expected > 0 && run.results.len() == run.expected {
+                        let got = run.results.len();
                         let results = std::mem::take(&mut run.results);
                         let mesh = run.mesh.clone();
                         if let Some(it) = run.it.as_mut() {
@@ -261,7 +268,14 @@ impl PoolState {
                                         Self::cut(run, self.workers);
                                     }
                                 }
-                                Err(e) => self.phase = PoolPhase::Failed(e),
+                                Err(e) => {
+                                    self.phase = PoolPhase::Failed(not_added_up(
+                                        it.generations_done(),
+                                        &e,
+                                        got,
+                                        self.workers,
+                                    ));
+                                }
                             }
                         }
                     }
@@ -273,7 +287,13 @@ impl PoolState {
 
     /// A worker failed: the pool stops.
     pub fn on_error(&mut self, w: usize, msg: String) {
-        self.phase = PoolPhase::Failed(format!("worker {}: {msg}", w + 1));
+        self.phase = PoolPhase::Failed(format!(
+            "Worker {} of {} stopped: {msg}. On a phone this is usually the browser reclaiming \
+             memory (each worker holds about 545 MB of nuclear data). Close other tabs, or \
+             open the page with ?workers=1, then reload the page.",
+            w + 1,
+            self.workers
+        ));
     }
 
     /// Queue the current generation's chunks.
@@ -289,12 +309,13 @@ impl PoolState {
         if self.phase != PoolPhase::Ready {
             return Err("the data are not ready".into());
         }
-        if self
-            .run
-            .as_ref()
-            .is_some_and(|r| !r.finished() && r.it.is_some())
-        {
-            return Err("a run is going".into());
+        // A run is going from the moment it starts, including while worker 1
+        // samples its initial source (`it` is still None then). Accepting a
+        // second start in that window sent two source requests, and each reply
+        // queued generation 0's chunks: the duplicates came back while
+        // generation 1 was being reduced (seen on a phone, 2026-10-09).
+        if self.run.as_ref().is_some_and(|r| !r.finished()) {
+            return Err("a run is already going (it may still be sampling its initial source); wait for it to finish".into());
         }
         self.run = Some(RunState {
             cfg,
@@ -432,6 +453,29 @@ impl PoolState {
         }
         out
     }
+}
+
+/// Where a failure the reader cannot fix should be reported.
+const REPORT: &str = "github.com/theodoreOnzGit/outram-park-backend/issues";
+
+/// The message when a generation's results cannot be added up: what
+/// happened, that it is the demo's bookkeeping and not the physics, and what
+/// to do (maintainer, 2026-10-09: errors must be informative in the browser).
+fn not_added_up(generation: usize, e: &str, got: usize, workers: usize) -> String {
+    format!(
+        "Run stopped at generation {generation}: the {got} results the {workers} workers sent \
+         back could not be added up ({e}). This is a bug in the demo's bookkeeping, not in \
+         the physics. Reload the page to start again, and please report this message at {REPORT}."
+    )
+}
+
+/// The message when a worker's reply cannot be decoded.
+fn unreadable(what: &str, w: usize, e: &str) -> String {
+    format!(
+        "Run stopped: {what} from worker {} could not be read ({e}). Reload the page to start \
+         again, and please report this message at {REPORT}.",
+        w + 1
+    )
 }
 
 // ─── Wired to links ──────────────────────────────────────────────────────────
@@ -603,7 +647,16 @@ mod tests {
             3
         );
         p.on_error(1, "boom".into());
-        assert!(matches!(p.phase, PoolPhase::Failed(_)));
+        match &p.phase {
+            // Informative in the browser: which worker, why it is likely, what to do.
+            PoolPhase::Failed(m) => {
+                assert!(m.contains("Worker 2 of 3 stopped: boom") && m.contains("reload"), "{m}");
+            }
+            other => panic!("{other:?}"),
+        }
+        let m = not_added_up(1, "a result for generation 0 while reducing 1", 6, 2);
+        assert!(m.contains("generation 1") && m.contains("not in the physics") && m.contains(REPORT), "{m}");
+        assert!(unreadable("a chunk result", 0, "short").contains("worker 1"));
     }
 
     fn model() -> (Geometry, Vec<Material>, Vec<Nuclide>) {
@@ -720,6 +773,10 @@ mod tests {
             }
             assert_eq!(p.phase, PoolPhase::Ready);
             p.start_run(cfg, 0.0).expect("start");
+            // Regression (phone, 2026-10-09): a second Start while the
+            // initial source is still being sampled is refused.
+            let again = p.start_run(cfg, 0.5).unwrap_err();
+            assert!(again.contains("already going"), "{again}");
             let mut ks = Vec::new();
             let mut done = false;
             for _ in 0..1000 {
@@ -733,6 +790,14 @@ mod tests {
                                 box_,
                                 &super::super::run_settings(&cfg),
                             );
+                            // Delivered twice: the duplicate must be ignored,
+                            // not queue generation 0 a second time.
+                            let dup = CoreEv::Source {
+                                sites: Floats::from_vec(SourceSite::encode(&s)),
+                                seed,
+                                mesh,
+                            };
+                            assert!(p.on_event(w, dup, 1.0).is_empty());
                             CoreEv::Source {
                                 sites: Floats::from_vec(SourceSite::encode(&s)),
                                 seed,

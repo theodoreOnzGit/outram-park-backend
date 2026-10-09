@@ -378,9 +378,7 @@ impl CoreScreen {
             if self.autostart && p.state.phase == PoolPhase::Ready && p.state.run.is_none() {
                 let _ = p.state.start_run(self.cfg, now_s());
             }
-            if let PoolPhase::Failed(e) = &p.state.phase {
-                self.error = Some(e.clone());
-            }
+            // A pool failure is shown once, by the pool's status line.
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
         }
         // The next neutron.
@@ -635,7 +633,7 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
             }
         }
         PoolPhase::Failed(e) => v.push((
-            format!("Pool failed: {e}"),
+            format!("⚠ {e}"),
             Color32::from_rgb(255, 110, 110),
         )),
     }
@@ -676,10 +674,9 @@ fn pool_panel(ui: &mut egui::Ui, p: &mut CorePool, cfg: &mut KeffConfig, layers:
     if !ready {
         return;
     }
-    let running = s
-        .run
-        .as_ref()
-        .is_some_and(|r| !r.finished() && r.it.is_some());
+    // Going from the moment it starts, including while the initial source is
+    // sampled: a second Start in that window queued generation 0 twice.
+    let running = s.run.as_ref().is_some_and(|r| !r.finished());
     ui.add_enabled_ui(!running, |ui| {
         // The bed (gh:#786, #787): the record's lattice at N layers, or the
         // DEM random bed cut to the lattice's ball count at N = 12.
