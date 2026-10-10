@@ -52,8 +52,12 @@ reviewed first?**
 ~~`Mode::Desktop` is reserved and **not implemented**.~~ **CORRECTED
 2026-10-10** (#820): `Mode::Desktop` is the same UI inside desktop kovan's
 Code Review tab. Stamp and Needs fix are enabled there and handed to
-desktop kovan as a `ui::HostRequest`; the stamp dialog itself is not
-written yet (a placeholder window, #740, #770).
+desktop kovan as a `ui::HostRequest`; ~~the stamp dialog itself is not
+written yet (a placeholder window, #740, #770).~~ **CORRECTED 2026-10-10**
+(#770): desktop kovan answers it with its stamp dialog (set up or pick a
+signing key, the review wizard with the derived rung, sign and write
+`review.md`, or a needs-fix), then pushes the states from `review.md` back
+with `CodeReview::set_stamps`.
 
 ## Status
 

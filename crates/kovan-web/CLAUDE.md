@@ -57,8 +57,12 @@ never silently (Leak Before Break). Nothing generated is committed.
 - ~~`Mode::Desktop` is a placeholder: the bar's buttons only post a status.~~
   **CORRECTED 2026-10-10** (#820): in `Mode::Desktop` the bar's buttons
   queue a `ui::HostRequest` (`CodeReview::take_host_request`) and the host
-  pushes stamp states back with `CodeReview::set_stamps`; desktop kovan's
-  stamp dialog is still a placeholder window (#740, #770).
+  pushes stamp states back with `CodeReview::set_stamps`; ~~desktop kovan's
+  stamp dialog is still a placeholder window (#740, #770).~~ **CORRECTED
+  2026-10-10** (#770): desktop kovan's stamp dialog is written
+  (`kovan/src/app/stamp_dialog.rs` over `kovan/src/stamping/flow.rs`): key
+  set-up, the review wizard, sign and write `review.md`, needs fix, then
+  `set_stamps` with the states from `review.md`.
 - Definition, type, references and implementations in the source panel's
   menu are greyed out until the link index (#745) fills `SourceFile::links`.
 - Walkthroughs ("Show walks through here") are a stub (#741).

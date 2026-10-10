@@ -10,6 +10,7 @@
 //! <workspace>/target/kovan-code-review/data/
 //!   code_map.json      the crates and their tags (cargo metadata)
 //!   graph/index.json   the split call graph's index, with stamp states
+//!                      (legacy `review/stamps.toml`; see below)
 //!   graph/search.json  its search index
 //!   graph/<crate>.json one slice per crate
 //!   build.json         commit, and which crates rust-analyzer did not index
@@ -23,6 +24,14 @@
 //!
 //! `build.json` is written last and is the freshness marker
 //! ([`data_state`]): data older than the SCIP index is rebuilt.
+//!
+//! **Stamp states (2026-10-10, #770).** The `stamps` in `graph/index.json`
+//! are still `commands::call_graph::stamp_states` (the legacy
+//! `review/stamps.toml`), as `kovan-cli call-graph --split-dir` writes
+//! them; changing that CLI output is a separate decision, not made here.
+//! The Code Review view replaces them, once the data is loaded, with
+//! [`crate::stamping::stamp_states`] (signed `review.md` entries), computed
+//! on a worker.
 
 use std::path::{Path, PathBuf};
 

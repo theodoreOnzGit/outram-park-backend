@@ -515,8 +515,16 @@ function a **human** reviewed (rung 3) or whose V&V a human checked
 hash, the rung, reviewer, date, a note and an optional walkthrough link.
 Rung 5 (IV&V, GitHub #809) is never a stamp's rung: the review engine
 derives it per function (`kovan_common::review::ivv`).
-**AI agents never stamp**; stamping is the maintainer's, in desktop kovan
-(#740) or with `kovan-cli stamp ... --i-am-the-reviewer`.
+**AI agents never stamp**; stamping is the maintainer's, ~~in desktop kovan
+(#740) or~~ with `kovan-cli stamp ... --i-am-the-reviewer`. **CORRECTED
+2026-10-10** (#770): desktop kovan's Code Review tab does not write
+`review/stamps.toml`; its Stamp button opens the stamp dialog, which writes
+a **signed** entry into the function's folder `review.md` (key set-up on
+first use, the review wizard, the passphrase; `src/stamping/`), and the
+tab's states come from `review.md` (`stamping::stamp_states`). The
+`call-graph --split-dir` data still carries the `stamps.toml` states; the
+tab replaces them once loaded. kovan commits nothing: commit `review.md`
+yourself (#771).
 
 ```text
 kovan-cli stamps-check                        # every stamp, on the working tree

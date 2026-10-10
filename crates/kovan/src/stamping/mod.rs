@@ -3,6 +3,8 @@
 //! workspace folder, no egui, safe to run on a worker thread.
 //!
 //! ```text
+//!   prepare_stamp(root, function, by) ──> StampContext (the wizard's
+//!        │   applicability and prefilled answers; the same refusals)
 //!   draft_stamp(root, request) ──> ReviewEntry (unsigned)
 //!        │   gathers: kovan.toml (refreshed in memory), HEAD, Cargo.lock,
 //!        │   callee hashes, git's test authorship   ── pure part: kovan_common::review::draft
@@ -16,6 +18,9 @@
 //!   stamp_states(root) ──> Vec<StampState> for kovan-web's Facts::new
 //!                          (states.rs: GitFacts from git, engine::evaluate)
 //! ```
+//!
+//! The dialog's state machine (steps, form checks, worker jobs) is
+//! [`flow`]; its drawing is `app/stamp_dialog.rs` (GUI feature).
 //!
 //! # Reused, not rewritten
 //!
@@ -48,7 +53,7 @@ use std::path::{Path, PathBuf};
 
 use kovan_common::artifact::relation::RelationRecord;
 use kovan_common::code_index::refresh::{all_claims, refresh_folder};
-use kovan_common::review::draft::{draft_needs_fix, draft_review, DraftInput};
+use kovan_common::review::draft::{draft_needs_fix, draft_review, DraftError, DraftInput};
 use kovan_common::review::hash::sha256_tagged;
 use kovan_common::review::index::{FolderIndex, FunctionIndex};
 use kovan_common::review::review_md::{parse_review_md, NeedsFixEntry, ReviewDocument, ReviewEntry};
@@ -61,9 +66,11 @@ use kovan_common::review::root_append::{
 use kovan_common::review::signed_at::{date_of, now_local};
 use kovan_common::review::signing::keystore::KeyFile;
 use kovan_common::review::types::ChangeAuthorship;
+use kovan_common::review::wizard::{vv_case_author_prefill, Applicability, ReviewWizard};
 
 use crate::review_stamps::git;
 
+pub mod flow;
 mod states;
 
 pub use states::{evaluate_workspace, git_facts, stamp_states, WorkspaceEvaluation};
@@ -254,22 +261,21 @@ pub struct DraftedStamp {
     pub call_graph_id: String,
 }
 
-/// Draft the stamp for `req` at `HEAD` (module doc). Refused when there is
-/// no commit, the function is not indexed, its file differs from `HEAD`
-/// (the stamp certifies `HEAD`), the index's hash is not the hash of the
-/// function at `HEAD`, or the pure draft refuses
-/// ([`kovan_common::review::draft::DraftError`]).
-pub fn draft_stamp(root: &Path, req: &StampRequest) -> Result<DraftedStamp, String> {
-    let ws = load_workspace(root)?;
+/// The function `function` names in `ws`, checked for stamping at
+/// `HEAD`: refused when there is no commit, the function is not indexed,
+/// its file differs from `HEAD` (the stamp certifies `HEAD`), or the
+/// index's hash is not the hash of the function at `HEAD`.
+fn locate<'w>(
+    root: &Path,
+    ws: &'w Workspace,
+    function: &str,
+) -> Result<(&'w FolderIndex, &'w str, &'w FunctionIndex), String> {
     if ws.head.is_empty() {
         return Err("no commit: a stamp certifies a commit".into());
     }
-    let (idx, file, f) = ws.find(&req.function).ok_or_else(|| {
-        format!(
-            "{} is not in any kovan.toml (run kovan-cli index)",
-            req.function
-        )
-    })?;
+    let (idx, file, f) = ws
+        .find(function)
+        .ok_or_else(|| format!("{function} is not in any kovan.toml (run kovan-cli index)"))?;
     let path = idx.file_path(file);
     if git::is_dirty(root, &path)? {
         return Err(format!(
@@ -284,6 +290,97 @@ pub fn draft_stamp(root: &Path, req: &StampRequest) -> Result<DraftedStamp, Stri
             f.qual
         ));
     }
+    Ok((idx, file, f))
+}
+
+/// What the stamp dialog needs before the wizard is shown (GitHub #770):
+/// which questions apply, and the starting answers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StampContext {
+    /// The function's `fn:` id.
+    pub fn_id: String,
+    /// Its call-graph id (kovan-web's key).
+    pub call_graph_id: String,
+    /// `file.rs::qual`, workspace-relative.
+    pub path: String,
+    /// The folder's `review.md`, workspace-relative.
+    pub review_md: String,
+    /// The wizard's applicability, exactly as [`draft_stamp`] will judge
+    /// it (`physical_interface` from the index; a `units_documented` answer
+    /// also turns it on there, as in [`kovan_common::review::draft`]).
+    pub applicability: Applicability,
+    /// The starting answers: this reviewer's previous answers still valid
+    /// ([`ReviewWizard::prefill`]), plus `vv_case_author` from git
+    /// ([`vv_case_author_prefill`]) when not answered before.
+    pub answers: BTreeMap<String, String>,
+    /// This reviewer already has a review of the function (it is replaced).
+    pub restamp: bool,
+}
+
+/// Check that `function` can be stamped by `by` at `HEAD` now and gather
+/// the wizard's context ([`StampContext`]). Refused for every reason
+/// [`draft_stamp`] refuses before the answers matter (no commit, not
+/// indexed, uncommitted changes in its file, index hash not the hash at
+/// `HEAD`, index entry out of date, a callee with no hash), with the same
+/// messages. Reads git; call it off the UI thread.
+pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampContext, String> {
+    let ws = load_workspace(root)?;
+    let (idx, file, f) = locate(root, &ws, function)?;
+    let path = format!("{}::{}", idx.file_path(file), f.qual);
+    if f.index_out_of_date {
+        return Err(DraftError::IndexOutOfDate { path }.to_string());
+    }
+    let hashes = ws.hashes();
+    if let Some(c) = f.callees.iter().find(|c| !hashes.contains_key(*c)) {
+        return Err(DraftError::MissingCalleeHash(c.clone()).to_string());
+    }
+    let folder = ws.reviews.get(&idx.dir);
+    let mut msgs = states::MessageCache::new();
+    let tests = states::tests_at(root, &ws.head, &idx.dir, &f.id, &mut msgs);
+    let applicability = Applicability {
+        is_port: folder
+            .and_then(|m| m.doc.upstream())
+            .is_some_and(|u| u.is_port),
+        physical_interface: f.physical_interface,
+        tests: tests.as_ref().map(|t| t.authorship()).unwrap_or_default(),
+    };
+    let previous = folder.and_then(|m| {
+        m.doc
+            .reviews()
+            .find(|r| r.function_id() == f.id && r.review.by == by)
+    });
+    let wizard = ReviewWizard::embedded();
+    let mut answers = previous
+        .map(|r| wizard.prefill(&r.review.checklist, applicability))
+        .unwrap_or_default();
+    let messages: Vec<String> = tests
+        .map(|t| t.commit_messages.into_values().flatten().collect())
+        .unwrap_or_default();
+    if let Some(a) = vv_case_author_prefill(&messages) {
+        answers
+            .entry("vv_case_author".to_string())
+            .or_insert_with(|| a.to_string());
+    }
+    Ok(StampContext {
+        fn_id: f.id.clone(),
+        call_graph_id: call_graph_id(idx, file, f),
+        path,
+        review_md: join(&idx.dir, REVIEW_MD),
+        applicability,
+        answers,
+        restamp: previous.is_some(),
+    })
+}
+
+/// Draft the stamp for `req` at `HEAD` (module doc). Refused when there is
+/// no commit, the function is not indexed, its file differs from `HEAD`
+/// (the stamp certifies `HEAD`), the index's hash is not the hash of the
+/// function at `HEAD`, or the pure draft refuses
+/// ([`kovan_common::review::draft::DraftError`]).
+pub fn draft_stamp(root: &Path, req: &StampRequest) -> Result<DraftedStamp, String> {
+    let ws = load_workspace(root)?;
+    let (idx, file, f) = locate(root, &ws, &req.function)?;
+    let path = idx.file_path(file);
     let hashes = ws.hashes();
     let folder = ws.reviews.get(&idx.dir);
     let previous = folder.and_then(|m| {
@@ -445,8 +542,12 @@ fn read_root(root: &Path) -> Result<(PathBuf, String), String> {
 /// Register the key in `kf` in `<root>/kovan_root.toml` (appended text,
 /// comments kept: [`kovan_common::review::root_append`]). Trust on first
 /// use is given only to the first reviewer of a root with no reviewer and
-/// no founder (conservative: an existing root without a founder trusts
-/// nobody until the maintainer names one by hand). `date` is
+/// either no founder or `[code_review] founder` already naming this
+/// reviewer (what "Index fresh" writes when the keystore holds one
+/// identity; added 2026-10-10 for the stamp dialog, #770). Any other root
+/// registers the reviewer as awaiting admission (conservative: a root
+/// whose founder is someone else trusts this reviewer only once a
+/// maintainer admits it). `date` is
 /// `YYYY-MM-DD`; `name` is display only. The file must exist.
 pub fn register_key(
     root: &Path,
@@ -457,6 +558,7 @@ pub fn register_key(
     let (path, text) = read_root(root)?;
     let parsed = ReviewRoot::parse(&text).map_err(|e| e.to_string())?;
     let key = kf.reviewer_key();
+    let founder = parsed.code_review.as_ref().and_then(|c| c.founder.clone());
     let (new, what) = match parsed.reviewer(&kf.reviewer) {
         Some(r) => {
             let first = r.keys.is_empty();
@@ -469,13 +571,14 @@ pub fn register_key(
             )
         }
         None if parsed.reviewers.is_empty()
-            && parsed
-                .code_review
-                .as_ref()
-                .and_then(|c| c.founder.as_ref())
-                .is_none() =>
+            && founder.as_ref().is_none_or(|f| *f == kf.reviewer) =>
         {
-            let t = declare_founder(&text, &kf.reviewer).map_err(|e| e.to_string())?;
+            let t = match founder {
+                // Named already (by "Index fresh" from the keystore, or by
+                // hand): only the founding reviewer entry is added.
+                Some(_) => text.clone(),
+                None => declare_founder(&text, &kf.reviewer).map_err(|e| e.to_string())?,
+            };
             let r = founding_reviewer(&kf.reviewer, name, key, date);
             (
                 append_reviewer(&t, &r).map_err(|e| e.to_string())?,
@@ -502,5 +605,7 @@ pub fn register_reviewer(root: &Path, reviewer: &Reviewer) -> Result<(), String>
     write_text(&path, &new)
 }
 
+#[cfg(test)]
+mod flow_tests;
 #[cfg(test)]
 mod tests;

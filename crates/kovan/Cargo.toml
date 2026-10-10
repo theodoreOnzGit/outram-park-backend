@@ -104,6 +104,9 @@ path = "src/bin/kovan-tui.rs"
 
 [dependencies]
 kovan-common.workspace = true
+# The stamp dialog (`src/stamping/flow.rs`, #770) zeroises passphrases after
+# use. Already in the tree through kovan-common's keystore.
+zeroize.workspace = true
 kovan-discovery.workspace = true
 # `src/root.rs`'s library creation (op-9vo6.4, GitHub issue #35 §4): `gix::init`
 # to make a new Kovan library a real git repository, so a non-Git user gets a

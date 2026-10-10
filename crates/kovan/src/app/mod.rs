@@ -34,6 +34,7 @@ mod edit_digitisation_tests;
 mod axes_lock_tests;
 mod series_select;
 mod setup;
+mod stamp_dialog;
 mod table_digitiser;
 mod theme;
 pub(crate) use theme::navigation_style;

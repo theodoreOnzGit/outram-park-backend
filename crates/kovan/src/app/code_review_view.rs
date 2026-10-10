@@ -14,14 +14,23 @@
 //! an "Index fresh", checks the data and builds or rebuilds it when the
 //! index is newer.
 //!
-//! **Stamping: the hand-off is wired, the dialog is not.** The review bar's
+//! ~~**Stamping: the hand-off is wired, the dialog is not.**~~ **CORRECTED
+//! 2026-10-10** (#770): **Stamping is wired end to end.** The review bar's
 //! Stamp and Needs fix (enabled in `Mode::Desktop`) queue a
 //! [`kovan_web::ui::HostRequest`] naming the function
 //! ([`kovan_web::ui::FunctionRef`]); this view takes it after each frame and
-//! holds it as `pending`, shown for now as a placeholder window
-//! ([`placeholder_dialog`]) that the stamp dialog replaces (#740, #770).
-//! After a stamp is written, [`CodeReviewView::set_stamps`] recolours the
-//! bar and the cards without reloading the data.
+//! opens the stamp dialog over it (`super::stamp_dialog`, whose logic is
+//! [`crate::stamping::flow::StampFlow`]): key set-up, the review wizard,
+//! sign and write `review.md`, or a needs-fix. After a write the flow
+//! recomputes the states from `review.md`, and
+//! [`CodeReviewView::set_stamps`] recolours the bar and the cards without
+//! reloading the data.
+//!
+//! **Stamp states come from `review.md`.** Once the data is loaded, the
+//! view replaces the data folder's `stamps` (the legacy
+//! `review/stamps.toml` path of `kovan-cli call-graph --split-dir`, left
+//! as it is: changing the CLI output is a separate decision) with
+//! [`crate::stamping::stamp_states`], computed on a worker.
 //!
 //! **No lag (root `CLAUDE.md`, HARD RULE).** Checking and building the data
 //! (cargo metadata, reading the SCIP index, resolving every call, writing)
@@ -33,10 +42,12 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use kovan_common::call_graph::split::StampState;
+use kovan_common::review::signing::keystore::Keystore;
 use kovan_web::ui::HostRequest;
 
 use crate::code_review_data::{build, data_dir, data_state, BuildReport, DataState};
 use crate::commands::index_control::{Progress, RunControl};
+use crate::stamping::flow::{Purpose, StampFlow, StatesResult, Target, Worker};
 
 /// What the worker found or built.
 type Prepared = Result<Option<BuildReport>, String>;
@@ -61,6 +72,16 @@ pub(crate) struct CodeReviewView {
     /// A Stamp / Needs-fix press taken from the embedded UI, until its
     /// dialog is closed.
     pending: Option<HostRequest>,
+    /// The stamp dialog of `pending`.
+    dialog: Option<StampFlow>,
+    /// Stamp states from `review.md` being computed (after the data loads,
+    /// or a refresh still running when the dialog closed).
+    states_job: Option<Worker<StatesResult>>,
+    /// Why the states could not be computed, or the dialog not opened.
+    states_note: Option<String>,
+    /// The keystore the dialog reads (tests inject a temporary one; `None`
+    /// is kovan's default location, never read under `cargo test`).
+    keystore: Option<Keystore>,
 }
 
 /// Check the data of `workspace` and build it when missing or stale (or
@@ -108,20 +129,87 @@ impl CodeReviewView {
     /// Push fresh stamp states into the embedded UI (after the stamp dialog
     /// wrote one), so it recolours without reloading. A no-op while there is
     /// no UI: the next data build carries the stamps.
-    #[allow(dead_code)] // The stamp dialog (#740, #770) is its caller; the test reaches it.
     pub(crate) fn set_stamps(&mut self, stamps: Vec<StampState>) {
         if let Some(review) = &mut self.review {
             review.set_stamps(stamps);
         }
     }
 
-    /// Take the embedded UI's Stamp / Needs-fix press, if any. A press while
-    /// a dialog is open is dropped (the modal blocks the bar anyway).
+    /// Take the embedded UI's Stamp / Needs-fix press, if any, and open its
+    /// dialog. A press while a dialog is open is dropped (the modal blocks
+    /// the bar anyway).
     fn take_request(&mut self) {
         if let Some(r) = self.review.as_mut().and_then(|r| r.take_host_request()) {
             if self.pending.is_none() {
-                self.pending = Some(r);
+                self.open(r);
             }
+        }
+    }
+
+    /// The keystore the dialog uses: the injected one, else kovan's default
+    /// location; under `cargo test` never the user's.
+    fn keystore(&self) -> Result<Keystore, String> {
+        match &self.keystore {
+            Some(k) => Ok(k.clone()),
+            None if cfg!(test) => Err("tests never read the real keystore".into()),
+            None => Keystore::default_location().map_err(|e| e.to_string()),
+        }
+    }
+
+    /// Open the stamp dialog for `req` (its first job starts on a worker).
+    fn open(&mut self, req: HostRequest) {
+        let (purpose, f) = match &req {
+            HostRequest::Stamp(f) => (Purpose::Stamp, f),
+            HostRequest::NeedsFix(f) => (Purpose::NeedsFix, f),
+        };
+        let target = Target {
+            function: f.id.clone(),
+            name: f.name.clone(),
+        };
+        let (Some(root), ks) = (self.workspace.clone(), self.keystore()) else {
+            return;
+        };
+        match ks {
+            Ok(ks) => {
+                self.dialog = Some(StampFlow::new(root, ks, purpose, target));
+                self.pending = Some(req);
+            }
+            Err(e) => self.states_note = Some(format!("Cannot open the stamp dialog: {e}")),
+        }
+    }
+
+    /// Close the dialog, keeping a refresh it started.
+    fn close_dialog(&mut self) {
+        if let Some(mut d) = self.dialog.take() {
+            if let Some(s) = d.take_states() {
+                self.set_stamps(s);
+            }
+            if let Some(w) = d.take_refresh() {
+                self.states_job = Some(w);
+            }
+        }
+        self.pending = None;
+    }
+
+    /// Compute the stamp states from `review.md` on a worker.
+    fn load_states(&mut self) {
+        if let Some(dir) = self.workspace.clone() {
+            self.states_job = Some(Worker::spawn(move || crate::stamping::stamp_states(&dir)));
+        }
+    }
+
+    /// Take the states job's result, if any, without blocking.
+    fn poll_states(&mut self) {
+        let Some(r) = self.states_job.as_ref().and_then(Worker::try_take) else {
+            return;
+        };
+        self.states_job = None;
+        match r {
+            Ok(s) => {
+                self.states_note = None;
+                self.set_stamps(s);
+            }
+            Err(e) => self.states_note = Some(format!("Review states from review.md: {e}")),
         }
     }
 
@@ -157,6 +245,7 @@ impl CodeReviewView {
                     kovan_web::Mode::Desktop,
                     source,
                 ));
+                self.load_states();
             }
             Err(e) => self.note = Some(Err(e)),
         }
@@ -169,6 +258,11 @@ impl CodeReviewView {
             self.rebuild(false);
         }
         self.poll();
+        self.poll_states();
+        if self.states_job.is_some() {
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(200));
+        }
         let mut rebuild = false;
         egui::Panel::top("code-review-strip").show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
@@ -196,6 +290,13 @@ impl CodeReviewView {
                     }
                     None => {}
                 }
+                if self.states_job.is_some() {
+                    ui.spinner();
+                    ui.weak("review states\u{2026}");
+                }
+                if let Some(e) = &self.states_note {
+                    ui.colored_label(ui.visuals().error_fg_color, e);
+                }
             });
         });
         if rebuild {
@@ -222,10 +323,18 @@ impl CodeReviewView {
             Some(review) => {
                 review.show(ui);
                 self.take_request();
-                if let Some(req) = &self.pending {
-                    if placeholder_dialog(ui.ctx(), req) {
-                        self.pending = None;
-                    }
+                let ctx = ui.ctx().clone();
+                let mut closed = false;
+                let mut fresh = None;
+                if let Some(d) = self.dialog.as_mut() {
+                    closed = super::stamp_dialog::show(&ctx, d);
+                    fresh = d.take_states();
+                }
+                if let Some(s) = fresh {
+                    self.set_stamps(s);
+                }
+                if closed {
+                    self.close_dialog();
                 }
             }
             None => {
@@ -244,32 +353,6 @@ impl CodeReviewView {
             }
         }
     }
-}
-
-/// The stand-in for the stamp dialog (#740, #770): names the request and
-/// offers Cancel. Returns whether it was closed. GUI drawing code (exempt
-/// from the test rule); the next step replaces this function.
-fn placeholder_dialog(ctx: &egui::Context, req: &HostRequest) -> bool {
-    let (what, f) = match req {
-        HostRequest::Stamp(f) => ("Stamp", f),
-        HostRequest::NeedsFix(f) => ("Needs fix", f),
-    };
-    let mut close = false;
-    egui::Modal::new(egui::Id::new("code-review-stamp-dialog")).show(ctx, |ui| {
-        ui.set_max_width(520.0_f32.min(ctx.content_rect().width() - 32.0));
-        ui.heading(format!("{what} {} \u{2014} dialog coming", f.name));
-        ui.monospace(&f.id);
-        ui.weak(format!("crate {} \u{b7} {}", f.krate, f.file));
-        ui.weak(match &f.callees {
-            Some(c) => format!("{} workspace callee(s)", c.len()),
-            None => "callees still loading".to_string(),
-        });
-        ui.separator();
-        if ui.button("Cancel").clicked() {
-            close = true;
-        }
-    });
-    close
 }
 
 #[cfg(test)]
@@ -312,5 +395,98 @@ mod tests {
         v.take_request();
         assert_eq!(v.pending, None);
         v.set_stamps(Vec::new());
+    }
+
+    fn function() -> FunctionRef {
+        FunctionRef {
+            id: "crates/a/src/lib.rs::f".into(),
+            krate: "a".into(),
+            file: "crates/a/src/lib.rs".into(),
+            name: "f".into(),
+            callees: None,
+            lines: None,
+        }
+    }
+
+    /// Headless: a Stamp request opens the dialog only with a keystore
+    /// (never the real one under `cargo test`); the dialog draws every
+    /// step without a display or a panic; closing it clears the request.
+    /// Temporary folders only.
+    #[test]
+    fn the_stamp_dialog_opens_and_draws_every_step_headless() {
+        use crate::stamping::flow::{Outcome, Step, WizardForm};
+        use crate::stamping::StampContext;
+
+        let d = tempfile::tempdir().unwrap();
+        let store = tempfile::tempdir().unwrap();
+        let mut v = CodeReviewView {
+            workspace: Some(d.path().to_path_buf()),
+            review: Some(kovan_web::ui::CodeReview::new(
+                kovan_web::Mode::Desktop,
+                kovan_web::data::DataSource::Dir {
+                    data: d.path().to_path_buf(),
+                    workspace: d.path().to_path_buf(),
+                },
+            )),
+            checked: true,
+            ..CodeReviewView::default()
+        };
+        v.open(HostRequest::Stamp(function()));
+        assert!(v.dialog.is_none() && v.pending.is_none());
+        assert!(v.states_note.as_deref().unwrap().contains("real keystore"));
+
+        v.keystore = Some(Keystore::at(store.path()));
+        v.open(HostRequest::NeedsFix(function()));
+        assert!(v.dialog.is_some() && v.pending.is_some());
+        v.dialog.as_mut().unwrap().wait();
+        assert_eq!(v.dialog.as_ref().unwrap().step, Step::NoRoot);
+
+        let ctx = egui::Context::default();
+        let wizard = StampContext {
+            fn_id: "fn:00".into(),
+            call_graph_id: "crates/a/src/lib.rs::f".into(),
+            path: "crates/a/src/lib.rs::f".into(),
+            review_md: "crates/a/src/review.md".into(),
+            applicability: Default::default(),
+            answers: [("doc_matches_behaviour".to_string(), "partly".to_string())].into(),
+            restamp: true,
+        };
+        let steps = [
+            Step::Loading,
+            Step::NoRoot,
+            Step::SetupKey,
+            Step::Generating,
+            Step::PickKey,
+            Step::Register,
+            Step::Registering,
+            Step::Preparing,
+            Step::Refused {
+                message: "a.rs has changes not committed".into(),
+                hint: "Commit or stash".into(),
+            },
+            Step::Wizard,
+            Step::Signing,
+            Step::NeedsFixForm,
+            Step::WritingNeedsFix,
+            Step::Done(Outcome {
+                what: crate::stamping::flow::Purpose::Stamp,
+                review_md: "crates/a/src/review.md".into(),
+                replaced: true,
+            }),
+            Step::Failed("unreadable".into()),
+        ];
+        for step in steps {
+            {
+                let f = v.dialog.as_mut().unwrap();
+                f.wizard = Some(WizardForm::new(wizard.clone()));
+                f.step = step.clone();
+            }
+            for _ in 0..2 {
+                let _ = ctx.run_ui(Default::default(), |ui| v.ui(ui));
+            }
+            assert_eq!(v.dialog.as_ref().unwrap().step, step, "drawn, not moved");
+        }
+        v.close_dialog();
+        assert!(v.dialog.is_none() && v.pending.is_none());
     }
 }
