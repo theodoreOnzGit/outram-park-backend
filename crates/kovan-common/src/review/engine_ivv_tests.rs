@@ -604,3 +604,162 @@ fn unverified_and_edited_records_are_loud() {
     );
     assert!(FlagKind::ALL.contains(&FlagKind::IndependentVvNotCounted));
 }
+
+// ---- The views (GitHub #810): `ivv_view` over the same fixture. ----
+
+use crate::review::ivv_view::{
+    attestation_choices, ivv_queue, next_step, shown_audit_record, summarise,
+};
+use crate::review::signing::registry::Registry;
+
+/// Methodology: the full pass (rung 5) summarised for the views, the
+/// stamp dialog's attestation choices for each reviewer, and the need-you
+/// queue rows. Pass: the summary names the pass (reviewer, both
+/// organisations, attestation, audit record), keeps `M`'s first review with
+/// its reasons in words, is not flagged and has no warning; `R` may choose
+/// `sep-1`, `M` nothing; nothing is queued. The summary survives a JSON
+/// round trip (it is carried on kovan-web's `StampState`).
+///
+/// Result (2026-10-10): passes.
+#[test]
+fn views_of_the_full_pass() {
+    let s = setup();
+    let ev = s.evaluation("x", D);
+    let f = &ev.functions[&fid(F)];
+    let v = summarise(f, &s.root, &ev.ivv_warnings).unwrap();
+    assert!(v.passed());
+    let p = v.pass.as_ref().unwrap();
+    assert_eq!(
+        (p.reviewer.as_str(), p.organisation.as_str(), p.developing_organisation.as_str()),
+        (R, IVV, DEV)
+    );
+    assert_eq!((p.attestation.as_str(), p.audit_record.as_str()), ("sep-1", URL));
+    assert_eq!(
+        v.headline(),
+        format!("IV&V (rung 5): passed, by {R} ({IVV}), separate from {DEV}")
+    );
+    assert_eq!(
+        shown_audit_record(URL),
+        format!("audit record (not verified by kovan): {URL}")
+    );
+    let m = v.candidates.iter().find(|c| c.reviewer == M).unwrap();
+    assert!(m
+        .reasons
+        .contains(&"the reviewer gave the first review; IV&V is a later, separate one".into()));
+    let r = v.candidates.iter().find(|c| c.reviewer == R).unwrap();
+    assert!(r.reasons.is_empty());
+    assert_eq!(r.audit_record.as_deref(), Some(URL));
+    assert!(v.not_counted.is_empty() && v.warnings.is_empty());
+    let back: crate::review::ivv_view::IvvSummary =
+        serde_json::from_str(&serde_json::to_string(&v).unwrap()).unwrap();
+    assert_eq!(back, v);
+    // Carried additively on kovan-web's StampState: absent in old data.
+    use crate::call_graph::split::{StampState as WebStamp, StampVerdict};
+    let row = WebStamp {
+        function: "crates/x/src/a.rs::f".into(),
+        verdict: StampVerdict::Valid,
+        reason: String::new(),
+        rung: 5,
+        reviewer: R.into(),
+        date: DAY.into(),
+        note: String::new(),
+        permalink: String::new(),
+        state: None,
+        ivv: Some(std::sync::Arc::new(v.clone())),
+    };
+    let json = serde_json::to_string(&row).unwrap();
+    assert!(json.contains("\"ivv\":{"), "{json}");
+    assert_eq!(serde_json::from_str::<WebStamp>(&json).unwrap(), row);
+    let old = json.split(",\"ivv\":").next().unwrap().to_string() + "}";
+    let old: WebStamp = serde_json::from_str(&old).unwrap();
+    assert_eq!(old.ivv, None);
+    assert!(!serde_json::to_string(&old).unwrap().contains("ivv"));
+
+    let reg = Registry::build(&s.root);
+    let choices = attestation_choices(&s.root, &reg, R);
+    assert_eq!(choices.len(), 1);
+    assert_eq!(choices[0].id, "sep-1");
+    assert_eq!(choices[0].audit_record, URL);
+    assert!(choices[0].label().starts_with("sep-1: Example IV&V Ltd, separate from"));
+    assert!(attestation_choices(&s.root, &reg, M).is_empty());
+    assert!(attestation_choices(&s.root, &reg, "github:nobody").is_empty());
+    assert!(ivv_queue(&ev).is_empty());
+}
+
+/// Methodology: three misses, each summarised and queued. (1) `R` is in
+/// the developing organisation and names `sep-1`: the flag is raised, the
+/// headline says "not counted", and each miss becomes one queue row with
+/// the function, the review, `R`, the reason in words and its next step.
+/// (2) An unsigned developing-organisation record: a warning on the
+/// function (in words) and a queue row with no function. (3) An unsigned
+/// attestation, or one without an audit record, is never offered in the
+/// stamp dialog.
+///
+/// Result (2026-10-10): passes.
+#[test]
+fn views_of_misses_and_the_queue() {
+    let mut s = setup();
+    let o = reviewer_org(R, "outram  PARK project", &s.mk);
+    s.r().organisations.push(o);
+    let ev = s.evaluation("x", D);
+    let f = &ev.functions[&fid(F)];
+    let v = summarise(f, &s.root, &ev.ivv_warnings).unwrap();
+    assert!(!v.passed());
+    assert_eq!(v.headline(), "IV&V (rung 5): independent V&V not counted");
+    assert_eq!(v.not_counted.len(), 1);
+    assert!(v.not_counted[0].contains("2 reasons"), "{}", v.not_counted[0]);
+    let r = v.candidates.iter().find(|c| c.reviewer == R).unwrap();
+    assert_eq!(
+        r.reasons,
+        vec![
+            format!("the reviewer's organisation is the developing organisation ({DEV})"),
+            format!(
+                "the separation attestation: it names {IVV} and {DEV}, not the organisations \
+                 in force at the review"
+            ),
+        ]
+    );
+    assert_eq!(r.attestation.as_deref(), Some("sep-1"));
+    let q = ivv_queue(&ev);
+    assert_eq!(q.len(), 2, "{q:?}");
+    assert!(q.iter().all(|row| row.function.as_deref() == Some(fid(F).as_str())
+        && row.reviewer.as_deref() == Some(R)
+        && row.review.is_some()
+        && row.path.as_deref() == Some(F)));
+    assert_eq!(
+        q.iter().map(|r| r.reason.clone()).collect::<BTreeSet<_>>(),
+        r.reasons.iter().cloned().collect::<BTreeSet<_>>()
+    );
+    assert!(q.iter().any(|row| row.action
+        == next_step(&Rung5Miss::SameOrganisation { organisation: DEV.into() })));
+
+    // (2) An unsigned developing-organisation record.
+    let mut s = setup();
+    s.root.code_review.as_mut().unwrap().developing_organisation[0].signature = None;
+    let ev = s.evaluation("x", D);
+    let f = &ev.functions[&fid(F)];
+    let v = summarise(f, &s.root, &ev.ivv_warnings).unwrap();
+    assert_eq!(
+        v.warnings,
+        vec![
+            "developing organisation record 1: the record dated 2026-10-07 has no valid \
+             maintainer signature: it is not signed"
+                .to_string()
+        ]
+    );
+    let q = ivv_queue(&ev);
+    let reg_rows: Vec<_> = q.iter().filter(|r| r.function.is_none()).collect();
+    assert_eq!(reg_rows.len(), 1, "{q:?}");
+    assert_eq!(reg_rows[0].reason, v.warnings[0]);
+    assert!(reg_rows[0].action.contains("maintainer"));
+
+    // (3) Unsigned, or no audit record: not offered.
+    let mut s = setup();
+    s.r().separations[0].signature = None;
+    let reg = Registry::build(&s.root);
+    assert!(attestation_choices(&s.root, &reg, R).is_empty());
+    let mut s = setup();
+    s.r().separations = vec![attestation(IVV, DEV, None)];
+    let reg = Registry::build(&s.root);
+    assert!(attestation_choices(&s.root, &reg, R).is_empty());
+}

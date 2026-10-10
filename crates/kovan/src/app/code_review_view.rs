@@ -59,6 +59,7 @@ use crate::code_review_data::{build, data_dir, data_state, BuildReport, DataStat
 use crate::commands::index_control::{Progress, RunControl};
 use crate::stamping::commit_push::CommitPushJob;
 use crate::stamping::flow::{Purpose, StampFlow, StatesResult, Target, Worker};
+use crate::stamping::organisations::panel::OrgPanel;
 
 /// What the worker found or built.
 type Prepared = Result<Option<BuildReport>, String>;
@@ -101,6 +102,8 @@ pub(crate) struct CodeReviewView {
     /// The commit-and-push run (one at a time, shared by the panel and the
     /// dialog).
     commit: CommitPushJob,
+    /// The "Organisations & IV&V" window, while open (GitHub #810).
+    organisations: Option<OrgPanel>,
 }
 
 /// Check the data of `workspace` and build it when missing or stale (or
@@ -194,6 +197,20 @@ impl CodeReviewView {
                 self.pending = Some(req);
             }
             Err(e) => self.states_note = Some(format!("Cannot open the stamp dialog: {e}")),
+        }
+    }
+
+    /// Open the "Organisations & IV&V" window (GitHub #810) over the
+    /// workspace, with the same keystore rule as the stamp dialog.
+    fn open_organisations(&mut self) {
+        let Some(root) = self.workspace.clone() else {
+            return;
+        };
+        match self.keystore() {
+            Ok(ks) => self.organisations = Some(OrgPanel::new(root, ks)),
+            Err(e) => {
+                self.states_note = Some(format!("Cannot open Organisations & IV&V: {e}"));
+            }
         }
     }
 
@@ -295,6 +312,7 @@ impl CodeReviewView {
             self.load_states();
         }
         let mut rebuild = false;
+        let mut open_orgs = false;
         egui::Panel::top("code-review-strip").show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 match &self.workspace {
@@ -320,6 +338,20 @@ impl CodeReviewView {
                         ui.colored_label(ui.visuals().error_fg_color, e);
                     }
                     None => {}
+                }
+                if self.workspace.is_some()
+                    && ui
+                        .add_enabled(
+                            self.organisations.is_none(),
+                            egui::Button::new("Organisations & IV&V"),
+                        )
+                        .on_hover_text(
+                            "Rung 5: sign developing and reviewer organisations (maintainer) \
+                             or a separation attestation (independent reviewer).",
+                        )
+                        .clicked()
+                {
+                    open_orgs = true;
                 }
                 if self.states_job.is_some() {
                     ui.spinner();
@@ -348,6 +380,18 @@ impl CodeReviewView {
         });
         if rebuild {
             self.rebuild(true);
+        }
+        if open_orgs {
+            self.open_organisations();
+        }
+        if let Some(p) = self.organisations.as_mut() {
+            if super::organisations_view::show(&ui.ctx().clone(), p) {
+                self.organisations = None;
+                // A record may change rung 5 on every function: recompute.
+                if self.review.is_some() {
+                    self.load_states();
+                }
+            }
         }
         if let Some(job) = &self.job {
             ui.ctx()
@@ -555,5 +599,108 @@ mod tests {
         }
         v.close_dialog();
         assert!(v.dialog.is_none() && v.pending.is_none());
+    }
+
+    /// Headless (GitHub #810): the Organisations & IV&V window opens only
+    /// with a keystore (never the real one under `cargo test`) and draws
+    /// its loading, error and loaded states, with a key, forms filled and
+    /// notices, without a display or a panic; the stamp dialog draws its
+    /// attestation picker with and without choices. Temporary folders only.
+    #[test]
+    fn organisations_window_and_attestation_picker_draw_headless() {
+        use crate::stamping::flow::{KeyInfo, Step, WizardForm};
+        use crate::stamping::organisations::Overview;
+        use crate::stamping::StampContext;
+        use kovan_common::review::ivv_view::AttestationChoice;
+        use kovan_common::review::root::Role;
+
+        let d = tempfile::tempdir().unwrap();
+        let store = tempfile::tempdir().unwrap();
+        let mut v = CodeReviewView {
+            workspace: Some(d.path().to_path_buf()),
+            checked: true,
+            ..CodeReviewView::default()
+        };
+        v.open_organisations();
+        assert!(v.organisations.is_none());
+        v.keystore = Some(Keystore::at(store.path()));
+        v.open_organisations();
+        let ctx = egui::Context::default();
+        for _ in 0..2 {
+            let _ = ctx.run_ui(Default::default(), |ui| v.ui(ui));
+        }
+        v.organisations.as_mut().unwrap().wait();
+        let _ = ctx.run_ui(Default::default(), |ui| v.ui(ui));
+        {
+            let p = v.organisations.as_mut().unwrap();
+            assert!(matches!(&p.overview, Some(Err(_))), "no kovan_root.toml");
+            p.overview = Some(Ok(Overview {
+                warnings: vec!["developing organisation record 1: it is not signed".into()],
+                reviewers: vec![("github:m".into(), Role::Maintainer)],
+                ..Overview::default()
+            }));
+            p.keys = vec![KeyInfo {
+                reviewer: "github:m".into(),
+                key: "k1".into(),
+                path: store.path().join("k"),
+                registered: true,
+            }];
+            p.forms.dev_name = "Outram Park project".into();
+            p.forms.attestation.audit_record = "not a url".into();
+            p.notices.push("Signed.".into());
+            p.error = Some("Wrong passphrase. Nothing was written.".into());
+        }
+        for _ in 0..2 {
+            let _ = ctx.run_ui(Default::default(), |ui| v.ui(ui));
+        }
+        assert!(v.organisations.is_some(), "open until closed");
+
+        // The picker in the stamp dialog.
+        v.review = Some(kovan_web::ui::CodeReview::new(
+            kovan_web::Mode::Desktop,
+            kovan_web::data::DataSource::Dir {
+                data: d.path().to_path_buf(),
+                workspace: d.path().to_path_buf(),
+            },
+        ));
+        v.organisations = None;
+        v.open(HostRequest::Stamp(function()));
+        v.dialog.as_mut().unwrap().wait();
+        let ctx_w = StampContext {
+            fn_id: "fn:00".into(),
+            call_graph_id: "crates/a/src/lib.rs::f".into(),
+            path: "crates/a/src/lib.rs::f".into(),
+            review_md: "crates/a/src/review.md".into(),
+            applicability: Default::default(),
+            answers: Default::default(),
+            restamp: false,
+        };
+        for choices in [0, 1] {
+            {
+                let f = v.dialog.as_mut().unwrap();
+                let mut w = WizardForm::new(ctx_w.clone());
+                if choices == 1 {
+                    w.attestations = vec![AttestationChoice {
+                        id: "sep-1".into(),
+                        organisation: "Example IV&V Ltd".into(),
+                        developing_organisation: "Outram Park project".into(),
+                        date: "2026-10-10".into(),
+                        audit_record: "https://github.com/o/r/issues/1".into(),
+                    }];
+                    w.separation_attestation = Some("sep-1".into());
+                }
+                f.wizard = Some(w);
+                f.step = Step::Wizard;
+            }
+            for _ in 0..2 {
+                let _ = ctx.run_ui(Default::default(), |ui| v.ui(ui));
+            }
+            let w = v.dialog.as_ref().unwrap().wizard.as_ref().unwrap();
+            assert_eq!(
+                w.separation_attestation.is_some(),
+                choices == 1,
+                "the picker keeps a valid choice and clears one with no choices"
+            );
+        }
     }
 }

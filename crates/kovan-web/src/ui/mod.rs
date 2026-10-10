@@ -22,6 +22,7 @@
 mod bar;
 mod camera;
 mod canvas;
+mod ivv;
 mod source;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -1090,6 +1091,7 @@ mod tests {
             note: String::new(),
             permalink: String::new(),
             state: None,
+            ivv: None,
         }]);
         assert!(r.snapshot().unwrap().facts().review(id).is_valid());
         r.set_stamps(vec![]);

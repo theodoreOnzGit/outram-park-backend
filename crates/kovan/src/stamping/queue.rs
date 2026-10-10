@@ -45,9 +45,10 @@
 //! A review that names a separation attestation but misses rung 5 raises
 //! the engine flag `FunctionFlag::IndependentVvNotCounted`, which is
 //! already a row here ([`RowKind::Flag`]). Its detail lines come from
-//! [`flag_detail`]; that `match` arm is where #810's plain-English miss
-//! reasons go (today it lists the `Rung5Miss` values as the engine names
-//! them).
+//! [`flag_detail`], which words each miss and its next step with #810's
+//! `kovan_common::review::ivv_view` (~~today it lists the `Rung5Miss`
+//! values as the engine names them~~ wired at the #771/#810 merge,
+//! 2026-10-10).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -263,11 +264,18 @@ pub fn flag_detail(flag: &FunctionFlag) -> Vec<String> {
         FunctionFlag::ImplausibleSignedAt { review, problems } => {
             vec![format!("review {review}: signing time {problems:?}")]
         }
-        // #810 hook: rung-5 (IV&V) miss reasons, to be worded in plain
-        // English by the IV&V display work.
+        // The #810 hook: each rung-5 (IV&V) miss in words, with who can act
+        // (`kovan_common::review::ivv_view`, the same text the review bar and
+        // `kovan-cli review ivv` show).
         FunctionFlag::IndependentVvNotCounted { review, misses } => misses
             .iter()
-            .map(|m| format!("review {review}: independent V&V not counted: {m:?}"))
+            .map(|m| {
+                format!(
+                    "review {review}: independent V&V not counted: {}. Next: {}",
+                    m.reason(),
+                    kovan_common::review::ivv_view::next_step(m)
+                )
+            })
             .collect(),
     }
 }

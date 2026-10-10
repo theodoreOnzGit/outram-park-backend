@@ -60,7 +60,10 @@ use kovan_common::review::types::reviewer_id_kind;
 use kovan_common::review::wizard::{
     format_answer, parse_answer, Applicability, GateResult, Question, ReviewWizard,
 };
+use kovan_common::review::ivv_view::AttestationChoice;
 use zeroize::Zeroize;
+
+use super::organisations::attestation_choices_in;
 
 use super::{
     draft_needs_fix_for, draft_stamp, prepare_stamp, register_key, stamp_states, write_needs_fix,
@@ -271,6 +274,12 @@ pub struct WizardForm {
     /// Free text written under the entry in `review.md`.
     pub comments: String,
     pub passphrase: String,
+    /// The reviewer's own signed separation attestations (GitHub #810),
+    /// read when the wizard opened.
+    pub attestations: Vec<AttestationChoice>,
+    /// The one this review relies on for rung 5; `None` (the default):
+    /// the review claims no IV&V. Signed into the stamp.
+    pub separation_attestation: Option<String>,
 }
 
 impl Drop for WizardForm {
@@ -297,6 +306,8 @@ impl WizardForm {
             texts,
             comments: String::new(),
             passphrase: String::new(),
+            attestations: Vec::new(),
+            separation_attestation: None,
         }
     }
 
@@ -413,7 +424,7 @@ enum Job {
     Keys(Worker<Result<KeysFound, String>>),
     Generate(Worker<Result<Generated, String>>),
     Register(Worker<Result<KeyRegistration, String>>),
-    Prepare(Worker<Result<StampContext, String>>),
+    Prepare(Worker<Result<(StampContext, Vec<AttestationChoice>), String>>),
     Sign(Worker<Result<WrittenEntry, SignFailure>>),
     NeedsFix(Worker<Result<WrittenEntry, String>>),
 }
@@ -583,8 +594,10 @@ impl StampFlow {
                     let hint = refusal_hint(&message).to_string();
                     self.step = Step::Refused { message, hint };
                 }
-                Some(Ok(ctx)) => {
-                    self.wizard = Some(WizardForm::new(ctx));
+                Some(Ok((ctx, attestations))) => {
+                    let mut w = WizardForm::new(ctx);
+                    w.attestations = attestations;
+                    self.wizard = Some(w);
                     self.step = Step::Wizard;
                 }
             },
@@ -724,7 +737,8 @@ impl StampFlow {
         );
         self.step = Step::Preparing;
         self.job = Some(Job::Prepare(Worker::spawn(move || {
-            prepare_stamp(&root, &function, &by)
+            let ctx = prepare_stamp(&root, &function, &by)?;
+            Ok((ctx, attestation_choices_in(&root, &by)))
         })));
     }
 
@@ -752,6 +766,7 @@ impl StampFlow {
         let mut pass = std::mem::take(&mut w.passphrase);
         let answers = w.answers();
         let comments = w.comments.clone();
+        let separation_attestation = w.separation_attestation.clone();
         let (root, ks, function) = (
             self.root.clone(),
             self.keystore.clone(),
@@ -773,6 +788,7 @@ impl StampFlow {
                 function,
                 by: k.reviewer.clone(),
                 checklist: answers.clone(),
+                separation_attestation,
                 ..StampRequest::default()
             };
             let mut d = draft_stamp(&root, &req).map_err(SignFailure::Other)?;

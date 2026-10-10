@@ -614,15 +614,6 @@ enum Command {
         #[arg(long)]
         workspace: Option<PathBuf>,
     },
-    /// Runs `cargo test --workspace --lib --tests --release` (plus
-    /// `--no-fail-fast`) and records the passing set, the commit and the
-    /// Cargo.lock hash as test evidence (GitHub #766). Extra arguments go to
-    /// cargo (`-j 1`, `-p x`, `-- filter`); anything that narrows the run
-    /// records it as PARTIAL, never counted. ~~Counted runs write
-    /// `kovan_test_evidence.toml`~~ (corrected 2026-10-07): a counted run is
-    /// written into every folder's `kovan.toml` `[test_run]`; every run's
-    /// raw record goes to `target/kovan/test_evidence_last.toml`.
-    /// The full suite takes hours (long tests are on by default).
     /// Builds the code index (GitHub #767): one `rust-analyzer scip` run
     /// (about 3-4 min, or `--scip <file>`) becomes every folder's
     /// `kovan.toml` (function ids, hashes, callees, reaching tests; the
@@ -675,6 +666,18 @@ enum Command {
         #[arg(long, requires = "fresh", value_parser = ["restore", "fresh"])]
         corrupt_root: Option<String>,
     },
+    // ~~The `Test` doc comment sat above `Index`, so `test --help` was
+    // empty and `index --help` showed the test text~~ CORRECTED 2026-10-10
+    // (#810): each variant carries its own doc.
+    /// Runs `cargo test --workspace --lib --tests --release` (plus
+    /// `--no-fail-fast`) and records the passing set, the commit and the
+    /// Cargo.lock hash as test evidence (GitHub #766). Extra arguments go to
+    /// cargo (`-j 1`, `-p x`, `-- filter`); anything that narrows the run
+    /// records it as PARTIAL, never counted. ~~Counted runs write
+    /// `kovan_test_evidence.toml`~~ (corrected 2026-10-07): a counted run is
+    /// written into every folder's `kovan.toml` `[test_run]`; every run's
+    /// raw record goes to `target/kovan/test_evidence_last.toml`.
+    /// The full suite takes hours (long tests are on by default).
     Test {
         /// Workspace root; found from the current directory when omitted.
         #[arg(long)]
@@ -688,6 +691,12 @@ enum Command {
         /// Arguments passed to `cargo test`, after kovan-cli's own flags.
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         cargo_args: Vec<String>,
+    },
+    /// Read-only review reports from `review.md` (GitHub #810). Never signs
+    /// or writes: kovan-cli has no signing command.
+    Review {
+        #[command(subcommand)]
+        command: ReviewCommand,
     },
     /// Internal: runs the keep-warm rust-analyzer daemon in the foreground
     /// for one workspace root (op-fdph). Spawned automatically and detached
@@ -708,6 +717,25 @@ enum Command {
         /// Directory containing the workspace `Cargo.toml`.
         #[arg(long, default_value = ".")]
         root: PathBuf,
+    },
+}
+
+/// `kovan-cli review ...` (GitHub #810).
+#[derive(Subcommand)]
+enum ReviewCommand {
+    /// Rung 5, independent V&V (IV&V), per function: passed or not, every
+    /// review's reasons in plain English, the separation attestation's
+    /// audit record (a GitHub issue URL, labelled "not verified by kovan":
+    /// never fetched), the "independent V&V not counted" flag, the
+    /// kovan_root.toml records that do not verify, and the rung-5 rows of
+    /// the need-you queue. Read-only, offline.
+    Ivv {
+        /// Only functions whose `fn:` id, call-graph id or `file.rs::qual`
+        /// path contains this.
+        function: Option<String>,
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
     },
 }
 
@@ -955,6 +983,13 @@ fn run(command: Command) -> Result<(), String> {
             let (root, _) = commands::workspace::resolve(workspace.as_deref())
                 .map_err(|error| error.to_string())?;
             commands::stamps::run_stamp(&root, &function, rung, &reviewer, &note, i_am_the_reviewer)
+        }
+        Command::Review {
+            command: ReviewCommand::Ivv { function, workspace },
+        } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            commands::review_ivv::run(&root, function.as_deref())
         }
         Command::Test {
             root,
@@ -1271,5 +1306,40 @@ mod tests {
             }
             _ => panic!("wrong variant"),
         }
+    }
+
+    /// `review ivv [<fn>] [--workspace]` parses (GitHub #810).
+    #[test]
+    fn review_ivv_parses() {
+        match parse(&["review", "ivv", "twice", "--workspace", "/tmp/w"]).command {
+            Command::Review {
+                command: ReviewCommand::Ivv { function, workspace },
+            } => {
+                assert_eq!(function.as_deref(), Some("twice"));
+                assert_eq!(workspace, Some(PathBuf::from("/tmp/w")));
+            }
+            _ => panic!("wrong variant"),
+        }
+        assert!(matches!(
+            parse(&["review", "ivv"]).command,
+            Command::Review {
+                command: ReviewCommand::Ivv { function: None, .. }
+            }
+        ));
+    }
+
+    /// The `test` and `index` help texts are each their own (the `Test`
+    /// doc comment once sat above `Index`; fixed 2026-10-10, #810).
+    #[test]
+    fn test_and_index_help_are_their_own() {
+        use clap::CommandFactory;
+        let cmd = Cli::command();
+        let about = |name: &str| {
+            cmd.find_subcommand(name)
+                .and_then(|c| c.get_about().map(|a| a.to_string()))
+                .unwrap_or_default()
+        };
+        assert!(about("test").starts_with("Runs `cargo test"), "{}", about("test"));
+        assert!(about("index").starts_with("Builds the code index"), "{}", about("index"));
     }
 }

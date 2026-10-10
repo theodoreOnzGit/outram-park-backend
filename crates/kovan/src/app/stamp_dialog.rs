@@ -367,6 +367,7 @@ fn wizard(ui: &mut egui::Ui, f: &mut StampFlow) {
             to_needs_fix = true;
         }
     }
+    super::organisations_view::attestation_picker(ui, w);
     ui.add_space(6.0);
     ui.label("Comments (written under the entry in review.md, optional)");
     ui.add(

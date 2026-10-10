@@ -83,13 +83,16 @@ pub mod authorship;
 pub mod commit_push;
 pub mod flow;
 pub mod new_code;
+/// Organisations and separation attestations (GitHub #810).
+pub mod organisations;
 pub mod queue;
 pub mod recent;
 pub mod relocate;
 mod states;
 
 pub use states::{
-    evaluate_loaded, evaluate_workspace, git_facts, stamp_states, WorkspaceEvaluation,
+    evaluate_loaded, evaluate_loaded_with, evaluate_workspace, evaluate_workspace_with, git_facts, stamp_states,
+    WorkspaceEvaluation,
 };
 
 /// `review.md`.
@@ -268,6 +271,10 @@ pub struct StampRequest {
     pub authorship: Option<ChangeAuthorship>,
     pub no_concept: Option<String>,
     pub relations: Vec<RelationRecord>,
+    /// The reviewer's `[[reviewer.separation]]` attestation the review
+    /// relies on for rung 5 (GitHub #810); `None` by default. Signed into
+    /// the stamp (v3 bytes).
+    pub separation_attestation: Option<String>,
 }
 
 /// A drafted, unsigned stamp and where it will be written.
@@ -394,8 +401,9 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
 /// Draft the stamp for `req` at `HEAD` (module doc). Refused when there is
 /// no commit, the function is not indexed, its file differs from `HEAD`
 /// (the stamp certifies `HEAD`), the index's hash is not the hash of the
-/// function at `HEAD`, or the pure draft refuses
-/// ([`kovan_common::review::draft::DraftError`]).
+/// function at `HEAD`, the pure draft refuses
+/// ([`kovan_common::review::draft::DraftError`]), or (#810) the request
+/// names a separation attestation the reviewer does not have.
 pub fn draft_stamp(root: &Path, req: &StampRequest) -> Result<DraftedStamp, String> {
     let ws = load_workspace(root)?;
     let (idx, file, f) = locate(root, &ws, &req.function)?;
@@ -447,7 +455,20 @@ pub fn draft_stamp(root: &Path, req: &StampRequest) -> Result<DraftedStamp, Stri
         relations: req.relations.clone(),
         previous,
     };
-    let entry = draft_review(&input).map_err(|e| e.to_string())?;
+    let mut entry = draft_review(&input).map_err(|e| e.to_string())?;
+    if let Some(id) = &req.separation_attestation {
+        let own = ws
+            .review_root
+            .reviewer(&req.by)
+            .is_some_and(|r| r.separations.iter().any(|a| &a.id == id));
+        if !own {
+            return Err(format!(
+                "{} has no separation attestation {id:?} in {ROOT_FILE}",
+                req.by
+            ));
+        }
+        entry.review.separation_attestation = Some(id.clone());
+    }
     Ok(DraftedStamp {
         entry,
         review_md: root.join(join(&idx.dir, REVIEW_MD)),

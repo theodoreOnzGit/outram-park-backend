@@ -568,34 +568,40 @@ pub enum Rung5Miss {
 }
 
 impl Rung5Miss {
-    /// Plain-English reason, for every view.
+    /// Plain-English reason, for every view. ~~Nested problems were
+    /// printed with `{:?}`~~ **CORRECTED 2026-10-10** (#810): every one is
+    /// words ([`super::ivv_text`]).
     pub fn reason(&self) -> String {
+        use super::ivv_text as t;
         match self {
             Self::FirstReviewer => {
                 "the reviewer gave the first review; IV&V is a later, separate one".into()
             }
             Self::CodeAuthor => "the reviewer wrote this code".into(),
             Self::NotIndependent => "the independence answer is not \"someone else\"".into(),
-            Self::NoHumanVvCase(p) => format!("no V&V case written and verified by hand ({p:?})"),
+            Self::NoHumanVvCase(p) => format!(
+                "no V&V case written and verified by hand: {}",
+                t::vv_case_problems(p)
+            ),
             Self::NoConceptArea => "the function has no known concept area".into(),
             Self::NotQualified { areas } => {
                 format!("the reviewer is not qualified in {}", areas.join(", "))
             }
-            Self::ReviewerOrganisation(p) => format!("the reviewer's organisation: {p:?}"),
-            Self::DevelopingOrganisation(p) => format!("the developing organisation: {p:?}"),
+            Self::ReviewerOrganisation(p) => {
+                format!("the reviewer's organisation: {}", t::organisation_problem(p))
+            }
+            Self::DevelopingOrganisation(p) => {
+                format!("the developing organisation: {}", t::organisation_problem(p))
+            }
             Self::SameOrganisation { organisation } => {
                 format!(
                     "the reviewer's organisation is the developing organisation ({organisation})"
                 )
             }
             Self::NoAttestation => "the review names no separation attestation".into(),
-            Self::Attestation(AttestationProblem::AuditRecord(AuditRecordProblem::Missing)) => {
-                "the separation attestation names no audit record (a GitHub issue URL)".into()
+            Self::Attestation(p) => {
+                format!("the separation attestation: {}", t::attestation_problem(p))
             }
-            Self::Attestation(AttestationProblem::AuditRecord(p)) => {
-                format!("the separation attestation's audit record is malformed: {p:?}")
-            }
-            Self::Attestation(p) => format!("the separation attestation: {p:?}"),
         }
     }
 }

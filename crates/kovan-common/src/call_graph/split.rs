@@ -171,6 +171,17 @@ pub struct StampState {
     /// valid/stale ([`StampState::kind`] maps those). Additive.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<crate::review::state::StateKind>,
+    /// Rung 5, IV&V (GitHub #810): passed or not, every review's reasons
+    /// in words, the audit record (shown, never verified), the "independent
+    /// V&V not counted" flag and the registry warnings that concern it
+    /// ([`crate::review::ivv_view::summarise`]). Absent in older data and
+    /// from the `stamps.toml` checker. Additive.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "crate::review::ivv_view::serde_opt_arc"
+    )]
+    pub ivv: Option<std::sync::Arc<crate::review::ivv_view::IvvSummary>>,
 }
 
 impl StampState {

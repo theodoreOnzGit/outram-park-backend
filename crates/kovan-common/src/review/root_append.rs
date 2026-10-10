@@ -16,6 +16,13 @@
 //! - [`declare_founder`]: `founder = "<id>"` right under `[code_review]`, or
 //!   a new `[code_review]` table at the end. Refused when a founder is
 //!   already declared: trust on first use happens once.
+//! - [`append_developing_organisation`] (GitHub #810): a new
+//!   `[[code_review.developing_organisation]]` block at the end of the file;
+//! - [`append_reviewer_organisation`] and [`append_separation_attestation`]
+//!   (#810): a new `[[reviewer.organisation]]` / `[[reviewer.separation]]`
+//!   block spliced in at the end of that reviewer's section, as a key is.
+//!   An attestation whose id the reviewer already uses is refused (a stamp
+//!   names it by id).
 //!
 //! No workspace member depends on `toml_edit` directly (checked
 //! 2026-10-10; it is only `toml`'s own dependency), so the splice is by line, and every result is **read back**: the
@@ -30,7 +37,10 @@
 
 use serde::Serialize;
 
-use super::root::{KeyEvent, KeyEventKind, ReviewRoot, Reviewer, ReviewerKey, RootError, Role};
+use super::root::{
+    DevelopingOrganisation, KeyEvent, KeyEventKind, KeySigner, ReviewRoot, Reviewer, ReviewerKey,
+    ReviewerOrganisation, RootError, Role, SeparationAttestation,
+};
 
 /// Why a registration was refused. Nothing is changed on any refusal.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,6 +57,9 @@ pub enum AppendError {
     FounderAlreadyDeclared(String),
     /// The appended text would not read back as exactly one more entry.
     NotReadBack(String),
+    /// The reviewer has a separation attestation with this id already
+    /// (#810).
+    AttestationExists { reviewer: String, id: String },
 }
 
 impl std::fmt::Display for AppendError {
@@ -60,6 +73,9 @@ impl std::fmt::Display for AppendError {
             }
             Self::FounderAlreadyDeclared(id) => {
                 write!(f, "kovan_root.toml already names founder {id}")
+            }
+            Self::AttestationExists { reviewer, id } => {
+                write!(f, "reviewer {reviewer} already has a separation attestation {id}")
             }
             Self::NotReadBack(m) => write!(
                 f,
@@ -149,6 +165,35 @@ pub fn append_reviewer_key(
             key: k.id.clone(),
         });
     }
+    let block = toml::to_string_pretty(&Keys { key: [k] })
+        .map_err(|e| AppendError::NotReadBack(e.to_string()))?;
+    let block: String = block
+        .split_inclusive('\n')
+        .map(|l| match l.strip_prefix("[[key") {
+            Some(rest) => format!("[[reviewer.key{rest}"),
+            None => match l.strip_prefix("[key") {
+                Some(rest) => format!("[reviewer.key{rest}"),
+                None => l.to_string(),
+            },
+        })
+        .collect();
+    let text = splice_into_reviewer(existing, pos, &block)?;
+    let after = parse(&text)?;
+    let mut expected = before.clone();
+    expected.reviewers[pos].keys.push(k.clone());
+    if after != expected {
+        return Err(AppendError::NotReadBack(format!(
+            "[[reviewer.key]] {} of {reviewer}",
+            k.id
+        )));
+    }
+    Ok(text)
+}
+
+/// `existing` with `block` spliced in at the end of the `pos`-th
+/// `[[reviewer]]` section: before the next header that is not one of its
+/// own sub-tables, and before any comment lines leading into that header.
+fn splice_into_reviewer(existing: &str, pos: usize, block: &str) -> Result<String, AppendError> {
     let lines: Vec<&str> = existing.split_inclusive('\n').collect();
     let heads: Vec<(usize, String)> = lines
         .iter()
@@ -179,33 +224,142 @@ pub fn append_reviewer_key(
             end -= 1;
         }
     }
-    let block = toml::to_string_pretty(&Keys { key: [k] })
-        .map_err(|e| AppendError::NotReadBack(e.to_string()))?;
-    let block: String = block
-        .split_inclusive('\n')
-        .map(|l| match l.strip_prefix("[[key") {
-            Some(rest) => format!("[[reviewer.key{rest}"),
-            None => match l.strip_prefix("[key") {
-                Some(rest) => format!("[reviewer.key{rest}"),
-                None => l.to_string(),
-            },
-        })
-        .collect();
     let mut text: String = lines[..end].concat();
     text = with_newline(&text);
     text.push('\n');
-    text.push_str(&block);
+    text.push_str(block);
     if end < lines.len() {
         text.push('\n');
     }
     text.push_str(&lines[end..].concat());
+    Ok(text)
+}
+
+/// `key = "value"`, TOML-quoted.
+fn kv(key: &str, value: &str) -> String {
+    format!("{key} = {}\n", toml::Value::String(value.to_string()))
+}
+
+/// `signer = { reviewer = "...", key = "..." }`.
+fn signer_line(s: &KeySigner) -> String {
+    let q = |v: &str| toml::Value::String(v.to_string()).to_string();
+    match &s.reviewer {
+        Some(r) => format!("signer = {{ reviewer = {}, key = {} }}\n", q(r), q(&s.key)),
+        None => format!("signer = {{ key = {} }}\n", q(&s.key)),
+    }
+}
+
+/// `existing` with `e` appended as a new
+/// `[[code_review.developing_organisation]]` at the end (module doc).
+pub fn append_developing_organisation(
+    existing: &str,
+    e: &DevelopingOrganisation,
+) -> Result<String, AppendError> {
+    let before = parse(existing)?;
+    let mut block = String::from("[[code_review.developing_organisation]]\n");
+    if let Some(k) = &e.krate {
+        block.push_str(&kv("crate", k));
+    }
+    block.push_str(&kv("name", &e.name));
+    block.push_str(&kv("date", &e.date));
+    if let Some(sg) = &e.signer {
+        block.push_str(&signer_line(sg));
+    }
+    if let Some(sig) = &e.signature {
+        block.push_str(&kv("signature", sig));
+    }
+    let mut text = with_newline(existing);
+    if !text.is_empty() {
+        text.push('\n');
+    }
+    text.push_str(&block);
     let after = parse(&text)?;
     let mut expected = before.clone();
-    expected.reviewers[pos].keys.push(k.clone());
+    expected
+        .code_review
+        .get_or_insert_with(Default::default)
+        .developing_organisation
+        .push(e.clone());
+    if after != expected {
+        return Err(AppendError::NotReadBack(
+            "[[code_review.developing_organisation]]".into(),
+        ));
+    }
+    Ok(text)
+}
+
+/// `existing` with `e` added to reviewer `reviewer`'s
+/// `[[reviewer.organisation]]` list (module doc).
+pub fn append_reviewer_organisation(
+    existing: &str,
+    reviewer: &str,
+    e: &ReviewerOrganisation,
+) -> Result<String, AppendError> {
+    let before = parse(existing)?;
+    let Some(pos) = before.reviewers.iter().position(|r| r.id == reviewer) else {
+        return Err(AppendError::UnknownReviewer(reviewer.into()));
+    };
+    let mut block = String::from("[[reviewer.organisation]]\n");
+    block.push_str(&kv("name", &e.name));
+    block.push_str(&kv("date", &e.date));
+    if let Some(sg) = &e.signer {
+        block.push_str(&signer_line(sg));
+    }
+    if let Some(sig) = &e.signature {
+        block.push_str(&kv("signature", sig));
+    }
+    let text = splice_into_reviewer(existing, pos, &block)?;
+    let after = parse(&text)?;
+    let mut expected = before.clone();
+    expected.reviewers[pos].organisations.push(e.clone());
     if after != expected {
         return Err(AppendError::NotReadBack(format!(
-            "[[reviewer.key]] {} of {reviewer}",
-            k.id
+            "[[reviewer.organisation]] of {reviewer}"
+        )));
+    }
+    Ok(text)
+}
+
+/// `existing` with `a` added to reviewer `reviewer`'s
+/// `[[reviewer.separation]]` list (module doc). Refused when the reviewer
+/// already has an attestation with `a.id`.
+pub fn append_separation_attestation(
+    existing: &str,
+    reviewer: &str,
+    a: &SeparationAttestation,
+) -> Result<String, AppendError> {
+    let before = parse(existing)?;
+    let Some(pos) = before.reviewers.iter().position(|r| r.id == reviewer) else {
+        return Err(AppendError::UnknownReviewer(reviewer.into()));
+    };
+    if before.reviewers[pos].separations.iter().any(|x| x.id == a.id) {
+        return Err(AppendError::AttestationExists {
+            reviewer: reviewer.into(),
+            id: a.id.clone(),
+        });
+    }
+    let mut block = String::from("[[reviewer.separation]]\n");
+    block.push_str(&kv("id", &a.id));
+    block.push_str(&kv("organisation", &a.organisation));
+    block.push_str(&kv("developing_organisation", &a.developing_organisation));
+    block.push_str(&kv("date", &a.date));
+    if let Some(u) = &a.audit_record {
+        block.push_str(&kv("audit_record", u));
+    }
+    if let Some(k) = &a.key {
+        block.push_str(&kv("key", k));
+    }
+    if let Some(sig) = &a.signature {
+        block.push_str(&kv("signature", sig));
+    }
+    let text = splice_into_reviewer(existing, pos, &block)?;
+    let after = parse(&text)?;
+    let mut expected = before.clone();
+    expected.reviewers[pos].separations.push(a.clone());
+    if after != expected {
+        return Err(AppendError::NotReadBack(format!(
+            "[[reviewer.separation]] {} of {reviewer}",
+            a.id
         )));
     }
     Ok(text)
@@ -293,3 +447,7 @@ pub fn is_bare_key(k: &ReviewerKey) -> bool {
 #[cfg(test)]
 #[path = "root_append_tests.rs"]
 mod tests;
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "root_append_ivv_tests.rs"]
+mod ivv_tests;
