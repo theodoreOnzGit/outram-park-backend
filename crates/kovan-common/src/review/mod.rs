@@ -57,7 +57,9 @@
 //! - ~~Building `kovan.toml` from SCIP (#757) and the git side
 //!   (kovan-discovery).~~ **CORRECTED 2026-10-07**: [`crate::code_index`]
 //!   builds it (#767, `kovan-cli index`); the git facts the engine takes
-//!   ([`engine::GitFacts`]) are still built by the caller.
+//!   ([`engine::GitFacts`]) are ~~still~~ built by the caller (**CORRECTED
+//!   2026-10-10**: `kovan::stamping::git_facts` now builds them from `git`,
+//!   with the fields it leaves empty listed in its module doc).
 //! - ~~The staleness engine itself (#765): `engine::evaluate` in the picture
 //!   above is the next step and is not in this module yet.~~ **CORRECTED
 //!   2026-10-07**: [`engine::evaluate`] is here (#765), with the state
@@ -65,9 +67,16 @@
 //! - Resolving a function's concept areas (for rung 5) from its review's
 //!   `implements` relations: [`engine::evaluate`] takes them as data.
 //!
+//! Writing (GitHub #770, 2026-10-10): [`draft`] builds an unsigned stamp
+//! from gathered facts, [`review_md_write`] splices one entry into a
+//! `review.md` keeping every other byte, and [`root_append`] registers a
+//! reviewer or key in `kovan_root.toml` as appended text. The gathering and
+//! file I/O are `kovan::stamping`.
+//!
 //! Rung 5 is IV&V by a technically and managerially separate organisation
 //! (GitHub #809, NUREG/BR-0167 §3.1): [`crate::review::ivv`].
 
+pub mod draft;
 pub mod engine;
 pub mod evidence;
 pub mod hash;
@@ -75,7 +84,9 @@ pub mod id;
 pub mod index;
 pub mod ivv;
 pub mod review_md;
+pub mod review_md_write;
 pub mod root;
+pub mod root_append;
 pub mod rust_items;
 pub mod scope;
 pub mod signed_at;

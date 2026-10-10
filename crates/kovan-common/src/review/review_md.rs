@@ -883,7 +883,8 @@ pub fn sign_off(r: &ReviewBody) -> String {
 /// and its body, separated by a blank line. Unreadable entries are not
 /// written by this function: `review.md` is never auto-fixed, so a caller
 /// that rewrites a file holding unreadable entries must splice its changes
-/// in place instead (see [`crate::artifact::heading_span`]).
+/// in place instead (see [`crate::artifact::heading_span`]; the stamp
+/// dialog's writers that do so are [`super::review_md_write`]).
 pub fn render_review_md(entries: &[ParsedEntry]) -> Result<String, ReviewMdError> {
     let mut out = String::new();
     for (i, e) in entries.iter().enumerate() {
