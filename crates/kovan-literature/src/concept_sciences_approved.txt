@@ -18,3 +18,46 @@ sciences/nuclear-chemistry/fission-product-release-from-fuel
 sciences/nuclear-chemistry/transport-and-deposition-in-coolant
 sciences/nuclear-chemistry/radiolysis-and-coolant-chemistry
 sciences/nuclear-chemistry/release-to-environment-and-dispersion
+
+# 2026-10-10, maintainer on physical principles: "Not sure about Cauchy but rest checks out" (#829).
+# Held back as proposed: solid-continuum-momentum (Cauchy), the new kinetics branch, and
+# radioactive-decay and nuclide-balance (they may move under kinetics).
+sciences/physical-principles
+sciences/physical-principles/conservation-laws
+sciences/physical-principles/conservation-laws/mass-balance
+sciences/physical-principles/conservation-laws/mass-balance/continuity-equation
+sciences/physical-principles/conservation-laws/mass-balance/species-transport
+sciences/physical-principles/conservation-laws/momentum-balance
+sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations
+sciences/physical-principles/conservation-laws/momentum-balance/porous-media-flow
+sciences/physical-principles/conservation-laws/momentum-balance/discrete-particle-dynamics
+sciences/physical-principles/conservation-laws/energy-balance
+sciences/physical-principles/conservation-laws/energy-balance/enthalpy-balance
+sciences/physical-principles/conservation-laws/energy-balance/nuclear-energy-release
+sciences/physical-principles/conservation-laws/particle-balance
+sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation
+sciences/physical-principles/conservation-laws/particle-balance/multiplication-eigenvalue
+sciences/physical-principles/radiation-interaction-with-matter
+sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions
+sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/cross-sections
+sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/resonances
+sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/fission
+sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/radiative-capture
+sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/scattering
+sciences/physical-principles/radiation-interaction-with-matter/target-motion
+sciences/physical-principles/radiation-interaction-with-matter/target-motion/doppler-broadening
+sciences/physical-principles/radiation-interaction-with-matter/target-motion/thermal-scattering-law
+sciences/physical-principles/radiation-interaction-with-matter/target-motion/resonance-elastic-scattering
+sciences/physical-principles/radiation-interaction-with-matter/photon-and-charged-particle-interactions
+sciences/physical-principles/thermodynamics-and-statistical-mechanics
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution
+sciences/physical-principles/constitutive-relations
+sciences/physical-principles/constitutive-relations/fouriers-law
+sciences/physical-principles/constitutive-relations/newtonian-viscous-stress
+sciences/physical-principles/constitutive-relations/ficks-law
+sciences/physical-principles/constitutive-relations/hookes-law
+sciences/physical-principles/constitutive-relations/darcys-law
+sciences/physical-principles/constitutive-relations/thermal-radiation-exchange

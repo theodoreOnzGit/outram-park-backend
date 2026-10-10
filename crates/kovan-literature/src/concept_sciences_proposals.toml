@@ -333,33 +333,33 @@ redistributable = true
 path = "sciences/physical-principles"
 title = "Physical principles"
 sources = [{ document = "arxiv-2306.01924v2", section = "2. Generic sharp interface model, Eq. (1) generic conservation equation" }, { document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Continuity Equation, Introduction (p. 1)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws"
 title = "Conservation (balance) laws"
 sources = [{ document = "arxiv-2306.01924v2", section = "2. Generic sharp interface model, Eq. (11) general transport equation and Table 1 (mass, momentum, energy, entropy)" }, { document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Continuity Equation, Control Volume (p. 8)" }]
 cross_links = ["sciences/computation/aims/trust/structure-preservation"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/mass-balance"
 title = "Conservation of mass"
 sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Continuity Equation, Conservation of Mass (p. 10)" }, { document = "arxiv-2306.01924v2", section = "2. Table 1 (mass)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/mass-balance/continuity-equation"
 title = "Continuity equation"
 sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Continuity Equation, Continuity Equation (p. 11)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "2.1 Single-phase flow governing equations (one-dimensional mass conservation)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/mass-balance/species-transport"
 title = "Species (component) transport by advection and diffusion"
 sources = [{ document = "arxiv-2306.01924v2", section = "7.3 Polymer electrolyte fuel cell (species mass fraction transport, Fick's law)" }, { document = "fang-2021-htgr-fp-release", section = "3. Transport Model of FPs" }]
 cross_links = ["sciences/physical-principles/constitutive-relations/ficks-law"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance"
@@ -372,7 +372,7 @@ status = "proposed"
 path = "sciences/physical-principles/conservation-laws/momentum-balance"
 title = "Conservation of momentum (Newton's laws of motion)"
 sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Continuity Equation, Control Volume (p. 8): conservation of mass and energy 'along with Newton's laws of motion'" }, { document = "arxiv-2306.01924v2", section = "2. Table 1 (momentum)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations"
@@ -380,75 +380,68 @@ title = "Navier-Stokes equations (viscous fluid momentum)"
 sources = [{ document = "gomezzarzuela-2021-bubbly-flow", section = "2.1 Single-phase flow governing equations (from the Navier-Stokes equations of buoyantPimpleFoam)" }, { document = "arxiv-2306.01924v2", section = "2. Table 1 (momentum: pressure, deviatoric stress tensor, gravity)" }]
 cross_links = ["sciences/physical-principles/constitutive-relations/newtonian-viscous-stress", "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation"]
 note = "cross-linked with the Boltzmann transport equation as the other balance law the codes discretise (maintainer's example)"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/momentum-balance/porous-media-flow"
 title = "Momentum balance in porous media and packed beds (Darcy, Ergun)"
 sources = [{ document = "ong-2024-dissertation", section = "4.7 Modelling FHRs with Multiphysics code (Ergun's equation for pebble beds)" }, { document = "arxiv-2306.01924v2", section = "7.3 Polymer electrolyte fuel cell (Navier-Stokes with porous layers via Darcy's law)" }]
 cross_links = ["sciences/physical-principles/constitutive-relations/darcys-law"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/momentum-balance/solid-continuum-momentum"
 title = "Momentum balance of a deforming solid (Cauchy equation of motion)"
 sources = []
 cross_links = ["sciences/physical-principles/constitutive-relations/hookes-law"]
-note = "source not yet read: no open document in the corpus states the Cauchy momentum equation for solids (DOE-HDBK-1017, read 2026-10-10, defines stress and strain but states no equation of motion); see candidate documents"
+note = "maintainer, 2026-10-10: not sure about Cauchy; held as proposed. source not yet read: no open document in the corpus states the Cauchy momentum equation for solids (DOE-HDBK-1017, read 2026-10-10, defines stress and strain but states no equation of motion); see candidate documents"
 status = "proposed"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/momentum-balance/discrete-particle-dynamics"
 title = "Newton's laws for discrete particles in contact (discrete element method)"
 sources = [{ document = "putra-2021-htr10-dem", section = "2.2. DEM Simulation (particle contact and force balance; linear spring-dashpot)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/energy-balance"
 title = "Conservation of energy"
 sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, First Law of Thermodynamics (p. 53)" }, { document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Bernoulli's Equation, General Energy Equation (p. 21)" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics"]
-status = "proposed"
-
-[[science]]
-path = "sciences/physical-principles/conservation-laws/energy-balance/heat-conduction-equation"
-title = "Heat conduction (heat) equation"
-sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Conduction Heat Transfer (pp. 6-11)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "2.4 Wall conduction equation" }]
-cross_links = ["sciences/physical-principles/constitutive-relations/fouriers-law"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/energy-balance/enthalpy-balance"
 title = "Enthalpy (energy) balance of a flowing fluid"
 sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, First Law of Thermodynamics (p. 53) and Energy, Work, and Heat: Specific Enthalpy (p. 18)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "2.1 Single-phase flow governing equations (one-dimensional energy equation)" }, { document = "ong-2024-tuas", section = "2.2. Physical equations in natural and forced circulation" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/energy-balance/nuclear-energy-release"
 title = "Energy release in nuclear reactions (mass defect, Q-values, KERMA)"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Mass Defect and Binding Energy (p. 17); Energy Release from Fission (p. 56)" }, { document = "la-ur-17-20093", section = "6.1 Theory of Nuclear Heating; 6.3 Computation of KERMA Factors By Energy Balance" }]
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/particle-balance"
 title = "Particle number balance (neutron balance)"
 sources = [{ document = "doe-hdbk-1019-2-93", section = "Module 3, Neutron Life Cycle (p. 1): four- and six-factor formulas" }, { document = "la-ur-06-7094", section = "slide 'Time-dependent Transport' (gain/loss form Q + [S + M] - [L + T])" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation"
 title = "Linear Boltzmann (neutral particle) transport equation"
 sources = [{ document = "la-ur-17-20093", section = "8.1 Multigroup Constants, Eq. (240) neutral particle transport equation" }, { document = "la-ur-06-7094", section = "slide 'Time-dependent Transport' (time-dependent linear Boltzmann transport equation)" }, { document = "zhang-2023-fenrg-1101050", section = "2 Methodologies (multi-group neutron Boltzmann transport equations)" }]
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/cross-sections", "sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/particle-balance/multiplication-eigenvalue"
 title = "Neutron multiplication and the k-eigenvalue"
 sources = [{ document = "la-ur-06-7094", section = "slides 'K- and alpha-Eigenvalue Equations'" }, { document = "openmc-docs-eigenvalue", section = "Eigenvalue Calculations (introduction)" }, { document = "doe-hdbk-1019-2-93", section = "Module 3, Neutron Life Cycle, Effective Multiplication Factor (p. 8)" }]
 cross_links = ["sciences/computation/problems/eigenproblems/power-iteration"]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # sciences/physical-principles/radiation-interaction-with-matter
@@ -458,71 +451,71 @@ status = "proposed"
 path = "sciences/physical-principles/radiation-interaction-with-matter"
 title = "Interaction of radiation with matter"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Interaction of Radiation with Matter (p. 63)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions"
 title = "Neutron-induced nuclear reactions"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Neutron Interactions (p. 43)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/cross-sections"
 title = "Cross sections (microscopic, macroscopic; reaction rates)"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 2, Nuclear Cross Sections and Neutron Flux: Cross Sections (p. 7); Reaction Rates (p. 18)" }, { document = "la-ur-17-20093", section = "3.1 ENDF/B Cross Section Representations" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/resonances"
 title = "Resonances and R-matrix theory (resolved and unresolved)"
 sources = [{ document = "la-ur-17-20093", section = "3.4 Resonance Representations (SLBW, MLBW, Reich-Moore, RML); 5.1 Theory (unresolved range)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/fission"
 title = "Nuclear fission"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Nuclear Fission (p. 48)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/radiative-capture"
 title = "Radiative capture and other absorption reactions"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Neutron Interactions: Absorption Reactions, Radiative Capture, Particle Ejection (p. 46)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/scattering"
 title = "Elastic and inelastic scattering; neutron slowing down"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Neutron Interactions: Elastic Scattering (p. 43), Inelastic Scattering (p. 45); Module 2, Neutron Moderation (p. 23)" }, { document = "la-ur-17-20093", section = "8.12 Two-Body Scattering" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/target-motion"
 title = "Thermal motion of target nuclei"
 sources = [{ document = "openmc-docs-neutron-physics", section = "5.10 Effect of Thermal Motion on Cross Sections" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/target-motion/doppler-broadening"
 title = "Doppler broadening of cross sections"
 sources = [{ document = "la-ur-17-20093", section = "4.1 Doppler-Broadening Theory, Eqs. (82)-(83) (Maxwell-Boltzmann target velocities)" }, { document = "doe-hdbk-1019-2-93", section = "Module 3, Reactivity Coefficients, Fuel Temperature Coefficient (p. 26)" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/resonances"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/target-motion/thermal-scattering-law"
 title = "Thermal neutron scattering from bound atoms, S(alpha, beta)"
 sources = [{ document = "la-ur-17-20093", section = "7.2 Incoherent Inelastic Scattering, Eq. (230); 24.1 Theory (LEAPR)" }, { document = "openmc-docs-neutron-physics", section = "5.11 S(alpha,beta,T) Tables" }]
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/scattering"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/target-motion/resonance-elastic-scattering"
 title = "Resonant elastic scattering with an energy-dependent cross section (DBRC)"
 sources = [{ document = "openmc-docs-neutron-physics", section = "5.10.2 Energy-Dependent Cross Section Model (additional rejection step)" }]
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/resonances", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/scattering"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay"
@@ -535,7 +528,7 @@ path = "sciences/physical-principles/radiation-interaction-with-matter/photon-an
 title = "Photon and charged-particle interactions"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Interaction of Radiation with Matter: Alpha, Beta Minus, Positron, Gamma Radiation (pp. 64-66)" }, { document = "la-ur-17-20093", section = "9.1 Description of ENDF/B Photon Interaction Files" }]
 note = "placed now so the branch exists; detail later (maintainer: photons/charged particles later)"
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # sciences/physical-principles/thermodynamics-and-statistical-mechanics
@@ -545,30 +538,57 @@ status = "proposed"
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics"
 title = "Thermodynamics and statistical mechanics"
 sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Thermodynamic Systems and Processes (p. 26)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics"
 title = "First and second laws of thermodynamics"
 sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, First Law of Thermodynamics (p. 53); Second Law of Thermodynamics (p. 69)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state"
 title = "Equations of state and thermodynamic properties"
 sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Compression Processes: Ideal Gas Law (p. 98); Property Diagrams and Steam Tables (p. 41)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "3.4. Steam tables IAPWS-IF97" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium"
 title = "Phase change and phase equilibrium (saturation)"
 sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Change of Phase (p. 31): Saturation (p. 33), Critical Point (p. 36)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution"
 title = "Maxwell-Boltzmann distribution"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 2, Neutron Flux Spectrum: Most Probable Neutron Velocities (p. 35) (the Maxwell distribution of thermal neutrons)" }, { document = "la-ur-17-20093", section = "4.1 Doppler-Broadening Theory, Eq. (83)" }, { document = "openstax-university-physics-2", section = "2.4 Distribution of Molecular Speeds, The Maxwell-Boltzmann Distribution" }]
+status = "approved"
+
+# ============================================================================
+# sciences/physical-principles/kinetics
+# ============================================================================
+
+[[science]]
+path = "sciences/physical-principles/kinetics"
+title = "Kinetics: rate equations and time dependence"
+sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (pp. 12-13): competition between chemical kinetics and transport rates; the slowest step is rate controlling" }, { document = "doe-hdbk-1019-1-93", section = "Module 1, Radioactivity: Radioactive Decay Constant, Radioactive Half-Life (pp. 30-33)" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/neutronics/reactor-kinetics"]
+note = "maintainer, 2026-10-10: a kinetics section for time dependence. Thermodynamics says where a system ends up; kinetics says how fast it gets there"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/heat-conduction-equation"
+title = "Heat conduction (heat) equation"
+sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Conduction Heat Transfer (pp. 6-11)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "2.4 Wall conduction equation" }]
+cross_links = ["sciences/physical-principles/constitutive-relations/fouriers-law", "sciences/physical-principles/conservation-laws/energy-balance"]
+note = "moved from conservation-laws/energy-balance before approval (maintainer, 2026-10-10: \"heat conduction is more of a rate equation\"); the energy balance with Fourier's law as its closure"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/chemical-reaction-kinetics"
+title = "Chemical reaction kinetics (rate laws, activation energy, Arrhenius equation)"
+sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation, Eqs. (2)-(3) (p. 15): rate law with reaction order n and the Arrhenius rate constant K = k0 exp(-Ea/RT)" }, { document = "doe-hdbk-1015-1-93", section = "Module 2 Corrosion, Corrosion Theory (p. 8): activation energy and the rate-controlling step; General Corrosion, Factors Affecting General Corrosion Rate (p. 13)" }]
+cross_links = ["sciences/materials/corrosion-and-chemistry", "sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium"]
 status = "proposed"
 
 # ============================================================================
@@ -579,44 +599,44 @@ status = "proposed"
 path = "sciences/physical-principles/constitutive-relations"
 title = "Constitutive relations (closures of the balance laws)"
 sources = [{ document = "arxiv-2306.01924v2", section = "2. Generic sharp interface model, Eq. (11): flux j and source s specified per quantity (Table 1)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/constitutive-relations/fouriers-law"
 title = "Fourier's law of heat conduction"
 sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Conduction Heat Transfer: Conduction (p. 6), Fourier's Law of Conduction" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/constitutive-relations/newtonian-viscous-stress"
 title = "Viscosity and Newtonian viscous stress"
 sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Laminar and Turbulent Flow: Viscosity (p. 19)" }, { document = "arxiv-2306.01924v2", section = "2. Table 1 (deviatoric stress tensor tau)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/constitutive-relations/ficks-law"
 title = "Fick's law of diffusion"
 sources = [{ document = "fang-2021-htgr-fp-release", section = "3. Transport Model of FPs (Fick's first diffusion law)" }, { document = "arxiv-2306.01924v2", section = "7.3 Polymer electrolyte fuel cell (species transport characterised by Fick's law)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/constitutive-relations/hookes-law"
 title = "Hooke's law (linear elasticity)"
 sources = [{ document = "doe-hdbk-1017-1-93", section = "Module 2 Properties of Metals, Young's Modulus: Hooke's Law (p. 11), Eq. (2-6) strain = stress / E; Young's Modulus (Elastic Modulus) (p. 12)" }, { document = "openstax-university-physics-1", section = "12.3 Stress, Strain, and Elastic Modulus, Eq. (12.33) stress = (elastic modulus) x strain" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/constitutive-relations/darcys-law"
 title = "Darcy's law (flow through porous media)"
 sources = [{ document = "arxiv-2306.01924v2", section = "7.3 Polymer electrolyte fuel cell (porous layers via Darcy's law)" }]
 note = "not DOE-HDBK-1012/3's 'Darcy's Equation' (p. 32), which is the Darcy-Weisbach pipe head loss; that belongs to thermal-hydraulics/single-phase-flow"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/constitutive-relations/thermal-radiation-exchange"
 title = "Thermal radiation exchange (Stefan-Boltzmann law, emissivity)"
 sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Radiant Heat Transfer: Black Body Radiation (p. 26), Emissivity, Radiation Configuration Factor (p. 27)" }]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # sciences/computation  (maintainer, 2026-10-10: "Computation (numerical
@@ -1025,7 +1045,7 @@ status = "proposed"
 path = "sciences/materials/fuel-performance"
 title = "Fuel performance (fuel behaviour and fission-product release)"
 sources = [{ document = "fang-2021-htgr-fp-release", section = "2. Features of HTGR Fuel; 3. Transport Model of FPs" }, { document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Heat Generation: Fuel Changes During Reactor Operation (p. 50)" }, { document = "doe-hdbk-1017-2-93", section = "Module 5 Plant Materials, Nuclear Reactor Core Problems (p. 22): Fuel Pellet-Cladding Interaction; Effects on Fuel Due to Swelling and Core Burnup (p. 24)" }]
-cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/conservation-laws/energy-balance/heat-conduction-equation"]
+cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/kinetics/heat-conduction-equation"]
 status = "proposed"
 
 [[science]]
@@ -1136,7 +1156,7 @@ status = "approved"
 
 [[reference]]
 node = "02-nuclear-safety/fuel-system-design"
-sciences = ["sciences/materials/fuel-performance", "sciences/materials/irradiation-damage", "sciences/physical-principles/conservation-laws/energy-balance/heat-conduction-equation", "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat"]
+sciences = ["sciences/materials/fuel-performance", "sciences/materials/irradiation-damage", "sciences/physical-principles/kinetics/heat-conduction-equation", "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat"]
 status = "proposed"
 
 [[reference]]
