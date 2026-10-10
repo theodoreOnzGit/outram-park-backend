@@ -340,6 +340,39 @@ redistributable = true
 # College Physics 2e: OpenStax's only PDF is 263 MB, over GitHub's 100 MB
 # limit, so it is filed as 11 parts split at chapter boundaries (2026-10-10).
 [[document]]
+id = "openstax-chemistry-2e-part04"
+title = "OpenStax, Chemistry 2e (Flowers, Theopold, Langley, Robinson et al.), part 4 of 9: chapters 9-10"
+publisher = "OpenStax, Rice University"
+date = "2019 (PDF ©2026); read 11 October 2026"
+holder = "standard"
+file = "kovan-standard-open-corpus/cc-by-nc-sa/openstax2019-chemistry-2e-part04-ch9-10.pdf"
+url = "https://openstax.org/details/books/chemistry-2e"
+licence = "CC BY-NC-SA 4.0 (non-commercial, share-alike), stated on the book's copyright page; split into 9 parts of at most 30 MB for the corpus; added by the maintainer 2026-10-11 (\"Go ahead and add it\")"
+redistributable = true
+
+[[document]]
+id = "openstax-chemistry-2e-part05"
+title = "OpenStax, Chemistry 2e (Flowers, Theopold, Langley, Robinson et al.), part 5 of 9: chapters 11-12"
+publisher = "OpenStax, Rice University"
+date = "2019 (PDF ©2026); read 11 October 2026"
+holder = "standard"
+file = "kovan-standard-open-corpus/cc-by-nc-sa/openstax2019-chemistry-2e-part05-ch11-12.pdf"
+url = "https://openstax.org/details/books/chemistry-2e"
+licence = "CC BY-NC-SA 4.0 (non-commercial, share-alike), stated on the book's copyright page; split into 9 parts of at most 30 MB for the corpus; added by the maintainer 2026-10-11 (\"Go ahead and add it\")"
+redistributable = true
+
+[[document]]
+id = "openstax-chemistry-2e-part06"
+title = "OpenStax, Chemistry 2e (Flowers, Theopold, Langley, Robinson et al.), part 6 of 9: chapters 13-16"
+publisher = "OpenStax, Rice University"
+date = "2019 (PDF ©2026); read 11 October 2026"
+holder = "standard"
+file = "kovan-standard-open-corpus/cc-by-nc-sa/openstax2019-chemistry-2e-part06-ch13-16.pdf"
+url = "https://openstax.org/details/books/chemistry-2e"
+licence = "CC BY-NC-SA 4.0 (non-commercial, share-alike), stated on the book's copyright page; split into 9 parts of at most 30 MB for the corpus; added by the maintainer 2026-10-11 (\"Go ahead and add it\")"
+redistributable = true
+
+[[document]]
 id = "openstax-college-physics-2e-part03"
 title = "OpenStax, College Physics 2e (Urone, Hinrichs et al.), part 3 of 11: chapters 11-13"
 publisher = "OpenStax, Rice University"
@@ -601,25 +634,25 @@ status = "proposed"
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/solution-thermodynamics"
 title = "Solution thermodynamics (chemical engineering view: mixtures, concentrations, separation)"
-sources = [{ document = "doe-hdbk-1015-1-93", section = "Module 1 Fundamentals of Chemistry, Chemical Equations: Molarity (p. 37), Normality (p. 38), Parts per Million (p. 39); Acids, Bases, Salts, and pH: Dissociation Constant (p. 50); Appendix A Basic Separation Theory" }]
+sources = [{ document = "doe-hdbk-1015-1-93", section = "Module 1 Fundamentals of Chemistry, Chemical Equations: Molarity (p. 37), Normality (p. 38), Parts per Million (p. 39); Acids, Bases, Salts, and pH: Dissociation Constant (p. 50); Appendix A Basic Separation Theory" }, { document = "openstax-chemistry-2e-part05", section = "11.3 Solubility: Henry's law, the solubility of a gas proportional to its partial pressure; 11.4 Colligative Properties: Mole Fraction and Molality, Vapor Pressure Lowering, Raoult's law" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/gibbs-free-energy-and-chemical-equilibrium"]
-note = "emphasis: mixtures and how components distribute between phases. The DOE handbook covers concentration measures, dissociation and separation; activity, fugacity and mixing rules (Raoult, Henry): source not yet read"
+note = "emphasis: mixtures and how components distribute between phases. The DOE handbook covers concentration measures, dissociation and separation; Henry's and Raoult's laws for ideal solutions are from Chemistry 2e; activity and fugacity (non-ideal solutions): source not yet read"
 status = "proposed"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/gibbs-free-energy-and-chemical-equilibrium"
 title = "Gibbs free energy and chemical equilibrium (chemistry view)"
-sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2.3 Experimental Techniques for Characterization of Graphite Oxidation Behavior (p. 24): cooled effluent gas composition (CO, CO2, H2O, H2) changes as dictated by minimisation of the Gibbs free energy of the mixture" }, { document = "doe-hdbk-1015-1-93", section = "Module 1 Fundamentals of Chemistry, Chemical Equations: Le Chatelier's Principle (p. 36)" }]
+sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2.3 Experimental Techniques for Characterization of Graphite Oxidation Behavior (p. 24): cooled effluent gas composition (CO, CO2, H2O, H2) changes as dictated by minimisation of the Gibbs free energy of the mixture" }, { document = "doe-hdbk-1015-1-93", section = "Module 1 Fundamentals of Chemistry, Chemical Equations: Le Chatelier's Principle (p. 36)" }, { document = "openstax-chemistry-2e-part06", section = "16.4 Free Energy: Gibbs free energy defined from enthalpy and entropy, Delta G = Delta H - T Delta S; Free Energy and Equilibrium: Delta G related to the standard change through RT and the reaction quotient Q; at equilibrium Q = K and Delta G = 0" }]
 cross_links = ["sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry", "sciences/physical-principles/kinetics/chemical-reaction-kinetics", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium"]
-note = "emphasis: which way a reaction goes and where it settles; equilibrium here, rate under kinetics. The definition G = H - TS and the equilibrium constant from Delta G: source not yet read"
+note = "emphasis: which way a reaction goes and where it settles; equilibrium here, rate under kinetics. The definition G = H - TS and its relation to the equilibrium constant are from Chemistry 2e 16.4"
 status = "proposed"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/thermodynamics-of-solids"
 title = "Thermodynamics of crystalline solids (materials science view: phase stability, polymorphism, alloys)"
-sources = [{ document = "doe-hdbk-1017-1-93", section = "Module 1 Structure of Metals, Polymorphism Phases (p. 12): a metal exists in two or more crystalline forms depending on temperature and composition; uranium alpha, beta, gamma phases, Figure 5 cooling curve; Alloys (p. 15)" }]
+sources = [{ document = "doe-hdbk-1017-1-93", section = "Module 1 Structure of Metals, Polymorphism Phases (p. 12): a metal exists in two or more crystalline forms depending on temperature and composition; uranium alpha, beta, gamma phases, Figure 5 cooling curve; Alloys (p. 15)" }, { document = "openstax-chemistry-2e-part04", section = "10.4 Phase Diagrams (triple point); 10.6 Lattice Structures in Crystalline Solids: Crystal Defects (vacancies)" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/materials/thermophysical-properties-of-solids", "sciences/materials/fuel-performance"]
-note = "emphasis: which crystal structure and microstructure is stable at a given temperature and composition. Phase diagrams and point-defect equilibrium: source not yet read"
+note = "emphasis: which crystal structure and microstructure is stable at a given temperature and composition. Phase diagrams and crystal defects are from Chemistry 2e (a one-component phase diagram; binary alloy phase diagrams and the equilibrium vacancy concentration: source not yet read)"
 status = "proposed"
 
 # ============================================================================

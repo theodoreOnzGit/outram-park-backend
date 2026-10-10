@@ -2125,6 +2125,159 @@ pub const LITERATURE: &[CorpusLiterature] = &[
         status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
     },
     CorpusLiterature {
+        id: "openstax-chemistry-2e-part01",
+        kind: LiteratureKind::Book,
+        title: "Chemistry 2e (OpenStax, Rice University), part 1 of 9: chapters 1-2 (with front matter)",
+        authors: &["Flowers, P.", "Theopold, K.", "Langley, R.", "Robinson, W.R."],
+        year: Some(2019),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/chemistry-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2019-chemistry-2e-part01-ch1-2.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-chemistry-2e-part02",
+        kind: LiteratureKind::Book,
+        title: "Chemistry 2e (OpenStax, Rice University), part 2 of 9: chapters 3-5",
+        authors: &["Flowers, P.", "Theopold, K.", "Langley, R.", "Robinson, W.R."],
+        year: Some(2019),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/chemistry-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2019-chemistry-2e-part02-ch3-5.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-chemistry-2e-part03",
+        kind: LiteratureKind::Book,
+        title: "Chemistry 2e (OpenStax, Rice University), part 3 of 9: chapters 6-8",
+        authors: &["Flowers, P.", "Theopold, K.", "Langley, R.", "Robinson, W.R."],
+        year: Some(2019),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/chemistry-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2019-chemistry-2e-part03-ch6-8.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-chemistry-2e-part04",
+        kind: LiteratureKind::Book,
+        title: "Chemistry 2e (OpenStax, Rice University), part 4 of 9: chapters 9-10",
+        authors: &["Flowers, P.", "Theopold, K.", "Langley, R.", "Robinson, W.R."],
+        year: Some(2019),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: Some("openstax-chemistry-2e-part04"),
+        source_url: Some("https://openstax.org/details/books/chemistry-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2019-chemistry-2e-part04-ch9-10.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-chemistry-2e-part05",
+        kind: LiteratureKind::Book,
+        title: "Chemistry 2e (OpenStax, Rice University), part 5 of 9: chapters 11-12",
+        authors: &["Flowers, P.", "Theopold, K.", "Langley, R.", "Robinson, W.R."],
+        year: Some(2019),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: Some("openstax-chemistry-2e-part05"),
+        source_url: Some("https://openstax.org/details/books/chemistry-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2019-chemistry-2e-part05-ch11-12.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-chemistry-2e-part06",
+        kind: LiteratureKind::Book,
+        title: "Chemistry 2e (OpenStax, Rice University), part 6 of 9: chapters 13-16",
+        authors: &["Flowers, P.", "Theopold, K.", "Langley, R.", "Robinson, W.R."],
+        year: Some(2019),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: Some("openstax-chemistry-2e-part06"),
+        source_url: Some("https://openstax.org/details/books/chemistry-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2019-chemistry-2e-part06-ch13-16.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-chemistry-2e-part07",
+        kind: LiteratureKind::Book,
+        title: "Chemistry 2e (OpenStax, Rice University), part 7 of 9: chapters 17-18",
+        authors: &["Flowers, P.", "Theopold, K.", "Langley, R.", "Robinson, W.R."],
+        year: Some(2019),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/chemistry-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2019-chemistry-2e-part07-ch17-18.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-chemistry-2e-part08",
+        kind: LiteratureKind::Book,
+        title: "Chemistry 2e (OpenStax, Rice University), part 8 of 9: chapters 19-20",
+        authors: &["Flowers, P.", "Theopold, K.", "Langley, R.", "Robinson, W.R."],
+        year: Some(2019),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/chemistry-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2019-chemistry-2e-part08-ch19-20.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-chemistry-2e-part09",
+        kind: LiteratureKind::Book,
+        title: "Chemistry 2e (OpenStax, Rice University), part 9 of 9: chapter 21, appendices A-M, answer key and index",
+        authors: &["Flowers, P.", "Theopold, K.", "Langley, R.", "Robinson, W.R."],
+        year: Some(2019),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/chemistry-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2019-chemistry-2e-part09-ch21-appendices-index.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
         id: "openmc-docs-depletion",
         kind: LiteratureKind::Other,
         title: "OpenMC documentation, Methods: Depletion (depletion.rst, openmc-dev/openmc commit \
@@ -2994,17 +3147,20 @@ mod tests {
             // ~~101 since 2026-10-10: OpenStax University Physics Volumes 1-3, CC BY-NC-SA
             // (#829; College Physics 2e not filed, its PDF is over GitHub's 100 MB limit).~~
             // ~~102 since 2026-10-10: Cardiff et al. 2018, solids4foam, CC BY (#829).~~
-            // 113 since 2026-10-10: College Physics 2e as 11 parts of at most 30 MB
-            // (#829; the maintainer: "split the 2e").
-            113,
+            // ~~113 since 2026-10-10: College Physics 2e as 11 parts of at most 30 MB
+            // (#829; the maintainer: "split the 2e").~~
+            // 122 since 2026-10-11: Chemistry 2e as 9 parts of at most 30 MB
+            // (#829; the maintainer: "Go ahead and add it").
+            122,
             "the maintainer's 2026-09-22 set, EPA FGR-11, FGR-13 and FGR-15 (2026-09-28), \
              the concept tree's 13 further documents (2026-10-06), and the software QA \
              set NUREG/BR-0167, DOE-STD-1172-2003 and DOE G 414.1-4 (2026-10-07, #760), Kendrick 2019 \
              (private, cited only), the NJOY2016 manual (2026-10-07, #760), the \
              22 IAEA-issue bedrock documents and 12 solver-pattern sources (2026-10-07, #760), \
              the 26 software-properties sources (2026-10-07, #760), and the DOE Material \
-             Science, Chemistry and Mathematics handbooks (2026-10-10, #829), and OpenStax \
-             University Physics Volumes 1-3 (2026-10-10, #829)"
+             Science, Chemistry and Mathematics handbooks (2026-10-10, #829), OpenStax \
+             University Physics Volumes 1-3, Cardiff et al. 2018 and College Physics 2e in 11 \
+             parts (2026-10-10, #829), and Chemistry 2e in 9 parts (2026-10-11, #829)"
         );
         let mut ids = HashSet::new();
         for l in LITERATURE {
