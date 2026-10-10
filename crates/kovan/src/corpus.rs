@@ -527,6 +527,16 @@ const DOE_DIST_A_BASIS_2026_10_10: &str = "DOE handbook marked \"Distribution St
 Approved for public release; distribution is unlimited.\" (cover, PDF page 1, checked \
 2026-10-10; corpus README section 4)";
 
+/// The basis for the OpenStax *University Physics* volumes filed on
+/// 2026-10-10 (corpus README section 10, ground 9 extended that day to
+/// CC BY-NC-SA by the maintainer; OUTRAM PARK #829): each PDF's copyright
+/// page, read that day.
+const OPENSTAX_CC_BY_NC_SA_BASIS: &str = "CC BY-NC-SA 4.0: \"Textbook content produced by \
+OpenStax is licensed under a Creative Commons Attribution Non-Commercial ShareAlike 4.0 \
+International License (CC BY-NC-SA 4.0).\" (copyright page, PDF page 4, checked 2026-10-10; \
+corpus README section 10, ground 9). Non-commercial, share-alike; attribution \"Access for free \
+at openstax.org.\" kept on the unmodified PDF";
+
 /// The basis for DOE laboratory reports whose cover or release form reads
 /// "Approved for public release; distribution is unlimited." (added
 /// 2026-10-07, corpus README section 4). Contractor-written, so not public
@@ -1853,6 +1863,57 @@ pub const LITERATURE: &[CorpusLiterature] = &[
                        section 10, ground 9). Non-commercial, no derivatives",
     },
     CorpusLiterature {
+        id: "openstax-university-physics-1",
+        kind: LiteratureKind::Book,
+        title: "University Physics Volume 1 (OpenStax, Rice University)",
+        authors: &["Ling, S.J.", "Sanny, J.", "Moebs, W."],
+        year: Some(2016),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/university-physics-volume-1"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2016-university-physics-volume-1.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-university-physics-2",
+        kind: LiteratureKind::Book,
+        title: "University Physics Volume 2 (OpenStax, Rice University)",
+        authors: &["Ling, S.J.", "Sanny, J.", "Moebs, W."],
+        year: Some(2016),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/university-physics-volume-2"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2016-university-physics-volume-2.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-university-physics-3",
+        kind: LiteratureKind::Book,
+        title: "University Physics Volume 3 (OpenStax, Rice University)",
+        authors: &["Ling, S.J.", "Sanny, J.", "Moebs, W."],
+        year: Some(2016),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/university-physics-volume-3"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2016-university-physics-volume-3.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
         id: "openmc-docs-depletion",
         kind: LiteratureKind::Other,
         title: "OpenMC documentation, Methods: Depletion (depletion.rst, openmc-dev/openmc commit \
@@ -2718,15 +2779,18 @@ mod tests {
         assert_eq!(
             LITERATURE.len(),
             // ~~66~~ ~~92 since 2026-10-07: the 26 software-properties sources (#760).~~
-            // 98 since 2026-10-10: DOE-HDBK-1017, 1015 and 1014, two volumes each (#829).
-            98,
+            // ~~98 since 2026-10-10: DOE-HDBK-1017, 1015 and 1014, two volumes each (#829).~~
+            // 101 since 2026-10-10: OpenStax University Physics Volumes 1-3, CC BY-NC-SA
+            // (#829; College Physics 2e not filed, its PDF is over GitHub's 100 MB limit).
+            101,
             "the maintainer's 2026-09-22 set, EPA FGR-11, FGR-13 and FGR-15 (2026-09-28), \
              the concept tree's 13 further documents (2026-10-06), and the software QA \
              set NUREG/BR-0167, DOE-STD-1172-2003 and DOE G 414.1-4 (2026-10-07, #760), Kendrick 2019 \
              (private, cited only), the NJOY2016 manual (2026-10-07, #760), the \
              22 IAEA-issue bedrock documents and 12 solver-pattern sources (2026-10-07, #760), \
              the 26 software-properties sources (2026-10-07, #760), and the DOE Material \
-             Science, Chemistry and Mathematics handbooks (2026-10-10, #829)"
+             Science, Chemistry and Mathematics handbooks (2026-10-10, #829), and OpenStax \
+             University Physics Volumes 1-3 (2026-10-10, #829)"
         );
         let mut ids = HashSet::new();
         for l in LITERATURE {

@@ -43,7 +43,7 @@
 #           "web"           = not in the corpus; `url` names a stable page
 #   file    path relative to the reactor-literature repository root
 #           (holder standard/theodore-open)
-#   url     (holder web)
+#   url     (holder web); optional for standard/theodore-open, the page read
 #   licence the document's own licence statement, as read
 #   redistributable  true when that statement permits redistribution
 #
@@ -309,22 +309,27 @@ redistributable = true
 id = "openstax-university-physics-1"
 title = "OpenStax, University Physics Volume 1 (Ling, Sanny, Moebs et al.)"
 publisher = "OpenStax, Rice University"
-date = "read 10 October 2026"
-holder = "web"
+date = "2016 (PDF dated 27 April 2026); read 10 October 2026"
+holder = "standard"
+file = "kovan-standard-open-corpus/cc-by-nc-sa/openstax2016-university-physics-volume-1.pdf"
 url = "https://openstax.org/books/university-physics-volume-1/pages/12-3-stress-strain-and-elastic-modulus"
-licence = "CC BY-NC-SA (non-commercial, share-alike), stated on the page; accepted by the maintainer 2026-10-10"
+licence = "CC BY-NC-SA 4.0 (non-commercial, share-alike), stated on the book's copyright page (PDF page 4); accepted by the maintainer 2026-10-10"
 redistributable = true
 
 [[document]]
 id = "openstax-university-physics-2"
 title = "OpenStax, University Physics Volume 2 (Ling, Sanny, Moebs et al.)"
 publisher = "OpenStax, Rice University"
-date = "read 10 October 2026"
-holder = "web"
+date = "2016 (PDF dated 27 April 2026); read 10 October 2026"
+holder = "standard"
+file = "kovan-standard-open-corpus/cc-by-nc-sa/openstax2016-university-physics-volume-2.pdf"
 url = "https://openstax.org/books/university-physics-volume-2/pages/2-4-distribution-of-molecular-speeds"
-licence = "CC BY-NC-SA (non-commercial, share-alike), stated on the page; accepted by the maintainer 2026-10-10"
+licence = "CC BY-NC-SA 4.0 (non-commercial, share-alike), stated on the book's copyright page (PDF page 4); accepted by the maintainer 2026-10-10"
 redistributable = true
 
+# Not filed in the standard corpus (2026-10-10): OpenStax's only PDF of
+# College Physics 2e is 263 MB, over GitHub's 100 MB file limit, so it stays
+# cited from the web.
 [[document]]
 id = "openstax-college-physics-2e"
 title = "OpenStax, College Physics 2e (Urone, Hinrichs et al.)"
@@ -1687,11 +1692,9 @@ url = "https://github.com/openmc-dev/openmc/tree/develop/docs/source/methods"
 licence = "MIT (already the basis for openmc-docs/ in the standard corpus)"
 why = "four web-cited pages here (neutron physics, random numbers, tallies, variance reduction) should be pinned like depletion.rst and eigenvalue.rst"
 
-[[candidate]]
-title = "OpenStax University Physics Volumes 1-2 (chapters on elasticity, kinetic theory, thermodynamics, fluid mechanics)"
-url = "https://openstax.org/details/books/university-physics-volume-1"
-licence = "the pages read state CC BY-NC-SA; verify against the book's own licence page before adding"
-why = "Hooke's law and Maxwell-Boltzmann are cited from the web pages"
+# (OpenStax University Physics Volumes 1-3 were a candidate here; filed in
+# the standard corpus on 2026-10-10 after the licence was read from each
+# PDF's copyright page: CC BY-NC-SA 4.0.)
 
 [[candidate]]
 title = "An open text stating the Cauchy momentum equation for solids and the finite element method (e.g. an open continuum-mechanics or FEM lecture text with a CC BY licence, or a code manual such as the FEniCS/MOOSE solid-mechanics theory pages)"
