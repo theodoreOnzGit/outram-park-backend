@@ -8,4 +8,13 @@
 # `concept_sciences_proposals.toml` or is no longer `approved`, and if an
 # `approved` node there is not listed here.
 #
-# (none approved yet, 2026-10-10)
+
+# 2026-10-10, maintainer: "I accept the nuclear chemistry part" (#829)
+sciences/nuclear-chemistry
+sciences/nuclear-chemistry/fission-product-yields
+sciences/nuclear-chemistry/decay-chains-and-inventory
+sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry
+sciences/nuclear-chemistry/fission-product-release-from-fuel
+sciences/nuclear-chemistry/transport-and-deposition-in-coolant
+sciences/nuclear-chemistry/radiolysis-and-coolant-chemistry
+sciences/nuclear-chemistry/release-to-environment-and-dispersion

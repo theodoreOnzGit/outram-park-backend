@@ -1073,7 +1073,7 @@ status = "proposed"
 path = "sciences/nuclear-chemistry"
 title = "Nuclear chemistry: fission product creation and transport"
 sources = [{ document = "doe-hdbk-1015-2-93", section = "Module 3 Reactor Water Chemistry, Chemistry Parameters: Radioactivity (p. 23); Fuel Element Failure (p. 28)" }, { document = "nureg-1465", section = "3.4 Fission Product Composition and Magnitude (p. 9)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/nuclear-chemistry/fission-product-yields"
@@ -1081,14 +1081,14 @@ title = "Fission product yields (creation)"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Energy Release From Fission: Calculation of Fission Energy (p. 56), Figure 21 Uranium-235 Fission Yield vs. Mass Number" }, { document = "doe-hdbk-1019-2-93", section = "Module 3, Xenon: Production and Removal of Xenon-135 (p. 35) (fission yields of tellurium-135 and xenon-135)" }]
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/fission"]
 note = "the NJOY2016 manual (la-ur-17-20093) was searched 2026-10-10: it processes delayed-neutron and nu-bar yields but has no fission-product-yield (MF=8 MT=454/459) module, so it is not cited here"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/nuclear-chemistry/decay-chains-and-inventory"
 title = "Decay chains and fission-product inventory"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Modes of Radioactive Decay: Decay Chains (p. 27); Radioactivity: Radioactive Equilibrium (p. 38), Transient Radioactive Equilibrium (p. 40)" }, { document = "doe-hdbk-1019-2-93", section = "Module 3, Xenon: Production and Removal of Xenon-135 (p. 35); Samarium and Other Fission Product Poisons: Production and Removal of Samarium-149 (p. 43)" }]
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry"
@@ -1096,14 +1096,14 @@ title = "Chemical speciation and thermochemistry of fission products"
 sources = [{ document = "doe-hdbk-1015-1-93", section = "Module 1 Fundamentals of Chemistry, Chemical Equations: Le Chatelier's Principle (p. 36); Acids, Bases, Salts, and pH: Dissociation Constant (p. 50)" }, { document = "nureg-1465", section = "3.5 Chemical Form (p. 10); 4.5 Iodine Chemical Form (p. 17)" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state"]
 note = "Gibbs-energy minimisation (CALPHAD) itself: source not yet read"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/nuclear-chemistry/fission-product-release-from-fuel"
 title = "Fission product release from fuel (diffusion in fuel and coated particles)"
 sources = [{ document = "fang-2021-htgr-fp-release", section = "2. Features of HTGR Fuel; 3. Transport Model of FPs (Fick's first diffusion law)" }, { document = "doe-hdbk-1017-2-93", section = "Module 5 Plant Materials, Nuclear Reactor Core Problems: Effects on Fuel Due to Swelling and Core Burnup (pp. 24-25) (UO2 retains fission gases below about 1000 C)" }, { document = "nureg-1465", section = "3.2 Onset of Fission Product Release (p. 5)" }]
 cross_links = ["sciences/physical-principles/constitutive-relations/ficks-law", "sciences/materials/fuel-performance"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/nuclear-chemistry/transport-and-deposition-in-coolant"
@@ -1111,7 +1111,7 @@ title = "Transport and deposition in the coolant (plate-out, aerosols, dust)"
 sources = [{ document = "doe-hdbk-1015-2-93", section = "Module 3 Reactor Water Chemistry, Chemistry Parameters: Fuel Element Failure (p. 28) (gaseous fission products more mobile; hold-up and decay in the ion exchanger)" }, { document = "doe-hdbk-1015-1-93", section = "Module 2 Corrosion, Crud and Galvanic Corrosion: Crud (p. 22) (corrosion products transported, deposited and activated)" }, { document = "nureg-1465", section = "5.5 Aerosol Deposition (p. 20)" }]
 cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
 note = "plate-out on metal surfaces and graphite dust in gas-cooled reactors: source not yet read"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/nuclear-chemistry/radiolysis-and-coolant-chemistry"
@@ -1119,7 +1119,7 @@ title = "Radiolysis and coolant chemistry"
 sources = [{ document = "doe-hdbk-1015-2-93", section = "Module 3 Reactor Water Chemistry, Effects of Radiation on Water Chemistry (Synthesis): Interaction of Radiation (p. 1); Chemistry Parameters (p. 12)" }]
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/photon-and-charged-particle-interactions", "sciences/materials/corrosion-and-chemistry"]
 note = "water only; radiolysis of molten salts and of helium impurities: source not yet read"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/nuclear-chemistry/release-to-environment-and-dispersion"
@@ -1127,7 +1127,7 @@ title = "Release to the environment and dispersion (source term, atmospheric and
 sources = [{ document = "nureg-1465", section = "3.6 Proposed Accident Source Terms (p. 12)" }, { document = "nureg-1555", section = "2.7 Meteorology and Air Quality, regulatory positions (pp. 2.7-5 to 2.7-6): atmospheric dispersion models of RG 1.111 (routine) and RG 1.145 (accident); 5.4.1 Exposure Pathways, I. Areas of Review" }]
 cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/conservation-laws/momentum-balance/porous-media-flow"]
 note = "groundwater transport of radionuclides: source not yet read"
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # PROPOSED references from the IAEA tree into the Sciences tree

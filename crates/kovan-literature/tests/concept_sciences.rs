@@ -603,7 +603,8 @@ fn render() -> String {
     )
     .unwrap();
     writeln!(w).unwrap();
-    writeln!(w, "**Status: DRAFT FOR MAINTAINER REVIEW.** Every node and reference here is `proposed` (GitHub #727, maintainer direction 2026-10-10). Nothing is in either tree until approved.").unwrap();
+    let approved = s.science.iter().filter(|n| n.status == "approved").count();
+    writeln!(w, "**Status: DRAFT FOR MAINTAINER REVIEW** (GitHub #727, maintainer direction 2026-10-10). {approved} of {} nodes are `approved` (marked **approved** below; their ids are permanent and listed in `src/concept_sciences_approved.txt`); every other node and every reference is still `proposed`, and is in neither tree until approved.", s.science.len()).unwrap();
     writeln!(w).unwrap();
     writeln!(w, "## Two tabs").unwrap();
     writeln!(w).unwrap();
@@ -758,8 +759,9 @@ fn render() -> String {
         }
         writeln!(
             w,
-            "| `{}` | {} | {} | {} | {} | {} |",
+            "| `{}`{} | {} | {} | {} | {} | {} |",
             short(&n.path),
+            if n.status == "approved" { " **approved**" } else { "" },
             md(&n.title),
             rel,
             srcs,
