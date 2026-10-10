@@ -35,6 +35,7 @@ pub mod methods;
 pub mod outline;
 pub mod project;
 pub mod references;
+pub mod review_ivv;
 pub mod scan;
 pub mod search;
 pub mod semq;

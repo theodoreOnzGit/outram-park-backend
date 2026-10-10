@@ -129,6 +129,12 @@ pub fn review_bar(ui: &mut egui::Ui, mode: Mode, info: &BarInfo, expanded: &mut 
             }
         }
     });
+    // Rung 5, IV&V (#810): folded under one line.
+    if let Review::Stamped(_, s) = &info.review {
+        if let Some(v) = &s.ivv {
+            super::ivv::show(ui, &info.id, v, false);
+        }
+    }
     if *expanded && !info.blocked.is_empty() {
         egui::ScrollArea::vertical().max_height(if narrow { 140.0 } else { 120.0 }).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {

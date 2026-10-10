@@ -914,6 +914,7 @@ mod tests {
             note: String::new(),
             permalink: String::new(),
             state: None,
+            ivv: None,
         };
         let facts = Facts::new(&[stamp(&a, StampVerdict::Valid), stamp("crates/other/src/lib.rs::z", StampVerdict::Stale)]);
         assert_eq!(facts.blocked_by(&map, &slice, &b), vec!["crates/other/src/lib.rs::z".to_string()]);

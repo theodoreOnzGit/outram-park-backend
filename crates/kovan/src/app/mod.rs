@@ -23,6 +23,7 @@ mod kvim_editor;
 mod kvim_tab;
 mod literature_list;
 mod nav;
+mod organisations_view;
 mod page_canvas;
 mod pdf_reader;
 mod plot_setup;

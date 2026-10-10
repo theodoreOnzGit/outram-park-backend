@@ -83,6 +83,10 @@ pub mod hash;
 pub mod id;
 pub mod index;
 pub mod ivv;
+/// Plain-English text for rung-5 misses and registry warnings (#810).
+pub mod ivv_text;
+/// Rung 5 for the views: summaries, queue rows, attestation choices (#810).
+pub mod ivv_view;
 pub mod review_md;
 pub mod review_md_write;
 pub mod root;

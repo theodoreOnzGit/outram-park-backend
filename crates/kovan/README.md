@@ -547,6 +547,28 @@ kovan-cli stamps-levels tampines-steam-tables # which rung-3/4 tags stamps suppo
   stamp lives only in git history.
 - `stamps-levels` reports only; it never changes a `Cargo.toml`.
 
+### `review ivv` — rung 5, independent V&V, per function (`commands::review_ivv`, GitHub #810)
+
+`kovan-cli review ivv [<function>] [--workspace <dir>]` prints, from
+`review.md` judged with signatures enforced, each reviewed function's rung-5
+headline (passed, not reached, or "independent V&V not counted"), every
+review with its reasons in plain English, the separation attestation's
+audit record labelled "audit record (not verified by kovan)" (never
+fetched), the `kovan_root.toml` records that do not verify, and the rung-5
+rows of the need-you queue. It is read-only: kovan-cli has no signing
+command. The same summary is drawn in the review bar of kovan-web and of
+desktop kovan's Code Review tab.
+
+Signing happens in desktop kovan. The Code Review tab's **Organisations &
+IV&V** window lets a maintainer sign developing-organisation and
+reviewer-organisation records, and an independent reviewer sign a separation
+attestation naming a GitHub issue as its audit record. The stamp dialog lets
+the reviewer pick which of their own signed attestations a review relies on
+(none by default). Every record is appended to `kovan_root.toml` as text,
+with comments kept. Kovan does not resolve concept areas yet, so desktop
+kovan, kovan-web and this command show "the function has no known concept
+area" on every review, and no function reaches rung 5 there.
+
 ### `code-map` — the workspace's code map (`commands::code_map`, GitHub #734)
 
 Every crate placed by the `[package.metadata.kovan]` tag in its

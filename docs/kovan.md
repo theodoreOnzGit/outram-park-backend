@@ -130,7 +130,12 @@ silently.** It aims to be **tamper-evident, not tamper-proof**:
   unqualified reviewer, an AI-authored V&V case: each is a listed reason,
   never a silent downgrade. Kovan checks the URL's form only and shows the
   link as "audit record (not verified by kovan)": it cannot fetch the issue
-  offline. Details: `kovan_common::review::ivv`.
+  offline. Details: `kovan_common::review::ivv`. Since 2026-10-10 (gh
+  #810) the reasons are shown in words in the review bar of kovan-web and
+  desktop kovan, and by `kovan-cli review ivv` (read-only); desktop kovan's
+  Code Review tab signs the records ("Organisations & IV&V") and its stamp
+  dialog names the attestation a review relies on. Concept areas are not
+  resolved by kovan yet, so no function reaches rung 5 in those views.
 
 Deliberate, skilled forgery is out of scope for the open repository. Tamper
 evidence is what an open repository can guarantee. Qualification to NQA-1 would

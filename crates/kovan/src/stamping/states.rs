@@ -40,6 +40,7 @@ use kovan_common::review::engine::{
 };
 use kovan_common::review::hash::{hash_functions, HashedFn};
 use kovan_common::review::index::FolderIndex;
+use kovan_common::review::ivv_view::summarise;
 use kovan_common::review::review_md::ReviewEntry;
 use kovan_common::review::root::ReviewRoot;
 use kovan_common::review::state::StateKind;
@@ -340,11 +341,25 @@ pub struct WorkspaceEvaluation {
     pub call_graph_ids: BTreeMap<String, String>,
     /// Review key -> permalink of the reviewed code at the review commit.
     pub permalinks: BTreeMap<ReviewKey, String>,
+    /// `kovan_root.toml`'s review sections as judged (for the IV&V views,
+    /// #810: the audit records as written).
+    pub review_root: ReviewRoot,
 }
 
 /// Load the workspace, build the git facts and run the engine with
-/// signatures enforced (module doc).
+/// signatures enforced (module doc), with no concept areas.
 pub fn evaluate_workspace(root: &Path) -> Result<WorkspaceEvaluation, String> {
+    evaluate_workspace_with(root, &ConceptAreas::new())
+}
+
+/// [`evaluate_workspace`] with the function -> concept-area map given
+/// (GitHub #810). Nothing in kovan resolves concept areas yet, so every
+/// caller but a test passes none; with none, rung 5 is unreachable
+/// ([`kovan_common::review::ivv::Rung5Miss::NoConceptArea`]).
+pub fn evaluate_workspace_with(
+    root: &Path,
+    concepts: &ConceptAreas,
+) -> Result<WorkspaceEvaluation, String> {
     let ws = load_workspace(root)?;
     let git = git_facts(root, &ws);
     let krate_of = |dir: &str| {
@@ -368,7 +383,7 @@ pub fn evaluate_workspace(root: &Path) -> Result<WorkspaceEvaluation, String> {
         &ws.indexes,
         &ws.review_root,
         &git,
-        &ConceptAreas::new(),
+        concepts,
         SignaturePolicy::Enforce,
     );
     let call_graph_ids = ws
@@ -409,6 +424,7 @@ pub fn evaluate_workspace(root: &Path) -> Result<WorkspaceEvaluation, String> {
         evaluation,
         call_graph_ids,
         permalinks,
+        review_root: ws.review_root,
     })
 }
 
@@ -484,6 +500,8 @@ pub fn stamp_states(root: &Path) -> Result<Vec<WebStamp>, String> {
                 .and_then(|k| we.permalinks.get(&k).cloned())
                 .unwrap_or_default(),
             state: Some(kind),
+            ivv: summarise(fr, &we.review_root, &we.evaluation.ivv_warnings)
+                .map(std::sync::Arc::new),
         });
     }
     out.sort_by(|a, b| a.function.cmp(&b.function));
