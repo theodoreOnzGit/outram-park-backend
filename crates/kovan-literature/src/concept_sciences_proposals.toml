@@ -504,6 +504,267 @@ note = "the RTE itself (Modest 2013) is not in the corpus: source not yet read f
 status = "approved"
 
 # ============================================================================
+# sciences/physical-principles/thermodynamics-and-statistical-mechanics
+# ============================================================================
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics"
+title = "Thermodynamics and statistical mechanics"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Thermodynamic Systems and Processes (p. 26)" }]
+status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics"
+title = "First and second laws of thermodynamics"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, First Law of Thermodynamics (p. 53); Second Law of Thermodynamics (p. 69)" }]
+status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/first-law"
+title = "First law of thermodynamics (energy conservation, heat and work)"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, First Law of Thermodynamics (p. 53), Figure 14" }]
+cross_links = ["sciences/physical-principles/conservation-laws/energy-balance"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy"
+title = "Second law of thermodynamics and entropy (classical: irreversibility, Carnot limit)"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Second Law of Thermodynamics (p. 69); Entropy (p. 70); Figure 23 Control Volume for Second Law Analysis" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/entropy-and-microstates"]
+note = "maintainer, 2026-10-10: classical is fine; the statistical explanation is linked, not merged"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion"
+title = "Random thermal motion: the statistical origin of entropy and diffusion"
+sources = [{ document = "openstax-college-physics-2e-part04", section = "15.7 Statistical Interpretation of Entropy and the Second Law of Thermodynamics; 12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy", "sciences/physical-principles/constitutive-relations/ficks-law"]
+note = "maintainer, 2026-10-10: from a first-principles understanding, statistical motion explains what we see in the second law, diffusion etc."
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/entropy-and-microstates"
+title = "Entropy and microstates (S = k ln W; the most probable macrostate)"
+sources = [{ document = "openstax-college-physics-2e-part04", section = "15.7 Statistical Interpretation of Entropy and the Second Law of Thermodynamics, Eq. (15.68) S = k ln W" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy"]
+note = "OpenStax University Physics 2, 4.7 Entropy on a Microscopic Scale, was read 2026-10-10 and does not state S = k ln W, so it is not cited"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/random-walk-and-diffusion"
+title = "Random walk and diffusion (rms displacement grows as the square root of time)"
+sources = [{ document = "openstax-college-physics-2e-part03", section = "12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes, Eq. (12.58) x_rms = sqrt(2Dt)" }]
+cross_links = ["sciences/physical-principles/constitutive-relations/ficks-law", "sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/kinetic-theory-of-gases"
+title = "Kinetic theory of gases (pressure, temperature and mean free path from molecular collisions)"
+sources = [{ document = "openstax-university-physics-2", section = "2.2 Pressure, Temperature, and RMS Speed: Eq. (2.5) pV = (1/3)Nm<v^2>, Eq. (2.6) mean kinetic energy (3/2)kT, Eq. (2.10) mean free path" }]
+cross_links = ["sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state", "sciences/physical-principles/constitutive-relations/newtonian-viscous-stress", "sciences/physical-principles/constitutive-relations/fouriers-law"]
+note = "maintainer, 2026-10-10: kinetic theory of gases falls under Boltzmann too. Boltzmann's equation was written for gas molecules colliding with each other (nonlinear); neutron transport is its linear form, because neutrons collide with the medium and not with each other. Its equilibrium is the Maxwell-Boltzmann distribution, and the Chapman-Enskog expansion gives viscosity and conductivity: source not yet read for the Boltzmann equation of gases, the H-theorem or Chapman-Enskog"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state"
+title = "Equations of state and thermodynamic properties"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Compression Processes: Ideal Gas Law (p. 98); Property Diagrams and Steam Tables (p. 41)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "3.4. Steam tables IAPWS-IF97" }]
+status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium"
+title = "Phase change and phase equilibrium (saturation)"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Change of Phase (p. 31): Saturation (p. 33), Critical Point (p. 36)" }]
+status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution"
+title = "Maxwell-Boltzmann distribution"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 2, Neutron Flux Spectrum: Most Probable Neutron Velocities (p. 35) (the Maxwell distribution of thermal neutrons)" }, { document = "la-ur-17-20093", section = "4.1 Doppler-Broadening Theory, Eq. (83)" }, { document = "openstax-university-physics-2", section = "2.4 Distribution of Molecular Speeds, The Maxwell-Boltzmann Distribution" }]
+status = "approved"
+
+# ============================================================================
+# sciences/physical-principles/kinetics  (maintainer, 2026-10-11: "Kinetics shld
+# be called kinetics and rate eqns"; balance equations come first in the tree,
+# then rate equations: "I want people to see overarching balance equations (time
+# independent as in thermodynamics sort) then rate equations (time dependent)")
+# ============================================================================
+
+[[science]]
+path = "sciences/physical-principles/kinetics"
+title = "Kinetics and rate equations (time dependence)"
+sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (pp. 12-13): competition between chemical kinetics and transport rates; the slowest step is rate controlling" }, { document = "doe-hdbk-1019-1-93", section = "Module 1, Radioactivity: Radioactive Decay Constant, Radioactive Half-Life (pp. 30-33)" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/neutronics/reactor-kinetics", "sciences/materials/creep"]
+note = "maintainer, 2026-10-10: a kinetics section for time dependence. Thermodynamics says where a system ends up; kinetics says how fast it gets there. Renamed 2026-10-11 to kinetics and rate equations (title only; the id is unchanged). The tree reads balance equations first (conservation laws, thermodynamics), then the rate equations here, then the constitutive relations that close them"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/heat-transfer"
+title = "Heat transfer rates (conduction, convection, radiation)"
+sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Heat Transfer Terminology: Modes of Transferring Heat (p. 2): conduction, convection and radiation" }]
+cross_links = ["sciences/physical-principles/conservation-laws/energy-balance", "sciences/physical-principles/kinetics/mass-transfer"]
+note = "maintainer, 2026-10-11: \"heat conduction should be heat transfer in some sense (all three types)\". The energy balance says heat is conserved; these say how fast it moves"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/heat-transfer/heat-conduction-equation"
+title = "Heat conduction (heat) equation"
+sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Conduction Heat Transfer (pp. 6-11)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "2.4 Wall conduction equation" }]
+cross_links = ["sciences/physical-principles/constitutive-relations/fouriers-law", "sciences/physical-principles/conservation-laws/energy-balance", "sciences/physical-principles/kinetics/mass-transfer/diffusive-mass-transfer"]
+note = "moved from conservation-laws/energy-balance before approval (maintainer, 2026-10-10: \"heat conduction is more of a rate equation\"), then under heat-transfer (2026-10-11); the energy balance with Fourier's law as its closure. Mass-transfer analogue: diffusion"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/heat-transfer/convective-heat-transfer"
+title = "Convective heat transfer (heat carried by fluid motion; film coefficient h)"
+sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Convection Heat Transfer: Convection (p. 18): natural and forced convection; treated empirically because of the stagnant film; Overall Heat Transfer Coefficient (p. 20)" }]
+cross_links = ["sciences/thermal-hydraulics/heat-transfer-correlations", "sciences/physical-principles/conservation-laws/energy-balance", "sciences/physical-principles/kinetics/mass-transfer/convective-mass-transfer"]
+note = "the rate principle; the correlations that supply h (Dittus-Boelter, boiling) are thermal-hydraulics/heat-transfer-correlations. Mass-transfer analogue: convective mass transfer (Sherwood number in place of Nusselt)"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/heat-transfer/radiative-heat-transfer"
+title = "Radiative heat transfer (heat carried by thermal radiation, no medium needed)"
+sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Radiant Heat Transfer: Thermal Radiation, Black Body Radiation (p. 26), Eq. (2-12) Q = sigma A T^4" }]
+cross_links = ["sciences/physical-principles/constitutive-relations/thermal-radiation-exchange", "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/radiative-transfer"]
+note = "the rate mode; the Stefan-Boltzmann closure is constitutive-relations/thermal-radiation-exchange and the participating-medium equation is Boltzmann/radiative-transfer. No mass-transfer analogue is drafted: the nearest is free-molecular (ballistic) streaming of particles whose mean free path exceeds the geometry, which the Boltzmann branch already covers (neutron transport, the optically thin limit)"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/mass-transfer"
+title = "Mass transfer rates (diffusion, convection)"
+sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (pp. 12-13): oxidant transport from the gas to the surface, in-pore diffusion (Regime 2) and boundary-layer mass transfer (Regime 3) compete with chemical kinetics (Regime 1)" }]
+cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/kinetics/heat-transfer", "sciences/physical-principles/kinetics/chemical-reaction-kinetics"]
+note = "maintainer, 2026-10-11: analogues of heat transfer for mass, by diffusion and advection; \"not sure if radiation has one\" (see radiative-heat-transfer: none drafted). Species transport under mass balance is the balance; these are the rates"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/mass-transfer/diffusive-mass-transfer"
+title = "Diffusive mass transfer (Fickian diffusion)"
+sources = [{ document = "openstax-college-physics-2e-part03", section = "12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes" }, { document = "fang-2021-htgr-fp-release", section = "3. Transport Model of FPs (Fick's first diffusion law)" }, { document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (p. 13): Regime 2, in-pore diffusion control; depends on effective gas diffusivity in the graphite" }]
+cross_links = ["sciences/physical-principles/constitutive-relations/ficks-law", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/random-walk-and-diffusion", "sciences/physical-principles/kinetics/heat-transfer/heat-conduction-equation"]
+note = "heat-transfer analogue: conduction (Fick's law plays the part of Fourier's law)"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/mass-transfer/convective-mass-transfer"
+title = "Convective mass transfer (boundary-layer mass transfer; Sherwood number)"
+sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (p. 13): Regime 3, boundary-layer control, limited by slow mass transfer through the stagnant boundary layer; 6.2 Challenges of Developing Oxidation Models (p. 71): convective versus diffusive mass transfer at the gas/graphite interface, referenced by the Sherwood number" }]
+cross_links = ["sciences/physical-principles/kinetics/heat-transfer/convective-heat-transfer", "sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
+note = "heat-transfer analogue: convection. The parallel is in the sources: DOE treats convection empirically because of the stagnant film; Contescu's Regime 3 is limited by the stagnant boundary layer. A general heat-mass analogy source (Chilton-Colburn) is not in the corpus"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/chemical-reaction-kinetics"
+title = "Chemical reaction kinetics (rate laws, activation energy, Arrhenius equation)"
+sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation, Eqs. (2)-(3) (p. 15): rate law with reaction order n and the Arrhenius rate constant K = k0 exp(-Ea/RT)" }, { document = "doe-hdbk-1015-1-93", section = "Module 2 Corrosion, Corrosion Theory (p. 8): activation energy and the rate-controlling step; General Corrosion, Factors Affecting General Corrosion Rate (p. 13)" }]
+cross_links = ["sciences/materials/corrosion-and-chemistry", "sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium"]
+status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/nuclear-reaction-kinetics"
+title = "Nuclear reaction kinetics (rates of neutron reactions and decay)"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Radioactivity: Radioactive Equilibrium (p. 38): production rate R equals decay rate lambda N (sodium-24); Transient Radioactive Equilibrium (p. 40)" }]
+cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/kinetics/chemical-reaction-kinetics"]
+note = "maintainer, 2026-10-11: \"Nuclear reaction kinetics should be a topic\", with neutron kinetics, transmutation kinetics and fission-product generation kinetics under it. Nuclide balance (Bateman) is the balance; these are the rates that feed it"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/nuclear-reaction-kinetics/neutron-population-kinetics"
+title = "Neutron population kinetics (prompt and delayed neutrons, generation time, precursor decay)"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 2, Prompt and Delayed Neutrons: Neutron Classification (p. 29); Neutron Generation Time (p. 30)" }, { document = "doe-hdbk-1019-2-93", section = "Module 4, Reactor Kinetics: Effective Delayed Neutron Fraction (p. 11); Effective Delayed Neutron Precursor Decay Constant (p. 13)" }]
+cross_links = ["sciences/physical-principles/conservation-laws/particle-balance", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/cross-sections", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/neutronics/reactor-kinetics"]
+note = "maintainer, 2026-10-10: neutron kinetics falls under kinetics, like reaction rates; moved under nuclear-reaction-kinetics before approval (2026-10-11). The principle (how fast the neutron population changes, set by prompt and delayed neutrons) lives here; the applied reactor behaviour (period, prompt criticality, startup rate) stays in neutronics/reactor-kinetics"
+status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/nuclear-reaction-kinetics/nuclear-transmutation-kinetics"
+title = "Nuclear transmutation kinetics (neutron transmutation, other reactions, decay chains)"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Nuclear Fission: Fertile Material (p. 53): neutron absorption without fission produces new nuclides by transmutation, which may be transmuted again or decay; Figure 19 Conversion of Fertile Nuclides to Fissile Nuclides" }, { document = "doe-hdbk-1019-1-93", section = "Module 1, Radioactivity: Decay Chains (p. 27); Radioactive Equilibrium (p. 38): the approach of sodium-24 to equilibrium under constant production" }]
+cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/neutronics/depletion-and-transmutation", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/radiative-capture"]
+note = "the rate principle (production by reaction rate minus loss by decay and further reaction); the reactor application (burnup, depletion solvers) is neutronics/depletion-and-transmutation"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/nuclear-reaction-kinetics/fission-product-generation-kinetics"
+title = "Fission product generation kinetics (yields feeding decay chains; xenon and samarium)"
+sources = [{ document = "doe-hdbk-1019-2-93", section = "Module 3, Xenon: Production and Removal of Xenon-135 (p. 35): fission yields of tellurium-135 and xenon-135, the Te-I-Xe-Cs decay chain, rate of change of iodine = production minus decay; Samarium and Other Fission Product Poisons: Production and Removal of Samarium-149 (p. 43)" }, { document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Decay Heat: Reactor Decay Heat Production (p. 52)" }]
+cross_links = ["sciences/nuclear-chemistry/fission-product-yields", "sciences/neutronics/depletion-and-transmutation", "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat", "sciences/physical-principles/kinetics/nuclear-reaction-kinetics/nuclear-transmutation-kinetics"]
+note = "a special case of transmutation kinetics with a fission-yield source, kept separate because it drives poisoning, decay heat and the source term; yields themselves (how much of each nuclide fission creates) are nuclear-chemistry/fission-product-yields"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/multistep-processes"
+title = "Multistep processes (sequential steps; the overall rate set by one step)"
+sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (pp. 12-13): six sequential steps of graphite oxidation (transport, adsorption, chemisorption, bond breaking, desorption, transport out); the slowest is rate controlling and defines Regimes 1-3, Figure 6" }, { document = "doe-hdbk-1019-1-93", section = "Module 1, Radioactivity: Transient Radioactive Equilibrium (p. 40) and secular equilibrium (p. 41): every descendant decays at the rate set by the original parent" }]
+cross_links = ["sciences/physical-principles/kinetics/chemical-reaction-kinetics", "sciences/physical-principles/kinetics/mass-transfer", "sciences/physical-principles/kinetics/nuclear-reaction-kinetics"]
+note = "maintainer, 2026-10-11: \"one common thing under rate equation is a phenomena called multistep processes. Under that, in chemistry we have rate determining step, under nuclear decay the analogue of secular equilibrium\""
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/multistep-processes/rate-determining-step"
+title = "Rate-determining (rate-controlling) step"
+sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (pp. 12-13): the slowest step is rate controlling; Regime 1 chemical kinetics control, Regime 2 in-pore diffusion control, Regime 3 boundary-layer control" }, { document = "doe-hdbk-1015-1-93", section = "Module 2 Corrosion, Corrosion Theory (p. 8): activation energy and the rate-controlling step" }]
+cross_links = ["sciences/physical-principles/kinetics/chemical-reaction-kinetics", "sciences/physical-principles/kinetics/mass-transfer/diffusive-mass-transfer", "sciences/physical-principles/kinetics/mass-transfer/convective-mass-transfer", "sciences/physical-principles/kinetics/multistep-processes/secular-and-transient-equilibrium"]
+note = "chemistry's form of the principle; graphite oxidation shows the controlling step moving from chemistry to diffusion to boundary-layer mass transfer as temperature rises"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/multistep-processes/secular-and-transient-equilibrium"
+title = "Secular and transient radioactive equilibrium (a long-lived parent sets the rate of the chain)"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Radioactivity: Transient Radioactive Equilibrium (p. 40), barium-140 to lanthanum-140, Figure 15; secular equilibrium (p. 41), thorium-232 chain: all descendants decay at the rate set by the original parent" }]
+cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/kinetics/nuclear-reaction-kinetics/nuclear-transmutation-kinetics", "sciences/physical-principles/kinetics/multistep-processes/rate-determining-step"]
+note = "the nuclear-decay analogue of the rate-determining step (maintainer, 2026-10-11): the slowest (longest-lived) member of a chain sets the rate of everything downstream of it"
+status = "proposed"
+
+# ============================================================================
+# sciences/physical-principles/constitutive-relations
+# ============================================================================
+
+[[science]]
+path = "sciences/physical-principles/constitutive-relations"
+title = "Constitutive relations (closures of the balance laws)"
+sources = [{ document = "arxiv-2306.01924v2", section = "2. Generic sharp interface model, Eq. (11): flux j and source s specified per quantity (Table 1)" }]
+status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/constitutive-relations/fouriers-law"
+title = "Fourier's law of heat conduction"
+sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Conduction Heat Transfer: Conduction (p. 6), Fourier's Law of Conduction" }]
+status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/constitutive-relations/newtonian-viscous-stress"
+title = "Viscosity and Newtonian viscous stress"
+sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Laminar and Turbulent Flow: Viscosity (p. 19)" }, { document = "arxiv-2306.01924v2", section = "2. Table 1 (deviatoric stress tensor tau)" }]
+status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/constitutive-relations/ficks-law"
+title = "Fick's law of diffusion"
+sources = [{ document = "fang-2021-htgr-fp-release", section = "3. Transport Model of FPs (Fick's first diffusion law)" }, { document = "arxiv-2306.01924v2", section = "7.3 Polymer electrolyte fuel cell (species transport characterised by Fick's law)" }]
+status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/constitutive-relations/hookes-law"
+title = "Hooke's law (linear elasticity)"
+sources = [{ document = "doe-hdbk-1017-1-93", section = "Module 2 Properties of Metals, Young's Modulus: Hooke's Law (p. 11), Eq. (2-6) strain = stress / E; Young's Modulus (Elastic Modulus) (p. 12)" }, { document = "openstax-university-physics-1", section = "12.3 Stress, Strain, and Elastic Modulus, Eq. (12.33) stress = (elastic modulus) x strain" }]
+status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/constitutive-relations/darcys-law"
+title = "Darcy's law (flow through porous media)"
+sources = [{ document = "arxiv-2306.01924v2", section = "7.3 Polymer electrolyte fuel cell (porous layers via Darcy's law)" }]
+note = "not DOE-HDBK-1012/3's 'Darcy's Equation' (p. 32), which is the Darcy-Weisbach pipe head loss; that belongs to thermal-hydraulics/single-phase-flow"
+status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/constitutive-relations/thermal-radiation-exchange"
+title = "Thermal radiation exchange (Stefan-Boltzmann law, emissivity)"
+sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Radiant Heat Transfer: Black Body Radiation (p. 26), Emissivity, Radiation Configuration Factor (p. 27)" }]
+status = "approved"
+
+# ============================================================================
 # sciences/physical-principles/radiation-interaction-with-matter
 # ============================================================================
 
@@ -588,168 +849,6 @@ path = "sciences/physical-principles/radiation-interaction-with-matter/photon-an
 title = "Photon and charged-particle interactions"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Interaction of Radiation with Matter: Alpha, Beta Minus, Positron, Gamma Radiation (pp. 64-66)" }, { document = "la-ur-17-20093", section = "9.1 Description of ENDF/B Photon Interaction Files" }]
 note = "placed now so the branch exists; detail later (maintainer: photons/charged particles later)"
-status = "approved"
-
-# ============================================================================
-# sciences/physical-principles/thermodynamics-and-statistical-mechanics
-# ============================================================================
-
-[[science]]
-path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics"
-title = "Thermodynamics and statistical mechanics"
-sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Thermodynamic Systems and Processes (p. 26)" }]
-status = "approved"
-
-[[science]]
-path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics"
-title = "First and second laws of thermodynamics"
-sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, First Law of Thermodynamics (p. 53); Second Law of Thermodynamics (p. 69)" }]
-status = "approved"
-
-[[science]]
-path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/first-law"
-title = "First law of thermodynamics (energy conservation, heat and work)"
-sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, First Law of Thermodynamics (p. 53), Figure 14" }]
-cross_links = ["sciences/physical-principles/conservation-laws/energy-balance"]
-status = "proposed"
-
-[[science]]
-path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy"
-title = "Second law of thermodynamics and entropy (classical: irreversibility, Carnot limit)"
-sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Second Law of Thermodynamics (p. 69); Entropy (p. 70); Figure 23 Control Volume for Second Law Analysis" }]
-cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/entropy-and-microstates"]
-note = "maintainer, 2026-10-10: classical is fine; the statistical explanation is linked, not merged"
-status = "proposed"
-
-[[science]]
-path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion"
-title = "Random thermal motion: the statistical origin of entropy and diffusion"
-sources = [{ document = "openstax-college-physics-2e-part04", section = "15.7 Statistical Interpretation of Entropy and the Second Law of Thermodynamics; 12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes" }]
-cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy", "sciences/physical-principles/constitutive-relations/ficks-law"]
-note = "maintainer, 2026-10-10: from a first-principles understanding, statistical motion explains what we see in the second law, diffusion etc."
-status = "proposed"
-
-[[science]]
-path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/entropy-and-microstates"
-title = "Entropy and microstates (S = k ln W; the most probable macrostate)"
-sources = [{ document = "openstax-college-physics-2e-part04", section = "15.7 Statistical Interpretation of Entropy and the Second Law of Thermodynamics, Eq. (15.68) S = k ln W" }]
-cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy"]
-note = "OpenStax University Physics 2, 4.7 Entropy on a Microscopic Scale, was read 2026-10-10 and does not state S = k ln W, so it is not cited"
-status = "proposed"
-
-[[science]]
-path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/random-walk-and-diffusion"
-title = "Random walk and diffusion (rms displacement grows as the square root of time)"
-sources = [{ document = "openstax-college-physics-2e-part03", section = "12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes, Eq. (12.58) x_rms = sqrt(2Dt)" }]
-cross_links = ["sciences/physical-principles/constitutive-relations/ficks-law", "sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
-status = "proposed"
-
-[[science]]
-path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/kinetic-theory-of-gases"
-title = "Kinetic theory of gases (pressure, temperature and mean free path from molecular collisions)"
-sources = [{ document = "openstax-university-physics-2", section = "2.2 Pressure, Temperature, and RMS Speed: Eq. (2.5) pV = (1/3)Nm<v^2>, Eq. (2.6) mean kinetic energy (3/2)kT, Eq. (2.10) mean free path" }]
-cross_links = ["sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state", "sciences/physical-principles/constitutive-relations/newtonian-viscous-stress", "sciences/physical-principles/constitutive-relations/fouriers-law"]
-note = "maintainer, 2026-10-10: kinetic theory of gases falls under Boltzmann too. Boltzmann's equation was written for gas molecules colliding with each other (nonlinear); neutron transport is its linear form, because neutrons collide with the medium and not with each other. Its equilibrium is the Maxwell-Boltzmann distribution, and the Chapman-Enskog expansion gives viscosity and conductivity: source not yet read for the Boltzmann equation of gases, the H-theorem or Chapman-Enskog"
-status = "proposed"
-
-[[science]]
-path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state"
-title = "Equations of state and thermodynamic properties"
-sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Compression Processes: Ideal Gas Law (p. 98); Property Diagrams and Steam Tables (p. 41)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "3.4. Steam tables IAPWS-IF97" }]
-status = "approved"
-
-[[science]]
-path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium"
-title = "Phase change and phase equilibrium (saturation)"
-sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Change of Phase (p. 31): Saturation (p. 33), Critical Point (p. 36)" }]
-status = "approved"
-
-[[science]]
-path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution"
-title = "Maxwell-Boltzmann distribution"
-sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 2, Neutron Flux Spectrum: Most Probable Neutron Velocities (p. 35) (the Maxwell distribution of thermal neutrons)" }, { document = "la-ur-17-20093", section = "4.1 Doppler-Broadening Theory, Eq. (83)" }, { document = "openstax-university-physics-2", section = "2.4 Distribution of Molecular Speeds, The Maxwell-Boltzmann Distribution" }]
-status = "approved"
-
-# ============================================================================
-# sciences/physical-principles/kinetics
-# ============================================================================
-
-[[science]]
-path = "sciences/physical-principles/kinetics"
-title = "Kinetics: rate equations and time dependence"
-sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (pp. 12-13): competition between chemical kinetics and transport rates; the slowest step is rate controlling" }, { document = "doe-hdbk-1019-1-93", section = "Module 1, Radioactivity: Radioactive Decay Constant, Radioactive Half-Life (pp. 30-33)" }]
-cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/neutronics/reactor-kinetics", "sciences/materials/creep"]
-note = "maintainer, 2026-10-10: a kinetics section for time dependence. Thermodynamics says where a system ends up; kinetics says how fast it gets there"
-status = "proposed"
-
-[[science]]
-path = "sciences/physical-principles/kinetics/heat-conduction-equation"
-title = "Heat conduction (heat) equation"
-sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Conduction Heat Transfer (pp. 6-11)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "2.4 Wall conduction equation" }]
-cross_links = ["sciences/physical-principles/constitutive-relations/fouriers-law", "sciences/physical-principles/conservation-laws/energy-balance"]
-note = "moved from conservation-laws/energy-balance before approval (maintainer, 2026-10-10: \"heat conduction is more of a rate equation\"); the energy balance with Fourier's law as its closure"
-status = "proposed"
-
-[[science]]
-path = "sciences/physical-principles/kinetics/chemical-reaction-kinetics"
-title = "Chemical reaction kinetics (rate laws, activation energy, Arrhenius equation)"
-sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation, Eqs. (2)-(3) (p. 15): rate law with reaction order n and the Arrhenius rate constant K = k0 exp(-Ea/RT)" }, { document = "doe-hdbk-1015-1-93", section = "Module 2 Corrosion, Corrosion Theory (p. 8): activation energy and the rate-controlling step; General Corrosion, Factors Affecting General Corrosion Rate (p. 13)" }]
-cross_links = ["sciences/materials/corrosion-and-chemistry", "sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium"]
-status = "proposed"
-
-[[science]]
-path = "sciences/physical-principles/kinetics/neutron-population-kinetics"
-title = "Neutron population kinetics (prompt and delayed neutrons, generation time, precursor decay)"
-sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 2, Prompt and Delayed Neutrons: Neutron Classification (p. 29); Neutron Generation Time (p. 30)" }, { document = "doe-hdbk-1019-2-93", section = "Module 4, Reactor Kinetics: Effective Delayed Neutron Fraction (p. 11); Effective Delayed Neutron Precursor Decay Constant (p. 13)" }]
-cross_links = ["sciences/physical-principles/conservation-laws/particle-balance", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/cross-sections", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/neutronics/reactor-kinetics"]
-note = "maintainer, 2026-10-10: neutron kinetics falls under kinetics, like reaction rates. The principle (how fast the neutron population changes, set by prompt and delayed neutrons) lives here; the applied reactor behaviour (period, prompt criticality, startup rate) stays in neutronics/reactor-kinetics"
-status = "proposed"
-
-# ============================================================================
-# sciences/physical-principles/constitutive-relations
-# ============================================================================
-
-[[science]]
-path = "sciences/physical-principles/constitutive-relations"
-title = "Constitutive relations (closures of the balance laws)"
-sources = [{ document = "arxiv-2306.01924v2", section = "2. Generic sharp interface model, Eq. (11): flux j and source s specified per quantity (Table 1)" }]
-status = "approved"
-
-[[science]]
-path = "sciences/physical-principles/constitutive-relations/fouriers-law"
-title = "Fourier's law of heat conduction"
-sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Conduction Heat Transfer: Conduction (p. 6), Fourier's Law of Conduction" }]
-status = "approved"
-
-[[science]]
-path = "sciences/physical-principles/constitutive-relations/newtonian-viscous-stress"
-title = "Viscosity and Newtonian viscous stress"
-sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Laminar and Turbulent Flow: Viscosity (p. 19)" }, { document = "arxiv-2306.01924v2", section = "2. Table 1 (deviatoric stress tensor tau)" }]
-status = "approved"
-
-[[science]]
-path = "sciences/physical-principles/constitutive-relations/ficks-law"
-title = "Fick's law of diffusion"
-sources = [{ document = "fang-2021-htgr-fp-release", section = "3. Transport Model of FPs (Fick's first diffusion law)" }, { document = "arxiv-2306.01924v2", section = "7.3 Polymer electrolyte fuel cell (species transport characterised by Fick's law)" }]
-status = "approved"
-
-[[science]]
-path = "sciences/physical-principles/constitutive-relations/hookes-law"
-title = "Hooke's law (linear elasticity)"
-sources = [{ document = "doe-hdbk-1017-1-93", section = "Module 2 Properties of Metals, Young's Modulus: Hooke's Law (p. 11), Eq. (2-6) strain = stress / E; Young's Modulus (Elastic Modulus) (p. 12)" }, { document = "openstax-university-physics-1", section = "12.3 Stress, Strain, and Elastic Modulus, Eq. (12.33) stress = (elastic modulus) x strain" }]
-status = "approved"
-
-[[science]]
-path = "sciences/physical-principles/constitutive-relations/darcys-law"
-title = "Darcy's law (flow through porous media)"
-sources = [{ document = "arxiv-2306.01924v2", section = "7.3 Polymer electrolyte fuel cell (porous layers via Darcy's law)" }]
-note = "not DOE-HDBK-1012/3's 'Darcy's Equation' (p. 32), which is the Darcy-Weisbach pipe head loss; that belongs to thermal-hydraulics/single-phase-flow"
-status = "approved"
-
-[[science]]
-path = "sciences/physical-principles/constitutive-relations/thermal-radiation-exchange"
-title = "Thermal radiation exchange (Stefan-Boltzmann law, emissivity)"
-sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Radiant Heat Transfer: Black Body Radiation (p. 26), Emissivity, Radiation Configuration Factor (p. 27)" }]
 status = "approved"
 
 # ============================================================================
@@ -1118,7 +1217,7 @@ status = "approved"
 path = "sciences/neutronics/reactor-kinetics"
 title = "Reactor kinetics (reactor period, prompt criticality, startup rate)"
 sources = [{ document = "doe-hdbk-1019-2-93", section = "Module 4, Reactor Kinetics (p. 10): Reactor Period (p. 11); Prompt Criticality (p. 15); Stable Period Equation (p. 16); Reactor Startup Rate (p. 17)" }]
-cross_links = ["sciences/physical-principles/kinetics/neutron-population-kinetics", "sciences/physical-principles/conservation-laws/particle-balance", "sciences/computation/problems/ode-and-pde-evolution"]
+cross_links = ["sciences/physical-principles/kinetics/nuclear-reaction-kinetics/neutron-population-kinetics", "sciences/physical-principles/conservation-laws/particle-balance", "sciences/computation/problems/ode-and-pde-evolution"]
 status = "approved"
 
 [[science]]
@@ -1200,7 +1299,7 @@ status = "approved"
 path = "sciences/materials/fuel-performance"
 title = "Fuel performance (fuel behaviour and fission-product release)"
 sources = [{ document = "fang-2021-htgr-fp-release", section = "2. Features of HTGR Fuel; 3. Transport Model of FPs" }, { document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Heat Generation: Fuel Changes During Reactor Operation (p. 50)" }, { document = "doe-hdbk-1017-2-93", section = "Module 5 Plant Materials, Nuclear Reactor Core Problems (p. 22): Fuel Pellet-Cladding Interaction; Effects on Fuel Due to Swelling and Core Burnup (p. 24)" }]
-cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/kinetics/heat-conduction-equation"]
+cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/kinetics/heat-transfer/heat-conduction-equation"]
 status = "approved"
 
 [[science]]
@@ -1320,7 +1419,7 @@ status = "approved"
 
 [[reference]]
 node = "02-nuclear-safety/fuel-system-design"
-sciences = ["sciences/materials/fuel-performance", "sciences/materials/irradiation-damage", "sciences/physical-principles/kinetics/heat-conduction-equation", "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat"]
+sciences = ["sciences/materials/fuel-performance", "sciences/materials/irradiation-damage", "sciences/physical-principles/kinetics/heat-transfer/heat-conduction-equation", "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat"]
 status = "proposed"
 
 [[reference]]

@@ -99,3 +99,6 @@ sciences/materials/thermophysical-properties-of-solids
 sciences/materials/creep
 # 2026-10-10, maintainer: "Human factors node accepted (leave it as a stub for now)" (#829)
 sciences/human-factors
+# 2026-10-11, maintainer: "Chem reaction kinetics approved"; "With Neutron kinetics under it (approved otherwise)" (moved under nuclear-reaction-kinetics before approval) (#829)
+sciences/physical-principles/kinetics/chemical-reaction-kinetics
+sciences/physical-principles/kinetics/nuclear-reaction-kinetics/neutron-population-kinetics
