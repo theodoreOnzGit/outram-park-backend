@@ -134,3 +134,28 @@ sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplina
 sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/solution-thermodynamics
 sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/gibbs-free-energy-and-chemical-equilibrium
 sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/thermodynamics-of-solids
+# 2026-10-11, maintainer: "Part 1 ok, yes approved." (computation shape) (#829)
+sciences/computation
+sciences/computation/problems
+sciences/computation/governing-theorems
+sciences/computation/aims
+# 2026-10-11, maintainer: "Part 2 ok also." (problems and methods; optimisation and search-and-sorting deferred to #832) (#829)
+sciences/computation/problems/transport-equations
+sciences/computation/problems/transport-equations/monte-carlo-particle-histories
+sciences/computation/problems/transport-equations/discrete-ordinates
+sciences/computation/problems/transport-equations/spherical-harmonics-pn-and-spn
+sciences/computation/problems/linear-systems
+sciences/computation/problems/linear-systems/krylov-gmres
+sciences/computation/problems/eigenproblems
+sciences/computation/problems/eigenproblems/power-iteration
+sciences/computation/problems/quadrature
+sciences/computation/problems/ode-and-pde-evolution
+sciences/computation/problems/ode-and-pde-evolution/finite-volume-discretisation
+sciences/computation/problems/ode-and-pde-evolution/semi-implicit-time-coupling
+sciences/computation/problems/ode-and-pde-evolution/predictor-corrector-depletion
+sciences/computation/problems/root-finding
+sciences/computation/problems/sampling-from-distributions
+sciences/computation/problems/sampling-from-distributions/rejection-sampling
+sciences/computation/problems/sampling-from-distributions/probability-table-lookup
+sciences/computation/problems/function-approximation
+sciences/computation/problems/data-representation
