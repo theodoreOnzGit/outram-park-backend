@@ -13013,8 +13013,8 @@ day than `date`, each with 5 minutes' clock skew;
 [`super::signed_at`]). The git times for the last come in as data
 ([`StampFacts::reviewed_commit_time`], [`StampCommit::committer_time`]);
 "the commit that introduced the stamp" is [`StampFacts::added_in`], the
-same commit the authenticity rule checks. A v1 stamp (no `signed_at`) is
-never flagged.
+same commit the authenticity rule checks. A stamp without `signed_at`
+(~~a v1 stamp~~ v1 bytes were removed, #825) is never flagged.
 ~~A review's rung 4 counts only when the wizard's gate opens it,
 otherwise it counts as rung 3 and is flagged~~ **CORRECTED 2026-10-07**.
 ~~A function is at **rung 5** when, besides its earliest valid review, a
@@ -15435,6 +15435,7 @@ pub struct ReviewReport {
     pub independent: bool,
     pub vv_case: Vec<super::ivv::VvCaseProblem>,
     pub separation_attestation: Option<String>,
+    pub signed_at: Option<String>,
 }
 ```
 
@@ -15451,6 +15452,7 @@ pub struct ReviewReport {
 | `independent` | `bool` | The wizard says the reviewer is independent of the code<br>`independence = "someone_else"`): one of rung 5's conditions<br>([`super::ivv`]). |
 | `vv_case` | `Vec<super::ivv::VvCaseProblem>` | Why this review is not a hand-written V&V case (empty: it derives<br>rung 4); rung 5's first condition ([`super::ivv::vv_case_problems`]). |
 | `separation_attestation` | `Option<String>` | The separation attestation the review names, if any (GitHub #809). |
+| `signed_at` | `Option<String>` | The stamp's `signed_at` as written (`None` when the stamp<br>carries none, or on an unreadable entry). Added 2026-10-10 (#770): it orders two reviews of<br>the same date when both carry it ([`super::ivv::earliest_first`]). |
 
 ##### Implementations
 
@@ -21143,7 +21145,8 @@ meets **all** of these, each judged at the review's `date`:
    before; decision 1). A function with no known concept area cannot
    reach rung 5.
 3. **Not the code's author** (from git) and **not the first reviewer**
-   (the earliest valid review's reviewer), and its `independence` answer
+   (the earliest valid review's reviewer, ordered by [`earliest_first`]:
+   date, then `signed_at`, then reviewer id), and its `independence` answer
    is not `not_independent`.
 4. **A different organisation.** The reviewer's
    `[[reviewer.organisation]]` in force at the review date differs from
@@ -23235,6 +23238,21 @@ Look up `reviewer`'s attestation `id` and check it on its own.
 
 ```rust
 pub fn check_attestation(root: &super::root::ReviewRoot, registry: &super::signing::registry::Registry, reviewer: &str, id: &str, policy: super::engine::SignaturePolicy) -> AttestationCheck { /* ... */ }
+```
+
+#### Function `earliest_first`
+
+The order that decides the **first reviewer**: by `date`; on the same
+date, by `signed_at` when both reviews carry one that parses (compared as
+instants, so different UTC offsets order correctly); then by reviewer
+id. ~~Two reviews of one date are ordered by reviewer id (the engine has
+no time of day)~~ **CORRECTED 2026-10-10** (#770, decided by the main
+session): a v2+ stamp records `signed_at`, so the reviewer who really
+signed first is the first reviewer; the id stays the last tie-break, and
+the only one between v1 stamps.
+
+```rust
+pub fn earliest_first(a: &super::engine::ReviewReport, b: &super::engine::ReviewReport) -> std::cmp::Ordering { /* ... */ }
 ```
 
 #### Function `judge_function`
