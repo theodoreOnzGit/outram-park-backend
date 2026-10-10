@@ -521,9 +521,12 @@ derives it per function (`kovan_common::review::ivv`).
 `review/stamps.toml`; its Stamp button opens the stamp dialog, which writes
 a **signed** entry into the function's folder `review.md` (key set-up on
 first use, the review wizard, the passphrase; `src/stamping/`), and the
-tab's states come from `review.md` (`stamping::stamp_states`). The
+tab's states come from `review.md` (`stamping::stamp_states`). ~~The
 `call-graph --split-dir` data still carries the `stamps.toml` states; the
-tab replaces them once loaded. kovan commits nothing: commit `review.md`
+tab replaces them once loaded.~~ Since 2026-10-10 (maintainer) the
+`call-graph --split-dir` data, and so web-kovan on Pages, carries the
+`review.md` states too; `review/stamps.toml` is read only by
+`stamps-check`, `stamps-levels` and `stamp`. kovan commits nothing: commit `review.md`
 yourself (#771).
 
 ```text

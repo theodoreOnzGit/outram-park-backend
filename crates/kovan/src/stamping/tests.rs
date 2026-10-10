@@ -198,6 +198,8 @@ pub(super) fn founder_key(r: &Repo, store: &Path) -> UnlockedKey {
 /// without a new stamp. `leaf` and `other`, never stamped, are absent (the
 /// web shows them unreviewed).
 ///
+/// Also: `write_split` (the `--split-dir` data) carries the stamp.
+///
 /// Result (2026-10-10): passes.
 #[test]
 fn stamp_is_valid_then_goes_stale_on_edit() {
@@ -221,6 +223,23 @@ fn stamp_is_valid_then_goes_stale_on_edit() {
         s.permalink
     );
     assert!(r.state("leaf").is_none() && r.state("other").is_none());
+
+    // `kovan-cli call-graph --split-dir` (web-kovan's data) carries the
+    // same review.md state (maintainer, 2026-10-10: switched from the
+    // legacy stamps.toml).
+    let split = tempfile::tempdir().unwrap();
+    crate::commands::call_graph::write_split(r.path(), &Default::default(), split.path()).unwrap();
+    let index: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(split.path().join("index.json")).unwrap())
+            .unwrap();
+    let stamps = index["stamps"].as_array().expect("index.json has stamps");
+    assert!(
+        stamps
+            .iter()
+            .any(|x| x["function"] == s.function.as_str() && x["rung"] == 3),
+        "{stamps:?}"
+    );
+
     let we = evaluate_workspace(r.path()).unwrap();
     assert!(we.evaluation.history_warnings.is_empty());
 

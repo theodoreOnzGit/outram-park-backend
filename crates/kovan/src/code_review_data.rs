@@ -26,12 +26,12 @@
 //! ([`data_state`]): data older than the SCIP index is rebuilt.
 //!
 //! **Stamp states (2026-10-10, #770).** The `stamps` in `graph/index.json`
-//! are still `commands::call_graph::stamp_states` (the legacy
-//! `review/stamps.toml`), as `kovan-cli call-graph --split-dir` writes
-//! them; changing that CLI output is a separate decision, not made here.
-//! The Code Review view replaces them, once the data is loaded, with
-//! [`crate::stamping::stamp_states`] (signed `review.md` entries), computed
-//! on a worker.
+//! come from [`crate::stamping::stamp_states`] (signed `review.md` entries
+//! through the staleness engine), as `kovan-cli call-graph --split-dir`
+//! writes them (~~the legacy `review/stamps.toml`~~ **CORRECTED
+//! 2026-10-10**, maintainer: switched to `review.md`). The Code Review view
+//! also recomputes them on a worker once the data is loaded and after each
+//! stamp.
 
 use std::path::{Path, PathBuf};
 

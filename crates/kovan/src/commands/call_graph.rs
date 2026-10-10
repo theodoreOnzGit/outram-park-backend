@@ -978,9 +978,11 @@ pub fn run(
 /// `kovan-cli call-graph --split-dir <dir>`: build, then write one
 /// `<crate>.json` per crate (no source text) and an `index.json`
 /// ([`crate::call_graph::split`], for web-kovan, GitHub #736). The index
-/// carries every review stamp's state, judged on the working tree by
-/// [`crate::review_stamps::check`]; with no `review/stamps.toml` it is
-/// empty. Files already in `dir` that the split does not name are left
+/// carries every reviewed function's state from the signed `review.md`
+/// entries, judged on the working tree by the staleness engine
+/// ([`crate::stamping::stamp_states`]; ~~[`crate::review_stamps::check`]
+/// over `review/stamps.toml`~~ **CORRECTED 2026-10-10**, maintainer, #770);
+/// with no `review.md` it is empty. Files already in `dir` that the split does not name are left
 /// alone.
 pub fn run_split(
     root: &Path,
@@ -1029,7 +1031,10 @@ pub fn run_merge(root: &Path, files: &[PathBuf], out: Option<PathBuf>, split_dir
 
 /// Write `doc` split into `dir` (see [`run_split`]).
 pub fn write_split(root: &Path, doc: &crate::call_graph::CallGraphDoc, dir: &Path) -> Result<(), String> {
-    let stamps = stamp_states(root)?;
+    // Stamp states from the signed `review.md` entries through the
+    // staleness engine (maintainer, 2026-10-10, #770); ~~the legacy
+    // `review/stamps.toml` checker~~ before that.
+    let stamps = crate::stamping::stamp_states(root)?;
     std::fs::create_dir_all(dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
     let files = crate::call_graph::split::split_files(doc, stamps);
     let total: usize = files.iter().map(|(_, t)| t.len()).sum();
@@ -1039,38 +1044,6 @@ pub fn write_split(root: &Path, doc: &crate::call_graph::CallGraphDoc, dir: &Pat
     }
     eprintln!("call-graph: wrote {} files ({total} bytes) to {}", files.len(), dir.display());
     Ok(())
-}
-
-/// Every stamp in `review/stamps.toml`, judged on the working tree, in the
-/// form the web reads. Artifact stamps and unchecked ones are left out
-/// (the web shows functions only).
-pub fn stamp_states(root: &Path) -> Result<Vec<crate::call_graph::split::StampState>, String> {
-    use crate::call_graph::split::{StampState, StampVerdict};
-    use crate::review_stamps::{check, Scope, Verdict, DEFAULT_REPO_URL};
-    let report = check(root, &Scope::All)?;
-    Ok(report
-        .checked
-        .iter()
-        .filter_map(|c| {
-            let function = c.stamp.function.clone()?;
-            let (verdict, reason) = match &c.verdict {
-                Verdict::Valid => (StampVerdict::Valid, String::new()),
-                Verdict::Void(r) => (StampVerdict::Stale, r.to_string()),
-                Verdict::Unchecked(_) => return None,
-            };
-            Some(StampState {
-                function,
-                verdict,
-                reason,
-                rung: c.stamp.rung,
-                reviewer: c.stamp.reviewer.clone(),
-                date: c.stamp.date.to_string(),
-                note: c.stamp.note.clone(),
-                permalink: c.stamp.permalink(DEFAULT_REPO_URL),
-                state: None,
-            })
-        })
-        .collect())
 }
 
 /// `kovan-cli call-graph-keys`: one line `<crate> <key>` per workspace
