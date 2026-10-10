@@ -596,7 +596,7 @@ title = "Kinetics and rate equations (time dependence)"
 sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (pp. 12-13): competition between chemical kinetics and transport rates; the slowest step is rate controlling" }, { document = "doe-hdbk-1019-1-93", section = "Module 1, Radioactivity: Radioactive Decay Constant, Radioactive Half-Life (pp. 30-33)" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/neutronics/reactor-kinetics", "sciences/materials/creep"]
 note = "maintainer, 2026-10-10: a kinetics section for time dependence. Thermodynamics says where a system ends up; kinetics says how fast it gets there. Renamed 2026-10-11 to kinetics and rate equations (title only; the id is unchanged). The tree reads balance equations first (conservation laws, thermodynamics), then the rate equations here, then the constitutive relations that close them"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/kinetics/heat-transfer"
@@ -604,7 +604,7 @@ title = "Heat transfer rates (conduction, convection, radiation)"
 sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Heat Transfer Terminology: Modes of Transferring Heat (p. 2): conduction, convection and radiation" }]
 cross_links = ["sciences/physical-principles/conservation-laws/energy-balance", "sciences/physical-principles/kinetics/mass-transfer"]
 note = "maintainer, 2026-10-11: \"heat conduction should be heat transfer in some sense (all three types)\". The energy balance says heat is conserved; these say how fast it moves"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/kinetics/heat-transfer/heat-conduction-equation"
@@ -612,7 +612,7 @@ title = "Heat conduction (heat) equation"
 sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Conduction Heat Transfer (pp. 6-11)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "2.4 Wall conduction equation" }]
 cross_links = ["sciences/physical-principles/constitutive-relations/fouriers-law", "sciences/physical-principles/conservation-laws/energy-balance", "sciences/physical-principles/kinetics/mass-transfer/diffusive-mass-transfer"]
 note = "moved from conservation-laws/energy-balance before approval (maintainer, 2026-10-10: \"heat conduction is more of a rate equation\"), then under heat-transfer (2026-10-11); the energy balance with Fourier's law as its closure. Mass-transfer analogue: diffusion"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/kinetics/heat-transfer/convective-heat-transfer"
@@ -620,7 +620,7 @@ title = "Convective heat transfer (heat carried by fluid motion; film coefficien
 sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Convection Heat Transfer: Convection (p. 18): natural and forced convection; treated empirically because of the stagnant film; Overall Heat Transfer Coefficient (p. 20)" }]
 cross_links = ["sciences/thermal-hydraulics/heat-transfer-correlations", "sciences/physical-principles/conservation-laws/energy-balance", "sciences/physical-principles/kinetics/mass-transfer/convective-mass-transfer"]
 note = "the rate principle; the correlations that supply h (Dittus-Boelter, boiling) are thermal-hydraulics/heat-transfer-correlations. Mass-transfer analogue: convective mass transfer (Sherwood number in place of Nusselt)"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/kinetics/heat-transfer/radiative-heat-transfer"
@@ -628,7 +628,7 @@ title = "Radiative heat transfer (heat carried by thermal radiation, no medium n
 sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Radiant Heat Transfer: Thermal Radiation, Black Body Radiation (p. 26), Eq. (2-12) Q = sigma A T^4" }]
 cross_links = ["sciences/physical-principles/constitutive-relations/thermal-radiation-exchange", "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/radiative-transfer"]
 note = "the rate mode; the Stefan-Boltzmann closure is constitutive-relations/thermal-radiation-exchange and the participating-medium equation is Boltzmann/radiative-transfer. No mass-transfer analogue is drafted: the nearest is free-molecular (ballistic) streaming of particles whose mean free path exceeds the geometry, which the Boltzmann branch already covers (neutron transport, the optically thin limit)"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/kinetics/mass-transfer"
@@ -636,7 +636,7 @@ title = "Mass transfer rates (diffusion, convection)"
 sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (pp. 12-13): oxidant transport from the gas to the surface, in-pore diffusion (Regime 2) and boundary-layer mass transfer (Regime 3) compete with chemical kinetics (Regime 1)" }]
 cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/kinetics/heat-transfer", "sciences/physical-principles/kinetics/chemical-reaction-kinetics"]
 note = "maintainer, 2026-10-11: analogues of heat transfer for mass, by diffusion and advection; \"not sure if radiation has one\" (see radiative-heat-transfer: none drafted). Species transport under mass balance is the balance; these are the rates"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/kinetics/mass-transfer/diffusive-mass-transfer"
@@ -644,7 +644,7 @@ title = "Diffusive mass transfer (Fickian diffusion)"
 sources = [{ document = "openstax-college-physics-2e-part03", section = "12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes" }, { document = "fang-2021-htgr-fp-release", section = "3. Transport Model of FPs (Fick's first diffusion law)" }, { document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (p. 13): Regime 2, in-pore diffusion control; depends on effective gas diffusivity in the graphite" }]
 cross_links = ["sciences/physical-principles/constitutive-relations/ficks-law", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/random-walk-and-diffusion", "sciences/physical-principles/kinetics/heat-transfer/heat-conduction-equation"]
 note = "heat-transfer analogue: conduction (Fick's law plays the part of Fourier's law)"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/kinetics/mass-transfer/convective-mass-transfer"
@@ -652,7 +652,7 @@ title = "Convective mass transfer (boundary-layer mass transfer; Sherwood number
 sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (p. 13): Regime 3, boundary-layer control, limited by slow mass transfer through the stagnant boundary layer; 6.2 Challenges of Developing Oxidation Models (p. 71): convective versus diffusive mass transfer at the gas/graphite interface, referenced by the Sherwood number" }]
 cross_links = ["sciences/physical-principles/kinetics/heat-transfer/convective-heat-transfer", "sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
 note = "heat-transfer analogue: convection. The parallel is in the sources: DOE treats convection empirically because of the stagnant film; Contescu's Regime 3 is limited by the stagnant boundary layer. A general heat-mass analogy source (Chilton-Colburn) is not in the corpus"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/kinetics/chemical-reaction-kinetics"
@@ -667,7 +667,7 @@ title = "Nuclear reaction kinetics (rates of neutron reactions and decay)"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Radioactivity: Radioactive Equilibrium (p. 38): production rate R equals decay rate lambda N (sodium-24); Transient Radioactive Equilibrium (p. 40)" }]
 cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/kinetics/chemical-reaction-kinetics"]
 note = "maintainer, 2026-10-11: \"Nuclear reaction kinetics should be a topic\", with neutron kinetics, transmutation kinetics and fission-product generation kinetics under it. Nuclide balance (Bateman) is the balance; these are the rates that feed it"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/kinetics/nuclear-reaction-kinetics/neutron-population-kinetics"
@@ -683,7 +683,7 @@ title = "Nuclear transmutation kinetics (neutron transmutation, other reactions,
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Nuclear Fission: Fertile Material (p. 53): neutron absorption without fission produces new nuclides by transmutation, which may be transmuted again or decay; Figure 19 Conversion of Fertile Nuclides to Fissile Nuclides" }, { document = "doe-hdbk-1019-1-93", section = "Module 1, Radioactivity: Decay Chains (p. 27); Radioactive Equilibrium (p. 38): the approach of sodium-24 to equilibrium under constant production" }]
 cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/neutronics/depletion-and-transmutation", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/radiative-capture"]
 note = "the rate principle (production by reaction rate minus loss by decay and further reaction); the reactor application (burnup, depletion solvers) is neutronics/depletion-and-transmutation"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/kinetics/nuclear-reaction-kinetics/fission-product-generation-kinetics"
@@ -691,7 +691,7 @@ title = "Fission product generation kinetics (yields feeding decay chains; xenon
 sources = [{ document = "doe-hdbk-1019-2-93", section = "Module 3, Xenon: Production and Removal of Xenon-135 (p. 35): fission yields of tellurium-135 and xenon-135, the Te-I-Xe-Cs decay chain, rate of change of iodine = production minus decay; Samarium and Other Fission Product Poisons: Production and Removal of Samarium-149 (p. 43)" }, { document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Decay Heat: Reactor Decay Heat Production (p. 52)" }]
 cross_links = ["sciences/nuclear-chemistry/fission-product-yields", "sciences/neutronics/depletion-and-transmutation", "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat", "sciences/physical-principles/kinetics/nuclear-reaction-kinetics/nuclear-transmutation-kinetics"]
 note = "a special case of transmutation kinetics with a fission-yield source, kept separate because it drives poisoning, decay heat and the source term; yields themselves (how much of each nuclide fission creates) are nuclear-chemistry/fission-product-yields"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/kinetics/multistep-processes"
@@ -699,7 +699,7 @@ title = "Multistep processes (sequential steps; the overall rate set by one step
 sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (pp. 12-13): six sequential steps of graphite oxidation (transport, adsorption, chemisorption, bond breaking, desorption, transport out); the slowest is rate controlling and defines Regimes 1-3, Figure 6" }, { document = "doe-hdbk-1019-1-93", section = "Module 1, Radioactivity: Transient Radioactive Equilibrium (p. 40) and secular equilibrium (p. 41): every descendant decays at the rate set by the original parent" }]
 cross_links = ["sciences/physical-principles/kinetics/chemical-reaction-kinetics", "sciences/physical-principles/kinetics/mass-transfer", "sciences/physical-principles/kinetics/nuclear-reaction-kinetics"]
 note = "maintainer, 2026-10-11: \"one common thing under rate equation is a phenomena called multistep processes. Under that, in chemistry we have rate determining step, under nuclear decay the analogue of secular equilibrium\""
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/kinetics/multistep-processes/rate-determining-step"
@@ -707,7 +707,7 @@ title = "Rate-determining (rate-controlling) step"
 sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (pp. 12-13): the slowest step is rate controlling; Regime 1 chemical kinetics control, Regime 2 in-pore diffusion control, Regime 3 boundary-layer control" }, { document = "doe-hdbk-1015-1-93", section = "Module 2 Corrosion, Corrosion Theory (p. 8): activation energy and the rate-controlling step" }]
 cross_links = ["sciences/physical-principles/kinetics/chemical-reaction-kinetics", "sciences/physical-principles/kinetics/mass-transfer/diffusive-mass-transfer", "sciences/physical-principles/kinetics/mass-transfer/convective-mass-transfer", "sciences/physical-principles/kinetics/multistep-processes/secular-and-transient-equilibrium"]
 note = "chemistry's form of the principle; graphite oxidation shows the controlling step moving from chemistry to diffusion to boundary-layer mass transfer as temperature rises"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/kinetics/multistep-processes/secular-and-transient-equilibrium"
@@ -715,7 +715,7 @@ title = "Secular and transient radioactive equilibrium (a long-lived parent sets
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Radioactivity: Transient Radioactive Equilibrium (p. 40), barium-140 to lanthanum-140, Figure 15; secular equilibrium (p. 41), thorium-232 chain: all descendants decay at the rate set by the original parent" }]
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/kinetics/nuclear-reaction-kinetics/nuclear-transmutation-kinetics", "sciences/physical-principles/kinetics/multistep-processes/rate-determining-step"]
 note = "the nuclear-decay analogue of the rate-determining step (maintainer, 2026-10-11): the slowest (longest-lived) member of a chain sets the rate of everything downstream of it"
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # sciences/physical-principles/constitutive-relations
@@ -777,7 +777,9 @@ status = "approved"
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions"
 title = "Neutron-induced nuclear reactions"
-sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Neutron Interactions (p. 43)" }]
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Neutron Interactions (p. 43)" }, { document = "la-ur-17-20093", section = "2.4 ENDF Input-Output: a section (MT) refers to a particular reaction, e.g. MT=2 elastic scattering, MT=107 the (n,alpha) reaction" }]
+cross_links = ["sciences/physical-principles/kinetics/nuclear-reaction-kinetics/nuclear-transmutation-kinetics", "sciences/physical-principles/conservation-laws/energy-balance/nuclear-energy-release"]
+note = "footnote (maintainer, 2026-10-11): seen from chemical species, every nuclear reaction, fission and fusion included, is transmutation: one nuclide becomes others. Kovan takes the nuclear sciences view instead, its speciality: reactions stay distinct by type, as ENDF MT sections keep them (fission, capture, scattering, ...), and energy generation is its own class (conservation-laws/energy-balance/nuclear-energy-release). Transmutation kinetics tracks the resulting nuclides without merging the reaction types. Fusion is not yet a node"
 status = "approved"
 
 [[science]]

@@ -102,3 +102,18 @@ sciences/human-factors
 # 2026-10-11, maintainer: "Chem reaction kinetics approved"; "With Neutron kinetics under it (approved otherwise)" (moved under nuclear-reaction-kinetics before approval) (#829)
 sciences/physical-principles/kinetics/chemical-reaction-kinetics
 sciences/physical-principles/kinetics/nuclear-reaction-kinetics/neutron-population-kinetics
+# 2026-10-11, maintainer: "Okay approved all, single source is fine, cos standard corpus is ok for now, users can find their own sources" (kinetics branch) (#829)
+sciences/physical-principles/kinetics
+sciences/physical-principles/kinetics/heat-transfer
+sciences/physical-principles/kinetics/heat-transfer/heat-conduction-equation
+sciences/physical-principles/kinetics/heat-transfer/convective-heat-transfer
+sciences/physical-principles/kinetics/heat-transfer/radiative-heat-transfer
+sciences/physical-principles/kinetics/mass-transfer
+sciences/physical-principles/kinetics/mass-transfer/diffusive-mass-transfer
+sciences/physical-principles/kinetics/mass-transfer/convective-mass-transfer
+sciences/physical-principles/kinetics/nuclear-reaction-kinetics
+sciences/physical-principles/kinetics/nuclear-reaction-kinetics/nuclear-transmutation-kinetics
+sciences/physical-principles/kinetics/nuclear-reaction-kinetics/fission-product-generation-kinetics
+sciences/physical-principles/kinetics/multistep-processes
+sciences/physical-principles/kinetics/multistep-processes/rate-determining-step
+sciences/physical-principles/kinetics/multistep-processes/secular-and-transient-equilibrium
