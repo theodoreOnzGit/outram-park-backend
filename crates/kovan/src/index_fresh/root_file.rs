@@ -198,7 +198,8 @@ pub fn fresh_root_text(
     Ok(format!(
         "# kovan_root.toml: created by kovan \"Index fresh\" on {date} (GitHub #780).\n\
          # It holds this repository's code-review registry: reviewers, their keys and\n\
-         # each key's append-only history. kovan never commits it; you do.\n\
+         # each key's append-only history. You commit it, or desktop kovan's Commit and\n\
+         # push does, after its stamp dialog registered a key here (GitHub #771).\n\
          {founder_line}\n\
          # reviewers: none yet (an empty registry, so an empty key history).\n\
          {ra_line}\n\n{body}"

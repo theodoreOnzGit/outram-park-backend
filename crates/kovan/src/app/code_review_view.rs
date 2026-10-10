@@ -26,6 +26,15 @@
 //! [`CodeReviewView::set_stamps`] recolours the bar and the cards without
 //! reloading the data.
 //!
+//! **The ⚑ need-you queue, recently reviewed and commit-and-push**
+//! (GitHub #771): the strip's "⚑ need you" button opens a right panel
+//! (`super::need_you_view`) whose rows navigate the embedded UI to their
+//! function ([`kovan_web::ui::CodeReview::navigate`]). Every file kovan
+//! writes in this session (the stamp dialog's `wrote`, acknowledged moves,
+//! recorded deletions) is collected in `session`; Commit and push, in the
+//! panel and on the dialog's last step, commits only those
+//! (`crate::stamping::commit_push`), never to `main`.
+//!
 //! **Stamp states come from `review.md`.** Once the data is loaded, the
 //! view replaces the data folder's `stamps` (the legacy
 //! `review/stamps.toml` path of `kovan-cli call-graph --split-dir`, left
@@ -38,6 +47,7 @@
 //! and reads progress with `RunControl::snapshot`, neither of which blocks.
 //! `kovan-web` loads the folder on its own background threads.
 
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
@@ -47,6 +57,7 @@ use kovan_web::ui::HostRequest;
 
 use crate::code_review_data::{build, data_dir, data_state, BuildReport, DataState};
 use crate::commands::index_control::{Progress, RunControl};
+use crate::stamping::commit_push::CommitPushJob;
 use crate::stamping::flow::{Purpose, StampFlow, StatesResult, Target, Worker};
 
 /// What the worker found or built.
@@ -82,6 +93,14 @@ pub(crate) struct CodeReviewView {
     /// The keystore the dialog reads (tests inject a temporary one; `None`
     /// is kovan's default location, never read under `cargo test`).
     keystore: Option<Keystore>,
+    /// The ⚑ need-you panel (#771).
+    need_you: super::need_you_view::NeedYouView,
+    /// Files kovan wrote this session, workspace-relative: what Commit and
+    /// push may commit (#771).
+    session: BTreeSet<String>,
+    /// The commit-and-push run (one at a time, shared by the panel and the
+    /// dialog).
+    commit: CommitPushJob,
 }
 
 /// Check the data of `workspace` and build it when missing or stale (or
@@ -181,6 +200,7 @@ impl CodeReviewView {
     /// Close the dialog, keeping a refresh it started.
     fn close_dialog(&mut self) {
         if let Some(mut d) = self.dialog.take() {
+            self.session.extend(d.wrote.iter().cloned());
             if let Some(s) = d.take_states() {
                 self.set_stamps(s);
             }
@@ -263,6 +283,17 @@ impl CodeReviewView {
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_millis(200));
         }
+        self.need_you.set_root(self.workspace.as_deref());
+        if self.commit.poll() {
+            // Committed: the stamps may now count, and the files are in git.
+            if let Some(Ok(p)) = &self.commit.last {
+                for f in &p.files {
+                    self.session.remove(f);
+                }
+            }
+            self.need_you.dirty = true;
+            self.load_states();
+        }
         let mut rebuild = false;
         egui::Panel::top("code-review-strip").show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
@@ -294,6 +325,22 @@ impl CodeReviewView {
                     ui.spinner();
                     ui.weak("review states\u{2026}");
                 }
+                if self.workspace.is_some() {
+                    let label = match self.need_you.count() {
+                        Some(n) => format!("\u{2691} {n} need you"),
+                        None => "\u{2691} need you".to_string(),
+                    };
+                    if ui
+                        .selectable_label(self.need_you.open, label)
+                        .on_hover_text(
+                            "What needs you: stale stamps, re-confirms, fixes, moves, \
+                             deletions and new code; recently reviewed; commit and push",
+                        )
+                        .clicked()
+                    {
+                        self.need_you.open = !self.need_you.open;
+                    }
+                }
                 if let Some(e) = &self.states_note {
                     ui.colored_label(ui.visuals().error_fg_color, e);
                 }
@@ -321,13 +368,31 @@ impl CodeReviewView {
         }
         match &mut self.review {
             Some(review) => {
+                if let Some(link) = super::need_you_view::show(
+                    ui,
+                    &mut self.need_you,
+                    &mut self.session,
+                    &mut self.commit,
+                ) {
+                    review.navigate(link);
+                }
                 review.show(ui);
                 self.take_request();
                 let ctx = ui.ctx().clone();
                 let mut closed = false;
                 let mut fresh = None;
                 if let Some(d) = self.dialog.as_mut() {
-                    closed = super::stamp_dialog::show(&ctx, d);
+                    if !d.wrote.is_subset(&self.session) {
+                        self.session.extend(d.wrote.iter().cloned());
+                        self.need_you.dirty = true;
+                    }
+                    closed = super::stamp_dialog::show(
+                        &ctx,
+                        d,
+                        &mut self.commit,
+                        self.workspace.as_deref(),
+                        &self.session,
+                    );
                     fresh = d.take_states();
                 }
                 if let Some(s) = fresh {
@@ -385,6 +450,8 @@ mod tests {
             lines: None,
         });
         v.pending = Some(req.clone());
+        // The need-you panel open too (no workspace: it builds nothing).
+        v.need_you.open = true;
         let ctx = egui::Context::default();
         for _ in 0..3 {
             let _ = ctx.run_ui(Default::default(), |ui| v.ui(ui));

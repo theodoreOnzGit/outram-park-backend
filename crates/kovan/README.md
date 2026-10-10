@@ -526,8 +526,19 @@ tab's states come from `review.md` (`stamping::stamp_states`). ~~The
 tab replaces them once loaded.~~ Since 2026-10-10 (maintainer) the
 `call-graph --split-dir` data, and so web-kovan on Pages, carries the
 `review.md` states too; `review/stamps.toml` is read only by
-`stamps-check`, `stamps-levels` and `stamp`. kovan commits nothing: commit `review.md`
-yourself (#771).
+`stamps-check`, `stamps-levels` and `stamp`. ~~kovan commits nothing: commit `review.md`
+yourself (#771).~~ **CORRECTED 2026-10-10** (#771): the tab's **⚑ need you**
+panel lists what needs you (directly stale stamps on top, re-confirms,
+fixes, moves with batch acknowledge, deletions, and new functions folded
+into one row per commit, filtered by agent or human authorship from the
+commit trailers), a **Recently reviewed** corner tab and each crate's
+maturity in plain English. **Commit and push** (in the panel and on the
+stamp dialog's last step) commits only the `review.md` files, and the
+`kovan_root.toml` when the dialog registered a key, that kovan wrote in
+this session, with a generated message and no agent trailer, and pushes the
+current branch; `main` is refused, and a rejected push is merged and pushed
+again, never reset (#502's `push_keeping_local`). Logic: `src/stamping/`
+(`queue`, `new_code`, `relocate`, `recent`, `commit_push`, `authorship`).
 
 ```text
 kovan-cli stamps-check                        # every stamp, on the working tree

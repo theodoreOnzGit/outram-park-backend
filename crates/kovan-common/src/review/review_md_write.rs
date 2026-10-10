@@ -87,7 +87,7 @@ fn line_starts(md: &str) -> Vec<usize> {
 
 /// `md` with the entry whose heading is on 1-based `line` replaced by
 /// `block`, or `block` appended when `line` is `None`.
-fn splice(md: &str, line: Option<usize>, block: &str) -> String {
+pub(crate) fn splice(md: &str, line: Option<usize>, block: &str) -> String {
     let Some(line) = line else {
         if md.trim().is_empty() {
             return block.to_string();

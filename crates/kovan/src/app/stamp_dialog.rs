@@ -12,12 +12,21 @@
 use egui::RichText;
 use kovan_common::review::wizard::{GateReason, ReviewWizard, TestAuthorship};
 
+use std::collections::BTreeSet;
+
+use crate::stamping::commit_push::CommitPushJob;
 use crate::stamping::flow::{Purpose, StampFlow, Step, WizardForm};
 
 /// Draw the dialog; returns whether it was closed. GUI drawing code
 /// (exempt from the test rule): the logic is `stamping::flow`, and
 /// `code_review_view`'s headless test draws every step.
-pub(crate) fn show(ctx: &egui::Context, f: &mut StampFlow) -> bool {
+pub(crate) fn show(
+    ctx: &egui::Context,
+    f: &mut StampFlow,
+    commit: &mut CommitPushJob,
+    root: Option<&std::path::Path>,
+    session: &BTreeSet<String>,
+) -> bool {
     f.poll();
     if f.busy() {
         ctx.request_repaint_after(std::time::Duration::from_millis(150));
@@ -46,7 +55,7 @@ pub(crate) fn show(ctx: &egui::Context, f: &mut StampFlow) -> bool {
             .show(ui, |ui| {
                 egui::ScrollArea::vertical()
                     .auto_shrink(false)
-                    .show(ui, |ui| body(ui, f));
+                    .show(ui, |ui| body(ui, f, commit, root, session));
             });
         ui.separator();
         ui.horizontal_wrapped(|ui| {
@@ -81,7 +90,13 @@ fn error(ui: &mut egui::Ui, text: &str) {
 }
 
 /// The current step. GUI drawing code (exempt).
-fn body(ui: &mut egui::Ui, f: &mut StampFlow) {
+fn body(
+    ui: &mut egui::Ui,
+    f: &mut StampFlow,
+    commit: &mut CommitPushJob,
+    root: Option<&std::path::Path>,
+    session: &BTreeSet<String>,
+) {
     for n in &f.notices {
         ui.label(RichText::new(n).strong());
     }
@@ -186,8 +201,11 @@ fn body(ui: &mut egui::Ui, f: &mut StampFlow) {
                 ))
                 .strong(),
             );
-            ui.label("Commit it yourself (lazygit); kovan does not commit yet (#771).");
+            // ~~"Commit it yourself (lazygit); kovan does not commit yet
+            // (#771)."~~ CORRECTED 2026-10-10 (#771): kovan commits and
+            // pushes the files it wrote, never to main.
             ui.weak("A stamp counts once it is committed after the commit it certifies; until then it shows as unverified.");
+            super::need_you_view::commit_push_controls(ui, commit, root, session);
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
                 if f.busy() {

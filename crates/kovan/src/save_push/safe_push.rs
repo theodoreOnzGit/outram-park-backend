@@ -1,7 +1,7 @@
 //! A push that **never discards the local commit** when the remote has moved
 //! on (GH issue #502), reusable by every Kovan path that commits and pushes:
-//! push-after-save today, the review.md commit-and-push of GH issue #771
-//! next.
+//! push-after-save, and the review.md commit-and-push of GH issue #771
+//! (`crate::stamping::commit_push`, since 2026-10-10).
 //!
 //! # What went wrong (#502, 2026-10-02)
 //!

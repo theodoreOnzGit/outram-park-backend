@@ -48,7 +48,7 @@
 //! (`NeedsFixEntry` has none), so none is asked for. AI agents never stamp:
 //! nothing here can sign without the passphrase.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
@@ -450,6 +450,10 @@ pub struct StampFlow {
     /// or nothing recorded for it).
     pub target_state: Option<WebStamp>,
     pub refresh_error: Option<String>,
+    /// The files this dialog wrote, workspace-relative (`review.md`, and
+    /// `kovan_root.toml` after a key registration): what commit-and-push
+    /// may commit (GitHub #771, `super::commit_push`).
+    pub wrote: BTreeSet<String>,
 }
 
 impl StampFlow {
@@ -475,6 +479,7 @@ impl StampFlow {
             states: None,
             target_state: None,
             refresh_error: None,
+            wrote: BTreeSet::new(),
         };
         f.load_keys();
         f
@@ -547,7 +552,10 @@ impl StampFlow {
                     self.notices
                         .push(format!("Key generated and saved to {}.", g.path.display()));
                     match &g.registration {
-                        Ok(r) => self.notices.push(describe_registration(r)),
+                        Ok(r) => {
+                            self.wrote.insert(ROOT_FILE.to_string());
+                            self.notices.push(describe_registration(r));
+                        }
                         Err(e) => self.notices.push(format!(
                             "The key was saved but not registered in {ROOT_FILE}: {e}"
                         )),
@@ -564,6 +572,7 @@ impl StampFlow {
                     self.step = Step::Register;
                 }
                 Some(Ok(r)) => {
+                    self.wrote.insert(ROOT_FILE.to_string());
                     self.notices.push(describe_registration(&r));
                     self.load_keys();
                 }
@@ -833,6 +842,7 @@ impl StampFlow {
         if let Some(f) = self.wizard.as_mut() {
             f.passphrase.zeroize();
         }
+        self.wrote.insert(review_md.clone());
         self.step = Step::Done(Outcome {
             what,
             review_md,

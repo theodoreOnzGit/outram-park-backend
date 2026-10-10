@@ -85,6 +85,7 @@ pub mod index;
 pub mod ivv;
 pub mod review_md;
 pub mod review_md_write;
+pub mod review_md_relocate;
 pub mod root;
 pub mod root_append;
 pub mod rust_items;

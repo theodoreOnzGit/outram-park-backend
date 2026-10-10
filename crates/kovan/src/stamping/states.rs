@@ -236,6 +236,21 @@ fn blame_authors(root: &Path, file: &str, a: u32, b: u32) -> Vec<String> {
     v
 }
 
+/// Where the review's function was **at the commit it certifies**: the
+/// first acknowledged move's `from` (GitHub #771: an acknowledged move
+/// rewrites `path` to the new location, but the certified commit still
+/// holds the function at the old one), else `path`. The hash at the
+/// certified commit, the tests at review time and the permalink are all
+/// read there.
+pub(crate) fn certified_path(r: &ReviewEntry) -> String {
+    r.review
+        .moved
+        .first()
+        .map(|m| m.from.clone())
+        .or_else(|| r.path())
+        .unwrap_or_default()
+}
+
 /// The previous committed `kovan_root.toml` (module doc).
 fn previous_root(root: &Path) -> Option<ReviewRoot> {
     let head = git::show(root, "HEAD", ROOT_FILE)?;
@@ -280,7 +295,7 @@ pub fn git_facts(root: &Path, ws: &Workspace) -> GitFacts {
     for (dir, m) in &ws.reviews {
         let review_md = join(dir, REVIEW_MD);
         for r in m.doc.reviews() {
-            let path = r.path().unwrap_or_default();
+            let path = certified_path(r);
             let at = path.split_once(".rs::").and_then(|(file, qual)| {
                 fn_at(
                     &mut files,
@@ -346,7 +361,13 @@ pub struct WorkspaceEvaluation {
 /// signatures enforced (module doc).
 pub fn evaluate_workspace(root: &Path) -> Result<WorkspaceEvaluation, String> {
     let ws = load_workspace(root)?;
-    let git = git_facts(root, &ws);
+    Ok(evaluate_loaded(root, &ws))
+}
+
+/// [`evaluate_workspace`] over a workspace already loaded (the need-you
+/// queue reads the same [`Workspace`] for crates and line ranges).
+pub fn evaluate_loaded(root: &Path, ws: &Workspace) -> WorkspaceEvaluation {
+    let git = git_facts(root, ws);
     let krate_of = |dir: &str| {
         ws.indexes
             .iter()
@@ -383,7 +404,7 @@ pub fn evaluate_workspace(root: &Path) -> Result<WorkspaceEvaluation, String> {
     let mut permalinks = BTreeMap::new();
     for m in ws.reviews.values() {
         for r in m.doc.reviews() {
-            let path = r.path().unwrap_or_default();
+            let path = certified_path(r);
             if let Some((file, qual)) = path.split_once(".rs::") {
                 let file = format!("{file}.rs");
                 let lines =
@@ -405,11 +426,11 @@ pub fn evaluate_workspace(root: &Path) -> Result<WorkspaceEvaluation, String> {
             }
         }
     }
-    Ok(WorkspaceEvaluation {
+    WorkspaceEvaluation {
         evaluation,
         call_graph_ids,
         permalinks,
-    })
+    }
 }
 
 /// A one-line reason for a state that is not valid.

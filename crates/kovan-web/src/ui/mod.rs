@@ -230,6 +230,16 @@ impl CodeReview {
         self.host_request.take()
     }
 
+    /// Open `link` from the host (desktop kovan's need-you queue and
+    /// recently-reviewed list, GitHub #771): a function by its call-graph
+    /// id (`DeepLink::Function`, with `source` to open its source panel
+    /// too), a module or a crate. Taken on the next frame, once the code
+    /// map has loaded, as a typed URL hash is; a new history entry, so Back
+    /// returns to where the reader was.
+    pub fn navigate(&mut self, link: DeepLink) {
+        self.pending = Some(link);
+    }
+
     /// Replace the stamp states shown (the data's `stamps` until now), e.g.
     /// after the host wrote a stamp, so the bar and the cards recolour
     /// without reloading the data.
@@ -1042,6 +1052,24 @@ mod tests {
         w.bar_action(BarAction::NeedsFix, &snap);
         assert_eq!(w.take_host_request(), None);
         assert!(w.status.as_deref().unwrap_or("").contains("desktop-only"));
+    }
+
+    /// The host's navigate request is held until the code map is there,
+    /// then opens the function (with its source) as a new history entry.
+    #[test]
+    fn navigate_opens_a_function_once_the_map_is_loaded() {
+        let id = "crates/bl/src/chem.rs::Pool::rate";
+        let mut r = CodeReview::new(Mode::Desktop, DataSource::Dir { data: std::env::temp_dir(), workspace: ".".into() });
+        r.navigate(DeepLink::Function { id: id.into(), source: true });
+        assert_eq!(r.pending, Some(DeepLink::Function { id: id.into(), source: true }));
+        let snap = snap_with_map();
+        let link = r.pending.take().unwrap();
+        r.open_link(link, snap.map.as_ref().unwrap());
+        assert_eq!(r.place.selected.as_deref(), Some(id));
+        assert_eq!(r.place.level, Level::Module { krate: "bl".into(), file: "crates/bl/src/chem.rs".into() });
+        assert_eq!(r.source.as_deref(), Some(id));
+        r.back();
+        assert_eq!(r.place.level, Level::Map);
     }
 
     /// Stamps the host pushes replace the data's in every snapshot, so the

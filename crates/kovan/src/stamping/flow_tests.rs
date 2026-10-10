@@ -226,6 +226,12 @@ fn flow_sets_up_a_key_signs_and_turns_valid() {
             replaced: false
         }
     );
+    // What commit-and-push may commit (#771): the review.md and the root
+    // the key registration wrote.
+    assert_eq!(
+        f.wrote,
+        [format!("{DIR}/{REVIEW_MD}"), ROOT_FILE.to_string()].into()
+    );
     let md = r.read(&format!("{DIR}/{REVIEW_MD}"));
     let doc = parse_review_md(&md);
     let entry = doc.reviews().next().unwrap();

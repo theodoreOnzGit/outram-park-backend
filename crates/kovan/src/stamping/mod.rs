@@ -7,7 +7,8 @@
 //!        │   applicability and prefilled answers; the same refusals)
 //!   draft_stamp(root, request) ──> ReviewEntry (unsigned)
 //!        │   gathers: kovan.toml (refreshed in memory), HEAD, Cargo.lock,
-//!        │   callee hashes, git's test authorship   ── pure part: kovan_common::review::draft
+//!        │   callee hashes, git's test authorship,
+//!        │   the change's authorship (authorship.rs) ── pure part: kovan_common::review::draft
 //!        v
 //!   UnlockedKey::sign_review (the human, with their passphrase)
 //!        v
@@ -21,6 +22,14 @@
 //!
 //! The dialog's state machine (steps, form checks, worker jobs) is
 //! [`flow`]; its drawing is `app/stamp_dialog.rs` (GUI feature).
+//!
+//! **The need-you queue and commit-and-push** (GitHub #771, #740 U1/U5):
+//! [`queue`] builds the ⚑ rows from the engine's verdict and git
+//! ([`new_code`] folds new functions per commit, [`authorship`] reads the
+//! trailers), [`relocate`] acknowledges moves and records deletions,
+//! [`recent`] lists the last places reviewed, and [`commit_push`] commits
+//! only the files kovan wrote and pushes them, never to `main`. The
+//! drawing is `app/need_you_view.rs`.
 //!
 //! # Reused, not rewritten
 //!
@@ -70,10 +79,18 @@ use kovan_common::review::wizard::{vv_case_author_prefill, Applicability, Review
 
 use crate::review_stamps::git;
 
+pub mod authorship;
+pub mod commit_push;
 pub mod flow;
+pub mod new_code;
+pub mod queue;
+pub mod recent;
+pub mod relocate;
 mod states;
 
-pub use states::{evaluate_workspace, git_facts, stamp_states, WorkspaceEvaluation};
+pub use states::{
+    evaluate_loaded, evaluate_workspace, git_facts, stamp_states, WorkspaceEvaluation,
+};
 
 /// `review.md`.
 pub const REVIEW_MD: &str = "review.md";
@@ -246,6 +263,8 @@ pub struct StampRequest {
     pub by: String,
     /// Wizard answers by question key.
     pub checklist: BTreeMap<String, String>,
+    /// The reviewed change's authorship; `None` fills it from git's
+    /// commit trailers ([`authorship::change_authorship`], #771).
     pub authorship: Option<ChangeAuthorship>,
     pub no_concept: Option<String>,
     pub relations: Vec<RelationRecord>,
@@ -394,6 +413,17 @@ pub fn draft_stamp(root: &Path, req: &StampRequest) -> Result<DraftedStamp, Stri
     let tests = states::tests_at(root, &ws.head, &idx.dir, &f.id, &mut msgs)
         .map(|t| t.authorship())
         .unwrap_or_default();
+    // The reviewed change's authorship, from the commit trailers (#771,
+    // #764): since this reviewer's previous review, else all of it.
+    let since = folder.and_then(|m| {
+        m.doc
+            .reviews()
+            .find(|r| r.function_id() == f.id && r.review.by == req.by)
+            .map(|r| r.review.commit.clone())
+    });
+    let authorship = req.authorship.clone().or_else(|| {
+        authorship::change_authorship(root, &ws.head, &path, f.lines, since.as_deref())
+    });
     let input = DraftInput {
         function: f.clone(),
         file: path,
@@ -412,7 +442,7 @@ pub fn draft_stamp(root: &Path, req: &StampRequest) -> Result<DraftedStamp, Stri
         is_port: folder
             .and_then(|m| m.doc.upstream())
             .is_some_and(|u| u.is_port),
-        authorship: req.authorship.clone(),
+        authorship,
         no_concept: req.no_concept.clone(),
         relations: req.relations.clone(),
         previous,
@@ -607,5 +637,7 @@ pub fn register_reviewer(root: &Path, reviewer: &Reviewer) -> Result<(), String>
 
 #[cfg(test)]
 mod flow_tests;
+#[cfg(test)]
+mod need_you_tests;
 #[cfg(test)]
 mod tests;

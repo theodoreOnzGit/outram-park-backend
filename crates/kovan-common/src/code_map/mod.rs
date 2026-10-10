@@ -52,6 +52,7 @@
 //! `run_cargo_metadata` (and `load_workspace` on top of it).
 
 pub mod layout;
+pub mod plain_maturity;
 pub mod svg;
 
 use std::collections::{BTreeMap, BTreeSet};
