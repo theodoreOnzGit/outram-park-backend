@@ -15,7 +15,7 @@
 //!   per reviewer per function" (#764 data model, 2026-10-07; two make both
 //!   unreadable, [`super::review_md::parse_review_md`]), and a re-review
 //!   replaces, the old one living on in git history (maintainer,
-//!   2026-10-06, `kovan::review_stamps`). Another reviewer's review of the
+//!   2026-10-06, first for the since-removed `review/stamps.toml`). Another reviewer's review of the
 //!   same function is kept: many maintainers may each stand behind it.
 //! - **A needs-fix** replaces the entry with the same `[kovan] id` (to
 //!   resolve it) and is otherwise appended: one reviewer may raise several.

@@ -32,7 +32,7 @@ use std::path::Path;
 
 use kovan_common::review::hash::{hash_functions, HashedFn};
 
-use crate::review_stamps::git;
+use crate::stamping::git;
 
 /// The largest LCS table (old lines x new lines) computed; beyond it the
 /// diff is coarse (module doc). 4 M cells is a 2000 x 2000-line function.

@@ -51,7 +51,7 @@ use kovan_common::review::review_md::{parse_review_md, Entry, ReviewDocument};
 
 use super::flow::Worker;
 use super::{REVIEW_MD, ROOT_FILE};
-use crate::review_stamps::git;
+use super::git;
 use crate::save_push::safe_push::{push_keeping_local, BranchRule, SafePushError, SafePushOk};
 
 /// What would be committed and where it would go.

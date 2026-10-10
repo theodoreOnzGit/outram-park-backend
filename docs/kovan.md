@@ -104,8 +104,10 @@ silently.** It aims to be **tamper-evident, not tamper-proof**:
 - Timing claims are **checked against git, and a misfit is flagged, never
   rejected** (gh #783, 2026-10-07). Each review or architecture stamp signs
   `date` (the day) and, since #783, `signed_at` (RFC 3339 to the second,
-  with UTC offset; a v2 signature, while v1 stamps without it verify
-  unchanged). The staleness engine flags "implausible signing time" when
+  with UTC offset; ~~a v2 signature, while v1 stamps without it verify
+  unchanged~~ **CORRECTED 2026-10-10** (#825): every stamp is signed under
+  the one v3 header, pinned by a committed fixture; v1 and v2 were dropped
+  before any real stamp existed). The staleness engine flags "implausible signing time" when
   `signed_at` is before the reviewed commit's committer time, after the
   committer time of the commit that added the stamp, or on a different day
   from `date`, each with 5 minutes' clock skew. Git timestamps are

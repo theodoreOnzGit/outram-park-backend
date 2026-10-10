@@ -10,10 +10,12 @@
 //! predicts: a signed statement verifies; any edit to a signed field
 //! fails with `BadSignature`; a signature over one kind of statement never
 //! verifies as another (distinct first lines, and the `crate` line keeps a
-//! workspace entry from passing as an override); a stamp's v1 and v2 bytes
-//! do not change when no attestation is named.
+//! workspace entry from passing as an override); ~~a stamp's v1 and v2 bytes
+//! do not change when no attestation is named~~ **CORRECTED 2026-10-10**
+//! (#825): a review with no attestation has no such line under the one v3
+//! header.
 //!
-//! Result (2026-10-08): all pass.
+//! Result (2026-10-08): all pass. Result (2026-10-10, after #825): all pass.
 
 use super::keystore::SignError;
 use super::registry::{Registry, SignerProblem};
@@ -247,24 +249,27 @@ fn statements_cannot_be_replayed_as_another_kind() {
     );
 }
 
-/// The v3 review bytes (#809): naming an attestation signs it under the v3
-/// header; removing or changing it breaks the signature; a review that names
-/// none keeps its v1 (no `signed_at`) or v2 bytes, so earlier signatures
-/// still verify.
+/// The v3 review bytes (#809, the only format since #825): naming an
+/// attestation signs it, right after `no_concept`; adding, removing or
+/// changing it breaks the signature; a review that names none has no such
+/// line, under the same v3 header. ~~a review that names none keeps its v1
+/// (no `signed_at`) or v2 bytes~~ **CORRECTED 2026-10-10** (#825).
 #[test]
-fn review_v3_signs_the_attestation_and_v1_v2_are_unchanged() {
+fn review_v3_signs_the_attestation() {
     let (founder, _f, alice, a) = founder_and_alice();
     let reg = Registry::build(&root(vec![founder, alice]));
-    let v1 = String::from_utf8(signed_bytes(&review_entry(F, ALICE, "2026-10-08"))).unwrap();
+    let plain = String::from_utf8(signed_bytes(&review_entry(F, ALICE, "2026-10-08"))).unwrap();
     assert!(
-        v1.starts_with("kovan-review-signature-v1\n") && !v1.contains("separation_attestation")
+        plain.starts_with("kovan-review-signature-v3\n")
+            && !plain.contains("separation_attestation")
+            && !plain.contains("signed_at=")
     );
     let mut r = review_entry(F, ALICE, "2026-10-08");
     a.sign_review_at(&mut r, "2026-10-08T10:00:00+08:00")
         .unwrap();
-    let v2 = String::from_utf8(signed_bytes(&r)).unwrap();
+    let timed = String::from_utf8(signed_bytes(&r)).unwrap();
     assert!(
-        v2.starts_with("kovan-review-signature-v2\n") && !v2.contains("separation_attestation")
+        timed.starts_with("kovan-review-signature-v3\n") && !timed.contains("separation_attestation")
     );
     assert!(verify_review(&r, &reg).is_verified());
     r.review.separation_attestation = Some("sep-1".into());

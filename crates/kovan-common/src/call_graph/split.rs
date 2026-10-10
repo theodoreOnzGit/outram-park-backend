@@ -61,8 +61,10 @@ pub struct SplitIndex {
     pub crates: Vec<IndexEntry>,
     /// The whole document's totals.
     pub totals: Totals,
-    /// Every review stamp's state (`review/stamps.toml`, #739), judged when
-    /// the files were written. Empty when there are no stamps.
+    /// Every review's state from the signed `review.md` entries (~~from
+    /// `review/stamps.toml`~~, #739; switched 2026-10-10, #770, and that
+    /// file was removed by #825), judged when the files were written. Empty
+    /// when there are no reviews.
     #[serde(default)]
     pub stamps: Vec<StampState>,
 }
@@ -145,10 +147,12 @@ pub enum StampVerdict {
     Stale,
 }
 
-/// One stamp, judged: from the first-version `review/stamps.toml` checker
-/// (`kovan::review_stamps::check`, what `kovan-cli call-graph --split-dir`
-/// writes today), or since 2026-10-10 from `review.md` through the
-/// staleness engine (`kovan::stamping::stamp_states`, which fills `state`).
+/// One stamp, judged: since 2026-10-10 from `review.md` through the
+/// staleness engine (`kovan::stamping::stamp_states`, which fills `state`;
+/// what `kovan-cli call-graph --split-dir` writes). ~~or from the
+/// first-version `review/stamps.toml` checker (`kovan::review_stamps::check`)~~
+/// **CORRECTED 2026-10-10** (#825): that checker was removed; data it wrote
+/// earlier still reads (no `state`, mapped by [`StampState::kind`]).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StampState {
     /// The stamped function's id (code-walk path form).
@@ -166,16 +170,16 @@ pub struct StampState {
     /// The code as it was stamped.
     pub permalink: String,
     /// The full state from the staleness engine (#765,
-    /// [`crate::review::state::StateKind`]); absent in data built from the
-    /// first-version `review/stamps.toml` checker, which only knows
-    /// valid/stale ([`StampState::kind`] maps those). Additive.
+    /// [`crate::review::state::StateKind`]); absent in data built by the
+    /// first-version `review/stamps.toml` checker (removed, #825), which
+    /// only knew valid/stale ([`StampState::kind`] maps those). Additive.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<crate::review::state::StateKind>,
     /// Rung 5, IV&V (GitHub #810): passed or not, every review's reasons
     /// in words, the audit record (shown, never verified), the "independent
     /// V&V not counted" flag and the registry warnings that concern it
     /// ([`crate::review::ivv_view::summarise`]). Absent in older data and
-    /// from the `stamps.toml` checker. Additive.
+    /// from the removed `stamps.toml` checker. Additive.
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",

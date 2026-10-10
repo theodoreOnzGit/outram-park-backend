@@ -980,8 +980,9 @@ pub fn run(
 /// ([`crate::call_graph::split`], for web-kovan, GitHub #736). The index
 /// carries every reviewed function's state from the signed `review.md`
 /// entries, judged on the working tree by the staleness engine
-/// ([`crate::stamping::stamp_states`]; ~~[`crate::review_stamps::check`]
-/// over `review/stamps.toml`~~ **CORRECTED 2026-10-10**, maintainer, #770);
+/// ([`crate::stamping::stamp_states`]; ~~`review_stamps::check`
+/// over `review/stamps.toml`~~ **CORRECTED 2026-10-10**, maintainer, #770;
+/// that checker was removed with #825);
 /// with no `review.md` it is empty. Files already in `dir` that the split does not name are left
 /// alone.
 pub fn run_split(

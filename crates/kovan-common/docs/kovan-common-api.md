@@ -2,7 +2,7 @@
 
 **Version:** 0.0.2
 
-**Format Version:** 61
+**Format Version:** 60
 
 # Module `kovan_common`
 
@@ -211,7 +211,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -370,7 +370,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -499,7 +499,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -700,7 +700,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -916,7 +916,7 @@ pub struct KovanDocumentBuilder {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1056,7 +1056,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1180,7 +1180,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1315,7 +1315,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1448,7 +1448,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1627,7 +1627,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1764,7 +1764,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1888,7 +1888,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2185,7 +2185,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2328,7 +2328,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2471,7 +2471,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2580,7 +2580,7 @@ pub struct PageRefs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2785,7 +2785,7 @@ pub struct EdgeCounts {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2918,7 +2918,7 @@ pub struct EdgeOnly {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3032,7 +3032,7 @@ pub struct UnresolvedCounts {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3153,7 +3153,7 @@ pub struct Comparison {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3318,7 +3318,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3499,7 +3499,7 @@ pub struct ModDecl {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3611,7 +3611,7 @@ pub struct FileModules {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3825,7 +3825,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3960,7 +3960,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4099,7 +4099,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4218,7 +4218,7 @@ pub struct SplitIndex {
 | `graph_schema` | `u32` | The [`super::SCHEMA_VERSION`] of the document that was split. |
 | `crates` | `Vec<IndexEntry>` |  |
 | `totals` | `super::Totals` | The whole document's totals. |
-| `stamps` | `Vec<StampState>` | Every review stamp's state (`review/stamps.toml`, #739), judged when<br>the files were written. Empty when there are no stamps. |
+| `stamps` | `Vec<StampState>` | Every review's state from the signed `review.md` entries (~~from<br>`review/stamps.toml`~~, #739; switched 2026-10-10, #770, and that<br>file was removed by #825), judged when the files were written. Empty<br>when there are no reviews. |
 
 ##### Implementations
 
@@ -4313,7 +4313,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4443,7 +4443,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4579,7 +4579,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4701,7 +4701,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4829,7 +4829,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4953,7 +4953,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5083,7 +5083,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5096,7 +5096,12 @@ where
 - **UnwindSafe**
 #### Struct `StampState`
 
-One stamp, judged (from `kovan::review_stamps::check`).
+One stamp, judged: since 2026-10-10 from `review.md` through the
+staleness engine (`kovan::stamping::stamp_states`, which fills `state`;
+what `kovan-cli call-graph --split-dir` writes). ~~or from the
+first-version `review/stamps.toml` checker (`kovan::review_stamps::check`)~~
+**CORRECTED 2026-10-10** (#825): that checker was removed; data it wrote
+earlier still reads (no `state`, mapped by [`StampState::kind`]).
 
 ```rust
 pub struct StampState {
@@ -5109,6 +5114,7 @@ pub struct StampState {
     pub note: String,
     pub permalink: String,
     pub state: Option<crate::review::state::StateKind>,
+    pub ivv: Option<std::sync::Arc<crate::review::ivv_view::IvvSummary>>,
 }
 ```
 
@@ -5124,7 +5130,8 @@ pub struct StampState {
 | `date` | `String` | `YYYY-MM-DD`. |
 | `note` | `String` |  |
 | `permalink` | `String` | The code as it was stamped. |
-| `state` | `Option<crate::review::state::StateKind>` | The full state from the staleness engine (#765,<br>[`crate::review::state::StateKind`]); absent in data built from the<br>first-version `review/stamps.toml` checker, which only knows<br>valid/stale ([`StampState::kind`] maps those). Additive. |
+| `state` | `Option<crate::review::state::StateKind>` | The full state from the staleness engine (#765,<br>[`crate::review::state::StateKind`]); absent in data built by the<br>first-version `review/stamps.toml` checker (removed, #825), which<br>only knew valid/stale ([`StampState::kind`] maps those). Additive. |
+| `ivv` | `Option<std::sync::Arc<crate::review::ivv_view::IvvSummary>>` | Rung 5, IV&V (GitHub #810): passed or not, every review's reasons<br>in words, the audit record (shown, never verified), the "independent<br>V&V not counted" flag and the registry warnings that concern it<br>([`crate::review::ivv_view::summarise`]). Absent in older data and<br>from the removed `stamps.toml` checker. Additive. |
 
 ##### Implementations
 
@@ -5226,7 +5233,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5360,7 +5367,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5480,7 +5487,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5601,7 +5608,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5848,7 +5855,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5986,7 +5993,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6112,7 +6119,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6315,7 +6322,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6437,7 +6444,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6582,7 +6589,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6708,7 +6715,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6852,7 +6859,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6976,7 +6983,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7114,7 +7121,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7267,7 +7274,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7417,7 +7424,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7559,7 +7566,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7708,7 +7715,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7834,7 +7841,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7960,7 +7967,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8086,7 +8093,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8249,7 +8256,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8360,7 +8367,7 @@ pub struct RawCall {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8648,7 +8655,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8780,7 +8787,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8896,7 +8903,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9010,7 +9017,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9127,7 +9134,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9252,7 +9259,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9428,6 +9435,59 @@ Width of the strip inside a topic box's left edge that labels its rows.
 
 ```rust
 pub const ROW_TAG: f64 = 30.0;
+```
+
+## Module `plain_maturity`
+
+**Maturity in plain English** (GitHub #740 U1/U2, maintainer
+2026-10-07): "Maturity is shown in plain English, explained in fewer
+than 3 sentences. It is never written as notation such as `3 ↓2`."
+
+The wording follows the U2 decision for a crate card whose human
+reviews have lapsed:
+
+> "Maturity 2: AI V&V (was 3: human reviewed)". The bottom bar adds:
+> "N reviewed functions have changed since you reviewed them. Re-review
+> them to bring this crate back to maturity 3."
+
+**Which level a lapsed crate falls to.** A crate tagged 3 or 4 rests on
+human reviews; while any of them is stale it is shown at the level
+below human review, **2 (AI V&V)**, as U2's example does. That is the
+highest level the tag can still claim without a person; whether the AI
+V&V itself holds is not judged here (CI's in-memory recomputation,
+#739, is the authority for the true level). Pure, no I/O: desktop
+kovan's ⚑ queue and, later, web-kovan's bar can share it.
+
+```rust
+pub mod plain_maturity { /* ... */ }
+```
+
+### Functions
+
+#### Function `level_meaning`
+
+One sentence saying what a maturity level means (#729's labels).
+
+```rust
+pub fn level_meaning(level: u8) -> &'static str { /* ... */ }
+```
+
+#### Function `maturity_title`
+
+`"Maturity 3: human reviewed"`.
+
+```rust
+pub fn maturity_title(level: u8) -> String { /* ... */ }
+```
+
+#### Function `plain_maturity`
+
+The plain-English maturity of a crate tagged `recorded` with `stale`
+reviewed functions changed since their review: a title and at most two
+sentences (module doc). Never notation.
+
+```rust
+pub fn plain_maturity(recorded: u8, stale: usize) -> String { /* ... */ }
 ```
 
 ## Module `svg`
@@ -9696,7 +9756,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9862,7 +9922,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9986,7 +10046,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10121,7 +10181,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10258,7 +10318,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10404,7 +10464,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10562,7 +10622,7 @@ pub struct Point {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10682,7 +10742,7 @@ pub struct Bounds {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10863,7 +10923,7 @@ pub struct StarLayout {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10993,7 +11053,7 @@ pub struct CanvasLayout {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11494,7 +11554,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11648,7 +11708,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11810,7 +11870,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11952,7 +12012,7 @@ pub struct CodeTarget {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12067,7 +12127,7 @@ pub struct ScannedBlock<T> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12165,7 +12225,7 @@ pub struct Scan<T, E> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12279,7 +12339,7 @@ broken review entry must show as unreadable, never vanish
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12429,13 +12489,21 @@ attribution trailer as unverified.
 - ~~Building `kovan.toml` from SCIP (#757) and the git side
   (kovan-discovery).~~ **CORRECTED 2026-10-07**: [`crate::code_index`]
   builds it (#767, `kovan-cli index`); the git facts the engine takes
-  ([`engine::GitFacts`]) are still built by the caller.
+  ([`engine::GitFacts`]) are ~~still~~ built by the caller (**CORRECTED
+  2026-10-10**: `kovan::stamping::git_facts` now builds them from `git`,
+  with the fields it leaves empty listed in its module doc).
 - ~~The staleness engine itself (#765): `engine::evaluate` in the picture
   above is the next step and is not in this module yet.~~ **CORRECTED
   2026-10-07**: [`engine::evaluate`] is here (#765), with the state
   vocabulary in [`state`].
 - Resolving a function's concept areas (for rung 5) from its review's
   `implements` relations: [`engine::evaluate`] takes them as data.
+
+Writing (GitHub #770, 2026-10-10): [`draft`] builds an unsigned stamp
+from gathered facts, [`review_md_write`] splices one entry into a
+`review.md` keeping every other byte, and [`root_append`] registers a
+reviewer or key in `kovan_root.toml` as appended text. The gathering and
+file I/O are `kovan::stamping`.
 
 Rung 5 is IV&V by a technically and managerially separate organisation
 (GitHub #809, NUREG/BR-0167 §3.1): [`crate::review::ivv`].
@@ -12445,6 +12513,417 @@ pub mod review { /* ... */ }
 ```
 
 ### Modules
+
+## Module `draft`
+
+**Drafting an unsigned stamp** for one function (GitHub #762, #770,
+#765): the pure part of "stamp this function" in desktop kovan's review
+dialog. The caller gathers the facts (the function's `kovan.toml` entry,
+`HEAD`, the `Cargo.lock` hash, its callees' hashes, the wizard answers,
+git's view of who wrote the reaching tests) and passes them in as plain
+data, so this builds for wasm; the gathering is
+`kovan::stamping` (native).
+
+```text
+  kovan.toml FunctionIndex ─┐
+  HEAD, Cargo.lock hash ────┤
+  callee id -> hash ────────┼─[draft_review]─> ReviewEntry (unsigned)
+  wizard answers ───────────┤        │
+  TestAuthorship (git) ─────┘        └─> UnlockedKey::sign_review ─> review.md
+```
+
+# What the draft is checked against
+
+The draft is made so that the staleness engine
+([`super::engine::evaluate`]) judges a freshly committed, signed copy
+**valid**: every field the engine compares is taken from the same source
+the engine reads.
+
+| field | from | engine rule |
+|---|---|---|
+| `[kovan] target` | the function's `fn:` id in `kovan.toml` | 1 (find) |
+| `path` | its file and `qual` | 5 (location) |
+| `rung` | the wizard gate with git's [`TestAuthorship`] ([`super::wizard::stamp_gate`]) | 3b (derived rung) |
+| `commit` | `HEAD` | 2 (hash at the certified commit) |
+| `hash`, `doc_hash` | the `kovan.toml` entry, **not** a fresh hash of the source: the engine compares the index's hash (rule 4), and the caller checks the index against the source at `HEAD` first | 4, 7 |
+| `callees` | every id in the entry's `callees`, with that callee's index hash now | 4 (same set), 6 (same hashes) |
+| `cargo_lock` | `Cargo.lock` now | 8 |
+| `checklist` | the wizard answers, gate re-run here | 3b (gate re-run on read) |
+
+A draft is refused ([`DraftError`]) when the engine would refuse it: the
+gate blocks, a callee has no hash, a field is malformed, or the
+function's index entry is out of date (its callees could not be
+recomputed without rust-analyzer, so the recorded set would be a guess:
+Leak Before Break).
+
+**Conservative choice** (not settled by #764/#769): the gate is run with
+`physical_interface` true when the index marks the function as one
+**or** the reviewer answered `units_documented`; the engine re-runs it
+with the second condition only, so the draft's gate is never weaker.
+
+# AI agents never stamp
+
+A draft is unsigned and records nothing until a human unlocks a key and
+signs it (`UnlockedKey::sign_review`). Nothing here signs or writes.
+
+```rust
+pub mod draft { /* ... */ }
+```
+
+### Types
+
+#### Struct `DraftInput`
+
+Everything [`draft_review`] needs, gathered by the caller (owned: no
+borrowed struct, workspace Rust rules).
+
+```rust
+pub struct DraftInput {
+    pub function: super::index::FunctionIndex,
+    pub file: String,
+    pub callee_hashes: std::collections::BTreeMap<String, String>,
+    pub by: String,
+    pub date: String,
+    pub now: String,
+    pub commit: String,
+    pub cargo_lock: Option<String>,
+    pub checklist: std::collections::BTreeMap<String, String>,
+    pub tests: super::wizard::TestAuthorship,
+    pub is_port: bool,
+    pub authorship: Option<super::types::ChangeAuthorship>,
+    pub no_concept: Option<String>,
+    pub relations: Vec<crate::artifact::relation::RelationRecord>,
+    pub previous: Option<super::review_md::EntryMeta>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `function` | `super::index::FunctionIndex` | The function's entry in its folder's `kovan.toml`. |
+| `file` | `String` | The function's file, workspace-relative (`FolderIndex::file_path`). |
+| `callee_hashes` | `std::collections::BTreeMap<String, String>` | Callee id -> its index hash now; must hold every id in<br>`function.callees`. |
+| `by` | `String` | The reviewer id (`github:…`); must be the signing key's reviewer. |
+| `date` | `String` | `YYYY-MM-DD`, the local date of signing. |
+| `now` | `String` | RFC 3339 time for `[kovan] created`/`modified`. |
+| `commit` | `String` | `HEAD`: the commit the review certifies. |
+| `cargo_lock` | `Option<String>` | `sha256:` of `Cargo.lock`, when the workspace has one. |
+| `checklist` | `std::collections::BTreeMap<String, String>` | Wizard answers by question key. |
+| `tests` | `super::wizard::TestAuthorship` | Git's view of who wrote the tests reaching the function at `commit`. |
+| `is_port` | `bool` | The folder's `review.md` upstream says it is a port. |
+| `authorship` | `Option<super::types::ChangeAuthorship>` | Who authored the change reviewed (#764 from #771). |
+| `no_concept` | `Option<String>` | The "no concept" reason, when the function links no concept. |
+| `relations` | `Vec<crate::artifact::relation::RelationRecord>` | `implements` / `part_of` relations. |
+| `previous` | `Option<super::review_md::EntryMeta>` | This reviewer's earlier entry for the function, when re-stamping:<br>its `[kovan] id` and `created` are kept, `modified` is `now`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DraftInput { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DraftInput) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `DraftError`
+
+Why a draft is refused.
+
+```rust
+pub enum DraftError {
+    IndexOutOfDate {
+        path: String,
+    },
+    NotAFunctionId(String),
+    MissingCalleeHash(String),
+    Gate(Vec<super::wizard::GateReason>),
+    Field(super::types::FieldError),
+}
+```
+
+##### Variants
+
+###### `IndexOutOfDate`
+
+The function's `kovan.toml` entry is marked out of date: run
+`kovan-cli index` first.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path` | `String` |  |
+
+###### `NotAFunctionId`
+
+The entry's id is not an `fn:` id (a first-version index).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `MissingCalleeHash`
+
+A callee of the function has no hash in the input.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Gate`
+
+The wizard gate blocks the answers.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<super::wizard::GateReason>` |  |
+
+###### `Field`
+
+A field is malformed.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::types::FieldError` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DraftError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DraftError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `review_entry_id`
+
+The `[kovan] id` of a new review entry: `review-<name>-<reviewer>-<first
+8 hex of the fn id>`, unique per (function, reviewer) in a folder.
+
+```rust
+pub fn review_entry_id(name: &str, by: &str, fn_id: &str) -> String { /* ... */ }
+```
+
+#### Function `review_heading`
+
+The `#` heading of a review entry, as `review.md`'s module example
+writes it: `Review: <qual> (<reviewer>)`.
+
+```rust
+pub fn review_heading(qual: &str, by: &str) -> String { /* ... */ }
+```
+
+#### Function `needs_fix_heading`
+
+The `#` heading of a needs-fix entry: `Needs fix: <qual> (<reviewer>)`.
+
+```rust
+pub fn needs_fix_heading(qual: &str, by: &str) -> String { /* ... */ }
+```
+
+#### Function `draft_review`
+
+Draft the unsigned review entry (module doc).
+
+```rust
+pub fn draft_review(input: &DraftInput) -> Result<super::review_md::ReviewEntry, DraftError> { /* ... */ }
+```
+
+#### Function `draft_needs_fix`
+
+**Attributes:**
+
+- `Other("#[allow(clippy::too_many_arguments)]")`
+
+Draft an open needs-fix entry against the function as it is at `commit`
+(its index hash): an edit after it turns "needs fix" into "fixed". The
+id carries the digits of `now`, so one reviewer may raise several.
+
+```rust
+pub fn draft_needs_fix(function: &super::index::FunctionIndex, file: &str, by: &str, date: &str, now: &str, commit: &str, note: &str) -> Result<super::review_md::NeedsFixEntry, DraftError> { /* ... */ }
+```
 
 ## Module `engine`
 
@@ -12678,7 +13157,7 @@ pub struct FolderReviews {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12800,7 +13279,7 @@ pub struct ReviewKey {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12911,7 +13390,7 @@ pub struct StampCommit {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13022,7 +13501,7 @@ pub struct StampFacts {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13143,7 +13622,7 @@ pub struct TestsAtReview {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13253,7 +13732,7 @@ pub struct PublishRecord {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13379,7 +13858,7 @@ pub struct GitFacts {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13494,7 +13973,7 @@ pub struct UpstreamTagReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13619,7 +14098,7 @@ staleness alone, and its results must not be shown as reviewed.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13741,7 +14220,7 @@ pub struct Location {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13906,7 +14385,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14031,7 +14510,7 @@ known: the recorded run cannot speak for it (pending).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14159,7 +14638,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14275,7 +14754,7 @@ A reaching test failed at the new `Cargo.lock`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14508,7 +14987,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14636,7 +15115,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14805,7 +15284,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14930,7 +15409,7 @@ pub struct NewReachingTest {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15051,7 +15530,7 @@ pub struct ReviewReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15172,7 +15651,7 @@ pub struct FunctionReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15332,7 +15811,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15439,7 +15918,7 @@ pub struct HistoryRow {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15561,7 +16040,7 @@ pub struct IdMatch {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15672,7 +16151,7 @@ pub struct OrphanUnreadable {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15805,7 +16284,7 @@ pub struct Evaluation {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16001,7 +16480,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16296,7 +16775,7 @@ pub struct Plan {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16410,7 +16889,7 @@ pub struct Refused(pub String);
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16581,7 +17060,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16686,7 +17165,7 @@ pub struct TestIdMap {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16795,7 +17274,7 @@ pub struct Unmapped {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16965,7 +17444,7 @@ Anything else: show it.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17071,7 +17550,7 @@ pub struct OutputParser {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17178,7 +17657,7 @@ pub struct ParsedRun {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17333,7 +17812,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17480,7 +17959,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17623,7 +18102,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17778,7 +18257,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17914,7 +18393,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18059,7 +18538,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18189,7 +18668,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18366,7 +18845,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18510,7 +18989,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18659,7 +19138,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18874,7 +19353,7 @@ pub struct FnHashes {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18981,7 +19460,7 @@ pub struct HashedFn {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19095,7 +19574,7 @@ pub struct HashError(pub String);
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19178,11 +19657,12 @@ recorded nowhere else; the id is opaque afterwards.
 
 Before 2026-10-07 an entry named its function by the call-graph key
 (`[review] function = "file.rs::Type::name"`, `[kovan] target =
-"code:…"`). Nothing on disk uses it yet, but it still reads:
-[`super::review_md::parse_review_md`] migrates it in memory
-([`super::review_md::ReviewDocument::migrated`]), minting the id from the
-key, the review's hash and its commit, so the next save writes the new
-form.
+"code:…"`). ~~Nothing on disk uses it yet, but it still reads:
+`parse_review_md` migrates it in memory (`ReviewDocument::migrated`),
+minting the id from the key, the review's hash and its commit, so the
+next save writes the new form.~~ **CORRECTED 2026-10-10** (#825): nothing
+on disk ever used it, and the migration was dropped; such an entry is
+unreadable ([`super::review_md::Unreadable`]).
 
 ```rust
 pub mod id { /* ... */ }
@@ -19449,7 +19929,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19591,7 +20071,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19718,7 +20198,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19849,7 +20329,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19984,7 +20464,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20124,7 +20604,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20249,7 +20729,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20423,7 +20903,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20591,7 +21071,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20818,7 +21298,7 @@ pub struct AuditRecord {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20972,7 +21452,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21111,7 +21591,7 @@ reaching test, or no commit facts).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21238,7 +21718,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21349,7 +21829,7 @@ pub struct OrganisationInForce {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21480,7 +21960,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21670,7 +22150,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21780,7 +22260,7 @@ pub struct AttestationCheck {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21899,7 +22379,7 @@ Fields:
 - ```rust
   pub fn reason(self: &Self) -> String { /* ... */ }
   ```
-  Plain-English reason, for every view.
+  Plain-English reason, for every view. ~~Nested problems were
 
 ###### Trait Implementations
 
@@ -21977,7 +22457,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22090,7 +22570,7 @@ pub struct Rung5Candidate {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22205,7 +22685,7 @@ pub struct Rung5Pass {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22318,7 +22798,7 @@ pub struct IndependentVv {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22464,7 +22944,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22582,7 +23062,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22692,7 +23172,7 @@ pub struct RecordWarning {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22792,6 +23272,1008 @@ URL's form only.
 pub const AUDIT_RECORD_LABEL: &str = "audit record (not verified by kovan)";
 ```
 
+## Module `ivv_text`
+
+Plain-English text for rung-5 misses and registry warnings (#810).
+**Plain-English text for rung 5 (IV&V)** (GitHub #810): every reason a
+review misses rung 5, and every registry warning, in words a reviewer can
+act on, for desktop kovan, kovan-web and `kovan-cli review ivv` alike.
+
+~~[`super::ivv::Rung5Miss::reason`] formatted the nested problems with
+`{:?}` (e.g. `Unverified { date: .., problem: Unsigned }`)~~ **CORRECTED
+2026-10-10** (#810): those are now the sentences below, so no view shows
+a Rust debug dump.
+
+Pure functions over the engine's types; no I/O, builds for wasm.
+
+```rust
+pub mod ivv_text { /* ... */ }
+```
+
+### Functions
+
+#### Function `signer_problem`
+
+A signature problem, in words.
+
+```rust
+pub fn signer_problem(p: &super::signing::registry::SignerProblem) -> String { /* ... */ }
+```
+
+#### Function `organisation_problem`
+
+Why an organisation record does not count, in words.
+
+```rust
+pub fn organisation_problem(p: &super::ivv::OrganisationProblem) -> String { /* ... */ }
+```
+
+#### Function `audit_record_problem`
+
+Why an audit record is not a GitHub issue URL, in words.
+
+```rust
+pub fn audit_record_problem(p: &super::ivv::AuditRecordProblem) -> String { /* ... */ }
+```
+
+#### Function `attestation_problem`
+
+Why a separation attestation does not count, in words.
+
+```rust
+pub fn attestation_problem(p: &super::ivv::AttestationProblem) -> String { /* ... */ }
+```
+
+#### Function `vv_case_problem`
+
+Why a review is not a hand-written V&V case, in words.
+
+```rust
+pub fn vv_case_problem(p: super::ivv::VvCaseProblem) -> &'static str { /* ... */ }
+```
+
+#### Function `vv_case_problems`
+
+`vv_case_problem` of each, joined.
+
+```rust
+pub fn vv_case_problems(ps: &[super::ivv::VvCaseProblem]) -> String { /* ... */ }
+```
+
+#### Function `record_list`
+
+Which list a registry record is in, in words.
+
+```rust
+pub fn record_list(l: &super::ivv::RecordList) -> String { /* ... */ }
+```
+
+#### Function `record_warning`
+
+A registry warning, in words: `"<list> record <n>: <problem>"` (`n`
+1-based, as a person counts entries in the file).
+
+```rust
+pub fn record_warning(w: &super::ivv::RecordWarning) -> String { /* ... */ }
+```
+
+## Module `ivv_view`
+
+Rung 5 for the views: summaries, queue rows, attestation choices (#810).
+**Rung 5 (IV&V) for the views** (GitHub #810): what desktop kovan,
+kovan-web and `kovan-cli review ivv` show about a function's independent
+verification and validation, and what the need-you queue (#771) lists.
+
+```text
+ engine::FunctionReport.independent_vv ─┐
+ FunctionFlag::IndependentVvNotCounted ─┼─[summarise]──> IvvSummary (serde: carried
+ Evaluation::ivv_warnings ──────────────┘                 on call_graph::split::StampState)
+ Evaluation ──────────────────────────────[ivv_queue]──> Vec<IvvQueueRow> (#771's queue)
+ ReviewRoot + Registry + reviewer ─[attestation_choices]─> the stamp dialog's picker
+```
+
+Every reason is the engine's [`Rung5Miss::reason`], in words
+([`super::ivv_text`]). An audit record is a link shown with
+[`AUDIT_RECORD_LABEL`]; kovan never fetches it (Leak Before Break: shown,
+not verified).
+
+**What is queued.** Only the misses of a review that *claims* rung 5 (it
+names a separation attestation: the engine's "independent V&V not
+counted" flag), and every registry record that does not verify. The
+misses of an ordinary review (every first review misses rung 5 as the
+first reviewer) are shown on the function, never queued: they ask nothing
+of anyone.
+
+Pure, no I/O; builds for wasm.
+
+```rust
+pub mod ivv_view { /* ... */ }
+```
+
+### Modules
+
+## Module `serde_opt_arc`
+
+Serde for `Option<Arc<IvvSummary>>` (serde's `rc` feature is off in
+the workspace): the same JSON as `Option<IvvSummary>`. The summary is
+shared through an `Arc` so [`crate::call_graph::split::StampState`]
+stays small (it sits in kovan-web's `Review` enum).
+
+```rust
+pub mod serde_opt_arc { /* ... */ }
+```
+
+### Functions
+
+#### Function `serialize`
+
+```rust
+pub fn serialize<S: Serializer>(v: &Option<std::sync::Arc<super::IvvSummary>>, s: S) -> Result<<S as >::Ok, <S as >::Error> { /* ... */ }
+```
+
+#### Function `deserialize`
+
+```rust
+pub fn deserialize<''de, D: Deserializer<''de>>(d: D) -> Result<Option<std::sync::Arc<super::IvvSummary>>, <D as >::Error> { /* ... */ }
+```
+
+### Types
+
+#### Struct `IvvPassSummary`
+
+The review that gives rung 5, as shown.
+
+```rust
+pub struct IvvPassSummary {
+    pub reviewer: String,
+    pub organisation: String,
+    pub developing_organisation: String,
+    pub attestation: String,
+    pub audit_record: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `organisation` | `String` | The reviewer's organisation in force at the review. |
+| `developing_organisation` | `String` | The developing organisation in force for the function's crate. |
+| `attestation` | `String` | The separation attestation's id. |
+| `audit_record` | `String` | Its audit record (a GitHub issue URL), shown with<br>[`AUDIT_RECORD_LABEL`]; never fetched. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IvvPassSummary { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> IvvPassSummary { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IvvPassSummary) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `IvvCandidateSummary`
+
+One valid review judged for rung 5, as shown.
+
+```rust
+pub struct IvvCandidateSummary {
+    pub reviewer: String,
+    pub date: String,
+    pub review: String,
+    pub attestation: Option<String>,
+    pub audit_record: Option<String>,
+    pub reasons: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `date` | `String` |  |
+| `review` | `String` | The `review.md` artifact id. |
+| `attestation` | `Option<String>` | The separation attestation the review names. |
+| `audit_record` | `Option<String>` | That attestation's audit record as written in `kovan_root.toml`,<br>even when malformed (shown, labelled, never fetched). |
+| `reasons` | `Vec<String>` | Why it does not give rung 5, in words; empty for the pass. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IvvCandidateSummary { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> IvvCandidateSummary { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IvvCandidateSummary) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `IvvSummary`
+
+A function's rung-5 judgement as every view shows it (GitHub #810).
+Carried, additively, on [`crate::call_graph::split::StampState::ivv`].
+
+```rust
+pub struct IvvSummary {
+    pub pass: Option<IvvPassSummary>,
+    pub candidates: Vec<IvvCandidateSummary>,
+    pub not_counted: Vec<String>,
+    pub warnings: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pass` | `Option<IvvPassSummary>` | The review that gives rung 5; `None`: not reached. |
+| `candidates` | `Vec<IvvCandidateSummary>` | Every valid review, with its reasons. |
+| `not_counted` | `Vec<String>` | The flag "independent V&V not counted": a review names an<br>attestation (claims rung 5) and misses; one line per such review. |
+| `warnings` | `Vec<String>` | Registry records this function's IV&V could rest on that do not<br>verify (developing organisation, its reviewers' organisations and<br>attestations), in words. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn passed(self: &Self) -> bool { /* ... */ }
+  ```
+  Rung 5 is reached.
+
+- ```rust
+  pub fn headline(self: &Self) -> String { /* ... */ }
+  ```
+  The one-line headline every view starts with.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IvvSummary { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> IvvSummary { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IvvSummary) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `IvvLine`
+
+One line of the section.
+
+```rust
+pub struct IvvLine {
+    pub tone: super::state::Tone,
+    pub text: String,
+    pub link: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tone` | `super::state::Tone` |  |
+| `text` | `String` |  |
+| `link` | `Option<String>` | A link drawn after the text (an audit record). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IvvLine { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IvvLine) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `IvvQueueRow`
+
+One row of the need-you queue (#771) from rung 5: a miss of a review
+that claims IV&V, or a registry record that does not verify.
+
+```rust
+pub struct IvvQueueRow {
+    pub function: Option<String>,
+    pub path: Option<String>,
+    pub review: Option<String>,
+    pub reviewer: Option<String>,
+    pub reason: String,
+    pub action: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `function` | `Option<String>` | The function's `fn:` id; `None` for a registry record. |
+| `path` | `Option<String>` | `file.rs::qual` where it is now, when known. |
+| `review` | `Option<String>` | The `review.md` artifact id of the review that claims rung 5. |
+| `reviewer` | `Option<String>` |  |
+| `reason` | `String` | What is wrong, in words. |
+| `action` | `String` | Who can act and how. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IvvQueueRow { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &IvvQueueRow) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IvvQueueRow) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &IvvQueueRow) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `AttestationChoice`
+
+A separation attestation the stamp dialog may offer.
+
+```rust
+pub struct AttestationChoice {
+    pub id: String,
+    pub organisation: String,
+    pub developing_organisation: String,
+    pub date: String,
+    pub audit_record: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` |  |
+| `organisation` | `String` |  |
+| `developing_organisation` | `String` |  |
+| `date` | `String` |  |
+| `audit_record` | `String` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn label(self: &Self) -> String { /* ... */ }
+  ```
+  `"sep-1: A, separate from B (2026-10-10)"`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AttestationChoice { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AttestationChoice) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `headline_tone`
+
+The headline's tone: good when passed, attention when a review claims
+IV&V and misses, neutral otherwise (most functions are not meant to
+reach rung 5).
+
+```rust
+pub fn headline_tone(s: &IvvSummary) -> super::state::Tone { /* ... */ }
+```
+
+#### Function `ivv_lines`
+
+The section's detail lines, in order: the pass, the flag, each review
+with its reasons and audit record, then the registry warnings.
+
+```rust
+pub fn ivv_lines(s: &IvvSummary) -> Vec<IvvLine> { /* ... */ }
+```
+
+#### Function `shown_audit_record`
+
+`"audit record (not verified by kovan): <url>"`.
+
+```rust
+pub fn shown_audit_record(url: &str) -> String { /* ... */ }
+```
+
+#### Function `relevant_warnings`
+
+The warnings among `warnings` that concern a function reviewed by
+`reviewers`: every developing-organisation record, and those reviewers'
+organisation and attestation records.
+
+```rust
+pub fn relevant_warnings(warnings: &[super::ivv::RecordWarning], reviewers: &std::collections::BTreeSet<String>) -> Vec<String> { /* ... */ }
+```
+
+#### Function `summarise`
+
+The summary of one function (module doc); `None` when it has no valid
+review, no flag and no relevant warning (nothing to judge).
+
+```rust
+pub fn summarise(fr: &super::engine::FunctionReport, root: &super::root::ReviewRoot, warnings: &[super::ivv::RecordWarning]) -> Option<IvvSummary> { /* ... */ }
+```
+
+#### Function `next_step`
+
+The next step for a miss, in words: who can act, and where.
+
+```rust
+pub fn next_step(m: &super::ivv::Rung5Miss) -> &'static str { /* ... */ }
+```
+
+#### Function `ivv_queue`
+
+The need-you queue's rung-5 rows (module doc): one per miss of every
+review flagged "independent V&V not counted", then one per registry
+warning. Sorted, so the queue is stable.
+
+The desktop need-you queue (#771) shows the same misses as the detail
+lines of its `IndependentVvNotCounted` row (`kovan::stamping::queue::
+flag_detail`, wired at the merge 2026-10-10, with [`next_step`]);
+`kovan-cli review ivv` prints these rows, registry warnings included,
+under "Needs a person (rung 5)".
+
+```rust
+pub fn ivv_queue(ev: &super::engine::Evaluation) -> Vec<IvvQueueRow> { /* ... */ }
+```
+
+#### Function `attestation_choices`
+
+The attestations `reviewer` may name in a stamp: their own, signed,
+verifying with their own trusted key, with a well-formed audit record
+and a unique id. Whether it also fits the review (dates, organisations)
+is the engine's judgement after the stamp.
+
+```rust
+pub fn attestation_choices(root: &super::root::ReviewRoot, registry: &super::signing::registry::Registry, reviewer: &str) -> Vec<AttestationChoice> { /* ... */ }
+```
+
 ## Module `review_md`
 
 **`review.md`**: the human-owned review record of one folder (maintainer,
@@ -22820,8 +24302,12 @@ never changes; `path` in the entry's own table (`file.rs::Type::name`)
 is the current location, updated when a move is acknowledged, and each
 acknowledged move appends `[[review.moved]]` (from, to, commit).
 ~~The join key is `[review] function`, the call-graph key, with `target`
-a `code:` link~~ **CORRECTED 2026-10-07**: that first-version form still
-reads and is migrated in memory ([`ReviewDocument::migrated`]).
+a `code:` link~~ **CORRECTED 2026-10-07**: ~~that first-version form still
+reads and is migrated in memory (`ReviewDocument::migrated`)~~
+**CORRECTED 2026-10-10** (#825): the first-version form and its
+migration were dropped (no `review.md` had been written in it). An entry
+without an `fn:` target and a valid `path` is [`Unreadable`]; a
+leftover `function` key is an unknown key, ignored.
 
 ````markdown
 # Review: SteamTable::flash (github:theodoreOnzGit)
@@ -22840,7 +24326,7 @@ path = "crates/tampines/src/steam.rs::SteamTable::flash"
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-10-07"
-signed_at = "2026-10-07T14:03:09+08:00"   (since #783; absent on v1 stamps)
+signed_at = "2026-10-07T14:03:09+08:00"   (#783; written by every signing)
 commit = "<40 hex>"
 hash = "sha256:<64 hex>"
 doc_hash = "sha256:<64 hex>"
@@ -22909,7 +24395,7 @@ pub struct EntryMeta {
 | `origin` | `Option<String>` | `human` for reviews ("AI never stamps"); kept as written. |
 | `created` | `String` |  |
 | `modified` | `String` |  |
-| `target` | `Option<String>` | The function's stable id, `fn:<opaque>` ([`super::id`]); folder-level<br>entries have none. A first-version entry has a `code:` target here<br>(migrated on read). |
+| `target` | `Option<String>` | The function's stable id, `fn:<opaque>` ([`super::id`]); folder-level<br>entries have none. |
 
 ##### Implementations
 
@@ -23004,7 +24490,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23129,7 +24615,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23146,7 +24632,6 @@ where
 
 ```rust
 pub struct ReviewBody {
-    pub function: Option<String>,
     pub path: Option<String>,
     pub by: String,
     pub rung: u8,
@@ -23170,22 +24655,21 @@ pub struct ReviewBody {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `function` | `Option<String>` | First-version join key (the call-graph key); only on an entry<br>written before the hybrid id, and cleared by the migration. |
 | `path` | `Option<String>` | The function's current location, `file.rs::Type::name`. |
 | `by` | `String` | `github:` / `gitlab:` / `orcid:` / email. |
 | `rung` | `u8` | 3 human reviewed, 4 human V&V (~~gated on `vv_evidence` and<br>`independence`~~ **CORRECTED 2026-10-08**: derived from `vv_evidence`,<br>`vv_case_author` and git, [`super::wizard::derived_rung`]). 5 is never<br>recorded: the engine derives it per function ([`super::ivv`]). |
 | `date` | `String` | `YYYY-MM-DD`. |
-| `signed_at` | `Option<String>` | When the stamp was signed: RFC 3339 to the second, with its UTC<br>offset (GitHub #783; [`super::signed_at`]). Signed (the v2 signed<br>bytes); absent on a stamp signed before #783, which stays v1. |
+| `signed_at` | `Option<String>` | When the stamp was signed: RFC 3339 to the second, with its UTC<br>offset (GitHub #783; [`super::signed_at`]). Signed when present (the<br>v3 signed bytes, [`super::signing`]); every signing writes it.<br>~~absent on a stamp signed before #783, which stays v1~~<br>**CORRECTED 2026-10-10** (#825): the v1 bytes were dropped. |
 | `commit` | `String` | The commit the review certifies. |
 | `hash` | `String` |  |
 | `doc_hash` | `String` |  |
 | `cargo_lock` | `Option<String>` | `Cargo.lock` hash at review time (external dependency updates, #739). |
 | `callees` | `std::collections::BTreeMap<String, String>` | Each workspace callee's id and its hash at review time. |
-| `checklist` | `std::collections::BTreeMap<String, String>` | Wizard answers by question key (`doc_matches_behaviour`, …; the set<br>and the stamp gate are [`super::wizard`], #769). Parsing accepts any<br>key; #764's placeholder keys `q1` … `q10` are refused by the wizard,<br>not here, so an entry holding them stays readable. |
+| `checklist` | `std::collections::BTreeMap<String, String>` | Wizard answers by question key (`doc_matches_behaviour`, …; the set<br>and the stamp gate are [`super::wizard`], #769). Parsing accepts any<br>key; an unknown one (#764's placeholder `q1` … `q10` included, since<br>#825) is refused by the wizard as an unknown question, not here, so<br>an entry holding it stays readable. |
 | `no_concept` | `Option<String>` | The "no concept" reason, when the function links no concept. |
 | `authorship` | `Option<super::types::ChangeAuthorship>` | Who authored the change reviewed (#764, from #771, 2026-10-07). |
 | `moved` | `Vec<MoveRecord>` |  |
-| `separation_attestation` | `Option<String>` | The id of the reviewer's `[[reviewer.separation]]` attestation this<br>review relies on for rung 5, IV&V (GitHub #809; [`super::ivv`]).<br>Signed (the v3 signed bytes, [`super::signing`]); absent on every<br>stamp that does not claim independence from the developing<br>organisation, which keeps its v1/v2 bytes. |
+| `separation_attestation` | `Option<String>` | The id of the reviewer's `[[reviewer.separation]]` attestation this<br>review relies on for rung 5, IV&V (GitHub #809; [`super::ivv`]).<br>Signed when present (the v3 signed bytes, [`super::signing`]); absent<br>on every stamp that does not claim independence from the developing<br>organisation. |
 | `signature` | `Option<super::signing::Signature>` | Ed25519 over [`super::signing::signed_bytes`]; checked by<br>[`super::signing::verify_review`] (#762). |
 
 ##### Implementations
@@ -23281,7 +24765,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23319,7 +24803,7 @@ pub struct ReviewEntry {
 - ```rust
   pub fn function_id(self: &Self) -> String { /* ... */ }
   ```
-  The join key: `[kovan] target` when it is an `fn:` id, else
+  The join key: `[kovan] target`, an `fn:` id on every entry
 
 - ```rust
   pub fn path(self: &Self) -> Option<String> { /* ... */ }
@@ -23417,7 +24901,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23545,7 +25029,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23562,7 +25046,6 @@ where
 
 ```rust
 pub struct NeedsFixBody {
-    pub function: Option<String>,
     pub path: Option<String>,
     pub by: String,
     pub date: String,
@@ -23579,7 +25062,6 @@ pub struct NeedsFixBody {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `function` | `Option<String>` | First-version join key (the call-graph key); only on an entry<br>written before the hybrid id, and cleared by the migration. |
 | `path` | `Option<String>` | The function's current location, `file.rs::Type::name`. |
 | `by` | `String` |  |
 | `date` | `String` |  |
@@ -23683,7 +25165,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23719,7 +25201,7 @@ pub struct NeedsFixEntry {
 - ```rust
   pub fn function_id(self: &Self) -> String { /* ... */ }
   ```
-  The join key: `[kovan] target` when it is an `fn:` id, else
+  The join key: `[kovan] target`, an `fn:` id on every entry
 
 - ```rust
   pub fn path(self: &Self) -> Option<String> { /* ... */ }
@@ -23817,7 +25299,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23834,7 +25316,6 @@ where
 
 ```rust
 pub struct AnnotationBody {
-    pub function: Option<String>,
     pub path: Option<String>,
     pub by: String,
     pub commit: String,
@@ -23847,7 +25328,6 @@ pub struct AnnotationBody {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `function` | `Option<String>` | First-version join key (the call-graph key); only on an entry<br>written before the hybrid id, and cleared by the migration. |
 | `path` | `Option<String>` | The function's current location, `file.rs::Type::name`. |
 | `by` | `String` |  |
 | `commit` | `String` | The commit whose source the selectors were taken on. |
@@ -23947,7 +25427,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23983,7 +25463,7 @@ pub struct AnnotationEntry {
 - ```rust
   pub fn function_id(self: &Self) -> String { /* ... */ }
   ```
-  The join key: `[kovan] target` when it is an `fn:` id, else
+  The join key: `[kovan] target`, an `fn:` id on every entry
 
 - ```rust
   pub fn path(self: &Self) -> Option<String> { /* ... */ }
@@ -24081,7 +25561,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24216,7 +25696,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24338,7 +25818,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24484,7 +25964,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24606,7 +26086,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24744,7 +26224,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24868,7 +26348,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25049,7 +26529,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25160,7 +26640,7 @@ pub struct ParsedEntry {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25194,7 +26674,7 @@ pub struct Unreadable {
 | `line` | `usize` |  |
 | `message` | `String` |  |
 | `kind` | `Option<String>` | `[kovan] kind`, when it could be read. |
-| `function` | `Option<String>` | The function, when it could be read: the `[kovan] target` (an<br>`fn:` id), else `path`, else a first-version `function` key. |
+| `function` | `Option<String>` | The function, when it could be read: the `[kovan] target` (an<br>`fn:` id), else `path`. |
 | `by` | `Option<String>` | The reviewer, when it could be read. |
 
 ##### Implementations
@@ -25275,7 +26755,7 @@ pub struct Unreadable {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25294,7 +26774,6 @@ A whole `review.md`.
 pub struct ReviewDocument {
     pub entries: Vec<ParsedEntry>,
     pub unreadable: Vec<Unreadable>,
-    pub migrated: Vec<(String, String)>,
 }
 ```
 
@@ -25304,7 +26783,6 @@ pub struct ReviewDocument {
 |------|------|---------------|
 | `entries` | `Vec<ParsedEntry>` |  |
 | `unreadable` | `Vec<Unreadable>` |  |
-| `migrated` | `Vec<(String, String)>` | First-version keys migrated on read: (call-graph key, minted id).<br>Non-empty means the next save rewrites the file in the new form. |
 
 ##### Implementations
 
@@ -25411,7 +26889,7 @@ pub struct ReviewDocument {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25533,7 +27011,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25604,10 +27082,661 @@ Write entries back as a `review.md`, each as `# heading`, its TOML block
 and its body, separated by a blank line. Unreadable entries are not
 written by this function: `review.md` is never auto-fixed, so a caller
 that rewrites a file holding unreadable entries must splice its changes
-in place instead (see [`crate::artifact::heading_span`]).
+in place instead (see [`crate::artifact::heading_span`]; the stamp
+dialog's writers that do so are [`super::review_md_write`]).
 
 ```rust
 pub fn render_review_md(entries: &[ParsedEntry]) -> Result<String, ReviewMdError> { /* ... */ }
+```
+
+## Module `review_md_write`
+
+**Writing one entry into `review.md`** without disturbing anything else
+(GitHub #770, #762): the stamp dialog's "save". Pure text in, text out.
+
+[`super::review_md::render_review_md`] re-renders a whole file and drops
+unreadable entries (`review.md` is never auto-fixed), so it cannot be
+used to save into a file that holds one. These functions **splice**:
+the new entry's block replaces exactly the line span of the entry it
+supersedes ([`crate::artifact::heading_span`]) or is appended at the end;
+every other byte, readable or not, is kept as it was.
+
+# Which entry a new one replaces
+
+- **A review** replaces this reviewer's standing review of the same
+  function (same `fn:` target, same `by`): "at most one standing review
+  per reviewer per function" (#764 data model, 2026-10-07; two make both
+  unreadable, [`super::review_md::parse_review_md`]), and a re-review
+  replaces, the old one living on in git history (maintainer,
+  2026-10-06, first for the since-removed `review/stamps.toml`). Another reviewer's review of the
+  same function is kept: many maintainers may each stand behind it.
+- **A needs-fix** replaces the entry with the same `[kovan] id` (to
+  resolve it) and is otherwise appended: one reviewer may raise several.
+
+An **unreadable** entry is never replaced (it counts as no review, so a
+new stamp is simply added beside it: "just redo", #764).
+
+# Read-back check
+
+The result is parsed again before it is returned: the written entry must
+read back as a readable entry equal to the one given, and the file must
+have exactly as many unreadable entries as before. Otherwise nothing is
+returned ([`WriteError::NotReadBack`]): for example when the file already
+holds two standing reviews by this reviewer, a third would be demoted
+with them, and the maintainer resolves that by hand.
+
+```rust
+pub mod review_md_write { /* ... */ }
+```
+
+### Types
+
+#### Enum `WriteError`
+
+Why an entry could not be written.
+
+```rust
+pub enum WriteError {
+    Emit(super::review_md::ReviewMdError),
+    HeadingInComments(String),
+    NotReadBack(String),
+}
+```
+
+##### Variants
+
+###### `Emit`
+
+TOML serialisation failed.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::review_md::ReviewMdError` |  |
+
+###### `HeadingInComments`
+
+The comments hold a `# ` heading line, which would end the entry.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotReadBack`
+
+The spliced file does not read back as intended (module doc); the
+message says what the parser reported.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> WriteError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &WriteError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Written`
+
+The new file text, and whether an existing entry was replaced.
+
+```rust
+pub struct Written {
+    pub text: String,
+    pub replaced: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `text` | `String` |  |
+| `replaced` | `bool` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Written { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Written) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `upsert_review`
+
+Write `entry` into `md` (module doc): replace this reviewer's standing
+review of the same function, else append. `comments` is the Markdown
+under the heading (may be empty); the sign-off line is generated.
+
+```rust
+pub fn upsert_review(md: &str, entry: &super::review_md::ReviewEntry, comments: &str) -> Result<Written, WriteError> { /* ... */ }
+```
+
+#### Function `upsert_needs_fix`
+
+Write a needs-fix `entry` into `md` (module doc): replace the entry with
+the same `[kovan] id`, else append.
+
+```rust
+pub fn upsert_needs_fix(md: &str, entry: &super::review_md::NeedsFixEntry, comments: &str) -> Result<Written, WriteError> { /* ... */ }
+```
+
+## Module `review_md_relocate`
+
+**Moving and retiring a function's `review.md` entries** (GitHub #771,
+#740 U5, #739 decision 14): the pure text side of the need-you queue's
+*acknowledge move* and *record deletion*. Text in, text out; no
+filesystem, no git.
+
+# Acknowledging a move
+
+A function found at a new place with the same hash and callees keeps
+its review (#739 D14: "the review should go with it"). Acknowledging
+the move ([`acknowledge_move`]) rewrites **every** entry that names the
+function (each reviewer's review, needs-fix notes, annotations):
+
+- `path` becomes the new location;
+- a review gains a machine-written `[[review.moved]]` record (`from`,
+  `to`, the commit the move was acknowledged at);
+- when the new location is in **another folder**, the entries leave the
+  old folder's `review.md` and are appended to the new folder's (a
+  `review.md` speaks only for its own folder:
+  [`crate::code_index::ids`]), the old file keeping every other byte.
+
+`path` and `moved` are location metadata and are **not signed**
+([`super::signing::signed_bytes`] covers the target id, never the
+path), so a moved review still verifies.
+
+# Recording a deletion
+
+"Deleted functions are removed from `review.md`; their review lives on
+only in git history" (#740 U5). [`record_deletion`] removes every entry
+of the function and adds the engine's history row
+([`super::engine::HistoryRow`]) to the folder's `deleted_functions`
+table, creating it when absent.
+
+# Splicing, as the stamp dialog's writer does
+
+Like [`super::review_md_write`], these functions splice: only the spans
+of the entries concerned change, unreadable entries are kept byte for
+byte, and the result is parsed again. A result that does not read back
+(the moved entries equal to what was intended, the unreadable count
+unchanged) is an error and nothing is returned.
+
+```rust
+pub mod review_md_relocate { /* ... */ }
+```
+
+### Types
+
+#### Enum `RelocateError`
+
+Why entries could not be moved or retired.
+
+```rust
+pub enum RelocateError {
+    NotFound(String),
+    Emit(String),
+    NotReadBack(String),
+}
+```
+
+##### Variants
+
+###### `NotFound`
+
+No readable entry names the function.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Emit`
+
+TOML serialisation failed.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotReadBack`
+
+The result would not read back as intended; nothing is returned.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RelocateError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RelocateError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Relocated`
+
+The new texts of the two files a move touches.
+
+```rust
+pub struct Relocated {
+    pub from_text: String,
+    pub to_text: Option<String>,
+    pub entries: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `from_text` | `String` | The old folder's `review.md`. |
+| `to_text` | `Option<String>` | The new folder's `review.md`; `None` when the move stays in the<br>folder (everything is in `from_text`). |
+| `entries` | `usize` | How many entries were moved. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Relocated { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Relocated) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `acknowledge_move`
+
+Acknowledge that `function_id` moved to `to_path` (`file.rs::item`), at
+`commit` (module doc). `from_md` is the `review.md` holding its entries;
+`to_md` is the new folder's `review.md` text (`Some("")` when it does
+not exist yet) or `None` when the new location is in the same folder.
+
+```rust
+pub fn acknowledge_move(from_md: &str, to_md: Option<&str>, function_id: &str, to_path: &str, commit: &str) -> Result<Relocated, RelocateError> { /* ... */ }
+```
+
+#### Function `record_deletion`
+
+Remove every entry of `function_id` from `md` and add `row` to its
+`deleted_functions` table (module doc). `now` is an RFC 3339 time for a
+new table's `created`/`modified`. A row for the same function and last
+review commit already in the table is not added twice.
+
+```rust
+pub fn record_deletion(md: &str, function_id: &str, row: &super::review_md::DeletedFunction, now: &str) -> Result<String, RelocateError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DELETED_HEADING`
+
+The heading of the `deleted_functions` entry this module creates.
+
+```rust
+pub const DELETED_HEADING: &str = "Deleted functions";
 ```
 
 ## Module `root`
@@ -25838,7 +27967,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25991,7 +28120,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26129,7 +28258,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26294,7 +28423,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26425,7 +28554,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26555,7 +28684,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26678,7 +28807,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26822,7 +28951,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27005,7 +29134,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27127,7 +29256,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27270,7 +29399,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27378,7 +29507,7 @@ pub struct LegacyConflict {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27500,7 +29629,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27626,7 +29755,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27776,7 +29905,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27898,7 +30027,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28026,7 +30155,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28184,7 +30313,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28324,7 +30453,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28453,7 +30582,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28609,7 +30738,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28782,7 +30911,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28832,6 +30961,332 @@ The keys this module owns in `kovan_root.toml`.
 pub const ROOT_KEYS: [&str; 3] = _;
 ```
 
+## Module `root_append`
+
+**Registering reviewers and keys in `kovan_root.toml` as text** (GitHub
+#762, #770): the "register my key" step of desktop kovan's stamp dialog.
+
+`kovan_root.toml` is append-only history (#762 follow-up, 2026-10-07,
+[`super::engine::history_append_only`]) and carries the maintainer's
+comments. [`super::root::ReviewRoot::write_into`] re-serialises the file
+and drops comments, so it is not used here. Like
+[`super::root::append_rust_analyzer_used`], every function here **adds
+text** and keeps every existing byte:
+
+- [`append_reviewer`]: a new `[[reviewer]]` block at the end of the file;
+- [`append_reviewer_key`]: a new `[[reviewer.key]]` block spliced in at
+  the end of that reviewer's section (before the next header that is not
+  one of its own sub-tables, and before any comment lines that lead into
+  that header);
+- [`declare_founder`]: `founder = "<id>"` right under `[code_review]`, or
+  a new `[code_review]` table at the end. Refused when a founder is
+  already declared: trust on first use happens once.
+- [`append_developing_organisation`] (GitHub #810): a new
+  `[[code_review.developing_organisation]]` block at the end of the file;
+- [`append_reviewer_organisation`] and [`append_separation_attestation`]
+  (#810): a new `[[reviewer.organisation]]` / `[[reviewer.separation]]`
+  block spliced in at the end of that reviewer's section, as a key is.
+  An attestation whose id the reviewer already uses is refused (a stamp
+  names it by id).
+
+No workspace member depends on `toml_edit` directly (checked
+2026-10-10; it is only `toml`'s own dependency), so the splice is by line, and every result is **read back**: the
+parsed root after must equal the parsed root before plus exactly the one
+addition, or nothing is returned ([`AppendError::NotReadBack`]).
+
+What a registration does **not** do: endorse a later key or admit a new
+reviewer. Those are signatures by a trusted key (`UnlockedKey::endorse`,
+`UnlockedKey::admit`); the caller signs the [`Reviewer`] or
+[`ReviewerKey`] first and passes it here, or registers it unsigned and
+the registry shows it as untrusted until it is (Leak Before Break).
+
+```rust
+pub mod root_append { /* ... */ }
+```
+
+### Types
+
+#### Enum `AppendError`
+
+Why a registration was refused. Nothing is changed on any refusal.
+
+```rust
+pub enum AppendError {
+    Root(super::root::RootError),
+    ReviewerExists(String),
+    UnknownReviewer(String),
+    KeyExists {
+        reviewer: String,
+        key: String,
+    },
+    FounderAlreadyDeclared(String),
+    NotReadBack(String),
+    AttestationExists {
+        reviewer: String,
+        id: String,
+    },
+}
+```
+
+##### Variants
+
+###### `Root`
+
+The existing file does not parse.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::root::RootError` |  |
+
+###### `ReviewerExists`
+
+A `[[reviewer]]` with this id exists already.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `UnknownReviewer`
+
+No `[[reviewer]]` with this id.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `KeyExists`
+
+The reviewer has a key with this id already.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `key` | `String` |  |
+
+###### `FounderAlreadyDeclared`
+
+`[code_review] founder` is already set (to this id).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotReadBack`
+
+The appended text would not read back as exactly one more entry.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `AttestationExists`
+
+The reviewer has a separation attestation with this id already
+(#810).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `id` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AppendError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AppendError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `append_reviewer`
+
+`existing` with `r` appended as a new `[[reviewer]]` (module doc).
+
+```rust
+pub fn append_reviewer(existing: &str, r: &super::root::Reviewer) -> Result<String, AppendError> { /* ... */ }
+```
+
+#### Function `append_reviewer_key`
+
+`existing` with `k` added to reviewer `reviewer`'s keys (module doc).
+
+```rust
+pub fn append_reviewer_key(existing: &str, reviewer: &str, k: &super::root::ReviewerKey) -> Result<String, AppendError> { /* ... */ }
+```
+
+#### Function `append_developing_organisation`
+
+`existing` with `e` appended as a new
+`[[code_review.developing_organisation]]` at the end (module doc).
+
+```rust
+pub fn append_developing_organisation(existing: &str, e: &super::root::DevelopingOrganisation) -> Result<String, AppendError> { /* ... */ }
+```
+
+#### Function `append_reviewer_organisation`
+
+`existing` with `e` added to reviewer `reviewer`'s
+`[[reviewer.organisation]]` list (module doc).
+
+```rust
+pub fn append_reviewer_organisation(existing: &str, reviewer: &str, e: &super::root::ReviewerOrganisation) -> Result<String, AppendError> { /* ... */ }
+```
+
+#### Function `append_separation_attestation`
+
+`existing` with `a` added to reviewer `reviewer`'s
+`[[reviewer.separation]]` list (module doc). Refused when the reviewer
+already has an attestation with `a.id`.
+
+```rust
+pub fn append_separation_attestation(existing: &str, reviewer: &str, a: &super::root::SeparationAttestation) -> Result<String, AppendError> { /* ... */ }
+```
+
+#### Function `declare_founder`
+
+`existing` with `[code_review] founder = id` (module doc).
+
+```rust
+pub fn declare_founder(existing: &str, id: &str) -> Result<String, AppendError> { /* ... */ }
+```
+
+#### Function `founding_reviewer`
+
+The founding maintainer's `[[reviewer]]` (trusted on first use,
+[`super::signing::registry`]): a maintainer with no admission, whose one
+key is `key`, admitted on `date`.
+
+```rust
+pub fn founding_reviewer(id: &str, name: Option<&str>, key: super::root::ReviewerKey, date: &str) -> super::root::Reviewer { /* ... */ }
+```
+
+#### Function `unadmitted_reviewer`
+
+A new, **not yet admitted** reviewer with one key and no scope: what a
+person who is not the founder can register on their own. It counts for
+nothing until a maintainer admits it (`UnlockedKey::admit`, which signs
+over role, scope, admitted date and first key).
+
+```rust
+pub fn unadmitted_reviewer(id: &str, name: Option<&str>, key: super::root::ReviewerKey) -> super::root::Reviewer { /* ... */ }
+```
+
+#### Function `is_bare_key`
+
+`true` when `k`'s history holds only its `created` event (a key that no
+one has endorsed, admitted or reset yet).
+
+```rust
+pub fn is_bare_key(k: &super::root::ReviewerKey) -> bool { /* ... */ }
+```
+
 ## Module `rust_items`
 
 Finding a function in one Rust source file with a real parser (`syn`),
@@ -28839,12 +31294,14 @@ and the normalised text a stamp's hash is taken over.
 
 Moved here from `kovan::review_stamps::parse` on 2026-10-07 (GitHub #764;
 placement decided on #743: stamp types in kovan-common, which builds for
-wasm). `kovan::review_stamps::parse` re-exports this module unchanged.
-The one addition is [`FnEntry::code_without_name`], the code text with the
-function's own name left out, which the #764 function hash
-([`super::hash`]) is taken over; [`stamp_hash`] (the 2026-10-06 `kovan`
+wasm). The one addition is [`FnEntry::code_without_name`], the code text
+with the function's own name left out, which the #764 function hash
+([`super::hash`]) is taken over. ~~`kovan::review_stamps::parse`
+re-exports this module unchanged; `stamp_hash` (the 2026-10-06 `kovan`
 stamp hash, name and doc included) is kept for `kovan`'s
-`review/stamps.toml` until that file is retired.
+`review/stamps.toml` until that file is retired.~~ **CORRECTED
+2026-10-10** (#825): that file, `kovan::review_stamps` and `stamp_hash`
+were removed; the normalisation is tested through [`super::hash`].
 
 # Which functions exist
 
@@ -29020,7 +31477,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29146,7 +31603,7 @@ pub struct FnEntry {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29257,7 +31714,7 @@ pub struct ModDecl {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29355,7 +31812,7 @@ pub struct ParsedFile {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29490,7 +31947,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29525,16 +31982,6 @@ pub fn locate(text: &str, qual: &str) -> Result<FnEntry, LocateError> { /* ... *
 
 ```rust
 pub fn matches(f: &FnEntry, qual: &str) -> bool { /* ... */ }
-```
-
-#### Function `stamp_hash`
-
-The stamp hash of a function's normalised doc and code text:
-`sha256:` and the lowercase hex SHA-256 of
-`"kovan-review-stamp-v1\ndoc\n" + doc + "\ncode\n" + code`.
-
-```rust
-pub fn stamp_hash(doc: &str, code: &str) -> String { /* ... */ }
 ```
 
 #### Function `normalise_doc`
@@ -29588,8 +32035,12 @@ D6).
 The signed `date` is day-level only. `signed_at` is an RFC 3339
 timestamp **to the second, with its UTC offset**
 (`2026-10-07T14:03:09+08:00`, or `Z` for UTC), written into the signed
-bytes ([`super::signing`], the `kovan-review-signature-v2` header). A
-stamp signed before #783 has none (v1) and is judged exactly as before.
+bytes ([`super::signing`]; ~~the `kovan-review-signature-v2` header~~
+the one `kovan-review-signature-v3` header since #825). Every signing
+writes it. ~~A stamp signed before #783 has none (v1) and is judged
+exactly as before.~~ **CORRECTED 2026-10-10** (#825): v1 stamps no longer
+verify; an entry without `signed_at` (field kept optional) gets no
+plausibility flag.
 
 # The plausibility flags
 
@@ -29738,7 +32189,7 @@ pub struct Rfc3339 {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29906,7 +32357,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29941,7 +32392,7 @@ pub fn format_utc(unix: i64) -> String { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/kovan-common/src/review/signed_at.rs:150:11: 150:33 (#0) }, crates/kovan-common/src/review/signed_at.rs:150:10: 150:34 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/kovan-common/src/review/signed_at.rs:154:11: 154:33 (#0) }, crates/kovan-common/src/review/signed_at.rs:154:10: 154:34 (#0))])]")`
 
 The clock now, as [`format_utc`]. Native only (`SystemTime::now` panics
 on wasm32-unknown-unknown); a clock before 1970 reads as the epoch.
@@ -29954,7 +32405,7 @@ pub fn now_utc() -> String { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/kovan-common/src/review/signed_at.rs:165:11: 165:33 (#0) }, crates/kovan-common/src/review/signed_at.rs:165:10: 165:34 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/kovan-common/src/review/signed_at.rs:169:11: 169:33 (#0) }, crates/kovan-common/src/review/signed_at.rs:169:10: 169:34 (#0))])]")`
 
 The clock now in the machine's **local** time zone, RFC 3339 to the
 second with its offset (`2026-10-08T07:30:00+08:00`). What
@@ -29981,8 +32432,8 @@ pub fn date_of(signed_at: &str) -> Option<String> { /* ... */ }
 
 Judge a stamp's `signed_at` (module doc). `reviewed_commit_time` is the
 committer time of the stamp's `commit`; `stamp_commit_time` that of the
-commit that introduced the stamp. A v1 stamp (`signed_at = None`) gets
-no flag.
+commit that introduced the stamp. A stamp without one (`signed_at =
+None`) gets no flag.
 
 ```rust
 pub fn plausibility(signed_at: Option<&str>, date: &str, reviewed_commit_time: Option<i64>, stamp_commit_time: Option<i64>) -> Vec<SignedAtProblem> { /* ... */ }
@@ -30050,13 +32501,13 @@ value written as a JSON string (so a newline or `=` inside a value cannot
 forge a line), maps sorted by key:
 
 ```text
-kovan-review-signature-v2         ("-v1" when there is no signed_at)
+kovan-review-signature-v3         (the one header; #825)
 kind="review"
 target="fn:3f2a9c0d1e4b5a67"     (the stable id, #764 hybrid id)
 by="github:theodoreOnzGit"
 rung="3"
 date="2026-10-07"
-signed_at="2026-10-07T14:03:09+08:00"   (v2 only; absent in v1)
+signed_at="2026-10-07T14:03:09+08:00"   (when present; #783)
 commit="<sha>"
 hash="sha256:…"
 doc_hash="sha256:…"
@@ -30066,35 +32517,32 @@ session="https://…"            (one line per session, sorted)
 callee="<id>" "<hash>"          (one line per callee, sorted by id)
 checklist="<q>" "<answer>"      (one line per answer, sorted)
 no_concept="…"                  (or "")
-separation_attestation="<id>"   (v3 only; GitHub #809)
+separation_attestation="<id>"   (when present; GitHub #809)
 relation="<kind>" "<target>"    (one line per relation, in order)
 ```
 
-**v1 and v2 (GitHub #783, 2026-10-07).** A stamp with a `signed_at`
-(RFC 3339 to the second, with offset; [`super::signed_at`]) is signed
-as **v2**: the first line reads `kovan-review-signature-v2` and a
-`signed_at=` line follows `date=`. A stamp without one is signed as
-**v1**, byte for byte as before #783, so every stamp signed earlier
-verifies unchanged (pinned by `signing/fixtures/review_v1.md`, signed
-before #783, and its `.signed.txt` byte images). Both the header and the
-optional line change, rather than only one: removing `signed_at` from a
-v2 stamp gives v1 bytes the signature was not taken over, and adding one
-to a v1 stamp gives v2 bytes it was not taken over, so either edit reads
-as [`UnverifiedReason::BadSignature`]; the header also tells a reader
-which form a signature is over without parsing the rest. Architecture
-nodes follow the same rule. Whether `signed_at` is *plausible* is the
-staleness engine's flag ([`super::signed_at::plausibility`]), never a
-verification failure here.
+**One format, v3 (GitHub #825, 2026-10-10).** Every review and every
+architecture node is signed under the header `kovan-review-signature-v3`.
+`signed_at` (RFC 3339 to the second, with offset; [`super::signed_at`],
+GitHub #783) follows `date=` when the entry has one, and
+`separation_attestation="<id>"` (the stamp's claim to rung 5, IV&V;
+[`super::ivv`], GitHub #809) follows `no_concept=` when it names one.
+Adding, removing or changing either is an edit to signed bytes
+([`UnverifiedReason::BadSignature`]). Whether `signed_at` is *plausible*
+is the staleness engine's flag ([`super::signed_at::plausibility`]),
+never a verification failure here. The exact bytes are pinned by
+`signing/fixtures/review_v3.md` and its `.signed.txt` images
+(`signing/signed_at_tests.rs`), so any change to them fails a test;
+from the first real stamp on, a change is a new header, never an edit.
 
-**v3 (GitHub #809, 2026-10-08).** A review that names a separation
-attestation (`separation_attestation`, the stamp's claim to rung 5,
-IV&V; [`super::ivv`]) is signed as **v3**: the first line reads
-`kovan-review-signature-v3`, `signed_at=` follows `date=` when present
-(as in v2), and a `separation_attestation="<id>"` line follows
-`no_concept=`. A stamp without one keeps its v1 or v2 bytes exactly, so
-every earlier signature still verifies; adding, removing or changing
-the attestation id of a signed stamp is an edit to signed bytes
-([`UnverifiedReason::BadSignature`]).
+~~**v1 and v2 (GitHub #783, 2026-10-07).** A stamp without `signed_at`
+is signed as v1, byte for byte as before #783, so every stamp signed
+earlier verifies unchanged; one with it as v2. **v3 (GitHub #809,
+2026-10-08)** only for a review naming a separation attestation; a stamp
+without one keeps its v1 or v2 bytes.~~ **CORRECTED 2026-10-10** (#825):
+the v1 and v2 headers were dropped (maintainer: "there's no review to be
+backwards compatible with"; no signed `review.md` existed anywhere), so
+a v1- or v2-signed entry no longer verifies.
 
 **Location is not signed (2026-10-07, with the hybrid id).** `path` and
 the `[[review.moved]]` records are where the function is now and how it
@@ -30359,7 +32807,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30565,7 +33013,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30717,7 +33165,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30846,7 +33294,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31006,7 +33454,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31154,7 +33602,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31365,7 +33813,7 @@ and the legacy fields are ignored.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31475,7 +33923,7 @@ pub enum InactiveKind {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31585,7 +34033,7 @@ pub struct Window {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31712,7 +34160,7 @@ pub struct KeyTrust {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31845,7 +34293,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31968,7 +34416,7 @@ pub struct RevocationTrust {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -32095,7 +34543,7 @@ pub struct ReviewerTrust {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -32282,7 +34730,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -32415,7 +34863,7 @@ Un-retiring a key that is not retired.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -32539,7 +34987,7 @@ pub struct Registry {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -32582,7 +35030,7 @@ pub fn retire_key(k: &mut super::super::root::ReviewerKey, date: &str) -> Result
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/kovan-common/src/review/signing.rs:140:11: 140:33 (#0) }, crates/kovan-common/src/review/signing.rs:140:10: 140:34 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/kovan-common/src/review/signing.rs:137:11: 137:33 (#0) }, crates/kovan-common/src/review/signing.rs:137:10: 137:34 (#0))])]")`
 
 **The keystore**: one ed25519 key per reviewer, generated inside kovan,
 its private half encrypted at rest (GitHub #762; #739 "Stamp signing
@@ -32877,7 +35325,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33070,7 +35518,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33198,7 +35646,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33322,7 +35770,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33476,7 +35924,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33629,7 +36077,7 @@ pub struct UnlockedKey {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33771,7 +36219,7 @@ pub struct Keystore {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33962,7 +36410,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34111,7 +36559,7 @@ Well formed, but does not verify over these bytes with this key.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34222,7 +36670,7 @@ pub struct VerifiedStamp {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34514,7 +36962,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34639,7 +37087,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34693,8 +37141,8 @@ pub fn separation_attestation_bytes(reviewer: &str, a: &super::root::SeparationA
 #### Function `architecture_signed_bytes`
 
 The bytes an architecture node's signature is taken over: the same
-line format, `kind="architecture"`, then by, date, `signed_at` (v2
-only), commit, each member
+line format and header, `kind="architecture"`, then by, date,
+`signed_at` (when present), commit, each member
 (sorted), the upstream's repository and commit, the pattern, and the
 relations.
 
@@ -35087,7 +37535,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -35209,7 +37657,7 @@ Never reviewed.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -35387,7 +37835,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -35510,8 +37958,8 @@ Fields:
 
 ###### `BadTarget`
 
-The function reference is not `fn:<id>` with a `path`, nor a
-first-version call-graph key.
+The function reference is not `fn:<id>` with a `path` (~~nor a
+first-version call-graph key~~: no longer read since #825).
 
 Fields:
 
@@ -35619,7 +38067,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -35748,7 +38196,7 @@ pub enum ReviewerIdKind {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -35890,7 +38338,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36013,7 +38461,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36130,7 +38578,7 @@ Not a GitHub or GitLab file/tree link, so there is no ref to check
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36287,7 +38735,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36413,7 +38861,7 @@ Not looked up (offline, no clone): nothing is claimed.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36585,7 +39033,7 @@ least two characters (#740 U3).
 about who wrote the tests reaching the function):
 
 ```text
-  answers ─┬─ unknown / legacy q1..q10 / not-applicable / bad text ──> blocked_by: Invalid
+  answers ─┬─ unknown / not-applicable / bad text ─────────────────> blocked_by: Invalid
            ├─ applicable question unanswered ──────────────────────> blocked_by: Unanswered
            ├─ option effect = block ───────────────────────────────> blocked_by: Answer
            ├─ option effect = prompt_needs_fix ────────────────────> prompts ("Mark as Needs fix instead?")
@@ -36608,17 +39056,20 @@ about who wrote the tests reaching the function):
                 2026-10-07). ~~rung = rung_4 while !rung4_allowed ->
                 blocked_by: Rung4NotOpen~~ CORRECTED 2026-10-07: the
                 `rung` question is gone, and a `rung` answer is refused
-                ([`AnswerError::RungIsDerived`]).
+                (~~`AnswerError::RungIsDerived`~~ **CORRECTED
+                2026-10-10** (#825): as an unknown question).
 ```
 
 # The #764 placeholder keys
 
-#764 wrote `q1` … `q10` as placeholders. They are **rejected cleanly**, not
-mapped: [`AnswerError::LegacyPlaceholderKey`] names the key that replaces
-each one ([`LEGACY_PLACEHOLDER_KEYS`]). Their placeholder answers
-(`"yes"`) are not answers to the new questions, so mapping them would
-certify questions nobody was asked. A `review.md` holding them still
-parses (the entry is readable); only the wizard refuses them.
+#764 wrote `q1` … `q10` as placeholders. ~~They are rejected cleanly with
+`AnswerError::LegacyPlaceholderKey`, naming the key that replaces each
+one (`LEGACY_PLACEHOLDER_KEYS`)~~ **CORRECTED 2026-10-10** (#825): no
+review was ever written with them, so they are now simply unknown keys
+([`AnswerError::UnknownQuestion`]), as is `q10` or `rung`. They are never
+mapped: a placeholder answer (`"yes"`) is not an answer to the new
+questions. A `review.md` holding them still parses (the entry is
+readable); only the wizard refuses them.
 
 ```rust
 pub mod wizard { /* ... */ }
@@ -36756,7 +39207,7 @@ without AI agents, and git agrees about the writing.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36886,7 +39337,7 @@ Not known: no reaching test, or no commit facts.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -37058,7 +39509,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -37191,7 +39642,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -37322,7 +39773,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -37480,7 +39931,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -37606,7 +40057,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -37748,7 +40199,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -37880,7 +40331,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -38010,7 +40461,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -38222,7 +40673,7 @@ the rung is no longer a question.)
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -38343,7 +40794,7 @@ pub struct Applicability {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -38360,12 +40811,7 @@ Why one checklist answer is not acceptable.
 
 ```rust
 pub enum AnswerError {
-    LegacyPlaceholderKey {
-        key: String,
-        use_instead: String,
-    },
     UnknownQuestion(String),
-    RungIsDerived(String),
     NotApplicable(String),
     UnknownOption {
         question: String,
@@ -38384,29 +40830,10 @@ pub enum AnswerError {
 
 ##### Variants
 
-###### `LegacyPlaceholderKey`
-
-One of #764's `q1` … `q10` placeholders; write `use_instead`.
-
-Fields:
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `key` | `String` |  |
-| `use_instead` | `String` |  |
-
 ###### `UnknownQuestion`
 
-Fields:
-
-| Index | Type | Documentation |
-|-------|------|---------------|
-| 0 | `String` |  |
-
-###### `RungIsDerived`
-
-A rung given as an answer (`rung`, or #764's `q10`): the rung is
-derived, never chosen (maintainer, #769, 2026-10-07).
+No such question (#764's `q1` … `q10` placeholders and a `rung`
+answer included: the rung is derived, never chosen).
 
 Fields:
 
@@ -38545,7 +40972,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -38667,7 +41094,7 @@ pub struct Choice {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -38798,7 +41225,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -38924,7 +41351,7 @@ pub struct GateResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39012,25 +41439,6 @@ The question set, embedded at compile time (works in wasm).
 
 ```rust
 pub const WIZARD_TOML: &str = "# The kovan code-review wizard\'s question set (GitHub #769; wizard rules on\n# #740, maintainer 2026-10-07). Read by `kovan_common::review::wizard`, which\n# embeds this file with `include_str!` so desktop kovan, web-kovan (wasm) and\n# CI ask the same questions and apply the same stamp gate.\n#\n# Keys are STABLE: they are written into review.md (`[review.checklist]`) and\n# must never be renamed. Add a question or an option; never repurpose a key.\n#\n# applies_when: always | port | physical_interface\n#   port               the folder\'s kovan.toml [upstream] table (or the\n#                      wizard\'s \"Is this a port?\") declares the function a port\n#   physical_interface a physical quantity crosses the function\'s interface\n#\n# effect (what choosing the option does to the stamp):\n#   none              no effect\n#   prompt_needs_fix  asks \"Mark as Needs fix instead?\"; the stamp is allowed\n#   block             the stamp is refused\n#   flag              recorded as \"needs improvement\"; never blocks\n#   gate_rung4        V&V evidence of the qualifying kinds: one half of\n#                     opening rung 4\n#   gate_rung4_author the V&V case was written and verified by hand by a\n#                     human, without AI agents: the other half. Rung 4 opens\n#                     only with both (maintainer, #769/#739, 2026-10-07:\n#                     \"rung 4 = writing AND verifying a V&V case by hand\").\n#                     (~~gate_rung4 alone opens rung 4~~ CORRECTED 2026-10-07)\n#   not_independent   the reviewer is not independent of the code: the stamp\n#                     counts at rung 3 or 4 but cannot be ~~the independent\n#                     second review for rung 5~~ (CORRECTED 2026-10-08, #809)\n#                     rung 5\'s independent V&V case. (~~no_rung4: rung 4 is\n#                     not available whatever else is answered~~ CORRECTED\n#                     2026-10-07, maintainer on #769: independence gates\n#                     rung 5, not rung 4.)\n#   (~~needs_rung4_gate  choosing it is refused unless rung 4 is open~~\n#    CORRECTED 2026-10-07, maintainer on #769: the user never chooses the\n#    rung; it is derived from vv_evidence, vv_case_author and git, so the\n#    `rung` question and this effect are gone. See `wizard::derived_rung`.)\n#\n# requires_text: the option must carry text of at least 2 characters\n# (`Other: ____`, a justification). On disk the answer is `\"<option>\"`, or\n# `\"<option>: <text>\"` for these options.\n#\n# Sources: ONLY the clauses recorded on #769 (research agent, 2026-10-07; every\n# cited page was read). `document` is the kovan standard-corpus id\n# (crates/kovan/src/corpus.rs), checked by kovan\'s tests/review_wizard_sources.rs.\n# `quote` is filled only where #769 records quoted wording. A question or\n# option that rests on a workspace rule names it in `workspace_rule` instead of\n# a citation.\n#\n# Abbreviations on #769: BR = NUREG/BR-0167 (nureg-br-0167); DOEG = DOE G\n# 414.1-4 (doe-g-414.1-4); STD = DOE-STD-1172-2003 (doe-std-1172-2003); KM =\n# NUREG/KM-0006 (nureg-km-0006); AppB = 10 CFR 50 App. B (10cfr50).\n\nversion = 1\n\n# ---------------------------------------------------------------- 1\n[[question]]\nkey = \"doc_matches_behaviour\"\ntext = \"Does the function do what its doc comment says it does?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"partly\"\nlabel = \"Partly: some of the doc is wrong or out of date\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"no\"\nlabel = \"No\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"no_doc\"\nlabel = \"There is no doc comment\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}4.5\"\npage = \"13\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}3.2.2.5\"\npage = \"10\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6, criterion 2\"\npage = \"F-14\"\n\n# ---------------------------------------------------------------- 2\n[[question]]\nkey = \"upstream_fidelity\"\ntext = \"Does it do what the upstream routine does?\"\napplies_when = \"port\"\nworkspace_rule = \"Debugging a port: read upstream first (HARD RULE)\"\n\n[[question.option]]\nkey = \"matches\"\nlabel = \"Yes, it matches upstream\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"deviation_documented\"\nlabel = \"It deviates, and the deviation is documented and justified in its doc comment\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"deviation_not_documented\"\nlabel = \"It deviates, and the deviation is not documented\"\neffect = \"block\"\naction = \"document_deviation\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"10cfr50\"\nsection = \"Appendix B, Criterion III\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}3.3.2\"\npage = \"11\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.6\"\npage = \"24-25\"\n\n# ---------------------------------------------------------------- 3\n[[question]]\nkey = \"limits_and_guards\"\ntext = \"Are the allowable input ranges guarded, and what happens outside them?\"\napplies_when = \"always\"\nworkspace_rule = \"Error handling: Result is preferred to panics (maintainer, #740, 2026-10-07; not yet a CLAUDE.md rule)\"\n\n[[question.option]]\nkey = \"guarded_returns_result\"\nlabel = \"Guarded: out-of-range input returns a Result error (preferred)\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"guarded_panics_justified\"\nlabel = \"Guarded: out-of-range input panics, justified: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"guard_present_range_undocumented\"\nlabel = \"A guard is present, but the range is not documented\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"guard_missing\"\nlabel = \"A guard is missing\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"no_limits\"\nlabel = \"No limits apply, explained: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6\"\npage = \"F-14\"\nquote = \"allowable input/output ranges\"\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\npage = \"64-65\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}3.2.4.1\"\npage = \"11\"\n\n# ---------------------------------------------------------------- 4\n# Narrowed on #769 (2026-10-07) to whether units are documented; the `uom`\n# half moved to coding_standards.\n[[question]]\nkey = \"units_documented\"\ntext = \"Are the units of every physical quantity at its interface documented?\"\napplies_when = \"physical_interface\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"not_documented\"\nlabel = \"No, some units are not documented\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\npage = \"64\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6\"\n\n# ---------------------------------------------------------------- 5\n[[question]]\nkey = \"error_handling\"\ntext = \"What does it do when something goes wrong?\"\napplies_when = \"always\"\nworkspace_rule = \"Error handling: Result is preferred to panics (maintainer, #740, 2026-10-07; not yet a CLAUDE.md rule)\"\n\n[[question.option]]\nkey = \"returns_result\"\nlabel = \"Returns a Result (preferred)\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"panics_justified\"\nlabel = \"Panics, justified: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"falls_back_reported\"\nlabel = \"Falls back and reports it through the return type (a Result, or an outcome enum with a fallback variant)\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"falls_back_silently\"\nlabel = \"Falls back with no signal to the caller\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"cannot_happen\"\nlabel = \"Nothing can go wrong, explained: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.7\"\npage = \"26\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}2.2\"\npage = \"5\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\npage = \"11\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\npage = \"27\"\nquote = \"detect and report\"\n\n# ---------------------------------------------------------------- 6\n[[question]]\nkey = \"numerical_hazards\"\ntext = \"Are there numerical hazards (division by zero, cancellation, overflow, NaN, an iteration that may not converge)?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"none_found\"\nlabel = \"None found\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"handled\"\nlabel = \"Yes, and each is handled\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"tolerance_not_justified\"\nlabel = \"An iteration or convergence tolerance is not justified\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"possible_problem\"\nlabel = \"Yes, a possible problem is not handled\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\nsection = \"\u{a7}5.4.2.2 (VR-4, VR-5)\"\npage = \"170-171\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\npage = \"26\"\n\n# ---------------------------------------------------------------- 7\n[[question]]\nkey = \"test_reach\"\ntext = \"Does a test reach this function?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"reached_and_checked\"\nlabel = \"Yes, and a test checks what it returns\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"reached_not_checked\"\nlabel = \"A test reaches it but checks nothing it returns\"\neffect = \"flag\"\n\n[[question.option]]\nkey = \"no_test_reaches\"\nlabel = \"No test reaches it (needs improvement)\"\neffect = \"flag\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}3.2.4\"\npage = \"10\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.8\"\npage = \"28\"\n\n# The non-blocking flag is tailoring (#769).\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}2.1 (tailoring)\"\npage = \"5\"\n\n# ---------------------------------------------------------------- 8\n[[question]]\nkey = \"vv_evidence\"\ntext = \"What verification and validation evidence covers this function?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"reference_code_to_code\"\nlabel = \"Comparison against a reference or another code (code-to-code)\"\neffect = \"gate_rung4\"\n\n[[question.option]]\nkey = \"analytical_case\"\nlabel = \"An analytical (closed-form or manufactured) case\"\neffect = \"gate_rung4\"\n\n[[question.option]]\nkey = \"convergence_order_study\"\nlabel = \"A convergence / order-of-accuracy study\"\neffect = \"gate_rung4\"\n\n[[question.option]]\nkey = \"unit_tests_only\"\nlabel = \"Unit tests only\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"none_yet\"\nlabel = \"None yet\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\nsection = \"Table 5-11\"\npage = \"145\"\n\n[[question.source]]\ndocument = \"10cfr50\"\nsection = \"Appendix B, Criterion III\"\n\n# ---------------------------------------------------------------- 8b\n# Who wrote the V&V case (maintainer, #769/#739, 2026-10-07). Pre-filled from\n# git: the commits that added the tests reaching the function, read with\n# `types::agent_trailer` (`wizard::vv_case_author_prefill`). Git can check\n# only the writing; \"verified by hand\" is the reviewer\'s signed attestation.\n# The engine refuses rung 4 when git shows an agent trailer on those commits.\n[[question]]\nkey = \"vv_case_author\"\ntext = \"Who wrote the V&V case?\"\napplies_when = \"always\"\nworkspace_rule = \"Rung 4 is a V&V case written and verified by hand by a human, without AI agents; LSP/IDE tooling allowed (maintainer, #769/#739, 2026-10-07)\"\nprefill = \"git_test_authorship\"\n\n[[question.option]]\nkey = \"human_wrote_and_verified\"\nlabel = \"A human wrote the V&V case and verified its result by hand, without AI agents (LSP/IDE tooling allowed)\"\neffect = \"gate_rung4_author\"\n\n[[question.option]]\nkey = \"agent_wrote_or_cowrote\"\nlabel = \"An AI agent wrote or co-wrote it\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n# ---------------------------------------------------------------- 9\n[[question]]\nkey = \"maintainability\"\ntext = \"Could a future maintainer read and change it safely?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"too_complex_split\"\nlabel = \"Too complex; it should be split\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.6\"\npage = \"25\"\n\n[[question.source]]\ndocument = \"doe-std-1172-2003\"\nsection = \"competency 9\"\npage = \"9\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}4.3\"\npage = \"13\"\n\n# ---------------------------------------------------------------- 10\n# Pre-filled from git (commit author plus agent trailer); see\n# `wizard::independence_prefill`.\n#\n# Rung 5 (GitHub #809, maintainer decisions 2026-10-08) is IV&V by an\n# organisation \"both technically and managerially separate from the\n# organization responsible for developing the software\" (NUREG/BR-0167\n# \u{a7}3.1 p. 6). ~~Answering someone_else made the stamp a candidate second\n# review for rung 5~~ CORRECTED 2026-10-08: someone_else is now ONE of\n# rung 5\'s conditions. The others are not wizard answers, because an answer\n# would be an unsigned self-declaration of what the registry already\n# records under signature: the reviewer\'s `[[reviewer.organisation]]`\n# (maintainer-signed) must differ from the developing organisation\n# (`[[code_review.developing_organisation]]`, maintainer-signed), and the\n# review must name the reviewer\'s own signed `[[reviewer.separation]]`\n# attestation (`[review] separation_attestation`), with a GitHub issue as\n# its audit record; the review must also be a hand-written V&V case (rung\n# 4). No organisation or attestation question is added: an always-asked new\n# question would leave every existing stamp with an unanswered applicable\n# question, which the gate re-run on read makes invalid. See\n# `kovan_common::review::ivv`.\n[[question]]\nkey = \"independence\"\ntext = \"Who wrote this function? (Rung 5, independent V&V, also needs your organisation to be technically and managerially separate from the developing organisation, shown by your signed separation attestation.)\"\napplies_when = \"always\"\nprefill = \"git_authorship\"\n\n[[question.option]]\nkey = \"someone_else\"\nlabel = \"Someone else, or an AI agent\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"self_check\"\nlabel = \"I wrote it (self-check)\"\neffect = \"not_independent\"\n\n# An unstated author cannot show independence, so it cannot be the\n# independent review for rung 5 (~~cannot open rung 4~~ CORRECTED\n# 2026-10-07).\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"not_independent\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"10cfr50\"\nsection = \"Appendix B, Criterion III\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.8, criterion 5\"\npage = \"F-15\"\n\n[[question.source]]\ndocument = \"doe-std-1172-2003\"\npage = \"8\"\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\nsection = \"PCMM-3\"\n\n# Rung 5 as IV&V (GitHub #809, 2026-10-08), read from the standard-corpus PDF.\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}3.1\"\npage = \"6\"\nquote = \"Independent verification and validation (IV&V) is verification and validation by an organization that is both technically and managerially separate from the organization responsible for developing the software.\"\n\n# ---------------------------------------------------------------- 11\n[[question]]\nkey = \"unintended_function\"\ntext = \"Does it do anything beyond what its doc says?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"no\"\nlabel = \"No\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"yes_documented\"\nlabel = \"Yes, and it is documented\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"yes_undocumented\"\nlabel = \"Yes, and it is not documented\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.8, objective\"\npage = \"F-15\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\npage = \"24-25\"\n\n# ---------------------------------------------------------------- 12\n[[question]]\nkey = \"coding_standards\"\ntext = \"Does it follow the workspace coding rules (enums not dyn, no Box, no lifetimes, uom where a physical quantity crosses an API)?\"\napplies_when = \"always\"\nworkspace_rule = \"Rust design rules (mandatory)\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"deviates_justified\"\nlabel = \"Deviates, justified: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"deviates_not_justified\"\nlabel = \"Deviates, not justified\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}2.4\"\npage = \"5\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}5.2.3\"\npage = \"18\"\n\n# ---------------------------------------------------------------- 13\n# ~~The rung the stamp gives (3 human reviewed, 4 human V&V), a question~~\n# CORRECTED 2026-10-07 (maintainer, #769): the user never chooses the rung.\n# It is derived (`wizard::derived_rung`): 4 when vv_evidence is qualifying\n# AND vv_case_author = human_wrote_and_verified AND git shows no agent\n# trailer on the reaching tests\' commits; otherwise 3. review.md\'s `rung`\n# stores the derived value and the engine recomputes it on read.\n";
-```
-
-#### Constant `LEGACY_PLACEHOLDER_KEYS`
-
-#764's placeholder keys and the question each one became (#769 table
-order). Used only to make the rejection say what to write instead.
-
-```rust
-pub const LEGACY_PLACEHOLDER_KEYS: &[(&str, &str)] = _;
-```
-
-#### Constant `LEGACY_RUNG_KEYS`
-
-Keys that once held the rung as an answer: #764's `q10` and the #769
-`rung` question (removed 2026-10-07: the rung is derived,
-[`derived_rung`]). Refused with [`AnswerError::RungIsDerived`].
-
-```rust
-pub const LEGACY_RUNG_KEYS: &[&str] = _;
 ```
 
 ## Module `code_index`
@@ -39277,7 +41685,7 @@ pub struct BuildInput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39393,7 +41801,7 @@ pub struct BuildReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39505,7 +41913,7 @@ pub struct Built {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39705,7 +42113,7 @@ hand; the two cannot be told apart, and both are regenerated).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39913,7 +42321,7 @@ pub struct Claim {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -40037,7 +42445,7 @@ pub struct Prior {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -40146,7 +42554,7 @@ pub struct Located {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -40270,7 +42678,7 @@ pub struct Moved {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -40394,7 +42802,7 @@ pub struct Unmatched {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -40508,7 +42916,7 @@ pub struct Assignment {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -40730,7 +43138,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -40898,7 +43306,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41027,7 +43435,7 @@ pub struct Site {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41153,7 +43561,7 @@ pub struct Occ {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41263,7 +43671,7 @@ pub struct FileOccs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41412,7 +43820,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41433,6 +43841,22 @@ order.
 
 ```rust
 pub fn build(krate: &str, dir: &str, generator: &str, encoding: &str, files: &[FileOccs]) -> LinkIndex { /* ... */ }
+```
+
+#### Function `text_hash`
+
+The `hash` of a source file's text: `sha256:` of it with every
+carriage-return-line-feed pair read as a line feed.
+
+A Windows checkout with `core.autocrlf = true` holds the same committed
+file with CRLF line endings (GitHub #820, seen 2026-10-10). Hashing the
+bytes as they are would make every file "links out of date" on the other
+system. Positions are unaffected: lines and columns do not count the
+carriage return. A file with no CRLF hashes as before, so indexes
+written on Linux stay valid.
+
+```rust
+pub fn text_hash(text: &str) -> String { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -41606,7 +44030,7 @@ pub struct QuantityNames {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41770,7 +44194,7 @@ pub struct RefreshReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41980,7 +44404,7 @@ pub struct Draft {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -42194,7 +44618,7 @@ pub struct Match {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -42343,7 +44767,7 @@ pub struct QuoteMatch {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -42457,7 +44881,7 @@ pub struct QuoteContext {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -42743,7 +45167,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -42867,7 +45291,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -42989,7 +45413,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43158,7 +45582,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43367,7 +45791,7 @@ An approximate occurrence of the quote.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43471,7 +45895,7 @@ pub struct Anchor {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43582,7 +46006,7 @@ The selectors were usable but nothing in the text matches them.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43702,7 +46126,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43979,7 +46403,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44235,7 +46659,7 @@ pub struct DateOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44362,7 +46786,7 @@ pub struct StrDate {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44472,7 +46896,7 @@ pub struct EdtfParts {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44582,7 +47006,7 @@ pub struct EdtfDate {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44939,7 +47363,7 @@ pub enum LinkMode {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45088,7 +47512,7 @@ pub enum AnnotationType {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45221,7 +47645,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45345,7 +47769,7 @@ pub struct Creator {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45465,7 +47889,7 @@ pub struct Tag {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45589,7 +48013,7 @@ pub struct AttachmentData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45713,7 +48137,7 @@ pub struct AnnotationData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45919,7 +48343,7 @@ pub struct ZoteroItem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46100,7 +48524,7 @@ A collection has no `name` (collection.js:812).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46245,7 +48669,7 @@ pub struct ZoteroCollection {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46403,7 +48827,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46629,7 +49053,7 @@ pub struct ItemTypeField {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46742,7 +49166,7 @@ pub struct ItemTypeSchema {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46964,7 +49388,7 @@ pub struct SearchCondition {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -47107,7 +49531,7 @@ pub struct ZoteroSearch {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -47479,7 +49903,7 @@ pub enum ItemType {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -48244,7 +50668,7 @@ pub enum Field {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -48574,7 +50998,7 @@ pub enum CreatorType {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -48836,7 +51260,7 @@ An annotation without `parentItem`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**

@@ -24,6 +24,19 @@
 //! v1 to v3 load with all of them absent, re-emit without them, and their
 //! `review.md` renders byte for byte as before
 //! (`old_files_write_back_unchanged`).
+//!
+//! **CORRECTED 2026-10-10** (GitHub #825, maintainer: "there's no review to
+//! be backwards compatible with"): the one exception to "never edited". The
+//! v1 `review.md` (call-graph-key ids, `code:` targets, #764's `q1`/`q8`
+//! placeholder keys) was deleted with the first-version id migration and
+//! the placeholder-key handling it exercised; v1's `kovan_root.toml` and
+//! `kovan.toml` stay. v2 to v4 `review.md` still hold `q1`/`q8` answers:
+//! they load (parsing accepts any key) and the wizard refuses them as
+//! unknown questions. Signed bytes are pinned by
+//! `src/review/signing/signed_at_tests.rs` (v3 only, since #825). From the
+//! first real stamp on, review schema changes are additive only again.
+//!
+//! Result (2026-10-10): passes for v1 (root and index only) to v4.
 
 use std::path::Path;
 
@@ -52,25 +65,25 @@ fn every_committed_review_fixture_loads() {
             n
         });
 
-        let md = std::fs::read_to_string(dir.join("review.md")).unwrap();
+        // v1's review.md was removed with the first-version ids (#825).
+        let Ok(md) = std::fs::read_to_string(dir.join("review.md")) else {
+            assert_eq!(dir.file_name().and_then(|n| n.to_str()), Some("v1"));
+            continue;
+        };
         let doc = parse_review_md(&md);
         assert!(doc.unreadable.is_empty(), "{}: {:?}", dir.display(), doc.unreadable);
         assert!(doc.entries.len() >= 6);
-        match dir.file_name().and_then(|n| n.to_str()) {
-            Some("v1") => assert_eq!(doc.migrated.len(), 2, "two call-graph keys migrate"),
-            _ => assert!(doc.migrated.is_empty(), "{}: {:?}", dir.display(), doc.migrated),
-        }
         assert!(doc.reviews().all(|r| kovan_common::review::id::is_fn_id(&r.function_id())));
         // `signed_at` (#783) exists from v3 on, and never appears from nowhere.
         let has_signed_at = doc.reviews().any(|r| r.review.signed_at.is_some())
             && doc.architectures().any(|a| a.architecture.signed_at.is_some());
-        let v3_or_later = !matches!(dir.file_name().and_then(|n| n.to_str()), Some("v1" | "v2"));
+        let v3_or_later = !matches!(dir.file_name().and_then(|n| n.to_str()), Some("v2"));
         assert_eq!(has_signed_at, v3_or_later, "{}", dir.display());
         if !v3_or_later {
             assert!(!render_review_md(&doc.entries).unwrap().contains("signed_at"));
         }
         // The #809 records exist from v4 on, and never appear from nowhere.
-        let v4_or_later = !matches!(dir.file_name().and_then(|n| n.to_str()), Some("v1" | "v2" | "v3"));
+        let v4_or_later = !matches!(dir.file_name().and_then(|n| n.to_str()), Some("v2" | "v3"));
         let has_ivv = doc.reviews().any(|r| r.review.separation_attestation.is_some())
             && r.code_review.as_ref().is_some_and(|c| c.developing_organisation.len() == 2)
             && r.reviewers.iter().any(|x| !x.organisations.is_empty())
@@ -96,33 +109,31 @@ fn every_committed_review_fixture_loads() {
     assert!(versions >= 1);
 }
 
-/// **The #764 placeholder checklist keys in the v1 fixture** (GitHub #769).
+/// **The #764 placeholder checklist keys in the v2 fixture** (GitHub #769;
+/// ~~in the v1 fixture, refused as `LegacyPlaceholderKey`~~ **CORRECTED
+/// 2026-10-10**, #825: the v1 `review.md` is gone and the keys are plain
+/// unknown keys).
 ///
-/// Methodology: the v1 `review.md` was written with #764's placeholder keys
-/// `q1` and `q8`. The review must stay readable (additive schema), and the
-/// wizard's stamp gate must refuse those keys with
-/// `LegacyPlaceholderKey` naming the replacing key, never map them, and
-/// never let the placeholder `q8 = "reference_code_to_code"` open rung 4.
+/// Methodology: the v2 `review.md` was written with #764's placeholder keys
+/// `q1` and `q8`. The review must stay readable, and the wizard's stamp gate
+/// must refuse those keys as unknown questions, never map them, and never
+/// let the placeholder `q8 = "reference_code_to_code"` open rung 4.
 ///
-/// Result (2026-10-07): passes; `q1` -> `doc_matches_behaviour`, `q8` ->
-/// `vv_evidence`, rung 4 closed.
+/// Result (2026-10-10): passes.
 #[test]
-fn v1_placeholder_checklist_keys_load_but_the_wizard_refuses_them() {
+fn placeholder_checklist_keys_load_but_the_wizard_refuses_them() {
     use kovan_common::review::wizard::{stamp_gate, AnswerError, Applicability, GateReason};
     let md = std::fs::read_to_string(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/review/v1/review.md"),
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/review/v2/review.md"),
     )
     .unwrap();
     let doc = parse_review_md(&md);
-    let r = doc.reviews().next().expect("the v1 fixture has a review");
+    let r = doc.reviews().next().expect("the v2 fixture has a review");
     assert_eq!(r.review.checklist.get("q8").map(String::as_str), Some("reference_code_to_code"));
     let g = stamp_gate(&r.review.checklist, Applicability::default());
     assert!(!g.stampable() && !g.rung4_allowed);
-    for (old, new) in [("q1", "doc_matches_behaviour"), ("q8", "vv_evidence")] {
-        assert!(g.blocked_by.contains(&GateReason::Invalid(AnswerError::LegacyPlaceholderKey {
-            key: old.into(),
-            use_instead: new.into(),
-        })));
+    for k in ["q1", "q8"] {
+        assert!(g.blocked_by.contains(&GateReason::Invalid(AnswerError::UnknownQuestion(k.into()))));
     }
 }
 
@@ -130,13 +141,14 @@ fn v1_placeholder_checklist_keys_load_but_the_wizard_refuses_them() {
 ///
 /// Methodology: the fixtures were written by hand (an inline array where
 /// the renderer writes one per line), so the byte check is on files the
-/// renderer wrote: for v1, v2 and v3, `review.md` is rendered once, and that
+/// renderer wrote: for v2 and v3 (~~v1~~, removed by #825), `review.md` is rendered once, and that
 /// rendering must read and render again to exactly the same bytes, with no
 /// `separation_attestation` anywhere (the field is absent, so serde skips
 /// it). A `review.md` written by the pre-#809 renderer and signed then is
-/// pinned byte for byte, with its signatures, by
+/// ~~pinned byte for byte, with its signatures, by
 /// `signing/signed_at_tests.rs` (`old_review_md_loads_unchanged`,
-/// `v1_fixture_bytes_identical_and_verified`). And a reader shaped like the
+/// `v1_fixture_bytes_identical_and_verified`)~~ **CORRECTED 2026-10-10**
+/// (#825): no longer verifies; the v3 bytes are pinned there instead. And a reader shaped like the
 /// pre-#809 schema (no organisation, attestation or
 /// `separation_attestation` fields; serde ignores unknown keys) reads the
 /// v4 root and review, so an older kovan can still open a newer workspace.
@@ -146,7 +158,7 @@ fn v1_placeholder_checklist_keys_load_but_the_wizard_refuses_them() {
 #[test]
 fn old_files_write_back_unchanged() {
     let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/review");
-    for v in ["v1", "v2", "v3"] {
+    for v in ["v2", "v3"] {
         let md = std::fs::read_to_string(base.join(v).join("review.md")).unwrap();
         let once = render_review_md(&parse_review_md(&md).entries).unwrap();
         let twice = render_review_md(&parse_review_md(&once).entries).unwrap();

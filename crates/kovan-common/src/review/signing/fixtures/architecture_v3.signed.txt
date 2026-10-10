@@ -1,9 +1,12 @@
-kovan-review-signature-v1
+kovan-review-signature-v3
 kind="architecture"
 id="arch-steam"
 by="github:founder"
-date="2026-10-07"
+date="2026-10-10"
+signed_at="2026-10-10T14:05:00+08:00"
 commit="0123456789abcdef0123456789abcdef01234567"
+member="fn:00000000000000aa"
 member="fn:3bbbea796e38ff70"
 upstream="" ""
 pattern="concept:flash"
+relation="implements" "artifact:iapws-if97"

@@ -33,7 +33,6 @@ pub(crate) fn review(function: &str, _file: &str, by: &str) -> ReviewEntry {
             Some(&fid(function)),
         ),
         review: ReviewBody {
-            function: None,
             path: Some(function.into()),
             by: by.into(),
             rung: 3,
@@ -106,7 +105,6 @@ fn every_entry_kind_round_trips() {
     let nf = NeedsFixEntry {
         kovan: meta("fix-1", "needs_fix", Some(&fid("crates/t/src/steam.rs::flash"))),
         needs_fix: NeedsFixBody {
-            function: None,
             path: Some("crates/t/src/steam.rs::flash".into()),
             by: "github:theodoreOnzGit".into(),
             date: "2026-10-07".into(),
@@ -121,7 +119,6 @@ fn every_entry_kind_round_trips() {
     let ann = AnnotationEntry {
         kovan: meta("hl-1", "annotation", Some(&fid("crates/t/src/steam.rs::flash"))),
         annotation: AnnotationBody {
-            function: None,
             path: Some("crates/t/src/steam.rs::flash".into()),
             by: "github:theodoreOnzGit".into(),
             commit: SHA.into(),
@@ -338,19 +335,18 @@ fn signed_bytes_cover_the_certifying_fields() {
     );
 }
 
-/// Methodology: migration from the first-version ids (maintainer, #764,
-/// 2026-10-07: "a migration test from the call-graph-key ids"). A
-/// `review.md` written in the first-version form (`[review] function` =
-/// call-graph key, `target = "code:…"`, a needs-fix and a highlight on the
-/// same function, an architecture node listing it) reads with no
-/// unreadable entries; every entry of one function gets the same `fn:` id,
-/// minted from the key and its earliest review's hash and commit; the path
-/// keeps the old key; re-rendering writes the new form, which reads back
-/// unchanged with nothing left to migrate.
+/// Methodology: the first-version ids are no longer read (GitHub #825,
+/// 2026-10-10; ~~migrated in memory, #764~~). A `review.md` in the
+/// first-version form (`[review] function` = call-graph key, `target =
+/// "code:…"`, a needs-fix and a highlight on the same function, an
+/// architecture node listing it) loads the function-level entries as
+/// [`Unreadable`] (no `fn:` target: counts as no review), keeping the kind
+/// and reviewer for the queue; the architecture node, which has no target,
+/// still reads.
 ///
-/// Result (2026-10-07): passes.
+/// Result (2026-10-10): passes.
 #[test]
-fn first_version_ids_migrate() {
+fn first_version_ids_are_unreadable() {
     let key = "crates/t/src/steam.rs::flash";
     let old = format!(r#"# Review
 
@@ -428,22 +424,14 @@ members = ["{key}"]
 ```
 "#, ha = h('a'), hb = h('b'));
     let doc = parse_review_md(&old);
-    assert!(doc.unreadable.is_empty(), "{:?}", doc.unreadable);
-    let id = mint_fn_id(key, &h('a'), SHA);
-    assert_eq!(doc.migrated, vec![(key.to_string(), id.clone())]);
-    let r = doc.reviews().next().unwrap();
-    assert_eq!(r.function_id(), id);
-    assert_eq!(r.path().as_deref(), Some(key));
-    assert_eq!(r.review.function, None);
-    assert_eq!(r.review.moved[0].to, None, "a first-version move record keeps its shape");
-    assert_eq!(doc.needs_fixes().next().unwrap().function_id(), id);
-    assert_eq!(doc.architectures().next().unwrap().architecture.members, vec![id.clone()]);
-    let new = render_review_md(&doc.entries).unwrap();
-    assert!(new.contains(&format!("target = \"{id}\"")) && !new.contains("function ="));
-    let again = parse_review_md(&new);
-    assert!(again.migrated.is_empty());
-    let entries = |d: &ReviewDocument| d.entries.iter().map(|e| e.entry.clone()).collect::<Vec<_>>();
-    assert_eq!(entries(&again), entries(&doc));
+    assert_eq!(doc.reviews().count() + doc.needs_fixes().count(), 0);
+    let kinds: Vec<_> = doc.unreadable.iter().map(|u| u.kind.as_deref().unwrap_or("")).collect();
+    assert_eq!(kinds, ["review", "needs_fix", "annotation"]);
+    for u in &doc.unreadable {
+        assert_eq!(u.by.as_deref(), Some("github:a"));
+        assert_eq!(u.function, None, "a first-version key is not a function id");
+    }
+    assert_eq!(doc.architectures().next().unwrap().architecture.members, vec![key.to_string()]);
 }
 
 /// Methodology: the GitHub #809 `separation_attestation` on a review is

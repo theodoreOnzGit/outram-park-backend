@@ -38,7 +38,7 @@
 //!   [`kovan_common::code_index::refresh::refresh_folder`] and
 //!   [`kovan_common::code_index::refresh::all_claims`];
 //! - `review.md` parsing: [`kovan_common::review::review_md::parse_review_md`];
-//! - git: [`crate::review_stamps::git`] (`git`, `rev_parse`, `show`,
+//! - git: [`git`] (`git`, `rev_parse`, `show`,
 //!   `is_dirty`), the `Cargo.lock` hash as `kovan-cli test` takes it
 //!   ([`kovan_common::review::hash::sha256_tagged`] of the file);
 //! - file discovery: `kovan_discovery::discover` (honours `.gitignore`,
@@ -77,7 +77,7 @@ use kovan_common::review::signing::keystore::KeyFile;
 use kovan_common::review::types::ChangeAuthorship;
 use kovan_common::review::wizard::{vv_case_author_prefill, Applicability, ReviewWizard};
 
-use crate::review_stamps::git;
+pub mod git;
 
 pub mod authorship;
 pub mod commit_push;

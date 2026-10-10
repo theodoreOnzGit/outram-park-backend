@@ -10,7 +10,7 @@
 //! <workspace>/target/kovan-code-review/data/
 //!   code_map.json      the crates and their tags (cargo metadata)
 //!   graph/index.json   the split call graph's index, with stamp states
-//!                      (legacy `review/stamps.toml`; see below)
+//!                      (from `review.md`; see below)
 //!   graph/search.json  its search index
 //!   graph/<crate>.json one slice per crate
 //!   build.json         commit, and which crates rust-analyzer did not index

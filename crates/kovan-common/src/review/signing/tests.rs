@@ -46,7 +46,6 @@ pub(super) fn review_entry(function: &str, by: &str, date: &str) -> ReviewEntry 
             target: Some(crate::review::id::mint_fn_id(function, &h('a'), SHA)),
         },
         review: ReviewBody {
-            function: None,
             path: Some(function.into()),
             by: by.into(),
             rung: 3,
@@ -650,12 +649,14 @@ fn founder_and_key_problems() {
 }
 
 /// Architecture nodes are signed like reviews; a reviewer's node must have
-/// member paths, all in scope.
+/// member paths, all in scope. Members are `fn:` ids and their locations
+/// `member_paths` (the first-version paths-as-members form is not read,
+/// #825).
 #[test]
 fn architecture_signing_and_scope() {
     let (founder, f, alice, a) = founder_and_alice();
     let reg = Registry::build(&root(vec![founder, alice]));
-    let node = |by: &str, members: Vec<String>| ArchitectureEntry {
+    let node = |by: &str, paths: Vec<String>| ArchitectureEntry {
         kovan: EntryMeta {
             id: "arch-steam".into(),
             kind: "architecture".into(),
@@ -669,8 +670,8 @@ fn architecture_signing_and_scope() {
             date: "2026-10-08".into(),
             signed_at: None,
             commit: SHA.into(),
-            members,
-            member_paths: vec![],
+            members: paths.iter().map(|p| crate::review::id::mint_fn_id(p, &h('a'), SHA)).collect(),
+            member_paths: paths,
             upstream_tag: None,
             upstream: None,
             pattern: Some("concept:flash".into()),
@@ -682,7 +683,7 @@ fn architecture_signing_and_scope() {
     a.sign_architecture(&mut n).unwrap();
     assert!(verify_architecture(&n, &reg).is_verified());
     let mut t = n.clone();
-    t.architecture.members.push("crates/tampines/src/steam.rs::other".into());
+    t.architecture.members.push("fn:00000000000000ff".into());
     assert_eq!(unverified(verify_architecture(&t, &reg)), UnverifiedReason::BadSignature);
     let mut empty = node(ALICE, vec![]);
     a.sign_architecture(&mut empty).unwrap();

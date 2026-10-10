@@ -109,7 +109,6 @@ fn doc(entries: Vec<Entry>) -> ReviewDocument {
             })
             .collect(),
         unreadable: Vec::new(),
-        migrated: Vec::new(),
     }
 }
 

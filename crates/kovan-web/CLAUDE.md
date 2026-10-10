@@ -18,7 +18,7 @@ what is on screen.
   `NOTICE`). The small pieces of `dhoby_ghaut::web_demo` this needs are
   ported in `src/ui/camera.rs`, with the citation.
 - **Web is read-only.** No Stamp, Needs fix, rename or code action is ever
-  enabled in `Mode::Web`. AI agents never stamp (`kovan::review_stamps`).
+  enabled in `Mode::Web`. AI agents never stamp (`kovan::stamping`; ~~`kovan::review_stamps`~~ removed 2026-10-10, #825).
 - **One bar, one UI.** The review bar is one component parameterised by
   `Mode`; desktop stamping (#740) enables its buttons, it does not get a
   second bar.

@@ -25,8 +25,8 @@ pub enum FieldError {
     TooShort { field: String },
     /// An upstream link is not pinned to a commit hash.
     UnpinnedUrl(UrlPinError),
-    /// The function reference is not `fn:<id>` with a `path`, nor a
-    /// first-version call-graph key.
+    /// The function reference is not `fn:<id>` with a `path` (~~nor a
+    /// first-version call-graph key~~: no longer read since #825).
     BadTarget(String),
     /// `field` is not an ISO date `YYYY-MM-DD` (Q9, #764, 2026-10-07).
     BadDate { field: String, value: String },

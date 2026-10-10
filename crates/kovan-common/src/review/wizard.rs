@@ -29,7 +29,7 @@
 //! about who wrote the tests reaching the function):
 //!
 //! ```text
-//!   answers ─┬─ unknown / legacy q1..q10 / not-applicable / bad text ──> blocked_by: Invalid
+//!   answers ─┬─ unknown / not-applicable / bad text ─────────────────> blocked_by: Invalid
 //!            ├─ applicable question unanswered ──────────────────────> blocked_by: Unanswered
 //!            ├─ option effect = block ───────────────────────────────> blocked_by: Answer
 //!            ├─ option effect = prompt_needs_fix ────────────────────> prompts ("Mark as Needs fix instead?")
@@ -52,17 +52,20 @@
 //!                 2026-10-07). ~~rung = rung_4 while !rung4_allowed ->
 //!                 blocked_by: Rung4NotOpen~~ CORRECTED 2026-10-07: the
 //!                 `rung` question is gone, and a `rung` answer is refused
-//!                 ([`AnswerError::RungIsDerived`]).
+//!                 (~~`AnswerError::RungIsDerived`~~ **CORRECTED
+//!                 2026-10-10** (#825): as an unknown question).
 //! ```
 //!
 //! # The #764 placeholder keys
 //!
-//! #764 wrote `q1` … `q10` as placeholders. They are **rejected cleanly**, not
-//! mapped: [`AnswerError::LegacyPlaceholderKey`] names the key that replaces
-//! each one ([`LEGACY_PLACEHOLDER_KEYS`]). Their placeholder answers
-//! (`"yes"`) are not answers to the new questions, so mapping them would
-//! certify questions nobody was asked. A `review.md` holding them still
-//! parses (the entry is readable); only the wizard refuses them.
+//! #764 wrote `q1` … `q10` as placeholders. ~~They are rejected cleanly with
+//! `AnswerError::LegacyPlaceholderKey`, naming the key that replaces each
+//! one (`LEGACY_PLACEHOLDER_KEYS`)~~ **CORRECTED 2026-10-10** (#825): no
+//! review was ever written with them, so they are now simply unknown keys
+//! ([`AnswerError::UnknownQuestion`]), as is `q10` or `rung`. They are never
+//! mapped: a placeholder answer (`"yes"`) is not an answer to the new
+//! questions. A `review.md` holding them still parses (the entry is
+//! readable); only the wizard refuses them.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
@@ -73,25 +76,6 @@ use super::types::AuthorshipKind;
 
 /// The question set, embedded at compile time (works in wasm).
 pub const WIZARD_TOML: &str = include_str!("../../data/review_wizard.toml");
-
-/// #764's placeholder keys and the question each one became (#769 table
-/// order). Used only to make the rejection say what to write instead.
-pub const LEGACY_PLACEHOLDER_KEYS: &[(&str, &str)] = &[
-    ("q1", "doc_matches_behaviour"),
-    ("q2", "upstream_fidelity"),
-    ("q3", "limits_and_guards"),
-    ("q4", "units_documented"),
-    ("q5", "error_handling"),
-    ("q6", "numerical_hazards"),
-    ("q7", "test_reach"),
-    ("q8", "vv_evidence"),
-    ("q9", "maintainability"),
-];
-
-/// Keys that once held the rung as an answer: #764's `q10` and the #769
-/// `rung` question (removed 2026-10-07: the rung is derived,
-/// [`derived_rung`]). Refused with [`AnswerError::RungIsDerived`].
-pub const LEGACY_RUNG_KEYS: &[&str] = &["q10", "rung"];
 
 /// The rung a stamp gives, derived, never chosen (maintainer, #769,
 /// 2026-10-07). Rung 5 is not a stamp's rung: ~~it is two independent
@@ -333,15 +317,9 @@ impl Applicability {
 /// Why one checklist answer is not acceptable.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AnswerError {
-    /// One of #764's `q1` … `q10` placeholders; write `use_instead`.
-    LegacyPlaceholderKey {
-        key: String,
-        use_instead: String,
-    },
+    /// No such question (#764's `q1` … `q10` placeholders and a `rung`
+    /// answer included: the rung is derived, never chosen).
     UnknownQuestion(String),
-    /// A rung given as an answer (`rung`, or #764's `q10`): the rung is
-    /// derived, never chosen (maintainer, #769, 2026-10-07).
-    RungIsDerived(String),
     /// Answered, but the question does not apply (e.g. upstream fidelity for
     /// a function that is not a port).
     NotApplicable(String),
@@ -364,17 +342,7 @@ pub enum AnswerError {
 impl std::fmt::Display for AnswerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::LegacyPlaceholderKey { key, use_instead } => {
-                write!(
-                    f,
-                    "{key} is a #764 placeholder key; answer {use_instead} instead"
-                )
-            }
             Self::UnknownQuestion(q) => write!(f, "no question {q:?}"),
-            Self::RungIsDerived(k) => write!(
-                f,
-                "{k}: the rung is derived from the V&V answers and git, never answered"
-            ),
             Self::NotApplicable(q) => write!(f, "question {q} does not apply to this function"),
             Self::UnknownOption { question, option } => {
                 write!(f, "{question}: no option {option:?}")
@@ -577,19 +545,8 @@ impl ReviewWizard {
         raw: &str,
         ctx: Applicability,
     ) -> Result<&WizardOption, AnswerError> {
-        if LEGACY_RUNG_KEYS.contains(&question) {
-            return Err(AnswerError::RungIsDerived(question.to_string()));
-        }
         let Some(q) = self.question(question) else {
-            return Err(
-                match LEGACY_PLACEHOLDER_KEYS.iter().find(|(k, _)| *k == question) {
-                    Some((k, new)) => AnswerError::LegacyPlaceholderKey {
-                        key: k.to_string(),
-                        use_instead: new.to_string(),
-                    },
-                    None => AnswerError::UnknownQuestion(question.to_string()),
-                },
-            );
+            return Err(AnswerError::UnknownQuestion(question.to_string()));
         };
         if !ctx.applies(q.applies_when) {
             return Err(AnswerError::NotApplicable(question.to_string()));
@@ -1110,7 +1067,7 @@ requires_text = true
     /// still stamp. Git saying an agent wrote the tests, or not knowing,
     /// gives rung 3. A self-check leaves rung 4 open and only marks the
     /// stamp not independent (no rung 5). A `rung` (or `q10`) answer is
-    /// refused as derived. ~~asking for rung 4 while it is closed blocks
+    /// refused (an unknown question since #825). ~~asking for rung 4 while it is closed blocks
     /// with `Rung4NotOpen`~~ CORRECTED 2026-10-07: there is no rung answer.
     ///
     /// Result (2026-10-07): passes.
@@ -1148,12 +1105,12 @@ requires_text = true
             assert!(!g.independent, "{who}");
             assert!(g.stampable(), "{who}");
         }
-        for k in LEGACY_RUNG_KEYS {
+        for k in ["q10", "rung"] {
             let mut m = clean();
             m.insert(k.to_string(), "rung_3".into());
             assert_eq!(
                 stamp_gate(&m, NONE).blocked_by,
-                [GateReason::Invalid(AnswerError::RungIsDerived(k.to_string()))]
+                [GateReason::Invalid(AnswerError::UnknownQuestion(k.to_string()))]
             );
         }
         // Rung 4 needs the hand-written case too (maintainer, #769).
@@ -1249,41 +1206,31 @@ requires_text = true
                 question: "q".into(),
                 option: "o".into(),
             },
-            AnswerError::LegacyPlaceholderKey {
-                key: "q1".into(),
-                use_instead: "x".into(),
-            },
         ] {
             assert!(!err.to_string().is_empty());
         }
     }
 
-    /// Methodology: #764's placeholder keys `q1` … `q10` are rejected (not
-    /// mapped) with `LegacyPlaceholderKey` naming the replacing key, and
-    /// every replacement named is a real question.
+    /// Methodology: #764's placeholder keys `q1` … `q10` are unknown keys
+    /// since #825 (~~rejected with `LegacyPlaceholderKey`~~): each one is
+    /// refused as [`AnswerError::UnknownQuestion`], never mapped, and a
+    /// placeholder `q8 = "reference_code_to_code"` never opens rung 4.
     ///
-    /// Result (2026-10-07): passes.
+    /// Result (2026-10-10): passes.
     #[test]
-    fn legacy_placeholder_keys_are_rejected_cleanly() {
+    fn placeholder_keys_are_unknown_questions() {
         let w = ReviewWizard::embedded();
-        for (old, new) in LEGACY_PLACEHOLDER_KEYS {
-            assert!(w.question(new).is_some(), "{new}");
+        for k in (1..=10).map(|i| format!("q{i}")) {
             assert_eq!(
-                w.check_answer(old, "yes", BOTH).unwrap_err(),
-                AnswerError::LegacyPlaceholderKey {
-                    key: old.to_string(),
-                    use_instead: new.to_string()
-                }
+                w.check_answer(&k, "yes", BOTH).unwrap_err(),
+                AnswerError::UnknownQuestion(k.clone())
             );
         }
         let g = stamp_gate(&a(&[("q1", "yes"), ("q8", "reference_code_to_code")]), NONE);
         assert!(!g.rung4_allowed, "a placeholder q8 never opens rung 4");
         assert!(g
             .blocked_by
-            .contains(&GateReason::Invalid(AnswerError::LegacyPlaceholderKey {
-                key: "q8".into(),
-                use_instead: "vv_evidence".into()
-            })));
+            .contains(&GateReason::Invalid(AnswerError::UnknownQuestion("q8".into()))));
     }
 
     /// Methodology: the `independence` question after GitHub #809 (rung 5 is

@@ -220,7 +220,6 @@ pub fn draft_review(input: &DraftInput) -> Result<ReviewEntry, DraftError> {
             target: Some(f.id.clone()),
         },
         review: ReviewBody {
-            function: None,
             path: Some(path),
             by: input.by.clone(),
             rung: gate.rung.as_u8(),
@@ -274,7 +273,6 @@ pub fn draft_needs_fix(
             target: Some(function.id.clone()),
         },
         needs_fix: NeedsFixBody {
-            function: None,
             path: Some(format!("{file}::{}", function.qual)),
             by: by.into(),
             date: date.into(),

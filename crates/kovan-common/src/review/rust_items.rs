@@ -3,12 +3,14 @@
 //!
 //! Moved here from `kovan::review_stamps::parse` on 2026-10-07 (GitHub #764;
 //! placement decided on #743: stamp types in kovan-common, which builds for
-//! wasm). `kovan::review_stamps::parse` re-exports this module unchanged.
-//! The one addition is [`FnEntry::code_without_name`], the code text with the
-//! function's own name left out, which the #764 function hash
-//! ([`super::hash`]) is taken over; [`stamp_hash`] (the 2026-10-06 `kovan`
+//! wasm). The one addition is [`FnEntry::code_without_name`], the code text
+//! with the function's own name left out, which the #764 function hash
+//! ([`super::hash`]) is taken over. ~~`kovan::review_stamps::parse`
+//! re-exports this module unchanged; `stamp_hash` (the 2026-10-06 `kovan`
 //! stamp hash, name and doc included) is kept for `kovan`'s
-//! `review/stamps.toml` until that file is retired.
+//! `review/stamps.toml` until that file is retired.~~ **CORRECTED
+//! 2026-10-10** (#825): that file, `kovan::review_stamps` and `stamp_hash`
+//! were removed; the normalisation is tested through [`super::hash`].
 //!
 //! # Which functions exist
 //!
@@ -211,24 +213,6 @@ pub fn matches(f: &FnEntry, qual: &str) -> bool {
             Container::Trait { name } => name == owner,
         },
     }
-}
-
-/// The stamp hash of a function's normalised doc and code text:
-/// `sha256:` and the lowercase hex SHA-256 of
-/// `"kovan-review-stamp-v1\ndoc\n" + doc + "\ncode\n" + code`.
-pub fn stamp_hash(doc: &str, code: &str) -> String {
-    use sha2::{Digest, Sha256};
-    let mut h = Sha256::new();
-    h.update(b"kovan-review-stamp-v1\ndoc\n");
-    h.update(doc.as_bytes());
-    h.update(b"\ncode\n");
-    h.update(code.as_bytes());
-    let digest = h.finalize();
-    let mut s = String::from("sha256:");
-    for b in digest {
-        s.push_str(&format!("{b:02x}"));
-    }
-    s
 }
 
 fn walk_items(items: &[Item], inline: &mut Vec<String>, in_test: bool, out: &mut ParsedFile) {
@@ -570,44 +554,6 @@ mod tests {
                 has_path_attr: false
             },]
         );
-    }
-
-    /// Methodology: the normalisation's two promises, on one function —
-    /// rustfmt-style reformatting, `//` and `/* */` comment edits, and doc
-    /// re-wrapping keep the hash; a changed token, a changed doc word and a
-    /// new doc paragraph break each change it.
-    ///
-    /// Result (2026-10-06): passes.
-    #[test]
-    fn hash_ignores_layout_and_comments_but_not_tokens_or_docs() {
-        let h = |src: &str| {
-            let f = locate(src, "f").unwrap();
-            stamp_hash(&f.doc, &f.code)
-        };
-        let base = h("/// Returns twice x,\n/// rounded.\npub fn f(x: f64) -> f64 { let y = x * 2.0; y.round() }");
-        let same = [
-            "/// Returns twice x,\n/// rounded.\npub fn f(x: f64) -> f64 {\n    let y = x * 2.0;\n    y.round()\n}\n",
-            "/// Returns twice x,\n/// rounded.\npub fn f(x:f64)->f64{let y=x*2.0;y.round()}",
-            "/// Returns twice x,\n/// rounded.\npub fn f(x: f64) -> f64 {\n    // why: doubling\n    let y = x /* inline */ * 2.0;\n    y.round() // done\n}",
-            "///   Returns twice x, rounded.\npub fn f(x: f64) -> f64 { let y = x * 2.0; y.round() }",
-            "/** Returns twice x,\n rounded. */\npub fn f(x: f64) -> f64 { let y = x * 2.0; y.round() }",
-            "// a plain comment above\n/// Returns twice x,\n/// rounded.\npub fn f(x: f64) -> f64 { let y = x * 2.0; y.round() }",
-        ];
-        for s in same {
-            assert_eq!(h(s), base, "should keep the hash:\n{s}");
-        }
-        let different = [
-            "/// Returns twice x,\n/// rounded.\npub fn f(x: f64) -> f64 { let y = x * 3.0; y.round() }",
-            "/// Returns twice x,\n/// rounded.\npub fn f(x: f64) -> f64 { let y = x * 2.; y.round() }",
-            "/// Returns twice x,\n/// rounded.\nfn f(x: f64) -> f64 { let y = x * 2.0; y.round() }",
-            "/// Returns twice x,\n/// rounded down.\npub fn f(x: f64) -> f64 { let y = x * 2.0; y.round() }",
-            "/// Returns twice x,\n///\n/// rounded.\npub fn f(x: f64) -> f64 { let y = x * 2.0; y.round() }",
-            "/// Returns twice x,\n/// rounded.\n#[inline]\npub fn f(x: f64) -> f64 { let y = x * 2.0; y.round() }",
-        ];
-        for s in different {
-            assert_ne!(h(s), base, "should change the hash:\n{s}");
-        }
-        assert!(base.starts_with("sha256:") && base.len() == 7 + 64);
     }
 
     /// Methodology: the parser must read real workspace code, not only

@@ -5,8 +5,12 @@
 //! The signed `date` is day-level only. `signed_at` is an RFC 3339
 //! timestamp **to the second, with its UTC offset**
 //! (`2026-10-07T14:03:09+08:00`, or `Z` for UTC), written into the signed
-//! bytes ([`super::signing`], the `kovan-review-signature-v2` header). A
-//! stamp signed before #783 has none (v1) and is judged exactly as before.
+//! bytes ([`super::signing`]; ~~the `kovan-review-signature-v2` header~~
+//! the one `kovan-review-signature-v3` header since #825). Every signing
+//! writes it. ~~A stamp signed before #783 has none (v1) and is judged
+//! exactly as before.~~ **CORRECTED 2026-10-10** (#825): v1 stamps no longer
+//! verify; an entry without `signed_at` (field kept optional) gets no
+//! plausibility flag.
 //!
 //! # The plausibility flags
 //!
@@ -220,8 +224,8 @@ impl SignedAtProblem {
 
 /// Judge a stamp's `signed_at` (module doc). `reviewed_commit_time` is the
 /// committer time of the stamp's `commit`; `stamp_commit_time` that of the
-/// commit that introduced the stamp. A v1 stamp (`signed_at = None`) gets
-/// no flag.
+/// commit that introduced the stamp. A stamp without one (`signed_at =
+/// None`) gets no flag.
 pub fn plausibility(
     signed_at: Option<&str>,
     date: &str,
@@ -340,14 +344,14 @@ mod tests {
     }
 
     /// Methodology: each flag of the module doc, on both sides of the 5-min
-    /// skew, plus v1 and unparseable. Pass: exactly the predicted flags.
+    /// skew, plus absent and unparseable. Pass: exactly the predicted flags.
     ///
     /// Result (2026-10-07): passes.
     #[test]
     fn plausibility_flags_and_skew() {
         let at = "2026-10-07T14:03:09+08:00";
         let t = 1_791_352_989;
-        // v1: nothing, whatever the git times.
+        // Absent: nothing, whatever the git times.
         assert!(plausibility(None, "1999-01-01", Some(t + 9999), Some(t - 9999)).is_empty());
         // Plausible: reviewed commit before, stamp commit after.
         assert!(plausibility(Some(at), "2026-10-07", Some(t - 3600), Some(t + 60)).is_empty());

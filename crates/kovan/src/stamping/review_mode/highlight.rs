@@ -117,7 +117,6 @@ pub fn draft_highlight(
             target: Some(f.id.clone()),
         },
         annotation: AnnotationBody {
-            function: None,
             path: Some(format!("{file}::{}", f.qual)),
             by: by.into(),
             commit: commit.into(),

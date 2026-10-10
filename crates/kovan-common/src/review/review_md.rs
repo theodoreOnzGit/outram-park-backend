@@ -24,8 +24,12 @@
 //! is the current location, updated when a move is acknowledged, and each
 //! acknowledged move appends `[[review.moved]]` (from, to, commit).
 //! ~~The join key is `[review] function`, the call-graph key, with `target`
-//! a `code:` link~~ **CORRECTED 2026-10-07**: that first-version form still
-//! reads and is migrated in memory ([`ReviewDocument::migrated`]).
+//! a `code:` link~~ **CORRECTED 2026-10-07**: ~~that first-version form still
+//! reads and is migrated in memory (`ReviewDocument::migrated`)~~
+//! **CORRECTED 2026-10-10** (#825): the first-version form and its
+//! migration were dropped (no `review.md` had been written in it). An entry
+//! without an `fn:` target and a valid `path` is [`Unreadable`]; a
+//! leftover `function` key is an unknown key, ignored.
 //!
 //! ````markdown
 //! # Review: SteamTable::flash (github:theodoreOnzGit)
@@ -44,7 +48,7 @@
 //! by = "github:theodoreOnzGit"
 //! rung = 3
 //! date = "2026-10-07"
-//! signed_at = "2026-10-07T14:03:09+08:00"   (since #783; absent on v1 stamps)
+//! signed_at = "2026-10-07T14:03:09+08:00"   (#783; written by every signing)
 //! commit = "<40 hex>"
 //! hash = "sha256:<64 hex>"
 //! doc_hash = "sha256:<64 hex>"
@@ -88,10 +92,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::anchoring::selector::Selector;
 use crate::call_graph::upstream::Upstream;
-use crate::artifact::relation::{CodeTarget, RelationRecord};
+use crate::artifact::relation::RelationRecord;
 use crate::artifact::{render_block, scan_blocks_with, UnparseableFence, ARTIFACT_LEVEL};
 
-use super::id::{is_fn_id, is_fn_path, mint_fn_id};
+use super::id::{is_fn_id, is_fn_path};
 use super::signing::Signature;
 use super::types::{
     check_commit, check_date, check_hash, check_pinned_url, check_text, reviewer_id_kind,
@@ -110,8 +114,7 @@ pub struct EntryMeta {
     pub created: String,
     pub modified: String,
     /// The function's stable id, `fn:<opaque>` ([`super::id`]); folder-level
-    /// entries have none. A first-version entry has a `code:` target here
-    /// (migrated on read).
+    /// entries have none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target: Option<String>,
 }
@@ -133,10 +136,6 @@ pub struct MoveRecord {
 /// `[review]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReviewBody {
-    /// First-version join key (the call-graph key); only on an entry
-    /// written before the hybrid id, and cleared by the migration.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub function: Option<String>,
     /// The function's current location, `file.rs::Type::name`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
@@ -150,8 +149,10 @@ pub struct ReviewBody {
     /// `YYYY-MM-DD`.
     pub date: String,
     /// When the stamp was signed: RFC 3339 to the second, with its UTC
-    /// offset (GitHub #783; [`super::signed_at`]). Signed (the v2 signed
-    /// bytes); absent on a stamp signed before #783, which stays v1.
+    /// offset (GitHub #783; [`super::signed_at`]). Signed when present (the
+    /// v3 signed bytes, [`super::signing`]); every signing writes it.
+    /// ~~absent on a stamp signed before #783, which stays v1~~
+    /// **CORRECTED 2026-10-10** (#825): the v1 bytes were dropped.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signed_at: Option<String>,
     /// The commit the review certifies.
@@ -166,8 +167,9 @@ pub struct ReviewBody {
     pub callees: BTreeMap<String, String>,
     /// Wizard answers by question key (`doc_matches_behaviour`, …; the set
     /// and the stamp gate are [`super::wizard`], #769). Parsing accepts any
-    /// key; #764's placeholder keys `q1` … `q10` are refused by the wizard,
-    /// not here, so an entry holding them stays readable.
+    /// key; an unknown one (#764's placeholder `q1` … `q10` included, since
+    /// #825) is refused by the wizard as an unknown question, not here, so
+    /// an entry holding it stays readable.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub checklist: BTreeMap<String, String>,
     /// The "no concept" reason, when the function links no concept.
@@ -180,9 +182,9 @@ pub struct ReviewBody {
     pub moved: Vec<MoveRecord>,
     /// The id of the reviewer's `[[reviewer.separation]]` attestation this
     /// review relies on for rung 5, IV&V (GitHub #809; [`super::ivv`]).
-    /// Signed (the v3 signed bytes, [`super::signing`]); absent on every
-    /// stamp that does not claim independence from the developing
-    /// organisation, which keeps its v1/v2 bytes.
+    /// Signed when present (the v3 signed bytes, [`super::signing`]); absent
+    /// on every stamp that does not claim independence from the developing
+    /// organisation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub separation_attestation: Option<String>,
     /// Ed25519 over [`super::signing::signed_bytes`]; checked by
@@ -212,10 +214,6 @@ pub enum FixStatus {
 /// `[needs_fix]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NeedsFixBody {
-    /// First-version join key (the call-graph key); only on an entry
-    /// written before the hybrid id, and cleared by the migration.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub function: Option<String>,
     /// The function's current location, `file.rs::Type::name`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
@@ -246,10 +244,6 @@ pub struct NeedsFixEntry {
 /// `[annotation]`: a highlight in a function's source.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AnnotationBody {
-    /// First-version join key (the call-graph key); only on an entry
-    /// written before the hybrid id, and cleared by the migration.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub function: Option<String>,
     /// The function's current location, `file.rs::Type::name`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
@@ -432,7 +426,7 @@ pub struct Unreadable {
     /// `[kovan] kind`, when it could be read.
     pub kind: Option<String>,
     /// The function, when it could be read: the `[kovan] target` (an
-    /// `fn:` id), else `path`, else a first-version `function` key.
+    /// `fn:` id), else `path`.
     pub function: Option<String>,
     /// The reviewer, when it could be read.
     pub by: Option<String>,
@@ -443,32 +437,21 @@ pub struct Unreadable {
 pub struct ReviewDocument {
     pub entries: Vec<ParsedEntry>,
     pub unreadable: Vec<Unreadable>,
-    /// First-version keys migrated on read: (call-graph key, minted id).
-    /// Non-empty means the next save rewrites the file in the new form.
-    pub migrated: Vec<(String, String)>,
 }
 
 /// The hybrid-id accessors shared by the function-level entries.
 macro_rules! function_ref {
     ($ty:ty, $body:ident) => {
         impl $ty {
-            /// The join key: `[kovan] target` when it is an `fn:` id, else
-            /// the first-version `function` key (before migration).
+            /// The join key: `[kovan] target`, an `fn:` id on every entry
+            /// that reads (checked on parse).
             pub fn function_id(&self) -> String {
-                match &self.kovan.target {
-                    Some(t) if is_fn_id(t) => t.clone(),
-                    _ => self.$body.function.clone().unwrap_or_default(),
-                }
+                self.kovan.target.clone().unwrap_or_default()
             }
 
             /// The current location, `file.rs::Type::name`.
             pub fn path(&self) -> Option<String> {
-                self.$body.path.clone().or_else(|| match &self.kovan.target {
-                    Some(t) if !is_fn_id(t) => {
-                        CodeTarget::parse(t).map(|c| format!("{}::{}", c.file, c.item))
-                    }
-                    _ => self.$body.function.clone(),
-                })
+                self.$body.path.clone()
             }
         }
     };
@@ -536,31 +519,26 @@ fn str_at<'v>(v: &'v toml::Value, path: &[&str]) -> Option<&'v str> {
     cur.as_str()
 }
 
-/// The function reference of an entry: either the hybrid form (`target` an
-/// `fn:` id and a valid `path`) or the first-version form (a `function`
-/// key, with `target` absent or a `code:` link).
-fn check_function_ref(
-    meta: &EntryMeta,
-    function: &Option<String>,
-    path: &Option<String>,
-) -> Result<(), FieldError> {
-    match (&meta.target, function) {
-        (Some(t), _) if is_fn_id(t) => match path {
+/// The function reference of an entry: `target` an `fn:` id and a valid
+/// `path` (the hybrid id). ~~or the first-version form (a `function` key,
+/// with `target` absent or a `code:` link)~~ **CORRECTED 2026-10-10**
+/// (#825): the first-version form is no longer read.
+fn check_function_ref(meta: &EntryMeta, path: &Option<String>) -> Result<(), FieldError> {
+    match &meta.target {
+        Some(t) if is_fn_id(t) => match path {
             Some(p) if is_fn_path(p) => Ok(()),
             Some(p) => Err(FieldError::BadTarget(p.clone())),
             None => Err(FieldError::BadTarget("path is missing".into())),
         },
-        (Some(t), Some(_)) if CodeTarget::parse(t).is_some() => Ok(()),
-        (None, Some(f)) if is_fn_path(f) => Ok(()),
-        (Some(t), _) => Err(FieldError::BadTarget(t.clone())),
-        (None, _) => Err(FieldError::BadTarget(String::new())),
+        Some(t) => Err(FieldError::BadTarget(t.clone())),
+        None => Err(FieldError::BadTarget(String::new())),
     }
 }
 
 /// Field-level validation of one review.
 pub fn validate_review(r: &ReviewEntry) -> Result<(), FieldError> {
     let b = &r.review;
-    check_function_ref(&r.kovan, &b.function, &b.path)?;
+    check_function_ref(&r.kovan, &b.path)?;
     reviewer_id_kind(&b.by)?;
     check_date("review.date", &b.date)?;
     if !(3..=4).contains(&b.rung) {
@@ -668,7 +646,7 @@ fn read_entry(text: &str) -> Result<Entry, (String, toml::Value)> {
         "needs_fix" => {
             let e: NeedsFixEntry = toml::from_str(text).map_err(|e| fail(e.to_string()))?;
             let b = &e.needs_fix;
-            let check = check_function_ref(&e.kovan, &b.function, &b.path)
+            let check = check_function_ref(&e.kovan, &b.path)
                 .and_then(|_| reviewer_id_kind(&b.by).map(|_| ()))
                 .and_then(|_| check_date("needs_fix.date", &b.date))
                 .and_then(|_| check_commit("needs_fix.commit", &b.commit))
@@ -680,7 +658,7 @@ fn read_entry(text: &str) -> Result<Entry, (String, toml::Value)> {
         "annotation" => {
             let e: AnnotationEntry = toml::from_str(text).map_err(|e| fail(e.to_string()))?;
             let a = &e.annotation;
-            let check = check_function_ref(&e.kovan, &a.function, &a.path)
+            let check = check_function_ref(&e.kovan, &a.path)
                 .and_then(|_| reviewer_id_kind(&a.by).map(|_| ()))
                 .and_then(|_| check_commit("annotation.commit", &e.annotation.commit));
             check.map_err(|e| fail(e.to_string()))?;
@@ -717,8 +695,6 @@ pub fn parse_review_md(markdown: &str) -> ReviewDocument {
             let function = str_at(&v, &["kovan", "target"])
                 .filter(|t| is_fn_id(t))
                 .or_else(|| tables.iter().find_map(|t| str_at(&v, &[t, "path"])))
-                .or_else(|| tables.iter().find_map(|t| str_at(&v, &[t, "function"])))
-                .or_else(|| str_at(&v, &["kovan", "target"]))
                 .map(str::to_string);
             let by = ["review", "needs_fix", "annotation"]
                 .iter()
@@ -746,92 +722,9 @@ pub fn parse_review_md(markdown: &str) -> ReviewDocument {
             })
             .collect(),
         unreadable: scan.problems,
-        migrated: Vec::new(),
     };
-    migrate_legacy_ids(&mut doc);
     demote_duplicate_reviews(&mut doc);
     doc
-}
-
-/// Migrate first-version entries (module doc) in memory. Each call-graph
-/// key gets one id, minted from the key and the hash and commit of its
-/// earliest review (by date, then commit); a key with no review uses its
-/// needs-fix (hash and commit) or annotation (commit only). Architecture
-/// members naming a migrated key are rewritten too. Deterministic.
-fn migrate_legacy_ids(doc: &mut ReviewDocument) {
-    let legacy = |t: &Option<String>| !t.as_deref().is_some_and(is_fn_id);
-    // key -> (date, commit, hash) of the source the id is minted from.
-    let mut seed: BTreeMap<String, (u8, String, String, String)> = BTreeMap::new();
-    let mut offer = |key: &str, rank: u8, date: &str, commit: &str, hash: &str| {
-        let cand = (rank, date.to_string(), commit.to_string(), hash.to_string());
-        let e = seed.entry(key.to_string()).or_insert_with(|| cand.clone());
-        if cand < *e {
-            *e = cand;
-        }
-    };
-    for e in &doc.entries {
-        match &e.entry {
-            Entry::Review(r) if legacy(&r.kovan.target) => {
-                if let Some(k) = &r.review.function {
-                    offer(k, 0, &r.review.date, &r.review.commit, &r.review.hash);
-                }
-            }
-            Entry::NeedsFix(n) if legacy(&n.kovan.target) => {
-                if let Some(k) = &n.needs_fix.function {
-                    offer(k, 1, &n.needs_fix.date, &n.needs_fix.commit, &n.needs_fix.hash);
-                }
-            }
-            Entry::Annotation(a) if legacy(&a.kovan.target) => {
-                if let Some(k) = &a.annotation.function {
-                    offer(k, 2, "", &a.annotation.commit, "");
-                }
-            }
-            _ => {}
-        }
-    }
-    let ids: BTreeMap<String, String> = seed
-        .into_iter()
-        .map(|(k, (_, _, commit, hash))| {
-            let id = mint_fn_id(&k, &hash, &commit);
-            (k, id)
-        })
-        .collect();
-    if ids.is_empty() {
-        return;
-    }
-    fn fix(meta: &mut EntryMeta, function: &mut Option<String>, path: &mut Option<String>, ids: &BTreeMap<String, String>) {
-        if meta.target.as_deref().is_some_and(is_fn_id) {
-            return;
-        }
-        if let Some(k) = function.take() {
-            if let Some(id) = ids.get(&k) {
-                meta.target = Some(id.clone());
-                *path = Some(k);
-            } else {
-                *function = Some(k);
-            }
-        }
-    }
-    for e in &mut doc.entries {
-        match &mut e.entry {
-            Entry::Review(r) => fix(&mut r.kovan, &mut r.review.function, &mut r.review.path, &ids),
-            Entry::NeedsFix(n) => fix(&mut n.kovan, &mut n.needs_fix.function, &mut n.needs_fix.path, &ids),
-            Entry::Annotation(a) => fix(&mut a.kovan, &mut a.annotation.function, &mut a.annotation.path, &ids),
-            Entry::Architecture(a) => {
-                let b = &mut a.architecture;
-                if b.members.iter().any(|m| ids.contains_key(m)) && b.member_paths.is_empty() {
-                    b.member_paths = b.members.clone();
-                }
-                for m in &mut b.members {
-                    if let Some(id) = ids.get(m) {
-                        *m = id.clone();
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-    doc.migrated = ids.into_iter().collect();
 }
 
 /// One standing review per (function, reviewer) (#739 "many maintainers"):

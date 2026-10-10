@@ -2338,6 +2338,12 @@ is an edit to those crates' headers, not made here.
 
 ## Human review stamps: `review/stamps.toml`, hashed with `syn`, voided from git (2026-10-06, GH #739)
 
+**SUPERSEDED 2026-10-10** (#825): everything in this section, the file,
+`src/review_stamps/`, `src/commands/stamps.rs` and `kovan-cli stamp`,
+`stamps-check` and `stamps-levels`, was removed. Stamps are signed
+`review.md` entries (#764, #762, #770); see "Dropping the legacy stamping
+schemas" below. Kept as the record of what was built.
+
 **Maintainer direction** (#735 comments, 2026-10-06): stamps live in
 `review/stamps.toml`, lightweight TOML; each links to the exact file, lines
 and commit; the hash covers the function's code **and its `///` doc
@@ -2519,3 +2525,40 @@ inherits the AGPL question (see `NOTICE`, "Workspace boundary").
 - the folder: `crates/kovan`.
 
 **What did change:** `cargo -p` and `cargo install` take the long name. Every script, CI workflow, hook and doc that ran `cargo … -p kovan` was updated (17 files). Older entries in this file keep their `-p kovan` commands as the record of what was run.
+
+## Dropping the legacy stamping schemas (2026-10-10, GH #825)
+
+**Decision (maintainer, 2026-10-10):** "Drop both, cos there's no review to
+be backwards compatible with." No `review/stamps.toml` and no signed
+`review.md` existed anywhere (checked on the issue: this repository, all
+branches, the maintainer's kovan roots). This is an explicit exception to
+the additive-only schema rule; from the first real stamp on, review schema
+changes are additive only again.
+
+**Removed.**
+- The `review/stamps.toml` path: `src/review_stamps/` (`mod`, `parse`,
+  `levels`, `git`, tests), `src/commands/stamps.rs`, and `kovan-cli stamp`,
+  `stamps-check`, `stamps-levels`; the now-unused `syn`, `proc-macro2` and
+  `quote` dependencies of this crate (kovan-common keeps its own); and
+  `kovan_common::review::rust_items::stamp_hash`. The `git`, `rev_parse`,
+  `show` and `is_dirty` helpers stamping uses moved to `src/stamping/git.rs`;
+  the diff-hunk parser only `stamps-check --diff` used went with it.
+- In `kovan_common::review`: the v1 and v2 signed-bytes headers (every
+  review and architecture node is signed under `kovan-review-signature-v3`;
+  `signed_at` and `separation_attestation` stay optional fields, each line
+  written when present); the first-version `[review] function` / `code:`
+  target join key, its in-memory migration and `ReviewDocument::migrated`
+  (such an entry is now unreadable); `LEGACY_PLACEHOLDER_KEYS`,
+  `LEGACY_RUNG_KEYS`, `AnswerError::LegacyPlaceholderKey` and
+  `AnswerError::RungIsDerived` (`q1` … `q10` and `rung` are now plain
+  unknown questions); the v1 signed fixtures and the v1 `review.md`
+  compatibility fixture (v1's `kovan_root.toml` and `kovan.toml` stay).
+
+**Pinned.** `signing/fixtures/review_v3.md` (a review carrying every
+signed field and an architecture node, signed with the seed-`[7u8; 32]`
+key) and its `.signed.txt` byte images: any change to the signed bytes fails
+`signing/signed_at_tests.rs`.
+
+**Kept.** The `kovan_root.toml` registry's v1 `legacy` key events and their
+statement bytes (the registry is not part of #825), and the `call-graph
+--split-dir` `StampState` without `state`, which still reads.

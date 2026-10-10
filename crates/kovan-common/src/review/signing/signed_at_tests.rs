@@ -1,19 +1,32 @@
-//! Tests of `signed_at` in the signed bytes (GitHub #783): v1 stamps signed
-//! before #783 still load and verify byte for byte; v2 stamps sign
-//! `signed_at` and any edit to it, or its removal, breaks the signature.
+//! Tests of the one signed-bytes format, v3 (GitHub #825), and of
+//! `signed_at` in it (GitHub #783). Since #825 any change to the signed
+//! bytes fails here; from the first real stamp on, a change is a new
+//! header, never an edit.
 //!
-//! Methodology. `fixtures/review_v1.md` holds a review and an architecture
-//! node signed **before** #783 by the code then in `signing.rs`, with the
+//! Methodology. `fixtures/review_v3.md` holds a review that carries every
+//! signed field (`signed_at`, `separation_attestation`, two callees, two
+//! checklist answers, two authorship sessions written out of order,
+//! `no_concept`, a relation) and an architecture node (`signed_at`, two
+//! members, a pattern, a relation), signed on 2026-10-10 with the
 //! deterministic ed25519 key whose seed is 32 bytes of `7` (public key
-//! [`V1_PUBLIC`]); `fixtures/*_v1.signed.txt` are the exact bytes that code
+//! [`FIXTURE_PUBLIC`]); `fixtures/*_v3.signed.txt` are the exact bytes
 //! signed. Each test parses the fixture with the ordinary reader, rebuilds
-//! the signed bytes with today's code and verifies against a registry
+//! the signed bytes with today's code, and verifies against a registry
 //! holding that key as the founder's. Pass criterion: byte equality with
-//! the recorded images, `SignatureCheck::Verified` for both v1 entries, and
-//! the exact `UnverifiedReason` / `SignError` predicted for each edit.
+//! the committed images; signing those bytes again with the seed key gives
+//! the committed signature (ed25519 signatures are deterministic);
+//! `SignatureCheck::Verified` for both entries; the file renders back byte
+//! for byte; and the exact `UnverifiedReason` / `SignError` predicted for
+//! each edit.
 //!
-//! Result (2026-10-07): all pass (`cargo test --release -j 12 -p
-//! kovan-common --lib --tests`).
+//! ~~`fixtures/review_v1.md`, signed before #783, pinned the v1 bytes~~
+//! **CORRECTED 2026-10-10** (#825): the v1 and v2 headers were dropped
+//! (no signed `review.md` existed), and with them that fixture.
+//!
+//! Result (2026-10-07, v1 fixture): all pass. Result (2026-10-10, v3
+//! fixture): all pass (`cargo test --release -j 6 -p kovan-common --lib`).
+
+use ed25519_dalek::{Signer as _, SigningKey};
 
 use super::keystore::SignError;
 use super::tests::{key, person, root, signed, unverified, F, FOUNDER};
@@ -23,88 +36,101 @@ use crate::review::root::{KeyEvent, KeyEventKind, ReviewerKey, Role};
 use crate::review::signed_at::parse_rfc3339;
 
 /// The public half of the fixture key (seed `[7u8; 32]`).
-const V1_PUBLIC: &str = "6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw=";
-const V1_MD: &str = include_str!("fixtures/review_v1.md");
+const FIXTURE_PUBLIC: &str = "6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw=";
+const V3_MD: &str = include_str!("fixtures/review_v3.md");
 
-fn v1_doc() -> ReviewDocument {
-    parse_review_md(V1_MD)
+fn seed_key() -> SigningKey {
+    SigningKey::from_bytes(&[7u8; 32])
 }
 
-fn v1_registry() -> Registry {
+fn v3_doc() -> ReviewDocument {
+    parse_review_md(V3_MD)
+}
+
+fn v3_registry() -> Registry {
     let k = ReviewerKey {
         id: "k1".into(),
         alg: ALG.into(),
-        public: V1_PUBLIC.into(),
-        created: "2026-10-07".into(),
+        public: FIXTURE_PUBLIC.into(),
+        created: "2026-10-10".into(),
         endorsed_by: None,
         reset: false,
         retired: false,
         retired_on: None,
         unretired: None,
-        history: vec![KeyEvent::unsigned(KeyEventKind::Created, "2026-10-07")],
+        history: vec![KeyEvent::unsigned(KeyEventKind::Created, "2026-10-10")],
     };
     Registry::build(&root(vec![person(FOUNDER, Role::Maintainer, vec![k])]))
 }
 
-/// Schemas are additive (#783): a `review.md` written before `signed_at`
-/// existed loads with every entry readable, no `signed_at`, nothing
-/// migrated, and writes back byte for byte.
+/// The v3 fixture loads with every entry readable, nothing left out, and
+/// writes back byte for byte (it was written by the renderer).
 #[test]
-fn old_review_md_loads_unchanged() {
-    let doc = v1_doc();
+fn v3_fixture_loads_and_writes_back_unchanged() {
+    let doc = v3_doc();
     assert!(doc.unreadable.is_empty(), "{:?}", doc.unreadable);
-    assert!(doc.migrated.is_empty());
     let r = doc.reviews().next().unwrap();
-    assert_eq!(r.review.signed_at, None);
+    assert_eq!(r.review.signed_at.as_deref(), Some("2026-10-10T14:03:09+08:00"));
+    assert_eq!(r.review.separation_attestation.as_deref(), Some("sep-2026-10-10"));
     let a = doc.architectures().next().unwrap();
-    assert_eq!(a.architecture.signed_at, None);
-    let out = render_review_md(&doc.entries).unwrap();
-    assert!(!out.contains("signed_at ="));
-    assert_eq!(out, V1_MD);
+    assert_eq!(a.architecture.signed_at.as_deref(), Some("2026-10-10T14:05:00+08:00"));
+    assert_eq!(render_review_md(&doc.entries).unwrap(), V3_MD);
 }
 
-/// v1 signed bytes are byte-identical to what was signed before #783, and
-/// both v1 entries still verify.
+/// **The pin (#825).** The v3 signed bytes are exactly the committed
+/// images; the seed key reproduces the committed signatures over them; both
+/// entries verify; and removing `signed_at` or the attestation from the
+/// signed review is an edit to signed bytes.
 #[test]
-fn v1_fixture_bytes_identical_and_verified() {
-    let doc = v1_doc();
-    let reg = v1_registry();
+fn v3_fixture_bytes_pinned_and_verified() {
+    let doc = v3_doc();
+    let reg = v3_registry();
+    let sk = seed_key();
+    assert_eq!(encode_b64(sk.verifying_key().as_bytes()), FIXTURE_PUBLIC);
+
     let r = doc.reviews().next().unwrap();
+    let bytes = signed_bytes(r);
     assert_eq!(
-        signed_bytes(r),
-        include_bytes!("fixtures/review_v1.signed.txt")
+        String::from_utf8(bytes.clone()).unwrap(),
+        include_str!("fixtures/review_v3.signed.txt")
+    );
+    assert_eq!(
+        encode_b64(&sk.sign(&bytes).to_bytes()),
+        r.review.signature.as_ref().unwrap().value
     );
     let SignatureCheck::Verified(v) = verify_review(r, &reg) else {
-        panic!("v1 review: {:?}", verify_review(r, &reg))
+        panic!("v3 review: {:?}", verify_review(r, &reg))
     };
     assert_eq!((v.reviewer.as_str(), v.key.as_str()), (FOUNDER, "k1"));
+
     let a = doc.architectures().next().unwrap();
+    let bytes = architecture_signed_bytes(a);
     assert_eq!(
-        architecture_signed_bytes(a),
-        include_bytes!("fixtures/architecture_v1.signed.txt")
+        String::from_utf8(bytes.clone()).unwrap(),
+        include_str!("fixtures/architecture_v3.signed.txt")
+    );
+    assert_eq!(
+        encode_b64(&sk.sign(&bytes).to_bytes()),
+        a.architecture.signature.as_ref().unwrap().value
     );
     assert!(verify_architecture(a, &reg).is_verified());
 
-    // Adding a signed_at to a v1 stamp is an edit to signed bytes.
     let mut t = r.clone();
-    t.review.signed_at = Some("2026-10-07T10:00:00+08:00".into());
-    assert_eq!(
-        unverified(verify_review(&t, &reg)),
-        UnverifiedReason::BadSignature
-    );
+    t.review.signed_at = None;
+    assert_eq!(unverified(verify_review(&t, &reg)), UnverifiedReason::BadSignature);
+    let mut t = r.clone();
+    t.review.separation_attestation = None;
+    assert_eq!(unverified(verify_review(&t, &reg)), UnverifiedReason::BadSignature);
     let mut t = a.clone();
-    t.architecture.signed_at = Some("2026-10-07T10:00:00+08:00".into());
-    assert_eq!(
-        unverified(verify_architecture(&t, &reg)),
-        UnverifiedReason::BadSignature
-    );
+    t.architecture.signed_at = None;
+    assert_eq!(unverified(verify_architecture(&t, &reg)), UnverifiedReason::BadSignature);
 }
 
-/// v2: `signed_at` is in the signed bytes under the v2 header, right after
-/// `date`; changing or stripping it breaks the signature; it survives a
-/// write and re-read.
+/// `signed_at` is in the signed bytes under the v3 header (~~v2~~, #825),
+/// right after `date`; changing or stripping it breaks the signature; it
+/// survives a write and re-read.
 #[test]
-fn v2_signs_signed_at() {
+fn signed_at_is_signed() {
     let (fk, f) = key(FOUNDER, "k1");
     let reg = Registry::build(&root(vec![person(FOUNDER, Role::Maintainer, vec![fk])]));
     let at = "2026-10-07T14:03:09+08:00";
@@ -112,7 +138,7 @@ fn v2_signs_signed_at() {
     f.sign_review_at(&mut r, at).unwrap();
     assert_eq!(r.review.signed_at.as_deref(), Some(at));
     let text = String::from_utf8(signed_bytes(&r)).unwrap();
-    assert!(text.starts_with("kovan-review-signature-v2\n"), "{text}");
+    assert!(text.starts_with("kovan-review-signature-v3\n"), "{text}");
     assert!(
         text.contains("date=\"2026-10-07\"\nsigned_at=\"2026-10-07T14:03:09+08:00\"\ncommit="),
         "{text}"
@@ -189,7 +215,7 @@ fn signing_sets_signed_at_from_the_clock() {
         .is_some());
     assert!(String::from_utf8(architecture_signed_bytes(&a))
         .unwrap()
-        .starts_with("kovan-review-signature-v2\n"));
+        .starts_with("kovan-review-signature-v3\n"));
     assert!(verify_architecture(&a, &reg).is_verified());
     f.sign_architecture_at(&mut a, "2026-10-07T09:00:00Z")
         .unwrap();

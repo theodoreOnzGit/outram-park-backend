@@ -64,7 +64,7 @@ pre code { font-size: inherit; }
       <tr><td><code>#</code> + <code>[kovan]</code> block</td><td><strong>An artifact.</strong> The page's own <code>#</code> title is always the <strong>header artifact</strong>: <code># &lt;citekey&gt;</code> with <code>kind = "paper"</code> for a literature note, or the lesson or walkthrough title. No artifact starts at level 2.</td></tr>
       <tr><td><code>##</code></td><td>Free prose structure inside the artifact.</td></tr>
       <tr><td><code>###</code></td><td><strong>Data.</strong> Either CSV series (<code>### start of data series</code>, <code>### Series: &lt;name&gt;</code> with a fenced <code>csv</code> block, <code>### end of series</code>) or an embedded code block, such as a walk step's source snippet or a code walk's hops.</td></tr>
-      <tr><td>the <strong>last</strong> <code>##</code></td><td><strong>The review sign-off</strong>, e.g. <code>## Review: ✅ rung 3 · Theodore Ong · 2026-10-06 · valid</code> or <code>## Review: ⚠ AI draft, not reviewed</code>. It is to be generated from <code>review/stamps.toml</code> and excluded from the content hash (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/739">#739</a>). It closes the artifact, so only the next <code>#</code> can follow it.</td></tr>
+      <tr><td>the <strong>last</strong> <code>##</code></td><td><strong>The review sign-off</strong>, e.g. <code>## Review: ✅ rung 3 · Theodore Ong · 2026-10-06 · valid</code> or <code>## Review: ⚠ AI draft, not reviewed</code>. It is to be generated from <del><code>review/stamps.toml</code></del> the signed <code>review.md</code> stamps (corrected 2026-10-10, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/825">#825</a>: <code>stamps.toml</code> was removed) and excluded from the content hash (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/739">#739</a>). It closes the artifact, so only the next <code>#</code> can follow it.</td></tr>
     </tbody>
   </table></div>
   <p>To the parser, <code>##</code> and <code>###</code> are body text. Only a <code>#</code> outside a fence starts a new block, so a <code>#</code> line inside a code block never splits an artifact.</p>
@@ -326,7 +326,7 @@ kind = "supports"
 
   <h2 id="later">Not built yet</h2>
   <ul class="later">
-    <li><strong>Generating the <code>## Review:</code> sign-off</strong> from <code>review/stamps.toml</code>, and the CI check that it matches (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/739">#739</a>). For now, write the line by hand or leave it out.</li>
+    <li><strong>Generating the <code>## Review:</code> sign-off</strong> from <del><code>review/stamps.toml</code></del> the signed <code>review.md</code> stamps (corrected 2026-10-10, #825), and the CI check that it matches (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/739">#739</a>). For now, write the line by hand or leave it out.</li>
     <li><strong>Following <code>code:</code> links</strong>: they arrive with web-kovan.</li>
     <li><strong>Moving the schema into <code>kovan-common</code></strong> so web-kovan and desktop kovan share it. It lives in <code>crates/kovan/src/artifact.rs</code> and <code>relation.rs</code> until the web-kovan work has merged.</li>
     <li><strong>Migrating</strong> the lessons' <code>&lt;!-- code-walk: --&gt;</code> comments to <code>code_walk</code> artifacts.</li>

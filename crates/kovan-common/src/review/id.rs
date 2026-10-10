@@ -26,11 +26,12 @@
 //!
 //! Before 2026-10-07 an entry named its function by the call-graph key
 //! (`[review] function = "file.rs::Type::name"`, `[kovan] target =
-//! "code:…"`). Nothing on disk uses it yet, but it still reads:
-//! [`super::review_md::parse_review_md`] migrates it in memory
-//! ([`super::review_md::ReviewDocument::migrated`]), minting the id from the
-//! key, the review's hash and its commit, so the next save writes the new
-//! form.
+//! "code:…"`). ~~Nothing on disk uses it yet, but it still reads:
+//! `parse_review_md` migrates it in memory (`ReviewDocument::migrated`),
+//! minting the id from the key, the review's hash and its commit, so the
+//! next save writes the new form.~~ **CORRECTED 2026-10-10** (#825): nothing
+//! on disk ever used it, and the migration was dropped; such an entry is
+//! unreadable ([`super::review_md::Unreadable`]).
 
 use super::hash::sha256_tagged;
 

@@ -98,9 +98,6 @@ pub mod project;
 pub mod relation;
 pub mod repository;
 pub mod research_record;
-/// Human review stamps (`review/stamps.toml`, GitHub #739): hash-based,
-/// voided deterministically from git. GUI-free. See [`review_stamps`].
-pub mod review_stamps;
 /// Recently opened papers — local, derived state in `.kovan/`, surfaced
 /// in the map and the Wiki beside Unsorted. See [`recent`].
 pub mod recent;

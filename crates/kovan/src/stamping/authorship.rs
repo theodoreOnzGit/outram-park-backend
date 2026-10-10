@@ -19,7 +19,7 @@ use std::path::Path;
 
 use kovan_common::review::types::{authorship_from_messages, ChangeAuthorship};
 
-use crate::review_stamps::git;
+use super::git;
 
 /// The messages of the commits up to `head` (after `since`, when given)
 /// that touched lines `a..=b` of `file` (module doc). Empty when git

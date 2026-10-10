@@ -50,7 +50,7 @@
 //! | `#` + a fenced `toml` block holding `[kovan]` | **An artifact.** The page's own `#` title is always the **header artifact** (`# <citekey>` with `kind = "paper"` for a literature note). There is no level-2 artifact. |
 //! | `##` | Free prose structure inside the artifact. |
 //! | `###` | **Data**: a CSV series ([`SERIES_START`], [`SERIES_PREFIX`], [`SERIES_END`]) or an embedded code block (a walk step's snippet, a code walk's hops). |
-//! | the **last** `##` | The **review sign-off**, e.g. `## Review: ⚠ AI draft, not reviewed`. It is to be *generated* from `review/stamps.toml` (GH issue #739) and excluded from the content hash; nothing here generates or checks it yet. It closes the artifact. |
+//! | the **last** `##` | The **review sign-off**, e.g. `## Review: ⚠ AI draft, not reviewed`. It is to be *generated* from ~~`review/stamps.toml`~~ the signed `review.md` stamps (**CORRECTED 2026-10-10**, #825: `stamps.toml` was removed) (GH issue #739) and excluded from the content hash; nothing here generates or checks it yet. It closes the artifact. |
 //!
 //! All of these are body text to the parser: only a `#` starts a block, so
 //! `##`/`###` (and a fence's own `#` lines) never split an artifact.

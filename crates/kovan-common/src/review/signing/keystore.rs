@@ -450,7 +450,7 @@ impl UnlockedKey {
 
     /// Sign a review this reviewer wrote (`[review] by` must be this key's
     /// reviewer); sets `[review] signed_at` from the clock, in local
-    /// time with its offset ([`now_local`]; GitHub #783), and `[review.signature]` over the v2
+    /// time with its offset ([`now_local`]; GitHub #783), and `[review.signature]` over the v3
     /// signed bytes.
     pub fn sign_review(&self, r: &mut ReviewEntry) -> Result<(), SignError> {
         self.sign_review_at(r, &now_local())

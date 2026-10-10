@@ -106,7 +106,6 @@ pub(super) fn review(id: &str, by: &str, hash: char, callees: &[(&str, char)]) -
             target: Some(fid(id)),
         },
         review: ReviewBody {
-            function: None,
             path: Some(id.into()),
             by: by.into(),
             rung: 3,
@@ -140,7 +139,6 @@ fn entries(e: Vec<Entry>) -> ReviewDocument {
             })
             .collect(),
         unreadable: vec![],
-        migrated: vec![],
     }
 }
 
@@ -502,7 +500,6 @@ fn concern_beats_approval() {
             target: Some(fid(F)),
         },
         needs_fix: NeedsFixBody {
-            function: None,
             path: Some(F.into()),
             by: R.into(),
             date: "2026-10-07".into(),

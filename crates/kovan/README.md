@@ -223,9 +223,7 @@ kovan-cli code-walk-check crates/x/docs/lessons --update
 kovan-cli code-map --format svg -o code_map.svg
 kovan-cli code-map --format json -o code_map.json
 kovan-cli call-graph --crates outram-park-digital-twin-engine,boon-lay -o call_graph.json
-
-kovan-cli stamps-check --diff HEAD~1..HEAD
-kovan-cli stamps-levels tampines-steam-tables
+kovan-cli review ivv
 ```
 
 Every command's own `--help` documents its flags; the summary below is the
@@ -507,12 +505,18 @@ kovan-cli code-walk-check crates/outram-mc-libs/docs/lessons [--update]
   before scanning, every call site resolved. `callers` and `impls` are not
   implemented.
 
-### `stamps-check` / `stamps-levels` / `stamp` — human review stamps (`review_stamps`, GitHub #739)
+### Human review stamps — signed `review.md` entries, stamped in desktop kovan (GitHub #739, #740)
 
-`review/stamps.toml` at the workspace root records one `[[stamp]]` per
-function a **human** reviewed (rung 3) or whose V&V a human checked
-(rung 4): its code-walk path, file, lines and commit (the permalink), a
-hash, the rung, reviewer, date, a note and an optional walkthrough link.
+**CORRECTED 2026-10-10** (#825, maintainer: "there's no review to be
+backwards compatible with"): ~~`kovan-cli stamps-check` / `stamps-levels` /
+`stamp` and `review/stamps.toml`~~ were removed with `src/review_stamps/`
+(the `git` helpers stamping still uses moved to `src/stamping/git.rs`).
+~~`review/stamps.toml` at the workspace root records one `[[stamp]]` per
+function~~ A review stamp is a **signed** entry in the function's folder
+`review.md`, one per function a **human** reviewed (rung 3) or whose V&V a
+human checked (rung 4), hashed over its code and `///` docs
+(`kovan_common::review`). Its signature is over the one v3 signed-bytes
+format, pinned by a committed fixture (`kovan_common::review::signing`).
 Rung 5 (IV&V, GitHub #809) is never a stamp's rung: the review engine
 derives it per function (`kovan_common::review::ivv`).
 **AI agents never stamp**; stamping is the maintainer's, ~~in desktop kovan
@@ -525,8 +529,8 @@ tab's states come from `review.md` (`stamping::stamp_states`). ~~The
 `call-graph --split-dir` data still carries the `stamps.toml` states; the
 tab replaces them once loaded.~~ Since 2026-10-10 (maintainer) the
 `call-graph --split-dir` data, and so web-kovan on Pages, carries the
-`review.md` states too; `review/stamps.toml` is read only by
-`stamps-check`, `stamps-levels` and `stamp`. ~~kovan commits nothing: commit `review.md`
+`review.md` states too; ~~`review/stamps.toml` is read only by
+`stamps-check`, `stamps-levels` and `stamp`~~ (removed, #825). ~~kovan commits nothing: commit `review.md`
 yourself (#771).~~ **CORRECTED 2026-10-10** (#771): the tab's **⚑ need you**
 panel lists what needs you (directly stale stamps on top, re-confirms,
 fixes, moves with batch acknowledge, deletions, and new functions folded
@@ -555,23 +559,18 @@ reviewed. Save keeps what was written to `review.md`; Cancel puts it back
 as it was on entering. Logic: `src/stamping/review_mode/`; drawing:
 `src/app/review_mode_panel.rs`.
 
-```text
-kovan-cli stamps-check                        # every stamp, on the working tree
-kovan-cli stamps-check --diff HEAD~1..HEAD    # only stamps this range touches (CI)
-kovan-cli stamps-levels tampines-steam-tables # which rung-3/4 tags stamps support
-```
-
 - The hash covers the function's code tokens (parsed with `syn`) and its
   `///` doc text; `//` comments, whitespace and the function's position do
   not count. The exact rule is in ~~`src/review_stamps/parse.rs`~~
-  `crates/kovan-common/src/review/rust_items.rs` (moved 2026-10-07, #764;
-  `review_stamps::parse` re-exports it).
-- `stamps-check` prints `VALID`, or `VOID` with the reason (code changed, doc
-  comment changed, function not found, …) and the stamped permalink, and
-  exits non-zero on any `VOID`. It never edits the file.
-- One stamp per function: a re-review replaces it in place, and the earlier
-  stamp lives only in git history.
-- `stamps-levels` reports only; it never changes a `Cargo.toml`.
+  `crates/kovan-common/src/review/rust_items.rs` and
+  `crates/kovan-common/src/review/hash.rs` (moved 2026-10-07, #764).
+- ~~`stamps-check` prints `VALID`, or `VOID` with the reason, and exits
+  non-zero on any `VOID`; `stamps-levels` reports which rung-3/4 tags stamps
+  support.~~ Removed (#825). The staleness engine judges every signed
+  stamp (`kovan_common::review::engine`); `kovan-cli review ivv` prints
+  rung 5.
+- One standing review per function and reviewer: a re-review replaces it in
+  place, and the earlier one lives only in git history.
 
 ### `review ivv` — rung 5, independent V&V, per function (`commands::review_ivv`, GitHub #810)
 

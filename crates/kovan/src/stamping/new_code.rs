@@ -33,7 +33,7 @@ use std::path::Path;
 use kovan_common::review::hash::hash_functions;
 use kovan_common::review::types::{agent_trailer, authorship_from_messages, ChangeAuthorship};
 
-use crate::review_stamps::git;
+use super::git;
 
 /// A commit and the functions it introduced, as `(file, qualified name)`.
 #[derive(Debug, Clone, PartialEq, Eq)]

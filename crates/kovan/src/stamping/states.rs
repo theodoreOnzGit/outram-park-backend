@@ -50,7 +50,7 @@ use super::{
     call_graph_id, cargo_lock_hash, join, load_workspace, Workspace, KOVAN_TOML, REVIEW_MD,
     ROOT_FILE,
 };
-use crate::review_stamps::git;
+use super::git;
 
 /// (revision, file) -> the file's hashed functions there (`None`: absent or
 /// not Rust that parses).
@@ -440,7 +440,7 @@ pub fn evaluate_loaded_with(root: &Path, ws: &Workspace, concepts: &ConceptAreas
                     },
                     format!(
                         "{}/blob/{}/{file}{anchor}",
-                        crate::review_stamps::DEFAULT_REPO_URL.trim_end_matches('/'),
+                        crate::commands::code_walk::render::DEFAULT_REPO_URL.trim_end_matches('/'),
                         r.review.commit
                     ),
                 );
