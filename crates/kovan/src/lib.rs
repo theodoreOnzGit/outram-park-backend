@@ -61,6 +61,9 @@ pub mod classify;
 /// The code map of a Cargo workspace from its `[package.metadata.kovan]`
 /// tags (GitHub #734): model, layout and SVG. GUI-free; see [`code_map`].
 pub mod code_map;
+/// The data folder the app's Code Review view reads, built from a
+/// workspace's saved SCIP index (GitHub #820). GUI-free.
+pub mod code_review_data;
 pub(crate) mod collection_picker;
 pub mod concept_ops;
 pub mod commands;

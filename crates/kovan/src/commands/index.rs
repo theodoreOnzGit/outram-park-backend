@@ -295,6 +295,30 @@ fn read_existing(root: &Path, members: &[(String, String)], scope: &[(String, St
     e
 }
 
+/// The crates of `scope` that have indexed source files ([`code_files`]) of
+/// which the SCIP index holds none: rust-analyzer did not index them. Returns
+/// how many crates of `scope` have such files, and the names of those absent.
+pub fn crates_not_in_scip(
+    root: &Path,
+    members: &[(String, String)],
+    scope: &[(String, String)],
+    ix: &ScipIndex,
+) -> (usize, Vec<String>) {
+    let mut with_code = 0usize;
+    let mut absent = Vec::new();
+    for m in scope {
+        let files = code_files(root, members, m);
+        if files.is_empty() {
+            continue;
+        }
+        with_code += 1;
+        if !files.iter().any(|f| ix.document(f).is_some()) {
+            absent.push(m.0.clone());
+        }
+    }
+    (with_code, absent)
+}
+
 /// The link index of crate `krate` (folder `dir`) from a decoded SCIP index:
 /// every non-definition occurrence in the crate's own documents that has a
 /// definition in the workspace.
@@ -602,18 +626,7 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
     // indexed by rust-analyzer: say so, and stop when that is every crate
     // (GitHub #820; before this an index matching nothing was written as
     // if the code had no calls).
-    let mut with_code = 0usize;
-    let mut not_in_scip: Vec<String> = Vec::new();
-    for m in &scope {
-        let files = code_files(&root, &members, m);
-        if files.is_empty() {
-            continue;
-        }
-        with_code += 1;
-        if !files.iter().any(|f| ix.document(f).is_some()) {
-            not_in_scip.push(m.0.clone());
-        }
-    }
+    let (with_code, not_in_scip) = crates_not_in_scip(&root, &members, &scope, &ix);
     if with_code > 0 && not_in_scip.len() == with_code {
         return Err(IndexCmdError::Other(format!(
             "the SCIP index ({} document(s), written by rust-analyzer {}) holds no document of any of the {} \

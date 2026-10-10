@@ -575,6 +575,8 @@ kovan-semantics  = { path = "crates/kovan-semantics",  version = "0.0.1" }
 kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.2" }
 # Batch 2 (after batch 1 is live + the rate-limit cooldown) — not bumped yet.
 kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.1" }
+# The Code Review UI (egui). Desktop kovan embeds it (GitHub #820).
+kovan-web        = { path = "crates/kovan-web",        version = "0.0.1" }
 
 # outram-blender — Blender-inspired mesh-authoring frontend. Pure-Rust,
 # Android-safe by default. Two opt-in solver bridges are now real (not stubs):

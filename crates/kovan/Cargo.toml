@@ -71,7 +71,7 @@ maturity = 1
 # platform-specific default feature, the same shape crates like `winit` use.
 [features]
 default = ["gui", "lookup-net"]
-gui = ["dep:eframe", "dep:egui", "dep:egui-file-dialog"]
+gui = ["dep:eframe", "dep:egui", "dep:egui-file-dialog", "dep:kovan-web"]
 # Identifier lookup over the network (GitHub #756): ureq with rustls (no
 # OpenSSL; ring compiles C/asm). Used only when the user runs a lookup. Off: lookups
 # fail with "not available in this build" (src/lookup_net.rs).
@@ -284,6 +284,11 @@ kopitiam-neovim = "0.2.5"
 eframe = { workspace = true, optional = true }
 egui = { workspace = true, optional = true }
 egui-file-dialog = { workspace = true, optional = true }
+# The Code Review UI, embedded as the app's Code Review view (GitHub #820):
+# the same egui UI the site publishes, in `Mode::Desktop`, over a data
+# folder `kovan::code_review_data` builds from the workspace's SCIP index.
+# AGPL-3.0-only like this crate; depends only on kovan-common.
+kovan-web = { workspace = true, optional = true }
 # Identifier lookup (#756), behind the default `lookup-net` feature. Off
 # Android: rustls's `ring` compiles C with the Android NDK's clang, which the
 # workspace's proxy check (`--target aarch64-linux-android` without the NDK)

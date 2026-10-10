@@ -327,7 +327,11 @@ impl CodeReview {
         let resizing = camera::keep_canvas_at_device_pixels(&ctx);
         if !self.started {
             // Dark, like the site's other demos (the cards are drawn for it).
-            ctx.set_visuals(egui::Visuals::dark());
+            // Not inside desktop kovan, which has its own theme for the
+            // whole window (GitHub #820).
+            if self.mode == Mode::Web {
+                ctx.set_visuals(egui::Visuals::dark());
+            }
             self.store.start(Self::repaint(&ctx));
             self.started = true;
         }

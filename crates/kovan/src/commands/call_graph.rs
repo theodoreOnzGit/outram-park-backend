@@ -1027,7 +1027,8 @@ pub fn run_merge(root: &Path, files: &[PathBuf], out: Option<PathBuf>, split_dir
     }
 }
 
-fn write_split(root: &Path, doc: &crate::call_graph::CallGraphDoc, dir: &Path) -> Result<(), String> {
+/// Write `doc` split into `dir` (see [`run_split`]).
+pub fn write_split(root: &Path, doc: &crate::call_graph::CallGraphDoc, dir: &Path) -> Result<(), String> {
     let stamps = stamp_states(root)?;
     std::fs::create_dir_all(dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
     let files = crate::call_graph::split::split_files(doc, stamps);
