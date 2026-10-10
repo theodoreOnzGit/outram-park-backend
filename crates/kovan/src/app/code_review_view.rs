@@ -43,10 +43,12 @@
 //! and its Stamp / Needs fix open the same stamp dialog.
 //!
 //! **Stamp states come from `review.md`.** Once the data is loaded, the
-//! view replaces the data folder's `stamps` (the legacy
-//! `review/stamps.toml` path of `kovan-cli call-graph --split-dir`, left
-//! as it is: changing the CLI output is a separate decision) with
-//! [`crate::stamping::stamp_states`], computed on a worker.
+//! view recomputes the data folder's `stamps` with
+//! [`crate::stamping::stamp_states`] on a worker (~~the legacy
+//! `review/stamps.toml` path of `kovan-cli call-graph --split-dir`~~
+//! **CORRECTED 2026-10-10**: `--split-dir` writes the same `review.md`
+//! states since 1c2319ffda, and `stamps.toml` is gone, #825), so the
+//! view stays current after each stamp.
 //!
 //! **No lag (root `CLAUDE.md`, HARD RULE).** Checking and building the data
 //! (cargo metadata, reading the SCIP index, resolving every call, writing)

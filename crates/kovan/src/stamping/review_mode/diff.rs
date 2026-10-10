@@ -19,8 +19,8 @@
 //!
 //! Searched first (2026-10-10): `commands::code_walk::lesson::line_diff`
 //! is a set difference (order lost, repeated lines missed), and
-//! `review_stamps::git::diff_hunks` gives zero-context hunk ranges per
-//! file, not the lines. `similar` is in `Cargo.lock` only as a transitive
+//! ~~`review_stamps::git::diff_hunks`~~ (removed with #825) gave
+//! zero-context hunk ranges per file, not the lines. `similar` is in `Cargo.lock` only as a transitive
 //! dependency; making it a direct one is a dependency decision for the
 //! maintainer. A function is at most a few hundred lines, so the classic
 //! longest-common-subsequence table is fast enough; above

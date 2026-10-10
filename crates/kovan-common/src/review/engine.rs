@@ -84,8 +84,8 @@
 //! [`super::signed_at`]). The git times for the last come in as data
 //! ([`StampFacts::reviewed_commit_time`], [`StampCommit::committer_time`]);
 //! "the commit that introduced the stamp" is [`StampFacts::added_in`], the
-//! same commit the authenticity rule checks. A v1 stamp (no `signed_at`) is
-//! never flagged.
+//! same commit the authenticity rule checks. A stamp without `signed_at`
+//! (~~a v1 stamp~~ v1 bytes were removed, #825) is never flagged.
 //! ~~A review's rung 4 counts only when the wizard's gate opens it,
 //! otherwise it counts as rung 3 and is flagged~~ **CORRECTED 2026-10-07**.
 //! ~~A function is at **rung 5** when, besides its earliest valid review, a
@@ -521,8 +521,8 @@ pub struct ReviewReport {
     pub vv_case: Vec<VvCaseProblem>,
     /// The separation attestation the review names, if any (GitHub #809).
     pub separation_attestation: Option<String>,
-    /// The stamp's `signed_at` as written (`None` on a v1 stamp or an
-    /// unreadable entry). Added 2026-10-10 (#770): it orders two reviews of
+    /// The stamp's `signed_at` as written (`None` when the stamp
+    /// carries none, or on an unreadable entry). Added 2026-10-10 (#770): it orders two reviews of
     /// the same date when both carry it ([`super::ivv::earliest_first`]).
     pub signed_at: Option<String>,
 }
