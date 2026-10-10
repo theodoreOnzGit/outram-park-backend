@@ -215,7 +215,9 @@ reached_by = ["#57", "#59", …]
 ## `kovan_links.json` format (schema 1)
 
 Documented in full in `kovan_common::code_index::links`. In short:
-`files[]` (crate-relative path, `sha256` of the text it was built from, and
+`files[]` (crate-relative path, `sha256` of the text it was built from
+(since 2026-10-10 with CRLF read as LF, `links::text_hash`, so a Windows
+`autocrlf` checkout and a Linux one hash alike; #820), and
 the occurrences as flat `[line delta, column, length, definition]`
 quadruples), `ext[]` (other files holding a referenced definition) and
 `defs[]` (flat `[file, line, column]` triples). Lines are 0-based, columns
@@ -256,6 +258,32 @@ Also reported by that run: 25 functions with no hash (nested in another
 183 callees outside the three crates (left out of `callees` in a scoped
 run). `physical_interface` was set on 4 of 3,404 njoy functions, 0 of 2,977
 outram-mc-libs and 58 of 948 changi functions.
+
+## Windows (GitHub #820, first run 2026-10-10)
+
+- rust-analyzer on Windows writes SCIP document paths with `\`. They are
+  read as `/` (`ScipIndex::read_document`), on every platform, so an index
+  written on Windows reads the same on Linux. Before this fix a Windows run
+  finished without error and wrote empty link files and no `callees`.
+- A crate that has source files and no document in the SCIP index is named
+  in a `WARNING` line and in the "Index fresh" report
+  (`IndexSummary::not_in_scip`, judged by whether the index holds any of
+  the crate's indexed files); when that is every crate in scope the run
+  stops and writes nothing.
+- **Open:** the first whole-workspace run on Windows (rust-analyzer 1.97.1,
+  15.3 GB RAM, paging beside a second rust-analyzer) produced an index with
+  2,374 documents covering 32 of 48 crates; the Linux desktop run of
+  2026-10-07 (rust-analyzer 1.98.0) had 4,402 documents. The 32 are complete
+  (for example njoy-outram-park-fork 423 of 424 `.rs` files, with a link
+  file of 2,281,476 bytes against the 2.28 MB above) and the 16 have none.
+  The cause is not known: Windows, the rust-analyzer version and memory
+  pressure all differ between the two runs.
+- Measured on that laptop: SCIP pass 1372.8 s, `index.scip` 218.5 MB, and
+  1 min 50 s to rebuild every `kovan.toml` and link file from it.
+- Not yet handled: the generated files are written with LF; a checkout with
+  `core.autocrlf = true` would turn committed ones into CRLF, which the
+  staleness check would then see as edited. They need a `.gitattributes`
+  entry before an index is committed from Windows.
 
 ## Known limits
 

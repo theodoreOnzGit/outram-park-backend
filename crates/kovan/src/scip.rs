@@ -328,7 +328,12 @@ impl ScipIndex {
         let mut occurrences = Vec::new();
         for_each_field(d, |num, w| {
             match (num, w) {
-                (1, Wire::Len(a, b)) => path = utf8(&d[a..b])?,
+                // rust-analyzer on Windows writes `crates\x\src\lib.rs`
+                // (GitHub #820). Every lookup here is by a `/`-separated
+                // workspace-relative path, so the separator is normalised on
+                // read, on every platform: an index written on Windows then
+                // reads the same on Linux.
+                (1, Wire::Len(a, b)) => path = utf8(&d[a..b])?.replace('\\', "/"),
                 (2, Wire::Len(a, b)) => {
                     if let Some(o) = self.read_occurrence(&d[a..b])? {
                         occurrences.push(o);
@@ -633,6 +638,38 @@ pub(crate) mod encode {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Methodology: a hand-encoded index whose document paths use `\`, as
+    /// rust-analyzer 1.97.1 writes them on Windows (seen 2026-10-10 in a
+    /// whole-workspace index of outram-park-backend: `crates\tuas_…\main.rs`).
+    /// The document must be found by its `/`-separated workspace-relative
+    /// path, and an example must still be told from the library.
+    ///
+    /// Before the fix every lookup missed, so that run wrote 48 empty
+    /// `kovan_links.json` files and no `callees` for 45,397 functions
+    /// (GitHub #820).
+    ///
+    /// Result (2026-10-10, Windows 11): passes.
+    #[test]
+    fn windows_separators_in_document_paths_are_normalised() {
+        let f = "rust-analyzer cargo app 0.1.0 m/f().";
+        let lib = [(&[1u32, 7, 8][..], f, 1u64)];
+        let ex = [(&[3u32, 4, 5][..], f, 1u64), (&[9, 8, 9], f, 0)];
+        let bytes = encode::index(
+            "1.97.1",
+            &[
+                ("crates\\app\\src\\m.rs", &lib),
+                ("crates\\app\\examples\\x\\m.rs", &ex),
+            ],
+        );
+        let ix = ScipIndex::decode(&bytes).unwrap();
+        assert!(ix.document("crates/app/src/m.rs").is_some());
+        assert!(ix.document("crates\\app\\src\\m.rs").is_none());
+        let d = ix.document("crates/app/examples/x/m.rs").unwrap();
+        assert_eq!(d.occurrences.len(), 2);
+        assert!(is_non_lib_path(&d.path));
+        assert!(!is_non_lib_path("crates/app/src/m.rs"));
+    }
 
     /// Methodology: a hand-encoded index (the wire format of `scip.proto`)
     /// with two documents, a symbol defined in both (the cross-target

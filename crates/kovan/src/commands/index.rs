@@ -464,6 +464,11 @@ pub struct IndexSummary {
     /// The rust-analyzer version that wrote the SCIP index this run used
     /// (`None` under `--refresh`, or an index that names no version).
     pub rust_analyzer: Option<String>,
+    /// Crates in scope that have source files and no document in the SCIP
+    /// index (GitHub #820): rust-analyzer did not index them, so their link
+    /// index is empty and their functions have no callees. Empty under
+    /// `--refresh`.
+    pub not_in_scip: Vec<String>,
 }
 
 /// What [`record_rust_analyzer_used`] did to `kovan_root.toml`.
@@ -593,6 +598,35 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
         .split_whitespace()
         .next()
         .map(str::to_string);
+    // A crate with indexed source files and no SCIP document was not
+    // indexed by rust-analyzer: say so, and stop when that is every crate
+    // (GitHub #820; before this an index matching nothing was written as
+    // if the code had no calls).
+    let mut with_code = 0usize;
+    let mut not_in_scip: Vec<String> = Vec::new();
+    for m in &scope {
+        let files = code_files(&root, &members, m);
+        if files.is_empty() {
+            continue;
+        }
+        with_code += 1;
+        if !files.iter().any(|f| ix.document(f).is_some()) {
+            not_in_scip.push(m.0.clone());
+        }
+    }
+    if with_code > 0 && not_in_scip.len() == with_code {
+        return Err(IndexCmdError::Other(format!(
+            "the SCIP index ({} document(s), written by rust-analyzer {}) holds no document of any of the {} \
+             crate(s) to index, so links and callees would all be empty. Nothing was written. Was it made \
+             for another workspace?",
+            ix.documents.len(),
+            ix.tool_version,
+            with_code
+        )));
+    }
+    for c in &not_in_scip {
+        say!(ctl, "index: WARNING: {c} has source files and no document in the SCIP index: rust-analyzer did not index it, so its link index is empty and its functions have no callees or reaching tests");
+    }
     // 3. Links.
     ctl.phase(format!("building the link index of {} crate(s)", scope.len()), scope.len());
     let mut changes = Vec::new();
@@ -715,6 +749,7 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
         written: 0,
         unchanged,
         rust_analyzer: ra_used.clone(),
+        not_in_scip,
     };
     if opts.check {
         return if changes.is_empty() { Ok(summary) } else { Err(IndexCmdError::CheckFailed(changes.len())) };
@@ -880,7 +915,7 @@ fn run_refresh(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Result<Ind
     }
     summarise(&changes, unchanged, ctl);
     let mut summary =
-        IndexSummary { folders: indexed_dirs.into_iter().collect(), written: 0, unchanged, rust_analyzer: None };
+        IndexSummary { folders: indexed_dirs.into_iter().collect(), written: 0, unchanged, rust_analyzer: None, not_in_scip: Vec::new() };
     if opts.check {
         return if changes.is_empty() { Ok(summary) } else { Err(IndexCmdError::CheckFailed(changes.len())) };
     }

@@ -220,6 +220,13 @@ impl FreshReport {
             ),
             self.root.describe(),
         ];
+        if !self.index.not_in_scip.is_empty() {
+            v.push(format!(
+                "WARNING: rust-analyzer did not index {} crate(s), so they have no links, callees or reaching tests: {}",
+                self.index.not_in_scip.len(),
+                self.index.not_in_scip.join(", ")
+            ));
+        }
         v.extend(history_lines(&self.rust_analyzer_history));
         v.extend([format!(
             "review.md: {} skeleton(s) created, {} kept as they were",

@@ -195,7 +195,7 @@ pub fn build(krate: &str, dir: &str, generator: &str, encoding: &str, files: &[F
         }
         out_files.push(LinkFile {
             path: rel(dir, &f.path).to_string(),
-            hash: sha256_tagged(f.text.as_bytes()),
+            hash: text_hash(&f.text),
             occ: flat,
         });
     }
@@ -315,13 +315,51 @@ impl LinkIndex {
     pub fn is_current(&self, path: &str, text: &str) -> bool {
         self.files
             .iter()
-            .any(|f| f.path == path && f.hash == sha256_tagged(text.as_bytes()))
+            .any(|f| f.path == path && f.hash == text_hash(text))
+    }
+}
+
+/// The `hash` of a source file's text: `sha256:` of it with every
+/// carriage-return-line-feed pair read as a line feed.
+///
+/// A Windows checkout with `core.autocrlf = true` holds the same committed
+/// file with CRLF line endings (GitHub #820, seen 2026-10-10). Hashing the
+/// bytes as they are would make every file "links out of date" on the other
+/// system. Positions are unaffected: lines and columns do not count the
+/// carriage return. A file with no CRLF hashes as before, so indexes
+/// written on Linux stay valid.
+pub fn text_hash(text: &str) -> String {
+    if text.contains("\r\n") {
+        sha256_tagged(text.replace("\r\n", "\n").as_bytes())
+    } else {
+        sha256_tagged(text.as_bytes())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Methodology: the same file text with LF and with CRLF line endings
+    /// (a Linux and a Windows `autocrlf` checkout of one commit). Both must
+    /// hash alike, the LF form must hash exactly as the plain SHA-256 of its
+    /// bytes (so existing indexes stay valid), and an index built from one
+    /// form must call the other current.
+    ///
+    /// Result (2026-10-10, Windows 11): passes.
+    #[test]
+    fn a_file_hashes_alike_with_unix_and_windows_line_endings() {
+        let unix = "fn a() {\n    b();\n}\n";
+        let windows = unix.replace('\n', "\r\n");
+        assert_eq!(text_hash(unix), text_hash(&windows));
+        assert_eq!(text_hash(unix), sha256_tagged(unix.as_bytes()));
+        assert_ne!(text_hash(unix), text_hash("fn a() {}\n"));
+        let empty = r#"{"schema":1,"kind":"kovan_links","crate":"x","dir":"crates/x","generator":"t","encoding":"utf8","files":[],"ext":[],"defs":[]}"#;
+        let mut ix = LinkIndex::parse(empty).unwrap();
+        ix.files.push(LinkFile { path: "src/a.rs".into(), hash: text_hash(&windows), occ: Vec::new() });
+        assert!(ix.is_current("src/a.rs", unix) && ix.is_current("src/a.rs", &windows));
+        assert!(!ix.is_current("src/a.rs", "fn a() {}\n"));
+    }
 
     fn site(p: &str, l: u32, c: u32) -> Site {
         Site { path: p.into(), line: l, col: c }

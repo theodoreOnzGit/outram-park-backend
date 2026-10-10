@@ -494,3 +494,39 @@ fn index_runs_append_the_rust_analyzer_used_and_never_rewrite_the_root() {
         assert_eq!(head_or_none(outside.path()), "none");
     }
 }
+
+/// Methodology: a single crate with source files, and a SCIP index that
+/// holds one document of another workspace (its path written with `\`, as
+/// rust-analyzer does on Windows). The index's tool version is the
+/// installed rust-analyzer's, so the run reads the file and does not
+/// regenerate it. The run must stop with an error that says the index holds
+/// no document of the crate, and write nothing.
+///
+/// Before this check (GitHub #820, 2026-10-10) such a run finished without
+/// error and wrote an empty link index and functions with no callees.
+///
+/// Result (2026-10-10, Windows 11, rust-analyzer 1.97.1): passes.
+#[test]
+fn an_index_that_matches_no_crate_is_refused_and_nothing_is_written() {
+    let d = tempfile::tempdir().unwrap();
+    let p = d.path();
+    single_crate(p);
+    let version =
+        crate::commands::index::installed_rust_analyzer().unwrap_or_else(|| "1.97.1".into());
+    let f = "rust-analyzer cargo other 0.1.0 m/f().";
+    let occ = [(&[1u32, 7, 8][..], f, 1u64)];
+    let elsewhere = tempfile::tempdir().unwrap();
+    let scip = elsewhere.path().join("other.scip");
+    let bytes = crate::scip::encode::index(&version, &[("crates\\other\\src\\lib.rs", &occ)]);
+    std::fs::write(&scip, bytes).unwrap();
+    let choices = FreshChoices {
+        scip: Some(scip),
+        ..FreshChoices::default()
+    };
+    let e = run_fresh(p, &choices, &RunControl::default()).unwrap_err();
+    assert!(matches!(e, FreshError::Index(_)), "{e:?}");
+    assert!(e.to_string().contains("holds no document"), "{e}");
+    for rel in [ROOT_FILE, "kovan_links.json", "src/kovan.toml", "src/review.md"] {
+        assert!(!p.join(rel).exists(), "{rel} was written");
+    }
+}
