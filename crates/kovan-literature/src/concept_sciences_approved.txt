@@ -159,3 +159,14 @@ sciences/computation/problems/sampling-from-distributions/rejection-sampling
 sciences/computation/problems/sampling-from-distributions/probability-table-lookup
 sciences/computation/problems/function-approximation
 sciences/computation/problems/data-representation
+# 2026-10-11, maintainer: "Add those only with verified sources" (part 3; each cited passage re-read in the file that day; conditioning, Amdahl and approximation theory deferred to #832) (#829)
+sciences/computation/governing-theorems/convergence
+sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem
+sciences/computation/governing-theorems/computational-complexity
+sciences/computation/governing-theorems/finite-precision
+sciences/computation/aims/accuracy
+sciences/computation/aims/speed
+sciences/computation/aims/trust
+sciences/computation/aims/trust/determinism-and-reproducibility
+sciences/computation/aims/trust/structure-preservation
+sciences/computation/aims/trust/verifiability

@@ -1123,46 +1123,46 @@ path = "sciences/computation/governing-theorems/convergence"
 title = "Convergence of discretisations and iterations (Lax equivalence, CFL condition, contraction)"
 sources = [{ document = "ong-2024-dissertation", section = "2.5 Review of Solver Stability Issues for Heat Transfer, 'Courant Number' (CFL number not above unity for advection)" }, { document = "la-ur-06-7094", section = "slides 'Power Iteration - Convergence' (errors die off as DR^n)" }, { document = "cosgrove-2020-pc-stability", section = "3.2. Stability analysis" }]
 note = "the Lax equivalence theorem itself: source not yet read"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/computation/governing-theorems/conditioning"
 title = "Conditioning and numerical stability"
 sources = []
-note = "source not yet read (DOE-HDBK-1014, read 2026-10-10, does not cover it)"
-status = "proposed"
+note = "source not yet read (DOE-HDBK-1014, read 2026-10-10, does not cover it). Deferred 2026-10-11: no verified source states it (maintainer: \"Add those only with verified sources\"; #832)"
+status = "deferred"
 
 [[science]]
 path = "sciences/computation/governing-theorems/approximation-theory"
 title = "Approximation theory (Weierstrass, Chebyshev best approximation)"
 sources = [{ document = "openmc-docs-depletion", section = "Matrix Exponential (Chebyshev rational approximation; IPF form)" }]
-note = "only an application read; the theorems themselves: source not yet read"
-status = "proposed"
+note = "only an application read; the theorems themselves: source not yet read. Deferred 2026-10-11: the only source (OpenMC CRAM) applies the theorems but does not state them (maintainer: \"Add those only with verified sources\"; #832)"
+status = "deferred"
 
 [[science]]
 path = "sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem"
 title = "Law of large numbers and central limit theorem"
 sources = [{ document = "openmc-docs-tallies", section = "8.5 Statistics: 8.5.1 Law of Large Numbers; 8.5.2 Central Limit Theorem; 8.5.3.9 Confidence Intervals" }, { document = "la-ur-09-02377", section = "slides 'Bias in Keff & Tallies' (cycle-to-cycle correlation; statistics too small)" }, { document = "doe-hdbk-1014-2-92", section = "Module 5 Higher Concepts of Mathematics, Statistics: The Mean (p. 2); Normal Distribution (p. 7) (estimators as sums or averages of many measurements); an elementary statement only" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/computation/governing-theorems/computational-complexity"
 title = "Computational complexity (cost scaling)"
 sources = [{ document = "ong-2024-dissertation", section = "2.5 Review of Solver Stability Issues for Heat Transfer (matrix cost scaling with size; implicit versus explicit coupling)" }, { document = "openmc-docs-depletion", section = "Numerical Integration (cost scales with the number of A evaluations per step)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/computation/governing-theorems/amdahls-law"
 title = "Amdahl's law (parallel speed-up limit)"
 sources = []
-note = "source not yet read (DOE-HDBK-1014, read 2026-10-10, does not cover it)"
-status = "proposed"
+note = "source not yet read (DOE-HDBK-1014, read 2026-10-10, does not cover it). Deferred 2026-10-11: no verified source states it (maintainer: \"Add those only with verified sources\"; #832)"
+status = "deferred"
 
 [[science]]
 path = "sciences/computation/governing-theorems/finite-precision"
 title = "Finite precision (round-off, cancellation, underflow, overflow)"
 sources = [{ document = "nasa-std-7009b", section = "3.2 Definitions, 'Numerical Errors' (floating point precision: round off, underflow, overflow; truncation of series)" }]
-status = "proposed"
+status = "approved"
 
 # -------------------------------------------------------------------- Aims --
 
@@ -1176,38 +1176,38 @@ status = "approved"
 path = "sciences/computation/aims/accuracy"
 title = "Accuracy"
 sources = [{ document = "nasa-std-7009b", section = "E.3.3 M&S Verification Factor (numerical error estimates)" }, { document = "openmc-docs-depletion", section = "Numerical Integration (error O(h) for the predictor, O(h^2) for CE/CM)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/computation/aims/speed"
 title = "Speed (time and memory)"
 sources = [{ document = "openmc-docs-depletion", section = "Numerical Integration (expense driven by transport solves per step)" }, { document = "ong-2024-tuas", section = "3.2.1. Operator splitting (separate computing threads)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/computation/aims/trust"
 title = "Trust (a result that can be checked)"
 sources = [{ document = "nureg-km-0006", section = "5.4.2 Defining Verification" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/computation/aims/trust/determinism-and-reproducibility"
 title = "Determinism and reproducibility"
 sources = [{ document = "la-ur-17-20093", section = "23.4 Random Numbers (host random number generators gave different answers on every machine and made QA hard)" }, { document = "arxiv-2505.01671v1", section = "3.1 Terms and Definitions (experiment; authors and reviewers who reproduce it)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/computation/aims/trust/structure-preservation"
 title = "Structure preservation (exact conservation, positivity, consistency of sums)"
 sources = [{ document = "la-ur-17-20093", section = "3.2 Unionization and Linearization Strategy (a summation cross section must equal the sum of its parts, else balance errors in multigroup transport)" }, { document = "arxiv-2306.01924v2", section = "5.2 Solution of the coupled system (finite volume matrix of the balance laws)" }]
 cross_links = ["sciences/physical-principles/conservation-laws"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/computation/aims/trust/verifiability"
 title = "Verifiability"
 sources = [{ document = "nasa-std-7009b", section = "E.3.3 M&S Verification Factor (code verification, solution verification)" }, { document = "nureg-km-0006", section = "5.4.2 Defining Verification" }]
-status = "proposed"
+status = "approved"
 
 # ------------------------------------------- Methods (EXAMPLE leaves only) --
 
