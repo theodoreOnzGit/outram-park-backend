@@ -33,11 +33,15 @@ fn context(answers: BTreeMap<String, String>) -> StampContext {
         hash: String::new(),
         no_concept: None,
         suggested_architecture: None,
+        concept: None,
+        concepts: Vec::new(),
     }
 }
 
 /// Replace the wizard's answers with `answers` (option and text), keeping
-/// the context the flow prepared.
+/// the context the flow prepared, and mark the function "no concept:
+/// plumbing" (since 2026-10-10 a stamp needs a concept or a reason, #740
+/// U3).
 fn set_answers(f: &mut StampFlow, answers: &BTreeMap<String, String>) {
     let w = f.wizard.as_mut().expect("on the wizard");
     let ctx = StampContext {
@@ -45,6 +49,7 @@ fn set_answers(f: &mut StampFlow, answers: &BTreeMap<String, String>) {
         ..w.ctx.clone()
     };
     *w = WizardForm::new(ctx);
+    w.choose_reason(Some("plumbing"));
 }
 
 /// The setup form refuses an empty or malformed reviewer id (the

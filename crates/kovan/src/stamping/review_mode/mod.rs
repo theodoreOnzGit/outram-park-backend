@@ -27,6 +27,9 @@
 //! | kvim for quick fixes only (correction of 2026-10-07) | [`quick_fix`] |
 //! | Save writes `review.md` only; Cancel discards since entering (decisions 5, 6) | [`Session`] |
 //! | implausible `signed_at` shown with the state (#783, deferred here) | [`FunctionView::flags`] |
+//! | inherited stale: re-confirm without the wizard (decision 8; added 2026-10-10) | [`FunctionView::reconfirm`], [`super::reconfirm`] |
+//! | the linked concept and its implemented formula (#739 decision 21; added 2026-10-10) | [`FunctionView::concepts`], [`super::concepts`] |
+//! | kovan watches the file: a saved fix turns ⛔ into ✏ (added 2026-10-10) | [`watch`] |
 //!
 //! Every function here reads files or runs git: call it off the UI thread
 //! (root `CLAUDE.md`, no-lag HARD RULE).
@@ -37,16 +40,20 @@ pub mod prefill;
 pub mod quick_fix;
 pub mod section;
 pub mod walk;
+pub mod watch;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use kovan_common::review::engine::{FunctionFlag, StampState};
+use kovan_common::artifact::relation::RelationKind;
+use kovan_common::review::engine::{FunctionFlag, InheritedCause, StampState};
+
+use super::concepts::{concept_title, find_formulas, is_concept, FormulaHit};
 use kovan_common::review::review_md::ReviewEntry;
 use kovan_common::review::signed_at::now_local;
 use kovan_common::review::state::StateKind;
 
-use super::{evaluate_workspace, join, load_workspace, Workspace, WorkspaceEvaluation, REVIEW_MD};
+use super::{evaluate_loaded, join, load_workspace, Workspace, WorkspaceEvaluation, REVIEW_MD};
 use diff::FnDiff;
 use highlight::Highlight;
 use section::FunctionSection;
@@ -62,10 +69,9 @@ pub struct Snapshot {
 impl Snapshot {
     /// Load the workspace and evaluate it (git; a worker's job).
     pub fn load(root: &Path) -> Result<Snapshot, String> {
-        Ok(Snapshot {
-            ws: load_workspace(root)?,
-            we: evaluate_workspace(root)?,
-        })
+        let ws = load_workspace(root)?;
+        let we = evaluate_loaded(root, &ws);
+        Ok(Snapshot { ws, we })
     }
 
     /// `fn:` id -> its state kind (`New` when the engine has none).
@@ -190,6 +196,52 @@ pub struct FunctionView {
     /// The upstream file in the browser (a confirmed port only).
     pub upstream_url: Option<String>,
     pub is_port: bool,
+    /// Added 2026-10-10 (#770, #740 decision 8): `Some(blocked)` when the
+    /// function is inherited stale by a callee change, so [Re-confirm] is
+    /// offered (disabled while `blocked`: a reaching test failed, #739 D6);
+    /// `None` otherwise.
+    pub reconfirm: Option<bool>,
+    /// Added 2026-10-10 (#770, #739 decision 21): what the function's
+    /// reviews link with `implements`, each with the Formula artifacts
+    /// found for it (empty: "no formula recorded for this concept").
+    pub concepts: Vec<LinkedConcept>,
+}
+
+/// One `implements` target of the function's reviews, for the sidebar.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LinkedConcept {
+    /// `concept:<path>`, `collection:<path>` or `artifact:<id>`.
+    pub id: String,
+    /// The concept's title (the id for an artifact).
+    pub title: String,
+    pub formulas: Vec<FormulaHit>,
+}
+
+/// The `implements` targets of `fn_id`'s reviews, in file order, unique,
+/// with their formulas found in the workspace (reads the disk when there
+/// is one).
+pub fn linked_concepts_of(root: &Path, reviews: &[&ReviewEntry]) -> Vec<LinkedConcept> {
+    let mut targets: Vec<String> = Vec::new();
+    for r in reviews {
+        for rel in &r.relations {
+            if rel.kind == RelationKind::Implements && !targets.contains(&rel.target) {
+                targets.push(rel.target.clone());
+            }
+        }
+    }
+    let mut formulas = find_formulas(root, &targets);
+    targets
+        .into_iter()
+        .map(|id| LinkedConcept {
+            title: if is_concept(&id) {
+                concept_title(&id)
+            } else {
+                id.clone()
+            },
+            formulas: formulas.remove(&id).unwrap_or_default(),
+            id,
+        })
+        .collect()
 }
 
 /// A flag in plain words.
@@ -282,7 +334,19 @@ pub fn function_view(root: &Path, snap: &Snapshot, function: &str) -> Result<Fun
         })
         .unwrap_or_default();
     let upstream = doc.upstream();
+    let own: Vec<&ReviewEntry> = doc.reviews().filter(|r| r.function_id() == f.id).collect();
+    let concepts = linked_concepts_of(root, &own);
+    let reconfirm = report.and_then(|r| match &r.state {
+        StampState::InheritedStale {
+            cause: InheritedCause::Callees(_),
+            blocked,
+            ..
+        } => Some(*blocked),
+        _ => None,
+    });
     Ok(FunctionView {
+        reconfirm,
+        concepts,
         fn_id: f.id.clone(),
         call_graph_id: super::call_graph_id(idx, file_name, f),
         file: file.clone(),

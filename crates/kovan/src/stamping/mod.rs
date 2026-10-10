@@ -81,12 +81,16 @@ pub mod git;
 
 pub mod authorship;
 pub mod commit_push;
+/// Concept links, the finder, formulas and concept areas (#770, #810).
+pub mod concepts;
 pub mod flow;
 pub mod new_code;
 /// Organisations and separation attestations (GitHub #810).
 pub mod organisations;
 pub mod queue;
 pub mod recent;
+/// Re-confirming an inherited-stale review (#770, #740).
+pub mod reconfirm;
 pub mod relocate;
 pub mod review_mode;
 mod states;
@@ -355,6 +359,38 @@ pub struct StampContext {
     /// as a `part_of` relation, off until the reviewer accepts it
     /// ([`review_mode::prefill::suggest_architecture`]).
     pub suggested_architecture: Option<RelationRecord>,
+    /// Added 2026-10-10 (#770, #740 decision 11): the concept this
+    /// reviewer's previous review links (`implements`), the wizard's
+    /// starting link.
+    pub concept: Option<String>,
+    /// Added 2026-10-10 (#770): the concept finder's candidates, the
+    /// standard tree with seeded ones marked, then the workspace's own
+    /// topics and projects ([`concepts::candidates`]).
+    pub concepts: Vec<concepts::ConceptChoice>,
+}
+
+/// The wizard's applicability for function `f` of folder `idx` at `HEAD`,
+/// as [`draft_stamp`] judges it, and git's messages on the reaching tests.
+fn applicability_for(
+    root: &Path,
+    ws: &Workspace,
+    idx: &FolderIndex,
+    f: &FunctionIndex,
+) -> (Applicability, Vec<String>) {
+    let folder = ws.reviews.get(&idx.dir);
+    let mut msgs = states::MessageCache::new();
+    let tests = states::tests_at(root, &ws.head, &idx.dir, &f.id, &mut msgs);
+    let applicability = Applicability {
+        is_port: folder
+            .and_then(|m| m.doc.upstream())
+            .is_some_and(|u| u.is_port),
+        physical_interface: f.physical_interface,
+        tests: tests.as_ref().map(|t| t.authorship()).unwrap_or_default(),
+    };
+    let messages = tests
+        .map(|t| t.commit_messages.into_values().flatten().collect())
+        .unwrap_or_default();
+    (applicability, messages)
 }
 
 /// Check that `function` can be stamped by `by` at `HEAD` now and gather
@@ -388,15 +424,7 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
         ));
     }
     let folder = ws.reviews.get(&idx.dir);
-    let mut msgs = states::MessageCache::new();
-    let tests = states::tests_at(root, &ws.head, &idx.dir, &f.id, &mut msgs);
-    let applicability = Applicability {
-        is_port: folder
-            .and_then(|m| m.doc.upstream())
-            .is_some_and(|u| u.is_port),
-        physical_interface: f.physical_interface,
-        tests: tests.as_ref().map(|t| t.authorship()).unwrap_or_default(),
-    };
+    let (applicability, messages) = applicability_for(root, &ws, idx, f);
     let previous = folder.and_then(|m| {
         m.doc
             .reviews()
@@ -405,9 +433,6 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
     let wizard = ReviewWizard::embedded();
     let mut answers = previous
         .map(|r| wizard.prefill(&r.review.checklist, applicability))
-        .unwrap_or_default();
-    let messages: Vec<String> = tests
-        .map(|t| t.commit_messages.into_values().flatten().collect())
         .unwrap_or_default();
     if let Some(a) = vv_case_author_prefill(&messages) {
         answers
@@ -437,6 +462,8 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
             upstream,
             architectures,
         ),
+        concept: previous.and_then(|r| concepts::linked_concepts(&r.relations).into_iter().next()),
+        concepts: concepts::candidates(&idx.krate, &idx.file_path(file), concepts::workspace_concepts(root)),
     })
 }
 
@@ -703,4 +730,4 @@ mod flow_tests;
 #[cfg(test)]
 mod need_you_tests;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

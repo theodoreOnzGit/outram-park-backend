@@ -24,20 +24,7 @@ fn cg(qual: &str) -> String {
 /// the folder's `kovan.toml` from the committed source (hashes now, ids
 /// kept), mark it up to date, commit.
 fn reindex(r: &Repo) {
-    use kovan_common::code_index::refresh::refresh_folder;
-    use kovan_common::review::index::FolderIndex;
-    let head = r.git(&["rev-parse", "HEAD"]).trim().to_string();
-    let toml = format!("{DIR}/kovan.toml");
-    let old = FolderIndex::parse(&r.read(&toml)).unwrap();
-    let files = BTreeMap::from([("lib.rs".to_string(), r.read(LIB))]);
-    let (mut idx, _) = refresh_folder("demo", DIR, Some(&old), &files, None, &[], &head);
-    for m in idx.modules.values_mut() {
-        for f in &mut m.functions {
-            f.index_out_of_date = false;
-        }
-    }
-    r.write(&toml, &idx.to_toml().unwrap());
-    r.commit("reindex");
+    r.reindex();
 }
 
 /// Methodology: on the fixture, try to prepare `twice` before `leaf` has a
@@ -334,4 +321,199 @@ fn flow_refuses_a_changed_hash_and_signs_no_concept() {
     assert!(r
         .read(&format!("{DIR}/review.md"))
         .contains("From the sidebar."));
+}
+
+/// Methodology (#770, #740 decision 8): stamp `leaf` and `twice`, edit
+/// `leaf` and commit (re-indexed): `twice` is inherited stale. Re-confirm is
+/// refused while `leaf` has no valid stamp (bottom-up) and for `leaf`
+/// itself (directly stale, not a callee change). Re-stamp `leaf`, then
+/// re-confirm `twice` through the dialog's state machine (purpose
+/// Reconfirm: key, prepare on a worker, the re-confirm step, a wrong then
+/// the right passphrase), commit. Pass: the step lists `leaf` with its
+/// diff (+1 -1); a wrong passphrase writes nothing and stays on the step;
+/// the re-confirm replaces the review (one entry), keeps the checklist,
+/// the previous comments and adds the re-confirm note; `twice` is valid
+/// at rung 3 again; a second re-confirm is refused (it is valid now).
+///
+/// Result (2026-10-10): passes.
+#[test]
+fn inherited_stale_is_reconfirmed_without_the_wizard() {
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    let key = founder_key(&r, store.path());
+    r.stamp(&key, "leaf", "");
+    r.stamp(&key, "twice", "Checked against the doc.");
+    r.edit("x * 2.0", "x * 3.0");
+    r.commit("edit leaf");
+    reindex(&r);
+    assert_eq!(
+        r.state("twice").unwrap().state,
+        Some(StateKind::InheritedStale)
+    );
+    let e = reconfirm::prepare_reconfirm(r.path(), &cg("twice"), BY).unwrap_err();
+    assert!(e.starts_with("bottom-up") && e.contains("leaf"), "{e}");
+    let e = reconfirm::prepare_reconfirm(r.path(), &cg("leaf"), BY).unwrap_err();
+    assert!(e.contains("only to a review made stale by a callee change"), "{e}");
+    let e = reconfirm::prepare_reconfirm(r.path(), &cg("twice"), "github:nobody").unwrap_err();
+    assert!(e.contains("no review"), "{e}");
+    r.stamp(&key, "leaf", "Re-reviewed after the change.");
+
+    let mut f = StampFlow::new(
+        r.path().to_path_buf(),
+        Keystore::at(store.path()),
+        Purpose::Reconfirm,
+        Target {
+            function: cg("twice"),
+            name: "twice".into(),
+        },
+    );
+    f.wait();
+    assert_eq!(f.step, Step::Reconfirm, "{:?}", f.step);
+    let rc = f.reconfirm.clone().unwrap();
+    assert_eq!(rc.changed.len(), 1);
+    assert_eq!(rc.changed[0].name, "leaf");
+    assert_eq!(rc.changed[0].diff.as_ref().unwrap().diff.counts(), (1, 1));
+    assert_eq!(rc.previous_comments, "Checked against the doc.");
+    assert!(!f.can_reconfirm(), "no passphrase yet");
+    f.reconfirm_passphrase = "wrong passphrase".into();
+    assert!(f.sign_reconfirm());
+    f.wait();
+    assert_eq!(f.step, Step::Reconfirm);
+    assert!(f.error.as_deref().unwrap().contains("Wrong passphrase"));
+    let md = r.read(&format!("{DIR}/review.md"));
+    assert!(!md.contains("Re-confirmed on"), "nothing written");
+
+    f.reconfirm_passphrase = PASS.into();
+    assert!(f.sign_reconfirm());
+    f.wait();
+    let Step::Done(o) = &f.step else {
+        panic!("{:?} {:?}", f.step, f.error)
+    };
+    assert_eq!((o.what, o.replaced), (Purpose::Reconfirm, true));
+    assert!(f.reconfirm_passphrase.is_empty());
+    r.commit("re-confirm twice");
+
+    let md = r.read(&format!("{DIR}/review.md"));
+    let doc = parse_review_md(&md);
+    let twices: Vec<_> = doc
+        .reviews()
+        .filter(|e| e.path().unwrap().ends_with("::twice"))
+        .collect();
+    assert_eq!(twices.len(), 1, "replaced, not appended");
+    assert_eq!(twices[0].review.checklist, clean());
+    assert!(md.contains("Checked against the doc."), "{md}");
+    assert!(md.contains("Re-confirmed on") && md.contains("leaf changed"), "{md}");
+    let s = r.state("twice").unwrap();
+    assert_eq!((s.state, s.rung), (Some(StateKind::Valid), 3), "{}", s.reason);
+    let e = reconfirm::prepare_reconfirm(r.path(), &cg("twice"), BY).unwrap_err();
+    assert!(e.contains("valid"), "{e}");
+
+    // "Mark for re-review" leaves for the full wizard as a Stamp.
+    r.edit("x * 3.0", "x * 5.0");
+    r.commit("edit leaf again");
+    reindex(&r);
+    r.stamp(&key, "leaf", "");
+    let mut f = StampFlow::new(
+        r.path().to_path_buf(),
+        Keystore::at(store.path()),
+        Purpose::Reconfirm,
+        Target {
+            function: cg("twice"),
+            name: "twice".into(),
+        },
+    );
+    f.wait();
+    assert_eq!(f.step, Step::Reconfirm, "{:?}", f.step);
+    f.switch_to_review();
+    f.wait();
+    assert_eq!((f.purpose, &f.step), (Purpose::Stamp, &Step::Wizard), "{:?}", f.error);
+    assert!(f.reconfirm.is_none());
+}
+
+/// Methodology (#770, #740 decision 11; #739 decision 21): through the
+/// stamp dialog's state machine, link a concept with the finder while
+/// stamping `leaf`. Pass: the finder finds the concept by its title;
+/// choosing it clears the no-concept reason and a reason clears it again
+/// (the two exclude each other); with neither, Sign is refused; the review
+/// written carries `[[relation]] kind = "implements"` to the concept; the
+/// re-stamp's wizard starts with the concept linked; the review panel's
+/// view lists the concept with no formula ("no formula recorded").
+///
+/// Result (2026-10-10): passes.
+#[test]
+fn a_concept_is_linked_from_the_wizard() {
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    founder_key(&r, store.path());
+    let concept = super::super::concepts::standard_concepts()
+        .into_iter()
+        .find(|c| c.level == 3)
+        .unwrap();
+    let open = |r: &Repo| {
+        let mut f = StampFlow::new(
+            r.path().to_path_buf(),
+            Keystore::at(store.path()),
+            Purpose::Stamp,
+            Target {
+                function: cg("leaf"),
+                name: "leaf".into(),
+            },
+        );
+        f.wait();
+        assert_eq!(f.step, Step::Wizard, "{:?}", f.step);
+        f
+    };
+    let mut f = open(&r);
+    {
+        let w = f.wizard.as_mut().unwrap();
+        assert_eq!(w.concept, None);
+        let ctx = w.ctx.clone();
+        *w = flow::WizardForm::new(StampContext {
+            answers: clean(),
+            ..ctx
+        });
+        w.passphrase = PASS.into();
+        assert!(w.concept_problem().is_some(), "neither a concept nor a reason");
+        w.concept_query = concept.title.clone();
+        let found: Vec<String> = w.concept_matches().iter().map(|c| c.id.clone()).collect();
+        assert!(found.contains(&concept.id), "{found:?}");
+        w.choose_reason(Some("plumbing"));
+        w.choose_concept(&concept.id);
+        assert_eq!(w.no_concept.choice, None, "a concept clears the reason");
+        w.choose_reason(Some("plumbing"));
+        assert_eq!(w.concept, None, "a reason unlinks the concept");
+        w.choose_reason(None);
+    }
+    assert!(!f.can_sign());
+    f.wizard.as_mut().unwrap().choose_concept(&concept.id);
+    assert!(f.can_sign());
+    assert!(f.sign());
+    f.wait();
+    assert!(matches!(f.step, Step::Done(_)), "{:?} {:?}", f.step, f.error);
+    r.commit("stamp leaf with a concept");
+
+    let md = r.read(&format!("{DIR}/review.md"));
+    let doc = parse_review_md(&md);
+    let leaf = doc.reviews().next().unwrap();
+    assert_eq!(
+        super::super::concepts::linked_concepts(&leaf.relations),
+        vec![concept.id.clone()]
+    );
+    assert_eq!(leaf.review.no_concept, None);
+    assert_eq!(r.state("leaf").unwrap().state, Some(StateKind::Valid));
+    let ws = load_workspace(r.path()).unwrap();
+    let areas = super::super::concepts::concept_areas(&ws);
+    assert_eq!(
+        areas.get(&leaf.function_id()).map(|a| a.iter().cloned().collect::<Vec<_>>()),
+        Some(vec![concept.id.clone()])
+    );
+
+    let f = open(&r);
+    assert_eq!(f.wizard.as_ref().unwrap().concept.as_deref(), Some(concept.id.as_str()));
+    let snap = Snapshot::load(r.path()).unwrap();
+    let v = function_view(r.path(), &snap, &cg("leaf")).unwrap();
+    assert_eq!(v.concepts.len(), 1);
+    assert_eq!((v.concepts[0].id.as_str(), v.concepts[0].title.as_str()), (concept.id.as_str(), concept.title.as_str()));
+    assert!(v.concepts[0].formulas.is_empty(), "no formula recorded anywhere");
+    assert_eq!(v.reconfirm, None);
 }

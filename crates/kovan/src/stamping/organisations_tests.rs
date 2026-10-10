@@ -18,6 +18,7 @@ use kovan_common::review::signing::registry::SignerProblem;
 use kovan_common::review::state::StateKind;
 
 use super::panel::{Action, OrgPanel};
+use crate::stamping::concepts::ConceptChoice;
 use super::*;
 use crate::stamping::tests::{clean, founder_key, today, Repo, BY, DIR, LIB, PASS};
 use crate::stamping::{
@@ -25,9 +26,12 @@ use crate::stamping::{
     StampRequest, REVIEW_MD,
 };
 
-/// The independent reviewer. Its id sorts after [`BY`]'s: two reviews on
+/// The independent reviewer. ~~Its id sorts after [`BY`]'s: two reviews on
 /// the same date are ordered by reviewer id (the engine has no time of
-/// day), and the first must be the maintainer's.
+/// day), and the first must be the maintainer's.~~ **CORRECTED 2026-10-10**
+/// (#770): two reviews of one date are ordered by `signed_at`
+/// (`kovan_common::review::ivv::earliest_first`), so the maintainer, who
+/// signs first, is the first reviewer whatever the ids.
 const V: &str = "github:verifier";
 const DEV: &str = "Outram Park project";
 const IVV: &str = "Example IV&V Ltd";
@@ -69,9 +73,14 @@ fn add_reaching_test(r: &Repo) {
 }
 
 /// The independent reviewer: key `v1` in the same temporary keystore,
-/// scoped to the crate, qualified in thermal-hydraulics, admitted by the
-/// maintainer, registered and committed.
-fn register_verifier(r: &Repo, store: &std::path::Path, mk: &UnlockedKey) -> UnlockedKey {
+/// scoped to the crate, qualified in `area` (with evidence), admitted by
+/// the maintainer, registered and committed.
+fn register_verifier(
+    r: &Repo,
+    store: &std::path::Path,
+    mk: &UnlockedKey,
+    area: &str,
+) -> UnlockedKey {
     let ks = Keystore::at(store);
     let (vf, vk) = generate(V, "v1", &today(), PASS).unwrap();
     ks.save(&vf).unwrap();
@@ -80,7 +89,7 @@ fn register_verifier(r: &Repo, store: &std::path::Path, mk: &UnlockedKey) -> Unl
     v.admitted = Some(today());
     mk.admit(&mut v).unwrap();
     v.qualification = vec![Qualification::Record(QualificationRecord {
-        area: "concept:thermal-hydraulics".into(),
+        area: area.into(),
         basis: QualificationBasis::Degree,
         evidence: vec!["https://doi.org/10.1/thesis".into()],
         endorsed_by: None,
@@ -124,7 +133,10 @@ fn verifier_stamps(r: &Repo, vk: &UnlockedKey, attestation: Option<&str>) {
 /// The verifier's first stamp, through the stamp dialog's state machine
 /// (key picker, prepare, wizard, the attestation picker, sign on a worker):
 /// the picker offers exactly `id` and starts on none; the review names it.
-fn verifier_stamps_via_dialog(r: &Repo, store: &std::path::Path, id: &str) {
+/// With `concept`, the concept finder links it (found by its title); else
+/// the no-concept reason "plumbing" is chosen (a stamp needs one or the
+/// other since 2026-10-10, #740 U3).
+fn verifier_stamps_via_dialog(r: &Repo, store: &std::path::Path, id: &str, concept: Option<&ConceptChoice>) {
     use crate::stamping::flow::{Purpose, StampFlow, Step, Target};
     let target = Target {
         function: format!("{LIB}::twice"),
@@ -150,6 +162,18 @@ fn verifier_stamps_via_dialog(r: &Repo, store: &std::path::Path, id: &str) {
         w.options.insert(q, a);
     }
     w.separation_attestation = Some(id.into());
+    match concept {
+        Some(c) => {
+            w.concept_query = c.title.clone();
+            assert!(
+                w.concept_matches().iter().any(|m| m.id == c.id),
+                "the finder finds {}",
+                c.id
+            );
+            w.choose_concept(&c.id);
+        }
+        None => w.choose_reason(Some("plumbing")),
+    }
     w.passphrase = PASS.into();
     assert!(f.sign(), "{:?}", f.wizard.as_ref().map(|w| w.gate()));
     f.wait();
@@ -190,8 +214,10 @@ fn misses_with_areas(r: &Repo) -> (Option<u8>, Vec<Rung5Miss>) {
 /// (v3 signature). Every write is committed.
 ///
 /// Pass:
-/// 1. desktop and web (`stamp_states`, which passes NO concept areas:
-///    nothing in kovan resolves them yet) show `twice` valid at rung 4,
+/// 1. desktop and web (`stamp_states`; ~~which passes NO concept areas:
+///    nothing in kovan resolves them yet~~ **CORRECTED 2026-10-10**: it
+///    resolves them from the reviews' concept links, and no review here
+///    links one) show `twice` valid at rung 4,
 ///    with exactly ONE reason `V` misses rung 5, "the function has no known
 ///    concept area", the audit record as written, and the "independent
 ///    V&V not counted" flag (the review claims IV&V and misses);
@@ -202,16 +228,17 @@ fn misses_with_areas(r: &Repo) -> (Option<u8>, Vec<Rung5Miss>) {
 ///    the miss is "not signed"; naming one `V` does not have: the draft is
 ///    refused; the stamp dialog's choices hold only the signed one.
 ///
-/// Result (2026-10-10): passes. Rung 5 is unreachable in desktop kovan
-/// and kovan-web today because concept areas are not resolved there; the
-/// view says so on every reviewed function.
+/// Result (2026-10-10): passes. ~~Rung 5 is unreachable in desktop kovan
+/// and kovan-web today because concept areas are not resolved there~~
+/// **CORRECTED 2026-10-10**: reachable once a review links a concept
+/// (`concept_link_reaches_rung_5_through_evaluate_workspace`, below).
 #[test]
 fn ivv_end_to_end_signs_records_stamps_and_judges() {
     let r = Repo::new();
     let store = tempfile::tempdir().unwrap();
     let mk = founder_key(&r, store.path());
     add_reaching_test(&r);
-    let vk = register_verifier(&r, store.path(), &mk);
+    let vk = register_verifier(&r, store.path(), &mk, "concept:thermal-hydraulics");
 
     // The maintainer's records, through the library.
     let refused = add_developing_organisation(r.path(), &vk, DEV, None, &today()).unwrap_err();
@@ -277,7 +304,7 @@ fn ivv_end_to_end_signs_records_stamps_and_judges() {
     // (#770, #740: a callee without a valid stamp blocks its caller).
     r.stamp(&mk, "leaf", "Leaf first, bottom-up.");
     r.stamp(&mk, "twice", "First review.");
-    verifier_stamps_via_dialog(&r, store.path(), &id);
+    verifier_stamps_via_dialog(&r, store.path(), &id, None);
     assert!(r
         .read(&format!("{DIR}/{REVIEW_MD}"))
         .contains(&format!("separation_attestation = \"{id}\"")));
@@ -400,6 +427,83 @@ fn ivv_end_to_end_signs_records_stamps_and_judges() {
     assert!(draft_stamp(r.path(), &req)
         .unwrap_err()
         .contains("no separation attestation"));
+}
+
+/// Methodology (#770, #810; the brief's end-to-end): on the stamping
+/// fixture, the founder `BY` and an independent reviewer `V` qualified in
+/// a level-1 node of the standard concept tree (an IAEA issue, with
+/// evidence). A hand-written analytical test reaches `twice`. The
+/// maintainer signs the developing organisation and `V`'s organisation; `V`
+/// signs a separation attestation with a GitHub issue audit record (all
+/// through the library), committed. The maintainer stamps `leaf` and
+/// `twice` (rung 3); `V` stamps `twice` through the stamp dialog, naming
+/// the attestation and **linking a level-3 concept under that issue with
+/// the concept finder**; committed.
+///
+/// Pass: the review carries the `implements` relation; the workspace judged
+/// through `evaluate_workspace` (no `_with`: the concept areas are
+/// resolved from the review) has `twice` at **rung 5** by `V` with no miss;
+/// desktop and web (`stamp_states`) show rung 5 and the IV&V summary
+/// passed; `kovan-cli review ivv` no longer says "no known concept area".
+/// Then the same review with the concept unlinked (re-stamped with a
+/// no-concept reason) falls back to rung 4 with exactly that miss.
+///
+/// Result (2026-10-10): passes.
+#[test]
+fn concept_link_reaches_rung_5_through_evaluate_workspace() {
+    let concept = crate::stamping::concepts::standard_concepts()
+        .into_iter()
+        .find(|c| c.level == 3)
+        .unwrap();
+    let issue = concept.path.split('/').next().unwrap().to_string();
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    let mk = founder_key(&r, store.path());
+    add_reaching_test(&r);
+    let vk = register_verifier(&r, store.path(), &mk, &format!("concept:{issue}"));
+    add_developing_organisation(r.path(), &mk, DEV, None, &today()).unwrap();
+    add_reviewer_organisation(r.path(), &mk, V, IVV, &today()).unwrap();
+    let id = format!("sep-{}", today());
+    add_separation_attestation(
+        r.path(),
+        &vk,
+        &AttestationInput {
+            id: id.clone(),
+            organisation: IVV.into(),
+            developing_organisation: DEV.into(),
+            audit_record: URL.into(),
+            date: today(),
+        },
+    )
+    .unwrap();
+    r.commit("organisations and the attestation");
+    r.stamp(&mk, "leaf", "Leaf first, bottom-up.");
+    r.stamp(&mk, "twice", "First review.");
+    verifier_stamps_via_dialog(&r, store.path(), &id, Some(&concept));
+    let md = r.read(&format!("{DIR}/{REVIEW_MD}"));
+    assert!(
+        md.contains("kind = \"implements\"") && md.contains(&concept.id),
+        "{md}"
+    );
+
+    let we = evaluate_workspace(r.path()).unwrap();
+    let f = &we.evaluation.functions[&twice_id(&r)];
+    let by_v = f.independent_vv.candidates.iter().find(|c| c.by == V).unwrap();
+    assert_eq!(by_v.misses, vec![], "{:?}", f.independent_vv);
+    assert_eq!(f.rung, Some(5), "{:?}", f.independent_vv);
+    let s = r.state("twice").unwrap();
+    assert_eq!((s.state, s.rung), (Some(StateKind::Valid), 5), "{}", s.reason);
+    assert!(s.ivv.as_ref().unwrap().passed());
+    let cli = crate::commands::review_ivv::render(r.path(), Some("twice")).unwrap();
+    assert!(!cli.contains("  - the function has no known concept area"), "{cli}");
+
+    // Unlinked: back to rung 4, with exactly the area miss.
+    verifier_stamps(&r, &vk, Some(&id));
+    let we = evaluate_workspace(r.path()).unwrap();
+    let f = &we.evaluation.functions[&twice_id(&r)];
+    let by_v = f.independent_vv.candidates.iter().find(|c| c.by == V).unwrap();
+    assert_eq!(f.rung, Some(4));
+    assert_eq!(by_v.misses, vec![Rung5Miss::NoConceptArea]);
 }
 
 /// Methodology: the pure helpers. `check_audit_record` accepts a GitHub

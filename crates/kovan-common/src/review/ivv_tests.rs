@@ -223,3 +223,45 @@ fn ambiguous_and_unknown_attestations() {
     let c = check_attestation(&bad, &reg, "github:r", "s", SignaturePolicy::Enforce);
     assert_eq!(c.problems, vec![AttestationProblem::BadDate("soon".into())]);
 }
+
+/// A valid review for the first-reviewer order.
+fn order_report(by: &str, date: &str, signed_at: Option<&str>) -> ReviewReport {
+    ReviewReport {
+        by: by.into(),
+        artifact: Some(format!("review-{by}")),
+        date: Some(date.into()),
+        state: crate::review::engine::StampState::Valid,
+        rung: Some(3),
+        qualifications: Vec::new(),
+        independent: true,
+        vv_case: Vec::new(),
+        separation_attestation: None,
+        signed_at: signed_at.map(str::to_string),
+    }
+}
+
+/// Methodology (#770, decided by the main session 2026-10-10): the first
+/// reviewer is the earliest by `date`; on one date, by `signed_at` when
+/// both have it (as instants: `09:00+08:00` is before `02:00Z`), then by
+/// reviewer id. Pass: `z` signed earlier on the same day sorts before `a`;
+/// different offsets compare as instants; with one `signed_at` missing,
+/// the id decides; an earlier date beats any time.
+///
+/// Result (2026-10-10): passes.
+#[test]
+fn first_reviewer_is_ordered_by_signed_at_on_one_date() {
+    use std::cmp::Ordering;
+    let z_early = order_report("github:z", "2026-10-10", Some("2026-10-10T08:00:00+08:00"));
+    let a_late = order_report("github:a", "2026-10-10", Some("2026-10-10T09:00:00+08:00"));
+    assert_eq!(earliest_first(&z_early, &a_late), Ordering::Less);
+    // 09:00+08:00 is 01:00Z, before 02:00Z.
+    let a_utc = order_report("github:a", "2026-10-10", Some("2026-10-10T02:00:00Z"));
+    assert_eq!(earliest_first(&a_late, &a_utc), Ordering::Less);
+    let z_v1 = order_report("github:z", "2026-10-10", None);
+    assert_eq!(earliest_first(&a_late, &z_v1), Ordering::Less, "the id decides");
+    let z_before = order_report("github:z", "2026-10-09", Some("2026-10-09T23:00:00+08:00"));
+    assert_eq!(earliest_first(&z_before, &a_late), Ordering::Less);
+    let mut v = vec![a_late.clone(), z_early.clone()];
+    v.sort_by(earliest_first);
+    assert_eq!(v[0].by, "github:z");
+}

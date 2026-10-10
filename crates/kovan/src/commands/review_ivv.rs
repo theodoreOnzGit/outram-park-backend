@@ -30,8 +30,8 @@ pub fn render(root: &Path, function: Option<&str>) -> Result<String, String> {
     let ev = &we.evaluation;
     let mut out = String::from(
         "Rung 5, independent V&V (IV&V), judged from review.md with signatures enforced.\n\
-         Concept areas are not resolved by kovan yet, so no function reaches rung 5 here; \
-         the reason \"the function has no known concept area\" says so on each review.\n",
+         A function's concept areas are the concepts its reviews link (implements); \
+         a function linking none shows \"the function has no known concept area\".\n",
     );
     let mut shown = 0usize;
     for (id, fr) in &ev.functions {

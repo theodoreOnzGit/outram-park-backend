@@ -15,10 +15,10 @@ use kovan_common::review::state::StateKind;
 
 use super::*;
 
-pub(super) const BY: &str = "github:tester";
-pub(super) const DIR: &str = "crates/demo/src";
-pub(super) const LIB: &str = "crates/demo/src/lib.rs";
-pub(super) const PASS: &str = "test passphrase, not a real one";
+pub(crate) const BY: &str = "github:tester";
+pub(crate) const DIR: &str = "crates/demo/src";
+pub(crate) const LIB: &str = "crates/demo/src/lib.rs";
+pub(crate) const PASS: &str = "test passphrase, not a real one";
 
 const LIB_SRC: &str = "\
 /// Doubles x.
@@ -42,13 +42,13 @@ const ROOT_SRC: &str = "# The workspace root: this comment must survive registra
 /// A malformed review entry (no `[review]` table): unreadable.
 const BROKEN: &str = "# Review: broken (github:someone)\n\n```toml\n[kovan]\nid = \"review-broken\"\nkind = \"review\"\ncreated = \"c\"\nmodified = \"m\"\n```\n\nKeep   these   bytes.\n";
 
-pub(super) struct Repo(tempfile::TempDir);
+pub(crate) struct Repo(tempfile::TempDir);
 
 impl Repo {
-    pub(super) fn path(&self) -> &Path {
+    pub(crate) fn path(&self) -> &Path {
         self.0.path()
     }
-    pub(super) fn git(&self, args: &[&str]) -> String {
+    pub(crate) fn git(&self, args: &[&str]) -> String {
         let out = Command::new("git")
             .current_dir(self.path())
             .args([
@@ -69,20 +69,20 @@ impl Repo {
         );
         String::from_utf8_lossy(&out.stdout).into_owned()
     }
-    pub(super) fn write(&self, file: &str, text: &str) {
+    pub(crate) fn write(&self, file: &str, text: &str) {
         let p = self.path().join(file);
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
         std::fs::write(p, text).unwrap();
     }
-    pub(super) fn read(&self, file: &str) -> String {
+    pub(crate) fn read(&self, file: &str) -> String {
         std::fs::read_to_string(self.path().join(file)).unwrap()
     }
-    pub(super) fn edit(&self, from: &str, to: &str) {
+    pub(crate) fn edit(&self, from: &str, to: &str) {
         let t = self.read(LIB);
         assert!(t.contains(from), "fixture lacks {from:?}");
         self.write(LIB, &t.replacen(from, to, 1));
     }
-    pub(super) fn commit(&self, msg: &str) {
+    pub(crate) fn commit(&self, msg: &str) {
         self.git(&["add", "-A"]);
         self.git(&["commit", "-q", "-m", msg]);
     }
@@ -92,7 +92,7 @@ impl Repo {
     /// index would write it (built with the rust-analyzer-free refresh,
     /// then the one call `twice -> leaf` filled in by hand, since the call
     /// graph needs rust-analyzer).
-    pub(super) fn new() -> Repo {
+    pub(crate) fn new() -> Repo {
         let r = Repo(tempfile::tempdir().unwrap());
         r.git(&["init", "-q", "-b", "main"]);
         r.write(LIB, LIB_SRC);
@@ -123,7 +123,27 @@ impl Repo {
         r
     }
 
-    pub(super) fn state(&self, qual: &str) -> Option<WebStamp> {
+    /// What "Index fresh" does after a code commit: refresh the folder's
+    /// `kovan.toml` from the committed source (hashes now, ids kept), mark
+    /// it up to date, commit. (Moved here from `review_mode/tests.rs` on
+    /// 2026-10-10 so the app's headless tests can use it too.)
+    pub(crate) fn reindex(&self) {
+        use kovan_common::review::index::FolderIndex;
+        let head = self.git(&["rev-parse", "HEAD"]).trim().to_string();
+        let toml = format!("{DIR}/kovan.toml");
+        let old = FolderIndex::parse(&self.read(&toml)).unwrap();
+        let files = BTreeMap::from([("lib.rs".to_string(), self.read(LIB))]);
+        let (mut idx, _) = refresh_folder("demo", DIR, Some(&old), &files, None, &[], &head);
+        for m in idx.modules.values_mut() {
+            for f in &mut m.functions {
+                f.index_out_of_date = false;
+            }
+        }
+        self.write(&toml, &idx.to_toml().unwrap());
+        self.commit("reindex");
+    }
+
+    pub(crate) fn state(&self, qual: &str) -> Option<WebStamp> {
         let id = format!("{LIB}::{qual}");
         stamp_states(self.path())
             .unwrap()
@@ -132,7 +152,7 @@ impl Repo {
     }
 
     /// Draft, sign and write a stamp of `qual`, then commit it.
-    pub(super) fn stamp(&self, key: &UnlockedKey, qual: &str, comments: &str) -> WrittenEntry {
+    pub(crate) fn stamp(&self, key: &UnlockedKey, qual: &str, comments: &str) -> WrittenEntry {
         let req = StampRequest {
             function: format!("{LIB}::{qual}"),
             by: BY.into(),
@@ -150,7 +170,7 @@ impl Repo {
 
 /// A complete wizard answer set that stamps at rung 3 (the one the
 /// engine's own tests use).
-pub(super) fn clean() -> BTreeMap<String, String> {
+pub(crate) fn clean() -> BTreeMap<String, String> {
     [
         ("doc_matches_behaviour", "yes"),
         ("limits_and_guards", "guarded_returns_result"),
@@ -169,13 +189,13 @@ pub(super) fn clean() -> BTreeMap<String, String> {
     .collect()
 }
 
-pub(super) fn today() -> String {
+pub(crate) fn today() -> String {
     kovan_common::review::signed_at::date_of(&kovan_common::review::signed_at::now_local()).unwrap()
 }
 
 /// A key generated with the test passphrase into a temporary keystore and
 /// registered in the fixture's root (the founder: first reviewer).
-pub(super) fn founder_key(r: &Repo, store: &Path) -> UnlockedKey {
+pub(crate) fn founder_key(r: &Repo, store: &Path) -> UnlockedKey {
     let ks = Keystore::at(store);
     let (kf, key) = generate(BY, "k1", &today(), PASS).unwrap();
     ks.save(&kf).unwrap();

@@ -20,11 +20,16 @@
 //! | `previous_root` | `HEAD`'s `kovan_root.toml` when the working copy differs from it, else the version before the last commit that changed it |
 //! | `deleted_in`, `publish_records`, `tag_commits` | left empty: deleted functions show without a deleting commit, there is no #773 record yet, and tags show as unchecked (offline) |
 //!
-//! [`ConceptAreas`] is passed **empty** (resolving a function's concept
+//! ~~[`ConceptAreas`] is passed **empty** (resolving a function's concept
 //! areas from its reviews' `implements` relations is not built): no
-//! function reaches rung 5 here, which the engine documents as the result
-//! for a function with no known concept area. Conservative, never a silent
-//! upgrade.
+//! function reaches rung 5 here~~ **CORRECTED 2026-10-10** (#770, #810):
+//! [`evaluate_workspace`] and [`evaluate_loaded`] (and so
+//! [`stamp_states`], the need-you queue, `kovan-cli review ivv` and
+//! `call-graph --split-dir`) resolve [`ConceptAreas`] from the reviews'
+//! `implements` concept links ([`super::concepts::concept_areas`]; what an
+//! "area" is taken to mean is in that module's doc). A function whose
+//! reviews link no concept still has no known area and cannot reach rung 5,
+//! never a silent upgrade.
 //!
 //! A stamp without a signature has no pickaxe string and is never found
 //! in git (unverified, "no git facts"); with signatures enforced it would be
@@ -362,14 +367,18 @@ pub struct WorkspaceEvaluation {
 }
 
 /// Load the workspace, build the git facts and run the engine with
-/// signatures enforced (module doc), with no concept areas.
+/// signatures enforced (module doc), with the concept areas the reviews'
+/// concept links give ([`super::concepts::concept_areas`]).
 pub fn evaluate_workspace(root: &Path) -> Result<WorkspaceEvaluation, String> {
-    evaluate_workspace_with(root, &ConceptAreas::new())
+    let ws = load_workspace(root)?;
+    Ok(evaluate_loaded(root, &ws))
 }
 
 /// [`evaluate_workspace`] with the function -> concept-area map given
-/// (GitHub #810). Nothing in kovan resolves concept areas yet, so every
-/// caller but a test passes none; with none, rung 5 is unreachable
+/// instead of resolved (GitHub #810; tests). ~~Nothing in kovan resolves
+/// concept areas yet, so every caller but a test passes none~~
+/// **CORRECTED 2026-10-10**: [`evaluate_workspace`] resolves them; with an
+/// empty map rung 5 is unreachable
 /// ([`kovan_common::review::ivv::Rung5Miss::NoConceptArea`]).
 pub fn evaluate_workspace_with(
     root: &Path,
@@ -380,10 +389,11 @@ pub fn evaluate_workspace_with(
 }
 
 /// [`evaluate_workspace`] over a workspace already loaded (the need-you
-/// queue reads the same [`Workspace`] for crates and line ranges), with no
-/// concept areas.
+/// queue reads the same [`Workspace`] for crates and line ranges), with the
+/// concept areas resolved from its reviews (~~with no concept areas~~
+/// **CORRECTED 2026-10-10**, #810).
 pub fn evaluate_loaded(root: &Path, ws: &Workspace) -> WorkspaceEvaluation {
-    evaluate_loaded_with(root, ws, &ConceptAreas::new())
+    evaluate_loaded_with(root, ws, &super::concepts::concept_areas(ws))
 }
 
 /// [`evaluate_loaded`] with the function -> concept-area map given (#810).

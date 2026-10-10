@@ -191,9 +191,19 @@ impl CodeReviewView {
 
     /// Open the stamp dialog for `req` (its first job starts on a worker).
     fn open(&mut self, req: HostRequest) {
-        let (purpose, f) = match &req {
-            HostRequest::Stamp(f) => (Purpose::Stamp, f),
-            HostRequest::NeedsFix(f) => (Purpose::NeedsFix, f),
+        let purpose = match &req {
+            HostRequest::Stamp(_) => Purpose::Stamp,
+            HostRequest::NeedsFix(_) => Purpose::NeedsFix,
+        };
+        self.open_flow(purpose, req);
+    }
+
+    /// Open the stamp dialog for `purpose` on the function `req` names
+    /// (added 2026-10-10 for review mode's Re-confirm, #770: `req` is then
+    /// held as a Stamp, the request kovan-web knows).
+    fn open_flow(&mut self, purpose: Purpose, req: HostRequest) {
+        let f = match &req {
+            HostRequest::Stamp(f) | HostRequest::NeedsFix(f) => f,
         };
         let target = Target {
             function: f.id.clone(),
@@ -483,13 +493,20 @@ impl CodeReviewView {
                 }
                 self.take_request();
                 for r in panel_requests {
-                    if let PanelRequest::Dialog(req, seed) = r {
-                        if self.pending.is_none() {
+                    if self.pending.is_some() {
+                        break;
+                    }
+                    match r {
+                        PanelRequest::Dialog(req, seed) => {
                             self.open(req);
                             if let Some(d) = self.dialog.as_mut() {
                                 d.comments_seed = seed;
                             }
                         }
+                        PanelRequest::Reconfirm(f) => {
+                            self.open_flow(Purpose::Reconfirm, HostRequest::Stamp(f));
+                        }
+                        PanelRequest::Goto(_) => {}
                     }
                 }
                 let ctx = ui.ctx().clone();
@@ -589,6 +606,61 @@ mod tests {
         }
     }
 
+    /// Headless (#770, #740 decision 8), on the stamping fixture (temporary
+    /// git repository and keystore, test passphrase): `twice` inherited
+    /// stale after `leaf` changed and was re-stamped. Review mode's
+    /// Re-confirm request opens the dialog on its re-confirm step, which
+    /// draws `leaf`'s unified diff and the passphrase form without a
+    /// display or a panic.
+    ///
+    /// Result (2026-10-10): passes.
+    #[test]
+    fn the_reconfirm_step_draws_the_callee_diff_headless() {
+        use crate::stamping::flow::Step;
+        use crate::stamping::tests::{founder_key, Repo, LIB};
+        let r = Repo::new();
+        let store = tempfile::tempdir().unwrap();
+        let key = founder_key(&r, store.path());
+        r.stamp(&key, "leaf", "");
+        r.stamp(&key, "twice", "");
+        r.edit("x * 2.0", "x * 3.0");
+        r.commit("edit leaf");
+        r.reindex();
+        r.stamp(&key, "leaf", "");
+        let mut v = CodeReviewView {
+            workspace: Some(r.path().to_path_buf()),
+            review: Some(kovan_web::ui::CodeReview::new(
+                kovan_web::Mode::Desktop,
+                kovan_web::data::DataSource::Dir {
+                    data: r.path().to_path_buf(),
+                    workspace: r.path().to_path_buf(),
+                },
+            )),
+            checked: true,
+            keystore: Some(Keystore::at(store.path())),
+            ..CodeReviewView::default()
+        };
+        let twice = FunctionRef {
+            id: format!("{LIB}::twice"),
+            krate: "demo".into(),
+            file: LIB.into(),
+            name: "twice".into(),
+            callees: None,
+            lines: None,
+        };
+        v.open_flow(Purpose::Reconfirm, HostRequest::Stamp(twice));
+        v.dialog.as_mut().unwrap().wait();
+        let d = v.dialog.as_ref().unwrap();
+        assert_eq!(d.step, Step::Reconfirm, "{:?}", d.step);
+        assert_eq!(d.reconfirm.as_ref().unwrap().changed.len(), 1);
+        let ctx = egui::Context::default();
+        for _ in 0..2 {
+            let _ = ctx.run_ui(Default::default(), |ui| v.ui(ui));
+        }
+        assert_eq!(v.dialog.as_ref().unwrap().step, Step::Reconfirm, "drawn, not moved");
+        v.close_dialog();
+    }
+
     /// Headless (#770): with a function under review and a walk planned,
     /// the view draws review mode in place of the embedded map, and the walk
     /// card, while their workers run (and are refused over an empty
@@ -664,6 +736,8 @@ mod tests {
             hash: String::new(),
             no_concept: Some("other: a test".into()),
             suggested_architecture: None,
+            concept: Some("concept:a/b".into()),
+            concepts: crate::stamping::concepts::standard_concepts(),
         };
         let steps = [
             Step::Loading,
@@ -680,6 +754,8 @@ mod tests {
             },
             Step::Wizard,
             Step::Signing,
+            Step::PreparingReconfirm,
+            Step::Reconfirm,
             Step::NeedsFixForm,
             Step::WritingNeedsFix,
             Step::Done(Outcome {
@@ -702,6 +778,17 @@ mod tests {
         }
         v.close_dialog();
         assert!(v.dialog.is_none() && v.pending.is_none());
+
+        // Review mode's Re-confirm opens the same dialog on its re-confirm
+        // purpose (#770); with no kovan_root.toml it stops there.
+        v.open_flow(crate::stamping::flow::Purpose::Reconfirm, HostRequest::Stamp(function()));
+        assert_eq!(
+            v.dialog.as_ref().unwrap().purpose,
+            crate::stamping::flow::Purpose::Reconfirm
+        );
+        v.dialog.as_mut().unwrap().wait();
+        assert_eq!(v.dialog.as_ref().unwrap().step, Step::NoRoot);
+        v.close_dialog();
     }
 
     /// Headless (GitHub #810): the Organisations & IV&V window opens only
@@ -780,6 +867,8 @@ mod tests {
             hash: String::new(),
             no_concept: None,
             suggested_architecture: None,
+            concept: None,
+            concepts: Vec::new(),
         };
         for choices in [0, 1] {
             {

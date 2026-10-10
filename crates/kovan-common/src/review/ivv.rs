@@ -38,7 +38,8 @@
 //!    before; decision 1). A function with no known concept area cannot
 //!    reach rung 5.
 //! 3. **Not the code's author** (from git) and **not the first reviewer**
-//!    (the earliest valid review's reviewer), and its `independence` answer
+//!    (the earliest valid review's reviewer, ordered by [`earliest_first`]:
+//!    date, then `signed_at`, then reviewer id), and its `independence` answer
 //!    is not `not_independent`.
 //! 4. **A different organisation.** The reviewer's
 //!    `[[reviewer.organisation]]` in force at the review date differs from
@@ -661,6 +662,30 @@ fn unqualified_areas(
     )
 }
 
+/// The order that decides the **first reviewer**: by `date`; on the same
+/// date, by `signed_at` when both reviews carry one that parses (compared as
+/// instants, so different UTC offsets order correctly); then by reviewer
+/// id. ~~Two reviews of one date are ordered by reviewer id (the engine has
+/// no time of day)~~ **CORRECTED 2026-10-10** (#770, decided by the main
+/// session): a v2+ stamp records `signed_at`, so the reviewer who really
+/// signed first is the first reviewer; the id stays the last tie-break, and
+/// the only one between v1 stamps.
+pub fn earliest_first(a: &ReviewReport, b: &ReviewReport) -> std::cmp::Ordering {
+    let instant = |r: &ReviewReport| {
+        r.signed_at
+            .as_deref()
+            .and_then(super::signed_at::parse_rfc3339)
+            .map(|t| t.unix)
+    };
+    a.date.cmp(&b.date).then_with(|| {
+        match (instant(a), instant(b)) {
+            (Some(x), Some(y)) => x.cmp(&y),
+            _ => std::cmp::Ordering::Equal,
+        }
+        .then_with(|| a.by.cmp(&b.by))
+    })
+}
+
 /// Judge every valid review of function `id` (in crate `krate`) as a rung-5
 /// candidate (module doc). Pure.
 #[allow(clippy::too_many_arguments)]
@@ -678,7 +703,7 @@ pub fn judge_function(
         .iter()
         .filter(|r| r.state.kind() == StateKind::Valid)
         .collect();
-    valid.sort_by(|a, b| (&a.date, &a.by).cmp(&(&b.date, &b.by)));
+    valid.sort_by(|a, b| earliest_first(a, b));
     let Some(first) = valid.first().map(|r| r.by.clone()) else {
         return IndependentVv::default();
     };

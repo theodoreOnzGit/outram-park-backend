@@ -521,6 +521,10 @@ pub struct ReviewReport {
     pub vv_case: Vec<VvCaseProblem>,
     /// The separation attestation the review names, if any (GitHub #809).
     pub separation_attestation: Option<String>,
+    /// The stamp's `signed_at` as written (`None` on a v1 stamp or an
+    /// unreadable entry). Added 2026-10-10 (#770): it orders two reviews of
+    /// the same date when both carry it ([`super::ivv::earliest_first`]).
+    pub signed_at: Option<String>,
 }
 
 /// One function, judged.
@@ -852,6 +856,7 @@ pub fn evaluate(
                 independent: stamp_gate(&b.checklist, Applicability::default()).independent,
                 vv_case: Vec::new(),
                 separation_attestation: b.separation_attestation.clone(),
+                signed_at: b.signed_at.clone(),
             };
             let is_port = fr.doc.upstream().is_some_and(|u| u.is_port);
             // 1. Find the function.
@@ -982,6 +987,7 @@ pub fn evaluate(
                     independent: false,
                     vv_case: Vec::new(),
                     separation_attestation: None,
+                    signed_at: None,
                 }),
                 None => ev.orphan_unreadable.push(OrphanUnreadable {
                     dir: fr.dir.clone(),

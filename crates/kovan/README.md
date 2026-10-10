@@ -559,6 +559,20 @@ reviewed. Save keeps what was written to `review.md`; Cancel puts it back
 as it was on entering. Logic: `src/stamping/review_mode/`; drawing:
 `src/app/review_mode_panel.rs`.
 
+Added 2026-10-10 (#770): an inherited-stale function (only callees
+changed) offers **Re-confirm**: the dialog shows each changed callee's
+diff and signs your previous answers again at `HEAD`, without the wizard
+(disabled while a reaching test fails; the comments note the re-confirm;
+`src/stamping/reconfirm.rs`). The wizard's **concept finder** links the
+concept a function implements (`[[relation]] kind = "implements"`, the
+standard concept tree plus the workspace's own topics, seeded concepts
+first); a stamp needs either a concept or a no-concept reason, and the
+review panel shows the linked concept with its implemented formula, or "no
+formula recorded for this concept" (`src/stamping/concepts.rs`). Review
+mode **watches the function's file**: a saved fix re-evaluates the state,
+so an open needs fix turns into "fixed, awaiting re-review" without
+reopening it (`src/stamping/review_mode/watch.rs`).
+
 - The hash covers the function's code tokens (parsed with `syn`) and its
   `///` doc text; `//` comments, whitespace and the function's position do
   not count. The exact rule is in ~~`src/review_stamps/parse.rs`~~
@@ -590,9 +604,14 @@ reviewer-organisation records, and an independent reviewer sign a separation
 attestation naming a GitHub issue as its audit record. The stamp dialog lets
 the reviewer pick which of their own signed attestations a review relies on
 (none by default). Every record is appended to `kovan_root.toml` as text,
-with comments kept. Kovan does not resolve concept areas yet, so desktop
+with comments kept. ~~Kovan does not resolve concept areas yet, so desktop
 kovan, kovan-web and this command show "the function has no known concept
-area" on every review, and no function reaches rung 5 there.
+area" on every review, and no function reaches rung 5 there.~~
+**CORRECTED 2026-10-10** (#770, #810): a function's concept areas are the
+concepts its reviews link with an `implements` relation, chosen in the stamp
+dialog's concept finder (a qualification covers a concept at its node or
+any ancestor). A function whose reviews link no concept still shows "the
+function has no known concept area" and cannot reach rung 5.
 
 ### `code-map` — the workspace's code map (`commands::code_map`, GitHub #734)
 

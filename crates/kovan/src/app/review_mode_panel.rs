@@ -18,6 +18,12 @@
 //!  └──────────────────────────────────────────┴──────────────────────────┘
 //! ```
 //!
+//! Added 2026-10-10 (#770): [Re-confirm] on an inherited-stale function
+//! (#740 decision 8; the dialog's re-confirm step), the linked concepts and
+//! their implemented formulas above `review.md` (#739 decision 21), and the
+//! function's file watched ([`FnWatch`]): a saved fix reloads the view, so
+//! ⛔ needs fix turns into ✏ fixed without reopening it.
+//!
 //! The map, the rings and the source panel stay kovan-web's (maintainer:
 //! "reusing code from web kovan"); review mode is drawn by the host in
 //! their place and always returns to the map (#740 decision 5).
@@ -40,6 +46,7 @@ use crate::stamping::review_mode::quick_fix::{self, QuickFix};
 use crate::stamping::review_mode::walk::{
     huge_warning, next, Next, StepOutcome, Trail, WalkPlan, WalkSummary,
 };
+use crate::stamping::review_mode::watch::{FnWatch, POLL_INTERVAL};
 use crate::stamping::review_mode::{
     add_highlight, function_view, plan_walk, save_section, FunctionView, Session, Snapshot,
 };
@@ -61,6 +68,9 @@ pub(crate) enum PanelRequest {
     /// Open the stamp dialog (Stamp or Needs fix), with the sidebar's
     /// comments as its seed.
     Dialog(HostRequest, String),
+    /// Open the stamp dialog on its re-confirm step (added 2026-10-10,
+    /// #770, #740 decision 8).
+    Reconfirm(FunctionRef),
     /// Move kovan-web's map to this function (call-graph id).
     Goto(String),
 }
@@ -85,6 +95,8 @@ pub(crate) struct Active {
     sel: Option<(usize, usize)>,
     note: String,
     confirm_cancel: bool,
+    /// The function's file, polled for a saved change (#740).
+    watch: Option<FnWatch>,
 }
 
 impl Active {
@@ -105,6 +117,7 @@ impl Active {
             sel: None,
             note: String::new(),
             confirm_cancel: false,
+            watch: None,
         }
     }
 }
@@ -127,6 +140,9 @@ pub(crate) struct ReviewModePanel {
     pub(crate) walk: Option<WalkState>,
     pub(crate) message: Option<Result<String, String>>,
     requests: Vec<PanelRequest>,
+    /// How often the watched file is read (`None`: [`POLL_INTERVAL`];
+    /// tests shorten it).
+    pub(crate) watch_interval: Option<std::time::Duration>,
 }
 
 /// The view of `function` over `root`, on a worker.
@@ -197,7 +213,7 @@ impl ReviewModePanel {
         let Some(a) = &self.active else { return };
         if let (Some(w), Some(v)) = (self.walk.as_mut(), &a.view) {
             let o = match what {
-                Purpose::Stamp => StepOutcome::Stamped,
+                Purpose::Stamp | Purpose::Reconfirm => StepOutcome::Stamped,
                 Purpose::NeedsFix => StepOutcome::NeedsFix,
             };
             w.trail.record(&v.fn_id, &v.qual, o);
@@ -264,6 +280,16 @@ impl ReviewModePanel {
                     {
                         a.tab = CodeTab::Diff;
                     }
+                    if let Some(r) = &root {
+                        if !a.watch.as_ref().is_some_and(|w| w.watches(&v.file, &v.qual)) {
+                            a.watch = Some(FnWatch::new(
+                                r.clone(),
+                                v.file.clone(),
+                                v.qual.clone(),
+                                self.watch_interval.unwrap_or(POLL_INTERVAL),
+                            ));
+                        }
+                    }
                     a.view = Some(v);
                     a.load = None;
                 }
@@ -284,6 +310,17 @@ impl ReviewModePanel {
                     }
                 }
                 None => busy = true,
+            }
+        }
+        if let Some(w) = a.watch.as_mut() {
+            if w.poll(std::time::Instant::now()) && a.load.is_none() {
+                if let Some(root) = root.clone() {
+                    a.load = Some(load_view(root, a.target.id.clone()));
+                    self.message = Some(Ok(format!(
+                        "{} changed on disk: its state was re-evaluated.",
+                        a.view.as_ref().map(|v| v.file.as_str()).unwrap_or("the file")
+                    )));
+                }
             }
         }
         if let Some(j) = &a.quick_load {
@@ -444,6 +481,10 @@ impl ReviewModePanel {
         if self.poll() {
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_millis(150));
+        } else if self.active.is_some() {
+            // The file watch (#740) reads on its own; wake to take it.
+            ui.ctx()
+                .request_repaint_after(self.watch_interval.unwrap_or(POLL_INTERVAL));
         }
         let root = self.root.clone();
         let keystore = self.keystore.clone();
@@ -786,7 +827,7 @@ fn source_view(
 
 /// A unified diff: removed lines struck, added lines marked. GUI drawing
 /// code (exempt).
-fn diff_view(ui: &mut egui::Ui, d: &FnDiff, salt: &str) {
+pub(crate) fn diff_view(ui: &mut egui::Ui, d: &FnDiff, salt: &str) {
     ui.weak(format!(
         "{} since commit {}{}",
         d.path,
@@ -827,6 +868,30 @@ fn diff_view(ui: &mut egui::Ui, d: &FnDiff, salt: &str) {
         });
 }
 
+/// The linked concepts and their implemented formulas, above the review
+/// (#739 decision 21). GUI drawing code (exempt; the lookup is
+/// `stamping::concepts`, tested there).
+fn concepts(ui: &mut egui::Ui, v: &FunctionView) {
+    if v.concepts.is_empty() {
+        ui.weak("No concept linked: link one from the stamp wizard's concept finder.");
+        return;
+    }
+    for c in &v.concepts {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new(format!("Implements: {}", c.title)).strong());
+            ui.monospace(&c.id);
+        });
+        if c.formulas.is_empty() {
+            ui.weak("No formula recorded for this concept.");
+        }
+        for f in &c.formulas {
+            ui.label(RichText::new(&f.heading).italics())
+                .on_hover_text(format!("{} ({})", f.file, f.id));
+            ui.add(egui::Label::new(RichText::new(&f.body).monospace()).wrap());
+        }
+    }
+}
+
 /// The `review.md` sidebar, the stamp comments, the actions and the walk.
 /// GUI drawing code (exempt).
 fn sidebar(
@@ -846,13 +911,9 @@ fn sidebar(
         return;
     };
     ui.horizontal_wrapped(|ui| {
-        let dialog = |p: Purpose| {
+        let target = || {
             let f = a.target.clone();
-            let f = FunctionRef { lines: Some((v.lines[0], v.lines[1])), file: if f.file.is_empty() { v.file.clone() } else { f.file }, ..f };
-            match p {
-                Purpose::Stamp => HostRequest::Stamp(f),
-                Purpose::NeedsFix => HostRequest::NeedsFix(f),
-            }
+            FunctionRef { lines: Some((v.lines[0], v.lines[1])), file: if f.file.is_empty() { v.file.clone() } else { f.file }, ..f }
         };
         let blocked = !v.blocked_by.is_empty();
         if ui
@@ -860,10 +921,26 @@ fn sidebar(
             .on_disabled_hover_text("Bottom-up: review the blocking callees first")
             .clicked()
         {
-            requests.push(PanelRequest::Dialog(dialog(Purpose::Stamp), a.draft.text()));
+            requests.push(PanelRequest::Dialog(HostRequest::Stamp(target()), a.draft.text()));
+        }
+        if let Some(test_failed) = v.reconfirm {
+            let can = !test_failed && !blocked;
+            let why = if test_failed {
+                "A test reaching this function failed: re-confirm is enabled once the reaching tests pass"
+            } else {
+                "Bottom-up: review the blocking callees first"
+            };
+            if ui
+                .add_enabled(can, egui::Button::new("Re-confirm"))
+                .on_hover_text("Only callees changed: look at their diffs (Changed callees) and sign a re-confirmation of your previous answers, without the wizard")
+                .on_disabled_hover_text(why)
+                .clicked()
+            {
+                requests.push(PanelRequest::Reconfirm(target()));
+            }
         }
         if ui.button("Needs fix").clicked() {
-            requests.push(PanelRequest::Dialog(dialog(Purpose::NeedsFix), String::new()));
+            requests.push(PanelRequest::Dialog(HostRequest::NeedsFix(target()), String::new()));
         }
         if walking && ui.button("Skip").clicked() {
             *skip = true;
@@ -901,6 +978,8 @@ fn sidebar(
             }
         });
     }
+    ui.separator();
+    concepts(ui, &v);
     ui.separator();
     ui.label(RichText::new(format!("review.md: {}", v.review_md)).strong());
     if let Some((line, ed)) = a.editing.as_mut() {
@@ -1083,6 +1162,24 @@ mod tests {
             ],
             upstream_url: Some("https://github.com/o/r/blob/0123456/src/a.f90#L3".into()),
             is_port: true,
+            reconfirm: Some(false),
+            concepts: vec![
+                crate::stamping::review_mode::LinkedConcept {
+                    id: "concept:a/b".into(),
+                    title: "B".into(),
+                    formulas: vec![crate::stamping::concepts::FormulaHit {
+                        file: "p/one.md".into(),
+                        id: "eq-1".into(),
+                        heading: "Energy balance".into(),
+                        body: "$$ q = m c_p \\Delta T $$".into(),
+                    }],
+                },
+                crate::stamping::review_mode::LinkedConcept {
+                    id: "concept:c".into(),
+                    title: "C".into(),
+                    formulas: vec![],
+                },
+            ],
         }
     }
 
@@ -1115,6 +1212,72 @@ mod tests {
                 p.ui(ui);
             });
         }
+    }
+
+    /// Methodology (#770; #740: "a saved fix re-hashes the function and
+    /// turns ⛔ into ✏"): on the stamping fixture (temporary git repository,
+    /// test passphrase), an open needs-fix on `other`, committed. Review
+    /// mode is entered on `other` with a 20 ms watch interval; once its view
+    /// shows "needs fix" and the watch has its baseline, `other`'s body is
+    /// edited on disk (saved, not committed) and only `poll` is called, as
+    /// a frame does. Pass: the view's state becomes "fixed, awaiting
+    /// re-review" without re-entering, and the message says the file
+    /// changed.
+    ///
+    /// Result (2026-10-10): passes.
+    #[test]
+    fn a_saved_fix_turns_needs_fix_into_fixed_without_reopening() {
+        use crate::stamping::tests::{founder_key, Repo, BY, LIB};
+        use crate::stamping::{draft_needs_fix_for, write_needs_fix};
+        use std::time::{Duration, Instant};
+        let r = Repo::new();
+        let store = tempfile::tempdir().unwrap();
+        founder_key(&r, store.path());
+        let n = draft_needs_fix_for(r.path(), &format!("{LIB}::other"), BY, "returns a magic number")
+            .unwrap();
+        write_needs_fix(r.path(), &n, "").unwrap();
+        r.commit("needs fix on other");
+        let mut p = ReviewModePanel::default();
+        p.set_root(Some(r.path().to_path_buf()), None);
+        p.watch_interval = Some(Duration::from_millis(20));
+        let other = FunctionRef {
+            id: format!("{LIB}::other"),
+            krate: "demo".into(),
+            file: LIB.into(),
+            name: "other".into(),
+            callees: None,
+            lines: None,
+        };
+        p.enter(other);
+        let state = |p: &ReviewModePanel| {
+            p.active
+                .as_ref()
+                .and_then(|a| a.view.as_ref())
+                .map(|v| v.state)
+        };
+        fn wait(p: &mut ReviewModePanel, start: Instant, until: impl Fn(&ReviewModePanel) -> bool) {
+            while !until(p) {
+                p.poll();
+                assert!(start.elapsed() < Duration::from_secs(180), "timed out");
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        }
+        let start = Instant::now();
+        wait(&mut p, start, |p| state(p) == Some(StateKind::NeedsFixOpen));
+        wait(&mut p, start, |p| {
+            p.active
+                .as_ref()
+                .and_then(|a| a.watch.as_ref())
+                .is_some_and(FnWatch::started)
+        });
+        let fixed = r.read(LIB).replace("    1\n}", "    2\n}");
+        r.write(LIB, &fixed);
+        wait(&mut p, start, |p| state(p) == Some(StateKind::Fixed));
+        assert!(
+            matches!(&p.message, Some(Ok(m)) if m.contains("changed on disk")),
+            "{:?}",
+            p.message
+        );
     }
 
     /// Headless: review mode draws every tab (source with highlights and a

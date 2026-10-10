@@ -34,6 +34,14 @@
 //!                         WritingNeedsFix (worker: draft_needs_fix_for, write_needs_fix)
 //!                            v
 //!                          Done ── Refresh (worker: stamp_states) ──> the review bar
+//!
+//!  Reconfirm (added 2026-10-10, #770, #740 decision 8) ── key as for Stamp ──>
+//!  PreparingReconfirm (worker: reconfirm::prepare_reconfirm)
+//!     ├─ refused ──> Refused (blocked by a failing test, not inherited stale, …)
+//!     v
+//!  Reconfirm (the changed callees' diffs; passphrase) ── "Mark for re-review" ──> Wizard
+//!     v
+//!  Signing (worker: unlock, reconfirm::sign_reconfirm) ──> Done
 //! ```
 //!
 //! **No lag (root `CLAUDE.md`, HARD RULE).** Every step that touches the
@@ -65,7 +73,9 @@ use kovan_common::review::wizard::{
 use kovan_common::review::ivv_view::AttestationChoice;
 use zeroize::Zeroize;
 
+use super::concepts::{self, ConceptChoice};
 use super::organisations::attestation_choices_in;
+use super::reconfirm::{prepare_reconfirm, sign_reconfirm, ReconfirmContext};
 use super::review_mode::prefill::NoConceptForm;
 use super::{
     draft_needs_fix_for, draft_stamp, prepare_stamp, register_key, stamp_states, write_needs_fix,
@@ -100,11 +110,13 @@ impl<T: Send + Sync + 'static> Worker<T> {
     }
 }
 
-/// Stamp or Needs fix.
+/// Stamp, Needs fix, or (added 2026-10-10, #770) Re-confirm an
+/// inherited-stale review without the wizard ([`super::reconfirm`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Purpose {
     Stamp,
     NeedsFix,
+    Reconfirm,
 }
 
 /// The function the request names (from kovan-web's `FunctionRef`).
@@ -289,6 +301,13 @@ pub struct WizardForm {
     /// Added 2026-10-10 (#770, #740 U3): the "no concept" reason, started
     /// from the context's prefill.
     pub no_concept: NoConceptForm,
+    /// Added 2026-10-10 (#770, #740 decision 11): the linked concept's id
+    /// (`concept:<path>` or `collection:<path>`), written as an
+    /// `implements` relation. A concept and a no-concept reason exclude
+    /// each other ([`Self::choose_concept`], [`Self::choose_reason`]).
+    pub concept: Option<String>,
+    /// The concept finder's query.
+    pub concept_query: String,
 }
 
 impl Drop for WizardForm {
@@ -309,8 +328,14 @@ impl WizardForm {
                 texts.insert(q.clone(), t.to_string());
             }
         }
-        let no_concept = NoConceptForm::from_stored(ctx.no_concept.as_deref());
+        let mut no_concept = NoConceptForm::from_stored(ctx.no_concept.as_deref());
+        let concept = ctx.concept.clone();
+        if concept.is_some() {
+            no_concept.choice = None;
+        }
         WizardForm {
+            concept,
+            concept_query: String::new(),
             ctx,
             options,
             texts,
@@ -356,13 +381,51 @@ impl WizardForm {
             .collect()
     }
 
-    /// The `part_of` relations the stamp carries: the suggested
-    /// architecture node, when the reviewer accepted it (never silently).
+    /// The relations the stamp carries: the linked concept's `implements`
+    /// (#740 decision 11), then the suggested architecture node's
+    /// `part_of`, when the reviewer accepted it (never silently).
     pub fn relations(&self) -> Vec<kovan_common::artifact::relation::RelationRecord> {
-        match (&self.ctx.suggested_architecture, self.no_concept.link_architecture) {
-            (Some(r), true) => vec![r.clone()],
-            _ => Vec::new(),
+        let mut out: Vec<_> = self.concept.iter().map(|c| concepts::implements(c)).collect();
+        if let (Some(r), true) = (&self.ctx.suggested_architecture, self.no_concept.link_architecture) {
+            out.push(r.clone());
         }
+        out
+    }
+
+    /// Link concept `id`: clears the no-concept reason (the two exclude
+    /// each other, #740 U3).
+    pub fn choose_concept(&mut self, id: &str) {
+        self.concept = Some(id.to_string());
+        self.no_concept.choice = None;
+    }
+
+    /// Choose a no-concept reason (`None`: no marker); a reason unlinks the
+    /// concept.
+    pub fn choose_reason(&mut self, key: Option<&str>) {
+        self.no_concept.choice = key.map(str::to_string);
+        if key.is_some() {
+            self.concept = None;
+        }
+    }
+
+    /// The finder's matches for the current query, best first.
+    pub fn concept_matches(&self) -> Vec<&ConceptChoice> {
+        concepts::rank(&self.ctx.concepts, &self.concept_query)
+    }
+
+    /// What stops the stamp on the concept part: neither a concept nor a
+    /// no-concept reason ("A function with no concept link … carries a 'no
+    /// concept' marker with a reason", #740 U3), or the reason's own
+    /// problem (Other under 2 characters). `None`: fine.
+    pub fn concept_problem(&self) -> Option<String> {
+        if self.concept.is_none() && self.no_concept.choice.is_none() {
+            return Some(
+                "Concept: link the concept this function implements (the finder), or choose a \
+                 no-concept reason"
+                    .into(),
+            );
+        }
+        self.no_concept.problem()
     }
 
     /// The live stamp gate over the answers.
@@ -423,6 +486,10 @@ pub enum Step {
     },
     Wizard,
     Signing,
+    /// Added 2026-10-10 (#770): gathering the re-confirm (worker).
+    PreparingReconfirm,
+    /// The re-confirm step: the changed callees' diffs and the passphrase.
+    Reconfirm,
     NeedsFixForm,
     WritingNeedsFix,
     Done(Outcome),
@@ -445,6 +512,7 @@ enum Job {
     Generate(Worker<Result<Generated, String>>),
     Register(Worker<Result<KeyRegistration, String>>),
     Prepare(Worker<Result<(StampContext, Vec<AttestationChoice>), String>>),
+    PrepareReconfirm(Worker<Result<ReconfirmContext, String>>),
     Sign(Worker<Result<WrittenEntry, SignFailure>>),
     NeedsFix(Worker<Result<WrittenEntry, String>>),
 }
@@ -488,6 +556,16 @@ pub struct StampFlow {
     /// Added 2026-10-10 (#770): comments the review panel's sidebar holds
     /// for this function, put into the wizard's Comments when it opens.
     pub comments_seed: String,
+    /// Added 2026-10-10 (#770): the re-confirm being signed.
+    pub reconfirm: Option<ReconfirmContext>,
+    /// The re-confirm's passphrase (zeroised after use and on drop).
+    pub reconfirm_passphrase: String,
+}
+
+impl Drop for StampFlow {
+    fn drop(&mut self) {
+        self.reconfirm_passphrase.zeroize();
+    }
 }
 
 impl StampFlow {
@@ -515,6 +593,8 @@ impl StampFlow {
             refresh_error: None,
             wrote: BTreeSet::new(),
             comments_seed: String::new(),
+            reconfirm: None,
+            reconfirm_passphrase: String::new(),
         };
         f.load_keys();
         f
@@ -626,20 +706,35 @@ impl StampFlow {
                     self.step = Step::Wizard;
                 }
             },
+            Job::PrepareReconfirm(w) => match w.try_take() {
+                None => self.job = Some(Job::PrepareReconfirm(w)),
+                Some(Err(message)) => {
+                    let hint = refusal_hint(&message).to_string();
+                    self.step = Step::Refused { message, hint };
+                }
+                Some(Ok(rc)) => {
+                    self.reconfirm = Some(rc);
+                    self.step = Step::Reconfirm;
+                }
+            },
             Job::Sign(w) => match w.try_take() {
                 None => self.job = Some(Job::Sign(w)),
-                Some(Err(SignFailure::WrongPassphrase)) => {
-                    self.error = Some(
-                        "Wrong passphrase (or the key file was altered). Nothing was written."
-                            .into(),
-                    );
-                    self.step = Step::Wizard;
+                Some(Err(e)) => {
+                    let back = if self.purpose == Purpose::Reconfirm {
+                        Step::Reconfirm
+                    } else {
+                        Step::Wizard
+                    };
+                    self.error = Some(match e {
+                        SignFailure::WrongPassphrase => {
+                            "Wrong passphrase (or the key file was altered). Nothing was written."
+                                .into()
+                        }
+                        SignFailure::Other(e) => format!("{e}. Nothing was written."),
+                    });
+                    self.step = back;
                 }
-                Some(Err(SignFailure::Other(e))) => {
-                    self.error = Some(format!("{e}. Nothing was written."));
-                    self.step = Step::Wizard;
-                }
-                Some(Ok(w)) => self.written(Purpose::Stamp, w),
+                Some(Ok(w)) => self.written(self.purpose, w),
             },
             Job::NeedsFix(w) => match w.try_take() {
                 None => self.job = Some(Job::NeedsFix(w)),
@@ -691,8 +786,8 @@ impl StampFlow {
         self.remembered = Some(id);
         self.error = None;
         match self.purpose {
-            Purpose::Stamp if !registered => self.step = Step::Register,
-            Purpose::Stamp => self.prepare(),
+            Purpose::Stamp | Purpose::Reconfirm if !registered => self.step = Step::Register,
+            Purpose::Stamp | Purpose::Reconfirm => self.prepare(),
             Purpose::NeedsFix => self.step = Step::NeedsFixForm,
         }
     }
@@ -748,11 +843,24 @@ impl StampFlow {
         true
     }
 
-    /// Check the function and gather the wizard's context (worker); also
-    /// "Try again" after a refusal.
+    /// Check the function and gather the wizard's context (worker), or the
+    /// re-confirm's for [`Purpose::Reconfirm`]; also "Try again" after a
+    /// refusal.
     pub fn prepare(&mut self) {
         let Some(k) = self.key() else { return };
         if self.job.is_some() {
+            return;
+        }
+        if self.purpose == Purpose::Reconfirm {
+            let (root, function, by) = (
+                self.root.clone(),
+                self.target.function.clone(),
+                k.reviewer.clone(),
+            );
+            self.step = Step::PreparingReconfirm;
+            self.job = Some(Job::PrepareReconfirm(Worker::spawn(move || {
+                prepare_reconfirm(&root, &function, &by)
+            })));
             return;
         }
         let (root, function, by) = (
@@ -778,7 +886,7 @@ impl StampFlow {
                 .is_some_and(|w| {
                     !w.passphrase.is_empty()
                         && w.gate().stampable()
-                        && w.no_concept.problem().is_none()
+                        && w.concept_problem().is_none()
                 })
     }
 
@@ -844,6 +952,56 @@ impl StampFlow {
             write_review(&root, &d.entry, comments.trim()).map_err(SignFailure::Other)
         })));
         true
+    }
+
+    /// Whether "Sign the re-confirmation" is allowed: on the re-confirm
+    /// step, a passphrase typed, no job running.
+    pub fn can_reconfirm(&self) -> bool {
+        self.step == Step::Reconfirm
+            && self.job.is_none()
+            && self.reconfirm.is_some()
+            && !self.reconfirm_passphrase.is_empty()
+    }
+
+    /// Unlock the key and sign the re-confirmation (worker): the previous
+    /// review's answers re-signed at `HEAD` ([`super::reconfirm`]).
+    pub fn sign_reconfirm(&mut self) -> bool {
+        if !self.can_reconfirm() {
+            return false;
+        }
+        let (Some(k), Some(rc)) = (self.key().cloned(), self.reconfirm.clone()) else {
+            return false;
+        };
+        let mut pass = std::mem::take(&mut self.reconfirm_passphrase);
+        let (root, ks) = (self.root.clone(), self.keystore.clone());
+        self.error = None;
+        self.step = Step::Signing;
+        self.job = Some(Job::Sign(Worker::spawn(move || {
+            let kf = ks
+                .load(&k.reviewer, &k.key)
+                .map_err(|e| SignFailure::Other(e.to_string()))?;
+            let unlocked = kf.unlock(&pass);
+            pass.zeroize();
+            let key = unlocked.map_err(|e| match e {
+                KeystoreError::WrongPassphrase => SignFailure::WrongPassphrase,
+                other => SignFailure::Other(other.to_string()),
+            })?;
+            sign_reconfirm(&root, &rc, &key).map_err(SignFailure::Other)
+        })));
+        true
+    }
+
+    /// "Mark for re-review" (#740 decision 8): leave the re-confirm for the
+    /// full wizard, as a Stamp.
+    pub fn switch_to_review(&mut self) {
+        if self.job.is_some() {
+            return;
+        }
+        self.reconfirm_passphrase.zeroize();
+        self.reconfirm = None;
+        self.purpose = Purpose::Stamp;
+        self.error = None;
+        self.prepare();
     }
 
     /// "Mark as Needs fix instead?": switch to the needs-fix form, the note

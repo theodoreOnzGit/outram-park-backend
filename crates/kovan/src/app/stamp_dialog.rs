@@ -38,6 +38,7 @@ pub(crate) fn show(
         let what = match f.purpose {
             Purpose::Stamp => "Stamp",
             Purpose::NeedsFix => "Needs fix",
+            Purpose::Reconfirm => "Re-confirm",
         };
         ui.heading(format!("{what}: {}", f.target.name));
         ui.monospace(&f.target.function);
@@ -165,6 +166,11 @@ fn body(
             }
         }
         Step::Wizard => wizard(ui, f),
+        Step::PreparingReconfirm => working(
+            ui,
+            "Checking the function at HEAD, its review and the callees that changed\u{2026}",
+        ),
+        Step::Reconfirm => reconfirm(ui, f),
         Step::Signing => working(
             ui,
             "Unlocking your key (argon2, a second or two), signing and writing review.md\u{2026}",
@@ -369,8 +375,10 @@ fn wizard(ui: &mut egui::Ui, f: &mut StampFlow) {
     }
     super::organisations_view::attestation_picker(ui, w);
     ui.add_space(6.0);
+    concept_finder(ui, w);
+    ui.add_space(4.0);
     no_concept(ui, w);
-    if let Some(p) = w.no_concept.problem() {
+    if let Some(p) = w.concept_problem() {
         error(ui, &p);
     }
     ui.add_space(6.0);
@@ -401,6 +409,106 @@ fn wizard(ui: &mut egui::Ui, f: &mut StampFlow) {
     }
 }
 
+/// The concept finder (#740 decision 11): type to search the concept tree
+/// and the workspace's own topics; suggested (seeded) concepts first.
+/// Choosing one links it (`implements`) and clears the no-concept reason.
+/// GUI drawing code (exempt; the ranking and the exclusion are
+/// `stamping::concepts` and `WizardForm`, tested there).
+fn concept_finder(ui: &mut egui::Ui, w: &mut WizardForm) {
+    ui.label(RichText::new("Concept: what this function implements").strong());
+    let mut unlink = false;
+    if let Some(c) = &w.concept {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(format!(
+                "Linked: {}",
+                crate::stamping::concepts::concept_title(c)
+            ));
+            ui.monospace(c);
+            if ui.small_button("Unlink").clicked() {
+                unlink = true;
+            }
+        });
+    }
+    if unlink {
+        w.concept = None;
+    }
+    ui.add(
+        egui::TextEdit::singleline(&mut w.concept_query)
+            .hint_text("type to find a concept (title or path)")
+            .desired_width(f32::INFINITY),
+    );
+    let mut chosen: Option<String> = None;
+    for c in w.concept_matches() {
+        let text = format!(
+            "{}{} \u{b7} {}",
+            if c.suggested { "suggested: " } else { "" },
+            c.title,
+            c.path
+        );
+        let selected = w.concept.as_deref() == Some(c.id.as_str());
+        if ui.selectable_label(selected, text).on_hover_text(&c.id).clicked() {
+            chosen = Some(c.id.clone());
+        }
+    }
+    if let Some(id) = chosen {
+        w.choose_concept(&id);
+    }
+}
+
+/// The re-confirm step (#740 decision 8): the review re-confirmed, each
+/// changed callee's unified diff, the passphrase, and "Mark for re-review"
+/// to the full wizard instead. GUI drawing code (exempt; the logic is
+/// `stamping::reconfirm` and the flow, tested there).
+fn reconfirm(ui: &mut egui::Ui, f: &mut StampFlow) {
+    let can = f.can_reconfirm();
+    let mut sign = false;
+    let mut review = false;
+    if let Some(rc) = &f.reconfirm {
+        ui.label(format!(
+            "Only callees changed since your review of {} on {}. Re-confirming signs your \
+             previous answers again at HEAD, without the wizard; the comments note the \
+             re-confirm.",
+            rc.path, rc.previous.review.date
+        ));
+        for c in &rc.changed {
+            ui.label(RichText::new(&c.name).strong().monospace());
+            match &c.diff {
+                Ok(d) => super::review_mode_panel::diff_view(ui, d, &c.id),
+                Err(e) => error(ui, e),
+            }
+            ui.separator();
+        }
+    }
+    ui.horizontal_wrapped(|ui| {
+        ui.label("Passphrase");
+        ui.add(egui::TextEdit::singleline(&mut f.reconfirm_passphrase).password(true));
+    });
+    if let Some(e) = &f.error {
+        error(ui, e);
+    }
+    ui.horizontal_wrapped(|ui| {
+        if ui
+            .add_enabled(can, egui::Button::new("Sign the re-confirmation"))
+            .on_disabled_hover_text("Type your passphrase")
+            .clicked()
+        {
+            sign = true;
+        }
+        if ui
+            .button("Mark for re-review")
+            .on_hover_text("Review it in full with the wizard instead")
+            .clicked()
+        {
+            review = true;
+        }
+    });
+    if sign {
+        f.sign_reconfirm();
+    } else if review {
+        f.switch_to_review();
+    }
+}
+
 /// The "no concept" marker (#740 U3; #760 q11): a reason from the list or
 /// Other (at least 2 characters), pre-filled for a port, and the suggested
 /// architecture node, off until ticked. GUI drawing code (exempt; the
@@ -413,15 +521,15 @@ fn no_concept(ui: &mut egui::Ui, w: &mut WizardForm) {
     }
     if ui
         .radio(w.no_concept.choice.is_none(), "No marker")
-        .on_hover_text("Linking a concept from the wizard (the fuzzy finder, #740 decision 11) is not built yet")
+        .on_hover_text("No reason chosen: link a concept above instead")
         .clicked()
     {
-        w.no_concept.choice = None;
+        w.choose_reason(None);
     }
     for (k, label) in NO_CONCEPT_REASONS {
         let selected = w.no_concept.choice.as_deref() == Some(*k);
-        if ui.radio(selected, *label).clicked() {
-            w.no_concept.choice = Some(k.to_string());
+        if ui.radio(selected, *label).on_hover_text("Choosing a reason unlinks the concept").clicked() {
+            w.choose_reason(Some(k));
         }
         if selected && *k == OTHER {
             ui.indent("stamp-no-concept-other", |ui| {
