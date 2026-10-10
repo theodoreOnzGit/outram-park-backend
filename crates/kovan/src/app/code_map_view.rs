@@ -88,6 +88,9 @@ pub(crate) struct CodeMapView {
     fresh: FreshPanel,
     /// Recently chosen workspaces (#780), most recent first.
     recent: RecentWorkspaces,
+    /// The workspace an "Index fresh" just finished in, until the app takes
+    /// it (the Code Review view then rebuilds its data, #820).
+    index_finished: Option<PathBuf>,
     tried_default: bool,
     workspace: Option<PathBuf>,
     selected: Option<String>,
@@ -108,6 +111,7 @@ impl Default for CodeMapView {
             untagged: Vec::new(),
             fresh: FreshPanel::default(),
             recent: recent_file().map(|f| RecentWorkspaces::load_from(&f)).unwrap_or_default(),
+            index_finished: None,
             tried_default: false,
             workspace: None,
             selected: None,
@@ -217,14 +221,31 @@ impl CodeMapView {
         }
     }
 
-    /// Draw the view. Returns a request for the app's file dialog.
-    pub(crate) fn ui(&mut self, ui: &mut egui::Ui) -> Option<CodeMapRequest> {
+    /// The workspace or crate folder shown, if any.
+    pub(crate) fn workspace(&self) -> Option<&Path> {
+        self.workspace.as_deref()
+    }
+
+    /// The workspace an "Index fresh" finished in since this was last asked.
+    pub(crate) fn take_index_finished(&mut self) -> Option<PathBuf> {
+        self.index_finished.take()
+    }
+
+    /// Once, load the Cargo workspace kovan was started in (if any): what
+    /// the first show of this view does, callable by the Code Review view
+    /// when it is opened first. GUI glue.
+    pub(crate) fn ensure_default_workspace(&mut self) {
         if !self.tried_default {
             self.tried_default = true;
             if let Some(dir) = launch_workspace() {
                 self.load_workspace(dir);
             }
         }
+    }
+
+    /// Draw the view. Returns a request for the app's file dialog.
+    pub(crate) fn ui(&mut self, ui: &mut egui::Ui) -> Option<CodeMapRequest> {
+        self.ensure_default_workspace();
         let status = self.poll();
         if matches!(status.as_deref(), Some(s) if s.ends_with('\u{2026}')) {
             ui.ctx().request_repaint_after(std::time::Duration::from_millis(100));
@@ -311,6 +332,7 @@ impl CodeMapView {
         if let Some(FreshEvent::Finished(dir)) = self.fresh.ui(ui) {
             // Swap in the new map only once it has loaded; until then the
             // last good one stays on screen.
+            self.index_finished = Some(dir.clone());
             self.load_workspace(dir);
         }
         ui.horizontal_wrapped(|ui| {

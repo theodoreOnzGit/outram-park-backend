@@ -12,6 +12,7 @@
 mod advanced_git_view;
 mod bibliography;
 mod code_map_view;
+mod code_review_view;
 mod index_fresh_view;
 mod box_handles;
 mod corpus_folder;
@@ -117,6 +118,9 @@ enum View {
     /// `[package.metadata.kovan]` tags (GitHub #734); see
     /// [`code_map_view`].
     CodeMap,
+    /// The Code Review UI (`kovan-web`'s) over the Code Map view's
+    /// workspace (GitHub #820); see [`code_review_view`].
+    CodeReview,
 }
 
 /// Which action a pending file-dialog pick should feed into. One
@@ -382,6 +386,7 @@ pub struct DigitiseApp {
     mindmap: MindmapState,
     /// The Code Map view (#734).
     code_map: code_map_view::CodeMapView,
+    code_review: code_review_view::CodeReviewView,
     advanced_git: AdvancedGitState,
     /// The paper currently in focus, if any — GitHub issue #35's
     /// "unify root and active-paper context" comment (op-sr4n). Set only by
@@ -635,6 +640,7 @@ impl Default for DigitiseApp {
             kvim_tab: kvim_tab::KvimTab::default(),
             mindmap: MindmapState::default(),
             code_map: code_map_view::CodeMapView::default(),
+            code_review: code_review_view::CodeReviewView::default(),
             advanced_git: AdvancedGitState::default(),
             active_paper: None,
             workspace: None,
@@ -2997,6 +3003,7 @@ impl DigitiseApp {
             ui.selectable_value(&mut self.view, View::Wiki, "Wiki");
             ui.selectable_value(&mut self.view, View::Mindmap, "Mindmap");
             ui.selectable_value(&mut self.view, View::CodeMap, "Code Map");
+            ui.selectable_value(&mut self.view, View::CodeReview, "Code Review");
             // op-wqaw (GH issue #35's 2026-09-01 checkpoint §21): the
             // user-facing label is "Save Repository", not "Advanced Git" —
             // most users shouldn't need Git vocabulary as the primary frame.
@@ -3604,6 +3611,17 @@ impl eframe::App for DigitiseApp {
                     }
                     None => {}
                 }
+                // An index run just finished: build the Code Review view's
+                // data now, in the background, so it loads by itself.
+                if let Some(dir) = self.code_map.take_index_finished() {
+                    self.code_review.index_finished(&dir);
+                }
+            }
+            View::CodeReview => {
+                self.code_map.ensure_default_workspace();
+                let workspace = self.code_map.workspace().map(std::path::Path::to_path_buf);
+                self.code_review.set_workspace(workspace.as_deref());
+                egui::CentralPanel::default().show(ui, |ui| self.code_review.ui(ui));
             }
             View::AdvancedGit => {
                 if let Some(root) = self.home.root().cloned() {
