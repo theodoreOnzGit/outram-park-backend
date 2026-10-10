@@ -272,7 +272,7 @@ publisher = "University of California, Berkeley (eScholarship)"
 date = "2024"
 holder = "theodore-open"
 file = "theodore-open-corpus/ong/ong2024-phd-dissertation-digital-twins-neutronics-feedback.pdf"
-licence = "Copyright 2024 the repository owner (his own dissertation)"
+licence = "Copyright 2024 the repository owner (their own dissertation)"
 redistributable = true
 
 [[document]]
@@ -375,7 +375,15 @@ status = "approved"
 path = "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance"
 title = "Nuclide balance under transmutation and decay (Bateman equations)"
 sources = [{ document = "openmc-docs-depletion", section = "Depletion (introduction): dN_i/dt production minus loss; burnup matrix" }, { document = "cosgrove-2020-pc-stability", section = "2. Neutronics-depletion schemes, Eq. (1) the Bateman equation" }]
-cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions"]
+cross_links = ["sciences/physical-principles/conservation-laws/nucleon-number-and-charge", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions"]
+status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/nucleon-number-and-charge"
+title = "Conservation of nucleon (mass) number and electric charge in nuclear reactions and decay"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Modes of Radioactive Decay (p. 22): conservation of electric charge, of mass number, of mass and energy, and of momentum" }]
+cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay"]
+note = "maintainer, 2026-10-10: nuclide balance is mass conservation, but there is some quantum number conservation too. The handbook states nucleon number and charge; lepton number and the other quantum numbers: source not yet read"
 status = "proposed"
 
 [[science]]
@@ -452,6 +460,22 @@ title = "Neutron multiplication and the k-eigenvalue"
 sources = [{ document = "la-ur-06-7094", section = "slides 'K- and alpha-Eigenvalue Equations'" }, { document = "openmc-docs-eigenvalue", section = "Eigenvalue Calculations (introduction)" }, { document = "doe-hdbk-1019-2-93", section = "Module 3, Neutron Life Cycle, Effective Multiplication Factor (p. 8)" }]
 cross_links = ["sciences/computation/problems/eigenproblems/power-iteration"]
 status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/diffusion-limit"
+title = "Diffusion limit of transport (P1, linearly anisotropic flux; optically thick, scattering-dominated media)"
+sources = [{ document = "ong-2024-dissertation", section = "4.7 Modelling FHRs with Multiphysics code (pp. 242, 246): the diffusion approximation assumes linearly anisotropic angular flux and is the P1 spherical harmonics approximation; it fails near strong absorbers" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/random-walk-and-diffusion", "sciences/physical-principles/constitutive-relations/ficks-law", "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/radiative-transfer"]
+note = "maintainer, 2026-10-10: Boltzmann transport encompasses a lot, from radiation transport to diffusion where optical thickness is high"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/radiative-transfer"
+title = "Radiative transfer (thermal photon transport through participating media)"
+sources = []
+cross_links = ["sciences/physical-principles/constitutive-relations/thermal-radiation-exchange", "sciences/physical-principles/radiation-interaction-with-matter/photon-and-charged-particle-interactions", "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/diffusion-limit"]
+note = "source not yet read: no open document in the corpus states the radiative transfer equation (searched 2026-10-10). The same Boltzmann equation for photons: optically thin, it reduces to surface exchange (thermal-radiation-exchange); optically thick, to a diffusion limit (Rosseland)"
+status = "proposed"
 
 # ============================================================================
 # sciences/physical-principles/radiation-interaction-with-matter
@@ -531,7 +555,7 @@ status = "approved"
 path = "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay"
 title = "Radioactive decay"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Modes of Radioactive Decay (p. 22); Radioactivity (p. 30)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/photon-and-charged-particle-interactions"

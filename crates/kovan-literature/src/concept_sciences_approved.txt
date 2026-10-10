@@ -61,3 +61,8 @@ sciences/physical-principles/constitutive-relations/ficks-law
 sciences/physical-principles/constitutive-relations/hookes-law
 sciences/physical-principles/constitutive-relations/darcys-law
 sciences/physical-principles/constitutive-relations/thermal-radiation-exchange
+
+# 2026-10-10, maintainer: "Decay stays under nuclear physics and reactions as a first. Nuclide
+# balance I think comes under mass conservation" (#829)
+sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay
+sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance
