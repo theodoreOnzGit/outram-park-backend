@@ -194,6 +194,10 @@ impl CodeReviewView {
         if let Some(mut d) = self.dialog.take() {
             if let crate::stamping::flow::Step::Done(o) = &d.step {
                 self.review_mode.outcome(o.what);
+            } else {
+                // A refusal (the code changed while reviewed, #740
+                // decision 7): show the new diff first.
+                self.review_mode.reload();
             }
             if let Some(s) = d.take_states() {
                 self.set_stamps(s);

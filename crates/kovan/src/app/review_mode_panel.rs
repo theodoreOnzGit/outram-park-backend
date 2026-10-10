@@ -205,8 +205,10 @@ impl ReviewModePanel {
         self.reload();
     }
 
-    /// Reload the active view and the walk's plan (after a write).
-    fn reload(&mut self) {
+    /// Reload the active view and the walk's plan (after a write, or after
+    /// the dialog closed without one, so a changed function's new diff is
+    /// shown first). A no-op outside review mode and with no walk.
+    pub(crate) fn reload(&mut self) {
         let Some(root) = self.root.clone() else {
             return;
         };
