@@ -529,6 +529,21 @@ tab replaces them once loaded.~~ Since 2026-10-10 (maintainer) the
 `stamps-check`, `stamps-levels` and `stamp`. kovan commits nothing: commit `review.md`
 yourself (#771).
 
+**Review mode (2026-10-10, #770, #740).** On the Code Review tab, select a
+function and press **Review >** (or **Review this walk >** for everything
+under it, bottom-up, with the walk's size and a huge-walk warning shown
+first). The map gives way to the function's source, or its unified diff
+since the last review (and each changed callee's diff for an inherited
+stale), with the folder's `review.md` on the right: only this function's
+entries are editable, and only their comments. Line numbers select lines
+for a highlight (an annotation entry anchored with Hypothesis selectors);
+Upstream opens the ported-from file in the browser; Quick fix edits the
+function's own lines in kvim. Stamp is refused while a callee lacks a valid
+stamp (bottom-up is enforced) and when the code changed while it was
+reviewed. Save keeps what was written to `review.md`; Cancel puts it back
+as it was on entering. Logic: `src/stamping/review_mode/`; drawing:
+`src/app/review_mode_panel.rs`.
+
 ```text
 kovan-cli stamps-check                        # every stamp, on the working tree
 kovan-cli stamps-check --diff HEAD~1..HEAD    # only stamps this range touches (CI)

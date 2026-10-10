@@ -285,20 +285,15 @@ impl Trail {
             .map(|(_, _, o)| *o)
     }
 
-    /// The breadcrumb text: `leaf ✓ › twice ⛔ › …`.
+    /// The breadcrumb text: `leaf (stamped) > twice (needs fix) > …`, in
+    /// words (egui's bundled fonts draw arrows and symbols as boxes,
+    /// `kovan-web/CLAUDE.md`).
     pub fn breadcrumb(&self) -> String {
         self.steps
             .iter()
-            .map(|(_, n, o)| {
-                let mark = match o {
-                    StepOutcome::Stamped => "\u{2713}",
-                    StepOutcome::NeedsFix => "\u{26d4}",
-                    StepOutcome::Skipped => "\u{21b7}",
-                };
-                format!("{n} {mark}")
-            })
+            .map(|(_, n, o)| format!("{n} ({})", o.label()))
             .collect::<Vec<_>>()
-            .join(" \u{203a} ")
+            .join(" > ")
     }
 }
 
@@ -540,7 +535,7 @@ mod tests {
         assert!(s.text().starts_with("1 stamped"));
         assert_eq!(
             trail.breadcrumb(),
-            "c \u{2713} \u{203a} a \u{26d4} \u{203a} t \u{21b7}"
+            "c (stamped) > a (needs fix) > t (skipped)"
         );
         trail.record("c", "c", StepOutcome::Skipped);
         assert_eq!(trail.steps.len(), 3, "one entry per function");

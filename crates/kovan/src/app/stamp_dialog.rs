@@ -350,6 +350,11 @@ fn wizard(ui: &mut egui::Ui, f: &mut StampFlow) {
         }
     }
     ui.add_space(6.0);
+    no_concept(ui, w);
+    if let Some(p) = w.no_concept.problem() {
+        error(ui, &p);
+    }
+    ui.add_space(6.0);
     ui.label("Comments (written under the entry in review.md, optional)");
     ui.add(
         egui::TextEdit::multiline(&mut w.comments)
@@ -374,6 +379,46 @@ fn wizard(ui: &mut egui::Ui, f: &mut StampFlow) {
         f.switch_to_needs_fix();
     } else if sign {
         f.sign();
+    }
+}
+
+/// The "no concept" marker (#740 U3; #760 q11): a reason from the list or
+/// Other (at least 2 characters), pre-filled for a port, and the suggested
+/// architecture node, off until ticked. GUI drawing code (exempt; the
+/// rules are `review_mode::prefill`, tested there).
+fn no_concept(ui: &mut egui::Ui, w: &mut WizardForm) {
+    use crate::stamping::review_mode::prefill::{NO_CONCEPT_REASONS, OTHER};
+    ui.label(RichText::new("No concept: this function links no concept (no implements relation)").strong());
+    if w.ctx.no_concept.is_some() && w.ctx.applicability.is_port && !w.ctx.restamp {
+        ui.weak("Pre-filled because the folder is a confirmed port: confirm or change it.");
+    }
+    if ui
+        .radio(w.no_concept.choice.is_none(), "No marker")
+        .on_hover_text("Linking a concept from the wizard (the fuzzy finder, #740 decision 11) is not built yet")
+        .clicked()
+    {
+        w.no_concept.choice = None;
+    }
+    for (k, label) in NO_CONCEPT_REASONS {
+        let selected = w.no_concept.choice.as_deref() == Some(*k);
+        if ui.radio(selected, *label).clicked() {
+            w.no_concept.choice = Some(k.to_string());
+        }
+        if selected && *k == OTHER {
+            ui.indent("stamp-no-concept-other", |ui| {
+                ui.add(
+                    egui::TextEdit::singleline(&mut w.no_concept.other)
+                        .hint_text("at least 2 characters")
+                        .desired_width(f32::INFINITY),
+                );
+            });
+        }
+    }
+    if let Some(r) = w.ctx.suggested_architecture.clone() {
+        ui.checkbox(
+            &mut w.no_concept.link_architecture,
+            format!("Link this review to the architecture node {} (part_of)", r.target),
+        );
     }
 }
 

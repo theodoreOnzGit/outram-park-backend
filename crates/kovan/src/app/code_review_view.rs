@@ -26,6 +26,13 @@
 //! [`CodeReviewView::set_stamps`] recolours the bar and the cards without
 //! reloading the data.
 //!
+//! **Review mode (2026-10-10, #770, #740).** The strip's "Review >" and
+//! "Review this walk >" act on the function selected in the embedded UI
+//! ([`kovan_web::ui::CodeReview::selected_function`]); review mode
+//! (`super::review_mode_panel`, logic in
+//! [`crate::stamping::review_mode`]) is then drawn in place of the map,
+//! and its Stamp / Needs fix open the same stamp dialog.
+//!
 //! **Stamp states come from `review.md`.** Once the data is loaded, the
 //! view replaces the data folder's `stamps` (the legacy
 //! `review/stamps.toml` path of `kovan-cli call-graph --split-dir`, left
@@ -47,6 +54,7 @@ use kovan_web::ui::HostRequest;
 
 use crate::code_review_data::{build, data_dir, data_state, BuildReport, DataState};
 use crate::commands::index_control::{Progress, RunControl};
+use super::review_mode_panel::PanelRequest;
 use crate::stamping::flow::{Purpose, StampFlow, StatesResult, Target, Worker};
 
 /// What the worker found or built.
@@ -82,6 +90,9 @@ pub(crate) struct CodeReviewView {
     /// The keystore the dialog reads (tests inject a temporary one; `None`
     /// is kovan's default location, never read under `cargo test`).
     keystore: Option<Keystore>,
+    /// Review mode and the review walk (#770, #740), drawn in place of the
+    /// embedded map while a function is under review.
+    review_mode: super::review_mode_panel::ReviewModePanel,
 }
 
 /// Check the data of `workspace` and build it when missing or stale (or
@@ -181,6 +192,9 @@ impl CodeReviewView {
     /// Close the dialog, keeping a refresh it started.
     fn close_dialog(&mut self) {
         if let Some(mut d) = self.dialog.take() {
+            if let crate::stamping::flow::Step::Done(o) = &d.step {
+                self.review_mode.outcome(o.what);
+            }
             if let Some(s) = d.take_states() {
                 self.set_stamps(s);
             }
@@ -264,12 +278,35 @@ impl CodeReviewView {
                 .request_repaint_after(std::time::Duration::from_millis(200));
         }
         let mut rebuild = false;
+        // Review mode (#770): its workspace and keystore, and the function
+        // selected on the embedded map, which [Review >] starts from.
+        self.review_mode
+            .set_root(self.workspace.clone(), self.keystore().ok());
+        let selected = self.review.as_ref().and_then(|r| r.selected_function());
+        let mut review_now = None;
+        let mut walk_now = None;
         egui::Panel::top("code-review-strip").show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 match &self.workspace {
                     Some(dir) => ui.weak(dir.display().to_string()),
                     None => ui.weak("No workspace"),
                 };
+                if let (Some(f), true) = (&selected, self.review_mode.active.is_none()) {
+                    if ui
+                        .button(format!("Review {} >", f.name))
+                        .on_hover_text("Review mode: its source or diff since the last review, and this folder's review.md beside it")
+                        .clicked()
+                    {
+                        review_now = Some(f.clone());
+                    }
+                    if ui
+                        .button("Review this walk >")
+                        .on_hover_text("Every function under this one, bottom-up, with the walk's size shown first")
+                        .clicked()
+                    {
+                        walk_now = Some(f.clone());
+                    }
+                }
                 if self.workspace.is_some()
                     && ui
                         .add_enabled(self.job.is_none(), egui::Button::new("Rebuild data"))
@@ -302,6 +339,15 @@ impl CodeReviewView {
         if rebuild {
             self.rebuild(true);
         }
+        if let Some(f) = review_now {
+            self.review_mode.enter(f);
+        }
+        if let Some(f) = walk_now {
+            self.review_mode.plan(&f);
+        }
+        if self.review_mode.walk.is_some() {
+            egui::Panel::top("code-review-walk").show(ui, |ui| self.review_mode.walk_strip(ui));
+        }
         if let Some(job) = &self.job {
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_millis(200));
@@ -321,8 +367,28 @@ impl CodeReviewView {
         }
         match &mut self.review {
             Some(review) => {
-                review.show(ui);
+                if self.review_mode.active.is_some() {
+                    self.review_mode.ui(ui);
+                } else {
+                    review.show(ui);
+                }
+                let panel_requests = self.review_mode.take_requests();
+                for r in &panel_requests {
+                    if let PanelRequest::Goto(id) = r {
+                        review.open_function_later(id);
+                    }
+                }
                 self.take_request();
+                for r in panel_requests {
+                    if let PanelRequest::Dialog(req, seed) = r {
+                        if self.pending.is_none() {
+                            self.open(req);
+                            if let Some(d) = self.dialog.as_mut() {
+                                d.comments_seed = seed;
+                            }
+                        }
+                    }
+                }
                 let ctx = ui.ctx().clone();
                 let mut closed = false;
                 let mut fresh = None;
@@ -406,6 +472,36 @@ mod tests {
             callees: None,
             lines: None,
         }
+    }
+
+    /// Headless (#770): with a function under review and a walk planned,
+    /// the view draws review mode in place of the embedded map, and the walk
+    /// card, while their workers run (and are refused over an empty
+    /// folder), without a display or a panic. Temporary folders only.
+    #[test]
+    fn review_mode_replaces_the_map_headless() {
+        let d = tempfile::tempdir().unwrap();
+        let mut v = CodeReviewView {
+            workspace: Some(d.path().to_path_buf()),
+            review: Some(kovan_web::ui::CodeReview::new(
+                kovan_web::Mode::Desktop,
+                kovan_web::data::DataSource::Dir {
+                    data: d.path().to_path_buf(),
+                    workspace: d.path().to_path_buf(),
+                },
+            )),
+            checked: true,
+            ..CodeReviewView::default()
+        };
+        v.review_mode.set_root(Some(d.path().to_path_buf()), None);
+        v.review_mode.enter(function());
+        v.review_mode.plan(&function());
+        let ctx = egui::Context::default();
+        for _ in 0..3 {
+            let _ = ctx.run_ui(Default::default(), |ui| v.ui(ui));
+        }
+        assert!(v.review_mode.active.is_some(), "still in review mode");
+        assert!(v.review_mode.walk.is_some());
     }
 
     /// Headless: a Stamp request opens the dialog only with a keystore

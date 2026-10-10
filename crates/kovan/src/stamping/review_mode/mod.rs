@@ -199,7 +199,7 @@ pub fn describe_flag(f: &FunctionFlag) -> String {
         FunctionFlag::NewReachingTests { tests, .. } => format!("{label}: {}", tests.join(", ")),
         FunctionFlag::DuplicateCode { copies } => format!("{label}: also at {}", copies.join(", ")),
         FunctionFlag::ImplausibleSignedAt { review, problems } => format!(
-            "\u{26a0} {label} ({review}): {}",
+            "(!) {label} ({review}): {}",
             problems
                 .iter()
                 .map(|p| p.describe())
