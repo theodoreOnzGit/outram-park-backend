@@ -621,7 +621,7 @@ path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/di
 title = "Disciplinary views of thermodynamics (one set of laws, different emphasis)"
 sources = []
 note = "maintainer, 2026-10-11: \"Each discipline uses the same underlying principle with different emphasis\": mechanical engineering (heat engines), chemical engineering (solution thermodynamics), chemistry (Gibbs free energy), materials science (thermodynamics of crystalline solids). A grouping node: source not yet read for a text that compares the disciplines; each child carries its own"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/heat-engines-and-power-cycles"
@@ -629,7 +629,7 @@ title = "Heat engines and power cycles (mechanical engineering view: Carnot, Ran
 sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Second Law of Thermodynamics: Carnot's Principle, Carnot Cycle (p. 71), Figure 21; Rankine Cycle (Figure 31, p. 88); Typical Steam Cycle (p. 90)" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/first-law", "sciences/thermal-hydraulics/heat-exchangers"]
 note = "emphasis: work from heat, cycle efficiency against the Carnot limit"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/solution-thermodynamics"
@@ -637,7 +637,7 @@ title = "Solution thermodynamics (chemical engineering view: mixtures, concentra
 sources = [{ document = "doe-hdbk-1015-1-93", section = "Module 1 Fundamentals of Chemistry, Chemical Equations: Molarity (p. 37), Normality (p. 38), Parts per Million (p. 39); Acids, Bases, Salts, and pH: Dissociation Constant (p. 50); Appendix A Basic Separation Theory" }, { document = "openstax-chemistry-2e-part05", section = "11.3 Solubility: Henry's law, the solubility of a gas proportional to its partial pressure; 11.4 Colligative Properties: Mole Fraction and Molality, Vapor Pressure Lowering, Raoult's law" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/gibbs-free-energy-and-chemical-equilibrium"]
 note = "emphasis: mixtures and how components distribute between phases. The DOE handbook covers concentration measures, dissociation and separation; Henry's and Raoult's laws for ideal solutions are from Chemistry 2e; activity and fugacity (non-ideal solutions): source not yet read"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/gibbs-free-energy-and-chemical-equilibrium"
@@ -645,7 +645,7 @@ title = "Gibbs free energy and chemical equilibrium (chemistry view)"
 sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2.3 Experimental Techniques for Characterization of Graphite Oxidation Behavior (p. 24): cooled effluent gas composition (CO, CO2, H2O, H2) changes as dictated by minimisation of the Gibbs free energy of the mixture" }, { document = "doe-hdbk-1015-1-93", section = "Module 1 Fundamentals of Chemistry, Chemical Equations: Le Chatelier's Principle (p. 36)" }, { document = "openstax-chemistry-2e-part06", section = "16.4 Free Energy: Gibbs free energy defined from enthalpy and entropy, Delta G = Delta H - T Delta S; Free Energy and Equilibrium: Delta G related to the standard change through RT and the reaction quotient Q; at equilibrium Q = K and Delta G = 0" }]
 cross_links = ["sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry", "sciences/physical-principles/kinetics/chemical-reaction-kinetics", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium"]
 note = "emphasis: which way a reaction goes and where it settles; equilibrium here, rate under kinetics. The definition G = H - TS and its relation to the equilibrium constant are from Chemistry 2e 16.4"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/thermodynamics-of-solids"
@@ -653,7 +653,7 @@ title = "Thermodynamics of crystalline solids (materials science view: phase sta
 sources = [{ document = "doe-hdbk-1017-1-93", section = "Module 1 Structure of Metals, Polymorphism Phases (p. 12): a metal exists in two or more crystalline forms depending on temperature and composition; uranium alpha, beta, gamma phases, Figure 5 cooling curve; Alloys (p. 15)" }, { document = "openstax-chemistry-2e-part04", section = "10.4 Phase Diagrams (triple point); 10.6 Lattice Structures in Crystalline Solids: Crystal Defects (vacancies)" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/materials/thermophysical-properties-of-solids", "sciences/materials/fuel-performance"]
 note = "emphasis: which crystal structure and microstructure is stable at a given temperature and composition. Phase diagrams and crystal defects are from Chemistry 2e (a one-component phase diagram; binary alloy phase diagrams and the equilibrium vacancy concentration: source not yet read)"
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # sciences/physical-principles/kinetics  (maintainer, 2026-10-11: "Kinetics shld

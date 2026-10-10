@@ -128,3 +128,9 @@ sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-the
 sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/entropy-and-microstates
 sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/random-walk-and-diffusion
 sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/kinetic-theory-of-gases
+# 2026-10-11, maintainer: "Thermo all approved" (disciplinary views) (#829)
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/heat-engines-and-power-cycles
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/solution-thermodynamics
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/gibbs-free-energy-and-chemical-equilibrium
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/thermodynamics-of-solids
