@@ -375,16 +375,16 @@ status = "approved"
 path = "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance"
 title = "Nuclide balance under transmutation and decay (Bateman equations)"
 sources = [{ document = "openmc-docs-depletion", section = "Depletion (introduction): dN_i/dt production minus loss; burnup matrix" }, { document = "cosgrove-2020-pc-stability", section = "2. Neutronics-depletion schemes, Eq. (1) the Bateman equation" }]
-cross_links = ["sciences/physical-principles/conservation-laws/nucleon-number-and-charge", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions"]
+cross_links = ["sciences/physical-principles/conservation-laws/quantum-number-conservation", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions"]
 status = "approved"
 
 [[science]]
-path = "sciences/physical-principles/conservation-laws/nucleon-number-and-charge"
-title = "Conservation of nucleon (mass) number and electric charge in nuclear reactions and decay"
+path = "sciences/physical-principles/conservation-laws/quantum-number-conservation"
+title = "Conservation of quantum numbers in nuclear reactions and decay (electric charge, nucleon number)"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Modes of Radioactive Decay (p. 22): conservation of electric charge, of mass number, of mass and energy, and of momentum" }]
 cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay"]
 note = "maintainer, 2026-10-10: nuclide balance is mass conservation, but there is some quantum number conservation too. The handbook states nucleon number and charge; lepton number and the other quantum numbers: source not yet read"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/momentum-balance"
@@ -467,15 +467,15 @@ title = "Diffusion limit of transport (P1, linearly anisotropic flux; optically 
 sources = [{ document = "ong-2024-dissertation", section = "4.7 Modelling FHRs with Multiphysics code (pp. 242, 246): the diffusion approximation assumes linearly anisotropic angular flux and is the P1 spherical harmonics approximation; it fails near strong absorbers" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/random-walk-and-diffusion", "sciences/physical-principles/constitutive-relations/ficks-law", "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/radiative-transfer"]
 note = "maintainer, 2026-10-10: Boltzmann transport encompasses a lot, from radiation transport to diffusion where optical thickness is high"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/radiative-transfer"
 title = "Radiative transfer (thermal photon transport through participating media)"
-sources = []
+sources = [{ document = "ong-2024-dissertation", section = "4.7, Radiation Heat Transfer (p. 268): the radiative transfer equation bears some similarity to the neutron transport equation, so Monte Carlo, SN, PN and SPN methods have been used to solve it (citing Modest 2013; Modest and Lei 2012)" }]
 cross_links = ["sciences/physical-principles/constitutive-relations/thermal-radiation-exchange", "sciences/physical-principles/radiation-interaction-with-matter/photon-and-charged-particle-interactions", "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/diffusion-limit"]
-note = "source not yet read: no open document in the corpus states the radiative transfer equation (searched 2026-10-10). The same Boltzmann equation for photons: optically thin, it reduces to surface exchange (thermal-radiation-exchange); optically thick, to a diffusion limit (Rosseland)"
-status = "proposed"
+note = "the RTE itself (Modest 2013) is not in the corpus: source not yet read for its statement. The same Boltzmann equation for photons: optically thin, it reduces to surface exchange (thermal-radiation-exchange); optically thick, to a diffusion limit (Rosseland)"
+status = "approved"
 
 # ============================================================================
 # sciences/physical-principles/radiation-interaction-with-matter
@@ -757,6 +757,47 @@ sources = [{ document = "nasa-std-7009b", section = "3.2 Definitions, 'Numerical
 status = "proposed"
 
 [[science]]
+path = "sciences/computation/problems/transport-equations"
+title = "Transport equations in phase space (neutrons, gammas and thermal photons alike)"
+sources = [{ document = "ong-2024-dissertation", section = "4.7, Radiation Heat Transfer (p. 268): the radiative transfer equation bears some similarity to the neutron transport equation, so Monte Carlo, SN, PN and SPN methods have been used to solve it (citing Modest 2013; Modest and Lei 2012)" }, { document = "ong-2024-dissertation", section = "4.7 Modelling FHRs with Multiphysics code (pp. 240, 246-247): diffusion, SPN and SN models; spherical harmonics (PN) and SPN" }]
+cross_links = ["sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation", "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/radiative-transfer", "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/diffusion-limit"]
+note = "maintainer, 2026-10-10: neutron/gamma and thermal radiation transport are analogues, which is why Monte Carlo, SN and SPN work for all of them. The problem is the Boltzmann equation; the methods below do not depend on which particle is carried"
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/transport-equations/monte-carlo-particle-histories"
+title = "Monte Carlo particle histories (analogue random walks through phase space)"
+kind = "method"
+dated = "2026-10-10"
+sources = [{ document = "la-ur-06-7094", section = "slide 'Time-dependent Transport' (solved directly by Monte Carlo, each history an IID trial)" }, { document = "ong-2024-dissertation", section = "4.7, Radiation Heat Transfer (p. 268): the radiative transfer equation bears some similarity to the neutron transport equation, so Monte Carlo, SN, PN and SPN methods have been used to solve it (citing Modest 2013; Modest and Lei 2012)" }]
+theorems = ["sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem"]
+aims = ["sciences/computation/aims/accuracy"]
+cross_links = ["sciences/computation/problems/sampling-from-distributions", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/random-walk-and-diffusion"]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/transport-equations/discrete-ordinates"
+title = "Discrete ordinates (SN): transport along a quadrature set of directions"
+kind = "method"
+dated = "2026-10-10"
+sources = [{ document = "zhang-2023-fenrg-1101050", section = "2 Methodologies of the comePSn_JFNK (discrete ordinates)" }, { document = "ong-2024-dissertation", section = "4.7, Radiation Heat Transfer (p. 268): the radiative transfer equation bears some similarity to the neutron transport equation, so Monte Carlo, SN, PN and SPN methods have been used to solve it (citing Modest 2013; Modest and Lei 2012)" }]
+theorems = ["sciences/computation/governing-theorems/convergence"]
+aims = ["sciences/computation/aims/accuracy", "sciences/computation/aims/speed"]
+cross_links = ["sciences/computation/problems/quadrature"]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/transport-equations/spherical-harmonics-pn-and-spn"
+title = "Spherical harmonics (PN) and simplified spherical harmonics (SPN)"
+kind = "method"
+dated = "2026-10-10"
+sources = [{ document = "ong-2024-dissertation", section = "4.7 (pp. 246-247): PN expands angular flux in spherical harmonics; SPN simplifies it for complex geometry; P1 is the basis of diffusion" }, { document = "ong-2024-dissertation", section = "4.7, Radiation Heat Transfer (p. 268): the radiative transfer equation bears some similarity to the neutron transport equation, so Monte Carlo, SN, PN and SPN methods have been used to solve it (citing Modest 2013; Modest and Lei 2012)" }]
+theorems = ["sciences/computation/governing-theorems/approximation-theory"]
+aims = ["sciences/computation/aims/speed"]
+cross_links = ["sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/diffusion-limit", "sciences/computation/problems/function-approximation"]
+status = "proposed"
+
+[[science]]
 path = "sciences/computation/problems/linear-systems"
 title = "Linear systems (Ax = b)"
 sources = [{ document = "ong-2024-tuas", section = "3.3. Code flow and structure for the Boussinesq Solver (energy balances formed as Ax = b, solved with LAPACK)" }, { document = "zhang-2023-fenrg-1101050", section = "2.4 Solution strategy, Eq. (15) Newton correction solved by restarted GMRES" }, { document = "doe-hdbk-1014-1-92", section = "Module 2 Algebra, Simultaneous Equations (p. 31) (elimination)" }, { document = "doe-hdbk-1014-2-92", section = "Module 5 Higher Concepts of Mathematics, Matrices and Determinants: Using Matrices to Solve System of Linear Equation (Cramer's Rule) (p. 25)" }]
@@ -1028,14 +1069,14 @@ status = "proposed"
 path = "sciences/neutronics/monte-carlo-transport"
 title = "Monte Carlo neutron transport"
 sources = [{ document = "la-ur-06-7094", section = "slides 'Time-dependent Transport' (solved directly by Monte Carlo, each history an IID trial); 'Power Iteration & Convergence'" }, { document = "openmc-docs-eigenvalue", section = "Method of Successive Generations" }]
-cross_links = ["sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation", "sciences/computation/problems/sampling-from-distributions", "sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem"]
+cross_links = ["sciences/computation/problems/transport-equations/monte-carlo-particle-histories", "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation", "sciences/computation/problems/sampling-from-distributions", "sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem"]
 status = "proposed"
 
 [[science]]
 path = "sciences/neutronics/deterministic-transport"
 title = "Deterministic transport and diffusion (multigroup, discrete ordinates)"
 sources = [{ document = "la-ur-17-20093", section = "8.1 Multigroup Constants; 8.7 Diffusion Cross Sections; 8.8 Cross Sections for Transport Theory" }, { document = "zhang-2023-fenrg-1101050", section = "2 Methodologies of the comePSn_JFNK (discrete ordinates)" }]
-cross_links = ["sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation", "sciences/computation/problems/ode-and-pde-evolution", "sciences/computation/problems/linear-systems"]
+cross_links = ["sciences/computation/problems/transport-equations/discrete-ordinates", "sciences/computation/problems/transport-equations/spherical-harmonics-pn-and-spn", "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation", "sciences/computation/problems/ode-and-pde-evolution", "sciences/computation/problems/linear-systems"]
 note = "8.7 and 8.8 named from the NJOY2016 table of contents; 8.1 read"
 status = "proposed"
 
