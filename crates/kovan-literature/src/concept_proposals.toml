@@ -31,6 +31,14 @@
 # SEED set of those tags. The test `tests/concept_proposals.rs` checks every
 # crate/module still exists on develop, so a refactor that moves a module
 # fails until this file is updated.
+#
+# Optional on both [[concept]] and [[implementation]] (added 2026-10-10, #727;
+# additive, ignored by `concept_tree.rs`):
+#   sciences  Sciences-tree paths (`concept_sciences_proposals.toml`) the
+#             entry rests on; a list with no cap. Every path must resolve
+#             (`tests/concept_sciences.rs`). Proposed links wait as
+#             `[[reference]]` entries in the sciences file and move here once
+#             the maintainer approves them; none has moved yet.
 
 # ============================================================================
 # 02-nuclear-safety / design-of-structures-systems-and-components

@@ -1,0 +1,1330 @@
+# Kovan's SCIENCES tree: PROPOSALS (OUTRAM PARK GitHub #727; maintainer
+# direction 2026-10-10). DRAFT FOR MAINTAINER REVIEW.
+#
+# Two trees, two tabs (maintainer, 2026-10-10):
+#   1. IAEA (application): `concept_skeleton.toml` (19 NG-G-3.1 issues -> NRC
+#      L2) -> `concept_proposals.toml` L3 engineering concepts -> L4
+#      outram-park implementation leaves. Unchanged by this file.
+#   2. Sciences (this file): physical principles; computation (numerical
+#      methods and computer science, anchored on problems, theorems and
+#      aims); then the disciplines that branch out of them (neutronics,
+#      thermal hydraulics, materials; human factors later). Software
+#      engineering and QA are NOT here: they belong to the IAEA tab.
+# The IAEA tree REFERENCES the Sciences tree: an L2 node, an L3 concept or an
+# L4 implementation leaf names the Sciences nodes it rests on. Review stamps
+# will also link Sciences nodes (review.md `[[relation]] kind = "implements"`).
+#
+# STATUS: every entry here is `status = "proposed"`. NOTHING in this file is
+# part of either tree until the maintainer approves it, line by line.
+# The readable review copy is `docs/concept-sciences-proposals.md`,
+# regenerated from this file by
+# `KOVAN_REGENERATE_SCIENCES=1 cargo test --release -p kovan-literature --test concept_sciences`
+# (the test fails while the two disagree).
+#
+# ---------------------------------------------------------------------------
+# NODE IDS ARE PERMANENT (maintainer, 2026-10-10: "they are physics, fixed").
+# ---------------------------------------------------------------------------
+# A Sciences node's id is its `path`: `sciences/<segment>/<segment>/...`,
+# each segment plain lower-case ASCII words joined by `-`, no digits. A segment
+# names the PHYSICS (or the mathematics), never a source, a document number, a
+# code or a crate (the test rejects any segment equal to a workspace crate
+# name). Once a node is approved its path never changes and never disappears:
+# the tree grows additively. Approval is recorded by appending the path to
+# `concept_sciences_approved.txt`; the test fails if a listed path is missing
+# from this file or no longer `approved`, and if an `approved` node is not
+# listed.
+#
+# [[document]]  a source the Sciences tree cites that the skeleton does not
+#               already declare (a source may name EITHER a skeleton document
+#               id or one of these; the ids may not collide)
+#   id, title, publisher, date
+#   holder  "standard"      = reactor-literature/kovan-standard-open-corpus/
+#           "theodore-open" = reactor-literature/theodore-open-corpus/
+#           "web"           = not in the corpus; `url` names a stable page
+#   file    path relative to the reactor-literature repository root
+#           (holder standard/theodore-open)
+#   url     (holder web)
+#   licence the document's own licence statement, as read
+#   redistributable  true when that statement permits redistribution
+#
+# [[science]]  one node of the Sciences tree
+#   path        the permanent id (see above). Its parent is the path minus the
+#               last segment; a two-segment path (`sciences/x`) is a top-level
+#               branch of the Sciences tab.
+#   title       plain words
+#   sources     [{ document, section }]: sections READ FROM THE DOCUMENT
+#               ITSELF (2026-10-10), never from memory
+#   cross_links other Sciences paths this node also belongs to (the graph)
+#   status      "proposed" | "approved" | "deferred"
+#   note        optional: a judgement call, or "source not yet read" (an
+#               empty `sources` list REQUIRES that note)
+#   kind        optional: "method" marks a computation method leaf (must sit
+#               under sciences/computation/problems/); it then carries
+#               `dated` (required), optional `superseded_by`, `theorems`,
+#               `aims`, `order_of_accuracy`, `cost_scaling`, `memory`; see
+#               the sciences/computation banner below. A method is never
+#               deleted: it is marked `superseded_by`.
+#
+# [[reference]]  a PROPOSED link from the IAEA tree into the Sciences tree
+#   node        a skeleton node path (L1/L2) or a concept path (L3+), OR
+#   crate + module  an existing `[[implementation]]` leaf of
+#               concept_proposals.toml
+#   sciences    Sciences paths it rests on; a list with no cap (an
+#               implementation leaf typically rests on many)
+#   status      "proposed"
+#   note        optional
+# Once approved, a reference moves into an optional `sciences = [...]` field
+# on that `[[concept]]` or `[[implementation]]` in concept_proposals.toml
+# (documented there; additive, ignored by the current tree reader). Skeleton
+# L2 references stay here, since the approved skeleton is not edited.
+#
+# [[candidate]]  an open document the maintainer may add to the corpus
+#   title, url, licence, why   (nothing is downloaded or committed)
+
+# ============================================================================
+# Documents not declared in concept_skeleton.toml
+# ============================================================================
+
+[[document]]
+id = "doe-hdbk-1012-1-92"
+title = "DOE-HDBK-1012/1-92, DOE Fundamentals Handbook: Thermodynamics, Heat Transfer, and Fluid Flow, Volume 1 of 3 (Module 1, Thermodynamics)"
+publisher = "U.S. Department of Energy"
+date = "June 1992"
+holder = "standard"
+file = "kovan-standard-open-corpus/us-doe/doe-hdbk-1012-1-92-thermo-heat-transfer-fluid-flow.pdf"
+licence = "Distribution Statement A: approved for public release; distribution is unlimited (cover)"
+redistributable = true
+
+[[document]]
+id = "doe-hdbk-1012-2-92"
+title = "DOE-HDBK-1012/2-92, DOE Fundamentals Handbook: Thermodynamics, Heat Transfer, and Fluid Flow, Volume 2 of 3 (Module 2, Heat Transfer)"
+publisher = "U.S. Department of Energy"
+date = "June 1992"
+holder = "standard"
+file = "kovan-standard-open-corpus/us-doe/doe-hdbk-1012-2-92-thermo-heat-transfer-fluid-flow.pdf"
+licence = "Distribution Statement A: approved for public release; distribution is unlimited (cover)"
+redistributable = true
+
+[[document]]
+id = "doe-hdbk-1012-3-92"
+title = "DOE-HDBK-1012/3-92, DOE Fundamentals Handbook: Thermodynamics, Heat Transfer, and Fluid Flow, Volume 3 of 3 (Module 3, Fluid Flow)"
+publisher = "U.S. Department of Energy"
+date = "June 1992"
+holder = "standard"
+file = "kovan-standard-open-corpus/us-doe/doe-hdbk-1012-3-92-thermo-heat-transfer-fluid-flow.pdf"
+licence = "Distribution Statement A: approved for public release; distribution is unlimited (cover)"
+redistributable = true
+
+[[document]]
+id = "doe-hdbk-1019-1-93"
+title = "DOE-HDBK-1019/1-93, DOE Fundamentals Handbook: Nuclear Physics and Reactor Theory, Volume 1 of 2 (Modules 1-2)"
+publisher = "U.S. Department of Energy"
+date = "January 1993"
+holder = "standard"
+file = "kovan-standard-open-corpus/us-doe/doe-hdbk-1019-1-93-nuclear-physics-reactor-theory.pdf"
+licence = "Distribution Statement A: approved for public release; distribution is unlimited (cover)"
+redistributable = true
+
+[[document]]
+id = "doe-hdbk-1019-2-93"
+title = "DOE-HDBK-1019/2-93, DOE Fundamentals Handbook: Nuclear Physics and Reactor Theory, Volume 2 of 2 (Modules 3-4)"
+publisher = "U.S. Department of Energy"
+date = "January 1993"
+holder = "standard"
+file = "kovan-standard-open-corpus/us-doe/doe-hdbk-1019-2-93-nuclear-physics-reactor-theory.pdf"
+licence = "Distribution Statement A: approved for public release; distribution is unlimited (cover)"
+redistributable = true
+
+[[document]]
+id = "gomezzarzuela-2021-bubbly-flow"
+title = "C. Gomez-Zarzuela, C. Pena-Monferrer, S. Chiva, R. Miro, Development and validation of a one-dimensional solver in a CFD platform for boiling flows in bubbly regimes, Progress in Nuclear Energy 134 (2021) 103680"
+publisher = "Elsevier (open access)"
+date = "2021"
+holder = "theodore-open"
+file = "theodore-open-corpus/cc-by/gomezzarzuela2021-1d-bubbly-flow-solver.pdf"
+licence = "CC BY (article's own statement)"
+redistributable = true
+
+[[document]]
+id = "putra-2021-htr10-dem"
+title = "F. Putra et al., HTR-10 OTTO Cycle Depletion Simulation Using Discrete Element Method Coupled Monte Carlo, J. Phys.: Conf. Ser. 2048 (2021) 012031"
+publisher = "IOP Publishing"
+date = "2021"
+holder = "theodore-open"
+file = "theodore-open-corpus/cc-by/putra2021-htr10-otto-dem-monte-carlo.pdf"
+licence = "CC BY 3.0 (article's own statement)"
+redistributable = true
+
+[[document]]
+id = "fang-2021-htgr-fp-release"
+title = "C. Fang, C. Li, J. Cao, K. Liu, S. Fang, Analysis of Fission Products' Release in Pebble-Bed High-Temperature Gas-Cooled Reactor Fuel Elements Using a Modified FRESCO II Numerical Model, Sci. Technol. Nucl. Install. 2021, 6627789"
+publisher = "Hindawi"
+date = "2021"
+holder = "theodore-open"
+file = "theodore-open-corpus/cc-by/fang2021-htgr-fission-product-release-fresco.pdf"
+licence = "CC BY (article's own statement)"
+redistributable = true
+
+[[document]]
+id = "pichler-2020-316l"
+title = "P. Pichler, B.J. Simonds, J.W. Sowards, G. Pottlacher, Measurements of thermophysical properties of solid and liquid NIST SRM 316L stainless steel, J. Mater. Sci. (2019/2020)"
+publisher = "Springer (open access)"
+date = "2020"
+holder = "theodore-open"
+file = "theodore-open-corpus/cc-by/pichler2020-316l-thermophysical-properties.pdf"
+licence = "Creative Commons licence (corpus README); NIST contribution"
+redistributable = true
+
+[[document]]
+id = "contescu-2022-graphite-oxidation"
+title = "C.I. Contescu, R.M. Paul, Oxidation Behavior and Property Degradation of Nuclear Graphites, ORNL/TM-2022/1839"
+publisher = "Oak Ridge National Laboratory for U.S. DOE"
+date = "March 2022"
+holder = "theodore-open"
+file = "theodore-open-corpus/contescu2022ornltm20221839.pdf"
+licence = "Approved for public release; distribution is unlimited (cover)"
+redistributable = true
+
+[[document]]
+id = "ong-2024-tuas"
+title = "T.K.C. Ong, S. Xiao, P.F. Peterson, An open-source Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows (TUAS), Int. J. Adv. Nucl. Reactor Design and Technology 6 (2024) 281-301"
+publisher = "Elsevier (open access)"
+date = "2024"
+holder = "theodore-open"
+file = "theodore-open-corpus/ong/tuas-theodore-ong.pdf"
+licence = "CC BY (article's own statement)"
+redistributable = true
+
+[[document]]
+id = "ong-2024-dissertation"
+title = "T.K.C. Ong, Digital Twins as Testbeds for Iterative Simulated Neutronics Feedback Controller Development, PhD dissertation, UC Berkeley"
+publisher = "University of California, Berkeley (eScholarship)"
+date = "2024"
+holder = "theodore-open"
+file = "theodore-open-corpus/ong/ong2024-phd-dissertation-digital-twins-neutronics-feedback.pdf"
+licence = "Copyright 2024 the repository owner (his own dissertation)"
+redistributable = true
+
+[[document]]
+id = "openmc-docs-neutron-physics"
+title = "OpenMC documentation, Theory and Methodology, 5. Neutron Physics (stable)"
+publisher = "OpenMC contributors"
+date = "read 10 October 2026 (version 'stable', not pinned)"
+holder = "web"
+url = "https://docs.openmc.org/en/stable/methods/neutron_physics.html"
+licence = "MIT (OpenMC LICENSE covers the documentation; corpus README section 8)"
+redistributable = true
+
+[[document]]
+id = "openmc-docs-random-numbers"
+title = "OpenMC documentation, Theory and Methodology, 4. Random Number Generation (stable)"
+publisher = "OpenMC contributors"
+date = "read 10 October 2026 (version 'stable', not pinned)"
+holder = "web"
+url = "https://docs.openmc.org/en/stable/methods/random_numbers.html"
+licence = "MIT (OpenMC LICENSE covers the documentation)"
+redistributable = true
+
+[[document]]
+id = "openmc-docs-tallies"
+title = "OpenMC documentation, Theory and Methodology, 8. Tallies (stable)"
+publisher = "OpenMC contributors"
+date = "read 10 October 2026 (version 'stable', not pinned)"
+holder = "web"
+url = "https://docs.openmc.org/en/stable/methods/tallies.html"
+licence = "MIT (OpenMC LICENSE covers the documentation)"
+redistributable = true
+
+[[document]]
+id = "openstax-university-physics-1"
+title = "OpenStax, University Physics Volume 1 (Ling, Sanny, Moebs et al.)"
+publisher = "OpenStax, Rice University"
+date = "read 10 October 2026"
+holder = "web"
+url = "https://openstax.org/books/university-physics-volume-1/pages/12-3-stress-strain-and-elastic-modulus"
+licence = "the page states CC BY-NC-SA (non-commercial, share-alike); check before quoting"
+redistributable = true
+
+[[document]]
+id = "openstax-university-physics-2"
+title = "OpenStax, University Physics Volume 2 (Ling, Sanny, Moebs et al.)"
+publisher = "OpenStax, Rice University"
+date = "read 10 October 2026"
+holder = "web"
+url = "https://openstax.org/books/university-physics-volume-2/pages/2-4-distribution-of-molecular-speeds"
+licence = "the page states CC BY-NC-SA (non-commercial, share-alike); check before quoting"
+redistributable = true
+
+# ============================================================================
+# sciences/physical-principles
+# ============================================================================
+
+[[science]]
+path = "sciences/physical-principles"
+title = "Physical principles"
+sources = [{ document = "arxiv-2306.01924v2", section = "2. Generic sharp interface model, Eq. (1) generic conservation equation" }, { document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Continuity Equation, Introduction (p. 1)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws"
+title = "Conservation (balance) laws"
+sources = [{ document = "arxiv-2306.01924v2", section = "2. Generic sharp interface model, Eq. (11) general transport equation and Table 1 (mass, momentum, energy, entropy)" }, { document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Continuity Equation, Control Volume (p. 8)" }]
+cross_links = ["sciences/computation/aims/trust/structure-preservation"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/mass-balance"
+title = "Conservation of mass"
+sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Continuity Equation, Conservation of Mass (p. 10)" }, { document = "arxiv-2306.01924v2", section = "2. Table 1 (mass)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/mass-balance/continuity-equation"
+title = "Continuity equation"
+sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Continuity Equation, Continuity Equation (p. 11)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "2.1 Single-phase flow governing equations (one-dimensional mass conservation)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/mass-balance/species-transport"
+title = "Species (component) transport by advection and diffusion"
+sources = [{ document = "arxiv-2306.01924v2", section = "7.3 Polymer electrolyte fuel cell (species mass fraction transport, Fick's law)" }, { document = "fang-2021-htgr-fp-release", section = "3. Transport Model of FPs" }]
+cross_links = ["sciences/physical-principles/constitutive-relations/ficks-law"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance"
+title = "Nuclide balance under transmutation and decay (Bateman equations)"
+sources = [{ document = "openmc-docs-depletion", section = "Depletion (introduction): dN_i/dt production minus loss; burnup matrix" }, { document = "cosgrove-2020-pc-stability", section = "2. Neutronics-depletion schemes, Eq. (1) the Bateman equation" }]
+cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/momentum-balance"
+title = "Conservation of momentum (Newton's laws of motion)"
+sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Continuity Equation, Control Volume (p. 8): conservation of mass and energy 'along with Newton's laws of motion'" }, { document = "arxiv-2306.01924v2", section = "2. Table 1 (momentum)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations"
+title = "Navier-Stokes equations (viscous fluid momentum)"
+sources = [{ document = "gomezzarzuela-2021-bubbly-flow", section = "2.1 Single-phase flow governing equations (from the Navier-Stokes equations of buoyantPimpleFoam)" }, { document = "arxiv-2306.01924v2", section = "2. Table 1 (momentum: pressure, deviatoric stress tensor, gravity)" }]
+cross_links = ["sciences/physical-principles/constitutive-relations/newtonian-viscous-stress", "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation"]
+note = "cross-linked with the Boltzmann transport equation as the other balance law the codes discretise (maintainer's example)"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/momentum-balance/porous-media-flow"
+title = "Momentum balance in porous media and packed beds (Darcy, Ergun)"
+sources = [{ document = "ong-2024-dissertation", section = "4.7 Modelling FHRs with Multiphysics code (Ergun's equation for pebble beds)" }, { document = "arxiv-2306.01924v2", section = "7.3 Polymer electrolyte fuel cell (Navier-Stokes with porous layers via Darcy's law)" }]
+cross_links = ["sciences/physical-principles/constitutive-relations/darcys-law"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/momentum-balance/solid-continuum-momentum"
+title = "Momentum balance of a deforming solid (Cauchy equation of motion)"
+sources = []
+cross_links = ["sciences/physical-principles/constitutive-relations/hookes-law"]
+note = "source not yet read: no open document in the corpus states the Cauchy momentum equation for solids; see candidate documents"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/momentum-balance/discrete-particle-dynamics"
+title = "Newton's laws for discrete particles in contact (discrete element method)"
+sources = [{ document = "putra-2021-htr10-dem", section = "2.2. DEM Simulation (particle contact and force balance; linear spring-dashpot)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/energy-balance"
+title = "Conservation of energy"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, First Law of Thermodynamics (p. 53)" }, { document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Bernoulli's Equation, General Energy Equation (p. 21)" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/energy-balance/heat-conduction-equation"
+title = "Heat conduction (heat) equation"
+sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Conduction Heat Transfer (pp. 6-11)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "2.4 Wall conduction equation" }]
+cross_links = ["sciences/physical-principles/constitutive-relations/fouriers-law"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/energy-balance/enthalpy-balance"
+title = "Enthalpy (energy) balance of a flowing fluid"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, First Law of Thermodynamics (p. 53) and Energy, Work, and Heat: Specific Enthalpy (p. 18)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "2.1 Single-phase flow governing equations (one-dimensional energy equation)" }, { document = "ong-2024-tuas", section = "2.2. Physical equations in natural and forced circulation" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/energy-balance/nuclear-energy-release"
+title = "Energy release in nuclear reactions (mass defect, Q-values, KERMA)"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Mass Defect and Binding Energy (p. 17); Energy Release from Fission (p. 56)" }, { document = "la-ur-17-20093", section = "6.1 Theory of Nuclear Heating; 6.3 Computation of KERMA Factors By Energy Balance" }]
+cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/particle-balance"
+title = "Particle number balance (neutron balance)"
+sources = [{ document = "doe-hdbk-1019-2-93", section = "Module 3, Neutron Life Cycle (p. 1): four- and six-factor formulas" }, { document = "la-ur-06-7094", section = "slide 'Time-dependent Transport' (gain/loss form Q + [S + M] - [L + T])" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation"
+title = "Linear Boltzmann (neutral particle) transport equation"
+sources = [{ document = "la-ur-17-20093", section = "8.1 Multigroup Constants, Eq. (240) neutral particle transport equation" }, { document = "la-ur-06-7094", section = "slide 'Time-dependent Transport' (time-dependent linear Boltzmann transport equation)" }, { document = "zhang-2023-fenrg-1101050", section = "2 Methodologies (multi-group neutron Boltzmann transport equations)" }]
+cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/cross-sections", "sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/conservation-laws/particle-balance/multiplication-eigenvalue"
+title = "Neutron multiplication and the k-eigenvalue"
+sources = [{ document = "la-ur-06-7094", section = "slides 'K- and alpha-Eigenvalue Equations'" }, { document = "openmc-docs-eigenvalue", section = "Eigenvalue Calculations (introduction)" }, { document = "doe-hdbk-1019-2-93", section = "Module 3, Neutron Life Cycle, Effective Multiplication Factor (p. 8)" }]
+cross_links = ["sciences/computation/problems/eigenproblems/power-iteration"]
+status = "proposed"
+
+# ============================================================================
+# sciences/physical-principles/radiation-interaction-with-matter
+# ============================================================================
+
+[[science]]
+path = "sciences/physical-principles/radiation-interaction-with-matter"
+title = "Interaction of radiation with matter"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Interaction of Radiation with Matter (p. 63)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions"
+title = "Neutron-induced nuclear reactions"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Neutron Interactions (p. 43)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/cross-sections"
+title = "Cross sections (microscopic, macroscopic; reaction rates)"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 2, Nuclear Cross Sections and Neutron Flux: Cross Sections (p. 7); Reaction Rates (p. 18)" }, { document = "la-ur-17-20093", section = "3.1 ENDF/B Cross Section Representations" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/resonances"
+title = "Resonances and R-matrix theory (resolved and unresolved)"
+sources = [{ document = "la-ur-17-20093", section = "3.4 Resonance Representations (SLBW, MLBW, Reich-Moore, RML); 5.1 Theory (unresolved range)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/fission"
+title = "Nuclear fission"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Nuclear Fission (p. 48)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/radiative-capture"
+title = "Radiative capture and other absorption reactions"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Neutron Interactions: Absorption Reactions, Radiative Capture, Particle Ejection (p. 46)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/scattering"
+title = "Elastic and inelastic scattering; neutron slowing down"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Neutron Interactions: Elastic Scattering (p. 43), Inelastic Scattering (p. 45); Module 2, Neutron Moderation (p. 23)" }, { document = "la-ur-17-20093", section = "8.12 Two-Body Scattering" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/radiation-interaction-with-matter/target-motion"
+title = "Thermal motion of target nuclei"
+sources = [{ document = "openmc-docs-neutron-physics", section = "5.10 Effect of Thermal Motion on Cross Sections" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/radiation-interaction-with-matter/target-motion/doppler-broadening"
+title = "Doppler broadening of cross sections"
+sources = [{ document = "la-ur-17-20093", section = "4.1 Doppler-Broadening Theory, Eqs. (82)-(83) (Maxwell-Boltzmann target velocities)" }, { document = "doe-hdbk-1019-2-93", section = "Module 3, Reactivity Coefficients, Fuel Temperature Coefficient (p. 26)" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/resonances"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/radiation-interaction-with-matter/target-motion/thermal-scattering-law"
+title = "Thermal neutron scattering from bound atoms, S(alpha, beta)"
+sources = [{ document = "la-ur-17-20093", section = "7.2 Incoherent Inelastic Scattering, Eq. (230); 24.1 Theory (LEAPR)" }, { document = "openmc-docs-neutron-physics", section = "5.11 S(alpha,beta,T) Tables" }]
+cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/scattering"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/radiation-interaction-with-matter/target-motion/resonance-elastic-scattering"
+title = "Resonant elastic scattering with an energy-dependent cross section (DBRC)"
+sources = [{ document = "openmc-docs-neutron-physics", section = "5.10.2 Energy-Dependent Cross Section Model (additional rejection step)" }]
+cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/resonances", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/scattering"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay"
+title = "Radioactive decay"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Modes of Radioactive Decay (p. 22); Radioactivity (p. 30)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/radiation-interaction-with-matter/photon-and-charged-particle-interactions"
+title = "Photon and charged-particle interactions"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Interaction of Radiation with Matter: Alpha, Beta Minus, Positron, Gamma Radiation (pp. 64-66)" }, { document = "la-ur-17-20093", section = "9.1 Description of ENDF/B Photon Interaction Files" }]
+note = "placed now so the branch exists; detail later (maintainer: photons/charged particles later)"
+status = "proposed"
+
+# ============================================================================
+# sciences/physical-principles/thermodynamics-and-statistical-mechanics
+# ============================================================================
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics"
+title = "Thermodynamics and statistical mechanics"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Thermodynamic Systems and Processes (p. 26)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics"
+title = "First and second laws of thermodynamics"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, First Law of Thermodynamics (p. 53); Second Law of Thermodynamics (p. 69)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state"
+title = "Equations of state and thermodynamic properties"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Compression Processes: Ideal Gas Law (p. 98); Property Diagrams and Steam Tables (p. 41)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "3.4. Steam tables IAPWS-IF97" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium"
+title = "Phase change and phase equilibrium (saturation)"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Change of Phase (p. 31): Saturation (p. 33), Critical Point (p. 36)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution"
+title = "Maxwell-Boltzmann distribution"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 2, Neutron Flux Spectrum: Most Probable Neutron Velocities (p. 35) (the Maxwell distribution of thermal neutrons)" }, { document = "la-ur-17-20093", section = "4.1 Doppler-Broadening Theory, Eq. (83)" }, { document = "openstax-university-physics-2", section = "2.4 Distribution of Molecular Speeds, The Maxwell-Boltzmann Distribution" }]
+status = "proposed"
+
+# ============================================================================
+# sciences/physical-principles/constitutive-relations
+# ============================================================================
+
+[[science]]
+path = "sciences/physical-principles/constitutive-relations"
+title = "Constitutive relations (closures of the balance laws)"
+sources = [{ document = "arxiv-2306.01924v2", section = "2. Generic sharp interface model, Eq. (11): flux j and source s specified per quantity (Table 1)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/constitutive-relations/fouriers-law"
+title = "Fourier's law of heat conduction"
+sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Conduction Heat Transfer: Conduction (p. 6), Fourier's Law of Conduction" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/constitutive-relations/newtonian-viscous-stress"
+title = "Viscosity and Newtonian viscous stress"
+sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Laminar and Turbulent Flow: Viscosity (p. 19)" }, { document = "arxiv-2306.01924v2", section = "2. Table 1 (deviatoric stress tensor tau)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/constitutive-relations/ficks-law"
+title = "Fick's law of diffusion"
+sources = [{ document = "fang-2021-htgr-fp-release", section = "3. Transport Model of FPs (Fick's first diffusion law)" }, { document = "arxiv-2306.01924v2", section = "7.3 Polymer electrolyte fuel cell (species transport characterised by Fick's law)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/constitutive-relations/hookes-law"
+title = "Hooke's law (linear elasticity)"
+sources = [{ document = "openstax-university-physics-1", section = "12.3 Stress, Strain, and Elastic Modulus, Eq. (12.33) stress = (elastic modulus) x strain" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/constitutive-relations/darcys-law"
+title = "Darcy's law (flow through porous media)"
+sources = [{ document = "arxiv-2306.01924v2", section = "7.3 Polymer electrolyte fuel cell (porous layers via Darcy's law)" }]
+note = "not DOE-HDBK-1012/3's 'Darcy's Equation' (p. 32), which is the Darcy-Weisbach pipe head loss; that belongs to thermal-hydraulics/single-phase-flow"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/constitutive-relations/thermal-radiation-exchange"
+title = "Thermal radiation exchange (Stefan-Boltzmann law, emissivity)"
+sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Radiant Heat Transfer: Black Body Radiation (p. 26), Emissivity, Radiation Configuration Factor (p. 27)" }]
+status = "proposed"
+
+# ============================================================================
+# sciences/computation  (maintainer, 2026-10-10: "Computation (numerical
+# methods & computer science)", anchored on TIMELESS things, not algorithms)
+#
+# Algorithms evolve fast; problems and theorems do not, so the permanent ids
+# live on Problems, Governing theorems and Aims. Methods are leaves under the
+# Problem they solve (kind = "method"): each is dated, never deleted (marked
+# `superseded_by` instead), and names the theorems and aims it trades on, with
+# its accuracy-versus-speed properties recorded (order of accuracy, cost
+# scaling, memory). Aims are the motivation: accuracy and speed, often
+# orthogonal; trust is added because an irreproducible fast and accurate run is
+# worthless for V&V (root CLAUDE.md: the HTR-10 bed gave a different answer
+# every run because a neighbour grid iterated a randomly seeded HashMap).
+# Software engineering and QA (the human/management side) live under the IAEA
+# tab, not here; they may reference the trust aims.
+#
+# Extra fields on a `kind = "method"` node (all optional except dated):
+#   dated          when the method was recorded in this tree (YYYY-MM-DD)
+#   superseded_by  the path of the method that replaces it (never deleted)
+#   theorems       paths under sciences/computation/governing-theorems
+#   aims           paths under sciences/computation/aims
+#   order_of_accuracy, cost_scaling, memory   free text, as the source states
+# ============================================================================
+
+[[science]]
+path = "sciences/computation"
+title = "Computation (numerical methods and computer science)"
+sources = [{ document = "nureg-km-0006", section = "3.1 The Six Phases of a Scientific Computer Simulation (3. Discretization and Algorithm Selection Phase; 5. Numerical Solution Phase)" }]
+status = "proposed"
+
+# ---------------------------------------------------------------- Problems --
+
+[[science]]
+path = "sciences/computation/problems"
+title = "Problems (what is computed)"
+sources = [{ document = "nasa-std-7009b", section = "3.2 Definitions, 'Numerical Errors' (approximation of derivatives and integrals by algebraic operations on sampled continuous functions)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/linear-systems"
+title = "Linear systems (Ax = b)"
+sources = [{ document = "ong-2024-tuas", section = "3.3. Code flow and structure for the Boussinesq Solver (energy balances formed as Ax = b, solved with LAPACK)" }, { document = "zhang-2023-fenrg-1101050", section = "2.4 Solution strategy, Eq. (15) Newton correction solved by restarted GMRES" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/eigenproblems"
+title = "Eigenvalue problems"
+sources = [{ document = "openmc-docs-eigenvalue", section = "Eigenvalue Calculations (introduction: the transport equation becomes an eigenvalue equation with a fission source)" }, { document = "la-ur-06-7094", section = "slides 'K- and alpha-Eigenvalue Equations'" }]
+cross_links = ["sciences/physical-principles/conservation-laws/particle-balance/multiplication-eigenvalue"]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/quadrature"
+title = "Integration (quadrature)"
+sources = [{ document = "la-ur-17-20093", section = "8.12 Two-Body Scattering (Legendre components integrated by Gaussian quadrature; order chosen from the integrand's polynomial order, Eq. (319))" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/ode-and-pde-evolution"
+title = "Evolution of ordinary and partial differential equations"
+sources = [{ document = "openmc-docs-depletion", section = "Depletion (introduction: a system of first-order ODEs with an initial value); Numerical Integration" }, { document = "nureg-km-0006", section = "3.3.3.6 Definition of a Coded Physical Function (discretisation by Taylor series)" }]
+cross_links = ["sciences/physical-principles/conservation-laws"]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/root-finding"
+title = "Root finding and nonlinear equations (including coupled multiphysics)"
+sources = [{ document = "sand2011-2195", section = "2.3 Solution Strategies for the General Model; 3.2.2 Picard Iteration; 3.2.3 Newton's Method" }, { document = "arxiv-2301.00289v3", section = "Introduction (Picard fixed-point iteration for coupled neutronics/thermal hydraulics; relaxation)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/optimisation"
+title = "Optimisation"
+sources = []
+note = "source not yet read: no held open document was read for optimisation"
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/sampling-from-distributions"
+title = "Sampling from probability distributions"
+sources = [{ document = "openmc-docs-random-numbers", section = "4. Random Number Generation (introduction: 'In order to sample probability distributions, one must be able to produce random numbers')" }, { document = "la-ur-17-20093", section = "23 PURR (introduction: select a random number, look up sigma_t in the probability table)" }, { document = "la-ur-06-7094", section = "slides on the random walk of a particle history" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/function-approximation"
+title = "Function approximation (interpolation, series, rational approximation, fitting, surrogates)"
+sources = [{ document = "la-ur-17-20093", section = "3.2 Unionization and Linearization Strategy (interpolation laws); 3.3 Linearization and Reconstruction Methods" }, { document = "openmc-docs-depletion", section = "Matrix Exponential (Chebyshev rational approximation method, CRAM)" }, { document = "ong-2024-dissertation", section = "4.4 Surrogate Modelling Methods" }, { document = "nasa-hdbk-7009b", section = "3.2 Definitions, 'Surrogate model'; 4.5.2 Models of Models" }]
+note = "NASA-HDBK-7009B as held is marked DRAFT"
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/search-and-sorting"
+title = "Search and sorting"
+sources = []
+note = "source not yet read"
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/data-representation"
+title = "Data representation (formats, grids, tables)"
+sources = [{ document = "la-ur-17-20093", section = "17 ACER (introduction: ACE differs from ENDF by random access with pointers, union energy grids, equal-probability bins, cumulative probability distributions)" }]
+status = "proposed"
+
+# ------------------------------------------------------ Governing theorems --
+
+[[science]]
+path = "sciences/computation/governing-theorems"
+title = "Governing theorems (what bounds every method)"
+sources = [{ document = "nureg-km-0006", section = "5.4.2 Defining Verification (5.4.2.1 A Generic Verification Problem: continuous versus discretised function)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/governing-theorems/convergence"
+title = "Convergence of discretisations and iterations (Lax equivalence, CFL condition, contraction)"
+sources = [{ document = "ong-2024-dissertation", section = "2.5 Review of Solver Stability Issues for Heat Transfer, 'Courant Number' (CFL number not above unity for advection)" }, { document = "la-ur-06-7094", section = "slides 'Power Iteration - Convergence' (errors die off as DR^n)" }, { document = "cosgrove-2020-pc-stability", section = "3.2. Stability analysis" }]
+note = "the Lax equivalence theorem itself: source not yet read"
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/governing-theorems/conditioning"
+title = "Conditioning and numerical stability"
+sources = []
+note = "source not yet read"
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/governing-theorems/approximation-theory"
+title = "Approximation theory (Weierstrass, Chebyshev best approximation)"
+sources = [{ document = "openmc-docs-depletion", section = "Matrix Exponential (Chebyshev rational approximation; IPF form)" }]
+note = "only an application read; the theorems themselves: source not yet read"
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem"
+title = "Law of large numbers and central limit theorem"
+sources = [{ document = "openmc-docs-tallies", section = "8.5 Statistics: 8.5.1 Law of Large Numbers; 8.5.2 Central Limit Theorem; 8.5.3.9 Confidence Intervals" }, { document = "la-ur-09-02377", section = "slides 'Bias in Keff & Tallies' (cycle-to-cycle correlation; statistics too small)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/governing-theorems/computational-complexity"
+title = "Computational complexity (cost scaling)"
+sources = [{ document = "ong-2024-dissertation", section = "2.5 Review of Solver Stability Issues for Heat Transfer (matrix cost scaling with size; implicit versus explicit coupling)" }, { document = "openmc-docs-depletion", section = "Numerical Integration (cost scales with the number of A evaluations per step)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/governing-theorems/amdahls-law"
+title = "Amdahl's law (parallel speed-up limit)"
+sources = []
+note = "source not yet read"
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/governing-theorems/finite-precision"
+title = "Finite precision (round-off, cancellation, underflow, overflow)"
+sources = [{ document = "nasa-std-7009b", section = "3.2 Definitions, 'Numerical Errors' (floating point precision: round off, underflow, overflow; truncation of series)" }]
+status = "proposed"
+
+# -------------------------------------------------------------------- Aims --
+
+[[science]]
+path = "sciences/computation/aims"
+title = "Aims (the properties a computation is judged by)"
+sources = [{ document = "openmc-docs-depletion", section = "Numerical Integration ('there is a tradeoff between the accuracy of the method and its computational expense')" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/aims/accuracy"
+title = "Accuracy"
+sources = [{ document = "nasa-std-7009b", section = "E.3.3 M&S Verification Factor (numerical error estimates)" }, { document = "openmc-docs-depletion", section = "Numerical Integration (error O(h) for the predictor, O(h^2) for CE/CM)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/aims/speed"
+title = "Speed (time and memory)"
+sources = [{ document = "openmc-docs-depletion", section = "Numerical Integration (expense driven by transport solves per step)" }, { document = "ong-2024-tuas", section = "3.2.1. Operator splitting (separate computing threads)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/aims/trust"
+title = "Trust (a result that can be checked)"
+sources = [{ document = "nureg-km-0006", section = "5.4.2 Defining Verification" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/aims/trust/determinism-and-reproducibility"
+title = "Determinism and reproducibility"
+sources = [{ document = "la-ur-17-20093", section = "23.4 Random Numbers (host random number generators gave different answers on every machine and made QA hard)" }, { document = "arxiv-2505.01671v1", section = "3.1 Terms and Definitions (experiment; authors and reviewers who reproduce it)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/aims/trust/structure-preservation"
+title = "Structure preservation (exact conservation, positivity, consistency of sums)"
+sources = [{ document = "la-ur-17-20093", section = "3.2 Unionization and Linearization Strategy (a summation cross section must equal the sum of its parts, else balance errors in multigroup transport)" }, { document = "arxiv-2306.01924v2", section = "5.2 Solution of the coupled system (finite volume matrix of the balance laws)" }]
+cross_links = ["sciences/physical-principles/conservation-laws"]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/aims/trust/verifiability"
+title = "Verifiability"
+sources = [{ document = "nasa-std-7009b", section = "E.3.3 M&S Verification Factor (code verification, solution verification)" }, { document = "nureg-km-0006", section = "5.4.2 Defining Verification" }]
+status = "proposed"
+
+# ------------------------------------------- Methods (EXAMPLE leaves only) --
+
+[[science]]
+path = "sciences/computation/problems/eigenproblems/power-iteration"
+title = "Power iteration (method of successive generations)"
+kind = "method"
+dated = "2026-10-10"
+sources = [{ document = "la-ur-06-7094", section = "slides 'Power Iteration & Convergence'" }, { document = "openmc-docs-eigenvalue", section = "Method of Successive Generations" }]
+cross_links = ["sciences/physical-principles/conservation-laws/particle-balance/multiplication-eigenvalue"]
+theorems = ["sciences/computation/governing-theorems/convergence", "sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem"]
+aims = ["sciences/computation/aims/accuracy"]
+order_of_accuracy = "error in the source decays as DR^n (DR = k1/k0, the dominance ratio)"
+cost_scaling = "one transport sweep (or one generation of histories) per iteration; slow when DR is near 1"
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/linear-systems/gmres"
+title = "Restarted GMRES (Krylov subspace method)"
+kind = "method"
+dated = "2026-10-10"
+sources = [{ document = "zhang-2023-fenrg-1101050", section = "2.4 Solution strategy (restarted GMRES, Krylov subspace dimension 20; Eisenstat-Walker forcing term)" }]
+theorems = ["sciences/computation/governing-theorems/convergence", "sciences/computation/governing-theorems/conditioning"]
+aims = ["sciences/computation/aims/speed"]
+memory = "restart length m: m basis vectors stored"
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/ode-and-pde-evolution/finite-volume"
+title = "Finite volume method"
+kind = "method"
+dated = "2026-10-10"
+sources = [{ document = "gomezzarzuela-2021-bubbly-flow", section = "3. Numerical implementation; 3.1 OpenFOAM framework" }, { document = "arxiv-2306.01924v2", section = "5.2 Solution of the coupled system (block-coupled finite volume matrix)" }, { document = "ong-2024-tuas", section = "2.2, Eqs. (4)-(5) one-dimensional finite volume control volumes" }]
+cross_links = ["sciences/physical-principles/conservation-laws"]
+theorems = ["sciences/computation/governing-theorems/convergence"]
+aims = ["sciences/computation/aims/trust/structure-preservation", "sciences/computation/aims/accuracy"]
+order_of_accuracy = "TUAS 2.2: first-order (diffusive) upwind scheme, judged acceptable within 8 % for the heat exchanger case"
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/ode-and-pde-evolution/semi-implicit-time-coupling"
+title = "Semi-implicit (linearly implicit Euler) time coupling"
+kind = "method"
+dated = "2026-10-10"
+sources = [{ document = "ong-2024-tuas", section = "2.2, Eq. (5) semi-implicit time coupling of a control volume" }, { document = "ong-2024-dissertation", section = "2.5 Review of Solver Stability Issues for Heat Transfer (fully implicit versus explicit coupling; matrix size)" }]
+theorems = ["sciences/computation/governing-theorems/convergence", "sciences/computation/governing-theorems/computational-complexity"]
+aims = ["sciences/computation/aims/speed", "sciences/computation/aims/accuracy"]
+order_of_accuracy = "first order in time"
+note = "placed as the example of an implicit Euler-type step; a textbook source for backward Euler itself is not yet read"
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/ode-and-pde-evolution/predictor-corrector-depletion"
+title = "Predictor and CE/CM predictor-corrector integration with matrix exponentials"
+kind = "method"
+dated = "2026-10-10"
+sources = [{ document = "openmc-docs-depletion", section = "Numerical Integration" }, { document = "cosgrove-2020-pc-stability", section = "2. Neutronics-depletion schemes; 3.2. Stability analysis" }]
+cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance"]
+theorems = ["sciences/computation/governing-theorems/convergence"]
+aims = ["sciences/computation/aims/accuracy", "sciences/computation/aims/speed"]
+order_of_accuracy = "predictor O(h); CE/CM O(h^2)"
+cost_scaling = "predictor one transport solve per step; CE/CM two"
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/sampling-from-distributions/rejection-sampling"
+title = "Rejection sampling"
+kind = "method"
+dated = "2026-10-10"
+sources = [{ document = "openmc-docs-neutron-physics", section = "5.10.2 Energy-Dependent Cross Section Model (an additional rejection step)" }]
+theorems = ["sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem"]
+aims = ["sciences/computation/aims/accuracy"]
+status = "proposed"
+
+[[science]]
+path = "sciences/computation/problems/sampling-from-distributions/probability-table-lookup"
+title = "Probability-table (cumulative-distribution) lookup"
+kind = "method"
+dated = "2026-10-10"
+sources = [{ document = "la-ur-17-20093", section = "23 PURR (introduction: random number selects sigma_t from the probability table)" }]
+cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/resonances"]
+theorems = ["sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem"]
+aims = ["sciences/computation/aims/speed"]
+note = "an inverse-CDF method on a tabulated distribution; a general text on inverse-CDF sampling: source not yet read"
+status = "proposed"
+
+# ============================================================================
+# Disciplines (top-level branches of the Sciences tab, beside the principles
+# and the numerics; each cross-links to the principles it rests on)
+# ============================================================================
+
+[[science]]
+path = "sciences/neutronics"
+title = "Neutronics (reactor physics)"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Overview (Modules 2-4, Reactor Theory)" }]
+cross_links = ["sciences/physical-principles/conservation-laws/particle-balance", "sciences/physical-principles/radiation-interaction-with-matter"]
+status = "proposed"
+
+[[science]]
+path = "sciences/neutronics/nuclear-data-processing"
+title = "Nuclear data processing"
+sources = [{ document = "la-ur-17-20093", section = "1.1 The Modules of NJOY" }]
+cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions", "sciences/physical-principles/radiation-interaction-with-matter/target-motion", "sciences/computation/problems/function-approximation"]
+status = "proposed"
+
+[[science]]
+path = "sciences/neutronics/monte-carlo-transport"
+title = "Monte Carlo neutron transport"
+sources = [{ document = "la-ur-06-7094", section = "slides 'Time-dependent Transport' (solved directly by Monte Carlo, each history an IID trial); 'Power Iteration & Convergence'" }, { document = "openmc-docs-eigenvalue", section = "Method of Successive Generations" }]
+cross_links = ["sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation", "sciences/computation/problems/sampling-from-distributions", "sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem"]
+status = "proposed"
+
+[[science]]
+path = "sciences/neutronics/deterministic-transport"
+title = "Deterministic transport and diffusion (multigroup, discrete ordinates)"
+sources = [{ document = "la-ur-17-20093", section = "8.1 Multigroup Constants; 8.7 Diffusion Cross Sections; 8.8 Cross Sections for Transport Theory" }, { document = "zhang-2023-fenrg-1101050", section = "2 Methodologies of the comePSn_JFNK (discrete ordinates)" }]
+cross_links = ["sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation", "sciences/computation/problems/ode-and-pde-evolution", "sciences/computation/problems/linear-systems"]
+note = "8.7 and 8.8 named from the NJOY2016 table of contents; 8.1 read"
+status = "proposed"
+
+[[science]]
+path = "sciences/neutronics/reactor-kinetics"
+title = "Reactor kinetics (prompt and delayed neutrons)"
+sources = [{ document = "doe-hdbk-1019-2-93", section = "Module 4, Reactor Kinetics (p. 10)" }, { document = "doe-hdbk-1019-1-93", section = "Module 2, Prompt and Delayed Neutrons (p. 29)" }]
+cross_links = ["sciences/physical-principles/conservation-laws/particle-balance", "sciences/computation/problems/ode-and-pde-evolution"]
+status = "proposed"
+
+[[science]]
+path = "sciences/neutronics/reactivity-feedback"
+title = "Reactivity and reactivity coefficients (feedback)"
+sources = [{ document = "doe-hdbk-1019-2-93", section = "Module 3, Reactivity (p. 17); Reactivity Coefficients (p. 23)" }]
+cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/target-motion/doppler-broadening", "sciences/thermal-hydraulics"]
+status = "proposed"
+
+[[science]]
+path = "sciences/neutronics/depletion-and-transmutation"
+title = "Depletion, transmutation and fission-product poisoning"
+sources = [{ document = "openmc-docs-depletion", section = "Depletion (introduction); Transmutation Reactions; Fission Product Yields" }, { document = "doe-hdbk-1019-2-93", section = "Module 3, Xenon (p. 34); Samarium and Other Fission Product Poisons (p. 43)" }]
+cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/computation/problems/ode-and-pde-evolution/predictor-corrector-depletion"]
+status = "proposed"
+
+[[science]]
+path = "sciences/thermal-hydraulics"
+title = "Thermal hydraulics"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Overview (Modules 1-3: thermodynamics, heat transfer, fluid flow)" }]
+cross_links = ["sciences/physical-principles/conservation-laws", "sciences/physical-principles/thermodynamics-and-statistical-mechanics"]
+status = "proposed"
+
+[[science]]
+path = "sciences/thermal-hydraulics/single-phase-flow"
+title = "Single-phase flow (laminar, turbulent; friction and head loss)"
+sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Laminar and Turbulent Flow (p. 17); Head Loss: Friction Factor, Darcy's Equation (pp. 31-32)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "2.1 Single-phase flow governing equations" }]
+cross_links = ["sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations"]
+status = "proposed"
+
+[[science]]
+path = "sciences/thermal-hydraulics/two-phase-flow"
+title = "Two-phase flow and boiling"
+sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Two-Phase Fluid Flow (p. 41)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "2.3. Subcooled boiling model; 4.2. Two-phase flow test case" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium"]
+status = "proposed"
+
+[[science]]
+path = "sciences/thermal-hydraulics/heat-transfer-correlations"
+title = "Convective heat transfer and boiling heat transfer correlations"
+sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Convection Heat Transfer (p. 18); Boiling Heat Transfer (p. 40)" }]
+cross_links = ["sciences/physical-principles/constitutive-relations"]
+status = "proposed"
+
+[[science]]
+path = "sciences/thermal-hydraulics/natural-circulation"
+title = "Natural circulation"
+sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Natural Circulation (p. 37)" }, { document = "ong-2024-tuas", section = "2.2. Physical equations in natural and forced circulation" }]
+cross_links = ["sciences/physical-principles/conservation-laws/momentum-balance", "sciences/physical-principles/conservation-laws/energy-balance/enthalpy-balance"]
+status = "proposed"
+
+[[science]]
+path = "sciences/thermal-hydraulics/packed-beds"
+title = "Packed and pebble beds"
+sources = [{ document = "ong-2024-dissertation", section = "4.7 Modelling FHRs with Multiphysics code (Ergun's equation for pebble beds)" }, { document = "putra-2021-htr10-dem", section = "2.2. DEM Simulation" }]
+cross_links = ["sciences/physical-principles/conservation-laws/momentum-balance/porous-media-flow", "sciences/physical-principles/conservation-laws/momentum-balance/discrete-particle-dynamics"]
+status = "proposed"
+
+[[science]]
+path = "sciences/thermal-hydraulics/heat-exchangers"
+title = "Heat exchangers"
+sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Heat Exchangers (p. 30)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat"
+title = "Core heat generation and decay heat"
+sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Heat Generation (p. 44); Decay Heat (p. 52)" }]
+cross_links = ["sciences/physical-principles/conservation-laws/energy-balance/nuclear-energy-release"]
+status = "proposed"
+
+[[science]]
+path = "sciences/materials"
+title = "Materials"
+sources = [{ document = "contescu-2022-graphite-oxidation", section = "3. Structure and Properties" }]
+note = "a general materials-science source is wanted for this umbrella; see candidate documents (DOE-HDBK-1017)"
+status = "proposed"
+
+[[science]]
+path = "sciences/materials/fuel-performance"
+title = "Fuel performance (fuel behaviour and fission-product release)"
+sources = [{ document = "fang-2021-htgr-fp-release", section = "2. Features of HTGR Fuel; 3. Transport Model of FPs" }, { document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Heat Generation: Fuel Changes During Reactor Operation (p. 50)" }]
+cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/conservation-laws/energy-balance/heat-conduction-equation"]
+status = "proposed"
+
+[[science]]
+path = "sciences/materials/structural-mechanics"
+title = "Structural mechanics (stress, strain, mechanical properties)"
+sources = [{ document = "openstax-university-physics-1", section = "12.3 Stress, Strain, and Elastic Modulus" }, { document = "contescu-2022-graphite-oxidation", section = "5.2 Mechanical Properties" }]
+cross_links = ["sciences/physical-principles/constitutive-relations/hookes-law", "sciences/physical-principles/conservation-laws/momentum-balance/solid-continuum-momentum"]
+status = "proposed"
+
+[[science]]
+path = "sciences/materials/irradiation-damage"
+title = "Irradiation damage (displacements per atom, property change)"
+sources = [{ document = "la-ur-17-20093", section = "6.2 Theory of Damage Energy" }, { document = "contescu-2022-graphite-oxidation", section = "4.1 Irradiation" }]
+cross_links = ["sciences/physical-principles/radiation-interaction-with-matter"]
+status = "proposed"
+
+[[science]]
+path = "sciences/materials/corrosion-and-chemistry"
+title = "Corrosion, oxidation and materials chemistry"
+sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation; 6. Brief Review of Oxidation Models" }]
+cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
+status = "proposed"
+
+[[science]]
+path = "sciences/materials/thermophysical-properties-of-solids"
+title = "Thermophysical properties of solids"
+sources = [{ document = "pichler-2020-316l", section = "Abstract (resistivity, enthalpy, density, thermal expansion, specific heat of SRM 316L)" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state"]
+status = "proposed"
+
+[[science]]
+path = "sciences/human-factors"
+title = "Human factors"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 18 Human Factors Engineering" }]
+note = "placeholder (maintainer: human factors come later); the only source read is a chapter title"
+status = "proposed"
+
+# ============================================================================
+# PROPOSED references from the IAEA tree into the Sciences tree
+# (a) skeleton L2 nodes
+# ============================================================================
+
+[[reference]]
+node = "02-nuclear-safety/fuel-system-design"
+sciences = ["sciences/materials/fuel-performance", "sciences/materials/irradiation-damage", "sciences/physical-principles/conservation-laws/energy-balance/heat-conduction-equation", "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/nuclear-design"
+sciences = ["sciences/neutronics", "sciences/physical-principles/conservation-laws/particle-balance", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions", "sciences/physical-principles/conservation-laws/particle-balance/multiplication-eigenvalue"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/moderator-and-reflector"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/scattering", "sciences/physical-principles/radiation-interaction-with-matter/target-motion/thermal-scattering-law", "sciences/materials/irradiation-damage", "sciences/materials/corrosion-and-chemistry"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/thermal-hydraulic-design"
+sciences = ["sciences/thermal-hydraulics", "sciences/physical-principles/conservation-laws/mass-balance", "sciences/physical-principles/conservation-laws/momentum-balance", "sciences/physical-principles/conservation-laws/energy-balance", "sciences/thermal-hydraulics/heat-transfer-correlations"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/control-rods-and-drives"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/radiative-capture", "sciences/neutronics/reactivity-feedback", "sciences/neutronics/reactor-kinetics"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/reactor-coolant-system"
+sciences = ["sciences/thermal-hydraulics/single-phase-flow", "sciences/thermal-hydraulics/natural-circulation", "sciences/thermal-hydraulics/heat-exchangers", "sciences/materials/structural-mechanics"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/msr-coolant-loop"
+sciences = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/thermal-hydraulics/single-phase-flow", "sciences/neutronics/reactor-kinetics", "sciences/materials/corrosion-and-chemistry"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/engineered-safety-features"
+sciences = ["sciences/thermal-hydraulics/natural-circulation", "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat", "sciences/thermal-hydraulics/two-phase-flow"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/containment"
+sciences = ["sciences/physical-principles/conservation-laws/energy-balance", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/thermal-hydraulics/two-phase-flow", "sciences/materials/structural-mechanics"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/design-of-structures-systems-and-components"
+sciences = ["sciences/materials/structural-mechanics", "sciences/physical-principles/conservation-laws/momentum-balance/solid-continuum-momentum", "sciences/physical-principles/constitutive-relations/hookes-law"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/instrumentation-and-control"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter", "sciences/neutronics/reactor-kinetics", "sciences/human-factors"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/auxiliary-systems"
+sciences = ["sciences/thermal-hydraulics/heat-exchangers", "sciences/thermal-hydraulics/single-phase-flow"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/steam-and-power-conversion"
+sciences = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/thermal-hydraulics/heat-exchangers"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/experimental-facilities-and-utilization"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter", "sciences/materials/irradiation-damage"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/accident-analysis"
+sciences = ["sciences/neutronics/reactor-kinetics", "sciences/neutronics/reactivity-feedback", "sciences/thermal-hydraulics/two-phase-flow", "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat", "sciences/computation/problems/root-finding", "sciences/computation/aims/trust/verifiability"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/human-factors-engineering"
+sciences = ["sciences/human-factors"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/severe-accidents"
+sciences = ["sciences/materials/corrosion-and-chemistry", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/thermal-hydraulics/two-phase-flow"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/source-terms"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/materials/fuel-performance"]
+status = "proposed"
+
+[[reference]]
+node = "07-regulatory-framework/quality-assurance"
+sciences = ["sciences/computation/aims/trust", "sciences/computation/aims/trust/determinism-and-reproducibility", "sciences/computation/aims/trust/verifiability"]
+note = "software engineering and QA live on the IAEA side (a later pass adds their nodes); they reference Computation's trust aims"
+status = "proposed"
+
+[[reference]]
+node = "08-radiation-protection/radiation-protection"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/photon-and-charged-particle-interactions", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation"]
+status = "proposed"
+
+[[reference]]
+node = "13-environmental-protection/meteorology-and-air-quality"
+sciences = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations", "sciences/computation/problems/sampling-from-distributions"]
+status = "proposed"
+
+[[reference]]
+node = "13-environmental-protection/radiological-impacts-of-normal-operation"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
+status = "proposed"
+
+[[reference]]
+node = "14-emergency-planning/accident-assessment"
+sciences = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay"]
+status = "proposed"
+
+[[reference]]
+node = "16-nuclear-fuel-cycle/nuclear-criticality-safety"
+sciences = ["sciences/physical-principles/conservation-laws/particle-balance/multiplication-eigenvalue", "sciences/neutronics/monte-carlo-transport", "sciences/computation/problems/eigenproblems/power-iteration"]
+status = "proposed"
+
+[[reference]]
+node = "16-nuclear-fuel-cycle/fuel-depletion"
+sciences = ["sciences/neutronics/depletion-and-transmutation", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/computation/problems/ode-and-pde-evolution/predictor-corrector-depletion"]
+status = "proposed"
+
+[[reference]]
+node = "16-nuclear-fuel-cycle/chemical-process-safety"
+sciences = ["sciences/materials/corrosion-and-chemistry"]
+status = "proposed"
+
+[[reference]]
+node = "16-nuclear-fuel-cycle/waste-disposal"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/conservation-laws/momentum-balance/porous-media-flow"]
+status = "proposed"
+
+[[reference]]
+node = "17-radioactive-waste-management/radioactive-waste-management"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance"]
+status = "proposed"
+
+[[reference]]
+node = "17-radioactive-waste-management/decommissioning"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/materials/irradiation-damage"]
+status = "proposed"
+
+[[reference]]
+node = "18-industrial-involvement/process-heat-and-industrial-applications"
+sciences = ["sciences/thermal-hydraulics/heat-exchangers", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics"]
+status = "proposed"
+
+# ============================================================================
+# (b) SAMPLE of existing L3 concepts and L4 implementation leaves
+#     (not all 309/192: a sample to show the shape, multi-reference)
+# ============================================================================
+
+[[reference]]
+node = "02-nuclear-safety/nuclear-design/nuclear-data-processing/doppler-broadening"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/target-motion/doppler-broadening", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution", "sciences/neutronics/nuclear-data-processing", "sciences/computation/problems/quadrature"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/nuclear-design/neutron-transport/variance-reduction"
+sciences = ["sciences/neutronics/monte-carlo-transport", "sciences/computation/problems/sampling-from-distributions", "sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/thermal-hydraulic-design/natural-convection-cooling"
+sciences = ["sciences/thermal-hydraulics/natural-circulation", "sciences/physical-principles/conservation-laws/momentum-balance", "sciences/physical-principles/conservation-laws/energy-balance/enthalpy-balance", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics"
+sciences = ["sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations", "sciences/physical-principles/conservation-laws/mass-balance/continuity-equation", "sciences/computation/problems/ode-and-pde-evolution/finite-volume", "sciences/computation/problems/root-finding"]
+status = "proposed"
+
+[[reference]]
+node = "02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+sciences = ["sciences/materials/fuel-performance", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/constitutive-relations/ficks-law", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay"]
+status = "proposed"
+
+[[reference]]
+crate = "outram-mc-libs"
+module = "physics/scatter"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/scattering", "sciences/physical-principles/radiation-interaction-with-matter/target-motion", "sciences/physical-principles/radiation-interaction-with-matter/target-motion/resonance-elastic-scattering", "sciences/physical-principles/radiation-interaction-with-matter/target-motion/thermal-scattering-law", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution", "sciences/neutronics/monte-carlo-transport", "sciences/computation/problems/sampling-from-distributions/rejection-sampling"]
+status = "proposed"
+
+[[reference]]
+crate = "outram-mc-libs"
+module = "physics/delta_tracking"
+sciences = ["sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/cross-sections", "sciences/neutronics/monte-carlo-transport", "sciences/computation/problems/sampling-from-distributions/rejection-sampling"]
+status = "proposed"
+
+[[reference]]
+crate = "outram-mc-libs"
+module = "physics/keff"
+sciences = ["sciences/physical-principles/conservation-laws/particle-balance/multiplication-eigenvalue", "sciences/neutronics/monte-carlo-transport", "sciences/computation/problems/eigenproblems/power-iteration", "sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem", "sciences/computation/aims/trust/determinism-and-reproducibility"]
+status = "proposed"
+
+[[reference]]
+crate = "outram-mc-libs"
+module = "tally"
+sciences = ["sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/cross-sections", "sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem"]
+status = "proposed"
+
+[[reference]]
+crate = "outram-mc-libs"
+module = "pebble_beds/dem_bed"
+sciences = ["sciences/physical-principles/conservation-laws/momentum-balance/discrete-particle-dynamics", "sciences/thermal-hydraulics/packed-beds", "sciences/computation/problems/ode-and-pde-evolution", "sciences/computation/aims/trust/determinism-and-reproducibility"]
+status = "proposed"
+
+[[reference]]
+crate = "njoy-outram-park-fork"
+module = "broadr"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/target-motion/doppler-broadening", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/cross-sections", "sciences/neutronics/nuclear-data-processing", "sciences/computation/problems/function-approximation", "sciences/computation/problems/quadrature"]
+status = "proposed"
+
+[[reference]]
+crate = "njoy-outram-park-fork"
+module = "reconr"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/resonances", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/cross-sections", "sciences/neutronics/nuclear-data-processing", "sciences/computation/problems/function-approximation", "sciences/computation/aims/trust/structure-preservation"]
+status = "proposed"
+
+[[reference]]
+crate = "njoy-outram-park-fork"
+module = "purr"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/resonances", "sciences/neutronics/nuclear-data-processing", "sciences/computation/problems/sampling-from-distributions/probability-table-lookup", "sciences/computation/aims/trust/determinism-and-reproducibility"]
+status = "proposed"
+
+[[reference]]
+crate = "njoy-outram-park-fork"
+module = "thermr"
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/target-motion/thermal-scattering-law", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/scattering", "sciences/neutronics/nuclear-data-processing", "sciences/computation/problems/function-approximation"]
+status = "proposed"
+
+[[reference]]
+crate = "outram-foam-basic-lib"
+module = "fv_operators"
+sciences = ["sciences/physical-principles/conservation-laws", "sciences/computation/problems/ode-and-pde-evolution/finite-volume", "sciences/computation/aims/trust/structure-preservation", "sciences/computation/problems/linear-systems"]
+status = "proposed"
+
+[[reference]]
+crate = "outram-foam-appbuilder-lib"
+module = "solvers/pimple_foam"
+sciences = ["sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations", "sciences/physical-principles/conservation-laws/mass-balance/continuity-equation", "sciences/physical-principles/constitutive-relations/newtonian-viscous-stress", "sciences/computation/problems/ode-and-pde-evolution/finite-volume", "sciences/computation/problems/root-finding", "sciences/computation/problems/linear-systems"]
+status = "proposed"
+
+[[reference]]
+crate = "outram-foam-appbuilder-lib"
+module = "genfoam/neutronics/point_kinetics"
+sciences = ["sciences/neutronics/reactor-kinetics", "sciences/neutronics/reactivity-feedback", "sciences/computation/problems/ode-and-pde-evolution"]
+status = "proposed"
+
+[[reference]]
+crate = "tuas_boussinesq_solver"
+module = "lib/pre_built_components/ciet_nat_circ_tests"
+sciences = ["sciences/thermal-hydraulics/natural-circulation", "sciences/physical-principles/conservation-laws/energy-balance/enthalpy-balance", "sciences/physical-principles/conservation-laws/momentum-balance", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state", "sciences/computation/problems/ode-and-pde-evolution/semi-implicit-time-coupling", "sciences/computation/problems/root-finding", "sciences/computation/problems/ode-and-pde-evolution/finite-volume"]
+status = "proposed"
+
+[[reference]]
+crate = "tuas_boussinesq_solver"
+module = "lib/heat_transfer_correlations"
+sciences = ["sciences/thermal-hydraulics/heat-transfer-correlations", "sciences/physical-principles/constitutive-relations/fouriers-law", "sciences/computation/problems/function-approximation"]
+status = "proposed"
+
+[[reference]]
+crate = "teh-o-prke"
+module = "decay_heat"
+sciences = ["sciences/thermal-hydraulics/core-heat-generation-and-decay-heat", "sciences/physical-principles/conservation-laws/energy-balance/nuclear-energy-release", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay"]
+status = "proposed"
+
+[[reference]]
+crate = "tampines-steam-tables"
+module = "interfaces"
+sciences = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/computation/problems/function-approximation", "sciences/computation/problems/root-finding"]
+status = "proposed"
+
+[[reference]]
+crate = "boon-lay"
+module = "triso_atops_fork"
+sciences = ["sciences/materials/fuel-performance", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/constitutive-relations/ficks-law", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/computation/problems/ode-and-pde-evolution"]
+status = "proposed"
+
+[[reference]]
+crate = "farrer-park"
+module = "fatigue"
+sciences = ["sciences/materials/structural-mechanics", "sciences/physical-principles/constitutive-relations/hookes-law"]
+status = "proposed"
+
+# ============================================================================
+# Candidate documents for the maintainer to add to the corpus (not fetched,
+# not committed)
+# ============================================================================
+
+[[candidate]]
+title = "DOE-HDBK-1017/1-93 and /2-93, DOE Fundamentals Handbook: Material Science"
+url = "https://www.energy.gov/ehss/doe-fundamentals-handbooks"
+licence = "expected Distribution Statement A like the other DOE handbooks; check the cover"
+why = "materials umbrella, structure of metals, properties, radiation effects; same series as 1012/1019 already held"
+
+[[candidate]]
+title = "DOE-HDBK-1015/1-93 and /2-93, DOE Fundamentals Handbook: Chemistry"
+url = "https://www.energy.gov/ehss/doe-fundamentals-handbooks"
+licence = "expected Distribution Statement A; check the cover"
+why = "corrosion and chemistry node has only a graphite-specific source"
+
+[[candidate]]
+title = "DOE-HDBK-1014/1-92 and /2-92, DOE Fundamentals Handbook: Mathematics"
+url = "https://www.energy.gov/ehss/doe-fundamentals-handbooks"
+licence = "expected Distribution Statement A; check the cover"
+why = "an elementary open source for the numerics branch (calculus, numerical approximation)"
+
+[[candidate]]
+title = "OpenMC documentation, Theory and Methodology (whole 'methods' folder, at a pinned commit)"
+url = "https://github.com/openmc-dev/openmc/tree/develop/docs/source/methods"
+licence = "MIT (already the basis for openmc-docs/ in the standard corpus)"
+why = "four web-cited pages here (neutron physics, random numbers, tallies, variance reduction) should be pinned like depletion.rst and eigenvalue.rst"
+
+[[candidate]]
+title = "OpenStax University Physics Volumes 1-2 (chapters on elasticity, kinetic theory, thermodynamics, fluid mechanics)"
+url = "https://openstax.org/details/books/university-physics-volume-1"
+licence = "the pages read state CC BY-NC-SA; verify against the book's own licence page before adding"
+why = "Hooke's law and Maxwell-Boltzmann are cited from the web pages"
+
+[[candidate]]
+title = "An open text stating the Cauchy momentum equation for solids and the finite element method (e.g. an open continuum-mechanics or FEM lecture text with a CC BY licence, or a code manual such as the FEniCS/MOOSE solid-mechanics theory pages)"
+url = "https://mooseframework.inl.gov/modules/solid_mechanics/index.html"
+licence = "MOOSE docs: LGPL 2.1 (as for moose-docs/ already held); others to be checked"
+why = "solid-continuum-momentum has no source read; finite element is named but not described in any held text"

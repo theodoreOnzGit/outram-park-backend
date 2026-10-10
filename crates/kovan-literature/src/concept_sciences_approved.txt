@@ -1,0 +1,11 @@
+# Approved Sciences node ids (OUTRAM PARK #727). APPEND-ONLY.
+#
+# One path per line, e.g. `sciences/physical-principles/conservation-laws`.
+# A Sciences id is permanent once approved (maintainer, 2026-10-10: "they are
+# physics, fixed"): never edit or delete a line here. A method that is
+# replaced stays listed; its node gains `superseded_by` instead.
+# `tests/concept_sciences.rs` fails if a listed path is missing from
+# `concept_sciences_proposals.toml` or is no longer `approved`, and if an
+# `approved` node there is not listed here.
+#
+# (none approved yet, 2026-10-10)
