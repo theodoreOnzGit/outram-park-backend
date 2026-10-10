@@ -26,6 +26,7 @@ mod nav;
 mod page_canvas;
 mod pdf_reader;
 mod plot_setup;
+mod rust_analyzer_view;
 mod saved_digitisation;
 #[cfg(test)]
 mod edit_digitisation_tests;

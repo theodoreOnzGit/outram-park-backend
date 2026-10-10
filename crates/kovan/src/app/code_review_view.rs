@@ -14,8 +14,14 @@
 //! an "Index fresh", checks the data and builds or rebuilds it when the
 //! index is newer.
 //!
-//! **Stamping is not wired yet.** The review bar's Stamp action answers
-//! "not implemented" (#740, #770); this view is the read-only half.
+//! **Stamping: the hand-off is wired, the dialog is not.** The review bar's
+//! Stamp and Needs fix (enabled in `Mode::Desktop`) queue a
+//! [`kovan_web::ui::HostRequest`] naming the function
+//! ([`kovan_web::ui::FunctionRef`]); this view takes it after each frame and
+//! holds it as `pending`, shown for now as a placeholder window
+//! ([`placeholder_dialog`]) that the stamp dialog replaces (#740, #770).
+//! After a stamp is written, [`CodeReviewView::set_stamps`] recolours the
+//! bar and the cards without reloading the data.
 //!
 //! **No lag (root `CLAUDE.md`, HARD RULE).** Checking and building the data
 //! (cargo metadata, reading the SCIP index, resolving every call, writing)
@@ -25,6 +31,9 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
+
+use kovan_common::call_graph::split::StampState;
+use kovan_web::ui::HostRequest;
 
 use crate::code_review_data::{build, data_dir, data_state, BuildReport, DataState};
 use crate::commands::index_control::{Progress, RunControl};
@@ -49,6 +58,9 @@ pub(crate) struct CodeReviewView {
     checked: bool,
     /// The last build's report, or why there is nothing to show.
     note: Option<Result<String, String>>,
+    /// A Stamp / Needs-fix press taken from the embedded UI, until its
+    /// dialog is closed.
+    pending: Option<HostRequest>,
 }
 
 /// Check the data of `workspace` and build it when missing or stale (or
@@ -93,6 +105,26 @@ impl CodeReviewView {
         self.rebuild(true);
     }
 
+    /// Push fresh stamp states into the embedded UI (after the stamp dialog
+    /// wrote one), so it recolours without reloading. A no-op while there is
+    /// no UI: the next data build carries the stamps.
+    #[allow(dead_code)] // The stamp dialog (#740, #770) is its caller; the test reaches it.
+    pub(crate) fn set_stamps(&mut self, stamps: Vec<StampState>) {
+        if let Some(review) = &mut self.review {
+            review.set_stamps(stamps);
+        }
+    }
+
+    /// Take the embedded UI's Stamp / Needs-fix press, if any. A press while
+    /// a dialog is open is dropped (the modal blocks the bar anyway).
+    fn take_request(&mut self) {
+        if let Some(r) = self.review.as_mut().and_then(|r| r.take_host_request()) {
+            if self.pending.is_none() {
+                self.pending = Some(r);
+            }
+        }
+    }
+
     fn rebuild(&mut self, force: bool) {
         if let (Some(dir), None) = (self.workspace.clone(), &self.job) {
             self.review = None;
@@ -111,7 +143,9 @@ impl CodeReviewView {
             return;
         };
         self.job = None;
-        let Some(dir) = self.workspace.clone() else { return };
+        let Some(dir) = self.workspace.clone() else {
+            return;
+        };
         match result {
             Ok(report) => {
                 self.note = report.map(|r| Ok(r.describe()));
@@ -119,7 +153,10 @@ impl CodeReviewView {
                     data: data_dir(&dir),
                     workspace: dir,
                 };
-                self.review = Some(kovan_web::ui::CodeReview::new(kovan_web::Mode::Desktop, source));
+                self.review = Some(kovan_web::ui::CodeReview::new(
+                    kovan_web::Mode::Desktop,
+                    source,
+                ));
             }
             Err(e) => self.note = Some(Err(e)),
         }
@@ -182,7 +219,15 @@ impl CodeReviewView {
             return;
         }
         match &mut self.review {
-            Some(review) => review.show(ui),
+            Some(review) => {
+                review.show(ui);
+                self.take_request();
+                if let Some(req) = &self.pending {
+                    if placeholder_dialog(ui.ctx(), req) {
+                        self.pending = None;
+                    }
+                }
+            }
             None => {
                 egui::CentralPanel::default().show(ui, |ui| {
                     ui.add_space(24.0);
@@ -198,5 +243,74 @@ impl CodeReviewView {
                 });
             }
         }
+    }
+}
+
+/// The stand-in for the stamp dialog (#740, #770): names the request and
+/// offers Cancel. Returns whether it was closed. GUI drawing code (exempt
+/// from the test rule); the next step replaces this function.
+fn placeholder_dialog(ctx: &egui::Context, req: &HostRequest) -> bool {
+    let (what, f) = match req {
+        HostRequest::Stamp(f) => ("Stamp", f),
+        HostRequest::NeedsFix(f) => ("Needs fix", f),
+    };
+    let mut close = false;
+    egui::Modal::new(egui::Id::new("code-review-stamp-dialog")).show(ctx, |ui| {
+        ui.set_max_width(520.0_f32.min(ctx.content_rect().width() - 32.0));
+        ui.heading(format!("{what} {} \u{2014} dialog coming", f.name));
+        ui.monospace(&f.id);
+        ui.weak(format!("crate {} \u{b7} {}", f.krate, f.file));
+        ui.weak(match &f.callees {
+            Some(c) => format!("{} workspace callee(s)", c.len()),
+            None => "callees still loading".to_string(),
+        });
+        ui.separator();
+        if ui.button("Cancel").clicked() {
+            close = true;
+        }
+    });
+    close
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kovan_web::ui::FunctionRef;
+
+    /// Headless: the view draws the embedded UI with a pending request (the
+    /// placeholder modal on top) without a display or a panic, keeps the
+    /// request until Cancel, and passes stamps through to the embedded UI.
+    #[test]
+    fn a_pending_request_is_held_and_drawn_headless() {
+        let d = tempfile::tempdir().unwrap();
+        let mut v = CodeReviewView {
+            review: Some(kovan_web::ui::CodeReview::new(
+                kovan_web::Mode::Desktop,
+                kovan_web::data::DataSource::Dir {
+                    data: d.path().to_path_buf(),
+                    workspace: d.path().to_path_buf(),
+                },
+            )),
+            ..CodeReviewView::default()
+        };
+        let req = HostRequest::Stamp(FunctionRef {
+            id: "crates/a/src/lib.rs::f".into(),
+            krate: "a".into(),
+            file: "crates/a/src/lib.rs".into(),
+            name: "f".into(),
+            callees: None,
+            lines: None,
+        });
+        v.pending = Some(req.clone());
+        let ctx = egui::Context::default();
+        for _ in 0..3 {
+            let _ = ctx.run_ui(Default::default(), |ui| v.ui(ui));
+        }
+        assert_eq!(v.pending, Some(req), "held until Cancel");
+        // Nothing pressed in the embedded UI: nothing new taken.
+        v.pending = None;
+        v.take_request();
+        assert_eq!(v.pending, None);
+        v.set_stamps(Vec::new());
     }
 }

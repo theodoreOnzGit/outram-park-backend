@@ -86,6 +86,9 @@ pub(crate) struct CodeMapView {
     untagged: Vec<String>,
     /// "Index fresh…" (#780).
     fresh: FreshPanel,
+    /// Whether rust-analyzer is installed, and the prompt to install it
+    /// (#820): "Index fresh" needs it.
+    rust_analyzer: super::rust_analyzer_view::RustAnalyzerPanel,
     /// Recently chosen workspaces (#780), most recent first.
     recent: RecentWorkspaces,
     /// The workspace an "Index fresh" just finished in, until the app takes
@@ -110,6 +113,7 @@ impl Default for CodeMapView {
             shown: None,
             untagged: Vec::new(),
             fresh: FreshPanel::default(),
+            rust_analyzer: Default::default(),
             recent: recent_file().map(|f| RecentWorkspaces::load_from(&f)).unwrap_or_default(),
             index_finished: None,
             tried_default: false,
@@ -246,6 +250,7 @@ impl CodeMapView {
     /// Draw the view. Returns a request for the app's file dialog.
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui) -> Option<CodeMapRequest> {
         self.ensure_default_workspace();
+        self.rust_analyzer.ui(ui, self.workspace.as_deref());
         let status = self.poll();
         if matches!(status.as_deref(), Some(s) if s.ends_with('\u{2026}')) {
             ui.ctx().request_repaint_after(std::time::Duration::from_millis(100));

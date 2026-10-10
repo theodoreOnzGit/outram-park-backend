@@ -49,7 +49,11 @@ reviewed first?**
   has the way in: a big "Go to Code Review map" button that opens
   `code-review/#crate=<crate>` for the selected crate, or the map with none.
 
-`Mode::Desktop` is reserved and **not implemented**.
+~~`Mode::Desktop` is reserved and **not implemented**.~~ **CORRECTED
+2026-10-10** (#820): `Mode::Desktop` is the same UI inside desktop kovan's
+Code Review tab. Stamp and Needs fix are enabled there and handed to
+desktop kovan as a `ui::HostRequest`; the stamp dialog itself is not
+written yet (a placeholder window, #740, #770).
 
 ## Status
 

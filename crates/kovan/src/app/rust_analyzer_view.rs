@@ -194,7 +194,10 @@ fn prompt(ctx: &egui::Context, m: &Missing) -> Answer {
         );
         if let Some(e) = &m.error {
             ui.add_space(4.0);
-            ui.colored_label(ui.visuals().error_fg_color, format!("The install did not work: {e}"));
+            ui.colored_label(
+                ui.visuals().error_fg_color,
+                format!("The install did not work: {e}"),
+            );
         }
         ui.add_space(4.0);
         if m.rustup {

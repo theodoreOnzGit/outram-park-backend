@@ -106,6 +106,9 @@ pub mod review_stamps;
 pub mod recent;
 pub mod root;
 pub mod runtime_graph;
+/// Is rust-analyzer installed, and installing it with rustup (GitHub #820):
+/// the Code Map view's check before "Index fresh". GUI-free.
+pub mod rust_analyzer_setup;
 pub mod save_push;
 pub mod scip;
 pub mod sync;

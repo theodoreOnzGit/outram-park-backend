@@ -131,7 +131,9 @@ pub fn build(workspace: &Path, ctl: &RunControl) -> Result<BuildReport, String> 
 
     ctl.phase("code review data: reading the SCIP index", 0);
     let ix = call_graph::read_scip(&scip)?;
-    let rust_analyzer = format!("{} {}", ix.tool_name, ix.tool_version).trim().to_string();
+    let rust_analyzer = format!("{} {}", ix.tool_name, ix.tool_version)
+        .trim()
+        .to_string();
     let members = call_graph::member_dirs(workspace)?;
     let (_, not_in_scip) = index::crates_not_in_scip(workspace, &members, &members, &ix);
     ctl.check()?;
@@ -186,14 +188,25 @@ mod tests {
     /// slice, and the state becomes `Current`. A crate the index does not
     /// cover is named in `build.json`. No rust-analyzer is run.
     ///
-    /// Result (2026-10-10, Windows 11): see the run recorded in the commit
-    /// that added this test.
+    /// Result: ~~(2026-10-10, Windows 11): see the run recorded in the
+    /// commit that added this test~~ **CORRECTED 2026-10-10**: that commit
+    /// (cf9346ab6d) was never compiled, so it records no run. First run:
+    /// passes on Linux (Arch, release, 2026-10-10, branch `stamping-gui`).
+    /// Not re-checked on Windows.
     #[test]
     fn the_data_folder_is_built_from_a_saved_index_and_knows_when_it_is_current() {
         let d = tempfile::tempdir().unwrap();
         let p = d.path();
-        put(p, "Cargo.toml", "[package]\nname = \"solo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n");
-        put(p, "src/lib.rs", "pub mod a;\n/// Doubles.\npub fn f(x: u32) -> u32 {\n    a::g(x) * 2\n}\n");
+        put(
+            p,
+            "Cargo.toml",
+            "[package]\nname = \"solo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        );
+        put(
+            p,
+            "src/lib.rs",
+            "pub mod a;\n/// Doubles.\npub fn f(x: u32) -> u32 {\n    a::g(x) * 2\n}\n",
+        );
         put(p, "src/a.rs", "pub fn g(x: u32) -> u32 {\n    x + 1\n}\n");
         let ctl = RunControl::default();
         assert_eq!(data_state(p), DataState::NoScip);
@@ -203,7 +216,8 @@ mod tests {
         let g = "rust-analyzer cargo solo 0.1.0 a/g().";
         let lib = [(&[2u32, 7, 8][..], f, 1u64), (&[3, 7, 8], g, 0)];
         let a = [(&[0u32, 7, 8][..], g, 1u64)];
-        let bytes = crate::scip::encode::index("1.97.1", &[("src\\lib.rs", &lib), ("src\\a.rs", &a)]);
+        let bytes =
+            crate::scip::encode::index("1.97.1", &[("src\\lib.rs", &lib), ("src\\a.rs", &a)]);
         std::fs::create_dir_all(scip_path(p).parent().unwrap()).unwrap();
         std::fs::write(scip_path(p), bytes).unwrap();
         assert_eq!(data_state(p), DataState::Missing);
@@ -221,14 +235,30 @@ mod tests {
         assert_eq!(index.crates.len(), 1);
         assert_eq!(index.crates[0].name, "solo");
         let slice = read(&format!("graph/{}", index.crates[0].file));
-        assert!(slice.contains("src/a.rs::g"), "the call to g is in the slice:\n{slice}");
+        assert!(
+            slice.contains("src/a.rs::g"),
+            "the call to g is in the slice:\n{slice}"
+        );
         let build_json: serde_json::Value = serde_json::from_str(&read("build.json")).unwrap();
         assert_eq!(build_json["call_graph"]["backend"], "scip");
-        assert_eq!(build_json["call_graph"]["rust_analyzer"], "rust-analyzer 1.97.1");
-        assert_eq!(build_json["call_graph"]["missing"].as_array().unwrap().len(), 0);
+        assert_eq!(
+            build_json["call_graph"]["rust_analyzer"],
+            "rust-analyzer 1.97.1"
+        );
+        assert_eq!(
+            build_json["call_graph"]["missing"]
+                .as_array()
+                .unwrap()
+                .len(),
+            0
+        );
 
         // An index that covers nothing of the crate: named, not silent.
-        let other = [(&[0u32, 7, 8][..], "rust-analyzer cargo other 0.1.0 h().", 1u64)];
+        let other = [(
+            &[0u32, 7, 8][..],
+            "rust-analyzer cargo other 0.1.0 h().",
+            1u64,
+        )];
         let bytes = crate::scip::encode::index("1.97.1", &[("crates\\other\\src\\lib.rs", &other)]);
         std::fs::write(scip_path(p), bytes).unwrap();
         let report = build(p, &ctl).unwrap();

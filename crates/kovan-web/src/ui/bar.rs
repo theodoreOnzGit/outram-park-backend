@@ -7,8 +7,10 @@
 //! valid stamp, each a link into that function (bottom-up navigation).
 //!
 //! In [`Mode::Web`] the Stamp and Needs-fix buttons are drawn disabled with
-//! "stamping is desktop-only"; [`Mode::Desktop`] (not implemented, #740)
-//! enables them and returns [`BarAction::Stamp`] / [`BarAction::NeedsFix`].
+//! "stamping is desktop-only"; [`Mode::Desktop`] enables them and returns
+//! [`BarAction::Stamp`] / [`BarAction::NeedsFix`], which
+//! [`super::CodeReview`] turns into a [`super::HostRequest`] for desktop
+//! kovan to take (its stamp dialog, #740, #770).
 //! Compact at phone width (one line and a "▸ N blocking" toggle), expanded
 //! to list the callees.
 
@@ -43,8 +45,9 @@ pub struct BarInfo {
 pub enum BarAction {
     /// Go into this function.
     Goto(String),
-    /// Desktop only (#740).
+    /// Desktop only (#740): becomes [`super::HostRequest::Stamp`].
     Stamp,
+    /// Desktop only: becomes [`super::HostRequest::NeedsFix`].
     NeedsFix,
     ViewSource,
 }

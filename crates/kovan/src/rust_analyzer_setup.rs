@@ -206,7 +206,11 @@ mod tests {
 
     #[test]
     fn a_version_line_is_installed_and_a_rustup_proxy_without_the_component_is_not() {
-        let p = classify(&exited(true, "rust-analyzer 1.98.0 (88d9e12 2026-08-18)\n", ""));
+        let p = classify(&exited(
+            true,
+            "rust-analyzer 1.98.0 (88d9e12 2026-08-18)\n",
+            "",
+        ));
         assert_eq!(p.version(), Some("1.98.0"));
         assert!(p.is_installed());
 

@@ -1,4 +1,4 @@
-//! The egui Code Review UI, [`CodeReview`]: one UI for web-kovan and (later)
+//! The egui Code Review UI, [`CodeReview`]: one UI for web-kovan and
 //! desktop kovan, parameterised by [`Mode`].
 //!
 //! ```text
@@ -28,7 +28,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use egui::{Color32, RichText};
-use kovan_common::call_graph::split::{CrateSlice, SearchIndex, SplitIndex};
+use kovan_common::call_graph::split::{CrateSlice, SearchIndex, SplitIndex, StampState};
 use kovan_common::code_map::layout::Layout;
 use kovan_common::code_map::CodeMap;
 
@@ -96,6 +96,9 @@ pub(crate) struct Snap {
     pub files: BTreeMap<String, Load<String>>,
     pub timings: Vec<Timing>,
     pub errors: Vec<String>,
+    /// Stamp states the host pushed ([`CodeReview::set_stamps`]); when set
+    /// they replace the index's `stamps`.
+    pub stamps: Option<Arc<Vec<StampState>>>,
 }
 
 impl Snap {
@@ -108,8 +111,44 @@ impl Snap {
         self.slice(crate_of(map, id)?)
     }
     pub fn facts(&self) -> Facts {
-        Facts::new(self.index.as_ref().map(|i| i.stamps.as_slice()).unwrap_or(&[]))
+        match &self.stamps {
+            Some(s) => Facts::new(s),
+            None => Facts::new(self.index.as_ref().map(|i| i.stamps.as_slice()).unwrap_or(&[])),
+        }
     }
+}
+
+/// The function a [`HostRequest`] is about: everything the host needs to
+/// find it and draft a review entry, as the UI knows it when the button is
+/// pressed (GitHub #740, #770).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FunctionRef {
+    /// The call-graph id, `crates/x/src/a.rs::T::f` (the key of
+    /// [`StampState::function`]).
+    pub id: String,
+    /// The workspace crate holding it (code map name).
+    pub krate: String,
+    /// Its file, workspace-relative with `/` separators.
+    pub file: String,
+    /// The name the review bar shows (`T::f`).
+    pub name: String,
+    /// The workspace functions it calls (ids), as the "blocked by" list
+    /// counts them; `None` while the crate's slice is still loading, never
+    /// an empty list standing in for "not known yet".
+    pub callees: Option<Vec<String>>,
+    /// `(start_line, end_line)`, 1-based and inclusive (doc comment
+    /// included), when the slice is loaded.
+    pub lines: Option<(u32, u32)>,
+}
+
+/// What the reader asked the host to do ([`Mode::Desktop`] only); taken
+/// with [`CodeReview::take_host_request`] after [`CodeReview::show`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HostRequest {
+    /// The review bar's Stamp.
+    Stamp(FunctionRef),
+    /// The review bar's Needs fix.
+    NeedsFix(FunctionRef),
 }
 
 /// The Code Review UI.
@@ -144,6 +183,10 @@ pub struct CodeReview {
     status: Option<String>,
     last_hash: String,
     pending: Option<DeepLink>,
+    /// The last Stamp / Needs-fix press, until the host takes it.
+    host_request: Option<HostRequest>,
+    /// Stamp states the host pushed ([`Self::set_stamps`]).
+    stamps: Option<Arc<Vec<StampState>>>,
 }
 
 impl CodeReview {
@@ -175,7 +218,23 @@ impl CodeReview {
             status: None,
             last_hash: crate::platform::hash(),
             pending: (link != DeepLink::Map).then_some(link),
+            host_request: None,
+            stamps: None,
         }
+    }
+
+    /// The Stamp or Needs-fix press since the last call ([`Mode::Desktop`];
+    /// always `None` in [`Mode::Web`]). The host calls this after
+    /// [`Self::show`] each frame and opens its dialog.
+    pub fn take_host_request(&mut self) -> Option<HostRequest> {
+        self.host_request.take()
+    }
+
+    /// Replace the stamp states shown (the data's `stamps` until now), e.g.
+    /// after the host wrote a stamp, so the bar and the cards recolour
+    /// without reloading the data.
+    pub fn set_stamps(&mut self, stamps: Vec<StampState>) {
+        self.stamps = Some(Arc::new(stamps));
     }
 
     fn repaint(ctx: &egui::Context) -> impl Fn() + Clone + Send + 'static {
@@ -207,6 +266,7 @@ impl CodeReview {
             files: s.files.clone(),
             timings: s.timings.clone(),
             errors,
+            stamps: self.stamps.clone(),
         })
     }
 
@@ -621,9 +681,42 @@ impl CodeReview {
                 self.sync_hash();
             }
             BarAction::Stamp | BarAction::NeedsFix => {
-                self.status = Some("Stamping is not implemented yet (desktop kovan, #740).".into());
+                if !self.mode.can_stamp() {
+                    self.status = Some("Stamping is desktop-only: stamps are made in desktop kovan.".into());
+                    return;
+                }
+                let Some(f) = self.place.selected.as_deref().and_then(|id| self.function_ref(snap, id)) else {
+                    self.status = Some("Nothing to stamp: the function is not in a loaded workspace crate.".into());
+                    return;
+                };
+                self.host_request = Some(match a {
+                    BarAction::Stamp => HostRequest::Stamp(f),
+                    _ => HostRequest::NeedsFix(f),
+                });
             }
         }
+    }
+
+    /// What the host is told about function `id` ([`FunctionRef`]);
+    /// `None` when the code map is not loaded or `id` is in no workspace
+    /// crate.
+    fn function_ref(&self, snap: &Snap, id: &str) -> Option<FunctionRef> {
+        let map = snap.map.as_ref()?;
+        let krate = crate_of(map, id)?.to_string();
+        let slice = snap.slice(&krate);
+        let found = slice.and_then(|s| model::find_function(&s.krate, id)).map(|(_, f, _)| f);
+        let name = match found {
+            Some(f) => f.owner.as_ref().map(|o| format!("{o}::{}", f.name)).unwrap_or(f.name.clone()),
+            None => model::short_name(id).to_string(),
+        };
+        Some(FunctionRef {
+            id: id.to_string(),
+            krate,
+            file: file_of(id).to_string(),
+            name,
+            callees: slice.map(|s| snap.facts().callees(map, s, id)),
+            lines: found.map(|f| (f.start_line, f.end_line)),
+        })
     }
 
     // ---- side panel -------------------------------------------------------
@@ -704,7 +797,7 @@ impl CodeReview {
         ui.label("Every crate of the workspace in its topic box. Tap a crate to open its module tree; the triangle on a card shows its top-level modules in place.");
         ui.label(match self.mode {
             Mode::Web => "Web: read-only.",
-            Mode::Desktop => "Desktop mode (stamping not implemented yet, #740).",
+            Mode::Desktop => "Desktop: Stamp and Needs fix open desktop kovan's stamp dialog.",
         });
         if let Some(w) = snap.build.as_ref().and_then(|b| b.call_graph.as_ref()).and_then(|c| c.warning()) {
             ui.colored_label(Color32::from_rgb(255, 130, 130), w);
@@ -875,5 +968,103 @@ mod tests {
         r.go(Place::at(Level::Module { krate: "petir".into(), file: "crates/petir/src/lib.rs".into() }));
         assert_eq!(r.focused_crate(), Some("petir"));
         assert_eq!(model::js_map_url(&r.store.site_root(), r.focused_crate()), format!("{}code-map/#petir", crate::data::SITE_URL));
+    }
+
+    /// A snapshot with a one-crate code map (`bl` at `crates/bl`) and no
+    /// slice loaded.
+    fn snap_with_map() -> Snap {
+        let map = CodeMap {
+            root: "r".into(),
+            crates: vec![kovan_common::code_map::CrateNode {
+                name: "bl".into(),
+                description: None,
+                backronym: None,
+                row: 2,
+                topic: kovan_common::code_map::Topic::Risk,
+                fidelity: None,
+                maturity: 1,
+                maturity_modules: vec![],
+                lib_dir: None,
+                dir: Some("crates/bl".into()),
+            }],
+            edges: vec![],
+        };
+        Snap {
+            map: Some(Arc::new(map)),
+            layout: None,
+            index: None,
+            search: None,
+            site_links: None,
+            build: None,
+            crates: BTreeMap::new(),
+            api: BTreeMap::new(),
+            files: BTreeMap::new(),
+            timings: vec![],
+            errors: vec![],
+            stamps: None,
+        }
+    }
+
+    /// Desktop: Stamp and Needs fix queue one request for the host, taken
+    /// once, naming the selected function; with the crate's slice not yet
+    /// loaded the callees are `None` (unknown), not empty. Web: no request,
+    /// a "desktop-only" status instead.
+    #[test]
+    fn stamp_queues_a_host_request_in_desktop_mode_only() {
+        let id = "crates/bl/src/chem.rs::Pool::rate";
+        let src = || DataSource::Dir { data: std::env::temp_dir(), workspace: ".".into() };
+        let snap = snap_with_map();
+
+        let mut d = CodeReview::new(Mode::Desktop, src());
+        d.place.selected = Some(id.into());
+        d.bar_action(BarAction::Stamp, &snap);
+        let want = FunctionRef {
+            id: id.into(),
+            krate: "bl".into(),
+            file: "crates/bl/src/chem.rs".into(),
+            name: "Pool::rate".into(),
+            callees: None,
+            lines: None,
+        };
+        assert_eq!(d.take_host_request(), Some(HostRequest::Stamp(want.clone())));
+        assert_eq!(d.take_host_request(), None, "taken once");
+        d.bar_action(BarAction::NeedsFix, &snap);
+        assert_eq!(d.take_host_request(), Some(HostRequest::NeedsFix(want)));
+        // A function outside every workspace crate: nothing for the host.
+        d.place.selected = Some("vendor/x.rs::f".into());
+        d.bar_action(BarAction::Stamp, &snap);
+        assert_eq!(d.take_host_request(), None);
+        assert!(d.status.as_deref().unwrap_or("").contains("Nothing to stamp"));
+
+        let mut w = CodeReview::new(Mode::Web, src());
+        w.place.selected = Some(id.into());
+        w.bar_action(BarAction::Stamp, &snap);
+        w.bar_action(BarAction::NeedsFix, &snap);
+        assert_eq!(w.take_host_request(), None);
+        assert!(w.status.as_deref().unwrap_or("").contains("desktop-only"));
+    }
+
+    /// Stamps the host pushes replace the data's in every snapshot, so the
+    /// bar and the cards read them on the next frame.
+    #[test]
+    fn set_stamps_replaces_the_stamp_states_read_by_the_views() {
+        use kovan_common::call_graph::split::StampVerdict;
+        let id = "crates/bl/src/chem.rs::rate";
+        let mut r = CodeReview::new(Mode::Desktop, DataSource::Dir { data: std::env::temp_dir(), workspace: ".".into() });
+        assert!(!r.snapshot().unwrap().facts().review(id).is_valid());
+        r.set_stamps(vec![StampState {
+            function: id.into(),
+            verdict: StampVerdict::Valid,
+            reason: String::new(),
+            rung: 2,
+            reviewer: "R".into(),
+            date: "2026-10-10".into(),
+            note: String::new(),
+            permalink: String::new(),
+            state: None,
+        }]);
+        assert!(r.snapshot().unwrap().facts().review(id).is_valid());
+        r.set_stamps(vec![]);
+        assert!(!r.snapshot().unwrap().facts().review(id).is_valid());
     }
 }

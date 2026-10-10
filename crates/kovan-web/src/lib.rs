@@ -4,7 +4,7 @@
 //! **N**uclear **S**ciences, on the **Web**. The read-only Code Review UI of the kovan
 //! family (GitHub #735, #736, #738), written once in egui so that the same
 //! UI runs in the browser (wasm32, published on GitHub Pages at
-//! `code-review/`) and, later, inside desktop kovan with stamping added.
+//! `code-review/`) and inside desktop kovan's Code Review tab (#820).
 //!
 //! ## What it shows
 //!
@@ -22,11 +22,14 @@
 //!
 //! ## Modes
 //!
-//! [`Mode::Web`] is read-only and is what this crate implements.
-//! [`Mode::Desktop`] is reserved for desktop kovan (#740): the same UI with
-//! the review bar's Stamp and Needs-fix actions enabled. It is **not
-//! implemented**; constructing the UI with it only changes what the bar
-//! offers.
+//! [`Mode::Web`] is read-only: the published site.
+//! [`Mode::Desktop`] is the same UI embedded in desktop kovan's Code Review
+//! tab (#740, #820), with the review bar's Stamp and Needs-fix enabled. This
+//! crate does not stamp: a press queues a `ui::HostRequest` naming the
+//! function (`ui::FunctionRef`), the host takes it with
+//! `CodeReview::take_host_request` and runs its own dialog, and pushes the
+//! new stamp states back with `CodeReview::set_stamps`. In desktop mode the
+//! host's theme is kept.
 //!
 //! ## Layout of the crate
 //!
@@ -56,8 +59,8 @@ pub mod ui;
 pub enum Mode {
     /// web-kovan: read-only, static JSON from the site build.
     Web,
-    /// Desktop kovan: live data and the review bar's Stamp action. Reserved;
-    /// not implemented (#740).
+    /// Desktop kovan: the review bar's Stamp and Needs fix are enabled and
+    /// handed to the host as a `ui::HostRequest` (#740).
     Desktop,
 }
 
