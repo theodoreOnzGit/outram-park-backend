@@ -71,3 +71,31 @@ sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance
 sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/diffusion-limit
 sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/radiative-transfer
 sciences/physical-principles/conservation-laws/quantum-number-conservation
+
+# 2026-10-10, maintainer: "Cauchy accepted" (#829)
+sciences/physical-principles/conservation-laws/momentum-balance/solid-continuum-momentum
+# 2026-10-10, maintainer: "Neutronics materials and Th all approved" (#829)
+sciences/neutronics
+sciences/neutronics/nuclear-data-processing
+sciences/neutronics/monte-carlo-transport
+sciences/neutronics/deterministic-transport
+sciences/neutronics/reactor-kinetics
+sciences/neutronics/reactivity-feedback
+sciences/neutronics/depletion-and-transmutation
+sciences/thermal-hydraulics
+sciences/thermal-hydraulics/single-phase-flow
+sciences/thermal-hydraulics/two-phase-flow
+sciences/thermal-hydraulics/heat-transfer-correlations
+sciences/thermal-hydraulics/natural-circulation
+sciences/thermal-hydraulics/packed-beds
+sciences/thermal-hydraulics/heat-exchangers
+sciences/thermal-hydraulics/core-heat-generation-and-decay-heat
+sciences/materials
+sciences/materials/fuel-performance
+sciences/materials/structural-mechanics
+sciences/materials/irradiation-damage
+sciences/materials/corrosion-and-chemistry
+sciences/materials/thermophysical-properties-of-solids
+sciences/materials/creep
+# 2026-10-10, maintainer: "Human factors node accepted (leave it as a stub for now)" (#829)
+sciences/human-factors

@@ -1825,6 +1825,30 @@ pub const LITERATURE: &[CorpusLiterature] = &[
                        section 10, ground 9)",
     },
     CorpusLiterature {
+        id: "arxiv-1808.10736v2",
+        kind: LiteratureKind::Paper,
+        title: "An open-source finite volume toolbox for solid mechanics and fluid-solid \
+                interaction simulations (arXiv:1808.10736v2)",
+        authors: &[
+            "Cardiff, P.",
+            "Karač, A.",
+            "De Jaeger, P.",
+            "Jasak, H.",
+            "Nagy, J.",
+            "Ivanković, A.",
+            "Tuković, Ž.",
+        ],
+        year: Some(2018),
+        topics: &["02-nuclear-safety/design-of-structures-systems-and-components"],
+        concept_document: Some("arxiv-1808.10736v2"),
+        source_url: Some("https://arxiv.org/abs/1808.10736v2"),
+        corpus_file: Some("kovan-standard-open-corpus/cc-by/arxiv-1808.10736v2-cardiff-solids4foam.pdf"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: "CC BY 4.0, as linked from the arXiv record of v2 \
+                       (https://arxiv.org/abs/1808.10736v2, checked 2026-10-10; corpus README \
+                       section 10)",
+    },
+    CorpusLiterature {
         id: "arxiv-2301.00289v3",
         kind: LiteratureKind::Paper,
         title: "Stability Analysis of Picard Iteration for Coupled Neutronics/Thermal-Hydraulics \
@@ -2780,9 +2804,10 @@ mod tests {
             LITERATURE.len(),
             // ~~66~~ ~~92 since 2026-10-07: the 26 software-properties sources (#760).~~
             // ~~98 since 2026-10-10: DOE-HDBK-1017, 1015 and 1014, two volumes each (#829).~~
-            // 101 since 2026-10-10: OpenStax University Physics Volumes 1-3, CC BY-NC-SA
-            // (#829; College Physics 2e not filed, its PDF is over GitHub's 100 MB limit).
-            101,
+            // ~~101 since 2026-10-10: OpenStax University Physics Volumes 1-3, CC BY-NC-SA
+            // (#829; College Physics 2e not filed, its PDF is over GitHub's 100 MB limit).~~
+            // 102 since 2026-10-10: Cardiff et al. 2018, solids4foam, CC BY (#829).
+            102,
             "the maintainer's 2026-09-22 set, EPA FGR-11, FGR-13 and FGR-15 (2026-09-28), \
              the concept tree's 13 further documents (2026-10-06), and the software QA \
              set NUREG/BR-0167, DOE-STD-1172-2003 and DOE G 414.1-4 (2026-10-07, #760), Kendrick 2019 \

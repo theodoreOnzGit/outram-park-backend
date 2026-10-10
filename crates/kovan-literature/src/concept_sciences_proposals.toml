@@ -306,6 +306,16 @@ licence = "MIT (OpenMC LICENSE covers the documentation)"
 redistributable = true
 
 [[document]]
+id = "arxiv-1808.10736v2"
+title = "P. Cardiff, A. Karac, P. De Jaeger, H. Jasak, J. Nagy, A. Ivankovic, Z. Tukovic, An open-source finite volume toolbox for solid mechanics and fluid-solid interaction simulations (solids4foam), arXiv:1808.10736v2"
+publisher = "arXiv"
+date = "3 September 2018"
+holder = "standard"
+file = "kovan-standard-open-corpus/cc-by/arxiv-1808.10736v2-cardiff-solids4foam.pdf"
+licence = "CC BY 4.0 (arXiv record); OpenFOAM literature accepted by the maintainer 2026-10-10"
+redistributable = true
+
+[[document]]
 id = "openstax-university-physics-1"
 title = "OpenStax, University Physics Volume 1 (Ling, Sanny, Moebs et al.)"
 publisher = "OpenStax, Rice University"
@@ -415,10 +425,10 @@ status = "approved"
 [[science]]
 path = "sciences/physical-principles/conservation-laws/momentum-balance/solid-continuum-momentum"
 title = "Momentum balance of a deforming solid (Cauchy equation of motion)"
-sources = []
-cross_links = ["sciences/physical-principles/constitutive-relations/hookes-law"]
-note = "maintainer, 2026-10-10: not sure about Cauchy; held as proposed. source not yet read: no open document in the corpus states the Cauchy momentum equation for solids (DOE-HDBK-1017, read 2026-10-10, defines stress and strain but states no equation of motion); see candidate documents"
-status = "proposed"
+sources = [{ document = "arxiv-1808.10736v2", section = "3.1 Governing Equations, Eqs. (3) and (6) (pp. 7-8): one momentum balance for any continuum, sigma the Cauchy stress; p. 8: no distinction between solid and fluid until the constitutive relation, and the convection terms drop out in the Lagrangian description of solids; 3.2, Eq. (7) and Table I (pp. 8-9): Newtonian fluid against Hookean solid; Eq. (18) (p. 11): small-strain form rho0 d2u/dt2 = div(sigma) + rho0 b" }]
+cross_links = ["sciences/physical-principles/constitutive-relations/hookes-law", "sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations", "sciences/physical-principles/constitutive-relations/newtonian-viscous-stress"]
+note = "maintainer, 2026-10-10: \"Cauchy accepted\". Same balance as Navier-Stokes; the solid differs in its closure (stress from strain, Hooke, not from strain rate) and its Lagrangian description, in which advection does not appear"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/conservation-laws/momentum-balance/discrete-particle-dynamics"
@@ -1069,21 +1079,21 @@ path = "sciences/neutronics"
 title = "Neutronics (reactor physics)"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Overview (Modules 2-4, Reactor Theory)" }]
 cross_links = ["sciences/physical-principles/conservation-laws/particle-balance", "sciences/physical-principles/radiation-interaction-with-matter"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/neutronics/nuclear-data-processing"
 title = "Nuclear data processing"
 sources = [{ document = "la-ur-17-20093", section = "1.1 The Modules of NJOY" }]
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions", "sciences/physical-principles/radiation-interaction-with-matter/target-motion", "sciences/computation/problems/function-approximation"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/neutronics/monte-carlo-transport"
 title = "Monte Carlo neutron transport"
 sources = [{ document = "la-ur-06-7094", section = "slides 'Time-dependent Transport' (solved directly by Monte Carlo, each history an IID trial); 'Power Iteration & Convergence'" }, { document = "openmc-docs-eigenvalue", section = "Method of Successive Generations" }]
 cross_links = ["sciences/computation/problems/transport-equations/monte-carlo-particle-histories", "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation", "sciences/computation/problems/sampling-from-distributions", "sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/neutronics/deterministic-transport"
@@ -1091,124 +1101,125 @@ title = "Deterministic transport and diffusion (multigroup, discrete ordinates)"
 sources = [{ document = "la-ur-17-20093", section = "8.1 Multigroup Constants; 8.7 Diffusion Cross Sections; 8.8 Cross Sections for Transport Theory" }, { document = "zhang-2023-fenrg-1101050", section = "2 Methodologies of the comePSn_JFNK (discrete ordinates)" }]
 cross_links = ["sciences/computation/problems/transport-equations/discrete-ordinates", "sciences/computation/problems/transport-equations/spherical-harmonics-pn-and-spn", "sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation", "sciences/computation/problems/ode-and-pde-evolution", "sciences/computation/problems/linear-systems"]
 note = "8.7 and 8.8 named from the NJOY2016 table of contents; 8.1 read"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/neutronics/reactor-kinetics"
 title = "Reactor kinetics (reactor period, prompt criticality, startup rate)"
 sources = [{ document = "doe-hdbk-1019-2-93", section = "Module 4, Reactor Kinetics (p. 10): Reactor Period (p. 11); Prompt Criticality (p. 15); Stable Period Equation (p. 16); Reactor Startup Rate (p. 17)" }]
 cross_links = ["sciences/physical-principles/kinetics/neutron-population-kinetics", "sciences/physical-principles/conservation-laws/particle-balance", "sciences/computation/problems/ode-and-pde-evolution"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/neutronics/reactivity-feedback"
 title = "Reactivity and reactivity coefficients (feedback)"
 sources = [{ document = "doe-hdbk-1019-2-93", section = "Module 3, Reactivity (p. 17); Reactivity Coefficients (p. 23)" }]
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/target-motion/doppler-broadening", "sciences/thermal-hydraulics"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/neutronics/depletion-and-transmutation"
 title = "Depletion, transmutation and fission-product poisoning"
 sources = [{ document = "openmc-docs-depletion", section = "Depletion (introduction); Transmutation Reactions; Fission Product Yields" }, { document = "doe-hdbk-1019-2-93", section = "Module 3, Xenon (p. 34); Samarium and Other Fission Product Poisons (p. 43)" }]
 cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/computation/problems/ode-and-pde-evolution/predictor-corrector-depletion"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/thermal-hydraulics"
 title = "Thermal hydraulics"
 sources = [{ document = "doe-hdbk-1012-1-92", section = "Overview (Modules 1-3: thermodynamics, heat transfer, fluid flow)" }]
 cross_links = ["sciences/physical-principles/conservation-laws", "sciences/physical-principles/thermodynamics-and-statistical-mechanics"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/thermal-hydraulics/single-phase-flow"
 title = "Single-phase flow (laminar, turbulent; friction and head loss)"
 sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Laminar and Turbulent Flow (p. 17); Head Loss: Friction Factor, Darcy's Equation (pp. 31-32)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "2.1 Single-phase flow governing equations" }]
 cross_links = ["sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/thermal-hydraulics/two-phase-flow"
 title = "Two-phase flow and boiling"
 sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Two-Phase Fluid Flow (p. 41)" }, { document = "gomezzarzuela-2021-bubbly-flow", section = "2.3. Subcooled boiling model; 4.2. Two-phase flow test case" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/thermal-hydraulics/heat-transfer-correlations"
 title = "Convective heat transfer and boiling heat transfer correlations"
 sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Convection Heat Transfer (p. 18); Boiling Heat Transfer (p. 40)" }]
 cross_links = ["sciences/physical-principles/constitutive-relations"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/thermal-hydraulics/natural-circulation"
 title = "Natural circulation"
 sources = [{ document = "doe-hdbk-1012-3-92", section = "Module 3 Fluid Flow, Natural Circulation (p. 37)" }, { document = "ong-2024-tuas", section = "2.2. Physical equations in natural and forced circulation" }]
 cross_links = ["sciences/physical-principles/conservation-laws/momentum-balance", "sciences/physical-principles/conservation-laws/energy-balance/enthalpy-balance"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/thermal-hydraulics/packed-beds"
 title = "Packed and pebble beds"
 sources = [{ document = "ong-2024-dissertation", section = "4.7 Modelling FHRs with Multiphysics code (Ergun's equation for pebble beds)" }, { document = "putra-2021-htr10-dem", section = "2.2. DEM Simulation" }]
 cross_links = ["sciences/physical-principles/conservation-laws/momentum-balance/porous-media-flow", "sciences/physical-principles/conservation-laws/momentum-balance/discrete-particle-dynamics"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/thermal-hydraulics/heat-exchangers"
 title = "Heat exchangers"
 sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Heat Exchangers (p. 30)" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat"
 title = "Core heat generation and decay heat"
 sources = [{ document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Heat Generation (p. 44); Decay Heat (p. 52)" }]
 cross_links = ["sciences/physical-principles/conservation-laws/energy-balance/nuclear-energy-release"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/materials"
 title = "Materials"
 sources = [{ document = "doe-hdbk-1017-1-93", section = "Module 1 Structure of Metals: Bonding (p. 1); Common Lattice Types (p. 6); Imperfections in Metals (p. 18)" }, { document = "doe-hdbk-1017-2-93", section = "Module 5 Plant Materials: Properties Considered When Selecting Materials (p. 1)" }, { document = "contescu-2022-graphite-oxidation", section = "3. Structure and Properties" }]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/materials/fuel-performance"
 title = "Fuel performance (fuel behaviour and fission-product release)"
 sources = [{ document = "fang-2021-htgr-fp-release", section = "2. Features of HTGR Fuel; 3. Transport Model of FPs" }, { document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Heat Generation: Fuel Changes During Reactor Operation (p. 50)" }, { document = "doe-hdbk-1017-2-93", section = "Module 5 Plant Materials, Nuclear Reactor Core Problems (p. 22): Fuel Pellet-Cladding Interaction; Effects on Fuel Due to Swelling and Core Burnup (p. 24)" }]
 cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/kinetics/heat-conduction-equation"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/materials/structural-mechanics"
 title = "Structural mechanics (stress, strain, mechanical properties)"
-sources = [{ document = "doe-hdbk-1017-1-93", section = "Module 2 Properties of Metals: Stress (p. 1); Strain (p. 7); Stress-Strain Relationship (p. 15); Physical Properties (p. 20)" }, { document = "openstax-university-physics-1", section = "12.3 Stress, Strain, and Elastic Modulus" }, { document = "contescu-2022-graphite-oxidation", section = "5.2 Mechanical Properties" }]
-cross_links = ["sciences/physical-principles/constitutive-relations/hookes-law", "sciences/physical-principles/conservation-laws/momentum-balance/solid-continuum-momentum"]
-status = "proposed"
+sources = [{ document = "doe-hdbk-1017-1-93", section = "Module 2 Properties of Metals: Stress (p. 1); Strain (p. 7); Stress-Strain Relationship (p. 15); Physical Properties (p. 20)" }, { document = "openstax-university-physics-1", section = "12.3 Stress, Strain, and Elastic Modulus" }, { document = "contescu-2022-graphite-oxidation", section = "5.2 Mechanical Properties" }, { document = "arxiv-1808.10736v2", section = "3.2 Constitutive Relations, Table I (p. 9): linear elastic and Mises/J2 plastic laws, the stress-strain curve beyond yield" }]
+cross_links = ["sciences/physical-principles/constitutive-relations/hookes-law", "sciences/physical-principles/conservation-laws/momentum-balance/solid-continuum-momentum", "sciences/materials/creep"]
+note = "maintainer, 2026-10-10: structural mechanics derives from momentum balance plus Hooke's law and the stress-strain curve"
+status = "approved"
 
 [[science]]
 path = "sciences/materials/irradiation-damage"
 title = "Irradiation damage (displacements per atom, property change)"
 sources = [{ document = "la-ur-17-20093", section = "6.2 Theory of Damage Energy" }, { document = "contescu-2022-graphite-oxidation", section = "4.1 Irradiation" }, { document = "doe-hdbk-1017-2-93", section = "Module 5 Plant Materials: Atomic Displacement Due to Irradiation (p. 32); Thermal and Displacement Spikes Due to Irradiation (p. 35); Effect Due to Neutron Capture (p. 37)" }]
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/materials/corrosion-and-chemistry"
 title = "Corrosion, oxidation and materials chemistry"
 sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation; 6. Brief Review of Oxidation Models" }, { document = "doe-hdbk-1015-1-93", section = "Module 2 Corrosion: Corrosion Theory (p. 1); General Corrosion (p. 11); Crud and Galvanic Corrosion (p. 22); Specialized Corrosion (p. 27)" }, { document = "doe-hdbk-1017-1-93", section = "Module 2 Properties of Metals: Corrosion (p. 32); Hydrogen Embrittlement (p. 37)" }]
 cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/materials/thermophysical-properties-of-solids"
 title = "Thermophysical properties of solids"
 sources = [{ document = "pichler-2020-316l", section = "Abstract (resistivity, enthalpy, density, thermal expansion, specific heat of SRM 316L)" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/materials/creep"
@@ -1216,14 +1227,14 @@ title = "Creep (time-dependent deformation under sustained stress)"
 sources = [{ document = "doe-hdbk-1017-2-93", section = "Module 5 Plant Materials, Plant Material Problems: Creep (pp. 29-30), Figure 2 Successive Stage of Creep with Increasing Time" }, { document = "doe-hdbk-1017-2-93", section = "Module 5 Plant Materials, Nuclear Reactor Core Problems: Fuel Densification (p. 23) (cladding creep and collapse)" }]
 cross_links = ["sciences/physical-principles/kinetics", "sciences/physical-principles/constitutive-relations/hookes-law", "sciences/materials/structural-mechanics", "sciences/materials/fuel-performance"]
 note = "maintainer, 2026-10-10: \"Creep works ... it is more in material science but crosses to kinetics\": a materials node cross-linked to physical-principles/kinetics"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/human-factors"
 title = "Human factors"
 sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 18 Human Factors Engineering" }]
-note = "placeholder (maintainer: human factors come later); the only source read is a chapter title"
-status = "proposed"
+note = "stub, approved 2026-10-10 (maintainer: \"leave it as a stub for now\"; human factors come later); the only source read is a chapter title"
+status = "approved"
 
 # ============================================================================
 # sciences/nuclear-chemistry (maintainer, 2026-10-10: "one more big node ... fission
@@ -1700,4 +1711,4 @@ why = "four web-cited pages here (neutron physics, random numbers, tallies, vari
 title = "An open text stating the Cauchy momentum equation for solids and the finite element method (e.g. an open continuum-mechanics or FEM lecture text with a CC BY licence, or a code manual such as the FEniCS/MOOSE solid-mechanics theory pages)"
 url = "https://mooseframework.inl.gov/modules/solid_mechanics/index.html"
 licence = "MOOSE docs: LGPL 2.1 (as for moose-docs/ already held); others to be checked"
-why = "solid-continuum-momentum has no source read; finite element is named but not described in any held text"
+why = "finite element is named but not described in any held text (solid-continuum-momentum was sourced to Cardiff 2018 on 2026-10-10)"
