@@ -572,7 +572,7 @@ status = "approved"
 path = "sciences/physical-principles/kinetics"
 title = "Kinetics: rate equations and time dependence"
 sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (pp. 12-13): competition between chemical kinetics and transport rates; the slowest step is rate controlling" }, { document = "doe-hdbk-1019-1-93", section = "Module 1, Radioactivity: Radioactive Decay Constant, Radioactive Half-Life (pp. 30-33)" }]
-cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/neutronics/reactor-kinetics"]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/neutronics/reactor-kinetics", "sciences/materials/creep"]
 note = "maintainer, 2026-10-10: a kinetics section for time dependence. Thermodynamics says where a system ends up; kinetics says how fast it gets there"
 status = "proposed"
 
@@ -589,6 +589,14 @@ path = "sciences/physical-principles/kinetics/chemical-reaction-kinetics"
 title = "Chemical reaction kinetics (rate laws, activation energy, Arrhenius equation)"
 sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation, Eqs. (2)-(3) (p. 15): rate law with reaction order n and the Arrhenius rate constant K = k0 exp(-Ea/RT)" }, { document = "doe-hdbk-1015-1-93", section = "Module 2 Corrosion, Corrosion Theory (p. 8): activation energy and the rate-controlling step; General Corrosion, Factors Affecting General Corrosion Rate (p. 13)" }]
 cross_links = ["sciences/materials/corrosion-and-chemistry", "sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/kinetics/neutron-population-kinetics"
+title = "Neutron population kinetics (prompt and delayed neutrons, generation time, precursor decay)"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 2, Prompt and Delayed Neutrons: Neutron Classification (p. 29); Neutron Generation Time (p. 30)" }, { document = "doe-hdbk-1019-2-93", section = "Module 4, Reactor Kinetics: Effective Delayed Neutron Fraction (p. 11); Effective Delayed Neutron Precursor Decay Constant (p. 13)" }]
+cross_links = ["sciences/physical-principles/conservation-laws/particle-balance", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/cross-sections", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/neutronics/reactor-kinetics"]
+note = "maintainer, 2026-10-10: neutron kinetics falls under kinetics, like reaction rates. The principle (how fast the neutron population changes, set by prompt and delayed neutrons) lives here; the applied reactor behaviour (period, prompt criticality, startup rate) stays in neutronics/reactor-kinetics"
 status = "proposed"
 
 # ============================================================================
@@ -961,9 +969,9 @@ status = "proposed"
 
 [[science]]
 path = "sciences/neutronics/reactor-kinetics"
-title = "Reactor kinetics (prompt and delayed neutrons)"
-sources = [{ document = "doe-hdbk-1019-2-93", section = "Module 4, Reactor Kinetics (p. 10)" }, { document = "doe-hdbk-1019-1-93", section = "Module 2, Prompt and Delayed Neutrons (p. 29)" }]
-cross_links = ["sciences/physical-principles/conservation-laws/particle-balance", "sciences/computation/problems/ode-and-pde-evolution"]
+title = "Reactor kinetics (reactor period, prompt criticality, startup rate)"
+sources = [{ document = "doe-hdbk-1019-2-93", section = "Module 4, Reactor Kinetics (p. 10): Reactor Period (p. 11); Prompt Criticality (p. 15); Stable Period Equation (p. 16); Reactor Startup Rate (p. 17)" }]
+cross_links = ["sciences/physical-principles/kinetics/neutron-population-kinetics", "sciences/physical-principles/conservation-laws/particle-balance", "sciences/computation/problems/ode-and-pde-evolution"]
 status = "proposed"
 
 [[science]]
@@ -1074,6 +1082,14 @@ path = "sciences/materials/thermophysical-properties-of-solids"
 title = "Thermophysical properties of solids"
 sources = [{ document = "pichler-2020-316l", section = "Abstract (resistivity, enthalpy, density, thermal expansion, specific heat of SRM 316L)" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state"]
+status = "proposed"
+
+[[science]]
+path = "sciences/materials/creep"
+title = "Creep (time-dependent deformation under sustained stress)"
+sources = [{ document = "doe-hdbk-1017-2-93", section = "Module 5 Plant Materials, Plant Material Problems: Creep (pp. 29-30), Figure 2 Successive Stage of Creep with Increasing Time" }, { document = "doe-hdbk-1017-2-93", section = "Module 5 Plant Materials, Nuclear Reactor Core Problems: Fuel Densification (p. 23) (cladding creep and collapse)" }]
+cross_links = ["sciences/physical-principles/kinetics", "sciences/physical-principles/constitutive-relations/hookes-law", "sciences/materials/structural-mechanics", "sciences/materials/fuel-performance"]
+note = "maintainer, 2026-10-10: \"Creep works ... it is more in material science but crosses to kinetics\": a materials node cross-linked to physical-principles/kinetics"
 status = "proposed"
 
 [[science]]
