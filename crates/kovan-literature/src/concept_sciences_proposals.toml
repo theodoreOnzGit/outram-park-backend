@@ -325,6 +325,16 @@ url = "https://openstax.org/books/university-physics-volume-2/pages/2-4-distribu
 licence = "CC BY-NC-SA (non-commercial, share-alike), stated on the page; accepted by the maintainer 2026-10-10"
 redistributable = true
 
+[[document]]
+id = "openstax-college-physics-2e"
+title = "OpenStax, College Physics 2e (Urone, Hinrichs et al.)"
+publisher = "OpenStax, Rice University"
+date = "read 10 October 2026"
+holder = "web"
+url = "https://openstax.org/books/college-physics-2e/pages/15-7-statistical-interpretation-of-entropy-and-the-second-law-of-thermodynamics-the-underlying-explanation"
+licence = "CC BY-NC-SA (non-commercial, share-alike), stated on the page; accepted by the maintainer 2026-10-10"
+redistributable = true
+
 # ============================================================================
 # sciences/physical-principles
 # ============================================================================
@@ -545,6 +555,44 @@ path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/la
 title = "First and second laws of thermodynamics"
 sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, First Law of Thermodynamics (p. 53); Second Law of Thermodynamics (p. 69)" }]
 status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/first-law"
+title = "First law of thermodynamics (energy conservation, heat and work)"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, First Law of Thermodynamics (p. 53), Figure 14" }]
+cross_links = ["sciences/physical-principles/conservation-laws/energy-balance"]
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy"
+title = "Second law of thermodynamics and entropy (classical: irreversibility, Carnot limit)"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Second Law of Thermodynamics (p. 69); Entropy (p. 70); Figure 23 Control Volume for Second Law Analysis" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/entropy-and-microstates"]
+note = "maintainer, 2026-10-10: classical is fine; the statistical explanation is linked, not merged"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion"
+title = "Random thermal motion: the statistical origin of entropy and diffusion"
+sources = [{ document = "openstax-college-physics-2e", section = "15.7 Statistical Interpretation of Entropy and the Second Law of Thermodynamics; 12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy", "sciences/physical-principles/constitutive-relations/ficks-law"]
+note = "maintainer, 2026-10-10: from a first-principles understanding, statistical motion explains what we see in the second law, diffusion etc."
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/entropy-and-microstates"
+title = "Entropy and microstates (S = k ln W; the most probable macrostate)"
+sources = [{ document = "openstax-college-physics-2e", section = "15.7 Statistical Interpretation of Entropy and the Second Law of Thermodynamics, Eq. (15.68) S = k ln W" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy"]
+note = "OpenStax University Physics 2, 4.7 Entropy on a Microscopic Scale, was read 2026-10-10 and does not state S = k ln W, so it is not cited"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/random-walk-and-diffusion"
+title = "Random walk and diffusion (rms displacement grows as the square root of time)"
+sources = [{ document = "openstax-college-physics-2e", section = "12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes, Eq. (12.58) x_rms = sqrt(2Dt)" }]
+cross_links = ["sciences/physical-principles/constitutive-relations/ficks-law", "sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
+status = "proposed"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state"

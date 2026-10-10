@@ -2,7 +2,7 @@
 
 > **Generated** from `src/concept_sciences_proposals.toml` by `tests/concept_sciences.rs` (`KOVAN_REGENERATE_SCIENCES=1 cargo test --release -p kovan-literature --test concept_sciences`). Edit the TOML, not this file.
 
-**Status: DRAFT FOR MAINTAINER REVIEW** (GitHub #727, maintainer direction 2026-10-10). 47 of 111 nodes are `approved` (marked **approved** below; their ids are permanent and listed in `src/concept_sciences_approved.txt`); every other node and every reference is still `proposed`, and is in neither tree until approved.
+**Status: DRAFT FOR MAINTAINER REVIEW** (GitHub #727, maintainer direction 2026-10-10). 47 of 116 nodes are `approved` (marked **approved** below; their ids are permanent and listed in `src/concept_sciences_approved.txt`); every other node and every reference is still `proposed`, and is in neither tree until approved.
 
 ## Two tabs
 
@@ -17,9 +17,9 @@ A Sciences node's id is its path, `sciences/<segment>/...`: plain lower-case wor
 
 ## Counts
 
-- **Nodes: 111** (46 under physical principles, 34 under computation of which 7 are example methods, 31 in the disciplines).
+- **Nodes: 116** (51 under physical principles, 34 under computation of which 7 are example methods, 31 in the disciplines).
 - **Nodes whose source is not yet read: 12**.
-- **Documents cited: 24** declared here, plus skeleton documents.
+- **Documents cited: 25** declared here, plus skeleton documents.
 - **Proposed references: 69** (30 from skeleton L1/L2 nodes, the rest a sample of L3 concepts and L4 leaves).
 
 ## The tree
@@ -60,6 +60,11 @@ Sciences
 |   |   `-- photon-and-charged-particle-interactions
 |   |-- thermodynamics-and-statistical-mechanics
 |   |   |-- laws-of-thermodynamics
+|   |   |   |-- first-law
+|   |   |   `-- second-law-and-entropy
+|   |   |-- random-thermal-motion
+|   |   |   |-- entropy-and-microstates
+|   |   |   `-- random-walk-and-diffusion
 |   |   |-- equation-of-state
 |   |   |-- phase-equilibrium
 |   |   `-- maxwell-boltzmann-distribution
@@ -181,6 +186,11 @@ Algorithms evolve fast; the problems they solve and the theorems that bound them
 | `physical-principles/radiation-interaction-with-matter/photon-and-charged-particle-interactions` **approved** | Photon and charged-particle interactions | `physical-principles/radiation-interaction-with-matter` | `doe-hdbk-1019-1-93` Module 1, Interaction of Radiation with Matter: Alpha, Beta Minus, Positron, Gamma Radiation (pp. 64-66); `la-ur-17-20093` 9.1 Description of ENDF/B Photon Interaction Files | Distribution Statement A: approved for public release; distribution is unlimited (cover); LANS BSD-3-style licence (github.com/njoy/NJOY2016-manual), text kept beside the PDF | placed now so the branch exists; detail later (maintainer: photons/charged particles later) |
 | `physical-principles/thermodynamics-and-statistical-mechanics` **approved** | Thermodynamics and statistical mechanics | `physical-principles` | `doe-hdbk-1012-1-92` Module 1 Thermodynamics, Thermodynamic Systems and Processes (p. 26) | Distribution Statement A: approved for public release; distribution is unlimited (cover) |  |
 | `physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics` **approved** | First and second laws of thermodynamics | `physical-principles/thermodynamics-and-statistical-mechanics` | `doe-hdbk-1012-1-92` Module 1 Thermodynamics, First Law of Thermodynamics (p. 53); Second Law of Thermodynamics (p. 69) | Distribution Statement A: approved for public release; distribution is unlimited (cover) |  |
+| `physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/first-law` | First law of thermodynamics (energy conservation, heat and work) | `physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics`; ~> `physical-principles/conservation-laws/energy-balance` | `doe-hdbk-1012-1-92` Module 1 Thermodynamics, First Law of Thermodynamics (p. 53), Figure 14 | Distribution Statement A: approved for public release; distribution is unlimited (cover) |  |
+| `physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy` | Second law of thermodynamics and entropy (classical: irreversibility, Carnot limit) | `physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics`; ~> `physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/entropy-and-microstates` | `doe-hdbk-1012-1-92` Module 1 Thermodynamics, Second Law of Thermodynamics (p. 69); Entropy (p. 70); Figure 23 Control Volume for Second Law Analysis | Distribution Statement A: approved for public release; distribution is unlimited (cover) | maintainer, 2026-10-10: classical is fine; the statistical explanation is linked, not merged |
+| `physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion` | Random thermal motion: the statistical origin of entropy and diffusion | `physical-principles/thermodynamics-and-statistical-mechanics`; ~> `physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution`, `physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy`, `physical-principles/constitutive-relations/ficks-law` | `openstax-college-physics-2e` 15.7 Statistical Interpretation of Entropy and the Second Law of Thermodynamics; 12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes | CC BY-NC-SA (non-commercial, share-alike), stated on the page; accepted by the maintainer 2026-10-10 | maintainer, 2026-10-10: from a first-principles understanding, statistical motion explains what we see in the second law, diffusion etc. |
+| `physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/entropy-and-microstates` | Entropy and microstates (S = k ln W; the most probable macrostate) | `physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion`; ~> `physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy` | `openstax-college-physics-2e` 15.7 Statistical Interpretation of Entropy and the Second Law of Thermodynamics, Eq. (15.68) S = k ln W | CC BY-NC-SA (non-commercial, share-alike), stated on the page; accepted by the maintainer 2026-10-10 | OpenStax University Physics 2, 4.7 Entropy on a Microscopic Scale, was read 2026-10-10 and does not state S = k ln W, so it is not cited |
+| `physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/random-walk-and-diffusion` | Random walk and diffusion (rms displacement grows as the square root of time) | `physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion`; ~> `physical-principles/constitutive-relations/ficks-law`, `physical-principles/conservation-laws/mass-balance/species-transport` | `openstax-college-physics-2e` 12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes, Eq. (12.58) x_rms = sqrt(2Dt) | CC BY-NC-SA (non-commercial, share-alike), stated on the page; accepted by the maintainer 2026-10-10 |  |
 | `physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state` **approved** | Equations of state and thermodynamic properties | `physical-principles/thermodynamics-and-statistical-mechanics` | `doe-hdbk-1012-1-92` Module 1 Thermodynamics, Compression Processes: Ideal Gas Law (p. 98); Property Diagrams and Steam Tables (p. 41); `gomezzarzuela-2021-bubbly-flow` 3.4. Steam tables IAPWS-IF97 | CC BY (article's own statement); Distribution Statement A: approved for public release; distribution is unlimited (cover) |  |
 | `physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium` **approved** | Phase change and phase equilibrium (saturation) | `physical-principles/thermodynamics-and-statistical-mechanics` | `doe-hdbk-1012-1-92` Module 1 Thermodynamics, Change of Phase (p. 31): Saturation (p. 33), Critical Point (p. 36) | Distribution Statement A: approved for public release; distribution is unlimited (cover) |  |
 | `physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution` **approved** | Maxwell-Boltzmann distribution | `physical-principles/thermodynamics-and-statistical-mechanics` | `doe-hdbk-1019-1-93` Module 2, Neutron Flux Spectrum: Most Probable Neutron Velocities (p. 35) (the Maxwell distribution of thermal neutrons); `la-ur-17-20093` 4.1 Doppler-Broadening Theory, Eq. (83); `openstax-university-physics-2` 2.4 Distribution of Molecular Speeds, The Maxwell-Boltzmann Distribution | CC BY-NC-SA (non-commercial, share-alike), stated on the page; accepted by the maintainer 2026-10-10; Distribution Statement A: approved for public release; distribution is unlimited (cover); LANS BSD-3-style licence (github.com/njoy/NJOY2016-manual), text kept beside the PDF |  |
@@ -291,6 +301,7 @@ Skeleton documents (NJOY2016 manual, NUREG/KM-0006, SAND2011-2195, the Brown sli
 | `openmc-docs-tallies` | OpenMC documentation, Theory and Methodology, 8. Tallies (stable) (OpenMC contributors, read 10 October 2026 (version 'stable', not pinned)) | web: <https://docs.openmc.org/en/stable/methods/tallies.html> | MIT (OpenMC LICENSE covers the documentation) | yes |
 | `openstax-university-physics-1` | OpenStax, University Physics Volume 1 (Ling, Sanny, Moebs et al.) (OpenStax, Rice University, read 10 October 2026) | web: <https://openstax.org/books/university-physics-volume-1/pages/12-3-stress-strain-and-elastic-modulus> | CC BY-NC-SA (non-commercial, share-alike), stated on the page; accepted by the maintainer 2026-10-10 | yes |
 | `openstax-university-physics-2` | OpenStax, University Physics Volume 2 (Ling, Sanny, Moebs et al.) (OpenStax, Rice University, read 10 October 2026) | web: <https://openstax.org/books/university-physics-volume-2/pages/2-4-distribution-of-molecular-speeds> | CC BY-NC-SA (non-commercial, share-alike), stated on the page; accepted by the maintainer 2026-10-10 | yes |
+| `openstax-college-physics-2e` | OpenStax, College Physics 2e (Urone, Hinrichs et al.) (OpenStax, Rice University, read 10 October 2026) | web: <https://openstax.org/books/college-physics-2e/pages/15-7-statistical-interpretation-of-entropy-and-the-second-law-of-thermodynamics-the-underlying-explanation> | CC BY-NC-SA (non-commercial, share-alike), stated on the page; accepted by the maintainer 2026-10-10 | yes |
 
 ## IAEA/NRC L2 to Sciences (proposed)
 
