@@ -37,6 +37,20 @@ Bookkeeping-status sign-off block) that do not belong in a library catalogue.
 
 ## Open tier
 
+> **2026-10-10 — six DOE Fundamentals Handbook volumes filed into Kovan's
+> standard corpus** (OUTRAM PARK #829, the Sciences concept tree; owner: "For
+> DOE, as long as redistributable, and copyright checks out and can be
+> verified, I'm fine adding them in"): DOE-HDBK-1017/1-93 and /2-93 (Material
+> Science), DOE-HDBK-1015/1-93 and /2-93 (Chemistry), DOE-HDBK-1014/1-92 and
+> /2-92 (Mathematics), in `reactor-literature/kovan-standard-open-corpus/us-doe/`
+> beside DOE-HDBK-1012 and 1019 (ground 4). Fetched from energy.gov that day;
+> every cover (PDF page 1) reads "Distribution Statement A. Approved for
+> public release; distribution is unlimited.", and no volume's full text
+> carries a copyright notice. Quoted with URL and SHA-256 in that folder's
+> README, section 4. All six are `LITERATURE` entries in
+> `crates/kovan/src/corpus.rs` and `[[document]]`s of the Sciences proposals
+> (`src/concept_sciences_proposals.toml`).
+
 > **2026-10-02: `kabach2021intercomparison` logged.** O. Kabach, A. Chetaine,
 > A. Benchrif, H. Amsil, *An inter-comparison between ENDF/B-VIII.0-NECP-Atlas
 > and ENDF/B-VIII.0-NJOY results …*, Nucl. Eng. Technol. 53 (2021) 2445–2453,

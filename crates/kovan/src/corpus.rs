@@ -520,6 +520,13 @@ const DOE_DIST_A_BASIS: &str = "DOE handbook marked \"Distribution Statement A. 
 release; distribution is unlimited.\" (cover, PDF page 1, checked 2026-10-07; corpus README \
 section 4)";
 
+/// The same basis for the DOE Fundamentals Handbooks filed on 2026-10-10
+/// (Material Science DOE-HDBK-1017, Chemistry DOE-HDBK-1015, Mathematics
+/// DOE-HDBK-1014; OUTRAM PARK #829), whose covers were read that day.
+const DOE_DIST_A_BASIS_2026_10_10: &str = "DOE handbook marked \"Distribution Statement A. \
+Approved for public release; distribution is unlimited.\" (cover, PDF page 1, checked \
+2026-10-10; corpus README section 4)";
+
 /// The basis for DOE laboratory reports whose cover or release form reads
 /// "Approved for public release; distribution is unlimited." (added
 /// 2026-10-07, corpus README section 4). Contractor-written, so not public
@@ -1516,6 +1523,112 @@ pub const LITERATURE: &[CorpusLiterature] = &[
         ),
         status: SourceStatus::VerifiedOpenLicence,
         status_basis: DOE_DIST_A_BASIS,
+    },
+    CorpusLiterature {
+        id: "doe-hdbk-1017-1-93",
+        kind: LiteratureKind::Report,
+        title: "DOE Fundamentals Handbook: Material Science, Volume 1 of 2 (DOE-HDBK-1017/1-93)",
+        authors: &["U.S. Department of Energy"],
+        year: Some(1993),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+            "02-nuclear-safety/design-of-structures-systems-and-components",
+        ],
+        concept_document: None,
+        source_url: Some(
+            "https://www.energy.gov/sites/default/files/2026-04/DOE-HDBK-1017-93_VOL1.pdf",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/us-doe/doe-hdbk-1017-1-93-material-science.pdf"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: DOE_DIST_A_BASIS_2026_10_10,
+    },
+    CorpusLiterature {
+        id: "doe-hdbk-1017-2-93",
+        kind: LiteratureKind::Report,
+        title: "DOE Fundamentals Handbook: Material Science, Volume 2 of 2 (DOE-HDBK-1017/2-93)",
+        authors: &["U.S. Department of Energy"],
+        year: Some(1993),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+            "02-nuclear-safety/design-of-structures-systems-and-components",
+        ],
+        concept_document: None,
+        source_url: Some(
+            "https://www.energy.gov/sites/default/files/2026-04/DOE-HDBK-1017-93_VOL2.pdf",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/us-doe/doe-hdbk-1017-2-93-material-science.pdf"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: DOE_DIST_A_BASIS_2026_10_10,
+    },
+    CorpusLiterature {
+        id: "doe-hdbk-1015-1-93",
+        kind: LiteratureKind::Report,
+        title: "DOE Fundamentals Handbook: Chemistry, Volume 1 of 2 (DOE-HDBK-1015/1-93)",
+        authors: &["U.S. Department of Energy"],
+        year: Some(1993),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+            "02-nuclear-safety/reactor-coolant-system",
+        ],
+        concept_document: None,
+        source_url: Some(
+            "https://www.energy.gov/sites/default/files/2026-04/DOE-HDBK-1015-93_VOL1.pdf",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/us-doe/doe-hdbk-1015-1-93-chemistry.pdf"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: DOE_DIST_A_BASIS_2026_10_10,
+    },
+    CorpusLiterature {
+        id: "doe-hdbk-1015-2-93",
+        kind: LiteratureKind::Report,
+        title: "DOE Fundamentals Handbook: Chemistry, Volume 2 of 2 (DOE-HDBK-1015/2-93)",
+        authors: &["U.S. Department of Energy"],
+        year: Some(1993),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+            "02-nuclear-safety/reactor-coolant-system",
+        ],
+        concept_document: None,
+        source_url: Some(
+            "https://www.energy.gov/sites/default/files/2026-04/DOE-HDBK-1015-93_VOL2.pdf",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/us-doe/doe-hdbk-1015-2-93-chemistry.pdf"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: DOE_DIST_A_BASIS_2026_10_10,
+    },
+    CorpusLiterature {
+        id: "doe-hdbk-1014-1-92",
+        kind: LiteratureKind::Report,
+        title: "DOE Fundamentals Handbook: Mathematics, Volume 1 of 2 (DOE-HDBK-1014/1-92)",
+        authors: &["U.S. Department of Energy"],
+        year: Some(1992),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some(
+            "https://www.energy.gov/sites/default/files/2026-04/DOE-HDBK-1014-92_VOL1.pdf",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/us-doe/doe-hdbk-1014-1-92-mathematics.pdf"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: DOE_DIST_A_BASIS_2026_10_10,
+    },
+    CorpusLiterature {
+        id: "doe-hdbk-1014-2-92",
+        kind: LiteratureKind::Report,
+        title: "DOE Fundamentals Handbook: Mathematics, Volume 2 of 2 (DOE-HDBK-1014/2-92)",
+        authors: &["U.S. Department of Energy"],
+        year: Some(1992),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some(
+            "https://www.energy.gov/sites/default/files/2026-04/DOE-HDBK-1014-92_VOL2.pdf",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/us-doe/doe-hdbk-1014-2-92-mathematics.pdf"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: DOE_DIST_A_BASIS_2026_10_10,
     },
     CorpusLiterature {
         id: "nfwg-2020",
@@ -2604,14 +2717,16 @@ mod tests {
     fn literature_and_connections_point_at_real_nodes() {
         assert_eq!(
             LITERATURE.len(),
-            // ~~66~~ 92 since 2026-10-07: the 26 software-properties sources (#760).
-            92,
+            // ~~66~~ ~~92 since 2026-10-07: the 26 software-properties sources (#760).~~
+            // 98 since 2026-10-10: DOE-HDBK-1017, 1015 and 1014, two volumes each (#829).
+            98,
             "the maintainer's 2026-09-22 set, EPA FGR-11, FGR-13 and FGR-15 (2026-09-28), \
              the concept tree's 13 further documents (2026-10-06), and the software QA \
              set NUREG/BR-0167, DOE-STD-1172-2003 and DOE G 414.1-4 (2026-10-07, #760), Kendrick 2019 \
              (private, cited only), the NJOY2016 manual (2026-10-07, #760), the \
              22 IAEA-issue bedrock documents and 12 solver-pattern sources (2026-10-07, #760), \
-             and the 26 software-properties sources (2026-10-07, #760)"
+             the 26 software-properties sources (2026-10-07, #760), and the DOE Material \
+             Science, Chemistry and Mathematics handbooks (2026-10-10, #829)"
         );
         let mut ids = HashSet::new();
         for l in LITERATURE {

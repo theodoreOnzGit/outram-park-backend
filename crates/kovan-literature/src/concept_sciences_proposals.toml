@@ -136,6 +136,76 @@ licence = "Distribution Statement A: approved for public release; distribution i
 redistributable = true
 
 [[document]]
+id = "doe-hdbk-1017-1-93"
+title = "DOE-HDBK-1017/1-93, DOE Fundamentals Handbook: Material Science, Volume 1 of 2 (Modules 1-2: Structure of Metals; Properties of Metals)"
+publisher = "U.S. Department of Energy"
+date = "January 1993"
+holder = "standard"
+file = "kovan-standard-open-corpus/us-doe/doe-hdbk-1017-1-93-material-science.pdf"
+licence = "Distribution Statement A: approved for public release; distribution is unlimited (cover)"
+redistributable = true
+
+[[document]]
+id = "doe-hdbk-1017-2-93"
+title = "DOE-HDBK-1017/2-93, DOE Fundamentals Handbook: Material Science, Volume 2 of 2 (Modules 3-5: Thermal Shock; Brittle Fracture; Plant Materials)"
+publisher = "U.S. Department of Energy"
+date = "January 1993"
+holder = "standard"
+file = "kovan-standard-open-corpus/us-doe/doe-hdbk-1017-2-93-material-science.pdf"
+licence = "Distribution Statement A: approved for public release; distribution is unlimited (cover)"
+redistributable = true
+
+[[document]]
+id = "doe-hdbk-1015-1-93"
+title = "DOE-HDBK-1015/1-93, DOE Fundamentals Handbook: Chemistry, Volume 1 of 2 (Modules 1-2: Fundamentals of Chemistry; Corrosion)"
+publisher = "U.S. Department of Energy"
+date = "January 1993"
+holder = "standard"
+file = "kovan-standard-open-corpus/us-doe/doe-hdbk-1015-1-93-chemistry.pdf"
+licence = "Distribution Statement A: approved for public release; distribution is unlimited (cover)"
+redistributable = true
+
+[[document]]
+id = "doe-hdbk-1015-2-93"
+title = "DOE-HDBK-1015/2-93, DOE Fundamentals Handbook: Chemistry, Volume 2 of 2 (Modules 3-5: Reactor Water Chemistry; Principles of Water Treatment; Hazards of Chemicals and Gases)"
+publisher = "U.S. Department of Energy"
+date = "January 1993"
+holder = "standard"
+file = "kovan-standard-open-corpus/us-doe/doe-hdbk-1015-2-93-chemistry.pdf"
+licence = "Distribution Statement A: approved for public release; distribution is unlimited (cover)"
+redistributable = true
+
+[[document]]
+id = "doe-hdbk-1014-1-92"
+title = "DOE-HDBK-1014/1-92, DOE Fundamentals Handbook: Mathematics, Volume 1 of 2 (Modules 1-2: Review of Introductory Mathematics; Algebra)"
+publisher = "U.S. Department of Energy"
+date = "June 1992"
+holder = "standard"
+file = "kovan-standard-open-corpus/us-doe/doe-hdbk-1014-1-92-mathematics.pdf"
+licence = "Distribution Statement A: approved for public release; distribution is unlimited (cover)"
+redistributable = true
+
+[[document]]
+id = "doe-hdbk-1014-2-92"
+title = "DOE-HDBK-1014/2-92, DOE Fundamentals Handbook: Mathematics, Volume 2 of 2 (Modules 3-5: Geometry; Trigonometry; Higher Concepts of Mathematics)"
+publisher = "U.S. Department of Energy"
+date = "June 1992"
+holder = "standard"
+file = "kovan-standard-open-corpus/us-doe/doe-hdbk-1014-2-92-mathematics.pdf"
+licence = "Distribution Statement A: approved for public release; distribution is unlimited (cover)"
+redistributable = true
+
+[[document]]
+id = "nureg-1465"
+title = "NUREG-1465, Accident Source Terms for Light-Water Nuclear Power Plants, Final Report (L. Soffer, S.B. Burson, C.M. Ferrell, R.Y. Lee, J.N. Ridgely)"
+publisher = "U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research"
+date = "February 1995"
+holder = "theodore-open"
+file = "theodore-open-corpus/soffer2009nureg1465.pdf"
+licence = "U.S. NRC staff report, a U.S. Government Work (theodore-open-corpus README, section 3, NRC Site Disclaimer)"
+redistributable = true
+
+[[document]]
 id = "gomezzarzuela-2021-bubbly-flow"
 title = "C. Gomez-Zarzuela, C. Pena-Monferrer, S. Chiva, R. Miro, Development and validation of a one-dimensional solver in a CFD platform for boiling flows in bubbly regimes, Progress in Nuclear Energy 134 (2021) 103680"
 publisher = "Elsevier (open access)"
@@ -324,7 +394,7 @@ path = "sciences/physical-principles/conservation-laws/momentum-balance/solid-co
 title = "Momentum balance of a deforming solid (Cauchy equation of motion)"
 sources = []
 cross_links = ["sciences/physical-principles/constitutive-relations/hookes-law"]
-note = "source not yet read: no open document in the corpus states the Cauchy momentum equation for solids; see candidate documents"
+note = "source not yet read: no open document in the corpus states the Cauchy momentum equation for solids (DOE-HDBK-1017, read 2026-10-10, defines stress and strain but states no equation of motion); see candidate documents"
 status = "proposed"
 
 [[science]]
@@ -532,7 +602,7 @@ status = "proposed"
 [[science]]
 path = "sciences/physical-principles/constitutive-relations/hookes-law"
 title = "Hooke's law (linear elasticity)"
-sources = [{ document = "openstax-university-physics-1", section = "12.3 Stress, Strain, and Elastic Modulus, Eq. (12.33) stress = (elastic modulus) x strain" }]
+sources = [{ document = "doe-hdbk-1017-1-93", section = "Module 2 Properties of Metals, Young's Modulus: Hooke's Law (p. 11), Eq. (2-6) strain = stress / E; Young's Modulus (Elastic Modulus) (p. 12)" }, { document = "openstax-university-physics-1", section = "12.3 Stress, Strain, and Elastic Modulus, Eq. (12.33) stress = (elastic modulus) x strain" }]
 status = "proposed"
 
 [[science]]
@@ -589,7 +659,7 @@ status = "proposed"
 [[science]]
 path = "sciences/computation/problems/linear-systems"
 title = "Linear systems (Ax = b)"
-sources = [{ document = "ong-2024-tuas", section = "3.3. Code flow and structure for the Boussinesq Solver (energy balances formed as Ax = b, solved with LAPACK)" }, { document = "zhang-2023-fenrg-1101050", section = "2.4 Solution strategy, Eq. (15) Newton correction solved by restarted GMRES" }]
+sources = [{ document = "ong-2024-tuas", section = "3.3. Code flow and structure for the Boussinesq Solver (energy balances formed as Ax = b, solved with LAPACK)" }, { document = "zhang-2023-fenrg-1101050", section = "2.4 Solution strategy, Eq. (15) Newton correction solved by restarted GMRES" }, { document = "doe-hdbk-1014-1-92", section = "Module 2 Algebra, Simultaneous Equations (p. 31) (elimination)" }, { document = "doe-hdbk-1014-2-92", section = "Module 5 Higher Concepts of Mathematics, Matrices and Determinants: Using Matrices to Solve System of Linear Equation (Cramer's Rule) (p. 25)" }]
 status = "proposed"
 
 [[science]]
@@ -602,13 +672,13 @@ status = "proposed"
 [[science]]
 path = "sciences/computation/problems/quadrature"
 title = "Integration (quadrature)"
-sources = [{ document = "la-ur-17-20093", section = "8.12 Two-Body Scattering (Legendre components integrated by Gaussian quadrature; order chosen from the integrand's polynomial order, Eq. (319))" }]
+sources = [{ document = "la-ur-17-20093", section = "8.12 Two-Body Scattering (Legendre components integrated by Gaussian quadrature; order chosen from the integrand's polynomial order, Eq. (319))" }, { document = "doe-hdbk-1014-2-92", section = "Module 5 Higher Concepts of Mathematics, Calculus: Integral and Summations in Physical Systems (p. 41) (the integral as the limit of a summation over subintervals); Graphical Understanding of Integral (p. 43)" }]
 status = "proposed"
 
 [[science]]
 path = "sciences/computation/problems/ode-and-pde-evolution"
 title = "Evolution of ordinary and partial differential equations"
-sources = [{ document = "openmc-docs-depletion", section = "Depletion (introduction: a system of first-order ODEs with an initial value); Numerical Integration" }, { document = "nureg-km-0006", section = "3.3.3.6 Definition of a Coded Physical Function (discretisation by Taylor series)" }]
+sources = [{ document = "openmc-docs-depletion", section = "Depletion (introduction: a system of first-order ODEs with an initial value); Numerical Integration" }, { document = "nureg-km-0006", section = "3.3.3.6 Definition of a Coded Physical Function (discretisation by Taylor series)" }, { document = "doe-hdbk-1014-2-92", section = "Module 5 Higher Concepts of Mathematics, Calculus: Dynamic Systems (p. 30) (radioactive decay and reactor startup as continually changing quantities); Differentials and Derivatives (p. 30)" }]
 cross_links = ["sciences/physical-principles/conservation-laws"]
 status = "proposed"
 
@@ -622,7 +692,7 @@ status = "proposed"
 path = "sciences/computation/problems/optimisation"
 title = "Optimisation"
 sources = []
-note = "source not yet read: no held open document was read for optimisation"
+note = "source not yet read: no held open document was read for optimisation (DOE-HDBK-1014, read 2026-10-10, does not cover it)"
 status = "proposed"
 
 [[science]]
@@ -634,7 +704,7 @@ status = "proposed"
 [[science]]
 path = "sciences/computation/problems/function-approximation"
 title = "Function approximation (interpolation, series, rational approximation, fitting, surrogates)"
-sources = [{ document = "la-ur-17-20093", section = "3.2 Unionization and Linearization Strategy (interpolation laws); 3.3 Linearization and Reconstruction Methods" }, { document = "openmc-docs-depletion", section = "Matrix Exponential (Chebyshev rational approximation method, CRAM)" }, { document = "ong-2024-dissertation", section = "4.4 Surrogate Modelling Methods" }, { document = "nasa-hdbk-7009b", section = "3.2 Definitions, 'Surrogate model'; 4.5.2 Models of Models" }]
+sources = [{ document = "la-ur-17-20093", section = "3.2 Unionization and Linearization Strategy (interpolation laws); 3.3 Linearization and Reconstruction Methods" }, { document = "openmc-docs-depletion", section = "Matrix Exponential (Chebyshev rational approximation method, CRAM)" }, { document = "ong-2024-dissertation", section = "4.4 Surrogate Modelling Methods" }, { document = "nasa-hdbk-7009b", section = "3.2 Definitions, 'Surrogate model'; 4.5.2 Models of Models" }, { document = "doe-hdbk-1014-1-92", section = "Module 2 Algebra, Interpolation and Extrapolation (p. 90)" }]
 note = "NASA-HDBK-7009B as held is marked DRAFT"
 status = "proposed"
 
@@ -642,7 +712,7 @@ status = "proposed"
 path = "sciences/computation/problems/search-and-sorting"
 title = "Search and sorting"
 sources = []
-note = "source not yet read"
+note = "source not yet read (DOE-HDBK-1014, read 2026-10-10, does not cover it)"
 status = "proposed"
 
 [[science]]
@@ -670,7 +740,7 @@ status = "proposed"
 path = "sciences/computation/governing-theorems/conditioning"
 title = "Conditioning and numerical stability"
 sources = []
-note = "source not yet read"
+note = "source not yet read (DOE-HDBK-1014, read 2026-10-10, does not cover it)"
 status = "proposed"
 
 [[science]]
@@ -683,7 +753,7 @@ status = "proposed"
 [[science]]
 path = "sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem"
 title = "Law of large numbers and central limit theorem"
-sources = [{ document = "openmc-docs-tallies", section = "8.5 Statistics: 8.5.1 Law of Large Numbers; 8.5.2 Central Limit Theorem; 8.5.3.9 Confidence Intervals" }, { document = "la-ur-09-02377", section = "slides 'Bias in Keff & Tallies' (cycle-to-cycle correlation; statistics too small)" }]
+sources = [{ document = "openmc-docs-tallies", section = "8.5 Statistics: 8.5.1 Law of Large Numbers; 8.5.2 Central Limit Theorem; 8.5.3.9 Confidence Intervals" }, { document = "la-ur-09-02377", section = "slides 'Bias in Keff & Tallies' (cycle-to-cycle correlation; statistics too small)" }, { document = "doe-hdbk-1014-2-92", section = "Module 5 Higher Concepts of Mathematics, Statistics: The Mean (p. 2); Normal Distribution (p. 7) (estimators as sums or averages of many measurements); an elementary statement only" }]
 status = "proposed"
 
 [[science]]
@@ -696,7 +766,7 @@ status = "proposed"
 path = "sciences/computation/governing-theorems/amdahls-law"
 title = "Amdahl's law (parallel speed-up limit)"
 sources = []
-note = "source not yet read"
+note = "source not yet read (DOE-HDBK-1014, read 2026-10-10, does not cover it)"
 status = "proposed"
 
 [[science]]
@@ -948,35 +1018,34 @@ status = "proposed"
 [[science]]
 path = "sciences/materials"
 title = "Materials"
-sources = [{ document = "contescu-2022-graphite-oxidation", section = "3. Structure and Properties" }]
-note = "a general materials-science source is wanted for this umbrella; see candidate documents (DOE-HDBK-1017)"
+sources = [{ document = "doe-hdbk-1017-1-93", section = "Module 1 Structure of Metals: Bonding (p. 1); Common Lattice Types (p. 6); Imperfections in Metals (p. 18)" }, { document = "doe-hdbk-1017-2-93", section = "Module 5 Plant Materials: Properties Considered When Selecting Materials (p. 1)" }, { document = "contescu-2022-graphite-oxidation", section = "3. Structure and Properties" }]
 status = "proposed"
 
 [[science]]
 path = "sciences/materials/fuel-performance"
 title = "Fuel performance (fuel behaviour and fission-product release)"
-sources = [{ document = "fang-2021-htgr-fp-release", section = "2. Features of HTGR Fuel; 3. Transport Model of FPs" }, { document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Heat Generation: Fuel Changes During Reactor Operation (p. 50)" }]
+sources = [{ document = "fang-2021-htgr-fp-release", section = "2. Features of HTGR Fuel; 3. Transport Model of FPs" }, { document = "doe-hdbk-1012-2-92", section = "Module 2 Heat Transfer, Heat Generation: Fuel Changes During Reactor Operation (p. 50)" }, { document = "doe-hdbk-1017-2-93", section = "Module 5 Plant Materials, Nuclear Reactor Core Problems (p. 22): Fuel Pellet-Cladding Interaction; Effects on Fuel Due to Swelling and Core Burnup (p. 24)" }]
 cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/conservation-laws/energy-balance/heat-conduction-equation"]
 status = "proposed"
 
 [[science]]
 path = "sciences/materials/structural-mechanics"
 title = "Structural mechanics (stress, strain, mechanical properties)"
-sources = [{ document = "openstax-university-physics-1", section = "12.3 Stress, Strain, and Elastic Modulus" }, { document = "contescu-2022-graphite-oxidation", section = "5.2 Mechanical Properties" }]
+sources = [{ document = "doe-hdbk-1017-1-93", section = "Module 2 Properties of Metals: Stress (p. 1); Strain (p. 7); Stress-Strain Relationship (p. 15); Physical Properties (p. 20)" }, { document = "openstax-university-physics-1", section = "12.3 Stress, Strain, and Elastic Modulus" }, { document = "contescu-2022-graphite-oxidation", section = "5.2 Mechanical Properties" }]
 cross_links = ["sciences/physical-principles/constitutive-relations/hookes-law", "sciences/physical-principles/conservation-laws/momentum-balance/solid-continuum-momentum"]
 status = "proposed"
 
 [[science]]
 path = "sciences/materials/irradiation-damage"
 title = "Irradiation damage (displacements per atom, property change)"
-sources = [{ document = "la-ur-17-20093", section = "6.2 Theory of Damage Energy" }, { document = "contescu-2022-graphite-oxidation", section = "4.1 Irradiation" }]
+sources = [{ document = "la-ur-17-20093", section = "6.2 Theory of Damage Energy" }, { document = "contescu-2022-graphite-oxidation", section = "4.1 Irradiation" }, { document = "doe-hdbk-1017-2-93", section = "Module 5 Plant Materials: Atomic Displacement Due to Irradiation (p. 32); Thermal and Displacement Spikes Due to Irradiation (p. 35); Effect Due to Neutron Capture (p. 37)" }]
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter"]
 status = "proposed"
 
 [[science]]
 path = "sciences/materials/corrosion-and-chemistry"
 title = "Corrosion, oxidation and materials chemistry"
-sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation; 6. Brief Review of Oxidation Models" }]
+sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation; 6. Brief Review of Oxidation Models" }, { document = "doe-hdbk-1015-1-93", section = "Module 2 Corrosion: Corrosion Theory (p. 1); General Corrosion (p. 11); Crud and Galvanic Corrosion (p. 22); Specialized Corrosion (p. 27)" }, { document = "doe-hdbk-1017-1-93", section = "Module 2 Properties of Metals: Corrosion (p. 32); Hydrogen Embrittlement (p. 37)" }]
 cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
 status = "proposed"
 
@@ -992,6 +1061,72 @@ path = "sciences/human-factors"
 title = "Human factors"
 sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 18 Human Factors Engineering" }]
 note = "placeholder (maintainer: human factors come later); the only source read is a chapter title"
+status = "proposed"
+
+# ============================================================================
+# sciences/nuclear-chemistry (maintainer, 2026-10-10: "one more big node ... fission
+# product creation and transport (nuclear chemistry)"); a top-level discipline
+# beside neutronics, thermal hydraulics and materials
+# ============================================================================
+
+[[science]]
+path = "sciences/nuclear-chemistry"
+title = "Nuclear chemistry: fission product creation and transport"
+sources = [{ document = "doe-hdbk-1015-2-93", section = "Module 3 Reactor Water Chemistry, Chemistry Parameters: Radioactivity (p. 23); Fuel Element Failure (p. 28)" }, { document = "nureg-1465", section = "3.4 Fission Product Composition and Magnitude (p. 9)" }]
+status = "proposed"
+
+[[science]]
+path = "sciences/nuclear-chemistry/fission-product-yields"
+title = "Fission product yields (creation)"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Energy Release From Fission: Calculation of Fission Energy (p. 56), Figure 21 Uranium-235 Fission Yield vs. Mass Number" }, { document = "doe-hdbk-1019-2-93", section = "Module 3, Xenon: Production and Removal of Xenon-135 (p. 35) (fission yields of tellurium-135 and xenon-135)" }]
+cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/fission"]
+note = "the NJOY2016 manual (la-ur-17-20093) was searched 2026-10-10: it processes delayed-neutron and nu-bar yields but has no fission-product-yield (MF=8 MT=454/459) module, so it is not cited here"
+status = "proposed"
+
+[[science]]
+path = "sciences/nuclear-chemistry/decay-chains-and-inventory"
+title = "Decay chains and fission-product inventory"
+sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Modes of Radioactive Decay: Decay Chains (p. 27); Radioactivity: Radioactive Equilibrium (p. 38), Transient Radioactive Equilibrium (p. 40)" }, { document = "doe-hdbk-1019-2-93", section = "Module 3, Xenon: Production and Removal of Xenon-135 (p. 35); Samarium and Other Fission Product Poisons: Production and Removal of Samarium-149 (p. 43)" }]
+cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance"]
+status = "proposed"
+
+[[science]]
+path = "sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry"
+title = "Chemical speciation and thermochemistry of fission products"
+sources = [{ document = "doe-hdbk-1015-1-93", section = "Module 1 Fundamentals of Chemistry, Chemical Equations: Le Chatelier's Principle (p. 36); Acids, Bases, Salts, and pH: Dissociation Constant (p. 50)" }, { document = "nureg-1465", section = "3.5 Chemical Form (p. 10); 4.5 Iodine Chemical Form (p. 17)" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state"]
+note = "Gibbs-energy minimisation (CALPHAD) itself: source not yet read"
+status = "proposed"
+
+[[science]]
+path = "sciences/nuclear-chemistry/fission-product-release-from-fuel"
+title = "Fission product release from fuel (diffusion in fuel and coated particles)"
+sources = [{ document = "fang-2021-htgr-fp-release", section = "2. Features of HTGR Fuel; 3. Transport Model of FPs (Fick's first diffusion law)" }, { document = "doe-hdbk-1017-2-93", section = "Module 5 Plant Materials, Nuclear Reactor Core Problems: Effects on Fuel Due to Swelling and Core Burnup (pp. 24-25) (UO2 retains fission gases below about 1000 C)" }, { document = "nureg-1465", section = "3.2 Onset of Fission Product Release (p. 5)" }]
+cross_links = ["sciences/physical-principles/constitutive-relations/ficks-law", "sciences/materials/fuel-performance"]
+status = "proposed"
+
+[[science]]
+path = "sciences/nuclear-chemistry/transport-and-deposition-in-coolant"
+title = "Transport and deposition in the coolant (plate-out, aerosols, dust)"
+sources = [{ document = "doe-hdbk-1015-2-93", section = "Module 3 Reactor Water Chemistry, Chemistry Parameters: Fuel Element Failure (p. 28) (gaseous fission products more mobile; hold-up and decay in the ion exchanger)" }, { document = "doe-hdbk-1015-1-93", section = "Module 2 Corrosion, Crud and Galvanic Corrosion: Crud (p. 22) (corrosion products transported, deposited and activated)" }, { document = "nureg-1465", section = "5.5 Aerosol Deposition (p. 20)" }]
+cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
+note = "plate-out on metal surfaces and graphite dust in gas-cooled reactors: source not yet read"
+status = "proposed"
+
+[[science]]
+path = "sciences/nuclear-chemistry/radiolysis-and-coolant-chemistry"
+title = "Radiolysis and coolant chemistry"
+sources = [{ document = "doe-hdbk-1015-2-93", section = "Module 3 Reactor Water Chemistry, Effects of Radiation on Water Chemistry (Synthesis): Interaction of Radiation (p. 1); Chemistry Parameters (p. 12)" }]
+cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/photon-and-charged-particle-interactions", "sciences/materials/corrosion-and-chemistry"]
+note = "water only; radiolysis of molten salts and of helium impurities: source not yet read"
+status = "proposed"
+
+[[science]]
+path = "sciences/nuclear-chemistry/release-to-environment-and-dispersion"
+title = "Release to the environment and dispersion (source term, atmospheric and groundwater transport)"
+sources = [{ document = "nureg-1465", section = "3.6 Proposed Accident Source Terms (p. 12)" }, { document = "nureg-1555", section = "2.7 Meteorology and Air Quality, regulatory positions (pp. 2.7-5 to 2.7-6): atmospheric dispersion models of RG 1.111 (routine) and RG 1.145 (accident); 5.4.1 Exposure Pathways, I. Areas of Review" }]
+cross_links = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/conservation-laws/momentum-balance/porous-media-flow"]
+note = "groundwater transport of radionuclides: source not yet read"
 status = "proposed"
 
 # ============================================================================
@@ -1026,7 +1161,7 @@ status = "proposed"
 
 [[reference]]
 node = "02-nuclear-safety/reactor-coolant-system"
-sciences = ["sciences/thermal-hydraulics/single-phase-flow", "sciences/thermal-hydraulics/natural-circulation", "sciences/thermal-hydraulics/heat-exchangers", "sciences/materials/structural-mechanics"]
+sciences = ["sciences/thermal-hydraulics/single-phase-flow", "sciences/thermal-hydraulics/natural-circulation", "sciences/thermal-hydraulics/heat-exchangers", "sciences/materials/structural-mechanics", "sciences/nuclear-chemistry/radiolysis-and-coolant-chemistry", "sciences/nuclear-chemistry/transport-and-deposition-in-coolant"]
 status = "proposed"
 
 [[reference]]
@@ -1071,7 +1206,7 @@ status = "proposed"
 
 [[reference]]
 node = "02-nuclear-safety/accident-analysis"
-sciences = ["sciences/neutronics/reactor-kinetics", "sciences/neutronics/reactivity-feedback", "sciences/thermal-hydraulics/two-phase-flow", "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat", "sciences/computation/problems/root-finding", "sciences/computation/aims/trust/verifiability"]
+sciences = ["sciences/neutronics/reactor-kinetics", "sciences/neutronics/reactivity-feedback", "sciences/thermal-hydraulics/two-phase-flow", "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat", "sciences/computation/problems/root-finding", "sciences/computation/aims/trust/verifiability", "sciences/nuclear-chemistry/release-to-environment-and-dispersion"]
 status = "proposed"
 
 [[reference]]
@@ -1081,12 +1216,12 @@ status = "proposed"
 
 [[reference]]
 node = "02-nuclear-safety/severe-accidents"
-sciences = ["sciences/materials/corrosion-and-chemistry", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/thermal-hydraulics/two-phase-flow"]
+sciences = ["sciences/materials/corrosion-and-chemistry", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/thermal-hydraulics/two-phase-flow", "sciences/nuclear-chemistry/fission-product-release-from-fuel", "sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry", "sciences/nuclear-chemistry/transport-and-deposition-in-coolant"]
 status = "proposed"
 
 [[reference]]
 node = "02-nuclear-safety/source-terms"
-sciences = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/materials/fuel-performance"]
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/materials/fuel-performance", "sciences/nuclear-chemistry", "sciences/nuclear-chemistry/fission-product-yields", "sciences/nuclear-chemistry/fission-product-release-from-fuel", "sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry", "sciences/nuclear-chemistry/transport-and-deposition-in-coolant", "sciences/nuclear-chemistry/release-to-environment-and-dispersion"]
 status = "proposed"
 
 [[reference]]
@@ -1102,17 +1237,17 @@ status = "proposed"
 
 [[reference]]
 node = "13-environmental-protection/meteorology-and-air-quality"
-sciences = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations", "sciences/computation/problems/sampling-from-distributions"]
+sciences = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations", "sciences/computation/problems/sampling-from-distributions", "sciences/nuclear-chemistry/release-to-environment-and-dispersion"]
 status = "proposed"
 
 [[reference]]
 node = "13-environmental-protection/radiological-impacts-of-normal-operation"
-sciences = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/nuclear-chemistry/release-to-environment-and-dispersion"]
 status = "proposed"
 
 [[reference]]
 node = "14-emergency-planning/accident-assessment"
-sciences = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay"]
+sciences = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/nuclear-chemistry/release-to-environment-and-dispersion"]
 status = "proposed"
 
 [[reference]]
@@ -1122,7 +1257,7 @@ status = "proposed"
 
 [[reference]]
 node = "16-nuclear-fuel-cycle/fuel-depletion"
-sciences = ["sciences/neutronics/depletion-and-transmutation", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/computation/problems/ode-and-pde-evolution/predictor-corrector-depletion"]
+sciences = ["sciences/neutronics/depletion-and-transmutation", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/computation/problems/ode-and-pde-evolution/predictor-corrector-depletion", "sciences/nuclear-chemistry/fission-product-yields", "sciences/nuclear-chemistry/decay-chains-and-inventory"]
 status = "proposed"
 
 [[reference]]
@@ -1132,12 +1267,12 @@ status = "proposed"
 
 [[reference]]
 node = "16-nuclear-fuel-cycle/waste-disposal"
-sciences = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/conservation-laws/momentum-balance/porous-media-flow"]
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/conservation-laws/momentum-balance/porous-media-flow", "sciences/nuclear-chemistry/decay-chains-and-inventory", "sciences/nuclear-chemistry/release-to-environment-and-dispersion"]
 status = "proposed"
 
 [[reference]]
 node = "17-radioactive-waste-management/radioactive-waste-management"
-sciences = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance"]
+sciences = ["sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/nuclear-chemistry/decay-chains-and-inventory"]
 status = "proposed"
 
 [[reference]]
@@ -1177,7 +1312,7 @@ status = "proposed"
 
 [[reference]]
 node = "02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
-sciences = ["sciences/materials/fuel-performance", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/constitutive-relations/ficks-law", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay"]
+sciences = ["sciences/materials/fuel-performance", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/constitutive-relations/ficks-law", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/nuclear-chemistry/fission-product-release-from-fuel"]
 status = "proposed"
 
 [[reference]]
@@ -1279,7 +1414,7 @@ status = "proposed"
 [[reference]]
 crate = "boon-lay"
 module = "triso_atops_fork"
-sciences = ["sciences/materials/fuel-performance", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/constitutive-relations/ficks-law", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/computation/problems/ode-and-pde-evolution"]
+sciences = ["sciences/materials/fuel-performance", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/constitutive-relations/ficks-law", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/computation/problems/ode-and-pde-evolution", "sciences/nuclear-chemistry/fission-product-release-from-fuel"]
 status = "proposed"
 
 [[reference]]
@@ -1288,28 +1423,106 @@ module = "fatigue"
 sciences = ["sciences/materials/structural-mechanics", "sciences/physical-principles/constitutive-relations/hookes-law"]
 status = "proposed"
 
+[[reference]]
+crate = "outram-park-fork-thermochimica"
+module = "gem"
+sciences = ["sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/computation/problems/optimisation"]
+status = "proposed"
+
+[[reference]]
+crate = "boon-lay"
+module = "triso_atops_fork/activities"
+sciences = ["sciences/nuclear-chemistry/transport-and-deposition-in-coolant", "sciences/nuclear-chemistry/decay-chains-and-inventory"]
+status = "proposed"
+
+[[reference]]
+crate = "teh-o-prke"
+module = "feedback_mechanisms/fission_product_poisons"
+sciences = ["sciences/nuclear-chemistry/decay-chains-and-inventory", "sciences/nuclear-chemistry/fission-product-yields", "sciences/neutronics/reactivity-feedback"]
+status = "proposed"
+
+[[reference]]
+crate = "outram-park-fork-onix"
+module = "cram"
+sciences = ["sciences/nuclear-chemistry/decay-chains-and-inventory", "sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance", "sciences/computation/problems/function-approximation"]
+status = "proposed"
+
+[[reference]]
+crate = "boon-lay"
+module = "lagrangian_decay_simulator"
+sciences = ["sciences/nuclear-chemistry/decay-chains-and-inventory", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay", "sciences/computation/problems/sampling-from-distributions"]
+status = "proposed"
+
+[[reference]]
+crate = "boon-lay"
+module = "nuclide_reaction_and_decay_data"
+sciences = ["sciences/nuclear-chemistry/decay-chains-and-inventory", "sciences/computation/problems/data-representation"]
+status = "proposed"
+
+[[reference]]
+crate = "changi"
+module = "flexpart"
+sciences = ["sciences/nuclear-chemistry/release-to-environment-and-dispersion", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/computation/problems/sampling-from-distributions"]
+status = "proposed"
+
+[[reference]]
+crate = "changi"
+module = "puff"
+sciences = ["sciences/nuclear-chemistry/release-to-environment-and-dispersion", "sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
+status = "proposed"
+
+[[reference]]
+crate = "changi"
+module = "activity/accident_airborne_release"
+sciences = ["sciences/nuclear-chemistry/release-to-environment-and-dispersion"]
+status = "proposed"
+
+[[reference]]
+crate = "changi"
+module = "activity/chi_over_q"
+sciences = ["sciences/nuclear-chemistry/release-to-environment-and-dispersion"]
+status = "proposed"
+
+[[reference]]
+crate = "changi"
+module = "flexpart/dry_deposition"
+sciences = ["sciences/nuclear-chemistry/release-to-environment-and-dispersion"]
+status = "proposed"
+
+[[reference]]
+crate = "changi"
+module = "flexpart/wet_deposition"
+sciences = ["sciences/nuclear-chemistry/release-to-environment-and-dispersion"]
+status = "proposed"
+
+[[reference]]
+crate = "changi"
+module = "flexpart/decay"
+sciences = ["sciences/nuclear-chemistry/release-to-environment-and-dispersion", "sciences/nuclear-chemistry/decay-chains-and-inventory", "sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay"]
+status = "proposed"
+
+[[reference]]
+crate = "buangkok"
+module = "pydoseia/dispersion"
+sciences = ["sciences/nuclear-chemistry/release-to-environment-and-dispersion", "sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
+status = "proposed"
+
+[[reference]]
+crate = "outram-park-fork-pflotran"
+module = "reactive_transport"
+sciences = ["sciences/nuclear-chemistry/release-to-environment-and-dispersion", "sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/physical-principles/conservation-laws/momentum-balance/porous-media-flow", "sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry"]
+status = "proposed"
+
+[[reference]]
+crate = "outram-park-fork-pflotran"
+module = "flow/richards"
+sciences = ["sciences/physical-principles/conservation-laws/momentum-balance/porous-media-flow", "sciences/physical-principles/constitutive-relations/darcys-law", "sciences/nuclear-chemistry/release-to-environment-and-dispersion"]
+status = "proposed"
+
 # ============================================================================
 # Candidate documents for the maintainer to add to the corpus (not fetched,
 # not committed)
 # ============================================================================
-
-[[candidate]]
-title = "DOE-HDBK-1017/1-93 and /2-93, DOE Fundamentals Handbook: Material Science"
-url = "https://www.energy.gov/ehss/doe-fundamentals-handbooks"
-licence = "expected Distribution Statement A like the other DOE handbooks; check the cover"
-why = "materials umbrella, structure of metals, properties, radiation effects; same series as 1012/1019 already held"
-
-[[candidate]]
-title = "DOE-HDBK-1015/1-93 and /2-93, DOE Fundamentals Handbook: Chemistry"
-url = "https://www.energy.gov/ehss/doe-fundamentals-handbooks"
-licence = "expected Distribution Statement A; check the cover"
-why = "corrosion and chemistry node has only a graphite-specific source"
-
-[[candidate]]
-title = "DOE-HDBK-1014/1-92 and /2-92, DOE Fundamentals Handbook: Mathematics"
-url = "https://www.energy.gov/ehss/doe-fundamentals-handbooks"
-licence = "expected Distribution Statement A; check the cover"
-why = "an elementary open source for the numerics branch (calculus, numerical approximation)"
 
 [[candidate]]
 title = "OpenMC documentation, Theory and Methodology (whole 'methods' folder, at a pinned commit)"
