@@ -9,6 +9,14 @@
 
 VIII.0 alone: `keff_vs_height_endf8_2026_10_07.png`.
 
+> **Which record to quote (note added 2026-10-10, when this branch was merged
+> into develop).** This is the fast-statistics, paired before/after
+> comparison with `../htr10_seker_2026_10_01/`. Its value is the paired shift
+> and the counters (0 majorant violations, 0 delta-lost histories). For k vs
+> height numbers on the Şeker bed, quote
+> [`../htr10_seker_2026_10_07_10k/`](../htr10_seker_2026_10_07_10k/README.md):
+> the same code at 10 000 × [5 + 135], which supersedes the fast records.
+
 This repeats `../htr10_seker_2026_10_01/` with **identical settings**, so the
 two records form a paired before/after comparison. What changed in between is
 the code, not the inputs.
