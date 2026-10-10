@@ -273,7 +273,9 @@ fn ivv_end_to_end_signs_records_stamps_and_judges() {
     );
     assert!(attestation_choices_in(r.path(), BY).is_empty());
 
-    // The stamps.
+    // The stamps. `leaf` first: `twice` calls it, and stamping is bottom-up
+    // (#770, #740: a callee without a valid stamp blocks its caller).
+    r.stamp(&mk, "leaf", "Leaf first, bottom-up.");
     r.stamp(&mk, "twice", "First review.");
     verifier_stamps_via_dialog(&r, store.path(), &id);
     assert!(r

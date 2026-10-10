@@ -28,6 +28,7 @@ mod organisations_view;
 mod page_canvas;
 mod pdf_reader;
 mod plot_setup;
+mod review_mode_panel;
 mod rust_analyzer_view;
 mod saved_digitisation;
 #[cfg(test)]

@@ -88,6 +88,7 @@ pub mod organisations;
 pub mod queue;
 pub mod recent;
 pub mod relocate;
+pub mod review_mode;
 mod states;
 
 pub use states::{
@@ -341,6 +342,19 @@ pub struct StampContext {
     pub answers: BTreeMap<String, String>,
     /// This reviewer already has a review of the function (it is replaced).
     pub restamp: bool,
+    /// Added 2026-10-10 (#770, #740 decision 7): the function's hash when
+    /// the wizard opened. Signing refuses when the drafted hash differs
+    /// (the code changed while it was being reviewed).
+    pub hash: String,
+    /// Added 2026-10-10 (#770, #760 q11): the starting no-concept reason,
+    /// this reviewer's previous one, else "upstream control flow / solver
+    /// structure" for a confirmed port
+    /// ([`review_mode::prefill::no_concept_prefill`]).
+    pub no_concept: Option<String>,
+    /// Added 2026-10-10 (#770, #760 q11): the architecture node suggested
+    /// as a `part_of` relation, off until the reviewer accepts it
+    /// ([`review_mode::prefill::suggest_architecture`]).
+    pub suggested_architecture: Option<RelationRecord>,
 }
 
 /// Check that `function` can be stamped by `by` at `HEAD` now and gather
@@ -348,7 +362,10 @@ pub struct StampContext {
 /// [`draft_stamp`] refuses before the answers matter (no commit, not
 /// indexed, uncommitted changes in its file, index hash not the hash at
 /// `HEAD`, index entry out of date, a callee with no hash), with the same
-/// messages. Reads git; call it off the UI thread.
+/// messages, and (added 2026-10-10, #740: "bottom-up is an enforced rule")
+/// while a workspace callee has no valid stamp
+/// ([`review_mode::blockers_of`]; a recursion partner never blocks).
+/// Reads git and runs the staleness engine; call it off the UI thread.
 pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampContext, String> {
     let ws = load_workspace(root)?;
     let (idx, file, f) = locate(root, &ws, function)?;
@@ -359,6 +376,16 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
     let hashes = ws.hashes();
     if let Some(c) = f.callees.iter().find(|c| !hashes.contains_key(*c)) {
         return Err(DraftError::MissingCalleeHash(c.clone()).to_string());
+    }
+    let snap = review_mode::Snapshot::load(root)?;
+    let blocked = review_mode::blockers_of(&snap, &f.id);
+    if !blocked.is_empty() {
+        let names: Vec<&str> = blocked.iter().map(|(_, n)| n.as_str()).collect();
+        return Err(format!(
+            "bottom-up: {path} calls {} without a valid stamp; review {} first",
+            names.join(", "),
+            if names.len() == 1 { "it" } else { "them" }
+        ));
     }
     let folder = ws.reviews.get(&idx.dir);
     let mut msgs = states::MessageCache::new();
@@ -387,6 +414,11 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
             .entry("vv_case_author".to_string())
             .or_insert_with(|| a.to_string());
     }
+    let upstream = folder.and_then(|m| m.doc.upstream());
+    let architectures = ws
+        .reviews
+        .values()
+        .flat_map(|m| m.doc.architectures());
     Ok(StampContext {
         fn_id: f.id.clone(),
         call_graph_id: call_graph_id(idx, file, f),
@@ -395,6 +427,16 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
         applicability,
         answers,
         restamp: previous.is_some(),
+        hash: f.hash.clone(),
+        no_concept: review_mode::prefill::no_concept_prefill(
+            previous.and_then(|r| r.review.no_concept.as_deref()),
+            applicability.is_port,
+        ),
+        suggested_architecture: review_mode::prefill::suggest_architecture(
+            &f.id,
+            upstream,
+            architectures,
+        ),
     })
 }
 

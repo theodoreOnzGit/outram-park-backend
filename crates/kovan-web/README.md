@@ -57,7 +57,9 @@ written yet (a placeholder window, #740, #770).~~ **CORRECTED 2026-10-10**
 (#770): desktop kovan answers it with its stamp dialog (set up or pick a
 signing key, the review wizard with the derived rung, sign and write
 `review.md`, or a needs-fix), then pushes the states from `review.md` back
-with `CodeReview::set_stamps`.
+with `CodeReview::set_stamps`. Desktop review mode (#770) reads the
+selection with `CodeReview::selected_function` and moves the map along a
+review walk with `CodeReview::open_function_later`.
 
 ## Status
 

@@ -248,6 +248,26 @@ impl CodeReview {
         self.stamps = Some(Arc::new(stamps));
     }
 
+    /// The function selected on the module view, as the host is told about
+    /// it ([`FunctionRef`]): desktop kovan's review mode starts from it
+    /// (#770). `None` on the map and crate views, or before the code map
+    /// loads.
+    pub fn selected_function(&self) -> Option<FunctionRef> {
+        if !matches!(self.place.level, Level::Module { .. }) {
+            return None;
+        }
+        let id = self.place.selected.as_deref()?;
+        let snap = self.snapshot()?;
+        self.function_ref(&snap, id)
+    }
+
+    /// Go to function `id` (its module, selected) on the next frame, as a
+    /// deep link would: desktop kovan's review walk ([Next ▸], a blocking
+    /// callee) moves the map with it (#770).
+    pub fn open_function_later(&mut self, id: &str) {
+        self.pending = Some(DeepLink::Function { id: id.to_string(), source: false });
+    }
+
     fn repaint(ctx: &egui::Context) -> impl Fn() + Clone + Send + 'static {
         let ctx = ctx.clone();
         move || ctx.request_repaint()
@@ -1071,6 +1091,22 @@ mod tests {
         assert_eq!(r.source.as_deref(), Some(id));
         r.back();
         assert_eq!(r.place.level, Level::Map);
+    }
+
+    /// The host's review mode (#770): the selected function is reported
+    /// only on the module view, with its crate and file; a walk's "open
+    /// later" is held as a pending deep link to the function.
+    #[test]
+    fn selected_function_and_open_later_for_the_host() {
+        let id = "crates/bl/src/chem.rs::Pool::rate";
+        let mut d = CodeReview::new(Mode::Desktop, DataSource::Dir { data: std::env::temp_dir(), workspace: ".".into() });
+        d.place.selected = Some(id.into());
+        assert_eq!(d.selected_function(), None, "not on the module view");
+        d.place.level = Level::Module { krate: "bl".into(), file: "crates/bl/src/chem.rs".into() };
+        // The code map is not loaded from an empty folder: nothing yet.
+        assert_eq!(d.selected_function(), None);
+        d.open_function_later(id);
+        assert_eq!(d.pending, Some(DeepLink::Function { id: id.into(), source: false }));
     }
 
     /// Stamps the host pushes replace the data's in every snapshot, so the

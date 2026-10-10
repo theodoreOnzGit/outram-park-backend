@@ -17,7 +17,9 @@
 //!            key not in kovan_root.toml? ── Stamp ──> Register (worker) ──> Loading
 //!                            │
 //!            Stamp ──> Preparing (worker: prepare_stamp)
-//!                            ├─ refused ──> Refused (verbatim + hint, "Try again")
+//!                            ├─ refused ──> Refused (verbatim + hint, "Try again";
+//!                            │              since 2026-10-10 also bottom-up: a callee
+//!                            │              without a valid stamp, #740)
 //!                            v
 //!                         Wizard ── live stamp_gate; "Mark as Needs fix instead?" ─┐
 //!                            │ passphrase                                          │
@@ -64,7 +66,7 @@ use kovan_common::review::ivv_view::AttestationChoice;
 use zeroize::Zeroize;
 
 use super::organisations::attestation_choices_in;
-
+use super::review_mode::prefill::NoConceptForm;
 use super::{
     draft_needs_fix_for, draft_stamp, prepare_stamp, register_key, stamp_states, write_needs_fix,
     write_review, KeyRegistration, StampContext, StampRequest, WrittenEntry, ROOT_FILE,
@@ -218,6 +220,10 @@ pub fn refusal_hint(message: &str) -> &'static str {
         || message.contains("out of date")
     {
         "The index is out of date for this function: run Index fresh in the Code Map tab, then Try again."
+    } else if message.starts_with("bottom-up") {
+        "Bottom-up (#740): review the callees listed first, through the review bar's \"blocked by\" links or the review walk, then Try again."
+    } else if message.contains("changed while") {
+        "Look at the new diff in the review panel, then sign again: your answers and comments are kept."
     } else if message.contains(ROOT_FILE) {
         "kovan_root.toml cannot be read: run Index fresh in the Code Map tab to repair it."
     } else {
@@ -280,6 +286,9 @@ pub struct WizardForm {
     /// The one this review relies on for rung 5; `None` (the default):
     /// the review claims no IV&V. Signed into the stamp.
     pub separation_attestation: Option<String>,
+    /// Added 2026-10-10 (#770, #740 U3): the "no concept" reason, started
+    /// from the context's prefill.
+    pub no_concept: NoConceptForm,
 }
 
 impl Drop for WizardForm {
@@ -300,6 +309,7 @@ impl WizardForm {
                 texts.insert(q.clone(), t.to_string());
             }
         }
+        let no_concept = NoConceptForm::from_stored(ctx.no_concept.as_deref());
         WizardForm {
             ctx,
             options,
@@ -308,6 +318,7 @@ impl WizardForm {
             passphrase: String::new(),
             attestations: Vec::new(),
             separation_attestation: None,
+            no_concept,
         }
     }
 
@@ -343,6 +354,15 @@ impl WizardForm {
                 Some((q.key.clone(), format_answer(o, text)))
             })
             .collect()
+    }
+
+    /// The `part_of` relations the stamp carries: the suggested
+    /// architecture node, when the reviewer accepted it (never silently).
+    pub fn relations(&self) -> Vec<kovan_common::artifact::relation::RelationRecord> {
+        match (&self.ctx.suggested_architecture, self.no_concept.link_architecture) {
+            (Some(r), true) => vec![r.clone()],
+            _ => Vec::new(),
+        }
     }
 
     /// The live stamp gate over the answers.
@@ -465,6 +485,9 @@ pub struct StampFlow {
     /// `kovan_root.toml` after a key registration): what commit-and-push
     /// may commit (GitHub #771, `super::commit_push`).
     pub wrote: BTreeSet<String>,
+    /// Added 2026-10-10 (#770): comments the review panel's sidebar holds
+    /// for this function, put into the wizard's Comments when it opens.
+    pub comments_seed: String,
 }
 
 impl StampFlow {
@@ -491,6 +514,7 @@ impl StampFlow {
             target_state: None,
             refresh_error: None,
             wrote: BTreeSet::new(),
+            comments_seed: String::new(),
         };
         f.load_keys();
         f
@@ -597,6 +621,7 @@ impl StampFlow {
                 Some(Ok((ctx, attestations))) => {
                     let mut w = WizardForm::new(ctx);
                     w.attestations = attestations;
+                    w.comments = self.comments_seed.clone();
                     self.wizard = Some(w);
                     self.step = Step::Wizard;
                 }
@@ -750,7 +775,11 @@ impl StampFlow {
             && self
                 .wizard
                 .as_ref()
-                .is_some_and(|w| !w.passphrase.is_empty() && w.gate().stampable())
+                .is_some_and(|w| {
+                    !w.passphrase.is_empty()
+                        && w.gate().stampable()
+                        && w.no_concept.problem().is_none()
+                })
     }
 
     /// Unlock the key, draft the stamp with the wizard's answers at `HEAD`,
@@ -767,6 +796,9 @@ impl StampFlow {
         let answers = w.answers();
         let comments = w.comments.clone();
         let separation_attestation = w.separation_attestation.clone();
+        let no_concept = w.no_concept.stored();
+        let relations = w.relations();
+        let seen_hash = w.ctx.hash.clone();
         let (root, ks, function) = (
             self.root.clone(),
             self.keystore.clone(),
@@ -789,9 +821,19 @@ impl StampFlow {
                 by: k.reviewer.clone(),
                 checklist: answers.clone(),
                 separation_attestation,
+                no_concept,
+                relations,
                 ..StampRequest::default()
             };
             let mut d = draft_stamp(&root, &req).map_err(SignFailure::Other)?;
+            // #740 decision 7: never certify code the reviewer was not shown.
+            if !seen_hash.is_empty() && d.entry.review.hash != seen_hash {
+                return Err(SignFailure::Other(
+                    "the function changed while you were reviewing it (a pull, a checkout or a \
+                     quick fix): the stamp is refused"
+                        .into(),
+                ));
+            }
             if d.entry.review.checklist != answers {
                 return Err(SignFailure::Other(
                     "the drafted checklist is not the answers given".into(),
