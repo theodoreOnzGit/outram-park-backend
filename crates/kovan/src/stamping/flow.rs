@@ -62,6 +62,7 @@ use kovan_common::review::wizard::{
 };
 use zeroize::Zeroize;
 
+use super::review_mode::prefill::NoConceptForm;
 use super::{
     draft_needs_fix_for, draft_stamp, prepare_stamp, register_key, stamp_states, write_needs_fix,
     write_review, KeyRegistration, StampContext, StampRequest, WrittenEntry, ROOT_FILE,
@@ -215,6 +216,10 @@ pub fn refusal_hint(message: &str) -> &'static str {
         || message.contains("out of date")
     {
         "The index is out of date for this function: run Index fresh in the Code Map tab, then Try again."
+    } else if message.starts_with("bottom-up") {
+        "Bottom-up (#740): review the callees listed first, through the review bar's \"blocked by\" links or the review walk, then Try again."
+    } else if message.contains("changed while") {
+        "Look at the new diff in the review panel, then sign again: your answers and comments are kept."
     } else if message.contains(ROOT_FILE) {
         "kovan_root.toml cannot be read: run Index fresh in the Code Map tab to repair it."
     } else {
@@ -271,6 +276,9 @@ pub struct WizardForm {
     /// Free text written under the entry in `review.md`.
     pub comments: String,
     pub passphrase: String,
+    /// Added 2026-10-10 (#770, #740 U3): the "no concept" reason, started
+    /// from the context's prefill.
+    pub no_concept: NoConceptForm,
 }
 
 impl Drop for WizardForm {
@@ -291,12 +299,14 @@ impl WizardForm {
                 texts.insert(q.clone(), t.to_string());
             }
         }
+        let no_concept = NoConceptForm::from_stored(ctx.no_concept.as_deref());
         WizardForm {
             ctx,
             options,
             texts,
             comments: String::new(),
             passphrase: String::new(),
+            no_concept,
         }
     }
 
@@ -332,6 +342,15 @@ impl WizardForm {
                 Some((q.key.clone(), format_answer(o, text)))
             })
             .collect()
+    }
+
+    /// The `part_of` relations the stamp carries: the suggested
+    /// architecture node, when the reviewer accepted it (never silently).
+    pub fn relations(&self) -> Vec<kovan_common::artifact::relation::RelationRecord> {
+        match (&self.ctx.suggested_architecture, self.no_concept.link_architecture) {
+            (Some(r), true) => vec![r.clone()],
+            _ => Vec::new(),
+        }
     }
 
     /// The live stamp gate over the answers.
@@ -450,6 +469,9 @@ pub struct StampFlow {
     /// or nothing recorded for it).
     pub target_state: Option<WebStamp>,
     pub refresh_error: Option<String>,
+    /// Added 2026-10-10 (#770): comments the review panel's sidebar holds
+    /// for this function, put into the wizard's Comments when it opens.
+    pub comments_seed: String,
 }
 
 impl StampFlow {
@@ -475,6 +497,7 @@ impl StampFlow {
             states: None,
             target_state: None,
             refresh_error: None,
+            comments_seed: String::new(),
         };
         f.load_keys();
         f
@@ -575,7 +598,9 @@ impl StampFlow {
                     self.step = Step::Refused { message, hint };
                 }
                 Some(Ok(ctx)) => {
-                    self.wizard = Some(WizardForm::new(ctx));
+                    let mut w = WizardForm::new(ctx);
+                    w.comments = self.comments_seed.clone();
+                    self.wizard = Some(w);
                     self.step = Step::Wizard;
                 }
             },
@@ -727,7 +752,11 @@ impl StampFlow {
             && self
                 .wizard
                 .as_ref()
-                .is_some_and(|w| !w.passphrase.is_empty() && w.gate().stampable())
+                .is_some_and(|w| {
+                    !w.passphrase.is_empty()
+                        && w.gate().stampable()
+                        && w.no_concept.problem().is_none()
+                })
     }
 
     /// Unlock the key, draft the stamp with the wizard's answers at `HEAD`,
@@ -743,6 +772,9 @@ impl StampFlow {
         let mut pass = std::mem::take(&mut w.passphrase);
         let answers = w.answers();
         let comments = w.comments.clone();
+        let no_concept = w.no_concept.stored();
+        let relations = w.relations();
+        let seen_hash = w.ctx.hash.clone();
         let (root, ks, function) = (
             self.root.clone(),
             self.keystore.clone(),
@@ -764,9 +796,19 @@ impl StampFlow {
                 function,
                 by: k.reviewer.clone(),
                 checklist: answers.clone(),
+                no_concept,
+                relations,
                 ..StampRequest::default()
             };
             let mut d = draft_stamp(&root, &req).map_err(SignFailure::Other)?;
+            // #740 decision 7: never certify code the reviewer was not shown.
+            if !seen_hash.is_empty() && d.entry.review.hash != seen_hash {
+                return Err(SignFailure::Other(
+                    "the function changed while you were reviewing it (a pull, a checkout or a \
+                     quick fix): the stamp is refused"
+                        .into(),
+                ));
+            }
             if d.entry.review.checklist != answers {
                 return Err(SignFailure::Other(
                     "the drafted checklist is not the answers given".into(),

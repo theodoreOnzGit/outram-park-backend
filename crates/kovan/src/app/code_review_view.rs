@@ -450,6 +450,9 @@ mod tests {
             applicability: Default::default(),
             answers: [("doc_matches_behaviour".to_string(), "partly".to_string())].into(),
             restamp: true,
+            hash: String::new(),
+            no_concept: Some("other: a test".into()),
+            suggested_architecture: None,
         };
         let steps = [
             Step::Loading,

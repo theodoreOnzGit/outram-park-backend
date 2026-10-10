@@ -30,6 +30,9 @@ fn context(answers: BTreeMap<String, String>) -> StampContext {
         applicability: Applicability::default(),
         answers,
         restamp: false,
+        hash: String::new(),
+        no_concept: None,
+        suggested_architecture: None,
     }
 }
 
@@ -156,7 +159,8 @@ fn register_key_honours_a_declared_founder() {
 }
 
 /// Methodology: the whole dialog on the fixture with an empty temporary
-/// keystore: open on `twice`, set up a key (generate, save, register as
+/// keystore: open on `leaf` (no callees: since 2026-10-10 bottom-up is
+/// enforced, so `twice` would be refused until `leaf` is stamped), set up a key (generate, save, register as
 /// founder), get the wizard, answer, sign with a wrong passphrase (refused,
 /// nothing written, answers kept), sign with the right one, refresh;
 /// commit `review.md` as the maintainer would, refresh again. Then open it
@@ -175,7 +179,7 @@ fn flow_sets_up_a_key_signs_and_turns_valid() {
         r.path().to_path_buf(),
         ks.clone(),
         Purpose::Stamp,
-        target("twice"),
+        target("leaf"),
     );
     f.wait();
     assert_eq!(f.step, Step::SetupKey);
@@ -232,10 +236,10 @@ fn flow_sets_up_a_key_signs_and_turns_valid() {
     assert_eq!(entry.review.checklist, clean(), "signed = answered");
     assert!(entry.review.signature.is_some() && md.contains("Checked by hand."));
     assert!(f.take_states().is_some());
-    let s = f.target_state.clone().expect("a state for twice");
+    let s = f.target_state.clone().expect("a state for leaf");
     assert_eq!(s.state, Some(StateKind::Unverified), "{}", s.reason);
 
-    r.commit("stamp twice");
+    r.commit("stamp leaf");
     f.refresh();
     f.wait();
     let s = f.target_state.clone().unwrap();
@@ -246,7 +250,7 @@ fn flow_sets_up_a_key_signs_and_turns_valid() {
         s.reason
     );
 
-    let mut again = StampFlow::new(r.path().to_path_buf(), ks, Purpose::Stamp, target("twice"));
+    let mut again = StampFlow::new(r.path().to_path_buf(), ks, Purpose::Stamp, target("leaf"));
     again.wait();
     assert_eq!(again.step, Step::Wizard);
     let w = again.wizard.as_ref().unwrap();
@@ -254,8 +258,8 @@ fn flow_sets_up_a_key_signs_and_turns_valid() {
     assert_eq!(w.answers(), clean());
 }
 
-/// Methodology: with a registered founder key, open Stamp on `twice` while
-/// its file has an uncommitted edit, then revert and Try again, then take
+/// Methodology: with a registered founder key, open Stamp on `leaf` (was
+/// `twice` until bottom-up was enforced, 2026-10-10) while its file has an uncommitted edit, then revert and Try again, then take
 /// "Mark as Needs fix instead?" and write the needs-fix. Pass: the
 /// refusal is shown verbatim with the commit-or-stash hint, the retry
 /// reaches the wizard, and the needs-fix is written (unsigned, as the
@@ -272,7 +276,7 @@ fn flow_refuses_a_dirty_file_then_writes_needs_fix() {
         r.path().to_path_buf(),
         Keystore::at(store.path()),
         Purpose::Stamp,
-        target("twice"),
+        target("leaf"),
     );
     f.wait();
     let Step::Refused { message, hint } = &f.step else {
@@ -317,7 +321,7 @@ fn flow_without_root_and_with_several_keys() {
         r.path().to_path_buf(),
         ks.clone(),
         Purpose::Stamp,
-        target("twice"),
+        target("leaf"),
     );
     f.wait();
     assert_eq!(f.step, Step::NoRoot);
@@ -327,7 +331,7 @@ fn flow_without_root_and_with_several_keys() {
     founder_key(&r, store.path());
     let (kf, _) = generate("github:second", "s1", &today(), PASS).unwrap();
     ks.save(&kf).unwrap();
-    let mut f = StampFlow::new(r.path().to_path_buf(), ks, Purpose::Stamp, target("twice"));
+    let mut f = StampFlow::new(r.path().to_path_buf(), ks, Purpose::Stamp, target("leaf"));
     f.wait();
     assert_eq!(f.step, Step::PickKey);
     f.chosen = f
