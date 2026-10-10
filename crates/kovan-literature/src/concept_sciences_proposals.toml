@@ -766,7 +766,7 @@ cost_scaling = "one transport sweep (or one generation of histories) per iterati
 status = "proposed"
 
 [[science]]
-path = "sciences/computation/problems/linear-systems/gmres"
+path = "sciences/computation/problems/linear-systems/krylov-gmres"
 title = "Restarted GMRES (Krylov subspace method)"
 kind = "method"
 dated = "2026-10-10"
@@ -777,7 +777,7 @@ memory = "restart length m: m basis vectors stored"
 status = "proposed"
 
 [[science]]
-path = "sciences/computation/problems/ode-and-pde-evolution/finite-volume"
+path = "sciences/computation/problems/ode-and-pde-evolution/finite-volume-discretisation"
 title = "Finite volume method"
 kind = "method"
 dated = "2026-10-10"
@@ -1172,7 +1172,7 @@ status = "proposed"
 
 [[reference]]
 node = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics"
-sciences = ["sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations", "sciences/physical-principles/conservation-laws/mass-balance/continuity-equation", "sciences/computation/problems/ode-and-pde-evolution/finite-volume", "sciences/computation/problems/root-finding"]
+sciences = ["sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations", "sciences/physical-principles/conservation-laws/mass-balance/continuity-equation", "sciences/computation/problems/ode-and-pde-evolution/finite-volume-discretisation", "sciences/computation/problems/root-finding"]
 status = "proposed"
 
 [[reference]]
@@ -1237,13 +1237,13 @@ status = "proposed"
 [[reference]]
 crate = "outram-foam-basic-lib"
 module = "fv_operators"
-sciences = ["sciences/physical-principles/conservation-laws", "sciences/computation/problems/ode-and-pde-evolution/finite-volume", "sciences/computation/aims/trust/structure-preservation", "sciences/computation/problems/linear-systems"]
+sciences = ["sciences/physical-principles/conservation-laws", "sciences/computation/problems/ode-and-pde-evolution/finite-volume-discretisation", "sciences/computation/aims/trust/structure-preservation", "sciences/computation/problems/linear-systems"]
 status = "proposed"
 
 [[reference]]
 crate = "outram-foam-appbuilder-lib"
 module = "solvers/pimple_foam"
-sciences = ["sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations", "sciences/physical-principles/conservation-laws/mass-balance/continuity-equation", "sciences/physical-principles/constitutive-relations/newtonian-viscous-stress", "sciences/computation/problems/ode-and-pde-evolution/finite-volume", "sciences/computation/problems/root-finding", "sciences/computation/problems/linear-systems"]
+sciences = ["sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations", "sciences/physical-principles/conservation-laws/mass-balance/continuity-equation", "sciences/physical-principles/constitutive-relations/newtonian-viscous-stress", "sciences/computation/problems/ode-and-pde-evolution/finite-volume-discretisation", "sciences/computation/problems/root-finding", "sciences/computation/problems/linear-systems"]
 status = "proposed"
 
 [[reference]]
@@ -1255,7 +1255,7 @@ status = "proposed"
 [[reference]]
 crate = "tuas_boussinesq_solver"
 module = "lib/pre_built_components/ciet_nat_circ_tests"
-sciences = ["sciences/thermal-hydraulics/natural-circulation", "sciences/physical-principles/conservation-laws/energy-balance/enthalpy-balance", "sciences/physical-principles/conservation-laws/momentum-balance", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state", "sciences/computation/problems/ode-and-pde-evolution/semi-implicit-time-coupling", "sciences/computation/problems/root-finding", "sciences/computation/problems/ode-and-pde-evolution/finite-volume"]
+sciences = ["sciences/thermal-hydraulics/natural-circulation", "sciences/physical-principles/conservation-laws/energy-balance/enthalpy-balance", "sciences/physical-principles/conservation-laws/momentum-balance", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state", "sciences/computation/problems/ode-and-pde-evolution/semi-implicit-time-coupling", "sciences/computation/problems/root-finding", "sciences/computation/problems/ode-and-pde-evolution/finite-volume-discretisation"]
 status = "proposed"
 
 [[reference]]
