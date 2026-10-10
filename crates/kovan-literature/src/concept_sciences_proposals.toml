@@ -312,7 +312,7 @@ publisher = "OpenStax, Rice University"
 date = "read 10 October 2026"
 holder = "web"
 url = "https://openstax.org/books/university-physics-volume-1/pages/12-3-stress-strain-and-elastic-modulus"
-licence = "the page states CC BY-NC-SA (non-commercial, share-alike); check before quoting"
+licence = "CC BY-NC-SA (non-commercial, share-alike), stated on the page; accepted by the maintainer 2026-10-10"
 redistributable = true
 
 [[document]]
@@ -322,7 +322,7 @@ publisher = "OpenStax, Rice University"
 date = "read 10 October 2026"
 holder = "web"
 url = "https://openstax.org/books/university-physics-volume-2/pages/2-4-distribution-of-molecular-speeds"
-licence = "the page states CC BY-NC-SA (non-commercial, share-alike); check before quoting"
+licence = "CC BY-NC-SA (non-commercial, share-alike), stated on the page; accepted by the maintainer 2026-10-10"
 redistributable = true
 
 # ============================================================================
