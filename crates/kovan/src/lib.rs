@@ -111,6 +111,10 @@ pub mod runtime_graph;
 pub mod rust_analyzer_setup;
 pub mod save_push;
 pub mod scip;
+/// Signed review stamps for desktop kovan's stamp dialog (GitHub #770,
+/// #762, #765): draft, write `review.md`, register keys, per-function
+/// states from `review.md`. GUI-free. See [`stamping`].
+pub mod stamping;
 pub mod sync;
 pub mod tui;
 /// Zotero import into a Kovan folder and export from it (GitHub #752,

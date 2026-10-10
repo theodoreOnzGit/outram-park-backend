@@ -145,7 +145,10 @@ pub enum StampVerdict {
     Stale,
 }
 
-/// One stamp, judged (from `kovan::review_stamps::check`).
+/// One stamp, judged: from the first-version `review/stamps.toml` checker
+/// (`kovan::review_stamps::check`, what `kovan-cli call-graph --split-dir`
+/// writes today), or since 2026-10-10 from `review.md` through the
+/// staleness engine (`kovan::stamping::stamp_states`, which fills `state`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StampState {
     /// The stamped function's id (code-walk path form).
