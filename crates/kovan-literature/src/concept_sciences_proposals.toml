@@ -524,7 +524,7 @@ path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/la
 title = "First law of thermodynamics (energy conservation, heat and work)"
 sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, First Law of Thermodynamics (p. 53), Figure 14" }]
 cross_links = ["sciences/physical-principles/conservation-laws/energy-balance"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy"
@@ -532,15 +532,15 @@ title = "Second law of thermodynamics and entropy (classical: irreversibility, C
 sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Second Law of Thermodynamics (p. 69); Entropy (p. 70); Figure 23 Control Volume for Second Law Analysis" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/entropy-and-microstates"]
 note = "maintainer, 2026-10-10: classical is fine; the statistical explanation is linked, not merged"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion"
 title = "Random thermal motion: the statistical origin of entropy and diffusion"
-sources = [{ document = "openstax-college-physics-2e-part04", section = "15.7 Statistical Interpretation of Entropy and the Second Law of Thermodynamics; 12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes" }]
+sources = [{ document = "openstax-college-physics-2e-part04", section = "15.7 Statistical Interpretation of Entropy and the Second Law of Thermodynamics" }, { document = "openstax-college-physics-2e-part03", section = "12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy", "sciences/physical-principles/constitutive-relations/ficks-law"]
 note = "maintainer, 2026-10-10: from a first-principles understanding, statistical motion explains what we see in the second law, diffusion etc."
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/entropy-and-microstates"
@@ -548,14 +548,14 @@ title = "Entropy and microstates (S = k ln W; the most probable macrostate)"
 sources = [{ document = "openstax-college-physics-2e-part04", section = "15.7 Statistical Interpretation of Entropy and the Second Law of Thermodynamics, Eq. (15.68) S = k ln W" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy"]
 note = "OpenStax University Physics 2, 4.7 Entropy on a Microscopic Scale, was read 2026-10-10 and does not state S = k ln W, so it is not cited"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/random-walk-and-diffusion"
 title = "Random walk and diffusion (rms displacement grows as the square root of time)"
 sources = [{ document = "openstax-college-physics-2e-part03", section = "12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes, Eq. (12.58) x_rms = sqrt(2Dt)" }]
 cross_links = ["sciences/physical-principles/constitutive-relations/ficks-law", "sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/kinetic-theory-of-gases"
@@ -563,7 +563,7 @@ title = "Kinetic theory of gases (pressure, temperature and mean free path from 
 sources = [{ document = "openstax-university-physics-2", section = "2.2 Pressure, Temperature, and RMS Speed: Eq. (2.5) pV = (1/3)Nm<v^2>, Eq. (2.6) mean kinetic energy (3/2)kT, Eq. (2.10) mean free path" }]
 cross_links = ["sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state", "sciences/physical-principles/constitutive-relations/newtonian-viscous-stress", "sciences/physical-principles/constitutive-relations/fouriers-law"]
 note = "maintainer, 2026-10-10: kinetic theory of gases falls under Boltzmann too. Boltzmann's equation was written for gas molecules colliding with each other (nonlinear); neutron transport is its linear form, because neutrons collide with the medium and not with each other. Its equilibrium is the Maxwell-Boltzmann distribution, and the Chapman-Enskog expansion gives viscosity and conductivity: source not yet read for the Boltzmann equation of gases, the H-theorem or Chapman-Enskog"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state"
@@ -582,6 +582,45 @@ path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/ma
 title = "Maxwell-Boltzmann distribution"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 2, Neutron Flux Spectrum: Most Probable Neutron Velocities (p. 35) (the Maxwell distribution of thermal neutrons)" }, { document = "la-ur-17-20093", section = "4.1 Doppler-Broadening Theory, Eq. (83)" }, { document = "openstax-university-physics-2", section = "2.4 Distribution of Molecular Speeds, The Maxwell-Boltzmann Distribution" }]
 status = "approved"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views"
+title = "Disciplinary views of thermodynamics (one set of laws, different emphasis)"
+sources = []
+note = "maintainer, 2026-10-11: \"Each discipline uses the same underlying principle with different emphasis\": mechanical engineering (heat engines), chemical engineering (solution thermodynamics), chemistry (Gibbs free energy), materials science (thermodynamics of crystalline solids). A grouping node: source not yet read for a text that compares the disciplines; each child carries its own"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/heat-engines-and-power-cycles"
+title = "Heat engines and power cycles (mechanical engineering view: Carnot, Rankine)"
+sources = [{ document = "doe-hdbk-1012-1-92", section = "Module 1 Thermodynamics, Second Law of Thermodynamics: Carnot's Principle, Carnot Cycle (p. 71), Figure 21; Rankine Cycle (Figure 31, p. 88); Typical Steam Cycle (p. 90)" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/first-law", "sciences/thermal-hydraulics/heat-exchangers"]
+note = "emphasis: work from heat, cycle efficiency against the Carnot limit"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/solution-thermodynamics"
+title = "Solution thermodynamics (chemical engineering view: mixtures, concentrations, separation)"
+sources = [{ document = "doe-hdbk-1015-1-93", section = "Module 1 Fundamentals of Chemistry, Chemical Equations: Molarity (p. 37), Normality (p. 38), Parts per Million (p. 39); Acids, Bases, Salts, and pH: Dissociation Constant (p. 50); Appendix A Basic Separation Theory" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/gibbs-free-energy-and-chemical-equilibrium"]
+note = "emphasis: mixtures and how components distribute between phases. The DOE handbook covers concentration measures, dissociation and separation; activity, fugacity and mixing rules (Raoult, Henry): source not yet read"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/gibbs-free-energy-and-chemical-equilibrium"
+title = "Gibbs free energy and chemical equilibrium (chemistry view)"
+sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2.3 Experimental Techniques for Characterization of Graphite Oxidation Behavior (p. 24): cooled effluent gas composition (CO, CO2, H2O, H2) changes as dictated by minimisation of the Gibbs free energy of the mixture" }, { document = "doe-hdbk-1015-1-93", section = "Module 1 Fundamentals of Chemistry, Chemical Equations: Le Chatelier's Principle (p. 36)" }]
+cross_links = ["sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry", "sciences/physical-principles/kinetics/chemical-reaction-kinetics", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium"]
+note = "emphasis: which way a reaction goes and where it settles; equilibrium here, rate under kinetics. The definition G = H - TS and the equilibrium constant from Delta G: source not yet read"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/thermodynamics-of-solids"
+title = "Thermodynamics of crystalline solids (materials science view: phase stability, polymorphism, alloys)"
+sources = [{ document = "doe-hdbk-1017-1-93", section = "Module 1 Structure of Metals, Polymorphism Phases (p. 12): a metal exists in two or more crystalline forms depending on temperature and composition; uranium alpha, beta, gamma phases, Figure 5 cooling curve; Alloys (p. 15)" }]
+cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/materials/thermophysical-properties-of-solids", "sciences/materials/fuel-performance"]
+note = "emphasis: which crystal structure and microstructure is stable at a given temperature and composition. Phase diagrams and point-defect equilibrium: source not yet read"
+status = "proposed"
 
 # ============================================================================
 # sciences/physical-principles/kinetics  (maintainer, 2026-10-11: "Kinetics shld
@@ -846,7 +885,7 @@ title = "Charged-particle-induced nuclear reactions (higher energy; alpha, proto
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 2, Neutron Sources: Intrinsic Neutron Sources (p. 2): boron-11 reacts with alpha particles from the decay of heavy nuclides in the fuel to yield a neutron, a startup source" }, { document = "la-ur-17-20093", section = "8.13 Charged-Particle Elastic Scattering: Coulomb scattering, the Rutherford singularity removed by electron screening, nuclear-Coulomb interference" }]
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions", "sciences/physical-principles/radiation-interaction-with-matter/photon-and-charged-particle-interactions", "sciences/physical-principles/conservation-laws/energy-balance/nuclear-energy-release"]
 note = "maintainer, 2026-10-11: \"Fusion and other types should be in higher energy nuclear reactions, based on incoming charged particles\". A sibling class to neutron-induced reactions (nuclear-reactions); photon-and-charged-particle-interactions covers the atomic (ionisation, stopping) side"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/charged-particle-induced-reactions/fusion"
@@ -854,7 +893,7 @@ title = "Nuclear fusion"
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 1, Nuclear Fission (p. 54): the increase in binding energy per nucleon as mass number rises from 1 to 60 is the reason for energy liberation in fusion, the opposite reaction of fission" }]
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/fission", "sciences/physical-principles/conservation-laws/energy-balance/nuclear-energy-release"]
 note = "the only source read so far is the binding-energy argument; a fusion reaction-rate and Coulomb-barrier source is not yet in the corpus"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/photonuclear-reactions"
@@ -862,7 +901,7 @@ title = "Photon-induced nuclear reactions (photonuclear: photoneutron, photofiss
 sources = [{ document = "doe-hdbk-1019-1-93", section = "Module 2, Neutron Sources: Intrinsic Neutron Sources (p. 2): the photoneutron reaction, a gamma ray and a deuterium nucleus produce a neutron; a significant source after shutdown" }, { document = "la-ur-17-20093", section = "17.15 Photonuclear Data: a class of ACE data (module acepn); neutrons, photons and charged particles emitted, each product with a production cross section, partial heating and distributions" }]
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions", "sciences/physical-principles/radiation-interaction-with-matter/photon-and-charged-particle-interactions", "sciences/neutronics/reactor-kinetics"]
 note = "maintainer, 2026-10-11: \"another class with photon induced reactions (eg photo fission, and gamma laser etc)\". Distinct from photon-and-charged-particle-interactions, where the photon interacts with the atom (photoelectric, Compton, pair production) and leaves the nucleus unchanged. The gamma-laser example (laser-driven gamma sources) has no source yet"
-status = "proposed"
+status = "approved"
 
 [[science]]
 path = "sciences/physical-principles/radiation-interaction-with-matter/photonuclear-reactions/photofission"
@@ -870,6 +909,14 @@ title = "Photofission"
 sources = []
 cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/fission"]
 note = "maintainer, 2026-10-11, example of a photon-induced reaction; source not yet read (NJOY 17.15 covers photonuclear data generally but does not discuss photofission by name)"
+status = "proposed"
+
+[[science]]
+path = "sciences/physical-principles/radiation-interaction-with-matter/photonuclear-reactions/gamma-ray-lasers"
+title = "Gamma-ray lasers and laser-driven gamma sources"
+sources = []
+cross_links = ["sciences/physical-principles/radiation-interaction-with-matter/photonuclear-reactions/photofission"]
+note = "maintainer, 2026-10-11, example of photon-induced reactions (\"gamma laser\"); source not yet read, so it stays proposed (maintainer: \"If no source for gamma laser leave it proposed\")"
 status = "proposed"
 
 [[science]]

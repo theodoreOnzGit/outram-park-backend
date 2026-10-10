@@ -117,3 +117,14 @@ sciences/physical-principles/kinetics/nuclear-reaction-kinetics/fission-product-
 sciences/physical-principles/kinetics/multistep-processes
 sciences/physical-principles/kinetics/multistep-processes/rate-determining-step
 sciences/physical-principles/kinetics/multistep-processes/secular-and-transient-equilibrium
+# 2026-10-11, maintainer: "I like the new radiation interaction w matter node, is ok. If no source for gamma laser leave it proposed." (photofission has no source either, so it also stays proposed) (#829)
+sciences/physical-principles/radiation-interaction-with-matter/charged-particle-induced-reactions
+sciences/physical-principles/radiation-interaction-with-matter/charged-particle-induced-reactions/fusion
+sciences/physical-principles/radiation-interaction-with-matter/photonuclear-reactions
+# 2026-10-11, maintainer: "Thermodynamics approved" (#829)
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/first-law
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/entropy-and-microstates
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/random-walk-and-diffusion
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/kinetic-theory-of-gases
