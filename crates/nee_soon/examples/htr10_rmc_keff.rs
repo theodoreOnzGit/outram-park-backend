@@ -808,6 +808,11 @@ fn main() {
         res.lost_locate,
         100.0 * res.lost_locate as f64 / n_hist
     );
+    // gh:#721 counters, printed because the library reports them only through
+    // `log::warn!` and this example installs no logger, so a violation would
+    // otherwise pass unseen. Non-zero majorant violations mean k is biased.
+    println!("  majorant violations = {}", res.majorant_violations);
+    println!("  delta lost   = {}", res.delta_lost);
     println!(
         "  stuck events = {} ({:.3} %)",
         res.stuck_events,
