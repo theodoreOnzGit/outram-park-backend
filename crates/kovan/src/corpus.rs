@@ -1938,6 +1938,193 @@ pub const LITERATURE: &[CorpusLiterature] = &[
         status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
     },
     CorpusLiterature {
+        id: "openstax-college-physics-2e-part01",
+        kind: LiteratureKind::Book,
+        title: "College Physics 2e (OpenStax, Rice University), part 1 of 11: front matter and chapters 1-5",
+        authors: &["Urone, P.P.", "Hinrichs, R."],
+        year: Some(2022),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/college-physics-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2022-college-physics-2e-part01-ch1-5.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-college-physics-2e-part02",
+        kind: LiteratureKind::Book,
+        title: "College Physics 2e (OpenStax, Rice University), part 2 of 11: chapters 6-10",
+        authors: &["Urone, P.P.", "Hinrichs, R."],
+        year: Some(2022),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/college-physics-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2022-college-physics-2e-part02-ch6-10.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-college-physics-2e-part03",
+        kind: LiteratureKind::Book,
+        title: "College Physics 2e (OpenStax, Rice University), part 3 of 11: chapters 11-13",
+        authors: &["Urone, P.P.", "Hinrichs, R."],
+        year: Some(2022),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: Some("openstax-college-physics-2e-part03"),
+        source_url: Some("https://openstax.org/details/books/college-physics-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2022-college-physics-2e-part03-ch11-13.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-college-physics-2e-part04",
+        kind: LiteratureKind::Book,
+        title: "College Physics 2e (OpenStax, Rice University), part 4 of 11: chapters 14-16",
+        authors: &["Urone, P.P.", "Hinrichs, R."],
+        year: Some(2022),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: Some("openstax-college-physics-2e-part04"),
+        source_url: Some("https://openstax.org/details/books/college-physics-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2022-college-physics-2e-part04-ch14-16.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-college-physics-2e-part05",
+        kind: LiteratureKind::Book,
+        title: "College Physics 2e (OpenStax, Rice University), part 5 of 11: chapters 17-19",
+        authors: &["Urone, P.P.", "Hinrichs, R."],
+        year: Some(2022),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/college-physics-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2022-college-physics-2e-part05-ch17-19.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-college-physics-2e-part06",
+        kind: LiteratureKind::Book,
+        title: "College Physics 2e (OpenStax, Rice University), part 6 of 11: chapters 20-22",
+        authors: &["Urone, P.P.", "Hinrichs, R."],
+        year: Some(2022),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/college-physics-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2022-college-physics-2e-part06-ch20-22.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-college-physics-2e-part07",
+        kind: LiteratureKind::Book,
+        title: "College Physics 2e (OpenStax, Rice University), part 7 of 11: chapters 23-24",
+        authors: &["Urone, P.P.", "Hinrichs, R."],
+        year: Some(2022),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/college-physics-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2022-college-physics-2e-part07-ch23-24.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-college-physics-2e-part08",
+        kind: LiteratureKind::Book,
+        title: "College Physics 2e (OpenStax, Rice University), part 8 of 11: chapters 25-26",
+        authors: &["Urone, P.P.", "Hinrichs, R."],
+        year: Some(2022),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/college-physics-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2022-college-physics-2e-part08-ch25-26.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-college-physics-2e-part09",
+        kind: LiteratureKind::Book,
+        title: "College Physics 2e (OpenStax, Rice University), part 9 of 11: chapters 27-29",
+        authors: &["Urone, P.P.", "Hinrichs, R."],
+        year: Some(2022),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/college-physics-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2022-college-physics-2e-part09-ch27-29.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-college-physics-2e-part10",
+        kind: LiteratureKind::Book,
+        title: "College Physics 2e (OpenStax, Rice University), part 10 of 11: chapters 30-32",
+        authors: &["Urone, P.P.", "Hinrichs, R."],
+        year: Some(2022),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/college-physics-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2022-college-physics-2e-part10-ch30-32.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
+        id: "openstax-college-physics-2e-part11",
+        kind: LiteratureKind::Book,
+        title: "College Physics 2e (OpenStax, Rice University), part 11 of 11: chapters 33-34, appendices A-D, answer key and index",
+        authors: &["Urone, P.P.", "Hinrichs, R."],
+        year: Some(2022),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+        ],
+        concept_document: None,
+        source_url: Some("https://openstax.org/details/books/college-physics-2e"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-sa/openstax2022-college-physics-2e-part11-ch33-34.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENSTAX_CC_BY_NC_SA_BASIS,
+    },
+    CorpusLiterature {
         id: "openmc-docs-depletion",
         kind: LiteratureKind::Other,
         title: "OpenMC documentation, Methods: Depletion (depletion.rst, openmc-dev/openmc commit \
@@ -2806,8 +2993,10 @@ mod tests {
             // ~~98 since 2026-10-10: DOE-HDBK-1017, 1015 and 1014, two volumes each (#829).~~
             // ~~101 since 2026-10-10: OpenStax University Physics Volumes 1-3, CC BY-NC-SA
             // (#829; College Physics 2e not filed, its PDF is over GitHub's 100 MB limit).~~
-            // 102 since 2026-10-10: Cardiff et al. 2018, solids4foam, CC BY (#829).
-            102,
+            // ~~102 since 2026-10-10: Cardiff et al. 2018, solids4foam, CC BY (#829).~~
+            // 113 since 2026-10-10: College Physics 2e as 11 parts of at most 30 MB
+            // (#829; the maintainer: "split the 2e").
+            113,
             "the maintainer's 2026-09-22 set, EPA FGR-11, FGR-13 and FGR-15 (2026-09-28), \
              the concept tree's 13 further documents (2026-10-06), and the software QA \
              set NUREG/BR-0167, DOE-STD-1172-2003 and DOE G 414.1-4 (2026-10-07, #760), Kendrick 2019 \

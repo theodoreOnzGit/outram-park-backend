@@ -337,17 +337,28 @@ url = "https://openstax.org/books/university-physics-volume-2/pages/2-4-distribu
 licence = "CC BY-NC-SA 4.0 (non-commercial, share-alike), stated on the book's copyright page (PDF page 4); accepted by the maintainer 2026-10-10"
 redistributable = true
 
-# Not filed in the standard corpus (2026-10-10): OpenStax's only PDF of
-# College Physics 2e is 263 MB, over GitHub's 100 MB file limit, so it stays
-# cited from the web.
+# College Physics 2e: OpenStax's only PDF is 263 MB, over GitHub's 100 MB
+# limit, so it is filed as 11 parts split at chapter boundaries (2026-10-10).
 [[document]]
-id = "openstax-college-physics-2e"
-title = "OpenStax, College Physics 2e (Urone, Hinrichs et al.)"
+id = "openstax-college-physics-2e-part03"
+title = "OpenStax, College Physics 2e (Urone, Hinrichs et al.), part 3 of 11: chapters 11-13"
 publisher = "OpenStax, Rice University"
-date = "read 10 October 2026"
-holder = "web"
+date = "2022 (PDF ©2026); read 10 October 2026"
+holder = "standard"
+file = "kovan-standard-open-corpus/cc-by-nc-sa/openstax2022-college-physics-2e-part03-ch11-13.pdf"
+url = "https://openstax.org/books/college-physics-2e/pages/12-7-molecular-transport-phenomena-diffusion-osmosis-and-related-processes"
+licence = "CC BY-NC-SA 4.0 (non-commercial, share-alike), stated on the book's copyright page; split into 11 parts of at most 30 MB for the corpus (maintainer, 2026-10-10); accepted by the maintainer 2026-10-10"
+redistributable = true
+
+[[document]]
+id = "openstax-college-physics-2e-part04"
+title = "OpenStax, College Physics 2e (Urone, Hinrichs et al.), part 4 of 11: chapters 14-16"
+publisher = "OpenStax, Rice University"
+date = "2022 (PDF ©2026); read 10 October 2026"
+holder = "standard"
+file = "kovan-standard-open-corpus/cc-by-nc-sa/openstax2022-college-physics-2e-part04-ch14-16.pdf"
 url = "https://openstax.org/books/college-physics-2e/pages/15-7-statistical-interpretation-of-entropy-and-the-second-law-of-thermodynamics-the-underlying-explanation"
-licence = "CC BY-NC-SA (non-commercial, share-alike), stated on the page; accepted by the maintainer 2026-10-10"
+licence = "CC BY-NC-SA 4.0 (non-commercial, share-alike), stated on the book's copyright page; split into 11 parts of at most 30 MB for the corpus (maintainer, 2026-10-10); accepted by the maintainer 2026-10-10"
 redistributable = true
 
 # ============================================================================
@@ -613,7 +624,7 @@ status = "proposed"
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion"
 title = "Random thermal motion: the statistical origin of entropy and diffusion"
-sources = [{ document = "openstax-college-physics-2e", section = "15.7 Statistical Interpretation of Entropy and the Second Law of Thermodynamics; 12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes" }]
+sources = [{ document = "openstax-college-physics-2e-part04", section = "15.7 Statistical Interpretation of Entropy and the Second Law of Thermodynamics; 12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy", "sciences/physical-principles/constitutive-relations/ficks-law"]
 note = "maintainer, 2026-10-10: from a first-principles understanding, statistical motion explains what we see in the second law, diffusion etc."
 status = "proposed"
@@ -621,7 +632,7 @@ status = "proposed"
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/entropy-and-microstates"
 title = "Entropy and microstates (S = k ln W; the most probable macrostate)"
-sources = [{ document = "openstax-college-physics-2e", section = "15.7 Statistical Interpretation of Entropy and the Second Law of Thermodynamics, Eq. (15.68) S = k ln W" }]
+sources = [{ document = "openstax-college-physics-2e-part04", section = "15.7 Statistical Interpretation of Entropy and the Second Law of Thermodynamics, Eq. (15.68) S = k ln W" }]
 cross_links = ["sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy"]
 note = "OpenStax University Physics 2, 4.7 Entropy on a Microscopic Scale, was read 2026-10-10 and does not state S = k ln W, so it is not cited"
 status = "proposed"
@@ -629,7 +640,7 @@ status = "proposed"
 [[science]]
 path = "sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/random-walk-and-diffusion"
 title = "Random walk and diffusion (rms displacement grows as the square root of time)"
-sources = [{ document = "openstax-college-physics-2e", section = "12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes, Eq. (12.58) x_rms = sqrt(2Dt)" }]
+sources = [{ document = "openstax-college-physics-2e-part03", section = "12.7 Molecular Transport Phenomena: Diffusion, Osmosis, and Related Processes, Eq. (12.58) x_rms = sqrt(2Dt)" }]
 cross_links = ["sciences/physical-principles/constitutive-relations/ficks-law", "sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
 status = "proposed"
 
