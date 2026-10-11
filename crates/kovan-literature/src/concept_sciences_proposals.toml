@@ -1551,7 +1551,7 @@ status = "approved"
 [[reference]]
 node = "02-nuclear-safety/thermal-hydraulic-design"
 sciences = ["sciences/thermal-hydraulics", "sciences/physical-principles/conservation-laws/mass-balance", "sciences/physical-principles/conservation-laws/momentum-balance", "sciences/physical-principles/conservation-laws/energy-balance", "sciences/thermal-hydraulics/heat-transfer-correlations", "sciences/physical-principles/kinetics/heat-transfer", "sciences/thermal-hydraulics/two-phase-flow"]
-status = "proposed"
+status = "approved"
 
 [[reference]]
 node = "02-nuclear-safety/control-rods-and-drives"
@@ -1561,12 +1561,12 @@ status = "approved"
 [[reference]]
 node = "02-nuclear-safety/reactor-coolant-system"
 sciences = ["sciences/thermal-hydraulics/single-phase-flow", "sciences/thermal-hydraulics/two-phase-flow", "sciences/thermal-hydraulics/natural-circulation", "sciences/thermal-hydraulics/heat-exchangers", "sciences/materials/structural-mechanics", "sciences/nuclear-chemistry/radiolysis-and-coolant-chemistry", "sciences/nuclear-chemistry/transport-and-deposition-in-coolant"]
-status = "proposed"
+status = "approved"
 
 [[reference]]
 node = "02-nuclear-safety/msr-coolant-loop"
 sciences = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/thermal-hydraulics/single-phase-flow", "sciences/thermal-hydraulics/heat-exchangers", "sciences/neutronics/reactor-kinetics", "sciences/materials/corrosion-and-chemistry"]
-status = "proposed"
+status = "approved"
 
 [[reference]]
 node = "02-nuclear-safety/engineered-safety-features"
