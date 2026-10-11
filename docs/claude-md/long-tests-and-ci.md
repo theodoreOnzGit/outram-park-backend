@@ -115,6 +115,11 @@ maintainer disabled it on 2026-09-29 and chose this design (#414–#417):
 | `develop` | same file, `known-failures` job | `[[known_failure]]` entries by exact name, **allowed to fail** | — |
 | `main` | `.github/workflows/full-tests.yml` | `cargo test --workspace --lib --tests --release`, **never registered, never run** | on |
 | *on request, any branch* | `.github/workflows/manual-tests.yml` | either, chosen by input | selectable |
+| daily, or a push to `ci-kovan/**` | `.github/workflows/kovan-daily.yml` (added 2026-10-11, #834) | kovan's three binaries built and the `--lib --tests` of `kovan`, `kovan-common` and `kovan-web`, on ubuntu, windows and macos; `kovan-web` built for wasm32. **The daily schedule does not start until the file is on `main`.** | on (default features) |
+
+**Checked 2026-10-11:** `gh workflow list --all` reports `fast tests` as
+`disabled_manually`, so the two `develop` rows above describe a workflow that
+is not running. A push to `develop` starts only `pages`.
 
 - **The smoke set is the maintainer's selection** (2026-09-29): Godiva on the
   HIGH tier from the repo's ENDF/B-VIII.0 tapes, Edwards, the outram-foam
