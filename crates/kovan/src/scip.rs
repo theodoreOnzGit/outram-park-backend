@@ -420,6 +420,20 @@ impl ScipIndex {
         self.by_path.get(path).map(|&k| &self.documents[k as usize])
     }
 
+    /// Up to `n` document paths that mention `folder` (case-insensitively),
+    /// for a crate reported as not indexed: shows whether rust-analyzer
+    /// skipped the crate or wrote its paths in a form the lookup misses
+    /// (an absolute path, `..`, another case; GitHub #820).
+    pub fn paths_mentioning(&self, folder: &str, n: usize) -> Vec<&str> {
+        let needle = folder.to_lowercase();
+        self.documents
+            .iter()
+            .map(|d| d.path.as_str())
+            .filter(|p| p.to_lowercase().contains(&needle))
+            .take(n)
+            .collect()
+    }
+
     /// Every definition site of a global symbol (empty for a symbol defined
     /// outside the indexed documents: std or a dependency).
     pub fn definitions(&self, sym: Sym) -> &[DefSite] {
@@ -650,6 +664,19 @@ mod tests {
     /// (GitHub #820).
     ///
     /// Result (2026-10-10, Windows 11): passes.
+    /// A crate reported as not indexed is explained by the paths the index
+    /// holds for its folder: found in any case, and none when it is absent.
+    #[test]
+    fn paths_mentioning_a_folder_are_listed_for_the_not_indexed_warning() {
+        let f = "rust-analyzer cargo app 0.1.0 m/f().";
+        let occ = [(&[1u32, 7, 8][..], f, 1u64)];
+        let bytes = encode::index("1.98.0", &[("C:/Users/x/Crates/Petir/src/lib.rs", &occ), ("crates/app/src/m.rs", &occ)]);
+        let ix = ScipIndex::decode(&bytes).unwrap();
+        assert_eq!(ix.paths_mentioning("crates/petir", 3), vec!["C:/Users/x/Crates/Petir/src/lib.rs"]);
+        assert!(ix.document("crates/petir/src/lib.rs").is_none(), "the lookup itself stays exact");
+        assert!(ix.paths_mentioning("crates/redhill", 3).is_empty());
+    }
+
     #[test]
     fn windows_separators_in_document_paths_are_normalised() {
         let f = "rust-analyzer cargo app 0.1.0 m/f().";

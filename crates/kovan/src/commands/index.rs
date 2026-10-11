@@ -639,6 +639,11 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
     }
     for c in &not_in_scip {
         say!(ctl, "index: WARNING: {c} has source files and no document in the SCIP index: rust-analyzer did not index it, so its link index is empty and its functions have no callees or reaching tests");
+        // What the index does hold for that folder, so a path written in an
+        // unexpected form (absolute, `..`, another case) is visible (#820).
+        let dir = members.iter().find(|(n, _)| n == c).map(|(_, d)| d.as_str()).unwrap_or("");
+        let seen = ix.paths_mentioning(dir, 3);
+        say!(ctl, "index:   SCIP paths mentioning {dir}: {} (project root {})", if seen.is_empty() { "none".to_string() } else { seen.join(", ") }, ix.project_root);
     }
     // 3. Links.
     ctl.phase(format!("building the link index of {} crate(s)", scope.len()), scope.len());
