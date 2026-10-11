@@ -1,0 +1,474 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/math"
+test_ids = [
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/math/erf_inv.rs::known_values",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/math/erf_inv.rs::monotone_and_positive",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/math/inc_gamma.rs::p_1_1",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/math/inc_gamma.rs::pq_sum_to_one",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/math/inc_gamma.rs::q_at_zero",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/math/inc_gamma.rs::unnormalised_consistency",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/math/inv_inc_gamma.rs::a_eq_1_explicit",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/math/inv_inc_gamma.rs::round_trips_large_a",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/math/inv_inc_gamma.rs::round_trips_moderate_a",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/math/inv_inc_gamma.rs::round_trips_small_a",
+]
+
+[module."erf_inv.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::math::erf_inv"
+
+[[module."erf_inv.rs".function]]
+id = "fn:7d932d025177d95a"
+name = "erf_inv"
+qual = "erf_inv"
+lines = [
+    34,
+    48,
+]
+hash = "sha256:b781f3d0d07de572741126958ca0e63e0fd1410ff094546054e9b2dc17578e45"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7d2c37be6eb3e8f3"]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."erf_inv.rs".function]]
+id = "fn:7763672ccc9632ae"
+name = "known_values"
+qual = "known_values"
+lines = [
+    55,
+    74,
+]
+hash = "sha256:617e314e370d7d8dfe0a14ae290d70a8b86c05284598eef6947e21210143fd24"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7d932d025177d95a"]
+test = true
+
+[[module."erf_inv.rs".function]]
+id = "fn:ec57000058fae9b1"
+name = "monotone_and_positive"
+qual = "monotone_and_positive"
+lines = [
+    76,
+    85,
+]
+hash = "sha256:1b22218fdecc9db5ba04ad9740cf8e68a546a81cb2c00364839485be3d93c680"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7d932d025177d95a"]
+test = true
+
+[module."inc_gamma.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::math::inc_gamma"
+
+[[module."inc_gamma.rs".function]]
+id = "fn:2850ed9eb30ebf85"
+name = "factorial"
+qual = "factorial"
+lines = [
+    41,
+    43,
+]
+hash = "sha256:f3e3b55a096856e218e5b2c70d62716e6fd1d6b252a11283b6fc0d29077d7798"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."inc_gamma.rs".function]]
+id = "fn:a6d9bfdf6f63a8cd"
+name = "calc_qe11"
+qual = "calc_qe11"
+lines = [
+    46,
+    72,
+]
+hash = "sha256:4aa12b8cbc56baad986dbc4b88ced4ebc047f402f7adb2a2b65153126f5824dd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."inc_gamma.rs".function]]
+id = "fn:4a1d9b185f34a984"
+name = "calc_pe15"
+qual = "calc_pe15"
+lines = [
+    75,
+    84,
+]
+hash = "sha256:c1974a54993c6c269353801f954ff7cae5e91e8aba722cceab1620780e583f9e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:204a7a6b2b325b14",
+    "fn:89dd813310599ab0",
+    "fn:d2f19c5ac1bd0c10",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."inc_gamma.rs".function]]
+id = "fn:ee314ec22474d02a"
+name = "calc_qe16"
+qual = "calc_qe16"
+lines = [
+    87,
+    96,
+]
+hash = "sha256:7e09106bcb14c23491076f49cd8529bb9511f3e090ba52e6c9c7620dc3ce355b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:204a7a6b2b325b14",
+    "fn:89dd813310599ab0",
+    "fn:d2f19c5ac1bd0c10",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."inc_gamma.rs".function]]
+id = "fn:1c32e2417d075b4f"
+name = "calc_te18"
+qual = "calc_te18"
+lines = [
+    99,
+    140,
+]
+hash = "sha256:80ec4650cacef5ea4da68b48a1b10f61ddcf5b6124cc6a59e76e48d266efda3f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."inc_gamma.rs".function]]
+id = "fn:6f35ba32c4e5b8ad"
+name = "inc_gamma_ratio_q"
+qual = "inc_gamma_ratio_q"
+lines = [
+    142,
+    266,
+]
+hash = "sha256:0da6a269b86e09cd26d277af54a9026d4bb65fb2fee073e93160432275e35ab0"
+doc_hash = "sha256:657b0ed25cf6976865794c38dfe67b240077009c190fe5c3bdcceb3f06ae0933"
+callees = [
+    "fn:10ae7b2667a6bebf",
+    "fn:1c32e2417d075b4f",
+    "fn:204a7a6b2b325b14",
+    "fn:2850ed9eb30ebf85",
+    "fn:4a1d9b185f34a984",
+    "fn:5633d0b7294d5ee6",
+    "fn:7d2c37be6eb3e8f3",
+    "fn:89dd813310599ab0",
+    "fn:a6d9bfdf6f63a8cd",
+    "fn:d2f19c5ac1bd0c10",
+    "fn:ee314ec22474d02a",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."inc_gamma.rs".function]]
+id = "fn:72be9fed5920eaaa"
+name = "inc_gamma_ratio_p"
+qual = "inc_gamma_ratio_p"
+lines = [
+    268,
+    272,
+]
+hash = "sha256:5cdafbe4125bba958829e2c1a180aed430f580f21c5f159f7cf9fc343fccc0f8"
+doc_hash = "sha256:828356f174cc07adcc549d853d8025920240749ed9ccc1f3adad7cc5d9b5d8dd"
+callees = ["fn:6f35ba32c4e5b8ad"]
+reached_by = [
+    "#2",
+    "#3",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."inc_gamma.rs".function]]
+id = "fn:47ada754500696e4"
+name = "inc_gamma_q"
+qual = "inc_gamma_q"
+lines = [
+    274,
+    278,
+]
+hash = "sha256:b513fb2bee3496ab9bce649eee81a0b3f944ff906fa9899a780753f2e97e391e"
+doc_hash = "sha256:0448a718239cbfbddf145a70c90a8e9db6bb5d6b3d61c77cb316784f9ed1857f"
+callees = [
+    "fn:204a7a6b2b325b14",
+    "fn:6f35ba32c4e5b8ad",
+]
+reached_by = ["#5"]
+
+[[module."inc_gamma.rs".function]]
+id = "fn:28a3868d7a5faca1"
+name = "inc_gamma_p"
+qual = "inc_gamma_p"
+lines = [
+    280,
+    284,
+]
+hash = "sha256:7b2d5beec8875d1dd0e09d77f5596105f9924575b07e35c8317d97b7a91dc5a7"
+doc_hash = "sha256:e192eded06a35d304672f514bb1a689709b2e41311bd151864788df3ab517d21"
+callees = [
+    "fn:204a7a6b2b325b14",
+    "fn:72be9fed5920eaaa",
+]
+reached_by = ["#5"]
+
+[[module."inc_gamma.rs".function]]
+id = "fn:91cf916689be5c60"
+name = "approx_eq"
+qual = "approx_eq"
+lines = [
+    290,
+    292,
+]
+hash = "sha256:ac5545073b690d1160466327cb1d327ee3e1681aea2d7376a819e8a0bc3107c8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."inc_gamma.rs".function]]
+id = "fn:b3346d70d7e2c8a8"
+name = "p_1_1"
+qual = "p_1_1"
+lines = [
+    295,
+    299,
+]
+hash = "sha256:9dd9765921df29b853a0bc72aad4b69e1e2bef18a4d4c3fc6f8030827c2c388c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:72be9fed5920eaaa",
+    "fn:91cf916689be5c60",
+    "fn:d2f19c5ac1bd0c10",
+]
+test = true
+
+[[module."inc_gamma.rs".function]]
+id = "fn:546f5c7b2d56611b"
+name = "pq_sum_to_one"
+qual = "pq_sum_to_one"
+lines = [
+    302,
+    313,
+]
+hash = "sha256:506400d9b7cb80be6a39735c51e5c77c16a3d877d273f0f513ba7f80c8b318de"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6f35ba32c4e5b8ad",
+    "fn:72be9fed5920eaaa",
+    "fn:91cf916689be5c60",
+]
+test = true
+
+[[module."inc_gamma.rs".function]]
+id = "fn:5114e511acf63a0f"
+name = "q_at_zero"
+qual = "q_at_zero"
+lines = [
+    316,
+    322,
+]
+hash = "sha256:1c670a528d720b5ec039644c3b714b2fcaacb29c2db37b7a4bc713d4efd094d2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6f35ba32c4e5b8ad",
+    "fn:91cf916689be5c60",
+]
+test = true
+
+[[module."inc_gamma.rs".function]]
+id = "fn:b538180156194828"
+name = "unnormalised_consistency"
+qual = "unnormalised_consistency"
+lines = [
+    325,
+    332,
+]
+hash = "sha256:ba2fd05098997ae9a87f366b389529f652b9ea90df5f5c50151d410c5add8507"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:204a7a6b2b325b14",
+    "fn:28a3868d7a5faca1",
+    "fn:47ada754500696e4",
+    "fn:91cf916689be5c60",
+]
+test = true
+
+[module."inv_inc_gamma.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::math::inv_inc_gamma"
+
+[[module."inv_inc_gamma.rs".function]]
+id = "fn:4654a6cbcf168701"
+name = "minimaxs"
+qual = "minimaxs"
+lines = [
+    39,
+    64,
+]
+hash = "sha256:c106e0bbf0c4ffd2dbf38bbce578f7fdae17557a2f99a76a1b4e81e7e64c83cc"
+doc_hash = "sha256:5babb04fba6b46dc91afa26fed0f055b1340ffa611c78576a8144b56dd223ca0"
+callees = ["fn:7d2c37be6eb3e8f3"]
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."inv_inc_gamma.rs".function]]
+id = "fn:ee50b1b2a967e556"
+name = "sn"
+qual = "sn"
+lines = [
+    66,
+    78,
+]
+hash = "sha256:30b5da9507fa2e70548a2aafb56df78f52478d0b266532f3467aa71059aa6ee9"
+doc_hash = "sha256:8197f57fb8ce7d76338ebd73a35464aa0d930fc14aba2c01b36a555ddec2dc53"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."inv_inc_gamma.rs".function]]
+id = "fn:6d164a6670c1aeed"
+name = "inv_inc_gamma"
+qual = "inv_inc_gamma"
+lines = [
+    80,
+    232,
+]
+hash = "sha256:b6999c3e21e77082942871d9cc157a290a68dd38cf83ddfc39950f6cd01e677d"
+doc_hash = "sha256:ab5ba694ac527c0c752ea8eb423ce7414c15c016a31027d2c84b8e10dafaef05"
+callees = [
+    "fn:204a7a6b2b325b14",
+    "fn:4654a6cbcf168701",
+    "fn:7d2c37be6eb3e8f3",
+    "fn:89dd813310599ab0",
+    "fn:9ed35cef2c5a2104",
+    "fn:d2f19c5ac1bd0c10",
+    "fn:ee50b1b2a967e556",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."inv_inc_gamma.rs".function]]
+id = "fn:6d2b1188ca3ec09b"
+name = "round_trip"
+qual = "round_trip"
+lines = [
+    238,
+    247,
+]
+hash = "sha256:1ba0d4113cffb2e9b9edcb289c43af18d06885e8aaa5f0ce40dd52ee4937b00d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6d164a6670c1aeed",
+    "fn:72be9fed5920eaaa",
+]
+test = true
+
+[[module."inv_inc_gamma.rs".function]]
+id = "fn:16b57698057bf773"
+name = "a_eq_1_explicit"
+qual = "a_eq_1_explicit"
+lines = [
+    249,
+    254,
+]
+hash = "sha256:adfe815a3fda0b0caf9336e4112104365503973d41e715b5caa8186c2c2f878b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6d164a6670c1aeed"]
+test = true
+
+[[module."inv_inc_gamma.rs".function]]
+id = "fn:672d8a30f73b8c66"
+name = "round_trips_small_a"
+qual = "round_trips_small_a"
+lines = [
+    256,
+    263,
+]
+hash = "sha256:54d1d93d93290c69de14273bc60d8fa63fcf53d7e2b7945e4c961798598389f8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6d2b1188ca3ec09b"]
+test = true
+
+[[module."inv_inc_gamma.rs".function]]
+id = "fn:3c3f4faac87762bd"
+name = "round_trips_large_a"
+qual = "round_trips_large_a"
+lines = [
+    265,
+    270,
+]
+hash = "sha256:7a5295f958336e30d67161f159dacd07e086dd07094ebcbaa736944b54b6b70e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6d2b1188ca3ec09b"]
+test = true
+
+[[module."inv_inc_gamma.rs".function]]
+id = "fn:8a71e59c7bc48523"
+name = "round_trips_moderate_a"
+qual = "round_trips_moderate_a"
+lines = [
+    272,
+    278,
+]
+hash = "sha256:f0a45df461362966ab1f92f47a1838b50a0bf71c419fb2bb2a9052cd85d7271c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6d2b1188ca3ec09b"]
+test = true
+
+[module."mod.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::math"

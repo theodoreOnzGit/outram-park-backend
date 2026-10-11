@@ -1,0 +1,353 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes"
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes"
+
+[module."regression_tests.rs"]
+path = "crate::pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::regression_tests"
+
+[[module."regression_tests.rs".function]]
+id = "fn:0835989084e4d379"
+name = "ciet_coupled_nat_circ_set_a1_for_three_branch"
+qual = "ciet_coupled_nat_circ_set_a1_for_three_branch"
+lines = [
+    1,
+    82,
+]
+hash = "sha256:5d2812c4223e4e46b42e10592b89afe455f23f768d5b47a9c2d2fc97d2e71482"
+doc_hash = "sha256:a896c6affa8f705ba110292d824b9cd9b850e81547ca88a6ed410f9f64211027"
+callees = ["fn:255c18798ac5c7e7"]
+test = true
+
+[[module."regression_tests.rs".function]]
+id = "fn:b2a2a7183fc71e45"
+name = "zero_flow_for_three_branch_ver_1"
+qual = "zero_flow_for_three_branch_ver_1"
+lines = [
+    83,
+    163,
+]
+hash = "sha256:0a5f4a2ef08292ccccf7f49ce51638ac5724cdca9e90ebf182fc2bd54fd9d150"
+doc_hash = "sha256:01fcfb4652057e3fc4f834412bc64c104cb4ffb8a2ab552913bb4bce22e2d7e2"
+callees = ["fn:255c18798ac5c7e7"]
+test = true
+
+[[module."regression_tests.rs".function]]
+id = "fn:12732ed8fa6ebda2"
+name = "flow_diode_reverse_flow_for_three_branch_ver1"
+qual = "flow_diode_reverse_flow_for_three_branch_ver1"
+lines = [
+    165,
+    247,
+]
+hash = "sha256:29af91d752692d6e19bcf9f3c69427e74477bd2cb603e0ef4f93ecc4812fa2ba"
+doc_hash = "sha256:c2acf2e2b75df03377c9dd8f629b583a8737e7cf3605ebf495a57f0453a71546"
+callees = ["fn:255c18798ac5c7e7"]
+test = true
+
+[[module."regression_tests.rs".function]]
+id = "fn:1bf69cefcbfb8a3f"
+name = "flow_diode_fwd_flow_for_three_branch_ver1"
+qual = "flow_diode_fwd_flow_for_three_branch_ver1"
+lines = [
+    249,
+    330,
+]
+hash = "sha256:00c9d5c83ecc80ae69b158dc2ed89dd60744596eab6ce3089bd8e37b4c23ea13"
+doc_hash = "sha256:62ac0675882a76f29f9d7fdf497400e457a1001cb15434abb89839c0178da36a"
+callees = ["fn:255c18798ac5c7e7"]
+test = true
+
+[module."version_1.rs"]
+path = "crate::pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::version_1"
+
+[[module."version_1.rs".function]]
+id = "fn:6ccc902b9c9733ef"
+name = "ciet_coupled_nat_circ_set_a1_for_three_branch"
+qual = "ciet_coupled_nat_circ_set_a1_for_three_branch"
+lines = [
+    1,
+    82,
+]
+hash = "sha256:5d2812c4223e4e46b42e10592b89afe455f23f768d5b47a9c2d2fc97d2e71482"
+doc_hash = "sha256:a896c6affa8f705ba110292d824b9cd9b850e81547ca88a6ed410f9f64211027"
+callees = ["fn:255c18798ac5c7e7"]
+test = true
+
+[[module."version_1.rs".function]]
+id = "fn:6a94211fb80b26e4"
+name = "zero_flow_for_three_branch_ver_1"
+qual = "zero_flow_for_three_branch_ver_1"
+lines = [
+    83,
+    163,
+]
+hash = "sha256:fcaa3908e635f437e791bd55809f2a64552136f09277086de6078afe56e66d09"
+doc_hash = "sha256:01fcfb4652057e3fc4f834412bc64c104cb4ffb8a2ab552913bb4bce22e2d7e2"
+callees = ["fn:255c18798ac5c7e7"]
+test = true
+
+[[module."version_1.rs".function]]
+id = "fn:3267aa20c66612da"
+name = "flow_diode_reverse_flow_for_three_branch_ver1"
+qual = "flow_diode_reverse_flow_for_three_branch_ver1"
+lines = [
+    165,
+    247,
+]
+hash = "sha256:29af91d752692d6e19bcf9f3c69427e74477bd2cb603e0ef4f93ecc4812fa2ba"
+doc_hash = "sha256:c2acf2e2b75df03377c9dd8f629b583a8737e7cf3605ebf495a57f0453a71546"
+callees = ["fn:255c18798ac5c7e7"]
+test = true
+
+[[module."version_1.rs".function]]
+id = "fn:0fd2ad4f61968280"
+name = "flow_diode_fwd_flow_for_three_branch_ver1"
+qual = "flow_diode_fwd_flow_for_three_branch_ver1"
+lines = [
+    249,
+    330,
+]
+hash = "sha256:00c9d5c83ecc80ae69b158dc2ed89dd60744596eab6ce3089bd8e37b4c23ea13"
+doc_hash = "sha256:62ac0675882a76f29f9d7fdf497400e457a1001cb15434abb89839c0178da36a"
+callees = ["fn:255c18798ac5c7e7"]
+test = true
+
+[[module."version_1.rs".function]]
+id = "fn:255c18798ac5c7e7"
+name = "three_branch_ciet_ver1"
+qual = "three_branch_ciet_ver1"
+lines = [
+    331,
+    1137,
+]
+hash = "sha256:c2c0f6cbec6680060256e1cf392d9894d79716bf06e603407273683152807a7a"
+doc_hash = "sha256:b537ad9c237c0df9ea99bb7b544e3cc252125eac36fca37307c714b2ae304baf"
+callees = [
+    "fn:0120b5299e2da2da",
+    "fn:165e0de92fdc30f9",
+    "fn:192c73709e4fae1b",
+    "fn:1eccda9f753c0136",
+    "fn:26e415a2516474b8",
+    "fn:2d7b8ddc9930a271",
+    "fn:2e1c32118e070b6c",
+    "fn:334ab074ca62fbeb",
+    "fn:3629bda66cb1631f",
+    "fn:3b175c51dad51671",
+    "fn:3bc3f0f44ccdb2a3",
+    "fn:3e41f0f4036b1c69",
+    "fn:3fdf94385bd7ffd4",
+    "fn:42677954ee03d9db",
+    "fn:429944a98c495fc2",
+    "fn:43cf81cc824876b7",
+    "fn:44418e4125182393",
+    "fn:44b0242f8ce5613f",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:5620afcc5d9c6da0",
+    "fn:56ab551aa949fe97",
+    "fn:579dd6b20de3f7d0",
+    "fn:584be93c32b265d9",
+    "fn:5898244cb765d25d",
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:625dce0bc183471b",
+    "fn:6383373ca57701c5",
+    "fn:6472671d822a61ab",
+    "fn:65c03ec4845def62",
+    "fn:679eea7225e5e653",
+    "fn:6f2c2edff2d2dbc2",
+    "fn:6f9db37bb5514b49",
+    "fn:6fdf5b3db5ce2173",
+    "fn:75b2bf19978d095f",
+    "fn:75d1e2e16257fc20",
+    "fn:75f0a83271918517",
+    "fn:78ee315e9e1088f0",
+    "fn:7ee6570130bd052b",
+    "fn:831014fb4e896cde",
+    "fn:8344118d58b55c15",
+    "fn:835ea69942f39c9e",
+    "fn:8427a6111c8cb4e8",
+    "fn:85342ea4b7e5933b",
+    "fn:928c1745ab947694",
+    "fn:9319b2b56ae29f2c",
+    "fn:9e971cad029f3940",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a466cf7d23703edb",
+    "fn:aa91490ebe686886",
+    "fn:ab7102b91b02cb50",
+    "fn:acc1b181e5e9de07",
+    "fn:aea1a2ba0c77b742",
+    "fn:b06e224b136ceb6f",
+    "fn:b0ba5fe7e3c77e26",
+    "fn:b113f725d215f11b",
+    "fn:b36ec305413e9570",
+    "fn:b57c94f7ef5cfea0",
+    "fn:b9acd02ee51732d3",
+    "fn:bdf79b93c24ef8cb",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:c3c32a0780662c1d",
+    "fn:c56452c27bdd23be",
+    "fn:c7c15d72234b598d",
+    "fn:cd4176998fb73b07",
+    "fn:cf4436f25e5d0557",
+    "fn:d080d9cf81960954",
+    "fn:de4ed21e1e4689b6",
+    "fn:e0f6ccbea3b4fcfc",
+    "fn:e1d822f0823e13bf",
+    "fn:e23a3bf539680737",
+    "fn:e4bff9f30142b5cc",
+    "fn:e8a49300f0e05eba",
+    "fn:ee48fed6fbd70492",
+    "fn:ee9965285e489d5b",
+    "fn:f3cde3d60d3dff8d",
+    "fn:fa07bb0cb8fd7b33",
+    "fn:ff764db25e60524d",
+]
+test = true
+
+[module."version_2.rs"]
+path = "crate::pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::version_2"
+
+[[module."version_2.rs".function]]
+id = "fn:1d8a9096a48914ab"
+name = "ctah_flow_steady_state_test"
+qual = "ctah_flow_steady_state_test"
+lines = [
+    1,
+    138,
+]
+hash = "sha256:2e46a2ecaec775ef0fcbacb2265956189b4cdf945083a53a76474f9fa2f4cf00"
+doc_hash = "sha256:3da2c8c97676849c3e5d1aac5a3ef49382a898efea1b8b8d8361b9f745009d44"
+callees = ["fn:9bcc04b69f23256d"]
+test = true
+
+[[module."version_2.rs".function]]
+id = "fn:ce053ea5f0ccac6a"
+name = "ctah_flow_short_test_dhx_blocked"
+qual = "ctah_flow_short_test_dhx_blocked"
+lines = [
+    140,
+    252,
+]
+hash = "sha256:57e35b34c51999a9e47d6c3e050f9aa848dfbcafa6547a0741c0b85483d33aca"
+doc_hash = "sha256:1f9406a2202813cf74b60450ff765dc498b07eef12b86dfe5e3e9f50d675f4d3"
+callees = ["fn:9bcc04b69f23256d"]
+test = true
+
+[[module."version_2.rs".function]]
+id = "fn:62eebe4b98152063"
+name = "ctah_flow_short_test_reverse_diode_effect"
+qual = "ctah_flow_short_test_reverse_diode_effect"
+lines = [
+    253,
+    366,
+]
+hash = "sha256:540c03ec31f61edcf4b560140db1ef3a0b0523d55b6d811228d2693943fe1308"
+doc_hash = "sha256:a63c8172e493d942b26775065578d0bc6655f2031cb89c7d4f0a7ee3dcd0ac28"
+callees = ["fn:9bcc04b69f23256d"]
+test = true
+
+[[module."version_2.rs".function]]
+id = "fn:9bcc04b69f23256d"
+name = "three_branch_ciet_ver2"
+qual = "three_branch_ciet_ver2"
+lines = [
+    368,
+    1304,
+]
+hash = "sha256:1a27f3c2a7438a472ea0981eca000f32c26b2abd417e8af1a790f74f768d04b1"
+doc_hash = "sha256:de2e5ba262e406df8599c4d988d5ffad72daf5d18b61d21ef5495f97753db156"
+callees = [
+    "fn:0120b5299e2da2da",
+    "fn:165e0de92fdc30f9",
+    "fn:192c73709e4fae1b",
+    "fn:1eccda9f753c0136",
+    "fn:26e415a2516474b8",
+    "fn:2d7b8ddc9930a271",
+    "fn:2e1c32118e070b6c",
+    "fn:334ab074ca62fbeb",
+    "fn:3629bda66cb1631f",
+    "fn:3b175c51dad51671",
+    "fn:3bc3f0f44ccdb2a3",
+    "fn:3e41f0f4036b1c69",
+    "fn:3fdf94385bd7ffd4",
+    "fn:42677954ee03d9db",
+    "fn:429944a98c495fc2",
+    "fn:43cf81cc824876b7",
+    "fn:44418e4125182393",
+    "fn:44b0242f8ce5613f",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:5620afcc5d9c6da0",
+    "fn:56ab551aa949fe97",
+    "fn:579dd6b20de3f7d0",
+    "fn:584be93c32b265d9",
+    "fn:5898244cb765d25d",
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:625dce0bc183471b",
+    "fn:6383373ca57701c5",
+    "fn:6472671d822a61ab",
+    "fn:65c03ec4845def62",
+    "fn:679eea7225e5e653",
+    "fn:6f2c2edff2d2dbc2",
+    "fn:6f9db37bb5514b49",
+    "fn:6fdf5b3db5ce2173",
+    "fn:75b2bf19978d095f",
+    "fn:75d1e2e16257fc20",
+    "fn:75f0a83271918517",
+    "fn:78ee315e9e1088f0",
+    "fn:7ee6570130bd052b",
+    "fn:831014fb4e896cde",
+    "fn:8344118d58b55c15",
+    "fn:835ea69942f39c9e",
+    "fn:8427a6111c8cb4e8",
+    "fn:85342ea4b7e5933b",
+    "fn:928c1745ab947694",
+    "fn:9319b2b56ae29f2c",
+    "fn:9e971cad029f3940",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a466cf7d23703edb",
+    "fn:aa91490ebe686886",
+    "fn:ab7102b91b02cb50",
+    "fn:acc1b181e5e9de07",
+    "fn:aea1a2ba0c77b742",
+    "fn:b06e224b136ceb6f",
+    "fn:b0ba5fe7e3c77e26",
+    "fn:b113f725d215f11b",
+    "fn:b36ec305413e9570",
+    "fn:b57c94f7ef5cfea0",
+    "fn:b9acd02ee51732d3",
+    "fn:bdf79b93c24ef8cb",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:c3c32a0780662c1d",
+    "fn:c56452c27bdd23be",
+    "fn:c7c15d72234b598d",
+    "fn:cd4176998fb73b07",
+    "fn:cf4436f25e5d0557",
+    "fn:d080d9cf81960954",
+    "fn:de4ed21e1e4689b6",
+    "fn:e0f6ccbea3b4fcfc",
+    "fn:e1d822f0823e13bf",
+    "fn:e23a3bf539680737",
+    "fn:e4bff9f30142b5cc",
+    "fn:e8a49300f0e05eba",
+    "fn:ee48fed6fbd70492",
+    "fn:ee9965285e489d5b",
+    "fn:f3cde3d60d3dff8d",
+    "fn:fa07bb0cb8fd7b33",
+    "fn:ff764db25e60524d",
+]
+test = true

@@ -1,0 +1,7 @@
+schema_version = 1
+kind = "code_folder"
+crate = "teh-o-prke"
+dir = "crates/teh-o-prke/examples/fhr_sim_v1/app/panel_enum"
+
+[module."mod.rs"]
+path = "example:fhr_sim_v1::app::panel_enum"

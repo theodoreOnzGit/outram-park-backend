@@ -1,0 +1,8680 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-literature"
+dir = "crates/kovan-literature/src"
+crate_root = true
+test_ids = [
+    "crates/kovan-literature/src/bibtex.rs::empty_input_produces_no_entries",
+    "crates/kovan-literature/src/bibtex.rs::empty_slug_becomes_unknown_key",
+    "crates/kovan-literature/src/bibtex.rs::field_names_are_lowercased",
+    "crates/kovan-literature/src/bibtex.rs::golden_techreport_entry",
+    "crates/kovan-literature/src/bibtex.rs::journal_locators_are_emitted_when_present",
+    "crates/kovan-literature/src/bibtex.rs::missing_cite_key_is_an_error",
+    "crates/kovan-literature/src/bibtex.rs::missing_optional_fields_are_omitted",
+    "crates/kovan-literature/src/bibtex.rs::multiple_authors_join_with_and",
+    "crates/kovan-literature/src/bibtex.rs::multiple_entries_and_surrounding_comments_all_parse",
+    "crates/kovan-literature/src/bibtex.rs::nested_braces_inside_a_value_are_preserved",
+    "crates/kovan-literature/src/bibtex.rs::paper_maps_to_article",
+    "crates/kovan-literature/src/bibtex.rs::parses_a_single_brace_delimited_entry",
+    "crates/kovan-literature/src/bibtex.rs::quote_delimited_values_and_bare_numeric_year_parse",
+    "crates/kovan-literature/src/bibtex.rs::render_entries_joins_multiple_with_a_blank_line",
+    "crates/kovan-literature/src/bibtex.rs::render_entry_round_trips_through_parse_bib_entries",
+    "crates/kovan-literature/src/bibtex.rs::round_trips_through_to_bibtex_then_parse_bib_entries",
+    "crates/kovan-literature/src/bibtex.rs::special_characters_are_escaped",
+    "crates/kovan-literature/src/bibtex.rs::standard_maps_to_misc",
+    "crates/kovan-literature/src/bibtex.rs::string_preamble_and_comment_blocks_are_skipped_not_returned",
+    "crates/kovan-literature/src/bibtex.rs::unterminated_entry_is_an_error",
+    "crates/kovan-literature/src/concept_tree.rs::a_deep_concept_resolves_with_its_parent_and_sources",
+    "crates/kovan-literature/src/concept_tree.rs::a_missing_parent_is_an_error",
+    "crates/kovan-literature/src/concept_tree.rs::nodes_are_in_depth_first_order_with_parents_first",
+    "crates/kovan-literature/src/concept_tree.rs::proposed_concepts_are_left_out_and_deferred_ones_kept",
+    "crates/kovan-literature/src/concept_tree.rs::the_compiled_in_tree_has_nineteen_issues_in_iaea_order",
+    "crates/kovan-literature/src/csl.rs::a_numbered_style_keeps_its_division_entries",
+    "crates/kovan-literature/src/csl.rs::a_page_gets_its_citations_and_a_reference_list_and_is_idempotent",
+    "crates/kovan-literature/src/csl.rs::a_page_is_one_document_so_same_year_works_get_letters",
+    "crates/kovan-literature/src/csl.rs::an_html_page_gets_citations_and_a_list_and_is_idempotent",
+    "crates/kovan-literature/src/csl.rs::an_unknown_key_is_an_error_not_a_panic",
+    "crates/kovan-literature/src/csl.rs::apa_citations_in_all_three_forms",
+    "crates/kovan-literature/src/csl.rs::the_bib_goes_through_the_zotero_import_to_csl_json",
+    "crates/kovan-literature/src/csl.rs::the_five_site_styles_are_bundled_and_render",
+    "crates/kovan-literature/src/csl.rs::unknown_keys_fail_and_an_uncited_page_loses_its_list",
+    "crates/kovan-literature/src/lib.rs::document_type_inferred_from_path",
+    "crates/kovan-literature/src/lib.rs::generated_dirs_are_split_by_visibility",
+    "crates/kovan-literature/src/lib.rs::proprietary_and_open_roots_differ",
+    "crates/kovan-literature/src/lib.rs::theses_directory_infers_the_thesis_type",
+    "crates/kovan-literature/src/lib.rs::visibility_is_closed_unless_a_path_says_open",
+    "crates/kovan-literature/src/lookup_review.rs::identifiers_from_document",
+    "crates/kovan-literature/src/lookup_review.rs::nothing_accepted_changes_nothing",
+    "crates/kovan-literature/src/lookup_review.rs::proposal_rows_and_user_edits",
+    "crates/kovan-literature/src/markdown.rs::markdown_outline_extracts_headings",
+    "crates/kovan-literature/src/markdown.rs::page_separator_joins_pages",
+    "crates/kovan-literature/src/markdown.rs::split_below_limit_is_single_chunk",
+    "crates/kovan-literature/src/markdown.rs::split_by_page_limit_chunks_pages",
+    "crates/kovan-literature/src/markdown.rs::text_to_markdown_does_not_invent_headings",
+    "crates/kovan-literature/src/markdown.rs::text_to_markdown_groups_paragraphs_and_dehyphenates",
+    "crates/kovan-literature/src/markdown.rs::text_to_markdown_promotes_numbered_and_keyword_headings",
+    "crates/kovan-literature/src/metadata.rs::author_block_handles_initials_and_given_name_first",
+    "crates/kovan-literature/src/metadata.rs::author_markers_are_stripped",
+    "crates/kovan-literature/src/metadata.rs::elsevier_opening_yields_title_and_authors",
+    "crates/kovan-literature/src/metadata.rs::escholarship_cover_parses_both_label_layouts",
+    "crates/kovan-literature/src/metadata.rs::find_doi_ignores_dois_in_the_bibliography",
+    "crates/kovan-literature/src/metadata.rs::find_doi_matches_and_trims",
+    "crates/kovan-literature/src/metadata.rs::id_is_deterministic",
+    "crates/kovan-literature/src/metadata.rs::journal_running_headers_are_rejected_as_titles",
+    "crates/kovan-literature/src/metadata.rs::jrc_cover_authors_come_from_above_the_editors_label",
+    "crates/kovan-literature/src/metadata.rs::jrc_cover_title_is_rejoined_across_blank_lines",
+    "crates/kovan-literature/src/metadata.rs::metadata_from_info_dictionary",
+    "crates/kovan-literature/src/metadata.rs::name_list_detection_separates_authors_from_prose",
+    "crates/kovan-literature/src/metadata.rs::non_escholarship_text_is_not_treated_as_a_cover_page",
+    "crates/kovan-literature/src/metadata.rs::page_count_comes_from_the_page_tree_not_the_text",
+    "crates/kovan-literature/src/metadata.rs::page_count_from_text_counts_form_feeds",
+    "crates/kovan-literature/src/metadata.rs::parse_author_comma_and_spaced_forms",
+    "crates/kovan-literature/src/metadata.rs::slug_skips_leading_stop_words",
+    "crates/kovan-literature/src/metadata.rs::title_join_stops_at_body_text_across_a_blank_line",
+    "crates/kovan-literature/src/metadata.rs::year_from_pdf_date_parses_prefix",
+    "crates/kovan-literature/src/pdf_import.rs::extract_assets_on_image_free_pdf_writes_nothing",
+    "crates/kovan-literature/src/pdf_import.rs::extract_text_on_missing_file_is_error",
+    "crates/kovan-literature/src/pdf_import.rs::pdf_to_markdown_extracts_body_text",
+    "crates/kovan-literature/tests/concept_proposals.rs::the_standard_tree_is_the_skeleton_plus_approved_and_deferred_concepts",
+    "crates/kovan-literature/tests/concept_sciences.rs::the_tree_reader_accepts_a_sciences_field",
+    "crates/kovan-literature/tests/concept_skeleton.rs::level_one_is_the_nineteen_iaea_issues_in_order",
+    "crates/kovan-literature/tests/csl_vs_citeproc_js.rs::apa_matches_citeproc_js_except_the_recorded_differences",
+    "crates/kovan-literature/tests/csl_vs_citeproc_js.rs::other_styles_match_citeproc_js_except_the_recorded_differences",
+    "crates/kovan-literature/tests/csl_vs_citeproc_js.rs::the_reference_was_made_from_the_csl_json_this_crate_produces",
+    "crates/kovan/src/app/axes_lock_tests.rs::a_new_image_unlocks_and_a_restored_digitisation_comes_back_locked",
+    "crates/kovan/src/app/code_review_view.rs::a_pending_request_is_held_and_drawn_headless",
+    "crates/kovan/src/app/code_review_view.rs::organisations_window_and_attestation_picker_draw_headless",
+    "crates/kovan/src/app/code_review_view.rs::review_mode_replaces_the_map_headless",
+    "crates/kovan/src/app/code_review_view.rs::the_reconfirm_step_draws_the_callee_diff_headless",
+    "crates/kovan/src/app/code_review_view.rs::the_stamp_dialog_opens_and_draws_every_step_headless",
+    "crates/kovan/src/app/edit_digitisation_tests.rs::a_changed_range_recomputes_only_after_explicit_confirmation",
+    "crates/kovan/src/app/edit_digitisation_tests.rs::a_failed_restore_keeps_the_saved_points_pending",
+    "crates/kovan/src/app/edit_digitisation_tests.rs::an_untouched_edit_after_a_hand_edited_header_keeps_every_value",
+    "crates/kovan/src/app/edit_digitisation_tests.rs::four_series_and_a_lone_early_point_survive_an_untouched_round_trip",
+    "crates/kovan/src/app/edit_digitisation_tests.rs::respelling_a_prefilled_range_is_not_a_change",
+    "crates/kovan/src/app/kvim_editor.rs::a_frame_records_where_the_caret_is",
+    "crates/kovan/src/app/kvim_editor.rs::a_newline_in_insert_mode_advances_the_recorded_caret",
+    "crates/kovan/src/app/kvim_editor.rs::a_signal_is_delivered_once",
+    "crates/kovan/src/app/kvim_editor.rs::an_idle_frame_does_not_move_the_caret",
+    "crates/kovan/src/app/kvim_editor.rs::arrow_keys_move_the_cursor_instead_of_moving_focus",
+    "crates/kovan/src/app/kvim_editor.rs::escape_then_u_undoes_rather_than_dropping_focus",
+    "crates/kovan/src/app/kvim_editor.rs::jumping_past_the_viewport_scrolls_it_to_the_caret",
+    "crates/kovan/src/app/kvim_editor.rs::moving_to_the_next_line_moves_the_recorded_caret",
+    "crates/kovan/src/app/kvim_editor.rs::ordinary_typing_signals_nothing",
+    "crates/kovan/src/app/kvim_editor.rs::quit_reaches_the_host",
+    "crates/kovan/src/app/kvim_editor.rs::write_reaches_the_host",
+    "crates/kovan/src/app/kvim_editor.rs::write_then_quit_reaches_the_host",
+    "crates/kovan/src/app/kvim_tab.rs::confirm_unlocks_and_done_editing_locks_again",
+    "crates/kovan/src/app/kvim_tab.rs::edit_shows_the_modal_and_cancel_leaves_it_locked",
+    "crates/kovan/src/app/kvim_tab.rs::escape_on_the_modal_cancels",
+    "crates/kovan/src/app/kvim_tab.rs::the_preview_renders_a_gfm_document_headlessly",
+    "crates/kovan/src/app/kvim_tab.rs::typing_while_locked_changes_nothing",
+    "crates/kovan/src/app/literature_list.rs::standard_corpus_documents_are_listed_as_ingested",
+    "crates/kovan/src/app/literature_list.rs::the_finder_ranks_fuzzy_matches",
+    "crates/kovan/src/app/mod.rs::a_corrected_range_rereads_restored_values_from_their_pixels",
+    "crates/kovan/src/app/mod.rs::a_successful_save_returns_to_the_reader_and_a_failed_one_stays",
+    "crates/kovan/src/app/mod.rs::activate_paper_and_navigate_falls_back_to_kvim_editor_with_no_pdf",
+    "crates/kovan/src/app/mod.rs::activate_paper_and_navigate_lands_on_pdf_reader_when_a_pdf_is_present",
+    "crates/kovan/src/app/mod.rs::activate_paper_and_navigate_reports_a_missing_pdf_in_the_status_message",
+    "crates/kovan/src/app/mod.rs::activate_paper_resolves_session_and_pdf_path",
+    "crates/kovan/src/app/mod.rs::activate_paper_succeeds_when_the_recorded_pdf_is_missing_locally",
+    "crates/kovan/src/app/mod.rs::editing_a_saved_graph_prefills_the_wizard_and_restores_its_series",
+    "crates/kovan/src/app/mod.rs::load_image_from_raster_auto_fills_page_and_document_identity_from_the_active_paper",
+    "crates/kovan/src/app/mod.rs::load_image_from_raster_still_fills_page_with_no_active_paper",
+    "crates/kovan/src/app/mod.rs::opening_a_pdf_finds_its_paper_or_offers_ingest",
+    "crates/kovan/src/app/mod.rs::refresh_knowledge_populates_index_and_graph_from_the_real_library",
+    "crates/kovan/src/app/mod.rs::repo_save_fingerprint_changes_when_the_paper_markdown_is_written",
+    "crates/kovan/src/app/mod.rs::save_into_project_writes_into_the_active_papers_session_when_given_one",
+    "crates/kovan/src/app/mod.rs::the_submodule_hint_is_silent_when_no_private_submodule_is_configured",
+    "crates/kovan/src/app/pdf_reader.rs::save_annotations_writes_into_the_active_papers_session_when_given_one",
+    "crates/kovan/src/app/review_mode_panel.rs::a_saved_fix_turns_needs_fix_into_fixed_without_reopening",
+    "crates/kovan/src/app/review_mode_panel.rs::review_mode_draws_every_part_headless",
+    "crates/kovan/src/app/series_select.rs::saving_after_hopping_writes_every_series_in_original_order",
+    "crates/kovan/src/autocomplete.rs::a_subtopics_label_is_its_full_path_not_its_leaf_name",
+    "crates/kovan/src/autocomplete.rs::citation_candidate_detail_carries_author_year_title",
+    "crates/kovan/src/autocomplete.rs::citation_candidates_matches_across_citekey_author_title_year",
+    "crates/kovan/src/autocomplete.rs::library_candidates_empty_query_lists_the_library_and_the_corpus",
+    "crates/kovan/src/autocomplete.rs::library_candidates_finds_artifacts_across_every_paper",
+    "crates/kovan/src/autocomplete.rs::library_candidates_finds_papers_topics_and_projects",
+    "crates/kovan/src/autocomplete.rs::library_candidates_kind_filter_restricts_search",
+    "crates/kovan/src/autocomplete.rs::library_candidates_ordering_is_deterministic_and_stable",
+    "crates/kovan/src/autocomplete.rs::library_candidates_paper_matches_author_and_title_not_just_citekey",
+    "crates/kovan/src/autocomplete.rs::library_candidates_paper_omits_bibliography_entries_with_no_library_paper",
+    "crates/kovan/src/commands/references.rs::an_html_page_named_on_the_command_line_is_cited_and_a_style_can_be_named",
+    "crates/kovan/src/commands/references.rs::check_reports_stale_pages_and_update_fixes_them",
+    "crates/kovan/src/corpus.rs::a_deep_concept_path_resolves_with_its_sources",
+    "crates/kovan/src/corpus.rs::a_node_cites_its_sources_and_its_hand_filed_literature",
+    "crates/kovan/src/corpus.rs::cross_links_are_curated_connections_from_both_ends",
+    "crates/kovan/src/corpus.rs::linked_topics_take_the_ontology_aliases",
+    "crates/kovan/src/corpus.rs::literature_and_connections_point_at_real_nodes",
+    "crates/kovan/src/corpus.rs::the_map_is_the_concept_tree_and_the_old_topics_are_gone",
+    "crates/kovan/src/corpus.rs::the_root_has_the_nineteen_iaea_issues_in_order",
+    "crates/kovan/src/corpus.rs::the_taxonomy_is_a_well_formed_tree",
+    "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::ingest_goes_to_the_chosen_repository_and_records_it",
+    "crates/kovan/src/ingest.rs::a_copy_of_a_papers_pdf_is_refused_and_names_the_paper",
+    "crates/kovan/src/ingest.rs::a_copy_of_a_standard_corpus_file_is_refused_by_content",
+    "crates/kovan/src/ingest.rs::a_corpus_pdf_is_ingested_in_place",
+    "crates/kovan/src/ingest.rs::a_paper_is_filed_under_its_year",
+    "crates/kovan/src/ingest.rs::ingesting_an_already_taken_citekey_is_rejected",
+    "crates/kovan/src/ingest.rs::new_pdfs_still_ingest_and_a_name_match_only_warns",
+    "crates/kovan/src/ingest.rs::no_topics_or_projects_chosen_falls_back_to_unsorted",
+    "crates/kovan/src/ingest.rs::preview_then_ingest_creates_a_classified_paper",
+    "crates/kovan/src/ingest.rs::the_standard_corpus_file_itself_is_refused_by_path",
+    "crates/kovan/src/mindmap.rs::a_concept_hyperlink_shows_as_a_link_card_from_both_ends",
+    "crates/kovan/src/mindmap.rs::a_fresh_map_shows_the_corpus_with_no_folder",
+    "crates/kovan/src/mindmap.rs::a_relation_from_a_paper_is_offered_on_the_menu_not_drawn_as_a_card",
+    "crates/kovan/src/mindmap.rs::a_relation_to_a_mirrored_library_topic_shows_on_its_corpus_node",
+    "crates/kovan/src/mindmap.rs::a_subtopic_under_a_corpus_topic_shows_beneath_it",
+    "crates/kovan/src/mindmap.rs::bib_display_falls_back_to_the_citekey_with_no_bibliography_entry",
+    "crates/kovan/src/mindmap.rs::bib_display_formats_family_name_and_year",
+    "crates/kovan/src/mindmap.rs::citations_come_from_the_cached_bibliography",
+    "crates/kovan/src/mindmap.rs::literature_card_counts_artifacts_and_backlinks",
+    "crates/kovan/src/mindmap.rs::star_cards_show_concepts_with_papers_as_citations",
+    "crates/kovan/src/mindmap.rs::unsorted_papers_appear_under_a_synthetic_card",
+    "crates/kovan/src/project.rs::append_to_section_appends_after_existing_body",
+    "crates/kovan/src/project.rs::append_to_section_creates_a_missing_marker_at_end_of_file",
+    "crates/kovan/src/project.rs::bib_entry_with_no_matching_files_yet_is_skipped",
+    "crates/kovan/src/project.rs::malformed_bib_file_is_reported_not_panicked",
+    "crates/kovan/src/project.rs::matching_cite_key_pdf_and_markdown_produces_one_document",
+    "crates/kovan/src/project.rs::missing_bib_file_is_reported",
+    "crates/kovan/src/project.rs::pdf_markdown_pair_with_no_matching_cite_key_is_skipped",
+    "crates/kovan/src/project.rs::regenerate_and_write_over_a_synthetic_project",
+    "crates/kovan/src/project.rs::write_section_rejects_a_stale_range",
+    "crates/kovan/src/project.rs::write_section_replaces_body_and_leaves_heading_and_later_sections_untouched",
+    "crates/kovan/src/runtime_graph.rs::a_folder_extends_the_corpus_and_does_not_replace_it",
+    "crates/kovan/src/runtime_graph.rs::an_empty_folder_shows_the_full_standard_map",
+    "crates/kovan/src/runtime_graph.rs::concepts_resolve_in_their_own_namespace",
+    "crates/kovan/src/runtime_graph.rs::corpus_literature_is_cited_by_its_topics",
+    "crates/kovan/src/runtime_graph.rs::old_nuclear_engineering_folders_stay_user_topics",
+    "crates/kovan/src/runtime_graph.rs::the_breadcrumb_names_every_ancestor",
+    "crates/kovan/src/runtime_graph.rs::up_from_a_mirrored_branch_lands_on_the_corpus_node",
+    "crates/kovan/src/runtime_graph.rs::up_one_level_climbs_to_the_top_and_stops",
+    "crates/kovan/src/runtime_graph.rs::with_no_folder_the_graph_is_the_corpus",
+    "crates/kovan/src/stamping/concepts.rs::finder_ranks_seeded_first_and_matches_title_or_path",
+    "crates/kovan/src/stamping/flow_tests.rs::flow_refuses_a_dirty_file_then_writes_needs_fix",
+    "crates/kovan/src/stamping/flow_tests.rs::flow_sets_up_a_key_signs_and_turns_valid",
+    "crates/kovan/src/stamping/flow_tests.rs::flow_without_root_and_with_several_keys",
+    "crates/kovan/src/stamping/organisations_tests.rs::concept_link_reaches_rung_5_through_evaluate_workspace",
+    "crates/kovan/src/stamping/organisations_tests.rs::ivv_end_to_end_signs_records_stamps_and_judges",
+    "crates/kovan/src/stamping/review_mode/tests.rs::a_concept_is_linked_from_the_wizard",
+    "crates/kovan/src/stamping/review_mode/tests.rs::a_port_prefills_no_concept_and_links_upstream",
+    "crates/kovan/src/stamping/review_mode/tests.rs::bottom_up_is_enforced_before_the_wizard",
+    "crates/kovan/src/stamping/review_mode/tests.rs::flow_refuses_a_changed_hash_and_signs_no_concept",
+    "crates/kovan/src/stamping/review_mode/tests.rs::function_view_diff_sections_blockers_and_walk",
+    "crates/kovan/src/stamping/review_mode/tests.rs::inherited_stale_is_reconfirmed_without_the_wizard",
+    "crates/kovan/src/stamping/review_mode/tests.rs::sections_highlights_and_cancel",
+    "crates/kovan/src/standard_corpus.rs::a_corpus_pdf_outside_the_folder_is_found_by_id",
+    "crates/kovan/src/standard_corpus.rs::a_different_paper_with_the_corpus_id_is_refused",
+    "crates/kovan/src/standard_corpus.rs::an_earlier_in_place_ingest_is_reused",
+    "crates/kovan/src/standard_corpus.rs::availability_follows_the_checkouts",
+    "crates/kovan/src/standard_corpus.rs::ensure_paper_files_one_note_keyed_by_the_corpus_id",
+    "crates/kovan/src/tui/ingest/draw.rs::failed_screen_shows_the_error_message",
+    "crates/kovan/src/tui/ingest/draw.rs::picker_renders_its_fields_and_guidance",
+    "crates/kovan/src/tui/ingest/draw.rs::review_screen_shows_a_validation_problem_instead_of_the_bibtex",
+    "crates/kovan/src/tui/ingest/draw.rs::review_screen_shows_the_form_advisories_and_bibtex",
+    "crates/kovan/src/tui/ingest/draw.rs::running_screen_shows_elapsed_time_and_no_fake_percentage",
+    "crates/kovan/src/tui/ingest/mod.rs::a_bad_pdf_ends_in_the_failed_phase_with_a_message",
+    "crates/kovan/src/tui/ingest/mod.rs::a_failed_job_is_dismissed_back_to_the_picker",
+    "crates/kovan/src/tui/ingest/mod.rs::abandoning_a_running_job_returns_to_the_picker_immediately",
+    "crates/kovan/src/tui/ingest/mod.rs::discarding_a_review_writes_nothing_and_returns_to_the_picker",
+    "crates/kovan/src/tui/ingest/mod.rs::editing_an_output_path_pins_all_three",
+    "crates/kovan/src/tui/ingest/mod.rs::enter_with_no_selection_reports_instead_of_starting_a_job",
+    "crates/kovan/src/tui/ingest/mod.rs::esc_cancels_an_edit_and_restores_the_previous_value",
+    "crates/kovan/src/tui/ingest/mod.rs::ingest_path_points_the_picker_at_the_files_directory",
+    "crates/kovan/src/tui/ingest/mod.rs::left_right_cycles_the_document_type_only_on_that_row",
+    "crates/kovan/src/tui/ingest/mod.rs::pressing_e_on_the_type_row_explains_itself_instead_of_editing",
+    "crates/kovan/src/tui/ingest/mod.rs::quit_is_blocked_while_work_is_in_flight",
+    "crates/kovan/src/tui/ingest/mod.rs::review_navigation_moves_between_fields",
+    "crates/kovan/src/tui/ingest/mod.rs::saving_from_the_review_phase_writes_and_reports",
+    "crates/kovan/src/tui/ingest/mod.rs::tick_on_an_idle_picker_does_nothing",
+    "crates/kovan/src/tui/ingest/mod.rs::typing_a_root_then_enter_scans_it",
+    "crates/kovan/src/tui/ingest/mod.rs::typing_into_the_year_field_corrects_the_record",
+    "crates/kovan/src/tui/ingest/review.rs::a_clean_extraction_raises_no_advisories",
+    "crates/kovan/src/tui/ingest/review.rs::advisories_flag_the_real_world_failure_modes",
+    "crates/kovan/src/tui/ingest/review.rs::corrected_document_preserves_the_extracted_body_and_page_count",
+    "crates/kovan/src/tui/ingest/review.rs::corrections_regenerate_the_slug_and_id",
+    "crates/kovan/src/tui/ingest/review.rs::edited_marker_tracks_divergence_from_the_extraction",
+    "crates/kovan/src/tui/ingest/review.rs::empty_output_paths_save_nothing_and_say_so",
+    "crates/kovan/src/tui/ingest/review.rs::empty_title_is_a_validation_error_not_a_panic",
+    "crates/kovan/src/tui/ingest/review.rs::empty_year_means_unknown_rather_than_invalid",
+    "crates/kovan/src/tui/ingest/review.rs::form_starts_populated_from_the_extracted_record",
+    "crates/kovan/src/tui/ingest/review.rs::implausible_year_is_rejected_with_a_readable_message",
+    "crates/kovan/src/tui/ingest/review.rs::output_defaults_follow_the_storage_layout_and_track_the_slug",
+    "crates/kovan/src/tui/ingest/review.rs::pinned_output_paths_are_not_overwritten_by_slug_changes",
+    "crates/kovan/src/tui/ingest/review.rs::save_reports_an_unwritable_path_instead_of_panicking",
+    "crates/kovan/src/tui/ingest/review.rs::save_reports_validation_failure_without_writing_anything",
+    "crates/kovan/src/tui/ingest/review.rs::save_writes_all_three_artifacts_with_corrected_metadata",
+    "crates/kovan/src/tui/literature.rs::edit_mode_types_into_root_and_enter_confirms_and_scans",
+    "crates/kovan/src/tui/literature.rs::preview_bib_entry_shows_raw_text",
+    "crates/kovan/src/tui/literature.rs::preview_markdown_entry_shows_outline_and_content",
+    "crates/kovan/src/tui/literature.rs::r_rescans_without_entering_edit_mode",
+    "crates/kovan/src/tui/mod.rs::back_tab_cycles_backward_and_wraps_from_overview",
+    "crates/kovan/src/tui/mod.rs::digit_keys_switch_tabs",
+    "crates/kovan/src/tui/mod.rs::digit_seven_reaches_the_digitiser_tab",
+    "crates/kovan/src/tui/mod.rs::digit_six_reaches_the_ingest_tab",
+    "crates/kovan/src/tui/mod.rs::editing_suppresses_global_quit_and_tab_switch_keys",
+    "crates/kovan/src/tui/mod.rs::esc_also_quits_when_not_editing",
+    "crates/kovan/src/tui/mod.rs::every_tab_draws_without_panicking",
+    "crates/kovan/src/tui/mod.rs::literature_i_hands_the_selected_pdf_to_the_ingest_tab",
+    "crates/kovan/src/tui/mod.rs::overview_tab_ignores_navigation_keys_without_panicking",
+    "crates/kovan/src/tui/mod.rs::poll_interval_is_short_only_while_work_is_in_flight",
+    "crates/kovan/src/tui/mod.rs::q_quits_from_the_default_overview_tab",
+    "crates/kovan/src/tui/mod.rs::quitting_is_blocked_while_an_import_is_in_flight",
+    "crates/kovan/src/tui/mod.rs::tab_bar_highlights_the_active_tab",
+    "crates/kovan/src/tui/mod.rs::tab_key_cycles_forward_and_wraps",
+    "crates/kovan/tests/zotero_cli.rs::a_folder_written_before_this_change_is_unchanged_by_an_import",
+    "crates/kovan/tests/zotero_cli.rs::data_folder_import_export_reimport_round_trip",
+]
+
+[module."bibtex.rs"]
+path = "crate::bibtex"
+
+[[module."bibtex.rs".function]]
+id = "fn:2f44d28760e014ea"
+name = "to_bibtex"
+qual = "to_bibtex"
+lines = [
+    30,
+    139,
+]
+hash = "sha256:26edbe8b2c83cb667f683ae84f4134ad0e8abb466403e7eef933fa6f645ed489"
+doc_hash = "sha256:526e1ff9bff257849a1fa9bfbabf1c0d68a87dbfa6fda9b76b77a20d22e096b6"
+callees = [
+    "fn:070554dfb34b3e4a",
+    "fn:31215145b6b2af5d",
+    "fn:3580375a7020c4e1",
+    "fn:5da84937ae451f12",
+    "fn:94aaa80d276263c6",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#10",
+    "#15",
+    "#16",
+    "#17",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#230",
+    "#237",
+    "#238",
+    "#239",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."bibtex.rs".function]]
+id = "fn:31215145b6b2af5d"
+name = "entry_type_for"
+qual = "entry_type_for"
+lines = [
+    141,
+    151,
+]
+hash = "sha256:932b0bcef0564d745b4ea39727b0f34ecdbe418bfee4a151833b5c0bd344ad20"
+doc_hash = "sha256:a5c7c28b21eed1a568d14d0dc896753dc94dd7c9fc4a29551a9f6488cea10ceb"
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#10",
+    "#15",
+    "#16",
+    "#17",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#230",
+    "#237",
+    "#238",
+    "#239",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."bibtex.rs".function]]
+id = "fn:5da84937ae451f12"
+name = "push_field"
+qual = "push_field"
+lines = [
+    153,
+    156,
+]
+hash = "sha256:5162799ce57109ec88c5a7ef45729d2b73490e9446ef5939962036f11d7e2d9b"
+doc_hash = "sha256:59e8a2434b29a53c338eaaf4db4b969cbe8d0c1c87070beaf9d7d0f0e62831d5"
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#10",
+    "#15",
+    "#16",
+    "#17",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#230",
+    "#237",
+    "#238",
+    "#239",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."bibtex.rs".function]]
+id = "fn:070554dfb34b3e4a"
+name = "non_empty"
+qual = "non_empty"
+lines = [
+    158,
+    161,
+]
+hash = "sha256:62635a2ce425605a29e266698d94a04dbabcc46705e101fc8c9dec5a55faf388"
+doc_hash = "sha256:c4af6be11eea452ee50e1f72de711801d64e44c6c1101222a5287890ba9fca54"
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#10",
+    "#15",
+    "#16",
+    "#17",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#230",
+    "#237",
+    "#238",
+    "#239",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."bibtex.rs".function]]
+id = "fn:94aaa80d276263c6"
+name = "sanitize_key"
+qual = "sanitize_key"
+lines = [
+    163,
+    175,
+]
+hash = "sha256:e4fde8b09313596af99e48142f788178f4cc01ba28416f7c0a7bb86b037cffb4"
+doc_hash = "sha256:89f02e1adaf9931b55d649821fe71eb14df71002213bbda12a4bdf6b68717e20"
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#10",
+    "#15",
+    "#16",
+    "#17",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#230",
+    "#237",
+    "#238",
+    "#239",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."bibtex.rs".function]]
+id = "fn:3580375a7020c4e1"
+name = "escape_tex"
+qual = "escape_tex"
+lines = [
+    177,
+    199,
+]
+hash = "sha256:9f656e0b9c382635d82d616f983e7b5d9cd8017ca173ce7d9eb462ae18c45d4c"
+doc_hash = "sha256:3ab30ff078790c37e80f2e2ffc462ef2bf60e8274a1e03b72879ee39e0fb1d1b"
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#10",
+    "#15",
+    "#16",
+    "#17",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#230",
+    "#237",
+    "#238",
+    "#239",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."bibtex.rs".function]]
+id = "fn:f3357c5704e0b088"
+name = "fmt"
+qual = "BibParseError::fmt"
+lines = [
+    226,
+    235,
+]
+hash = "sha256:6025d5894d9ee7cc757e1ae50f1af5f0c60758b325406f54c45e599f890fba93"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."bibtex.rs".function]]
+id = "fn:866b1c596fa390eb"
+name = "parse_bib_entries"
+qual = "parse_bib_entries"
+lines = [
+    240,
+    306,
+]
+hash = "sha256:d341beb33d6049d5b25a2b87b46a1b514f3cd9f239b801eb4a4253fb0a859be7"
+doc_hash = "sha256:dd3a707ac894ca0918fc7c1bfcbf0a88bd1b8a66c248948a310f632d66b55d9d"
+callees = [
+    "fn:00cba3aaf87dd93a",
+    "fn:ed05d6aca038c0ae",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#5",
+    "#8",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#18",
+    "#19",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#199",
+    "#200",
+    "#201",
+    "#203",
+    "#258",
+    "#259",
+]
+
+[[module."bibtex.rs".function]]
+id = "fn:ed05d6aca038c0ae"
+name = "find_matching_close"
+qual = "find_matching_close"
+lines = [
+    308,
+    325,
+]
+hash = "sha256:8193de785c6c202be620a9d354314d01868be61960f3797e8ac689b009db29be"
+doc_hash = "sha256:8d3142673d0e6125f91c871e1b3453ac3be53cbb7e80f9b5513e5a169c697b61"
+reached_by = [
+    "#0",
+    "#2",
+    "#5",
+    "#8",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#18",
+    "#19",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#199",
+    "#200",
+    "#201",
+    "#203",
+    "#258",
+    "#259",
+]
+
+[[module."bibtex.rs".function]]
+id = "fn:00cba3aaf87dd93a"
+name = "parse_entry_body"
+qual = "parse_entry_body"
+lines = [
+    327,
+    436,
+]
+hash = "sha256:7bab7e79bfbcce157b9c19f5c88369fd5a221ed0675a0300e3688caf5878663a"
+doc_hash = "sha256:9fe35ccbe3fcd41119415fe9b6167b968451902d5701cf1ab12c1f2f5bfdd256"
+callees = [
+    "fn:ed05d6aca038c0ae",
+    "fn:f626efe802947d77",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#5",
+    "#8",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#18",
+    "#19",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#199",
+    "#200",
+    "#201",
+    "#203",
+    "#258",
+    "#259",
+]
+
+[[module."bibtex.rs".function]]
+id = "fn:f626efe802947d77"
+name = "skip_ws"
+qual = "skip_ws"
+lines = [
+    438,
+    442,
+]
+hash = "sha256:ae1fa48a9cba2ad7fd5d3076a8ff19440e1dddf4910174481675ff3b73c862c8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#2",
+    "#5",
+    "#8",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#18",
+    "#19",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#199",
+    "#200",
+    "#201",
+    "#203",
+    "#258",
+    "#259",
+]
+
+[[module."bibtex.rs".function]]
+id = "fn:f16caab0b12bf63d"
+name = "render_entry"
+qual = "render_entry"
+lines = [
+    444,
+    461,
+]
+hash = "sha256:f677bbcc099514dba5644dc196ab66741cbba2373c4d5b75d8246855284175cb"
+doc_hash = "sha256:c9dba88f6b364fe45f9a3f75620041123fc72297e5fedc423f483e959661726d"
+reached_by = [
+    "#13",
+    "#14",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#105",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#199",
+    "#200",
+    "#201",
+    "#203",
+    "#258",
+    "#259",
+]
+
+[[module."bibtex.rs".function]]
+id = "fn:6754a0e041823d4d"
+name = "render_entries"
+qual = "render_entries"
+lines = [
+    463,
+    471,
+]
+hash = "sha256:3270a99c346464e7d2b21c6e4e3aa45ac496707363525160474927b238b7265e"
+doc_hash = "sha256:0b6af823233c6d93ea2ae8b9c0c22ca96c03c686f2cd787394b82a509eac5531"
+callees = ["fn:f16caab0b12bf63d"]
+reached_by = [
+    "#13",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#105",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#199",
+    "#200",
+    "#201",
+    "#203",
+    "#258",
+]
+
+[[module."bibtex.rs".function]]
+id = "fn:054f9fdf66c0e1b4"
+name = "sample"
+qual = "sample"
+lines = [
+    478,
+    495,
+]
+hash = "sha256:85efed90a0cc411f35554fb26c5e818faaa4371c579631442da72a5ca6df9e7a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:aa521857b5d2af86"]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:04096d45340efc93"
+name = "golden_techreport_entry"
+qual = "golden_techreport_entry"
+lines = [
+    497,
+    509,
+]
+hash = "sha256:7662037c4a09985082457b7397980399b0612c3902c4f29b8990f8af5a2118d8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:054f9fdf66c0e1b4",
+    "fn:2f44d28760e014ea",
+]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:ba031e604c8a5995"
+name = "paper_maps_to_article"
+qual = "paper_maps_to_article"
+lines = [
+    511,
+    516,
+]
+hash = "sha256:7bccd063d4d369cf5800ca3c7b2ad9cd00195c3ffe0483cd1d5176b82c438ce5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:054f9fdf66c0e1b4",
+    "fn:2f44d28760e014ea",
+]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:4b1d4c1213f3b87b"
+name = "standard_maps_to_misc"
+qual = "standard_maps_to_misc"
+lines = [
+    518,
+    523,
+]
+hash = "sha256:9077f1628e7a39ee891c31c9ec3c04a4b67d2ed48db78adfedaf073daf35d31a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:054f9fdf66c0e1b4",
+    "fn:2f44d28760e014ea",
+]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:2b213fd8c6f9c048"
+name = "special_characters_are_escaped"
+qual = "special_characters_are_escaped"
+lines = [
+    525,
+    531,
+]
+hash = "sha256:273b700ebfe5026181472ff47777d3b5ffc170f6cab8e25266daee531f971e81"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:054f9fdf66c0e1b4",
+    "fn:2f44d28760e014ea",
+]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:5a7382a301f6c386"
+name = "missing_optional_fields_are_omitted"
+qual = "missing_optional_fields_are_omitted"
+lines = [
+    533,
+    548,
+]
+hash = "sha256:64e2229fb2ab7827adf3dbe05d416275567a6308dfd6db377f1fe58c99a1064d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2f44d28760e014ea",
+    "fn:aa521857b5d2af86",
+]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:780d23786816ae8e"
+name = "journal_locators_are_emitted_when_present"
+qual = "journal_locators_are_emitted_when_present"
+lines = [
+    550,
+    569,
+]
+hash = "sha256:dce371c44dcf58763da389aaf575c53540ec2bfd18d728cb571fd6630f25b016"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2f44d28760e014ea",
+    "fn:3d23a825b92e14c9",
+    "fn:5bbdd1ef4cffdcbd",
+    "fn:a385012f1c62cbf5",
+    "fn:c64ef96e8ed99374",
+    "fn:e6c3a8f7b40ab428",
+    "fn:fe01325fdea59149",
+]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:359b1bd010051771"
+name = "multiple_authors_join_with_and"
+qual = "multiple_authors_join_with_and"
+lines = [
+    571,
+    580,
+]
+hash = "sha256:5247787952b69355f6510d2e27129dc883a4d962a5f49980c00fbbed128565ca"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:054f9fdf66c0e1b4",
+    "fn:2f44d28760e014ea",
+]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:307620180908b1f5"
+name = "empty_slug_becomes_unknown_key"
+qual = "empty_slug_becomes_unknown_key"
+lines = [
+    582,
+    586,
+]
+hash = "sha256:be099558a95e7829dfcfa3cb5a02fea2c65a1326814a5eb448324997b8c6a1b0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2f44d28760e014ea",
+    "fn:aa521857b5d2af86",
+]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:54dce0d4b187d9e1"
+name = "parses_a_single_brace_delimited_entry"
+qual = "parses_a_single_brace_delimited_entry"
+lines = [
+    588,
+    603,
+]
+hash = "sha256:3ed07c86bc788c9f3700e66be513b60659fe2df5f498f92e5b4ff1ebcbab1d8a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:866b1c596fa390eb"]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:e1772ba19c356424"
+name = "round_trips_through_to_bibtex_then_parse_bib_entries"
+qual = "round_trips_through_to_bibtex_then_parse_bib_entries"
+lines = [
+    605,
+    617,
+]
+hash = "sha256:5dd6dd24b8754cd26e9ad187015a37a8e698a9ed2ebccf9adf25eba76f808cc6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:054f9fdf66c0e1b4",
+    "fn:2f44d28760e014ea",
+    "fn:866b1c596fa390eb",
+]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:20f02d8973bd1371"
+name = "quote_delimited_values_and_bare_numeric_year_parse"
+qual = "quote_delimited_values_and_bare_numeric_year_parse"
+lines = [
+    619,
+    627,
+]
+hash = "sha256:6fc7a677dd66e2a037aa606ad53cda0819cf1931b30a8a233e26a53e31b1bd6d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:866b1c596fa390eb"]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:05eae00072fb6cd5"
+name = "nested_braces_inside_a_value_are_preserved"
+qual = "nested_braces_inside_a_value_are_preserved"
+lines = [
+    629,
+    637,
+]
+hash = "sha256:3d891ab51eacefcc718a1eb86cb1b5888801718540a1f0299af3390e1a6aee34"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:866b1c596fa390eb"]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:7afaa5a6f58a79e5"
+name = "multiple_entries_and_surrounding_comments_all_parse"
+qual = "multiple_entries_and_surrounding_comments_all_parse"
+lines = [
+    639,
+    646,
+]
+hash = "sha256:1ae997a433ea34c70c6a2b2a70e14e34e07fbbdd579f8b8648a6ffd7d35e0031"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:866b1c596fa390eb"]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:9751816db9b2e70f"
+name = "string_preamble_and_comment_blocks_are_skipped_not_returned"
+qual = "string_preamble_and_comment_blocks_are_skipped_not_returned"
+lines = [
+    648,
+    658,
+]
+hash = "sha256:55fa7a3299a980a12f297f312fc07bb05e7b39af635ccf3c24a96d2e2644d0e2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:866b1c596fa390eb"]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:d0395b6fe2dfd561"
+name = "missing_cite_key_is_an_error"
+qual = "missing_cite_key_is_an_error"
+lines = [
+    660,
+    664,
+]
+hash = "sha256:845238868211205b211096792b1533cffc0316203765225f70d25e6051085786"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:866b1c596fa390eb"]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:7bb688bd97dbd5f2"
+name = "unterminated_entry_is_an_error"
+qual = "unterminated_entry_is_an_error"
+lines = [
+    666,
+    673,
+]
+hash = "sha256:b6e81e3cc3bcc2d84c6353560cb429d63a1c97fb11a5d037625557bbd0947a11"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:866b1c596fa390eb"]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:ad02e11d895d5f3f"
+name = "field_names_are_lowercased"
+qual = "field_names_are_lowercased"
+lines = [
+    675,
+    679,
+]
+hash = "sha256:93d7aa2591ecaba2b46a572660b0b0cab6bec4e0f4f4c2dd2ec469a3850b56dd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:866b1c596fa390eb"]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:ba3f79e9dc6d54e8"
+name = "empty_input_produces_no_entries"
+qual = "empty_input_produces_no_entries"
+lines = [
+    681,
+    687,
+]
+hash = "sha256:837201f3d9f8f5b12648ff2c3bfb55445078ec51743b8ecc08b8542b230d023f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:866b1c596fa390eb"]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:c49d7a4fda47098c"
+name = "render_entry_round_trips_through_parse_bib_entries"
+qual = "render_entry_round_trips_through_parse_bib_entries"
+lines = [
+    689,
+    704,
+]
+hash = "sha256:3dde55f2b1a028cd6315aa796aedd7beca73a66b192071ff05af702c68d036a2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:866b1c596fa390eb",
+    "fn:f16caab0b12bf63d",
+]
+test = true
+
+[[module."bibtex.rs".function]]
+id = "fn:60b528ebc92b4cfc"
+name = "render_entries_joins_multiple_with_a_blank_line"
+qual = "render_entries_joins_multiple_with_a_blank_line"
+lines = [
+    706,
+    718,
+]
+hash = "sha256:b7f5c6a670abcef4f7025875332c7c89afcc869fb6e040ddc8cae0e4633556ad"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6754a0e041823d4d",
+    "fn:866b1c596fa390eb",
+]
+test = true
+
+[module."concept_tree.rs"]
+path = "crate::concept_tree"
+
+[[module."concept_tree.rs".function]]
+id = "fn:8e002eeaae589a52"
+name = "parent_path"
+qual = "ConceptNode::parent_path"
+lines = [
+    130,
+    133,
+]
+hash = "sha256:8368e27e4b6d856a18500aea952c82638fd3c22683cd830ebfae0b75bb80b581"
+doc_hash = "sha256:408e0294d9e0bf3e1b1eb103f8f02c0e4dcb21e3fb960402014d706bf9ee33cc"
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#71",
+    "#72",
+    "#73",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#105",
+    "#106",
+    "#117",
+    "#123",
+    "#124",
+    "#126",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#165",
+    "#166",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+]
+
+[[module."concept_tree.rs".function]]
+id = "fn:9a6b61674fa72def"
+name = "slug"
+qual = "ConceptNode::slug"
+lines = [
+    135,
+    138,
+]
+hash = "sha256:9f42ffc32cd40d06b6089de6c5961e5cc1a361aeff47f3be23c7d8cff50e13c0"
+doc_hash = "sha256:5ef7fdb4334d1094955e367ab025ff73f8e8f9007921a685bcc52ff4f237a7f1"
+reached_by = [
+    "#20",
+    "#23",
+]
+
+[[module."concept_tree.rs".function]]
+id = "fn:023d46587766adc8"
+name = "fmt"
+qual = "ConceptTreeError::fmt"
+lines = [
+    159,
+    161,
+]
+hash = "sha256:e693a5f28f910fa94498594a0964a2fcf25bf1d9a0a7cf9a2cb9e14d57c59894"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."concept_tree.rs".function]]
+id = "fn:13ef2f54780a3e88"
+name = "sources"
+qual = "sources"
+lines = [
+    221,
+    229,
+]
+hash = "sha256:3448b9867689da812af6d98c2b091e8f8f313c3c8d8809ec936b77e0e7104748"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#71",
+    "#72",
+    "#73",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#105",
+    "#106",
+    "#117",
+    "#123",
+    "#124",
+    "#126",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#165",
+    "#166",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+]
+
+[[module."concept_tree.rs".function]]
+id = "fn:3e645ab6eaad607b"
+name = "level_of"
+qual = "level_of"
+lines = [
+    231,
+    233,
+]
+hash = "sha256:5569788119e3a967bc84655eafd09225085dc41beade178a2230e0021fb7e01b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#71",
+    "#72",
+    "#73",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#105",
+    "#106",
+    "#117",
+    "#123",
+    "#124",
+    "#126",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#165",
+    "#166",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+]
+
+[[module."concept_tree.rs".function]]
+id = "fn:6187a6ea5626f0c2"
+name = "parse"
+qual = "ConceptTree::parse"
+lines = [
+    236,
+    359,
+]
+hash = "sha256:4608814782088e1e7575209bf93981f1a817a1876f98289b549444b30912792a"
+doc_hash = "sha256:bed565461f8adf0ba25e0fdd69261d707baaf0e7233e79dabe8d7aa958b292e4"
+callees = [
+    "fn:13ef2f54780a3e88",
+    "fn:3e645ab6eaad607b",
+    "fn:8e002eeaae589a52",
+]
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#71",
+    "#72",
+    "#73",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#105",
+    "#106",
+    "#117",
+    "#123",
+    "#124",
+    "#126",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#165",
+    "#166",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+]
+
+[[module."concept_tree.rs".function]]
+id = "fn:9c144a1d86195be8"
+name = "nodes"
+qual = "ConceptTree::nodes"
+lines = [
+    361,
+    366,
+]
+hash = "sha256:db534564bf49230cab04f293f963ba8cb931fa2cdb3b522f45e8340c9f3ce2f2"
+doc_hash = "sha256:55046b64f1f67c4eb5bedc91fba93aefcdff99f21f2c931770328936a661a460"
+reached_by = [
+    "#22",
+    "#23",
+    "#71",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#126",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#165",
+    "#166",
+    "#177",
+    "#178",
+    "#179",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#197",
+]
+
+[[module."concept_tree.rs".function]]
+id = "fn:b21478eb146ab9ad"
+name = "documents"
+qual = "ConceptTree::documents"
+lines = [
+    368,
+    371,
+]
+hash = "sha256:71672c2b8b24abf2c33046c92ed29250b7e43c66e05330ba9691c57c3a6ff71a"
+doc_hash = "sha256:5e936855fab787e7e2f99246c0cebc5699fd94c084e891b2265a524dfa098a68"
+reached_by = [
+    "#73",
+    "#142",
+]
+
+[[module."concept_tree.rs".function]]
+id = "fn:0c2034320b1441fb"
+name = "document"
+qual = "ConceptTree::document"
+lines = [
+    373,
+    376,
+]
+hash = "sha256:f8670e4b837632f52154ac9cba78001aa0800719678c3795c612bb9f33b8e579"
+doc_hash = "sha256:621d0a36e683ab82e7c5353e32296e443fc9a22d9719286cbfcefabf581c9ad0"
+reached_by = [
+    "#20",
+    "#23",
+]
+
+[[module."concept_tree.rs".function]]
+id = "fn:232609ef84cab802"
+name = "node"
+qual = "ConceptTree::node"
+lines = [
+    378,
+    381,
+]
+hash = "sha256:a2058508ea211ea247d33b393c130bad6395cc812c48f8a72e6bd5581fd4f23e"
+doc_hash = "sha256:ad89141b52290f87658e85322a3d945b5aa1583b31f9b3d076737c2f712b8cbc"
+reached_by = [
+    "#20",
+    "#23",
+    "#71",
+    "#72",
+    "#73",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#123",
+    "#124",
+    "#140",
+    "#142",
+    "#143",
+    "#186",
+    "#192",
+    "#193",
+    "#196",
+    "#198",
+]
+
+[[module."concept_tree.rs".function]]
+id = "fn:241dd30032d40534"
+name = "roots"
+qual = "ConceptTree::roots"
+lines = [
+    383,
+    386,
+]
+hash = "sha256:d5a469aba83f93d088959f8c51bdf3abaa5f70b4281694a7f7e5a7a0014c5e0e"
+doc_hash = "sha256:6f8af195eb13fe637646443e151671fb49d049e7c8c9209f7b98a6874f941391"
+callees = ["fn:fe97debe19442217"]
+reached_by = [
+    "#24",
+    "#73",
+    "#138",
+    "#144",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#165",
+    "#166",
+    "#177",
+    "#178",
+    "#179",
+    "#181",
+    "#182",
+    "#183",
+    "#185",
+]
+
+[[module."concept_tree.rs".function]]
+id = "fn:fe97debe19442217"
+name = "children"
+qual = "ConceptTree::children"
+lines = [
+    388,
+    397,
+]
+hash = "sha256:4922390c9f19374bff84833a016cb2979496557075561d80109042d0f858fc03"
+doc_hash = "sha256:43b050f209a9d80443938f6af78b0434a86d1337a3788e76159002cebcb18dcc"
+reached_by = [
+    "#20",
+    "#23",
+    "#24",
+    "#73",
+    "#138",
+    "#144",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#165",
+    "#166",
+    "#177",
+    "#178",
+    "#179",
+    "#181",
+    "#182",
+    "#183",
+    "#185",
+]
+
+[[module."concept_tree.rs".function]]
+id = "fn:4cf4cf1d875c58f3"
+name = "parent"
+qual = "ConceptTree::parent"
+lines = [
+    399,
+    403,
+]
+hash = "sha256:e5f53da098f42fbe521b16c6af20e41e2cb5b0469bca317b3a98ccda2fc48956"
+doc_hash = "sha256:65a8cbf06044ea5cd1f374884f4a8b9244c742cd35e8cd9cb5c5b28335784dc5"
+callees = [
+    "fn:232609ef84cab802",
+    "fn:8e002eeaae589a52",
+]
+reached_by = ["#20"]
+
+[[module."concept_tree.rs".function]]
+id = "fn:1a851f0f6d221ff5"
+name = "cross_links"
+qual = "ConceptTree::cross_links"
+lines = [
+    405,
+    413,
+]
+hash = "sha256:ae89dc07cc165e548e45d354ebecf7a9cc32d3474a8fcaebe55fcdc3730fe2dc"
+doc_hash = "sha256:1aaaafbe4ed60afa62271d0f126f982e273134ef539e53b32f6809336e311564"
+callees = ["fn:232609ef84cab802"]
+reached_by = [
+    "#23",
+    "#140",
+    "#142",
+]
+
+[[module."concept_tree.rs".function]]
+id = "fn:2ad31fc5156d7b66"
+name = "cross_linked_from"
+qual = "ConceptTree::cross_linked_from"
+lines = [
+    415,
+    424,
+]
+hash = "sha256:40ef53def4c6f3b49f2ef34ed76fd0eb3c6fe24b9b3c39fff94788ded5766721"
+doc_hash = "sha256:13cc2349435a31b4c7831cd62e8b75d7d1fd162b0d49d7848fd74b7f9a839107"
+reached_by = ["#23"]
+
+[[module."concept_tree.rs".function]]
+id = "fn:bec805f6c189581f"
+name = "documents_cited_by"
+qual = "ConceptTree::documents_cited_by"
+lines = [
+    426,
+    438,
+]
+hash = "sha256:928696cb320893839a17b4255508a2cc30eb7f37d4c0cc98fe68c717ae376366"
+doc_hash = "sha256:533b1ab2c870961d4697edfce4bfcdc27811b07ba73fbf92891e74c6b463e6ab"
+callees = [
+    "fn:0c2034320b1441fb",
+    "fn:232609ef84cab802",
+]
+reached_by = ["#20"]
+
+[[module."concept_tree.rs".function]]
+id = "fn:528a88ea9205073f"
+name = "nodes_citing"
+qual = "ConceptTree::nodes_citing"
+lines = [
+    440,
+    446,
+]
+hash = "sha256:7e5e11b9cb4cfa969cb41a8dc21e8f28e6d51b43b685dab060a62a32ad1b4686"
+doc_hash = "sha256:43b0927c3efff434687f51786377e3dc34d3c9c2ebf9503ab2f79040fa659808"
+reached_by = [
+    "#23",
+    "#105",
+    "#106",
+    "#117",
+    "#126",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#138",
+    "#139",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#165",
+    "#166",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+]
+
+[[module."concept_tree.rs".function]]
+id = "fn:e9830169b9dc886e"
+name = "is_within"
+qual = "ConceptTree::is_within"
+lines = [
+    448,
+    454,
+]
+hash = "sha256:4082e0528565b40d8738779f9c56888a520f81fc4f11aa0f8581d2448976e05b"
+doc_hash = "sha256:a1bcf9f31cb555d98cc15b5162cfae6422a2f6465a84112f5a4ec314c8ce6441"
+reached_by = ["#23"]
+
+[[module."concept_tree.rs".function]]
+id = "fn:fc8c509f322cfc8f"
+name = "concept_tree"
+qual = "concept_tree"
+lines = [
+    457,
+    469,
+]
+hash = "sha256:105b13a8da384a7b39a91f1865d527816adb90ddc321f6b9b168b2503ae15633"
+doc_hash = "sha256:6db707b98db6ee6fb85daa38d4f3c9500dfcad61db067b3accc39cf43dd63a52"
+callees = ["fn:6187a6ea5626f0c2"]
+reached_by = [
+    "#20",
+    "#22",
+    "#24",
+    "#71",
+    "#73",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#105",
+    "#106",
+    "#117",
+    "#123",
+    "#124",
+    "#126",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#165",
+    "#166",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+]
+
+[[module."concept_tree.rs".function]]
+id = "fn:36129202cca52292"
+name = "the_compiled_in_tree_has_nineteen_issues_in_iaea_order"
+qual = "the_compiled_in_tree_has_nineteen_issues_in_iaea_order"
+lines = [
+    475,
+    484,
+]
+hash = "sha256:4fb921006637fa820ff9d61044cd648452fff9c667fc51183f435920dfb79aac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:241dd30032d40534",
+    "fn:fc8c509f322cfc8f",
+]
+test = true
+
+[[module."concept_tree.rs".function]]
+id = "fn:1772776d910858bc"
+name = "a_deep_concept_resolves_with_its_parent_and_sources"
+qual = "a_deep_concept_resolves_with_its_parent_and_sources"
+lines = [
+    486,
+    505,
+]
+hash = "sha256:2f1ab1e24ca8abb7cdcacce3c2714ea678843307797bb27972726e09b7fab67f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:232609ef84cab802",
+    "fn:4cf4cf1d875c58f3",
+    "fn:9a6b61674fa72def",
+    "fn:bec805f6c189581f",
+    "fn:fc8c509f322cfc8f",
+    "fn:fe97debe19442217",
+]
+test = true
+
+[[module."concept_tree.rs".function]]
+id = "fn:3fd30a4386aec079"
+name = "proposed_concepts_are_left_out_and_deferred_ones_kept"
+qual = "proposed_concepts_are_left_out_and_deferred_ones_kept"
+lines = [
+    507,
+    576,
+]
+hash = "sha256:d1ba1b017c807f9b6050affa2110ec75465838d16d419f9f96a628fe5983d693"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0c2034320b1441fb",
+    "fn:1a851f0f6d221ff5",
+    "fn:232609ef84cab802",
+    "fn:2ad31fc5156d7b66",
+    "fn:528a88ea9205073f",
+    "fn:6187a6ea5626f0c2",
+    "fn:9a6b61674fa72def",
+    "fn:9c144a1d86195be8",
+    "fn:e9830169b9dc886e",
+    "fn:fe97debe19442217",
+]
+test = true
+
+[[module."concept_tree.rs".function]]
+id = "fn:558729948ba5b6c5"
+name = "nodes_are_in_depth_first_order_with_parents_first"
+qual = "nodes_are_in_depth_first_order_with_parents_first"
+lines = [
+    578,
+    592,
+]
+hash = "sha256:84b6acffd77d583390ce8ff4fac4184ceeda6e30965955ff42805a2c41f8d309"
+doc_hash = "sha256:d11e4429f94363f8e6852516f20355e2599af73913779ec7bb38ff18bffe8d8f"
+callees = [
+    "fn:8e002eeaae589a52",
+    "fn:9c144a1d86195be8",
+    "fn:fc8c509f322cfc8f",
+]
+test = true
+
+[[module."concept_tree.rs".function]]
+id = "fn:5c90699237abe5bc"
+name = "a_missing_parent_is_an_error"
+qual = "a_missing_parent_is_an_error"
+lines = [
+    594,
+    598,
+]
+hash = "sha256:698d495154e38d92d8e8ac78fa39325ea734e92cf8912fbc3488dbf70e0c75b4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6187a6ea5626f0c2"]
+test = true
+
+[module."csl.rs"]
+path = "crate::csl"
+
+[[module."csl.rs".function]]
+id = "fn:d9bd3f93ea7590e3"
+name = "from_xml"
+qual = "CslStyle::from_xml"
+lines = [
+    106,
+    128,
+]
+hash = "sha256:cab126aa83967d05c21be425a90d777ba980b48eb58ca59e347c56f078fcb6f7"
+doc_hash = "sha256:1d73690c147e78144a27eb96f0b84903d531cace64bb3ef5d6a4e063d46b3727"
+callees = ["fn:0424c4ddc6cb6f10"]
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#74",
+    "#75",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:7a8f60b24dd266b8"
+name = "with_lang"
+qual = "CslStyle::with_lang"
+lines = [
+    130,
+    134,
+]
+hash = "sha256:24113f34cd3b7597b7d1117bc82fedbff2555ee607ce3191e7ea2d4b8aa7b780"
+doc_hash = "sha256:aeace0188993b5ade777e7c1878605a0abeec8b203fc4d626587b67d5c3b29ad"
+reached_by = [
+    "#25",
+    "#32",
+    "#74",
+    "#75",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:0b6b15a2a5b98bb7"
+name = "apa"
+qual = "CslStyle::apa"
+lines = [
+    136,
+    139,
+]
+hash = "sha256:f352c7aec79f871ed697dc6a27c7a2a59d28e73db924e5576825d012ba15c744"
+doc_hash = "sha256:f7235fe9a1487199fedd52f233a0d1085786bcdbb26a718d46435c01279569a4"
+callees = ["fn:d9bd3f93ea7590e3"]
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:b2690c32afe6f449"
+name = "bundled"
+qual = "CslStyle::bundled"
+lines = [
+    141,
+    155,
+]
+hash = "sha256:452efb8f2c4a311b94b67a3cd1a16e2d5c28ab9c49980b9904f9359a26846334"
+doc_hash = "sha256:d63cb5e89d8ee926cef6f1c5baf98bcc5220f81ec1e26badb031b386e2ef46af"
+callees = [
+    "fn:7a8f60b24dd266b8",
+    "fn:d9bd3f93ea7590e3",
+]
+reached_by = [
+    "#25",
+    "#32",
+    "#74",
+    "#75",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:0424c4ddc6cb6f10"
+name = "engine"
+qual = "CslStyle::engine"
+lines = [
+    157,
+    164,
+]
+hash = "sha256:b6e70d3304b94781c117db4749dc095cbb7daf71cfd17426b8ffadd2de1fbeca"
+doc_hash = "sha256:2b9c17ce6ac078d224c796462d2bd4e4afea693f8e35a6187b0f0b3c82eebcfd"
+callees = [
+    "fn:88c87385429c2eb4",
+    "fn:d10aa0833baf7370",
+]
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#74",
+    "#75",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:1fbd7cbf60a75422"
+name = "from_bib"
+qual = "CslLibrary::from_bib"
+lines = [
+    174,
+    194,
+]
+hash = "sha256:9f9469595667f880ed9881b7d38f6db625c66ad766ebc0b1eee68dc8356944f4"
+doc_hash = "sha256:6b5287fc4dd619884cc2a710834681cc31f4e3855217aac7e51f3bb2952fd164"
+callees = [
+    "fn:866b1c596fa390eb",
+    "fn:a503a83e652e9bf0",
+]
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#74",
+    "#75",
+    "#76",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:28f9f51a5fcaa2d6"
+name = "contains"
+qual = "CslLibrary::contains"
+lines = [
+    196,
+    199,
+]
+hash = "sha256:e96e640d845c1990d66d5fe38fcb154266f41fc8ab189b9c9aa23be573bc1587"
+doc_hash = "sha256:b882b8b126b2d76549c7653d62712bed06cca188c2a979ebdefc19d2aeebf2c6"
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#31",
+    "#33",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:6165ff98742298a4"
+name = "csl_json"
+qual = "CslLibrary::csl_json"
+lines = [
+    201,
+    205,
+]
+hash = "sha256:3a9128c77f8b19145188b0f5f6245d14e1bf644433e393dd9281a49b438981e9"
+doc_hash = "sha256:84963db07edb0fe57483682ca6e6d1ebdbd0491028c55ba22480774192465cc5"
+reached_by = [
+    "#31",
+    "#76",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:f62daf714c7af53d"
+name = "keys"
+qual = "CslLibrary::keys"
+lines = [
+    207,
+    210,
+]
+hash = "sha256:cd8b5b48c77282c33df9ebad6b57849f2e18a873507903c0244ba36772ea943e"
+doc_hash = "sha256:d6b98cc5eceed2a3daebc4c8081e28b023c0e0c4b759c78a179e1c2eabefd951"
+reached_by = [
+    "#74",
+    "#75",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:008544f41ecb9e75"
+name = "len"
+qual = "CslLibrary::len"
+lines = [
+    212,
+    215,
+]
+hash = "sha256:c031c5525df2236e2c824d79b22d8622c8d89470f4af25bb3b9a49dfa9381226"
+doc_hash = "sha256:5c27ea84e2b6802456b4d64aa50b812fd427b24b7aa3dd0903b91b684ecaf9d3"
+reached_by = [
+    "#31",
+    "#74",
+    "#75",
+    "#76",
+]
+
+[[module."csl.rs".function]]
+id = "fn:618fa3f234ad4674"
+name = "is_empty"
+qual = "CslLibrary::is_empty"
+lines = [
+    217,
+    220,
+]
+hash = "sha256:37d58c9e24f8cbef3b7f1ba7b922c13c4b33f56c25157dfadc49600d469518ac"
+doc_hash = "sha256:33cf92bfb744c2cfb8753f04ff2a16456118da7e943f71f15aaad6a686cba768"
+
+[[module."csl.rs".function]]
+id = "fn:3c3ff8769e532821"
+name = "render"
+qual = "CslLibrary::render"
+lines = [
+    222,
+    317,
+]
+hash = "sha256:4990411aa5341a633edf87bf02dd88a6c12319e1d48aa21634a85f8a4327ba12"
+doc_hash = "sha256:cdb07b48f09f1099e36e17a5a66880976f54c81418793d66b128ee16ced38a3d"
+callees = [
+    "fn:0424c4ddc6cb6f10",
+    "fn:08771fdc3ed638ff",
+    "fn:13fc249f9253fb3b",
+    "fn:7b59f22e58c2fe8b",
+    "fn:7e28e062895b7613",
+    "fn:805bf75e549be7a7",
+    "fn:bf40f04b4fa10a19",
+]
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#74",
+    "#75",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:08771fdc3ed638ff"
+name = "html_to_text"
+qual = "html_to_text"
+lines = [
+    333,
+    356,
+]
+hash = "sha256:58cf768522aed5bcb0968a183e1e45a971c7989a7a7d6802cd669e9486512afb"
+doc_hash = "sha256:dd1d33bad1e784a51057efc76b0a2978ead1c0e231709c91bce0753e20014a3c"
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#74",
+    "#75",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:18de6e7b7d5b4923"
+name = "escape_html"
+qual = "escape_html"
+lines = [
+    358,
+    363,
+]
+hash = "sha256:ea6a5df767075fdd19027f6adc5d978fb1bc334cc2261686017e76023ac35a15"
+doc_hash = "sha256:59f4ef235d02e63b85fb572b718698e6b3eb4b4660910697531501ab76833a81"
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#33",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:bf40f04b4fa10a19"
+name = "strip_outer_parens"
+qual = "strip_outer_parens"
+lines = [
+    365,
+    370,
+]
+hash = "sha256:0b4450116c5c3e98924c801ec46b44c2884a534c0f1408af05f06f59e05bbe41"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#74",
+    "#75",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:a503a83e652e9bf0"
+name = "entry_to_csl_json"
+qual = "entry_to_csl_json"
+lines = [
+    372,
+    393,
+]
+hash = "sha256:2c7904a269576bfbab73518eca62b27045b328fce6f7316e369c21a8d0ef7391"
+doc_hash = "sha256:5a2bc8dd5eb48657459ecdb946edc581dccde34a18133a260e163e9cc70ada93"
+callees = [
+    "fn:0183256288552f4c",
+    "fn:330673d37614c5a8",
+    "fn:81b012635729bb91",
+    "fn:d00fd6080f5aa628",
+    "fn:da05bf82acfc6be5",
+]
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#74",
+    "#75",
+    "#76",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:9ce8b570ca19f1c9"
+name = "cite_page"
+qual = "cite_page"
+lines = [
+    404,
+    426,
+]
+hash = "sha256:d5aeb00093db37d15e7afc17c8b00efc2dd8c775ad4449ed1c041bce472225b3"
+doc_hash = "sha256:3fb05dd34cafeb1f7af3e806871853cf5dbfa11ded31dc09bc6c0d78026722f2"
+callees = ["fn:8c1cc563589a661d"]
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#33",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:f32e44888c08c44f"
+name = "cite_html_page"
+qual = "cite_html_page"
+lines = [
+    428,
+    446,
+]
+hash = "sha256:5d297d7cce5a4e25b9eb098dccd8cdd784dd1a1163d180dfe48d85653b7e62d8"
+doc_hash = "sha256:65c32f9f20ec3f04095a2f06f728f1e5423d5ebb584a02caa327d1e2a5a64f1f"
+callees = ["fn:8c1cc563589a661d"]
+reached_by = [
+    "#28",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:56442e487f56a121"
+name = "form_of"
+qual = "form_of"
+lines = [
+    455,
+    465,
+]
+hash = "sha256:26c53a499e8e443273c98e0bc2494e7f028a75f23702a67d5ab3d72d1e78afb2"
+doc_hash = "sha256:687713764d733788c9b21dc0576ba379b0f80dd85e0489f62884b4c3f04129a8"
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#33",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:8c1cc563589a661d"
+name = "cite_document"
+qual = "cite_document"
+lines = [
+    467,
+    588,
+]
+hash = "sha256:f46d881b1c8b09f7e0a7146fd9157855779e70b9f575bdb70fe19c3a0c36978f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:18de6e7b7d5b4923",
+    "fn:28f9f51a5fcaa2d6",
+    "fn:3c3ff8769e532821",
+    "fn:556706d4e0f7baf8",
+    "fn:57b51ba4a316a16f",
+    "fn:b12748feca36b1ba",
+]
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#33",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:57b51ba4a316a16f"
+name = "reference_entry"
+qual = "reference_entry"
+lines = [
+    590,
+    611,
+]
+hash = "sha256:f546ff6624469825acd4b9cc4e3104e284f2848de15057a6926e733fa9050f8c"
+doc_hash = "sha256:2c9483fed7e1a104e30ae2dec011d780992e71b53e889dff1db48b5920f53931"
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#33",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:b12748feca36b1ba"
+name = "find_html_links"
+qual = "find_html_links"
+lines = [
+    613,
+    670,
+]
+hash = "sha256:1417a70a0e2938ff7f3c5f532cc951d93c05e3636081dfe1516b24b313a210d7"
+doc_hash = "sha256:45a922639af8532c0b90af9504ee9fa8bbb1926466d9fac70f43bee7cb744d10"
+callees = [
+    "fn:08771fdc3ed638ff",
+    "fn:56442e487f56a121",
+]
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#33",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:556706d4e0f7baf8"
+name = "find_links"
+qual = "find_links"
+lines = [
+    681,
+    709,
+]
+hash = "sha256:2efc46911884b1b512484053e40dddcc978635c7590bca80a203118c3eb5fec6"
+doc_hash = "sha256:1fa211a5954b5e8e8d3bd5dc4208c39907644f88ba1c7f62d1a03c313e3bc853"
+callees = [
+    "fn:56442e487f56a121",
+    "fn:c97dba75dac9d950",
+]
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#33",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:c97dba75dac9d950"
+name = "parse_ref_link"
+qual = "parse_ref_link"
+lines = [
+    711,
+    739,
+]
+hash = "sha256:a6d1a97bd78279a0c25e5ab272c8e791da08fe432b3ad381abc76db60b031fa0"
+doc_hash = "sha256:c55c6203c5f8a7b20df52d3bbbd862a2b10282a7f7d02b82248a23f664a1411d"
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#33",
+    "#136",
+    "#137",
+]
+
+[[module."csl.rs".function]]
+id = "fn:4bb2c2990fbbf3b0"
+name = "setup"
+qual = "setup"
+lines = [
+    789,
+    791,
+]
+hash = "sha256:d2f08418a02b3dd07518714e4446950019f8379376f1d6682a7cf73eedb908aa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0b6b15a2a5b98bb7",
+    "fn:1fbd7cbf60a75422",
+]
+test = true
+
+[[module."csl.rs".function]]
+id = "fn:b654e8cc3bcd6191"
+name = "the_bib_goes_through_the_zotero_import_to_csl_json"
+qual = "the_bib_goes_through_the_zotero_import_to_csl_json"
+lines = [
+    793,
+    806,
+]
+hash = "sha256:0b962323db974bdd9a6a9f0c7fe52092f762de76970710c356cfc4f385db3cd3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:008544f41ecb9e75",
+    "fn:28f9f51a5fcaa2d6",
+    "fn:4bb2c2990fbbf3b0",
+    "fn:6165ff98742298a4",
+]
+test = true
+
+[[module."csl.rs".function]]
+id = "fn:1e8c0173cec5b772"
+name = "apa_citations_in_all_three_forms"
+qual = "apa_citations_in_all_three_forms"
+lines = [
+    808,
+    842,
+]
+hash = "sha256:be91bc61a2bc4fbc6b42043e2f233e620496d2533e5521161eceff20dc928789"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3c3ff8769e532821",
+    "fn:4bb2c2990fbbf3b0",
+]
+test = true
+
+[[module."csl.rs".function]]
+id = "fn:88b31269709da216"
+name = "a_page_is_one_document_so_same_year_works_get_letters"
+qual = "a_page_is_one_document_so_same_year_works_get_letters"
+lines = [
+    844,
+    859,
+]
+hash = "sha256:1e634334f8ebd2c65c3ba660ce71db0bad4901b42c949fee3ad9e20639e781fe"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4bb2c2990fbbf3b0",
+    "fn:9ce8b570ca19f1c9",
+]
+test = true
+
+[[module."csl.rs".function]]
+id = "fn:8598f2cee7a59c2e"
+name = "a_page_gets_its_citations_and_a_reference_list_and_is_idempotent"
+qual = "a_page_gets_its_citations_and_a_reference_list_and_is_idempotent"
+lines = [
+    861,
+    890,
+]
+hash = "sha256:574c2e4db1ae79cb0cbabe6e4be2a9c8e95baba9957bae2180c63a2a25d1ad32"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4bb2c2990fbbf3b0",
+    "fn:9ce8b570ca19f1c9",
+]
+test = true
+
+[[module."csl.rs".function]]
+id = "fn:66a5e39d6aa46d05"
+name = "unknown_keys_fail_and_an_uncited_page_loses_its_list"
+qual = "unknown_keys_fail_and_an_uncited_page_loses_its_list"
+lines = [
+    892,
+    913,
+]
+hash = "sha256:a6a7bb73c2a6c62b352672fc556965642fff0cfe4b115cf2f05cc21bc79388fe"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4bb2c2990fbbf3b0",
+    "fn:9ce8b570ca19f1c9",
+]
+test = true
+
+[[module."csl.rs".function]]
+id = "fn:4eaa87b5c8e6669c"
+name = "the_five_site_styles_are_bundled_and_render"
+qual = "the_five_site_styles_are_bundled_and_render"
+lines = [
+    915,
+    927,
+]
+hash = "sha256:f65d0ba6ee5bd2d02eb4d166ace6ebb66c3f631f44ebe9d80831a2b9821dfad2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3c3ff8769e532821",
+    "fn:4bb2c2990fbbf3b0",
+    "fn:b2690c32afe6f449",
+]
+test = true
+
+[[module."csl.rs".function]]
+id = "fn:ed4b2b525b0ce2a9"
+name = "an_unknown_key_is_an_error_not_a_panic"
+qual = "an_unknown_key_is_an_error_not_a_panic"
+lines = [
+    929,
+    936,
+]
+hash = "sha256:683e863918d131d87d89e591606bc57131b9324af3fb2d451a9a0f58fece2f28"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3c3ff8769e532821",
+    "fn:4bb2c2990fbbf3b0",
+]
+test = true
+
+[[module."csl.rs".function]]
+id = "fn:e9134be0ede473de"
+name = "an_html_page_gets_citations_and_a_list_and_is_idempotent"
+qual = "an_html_page_gets_citations_and_a_list_and_is_idempotent"
+lines = [
+    938,
+    969,
+]
+hash = "sha256:b364e6593dd7a30ed2cfae0283abbd668095ad3785302e93f5ee0f3290dddb78"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4bb2c2990fbbf3b0",
+    "fn:f32e44888c08c44f",
+]
+test = true
+
+[[module."csl.rs".function]]
+id = "fn:7e1166a3659cf2c4"
+name = "a_numbered_style_keeps_its_division_entries"
+qual = "a_numbered_style_keeps_its_division_entries"
+lines = [
+    971,
+    978,
+]
+hash = "sha256:f9e9220e805d94e27352b113b83f365d5016ba966b73839b038d9d126ce1ca28"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4bb2c2990fbbf3b0",
+    "fn:9ce8b570ca19f1c9",
+    "fn:b2690c32afe6f449",
+]
+test = true
+
+[module."lib.rs"]
+path = "crate"
+
+[[module."lib.rs".function]]
+id = "fn:12bbb36c2c50ffbf"
+name = "fmt"
+qual = "LiteratureError::fmt"
+lines = [
+    131,
+    138,
+]
+hash = "sha256:0a9340d5aa952d418c5d91c430e7a53361da7c95ff1bc9bd476923a1056388b7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."lib.rs".function]]
+id = "fn:9aa4a428b55f1f58"
+name = "generated_dir_for"
+qual = "generated_dir_for"
+lines = [
+    168,
+    192,
+]
+hash = "sha256:f48f10eb066d4981012c5115378230e5e76994926a7b977f2173b2f0a97e61a2"
+doc_hash = "sha256:4edc61ffd51a71a52fbd6da88984655ccf5dd313109c50aba035670b3debe545"
+reached_by = [
+    "#35",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+]
+
+[[module."lib.rs".function]]
+id = "fn:953dd4b821579ed4"
+name = "root_for"
+qual = "root_for"
+lines = [
+    194,
+    201,
+]
+hash = "sha256:ca892f763fc4d93c93f97279efcaa2042cc2915972ed67de31d5de201090260d"
+doc_hash = "sha256:94b2024dc7e857e4fa1332e69d59c05cb57775b770d18ad6936c45f640d8b50b"
+reached_by = ["#36"]
+
+[[module."lib.rs".function]]
+id = "fn:6f50264396bbee0d"
+name = "visibility_from_path"
+qual = "visibility_from_path"
+lines = [
+    203,
+    250,
+]
+hash = "sha256:f7e930b734ff83cef7116a576e2d4fc9fc4711bdbbc61944613c984aa3868d1f"
+doc_hash = "sha256:c7f0f2fd8a3a61cbcda5bf4e56ba17cf018a937d19a8305d13698202c6d7a539"
+reached_by = [
+    "#38",
+    "#59",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."lib.rs".function]]
+id = "fn:9650dada03b23baf"
+name = "document_type_from_path"
+qual = "document_type_from_path"
+lines = [
+    252,
+    275,
+]
+hash = "sha256:202d6723d152e19280bfac2dbc8bea5a8f4770917ffb23d5819997f47049edb7"
+doc_hash = "sha256:93b10ccb451a6b8c2744fa41274b596e167fb820a10e3663669087d99722b23a"
+reached_by = [
+    "#34",
+    "#37",
+    "#59",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."lib.rs".function]]
+id = "fn:7facb97d078e958c"
+name = "proprietary_and_open_roots_differ"
+qual = "proprietary_and_open_roots_differ"
+lines = [
+    283,
+    290,
+]
+hash = "sha256:d55f5aff525c1555273fee2f03f405052eacd5e5c5b719a6530525d8ce0dba60"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:953dd4b821579ed4"]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:468e1968480cfd77"
+name = "visibility_is_closed_unless_a_path_says_open"
+qual = "visibility_is_closed_unless_a_path_says_open"
+lines = [
+    292,
+    350,
+]
+hash = "sha256:57d641984422c05c75339bb14704ff1520906a225cd33410ee5d0f1e128de5a2"
+doc_hash = "sha256:03077bbd1936643bd30284c749289932e55b89cd2fbcdceeacd157f4736243ec"
+callees = ["fn:6f50264396bbee0d"]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:2ce660a8f1a9e60d"
+name = "generated_dirs_are_split_by_visibility"
+qual = "generated_dirs_are_split_by_visibility"
+lines = [
+    352,
+    363,
+]
+hash = "sha256:478ef1f4e90484f2097bbcb8d74aaf7ec5f47b38a47868560a2d89aa218b1825"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9aa4a428b55f1f58"]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:f60a96db91f35ab0"
+name = "theses_directory_infers_the_thesis_type"
+qual = "theses_directory_infers_the_thesis_type"
+lines = [
+    365,
+    371,
+]
+hash = "sha256:87e733b2337505393f282bfa325d181fb0304c6bc2239872432e24c728e48cf3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9650dada03b23baf"]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:1df24a126e5e66ca"
+name = "document_type_inferred_from_path"
+qual = "document_type_inferred_from_path"
+lines = [
+    373,
+    383,
+]
+hash = "sha256:45dcf7a9c5be4d33f9c41ba05227bd5d6fb9f54a77c114b77a5a7ada0be97334"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9650dada03b23baf"]
+test = true
+
+[module."lookup_review.rs"]
+path = "crate::lookup_review"
+
+[[module."lookup_review.rs".function]]
+id = "fn:262441a4c9652714"
+name = "name"
+qual = "DocField::name"
+lines = [
+    79,
+    96,
+]
+hash = "sha256:1fed9c08fde1b4b82ca8eb1bbaa13ac084f45a2b429476ce47301f54973d159f"
+doc_hash = "sha256:d81c135aca3fa04e3fa8ea9a4cf10554d0e56e7c0a432a9c358b3028cfa12a2e"
+
+[[module."lookup_review.rs".function]]
+id = "fn:c84729d84f1c662b"
+name = "from_name"
+qual = "DocField::from_name"
+lines = [
+    98,
+    101,
+]
+hash = "sha256:9ad48d0d01234dc89f92529b80fbb18ba93c546dba6f5a491c9564da0646fb47"
+doc_hash = "sha256:59cbac2cb884cc6cea0f6a898b691ab008c309b2391cac88157303b6920f8c42"
+callees = ["fn:262441a4c9652714"]
+
+[[module."lookup_review.rs".function]]
+id = "fn:0987f5815ce3adca"
+name = "changes"
+qual = "FieldProposal::changes"
+lines = [
+    134,
+    137,
+]
+hash = "sha256:4a83632fce4490715b2d6ceca09cdb0c7ef7fb33ac4be8f319e120d6bdd50318"
+doc_hash = "sha256:2a4d3d1161a3a1d6e8afed3a94fe742da3d6b4e425f54fda9da96bc051f73010"
+reached_by = [
+    "#40",
+    "#41",
+]
+
+[[module."lookup_review.rs".function]]
+id = "fn:f8bd4c6ce88f87f8"
+name = "changes"
+qual = "LookupProposal::changes"
+lines = [
+    152,
+    155,
+]
+hash = "sha256:4285bc6e2b0fd6d57e2c422d8f6058acd18fd1b9cf4b26115917cd14b17e575a"
+doc_hash = "sha256:80cc9b9c5063e6239c719b3a58a821c2b9c8bcddbac758520a11639d6edb4600"
+callees = ["fn:0987f5815ce3adca"]
+
+[[module."lookup_review.rs".function]]
+id = "fn:38184bf85613a4ad"
+name = "identifiers_in_document"
+qual = "identifiers_in_document"
+lines = [
+    158,
+    174,
+]
+hash = "sha256:afa24a03d78d72b8f710dc2135fe616217df69d67103a23d608be5d7310cbf05"
+doc_hash = "sha256:df8b61d3ec1e2c762bbf1a624111159bb035d64cf6bdd97598e34853ea024afa"
+callees = ["fn:9e657f48bd358c16"]
+reached_by = ["#39"]
+
+[[module."lookup_review.rs".function]]
+id = "fn:cc042b0299b26474"
+name = "authors_text"
+qual = "authors_text"
+lines = [
+    176,
+    187,
+]
+hash = "sha256:cd4f268f13064b7a13219453f8292a859ce9565d599a9a9623643373ec0d2fad"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#40",
+    "#41",
+]
+
+[[module."lookup_review.rs".function]]
+id = "fn:fb8d5c6d6b77dd2b"
+name = "value"
+qual = "value"
+lines = [
+    189,
+    206,
+]
+hash = "sha256:41d1dc3145e2bcc56e780fa2a989ccfe0e75d0d8b2070b8e2fda12c88a531d6f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:cc042b0299b26474"]
+reached_by = [
+    "#40",
+    "#41",
+]
+
+[[module."lookup_review.rs".function]]
+id = "fn:8268573b78738cc3"
+name = "propose"
+qual = "propose"
+lines = [
+    208,
+    245,
+]
+hash = "sha256:0dcd2f92e2922d608b0638ae0d6e2ef4dc54cf40320b039e693f24eed73921fe"
+doc_hash = "sha256:0e27c514bf4f0a8c2fcbf4f0d0129c714ca5ab4fcc267fefa37f9fbde5eab640"
+callees = [
+    "fn:6dd3106fbfb42fb0",
+    "fn:fb8d5c6d6b77dd2b",
+]
+reached_by = [
+    "#40",
+    "#41",
+]
+
+[[module."lookup_review.rs".function]]
+id = "fn:57d62b5da87968ef"
+name = "apply"
+qual = "apply"
+lines = [
+    247,
+    287,
+]
+hash = "sha256:30c74039ad1e0c497e0f9e13c58235de3a361413e1a0906bb8b0a369105c1cc0"
+doc_hash = "sha256:9a004f4dcd6a15a1f89306657f04b269dac06d9edcb0a62cae87e04a4e559fbb"
+callees = ["fn:0987f5815ce3adca"]
+reached_by = [
+    "#40",
+    "#41",
+]
+
+[[module."lookup_review.rs".function]]
+id = "fn:fa8acc1d6ec68190"
+name = "all_changes"
+qual = "all_changes"
+lines = [
+    289,
+    292,
+]
+hash = "sha256:b43f085be775fbd8b3326d87ace5e5ae95962b98237ccbd3d913ec205c053350"
+doc_hash = "sha256:bf1fb11be26b92ad2d4a664a38f5c29acadcbd2f740b4f9db04d2946dfa387ff"
+callees = ["fn:f8bd4c6ce88f87f8"]
+
+[[module."lookup_review.rs".function]]
+id = "fn:37eb436fc962bde4"
+name = "fetched"
+qual = "fetched"
+lines = [
+    299,
+    307,
+]
+hash = "sha256:cb68e99fc1475d31a375e92e8dfe22f480b38a5175cbe2ae52c8a40a989bd604"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:0183256288552f4c"]
+test = true
+
+[[module."lookup_review.rs".function]]
+id = "fn:bdb7b2e8450f757b"
+name = "extracted"
+qual = "extracted"
+lines = [
+    309,
+    319,
+]
+hash = "sha256:d76bf444ec448d734cf1b3e2f3115516c267d4ad0de735d6166ed919e052d174"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:aa521857b5d2af86"]
+test = true
+
+[[module."lookup_review.rs".function]]
+id = "fn:9a671b529ea340ab"
+name = "proposal_rows_and_user_edits"
+qual = "proposal_rows_and_user_edits"
+lines = [
+    321,
+    337,
+]
+hash = "sha256:40d2fd0833a9508eed7ba77fb9e80b24f155e25bca9a1ff8cfbcc66b8603556f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:37eb436fc962bde4",
+    "fn:57d62b5da87968ef",
+    "fn:8268573b78738cc3",
+    "fn:bdb7b2e8450f757b",
+]
+test = true
+
+[[module."lookup_review.rs".function]]
+id = "fn:043322d80c86115a"
+name = "nothing_accepted_changes_nothing"
+qual = "nothing_accepted_changes_nothing"
+lines = [
+    339,
+    343,
+]
+hash = "sha256:98812139a349838db3f3b0f3a91495ee7c6b267a9393bbc74ba04df35a80a53e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:37eb436fc962bde4",
+    "fn:57d62b5da87968ef",
+    "fn:8268573b78738cc3",
+    "fn:bdb7b2e8450f757b",
+]
+test = true
+
+[[module."lookup_review.rs".function]]
+id = "fn:f2bce358e08eff84"
+name = "identifiers_from_document"
+qual = "identifiers_from_document"
+lines = [
+    345,
+    358,
+]
+hash = "sha256:e8ef41094415e1de449bc6e2abc988961c0575608483c17cd5c91ea37ea6705c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:38184bf85613a4ad",
+    "fn:bdb7b2e8450f757b",
+]
+test = true
+
+[module."markdown.rs"]
+path = "crate::markdown"
+
+[[module."markdown.rs".function]]
+id = "fn:75685672430d53db"
+name = "markdown_outline"
+qual = "markdown_outline"
+lines = [
+    29,
+    59,
+]
+hash = "sha256:aa553aec366a9901a840189ff84f1b2650393427dc7018e99088013516a8e755"
+doc_hash = "sha256:1feddc74066b206bda0d195d0cafd7748ae0f95f8a16955133eb9e970910ee9d"
+callees = ["fn:be2bc9d322cc96a2"]
+reached_by = [
+    "#42",
+    "#46",
+    "#48",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#254",
+    "#255",
+    "#257",
+]
+
+[[module."markdown.rs".function]]
+id = "fn:be2bc9d322cc96a2"
+name = "heading_level_to_u8"
+qual = "heading_level_to_u8"
+lines = [
+    61,
+    71,
+]
+hash = "sha256:1c75292e5aaddaab12543cd118b36d0b4e268a580296d7d3a53b71d897f2e9ac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#42",
+    "#46",
+    "#48",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#254",
+    "#255",
+    "#257",
+]
+
+[[module."markdown.rs".function]]
+id = "fn:174023394c7e46ce"
+name = "text_to_markdown"
+qual = "text_to_markdown"
+lines = [
+    73,
+    98,
+]
+hash = "sha256:c1ba1f28300665ba3b66f7810c9ac61322aa119ad5876962175d60365db2979d"
+doc_hash = "sha256:d57bfa4f93278159581c52fed25c34de620983af1dbeb6c75fb026ae4926697a"
+callees = ["fn:27bd8ab6a8b99e2c"]
+reached_by = [
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#59",
+    "#62",
+    "#70",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."markdown.rs".function]]
+id = "fn:16465ecdc3c4f3e5"
+name = "split_markdown_by_page_limit"
+qual = "split_markdown_by_page_limit"
+lines = [
+    100,
+    114,
+]
+hash = "sha256:22d54566512de89fa63c2177fb83dd737cc690944bb9fb003624e2ec3a5425bc"
+doc_hash = "sha256:b80c5b1ff6d6eddbdd7a8caacce1aaf5e6d62ca4f7a383bd18d8a4b502743f55"
+reached_by = [
+    "#44",
+    "#45",
+]
+
+[[module."markdown.rs".function]]
+id = "fn:27bd8ab6a8b99e2c"
+name = "page_to_markdown"
+qual = "page_to_markdown"
+lines = [
+    116,
+    152,
+]
+hash = "sha256:18991a401d16a85255ed031966a5fb3d5ead6c2c2656d2f70b9b2b5a8a6b2303"
+doc_hash = "sha256:5f3be5938f019a41961bb02d0db2a095c305e0815e7d6a1e1d33ad1705bf8cd4"
+callees = [
+    "fn:0e938eeffbbc8556",
+    "fn:87b0755bbc34f214",
+]
+reached_by = [
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#59",
+    "#62",
+    "#70",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."markdown.rs".function]]
+id = "fn:87b0755bbc34f214"
+name = "append_wrapped"
+qual = "append_wrapped"
+lines = [
+    154,
+    168,
+]
+hash = "sha256:4684830cf4566ca7a2861192460d7eab8ca518d8ae5e78e45b12f93602d3591c"
+doc_hash = "sha256:1b460bbf80ecfd7a9707dd97cdb1a983ff11fb0c6b65aeec0809839008d97575"
+reached_by = [
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#59",
+    "#62",
+    "#70",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."markdown.rs".function]]
+id = "fn:0e938eeffbbc8556"
+name = "heading_level_for"
+qual = "heading_level_for"
+lines = [
+    193,
+    226,
+]
+hash = "sha256:0fc42a3632dd76200cfdcaef6c0db94ad4992e7cca225d0946b0f8f4b9e89dbb"
+doc_hash = "sha256:b492c0efbaf6717644269d97cf0b7b3bc90bcb2f687ed017df94b893c47bfdc4"
+callees = ["fn:a9ef6ee4b3536553"]
+reached_by = [
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#59",
+    "#62",
+    "#70",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."markdown.rs".function]]
+id = "fn:a9ef6ee4b3536553"
+name = "section_number_depth"
+qual = "section_number_depth"
+lines = [
+    228,
+    243,
+]
+hash = "sha256:bb42b0bcea492ad450907c5e651520e67976fb0141f9648740d75b4930bb7d5b"
+doc_hash = "sha256:1a7415cbaa334220275bd39c319ef3e74825bfbda6232929b477708a2289023b"
+reached_by = [
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#59",
+    "#62",
+    "#70",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."markdown.rs".function]]
+id = "fn:722ea867672daabb"
+name = "markdown_outline_extracts_headings"
+qual = "markdown_outline_extracts_headings"
+lines = [
+    249,
+    269,
+]
+hash = "sha256:bfa2ac8cff483a7287d5096c9fe059a987b7067e188011d8d0e385f9e2a1cd8a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:75685672430d53db"]
+test = true
+
+[[module."markdown.rs".function]]
+id = "fn:44d24516058842bd"
+name = "text_to_markdown_groups_paragraphs_and_dehyphenates"
+qual = "text_to_markdown_groups_paragraphs_and_dehyphenates"
+lines = [
+    271,
+    279,
+]
+hash = "sha256:0294b08147bd5ae9764d5d6a58fe753b59abfc64a8cd63c3de6c98c84b6b9eb2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:174023394c7e46ce"]
+test = true
+
+[[module."markdown.rs".function]]
+id = "fn:5a550e19c57fb6e3"
+name = "text_to_markdown_promotes_numbered_and_keyword_headings"
+qual = "text_to_markdown_promotes_numbered_and_keyword_headings"
+lines = [
+    281,
+    307,
+]
+hash = "sha256:68f0cffb03c3862e18770978ed9bf730377f10f40cdbb9dc472af43c9e9f4779"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:174023394c7e46ce",
+    "fn:75685672430d53db",
+]
+test = true
+
+[[module."markdown.rs".function]]
+id = "fn:048a4baba77119be"
+name = "text_to_markdown_does_not_invent_headings"
+qual = "text_to_markdown_does_not_invent_headings"
+lines = [
+    309,
+    315,
+]
+hash = "sha256:6d4e315eeea76ee3525078eed38a2b1559059bcd9a4d5eb06fa897322cb5e6af"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:174023394c7e46ce",
+    "fn:75685672430d53db",
+]
+test = true
+
+[[module."markdown.rs".function]]
+id = "fn:789c2ecea17ae7e6"
+name = "page_separator_joins_pages"
+qual = "page_separator_joins_pages"
+lines = [
+    317,
+    322,
+]
+hash = "sha256:5d7e5f3821d4d51b04ef95c0f5835036c95f127686697eb03c3474082ccabb74"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:174023394c7e46ce"]
+test = true
+
+[[module."markdown.rs".function]]
+id = "fn:1031cc009ea1bb4a"
+name = "split_by_page_limit_chunks_pages"
+qual = "split_by_page_limit_chunks_pages"
+lines = [
+    324,
+    333,
+]
+hash = "sha256:c346ba2270361db27478c0236e07c21150f87394c0d6c4a332e5b2832c93861b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:16465ecdc3c4f3e5",
+    "fn:174023394c7e46ce",
+]
+test = true
+
+[[module."markdown.rs".function]]
+id = "fn:d0e54db2130e2f23"
+name = "split_below_limit_is_single_chunk"
+qual = "split_below_limit_is_single_chunk"
+lines = [
+    335,
+    339,
+]
+hash = "sha256:c6fbb6698aac3242e2d2dab44478304f1dd7aad9c3ccaad875ffded37e05aad6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:16465ecdc3c4f3e5",
+    "fn:174023394c7e46ce",
+]
+test = true
+
+[module."metadata.rs"]
+path = "crate::metadata"
+
+[[module."metadata.rs".function]]
+id = "fn:4fc138a77793ee0d"
+name = "extract_metadata"
+qual = "extract_metadata"
+lines = [
+    46,
+    183,
+]
+hash = "sha256:9c689abe626567fd6a4718f592d3a747e073bff68a60020d4d8338db8b91be46"
+doc_hash = "sha256:f5b4b974310e8b0c9640b03aa716b26252c02bdcae72cac00bd61bbf756c9588"
+callees = [
+    "fn:174023394c7e46ce",
+    "fn:1d14653f2b927898",
+    "fn:24fd6b5655b1fe13",
+    "fn:319e4384639ffed5",
+    "fn:3c8f3bc9d6ebe998",
+    "fn:40454a1950ebdc71",
+    "fn:406324e56a610db3",
+    "fn:41ce0a79822e9a34",
+    "fn:4baa7ab44ca80057",
+    "fn:4f272238c8dafffb",
+    "fn:6f50264396bbee0d",
+    "fn:8395caef07f9d25c",
+    "fn:9650dada03b23baf",
+    "fn:a385012f1c62cbf5",
+    "fn:a881f4a03fc4eddd",
+    "fn:b498ac4086365fa0",
+    "fn:c6c1f85826e844c8",
+    "fn:c72bff3ed4992116",
+    "fn:c856ab9a7434dd0a",
+    "fn:cd2de91e7d0215e6",
+    "fn:df6d2c9096bdf2c7",
+    "fn:e17baf16cf592eef",
+    "fn:e48fe23136bab3f5",
+    "fn:e985b0bd9933cbca",
+    "fn:f391c9311873580e",
+    "fn:f74cb1985f2ba5fe",
+    "fn:fe01325fdea59149",
+]
+reached_by = [
+    "#59",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:24fd6b5655b1fe13"
+name = "page_count_from_text"
+qual = "page_count_from_text"
+lines = [
+    185,
+    203,
+]
+hash = "sha256:e35bd5d324da785c347fdab94cba79687532fd6975d856c2875d06015f992c61"
+doc_hash = "sha256:63908c213ffbf00c184fad176a73f653b0dbb720bba0eedfba51c3f37b310523"
+reached_by = [
+    "#59",
+    "#62",
+    "#63",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:e985b0bd9933cbca"
+name = "read_info"
+qual = "read_info"
+lines = [
+    220,
+    259,
+]
+hash = "sha256:945eafd80182e57845c169ea3b6eb2268c3a3b2801be6935336175f2e2f3d9c5"
+doc_hash = "sha256:3a1240c5462ca3278a30effa9f2ad91624bc4653f3ae2eb1aa104cb129417517"
+callees = [
+    "fn:0fb4a40dc726e0e2",
+    "fn:70854bc36e81a314",
+    "fn:a43cf70febf91dab",
+    "fn:e2f957163271a885",
+]
+reached_by = [
+    "#59",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:70854bc36e81a314"
+name = "info_string"
+qual = "info_string"
+lines = [
+    261,
+    270,
+]
+hash = "sha256:640e8346c9aa24c6ac0f2fb5abb9002cf6cbcb47777d85140f6314739ec451cc"
+doc_hash = "sha256:598e5f1a8ac57f203d5c699d94904356600fd4da41cc1009164455dfb76f2e5b"
+callees = ["fn:9f6a767c045018e4"]
+reached_by = [
+    "#59",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:9f6a767c045018e4"
+name = "decode_pdf_text_string"
+qual = "decode_pdf_text_string"
+lines = [
+    272,
+    285,
+]
+hash = "sha256:53ace3b89597253186a3b73aecb395ba95dc8a5da73ab1e3456da78d975a69f2"
+doc_hash = "sha256:09f2a2f1759dafc8ff5e4888585b26c5ee3a9d19e269fe184c89eee2cf326a22"
+reached_by = [
+    "#59",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:0fb4a40dc726e0e2"
+name = "parse_authors"
+qual = "parse_authors"
+lines = [
+    287,
+    296,
+]
+hash = "sha256:4dadd209054c59f709c6b554c0b47e29043765dca6483163f4873985e9bdc95f"
+doc_hash = "sha256:46888edc12254747858634930caaa3b83ac43c3acd814d7ec5d41936fddb7ef3"
+callees = ["fn:d9e79da98b88e0d9"]
+reached_by = [
+    "#52",
+    "#59",
+    "#61",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:d9e79da98b88e0d9"
+name = "parse_one_author"
+qual = "parse_one_author"
+lines = [
+    298,
+    329,
+]
+hash = "sha256:8e00ea51251fb9dc7064f0b07c3b06a1940b993d771b81805bc747481a15c6a2"
+doc_hash = "sha256:9735d5303738b4626de59694676c2b064a0cc2cfd4dd4f4fd7369754a5717ce9"
+reached_by = [
+    "#49",
+    "#51",
+    "#52",
+    "#57",
+    "#59",
+    "#61",
+    "#62",
+    "#64",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:e2f957163271a885"
+name = "parse_keywords"
+qual = "parse_keywords"
+lines = [
+    331,
+    339,
+]
+hash = "sha256:f4211bc4458c9c9f5522189700adb3aa5970d3d2c9274a021d2bb466b44ee767"
+doc_hash = "sha256:b20fe99ff57a8198409d4a3a95627ba816c48df49d164046943f992b1aecd6c4"
+reached_by = [
+    "#59",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:a43cf70febf91dab"
+name = "year_from_pdf_date"
+qual = "year_from_pdf_date"
+lines = [
+    341,
+    352,
+]
+hash = "sha256:4a91255470f25e576f8b963626d0e633c8a4d6d4249adfb2783b93bd4539074d"
+doc_hash = "sha256:8e37f7b9a9ba68d1682c1618c04045194b1b2b471f6b00881b06a1c05ac053ff"
+reached_by = [
+    "#59",
+    "#62",
+    "#67",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:50134945c8a1b58e"
+name = "is_empty"
+qual = "CoverPage::is_empty"
+lines = [
+    377,
+    384,
+]
+hash = "sha256:016e1e3997ec409d4bec53f1495870fdd9e21d1b7bd1a54c6effe5b8e61aae97"
+doc_hash = "sha256:a588ed290f1850821a50b0f168e38659e9127a6f156024ef9abd4b6d33810582"
+reached_by = [
+    "#52",
+    "#59",
+    "#61",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:c6c1f85826e844c8"
+name = "escholarship_cover"
+qual = "escholarship_cover"
+lines = [
+    390,
+    443,
+]
+hash = "sha256:96f97dc780a11905bd505884b80159e07517ab4a2191d22087da08386c26868c"
+doc_hash = "sha256:0e3e56cfda0cb7bb667a25757ad0f473f99f645c6e8250037afb23cfe338f711"
+callees = [
+    "fn:0fb4a40dc726e0e2",
+    "fn:3c8f3bc9d6ebe998",
+    "fn:50134945c8a1b58e",
+    "fn:ea937081411e8c51",
+]
+reached_by = [
+    "#52",
+    "#59",
+    "#61",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:823a7a9246c99961"
+name = "clean_line"
+qual = "clean_line"
+lines = [
+    449,
+    453,
+]
+hash = "sha256:b6b0d0f55eb7637a68662ca9c4a5211911a562dc130018ad9e45adddd10a3f23"
+doc_hash = "sha256:7d7d6499b407139d75f2d20ec75dc8af7691c57933123e90eb7df2a03eb6cfc7"
+reached_by = [
+    "#52",
+    "#59",
+    "#61",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:fbd8bf437d42aad0"
+name = "split_label"
+qual = "split_label"
+lines = [
+    455,
+    470,
+]
+hash = "sha256:3c3559e63f6c7a29950ade70a24e678dab1a0bac7abe158ee4d12ddc259cc62f"
+doc_hash = "sha256:8f1a61619003bd60bfee448fefa359772ada97afaf238cff7d4247cbead1cd06"
+callees = ["fn:823a7a9246c99961"]
+reached_by = [
+    "#52",
+    "#59",
+    "#61",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:d494348fce67b6cd"
+name = "is_label_line"
+qual = "is_label_line"
+lines = [
+    472,
+    476,
+]
+hash = "sha256:9f741e28b1ada0039fed4c234f860c2f9bf62681ef6420045d488662dd453087"
+doc_hash = "sha256:f9a0517592040a6c5cac8152ba6361960f602845b75ac07a3551d68b7188c62b"
+callees = ["fn:fbd8bf437d42aad0"]
+reached_by = [
+    "#52",
+    "#59",
+    "#61",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:ea937081411e8c51"
+name = "labelled_value"
+qual = "labelled_value"
+lines = [
+    478,
+    515,
+]
+hash = "sha256:9cb1f1a5249a9afdc601871ffc51d17177c3b378984200d11f83398c46f4461e"
+doc_hash = "sha256:d0ed23c73a7a132c47456828f3e6492e8c248b4b11e0fca607802840678952a0"
+callees = [
+    "fn:823a7a9246c99961",
+    "fn:d494348fce67b6cd",
+    "fn:fbd8bf437d42aad0",
+]
+reached_by = [
+    "#52",
+    "#59",
+    "#61",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:406324e56a610db3"
+name = "is_title_junk"
+qual = "is_title_junk"
+lines = [
+    547,
+    567,
+]
+hash = "sha256:d278d041cdd5fafd8b21e8b30e738f57432f23256b9b2180e92ad523b30f3067"
+doc_hash = "sha256:f7e85e552827aaa65adbda4072cbfa4cc01267aeb62636c058183807e413d896"
+callees = ["fn:0baa8919cd9bdab3"]
+reached_by = [
+    "#51",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:0baa8919cd9bdab3"
+name = "looks_like_journal_locator"
+qual = "looks_like_journal_locator"
+lines = [
+    569,
+    596,
+]
+hash = "sha256:fe476ada24afc4b49f0a78fd75d54f392dffb23faa762311be422202484a7b13"
+doc_hash = "sha256:2eb944b76407fc262a994b2d493729f430522a96538d432fd51e562f1956e7ba"
+callees = [
+    "fn:c13a3b38114857d7",
+    "fn:d3f92457b1f07d18",
+    "fn:f71aea35e5c33cd6",
+]
+reached_by = [
+    "#51",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:f71aea35e5c33cd6"
+name = "has_parenthesised_year"
+qual = "has_parenthesised_year"
+lines = [
+    598,
+    619,
+]
+hash = "sha256:3977898882bea0e973d9e2ce46ebfca0278debd4b1fa6f05a6efc49e030d7d65"
+doc_hash = "sha256:148c3538ac6c893a46b3e0b50c5b7d620006c6518f712d988a3713969c380a73"
+reached_by = [
+    "#51",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:d3f92457b1f07d18"
+name = "has_page_range"
+qual = "has_page_range"
+lines = [
+    621,
+    640,
+]
+hash = "sha256:3e22aeda901b52054d97c944882c0effa6b2139f8f66810a3a3346a5a2e7cf1b"
+doc_hash = "sha256:449488cf9bc91ca3d3f70345ed673fdfb21cb0c1549e8890f837dc40b7380b4c"
+reached_by = [
+    "#51",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:c13a3b38114857d7"
+name = "contains_bare_year"
+qual = "contains_bare_year"
+lines = [
+    642,
+    646,
+]
+hash = "sha256:67bc18f8d728cf65ebf8de941f49249771992c8fa6f45258d3c4106941848927"
+doc_hash = "sha256:d6399e73134daf8574a75f90b668be5270395ca69b34eeff9bf5844496592f5e"
+callees = ["fn:3c8f3bc9d6ebe998"]
+reached_by = [
+    "#51",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:9756e4e51d656277"
+name = "looks_like_author_line"
+qual = "looks_like_author_line"
+lines = [
+    648,
+    679,
+]
+hash = "sha256:7d583c73df601bb8ddbee0d31b1bb1a41fd60dbb6c588795236864a5a31f0536"
+doc_hash = "sha256:a84e3bebe47b501126acd61c9249afa52d8b146a0f14ef29aafb0dbc1811e00a"
+callees = ["fn:0b1eba118d87d3f6"]
+reached_by = [
+    "#51",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:0b1eba118d87d3f6"
+name = "is_editor_label"
+qual = "is_editor_label"
+lines = [
+    681,
+    692,
+]
+hash = "sha256:5cce9711549122328544347bd322e5baea61d008fa17243b8250aaeda331da3b"
+doc_hash = "sha256:cc9587902ceba6a54cfbf83ee07600cc26c3460ccfa85dc65e04a553c0ed3dc2"
+reached_by = [
+    "#51",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:0a452704004c980b"
+name = "strip_author_markers"
+qual = "strip_author_markers"
+lines = [
+    699,
+    715,
+]
+hash = "sha256:02bfc391fcb0aaca85c99ac5bd8d1dcb4d9d4c02a11f6dd7d3733953340a458d"
+doc_hash = "sha256:ba34313cec4b3346481cec97a0d81f63302412cb2fa3f38b012a489c719c60d4"
+reached_by = [
+    "#49",
+    "#50",
+    "#51",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:b80e2c32be721683"
+name = "looks_like_name_list"
+qual = "looks_like_name_list"
+lines = [
+    725,
+    757,
+]
+hash = "sha256:72153d4906f50bfac2f4aac42cc148e78496c03a8a6094515bb38ac1a0041144"
+doc_hash = "sha256:aadea1e7a121863956199622bb9a2a15d36e0f960ce1fe225595857cce33a5b2"
+callees = [
+    "fn:1bec1a468837397e",
+    "fn:7b68c77d73059162",
+    "fn:970ecec00654d17c",
+]
+reached_by = [
+    "#51",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:1bec1a468837397e"
+name = "split_name_fragments"
+qual = "split_name_fragments"
+lines = [
+    759,
+    770,
+]
+hash = "sha256:0ad392dbea367af49d9ec4c555e98f03d844b7b7c66adf79014119f698e63176"
+doc_hash = "sha256:49f7d81630b8fbf33606dfac83b188d343f403fe7180e432cdee99375a1359a4"
+callees = ["fn:0a452704004c980b"]
+reached_by = [
+    "#49",
+    "#51",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:7b68c77d73059162"
+name = "is_name_like"
+qual = "is_name_like"
+lines = [
+    772,
+    790,
+]
+hash = "sha256:ad9fb3c890a75c0816fcc4799ceb2c14a2df1f1da805857252849b1219bfbc61"
+doc_hash = "sha256:20a7020173fb2d314216e500319c2ee1f21549affbaeda01e478354ad37e7686"
+reached_by = [
+    "#51",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:970ecec00654d17c"
+name = "is_initials"
+qual = "is_initials"
+lines = [
+    792,
+    809,
+]
+hash = "sha256:7b272f4f3fc3dbb00d1af85a9a742b11e7fbe77b142170d3f962b9cb05069a29"
+doc_hash = "sha256:6280fe6be4af3377953e79fae840c7fac6a5af05bd7c1a7ef1b7b9074a5dc2eb"
+reached_by = [
+    "#49",
+    "#50",
+    "#51",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:df3ffbc6e39e840b"
+name = "is_section_heading"
+qual = "is_section_heading"
+lines = [
+    860,
+    864,
+]
+hash = "sha256:3805689bb838fe386d474fcc3a33e2da5111e3a73a47a7d6500b53f9b591aa00"
+doc_hash = "sha256:f30bdc8083cf46761d934e0d0ea9612d0c51c4d0f34c6bd45e2d8a0283551ac3"
+reached_by = [
+    "#51",
+    "#57",
+    "#58",
+    "#59",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:756d90448722b8f7"
+name = "looks_like_affiliation"
+qual = "looks_like_affiliation"
+lines = [
+    886,
+    901,
+]
+hash = "sha256:c1473827ed90967ccc68ccf6d02917ff33c2b9058cc35bd658f5adad8e46f101"
+doc_hash = "sha256:1e444a39c813b9c55b6e91aa213321e212e6da07c07cb6ab4e3f5f58d34ecbb3"
+reached_by = [
+    "#51",
+    "#57",
+    "#58",
+    "#59",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:40e247b89afecbf8"
+name = "front_matter_lines"
+qual = "front_matter_lines"
+lines = [
+    903,
+    916,
+]
+hash = "sha256:2441f90b252da79aaeaefd0b46e9776e408d9dee33b2d3731418d035a63e9cfb"
+doc_hash = "sha256:76a1026a3114d4342499beea2174b4777fe210be1abdab12d52dfd923b154081"
+reached_by = [
+    "#51",
+    "#57",
+    "#58",
+    "#59",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:ebeab494cd646fc5"
+name = "title_block"
+qual = "title_block"
+lines = [
+    918,
+    988,
+]
+hash = "sha256:571d23713edf52bb960d1ae604d331bea79acb92ce2d0734b116abf40d6e6e44"
+doc_hash = "sha256:c1c6110b0a6b1a968bfc82586463625c9a972015e86ef108df406f8ea911d20a"
+callees = [
+    "fn:406324e56a610db3",
+    "fn:756d90448722b8f7",
+    "fn:9756e4e51d656277",
+    "fn:987ec065f8b5dfb5",
+    "fn:b80e2c32be721683",
+    "fn:df3ffbc6e39e840b",
+]
+reached_by = [
+    "#51",
+    "#57",
+    "#58",
+    "#59",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:f391c9311873580e"
+name = "title_from_text"
+qual = "title_from_text"
+lines = [
+    990,
+    1023,
+]
+hash = "sha256:2d879cab97e907a7ae873239da9a6b4bd03067665839fdbf7a5f1d260247ea88"
+doc_hash = "sha256:6195573a3d4791a36bf34a8e837f3aaea460c1bb08487c7aaff26558b188ca3f"
+callees = [
+    "fn:40e247b89afecbf8",
+    "fn:ebeab494cd646fc5",
+]
+reached_by = [
+    "#51",
+    "#59",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:f74cb1985f2ba5fe"
+name = "authors_from_text"
+qual = "authors_from_text"
+lines = [
+    1046,
+    1099,
+]
+hash = "sha256:bf1b70dc5b69804720b8002dfc863cc55815a02507175cf23a3a04af2c432948"
+doc_hash = "sha256:6a5e44cf0c7432079dfa5d90d3f81b053b502ea7e0311119927171825af4cd39"
+callees = [
+    "fn:0b1eba118d87d3f6",
+    "fn:2187d0c5c6a64f64",
+    "fn:40e247b89afecbf8",
+    "fn:9756e4e51d656277",
+    "fn:b80e2c32be721683",
+    "fn:ebeab494cd646fc5",
+]
+reached_by = [
+    "#51",
+    "#57",
+    "#59",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:2187d0c5c6a64f64"
+name = "parse_author_block"
+qual = "parse_author_block"
+lines = [
+    1101,
+    1152,
+]
+hash = "sha256:07551f336fdcc2b703594928a5ab2b420a5ec162aaa89c66abee76f699658ec2"
+doc_hash = "sha256:4a062bebdd0fcafd62ff6c6bee6b77f1be3790a18d0411dc091215287787722a"
+callees = [
+    "fn:1bec1a468837397e",
+    "fn:970ecec00654d17c",
+    "fn:d9e79da98b88e0d9",
+]
+reached_by = [
+    "#49",
+    "#51",
+    "#57",
+    "#59",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:987ec065f8b5dfb5"
+name = "year_only"
+qual = "year_only"
+lines = [
+    1154,
+    1159,
+]
+hash = "sha256:d89e79d81dee9fc70285685f3b34d70ede7e9bfab7acdf21af7f93ff25ab60eb"
+doc_hash = "sha256:f29ac655aebb0a722230b986ae3ade7b9f3177aac903fcc7924475fbdf2ba2ca"
+reached_by = [
+    "#51",
+    "#57",
+    "#58",
+    "#59",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:8395caef07f9d25c"
+name = "sha256_of"
+qual = "sha256_of"
+lines = [
+    1161,
+    1183,
+]
+hash = "sha256:a22dc5a684d993860650c1a0f7f598eeec130951e73d5bfd0c65ebcc1ddbe452"
+doc_hash = "sha256:5bc36d446f520824dbc1ff7098abf6031616cd0a13cdb7fb6a008072009dea36"
+reached_by = [
+    "#59",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:c72bff3ed4992116"
+name = "looks_like_report"
+qual = "looks_like_report"
+lines = [
+    1185,
+    1208,
+]
+hash = "sha256:0e185c83a17e6ab9f8b7b2b9c79b9910cb1c408941b8efc01d159831092a7dcf"
+doc_hash = "sha256:7a048fad484f8bc489bc7d93a24e171786c21afe53f60d20e9b4ff655ca5e550"
+reached_by = [
+    "#59",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:3c8f3bc9d6ebe998"
+name = "year_from_text"
+qual = "year_from_text"
+lines = [
+    1210,
+    1234,
+]
+hash = "sha256:469ff736c8a87d7782fab80a6cb98f58d15d5e6ceccc4bf2801e7697749c7be4"
+doc_hash = "sha256:e5bdec0d6ca0bb2dd2f17396b8dcda22e3e6356dc62903861b5ae70d790a4f71"
+reached_by = [
+    "#51",
+    "#52",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#61",
+    "#62",
+    "#66",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:1d14653f2b927898"
+name = "find_doi"
+qual = "find_doi"
+lines = [
+    1244,
+    1279,
+]
+hash = "sha256:35faad7d9c1f56dfc1fe7a0aa89142317119b487bb3b796497ab99ea8b0d5bd3"
+doc_hash = "sha256:370077498ebf16107a8925f9204544dc4a2fa1b3289d6a3056aa86b8b2ed0b28"
+callees = ["fn:fbe0e0d824c1266b"]
+reached_by = [
+    "#53",
+    "#54",
+    "#59",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:fbe0e0d824c1266b"
+name = "is_doi_char"
+qual = "is_doi_char"
+lines = [
+    1281,
+    1284,
+]
+hash = "sha256:e65cf847cb23150e8ff2c305357287df8577163bf7417401134d337319f3049f"
+doc_hash = "sha256:cee3cfc98d3e8e0c20d967b7a58462b37a8d5d1496920ec4eef5cb9db7021a2c"
+reached_by = [
+    "#53",
+    "#54",
+    "#59",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:c856ab9a7434dd0a"
+name = "make_slug"
+qual = "make_slug"
+lines = [
+    1297,
+    1339,
+]
+hash = "sha256:d1894c3cedb4beb2029bb5291b39a77bd8cd2d9b9defa2d60483a2262c7af1d3"
+doc_hash = "sha256:3db04723fad60db5597ea05dbb6cff9cf1e198bd9d54de9733c0ccc043808a8a"
+callees = ["fn:feaad9f7f888939e"]
+reached_by = [
+    "#59",
+    "#62",
+    "#65",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:feaad9f7f888939e"
+name = "slug_token"
+qual = "slug_token"
+lines = [
+    1341,
+    1347,
+]
+hash = "sha256:5caa9585d3cc000ab9750737e22afae7b2e68f77de7ecbb8295d48c28664a230"
+doc_hash = "sha256:50f787c12697a51ee23cb631e8c0644042dc26176d2e3afe3de21aee7aabb40f"
+reached_by = [
+    "#59",
+    "#62",
+    "#65",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:4baa7ab44ca80057"
+name = "make_id"
+qual = "make_id"
+lines = [
+    1349,
+    1358,
+]
+hash = "sha256:2bd670e91bdb5d4d4ac02f2704d64937f29ace5a7cb2fe1e6abbe8161adccabf"
+doc_hash = "sha256:360202becf91729165a0732af193856ce08e7815d043757689e48b636ac6b98b"
+callees = ["fn:be1164efe312fcf0"]
+reached_by = [
+    "#55",
+    "#59",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:be1164efe312fcf0"
+name = "fnv1a64"
+qual = "fnv1a64"
+lines = [
+    1360,
+    1369,
+]
+hash = "sha256:8a5ce3f3782b745af9e2a5d294d576c4b46efb97190cc85344cea3daf4f6b484"
+doc_hash = "sha256:e28b495568c5252729da6e8d61a10c6485cd52174680e270ec841663d3985bee"
+reached_by = [
+    "#55",
+    "#59",
+    "#62",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."metadata.rs".function]]
+id = "fn:6b49f1e4d8a4aa79"
+name = "escholarship_cover_parses_both_label_layouts"
+qual = "escholarship_cover_parses_both_label_layouts"
+lines = [
+    1376,
+    1445,
+]
+hash = "sha256:d133fe3cf620b5dadf8a64c6375de97f95be37bccacaea7b0f9b1ed735378056"
+doc_hash = "sha256:d4ef1b12592a01d1943fbdd0e10364357ef48b90e3c277908a32d7bfc17282e2"
+callees = ["fn:c6c1f85826e844c8"]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:1d79408577c3a72d"
+name = "non_escholarship_text_is_not_treated_as_a_cover_page"
+qual = "non_escholarship_text_is_not_treated_as_a_cover_page"
+lines = [
+    1447,
+    1453,
+]
+hash = "sha256:166399828f90003402a0646cdec8da7fa691029288d018b07bce5074cf6172ef"
+doc_hash = "sha256:cdcca096efb7637de8abf7e4a7d05ea1f9115f55beb3d6d15750bb308b9295bb"
+callees = ["fn:c6c1f85826e844c8"]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:1acfbeb102907147"
+name = "find_doi_ignores_dois_in_the_bibliography"
+qual = "find_doi_ignores_dois_in_the_bibliography"
+lines = [
+    1455,
+    1486,
+]
+hash = "sha256:acaa0bedcf80c60ccbd6c667f8b9c87c8998fbb1630121e7cd846ad98d69f299"
+doc_hash = "sha256:d71f952da8dacf115cd1979ffa68f0901e45ead2bc48007be401325713dcf37d"
+callees = ["fn:1d14653f2b927898"]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:040088fbf403e691"
+name = "page_count_comes_from_the_page_tree_not_the_text"
+qual = "page_count_comes_from_the_page_tree_not_the_text"
+lines = [
+    1488,
+    1499,
+]
+hash = "sha256:00e69f1d9363817a64e964f665ebbed4b2244114f6af4134363c8ab4c2ffbde4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4fc138a77793ee0d",
+    "fn:a822676e2554d35a",
+    "fn:c8e55d4b14f286b8",
+]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:dd500fb619a9913b"
+name = "metadata_from_info_dictionary"
+qual = "metadata_from_info_dictionary"
+lines = [
+    1501,
+    1532,
+]
+hash = "sha256:2294de4a28ab66077d2452a65d4ae85269e1d825204244888f630399396bfe15"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4fc138a77793ee0d",
+    "fn:a268a05ebd05fadb",
+    "fn:a822676e2554d35a",
+]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:4adb405913c9aed9"
+name = "page_count_from_text_counts_form_feeds"
+qual = "page_count_from_text_counts_form_feeds"
+lines = [
+    1534,
+    1539,
+]
+hash = "sha256:c64832da8bdada242e12e35741cd1d7ac55ec783e440f4badca07aa3b756e80e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:24fd6b5655b1fe13"]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:12a5d4d083fc7428"
+name = "id_is_deterministic"
+qual = "id_is_deterministic"
+lines = [
+    1541,
+    1545,
+]
+hash = "sha256:671acbf2cb6a929121c64f2b10841854adc3f5a8f48be623002f74885d58f2a7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4baa7ab44ca80057"]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:acbfe8b0b2f2d549"
+name = "parse_author_comma_and_spaced_forms"
+qual = "parse_author_comma_and_spaced_forms"
+lines = [
+    1547,
+    1559,
+]
+hash = "sha256:749b335e13192fb7928f9b0b54433abb335e199ac378395cf3af88e5f2563cc2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d9e79da98b88e0d9"]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:f60338c405aaf7ca"
+name = "find_doi_matches_and_trims"
+qual = "find_doi_matches_and_trims"
+lines = [
+    1561,
+    1570,
+]
+hash = "sha256:2ea1ae2886df762b54841e8b7ac4984c19775fbdeb7c2a1b67667feda0ff3bb6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:1d14653f2b927898"]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:f4b323f0edfb67a0"
+name = "year_from_pdf_date_parses_prefix"
+qual = "year_from_pdf_date_parses_prefix"
+lines = [
+    1572,
+    1576,
+]
+hash = "sha256:eaa38a9953f32dc3b82a5b766556f2d2dab162102db0356ff889312d74d0abae"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:a43cf70febf91dab"]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:3be04bbb2084e561"
+name = "journal_running_headers_are_rejected_as_titles"
+qual = "journal_running_headers_are_rejected_as_titles"
+lines = [
+    1647,
+    1684,
+]
+hash = "sha256:c5db23f722577b3a086c52d8e6c17a41c31b887bc9394fa7626bcdddc9b3c6d9"
+doc_hash = "sha256:594cab75e4e27bde14dbcae1cf9d690398167f87576b9c224914311ac624e35c"
+callees = [
+    "fn:0baa8919cd9bdab3",
+    "fn:406324e56a610db3",
+]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:a0d58e3f632635f3"
+name = "name_list_detection_separates_authors_from_prose"
+qual = "name_list_detection_separates_authors_from_prose"
+lines = [
+    1686,
+    1716,
+]
+hash = "sha256:bbed37f44d82287d993bae6438cf733ed4c6010b7a46fc40ab683c53385b8f82"
+doc_hash = "sha256:ffa9ec2c376f8fa43ab10ac86b1db7d6a66a3a6e198451c36218d3675c199df4"
+callees = [
+    "fn:9756e4e51d656277",
+    "fn:b80e2c32be721683",
+]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:b23c315c441e6718"
+name = "jrc_cover_title_is_rejoined_across_blank_lines"
+qual = "jrc_cover_title_is_rejoined_across_blank_lines"
+lines = [
+    1718,
+    1746,
+]
+hash = "sha256:4683f5859d226e04fc35b23619b40b1ef67a934605f51c85c1c20bd311504c61"
+doc_hash = "sha256:83f06e974af4ceef5b497f8d802bce8d0295cc87cab6a7cb39ee3d806a56e8cb"
+callees = [
+    "fn:40e247b89afecbf8",
+    "fn:ebeab494cd646fc5",
+]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:5e4b8f4e91edb7df"
+name = "jrc_cover_authors_come_from_above_the_editors_label"
+qual = "jrc_cover_authors_come_from_above_the_editors_label"
+lines = [
+    1748,
+    1782,
+]
+hash = "sha256:ed7ce3124000a0069be15a4c5f9daaa165f2bb08e89808ce749fef36b137abaf"
+doc_hash = "sha256:fd50da887ea9852997586536a02d815f5ddd7088b2cadd6b7e24cdde736c9d56"
+callees = ["fn:f74cb1985f2ba5fe"]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:075ed0f5a678805e"
+name = "elsevier_opening_yields_title_and_authors"
+qual = "elsevier_opening_yields_title_and_authors"
+lines = [
+    1784,
+    1840,
+]
+hash = "sha256:585233347f618ed30f564dd16d8209af543973359cf20d906249e377ec212bcb"
+doc_hash = "sha256:a6431e4b46924d2009a058ee0e9c28afaebd77e7f74a7d2c47c490b72d7d0cfa"
+callees = [
+    "fn:f391c9311873580e",
+    "fn:f74cb1985f2ba5fe",
+]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:3de0921e0d9bdb5f"
+name = "author_block_handles_initials_and_given_name_first"
+qual = "author_block_handles_initials_and_given_name_first"
+lines = [
+    1842,
+    1864,
+]
+hash = "sha256:0ee0d245754952da220b9d752f32f7d6567de67f7c09f4050f4cf5ced04a194f"
+doc_hash = "sha256:43209b8a32734e021a027518ecfc0d9309af543efcad41b4635d7609d4de511f"
+callees = ["fn:2187d0c5c6a64f64"]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:3b90f7cbf1022de9"
+name = "title_join_stops_at_body_text_across_a_blank_line"
+qual = "title_join_stops_at_body_text_across_a_blank_line"
+lines = [
+    1866,
+    1892,
+]
+hash = "sha256:c1fc6019d9971f07397bc5d18ed628ae0fa23e06e93a8f4deec5160a1750985e"
+doc_hash = "sha256:b1be37b003e13b757a6fe1e1f7dae6736f38755aa51e161cdf3bc2c12e7e28ba"
+callees = ["fn:f391c9311873580e"]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:a937372e7309ba43"
+name = "author_markers_are_stripped"
+qual = "author_markers_are_stripped"
+lines = [
+    1894,
+    1904,
+]
+hash = "sha256:2bd2833082611207e3f6c4729a8a224aa0d0b0dd17ba6699b6d19467f1790d41"
+doc_hash = "sha256:f40cc122e011128e675d06a9dc85fef5dcd782fbfeb9d0630367562899fcce31"
+callees = [
+    "fn:0a452704004c980b",
+    "fn:970ecec00654d17c",
+]
+test = true
+
+[[module."metadata.rs".function]]
+id = "fn:b180a5a66006e45d"
+name = "slug_skips_leading_stop_words"
+qual = "slug_skips_leading_stop_words"
+lines = [
+    1906,
+    1923,
+]
+hash = "sha256:c30ecf45cfabbb2e1218ee243ac9dc376aaabfa16f262ebd9c8c7d652dbd9a30"
+doc_hash = "sha256:e890ca83fda18c1ea61357e87c98d1e94c81cf53cd0889d787d0620e70dce232"
+callees = ["fn:c856ab9a7434dd0a"]
+test = true
+
+[module."pdf_import.rs"]
+path = "crate::pdf_import"
+
+[[module."pdf_import.rs".function]]
+id = "fn:b498ac4086365fa0"
+name = "extract_pdf_text"
+qual = "extract_pdf_text"
+lines = [
+    22,
+    45,
+]
+hash = "sha256:4a749ef462f591250a8d365a96dbf585f2a0166a4edd5a2b18f448f53d2eb400"
+doc_hash = "sha256:3bf99c05861691e267eaf50bb7296d225117a27a43e065fcbe512383f022cb16"
+reached_by = [
+    "#59",
+    "#62",
+    "#69",
+    "#70",
+    "#77",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#125",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#257",
+    "#258",
+]
+
+[[module."pdf_import.rs".function]]
+id = "fn:06387d9126408c07"
+name = "pdf_to_markdown"
+qual = "pdf_to_markdown"
+lines = [
+    47,
+    57,
+]
+hash = "sha256:a72e4c81aa5f168333143c9b53336efa7acf5e6023419730f5f223d0d7136dd6"
+doc_hash = "sha256:913d6d2a16e997e501adc0b9e1143433615e2448ef488caa52eb1fbadba9babc"
+callees = [
+    "fn:174023394c7e46ce",
+    "fn:b498ac4086365fa0",
+]
+reached_by = ["#70"]
+
+[[module."pdf_import.rs".function]]
+id = "fn:36ccc0c21354bb59"
+name = "extract_assets"
+qual = "extract_assets"
+lines = [
+    59,
+    104,
+]
+hash = "sha256:5cd057b7f00018ea382fda0cc5fe34f370948a518eb4ee9ca1dbd0fd55043a0f"
+doc_hash = "sha256:88eae142d6835f1117ace92b76870cf2e6d3c9868258ecaab01b2baacb15bd0e"
+callees = [
+    "fn:3f1465d89fe69ed1",
+    "fn:6d637b28909c5eae",
+    "fn:d90ce5e6716970a0",
+]
+reached_by = ["#68"]
+
+[[module."pdf_import.rs".function]]
+id = "fn:3f1465d89fe69ed1"
+name = "dict_name_eq"
+qual = "dict_name_eq"
+lines = [
+    106,
+    109,
+]
+hash = "sha256:416978c13eaa04917387fcd55319aedac118a2e02c0dd0bd29b7424dc5c5cd7c"
+doc_hash = "sha256:36df4e000fe1cc8f71ca4871deb424e9d80ffcbc6282180225364931352ae8de"
+reached_by = ["#68"]
+
+[[module."pdf_import.rs".function]]
+id = "fn:6d637b28909c5eae"
+name = "image_extension"
+qual = "image_extension"
+lines = [
+    111,
+    133,
+]
+hash = "sha256:d1a63d91a6eef1fbdc66b7670b396448e2510a2723bbe9a2c306e2e933ac682d"
+doc_hash = "sha256:bf72d84159d8dd9553a7ec8a2ca35af9040bfbb55f5f06c30cdf0d5d494ec469"
+reached_by = ["#68"]
+
+[[module."pdf_import.rs".function]]
+id = "fn:d90ce5e6716970a0"
+name = "sanitize_stem"
+qual = "sanitize_stem"
+lines = [
+    135,
+    148,
+]
+hash = "sha256:08bb62ec40ef37ce6cfa8d2fdf8e5518ca6899196d3ed3f260c83233b4ddcf2c"
+doc_hash = "sha256:677756479b421e278a68ea69f69cb422e0c04932d85cfe11953bc0f6b7a47e2b"
+reached_by = ["#68"]
+
+[[module."pdf_import.rs".function]]
+id = "fn:6e900afd7d91fc07"
+name = "pdf_to_markdown_extracts_body_text"
+qual = "pdf_to_markdown_extracts_body_text"
+lines = [
+    155,
+    169,
+]
+hash = "sha256:93f5ede254967bbe0203f9299fdf0c43a54e599678911a62f2241ec8e9b23126"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:06387d9126408c07",
+    "fn:a268a05ebd05fadb",
+    "fn:a822676e2554d35a",
+]
+test = true
+
+[[module."pdf_import.rs".function]]
+id = "fn:ce627c863f986d87"
+name = "extract_text_on_missing_file_is_error"
+qual = "extract_text_on_missing_file_is_error"
+lines = [
+    171,
+    175,
+]
+hash = "sha256:9a53cde10b96aadfcbc7d64f7b2e0acd771061968cafcacf9cc44a052d305561"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b498ac4086365fa0"]
+test = true
+
+[[module."pdf_import.rs".function]]
+id = "fn:b9dc513c9247729d"
+name = "extract_assets_on_image_free_pdf_writes_nothing"
+qual = "extract_assets_on_image_free_pdf_writes_nothing"
+lines = [
+    177,
+    185,
+]
+hash = "sha256:2bd53d0f917530eb482189c98019eea47cbbc16819eadd211b308ac7091585dc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:36ccc0c21354bb59",
+    "fn:a268a05ebd05fadb",
+    "fn:a822676e2554d35a",
+]
+test = true
+
+[module."test_pdf.rs"]
+path = "crate::test_pdf"
+
+[[module."test_pdf.rs".function]]
+id = "fn:a822676e2554d35a"
+name = "tmp_path"
+qual = "tmp_path"
+lines = [
+    11,
+    14,
+]
+hash = "sha256:d00dd24bbd58279613ea03f1887958de3378f05e07980677534d447975725ffd"
+doc_hash = "sha256:d7a53f5edd47f5029c12d975ee7391f59550dd67fe4b15293ca67d969a224276"
+test = true
+
+[[module."test_pdf.rs".function]]
+id = "fn:a268a05ebd05fadb"
+name = "build_text_pdf"
+qual = "build_text_pdf"
+lines = [
+    16,
+    80,
+]
+hash = "sha256:84f9bab7011ef3e1e5b52dd090eb576b9ad49a01c8ab634919d680b50a61d6dc"
+doc_hash = "sha256:23fc8f6b355e7d82d5bb0ba82b79b86a37821234d220ca8006c7e56dc8868ef4"
+test = true
+
+[[module."test_pdf.rs".function]]
+id = "fn:c8e55d4b14f286b8"
+name = "build_multipage_pdf"
+qual = "build_multipage_pdf"
+lines = [
+    82,
+    146,
+]
+hash = "sha256:261845c64eaf709c9c797c0c5366064a3fde33108c1219cf5150e9b324cd53a3"
+doc_hash = "sha256:60caef4e65020bed1a8d111c8e4531b7bb54fd23bb4abe9ba86754dedea6ee59"
+test = true

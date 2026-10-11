@@ -1,0 +1,187 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_struct_supports"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_top_bottom_mx10_struct_supports.rs::heater_plus_mx_10_with_supports",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heater_example_with_data_record.rs::example_heater_with_struct_supports_and_mx10",
+]
+
+[module."calculation.rs"]
+path = "crate::pre_built_components::ciet_struct_supports::calculation"
+
+[[module."calculation.rs".function]]
+id = "fn:6f9848dbed84ece6"
+name = "_advance_timestep"
+qual = "StructuralSupport::_advance_timestep"
+lines = [
+    9,
+    16,
+]
+hash = "sha256:b943d7ef555d59046f956a310e254bd8fc07d16bcf30e2f265e39522a19acbad"
+doc_hash = "sha256:808151cde23edd389a174038c84a53f608f43907bcda1494cee93cb5b6bc4014"
+callees = ["fn:03e08a20b60594d7"]
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."calculation.rs".function]]
+id = "fn:fe6897f81d851809"
+name = "advance_timestep_thread_spawn"
+qual = "StructuralSupport::advance_timestep_thread_spawn"
+lines = [
+    18,
+    37,
+]
+hash = "sha256:3f8989e56fbbdc3e3b6f68a346b03103a808e1e138b714bb8ca42ff9d42b4d91"
+doc_hash = "sha256:f6b97d5858d2a24b2396910d03d659356c98470f623432ebd6490099af38727c"
+callees = ["fn:03e08a20b60594d7"]
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_struct_supports"
+
+[[module."mod.rs".function]]
+id = "fn:1dbe81ba1a381e34"
+name = "new_steel_support_cylinder"
+qual = "StructuralSupport::new_steel_support_cylinder"
+lines = [
+    66,
+    106,
+]
+hash = "sha256:70946f20c6bdd9c8e78caa4582af5fc7beaf455bb5f9c0f09ecd92a4099d1b84"
+doc_hash = "sha256:cdce01773e98f176c48666a7fcc041757cc7ba525efa22f5ec13584f770fd89c"
+callees = [
+    "fn:9cf2732f8b0c6890",
+    "fn:a1d6deda9829f241",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[module."postprocessing.rs"]
+path = "crate::pre_built_components::ciet_struct_supports::postprocessing"
+
+[[module."postprocessing.rs".function]]
+id = "fn:af42ea90559cabb3"
+name = "get_temperature_array"
+qual = "StructuralSupport::get_temperature_array"
+lines = [
+    6,
+    10,
+]
+hash = "sha256:6157ba1a5d6dffbfdd07f83fbdc6d3d55d542c4713161bd557590ce0706a5740"
+doc_hash = "sha256:e0ad0a497431b947bc7f550336f4618b67c87e7946ccd02204a3f6f2bbaee35e"
+callees = ["fn:81ebbad2a6b015cb"]
+physical_interface = true
+
+[module."preprocessing.rs"]
+path = "crate::pre_built_components::ciet_struct_supports::preprocessing"
+
+[[module."preprocessing.rs".function]]
+id = "fn:6dbe23d8bd45f45f"
+name = "lateral_and_miscellaneous_connections"
+qual = "StructuralSupport::lateral_and_miscellaneous_connections"
+lines = [
+    16,
+    92,
+]
+hash = "sha256:fd020c27dc5529098dbae20d146d161845a67797d71bb0ddad89f608af7f2a1a"
+doc_hash = "sha256:8af20294b89d5c4aab19a113ac11520941fff14d18a5b69117e4231cba80ba42"
+callees = [
+    "fn:757834495e12908f",
+    "fn:8a180ca0986c72b8",
+    "fn:9cf2732f8b0c6890",
+    "fn:abafd5a5e42d6a30",
+    "fn:b7126fe96510f865",
+    "fn:eb89be045205dc88",
+    "fn:f8fcd27da58670ac",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."preprocessing.rs".function]]
+id = "fn:757834495e12908f"
+name = "zero_power_bc_connection"
+qual = "StructuralSupport::zero_power_bc_connection"
+lines = [
+    94,
+    123,
+]
+hash = "sha256:ebf26fa1666b1608e26172652242e4ec555f6f06fbed92e1f17bb161ad5cb74c"
+doc_hash = "sha256:2c57eaa96f2f1c03aaaf91822a49c22d4809f6412a93e7b67ad87ccfafb7424a"
+callees = [
+    "fn:2d0477b1a1450172",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."preprocessing.rs".function]]
+id = "fn:b7126fe96510f865"
+name = "get_air_to_steel_array_conductance"
+qual = "StructuralSupport::get_air_to_steel_array_conductance"
+lines = [
+    125,
+    145,
+]
+hash = "sha256:424fd5dea747647cae405bc47568dfb54ef84bcca36029e001b86a4fbe925df6"
+doc_hash = "sha256:5ed87302e0cc1a182782002c2323a3287201c61aed05320c387ea5bed2885655"
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:4d5007a74eb7af7e"
+name = "get_axial_node_to_bc_conductance"
+qual = "StructuralSupport::get_axial_node_to_bc_conductance"
+lines = [
+    147,
+    171,
+]
+hash = "sha256:b16e060eb3a9eabfc7441558eb23017cadb976424d4ccbaad55219d4196076fd"
+doc_hash = "sha256:d0199308bf04469e4413b9469de675ba6101fa8ed65e146143c5f9ef10282d9a"
+callees = [
+    "fn:9ac392fb93aa5a9b",
+    "fn:a2275733c3fa6168",
+    "fn:e4ef3b79543287e1",
+    "fn:eb89be045205dc88",
+    "fn:eedc1a53a24de8e0",
+    "fn:feec71215f335f20",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:5165c272f93c3247"
+name = "lateral_connection_thread_spawn"
+qual = "StructuralSupport::lateral_connection_thread_spawn"
+lines = [
+    173,
+    192,
+]
+hash = "sha256:c8e3ceb899f9de7e38860a6b31e789a407ed339377e985736ce7e3c9e0a79730"
+doc_hash = "sha256:3f8f7a15b41c47be872138ecca39d0ff1ea8b1ff110492e8e1404d11e6c5194d"
+callees = ["fn:6dbe23d8bd45f45f"]
+reached_by = [
+    "#0",
+    "#1",
+]

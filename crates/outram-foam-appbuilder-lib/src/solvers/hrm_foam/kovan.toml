@@ -1,0 +1,282 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/solvers/hrm_foam"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/solvers/hrm_foam/mod.rs::default_relaxation_time_matches_downar_zapolski_constants",
+    "crates/outram-foam-appbuilder-lib/src/solvers/hrm_foam/mod.rs::relaxation_time_respects_configured_floor",
+]
+
+[module."mod.rs"]
+path = "crate::solvers::hrm_foam"
+
+[[module."mod.rs".function]]
+id = "fn:b4a87c9016651a5d"
+name = "default"
+qual = "HrmModelConfig::default"
+lines = [
+    71,
+    81,
+]
+hash = "sha256:2498e1ada130a933e8e7d1a8bed0c47daf72dbe5c38c8dfb94f8550981c096d3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a5950d0918dcfc50"
+name = "new"
+qual = "HrmFoam::new"
+lines = [
+    142,
+    160,
+]
+hash = "sha256:446c3c775cd316b3a20947c49df6cbdfb05937ca52c92261cf89ee4f1a822a6c"
+doc_hash = "sha256:dad0046cb9b61170efa4a10be9389bffc7f3a2da9a2a3de4fea8284bfacee992"
+callees = [
+    "fn:abc148760f0abc88",
+    "fn:b4a87c9016651a5d",
+]
+
+[[module."mod.rs".function]]
+id = "fn:abc148760f0abc88"
+name = "with_model_config"
+qual = "HrmFoam::with_model_config"
+lines = [
+    162,
+    219,
+]
+hash = "sha256:cf332fb9f01a0778a49d16e5a10e9a9f8f28393728b3cd520ac49798485a627b"
+doc_hash = "sha256:c0c3394e0011bd1f8837a2672f059509c504e2356020f434ea91472efa18b948"
+callees = [
+    "fn:35c659fb699605b5",
+    "fn:636e75b664f14254",
+    "fn:acfb0f2d7b950994",
+    "fn:d6a9c884aaeb7775",
+]
+
+[[module."mod.rs".function]]
+id = "fn:5890e5e172462cde"
+name = "relaxation_time"
+qual = "HrmFoam::relaxation_time"
+lines = [
+    221,
+    228,
+]
+hash = "sha256:2cac49a0b4445bfb6dd2d38bce35f5aa4566ce118495e51124b5fcf610183925"
+doc_hash = "sha256:e2f50f83c72a1f37f39478b6c9afcaae741fc2571b7f63f4f912eb12eeffa484"
+callees = [
+    "fn:b4a87c9016651a5d",
+    "fn:cf92022dc6c2ee5f",
+]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:e8a75b570115b04a"
+name = "relaxation_time_with_config"
+qual = "HrmFoam::relaxation_time_with_config"
+lines = [
+    230,
+    244,
+]
+hash = "sha256:719e72c1541e22836ca5f06e99793d64b17c2fd3510450ed3cb922814023c3ea"
+doc_hash = "sha256:5a8b1d044d1f56a15593037a01dd454c013760282d60f32e5d23e9a7a75d8629"
+callees = ["fn:cf92022dc6c2ee5f"]
+
+[[module."mod.rs".function]]
+id = "fn:52ffce63c9e6947e"
+name = "clamp_unit_interval"
+qual = "HrmFoam::clamp_unit_interval"
+lines = [
+    246,
+    263,
+]
+hash = "sha256:c21c9346f4849078f556160e75ea90449e2a5b82f0696aca4415857c760250eb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:4a3d63f4a0e47a1c",
+    "fn:6d45af0d518e142d",
+    "fn:f59a35e9cbd8b293",
+]
+
+[[module."mod.rs".function]]
+id = "fn:8bf26f26a4d29701"
+name = "solve_gas_fraction_eqn"
+qual = "HrmFoam::solve_gas_fraction_eqn"
+lines = [
+    265,
+    281,
+]
+hash = "sha256:8954f4306687eb7b446eadd30fea56826daa06e52154b9b2a3c02cf34e1b8dd0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:352ea976b2fefdc6",
+    "fn:52ffce63c9e6947e",
+    "fn:53d4791d95d80de6",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:6d45af0d518e142d",
+    "fn:7493954e75e3a317",
+    "fn:92fd53f240dcfb8e",
+    "fn:eae24a63871d2132",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0a806b13901c5ba3"
+name = "solve_density_eqn"
+qual = "HrmFoam::solve_density_eqn"
+lines = [
+    283,
+    289,
+]
+hash = "sha256:1e9f431a725b00c462e0c37c7b66bd6957cf63de03c1898ec2fde8b0c99091ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:25da9f8ab3c26a6e",
+    "fn:7493954e75e3a317",
+    "fn:9ede23afd5c79bc4",
+    "fn:b0ed875c4efafa46",
+    "fn:c3f73100c19cafbf",
+]
+
+[[module."mod.rs".function]]
+id = "fn:5a3330d5c4d906a3"
+name = "volume_flux_from_mass_flux"
+qual = "HrmFoam::volume_flux_from_mass_flux"
+lines = [
+    291,
+    313,
+]
+hash = "sha256:63d62db10edf683f0ee7c612f5b29dc99001ae6361ac94da37a047472e2281c8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:35109efd2ed02837",
+    "fn:4aea3161a87c6021",
+    "fn:92fd53f240dcfb8e",
+    "fn:a44e88aef7a7c4ab",
+]
+
+[[module."mod.rs".function]]
+id = "fn:25da9f8ab3c26a6e"
+name = "clamp_density"
+qual = "HrmFoam::clamp_density"
+lines = [
+    315,
+    322,
+]
+hash = "sha256:f7b247cfa8c37482366b89f76130b2e19f612ae12738c68308adfe0c6eea3157"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:96b5c3d947f087e5"]
+
+[[module."mod.rs".function]]
+id = "fn:cf92022dc6c2ee5f"
+name = "relaxation_time"
+qual = "HrmModelConfig::relaxation_time"
+lines = [
+    326,
+    334,
+]
+hash = "sha256:892f15228b929eb56ce506021ddb64112ed262c4d61c58b432dcb1f952e77441"
+doc_hash = "sha256:8f8a6e173a8bbc2382971faf1074866dd685527e84cf881e2d69005160ff7f1e"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."mod.rs".function]]
+id = "fn:88d7d71483aa4238"
+name = "step"
+qual = "HrmFoam::step"
+lines = [
+    338,
+    548,
+]
+hash = "sha256:ef646be694d8f16256af01a30d8c2b39f967b5cc928bd99d3f1bcff05fca20f8"
+doc_hash = "sha256:4e37b5f4c0cc1f580f6353fd33301fd55d68ad1d68a5e640cf53239bd226f351"
+callees = [
+    "fn:0a288491e7fa82b9",
+    "fn:0a806b13901c5ba3",
+    "fn:10f32a17a906d1d2",
+    "fn:12a06403e27e4888",
+    "fn:13d801bd97c5b69d",
+    "fn:19c54bfb31ab3ffb",
+    "fn:1e0c0abc3044dc8b",
+    "fn:2c30f932a22ffb56",
+    "fn:329ec62309c98f22",
+    "fn:352ea976b2fefdc6",
+    "fn:456ce8c84f72ae6e",
+    "fn:472adef4837fb92c",
+    "fn:4a3d63f4a0e47a1c",
+    "fn:4aea3161a87c6021",
+    "fn:4ff3f95cd26d6684",
+    "fn:52ffce63c9e6947e",
+    "fn:53d4791d95d80de6",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:5a3330d5c4d906a3",
+    "fn:636ae5a21be9336b",
+    "fn:64fa70d3ef81e19d",
+    "fn:65f8f3c9daf074d2",
+    "fn:6d45af0d518e142d",
+    "fn:7493954e75e3a317",
+    "fn:82c72206856eccb3",
+    "fn:8b1e80d2a2add1f9",
+    "fn:8bf26f26a4d29701",
+    "fn:92fd53f240dcfb8e",
+    "fn:95630e24fcf1635e",
+    "fn:96b5c3d947f087e5",
+    "fn:a8a8aa01bdeead4b",
+    "fn:b13c311a9e21788c",
+    "fn:bcd3c0fddc1f933d",
+    "fn:d26e6c14487b0898",
+    "fn:da3db2be3d98eafe",
+    "fn:ddf2344864918578",
+    "fn:e8a75b570115b04a",
+    "fn:ea6b6e6095ea6573",
+    "fn:eae24a63871d2132",
+    "fn:f59a35e9cbd8b293",
+    "fn:fb7ba145dba6413c",
+]
+
+[[module."mod.rs".function]]
+id = "fn:aa3c860cc549cef2"
+name = "run"
+qual = "HrmFoam::run"
+lines = [
+    550,
+    577,
+]
+hash = "sha256:2b4d85517947749a446e89ad8c217c688eb66b871e18435691d1a3ba806bfcec"
+doc_hash = "sha256:2657537aadeeeafb4d89d3c06c82957053c73c7ca391edefd45abbd5ad6e5288"
+callees = ["fn:88d7d71483aa4238"]
+
+[[module."mod.rs".function]]
+id = "fn:3764fc594432a178"
+name = "default_relaxation_time_matches_downar_zapolski_constants"
+qual = "default_relaxation_time_matches_downar_zapolski_constants"
+lines = [
+    584,
+    593,
+]
+hash = "sha256:dba1de8baca0a3f7979de3d78d2de2a7ddb3732aacd5c3dc3fab18fe05fe79c6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:5890e5e172462cde"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:da184f227b0b21aa"
+name = "relaxation_time_respects_configured_floor"
+qual = "relaxation_time_respects_configured_floor"
+lines = [
+    595,
+    603,
+]
+hash = "sha256:654eadcac211497408174ef37b3b51036d6a7fe566a1d6f72c74d4b58b2ed4bb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b4a87c9016651a5d",
+    "fn:cf92022dc6c2ee5f",
+]
+test = true

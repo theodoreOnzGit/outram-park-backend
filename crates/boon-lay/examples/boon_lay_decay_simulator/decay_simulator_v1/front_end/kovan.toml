@@ -1,0 +1,232 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/examples/boon_lay_decay_simulator/decay_simulator_v1/front_end"
+
+[module."citation_disclaimer_and_acknowledgements.rs"]
+path = "example:boon_lay_decay_simulator::decay_simulator_v1::front_end::citation_disclaimer_and_acknowledgements"
+
+[[module."citation_disclaimer_and_acknowledgements.rs".function]]
+id = "fn:b2d23c68f8ed5039"
+name = "citation_disclaimer_and_acknowledgements"
+qual = "DecaySimApp::citation_disclaimer_and_acknowledgements"
+lines = [
+    6,
+    39,
+]
+hash = "sha256:cb0b21f03701ba3931bc6493ade33d10e586b4d85eea2ee4286f4efcc768e6c5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."graph_page.rs"]
+path = "example:boon_lay_decay_simulator::decay_simulator_v1::front_end::graph_page"
+
+[[module."graph_page.rs".function]]
+id = "fn:e5b7676d25f3542f"
+name = "graph_page"
+qual = "DecaySimApp::graph_page"
+lines = [
+    12,
+    72,
+]
+hash = "sha256:5b725ce04fe2cf74790e21e887c3631f75f6d49b776e305a4040bd8c52d6630d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b1cb088d45306b6f",
+    "fn:c70bb5be6fbe9d90",
+]
+
+[[module."graph_page.rs".function]]
+id = "fn:c73031de3eabb042"
+name = "graph_page_side_panel"
+qual = "DecaySimApp::graph_page_side_panel"
+lines = [
+    74,
+    339,
+]
+hash = "sha256:82b1556555db3971a1adfc59c9fcf2482534fa67a7d60fa475a08353b87444b3"
+doc_hash = "sha256:77fa8c1f1c9009be7fe6efef8ba63573a11b8b2707bfb3adb4ca80db5a7649d7"
+callees = [
+    "fn:4ba2e911c5949808",
+    "fn:5f0e3aba95d832de",
+    "fn:60fba111c3c5519c",
+    "fn:98a8831fe8a02ead",
+    "fn:a038bd9a372e40af",
+    "fn:a4af0d820e56eda5",
+    "fn:b1cb088d45306b6f",
+    "fn:b27039bf05427497",
+    "fn:c70bb5be6fbe9d90",
+    "fn:d86f4cfb4847b7a4",
+    "fn:f5c0e84c39f13077",
+]
+
+[module."main_page.rs"]
+path = "example:boon_lay_decay_simulator::decay_simulator_v1::front_end::main_page"
+
+[[module."main_page.rs".function]]
+id = "fn:6f9831a5892083d4"
+name = "main_page"
+qual = "DecaySimApp::main_page"
+lines = [
+    11,
+    169,
+]
+hash = "sha256:3b32f634e80c0638fd2a9d547027624f4b6a25ca0235fcbd3d481b2f391a8874"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4640c2db43fc0442",
+    "fn:d84c7e41f0b78cde",
+]
+
+[[module."main_page.rs".function]]
+id = "fn:4640c2db43fc0442"
+name = "element_color"
+qual = "DecaySimApp::element_color"
+lines = [
+    171,
+    244,
+]
+hash = "sha256:6c8bb46d60029ff88c453200d3dd9138d71c56b5ebbd36d67f32c0c15160abc7"
+doc_hash = "sha256:be1cbb5b1cc047127a0e1d60b8e3663e38a5911d8ec182dda87a3fa53229cb20"
+
+[module."mod.rs"]
+path = "example:boon_lay_decay_simulator::decay_simulator_v1::front_end"
+
+[module."periodic_table.rs"]
+path = "example:boon_lay_decay_simulator::decay_simulator_v1::front_end::periodic_table"
+
+[[module."periodic_table.rs".function]]
+id = "fn:c1e39a5fea5f565f"
+name = "periodic_table"
+qual = "DecaySimApp::periodic_table"
+lines = [
+    15,
+    353,
+]
+hash = "sha256:4254e57761f84dd889d5d2406fa3685da609efe6888ebd350d4d0e16e4fc966d"
+doc_hash = "sha256:c084113d925de54a07ccd348b68ece1d7e701e56c877e547532b85199c8aa51a"
+callees = ["fn:8e57eec85cdcad81"]
+
+[[module."periodic_table.rs".function]]
+id = "fn:cddaef1d14d36458"
+name = "contrasting_text"
+qual = "DecaySimApp::contrasting_text"
+lines = [
+    355,
+    366,
+]
+hash = "sha256:ed8942358e51c04b8176ebc044a3a2b8d13b1952134caeee71c7f4975d2980e1"
+doc_hash = "sha256:a631827fb8c8accb10a189670a245b3dd282b9c11952f787247add3954e5259c"
+
+[[module."periodic_table.rs".function]]
+id = "fn:8e57eec85cdcad81"
+name = "ui_element_box_at_position"
+qual = "DecaySimApp::ui_element_box_at_position"
+lines = [
+    368,
+    372,
+]
+hash = "sha256:91d9d409bbd580f61c54d314dbfab479288890b2ffab480dd42bdd48184bcbb6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:40f332d26ed981dd"]
+
+[[module."periodic_table.rs".function]]
+id = "fn:40f332d26ed981dd"
+name = "draw_element_box_at"
+qual = "DecaySimApp::draw_element_box_at"
+lines = [
+    374,
+    388,
+]
+hash = "sha256:689c57d7f4454dda83f951861ce453be3541998a858c279662d1042b60300d21"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:41bb343a3f32840f"]
+
+[[module."periodic_table.rs".function]]
+id = "fn:d6055cce0a28a46e"
+name = "symbol_from_z"
+qual = "DecaySimApp::symbol_from_z"
+lines = [
+    390,
+    407,
+]
+hash = "sha256:84cedbfcf9699da7550fab3426ad41d2141c935ac89f423f5f3698388bfdf739"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."periodic_table.rs".function]]
+id = "fn:41bb343a3f32840f"
+name = "put_widget_with_size_and_centre"
+qual = "DecaySimApp::put_widget_with_size_and_centre"
+lines = [
+    408,
+    433,
+]
+hash = "sha256:cceac455b3809148d2eb4d410ef9d25012044b46f36613cc28baaebee5395643"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."periodic_table.rs".function]]
+id = "fn:2667b3b69fcf3dad"
+name = "from"
+qual = "ElementBox::from"
+lines = [
+    442,
+    445,
+]
+hash = "sha256:9bbdfe8fb8c71bb89d9b05dc6df5dc3f38bc5fd81e191496ab15958880e42b58"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."periodic_table.rs".function]]
+id = "fn:5013430d5eb4e9bf"
+name = "ui"
+qual = "ElementBox::ui"
+lines = [
+    449,
+    501,
+]
+hash = "sha256:35ff6596736e9d2305931d217876f6c34df42d5fc4adce13d06b88aa739133db"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4640c2db43fc0442",
+    "fn:cddaef1d14d36458",
+    "fn:d6055cce0a28a46e",
+]
+
+[module."side_panel.rs"]
+path = "example:boon_lay_decay_simulator::decay_simulator_v1::front_end::side_panel"
+
+[[module."side_panel.rs".function]]
+id = "fn:83b405c5135dca9a"
+name = "side_panel"
+qual = "DecaySimApp::side_panel"
+lines = [
+    13,
+    304,
+]
+hash = "sha256:7291a49e8f64d8728340e07162f62acdcf56ef40cd9892d577c0191f1dd9781e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:094c1bcb03a9b17f",
+    "fn:3d6e64b53a506e91",
+    "fn:4ba2e911c5949808",
+    "fn:57702c601703dd5b",
+    "fn:5f0e3aba95d832de",
+    "fn:60fba111c3c5519c",
+    "fn:9734f9e65a7dd250",
+    "fn:98a8831fe8a02ead",
+    "fn:a038bd9a372e40af",
+    "fn:a4af0d820e56eda5",
+    "fn:b27039bf05427497",
+    "fn:b6d2e043b068416b",
+    "fn:d86f4cfb4847b7a4",
+    "fn:f5c0e84c39f13077",
+]
+
+[[module."side_panel.rs".function]]
+id = "fn:5cb8015a7593063e"
+name = "fractions_vec_map"
+qual = "DecaySimApp::fractions_vec_map"
+lines = [
+    308,
+    335,
+]
+hash = "sha256:1d4c69a799649a2126152eba74554c7637125178cec2165535157b883961f05d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

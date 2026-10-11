@@ -1,0 +1,394 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/point_kinetics"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::coupled_power_conservation_across_meshes",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::coupled_steady_state_negative_feedback",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::negative_feedback_reduces_power",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::picard_loop_converges_consistently",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::prescribed_region_is_inert",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::dispatch_kind_and_keff_across_variants",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::point_kinetics_model_steps",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/point_kinetics/mod.rs::mismatched_group_lengths_error",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/point_kinetics/mod.rs::non_positive_time_step_error",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/point_kinetics/mod.rs::null_transient_holds_steady",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/point_kinetics/mod.rs::reactivity_sign_moves_power_correctly",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/point_kinetics/mod.rs::total_delayed_fraction_sums_groups",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_point_kinetics_inhour.rs::asymptotic_period_matches_inhour_equation",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_point_kinetics_inhour.rs::null_transient_control",
+]
+
+[module."mod.rs"]
+path = "crate::genfoam::neutronics::point_kinetics"
+
+[[module."mod.rs".function]]
+id = "fn:86d966eae1f5c8f0"
+name = "from"
+qual = "PointKineticsError::from"
+lines = [
+    191,
+    195,
+]
+hash = "sha256:f49e05de9f57a5a702c49a19166a3f0ada024b58d476dc7c44f4ca87ef6832cf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:3b3f6b7be75b2a35"
+name = "new"
+qual = "PointKineticsParameters::new"
+lines = [
+    225,
+    250,
+]
+hash = "sha256:a88ac67daf81e72fa718e244fc07b50a4cdac6448c7c2be25bce972236a280cd"
+doc_hash = "sha256:88dfbcba01daf54f4547ae7c65aad9948ddf4a6feacc5c258bc82df5a9575f96"
+callees = ["fn:ea127540985df5eb"]
+reached_by = [
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:ea127540985df5eb"
+name = "with_subcritical_index"
+qual = "PointKineticsParameters::with_subcritical_index"
+lines = [
+    252,
+    292,
+]
+hash = "sha256:0c650cc4eb21d09ee6808ed2a802b49b3cfd474d2131be37022b89d00685eae1"
+doc_hash = "sha256:6118e329bb8102dcba28887dfae98570257335000ab3b305327e46784b776152"
+reached_by = [
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:b38e16969be0c08c"
+name = "delayed_group_count"
+qual = "PointKineticsParameters::delayed_group_count"
+lines = [
+    294,
+    297,
+]
+hash = "sha256:05487b250a641c11b7a77fb60304e8020a8b79bbc80ef4189518e8a534c2e81e"
+doc_hash = "sha256:46406d082de526dd4cee371bfa7747ea7775a49caf78badb58ea41224d47db76"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2741cc61ff104725"
+name = "delayed_fractions"
+qual = "PointKineticsParameters::delayed_fractions"
+lines = [
+    299,
+    303,
+]
+hash = "sha256:e5f54a29955136de647f4e5c358aa72a21dfeec89346524099bab37deb83f06b"
+doc_hash = "sha256:d4dce1eeb0fc5b074755fe23e4fcb8fa97a0d6ae91798d63dc25bc1bbbd59dc6"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:f0fac110c1c1ca2d"
+name = "decay_constants"
+qual = "PointKineticsParameters::decay_constants"
+lines = [
+    305,
+    308,
+]
+hash = "sha256:51146f79c6078b7a2e0410783bda2092d427f871183328d711a5475409990de1"
+doc_hash = "sha256:7bc142145d3dd8c6c266019d49d57786612d0926b466dd43cd0a47318a064378"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:c717fda89df56d26"
+name = "prompt_generation_time"
+qual = "PointKineticsParameters::prompt_generation_time"
+lines = [
+    310,
+    313,
+]
+hash = "sha256:a191696e60989c0be2da082aeef77d8057cc7a01301c39c5ae6f41195a7b72bc"
+doc_hash = "sha256:03b85b184d1b346de7272040df6d668dc1bc2f21a0a0bf3e7c3e9e915240a2ab"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:1b0c59da91cdd7dd"
+name = "subcritical_index"
+qual = "PointKineticsParameters::subcritical_index"
+lines = [
+    315,
+    318,
+]
+hash = "sha256:665105705061872570c0d4ab1828aacda681628afab8b3b4aad684d888798b45"
+doc_hash = "sha256:df6d99801ac24ca79265a7a173427c72f43af622ed2b6148b80ddd479b109a10"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:4c8cfe2a0d133178"
+name = "total_delayed_fraction"
+qual = "PointKineticsParameters::total_delayed_fraction"
+lines = [
+    320,
+    328,
+]
+hash = "sha256:d930c7941fb3a0a19652f3ce1f0e1740ff7cdf854721c16333e3d3988c5c983d"
+doc_hash = "sha256:2c9c17f4c8b7d04eb8f02df769ac6997f680018d87981a1f680b23a7ee0c3f52"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:b929b23889bdb3f4"
+name = "new_equilibrium"
+qual = "PointKineticsState::new_equilibrium"
+lines = [
+    348,
+    379,
+]
+hash = "sha256:6d0d1c86e1c0502eaa256e68a4bcd423dacc0a2d8b98c3b14db1cc6ba09206ad"
+doc_hash = "sha256:d5c998e34acdbb74d2006e638fc44b430bfeabb4c149d30f414b2fd10af69642"
+reached_by = [
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:2ec8f788ced30046"
+name = "new"
+qual = "PointKineticsState::new"
+lines = [
+    381,
+    393,
+]
+hash = "sha256:e36a11192faa8d2b06651d22fb2d4e093639473b66e58cb13059ee7c07122c27"
+doc_hash = "sha256:95ff19e20df92c3b31c7d635a52c0810f70466993525d60864ee6a66cff7edde"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:588a62e4916606e5"
+name = "fission_power"
+qual = "PointKineticsState::fission_power"
+lines = [
+    395,
+    398,
+]
+hash = "sha256:78f616153412cd15a4e8f4b10d64ced9f9a739aeb832109dbfa1b5d2fa21ce82"
+doc_hash = "sha256:207851d45adac1728220b238fcc3c7ec948dd8f8dcdd6cfdb25defdc18ea0f96"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:1c3332e4541f88cd"
+name = "precursor_powers"
+qual = "PointKineticsState::precursor_powers"
+lines = [
+    400,
+    403,
+]
+hash = "sha256:89581fd869a455dbfed2d75aaba590bbbc082bb25bffd2e15ffaea0272b5fd33"
+doc_hash = "sha256:36b933f69ed1ff561a6c441c7f6914d2b4b36002793476a70637a3c81705307e"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:4e503be7c5d477f3"
+name = "external_source_power"
+qual = "PointKineticsState::external_source_power"
+lines = [
+    405,
+    408,
+]
+hash = "sha256:ec375607657189c637830343fd2628fbc2789513731328408364e615229bb623"
+doc_hash = "sha256:517ee2d2781e31a4feb3175d736874fbc086373b00a9f962b4bc6b7d69540b04"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:fe939fee6c56ac78"
+name = "step"
+qual = "PointKineticsState::step"
+lines = [
+    410,
+    504,
+]
+hash = "sha256:b1d08b9efd144faaa4138549c2cda696229c659aae8ce850eeec0a46f479f9e3"
+doc_hash = "sha256:9f3a1eaad33d3408011fbf315137108727ab82657be304d439fa46db1ed58acc"
+callees = [
+    "fn:04372eb2cb9f9bc3",
+    "fn:151aad4ebbbcd1a5",
+    "fn:4c8cfe2a0d133178",
+    "fn:6dc82a6475c2f1e2",
+    "fn:b38e16969be0c08c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:327109e14ffd214e"
+name = "u235_six_group"
+qual = "u235_six_group"
+lines = [
+    512,
+    527,
+]
+hash = "sha256:44f4aeeb65bba69774605a92dea1f8d5046c0dfc53839a8a9a23e5e0e1cf06fd"
+doc_hash = "sha256:22aa007a321cb1dbdd5d18c79274254cf0d1244dc2fb79371f946d7826a0f7f8"
+callees = ["fn:3b3f6b7be75b2a35"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:85c7e95d103f93f6"
+name = "total_delayed_fraction_sums_groups"
+qual = "total_delayed_fraction_sums_groups"
+lines = [
+    529,
+    534,
+]
+hash = "sha256:d41a51d7366655a6489dd62548c6b32f4a18cbe3acad14273dace77ce52229bb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:327109e14ffd214e",
+    "fn:4c8cfe2a0d133178",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:6065448779765b1d"
+name = "null_transient_holds_steady"
+qual = "null_transient_holds_steady"
+lines = [
+    536,
+    555,
+]
+hash = "sha256:af4ef639dae3966230156d6e419661baf7bbfdf4d1bfdd305a4d9006d3079457"
+doc_hash = "sha256:1d04517884da6a59a3bf154283ed22edf7338d3028a4fd6dc709483bccb89188"
+callees = [
+    "fn:327109e14ffd214e",
+    "fn:588a62e4916606e5",
+    "fn:b929b23889bdb3f4",
+    "fn:fe939fee6c56ac78",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:3d1d0df281ecd6f2"
+name = "reactivity_sign_moves_power_correctly"
+qual = "reactivity_sign_moves_power_correctly"
+lines = [
+    557,
+    583,
+]
+hash = "sha256:6932664157adf3ae7e14233e896605826aa52369c540f720eeac3994f57b22bf"
+doc_hash = "sha256:6819fe90502ec5ddb685ebf373043791e51dffc8858930805abc2687caed27ba"
+callees = [
+    "fn:327109e14ffd214e",
+    "fn:588a62e4916606e5",
+    "fn:b929b23889bdb3f4",
+    "fn:fe939fee6c56ac78",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:f9734c44fd9238d8"
+name = "mismatched_group_lengths_error"
+qual = "mismatched_group_lengths_error"
+lines = [
+    585,
+    600,
+]
+hash = "sha256:e64e309670073185bb75b754be137b6beaebc96a499863875768e6e9698c8d8f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3b3f6b7be75b2a35"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:2773840a4f55539a"
+name = "non_positive_time_step_error"
+qual = "non_positive_time_step_error"
+lines = [
+    602,
+    615,
+]
+hash = "sha256:efe5b387e486cc366c3ed11c036f3cee937ba523ada96e6ca57cbe6992f943db"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:327109e14ffd214e",
+    "fn:b929b23889bdb3f4",
+    "fn:fe939fee6c56ac78",
+]
+test = true

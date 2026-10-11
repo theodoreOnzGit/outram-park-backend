@@ -1,0 +1,394 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-coolprop"
+dir = "crates/outram-park-fork-coolprop/src/mixtures"
+test_ids = [
+    "crates/outram-park-fork-coolprop/src/mixtures/departure.rs::gaussian_matches_finite_difference",
+    "crates/outram-park-fork-coolprop/src/mixtures/departure.rs::gerg_exponential_matches_finite_difference",
+    "crates/outram-park-fork-coolprop/src/mixtures/departure.rs::power_matches_finite_difference",
+    "crates/outram-park-fork-coolprop/tests/all_binary_pairs_smoke.rs::every_binary_pair_evaluates_at_a_representative_state",
+    "crates/outram-park-fork-coolprop/tests/mixture_departure_function.rs::departure_function_is_actually_exercised",
+    "crates/outram-park-fork-coolprop/tests/mixture_departure_function.rs::pure_r32_limit_is_exact",
+    "crates/outram-park-fork-coolprop/tests/mixture_departure_function.rs::r32_r125_blend_state_is_physical",
+    "crates/outram-park-fork-coolprop/tests/mixture_nitrogen_oxygen.rs::air_like_mixture_matches_known_air_properties",
+    "crates/outram-park-fork-coolprop/tests/mixture_nitrogen_oxygen.rs::malformed_composition_is_rejected",
+    "crates/outram-park-fork-coolprop/tests/mixture_nitrogen_oxygen.rs::pure_nitrogen_limit_is_exact",
+    "crates/outram-park-fork-coolprop/tests/mixture_predefined.rs::air_composition_matches_coolprop_reference",
+    "crates/outram-park-fork-coolprop/tests/mixture_predefined.rs::air_speed_of_sound_and_compressibility_match_reference",
+    "crates/outram-park-fork-coolprop/tests/mixture_predefined.rs::composition_hygiene_rejects_unnormalized",
+    "crates/outram-park-fork-coolprop/tests/mixture_predefined.rs::r410a_predefined_constructs_and_evaluates",
+]
+
+[module."departure.rs"]
+path = "crate::mixtures::departure"
+
+[[module."departure.rs".function]]
+id = "fn:757345c82bc029d0"
+name = "accumulate"
+qual = "DepartureTerm::accumulate"
+lines = [
+    55,
+    127,
+]
+hash = "sha256:cbcaff20e6bc463dd0a0e4812a4fe71b7b4cca5da5cc14356227d1e72bc03bee"
+doc_hash = "sha256:52ab955b473327e3685165e46153c56ffd0263c785e252687dbc7183199b891d"
+callees = ["fn:480b3d8017dcf8fb"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#11",
+    "#13",
+]
+
+[[module."departure.rs".function]]
+id = "fn:480b3d8017dcf8fb"
+name = "add"
+qual = "add"
+lines = [
+    130,
+    139,
+]
+hash = "sha256:a56a2e5eb82564ca54ef7e6750ff853b841cc762f8d0f102729345e9c981d114"
+doc_hash = "sha256:3566cae4d75efd324c63cfbfa4db66ae9ef2bb5f4c976fd9cd94101b15d49dfa"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#11",
+    "#13",
+]
+
+[[module."departure.rs".function]]
+id = "fn:cf23a9c29bcd9f6b"
+name = "eval_a"
+qual = "eval_a"
+lines = [
+    145,
+    149,
+]
+hash = "sha256:b354fa837b7ebd2504dee881dba14f25d64162bfeb92b7be7855565094f5ba31"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:757345c82bc029d0"]
+test = true
+
+[[module."departure.rs".function]]
+id = "fn:ef84ad1615bae35d"
+name = "fd_derivs"
+qual = "fd_derivs"
+lines = [
+    151,
+    171,
+]
+hash = "sha256:43ed3b141e62378e6fecc2b3626d05f99e35d12bcff9576f99aed8fd9eb3ef9a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:cf23a9c29bcd9f6b"]
+test = true
+
+[[module."departure.rs".function]]
+id = "fn:2fbbd4d87a7928c5"
+name = "check"
+qual = "check"
+lines = [
+    173,
+    209,
+]
+hash = "sha256:da63442cac7cb19ef7388705ac30c665ab0fb20ef4537580079123878956f987"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:757345c82bc029d0",
+    "fn:ef84ad1615bae35d",
+]
+test = true
+
+[[module."departure.rs".function]]
+id = "fn:5702e8bd3fa486dd"
+name = "power_matches_finite_difference"
+qual = "power_matches_finite_difference"
+lines = [
+    211,
+    235,
+]
+hash = "sha256:5d9f57c315f564bad184ec47a4d0aaabc4100f70b41cc9ee95cdbbc857ed9050"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2fbbd4d87a7928c5"]
+test = true
+
+[[module."departure.rs".function]]
+id = "fn:5bf4fc882a76d4e1"
+name = "gaussian_matches_finite_difference"
+qual = "gaussian_matches_finite_difference"
+lines = [
+    237,
+    253,
+]
+hash = "sha256:3154b60e9285d5c832aa3d0da0c02274d24673bdb6650ca7f8e98952090f32e5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2fbbd4d87a7928c5"]
+test = true
+
+[[module."departure.rs".function]]
+id = "fn:567cac4cf3a067f2"
+name = "gerg_exponential_matches_finite_difference"
+qual = "gerg_exponential_matches_finite_difference"
+lines = [
+    255,
+    286,
+]
+hash = "sha256:2091dccf921d03a19fd4a2947f981a9d175b4b57ff08697fe0c69cf2c24c9e85"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2fbbd4d87a7928c5"]
+test = true
+
+[module."mod.rs"]
+path = "crate::mixtures"
+
+[[module."mod.rs".function]]
+id = "fn:7cf5d9e53d69d74e"
+name = "new"
+qual = "Mixture::new"
+lines = [
+    115,
+    141,
+]
+hash = "sha256:fa321ef70a195a5fb1842755ddb7b5f99debdd75f358f8cea138d93806f17b09"
+doc_hash = "sha256:332d9941ac6b17812e76cf9594f4d9b6666b2ab2d04b549ef24d7e4d0e771141"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+
+[[module."mod.rs".function]]
+id = "fn:7fda98f53f6bab62"
+name = "reducing_temperature"
+qual = "Mixture::reducing_temperature"
+lines = [
+    143,
+    146,
+]
+hash = "sha256:898d7d30b8769b63768730acdcb92cdad65d48ef26f7b79d5ecff88354faf376"
+doc_hash = "sha256:b35c6dbfa6be6e7e6b35ef50c1b8e5fd75ac4379f4794a17c0ca4ca139ef34ae"
+callees = ["fn:92f520c2b72fd089"]
+reached_by = [
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#9",
+    "#11",
+    "#13",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a943dc67cbf7137e"
+name = "reducing_density"
+qual = "Mixture::reducing_density"
+lines = [
+    148,
+    151,
+]
+hash = "sha256:2c70b374aea8b0075dbf86ed32d3f1e050e125ed06d6f01c5e51a4a229d73049"
+doc_hash = "sha256:c39af02ef63f7d002a968fe9ef843976128452c02bb1400ed825e85c2cc22e7a"
+callees = ["fn:cfa6a66f17fd5247"]
+reached_by = [
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#9",
+    "#11",
+    "#13",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0b321c4dc95a1a1b"
+name = "residual_derivs"
+qual = "Mixture::residual_derivs"
+lines = [
+    153,
+    184,
+]
+hash = "sha256:615243cb23a33d69d5e91f1a4a5a9b8a11a14dd141939c9e4d91c5c9823d2633"
+doc_hash = "sha256:f14825b85e992d75fdad26f7cf00c4bcd3a950cb8bc563b6590e0d7928052f18"
+callees = [
+    "fn:181716135f0ff8a3",
+    "fn:256876916477fca4",
+    "fn:757345c82bc029d0",
+    "fn:98b913668ea52499",
+    "fn:e95dbc4e64d0aee6",
+]
+reached_by = [
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#11",
+    "#13",
+]
+
+[[module."mod.rs".function]]
+id = "fn:177175197ca5210a"
+name = "state_trho_molar"
+qual = "Mixture::state_trho_molar"
+lines = [
+    186,
+    261,
+]
+hash = "sha256:c7a968a3e9b33abf3a66ed7996565f079ec44ca8aa0c3600403fb8e75fc667da"
+doc_hash = "sha256:b9390cfcdae91c6b675049a66bcfa0da26bc3ff4d766998a07c51f43ce9e63c8"
+callees = [
+    "fn:0b321c4dc95a1a1b",
+    "fn:181716135f0ff8a3",
+    "fn:256876916477fca4",
+    "fn:4511f56dbcb9d686",
+    "fn:7fda98f53f6bab62",
+    "fn:a943dc67cbf7137e",
+]
+reached_by = [
+    "#3",
+    "#6",
+    "#7",
+    "#11",
+    "#13",
+]
+
+[[module."mod.rs".function]]
+id = "fn:181716135f0ff8a3"
+name = "add_weighted"
+qual = "add_weighted"
+lines = [
+    264,
+    272,
+]
+hash = "sha256:7eb31f338ffb73c1fc50445033b3f22858a946a3fd5dc4d3d492518b11d374cf"
+doc_hash = "sha256:41bcffdf5a5ac1848d4209cb4fbb6800eae046944bd6a1cc611eb2daacb275cc"
+reached_by = [
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#11",
+    "#13",
+]
+
+[module."predefined.rs"]
+path = "crate::mixtures::predefined"
+
+[[module."predefined.rs".function]]
+id = "fn:add4e430329efa66"
+name = "air"
+qual = "Mixture::air"
+lines = [
+    20,
+    44,
+]
+hash = "sha256:12f67f098666bd3560a4cc6145b677c551b320afd87af6d3a155e87f9fbcfb8d"
+doc_hash = "sha256:2a9c8c2264ffe73280601bc085794683c19d77158a26da4ea64aec1e7387d29b"
+callees = ["fn:7cf5d9e53d69d74e"]
+reached_by = [
+    "#10",
+    "#11",
+]
+
+[[module."predefined.rs".function]]
+id = "fn:e345bcc22f2e46a0"
+name = "r410a"
+qual = "Mixture::r410a"
+lines = [
+    46,
+    67,
+]
+hash = "sha256:9cb37a8a2ba3337f3f799f6c0d49fa18595cfe5da370209b4a699c48a7a7ba7c"
+doc_hash = "sha256:a437122c6f931168839aa2f58ce856595555bd45b4379330a86adb91e54834fe"
+callees = ["fn:7cf5d9e53d69d74e"]
+reached_by = ["#13"]
+
+[module."reducing.rs"]
+path = "crate::mixtures::reducing"
+
+[[module."reducing.rs".function]]
+id = "fn:c9abc36571db5834"
+name = "f_ij"
+qual = "f_ij"
+lines = [
+    25,
+    29,
+]
+hash = "sha256:dd9088e6e0eab833e99baf505c9d1a6c903ab1ef967aaaeed8d8084b9c37f289"
+doc_hash = "sha256:ae53d9161f9cd682c6eb06b3752eee729f284100675e046d32ae2fb1c2a46a17"
+reached_by = [
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#9",
+    "#11",
+    "#13",
+]
+
+[[module."reducing.rs".function]]
+id = "fn:92f520c2b72fd089"
+name = "reducing_temperature"
+qual = "reducing_temperature"
+lines = [
+    31,
+    49,
+]
+hash = "sha256:c1985fb8bfcee4eae2bf2f0b9143236b3e9ee5683fffc2002b76b9b235f25c1a"
+doc_hash = "sha256:b35c6dbfa6be6e7e6b35ef50c1b8e5fd75ac4379f4794a17c0ca4ca139ef34ae"
+callees = [
+    "fn:256876916477fca4",
+    "fn:c9abc36571db5834",
+    "fn:e95dbc4e64d0aee6",
+]
+reached_by = [
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#9",
+    "#11",
+    "#13",
+]
+
+[[module."reducing.rs".function]]
+id = "fn:cfa6a66f17fd5247"
+name = "reducing_density"
+qual = "reducing_density"
+lines = [
+    51,
+    69,
+]
+hash = "sha256:3a6a0fa70f863f770acdef494c94e7369f111328e8ed95b2a3b372c906d7b458"
+doc_hash = "sha256:c39af02ef63f7d002a968fe9ef843976128452c02bb1400ed825e85c2cc22e7a"
+callees = [
+    "fn:256876916477fca4",
+    "fn:c9abc36571db5834",
+    "fn:e95dbc4e64d0aee6",
+]
+reached_by = [
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#9",
+    "#11",
+    "#13",
+]

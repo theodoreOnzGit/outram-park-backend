@@ -1,0 +1,302 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-basic-lib"
+dir = "crates/outram-foam-basic-lib/src/interpolation"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/time_profile.rs::constant_profile_is_flat",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/time_profile.rs::start_time_offset_shifts_query",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/time_profile.rs::table_clamps_out_of_range",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/time_profile.rs::table_linear_interpolation",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/mod.rs::integrated_steady_state_energy_balance",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/mod.rs::pump_momentum_source_passthrough",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/mod.rs::scram_relaxes_structure_to_fluid",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/power_model.rs::fixed_power_adiabatic_step_matches_hand_calc",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/power_model.rs::fixed_power_steady_state_matches_hand_calc",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/power_model.rs::fixed_temperature_evaluates_profile",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/power_model.rs::power_off_zeroes_source",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/power_model.rs::power_profile_scales_initial_density",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/pump.rs::coast_down_scales_source",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/pump.rs::constant_pump_is_time_invariant",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::attached_model_contributes_to_both_equations_after_stepping",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::hot_wall_drives_melting_with_bounded_liquid_fraction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::runs_without_any_fv_model",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::velocity_field_keeps_its_name_after_correction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::wall_face_fluxes_are_constrained_to_the_velocity_bc",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::enthalpy_porosity_conserves_energy",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::gallium_melting_cavity_gau_viskanta_configuration",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::stefan_problem_matches_similarity_solution",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::a_cell_zone_restricts_the_drag_to_its_own_cells",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::density_weighted_form_scales_the_drag_by_rho",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::drag_table_clamps_at_both_ends_instead_of_extrapolating",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::drag_table_is_linear_between_the_knots",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::force_diagonal_matches_the_assembled_momentum_diagonal",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::fully_molten_cells_gain_exactly_no_drag",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::kinematic_drag_adds_volume_times_d_to_the_diagonal",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::phase_fraction_scales_the_drag_linearly",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::a_mostly_solid_cell_gains_a_large_positive_diagonal_drag",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::a_zero_timestep_contributes_nothing_instead_of_dividing_by_zero",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::freezing_puts_a_negative_latent_heat_source_in_the_enthalpy_equation",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::heating_above_the_liquidus_decays_the_solid_fraction",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::omitting_advance_time_inflates_the_latent_heat_rate",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::one_correct_from_zero_gives_exactly_the_relaxation_coefficient",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::repeated_correct_converges_geometrically_to_the_table_value",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::solid_fraction_is_capped_by_the_vof_phase_fraction",
+    "crates/outram-foam-basic-lib/src/interpolation/interpolate_spline_xy.rs::clamp_left",
+    "crates/outram-foam-basic-lib/src/interpolation/interpolate_spline_xy.rs::clamp_right",
+    "crates/outram-foam-basic-lib/src/interpolation/interpolate_spline_xy.rs::exact_at_knots",
+    "crates/outram-foam-basic-lib/src/interpolation/interpolate_spline_xy.rs::linear_data_matches_linear",
+    "crates/outram-foam-basic-lib/src/interpolation/interpolate_spline_xy.rs::single_and_two_point_edge_cases",
+    "crates/outram-foam-basic-lib/src/interpolation/interpolate_xy.rs::clamp_left",
+    "crates/outram-foam-basic-lib/src/interpolation/interpolate_xy.rs::clamp_right",
+    "crates/outram-foam-basic-lib/src/interpolation/interpolate_xy.rs::exact_at_knots",
+    "crates/outram-foam-basic-lib/src/interpolation/interpolate_xy.rs::midpoints",
+    "crates/outram-foam-basic-lib/src/interpolation/interpolate_xy.rs::single_point",
+    "crates/outram-foam-basic-lib/src/interpolation/interpolate_xy.rs::two_points",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_tabulated.rs::cp_from_table",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_tabulated.rs::entropy_increases_with_temperature",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_tabulated.rs::ha_from_table_at_knot",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_tabulated.rs::ha_roundtrip",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_tabulated.rs::hs_plus_hc_equals_ha",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/tabulated.rs::alpha_h_is_kappa_over_cp",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/tabulated.rs::kappa_at_knot",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/tabulated.rs::mu_at_knot",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/tabulated.rs::mu_increases_with_temperature",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/tabulated.rs::mu_interpolated",
+]
+
+[module."interpolate_spline_xy.rs"]
+path = "crate::interpolation::interpolate_spline_xy"
+
+[[module."interpolate_spline_xy.rs".function]]
+id = "fn:6bc42b40456d16f2"
+name = "interpolate_spline_xy"
+qual = "interpolate_spline_xy"
+lines = [
+    22,
+    70,
+]
+hash = "sha256:acfc38e8d98cc04d5f828c599a9f6357182a36e3c0ab34d39e30b7f60852f018"
+doc_hash = "sha256:e5c4c89c40018abae894b855443e979fc9f41be8c0a756ca8be87f5282eb0490"
+reached_by = [
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+]
+
+[[module."interpolate_spline_xy.rs".function]]
+id = "fn:c658a0998bc85c83"
+name = "exact_at_knots"
+qual = "exact_at_knots"
+lines = [
+    76,
+    90,
+]
+hash = "sha256:984c6bef74c205dbdd7d4d4c790d85b061ea065c59dca31981b40d241e2aedbd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6bc42b40456d16f2"]
+test = true
+
+[[module."interpolate_spline_xy.rs".function]]
+id = "fn:3c54e531517d652c"
+name = "clamp_left"
+qual = "clamp_left"
+lines = [
+    92,
+    97,
+]
+hash = "sha256:44f46c177135f2245b1de37ec797e3c95292d218f371b15d9b43db310356f8fd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6bc42b40456d16f2"]
+test = true
+
+[[module."interpolate_spline_xy.rs".function]]
+id = "fn:ec46bdb87af71a06"
+name = "clamp_right"
+qual = "clamp_right"
+lines = [
+    99,
+    104,
+]
+hash = "sha256:66d2c57ebf5ea685b7061eeeaba2c593578e005898a33cab07b3d71ee01e428c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6bc42b40456d16f2"]
+test = true
+
+[[module."interpolate_spline_xy.rs".function]]
+id = "fn:1a98a5da67e7f36e"
+name = "linear_data_matches_linear"
+qual = "linear_data_matches_linear"
+lines = [
+    106,
+    119,
+]
+hash = "sha256:981943c1cc5aac367fa6cb011e3356396cf03a1007922462cb0f033d704cdb7f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6bc42b40456d16f2"]
+test = true
+
+[[module."interpolate_spline_xy.rs".function]]
+id = "fn:df28727b433b805f"
+name = "single_and_two_point_edge_cases"
+qual = "single_and_two_point_edge_cases"
+lines = [
+    121,
+    133,
+]
+hash = "sha256:6e530bb7b867c26a8ed3b0740a274aaf74cb5a1eaf59ca16d03b84955b1c656e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6bc42b40456d16f2"]
+test = true
+
+[module."interpolate_xy.rs"]
+path = "crate::interpolation::interpolate_xy"
+
+[[module."interpolate_xy.rs".function]]
+id = "fn:99088336107d423b"
+name = "interpolate_xy"
+qual = "interpolate_xy"
+lines = [
+    22,
+    47,
+]
+hash = "sha256:9e997bf8d81611a967acc999f10d9bec05aa0a478efbab3f268004d4b7bbfdf0"
+doc_hash = "sha256:abc2c7f0dedc36ca248e7866b896170d74804cbd25652fd7077fdd7da06b5a5b"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+]
+
+[[module."interpolate_xy.rs".function]]
+id = "fn:3d41e8febecdaab7"
+name = "exact_at_knots"
+qual = "exact_at_knots"
+lines = [
+    53,
+    61,
+]
+hash = "sha256:2b93d89e7e21c73de4ff399d6e9dd47991eecf9f61ed64d28de50ddbf7267ef9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:99088336107d423b"]
+test = true
+
+[[module."interpolate_xy.rs".function]]
+id = "fn:2349be6412d45e72"
+name = "midpoints"
+qual = "midpoints"
+lines = [
+    63,
+    73,
+]
+hash = "sha256:c292a1bfa5cef57e5ce7a984f0fe0a3eecd7f5cd549e4b77459a47ea2f836fa3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:99088336107d423b"]
+test = true
+
+[[module."interpolate_xy.rs".function]]
+id = "fn:8c8163c881416855"
+name = "clamp_left"
+qual = "clamp_left"
+lines = [
+    75,
+    81,
+]
+hash = "sha256:05483d6bba2f5b222e82cc14d5ef319cada7736d55ad50fb6a8fdc890efda3af"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:99088336107d423b"]
+test = true
+
+[[module."interpolate_xy.rs".function]]
+id = "fn:11fe6f443f424f75"
+name = "clamp_right"
+qual = "clamp_right"
+lines = [
+    83,
+    89,
+]
+hash = "sha256:2400dfdb834b2de339cee52bfa800a06b24b3a257aca25452a734e5d991199c7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:99088336107d423b"]
+test = true
+
+[[module."interpolate_xy.rs".function]]
+id = "fn:cb250e650c06594b"
+name = "single_point"
+qual = "single_point"
+lines = [
+    91,
+    98,
+]
+hash = "sha256:4d45f813ef09317d5f7f48f0d0d07f455a21309c00319a4584f9be3e20497cb0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:99088336107d423b"]
+test = true
+
+[[module."interpolate_xy.rs".function]]
+id = "fn:c1eebe973786709c"
+name = "two_points"
+qual = "two_points"
+lines = [
+    100,
+    106,
+]
+hash = "sha256:5e2ea53daab756d6ea241bb69c65ecbd064a897f3b818888e85647ca3ec6edc7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:99088336107d423b"]
+test = true
+
+[module."mod.rs"]
+path = "crate::interpolation"

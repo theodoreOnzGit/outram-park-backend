@@ -1,0 +1,77 @@
+schema_version = 1
+kind = "code_folder"
+crate = "bedok"
+dir = "crates/bedok/examples"
+
+[module."main_exec_diff3d.rs"]
+path = "example:main_exec_diff3d"
+
+[[module."main_exec_diff3d.rs".function]]
+id = "fn:f2a41063ee746e83"
+name = "main"
+qual = "main"
+lines = [
+    44,
+    69,
+]
+hash = "sha256:a83309dd20ffab54963abb35c6d6abbfcbd37ed21a42504af88cd347f8ec0ec7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:19952857e7ed1fd9",
+    "fn:4d0ea83c00ebd2dc",
+]
+
+[[module."main_exec_diff3d.rs".function]]
+id = "fn:19952857e7ed1fd9"
+name = "run_iaea3ds"
+qual = "run_iaea3ds"
+lines = [
+    71,
+    106,
+]
+hash = "sha256:225c0ac3c58f8bad9ec5c06f42e118bf5998771cb59184694167a6253284e4df"
+doc_hash = "sha256:6736ccd7537a1b4c939a5ad1bfc3c5d1852125b8baf3848cfccb017706896554"
+callees = [
+    "fn:7b5a6b6459347b86",
+    "fn:b8a2bfaf095880d7",
+]
+
+[[module."main_exec_diff3d.rs".function]]
+id = "fn:4d0ea83c00ebd2dc"
+name = "run_neacrpd1"
+qual = "run_neacrpd1"
+lines = [
+    108,
+    146,
+]
+hash = "sha256:5f06d9dd79003b9c05dbbc64290783415a0ed76f2a9e209ccfa7dfddcdcf3937"
+doc_hash = "sha256:96c88cf0daff3fcaff1cccb3f1c69c5e074eb53f2281436ced89034b893d0ada"
+callees = [
+    "fn:0b0230d254181eca",
+    "fn:5e71a35e10b7a856",
+    "fn:687aceb831065524",
+    "fn:9922e7b89823d24f",
+    "fn:c6e64bcfff45c69f",
+    "fn:d36cb6356d0f7e80",
+    "fn:ec626c6c8b012e90",
+]
+
+[module."run_neacrpd1t.rs"]
+path = "example:run_neacrpd1t"
+
+[[module."run_neacrpd1t.rs".function]]
+id = "fn:4c2a18e5b8037dc4"
+name = "main"
+qual = "main"
+lines = [
+    40,
+    117,
+]
+hash = "sha256:f3385095cefcce91e29b503f7d3de7ce42aff9c848dfa425a17170787ed65d5b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:9922e7b89823d24f",
+    "fn:aeb0851f30179475",
+    "fn:c6e64bcfff45c69f",
+    "fn:decc28b18cd06721",
+]

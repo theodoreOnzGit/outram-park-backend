@@ -1,0 +1,1502 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion"
+test_ids = [
+    "crates/nee_soon/tests/coupling_api.rs::defaults_are_usable_and_failures_are_actionable",
+    "crates/nee_soon/tests/coupling_api.rs::the_documented_three_call_path_works",
+    "crates/nee_soon/tests/mc_to_genfoam_kinf.rs::genfoam_reproduces_the_monte_carlo_kinf_from_its_own_mgxs",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::coupled_power_conservation_across_meshes",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::coupled_steady_state_negative_feedback",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::mesh_doppler_feedback_lowers_keff",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::negative_feedback_reduces_power",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::picard_loop_converges_consistently",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::prescribed_region_is_inert",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::a_zero_velocity_field_reproduces_the_chi_eff_collapse",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::drift_conserves_the_total_delayed_source",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::drift_lowers_k_eff_and_the_effect_grows_with_the_flow",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::keff_bare_slab_critical_buckling",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::keff_bare_slab_mesh_convergence",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::kinf_infinite_medium",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::null_transient_holds_steady",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::warm_start_reaches_the_same_k_in_fewer_iterations",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::dispatch_kind_and_keff_across_variants",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_approaches_diffusion_limit",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_kinf_no_scatter",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_kinf_with_scatter",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_order_convergence",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::approaches_diffusion_as_slab_grows",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::differs_on_small_slab",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::kinf_reduces_to_diffusion",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::null_transient_holds_steady",
+    "crates/outram-foam-appbuilder-lib/tests/foam_vv_cases/main.rs::genfoam_slab_1g_diffusion_is_critical",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_reference_state_keff_against_upstream",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_per_cell_cross_sections",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_precursor_drift",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_with_upstreams_albedo_boundary",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reactivity_coefficients_from_upstreams_perturbed_states",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reference_state_keff_brackets_upstream",
+]
+
+[module."eigenvalue.rs"]
+path = "crate::genfoam::neutronics::diffusion::eigenvalue"
+
+[[module."eigenvalue.rs".function]]
+id = "fn:4d640dbf60fc6075"
+name = "solve_eigenvalue"
+qual = "DiffusionNeutronics::solve_eigenvalue"
+lines = [
+    41,
+    235,
+]
+hash = "sha256:f5b50ab387e8a40057899c3bd9620298ecd257a6f6b512c1bff658431392c407"
+doc_hash = "sha256:ef4d398db70698d224c221a13b071ccb7896072988f4230edbdd7fd012cfa014"
+callees = [
+    "fn:014b8c07dd6478aa",
+    "fn:0166bfdea1cb183d",
+    "fn:13cfbcd7864ebaf0",
+    "fn:2aefc7a630854c09",
+    "fn:2fcb7cdc146181a1",
+    "fn:46b53e8922b6847b",
+    "fn:5fbd8f3deb6d58f4",
+    "fn:610f63634e689fd9",
+    "fn:636e75b664f14254",
+    "fn:6d45af0d518e142d",
+    "fn:6f38d5e07fe3fca5",
+    "fn:7d94409f5275095e",
+    "fn:85135c6ac2b00d06",
+    "fn:982f3e5e2b6615e7",
+    "fn:9926618d77fc5184",
+    "fn:9b24a1ce8f5b2d47",
+    "fn:9b8c2ccac6496d49",
+    "fn:9e9bfca628a6a9d5",
+    "fn:a34bf592be75221c",
+    "fn:a9835a2b9577aa05",
+    "fn:ab811073ec9abad9",
+    "fn:b0ed875c4efafa46",
+    "fn:b7577cc7edb8416b",
+    "fn:d7df78c5a767561e",
+    "fn:eae24a63871d2132",
+    "fn:ebe82467b679f187",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."eigenvalue.rs".function]]
+id = "fn:ebe82467b679f187"
+name = "solve_precursors"
+qual = "DiffusionNeutronics::solve_precursors"
+lines = [
+    237,
+    304,
+]
+hash = "sha256:db3640122788c9942026aa2e99a3fcda023422bf8fd291c8740977e2dbaeb615"
+doc_hash = "sha256:f97a2043ba2aa9cfa8727fa98f8016f6afe1cec527e75dc307ef3e65f4dddb45"
+callees = [
+    "fn:25e42b9aedf3930e",
+    "fn:2825df115e10a104",
+    "fn:2fcb7cdc146181a1",
+    "fn:610f63634e689fd9",
+    "fn:636e75b664f14254",
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+    "fn:982f3e5e2b6615e7",
+    "fn:ea10dd577d2f8c54",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."eigenvalue.rs".function]]
+id = "fn:9b8c2ccac6496d49"
+name = "scale_flux"
+qual = "DiffusionNeutronics::scale_flux"
+lines = [
+    306,
+    313,
+]
+hash = "sha256:461f2520677aa65008333583a3b07717dbbe9067c7e062ed3600e2e30fbe8c92"
+doc_hash = "sha256:d775f017b5a792b44c3845b657f5b89ff270668e440668c557f4c5d002285675"
+callees = [
+    "fn:324de9b11afb163c",
+    "fn:96b5c3d947f087e5",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."eigenvalue.rs".function]]
+id = "fn:014b8c07dd6478aa"
+name = "set_equilibrium_precursors"
+qual = "DiffusionNeutronics::set_equilibrium_precursors"
+lines = [
+    315,
+    335,
+]
+hash = "sha256:0de11ca56f6eadbec89726d85c7cb9a0a69ad0ce3d29f449cb74eb4de3b4265f"
+doc_hash = "sha256:415b6060c1b5f0ef32e6c3b82d07fcfa62675cd9aeff4e373df8e9ff0ada389e"
+callees = [
+    "fn:25e42b9aedf3930e",
+    "fn:46b53e8922b6847b",
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+    "fn:982f3e5e2b6615e7",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."eigenvalue.rs".function]]
+id = "fn:610f63634e689fd9"
+name = "with_values"
+qual = "with_values"
+lines = [
+    338,
+    342,
+]
+hash = "sha256:7f1deea253b232cc1cbc75f90a7a6c6364c4925be32e8e9a77dc9d6424d44104"
+doc_hash = "sha256:7711dc19e0531470a9cf57a26ffb6940c6fcfa7020c21000610275bb691ce947"
+callees = ["fn:f59a35e9cbd8b293"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."eigenvalue.rs".function]]
+id = "fn:a9835a2b9577aa05"
+name = "relative_l2_change"
+qual = "relative_l2_change"
+lines = [
+    344,
+    361,
+]
+hash = "sha256:b8ed9348752865d4cf5f05c81dd822cfdcfc1ceb17307fa8bb02d453eca21454"
+doc_hash = "sha256:f9f87ce484f9e439240ed754cfcbc8f8a6f8eace18bd0a0970942f9cbe087567"
+callees = ["fn:6d45af0d518e142d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[module."fields.rs"]
+path = "crate::genfoam::neutronics::diffusion::fields"
+
+[[module."fields.rs".function]]
+id = "fn:6a1dd27566c9a6c2"
+name = "cell_field"
+qual = "cell_field"
+lines = [
+    108,
+    121,
+]
+hash = "sha256:ad3d347555a4e1c1d21d2ca4954a73741ebd0fa9003ed20f97ccd642b149dfb9"
+doc_hash = "sha256:b03930f56c09780f8cbba9b5f187af73510ffbad90be6cbc44c711eedde7dc67"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:a5457a6081dc438d",
+    "fn:f59a35e9cbd8b293",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."fields.rs".function]]
+id = "fn:5a7fa0a49e18c52a"
+name = "materialize"
+qual = "DiffusionXsFields::materialize"
+lines = [
+    124,
+    146,
+]
+hash = "sha256:90b7a0ba1d7468f995b988c3f76a29dffc5e13d668384ce65603e65167206c3a"
+doc_hash = "sha256:0262a78b6bd043bf6c003d259df83cb35d69b6c3a6b38c3aec2039c725dec0c1"
+callees = ["fn:3fa678d7f656d6f9"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."fields.rs".function]]
+id = "fn:639f10591fa1b8cd"
+name = "materialize_per_cell"
+qual = "DiffusionXsFields::materialize_per_cell"
+lines = [
+    148,
+    188,
+]
+hash = "sha256:a0892669608c23d4cc7c64d77e843dfe629ff736c5a8c7f7b75a64a9e7cbaaee"
+doc_hash = "sha256:165f0610818cc6b3d07640e50c5d652532387921941f4a64850802750bdde206"
+callees = [
+    "fn:3fa678d7f656d6f9",
+    "fn:9cec0af8c9b353b9",
+]
+reached_by = [
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."fields.rs".function]]
+id = "fn:3fa678d7f656d6f9"
+name = "materialize_inner"
+qual = "DiffusionXsFields::materialize_inner"
+lines = [
+    190,
+    307,
+]
+hash = "sha256:a0cd47cc22685be8032fc3758471730e72e48bad7e97d9dc513f69bb9fcaab93"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:396518fd7ec63634",
+    "fn:47ac991080df9e2f",
+    "fn:52c8c8d98c3cd1aa",
+    "fn:6a1dd27566c9a6c2",
+    "fn:7ed13c51aace611b",
+    "fn:92fd53f240dcfb8e",
+    "fn:be9d311ec93caeeb",
+    "fn:eb9d62daf2233196",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[module."mod.rs"]
+path = "crate::genfoam::neutronics::diffusion"
+
+[[module."mod.rs".function]]
+id = "fn:1997bf3e13135b6f"
+name = "default"
+qual = "DiffusionSettings::default"
+lines = [
+    138,
+    149,
+]
+hash = "sha256:c1cf02e9d879f67a65545e788b4e8aa468703a56da5993488c32cf0a532839e7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."mod.rs".function]]
+id = "fn:65b415d212b73fac"
+name = "new"
+qual = "DiffusionNeutronics::new"
+lines = [
+    188,
+    227,
+]
+hash = "sha256:b779612d5d19a78273aa9f419659d7964e5c87e3a4c4e4fe9b9ffb3c2a3b9c21"
+doc_hash = "sha256:deef31d94694aadf855f9f5a817ec7d54cbfe43a9f4619240b023f163379dc0f"
+callees = [
+    "fn:5a7fa0a49e18c52a",
+    "fn:ef5369fe6fc0a753",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a7b44d3a07ce427b"
+name = "new_with_cell_parameters"
+qual = "DiffusionNeutronics::new_with_cell_parameters"
+lines = [
+    229,
+    258,
+]
+hash = "sha256:a38884ff0f03f88595319438001bd290140aa092c45370a1cf378a8ac146e322"
+doc_hash = "sha256:59ae4cf4587c40ebb1160c23bae8b1794bd34800299a8aefddc7da32fb2d7b9d"
+callees = [
+    "fn:639f10591fa1b8cd",
+    "fn:ef5369fe6fc0a753",
+]
+reached_by = [
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ef5369fe6fc0a753"
+name = "assemble"
+qual = "DiffusionNeutronics::assemble"
+lines = [
+    260,
+    275,
+]
+hash = "sha256:40c05a8876fcc9929c95af71e9714ea66040997fa38b9022c655d9078c412731"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:396518fd7ec63634",
+    "fn:760b61077a4f5f76",
+    "fn:7ed13c51aace611b",
+    "fn:ff8eecd3e4635175",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."mod.rs".function]]
+id = "fn:760b61077a4f5f76"
+name = "apply_flux_boundary"
+qual = "DiffusionNeutronics::apply_flux_boundary"
+lines = [
+    277,
+    290,
+]
+hash = "sha256:5d790f81534bcd9d8916e739297ab13b8e4499363903cfffdfecae3777aba3aa"
+doc_hash = "sha256:6acca1a309571d44411fcf569c5a225e7ec182c8edc4fa1d1bbfeaa906ba0022"
+callees = [
+    "fn:0b7b54d6516aee08",
+    "fn:324de9b11afb163c",
+    "fn:a5457a6081dc438d",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4c816cff4613f170"
+name = "set_albedo_boundary"
+qual = "DiffusionNeutronics::set_albedo_boundary"
+lines = [
+    292,
+    350,
+]
+hash = "sha256:1320320d6e79ca9917d96c766712c3b0163fe8113171fb12a347a49516783992"
+doc_hash = "sha256:57eebc633e67d35523be33cff8fd382af808110f905544d86f6e49bf111ab307"
+callees = [
+    "fn:2fcb7cdc146181a1",
+    "fn:324de9b11afb163c",
+    "fn:93121d645a43bf27",
+    "fn:d7df78c5a767561e",
+]
+reached_by = [
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0d80cdc7a5df8ca7"
+name = "set_precursor_drift"
+qual = "DiffusionNeutronics::set_precursor_drift"
+lines = [
+    352,
+    373,
+]
+hash = "sha256:a75ef9b7d07364b400d1d7da5162e43d5e2d21c4d94cb99368f315491666883a"
+doc_hash = "sha256:caf8149d838e2ac49b123df70023e6f341db08460e207d3e12703a16cb0b7c7c"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6c99279336f0ade3"
+name = "precursor_drift"
+qual = "DiffusionNeutronics::precursor_drift"
+lines = [
+    375,
+    379,
+]
+hash = "sha256:fd81127355d139a76f8d21ceec3d966622df7c3a98081a84f142dc757ce87e32"
+doc_hash = "sha256:5dadc73255869fd353799e6c3b783aa497b26ebe91b148b003423b24a4460801"
+
+[[module."mod.rs".function]]
+id = "fn:0dae5eba52d1c8eb"
+name = "state"
+qual = "DiffusionNeutronics::state"
+lines = [
+    381,
+    385,
+]
+hash = "sha256:a8c9d286615362c548476d611fbc0d2b969c0ac5ca8617ad10723bed05d361d7"
+doc_hash = "sha256:db1dd8fe34b36651a4591d4aa2d8fb0a2c224f0274b7e6ffec5f6111dcc5066a"
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#10",
+    "#15",
+    "#16",
+    "#17",
+    "#26",
+]
+
+[[module."mod.rs".function]]
+id = "fn:bb8a3a17780b98e0"
+name = "set_initial_guess"
+qual = "DiffusionNeutronics::set_initial_guess"
+lines = [
+    387,
+    410,
+]
+hash = "sha256:d36762dbdc3c98963e0b1d52e54f459a74a4b25725daee7fc80740b6fd30be5c"
+doc_hash = "sha256:86f72228d2dc4023b46f120b36162a06f41757afd2fea4569895170e2401ce15"
+callees = [
+    "fn:2fcb7cdc146181a1",
+    "fn:324de9b11afb163c",
+    "fn:5fbd8f3deb6d58f4",
+    "fn:96b5c3d947f087e5",
+    "fn:d7df78c5a767561e",
+]
+reached_by = ["#16"]
+
+[[module."mod.rs".function]]
+id = "fn:46ae033eb810ef59"
+name = "xs_fields"
+qual = "DiffusionNeutronics::xs_fields"
+lines = [
+    412,
+    416,
+]
+hash = "sha256:6f3a4f46f0e46b42a056f4ca9a4f1beb2ede989c9fc3468eb36558ebe7633cb8"
+doc_hash = "sha256:f291b4016938eec0bf2145fabd846d054f8d1e2c6fbcdab6762a6acc9c2c6cdc"
+reached_by = ["#10"]
+
+[[module."mod.rs".function]]
+id = "fn:5e8bb75bab018518"
+name = "settings"
+qual = "DiffusionNeutronics::settings"
+lines = [
+    418,
+    422,
+]
+hash = "sha256:b1faf4ae9d33a982ada5680155d348a0ba44d211e46f0862bd94d3fb335e7236"
+doc_hash = "sha256:475dec3d63a98eab47279b6ad76b13c6050ce8486dcc33b949a75b0cbc34d4c0"
+
+[[module."mod.rs".function]]
+id = "fn:d7df78c5a767561e"
+name = "energy_groups"
+qual = "DiffusionNeutronics::energy_groups"
+lines = [
+    424,
+    428,
+]
+hash = "sha256:3d5d3b1191869f9d79ab7c3f6215737d5da337ac2c28afef7a6e5c697f21cdf9"
+doc_hash = "sha256:5cfd35079df1d31b52802d04d96253ab006524583ae94a104dc2ae2a09af5e1e"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."mod.rs".function]]
+id = "fn:982f3e5e2b6615e7"
+name = "prec_groups"
+qual = "DiffusionNeutronics::prec_groups"
+lines = [
+    430,
+    434,
+]
+hash = "sha256:0632de12b5ee6d6359fe3a43457b467c0feb51f68b4aa4362b61e1a806e73b96"
+doc_hash = "sha256:46406d082de526dd4cee371bfa7747ea7775a49caf78badb58ea41224d47db76"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."mod.rs".function]]
+id = "fn:46b53e8922b6847b"
+name = "fission_production"
+qual = "DiffusionNeutronics::fission_production"
+lines = [
+    438,
+    452,
+]
+hash = "sha256:5d17a7c2847adf0f0daf57d6b0bbd727abf123786720de87f80faea74ce4f60f"
+doc_hash = "sha256:d13650501cea8842cae4a7f4420b88ed910164e7447bd8c4e77e87692e371307"
+callees = [
+    "fn:1977e3003a1ec673",
+    "fn:2fcb7cdc146181a1",
+    "fn:636e75b664f14254",
+    "fn:6d45af0d518e142d",
+    "fn:a34bf592be75221c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b7577cc7edb8416b"
+name = "fission_integral"
+qual = "DiffusionNeutronics::fission_integral"
+lines = [
+    454,
+    465,
+]
+hash = "sha256:8627bebab526036124a2563591e96e1934217aee54588c462b4c949684f23a43"
+doc_hash = "sha256:c9291c98571a9677cee025ffe328dfc55e2467baff534a61516a838b5fb4f3be"
+callees = [
+    "fn:2fcb7cdc146181a1",
+    "fn:6d45af0d518e142d",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."mod.rs".function]]
+id = "fn:13cfbcd7864ebaf0"
+name = "scattering_source"
+qual = "DiffusionNeutronics::scattering_source"
+lines = [
+    467,
+    484,
+]
+hash = "sha256:39399da1821c7fe3232ce974481de60048a92467dabbb757c41090128032e3d1"
+doc_hash = "sha256:6aa12fee4bb25cd58971f77fc078d3e9aa123373739fa9e67e2d619f248da845"
+callees = [
+    "fn:2fcb7cdc146181a1",
+    "fn:6d45af0d518e142d",
+    "fn:a34bf592be75221c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."mod.rs".function]]
+id = "fn:98734238586f67f8"
+name = "delayed_source"
+qual = "DiffusionNeutronics::delayed_source"
+lines = [
+    486,
+    499,
+]
+hash = "sha256:756117e0a892584b9169d7ed1c66cc4227af60375e92ae6ac38919e7f7be3543"
+doc_hash = "sha256:5542c6d0ed3cc9bce20cc6ca42889164e820b907742eb8b3de6ba70c43005359"
+callees = [
+    "fn:2fcb7cdc146181a1",
+    "fn:6d45af0d518e142d",
+    "fn:ea10dd577d2f8c54",
+]
+reached_by = ["#15"]
+
+[[module."mod.rs".function]]
+id = "fn:9926618d77fc5184"
+name = "update_derived_fields"
+qual = "DiffusionNeutronics::update_derived_fields"
+lines = [
+    501,
+    525,
+]
+hash = "sha256:594f308661c9732e88be310a04886ccb7213f41fb2df6bbbf49043dd04acfe33"
+doc_hash = "sha256:b6514810eba0680fc0f15d87c392a0c1537fa521ebf7a9798d63a29a0f310145"
+callees = [
+    "fn:1a0a9fa6e320d21b",
+    "fn:2fcb7cdc146181a1",
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+    "fn:9c62cd16d3c107a5",
+    "fn:a34bf592be75221c",
+    "fn:b6819fc8dd8e16f6",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."mod.rs".function]]
+id = "fn:85135c6ac2b00d06"
+name = "write_group_flux"
+qual = "DiffusionNeutronics::write_group_flux"
+lines = [
+    527,
+    534,
+]
+hash = "sha256:398e80dd2611e24fdbda40824d8a52716a9232ad546d001b2c86b48c34ab5488"
+doc_hash = "sha256:285a63df7604e534f08f97f972f6c5d1ddab83368477dcc6d78893a890285cfb"
+callees = [
+    "fn:324de9b11afb163c",
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."mod.rs".function]]
+id = "fn:280a339135228d44"
+name = "with_internal"
+qual = "WithInternal::with_internal"
+lines = [
+    540,
+    540,
+]
+hash = "sha256:dbfc4f7672bcc5bce954bd028b2fa564989e72e00e31a4e6934246aa5aeccee6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:1977e3003a1ec673"
+name = "with_internal"
+qual = "VolScalarField::with_internal"
+lines = [
+    544,
+    548,
+]
+hash = "sha256:edf1859d3b1432ff71da2afd48e0cf695a2daefc01b57e56ad163f103a34a941"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0b7b54d6516aee08",
+    "fn:f59a35e9cbd8b293",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[module."tests.rs"]
+path = "crate::genfoam::neutronics::diffusion::tests"
+
+[[module."tests.rs".function]]
+id = "fn:7f9509fd830a02bd"
+name = "one_group_xs"
+qual = "one_group_xs"
+lines = [
+    100,
+    139,
+]
+hash = "sha256:d7467407f97c611bd692f0ed170fa8cb5258ee638041c5534a650391cc5eb6bc"
+doc_hash = "sha256:e2c7128e1e650faf6df21dbe5e951bfc432ba5f814b1253e5259de14107b505d"
+callees = [
+    "fn:03a2dfcca9151919",
+    "fn:fc3e9008bc829799",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:40ad55d6e4cf2a5c"
+name = "slab_mesh"
+qual = "slab_mesh"
+lines = [
+    141,
+    146,
+]
+hash = "sha256:bb8135f4ed1d26d49190afdf00bee65d6c9b66d0089c070d61f54ab584dbd8ae"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b507d433625293e6"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:0a2f9abde80ddd5a"
+name = "analytic_slab_k"
+qual = "analytic_slab_k"
+lines = [
+    148,
+    152,
+]
+hash = "sha256:65f3bd1d64466a2e3b796a68a6a3144e31a0030f8ce171c2dfa2c5c466be0de1"
+doc_hash = "sha256:d6440b83d8712f9c456c5bd55b9f4b3f184ad9fcd7811ec68a795f69eafe4735"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:42851272382ee223"
+name = "kinf_infinite_medium"
+qual = "kinf_infinite_medium"
+lines = [
+    154,
+    195,
+]
+hash = "sha256:d7cb4e132cdd2f5ccd5da7f526f8a08362109756b19b274c68fed8659cfe943d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1997bf3e13135b6f",
+    "fn:40ad55d6e4cf2a5c",
+    "fn:4d640dbf60fc6075",
+    "fn:65b415d212b73fac",
+    "fn:7f9509fd830a02bd",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:51a0c36127e5e324"
+name = "keff_bare_slab_critical_buckling"
+qual = "keff_bare_slab_critical_buckling"
+lines = [
+    197,
+    243,
+]
+hash = "sha256:39972ac2a56315ccc3f6de6b282b030f426f3757f1a899a8c35fd58d183c3294"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0a2f9abde80ddd5a",
+    "fn:1997bf3e13135b6f",
+    "fn:40ad55d6e4cf2a5c",
+    "fn:4d640dbf60fc6075",
+    "fn:65b415d212b73fac",
+    "fn:7f9509fd830a02bd",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:bae5bda54134042d"
+name = "keff_bare_slab_mesh_convergence"
+qual = "keff_bare_slab_mesh_convergence"
+lines = [
+    245,
+    281,
+]
+hash = "sha256:c3baa47ce72c11e5cf759121a2cd7b12d8e10fc38888bb88824572cf323951b0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0a2f9abde80ddd5a",
+    "fn:1997bf3e13135b6f",
+    "fn:40ad55d6e4cf2a5c",
+    "fn:4d640dbf60fc6075",
+    "fn:65b415d212b73fac",
+    "fn:7f9509fd830a02bd",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:eb0071dad6a33a7f"
+name = "null_transient_holds_steady"
+qual = "null_transient_holds_steady"
+lines = [
+    283,
+    323,
+]
+hash = "sha256:83a95d696d8eb150188981bf090dac497ccfcd5644c46df908b42c7e32538532"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0dae5eba52d1c8eb",
+    "fn:1997bf3e13135b6f",
+    "fn:32f85d1e9038f0c4",
+    "fn:40ad55d6e4cf2a5c",
+    "fn:4d640dbf60fc6075",
+    "fn:65b415d212b73fac",
+    "fn:7f9509fd830a02bd",
+    "fn:f82d3b27a07cc33d",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1b36585a7d24d2e4"
+name = "warm_start_reaches_the_same_k_in_fewer_iterations"
+qual = "warm_start_reaches_the_same_k_in_fewer_iterations"
+lines = [
+    325,
+    372,
+]
+hash = "sha256:3b94b8ad52d737dcdb51f1761caad629f6e5f7dbb004026982a98cf63e88c856"
+doc_hash = "sha256:4f292820bc437871d07bfcdb665d2e495931f66addc24bf38169e39ad6dc602a"
+callees = [
+    "fn:0dae5eba52d1c8eb",
+    "fn:1997bf3e13135b6f",
+    "fn:40ad55d6e4cf2a5c",
+    "fn:4d640dbf60fc6075",
+    "fn:65b415d212b73fac",
+    "fn:6d45af0d518e142d",
+    "fn:7f9509fd830a02bd",
+    "fn:a34bf592be75221c",
+    "fn:bb8a3a17780b98e0",
+]
+test = true
+
+[module."transient.rs"]
+path = "crate::genfoam::neutronics::diffusion::transient"
+
+[[module."transient.rs".function]]
+id = "fn:32f85d1e9038f0c4"
+name = "step"
+qual = "DiffusionNeutronics::step"
+lines = [
+    44,
+    137,
+]
+hash = "sha256:8b3602ac02ad04c2b9adaca7ebc36c1aca732cb863e4ad7be0abd0099a7c15f2"
+doc_hash = "sha256:d48d9e079288346767becbb3409c1850a2dcdb686576e03a828eeb04f25da72c"
+callees = [
+    "fn:0166bfdea1cb183d",
+    "fn:13cfbcd7864ebaf0",
+    "fn:25e42b9aedf3930e",
+    "fn:2aefc7a630854c09",
+    "fn:2fcb7cdc146181a1",
+    "fn:46b53e8922b6847b",
+    "fn:4b59fdd1a821000d",
+    "fn:53d4791d95d80de6",
+    "fn:6d45af0d518e142d",
+    "fn:6f38d5e07fe3fca5",
+    "fn:7d94409f5275095e",
+    "fn:85135c6ac2b00d06",
+    "fn:96b5c3d947f087e5",
+    "fn:98734238586f67f8",
+    "fn:9926618d77fc5184",
+    "fn:9b24a1ce8f5b2d47",
+    "fn:a34bf592be75221c",
+    "fn:af41da2cdbf65f02",
+    "fn:b0ed875c4efafa46",
+    "fn:ea10dd577d2f8c54",
+    "fn:eae24a63871d2132",
+]
+reached_by = ["#15"]
+physical_interface = true
+
+[[module."transient.rs".function]]
+id = "fn:4b59fdd1a821000d"
+name = "template"
+qual = "DiffusionNeutronics::template"
+lines = [
+    139,
+    143,
+]
+hash = "sha256:813a7dcc573db5d9261e6ee077bcaa7049018502a605105ea94c19765973e68a"
+doc_hash = "sha256:21cc5690efc65cd3bf42cf9bcd19ab4deee1cd1066009789782ce9c578017aed"
+callees = [
+    "fn:2fcb7cdc146181a1",
+    "fn:636e75b664f14254",
+]
+reached_by = ["#15"]
+
+[[module."transient.rs".function]]
+id = "fn:af41da2cdbf65f02"
+name = "with_values"
+qual = "with_values"
+lines = [
+    146,
+    150,
+]
+hash = "sha256:7f1deea253b232cc1cbc75f90a7a6c6364c4925be32e8e9a77dc9d6424d44104"
+doc_hash = "sha256:7711dc19e0531470a9cf57a26ffb6940c6fcfa7020c21000610275bb691ce947"
+callees = ["fn:f59a35e9cbd8b293"]
+reached_by = ["#15"]

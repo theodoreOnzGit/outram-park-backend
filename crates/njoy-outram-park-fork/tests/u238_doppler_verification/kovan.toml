@@ -1,0 +1,145 @@
+schema_version = 1
+kind = "code_folder"
+crate = "njoy-outram-park-fork"
+dir = "crates/njoy-outram-park-fork/tests/u238_doppler_verification"
+
+[module."main.rs"]
+path = "test:u238_doppler_verification"
+
+[[module."main.rs".function]]
+id = "fn:667e9f62146c1aa3"
+name = "manifest"
+qual = "manifest"
+lines = [
+    80,
+    82,
+]
+hash = "sha256:46eed5110b28f0835d25a1ff1d5ca7884f0fd802f31958ba7e48b5c64c5a8803"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."main.rs".function]]
+id = "fn:9cc371f6fb18b598"
+name = "endf_path"
+qual = "endf_path"
+lines = [
+    83,
+    85,
+]
+hash = "sha256:aa8161b49474b6d1cfdc2a35c1a5653b86694285f70c141d1889c57894b66ceb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:186da4b2e76906e3"]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:9bd7b8cf0d33ffc8"
+name = "reference_csv"
+qual = "reference_csv"
+lines = [
+    86,
+    90,
+]
+hash = "sha256:fcd18b5544e202dca7f5dc54bfb049585c1335a7e77aa5006ca9a58fadbe68d1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:667e9f62146c1aa3"]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:034f784c5ad5314f"
+name = "results_dir"
+qual = "results_dir"
+lines = [
+    91,
+    93,
+]
+hash = "sha256:31ad4f6dcf4c24baba59888ea9ab291110b529ab4cd738b4f9b305d0b13cb6f8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:667e9f62146c1aa3"]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:e04309ab272a3abb"
+name = "read_reference"
+qual = "read_reference"
+lines = [
+    95,
+    114,
+]
+hash = "sha256:6cb0ca652b9013a7dfc8357b2645ae82c923ae729f277ab1fb9f65bc39ebfff3"
+doc_hash = "sha256:56f682a6a62f0cff1ec563d850128c62ea60f057e7ba7d6f1e331744aef87cf2"
+callees = ["fn:9bd7b8cf0d33ffc8"]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:a49a670467107fa9"
+name = "rust_broadened"
+qual = "rust_broadened"
+lines = [
+    116,
+    124,
+]
+hash = "sha256:02c13956e2f3230a95ae6778e169bedddca7f6f008afa60b58b9b28a97406e3c"
+doc_hash = "sha256:e40d91164c07c88049aad97342577c5ff2a0a8f04eec62224b348577fc70886e"
+callees = [
+    "fn:312a6cb37f535f69",
+    "fn:9cc371f6fb18b598",
+    "fn:a05a2970c4364380",
+    "fn:ebc57c151b5b8a57",
+]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:43573125d1b6e5ac"
+name = "capture_pipeline_is_physical"
+qual = "capture_pipeline_is_physical"
+lines = [
+    128,
+    164,
+]
+hash = "sha256:7304933c6721692a7e98f306a4966e9c68f0b8b21c0a03d1061499982898a6ee"
+doc_hash = "sha256:2abfa0f303e167124b2ebefe8314f4b61449fa8cc6ef4ff26698a18e01a2328d"
+callees = [
+    "fn:312a6cb37f535f69",
+    "fn:9cc371f6fb18b598",
+    "fn:a05a2970c4364380",
+    "fn:a49a670467107fa9",
+    "fn:ca601c6358510ad7",
+]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:5af6289a1bee8ce5"
+name = "compare_temperature"
+qual = "compare_temperature"
+lines = [
+    179,
+    238,
+]
+hash = "sha256:1878db771bdbc7784e9dbd8e90bd5956dd376e9c51b11f8bc67ac28fcc739c03"
+doc_hash = "sha256:e7c80e5bc526b6517091b994b72d0e7d105ab7d5cb0763a209c9e7e111aa5d5d"
+callees = [
+    "fn:034f784c5ad5314f",
+    "fn:a49a670467107fa9",
+    "fn:ca601c6358510ad7",
+    "fn:e04309ab272a3abb",
+]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:c508eefdc798c1f6"
+name = "capture_doppler_matches_openmc"
+qual = "capture_doppler_matches_openmc"
+lines = [
+    240,
+    325,
+]
+hash = "sha256:de4efa03c65481318ecab16c65e86d5fd18200f5b3a0a5e39eb0e0b6abceaddc"
+doc_hash = "sha256:df5646c0c7f0f90463bfbe142e53378c1ece0e39ebeccb734aec9d20450c6b4b"
+callees = [
+    "fn:034f784c5ad5314f",
+    "fn:5af6289a1bee8ce5",
+    "fn:a49a670467107fa9",
+    "fn:ca601c6358510ad7",
+    "fn:e04309ab272a3abb",
+]
+test = true

@@ -1,0 +1,445 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-offbeat"
+dir = "crates/outram-park-fork-offbeat/src/rheology/aster/fracture"
+
+[module."tests.rs"]
+path = "crate::rheology::aster::fracture::tests"
+
+[[module."tests.rs".function]]
+id = "fn:2edf936787b0173d"
+name = "steel"
+qual = "steel"
+lines = [
+    22,
+    28,
+]
+hash = "sha256:35188e170d79467f49a4f02a28c95c532fed95ed71bb884114511060cdedb5fd"
+doc_hash = "sha256:ccb49120c8cd4064b44bb42b9b1e4d1f0f8253ecb3431db992950590c3d497e3"
+callees = ["fn:142b063e92ae8cca"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:3edb2b7b9ee91c51"
+name = "kappa_and_effective_modulus_match_their_published_closed_forms"
+qual = "kappa_and_effective_modulus_match_their_published_closed_forms"
+lines = [
+    34,
+    85,
+]
+hash = "sha256:278909e589be0e13c63d3d85de97899966776d3a21ea9b3af9d86c606c6f2702"
+doc_hash = "sha256:4f176b0de27d1e98507464771af0dbeaf4ca913c9eb20faf0d11b9559693914d"
+callees = [
+    "fn:2edf936787b0173d",
+    "fn:d85a6890593abac7",
+    "fn:e3ca79d252c65100",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:0efcd7f2ace7b18f"
+name = "inadmissible_elastic_constants_are_refused"
+qual = "inadmissible_elastic_constants_are_refused"
+lines = [
+    87,
+    104,
+]
+hash = "sha256:aab566391e2bb9784d602a72e0d1e47b8ec7cb7e42d33341e22e35cdb2ab44e8"
+doc_hash = "sha256:91de5f31e8d5f93da5d38451eda15e823534af9db4f702e3f94bfb230aa4fdf0"
+callees = ["fn:142b063e92ae8cca"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:ed446b5594148af0"
+name = "near_tip_stress_reproduces_the_williams_singularity_in_both_plane_states"
+qual = "near_tip_stress_reproduces_the_williams_singularity_in_both_plane_states"
+lines = [
+    110,
+    192,
+]
+hash = "sha256:0de91545d1aa7b7ce57530c302a7c928c7ec0cfd85be5f54886fd91858c9c0ef"
+doc_hash = "sha256:7fe341a4c009ab10a33239c5ba2bc277f3cbe92fc5695a12b7faf5dd6c3bf942"
+callees = [
+    "fn:2edf936787b0173d",
+    "fn:8847e69681acb27b",
+    "fn:a5dd9b168fd947f8",
+    "fn:e332ac553f01e1af",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:af4256b2eafa64eb"
+name = "mode_i_crack_opening_displacement_matches_its_closed_form"
+qual = "mode_i_crack_opening_displacement_matches_its_closed_form"
+lines = [
+    194,
+    245,
+]
+hash = "sha256:552f1c272a71693454b568dfaa2d5b8fec041c39cea7e0036828bf3798cdbab0"
+doc_hash = "sha256:b448296ba5874b333e8a20d8f688c33780fe3f7720ad335db8bb20852bcece32"
+callees = [
+    "fn:2edf936787b0173d",
+    "fn:73e6b8111aad94f0",
+    "fn:8847e69681acb27b",
+    "fn:d85a6890593abac7",
+    "fn:e332ac553f01e1af",
+    "fn:e3ca79d252c65100",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:c6970cadf81b939e"
+name = "westergaard_gradient_is_the_derivative_of_its_displacement"
+qual = "westergaard_gradient_is_the_derivative_of_its_displacement"
+lines = [
+    247,
+    329,
+]
+hash = "sha256:95836d8010972bb73d47c1d1dd6b8fdd4f7de2f07d5707ed1219a1d7161fdd41"
+doc_hash = "sha256:1b3f82962a5a2b13193a588d480c4bd7d67fe6e4c7a1ae18a7527002ba345a62"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:2edf936787b0173d",
+    "fn:5b5ce6ec5a15c328",
+    "fn:8847e69681acb27b",
+    "fn:921721ed81be4903",
+    "fn:abc7404e3cca132a",
+    "fn:ca4d7b0e9c95eb37",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:3a6c40a7a433f1b9"
+name = "near_tip_field_rejects_the_tip_itself_and_angles_outside_the_branch"
+qual = "near_tip_field_rejects_the_tip_itself_and_angles_outside_the_branch"
+lines = [
+    331,
+    352,
+]
+hash = "sha256:8120dd981b25260454382745dc718feb928b21159568159675cafc82f4d1460c"
+doc_hash = "sha256:b6da6a4c38ac97fd06845d80bffae42a1faedfb074ee3ec67573cf648d87832c"
+callees = [
+    "fn:2edf936787b0173d",
+    "fn:8847e69681acb27b",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:205ae75f7ac73b18"
+name = "near_tip_strain_in_mandel_form_contracts_correctly"
+qual = "near_tip_strain_in_mandel_form_contracts_correctly"
+lines = [
+    354,
+    395,
+]
+hash = "sha256:45289a52251487d72ce9a3841618ea3ea0df5ec799cc1134c0400bdf13c0f5f5"
+doc_hash = "sha256:67b98e7e705c7c7899fd93622794f3c4e44b388ba5368d4822469eee465791de"
+callees = [
+    "fn:27a7caa0761cbc9d",
+    "fn:2edf936787b0173d",
+    "fn:4dff355739e92761",
+    "fn:5f5f2a43581afe21",
+    "fn:8847e69681acb27b",
+    "fn:8df7461ffc72b7d3",
+    "fn:8f434b8de90535e2",
+    "fn:9771fcde06ff024f",
+    "fn:a5dd9b168fd947f8",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:0ea11fa4c9ed9a9c"
+name = "irwin_relation_reproduces_the_centre_cracked_infinite_plate"
+qual = "irwin_relation_reproduces_the_centre_cracked_infinite_plate"
+lines = [
+    401,
+    442,
+]
+hash = "sha256:1f1f7248dfd5507bc787755453152d3ea6560d8f900c7df5f8aac3cdc9c05274"
+doc_hash = "sha256:f5acce9979487e1a592b3a8b7c9b4975830ba75f8fe60e1f10da10bff9ccdc1b"
+callees = [
+    "fn:2edf936787b0173d",
+    "fn:390393959af7c847",
+    "fn:7f359ef7b1c04c4a",
+    "fn:e332ac553f01e1af",
+    "fn:e3ca79d252c65100",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:f23299ea1816712f"
+name = "mode_contributions_add_and_mode_iii_ignores_the_plane_state"
+qual = "mode_contributions_add_and_mode_iii_ignores_the_plane_state"
+lines = [
+    444,
+    512,
+]
+hash = "sha256:ae198f829d168d87b97071ef7045bd5eb09b45432b9a0507b7a02ee5660a8ccc"
+doc_hash = "sha256:4a6f8e7a39e2b447375f6db5b7bd71ab550c9ea5a67357ab49d553c08a12a744"
+callees = [
+    "fn:032ce8085047969b",
+    "fn:2edf936787b0173d",
+    "fn:390393959af7c847",
+    "fn:59ee81bfadf69f24",
+    "fn:73e6b8111aad94f0",
+    "fn:e3ca79d252c65100",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:5b15b014fa56b0fa"
+name = "equivalent_mode_i_factor_round_trips_and_clips_a_negative_g"
+qual = "equivalent_mode_i_factor_round_trips_and_clips_a_negative_g"
+lines = [
+    514,
+    548,
+]
+hash = "sha256:426630f00f90323b249a70ba39717f242640cd63acb293bdcbdb0d98f865d480"
+doc_hash = "sha256:af90ddea4589e501f5e86fae1d5897fc4b413540764c2cc93ed3cc4fb81a87d2"
+callees = [
+    "fn:2edf936787b0173d",
+    "fn:390393959af7c847",
+    "fn:5bd9c705b358b273",
+    "fn:7f359ef7b1c04c4a",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:802d9a8645a27326"
+name = "kink_angle_reproduces_its_published_limits"
+qual = "kink_angle_reproduces_its_published_limits"
+lines = [
+    554,
+    601,
+]
+hash = "sha256:2240bbc2ea8ac884122b1ad2956daa9c75b136f9defd67887c1bec40610a804b"
+doc_hash = "sha256:21e005d816e2ea2b42df0c9ec1ceac4567e67ce84033537d22a7be6223d8f910"
+callees = ["fn:8f163e1cfd59264a"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:f6af7ec7787c25eb"
+name = "kink_angle_is_the_maximum_of_the_hoop_stress"
+qual = "kink_angle_is_the_maximum_of_the_hoop_stress"
+lines = [
+    603,
+    668,
+]
+hash = "sha256:eb59c820a7732417e86debd197ff350f8ea10ebcc29aea122dc1a344f8e93a77"
+doc_hash = "sha256:04c52cbf4f105747fa23b423069bac62fd4d15f1e091662572f018a87e693f93"
+callees = [
+    "fn:011a352dabc16ef7",
+    "fn:0312554b5ee29a4b",
+    "fn:09cffd1b75030c24",
+    "fn:8f163e1cfd59264a",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:96c5aa0ec9411c6f"
+name = "rationalised_kink_angle_agrees_with_the_upstream_literal_expression"
+qual = "rationalised_kink_angle_agrees_with_the_upstream_literal_expression"
+lines = [
+    670,
+    780,
+]
+hash = "sha256:f783833818cbe50902ae9dd09f588acb8a01d6b697ac21f3ed3c6e2b5bbc57e4"
+doc_hash = "sha256:54d43d2f2bd4d9c948d9f1d938eb7721db59123a3dec91f65d8378d1fa436960"
+callees = [
+    "fn:0312554b5ee29a4b",
+    "fn:8f163e1cfd59264a",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:8dc6bcba30111562"
+name = "kink_angle_refuses_a_closed_crack_in_pure_compression"
+qual = "kink_angle_refuses_a_closed_crack_in_pure_compression"
+lines = [
+    782,
+    821,
+]
+hash = "sha256:d9977578f889e9d0b800d663c4f585baedee52e789365cdf8d133c91e54e24c5"
+doc_hash = "sha256:d116eb90722e7660456fda449522cd87aaa44e543c9446684d4ac275ed362893"
+callees = ["fn:8f163e1cfd59264a"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:9a17b7bc2cef140c"
+name = "planar_crack_tip_frame_matches_the_upstream_rotation"
+qual = "planar_crack_tip_frame_matches_the_upstream_rotation"
+lines = [
+    827,
+    886,
+]
+hash = "sha256:e59abbf60f0a89b4a76efcde4ca2d06e4474a9067ad521f031766b32976311f1"
+doc_hash = "sha256:e0783c283a70bfeac0dff53d7eebd173fc8238bad0813900a859cbc29e94225d"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:40ae98a157e5275b",
+    "fn:460856035327917d",
+    "fn:6a0efbea8f8750bd",
+    "fn:8b98391545dc83e0",
+    "fn:99b51c50cec539c3",
+    "fn:9e501e5f4cce23ae",
+    "fn:b68eeace048dbaec",
+    "fn:ed7d718f646723fc",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d51fbc7db088194c"
+name = "three_dimensional_frame_orthogonalises_and_round_trips"
+qual = "three_dimensional_frame_orthogonalises_and_round_trips"
+lines = [
+    888,
+    962,
+]
+hash = "sha256:45eb72dbde7f642476e6dc0e1fef1debd5f35ba05bfbff10131b365724d35394"
+doc_hash = "sha256:0bb2380616a39f331723180ed4245a97b21f27c8f5c0d08890d18884c786259a"
+callees = [
+    "fn:070d53b5883bc6fc",
+    "fn:12a06403e27e4888",
+    "fn:1f44c8fb92790e80",
+    "fn:40ae98a157e5275b",
+    "fn:460856035327917d",
+    "fn:52369d30b60bf96f",
+    "fn:5b5ce6ec5a15c328",
+    "fn:8b98391545dc83e0",
+    "fn:99b51c50cec539c3",
+    "fn:9e501e5f4cce23ae",
+    "fn:abc7404e3cca132a",
+    "fn:ca4d7b0e9c95eb37",
+    "fn:d2ac3d2a66dfd33d",
+    "fn:dc4bbded7f5aef2b",
+    "fn:ed7d718f646723fc",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:67789760ad7b479e"
+name = "rotating_the_field_rotates_its_stress"
+qual = "rotating_the_field_rotates_its_stress"
+lines = [
+    964,
+    1038,
+]
+hash = "sha256:e6b6eb64da884118eda75feacc55bb7668ce25db9ac33e923e91c843da470da2"
+doc_hash = "sha256:fbb32f6de2256a583671852767827db0f4e2c27f944fb34ab828040869b84262"
+callees = [
+    "fn:0dda29372b4defe7",
+    "fn:27a7caa0761cbc9d",
+    "fn:2edf936787b0173d",
+    "fn:5542d71db464f60b",
+    "fn:6cbbd9c9c9eae5a8",
+    "fn:8847e69681acb27b",
+    "fn:9e501e5f4cce23ae",
+    "fn:a5dd9b168fd947f8",
+    "fn:b68eeace048dbaec",
+    "fn:ca4d7b0e9c95eb37",
+    "fn:dc4bbded7f5aef2b",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:49d921a4d5c5bd4a"
+name = "symmetric_half_model_correction_restores_the_irwin_identity"
+qual = "symmetric_half_model_correction_restores_the_irwin_identity"
+lines = [
+    1044,
+    1152,
+]
+hash = "sha256:2316c9398fb9b3408e4ca04e354561c9a32b41eabda4353f6ba121df8fba90fc"
+doc_hash = "sha256:2fa1c64e2b558c8df08583128e872186e8051c607418ac6c6f206a5150a23495"
+callees = [
+    "fn:24e9092f0de9b22f",
+    "fn:316423c984f093c7",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b9094ef61a49a530"
+name = "axisymmetric_normalisation_divides_every_slot"
+qual = "axisymmetric_normalisation_divides_every_slot"
+lines = [
+    1154,
+    1206,
+]
+hash = "sha256:5033dfc23b5ba175105c70f6a26ea0195cf651832daa70e9f9b6b018446e2079"
+doc_hash = "sha256:d2988b5b1d5b210031c018df0addcf1e3bd6ab803d140756c71640292c60b739"
+callees = [
+    "fn:48e4d2c5f0396cba",
+    "fn:c2114be9b770e0b7",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:aa7ce47b299fa0e9"
+name = "legendre_front_basis_is_orthonormal_over_the_front"
+qual = "legendre_front_basis_is_orthonormal_over_the_front"
+lines = [
+    1212,
+    1278,
+]
+hash = "sha256:968c9d72734b020a2dd7207c5857d7b0ca9c1e36c831d1990d30a3d26641adb7"
+doc_hash = "sha256:e99e205c531a9e2baba6cf4e94d36172771a60754946ce630b0343141aed686c"
+callees = ["fn:3bb8d1a3a6e8ec41"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e56c16a590c68095"
+name = "legendre_polynomials_satisfy_bonnets_recurrence"
+qual = "legendre_polynomials_satisfy_bonnets_recurrence"
+lines = [
+    1280,
+    1315,
+]
+hash = "sha256:4bb69f0bbcea59d4e984a9acfb618f718e6be40c3eeb42bb26e9edc71a265546"
+doc_hash = "sha256:2808debf8d0561b168472ef1303dc70bc8603a65fc4c8a5106f6c02402d5dc2b"
+callees = ["fn:3bb8d1a3a6e8ec41"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:c737b9d9bb57de59"
+name = "legendre_basis_derivative_matches_a_finite_difference"
+qual = "legendre_basis_derivative_matches_a_finite_difference"
+lines = [
+    1317,
+    1351,
+]
+hash = "sha256:20dc72956c32c9552c3caafe66c564bdbbeec735721362c3a71297e90f3a23c6"
+doc_hash = "sha256:96a4e414309d6abe8f85814c7e54fbacc82cecbb33f4ad6fdf5ba630084fe793"
+callees = [
+    "fn:00bac770dc8fab69",
+    "fn:3bb8d1a3a6e8ec41",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:5a72cf20f204eab8"
+name = "legendre_basis_refuses_unsupported_degrees_and_lengths"
+qual = "legendre_basis_refuses_unsupported_degrees_and_lengths"
+lines = [
+    1353,
+    1369,
+]
+hash = "sha256:c70895d1a92cd97f967cc155c3fcb95b225c94afc5b6a4bb2ab8ba1fba918b80"
+doc_hash = "sha256:46bd196c5b735181f930161702f8ab6db38bfbf9c39ab42ba4dd9428e5d5c706"
+callees = [
+    "fn:00bac770dc8fab69",
+    "fn:3bb8d1a3a6e8ec41",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b83ac07934995a2e"
+name = "hat_smoothing_preserves_a_constant_and_biases_the_ends"
+qual = "hat_smoothing_preserves_a_constant_and_biases_the_ends"
+lines = [
+    1375,
+    1461,
+]
+hash = "sha256:db5b627b6254887b004e50172cec8b930a330babf080468878f5f22e8ebcecc3"
+doc_hash = "sha256:498a63004a4d56da0effb0c07f561721ccb40ee0e2f991e3459077a8f07e3cf8"
+callees = ["fn:72fda833eb6d9e04"]
+test = true

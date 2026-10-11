@@ -1,0 +1,596 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v2_insulated_and_non_insulated_conductance_fluid_arr_to_pipe",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v2_insulated_and_non_insulated_conductance_twisted_tape_to_pipe_fluid_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::example_heated_section_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_10kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_3kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_4kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_6kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_8kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::example_heated_section_regression_new_and_old",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_steel_shell_to_ambient",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_steel_shell_to_pipe_fluid_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_twisted_tape_to_pipe_fluid_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_top_bottom_mx10_struct_supports.rs::heater_plus_mx_10_with_supports",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads.rs::test_inclusive_heater_top_bottom_head",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads_and_mx10.rs::heater_plus_mx_10_without_supports",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heater_example_with_data_record.rs::example_heater_with_struct_supports_and_mx10",
+]
+
+[module."calculation.rs"]
+path = "crate::pre_built_components::non_insul_porous_media_fluid::calculation"
+
+[[module."calculation.rs".function]]
+id = "fn:a011a3f1fc860175"
+name = "advance_timestep"
+qual = "NonInsulatedPorousMediaFluidComponent::advance_timestep"
+lines = [
+    12,
+    24,
+]
+hash = "sha256:e9d863faaa2ebe413148120684c6990486778f32fc2617100dbe78acf94bee5c"
+doc_hash = "sha256:0d6e527432620cae55316d794e658a25aa84381259121d86452839ebee956412"
+callees = ["fn:03e08a20b60594d7"]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+physical_interface = true
+
+[[module."calculation.rs".function]]
+id = "fn:c972b9c69feadb41"
+name = "advance_timestep_thread_spawn"
+qual = "NonInsulatedPorousMediaFluidComponent::advance_timestep_thread_spawn"
+lines = [
+    26,
+    42,
+]
+hash = "sha256:eeb2f6aa085636222135fa2766eeaa5973cae8def51f0ef1052e0bb662c9d48d"
+doc_hash = "sha256:f6b97d5858d2a24b2396910d03d659356c98470f623432ebd6490099af38727c"
+callees = ["fn:a011a3f1fc860175"]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+physical_interface = true
+
+[[module."calculation.rs".function]]
+id = "fn:8934e23abb751592"
+name = "_advance_timestep_parallel_buggy"
+qual = "NonInsulatedPorousMediaFluidComponent::_advance_timestep_parallel_buggy"
+lines = [
+    43,
+    127,
+]
+hash = "sha256:39a0b69fcbaeda5ce2ff54094b737d7c58f9ee972019fb762b2a4152c790552f"
+doc_hash = "sha256:d6eff89c642c170e935839e2df309d2aa0fb68fd7439136fd8a4ee974506ca09"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:f8fcd27da58670ac",
+]
+physical_interface = true
+
+[module."fluid_entity.rs"]
+path = "crate::pre_built_components::non_insul_porous_media_fluid::fluid_entity"
+
+[[module."fluid_entity.rs".function]]
+id = "fn:aa7a5826199c9800"
+name = "get_mass_flowrate"
+qual = "NonInsulatedPorousMediaFluidComponent::get_mass_flowrate"
+lines = [
+    8,
+    12,
+]
+hash = "sha256:8bdcebed977017bc248399228c2cddbb2703082b6d6b9747db888a1b59325704"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:42ba40f09c031cbb"
+name = "set_mass_flowrate"
+qual = "NonInsulatedPorousMediaFluidComponent::set_mass_flowrate"
+lines = [
+    14,
+    26,
+]
+hash = "sha256:1bca14a25c8c0fba68ae101b056fc6d09f5373a3881a66ed1a891709d3416362"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:9212f011bf144631",
+    "fn:f8fcd27da58670ac",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:483cff3d0cde3b68"
+name = "get_mass_flowrate_from_pressure_loss_immutable"
+qual = "NonInsulatedPorousMediaFluidComponent::get_mass_flowrate_from_pressure_loss_immutable"
+lines = [
+    28,
+    32,
+]
+hash = "sha256:c6ceb1244109fa7c66f3ce6faf96c31f39768e4f48b110dd9f49ff992939f43f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e49a2c708f64bed",
+    "fn:4f08e35087543a15",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:022f599a395d4e29"
+name = "get_pressure_loss"
+qual = "NonInsulatedPorousMediaFluidComponent::get_pressure_loss"
+lines = [
+    34,
+    38,
+]
+hash = "sha256:d95f47d5105d2dbc9670d139ffd2cdf8f0f7b51c189addc3d4404b16039f2c8f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:c1cd743e200a5b68",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:87891e0c4497debf"
+name = "set_pressure_loss"
+qual = "NonInsulatedPorousMediaFluidComponent::set_pressure_loss"
+lines = [
+    40,
+    44,
+]
+hash = "sha256:00b6cca6733caf8bec9e2ebcda5123458ed9b81d52a9a8a2060d2190338a3c91"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5d36a8426cb919e3",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:59bd136ba20d35c0"
+name = "get_pressure_loss_immutable"
+qual = "NonInsulatedPorousMediaFluidComponent::get_pressure_loss_immutable"
+lines = [
+    46,
+    50,
+]
+hash = "sha256:ded15abeea33e52581554607dcf3e7b95d2a01dfe8739d6e8efc723b0549fc04"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5cc3a78cc9d2e79a",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:8abf3f6b14c13b94"
+name = "get_cross_sectional_area"
+qual = "NonInsulatedPorousMediaFluidComponent::get_cross_sectional_area"
+lines = [
+    52,
+    56,
+]
+hash = "sha256:739dff8aeef1d12d8107557d98506f278e8f7404ca78ce988bf1208bac8d5811"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7860f11bd51dbb37",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:330da43b34525c55"
+name = "get_cross_sectional_area_immutable"
+qual = "NonInsulatedPorousMediaFluidComponent::get_cross_sectional_area_immutable"
+lines = [
+    58,
+    62,
+]
+hash = "sha256:12d3b8793347c382c77a05a93ec943e0704dd017a017e66a0ad0bdbf26e91c92"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7860f11bd51dbb37",
+]
+reached_by = [
+    "#2",
+    "#8",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:88d0cf1bfa769aac"
+name = "get_hydraulic_diameter"
+qual = "NonInsulatedPorousMediaFluidComponent::get_hydraulic_diameter"
+lines = [
+    64,
+    68,
+]
+hash = "sha256:5c0795bfa1c11fdffc1abe3ddf7053ddf34f65e6a993672fc87e0a177b0e28f1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:457e96f4f0b76ef7",
+    "fn:4f08e35087543a15",
+]
+reached_by = [
+    "#2",
+    "#8",
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:3245d77c3a9aeedf"
+name = "get_hydraulic_diameter_immutable"
+qual = "NonInsulatedPorousMediaFluidComponent::get_hydraulic_diameter_immutable"
+lines = [
+    70,
+    74,
+]
+hash = "sha256:1d6bd9e937848c48057d2fbfbc3af0aa459a4fd408fe19fff88c976582c7050b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:457e96f4f0b76ef7",
+    "fn:4f08e35087543a15",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:10313edd822df102"
+name = "get_fluid_viscosity_at_ref_temperature"
+qual = "NonInsulatedPorousMediaFluidComponent::get_fluid_viscosity_at_ref_temperature"
+lines = [
+    76,
+    80,
+]
+hash = "sha256:0d42d758b98f5215eca90d871183965bf40a1de35735ce4933d4e7cd837cb9de"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5dc3c4cb5f94e19e",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:043735cb16f3f823"
+name = "get_fluid_viscosity_immutable_at_ref_temperature"
+qual = "NonInsulatedPorousMediaFluidComponent::get_fluid_viscosity_immutable_at_ref_temperature"
+lines = [
+    82,
+    86,
+]
+hash = "sha256:d225afd88dc8c6ca0f0d1fb2c243d92b14f384d70ef6855594f62b489d296b54"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5dc3c4cb5f94e19e",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:137f896a40cb7a55"
+name = "get_fluid_density_at_ref_temperature"
+qual = "NonInsulatedPorousMediaFluidComponent::get_fluid_density_at_ref_temperature"
+lines = [
+    88,
+    92,
+]
+hash = "sha256:f323217cb0432f105b20a1d1648de6b8d3215163205f59d6fa4ecf8e14b2d2f0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:129612370ebfb9ce",
+    "fn:4f08e35087543a15",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:e22874e1179df871"
+name = "get_fluid_density_immutable_at_ref_temperature"
+qual = "NonInsulatedPorousMediaFluidComponent::get_fluid_density_immutable_at_ref_temperature"
+lines = [
+    93,
+    97,
+]
+hash = "sha256:c333e0541a92ee8c3e73fe99bcdf7c4d3ef7bd88b91402041b406fa11bcc81eb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:129612370ebfb9ce",
+    "fn:4f08e35087543a15",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:687de97d3d0ff5f2"
+name = "get_component_length"
+qual = "NonInsulatedPorousMediaFluidComponent::get_component_length"
+lines = [
+    99,
+    103,
+]
+hash = "sha256:720d8f9e8519c6c82123bce76690fb61b81ef421f7299f598d9813920611ce04"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7b8091c3b21fab1e",
+]
+reached_by = ["#15"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:bacf283b390b8f6b"
+name = "get_component_length_immutable"
+qual = "NonInsulatedPorousMediaFluidComponent::get_component_length_immutable"
+lines = [
+    105,
+    109,
+]
+hash = "sha256:b82eae9abdb06a9a964b07b5d32cf6b6c676bf126053bd1029a11c6477fb306c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7b8091c3b21fab1e",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:5467306c52175cee"
+name = "get_incline_angle"
+qual = "NonInsulatedPorousMediaFluidComponent::get_incline_angle"
+lines = [
+    111,
+    115,
+]
+hash = "sha256:9554b52cf1d5dd98e471ef35de6abf7af5b4e43ed7180f1c12e30576ad9cc0bf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3115510adeccfc6e",
+    "fn:4f08e35087543a15",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:91c1b302112c6288"
+name = "get_incline_angle_immutable"
+qual = "NonInsulatedPorousMediaFluidComponent::get_incline_angle_immutable"
+lines = [
+    117,
+    121,
+]
+hash = "sha256:674330172c267b73def4fcc98dcae83224c2970a406e0250027dd9961d47bebe"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3115510adeccfc6e",
+    "fn:4f08e35087543a15",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:ab25975f5f8c2664"
+name = "get_internal_pressure_source"
+qual = "NonInsulatedPorousMediaFluidComponent::get_internal_pressure_source"
+lines = [
+    123,
+    127,
+]
+hash = "sha256:3124183856f859636f15479b631c37efa0942954b82e222f56ef99964d5d2e9d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3399320921e68dcb",
+    "fn:4f08e35087543a15",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:33ad7ef392f028f7"
+name = "get_internal_pressure_source_immutable"
+qual = "NonInsulatedPorousMediaFluidComponent::get_internal_pressure_source_immutable"
+lines = [
+    129,
+    133,
+]
+hash = "sha256:1d3cd8d2b606715cf6c177e99fac302714fb95b3d8964edb622300648e93928e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3399320921e68dcb",
+    "fn:4f08e35087543a15",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:6f4df1ff4fc80fc8"
+name = "set_internal_pressure_source"
+qual = "NonInsulatedPorousMediaFluidComponent::set_internal_pressure_source"
+lines = [
+    135,
+    139,
+]
+hash = "sha256:42ec15398cfa1309e9b8e75343a711b1b549800828431a07b4b70ec3d8e7f98e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5d36a8426cb919e3",
+]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::non_insul_porous_media_fluid"
+
+[[module."mod.rs".function]]
+id = "fn:00d2aeb987ca80d7"
+name = "new_dewet_model_heater_v2"
+qual = "NonInsulatedPorousMediaFluidComponent::new_dewet_model_heater_v2"
+lines = [
+    185,
+    378,
+]
+hash = "sha256:d4187c6a1260ce0470701372c06dc39af0c2fbdfe40b7e709b0573fc29c63e87"
+doc_hash = "sha256:280d0d4fc5414651c40c5cc4dc9b73eb938119723d02758dbded80eddedc551f"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:3306dfff34f781dd",
+    "fn:33511a1688b49614",
+    "fn:45de95a2df8c0305",
+    "fn:6cf9d8ba03416ad8",
+    "fn:721fa91849e08cd0",
+    "fn:89feb71c7a73a1df",
+    "fn:8d4119880af67bb8",
+    "fn:9cf2732f8b0c6890",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:b98b716c40a1a8bd"
+name = "_new_six_watts_per_m2_kelvin_model_heater_v2_model"
+qual = "NonInsulatedPorousMediaFluidComponent::_new_six_watts_per_m2_kelvin_model_heater_v2_model"
+lines = [
+    379,
+    555,
+]
+hash = "sha256:46a5b01a324782e51794cb56f581eeffdd2e05081b519b599aa388091cb8a53f"
+doc_hash = "sha256:24589e1ede6545a931b69517842647badd580ca56c032086f49a20e6c214397b"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:33511a1688b49614",
+    "fn:45de95a2df8c0305",
+    "fn:6cf9d8ba03416ad8",
+    "fn:721fa91849e08cd0",
+    "fn:89feb71c7a73a1df",
+    "fn:8d4119880af67bb8",
+    "fn:9cf2732f8b0c6890",
+    "fn:a7684adf457511e5",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:8bbec1c524e8c476"
+name = "ciet_heater_v2_generic_model"
+qual = "NonInsulatedPorousMediaFluidComponent::ciet_heater_v2_generic_model"
+lines = [
+    557,
+    734,
+]
+hash = "sha256:4617893fe61c49fe3ba7ddaf949c69bedcae2b041c821915a3ff974f01cfb5fc"
+doc_hash = "sha256:534c54972398f0a7f88cf978e1d5338a1c5a1551cfb3e9ad7b1e09db86669910"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:33511a1688b49614",
+    "fn:45de95a2df8c0305",
+    "fn:6cf9d8ba03416ad8",
+    "fn:721fa91849e08cd0",
+    "fn:89feb71c7a73a1df",
+    "fn:8d4119880af67bb8",
+    "fn:9cf2732f8b0c6890",
+    "fn:a7684adf457511e5",
+]
+reached_by = [
+    "#12",
+    "#15",
+]
+physical_interface = true
+
+[module."type_conversion.rs"]
+path = "crate::pre_built_components::non_insul_porous_media_fluid::type_conversion"
+
+[[module."type_conversion.rs".function]]
+id = "fn:cea9cb5f75bce0ac"
+name = "into"
+qual = "NonInsulatedPorousMediaFluidComponent::into"
+lines = [
+    7,
+    13,
+]
+hash = "sha256:96aba3b1789761dfd9783709257013c944384310395729fdcd2d1e2b4a1ff606"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4f08e35087543a15"]

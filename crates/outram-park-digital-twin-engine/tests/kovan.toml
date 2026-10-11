@@ -1,0 +1,219 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/tests"
+
+[module."ciet_v2_headless_remote_control.rs"]
+path = "test:ciet_v2_headless_remote_control"
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:84ae33743659ab65"
+name = "drop"
+qual = "SimulatorProcess::drop"
+lines = [
+    80,
+    83,
+]
+hash = "sha256:d4c2294096335949ab65013443372aa83e7668769fbfbed4e003f1f75043dd3c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:aa3b3ab846a298d1"
+name = "launch_headless_simulator"
+qual = "launch_headless_simulator"
+lines = [
+    86,
+    109,
+]
+hash = "sha256:52305bcd5d75f68472030cf04c7ca4938bde8f89e4596957bf7a301aa4b55898"
+doc_hash = "sha256:98154f157bc6be86b297f2068c27b9501e9499b90a0ecda2289bcf6596d247e0"
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:aba8887c7f7c6271"
+name = "connect_with_retry"
+qual = "connect_with_retry"
+lines = [
+    111,
+    163,
+]
+hash = "sha256:a67a036f03d2de77026547412c736788cc9dd3fc59ceec86a9fe6a91acf517ff"
+doc_hash = "sha256:e64fad238f1e230ce271675701f9aad275d6f2435e52a5abc839f6b24b255c38"
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:49936229f7b582ff"
+name = "resolve_namespace_index"
+qual = "resolve_namespace_index"
+lines = [
+    165,
+    199,
+]
+hash = "sha256:f958f5f7bb68226db4526696b9a7dae2f8a665c5d02e3474d946ae105d34da2c"
+doc_hash = "sha256:cb6393aecbe39005ff410e151c06818170c0f755056bb50a84b8b53ec2313db2"
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:5ec592a3fb308f41"
+name = "read_double"
+qual = "read_double"
+lines = [
+    201,
+    219,
+]
+hash = "sha256:bdab3811dea9ae5f429a5b6073014dec75a6d1666b65137699a68bcd5f669169"
+doc_hash = "sha256:7a6e68775aed6f3e921ff0422f26bc236a8178f9e8cf962171dc146a566e6929"
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:98d3e9fe4ab9560d"
+name = "write_checked"
+qual = "write_checked"
+lines = [
+    221,
+    240,
+]
+hash = "sha256:64aaed38a12a747426e458f142fd09a76f850ce411280f1784d9cee60f9f6ef7"
+doc_hash = "sha256:01c6747b7988f2e6ae75b4c3643b12502dfcef9df233dd5eb10a6279c33e9bf2"
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:ffe527b7674ec91f"
+name = "a_remote_client_can_drive_the_ciet_loop"
+qual = "a_remote_client_can_drive_the_ciet_loop"
+lines = [
+    242,
+    461,
+]
+hash = "sha256:f1e7d4eb56756b3968d0ff5f750bf0ccebf3b79a383bedcae15f52d421ee9211"
+doc_hash = "sha256:098db0634943327a194cbb0f103613c79f65ac3aff221200c26c43c630cb59af"
+callees = [
+    "fn:270633e525f74392",
+    "fn:3f743e94e1e6ff19",
+    "fn:43a8c52d1ba3c4ee",
+    "fn:49936229f7b582ff",
+    "fn:5ec592a3fb308f41",
+    "fn:98d3e9fe4ab9560d",
+    "fn:aa3b3ab846a298d1",
+    "fn:aba8887c7f7c6271",
+]
+test = true
+
+[module."ciet_v2_opcua_roundtrip.rs"]
+path = "test:ciet_v2_opcua_roundtrip"
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:9978e6b7aed52caf"
+name = "start_test_server"
+qual = "start_test_server"
+lines = [
+    70,
+    89,
+]
+hash = "sha256:6ae5c830970aeb431838ad29f10f6a38829572ecb4c87ecd4ba383c623b0b402"
+doc_hash = "sha256:f2d6bb037584a58ea936eb49919b267367f37628bfd0c99fa340a32c9baf5d8d"
+callees = ["fn:b68944c3202f6de9"]
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:ce499df22c04083f"
+name = "pump_pending_requests"
+qual = "pump_pending_requests"
+lines = [
+    91,
+    102,
+]
+hash = "sha256:2ac03a90e5cba18d5cca21bc7d94b18fb8f9aa37299946a1879876f6c2d4dbd0"
+doc_hash = "sha256:c0c796df42d7a3a344123e720585d808d577df997601fd7b7d42a4ac408a6b51"
+callees = ["fn:0591a6bdb3e08418"]
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:e85faddbc2ea2648"
+name = "connect_client"
+qual = "connect_client"
+lines = [
+    104,
+    138,
+]
+hash = "sha256:ef77bd104034ebb85db394301d18f70a3ff2af032f28d2f781b73aed960e79ca"
+doc_hash = "sha256:c8d055c7d1a286f2991a0fd15f4d81ec14e16ab6c9411fdffc788eebec6f9234"
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:f6c16594fb2c4fbd"
+name = "resolve_namespace_index"
+qual = "resolve_namespace_index"
+lines = [
+    140,
+    181,
+]
+hash = "sha256:c9c849d6b3c56ac38a07ec81be982ac88f7846619e26a37de54a9860afc864a0"
+doc_hash = "sha256:a97929e805b5b191b7d3fd3466e51ba3b8edf44aae82d869665d9693906c85f1"
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:c63e900fede9b18e"
+name = "read_double"
+qual = "read_double"
+lines = [
+    183,
+    205,
+]
+hash = "sha256:558b8853e4d26f6fba9d06599481e39252173d80503faddc163fd0fa774cab01"
+doc_hash = "sha256:3f7ec8e387c63f79a2784fada5cfdadefa42d6bffb5cfd1de647c944714c8a8e"
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:526fe8d147776c6a"
+name = "read_bool"
+qual = "read_bool"
+lines = [
+    207,
+    224,
+]
+hash = "sha256:72c040f80ed32f5efa157eb8a2698ce2701fa75c4110208858e49fa28b1312c6"
+doc_hash = "sha256:3af367f17183380141eb0e46df8b7de8d84d3bda88c12e1329c37c2a483eb829"
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:5a808c562546d2be"
+name = "write_variant"
+qual = "write_variant"
+lines = [
+    226,
+    246,
+]
+hash = "sha256:939c7fc24e65804e2eb84a17c6cc1b50756d83966df4f6b135494e0668d312d1"
+doc_hash = "sha256:5d9b871c45f52efcb0960c516a75417e4321240bfd02ec0fbbf4b1052b00ecbc"
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:4199eb7dfe79cd4e"
+name = "opcua_interface_round_trips_controls_and_outputs"
+qual = "opcua_interface_round_trips_controls_and_outputs"
+lines = [
+    248,
+    472,
+]
+hash = "sha256:2060919b5312a4f34898696025c15a731661a54a7df235111c4f808aa55ab4a6"
+doc_hash = "sha256:2025764e5f60787ff61654f0001408761b357aa3252720d4974aab5f5be13629"
+callees = [
+    "fn:0960b45df6218448",
+    "fn:0ced28846e3a9aa8",
+    "fn:270633e525f74392",
+    "fn:3ce0398e4c7f5494",
+    "fn:3f743e94e1e6ff19",
+    "fn:43a8c52d1ba3c4ee",
+    "fn:526fe8d147776c6a",
+    "fn:5a808c562546d2be",
+    "fn:7658a1d9a1433dcc",
+    "fn:9978e6b7aed52caf",
+    "fn:c63e900fede9b18e",
+    "fn:ce499df22c04083f",
+    "fn:e85faddbc2ea2648",
+    "fn:f4ac6dd2e65dae2a",
+    "fn:f6c16594fb2c4fbd",
+]
+test = true

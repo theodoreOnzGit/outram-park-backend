@@ -1,0 +1,213 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-codegen"
+dir = "crates/kovan-codegen/src/root_finding"
+test_ids = [
+    "crates/kovan-codegen/src/lib.rs::emitted_source_is_the_compiled_reference_verbatim",
+    "crates/kovan-codegen/src/lib.rs::generate_artifact_packages_source_and_provenance",
+    "crates/kovan-codegen/src/lib.rs::generate_artifact_propagates_unimplemented",
+    "crates/kovan-codegen/src/lib.rs::generate_dispatches_to_each_family",
+    "crates/kovan-codegen/src/lib.rs::generate_is_deterministic_across_families",
+    "crates/kovan-codegen/src/lib.rs::unimplemented_catalogue_entries_report_the_method",
+    "crates/kovan-codegen/src/root_finding/mod.rs::generate_is_deterministic",
+    "crates/kovan-codegen/src/root_finding/mod.rs::unimplemented_variants_error",
+    "crates/kovan/src/commands/gen.rs::every_root_finder_arg_maps_and_generates_or_reports_unimplemented",
+    "crates/kovan/src/commands/gen.rs::gmres_is_unimplemented",
+    "crates/kovan/src/commands/gen.rs::newton_raphson_generates_expected_source",
+    "crates/kovan/src/tui/methods.rs::draw_does_not_panic_in_any_family",
+    "crates/kovan/src/tui/methods.rs::enter_on_an_implemented_method_populates_the_preview",
+    "crates/kovan/src/tui/methods.rs::enter_on_an_unimplemented_method_reports_the_error_and_clears_preview",
+    "crates/kovan/src/tui/methods.rs::every_family_generates_every_catalogued_method_consistently_with_generate",
+    "crates/kovan/src/tui/methods.rs::family_cycles_and_resets_selection_and_preview",
+    "crates/kovan/src/tui/methods.rs::family_wraps_both_directions",
+    "crates/kovan/src/tui/methods.rs::method_selection_wraps_within_a_family",
+    "crates/kovan/src/tui/methods.rs::preview_scroll_saturates_at_zero",
+    "crates/kovan/src/tui/mod.rs::back_tab_cycles_backward_and_wraps_from_overview",
+    "crates/kovan/src/tui/mod.rs::digit_keys_switch_tabs",
+    "crates/kovan/src/tui/mod.rs::digit_seven_reaches_the_digitiser_tab",
+    "crates/kovan/src/tui/mod.rs::digit_six_reaches_the_ingest_tab",
+    "crates/kovan/src/tui/mod.rs::editing_suppresses_global_quit_and_tab_switch_keys",
+    "crates/kovan/src/tui/mod.rs::esc_also_quits_when_not_editing",
+    "crates/kovan/src/tui/mod.rs::literature_i_hands_the_selected_pdf_to_the_ingest_tab",
+    "crates/kovan/src/tui/mod.rs::overview_tab_ignores_navigation_keys_without_panicking",
+    "crates/kovan/src/tui/mod.rs::q_quits_from_the_default_overview_tab",
+    "crates/kovan/src/tui/mod.rs::quitting_is_blocked_while_an_import_is_in_flight",
+    "crates/kovan/src/tui/mod.rs::tab_key_cycles_forward_and_wraps",
+]
+
+[module."mod.rs"]
+path = "crate::root_finding"
+
+[[module."mod.rs".function]]
+id = "fn:43c0c8c4932854b9"
+name = "generate"
+qual = "generate"
+lines = [
+    45,
+    66,
+]
+hash = "sha256:dc89370999d78a7275b3c6ac49a855475b1e922aba344eeb7d35249cf9e1a5c8"
+doc_hash = "sha256:f21c971e3693a5834c41042bf169fff3add32a7464c1130f6b9ad2d6b2572568"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b0af65220ef51224"
+name = "f"
+qual = "f"
+lines = [
+    75,
+    77,
+]
+hash = "sha256:566b65dc3da6b78681959eecc746c833d5ae3db7af55d3ca0b0ae149bde94f15"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:fb6b98e7a4cdbf76"
+name = "df"
+qual = "df"
+lines = [
+    78,
+    80,
+]
+hash = "sha256:352f99ac0805d3d1912e088123a11be548548a38f9c1312b2a0e62fb9daf857b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:06193188340d3a8f"
+name = "bisection_finds_sqrt2"
+qual = "bisection_finds_sqrt2"
+lines = [
+    82,
+    86,
+]
+hash = "sha256:a7e416eff605ea660a80e5f1f64ddcc07d7b62ab8354dfe2bc77ba630211c1ab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b0af65220ef51224"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:78f9721d1b37d3b2"
+name = "regula_falsi_finds_sqrt2"
+qual = "regula_falsi_finds_sqrt2"
+lines = [
+    88,
+    92,
+]
+hash = "sha256:788e7f6439be69c65c73fc0306239c212315af1a8db505180cd1ac55d47f772a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b0af65220ef51224"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:749dc101e5151514"
+name = "secant_finds_sqrt2"
+qual = "secant_finds_sqrt2"
+lines = [
+    94,
+    98,
+]
+hash = "sha256:3621e4f8333e3759ffc1e9990dff0cbb6ad14c168aeaa50c94607d85a4bde06d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b0af65220ef51224"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:c2bc5a937edb127e"
+name = "newton_finds_sqrt2"
+qual = "newton_finds_sqrt2"
+lines = [
+    100,
+    104,
+]
+hash = "sha256:90038ddbba4485eee3f5bf0e0a03f3d2812f0fe8ba619643d47496426d18c5ad"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b0af65220ef51224",
+    "fn:fb6b98e7a4cdbf76",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:267af84383a96a11"
+name = "brent_finds_sqrt2"
+qual = "brent_finds_sqrt2"
+lines = [
+    106,
+    110,
+]
+hash = "sha256:1b2d002d7a4219bf1a0c0830d57e385c2f23f4e19dacfc02167bc902b66292dc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b0af65220ef51224"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:7152c25d4fab4626"
+name = "bad_bracket_returns_none"
+qual = "bad_bracket_returns_none"
+lines = [
+    112,
+    116,
+]
+hash = "sha256:bcaebed7d09ad0a64f28964cecfd425cbb40cbcfbfd44d0eb2e41e253e02a50f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b0af65220ef51224"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:af137ba63ceb5b29"
+name = "generate_is_deterministic"
+qual = "generate_is_deterministic"
+lines = [
+    118,
+    128,
+]
+hash = "sha256:374ba5588e350068ed8762ff838cdea295c4a1ec8b7216096140e00c63fc2241"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:43c0c8c4932854b9"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:6c69399e05aa84d1"
+name = "unimplemented_variants_error"
+qual = "unimplemented_variants_error"
+lines = [
+    130,
+    134,
+]
+hash = "sha256:080e9e7b32c86d13d44c275cf8a5c651c304147d4365f3d19bb51871e314167a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:43c0c8c4932854b9"]
+test = true

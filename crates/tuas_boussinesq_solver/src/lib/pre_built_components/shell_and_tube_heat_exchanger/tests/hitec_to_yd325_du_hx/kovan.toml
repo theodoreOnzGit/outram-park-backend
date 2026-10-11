@@ -1,0 +1,286 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx"
+
+[module."dimension_checks.rs"]
+path = "crate::pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::dimension_checks"
+
+[[module."dimension_checks.rs".function]]
+id = "fn:91a9a7a583687331"
+name = "check_shell_side_fluid_hydraulic_diameter"
+qual = "check_shell_side_fluid_hydraulic_diameter"
+lines = [
+    1,
+    30,
+]
+hash = "sha256:4a61dbb562b87136af42300b05dbe95bffa746c33112b24882add83c21b490c0"
+doc_hash = "sha256:d881fdd13107b156e7a15df9331014095659d92feb2d5465b1263ef826ca084f"
+test = true
+
+[[module."dimension_checks.rs".function]]
+id = "fn:a71e1dce8a75cb9c"
+name = "check_tube_side_reynolds_number_diffusivity"
+qual = "check_tube_side_reynolds_number_diffusivity"
+lines = [
+    32,
+    64,
+]
+hash = "sha256:9d984f0491151a16698e96139b40b34a6a4b4feed2a57cfc0378db31d1e94507"
+doc_hash = "sha256:3dabf7545a9bda6125724031a0dc3f9a318272935a7bf693955f518e95606ea2"
+test = true
+
+[[module."dimension_checks.rs".function]]
+id = "fn:47cc563b2861da01"
+name = "check_shell_side_heat_trf_area"
+qual = "check_shell_side_heat_trf_area"
+lines = [
+    66,
+    87,
+]
+hash = "sha256:5bbe7199761dc92b054987bcc6b6dc18b962ebffb9f4fe2a8a3efa9e765dcf85"
+doc_hash = "sha256:d6adb3f19df18041b88e94b80a34d08cd31ac514909870e61d000d94b4b97063"
+test = true
+
+[module."heat_transfer_correlations_checks.rs"]
+path = "crate::pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::heat_transfer_correlations_checks"
+
+[[module."heat_transfer_correlations_checks.rs".function]]
+id = "fn:c72e86731574dce1"
+name = "check_wall_side_htc"
+qual = "check_wall_side_htc"
+lines = [
+    1,
+    40,
+]
+hash = "sha256:6d93dfe6a46d3a93e3057b7c4a959a36efd3aab4bf396af795fe241300cb1f5e"
+doc_hash = "sha256:0191c0ef3d3aa6c559af4ea3530e4f9e7aceb21b732ac1c79c507fba53976e9a"
+test = true
+
+[[module."heat_transfer_correlations_checks.rs".function]]
+id = "fn:80ee67a55bc67575"
+name = "check_high_bound_and_low_bound_shell_heat_trf_coeff"
+qual = "check_high_bound_and_low_bound_shell_heat_trf_coeff"
+lines = [
+    42,
+    89,
+]
+hash = "sha256:c1772d93683c22d721fe13e9817cd1522962c07d35a991162d8c676ecf926454"
+doc_hash = "sha256:bf65ca51859154c4cf0d22908b97d73252eed149f155bdf9f6db9a63e8018e3e"
+callees = ["fn:d2ef60a016252736"]
+test = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx"
+
+[module."set_a.rs"]
+path = "crate::pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::set_a"
+
+[[module."set_a.rs".function]]
+id = "fn:61145e70f8563b83"
+name = "du_test_shell_and_tube_heat_exchanger_set_a"
+qual = "du_test_shell_and_tube_heat_exchanger_set_a"
+lines = [
+    1,
+    1149,
+]
+hash = "sha256:112818eb02089b2672c1b3e27f479d723cbd381dae8975b3861be38a95451168"
+doc_hash = "sha256:a512e34b4a89a5255177efbc40f48be328181a14959390f373e942122715413a"
+callees = [
+    "fn:049aaf459bc43a80",
+    "fn:126ee82fa03643bf",
+    "fn:195f184ebca45812",
+    "fn:26aff73e30f8632a",
+    "fn:2d0477b1a1450172",
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:578b1cf1bdc5bf1b",
+    "fn:5809a771c2fb7658",
+    "fn:5898244cb765d25d",
+    "fn:61571eb5e1cd42ad",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:75b2bf19978d095f",
+    "fn:81ebbad2a6b015cb",
+    "fn:9a9df62a2fff8ce4",
+    "fn:9cf2732f8b0c6890",
+    "fn:a03d943953e2b3cb",
+    "fn:a7684adf457511e5",
+    "fn:afcb0567a71406c2",
+    "fn:b113f725d215f11b",
+    "fn:d2ef60a016252736",
+    "fn:e31ecee224074ed0",
+    "fn:f92140d5b6a1018f",
+    "fn:feec71215f335f20",
+]
+test = true
+
+[module."set_b.rs"]
+path = "crate::pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::set_b"
+
+[[module."set_b.rs".function]]
+id = "fn:216b0bcaad034e25"
+name = "du_test_shell_and_tube_heat_exchanger_set_b"
+qual = "du_test_shell_and_tube_heat_exchanger_set_b"
+lines = [
+    1,
+    1143,
+]
+hash = "sha256:acb392e082d1a0e7b47d8b4d882e695fd2e90a2138a1bb73128ee37083a1e4f1"
+doc_hash = "sha256:4b295208750fe3303d1dae4cb8c803058d106124f220f3dc6770b5d9f115b9bc"
+callees = [
+    "fn:049aaf459bc43a80",
+    "fn:126ee82fa03643bf",
+    "fn:195f184ebca45812",
+    "fn:26aff73e30f8632a",
+    "fn:2d0477b1a1450172",
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:578b1cf1bdc5bf1b",
+    "fn:5809a771c2fb7658",
+    "fn:5898244cb765d25d",
+    "fn:61571eb5e1cd42ad",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:75b2bf19978d095f",
+    "fn:81ebbad2a6b015cb",
+    "fn:9a9df62a2fff8ce4",
+    "fn:9cf2732f8b0c6890",
+    "fn:a03d943953e2b3cb",
+    "fn:a7684adf457511e5",
+    "fn:afcb0567a71406c2",
+    "fn:b113f725d215f11b",
+    "fn:d2ef60a016252736",
+    "fn:e31ecee224074ed0",
+    "fn:f92140d5b6a1018f",
+    "fn:feec71215f335f20",
+]
+test = true
+
+[module."set_c.rs"]
+path = "crate::pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::set_c"
+
+[[module."set_c.rs".function]]
+id = "fn:552331ca0dd5dfa8"
+name = "du_test_shell_and_tube_heat_exchanger_set_c"
+qual = "du_test_shell_and_tube_heat_exchanger_set_c"
+lines = [
+    1,
+    1143,
+]
+hash = "sha256:f5269aa66d4370fbccc8f080c9e3a7983d1409c3c9fa5a43d4a086f23b608f20"
+doc_hash = "sha256:1dcfe486cc9262403d86cee4c9cfd1e5047a53075a2fa3566aca05ae186358f6"
+callees = [
+    "fn:049aaf459bc43a80",
+    "fn:126ee82fa03643bf",
+    "fn:195f184ebca45812",
+    "fn:26aff73e30f8632a",
+    "fn:2d0477b1a1450172",
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:578b1cf1bdc5bf1b",
+    "fn:5809a771c2fb7658",
+    "fn:5898244cb765d25d",
+    "fn:61571eb5e1cd42ad",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:75b2bf19978d095f",
+    "fn:81ebbad2a6b015cb",
+    "fn:9a9df62a2fff8ce4",
+    "fn:9cf2732f8b0c6890",
+    "fn:a03d943953e2b3cb",
+    "fn:a7684adf457511e5",
+    "fn:afcb0567a71406c2",
+    "fn:b113f725d215f11b",
+    "fn:d2ef60a016252736",
+    "fn:e31ecee224074ed0",
+    "fn:f92140d5b6a1018f",
+    "fn:feec71215f335f20",
+]
+test = true
+
+[module."thermophsyical_property_checks.rs"]
+path = "crate::pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::thermophsyical_property_checks"
+
+[[module."thermophsyical_property_checks.rs".function]]
+id = "fn:d8bdbcb920fa9cf3"
+name = "prandtl_number_range_check"
+qual = "prandtl_number_range_check"
+lines = [
+    1,
+    38,
+]
+hash = "sha256:f11ac34ef057ec3d5c1f948a9715bdefc604b5330b943741120d1469bf4ea6ae"
+doc_hash = "sha256:6f8bf5aaf9bb69849110ebd92e9023405719e8451847332933bb89a6f241b312"
+callees = ["fn:a03d943953e2b3cb"]
+test = true
+
+[[module."thermophsyical_property_checks.rs".function]]
+id = "fn:542c6b4c969664ea"
+name = "prandtl_number_range_from_200_to_240_celsius"
+qual = "prandtl_number_range_from_200_to_240_celsius"
+lines = [
+    40,
+    75,
+]
+hash = "sha256:d8b27d8e28e3bb679acb6e48a2e8da03c742a234145820bfc46699222555ca8e"
+doc_hash = "sha256:7f08f39953ab514bb11c7699b8b430704f0cb8bff5d1ba7448b76ee6f49d735a"
+callees = ["fn:a03d943953e2b3cb"]
+test = true
+
+[[module."thermophsyical_property_checks.rs".function]]
+id = "fn:efbbb7a9eab75f56"
+name = "hitec_thermal_cond_at_200_and_240_celsius"
+qual = "hitec_thermal_cond_at_200_and_240_celsius"
+lines = [
+    77,
+    102,
+]
+hash = "sha256:1534b884baeed2bebe644457b8be7a4d3e251b0ff7d9361dff6d77d3cbdb5483"
+doc_hash = "sha256:e7e47fcb8fc0d000d004e60f6baf1bc11ce826b982a5c26d1cd726b02c34e5d0"
+callees = ["fn:d2ef60a016252736"]
+test = true
+
+[[module."thermophsyical_property_checks.rs".function]]
+id = "fn:813c4a63e632918c"
+name = "yd325_thermal_cond_at_75_and_110_celsius"
+qual = "yd325_thermal_cond_at_75_and_110_celsius"
+lines = [
+    103,
+    128,
+]
+hash = "sha256:2b0197e7051c2f509b710ba0d633e31200197885822cc9832f2338ae846fc10b"
+doc_hash = "sha256:c2f58f247facb0353c0f1dd901591fd1a95065477288f2651dd6b66afe365164"
+callees = ["fn:d2ef60a016252736"]
+test = true
+
+[[module."thermophsyical_property_checks.rs".function]]
+id = "fn:6e1e3434dba4831c"
+name = "yd325_tube_reynolds_prandtl_nusselt"
+qual = "yd325_tube_reynolds_prandtl_nusselt"
+lines = [
+    130,
+    277,
+]
+hash = "sha256:530dbc807ffc6b16952a3c4cf26bdb4a7a9fa9df5128f6c736b0159f05818be3"
+doc_hash = "sha256:624ce5e4c657f49de7900c8a761e6b79b39a5352e241a39eca8fab738c953c58"
+callees = [
+    "fn:61571eb5e1cd42ad",
+    "fn:6e00abb03521f424",
+    "fn:7c64c4f26b76ffe6",
+    "fn:a03d943953e2b3cb",
+    "fn:ab4af62dd28e04c7",
+]
+test = true

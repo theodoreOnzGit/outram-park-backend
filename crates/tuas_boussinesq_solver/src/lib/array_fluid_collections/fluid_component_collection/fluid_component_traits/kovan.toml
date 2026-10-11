@@ -1,0 +1,665 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/fluid_component_traits"
+
+[module."mod.rs"]
+path = "crate::array_fluid_collections::fluid_component_collection::fluid_component_traits"
+
+[[module."mod.rs".function]]
+id = "fn:1fde35757b53974e"
+name = "get_mass_flowrate"
+qual = "FluidComponentTrait::get_mass_flowrate"
+lines = [
+    37,
+    38,
+]
+hash = "sha256:b7000fc3eee433a069c1e7cba1934b07a40f970b88a15130dcc6ac40e667ce15"
+doc_hash = "sha256:2018acd50b766248aa943a1dad81b5a43b7a125276ee310d723c995753b5710c"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:aee3f871516410c2"
+name = "set_mass_flowrate"
+qual = "FluidComponentTrait::set_mass_flowrate"
+lines = [
+    40,
+    41,
+]
+hash = "sha256:6cecd9f745b295676a683bb90b64295df47d2011ae0df04a031c3b4b0647edb9"
+doc_hash = "sha256:9d9b613875ea2aded246c31fedcfe669144b22c9f1196d00241f124e25da0834"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:ba41a94211b98dda"
+name = "get_mass_flowrate_from_pressure_change_immutable"
+qual = "FluidComponentTrait::get_mass_flowrate_from_pressure_change_immutable"
+lines = [
+    43,
+    66,
+]
+hash = "sha256:d60ecfaf12c29bdb73d43571a7487ae9fb98f3c5b718fb798763f81336644b3d"
+doc_hash = "sha256:0cc7246144d9210b3f14fde4252635cd82e9115b624e818bca0fbf4db2becd53"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:6fa91140d56895ce"
+name = "get_mass_flowrate_from_pressure_loss_immutable"
+qual = "FluidComponentTrait::get_mass_flowrate_from_pressure_loss_immutable"
+lines = [
+    68,
+    72,
+]
+hash = "sha256:bbf054f02528b37238a18d75efd82268ac55e76f1f8e815d9c5d8f2eb5912eaf"
+doc_hash = "sha256:0cc7246144d9210b3f14fde4252635cd82e9115b624e818bca0fbf4db2becd53"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:b0bc268244a22c72"
+name = "get_pressure_loss"
+qual = "FluidComponentTrait::get_pressure_loss"
+lines = [
+    74,
+    75,
+]
+hash = "sha256:2fcbf483cc401bd20009fa842d74a55b34b8d68ff010ff3833a04bb4686a5c57"
+doc_hash = "sha256:c7a30b8360fed77d8fb118a1c14b1cb767783210983171f617937903c5095c1e"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:4779dbdb5d58a54f"
+name = "set_pressure_loss"
+qual = "FluidComponentTrait::set_pressure_loss"
+lines = [
+    77,
+    78,
+]
+hash = "sha256:a85bd5e593fe86c00139daeb12d61918a669c590c1befc6aa26864d09404b1a2"
+doc_hash = "sha256:0b74ebaff71f419b7ec996d07841a8a755d2ff67d365b374a41aab89c429213e"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:9ce1e2dbe779ccf6"
+name = "get_pressure_loss_immutable"
+qual = "FluidComponentTrait::get_pressure_loss_immutable"
+lines = [
+    80,
+    83,
+]
+hash = "sha256:3e076ed34f5cbff583bb3c0e7b8c471299ec339a1d2ad7834e3d32d49922d2ea"
+doc_hash = "sha256:a1a8336e293aea48919b49cf41158be522032798f5431caa75d49860fdd7a8a3"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:b0e90e0bf1a2b4f2"
+name = "get_cross_sectional_area"
+qual = "FluidComponentTrait::get_cross_sectional_area"
+lines = [
+    85,
+    86,
+]
+hash = "sha256:4c02cb17b4ee997fbfee6121e91b09446eab9a3c8cce16b3532bd5da3a6d3303"
+doc_hash = "sha256:40b9a90da0d33b1fc39f6152ff7013d341fe41870242cd49e236ac5a21ab664c"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:8abac055234bfe8b"
+name = "get_cross_sectional_area_immutable"
+qual = "FluidComponentTrait::get_cross_sectional_area_immutable"
+lines = [
+    88,
+    89,
+]
+hash = "sha256:1b32d8417c719b206b56f4f7201b36f077301e338c592ca98fc670c4ad703cda"
+doc_hash = "sha256:6bc768663862178fdac3b40e23e081b1dce5fe041e1c93b7cdb98d1876909df0"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:2e460bae1721cf14"
+name = "get_hydraulic_diameter"
+qual = "FluidComponentTrait::get_hydraulic_diameter"
+lines = [
+    91,
+    92,
+]
+hash = "sha256:ec1794f89f5d31a18df45fb518bda290a5bbd4d4355ad53928780ed6a57607eb"
+doc_hash = "sha256:7638692e9893cbd8fe4d5726c1eb203cc3e05950f52dd1737d2a8e093939e9fa"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:9184b89500adbf2f"
+name = "get_hydraulic_diameter_immutable"
+qual = "FluidComponentTrait::get_hydraulic_diameter_immutable"
+lines = [
+    94,
+    95,
+]
+hash = "sha256:f8dee022a33e0992319a64e65cd156d8d46c555dbb1301dc727b0ba3018d9c4c"
+doc_hash = "sha256:9004806de4963e227174435f502ead4efa196a1e74ef6d5dff3094099a644d7b"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:1089461592dbf498"
+name = "get_fluid_viscosity_at_ref_temperature"
+qual = "FluidComponentTrait::get_fluid_viscosity_at_ref_temperature"
+lines = [
+    97,
+    98,
+]
+hash = "sha256:f764f303c7eecfda7767f9d65d1ed89ddf29d1abbe8a84282f7261f42827458a"
+doc_hash = "sha256:9aa32b113f9055a6048f71528433c5ced944940d314ee27eae646493e54895a1"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:d8f8890f047f5b1c"
+name = "get_fluid_viscosity_immutable_at_ref_temperature"
+qual = "FluidComponentTrait::get_fluid_viscosity_immutable_at_ref_temperature"
+lines = [
+    100,
+    102,
+]
+hash = "sha256:0fc9c8b0eb4669caee209267add308049985709d00ec80f7519a4e3d3607fe0f"
+doc_hash = "sha256:3b1618cdd5cb3adba3633b954b814e5c8c1867a5cf29be753d67df0531df4eb2"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:416fe89660824ef9"
+name = "get_fluid_density_at_ref_temperature"
+qual = "FluidComponentTrait::get_fluid_density_at_ref_temperature"
+lines = [
+    104,
+    106,
+]
+hash = "sha256:89f4a139b6982e08e276227da0c1af915f1a679d5656e741c28e2e023d4b1d6c"
+doc_hash = "sha256:af6b24d8b4d882f812615e679fa01cf501fc63290fee33e042be1ab143b3daeb"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:0eacad16ffac7227"
+name = "get_fluid_density_immutable_at_ref_temperature"
+qual = "FluidComponentTrait::get_fluid_density_immutable_at_ref_temperature"
+lines = [
+    108,
+    110,
+]
+hash = "sha256:2855ce0eab3d97c003c5c6334cef912721b440de2bb28e5afab677f85df036f4"
+doc_hash = "sha256:98bce4ad73894f0127ac33af76fd5e3085dda1347f4f8f3fcfa8877d5365a0f5"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:d64aca2401834503"
+name = "get_component_length"
+qual = "FluidComponentTrait::get_component_length"
+lines = [
+    112,
+    113,
+]
+hash = "sha256:ec1794f89f5d31a18df45fb518bda290a5bbd4d4355ad53928780ed6a57607eb"
+doc_hash = "sha256:929b752bbd446536f25a96c4eeeb72fc173eedef090de08f156edc6a419e6303"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:bbb1f48671b35872"
+name = "get_component_length_immutable"
+qual = "FluidComponentTrait::get_component_length_immutable"
+lines = [
+    115,
+    116,
+]
+hash = "sha256:f8dee022a33e0992319a64e65cd156d8d46c555dbb1301dc727b0ba3018d9c4c"
+doc_hash = "sha256:7c0863de6bd06b5a2f017b39e9aed903acf4c13f761ca81efa924c0ecd351d29"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:1f55a021802ef406"
+name = "get_pressure_change"
+qual = "FluidComponentTrait::get_pressure_change"
+lines = [
+    118,
+    138,
+]
+hash = "sha256:67260ed8ee6a3462653aa886b6c10b957e74163871266077f43b826660cbfb25"
+doc_hash = "sha256:736288bc845de8a724ec926f1cd71c1709646085b055747c84c7f2dc543c0193"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:20d1a25aa283f547"
+name = "get_pressure_change_immutable"
+qual = "FluidComponentTrait::get_pressure_change_immutable"
+lines = [
+    140,
+    161,
+]
+hash = "sha256:1a91b6de0c9c1257a133aafbfdc60516106699477e138ad705c2abcd0043d492"
+doc_hash = "sha256:a1a8336e293aea48919b49cf41158be522032798f5431caa75d49860fdd7a8a3"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:cef73004379a27a3"
+name = "set_pressure_change"
+qual = "FluidComponentTrait::set_pressure_change"
+lines = [
+    163,
+    184,
+]
+hash = "sha256:cce4639ca2ea7171522c726466fd25bc5f897ba535f560551d71edeff3a39225"
+doc_hash = "sha256:95503e122184fe527f922a1d7010134863f007ca131537abeba3ae1a62b223ab"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:664f8d2a2166db25"
+name = "get_incline_angle"
+qual = "FluidComponentTrait::get_incline_angle"
+lines = [
+    186,
+    187,
+]
+hash = "sha256:3ede5ea3302a74fd47132f016123734c33655ea788e712d4d1be16d73688ea64"
+doc_hash = "sha256:10434708e58dbc7d50e674d3ad0966539e94358065c2f8669764f8a209b64914"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:a77b5c4273599048"
+name = "get_incline_angle_immutable"
+qual = "FluidComponentTrait::get_incline_angle_immutable"
+lines = [
+    189,
+    190,
+]
+hash = "sha256:18d4b1e50b7f2666fac11d1b6bd6d27c91e5f67ea6b779ad756b2bfa3e813645"
+doc_hash = "sha256:683e937dd1e5b479d71e1b77dca2a73924ce287d91a3a042168938c9ddc352ae"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:e1c4ba339f84768e"
+name = "get_hydrostatic_pressure_change_at_ref_temperature"
+qual = "FluidComponentTrait::get_hydrostatic_pressure_change_at_ref_temperature"
+lines = [
+    192,
+    217,
+]
+hash = "sha256:24c1be51ee7a35af92eba5b753e02af7c08b6da76ecd5c6e0cb5221148681ef8"
+doc_hash = "sha256:1b78a96e2bab9a8d80f9a827b965371c780dee4cb58b82d4e7d0e25ace1611eb"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:3cb8bbf6374f0f05"
+name = "get_hydrostatic_pressure_change_immutable_at_ref_temperature"
+qual = "FluidComponentTrait::get_hydrostatic_pressure_change_immutable_at_ref_temperature"
+lines = [
+    219,
+    245,
+]
+hash = "sha256:1ef462995ae26c61fc570ca30d03f2b9fa110fe9b2e70b4331742f8c6d65a05a"
+doc_hash = "sha256:276233b1df93565228be04c27dfee32c510d385aa3b9c082af35e2e9a681bca9"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:f4c7bfe1a40be93e"
+name = "get_internal_pressure_source"
+qual = "FluidComponentTrait::get_internal_pressure_source"
+lines = [
+    247,
+    248,
+]
+hash = "sha256:2fcbf483cc401bd20009fa842d74a55b34b8d68ff010ff3833a04bb4686a5c57"
+doc_hash = "sha256:b14c76cad8708bcae10bda7b6acf41e1088f510955a955bdc8d7df9c7085542e"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:5d36ed30ab5969ba"
+name = "get_internal_pressure_source_immutable"
+qual = "FluidComponentTrait::get_internal_pressure_source_immutable"
+lines = [
+    250,
+    252,
+]
+hash = "sha256:dbb3ff2bcdfb4a445ba00239710dddfcb2008e4e4e884cd09f6938537d8561fe"
+doc_hash = "sha256:a665dfaa1083caf2e344378a5eac00ddbd4c99517c3992ea6286822d23eb16d6"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:97cbf9889179d114"
+name = "set_internal_pressure_source"
+qual = "FluidComponentTrait::set_internal_pressure_source"
+lines = [
+    254,
+    255,
+]
+hash = "sha256:5cca1b68f19db799847003e838e3d2e805f9703a8d58106c24bd47148bbdf805"
+doc_hash = "sha256:864116126758d6304df097fc382b95faf0b5faff08c7f459c57dfd5dce946fbe"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:a96d7b873974541e"
+name = "get_pressure_loss"
+qual = "FluidComponentCollectionMethods::get_pressure_loss"
+lines = [
+    262,
+    283,
+]
+hash = "sha256:60abfde31ea43ad83e8cfb9b3ae3a43e53a971b3654b1d311cdfceff09757209"
+doc_hash = "sha256:5c85ae9fb5d4c8a06e60cc316936ff1c09921bc44c4f73d9ea3b94174466d1b0"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:ffc11a5a22e2848d"
+name = "get_pressure_change"
+qual = "FluidComponentCollectionMethods::get_pressure_change"
+lines = [
+    285,
+    286,
+]
+hash = "sha256:e8dd0569ca042c726175a9498f487ea727b12648350f866accbad5d191f4a12b"
+doc_hash = "sha256:bfc9fda845ae41a3d5a10b2e44b6d3b19e72b0ab9561d7bf493a97acc50cdec2"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:a282db2da19c4d1b"
+name = "get_mass_flowrate_from_pressure_change"
+qual = "FluidComponentCollectionMethods::get_mass_flowrate_from_pressure_change"
+lines = [
+    288,
+    290,
+]
+hash = "sha256:f045020fb298a8d79a16618e9a4a9d53f3cec4cd82c7ce66a064f9732a1edf8c"
+doc_hash = "sha256:1eaa2f41ef6f5cd735804dd399f71643bd686f848e5c04e3451b96b962713196"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:05f2745b15833c39"
+name = "get_mass_flowrate_from_pressure_loss"
+qual = "FluidComponentCollectionMethods::get_mass_flowrate_from_pressure_loss"
+lines = [
+    292,
+    313,
+]
+hash = "sha256:db09c3ebe7adc96a4aba6aa8639d92cfba7cd2723f8120a8524337c2263f706f"
+doc_hash = "sha256:ee0223b7948c66cd33f970b4384f085dcb039efccf0ca83ccea26bd35f1e8d48"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:4ed3e82308587c6d"
+name = "get_pipe_form_loss_k"
+qual = "FluidPipeCalcPressureLoss::get_pipe_form_loss_k"
+lines = [
+    321,
+    322,
+]
+hash = "sha256:3eedc3cca3f231cdd19a855365d232d0a9723b4b11bd3ece9c908c8d9a0fb9a3"
+doc_hash = "sha256:272f7a30bd11fbef02c2f4e9967e921fefdb74148cd926aaef2f0f1ae85cf1f5"
+
+[[module."mod.rs".function]]
+id = "fn:5164f1a7c481c65f"
+name = "get_pipe_form_loss_k_immutable"
+qual = "FluidPipeCalcPressureLoss::get_pipe_form_loss_k_immutable"
+lines = [
+    324,
+    326,
+]
+hash = "sha256:6838e0393ffd68a9baf09a9171412249724bfbf2dd6c734466a28cb0cb21fef3"
+doc_hash = "sha256:cc09cc0b725f8915d60c511d5c5f94545b9d1d7edc3dc57424ad9a589e0df374"
+
+[[module."mod.rs".function]]
+id = "fn:502de54a51baaec3"
+name = "get_pipe_absolute_roughness"
+qual = "FluidPipeCalcPressureLoss::get_pipe_absolute_roughness"
+lines = [
+    328,
+    329,
+]
+hash = "sha256:ec1794f89f5d31a18df45fb518bda290a5bbd4d4355ad53928780ed6a57607eb"
+doc_hash = "sha256:aed3a098f82171fa18c52086631f86875cf1dbd036aea4a631eaa77bbcc73b36"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:1e4e1dbce1f62b14"
+name = "get_pipe_absolute_roughness_immutable"
+qual = "FluidPipeCalcPressureLoss::get_pipe_absolute_roughness_immutable"
+lines = [
+    331,
+    333,
+]
+hash = "sha256:f8dee022a33e0992319a64e65cd156d8d46c555dbb1301dc727b0ba3018d9c4c"
+doc_hash = "sha256:f4447e06067c8d1b320f987586d58a8a834067b693006371880c303e6ad87e25"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:0fb5e3e234a09e99"
+name = "pipe_calc_pressure_loss"
+qual = "FluidPipeCalcPressureLoss::pipe_calc_pressure_loss"
+lines = [
+    335,
+    400,
+]
+hash = "sha256:3eaa9d04b0c739696ea73107069901dc56e1acf8fd22dcd3cbb0e60c89e67875"
+doc_hash = "sha256:61d14cad3f202b9e60c863118035b00e7a9c5efae5a138f8d72f6a3035aca6a7"
+callees = [
+    "fn:440244ba297bcb0f",
+    "fn:a2a8e8443ce5d445",
+    "fn:f7ab4075b8705dce",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:988126b690e3e81b"
+name = "pipe_calc_mass_flowrate"
+qual = "FluidPipeCalcPressureLoss::pipe_calc_mass_flowrate"
+lines = [
+    402,
+    449,
+]
+hash = "sha256:070256060249db79ecc5b7b0499d1f3c54dad34b8ea62d77036296f86dadaeea"
+doc_hash = "sha256:3e7297f2b27bc43668e2623419b8116957b6bc3b32183e441d863f604a736025"
+callees = [
+    "fn:692454b23345e807",
+    "fn:bd0d662f5693fd6e",
+    "fn:f61be243352c7961",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:8716cd551df3e4c5"
+name = "pipe_calc_pressure_change"
+qual = "FluidPipeCalcPressureChange::pipe_calc_pressure_change"
+lines = [
+    458,
+    500,
+]
+hash = "sha256:1619b6ec546d0f2bc425f78a27dcc9783318e5ebf042bd11a77bb6b7e95228e1"
+doc_hash = "sha256:da8d5f9d67875cf98359d383fb4f0c6708823618b09f6370b1ec3252996603b8"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:54c23ceb4c58d61e"
+name = "pipe_calculate_mass_flowrate_from_pressure_change"
+qual = "FluidPipeCalcPressureChange::pipe_calculate_mass_flowrate_from_pressure_change"
+lines = [
+    502,
+    551,
+]
+hash = "sha256:7c3f3ad66cef239e2b6d5a32f9781677a9e207c9a5b52a1287268e7dfe7d09a3"
+doc_hash = "sha256:1be80927219d76fa7722f7b2beba9ad74c40f0153a8bd439b3ba7921ab4329da"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:4d2db3264979fd8a"
+name = "get_hydrostatic_pressure_change"
+qual = "FluidPipeCalcPressureChange::get_hydrostatic_pressure_change"
+lines = [
+    553,
+    572,
+]
+hash = "sha256:8d20c617892c935c084314db915584226ea6a0f3130c34888f496def7be936a1"
+doc_hash = "sha256:96eecbf1fff1927aea95a250cc709499e3898790352f9089cd405f0b5650ef80"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:4ea926545c667353"
+name = "get_custom_loss_correlations"
+qual = "FluidCustomComponentCalcPressureLoss::get_custom_loss_correlations"
+lines = [
+    581,
+    583,
+]
+hash = "sha256:59cfe6ee283854a61d6638963828d02d9f4f2139944a2818e43aa544ac26bfff"
+doc_hash = "sha256:f73bac2a1abc869e723dbc75b64d4d1660cf79d66f1586989cd205ba67702ac6"
+
+[[module."mod.rs".function]]
+id = "fn:c58b7fc1bf93f4b8"
+name = "get_custom_loss_correlations_immutable"
+qual = "FluidCustomComponentCalcPressureLoss::get_custom_loss_correlations_immutable"
+lines = [
+    585,
+    588,
+]
+hash = "sha256:d600f8d802a7d0985246fb647ada9982db80198a82f2bdebf5f6cceef97ab293"
+doc_hash = "sha256:872572dfc0e60c6c1d569e3a8458b9d0a8a77da4c5e69cb8b586cba8a90b6075"
+
+[[module."mod.rs".function]]
+id = "fn:d49b704dfefca116"
+name = "get_custom_component_absolute_roughness"
+qual = "FluidCustomComponentCalcPressureLoss::get_custom_component_absolute_roughness"
+lines = [
+    598,
+    600,
+]
+hash = "sha256:ec1794f89f5d31a18df45fb518bda290a5bbd4d4355ad53928780ed6a57607eb"
+doc_hash = "sha256:6f216d40944219407f88c140debe3ff708f146e4012a64d0a4604fa19b3cb739"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:2ee272298e2ea68a"
+name = "get_custom_component_absolute_roughness_immutable"
+qual = "FluidCustomComponentCalcPressureLoss::get_custom_component_absolute_roughness_immutable"
+lines = [
+    602,
+    604,
+]
+hash = "sha256:f8dee022a33e0992319a64e65cd156d8d46c555dbb1301dc727b0ba3018d9c4c"
+doc_hash = "sha256:9659610fdb38a76b686ca7a9b20ed6fcab6da41d566b7caa53aa36bc7fc40f5a"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:468e19f2add0b2e4"
+name = "fluid_custom_component_calc_pressure_loss"
+qual = "FluidCustomComponentCalcPressureLoss::fluid_custom_component_calc_pressure_loss"
+lines = [
+    606,
+    640,
+]
+hash = "sha256:6cad300387b676109dfdc610abced905505879fe4b0bdd058f98a18eafbf2621"
+doc_hash = "sha256:eae6a4f4c919bb9ff5f51b11656601141c87fa72b0d2e0aac4a5de4a3460c2c1"
+callees = [
+    "fn:1939f999de11b15c",
+    "fn:440244ba297bcb0f",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:1c93f3582d0122f5"
+name = "fluid_custom_component_calc_mass_flowrate_from_pressure_loss"
+qual = "FluidCustomComponentCalcPressureLoss::fluid_custom_component_calc_mass_flowrate_from_pressure_loss"
+lines = [
+    642,
+    694,
+]
+hash = "sha256:4bb5559d31bf6ed889c73aba1959638948a9a2df2d7553bd4ff88f4976c071d8"
+doc_hash = "sha256:ef3e5b1004e13a1653a4efcfd06383fe9772b3f4d201a485bd013823154b2364"
+callees = [
+    "fn:692454b23345e807",
+    "fn:b5e1ec9492f3fde9",
+    "fn:f61be243352c7961",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:3339aa632f513c37"
+name = "fluid_custom_component_calc_pressure_change"
+qual = "FluidCustomComponentCalcPressureChange::fluid_custom_component_calc_pressure_change"
+lines = [
+    705,
+    749,
+]
+hash = "sha256:ef9ec9070ab33d1f8fead213f2b637168593406347c86f75fea0d440c5b36f84"
+doc_hash = "sha256:f6ba84bcfe989d60176e398035d92507be77ba299d22741e33cf94628f3a6ccb"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:44952c845b00850e"
+name = "fluid_custom_component_calc_mass_flowrate_from_pressure_change"
+qual = "FluidCustomComponentCalcPressureChange::fluid_custom_component_calc_mass_flowrate_from_pressure_change"
+lines = [
+    751,
+    798,
+]
+hash = "sha256:9c44c48666398d37802d39a98acf3f49b67aca3bc83a102a9b319377d0770e3b"
+doc_hash = "sha256:c0fcab0c998793455a73865c14d6235a60319970a580ba574804b360ddcdd898"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:685d001b4b0cad76"
+name = "get_hydrostatic_pressure_change"
+qual = "FluidCustomComponentCalcPressureChange::get_hydrostatic_pressure_change"
+lines = [
+    800,
+    819,
+]
+hash = "sha256:8d20c617892c935c084314db915584226ea6a0f3130c34888f496def7be936a1"
+doc_hash = "sha256:96eecbf1fff1927aea95a250cc709499e3898790352f9089cd405f0b5650ef80"
+physical_interface = true
+
+[module."unit_test_fluid_component_traits.rs"]
+path = "crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::unit_test_fluid_component_traits"
+
+[[module."unit_test_fluid_component_traits.rs".function]]
+id = "fn:72fb1c24b3faa581"
+name = "test_custom_fluid_component_pressure_loss"
+qual = "test_custom_fluid_component_pressure_loss"
+lines = [
+    1,
+    110,
+]
+hash = "sha256:38b4ec1149e709291108e0a9fbdb0b1e719ca090248c47250788d34154f2c6bc"
+doc_hash = "sha256:8be0f29c0bffd096f2dd6ad2a7d5c8a5d5733bd7d14282d6dfc084c95a568337"
+callees = ["fn:c9002ba20db6841b"]
+test = true
+
+[[module."unit_test_fluid_component_traits.rs".function]]
+id = "fn:d7b82f6312b8a687"
+name = "test_custom_fluid_component_mass_flow_from_pressure_loss"
+qual = "test_custom_fluid_component_mass_flow_from_pressure_loss"
+lines = [
+    112,
+    231,
+]
+hash = "sha256:0996ca0ba40b313437e3334aea4733716d18e8e2055aee27f816a95543b72b39"
+doc_hash = "sha256:6a2c78398f247619390e3eb32dced5a9a50def991e478e44d25364cca2c6b7ed"
+callees = ["fn:c9002ba20db6841b"]
+test = true
+
+[[module."unit_test_fluid_component_traits.rs".function]]
+id = "fn:23f41a9fa1a184ed"
+name = "test_custom_fluid_component_pressure_change"
+qual = "test_custom_fluid_component_pressure_change"
+lines = [
+    233,
+    516,
+]
+hash = "sha256:10759140fff6c11734137639d35cc75c27250593daa779820737398847a22374"
+doc_hash = "sha256:c5859177becd333bb126b3abe5f209c22067da48b5c2c52c7a78152524137540"
+callees = ["fn:c9002ba20db6841b"]
+test = true
+
+[[module."unit_test_fluid_component_traits.rs".function]]
+id = "fn:5cbe92f12a7d093c"
+name = "test_custom_fluid_component_mass_flowrate_from_pressure_change"
+qual = "test_custom_fluid_component_mass_flowrate_from_pressure_change"
+lines = [
+    518,
+    780,
+]
+hash = "sha256:f36bba46e53613adf392827ac4f9f4695c709669bd9e03fb9a25d0f84f59ba31"
+doc_hash = "sha256:7530b3f3938c9cdda280f7d3ddcf9f981490af5f1048c4ad5591f2f8dac11854"
+callees = ["fn:c9002ba20db6841b"]
+test = true

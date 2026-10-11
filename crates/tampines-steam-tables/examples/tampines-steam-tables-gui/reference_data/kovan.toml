@@ -1,0 +1,60 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/reference_data"
+test_ids = ["crates/tampines-steam-tables/examples/tampines-steam-tables-gui/reference_data/mod.rs::row_counts_match_fixtures"]
+
+[module."edwards.rs"]
+path = "example:tampines-steam-tables-gui::reference_data::edwards"
+
+[module."marviken.rs"]
+path = "example:tampines-steam-tables-gui::reference_data::marviken"
+
+[module."mod.rs"]
+path = "example:tampines-steam-tables-gui::reference_data"
+
+[[module."mod.rs".function]]
+id = "fn:cb4f20ba4fbe695f"
+name = "pinned"
+qual = "pinned"
+lines = [
+    108,
+    117,
+]
+hash = "sha256:8dfe1693b8628d712cfac7d3737ceddad9c57dd373d504f2d23afde35596860d"
+doc_hash = "sha256:7c8f610d69a90f590272c5662fce5b03745aea7bcdad9861bb743494084ff882"
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:b686e4df475d65af"
+name = "row_counts_match_fixtures"
+qual = "row_counts_match_fixtures"
+lines = [
+    119,
+    171,
+]
+hash = "sha256:09260da0b845b98fe9e54d9d3c937a7e81422b724c1a33f8a278e8f5c85efedb"
+doc_hash = "sha256:6ded7ffe8478ee72fcceeeb50f18b598c02778b0d4f5e4bbe155cdcf0c47d491"
+callees = ["fn:cb4f20ba4fbe695f"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:3ad3b8cb5e5cda13"
+name = "no_dataset_carries_a_non_finite_number"
+qual = "no_dataset_carries_a_non_finite_number"
+lines = [
+    173,
+    221,
+]
+hash = "sha256:bac3e012a0c45ccb335194ac218167f10e7a9045c4d55e260f2ddebe15391250"
+doc_hash = "sha256:cb80fa6656a13c1d42d02a657e6809249f8b9ddf88a4c94586744fbbf16cafa0"
+test = true
+
+[module."moody.rs"]
+path = "example:tampines-steam-tables-gui::reference_data::moody"
+
+[module."wagner.rs"]
+path = "example:tampines-steam-tables-gui::reference_data::wagner"
+
+[module."zaloudek.rs"]
+path = "example:tampines-steam-tables-gui::reference_data::zaloudek"

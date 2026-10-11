@@ -1,0 +1,147 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/heat_transfer_entities/tests/mixing_joints"
+
+[module."fwd_flow.rs"]
+path = "crate::pre_built_components::heat_transfer_entities::tests::mixing_joints::fwd_flow"
+
+[[module."fwd_flow.rs".function]]
+id = "fn:a6ddb022e638baf0"
+name = "adiabatic_mixing_joint_test_link_to_front_and_back"
+qual = "adiabatic_mixing_joint_test_link_to_front_and_back"
+lines = [
+    1,
+    232,
+]
+hash = "sha256:369bf9a64197d80ae1923e3a78ca0b90826b2fd7c3be2a3da70cc7f7583a9fd7"
+doc_hash = "sha256:45df50a7a40873f4396198743c1a4d813eb1270d2e2fa0be4cee0cf486573ac5"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:2d7b8ddc9930a271",
+    "fn:313305118add2fcf",
+    "fn:3ab99241909cec96",
+    "fn:428a459b059dec74",
+    "fn:4cad4ddd84ccee48",
+    "fn:5898244cb765d25d",
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:bb0f352d6024ab79",
+    "fn:dda41651835c793f",
+    "fn:f3cde3d60d3dff8d",
+]
+test = true
+
+[[module."fwd_flow.rs".function]]
+id = "fn:bc286b3bb78e0d3a"
+name = "adiabatic_mixing_joint_test_link_to_front_only"
+qual = "adiabatic_mixing_joint_test_link_to_front_only"
+lines = [
+    234,
+    462,
+]
+hash = "sha256:b2f2e22d04cfe4ca4ee2c5e7341f4b3bf3a4fd388f9f8e61f7929be9bc626e3a"
+doc_hash = "sha256:01e45bb4c3adb1650a074931922bfc143e498d9916be0889f3b6f35cac85490c"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:2d7b8ddc9930a271",
+    "fn:313305118add2fcf",
+    "fn:3ab99241909cec96",
+    "fn:428a459b059dec74",
+    "fn:4cad4ddd84ccee48",
+    "fn:5898244cb765d25d",
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:bb0f352d6024ab79",
+    "fn:dda41651835c793f",
+    "fn:e914b3ed909034f5",
+    "fn:f3cde3d60d3dff8d",
+]
+test = true
+
+[[module."fwd_flow.rs".function]]
+id = "fn:5cac6db610bdc327"
+name = "adiabatic_mixing_joint_test_hte_single_cv_only"
+qual = "adiabatic_mixing_joint_test_hte_single_cv_only"
+lines = [
+    464,
+    662,
+]
+hash = "sha256:b45e1016024c1e868310236cfac2935f1c165cff8cb366d93ef10f3f8fd4c78d"
+doc_hash = "sha256:f95b2c483020af5b25054b7026fb2c20c3e5a7b15b4ebf3798c056c3ae168c78"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:3ab99241909cec96",
+    "fn:428a459b059dec74",
+    "fn:4cad4ddd84ccee48",
+    "fn:5898244cb765d25d",
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:dda41651835c793f",
+    "fn:e914b3ed909034f5",
+    "fn:f3cde3d60d3dff8d",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::heat_transfer_entities::tests::mixing_joints"
+
+[module."reverse_flow.rs"]
+path = "crate::pre_built_components::heat_transfer_entities::tests::mixing_joints::reverse_flow"
+
+[[module."reverse_flow.rs".function]]
+id = "fn:0a70ab4fadab4f9a"
+name = "adiabatic_mixing_joint_test_link_to_front_and_back_reverse_flow"
+qual = "adiabatic_mixing_joint_test_link_to_front_and_back_reverse_flow"
+lines = [
+    1,
+    232,
+]
+hash = "sha256:0797ccbc7e8e27124f4f5edba1364234a1d2b9d0fe3309651b2c786c3f099892"
+doc_hash = "sha256:45df50a7a40873f4396198743c1a4d813eb1270d2e2fa0be4cee0cf486573ac5"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:2d7b8ddc9930a271",
+    "fn:313305118add2fcf",
+    "fn:3ab99241909cec96",
+    "fn:428a459b059dec74",
+    "fn:4cad4ddd84ccee48",
+    "fn:5898244cb765d25d",
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:bb0f352d6024ab79",
+    "fn:dda41651835c793f",
+    "fn:f3cde3d60d3dff8d",
+]
+test = true
+
+[[module."reverse_flow.rs".function]]
+id = "fn:07400a4725fc5113"
+name = "adiabatic_mixing_joint_test_hte_single_cv_only"
+qual = "adiabatic_mixing_joint_test_hte_single_cv_only"
+lines = [
+    234,
+    432,
+]
+hash = "sha256:d7b1925641ae169f6a721023aa6291531e118402896a281748b9a7965f078270"
+doc_hash = "sha256:f95b2c483020af5b25054b7026fb2c20c3e5a7b15b4ebf3798c056c3ae168c78"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:3ab99241909cec96",
+    "fn:428a459b059dec74",
+    "fn:4cad4ddd84ccee48",
+    "fn:5898244cb765d25d",
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:6256de6e1d4d986a",
+    "fn:dda41651835c793f",
+    "fn:e914b3ed909034f5",
+    "fn:f3cde3d60d3dff8d",
+]
+test = true

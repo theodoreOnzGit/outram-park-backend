@@ -1,0 +1,621 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-mc-libs"
+dir = "crates/outram-mc-libs/src/geometry/virtual_lattice"
+test_ids = [
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::a_non_sphere_surface_is_reported_as_unregistered",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::a_small_sphere_registers_only_in_its_own_voxel",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::a_sphere_outside_the_grid_is_reported_as_unregistered",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::a_sphere_straddling_a_face_registers_in_both_voxels",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::a_zero_pitch_is_a_programming_error",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::an_oversized_sphere_is_flagged_because_the_neighbourhood_scan_may_miss_voxels",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::find_containing_agrees_with_a_brute_force_scan_over_a_packing",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::find_containing_is_strict_on_the_surface",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::find_containing_locates_the_sphere_around_a_point",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::find_containing_returns_none_in_the_matrix_between_particles",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::flat_index_is_x_fastest_matching_upstream",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::indices_outside_the_grid_are_reported_then_clamped",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::tangency_is_exclusive_matching_upstreams_strict_comparison",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::traversal_agrees_with_brute_force_over_a_packing",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::traversal_finds_a_sphere_straight_ahead",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::traversal_normalises_a_non_unit_direction",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::traversal_on_an_empty_grid_returns_infinity",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::traversal_respects_the_coincident_flag_for_the_surface_it_sits_on",
+    "crates/outram-mc-libs/src/geometry/virtual_lattice/tests.rs::traversal_returns_infinity_when_the_ray_misses_everything",
+]
+
+[module."mod.rs"]
+path = "crate::geometry::virtual_lattice"
+
+[[module."mod.rs".function]]
+id = "fn:f145d9bdcf1c0fe3"
+name = "build"
+qual = "VirtualLattice::build"
+lines = [
+    151,
+    252,
+]
+hash = "sha256:24448bf336030c7171f663c454fb333105d085ef8adcee11720afed6a76eb64e"
+doc_hash = "sha256:e10be5de2ab25e8d7efd9e1dc56d5b0628c66f271b1005b5169458b398967a2a"
+callees = [
+    "fn:69be0e825d93ac92",
+    "fn:cb617d027c41b6a2",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:bdc0c1bf26cb35bd"
+name = "flat_index"
+qual = "VirtualLattice::flat_index"
+lines = [
+    254,
+    259,
+]
+hash = "sha256:98b98b943f37d697e378d1af6bf63c86d2b73df4f4915108997e1ec5c06cba55"
+doc_hash = "sha256:e43d612bca3f4ef26b9d0923a5ca5b5596172f98dcd6ae8bcd24159748dd7e7b"
+reached_by = [
+    "#1",
+    "#3",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:70e7be049ce5b993"
+name = "n_voxels"
+qual = "VirtualLattice::n_voxels"
+lines = [
+    261,
+    265,
+]
+hash = "sha256:5ace5962fc0b735a50b7e6a0fc0325ead14662856ae91b87acfeaf0b8e87b38d"
+doc_hash = "sha256:ffe3255eed820513613926a013d5ee6e2349fba3af55140735fb48e4f2067041"
+reached_by = [
+    "#0",
+    "#10",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2316805441ca1d7e"
+name = "surfaces_in_voxel"
+qual = "VirtualLattice::surfaces_in_voxel"
+lines = [
+    267,
+    272,
+]
+hash = "sha256:8a52917ad2e1a0f3dc7ed533cdd97f14b0161ab2549dd264e00829c569acdea7"
+doc_hash = "sha256:e309a541e5c0995fba70bbeb7f1d987fac11a02d4217dbd759afb0bc990fb2bf"
+callees = ["fn:bdc0c1bf26cb35bd"]
+reached_by = [
+    "#1",
+    "#3",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:dd5ff3a2f967ad0f"
+name = "indices_at"
+qual = "VirtualLattice::indices_at"
+lines = [
+    274,
+    284,
+]
+hash = "sha256:2922b4d8644d4f0a66fc6e820de724e67d21ef7158cf1efbca632431014c8bb5"
+doc_hash = "sha256:4ca2948a8fa3bca2e3c41a190ddf1c86f730287734e920a4537e1a764805d2f0"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:69b77171bca3d185"
+name = "clamped_indices_at"
+qual = "VirtualLattice::clamped_indices_at"
+lines = [
+    286,
+    298,
+]
+hash = "sha256:057ad7b18b8aa3c69bbd9116e6c4e2ede6aa29febceb717da54f7b5fdea39aff"
+doc_hash = "sha256:a9bcca62bf54980b9e8fb79719dcda92d9910f43c5a6ffeb3f66e77f9e351761"
+callees = ["fn:dd5ff3a2f967ad0f"]
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e6c4e78f130c92fa"
+name = "contains_indices"
+qual = "VirtualLattice::contains_indices"
+lines = [
+    300,
+    304,
+]
+hash = "sha256:9e9e54b7ce7ed1f0a609637f2b7a83ab2ae5570131429681291c979469ade0b9"
+doc_hash = "sha256:7bd8b59c4cfaba3d51478a1586175055dd85723a7096e6b4a7e8feff4cf50d50"
+reached_by = [
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:298a82f591251507"
+name = "find_containing"
+qual = "VirtualLattice::find_containing"
+lines = [
+    306,
+    331,
+]
+hash = "sha256:8235b024a52d72960d3d4ffd680108b2c67af15b54767a495c8dd1458323077c"
+doc_hash = "sha256:a4a6339791e545ba25baadac6539daae06f50eb9e46a6e3bfaedf6e7bfda04cd"
+callees = [
+    "fn:2316805441ca1d7e",
+    "fn:69b77171bca3d185",
+    "fn:cb617d027c41b6a2",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[module."tests.rs"]
+path = "crate::geometry::virtual_lattice::tests"
+
+[[module."tests.rs".function]]
+id = "fn:740f9c860fe90eb3"
+name = "sphere"
+qual = "sphere"
+lines = [
+    16,
+    25,
+]
+hash = "sha256:de190f59b18ba2c434ee2075181260be6d3d7fd3a9c35ae47d17c97ec273a988"
+doc_hash = "sha256:57cd1b657b757d821d956904a8cde6664bb9ec406cd0995a519ea41eedee8466"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:7392c938f8cfe2b6"
+name = "packing"
+qual = "packing"
+lines = [
+    27,
+    46,
+]
+hash = "sha256:4817b2dcdf0c8225a28a9d5f749722e978f550bec49e8ab113975ff458ee864d"
+doc_hash = "sha256:3a879aaf5a786fb75acf384338f35772acd086aa03960646e33fe51f7970c87f"
+callees = ["fn:740f9c860fe90eb3"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1cd7bbebd03c6678"
+name = "a_small_sphere_registers_only_in_its_own_voxel"
+qual = "a_small_sphere_registers_only_in_its_own_voxel"
+lines = [
+    50,
+    60,
+]
+hash = "sha256:5846123c9c2bb200b043cbf38726e1c59fe4d0c32c504b9d5f70ef1f967bdf2b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2316805441ca1d7e",
+    "fn:740f9c860fe90eb3",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:40d275ed2bbd4592"
+name = "a_sphere_straddling_a_face_registers_in_both_voxels"
+qual = "a_sphere_straddling_a_face_registers_in_both_voxels"
+lines = [
+    62,
+    71,
+]
+hash = "sha256:d0e7ee41146773107e77a25a0147f72605dc3467304951d16558c5281a13a703"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2316805441ca1d7e",
+    "fn:740f9c860fe90eb3",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:8f1bba1c94aff616"
+name = "tangency_is_exclusive_matching_upstreams_strict_comparison"
+qual = "tangency_is_exclusive_matching_upstreams_strict_comparison"
+lines = [
+    73,
+    95,
+]
+hash = "sha256:a25a2da1ac37320c04f54337a28c1c744db016fda968e902e8320e68594162e9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2316805441ca1d7e",
+    "fn:740f9c860fe90eb3",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:7fd72fe66694c7ca"
+name = "a_non_sphere_surface_is_reported_as_unregistered"
+qual = "a_non_sphere_surface_is_reported_as_unregistered"
+lines = [
+    97,
+    111,
+]
+hash = "sha256:6351c44375391bdda27651093e21f7eb8bbdad9cf3306031f7820c358a8a207d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:70e7be049ce5b993",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:40eaf363e821968a"
+name = "a_sphere_outside_the_grid_is_reported_as_unregistered"
+qual = "a_sphere_outside_the_grid_is_reported_as_unregistered"
+lines = [
+    113,
+    120,
+]
+hash = "sha256:18a2e79ef1ca9c271e4902c465a6e0d431b08f1195ec49dc6a990e1a27bdd62e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:740f9c860fe90eb3",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:30c25bdc1743960f"
+name = "an_oversized_sphere_is_flagged_because_the_neighbourhood_scan_may_miss_voxels"
+qual = "an_oversized_sphere_is_flagged_because_the_neighbourhood_scan_may_miss_voxels"
+lines = [
+    122,
+    131,
+]
+hash = "sha256:d8437fed473b33d81ec773b6dc40747a0d08cd9b50bf1a858011dc6a54f58d86"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:740f9c860fe90eb3",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:41e785979838a8f0"
+name = "a_zero_pitch_is_a_programming_error"
+qual = "a_zero_pitch_is_a_programming_error"
+lines = [
+    133,
+    137,
+]
+hash = "sha256:287f481c2ba2c9c45ea61507201c611c43828cc515fd6417266c2787d41335a3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f145d9bdcf1c0fe3"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:2108761c20f2dc71"
+name = "flat_index_is_x_fastest_matching_upstream"
+qual = "flat_index_is_x_fastest_matching_upstream"
+lines = [
+    141,
+    148,
+]
+hash = "sha256:39194a3c5736861df4241c83e5729285a4fc1ddd136f173b9e3f309c13afb548"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:70e7be049ce5b993",
+    "fn:bdc0c1bf26cb35bd",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:16911b654abefb60"
+name = "indices_outside_the_grid_are_reported_then_clamped"
+qual = "indices_outside_the_grid_are_reported_then_clamped"
+lines = [
+    150,
+    158,
+]
+hash = "sha256:ceb53129174ceef881ecaee15dd1534be5f1f69fbcc8cde3607f59d7bc9cddeb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:69b77171bca3d185",
+    "fn:cb1fc1a67d38f99a",
+    "fn:dd5ff3a2f967ad0f",
+    "fn:e6c4e78f130c92fa",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:084000b8bf74b579"
+name = "find_containing_locates_the_sphere_around_a_point"
+qual = "find_containing_locates_the_sphere_around_a_point"
+lines = [
+    162,
+    175,
+]
+hash = "sha256:a55aa727c5fd25f33c003352b3e07832b229db1573d89f1491a37cb5af415281"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:298a82f591251507",
+    "fn:740f9c860fe90eb3",
+    "fn:cb1fc1a67d38f99a",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e14f3f04ce678f07"
+name = "find_containing_returns_none_in_the_matrix_between_particles"
+qual = "find_containing_returns_none_in_the_matrix_between_particles"
+lines = [
+    177,
+    187,
+]
+hash = "sha256:0e91b590eeed492d6b9ecd01a5839aeaf0e32fa563d9eb0b15e137d0dc8f57fe"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:298a82f591251507",
+    "fn:740f9c860fe90eb3",
+    "fn:cb1fc1a67d38f99a",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:37c15e07b75870c7"
+name = "find_containing_is_strict_on_the_surface"
+qual = "find_containing_is_strict_on_the_surface"
+lines = [
+    189,
+    199,
+]
+hash = "sha256:e59874c103ddae1acb43a1f6a82d5c0dde80e95ad64710fa911350f8bc9ce7e8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:298a82f591251507",
+    "fn:740f9c860fe90eb3",
+    "fn:cb1fc1a67d38f99a",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:8b4ee102ad30a012"
+name = "find_containing_agrees_with_a_brute_force_scan_over_a_packing"
+qual = "find_containing_agrees_with_a_brute_force_scan_over_a_packing"
+lines = [
+    201,
+    237,
+]
+hash = "sha256:423032f0174b54d7cb2e9058404a99295283c75224bec5e6d19d3ba9edd01618"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:298a82f591251507",
+    "fn:7392c938f8cfe2b6",
+    "fn:cb1fc1a67d38f99a",
+    "fn:cb617d027c41b6a2",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:8722dbf17f0af62c"
+name = "traversal_finds_a_sphere_straight_ahead"
+qual = "traversal_finds_a_sphere_straight_ahead"
+lines = [
+    241,
+    257,
+]
+hash = "sha256:3df3323f9b60d6f912ff7a9ee37400ff012c3ff9d1b54629d5cc618ffe2ff3f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5bf73e5775b95fb4",
+    "fn:740f9c860fe90eb3",
+    "fn:cb1fc1a67d38f99a",
+    "fn:cbb241b81b8f27f6",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:3fefbb4638563427"
+name = "traversal_returns_infinity_when_the_ray_misses_everything"
+qual = "traversal_returns_infinity_when_the_ray_misses_everything"
+lines = [
+    259,
+    273,
+]
+hash = "sha256:8f119a2f2d242c2feddf2ae0bc1beca0a8816938478003cc60deac5a70b48c9a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5bf73e5775b95fb4",
+    "fn:740f9c860fe90eb3",
+    "fn:cb1fc1a67d38f99a",
+    "fn:cbb241b81b8f27f6",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:2144c0086cc98b5b"
+name = "traversal_on_an_empty_grid_returns_infinity"
+qual = "traversal_on_an_empty_grid_returns_infinity"
+lines = [
+    275,
+    286,
+]
+hash = "sha256:07666865a10534c92b26b74d6c7b34a85a821c9f8ae77bcb3b52ff7945f69c42"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5bf73e5775b95fb4",
+    "fn:cbb241b81b8f27f6",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:f55b53950352ed4d"
+name = "traversal_normalises_a_non_unit_direction"
+qual = "traversal_normalises_a_non_unit_direction"
+lines = [
+    288,
+    309,
+]
+hash = "sha256:9f254ea5f36672270b504ebd601e95b4d7295f39fdfe32ae2a5e6793bada58e4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5bf73e5775b95fb4",
+    "fn:740f9c860fe90eb3",
+    "fn:cb1fc1a67d38f99a",
+    "fn:cbb241b81b8f27f6",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1fb037ad7df0ed4a"
+name = "traversal_agrees_with_brute_force_over_a_packing"
+qual = "traversal_agrees_with_brute_force_over_a_packing"
+lines = [
+    311,
+    376,
+]
+hash = "sha256:24fcdd9a49bf744dbbacefa6cdcbc8c9da66cf48a864a5144ea586315f1274f1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:15a38f085eda2a1d",
+    "fn:5bf73e5775b95fb4",
+    "fn:7392c938f8cfe2b6",
+    "fn:cb1fc1a67d38f99a",
+    "fn:dfc148f8a86a2d32",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1327e701a480869d"
+name = "traversal_respects_the_coincident_flag_for_the_surface_it_sits_on"
+qual = "traversal_respects_the_coincident_flag_for_the_surface_it_sits_on"
+lines = [
+    378,
+    398,
+]
+hash = "sha256:838b1519f12bc3f5cd58bf76fcd6b6c2d04713bebbfce6556ee22fa18527847c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5bf73e5775b95fb4",
+    "fn:740f9c860fe90eb3",
+    "fn:cb1fc1a67d38f99a",
+    "fn:cbb241b81b8f27f6",
+    "fn:f145d9bdcf1c0fe3",
+]
+test = true
+
+[module."traversal.rs"]
+path = "crate::geometry::virtual_lattice::traversal"
+
+[[module."traversal.rs".function]]
+id = "fn:5bf73e5775b95fb4"
+name = "distance"
+qual = "VirtualLattice::distance"
+lines = [
+    17,
+    155,
+]
+hash = "sha256:e321fca7db8b6239674f504ffe94ca62c40dbfd906c1c07502d9b4749a265345"
+doc_hash = "sha256:7e02c5365c13d639c4290e35d63bbdcfeaebcc69b7ffb875efffb2ab17e8a2b0"
+callees = [
+    "fn:2316805441ca1d7e",
+    "fn:bab2892cc6b2b21a",
+    "fn:dd5ff3a2f967ad0f",
+    "fn:e6c4e78f130c92fa",
+]
+reached_by = [
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."traversal.rs".function]]
+id = "fn:15a38f085eda2a1d"
+name = "distance_brute_force"
+qual = "VirtualLattice::distance_brute_force"
+lines = [
+    157,
+    182,
+]
+hash = "sha256:ebc5fa813c08e86f5c909ec281a4863890ca8e38a919ec650c7704f29076f13c"
+doc_hash = "sha256:a103ef68239de5f92ab00c02e3c04bef1c2f5be3145816ea4bb058fbb0e60f7e"
+callees = ["fn:bab2892cc6b2b21a"]
+reached_by = ["#13"]

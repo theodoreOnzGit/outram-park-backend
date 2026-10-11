@@ -1,0 +1,18 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/src/balance_of_plant"
+
+[module."mod.rs"]
+path = "crate::balance_of_plant"
+
+[[module."mod.rs".function]]
+id = "fn:f391d746ea3b19c3"
+name = "new"
+qual = "RankineCycle::new"
+lines = [
+    35,
+    48,
+]
+hash = "sha256:d9ebb92551ee1d5bf9f554200fbe06f567403ce058ed2d802a19c4abfee77f6d"
+doc_hash = "sha256:3a54b8c977ea886d25bc565c9ce25f0b23b8cc61bb03855df2c23abec3bcf5ab"

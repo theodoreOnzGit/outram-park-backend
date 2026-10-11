@@ -1,0 +1,2142 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/fluid_mechanics_correlations"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::restarting_starts_a_fresh_run_and_abandons_the_old_one",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::the_map_reset_button_restarts_the_plant_and_keeps_the_map_view",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::default_commands_hold_the_plant_bounded",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::determinism_same_config_same_trace",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::matches_the_recorded_reference_baseline",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::the_trace_carries_a_closing_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::a_huge_step_lands_on_the_steady_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::heat_flows_downhill_and_reverses_rather_than_over_cooling",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_chain_conserves_energy_over_a_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_chain_opens_in_equilibrium_at_its_design_heat",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_rccs_is_a_fixed_50_c_sink_fed_by_vessel_radiation",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_reflector_and_rpv_capacities_are_derived",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_riser_leg_uses_gnielinski_and_vanishes_without_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_against_liu_and_cao_table_8",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_conserves_energy_and_vents_the_published_mass",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_with_air_ingress_indicative_30_min",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::kinetics_fuel_node_tracks_the_bed_node_after_a_scram",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_at_the_published_test_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_reactor_shuts_itself_down",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_with_and_without_xenon",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::no_corner_of_the_command_envelope_crosses_or_clamps",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_rod_position_that_holds_three_megawatts",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_steady_state_bed_temperature_at_the_opening_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::reproduce_issue_22_scram_cooldown_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_core_side_energy_chain_conserves_energy",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_exchanger_holds_its_courant_margin_at_maximum_circulator_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_gh351_excursion_runs_through_2000_k_with_a_resolved_fuel_stack",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_helium_never_leaves_the_core_hotter_than_the_bed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_kernel_doppler_channel_is_ablated_on_the_lofc_transient",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_live_map_field_is_off_by_default_and_only_the_gui_builder_turns_it_on",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_passive_path_conserves_energy_through_a_full_plant_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_plant_outer_correctors_converge",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_snapshot_publishes_each_runs_own_transit_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_conserves_energy_from_fission_to_the_steam_generator",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_steps_at_the_gui_timestep",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_against_gao_shi_and_liu_cao",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_conserves_energy_and_follows_the_published_sequence",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::where_the_plant_step_spends_its_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/mod.rs::placeholder_tiers_reproduce_one_node_porous_media_exactly",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_bed_step_closes_its_own_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_fuel_bed_coupling_is_read_off_the_start_of_step_profile",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::two_node_balance_settles_with_all_power_leaving_via_helium_throughflow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs::the_courant_number_bounds_the_array_substep",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/tede_accumulator.rs::the_plant_publishes_a_deterministic_integral",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::default_controls_do_not_change_the_plants_initial_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::submitted_controls_survive_the_round_trip",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::tick_advances_exactly_one_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::trip_reset_is_consumed_not_latched",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/fluid_component_calculation/unit_test_darcy_loss_correlations.rs::dimensionless_darcy_loss_correlation_get_be",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/fluid_component_calculation/unit_test_darcy_loss_correlations.rs::dimensionless_darcy_loss_correlation_get_re_from_be",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/fluid_component_calculation/unit_test_dimensionless_darcy_loss.rs::dimensionless_darcy_loss_correlation_get_mass_flowrate_from_pressure_loss",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/fluid_component_calculation/unit_test_dimensionless_darcy_loss.rs::dimensionless_darcy_loss_correlation_get_pressure_loss",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::parasitic_heat_loss_integration_test_with_hte_1m",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::parasitic_heat_loss_integration_test_with_hte_3m",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::parasitic_heat_loss_integration_test_with_hte_5m",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::parasitic_heat_loss_integration_test_with_hte_7m",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::parasitic_heat_loss_integration_test_with_hte_9m",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples/air_pipe_example.rs::simple_fluid_pipe_example_1",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples/collection_fluid_components_in_series.rs::simple_fluid_collection_example_5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_isothermal_test_components/isothermal_ctah_heater_branch_test/debugging_tests.rs::ctah_pump_should_give_zero_resistance",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v1_uncalibrated/mod.rs::quick_test_uncalibrated_dracs_loop",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_extra_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_shorter",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/heat_transfer_ambient_calib.rs::hot_leg_htc_to_ambient_calibration_v1_failed",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_insulation_thickness_calibration_v1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/pipe_nusselt_number_calibration.rs::hot_leg_nusselt_calibration_failed",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/wall_correction_isolated_dracs_loop_regression.rs::parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/debugging_pid_controller.rs::dracs_natural_circ_thermal_hydraulics_pid_test_prototype_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/debugging_thermal_hydraulics.rs::dracs_natural_circ_thermal_hydraulics_regression_test_prototype_2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/misc_debugging.rs::steel_properties_debugging",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/mod.rs::dracs_natural_circ_thermal_hydraulics_pid_test_prototype_2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::ciet_coupled_nat_circ_set_a1_for_three_branch",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_fwd_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_reverse_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::zero_flow_for_three_branch_ver_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::ciet_coupled_nat_circ_set_a1_for_three_branch",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_fwd_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_reverse_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::zero_flow_for_three_branch_ver_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_dhx_blocked",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_reverse_diode_effect",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_steady_state_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_short_test_dhx_blocked",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_short_test_reverse_diode_effect",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_steady_state_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/mod.rs::test_fhr_four_branch_full_th_long_regression",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/regression.rs::test_fhr_four_branch_solver_pri_and_intrmd_loop_full_th_short_regression",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/heat_transfer_entities/tests/mixing_joints/fwd_flow.rs::adiabatic_mixing_joint_test_link_to_front_and_back",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/heat_transfer_entities/tests/mixing_joints/fwd_flow.rs::adiabatic_mixing_joint_test_link_to_front_only",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/heat_transfer_entities/tests/mixing_joints/reverse_flow.rs::adiabatic_mixing_joint_test_link_to_front_and_back_reverse_flow",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/heat_transfer_entities/tests/mod.rs::ciet_heater_v2_speedup_using_fluid_array_solid_column_hte",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/axial_conduction_verification.rs::reduced_thickness_increased_ua_test_check_fluid_array_and_insulation_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/axial_conduction_verification.rs::reduced_thickness_increased_ua_test_interal_thermal_resistance_check_fluid_array_only",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/axial_conduction_verification.rs::static_mixer_41_label_6_1_meter_test_reduced_thickness_increased_ua",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/axial_conduction_verification.rs::static_mixer_41_label_6_1_meter_test_reduced_thickness_increased_ua_fluid_array_only",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_3_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_41_label_6_1_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_5_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_7_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_9_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_9_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt_extra_time",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/preliminaries.rs::assert_nodalised_ua_calcs",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/preliminaries.rs::static_mixer_41_label_6_1_meter_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/preliminaries.rs::static_mixer_41_label_6_1_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/preliminaries.rs::static_mixer_41_label_6_reduced_insulation_thickness_1_meter_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials/tutorial_1.rs::fluid_mechanics_basics",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials/tutorial_2.rs::fluid_mechanics_get_mass_flowrate_from_pressure_drop",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials/tutorial_3.rs::fluid_mechanics_get_mass_flowrate_from_pressure_chg",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials/tutorial_4.rs::heated_flow_through_a_pipe",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials/tutorial_5.rs::thermal_hydraulics_flow_through_a_pipe",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials/tutorial_6.rs::gfhr_pipe_with_custom_graphite_material",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v1_porous_and_non_porous_conductance_pipe_to_insulation_arr",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v2_insulated_and_non_insulated_conductance_fluid_arr_to_pipe",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v2_insulated_and_non_insulated_conductance_twisted_tape_to_pipe_fluid_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::test_to_assert_if_conductance_from_insulation_to_ambient_is_correct",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/steady_state_validation.rs::steady_state_test_for_heater_v1_eight_nodes_validation",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/transient_validation.rs::transient_test_stepdown_4050s_fig_2_21_zweibaum_thesis_for_heater_v1_eight_nodes_validation",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/transient_validation.rs::transient_test_stepup_4050s_fig_2_21_zweibaum_thesis_for_heater_v1_eight_nodes_validation",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::example_heated_section_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_10kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_3kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_4kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_6kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_8kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::example_heated_section_regression_new_and_old",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_steel_shell_to_pipe_fluid_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_twisted_tape_to_pipe_fluid_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_top_bottom_mx10_struct_supports.rs::heater_plus_mx_10_with_supports",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads.rs::test_inclusive_heater_top_bottom_head",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads_and_mx10.rs::heater_plus_mx_10_without_supports",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heater_example_with_data_record.rs::example_heater_with_struct_supports_and_mx10",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests/heated_section_only.rs::heated_section_test_v2_10kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests/heated_section_only.rs::heated_section_test_v2_3kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests/heated_section_only.rs::heated_section_test_v2_4kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests/heated_section_only.rs::heated_section_test_v2_6kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests/heated_section_only.rs::heated_section_test_v2_8kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_bare_pipes_debugging_heat_addition",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_bare_pipes_debugging_heat_addition_with_parasitic_heat_loss",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_bare_pipes_debugging_parasitic_heat_loss_thermal_inertia",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/basic_postprocessing.rs::overall_htc_postprocessing_basic_test_shell_and_tube_heat_exchanger",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/calibration_functions.rs::calibration_regression_set_c9_no_heat_loss",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/calibration_functions.rs::calibration_regression_set_c9_no_heat_loss_mesh_refined",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/heat_transfer_verification.rs::basic_test_shell_and_tube_heat_exchanger",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/heat_transfer_verification.rs::basic_test_shell_and_tube_heat_exchanger_set_three",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/heat_transfer_verification.rs::basic_test_shell_and_tube_heat_exchanger_set_two",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/set_a.rs::du_test_shell_and_tube_heat_exchanger_set_a",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/set_b.rs::du_test_shell_and_tube_heat_exchanger_set_b",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/set_c.rs::du_test_shell_and_tube_heat_exchanger_set_c",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/thermophsyical_property_checks.rs::yd325_tube_reynolds_prandtl_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/uw_madison_flibe_loop_components/flibe_loop_iteration_one/parasitic_heat_loss_calibration.rs::parasitic_heat_loss_calibration_dry_run_1",
+]
+
+[module."churchill_friction_factor.rs"]
+path = "crate::fluid_mechanics_correlations::churchill_friction_factor"
+
+[[module."churchill_friction_factor.rs".function]]
+id = "fn:f36ed7a1cc90084b"
+name = "churchill_friction_captial_b"
+qual = "churchill_friction_captial_b"
+lines = [
+    76,
+    80,
+]
+hash = "sha256:7312f364c1c50e340a2453997bcd8d735f094621ef69176fbf1c4b5635931bc6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+    "#259",
+    "#260",
+    "#261",
+    "#262",
+    "#263",
+]
+
+[[module."churchill_friction_factor.rs".function]]
+id = "fn:6cee910fb45600e1"
+name = "churchill_friction_captial_a"
+qual = "churchill_friction_captial_a"
+lines = [
+    82,
+    95,
+]
+hash = "sha256:a10acdd9412985df3bb56ff44dc76486a2f46fcb852c5357a3961f2c126b4ab1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+    "#259",
+    "#260",
+    "#261",
+    "#262",
+    "#263",
+]
+
+[[module."churchill_friction_factor.rs".function]]
+id = "fn:34f5bf867d9e22de"
+name = "churchill_inner_term"
+qual = "churchill_inner_term"
+lines = [
+    97,
+    108,
+]
+hash = "sha256:2a1f97aa78d18c2f3ce40b780a61bc96b51212e85364afe9c5d5312c30cb6cc7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6cee910fb45600e1",
+    "fn:f36ed7a1cc90084b",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+    "#259",
+    "#260",
+    "#261",
+    "#262",
+    "#263",
+]
+
+[[module."churchill_friction_factor.rs".function]]
+id = "fn:f14a764a9cda1bd2"
+name = "fanning"
+qual = "fanning"
+lines = [
+    111,
+    129,
+]
+hash = "sha256:1f95b09bf1feb420150da08e450863413c5aae7e7a6ec7ab88a2832a58fb4deb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:34f5bf867d9e22de"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+    "#259",
+    "#260",
+    "#261",
+    "#262",
+    "#263",
+]
+
+[[module."churchill_friction_factor.rs".function]]
+id = "fn:9a9df62a2fff8ce4"
+name = "darcy"
+qual = "darcy"
+lines = [
+    131,
+    135,
+]
+hash = "sha256:b629cc0e161ed49f8bf202a3b335300b39043f5c3cabea9859b7435ec1618c09"
+doc_hash = "sha256:aa5edb8ac71f2741308b480eb9c5d9c1458b68cca624ddeec9d176dde503e466"
+callees = ["fn:f14a764a9cda1bd2"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+    "#259",
+    "#260",
+    "#261",
+    "#262",
+    "#263",
+]
+
+[[module."churchill_friction_factor.rs".function]]
+id = "fn:4d48ed13c092b6f6"
+name = "moody"
+qual = "moody"
+lines = [
+    137,
+    141,
+]
+hash = "sha256:845d541a04132e50e822ebdf3f2a960c45fa4c77bff6e4f6e50dd79ff0de6e43"
+doc_hash = "sha256:d6ca131f528f8083b533a9527a3bec03a9fce1946c0b42db6ecc51c7aa12b424"
+callees = ["fn:f14a764a9cda1bd2"]
+
+[[module."churchill_friction_factor.rs".function]]
+id = "fn:1fc080be8808d1b2"
+name = "f_ldk"
+qual = "f_ldk"
+lines = [
+    143,
+    175,
+]
+hash = "sha256:4672f799bede259303b2df2c3add6c4a80333fd861f3f322443d95528013505e"
+doc_hash = "sha256:db7b640513ade0cf6adc27923caf6ed22e16f929d973ffc9db59d8a307d124a9"
+callees = ["fn:9a9df62a2fff8ce4"]
+
+[[module."churchill_friction_factor.rs".function]]
+id = "fn:a2a8e8443ce5d445"
+name = "get_bejan_number_d"
+qual = "get_bejan_number_d"
+lines = [
+    177,
+    220,
+]
+hash = "sha256:1b11f6894e38da4b33020f3252176e2ccd24878b0572a647cc0d4481e13b9051"
+doc_hash = "sha256:4f248f26f64d28b7a6c01ea9607fddf23af22dacfa451616be53d56744d5ddab"
+callees = ["fn:9a9df62a2fff8ce4"]
+reached_by = ["#57"]
+
+[[module."churchill_friction_factor.rs".function]]
+id = "fn:bd0d662f5693fd6e"
+name = "get_reynolds_from_bejan"
+qual = "get_reynolds_from_bejan"
+lines = [
+    222,
+    291,
+]
+hash = "sha256:b9eea429037bb1773c42d3c3b7fbd6001c00e548fed24da95a286647243cc86c"
+doc_hash = "sha256:d53e43c053e24f830f71cb99a194a1fb7d46ce5efb46ae90dfb6b6be1933db3c"
+callees = ["fn:a2a8e8443ce5d445"]
+reached_by = ["#57"]
+
+[[module."churchill_friction_factor.rs".function]]
+id = "fn:cb303f286f3ab829"
+name = "pressure_drop_root"
+qual = "ReynoldsFromBejanD::pressure_drop_root"
+lines = [
+    320,
+    335,
+]
+hash = "sha256:7469a17808820afadc1649c42297627483b44b0de89e48b42c98ab1fec5c789f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:a2a8e8443ce5d445"]
+
+[[module."churchill_friction_factor.rs".function]]
+id = "fn:5f1dfdbc5d9808dc"
+name = "function"
+qual = "ReynoldsFromBejanD::function"
+lines = [
+    338,
+    340,
+]
+hash = "sha256:43d42fe3677611db77776f51f95c00934cf7bf367fe39e9ce522cbea0256d2d3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:cb303f286f3ab829"]
+
+[[module."churchill_friction_factor.rs".function]]
+id = "fn:645f33d39b1a6bf9"
+name = "initial_guess"
+qual = "ReynoldsFromBejanD::initial_guess"
+lines = [
+    341,
+    345,
+]
+hash = "sha256:21312c922ccc34c2adf7a6e73df56667c4169a78f3a17452f3e0e0397a14a48c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."courant_number.rs"]
+path = "crate::fluid_mechanics_correlations::courant_number"
+
+[[module."courant_number.rs".function]]
+id = "fn:fae1c7e9fce5f10b"
+name = "get_fluid_courant_number_one_dimension"
+qual = "get_fluid_courant_number_one_dimension"
+lines = [
+    15,
+    34,
+]
+hash = "sha256:79bfb6c3535ca427bd11a08e0d4ed6d5784983b80ec1b860a157a80a54932797"
+doc_hash = "sha256:c5c78b059ab3d658b51ca777b1d9e699b8d116500628a28f42f0b37036014efe"
+reached_by = [
+    "#25",
+    "#42",
+]
+physical_interface = true
+
+[[module."courant_number.rs".function]]
+id = "fn:fb48a03bc354d88b"
+name = "courant_number_3d_openfoam_algorithm_velocity"
+qual = "courant_number_3d_openfoam_algorithm_velocity"
+lines = [
+    36,
+    282,
+]
+hash = "sha256:9d1127ce759f174aea4cf26d07cd4b9270733b59e1d64263e146e09c78c872a2"
+doc_hash = "sha256:1f640ee015bd0250a47f94948f13f54c3f62ee77feb084fa767700ebf2143808"
+physical_interface = true
+
+[[module."courant_number.rs".function]]
+id = "fn:880427899753cf4c"
+name = "courant_number_3d_openfoam_algorithm_vol_flowrate"
+qual = "courant_number_3d_openfoam_algorithm_vol_flowrate"
+lines = [
+    284,
+    314,
+]
+hash = "sha256:eca65435ae26edca37dc7ebcb8abf7c6dfcee9d78dab509ad0855265a244de8e"
+doc_hash = "sha256:8f9d2c70134a8e4fad7b972466fbbeea5f8751eb310f948916efe428096b313b"
+physical_interface = true
+
+[[module."courant_number.rs".function]]
+id = "fn:9a6ad24d2466ac71"
+name = "fourier_number_heat_conduction"
+qual = "fourier_number_heat_conduction"
+lines = [
+    331,
+    355,
+]
+hash = "sha256:b16dd12d1ca235f59a56aca434267edd92893a7e8076eb86d181b8361f471f09"
+doc_hash = "sha256:fb029bfdb1fa16de913866d93222cdf6ab451d94b9653b4c8a239fb0b3691506"
+physical_interface = true
+
+[[module."courant_number.rs".function]]
+id = "fn:ace6199b341c3330"
+name = "fourier_number_heat_convection"
+qual = "fourier_number_heat_convection"
+lines = [
+    357,
+    384,
+]
+hash = "sha256:91dc7bfa43ef2ea000fd5c13fd5d593ce452ca0f4b6146260e0ea2ab496bbda3"
+doc_hash = "sha256:9a7f35914289a9b4603fae534e4184ab3aeeb2da7c0edfa88a74f689677084f0"
+physical_interface = true
+
+[[module."courant_number.rs".function]]
+id = "fn:3a69f3818aa7f15b"
+name = "single_face_courant_number_enthalpy_flow"
+qual = "single_face_courant_number_enthalpy_flow"
+lines = [
+    386,
+    402,
+]
+hash = "sha256:6d1a403007bd127f781477dd8d2d3e76e93bed89094f5ef9fd9a6e032aaf6f15"
+doc_hash = "sha256:aa18d916229af6da54ffbe3c26fa9e6d097ec8eed7f71006ee7feac17dd2b939"
+physical_interface = true
+
+[module."custom_fldk.rs"]
+path = "crate::fluid_mechanics_correlations::custom_fldk"
+
+[[module."custom_fldk.rs".function]]
+id = "fn:aaaf0b95586e1a86"
+name = "custom_f_ldk"
+qual = "custom_f_ldk"
+lines = [
+    72,
+    96,
+]
+hash = "sha256:87d83a3bb980c5e7afc08fcf1dd3a01f13d6771a69d958eca60c1c8d0299d7fc"
+doc_hash = "sha256:a6218c93bf1226d4aad7f0bc2eef5da47aefe7af32fde0a871e90b5afdd0a338"
+
+[[module."custom_fldk.rs".function]]
+id = "fn:a8fe224538353dac"
+name = "custom_kpipe"
+qual = "custom_kpipe"
+lines = [
+    98,
+    118,
+]
+hash = "sha256:28ade23e1cdd74f5e3d3a9255f276e6701082bea563c9c807b26368685a79b07"
+doc_hash = "sha256:0bdb997a817e96da6e55a58c91781c9cfb202e75d9a54566c53b4b6844686e0a"
+callees = [
+    "fn:aaaf0b95586e1a86",
+    "fn:ab4af62dd28e04c7",
+]
+
+[[module."custom_fldk.rs".function]]
+id = "fn:006fa672248f6ba2"
+name = "custom_kpipe_be_d"
+qual = "custom_kpipe_be_d"
+lines = [
+    120,
+    145,
+]
+hash = "sha256:64a6eeb22881c9f8abbe81c90471b90c2667ac1577d46aefcac624b1bc392a84"
+doc_hash = "sha256:e6d3b14f2365e9be659ad6b9842abb7a10474b4d6b9df81ab0caf62acf5eedb2"
+callees = ["fn:a8fe224538353dac"]
+
+[[module."custom_fldk.rs".function]]
+id = "fn:7ea97adb450bb5df"
+name = "custom_f_ldk_be_d"
+qual = "custom_f_ldk_be_d"
+lines = [
+    147,
+    171,
+]
+hash = "sha256:58441f164469ec6299f182887aaa73b2dc0ed2897a80e04b7f1f17b60011059c"
+doc_hash = "sha256:0e125a9f7dbf138edd29e78f022f5995a01b092c31a0997431542278036602f8"
+callees = ["fn:aaaf0b95586e1a86"]
+
+[[module."custom_fldk.rs".function]]
+id = "fn:f01c538ff0911b58"
+name = "get_reynolds"
+qual = "get_reynolds"
+lines = [
+    173,
+    241,
+]
+hash = "sha256:de62aed9236d2d868d31eb7104520b1911864dc224d526fd1e2c2f285929d433"
+doc_hash = "sha256:7d8bafe5ed22c5491fd2d0296352bbb913fd9b40e2ee3840f8431a26f616f0e0"
+callees = ["fn:7ea97adb450bb5df"]
+
+[[module."custom_fldk.rs".function]]
+id = "fn:479ecdf6af8b5bd1"
+name = "pressure_drop_root"
+qual = "ReynoldsFromBejanDCustom::pressure_drop_root"
+lines = [
+    271,
+    287,
+]
+hash = "sha256:3e2c7d765318c81a3ffe9db7bec790af9806af0eac5426d11d67902889774241"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7ea97adb450bb5df"]
+
+[[module."custom_fldk.rs".function]]
+id = "fn:bdde0f3d55b16f7c"
+name = "function"
+qual = "ReynoldsFromBejanDCustom::function"
+lines = [
+    290,
+    292,
+]
+hash = "sha256:43d42fe3677611db77776f51f95c00934cf7bf367fe39e9ce522cbea0256d2d3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:479ecdf6af8b5bd1"]
+
+[[module."custom_fldk.rs".function]]
+id = "fn:f36005ff3cd4883e"
+name = "initial_guess"
+qual = "ReynoldsFromBejanDCustom::initial_guess"
+lines = [
+    293,
+    297,
+]
+hash = "sha256:21312c922ccc34c2adf7a6e73df56667c4169a78f3a17452f3e0e0397a14a48c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."dimensionalisation.rs"]
+path = "crate::fluid_mechanics_correlations::dimensionalisation"
+
+[[module."dimensionalisation.rs".function]]
+id = "fn:b3c7129248f70d79"
+name = "calc_reynolds_from_velocity"
+qual = "calc_reynolds_from_velocity"
+lines = [
+    73,
+    94,
+]
+hash = "sha256:fca131740468351ecdcfae36c813003bc648635a86b5d9460b5807edc351cd0c"
+doc_hash = "sha256:4b6c3ffedf053e154de7e1ff8daa32ca9a5e15c9fca2cadf29f63e0ab50514a0"
+physical_interface = true
+
+[[module."dimensionalisation.rs".function]]
+id = "fn:f7ab4075b8705dce"
+name = "calc_reynolds_from_mass_rate"
+qual = "calc_reynolds_from_mass_rate"
+lines = [
+    96,
+    118,
+]
+hash = "sha256:88e0cfae7ba096bbcfffb3e21fbf0f73279c40d309b0b1f3e4cbe0a058dac45a"
+doc_hash = "sha256:8abb5114d2ec3fb84be72dd28735d766b2e2ce0966c4d5543e4075d04a0b07f7"
+reached_by = ["#57"]
+physical_interface = true
+
+[[module."dimensionalisation.rs".function]]
+id = "fn:f61be243352c7961"
+name = "calc_reynolds_to_mass_rate"
+qual = "calc_reynolds_to_mass_rate"
+lines = [
+    120,
+    144,
+]
+hash = "sha256:aaa2f45e720da561a753352bcf919791854d8057a40c840f8fb88811de39e9cd"
+doc_hash = "sha256:fab62a11887b9e637db48849fa2a72dded0ddafb029000865753c758ab8d2689"
+reached_by = ["#57"]
+physical_interface = true
+
+[[module."dimensionalisation.rs".function]]
+id = "fn:692454b23345e807"
+name = "calc_bejan_from_pressure"
+qual = "calc_bejan_from_pressure"
+lines = [
+    146,
+    171,
+]
+hash = "sha256:8ec863dad75a752f86793c9bdb99ff9fdc39b40312fdcd77e4505dfc65003783"
+doc_hash = "sha256:8eba9442830a6842ff6a8161ff6dc6e04c4a4e3f3bd744eb7d5204402afb21bf"
+reached_by = ["#57"]
+physical_interface = true
+
+[[module."dimensionalisation.rs".function]]
+id = "fn:440244ba297bcb0f"
+name = "calc_bejan_to_pressure"
+qual = "calc_bejan_to_pressure"
+lines = [
+    173,
+    200,
+]
+hash = "sha256:f9b5438dd1b67a38fe7bddcaf0cc2ad9cb43f134688e36c3bf0cd7b10e283aed"
+doc_hash = "sha256:fd9556f9ee813d033d1e9ec683de3c3d9c8fedc95879abadc87e3073bd549ad2"
+reached_by = ["#57"]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::fluid_mechanics_correlations"
+
+[[module."mod.rs".function]]
+id = "fn:ab4af62dd28e04c7"
+name = "darcy"
+qual = "darcy"
+lines = [
+    107,
+    123,
+]
+hash = "sha256:9fd89e65d53f6ee4db9a2ad7de8dc13a270722837f537a37e9e4e010c1ecb863"
+doc_hash = "sha256:09a8bf7961a03f641d43b506e2bc9ae6652dbfb025192e027d42aeb01b8a7736"
+callees = ["fn:9a9df62a2fff8ce4"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#262",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c8001a782c0e74a2"
+name = "moody"
+qual = "moody"
+lines = [
+    125,
+    143,
+]
+hash = "sha256:3935830c05785660e97b5257df0949c37b8a8d918cfc51768c9157ff81c4dc60"
+doc_hash = "sha256:45da7a2316f0b65e0fc9e6bc013a0dad9e591a9933a9a041a02ae6ad7e9e04c0"
+callees = ["fn:4d48ed13c092b6f6"]
+
+[[module."mod.rs".function]]
+id = "fn:42a423baad337296"
+name = "fldk"
+qual = "fldk"
+lines = [
+    145,
+    179,
+]
+hash = "sha256:92874b1190fc86fa1300c1f3dd43f0332b8c99b64dec1150ee3e3f9611a503ac"
+doc_hash = "sha256:44dbcf6a42ef9d22320c4318b88a045a6fd0151dbcce658d16ba0913c3638115"
+callees = ["fn:1fc080be8808d1b2"]
+
+[[module."mod.rs".function]]
+id = "fn:6282fa4e2cdba133"
+name = "get_bejan_d"
+qual = "get_bejan_d"
+lines = [
+    181,
+    246,
+]
+hash = "sha256:3cc0054edc1d79d68e2a409dceb544002a72adc4f1ea4ed0d475b56a74a3d8b7"
+doc_hash = "sha256:74e8d2253e138cd606c749ba1e334a91921246d8ad9344d69c76a942c9569f48"
+callees = ["fn:a2a8e8443ce5d445"]
+
+[[module."mod.rs".function]]
+id = "fn:4dde5117f6d03c27"
+name = "get_reynolds_number"
+qual = "get_reynolds_number"
+lines = [
+    248,
+    337,
+]
+hash = "sha256:da91be30968aefff6be083902d89be6f49ec27f17caa665d6b408565d6c54bda"
+doc_hash = "sha256:3cf7ff07de891177ad38812f1f46dbbef3b1ca60da31c378bc99064d87e5a64b"
+callees = ["fn:bd0d662f5693fd6e"]
+
+[module."pipe_calculations.rs"]
+path = "crate::fluid_mechanics_correlations::pipe_calculations"
+
+[[module."pipe_calculations.rs".function]]
+id = "fn:f388412baf9ce13a"
+name = "pipe_calc_pressure_loss"
+qual = "pipe_calc_pressure_loss"
+lines = [
+    14,
+    79,
+]
+hash = "sha256:4421c82a39f64bd5f454e12eb7f8b2e3238f5eb70b46175cea4884863004abcf"
+doc_hash = "sha256:61d14cad3f202b9e60c863118035b00e7a9c5efae5a138f8d72f6a3035aca6a7"
+callees = [
+    "fn:440244ba297bcb0f",
+    "fn:a2a8e8443ce5d445",
+    "fn:f7ab4075b8705dce",
+]
+reached_by = ["#57"]
+physical_interface = true
+
+[[module."pipe_calculations.rs".function]]
+id = "fn:cfb206ae6884b1bb"
+name = "pipe_calc_mass_flowrate"
+qual = "pipe_calc_mass_flowrate"
+lines = [
+    81,
+    128,
+]
+hash = "sha256:035303e3d6f9730f6ad36c5eb67660fb7c1e46f1b61e4842d7bbc51e2a9df7fe"
+doc_hash = "sha256:3903ded16c528e528081367fdf385a7cacdb4093edc3b239c3e287abeea8831f"
+callees = [
+    "fn:692454b23345e807",
+    "fn:bd0d662f5693fd6e",
+    "fn:f61be243352c7961",
+]
+reached_by = ["#57"]
+physical_interface = true

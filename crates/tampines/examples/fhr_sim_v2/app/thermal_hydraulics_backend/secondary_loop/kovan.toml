@@ -1,0 +1,108 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/examples/fhr_sim_v2/app/thermal_hydraulics_backend/secondary_loop"
+
+[module."mod.rs"]
+path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::secondary_loop"
+
+[[module."mod.rs".function]]
+id = "fn:71cc0043a0df9a2c"
+name = "build_steam_generator_tube"
+qual = "build_steam_generator_tube"
+lines = [
+    50,
+    85,
+]
+hash = "sha256:696c1278dc3062be75f37e99ded41919c5f06168d7bcfcd4137384c1c3e58d2f"
+doc_hash = "sha256:2c21d0777f18cf45f385504bf8e5abccca7340fbbac4c776b5c187a5ab6ec6a1"
+callees = [
+    "fn:1b3f6d56027dbc51",
+    "fn:1d2865f3c3a06a45",
+    "fn:4c5c8e9916515b40",
+    "fn:a35132a84396237f",
+    "fn:e3b184e79e6044fe",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c159f1622691f2ab"
+name = "secondary_loop_single_timestep"
+qual = "FHRSimulatorApp::secondary_loop_single_timestep"
+lines = [
+    88,
+    318,
+]
+hash = "sha256:0bf71b484ef92e68eb0b7864b1a8c7e160332f8bf581b73c1cc20bdb16ca30e6"
+doc_hash = "sha256:8c7610e3e7785ba54e74cffcec168cded66aff74038de2937b5cfa0f49ecbbf1"
+callees = [
+    "fn:0707e8fb8dbb3a00",
+    "fn:2df0bc2b2c703241",
+    "fn:3390f105b0074948",
+    "fn:5a5bee728eb800cd",
+    "fn:60bc9505f708a609",
+    "fn:68614abcb2c30c3d",
+    "fn:75bb23067bbc5517",
+    "fn:8593bfd0b29144f2",
+    "fn:8862646fe4088877",
+    "fn:8b94a7a7c1140cef",
+    "fn:9aba352809b5f2a4",
+    "fn:a034500d55b2a2be",
+    "fn:a3a2492949f42920",
+    "fn:a7b13313b37a74af",
+    "fn:a7e7cd55f47c47fa",
+    "fn:be2fb6277cf24ee2",
+    "fn:bf4c13927b607a0e",
+    "fn:eff47085ca6952fe",
+    "fn:f09f00cc4fcef6cc",
+    "fn:f241daed20aed39e",
+    "fn:f472eb21333733c8",
+]
+physical_interface = true
+
+[module."pool_boiling.rs"]
+path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::secondary_loop::pool_boiling"
+
+[[module."pool_boiling.rs".function]]
+id = "fn:bae9b7d6ba65b2b7"
+name = "pool_boiling_improvised_correlation_as_fraction_of_maximum"
+qual = "pool_boiling_improvised_correlation_as_fraction_of_maximum"
+lines = [
+    60,
+    80,
+]
+hash = "sha256:77464c551f58844bb733e033eb31324fabb82aa954ce96097418ec1c4e561671"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[module."vibe_code_mass_balance.rs"]
+path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::secondary_loop::vibe_code_mass_balance"
+
+[[module."vibe_code_mass_balance.rs".function]]
+id = "fn:b67fa420ee08cc39"
+name = "fmt_vec"
+qual = "fmt_vec"
+lines = [
+    15,
+    20,
+]
+hash = "sha256:ef8cf8385b3233321694035879b3f073858aa0d58b970ac9061081923c7530e5"
+doc_hash = "sha256:2ff7f24d111e429b74e7b1f1048ba9fbbb4105842609cb2def05199005c42831"
+test = true
+
+[[module."vibe_code_mass_balance.rs".function]]
+id = "fn:b14da5f9b73d0d52"
+name = "main_steam_turbtest"
+qual = "main_steam_turbtest"
+lines = [
+    22,
+    109,
+]
+hash = "sha256:0f4dc8890fe1c96df89b650dd246636c4c672245fd640a03e6d58ff11334402f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:04372eb2cb9f9bc3",
+    "fn:151aad4ebbbcd1a5",
+    "fn:6dc82a6475c2f1e2",
+    "fn:b67fa420ee08cc39",
+]
+test = true

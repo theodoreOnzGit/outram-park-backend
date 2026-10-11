@@ -1,0 +1,27 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-pflotran"
+dir = "crates/outram-park-fork-pflotran/examples"
+
+[module."infiltration_column.rs"]
+path = "example:infiltration_column"
+
+[[module."infiltration_column.rs".function]]
+id = "fn:0542254ce0192194"
+name = "main"
+qual = "main"
+lines = [
+    56,
+    87,
+]
+hash = "sha256:a2c1497c8e91b44bc5282a5325d01728e1a8e4b44cf50560260ae6acc722b3d9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:12494c9c8d787268",
+    "fn:25fab8269bbef0ed",
+    "fn:4499c8b925e4307c",
+    "fn:a78beffb649db654",
+    "fn:b985048c1f3f150d",
+    "fn:cfde839e2f7c2ea5",
+    "fn:d16f1a22bc4a5abf",
+]

@@ -1,0 +1,5419 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-mc-libs"
+dir = "crates/outram-mc-libs/examples"
+test_ids = ["crates/outram-mc-libs/examples/icsbep_five_route_keff.rs::draw_helpers_colour_by_material_and_draw_godiva_as_its_sphere"]
+
+[module."ace_vs_endf_nuclide_probe.rs"]
+path = "example:ace_vs_endf_nuclide_probe"
+
+[[module."ace_vs_endf_nuclide_probe.rs".function]]
+id = "fn:f455b842e12850e9"
+name = "main"
+qual = "main"
+lines = [
+    29,
+    120,
+]
+hash = "sha256:504f1a49c0325abc07f575319312309a85b7b95d3790fe73d6a58221d3bc47f2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1195285e937a6177",
+    "fn:1aa06390f9c4a74e",
+    "fn:2c945092147fdb01",
+    "fn:3185c7acd97d8d33",
+    "fn:60c7fe84d9c8b064",
+    "fn:8d5dc837bc138a1f",
+    "fn:b09930e166ef4d0b",
+    "fn:c9317aaeb4555a01",
+    "fn:e748dd7104fbfecb",
+    "fn:f1ce5376ada95512",
+    "fn:f2e2315d01a7ab78",
+    "fn:ff59051b88d7fa16",
+]
+
+[module."ace_vs_endf_route_cost.rs"]
+path = "example:ace_vs_endf_route_cost"
+
+[[module."ace_vs_endf_route_cost.rs".function]]
+id = "fn:8c8d27c536f85cb2"
+name = "main"
+qual = "main"
+lines = [
+    86,
+    138,
+]
+hash = "sha256:8b6c8a824f71245cf38daf008df9705b8782c5fa98693a89682bba52376bd10b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0232185c47f057a8",
+    "fn:0ad8c2483b0f1b71",
+    "fn:0c37342d4a3bd8d1",
+    "fn:2322ad376308b463",
+    "fn:29a3fbe3105f6a45",
+    "fn:2c945092147fdb01",
+    "fn:4b5ce2eb6a0d1539",
+    "fn:51182576549f1646",
+    "fn:77685f9efde11e35",
+    "fn:77d03481265faf4e",
+    "fn:7d82113855d4f727",
+    "fn:a44d0ff32b059760",
+    "fn:b55bd89bff1a90f3",
+    "fn:b7b67ecc27b6f0aa",
+    "fn:c9317aaeb4555a01",
+    "fn:d1f3fa293b260d05",
+    "fn:d2187da6ba31b672",
+    "fn:de07b9571aee8cfc",
+    "fn:e748dd7104fbfecb",
+    "fn:ea1bd0239c09e88e",
+    "fn:ee7016b7afcdb600",
+    "fn:eeac8cab23ae8529",
+    "fn:ef1e8bf8932b7261",
+    "fn:f1e10e4bdc2db70e",
+    "fn:fb070b5043e6f476",
+    "fn:fcba4b26f279ef7b",
+]
+
+[module."b10_thermal_probe.rs"]
+path = "example:b10_thermal_probe"
+
+[[module."b10_thermal_probe.rs".function]]
+id = "fn:48d73b19952af17d"
+name = "main"
+qual = "main"
+lines = [
+    40,
+    108,
+]
+hash = "sha256:4024cc9e42d8d413a0839df4384c199496d6cde2c06f95be182b12433bcad3b7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:7d2407a4e961a0dc",
+    "fn:9014fa79e1c55492",
+    "fn:c17fd96bd8c86251",
+    "fn:c9317aaeb4555a01",
+    "fn:eeac8cab23ae8529",
+]
+
+[[module."b10_thermal_probe.rs".function]]
+id = "fn:7d2407a4e961a0dc"
+name = "vv_gate"
+qual = "vv_gate"
+lines = [
+    110,
+    236,
+]
+hash = "sha256:51f73f71cb27242a568644688e6bffeeaded0b4772d55b9928fb74f803622ef6"
+doc_hash = "sha256:f78d578b71debb0c2de484ca9481ca9d6d4da1d4897f9907efd08566770a44df"
+callees = [
+    "fn:113dc740eeb8eeae",
+    "fn:76d287955e66f9b9",
+    "fn:c9317aaeb4555a01",
+]
+
+[module."cls_scls_regime_sweep.rs"]
+path = "example:cls_scls_regime_sweep"
+
+[[module."cls_scls_regime_sweep.rs".function]]
+id = "fn:c655c5ea0969d522"
+name = "arg_usize"
+qual = "arg_usize"
+lines = [
+    173,
+    180,
+]
+hash = "sha256:e9464be0013ebace7b2980414980b699ef4152e5b478c6a6ff73e6a5702703b9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cls_scls_regime_sweep.rs".function]]
+id = "fn:33a69487b8fffc8f"
+name = "main"
+qual = "main"
+lines = [
+    182,
+    337,
+]
+hash = "sha256:b5ba254234fa75f8f9c64f80a8cc552595e0c45c438934d726c1e43c84eaf341"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:ae08cf62c8d30183",
+    "fn:c655c5ea0969d522",
+]
+
+[module."depletion_integrator_order_scan.rs"]
+path = "example:depletion_integrator_order_scan"
+
+[[module."depletion_integrator_order_scan.rs".function]]
+id = "fn:0e864972c63108e9"
+name = "settings"
+qual = "settings"
+lines = [
+    8,
+    18,
+]
+hash = "sha256:93c190a6bbf6721a501cd0ec0d36b64613a5f849078074df87ea81b7dd267f88"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."depletion_integrator_order_scan.rs".function]]
+id = "fn:bd9f04feaafc40f9"
+name = "initial"
+qual = "initial"
+lines = [
+    19,
+    21,
+]
+hash = "sha256:1328db34a378236daf76cea8ea6f7915a21de55d59ef9ae944e6cf9bb17b40c4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."depletion_integrator_order_scan.rs".function]]
+id = "fn:7f6cc36a82d52591"
+name = "eol"
+qual = "eol"
+lines = [
+    22,
+    25,
+]
+hash = "sha256:afdd3626f9c4b134c9752ee9c9cc3184d1994da94e0416a8c96b456853c4edf7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0e864972c63108e9",
+    "fn:77c6d6a004ce4ce3",
+    "fn:bd9f04feaafc40f9",
+    "fn:f5255e03633ee021",
+]
+
+[[module."depletion_integrator_order_scan.rs".function]]
+id = "fn:4c7cda347b0e2bc9"
+name = "order"
+qual = "order"
+lines = [
+    26,
+    28,
+]
+hash = "sha256:761bd776efb70eadb62a083ae1d5ba6a64a959b13c8a8bc49d7cc1d401564042"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."depletion_integrator_order_scan.rs".function]]
+id = "fn:152752632a817618"
+name = "main"
+qual = "main"
+lines = [
+    30,
+    96,
+]
+hash = "sha256:3c3bcaf41e4fddb4b3f7c78d5a27d81443c9e1aec8de88f2856deb4966187d54"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:232c5fd9178559f5",
+    "fn:4c7cda347b0e2bc9",
+    "fn:7f6cc36a82d52591",
+    "fn:b3261b8f6cb5a7f7",
+]
+
+[module."depletion_step_convergence_scan.rs"]
+path = "example:depletion_step_convergence_scan"
+
+[[module."depletion_step_convergence_scan.rs".function]]
+id = "fn:f4caa7ae2e3ff0b8"
+name = "main"
+qual = "main"
+lines = [
+    3,
+    30,
+]
+hash = "sha256:aebca1d3dabd78c115d91b92036e543732a4f8eebbd790fd0269314d696e5943"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:77c6d6a004ce4ce3",
+    "fn:d6d454d0424b48f3",
+]
+
+[module."dh_keff_vv.rs"]
+path = "example:dh_keff_vv"
+
+[[module."dh_keff_vv.rs".function]]
+id = "fn:936b1ee7aa124f64"
+name = "nuclides"
+qual = "nuclides"
+lines = [
+    339,
+    381,
+]
+hash = "sha256:6c395e56890583d52590d137bab35507dd29ab379707753e65bd75b17689798d"
+doc_hash = "sha256:c44aa8f1c1126c4a1b71e296635c68faebfdac3ea8601db1a70dc070cb08b309"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:9014fa79e1c55492",
+    "fn:c17fd96bd8c86251",
+    "fn:eeac8cab23ae8529",
+]
+
+[[module."dh_keff_vv.rs".function]]
+id = "fn:9a1218c5f10a1c2e"
+name = "audit_majorant"
+qual = "audit_majorant"
+lines = [
+    383,
+    404,
+]
+hash = "sha256:bcaa9a29f590524c66e36ecb9e87da99b9495f45092337605feee63ccd29dacc"
+doc_hash = "sha256:0a8b66b85f281bc18214c89192019e5cd88d2a3771ad34dfc59bd96cb23df971"
+callees = ["fn:bea0e2a97d393c21"]
+
+[[module."dh_keff_vv.rs".function]]
+id = "fn:5f539a35976c0efd"
+name = "delta"
+qual = "delta"
+lines = [
+    406,
+    412,
+]
+hash = "sha256:3243b98ac7d8f14a191685953d3030a95265194a29278d5576bf1ed1f176b50f"
+doc_hash = "sha256:348f5c8ab8d99eb0717816d9470e0015a8aae69edacc602f721edce2d9b1df84"
+
+[[module."dh_keff_vv.rs".function]]
+id = "fn:de22d38a0edfea17"
+name = "main"
+qual = "main"
+lines = [
+    422,
+    723,
+]
+hash = "sha256:4dcfc36e6d6dd601587fdea619bcf73b2bc5daa31dad7ffb2395e040328ff644"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:33c58b161b6f6d3c",
+    "fn:5f539a35976c0efd",
+    "fn:7eef65a0bc65d3ff",
+    "fn:868f24982db8b13f",
+    "fn:936b1ee7aa124f64",
+    "fn:99131e0b94135b75",
+    "fn:9a1218c5f10a1c2e",
+    "fn:9f91df7928f91c80",
+    "fn:b959448b36e26089",
+    "fn:beeb0becb5512b4f",
+    "fn:cf4df31bdff4a7e9",
+    "fn:d549a3732a3139b4",
+    "fn:f4b94c8f60111585",
+    "fn:fc059620c9eab3e9",
+]
+
+[module."dh_thread_scaling.rs"]
+path = "example:dh_thread_scaling"
+
+[[module."dh_thread_scaling.rs".function]]
+id = "fn:ff284aa10038a2a5"
+name = "nuclides"
+qual = "nuclides"
+lines = [
+    76,
+    81,
+]
+hash = "sha256:40b3e1845c9f8fe9623a4453af004b107bd49a2af34bf345e169511d9a16c432"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:71a4f4b034324521"]
+
+[[module."dh_thread_scaling.rs".function]]
+id = "fn:8c3a60744c5f108e"
+name = "materials"
+qual = "materials"
+lines = [
+    83,
+    109,
+]
+hash = "sha256:bd1ae765e9c03e9e378884565189ca02528fbe077a4989f17429f8e18fb4d69b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."dh_thread_scaling.rs".function]]
+id = "fn:bb9f9605e0d606fa"
+name = "run"
+qual = "run"
+lines = [
+    111,
+    131,
+]
+hash = "sha256:45d1c8b9ec882aab157cf8ea64955e8282cc5aa2eaa9990b3c43462bd3210a83"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:185568299488c754",
+    "fn:99131e0b94135b75",
+    "fn:beeb0becb5512b4f",
+    "fn:d549a3732a3139b4",
+]
+
+[[module."dh_thread_scaling.rs".function]]
+id = "fn:c85a182f6bc90e25"
+name = "main"
+qual = "main"
+lines = [
+    133,
+    265,
+]
+hash = "sha256:fce962d0e637e562b36048ad4c38972e183c108e3655682599a6430ac0c01119"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:868f24982db8b13f",
+    "fn:8c3a60744c5f108e",
+    "fn:bb9f9605e0d606fa",
+    "fn:ff284aa10038a2a5",
+]
+
+[module."dh_tracking_speedup.rs"]
+path = "example:dh_tracking_speedup"
+
+[[module."dh_tracking_speedup.rs".function]]
+id = "fn:4a29536ecb4de1ff"
+name = "rand_unit"
+qual = "rand_unit"
+lines = [
+    201,
+    211,
+]
+hash = "sha256:952aecf473dd7ccfd7663fa56868b89626743df180aa2d40eaa893a7b1a434de"
+doc_hash = "sha256:58f18556fefb0bb5802463bd6f356c2aad7c4f8958e793b21ded468b381dd780"
+
+[[module."dh_tracking_speedup.rs".function]]
+id = "fn:d43e182a56a46375"
+name = "isotropic"
+qual = "isotropic"
+lines = [
+    213,
+    220,
+]
+hash = "sha256:c621a1d2bee50c3f342a7e47711a31a244211fbcd78f6540a022899ebf9d533a"
+doc_hash = "sha256:b272b6f82971022055176f0ecd762c484f58e2bafb326f2d0d2f9860a4dc4c03"
+callees = ["fn:4a29536ecb4de1ff"]
+
+[[module."dh_tracking_speedup.rs".function]]
+id = "fn:4c99a445ad2a13d5"
+name = "uniform_point"
+qual = "uniform_point"
+lines = [
+    222,
+    230,
+]
+hash = "sha256:d8d819cf475789a6babe1cd5d3024077edbf30a40d2f2b79b8b9bdfc3c0ab968"
+doc_hash = "sha256:dc0b4298267b2b0e51de09f35b41d3df2d2f0bf3e943212eef8c6324e1277a11"
+callees = ["fn:4a29536ecb4de1ff"]
+
+[[module."dh_tracking_speedup.rs".function]]
+id = "fn:2df94bd03d2bd27d"
+name = "outside_cube"
+qual = "outside_cube"
+lines = [
+    232,
+    235,
+]
+hash = "sha256:1caca78403c8f8f56b86dba111b269db730cf028e3edb6eda92e46bc987901f0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."dh_tracking_speedup.rs".function]]
+id = "fn:c269ca31200bd1c7"
+name = "build"
+qual = "SurfaceGrid::build"
+lines = [
+    253,
+    283,
+]
+hash = "sha256:fbbe615f594b0545725eb15c9ce4c58cf9826232e54858090fd76bc6ed68cd7e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:01133a188d559b60",
+    "fn:16ba94d844c60dea",
+]
+
+[[module."dh_tracking_speedup.rs".function]]
+id = "fn:2c4cace19571ac44"
+name = "nearest_surface"
+qual = "SurfaceGrid::nearest_surface"
+lines = [
+    285,
+    342,
+]
+hash = "sha256:c849761f00f96574d606c4539fd60bdc7952d13a1522177a4bbd96ec5676855a"
+doc_hash = "sha256:81070a3cdacb4c2f94af38f89c39c22967ecbf85a01950b15f2dd524d258747f"
+
+[[module."dh_tracking_speedup.rs".function]]
+id = "fn:a5fb6a630b46fa06"
+name = "sem"
+qual = "ArmResult::sem"
+lines = [
+    359,
+    365,
+]
+hash = "sha256:d9d6807559fb047569f2b95bd17aad40c624a8c2715907693e4009ddd04f5b03"
+doc_hash = "sha256:162389ae7b62dae5b449c1121807e04b4f631f28635ff6a123d5c59d6d5b2be2"
+
+[[module."dh_tracking_speedup.rs".function]]
+id = "fn:61c0429bd931d4d9"
+name = "sigma_of"
+qual = "sigma_of"
+lines = [
+    368,
+    376,
+]
+hash = "sha256:0ff2e21c5b7d60285c841ab84fa8efcb51e5b07dc99da8c48ab97331cfbf5273"
+doc_hash = "sha256:d90d13bf6a7f6a35bdc24f7d59f84c1d4f7158266c516dfbcf12404f85ceb395"
+
+[[module."dh_tracking_speedup.rs".function]]
+id = "fn:17d5d484e1d553aa"
+name = "run_surface"
+qual = "run_surface"
+lines = [
+    380,
+    438,
+]
+hash = "sha256:9ac862eb48633f0119fb68477f7737fd22371384ad81ea4a76431389ba61dede"
+doc_hash = "sha256:edca9a7c088b47b7b6fa9b1eca483b2fc61211226a377be677610b5f0290f6ed"
+callees = [
+    "fn:216eaac4f7799e32",
+    "fn:2c4cace19571ac44",
+    "fn:2df94bd03d2bd27d",
+    "fn:4a29536ecb4de1ff",
+    "fn:4c99a445ad2a13d5",
+    "fn:61c0429bd931d4d9",
+    "fn:8b6ba55d8a43d551",
+    "fn:d43e182a56a46375",
+]
+
+[[module."dh_tracking_speedup.rs".function]]
+id = "fn:6a541a541ece4363"
+name = "run_delta"
+qual = "run_delta"
+lines = [
+    442,
+    489,
+]
+hash = "sha256:92a8350322291f68ccf56828b6000dde3994267d0bfb6d862f79462e50083140"
+doc_hash = "sha256:f1078535e8e46a8aac3ed3c9dffde342a0ed52ba04e74a205783975e3128d2d3"
+callees = [
+    "fn:216eaac4f7799e32",
+    "fn:2df94bd03d2bd27d",
+    "fn:4a29536ecb4de1ff",
+    "fn:4c99a445ad2a13d5",
+    "fn:61c0429bd931d4d9",
+    "fn:8b6ba55d8a43d551",
+    "fn:d43e182a56a46375",
+]
+
+[[module."dh_tracking_speedup.rs".function]]
+id = "fn:042eb1b6d6fcf970"
+name = "run_cls_family"
+qual = "run_cls_family"
+lines = [
+    493,
+    553,
+]
+hash = "sha256:a881427b0f67dc0dda942c220632d125ffea75b0b51e1c9110e9dcdbc9f5e3f8"
+doc_hash = "sha256:bfd3f6a6705859e08671d1879c8eb82b05c3a8d81a92a085f92423085b4627c3"
+callees = [
+    "fn:2df94bd03d2bd27d",
+    "fn:309dffa2eef32892",
+    "fn:4a29536ecb4de1ff",
+    "fn:4c99a445ad2a13d5",
+    "fn:565043a2d9ba0a62",
+    "fn:61c0429bd931d4d9",
+    "fn:d43e182a56a46375",
+]
+
+[[module."dh_tracking_speedup.rs".function]]
+id = "fn:aa41b8afd75eb915"
+name = "run_homogenised"
+qual = "run_homogenised"
+lines = [
+    557,
+    598,
+]
+hash = "sha256:02e4c1b21047a8746dae8949490f54a0583da7b9e171617d78f21a9eb76bdb69"
+doc_hash = "sha256:5607784222fe0a33866d34cbf8d1e5a0ba4e86354f72f8084c446e3268530d54"
+callees = [
+    "fn:2df94bd03d2bd27d",
+    "fn:4a29536ecb4de1ff",
+    "fn:4c99a445ad2a13d5",
+    "fn:d43e182a56a46375",
+]
+
+[[module."dh_tracking_speedup.rs".function]]
+id = "fn:0078d27a2028eab8"
+name = "main"
+qual = "main"
+lines = [
+    602,
+    701,
+]
+hash = "sha256:3d87cac73ee201daa4f1d6f7a5c9b5fd3f825d428a6bfac96bb3ddd1a5033e97"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:042eb1b6d6fcf970",
+    "fn:0594a7c92d18b112",
+    "fn:17d5d484e1d553aa",
+    "fn:3b51394205bd62c9",
+    "fn:44da487317952d54",
+    "fn:6a541a541ece4363",
+    "fn:9c43af7d1121ce6a",
+    "fn:a5fb6a630b46fa06",
+    "fn:aa41b8afd75eb915",
+    "fn:c269ca31200bd1c7",
+]
+
+[module."dump_xs_for_openmc_compare.rs"]
+path = "example:dump_xs_for_openmc_compare"
+
+[[module."dump_xs_for_openmc_compare.rs".function]]
+id = "fn:fe33b0a62c0f1929"
+name = "main"
+qual = "main#1"
+lines = [
+    23,
+    26,
+]
+hash = "sha256:b50019ba5071bf4e3c28d1aea6516d1545dc6769df1df05ff24192c3dfe3b884"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."dump_xs_for_openmc_compare.rs".function]]
+id = "fn:f3f23a92bab8dabc"
+name = "main"
+qual = "main#2"
+lines = [
+    28,
+    31,
+]
+hash = "sha256:057c58e0e15c2f8cc19a49643ffe8d1efc1b8b99ebaa0c660bcdef55bd3d57f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d8b2d452dafcc1d1"]
+
+[[module."dump_xs_for_openmc_compare.rs".function]]
+id = "fn:09202bc532e8c603"
+name = "grid"
+qual = "grid"
+lines = [
+    45,
+    54,
+]
+hash = "sha256:cbfad2564341a11cb5e9ac25c94c999aaa56feda350038e925e61ea6462539bc"
+doc_hash = "sha256:a4ad6fef7a3bf91378453115acdb3df6842ed833fc9822dee04f61b9e4c989d1"
+
+[[module."dump_xs_for_openmc_compare.rs".function]]
+id = "fn:d8b2d452dafcc1d1"
+name = "run"
+qual = "run"
+lines = [
+    56,
+    72,
+]
+hash = "sha256:d4a0d42e74406f3799387e9b9ef7fbbd9c059dbc40563c771403d3c461ef28e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:09202bc532e8c603",
+    "fn:2c945092147fdb01",
+    "fn:c9317aaeb4555a01",
+    "fn:eeac8cab23ae8529",
+]
+
+[module."endf_to_keff.rs"]
+path = "example:endf_to_keff"
+
+[[module."endf_to_keff.rs".function]]
+id = "fn:f1c2cd643862165b"
+name = "main"
+qual = "main"
+lines = [
+    60,
+    245,
+]
+hash = "sha256:cb0762fd2ca80da71b2fa1a28a3bdd81c10a3338eb9c1bd9a106a58e6fb76b5d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:99fdb882ad101574",
+    "fn:d548885ad98866f3",
+    "fn:eeac8cab23ae8529",
+]
+
+[module."epithermal_slowing_down.rs"]
+path = "example:epithermal_slowing_down"
+
+[[module."epithermal_slowing_down.rs".function]]
+id = "fn:c8fc542dbe94bcec"
+name = "main"
+qual = "main"
+lines = [
+    88,
+    244,
+]
+hash = "sha256:bd4c031dd5e2d7efbdf98a2c7c118b37bd804fd08fe8b7c71c49d4b5f7505057"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1195285e937a6177",
+    "fn:7bc5b0f01415e71c",
+    "fn:7eb91372d5a32925",
+    "fn:87daab4e924439b8",
+    "fn:8c63ce0a69b5a967",
+    "fn:9014fa79e1c55492",
+    "fn:9192d1671e6ce857",
+    "fn:99377a9fa83848dd",
+    "fn:be4d38769482c5ff",
+    "fn:c17fd96bd8c86251",
+    "fn:cbb241b81b8f27f6",
+    "fn:d23eebe2dd269c00",
+    "fn:e1787dfe7b266275",
+]
+
+[[module."epithermal_slowing_down.rs".function]]
+id = "fn:8c63ce0a69b5a967"
+name = "vv_gate"
+qual = "vv_gate"
+lines = [
+    289,
+    529,
+]
+hash = "sha256:453204bfb1f53e2147f3e1362c95b1ffd604025d0435ef16f06b182a9ff40170"
+doc_hash = "sha256:f1f0e4d192468531480bdd05ee6be0e6fcb1a40a32062af47168b1522da6c2d0"
+callees = ["fn:1e8da20a79a07554"]
+
+[[module."epithermal_slowing_down.rs".function]]
+id = "fn:d23eebe2dd269c00"
+name = "scattering_cross_sections"
+qual = "scattering_cross_sections"
+lines = [
+    531,
+    573,
+]
+hash = "sha256:d1254d97059cf0b079d3be43a1fd843d90bfcd94d752321508b571811716cb9c"
+doc_hash = "sha256:ad0a6e78b1a3a4c26a2ae26cd5c89f55e4404c3173e081376e5e049a1bc09b0a"
+callees = ["fn:c9317aaeb4555a01"]
+
+[[module."epithermal_slowing_down.rs".function]]
+id = "fn:7eb91372d5a32925"
+name = "thermalization_demo"
+qual = "thermalization_demo"
+lines = [
+    575,
+    589,
+]
+hash = "sha256:37feda26d0e766c8c17c58bffcfd6845b72596612af1141860306e42b0d61012"
+doc_hash = "sha256:c2c40ba802c443a1cec472da251df9cc0e353ff7753d56a344c8b8560acf63d6"
+callees = ["fn:9192d1671e6ce857"]
+
+[[module."epithermal_slowing_down.rs".function]]
+id = "fn:9192d1671e6ce857"
+name = "thermalization_demo_with"
+qual = "thermalization_demo_with"
+lines = [
+    630,
+    698,
+]
+hash = "sha256:75cecac6beea44ccb7611e98b6ce53ef07e35c553b2095c247d80cbd916cd289"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1195285e937a6177",
+    "fn:681ddf6544e7b60b",
+    "fn:87daab4e924439b8",
+    "fn:8e381333f28d1549",
+    "fn:cbb241b81b8f27f6",
+    "fn:e1787dfe7b266275",
+]
+
+[[module."epithermal_slowing_down.rs".function]]
+id = "fn:99377a9fa83848dd"
+name = "endf_dir"
+qual = "endf_dir"
+lines = [
+    700,
+    706,
+]
+hash = "sha256:f9e7e7ae5f3a897b1f0e751bec31fc26892252d0cc46ac1fb70b52a456c70e7f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2c945092147fdb01"]
+
+[[module."epithermal_slowing_down.rs".function]]
+id = "fn:7bc5b0f01415e71c"
+name = "load"
+qual = "load"
+lines = [
+    708,
+    716,
+]
+hash = "sha256:7a60788ff52e6b98b0521353359cd82d1b0e1bc2075540ccb38a7bb3791cf2fc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:eeac8cab23ae8529"]
+
+[module."fhr_pebble_quickstart.rs"]
+path = "example:fhr_pebble_quickstart"
+
+[[module."fhr_pebble_quickstart.rs".function]]
+id = "fn:f34ea52e4093963f"
+name = "main"
+qual = "main"
+lines = [
+    79,
+    281,
+]
+hash = "sha256:01f5507e0a1027e1e464f80cb2e9d348e9af2851e792ad6bb7d56d78a5f13b5e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0f436bfe4a4bad71",
+    "fn:14a6fa25c0a1f183",
+    "fn:233223fccf686958",
+    "fn:613c8d8880eda02c",
+    "fn:6535d6c8feb45f0b",
+    "fn:6b71017597c3b20e",
+    "fn:71a4f4b034324521",
+    "fn:7b333d317966b744",
+    "fn:81eac5c53bdb828c",
+    "fn:88a807745fad444d",
+    "fn:8f0d1a3e98e2a0a9",
+    "fn:9603fb2b6435f47a",
+    "fn:9c43af7d1121ce6a",
+    "fn:bf93ecbf3ed95723",
+    "fn:ea94530eeabcd5e5",
+]
+
+[module."fhr_pebble_target_at_rest_ablation.rs"]
+path = "example:fhr_pebble_target_at_rest_ablation"
+
+[[module."fhr_pebble_target_at_rest_ablation.rs".function]]
+id = "fn:642d969ed22c7e40"
+name = "main"
+qual = "main#1"
+lines = [
+    73,
+    79,
+]
+hash = "sha256:a43a0a5f89bf67b2c53dd0028c2856e91e095b7492f848cb0f471403933301be"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."fhr_pebble_target_at_rest_ablation.rs".function]]
+id = "fn:1f167575625dbe4e"
+name = "main"
+qual = "main#2"
+lines = [
+    81,
+    84,
+]
+hash = "sha256:057c58e0e15c2f8cc19a49643ffe8d1efc1b8b99ebaa0c660bcdef55bd3d57f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:25c097a130e1c120"]
+
+[[module."fhr_pebble_target_at_rest_ablation.rs".function]]
+id = "fn:b241cf85ebbf7730"
+name = "endf_dir"
+qual = "endf_dir"
+lines = [
+    154,
+    160,
+]
+hash = "sha256:ea2fdb101d72647fe198e391622c1405174178b0ca1168f89bb50eb2680cc240"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."fhr_pebble_target_at_rest_ablation.rs".function]]
+id = "fn:8ef5a88608df25c5"
+name = "load"
+qual = "load"
+lines = [
+    162,
+    170,
+]
+hash = "sha256:c100734b58f2cf72e89d8413b77c84edc0946f094fe87f0b33a83f315a68bdce"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b241cf85ebbf7730",
+    "fn:eeac8cab23ae8529",
+]
+
+[[module."fhr_pebble_target_at_rest_ablation.rs".function]]
+id = "fn:f1cc1c960d2f8705"
+name = "nuclides"
+qual = "nuclides"
+lines = [
+    172,
+    197,
+]
+hash = "sha256:204c362d0e61d3b9a2c945260ccf7b8956a1871a7faa00c1a8b37ed054fc32e3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:8ef5a88608df25c5",
+    "fn:b2c0982cff81549d",
+    "fn:c17fd96bd8c86251",
+]
+
+[[module."fhr_pebble_target_at_rest_ablation.rs".function]]
+id = "fn:b2c0982cff81549d"
+name = "graphite_sab"
+qual = "graphite_sab"
+lines = [
+    199,
+    210,
+]
+hash = "sha256:d256e7bdcc9ac3b9d3d8ce4f383070d018e18b7e936d7b252c7316dd2c1a27ec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:9014fa79e1c55492",
+    "fn:b241cf85ebbf7730",
+]
+
+[[module."fhr_pebble_target_at_rest_ablation.rs".function]]
+id = "fn:51b4add73724d608"
+name = "free_gas_carbon"
+qual = "free_gas_carbon"
+lines = [
+    212,
+    239,
+]
+hash = "sha256:454b5d1fa3a3447760ff5c1d3b5cf43686a6ccbcdb8bbf2de95530e7d356355b"
+doc_hash = "sha256:02cf13579c0c889ea7bcdb35c7b798e0638967a8119adb5dc3fdae20517c7840"
+
+[[module."fhr_pebble_target_at_rest_ablation.rs".function]]
+id = "fn:73504186bd29006e"
+name = "number_densities"
+qual = "number_densities"
+lines = [
+    241,
+    251,
+]
+hash = "sha256:738f701d21ba8df3921f104cc97055d6f2376f5ea2cc9f12f0b194a31fb0b23b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."fhr_pebble_target_at_rest_ablation.rs".function]]
+id = "fn:e9f1a9bf3adffbbe"
+name = "carbon"
+qual = "carbon"
+lines = [
+    253,
+    255,
+]
+hash = "sha256:c6e9fa0ee6d7bd65cc93e9a02492159638c498dd040a032c0ac9b8c8d694a884"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."fhr_pebble_target_at_rest_ablation.rs".function]]
+id = "fn:66eb91ac7d1fd7bf"
+name = "build_materials"
+qual = "build_materials"
+lines = [
+    257,
+    418,
+]
+hash = "sha256:069cdd40c73e6d4d77b1bbe1d97fead22239c245a165dfddc167a4cac24b7bca"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:51b4add73724d608",
+    "fn:73504186bd29006e",
+    "fn:88a807745fad444d",
+    "fn:8f0d1a3e98e2a0a9",
+    "fn:e9f1a9bf3adffbbe",
+]
+
+[[module."fhr_pebble_target_at_rest_ablation.rs".function]]
+id = "fn:9d6b5331329561a7"
+name = "n_seeds"
+qual = "n_seeds"
+lines = [
+    440,
+    446,
+]
+hash = "sha256:dbcd60db07d7bda67ee4cee88dce8f267ba38fd7cea15020144e481ad4a8339e"
+doc_hash = "sha256:3263c35a5738136070f0cfe284305925534b4e299d7167c156c8c25424f992f4"
+
+[[module."fhr_pebble_target_at_rest_ablation.rs".function]]
+id = "fn:bcfc314becc2c335"
+name = "stats"
+qual = "stats"
+lines = [
+    448,
+    455,
+]
+hash = "sha256:7649d7f952858d0679df7e07866f5b98ba1748508cbc9a7e44e7f8ebece277bd"
+doc_hash = "sha256:638494223505aa7df8691efa5f7abab6d45724baf62c26c0afa91d598ab43d97"
+
+[[module."fhr_pebble_target_at_rest_ablation.rs".function]]
+id = "fn:ef4fa40c38b88061"
+name = "run_arm"
+qual = "run_arm"
+lines = [
+    466,
+    527,
+]
+hash = "sha256:b722d97ed5669ffd776fba9a504a2a31bbd3b00dccd0de32d25dee1bec0b425b"
+doc_hash = "sha256:fed949b5855549507113f3fec793bc4c2f1e73ede064d5417472375bd0735126"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:5bbc870d9989fffe",
+    "fn:613c8d8880eda02c",
+    "fn:a9de1e524e4d5ebd",
+    "fn:cb1fc1a67d38f99a",
+    "fn:d20a8466ed9def3d",
+]
+
+[[module."fhr_pebble_target_at_rest_ablation.rs".function]]
+id = "fn:25c097a130e1c120"
+name = "run"
+qual = "run"
+lines = [
+    529,
+    755,
+]
+hash = "sha256:4ff4254884681e1cb0c2fc836f1440a6231d52eaea775e2132284e75efcd1046"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0775af77b5fa27db",
+    "fn:66b92b1e796d5c1d",
+    "fn:66eb91ac7d1fd7bf",
+    "fn:7866e4cfd47a890b",
+    "fn:9d6b5331329561a7",
+    "fn:bcfc314becc2c335",
+    "fn:bf93ecbf3ed95723",
+    "fn:ef4fa40c38b88061",
+    "fn:f1cc1c960d2f8705",
+]
+
+[module."fhr_ring_rpt_endf.rs"]
+path = "example:fhr_ring_rpt_endf"
+
+[[module."fhr_ring_rpt_endf.rs".function]]
+id = "fn:9ac82f3ad49220a0"
+name = "main"
+qual = "main#1"
+lines = [
+    166,
+    172,
+]
+hash = "sha256:777324eaf56f343fb277b4a29b6db4fc324318fad4330e9ff10364b1ae356e5f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."fhr_ring_rpt_endf.rs".function]]
+id = "fn:462cab0e837f6bc6"
+name = "main"
+qual = "main#2"
+lines = [
+    174,
+    177,
+]
+hash = "sha256:057c58e0e15c2f8cc19a49643ffe8d1efc1b8b99ebaa0c660bcdef55bd3d57f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:0e1f18f79a42336d"]
+
+[[module."fhr_ring_rpt_endf.rs".function]]
+id = "fn:ec6d48ea0e14069e"
+name = "endf_dir"
+qual = "endf_dir"
+lines = [
+    252,
+    258,
+]
+hash = "sha256:ea2fdb101d72647fe198e391622c1405174178b0ca1168f89bb50eb2680cc240"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."fhr_ring_rpt_endf.rs".function]]
+id = "fn:41d25ba80921bd0a"
+name = "load"
+qual = "load"
+lines = [
+    260,
+    268,
+]
+hash = "sha256:c100734b58f2cf72e89d8413b77c84edc0946f094fe87f0b33a83f315a68bdce"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:ec6d48ea0e14069e",
+    "fn:eeac8cab23ae8529",
+]
+
+[[module."fhr_ring_rpt_endf.rs".function]]
+id = "fn:b4909c75b0f7a7a2"
+name = "nuclides"
+qual = "nuclides"
+lines = [
+    270,
+    295,
+]
+hash = "sha256:204c362d0e61d3b9a2c945260ccf7b8956a1871a7faa00c1a8b37ed054fc32e3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:41d25ba80921bd0a",
+    "fn:c17fd96bd8c86251",
+    "fn:ff316f0785f71852",
+]
+
+[[module."fhr_ring_rpt_endf.rs".function]]
+id = "fn:ff316f0785f71852"
+name = "graphite_sab"
+qual = "graphite_sab"
+lines = [
+    297,
+    308,
+]
+hash = "sha256:d256e7bdcc9ac3b9d3d8ce4f383070d018e18b7e936d7b252c7316dd2c1a27ec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:9014fa79e1c55492",
+    "fn:ec6d48ea0e14069e",
+]
+
+[[module."fhr_ring_rpt_endf.rs".function]]
+id = "fn:42a47cf55497b39c"
+name = "free_gas_carbon"
+qual = "free_gas_carbon"
+lines = [
+    310,
+    337,
+]
+hash = "sha256:454b5d1fa3a3447760ff5c1d3b5cf43686a6ccbcdb8bbf2de95530e7d356355b"
+doc_hash = "sha256:02cf13579c0c889ea7bcdb35c7b798e0638967a8119adb5dc3fdae20517c7840"
+
+[[module."fhr_ring_rpt_endf.rs".function]]
+id = "fn:1e8af48f1d12c9a1"
+name = "number_densities"
+qual = "number_densities"
+lines = [
+    339,
+    349,
+]
+hash = "sha256:738f701d21ba8df3921f104cc97055d6f2376f5ea2cc9f12f0b194a31fb0b23b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."fhr_ring_rpt_endf.rs".function]]
+id = "fn:e710f49296360d41"
+name = "carbon"
+qual = "carbon"
+lines = [
+    351,
+    353,
+]
+hash = "sha256:c6e9fa0ee6d7bd65cc93e9a02492159638c498dd040a032c0ac9b8c8d694a884"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."fhr_ring_rpt_endf.rs".function]]
+id = "fn:155791a0c67fa0ce"
+name = "build_materials"
+qual = "build_materials"
+lines = [
+    355,
+    516,
+]
+hash = "sha256:069cdd40c73e6d4d77b1bbe1d97fead22239c245a165dfddc167a4cac24b7bca"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e8af48f1d12c9a1",
+    "fn:42a47cf55497b39c",
+    "fn:88a807745fad444d",
+    "fn:8f0d1a3e98e2a0a9",
+    "fn:e710f49296360d41",
+]
+
+[[module."fhr_ring_rpt_endf.rs".function]]
+id = "fn:0e1f18f79a42336d"
+name = "run"
+qual = "run"
+lines = [
+    533,
+    1073,
+]
+hash = "sha256:c32907301afb0501e1529d53d98331f9a21409deaaeb6fa4765d3a5ab9084351"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:092d3ed2eae40822",
+    "fn:0f436bfe4a4bad71",
+    "fn:14a6fa25c0a1f183",
+    "fn:155791a0c67fa0ce",
+    "fn:2f5922923f61003b",
+    "fn:33ce48d5de2b4192",
+    "fn:42a47cf55497b39c",
+    "fn:5bbc870d9989fffe",
+    "fn:613c8d8880eda02c",
+    "fn:6535d6c8feb45f0b",
+    "fn:6b71017597c3b20e",
+    "fn:7866e4cfd47a890b",
+    "fn:7b333d317966b744",
+    "fn:7f8f7555b9f063fb",
+    "fn:81eac5c53bdb828c",
+    "fn:9c43af7d1121ce6a",
+    "fn:a051bd1637f9435b",
+    "fn:a9de1e524e4d5ebd",
+    "fn:b4909c75b0f7a7a2",
+    "fn:b565a2175494139a",
+    "fn:b6302621ad12d4b5",
+    "fn:b9861889cc9e3d67",
+    "fn:bf93ecbf3ed95723",
+    "fn:bff90927094089f1",
+    "fn:cb1fc1a67d38f99a",
+    "fn:d20a8466ed9def3d",
+    "fn:ea94530eeabcd5e5",
+]
+
+[[module."fhr_ring_rpt_endf.rs".function]]
+id = "fn:7f8f7555b9f063fb"
+name = "check_majorant_bounds"
+qual = "check_majorant_bounds"
+lines = [
+    1075,
+    1130,
+]
+hash = "sha256:1345dea13e2289a42305f7ec0cd403ed3e599669e5ce2af5ff754f55ff95df13"
+doc_hash = "sha256:0b7cdd052bb7e9aa70be5b1c6ac1b95c3d5b9e659cb8a1aa8e68dd05be8ca11d"
+callees = [
+    "fn:553674e261568aad",
+    "fn:b039c0ff74c3d1b2",
+    "fn:b11e6f88048217e3",
+]
+
+[[module."fhr_ring_rpt_endf.rs".function]]
+id = "fn:b565a2175494139a"
+name = "print_six_factors"
+qual = "print_six_factors"
+lines = [
+    1132,
+    1162,
+]
+hash = "sha256:ca6a205d14cb98d210e2e286e8838f4d6fc6c122c7e43f4c0b8832f442687efc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1cdbce51a53623a1",
+    "fn:d20a8466ed9def3d",
+]
+
+[[module."fhr_ring_rpt_endf.rs".function]]
+id = "fn:1cdbce51a53623a1"
+name = "print_spectrum"
+qual = "print_spectrum"
+lines = [
+    1164,
+    1214,
+]
+hash = "sha256:efcbbad812dd1d552c80838180c4694f9774780e2e4a47a9773c0f8e971e6866"
+doc_hash = "sha256:c8ed6791d1ce8025f68641e51dba56f9ba1a80fb5bea02bafc30af6d352e28cc"
+
+[[module."fhr_ring_rpt_endf.rs".function]]
+id = "fn:092d3ed2eae40822"
+name = "vv_gate"
+qual = "vv_gate"
+lines = [
+    1216,
+    1511,
+]
+hash = "sha256:4b56bdc96fe61f3fe682d4ec554d23f7ca705798d70f56ac5ea100e7f3b4af2b"
+doc_hash = "sha256:6ca0c85d622a3465d577a5809edd8269219ba9fa769cd2f073fe692069ee1d82"
+
+[module."godiva_ace_roundtrip.rs"]
+path = "example:godiva_ace_roundtrip"
+
+[[module."godiva_ace_roundtrip.rs".function]]
+id = "fn:b7bc2e475cb6d31a"
+name = "rows"
+qual = "Stages::rows"
+lines = [
+    103,
+    114,
+]
+hash = "sha256:e6640eaef0627e68a73a4380bab93f16ae06619e5d22c619c8fdded32b3ab785"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_ace_roundtrip.rs".function]]
+id = "fn:76c95d5b6589c1de"
+name = "total"
+qual = "Stages::total"
+lines = [
+    115,
+    117,
+]
+hash = "sha256:6f065437ba380606b5a31c4bdc67dfc26c1583a67715383bd21376580bd49b49"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b7bc2e475cb6d31a"]
+
+[[module."godiva_ace_roundtrip.rs".function]]
+id = "fn:d498984fa55dbc08"
+name = "main"
+qual = "main"
+lines = [
+    120,
+    302,
+]
+hash = "sha256:bef8e5b1093e79e2add9499f948eda875bba086e9b485e0d9a1b5066fafcc8e1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0232185c47f057a8",
+    "fn:0ad8c2483b0f1b71",
+    "fn:0c37342d4a3bd8d1",
+    "fn:14a6fa25c0a1f183",
+    "fn:2322ad376308b463",
+    "fn:29a3fbe3105f6a45",
+    "fn:2c945092147fdb01",
+    "fn:4b5ce2eb6a0d1539",
+    "fn:76c95d5b6589c1de",
+    "fn:77685f9efde11e35",
+    "fn:77d03481265faf4e",
+    "fn:7d82113855d4f727",
+    "fn:a44d0ff32b059760",
+    "fn:b55bd89bff1a90f3",
+    "fn:b7b67ecc27b6f0aa",
+    "fn:b7bc2e475cb6d31a",
+    "fn:d2187da6ba31b672",
+    "fn:d548885ad98866f3",
+    "fn:de07b9571aee8cfc",
+    "fn:ea1bd0239c09e88e",
+    "fn:ee7016b7afcdb600",
+    "fn:ef1e8bf8932b7261",
+    "fn:f1e10e4bdc2db70e",
+    "fn:fb070b5043e6f476",
+    "fn:fcba4b26f279ef7b",
+]
+
+[module."godiva_anisotropy_ablation.rs"]
+path = "example:godiva_anisotropy_ablation"
+
+[[module."godiva_anisotropy_ablation.rs".function]]
+id = "fn:2a0347bcb8672046"
+name = "main"
+qual = "main#1"
+lines = [
+    79,
+    82,
+]
+hash = "sha256:a9246f01dac27121a3711b5a37d0a14535d6517be4442e5e7e3aa5b71237dc06"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_anisotropy_ablation.rs".function]]
+id = "fn:3360d6e2e5d5ddce"
+name = "main"
+qual = "main#2"
+lines = [
+    84,
+    87,
+]
+hash = "sha256:057c58e0e15c2f8cc19a49643ffe8d1efc1b8b99ebaa0c660bcdef55bd3d57f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:03dcf3a371f0f94a"]
+
+[[module."godiva_anisotropy_ablation.rs".function]]
+id = "fn:14ed5cfd28520297"
+name = "stats"
+qual = "stats"
+lines = [
+    127,
+    132,
+]
+hash = "sha256:4ebc9a7d7043061fcaf0bf20afadc3a47ab4f419e5301e17ce4858ecbad1b487"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_anisotropy_ablation.rs".function]]
+id = "fn:7d6cf4b63809c923"
+name = "settings"
+qual = "settings"
+lines = [
+    134,
+    143,
+]
+hash = "sha256:e725a893a5b393a04c78c55293e5d4be95ca4bd334c8377f9db3d7576483c76f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:14a6fa25c0a1f183"]
+
+[[module."godiva_anisotropy_ablation.rs".function]]
+id = "fn:324af250cadaddb6"
+name = "load"
+qual = "load"
+lines = [
+    145,
+    154,
+]
+hash = "sha256:9561b443690930f3c10218876cde7a54eb6584ec97497ea2f23d727331817d49"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:eeac8cab23ae8529",
+]
+
+[[module."godiva_anisotropy_ablation.rs".function]]
+id = "fn:36f7fda66dbcdd1d"
+name = "material"
+qual = "material"
+lines = [
+    156,
+    170,
+]
+hash = "sha256:3f91d53d1193609d91ec8d9597a3780b52135a70b1aabef75f302c8789b9b479"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_anisotropy_ablation.rs".function]]
+id = "fn:03dcf3a371f0f94a"
+name = "run"
+qual = "run"
+lines = [
+    172,
+    345,
+]
+hash = "sha256:e70ab0fcb6bc0e2aa1dd2984f71049a04b888384945d631168f991691ea03c6f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0f436bfe4a4bad71",
+    "fn:1195285e937a6177",
+    "fn:14ed5cfd28520297",
+    "fn:2fb4efc2775410dc",
+    "fn:324af250cadaddb6",
+    "fn:36f7fda66dbcdd1d",
+    "fn:7d6cf4b63809c923",
+    "fn:9b61b0811393bac6",
+    "fn:a051bd1637f9435b",
+    "fn:d548885ad98866f3",
+]
+
+[module."godiva_continuum_anisotropy_ablation.rs"]
+path = "example:godiva_continuum_anisotropy_ablation"
+
+[[module."godiva_continuum_anisotropy_ablation.rs".function]]
+id = "fn:0e7eda9603227a0c"
+name = "main"
+qual = "main#1"
+lines = [
+    192,
+    195,
+]
+hash = "sha256:aabc00d3a99377c16815bcc26cbbe03fba635e3e4f3ffcd3223677361f7f60a0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_continuum_anisotropy_ablation.rs".function]]
+id = "fn:1d55941caea72344"
+name = "main"
+qual = "main#2"
+lines = [
+    197,
+    200,
+]
+hash = "sha256:057c58e0e15c2f8cc19a49643ffe8d1efc1b8b99ebaa0c660bcdef55bd3d57f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2998d52dd10c5c9c"]
+
+[[module."godiva_continuum_anisotropy_ablation.rs".function]]
+id = "fn:af473bf59d83a55c"
+name = "workers"
+qual = "workers"
+lines = [
+    215,
+    227,
+]
+hash = "sha256:a7708eff66e6a2e692ddfb688bf80c22c03bdeebe992bcbb8722dae183253f63"
+doc_hash = "sha256:9563ae9d3f912e28f20be1659f0d5444086120ce3542f6a0f3f38fd83eb75f92"
+
+[[module."godiva_continuum_anisotropy_ablation.rs".function]]
+id = "fn:e95bebb48eb0cffa"
+name = "stats"
+qual = "stats"
+lines = [
+    237,
+    244,
+]
+hash = "sha256:7649d7f952858d0679df7e07866f5b98ba1748508cbc9a7e44e7f8ebece277bd"
+doc_hash = "sha256:638494223505aa7df8691efa5f7abab6d45724baf62c26c0afa91d598ab43d97"
+
+[[module."godiva_continuum_anisotropy_ablation.rs".function]]
+id = "fn:80a4ab9a8786523a"
+name = "run_arm"
+qual = "run_arm"
+lines = [
+    246,
+    270,
+]
+hash = "sha256:26d544655f3df38643ecb224a01ab32080b6fdf6ee129022c5855ae25ee0f4c8"
+doc_hash = "sha256:c97455b9b52168b069ee794851a682ab96d36143f9ccaced77272b7a2b3b9b37"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:af473bf59d83a55c",
+    "fn:d548885ad98866f3",
+]
+
+[[module."godiva_continuum_anisotropy_ablation.rs".function]]
+id = "fn:2998d52dd10c5c9c"
+name = "run"
+qual = "run"
+lines = [
+    272,
+    428,
+]
+hash = "sha256:3dfc95563e2f88ae12f6fb7e9fdbbfc2813c6e52bf77c9bf52399df37f5e14d5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:653b9ed405de4531",
+    "fn:80a4ab9a8786523a",
+    "fn:bc584aac7749ad33",
+    "fn:e95bebb48eb0cffa",
+    "fn:eeac8cab23ae8529",
+]
+
+[module."godiva_continuum_spectrum_ablation.rs"]
+path = "example:godiva_continuum_spectrum_ablation"
+
+[[module."godiva_continuum_spectrum_ablation.rs".function]]
+id = "fn:9f8fd6da83b334fa"
+name = "main"
+qual = "main#1"
+lines = [
+    124,
+    127,
+]
+hash = "sha256:3bc0fd90c3a4a7b4aacdde0a955f5c73796c8fa13b6d498e9b2a9ecb3e235b03"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_continuum_spectrum_ablation.rs".function]]
+id = "fn:848b1a2b8ecf224f"
+name = "main"
+qual = "main#2"
+lines = [
+    129,
+    132,
+]
+hash = "sha256:057c58e0e15c2f8cc19a49643ffe8d1efc1b8b99ebaa0c660bcdef55bd3d57f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:11099916afbc7537"]
+
+[[module."godiva_continuum_spectrum_ablation.rs".function]]
+id = "fn:dff54a7f7771648b"
+name = "log_grid"
+qual = "log_grid"
+lines = [
+    169,
+    174,
+]
+hash = "sha256:d944348cd413bd94e74168588955f22f2f7114ee2fb2d61e95f8eebf7cab270f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_continuum_spectrum_ablation.rs".function]]
+id = "fn:cf31e793005d4caf"
+name = "godiva_geometry"
+qual = "godiva_geometry"
+lines = [
+    176,
+    201,
+]
+hash = "sha256:d86aa4ac1761f0b2fc8cbabb0206190ffd215f64eeb4b6cc39f01341fc712eec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:8b1b36725917b52d"]
+
+[[module."godiva_continuum_spectrum_ablation.rs".function]]
+id = "fn:c248bf56b9756f1e"
+name = "hardness"
+qual = "hardness"
+lines = [
+    217,
+    234,
+]
+hash = "sha256:1cd91a0db98a9b1cfb4a65103dc3d97322ffdb011a47adf4f6b31c0d2dee546e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_continuum_spectrum_ablation.rs".function]]
+id = "fn:f376549584a803dd"
+name = "stats"
+qual = "stats"
+lines = [
+    236,
+    241,
+]
+hash = "sha256:368fff9fc585660f1beae6991aebb686ddc8ad9aed69985b553ca04dd9a3aaff"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_continuum_spectrum_ablation.rs".function]]
+id = "fn:fc09b82adfbd71c8"
+name = "run_arm"
+qual = "run_arm"
+lines = [
+    243,
+    288,
+]
+hash = "sha256:7027ae95a710c347a1370e5e2e74f07501c1159eed86a2b301223e735d9fd567"
+doc_hash = "sha256:4899c7fd4b199df28f0a281372e84a16ecd3295b9a1b95117714fbbf8e374797"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:c248bf56b9756f1e",
+    "fn:cb1fc1a67d38f99a",
+    "fn:cf31e793005d4caf",
+    "fn:e8a9287aae9d775b",
+]
+
+[[module."godiva_continuum_spectrum_ablation.rs".function]]
+id = "fn:11099916afbc7537"
+name = "run"
+qual = "run"
+lines = [
+    290,
+    429,
+]
+hash = "sha256:93f789115f3a1a51c3bcc89c1ad33a0cbc564f8b166da350a236377ab59ceb93"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:653b9ed405de4531",
+    "fn:bc584aac7749ad33",
+    "fn:dff54a7f7771648b",
+    "fn:eeac8cab23ae8529",
+    "fn:f376549584a803dd",
+    "fn:fc09b82adfbd71c8",
+]
+
+[module."godiva_delta_vs_surface_tracking.rs"]
+path = "example:godiva_delta_vs_surface_tracking"
+
+[[module."godiva_delta_vs_surface_tracking.rs".function]]
+id = "fn:cc74b8cb7d9b144a"
+name = "main"
+qual = "main#1"
+lines = [
+    91,
+    94,
+]
+hash = "sha256:ef82906d85674dbe1566603a05be49783cac61a7a86e4da6224779a2f55f3f74"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_delta_vs_surface_tracking.rs".function]]
+id = "fn:4164a276a0d3f341"
+name = "main"
+qual = "main#2"
+lines = [
+    96,
+    99,
+]
+hash = "sha256:057c58e0e15c2f8cc19a49643ffe8d1efc1b8b99ebaa0c660bcdef55bd3d57f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:5e98f4bd3286f227"]
+
+[[module."godiva_delta_vs_surface_tracking.rs".function]]
+id = "fn:bcfdd3144f54884f"
+name = "stats"
+qual = "stats"
+lines = [
+    139,
+    146,
+]
+hash = "sha256:7649d7f952858d0679df7e07866f5b98ba1748508cbc9a7e44e7f8ebece277bd"
+doc_hash = "sha256:638494223505aa7df8691efa5f7abab6d45724baf62c26c0afa91d598ab43d97"
+
+[[module."godiva_delta_vs_surface_tracking.rs".function]]
+id = "fn:68ccddd5a2b02623"
+name = "settings"
+qual = "settings"
+lines = [
+    148,
+    157,
+]
+hash = "sha256:e725a893a5b393a04c78c55293e5d4be95ca4bd334c8377f9db3d7576483c76f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:14a6fa25c0a1f183"]
+
+[[module."godiva_delta_vs_surface_tracking.rs".function]]
+id = "fn:5e98f4bd3286f227"
+name = "run"
+qual = "run"
+lines = [
+    159,
+    309,
+]
+hash = "sha256:ebd3c60df8cad77fd7eca3719edbba91af341ae194027db2a87c6dec299a4e64"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0f436bfe4a4bad71",
+    "fn:2c945092147fdb01",
+    "fn:2fb4efc2775410dc",
+    "fn:68ccddd5a2b02623",
+    "fn:a051bd1637f9435b",
+    "fn:bcfdd3144f54884f",
+    "fn:d548885ad98866f3",
+    "fn:eeac8cab23ae8529",
+]
+
+[module."godiva_fission_source_ablation.rs"]
+path = "example:godiva_fission_source_ablation"
+
+[[module."godiva_fission_source_ablation.rs".function]]
+id = "fn:8435a27c4b9097a1"
+name = "main"
+qual = "main#1"
+lines = [
+    115,
+    118,
+]
+hash = "sha256:f3462ec5b3f6a0cc1da049f53eb59c291d045fa523f0e02d4f06c7dc9b651e84"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_fission_source_ablation.rs".function]]
+id = "fn:e2f6bf7e39b3a8a4"
+name = "main"
+qual = "main#2"
+lines = [
+    120,
+    123,
+]
+hash = "sha256:057c58e0e15c2f8cc19a49643ffe8d1efc1b8b99ebaa0c660bcdef55bd3d57f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:648a28b463ab7fff"]
+
+[[module."godiva_fission_source_ablation.rs".function]]
+id = "fn:bc249d392d618dca"
+name = "workers"
+qual = "workers"
+lines = [
+    151,
+    166,
+]
+hash = "sha256:ec48d2f96d0f1e4c5d65994f5da9f187d341fb6ddeb56b60cee12d2f1cab67e6"
+doc_hash = "sha256:79f9eb035a43b54670293281be7981c13e3d5ca37e316d3e903e66366a5624b4"
+
+[[module."godiva_fission_source_ablation.rs".function]]
+id = "fn:a6d1f2adf59fcd65"
+name = "stats"
+qual = "stats"
+lines = [
+    168,
+    175,
+]
+hash = "sha256:7649d7f952858d0679df7e07866f5b98ba1748508cbc9a7e44e7f8ebece277bd"
+doc_hash = "sha256:638494223505aa7df8691efa5f7abab6d45724baf62c26c0afa91d598ab43d97"
+
+[[module."godiva_fission_source_ablation.rs".function]]
+id = "fn:306e8e103386785f"
+name = "run_arm"
+qual = "run_arm"
+lines = [
+    177,
+    201,
+]
+hash = "sha256:28c7d941beaeab81b11a508d7032d95fe5dba56a2d8f8858f22fbc5850c18dde"
+doc_hash = "sha256:c97455b9b52168b069ee794851a682ab96d36143f9ccaced77272b7a2b3b9b37"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:bc249d392d618dca",
+    "fn:d548885ad98866f3",
+]
+
+[[module."godiva_fission_source_ablation.rs".function]]
+id = "fn:2b798b669d18e69c"
+name = "mean_birth"
+qual = "mean_birth"
+lines = [
+    203,
+    210,
+]
+hash = "sha256:12f5872234f3d129940eaf9c676384ffe28a70a1cad3055c35e7a9a324ce8d75"
+doc_hash = "sha256:d04ac97b6908c743d0169e9a2e62fac672b8dac586897600e814713ddee0796d"
+callees = ["fn:3185c7acd97d8d33"]
+
+[[module."godiva_fission_source_ablation.rs".function]]
+id = "fn:138e235ddb145394"
+name = "report"
+qual = "report"
+lines = [
+    212,
+    253,
+]
+hash = "sha256:0e5c6d619578a9308c476c06d3ef0a14b4655fec5902f7566f5a20df0366f737"
+doc_hash = "sha256:e75bce7b6d9097a005b517241e480649d9f949eaed48bd1e3f56dc52b3aa7780"
+callees = ["fn:a6d1f2adf59fcd65"]
+
+[[module."godiva_fission_source_ablation.rs".function]]
+id = "fn:648a28b463ab7fff"
+name = "run"
+qual = "run"
+lines = [
+    255,
+    565,
+]
+hash = "sha256:6f853753e143f4575c6a6d12932f49bf49752e81049177876b59553091994916"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:138e235ddb145394",
+    "fn:1aa06390f9c4a74e",
+    "fn:2b798b669d18e69c",
+    "fn:2c945092147fdb01",
+    "fn:306e8e103386785f",
+    "fn:5aa71fe10d6ea263",
+    "fn:88a8bcc2119d7035",
+    "fn:8dad02bc8e23c654",
+    "fn:a6d1f2adf59fcd65",
+    "fn:bc249d392d618dca",
+    "fn:c1c8bb7a964e8bb2",
+    "fn:eeac8cab23ae8529",
+    "fn:f275638ad3bba125",
+]
+
+[[module."godiva_fission_source_ablation.rs".function]]
+id = "fn:8dad02bc8e23c654"
+name = "itertools_zip3"
+qual = "itertools_zip3"
+lines = [
+    567,
+    578,
+]
+hash = "sha256:1b462175369937068c1225fadabcb681652131e7201aff03e9ea486438b38d8d"
+doc_hash = "sha256:34c8c039044a9b4d941b24b8a42fb888a10fccd46fa4cdc9427c2954a314a120"
+
+[module."godiva_gpu_benchmark.rs"]
+path = "example:godiva_gpu_benchmark"
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:d183fc56c47a7ca6"
+name = "main"
+qual = "main#1"
+lines = [
+    159,
+    162,
+]
+hash = "sha256:e3646b9965604691c5db89ad15c252848a7a99d2d3fc5fa40255d5367d47611e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:2dff6d1973b2071b"
+name = "main"
+qual = "main#2"
+lines = [
+    217,
+    254,
+]
+hash = "sha256:cb2bb11e8350e02c3a9d07fafb7cf84e49effe117e7ecc636f659f2b63eb9892"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:11603d38f7acb3bd",
+    "fn:2273a48d7b174121",
+    "fn:2cbdab19408fba24",
+    "fn:2e3dfa8e0b2eb8a3",
+    "fn:812700be2bd1ee88",
+    "fn:c122ed9f8b0d004b",
+]
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:2e3dfa8e0b2eb8a3"
+name = "godiva_material"
+qual = "godiva_material"
+lines = [
+    256,
+    286,
+]
+hash = "sha256:8963cc0e643df18afb2c7225bf4984389ac0c575f3d95505977cb335efb6549b"
+doc_hash = "sha256:3d4d73c87d89108a9c4d72472fd6e30875be4f7368922a3943614ae7269fdf71"
+callees = ["fn:71a4f4b034324521"]
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:11603d38f7acb3bd"
+name = "run_cpu_keff"
+qual = "run_cpu_keff"
+lines = [
+    288,
+    328,
+]
+hash = "sha256:d83d54c3338f57dae53ace0884e068e0090af51ac2bf189f136f53b323dab027"
+doc_hash = "sha256:785915c99089000fa0ed73b41d8eca63629d26834f7665b92cdec3a00a759142"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:d548885ad98866f3",
+]
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:2273a48d7b174121"
+name = "run_xs_kernel_benchmark"
+qual = "run_xs_kernel_benchmark"
+lines = [
+    347,
+    447,
+]
+hash = "sha256:ad25ddc620841bce2c70d6aa9ca3227b0b5fc18fd3c51b69e9019f1dbe86a89e"
+doc_hash = "sha256:6de2ef3c3688a2a2824bbb50e4a44edd3e53afbf2fc4da4a94673738e12a9880"
+callees = [
+    "fn:248a27036a5e6929",
+    "fn:2c180a55a4b199be",
+    "fn:884f8e93e535023f",
+    "fn:8b53173f71b953e0",
+    "fn:8dcabe7a8333748c",
+    "fn:914de2ef1de7e475",
+    "fn:91f66200cb8877ca",
+    "fn:c062313265f98a34",
+    "fn:db9cc0cf51ee9aa0",
+    "fn:dd9daca6f064765f",
+]
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:db9cc0cf51ee9aa0"
+name = "sample_query_energies"
+qual = "sample_query_energies"
+lines = [
+    449,
+    457,
+]
+hash = "sha256:c96895da37402aa8e37c81a58c2b3fb59f257914de6bd0b8f3c78dcfbb92cb6a"
+doc_hash = "sha256:497c8b5d4d63f3d29aafc6336476bd880e47adc0e7602be625ee394017c26f4e"
+callees = ["fn:ddcbfd0af4d2a0a5"]
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:914de2ef1de7e475"
+name = "agreement"
+qual = "agreement"
+lines = [
+    459,
+    470,
+]
+hash = "sha256:c3054198ebcb48d24201e1ca6495ce72e71480d6d0e608689b6cdf5acfa68386"
+doc_hash = "sha256:e6d0832b09efc0a27c8275ce2eb6b81975a82570b96888d78521a04b6cbe2ee3"
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:812700be2bd1ee88"
+name = "csv_output_dir"
+qual = "csv_output_dir"
+lines = [
+    472,
+    479,
+]
+hash = "sha256:bb90e00b896ffc9cb80d88e38d0d9aa163cfd080f83d0575719594250dd24107"
+doc_hash = "sha256:04974f80caf94fd81c97610d13ff05405ec4617cb72f084a5201b598bbbeb3eb"
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:2cbdab19408fba24"
+name = "write_keff_convergence_csv"
+qual = "write_keff_convergence_csv"
+lines = [
+    481,
+    524,
+]
+hash = "sha256:45b611cbd92d96d892aabfe4230b52f030eaea750634ffaa46d2a84c9b5a98a6"
+doc_hash = "sha256:6a4ccfa2810985392d699ea0ce54770291fd531b7dcafce4e26cea61ad1ff249"
+callees = [
+    "fn:446b8f46d28ca306",
+    "fn:c9779532135bcd0d",
+]
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:c122ed9f8b0d004b"
+name = "write_xs_throughput_csv"
+qual = "write_xs_throughput_csv"
+lines = [
+    526,
+    558,
+]
+hash = "sha256:6ebe844e7e73335b33d60213a6a294c34cf3607c5d7c1bf65daf5451de88933f"
+doc_hash = "sha256:6ce155bf30d3ccd6b78762f1f5e0b009c2a07e5561e65a5dea03a3d8f22cd1b2"
+callees = ["fn:b101cd1c6bd673f9"]
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:446b8f46d28ca306"
+name = "mean_and_stderr"
+qual = "mean_and_stderr"
+lines = [
+    560,
+    571,
+]
+hash = "sha256:a7bfd2d313b9ada64ed8d6d4abd87573a8b3931f3a17a91d8f1a1924df0a555c"
+doc_hash = "sha256:86efea43f03158bac82fb25f60a4f459047d54655f1058ab0165390f3d1a74e8"
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:c9779532135bcd0d"
+name = "fmt_csv_f64"
+qual = "fmt_csv_f64"
+lines = [
+    575,
+    583,
+]
+hash = "sha256:d784b2d6f42eece0465d5864cc97bbb67c6d2a78d0eb2ad57f85c65b4d3d73bd"
+doc_hash = "sha256:76e06a8f6e0e5edec7459e423f4e9e6b872ee21136997643c853b022c01bc38d"
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:b101cd1c6bd673f9"
+name = "fmt_csv_opt"
+qual = "fmt_csv_opt"
+lines = [
+    585,
+    592,
+]
+hash = "sha256:79f2a96b15872b5ccbd23e35163129a3954255ebc1dea138865d23acfc9da94d"
+doc_hash = "sha256:6489087b573492ca38250c3b8dc161c00a5eb73c63e67cbc22e0b9f881ecee22"
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:8b53173f71b953e0"
+name = "fmt_opt3"
+qual = "fmt_opt3"
+lines = [
+    594,
+    599,
+]
+hash = "sha256:d746b344b840d2a4b90be7a563f80f97ead1965ea10ed08378c300ae20086f82"
+doc_hash = "sha256:25d3eae450ee5e9b7c832ab20a8de7388a79da904dfb23e721dd897c1441c935"
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:248a27036a5e6929"
+name = "fmt_opt_mqs"
+qual = "fmt_opt_mqs"
+lines = [
+    601,
+    606,
+]
+hash = "sha256:0602887144a6401a8791736950330ec767656eb3008b21196b9b68e726795533"
+doc_hash = "sha256:55831661fcd7a03c86006ff25d21e50a18ca99ebb60815fbdc0fbc8be595fa19"
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:2c180a55a4b199be"
+name = "fmt_opt_speedup"
+qual = "fmt_opt_speedup"
+lines = [
+    608,
+    613,
+]
+hash = "sha256:31bdef0720a499c7bf74d9e5ca85ec012dd8b916894e1e23237d71241204a373"
+doc_hash = "sha256:2180ebe42a353faf04c6a630669978687b438cce1edc6b297a50fa44022ac6bb"
+
+[[module."godiva_gpu_benchmark.rs".function]]
+id = "fn:dd9daca6f064765f"
+name = "fmt_opt_sci"
+qual = "fmt_opt_sci"
+lines = [
+    615,
+    620,
+]
+hash = "sha256:8cc43d5a9c2a340bfe12bd5fa6514775d4fa0593ccee954ec88594d7f022b185"
+doc_hash = "sha256:3f96a327ef633cedcfbfca832b052bb6da9643900252fc000e5154533158952d"
+
+[module."godiva_inelastic_anisotropy_ablation.rs"]
+path = "example:godiva_inelastic_anisotropy_ablation"
+
+[[module."godiva_inelastic_anisotropy_ablation.rs".function]]
+id = "fn:e356c9fd1ee54cc9"
+name = "main"
+qual = "main#1"
+lines = [
+    101,
+    104,
+]
+hash = "sha256:f8f528f3f37506031fab7de3405dc7b0858a0d2750c41b8066ef6ae587c7b956"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_inelastic_anisotropy_ablation.rs".function]]
+id = "fn:45f842742e53b7b3"
+name = "main"
+qual = "main#2"
+lines = [
+    106,
+    109,
+]
+hash = "sha256:057c58e0e15c2f8cc19a49643ffe8d1efc1b8b99ebaa0c660bcdef55bd3d57f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:21db62574fc3f258"]
+
+[[module."godiva_inelastic_anisotropy_ablation.rs".function]]
+id = "fn:e93f38527452f7df"
+name = "workers"
+qual = "workers"
+lines = [
+    124,
+    132,
+]
+hash = "sha256:a7708eff66e6a2e692ddfb688bf80c22c03bdeebe992bcbb8722dae183253f63"
+doc_hash = "sha256:e80d253f245b0314051d39bfbbae774151f0e856077b535978a50de33c219b0f"
+
+[[module."godiva_inelastic_anisotropy_ablation.rs".function]]
+id = "fn:fbada6810033672e"
+name = "stats"
+qual = "stats"
+lines = [
+    142,
+    149,
+]
+hash = "sha256:7649d7f952858d0679df7e07866f5b98ba1748508cbc9a7e44e7f8ebece277bd"
+doc_hash = "sha256:638494223505aa7df8691efa5f7abab6d45724baf62c26c0afa91d598ab43d97"
+
+[[module."godiva_inelastic_anisotropy_ablation.rs".function]]
+id = "fn:398a6a9ddf7f13bc"
+name = "run_arm"
+qual = "run_arm"
+lines = [
+    151,
+    175,
+]
+hash = "sha256:26d544655f3df38643ecb224a01ab32080b6fdf6ee129022c5855ae25ee0f4c8"
+doc_hash = "sha256:c97455b9b52168b069ee794851a682ab96d36143f9ccaced77272b7a2b3b9b37"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:d548885ad98866f3",
+    "fn:e93f38527452f7df",
+]
+
+[[module."godiva_inelastic_anisotropy_ablation.rs".function]]
+id = "fn:21db62574fc3f258"
+name = "run"
+qual = "run"
+lines = [
+    177,
+    300,
+]
+hash = "sha256:cca148695f0873cde73afa34cd5a6d3099f01d2ad2e8ff84bc6417386e4247e7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:398a6a9ddf7f13bc",
+    "fn:eeac8cab23ae8529",
+    "fn:f35310c7b5f03f59",
+    "fn:fbada6810033672e",
+]
+
+[module."godiva_keff.rs"]
+path = "example:godiva_keff"
+
+[[module."godiva_keff.rs".function]]
+id = "fn:a2abbc33fbfb5ee3"
+name = "main"
+qual = "main"
+lines = [
+    78,
+    142,
+]
+hash = "sha256:85735bac4e10030fc7a9e31d4e79ab55987e12f06c48e95223c74dffd4e6ed1c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:71a4f4b034324521",
+    "fn:99fdb882ad101574",
+    "fn:d11336aecff3b093",
+    "fn:d548885ad98866f3",
+]
+
+[module."godiva_keff_endf.rs"]
+path = "example:godiva_keff_endf"
+
+[[module."godiva_keff_endf.rs".function]]
+id = "fn:d4988c14a05fa29f"
+name = "main"
+qual = "main#1"
+lines = [
+    120,
+    127,
+]
+hash = "sha256:3fbf73fe2fd7888d63b9787be760328434e7fe7c3cb80416e152e7074885b5e9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_keff_endf.rs".function]]
+id = "fn:5521912e117afca7"
+name = "main"
+qual = "main#2"
+lines = [
+    129,
+    307,
+]
+hash = "sha256:b8e536264ec397886b37e94256c35fd049040390d3d97e32888c16e1f3e7cab3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:99fdb882ad101574",
+]
+
+[module."godiva_keff_endf_local.rs"]
+path = "example:godiva_keff_endf_local"
+
+[[module."godiva_keff_endf_local.rs".function]]
+id = "fn:4a282005a3bc97a3"
+name = "main"
+qual = "main"
+lines = [
+    106,
+    190,
+]
+hash = "sha256:8b7d1d9452c927a87c6596faa6f4a1e51f461f3163c30ed6f091d3c808d5989b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:2c945092147fdb01",
+    "fn:38e76eeb4aab2d7a",
+    "fn:4fefd35b779cf970",
+    "fn:99fdb882ad101574",
+    "fn:caf436e2773a7e92",
+    "fn:d548885ad98866f3",
+    "fn:f1ce5376ada95512",
+    "fn:fcb98d2fcf325c04",
+]
+
+[module."godiva_keff_ensemble.rs"]
+path = "example:godiva_keff_ensemble"
+
+[[module."godiva_keff_ensemble.rs".function]]
+id = "fn:128454730dee7d52"
+name = "main"
+qual = "main#1"
+lines = [
+    212,
+    215,
+]
+hash = "sha256:8a85d6c7425c4b7ee09efec174574cbd0b6676965edfe88463caf72082adcefb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_keff_ensemble.rs".function]]
+id = "fn:0e8b7ecaea1291b9"
+name = "main"
+qual = "main#2"
+lines = [
+    217,
+    220,
+]
+hash = "sha256:057c58e0e15c2f8cc19a49643ffe8d1efc1b8b99ebaa0c660bcdef55bd3d57f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:02e9a41fbeae6128"]
+
+[[module."godiva_keff_ensemble.rs".function]]
+id = "fn:02e9a41fbeae6128"
+name = "run"
+qual = "run"
+lines = [
+    242,
+    395,
+]
+hash = "sha256:4512f67442d00d5e9082ce53a9ddd37013735dca2efe03c4eb9d133123c1fe52"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:00467455b347839a",
+    "fn:0943a5de41df184b",
+    "fn:14a6fa25c0a1f183",
+    "fn:2322ad376308b463",
+    "fn:2c945092147fdb01",
+    "fn:35edd09cf8330fc5",
+    "fn:3b10d8208360c646",
+    "fn:4fb47660897ffd60",
+    "fn:4fefd35b779cf970",
+    "fn:7064af7657653c79",
+    "fn:7687667938944ec9",
+    "fn:88a8bcc2119d7035",
+    "fn:9b61b0811393bac6",
+    "fn:aabf8cf1cbae6cb9",
+    "fn:abcd471037084582",
+    "fn:d548885ad98866f3",
+    "fn:f1ce5376ada95512",
+]
+
+[[module."godiva_keff_ensemble.rs".function]]
+id = "fn:0943a5de41df184b"
+name = "gate"
+qual = "gate"
+lines = [
+    397,
+    474,
+]
+hash = "sha256:f6d1d5ab45c79ed79f7b356e47ab2f04a5eb2282e6bbae2c3bafe6993c76456c"
+doc_hash = "sha256:6448452bf55b103ca7132702329949e03d01c54fa9287cf37ae8c229f450079e"
+
+[module."godiva_kinetics_k_ratio.rs"]
+path = "example:godiva_kinetics_k_ratio"
+
+[[module."godiva_kinetics_k_ratio.rs".function]]
+id = "fn:ebe4909915106e55"
+name = "heu"
+qual = "heu"
+lines = [
+    57,
+    69,
+]
+hash = "sha256:76783c29143ad356ab882c68527115622aa7b52db9da29379ad66f93a7e94e80"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:eeac8cab23ae8529"]
+
+[[module."godiva_kinetics_k_ratio.rs".function]]
+id = "fn:7d39a9407796af38"
+name = "model"
+qual = "model"
+lines = [
+    71,
+    112,
+]
+hash = "sha256:471de18daf548aa4a53a823ac3ebcf5119fa2cf13736d7cf20a04581b9902503"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:8b1b36725917b52d"]
+
+[[module."godiva_kinetics_k_ratio.rs".function]]
+id = "fn:f9ad2b520d0b7d9f"
+name = "settings"
+qual = "settings"
+lines = [
+    114,
+    124,
+]
+hash = "sha256:d5c39656e7206f492c219cb5ab9196f626ff03a13b0584d4ecd9dffb9069a5a2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:14a6fa25c0a1f183"]
+
+[[module."godiva_kinetics_k_ratio.rs".function]]
+id = "fn:f91fbc1b82c38360"
+name = "lambda_tally"
+qual = "lambda_tally"
+lines = [
+    126,
+    136,
+]
+hash = "sha256:760f38cdc5f99a533a6cfa9509d52fc31352792c515a6d966e3c50091f3fc010"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_kinetics_k_ratio.rs".function]]
+id = "fn:37fe7f95325d4e1e"
+name = "mean_sem"
+qual = "mean_sem"
+lines = [
+    138,
+    146,
+]
+hash = "sha256:99ddf61b8d61e242b0c969fb2bda5138424a057e98d3b9288afc3fddf6f862d4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_kinetics_k_ratio.rs".function]]
+id = "fn:bbf53c679389f4f1"
+name = "main"
+qual = "main"
+lines = [
+    148,
+    257,
+]
+hash = "sha256:aaef5bd0f2a4e64f1b86aa2a594aa3fde6e7b71070a85810d6c095a024f31e7d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:18714de87285ba2b",
+    "fn:1aa06390f9c4a74e",
+    "fn:33f85da4fa4970b3",
+    "fn:37fe7f95325d4e1e",
+    "fn:59c6c565cbe658fb",
+    "fn:5dfbddfbff2b855c",
+    "fn:65e0524b69049dd1",
+    "fn:6f41a5ff33c5c494",
+    "fn:7d39a9407796af38",
+    "fn:92c627687b675aff",
+    "fn:b30da16ec175f0cb",
+    "fn:cb1fc1a67d38f99a",
+    "fn:df789f859db6e83d",
+    "fn:e8a9287aae9d775b",
+    "fn:ebe4909915106e55",
+    "fn:ec8415d5b8fcb2e7",
+    "fn:f91fbc1b82c38360",
+    "fn:f9ad2b520d0b7d9f",
+]
+
+[module."godiva_kinf_vs_openmc.rs"]
+path = "example:godiva_kinf_vs_openmc"
+
+[[module."godiva_kinf_vs_openmc.rs".function]]
+id = "fn:8888c9c5d00d6517"
+name = "main"
+qual = "main#1"
+lines = [
+    84,
+    87,
+]
+hash = "sha256:05fce523b5a4f49867b09627abe623ad19442838d50ba22663c9084ccbd26dd6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_kinf_vs_openmc.rs".function]]
+id = "fn:04e77f6692644a45"
+name = "main"
+qual = "main#2"
+lines = [
+    89,
+    92,
+]
+hash = "sha256:057c58e0e15c2f8cc19a49643ffe8d1efc1b8b99ebaa0c660bcdef55bd3d57f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9af54149fce3b681"]
+
+[[module."godiva_kinf_vs_openmc.rs".function]]
+id = "fn:a01d8687fab70592"
+name = "stats"
+qual = "stats"
+lines = [
+    116,
+    121,
+]
+hash = "sha256:4ebc9a7d7043061fcaf0bf20afadc3a47ab4f419e5301e17ce4858ecbad1b487"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_kinf_vs_openmc.rs".function]]
+id = "fn:9af54149fce3b681"
+name = "run"
+qual = "run"
+lines = [
+    123,
+    201,
+]
+hash = "sha256:f810b6d957b7abacbe9976bd9e6c7ffa8938f241cccafe30371f97848d9e9a8b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0f436bfe4a4bad71",
+    "fn:14a6fa25c0a1f183",
+    "fn:2c945092147fdb01",
+    "fn:a01d8687fab70592",
+    "fn:a051bd1637f9435b",
+    "fn:eeac8cab23ae8529",
+]
+
+[module."godiva_mf6_continuum_ensemble.rs"]
+path = "example:godiva_mf6_continuum_ensemble"
+
+[[module."godiva_mf6_continuum_ensemble.rs".function]]
+id = "fn:1ef3fc844f664648"
+name = "main"
+qual = "main#1"
+lines = [
+    84,
+    87,
+]
+hash = "sha256:3a787760c3d380d7343d17b9366f9efe4b86ced6c4d0de80952b1127b80a0e86"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_mf6_continuum_ensemble.rs".function]]
+id = "fn:2409eee2aa62192f"
+name = "main"
+qual = "main#2"
+lines = [
+    89,
+    92,
+]
+hash = "sha256:057c58e0e15c2f8cc19a49643ffe8d1efc1b8b99ebaa0c660bcdef55bd3d57f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:8bd772c2665ce1b4"]
+
+[[module."godiva_mf6_continuum_ensemble.rs".function]]
+id = "fn:a096272010987d1d"
+name = "workers"
+qual = "workers"
+lines = [
+    107,
+    115,
+]
+hash = "sha256:a7708eff66e6a2e692ddfb688bf80c22c03bdeebe992bcbb8722dae183253f63"
+doc_hash = "sha256:e80d253f245b0314051d39bfbbae774151f0e856077b535978a50de33c219b0f"
+
+[[module."godiva_mf6_continuum_ensemble.rs".function]]
+id = "fn:1fda9fd0c9bf5a51"
+name = "stats"
+qual = "stats"
+lines = [
+    125,
+    132,
+]
+hash = "sha256:7649d7f952858d0679df7e07866f5b98ba1748508cbc9a7e44e7f8ebece277bd"
+doc_hash = "sha256:c645474a5260e51871ad8df81e0ad4c88c3fddf39a6996142aa45841b6ec81f5"
+
+[[module."godiva_mf6_continuum_ensemble.rs".function]]
+id = "fn:5c546ddc5d03a8c5"
+name = "run_arm"
+qual = "run_arm"
+lines = [
+    134,
+    161,
+]
+hash = "sha256:f175c6bef6090ef87b342b0bfc75f46686edf06fd09118509d156a25d6971fb5"
+doc_hash = "sha256:c97455b9b52168b069ee794851a682ab96d36143f9ccaced77272b7a2b3b9b37"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:a096272010987d1d",
+    "fn:d548885ad98866f3",
+]
+
+[[module."godiva_mf6_continuum_ensemble.rs".function]]
+id = "fn:8bd772c2665ce1b4"
+name = "run"
+qual = "run"
+lines = [
+    163,
+    262,
+]
+hash = "sha256:71b8403dd874760041d3eb29120f0075158060c096abeb374cb0dfd950885c8b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1fda9fd0c9bf5a51",
+    "fn:2c945092147fdb01",
+    "fn:39a44d7b896da505",
+    "fn:548ee274d42167b0",
+    "fn:5c546ddc5d03a8c5",
+    "fn:eeac8cab23ae8529",
+]
+
+[module."godiva_spectrum_vs_openmc.rs"]
+path = "example:godiva_spectrum_vs_openmc"
+
+[[module."godiva_spectrum_vs_openmc.rs".function]]
+id = "fn:dab9a35093255906"
+name = "main"
+qual = "main#1"
+lines = [
+    90,
+    93,
+]
+hash = "sha256:d61ca8499703946167cc579c4d4ed43b8ee37a694f63bfcf16ee93db8abd5acd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_spectrum_vs_openmc.rs".function]]
+id = "fn:1a8312e5a474d82c"
+name = "main"
+qual = "main#2"
+lines = [
+    95,
+    98,
+]
+hash = "sha256:057c58e0e15c2f8cc19a49643ffe8d1efc1b8b99ebaa0c660bcdef55bd3d57f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4b5172f01e7175b7"]
+
+[[module."godiva_spectrum_vs_openmc.rs".function]]
+id = "fn:8931ef0ef3d19948"
+name = "log_grid"
+qual = "log_grid"
+lines = [
+    133,
+    138,
+]
+hash = "sha256:d944348cd413bd94e74168588955f22f2f7114ee2fb2d61e95f8eebf7cab270f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_spectrum_vs_openmc.rs".function]]
+id = "fn:8c01c4def2cd6909"
+name = "godiva_geometry"
+qual = "godiva_geometry"
+lines = [
+    140,
+    183,
+]
+hash = "sha256:4f97ebbdf2fae4c463936b3a72a87f4ef2d36df450c514b72e6d720c84ff5a0e"
+doc_hash = "sha256:e2658b24880ebc954006b899133e7b8a61f0eeb2f1a4929d34d1391aa492f36f"
+callees = ["fn:8b1b36725917b52d"]
+
+[[module."godiva_spectrum_vs_openmc.rs".function]]
+id = "fn:4b5172f01e7175b7"
+name = "run"
+qual = "run"
+lines = [
+    185,
+    284,
+]
+hash = "sha256:f882dfc6ed88d902af26090cd2c98660552640bb9548fa32337e8994671dc1b6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:18714de87285ba2b",
+    "fn:2c945092147fdb01",
+    "fn:8931ef0ef3d19948",
+    "fn:8c01c4def2cd6909",
+    "fn:cb1fc1a67d38f99a",
+    "fn:e8a9287aae9d775b",
+    "fn:eeac8cab23ae8529",
+]
+
+[module."godiva_target_at_rest_ablation.rs"]
+path = "example:godiva_target_at_rest_ablation"
+
+[[module."godiva_target_at_rest_ablation.rs".function]]
+id = "fn:f9620bbd28e9bbed"
+name = "main"
+qual = "main#1"
+lines = [
+    77,
+    80,
+]
+hash = "sha256:8560185e02e23a8e2149f0941e83af8d90b89afc6043f2f6a06b208833ca7996"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_target_at_rest_ablation.rs".function]]
+id = "fn:0637084a14f1fb81"
+name = "main"
+qual = "main#2"
+lines = [
+    82,
+    85,
+]
+hash = "sha256:057c58e0e15c2f8cc19a49643ffe8d1efc1b8b99ebaa0c660bcdef55bd3d57f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:ea37068fdbdf14cc"]
+
+[[module."godiva_target_at_rest_ablation.rs".function]]
+id = "fn:149c15dd35a77bc4"
+name = "workers"
+qual = "workers"
+lines = [
+    108,
+    118,
+]
+hash = "sha256:ec48d2f96d0f1e4c5d65994f5da9f187d341fb6ddeb56b60cee12d2f1cab67e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_target_at_rest_ablation.rs".function]]
+id = "fn:7b75f08693f1a432"
+name = "stats"
+qual = "stats"
+lines = [
+    120,
+    126,
+]
+hash = "sha256:7649d7f952858d0679df7e07866f5b98ba1748508cbc9a7e44e7f8ebece277bd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."godiva_target_at_rest_ablation.rs".function]]
+id = "fn:d948b9fba8ff66f3"
+name = "run_arm"
+qual = "run_arm"
+lines = [
+    128,
+    151,
+]
+hash = "sha256:28c7d941beaeab81b11a508d7032d95fe5dba56a2d8f8858f22fbc5850c18dde"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:149c15dd35a77bc4",
+    "fn:14a6fa25c0a1f183",
+    "fn:d548885ad98866f3",
+]
+
+[[module."godiva_target_at_rest_ablation.rs".function]]
+id = "fn:ea37068fdbdf14cc"
+name = "run"
+qual = "run"
+lines = [
+    153,
+    337,
+]
+hash = "sha256:d79233d03ad20548d5bc4b3b6311c33984b52fbca61a7ed48b5f0e3f25d184cc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0775af77b5fa27db",
+    "fn:149c15dd35a77bc4",
+    "fn:2c945092147fdb01",
+    "fn:66b92b1e796d5c1d",
+    "fn:7866e4cfd47a890b",
+    "fn:7b75f08693f1a432",
+    "fn:d948b9fba8ff66f3",
+    "fn:eeac8cab23ae8529",
+]
+
+[module."graphite_energy_decrement.rs"]
+path = "example:graphite_energy_decrement"
+
+[[module."graphite_energy_decrement.rs".function]]
+id = "fn:97d51d19851dbed4"
+name = "main"
+qual = "main"
+lines = [
+    98,
+    217,
+]
+hash = "sha256:caa25f8ee90c96629534454c66995233afaafe2388b3b24c8acd27f1735bf280"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e8da20a79a07554",
+    "fn:2c945092147fdb01",
+    "fn:76d287955e66f9b9",
+    "fn:9014fa79e1c55492",
+    "fn:a55ee2c85481c5e1",
+]
+
+[module."graphite_kernel_vs_njoy_thermr.rs"]
+path = "example:graphite_kernel_vs_njoy_thermr"
+
+[[module."graphite_kernel_vs_njoy_thermr.rs".function]]
+id = "fn:0e429c7dfbfb52ed"
+name = "main"
+qual = "main"
+lines = [
+    50,
+    149,
+]
+hash = "sha256:e9aae8d0047a607a908a64eb14784594a55ea14d17e4d3e432dc0a5126654e74"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:43372392178db576",
+    "fn:6a86e851ad2fc0c8",
+    "fn:9014fa79e1c55492",
+    "fn:a55ee2c85481c5e1",
+    "fn:a95476c03320f442",
+]
+
+[[module."graphite_kernel_vs_njoy_thermr.rs".function]]
+id = "fn:a95476c03320f442"
+name = "moments_from_matrix"
+qual = "moments_from_matrix"
+lines = [
+    151,
+    175,
+]
+hash = "sha256:de85c0c4a25312cc93aa2c9ef04209afc52bf6c002632616f061a8c772230357"
+doc_hash = "sha256:007fb58109ba9c48bfd814bd53edbddbc485ea29e99b5b72b3ddc6d494f7e73c"
+
+[[module."graphite_kernel_vs_njoy_thermr.rs".function]]
+id = "fn:6a86e851ad2fc0c8"
+name = "parse_mf6_law1"
+qual = "parse_mf6_law1"
+lines = [
+    177,
+    234,
+]
+hash = "sha256:8a10cce44618c2f9602fa85587e7b09ca7befaec3f448553666289a305d2b6ef"
+doc_hash = "sha256:2c5ccb9662f607e87e804d20813116ecc038079a6117e7241051887e51ae5738"
+callees = ["fn:9b700a8c044e9457"]
+
+[[module."graphite_kernel_vs_njoy_thermr.rs".function]]
+id = "fn:9b700a8c044e9457"
+name = "endf_f"
+qual = "endf_f"
+lines = [
+    236,
+    257,
+]
+hash = "sha256:24eb9a2860958eed4d215a06b45d95b3db7fb7c4e720b83830a5393dd5940d56"
+doc_hash = "sha256:fc6a7073f5ac3cef24a64da42ad03f2d404dedcf8945474ee32d4119d90625a3"
+
+[[module."graphite_kernel_vs_njoy_thermr.rs".function]]
+id = "fn:43372392178db576"
+name = "golden_gate"
+qual = "golden_gate"
+lines = [
+    259,
+    446,
+]
+hash = "sha256:e1931424d3a16e672ca738ef9c6f81588d25eedeef8ee91601c1bc606b3d840b"
+doc_hash = "sha256:2d0bfbccf19acf140cccdb0e4ee16f6f62e8a338ff00460ae3fc2a477da6f2c6"
+callees = [
+    "fn:a55ee2c85481c5e1",
+    "fn:e948cbfe42837d51",
+]
+
+[module."graphite_sab_angle_and_width_vs_njoy_thermr.rs"]
+path = "example:graphite_sab_angle_and_width_vs_njoy_thermr"
+
+[[module."graphite_sab_angle_and_width_vs_njoy_thermr.rs".function]]
+id = "fn:ad498345988cebe7"
+name = "main"
+qual = "main"
+lines = [
+    87,
+    274,
+]
+hash = "sha256:02c412832d7ca5b042b19788cbfe31abd7093a6d1365ef739e7620eff2495dc2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:079627e831ca5a6c",
+    "fn:2c945092147fdb01",
+    "fn:46d8c65494d5244c",
+    "fn:53bc420d8f00802f",
+    "fn:5eefe2a2321046ac",
+    "fn:72050e2ea89e7841",
+    "fn:9014fa79e1c55492",
+    "fn:9530a8eeb13e52eb",
+    "fn:a55ee2c85481c5e1",
+    "fn:a83d52039b35757b",
+    "fn:e6b1ef10d2c19158",
+]
+
+[[module."graphite_sab_angle_and_width_vs_njoy_thermr.rs".function]]
+id = "fn:a83d52039b35757b"
+name = "golden_gate"
+qual = "golden_gate"
+lines = [
+    276,
+    354,
+]
+hash = "sha256:4d8b05f9be1b69c052518f86236e04b959ee1b46a401e69ec4959bca602cb28d"
+doc_hash = "sha256:f9656ff82df989df50e27bd140b14e800fe3f6fe7528d828e7f144635681f823"
+callees = [
+    "fn:1e8da20a79a07554",
+    "fn:a55ee2c85481c5e1",
+]
+
+[[module."graphite_sab_angle_and_width_vs_njoy_thermr.rs".function]]
+id = "fn:46d8c65494d5244c"
+name = "width_golden_gate"
+qual = "width_golden_gate"
+lines = [
+    356,
+    436,
+]
+hash = "sha256:f052fd0810b8c8c63d1c78a28e5aab25bc3d980ab97ef041babab1e5f14cdc63"
+doc_hash = "sha256:ad79a5013ff7f280cfadc44b601c51ff9564a4721ed6e33e78dc9d12ec351e7d"
+callees = ["fn:7b124c93193af3f1"]
+
+[[module."graphite_sab_angle_and_width_vs_njoy_thermr.rs".function]]
+id = "fn:7b124c93193af3f1"
+name = "sampled_width"
+qual = "sampled_width"
+lines = [
+    438,
+    455,
+]
+hash = "sha256:91b82d4b1ba5cfddfa9b5f3f52a744c23e196339a14f03c51642dcaeaaff562b"
+doc_hash = "sha256:566c5d5f45bf5c1cb9a55854a4f4ba53338f561533e7ba75955ed824b3f8f58b"
+callees = ["fn:a55ee2c85481c5e1"]
+
+[[module."graphite_sab_angle_and_width_vs_njoy_thermr.rs".function]]
+id = "fn:e6b1ef10d2c19158"
+name = "mubar_from_matrix"
+qual = "mubar_from_matrix"
+lines = [
+    461,
+    479,
+]
+hash = "sha256:1f999323cf4ea9217348c6f3e7f6054188ea554d63f71e4cc07aa7b059846df9"
+doc_hash = "sha256:4e29ab315c5b55f4ebc5e5c56d2f831761dbb6add0a60f534ab6e260a1a48534"
+
+[[module."graphite_sab_angle_and_width_vs_njoy_thermr.rs".function]]
+id = "fn:5eefe2a2321046ac"
+name = "mubar_bragg"
+qual = "mubar_bragg"
+lines = [
+    481,
+    494,
+]
+hash = "sha256:2e4fdcbc3bf754f72cf95b5a261c8caf028badfa49923b2c2d775b062f827c00"
+doc_hash = "sha256:5ad186874fabfd1466a64b5a6c0e61f8dd5defa32306fbe54f485c19b0b470ac"
+
+[[module."graphite_sab_angle_and_width_vs_njoy_thermr.rs".function]]
+id = "fn:72050e2ea89e7841"
+name = "bragg_edges_from_mf3"
+qual = "bragg_edges_from_mf3"
+lines = [
+    496,
+    510,
+]
+hash = "sha256:292b95bddd01fb48e8ed4e0f74293938e43aa3fb79a1cc52c2c8a4ad1b5c665f"
+doc_hash = "sha256:0cdb128624d8223aa028b8d1df43c401b880fda4e404916f50d938ee4615b503"
+callees = ["fn:53bc420d8f00802f"]
+
+[[module."graphite_sab_angle_and_width_vs_njoy_thermr.rs".function]]
+id = "fn:53bc420d8f00802f"
+name = "parse_mf3_xs"
+qual = "parse_mf3_xs"
+lines = [
+    512,
+    539,
+]
+hash = "sha256:4bb3be9976f36d84b4f8037adea0bffc9a41accd26fd292d4b71467bd06b0df4"
+doc_hash = "sha256:e0bfca5ccdd63a68f31f7cd9d154f9ea24d9030b8df75fd1be9f4c78da735b74"
+callees = [
+    "fn:25849bfc6434b386",
+    "fn:575e144e38068869",
+    "fn:b69e53b22ec7a252",
+]
+
+[[module."graphite_sab_angle_and_width_vs_njoy_thermr.rs".function]]
+id = "fn:9530a8eeb13e52eb"
+name = "interp"
+qual = "interp"
+lines = [
+    541,
+    561,
+]
+hash = "sha256:c7c54e35ba2cf0faee1e2fab38d979e7a48ce65249cbd6397d675e488e6bb092"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."graphite_sab_angle_and_width_vs_njoy_thermr.rs".function]]
+id = "fn:575e144e38068869"
+name = "section_lines"
+qual = "section_lines"
+lines = [
+    563,
+    572,
+]
+hash = "sha256:1f9e1a43b4141927cc16f0967200c643941fcce868373cc8e6728305a126ab0f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."graphite_sab_angle_and_width_vs_njoy_thermr.rs".function]]
+id = "fn:82690b076ca29cbe"
+name = "field"
+qual = "field"
+lines = [
+    574,
+    576,
+]
+hash = "sha256:e51ce5a962700834612ebf845ad55e6907c7461057ae73ae032122119df0da75"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b69e53b22ec7a252"]
+
+[[module."graphite_sab_angle_and_width_vs_njoy_thermr.rs".function]]
+id = "fn:25849bfc6434b386"
+name = "ifield"
+qual = "ifield"
+lines = [
+    577,
+    579,
+]
+hash = "sha256:9fb7e97c54de3f3cf01aea2847f30a037160cd9d489af59a49f725602d3b8d4e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."graphite_sab_angle_and_width_vs_njoy_thermr.rs".function]]
+id = "fn:079627e831ca5a6c"
+name = "parse_mf6_law1_with_cosines"
+qual = "parse_mf6_law1_with_cosines"
+lines = [
+    581,
+    629,
+]
+hash = "sha256:831f85f118680c745c4f884ac57da5d5e0a3b334d2732e41c4133e7e7a27f159"
+doc_hash = "sha256:b5dc086956495ac2512be0df0c5be7afa3f3c5f96a367dfa472f040931f7a949"
+callees = [
+    "fn:25849bfc6434b386",
+    "fn:575e144e38068869",
+    "fn:82690b076ca29cbe",
+    "fn:b69e53b22ec7a252",
+]
+
+[[module."graphite_sab_angle_and_width_vs_njoy_thermr.rs".function]]
+id = "fn:b69e53b22ec7a252"
+name = "endf_f"
+qual = "endf_f"
+lines = [
+    631,
+    651,
+]
+hash = "sha256:24eb9a2860958eed4d215a06b45d95b3db7fb7c4e720b83830a5393dd5940d56"
+doc_hash = "sha256:fc6a7073f5ac3cef24a64da42ad03f2d404dedcf8945474ee32d4119d90625a3"
+
+[module."graphite_vs_njoy_thermr.rs"]
+path = "example:graphite_vs_njoy_thermr"
+
+[[module."graphite_vs_njoy_thermr.rs".function]]
+id = "fn:9384d2aa5f587513"
+name = "main"
+qual = "main"
+lines = [
+    59,
+    141,
+]
+hash = "sha256:5088774e1cc7a3b1f99eb741fde03a4dadb04d4934cac8d8e84132cfe1b6f687"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0200fa52928d562a",
+    "fn:2322ad376308b463",
+    "fn:2c945092147fdb01",
+    "fn:9014fa79e1c55492",
+    "fn:c15ad5726df5f15a",
+    "fn:c75da9ec1bde418a",
+    "fn:ddac81030ac8551c",
+    "fn:df0782d2411f00e8",
+    "fn:f88a8f22952fc73f",
+]
+
+[[module."graphite_vs_njoy_thermr.rs".function]]
+id = "fn:ddac81030ac8551c"
+name = "interp_linlin"
+qual = "interp_linlin"
+lines = [
+    143,
+    157,
+]
+hash = "sha256:89c9856bd17141856df400c8b53fc79527f5c02eb55addace7d7319dea26c03d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."graphite_vs_njoy_thermr.rs".function]]
+id = "fn:c75da9ec1bde418a"
+name = "golden_gate"
+qual = "golden_gate"
+lines = [
+    159,
+    247,
+]
+hash = "sha256:9b8e94a01e2dbf388f2d835aa414a22a42b2ae3dfc23c02f21a046467075488b"
+doc_hash = "sha256:7b52eb93b71e8b8e7aee96c3a9169d0314b8040ccec4f2bbba71809a30720f10"
+callees = [
+    "fn:0200fa52928d562a",
+    "fn:e948cbfe42837d51",
+    "fn:f88a8f22952fc73f",
+]
+
+[module."h2o_kernel_vs_njoy_thermr.rs"]
+path = "example:h2o_kernel_vs_njoy_thermr"
+
+[[module."h2o_kernel_vs_njoy_thermr.rs".function]]
+id = "fn:122591f2fd6bf90c"
+name = "main"
+qual = "main"
+lines = [
+    125,
+    229,
+]
+hash = "sha256:558e2b8f3e4d080c9ee9bc0de6a36a84d0ee90e8d2a9324bd2012dd06f20e7a0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0bc522c6578990cb",
+    "fn:194de9dbda39f45a",
+    "fn:2c945092147fdb01",
+    "fn:532c41414e78dc91",
+    "fn:9014fa79e1c55492",
+    "fn:a55ee2c85481c5e1",
+]
+
+[[module."h2o_kernel_vs_njoy_thermr.rs".function]]
+id = "fn:0bc522c6578990cb"
+name = "moments_from_matrix"
+qual = "moments_from_matrix"
+lines = [
+    231,
+    255,
+]
+hash = "sha256:de85c0c4a25312cc93aa2c9ef04209afc52bf6c002632616f061a8c772230357"
+doc_hash = "sha256:007fb58109ba9c48bfd814bd53edbddbc485ea29e99b5b72b3ddc6d494f7e73c"
+
+[[module."h2o_kernel_vs_njoy_thermr.rs".function]]
+id = "fn:194de9dbda39f45a"
+name = "parse_mf6_law1"
+qual = "parse_mf6_law1"
+lines = [
+    257,
+    314,
+]
+hash = "sha256:8a10cce44618c2f9602fa85587e7b09ca7befaec3f448553666289a305d2b6ef"
+doc_hash = "sha256:2c5ccb9662f607e87e804d20813116ecc038079a6117e7241051887e51ae5738"
+callees = ["fn:15e1445778c7127d"]
+
+[[module."h2o_kernel_vs_njoy_thermr.rs".function]]
+id = "fn:15e1445778c7127d"
+name = "endf_f"
+qual = "endf_f"
+lines = [
+    316,
+    337,
+]
+hash = "sha256:24eb9a2860958eed4d215a06b45d95b3db7fb7c4e720b83830a5393dd5940d56"
+doc_hash = "sha256:fc6a7073f5ac3cef24a64da42ad03f2d404dedcf8945474ee32d4119d90625a3"
+
+[[module."h2o_kernel_vs_njoy_thermr.rs".function]]
+id = "fn:532c41414e78dc91"
+name = "golden_gate"
+qual = "golden_gate"
+lines = [
+    339,
+    511,
+]
+hash = "sha256:251523d9b86351f5a621efb878ecfa79be12911ca74383b28be6245c3517c881"
+doc_hash = "sha256:a0895707f3cd9769faa94ea87866f9e89ad66873f15680011f19116e5986d3bb"
+callees = [
+    "fn:a55ee2c85481c5e1",
+    "fn:e948cbfe42837d51",
+]
+
+[module."h2o_vs_njoy_thermr.rs"]
+path = "example:h2o_vs_njoy_thermr"
+
+[[module."h2o_vs_njoy_thermr.rs".function]]
+id = "fn:e7a581ba66d23c92"
+name = "main"
+qual = "main"
+lines = [
+    73,
+    149,
+]
+hash = "sha256:8d50f4d5c51c7b0276c145412fca061d681c14e757d770c76ac04ed9aed56050"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0200fa52928d562a",
+    "fn:2322ad376308b463",
+    "fn:2c945092147fdb01",
+    "fn:73aa8e29c3d67f7e",
+    "fn:7670ec6830ebfad4",
+    "fn:9014fa79e1c55492",
+    "fn:a24a0ae9558dccb0",
+    "fn:c15ad5726df5f15a",
+    "fn:df0782d2411f00e8",
+]
+
+[[module."h2o_vs_njoy_thermr.rs".function]]
+id = "fn:73aa8e29c3d67f7e"
+name = "golden_gate"
+qual = "golden_gate"
+lines = [
+    153,
+    224,
+]
+hash = "sha256:4910a00d7f30172eb21609f73fa4fb40520d2058f2045bcbca938f9feedde097"
+doc_hash = "sha256:d1e7efa273a5095c6ba364953bcba21855ac023ca22b801285d8002c6d5c28ca"
+callees = [
+    "fn:a24a0ae9558dccb0",
+    "fn:e948cbfe42837d51",
+]
+
+[module."hst009_keff.rs"]
+path = "example:hst009_keff"
+
+[[module."hst009_keff.rs".function]]
+id = "fn:96817ca5eff1aaf0"
+name = "main"
+qual = "main"
+lines = [
+    158,
+    356,
+]
+hash = "sha256:7a065fd8348070f63a439b9929a2a1bc11484622d995e5bbe70b3737a8c33a2e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:2c945092147fdb01",
+    "fn:44465a7ba0c2cbf5",
+    "fn:4fefd35b779cf970",
+    "fn:613c8d8880eda02c",
+    "fn:65370f694e8071b8",
+    "fn:72e2e7f84e9c767e",
+    "fn:9014fa79e1c55492",
+    "fn:99fdb882ad101574",
+    "fn:b577f89733eb3af5",
+    "fn:c17fd96bd8c86251",
+    "fn:cb1fc1a67d38f99a",
+    "fn:d18fed2ef33581ae",
+    "fn:e8a9287aae9d775b",
+    "fn:fcb98d2fcf325c04",
+]
+
+[[module."hst009_keff.rs".function]]
+id = "fn:65370f694e8071b8"
+name = "load"
+qual = "load"
+lines = [
+    376,
+    384,
+]
+hash = "sha256:e59b599a9bae0ca566477a89a162e3551b6e7704b26fabba89dffe1634e10a8c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:4fefd35b779cf970",
+    "fn:f1ce5376ada95512",
+]
+
+[module."htr10_fuel_zone_kinf.rs"]
+path = "example:htr10_fuel_zone_kinf"
+
+[[module."htr10_fuel_zone_kinf.rs".function]]
+id = "fn:f4321e4b6e817eef"
+name = "low_tier_nuclides"
+qual = "low_tier_nuclides"
+lines = [
+    146,
+    172,
+]
+hash = "sha256:2ff7bd6bfeed6f29b7ce4195519bb8e759ac49e7cc875813f7957bfd8c3780e3"
+doc_hash = "sha256:e090befe938054cf028206d0feb4911935f241647a838a095c03c47b018c6917"
+callees = ["fn:71a4f4b034324521"]
+
+[[module."htr10_fuel_zone_kinf.rs".function]]
+id = "fn:6c23ce4b54afb101"
+name = "endf_nuclides"
+qual = "endf_nuclides"
+lines = [
+    174,
+    238,
+]
+hash = "sha256:dad86523d0b639879cc154401739c215a5371067355f35d3d387af489661ee0e"
+doc_hash = "sha256:8d8da0699f404adec09b859d6f3fb9c162d51716b2b1e2027bca6a1480bead43"
+callees = [
+    "fn:00713c6fd0f77be8",
+    "fn:2c945092147fdb01",
+    "fn:51182576549f1646",
+    "fn:9014fa79e1c55492",
+    "fn:c15ad5726df5f15a",
+    "fn:c17fd96bd8c86251",
+    "fn:d1f3fa293b260d05",
+    "fn:eeac8cab23ae8529",
+]
+
+[[module."htr10_fuel_zone_kinf.rs".function]]
+id = "fn:6e1a5f728ed02e72"
+name = "audit_majorant"
+qual = "audit_majorant"
+lines = [
+    240,
+    272,
+]
+hash = "sha256:bb77913daa77be522a092185afbda8c6755f86687e8cb3c9a7c24fc1401f73a6"
+doc_hash = "sha256:8ebb5edffa749894f169bb77077b541fa229c1b4a763ec192015a22cb021fd54"
+callees = ["fn:9603fb2b6435f47a"]
+
+[[module."htr10_fuel_zone_kinf.rs".function]]
+id = "fn:5f8bfb29b4daf048"
+name = "main"
+qual = "main"
+lines = [
+    274,
+    457,
+]
+hash = "sha256:a46d9c393a1f4083bf5c98118dcb5cac0507d0d55029ca71429aa4a185676187"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0883101f5022f452",
+    "fn:1135c66d1dd27238",
+    "fn:14a6fa25c0a1f183",
+    "fn:1b48fd8a3e74589a",
+    "fn:592c8dda11a73510",
+    "fn:5c8df3cb17bdbf96",
+    "fn:6c23ce4b54afb101",
+    "fn:6e1a5f728ed02e72",
+    "fn:81eac5c53bdb828c",
+    "fn:c27bc07d3da3c84d",
+    "fn:c89ae02db3565ae5",
+    "fn:cf33121bac98bb73",
+    "fn:f4321e4b6e817eef",
+]
+
+[[module."htr10_fuel_zone_kinf.rs".function]]
+id = "fn:c27bc07d3da3c84d"
+name = "vv_gate"
+qual = "vv_gate"
+lines = [
+    459,
+    618,
+]
+hash = "sha256:049476e3eed80c54535fde42fad49f791dd36d0289adc5f396dd7ea1f8f39ab0"
+doc_hash = "sha256:82a3059814e55c60992364367de58753fe3ad45dbf70a64bb43da345d32f4728"
+
+[module."htr10_pebble_delta_tracking.rs"]
+path = "example:htr10_pebble_delta_tracking"
+
+[[module."htr10_pebble_delta_tracking.rs".function]]
+id = "fn:b01e5952a9bf2f3e"
+name = "reference_endf"
+qual = "reference_endf"
+lines = [
+    153,
+    158,
+]
+hash = "sha256:29abcb0ae62330ce09028c2dc36bf75aca49cf88c1edb5035d50e77a90905dc4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."htr10_pebble_delta_tracking.rs".function]]
+id = "fn:9159fd05d65815d6"
+name = "nuclides"
+qual = "nuclides"
+lines = [
+    160,
+    220,
+]
+hash = "sha256:f73567557e013e8c80b53e5d086ac1701a90b70b1b9fe6b46df61292f2c75b10"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:9014fa79e1c55492",
+    "fn:b01e5952a9bf2f3e",
+    "fn:c17fd96bd8c86251",
+    "fn:eeac8cab23ae8529",
+]
+
+[[module."htr10_pebble_delta_tracking.rs".function]]
+id = "fn:0f2d6366b837bff9"
+name = "main"
+qual = "main"
+lines = [
+    225,
+    313,
+]
+hash = "sha256:270ddc74f6817bed00613a80ef53207b57d8a33e38426aea7ec9f0973e22f754"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0545915bf1fb6201",
+    "fn:14a6fa25c0a1f183",
+    "fn:2c356b2021ec90b2",
+    "fn:38d74af6d27856ae",
+    "fn:9159fd05d65815d6",
+    "fn:99131e0b94135b75",
+    "fn:bea0e2a97d393c21",
+    "fn:beeb0becb5512b4f",
+    "fn:d549a3732a3139b4",
+    "fn:e3f7ff65868895af",
+]
+
+[module."icsbep_five_route_keff.rs"]
+path = "example:icsbep_five_route_keff"
+
+[[module."icsbep_five_route_keff.rs".function]]
+id = "fn:378a1be3530807e9"
+name = "case"
+qual = "case"
+lines = [
+    129,
+    219,
+]
+hash = "sha256:3b60a0675fa08e7d223fe0c439b1881bb8f8b3ab11223c2b298451be9633f3ed"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0aaa1d09ede4c33f",
+    "fn:613c8d8880eda02c",
+    "fn:6314f028b2867bcf",
+    "fn:cb1fc1a67d38f99a",
+]
+reached_by = ["#0"]
+
+[[module."icsbep_five_route_keff.rs".function]]
+id = "fn:0aaa1d09ede4c33f"
+name = "lct008_lattice_case"
+qual = "lct008_lattice_case"
+lines = [
+    221,
+    302,
+]
+hash = "sha256:7bd221613389d5cdf173ef61ecdf359cea2f0f701b1f3181209f181654d50711"
+doc_hash = "sha256:46cf31c839bdec81e9c7e86d7152b65b1e68faf52f16d57c5f09af251371e1ca"
+callees = [
+    "fn:295e34d2bc825f07",
+    "fn:2cf2a141da11bd9c",
+    "fn:482119544e9e9496",
+    "fn:b1303e570c701a80",
+    "fn:cb1fc1a67d38f99a",
+    "fn:e86425c2d5597a49",
+    "fn:f5fd360ffc35221b",
+]
+reached_by = ["#0"]
+
+[[module."icsbep_five_route_keff.rs".function]]
+id = "fn:6314f028b2867bcf"
+name = "jemima_model"
+qual = "jemima_model"
+lines = [
+    304,
+    364,
+]
+hash = "sha256:3c1e22599a4498469a1511dcbebb6c41753777991038ff4b7906775367c035fd"
+doc_hash = "sha256:dd014794608580ce323e496e1b177506e311002aad4b4d379127c47a07305557"
+callees = [
+    "fn:8b1b36725917b52d",
+    "fn:cb1fc1a67d38f99a",
+]
+reached_by = ["#0"]
+
+[[module."icsbep_five_route_keff.rs".function]]
+id = "fn:806c3109865f560b"
+name = "flag"
+qual = "flag"
+lines = [
+    366,
+    371,
+]
+hash = "sha256:9d35b435efdeac4202ff43a51b0260e22b9469134f5446492bf75da475434c64"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."icsbep_five_route_keff.rs".function]]
+id = "fn:51a95f60bfb8a7a9"
+name = "load_endf"
+qual = "load_endf"
+lines = [
+    373,
+    386,
+]
+hash = "sha256:da12cae74e064f2ee061ec34c2289d24e0e686a31d178b52c4f589ce60b8beb0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:4fefd35b779cf970",
+    "fn:f1ce5376ada95512",
+]
+
+[[module."icsbep_five_route_keff.rs".function]]
+id = "fn:0dcd08563a4f60a4"
+name = "load_ace"
+qual = "load_ace"
+lines = [
+    388,
+    399,
+]
+hash = "sha256:63c02de449a1f863e57d55368dab7148001f3d52602981c56944a9a7d6a34435"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1d9259c06327daf6",
+    "fn:67bcda62dce833d9",
+    "fn:f2e2315d01a7ab78",
+]
+
+[[module."icsbep_five_route_keff.rs".function]]
+id = "fn:3f5d72a5cf06b970"
+name = "drawable"
+qual = "drawable"
+lines = [
+    401,
+    421,
+]
+hash = "sha256:2675287e515bb4784d601b219b7472d9c40fe501ff1eb571ad1cce0ca9b19237"
+doc_hash = "sha256:236295c7b7ddb3b82b4d4d372076aa6d438a3bb44c914fc23c11bf6ced3c5070"
+callees = ["fn:8b1b36725917b52d"]
+reached_by = ["#0"]
+
+[[module."icsbep_five_route_keff.rs".function]]
+id = "fn:2230d831cf4adf8f"
+name = "colour_for"
+qual = "colour_for"
+lines = [
+    434,
+    453,
+]
+hash = "sha256:d45bfd9c79282bd9e72ad346e53543770c07c41876dff40415745df84a38b72b"
+doc_hash = "sha256:a271d16b4c24f88e6de7cf02a2f97ec64570df5f133a66a8dd63ddf181d9cb75"
+callees = ["fn:f2899d0b9b799e28"]
+reached_by = ["#0"]
+
+[[module."icsbep_five_route_keff.rs".function]]
+id = "fn:35636bcd73373e61"
+name = "draw_all"
+qual = "draw_all"
+lines = [
+    455,
+    480,
+]
+hash = "sha256:a7be2ffb0a8f5eeaedd89f80fe1d5f1c755076f466d56634990f63ea93cc55b6"
+doc_hash = "sha256:58b6207711a738282e55e94341be57f475a54a8d893f5b8ca8be3651c8a44e7c"
+callees = [
+    "fn:2230d831cf4adf8f",
+    "fn:378a1be3530807e9",
+    "fn:3f5d72a5cf06b970",
+    "fn:54f547d1bc279782",
+    "fn:5fc49fc203f283ac",
+    "fn:cb1fc1a67d38f99a",
+]
+
+[[module."icsbep_five_route_keff.rs".function]]
+id = "fn:4fc55b18f1973750"
+name = "main"
+qual = "main"
+lines = [
+    482,
+    814,
+]
+hash = "sha256:3958f6d61bdac51daa772120f8221079af0fe214a7af69b0eafa39aecfe32a1e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0232185c47f057a8",
+    "fn:0aaa1d09ede4c33f",
+    "fn:0abe55edb036cccc",
+    "fn:0dcd08563a4f60a4",
+    "fn:14a6fa25c0a1f183",
+    "fn:2322ad376308b463",
+    "fn:2c945092147fdb01",
+    "fn:33ce48d5de2b4192",
+    "fn:35636bcd73373e61",
+    "fn:35edd09cf8330fc5",
+    "fn:378a1be3530807e9",
+    "fn:3a2673f9d047922f",
+    "fn:51182576549f1646",
+    "fn:51a95f60bfb8a7a9",
+    "fn:5d4fbdce36083102",
+    "fn:653b9ed405de4531",
+    "fn:7064af7657653c79",
+    "fn:804d85b026663ec4",
+    "fn:806c3109865f560b",
+    "fn:88a8bcc2119d7035",
+    "fn:899f153e13ff5640",
+    "fn:8b1b36725917b52d",
+    "fn:9014fa79e1c55492",
+    "fn:962eb067b6704ad8",
+    "fn:9b61b0811393bac6",
+    "fn:b41bdc6671de395b",
+    "fn:c17fd96bd8c86251",
+    "fn:c1c8bb7a964e8bb2",
+    "fn:cb1fc1a67d38f99a",
+    "fn:d1f3fa293b260d05",
+    "fn:d548885ad98866f3",
+    "fn:e8a9287aae9d775b",
+    "fn:f35310c7b5f03f59",
+    "fn:fb1ec4eb43645fcf",
+]
+
+[[module."icsbep_five_route_keff.rs".function]]
+id = "fn:08458c0fd71d422c"
+name = "draw_helpers_colour_by_material_and_draw_godiva_as_its_sphere"
+qual = "draw_helpers_colour_by_material_and_draw_godiva_as_its_sphere"
+lines = [
+    820,
+    838,
+]
+hash = "sha256:185f48c9ad588baf7b6d87008f41e3df6a9f051cac24c1cc7b86fc3ceeb69df1"
+doc_hash = "sha256:8456b05a4868c777209a1a9541f05df31337a02612e0a4c94bfe8e9935366815"
+callees = [
+    "fn:2230d831cf4adf8f",
+    "fn:378a1be3530807e9",
+    "fn:3f5d72a5cf06b970",
+    "fn:f2899d0b9b799e28",
+]
+test = true
+
+[module."jemima_keff.rs"]
+path = "example:jemima_keff"
+
+[[module."jemima_keff.rs".function]]
+id = "fn:9f0acbc1e852e745"
+name = "main"
+qual = "main"
+lines = [
+    131,
+    391,
+]
+hash = "sha256:dfd97ca61585f17bb72d70b4d22e8bb315e439ba362887181ae2e2f5da71f094"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:2322ad376308b463",
+    "fn:23bef72d8a493fc8",
+    "fn:2c945092147fdb01",
+    "fn:35edd09cf8330fc5",
+    "fn:44465a7ba0c2cbf5",
+    "fn:4fefd35b779cf970",
+    "fn:51182576549f1646",
+    "fn:7064af7657653c79",
+    "fn:72e2e7f84e9c767e",
+    "fn:88a8bcc2119d7035",
+    "fn:99fdb882ad101574",
+    "fn:9b61b0811393bac6",
+    "fn:a174f260b4b56477",
+    "fn:af76a8580a03fe7a",
+    "fn:b577f89733eb3af5",
+    "fn:bbce7ff71dabd178",
+    "fn:cb1fc1a67d38f99a",
+    "fn:d18fed2ef33581ae",
+    "fn:e8a9287aae9d775b",
+    "fn:f35310c7b5f03f59",
+    "fn:fcb98d2fcf325c04",
+]
+
+[[module."jemima_keff.rs".function]]
+id = "fn:23bef72d8a493fc8"
+name = "build_geometry"
+qual = "build_geometry"
+lines = [
+    406,
+    459,
+]
+hash = "sha256:0c70adfd3a4e10f2fd785bc35bb841d15a32a1390cf81906580696504fe865d3"
+doc_hash = "sha256:edceae88d66110cf9349ceeeec35eb857656b22cd70d394143fb04f2f2367f15"
+callees = ["fn:8b1b36725917b52d"]
+
+[[module."jemima_keff.rs".function]]
+id = "fn:af76a8580a03fe7a"
+name = "check_geometry"
+qual = "check_geometry"
+lines = [
+    461,
+    526,
+]
+hash = "sha256:5f3808595b723c8d50eb9f0ae3823ebd174999b4ac5888b1e860ca37aad7f221"
+doc_hash = "sha256:eb624307cdbb60f9977ce37b2b9273ed23fe33a5f85370262bda7de9070fddd8"
+callees = [
+    "fn:6123757201240381",
+    "fn:cb1fc1a67d38f99a",
+    "fn:cbb241b81b8f27f6",
+    "fn:e1e248a14f38c41f",
+]
+
+[[module."jemima_keff.rs".function]]
+id = "fn:a174f260b4b56477"
+name = "load"
+qual = "load"
+lines = [
+    528,
+    536,
+]
+hash = "sha256:e59b599a9bae0ca566477a89a162e3551b6e7704b26fabba89dffe1634e10a8c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:4fefd35b779cf970",
+    "fn:f1ce5376ada95512",
+]
+
+[module."lct008_ace_roundtrip.rs"]
+path = "example:lct008_ace_roundtrip"
+
+[[module."lct008_ace_roundtrip.rs".function]]
+id = "fn:df506d39b3e097a3"
+name = "rows"
+qual = "Stages::rows"
+lines = [
+    137,
+    151,
+]
+hash = "sha256:17deff08ceb7de56d174e6408b87727be650eb4314dadb90c22f7283f8780be4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."lct008_ace_roundtrip.rs".function]]
+id = "fn:3bb7a7e5e2090157"
+name = "total"
+qual = "Stages::total"
+lines = [
+    152,
+    154,
+]
+hash = "sha256:6f065437ba380606b5a31c4bdc67dfc26c1583a67715383bd21376580bd49b49"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:df506d39b3e097a3"]
+
+[[module."lct008_ace_roundtrip.rs".function]]
+id = "fn:4d7812af6804214d"
+name = "arg_usize"
+qual = "arg_usize"
+lines = [
+    172,
+    176,
+]
+hash = "sha256:66f9a41b69eb76bc55e1e64bdcb330248d16f2ca5282ac4697f851e93efba59d"
+doc_hash = "sha256:30e0f4bd62dd17cd4396a610947b3fb599ab02cca4e0ccd50c16c25f1a8c5bf7"
+
+[[module."lct008_ace_roundtrip.rs".function]]
+id = "fn:9af8ec8962470391"
+name = "main"
+qual = "main"
+lines = [
+    178,
+    681,
+]
+hash = "sha256:8e4e7e5842f33a836d5a7c70eeace70488e3448ab53888d4cadcbaae34eb5634"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0232185c47f057a8",
+    "fn:0abe55edb036cccc",
+    "fn:14a6fa25c0a1f183",
+    "fn:2322ad376308b463",
+    "fn:295e34d2bc825f07",
+    "fn:2c945092147fdb01",
+    "fn:2cf2a141da11bd9c",
+    "fn:3a2673f9d047922f",
+    "fn:3bb7a7e5e2090157",
+    "fn:482119544e9e9496",
+    "fn:4d7812af6804214d",
+    "fn:5d4fbdce36083102",
+    "fn:77685f9efde11e35",
+    "fn:77d03481265faf4e",
+    "fn:9014fa79e1c55492",
+    "fn:b1303e570c701a80",
+    "fn:c17fd96bd8c86251",
+    "fn:cb1fc1a67d38f99a",
+    "fn:d1f3fa293b260d05",
+    "fn:df506d39b3e097a3",
+    "fn:e86425c2d5597a49",
+    "fn:e8a9287aae9d775b",
+    "fn:ea1bd0239c09e88e",
+    "fn:eeac8cab23ae8529",
+    "fn:f1e10e4bdc2db70e",
+    "fn:f5fd360ffc35221b",
+    "fn:fcb8c2db645c38f9",
+]
+
+[[module."lct008_ace_roundtrip.rs".function]]
+id = "fn:fcb8c2db645c38f9"
+name = "build_ace"
+qual = "build_ace"
+lines = [
+    683,
+    700,
+]
+hash = "sha256:a3bca5c0fea96ff5f0285dbf97760635f94dec39daebc89aa91ea3a9ab0e14a1"
+doc_hash = "sha256:22d60fcf4a796f307d640a51281fcb381c298d8d9e3004b239bbbb8d2fcb5acf"
+callees = [
+    "fn:9210ea29ea0060d4",
+    "fn:e298006d7a808f98",
+]
+
+[module."lct008_keff.rs"]
+path = "example:lct008_keff"
+
+[[module."lct008_keff.rs".function]]
+id = "fn:424565866eba8270"
+name = "main"
+qual = "main"
+lines = [
+    520,
+    758,
+]
+hash = "sha256:eeee244ec8530d27de1064950d75a97ce71567ff290bb014f44bf4a8ff7101b9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:295e34d2bc825f07",
+    "fn:2cf2a141da11bd9c",
+    "fn:390ffd6c0462ea49",
+    "fn:39476da83f4e0936",
+    "fn:44465a7ba0c2cbf5",
+    "fn:482119544e9e9496",
+    "fn:4fefd35b779cf970",
+    "fn:99af86742cdf3c0b",
+    "fn:b1303e570c701a80",
+    "fn:b577f89733eb3af5",
+    "fn:bbce7ff71dabd178",
+    "fn:cb1fc1a67d38f99a",
+    "fn:d18fed2ef33581ae",
+    "fn:daf447440e8fb134",
+    "fn:dda0f8e9381021dd",
+    "fn:e86425c2d5597a49",
+    "fn:e8a9287aae9d775b",
+    "fn:f5fd360ffc35221b",
+]
+
+[[module."lct008_keff.rs".function]]
+id = "fn:daf447440e8fb134"
+name = "arg_usize"
+qual = "arg_usize"
+lines = [
+    760,
+    763,
+]
+hash = "sha256:66f9a41b69eb76bc55e1e64bdcb330248d16f2ca5282ac4697f851e93efba59d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."lct008_keff.rs".function]]
+id = "fn:dda0f8e9381021dd"
+name = "tapes"
+qual = "tapes"
+lines = [
+    801,
+    813,
+]
+hash = "sha256:e50e9a8bdfcb6f3fd20ccc5be446805c81e41c98a9b8409608b6684c96b750ea"
+doc_hash = "sha256:51e7dfd3bcdae14e8596115e3685fc02da2c31cb8decabb046493548fd3d51cf"
+
+[[module."lct008_keff.rs".function]]
+id = "fn:26816073e49efb0e"
+name = "tape_for"
+qual = "tape_for"
+lines = [
+    815,
+    840,
+]
+hash = "sha256:fc7323485fb7e3ab293ce86e4ca24148eeeb834123634fb4241e7272f9cc2969"
+doc_hash = "sha256:c6c9b2c72d5dd4150cacd147a324fa5608227a95e2bebe7efe0873e2a500070d"
+callees = ["fn:dda0f8e9381021dd"]
+
+[[module."lct008_keff.rs".function]]
+id = "fn:390ffd6c0462ea49"
+name = "load_nuclides"
+qual = "load_nuclides"
+lines = [
+    842,
+    926,
+]
+hash = "sha256:8c95cd8fb19873af396ebd15303971231d208707ca0ed87630c0c2370b006014"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2322ad376308b463",
+    "fn:26816073e49efb0e",
+    "fn:2c945092147fdb01",
+    "fn:35edd09cf8330fc5",
+    "fn:51182576549f1646",
+    "fn:7064af7657653c79",
+    "fn:7a00c81e7e3b055f",
+    "fn:9014fa79e1c55492",
+    "fn:b2e7b252201b27f1",
+    "fn:c17fd96bd8c86251",
+    "fn:c743ea578b66f2b2",
+    "fn:d1f3fa293b260d05",
+    "fn:dda0f8e9381021dd",
+]
+
+[[module."lct008_keff.rs".function]]
+id = "fn:b2e7b252201b27f1"
+name = "load_via_ace"
+qual = "load_via_ace"
+lines = [
+    931,
+    990,
+]
+hash = "sha256:e6c32983a5a8c5a911fc56fa8e2bf19e2c1b0427699f9fae25eea03ce410e0b3"
+doc_hash = "sha256:9cc6c26eaf77e8aaa72d2cd80337473811719b207f5aee903c8f542dafe1189b"
+callees = [
+    "fn:0232185c47f057a8",
+    "fn:2322ad376308b463",
+    "fn:2c945092147fdb01",
+    "fn:35edd09cf8330fc5",
+    "fn:77685f9efde11e35",
+    "fn:77d03481265faf4e",
+    "fn:9210ea29ea0060d4",
+    "fn:ea1bd0239c09e88e",
+    "fn:f1e10e4bdc2db70e",
+]
+
+[[module."lct008_keff.rs".function]]
+id = "fn:c743ea578b66f2b2"
+name = "load"
+qual = "load"
+lines = [
+    992,
+    1000,
+]
+hash = "sha256:e59b599a9bae0ca566477a89a162e3551b6e7704b26fabba89dffe1634e10a8c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:4fefd35b779cf970",
+    "fn:f1ce5376ada95512",
+]
+
+[[module."lct008_keff.rs".function]]
+id = "fn:39476da83f4e0936"
+name = "report_self_shielding"
+qual = "report_self_shielding"
+lines = [
+    1002,
+    1033,
+]
+hash = "sha256:57ec8a07e42f6070dc9b15ed7b04a82a6b90e22bc269b90a94655881eb91b02b"
+doc_hash = "sha256:240985cdb58c5294f31702cb6b56db1997c163eeb757fa4e8504fa41ee71cb60"
+callees = ["fn:b039c0ff74c3d1b2"]
+
+[[module."lct008_keff.rs".function]]
+id = "fn:99af86742cdf3c0b"
+name = "report_six_factors"
+qual = "report_six_factors"
+lines = [
+    1035,
+    1142,
+]
+hash = "sha256:657e1bd8f4fc188fd475b584c2cc644245e6617fcecffcfee550dae84f0a1aef"
+doc_hash = "sha256:b946bc2dab08fe9d0d2daa70b67e807e00294d5649d8be0742001257890c75e1"
+callees = [
+    "fn:2807cdd6b77eecb7",
+    "fn:5bbc870d9989fffe",
+    "fn:a9de1e524e4d5ebd",
+    "fn:d20a8466ed9def3d",
+]
+
+[module."lct008_pitch_sweep.rs"]
+path = "example:lct008_pitch_sweep"
+
+[[module."lct008_pitch_sweep.rs".function]]
+id = "fn:6b37e559151fcc4c"
+name = "main"
+qual = "main"
+lines = [
+    125,
+    315,
+]
+hash = "sha256:651b2018dec8928afbc8072ca8c44115c7ac4ae6f21957b66f05a7556e3ce014"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:2631d6c865bc76cb",
+    "fn:482119544e9e9496",
+    "fn:4e1c1bcb25b856fc",
+    "fn:5bbc870d9989fffe",
+    "fn:6d3209cb01cd6aca",
+    "fn:a9de1e524e4d5ebd",
+    "fn:aee7c4fce63b49e9",
+    "fn:cb1fc1a67d38f99a",
+    "fn:ddcad67b694275cf",
+    "fn:e06accd43e58aaea",
+    "fn:e86425c2d5597a49",
+    "fn:f5fd360ffc35221b",
+]
+
+[[module."lct008_pitch_sweep.rs".function]]
+id = "fn:2631d6c865bc76cb"
+name = "pin_cell"
+qual = "pin_cell"
+lines = [
+    317,
+    321,
+]
+hash = "sha256:da18fc10216ba965b13f43d133b622dc8e6223266be296416688922ab8b5c2dc"
+doc_hash = "sha256:520ef02f7fe705e67e8ae39eeae9fd58aa3be294fb06a05200182f335d50d8fd"
+callees = ["fn:c2b70a69aabd0c69"]
+
+[[module."lct008_pitch_sweep.rs".function]]
+id = "fn:6d3209cb01cd6aca"
+name = "draw"
+qual = "draw"
+lines = [
+    323,
+    355,
+]
+hash = "sha256:6e58db81616d35f5294de64459d60a597ec4a2d2bf5dc1e8baa01a25dc17633a"
+doc_hash = "sha256:c4f8d7c9d90d1e1bd02ae79dcb547b4d35b12efe3eeac3d315ab00af4e65e193"
+callees = [
+    "fn:54f547d1bc279782",
+    "fn:5fc49fc203f283ac",
+    "fn:cb1fc1a67d38f99a",
+    "fn:f2899d0b9b799e28",
+]
+
+[[module."lct008_pitch_sweep.rs".function]]
+id = "fn:aee7c4fce63b49e9"
+name = "load_nuclides"
+qual = "load_nuclides"
+lines = [
+    357,
+    406,
+]
+hash = "sha256:ba7201cecc5b3b0387f7c1b50953ca5897247daa1c6370c232d0ef7504b138ca"
+doc_hash = "sha256:82087908a4147695584eaec1637d1f748581212f6e060ebfdf09b7fab544a770"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:4fefd35b779cf970",
+    "fn:51182576549f1646",
+    "fn:9014fa79e1c55492",
+    "fn:c17fd96bd8c86251",
+    "fn:d1f3fa293b260d05",
+    "fn:f1ce5376ada95512",
+]
+
+[module."lct008_urr_dbrc_ablation.rs"]
+path = "example:lct008_urr_dbrc_ablation"
+
+[[module."lct008_urr_dbrc_ablation.rs".function]]
+id = "fn:22830babc61b51db"
+name = "mean_sd"
+qual = "mean_sd"
+lines = [
+    139,
+    147,
+]
+hash = "sha256:fc44a280e76551137cca272eb6bb38d59464cf433c73a02582f1a605535c5683"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."lct008_urr_dbrc_ablation.rs".function]]
+id = "fn:bcb93cf34fc2bda5"
+name = "main"
+qual = "main"
+lines = [
+    149,
+    316,
+]
+hash = "sha256:04fcd455ad958e7a49b67d1b8b4f8f7b679c17d838e6e2e1850e1e76abee60bf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0abe55edb036cccc",
+    "fn:14a6fa25c0a1f183",
+    "fn:22830babc61b51db",
+    "fn:2c945092147fdb01",
+    "fn:3a2673f9d047922f",
+    "fn:5d4fbdce36083102",
+    "fn:d1f3fa293b260d05",
+    "fn:d548885ad98866f3",
+    "fn:eeac8cab23ae8529",
+]
+
+[module."lump_self_shielding_scan.rs"]
+path = "example:lump_self_shielding_scan"
+
+[[module."lump_self_shielding_scan.rs".function]]
+id = "fn:eea1dbb04edccfb1"
+name = "main"
+qual = "main"
+lines = [
+    80,
+    426,
+]
+hash = "sha256:8b9d4240cf3e913101298644b8e74b40a49330721443029672cb56f2404fb146"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:01ae47ee9d355ce8",
+    "fn:154712dff81b4a8a",
+    "fn:461e6bb3215f9473",
+    "fn:613c8d8880eda02c",
+    "fn:7f6318e6833513bd",
+    "fn:8bb144fa254f252f",
+    "fn:9898a85d98fb966e",
+    "fn:a7c9b9bfeab72012",
+    "fn:b039c0ff74c3d1b2",
+    "fn:b11e6f88048217e3",
+    "fn:b1f01a86c5e8e71d",
+    "fn:cd7b1dd39177924a",
+    "fn:d6a2db207e520800",
+    "fn:ded31e33ed14c110",
+    "fn:f0aa114ed05545a0",
+]
+
+[[module."lump_self_shielding_scan.rs".function]]
+id = "fn:9898a85d98fb966e"
+name = "vv_gate"
+qual = "vv_gate"
+lines = [
+    447,
+    609,
+]
+hash = "sha256:a1aa37c63e76c7159771d2be9888b4e2fc737ad317c83842d34e0322b590ca79"
+doc_hash = "sha256:74257f570a1f49ddb2a835765e0cb82db74a5c66467891dfa6878efe075c3df5"
+callees = [
+    "fn:1e8da20a79a07554",
+    "fn:76d287955e66f9b9",
+]
+
+[[module."lump_self_shielding_scan.rs".function]]
+id = "fn:d6a2db207e520800"
+name = "ring_rpt_annulus"
+qual = "ring_rpt_annulus"
+lines = [
+    611,
+    828,
+]
+hash = "sha256:75500321d9b6440c1eef00daf870503ab9e8fbeba1b288d85054e320ecf99637"
+doc_hash = "sha256:7b91ce4d8e4b992a04d184242e3f13ea90a71d8f30ba5bdda07bb6fcc22f7948"
+callees = [
+    "fn:1e8da20a79a07554",
+    "fn:461e6bb3215f9473",
+    "fn:613c8d8880eda02c",
+    "fn:7f6318e6833513bd",
+    "fn:8bb144fa254f252f",
+    "fn:cd7b1dd39177924a",
+    "fn:ded31e33ed14c110",
+]
+
+[[module."lump_self_shielding_scan.rs".function]]
+id = "fn:01ae47ee9d355ce8"
+name = "vv_gate_thick_lump"
+qual = "vv_gate_thick_lump"
+lines = [
+    830,
+    1078,
+]
+hash = "sha256:ae02899e9df53a2458ed28f9eadd96bcf584b252e73fdf53500954f5ade932dc"
+doc_hash = "sha256:3e1e4734ed7f716698c3f90c5f73b26df58d12d201fc8d3d18b93e248faef5b9"
+callees = ["fn:1e8da20a79a07554"]
+
+[[module."lump_self_shielding_scan.rs".function]]
+id = "fn:a7c9b9bfeab72012"
+name = "load"
+qual = "load"
+lines = [
+    1080,
+    1083,
+]
+hash = "sha256:f80d707150eb2fe7c865028db1691b93872dc5dcc7d83c3c4810c8a48f738275"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:eeac8cab23ae8529",
+]
+
+[module."lumped_ugraphite_kinf.rs"]
+path = "example:lumped_ugraphite_kinf"
+
+[[module."lumped_ugraphite_kinf.rs".function]]
+id = "fn:61e0776f20e7d89f"
+name = "ws_cell"
+qual = "ws_cell"
+lines = [
+    197,
+    212,
+]
+hash = "sha256:d53304f8344c44ba98caead0100622fa73d88a0161e92422c7af1f2ebd94a151"
+doc_hash = "sha256:5eeb37fad70293721ee871c855609ae44faa85ff2f7efed87d40221bcc8d8653"
+callees = ["fn:613c8d8880eda02c"]
+
+[[module."lumped_ugraphite_kinf.rs".function]]
+id = "fn:d77e33337d2c707b"
+name = "main"
+qual = "main"
+lines = [
+    214,
+    314,
+]
+hash = "sha256:b5da50fa5ca6296452ae533b231ea5cc97e84862c94c703b2bf8e1bc79c7ad32"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3705b244947fb766",
+    "fn:4d140869bdffbbc8",
+    "fn:61e0776f20e7d89f",
+    "fn:73f825a210032b56",
+    "fn:7793d717ef3f01f2",
+    "fn:7f4a072a34cf6be4",
+    "fn:87511a2ce103a9bf",
+    "fn:8d9cc6607857f87e",
+    "fn:94e9e6a63d7e83a9",
+    "fn:a9c4f73ec3cd87ff",
+    "fn:e0b9a4145efffa1c",
+    "fn:f079dc67219941cb",
+    "fn:f4533b242cc74427",
+    "fn:f81d494cdcbf265a",
+]
+
+[[module."lumped_ugraphite_kinf.rs".function]]
+id = "fn:3705b244947fb766"
+name = "draw"
+qual = "draw"
+lines = [
+    316,
+    350,
+]
+hash = "sha256:30990ae254d750355c5be705748a65e2384bee682b88af86be36b6955fe1fb6d"
+doc_hash = "sha256:3aa95655f807b892d47f43c109015251496d753d8c0db2b7688b875557faa188"
+callees = [
+    "fn:54f547d1bc279782",
+    "fn:5fc49fc203f283ac",
+    "fn:61e0776f20e7d89f",
+    "fn:abbb515c1a256703",
+    "fn:cb1fc1a67d38f99a",
+    "fn:f2899d0b9b799e28",
+]
+
+[module."majorant_absorber_price.rs"]
+path = "example:majorant_absorber_price"
+
+[[module."majorant_absorber_price.rs".function]]
+id = "fn:840d9f9258b87af3"
+name = "reference_endf"
+qual = "reference_endf"
+lines = [
+    111,
+    116,
+]
+hash = "sha256:29abcb0ae62330ce09028c2dc36bf75aca49cf88c1edb5035d50e77a90905dc4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."majorant_absorber_price.rs".function]]
+id = "fn:37cf18c3ccb8671b"
+name = "nuclides"
+qual = "nuclides"
+lines = [
+    118,
+    173,
+]
+hash = "sha256:78f547f07f8a097e0f4f9027e7526e693f5e1c51ef5299e8ad70a0a43d1acc17"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:840d9f9258b87af3",
+    "fn:9014fa79e1c55492",
+    "fn:c17fd96bd8c86251",
+    "fn:eeac8cab23ae8529",
+]
+
+[[module."majorant_absorber_price.rs".function]]
+id = "fn:4eaf0cc5863c0500"
+name = "b4c_rod"
+qual = "b4c_rod"
+lines = [
+    175,
+    206,
+]
+hash = "sha256:73e2d16bfd757728d6605983ac4d6c300988cefdd38f8630f6d4ac3eb51bd925"
+doc_hash = "sha256:586f3950f0c4411b50a5f2795bcc39a5101063793e4f9d067dd9d3ffa5da8de7"
+callees = ["fn:19d6f7c5fae7fb32"]
+
+[[module."majorant_absorber_price.rs".function]]
+id = "fn:385738204b494a84"
+name = "energy_grid"
+qual = "energy_grid"
+lines = [
+    208,
+    216,
+]
+hash = "sha256:ca3054d90bd4d9513440b35d585735231710b910ea1ff121c8306b2b6abdf2e0"
+doc_hash = "sha256:4761738986ab13c570b468eba35d6584a6997973465b4a3ecced5428f9f6a6f0"
+
+[[module."majorant_absorber_price.rs".function]]
+id = "fn:8f894340d88480cf"
+name = "main"
+qual = "main"
+lines = [
+    218,
+    300,
+]
+hash = "sha256:f8331e7caff482f4722063467d32b514b59257b10ab855603028d202d30cb0df"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0545915bf1fb6201",
+    "fn:233223fccf686958",
+    "fn:37cf18c3ccb8671b",
+    "fn:385738204b494a84",
+    "fn:4eaf0cc5863c0500",
+    "fn:553674e261568aad",
+]
+
+[module."majorant_bound_audit.rs"]
+path = "example:majorant_bound_audit"
+
+[[module."majorant_bound_audit.rs".function]]
+id = "fn:a7ce5cb463858e30"
+name = "audit"
+qual = "audit"
+lines = [
+    63,
+    134,
+]
+hash = "sha256:8044a506c038ae73750bcdca52ee261cb45b3902680b732c9320d5dbc37198e2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:553674e261568aad",
+    "fn:a051bd1637f9435b",
+    "fn:b039c0ff74c3d1b2",
+]
+
+[[module."majorant_bound_audit.rs".function]]
+id = "fn:79284ae1cf7460b8"
+name = "resonance_scan"
+qual = "resonance_scan"
+lines = [
+    136,
+    183,
+]
+hash = "sha256:8db129846f40ad7d5423b1553edb2b780c9e6fc3de65ca8fa3808b4d7753a999"
+doc_hash = "sha256:945032ae8f07f1b2c7c068091272bb2e97b18c6efa225c6c3b3655509de6f4fe"
+callees = [
+    "fn:553674e261568aad",
+    "fn:a051bd1637f9435b",
+    "fn:b039c0ff74c3d1b2",
+]
+
+[[module."majorant_bound_audit.rs".function]]
+id = "fn:71dc9028349e6713"
+name = "main"
+qual = "main"
+lines = [
+    185,
+    319,
+]
+hash = "sha256:9c0e893d0bd7b916203de290a41a83404bb9fd540022602721cc64f74b0c8329"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:71a4f4b034324521",
+    "fn:79284ae1cf7460b8",
+    "fn:a7ce5cb463858e30",
+    "fn:b9861889cc9e3d67",
+]
+
+[module."mg_scatter_anisotropy_ablation.rs"]
+path = "example:mg_scatter_anisotropy_ablation"
+
+[[module."mg_scatter_anisotropy_ablation.rs".function]]
+id = "fn:f5c70d0ce4aa860f"
+name = "two_group"
+qual = "two_group"
+lines = [
+    61,
+    78,
+]
+hash = "sha256:85274b6a62353ceb107bbe9e749912d86480b2cd2748451871e098e6d512813e"
+doc_hash = "sha256:c221be45dd1da6a88bfc01aff99ade1e4991c3f14b284399024383241dac9360"
+callees = [
+    "fn:02f523168dcaeedb",
+    "fn:13ca4fc253b1741c",
+    "fn:2cb96efcb5a3948e",
+]
+
+[[module."mg_scatter_anisotropy_ablation.rs".function]]
+id = "fn:451ff24071b690b7"
+name = "cube"
+qual = "cube"
+lines = [
+    80,
+    109,
+]
+hash = "sha256:471c4cb399d294b5c988f02f0f35890e2d04974968f3ddef7b0700be56a0ee99"
+doc_hash = "sha256:ecae7b4b64bfdf4e87feef6b031cbb12cb7423932277c00fecaa5dd3e09a0235"
+callees = ["fn:8b1b36725917b52d"]
+
+[[module."mg_scatter_anisotropy_ablation.rs".function]]
+id = "fn:b946c4ee0dbe2777"
+name = "source_box"
+qual = "source_box"
+lines = [
+    111,
+    116,
+]
+hash = "sha256:6d42525a2a72b397ed9c187e71673fb30543071528003291b3b97b911e7b5d9d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:cb1fc1a67d38f99a"]
+
+[[module."mg_scatter_anisotropy_ablation.rs".function]]
+id = "fn:3dabde9fa702f689"
+name = "mean_sem"
+qual = "mean_sem"
+lines = [
+    118,
+    127,
+]
+hash = "sha256:99ddf61b8d61e242b0c969fb2bda5138424a057e98d3b9288afc3fddf6f862d4"
+doc_hash = "sha256:c2677dfe897d8d19e5d22bbd8b58ea2a30cafa6c9651c3a0772693895f809c54"
+
+[[module."mg_scatter_anisotropy_ablation.rs".function]]
+id = "fn:d9d029b6bc78e367"
+name = "ablate"
+qual = "ablate"
+lines = [
+    129,
+    162,
+]
+hash = "sha256:2db81f84208ed90ed0a7a9bedc1f95b38c0afe626163cc9a14a15a661df28e99"
+doc_hash = "sha256:4b72a0fbe692705f969bf53c6bdc315dd913623c2d3d90055da74e783d52ec36"
+callees = [
+    "fn:3dabde9fa702f689",
+    "fn:90c97baa104df61d",
+    "fn:ad0a994f7f46120a",
+    "fn:b946c4ee0dbe2777",
+    "fn:f5c70d0ce4aa860f",
+]
+
+[[module."mg_scatter_anisotropy_ablation.rs".function]]
+id = "fn:19062ec19f750165"
+name = "main"
+qual = "main"
+lines = [
+    164,
+    207,
+]
+hash = "sha256:004cb495f0432adf7618f4c4c33b9fa7587fd3de9123f25f169f1374bf2bced9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:451ff24071b690b7",
+    "fn:d9d029b6bc78e367",
+    "fn:f5c70d0ce4aa860f",
+    "fn:fcd4de1f1c1197ae",
+]
+
+[module."slowing_down_oracle.rs"]
+path = "example:slowing_down_oracle"
+
+[[module."slowing_down_oracle.rs".function]]
+id = "fn:c2cba35d35b4bd8f"
+name = "main"
+qual = "main"
+lines = [
+    51,
+    141,
+]
+hash = "sha256:af2cbdc0ddb10f6be2f9a481844315ce2dabdb6d44f6f5f260925738dc57a8dd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:154712dff81b4a8a",
+    "fn:6e5d2ee46dc8f387",
+    "fn:8c44f7243a95f3a3",
+    "fn:b11e6f88048217e3",
+    "fn:b1f01a86c5e8e71d",
+    "fn:cd7b1dd39177924a",
+    "fn:f0aa114ed05545a0",
+]
+
+[[module."slowing_down_oracle.rs".function]]
+id = "fn:6e5d2ee46dc8f387"
+name = "vv_gate"
+qual = "vv_gate"
+lines = [
+    143,
+    281,
+]
+hash = "sha256:7d39b81d8245bee8408aa33bce8252141697630f022bc7bc0ebeafbe767c9f2d"
+doc_hash = "sha256:ceb210733da7db9a02b71491cec2644e493fea8d0793e58b95d1ac8eecb42afd"
+callees = [
+    "fn:1e8da20a79a07554",
+    "fn:76d287955e66f9b9",
+]
+
+[[module."slowing_down_oracle.rs".function]]
+id = "fn:8c44f7243a95f3a3"
+name = "load"
+qual = "load"
+lines = [
+    283,
+    286,
+]
+hash = "sha256:f80d707150eb2fe7c865028db1691b93872dc5dcc7d83c3c4810c8a48f738275"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:eeac8cab23ae8529",
+]
+
+[module."stats_sweep_loo.rs"]
+path = "example:stats_sweep_loo"
+
+[[module."stats_sweep_loo.rs".function]]
+id = "fn:4d529af503bfb823"
+name = "main"
+qual = "main#1"
+lines = [
+    59,
+    62,
+]
+hash = "sha256:707b7b22f44f187c9c491e6e8b275e8bcf3e561444dacb166b7167e47de8be6c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."stats_sweep_loo.rs".function]]
+id = "fn:3ac74d7db759d45b"
+name = "main"
+qual = "main#2"
+lines = [
+    64,
+    149,
+]
+hash = "sha256:26f967ee563c9271f70c4f756c50d91d158876cc63cf5095e4772863c662a1e0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:449608823c5ea4fa",
+    "fn:95c2b208478ce3a0",
+    "fn:c5e8968120145d51",
+    "fn:f54526b43c9ef9da",
+]
+
+[module."thermal_emission_grid_convergence.rs"]
+path = "example:thermal_emission_grid_convergence"
+
+[[module."thermal_emission_grid_convergence.rs".function]]
+id = "fn:c8f1b9179a73ba55"
+name = "main"
+qual = "main"
+lines = [
+    98,
+    121,
+]
+hash = "sha256:affc2d117530f91eb16ed876f8f1776801c7c131e7bcb85ecda1039c2596b3cd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:0b0d9d68423add8a"]
+
+[[module."thermal_emission_grid_convergence.rs".function]]
+id = "fn:0b0d9d68423add8a"
+name = "sweep"
+qual = "sweep"
+lines = [
+    123,
+    261,
+]
+hash = "sha256:b197cf079f52ed900e97366a37488910800932a3dd6bfe7084557042b17f21fc"
+doc_hash = "sha256:5068881f06fd10f1ebe88a4567c1a63ea0bc14e13503eac8732e180a6f47a736"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:51b1d3be9b74970c",
+    "fn:6e86b6a77bc5c4fe",
+    "fn:a55ee2c85481c5e1",
+    "fn:b21562d0c8b5e042",
+    "fn:b7d42d57847218a0",
+    "fn:c808aae0f9fe240f",
+]
+
+[[module."thermal_emission_grid_convergence.rs".function]]
+id = "fn:51b1d3be9b74970c"
+name = "sampled_moments"
+qual = "sampled_moments"
+lines = [
+    263,
+    283,
+]
+hash = "sha256:275a9798078875162bb30a0d2e4a3e6441bfefcc8084442c78880654fb44c32c"
+doc_hash = "sha256:a73c1fb6b4289af38027fe5c5de8698d11c8cee85a3813923b1fde6425fd740a"
+callees = ["fn:a55ee2c85481c5e1"]
+
+[[module."thermal_emission_grid_convergence.rs".function]]
+id = "fn:b7d42d57847218a0"
+name = "oracle_moments"
+qual = "oracle_moments"
+lines = [
+    285,
+    317,
+]
+hash = "sha256:40fcac0affc06ead84a200a5c7c1f3154e51bc09340094d3c21b823c2d022b7c"
+doc_hash = "sha256:158054b06b1525c25c8df55774a4b2dc046fbe0abb1164c0c5cc994623d28403"
+
+[[module."thermal_emission_grid_convergence.rs".function]]
+id = "fn:c808aae0f9fe240f"
+name = "parse_mf6_law1"
+qual = "parse_mf6_law1"
+lines = [
+    319,
+    364,
+]
+hash = "sha256:54ed5c497ea4112ef9d37a59a0d55147675a9df4168f032bc8003e8b8df7d8ad"
+doc_hash = "sha256:9c4421950cae89353c5034cd6ed462bf654471ec801b7eeeef0f3ce28dfb2635"
+callees = [
+    "fn:1d5c292c0629c5c1",
+    "fn:5d8f6102f0d953aa",
+    "fn:c78355ddf7c6b45e",
+]
+
+[[module."thermal_emission_grid_convergence.rs".function]]
+id = "fn:1d5c292c0629c5c1"
+name = "field"
+qual = "field"
+lines = [
+    366,
+    368,
+]
+hash = "sha256:e51ce5a962700834612ebf845ad55e6907c7461057ae73ae032122119df0da75"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:c78355ddf7c6b45e"]
+
+[[module."thermal_emission_grid_convergence.rs".function]]
+id = "fn:5d8f6102f0d953aa"
+name = "ifield"
+qual = "ifield"
+lines = [
+    370,
+    372,
+]
+hash = "sha256:9fb7e97c54de3f3cf01aea2847f30a037160cd9d489af59a49f725602d3b8d4e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."thermal_emission_grid_convergence.rs".function]]
+id = "fn:c78355ddf7c6b45e"
+name = "endf_f"
+qual = "endf_f"
+lines = [
+    374,
+    394,
+]
+hash = "sha256:24eb9a2860958eed4d215a06b45d95b3db7fb7c4e720b83830a5393dd5940d56"
+doc_hash = "sha256:fc6a7073f5ac3cef24a64da42ad03f2d404dedcf8945474ee32d4119d90625a3"
+
+[module."thermal_fixed_point_sweep.rs"]
+path = "example:thermal_fixed_point_sweep"
+
+[[module."thermal_fixed_point_sweep.rs".function]]
+id = "fn:53267cbd4a00101d"
+name = "mean_and_sem"
+qual = "mean_and_sem"
+lines = [
+    123,
+    128,
+]
+hash = "sha256:1a10a8deedee7456251f78c8d1ce5c4495263953b7176b0be609e79bcf89f71c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."thermal_fixed_point_sweep.rs".function]]
+id = "fn:d1052088cce8029a"
+name = "equilibrium"
+qual = "equilibrium"
+lines = [
+    130,
+    187,
+]
+hash = "sha256:b06dec417b050319247bc821a969c8ca5818fb170ff8b71c39f447e27ddc783d"
+doc_hash = "sha256:35b22f9ad696589d13268dec84faf7093d6f0014e7512ad6e8efe3a5f9ec7cfb"
+callees = [
+    "fn:53267cbd4a00101d",
+    "fn:a24a0ae9558dccb0",
+    "fn:a55ee2c85481c5e1",
+]
+
+[[module."thermal_fixed_point_sweep.rs".function]]
+id = "fn:c7e11657264fe591"
+name = "main"
+qual = "main"
+lines = [
+    189,
+    278,
+]
+hash = "sha256:b1a540d7ba2ce7f32689fe5d5ad6596c1177bcd8301feaa990af574b9bc9e263"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:9014fa79e1c55492",
+    "fn:d1052088cce8029a",
+]
+
+[module."thermal_kernel_keff_worth.rs"]
+path = "example:thermal_kernel_keff_worth"
+
+[[module."thermal_kernel_keff_worth.rs".function]]
+id = "fn:08e6f8a3957c335c"
+name = "main"
+qual = "main"
+lines = [
+    174,
+    315,
+]
+hash = "sha256:2c1541d2cc17b24f5d35cc7c6539560c0aa00971376f538feaa73792193e188b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:5fe169fff563fe2e",
+    "fn:6e86b6a77bc5c4fe",
+    "fn:a051bd1637f9435b",
+    "fn:b21562d0c8b5e042",
+    "fn:b9861889cc9e3d67",
+    "fn:bd70e17a06d50fe9",
+    "fn:c014b6485afcc051",
+    "fn:c17fd96bd8c86251",
+    "fn:c89ae02db3565ae5",
+    "fn:d120a6d7189f078d",
+]
+
+[[module."thermal_kernel_keff_worth.rs".function]]
+id = "fn:c014b6485afcc051"
+name = "sem_of"
+qual = "sem_of"
+lines = [
+    317,
+    328,
+]
+hash = "sha256:724e76272aa61f2c545d9a0ff7ed53186cf9f3cf0b1d6098c1f71347cbb8d1b0"
+doc_hash = "sha256:0f49c0c7410f5c27207d609e2d414a6af7c7ef2bf645dfed5f0efaeb56767842"
+
+[[module."thermal_kernel_keff_worth.rs".function]]
+id = "fn:bd70e17a06d50fe9"
+name = "endf_dir"
+qual = "endf_dir"
+lines = [
+    330,
+    336,
+]
+hash = "sha256:ea2fdb101d72647fe198e391622c1405174178b0ca1168f89bb50eb2680cc240"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."thermal_kernel_keff_worth.rs".function]]
+id = "fn:f9da121549f8e537"
+name = "load"
+qual = "load"
+lines = [
+    338,
+    346,
+]
+hash = "sha256:c100734b58f2cf72e89d8413b77c84edc0946f094fe87f0b33a83f315a68bdce"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:bd70e17a06d50fe9",
+    "fn:eeac8cab23ae8529",
+]
+
+[[module."thermal_kernel_keff_worth.rs".function]]
+id = "fn:d120a6d7189f078d"
+name = "base_nuclides"
+qual = "base_nuclides"
+lines = [
+    348,
+    360,
+]
+hash = "sha256:a0ef4e60fd6154fbd302f37b74b6f2e11108e3b4db702c6b71cc062aee1d9c9a"
+doc_hash = "sha256:8aad81313ff6f193994beb8bbb0bbe9c61c197d1e2406a9f873da62b1fee9413"
+callees = ["fn:f9da121549f8e537"]
+
+[[module."thermal_kernel_keff_worth.rs".function]]
+id = "fn:5fe169fff563fe2e"
+name = "medium"
+qual = "medium"
+lines = [
+    362,
+    403,
+]
+hash = "sha256:f4dd15ee275bed8f30770903d9b6857e6d6feea31bf728ea9361224629f32754"
+doc_hash = "sha256:a6ae6931af9cb1d44a51d042be2dd38655136691c95cb389b60e8674c57ddda0"
+
+[module."triso_delta_tracking.rs"]
+path = "example:triso_delta_tracking"
+
+[[module."triso_delta_tracking.rs".function]]
+id = "fn:335fefacf5a46262"
+name = "main"
+qual = "main"
+lines = [
+    73,
+    169,
+]
+hash = "sha256:302ff59c0d80273cb7a93c41e1742fde2f428305bd806ff15630c9e3071a2ab9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1135c66d1dd27238",
+    "fn:14a6fa25c0a1f183",
+    "fn:1b48fd8a3e74589a",
+    "fn:592c8dda11a73510",
+    "fn:71a4f4b034324521",
+    "fn:81eac5c53bdb828c",
+    "fn:a051bd1637f9435b",
+    "fn:c89ae02db3565ae5",
+]
+
+[module."triso_four_methods.rs"]
+path = "example:triso_four_methods"
+
+[[module."triso_four_methods.rs".function]]
+id = "fn:56b8fd018f8da3c0"
+name = "birth"
+qual = "FourMethodProblem::birth"
+lines = [
+    233,
+    241,
+]
+hash = "sha256:c77fddb922f9a6bb386acfd7c76ca7b7e6e2af31d0c8b741587e7d9d6896be05"
+doc_hash = "sha256:0948e9b673879c7b17f7cc8e49dd2fa12fdb2364d4463f5d8a4de620ac2fbff4"
+callees = [
+    "fn:681ddf6544e7b60b",
+    "fn:cb1fc1a67d38f99a",
+]
+
+[[module."triso_four_methods.rs".function]]
+id = "fn:3802f40d6be9aa3e"
+name = "distance_to_wall"
+qual = "FourMethodProblem::distance_to_wall"
+lines = [
+    243,
+    258,
+]
+hash = "sha256:11a1bb006df75067b8b40c532b524c1224df6f740aac4842e281c7f6f70d9653"
+doc_hash = "sha256:adec5ea3f99e45678ee9dc9928b88ef90016f8922e1e368e05dcb5e60f8f465c"
+
+[[module."triso_four_methods.rs".function]]
+id = "fn:7c4aa1ad9895a51e"
+name = "walk_surface"
+qual = "FourMethodProblem::walk_surface"
+lines = [
+    260,
+    307,
+]
+hash = "sha256:815e713999c7bcf174659eb59cac2f8830202463b2a88dcdd6a6b48dc9cd06c9"
+doc_hash = "sha256:4837d77c7da1b9adcfa91be84273957729740f2ae822a70dc3a9384913d3f02c"
+callees = [
+    "fn:1135c66d1dd27238",
+    "fn:16ba94d844c60dea",
+    "fn:3802f40d6be9aa3e",
+    "fn:56b8fd018f8da3c0",
+    "fn:681ddf6544e7b60b",
+    "fn:7988a62af8c6ea5b",
+    "fn:cb1fc1a67d38f99a",
+    "fn:cbb241b81b8f27f6",
+    "fn:da60484184b725a8",
+]
+
+[[module."triso_four_methods.rs".function]]
+id = "fn:009b772cf3fe3669"
+name = "walk_delta"
+qual = "FourMethodProblem::walk_delta"
+lines = [
+    309,
+    367,
+]
+hash = "sha256:27045ec2dd046af8f15b2bcc2f1030ab8fd869ed32ffeb394129c9a0319fcc71"
+doc_hash = "sha256:14f0a386451e13c3de8e500fbf39d1d627c8bbb57225cda041e64824617be462"
+callees = [
+    "fn:1135c66d1dd27238",
+    "fn:3802f40d6be9aa3e",
+    "fn:56b8fd018f8da3c0",
+    "fn:681ddf6544e7b60b",
+    "fn:7988a62af8c6ea5b",
+    "fn:cb1fc1a67d38f99a",
+    "fn:cbb241b81b8f27f6",
+]
+
+[[module."triso_four_methods.rs".function]]
+id = "fn:f2c4d4088355dd3a"
+name = "run_surface"
+qual = "FourMethodProblem::run_surface"
+lines = [
+    369,
+    387,
+]
+hash = "sha256:55b8e7cb6e76ffe0e0b1ac05aac78f93a38cbd4463f8e5fa98aff2f00d8d71a5"
+doc_hash = "sha256:245d6ab3270a1888b655fdc3fc374c36b41aadc9a81b62ab3c10ceb05986c3bc"
+callees = ["fn:7c4aa1ad9895a51e"]
+
+[[module."triso_four_methods.rs".function]]
+id = "fn:ddc59accff3e8c02"
+name = "run_delta"
+qual = "FourMethodProblem::run_delta"
+lines = [
+    389,
+    411,
+]
+hash = "sha256:df6abaad8b9088d14d03858d7db13a709b8c73aeaffaa63507d80809932f7654"
+doc_hash = "sha256:332bdb72cd6a1cbf0d1de266b455c94da15056f692301b82a26d59937cbbfaa6"
+callees = ["fn:009b772cf3fe3669"]
+
+[[module."triso_four_methods.rs".function]]
+id = "fn:6791782eee0a3ff4"
+name = "ray_sphere_entry"
+qual = "ray_sphere_entry"
+lines = [
+    414,
+    444,
+]
+hash = "sha256:007fafed011fb116d2893842b9bfcc592ea2aa532f435e2cb062fdff90a2773a"
+doc_hash = "sha256:d2a42d618ab82f54c7ea502bdceb0766e44c65401a814c77c3a9ec207f638e1a"
+callees = [
+    "fn:2fb4efc2775410dc",
+    "fn:4ab0e1bae8feab47",
+    "fn:82243c56afe62655",
+]
+
+[[module."triso_four_methods.rs".function]]
+id = "fn:da60484184b725a8"
+name = "nearest_kernel_entry"
+qual = "nearest_kernel_entry"
+lines = [
+    446,
+    458,
+]
+hash = "sha256:a7ee45106441bcb6850042a7b838163b0ac61018ed22e031c3d27699d63d7f23"
+doc_hash = "sha256:1f2efb6349eba59d6033d100fff190408891ac0cd57c7e40d3f3a9652298aeab"
+callees = ["fn:6791782eee0a3ff4"]
+
+[[module."triso_four_methods.rs".function]]
+id = "fn:9a42c82c61cba268"
+name = "binomial_se"
+qual = "binomial_se"
+lines = [
+    460,
+    465,
+]
+hash = "sha256:830907cc6a573465adf56d0007445747af058c72a363c856192ce845de7607a2"
+doc_hash = "sha256:af27d927e2295cca9eb59f2bcf56b10fee9f150c20f19fc5e94229e524f55689"
+
+[[module."triso_four_methods.rs".function]]
+id = "fn:2b0c47646f9fc100"
+name = "main"
+qual = "main"
+lines = [
+    467,
+    608,
+]
+hash = "sha256:26641b43fe501ac34345be01538e5f98e7c3cdea7f4cec716917126075b190bc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3b51394205bd62c9",
+    "fn:9a42c82c61cba268",
+    "fn:9c43af7d1121ce6a",
+    "fn:ae08cf62c8d30183",
+    "fn:d0c27c266e702e3d",
+    "fn:ddc59accff3e8c02",
+    "fn:f2c4d4088355dd3a",
+]
+
+[[module."triso_four_methods.rs".function]]
+id = "fn:d0c27c266e702e3d"
+name = "vv_gate"
+qual = "vv_gate"
+lines = [
+    624,
+    744,
+]
+hash = "sha256:6dc10145861274c4a74eb21086d305a853b02bce293caa9451b61346d26fd2e4"
+doc_hash = "sha256:eead6e0f25e565e0d178664d3e85ef864539cf1d8a313ba1b5f3c5f9ff425372"
+
+[module."triso_gpu_benchmark.rs"]
+path = "example:triso_gpu_benchmark"
+
+[[module."triso_gpu_benchmark.rs".function]]
+id = "fn:a04541b036b78005"
+name = "main"
+qual = "main#1"
+lines = [
+    149,
+    156,
+]
+hash = "sha256:a91d9830e2c0ef5693374ef240fe2d849d7c308766d3db169e8889c94bec804d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."triso_gpu_benchmark.rs".function]]
+id = "fn:e4d37b74debf2e21"
+name = "main"
+qual = "main#2"
+lines = [
+    158,
+    459,
+]
+hash = "sha256:459e0ac7c16a4ee6b85c44b1e4b91b9baa7c3db0160ed171c2f1853b44ab5262"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:c062313265f98a34"]
+
+[[module."triso_gpu_benchmark.rs".function]]
+id = "fn:849cb427e1bba966"
+name = "mean_and_stderr"
+qual = "mean_and_stderr"
+lines = [
+    474,
+    489,
+]
+hash = "sha256:f3ea1549ba992d48c9218882f7434142d1a8d59b579619405383de2be31fbbd4"
+doc_hash = "sha256:0744af5efad5f9538d8eae804055ccef03ef92261c985a9f95cb7e73b6e30394"
+
+[module."triso_stochastic_gpu.rs"]
+path = "example:triso_stochastic_gpu"
+
+[[module."triso_stochastic_gpu.rs".function]]
+id = "fn:526fe64fac16affd"
+name = "main"
+qual = "main#1"
+lines = [
+    177,
+    183,
+]
+hash = "sha256:d1bfc1d4988f357bb0e8641e7c06d199f8add93105e08b3224878ad599e36870"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."triso_stochastic_gpu.rs".function]]
+id = "fn:109c4acc6a16628f"
+name = "main"
+qual = "main#2"
+lines = [
+    185,
+    188,
+]
+hash = "sha256:057c58e0e15c2f8cc19a49643ffe8d1efc1b8b99ebaa0c660bcdef55bd3d57f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9c32e5742cf40b84"]
+
+[[module."triso_stochastic_gpu.rs".function]]
+id = "fn:61263b5769403e6d"
+name = "cls_history_f64"
+qual = "cls_history_f64"
+lines = [
+    242,
+    277,
+]
+hash = "sha256:c914639a33a904d0a84ff7a7c8775c12a5feb92cb075db803e7263e50adc5f98"
+doc_hash = "sha256:3d8ee82d7adf1070f805d555c8779a4dc693f8b11926343399b6fb78e3d40f1a"
+callees = [
+    "fn:681ddf6544e7b60b",
+    "fn:8498ddcf6ed33f54",
+]
+
+[[module."triso_stochastic_gpu.rs".function]]
+id = "fn:96ae6c81a354f409"
+name = "cls_batch_f64"
+qual = "cls_batch_f64"
+lines = [
+    279,
+    290,
+]
+hash = "sha256:0673f449c5a78dbd0de299aea454ee701cb771851e51366e57cdca30eaafbc91"
+doc_hash = "sha256:1a804abaf850c98d6ddd19b2a140570078112afdd5b832190d69412a693dd88f"
+callees = [
+    "fn:61263b5769403e6d",
+    "fn:dd52820befcbb8b1",
+]
+
+[[module."triso_stochastic_gpu.rs".function]]
+id = "fn:2b1c2bae73de29ac"
+name = "lcg_advance_f32"
+qual = "lcg_advance_f32"
+lines = [
+    296,
+    310,
+]
+hash = "sha256:fc584769e17551f593cdbc37071f0bb38be44db58f53c28cda3549df840d845f"
+doc_hash = "sha256:df7f8225c45131d029d7d1625f6157b4d9bfc7b87e69f72d9db98c9183fc0fe2"
+
+[[module."triso_stochastic_gpu.rs".function]]
+id = "fn:77c54824c4bf0891"
+name = "cls_history_f32"
+qual = "cls_history_f32"
+lines = [
+    312,
+    354,
+]
+hash = "sha256:2a85fc67acbd28089dcddf524816b56d876eec32e6448895bf08d66086078d46"
+doc_hash = "sha256:db167b333098e48238d067a032ed4824ed3fe171d128574895d0cd5040cb265c"
+callees = ["fn:2b1c2bae73de29ac"]
+
+[[module."triso_stochastic_gpu.rs".function]]
+id = "fn:4dad65d590285fae"
+name = "from_f64"
+qual = "ClsParamsF32::from_f64"
+lines = [
+    367,
+    375,
+]
+hash = "sha256:e3b3849ee2ff17895e35ad46dd4484c58c8d86a27d57909f17ebe72f2b8db07f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."triso_stochastic_gpu.rs".function]]
+id = "fn:f4c3a6daa0c96a83"
+name = "scls_history_f64"
+qual = "scls_history_f64"
+lines = [
+    382,
+    439,
+]
+hash = "sha256:fdd0d275316a455baa65f5f95c48833058db67feeb88ef0055f9a611b1c0079a"
+doc_hash = "sha256:364d65ea743d8bf19e0871384f4a1dd762e43ada13fda4fc0f6ea2976291a37f"
+callees = [
+    "fn:681ddf6544e7b60b",
+    "fn:8498ddcf6ed33f54",
+]
+
+[[module."triso_stochastic_gpu.rs".function]]
+id = "fn:707b4c4a9615f55c"
+name = "scls_batch_f64"
+qual = "scls_batch_f64"
+lines = [
+    441,
+    451,
+]
+hash = "sha256:cf45654d8856726f51631a54e370920c04bd000f32b98cf3a4c2fef8586e9267"
+doc_hash = "sha256:3d05ae640e143e82aec4d5095caf2e94437371e4204212d6b1d6282c7005142a"
+callees = [
+    "fn:dd52820befcbb8b1",
+    "fn:f4c3a6daa0c96a83",
+]
+
+[[module."triso_stochastic_gpu.rs".function]]
+id = "fn:ef17f32db76960fb"
+name = "binomial"
+qual = "binomial"
+lines = [
+    457,
+    462,
+]
+hash = "sha256:0950f55ae936293772c8f016fa3043f362c23d725969060c6e28eb610dd918e7"
+doc_hash = "sha256:520973ddab65217e0da8d6a402e7eb5c4c730e8a81caabc166a9c1c63f4bd023"
+
+[[module."triso_stochastic_gpu.rs".function]]
+id = "fn:dc7f8e53d2a89f3f"
+name = "pack_params"
+qual = "pack_params"
+lines = [
+    591,
+    610,
+]
+hash = "sha256:43ea1c604cf453988bdf7ba5bc26d093fa4e8e17c46b430c9d64cc3829a76f96"
+doc_hash = "sha256:d3c7a0b342cbaeff84c2237bb60ab45883cc02d60deaf451f2129697b758c265"
+
+[[module."triso_stochastic_gpu.rs".function]]
+id = "fn:6446775347259870"
+name = "u32_slice_to_bytes"
+qual = "u32_slice_to_bytes"
+lines = [
+    612,
+    618,
+]
+hash = "sha256:a5f151efd07c9f24a866c97310de82f32c8fd5639152ab34f1bc0bd9722cb1c5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."triso_stochastic_gpu.rs".function]]
+id = "fn:3c5a4545a9378509"
+name = "cls_batch_gpu"
+qual = "cls_batch_gpu"
+lines = [
+    620,
+    778,
+]
+hash = "sha256:ceac98c338b834497dbf8a46847827addfc8681be4f0e94b644d598c6f11e804"
+doc_hash = "sha256:448afd79d8e152aaa3eee273dc2acc4bac97822bc9c52672400122f18c187701"
+callees = [
+    "fn:6446775347259870",
+    "fn:dc7f8e53d2a89f3f",
+    "fn:dd52820befcbb8b1",
+]
+
+[[module."triso_stochastic_gpu.rs".function]]
+id = "fn:9c32e5742cf40b84"
+name = "run"
+qual = "run"
+lines = [
+    780,
+    1023,
+]
+hash = "sha256:64cf290bd0750ddb05d559c46c6fc577f76f79ef18c73d3269bf7824811d3839"
+doc_hash = "sha256:bcccf5275a54676c08370fd6d58a78b2b87f47af2364b209cea9ece5a8c86a48"
+callees = [
+    "fn:3c5a4545a9378509",
+    "fn:44da487317952d54",
+    "fn:4c938f64d9214a66",
+    "fn:4dad65d590285fae",
+    "fn:54ea87d41ea05873",
+    "fn:707b4c4a9615f55c",
+    "fn:77c54824c4bf0891",
+    "fn:96ae6c81a354f409",
+    "fn:c062313265f98a34",
+    "fn:dd52820befcbb8b1",
+    "fn:ef17f32db76960fb",
+]
+
+[module."triso_stochastic_media.rs"]
+path = "example:triso_stochastic_media"
+
+[[module."triso_stochastic_media.rs".function]]
+id = "fn:e8cf11e995689485"
+name = "main"
+qual = "main"
+lines = [
+    72,
+    176,
+]
+hash = "sha256:0384898199eb120b8dc9b32ab196af0b731c75475c3c0b61549d78f1ae312322"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0594a7c92d18b112",
+    "fn:44da487317952d54",
+    "fn:52e97d45ee7c4468",
+    "fn:66affaf75a7fea8e",
+    "fn:841de6284aa6927d",
+    "fn:8c9907ba903ec9e8",
+    "fn:a5a59af8738498d3",
+    "fn:ae08cf62c8d30183",
+    "fn:cb1fc1a67d38f99a",
+]
+
+[module."tutorial_material_and_tallies.rs"]
+path = "example:tutorial_material_and_tallies"
+
+[[module."tutorial_material_and_tallies.rs".function]]
+id = "fn:ccc299b55e9c99ee"
+name = "main"
+qual = "main"
+lines = [
+    54,
+    480,
+]
+hash = "sha256:51136046434850ea4bdaa698a9a710659ee7dea87dfb305e3e0ea58bfeeaa600"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:d548885ad98866f3",
+    "fn:eeac8cab23ae8529",
+]
+
+[module."u238_recon_fingerprint.rs"]
+path = "example:u238_recon_fingerprint"
+
+[[module."u238_recon_fingerprint.rs".function]]
+id = "fn:03b31466c3b69ce2"
+name = "main"
+qual = "main"
+lines = [
+    33,
+    83,
+]
+hash = "sha256:e5296f0a735800c04bd1a8736e746757d933d86a3dcec9f6a4c5d756a15c659e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:30ff107e4aa18e96",
+    "fn:b11e6f88048217e3",
+    "fn:c9317aaeb4555a01",
+    "fn:eeac8cab23ae8529",
+]
+
+[[module."u238_recon_fingerprint.rs".function]]
+id = "fn:30ff107e4aa18e96"
+name = "vv_gate"
+qual = "vv_gate"
+lines = [
+    85,
+    189,
+]
+hash = "sha256:1079f9bbc66ef36ba4c604367358b2e3de256fd7fd4f7b1a45af90f53ab9b675"
+doc_hash = "sha256:f53d381e4f14200d4393fe1b8790391c6dded613603b527c72cde680724eb146"
+callees = [
+    "fn:776cba67c4d7848b",
+    "fn:c9317aaeb4555a01",
+]
+
+[module."u238_resonance_escape.rs"]
+path = "example:u238_resonance_escape"
+
+[[module."u238_resonance_escape.rs".function]]
+id = "fn:0a0d0011e99224ba"
+name = "temp_k"
+qual = "temp_k"
+lines = [
+    149,
+    157,
+]
+hash = "sha256:94f3c8474d1fdec6e2127a322f9169666d69435091d8ca8c9c889d9864e5eafc"
+doc_hash = "sha256:0a29b1c90199904a8fa4b7bd1b0f97c8b1bd38a3af77ad64a463d2af9f49436c"
+
+[[module."u238_resonance_escape.rs".function]]
+id = "fn:000b7b484f7e2f73"
+name = "kernel"
+qual = "kernel"
+lines = [
+    159,
+    168,
+]
+hash = "sha256:567693d88184a51cdcc95fdbd42d9efe2d9cf542a2574f40d1180e6b36a313c5"
+doc_hash = "sha256:aea2d60a9c00eaa948de3c7906ce86c398ac869ff6d611212f831ddc2c17bc82"
+callees = [
+    "fn:252f856246446c99",
+    "fn:9cac80dfdeeb4d57",
+]
+
+[[module."u238_resonance_escape.rs".function]]
+id = "fn:9aab82d66fd5b254"
+name = "main"
+qual = "main"
+lines = [
+    178,
+    345,
+]
+hash = "sha256:9925822bdbce0dbe7409d9738033259c9679fae74db67a70302e6c82302c2abb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:000b7b484f7e2f73",
+    "fn:0a0d0011e99224ba",
+    "fn:105000bbedd4d88b",
+    "fn:1e8da20a79a07554",
+    "fn:737397b637a7eae8",
+    "fn:76d287955e66f9b9",
+    "fn:c9317aaeb4555a01",
+    "fn:d0c3e87fc69beef1",
+]
+
+[[module."u238_resonance_escape.rs".function]]
+id = "fn:d0c3e87fc69beef1"
+name = "endf_dir"
+qual = "endf_dir"
+lines = [
+    347,
+    353,
+]
+hash = "sha256:f9e7e7ae5f3a897b1f0e751bec31fc26892252d0cc46ac1fb70b52a456c70e7f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2c945092147fdb01"]
+
+[[module."u238_resonance_escape.rs".function]]
+id = "fn:737397b637a7eae8"
+name = "load"
+qual = "load"
+lines = [
+    355,
+    363,
+]
+hash = "sha256:d3904865145102192e40420f75c86a300dbf23d5da7b09d3cae1b4f9c344575d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:eeac8cab23ae8529"]
+
+[module."u238_resonance_integral.rs"]
+path = "example:u238_resonance_integral"
+
+[[module."u238_resonance_integral.rs".function]]
+id = "fn:156c601f63bf8b50"
+name = "main"
+qual = "main"
+lines = [
+    99,
+    288,
+]
+hash = "sha256:0d96245fb8cdd5058c5013fb32c8e827ef40d58c2557bf72a5aa42fc525f5b07"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2322ad376308b463",
+    "fn:2c945092147fdb01",
+    "fn:2f1890d1de92af0b",
+    "fn:6312002850223b03",
+    "fn:9742f31e4ed2b4b8",
+    "fn:b11e6f88048217e3",
+    "fn:c9317aaeb4555a01",
+    "fn:df0782d2411f00e8",
+    "fn:e4bb1378753d08eb",
+    "fn:eeac8cab23ae8529",
+]
+
+[[module."u238_resonance_integral.rs".function]]
+id = "fn:2f1890d1de92af0b"
+name = "vv_gate"
+qual = "vv_gate"
+lines = [
+    303,
+    388,
+]
+hash = "sha256:a59cdd7f73514335c2fbb8b6a2cd25899eb11696deaa9ec7e0784009da58cb6a"
+doc_hash = "sha256:adbc13e8a329c5007f64be22c8218af149c8d559ff60d49cda100453e1ef7e52"
+callees = ["fn:113dc740eeb8eeae"]
+
+[[module."u238_resonance_integral.rs".function]]
+id = "fn:e4bb1378753d08eb"
+name = "integrate_1_over_e"
+qual = "integrate_1_over_e"
+lines = [
+    390,
+    413,
+]
+hash = "sha256:9fdc9b6c5865afc79fa17109c6e07793aa860eebad6bc0087a08b1c77a0432be"
+doc_hash = "sha256:bf40699af3ea11e6bc911668cb58f83c00950f770e774ffdf9c974bf098b5f06"
+
+[[module."u238_resonance_integral.rs".function]]
+id = "fn:6312002850223b03"
+name = "clip_grid"
+qual = "clip_grid"
+lines = [
+    415,
+    426,
+]
+hash = "sha256:907738ffcb7a309ee335e288082670681939d6cbbed9d67feffd1bb2f74a5226"
+doc_hash = "sha256:b6bb48a28ecb74b2f4a84624448799785aeab5476e37b5c70474e837d84e67e2"
+
+[[module."u238_resonance_integral.rs".function]]
+id = "fn:9742f31e4ed2b4b8"
+name = "interp_linlin"
+qual = "interp_linlin"
+lines = [
+    428,
+    444,
+]
+hash = "sha256:89c9856bd17141856df400c8b53fc79527f5c02eb55addace7d7319dea26c03d"
+doc_hash = "sha256:8e2d2231b712fbe628870444939b28bb881d3ef301feb96a26996360c1963ae6"
+
+[module."u238_urr_probe.rs"]
+path = "example:u238_urr_probe"
+
+[[module."u238_urr_probe.rs".function]]
+id = "fn:6ac34d5091042732"
+name = "main"
+qual = "main"
+lines = [
+    59,
+    181,
+]
+hash = "sha256:2335f6bd438f76799f2a3ae02b220f46b441ebf760dbc6e20d9052c790344b3a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:76d287955e66f9b9",
+    "fn:c9317aaeb4555a01",
+    "fn:e948cbfe42837d51",
+    "fn:eeac8cab23ae8529",
+]
+
+[module."u238_vs_njoy_pendf.rs"]
+path = "example:u238_vs_njoy_pendf"
+
+[[module."u238_vs_njoy_pendf.rs".function]]
+id = "fn:d9e8a563c6776bef"
+name = "main"
+qual = "main"
+lines = [
+    82,
+    208,
+]
+hash = "sha256:7629df77a81e3cce83917ae936f0cb3bfdae3f66a7882e8b458b9aab5d48026c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:08f5252ff02915df",
+    "fn:2322ad376308b463",
+    "fn:2c945092147fdb01",
+    "fn:46183cf21b169a81",
+    "fn:c9317aaeb4555a01",
+    "fn:df0782d2411f00e8",
+    "fn:eeac8cab23ae8529",
+]
+
+[[module."u238_vs_njoy_pendf.rs".function]]
+id = "fn:08f5252ff02915df"
+name = "interp_linlin"
+qual = "interp_linlin"
+lines = [
+    210,
+    226,
+]
+hash = "sha256:89c9856bd17141856df400c8b53fc79527f5c02eb55addace7d7319dea26c03d"
+doc_hash = "sha256:234baa73e6f131eb3a5406c0b2a6a8335255e2c5ebb8f2d731962465adaec7ad"
+
+[[module."u238_vs_njoy_pendf.rs".function]]
+id = "fn:46183cf21b169a81"
+name = "golden_gate"
+qual = "golden_gate"
+lines = [
+    228,
+    326,
+]
+hash = "sha256:e220f02d33ce1757b1cd0b2f4ff5b5deb3708afbd74774619b4bea8d054b7211"
+doc_hash = "sha256:015018129f85dda4771b6629471ae4d75d4cbd5fd11af3089567f419453d8946"
+callees = [
+    "fn:c9317aaeb4555a01",
+    "fn:e948cbfe42837d51",
+]
+
+[module."ugraphite_four_factor.rs"]
+path = "example:ugraphite_four_factor"
+
+[[module."ugraphite_four_factor.rs".function]]
+id = "fn:a4863947efef7242"
+name = "run_homogeneous"
+qual = "run_homogeneous"
+lines = [
+    292,
+    297,
+]
+hash = "sha256:bd24ce4f989aa0c9ceb60d8a746ceb6ee1275ff441f56a214042603852de915e"
+doc_hash = "sha256:90be91892cd7247e6bed2818aea3f4dbda3b0f12d4afa5415498dd35d31e2436"
+callees = [
+    "fn:695e5c2a708c3236",
+    "fn:73f825a210032b56",
+    "fn:f81d494cdcbf265a",
+]
+
+[[module."ugraphite_four_factor.rs".function]]
+id = "fn:019c9270833ef88e"
+name = "main"
+qual = "main"
+lines = [
+    300,
+    320,
+]
+hash = "sha256:ee60ef232851ac5ea7a5402c6ec17a75f3f3316aab77a2e9e2a08a289e94e159"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:08c946495f0323b0",
+    "fn:3b90909c3838723c",
+    "fn:87511a2ce103a9bf",
+    "fn:94e9e6a63d7e83a9",
+]
+
+[[module."ugraphite_four_factor.rs".function]]
+id = "fn:3b90909c3838723c"
+name = "main_case"
+qual = "main_case"
+lines = [
+    322,
+    376,
+]
+hash = "sha256:4010e925153fd6afc448c877c8410ec40c8aee91659ab9028618ae88b0d4afbd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:105000bbedd4d88b",
+    "fn:252f856246446c99",
+    "fn:26a670e7c3186f7a",
+    "fn:87511a2ce103a9bf",
+    "fn:a4863947efef7242",
+    "fn:a9c4f73ec3cd87ff",
+    "fn:bc625df4184edcf2",
+    "fn:f4533b242cc74427",
+]
+
+[[module."ugraphite_four_factor.rs".function]]
+id = "fn:08c946495f0323b0"
+name = "sweep"
+qual = "sweep"
+lines = [
+    378,
+    425,
+]
+hash = "sha256:78b9cddacb88cbda75bf9c0ecdfa45a18414a8bc17d61c60e3ff4b09f7888931"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4d140869bdffbbc8",
+    "fn:a4863947efef7242",
+    "fn:a9c4f73ec3cd87ff",
+    "fn:f4533b242cc74427",
+]
+
+[module."variance_reduction_ablation.rs"]
+path = "example:variance_reduction_ablation"
+
+[[module."variance_reduction_ablation.rs".function]]
+id = "fn:e9a82c7dcdcdacd1"
+name = "heu"
+qual = "heu"
+lines = [
+    54,
+    66,
+]
+hash = "sha256:76783c29143ad356ab882c68527115622aa7b52db9da29379ad66f93a7e94e80"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:eeac8cab23ae8529"]
+
+[[module."variance_reduction_ablation.rs".function]]
+id = "fn:1fd2e3c3fb571c8b"
+name = "model"
+qual = "model"
+lines = [
+    68,
+    109,
+]
+hash = "sha256:471de18daf548aa4a53a823ac3ebcf5119fa2cf13736d7cf20a04581b9902503"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:8b1b36725917b52d"]
+
+[[module."variance_reduction_ablation.rs".function]]
+id = "fn:b63394a96fd626dc"
+name = "settings"
+qual = "settings"
+lines = [
+    111,
+    122,
+]
+hash = "sha256:5048fa1d313576eabf21b423007064f4c9604aa5505d62993b5882904dac1893"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:14a6fa25c0a1f183"]
+
+[[module."variance_reduction_ablation.rs".function]]
+id = "fn:cf150952541bc218"
+name = "stats"
+qual = "stats"
+lines = [
+    124,
+    132,
+]
+hash = "sha256:56ccc6585eb5a470e70306916a513ca562e931e9770e7d7a9c045ef86c1b549f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."variance_reduction_ablation.rs".function]]
+id = "fn:94120a33a46bdc49"
+name = "main"
+qual = "main"
+lines = [
+    134,
+    266,
+]
+hash = "sha256:1d9c6b509f574b7ba369c65743bddc402b6ad0dad47b95c5fbbcf067ba21c0f3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1fd2e3c3fb571c8b",
+    "fn:74942feee803e6b5",
+    "fn:83bd00028bdc5721",
+    "fn:b63394a96fd626dc",
+    "fn:cb1fc1a67d38f99a",
+    "fn:cf150952541bc218",
+    "fn:e8a9287aae9d775b",
+    "fn:e9a82c7dcdcdacd1",
+]

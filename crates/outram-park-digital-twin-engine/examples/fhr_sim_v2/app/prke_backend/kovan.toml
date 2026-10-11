@@ -1,0 +1,306 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
+]
+
+[module."mod.rs"]
+path = "example:fhr_sim_v2::app::prke_backend"
+
+[[module."mod.rs".function]]
+id = "fn:749d4e379545ed45"
+name = "calculate_prke_loop"
+qual = "FHRSimulatorApp::calculate_prke_loop"
+lines = [
+    53,
+    223,
+]
+hash = "sha256:a7a3660b9bc0b4c255e0a0642f56e19b5b9076547df6abcff7c5d537f39c7ab0"
+doc_hash = "sha256:ec8950cf2749ebbf49b85c3aa004efb174c97d879d11fcc08898f84ba8b28dfd"
+callees = [
+    "fn:04f2fa589675757a",
+    "fn:5736d025fd21617a",
+    "fn:7b85bda50c243eb6",
+    "fn:a2ace910c1483fa8",
+    "fn:c31da882c4d8eabf",
+    "fn:c3de694177dbbc26",
+    "fn:c4a7f789ace4944a",
+]
+
+[[module."mod.rs".function]]
+id = "fn:5736d025fd21617a"
+name = "calculate_prke_for_one_timestep"
+qual = "FHRSimulatorApp::calculate_prke_for_one_timestep"
+lines = [
+    224,
+    471,
+]
+hash = "sha256:7cc8b033a32d84745d1f06ddb9bb4602f531e70a6c059a872279694c726413e2"
+doc_hash = "sha256:6d185665e51da963968bc9afdd2a8bb484afe79c8a5bc0c20aba9d842001b071"
+callees = [
+    "fn:0b9d7ab7ba5e9d37",
+    "fn:190dfaa61d21fe2f",
+    "fn:20bf562c654e15b1",
+    "fn:51f88657b29e96b9",
+    "fn:5dacc4e8fac5d110",
+    "fn:83af8f382fd466ee",
+    "fn:844484c7997ed3d2",
+    "fn:89c59d2b8af9ab83",
+    "fn:90efc94f128575d4",
+    "fn:981a1f42f325633f",
+    "fn:9fe9702aef5d13d2",
+    "fn:cfccc409a6575b06",
+    "fn:d1f0de01aaeed52e",
+    "fn:ef0e68fb37998d86",
+    "fn:f79aa9e6e321cdec",
+]
+reached_by = ["#1"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:be0fb81ae212c3aa"
+name = "fuel_temp_resonance_esc_feedback_linear"
+qual = "FHRSimulatorApp::fuel_temp_resonance_esc_feedback_linear"
+lines = [
+    473,
+    513,
+]
+hash = "sha256:4ca26d462e88a61f381ff33af5962cb1544456058f631ba7b7a36ba0be1d92d5"
+doc_hash = "sha256:8674a0765113fd6a757a940ca410223a52d23846379312aed3faf3e14f2ed88c"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:9fe9702aef5d13d2"
+name = "fuel_utilisation_factor_chg_for_control_rod_polynomial"
+qual = "FHRSimulatorApp::fuel_utilisation_factor_chg_for_control_rod_polynomial"
+lines = [
+    515,
+    542,
+]
+hash = "sha256:6fa475ae04e476987c679c32f8adc78cacf6f7f02de6e3ddd8e5244c27659b98"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:178fd4bb55fbafe1"
+name = "constant_ratio_no_change_function"
+qual = "FHRSimulatorApp::constant_ratio_no_change_function"
+lines = [
+    546,
+    548,
+]
+hash = "sha256:d80f49669f281b6eeea9f7faf004d12fce53f5561201fa9d1ffa7ba296dc7265"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:0b47b66d37032fa4"
+name = "fresh_nordheim_fuchs"
+qual = "fresh_nordheim_fuchs"
+lines = [
+    611,
+    626,
+]
+hash = "sha256:24a8dba84e972d6ff8c10b9236c54a55db83fee04cc6bc0b51acc53d8f290566"
+doc_hash = "sha256:189ac1e07d2303f1677cf6b33c1498236aac2f8874a4b7404f3e5f603cc01090"
+callees = ["fn:c31da882c4d8eabf"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:1cbe71e47e0e7888"
+name = "run_power_trace"
+qual = "run_power_trace"
+lines = [
+    628,
+    749,
+]
+hash = "sha256:23983c00e03d135794d9ac3ecdfa9806af4bb42ceb5bc627097d60b70d5eff4c"
+doc_hash = "sha256:48587c989df0c162f391d5e92b854af0e44845f723f218ab522603a933cc09c4"
+callees = [
+    "fn:04f2fa589675757a",
+    "fn:0b47b66d37032fa4",
+    "fn:0b9d7ab7ba5e9d37",
+    "fn:190dfaa61d21fe2f",
+    "fn:20bf562c654e15b1",
+    "fn:51f88657b29e96b9",
+    "fn:5dacc4e8fac5d110",
+    "fn:7b85bda50c243eb6",
+    "fn:83af8f382fd466ee",
+    "fn:89c59d2b8af9ab83",
+    "fn:90efc94f128575d4",
+    "fn:981a1f42f325633f",
+    "fn:9fe9702aef5d13d2",
+    "fn:a2ace910c1483fa8",
+    "fn:a3264904f4da2ab9",
+    "fn:c3de694177dbbc26",
+    "fn:c4a7f789ace4944a",
+    "fn:cfccc409a6575b06",
+    "fn:d1f0de01aaeed52e",
+    "fn:f79aa9e6e321cdec",
+]
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:3d8074f03da2ac8e"
+name = "tail_peak_to_peak"
+qual = "tail_peak_to_peak"
+lines = [
+    751,
+    758,
+]
+hash = "sha256:7c00b91e66363ceb6197a35391f1ff3bc5eccdf3c51ded8b558e90cdca21e240"
+doc_hash = "sha256:52254b5447c3583dfd05a72520c94bbe865e660d9c8220111d43f1df2d182e3e"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:5bb806d43259b41a"
+name = "tail_mean"
+qual = "tail_mean"
+lines = [
+    760,
+    765,
+]
+hash = "sha256:33e28dfb65c9dd529e513a235fb623494a16fd3f6e70c8c419ed9c85774f870e"
+doc_hash = "sha256:fd6427de1bef95d3f6a370224d5253586d77e69d21b2c1acab12ce021701e4c1"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:47dce733f4da5d5d"
+name = "delayed_neutron_layer_damps_power_oscillation"
+qual = "delayed_neutron_layer_damps_power_oscillation"
+lines = [
+    767,
+    822,
+]
+hash = "sha256:751e9f3b2805d337daf6302ce11b1d1872aeaf0b83dd777a07c4e7115fc7780a"
+doc_hash = "sha256:2469b3bb75f157858497812f4851dd104991979015f6cdd76c76cf46cab833d6"
+callees = [
+    "fn:1cbe71e47e0e7888",
+    "fn:3d8074f03da2ac8e",
+    "fn:5bb806d43259b41a",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:5693b679b0cd982b"
+name = "shipped_prke_timestep_settles"
+qual = "shipped_prke_timestep_settles"
+lines = [
+    824,
+    886,
+]
+hash = "sha256:37fb387add40f00f0b1ac9e5d5394c6390b6c73c2c846fcc12216ee164dc4ce6"
+doc_hash = "sha256:2d0d9e223a037f07490c707c66affbc409f11df1ef6f56eea63b7a7d21478b10"
+callees = [
+    "fn:04f2fa589675757a",
+    "fn:0b47b66d37032fa4",
+    "fn:3d8074f03da2ac8e",
+    "fn:5736d025fd21617a",
+    "fn:5bb806d43259b41a",
+    "fn:7b85bda50c243eb6",
+    "fn:a2ace910c1483fa8",
+    "fn:a3264904f4da2ab9",
+    "fn:c3de694177dbbc26",
+    "fn:c4a7f789ace4944a",
+]
+test = true
+
+[module."pebble_bed_thermal_hydraulics.rs"]
+path = "example:fhr_sim_v2::app::prke_backend::pebble_bed_thermal_hydraulics"
+
+[[module."pebble_bed_thermal_hydraulics.rs".function]]
+id = "fn:89c59d2b8af9ab83"
+name = "calc_th_and_return_heat_removal_from_pebble_bed"
+qual = "PebbleBedThermalHydraulics::calc_th_and_return_heat_removal_from_pebble_bed"
+lines = [
+    21,
+    49,
+]
+hash = "sha256:9afc372020a3ae7e48957f7ecff9ca7fafde6dc2298ccab58de14f2c80b55613"
+doc_hash = "sha256:f020aae1675dad6802814018720c5c28354c9474df5231b951a1badf81c47a04"
+callees = ["fn:981a1f42f325633f"]
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."pebble_bed_thermal_hydraulics.rs".function]]
+id = "fn:c4a7f789ace4944a"
+name = "new"
+qual = "PebbleBedThermalHydraulics::new"
+lines = [
+    51,
+    60,
+]
+hash = "sha256:7c75edd2d1c2ecc631e3ec6a7ecd282b0fb2a71bd271288e6da1d700710f06f6"
+doc_hash = "sha256:66b50aa8ccba956bb11da5f85bfa8e43c296038d56d36fd1870a6628f11b0ede"
+callees = ["fn:9e27cb6d7bed3986"]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."pebble_bed_thermal_hydraulics.rs".function]]
+id = "fn:74c9c373240cfc7a"
+name = "get_enthalpy_from_temperature_uo2_heuristic"
+qual = "PebbleBedThermalHydraulics::get_enthalpy_from_temperature_uo2_heuristic"
+lines = [
+    62,
+    71,
+]
+hash = "sha256:c0c91839370b97ae08328f98fdfe42465e4092a3a9753d6963eb525170fd5178"
+doc_hash = "sha256:05c3ca26bb911746ce36d954faef599c8df6501aab2ff386ae28b9786d2623ae"
+physical_interface = true
+
+[[module."pebble_bed_thermal_hydraulics.rs".function]]
+id = "fn:981a1f42f325633f"
+name = "get_temperature_from_enthalpy_uo2_heuristic"
+qual = "PebbleBedThermalHydraulics::get_temperature_from_enthalpy_uo2_heuristic"
+lines = [
+    72,
+    88,
+]
+hash = "sha256:662d3a3ecddf5d468aec03eed26254c7deed22d9540851b78d962775e7c91dc6"
+doc_hash = "sha256:05c3ca26bb911746ce36d954faef599c8df6501aab2ff386ae28b9786d2623ae"
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."pebble_bed_thermal_hydraulics.rs".function]]
+id = "fn:9e27cb6d7bed3986"
+name = "get_enthalpy_from_temperature_uo2"
+qual = "PebbleBedThermalHydraulics::get_enthalpy_from_temperature_uo2"
+lines = [
+    90,
+    135,
+]
+hash = "sha256:3df203168b2500e1f006993272d11e4455aa9c5093327ef78ed4fc0d2fd13f85"
+doc_hash = "sha256:55b6a70661477d5673f5bf62c324632e53a836e9ea808e61f41c25c69938c4f7"
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."pebble_bed_thermal_hydraulics.rs".function]]
+id = "fn:c41a79d3fa841b8a"
+name = "get_current_temeperature_uo2"
+qual = "PebbleBedThermalHydraulics::get_current_temeperature_uo2"
+lines = [
+    137,
+    141,
+]
+hash = "sha256:bf62b12ba2663816a8932f5a29fa3e9709c7520535fc7faafcb10eb1390d0e92"
+doc_hash = "sha256:a1f68c53de058089e09a23b2001c7940c42abefe24d975a983fcaefc91f899bb"
+physical_interface = true

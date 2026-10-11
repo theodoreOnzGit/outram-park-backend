@@ -1,0 +1,1282 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-dwsim-libs"
+dir = "crates/outram-park-fork-dwsim-libs/src/reactors"
+test_ids = [
+    "crates/dover/tests/smr_cstr.rs::conversion_falls_with_pressure_at_equilibrium",
+    "crates/dover/tests/smr_cstr.rs::conversion_rises_with_steam_to_carbon_at_equilibrium",
+    "crates/dover/tests/smr_cstr.rs::conversion_rises_with_temperature",
+    "crates/dover/tests/smr_cstr.rs::every_atom_balances",
+    "crates/dover/tests/smr_cstr.rs::long_residence_time_approaches_thermodynamic_equilibrium",
+    "crates/dover/tests/smr_cstr.rs::pressure_raises_conversion_in_the_kinetically_limited_regime",
+    "crates/dover/tests/smr_cstr.rs::shift_kinetics_only_set_the_approach_rate",
+    "crates/dover/tests/smr_cstr.rs::the_base_case_is_endothermic_and_makes_hydrogen",
+    "crates/dover/tests/smr_cstr.rs::the_bundled_decks_parse_and_run",
+    "crates/dover/tests/smr_cstr.rs::the_committed_fixtures_still_reproduce",
+    "crates/dover/tests/smr_cstr.rs::the_headless_run_is_deterministic",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/conversion_reactor.rs::extent_capped_at_availability",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/conversion_reactor.rs::honours_set_conversion_exactly",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/conversion_reactor.rs::mole_changing_reaction_atom_balance",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/cstr.rs::cstr_below_pfr_for_same_ktau",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/cstr.rs::first_order_matches_analytic_conversion",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/cstr.rs::reversible_reaction_converges_below_irreversible",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/equilibrium_reactor.rs::a_eq_b_reaches_keq",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/equilibrium_reactor.rs::larger_k_shifts_toward_product",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/equilibrium_reactor.rs::temperature_dependent_k_satisfied",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/gibbs_reactor.rs::gibbs_heat_report_and_error_paths",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/gibbs_reactor.rs::gibbs_matches_equilibrium_reactor_a_to_b",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/gibbs_reactor.rs::gibbs_water_gas_shift_extent_and_atom_balance",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/mod.rs::gaussian_elimination",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/pfr.rs::conversion_increases_with_residence_time",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/pfr.rs::first_order_matches_analytic_conversion",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/pfr.rs::rejects_nonpositive_flow",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::liquid_phase_reaction_gap_is_recorded",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::overspecified_group_reaches_exact_optimum",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::parallel_group_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::penalty_scope_upstream_defect_is_not_reproduced",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::sequential_ranks_match_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::single_reaction_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_cstr_parity.rs::heterogeneous_catalytic_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_cstr_parity.rs::liquid_isomerisation_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_cstr_parity.rs::steam_reforming_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_cstr_parity.rs::vapour_isomerisation_matches_upstream_diagnostic_build",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_equilibrium_parity.rs::activity_basis_vapour_gap_is_recorded",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_equilibrium_parity.rs::ideal_phi_cost_is_recorded",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_equilibrium_parity.rs::smr_fugacity_basis_matches_partial_pressure_and_records_phi_gap",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_equilibrium_parity.rs::smr_mole_fraction_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_equilibrium_parity.rs::wgs_mole_fraction_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_gibbs_parity.rs::default_path_matches_within_its_penalty_residual",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_gibbs_parity.rs::lagrange_path_matches_once_its_pressure_term_is_included",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_gibbs_parity.rs::modelling_choices_have_recorded_costs",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_pfr_parity.rs::heterogeneous_catalytic_bed_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_pfr_parity.rs::liquid_isomerisation_reproduces_upstream_truncated_segments",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_pfr_parity.rs::steam_reforming_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_pfr_parity.rs::vapour_isomerisation_matches_upstream",
+]
+
+[module."conversion_reactor.rs"]
+path = "crate::reactors::conversion_reactor"
+
+[[module."conversion_reactor.rs".function]]
+id = "fn:cf051ca1ea98fb60"
+name = "new"
+qual = "ConversionReactor::new"
+lines = [
+    101,
+    107,
+]
+hash = "sha256:b1214bb4c33ac13d956810bbbd083fa16aaf44f3ac580b458377781ec30d6821"
+doc_hash = "sha256:eb7cc70337ee936be9bcc24936a437e408a8179ae8fdae5abe4ba75723372a4a"
+reached_by = [
+    "#11",
+    "#12",
+    "#13",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+]
+
+[[module."conversion_reactor.rs".function]]
+id = "fn:ed1b6728a2b16cfb"
+name = "with_ranks"
+qual = "ConversionReactor::with_ranks"
+lines = [
+    109,
+    117,
+]
+hash = "sha256:5d9231d1f6cb306778bd886dd361fc82a7d9810aa6e991e8f735ceea944ece4e"
+doc_hash = "sha256:c165ad0aebb391bdc7db856348b68d5b1d638b4a893823ae1e18b9acd6ba1c36"
+reached_by = [
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+]
+
+[[module."conversion_reactor.rs".function]]
+id = "fn:a1179b171f27db0a"
+name = "solve"
+qual = "ConversionReactor::solve"
+lines = [
+    119,
+    197,
+]
+hash = "sha256:4def6ad37c3b60e57e7c9b9e43bf0a46c2c0f151cbb5296dcefbb0a3e31c5802"
+doc_hash = "sha256:6c8bdcec5a2854dd90f1999082912090cd5651b35d3d696952f4bb788568a641"
+callees = [
+    "fn:0cef6f5c72cc2f25",
+    "fn:94e3ac42dc387974",
+    "fn:ddca419625468662",
+]
+reached_by = [
+    "#11",
+    "#12",
+    "#13",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+]
+
+[[module."conversion_reactor.rs".function]]
+id = "fn:0cef6f5c72cc2f25"
+name = "feasible_conversions"
+qual = "feasible_conversions"
+lines = [
+    200,
+    259,
+]
+hash = "sha256:1a6127210260c6dceaad82fb436788121ca1f2d82c1e058e62665c32930669d4"
+doc_hash = "sha256:5eea80e8dc1435631af3b25266ca33c27b86caedb4b36443e71600931cbcfb82"
+reached_by = [
+    "#11",
+    "#12",
+    "#13",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+]
+
+[[module."conversion_reactor.rs".function]]
+id = "fn:5285341549e409ad"
+name = "a_to_b"
+qual = "a_to_b"
+lines = [
+    266,
+    277,
+]
+hash = "sha256:fa24880e466c3abeae2ea5ea6c2223f6670484c07e3ab1457639998d4e726d7c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1d2e7800f4f33cfb",
+    "fn:7be29599b7b98e90",
+    "fn:9b6ed9e43c277780",
+]
+test = true
+
+[[module."conversion_reactor.rs".function]]
+id = "fn:5a36e047ce36b45a"
+name = "honours_set_conversion_exactly"
+qual = "honours_set_conversion_exactly"
+lines = [
+    279,
+    299,
+]
+hash = "sha256:34f7edc7d06d79f04a6de1466fbbd5caa82cb5dfc5ad4b8be4408b4122b5aa66"
+doc_hash = "sha256:6a7f222d6989039c0d82e3d33af356568c7a87716cfe348e3635ac4640c6913a"
+callees = [
+    "fn:245482781e53b421",
+    "fn:5285341549e409ad",
+    "fn:53089c949b6ceea3",
+    "fn:a1179b171f27db0a",
+    "fn:cf051ca1ea98fb60",
+]
+test = true
+
+[[module."conversion_reactor.rs".function]]
+id = "fn:2e0b18e9210fcc84"
+name = "mole_changing_reaction_atom_balance"
+qual = "mole_changing_reaction_atom_balance"
+lines = [
+    301,
+    327,
+]
+hash = "sha256:8d9a76d0e5bbe824918572597ca04350ae935cfe9a34752f42f579eb18c4ec78"
+doc_hash = "sha256:d53138f748591518a142defb4c9e0efa01fd5382a09db7a6058f3493eca1ac05"
+callees = [
+    "fn:1d2e7800f4f33cfb",
+    "fn:245482781e53b421",
+    "fn:7be29599b7b98e90",
+    "fn:9b6ed9e43c277780",
+    "fn:a1179b171f27db0a",
+    "fn:cf051ca1ea98fb60",
+]
+test = true
+
+[[module."conversion_reactor.rs".function]]
+id = "fn:7ce8b6f8a3c0c6f1"
+name = "extent_capped_at_availability"
+qual = "extent_capped_at_availability"
+lines = [
+    329,
+    342,
+]
+hash = "sha256:224c7724512b0cfd23e01ac6be9b4c28d857ab87e7537ec98f46236130b92832"
+doc_hash = "sha256:08267a221cd636d1c1c4f2435338e75d7b577bfb1fc0891025055c7f7200f0a6"
+callees = [
+    "fn:245482781e53b421",
+    "fn:5285341549e409ad",
+    "fn:a1179b171f27db0a",
+    "fn:cf051ca1ea98fb60",
+]
+test = true
+
+[module."cstr.rs"]
+path = "crate::reactors::cstr"
+
+[[module."cstr.rs".function]]
+id = "fn:18b72d897089f611"
+name = "new"
+qual = "Cstr::new"
+lines = [
+    68,
+    79,
+]
+hash = "sha256:8d312c261724079656909d5f376b54a025d4c410ccdcefe9deb0046448667f7e"
+doc_hash = "sha256:638c6bbd7d1123b960a24a5dfcd974e9061d94c8b8f4ad99bbdf5de6f5e0b596"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#14",
+    "#15",
+    "#16",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+
+[[module."cstr.rs".function]]
+id = "fn:938b7b0661dfdcd3"
+name = "with_catalyst_amount"
+qual = "Cstr::with_catalyst_amount"
+lines = [
+    81,
+    86,
+]
+hash = "sha256:1caa41ec28de152c302f2f10e019049dca7c55fda5a09973d46f61eda675900c"
+doc_hash = "sha256:3f5d23fa5efb3ab0ad1d2abc80a292a8472ed4779e52e594796b0b833ad9772b"
+reached_by = ["#33"]
+
+[[module."cstr.rs".function]]
+id = "fn:9425de56145054eb"
+name = "extent_from_rate"
+qual = "Cstr::extent_from_rate"
+lines = [
+    88,
+    97,
+]
+hash = "sha256:3937f9b3e90c83ff6a978b4fc3026b8c11e6cae2a957512f68c3711afdc84ea1"
+doc_hash = "sha256:f4eec0f1defb26a178b8445bf50b056502b8b3f523a45ea7bf82e5140a2e2e61"
+callees = [
+    "fn:167b01e664ba9648",
+    "fn:88a3a24fb5db49a5",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#14",
+    "#15",
+    "#16",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+
+[[module."cstr.rs".function]]
+id = "fn:c4ff89d87b1452af"
+name = "flows_from_extents"
+qual = "Cstr::flows_from_extents"
+lines = [
+    99,
+    110,
+]
+hash = "sha256:226c2036b82c412a5001ac9b4e1be198ff2a21a8a40966b775d16f686a5eef2c"
+doc_hash = "sha256:08caa7dca21aa3f61027468fd0668756db7801b7b7452965d741a7a8460a8794"
+callees = ["fn:94e3ac42dc387974"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#14",
+    "#15",
+    "#16",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+
+[[module."cstr.rs".function]]
+id = "fn:23478b067c6a46e5"
+name = "residual"
+qual = "Cstr::residual"
+lines = [
+    112,
+    122,
+]
+hash = "sha256:0736c4c53bd7d387b87dde8bad279e87029481516b4bd68f45e0d6ad524507e0"
+doc_hash = "sha256:b8cec8a97f9b1a0bb4ce93b8f55f32ba709be51806aaf0e0d757099e92c239ef"
+callees = [
+    "fn:9425de56145054eb",
+    "fn:c4ff89d87b1452af",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#14",
+    "#15",
+    "#16",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+
+[[module."cstr.rs".function]]
+id = "fn:061f37f03f83d06b"
+name = "solve"
+qual = "Cstr::solve"
+lines = [
+    124,
+    241,
+]
+hash = "sha256:08b63e5053f2543cfc9a4fcf9eb368b1b39a19b456afb04236b185784ebbda71"
+doc_hash = "sha256:b24a17daa85ceda0a6a566048da81abb3ad307bea5dc0174aa73e64c34dcbf4b"
+callees = [
+    "fn:23478b067c6a46e5",
+    "fn:71d05ba8ca1b53e2",
+    "fn:c4ff89d87b1452af",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#14",
+    "#15",
+    "#16",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+
+[[module."cstr.rs".function]]
+id = "fn:6ba3ed385510253e"
+name = "first_order_a_to_b"
+qual = "first_order_a_to_b"
+lines = [
+    249,
+    259,
+]
+hash = "sha256:dd62eb40cef5a64313a73a160fb123f2d0b21e1b2eec72eecb64125d53a4f66a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7be29599b7b98e90",
+    "fn:9b6ed9e43c277780",
+    "fn:9f5e1f557d158a5b",
+]
+test = true
+
+[[module."cstr.rs".function]]
+id = "fn:9ab564aadbd4144f"
+name = "first_order_matches_analytic_conversion"
+qual = "first_order_matches_analytic_conversion"
+lines = [
+    261,
+    286,
+]
+hash = "sha256:f6308f9f4265baa5951efcc1be5ce0854808b282f2d596484807f3956367e8d1"
+doc_hash = "sha256:1e69224762dd9a557b0eff60f9c8d8eda37a89f7144981b196daf0a41a9f035b"
+callees = [
+    "fn:061f37f03f83d06b",
+    "fn:18b72d897089f611",
+    "fn:245482781e53b421",
+    "fn:53089c949b6ceea3",
+    "fn:6ba3ed385510253e",
+]
+test = true
+
+[[module."cstr.rs".function]]
+id = "fn:6018b5faa62a296b"
+name = "cstr_below_pfr_for_same_ktau"
+qual = "cstr_below_pfr_for_same_ktau"
+lines = [
+    288,
+    304,
+]
+hash = "sha256:44ac4a0e2e1d9fce7a3884ebb7241769d6827054838a3ef406e344d42bebab6c"
+doc_hash = "sha256:4e77673705fa70235604aab010b70ea03db53ee2e2654cf9fb0bc6cbfd975544"
+callees = [
+    "fn:061f37f03f83d06b",
+    "fn:18b72d897089f611",
+    "fn:245482781e53b421",
+    "fn:53089c949b6ceea3",
+    "fn:6ba3ed385510253e",
+]
+test = true
+
+[[module."cstr.rs".function]]
+id = "fn:1d097fe5e9d19cfa"
+name = "reversible_reaction_converges_below_irreversible"
+qual = "reversible_reaction_converges_below_irreversible"
+lines = [
+    306,
+    328,
+]
+hash = "sha256:11b776de787045311c50d660bfb61e9883a368d7553af9007d563171e5fec823"
+doc_hash = "sha256:d573e0b59dd8ff4ca31387c4c8c0fcfae1f59536c5032a0e7306fb0478ffead3"
+callees = [
+    "fn:061f37f03f83d06b",
+    "fn:18b72d897089f611",
+    "fn:245482781e53b421",
+    "fn:53089c949b6ceea3",
+    "fn:6ba3ed385510253e",
+    "fn:71d86f3566c4ac23",
+]
+test = true
+
+[module."equilibrium_reactor.rs"]
+path = "crate::reactors::equilibrium_reactor"
+
+[[module."equilibrium_reactor.rs".function]]
+id = "fn:80201877484f649c"
+name = "new"
+qual = "EquilibriumReactor::new"
+lines = [
+    81,
+    89,
+]
+hash = "sha256:ac1217cf66c0945697d5583a079bdcefff609a39e71af1a16b95f863bd74411c"
+doc_hash = "sha256:384d065a01f5e33327356e777a1a0a1f5bb9a740e6f0de17813e1e894fc1f5c4"
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+]
+
+[[module."equilibrium_reactor.rs".function]]
+id = "fn:b329b0ae3e1f6e01"
+name = "amounts"
+qual = "EquilibriumReactor::amounts"
+lines = [
+    91,
+    100,
+]
+hash = "sha256:e6185ffd40ac2e57c963ea22e2d0599bfb3ea005f196744bd6322738814b6e5b"
+doc_hash = "sha256:7da2271dd38921209625f677e733be266bf9515fa2dc37cd5e6a6b4f258da2a1"
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+]
+
+[[module."equilibrium_reactor.rs".function]]
+id = "fn:642b0ce2d9646b89"
+name = "basis_value"
+qual = "EquilibriumReactor::basis_value"
+lines = [
+    102,
+    115,
+]
+hash = "sha256:eda8d13f5e65d3e094047d188c792e094115a9f432c4ccb4e32590d3a16705f0"
+doc_hash = "sha256:1b901f55ccca64c059a49a6d10dc843c7809d4ab52cb3e7ea2ea6e9ec06448f7"
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+]
+
+[[module."equilibrium_reactor.rs".function]]
+id = "fn:a40ca4719d3f7eb9"
+name = "residual"
+qual = "EquilibriumReactor::residual"
+lines = [
+    117,
+    143,
+]
+hash = "sha256:d1f3cee51477b02cd149c23c1f5598fb8b496666e6e9dc5b674944004dd8f0db"
+doc_hash = "sha256:c2ebfdd2cb51e56f4d92e0c7ae53e5d12fa73a90d22b030345550089e3005317"
+callees = [
+    "fn:642b0ce2d9646b89",
+    "fn:7f446ce3531d172a",
+    "fn:b329b0ae3e1f6e01",
+]
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+]
+
+[[module."equilibrium_reactor.rs".function]]
+id = "fn:47b9c74a0aa60b53"
+name = "initial_extents"
+qual = "EquilibriumReactor::initial_extents"
+lines = [
+    145,
+    167,
+]
+hash = "sha256:ffa85b5db0f3cfd93ed1b76a51d357f6b816034076536a400e9c1d3e5c987c83"
+doc_hash = "sha256:218031ff3fd00fea7f5cb903fffc7415dea4e63b9b22b4335e58744405f7d41d"
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+]
+
+[[module."equilibrium_reactor.rs".function]]
+id = "fn:8f5a783aa6da8244"
+name = "solve"
+qual = "EquilibriumReactor::solve"
+lines = [
+    169,
+    316,
+]
+hash = "sha256:6d5aca8066f99e63a939df460bd47fba32101e63aa1c6906ed00a83f26eb11e7"
+doc_hash = "sha256:57846d1fb059fcc1e3c78a0849b1e62a6188e01ddf2c19510a11c39c005122d2"
+callees = [
+    "fn:47b9c74a0aa60b53",
+    "fn:55b855aff928807f",
+    "fn:71d05ba8ca1b53e2",
+    "fn:a40ca4719d3f7eb9",
+    "fn:b329b0ae3e1f6e01",
+]
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+]
+
+[[module."equilibrium_reactor.rs".function]]
+id = "fn:dd9b9b0086693df8"
+name = "a_eq_b"
+qual = "a_eq_b"
+lines = [
+    324,
+    335,
+]
+hash = "sha256:b5afdb3dabafab00fa6554bca78ad54c07e7f82d14e878cd40849f40bf000b9a"
+doc_hash = "sha256:b8c6529e398f1b5c3b0ee16c7df2627984dfc0b3469464f70f5ec16221fa3ed8"
+callees = [
+    "fn:7be29599b7b98e90",
+    "fn:8e7dc81a6b458476",
+    "fn:9b6ed9e43c277780",
+]
+test = true
+
+[[module."equilibrium_reactor.rs".function]]
+id = "fn:2507b4c12fd8e93d"
+name = "a_eq_b_reaches_keq"
+qual = "a_eq_b_reaches_keq"
+lines = [
+    337,
+    361,
+]
+hash = "sha256:700d24ea509d44fd16e1917e1b2bebeb17884ec8a2cd3a0e824b04b979177ec9"
+doc_hash = "sha256:9cc8d3899a0fe5bcd37198d6f87848dbd24d370fac51d48305f426d56b8e7f99"
+callees = [
+    "fn:245482781e53b421",
+    "fn:80201877484f649c",
+    "fn:8f5a783aa6da8244",
+    "fn:dd9b9b0086693df8",
+]
+test = true
+
+[[module."equilibrium_reactor.rs".function]]
+id = "fn:2411e9f4b150c745"
+name = "larger_k_shifts_toward_product"
+qual = "larger_k_shifts_toward_product"
+lines = [
+    363,
+    382,
+]
+hash = "sha256:64c9b14eaeac6b95516c0b220acd4f184fabb56d0dbc138a08cd633c037de3a0"
+doc_hash = "sha256:474ac65d7c94a7a5f7f47b500c5da96ee4b6051f007039cd2b0d31318519c006"
+callees = [
+    "fn:245482781e53b421",
+    "fn:80201877484f649c",
+    "fn:8f5a783aa6da8244",
+    "fn:dd9b9b0086693df8",
+]
+test = true
+
+[[module."equilibrium_reactor.rs".function]]
+id = "fn:eb5609e81fd5f42f"
+name = "temperature_dependent_k_satisfied"
+qual = "temperature_dependent_k_satisfied"
+lines = [
+    384,
+    413,
+]
+hash = "sha256:fb7628fd3cdb6ff16cee260f42329d406642ad415207521b3fb0956f7be3fc9d"
+doc_hash = "sha256:ae8e6470195715df86267e2b28533ab5d79a12eee25f32c455f8096a1430a93d"
+callees = [
+    "fn:245482781e53b421",
+    "fn:7be29599b7b98e90",
+    "fn:7f446ce3531d172a",
+    "fn:80201877484f649c",
+    "fn:8e7dc81a6b458476",
+    "fn:8f5a783aa6da8244",
+    "fn:9b6ed9e43c277780",
+]
+test = true
+
+[module."gibbs_reactor.rs"]
+path = "crate::reactors::gibbs_reactor"
+
+[[module."gibbs_reactor.rs".function]]
+id = "fn:8a69c8cd69ab3b67"
+name = "evaluate"
+qual = "GibbsFormation::evaluate"
+lines = [
+    133,
+    143,
+]
+hash = "sha256:5713fc72f175aeb396d7cfe360c5661d7be338d78c95fa922a1d8eedc6bc6384"
+doc_hash = "sha256:2c1e44c9b55a75e494bc8465b42f2733f083b49fc6a0a2e15f7849dd33643450"
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+    "#42",
+    "#43",
+    "#44",
+]
+
+[[module."gibbs_reactor.rs".function]]
+id = "fn:a955028fc0e2b7fe"
+name = "enthalpy_of_formation"
+qual = "GibbsFormation::enthalpy_of_formation"
+lines = [
+    145,
+    154,
+]
+hash = "sha256:e022e676a4a52fc6b42a6acc0566f3e355bcfe6dc13d32b0b5db4eb03bd7af36"
+doc_hash = "sha256:bc57ead716987b9e342896428ac34ee4b3d49ab212ea0b3eff7f6f881408de3f"
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+    "#42",
+    "#43",
+    "#44",
+]
+
+[[module."gibbs_reactor.rs".function]]
+id = "fn:106336be6f24b2c3"
+name = "new"
+qual = "GibbsReactor::new"
+lines = [
+    181,
+    197,
+]
+hash = "sha256:6269ef685b511a7422c25caebd7651c3b6d7e21a2c5af6c96bd7e733fc3bf937"
+doc_hash = "sha256:698a50c38120e329525035258919f7ec8b84839fded8434e3253051f6d860264"
+callees = ["fn:ba2d7aed323bd169"]
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+    "#42",
+    "#43",
+    "#44",
+]
+
+[[module."gibbs_reactor.rs".function]]
+id = "fn:b8b98c3cc95cad7c"
+name = "with_p_ref"
+qual = "GibbsReactor::with_p_ref"
+lines = [
+    199,
+    204,
+]
+hash = "sha256:0907bfcaa24308426d61a20a6097f7480c47edd149a604c81175fa1ca43a7fd0"
+doc_hash = "sha256:e700c35cd79101dd59a363592c11f2e51d6debc4e8c13eb3c24b1b41f6fc7a20"
+reached_by = [
+    "#42",
+    "#43",
+    "#44",
+]
+
+[[module."gibbs_reactor.rs".function]]
+id = "fn:aa072d25fcdff66e"
+name = "with_fugacity"
+qual = "GibbsReactor::with_fugacity"
+lines = [
+    206,
+    211,
+]
+hash = "sha256:52e2fd24e5426d38566740ec6799a00eb3aeaf0542db1314e1d10523219ad4b6"
+doc_hash = "sha256:d8d2f099f042e74bde03dfc759d318a5f4fa5d7f745dcef23d1ce425eb20855c"
+reached_by = [
+    "#42",
+    "#43",
+    "#44",
+]
+
+[[module."gibbs_reactor.rs".function]]
+id = "fn:ceac78d74e681a09"
+name = "with_options"
+qual = "GibbsReactor::with_options"
+lines = [
+    213,
+    218,
+]
+hash = "sha256:8b5fef608bc92fc71e816ceb3ae2d71cb24528a8e0c2fed073174b451b9ae750"
+doc_hash = "sha256:cacc80dbdf19cb43e169a8f8212ad0cb45b9a2236c550cc696be3fa4c2acf34b"
+reached_by = [
+    "#42",
+    "#43",
+    "#44",
+]
+
+[[module."gibbs_reactor.rs".function]]
+id = "fn:613327c03b53c888"
+name = "solve"
+qual = "GibbsReactor::solve"
+lines = [
+    220,
+    287,
+]
+hash = "sha256:62d1156639f038d534b0e14dfe1890fc40cefb50dba08eb5139d7f3a71f0058d"
+doc_hash = "sha256:4e82b6a20521e700550ec2acbd16c5715b784849f29fd077b5a95cb76dd687f8"
+callees = [
+    "fn:8a69c8cd69ab3b67",
+    "fn:a27c95fa2cf1c8fd",
+    "fn:b5959145f0d055b7",
+    "fn:cb941dd35899a5e1",
+    "fn:f0aed0e79e35734d",
+]
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+    "#42",
+    "#43",
+    "#44",
+]
+
+[[module."gibbs_reactor.rs".function]]
+id = "fn:f0aed0e79e35734d"
+name = "heat_of_reaction"
+qual = "GibbsReactor::heat_of_reaction"
+lines = [
+    289,
+    302,
+]
+hash = "sha256:430a95621d81aeb13d04469860ae907e1da2a1268fb744dba7f0375b84768d21"
+doc_hash = "sha256:454c9de4f66b0590fd8783d9cb2f65b3f096cec6908e3f1c718d3ed05dce36c5"
+callees = ["fn:a955028fc0e2b7fe"]
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+    "#42",
+    "#43",
+    "#44",
+]
+
+[[module."gibbs_reactor.rs".function]]
+id = "fn:b5959145f0d055b7"
+name = "map_gibbs_error"
+qual = "map_gibbs_error"
+lines = [
+    305,
+    322,
+]
+hash = "sha256:ccd230516fd463cbacd5d2a8e5646b487443ee898d4dda59c004a4bb3575e033"
+doc_hash = "sha256:01437dfbff59547ec078eeafaab26ca025cc5a487e7252a7f3fa6a607187d6d1"
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+    "#42",
+    "#43",
+    "#44",
+]
+
+[[module."gibbs_reactor.rs".function]]
+id = "fn:2196bc04e5492d61"
+name = "gibbs_matches_equilibrium_reactor_a_to_b"
+qual = "gibbs_matches_equilibrium_reactor_a_to_b"
+lines = [
+    343,
+    395,
+]
+hash = "sha256:97c4f6062d246872995c14eec56c76639793299733f58bafc9743bfcdb636ec3"
+doc_hash = "sha256:7c3fc854a7f8c5cafb0f8116e55d3be2033294a5788ecf64afcd76a1d195b737"
+callees = [
+    "fn:106336be6f24b2c3",
+    "fn:245482781e53b421",
+    "fn:438eb95e08d19b03",
+    "fn:613327c03b53c888",
+    "fn:7be29599b7b98e90",
+    "fn:80201877484f649c",
+    "fn:8e7dc81a6b458476",
+    "fn:8f5a783aa6da8244",
+    "fn:9b6ed9e43c277780",
+]
+test = true
+
+[[module."gibbs_reactor.rs".function]]
+id = "fn:b44ca52c8d255446"
+name = "gibbs_water_gas_shift_extent_and_atom_balance"
+qual = "gibbs_water_gas_shift_extent_and_atom_balance"
+lines = [
+    397,
+    449,
+]
+hash = "sha256:b98a8282e39f80705038869e4e7954aeb0264ef9fdae279a1185be2d58259cc9"
+doc_hash = "sha256:4067c74d223acbaf3fa125c4aff0ff3853141ee26da3cff17aa28092c22bb878"
+callees = [
+    "fn:106336be6f24b2c3",
+    "fn:245482781e53b421",
+    "fn:438eb95e08d19b03",
+    "fn:613327c03b53c888",
+    "fn:f28009400b601942",
+]
+test = true
+
+[[module."gibbs_reactor.rs".function]]
+id = "fn:1bde2dbe52a3355f"
+name = "gibbs_heat_report_and_error_paths"
+qual = "gibbs_heat_report_and_error_paths"
+lines = [
+    451,
+    511,
+]
+hash = "sha256:860ca321f8c09ddfa4bf529587be80ce4374c8c102cf60b713c189ea5c534de7"
+doc_hash = "sha256:fbdea2012b8b5df5294d29d584ae60e610b70e697f3805bc71e131c52e0a86eb"
+callees = [
+    "fn:106336be6f24b2c3",
+    "fn:245482781e53b421",
+    "fn:438eb95e08d19b03",
+    "fn:613327c03b53c888",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::reactors"
+
+[[module."mod.rs".function]]
+id = "fn:245482781e53b421"
+name = "new"
+qual = "ReactorFeed::new"
+lines = [
+    82,
+    98,
+]
+hash = "sha256:1996cf5fd805c3e206e0649ff2dd2d31073b09bea98eed776fc54aaeead0e96f"
+doc_hash = "sha256:320dc31bc6e2ec4e6f541fb1d2a7402485d3b7326177edc72f26bb0cf382e86a"
+reached_by = [
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+]
+
+[[module."mod.rs".function]]
+id = "fn:55b855aff928807f"
+name = "total_molar_flow"
+qual = "ReactorFeed::total_molar_flow"
+lines = [
+    100,
+    104,
+]
+hash = "sha256:de22be20f625cabfcbd7b9205ba47772beb8965ffbfe527164b568c068b5a8ac"
+doc_hash = "sha256:9229755eea311fc94412f1b9beab4d544e18dc2d2df5a46eaefbe0c4cd01aa6f"
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+]
+
+[[module."mod.rs".function]]
+id = "fn:53089c949b6ceea3"
+name = "conversion_of"
+qual = "ReactorOutcome::conversion_of"
+lines = [
+    122,
+    132,
+]
+hash = "sha256:43a4e6ce5e461946882d9bc63847e47da40a0123ab9a9935dfb4b09b03740b74"
+doc_hash = "sha256:63be083de01985af42693b2936cd86d9d5d7e1165f0c29b3925a109e56689e2c"
+reached_by = [
+    "#12",
+    "#14",
+    "#15",
+    "#16",
+    "#24",
+    "#25",
+]
+
+[[module."mod.rs".function]]
+id = "fn:1685967c54429539"
+name = "solve"
+qual = "ReactorModel::solve"
+lines = [
+    175,
+    184,
+]
+hash = "sha256:faeec23f82819028f5c4bb33983d51f7444db4f75a7e9eb7a64bb57743cb3cf4"
+doc_hash = "sha256:fe95217221b1b16ad3db2754895448a091de4eb0c9d906ecfaa3f3e1b0375e56"
+callees = [
+    "fn:061f37f03f83d06b",
+    "fn:4dc113a66bdc5cfd",
+    "fn:613327c03b53c888",
+    "fn:8f5a783aa6da8244",
+    "fn:a1179b171f27db0a",
+]
+
+[[module."mod.rs".function]]
+id = "fn:71d05ba8ca1b53e2"
+name = "solve_linear"
+qual = "solve_linear"
+lines = [
+    187,
+    237,
+]
+hash = "sha256:405212973e291c35b2de6ce56f7705dfeff2c09803a766fc490535eab0d43b02"
+doc_hash = "sha256:2dc33dbfd45cfa54209acbed3093d6cfe96f69c74fd6067b23c518eae8ff637c"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#23",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+]
+
+[[module."mod.rs".function]]
+id = "fn:1f79c3ded0ec48ef"
+name = "gaussian_elimination"
+qual = "gaussian_elimination"
+lines = [
+    243,
+    258,
+]
+hash = "sha256:df8b42c90663376c8e496323fdc6e3fa5f7369d8e64e990879bde8462527b69a"
+doc_hash = "sha256:ae0e7546695c95403bb0cb901d106e14ee12e3a74ed163fe8105cd97f6a23601"
+callees = ["fn:71d05ba8ca1b53e2"]
+test = true
+
+[module."pfr.rs"]
+path = "crate::reactors::pfr"
+
+[[module."pfr.rs".function]]
+id = "fn:c3cc91ceb0ec0750"
+name = "new"
+qual = "Pfr::new"
+lines = [
+    75,
+    85,
+]
+hash = "sha256:62502d2794976f8596a5abe2ac88370b97118423493e4f1c5f0b73e60a10f81b"
+doc_hash = "sha256:07d5b60a22b7df5ae005f1531205bbe9fcc98d712452ca5fe10801dd5da946fe"
+reached_by = [
+    "#24",
+    "#25",
+    "#26",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+]
+
+[[module."pfr.rs".function]]
+id = "fn:b311bfabfca42bb5"
+name = "with_catalyst_bed"
+qual = "Pfr::with_catalyst_bed"
+lines = [
+    87,
+    96,
+]
+hash = "sha256:de727704796ea9355a0b224499ca19b66526705edcc858af7113f7f29383903f"
+doc_hash = "sha256:9741cbdb8ea83ec1dc6a993319738c641814cdbe2b763f1f1d94e7dc59db0592"
+reached_by = [
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+]
+
+[[module."pfr.rs".function]]
+id = "fn:50346f75a4deac20"
+name = "fluid_fraction"
+qual = "Pfr::fluid_fraction"
+lines = [
+    98,
+    106,
+]
+hash = "sha256:5e1148e5e3d3f86e45180491b138c54ee38b252180a0854747836ad4f9f15213"
+doc_hash = "sha256:3154fd8320c44c08d3ce4d8f9a4b943ba81de9dd4992441548eb903c170bd7ff"
+reached_by = [
+    "#24",
+    "#25",
+    "#26",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+]
+
+[[module."pfr.rs".function]]
+id = "fn:5b3558e5acaeaf21"
+name = "derivatives"
+qual = "Pfr::derivatives"
+lines = [
+    108,
+    139,
+]
+hash = "sha256:b5d16f3259f6c88a8abea7ca3e65dabbb510fae13aa5d798790927218e40acec"
+doc_hash = "sha256:4b1b4a33c0af8c9fad5008dd27c043553f7913086d072d760bec11f1ab83d38e"
+callees = [
+    "fn:167b01e664ba9648",
+    "fn:88a3a24fb5db49a5",
+    "fn:94e3ac42dc387974",
+]
+reached_by = [
+    "#24",
+    "#25",
+    "#26",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+]
+
+[[module."pfr.rs".function]]
+id = "fn:4dc113a66bdc5cfd"
+name = "solve"
+qual = "Pfr::solve"
+lines = [
+    141,
+    224,
+]
+hash = "sha256:0750aceebc7f614f53b1c1932dff582fc468338fddf51366314c291b612ca06e"
+doc_hash = "sha256:fe35f5aea4470957d9827565859940fd8b516459c050dd2d38a8639a882e664d"
+callees = [
+    "fn:50346f75a4deac20",
+    "fn:5b3558e5acaeaf21",
+]
+reached_by = [
+    "#24",
+    "#25",
+    "#26",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+]
+
+[[module."pfr.rs".function]]
+id = "fn:efb74424224aaaa3"
+name = "first_order_a_to_b"
+qual = "first_order_a_to_b"
+lines = [
+    232,
+    244,
+]
+hash = "sha256:dd62eb40cef5a64313a73a160fb123f2d0b21e1b2eec72eecb64125d53a4f66a"
+doc_hash = "sha256:c46b154bde4f17e1345ef063f840325b95d678b638ecc1a2a927522e9c26b5ca"
+callees = [
+    "fn:7be29599b7b98e90",
+    "fn:9b6ed9e43c277780",
+    "fn:9f5e1f557d158a5b",
+]
+test = true
+
+[[module."pfr.rs".function]]
+id = "fn:b6b662a02fb844cb"
+name = "first_order_matches_analytic_conversion"
+qual = "first_order_matches_analytic_conversion"
+lines = [
+    246,
+    275,
+]
+hash = "sha256:77355b11fe64d035ff797e77c33ff27a93f471fedf380b3ab9773957861e4d00"
+doc_hash = "sha256:c2699abfa867b7161f601bcd3a4260b84d4f1da5c080999f5603c325fb518863"
+callees = [
+    "fn:245482781e53b421",
+    "fn:4dc113a66bdc5cfd",
+    "fn:53089c949b6ceea3",
+    "fn:c3cc91ceb0ec0750",
+    "fn:efb74424224aaaa3",
+]
+test = true
+
+[[module."pfr.rs".function]]
+id = "fn:1ce1fc95abe4c4d1"
+name = "conversion_increases_with_residence_time"
+qual = "conversion_increases_with_residence_time"
+lines = [
+    277,
+    300,
+]
+hash = "sha256:0adf98a3b722b9d34826c22527fc6c4a9400a4abab98e795f81577269435dba5"
+doc_hash = "sha256:a6fb363d7474178b08c63eae4c70c4b63ae9f5e90b033419a1888b0b57584eb1"
+callees = [
+    "fn:245482781e53b421",
+    "fn:4dc113a66bdc5cfd",
+    "fn:53089c949b6ceea3",
+    "fn:c3cc91ceb0ec0750",
+    "fn:efb74424224aaaa3",
+]
+test = true
+
+[[module."pfr.rs".function]]
+id = "fn:09ee66e23264a9f0"
+name = "rejects_nonpositive_flow"
+qual = "rejects_nonpositive_flow"
+lines = [
+    302,
+    314,
+]
+hash = "sha256:6fab88a4a7da6ac42ad9385ec91eb284cc0cc80769ec168226d12c748ba69087"
+doc_hash = "sha256:f208943bb75fdf6948c6c1260046bc3c8275942982b55d395ba0fe0c51874041"
+callees = [
+    "fn:245482781e53b421",
+    "fn:4dc113a66bdc5cfd",
+    "fn:c3cc91ceb0ec0750",
+    "fn:efb74424224aaaa3",
+]
+test = true

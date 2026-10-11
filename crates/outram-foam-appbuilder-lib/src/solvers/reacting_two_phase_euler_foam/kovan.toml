@@ -1,0 +1,695 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::arrhenius_reaction_burns_fuel_and_heats_gas",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::inert_species_conserve_sum",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::mass_transfer_moves_volume_fraction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::ranz_marshall_nusselt_hand_value",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::reaction_heat_raises_phase_temperature",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::rejects_mesh_mismatch",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::thermal_equilibration_conserves_energy",
+]
+
+[module."mod.rs"]
+path = "crate::solvers::reacting_two_phase_euler_foam"
+
+[[module."mod.rs".function]]
+id = "fn:1673122341d93e80"
+name = "new"
+qual = "PhaseThermo::new"
+lines = [
+    148,
+    195,
+]
+hash = "sha256:417d5a55909c99c03c118e0df7b9c1a99f047ab33d9f363a5fbc2bf6b4eec379"
+doc_hash = "sha256:65c86ae46f69905537abf266b54acac4fb14707948ac703c01cca6285384cd23"
+callees = ["fn:636e75b664f14254"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:d8d54faf092f230f"
+name = "temperature"
+qual = "PhaseThermo::temperature"
+lines = [
+    197,
+    204,
+]
+hash = "sha256:90041c4e5109391cadc4120808d4a4b00c92c86abc893f57f009e5e9933c0f48"
+doc_hash = "sha256:de744ff8707c612e5fbbbd9b16c07cb4a4bf19d7fc32a3f851df2c53f5144553"
+callees = [
+    "fn:33e59d07d5472218",
+    "fn:4aea3161a87c6021",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:cc7161c44d3c70d8"
+name = "mean_temperature"
+qual = "PhaseThermo::mean_temperature"
+lines = [
+    206,
+    218,
+]
+hash = "sha256:2f8e0a60026e37be96a148b48c205c90a45df0e34b19bbe12395dfd78aa7c795"
+doc_hash = "sha256:9b46c512ab9fdcd43ae899c811511971726e1d87cda3bd4e05e09f63e0199288"
+callees = ["fn:4aea3161a87c6021"]
+reached_by = [
+    "#0",
+    "#4",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:812cb8fb52eeac2b"
+name = "nusselt"
+qual = "InterfacialHeatTransfer::nusselt"
+lines = [
+    252,
+    262,
+]
+hash = "sha256:e7a71345ce7176f7bd72899a11900c1c01d0cf536fd3e9a566a9156f77e820e5"
+doc_hash = "sha256:e73573501b7a936da46e12d576b3b9a11ddd9cfd4a8ecc34d861e7a65c51500e"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2d19f85f2668aec6"
+name = "needs_reynolds"
+qual = "InterfacialHeatTransfer::needs_reynolds"
+lines = [
+    264,
+    269,
+]
+hash = "sha256:ec323ce88590da258be34ced78e08247bd28ff3a21356159060fe90382a7e92a"
+doc_hash = "sha256:d199743f4acd0a30dbf7ced3ba9e36f25d6e394cc67e326122dd1aeaeb73ad15"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:33a91ffe6b901b9a"
+name = "rate"
+qual = "InterfacialMassTransfer::rate"
+lines = [
+    299,
+    306,
+]
+hash = "sha256:d4f12963fd328e0e687b2f0b94c4d51a19574259bd753212ad4f256065be5f1f"
+doc_hash = "sha256:d37b23d416e3a451ec661a698852a72e8abe5ab13a916489dcf92f9c907d3372"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:12aa8f4b6cd5e5eb"
+name = "new"
+qual = "PhaseSpecies::new"
+lines = [
+    373,
+    433,
+]
+hash = "sha256:680942e20bcf19cad0c33c198dc7c054307234006da8d6f75e37b60684a16527"
+doc_hash = "sha256:19f78f63bf81b4b5352e2759b8a66ae951ab41d3e56aa4aa32a51e2ba746065c"
+callees = ["fn:636e75b664f14254"]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."mod.rs".function]]
+id = "fn:fad5e704df8fe164"
+name = "mass_fraction"
+qual = "PhaseSpecies::mass_fraction"
+lines = [
+    435,
+    438,
+]
+hash = "sha256:8a0ff83a5aa06faf5ef978cfe8a3c21919b2a84d60de036e7db4057a0f88336c"
+doc_hash = "sha256:099f271a841406f00901194ca9d1d3d744abc93fcaa5fa5fbccc3483b083fa60"
+
+[[module."mod.rs".function]]
+id = "fn:57b55e90f8c5c494"
+name = "mean_mass_fraction"
+qual = "PhaseSpecies::mean_mass_fraction"
+lines = [
+    440,
+    451,
+]
+hash = "sha256:601ed141f55869b22803ede85a88204a92aa0481bed6e7c0e49346db5afbe464"
+doc_hash = "sha256:a7d9bad59d357441fceb0e8b71efccaeedd828f638367d0d010fcd8f512cca76"
+callees = ["fn:4aea3161a87c6021"]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."mod.rs".function]]
+id = "fn:5ae359ba203efd28"
+name = "new"
+qual = "ReactingTwoPhaseEulerFoam::new"
+lines = [
+    542,
+    590,
+]
+hash = "sha256:d0fff708a03dfb0b7285dbf14c7cd5a37ab221f17aea92542d04f110b7c9b1e4"
+doc_hash = "sha256:07cf1519dfb2f2317268a0f787160d9884cdb3f7188d372e310f11ee163d8d3a"
+callees = ["fn:8b1e80d2a2add1f9"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:eccf8755701d9541"
+name = "dispersed_temperature"
+qual = "ReactingTwoPhaseEulerFoam::dispersed_temperature"
+lines = [
+    592,
+    595,
+]
+hash = "sha256:8c2fcf7dd5f6aeaf55d9369b53419d422b1a1edcd19bcda4ef47d57d86938814"
+doc_hash = "sha256:30931fa8fbb56d27a365ef2feec5a0635e0e69e5ffa57f6a50c8908c7fa4403d"
+callees = ["fn:d8d54faf092f230f"]
+
+[[module."mod.rs".function]]
+id = "fn:49dd9123ed701ff1"
+name = "continuous_temperature"
+qual = "ReactingTwoPhaseEulerFoam::continuous_temperature"
+lines = [
+    597,
+    600,
+]
+hash = "sha256:8fce541263e3b5fcd60cba97f67f7060a4d0769317dc5b93779adf1541e2e866"
+doc_hash = "sha256:5f14b17752f9b41117ac1c6d2d9478e9da1f5f3478003f8ee2c37fa982966861"
+callees = ["fn:d8d54faf092f230f"]
+
+[[module."mod.rs".function]]
+id = "fn:a3fd91816be417e9"
+name = "solve_timestep"
+qual = "ReactingTwoPhaseEulerFoam::solve_timestep"
+lines = [
+    602,
+    656,
+]
+hash = "sha256:ba4b11523d0104f55fc80f2c9660c23fd6e49000754c3ec18b9fb970512239ea"
+doc_hash = "sha256:2887460c46a8b641c3b043cc6eefa2a0fb8b33707844dbd7600ac8fab1fd725a"
+callees = [
+    "fn:05fc6ed569b1cb39",
+    "fn:0a5dea5cd66e4a41",
+    "fn:d788235dd86625d6",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0a5dea5cd66e4a41"
+name = "thermophysical_predictor"
+qual = "ReactingTwoPhaseEulerFoam::thermophysical_predictor"
+lines = [
+    658,
+    690,
+]
+hash = "sha256:dcb1f05044a356718f040df3930fdee1839134d6b17e06cf89e5eb33ffd709ec"
+doc_hash = "sha256:c75d1f9be583057bba2937114c5509ad44f4e1c13c2fbe2917b8ac7c6118c1f0"
+callees = [
+    "fn:5cfb59dfe24ab9e7",
+    "fn:62a7b7f4eb13875a",
+    "fn:d8d54faf092f230f",
+    "fn:fe8ac5a0fb81779c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:5cfb59dfe24ab9e7"
+name = "composition_predictor"
+qual = "ReactingTwoPhaseEulerFoam::composition_predictor"
+lines = [
+    692,
+    842,
+]
+hash = "sha256:ab4959b1000e94b9a9271d12caafebd5ab43a711fcbf4787acf7b0c3727cb8fa"
+doc_hash = "sha256:96b8fc4adc2b7888fba22b4630174112f9f645224e78e88addbdc7751f399a67"
+callees = [
+    "fn:06f53f91781f170f",
+    "fn:1e0c0abc3044dc8b",
+    "fn:33e59d07d5472218",
+    "fn:352ea976b2fefdc6",
+    "fn:4410bd5035b40f2f",
+    "fn:472adef4837fb92c",
+    "fn:4aea3161a87c6021",
+    "fn:53d4791d95d80de6",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:7493954e75e3a317",
+    "fn:82c72206856eccb3",
+    "fn:92fd53f240dcfb8e",
+    "fn:b0ed875c4efafa46",
+    "fn:d8d54faf092f230f",
+    "fn:e2c629b20308ce05",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:fe8ac5a0fb81779c"
+name = "solve_phase_energy"
+qual = "ReactingTwoPhaseEulerFoam::solve_phase_energy"
+lines = [
+    844,
+    971,
+]
+hash = "sha256:872971f5a1c93b27d252ebfc307b9e4b98470f2d707860f4792b40eeceb82abb"
+doc_hash = "sha256:db728deba142c5b9a7660ae10163b4837521be791824653c9a25b97d41868f50"
+callees = [
+    "fn:06f53f91781f170f",
+    "fn:1e0c0abc3044dc8b",
+    "fn:28876d2ee0e1546c",
+    "fn:33e59d07d5472218",
+    "fn:352ea976b2fefdc6",
+    "fn:4410bd5035b40f2f",
+    "fn:472adef4837fb92c",
+    "fn:4aea3161a87c6021",
+    "fn:53d4791d95d80de6",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:7493954e75e3a317",
+    "fn:7d94409f5275095e",
+    "fn:82c72206856eccb3",
+    "fn:92fd53f240dcfb8e",
+    "fn:b0ed875c4efafa46",
+    "fn:e2c629b20308ce05",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:28876d2ee0e1546c"
+name = "energy_sources"
+qual = "ReactingTwoPhaseEulerFoam::energy_sources"
+lines = [
+    973,
+    1013,
+]
+hash = "sha256:5e58041536721e8da2d9b1bd16e1da1e69545960ca053d7e9259ec6de7c7ec0b"
+doc_hash = "sha256:00d7bd0175fd289a6172bcd2758c6a6abf22f79fcc19b4df58a230a61e8045c0"
+callees = [
+    "fn:33a91ffe6b901b9a",
+    "fn:4aea3161a87c6021",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:62a7b7f4eb13875a"
+name = "interfacial_coefficient"
+qual = "ReactingTwoPhaseEulerFoam::interfacial_coefficient"
+lines = [
+    1015,
+    1058,
+]
+hash = "sha256:c1fd91bb880e8fc76ad0bcd2b3179c02772216e1ed9ce4bfcb39c3463a601c6c"
+doc_hash = "sha256:fdc5fa5f6cf00d3a4c24fcdcb5b88d616616dbdb388a473e619d9675aefe2b70"
+callees = [
+    "fn:2d19f85f2668aec6",
+    "fn:33e59d07d5472218",
+    "fn:4410bd5035b40f2f",
+    "fn:49e35be135bc07df",
+    "fn:4aea3161a87c6021",
+    "fn:812cb8fb52eeac2b",
+    "fn:9f66a773b4b52dd1",
+    "fn:f96c9ac504ed9eba",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:05fc6ed569b1cb39"
+name = "apply_mass_transfer"
+qual = "ReactingTwoPhaseEulerFoam::apply_mass_transfer"
+lines = [
+    1060,
+    1098,
+]
+hash = "sha256:91b8104a854967e96f3f6c03f4b6ac0483c39852696ac52f8698fc797779fd94"
+doc_hash = "sha256:3e5ad1181e4bbcecb272a9cf1b478969c182d2ee9df09b73ce9cf724a6aba43a"
+callees = [
+    "fn:33a91ffe6b901b9a",
+    "fn:696e66e651bd9f26",
+    "fn:8b6ef6c6d8704b56",
+    "fn:96b5c3d947f087e5",
+    "fn:e2c629b20308ce05",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3170b92df4e83f6a"
+name = "run"
+qual = "ReactingTwoPhaseEulerFoam::run"
+lines = [
+    1100,
+    1128,
+]
+hash = "sha256:c63948a55f9fd0831d014e4703c8329057c5c3b0782e895581b5ca482223a7a0"
+doc_hash = "sha256:52baefccca64873bb154a8c66f796af5091af13ab997786a2aa334081b0e3edc"
+callees = ["fn:a3fd91816be417e9"]
+
+[[module."mod.rs".function]]
+id = "fn:33e59d07d5472218"
+name = "scalar_field"
+qual = "scalar_field"
+lines = [
+    1131,
+    1140,
+]
+hash = "sha256:79c6eea9a55dabce0ad39f19c65c3b7320b3ced8ef4593361337e74a96a07443"
+doc_hash = "sha256:de985bc2e51db7a0b35b217c6cd9e2500cb86becb6315b85a52430a8bd453039"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:4a3d63f4a0e47a1c",
+    "fn:f59a35e9cbd8b293",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:8348296c6e5c4a84"
+name = "build_default"
+qual = "build_default"
+lines = [
+    1142,
+    1163,
+]
+hash = "sha256:c93f97fd0df4d5dfd4342079f8185c7f88068f6890f84290df76ef5dc309f373"
+doc_hash = "sha256:26023e7ad30d7f7ca271bd9a4cc8f25aad4cc4394cc1d1df29d3dd173d4d80ea"
+callees = [
+    "fn:14f480c94a59d045",
+    "fn:25026aef8dc412e6",
+    "fn:5ae359ba203efd28",
+    "fn:8f8585a4c31e5c8a",
+    "fn:f8bf8efa3e1f4377",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3ed73b8d5cae4a62"
+name = "vx"
+qual = "vx"
+lines = [
+    1180,
+    1182,
+]
+hash = "sha256:b8e1d88ee4bfa0e843673c772fc6aae5a8629591774ebd9fa9ddbfd12625f510"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9e501e5f4cce23ae"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:3b48c59c346175c4"
+name = "mesh"
+qual = "mesh"
+lines = [
+    1184,
+    1203,
+]
+hash = "sha256:64389e263caeaf8cc91f8b773d0a31c99801c6817aaa098d3a869059d167a6a7"
+doc_hash = "sha256:f8fbe4ee44c6fcc92ddf8a673ad1f09e37d6749d49563452720cbea37a33fbb4"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3ed73b8d5cae4a62",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:ebdcb23cf4922044"
+name = "phase"
+qual = "phase"
+lines = [
+    1205,
+    1215,
+]
+hash = "sha256:0239d9c9ccbc5af2c66921b01de407cbd615df660f70d9914ce3f5b33e9e16f1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9707668a29a7996b"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:9c8f6b2f10732c30"
+name = "thermo"
+qual = "thermo"
+lines = [
+    1217,
+    1226,
+]
+hash = "sha256:b50a02323fb4a44edf997498c08811ede3389d7033bf62782dd50d4a72e60cab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:1673122341d93e80"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:7707e229705810f2"
+name = "ranz_marshall_nusselt_hand_value"
+qual = "ranz_marshall_nusselt_hand_value"
+lines = [
+    1228,
+    1242,
+]
+hash = "sha256:1035bd670da72482f98ab2d49b2ea63e80420929434a3dcdb207ed9ae7f5e62e"
+doc_hash = "sha256:47012905873cd7d096f3e36ffc86e931559dbf766b3b1c387e907823f4b6ee0d"
+callees = ["fn:812cb8fb52eeac2b"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:712194356f342a22"
+name = "rejects_mesh_mismatch"
+qual = "rejects_mesh_mismatch"
+lines = [
+    1244,
+    1266,
+]
+hash = "sha256:d5b6a4675f86fd87619c36eb68e66fea1daea9b1f388754db3a67b9a57e634aa"
+doc_hash = "sha256:8f5011aeca7c76524e52f838bb70f7141e472e9e240c3674262dde439d4cf9fb"
+callees = [
+    "fn:0938405a51285eea",
+    "fn:14f480c94a59d045",
+    "fn:25026aef8dc412e6",
+    "fn:3b48c59c346175c4",
+    "fn:5ae359ba203efd28",
+    "fn:8f8585a4c31e5c8a",
+    "fn:9c8f6b2f10732c30",
+    "fn:ebdcb23cf4922044",
+    "fn:f8bf8efa3e1f4377",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:a672b8e9f2bac2f9"
+name = "thermal_equilibration_conserves_energy"
+qual = "thermal_equilibration_conserves_energy"
+lines = [
+    1268,
+    1328,
+]
+hash = "sha256:09a7bb798b97270f46c5eee34ca6b698cf0d2bf465a2988d4acc7208f3cbba09"
+doc_hash = "sha256:eda3c864e9c48224abbdb4b0469503d42445d1e13201ead8e8832f370f29b592"
+callees = [
+    "fn:0938405a51285eea",
+    "fn:3b48c59c346175c4",
+    "fn:8348296c6e5c4a84",
+    "fn:9c8f6b2f10732c30",
+    "fn:a3fd91816be417e9",
+    "fn:cc7161c44d3c70d8",
+    "fn:ebdcb23cf4922044",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:ae304a36e0c271c6"
+name = "reaction_heat_raises_phase_temperature"
+qual = "reaction_heat_raises_phase_temperature"
+lines = [
+    1330,
+    1379,
+]
+hash = "sha256:d9a53a16189a563f8e18c85292a3f5eab066c0c1a226946b845ac9ddf17fd047"
+doc_hash = "sha256:2d83bcc91b4aa20df05a4205fdebfa3aafa1a08aed699768644c43c9c346b982"
+callees = [
+    "fn:0938405a51285eea",
+    "fn:3b48c59c346175c4",
+    "fn:8348296c6e5c4a84",
+    "fn:9c8f6b2f10732c30",
+    "fn:a3fd91816be417e9",
+    "fn:cc7161c44d3c70d8",
+    "fn:ebdcb23cf4922044",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:067e4182b9c2aa26"
+name = "mass_transfer_moves_volume_fraction"
+qual = "mass_transfer_moves_volume_fraction"
+lines = [
+    1381,
+    1427,
+]
+hash = "sha256:1c7975c8dc992c28166bdebd570e3d42d65129ce809c25231a77b32c2aaa8c2f"
+doc_hash = "sha256:e3db1ccc4757c7852a00b26e41efa20b5ca6010d83348a9a595a79a20080dfb7"
+callees = [
+    "fn:0938405a51285eea",
+    "fn:3b48c59c346175c4",
+    "fn:4410bd5035b40f2f",
+    "fn:4aea3161a87c6021",
+    "fn:8348296c6e5c4a84",
+    "fn:9c8f6b2f10732c30",
+    "fn:a3fd91816be417e9",
+    "fn:ebdcb23cf4922044",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:cb669539856cd494"
+name = "reacting_gas_solver"
+qual = "reacting_gas_solver"
+lines = [
+    1429,
+    1462,
+]
+hash = "sha256:391015a9b37721f602145c6c4d05a53fb47391d1ab778f3512b5d29fc67ebcc5"
+doc_hash = "sha256:1cb943d04cb2bdde995e24d412cef0c4348ae7e14bbc9dc85bf180f945289512"
+callees = [
+    "fn:0938405a51285eea",
+    "fn:12aa8f4b6cd5e5eb",
+    "fn:8348296c6e5c4a84",
+    "fn:9c8f6b2f10732c30",
+    "fn:ebdcb23cf4922044",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:c219d10ffc24b440"
+name = "inert_species_conserve_sum"
+qual = "inert_species_conserve_sum"
+lines = [
+    1464,
+    1482,
+]
+hash = "sha256:1da3fb451b4b350a742bd3f2d9bd789205c542d616de47e7749c8ee5ba3fb118"
+doc_hash = "sha256:b948a92d3d171d5fe6cc0036fa5c1bebaf3b943de576da35a8eac89b85003265"
+callees = [
+    "fn:3b48c59c346175c4",
+    "fn:4aea3161a87c6021",
+    "fn:57b55e90f8c5c494",
+    "fn:a3fd91816be417e9",
+    "fn:cb669539856cd494",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:bb09e6066ae32e46"
+name = "arrhenius_reaction_burns_fuel_and_heats_gas"
+qual = "arrhenius_reaction_burns_fuel_and_heats_gas"
+lines = [
+    1484,
+    1538,
+]
+hash = "sha256:7ae6d84e949ae06887fb4db7472e630b2fcd95bbf84bd0aa331a0a33ee3dab76"
+doc_hash = "sha256:738fc785f9b0c8ce1be8c2ea95043935397bc1e59b5197afbb68334342039af8"
+callees = [
+    "fn:3b48c59c346175c4",
+    "fn:4aea3161a87c6021",
+    "fn:57b55e90f8c5c494",
+    "fn:a3fd91816be417e9",
+    "fn:cb669539856cd494",
+    "fn:cc7161c44d3c70d8",
+]
+test = true

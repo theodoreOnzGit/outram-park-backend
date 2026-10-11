@@ -1,0 +1,14 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-offbeat"
+dir = "crates/outram-park-fork-offbeat/src"
+crate_root = true
+
+[module."error.rs"]
+path = "crate::error"
+
+[module."lib.rs"]
+path = "crate"
+
+[module."prelude.rs"]
+path = "crate::prelude"

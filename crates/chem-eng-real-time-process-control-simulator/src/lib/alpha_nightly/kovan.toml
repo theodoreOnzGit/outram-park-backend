@@ -1,0 +1,22 @@
+schema_version = 1
+kind = "code_folder"
+crate = "chem-eng-real-time-process-control-simulator"
+dir = "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly"
+
+[module."mod.rs"]
+path = "crate::alpha_nightly"
+
+[[module."mod.rs".function]]
+id = "fn:87111cae7b42e3c2"
+name = "timesq_test"
+qual = "timesq_test"
+lines = [
+    36,
+    44,
+]
+hash = "sha256:82d12ad3ee3a77cff098317233cbece0c0064bfa93f1fdb23dd55b893f815727"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."prelude.rs"]
+path = "crate::alpha_nightly::prelude"

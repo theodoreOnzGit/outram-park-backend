@@ -1,0 +1,281 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_extra_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_shorter",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c9",
+]
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v3_calibrated"
+
+[[module."mod.rs".function]]
+id = "fn:ef449bd02addc822"
+name = "regression_long_test_calibrated_ver3_set_c1"
+qual = "regression_long_test_calibrated_ver3_set_c1"
+lines = [
+    11,
+    81,
+]
+hash = "sha256:4e828dac0838a34d24b472ad95bab90845b5e208dafdaf38d7bebcede3e9c0e8"
+doc_hash = "sha256:da06d7000100ff79064d9a0691f72b48689932ef59b65a9b776292dd205fb60d"
+callees = ["fn:e0ba8a0eab167f11"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:415184888f0cf927"
+name = "regression_long_test_calibrated_ver3_set_c2"
+qual = "regression_long_test_calibrated_ver3_set_c2"
+lines = [
+    82,
+    151,
+]
+hash = "sha256:d81bf5d2cf8a629b8e90c1d65bca57833ab21da93044dbfa11d3f7f9817665d3"
+doc_hash = "sha256:20a5fe8fe0e467bd6e66ead413e5c8f982b000c7129fe25a099b4785118d26c9"
+callees = ["fn:e0ba8a0eab167f11"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:fba0a4f3ece20273"
+name = "regression_long_test_calibrated_ver3_set_c3"
+qual = "regression_long_test_calibrated_ver3_set_c3"
+lines = [
+    153,
+    222,
+]
+hash = "sha256:7775e2b443030fde89738690eda2d4ca1cb45d6574200ca0f8ac953e7311c8dc"
+doc_hash = "sha256:dd7979505b37fb24e631bc53b944c69fa3212b7efe14b3023b1c989b0aab79ca"
+callees = ["fn:e0ba8a0eab167f11"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:b73682648e19fd1d"
+name = "regression_long_test_calibrated_ver3_set_c4"
+qual = "regression_long_test_calibrated_ver3_set_c4"
+lines = [
+    223,
+    292,
+]
+hash = "sha256:4b5c3d316bdbcd1484c4654805ae3e05666448e0571aea048809c0a247b06338"
+doc_hash = "sha256:de8f782beabc2a84af23390759a73823c5cdee33fd7e7eb3fb063605b3fa399f"
+callees = ["fn:e0ba8a0eab167f11"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:114bb9075d9436bd"
+name = "regression_long_test_calibrated_ver3_set_c5"
+qual = "regression_long_test_calibrated_ver3_set_c5"
+lines = [
+    294,
+    363,
+]
+hash = "sha256:86c22c8d45eaa6ef68609991d99caad2e68d3636a5c999c92b85684f77094a2e"
+doc_hash = "sha256:7e762fe2a995b2a3d798980ec6dcb62854fb4c484592120090484077f7298f9f"
+callees = ["fn:e0ba8a0eab167f11"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:ee6bae3e813e6f01"
+name = "regression_long_test_calibrated_ver3_set_c6_extra_extra_extra_long"
+qual = "regression_long_test_calibrated_ver3_set_c6_extra_extra_extra_long"
+lines = [
+    364,
+    444,
+]
+hash = "sha256:46d044d01b538d561a0f31e6021de9a988d6992c17508a222817898ed3e74b96"
+doc_hash = "sha256:4d87732cf82b89c033233b0b19c3adf1012fae292db1f30922e12452f62139d8"
+callees = ["fn:e0ba8a0eab167f11"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:298f24406ae51cf5"
+name = "regression_long_test_calibrated_ver3_set_c6_extra_extra_long"
+qual = "regression_long_test_calibrated_ver3_set_c6_extra_extra_long"
+lines = [
+    445,
+    518,
+]
+hash = "sha256:8a1b1cceca54da11e864b094a491cda22ce698d637a7d233c6c088327b6f6ece"
+doc_hash = "sha256:c4712286ac8d711f8a358b312bfb7abfbb85a8c55b9f5da1b010312819bea3db"
+callees = ["fn:e0ba8a0eab167f11"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:c2a7cc602d0f67ae"
+name = "regression_long_test_calibrated_ver3_set_c6_extra_long"
+qual = "regression_long_test_calibrated_ver3_set_c6_extra_long"
+lines = [
+    519,
+    592,
+]
+hash = "sha256:5b32e610b436d41080756ceee84137171bf9e106718949ceaf310c3c3ff0f9a8"
+doc_hash = "sha256:8bd4943459dbf2df9af143b79ca9ecd38ae39a0c13cdb7426846e8be6ee67d45"
+callees = ["fn:e0ba8a0eab167f11"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:ea6e4f719b2362f1"
+name = "regression_long_test_calibrated_ver3_set_c6"
+qual = "regression_long_test_calibrated_ver3_set_c6"
+lines = [
+    593,
+    658,
+]
+hash = "sha256:7605dba16f73a3978a41759daba2b78a680801d872c49e2a40e6e3ac78635ec1"
+doc_hash = "sha256:54eb8ed9679706cf53c6cac36f9d4af05f64c1ee505f6e72a2f11bd8a56a2447"
+callees = ["fn:e0ba8a0eab167f11"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:ca195459c271e869"
+name = "regression_long_test_calibrated_ver3_set_c6_shorter"
+qual = "regression_long_test_calibrated_ver3_set_c6_shorter"
+lines = [
+    659,
+    730,
+]
+hash = "sha256:34b0a70152da3ca29f62ceb9be776edeb9e27a447f14538df631ffe9da8b6f01"
+doc_hash = "sha256:413bb8b47da24280047981d52e7d994874930b291cb2d8ade006c01abe800516"
+callees = ["fn:e0ba8a0eab167f11"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:416d85edf0e13d81"
+name = "regression_long_test_calibrated_ver3_set_c7"
+qual = "regression_long_test_calibrated_ver3_set_c7"
+lines = [
+    732,
+    801,
+]
+hash = "sha256:002d5b62b382f53346717939346b86a01699e44f3c1ed8dc4f34224c1c6eb209"
+doc_hash = "sha256:baa3a4e12db852d9981e60d60d0d486b93655e14b6adeff5f6ad6dd74d642022"
+callees = ["fn:e0ba8a0eab167f11"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:024e79918f1f2106"
+name = "regression_long_test_calibrated_ver3_set_c8"
+qual = "regression_long_test_calibrated_ver3_set_c8"
+lines = [
+    804,
+    873,
+]
+hash = "sha256:e84674ea8f8456d2028ece59bb101dbf1aa4505c972cbff986865f01925e5cf0"
+doc_hash = "sha256:8be9e3535fcf03109df013a425cf205f121a2c430c451eee4c7fb176c83fd09f"
+callees = ["fn:e0ba8a0eab167f11"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:af7daf037b86a6b9"
+name = "regression_long_test_calibrated_ver3_set_c9"
+qual = "regression_long_test_calibrated_ver3_set_c9"
+lines = [
+    874,
+    945,
+]
+hash = "sha256:542317120d6954227633c6d71eb46750139555f086a40f6fbdb749184761d2f1"
+doc_hash = "sha256:fce3afd9c7fd1d77b729f2ab9c360727eb58fec9aeb3c6c07fa714e0e0cdde22"
+callees = ["fn:e0ba8a0eab167f11"]
+test = true
+
+[module."regression_dracs_loop_v3.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v3_calibrated::regression_dracs_loop_v3"
+
+[[module."regression_dracs_loop_v3.rs".function]]
+id = "fn:e0ba8a0eab167f11"
+name = "regression_dracs_loop_v3"
+qual = "regression_dracs_loop_v3"
+lines = [
+    1,
+    640,
+]
+hash = "sha256:9174c97f6d402b3856eb22e36c3c46a4549cd4210ab5c5017407ad9cec0d72af"
+doc_hash = "sha256:5192568e8adc00e0ad06c2ead07707df5013637490ed719e302b71b24d513603"
+callees = [
+    "fn:165e0de92fdc30f9",
+    "fn:192c73709e4fae1b",
+    "fn:26e415a2516474b8",
+    "fn:2e1c32118e070b6c",
+    "fn:3b175c51dad51671",
+    "fn:3e41f0f4036b1c69",
+    "fn:3fdf94385bd7ffd4",
+    "fn:42677954ee03d9db",
+    "fn:429944a98c495fc2",
+    "fn:43cf81cc824876b7",
+    "fn:44b0242f8ce5613f",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:5620afcc5d9c6da0",
+    "fn:579dd6b20de3f7d0",
+    "fn:625dce0bc183471b",
+    "fn:6383373ca57701c5",
+    "fn:6472671d822a61ab",
+    "fn:679eea7225e5e653",
+    "fn:6f2c2edff2d2dbc2",
+    "fn:6fdf5b3db5ce2173",
+    "fn:75b2bf19978d095f",
+    "fn:75d1e2e16257fc20",
+    "fn:7ee6570130bd052b",
+    "fn:835ea69942f39c9e",
+    "fn:85342ea4b7e5933b",
+    "fn:858bf6e4c57d0393",
+    "fn:91f7627d113aa8f5",
+    "fn:928c1745ab947694",
+    "fn:9319b2b56ae29f2c",
+    "fn:9c06ae1c2aa27c6a",
+    "fn:9da319fa8e4815f6",
+    "fn:9e971cad029f3940",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a466cf7d23703edb",
+    "fn:ab7102b91b02cb50",
+    "fn:aea1a2ba0c77b742",
+    "fn:b06e224b136ceb6f",
+    "fn:b113f725d215f11b",
+    "fn:b36ec305413e9570",
+    "fn:b57c94f7ef5cfea0",
+    "fn:b635837cbd7c9ce1",
+    "fn:b9acd02ee51732d3",
+    "fn:bdf79b93c24ef8cb",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:c3c32a0780662c1d",
+    "fn:c56452c27bdd23be",
+    "fn:cf4436f25e5d0557",
+    "fn:d080d9cf81960954",
+    "fn:d57dbe3f80933fd7",
+    "fn:e0f6ccbea3b4fcfc",
+    "fn:e1d822f0823e13bf",
+    "fn:e4bff9f30142b5cc",
+    "fn:ee48fed6fbd70492",
+    "fn:ee9965285e489d5b",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]

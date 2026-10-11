@@ -1,0 +1,454 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-turbulence-lib"
+dir = "crates/outram-foam-turbulence-lib/src/k_omega"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/solvers/rho_pimple_foam/mod.rs::compressible_lid_cavity_stays_stable",
+    "crates/outram-foam-appbuilder-lib/src/turbulence/mod.rs::compressible_conversion_uses_mu_t_equals_rho_nu_t",
+    "crates/outram-foam-appbuilder-lib/src/turbulence/mod.rs::every_closure_variant_syncs_and_corrects",
+    "crates/outram-foam-appbuilder-lib/src/turbulence/mod.rs::laminar_default_is_the_plain_molecular_laplacian",
+    "crates/outram-foam-appbuilder-lib/src/turbulence/mod.rs::momentum_operator_picks_up_turbulent_viscosity",
+    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::backward_ddt_selection_is_live_and_not_worse_against_ghia",
+    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::gauss_linear_convection_beats_upwind_against_ghia_1982",
+    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::attaching_a_closure_changes_the_momentum_solution",
+    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::homogeneous_decay_matches_analytic_k_omega_solution",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_grid_convergence_re100",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_pressure_solver_comparison_fine_mesh",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_velocity_matches_icofoam",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_benchmark_re100",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_grid_convergence_re100",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_pressure_solver_comparison_fine_mesh",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_velocity_matches_icofoam",
+    "crates/outram-foam-turbulence-lib/src/k_omega/mod.rs::correct_keeps_k_omega_positive_and_finite",
+    "crates/outram-foam-turbulence-lib/src/k_omega/mod.rs::nut_equals_k_over_omega",
+]
+
+[module."mod.rs"]
+path = "crate::k_omega"
+
+[[module."mod.rs".function]]
+id = "fn:ed91e4c9c3284297"
+name = "outer"
+qual = "outer"
+lines = [
+    85,
+    89,
+]
+hash = "sha256:fe096e52d8accdfa8ed3a196a98205d8c765ee8b412e1f8a81f41ce6f5634ae9"
+doc_hash = "sha256:8ba986b985aaa7154e020240749701d3627c7767389ca74b5663bfe6f4406866"
+callees = ["fn:357ed3572c0cdd6b"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4b395f6556176156"
+name = "tensor_dot_vec"
+qual = "tensor_dot_vec"
+lines = [
+    91,
+    99,
+]
+hash = "sha256:ca63424c839755abb62132ad77fc7bfb403f211713d388e58d98fc56a96c8c70"
+doc_hash = "sha256:4da0147a70e4d148ae14db68f169951c2f75634e00dbe6ecc6affef683209aec"
+callees = ["fn:9e501e5f4cce23ae"]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b7ab7e0fe50f2ffa"
+name = "new"
+qual = "KOmega::new"
+lines = [
+    142,
+    165,
+]
+hash = "sha256:9f5148e8e5762a45d599f4b3652681280b9d68e8a233286a86d7497d56dc3592"
+doc_hash = "sha256:cd57ada117b253052eafb1b29fcb7536042742e8fa3407f5e3c69d2dd1a11342"
+callees = [
+    "fn:35c659fb699605b5",
+    "fn:636e75b664f14254",
+    "fn:acfb0f2d7b950994",
+    "fn:d6a9c884aaeb7775",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#4",
+    "#7",
+    "#8",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:814a69cd68f39e6c"
+name = "grad_u"
+qual = "KOmega::grad_u"
+lines = [
+    167,
+    188,
+]
+hash = "sha256:f81149f716848437122886fbf98509d4a6bb0a0d5fe61f43a3b1decc63035598"
+doc_hash = "sha256:93d37d3f0485ec9c1b1e65fa8283d911d04dd9e773e3c9cad535f5a6da5df334"
+callees = [
+    "fn:36fb6fbe24620d61",
+    "fn:4aea3161a87c6021",
+    "fn:92fd53f240dcfb8e",
+    "fn:abc7404e3cca132a",
+    "fn:b1c4cc6aa93ebf33",
+    "fn:ed91e4c9c3284297",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f7061d2b974e1871"
+name = "update_nut"
+qual = "KOmega::update_nut"
+lines = [
+    190,
+    201,
+]
+hash = "sha256:acd6f19b87e5b6b1844e589cfec74ca0d55b076cb1cd06f52fa1a8c91900dfe5"
+doc_hash = "sha256:a868f115c4eccb99c0d605a848ee8c293cf241f21389607ddb9baaa7a7977ec2"
+callees = [
+    "fn:6d45af0d518e142d",
+    "fn:f59a35e9cbd8b293",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:8d71031aec368345"
+name = "scalar_field"
+qual = "scalar_field"
+lines = [
+    204,
+    212,
+]
+hash = "sha256:79c6eea9a55dabce0ad39f19c65c3b7320b3ced8ef4593361337e74a96a07443"
+doc_hash = "sha256:27b5edaa19615553aab0e982d7b02f1f73a2f20a81072012532ffe0ffdf955fa"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:4a3d63f4a0e47a1c",
+    "fn:f59a35e9cbd8b293",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."mod.rs".function]]
+id = "fn:34db2e8d49a8595e"
+name = "div_dev_rho_reff"
+qual = "KOmega::div_dev_rho_reff"
+lines = [
+    215,
+    248,
+]
+hash = "sha256:e0dba175691cb0e107400e765d64652b439f24f5bbf18a4972d32cb44ff5d7cd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:141adee55eb7a86e",
+    "fn:1e0c0abc3044dc8b",
+    "fn:2bd71c55c515093e",
+    "fn:36fb6fbe24620d61",
+    "fn:4aea3161a87c6021",
+    "fn:4b395f6556176156",
+    "fn:636ae5a21be9336b",
+    "fn:65f8f3c9daf074d2",
+    "fn:6d45af0d518e142d",
+    "fn:814a69cd68f39e6c",
+    "fn:8d71031aec368345",
+    "fn:a8a8aa01bdeead4b",
+    "fn:b1c4cc6aa93ebf33",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:782d89a0f30c2289"
+name = "correct"
+qual = "KOmega::correct"
+lines = [
+    250,
+    329,
+]
+hash = "sha256:4afe1081ef438a6165a7c6a4cd60b0b1fdafdb33e11154545a50ebf4fc57a014"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:4aea3161a87c6021",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:6d45af0d518e142d",
+    "fn:7493954e75e3a317",
+    "fn:814a69cd68f39e6c",
+    "fn:8b1e80d2a2add1f9",
+    "fn:8d71031aec368345",
+    "fn:8eaaefe1990ebf16",
+    "fn:8f434b8de90535e2",
+    "fn:92fd53f240dcfb8e",
+    "fn:96b5c3d947f087e5",
+    "fn:9ede23afd5c79bc4",
+    "fn:b0ed875c4efafa46",
+    "fn:c3f73100c19cafbf",
+    "fn:f7061d2b974e1871",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."mod.rs".function]]
+id = "fn:bfc23b145772b316"
+name = "nu_t"
+qual = "KOmega::nu_t"
+lines = [
+    331,
+    333,
+]
+hash = "sha256:4fad43b12788a6266e45d749dff6137cdef05e86509d8f0ba5263ca9d109e1a0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:80d18a2856b69f5f"
+name = "alpha_eff"
+qual = "KOmega::alpha_eff"
+lines = [
+    335,
+    342,
+]
+hash = "sha256:184bffa895d3193aeb93b1d07a94669c3cee408b820193fe48ea03a9906004ed"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6d45af0d518e142d",
+    "fn:8d71031aec368345",
+]
+
+[[module."mod.rs".function]]
+id = "fn:28a2f91c1be01b70"
+name = "mu_eff_field"
+qual = "KOmega::mu_eff_field"
+lines = [
+    344,
+    351,
+]
+hash = "sha256:6db089b87335e02f3805e6262506f754140c319316e60a557d51ca3fcb6035d1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6d45af0d518e142d",
+    "fn:8d71031aec368345",
+]
+
+[[module."mod.rs".function]]
+id = "fn:d2e25e763e75557c"
+name = "vx"
+qual = "vx"
+lines = [
+    359,
+    361,
+]
+hash = "sha256:b8e1d88ee4bfa0e843673c772fc6aae5a8629591774ebd9fa9ddbfd12625f510"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9e501e5f4cce23ae"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:da6424ec4bd4eca2"
+name = "line_mesh"
+qual = "line_mesh"
+lines = [
+    363,
+    382,
+]
+hash = "sha256:4d01e918dcdbbf1071e035948e73ad1870e4618617f593b6d2d8438a1373004a"
+doc_hash = "sha256:de03e8e7710e8e71c86e1895b965cff87bd5fc899addff3731b3e109f548c412"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:d2e25e763e75557c",
+    "fn:fedb69c9749de9f4",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:27ea2550657466dc"
+name = "nut_equals_k_over_omega"
+qual = "nut_equals_k_over_omega"
+lines = [
+    384,
+    402,
+]
+hash = "sha256:0b51af6181cf0e180757336976a05a738afb2ea51d4009112fae4da66aecc4fe"
+doc_hash = "sha256:8c1011120375f323d1c8e1e9e08d377f3c57fb442484584c1c99a47a65b75d97"
+callees = [
+    "fn:6d45af0d518e142d",
+    "fn:b7ab7e0fe50f2ffa",
+    "fn:da6424ec4bd4eca2",
+    "fn:f59a35e9cbd8b293",
+    "fn:f7061d2b974e1871",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:06223755690cb52a"
+name = "correct_keeps_k_omega_positive_and_finite"
+qual = "correct_keeps_k_omega_positive_and_finite"
+lines = [
+    404,
+    435,
+]
+hash = "sha256:38eb98b1fe5cbc98f91737aa1fab049e67c4045d390a81e12b5fe4dfb3bbf60e"
+doc_hash = "sha256:4a7d3477b9db139c3c4179a328785dd7b938538268eac2efdd6dab517763fbba"
+callees = [
+    "fn:4aea3161a87c6021",
+    "fn:636e75b664f14254",
+    "fn:782d89a0f30c2289",
+    "fn:b7ab7e0fe50f2ffa",
+    "fn:d2e25e763e75557c",
+    "fn:da6424ec4bd4eca2",
+    "fn:f59a35e9cbd8b293",
+]
+test = true

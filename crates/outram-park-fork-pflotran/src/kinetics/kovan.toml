@@ -1,0 +1,260 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-pflotran"
+dir = "crates/outram-park-fork-pflotran/src/kinetics"
+test_ids = [
+    "crates/outram-park-fork-pflotran/src/kinetics/mod.rs::approach_to_equilibrium",
+    "crates/outram-park-fork-pflotran/src/kinetics/mod.rs::constructor_validation",
+    "crates/outram-park-fork-pflotran/src/kinetics/mod.rs::mole_conservation",
+    "crates/outram-park-fork-pflotran/src/kinetics/mod.rs::no_mineral_clamp",
+    "crates/outram-park-fork-pflotran/src/kinetics/mod.rs::supersaturated_precipitates_from_zero",
+]
+
+[module."mod.rs"]
+path = "crate::kinetics"
+
+[[module."mod.rs".function]]
+id = "fn:54b82f1c910933d7"
+name = "new"
+qual = "KineticSystem::new"
+lines = [
+    190,
+    253,
+]
+hash = "sha256:597534b9f4edce25d08db118e694c01f8a53132a2d02a36e4e25004aec7d3e29"
+doc_hash = "sha256:87d1a78126d8dd388f922112ff14ffb203f40a12cea37414d86eeedb9736e5a4"
+callees = ["fn:1f987c02032d099a"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c01db07d7850428e"
+name = "n_minerals"
+qual = "KineticSystem::n_minerals"
+lines = [
+    255,
+    258,
+]
+hash = "sha256:b151ab18e73288cef2f79aedee7899e1fc16e0c1118cde1ecde0b30fa59a6a91"
+doc_hash = "sha256:eb6390efeba489831ef15b2a5e1b8d3e51f0e724ba79b25eebd620eb8bd4ad74"
+reached_by = ["#1"]
+
+[[module."mod.rs".function]]
+id = "fn:1ca21869214ef34a"
+name = "n_primary"
+qual = "KineticSystem::n_primary"
+lines = [
+    260,
+    263,
+]
+hash = "sha256:0bedd97bc912e7627ac03361ca0410bd8868570b6f0f689f52f7ddd09afc25f8"
+doc_hash = "sha256:98b16001fb0b0c7cf13d653740718b5ff4414be58b997b716b4a0c390d2980c9"
+reached_by = ["#1"]
+
+[[module."mod.rs".function]]
+id = "fn:9b0da19fe9be614d"
+name = "network"
+qual = "KineticSystem::network"
+lines = [
+    265,
+    268,
+]
+hash = "sha256:043706e1959a442cc98b3df1ea16ea4fcb16dd09961f36fca973ea903b6b992c"
+doc_hash = "sha256:79a697ccc778cd6e09dfee9e566f34d393f628b798b9e209c7a7aa7e7549285d"
+
+[[module."mod.rs".function]]
+id = "fn:837665677cf3aba3"
+name = "minerals"
+qual = "KineticSystem::minerals"
+lines = [
+    270,
+    273,
+]
+hash = "sha256:c413b9d19b426a75bfe54bd1d645a73f19645811a29c6531aae7b0ef9d555051"
+doc_hash = "sha256:d56fd95c581f46d2b44f55097dd6d866eb24272c6f82f103bae09b9aaaea9b8e"
+
+[[module."mod.rs".function]]
+id = "fn:f639d81eb7322a95"
+name = "saturation_index"
+qual = "KineticSystem::saturation_index"
+lines = [
+    275,
+    314,
+]
+hash = "sha256:4bba38674ea59d22a3ad9e619ace630a2a5b7bcea653cbaf6b5e958700dd2521"
+doc_hash = "sha256:0173bda8afa668f6949b15676944f5aeb63a586139c702a5d5321f6744e44550"
+reached_by = [
+    "#0",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ab2575f9a3eb5119"
+name = "react"
+qual = "KineticSystem::react"
+lines = [
+    316,
+    444,
+]
+hash = "sha256:179724851dad8da9c913a5d8ece8b2360580f4c08cf85bfae4c152b480a37744"
+doc_hash = "sha256:0500cceca35891fd198f954f6d20407b2a15ec04ed9ee32cebe55351fcf14a08"
+callees = [
+    "fn:496d456afc410ea1",
+    "fn:dda43f6617e2aa9e",
+    "fn:fb9d7a42de1389ac",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6efed824b27e25d3"
+name = "n_eqns"
+qual = "KineticOde::n_eqns"
+lines = [
+    465,
+    467,
+]
+hash = "sha256:6e908398a86c0e0e3763f0173504d5474293f44a9af38d18ef876611a5440517"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:bc5a8f1784647d01"
+name = "derivatives"
+qual = "KineticOde::derivatives"
+lines = [
+    469,
+    541,
+]
+hash = "sha256:cd1c331f3aa73d5ee87390198fbcf4a05a215a6b4e81289a61501e861076bc1a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:fb9d7a42de1389ac"]
+
+[[module."mod.rs".function]]
+id = "fn:16507b1c4356544f"
+name = "ab_network"
+qual = "ab_network"
+lines = [
+    548,
+    553,
+]
+hash = "sha256:c680b694e850d219f86977c93344bed2d9b45d477c11a5b5198b24b0386c03a7"
+doc_hash = "sha256:90a6f38a03cfc2fbbd844829f5f2999ca5b8225b882cce787fc40b8d263f6295"
+callees = ["fn:b7530ae9c196a5a1"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:24c188d5112cee1b"
+name = "ab_mineral"
+qual = "ab_mineral"
+lines = [
+    555,
+    565,
+]
+hash = "sha256:d9206b85dd5131a6ee52620e309787d8a2a11752f99ad3ac9004b391e5474646"
+doc_hash = "sha256:d5bab28c3eb823ff67512ee5e9a7eac11fdc8d4f1b1874c4bd8848b94f9113c5"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d5f7f68d9f54cba6"
+name = "approach_to_equilibrium"
+qual = "approach_to_equilibrium"
+lines = [
+    567,
+    618,
+]
+hash = "sha256:d88441a76b3c280d3be0252625510cb69d76efb07df9f2eb10587b25a14661c8"
+doc_hash = "sha256:b972af241e4d9139a3c908b997120fdd12c5fa199c8b1f42d4088dab34c72c08"
+callees = [
+    "fn:16507b1c4356544f",
+    "fn:24c188d5112cee1b",
+    "fn:54b82f1c910933d7",
+    "fn:ab2575f9a3eb5119",
+    "fn:f639d81eb7322a95",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:dcef4c3a8df1e215"
+name = "mole_conservation"
+qual = "mole_conservation"
+lines = [
+    620,
+    677,
+]
+hash = "sha256:fb533755db909a779aebbe8311c9d0a0a2e2e2eb697ed665e4af60eb6d849252"
+doc_hash = "sha256:2f48c7d25d08220e85d4e578c296289daa84e65601eb4dde5c1aa54740f17f11"
+callees = [
+    "fn:54b82f1c910933d7",
+    "fn:ab2575f9a3eb5119",
+    "fn:b7530ae9c196a5a1",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:09f994020edc0a7b"
+name = "no_mineral_clamp"
+qual = "no_mineral_clamp"
+lines = [
+    679,
+    711,
+]
+hash = "sha256:0d2ad211ff6f4d940a92cbfe72dadc9b20735fb75e7b3ce88945d64696777747"
+doc_hash = "sha256:1643cea47d808d2c9332efc7967d33bd718448d177eb545596069e923b63cca9"
+callees = [
+    "fn:16507b1c4356544f",
+    "fn:24c188d5112cee1b",
+    "fn:54b82f1c910933d7",
+    "fn:ab2575f9a3eb5119",
+    "fn:f639d81eb7322a95",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:379b1be740d9d65a"
+name = "supersaturated_precipitates_from_zero"
+qual = "supersaturated_precipitates_from_zero"
+lines = [
+    713,
+    735,
+]
+hash = "sha256:37412c59ee05afdaa165d311c3f67b0869a841e885c32c91dd723ac526782646"
+doc_hash = "sha256:f6426053ce48759b95f40fd9a2a210f0770e053f6256048924a3ce52f5bbfcbd"
+callees = [
+    "fn:16507b1c4356544f",
+    "fn:24c188d5112cee1b",
+    "fn:54b82f1c910933d7",
+    "fn:ab2575f9a3eb5119",
+    "fn:f639d81eb7322a95",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:bc0f289de6192329"
+name = "constructor_validation"
+qual = "constructor_validation"
+lines = [
+    737,
+    795,
+]
+hash = "sha256:423d6a0fde22e46019783d240305b4508c62d5a9951383d977b619da7061c9ee"
+doc_hash = "sha256:9c93809b31df857f52c187d62768dbb193c7726ae06a496330972c696d3ee150"
+callees = [
+    "fn:16507b1c4356544f",
+    "fn:1ca21869214ef34a",
+    "fn:24c188d5112cee1b",
+    "fn:54b82f1c910933d7",
+    "fn:ab2575f9a3eb5119",
+    "fn:c01db07d7850428e",
+]
+test = true

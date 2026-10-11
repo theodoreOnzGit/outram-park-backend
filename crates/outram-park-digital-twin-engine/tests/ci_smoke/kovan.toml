@@ -1,0 +1,191 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/tests/ci_smoke"
+
+[module."edwards.rs"]
+path = "test:ci_smoke::edwards"
+
+[[module."edwards.rs".function]]
+id = "fn:ac6784cf9817ba8f"
+name = "degf_to_k"
+qual = "degf_to_k"
+lines = [
+    329,
+    331,
+]
+hash = "sha256:202e2c479a256139016f5dfcc1d83975ad809e2c7950f883350245c9ed0b22f2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."edwards.rs".function]]
+id = "fn:a4a7a4dcdd60d052"
+name = "lerp"
+qual = "lerp"
+lines = [
+    333,
+    348,
+]
+hash = "sha256:7734d07aee1e8fc22d031b6d586065443f0072fee01f2be9a14e526232c64704"
+doc_hash = "sha256:8d3fa2dd5d4108c81dfa085d44741df97c7e09372d2171340d3961169088af19"
+test = true
+
+[[module."edwards.rs".function]]
+id = "fn:8fe924b5d9ce1e58"
+name = "break_area_fraction"
+qual = "break_area_fraction"
+lines = [
+    350,
+    354,
+]
+hash = "sha256:36e5ec688565ad836aee869c68dbf65c5543d23e6dbd70cb51f088317ca42562"
+doc_hash = "sha256:eb153c691b717df9d77022bb279ea255d93d1ffd435ab14b1c8fe4ecddfb6713"
+test = true
+
+[[module."edwards.rs".function]]
+id = "fn:a137089553be23e0"
+name = "default"
+qual = "EdwardsCase::default"
+lines = [
+    412,
+    427,
+]
+hash = "sha256:6eb4a4ceef92e94265dffbf12d0ab630e88e99f6b534acddebf02d0262d196fc"
+doc_hash = "sha256:feb8eb1368749e60335d8b238ac3a36f9ef40711db758b7fdf5bbdd2f3cb7925"
+test = true
+
+[[module."edwards.rs".function]]
+id = "fn:bb2ab45526084ff4"
+name = "run_edwards"
+qual = "run_edwards"
+lines = [
+    430,
+    591,
+]
+hash = "sha256:e81111426ab52e0c05fb025f6f8bad54b44a82f371a21e51546c815d961daf5b"
+doc_hash = "sha256:1220f68953e09557d96c0b10eda32cb6ae4ad6e8b3c3036a6fa713e76bc1064a"
+callees = [
+    "fn:0360f74398bca50e",
+    "fn:0cd9ee4c995d9f8c",
+    "fn:17e208cd9e1d33cc",
+    "fn:20061c8152364ef8",
+    "fn:2f78d5001f06bbb3",
+    "fn:3573149b55510510",
+    "fn:6ae5e19702fa5641",
+    "fn:80bb963de2c29367",
+    "fn:8d962da5007cba3c",
+    "fn:8fe924b5d9ce1e58",
+    "fn:9be348af53e02284",
+    "fn:9e501e5f4cce23ae",
+    "fn:a4a7a4dcdd60d052",
+    "fn:ac6784cf9817ba8f",
+    "fn:c9986cdc9a7e6c38",
+    "fn:d05e735dfe5df81e",
+    "fn:d2de6911a62fb7b0",
+    "fn:efce3b12b9d62fb4",
+    "fn:f6c8d3a48b0471b2",
+]
+test = true
+
+[[module."edwards.rs".function]]
+id = "fn:5f272e614dd18002"
+name = "gs1_error"
+qual = "gs1_error"
+lines = [
+    593,
+    620,
+]
+hash = "sha256:97f836b80284424e30de8391b3bb01eb2a67a0254bbfba90a39912a8e42fa9df"
+doc_hash = "sha256:d98a10a145e9b3992f9d8cecb1ec1adb29cc0aac8ca8a822e669fd4980c3ffd5"
+callees = ["fn:a4a7a4dcdd60d052"]
+test = true
+
+[[module."edwards.rs".function]]
+id = "fn:a38aaa2346ace56b"
+name = "report"
+qual = "report"
+lines = [
+    622,
+    742,
+]
+hash = "sha256:25597cc4dd11a323c17ab417961284283b85dfacac70cc57f7626f46aa27851b"
+doc_hash = "sha256:34571cde2caec8f996421c4ed5acc8a658c081959b886709aac7194a3957e2c3"
+callees = [
+    "fn:0a1ba07b049a3593",
+    "fn:55f992582bf139ba",
+    "fn:5f272e614dd18002",
+    "fn:a4a7a4dcdd60d052",
+]
+test = true
+
+[[module."edwards.rs".function]]
+id = "fn:0a1ba07b049a3593"
+name = "tail_diagnostics"
+qual = "tail_diagnostics"
+lines = [
+    744,
+    762,
+]
+hash = "sha256:e8909b09bbcf5e94b91592ff7889f30dfc2d41621d47b3211dbdbb9fc1a9c191"
+doc_hash = "sha256:150fc07264c1db7e64aab8c7496f8ee313574bcce1f9721dae2c26f499cdf2fd"
+test = true
+
+[[module."edwards.rs".function]]
+id = "fn:55f992582bf139ba"
+name = "plateau"
+qual = "plateau"
+lines = [
+    764,
+    777,
+]
+hash = "sha256:4aa71c79add2b745fe607bb5f3162db4d8c04940845ec0fb3c25cdb28ceabc35"
+doc_hash = "sha256:e96b431092155c669849a1da93715dd8b7e0510169da9b2f19bdc5eb6011c56f"
+test = true
+
+[[module."edwards.rs".function]]
+id = "fn:769d9c450a323ee8"
+name = "edwards_drift_flux_gs1_pressure_history"
+qual = "edwards_drift_flux_gs1_pressure_history"
+lines = [
+    779,
+    923,
+]
+hash = "sha256:b9fac10db95ddf5a83569316419f85ac43ada816c36bab194503276f4f187ab2"
+doc_hash = "sha256:43f656d8586fa35b3f084649981b7782865a61a18cba6e4e56fad6f62074360d"
+callees = [
+    "fn:0a1ba07b049a3593",
+    "fn:55f992582bf139ba",
+    "fn:5f272e614dd18002",
+    "fn:a137089553be23e0",
+    "fn:a38aaa2346ace56b",
+    "fn:bb2ab45526084ff4",
+]
+test = true
+
+[module."godiva.rs"]
+path = "test:ci_smoke::godiva"
+
+[[module."godiva.rs".function]]
+id = "fn:11699bfbda8b4360"
+name = "godiva_keff_high_tier_local_endf"
+qual = "godiva_keff_high_tier_local_endf"
+lines = [
+    138,
+    242,
+]
+hash = "sha256:4c3cbf4864d298bad55916bb90547591487ef6a2a642fe04140808ca0f0b4868"
+doc_hash = "sha256:cc50a161bba2fc5c506e717759f6f3249519a984776094392db916859a6a8c25"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:2c945092147fdb01",
+    "fn:38e76eeb4aab2d7a",
+    "fn:4fefd35b779cf970",
+    "fn:99fdb882ad101574",
+    "fn:d548885ad98866f3",
+    "fn:f1ce5376ada95512",
+    "fn:fcb98d2fcf325c04",
+]
+test = true
+
+[module."main.rs"]
+path = "test:ci_smoke"

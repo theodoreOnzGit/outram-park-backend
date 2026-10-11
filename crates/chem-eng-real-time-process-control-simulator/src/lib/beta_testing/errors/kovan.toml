@@ -1,0 +1,40 @@
+schema_version = 1
+kind = "code_folder"
+crate = "chem-eng-real-time-process-control-simulator"
+dir = "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/errors"
+
+[module."mod.rs"]
+path = "crate::beta_testing::errors"
+
+[[module."mod.rs".function]]
+id = "fn:b19fff025866c02f"
+name = "from"
+qual = "ChemEngProcessControlSimulatorError::from#1"
+lines = [
+    24,
+    26,
+]
+hash = "sha256:0424583e49e2807cbd67718e4126afcfc7f3d71dd356e4e2f03275d83f38dc22"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:9ca813f8cbd1dab2"
+name = "from"
+qual = "ChemEngProcessControlSimulatorError::from#2"
+lines = [
+    31,
+    33,
+]
+hash = "sha256:7d81b1a8468943dcedb4134239db15f8cbdbef74135bc2e893f5a1960fdfd58d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:890e85d9b62fe4fc"
+name = "into"
+qual = "ChemEngProcessControlSimulatorError::into"
+lines = [
+    37,
+    50,
+]
+hash = "sha256:930ada24f8c77d421ac76286c9f4447df710074b63a5f7b3b1d26849d24907a3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

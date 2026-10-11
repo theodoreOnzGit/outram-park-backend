@@ -1,0 +1,57 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests"
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests"
+
+[module."wall_correction_isolated_dracs_loop_regression.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::wall_correction_isolated_dracs_loop_regression"
+
+[[module."wall_correction_isolated_dracs_loop_regression.rs".function]]
+id = "fn:670271d26b19567a"
+name = "parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius"
+qual = "parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius"
+lines = [
+    1,
+    865,
+]
+hash = "sha256:aa68371a4001a5fffa45832fdcf65e862ddb25892bf8b077865b18cb2e6617a5"
+doc_hash = "sha256:43f3b3bde7fa0d6667c0bb749d5b8c9dd709d5e4357336ed91adf7fac6a4c311"
+callees = [
+    "fn:089c40400fdd61ff",
+    "fn:165e0de92fdc30f9",
+    "fn:26e415a2516474b8",
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:44b0242f8ce5613f",
+    "fn:4cad4ddd84ccee48",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:5898244cb765d25d",
+    "fn:6472671d822a61ab",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:6fdf5b3db5ce2173",
+    "fn:71e0b3e056618526",
+    "fn:75d1e2e16257fc20",
+    "fn:7ee6570130bd052b",
+    "fn:91f7627d113aa8f5",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a3a04100486196dc",
+    "fn:a466cf7d23703edb",
+    "fn:ab7102b91b02cb50",
+    "fn:b36ec305413e9570",
+    "fn:c2da8a31daabb980",
+    "fn:d080d9cf81960954",
+    "fn:e1d822f0823e13bf",
+    "fn:f66c6613b2fa9c0c",
+    "fn:f8b8b8874aae4e2b",
+    "fn:ff8521081362840f",
+    "fn:ffe5f6af51a6ee46",
+]
+test = true

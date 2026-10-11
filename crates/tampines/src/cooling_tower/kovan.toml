@@ -1,0 +1,18 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/src/cooling_tower"
+
+[module."mod.rs"]
+path = "crate::cooling_tower"
+
+[[module."mod.rs".function]]
+id = "fn:2dac1efc5ece6d20"
+name = "merkel_ntu_effectiveness"
+qual = "merkel_ntu_effectiveness"
+lines = [
+    27,
+    34,
+]
+hash = "sha256:b58b1adb6455c5a035beb541325dbff57f24382426e88017345d4c8dce95cfab"
+doc_hash = "sha256:54351fb760bed297f62c4120445cb3ccc8a46a2f743d605df1c944f3dd2c5760"

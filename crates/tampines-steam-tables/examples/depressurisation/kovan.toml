@@ -1,0 +1,24 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/examples/depressurisation"
+
+[module."main.rs"]
+path = "example:depressurisation"
+
+[[module."main.rs".function]]
+id = "fn:1a54cd32102001c7"
+name = "main"
+qual = "main"
+lines = [
+    19,
+    232,
+]
+hash = "sha256:05e89b8067ceb5164126e9dcb9cd29482c33cb5093172c76bf2269c91cc21a4e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:287e662a6d909525",
+    "fn:8593bfd0b29144f2",
+    "fn:8b94a7a7c1140cef",
+    "fn:a44161c2a344c1da",
+]

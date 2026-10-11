@@ -1,0 +1,1682 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/sam_vs_tuas_vs_experiment_summary.rs::generate_coupled_natcirc_sam_vs_tuas_vs_experiment_md",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v1_uncalibrated/mod.rs::quick_test_uncalibrated_dracs_loop",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_extra_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_shorter",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::ciet_coupled_nat_circ_set_a1_for_three_branch",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_fwd_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_reverse_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::zero_flow_for_three_branch_ver_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::ciet_coupled_nat_circ_set_a1_for_three_branch",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_fwd_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_reverse_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::zero_flow_for_three_branch_ver_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_dhx_blocked",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_reverse_diode_effect",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_steady_state_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_short_test_dhx_blocked",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_short_test_reverse_diode_effect",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_steady_state_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/calibration_functions.rs::calibration_regression_set_c9_no_heat_loss",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/calibration_functions.rs::calibration_regression_set_c9_no_heat_loss_mesh_refined",
+]
+
+[module."dataset_a.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_a"
+
+[[module."dataset_a.rs".function]]
+id = "fn:6857fe50aa82abca"
+name = "ciet_coupled_nat_circ_set_a1"
+qual = "ciet_coupled_nat_circ_set_a1"
+lines = [
+    1,
+    116,
+]
+hash = "sha256:a9c5db4481c9c9119ad9c046ec98de6620824f539f71d6fd97deb06c271c5697"
+doc_hash = "sha256:dc5ea8f78c0adf8046418b683c50c27940569c989db8485e3f80a81952cfd9e2"
+callees = ["fn:d5ad3d510678a465"]
+test = true
+
+[[module."dataset_a.rs".function]]
+id = "fn:db5e193e237d2fb6"
+name = "ciet_coupled_nat_circ_set_a2"
+qual = "ciet_coupled_nat_circ_set_a2"
+lines = [
+    118,
+    234,
+]
+hash = "sha256:9bcf17b4be754ee5b1c576a5ac951f4d23343340f2ba92ea5d215a1b82f6536e"
+doc_hash = "sha256:7bbd9c8c57e2d6dff48f9e523f160e2d3f1d4660f32e022a4a947ff0a85dfa22"
+callees = ["fn:d5ad3d510678a465"]
+test = true
+
+[[module."dataset_a.rs".function]]
+id = "fn:d3136ec06cd04295"
+name = "ciet_coupled_nat_circ_set_a3"
+qual = "ciet_coupled_nat_circ_set_a3"
+lines = [
+    235,
+    351,
+]
+hash = "sha256:f21fa05e41d807196225c4bedd8910db4ff442a13fefeba60eb91a6cc76e9944"
+doc_hash = "sha256:31e7d0a9d8ca5ae09b51115cecbf361e576bb1b9a2c35754e9d686bdf240ac6a"
+callees = ["fn:d5ad3d510678a465"]
+test = true
+
+[[module."dataset_a.rs".function]]
+id = "fn:4a853a5ff7ef304b"
+name = "ciet_coupled_nat_circ_set_a4"
+qual = "ciet_coupled_nat_circ_set_a4"
+lines = [
+    352,
+    468,
+]
+hash = "sha256:b5193d40719285a09782e04a87a7cbfd5a345acdef882919d6f0539706a0ddfc"
+doc_hash = "sha256:5b91724da26f42101e25c2bb116ade1d5baa28cbb2ba790b7b5705046cb3e5d1"
+callees = ["fn:d5ad3d510678a465"]
+test = true
+
+[[module."dataset_a.rs".function]]
+id = "fn:fd5cfcea8695639f"
+name = "ciet_coupled_nat_circ_set_a5"
+qual = "ciet_coupled_nat_circ_set_a5"
+lines = [
+    470,
+    586,
+]
+hash = "sha256:d5ba868824e9b2da134812daeecca16da8e443e2196c6d5d821afe664c9da369"
+doc_hash = "sha256:0e7f75c809956e3600b1d102fe1dae2628950125919bfbf5c0e6bf447b2a7bb4"
+callees = ["fn:d5ad3d510678a465"]
+test = true
+
+[[module."dataset_a.rs".function]]
+id = "fn:674451ef70af3a0d"
+name = "ciet_coupled_nat_circ_set_a6"
+qual = "ciet_coupled_nat_circ_set_a6"
+lines = [
+    587,
+    704,
+]
+hash = "sha256:c927e87dc384e98eb32f7e36a54212e5081f3302e4e8d0c038941d62d3062339"
+doc_hash = "sha256:e7f7c17d029ba0fcf6e65387354f9bb382dae33f411240b8afcae40ef9b0996f"
+callees = ["fn:d5ad3d510678a465"]
+test = true
+
+[[module."dataset_a.rs".function]]
+id = "fn:6903040b9af760f3"
+name = "ciet_coupled_nat_circ_set_a7"
+qual = "ciet_coupled_nat_circ_set_a7"
+lines = [
+    706,
+    822,
+]
+hash = "sha256:5ac4e9562a917c0290c24d6c2f44e00419c07b99c90d66e60ded7702471dbe84"
+doc_hash = "sha256:d037c2d0020152225a3a4f885ab68c5a55ad5f81f13a951aa9957509f5183f70"
+callees = ["fn:d5ad3d510678a465"]
+test = true
+
+[[module."dataset_a.rs".function]]
+id = "fn:d5ad3d510678a465"
+name = "regression_coupled_dracs_loop_version_7"
+qual = "regression_coupled_dracs_loop_version_7"
+lines = [
+    824,
+    1715,
+]
+hash = "sha256:b7a8474e4a89a509843e4aa26ccfed3f6fe826a18bf0c80884abaf8f40f10974"
+doc_hash = "sha256:ff2275a84dfa9ba0eadbc11112a0540820e44f184f82001914cdb7a55f0a2ea6"
+callees = [
+    "fn:0120b5299e2da2da",
+    "fn:165e0de92fdc30f9",
+    "fn:192c73709e4fae1b",
+    "fn:25ad57115dd18f3b",
+    "fn:26e415a2516474b8",
+    "fn:2d7b8ddc9930a271",
+    "fn:2e1c32118e070b6c",
+    "fn:3629bda66cb1631f",
+    "fn:39b1dfdff20f4ecd",
+    "fn:3b175c51dad51671",
+    "fn:3e41f0f4036b1c69",
+    "fn:3fdf94385bd7ffd4",
+    "fn:42677954ee03d9db",
+    "fn:429944a98c495fc2",
+    "fn:43cf81cc824876b7",
+    "fn:44418e4125182393",
+    "fn:44b0242f8ce5613f",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:5620afcc5d9c6da0",
+    "fn:579dd6b20de3f7d0",
+    "fn:5898244cb765d25d",
+    "fn:625dce0bc183471b",
+    "fn:6383373ca57701c5",
+    "fn:6472671d822a61ab",
+    "fn:679eea7225e5e653",
+    "fn:6f2c2edff2d2dbc2",
+    "fn:6fdf5b3db5ce2173",
+    "fn:75b2bf19978d095f",
+    "fn:75d1e2e16257fc20",
+    "fn:75f0a83271918517",
+    "fn:7ee6570130bd052b",
+    "fn:835ea69942f39c9e",
+    "fn:85342ea4b7e5933b",
+    "fn:858bf6e4c57d0393",
+    "fn:928c1745ab947694",
+    "fn:9319b2b56ae29f2c",
+    "fn:9c06ae1c2aa27c6a",
+    "fn:9e971cad029f3940",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a466cf7d23703edb",
+    "fn:aa739fab9ddf0917",
+    "fn:ab7102b91b02cb50",
+    "fn:aea1a2ba0c77b742",
+    "fn:b06e224b136ceb6f",
+    "fn:b113f725d215f11b",
+    "fn:b36ec305413e9570",
+    "fn:b57c94f7ef5cfea0",
+    "fn:b635837cbd7c9ce1",
+    "fn:b9acd02ee51732d3",
+    "fn:bdf79b93c24ef8cb",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:c3c32a0780662c1d",
+    "fn:c56452c27bdd23be",
+    "fn:cf4436f25e5d0557",
+    "fn:d080d9cf81960954",
+    "fn:e0f6ccbea3b4fcfc",
+    "fn:e1d822f0823e13bf",
+    "fn:e4bff9f30142b5cc",
+    "fn:ee48fed6fbd70492",
+    "fn:ee9965285e489d5b",
+]
+test = true
+
+[module."dataset_b.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_b"
+
+[[module."dataset_b.rs".function]]
+id = "fn:56bcdf646fecda05"
+name = "ciet_coupled_nat_circ_set_b1"
+qual = "ciet_coupled_nat_circ_set_b1"
+lines = [
+    1,
+    128,
+]
+hash = "sha256:4e5169a1cea5693c3b3d277b1130831cea475b7dcc9812d1fc070c7f5a52b89a"
+doc_hash = "sha256:92ff3f4fab029ae77fa0c3a5591d2ab8143373824986534e6972dc044029cfd6"
+callees = ["fn:3b80eff36668e5b9"]
+test = true
+
+[[module."dataset_b.rs".function]]
+id = "fn:b432b65e89fcea82"
+name = "ciet_coupled_nat_circ_set_b2"
+qual = "ciet_coupled_nat_circ_set_b2"
+lines = [
+    129,
+    246,
+]
+hash = "sha256:bbe69db06752544a3e016f47b2d3e226802f2a9148ccd002aa4cf3188cace26c"
+doc_hash = "sha256:841fd30f85a996e9531b58917d48231719ecbbd59e8f96f705d4fb6e01a89d96"
+callees = ["fn:3b80eff36668e5b9"]
+test = true
+
+[[module."dataset_b.rs".function]]
+id = "fn:4523be4765393008"
+name = "ciet_coupled_nat_circ_set_b3"
+qual = "ciet_coupled_nat_circ_set_b3"
+lines = [
+    247,
+    364,
+]
+hash = "sha256:fec5175881a60471438517a307ca6a6b563df3bfb281aab120ad493f96255558"
+doc_hash = "sha256:20926eb846adbfe7cd5964f7e47e614b11f0936a087fb82027fb939dbee6f6ff"
+callees = ["fn:3b80eff36668e5b9"]
+test = true
+
+[[module."dataset_b.rs".function]]
+id = "fn:2fb4def87c97ab01"
+name = "ciet_coupled_nat_circ_set_b4"
+qual = "ciet_coupled_nat_circ_set_b4"
+lines = [
+    365,
+    482,
+]
+hash = "sha256:6dff2129c91c4329815f593563a47c5395d466eb2d1cfb369c0731a228759e96"
+doc_hash = "sha256:4ee16e8333bf6e49e3304cb870cd3c08d6a32c50eda9ebf13e6e8c95cbcc4da7"
+callees = ["fn:3b80eff36668e5b9"]
+test = true
+
+[[module."dataset_b.rs".function]]
+id = "fn:e2699d4eecd0d631"
+name = "ciet_coupled_nat_circ_set_b5"
+qual = "ciet_coupled_nat_circ_set_b5"
+lines = [
+    484,
+    601,
+]
+hash = "sha256:87cd494daaf92ab642a48396d0cc58a1bed3b754d217f6bef20c192ed3f38199"
+doc_hash = "sha256:c6642cc51c630221b76c7c3b86e282c4390f6679c57eecae50806756c718334c"
+callees = ["fn:3b80eff36668e5b9"]
+test = true
+
+[[module."dataset_b.rs".function]]
+id = "fn:61fc2db57a7be140"
+name = "ciet_coupled_nat_circ_set_b6"
+qual = "ciet_coupled_nat_circ_set_b6"
+lines = [
+    602,
+    719,
+]
+hash = "sha256:559b9ba6700d9f17859397c3d2b4678952f85acb0078c891759f9c0060f4f2d0"
+doc_hash = "sha256:3d9337e3a02e1f694293436d63df700c0d4231ecee1b51514ab87570887caa02"
+callees = ["fn:3b80eff36668e5b9"]
+test = true
+
+[[module."dataset_b.rs".function]]
+id = "fn:47aa26622cb77b4b"
+name = "ciet_coupled_nat_circ_set_b7"
+qual = "ciet_coupled_nat_circ_set_b7"
+lines = [
+    721,
+    847,
+]
+hash = "sha256:7c1d6c8abbba53f12875f75fc35ad2d4623ebda5cd0fd0fe3580689ec0b166cb"
+doc_hash = "sha256:2a368b372b72cd08d1e04138d35dc2f4844e9148a9e4147500584863276ba45d"
+callees = ["fn:3b80eff36668e5b9"]
+test = true
+
+[[module."dataset_b.rs".function]]
+id = "fn:70a080fc60597b5d"
+name = "ciet_coupled_nat_circ_set_b8"
+qual = "ciet_coupled_nat_circ_set_b8"
+lines = [
+    848,
+    965,
+]
+hash = "sha256:1285a35a856f866aa00cb86e4075aeb02e7b1fde2cbd66de91f6022ce3eff482"
+doc_hash = "sha256:8cbf620aeb3456e70221e67c9f94f29a97063a6715533a1c55dadb849b2855d2"
+callees = ["fn:3b80eff36668e5b9"]
+test = true
+
+[[module."dataset_b.rs".function]]
+id = "fn:04d80f9fd6d049cd"
+name = "ciet_coupled_nat_circ_set_b9"
+qual = "ciet_coupled_nat_circ_set_b9"
+lines = [
+    966,
+    1088,
+]
+hash = "sha256:c2f0d27bd8e6be7dff16f2b571d28a5f138b98bd88a90e3e6500f2230f38e553"
+doc_hash = "sha256:bf0d77a001e63621227f94c2df3091d584d06eff1a5809baaa15209e54758ebc"
+callees = ["fn:3b80eff36668e5b9"]
+test = true
+
+[[module."dataset_b.rs".function]]
+id = "fn:b80db8feaf4a0bb5"
+name = "regression_coupled_dracs_loop_version_5"
+qual = "regression_coupled_dracs_loop_version_5"
+lines = [
+    1090,
+    1795,
+]
+hash = "sha256:55f63bb60df66d7bc652b464a1edc1f8279684226333901b7afb6cfc9df9a2d1"
+doc_hash = "sha256:17bd71bdffa5661482ef1fe08bc348644723bfa241d2bfd17484818c96526a4e"
+callees = [
+    "fn:0120b5299e2da2da",
+    "fn:165e0de92fdc30f9",
+    "fn:192c73709e4fae1b",
+    "fn:26e415a2516474b8",
+    "fn:2d7b8ddc9930a271",
+    "fn:2e1c32118e070b6c",
+    "fn:3629bda66cb1631f",
+    "fn:3b175c51dad51671",
+    "fn:3e41f0f4036b1c69",
+    "fn:3fdf94385bd7ffd4",
+    "fn:42677954ee03d9db",
+    "fn:429944a98c495fc2",
+    "fn:43cf81cc824876b7",
+    "fn:44b0242f8ce5613f",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:5620afcc5d9c6da0",
+    "fn:579dd6b20de3f7d0",
+    "fn:625dce0bc183471b",
+    "fn:6383373ca57701c5",
+    "fn:6472671d822a61ab",
+    "fn:679eea7225e5e653",
+    "fn:6f2c2edff2d2dbc2",
+    "fn:6fdf5b3db5ce2173",
+    "fn:75b2bf19978d095f",
+    "fn:75d1e2e16257fc20",
+    "fn:7ee6570130bd052b",
+    "fn:835ea69942f39c9e",
+    "fn:85342ea4b7e5933b",
+    "fn:858bf6e4c57d0393",
+    "fn:928c1745ab947694",
+    "fn:9319b2b56ae29f2c",
+    "fn:9c06ae1c2aa27c6a",
+    "fn:9e971cad029f3940",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a466cf7d23703edb",
+    "fn:ab7102b91b02cb50",
+    "fn:aea1a2ba0c77b742",
+    "fn:b06e224b136ceb6f",
+    "fn:b113f725d215f11b",
+    "fn:b36ec305413e9570",
+    "fn:b57c94f7ef5cfea0",
+    "fn:b635837cbd7c9ce1",
+    "fn:b9acd02ee51732d3",
+    "fn:bdf79b93c24ef8cb",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:c3c32a0780662c1d",
+    "fn:c56452c27bdd23be",
+    "fn:cf4436f25e5d0557",
+    "fn:d080d9cf81960954",
+    "fn:d57dbe3f80933fd7",
+    "fn:e0f6ccbea3b4fcfc",
+    "fn:e1d822f0823e13bf",
+    "fn:e4bff9f30142b5cc",
+    "fn:ee48fed6fbd70492",
+    "fn:ee9965285e489d5b",
+]
+test = true
+
+[[module."dataset_b.rs".function]]
+id = "fn:3b80eff36668e5b9"
+name = "regression_coupled_dracs_loop_version_7"
+qual = "regression_coupled_dracs_loop_version_7"
+lines = [
+    1797,
+    2623,
+]
+hash = "sha256:b7a8474e4a89a509843e4aa26ccfed3f6fe826a18bf0c80884abaf8f40f10974"
+doc_hash = "sha256:90fb43c613433752bf84690000cbf65993fa69705012a6fa10f53b080dc5d1ce"
+callees = [
+    "fn:0120b5299e2da2da",
+    "fn:165e0de92fdc30f9",
+    "fn:192c73709e4fae1b",
+    "fn:25ad57115dd18f3b",
+    "fn:26e415a2516474b8",
+    "fn:2d7b8ddc9930a271",
+    "fn:2e1c32118e070b6c",
+    "fn:3629bda66cb1631f",
+    "fn:39b1dfdff20f4ecd",
+    "fn:3b175c51dad51671",
+    "fn:3e41f0f4036b1c69",
+    "fn:3fdf94385bd7ffd4",
+    "fn:42677954ee03d9db",
+    "fn:429944a98c495fc2",
+    "fn:43cf81cc824876b7",
+    "fn:44418e4125182393",
+    "fn:44b0242f8ce5613f",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:5620afcc5d9c6da0",
+    "fn:579dd6b20de3f7d0",
+    "fn:5898244cb765d25d",
+    "fn:625dce0bc183471b",
+    "fn:6383373ca57701c5",
+    "fn:6472671d822a61ab",
+    "fn:679eea7225e5e653",
+    "fn:6f2c2edff2d2dbc2",
+    "fn:6fdf5b3db5ce2173",
+    "fn:75b2bf19978d095f",
+    "fn:75d1e2e16257fc20",
+    "fn:75f0a83271918517",
+    "fn:7ee6570130bd052b",
+    "fn:835ea69942f39c9e",
+    "fn:85342ea4b7e5933b",
+    "fn:858bf6e4c57d0393",
+    "fn:928c1745ab947694",
+    "fn:9319b2b56ae29f2c",
+    "fn:9c06ae1c2aa27c6a",
+    "fn:9e971cad029f3940",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a466cf7d23703edb",
+    "fn:aa739fab9ddf0917",
+    "fn:ab7102b91b02cb50",
+    "fn:aea1a2ba0c77b742",
+    "fn:b06e224b136ceb6f",
+    "fn:b113f725d215f11b",
+    "fn:b36ec305413e9570",
+    "fn:b57c94f7ef5cfea0",
+    "fn:b635837cbd7c9ce1",
+    "fn:b9acd02ee51732d3",
+    "fn:bdf79b93c24ef8cb",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:c3c32a0780662c1d",
+    "fn:c56452c27bdd23be",
+    "fn:cf4436f25e5d0557",
+    "fn:d080d9cf81960954",
+    "fn:e0f6ccbea3b4fcfc",
+    "fn:e1d822f0823e13bf",
+    "fn:e4bff9f30142b5cc",
+    "fn:ee48fed6fbd70492",
+    "fn:ee9965285e489d5b",
+]
+test = true
+
+[module."dataset_c.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_c"
+
+[[module."dataset_c.rs".function]]
+id = "fn:9b9bf757a110b254"
+name = "ciet_coupled_nat_circ_set_c1"
+qual = "ciet_coupled_nat_circ_set_c1"
+lines = [
+    1,
+    132,
+]
+hash = "sha256:6f307969590bc993a73919c823df68dec6fd39cf092f1cff5b3b90066a2b58ba"
+doc_hash = "sha256:d191c24e29f33b7f7d07e9eb07d22a25d3f5e4ffb3a29579d788ceb76a47070b"
+callees = ["fn:79a29c87f8136b28"]
+test = true
+
+[[module."dataset_c.rs".function]]
+id = "fn:282e84dfb9e3079d"
+name = "ciet_coupled_nat_circ_set_c2"
+qual = "ciet_coupled_nat_circ_set_c2"
+lines = [
+    133,
+    249,
+]
+hash = "sha256:45d1d10b2f5daecc30532018c435a7a4c4831947c38aebdb46439d00051140c2"
+doc_hash = "sha256:d314c9f01221dead08ece124a48a50420f794f09f7f4eda4076ac862e12a4165"
+callees = ["fn:79a29c87f8136b28"]
+test = true
+
+[[module."dataset_c.rs".function]]
+id = "fn:8e067cf244ecb8d7"
+name = "ciet_coupled_nat_circ_set_c3"
+qual = "ciet_coupled_nat_circ_set_c3"
+lines = [
+    250,
+    366,
+]
+hash = "sha256:8e079056d196e3dfc21dbba4e0bc3ccf75003fe9ba0d4a4f661a612f2edd277f"
+doc_hash = "sha256:a46c0e8f91a9965953a7ce95fc9975d19be513895948c41d58c478a8e945c6af"
+callees = ["fn:79a29c87f8136b28"]
+test = true
+
+[[module."dataset_c.rs".function]]
+id = "fn:4f52fce6dfc88dbd"
+name = "ciet_coupled_nat_circ_set_c4"
+qual = "ciet_coupled_nat_circ_set_c4"
+lines = [
+    367,
+    483,
+]
+hash = "sha256:bf3359454c4ce5dfe7dcef20ad74367c14cf9ddec2eda9aceef70971bb8f6638"
+doc_hash = "sha256:072ce0e3b40a2b0cad79bba9da536f32e252f3100a2551dd35ddf8665a257fef"
+callees = ["fn:79a29c87f8136b28"]
+test = true
+
+[[module."dataset_c.rs".function]]
+id = "fn:27cff56319a5dc65"
+name = "ciet_coupled_nat_circ_set_c5"
+qual = "ciet_coupled_nat_circ_set_c5"
+lines = [
+    485,
+    601,
+]
+hash = "sha256:3485bfd6c9b7ac3125af3457643a9ba184955ed46e990dff963d8ee49601d1e1"
+doc_hash = "sha256:31ce53f0aa943ad7056fe2b06af63ff683a5444c78924e7c68b90a1dde2683ed"
+callees = ["fn:79a29c87f8136b28"]
+test = true
+
+[[module."dataset_c.rs".function]]
+id = "fn:f2487d56d71a3534"
+name = "ciet_coupled_nat_circ_set_c6"
+qual = "ciet_coupled_nat_circ_set_c6"
+lines = [
+    602,
+    718,
+]
+hash = "sha256:3f2bdfb68ba3cf83ca32bb6f04b464d0b188fc88fd87b33b57eccc0b1cc9d140"
+doc_hash = "sha256:b462b97a06e20f161970f80f356ce014a6298c2c78ab691b4d00afe4ac3da0d8"
+callees = ["fn:79a29c87f8136b28"]
+test = true
+
+[[module."dataset_c.rs".function]]
+id = "fn:9b467b8b33a5ab4b"
+name = "ciet_coupled_nat_circ_set_c7"
+qual = "ciet_coupled_nat_circ_set_c7"
+lines = [
+    720,
+    836,
+]
+hash = "sha256:b046550a218b3ff0a455d08698bf6b78e6ae8467dfb7cc8f8358d7c7af2df77e"
+doc_hash = "sha256:8ea8d04e70a1f4c796a95040ba19a56551e56b147deed9426803957e3a218542"
+callees = ["fn:79a29c87f8136b28"]
+test = true
+
+[[module."dataset_c.rs".function]]
+id = "fn:2a49dbaea951c645"
+name = "ciet_coupled_nat_circ_set_c8"
+qual = "ciet_coupled_nat_circ_set_c8"
+lines = [
+    837,
+    953,
+]
+hash = "sha256:1bac6854d804813fbe207cc684249eaf00dd0e81e2c0153b669313b7fca6f591"
+doc_hash = "sha256:36b95ef426992e91036946aafd840dae77f3d7247fc01e6272ce7e7bc05eba5d"
+callees = ["fn:79a29c87f8136b28"]
+test = true
+
+[[module."dataset_c.rs".function]]
+id = "fn:51fcbf1a992cb389"
+name = "ciet_coupled_nat_circ_set_c9"
+qual = "ciet_coupled_nat_circ_set_c9"
+lines = [
+    954,
+    1070,
+]
+hash = "sha256:55d984680b4ebb066bbc04cd2010474166cb0e42dd4b76ba86e272895a820663"
+doc_hash = "sha256:c5ed5018364604e8d4e2c0a6b6344298919b9980ca54cfcaa2b3fa82c7b6b0eb"
+callees = ["fn:79a29c87f8136b28"]
+test = true
+
+[[module."dataset_c.rs".function]]
+id = "fn:79a29c87f8136b28"
+name = "regression_coupled_dracs_loop_version_7"
+qual = "regression_coupled_dracs_loop_version_7"
+lines = [
+    1072,
+    1898,
+]
+hash = "sha256:b7a8474e4a89a509843e4aa26ccfed3f6fe826a18bf0c80884abaf8f40f10974"
+doc_hash = "sha256:90fb43c613433752bf84690000cbf65993fa69705012a6fa10f53b080dc5d1ce"
+callees = [
+    "fn:0120b5299e2da2da",
+    "fn:165e0de92fdc30f9",
+    "fn:192c73709e4fae1b",
+    "fn:25ad57115dd18f3b",
+    "fn:26e415a2516474b8",
+    "fn:2d7b8ddc9930a271",
+    "fn:2e1c32118e070b6c",
+    "fn:3629bda66cb1631f",
+    "fn:39b1dfdff20f4ecd",
+    "fn:3b175c51dad51671",
+    "fn:3e41f0f4036b1c69",
+    "fn:3fdf94385bd7ffd4",
+    "fn:42677954ee03d9db",
+    "fn:429944a98c495fc2",
+    "fn:43cf81cc824876b7",
+    "fn:44418e4125182393",
+    "fn:44b0242f8ce5613f",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:5620afcc5d9c6da0",
+    "fn:579dd6b20de3f7d0",
+    "fn:5898244cb765d25d",
+    "fn:625dce0bc183471b",
+    "fn:6383373ca57701c5",
+    "fn:6472671d822a61ab",
+    "fn:679eea7225e5e653",
+    "fn:6f2c2edff2d2dbc2",
+    "fn:6fdf5b3db5ce2173",
+    "fn:75b2bf19978d095f",
+    "fn:75d1e2e16257fc20",
+    "fn:75f0a83271918517",
+    "fn:7ee6570130bd052b",
+    "fn:835ea69942f39c9e",
+    "fn:85342ea4b7e5933b",
+    "fn:858bf6e4c57d0393",
+    "fn:928c1745ab947694",
+    "fn:9319b2b56ae29f2c",
+    "fn:9c06ae1c2aa27c6a",
+    "fn:9e971cad029f3940",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a466cf7d23703edb",
+    "fn:aa739fab9ddf0917",
+    "fn:ab7102b91b02cb50",
+    "fn:aea1a2ba0c77b742",
+    "fn:b06e224b136ceb6f",
+    "fn:b113f725d215f11b",
+    "fn:b36ec305413e9570",
+    "fn:b57c94f7ef5cfea0",
+    "fn:b635837cbd7c9ce1",
+    "fn:b9acd02ee51732d3",
+    "fn:bdf79b93c24ef8cb",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:c3c32a0780662c1d",
+    "fn:c56452c27bdd23be",
+    "fn:cf4436f25e5d0557",
+    "fn:d080d9cf81960954",
+    "fn:e0f6ccbea3b4fcfc",
+    "fn:e1d822f0823e13bf",
+    "fn:e4bff9f30142b5cc",
+    "fn:ee48fed6fbd70492",
+    "fn:ee9965285e489d5b",
+]
+test = true
+
+[module."debugging.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::debugging"
+
+[module."dhx_constructor.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dhx_constructor"
+
+[[module."dhx_constructor.rs".function]]
+id = "fn:e4bff9f30142b5cc"
+name = "new_dhx_sthe_version_1"
+qual = "new_dhx_sthe_version_1"
+lines = [
+    16,
+    159,
+]
+hash = "sha256:15037b8d48105dc2d0f2df2f21fcdbdb1852e2112914d90b845430d745be5766"
+doc_hash = "sha256:28958f3648f55453054495de143a7d9ab3fc5d5e0329cacbfae6bc6affc8f5ad"
+callees = [
+    "fn:5809a771c2fb7658",
+    "fn:61571eb5e1cd42ad",
+    "fn:ec1bb94e3b0efdfb",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+]
+physical_interface = true
+
+[[module."dhx_constructor.rs".function]]
+id = "fn:3896554af61511c5"
+name = "new_dhx_sthe_version_1_mesh_refined"
+qual = "new_dhx_sthe_version_1_mesh_refined"
+lines = [
+    161,
+    309,
+]
+hash = "sha256:372a9eae89d32b4d996e70e6e150d4007f22fe1777b200785fd80e0b8b88e6bb"
+doc_hash = "sha256:e6c15843846c4ca879aabab92e582f352c2be46eb5601de3c39d3397f532eb95"
+callees = [
+    "fn:5809a771c2fb7658",
+    "fn:61571eb5e1cd42ad",
+    "fn:ec1bb94e3b0efdfb",
+]
+reached_by = [
+    "#55",
+    "#56",
+]
+physical_interface = true
+
+[module."dracs_loop_calc_functions_no_tchx_calibration.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dracs_loop_calc_functions_no_tchx_calibration"
+
+[[module."dracs_loop_calc_functions_no_tchx_calibration.rs".function]]
+id = "fn:7e5c075b8e7ea9c7"
+name = "get_abs_mass_flowrate_across_two_branches"
+qual = "get_abs_mass_flowrate_across_two_branches"
+lines = [
+    19,
+    44,
+]
+hash = "sha256:befa3cbc5813d11133f3e9eac0135f5c14a2666573671ade76485ed683fdce90"
+doc_hash = "sha256:1ec2a76b6e1681b60eacef3060f58776e3814ff8906011da7fca5ca9049990bb"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:74172f53fcffc1fc",
+]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+physical_interface = true
+
+[[module."dracs_loop_calc_functions_no_tchx_calibration.rs".function]]
+id = "fn:a44b89bd5edea743"
+name = "coupled_dracs_fluid_mechanics_calc_abs_mass_rate_no_tchx_calibration"
+qual = "coupled_dracs_fluid_mechanics_calc_abs_mass_rate_no_tchx_calibration"
+lines = [
+    46,
+    103,
+]
+hash = "sha256:09d796ddc3c3f017def04d0c38cfa244eb2a0a340e438acf50589f5368bc1917"
+doc_hash = "sha256:ecd7207a648d6eb53b0f7f4a1f19f249439ffc566b2d270ccfddd1e54afadc27"
+callees = [
+    "fn:352eae89cdf05026",
+    "fn:7e5c075b8e7ea9c7",
+    "fn:89b98b3aca1482a0",
+    "fn:93844cc452449d04",
+    "fn:e79236623dec9507",
+]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+physical_interface = true
+
+[[module."dracs_loop_calc_functions_no_tchx_calibration.rs".function]]
+id = "fn:d32f2656cc719b58"
+name = "coupled_dracs_loop_link_up_components_no_tchx_calibration"
+qual = "coupled_dracs_loop_link_up_components_no_tchx_calibration"
+lines = [
+    105,
+    448,
+]
+hash = "sha256:d8fdf7ffe0c35b0193058e908b58e8a43bed16cd54410fbad38d738dc7e91b3c"
+doc_hash = "sha256:b3364eab100d6d033a5032737401270106ca0dde1f948e85cfa027299a075c1d"
+callees = [
+    "fn:3ab99241909cec96",
+    "fn:4cad4ddd84ccee48",
+    "fn:6256de6e1d4d986a",
+    "fn:71e0b3e056618526",
+    "fn:a3a04100486196dc",
+]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+physical_interface = true
+
+[[module."dracs_loop_calc_functions_no_tchx_calibration.rs".function]]
+id = "fn:dd513b16ead58236"
+name = "dracs_loop_advance_timestep_except_dhx_no_tchx_calibration"
+qual = "dracs_loop_advance_timestep_except_dhx_no_tchx_calibration"
+lines = [
+    450,
+    495,
+]
+hash = "sha256:ea81e5cc831d6a9b495a0cfd27bd5d918b2a505a2effb4d65a7bcc9d5a8caf89"
+doc_hash = "sha256:2feed8e42e7b6a70d6537e7e433141ee2a54959a893f6eddd21b9f026638da80"
+callees = [
+    "fn:3f6427f87e7e0f62",
+    "fn:f66c6613b2fa9c0c",
+]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+physical_interface = true
+
+[[module."dracs_loop_calc_functions_no_tchx_calibration.rs".function]]
+id = "fn:9e971cad029f3940"
+name = "dracs_loop_dhx_tube_temperature_diagnostics"
+qual = "dracs_loop_dhx_tube_temperature_diagnostics"
+lines = [
+    497,
+    546,
+]
+hash = "sha256:b54245e27837ac35a51454b162b3871aec5adb7225e1973701e38d1082fffe84"
+doc_hash = "sha256:25e22fedc8990b23852b599a863f8b9c53f33ba1fe4f9fcf2adbccb8b90e443b"
+callees = ["fn:5898244cb765d25d"]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+]
+physical_interface = true
+
+[[module."dracs_loop_calc_functions_no_tchx_calibration.rs".function]]
+id = "fn:25ad57115dd18f3b"
+name = "dracs_loop_tchx_temperature_diagnostics"
+qual = "dracs_loop_tchx_temperature_diagnostics"
+lines = [
+    548,
+    613,
+]
+hash = "sha256:4eefbe6676ae6c1027e36826fce5fa83b5ad728c7d51a6023e56156fa1cc615f"
+doc_hash = "sha256:8defc3136b904db76b0c04dd8836524a3bcd18b2192d12cc9a0215ff3dac966e"
+callees = ["fn:5898244cb765d25d"]
+physical_interface = true
+
+[module."dracs_loop_calc_functions_sam_tchx_calibration.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dracs_loop_calc_functions_sam_tchx_calibration"
+
+[[module."dracs_loop_calc_functions_sam_tchx_calibration.rs".function]]
+id = "fn:63468d205fe1fbc8"
+name = "get_abs_mass_flowrate_across_two_branches"
+qual = "get_abs_mass_flowrate_across_two_branches"
+lines = [
+    21,
+    46,
+]
+hash = "sha256:befa3cbc5813d11133f3e9eac0135f5c14a2666573671ade76485ed683fdce90"
+doc_hash = "sha256:1ec2a76b6e1681b60eacef3060f58776e3814ff8906011da7fca5ca9049990bb"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:74172f53fcffc1fc",
+]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+]
+physical_interface = true
+
+[[module."dracs_loop_calc_functions_sam_tchx_calibration.rs".function]]
+id = "fn:ee9965285e489d5b"
+name = "coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration"
+qual = "coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration"
+lines = [
+    48,
+    107,
+]
+hash = "sha256:db63e9ec79e187229f872be45cdc3e6127e30af674cabff9b2abf7c8e66a3cc6"
+doc_hash = "sha256:ecd7207a648d6eb53b0f7f4a1f19f249439ffc566b2d270ccfddd1e54afadc27"
+callees = [
+    "fn:352eae89cdf05026",
+    "fn:63468d205fe1fbc8",
+    "fn:89b98b3aca1482a0",
+    "fn:93844cc452449d04",
+    "fn:e79236623dec9507",
+]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+]
+physical_interface = true
+
+[[module."dracs_loop_calc_functions_sam_tchx_calibration.rs".function]]
+id = "fn:43cf81cc824876b7"
+name = "coupled_dracs_loop_link_up_components_sam_tchx_calibration"
+qual = "coupled_dracs_loop_link_up_components_sam_tchx_calibration"
+lines = [
+    109,
+    506,
+]
+hash = "sha256:4071afe1ebcca5a46436433970ef8016c5b886588cff987aaa2e441e28e7adb2"
+doc_hash = "sha256:b3364eab100d6d033a5032737401270106ca0dde1f948e85cfa027299a075c1d"
+callees = [
+    "fn:3ab99241909cec96",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:6256de6e1d4d986a",
+    "fn:71e0b3e056618526",
+    "fn:a3a04100486196dc",
+]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+]
+physical_interface = true
+
+[[module."dracs_loop_calc_functions_sam_tchx_calibration.rs".function]]
+id = "fn:2e1c32118e070b6c"
+name = "dracs_loop_advance_timestep_except_dhx_sam_tchx_calibration"
+qual = "dracs_loop_advance_timestep_except_dhx_sam_tchx_calibration"
+lines = [
+    508,
+    555,
+]
+hash = "sha256:f40ba1e0bb5886fb99b548f7033dfc352f15bdfaaa85aea0aa3d235d96ec736c"
+doc_hash = "sha256:2feed8e42e7b6a70d6537e7e433141ee2a54959a893f6eddd21b9f026638da80"
+callees = [
+    "fn:3f6427f87e7e0f62",
+    "fn:f66c6613b2fa9c0c",
+]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+]
+physical_interface = true
+
+[[module."dracs_loop_calc_functions_sam_tchx_calibration.rs".function]]
+id = "fn:83167dea9f09c557"
+name = "dracs_loop_dhx_tube_temperature_diagnostics"
+qual = "dracs_loop_dhx_tube_temperature_diagnostics"
+lines = [
+    557,
+    606,
+]
+hash = "sha256:b54245e27837ac35a51454b162b3871aec5adb7225e1973701e38d1082fffe84"
+doc_hash = "sha256:25e22fedc8990b23852b599a863f8b9c53f33ba1fe4f9fcf2adbccb8b90e443b"
+callees = ["fn:5898244cb765d25d"]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests"
+
+[[module."mod.rs".function]]
+id = "fn:aa739fab9ddf0917"
+name = "sam_table4_flowrates_kg_per_s"
+qual = "sam_table4_flowrates_kg_per_s"
+lines = [
+    291,
+    372,
+]
+hash = "sha256:66ac0817cf5808dfca00b6bdd3f81bc1e5fd19b8fd5dbf38e93c77b36fa3734a"
+doc_hash = "sha256:6fb50378a36e4ced661b0e52cf31e62bbec0963f33d820688cb05723008c975b"
+reached_by = ["#0"]
+
+[module."pri_loop_calc_functions.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::pri_loop_calc_functions"
+
+[[module."pri_loop_calc_functions.rs".function]]
+id = "fn:89f008430a5487a3"
+name = "get_abs_mass_flowrate_across_two_branches"
+qual = "get_abs_mass_flowrate_across_two_branches"
+lines = [
+    19,
+    41,
+]
+hash = "sha256:215737f370db16db7fee0eb56c3ecf7eac7bb2b10fa92581e7d112733fc51c19"
+doc_hash = "sha256:663b408613466404801ee43666d048928a0f6d6c508fbf94aa82c86d50c6fe31"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:74172f53fcffc1fc",
+]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+physical_interface = true
+
+[[module."pri_loop_calc_functions.rs".function]]
+id = "fn:b635837cbd7c9ce1"
+name = "coupled_dracs_pri_loop_branches_fluid_mechanics_calc_abs_mass_rate"
+qual = "coupled_dracs_pri_loop_branches_fluid_mechanics_calc_abs_mass_rate"
+lines = [
+    43,
+    118,
+]
+hash = "sha256:b2d49abebc92ce242bfc5dc4cc36af9e0ae6d05a11a5a5831ea943539c5d9e5b"
+doc_hash = "sha256:d43b0e2bc0d63554884ef26090ea75a61566eef8e2c5cf9a0a3b4d07a5f574eb"
+callees = [
+    "fn:352eae89cdf05026",
+    "fn:89b98b3aca1482a0",
+    "fn:89f008430a5487a3",
+    "fn:93844cc452449d04",
+    "fn:e79236623dec9507",
+]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+physical_interface = true
+
+[[module."pri_loop_calc_functions.rs".function]]
+id = "fn:858bf6e4c57d0393"
+name = "coupled_dracs_pri_loop_dhx_heater_link_up_components"
+qual = "coupled_dracs_pri_loop_dhx_heater_link_up_components"
+lines = [
+    120,
+    564,
+]
+hash = "sha256:e38197606d62e2ad146650caddc91456d2d1e4de360dd797abf60ba3653c58c5"
+doc_hash = "sha256:d3d6bebc0f18cc0cf4d75ac76c0dca9564e7ff2a0de363d83846f0679694898a"
+callees = [
+    "fn:3ab99241909cec96",
+    "fn:4cad4ddd84ccee48",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:71e0b3e056618526",
+    "fn:a3a04100486196dc",
+]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+physical_interface = true
+
+[[module."pri_loop_calc_functions.rs".function]]
+id = "fn:9c06ae1c2aa27c6a"
+name = "pri_loop_advance_timestep_dhx_br_and_heater_br_except_dhx"
+qual = "pri_loop_advance_timestep_dhx_br_and_heater_br_except_dhx"
+lines = [
+    566,
+    613,
+]
+hash = "sha256:f49093555785a00e401d30ffc043bce639ec6441368ec4e826d555e3e2b1ad47"
+doc_hash = "sha256:2088fe74c3ddd049ea66011abc52514a77857a2d4ff9f9630688e27bb3706d13"
+callees = [
+    "fn:3f6427f87e7e0f62",
+    "fn:f66c6613b2fa9c0c",
+]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+physical_interface = true
+
+[[module."pri_loop_calc_functions.rs".function]]
+id = "fn:c56452c27bdd23be"
+name = "pri_loop_heater_temperature_diagnostics"
+qual = "pri_loop_heater_temperature_diagnostics"
+lines = [
+    615,
+    668,
+]
+hash = "sha256:05ced24ac91b81ef8f424cc058ec3293624b5bae6760049b9c3810b67b25a51f"
+doc_hash = "sha256:32d3a92e3c5269a8e89140695257ee6ee90718a34b1d9da85ed5e50038405e38"
+callees = ["fn:5898244cb765d25d"]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+]
+physical_interface = true
+
+[[module."pri_loop_calc_functions.rs".function]]
+id = "fn:cf4436f25e5d0557"
+name = "pri_loop_dhx_shell_temperature_diagnostics"
+qual = "pri_loop_dhx_shell_temperature_diagnostics"
+lines = [
+    669,
+    715,
+]
+hash = "sha256:5889633cbe8fa215d371b9cf5b8b09ef3d325c1fc8e79960c1d1a0547df5c287"
+doc_hash = "sha256:86101f3d31e62b93d7290801ba1201fcb03d9f841606bf6c00ff9a7b726bd919"
+callees = ["fn:5898244cb765d25d"]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+]
+physical_interface = true
+
+[module."sam_vs_tuas_vs_experiment_summary.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::sam_vs_tuas_vs_experiment_summary"
+
+[[module."sam_vs_tuas_vs_experiment_summary.rs".function]]
+id = "fn:0ddb5fbe7a8c4e15"
+name = "pct_err"
+qual = "pct_err"
+lines = [
+    301,
+    304,
+]
+hash = "sha256:008067041a754e44aa28e80f7b008183708ecc182af649e764b2168d6dfbfb20"
+doc_hash = "sha256:ebd9ff37b28a87e24218d9b2475addee0224702694fed8aeccd7fe5443b1a485"
+test = true
+
+[[module."sam_vs_tuas_vs_experiment_summary.rs".function]]
+id = "fn:79ffdea38985b7b5"
+name = "fmt_flow"
+qual = "fmt_flow"
+lines = [
+    306,
+    309,
+]
+hash = "sha256:3f4b41bec3e9862f26f4e02ccc6e2f348ec7b0fb3003bcb6abe598da59663afa"
+doc_hash = "sha256:6ab2ede9e3b886706ec67e3ac94543e0f387795d5ee700a3a10c1b8fb27c45da"
+test = true
+
+[[module."sam_vs_tuas_vs_experiment_summary.rs".function]]
+id = "fn:e6aeb91c44a01e89"
+name = "fmt_pct"
+qual = "fmt_pct"
+lines = [
+    311,
+    314,
+]
+hash = "sha256:fe4a6e736d1f23f8db9e67b95fa6e33a11775b4c2a59f62dfddecf95423dc70e"
+doc_hash = "sha256:45530c918a6931386d2a7eca7d5b7f6ac5f06b4abedfb7823cac57d695bfca55"
+test = true
+
+[[module."sam_vs_tuas_vs_experiment_summary.rs".function]]
+id = "fn:5be5165043189d04"
+name = "build_markdown"
+qual = "build_markdown"
+lines = [
+    316,
+    438,
+]
+hash = "sha256:7979191d006391529d6a801c94adb2d331dd1f7790fc79c8be8bfe31db8715b6"
+doc_hash = "sha256:b7e6392ee92c9ffef983b3108a6113f6c8f1078d3a9ffafa4881b23bddbe0b96"
+callees = [
+    "fn:a1e59fe6cef7ab62",
+    "fn:e72ce187d60b03df",
+]
+test = true
+
+[[module."sam_vs_tuas_vs_experiment_summary.rs".function]]
+id = "fn:e72ce187d60b03df"
+name = "flow_table"
+qual = "flow_table"
+lines = [
+    447,
+    484,
+]
+hash = "sha256:91ed22b5d7a76d0d59e6ea65185cb7bac8eaf8456043aff3827f40cf607cb9d5"
+doc_hash = "sha256:d98c5a160b6ce5ba11104c82df9e84d4388e633ebee312e40d6e8e83560dbb0f"
+callees = [
+    "fn:0ddb5fbe7a8c4e15",
+    "fn:79ffdea38985b7b5",
+    "fn:aa739fab9ddf0917",
+    "fn:e6aeb91c44a01e89",
+]
+test = true
+
+[[module."sam_vs_tuas_vs_experiment_summary.rs".function]]
+id = "fn:a1e59fe6cef7ab62"
+name = "summary_stats"
+qual = "summary_stats"
+lines = [
+    498,
+    536,
+]
+hash = "sha256:3b16092c4d9c53db4229b3265b68fb555b74b1508faeccff79e157feb11bd51e"
+doc_hash = "sha256:e6841d1537bf7e7919b701de70d3392e7e769057083324343d725044778e7b36"
+callees = [
+    "fn:0ddb5fbe7a8c4e15",
+    "fn:aa739fab9ddf0917",
+]
+test = true
+
+[[module."sam_vs_tuas_vs_experiment_summary.rs".function]]
+id = "fn:2cb4438d0ec90359"
+name = "generate_coupled_natcirc_sam_vs_tuas_vs_experiment_md"
+qual = "generate_coupled_natcirc_sam_vs_tuas_vs_experiment_md"
+lines = [
+    538,
+    566,
+]
+hash = "sha256:7841842be1f57c3c2645218d6916830553215a25789b57becd4320b4a3d38305"
+doc_hash = "sha256:45cac3a13e1ff6d34da7e907dc181eb1b9827a528a37680adec1551f3f4b2ae1"
+callees = [
+    "fn:39b1dfdff20f4ecd",
+    "fn:5be5165043189d04",
+]
+test = true

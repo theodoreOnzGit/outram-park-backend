@@ -1,0 +1,644 @@
+schema_version = 1
+kind = "code_folder"
+crate = "petir"
+dir = "crates/petir/src/roots"
+test_ids = [
+    "crates/outram-mc-libs/tests/gpu_geometry_helpers_directly.rs::gpu_bisect_root_converges_to_the_root_petir_finds",
+    "crates/petir/src/roots/convergence.rs::a_small_residual_can_coexist_with_an_inaccurate_root",
+    "crates/petir/src/roots/convergence.rs::delta_test_converges_on_a_stalled_iteration",
+    "crates/petir/src/roots/convergence.rs::delta_tolerance_scales_with_the_iterate",
+    "crates/petir/src/roots/convergence.rs::interval_test_converges_when_narrow",
+    "crates/petir/src/roots/convergence.rs::interval_test_rejects_bad_input",
+    "crates/petir/src/roots/convergence.rs::relative_tolerance_is_dropped_when_the_interval_straddles_zero",
+    "crates/petir/src/roots/convergence.rs::residual_test_examines_only_the_function_value",
+    "crates/petir/tests/gsl_min.rs::asking_for_better_than_the_sqrt_eps_floor_reports_max_iterations",
+    "crates/petir/tests/gsl_min.rs::both_methods_find_an_off_origin_minimum",
+    "crates/petir/tests/gsl_min.rs::both_methods_find_the_minimum_of_cos",
+    "crates/petir/tests/gsl_min.rs::both_methods_find_the_minimum_of_x_to_the_fourth",
+    "crates/petir/tests/gsl_min.rs::both_methods_handle_an_infinite_derivative_at_the_minimum",
+    "crates/petir/tests/gsl_numerics_code_to_code.rs::the_bracketing_root_finders_follow_gsls_iterates",
+    "crates/petir/tests/gsl_numerics_code_to_code.rs::the_polishing_root_finders_follow_gsls_iterates",
+    "crates/petir/tests/gsl_roots.rs::a_bracket_that_does_not_straddle_zero_is_rejected",
+    "crates/petir/tests/gsl_roots.rs::a_root_exactly_at_an_endpoint_is_found",
+    "crates/petir/tests/gsl_roots.rs::a_zero_derivative_is_reported",
+    "crates/petir/tests/gsl_roots.rs::all_bracketing_methods_find_a_small_root_with_relative_tolerance",
+    "crates/petir/tests/gsl_roots.rs::all_bracketing_methods_find_the_flat_root_of_x_exp_minus_x",
+    "crates/petir/tests/gsl_roots.rs::all_bracketing_methods_find_the_root_of_x20_minus_1",
+    "crates/petir/tests/gsl_roots.rs::all_bracketing_methods_handle_an_infinite_derivative_at_the_root",
+    "crates/petir/tests/gsl_roots.rs::all_polishing_methods_find_the_root_of_x20_minus_1",
+    "crates/petir/tests/gsl_roots.rs::all_polishing_methods_find_the_root_of_x_exp_minus_x",
+    "crates/petir/tests/gsl_roots.rs::bisection_halves_the_interval_every_step",
+    "crates/petir/tests/gsl_roots.rs::bracketing_and_polishing_agree_on_the_same_root",
+    "crates/petir/tests/gsl_roots.rs::bracketing_survives_a_root_of_multiplicity_seven",
+    "crates/petir/tests/gsl_roots.rs::brent_converges_in_fewer_iterations_than_bisection",
+    "crates/petir/tests/gsl_roots.rs::newton_converges_quadratically_from_a_good_guess",
+    "crates/petir/tests/gsl_roots.rs::newton_diverges_on_a_hostile_function_without_complaint",
+    "crates/petir/tests/gsl_roots.rs::secant_evaluates_the_true_derivative_only_once",
+    "crates/petir/tests/no_panic_gate.rs::the_public_fallible_api_returns_result",
+]
+
+[module."bracketing.rs"]
+path = "crate::roots::bracketing"
+
+[[module."bracketing.rs".function]]
+id = "fn:a9f8eaf01912aace"
+name = "new"
+qual = "BracketingSolver::new"
+lines = [
+    158,
+    216,
+]
+hash = "sha256:54b4d706f1a7cf95e2dd439f9399933edad761b0a65178f930c56135797c21af"
+doc_hash = "sha256:8d5f683d73da139da10e1ac298eb136b1ba756e41249b3f6be3e5417ad4258b8"
+reached_by = [
+    "#0",
+    "#13",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#31",
+]
+
+[[module."bracketing.rs".function]]
+id = "fn:79e5c808c36cd49e"
+name = "iterate"
+qual = "BracketingSolver::iterate"
+lines = [
+    218,
+    230,
+]
+hash = "sha256:e90adc710b91afe650bfa16125b2e6335f89c142076217d3f9d635d3d5a77a75"
+doc_hash = "sha256:03b29b23259559c89671c60b89f9b0a1aba3c82932f0836e85a7c157512158d0"
+callees = [
+    "fn:3e66ad20d17649cd",
+    "fn:e3d281134eb9c425",
+    "fn:f9c926ea73274204",
+]
+reached_by = [
+    "#0",
+    "#13",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."bracketing.rs".function]]
+id = "fn:4fe88e72d0f94dfe"
+name = "eval"
+qual = "BracketingSolver::eval"
+lines = [
+    232,
+    240,
+]
+hash = "sha256:fde96539cacfe24ee01aa388b75190e882b49da30ff15a996c1a477019f2de64"
+doc_hash = "sha256:ac2228d2c3030a1665db1b79d671919f4a88ec7717d5b3ae2fd74028bae3608b"
+reached_by = [
+    "#0",
+    "#13",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."bracketing.rs".function]]
+id = "fn:3e66ad20d17649cd"
+name = "iterate_bisection"
+qual = "BracketingSolver::iterate_bisection"
+lines = [
+    242,
+    287,
+]
+hash = "sha256:2f81e04e6828a7c9c33663688e6a55d0df8c41894865e00c7e60c78c9cc722d8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4fe88e72d0f94dfe"]
+reached_by = [
+    "#0",
+    "#13",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."bracketing.rs".function]]
+id = "fn:f9c926ea73274204"
+name = "iterate_falsepos"
+qual = "BracketingSolver::iterate_falsepos"
+lines = [
+    289,
+    376,
+]
+hash = "sha256:9f88b5cc106104d76a7ef989a02f651fe09e8009022e701e5267c84408228927"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4fe88e72d0f94dfe"]
+reached_by = [
+    "#0",
+    "#13",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."bracketing.rs".function]]
+id = "fn:e3d281134eb9c425"
+name = "iterate_brent"
+qual = "BracketingSolver::iterate_brent"
+lines = [
+    378,
+    542,
+]
+hash = "sha256:b4e0a38cdaf379c6e823c8be66b29a82f761b9903122ef8850ec4c1f18252ee5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4fe88e72d0f94dfe"]
+reached_by = [
+    "#0",
+    "#13",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."bracketing.rs".function]]
+id = "fn:0f40f5777b66464b"
+name = "root"
+qual = "BracketingSolver::root"
+lines = [
+    544,
+    547,
+]
+hash = "sha256:2cd9f38614d1d59007b39d27301f7ac3bd6689564009cb4ef0d996a64db3d6c1"
+doc_hash = "sha256:093dbe834cd5b7f17d25c9d9f1cb51405414caddebdb036278fa8b0268b9a8bf"
+reached_by = [
+    "#13",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#25",
+    "#26",
+]
+
+[[module."bracketing.rs".function]]
+id = "fn:bc6479bd354a6eb7"
+name = "x_lower"
+qual = "BracketingSolver::x_lower"
+lines = [
+    549,
+    552,
+]
+hash = "sha256:881723cddb291985d20892b3f0dd5541fb4e8dbecaf39bd0e8774bc07ac2ec8e"
+doc_hash = "sha256:0d81f1267a00f64737af17aaaf5e87e625a5ac166974d40f15d4443bad4e4d6f"
+reached_by = [
+    "#13",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."bracketing.rs".function]]
+id = "fn:85f626443e245ad1"
+name = "x_upper"
+qual = "BracketingSolver::x_upper"
+lines = [
+    554,
+    557,
+]
+hash = "sha256:9f2e0bde17d7fc6893721a4348bc17f83b97d528c04d914bed915f33d3e9cf74"
+doc_hash = "sha256:f8ed5b824b86dba8ae132952c6d90a6fc66ed82f3f4d77cdb4f8aa7c5e65431c"
+reached_by = [
+    "#13",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."bracketing.rs".function]]
+id = "fn:d14337e8e110312c"
+name = "method"
+qual = "BracketingSolver::method"
+lines = [
+    559,
+    562,
+]
+hash = "sha256:022d85e056f128d78f978cf0bf8138fbfc615b95db610c7693e915e7312f983f"
+doc_hash = "sha256:6d2d01bcd996cdd32aa4285be50e20302404826835b2e56abdc32dba6b76f275"
+
+[[module."bracketing.rs".function]]
+id = "fn:039816773de5a27c"
+name = "solve"
+qual = "BracketingSolver::solve"
+lines = [
+    564,
+    595,
+]
+hash = "sha256:843d2459480c9e087d20b8d323b2057adeb68ba22ec53ea812560c33f8cedc9f"
+doc_hash = "sha256:cce76fd0aacdf33152ab6d149050e64aea5d7730a0fa852fb4823ee699d8a82b"
+callees = [
+    "fn:79e5c808c36cd49e",
+    "fn:7b2c7a382de62641",
+    "fn:b04446d66e6279ed",
+]
+reached_by = ["#0"]
+
+[module."convergence.rs"]
+path = "crate::roots::convergence"
+
+[[module."convergence.rs".function]]
+id = "fn:b04446d66e6279ed"
+name = "is_converged"
+qual = "Convergence::is_converged"
+lines = [
+    76,
+    79,
+]
+hash = "sha256:e6266af59871a0ff3be49bf40680aa99feebf8291737bcd7e40718bf7b4e09ef"
+doc_hash = "sha256:ae27de86a37972e12191fe932f08f5dfb082c234205d419822a94a97d8604a84"
+reached_by = [
+    "#0",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#23",
+    "#25",
+    "#29",
+]
+
+[[module."convergence.rs".function]]
+id = "fn:7b2c7a382de62641"
+name = "test_interval"
+qual = "test_interval"
+lines = [
+    82,
+    133,
+]
+hash = "sha256:c709b52ae7e01cb90ba2909ba2c5483103a941bb042c9de4c4f02f2cdd171355"
+doc_hash = "sha256:958fd67331ef5c92a3cac0f69ab1dfcd0210d04fbeff5a12f5b4c2408a6dce47"
+reached_by = [
+    "#0",
+    "#4",
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."convergence.rs".function]]
+id = "fn:1c630c4cd4dddd9a"
+name = "test_delta"
+qual = "test_delta"
+lines = [
+    135,
+    162,
+]
+hash = "sha256:cde03da8cf05f364f6380a949eab8f8664611fae2c8f782f83646f80d9b76364"
+doc_hash = "sha256:9e2914eec7afaa775301fd868a2e8541af805b3061d3342d5d55c99d7f230535"
+reached_by = [
+    "#2",
+    "#3",
+    "#22",
+    "#23",
+    "#25",
+    "#29",
+]
+
+[[module."convergence.rs".function]]
+id = "fn:d174c73f91f8e04a"
+name = "test_residual"
+qual = "test_residual"
+lines = [
+    164,
+    191,
+]
+hash = "sha256:37030f89ada56807d87b2655313dde21ec5fa81d5f7b311164c94ba791078b68"
+doc_hash = "sha256:c919971bd4867a8f344fecc1f741b852e893a25c30a90ae3ce5986016644ec88"
+reached_by = [
+    "#1",
+    "#7",
+]
+
+[[module."convergence.rs".function]]
+id = "fn:e72b2a93a1c09bfa"
+name = "interval_test_converges_when_narrow"
+qual = "interval_test_converges_when_narrow"
+lines = [
+    197,
+    207,
+]
+hash = "sha256:98750dde7df4a13510c4871ff0ce9d6835774553b5c9f7c598416cb0900c9d45"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7b2c7a382de62641"]
+test = true
+
+[[module."convergence.rs".function]]
+id = "fn:b8dcc9c710062bad"
+name = "relative_tolerance_is_dropped_when_the_interval_straddles_zero"
+qual = "relative_tolerance_is_dropped_when_the_interval_straddles_zero"
+lines = [
+    209,
+    229,
+]
+hash = "sha256:1e31ee34f721812fb79f1f014b0e7a278de434f6d448e8d7a282928e4336c6cd"
+doc_hash = "sha256:4fa79e65e896da3f555c41151872302a5fa79faefa43fa11971ec5925b93fa9e"
+callees = ["fn:7b2c7a382de62641"]
+test = true
+
+[[module."convergence.rs".function]]
+id = "fn:b7a4e09a3ab34583"
+name = "interval_test_rejects_bad_input"
+qual = "interval_test_rejects_bad_input"
+lines = [
+    231,
+    245,
+]
+hash = "sha256:a8246b812be6f6c09f44128db51bf8bf824b02e4acc7e0fbf06f3e26d9f3f528"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7b2c7a382de62641"]
+test = true
+
+[[module."convergence.rs".function]]
+id = "fn:ba2076323311ca4b"
+name = "delta_test_converges_on_a_stalled_iteration"
+qual = "delta_test_converges_on_a_stalled_iteration"
+lines = [
+    247,
+    259,
+]
+hash = "sha256:8906c82271b7de4e7c6bc2af69d07d9c8263d3f8cf433ec57703cc4d4cbca82b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:1c630c4cd4dddd9a"]
+test = true
+
+[[module."convergence.rs".function]]
+id = "fn:84e1b1fc1b287fb5"
+name = "delta_tolerance_scales_with_the_iterate"
+qual = "delta_tolerance_scales_with_the_iterate"
+lines = [
+    261,
+    273,
+]
+hash = "sha256:cef29558c1898be07967b8a683cd7bc60e7b06a1441fdc4fa8ebfbac791973c1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:1c630c4cd4dddd9a"]
+test = true
+
+[[module."convergence.rs".function]]
+id = "fn:2d66c31a71bef559"
+name = "residual_test_examines_only_the_function_value"
+qual = "residual_test_examines_only_the_function_value"
+lines = [
+    275,
+    284,
+]
+hash = "sha256:d6a6e265231d5e7fd23bbfcc0243c3b7ee2ffe6456bfecb1c64031963adf3b7b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d174c73f91f8e04a"]
+test = true
+
+[[module."convergence.rs".function]]
+id = "fn:17439083dc25ad5e"
+name = "a_small_residual_can_coexist_with_an_inaccurate_root"
+qual = "a_small_residual_can_coexist_with_an_inaccurate_root"
+lines = [
+    286,
+    296,
+]
+hash = "sha256:d9dc086964576b5fd5cf49b19bebcdc709ea27de95f883bbb091d49ce755981c"
+doc_hash = "sha256:3b85b023af96251f6919626daf6391f73f649ecc0c3f52fff12702b90bd2dc1a"
+callees = ["fn:d174c73f91f8e04a"]
+test = true
+
+[module."mod.rs"]
+path = "crate::roots"
+
+[module."polishing.rs"]
+path = "crate::roots::polishing"
+
+[[module."polishing.rs".function]]
+id = "fn:1699661c9fa3259d"
+name = "new"
+qual = "PolishingSolver::new"
+lines = [
+    170,
+    202,
+]
+hash = "sha256:c9054e496084e56982a2252e174fdf230adae6a8cb8446200ef2ed29456a5b32"
+doc_hash = "sha256:f98779da8031b5ae66a21139846e959b627e65614867664ba2b634fa52996b4c"
+reached_by = [
+    "#14",
+    "#17",
+    "#22",
+    "#23",
+    "#25",
+    "#28",
+    "#29",
+    "#30",
+]
+
+[[module."polishing.rs".function]]
+id = "fn:6e1127129062cac2"
+name = "iterate"
+qual = "PolishingSolver::iterate"
+lines = [
+    204,
+    218,
+]
+hash = "sha256:2d200a123d8c5059f65f29c7d2fe94115fcd1a129506c05b4fdedbdf9066674b"
+doc_hash = "sha256:b2f0fb627fb95b934a8bddd60417d864504689e1dbd5611c11dad1fe8e5ad4ba"
+callees = [
+    "fn:af8dff824f647e87",
+    "fn:bc04aada3cc355e5",
+    "fn:d791016d4a17b395",
+]
+reached_by = [
+    "#14",
+    "#17",
+    "#22",
+    "#23",
+    "#25",
+    "#28",
+    "#29",
+    "#30",
+]
+
+[[module."polishing.rs".function]]
+id = "fn:af8dff824f647e87"
+name = "iterate_newton"
+qual = "PolishingSolver::iterate_newton"
+lines = [
+    220,
+    238,
+]
+hash = "sha256:97c670020682f6d084bd2f11d61b72552d3ad93863afeab95227b9222b29c9b3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#14",
+    "#17",
+    "#22",
+    "#23",
+    "#25",
+    "#28",
+    "#29",
+    "#30",
+]
+
+[[module."polishing.rs".function]]
+id = "fn:d791016d4a17b395"
+name = "iterate_secant"
+qual = "PolishingSolver::iterate_secant"
+lines = [
+    240,
+    269,
+]
+hash = "sha256:24f2f387a7a07a00f5f01018953163e062cf70bf937068d626d4ab331d8a4562"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#14",
+    "#17",
+    "#22",
+    "#23",
+    "#25",
+    "#28",
+    "#29",
+    "#30",
+]
+
+[[module."polishing.rs".function]]
+id = "fn:bc04aada3cc355e5"
+name = "iterate_steffenson"
+qual = "PolishingSolver::iterate_steffenson"
+lines = [
+    271,
+    311,
+]
+hash = "sha256:6a2c9151bd7fac786316427fe1b264226ca655616a4acfc4474385bd96ec6e7e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#14",
+    "#17",
+    "#22",
+    "#23",
+    "#25",
+    "#28",
+    "#29",
+    "#30",
+]
+
+[[module."polishing.rs".function]]
+id = "fn:79366229d71d63bf"
+name = "root"
+qual = "PolishingSolver::root"
+lines = [
+    313,
+    316,
+]
+hash = "sha256:2cd9f38614d1d59007b39d27301f7ac3bd6689564009cb4ef0d996a64db3d6c1"
+doc_hash = "sha256:093dbe834cd5b7f17d25c9d9f1cb51405414caddebdb036278fa8b0268b9a8bf"
+reached_by = [
+    "#14",
+    "#22",
+    "#28",
+    "#29",
+    "#30",
+]
+
+[[module."polishing.rs".function]]
+id = "fn:20caa92b998bd84a"
+name = "f_value"
+qual = "PolishingSolver::f_value"
+lines = [
+    318,
+    321,
+]
+hash = "sha256:cb7a24ef4472cfebad2da0f257644c07ded5a1e95e2dbd96638abaf632da4a56"
+doc_hash = "sha256:98ac4b20803d5b7542a37ad865c808a0ed82d1bbee959a036faa5bf065427d0b"
+
+[[module."polishing.rs".function]]
+id = "fn:e6ef4d64898b2438"
+name = "method"
+qual = "PolishingSolver::method"
+lines = [
+    323,
+    326,
+]
+hash = "sha256:70f31d4b7fe6be8984e4a78fa1cfa4f205335a84e1896600e9fd67bf770f5876"
+doc_hash = "sha256:6d2d01bcd996cdd32aa4285be50e20302404826835b2e56abdc32dba6b76f275"
+
+[[module."polishing.rs".function]]
+id = "fn:ee27110dda28e40b"
+name = "solve"
+qual = "PolishingSolver::solve"
+lines = [
+    328,
+    348,
+]
+hash = "sha256:2bd589cfa3f28604b96edb9706f1e3d25c06332a98916fa040e26a862a1c307e"
+doc_hash = "sha256:5b7fb4ef3c178e87b3c8167b63a25e507326cad68f510a0e273f2191a5b15c0b"
+callees = [
+    "fn:1c630c4cd4dddd9a",
+    "fn:6e1127129062cac2",
+    "fn:b04446d66e6279ed",
+]
+reached_by = [
+    "#23",
+    "#25",
+    "#29",
+]

@@ -1,0 +1,354 @@
+schema_version = 1
+kind = "code_folder"
+crate = "njoy-outram-park-fork"
+dir = "crates/njoy-outram-park-fork/src/errorr/groups"
+test_ids = [
+    "crates/njoy-outram-park-fork/src/errorr/groups/mod.rs::all_ign_ascending",
+    "crates/njoy-outram-park-fork/src/errorr/groups/mod.rs::all_ign_group_counts",
+    "crates/njoy-outram-park-fork/src/errorr/groups/mod.rs::arbitrary_ign1_not_ported",
+    "crates/njoy-outram-park-fork/src/errorr/groups/mod.rs::csewg239_ign2_lethargy",
+    "crates/njoy-outram-park-fork/src/errorr/groups/mod.rs::ecco1968_ign20",
+    "crates/njoy-outram-park-fork/src/errorr/groups/mod.rs::enum_matches_ign",
+    "crates/njoy-outram-park-fork/src/errorr/groups/mod.rs::illegal_ign_errors",
+    "crates/njoy-outram-park-fork/src/errorr/groups/mod.rs::lanl30_ign3",
+    "crates/njoy-outram-park-fork/src/errorr/groups/mod.rs::lanl70_ign11",
+    "crates/njoy-outram-park-fork/src/errorr/groups/mod.rs::xmas172_ign18",
+    "crates/njoy-outram-park-fork/src/groupr/input.rs::ign_adapter_matches_errorr",
+    "crates/njoy-outram-park-fork/src/groupr/input.rs::parse_representative_deck",
+    "crates/njoy-outram-park-fork/src/groupr/mod.rs::neutron_and_photon_surfaces_resolve",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_be9",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_c12",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_f19",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_h2_absolute",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_h2_relative",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_li6",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_si30",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_u234",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_u238",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_ar37_golden.rs::listing_resolved_and_unresolved_diagonals",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_ar37_golden.rs::original_tape_reproduces_the_variant_oracle",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_ar37_golden.rs::tier1_variant_tape_matches_njoy_tape23",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_ar37_golden.rs::tier2_crate_pendf_reported",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_cl35_rml_golden.rs::tier1_matches_njoy_tape23",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_cl35_rml_golden.rs::tier2_crate_pendf_reported",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_j33u238_lrf3_golden.rs::tier1_env_gated_matches_njoy_tape23",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_j33u238_lrf3_golden.rs::tier2_crate_pendf_and_listing",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::output_tape_round_trips_like_njoy_layout",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_be9",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_c12",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_f19",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_h2_iwt3_absolute",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_h2_iwt6_relative",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_li6",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_si30",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_u234_env_gated",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_u238_lumped_env_gated",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier2_be9_crate_reconr_broadr",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier2_h2_crate_reconr_broadr",
+]
+
+[module."mod.rs"]
+path = "crate::errorr::groups"
+
+[[module."mod.rs".function]]
+id = "fn:405a05da7228b6d4"
+name = "neutron_group_structure"
+qual = "neutron_group_structure"
+lines = [
+    96,
+    410,
+]
+hash = "sha256:9d68933680f454388e773a29d093281a97aaa7eb156598c7f376ed17a7f6edd1"
+doc_hash = "sha256:21621959ab31dd7f0be2f6d13fea30f17c0b0208f70a0b88c504ace477f110af"
+callees = ["fn:f8fefaace4b723c7"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f8fefaace4b723c7"
+name = "sigfig"
+qual = "sigfig"
+lines = [
+    412,
+    441,
+]
+hash = "sha256:e60c4d5356a8f56b66ccd1e7dcb884bbb56e739801105a884d3930d21041c4fb"
+doc_hash = "sha256:e75d37e6ce48c8d3d07f9249ec135d35410f14b5a7b65d2e1875f325f97297cc"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+]
+
+[[module."mod.rs".function]]
+id = "fn:37848bfa930c70b2"
+name = "ign"
+qual = "NeutronGroupStructure::ign"
+lines = [
+    527,
+    567,
+]
+hash = "sha256:7084e8e0a96152847566228f25cfb9c5b205af4067810f70fb9753c3b7447b8f"
+doc_hash = "sha256:ea91f4892fff30a54702b73860428a44d3fc0246f66fb22af79e390676f74c60"
+reached_by = [
+    "#5",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:aa73e48ba52cf401"
+name = "boundaries"
+qual = "NeutronGroupStructure::boundaries"
+lines = [
+    569,
+    575,
+]
+hash = "sha256:24feb87f505cda97dd45a085fb5317d48834e78063b1d87c52df99e4263e394c"
+doc_hash = "sha256:b9fd4ba7cc5abb1b3358723882866321a0dbc483befc70eb898cd8f505dae207"
+callees = [
+    "fn:37848bfa930c70b2",
+    "fn:405a05da7228b6d4",
+]
+reached_by = ["#5"]
+
+[[module."mod.rs".function]]
+id = "fn:3980fb0481733561"
+name = "close"
+qual = "close"
+lines = [
+    585,
+    588,
+]
+hash = "sha256:cd778e287b7bd60eb5e3f898017c9982d8b1ce726ec21676aa50fdef033ac6c6"
+doc_hash = "sha256:b27ab3b38d51e505f5fe076a6b25befa68a1444ce2b5b4823208a74f6f1fccfa"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:152f7bb1d9c7e475"
+name = "lanl30_ign3"
+qual = "lanl30_ign3"
+lines = [
+    590,
+    604,
+]
+hash = "sha256:8dc5add258141205001ff0342a2418f243e301c0ee76d38cc8fcce3a6bb95126"
+doc_hash = "sha256:3b82df3d33b3af3de2b5f9f3a9718f9c584dd51d97de65328fc0d237c5143c81"
+callees = [
+    "fn:3980fb0481733561",
+    "fn:405a05da7228b6d4",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:fff36366d3fa82c8"
+name = "lanl70_ign11"
+qual = "lanl70_ign11"
+lines = [
+    606,
+    618,
+]
+hash = "sha256:79e86bd5a13a2e7c2c0bd889014d7a705aae7b40721d63b41642c7cbc6469c30"
+doc_hash = "sha256:d43778ae4d19c2511b9de3b3dfa42663e2b7804d436755a5812981cc5d58a65a"
+callees = [
+    "fn:3980fb0481733561",
+    "fn:405a05da7228b6d4",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:994933e66309408e"
+name = "xmas172_ign18"
+qual = "xmas172_ign18"
+lines = [
+    620,
+    634,
+]
+hash = "sha256:dc2c44b6804db93259af60e4119449d1cbd508941c8d82e8d5bde57b47786aa4"
+doc_hash = "sha256:e9ca684bfdc85e8f76b3e9bdf014867e54245826ed659577c59b08555f0f7a71"
+callees = [
+    "fn:3980fb0481733561",
+    "fn:405a05da7228b6d4",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:dce9a7077902509a"
+name = "ecco1968_ign20"
+qual = "ecco1968_ign20"
+lines = [
+    636,
+    649,
+]
+hash = "sha256:567b662a020015457642c4d0f4838324ca120b190747dae33acd97c42e18b114"
+doc_hash = "sha256:bc33c981dc6c79292a210320cf8a1c2e88e5dd17a136f24c1c10b28088ecd092"
+callees = [
+    "fn:3980fb0481733561",
+    "fn:405a05da7228b6d4",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:cf468ec6dc72c751"
+name = "csewg239_ign2_lethargy"
+qual = "csewg239_ign2_lethargy"
+lines = [
+    651,
+    667,
+]
+hash = "sha256:eb084ff37c5a1c882d4dcc18ad46dd54dabfd7f6deafe7bf7a04c339f3ee2f4f"
+doc_hash = "sha256:463bdcfbe98c9b47df7d0f7029069d6ea894aebb744f07fccd79232c354e8d68"
+callees = [
+    "fn:3980fb0481733561",
+    "fn:405a05da7228b6d4",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:054d06523bfb37f6"
+name = "all_ign_group_counts"
+qual = "all_ign_group_counts"
+lines = [
+    669,
+    722,
+]
+hash = "sha256:23491b99fc4e02fa77139c4e30dc44f9e9bcadfa808d97d960fc038eeb5f3228"
+doc_hash = "sha256:9efbc990f437fc68908ae0768af4d765c03917d9e9611bfeff385a04f6427adc"
+callees = ["fn:405a05da7228b6d4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:425da1bbaa688591"
+name = "all_ign_ascending"
+qual = "all_ign_ascending"
+lines = [
+    724,
+    738,
+]
+hash = "sha256:695483660d8488f60e992fb47620dd01a643f59d93c2dbbe7d20e90610dc48e6"
+doc_hash = "sha256:e2317ea0a77b1ccded56331adedad44b678a31730a7c2a80e1d804dc63abb06f"
+callees = ["fn:405a05da7228b6d4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:472a57c18a166755"
+name = "arbitrary_ign1_not_ported"
+qual = "arbitrary_ign1_not_ported"
+lines = [
+    740,
+    755,
+]
+hash = "sha256:b0234266eacfe011b70d7184c5dcc7c8596e2dc11ba2b606dd778a5541e98e2c"
+doc_hash = "sha256:d885fcfa3a6ba9c1410fbca30fe758012327d8c5cea2634c55ef300820d1bbc6"
+callees = ["fn:405a05da7228b6d4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:e6e64d53b3256769"
+name = "illegal_ign_errors"
+qual = "illegal_ign_errors"
+lines = [
+    757,
+    762,
+]
+hash = "sha256:eafeb4380e80d3fc5279b34bbcba1d97cb2abe48cb1eebb2a380d1a507334f76"
+doc_hash = "sha256:c3abb252cc77f603a180b80c8511092de3859efea1609429e22491a698f0c440"
+callees = ["fn:405a05da7228b6d4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:0bc9a507b537f364"
+name = "enum_matches_ign"
+qual = "enum_matches_ign"
+lines = [
+    764,
+    772,
+]
+hash = "sha256:97793b8164fdbc3d8149dd8bd77e00e36a450d560078545e4e5116e880747c5f"
+doc_hash = "sha256:3d01bf6060a23e9bee219dd3c612892109874bbe282f77d8a17104cf49265d8e"
+callees = [
+    "fn:37848bfa930c70b2",
+    "fn:405a05da7228b6d4",
+    "fn:aa73e48ba52cf401",
+]
+test = true
+
+[module."tables.rs"]
+path = "crate::errorr::groups::tables"

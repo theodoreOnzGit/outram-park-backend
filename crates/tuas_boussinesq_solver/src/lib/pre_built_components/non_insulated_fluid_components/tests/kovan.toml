@@ -1,0 +1,150 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests"
+
+[module."heated_section_only.rs"]
+path = "crate::pre_built_components::non_insulated_fluid_components::tests::heated_section_only"
+
+[[module."heated_section_only.rs".function]]
+id = "fn:bdb610145dc15975"
+name = "heated_section_test_v2_3kw"
+qual = "heated_section_test_v2_3kw"
+lines = [
+    8,
+    180,
+]
+hash = "sha256:8246b165b85d7709fc5484425233af18e700da2ba6dca85da27b798a285e25ce"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2d0477b1a1450172",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:7b35b02aac31fecd",
+    "fn:86b7775079c503a5",
+    "fn:8ad5b5fe6a9956a0",
+    "fn:be40085a8ed290cd",
+    "fn:eb89be045205dc88",
+    "fn:f64ef88acd3047e2",
+]
+test = true
+
+[[module."heated_section_only.rs".function]]
+id = "fn:ebfa39dddf904f05"
+name = "heated_section_test_v2_4kw"
+qual = "heated_section_test_v2_4kw"
+lines = [
+    182,
+    354,
+]
+hash = "sha256:6fce8d12895e67f2e3a081c5642c920cdcedfa9a9b1c338b30269e9453b388fa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2d0477b1a1450172",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:7b35b02aac31fecd",
+    "fn:86b7775079c503a5",
+    "fn:8ad5b5fe6a9956a0",
+    "fn:be40085a8ed290cd",
+    "fn:eb89be045205dc88",
+    "fn:f64ef88acd3047e2",
+]
+test = true
+
+[[module."heated_section_only.rs".function]]
+id = "fn:d0986d7751159475"
+name = "heated_section_test_v2_6kw"
+qual = "heated_section_test_v2_6kw"
+lines = [
+    356,
+    528,
+]
+hash = "sha256:16d29715a1586ce5748fdaa3b38c8907db70075e474df71facfc4c2f2afa652d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2d0477b1a1450172",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:7b35b02aac31fecd",
+    "fn:86b7775079c503a5",
+    "fn:8ad5b5fe6a9956a0",
+    "fn:be40085a8ed290cd",
+    "fn:eb89be045205dc88",
+    "fn:f64ef88acd3047e2",
+]
+test = true
+
+[[module."heated_section_only.rs".function]]
+id = "fn:301220b9e70b8d15"
+name = "heated_section_test_v2_8kw"
+qual = "heated_section_test_v2_8kw"
+lines = [
+    530,
+    702,
+]
+hash = "sha256:438f1681b652dab96c2fd82c61adc30bfb0c9175ce4f71bd381b6cbbb1d8d176"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2d0477b1a1450172",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:7b35b02aac31fecd",
+    "fn:86b7775079c503a5",
+    "fn:8ad5b5fe6a9956a0",
+    "fn:be40085a8ed290cd",
+    "fn:eb89be045205dc88",
+    "fn:f64ef88acd3047e2",
+]
+test = true
+
+[[module."heated_section_only.rs".function]]
+id = "fn:f77a59b542d08b03"
+name = "heated_section_test_v2_10kw"
+qual = "heated_section_test_v2_10kw"
+lines = [
+    703,
+    875,
+]
+hash = "sha256:e8f10d96732e73bd1e3dbe953d960407cbca6f0093acd95575b3373b16100952"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2d0477b1a1450172",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:7b35b02aac31fecd",
+    "fn:86b7775079c503a5",
+    "fn:8ad5b5fe6a9956a0",
+    "fn:be40085a8ed290cd",
+    "fn:eb89be045205dc88",
+    "fn:f64ef88acd3047e2",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::non_insulated_fluid_components::tests"

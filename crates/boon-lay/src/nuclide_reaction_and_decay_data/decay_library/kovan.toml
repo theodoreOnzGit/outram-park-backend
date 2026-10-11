@@ -1,0 +1,216 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library"
+test_ids = [
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::decay_changes_nuclide_to_higher_z_daughter",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::irradiation_transmutes_a_stable_target",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::no_field_leaves_a_stable_nuclide_unchanged",
+    "crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/tests.rs::decay_chain_th232",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_ba137m",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_c14",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_co60",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_cs137",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_h3",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_i131",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_k40",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_kr85",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_na22",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_po210",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_pu239",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_ra226",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_rn222",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_sr90",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_test_tritium",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_th232",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_u235",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_u238",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_xe135",
+    "crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/tests.rs::index_tritium",
+    "crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/tests.rs::test_decay_chain",
+    "crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/tests.rs::test_rng",
+    "crates/buangkok/tests/liu_cao_external_dose_cross_check.rs::the_ba137m_branching_agrees_with_the_decay_library",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::failure_history_is_monotone_and_starts_at_end_of_irradiation",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::layers_match_the_recorded_table_and_skip_the_todo",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_carries_every_modelled_nuclide",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_flows_balance_and_follow_upstream_routing",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_pools_reach_equilibrium_and_rise_with_temperature",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::the_slice_is_the_assembled_geometry",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::walk_and_its_check",
+]
+
+[module."get_random_number.rs"]
+path = "crate::nuclide_reaction_and_decay_data::decay_library::get_random_number"
+
+[[module."get_random_number.rs".function]]
+id = "fn:1bbce34bc990f028"
+name = "get_random_number_and_rng"
+qual = "DecayLibrary::get_random_number_and_rng"
+lines = [
+    6,
+    12,
+]
+hash = "sha256:32b088831c7eb20ddc21d80bcdd1fdb73a77ae31402d3f2d04ee61d9b9ac7389"
+doc_hash = "sha256:dae29716b2187e68fe62b582165dba3524455b79161b3786cd899a0aab2c083d"
+callees = ["fn:390c172a67546051"]
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#24",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[module."indexing_using_nuclide.rs"]
+path = "crate::nuclide_reaction_and_decay_data::decay_library::indexing_using_nuclide"
+
+[[module."indexing_using_nuclide.rs".function]]
+id = "fn:094c1bcb03a9b17f"
+name = "try_match_nuclides_to_decay_data"
+qual = "DecayLibrary::try_match_nuclides_to_decay_data"
+lines = [
+    8,
+    162,
+]
+hash = "sha256:6d4aa0134301c34e39a74bf37fc1e97433aacbde78a816c72eb20b530d49e6aa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[module."mod.rs"]
+path = "crate::nuclide_reaction_and_decay_data::decay_library"
+
+[[module."mod.rs".function]]
+id = "fn:f5fc6e6d09e9c35b"
+name = "new"
+qual = "DecayLibrary::new"
+lines = [
+    132,
+    595,
+]
+hash = "sha256:8444bac8b6f0c5d91e19b39fbf0e53d0c62e715e76da77850aeae5657ae7809f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:841bfe59a1c43d51",
+    "fn:c756d761a0c16d8d",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[module."tests.rs"]
+path = "crate::nuclide_reaction_and_decay_data::decay_library::tests"
+
+[[module."tests.rs".function]]
+id = "fn:13658084c79a513b"
+name = "index_tritium"
+qual = "index_tritium"
+lines = [
+    6,
+    44,
+]
+hash = "sha256:9894d140ef12edb236e0564931699b268aa4c01bf8cd878e5e2ca3a85cdbb12c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:094c1bcb03a9b17f",
+    "fn:f5fc6e6d09e9c35b",
+]
+test = true

@@ -1,0 +1,1338 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/animation"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::restarting_starts_a_fresh_run_and_abandons_the_old_one",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::the_map_reset_button_restarts_the_plant_and_keeps_the_map_view",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/schematic.rs::each_tracer_train_advances_with_its_own_runs_transit_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::no_corner_of_the_command_envelope_crosses_or_clamps",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_plant_outer_correctors_converge",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_snapshot_publishes_each_runs_own_transit_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_conserves_energy_from_fission_to_the_steam_generator",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_steps_at_the_gui_timestep",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::each_drawn_run_has_its_own_transit_time_from_its_own_volume",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::the_return_leg_residence_time_scales_with_flow_and_carries_the_circulator_work",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/tede_accumulator.rs::the_plant_publishes_a_deterministic_integral",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::submitted_controls_survive_the_round_trip",
+    "crates/outram-park-digital-twin-engine/src/animation/control_rod_drive.rs::a_commanded_change_slews_rather_than_teleporting",
+    "crates/outram-park-digital-twin-engine/src/animation/control_rod_drive.rs::a_full_stroke_takes_the_published_travel_time",
+    "crates/outram-park-digital-twin-engine/src/animation/control_rod_drive.rs::degenerate_inputs_freeze_the_rod_instead_of_corrupting_it",
+    "crates/outram-park-digital-twin-engine/src/animation/control_rod_drive.rs::the_illustrative_rate_matches_its_stated_arithmetic",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::a_launched_pebble_crosses_in_one_transit_time_then_leaves",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::a_stopped_drive_parks_the_pebble_instead_of_moving_it",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::count_is_clamped_to_at_least_one",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::doubling_flow_doubles_tracer_speed",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::kinematic_and_inventory_residence_times_agree",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::mark_crosses_path_in_exactly_one_residence_time",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::marks_stay_evenly_spaced_and_in_range",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::pebble_handling_counts_a_transit_only_when_it_completes",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::pebble_speed_ignores_flow_magnitude",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::pulse_crosses_in_one_residence_time_then_waits",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::residence_time_is_infinite_at_zero_flow_or_negative_inventory",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::residence_time_matches_analytical_identity",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::reverse_flow_runs_backwards_and_wraps",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::reversed_pulse_runs_from_outlet_to_inlet",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::reversed_velocity_has_the_same_residence_time",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::stagnant_cases_freeze_the_train",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::stagnant_pulse_shows_no_mark",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::traits_compose_over_a_tracer_train",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::zero_flow_parks_and_reversed_flow_returns_pebbles",
+    "crates/outram-park-digital-twin-engine/src/animation/mod.rs::zero_velocity_gives_infinite_residence_time",
+    "crates/outram-park-digital-twin-engine/src/components/control_rod_drive.rs::separate_ids_keep_separate_drives",
+    "crates/outram-park-digital-twin-engine/src/components/control_rod_drive.rs::the_drive_persists_across_repaints_and_does_not_teleport",
+    "crates/outram-park-digital-twin-engine/src/components/htr10_reactor_schematic.rs::the_illustrative_drives_actually_move_a_pebble",
+    "crates/outram-park-digital-twin-engine/src/components/htr10_reactor_schematic.rs::the_parked_pebble_handling_advances_once_per_frame",
+    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::with_tracer_attaches_an_application_owned_train",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::non_positive_timestep_is_rejected",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::residence_time_is_length_over_velocity",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stagnant_run_places_no_mark",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stepping_advances_the_backend",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::tracer_phase_persists_across_steps",
+]
+
+[module."control_rod_drive.rs"]
+path = "crate::animation::control_rod_drive"
+
+[[module."control_rod_drive.rs".function]]
+id = "fn:4b46d763dbca0fbb"
+name = "htr10_illustrative_rod_drive_speed"
+qual = "htr10_illustrative_rod_drive_speed"
+lines = [
+    75,
+    97,
+]
+hash = "sha256:4b828b4f66f368a49153fdafbc6ea902027506e49fa906537698926977394451"
+doc_hash = "sha256:714761fa0a5e1da0c11484d5315b321b66a78596cc37653ccd94ca5dd760ee18"
+reached_by = [
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#36",
+    "#37",
+]
+physical_interface = true
+
+[[module."control_rod_drive.rs".function]]
+id = "fn:e1a30671e7c87d14"
+name = "new"
+qual = "ControlRodDrive::new"
+lines = [
+    123,
+    137,
+]
+hash = "sha256:d914a1cf2d621cb6644550c8b44f02c3c461396110b777b3ddb86736e31f9c79"
+doc_hash = "sha256:cf58581838f74858c2099d86158f28d61985c69a956a008ea0f877fc8bbc7996"
+reached_by = [
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#36",
+    "#37",
+]
+physical_interface = true
+
+[[module."control_rod_drive.rs".function]]
+id = "fn:b952f2736833984f"
+name = "htr10"
+qual = "ControlRodDrive::htr10"
+lines = [
+    139,
+    151,
+]
+hash = "sha256:7f88bb915033de920d155c6ffe668d8d55fcc4c94c30799c63aa3b137996b450"
+doc_hash = "sha256:a8d8cf7dd877c630b62b73d8d79bc77acc077105905083d65e45c24e00c4f379"
+callees = [
+    "fn:4b46d763dbca0fbb",
+    "fn:e1a30671e7c87d14",
+]
+reached_by = [
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#36",
+    "#37",
+]
+
+[[module."control_rod_drive.rs".function]]
+id = "fn:3786398d053274f7"
+name = "insertion_fraction"
+qual = "ControlRodDrive::insertion_fraction"
+lines = [
+    153,
+    160,
+]
+hash = "sha256:622d0f9b21f85771c391372c87244322554fefb56aa6fb8e175fa39b4f1e2462"
+doc_hash = "sha256:d68bb7b2cb21f8e820ef2ea3c2f211f5056b22b933d5067fd65b65155bf6b4d0"
+reached_by = [
+    "#12",
+    "#13",
+    "#14",
+    "#36",
+    "#37",
+]
+
+[[module."control_rod_drive.rs".function]]
+id = "fn:bae7498bd1378287"
+name = "motion"
+qual = "ControlRodDrive::motion"
+lines = [
+    162,
+    166,
+]
+hash = "sha256:29cd2fa4ee185e99b4747e3575b134ae930da9158952dfaf8c75f25e1a7cf082"
+doc_hash = "sha256:b6a9cbf7f24f0e396916faf55b8041157fad5fbe9665a42ad7574cc919cbe81b"
+reached_by = [
+    "#12",
+    "#13",
+    "#14",
+    "#36",
+    "#37",
+]
+
+[[module."control_rod_drive.rs".function]]
+id = "fn:c1316393c64fc9e1"
+name = "advance"
+qual = "ControlRodDrive::advance"
+lines = [
+    168,
+    207,
+]
+hash = "sha256:c146df4ff3b0c5ea662f55eb36fe98ae2baaa759301a45b9cb4f5c90635eaba2"
+doc_hash = "sha256:bb52026797ff8afa7ddd6089cb20d6d94f510abde79e01f47e3fa36f087af0ac"
+callees = ["fn:7ac9e3cb22f49ed0"]
+reached_by = [
+    "#12",
+    "#13",
+    "#14",
+    "#36",
+    "#37",
+]
+physical_interface = true
+
+[[module."control_rod_drive.rs".function]]
+id = "fn:7c31422faf2e82aa"
+name = "snap_to"
+qual = "ControlRodDrive::snap_to"
+lines = [
+    209,
+    217,
+]
+hash = "sha256:5cf59f1528f1655e5798c0d5581bde2ea51c22054f0edde5dfae96d3ba292e92"
+doc_hash = "sha256:80154375e5123ef0c3b3f89d8e06234271e1fae416c60565bcd991634ba245dd"
+
+[[module."control_rod_drive.rs".function]]
+id = "fn:7ac9e3cb22f49ed0"
+name = "fraction_per_second"
+qual = "ControlRodDrive::fraction_per_second"
+lines = [
+    219,
+    233,
+]
+hash = "sha256:9b89d2d0f43bb04b9202311349b8d5350bff360bf7d5796446c26a5830ea4118"
+doc_hash = "sha256:6e182a1a7a1fbf50991f9900d248da8162bc30b1068a2856fe813b387be49b17"
+reached_by = [
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#36",
+    "#37",
+]
+
+[[module."control_rod_drive.rs".function]]
+id = "fn:efb399b890388aa2"
+name = "a_full_stroke_takes_the_published_travel_time"
+qual = "a_full_stroke_takes_the_published_travel_time"
+lines = [
+    240,
+    280,
+]
+hash = "sha256:31716f8ae2378376c8c3b0ba3e4eeb52f964157ac5f6eb3bbdf42a0c4a5f0a3e"
+doc_hash = "sha256:b873f28fa0278187d4506f3dafe583aba3a2eb926aef245d3ae1414d911e05df"
+callees = [
+    "fn:3786398d053274f7",
+    "fn:b952f2736833984f",
+    "fn:bae7498bd1378287",
+    "fn:c1316393c64fc9e1",
+]
+test = true
+
+[[module."control_rod_drive.rs".function]]
+id = "fn:bad8c7690214e473"
+name = "a_commanded_change_slews_rather_than_teleporting"
+qual = "a_commanded_change_slews_rather_than_teleporting"
+lines = [
+    282,
+    324,
+]
+hash = "sha256:1895f4f87126e303973917bb88201fbb0d36cf6636a4d5ce22592f3d93bc34cc"
+doc_hash = "sha256:e972e4dabe00021688aff7f680bd7a75ac88ed9fa8e2dfacf62d0883e468e141"
+callees = [
+    "fn:3786398d053274f7",
+    "fn:b952f2736833984f",
+    "fn:bae7498bd1378287",
+    "fn:c1316393c64fc9e1",
+]
+test = true
+
+[[module."control_rod_drive.rs".function]]
+id = "fn:ec9b5e41c73dd6fe"
+name = "degenerate_inputs_freeze_the_rod_instead_of_corrupting_it"
+qual = "degenerate_inputs_freeze_the_rod_instead_of_corrupting_it"
+lines = [
+    326,
+    357,
+]
+hash = "sha256:27141a532def08012580f86cd9d3580a709155e90777dc15831d5d908fcef300"
+doc_hash = "sha256:dc0783f49fa73f0a74eb728915b5149876e37954a293a3e3dce55c456fd101c1"
+callees = [
+    "fn:3786398d053274f7",
+    "fn:4b46d763dbca0fbb",
+    "fn:7ac9e3cb22f49ed0",
+    "fn:b952f2736833984f",
+    "fn:bae7498bd1378287",
+    "fn:c1316393c64fc9e1",
+    "fn:e1a30671e7c87d14",
+]
+test = true
+
+[[module."control_rod_drive.rs".function]]
+id = "fn:8686904690764ce2"
+name = "the_illustrative_rate_matches_its_stated_arithmetic"
+qual = "the_illustrative_rate_matches_its_stated_arithmetic"
+lines = [
+    359,
+    379,
+]
+hash = "sha256:22cd2229a21f4d6d3adcdb76af9893a88373475a24d048e2aa86f6b515174034"
+doc_hash = "sha256:e7b28cb6697319dc91fddfefb844ec2575197d7fd13cd9b733ecedd1466c9d27"
+callees = [
+    "fn:4b46d763dbca0fbb",
+    "fn:7ac9e3cb22f49ed0",
+    "fn:b952f2736833984f",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::animation"
+
+[[module."mod.rs".function]]
+id = "fn:8ec60bfd48f4fc14"
+name = "mass_flow"
+qual = "FlowTracer::mass_flow"
+lines = [
+    90,
+    93,
+]
+hash = "sha256:4565e7d68f28f3c8ced597665696878eb5930d4ad75cbc262216e09d5b955667"
+doc_hash = "sha256:f6eb859b8503477e501368f933e4aa0ff7cbc82f53b8e90dec2dc627ddd76aed"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:40a7df40c0c6bddb"
+name = "tracer_position"
+qual = "FlowTracer::tracer_position"
+lines = [
+    95,
+    97,
+]
+hash = "sha256:6838e0393ffd68a9baf09a9171412249724bfbf2dd6c734466a28cb0cb21fef3"
+doc_hash = "sha256:882745d3be762c9844aef1823b7ef8ff4878142e175fc09f7be2bbe62ebad688"
+
+[[module."mod.rs".function]]
+id = "fn:1bb24994710bb936"
+name = "advance"
+qual = "FlowTracer::advance"
+lines = [
+    99,
+    102,
+]
+hash = "sha256:12fb13222f1857f697879bf63600cfd221130bdca44a2954c9fb1cd716401c80"
+doc_hash = "sha256:496417e443376a41a20cc64d92acd1caaf4dfdf9c0c400692b0491a7bd4ed961"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:f5eb0ae14c8f6e88"
+name = "residence_time"
+qual = "TravelTime::residence_time"
+lines = [
+    109,
+    111,
+]
+hash = "sha256:a7b446b3d02eeac200d652a7a9b7fc9968c306c5292e58d9f9b0ae714c7c681e"
+doc_hash = "sha256:f47ebad96bb6babd320808d2dfa10d6998ef1a5d3ae012c3d621b04252f45c44"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:3312a044f6ed3560"
+name = "residence_time_from_flow"
+qual = "residence_time_from_flow"
+lines = [
+    114,
+    151,
+]
+hash = "sha256:b2748f16f71cb9713a5adf9c87bd23aeb3a0a9aeb1302fee407b9fdf33b58b4d"
+doc_hash = "sha256:8f20e6d4fa14a87510e94e8b1a98670d22d9c4ab7bb35f1abfd84ec528df3453"
+callees = ["fn:e180f58dfbdecd30"]
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#19",
+    "#20",
+    "#26",
+    "#27",
+    "#33",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:e180f58dfbdecd30"
+name = "infinite_residence_time"
+qual = "infinite_residence_time"
+lines = [
+    153,
+    162,
+]
+hash = "sha256:5f1f65f0d2e315ff58538c05c6e800ee1646f20ee6ceac42b5ba31ea4f2df52a"
+doc_hash = "sha256:71e9494f4a8b44871c9f4ef9499d26637fe298e259fa0b6a4b1e5bb972be7912"
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#19",
+    "#20",
+    "#26",
+    "#27",
+    "#30",
+    "#31",
+    "#33",
+    "#35",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:b27148ff5604bf0b"
+name = "residence_time_from_velocity"
+qual = "residence_time_from_velocity"
+lines = [
+    164,
+    183,
+]
+hash = "sha256:3a658d39f7b52bec7184b762e34ecad10d72e813699eb942b207582c86890729"
+doc_hash = "sha256:b146133bc44c8fd3edc78d0bc5f12eb33d1e2028317b1f0341c2ac9a0e04eb7f"
+callees = ["fn:e180f58dfbdecd30"]
+reached_by = [
+    "#20",
+    "#30",
+    "#35",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:833339ad5b633e2c"
+name = "new"
+qual = "TracerPulse::new"
+lines = [
+    209,
+    216,
+]
+hash = "sha256:7c0d5d5978e4f1eca58980e36b3ae74027873214019be705f8bb669d4507c685"
+doc_hash = "sha256:88c81e0bd38120504fcf32e9fab06bdbfeda98cdba5e0c0171eec793c2c14990"
+reached_by = [
+    "#25",
+    "#29",
+    "#32",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:2d07c54c66ac584a"
+name = "advance"
+qual = "TracerPulse::advance"
+lines = [
+    218,
+    240,
+]
+hash = "sha256:9efb365097117ecd4cd0aa18eea106cf5c823d5dd23abaaf85ab70de2542f719"
+doc_hash = "sha256:b5bfbf119957a7552c69e582f64c2c7a5b8053eba73af48ca1efc7fade12a0ac"
+reached_by = [
+    "#25",
+    "#29",
+    "#32",
+    "#41",
+    "#43",
+    "#44",
+    "#45",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:d6dd552e5d7d2d6e"
+name = "position"
+qual = "TracerPulse::position"
+lines = [
+    242,
+    261,
+]
+hash = "sha256:340e9bb0b196b07147b6b7b7685c2750cbe9fe7cd81511243a5ed14f4c99b533"
+doc_hash = "sha256:691f6ab02c91137338194dce2a1b703510792528727007f093b4752e723696d4"
+reached_by = [
+    "#25",
+    "#29",
+    "#32",
+    "#43",
+    "#45",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:cfa7470218af108a"
+name = "direction"
+qual = "TracerPulse::direction"
+lines = [
+    263,
+    266,
+]
+hash = "sha256:6d33a4fd1c4b2b80d219bbe5a046c2cf6ad23fa7ddc9d6553f610cc1674d2b76"
+doc_hash = "sha256:b6a9cbf7f24f0e396916faf55b8041157fad5fbe9665a42ad7574cc919cbe81b"
+reached_by = ["#32"]
+
+[[module."mod.rs".function]]
+id = "fn:d39d0d8b80e2783e"
+name = "new"
+qual = "TracerTrain::new"
+lines = [
+    314,
+    325,
+]
+hash = "sha256:f2192576baf98d4491a581a25c9fd8e241e16a207cf8368acf15a773cfcdf85e"
+doc_hash = "sha256:eb80fe1713295d2965420cf662a3a78f0e99bd98526fd8c3f3b03f6ccfec98ca"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#18",
+    "#19",
+    "#21",
+    "#22",
+    "#28",
+    "#31",
+    "#33",
+    "#40",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2080f1a582cb9913"
+name = "advance"
+qual = "TracerTrain::advance"
+lines = [
+    327,
+    371,
+]
+hash = "sha256:2b0eb5d8716724be92c87988a266a66769d807eba463bba89028b7cd333505c5"
+doc_hash = "sha256:7bf22b1595a9fa677de656b2eb6921a887305742d014bc2fd39694ae4eb6b148"
+reached_by = [
+    "#2",
+    "#19",
+    "#21",
+    "#22",
+    "#28",
+    "#31",
+    "#33",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:e729e2968a43390d"
+name = "phase"
+qual = "TracerTrain::phase"
+lines = [
+    373,
+    376,
+]
+hash = "sha256:039b88e6119a908baa86bdb405db5e07d70242b11210899ba61b76e6dc4e2fa6"
+doc_hash = "sha256:2287501d08ed335b965d441c81dac56cbc88b70f355f19793076c28789118bce"
+reached_by = [
+    "#2",
+    "#19",
+    "#21",
+    "#28",
+    "#31",
+    "#33",
+]
+
+[[module."mod.rs".function]]
+id = "fn:7cb23e9cc6313c1e"
+name = "count"
+qual = "TracerTrain::count"
+lines = [
+    378,
+    381,
+]
+hash = "sha256:90e517034ef16e2ba8a16b5c079665aa8bf08197efcc89093c3505854d969254"
+doc_hash = "sha256:e30ecc14575040ad3efc0fd1594bca54a24c37aa62e7ceafeb83a075e0b8442b"
+reached_by = [
+    "#18",
+    "#40",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f844aaaeb141121c"
+name = "direction"
+qual = "TracerTrain::direction"
+lines = [
+    383,
+    386,
+]
+hash = "sha256:6d33a4fd1c4b2b80d219bbe5a046c2cf6ad23fa7ddc9d6553f610cc1674d2b76"
+doc_hash = "sha256:adb7cd5ec09f515eabd5e7b7c82d87e8568a3b6ed9d7de4944cb2375d15fd930"
+reached_by = [
+    "#28",
+    "#31",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a904dd9ab3e0e5ce"
+name = "positions"
+qual = "TracerTrain::positions"
+lines = [
+    388,
+    398,
+]
+hash = "sha256:0675f09fb0d8399e30513bb05a4afa4ac5622f3f519911528032c01bdeb3d004"
+doc_hash = "sha256:1c080cde25c5c9c8c65165925a3b5dfa03d100ccf215bfb942087ad8f22382eb"
+reached_by = [
+    "#18",
+    "#22",
+]
+
+[[module."mod.rs".function]]
+id = "fn:632cb6557abb9274"
+name = "new"
+qual = "PebbleTransits::new"
+lines = [
+    422,
+    425,
+]
+hash = "sha256:547ab483cf3130a6dcc1bf0cafce3a03336ebd889e78a86bab7b18ac945b75a8"
+doc_hash = "sha256:031a3cc5ce3337104d3f6d1267b774762a576e8965d0d367b92063aba952cda5"
+reached_by = [
+    "#16",
+    "#24",
+    "#34",
+]
+
+[[module."mod.rs".function]]
+id = "fn:328fe253c951df28"
+name = "launch"
+qual = "PebbleTransits::launch"
+lines = [
+    427,
+    430,
+]
+hash = "sha256:492df40b6d5bff663380c5c532310b2483074b5dad3459d4a44f6e5cc8610570"
+doc_hash = "sha256:a60edfbe16f8f4804a37480f4ffc16972aa42951fd241d97a9f960f594321283"
+reached_by = [
+    "#16",
+    "#17",
+    "#23",
+    "#24",
+    "#34",
+    "#38",
+    "#39",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9ec14c3192e637aa"
+name = "advance"
+qual = "PebbleTransits::advance"
+lines = [
+    432,
+    451,
+]
+hash = "sha256:3e344e8d5f13489c14d5256c5273baa3c1c960d5a842c319da6135eecce3aa33"
+doc_hash = "sha256:08058d8345ebd08b4f3a1abace9d2d998651ead7e0a2c4331f7a2ff0e8d5dab9"
+reached_by = [
+    "#16",
+    "#17",
+    "#23",
+    "#24",
+    "#34",
+    "#38",
+    "#39",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:c10c3afe55159c0b"
+name = "positions"
+qual = "PebbleTransits::positions"
+lines = [
+    453,
+    456,
+]
+hash = "sha256:ee169e680372b65be6bf1a85694a1bbe36b6902b6dd954a99f0631db8ff7d3ea"
+doc_hash = "sha256:fdde332c95cce3b27716eb0e363894178b93df818b5c6c88db9d6bdeb043aca4"
+reached_by = [
+    "#16",
+    "#17",
+    "#24",
+    "#34",
+    "#38",
+    "#39",
+]
+
+[[module."mod.rs".function]]
+id = "fn:793e40c4febaef32"
+name = "len"
+qual = "PebbleTransits::len"
+lines = [
+    458,
+    461,
+]
+hash = "sha256:765430aa7b94f244916b2dc8fea2968751866d2d584d3d2f782d44f0fbc28cd9"
+doc_hash = "sha256:83a14b2d6e8f913ef067371453436d2b7c15d3f6ad594df2a8b5c14db22ad497"
+
+[[module."mod.rs".function]]
+id = "fn:ef33b01a2ad40a67"
+name = "is_empty"
+qual = "PebbleTransits::is_empty"
+lines = [
+    463,
+    466,
+]
+hash = "sha256:2e2b47cc20bb1c2600c899d1bf81e0ad3761625b1cbd521864e5615e04d5cd5b"
+doc_hash = "sha256:5d2cc1f32c03082c453b0440a51e9fc39d86862edc119902cc1928f192b61ace"
+reached_by = [
+    "#16",
+    "#23",
+    "#34",
+    "#39",
+]
+
+[[module."mod.rs".function]]
+id = "fn:78f89ea1f261303e"
+name = "new"
+qual = "PebbleHandling::new"
+lines = [
+    538,
+    541,
+]
+hash = "sha256:547ab483cf3130a6dcc1bf0cafce3a03336ebd889e78a86bab7b18ac945b75a8"
+doc_hash = "sha256:0cfb656180d1d2dc275bae406ba83c5fe32abf0874cca3dbd1531f1bcbc4974e"
+reached_by = [
+    "#17",
+    "#23",
+    "#38",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a2640d81b401caa4"
+name = "request_add"
+qual = "PebbleHandling::request_add"
+lines = [
+    543,
+    546,
+]
+hash = "sha256:a1373e3723bb4bd628bfbd84a8fb2208fdfa4fab51d7eac2bd57a828e37e7606"
+doc_hash = "sha256:9530706f8f450dce5e5eccb690376376f62a5aedf14941e1fcfd5f19b472a549"
+callees = ["fn:328fe253c951df28"]
+reached_by = [
+    "#17",
+    "#23",
+    "#38",
+    "#39",
+]
+
+[[module."mod.rs".function]]
+id = "fn:bdb93fe32e6b8984"
+name = "request_remove"
+qual = "PebbleHandling::request_remove"
+lines = [
+    548,
+    552,
+]
+hash = "sha256:bdd1a575428eae7610e60c27e023c1947abe00d83689e6aa720ae06f329ba4ad"
+doc_hash = "sha256:9fcae135bf9f66c6b5fd524a392cd74fe11c7e7b581e65fccef9c0553ec1d305"
+callees = ["fn:328fe253c951df28"]
+reached_by = [
+    "#23",
+    "#38",
+]
+
+[[module."mod.rs".function]]
+id = "fn:d0e2789a0a48ca16"
+name = "advance"
+qual = "PebbleHandling::advance"
+lines = [
+    554,
+    565,
+]
+hash = "sha256:43ace482a8ffcaf2740e9782f35c5f36fe46e826a17ae95cc0c59e26abe07415"
+doc_hash = "sha256:1b75cbee255456df8c5fdcdb7880566d5becbdaf1bb06f3e3652174edc0fd4f8"
+callees = ["fn:9ec14c3192e637aa"]
+reached_by = [
+    "#17",
+    "#23",
+    "#38",
+    "#39",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:99d9619949471348"
+name = "refuel_transits"
+qual = "PebbleHandling::refuel_transits"
+lines = [
+    567,
+    571,
+]
+hash = "sha256:72f9b7290b3aabe7b49242b8969d8e78633d1d73b2fcf07692b0ac4164546aae"
+doc_hash = "sha256:de0e27f64f4ca5c0cf8337a3aead532692c39458103b894d03da6db6129b9cb8"
+reached_by = [
+    "#17",
+    "#38",
+    "#39",
+]
+
+[[module."mod.rs".function]]
+id = "fn:87510ed6a98d75d2"
+name = "defuel_transits"
+qual = "PebbleHandling::defuel_transits"
+lines = [
+    573,
+    577,
+]
+hash = "sha256:8eacb60acc26aa71227ea7513b1dca946dd18ea4d4c0f06c1818b49f497ec2c9"
+doc_hash = "sha256:c87786d02049fd6250b777ad61d5698f8ebbffc0551d02cd4aa26730ce416099"
+reached_by = ["#38"]
+
+[[module."mod.rs".function]]
+id = "fn:0a4ac967239d18d1"
+name = "added"
+qual = "PebbleHandling::added"
+lines = [
+    579,
+    584,
+]
+hash = "sha256:68ed9564c186c0ac06a1a387ff79f8529fe09a4e8f515ffdeb8344c2f9ed2402"
+doc_hash = "sha256:89486abcc322e12dec77cd400e47eaf15f0941afa0dce7a25c84d577d14f0b2d"
+reached_by = [
+    "#17",
+    "#23",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b2992bbb4705f969"
+name = "removed"
+qual = "PebbleHandling::removed"
+lines = [
+    586,
+    591,
+]
+hash = "sha256:6bab58d0f4d457c7f98ff01dd0178e3b627d96b93c611c07ec11c10f41f687d8"
+doc_hash = "sha256:3fd12c869a7d8367682d39464c46ad75bda9ef8361d7a05af6463fe3b54e501b"
+reached_by = ["#23"]
+
+[[module."mod.rs".function]]
+id = "fn:ce781d04db11bf2a"
+name = "in_flight"
+qual = "PebbleHandling::in_flight"
+lines = [
+    593,
+    596,
+]
+hash = "sha256:8a0037dac6773e916659777a61bcdf55c7b8ce1b9f30b6e5ba70b4f4063e4a68"
+doc_hash = "sha256:59f8dd4a48111aad5c717a39706fa518f4838b7e79281a9c33e057609c28bf96"
+callees = ["fn:ef33b01a2ad40a67"]
+reached_by = [
+    "#23",
+    "#39",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a743c637d941ad80"
+name = "tally_text"
+qual = "PebbleHandling::tally_text"
+lines = [
+    598,
+    609,
+]
+hash = "sha256:0e93387ae4b4d3521868ddf7c69f9858ef2831539940a136e178fc866d66d909"
+doc_hash = "sha256:9957df43849b7cd09a932704613639a7dc5c21ec1048bf60f61b1e302e794fe0"
+callees = ["fn:793e40c4febaef32"]
+
+[[module."mod.rs".function]]
+id = "fn:5d4ec898b77ac1c3"
+name = "htr10_illustrative_pebble_drives"
+qual = "htr10_illustrative_pebble_drives"
+lines = [
+    612,
+    637,
+]
+hash = "sha256:4232cc5dd476f0b88d4ba8ee03e168379c88ed373ad83a0df3c51fac8149b753"
+doc_hash = "sha256:5d88f8ab15f87b885ef417fb6ef21f68887d3f0829d7f2199f96af5604828ae6"
+reached_by = [
+    "#23",
+    "#38",
+    "#39",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e80271bc203c9394"
+name = "pebble_handling_counts_a_transit_only_when_it_completes"
+qual = "pebble_handling_counts_a_transit_only_when_it_completes"
+lines = [
+    644,
+    691,
+]
+hash = "sha256:daa24b43eed1c58271e33060be87c1aa6cd07c6b87e12d2a395dc52a5eeb67bb"
+doc_hash = "sha256:8e991217dcdfc49cc8f8b424f0f668cdd2f1061da835aa0b9195a130b2679564"
+callees = [
+    "fn:0a4ac967239d18d1",
+    "fn:5d4ec898b77ac1c3",
+    "fn:78f89ea1f261303e",
+    "fn:a2640d81b401caa4",
+    "fn:b2992bbb4705f969",
+    "fn:bdb93fe32e6b8984",
+    "fn:ce781d04db11bf2a",
+    "fn:d0e2789a0a48ca16",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:a4cde6e8d9b01f3e"
+name = "a_stopped_drive_parks_the_pebble_instead_of_moving_it"
+qual = "a_stopped_drive_parks_the_pebble_instead_of_moving_it"
+lines = [
+    693,
+    719,
+]
+hash = "sha256:99a1763a0c5e43189ee2004d695c172803a6e2969bc9be28f92cd3901f7cae98"
+doc_hash = "sha256:ba8539fc87705791f598175fb2379d5cfd61dcba9dd12d8ab81df5960fe56bfb"
+callees = [
+    "fn:0a4ac967239d18d1",
+    "fn:78f89ea1f261303e",
+    "fn:99d9619949471348",
+    "fn:a2640d81b401caa4",
+    "fn:c10c3afe55159c0b",
+    "fn:d0e2789a0a48ca16",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:9920dacf5f29fd4a"
+name = "kgs"
+qual = "kgs"
+lines = [
+    721,
+    723,
+]
+hash = "sha256:a34802e40d9c5e35063a189bc86f258853e30ba8252722e073155f144e9d6915"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:8e4553089f5c443b"
+name = "secs"
+qual = "secs"
+lines = [
+    725,
+    727,
+]
+hash = "sha256:abe0d869f8b3ddf01acdd6c0e3e79b3229f5e2c2f1ae33d0d4747e6bf6f45908"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:e258339bece29a8d"
+name = "a_launched_pebble_crosses_in_one_transit_time_then_leaves"
+qual = "a_launched_pebble_crosses_in_one_transit_time_then_leaves"
+lines = [
+    729,
+    744,
+]
+hash = "sha256:2e4736bcdc1eacb007a267c70b6c59405003295e881c0bfee952e1af4f736dce"
+doc_hash = "sha256:44b6cc881fef4e8a5cd37884e8792947feea09addc5345fdbff2e64e15b8c98d"
+callees = [
+    "fn:328fe253c951df28",
+    "fn:632cb6557abb9274",
+    "fn:8e4553089f5c443b",
+    "fn:9920dacf5f29fd4a",
+    "fn:9ec14c3192e637aa",
+    "fn:c10c3afe55159c0b",
+    "fn:ef33b01a2ad40a67",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:b0eb3a09aba2f15b"
+name = "zero_flow_parks_and_reversed_flow_returns_pebbles"
+qual = "zero_flow_parks_and_reversed_flow_returns_pebbles"
+lines = [
+    746,
+    757,
+]
+hash = "sha256:7e663bd4e949b16db872a387ca794c37a6b36c58ef5088af89073055ad945835"
+doc_hash = "sha256:c31c005ba11c6416313ed5997dac34613d7b713f5297f91376ee6465770736c2"
+callees = [
+    "fn:328fe253c951df28",
+    "fn:632cb6557abb9274",
+    "fn:8e4553089f5c443b",
+    "fn:9920dacf5f29fd4a",
+    "fn:9ec14c3192e637aa",
+    "fn:c10c3afe55159c0b",
+    "fn:ef33b01a2ad40a67",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:77ea7bffe28b4366"
+name = "pebble_speed_ignores_flow_magnitude"
+qual = "pebble_speed_ignores_flow_magnitude"
+lines = [
+    759,
+    772,
+]
+hash = "sha256:ec66cd7b4ad20a28677ee74a26bd1d2ee60410a55557e3f918b4145e9ba146e0"
+doc_hash = "sha256:2ce25b3f03f5149da2107317767cc60bf6aacec722aa7b7c1151a7add82537ee"
+callees = [
+    "fn:328fe253c951df28",
+    "fn:632cb6557abb9274",
+    "fn:8e4553089f5c443b",
+    "fn:9920dacf5f29fd4a",
+    "fn:9ec14c3192e637aa",
+    "fn:c10c3afe55159c0b",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:b2832198ea2b6763"
+name = "s"
+qual = "s"
+lines = [
+    773,
+    775,
+]
+hash = "sha256:abe0d869f8b3ddf01acdd6c0e3e79b3229f5e2c2f1ae33d0d4747e6bf6f45908"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:909c5cb5db412ffd"
+name = "residence_time_matches_analytical_identity"
+qual = "residence_time_matches_analytical_identity"
+lines = [
+    777,
+    791,
+]
+hash = "sha256:f5c685d82f2c2da08c62ac531e908874b0fcadcad235bc2908fd6886b88f0f12"
+doc_hash = "sha256:3c2409584938b6b0332e049a80bc1989ee7a49d7b0b84f9e434d90ae798767bf"
+callees = [
+    "fn:3312a044f6ed3560",
+    "fn:9920dacf5f29fd4a",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:82f38be8ffb03e05"
+name = "residence_time_is_infinite_at_zero_flow_or_negative_inventory"
+qual = "residence_time_is_infinite_at_zero_flow_or_negative_inventory"
+lines = [
+    793,
+    805,
+]
+hash = "sha256:b3c0fe623548ea737438375dfc4014171c568b864f45084b7d386bf5783a9033"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3312a044f6ed3560",
+    "fn:9920dacf5f29fd4a",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:0c5760c7189b5a11"
+name = "mark_crosses_path_in_exactly_one_residence_time"
+qual = "mark_crosses_path_in_exactly_one_residence_time"
+lines = [
+    807,
+    826,
+]
+hash = "sha256:72952832c2a4a816e3b0ed48b9502c2aa59b2764270b6b21f2543976fdd4983e"
+doc_hash = "sha256:bfd13b67a91fcb9e88296de41e1c12cca57f5d303d4b435fc3131f189f0eebe0"
+callees = [
+    "fn:2080f1a582cb9913",
+    "fn:9920dacf5f29fd4a",
+    "fn:b2832198ea2b6763",
+    "fn:d39d0d8b80e2783e",
+    "fn:e729e2968a43390d",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d12e8d94c0f28e5a"
+name = "doubling_flow_doubles_tracer_speed"
+qual = "doubling_flow_doubles_tracer_speed"
+lines = [
+    828,
+    848,
+]
+hash = "sha256:ff588a362471cc7e7832e690475a029c9ef64b54ca5b473888f63af9484a5576"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2080f1a582cb9913",
+    "fn:3312a044f6ed3560",
+    "fn:9920dacf5f29fd4a",
+    "fn:b2832198ea2b6763",
+    "fn:d39d0d8b80e2783e",
+    "fn:e729e2968a43390d",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:354a8ba9a7507a72"
+name = "reverse_flow_runs_backwards_and_wraps"
+qual = "reverse_flow_runs_backwards_and_wraps"
+lines = [
+    850,
+    857,
+]
+hash = "sha256:d2da90a7f72005c7bf077ed4a1dd969d2d660370b36339c1f67dde19ec0dd27e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2080f1a582cb9913",
+    "fn:9920dacf5f29fd4a",
+    "fn:b2832198ea2b6763",
+    "fn:d39d0d8b80e2783e",
+    "fn:e729e2968a43390d",
+    "fn:f844aaaeb141121c",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:89c38a9a0fd24ac1"
+name = "stagnant_cases_freeze_the_train"
+qual = "stagnant_cases_freeze_the_train"
+lines = [
+    859,
+    878,
+]
+hash = "sha256:6f67af2b6cb96fe4c89f45a06cac513cb1764014780bce32ba6489696e69fdec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2080f1a582cb9913",
+    "fn:9920dacf5f29fd4a",
+    "fn:b2832198ea2b6763",
+    "fn:d39d0d8b80e2783e",
+    "fn:e180f58dfbdecd30",
+    "fn:e729e2968a43390d",
+    "fn:f844aaaeb141121c",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:e1863c2415b6d855"
+name = "marks_stay_evenly_spaced_and_in_range"
+qual = "marks_stay_evenly_spaced_and_in_range"
+lines = [
+    880,
+    894,
+]
+hash = "sha256:831c6de8542d1232df97659a5fc8c59c5fadd41eb5d6953b577449214b4958c2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2080f1a582cb9913",
+    "fn:9920dacf5f29fd4a",
+    "fn:a904dd9ab3e0e5ce",
+    "fn:b2832198ea2b6763",
+    "fn:d39d0d8b80e2783e",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:243c7815d8e0073c"
+name = "count_is_clamped_to_at_least_one"
+qual = "count_is_clamped_to_at_least_one"
+lines = [
+    896,
+    901,
+]
+hash = "sha256:710227e5a13a3b523545d9e3cb209688231a821e3c27cdf5d96cb33f3ad9954b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7cb23e9cc6313c1e",
+    "fn:a904dd9ab3e0e5ce",
+    "fn:d39d0d8b80e2783e",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:3127692ebde83665"
+name = "residence_time"
+qual = "MockPipeTracer::residence_time"
+lines = [
+    913,
+    915,
+]
+hash = "sha256:a8817ddf92d12fdf3bdc3b62c274f0cd2650312a6178a86328b84bc86f52c04b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3312a044f6ed3560"]
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:1c7d063562c4cf20"
+name = "mass_flow"
+qual = "MockPipeTracer::mass_flow"
+lines = [
+    919,
+    921,
+]
+hash = "sha256:d8f4ca122505af14c6f12812110ee5cb97b0a0560d72b2e3090cce5b34faed64"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:5094281cde104634"
+name = "tracer_position"
+qual = "MockPipeTracer::tracer_position"
+lines = [
+    923,
+    925,
+]
+hash = "sha256:6bde0ae2afbc9ccb9b5d39c39e1153f8f8179fb9d7f2538c40c8b2ed09697824"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:e729e2968a43390d"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:6b3c90ca60bda056"
+name = "advance"
+qual = "MockPipeTracer::advance"
+lines = [
+    927,
+    930,
+]
+hash = "sha256:2d4364fb2932331229c6eba92c5ede5692a07b5ae58e5172ccfa4d7b62e75037"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2080f1a582cb9913",
+    "fn:3127692ebde83665",
+]
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:78b2bfb82d015736"
+name = "kinematic_and_inventory_residence_times_agree"
+qual = "kinematic_and_inventory_residence_times_agree"
+lines = [
+    933,
+    958,
+]
+hash = "sha256:4bdaebd40c37acc1cfca78119f63f29a6e84374ddae0bc7545281b7a495d64eb"
+doc_hash = "sha256:df10af8e6f4165c32fd5c4ec34a6c5395c41344c4e5110312c61aef33d4acf35"
+callees = [
+    "fn:3312a044f6ed3560",
+    "fn:b27148ff5604bf0b",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:56b5b1774d44277c"
+name = "reversed_velocity_has_the_same_residence_time"
+qual = "reversed_velocity_has_the_same_residence_time"
+lines = [
+    960,
+    973,
+]
+hash = "sha256:5d01911fa38c17f3dd85d733b9d8eb3f5d0c830aea6f2d5d59640d86a7b1a24e"
+doc_hash = "sha256:d47e6a600eacb5fbc5c3b642ca71b104ebd16c98b4e587f00c9b81dec9d2cff9"
+callees = ["fn:b27148ff5604bf0b"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:4ac3169392e7ede5"
+name = "zero_velocity_gives_infinite_residence_time"
+qual = "zero_velocity_gives_infinite_residence_time"
+lines = [
+    975,
+    989,
+]
+hash = "sha256:afc364e514d43fe4f52a64203244478e514617d0d819bad0110e0f3e392bcf3b"
+doc_hash = "sha256:04a5c036c9000fff4f52807c2b67b1ed741f660fc8cd32f61138e83bc5788da0"
+callees = ["fn:b27148ff5604bf0b"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:cf9f398d25c4533f"
+name = "pulse_crosses_in_one_residence_time_then_waits"
+qual = "pulse_crosses_in_one_residence_time_then_waits"
+lines = [
+    991,
+    1023,
+]
+hash = "sha256:f83662cbc707c8827ae990702cab6b7304b233f9054984ec63f46bc88eb456e8"
+doc_hash = "sha256:40a520c236d735e7a4286e3db740377329dd4f79b271636488618776af51d173"
+callees = [
+    "fn:2d07c54c66ac584a",
+    "fn:833339ad5b633e2c",
+    "fn:d6dd552e5d7d2d6e",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:655cce19fe1abc2a"
+name = "reversed_pulse_runs_from_outlet_to_inlet"
+qual = "reversed_pulse_runs_from_outlet_to_inlet"
+lines = [
+    1025,
+    1039,
+]
+hash = "sha256:962565314be13927068063b4bbadf27da7d746b2aa84b935033610c42710eac4"
+doc_hash = "sha256:4dd020a4bc13a2a8eca7c535ffcb4ab0c89302337e27f95c45f863fcdf44e61d"
+callees = [
+    "fn:2d07c54c66ac584a",
+    "fn:833339ad5b633e2c",
+    "fn:d6dd552e5d7d2d6e",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:3162f60bcde763bd"
+name = "stagnant_pulse_shows_no_mark"
+qual = "stagnant_pulse_shows_no_mark"
+lines = [
+    1041,
+    1053,
+]
+hash = "sha256:57a0cfd8b7cd237216d8555ce7314d8bf1d3665cf3c53c75c83f8400321be99a"
+doc_hash = "sha256:deec4329ad75ab5d51d0455911b884b8e3987d49f2300397d21fc117f5c4e1c4"
+callees = [
+    "fn:2d07c54c66ac584a",
+    "fn:833339ad5b633e2c",
+    "fn:cfa7470218af108a",
+    "fn:d6dd552e5d7d2d6e",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:9661aefe64cd9800"
+name = "traits_compose_over_a_tracer_train"
+qual = "traits_compose_over_a_tracer_train"
+lines = [
+    1055,
+    1068,
+]
+hash = "sha256:1a7f772dfb4fb1a33d04af7799a25a695a758ba2bf6453cd7e4a556289dcad26"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c7d063562c4cf20",
+    "fn:3127692ebde83665",
+    "fn:5094281cde104634",
+    "fn:6b3c90ca60bda056",
+    "fn:9920dacf5f29fd4a",
+    "fn:b2832198ea2b6763",
+    "fn:d39d0d8b80e2783e",
+]
+test = true

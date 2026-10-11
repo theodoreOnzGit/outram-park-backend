@@ -1,0 +1,29 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/examples/ciet_educational_simulator/ciet_simulator_v1/app/panels_and_pages/online_calibration"
+
+[module."mod.rs"]
+path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages::online_calibration"
+
+[[module."mod.rs".function]]
+id = "fn:3951a2c1ebfca3fa"
+name = "ciet_sim_online_calibration_page"
+qual = "CIETApp::ciet_sim_online_calibration_page"
+lines = [
+    11,
+    38,
+]
+hash = "sha256:3d26b796cdc3155165e41f2eed18b7c67509f6bb4e65ccbfafb5b266023936fe"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:eed2d4c851429a6e"
+name = "fmt"
+qual = "HeaterType::fmt"
+lines = [
+    48,
+    50,
+]
+hash = "sha256:c06523b18a9bd0e3703d1368bd64a5665ad1b8e155f10dddf3cb76376bd6985c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

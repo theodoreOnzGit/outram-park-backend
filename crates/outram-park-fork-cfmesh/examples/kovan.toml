@@ -1,0 +1,194 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-cfmesh"
+dir = "crates/outram-park-fork-cfmesh/examples"
+
+[module."boundary_layers.rs"]
+path = "example:boundary_layers"
+
+[[module."boundary_layers.rs".function]]
+id = "fn:5579e9dadf3d8af7"
+name = "main"
+qual = "main"
+lines = [
+    31,
+    93,
+]
+hash = "sha256:04842d243f3c52e2c2ba8a63086202de9bf8385b54f851119bcb0f5ec111412f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:01afff344f44d5bd",
+    "fn:21a2256faadd9502",
+    "fn:262cfa3b2e8581eb",
+    "fn:2e15c0317a694052",
+    "fn:4514531a46112af1",
+    "fn:451654b243cb4147",
+    "fn:59842b1ec41ee642",
+    "fn:c88a3e023469a925",
+    "fn:eb36367bc51ea167",
+]
+
+[module."coolant_around_pebble.rs"]
+path = "example:coolant_around_pebble"
+
+[[module."coolant_around_pebble.rs".function]]
+id = "fn:44607ba714221931"
+name = "main"
+qual = "main"
+lines = [
+    27,
+    106,
+]
+hash = "sha256:390dd6c4b23da8d3f4e9a400e7b649bfb5de8b682a6c3a2abaed3dd4ec419d9d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:01afff344f44d5bd",
+    "fn:21a2256faadd9502",
+    "fn:262cfa3b2e8581eb",
+    "fn:2e15c0317a694052",
+    "fn:3a99d1ff9eea316a",
+    "fn:451654b243cb4147",
+    "fn:69c5ea862b3b4b55",
+    "fn:7802dddfb20d5d4f",
+    "fn:a425c6868f6990e9",
+    "fn:b2ae753c5c37a5ec",
+    "fn:c88a3e023469a925",
+    "fn:dd8f31180713bf4d",
+    "fn:e135c7311df4374b",
+    "fn:eb36367bc51ea167",
+]
+
+[module."lwr_pin_lattice.rs"]
+path = "example:lwr_pin_lattice"
+
+[[module."lwr_pin_lattice.rs".function]]
+id = "fn:6a4ee2886d585a97"
+name = "main"
+qual = "main"
+lines = [
+    17,
+    71,
+]
+hash = "sha256:a8091d9aae3d7d5151f9fda18cd0b8f43faf0e3e44dcfba6e6a83ca08735d4ed"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:01afff344f44d5bd",
+    "fn:072361a9cb5fdf4d",
+    "fn:21a2256faadd9502",
+    "fn:2e15c0317a694052",
+    "fn:451654b243cb4147",
+    "fn:69c5ea862b3b4b55",
+    "fn:7802dddfb20d5d4f",
+    "fn:d2b00a4edf87b6db",
+    "fn:dd8f31180713bf4d",
+    "fn:f9c97f7c7a6d6a93",
+]
+
+[module."msr_channels.rs"]
+path = "example:msr_channels"
+
+[[module."msr_channels.rs".function]]
+id = "fn:2f9960c589b4c9a8"
+name = "main"
+qual = "main"
+lines = [
+    19,
+    74,
+]
+hash = "sha256:020d33f299b8b8fde5330fcf221f668a8da8abe1a54e546e72b97dc048150a9b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:01afff344f44d5bd",
+    "fn:21a2256faadd9502",
+    "fn:262cfa3b2e8581eb",
+    "fn:2e15c0317a694052",
+    "fn:451654b243cb4147",
+    "fn:69c5ea862b3b4b55",
+    "fn:728cd1b72b92a97b",
+    "fn:7802dddfb20d5d4f",
+    "fn:d2b00a4edf87b6db",
+    "fn:dd8f31180713bf4d",
+    "fn:f9c97f7c7a6d6a93",
+]
+
+[module."pebble_bed.rs"]
+path = "example:pebble_bed"
+
+[[module."pebble_bed.rs".function]]
+id = "fn:3fb48c1b136e8cbc"
+name = "main"
+qual = "main"
+lines = [
+    17,
+    63,
+]
+hash = "sha256:dc0bc32129977763f7d66b50bf5405c171f92f7425665735f73abe858e5245b1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:01afff344f44d5bd",
+    "fn:072361a9cb5fdf4d",
+    "fn:21a2256faadd9502",
+    "fn:2e15c0317a694052",
+    "fn:451654b243cb4147",
+    "fn:7802dddfb20d5d4f",
+    "fn:84e94f07334324b9",
+    "fn:dd8f31180713bf4d",
+    "fn:f9c97f7c7a6d6a93",
+]
+
+[module."polyhedral_dual.rs"]
+path = "example:polyhedral_dual"
+
+[[module."polyhedral_dual.rs".function]]
+id = "fn:8d464addb7d741fb"
+name = "main"
+qual = "main"
+lines = [
+    31,
+    77,
+]
+hash = "sha256:4e6f7cd051e496f17f34678faf5925547bbce4430664335e2dc423758c6abcc0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:01afff344f44d5bd",
+    "fn:21a2256faadd9502",
+    "fn:262cfa3b2e8581eb",
+    "fn:2e15c0317a694052",
+    "fn:3a99d1ff9eea316a",
+    "fn:4514531a46112af1",
+    "fn:451654b243cb4147",
+    "fn:b0704a6cf6f88e62",
+    "fn:b2ae753c5c37a5ec",
+    "fn:c88a3e023469a925",
+    "fn:eb36367bc51ea167",
+    "fn:ec7fa485a03a44b7",
+    "fn:fd4f80b728398ba2",
+]
+
+[module."tet_mesh.rs"]
+path = "example:tet_mesh"
+
+[[module."tet_mesh.rs".function]]
+id = "fn:51118c048fb66bfa"
+name = "main"
+qual = "main"
+lines = [
+    32,
+    78,
+]
+hash = "sha256:f2e6e48d7ff1b523d250753d0c4f4e1ab13f053a464558dc49ba50c55b95debb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:01afff344f44d5bd",
+    "fn:21a2256faadd9502",
+    "fn:262cfa3b2e8581eb",
+    "fn:2e15c0317a694052",
+    "fn:3a99d1ff9eea316a",
+    "fn:4514531a46112af1",
+    "fn:451654b243cb4147",
+    "fn:92e1aab0e326336d",
+    "fn:b2ae753c5c37a5ec",
+    "fn:c88a3e023469a925",
+    "fn:eb36367bc51ea167",
+    "fn:fd4f80b728398ba2",
+]

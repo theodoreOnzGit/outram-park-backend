@@ -1,0 +1,157 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-dwsim-libs"
+dir = "crates/outram-park-fork-dwsim-libs/src/pump"
+test_ids = [
+    "crates/outram-park-fork-dwsim-libs/src/pump/modes.rs::delta_p_and_outlet_pressure_modes_agree",
+    "crates/outram-park-fork-dwsim-libs/src/pump/modes.rs::npsh_none_when_at_or_below_bubble_point",
+    "crates/outram-park-fork-dwsim-libs/src/pump/modes.rs::npsh_positive_when_above_bubble_point",
+    "crates/outram-park-fork-dwsim-libs/src/pump/modes.rs::power_mode_is_inverse_of_delta_p_mode",
+    "crates/outram-park-fork-dwsim-libs/src/pump/modes.rs::pump_increases_outlet_pressure_and_enthalpy",
+]
+
+[module."mod.rs"]
+path = "crate::pump"
+
+[module."modes.rs"]
+path = "crate::pump::modes"
+
+[[module."modes.rs".function]]
+id = "fn:df33b284593cdf5b"
+name = "standard_gravity"
+qual = "standard_gravity"
+lines = [
+    20,
+    23,
+]
+hash = "sha256:e4ce98dec867e3d3a31a88e68e3f2fd9a34f4714712652a20f9855ffcece38b3"
+doc_hash = "sha256:085b9b74bf69c412db64e2b560a032a0c55fdc4c9bf40598b823fa8b79a64dac"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+physical_interface = true
+
+[[module."modes.rs".function]]
+id = "fn:0273c9229fc97f6f"
+name = "evaluate"
+qual = "evaluate"
+lines = [
+    71,
+    121,
+]
+hash = "sha256:4fe27549f3af3940e8159aad254993da53bfba4f6a79661fe2c0d38a4b0971f7"
+doc_hash = "sha256:46118d3f38dcc37f7fd23c1eae1ee3a12643cb4b341ceeda89e50e542044d9af"
+callees = ["fn:df33b284593cdf5b"]
+reached_by = [
+    "#0",
+    "#3",
+    "#4",
+]
+physical_interface = true
+
+[[module."modes.rs".function]]
+id = "fn:b0e8708b8359d19b"
+name = "npsh"
+qual = "npsh"
+lines = [
+    123,
+    138,
+]
+hash = "sha256:ee057f68f299acccf15babd0ac9c03b84cd2dfa84fdc41d7f0abcb087a6a0ed7"
+doc_hash = "sha256:86ce9695a25d7e2c37b2ffe38657f8010d0d1e6e076be776045dd4ffba12dcaf"
+callees = ["fn:df33b284593cdf5b"]
+reached_by = [
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[[module."modes.rs".function]]
+id = "fn:49607c46fa323857"
+name = "sample_inlet"
+qual = "sample_inlet"
+lines = [
+    148,
+    155,
+]
+hash = "sha256:cea27300bc02d54a81dbf5b265c56b550ec7d946d0835a40c23dd3f096e0e337"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."modes.rs".function]]
+id = "fn:2c7606def18b5943"
+name = "delta_p_and_outlet_pressure_modes_agree"
+qual = "delta_p_and_outlet_pressure_modes_agree"
+lines = [
+    157,
+    172,
+]
+hash = "sha256:3014f42ab71678d706c3839dcd70aed732e5fecdc741c88592211b58924d0a5a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0273c9229fc97f6f",
+    "fn:49607c46fa323857",
+]
+test = true
+
+[[module."modes.rs".function]]
+id = "fn:29414094e1dcb14c"
+name = "power_mode_is_inverse_of_delta_p_mode"
+qual = "power_mode_is_inverse_of_delta_p_mode"
+lines = [
+    174,
+    186,
+]
+hash = "sha256:3981a810c8c8b5f9cced1fecdd81935f420432b942a66bf277d9746582a3519e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0273c9229fc97f6f",
+    "fn:49607c46fa323857",
+]
+test = true
+
+[[module."modes.rs".function]]
+id = "fn:41d36c228d306491"
+name = "pump_increases_outlet_pressure_and_enthalpy"
+qual = "pump_increases_outlet_pressure_and_enthalpy"
+lines = [
+    188,
+    200,
+]
+hash = "sha256:a2bbbbe968f2cee049958d6a6a58702dfbd99ba0662b31824dcfbfb98018036d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0273c9229fc97f6f",
+    "fn:49607c46fa323857",
+]
+test = true
+
+[[module."modes.rs".function]]
+id = "fn:9c6d64175df0806c"
+name = "npsh_positive_when_above_bubble_point"
+qual = "npsh_positive_when_above_bubble_point"
+lines = [
+    202,
+    210,
+]
+hash = "sha256:9f1dd62d170a03fc78216162a317462f0027704857f1783ef75afcde2ef77c8b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b0e8708b8359d19b"]
+test = true
+
+[[module."modes.rs".function]]
+id = "fn:576ac77b75d32822"
+name = "npsh_none_when_at_or_below_bubble_point"
+qual = "npsh_none_when_at_or_below_bubble_point"
+lines = [
+    212,
+    218,
+]
+hash = "sha256:e3710cbfa1a00f4f88df1c5deb9e1456c952e52c46903e5ff721602275a9fb57"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b0e8708b8359d19b"]
+test = true

@@ -1,0 +1,84 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/examples/fhr_sim_v2/app"
+
+[module."mod.rs"]
+path = "example:fhr_sim_v2::app"
+
+[[module."mod.rs".function]]
+id = "fn:7d9bbc1b9545a181"
+name = "save"
+qual = "FHRSimulatorApp::save"
+lines = [
+    23,
+    26,
+]
+hash = "sha256:ee5b663383af4346062f6c5afe09f3c56f3ed9f42247d25e88d8338717248339"
+doc_hash = "sha256:05c1f790602727e494c4b0061fcf288c7b4f4052fcc9a030b2fafe7b89c27aad"
+
+[[module."mod.rs".function]]
+id = "fn:580234dd2bec92cd"
+name = "ui"
+qual = "FHRSimulatorApp::ui"
+lines = [
+    28,
+    92,
+]
+hash = "sha256:6cecd6cf133c35c2bb5eaf820a1eee8a3125acdd645f3b52ab802cb3537b8b1a"
+doc_hash = "sha256:b582ab9c4712fc1dbdfe425b9eb4cb806dfc87f9ca904ab0c49fbcad65755b06"
+callees = [
+    "fn:1bed5cf51fb3c990",
+    "fn:506dd5e63f6d6df2",
+    "fn:7c09a014fa829a4e",
+    "fn:c52ae8cf24bc44ca",
+]
+
+[[module."mod.rs".function]]
+id = "fn:7c09a014fa829a4e"
+name = "main_page"
+qual = "FHRSimulatorApp::main_page"
+lines = [
+    96,
+    1004,
+]
+hash = "sha256:205230834f1b107db9d672f63bcee8caf096b03274bb118a6ca51b9be2e29a1d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:147b4b1355d396b4",
+    "fn:18f7227f18dc89f0",
+    "fn:946672841f710772",
+    "fn:c763d78fa35cfc79",
+    "fn:d695ddcf13f71ad3",
+    "fn:dcc1caee6cdbae42",
+    "fn:eadef1915ef0374b",
+]
+
+[[module."mod.rs".function]]
+id = "fn:506dd5e63f6d6df2"
+name = "powered_by_egui_and_eframe"
+qual = "powered_by_egui_and_eframe"
+lines = [
+    1007,
+    1019,
+]
+hash = "sha256:1ce2c849c23f39f3a1c5e893be8b4a165089abf5391f3b79ebb3f03836f89609"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."side_panel.rs"]
+path = "example:fhr_sim_v2::app::side_panel"
+
+[[module."side_panel.rs".function]]
+id = "fn:1bed5cf51fb3c990"
+name = "side_panel"
+qual = "FHRSimulatorApp::side_panel"
+lines = [
+    12,
+    522,
+]
+hash = "sha256:fbbbf03e965b781f5bbf206858612a7cb50e5b2da798f6d3ea1310e50648e90c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:69d5f940fe5d6ce7",
+    "fn:b3856597bec5562c",
+]

@@ -1,0 +1,2825 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs"
+test_ids = [
+    "crates/nee_soon/tests/coupling_api.rs::defaults_are_usable_and_failures_are_actionable",
+    "crates/nee_soon/tests/coupling_api.rs::the_documented_three_call_path_works",
+    "crates/nee_soon/tests/mc_to_genfoam_kinf.rs::genfoam_reproduces_the_monte_carlo_kinf_from_its_own_mgxs",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::coupled_power_conservation_across_meshes",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::coupled_steady_state_negative_feedback",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::mesh_doppler_feedback_lowers_keff",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::negative_feedback_reduces_power",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::picard_loop_converges_consistently",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::prescribed_region_is_inert",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::a_zero_velocity_field_reproduces_the_chi_eff_collapse",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::drift_conserves_the_total_delayed_source",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::drift_lowers_k_eff_and_the_effect_grows_with_the_flow",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::keff_bare_slab_critical_buckling",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::keff_bare_slab_mesh_convergence",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::kinf_infinite_medium",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::null_transient_holds_steady",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::warm_start_reaches_the_same_k_in_fewer_iterations",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_approaches_diffusion_limit",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_kinf_no_scatter",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_kinf_with_scatter",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_order_convergence",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::approaches_diffusion_as_slab_grows",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::differs_on_small_slab",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::kinf_reduces_to_diffusion",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::null_transient_holds_steady",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::do_not_parametrize_suppresses_feedback",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::doppler_log_interpolation_hits_arithmetic_mean_at_geometric_mean_temperature",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::one_energy_constant_parameter_falls_back_to_reference",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::one_energy_reproduces_nodes",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::one_energy_two_point_is_linear",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::precursor_constants_sum_beta",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::reference_group_constants_match_input",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::rejects_length_mismatch",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::rejects_missing_reference_variable",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::rejects_non_reference_first_state",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::rejects_out_of_range_indices",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::scattering_matrix_reproduces_reference",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/tests.rs::a_first_state_that_is_not_reference_is_rejected",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/tests.rs::a_perturbed_state_inherits_the_reference_parameters_it_omits",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/tests.rs::a_wrong_array_length_is_rejected_where_the_file_name_is_still_known",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/tests.rs::an_include_is_spliced_relative_to_the_including_file",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/tests.rs::an_unknown_variable_law_is_rejected_by_name",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/tests.rs::the_minimal_dictionary_round_trips_into_cross_section_data",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/writer.rs::written_nuclear_data_reads_back_identically",
+    "crates/outram-foam-appbuilder-lib/tests/foam_vv_cases/main.rs::genfoam_slab_1g_diffusion_is_critical",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_reference_state_keff_against_upstream",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_per_cell_cross_sections",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_precursor_drift",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_with_upstreams_albedo_boundary",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reactivity_coefficients_from_upstreams_perturbed_states",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reference_state_keff_brackets_upstream",
+]
+
+[module."error.rs"]
+path = "crate::genfoam::neutronics::xs::error"
+
+[module."group_constants.rs"]
+path = "crate::genfoam::neutronics::xs::group_constants"
+
+[module."input.rs"]
+path = "crate::genfoam::neutronics::xs::input"
+
+[[module."input.rs".function]]
+id = "fn:03a2dfcca9151919"
+name = "default"
+qual = "ZoneConstantsInput::default"
+lines = [
+    154,
+    168,
+]
+hash = "sha256:0f713b6e47da2b03e8ea005e3270423ad69d3a11d713c46d780dfab703061005"
+doc_hash = "sha256:12a22b9891be237fd10c565db553e536e4f6db94527dcd94b23c36be443a4471"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#43",
+]
+
+[module."mod.rs"]
+path = "crate::genfoam::neutronics::xs"
+
+[[module."mod.rs".function]]
+id = "fn:fc3e9008bc829799"
+name = "from_input"
+qual = "CrossSectionData::from_input"
+lines = [
+    146,
+    228,
+]
+hash = "sha256:92bc587b8cdaa0e48219d32587d60c8c94d7f253ad03b8b35d4a3f94dd0a51b4"
+doc_hash = "sha256:e80ef332f3aa001ea6b843b119f3a5c18cc3fec6d46a5d5afa3cd1356af1b3e9"
+callees = [
+    "fn:1711a6690a8ed975",
+    "fn:21147a06f3a7e424",
+    "fn:7824721cb6211755",
+    "fn:7dd7e3fe8af587e1",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."mod.rs".function]]
+id = "fn:1711a6690a8ed975"
+name = "transform_state_parameters"
+qual = "CrossSectionData::transform_state_parameters"
+lines = [
+    230,
+    246,
+]
+hash = "sha256:ad372d5979d1a1b6491061a2a0d4d8d44c95be69b167d28fe4f3f64c13e090c7"
+doc_hash = "sha256:9ef577af5e60a1150a2169aabc1c2404c54e55b4c6900a764f2b24d8e9834b5a"
+callees = ["fn:673e3227ba3609de"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."mod.rs".function]]
+id = "fn:945d2d33aa58c976"
+name = "transform_parameters"
+qual = "CrossSectionData::transform_parameters"
+lines = [
+    248,
+    268,
+]
+hash = "sha256:6b2a5ea6abdbf24e6a4711af58e753f7325eb2abf24db6d06de70304b96dd78a"
+doc_hash = "sha256:908d6bfa0264659d845b09bfd155af3d63635c16f1285cfbac70ffe829530530"
+callees = ["fn:673e3227ba3609de"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#36",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9ff156915385ccbc"
+name = "is_parametrized"
+qual = "CrossSectionData::is_parametrized"
+lines = [
+    270,
+    275,
+]
+hash = "sha256:46317a559a4d5878b7fb74db8739f2675cf5925a5458ee2464077a268dcfe7d7"
+doc_hash = "sha256:a2c95d39654ab49a6b6c6f650c403d5d9d919a90b223caf8529f95bee4c677df"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#36",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."mod.rs".function]]
+id = "fn:7ed13c51aace611b"
+name = "energy_groups"
+qual = "CrossSectionData::energy_groups"
+lines = [
+    279,
+    283,
+]
+hash = "sha256:abf8d636e3f4278bed22576db661262337ce22d5aa3179c0988663c8f76147e1"
+doc_hash = "sha256:5cfd35079df1d31b52802d04d96253ab006524583ae94a104dc2ae2a09af5e1e"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#42",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."mod.rs".function]]
+id = "fn:396518fd7ec63634"
+name = "prec_groups"
+qual = "CrossSectionData::prec_groups"
+lines = [
+    284,
+    288,
+]
+hash = "sha256:67a3a0b70b446af0d4a20f4e6fe14b668b5cbfd2dab6b8d84eb9adb090b0e367"
+doc_hash = "sha256:dee4789e10f7fdd5c70ea29cf1b31cf3620796ff3c8d42da475d5e310a269173"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#42",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ea39b8d4163adf0f"
+name = "legendre_moments"
+qual = "CrossSectionData::legendre_moments"
+lines = [
+    289,
+    293,
+]
+hash = "sha256:78d04b02b211eedb15fc9ca63b452debfd49a223a71aa898c45182c2b3797089"
+doc_hash = "sha256:22b30242a3332c0ea72bf6119f7c537c0d4bce3829b7cfa58f7d205e9daad9a9"
+
+[[module."mod.rs".function]]
+id = "fn:f551acb94b3cad50"
+name = "fast_neutrons"
+qual = "CrossSectionData::fast_neutrons"
+lines = [
+    294,
+    298,
+]
+hash = "sha256:98555312009b572495baa401890d80a9cb2ef37c314d4e437792f37e8bf0eb1a"
+doc_hash = "sha256:ca41cc1c1207b53e7d41ac9d712094e531500aac9829e541657d19f187cb43a2"
+
+[[module."mod.rs".function]]
+id = "fn:0055b703661701ff"
+name = "variable_names"
+qual = "CrossSectionData::variable_names"
+lines = [
+    299,
+    303,
+]
+hash = "sha256:0e136502ac3dc465ed491211e4c28591183d33172ce01a0794133533c02e6df1"
+doc_hash = "sha256:e75ca68d33cccfcb7a01700e466c151d92fc3fd2e16efeec9bdcf1916e80f3f3"
+
+[[module."mod.rs".function]]
+id = "fn:9cec0af8c9b353b9"
+name = "variables"
+qual = "CrossSectionData::variables"
+lines = [
+    304,
+    308,
+]
+hash = "sha256:b89fdf17c8b239158349a0e63486118d240d237058fee70825db98aa788d5b8b"
+doc_hash = "sha256:65a4d1f101ee9bf137e0b0642271970be28a9bee154b6160c42d0dd0902253a0"
+reached_by = [
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6c492a299b5fc3f3"
+name = "zone_count"
+qual = "CrossSectionData::zone_count"
+lines = [
+    309,
+    313,
+]
+hash = "sha256:e39af963c554c23d7d76e2132caf2fa3d019f13b2908c526b8186821c4f4d255"
+doc_hash = "sha256:5d40b54e67dc48b58acdd8af32de9c992896f1b726b9122b6931c8cc6504b276"
+reached_by = [
+    "#2",
+    "#42",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."mod.rs".function]]
+id = "fn:d57a85736bea2e2e"
+name = "zone_index"
+qual = "CrossSectionData::zone_index"
+lines = [
+    314,
+    318,
+]
+hash = "sha256:6a7ad98733c513964e71b13c22942111961e86416dc934539412d4def648b083"
+doc_hash = "sha256:939a8410ab72f755888985fd27a5f80eb97c9c8e93f2d6f20277b873638aae2a"
+reached_by = [
+    "#25",
+    "#26",
+    "#30",
+    "#31",
+    "#36",
+    "#42",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3088c61b4fbfdf1a"
+name = "zone"
+qual = "CrossSectionData::zone"
+lines = [
+    319,
+    323,
+]
+hash = "sha256:6965e1342b929ebeec3c54543a9b77fbe172794115be27df6ac5651ae6c2456f"
+doc_hash = "sha256:0baa03e82cedca560120bdd252da0a83ddb02ba52318464bfe600890d4e8d384"
+reached_by = [
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."mod.rs".function]]
+id = "fn:be9d311ec93caeeb"
+name = "evaluate_group_constants"
+qual = "CrossSectionData::evaluate_group_constants"
+lines = [
+    327,
+    363,
+]
+hash = "sha256:aebad3b15d53bd693b0c68a3543202c5c07908de99661530adc1f0ccb9bd3392"
+doc_hash = "sha256:10399eb99303dbd85c3b3065b807c2786c8f8ebbc14cc8f263f2a1879b5ca0b0"
+callees = [
+    "fn:15a8add8c4586761",
+    "fn:1748127b6280c40a",
+    "fn:17de0cb3abc794aa",
+    "fn:2e0832e633549241",
+    "fn:2e90b9d522a4ad9d",
+    "fn:31c3de36f7d0d9e2",
+    "fn:355b381d880e98b9",
+    "fn:36a2a04308ac04e5",
+    "fn:4997104ef449ad13",
+    "fn:6978352037b9a189",
+    "fn:945d2d33aa58c976",
+    "fn:985b851293c4f89d",
+    "fn:9ff156915385ccbc",
+    "fn:a625a01f11bc7cd0",
+    "fn:a9dba62c5e417f2f",
+    "fn:de91ec3f13e7b47c",
+    "fn:fddfe4a32a2b0895",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b34fedbc40db11ab"
+name = "reference_group_constants"
+qual = "CrossSectionData::reference_group_constants"
+lines = [
+    365,
+    393,
+]
+hash = "sha256:6f55d11e0c3e9fabf88eb72339273daefcc3b2f46f535d18e5311b9369bd5c9d"
+doc_hash = "sha256:eecb4415edd9e22af4bc0a27ad49afb7e780c59f304fad66710c8011992c18c8"
+callees = [
+    "fn:15a8add8c4586761",
+    "fn:1748127b6280c40a",
+    "fn:17de0cb3abc794aa",
+    "fn:2e0832e633549241",
+    "fn:2e90b9d522a4ad9d",
+    "fn:31c3de36f7d0d9e2",
+    "fn:355b381d880e98b9",
+    "fn:36a2a04308ac04e5",
+    "fn:4997104ef449ad13",
+    "fn:6978352037b9a189",
+    "fn:985b851293c4f89d",
+    "fn:a625a01f11bc7cd0",
+    "fn:a9dba62c5e417f2f",
+    "fn:de91ec3f13e7b47c",
+    "fn:fddfe4a32a2b0895",
+]
+reached_by = [
+    "#31",
+    "#35",
+]
+
+[[module."mod.rs".function]]
+id = "fn:eb9d62daf2233196"
+name = "scattering_matrix"
+qual = "CrossSectionData::scattering_matrix"
+lines = [
+    395,
+    430,
+]
+hash = "sha256:46df19f63989e83a828d3fa9e5f04be99b1e3589bf91147e974b19f6dae40f70"
+doc_hash = "sha256:dddad74eaa5b875e4c7702202e56f081199000199eefe0378045b30b00cbfef9"
+callees = [
+    "fn:04372eb2cb9f9bc3",
+    "fn:151aad4ebbbcd1a5",
+    "fn:4997104ef449ad13",
+    "fn:61ed392b16cae09b",
+    "fn:945d2d33aa58c976",
+    "fn:9ff156915385ccbc",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#36",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."mod.rs".function]]
+id = "fn:47ac991080df9e2f"
+name = "precursor_constants"
+qual = "CrossSectionData::precursor_constants"
+lines = [
+    432,
+    451,
+]
+hash = "sha256:16d638249908ba1f34ea7243f519f35ee4852d21fac9a62030a5263ee2e20310"
+doc_hash = "sha256:eb0d810b8cbdd75dfc54ce181bcf26f59980df401a039e8ddc431f46604c8a7b"
+callees = [
+    "fn:355b381d880e98b9",
+    "fn:4997104ef449ad13",
+    "fn:4be835c1a7a1f92e",
+    "fn:4e6fc00996393c35",
+    "fn:af653bb5557edc20",
+    "fn:e5883332720ecbef",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#30",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4997104ef449ad13"
+name = "checked_zone"
+qual = "CrossSectionData::checked_zone"
+lines = [
+    455,
+    461,
+]
+hash = "sha256:8d9d919de4514bb6aefea931e1000d4cc9ab0f5cec6b937dee781180f7847daa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#30",
+    "#31",
+    "#35",
+    "#36",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."mod.rs".function]]
+id = "fn:36a2a04308ac04e5"
+name = "check_group"
+qual = "CrossSectionData::check_group"
+lines = [
+    463,
+    473,
+]
+hash = "sha256:6a567c1603a0d14c433216d6096130d546293e1ddedee3e902614a38f7b1e812"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#31",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[module."nuclear_data_one_energy.rs"]
+path = "crate::genfoam::neutronics::xs::nuclear_data_one_energy"
+
+[[module."nuclear_data_one_energy.rs".function]]
+id = "fn:76919b277f299cd1"
+name = "new"
+qual = "NuclearDataOneEnergy::new"
+lines = [
+    84,
+    101,
+]
+hash = "sha256:b28e318db929c420e7b17a46ff41a6f75526db93563b3d26d4e0fd7a4f0d8545"
+doc_hash = "sha256:a69b606b86df3bc9934fd83b49fac31b63e8cae48aff38236b6544d7191cb2f3"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."nuclear_data_one_energy.rs".function]]
+id = "fn:3783bde9d8848c32"
+name = "add_data"
+qual = "NuclearDataOneEnergy::add_data"
+lines = [
+    103,
+    123,
+]
+hash = "sha256:b071903533c66b258fd3664dc51253afb22a315840312420bd11178db7f0f297"
+doc_hash = "sha256:476f26432756174d7d61d27c57fb6244eb4455ee5b34c351e19fea8f8327421a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."nuclear_data_one_energy.rs".function]]
+id = "fn:99618d2a3e7a5c29"
+name = "build"
+qual = "NuclearDataOneEnergy::build"
+lines = [
+    125,
+    162,
+]
+hash = "sha256:cb7497ff75fdf982ea2a2ec20bd221ed47ba26845b7651c7e13a56552fcbc3e3"
+doc_hash = "sha256:7754136dac2bb375a5f09f219a0834e0dc097c89707b6730ddf1f39dd12d9766"
+callees = [
+    "fn:719f4c1b10ade923",
+    "fn:c65bc4c71d580a66",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."nuclear_data_one_energy.rs".function]]
+id = "fn:9c8c63cfea3d8a41"
+name = "get_ref"
+qual = "NuclearDataOneEnergy::get_ref"
+lines = [
+    164,
+    177,
+]
+hash = "sha256:1bf3d27ee77518adcfaf26e543d5d6e3c51853022e08479ab60781f1774b032e"
+doc_hash = "sha256:ab540f5153cc7a36bcdb29029a0083fe3cd049b61df4e6c0585f366a9ec6a88c"
+reached_by = ["#28"]
+
+[[module."nuclear_data_one_energy.rs".function]]
+id = "fn:8ec0f4a6ed4b16dc"
+name = "get"
+qual = "NuclearDataOneEnergy::get"
+lines = [
+    179,
+    208,
+]
+hash = "sha256:cc6e528d6e491ebf7fdae4cbf201805fad9d125c1e695edc2570b1f1285bacab"
+doc_hash = "sha256:86e6d439aebb180b0cb07ed6fd8f4a523ad724465fa6cbe1c03a95dc8ca7aa7a"
+callees = ["fn:86c55adc18aaa615"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#31",
+    "#35",
+    "#36",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."nuclear_data_one_energy.rs".function]]
+id = "fn:ce0d213f78a4d944"
+name = "data_len"
+qual = "NuclearDataOneEnergy::data_len"
+lines = [
+    210,
+    214,
+]
+hash = "sha256:09d46fb130bf01f7420ff5147d689be3aa40cd03c2cbd38138a8b586eb386f8c"
+doc_hash = "sha256:58f6689590c3922affa6deb62d3f5cdbe7841eb1f34d8bb7fdb4b4cb93bbf14b"
+
+[[module."nuclear_data_one_energy.rs".function]]
+id = "fn:c65bc4c71d580a66"
+name = "all_same"
+qual = "all_same"
+lines = [
+    217,
+    223,
+]
+hash = "sha256:71ba6f653a809924c6bf973580c875a77dad21f4c8960fbb2f61b7b459944dbe"
+doc_hash = "sha256:ef480bd25cfafc99f4e2f0c1203ab7be82122018226c5261af05b5c722784f60"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[module."tests.rs"]
+path = "crate::genfoam::neutronics::xs::tests"
+
+[[module."tests.rs".function]]
+id = "fn:389f32d54410b554"
+name = "rbf_basis_function_closed_forms"
+qual = "rbf_basis_function_closed_forms"
+lines = [
+    58,
+    85,
+]
+hash = "sha256:dfcca07887992b7583cf5663c4b101174f5b8a35106140b517eac808055c853d"
+doc_hash = "sha256:18ce1f3e545e478a9783f6a4f5a727b6f02d1f2de5b5ca192b87ce911ac8668d"
+callees = ["fn:a48d998e88b809fa"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:196e04f94b2127ef"
+name = "one_energy_reproduces_nodes"
+qual = "one_energy_reproduces_nodes"
+lines = [
+    91,
+    111,
+]
+hash = "sha256:b3aa04c0938bd180833bcc8db5553effc0f3e3b41de490a092024f68aeb6e3b1"
+doc_hash = "sha256:606628c6d3ef1e5e619299e1bf245c4fc81133624ef82ae05687e8cd0b034b52"
+callees = [
+    "fn:3783bde9d8848c32",
+    "fn:76919b277f299cd1",
+    "fn:8ec0f4a6ed4b16dc",
+    "fn:99618d2a3e7a5c29",
+    "fn:9c8c63cfea3d8a41",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:7ceaa6a80cb8c216"
+name = "one_energy_two_point_is_linear"
+qual = "one_energy_two_point_is_linear"
+lines = [
+    113,
+    133,
+]
+hash = "sha256:45cf4614075ed632cc083a9ffd7ddf2284cd005ebf70352fc18f03a302414345"
+doc_hash = "sha256:2562df51bcb44174fe8e75a65763fa2c11dd05ffd1bdcb35725755fc9e16a33f"
+callees = [
+    "fn:3783bde9d8848c32",
+    "fn:76919b277f299cd1",
+    "fn:8ec0f4a6ed4b16dc",
+    "fn:99618d2a3e7a5c29",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:5a7c857f32a812b2"
+name = "one_energy_constant_parameter_falls_back_to_reference"
+qual = "one_energy_constant_parameter_falls_back_to_reference"
+lines = [
+    135,
+    153,
+]
+hash = "sha256:fb955ca1b3e0a01e1a01869a83bad11ba56c2e4273db75742173d40fc070fe28"
+doc_hash = "sha256:6b8bc690618ac59a4de1a0628c10041b0c60f03cb306327f8cc52268371d999c"
+callees = [
+    "fn:3783bde9d8848c32",
+    "fn:76919b277f299cd1",
+    "fn:8ec0f4a6ed4b16dc",
+    "fn:99618d2a3e7a5c29",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:58f9482d54c7deeb"
+name = "two_group_input"
+qual = "two_group_input"
+lines = [
+    170,
+    239,
+]
+hash = "sha256:a70591df8c2c85efe525abbbce5d592682f3449b52efa9b313b95c301ecddb5f"
+doc_hash = "sha256:f8a8800427df65c4f8b282581601be10ee2541b495ae4af51ba346efd40c3874"
+callees = ["fn:7f637b865b39843c"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:c51584b90574875b"
+name = "reference_group_constants_match_input"
+qual = "reference_group_constants_match_input"
+lines = [
+    241,
+    265,
+]
+hash = "sha256:3daf25ca6b022890353e377a1c1e96c6d11a026cc62c84bacd272b2e53c1b36d"
+doc_hash = "sha256:150720550d9ac94e217eedfea01fd94e4ca9f9874ac774f4083b6891669e75b6"
+callees = [
+    "fn:58f9482d54c7deeb",
+    "fn:b34fedbc40db11ab",
+    "fn:d57a85736bea2e2e",
+    "fn:fc3e9008bc829799",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:ff1e094ef10f8393"
+name = "doppler_log_interpolation_hits_arithmetic_mean_at_geometric_mean_temperature"
+qual = "doppler_log_interpolation_hits_arithmetic_mean_at_geometric_mean_temperature"
+lines = [
+    267,
+    294,
+]
+hash = "sha256:b3f7cfc744ca08d93feab6bb5c4acf427eac259700518ac1555a5588667379e7"
+doc_hash = "sha256:0506eb93774e35a5dce70a3943a9d2e2213e162358b7c59defc2a82acce39b24"
+callees = [
+    "fn:58f9482d54c7deeb",
+    "fn:be9d311ec93caeeb",
+    "fn:d57a85736bea2e2e",
+    "fn:fc3e9008bc829799",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d3dd7ab260366b57"
+name = "do_not_parametrize_suppresses_feedback"
+qual = "do_not_parametrize_suppresses_feedback"
+lines = [
+    296,
+    316,
+]
+hash = "sha256:06714cfec0141a816a7ae17a31fcfdfbeec2ca2b8cd4621bfca57be4893c53df"
+doc_hash = "sha256:93c6ed9fb8883fd04a85e64665d3bd2c19c8d4c532766efe0f14fa0f5cf1ec58"
+callees = [
+    "fn:58f9482d54c7deeb",
+    "fn:be9d311ec93caeeb",
+    "fn:d57a85736bea2e2e",
+    "fn:fc3e9008bc829799",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:2c135335ddd1b8aa"
+name = "scattering_matrix_reproduces_reference"
+qual = "scattering_matrix_reproduces_reference"
+lines = [
+    318,
+    336,
+]
+hash = "sha256:7f76a21988123503bb68d1392e775657ea5eab134d5b1f1f38ed738360c98451"
+doc_hash = "sha256:71ffd59744b76f29aeb0a3e42c7bd192380ff7a3b7a96a5cf5bb07d3a5e0539f"
+callees = [
+    "fn:416b13b7805317ff",
+    "fn:52c8c8d98c3cd1aa",
+    "fn:58f9482d54c7deeb",
+    "fn:d57a85736bea2e2e",
+    "fn:eb9d62daf2233196",
+    "fn:fc3e9008bc829799",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:9eb5cae97ded60bf"
+name = "precursor_constants_sum_beta"
+qual = "precursor_constants_sum_beta"
+lines = [
+    338,
+    353,
+]
+hash = "sha256:6731dd74f142a530770c467b4c9d3b177d78cf49408cb25a7f42ce70c57d3509"
+doc_hash = "sha256:6bf8bbe6fbd138daf3ff1e524dec87632c8e43e56ee9d6441d011b6acec6f6af"
+callees = [
+    "fn:47ac991080df9e2f",
+    "fn:58f9482d54c7deeb",
+    "fn:d57a85736bea2e2e",
+    "fn:fc3e9008bc829799",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:5ed31350e836d996"
+name = "rejects_non_reference_first_state"
+qual = "rejects_non_reference_first_state"
+lines = [
+    359,
+    370,
+]
+hash = "sha256:96aa7a003e8883f145f6529aae4910f5b23aa7f5662d5ae6435836984c349d19"
+doc_hash = "sha256:e6d171860d90c36d82153ab4eec69cb667ec1db4488a645f16c36b6c4532fbd1"
+callees = [
+    "fn:58f9482d54c7deeb",
+    "fn:fc3e9008bc829799",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:ff93eb74957c5f71"
+name = "rejects_missing_reference_variable"
+qual = "rejects_missing_reference_variable"
+lines = [
+    372,
+    385,
+]
+hash = "sha256:6b1e047fc289345e9f0ce33cbcd6c41617e78b98f1159a9684388c96b96e9edb"
+doc_hash = "sha256:333d8e93358bf0ff128a143e9d23dfe853411943cef1d8a9e9f0d2b4c9f5f032"
+callees = [
+    "fn:58f9482d54c7deeb",
+    "fn:7f637b865b39843c",
+    "fn:fc3e9008bc829799",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:4ec8759e04d85b26"
+name = "rejects_length_mismatch"
+qual = "rejects_length_mismatch"
+lines = [
+    387,
+    404,
+]
+hash = "sha256:59eb5f9b1d4f53f77adea8237c3cf6a38fff632db14b34b49481c9dc02faf44f"
+doc_hash = "sha256:466bd1649e2ddcfd296e4f164742218baf75d83e924cbb39973227592bf31fb3"
+callees = [
+    "fn:58f9482d54c7deeb",
+    "fn:fc3e9008bc829799",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:7f6289259e9b277b"
+name = "rejects_out_of_range_indices"
+qual = "rejects_out_of_range_indices"
+lines = [
+    406,
+    425,
+]
+hash = "sha256:fdc4f011c52ee6a24d5f37cd1822df721fbeefb83c14f8afec5767be2b3b9689"
+doc_hash = "sha256:9d078f88976c0f1ef8527eece85bb6fe40cf3d3320d5b7c61911dcf12174690c"
+callees = [
+    "fn:58f9482d54c7deeb",
+    "fn:b34fedbc40db11ab",
+    "fn:fc3e9008bc829799",
+]
+test = true
+
+[module."units.rs"]
+path = "crate::genfoam::neutronics::xs::units"
+
+[[module."units.rs".function]]
+id = "fn:2e90b9d522a4ad9d"
+name = "diffusion_coefficient"
+qual = "diffusion_coefficient"
+lines = [
+    107,
+    115,
+]
+hash = "sha256:56a414b89008213a2a31057f3da26ca4a4f5a5f1222123ba8dea2b70b7674798"
+doc_hash = "sha256:bed5dd8866b9baf42088d036fa6fbb0bc10f4c6c298dd8227f229e73ec9c9286"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#31",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+physical_interface = true
+
+[[module."units.rs".function]]
+id = "fn:985b851293c4f89d"
+name = "macroscopic_cross_section"
+qual = "macroscopic_cross_section"
+lines = [
+    117,
+    125,
+]
+hash = "sha256:d40885563a36ee86b320153164de95f068bcc40ca4b48c3fa896c31fb3c3cf29"
+doc_hash = "sha256:7fe59359ff662b29a1a8b5dc8037c9e201731833e964073ea23a58e2e1a42a7b"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#31",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+physical_interface = true
+
+[[module."units.rs".function]]
+id = "fn:2e0832e633549241"
+name = "energy_release_cross_section"
+qual = "energy_release_cross_section"
+lines = [
+    127,
+    135,
+]
+hash = "sha256:a120c99b8101e2489681347aa7f54d21e3300bc949baa51a290233d8255e8cce"
+doc_hash = "sha256:e78a7452643225cc38746f017c0508369dad2ee876a5c1dff907b62250cefef5"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#31",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+physical_interface = true
+
+[[module."units.rs".function]]
+id = "fn:17de0cb3abc794aa"
+name = "inverse_velocity"
+qual = "inverse_velocity"
+lines = [
+    137,
+    145,
+]
+hash = "sha256:2bbb5fffe9186d2aff3802694dd61cb79af020c5f5a2b6bcb37c88d56c200355"
+doc_hash = "sha256:6858efc05304fa4a4e9e9f1ff772c1c066682fe96d510ef6cb03f89c6efefcb9"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#31",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+physical_interface = true
+
+[[module."units.rs".function]]
+id = "fn:af653bb5557edc20"
+name = "precursor_decay_constant"
+qual = "precursor_decay_constant"
+lines = [
+    147,
+    155,
+]
+hash = "sha256:23ba11e96189f03f5a1a03808819303b30773db2e8e9051df151faad8d419c24"
+doc_hash = "sha256:953780d2c973d28a1eab3e074473c5a78181d4ceabaac86a66aecd9f5bd2288c"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#30",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+physical_interface = true
+
+[[module."units.rs".function]]
+id = "fn:355b381d880e98b9"
+name = "dimensionless"
+qual = "dimensionless"
+lines = [
+    157,
+    165,
+]
+hash = "sha256:f517382cd3934d1a19d29cac2c362953dfa59569165929abac00c01c830e68d0"
+doc_hash = "sha256:e6cf6bf45589ab0fdc43313bbafd52b66019eb2cd9c41228216dccb80a9d7d7a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#30",
+    "#31",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+physical_interface = true
+
+[module."variables.rs"]
+path = "crate::genfoam::neutronics::xs::variables"
+
+[[module."variables.rs".function]]
+id = "fn:054bf91e78930c76"
+name = "from_keyword"
+qual = "VariableLaw::from_keyword"
+lines = [
+    65,
+    77,
+]
+hash = "sha256:9945d04a121e9c0039e95bd517683921ba21c02ec17c7cfd0857e4a5c244753d"
+doc_hash = "sha256:f75e1e41920c3740150094c55dbf6028e52b919e50c96e64f2f01fdb6993af73"
+reached_by = [
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."variables.rs".function]]
+id = "fn:194818cc84e43a1c"
+name = "keyword"
+qual = "VariableLaw::keyword"
+lines = [
+    79,
+    87,
+]
+hash = "sha256:2a810c71f40c8b0de8fc82929a2c267398978d067e8ca5105a4dc371d0df39d3"
+doc_hash = "sha256:c3def93add4115aa1bee8a9532ebd141b04f6f5cc211900705bcfb447fc189f9"
+reached_by = ["#43"]
+
+[[module."variables.rs".function]]
+id = "fn:673e3227ba3609de"
+name = "transform"
+qual = "VariableLaw::transform"
+lines = [
+    89,
+    102,
+]
+hash = "sha256:220d3077aea2a2a9ae4a791c90bb9539730c43d4c2a9a78ca94f6d37212534aa"
+doc_hash = "sha256:3cd4cd25c38a44658528e7f444b97533b3cf21fb6b2c5096bb064cbf4b6c5fde"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."variables.rs".function]]
+id = "fn:7f637b865b39843c"
+name = "new"
+qual = "XsVariable::new"
+lines = [
+    120,
+    127,
+]
+hash = "sha256:bd104b450ccfb44466256128907e938e2f1062937ad974fd7ab2af67572c4688"
+doc_hash = "sha256:c78d2b98da64fa096422d98c7816d48bfe478b62e4d587fae1768163f1f3c4ca"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#25",
+    "#26",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[module."zone_data.rs"]
+path = "crate::genfoam::neutronics::xs::zone_data"
+
+[[module."zone_data.rs".function]]
+id = "fn:7dd7e3fe8af587e1"
+name = "new_reference"
+qual = "ZoneNuclearData::new_reference"
+lines = [
+    82,
+    158,
+]
+hash = "sha256:d8348f1a45914ed612500120635eaf9ee76d802c65dd41ef9c0a7d4ac78e5696"
+doc_hash = "sha256:73fa541ccb6ad7c51212f6947b6251c5c56f46b11580ded122832d50cfa2520f"
+callees = [
+    "fn:418b18d9f67f522f",
+    "fn:76919b277f299cd1",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:21147a06f3a7e424"
+name = "add_state_data"
+qual = "ZoneNuclearData::add_state_data"
+lines = [
+    160,
+    205,
+]
+hash = "sha256:714c17bf17a96b9ec23cc55fe3f826eee90ff654cfd00c5f73bc256cad0f84ba"
+doc_hash = "sha256:b59fb08a49a42ba2ad8c0d21bd265e34d98cac972c26ebe97873691035769911"
+callees = [
+    "fn:3783bde9d8848c32",
+    "fn:418b18d9f67f522f",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:7824721cb6211755"
+name = "build"
+qual = "ZoneNuclearData::build"
+lines = [
+    207,
+    230,
+]
+hash = "sha256:f7e7080ca1a5c3ed0dc2c06d8f32ab09eace5ad6f8c8807a65dc7b146956bd08"
+doc_hash = "sha256:8f27f11cf8a9b4727d723317958887211272ec6767b8c80bcaf534e2a78fcc31"
+callees = ["fn:99618d2a3e7a5c29"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:518ad54a83cebb2b"
+name = "name"
+qual = "ZoneNuclearData::name"
+lines = [
+    234,
+    238,
+]
+hash = "sha256:8abb2abb6e1b0f66fd10ee41e29ffac0471cca20aef7194345da1d5b4b121b3b"
+doc_hash = "sha256:8a8b3f1e10ed66a5819db3e79092097e9a61407c85b6354a66fcbb857b1ffbad"
+reached_by = [
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:509511a6dddf64f7"
+name = "energy_groups"
+qual = "ZoneNuclearData::energy_groups"
+lines = [
+    239,
+    243,
+]
+hash = "sha256:abf8d636e3f4278bed22576db661262337ce22d5aa3179c0988663c8f76147e1"
+doc_hash = "sha256:87936c4722702dfdfbeb322714a7fb3926fa82087b4ec93c8debcf5ba6800c9d"
+
+[[module."zone_data.rs".function]]
+id = "fn:8015606c470456e2"
+name = "prec_groups"
+qual = "ZoneNuclearData::prec_groups"
+lines = [
+    244,
+    248,
+]
+hash = "sha256:67a3a0b70b446af0d4a20f4e6fe14b668b5cbfd2dab6b8d84eb9adb090b0e367"
+doc_hash = "sha256:999138638533031bbac58cbc7a42ecf2f2c7a55a0a7fcbe93472cb80b8a4268b"
+
+[[module."zone_data.rs".function]]
+id = "fn:3868cb1309bc0c7b"
+name = "legendre_moments"
+qual = "ZoneNuclearData::legendre_moments"
+lines = [
+    249,
+    253,
+]
+hash = "sha256:78d04b02b211eedb15fc9ca63b452debfd49a223a71aa898c45182c2b3797089"
+doc_hash = "sha256:2cc2a4c6a884cdf351c96febdcf054179efc6c0a0d728e137545bcb9a214c75c"
+
+[[module."zone_data.rs".function]]
+id = "fn:ec1f4cfa6f26452b"
+name = "fuel_fraction"
+qual = "ZoneNuclearData::fuel_fraction"
+lines = [
+    254,
+    258,
+]
+hash = "sha256:4acf9276cc24fe9d9fe5b0c8c5b4161ad984010cccd97c339520a12c750c134e"
+doc_hash = "sha256:cb1d88daa6c1ab6beba625d28cca1f045ccf35655342ea837809c09685fd41b8"
+
+[[module."zone_data.rs".function]]
+id = "fn:ca79b26a70586630"
+name = "secondary_power_volume_fraction"
+qual = "ZoneNuclearData::secondary_power_volume_fraction"
+lines = [
+    259,
+    263,
+]
+hash = "sha256:b82addae07804fae566f58ef6e118d51bafb50aae24caa7da5c9bb988f1bd042"
+doc_hash = "sha256:968164c44533340ac5da72ba1bbdc030f88ce1c071b493148dd834ef928da3b7"
+
+[[module."zone_data.rs".function]]
+id = "fn:e24c061d33812b9b"
+name = "fraction_to_secondary_power"
+qual = "ZoneNuclearData::fraction_to_secondary_power"
+lines = [
+    264,
+    268,
+]
+hash = "sha256:79c8a8e63102f56497ec95e8ef65bf49b24f0ec4a905adccaaebcc1c58def5d3"
+doc_hash = "sha256:deabc71f4c7c8223f6a8d152fd8cc459c3e611f385adbe9252856aced20a10e9"
+
+[[module."zone_data.rs".function]]
+id = "fn:8f6dc6d8a6e4533e"
+name = "df_adjust"
+qual = "ZoneNuclearData::df_adjust"
+lines = [
+    269,
+    273,
+]
+hash = "sha256:ad494b9371203852fcb10475b0993eb7c66ed169f1ec252c3fdb5e207fa743d1"
+doc_hash = "sha256:e63d8adb735a5bf75637a450b25eab4daea8d94e5c775ec8c1c81012d5005259"
+
+[[module."zone_data.rs".function]]
+id = "fn:31c3de36f7d0d9e2"
+name = "diffusion_coefficient"
+qual = "ZoneNuclearData::diffusion_coefficient"
+lines = [
+    277,
+    286,
+]
+hash = "sha256:a11e50edf896e9d3edd95df1421d171bf6d5e5b87804a3a29d4e97b491b06250"
+doc_hash = "sha256:87b9d176cd9d2d9548b0349536e7afbf38b35471d0ee9c96a380aee47ff86457"
+callees = ["fn:8ec0f4a6ed4b16dc"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#31",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:6978352037b9a189"
+name = "nu_sigma_f"
+qual = "ZoneNuclearData::nu_sigma_f"
+lines = [
+    287,
+    291,
+]
+hash = "sha256:3a3dd1c45b04831d9a8e113f8407a0e010cec618da8ac47bda85f0b0d4481478"
+doc_hash = "sha256:2a5dbeecc762da3fbed9f68f17d1d4c7b524c9c663cb4968d34a5492ae4e2c55"
+callees = ["fn:8ec0f4a6ed4b16dc"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#31",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:1748127b6280c40a"
+name = "sigma_pow"
+qual = "ZoneNuclearData::sigma_pow"
+lines = [
+    292,
+    296,
+]
+hash = "sha256:21ba71fa6834f40be424e3a00141a28c4c960afb909ebe2284e2dc3f8ea82a5a"
+doc_hash = "sha256:81f55b83b0e1728733965ab583cb3b13f32e47f386c6334f409b154346224625"
+callees = ["fn:8ec0f4a6ed4b16dc"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#31",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:15a8add8c4586761"
+name = "sigma_removal"
+qual = "ZoneNuclearData::sigma_removal"
+lines = [
+    297,
+    301,
+]
+hash = "sha256:228f865a22bdbf2aa0668f19baefb60a2fd1f4003a6db7bab07c36bdb3bbc7b0"
+doc_hash = "sha256:3d12f2be122d805eeb98b89c39cab157c5570ffd7270e9cf28515ee381c8ac3b"
+callees = ["fn:8ec0f4a6ed4b16dc"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#31",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:a9dba62c5e417f2f"
+name = "chi_prompt"
+qual = "ZoneNuclearData::chi_prompt"
+lines = [
+    302,
+    306,
+]
+hash = "sha256:f69c28a8df3f8862bd15ba123438eaaac4e361156c161155e2e63c54c3ec33f7"
+doc_hash = "sha256:65d8687b13c9067c3c359c2062060dd0d56f547ad482847b23ed1f6cefe43b0e"
+callees = ["fn:8ec0f4a6ed4b16dc"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#31",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:fddfe4a32a2b0895"
+name = "chi_delayed"
+qual = "ZoneNuclearData::chi_delayed"
+lines = [
+    307,
+    311,
+]
+hash = "sha256:4f2298d3dd8f95fb87283c24a8ca403b13b6a6001f1e5688781208c9bb28738c"
+doc_hash = "sha256:842dcee8d76f276f6b26bb67276ad750ff0d87b9314e0236215766a1a64225e0"
+callees = ["fn:8ec0f4a6ed4b16dc"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#31",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:61ed392b16cae09b"
+name = "scattering"
+qual = "ZoneNuclearData::scattering"
+lines = [
+    312,
+    323,
+]
+hash = "sha256:38077bca8a2584969f0aac6b2ed6cd63e05ed49e6be6e6d3f910871c44754ed8"
+doc_hash = "sha256:dbfd68e1f77ca18c7e6f2f3a3e9dfeb031c643c182a35165d5d1e04a99f31e6e"
+callees = ["fn:8ec0f4a6ed4b16dc"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#36",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:cd1e613184b8ccbb"
+name = "diffusion_coefficient_ref"
+qual = "ZoneNuclearData::diffusion_coefficient_ref"
+lines = [
+    325,
+    329,
+]
+hash = "sha256:1a8003c75c78c47ace95f258f348327aff470b804d513e6fd02333c3e04a78bd"
+doc_hash = "sha256:852095da284ec406fd5d03ecf99374338eec4529c739d239820084085fbcb473"
+callees = ["fn:9c8c63cfea3d8a41"]
+
+[[module."zone_data.rs".function]]
+id = "fn:a625a01f11bc7cd0"
+name = "inverse_velocity"
+qual = "ZoneNuclearData::inverse_velocity"
+lines = [
+    331,
+    335,
+]
+hash = "sha256:139753ec1323ea2601c192e9835fae2370226d95c77326c6708b71a814f10cc5"
+doc_hash = "sha256:c5e4e6af76bbb9cc6129830c6f2226d5c9512c631ccb7bcfb73a34da6f7c5e90"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#31",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:de91ec3f13e7b47c"
+name = "disc_factor"
+qual = "ZoneNuclearData::disc_factor"
+lines = [
+    336,
+    340,
+]
+hash = "sha256:800246b3e1c10909155dcb6eeed86aaf5eb9ddd4799a1dda62091bfb91a5b9a1"
+doc_hash = "sha256:14660ed1c6a4515bdfe713a3add5021371bf4d330d59f4d8cae53682f0968638"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#31",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:9238b5a992de140f"
+name = "integral_flux"
+qual = "ZoneNuclearData::integral_flux"
+lines = [
+    341,
+    345,
+]
+hash = "sha256:927d4365988f1c20ad267ffea7899362577fff98e61983922e0e432856bea029"
+doc_hash = "sha256:7f8b886545e4668480a243885a5cbfee21d299d5b0f39837f8ad1d57b5ceeac4"
+
+[[module."zone_data.rs".function]]
+id = "fn:4e6fc00996393c35"
+name = "beta"
+qual = "ZoneNuclearData::beta"
+lines = [
+    346,
+    350,
+]
+hash = "sha256:553604b0b84993a4930a6dbdb56d95d35e2880ffdbec4f571d8590e2ed6dc538"
+doc_hash = "sha256:b6fae4f1f601ca0f044726ca3e1e416e100af93cf62972bf468a6bad035f6821"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#30",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:4be835c1a7a1f92e"
+name = "beta_tot"
+qual = "ZoneNuclearData::beta_tot"
+lines = [
+    351,
+    355,
+]
+hash = "sha256:11e152e660eb15a9ae89fff27ef6e0bd2ac42245549b23197463d4423c5689a9"
+doc_hash = "sha256:d4b78c5d035d0616fed79052bc18f0d81a275782650708d3c1404b3fe7996ab1"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#30",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:e5883332720ecbef"
+name = "lambda"
+qual = "ZoneNuclearData::lambda"
+lines = [
+    356,
+    360,
+]
+hash = "sha256:87137a377a85755b7ff4c2f2c5b7b371aaddad517b8fa293f1c8193933590ca0"
+doc_hash = "sha256:11f46c1899f51e1120197976bf8456db31b7d486a617822711f01a2dc781fb3f"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#30",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."zone_data.rs".function]]
+id = "fn:418b18d9f67f522f"
+name = "check_len"
+qual = "check_len"
+lines = [
+    363,
+    380,
+]
+hash = "sha256:aa85c733a2feefc746416627661c2dc0a6eeb6ac242a251449669b6f02cac360"
+doc_hash = "sha256:961cbc13195a94d800311901e0d4a3d9887cf579beabd98ccdede26f04386f0c"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]

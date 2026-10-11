@@ -1,0 +1,75 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-coolprop"
+dir = "crates/outram-park-fork-coolprop/src/mixtures/binary_pairs"
+test_ids = [
+    "crates/outram-park-fork-coolprop/tests/all_binary_pairs_smoke.rs::every_binary_pair_evaluates_at_a_representative_state",
+    "crates/outram-park-fork-coolprop/tests/mixture_departure_function.rs::departure_function_is_actually_exercised",
+    "crates/outram-park-fork-coolprop/tests/mixture_departure_function.rs::pure_r32_limit_is_exact",
+    "crates/outram-park-fork-coolprop/tests/mixture_departure_function.rs::r32_r125_blend_state_is_physical",
+    "crates/outram-park-fork-coolprop/tests/mixture_nitrogen_oxygen.rs::air_like_mixture_matches_known_air_properties",
+    "crates/outram-park-fork-coolprop/tests/mixture_nitrogen_oxygen.rs::pure_nitrogen_limit_is_exact",
+    "crates/outram-park-fork-coolprop/tests/mixture_predefined.rs::air_speed_of_sound_and_compressibility_match_reference",
+    "crates/outram-park-fork-coolprop/tests/mixture_predefined.rs::r410a_predefined_constructs_and_evaluates",
+]
+
+[module."data_0.rs"]
+path = "crate::mixtures::binary_pairs::data_0"
+
+[module."data_1.rs"]
+path = "crate::mixtures::binary_pairs::data_1"
+
+[module."data_2.rs"]
+path = "crate::mixtures::binary_pairs::data_2"
+
+[module."data_3.rs"]
+path = "crate::mixtures::binary_pairs::data_3"
+
+[module."data_4.rs"]
+path = "crate::mixtures::binary_pairs::data_4"
+
+[module."mod.rs"]
+path = "crate::mixtures::binary_pairs"
+
+[[module."mod.rs".function]]
+id = "fn:e95dbc4e64d0aee6"
+name = "lookup"
+qual = "lookup"
+lines = [
+    58,
+    65,
+]
+hash = "sha256:2968b2430a2986a9e1a05add014177d4fe83cd0221ee946eec1e085380ea0bf1"
+doc_hash = "sha256:c02a7d778734fd0b85abd93ce201b64c5ab302e3d69600c675a11f7e2b7fbcd0"
+callees = ["fn:81480ab1b26f4c7b"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:81480ab1b26f4c7b"
+name = "all"
+qual = "all"
+lines = [
+    67,
+    70,
+]
+hash = "sha256:28a485cda787cc2c472963effdd1b8c544c5fb79cea1b756b1938a7503d3a454"
+doc_hash = "sha256:fab646ce6fcb6128f93408827d663f563db801f9368c54fac555e266fa3b8d01"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]

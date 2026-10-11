@@ -1,0 +1,7 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/src/critical_flow"
+
+[module."mod.rs"]
+path = "crate::critical_flow"

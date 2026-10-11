@@ -1,0 +1,1044 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/src/components"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/condenser_tab.rs::the_physics_row_never_picks_up_the_state_driven_sliders",
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/cooling_tower_tab.rs::an_unresolvable_air_state_is_reported_not_substituted",
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/cooling_tower_tab.rs::the_physics_card_reports_only_what_the_component_holds",
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/heat_exchanger_tab.rs::the_physics_row_follows_the_components_own_arrangement",
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/heat_exchanger_tab.rs::the_physics_row_never_picks_up_the_state_driven_sliders",
+    "crates/outram-park-digital-twin-engine/src/components/condenser.rs::the_physics_path_paints_nothing_it_cannot_see",
+    "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_physics_path_draws_no_plume_and_no_approach",
+    "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_physics_path_draws_its_arrangement_but_paints_no_temperature",
+    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::length_is_proportional_to_run_length",
+    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::thickness_is_proportional_to_cross_sectional_area",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::non_positive_timestep_is_rejected",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::residence_time_is_length_over_velocity",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stagnant_run_places_no_mark",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stepping_advances_the_backend",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::tracer_phase_persists_across_steps",
+    "crates/outram-park-digital-twin-engine/src/components/pump.rs::wrapping_a_tampines_pump_invents_no_state",
+    "crates/outram-park-digital-twin-engine/src/components/steam_generator.rs::the_physics_constructor_starts_isothermal_until_told_otherwise",
+    "crates/outram-park-digital-twin-engine/src/components/steam_generator.rs::the_physics_path_reads_the_live_secondary_temperature",
+    "crates/tampines/src/components/helical_coil_sg_standalone.rs::odd_even_roughness_separates_a_checkerboard_from_a_ramp",
+    "crates/tampines/src/components/helical_coil_sg_standalone.rs::the_implicit_coupling_converges_and_beats_real_time_at_the_largest_stable_substep",
+    "crates/tampines/src/components/helical_coil_sg_standalone.rs::the_standalone_harness_is_deterministic",
+]
+
+[module."condenser.rs"]
+path = "crate::components::condenser"
+
+[[module."condenser.rs".function]]
+id = "fn:dc3af7fba6bf9327"
+name = "new"
+qual = "Condenser::new"
+lines = [
+    25,
+    32,
+]
+hash = "sha256:c28c556a1bf2417f12f673610a9446aec19aeeec4e218ed7c567a3d5618a83f1"
+doc_hash = "sha256:abae42fe7bae8f5c5fdc07362b00d6a824530537ea70bff4699d6a95c9866859"
+reached_by = [
+    "#0",
+    "#5",
+]
+physical_interface = true
+
+[[module."condenser.rs".function]]
+id = "fn:ba2caa5165b156dd"
+name = "condense"
+qual = "Condenser::condense"
+lines = [
+    34,
+    44,
+]
+hash = "sha256:e51f96f360088e21a13064a144ae6df9ed5ca3d2d533194ce3ff8ce14a436354"
+doc_hash = "sha256:a3366545554e8b0bc39f144841045537d4d9b2d249c84b1b78ac0c06dd77d29a"
+
+[module."cooling_tower.rs"]
+path = "crate::components::cooling_tower"
+
+[[module."cooling_tower.rs".function]]
+id = "fn:3c6acd1dca6cfc60"
+name = "new"
+qual = "CoolingTower::new"
+lines = [
+    31,
+    45,
+]
+hash = "sha256:d0549b3fad269a85076b00552c485d91bc566e43194c6400affbfa709d41a5f6"
+doc_hash = "sha256:62ee92c31a3ccf05a9ea8f0ea283c08a7751f165290304bfd35280f25a25f688"
+reached_by = [
+    "#1",
+    "#2",
+    "#6",
+]
+physical_interface = true
+
+[[module."cooling_tower.rs".function]]
+id = "fn:3248275d0c81db58"
+name = "evaluate"
+qual = "CoolingTower::evaluate"
+lines = [
+    47,
+    57,
+]
+hash = "sha256:f806013289ea6cde806a7bac6fdf4683fde28c5396cdaf9a2665f6ad3b0eed8b"
+doc_hash = "sha256:50ced0be0948aee7a43ed7ede7419789db2f7f5ed9866350be1321701f2f4579"
+physical_interface = true
+
+[module."heat_exchanger.rs"]
+path = "crate::components::heat_exchanger"
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:99498a85dc92b489"
+name = "new"
+qual = "HeatExchanger::new"
+lines = [
+    26,
+    38,
+]
+hash = "sha256:34fc5bf1f5e8701476109e1b912407e27ee223964f5a5272b37dff3d0b316a73"
+doc_hash = "sha256:40670cf47c78c940155bab2b9203e15934c8dd7c6b1a8206ad5e0543400f7bc9"
+reached_by = [
+    "#3",
+    "#4",
+    "#7",
+    "#16",
+    "#17",
+]
+physical_interface = true
+
+[[module."heat_exchanger.rs".function]]
+id = "fn:bd38befc57dbd871"
+name = "calculate"
+qual = "HeatExchanger::calculate"
+lines = [
+    40,
+    56,
+]
+hash = "sha256:141e02cd4b4b308629d5e0b8dac927efc4203d63b1f4c16c1bbb38ec109ea240"
+doc_hash = "sha256:8e579081178d0d7b63dae783d3f4c0ffb0cf9b014811afa81505cd378a490784"
+physical_interface = true
+
+[module."helical_coil_sg_standalone.rs"]
+path = "crate::components::helical_coil_sg_standalone"
+
+[[module."helical_coil_sg_standalone.rs".function]]
+id = "fn:15356c1b199012f1"
+name = "default"
+qual = "SgStandaloneConfig::default"
+lines = [
+    150,
+    171,
+]
+hash = "sha256:4139a2415abd549570b4684c3e0fb7277484fd5c27a004a1fcfb06af7428de9e"
+doc_hash = "sha256:1d7ce42cc09e143a4071afaa8898366419b0852cf43bc435dd0f83b3b8b042a4"
+reached_by = [
+    "#19",
+    "#20",
+]
+
+[[module."helical_coil_sg_standalone.rs".function]]
+id = "fn:0f0255d4921854f4"
+name = "htr10_illustrative_config"
+qual = "htr10_illustrative_config"
+lines = [
+    174,
+    215,
+]
+hash = "sha256:915c822376aa7b9fa759253d6e1a7a9bd841704740a46996d976eeff0e3dab89"
+doc_hash = "sha256:d4b17540fb7b7c1f1838cc94d477bb0263a3f9fffaeb26386f2ae03d6b7eba00"
+callees = [
+    "fn:09011ee7a9d9d0b2",
+    "fn:26ddbac5faf73a41",
+    "fn:f36c83f863b50e3e",
+]
+reached_by = [
+    "#19",
+    "#20",
+]
+
+[[module."helical_coil_sg_standalone.rs".function]]
+id = "fn:ff48a0de77ecf7cc"
+name = "odd_even_roughness"
+qual = "odd_even_roughness"
+lines = [
+    250,
+    281,
+]
+hash = "sha256:7139ec24b6e2a31cb33f0cf5c0545e881b3d56488b0b5e312d2e7faa985531b2"
+doc_hash = "sha256:82fcba374a366968e06a9dd062d537bf92b17c81612b39b78ab6dce6a369ae1e"
+reached_by = [
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."helical_coil_sg_standalone.rs".function]]
+id = "fn:205d9b719bf7713d"
+name = "run_with_iterations"
+qual = "run_with_iterations"
+lines = [
+    306,
+    314,
+]
+hash = "sha256:4b8960043727de341dd08948b6426f32592dd5889d612560b910303f18af54e3"
+doc_hash = "sha256:1c795d3761605553bf1fed602dc201a297e7cb9b1bec4c11c47748b5aa9837d6"
+callees = [
+    "fn:0f0255d4921854f4",
+    "fn:47f90178f01db5d8",
+]
+
+[[module."helical_coil_sg_standalone.rs".function]]
+id = "fn:712ada82493c0371"
+name = "run"
+qual = "run"
+lines = [
+    316,
+    319,
+]
+hash = "sha256:f2ed59b5e7f51b2c72af52958ee3dda9f012194b9b24884b4d4be098cf520193"
+doc_hash = "sha256:408e457b45f79b045af514f31c1223051ef95b7de8582ed7675d77f835e69e7f"
+callees = [
+    "fn:0f0255d4921854f4",
+    "fn:47f90178f01db5d8",
+]
+reached_by = [
+    "#19",
+    "#20",
+]
+
+[[module."helical_coil_sg_standalone.rs".function]]
+id = "fn:47f90178f01db5d8"
+name = "run_with_config"
+qual = "run_with_config"
+lines = [
+    321,
+    381,
+]
+hash = "sha256:b57292f5c985667db5b43a90cf8e74f5ba5ae412dbe461dafabeb06b0693abf8"
+doc_hash = "sha256:6bc459a1347fd87a0af1ec473eef240f028bd4b2b66b4e05dab9a2654d400b81"
+callees = [
+    "fn:45e2036f4a8011ca",
+    "fn:93ea64b91e8738ff",
+    "fn:953241f8b6e6670c",
+    "fn:dbcef8d67a3357ef",
+]
+reached_by = [
+    "#19",
+    "#20",
+]
+
+[[module."helical_coil_sg_standalone.rs".function]]
+id = "fn:953241f8b6e6670c"
+name = "sample"
+qual = "sample"
+lines = [
+    383,
+    409,
+]
+hash = "sha256:7b0baba095f4b6764241759469bdd09f8e6c292366d1ef7fcbcec73851e7c4aa"
+doc_hash = "sha256:61a24cb3986ba8d3f9763ae0fd980388fc972111053a95a7525f277525f93264"
+callees = [
+    "fn:3702184719d7fa60",
+    "fn:ff48a0de77ecf7cc",
+]
+reached_by = [
+    "#19",
+    "#20",
+]
+
+[[module."helical_coil_sg_standalone.rs".function]]
+id = "fn:e6d310c143a131b0"
+name = "coldest_over_run"
+qual = "coldest_over_run"
+lines = [
+    411,
+    421,
+]
+hash = "sha256:ea6e97d363efc19320cf87ef4777f89344af3b394c146bf4f51f184fce2a83f3"
+doc_hash = "sha256:0bfe2323a94c4e2fde29e68e2ac5bc7805e12cc982a153f8ab97341a0281c435"
+callees = ["fn:712ada82493c0371"]
+
+[[module."helical_coil_sg_standalone.rs".function]]
+id = "fn:f95afebd88f270f6"
+name = "feedwater_enthalpy_j_per_kg"
+qual = "feedwater_enthalpy_j_per_kg"
+lines = [
+    423,
+    431,
+]
+hash = "sha256:990ad40d67c99a9561ff1b5b93a2608dd4a20ce1ce4150086c510865bf93e4bb"
+doc_hash = "sha256:36462d94a6565eeaa3293f724ed9149623c78d7eb306bd8098c1f1128a66da39"
+callees = ["fn:93ea64b91e8738ff"]
+
+[[module."helical_coil_sg_standalone.rs".function]]
+id = "fn:01c806446e963501"
+name = "the_implicit_coupling_converges_and_beats_real_time_at_the_largest_stable_substep"
+qual = "the_implicit_coupling_converges_and_beats_real_time_at_the_largest_stable_substep"
+lines = [
+    437,
+    633,
+]
+hash = "sha256:05f2dd2f4d4bcec993b708396c043aa09eb12cba30da89759c1277919ff5104a"
+doc_hash = "sha256:006591841ebe0a2534a73fc8e27197c74b26a2f2bd017a199a0a35a180739f85"
+callees = [
+    "fn:0f0255d4921854f4",
+    "fn:15356c1b199012f1",
+    "fn:712ada82493c0371",
+]
+test = true
+
+[[module."helical_coil_sg_standalone.rs".function]]
+id = "fn:37786ad321d55cfe"
+name = "short"
+qual = "short"
+lines = [
+    635,
+    643,
+]
+hash = "sha256:3d4176f2350aa8a0fe72aaf5d35dcc2f8d76cd3b052196b25d8b3688fadb374f"
+doc_hash = "sha256:f143d88593f32a2b5961018704ff161982bea3cc2eb2940eb76fdc517ed08d45"
+callees = ["fn:15356c1b199012f1"]
+test = true
+
+[[module."helical_coil_sg_standalone.rs".function]]
+id = "fn:1933419550853fe6"
+name = "how_far_the_implicit_coupling_raises_the_stable_substep"
+qual = "how_far_the_implicit_coupling_raises_the_stable_substep"
+lines = [
+    645,
+    774,
+]
+hash = "sha256:3aad40684dca79e4524ba485b5eed872d7fc34d05df14e015a42b29d5c584c93"
+doc_hash = "sha256:ee913358e3a15417fda3f315df3846b59d6d8d52e621b1e331045d8debe9c5dd"
+callees = [
+    "fn:15356c1b199012f1",
+    "fn:205d9b719bf7713d",
+]
+test = true
+
+[[module."helical_coil_sg_standalone.rs".function]]
+id = "fn:45a6fe4ac2ba9c37"
+name = "the_standalone_harness_is_deterministic"
+qual = "the_standalone_harness_is_deterministic"
+lines = [
+    776,
+    785,
+]
+hash = "sha256:a66dce7cbec410aa0d4a92e2bfea3d347278a57f05a420d5ad2ac597a7963596"
+doc_hash = "sha256:712993dc69662953698664266e80981f94a1b802afab24cac2efaf26bc01d6ac"
+callees = [
+    "fn:37786ad321d55cfe",
+    "fn:712ada82493c0371",
+]
+test = true
+
+[[module."helical_coil_sg_standalone.rs".function]]
+id = "fn:4d27d01a34523dc0"
+name = "odd_even_roughness_separates_a_checkerboard_from_a_ramp"
+qual = "odd_even_roughness_separates_a_checkerboard_from_a_ramp"
+lines = [
+    787,
+    803,
+]
+hash = "sha256:4b6578ffe7e5c35554826f5bc2b1bfdff5f8530fd643bd1f0d392c591aa5c2ae"
+doc_hash = "sha256:42000262804385041f04e39c97beb64f22c33211db958aee584e67b4b2568558"
+callees = ["fn:ff48a0de77ecf7cc"]
+test = true
+
+[[module."helical_coil_sg_standalone.rs".function]]
+id = "fn:46dee33b0c64f744"
+name = "the_substep_is_not_what_walks_the_cold_side_down"
+qual = "the_substep_is_not_what_walks_the_cold_side_down"
+lines = [
+    805,
+    939,
+]
+hash = "sha256:a017111760c6432d7b75ac6ded4c8dedf544c1162c830fff00241fd8220f982e"
+doc_hash = "sha256:60414c41470d8f56617cd45dd6d9101befabbfaaa0206dda699c0bafa3a23a6b"
+callees = [
+    "fn:37786ad321d55cfe",
+    "fn:e6d310c143a131b0",
+    "fn:f95afebd88f270f6",
+]
+test = true
+
+[module."helical_coil_steam_generator.rs"]
+path = "crate::components::helical_coil_steam_generator"
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:26ddbac5faf73a41"
+name = "htr10_illustrative"
+qual = "SteamGeneratorGeometry::htr10_illustrative"
+lines = [
+    351,
+    395,
+]
+hash = "sha256:7847abd2015e9a679425e5db2725d3d10ad89dc798cecd9ee4c274caf2998b9f"
+doc_hash = "sha256:ebbe19b7d795a302467dbb5f7eef7a8c11f6355d856dae0bb429fcfa90bcb5b5"
+reached_by = [
+    "#19",
+    "#20",
+]
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:40d3a4aebbd7f502"
+name = "tube_flow_area"
+qual = "SteamGeneratorGeometry::tube_flow_area"
+lines = [
+    397,
+    401,
+]
+hash = "sha256:a3fc9613d30f1d709e6439bdb401947f4dd54ab8c3f9caa584ce23dd5c7d7fa7"
+doc_hash = "sha256:b903d63491f17967664635132f85078d7ead3cee4dff28a038193cbd1fd62aef"
+reached_by = [
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:d9da5b9637de7dca"
+name = "metal_cross_section"
+qual = "SteamGeneratorGeometry::metal_cross_section"
+lines = [
+    403,
+    412,
+]
+hash = "sha256:ed447d0f3ae5ca3b05a9fac7a1a59624cb2c655e8a8207514faa77f654205f3f"
+doc_hash = "sha256:c9597aba6c4cf6f2d9872be54a9725aa5b7de52ffbdb6b21adbc66e575aacc9b"
+reached_by = [
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:ecc5393b8ef9330a"
+name = "metal_volume"
+qual = "SteamGeneratorGeometry::metal_volume"
+lines = [
+    414,
+    420,
+]
+hash = "sha256:9c1e8d0530b61256b6fdc654d8b35c13f09c6322451fef47559e9d6651ec4202"
+doc_hash = "sha256:c3b96200484de8474657dde96c6b2caadfff5291628ccac2d4e1f90e47a88691"
+callees = ["fn:d9da5b9637de7dca"]
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:8b6fe78f411d4cde"
+name = "metal_mass"
+qual = "SteamGeneratorGeometry::metal_mass"
+lines = [
+    422,
+    440,
+]
+hash = "sha256:ac42711c58758ec5fbc7442f68a46b92d5804492bee07eacf28facade91f3bc5"
+doc_hash = "sha256:4d4355a093d555e1d3118580faa8292c170452c391189c228480ac5317c6c51e"
+callees = [
+    "fn:688af171e3e001e7",
+    "fn:ecc5393b8ef9330a",
+]
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:fbe76e22f3a76895"
+name = "metal_thermal_capacity"
+qual = "SteamGeneratorGeometry::metal_thermal_capacity"
+lines = [
+    442,
+    460,
+]
+hash = "sha256:fc8b805d8a2b826fa2a8ab6f4c1c7a9f137c070070097418547a04fbb321e1d8"
+doc_hash = "sha256:0bf814368fae5ca3e08dacbfd486222567a641a927d1ef18e044335ddc3d5db8"
+callees = [
+    "fn:618d751fd16b16d4",
+    "fn:8b6fe78f411d4cde",
+]
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:caba4fe1b4b7bf00"
+name = "outer_heat_transfer_area"
+qual = "SteamGeneratorGeometry::outer_heat_transfer_area"
+lines = [
+    462,
+    472,
+]
+hash = "sha256:fb0d1379e5bb81bd85692dbcc5791579d76c580843f2c38f2533246b08ffeb4b"
+doc_hash = "sha256:cbbcb14334ff925829869fe1fb47020cd9fa3d19867a8533b720f4abbffeae6f"
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:e7a5291ef31fa567"
+name = "inner_heat_transfer_area"
+qual = "SteamGeneratorGeometry::inner_heat_transfer_area"
+lines = [
+    474,
+    483,
+]
+hash = "sha256:3c0951ec7c28308c72f7d93d90526b232e3f24b80a90afa1bda69360c89cee52"
+doc_hash = "sha256:a33eda346dcd41ed200b741ae27e55c483b050504407c036725f3b3cfb68e419"
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:d95e414527f65940"
+name = "validate"
+qual = "SteamGeneratorGeometry::validate"
+lines = [
+    485,
+    500,
+]
+hash = "sha256:b91b937a94cc952001616fdd624ed7d7a01f09d6acdca3c5467387807a643022"
+doc_hash = "sha256:15ee5ed6394cc45ee2535ebc9e290095f24d0d03d56f47cd107da023ccbe2243"
+reached_by = [
+    "#19",
+    "#20",
+]
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:09011ee7a9d9d0b2"
+name = "hot_gas_default"
+qual = "PimpleCorrectors::hot_gas_default"
+lines = [
+    815,
+    862,
+]
+hash = "sha256:af16602d85b13bec85fd6820f532a1b6642ca4bec1efaa062886c1ab0cf65bac"
+doc_hash = "sha256:aa63e86c40bd9c6ddc68bc997716b84f7ca405feb48ff92dd537137cf8d560a8"
+reached_by = [
+    "#19",
+    "#20",
+]
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:f36c83f863b50e3e"
+name = "water_steam_default"
+qual = "PimpleCorrectors::water_steam_default"
+lines = [
+    864,
+    883,
+]
+hash = "sha256:f3db4b3680ca716720219f26023351d37d061b47e2ca3e03d8c881bed1fe74d3"
+doc_hash = "sha256:95058c92fed5aa1c6389f0639173160e08442b9d9959917784c15f039262912b"
+reached_by = [
+    "#19",
+    "#20",
+]
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:f158299eed8e7011"
+name = "with_outer"
+qual = "PimpleCorrectors::with_outer"
+lines = [
+    885,
+    889,
+]
+hash = "sha256:12a93096908177af86baf3a307a513bcd803e342468ef75ea7617f252bfb8ee5"
+doc_hash = "sha256:051b17c3680ee8a19b1bcb3779fda2dd8cb53ff76b7f88cd809521705ba6882a"
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:77555d4af74db57b"
+name = "fmt"
+qual = "SteamGeneratorError::fmt"
+lines = [
+    910,
+    927,
+]
+hash = "sha256:466c95eb95e0e2a1a7e578641f3680d39a029c388ac6f3b0b59d7914ff76ec03"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:58b23a34f11c6cf6"
+name = "node_driving_differences_kelvin"
+qual = "SteamGeneratorState::node_driving_differences_kelvin"
+lines = [
+    983,
+    997,
+]
+hash = "sha256:1848093eb6b10c7e1486fb5c378639127a5b0c27badef2cce06af1e39c61e837"
+doc_hash = "sha256:db8d6ebd785fb34127a1d6c4790da69289c2ce3d6f8d2afccf522c49cc816b5f"
+reached_by = [
+    "#19",
+    "#20",
+]
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:3702184719d7fa60"
+name = "worst_node_cross_kelvin"
+qual = "SteamGeneratorState::worst_node_cross_kelvin"
+lines = [
+    999,
+    1009,
+]
+hash = "sha256:2e82d952c98331ab2ef98b04a092b74c85bca4c17d3619c5fe219c13fb1d0644"
+doc_hash = "sha256:47315ce63973acd55089ba48db202938f09d6c098d1e7af87e08dcc4e373d2fa"
+callees = ["fn:58b23a34f11c6cf6"]
+reached_by = [
+    "#19",
+    "#20",
+]
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:85a543df2181b4ee"
+name = "hot_end_driving_difference_kelvin"
+qual = "SteamGeneratorState::hot_end_driving_difference_kelvin"
+lines = [
+    1011,
+    1019,
+]
+hash = "sha256:b9989da60d95f803b3ea4f337083f3e88e5d215502ae48183bd0fb1fc0436ef7"
+doc_hash = "sha256:0b8c1e8f9b5787bac153d5acf118067b1948ed9c95cd62a00b2e2fe0b218e497"
+callees = ["fn:58b23a34f11c6cf6"]
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:dbcef8d67a3357ef"
+name = "new"
+qual = "NodalisedCounterFlowSteamGenerator::new"
+lines = [
+    1044,
+    1240,
+]
+hash = "sha256:7b395b4a3ea0440fd31125083e7210fcaa3d8b94841ebafb3134bdccdcc137d8"
+doc_hash = "sha256:4b9884a7b1b55c7a96c5a48294a94d2e6a41bdc24e67085f2b198f675f48745d"
+callees = [
+    "fn:0e0042002a89b8b7",
+    "fn:0f481d1ef07f297d",
+    "fn:1b3f6d56027dbc51",
+    "fn:1d2865f3c3a06a45",
+    "fn:3fa023c7f5a5c260",
+    "fn:40d3a4aebbd7f502",
+    "fn:42c70c3c65fb802b",
+    "fn:4744676981477681",
+    "fn:4c5c8e9916515b40",
+    "fn:6696cd32b86dccf0",
+    "fn:8d4119880af67bb8",
+    "fn:90e8d2fa032ed2b4",
+    "fn:a276c81f052a929a",
+    "fn:b39d17b68f933321",
+    "fn:bf4c13927b607a0e",
+    "fn:d95e414527f65940",
+    "fn:d9da5b9637de7dca",
+    "fn:e14e270bde8aa9cf",
+    "fn:e3b184e79e6044fe",
+    "fn:e715305e7bcf3af4",
+    "fn:e7b53305171b7aef",
+]
+reached_by = [
+    "#19",
+    "#20",
+]
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:1aab77e54ce757b3"
+name = "node_count"
+qual = "NodalisedCounterFlowSteamGenerator::node_count"
+lines = [
+    1242,
+    1246,
+]
+hash = "sha256:6adf979eb74bd7e05abf6203b6b9b7ae34ff30ea5b92f1d4379692c3ccb9d5c5"
+doc_hash = "sha256:fe91970e4d381bb8388d808af7ae5d44adfab738163e513719bb687133f323e8"
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:9f8f02779c495721"
+name = "geometry"
+qual = "NodalisedCounterFlowSteamGenerator::geometry"
+lines = [
+    1248,
+    1252,
+]
+hash = "sha256:b78dab04396c6e970e59229811f980f29bf198e7e74e6a3f66ef1daf65412575"
+doc_hash = "sha256:1ac294d93beee2f6c4eb4f6b3ab5a36be89ffc48394a598ecb3d1748c9baec0e"
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:93031d8fe4421a46"
+name = "metal_thermal_capacity"
+qual = "NodalisedCounterFlowSteamGenerator::metal_thermal_capacity"
+lines = [
+    1254,
+    1263,
+]
+hash = "sha256:1774d3c2bb8ab1e5266ef2fdc6e0c64f470c3e08060fe46655bdd0ba1ea830f1"
+doc_hash = "sha256:8ccf3ffa19fa11be99b024583073e0182d61125ef2dc006a3e1b48ec18e45efd"
+callees = ["fn:fbe76e22f3a76895"]
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:7de6cdae29234d08"
+name = "overall_conductance"
+qual = "NodalisedCounterFlowSteamGenerator::overall_conductance"
+lines = [
+    1265,
+    1271,
+]
+hash = "sha256:0a8052b5b0e3cb5ccde200a87e48a71c23447e89984d36047348ffb3453b19bf"
+doc_hash = "sha256:e2417e21d7bf1e18ff108908610e9624f91da2ff7c126721f418c19a51117981"
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:7a8230aeca5f4992"
+name = "metal_time_constant"
+qual = "NodalisedCounterFlowSteamGenerator::metal_time_constant"
+lines = [
+    1273,
+    1286,
+]
+hash = "sha256:1e5c14341f5e331c177c16d5a0e69454f687de993629bd27483a5b50c33c260e"
+doc_hash = "sha256:b2c6f339e8a3cad776769f29d083e103768e207123a30a575348e93d48a45ec3"
+callees = [
+    "fn:7de6cdae29234d08",
+    "fn:93031d8fe4421a46",
+]
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:779f6d5c93a46c3d"
+name = "state"
+qual = "NodalisedCounterFlowSteamGenerator::state"
+lines = [
+    1288,
+    1291,
+]
+hash = "sha256:e8889df90ba39c25747ef0f9b8cf1f246d242f32ddeaec329e9210c14effa2b8"
+doc_hash = "sha256:ab30eef5e1765242b3b5bd788ceb3173f178d4eb3d86b7be8e22db63fd8cfe12"
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:34e0d3216a5f631b"
+name = "max_courant_numbers"
+qual = "NodalisedCounterFlowSteamGenerator::max_courant_numbers"
+lines = [
+    1293,
+    1364,
+]
+hash = "sha256:abea825af65453b4a820e7def303a78d462b6c9e64d06c7a47a11908cd9e6ead"
+doc_hash = "sha256:580cc0799fe3a4a725e95a9cebd0231a799f1739d29e45bd8e5263f141f12ef6"
+callees = [
+    "fn:0684dffc925661fd",
+    "fn:099281ba9b816fa9",
+    "fn:827b8eee7c6fcbce",
+    "fn:ed7d718f646723fc",
+]
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:29c4c8f514c4ce35"
+name = "hot_enthalpy_clamp_events"
+qual = "NodalisedCounterFlowSteamGenerator::hot_enthalpy_clamp_events"
+lines = [
+    1366,
+    1381,
+]
+hash = "sha256:0e341c6daca74555730273733b59cc2888fdd2a5418e2c04de195e51b7cd6142"
+doc_hash = "sha256:0f3d431cbd87c12bf47b4644accdc33944bc6423d790d6f4dad555248ebea006"
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:45e2036f4a8011ca"
+name = "advance_timestep"
+qual = "NodalisedCounterFlowSteamGenerator::advance_timestep"
+lines = [
+    1383,
+    1599,
+]
+hash = "sha256:e882b1139995bf9bf5e9905ac1e1d3aac1d3ac7f91793792561fd2462dc5359f"
+doc_hash = "sha256:7a7efcf0423b2248ff0c28864d2c1d23a9ab4c48ca98d2c9be5fcb002e45d1e7"
+callees = [
+    "fn:071b4b36e53f687c",
+    "fn:31c0e759b872f79c",
+    "fn:39275fb42f14b896",
+    "fn:42c70c3c65fb802b",
+    "fn:4744676981477681",
+    "fn:51e3b3903c55907d",
+    "fn:7059d6487d8e9f72",
+    "fn:73cc8ff4c1d0ffa4",
+    "fn:7548c823c51ba8d3",
+    "fn:7740cadfc593a9c5",
+    "fn:86b7775079c503a5",
+    "fn:91abb0819b7d49ac",
+    "fn:9a3d4745acc1dd1c",
+    "fn:9ba6ed6d6d6e9424",
+    "fn:a3a2492949f42920",
+    "fn:a7b13313b37a74af",
+    "fn:abafd5a5e42d6a30",
+    "fn:bf4c13927b607a0e",
+    "fn:c7de2766fee5ae78",
+    "fn:cde5e79644b7fed0",
+    "fn:dd77f5dd18e7f906",
+    "fn:ddd8204267bd4b48",
+]
+reached_by = [
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:a276c81f052a929a"
+name = "linear_station_profile"
+qual = "linear_station_profile"
+lines = [
+    1602,
+    1621,
+]
+hash = "sha256:53c0a9dc61094ea84a71b495f6134771531df3836ed75c7be919a056ad94be31"
+doc_hash = "sha256:efd043dc0ba4c3968e1a862066d342696ddc8d3ec621ed4140223aff1a037648"
+reached_by = [
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:827b8eee7c6fcbce"
+name = "max_courant_over_speeds"
+qual = "max_courant_over_speeds"
+lines = [
+    1623,
+    1646,
+]
+hash = "sha256:4cc37e3c0312e4f150e441d3a7a77862a6528dc0f48e986324d364663a5891c8"
+doc_hash = "sha256:f60c271e4fc6530703af1a84bf4fe6ddb830bcab3fcb2f381f85624418b3f7e7"
+callees = ["fn:fae1c7e9fce5f10b"]
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:7740cadfc593a9c5"
+name = "max_temperature_change_kelvin"
+qual = "max_temperature_change_kelvin"
+lines = [
+    1648,
+    1669,
+]
+hash = "sha256:ae64f19503b5cf114412dbe9b914abd0a68779dfd2ac6c0c42a059287c433e5b"
+doc_hash = "sha256:e6e7f4ab20cf4963b91b7c481719c7865c36c086266a85c64ee84eb8984476c5"
+reached_by = [
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:4744676981477681"
+name = "reverse"
+qual = "reverse"
+lines = [
+    1671,
+    1674,
+]
+hash = "sha256:1447f1b80b6f215d71413d9a36857f046cc373ddf45fd42bb4966a946e1cdfe2"
+doc_hash = "sha256:15928707476a439f64ff7d10d965b56081a8fd0ee0a0d2b34054590843e5341e"
+reached_by = [
+    "#19",
+    "#20",
+]
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:b39d17b68f933321"
+name = "ratio_of"
+qual = "ratio_of"
+lines = [
+    1676,
+    1679,
+]
+hash = "sha256:9f18716ff6b88d5d7a71c6f7ac6bb4fc7b01813614eedb6cc95d8fa223554ebc"
+doc_hash = "sha256:3f1963e94ce698410a3b91fb2093aa8f4a710b548514acce31b93eb0854f7cb1"
+reached_by = [
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."helical_coil_steam_generator.rs".function]]
+id = "fn:c7de2766fee5ae78"
+name = "hot_fluid_enthalpy"
+qual = "hot_fluid_enthalpy"
+lines = [
+    1681,
+    1704,
+]
+hash = "sha256:095f7936673807ba079e231373ccb8c48992f9f3459d4d1bd05df48c8dcd89e1"
+doc_hash = "sha256:cbdc0b70242793ae81aa0b4752124004e556207e0d44cf1088b53f3cd695f459"
+callees = ["fn:a9e5181d9a48d7b4"]
+reached_by = [
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::components"
+
+[module."pipe.rs"]
+path = "crate::components::pipe"
+
+[[module."pipe.rs".function]]
+id = "fn:ef9a2d26a0aa5d96"
+name = "new"
+qual = "Pipe::new"
+lines = [
+    73,
+    90,
+]
+hash = "sha256:5c35304891a21d699d72b533cf67b90ee6c4a6fab0c7f9bd073dd2dca75f6baf"
+doc_hash = "sha256:f77328003b6bffc446d2afe662b668529f7a910df6f97e41e2377331d0666ae7"
+reached_by = [
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+physical_interface = true
+
+[[module."pipe.rs".function]]
+id = "fn:6932ddafc7eb9324"
+name = "step"
+qual = "Pipe::step"
+lines = [
+    92,
+    137,
+]
+hash = "sha256:8dada8837617ec43425413e9dc6615e5277cba4228154ee41bd904427bdf7389"
+doc_hash = "sha256:c9077a6d3c495645104aa396565bdeefeefc8498eb654f93bc7c57602f3bd113"
+callees = [
+    "fn:39275fb42f14b896",
+    "fn:3f6427f87e7e0f62",
+    "fn:91abb0819b7d49ac",
+    "fn:f43fb794ab69889d",
+]
+reached_by = [
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+]
+physical_interface = true
+
+[module."pump.rs"]
+path = "crate::components::pump"
+
+[[module."pump.rs".function]]
+id = "fn:593cc8871d5525e5"
+name = "new"
+qual = "Pump::new"
+lines = [
+    22,
+    29,
+]
+hash = "sha256:469ba15f2ef58cb1fda98161768a47af9ed2cba0a50b9192f2dcd77931e9c329"
+doc_hash = "sha256:2b0ea0ad920a1892876a121a1b7e0cc7ed3239d7cd8af104702da7288fe19e00"
+reached_by = ["#15"]
+physical_interface = true
+
+[[module."pump.rs".function]]
+id = "fn:c13c070c7d3097bc"
+name = "evaluate"
+qual = "Pump::evaluate"
+lines = [
+    31,
+    42,
+]
+hash = "sha256:e454750214f98d5c31a2e878ca8f9a866e51aed6591c5ce5bc893fd48f032f57"
+doc_hash = "sha256:ce74e10011fa2a8c1493d73995b6158d49332f0f3f31d3ed519dee4811f78ea4"
+
+[module."steam_generator.rs"]
+path = "crate::components::steam_generator"
+
+[[module."steam_generator.rs".function]]
+id = "fn:782fca85faa2f396"
+name = "new"
+qual = "SteamGenerator::new"
+lines = [
+    27,
+    34,
+]
+hash = "sha256:82d9fc396135e1f2515b26d9003716c01d88838b42b3092e61e92b7e27d3ad03"
+doc_hash = "sha256:baeada8f1ae5e1a6097233eeede6bd099cc6bc9672b1756747c875ea1cecfcce"
+reached_by = [
+    "#16",
+    "#17",
+]
+
+[[module."steam_generator.rs".function]]
+id = "fn:b787eae73db51548"
+name = "step"
+qual = "SteamGenerator::step"
+lines = [
+    36,
+    45,
+]
+hash = "sha256:1b027c846cff3b8ef3de77daead3db942df6a446a38cf2aa217cc0f8ac572e45"
+doc_hash = "sha256:a9fda41c9a6707915a833653405bcdbdbca7a5a2e789c1a804c4ca1c6ad290db"
+physical_interface = true
+
+[module."turbine.rs"]
+path = "crate::components::turbine"
+
+[[module."turbine.rs".function]]
+id = "fn:57d359f3e991e17e"
+name = "new"
+qual = "Turbine::new"
+lines = [
+    24,
+    31,
+]
+hash = "sha256:d8672282ba886c5ac7942e1afd4d6c4163bb1abc2a16cd84b2e736869e1cf492"
+doc_hash = "sha256:8bfe2227b2d0b858fc4c566f1aaf176bb5567b3155fa88e1306448d50fd747ab"
+physical_interface = true
+
+[[module."turbine.rs".function]]
+id = "fn:235bb29e00fe6824"
+name = "expand_to"
+qual = "Turbine::expand_to"
+lines = [
+    33,
+    46,
+]
+hash = "sha256:68f0d6cb58c17b135b03a4ed8bfa6dd49b52fb59d655fc247845cb80f26a6492"
+doc_hash = "sha256:959db9264cfc20d0204743512e2859b2b3f09d2b7864cb8f83ac3865aa9d2a96"
+physical_interface = true
+
+[module."valve.rs"]
+path = "crate::components::valve"
+
+[[module."valve.rs".function]]
+id = "fn:0d8a773950edd2c9"
+name = "new"
+qual = "Valve::new"
+lines = [
+    23,
+    35,
+]
+hash = "sha256:359fa3eaa1a09a98f2470021cb20c146ea16120430d9bf77e41e0532baa264ed"
+doc_hash = "sha256:721f7ef5d54a1ea84d41472117582bc4b29f765d7a4f43527443da7ae50f5198"
+physical_interface = true
+
+[[module."valve.rs".function]]
+id = "fn:e33e72c2bec40261"
+name = "current_kv"
+qual = "Valve::current_kv"
+lines = [
+    37,
+    41,
+]
+hash = "sha256:ddd5be632be3a12a2ce09468429dc2e4e077b35dba5bf80e529260797c70bfd5"
+doc_hash = "sha256:d8fc9afa5b398c077f10b622e686214b614bef4aacfe607abf60ff6523efd98e"
+callees = ["fn:d3395ae65c375916"]
+
+[[module."valve.rs".function]]
+id = "fn:d9b9fdc2c924c0b2"
+name = "mass_flow"
+qual = "Valve::mass_flow"
+lines = [
+    43,
+    55,
+]
+hash = "sha256:d7530b704bf93e4c883e0fd929f431ec3736387211d76e6808138611fadf1eee"
+doc_hash = "sha256:7ed8dd8d2fddef23d883f918551b99034fd1c19a0374c165c7968eb9632f495c"
+physical_interface = true

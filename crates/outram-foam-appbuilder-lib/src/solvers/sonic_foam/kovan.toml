@@ -1,0 +1,82 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/solvers/sonic_foam"
+
+[module."mod.rs"]
+path = "crate::solvers::sonic_foam"
+
+[[module."mod.rs".function]]
+id = "fn:acdfa05157acb2ec"
+name = "new"
+qual = "SonicFoam::new"
+lines = [
+    70,
+    123,
+]
+hash = "sha256:f00fe8fdbf3a192f718e31506035175c88a5151636bdcd549c37b1298415c91b"
+doc_hash = "sha256:4b90e42d9cc47640a23cad2db8c70cdf6260945fc3551f0b5670ab870381fbb4"
+callees = [
+    "fn:35c659fb699605b5",
+    "fn:636e75b664f14254",
+    "fn:acfb0f2d7b950994",
+    "fn:d6a9c884aaeb7775",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f967f39153b3e5ae"
+name = "step"
+qual = "SonicFoam::step"
+lines = [
+    125,
+    291,
+]
+hash = "sha256:95b455f32204bbbf4c5c4da24b1778802f5fba081daaa09758f7f0aedbdddfeb"
+doc_hash = "sha256:ebe5078b54b21c1cfab5c76ff42d29090be11048438bdc1253d0e50983849cac"
+callees = [
+    "fn:0a288491e7fa82b9",
+    "fn:10f32a17a906d1d2",
+    "fn:12a06403e27e4888",
+    "fn:13d801bd97c5b69d",
+    "fn:19c54bfb31ab3ffb",
+    "fn:1e0c0abc3044dc8b",
+    "fn:2c30f932a22ffb56",
+    "fn:329ec62309c98f22",
+    "fn:352ea976b2fefdc6",
+    "fn:456ce8c84f72ae6e",
+    "fn:472adef4837fb92c",
+    "fn:4a3d63f4a0e47a1c",
+    "fn:4aea3161a87c6021",
+    "fn:594a61c932e1092f",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:636ae5a21be9336b",
+    "fn:65f8f3c9daf074d2",
+    "fn:6d45af0d518e142d",
+    "fn:7493954e75e3a317",
+    "fn:82c72206856eccb3",
+    "fn:8b1e80d2a2add1f9",
+    "fn:92fd53f240dcfb8e",
+    "fn:95630e24fcf1635e",
+    "fn:a8a8aa01bdeead4b",
+    "fn:b13c311a9e21788c",
+    "fn:bcd3c0fddc1f933d",
+    "fn:d26e6c14487b0898",
+    "fn:d3a5e3ad65146d86",
+    "fn:da3db2be3d98eafe",
+    "fn:ddf2344864918578",
+    "fn:ea6b6e6095ea6573",
+    "fn:f59a35e9cbd8b293",
+    "fn:fb7ba145dba6413c",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4ce0db5ffd605cb5"
+name = "run"
+qual = "SonicFoam::run"
+lines = [
+    293,
+    335,
+]
+hash = "sha256:2b4d85517947749a446e89ad8c217c688eb66b871e18435691d1a3ba806bfcec"
+doc_hash = "sha256:103fdcdbe6a65b00e86f9b7916b6c721de5e913f95b3d347b2564b090a82a20a"
+callees = ["fn:f967f39153b3e5ae"]

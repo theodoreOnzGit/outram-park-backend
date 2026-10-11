@@ -1,0 +1,79 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/movement_within_triso_particle"
+
+[module."mod.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::movement_within_triso_particle"
+
+[[module."mod.rs".function]]
+id = "fn:1ce3458a4f43f216"
+name = "scatter_within_triso_particle_gaussian"
+qual = "SingleParticleDiffusionSimulatorMC::scatter_within_triso_particle_gaussian"
+lines = [
+    15,
+    177,
+]
+hash = "sha256:c5a7fb8375c79ad1188f09cb9d6d2e0f8429b0ea2edf8f30e7308fd68d0bfc05"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:062a911593dca43f",
+    "fn:26c97e03e84fc754",
+    "fn:306b8ee609baf103",
+    "fn:37018330bd413c62",
+    "fn:7a2ac2c97a7da6df",
+    "fn:90f6ecd8264da133",
+    "fn:c393708ee2e250a5",
+    "fn:c505534bed2a6989",
+    "fn:c8693dbb849a9fc9",
+    "fn:e8bb775f59365324",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:34d0530fe49f3eff"
+name = "scatter_within_triso_particle_gaussian_simple"
+qual = "SingleParticleDiffusionSimulatorMC::scatter_within_triso_particle_gaussian_simple"
+lines = [
+    179,
+    216,
+]
+hash = "sha256:5378daa143902d859e5cade8a12d5b96d3859dc4b481fa485de142384ac6261c"
+doc_hash = "sha256:dde3876e3ea725eccc292daa7509120269fee87958a081444ba2c0439cbea027"
+callees = [
+    "fn:26c97e03e84fc754",
+    "fn:da6f5322ca2a32cd",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:0436906920c26fb1"
+name = "move_single_decaying_particle_gaussian_triso_particle"
+qual = "SingleParticleDiffusionSimulatorMC::move_single_decaying_particle_gaussian_triso_particle"
+lines = [
+    218,
+    233,
+]
+hash = "sha256:1a0b4c4a6c484aab707877a0c8f06b084e44733f7ad314be3cf8ba759d07acfb"
+doc_hash = "sha256:35f96a394e0623065a716bb023e34668420fd5699ec781eaae049e5b5143ce36"
+callees = [
+    "fn:1ce3458a4f43f216",
+    "fn:d84c7e41f0b78cde",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:a1c53bb7567615e1"
+name = "scatter_within_triso_particle_brute_force"
+qual = "SingleParticleDiffusionSimulatorMC::scatter_within_triso_particle_brute_force"
+lines = [
+    239,
+    272,
+]
+hash = "sha256:5378daa143902d859e5cade8a12d5b96d3859dc4b481fa485de142384ac6261c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:26c97e03e84fc754",
+    "fn:da6f5322ca2a32cd",
+]
+physical_interface = true

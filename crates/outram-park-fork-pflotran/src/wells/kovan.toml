@@ -1,0 +1,380 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-pflotran"
+dir = "crates/outram-park-fork-pflotran/src/wells"
+test_ids = [
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::bhp_well_sign_convention",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::cell_rates_validates_pressure_length_and_indices",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::constructor_validation",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::hydrostatic_increases_downward",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::rate_controlled_is_mobility_independent",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::rate_controlled_sums_to_target_and_splits_by_wi",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::seepage_face_switch_encoding",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::source_sink_mass_to_volumetric",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::time_varying_interpolates_and_clamps",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::time_varying_validation",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::well_index_increases_with_permeability",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::well_index_matches_isotropic_closed_form",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::well_index_rejects_bad_inputs",
+]
+
+[module."mod.rs"]
+path = "crate::wells"
+
+[[module."mod.rs".function]]
+id = "fn:381694b2bc753add"
+name = "new"
+qual = "PeacemanWell::new"
+lines = [
+    163,
+    206,
+]
+hash = "sha256:467389fb623c6bb2fc16e3a4ab631e25b0a57431feeeceb8c2d74e7aecbd099f"
+doc_hash = "sha256:773c7aeaaebbd252e1fd03cc910d25165836b36df3d78a5ce66eb50ac95277ec"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:95ca9414ef116ed3"
+name = "well_index"
+qual = "PeacemanWell::well_index"
+lines = [
+    208,
+    266,
+]
+hash = "sha256:679dc7eb68e1d57d462759404aeda71017a7d52b4cf336ee48de3eb45cb6531b"
+doc_hash = "sha256:d438269721ded3951b15dc927dd0b98675eaf669e3975a306e5b5f570e785dd7"
+reached_by = [
+    "#0",
+    "#1",
+    "#4",
+    "#5",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."mod.rs".function]]
+id = "fn:84c97c770a56bd94"
+name = "cell_rates"
+qual = "PeacemanWell::cell_rates"
+lines = [
+    268,
+    364,
+]
+hash = "sha256:3bbf038e723c73005d91cd565fe4245483ef479a9de9e09cc1be9645630b635c"
+doc_hash = "sha256:87db5abdc596c2e8232d078b85d52c0c8c2bc193260a6bc36a771a922e39a7e2"
+callees = [
+    "fn:3ab79a73bf28f99f",
+    "fn:4d10aee86ab576ef",
+    "fn:7678e9ebaa44ff77",
+    "fn:95ca9414ef116ed3",
+    "fn:a72c1505d855798d",
+    "fn:c52505883f36ccd7",
+    "fn:cc21726779f422b1",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c52505883f36ccd7"
+name = "reconstruct_widths"
+qual = "reconstruct_widths"
+lines = [
+    367,
+    379,
+]
+hash = "sha256:1290a2a622e6e6c6bbfc7637dc88af4343e0b1fbd74422f4a1e452684371bfed"
+doc_hash = "sha256:e9a4a06aaca4e4736af0fadc273a86d0f53ce3acac90e3dc91d9f5a3e1852f45"
+reached_by = [
+    "#0",
+    "#1",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2fca01f2c191b314"
+name = "cell"
+qual = "SourceSink::cell"
+lines = [
+    407,
+    413,
+]
+hash = "sha256:02a3f819907fce4d1e548b0da47926b924a190c4c187979e349ab14c2603b9b0"
+doc_hash = "sha256:af0beba4020f7dcdf14f76f0e5d547d8596a6a6089f4ee7f1ecafcd5dee28ec4"
+reached_by = ["#7"]
+
+[[module."mod.rs".function]]
+id = "fn:cb62817be8776e8a"
+name = "volumetric_rate"
+qual = "SourceSink::volumetric_rate"
+lines = [
+    415,
+    448,
+]
+hash = "sha256:a14f614fada00b45e54df4d8eb1d3d2929425df64f01f12706e25a73fc0bda47"
+doc_hash = "sha256:9f20f540431dbb3b07ad096306001f37f28dfeafc1e29be0b3951f0874eaab06"
+reached_by = ["#7"]
+
+[[module."mod.rs".function]]
+id = "fn:02f37d40a63241ed"
+name = "time_varying"
+qual = "AdvancedBc::time_varying"
+lines = [
+    494,
+    522,
+]
+hash = "sha256:a876d5d1d3a5c40a3cf0df2264ad5a6c6796625c949ac64c8ea0d145d6b73733"
+doc_hash = "sha256:445c054e0a7dbabe7d72c7495d95704696c7872086ca690c0c736cd82cb600ee"
+reached_by = [
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f8efacd01eeb2401"
+name = "value"
+qual = "AdvancedBc::value"
+lines = [
+    524,
+    562,
+]
+hash = "sha256:ff310d65775c27135df218d8193ec53fddc5c8e07994807818ae561e0575eb5b"
+doc_hash = "sha256:6130c2316735eb72571767016a869169f0957260154d59dbee6874cfb7af9b59"
+callees = ["fn:e5ec696b7de0f8ef"]
+reached_by = [
+    "#3",
+    "#6",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e5ec696b7de0f8ef"
+name = "interpolate_table"
+qual = "interpolate_table"
+lines = [
+    565,
+    593,
+]
+hash = "sha256:8c8f2fd076f906ce63f3ba063c3401846aac9737097eb13a6974d31a0a29870f"
+doc_hash = "sha256:b37dc9deb1720b5f9b9eacb64745f2b7ff41c7509b9939868c7664db1a9a0f86"
+reached_by = [
+    "#3",
+    "#6",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9a9499220c87ad2f"
+name = "grid"
+qual = "grid"
+lines = [
+    601,
+    604,
+]
+hash = "sha256:5db280e027467f35936f697c362565bf8642e41c183fdfd7e88aee876951a0e5"
+doc_hash = "sha256:152ba1b3c7c1a96c857bf3a5eeff2354b7601430902a33d5559b9cdef71df8c2"
+callees = ["fn:cac2b9d17323c178"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:0d2eaba095b0218f"
+name = "well_index_matches_isotropic_closed_form"
+qual = "well_index_matches_isotropic_closed_form"
+lines = [
+    606,
+    624,
+]
+hash = "sha256:de225c3f6ef23d417ef847566d1b69c2bd11200eeba2f6c3570a6ff9179fdc97"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:95ca9414ef116ed3"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:4f607f98b5fdc587"
+name = "well_index_increases_with_permeability"
+qual = "well_index_increases_with_permeability"
+lines = [
+    626,
+    636,
+]
+hash = "sha256:7b770c9796035f7ed7115aa6b4129c6e1e8be17ef17bdf0f8ea858d44015df49"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:95ca9414ef116ed3"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:f66e1034105f27c3"
+name = "well_index_rejects_bad_inputs"
+qual = "well_index_rejects_bad_inputs"
+lines = [
+    638,
+    646,
+]
+hash = "sha256:0885574ab438ee2685cba19502aaea264ac2d61728d48a0eedbc2664cbd9a2be"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:95ca9414ef116ed3"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:33cf4db63f6071cf"
+name = "bhp_well_sign_convention"
+qual = "bhp_well_sign_convention"
+lines = [
+    648,
+    683,
+]
+hash = "sha256:c4e0872f21081018bb061dc4f028e98084192cbccb9d8dc3619d4c613e9cb724"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:381694b2bc753add",
+    "fn:84c97c770a56bd94",
+    "fn:9a9499220c87ad2f",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:a33860b3c4866491"
+name = "rate_controlled_sums_to_target_and_splits_by_wi"
+qual = "rate_controlled_sums_to_target_and_splits_by_wi"
+lines = [
+    685,
+    702,
+]
+hash = "sha256:3d58a2cb5de556079613fdea4b465f49d49c83c958715f613a2c83de91c59099"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:381694b2bc753add",
+    "fn:84c97c770a56bd94",
+    "fn:9a9499220c87ad2f",
+    "fn:cc21726779f422b1",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:a319e4c917be8a21"
+name = "rate_controlled_is_mobility_independent"
+qual = "rate_controlled_is_mobility_independent"
+lines = [
+    704,
+    713,
+]
+hash = "sha256:07d9108198569645f0bf48f28dc0878d4c63a383a8859b7fedf7688ccb054a25"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:381694b2bc753add",
+    "fn:84c97c770a56bd94",
+    "fn:9a9499220c87ad2f",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d87442af9c634b3a"
+name = "cell_rates_validates_pressure_length_and_indices"
+qual = "cell_rates_validates_pressure_length_and_indices"
+lines = [
+    715,
+    730,
+]
+hash = "sha256:0854fd4dddd1fbe41d5b4354d124e149937abcc8f0e405f2ebe210ad0981249f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:381694b2bc753add",
+    "fn:84c97c770a56bd94",
+    "fn:9a9499220c87ad2f",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:18a878ceedd63574"
+name = "constructor_validation"
+qual = "constructor_validation"
+lines = [
+    732,
+    746,
+]
+hash = "sha256:f861f1e04706577347f90e31b8ed12aa112aee9736a2d5473f44156fa785ee59"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:381694b2bc753add"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:83df7e77ac77ff3f"
+name = "hydrostatic_increases_downward"
+qual = "hydrostatic_increases_downward"
+lines = [
+    748,
+    767,
+]
+hash = "sha256:22779789dcbdcf8af74f5fdf9e09ce96545acc1c69b809ac1adb570df6c5036e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f8efacd01eeb2401"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:580d923fa0929339"
+name = "seepage_face_switch_encoding"
+qual = "seepage_face_switch_encoding"
+lines = [
+    769,
+    781,
+]
+hash = "sha256:c2dd33f25698119022f89ed8134271901f740fad33728ecab25b4d3b20653318"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f8efacd01eeb2401"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:cc2a150dd83cdde1"
+name = "time_varying_interpolates_and_clamps"
+qual = "time_varying_interpolates_and_clamps"
+lines = [
+    783,
+    793,
+]
+hash = "sha256:c61af901e6e15e2aea892d68756f64f7f28eebb33bd2a26bfff4b39eafbaf334"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:02f37d40a63241ed",
+    "fn:f8efacd01eeb2401",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:838f9330e7947d24"
+name = "time_varying_validation"
+qual = "time_varying_validation"
+lines = [
+    795,
+    804,
+]
+hash = "sha256:090b9366bb9b4ebbbbb6972c5646b25f697bafad7e98947e5bf58baf69a5e1fb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:02f37d40a63241ed"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:a94f0c8b92701976"
+name = "source_sink_mass_to_volumetric"
+qual = "source_sink_mass_to_volumetric"
+lines = [
+    806,
+    821,
+]
+hash = "sha256:a7d7eed3b42b88e714f13879c0410cefed6dee80b3aba72319d19f8821be7979"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2fca01f2c191b314",
+    "fn:cb62817be8776e8a",
+]
+test = true

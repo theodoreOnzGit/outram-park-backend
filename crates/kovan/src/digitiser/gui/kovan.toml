@@ -1,0 +1,35 @@
+schema_version = 1
+kind = "code_folder"
+crate = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan"
+dir = "crates/kovan/src/digitiser/gui"
+
+[module."mod.rs"]
+path = "crate::digitiser::gui"
+
+[[module."mod.rs".function]]
+id = "fn:634e715bbaaaf2f6"
+name = "run"
+qual = "run#1"
+lines = [
+    46,
+    56,
+]
+hash = "sha256:12b1541502fb14e6a02e0be59315c03bd9c7cd457eafa9b0e21d515e17893a43"
+doc_hash = "sha256:1e35dd88751be084dc22c5a6c20e94d9e9e6a296c38935673790e80e35767103"
+
+[[module."mod.rs".function]]
+id = "fn:a09a076d79962538"
+name = "run"
+qual = "run#2"
+lines = [
+    58,
+    83,
+]
+hash = "sha256:b6cdad19ddea78625b504bab1b8bee6e04d119b7f364f5e9461f796a85a63525"
+doc_hash = "sha256:7a664bae87b503e43d73076fa12e4ff52302230e9e86bf004d66170ffdafd6a8"
+callees = [
+    "fn:1ea04b602eb1ec74",
+    "fn:60285a59cff6f782",
+    "fn:83f4408b782c7861",
+    "fn:d766c490cc526d76",
+]

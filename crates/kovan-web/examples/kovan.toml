@@ -1,0 +1,55 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-web"
+dir = "crates/kovan-web/examples"
+
+[module."web.rs"]
+path = "example:web"
+
+[[module."web.rs".function]]
+id = "fn:4242dc50dcde5976"
+name = "main"
+qual = "main#1"
+lines = [
+    12,
+    15,
+]
+hash = "sha256:ab50db99fcd4e988ce04b31eccdd0abafc61f5dd1800ada6c790a0741c1e280a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."web.rs".function]]
+id = "fn:69c0c1033ed362eb"
+name = "main"
+qual = "main#2"
+lines = [
+    17,
+    27,
+]
+hash = "sha256:543d578bfcaaff62db48d2115e75590a9fd0d3264939ed8617a59d26a318a894"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:9eef0e6e9f5fd6ec",
+    "fn:efc8d30137b32735",
+]
+
+[[module."web.rs".function]]
+id = "fn:d17ba2d9f96f8a7b"
+name = "main"
+qual = "main#3"
+lines = [
+    29,
+    51,
+]
+hash = "sha256:93ba62c0681d9979c351102834d8fccdbcfde85af73463d33186b4487fcf3a28"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."web.rs".function]]
+id = "fn:97f5989f6e364446"
+name = "ui"
+qual = "App::ui"
+lines = [
+    58,
+    60,
+]
+hash = "sha256:55e64bb15fcca0e3c579eab81ff9fece8f74bcd58c056edb039a4b76c86038de"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

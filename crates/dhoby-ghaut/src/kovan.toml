@@ -1,0 +1,20 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/src"
+crate_root = true
+
+[module."lib.rs"]
+path = "crate"
+
+[[module."lib.rs".function]]
+id = "fn:a6a5677d81b8934e"
+name = "the_expansion_is_spelled_out"
+qual = "the_expansion_is_spelled_out"
+lines = [
+    133,
+    139,
+]
+hash = "sha256:25dff37824a467ba832e906d77632822748fca335dc0d71b0ddaf7a3511b4451"
+doc_hash = "sha256:f0df04b349fe6015fb86c10ce8785423c8780efa825724fa0377e45d4bfcaeb6"
+test = true

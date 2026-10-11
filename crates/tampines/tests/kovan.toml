@@ -1,0 +1,170 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/tests"
+
+[module."genfoam_gfhr_pebble_conduction.rs"]
+path = "test:genfoam_gfhr_pebble_conduction"
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:757e41909b78ead1"
+name = "watts"
+qual = "watts"
+lines = [
+    144,
+    146,
+]
+hash = "sha256:fe71340ce05242c73d7bd8760a930173bdbc6485442140b8f0a92a9a9edeca0c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:5ed35625406a139c"
+name = "metres"
+qual = "metres"
+lines = [
+    147,
+    149,
+]
+hash = "sha256:12d93f4cfa558480f631aebdd46bbae812f955d45a9aa5faf81fcd390aacd21c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:5a7aaca507148490"
+name = "conductivity"
+qual = "conductivity"
+lines = [
+    150,
+    152,
+]
+hash = "sha256:329655ab1043614e273dede6cac8dcc11c312a90c3d8052b24f525d56315c771"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:0577806f0794baf9"
+name = "heated_annulus_rise"
+qual = "heated_annulus_rise"
+lines = [
+    154,
+    180,
+]
+hash = "sha256:d80f53e3eff821563be7fd08a3770caf75a209d388f61cbb87c48509d3c08210"
+doc_hash = "sha256:a6b01d5f85320c0b03317923d0885479c4e568e0c5dc80be2f9789e5a6891456"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:96b5a2ced2d9f6a4"
+name = "gfhr_reference_fuel_temperature_is_consistent_with_upstream_pebble_data"
+qual = "gfhr_reference_fuel_temperature_is_consistent_with_upstream_pebble_data"
+lines = [
+    182,
+    347,
+]
+hash = "sha256:0195100baa2469e55850f4bd4a705c9c16467084126469268739ca4e2b386f66"
+doc_hash = "sha256:10a4f0b32d3aa736075f12bb46277a925036a50abd1ec37d45ad1a0f78d4eda8"
+callees = [
+    "fn:0577806f0794baf9",
+    "fn:5a7aaca507148490",
+    "fn:5ed35625406a139c",
+    "fn:757e41909b78ead1",
+    "fn:7673c752ddfae92a",
+    "fn:96a084fb9844ba1f",
+]
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:acc89c569b47d761"
+name = "the_shell_conductance_matches_upstreams_lumped_structure_formula"
+qual = "the_shell_conductance_matches_upstreams_lumped_structure_formula"
+lines = [
+    349,
+    402,
+]
+hash = "sha256:3dd40f3953931d9cfa42c09a65efd20ca7b2a1920c2676aec3661106fc8e5db0"
+doc_hash = "sha256:2a8c0a7e36a800fa6804500c391e40bb44f53e633e570e9308b7a45ed921c611"
+callees = [
+    "fn:5a7aaca507148490",
+    "fn:5ed35625406a139c",
+    "fn:757e41909b78ead1",
+    "fn:7673c752ddfae92a",
+]
+test = true
+
+[module."wasm_smoke.rs"]
+path = "test:wasm_smoke"
+
+[[module."wasm_smoke.rs".function]]
+id = "fn:f463b411cd9c81ef"
+name = "linear_seed"
+qual = "linear_seed"
+lines = [
+    81,
+    95,
+]
+hash = "sha256:9456b22fcf879e817d21f0e6ce1cb4e0ab37cce01e234e9d12e5cbfa13f2fa6e"
+doc_hash = "sha256:9fd4fad18dc92ffa4dc5c82945d827374d6c48920f413bfead55be361bb6ebc1"
+test = true
+physical_interface = true
+
+[[module."wasm_smoke.rs".function]]
+id = "fn:c6a8708be4545c7f"
+name = "build_exchanger"
+qual = "build_exchanger"
+lines = [
+    97,
+    149,
+]
+hash = "sha256:b8a41c9e216282f7bf7a5e34ff327a8c09b4507f12e077aa16def6bc53d93da9"
+doc_hash = "sha256:cab0e921e256961ef880bd850cd0d9d2b85001446987d81c080272a9a235864d"
+callees = [
+    "fn:0f481d1ef07f297d",
+    "fn:1b3f6d56027dbc51",
+    "fn:1d2865f3c3a06a45",
+    "fn:8d4119880af67bb8",
+    "fn:90e8d2fa032ed2b4",
+    "fn:e14e270bde8aa9cf",
+    "fn:e3b184e79e6044fe",
+    "fn:f463b411cd9c81ef",
+]
+test = true
+physical_interface = true
+
+[[module."wasm_smoke.rs".function]]
+id = "fn:7e7ee650fac97e46"
+name = "helium_steam_generator_builds_and_advances_under_wasm"
+qual = "helium_steam_generator_builds_and_advances_under_wasm"
+lines = [
+    151,
+    183,
+]
+hash = "sha256:3e4527ccae1609dbdd40461edf1d75f34de46c6277d1e800eda036e665128cd9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:09632ebb2b55664e",
+    "fn:365b4ebf95314225",
+    "fn:39275fb42f14b896",
+    "fn:9aba352809b5f2a4",
+    "fn:c6a8708be4545c7f",
+]
+test = true
+
+[[module."wasm_smoke.rs".function]]
+id = "fn:3cc277708ca9f3de"
+name = "helium_properties_evaluate_under_wasm"
+qual = "helium_properties_evaluate_under_wasm"
+lines = [
+    185,
+    205,
+]
+hash = "sha256:709a1d49f9ad7c85a66fc74d1eb53e8da7304bf0b594d55a4b62c25db13bb453"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:09632ebb2b55664e",
+    "fn:c6a8708be4545c7f",
+]
+test = true

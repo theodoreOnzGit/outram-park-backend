@@ -1,0 +1,120 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/solvers/rho_central_foam"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::missing_case_directory_is_an_io_error",
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::unwired_solvers_refuse_before_reading_the_case",
+    "crates/outram-foam-appbuilder-lib/tests/sod_shock_tube_validation/main.rs::rho_central_foam_matches_sod_table_ii",
+    "crates/outram-foam-appbuilder-lib/tests/sod_shock_tube_validation/main.rs::sod_shock_tube_timed_series",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_openfoam_vs_rust_csv",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_pressure_matches_openfoam",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_shock_position",
+    "crates/outram-foam-cli/tests/ci_smoke/sod.rs::rho_central_foam_matches_sod_table_ii",
+    "crates/outram-foam-cli/tests/ci_smoke/sod.rs::sod_shock_tube_timed_series",
+]
+
+[module."mod.rs"]
+path = "crate::solvers::rho_central_foam"
+
+[[module."mod.rs".function]]
+id = "fn:45da647f08df728d"
+name = "velocity_component"
+qual = "velocity_component"
+lines = [
+    40,
+    141,
+]
+hash = "sha256:4610d0ebd8a42819a3eacff78e32a2ba5a0cc6a93dff0c24fb7d409f2c27847f"
+doc_hash = "sha256:d3527a4eeaa689f13093091affae9ea5908f2ed0d7cd97df67bc7ce58e57772b"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:6d45af0d518e142d",
+    "fn:f59a35e9cbd8b293",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:98aa935bd7a6a8b2"
+name = "new"
+qual = "RhoCentralFoam::new"
+lines = [
+    187,
+    236,
+]
+hash = "sha256:4e922395286923074f7603b159d2634eed67b03636adb6a228d24ba291af23ab"
+doc_hash = "sha256:31e2ea4c1caa7ad5279d4395d2c9400abed6265188982ce370305d9558f86d2d"
+callees = [
+    "fn:35c659fb699605b5",
+    "fn:636e75b664f14254",
+    "fn:acfb0f2d7b950994",
+    "fn:d6a9c884aaeb7775",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:fff0b6206af160cb"
+name = "step"
+qual = "RhoCentralFoam::step"
+lines = [
+    238,
+    465,
+]
+hash = "sha256:7c6d6564f40827401a6f661ae64e47b8d01b693bdd9ffcfd9e986c869fb15502"
+doc_hash = "sha256:0b9c82948bfb30f707bcf96651704ec036a370afd0d90237b54b77cabd56e832"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:45da647f08df728d",
+    "fn:6d45af0d518e142d",
+    "fn:8955a18f3ff3c6df",
+    "fn:96b5c3d947f087e5",
+    "fn:9e501e5f4cce23ae",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:448a39d881d9a479"
+name = "run"
+qual = "RhoCentralFoam::run"
+lines = [
+    467,
+    509,
+]
+hash = "sha256:2b4d85517947749a446e89ad8c217c688eb66b871e18435691d1a3ba806bfcec"
+doc_hash = "sha256:103fdcdbe6a65b00e86f9b7916b6c721de5e913f95b3d347b2564b090a82a20a"
+callees = ["fn:fff0b6206af160cb"]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]

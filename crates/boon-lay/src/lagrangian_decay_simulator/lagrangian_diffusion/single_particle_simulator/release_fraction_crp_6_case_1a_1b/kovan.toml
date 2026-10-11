@@ -1,0 +1,151 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b"
+test_ids = [
+    "crates/boon-lay/src/gpu.rs::best_effort_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/ensemble.rs::parallel_kernel_release_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/ensemble.rs::parallel_run_is_reproducible",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1a_cs_release_1200c_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1b_cs_release_1600c_matches_crank",
+    "crates/boon-lay/tests/triso_atops_booth_vs_crp6.rs::crp6_case1_booth_equals_the_crank_series",
+    "crates/boon-lay/tests/wasm_fallback.rs::ensemble_is_reproducible_across_repeated_runs",
+    "crates/boon-lay/tests/wasm_fallback.rs::parallel_ensemble_runs_and_is_physical",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::failure_history_is_monotone_and_starts_at_end_of_irradiation",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::layers_match_the_recorded_table_and_skip_the_todo",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_carries_every_modelled_nuclide",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_flows_balance_and_follow_upstream_routing",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_pools_reach_equilibrium_and_rise_with_temperature",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::the_slice_is_the_assembled_geometry",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::walk_and_its_check",
+]
+
+[module."monte_carlo_test.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_crp_6_case_1a_1b::monte_carlo_test"
+
+[[module."monte_carlo_test.rs".function]]
+id = "fn:1ba055ecaf8d65b8"
+name = "kernel_radius"
+qual = "kernel_radius"
+lines = [
+    22,
+    25,
+]
+hash = "sha256:b2deb4970d5dd42f1b0bf36d5af427562ee560b5c9d4170f15fb65e9585b4291"
+doc_hash = "sha256:cf679526a86f93a313f258ac943f6198295386f43040a6c61fa725cde4107efd"
+test = true
+physical_interface = true
+
+[[module."monte_carlo_test.rs".function]]
+id = "fn:fc63a735c20856b4"
+name = "compare"
+qual = "compare"
+lines = [
+    27,
+    58,
+]
+hash = "sha256:a9d8d4bf0bc65a13fcf671b0a5fd10867be39522d6f3adcc5f40b7a4bcfe4ed9"
+doc_hash = "sha256:54c9b4f02ef0ebe90036a4a86df239d0cb8736e7aeb792035a0b1f6a61cbb113"
+callees = [
+    "fn:064f3ed0c5238ed2",
+    "fn:102121535cb2dea5",
+    "fn:1ba055ecaf8d65b8",
+    "fn:f23cfae2ca858daa",
+]
+test = true
+
+[[module."monte_carlo_test.rs".function]]
+id = "fn:133c871a1eab4fbd"
+name = "crp6_case1a_cs_release_1200c_matches_crank"
+qual = "crp6_case1a_cs_release_1200c_matches_crank"
+lines = [
+    60,
+    70,
+]
+hash = "sha256:f430a679495bb40688fa6f93d02fc5fa00bfb7984d66f7f65ffad9aca539e03c"
+doc_hash = "sha256:b5e88ee9635d5a49696461a17917db9cc94440bf424b4516b1a082f77d9e12bc"
+callees = ["fn:fc63a735c20856b4"]
+test = true
+
+[[module."monte_carlo_test.rs".function]]
+id = "fn:bab858b405c95b21"
+name = "crp6_case1b_cs_release_1600c_matches_crank"
+qual = "crp6_case1b_cs_release_1600c_matches_crank"
+lines = [
+    72,
+    78,
+]
+hash = "sha256:de88fa97e93b34556205c7a4fcc0c7270602a655478f50da9d1e6787ee96bd3a"
+doc_hash = "sha256:ef629f112dd2bcfee737d603f89aa4facaab09982b3631bd9a70d2a704fea4cc"
+callees = ["fn:fc63a735c20856b4"]
+test = true
+
+[module."simulation_code.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_crp_6_case_1a_1b::simulation_code"
+
+[[module."simulation_code.rs".function]]
+id = "fn:064f3ed0c5238ed2"
+name = "mc_kernel_release_fraction"
+qual = "mc_kernel_release_fraction"
+lines = [
+    25,
+    79,
+]
+hash = "sha256:fa7c6804340cd42bd45c0514c7f46faba53496fbc3fd7ca51761f55ac12b9a98"
+doc_hash = "sha256:e8ab7542834455a2858056472c159e999660a04eab60155bd2b7539a99bc4f8c"
+callees = [
+    "fn:1f2e5b6c50cdd294",
+    "fn:4bdea64528f551f6",
+    "fn:4d1a5cf741e07866",
+    "fn:5e3bc59ae3f50ddc",
+    "fn:dcfe88c840191e5d",
+    "fn:eabbb78407dd7db3",
+]
+reached_by = [
+    "#3",
+    "#4",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+]
+physical_interface = true
+
+[[module."simulation_code.rs".function]]
+id = "fn:f23cfae2ca858daa"
+name = "kernel_diffusion_coefficient"
+qual = "kernel_diffusion_coefficient"
+lines = [
+    81,
+    94,
+]
+hash = "sha256:f4ccbaa5b949143b68bfbadefd4ca21b3363149d37aa252bcc071fa82ba96634"
+doc_hash = "sha256:caae537e02b7acb3612f7e7d0b5f4887c8767de80e5067df86cba92e11fa4d24"
+callees = ["fn:4bdea64528f551f6"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+]
+physical_interface = true

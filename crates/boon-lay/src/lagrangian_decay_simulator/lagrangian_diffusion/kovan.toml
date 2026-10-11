@@ -1,0 +1,538 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion"
+
+[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator"
+
+[[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator.rs".function]]
+id = "fn:2ef14e8266e628d9"
+name = "per_component_variance_from_m2"
+qual = "per_component_variance_from_m2"
+lines = [
+    3,
+    5,
+]
+hash = "sha256:56c08a6ff9022056c2b851fc54135e33d1c6bfe2dec7eb50a45001f52d51c1f9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator.rs".function]]
+id = "fn:1aa405192789694c"
+name = "per_component_variance_exponential"
+qual = "per_component_variance_exponential"
+lines = [
+    7,
+    10,
+]
+hash = "sha256:2c687710bd5d4ced8232fed4eeabe082a4cbcb08f70f87da1dd95f7cd50df710"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2ef14e8266e628d9"]
+test = true
+
+[[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator.rs".function]]
+id = "fn:ff1df235044b6d4a"
+name = "sample_gaussian_vector"
+qual = "sample_gaussian_vector"
+lines = [
+    12,
+    20,
+]
+hash = "sha256:009f018555c7aad495e38e98b4ea12148e558e9c63f6da8ad08dae446279cc55"
+doc_hash = "sha256:5cd1dbb867e876f183ffbdec17eabb12eb2f06daade8a0690f4938f174046d2f"
+callees = ["fn:96ab1fac00ee309f"]
+test = true
+
+[[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator.rs".function]]
+id = "fn:e423c1b5888563c8"
+name = "sample_unit_vector"
+qual = "sample_unit_vector"
+lines = [
+    22,
+    28,
+]
+hash = "sha256:0a990d8cc2d756fd66f1b71575276d880766e375e54397b7c58e8fdd5fc4eacb"
+doc_hash = "sha256:0b6b9136afbb7245900cd3771d67dbfbe9e3f475b8fd787e5a45dc831477ae35"
+callees = ["fn:681ddf6544e7b60b"]
+test = true
+
+[[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator.rs".function]]
+id = "fn:42a040967a40a91c"
+name = "sample_maxwell_radius"
+qual = "sample_maxwell_radius"
+lines = [
+    30,
+    36,
+]
+hash = "sha256:85c8ccc40b8e52db26127921b036420a703b401c198e2e320aa55f1628a49704"
+doc_hash = "sha256:0e754b53da93b8a1b35291434d8cf552636c4f503a52729c8f5797f638ff5831"
+callees = ["fn:96ab1fac00ee309f"]
+test = true
+
+[[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator.rs".function]]
+id = "fn:4aa55cd933619406"
+name = "sample_distance_and_direction"
+qual = "sample_distance_and_direction"
+lines = [
+    38,
+    44,
+]
+hash = "sha256:ce765941ff27a06240eb03a6da115e583617a07adde61edf1131a5e872347127"
+doc_hash = "sha256:947db798bc3ca8d9474c8945f56047bbfdb09bbddde1547c00a4a627d37e5ba2"
+callees = [
+    "fn:42a040967a40a91c",
+    "fn:e423c1b5888563c8",
+]
+test = true
+
+[[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator.rs".function]]
+id = "fn:d6f749f345a9e30b"
+name = "diffusion_gaussian_sum"
+qual = "diffusion_gaussian_sum"
+lines = [
+    46,
+    72,
+]
+hash = "sha256:47f6fd08de29798566beb6c62bfa5acd80313ea3ed4f83a757c19fbed665e547"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1aa405192789694c",
+    "fn:4aa55cd933619406",
+    "fn:ff1df235044b6d4a",
+]
+test = true
+
+[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator_time_based.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator_time_based"
+
+[[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator_time_based.rs".function]]
+id = "fn:982416bff910e65f"
+name = "diffusion_coefficient"
+qual = "diffusion_coefficient"
+lines = [
+    3,
+    5,
+]
+hash = "sha256:bb50e77ae60ccc2c2efacbf0cc44a9ec40641f0a7688cfc6df49cf9f0f6bd83d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator_time_based.rs".function]]
+id = "fn:1d870b0bb290f178"
+name = "per_component_variance_time"
+qual = "per_component_variance_time"
+lines = [
+    7,
+    9,
+]
+hash = "sha256:447428f7e22facbbf5f075c4a5843bb8f0895912cc478eb185d2d073bd3266ea"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator_time_based.rs".function]]
+id = "fn:bd4df429a178e304"
+name = "sample_unit_vector"
+qual = "sample_unit_vector"
+lines = [
+    11,
+    17,
+]
+hash = "sha256:0a990d8cc2d756fd66f1b71575276d880766e375e54397b7c58e8fdd5fc4eacb"
+doc_hash = "sha256:3ca8c80a15f65ce68b53dc1f4b15e2db132291426f2e4feebacb7af7921592d1"
+callees = ["fn:681ddf6544e7b60b"]
+test = true
+
+[[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator_time_based.rs".function]]
+id = "fn:a1fa578ef7a73e1b"
+name = "sample_gaussian_vector"
+qual = "sample_gaussian_vector"
+lines = [
+    19,
+    27,
+]
+hash = "sha256:009f018555c7aad495e38e98b4ea12148e558e9c63f6da8ad08dae446279cc55"
+doc_hash = "sha256:5cd1dbb867e876f183ffbdec17eabb12eb2f06daade8a0690f4938f174046d2f"
+callees = ["fn:96ab1fac00ee309f"]
+test = true
+
+[[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator_time_based.rs".function]]
+id = "fn:30fcc40e0d85da06"
+name = "sample_maxwell_radius"
+qual = "sample_maxwell_radius"
+lines = [
+    29,
+    35,
+]
+hash = "sha256:85c8ccc40b8e52db26127921b036420a703b401c198e2e320aa55f1628a49704"
+doc_hash = "sha256:0e754b53da93b8a1b35291434d8cf552636c4f503a52729c8f5797f638ff5831"
+callees = ["fn:96ab1fac00ee309f"]
+test = true
+
+[[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator_time_based.rs".function]]
+id = "fn:002f75c33a40c439"
+name = "sample_displacement_over_time"
+qual = "sample_displacement_over_time"
+lines = [
+    37,
+    54,
+]
+hash = "sha256:28ec84661fd10a1e662b09f0850482370565fb096bcffd2fa9c526651066bbc5"
+doc_hash = "sha256:925aff1d9bf156a9bcb7494ff324eba2e6dbec17f565a0754aa05f287d31ac95"
+callees = [
+    "fn:1d870b0bb290f178",
+    "fn:30fcc40e0d85da06",
+    "fn:982416bff910e65f",
+    "fn:a1fa578ef7a73e1b",
+    "fn:bd4df429a178e304",
+]
+test = true
+
+[[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator_time_based.rs".function]]
+id = "fn:12bb2feedc2f36f0"
+name = "simulate_trajectory_time_grid"
+qual = "simulate_trajectory_time_grid"
+lines = [
+    56,
+    90,
+]
+hash = "sha256:0b1c97b26b5a0d1144abfafedb9ab272fd1f2fa6ec46dddfea3553a2039b6b9f"
+doc_hash = "sha256:1ec5b4b333a4e6fc1f39bbcf67af0e22f8bc4bbeaffcb00f00e44e79f0906055"
+callees = [
+    "fn:1d870b0bb290f178",
+    "fn:982416bff910e65f",
+    "fn:a1fa578ef7a73e1b",
+]
+test = true
+
+[[module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator_time_based.rs".function]]
+id = "fn:b4762434839d204d"
+name = "isotropic_scattering_time_summation"
+qual = "isotropic_scattering_time_summation"
+lines = [
+    92,
+    147,
+]
+hash = "sha256:8e0e623adf2581ac81e88c124edd25670b44b9c15836c067f6b2fd48f5403e1b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:002f75c33a40c439",
+    "fn:12bb2feedc2f36f0",
+    "fn:1d870b0bb290f178",
+    "fn:982416bff910e65f",
+    "fn:a1fa578ef7a73e1b",
+]
+test = true
+
+[module."chatgpt_5_diffusion_simulator.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::chatgpt_5_diffusion_simulator"
+
+[[module."chatgpt_5_diffusion_simulator.rs".function]]
+id = "fn:07bb1c55250a262c"
+name = "add"
+qual = "Vec3::add"
+lines = [
+    13,
+    19,
+]
+hash = "sha256:ec1438d0cea7846a60ce0b336c44dd9bbd4391c99cfea076ebb64a15ea7c8292"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."chatgpt_5_diffusion_simulator.rs".function]]
+id = "fn:67ff6155f0e81128"
+name = "scale"
+qual = "Vec3::scale"
+lines = [
+    21,
+    27,
+]
+hash = "sha256:25f6b5fd6bab2eebc34d416a401851ecb29d69a7a42cac65ff58f79dfcf982df"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."chatgpt_5_diffusion_simulator.rs".function]]
+id = "fn:09ee03fa82dc2f7e"
+name = "norm"
+qual = "Vec3::norm"
+lines = [
+    29,
+    31,
+]
+hash = "sha256:6dbf8551e09549acfeb92acc52bacee9a154cc8a20e6b75e7ca7761e59ed3181"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."chatgpt_5_diffusion_simulator.rs".function]]
+id = "fn:b8f69664c490b008"
+name = "normalize"
+qual = "Vec3::normalize"
+lines = [
+    33,
+    44,
+]
+hash = "sha256:fee9be7e96007b773786e00ef9cbd7f25731114274e3782531b7a4cf6dd4ac31"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:09ee03fa82dc2f7e",
+    "fn:67ff6155f0e81128",
+]
+test = true
+
+[[module."chatgpt_5_diffusion_simulator.rs".function]]
+id = "fn:c2324eb7a608e69d"
+name = "sample_isotropic_direction"
+qual = "sample_isotropic_direction"
+lines = [
+    47,
+    58,
+]
+hash = "sha256:9bb6a2e52dd218e923259a6b607261865ff5f4b5f1efafb069e3ca44fd16b0b6"
+doc_hash = "sha256:b3a310360d64a2baf862f54061c699f8b45238fb40817121cab50365c602ed23"
+callees = ["fn:681ddf6544e7b60b"]
+test = true
+
+[[module."chatgpt_5_diffusion_simulator.rs".function]]
+id = "fn:3b3c9c45417487c7"
+name = "sample_free_path"
+qual = "sample_free_path"
+lines = [
+    60,
+    63,
+]
+hash = "sha256:f4a5d06abdaac4ea86ece310fe9054aee04236080c03a1f12844fd5a9a48d8bc"
+doc_hash = "sha256:f9bb48f267f07f07403b097896edb4e28c9fd5173e6a89bf738f2c4827fc56e1"
+callees = ["fn:f69b878a074f12f5"]
+test = true
+
+[[module."chatgpt_5_diffusion_simulator.rs".function]]
+id = "fn:1a497dd8b730bc89"
+name = "new"
+qual = "Particle::new"
+lines = [
+    72,
+    81,
+]
+hash = "sha256:af857813c459cc7e4fe013503e0cdb4359b6c1b0b2b6f8e53d33625ed5eca7f1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b8f69664c490b008",
+    "fn:c2324eb7a608e69d",
+]
+test = true
+
+[[module."chatgpt_5_diffusion_simulator.rs".function]]
+id = "fn:c243b0fe28258703"
+name = "simulate"
+qual = "simulate"
+lines = [
+    84,
+    105,
+]
+hash = "sha256:7c1408f946bf6e6aa3055f142cceea448ad3093b60723f099dbf5495b516c023"
+doc_hash = "sha256:910ea691bc54d99385f7a814e9e0da3abaf6e25e565c0c860886a50b21712031"
+callees = [
+    "fn:07bb1c55250a262c",
+    "fn:1a497dd8b730bc89",
+    "fn:3b3c9c45417487c7",
+    "fn:67ff6155f0e81128",
+    "fn:c2324eb7a608e69d",
+]
+test = true
+
+[[module."chatgpt_5_diffusion_simulator.rs".function]]
+id = "fn:e97cbf97ba436636"
+name = "chat_gpt_sim"
+qual = "chat_gpt_sim"
+lines = [
+    107,
+    128,
+]
+hash = "sha256:c0f4b134bf3447e716359f31cc390e3697da32dc45ed23e186e2b96a3ba2eb36"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:c243b0fe28258703"]
+test = true
+
+[module."chatgpt_5_list_of_vectors_uniformly_distributed_on_spherical_shell.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::chatgpt_5_list_of_vectors_uniformly_distributed_on_spherical_shell"
+
+[[module."chatgpt_5_list_of_vectors_uniformly_distributed_on_spherical_shell.rs".function]]
+id = "fn:85600d6b14523692"
+name = "random_point_in_spherical_shell"
+qual = "random_point_in_spherical_shell"
+lines = [
+    5,
+    24,
+]
+hash = "sha256:12cfadcaf3d2f3b005f67125b48d860b6bca1044aa6bcab8cfc859b8b8eb2bc7"
+doc_hash = "sha256:7fca8b084b0e12192da9d54a1a21c3801c75bfa9adf468e6eae0ab7abeeeb794"
+callees = ["fn:681ddf6544e7b60b"]
+test = true
+
+[[module."chatgpt_5_list_of_vectors_uniformly_distributed_on_spherical_shell.rs".function]]
+id = "fn:23cf7bce116b9737"
+name = "rng_test"
+qual = "rng_test"
+lines = [
+    26,
+    48,
+]
+hash = "sha256:b0fdde5ce58fa876bd07082bbdff1d7948d14722e6ac46f604ebe8048f5e432d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:85600d6b14523692"]
+test = true
+
+[[module."chatgpt_5_list_of_vectors_uniformly_distributed_on_spherical_shell.rs".function]]
+id = "fn:d9a7ac2962255f67"
+name = "filter_points_by_z"
+qual = "filter_points_by_z"
+lines = [
+    52,
+    60,
+]
+hash = "sha256:f10ce4bd57d60a0a99c4262242ad6d0bf5bd8d5dec1686afc99eda6eb433914d"
+doc_hash = "sha256:fbf255a143f7de7782e0e0bdb45efb859a2cb382aa0b538d8ec7938a2ab67b43"
+test = true
+
+[[module."chatgpt_5_list_of_vectors_uniformly_distributed_on_spherical_shell.rs".function]]
+id = "fn:c2a8ab1db0e9d8fb"
+name = "test_for_filtering"
+qual = "test_for_filtering"
+lines = [
+    62,
+    78,
+]
+hash = "sha256:a170ad524c0fe9cbc05a7b48839fea39d0e722f600f7100455ef65d2c53d03c6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d9a7ac2962255f67"]
+test = true
+
+[module."isotropic_scattering.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::isotropic_scattering"
+
+[[module."isotropic_scattering.rs".function]]
+id = "fn:2b5a726aaa4dc9cf"
+name = "add"
+qual = "Vec3::add"
+lines = [
+    14,
+    20,
+]
+hash = "sha256:eb57a5316ffc0fda7b86ae3cd7a5caabf20ff05c055095958380f7bea7bff24e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."isotropic_scattering.rs".function]]
+id = "fn:1e5b3e37c03d7300"
+name = "scale"
+qual = "Vec3::scale"
+lines = [
+    22,
+    28,
+]
+hash = "sha256:aab06a9d825d05dc8a730989e824becb488a58504aa41331d1978bce86b54fd5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."isotropic_scattering.rs".function]]
+id = "fn:7e8978ab1bbbc342"
+name = "norm"
+qual = "Vec3::norm"
+lines = [
+    30,
+    32,
+]
+hash = "sha256:c284063b6b97b76eb369c9ebde2ccb32f61306f911c95a8eb22c395749d53e14"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."isotropic_scattering.rs".function]]
+id = "fn:323372128039866c"
+name = "normalize"
+qual = "Vec3::normalize"
+lines = [
+    34,
+    45,
+]
+hash = "sha256:af0e5659bcc6483c9b97ef771fb0d01f4d035db8ebff4ccc312bf000acf4db51"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e5b3e37c03d7300",
+    "fn:7e8978ab1bbbc342",
+]
+
+[[module."isotropic_scattering.rs".function]]
+id = "fn:0d65d00c4fc1e53d"
+name = "_sample_isotropic_direction"
+qual = "_sample_isotropic_direction"
+lines = [
+    48,
+    60,
+]
+hash = "sha256:37cddc3071d622daa9418aca72ee9d1a0078e74d5fe01684859d8f145611c6d6"
+doc_hash = "sha256:b3a310360d64a2baf862f54061c699f8b45238fb40817121cab50365c602ed23"
+callees = ["fn:681ddf6544e7b60b"]
+
+[[module."isotropic_scattering.rs".function]]
+id = "fn:719418725e5855dd"
+name = "sample_isotropic_direction_into_array"
+qual = "sample_isotropic_direction_into_array"
+lines = [
+    62,
+    73,
+]
+hash = "sha256:16c5e8a95fed64fd07b030e3b345aa064081f04b704288132685178074588d3f"
+doc_hash = "sha256:7d3add92a7853fb7292b5ed485ec82ede7703a01a50424f94759476825b44d3a"
+callees = ["fn:681ddf6544e7b60b"]
+physical_interface = true
+
+[[module."isotropic_scattering.rs".function]]
+id = "fn:9126106372b2fc1f"
+name = "sample_free_path"
+qual = "sample_free_path"
+lines = [
+    75,
+    79,
+]
+hash = "sha256:41956ddfc0f5e7208ad3a155100e0dfac8f1207c4e739464374c40f7101ec208"
+doc_hash = "sha256:cdb4c292b821434c1337260a7bf3ff0b8a2202414430a8a9887ee61d707066c2"
+callees = ["fn:f69b878a074f12f5"]
+
+[module."mod.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion"
+
+[module."triso_particle_widget.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::triso_particle_widget"
+
+[[module."triso_particle_widget.rs".function]]
+id = "fn:4735340762fed5a8"
+name = "default"
+qual = "_TrisoParticle::default"
+lines = [
+    36,
+    47,
+]
+hash = "sha256:6c845e63b4b1d40847d961c1e5bc96688ee7643580fddc938541a28bf13fb9ea"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."triso_particle_widget.rs".function]]
+id = "fn:a1ad9128e5e53ec1"
+name = "ui"
+qual = "_TrisoParticle::ui"
+lines = [
+    52,
+    87,
+]
+hash = "sha256:968dfb0fa04d5dd44095a54a11accd82f0a8a28e726c7e751c006d216995ec4e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."triso_particle_widget.rs".function]]
+id = "fn:293f674699f196f0"
+name = "ui"
+qual = "_App::ui"
+lines = [
+    96,
+    122,
+]
+hash = "sha256:21d53cf9563920b1fb349a5f4436a1f9c711f153c780e77d8ce25f34728c295e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true

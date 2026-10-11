@@ -1,0 +1,811 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/io/field_reader"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/solvers/rho_pimple_foam/mod.rs::compressible_lid_cavity_stays_stable",
+    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::backward_ddt_selection_is_live_and_not_worse_against_ghia",
+    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::gauss_linear_convection_beats_upwind_against_ghia_1982",
+    "crates/outram-foam-appbuilder-lib/tests/sod_shock_tube_validation/main.rs::rho_central_foam_matches_sod_table_ii",
+    "crates/outram-foam-appbuilder-lib/tests/sod_shock_tube_validation/main.rs::sod_shock_tube_timed_series",
+    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::attaching_a_closure_changes_the_momentum_solution",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_grid_convergence_re100",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_pressure_solver_comparison_fine_mesh",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_velocity_matches_icofoam",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_openfoam_vs_rust_csv",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_pressure_matches_openfoam",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_shock_position",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_benchmark_re100",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_grid_convergence_re100",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_pressure_solver_comparison_fine_mesh",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_velocity_matches_icofoam",
+    "crates/outram-foam-cli/tests/ci_smoke/sod.rs::rho_central_foam_matches_sod_table_ii",
+    "crates/outram-foam-cli/tests/ci_smoke/sod.rs::sod_shock_tube_timed_series",
+]
+
+[module."mod.rs"]
+path = "crate::io::field_reader"
+
+[[module."mod.rs".function]]
+id = "fn:2458351bb41698ff"
+name = "read_vol_vector_field"
+qual = "read_vol_vector_field"
+lines = [
+    34,
+    52,
+]
+hash = "sha256:0c0367674cb7bb16a09d9a292942a141e88ce1d24c61934cec5680bdd628c4b6"
+doc_hash = "sha256:0853d433af534991263b2a07096cb59ee20855f4709b6424bab09130e4384798"
+callees = [
+    "fn:4db10fbccc549c25",
+    "fn:6f26b70b0133a45c",
+    "fn:d860980016fb1290",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:42c904031c3c69ce"
+name = "read_vol_scalar_field"
+qual = "read_vol_scalar_field"
+lines = [
+    54,
+    72,
+]
+hash = "sha256:3307dd18d67896b86cf0f6920e36a517350985d05adafeaa3a388cc161093a7b"
+doc_hash = "sha256:14435f24c13a51df2b3c7d43f6844ca02f5b54dcb9382844b90f102f0e8c4908"
+callees = [
+    "fn:274b844e32aa41c7",
+    "fn:5364082d58c0cb1f",
+    "fn:d860980016fb1290",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6f26b70b0133a45c"
+name = "parse_uniform_vector"
+qual = "parse_uniform_vector"
+lines = [
+    76,
+    102,
+]
+hash = "sha256:28667b2de34d4d332d963cd5eb82a98419129588696cf7ce492092acccdb0739"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:cd4416831fba313d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:274b844e32aa41c7"
+name = "parse_uniform_scalar"
+qual = "parse_uniform_scalar"
+lines = [
+    104,
+    127,
+]
+hash = "sha256:e6df7b0efc20c8618559dc875512920bbb45e3642696aec582d3d0d062d61917"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4db10fbccc549c25"
+name = "parse_nonuniform_vector_list"
+qual = "parse_nonuniform_vector_list"
+lines = [
+    131,
+    163,
+]
+hash = "sha256:8321de41a2fae7e2f183dd67e6bcd9abf1200225cc7e77bc63e047287a85100d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:cd4416831fba313d",
+    "fn:e69fb2573807dfbb",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:5364082d58c0cb1f"
+name = "parse_nonuniform_scalar_list"
+qual = "parse_nonuniform_scalar_list"
+lines = [
+    165,
+    196,
+]
+hash = "sha256:597e58b9e56cdf56af2909fab3fde507eb47a04f42a58258c70bed6ca14f1f6d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:e69fb2573807dfbb"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e69fb2573807dfbb"
+name = "nonuniform_list_body"
+qual = "nonuniform_list_body"
+lines = [
+    198,
+    269,
+]
+hash = "sha256:992848e7c371459660735f361d2da358cbad5c8d6522e61957cb145db066bd8f"
+doc_hash = "sha256:4544d486d4e43ea151c43b92c7838a2fd122ddc4ef99bd9875f87d0e533e8d01"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:cd4416831fba313d"
+name = "parse_vector_triple"
+qual = "parse_vector_triple"
+lines = [
+    273,
+    292,
+]
+hash = "sha256:9c12c40f264d85016b55cb68b702578b7df34f8ef6ab556269dc33509a34fd31"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9e501e5f4cce23ae"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3b48ab4d24934990"
+name = "read_vol_scalar_field_full"
+qual = "read_vol_scalar_field_full"
+lines = [
+    300,
+    333,
+]
+hash = "sha256:8e392d240f8292800ae2f46f7ffa8050cc6829c059bc382aa818ed0137432970"
+doc_hash = "sha256:fdc38522d3c8c4b712fd71e1c8f210476f8b75158902a97b74cfc757995ac991"
+callees = [
+    "fn:17252738dc843e15",
+    "fn:2069293ca7baf602",
+    "fn:42c904031c3c69ce",
+    "fn:456ce8c84f72ae6e",
+    "fn:c1ca226524758f1a",
+    "fn:d860980016fb1290",
+    "fn:f59a35e9cbd8b293",
+    "fn:f9b1cff4ce3116ba",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f66e81a8a8f38feb"
+name = "read_vol_vector_field_full"
+qual = "read_vol_vector_field_full"
+lines = [
+    335,
+    368,
+]
+hash = "sha256:bea07cbaa609c57dc25a17b0e0c26922e47f3a75367fbefe8401daed61b1a103"
+doc_hash = "sha256:7863c8357150b7fa64e59eb492c95db5b8fedc25bd7c85786f8a8bb469732026"
+callees = [
+    "fn:17252738dc843e15",
+    "fn:2458351bb41698ff",
+    "fn:456ce8c84f72ae6e",
+    "fn:6e3f9ae243265f72",
+    "fn:c1ca226524758f1a",
+    "fn:d860980016fb1290",
+    "fn:f2809888b7db6d8f",
+    "fn:f59a35e9cbd8b293",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c1ca226524758f1a"
+name = "field_name"
+qual = "field_name"
+lines = [
+    376,
+    381,
+]
+hash = "sha256:60b05491356cb36530b3e6669fc3438cfba8c09138ac18cc5a2df92d279624c0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2069293ca7baf602"
+name = "scalar_patch_field"
+qual = "scalar_patch_field"
+lines = [
+    383,
+    392,
+]
+hash = "sha256:2986df22abd8704abf8df8420bedd04c143fb10586fea93c56ac787b476aea00"
+doc_hash = "sha256:8a8c1de2f1cf57e1ea94dc83f558dcb0215afe27d059b6f0206b075965ff0c81"
+callees = ["fn:a5457a6081dc438d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f2809888b7db6d8f"
+name = "vector_patch_field"
+qual = "vector_patch_field"
+lines = [
+    394,
+    402,
+]
+hash = "sha256:ebc77b1f142484fecb8f46e5c8fc2d8a7135c2558caca16df30d3e8d0ff865d9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:a5457a6081dc438d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f9b1cff4ce3116ba"
+name = "scalar_bc"
+qual = "scalar_bc"
+lines = [
+    404,
+    419,
+]
+hash = "sha256:bb04dcdce12c75258022f1036479312106398c887e86dcaa2af01bf9be77cfd5"
+doc_hash = "sha256:f0f06d521a610e99c2654d026afb5860384207a1d0c98ad61dcf40d79767d3ef"
+callees = ["fn:98b07c3660a59a46"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6e3f9ae243265f72"
+name = "vector_bc"
+qual = "vector_bc"
+lines = [
+    421,
+    434,
+]
+hash = "sha256:0e852be27ef4f5bbe34ae0e16160c0c4efd1ecfda683f1a54b63273406d67c97"
+doc_hash = "sha256:bce5cc12695043ef44c26db99b08ea655c14224f9dc312e5f9f215d79d516e13"
+callees = ["fn:38fb8c8a500c929d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:98b07c3660a59a46"
+name = "parse_uniform_scalar_payload"
+qual = "parse_uniform_scalar_payload"
+lines = [
+    436,
+    447,
+]
+hash = "sha256:239b174aade2f89d659086887b59597e9ecad456f34ad792ee0b2f961caefb43"
+doc_hash = "sha256:f3fccc8bcd0476051d64ce5a05afc3ad171e16ed7f97a48de28a1ad58cb9af48"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:38fb8c8a500c929d"
+name = "parse_uniform_vector_payload"
+qual = "parse_uniform_vector_payload"
+lines = [
+    449,
+    462,
+]
+hash = "sha256:c998acf18eef3d055689feeb80fa4c75b6d038bb6475591649d547f4a82a7ff8"
+doc_hash = "sha256:b11d8f11c955409cd2c76e2acade27b91aceda7ca954275d56f966ede55c0a6c"
+callees = ["fn:cd4416831fba313d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:17252738dc843e15"
+name = "parse_boundary_field"
+qual = "parse_boundary_field"
+lines = [
+    464,
+    518,
+]
+hash = "sha256:39a6607cf695b7f370bccab17c548466af4c6c75338f367095f3e93e14325de4"
+doc_hash = "sha256:f1fdf3dd765cd9d85a3d9d4a9b3272421e1af17fa2b5953cfa59b357511a9f40"
+callees = [
+    "fn:062fdf22eefc038d",
+    "fn:90137497de1bb3e2",
+    "fn:cad445ec29f01b27",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:cad445ec29f01b27"
+name = "block_end"
+qual = "block_end"
+lines = [
+    520,
+    536,
+]
+hash = "sha256:9461eb7f74e6e6289595eaa6870c151e94e14ad7d2fe6c9fea1872103ef078f2"
+doc_hash = "sha256:797b9e2c3dd2235d1921d6c917423a1bfc478747f0f3949dbf476f35fcda1dad"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:062fdf22eefc038d"
+name = "dict_word"
+qual = "dict_word"
+lines = [
+    538,
+    546,
+]
+hash = "sha256:0239552e1a47f8523ec0d8b0080eb77c0f6b16bec55109f3b0788ea75ea6384b"
+doc_hash = "sha256:979ddb12af1196271f74bcca0cb95dff92331c30c50341d4742cf71f2639bd1f"
+callees = ["fn:dcde6a57f2a8c94b"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:90137497de1bb3e2"
+name = "dict_value"
+qual = "dict_value"
+lines = [
+    548,
+    555,
+]
+hash = "sha256:bec9b4685d1f50c4d91204649c909fd8293e6ed8f9cf1b6fb174ba6a22f5dffd"
+doc_hash = "sha256:46fc06bd4b2e373d945424d63b80c1b24393262ef894636287e82e6e7367a2ef"
+callees = ["fn:dcde6a57f2a8c94b"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:dcde6a57f2a8c94b"
+name = "find_keyword"
+qual = "find_keyword"
+lines = [
+    557,
+    572,
+]
+hash = "sha256:07c3de0332097be49927906f42b18abb8d73e64089cc5fd28103ed5213a1e715"
+doc_hash = "sha256:e219d2308c9f8f509f61781daf2eb1eb2fb1a8639699b20cf4e6226182f35f5c"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]

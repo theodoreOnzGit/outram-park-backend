@@ -1,0 +1,201 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases"
+
+[module."main.rs"]
+path = "test:melting_vv_cases"
+
+[[module."main.rs".function]]
+id = "fn:09fd37877e6fe4a4"
+name = "line_mesh"
+qual = "line_mesh"
+lines = [
+    50,
+    83,
+]
+hash = "sha256:4f3484f95c656a5276c75e054e2034631b126ce8adc608f66b7a990da619eda2"
+doc_hash = "sha256:f2973a77b760068aca8169e98495fd2fe80c6d4937fc014426fd2d393068e9f5"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:36d1e01e4b4dad8d"
+name = "rect_mesh"
+qual = "rect_mesh"
+lines = [
+    91,
+    278,
+]
+hash = "sha256:d63f89d9e379a54fa9a31564243eed2dd74eb95fc4a138f35fb339ee271a9640"
+doc_hash = "sha256:0e5e3768f2b662d30f15bd52c93c95715af7651f67ab2d5e9b204333694966dd"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:435f29dd683fa44c"
+name = "erf"
+qual = "erf"
+lines = [
+    284,
+    298,
+]
+hash = "sha256:9a34a339731d36d33a88f5d5d22889f4b2f7e64c3f20cc212a4bf674c32468c1"
+doc_hash = "sha256:6d471b38629fb5fcc3d77a010b92232ebf62bb8d307af0a75affce6f03340550"
+test = true
+
+[[module."main.rs".function]]
+id = "fn:93840c440df5a8b0"
+name = "stefan_lambda"
+qual = "stefan_lambda"
+lines = [
+    300,
+    318,
+]
+hash = "sha256:06ea6bc2847f1321165b114d14b9d48fbae4ee9b5bf23e5d96e3ea395d73ead3"
+doc_hash = "sha256:fb8b814a74f06f98b51b264b640d17b54e98cc18021dc4fb3e1a86667edeca5c"
+callees = ["fn:435f29dd683fa44c"]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:bbd69bd6855143fc"
+name = "run_stefan"
+qual = "run_stefan"
+lines = [
+    340,
+    411,
+]
+hash = "sha256:18e933b482d90c15553e2f01930f7efe72f7ec415e6e31fca1e47d5fd99f2e39"
+doc_hash = "sha256:82d3294586fa4a17c51d0c7332e96d181e66c158d40b097874b9f204b9cd5fe2"
+callees = [
+    "fn:09fd37877e6fe4a4",
+    "fn:12245f102f37c352",
+    "fn:14f480c94a59d045",
+    "fn:25026aef8dc412e6",
+    "fn:2d976c61ac08bea8",
+    "fn:636e75b664f14254",
+    "fn:732dda8785653b79",
+    "fn:7e183b9184d0ba1b",
+    "fn:87903a6d2b5c0e8f",
+    "fn:93840c440df5a8b0",
+    "fn:9c2ad20cd623c0da",
+    "fn:9e501e5f4cce23ae",
+    "fn:da3db2be3d98eafe",
+    "fn:f8bf8efa3e1f4377",
+]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:08fe635879f40efb"
+name = "stefan_problem_matches_similarity_solution"
+qual = "stefan_problem_matches_similarity_solution"
+lines = [
+    413,
+    520,
+]
+hash = "sha256:d3adf754627d80336fc88be732d9297160f9d85d1cb91f9527280fa023a9cfe7"
+doc_hash = "sha256:c9003ced8f1fb0e098369159a71f2da5a420c44591df00647a71428a57ded870"
+callees = [
+    "fn:93840c440df5a8b0",
+    "fn:bbd69bd6855143fc",
+]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:6781d427465ac68b"
+name = "enthalpy_porosity_conserves_energy"
+qual = "enthalpy_porosity_conserves_energy"
+lines = [
+    522,
+    631,
+]
+hash = "sha256:9b6180c49cfd0a454e7fc840a0ae3a83dee80bbfe5a9967bcc986b8714b6fe62"
+doc_hash = "sha256:505a450d1836145a7bbe2aa5f122a9594d1b1fde4d8dab12e72b7341a0dee72d"
+callees = [
+    "fn:09fd37877e6fe4a4",
+    "fn:12245f102f37c352",
+    "fn:14f480c94a59d045",
+    "fn:25026aef8dc412e6",
+    "fn:2d976c61ac08bea8",
+    "fn:4aea3161a87c6021",
+    "fn:636e75b664f14254",
+    "fn:732dda8785653b79",
+    "fn:7e183b9184d0ba1b",
+    "fn:87903a6d2b5c0e8f",
+    "fn:9c2ad20cd623c0da",
+    "fn:9e501e5f4cce23ae",
+    "fn:da3db2be3d98eafe",
+    "fn:f8bf8efa3e1f4377",
+]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:c2f837417a33d2ef"
+name = "default"
+qual = "GalliumCase::default"
+lines = [
+    676,
+    699,
+]
+hash = "sha256:c7a4b27f55dcac17fa6c96fd0da6d2789e6ee9c3a6e0152a329c1ed1830c77f4"
+doc_hash = "sha256:70fa797d1a20ff0f4c993deac084c596f61cb14d981937dcb5c0f3e58925e4af"
+test = true
+
+[[module."main.rs".function]]
+id = "fn:2322abf2bbe4d9ea"
+name = "gallium_melting_cavity_gau_viskanta_configuration"
+qual = "gallium_melting_cavity_gau_viskanta_configuration"
+lines = [
+    702,
+    965,
+]
+hash = "sha256:74945143f942d79ec6ebe6b39712ed127daa7184b17b9cd45a77a1b0ed542544"
+doc_hash = "sha256:c3516630744e1d3d6b0c9b436b32af31776f36c5aedb6fbb63a6fc31c1f4d765"
+callees = [
+    "fn:12245f102f37c352",
+    "fn:14f480c94a59d045",
+    "fn:25026aef8dc412e6",
+    "fn:2d976c61ac08bea8",
+    "fn:36d1e01e4b4dad8d",
+    "fn:4aea3161a87c6021",
+    "fn:636e75b664f14254",
+    "fn:6d45af0d518e142d",
+    "fn:732dda8785653b79",
+    "fn:7e183b9184d0ba1b",
+    "fn:87903a6d2b5c0e8f",
+    "fn:9c2ad20cd623c0da",
+    "fn:9e501e5f4cce23ae",
+    "fn:c2f837417a33d2ef",
+    "fn:da3db2be3d98eafe",
+    "fn:ed7d718f646723fc",
+    "fn:f8bf8efa3e1f4377",
+]
+test = true

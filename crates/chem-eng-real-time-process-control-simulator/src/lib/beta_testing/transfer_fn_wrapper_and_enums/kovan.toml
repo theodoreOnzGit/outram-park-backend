@@ -1,0 +1,349 @@
+schema_version = 1
+kind = "code_folder"
+crate = "chem-eng-real-time-process-control-simulator"
+dir = "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/transfer_fn_wrapper_and_enums"
+test_ids = [
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/stable_transfer_functions/recurrence_tests.rs::first_order_step_cost_does_not_grow_with_step_index",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/transfer_fn_wrapper_and_enums/generic_second_order.rs::test_dead_time",
+    "crates/teh-o-prke/src/nordheim_fuchs.rs::first_order_lag_reactivity_driver_smoke_test",
+]
+
+[module."generic_first_order.rs"]
+path = "crate::beta_testing::transfer_fn_wrapper_and_enums::generic_first_order"
+
+[[module."generic_first_order.rs".function]]
+id = "fn:a6b6a4e94e8d2b1c"
+name = "default"
+qual = "TransferFnFirstOrder::default"
+lines = [
+    67,
+    69,
+]
+hash = "sha256:0c6a34694b5b6bdabb0c6a42d421830b4a26ceddbe80f4f1f949fa310de591c7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."generic_first_order.rs".function]]
+id = "fn:612e4c277aced9e2"
+name = "set_dead_time"
+qual = "TransferFnFirstOrder::set_dead_time"
+lines = [
+    73,
+    83,
+]
+hash = "sha256:d4da354e6a9c6d993a0eac1b0c43a7f0d12e3f0deec4d7b93be0b46e4105cba3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#1"]
+physical_interface = true
+
+[[module."generic_first_order.rs".function]]
+id = "fn:f5088f5737512244"
+name = "set_user_input_and_calc"
+qual = "TransferFnFirstOrder::set_user_input_and_calc"
+lines = [
+    85,
+    110,
+]
+hash = "sha256:5ff6acf6689681b84f9dc2f29a647d106ece6f34da2e375245a9dc7566b8f7ea"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0ab4dc7c92ce9057",
+    "fn:85950b6cfa08c825",
+]
+reached_by = [
+    "#0",
+    "#2",
+]
+physical_interface = true
+
+[[module."generic_first_order.rs".function]]
+id = "fn:baf1e2f4b1d04fa7"
+name = "spawn_writer"
+qual = "TransferFnFirstOrder::spawn_writer"
+lines = [
+    112,
+    126,
+]
+hash = "sha256:9951b4e63933b265d4e1f2aa4da0a9e12c7156a06093152d9d71deeb05790715"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."generic_first_order.rs".function]]
+id = "fn:7c9801656bedb4d6"
+name = "csv_write_values"
+qual = "TransferFnFirstOrder::csv_write_values"
+lines = [
+    128,
+    144,
+]
+hash = "sha256:c3c0c3233395599f6cd99f83e79ecf753754a48f36ab6d3fa0770a4635685dd2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[[module."generic_first_order.rs".function]]
+id = "fn:4b30a210614ab14b"
+name = "new"
+qual = "TransferFnFirstOrder::new"
+lines = [
+    148,
+    207,
+]
+hash = "sha256:fa53827f42aaddfcb94b8a1134730873a2ce6ce8abec1c68820230d01ecb8389"
+doc_hash = "sha256:f5e66d9c60909366a4d5e7fb29a5e6814783d0cefd04f1ba4b8420b38ac1e85a"
+callees = [
+    "fn:2711914445e8c4ca",
+    "fn:8d40533e56250f14",
+]
+reached_by = [
+    "#0",
+    "#2",
+]
+physical_interface = true
+
+[[module."generic_first_order.rs".function]]
+id = "fn:ab4ea4c0d31c9dd5"
+name = "into"
+qual = "TransferFnFirstOrder::into"
+lines = [
+    211,
+    213,
+]
+hash = "sha256:3ce8b56505e0c6ddb590f3455a281a8341f625dbacca2674a7bb93ff2e33014b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."generic_first_order.rs".function]]
+id = "fn:94a20ea34d79cc31"
+name = "try_from"
+qual = "TransferFnFirstOrder::try_from"
+lines = [
+    218,
+    224,
+]
+hash = "sha256:4d44a7604a98432dd76a275502efa00516fce25bda8316121d1c2c5ec2c9b75e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."generic_second_order.rs"]
+path = "crate::beta_testing::transfer_fn_wrapper_and_enums::generic_second_order"
+
+[[module."generic_second_order.rs".function]]
+id = "fn:a6e2e271bce98172"
+name = "default"
+qual = "TransferFnSecondOrder::default"
+lines = [
+    42,
+    44,
+]
+hash = "sha256:0c6a34694b5b6bdabb0c6a42d421830b4a26ceddbe80f4f1f949fa310de591c7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."generic_second_order.rs".function]]
+id = "fn:ebe09b7152ca08e0"
+name = "set_dead_time"
+qual = "TransferFnSecondOrder::set_dead_time"
+lines = [
+    48,
+    65,
+]
+hash = "sha256:781a2665d5db16ffc1c5a52708e96f81d24f1d7aedf486512ca2ac4ee6dd44b8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#1"]
+physical_interface = true
+
+[[module."generic_second_order.rs".function]]
+id = "fn:e6ed4c7d6103218a"
+name = "set_user_input_and_calc"
+qual = "TransferFnSecondOrder::set_user_input_and_calc"
+lines = [
+    67,
+    101,
+]
+hash = "sha256:f04e1b33a88e96bf3de3c0be9af8986bdd15da3584146c54ef0bac116e24f48e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5738a659a4871b83",
+    "fn:d9fea05f6d05202c",
+]
+physical_interface = true
+
+[[module."generic_second_order.rs".function]]
+id = "fn:5ea1cf8798ebc3ba"
+name = "spawn_writer"
+qual = "TransferFnSecondOrder::spawn_writer"
+lines = [
+    103,
+    119,
+]
+hash = "sha256:202e58392cab603b9fbfbf5eea39adca3f478b5d37f529125cd008e2dc048c68"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."generic_second_order.rs".function]]
+id = "fn:f8bb4b56a0cf1482"
+name = "csv_write_values"
+qual = "TransferFnSecondOrder::csv_write_values"
+lines = [
+    121,
+    137,
+]
+hash = "sha256:c3c0c3233395599f6cd99f83e79ecf753754a48f36ab6d3fa0770a4635685dd2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[[module."generic_second_order.rs".function]]
+id = "fn:e75af91aec39bbc2"
+name = "new"
+qual = "TransferFnSecondOrder::new"
+lines = [
+    141,
+    199,
+]
+hash = "sha256:110829102b2b87c11a643d441668ddbf8bca6573203fc2db76afaffc09f08e00"
+doc_hash = "sha256:19c50ab5155cc0dfa1f49391fda9d30f4b1e4e534f15d49a4ce7b49e39235675"
+callees = ["fn:c8240f0f8d9997ec"]
+reached_by = ["#1"]
+physical_interface = true
+
+[[module."generic_second_order.rs".function]]
+id = "fn:c8240f0f8d9997ec"
+name = "new_underdamped_stable_system"
+qual = "TransferFnSecondOrder::new_underdamped_stable_system"
+lines = [
+    202,
+    258,
+]
+hash = "sha256:ddec3138f3d205392cd1d3a9f0752e4431421318ed3df2ba91668a6c16af464a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:514eda810252217f",
+    "fn:c1f160a6f58a6763",
+    "fn:c7498fab0b9a2094",
+]
+reached_by = ["#1"]
+physical_interface = true
+
+[[module."generic_second_order.rs".function]]
+id = "fn:68313adf1c9779db"
+name = "test_dead_time"
+qual = "test_dead_time"
+lines = [
+    261,
+    303,
+]
+hash = "sha256:a65845b55af5c983181af3897067f8c81f1fbfdfaa0b96784d1c6719793fcd5d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2f01d39b40ac8224",
+    "fn:38c82bd23b38b786",
+    "fn:e75af91aec39bbc2",
+]
+test = true
+
+[[module."generic_second_order.rs".function]]
+id = "fn:2f01d39b40ac8224"
+name = "into"
+qual = "TransferFnSecondOrder::into"
+lines = [
+    306,
+    308,
+]
+hash = "sha256:5684b02b7cfb1bce7f3a94794acee70fbd1a4147357e501a732c947be3431f39"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#1"]
+
+[[module."generic_second_order.rs".function]]
+id = "fn:988aae933bba9884"
+name = "try_from"
+qual = "TransferFnSecondOrder::try_from"
+lines = [
+    313,
+    319,
+]
+hash = "sha256:9631a86d6a87339442e13dba327dbcf7f3506ec11687ffcd1d647943a449efd0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."mod.rs"]
+path = "crate::beta_testing::transfer_fn_wrapper_and_enums"
+
+[[module."mod.rs".function]]
+id = "fn:c2a2ae68270d3f7a"
+name = "default"
+qual = "TransferFn::default"
+lines = [
+    11,
+    13,
+]
+hash = "sha256:6f7e119f8c09cec0ab56b56c9ec9db963e7e6ceeee03f3b12faa41413ae4a24f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:38c82bd23b38b786"
+name = "set_dead_time"
+qual = "TransferFn::set_dead_time"
+lines = [
+    17,
+    22,
+]
+hash = "sha256:92330fe138cdb9bd9d24b1fae1dd9db452562d3ef7facf955cce045d0fecb8c9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:612e4c277aced9e2",
+    "fn:ebe09b7152ca08e0",
+]
+reached_by = ["#1"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:94930fccfca82f11"
+name = "set_user_input_and_calc"
+qual = "TransferFn::set_user_input_and_calc"
+lines = [
+    24,
+    37,
+]
+hash = "sha256:e5f1d3478484e17a736968c99fa2dd4aa7803014034676c32aa27c17182e1878"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:e6ed4c7d6103218a",
+    "fn:f5088f5737512244",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:6592b4ea9ccb7a1d"
+name = "spawn_writer"
+qual = "TransferFn::spawn_writer"
+lines = [
+    39,
+    47,
+]
+hash = "sha256:87a09f007d08a52f9f6d36b680d4e3c4347ff2e5eaab3dbf57b6c3c6e266680c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5ea1cf8798ebc3ba",
+    "fn:baf1e2f4b1d04fa7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f8505083a48ee5ae"
+name = "csv_write_values"
+qual = "TransferFn::csv_write_values"
+lines = [
+    49,
+    64,
+]
+hash = "sha256:e863f93c0ef5d01182bdae34b06f1786a77392c139ea4f5f6b270b5f7709d13d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7c9801656bedb4d6",
+    "fn:f8bb4b56a0cf1482",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:5785cad7d23fe9dc"
+name = "set_dead_time"
+qual = "TransferFnTraits::set_dead_time"
+lines = [
+    68,
+    68,
+]
+hash = "sha256:6893d520c0ea52f9689d103b7a1ad0c7e1ea2ad46daf725ba6cf6ad93e743705"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true

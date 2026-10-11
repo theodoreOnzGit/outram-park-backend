@@ -1,0 +1,30 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-coolprop"
+dir = "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics"
+
+[module."constants.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::thermophysics::constants"
+
+[module."error.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::thermophysics::error"
+
+[[module."error.rs".function]]
+id = "fn:c2c90fa1769eddc1"
+name = "fmt"
+qual = "ThermoError::fmt"
+lines = [
+    31,
+    39,
+]
+hash = "sha256:013bbcfd90015b6492b9a9e070ab8625ee52bf262417bf11bef5746ecbe95c5d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."imports.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::thermophysics::imports"
+
+[module."mod.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::thermophysics"
+
+[module."quantities.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::thermophysics::quantities"

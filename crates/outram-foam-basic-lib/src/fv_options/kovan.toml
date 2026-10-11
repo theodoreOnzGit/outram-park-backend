@@ -1,0 +1,1351 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-basic-lib"
+dir = "crates/outram-foam-basic-lib/src/fv_options"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::attached_model_contributes_to_both_equations_after_stepping",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::boussinesq_coefficients_convert_to_kinematic_units",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::hot_wall_drives_melting_with_bounded_liquid_fraction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::runs_without_any_fv_model",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::temperature_solver_defaults_to_a_tight_tolerance",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::velocity_field_keeps_its_name_after_correction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::wall_face_fluxes_are_constrained_to_the_velocity_bc",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::enthalpy_porosity_conserves_energy",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::gallium_melting_cavity_gau_viskanta_configuration",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::stefan_problem_matches_similarity_solution",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::a_zone_selection_leaves_unselected_cells_untouched",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::buoyancy_pushes_a_superheated_cell_against_gravity",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::darcy_drag_increases_monotonically_as_the_cell_freezes",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::darcy_drag_saturates_at_minus_cu_over_q_when_fully_solid",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::darcy_drag_vanishes_in_a_fully_liquid_cell",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::effective_liquidus_holds_flat_at_the_solidus_below_the_eutectic_fraction",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::effective_liquidus_spans_solidus_to_liquidus_with_no_eutectic_offset",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::latent_heat_vanishes_when_the_liquid_fraction_is_unchanged",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::melting_removes_energy_from_the_equation",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::momentum_diagonal_gains_the_drag_rather_than_losing_it",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::temperature_and_enthalpy_forms_differ_by_exactly_the_specific_heat",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::the_liquid_fraction_stays_in_bounds_over_a_heating_and_cooling_cycle",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_melting/tests.rs::update_runs_at_most_once_per_timestep",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::a_cell_zone_restricts_the_drag_to_its_own_cells",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::density_weighted_form_scales_the_drag_by_rho",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::drag_table_clamps_at_both_ends_instead_of_extrapolating",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::drag_table_is_linear_between_the_knots",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::drag_table_rejects_descending_temperatures",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::force_diagonal_matches_the_assembled_momentum_diagonal",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::fully_molten_cells_gain_exactly_no_drag",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::kinematic_drag_adds_volume_times_d_to_the_diagonal",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::phase_fraction_scales_the_drag_linearly",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::a_mostly_solid_cell_gains_a_large_positive_diagonal_drag",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::a_zero_timestep_contributes_nothing_instead_of_dividing_by_zero",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::freezing_puts_a_negative_latent_heat_source_in_the_enthalpy_equation",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::fully_fluid_cells_feel_exactly_no_drag",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::heating_above_the_liquidus_decays_the_solid_fraction",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::omitting_advance_time_inflates_the_latent_heat_rate",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::one_correct_from_zero_gives_exactly_the_relaxation_coefficient",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::repeated_correct_converges_geometrically_to_the_table_value",
+    "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting/tests.rs::solid_fraction_is_capped_by_the_vof_phase_fraction",
+]
+
+[module."mod.rs"]
+path = "crate::fv_options"
+
+[[module."mod.rs".function]]
+id = "fn:9044b54525bfc9fd"
+name = "name"
+qual = "FvModel::name"
+lines = [
+    156,
+    165,
+]
+hash = "sha256:b07644d1b68be813bd93e85ea14c04a34f1a06deb6d3074ad2bb58fe9b93807f"
+doc_hash = "sha256:eadbdce378509701cd2007ea9a6ed562381389953bd0fa06aba8f3caef795075"
+callees = [
+    "fn:01d160a90e9d4bbf",
+    "fn:8414c3dd80f277ee",
+    "fn:8c31e1f09007a964",
+    "fn:a62e30d9f6f7f299",
+]
+
+[[module."mod.rs".function]]
+id = "fn:8a04549df74978ac"
+name = "contributes_to"
+qual = "FvModel::contributes_to"
+lines = [
+    167,
+    184,
+]
+hash = "sha256:f4524d1ffc7d673489eaf680e47756635c5e707bec262a75f94f9c55f0d52d71"
+doc_hash = "sha256:5d36740c8ea6301cc2ce43d4f9ad0a86a536f4dcfc89640785ca21b6f5961e9b"
+callees = [
+    "fn:1797a19538530bdf",
+    "fn:3a668ee08e08ac94",
+    "fn:4b05c47b779b77dc",
+    "fn:578fbf39f29c7298",
+    "fn:af3b46d89b80c03f",
+    "fn:f4be06f102f7dc16",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0946d699612366f8"
+name = "new"
+qual = "FvModels::new"
+lines = [
+    196,
+    200,
+]
+hash = "sha256:aa91cce512a12f795b3d395cb88744bcff35d4d0b5e4672452c9cbd3a0d6d867"
+doc_hash = "sha256:5f67dde8ce2e55fce21c6a1ba856155b9614cf635b030171ad06db811d04e787"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:12245f102f37c352"
+name = "push"
+qual = "FvModels::push"
+lines = [
+    202,
+    205,
+]
+hash = "sha256:18b2770870642e7b2bf677e60d496d7abf57896a01a93742a6d922b987fd29ec"
+doc_hash = "sha256:607ab55ebe9d95a08cd3c95c34a620267ae1cdc64518b83be719bd497ca7f97c"
+reached_by = [
+    "#0",
+    "#2",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:7b2178b8c241b41b"
+name = "models"
+qual = "FvModels::models"
+lines = [
+    207,
+    211,
+]
+hash = "sha256:5dfc16828897e22e8a70015a76837f6ccf6d06598c5b4135132771e003592302"
+doc_hash = "sha256:fc15a571766654af467763e7ee0e3453fa8ff68d961bc8236dda7ce64c0da26c"
+reached_by = [
+    "#2",
+    "#3",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:194f60f2222c3e96"
+name = "models_mut"
+qual = "FvModels::models_mut"
+lines = [
+    213,
+    217,
+]
+hash = "sha256:b59ad87afd09f42e19da4b2c8829abb86fdab9f6870341d6ffab8ec18bac6198"
+doc_hash = "sha256:a3b7f1c8fdef94b53e80b8289f3d1ce1f6faa397ebb9d7731a14249158e6e17e"
+
+[[module."mod.rs".function]]
+id = "fn:42da4e8b6cbcb16f"
+name = "contributes_to"
+qual = "FvModels::contributes_to"
+lines = [
+    219,
+    225,
+]
+hash = "sha256:bf5de8f7a51c50e8b89e5937d5a061d6b97991d8a17a10dccb158e017e33ae72"
+doc_hash = "sha256:52801b5289cca24b3aab6c7e11e1c46325e693894dfa27de63c2d15031e550fe"
+callees = ["fn:8a04549df74978ac"]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:13fa01c6783f2ee2"
+name = "correct"
+qual = "FvModels::correct"
+lines = [
+    257,
+    284,
+]
+hash = "sha256:e506982334b62939aa1f42d2c7ac9406c4815915f12f0471a4260b432dd239a6"
+doc_hash = "sha256:0cd552df5b0bc9eefe90f68505b5ebff7ecc46f54515f7615b70cd43def22bc1"
+callees = ["fn:3991a0948389a8c8"]
+
+[[module."mod.rs".function]]
+id = "fn:04fbfd762e87db68"
+name = "advance_time"
+qual = "FvModels::advance_time"
+lines = [
+    286,
+    305,
+]
+hash = "sha256:be90ed5d06612686ca851fc86456863214049b8137a1b425ca7e011db808dbed"
+doc_hash = "sha256:7e616dd5c40934023786e2d1c26d19d07ecc270295530935e2ef349c2de86615"
+callees = [
+    "fn:2eea4436feda602a",
+    "fn:b276713094c72f95",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c4820b8f9c766f2a"
+name = "add_source_scalar"
+qual = "FvModels::add_source_scalar"
+lines = [
+    307,
+    352,
+]
+hash = "sha256:e4b349e086d53f4a310227983ab8e28328e46adf67a74e3ea752a656fe04adcf"
+doc_hash = "sha256:4bf1464b6852826314569ebf1d7a8da765ceb6cc36390c73b559675a85c0b6a2"
+callees = [
+    "fn:19dae28b900b1c6e",
+    "fn:1e0c0abc3044dc8b",
+    "fn:20fadd8ac1368d9d",
+    "fn:47cbee22ab7d4e3c",
+    "fn:5039cc454f732604",
+    "fn:6662c91cc036e4f0",
+    "fn:8a04549df74978ac",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a9ef331a0803eb1f"
+name = "add_source_vector"
+qual = "FvModels::add_source_vector"
+lines = [
+    354,
+    395,
+]
+hash = "sha256:b938d25995471aef6fa9a75fb42c28dda6a1efe85dac0341b7686394d8dc810d"
+doc_hash = "sha256:3d6c8e414f69a1f9a20ceef987b911be2468ac2233693869d31ae8d9aa3a21a0"
+callees = [
+    "fn:0009ad0d2fc20c3e",
+    "fn:5d406c9626c87e00",
+    "fn:85f4774d4d2006d8",
+    "fn:8a04549df74978ac",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[module."selection.rs"]
+path = "crate::fv_options::selection"
+
+[[module."selection.rs".function]]
+id = "fn:6781135247f78259"
+name = "zone"
+qual = "CellSelection::zone"
+lines = [
+    41,
+    45,
+]
+hash = "sha256:afe614a94ae67a587cfedb0b7ae8766c55a29b5b9663d6634a0573cd008707e4"
+doc_hash = "sha256:5e6fa86b91f5abcdd6766c3b8dc3971ad7f1d72419bb6a3e1eae0899e7fee8dc"
+reached_by = [
+    "#10",
+    "#23",
+]
+
+[[module."selection.rs".function]]
+id = "fn:20fadd8ac1368d9d"
+name = "cells"
+qual = "CellSelection::cells"
+lines = [
+    47,
+    56,
+]
+hash = "sha256:6094a1ee574734cd1b2a78f17f0c138db600eefa26784541d014f4e0437df881"
+doc_hash = "sha256:f0a2e460dacc1096b5ca9449602f8914eb26ebb6a2833f6d0c0aadb1cf115bc3"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."selection.rs".function]]
+id = "fn:786d0f481c24712b"
+name = "len"
+qual = "CellSelection::len"
+lines = [
+    58,
+    65,
+]
+hash = "sha256:62344950fc232ada654445b1d2840c01fe14ea2dca8ee34a384af5a93ff049d5"
+doc_hash = "sha256:8be8cd502fbafb3ef6a66314626bf88258e42884504c8c681d9207526aa0fd02"
+reached_by = [
+    "#0",
+    "#2",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."selection.rs".function]]
+id = "fn:db11adf60809bde1"
+name = "is_empty"
+qual = "CellSelection::is_empty"
+lines = [
+    67,
+    74,
+]
+hash = "sha256:d870b43d9573330e414112a5bc928a287bac7d25f9f3f73e675a978778e56647"
+doc_hash = "sha256:33b9b6ce67f268c93301ea46110b7f488fa36bce10b2195e2bc0c13dcad2433e"
+callees = ["fn:786d0f481c24712b"]
+
+[module."semi_implicit.rs"]
+path = "crate::fv_options::semi_implicit"
+
+[[module."semi_implicit.rs".function]]
+id = "fn:3817a240a285d1fe"
+name = "new"
+qual = "SemiImplicitSource::new"
+lines = [
+    35,
+    54,
+]
+hash = "sha256:383104f6e7ff0b75b125254430bee5d6dd7899fa529a56d1418683d919a8f1c9"
+doc_hash = "sha256:cbb528e92a3435d776f8e5d5eebd68fb6ddb8e00843f3d0c813f17fba0391609"
+
+[[module."semi_implicit.rs".function]]
+id = "fn:01d160a90e9d4bbf"
+name = "name"
+qual = "SemiImplicitSource::name"
+lines = [
+    56,
+    60,
+]
+hash = "sha256:8abb2abb6e1b0f66fd10ee41e29ffac0471cca20aef7194345da1d5b4b121b3b"
+doc_hash = "sha256:b4fc071dcf5cec43e1f8e9acffb4570088411a8a07ec87ab977aba6d828479af"
+
+[[module."semi_implicit.rs".function]]
+id = "fn:3a668ee08e08ac94"
+name = "field_name"
+qual = "SemiImplicitSource::field_name"
+lines = [
+    62,
+    66,
+]
+hash = "sha256:b361927f7cdbc9935d2887d7201545e50b21bda3db41cf5c10468ab360443d9d"
+doc_hash = "sha256:584dda95d404c79b17825797c11b7d69803d44045b30dfdd0195d240509548b2"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."semi_implicit.rs".function]]
+id = "fn:47cbee22ab7d4e3c"
+name = "selection"
+qual = "SemiImplicitSource::selection"
+lines = [
+    68,
+    72,
+]
+hash = "sha256:ab18ab619d569f5f55b6f164bcfc17fc45bca8fba47ac2069e762dfa23ea5e49"
+doc_hash = "sha256:146e8e262bf076f18858364abacdae65fd63242ef611ca49491e950b69dc52a4"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."semi_implicit.rs".function]]
+id = "fn:19dae28b900b1c6e"
+name = "contribution"
+qual = "SemiImplicitSource::contribution"
+lines = [
+    74,
+    78,
+]
+hash = "sha256:bc38cd96f9167dba08bd59f928299deca6c25315e33704408a9c064d61866645"
+doc_hash = "sha256:cf4625a8f08e84e94013f56f05c221de061c9e24e903f68abd90ca1bf60c4089"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[module."solidification_melting.rs"]
+path = "crate::fv_options::solidification_melting"
+
+[[module."solidification_melting.rs".function]]
+id = "fn:8f7ca4d3896a5926"
+name = "new"
+qual = "SolidificationMeltingCoefficients::new"
+lines = [
+    74,
+    100,
+]
+hash = "sha256:898a5ec011ad4c6f0e1dce6ac30e87d0cc545fd64af1c8f75d0c42096ffd7ebc"
+doc_hash = "sha256:7a698218aef3b677373448a69673fee53524ca01eab381ef7682e507247abb41"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."solidification_melting.rs".function]]
+id = "fn:7e183b9184d0ba1b"
+name = "new"
+qual = "SolidificationMelting::new"
+lines = [
+    164,
+    199,
+]
+hash = "sha256:af8588a19eef9d0c27e8a6b7eb8d60d3b853b3f58ca66c823846f181edbdab47"
+doc_hash = "sha256:f94b95308a4e67a1c1eaf5c2d9b93d8243ea18ed525527fcd554439114f94d20"
+callees = ["fn:786d0f481c24712b"]
+reached_by = [
+    "#0",
+    "#2",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."solidification_melting.rs".function]]
+id = "fn:a62e30d9f6f7f299"
+name = "name"
+qual = "SolidificationMelting::name"
+lines = [
+    201,
+    205,
+]
+hash = "sha256:8abb2abb6e1b0f66fd10ee41e29ffac0471cca20aef7194345da1d5b4b121b3b"
+doc_hash = "sha256:b4fc071dcf5cec43e1f8e9acffb4570088411a8a07ec87ab977aba6d828479af"
+
+[[module."solidification_melting.rs".function]]
+id = "fn:af3b46d89b80c03f"
+name = "velocity_name"
+qual = "SolidificationMelting::velocity_name"
+lines = [
+    207,
+    211,
+]
+hash = "sha256:844329f5c020f95e431e04071a1594f73ee2355c7d91a56dd249a49b6ca10cb0"
+doc_hash = "sha256:509817c580c1eefa2a11ad0228836b3d96f9ac27d66d1c86a05610e6194b5d46"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."solidification_melting.rs".function]]
+id = "fn:1797a19538530bdf"
+name = "energy_name"
+qual = "SolidificationMelting::energy_name"
+lines = [
+    213,
+    217,
+]
+hash = "sha256:cf3842c233f79051d7151268cb1345ea2e00fecd9de8f89f0d899bce5c3eb347"
+doc_hash = "sha256:25a6e6961ca9e02e72672313427aa7fe84f85abef82d1123fccfb7e86bf274d0"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."solidification_melting.rs".function]]
+id = "fn:0e69a2227fcbfe08"
+name = "selection"
+qual = "SolidificationMelting::selection"
+lines = [
+    219,
+    223,
+]
+hash = "sha256:ab18ab619d569f5f55b6f164bcfc17fc45bca8fba47ac2069e762dfa23ea5e49"
+doc_hash = "sha256:146e8e262bf076f18858364abacdae65fd63242ef611ca49491e950b69dc52a4"
+
+[[module."solidification_melting.rs".function]]
+id = "fn:f6199107c0514590"
+name = "liquid_fraction"
+qual = "SolidificationMelting::liquid_fraction"
+lines = [
+    225,
+    230,
+]
+hash = "sha256:6041c48a60b8bde7873455b212de5c69f5716aed5b4fe7f50804e4657aec5b53"
+doc_hash = "sha256:58bb4a4d6fba2d150cd58d03d97c980f4f66fb3d9d202f898132dfa665111927"
+reached_by = [
+    "#2",
+    "#3",
+    "#7",
+    "#8",
+    "#9",
+    "#11",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#22",
+]
+
+[[module."solidification_melting.rs".function]]
+id = "fn:0e705435b34c0138"
+name = "effective_liquidus"
+qual = "SolidificationMelting::effective_liquidus"
+lines = [
+    232,
+    245,
+]
+hash = "sha256:62f29fa64d9062038e90d1924a094d9efbf24ea4b226c38b7f5ffb1018787ab1"
+doc_hash = "sha256:e367d3271b943f8b34e445af82dc1bea6bd4290bccfca88ccdc6253918413c6d"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."solidification_melting.rs".function]]
+id = "fn:081679d7741b19ed"
+name = "update"
+qual = "SolidificationMelting::update"
+lines = [
+    247,
+    288,
+]
+hash = "sha256:05811cc3a4561c8891be62cbf8e5030ec8dd7148c40c59b276f210e15e5f7c93"
+doc_hash = "sha256:e5f0f365568668be45fae63b600e9ff06d31a078a504737d873db2d3bd80f616"
+callees = [
+    "fn:0b7b54d6516aee08",
+    "fn:0e705435b34c0138",
+    "fn:20fadd8ac1368d9d",
+    "fn:4aea3161a87c6021",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."solidification_melting.rs".function]]
+id = "fn:b276713094c72f95"
+name = "advance_time"
+qual = "SolidificationMelting::advance_time"
+lines = [
+    290,
+    305,
+]
+hash = "sha256:f881fa0cba0a54d612516f4d4cfd23c1dfcdf7e954fe86b76d5a1ee184b1d7a6"
+doc_hash = "sha256:169f230b66fba884fdcea70e804703a0a42e8b33c5de414462a872480de0a73a"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#17",
+    "#21",
+    "#22",
+]
+
+[[module."solidification_melting.rs".function]]
+id = "fn:544cd89ffe971b4e"
+name = "darcy_coefficient"
+qual = "SolidificationMelting::darcy_coefficient"
+lines = [
+    307,
+    316,
+]
+hash = "sha256:fca2734294df2ffa90f018f4cd47b14077f83499f174651e645aa8b5ad9b10f6"
+doc_hash = "sha256:29744769a1d06e0b2c653cf30e554005c2f8909a4b888f89a3e8481356ccdcbc"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#19",
+]
+
+[[module."solidification_melting.rs".function]]
+id = "fn:0009ad0d2fc20c3e"
+name = "add_momentum_source"
+qual = "SolidificationMelting::add_momentum_source"
+lines = [
+    318,
+    368,
+]
+hash = "sha256:3bb60d13db0e72807ee51daf26b79d61bca866055f994f12cd1477be6fa1136e"
+doc_hash = "sha256:c35e971a04e4e18b0a157f1b2e5928a6d1483227fd9ce58c18c1123d24fd0e15"
+callees = [
+    "fn:081679d7741b19ed",
+    "fn:1e0c0abc3044dc8b",
+    "fn:20fadd8ac1368d9d",
+    "fn:3ec5e342ab76d57e",
+    "fn:544cd89ffe971b4e",
+    "fn:636ae5a21be9336b",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#19",
+]
+
+[[module."solidification_melting.rs".function]]
+id = "fn:6662c91cc036e4f0"
+name = "add_energy_source"
+qual = "SolidificationMelting::add_energy_source"
+lines = [
+    370,
+    419,
+]
+hash = "sha256:56e0e0563654711fcfc7f1e613a063b30d85074e20cb11d4772ce54f779523cf"
+doc_hash = "sha256:93d816b78a2eb6850dd153ceb5756fe5ed19617dbe7467b62eac90c007c7bfc2"
+callees = [
+    "fn:081679d7741b19ed",
+    "fn:1e0c0abc3044dc8b",
+    "fn:20fadd8ac1368d9d",
+    "fn:4aea3161a87c6021",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#17",
+    "#18",
+    "#20",
+]
+
+[module."solidification_porosity.rs"]
+path = "crate::fv_options::solidification_porosity"
+
+[[module."solidification_porosity.rs".function]]
+id = "fn:eb93ffaa3bbc5c46"
+name = "new"
+qual = "SolidificationPorosity::new"
+lines = [
+    95,
+    124,
+]
+hash = "sha256:599600128ddf2b1a0abe137de436b110949b253713d600d460f072594cd50b80"
+doc_hash = "sha256:6824ef119e76b184368d6d55fc6e6b7799272a44b80cb48342ac70384da27482"
+reached_by = [
+    "#23",
+    "#24",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+]
+
+[[module."solidification_porosity.rs".function]]
+id = "fn:3cfc77e7e41ece25"
+name = "with_phase_fraction"
+qual = "SolidificationPorosity::with_phase_fraction"
+lines = [
+    126,
+    136,
+]
+hash = "sha256:f1131165bbc2238eb485e4d3d27aeca47b7944b59ae7dcf02a09b0a4cdd9df22"
+doc_hash = "sha256:7d6b5a679fdd2cc64f0bbea8d914a7b86e556570c762d14e12818a5b160757aa"
+reached_by = ["#31"]
+
+[[module."solidification_porosity.rs".function]]
+id = "fn:8c31e1f09007a964"
+name = "name"
+qual = "SolidificationPorosity::name"
+lines = [
+    138,
+    142,
+]
+hash = "sha256:8abb2abb6e1b0f66fd10ee41e29ffac0471cca20aef7194345da1d5b4b121b3b"
+doc_hash = "sha256:b4fc071dcf5cec43e1f8e9acffb4570088411a8a07ec87ab977aba6d828479af"
+
+[[module."solidification_porosity.rs".function]]
+id = "fn:578fbf39f29c7298"
+name = "velocity_name"
+qual = "SolidificationPorosity::velocity_name"
+lines = [
+    144,
+    148,
+]
+hash = "sha256:844329f5c020f95e431e04071a1594f73ee2355c7d91a56dd249a49b6ca10cb0"
+doc_hash = "sha256:adaa6557e4242f87fda5dd1004aae91192bab99495f50a138841d153141482e4"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."solidification_porosity.rs".function]]
+id = "fn:4a41417cc902d117"
+name = "phase_fraction_name"
+qual = "SolidificationPorosity::phase_fraction_name"
+lines = [
+    150,
+    155,
+]
+hash = "sha256:eba714e7aa6d39284d6bda906cc01f76dd567435d5a025d9746c6d13f1b256b4"
+doc_hash = "sha256:2530231dbe84ecc0b5976c4d30a7c7f51f09a00db58afd124c98911fe3578cd4"
+reached_by = ["#31"]
+
+[[module."solidification_porosity.rs".function]]
+id = "fn:5141d1c2d1bd9589"
+name = "selection"
+qual = "SolidificationPorosity::selection"
+lines = [
+    157,
+    161,
+]
+hash = "sha256:ab18ab619d569f5f55b6f164bcfc17fc45bca8fba47ac2069e762dfa23ea5e49"
+doc_hash = "sha256:146e8e262bf076f18858364abacdae65fd63242ef611ca49491e950b69dc52a4"
+
+[[module."solidification_porosity.rs".function]]
+id = "fn:622e959da917a06c"
+name = "drag_table"
+qual = "SolidificationPorosity::drag_table"
+lines = [
+    163,
+    167,
+]
+hash = "sha256:a94a5cf19ac86a1d046030d3face9ef5838413d73a5fa631b09191a2988c119a"
+doc_hash = "sha256:49640f7a12b29d9ab2adad1bf71f1d8061b34096c6cab7babfe5944851f3b905"
+
+[[module."solidification_porosity.rs".function]]
+id = "fn:1167d5631de56fa4"
+name = "form"
+qual = "SolidificationPorosity::form"
+lines = [
+    169,
+    173,
+]
+hash = "sha256:9821c601fc28edadf8e07afab3bbea073e5774679056278c9e5df637dee29cd8"
+doc_hash = "sha256:9c3569426a6d97d432fdb41f54a571b4487c437bcfcb3aab306e9667f7e87277"
+
+[[module."solidification_porosity.rs".function]]
+id = "fn:5d406c9626c87e00"
+name = "add_momentum_source"
+qual = "SolidificationPorosity::add_momentum_source"
+lines = [
+    175,
+    226,
+]
+hash = "sha256:bb1d662a6df62a512c4cba4f697e14a1e0f299814cff98f5734d3e6e15c6873b"
+doc_hash = "sha256:73957af4490f41f44ae92d6857ef55eb39d370c8abfc2da501bf96ffff8519db"
+callees = [
+    "fn:20fadd8ac1368d9d",
+    "fn:4aea3161a87c6021",
+    "fn:cc33c4134927fd19",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#23",
+    "#24",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+]
+
+[[module."solidification_porosity.rs".function]]
+id = "fn:2467de1b040d8c7a"
+name = "force_diagonal"
+qual = "SolidificationPorosity::force_diagonal"
+lines = [
+    228,
+    264,
+]
+hash = "sha256:b6170af78c1614a8a5acd273af0a86dfdbd260121767b6d98669b9e8c991494c"
+doc_hash = "sha256:f235e8d2b068d4c37a4b24722403a2a0c10645f8461b66d74321b4fad8d4d2da"
+callees = [
+    "fn:0b7b54d6516aee08",
+    "fn:20fadd8ac1368d9d",
+    "fn:4aea3161a87c6021",
+    "fn:cc33c4134927fd19",
+]
+reached_by = ["#28"]
+
+[module."temperature_table.rs"]
+path = "crate::fv_options::temperature_table"
+
+[[module."temperature_table.rs".function]]
+id = "fn:4aca38dff09db387"
+name = "new"
+qual = "TemperatureTable::new"
+lines = [
+    65,
+    92,
+]
+hash = "sha256:ba96b9f03e15ea274268d4bd7c9b62f35937ef4c1a5f5320a09ce4bd95117337"
+doc_hash = "sha256:d72a76d6c5cc3dc4cf7b16d321045ef805b0e5c3a01e5ec9a930fe95e33c38da"
+reached_by = [
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."temperature_table.rs".function]]
+id = "fn:3e4b3b1e4cefaf16"
+name = "two_knot"
+qual = "TemperatureTable::two_knot"
+lines = [
+    94,
+    106,
+]
+hash = "sha256:1826c2d1f36b473b96fe8d96b9235f846c5a2c93f27188a84b7f6d53f6144af0"
+doc_hash = "sha256:e514dc1d1ce4c92ac79d1d475eaf4e1009f6b842061da1bfa5d79eaceb76a213"
+callees = ["fn:4aca38dff09db387"]
+reached_by = [
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."temperature_table.rs".function]]
+id = "fn:cc33c4134927fd19"
+name = "value"
+qual = "TemperatureTable::value"
+lines = [
+    108,
+    112,
+]
+hash = "sha256:656d36f2d9e24a590e05a8ee23c1b04895f8ccfdac094bfd25ac18e962a20a2d"
+doc_hash = "sha256:50786c238eeac6056695bb6f3748d4f638de8c300e4a5bea973a7f16f4dc4ed8"
+callees = ["fn:99088336107d423b"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."temperature_table.rs".function]]
+id = "fn:3acf0c0d79fa8def"
+name = "temperatures"
+qual = "TemperatureTable::temperatures"
+lines = [
+    114,
+    118,
+]
+hash = "sha256:ec7c0a294b8fa39f672d6c2094d5e2bc29be565f34e73bb97e33d0babf06fbb6"
+doc_hash = "sha256:184774018085bba0f6629a52b3e2424ba19ffcf62689748c39a0de23c8c4eec2"
+
+[[module."temperature_table.rs".function]]
+id = "fn:9fbdb0e5df298f9c"
+name = "values"
+qual = "TemperatureTable::values"
+lines = [
+    120,
+    124,
+]
+hash = "sha256:15008133d304b3478f95465faff6ccca6db03b3dcbb2e67a1c4b90b4a780e631"
+doc_hash = "sha256:4f7d323ba7cd330c3e408d961240244ebf873cd48c3a99e861280047553901b2"
+
+[module."vof_solidification_melting.rs"]
+path = "crate::fv_options::vof_solidification_melting"
+
+[[module."vof_solidification_melting.rs".function]]
+id = "fn:fef46484229799a1"
+name = "new"
+qual = "VofSolidificationMelting::new"
+lines = [
+    95,
+    138,
+]
+hash = "sha256:840e845552f057f7b397848ef22e7f75a536e86ac91489d58e0f298acd2513f3"
+doc_hash = "sha256:b427f6313d4179d93239ec49672fe66fbdb232a3a9ca0485878f9b8dca7f7720"
+callees = ["fn:786d0f481c24712b"]
+reached_by = [
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."vof_solidification_melting.rs".function]]
+id = "fn:01b1d9c3020e1260"
+name = "with_coefficients"
+qual = "VofSolidificationMelting::with_coefficients"
+lines = [
+    140,
+    159,
+]
+hash = "sha256:6b597a4ff903a841c5180434fc2527cf09f839d41436e3bf6ba54bf6d087aaa8"
+doc_hash = "sha256:83b0e6bf8b84e02ed7745ad94beb289d38824089f3701af8a3a311c8a04e6686"
+
+[[module."vof_solidification_melting.rs".function]]
+id = "fn:8414c3dd80f277ee"
+name = "name"
+qual = "VofSolidificationMelting::name"
+lines = [
+    161,
+    165,
+]
+hash = "sha256:8abb2abb6e1b0f66fd10ee41e29ffac0471cca20aef7194345da1d5b4b121b3b"
+doc_hash = "sha256:b4fc071dcf5cec43e1f8e9acffb4570088411a8a07ec87ab977aba6d828479af"
+
+[[module."vof_solidification_melting.rs".function]]
+id = "fn:4b05c47b779b77dc"
+name = "velocity_name"
+qual = "VofSolidificationMelting::velocity_name"
+lines = [
+    167,
+    171,
+]
+hash = "sha256:844329f5c020f95e431e04071a1594f73ee2355c7d91a56dd249a49b6ca10cb0"
+doc_hash = "sha256:509817c580c1eefa2a11ad0228836b3d96f9ac27d66d1c86a05610e6194b5d46"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."vof_solidification_melting.rs".function]]
+id = "fn:f4be06f102f7dc16"
+name = "energy_name"
+qual = "VofSolidificationMelting::energy_name"
+lines = [
+    173,
+    177,
+]
+hash = "sha256:cf3842c233f79051d7151268cb1345ea2e00fecd9de8f89f0d899bce5c3eb347"
+doc_hash = "sha256:25a6e6961ca9e02e72672313427aa7fe84f85abef82d1123fccfb7e86bf274d0"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."vof_solidification_melting.rs".function]]
+id = "fn:814860f186786209"
+name = "selection"
+qual = "VofSolidificationMelting::selection"
+lines = [
+    179,
+    183,
+]
+hash = "sha256:ab18ab619d569f5f55b6f164bcfc17fc45bca8fba47ac2069e762dfa23ea5e49"
+doc_hash = "sha256:146e8e262bf076f18858364abacdae65fd63242ef611ca49491e950b69dc52a4"
+
+[[module."vof_solidification_melting.rs".function]]
+id = "fn:06629dae0d9196ae"
+name = "solid_fraction"
+qual = "VofSolidificationMelting::solid_fraction"
+lines = [
+    185,
+    190,
+]
+hash = "sha256:d98d0cb5d062997714bfaac245300b56b912e2959c7a3dae37f05a94d331fd6b"
+doc_hash = "sha256:0bc2de9ebd09e8e7f78ea8ad61621918eac0a1582937620690c4fc156e06fbd1"
+reached_by = [
+    "#32",
+    "#36",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."vof_solidification_melting.rs".function]]
+id = "fn:3991a0948389a8c8"
+name = "correct"
+qual = "VofSolidificationMelting::correct"
+lines = [
+    192,
+    217,
+]
+hash = "sha256:0dc4b5a8482e912ba4120de144e8b4f94de7397c7a32e0fe7898e22197e36a54"
+doc_hash = "sha256:4efc85e6a54614f895981b0ccc6812d69ef32ef3acd8142df13c79f5e99e7b0e"
+callees = [
+    "fn:0b7b54d6516aee08",
+    "fn:20fadd8ac1368d9d",
+    "fn:4aea3161a87c6021",
+    "fn:cc33c4134927fd19",
+]
+reached_by = [
+    "#32",
+    "#33",
+    "#34",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."vof_solidification_melting.rs".function]]
+id = "fn:2eea4436feda602a"
+name = "advance_time"
+qual = "VofSolidificationMelting::advance_time"
+lines = [
+    219,
+    227,
+]
+hash = "sha256:c7fca0993ff8e2d54835b0c811a42520b6bddd12a8baab6cd288ea56f46ea3bf"
+doc_hash = "sha256:c7ce7bf86a5663bbd6ed6d371bc207ba7564dda0ad59b8e9d5c113b457c93177"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#34",
+    "#37",
+]
+
+[[module."vof_solidification_melting.rs".function]]
+id = "fn:b39e808b443138e4"
+name = "darcy_coefficient"
+qual = "VofSolidificationMelting::darcy_coefficient"
+lines = [
+    229,
+    242,
+]
+hash = "sha256:11f3033138308302e6ca0181570eaf97e2c21b0e8095c7f3ab2e580a9adab253"
+doc_hash = "sha256:1aa0e89509fada51719ac21977883ae487bca397a2820e5edd3d6ab1045894a9"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#32",
+    "#35",
+]
+
+[[module."vof_solidification_melting.rs".function]]
+id = "fn:85f4774d4d2006d8"
+name = "add_momentum_source"
+qual = "VofSolidificationMelting::add_momentum_source"
+lines = [
+    244,
+    273,
+]
+hash = "sha256:cde5da5c561251251981d0bfff8683589a009d7c11394409cb880a713e1d8ea5"
+doc_hash = "sha256:34c6a73e4dd98d51de98769b7738b0ce3f37b71715cb6c004bb1a1a0706d05f8"
+callees = [
+    "fn:20fadd8ac1368d9d",
+    "fn:4aea3161a87c6021",
+    "fn:b39e808b443138e4",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#32",
+    "#35",
+]
+
+[[module."vof_solidification_melting.rs".function]]
+id = "fn:5039cc454f732604"
+name = "add_enthalpy_source"
+qual = "VofSolidificationMelting::add_enthalpy_source"
+lines = [
+    275,
+    308,
+]
+hash = "sha256:8ad6d9ae886cf6788c95010acb39ec6b754e556f0d8a74d0c3a1670c7e182671"
+doc_hash = "sha256:aa22e0113db71daade4057bab3bca923dee6d1651302c1be689a5b7d6ff2c2a8"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:20fadd8ac1368d9d",
+    "fn:4aea3161a87c6021",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#33",
+    "#34",
+    "#37",
+]

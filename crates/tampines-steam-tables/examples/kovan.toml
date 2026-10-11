@@ -1,0 +1,82 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/examples"
+
+[module."chebyshev_residual_export.rs"]
+path = "example:chebyshev_residual_export"
+
+[[module."chebyshev_residual_export.rs".function]]
+id = "fn:f93fdf7b2613ced7"
+name = "region_5_residuals"
+qual = "region_5_residuals"
+lines = [
+    94,
+    128,
+]
+hash = "sha256:3b5699ba73c42c5be6273dc9f984065feaf698fedd3316e1a3665be2aed72678"
+doc_hash = "sha256:e44bf3d6c47da4206869a25bb0e44e7133bc6d312755dec89c469c023942c408"
+callees = [
+    "fn:37cc24744a264da5",
+    "fn:5d8b7a24dc0afa5d",
+    "fn:6501588c6b651cf7",
+    "fn:c7c80b5dc74793ca",
+]
+
+[[module."chebyshev_residual_export.rs".function]]
+id = "fn:0218f7a3c85c5555"
+name = "region_4_residuals"
+qual = "region_4_residuals"
+lines = [
+    130,
+    177,
+]
+hash = "sha256:3a1c7fd8b6612d81b1f1974580169d4e72982605f5961bbe3a0f778c9184ddc8"
+doc_hash = "sha256:a92a8303c0108f3df3215be522659cf64165cb033b4b0f2b1f58f2c0d00ea744"
+callees = [
+    "fn:033bc390c16028c2",
+    "fn:10fd50fdf5bd20d0",
+    "fn:8862646fe4088877",
+    "fn:8b94a7a7c1140cef",
+    "fn:983f4c519d50d03a",
+    "fn:c163e9ad1c644298",
+]
+
+[[module."chebyshev_residual_export.rs".function]]
+id = "fn:914554917ddd4f25"
+name = "main"
+qual = "main"
+lines = [
+    179,
+    202,
+]
+hash = "sha256:88bee7dbf8d7f5a9ecb85f195b4c3cd5f734f2120f93b94cbf7e5e51b9874248"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0218f7a3c85c5555",
+    "fn:f93fdf7b2613ced7",
+]
+
+[module."tutorial_rankine_cycle.rs"]
+path = "example:tutorial_rankine_cycle"
+
+[[module."tutorial_rankine_cycle.rs".function]]
+id = "fn:5631aa73949be565"
+name = "main"
+qual = "main"
+lines = [
+    29,
+    362,
+]
+hash = "sha256:478ccf66368548eaab694c22cc8855de5c3efeb8605a482d92d81985ed54943c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3e6a48a264e481b8",
+    "fn:43cfe7d0b0274caa",
+    "fn:78e2c88468989a4c",
+    "fn:8ed7910b571e1ad9",
+    "fn:9880a6d7b02ed0e6",
+    "fn:bd7f6306c44a28ce",
+    "fn:c365ffcc3efa433e",
+    "fn:e9b278ccd8cf1504",
+]

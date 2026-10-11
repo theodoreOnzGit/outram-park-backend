@@ -1,0 +1,418 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-coolprop"
+dir = "crates/outram-park-fork-coolprop/src/fluids"
+
+[module."acetone.rs"]
+path = "crate::fluids::acetone"
+
+[module."air.rs"]
+path = "crate::fluids::air"
+
+[module."ammonia.rs"]
+path = "crate::fluids::ammonia"
+
+[module."argon.rs"]
+path = "crate::fluids::argon"
+
+[module."benzene.rs"]
+path = "crate::fluids::benzene"
+
+[module."carbondioxide.rs"]
+path = "crate::fluids::carbondioxide"
+
+[module."carbonmonoxide.rs"]
+path = "crate::fluids::carbonmonoxide"
+
+[module."carbonylsulfide.rs"]
+path = "crate::fluids::carbonylsulfide"
+
+[module."chlorine.rs"]
+path = "crate::fluids::chlorine"
+
+[module."cis_2_butene.rs"]
+path = "crate::fluids::cis_2_butene"
+
+[module."cyclohexane.rs"]
+path = "crate::fluids::cyclohexane"
+
+[module."cyclopentane.rs"]
+path = "crate::fluids::cyclopentane"
+
+[module."cyclopropane.rs"]
+path = "crate::fluids::cyclopropane"
+
+[module."d4.rs"]
+path = "crate::fluids::d4"
+
+[module."d5.rs"]
+path = "crate::fluids::d5"
+
+[module."d6.rs"]
+path = "crate::fluids::d6"
+
+[module."deuterium.rs"]
+path = "crate::fluids::deuterium"
+
+[module."dichloroethane.rs"]
+path = "crate::fluids::dichloroethane"
+
+[module."diethylether.rs"]
+path = "crate::fluids::diethylether"
+
+[module."dimethylcarbonate.rs"]
+path = "crate::fluids::dimethylcarbonate"
+
+[module."dimethylether.rs"]
+path = "crate::fluids::dimethylether"
+
+[module."ethane.rs"]
+path = "crate::fluids::ethane"
+
+[module."ethanol.rs"]
+path = "crate::fluids::ethanol"
+
+[module."ethylbenzene.rs"]
+path = "crate::fluids::ethylbenzene"
+
+[module."ethylene.rs"]
+path = "crate::fluids::ethylene"
+
+[module."ethyleneoxide.rs"]
+path = "crate::fluids::ethyleneoxide"
+
+[module."f_1_butene.rs"]
+path = "crate::fluids::f_1_butene"
+
+[module."fluorine.rs"]
+path = "crate::fluids::fluorine"
+
+[module."heavywater.rs"]
+path = "crate::fluids::heavywater"
+
+[module."helium.rs"]
+path = "crate::fluids::helium"
+
+[module."hfe143m.rs"]
+path = "crate::fluids::hfe143m"
+
+[module."hydrogen.rs"]
+path = "crate::fluids::hydrogen"
+
+[module."hydrogenchloride.rs"]
+path = "crate::fluids::hydrogenchloride"
+
+[module."hydrogensulfide.rs"]
+path = "crate::fluids::hydrogensulfide"
+
+[module."isobutane.rs"]
+path = "crate::fluids::isobutane"
+
+[module."isobutene.rs"]
+path = "crate::fluids::isobutene"
+
+[module."isohexane.rs"]
+path = "crate::fluids::isohexane"
+
+[module."isopentane.rs"]
+path = "crate::fluids::isopentane"
+
+[module."krypton.rs"]
+path = "crate::fluids::krypton"
+
+[module."m_xylene.rs"]
+path = "crate::fluids::m_xylene"
+
+[module."md2m.rs"]
+path = "crate::fluids::md2m"
+
+[module."md3m.rs"]
+path = "crate::fluids::md3m"
+
+[module."md4m.rs"]
+path = "crate::fluids::md4m"
+
+[module."mdm.rs"]
+path = "crate::fluids::mdm"
+
+[module."methane.rs"]
+path = "crate::fluids::methane"
+
+[module."methanol.rs"]
+path = "crate::fluids::methanol"
+
+[module."methyllinoleate.rs"]
+path = "crate::fluids::methyllinoleate"
+
+[module."methyllinolenate.rs"]
+path = "crate::fluids::methyllinolenate"
+
+[module."methyloleate.rs"]
+path = "crate::fluids::methyloleate"
+
+[module."methylpalmitate.rs"]
+path = "crate::fluids::methylpalmitate"
+
+[module."methylstearate.rs"]
+path = "crate::fluids::methylstearate"
+
+[module."mm.rs"]
+path = "crate::fluids::mm"
+
+[module."mod.rs"]
+path = "crate::fluids"
+
+[module."n_butane.rs"]
+path = "crate::fluids::n_butane"
+
+[module."n_decane.rs"]
+path = "crate::fluids::n_decane"
+
+[module."n_dodecane.rs"]
+path = "crate::fluids::n_dodecane"
+
+[module."n_heptane.rs"]
+path = "crate::fluids::n_heptane"
+
+[module."n_hexane.rs"]
+path = "crate::fluids::n_hexane"
+
+[module."n_nonane.rs"]
+path = "crate::fluids::n_nonane"
+
+[module."n_octane.rs"]
+path = "crate::fluids::n_octane"
+
+[module."n_pentane.rs"]
+path = "crate::fluids::n_pentane"
+
+[module."n_perfluorobutane.rs"]
+path = "crate::fluids::n_perfluorobutane"
+
+[module."n_perfluorohexane.rs"]
+path = "crate::fluids::n_perfluorohexane"
+
+[module."n_perfluoropentane.rs"]
+path = "crate::fluids::n_perfluoropentane"
+
+[module."n_propane.rs"]
+path = "crate::fluids::n_propane"
+
+[module."n_undecane.rs"]
+path = "crate::fluids::n_undecane"
+
+[module."neon.rs"]
+path = "crate::fluids::neon"
+
+[module."neopentane.rs"]
+path = "crate::fluids::neopentane"
+
+[module."nitrogen.rs"]
+path = "crate::fluids::nitrogen"
+
+[module."nitrousoxide.rs"]
+path = "crate::fluids::nitrousoxide"
+
+[module."novec649.rs"]
+path = "crate::fluids::novec649"
+
+[module."o_xylene.rs"]
+path = "crate::fluids::o_xylene"
+
+[module."orthodeuterium.rs"]
+path = "crate::fluids::orthodeuterium"
+
+[module."orthohydrogen.rs"]
+path = "crate::fluids::orthohydrogen"
+
+[module."oxygen.rs"]
+path = "crate::fluids::oxygen"
+
+[module."p_xylene.rs"]
+path = "crate::fluids::p_xylene"
+
+[module."paradeuterium.rs"]
+path = "crate::fluids::paradeuterium"
+
+[module."parahydrogen.rs"]
+path = "crate::fluids::parahydrogen"
+
+[module."propylene.rs"]
+path = "crate::fluids::propylene"
+
+[module."propyleneglycol.rs"]
+path = "crate::fluids::propyleneglycol"
+
+[module."propyne.rs"]
+path = "crate::fluids::propyne"
+
+[module."r11.rs"]
+path = "crate::fluids::r11"
+
+[module."r1123.rs"]
+path = "crate::fluids::r1123"
+
+[module."r113.rs"]
+path = "crate::fluids::r113"
+
+[module."r1130_e_.rs"]
+path = "crate::fluids::r1130_e_"
+
+[module."r1132_e_.rs"]
+path = "crate::fluids::r1132_e_"
+
+[module."r1132a.rs"]
+path = "crate::fluids::r1132a"
+
+[module."r114.rs"]
+path = "crate::fluids::r114"
+
+[module."r115.rs"]
+path = "crate::fluids::r115"
+
+[module."r116.rs"]
+path = "crate::fluids::r116"
+
+[module."r12.rs"]
+path = "crate::fluids::r12"
+
+[module."r1224yd_z_.rs"]
+path = "crate::fluids::r1224yd_z_"
+
+[module."r123.rs"]
+path = "crate::fluids::r123"
+
+[module."r1233zd_e_.rs"]
+path = "crate::fluids::r1233zd_e_"
+
+[module."r1234yf.rs"]
+path = "crate::fluids::r1234yf"
+
+[module."r1234ze_e_.rs"]
+path = "crate::fluids::r1234ze_e_"
+
+[module."r1234ze_z_.rs"]
+path = "crate::fluids::r1234ze_z_"
+
+[module."r124.rs"]
+path = "crate::fluids::r124"
+
+[module."r1243zf.rs"]
+path = "crate::fluids::r1243zf"
+
+[module."r125.rs"]
+path = "crate::fluids::r125"
+
+[module."r13.rs"]
+path = "crate::fluids::r13"
+
+[module."r1336mzz_e_.rs"]
+path = "crate::fluids::r1336mzz_e_"
+
+[module."r1336mzz_z_.rs"]
+path = "crate::fluids::r1336mzz_z_"
+
+[module."r134a.rs"]
+path = "crate::fluids::r134a"
+
+[module."r13i1.rs"]
+path = "crate::fluids::r13i1"
+
+[module."r14.rs"]
+path = "crate::fluids::r14"
+
+[module."r141b.rs"]
+path = "crate::fluids::r141b"
+
+[module."r142b.rs"]
+path = "crate::fluids::r142b"
+
+[module."r143a.rs"]
+path = "crate::fluids::r143a"
+
+[module."r152a.rs"]
+path = "crate::fluids::r152a"
+
+[module."r161.rs"]
+path = "crate::fluids::r161"
+
+[module."r21.rs"]
+path = "crate::fluids::r21"
+
+[module."r218.rs"]
+path = "crate::fluids::r218"
+
+[module."r22.rs"]
+path = "crate::fluids::r22"
+
+[module."r227ea.rs"]
+path = "crate::fluids::r227ea"
+
+[module."r23.rs"]
+path = "crate::fluids::r23"
+
+[module."r236ea.rs"]
+path = "crate::fluids::r236ea"
+
+[module."r236fa.rs"]
+path = "crate::fluids::r236fa"
+
+[module."r245ca.rs"]
+path = "crate::fluids::r245ca"
+
+[module."r245fa.rs"]
+path = "crate::fluids::r245fa"
+
+[module."r32.rs"]
+path = "crate::fluids::r32"
+
+[module."r365mfc.rs"]
+path = "crate::fluids::r365mfc"
+
+[module."r40.rs"]
+path = "crate::fluids::r40"
+
+[module."r404a.rs"]
+path = "crate::fluids::r404a"
+
+[module."r407c.rs"]
+path = "crate::fluids::r407c"
+
+[module."r41.rs"]
+path = "crate::fluids::r41"
+
+[module."r410a.rs"]
+path = "crate::fluids::r410a"
+
+[module."r507a.rs"]
+path = "crate::fluids::r507a"
+
+[module."rc318.rs"]
+path = "crate::fluids::rc318"
+
+[module."ses36.rs"]
+path = "crate::fluids::ses36"
+
+[module."sulfurdioxide.rs"]
+path = "crate::fluids::sulfurdioxide"
+
+[module."sulfurhexafluoride.rs"]
+path = "crate::fluids::sulfurhexafluoride"
+
+[module."tetrahydrofuran.rs"]
+path = "crate::fluids::tetrahydrofuran"
+
+[module."toluene.rs"]
+path = "crate::fluids::toluene"
+
+[module."trans_2_butene.rs"]
+path = "crate::fluids::trans_2_butene"
+
+[module."vinylchloride.rs"]
+path = "crate::fluids::vinylchloride"
+
+[module."water.rs"]
+path = "crate::fluids::water"
+
+[module."xenon.rs"]
+path = "crate::fluids::xenon"

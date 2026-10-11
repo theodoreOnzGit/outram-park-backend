@@ -1,0 +1,7 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/interface"
+
+[module."mod.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::interface"

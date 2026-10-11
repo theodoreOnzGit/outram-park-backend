@@ -1,0 +1,1398 @@
+schema_version = 1
+kind = "code_folder"
+crate = "sembawang"
+dir = "crates/sembawang/src/accident"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::a_below_floor_dose_rate_field_is_announced",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::at_10_mwth_the_graph_is_unchanged_and_the_nrc_line_is_never_scaled",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_bounding_overlays_are_the_tables_columns",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_bounding_table_is_off_by_default_and_labelled",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_chi_over_q_table_is_the_maps_dilution_factor",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_crossings_recompute_at_600_mwth",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_dose_rate_table_is_deterministic",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_dose_rate_table_is_the_pixel_and_the_buangkok_sum",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::restarting_starts_a_fresh_run_and_abandons_the_old_one",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::the_map_reset_button_restarts_the_plant_and_keeps_the_map_view",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::a_rate_change_reaches_only_puffs_emitted_after_it",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::absolute_arm_is_per_ci_times_inventory_at_every_receptor",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::chi_over_q_is_independent_of_the_source",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::decay_in_transit_is_negligible_over_one_puff_lifetime",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::every_map_basis_reads_the_one_map_puff_model",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::peak_ring_dose_rate_by_regime",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::rotating_the_direction_only_rotates_the_plume",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::the_dose_rate_field_agrees_gpu_vs_cpu",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::the_per_ci_columns_are_unchanged_by_the_absolute_arm",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::the_plume_goes_downwind_and_thins_with_distance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::the_throttle_holds_and_an_empty_release_produces_nothing",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::turning_the_wind_turns_the_plume",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::what_one_dispersion_evaluation_costs",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/bounding_air_ingress.rs::the_bounding_plant_reads_one_source_and_vents_by_transport",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/bounding_air_ingress.rs::the_bounding_table_is_sembawangs_at_the_map_distances",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/bounding_air_ingress.rs::the_graph_grid_is_the_same_calculation_sampled_more_finely",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/depressurisation.rs::oxidation_is_supply_limited_and_releases_the_co2_enthalpy",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/depressurisation.rs::the_blowdown_follows_the_published_rate_and_total",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/depressurisation.rs::the_ventilation_supplies_oxygen_for_72_hours_then_none",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::circulating_activity_against_liu_and_cao_table_3",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::release_is_strongly_increasing_in_kernel_temperature",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::sic_only_failures_release_metals_but_keep_gases_and_halogens",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_absolute_arm_is_linear_in_inventory",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_accident_pool_operations_conserve_atoms",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_activities_are_linear_in_inventory",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_chemical_attack_hook_adds_to_the_in_service_failure",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_default_stack_rate_is_the_uncredited_circuit_leak",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_depressurisation_lift_off_conserves_atoms",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_free_uranium_split_bounds_the_gas_release",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_initial_failed_fraction_carries_every_audited_class",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_live_pools_open_carry_the_leak_and_follow_the_kernel",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_release_is_compared_uncalibrated_with_liu_cao_tables_2_and_3",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_throttle_holds_and_a_missing_kernel_does_not_fall_back",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_against_liu_and_cao_table_8",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_conserves_energy_and_vents_the_published_mass",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_with_air_ingress_indicative_30_min",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::kinetics_fuel_node_tracks_the_bed_node_after_a_scram",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_at_the_published_test_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_reactor_shuts_itself_down",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_with_and_without_xenon",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::no_corner_of_the_command_envelope_crosses_or_clamps",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_rod_position_that_holds_three_megawatts",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_steady_state_bed_temperature_at_the_opening_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::reproduce_issue_22_scram_cooldown_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_core_side_energy_chain_conserves_energy",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_exchanger_holds_its_courant_margin_at_maximum_circulator_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_gh351_excursion_runs_through_2000_k_with_a_resolved_fuel_stack",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_helium_never_leaves_the_core_hotter_than_the_bed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_kernel_doppler_channel_is_ablated_on_the_lofc_transient",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_passive_path_conserves_energy_through_a_full_plant_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_plant_outer_correctors_converge",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_snapshot_publishes_each_runs_own_transit_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_conserves_energy_from_fission_to_the_steam_generator",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_steps_at_the_gui_timestep",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_against_gao_shi_and_liu_cao",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_conserves_energy_and_follows_the_published_sequence",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::where_the_plant_step_spends_its_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/tede_accumulator.rs::the_plant_publishes_a_deterministic_integral",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::tick_advances_exactly_one_step",
+    "crates/sembawang/src/accident/venting.rs::a_gappy_mask_makes_the_prefix_pairing_wrong_and_the_gather_right",
+    "crates/sembawang/src/accident/venting.rs::a_monotonic_heat_up_vents_contiguously_and_matches_a_prefix",
+    "crates/sembawang/src/accident/venting.rs::a_single_venting_sample_counts_as_contiguous",
+    "crates/sembawang/src/accident/venting.rs::a_venting_time_off_the_axis_is_an_error_not_a_silent_mispairing",
+    "crates/sembawang/src/accident/venting.rs::gathering_from_an_already_truncated_array_is_rejected",
+    "crates/sembawang/src/accident/venting.rs::the_times_accessor_gathers_rather_than_truncating",
+    "crates/sembawang/src/htr10.rs::only_silver_carries_floored_negative_windows",
+    "crates/sembawang/src/htr10.rs::plant_parameters_read_the_named_pools_and_lift_off",
+    "crates/sembawang/src/htr10.rs::the_estimated_cooldown_parameters_cannot_move_the_release",
+    "crates/sembawang/src/htr10.rs::the_panama_seam_changes_the_release_and_the_ablation_proves_it",
+    "crates/sembawang/src/htr10.rs::the_seam_sets_exactly_one_field",
+    "crates/sembawang/src/lwr_comparison.rs::a_near_isothermal_air_ingress_still_vents",
+    "crates/sembawang/src/lwr_comparison.rs::bounding_comparison_carries_the_severe_loca_arm",
+    "crates/sembawang/tests/accident_release.rs::a_cooler_shorter_transient_does_not_differentiate_them_either",
+    "crates/sembawang/tests/accident_release.rs::a_heat_cool_reheat_transient_is_flagged_as_incomparable_with_upstream",
+    "crates/sembawang/tests/accident_release.rs::nuclides_sharing_a_diffusion_bucket_release_identically",
+    "crates/sembawang/tests/accident_release.rs::tellurium_is_classified_as_a_depositing_aerosol_not_a_halogen",
+    "crates/sembawang/tests/accident_release.rs::the_chain_runs_and_produces_a_well_formed_source_term",
+    "crates/sembawang/tests/accident_release.rs::the_defect_pathway_carries_the_magnitude_of_the_release",
+    "crates/sembawang/tests/accident_release.rs::the_half_life_screen_reports_what_it_drops",
+    "crates/sembawang/tests/accident_release.rs::the_release_is_linear_in_the_inventory",
+    "crates/sembawang/tests/accident_release.rs::the_released_fractions_are_physical_and_are_reported",
+    "crates/sembawang/tests/chain_handoff.rs::noble_gases_deposit_exactly_zero_and_the_others_do_not",
+    "crates/sembawang/tests/chain_handoff.rs::padding_adds_no_activity_and_partitions_the_run_from_zero",
+    "crates/sembawang/tests/chain_handoff.rs::the_chain_is_linear_in_the_inventory",
+    "crates/sembawang/tests/normal_operation_pools_code_to_code.rs::every_constructor_starts_from_real_pools_and_empty_is_an_explicit_ablation",
+    "crates/sembawang/tests/normal_operation_pools_code_to_code.rs::sembawang_with_real_pools_matches_upstream_accident_case_on_mhtgr_case_a",
+    "crates/sembawang/tests/nuclide_names_code_to_code.rs::nuclide_names_are_handled_as_upstream_does",
+    "crates/sembawang/tests/venting_modes.rs::a_bad_prescription_is_an_error_not_a_clamp",
+    "crates/sembawang/tests/venting_modes.rs::a_non_uniform_isothermal_field_is_an_error_not_a_silent_zero",
+    "crates/sembawang/tests/venting_modes.rs::full_flow_through_bounds_upstream_on_a_heating_transient",
+    "crates/sembawang/tests/venting_modes.rs::full_flow_through_equals_upstream_on_an_isothermal_hold",
+    "crates/sembawang/tests/venting_modes.rs::gao_shi_ventilation_is_one_air_change_per_day_cut_off_at_72_h",
+    "crates/sembawang/tests/venting_modes.rs::prescribed_ones_equal_full_flow_through_and_a_half_halves_the_release",
+    "crates/sembawang/tests/venting_modes.rs::the_isothermal_hold_vents_fully_as_upstream_does",
+]
+
+[module."mod.rs"]
+path = "crate::accident"
+
+[module."release.rs"]
+path = "crate::accident::release"
+
+[[module."release.rs".function]]
+id = "fn:1bf1f260c09f0f2f"
+name = "at"
+qual = "NodeTemperatures::at"
+lines = [
+    187,
+    198,
+]
+hash = "sha256:48c3ea56337d727a86286d6616accbd155a2465bd3e828c36a1698caddc80003"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."release.rs".function]]
+id = "fn:50bc4beea1e078e5"
+name = "np_mhtgr_reference"
+qual = "NormalOperation::np_mhtgr_reference"
+lines = [
+    205,
+    225,
+]
+hash = "sha256:884324ecda45bd299c08077c5d872b6126fa3d684ae4be86c366173bb7eb788b"
+doc_hash = "sha256:fb60c8a63e4c132b4daf373035f7ac721de3990c5c1936fe9999c06a99b2e32b"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."release.rs".function]]
+id = "fn:976df1a90886aac8"
+name = "np_mhtgr_reference"
+qual = "PlantParameters::np_mhtgr_reference"
+lines = [
+    229,
+    293,
+]
+hash = "sha256:4d1e3ff194566e5123a6375799a80d3e08a8227d605074f52d12b0db347159e5"
+doc_hash = "sha256:aaf3fed884e5ab3cb3c43c8412e35ccc59dbd4295e63f4c4b91240a2588f4ddc"
+callees = ["fn:50bc4beea1e078e5"]
+reached_by = [
+    "#0",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."release.rs".function]]
+id = "fn:b439dd3bbfa618d8"
+name = "without_normal_operation_pools"
+qual = "PlantParameters::without_normal_operation_pools"
+lines = [
+    295,
+    301,
+]
+hash = "sha256:ad549dc24aa2bd0308df7fc597d70fcd58f634610731a10cb3b4532d09696a7b"
+doc_hash = "sha256:4af747997304a0480d93aba959f169be26ac83a3e202c2d85c5db3ed8942e185"
+reached_by = [
+    "#75",
+    "#82",
+    "#84",
+    "#94",
+    "#102",
+]
+
+[[module."release.rs".function]]
+id = "fn:0f91d724c3736a7e"
+name = "zero_pools"
+qual = "zero_pools"
+lines = [
+    326,
+    347,
+]
+hash = "sha256:ed46caa49e6c51010df387bd660abf7abf95d1b0c2dde46fd498e1aa0ed9e393"
+doc_hash = "sha256:5e8fb9aec09db1431be8ba7df5ae668933648eaba628b5e74d22404fab8597d5"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."release.rs".function]]
+id = "fn:68f1375f496968d8"
+name = "normal_operation_pools"
+qual = "normal_operation_pools"
+lines = [
+    349,
+    422,
+]
+hash = "sha256:fd06e590c4700673f2b4e2db9146fb139eb27ac5a8ca3244617df2f24fbdea5a"
+doc_hash = "sha256:b45c3da7f75c0fa1e1057e1d54a0434ef85c5a779498b7e7086de26c7eb7e5a5"
+callees = [
+    "fn:1bf1f260c09f0f2f",
+    "fn:2db20ac5ca82f2df",
+    "fn:3292f77e069a4060",
+    "fn:745bd77be64f687a",
+    "fn:958c2697c4b8b36d",
+    "fn:9a8a6835861d321b",
+    "fn:9e1bfbb206aecfeb",
+    "fn:a15a353a771ddb47",
+    "fn:e2ec07573ffc5233",
+    "fn:e503a3d0722ff508",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."release.rs".function]]
+id = "fn:8d50439175523e2b"
+name = "bridge_node"
+qual = "bridge_node"
+lines = [
+    424,
+    445,
+]
+hash = "sha256:be0819e5a097e824c8b96dbec84d285b13a6647bc9fdf3225bfa85925223ecdc"
+doc_hash = "sha256:2dc0854099c168bd59e6e2bf36ea4d81a07d4f021157663b7bea50a1b0cd0f57"
+callees = [
+    "fn:958c2697c4b8b36d",
+    "fn:cef7daa77e029e71",
+    "fn:e2ec07573ffc5233",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+physical_interface = true
+
+[[module."release.rs".function]]
+id = "fn:d81885f0d912cb4f"
+name = "deposition_group_of"
+qual = "deposition_group_of"
+lines = [
+    447,
+    457,
+]
+hash = "sha256:177175157b6555b1a27ad49f5ea66057ba3f4d2ac41e85d42cdc84ac0724f5f3"
+doc_hash = "sha256:9c0a00f9ba1bbc4b0953d8eab664cc49c912d326f598df680b643ddd1d1f69fa"
+callees = ["fn:602aaacab4eed45d"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."release.rs".function]]
+id = "fn:d609ff6f6efcdcff"
+name = "accident_release"
+qual = "accident_release"
+lines = [
+    459,
+    492,
+]
+hash = "sha256:1f49e6cfed9a5fd171b9acdeaaedfab2acdd7b5536e8cf33a2d659fc4e18435e"
+doc_hash = "sha256:cad02c2b6a46bff6b85093c5f1d2c94184287f22d485f4cffb82a4dea3dabc8c"
+callees = ["fn:96a4981ab8e87d0f"]
+reached_by = [
+    "#75",
+    "#77",
+    "#78",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#96",
+    "#98",
+    "#103",
+]
+
+[[module."release.rs".function]]
+id = "fn:25ca9397d7dd1587"
+name = "gao_shi_htr10_cavity_ventilation"
+qual = "Venting::gao_shi_htr10_cavity_ventilation"
+lines = [
+    573,
+    591,
+]
+hash = "sha256:5638f792e0d2ce649376619c1676ff5f81b4f3e87ce09224f91386b7e1703a64"
+doc_hash = "sha256:d72cc64073d976db5630ba8d1fccae154a7e2194a88210441d8a49e29e76fff8"
+reached_by = [
+    "#8",
+    "#9",
+    "#26",
+    "#27",
+    "#28",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#98",
+    "#101",
+]
+
+[[module."release.rs".function]]
+id = "fn:1b56c26df753d45f"
+name = "is_constant_in_time"
+qual = "TemperatureTransient::is_constant_in_time"
+lines = [
+    595,
+    601,
+]
+hash = "sha256:2166fbab95adb90cfd68ba82b94b5a1b0e3e89d0f6294bec1feff5cbb6562189"
+doc_hash = "sha256:d2bac3fc76a212942626c1f180e21f1fe79241a11f3652afd1a9ca5f10a80f91"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."release.rs".function]]
+id = "fn:779805db004510ed"
+name = "is_uniform_and_constant"
+qual = "TemperatureTransient::is_uniform_and_constant"
+lines = [
+    603,
+    612,
+]
+hash = "sha256:3ca6d63275e15335f141c6b7d94382123cccec42dc9aa1f10391e685c6c798f1"
+doc_hash = "sha256:ef71d44098920a363050615536ba100b820409e0ab9e3908db2179d8c0db0764"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."release.rs".function]]
+id = "fn:96a4981ab8e87d0f"
+name = "accident_release_with_venting"
+qual = "accident_release_with_venting"
+lines = [
+    615,
+    905,
+]
+hash = "sha256:86993469c48335d609a8f116f3186580b31f65dbf3e5ff2766e2585424c28a1a"
+doc_hash = "sha256:d3e10ec598d24b60a13336de815b51d761f29dad50d257da58c4377168ed4181"
+callees = [
+    "fn:0615c0732e428b7b",
+    "fn:0f91d724c3736a7e",
+    "fn:1b56c26df753d45f",
+    "fn:1d92f761088efe90",
+    "fn:22d2488b23a0f967",
+    "fn:3292f77e069a4060",
+    "fn:34b5b8f323eaf121",
+    "fn:34ff47a5448224c9",
+    "fn:36a8c82d150d877e",
+    "fn:3d592cdc5c7931c0",
+    "fn:429d6161b7f8bf68",
+    "fn:4534649caeaa347f",
+    "fn:4c9c1a31e6c1991a",
+    "fn:5c206cdbedc0c475",
+    "fn:68f1375f496968d8",
+    "fn:759c40b16c1f728e",
+    "fn:779805db004510ed",
+    "fn:89442a5c7900cd30",
+    "fn:8a1fdf7bf4a74d9b",
+    "fn:8d50439175523e2b",
+    "fn:8ddc1763d36d3c41",
+    "fn:904760df310771d8",
+    "fn:94487e3b2a5fbffa",
+    "fn:9e1bfbb206aecfeb",
+    "fn:a15a353a771ddb47",
+    "fn:a2b8a6335c19821c",
+    "fn:acec24ad5f8776f5",
+    "fn:b74cee70a19ec70d",
+    "fn:cdd3d0ad9a222160",
+    "fn:d51049d00f066bb6",
+    "fn:d81885f0d912cb4f",
+    "fn:e2ec07573ffc5233",
+    "fn:e42edc2c76e81324",
+    "fn:e8f58180c812fc7c",
+    "fn:ee64ea353c7ab103",
+    "fn:f0b51869d42f8144",
+    "fn:fb931a92ca00058a",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."release.rs".function]]
+id = "fn:638eaef18090c23e"
+name = "temperature_is_inside_the_fitted_range"
+qual = "temperature_is_inside_the_fitted_range"
+lines = [
+    907,
+    913,
+]
+hash = "sha256:f472d076408351cf159ded5e49b36f94d6c60d66fc7287dc10386da9bf6abd4d"
+doc_hash = "sha256:495571b50678c08843c09a11af297158aac3a53527ed5dad328df3be4bf4e998"
+physical_interface = true
+
+[[module."release.rs".function]]
+id = "fn:d2debd2864dae1cf"
+name = "source_term_duration"
+qual = "source_term_duration"
+lines = [
+    915,
+    920,
+]
+hash = "sha256:d0c2f71752cffda9d0a9f5182b41fea7ef4056ad2e3956e80ab577dcc738bd0b"
+doc_hash = "sha256:03c1404d6ad38ecb5b783cfafb38dd7b2b03630982a6f96ef46b76361f28ca8f"
+callees = ["fn:610faf13361f74de"]
+physical_interface = true
+
+[module."venting.rs"]
+path = "crate::accident::venting"
+
+[[module."venting.rs".function]]
+id = "fn:22d2488b23a0f967"
+name = "from_coolant_release"
+qual = "VentingWindow::from_coolant_release"
+lines = [
+    74,
+    128,
+]
+hash = "sha256:ca648d177faa1f478212049460eb5e3807dd217652d6dbffa5bd4fc67d875a4b"
+doc_hash = "sha256:9cff5d9775585d575c6de942d8feaa19ea6deacf1dd074d29b2635d0634f8764"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+physical_interface = true
+
+[[module."venting.rs".function]]
+id = "fn:34b5b8f323eaf121"
+name = "all_samples"
+qual = "VentingWindow::all_samples"
+lines = [
+    130,
+    147,
+]
+hash = "sha256:3dd2ce797a6869e302439a31e412fe7ec7a6c3b850389ed4b2392bf2aecf104a"
+doc_hash = "sha256:05aa99a8292c4d9403c419e7d9be7c349dba18db7cbc1eef8026dc18261a5d65"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."venting.rs".function]]
+id = "fn:b74cee70a19ec70d"
+name = "len"
+qual = "VentingWindow::len"
+lines = [
+    149,
+    153,
+]
+hash = "sha256:70989a8a636f6266384efcde5d84a9572322b6b3c19fa6ffaaebe2dfbb142358"
+doc_hash = "sha256:4aa2ef32ac7fa76c71bbc64ca059c72ec8b9dff2ca9951e7398c3554beebbc00"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#69",
+    "#70",
+    "#71",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."venting.rs".function]]
+id = "fn:904760df310771d8"
+name = "is_empty"
+qual = "VentingWindow::is_empty"
+lines = [
+    155,
+    159,
+]
+hash = "sha256:e1e169ade35b95a23eefb2a264d77cd3629947b1f0f8aeb406476c34d64bfa03"
+doc_hash = "sha256:cc408b562d7de6f984fd5dc69ac8ae55d77d774fc4341285364c085bbd6e518e"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."venting.rs".function]]
+id = "fn:ce79aa44c181774d"
+name = "full_len"
+qual = "VentingWindow::full_len"
+lines = [
+    161,
+    165,
+]
+hash = "sha256:a156a40fa4b46126cd29159b013135bfeb6faf778d07222104af5d0fd65f271a"
+doc_hash = "sha256:daa9349699bf2d6d25b6bc2e5e1aa027a90d7aca4d3f20e42d29c757751810a9"
+reached_by = [
+    "#71",
+    "#90",
+]
+
+[[module."venting.rs".function]]
+id = "fn:c946097ae9932442"
+name = "indices"
+qual = "VentingWindow::indices"
+lines = [
+    167,
+    171,
+]
+hash = "sha256:56b97c160fd511821c4b072bd5c0a0d45b745cdc30f58a2fcccfa1cd7d415013"
+doc_hash = "sha256:c04e52e2eadfa7bf0e8f8f5c691450026d208c2b10fb4ced3078e0dfbc5c7f8a"
+reached_by = [
+    "#69",
+    "#70",
+    "#77",
+]
+
+[[module."venting.rs".function]]
+id = "fn:8ddc1763d36d3c41"
+name = "fractions"
+qual = "VentingWindow::fractions"
+lines = [
+    173,
+    183,
+]
+hash = "sha256:e3a898b32870e70d23ec9264a01708b0393628e831506cd5dcc53c0ec420291f"
+doc_hash = "sha256:d740f95fcfaf4e2c98215fe0449d1876fc79a84e4d2e995d66c2380757aa20b2"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."venting.rs".function]]
+id = "fn:4c9c1a31e6c1991a"
+name = "is_contiguous"
+qual = "VentingWindow::is_contiguous"
+lines = [
+    185,
+    196,
+]
+hash = "sha256:11b5fa7cfd7f11d2b270fd40b7e873823883d1e1683502ec0c40195c4b116de3"
+doc_hash = "sha256:49194f63817d897a684326888d9a4dc6ec797c812a155134b3efa3fd21a8faef"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#69",
+    "#70",
+    "#71",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."venting.rs".function]]
+id = "fn:0615c0732e428b7b"
+name = "times"
+qual = "VentingWindow::times"
+lines = [
+    198,
+    205,
+]
+hash = "sha256:b1f0fb606a168d238ee1019fa6aeaea738d865eb8568bd25295db1bff4c357a7"
+doc_hash = "sha256:8442d6c444c86031f5defa3e80e010f8999d88f2b83bf8372eb71a8aa88b076a"
+callees = ["fn:e42edc2c76e81324"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#74",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+physical_interface = true
+
+[[module."venting.rs".function]]
+id = "fn:e42edc2c76e81324"
+name = "gather"
+qual = "VentingWindow::gather"
+lines = [
+    207,
+    229,
+]
+hash = "sha256:5431e543213898f614c7ff7746244fa5da646662e7567228c158d02b9729e7b9"
+doc_hash = "sha256:e425556f7aca047bb3bf746b76a4ec5c31c72819d175f374366e70fb46c13691"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#24",
+    "#25",
+    "#69",
+    "#70",
+    "#73",
+    "#74",
+    "#75",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."venting.rs".function]]
+id = "fn:bb356bc23884412c"
+name = "times"
+qual = "times"
+lines = [
+    236,
+    238,
+]
+hash = "sha256:a048cfee7c317042fa5f755736d08b4cfc36e910ab93a0792ce17849b91a879d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."venting.rs".function]]
+id = "fn:024b6f2440611391"
+name = "a_monotonic_heat_up_vents_contiguously_and_matches_a_prefix"
+qual = "a_monotonic_heat_up_vents_contiguously_and_matches_a_prefix"
+lines = [
+    240,
+    252,
+]
+hash = "sha256:b97ab21ae2bfea0111328b352100f9b0930f6f05a72b906c6d270e1d43e27b0b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:22d2488b23a0f967",
+    "fn:4c9c1a31e6c1991a",
+    "fn:b74cee70a19ec70d",
+    "fn:bb356bc23884412c",
+    "fn:c946097ae9932442",
+    "fn:e42edc2c76e81324",
+]
+test = true
+
+[[module."venting.rs".function]]
+id = "fn:959b9f621d110736"
+name = "a_gappy_mask_makes_the_prefix_pairing_wrong_and_the_gather_right"
+qual = "a_gappy_mask_makes_the_prefix_pairing_wrong_and_the_gather_right"
+lines = [
+    254,
+    292,
+]
+hash = "sha256:e3987b55936da5d604581dcb8c2aa638692379d6d9fb3a7c40dabbc9ff6e1435"
+doc_hash = "sha256:ad94f3564945df9085d66281b268a5971796b81dcd847876dc6ed73633c77452"
+callees = [
+    "fn:22d2488b23a0f967",
+    "fn:4c9c1a31e6c1991a",
+    "fn:b74cee70a19ec70d",
+    "fn:bb356bc23884412c",
+    "fn:c946097ae9932442",
+    "fn:e42edc2c76e81324",
+]
+test = true
+
+[[module."venting.rs".function]]
+id = "fn:48c4b1edccbd61d2"
+name = "gathering_from_an_already_truncated_array_is_rejected"
+qual = "gathering_from_an_already_truncated_array_is_rejected"
+lines = [
+    294,
+    304,
+]
+hash = "sha256:cbb195d9653e186fd1473bf83326928f2803b415d1b64c81bf1938b141a621ec"
+doc_hash = "sha256:9135dad42e76f6ce3a500c13e7439166aa40a9bafc742a80c30e20511b505b33"
+callees = [
+    "fn:22d2488b23a0f967",
+    "fn:bb356bc23884412c",
+    "fn:e42edc2c76e81324",
+]
+test = true
+
+[[module."venting.rs".function]]
+id = "fn:150b04e25b20b0ab"
+name = "a_venting_time_off_the_axis_is_an_error_not_a_silent_mispairing"
+qual = "a_venting_time_off_the_axis_is_an_error_not_a_silent_mispairing"
+lines = [
+    306,
+    312,
+]
+hash = "sha256:f9e9bdd6828da4f3822ada80bb7fe4d80ee9b75b4fdb48c6da96ff613f72fe94"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:22d2488b23a0f967",
+    "fn:bb356bc23884412c",
+]
+test = true
+
+[[module."venting.rs".function]]
+id = "fn:f97242bad86dba9a"
+name = "a_single_venting_sample_counts_as_contiguous"
+qual = "a_single_venting_sample_counts_as_contiguous"
+lines = [
+    314,
+    322,
+]
+hash = "sha256:1aebf72cc74c958dff7f242c6fcdaa891da49417a4bb93d8f2848a6c82107187"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:22d2488b23a0f967",
+    "fn:4c9c1a31e6c1991a",
+    "fn:b74cee70a19ec70d",
+    "fn:bb356bc23884412c",
+    "fn:ce79aa44c181774d",
+]
+test = true
+
+[[module."venting.rs".function]]
+id = "fn:c0ebaa01b32bdb18"
+name = "the_times_accessor_gathers_rather_than_truncating"
+qual = "the_times_accessor_gathers_rather_than_truncating"
+lines = [
+    324,
+    331,
+]
+hash = "sha256:3bd33bba2187d18b70d077a73b7452cbd094b92d9e684d76aba64309437ea723"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0615c0732e428b7b",
+    "fn:22d2488b23a0f967",
+    "fn:bb356bc23884412c",
+]
+test = true

@@ -1,0 +1,19 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dover"
+dir = "crates/dover/examples"
+
+[module."smr_cstr.rs"]
+path = "example:smr_cstr"
+
+[[module."smr_cstr.rs".function]]
+id = "fn:af38ced3f6e83534"
+name = "main"
+qual = "main"
+lines = [
+    10,
+    30,
+]
+hash = "sha256:15d2abd7b2399ae896d2caaeb7e3e578a61b755378d9ef7ca687605de1c25ed3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:de371805f0225295"]

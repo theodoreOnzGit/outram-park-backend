@@ -1,0 +1,204 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-dwsim-libs"
+dir = "crates/outram-park-fork-dwsim-libs/src/compressor"
+test_ids = [
+    "crates/outram-park-fork-dwsim-libs/src/compressor/mod.rs::consumed_power_matches_hand_computed",
+    "crates/outram-park-fork-dwsim-libs/src/compressor/mod.rs::eta_unity_degenerate_limit",
+    "crates/outram-park-fork-dwsim-libs/src/compressor/mod.rs::outlet_enthalpy_round_trip",
+    "crates/outram-park-fork-dwsim-libs/src/compressor/mod.rs::polytropic_exponent_known_pair",
+    "crates/outram-park-fork-dwsim-libs/src/compressor/mod.rs::solve_polytropic_efficiency_converges",
+]
+
+[module."mod.rs"]
+path = "crate::compressor"
+
+[[module."mod.rs".function]]
+id = "fn:a006ee31d5abe052"
+name = "consumed_power"
+qual = "consumed_power"
+lines = [
+    48,
+    74,
+]
+hash = "sha256:b426369b5d2cf3ba2cc25c31dd4bbba2029e87e8e95522f1e35b528aa48d3ddd"
+doc_hash = "sha256:82b9085f0e30b65c9c65bf883454525c05ab5006d5596ae4b4d6c052cf3a6ab9"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:92f09f4b19205d6e"
+name = "outlet_enthalpy"
+qual = "outlet_enthalpy"
+lines = [
+    76,
+    94,
+]
+hash = "sha256:3798efa327757a48ccaa9e8ef53c5b23e3680dbde932aab43700b746acd79d37"
+doc_hash = "sha256:e5b4fe1e1dac6381948eed2c4a80adb0da152036d06673c639eafe13b2e00ccd"
+reached_by = [
+    "#1",
+    "#2",
+    "#4",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:629688cdf5fbf934"
+name = "isentropic_exponent"
+qual = "isentropic_exponent"
+lines = [
+    96,
+    118,
+]
+hash = "sha256:cd1c4774dfee94bf941a0114589bfb0d9493b3935fbfd2e218ca49a9dcf31cdb"
+doc_hash = "sha256:e9ad04b38cd54437dc100465c8c97b438e798b7605e3ee9a3336c15e360a53ca"
+reached_by = ["#4"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:bb5c9df1987a07bd"
+name = "polytropic_exponent"
+qual = "polytropic_exponent"
+lines = [
+    120,
+    141,
+]
+hash = "sha256:1b2eb52132e5ed879f0bb48d298452e5558f1326d0926ea1fce8dbabe2f6ded9"
+doc_hash = "sha256:2ee6ca16cd58c069c890eb0e0835100a406c0b6ab5a2057c0447987fee96c0ad"
+reached_by = [
+    "#3",
+    "#4",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:ecaaedbc56300f50"
+name = "schultz_correction_factor"
+qual = "schultz_correction_factor"
+lines = [
+    143,
+    171,
+]
+hash = "sha256:33e5d1cc5b20c3155d90acacd93e7f00a4dd01f062c13b6d25de1c373aaa9cd8"
+doc_hash = "sha256:c4e74f887bcb010ca209f182e094efd43ee60a8789b5195c13839a198f7aa67f"
+reached_by = ["#4"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:e2760473c07f5fba"
+name = "solve_polytropic_efficiency"
+qual = "solve_polytropic_efficiency"
+lines = [
+    187,
+    266,
+]
+hash = "sha256:86f309769fe6562ca92922a7b265d3bea9b92a1fd6ee244ab2a544342b37fac2"
+doc_hash = "sha256:e34eb25824e15cdd4b3de97e8f607e4d2433910cec17e54b08812210233e0054"
+callees = [
+    "fn:629688cdf5fbf934",
+    "fn:a006ee31d5abe052",
+    "fn:bb5c9df1987a07bd",
+    "fn:ecaaedbc56300f50",
+]
+reached_by = ["#4"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:5a76dc89b9dac474"
+name = "h"
+qual = "h"
+lines = [
+    303,
+    305,
+]
+hash = "sha256:1a11689a23a59cbd5aeac9963a6a5d2228f224a2cc7738c312d5626d4464d2bd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:49da8e8aabdcf4c0"
+name = "consumed_power_matches_hand_computed"
+qual = "consumed_power_matches_hand_computed"
+lines = [
+    307,
+    317,
+]
+hash = "sha256:54542a5f448add7f31e4cf77ed10e81a3b82af30a71c0f27950b364989609826"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5a76dc89b9dac474",
+    "fn:a006ee31d5abe052",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d03a1e56dd06517e"
+name = "outlet_enthalpy_round_trip"
+qual = "outlet_enthalpy_round_trip"
+lines = [
+    319,
+    337,
+]
+hash = "sha256:b1272434e8783531405be62b5147e65a0b63234f0de0e5e9fc0c6d91eb6272e5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5a76dc89b9dac474",
+    "fn:92f09f4b19205d6e",
+    "fn:a006ee31d5abe052",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:8993dd947eff18cf"
+name = "polytropic_exponent_known_pair"
+qual = "polytropic_exponent_known_pair"
+lines = [
+    339,
+    353,
+]
+hash = "sha256:227d533921d6ae99c7592a14946709d282aa55a85655a35c3f67f1c344ca27b8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:bb5c9df1987a07bd"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:cf10142e84d5dac9"
+name = "eta_unity_degenerate_limit"
+qual = "eta_unity_degenerate_limit"
+lines = [
+    355,
+    371,
+]
+hash = "sha256:cdaeae848e237a4ca6a5d3ce59419ba1da5be8487ab0cded18097765427fc0c2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5a76dc89b9dac474",
+    "fn:92f09f4b19205d6e",
+    "fn:a006ee31d5abe052",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:4e72e4d2937b5c14"
+name = "solve_polytropic_efficiency_converges"
+qual = "solve_polytropic_efficiency_converges"
+lines = [
+    373,
+    418,
+]
+hash = "sha256:a7fc397cb190d5c0a202217648bd6c85cc406da48e5b2140bbc45a6c3640dc16"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5a76dc89b9dac474",
+    "fn:92f09f4b19205d6e",
+    "fn:a006ee31d5abe052",
+    "fn:e2760473c07f5fba",
+]
+test = true

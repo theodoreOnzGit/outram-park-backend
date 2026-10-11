@@ -1,0 +1,1811 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-pflotran"
+dir = "crates/outram-park-fork-pflotran/src/properties"
+test_ids = [
+    "crates/outram-park-fork-pflotran/src/eos_real/mod.rs::agrees_with_simple_slightly_compressible_model_at_25c",
+    "crates/outram-park-fork-pflotran/src/flow/mod.rs::flow_mode_reports_its_name",
+    "crates/outram-park-fork-pflotran/src/flow/mod.rs::flow_mode_step_advances_time",
+    "crates/outram-park-fork-pflotran/src/flow/richards.rs::closed_box_uniform_field_is_stationary",
+    "crates/outram-park-fork-pflotran/src/flow/richards.rs::closed_domain_conserves_total_mass",
+    "crates/outram-park-fork-pflotran/src/flow/richards.rs::haverkamp_sand_column_runs_and_wets_up",
+    "crates/outram-park-fork-pflotran/src/flow/richards.rs::saturated_1d_steady_state_is_linear",
+    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::closed_domain_conserves_water_gas_and_energy",
+    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::closed_uniform_column_is_stationary",
+    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::constructors_reject_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::isothermal_limit_reduces_to_two_phase_imbibition",
+    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::step_converges_and_stays_bounded",
+    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::thermal_coupling_hot_boundary_warms_and_changes_flow",
+    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::capillary_pressure_inverts_retention_curve",
+    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::closed_domain_conserves_phase_masses",
+    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::closed_uniform_column_is_stationary",
+    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::constructors_reject_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::imbibition_column_wets_up_and_stays_bounded",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::bc_air_entry_saturated_below_bubbling_pressure",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::constructors_reject_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::d_kr_d_se_matches_finite_difference",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::d_se_d_pc_matches_finite_difference",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::haverkamp_d_kr_d_se_matches_finite_difference",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::haverkamp_d_se_d_pc_matches_finite_difference",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::haverkamp_kr_bounds_and_endpoints",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::haverkamp_rejects_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::haverkamp_residual_is_theta_ratio",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::haverkamp_se_bounds_and_monotone",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::inputs_are_clamped",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::kr_in_unit_interval_and_endpoints",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::residual_saturation_reported",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::saturated_zone_is_fully_saturated",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::se_in_unit_interval_and_monotone_decreasing",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::vg_dkr_endpoints_no_nan",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::vg_dse_dpc_is_nonpositive",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::vg_new_sets_m",
+    "crates/outram-park-fork-pflotran/src/properties/eos.rs::d_density_d_pressure_matches_finite_difference",
+    "crates/outram-park-fork-pflotran/src/properties/eos.rs::density_equals_reference_at_reference_pressure",
+    "crates/outram-park-fork-pflotran/src/properties/eos.rs::density_increases_with_pressure",
+    "crates/outram-park-fork-pflotran/src/properties/eos.rs::new_rejects_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/properties/eos.rs::viscosity_is_constant_and_positive",
+    "crates/outram-park-fork-pflotran/src/properties/eos.rs::water_defaults_are_valid_and_match_new",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::d_density_d_temperature_is_non_positive",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::d_density_d_temperature_matches_finite_difference",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::density_decreases_with_temperature",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::density_equals_reference_at_reference_state",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::density_increases_with_pressure",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::generic_rock_defaults_are_valid_and_match_new",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::rock_new_rejects_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::transport_coefficients_are_returned",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::viscosity_decreases_with_temperature",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::viscosity_equals_reference_at_reference_temperature",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::water_defaults_are_valid_and_match_new",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::water_new_rejects_bad_inputs",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::flow_mode_run_matches_direct_simulation",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::infiltration_column_runs_and_is_physically_sensible",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::output_writers_produce_wellformed_csv_and_vtk",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::richards_transport_coupling_advects_a_tracer",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::th_coupling_advects_a_thermal_front",
+    "crates/outram-park-fork-pflotran/tests/regression.rs::print_baseline",
+    "crates/outram-park-fork-pflotran/tests/regression.rs::transient_column_matches_frozen_baseline",
+    "crates/outram-park-fork-pflotran/tests/verification.rs::hydrostatic_column_matches_analytical_gravity",
+    "crates/outram-park-fork-pflotran/tests/verification.rs::mms_saturated_operator_is_second_order",
+    "crates/outram-park-fork-pflotran/tests/verification.rs::saturated_linear_profile_is_exact",
+]
+
+[module."curves.rs"]
+path = "crate::properties::curves"
+
+[[module."curves.rs".function]]
+id = "fn:6bbbce9836b3df4d"
+name = "effective_saturation"
+qual = "CharacteristicCurveModel::effective_saturation"
+lines = [
+    56,
+    57,
+]
+hash = "sha256:dcb6f7e6dfadb02694a8cc38e793a29cbb9b089076f5982ff661dd3a551fbf6c"
+doc_hash = "sha256:13e3567d3373e7e873faa3439fcde4d12d1a4d0848c7352a5a0ab69c3e7b69a5"
+
+[[module."curves.rs".function]]
+id = "fn:7d2e46471edbc830"
+name = "d_se_d_pc"
+qual = "CharacteristicCurveModel::d_se_d_pc"
+lines = [
+    58,
+    59,
+]
+hash = "sha256:dcb6f7e6dfadb02694a8cc38e793a29cbb9b089076f5982ff661dd3a551fbf6c"
+doc_hash = "sha256:df9574e20f18329e0f7d118b091de43372591cebbfff1febb863b59f91fb65eb"
+
+[[module."curves.rs".function]]
+id = "fn:145f6c1a37274b11"
+name = "relative_permeability"
+qual = "CharacteristicCurveModel::relative_permeability"
+lines = [
+    60,
+    61,
+]
+hash = "sha256:f8ca43c83493c1c2ba4f452379d204de09834d76650082ffe2e9290bc37cf5e1"
+doc_hash = "sha256:f75dd01253eb2ed47c442f4eb3170ef3e3f1db4beb97aeb5a124a80563f5200e"
+
+[[module."curves.rs".function]]
+id = "fn:ddfc0c35f88b2e27"
+name = "d_kr_d_se"
+qual = "CharacteristicCurveModel::d_kr_d_se"
+lines = [
+    62,
+    63,
+]
+hash = "sha256:f8ca43c83493c1c2ba4f452379d204de09834d76650082ffe2e9290bc37cf5e1"
+doc_hash = "sha256:1a53e6073461959de2d2e1cbdf298df170c8132aac3cea7e3d56ed5d1116d11e"
+
+[[module."curves.rs".function]]
+id = "fn:0f69e54163c30a7c"
+name = "residual_saturation"
+qual = "CharacteristicCurveModel::residual_saturation"
+lines = [
+    64,
+    65,
+]
+hash = "sha256:6838e0393ffd68a9baf09a9171412249724bfbf2dd6c734466a28cb0cb21fef3"
+doc_hash = "sha256:1dcee0ecb9a0452265eeda7c650c828463004486cba463f941c2459981cfddde"
+
+[[module."curves.rs".function]]
+id = "fn:b67bf54573dacd38"
+name = "effective_saturation"
+qual = "CharacteristicCurves::effective_saturation"
+lines = [
+    86,
+    98,
+]
+hash = "sha256:9b925812ccc72c1f09657d4bd1e6b16d867b902e2a57e3a14d468824bfd2ae92"
+doc_hash = "sha256:69c8144879fd3956a6807c8eca287725b58b0fd449a241bd0de600b2389781a0"
+callees = [
+    "fn:614338bf9c2df5e2",
+    "fn:aa66fce3a95409cf",
+    "fn:de5ace3c85bc9ad0",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#13",
+    "#18",
+    "#21",
+    "#23",
+    "#27",
+    "#31",
+    "#32",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+]
+
+[[module."curves.rs".function]]
+id = "fn:70b317e7fd210879"
+name = "d_se_d_pc"
+qual = "CharacteristicCurves::d_se_d_pc"
+lines = [
+    100,
+    109,
+]
+hash = "sha256:d3408c0c08fbe74d87fccc006478657023c435b9dfc3cae6fc2e0489744004b3"
+doc_hash = "sha256:c45b2624b5e8cc96fc453a26c33c9120c6b70f17fe838a47a5670208394667de"
+callees = [
+    "fn:13042f9e361de2be",
+    "fn:2816e1b5edab7cd6",
+    "fn:596efae47a46726c",
+]
+reached_by = [
+    "#21",
+    "#23",
+    "#31",
+    "#34",
+]
+
+[[module."curves.rs".function]]
+id = "fn:202b5538182435ea"
+name = "relative_permeability"
+qual = "CharacteristicCurves::relative_permeability"
+lines = [
+    111,
+    123,
+]
+hash = "sha256:73d5e268c5561c85fa0fed37d00103ce7efe507f8ab8afa3acf25e9788dd44fa"
+doc_hash = "sha256:a9af0ce87fee6262e3356e0932e572c598020e5074b2954c1208a72187b1ea3b"
+callees = [
+    "fn:25b0c911bad96743",
+    "fn:675d3e1e02e6132a",
+    "fn:b7c4e6a1bd86b2e2",
+]
+reached_by = [
+    "#20",
+    "#22",
+    "#24",
+    "#28",
+    "#29",
+    "#57",
+    "#58",
+]
+
+[[module."curves.rs".function]]
+id = "fn:a440752b00218dc3"
+name = "d_kr_d_se"
+qual = "CharacteristicCurves::d_kr_d_se"
+lines = [
+    125,
+    138,
+]
+hash = "sha256:91cc432823a7ec936a73c5031ab7020e664d90de9119113a3df9dee6de9b094c"
+doc_hash = "sha256:8286d66cab161900c6371e3b0958b500b5099c414728f67d0dd4581051efc04e"
+callees = [
+    "fn:20a9c466b10f94f8",
+    "fn:b56061515998516d",
+    "fn:c1be9af07231dea7",
+]
+reached_by = [
+    "#20",
+    "#22",
+    "#33",
+]
+
+[[module."curves.rs".function]]
+id = "fn:db0f9fa08db0bb77"
+name = "residual_saturation"
+qual = "CharacteristicCurves::residual_saturation"
+lines = [
+    140,
+    147,
+]
+hash = "sha256:7d5583575b2bda7d68d8b0a7b31c8047ff20691132410490c4cf1a6137615318"
+doc_hash = "sha256:1dcee0ecb9a0452265eeda7c650c828463004486cba463f941c2459981cfddde"
+callees = [
+    "fn:6013010a6e2ee3f6",
+    "fn:629489cd3a712f7e",
+    "fn:f6e269b6ce649cc9",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#10",
+    "#13",
+    "#17",
+    "#26",
+    "#30",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+]
+
+[[module."curves.rs".function]]
+id = "fn:9e37996c217c2f29"
+name = "new"
+qual = "VanGenuchten::new"
+lines = [
+    198,
+    232,
+]
+hash = "sha256:2b9665b78bea20e25447022a786aa2dec36337153b817744ca572c14f4351359"
+doc_hash = "sha256:fb19289df5f166a9107fed23ddb825431090d687e5c01079a2ad3d8b1a48d497"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+]
+
+[[module."curves.rs".function]]
+id = "fn:614338bf9c2df5e2"
+name = "effective_saturation"
+qual = "VanGenuchten::effective_saturation"
+lines = [
+    236,
+    243,
+]
+hash = "sha256:88d3665e6f656882202c4a307c12e1c4d0ddfcb9be213c0c9c323b1a4f744c92"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#4",
+    "#5",
+    "#13",
+    "#18",
+    "#21",
+    "#23",
+    "#27",
+    "#31",
+    "#32",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+]
+
+[[module."curves.rs".function]]
+id = "fn:596efae47a46726c"
+name = "d_se_d_pc"
+qual = "VanGenuchten::d_se_d_pc"
+lines = [
+    245,
+    253,
+]
+hash = "sha256:44d4af36fa88bd54599cd2ddb228a642fe0b0e2f341b384fd76a0a25a7f483ba"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#21",
+    "#23",
+    "#31",
+    "#34",
+]
+
+[[module."curves.rs".function]]
+id = "fn:b7c4e6a1bd86b2e2"
+name = "relative_permeability"
+qual = "VanGenuchten::relative_permeability"
+lines = [
+    255,
+    267,
+]
+hash = "sha256:6c0562e2d91b9fb49fee734115bc9b0763112a1790270c1d9a0719e288500a16"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#20",
+    "#22",
+    "#24",
+    "#28",
+    "#29",
+    "#57",
+    "#58",
+]
+
+[[module."curves.rs".function]]
+id = "fn:b56061515998516d"
+name = "d_kr_d_se"
+qual = "VanGenuchten::d_kr_d_se"
+lines = [
+    269,
+    285,
+]
+hash = "sha256:25ae57f4e5f22d54d324934fe5c0d36eceb6f6729d8705e41aa1471452c79a1d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#20",
+    "#22",
+    "#33",
+]
+
+[[module."curves.rs".function]]
+id = "fn:f6e269b6ce649cc9"
+name = "residual_saturation"
+qual = "VanGenuchten::residual_saturation"
+lines = [
+    287,
+    289,
+]
+hash = "sha256:85f46338089d71d41ef0753bc6d65ab29106ba7a54716857bca8a428d86ca22a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#4",
+    "#5",
+    "#10",
+    "#13",
+    "#17",
+    "#26",
+    "#30",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+]
+
+[[module."curves.rs".function]]
+id = "fn:4c7f4c9ed1a4c950"
+name = "new"
+qual = "BrooksCorey::new"
+lines = [
+    331,
+    360,
+]
+hash = "sha256:f77337893aa440b5adf8adb49daac219e5160c42b784a92e34115432edd66ce0"
+doc_hash = "sha256:5c6276867a4bfe263e18045c3bfb2b010fc889c057aa925a86d3865af8b5ebd7"
+reached_by = [
+    "#1",
+    "#2",
+    "#13",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+]
+
+[[module."curves.rs".function]]
+id = "fn:aa66fce3a95409cf"
+name = "effective_saturation"
+qual = "BrooksCorey::effective_saturation"
+lines = [
+    364,
+    372,
+]
+hash = "sha256:f18c3084619ba1c61b6566c5e100e349ee7f8b4074775532e1c7daf2f719901d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#4",
+    "#5",
+    "#13",
+    "#18",
+    "#21",
+    "#23",
+    "#27",
+    "#31",
+    "#32",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+]
+
+[[module."curves.rs".function]]
+id = "fn:2816e1b5edab7cd6"
+name = "d_se_d_pc"
+qual = "BrooksCorey::d_se_d_pc"
+lines = [
+    374,
+    382,
+]
+hash = "sha256:14fcdc1fa31fa7ba630a0c142a5f1c1c706905aceb6ebdec0e183b8a7b0e179f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#21",
+    "#23",
+    "#31",
+    "#34",
+]
+
+[[module."curves.rs".function]]
+id = "fn:25b0c911bad96743"
+name = "relative_permeability"
+qual = "BrooksCorey::relative_permeability"
+lines = [
+    384,
+    390,
+]
+hash = "sha256:a3c668a48a272c39e0c5fc203beb26cdc178dfadfaf01b3eba33aa6d444b21db"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#20",
+    "#22",
+    "#24",
+    "#28",
+    "#29",
+    "#57",
+    "#58",
+]
+
+[[module."curves.rs".function]]
+id = "fn:20a9c466b10f94f8"
+name = "d_kr_d_se"
+qual = "BrooksCorey::d_kr_d_se"
+lines = [
+    392,
+    399,
+]
+hash = "sha256:0df04f2e46abcc1769071b722bf999b7031cfca9fc49450d12d8c6c9a46520f9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#20",
+    "#22",
+    "#33",
+]
+
+[[module."curves.rs".function]]
+id = "fn:629489cd3a712f7e"
+name = "residual_saturation"
+qual = "BrooksCorey::residual_saturation"
+lines = [
+    401,
+    403,
+]
+hash = "sha256:85f46338089d71d41ef0753bc6d65ab29106ba7a54716857bca8a428d86ca22a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#4",
+    "#5",
+    "#10",
+    "#13",
+    "#17",
+    "#26",
+    "#30",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+]
+
+[[module."curves.rs".function]]
+id = "fn:a1fe2796fba9a0a3"
+name = "new"
+qual = "Haverkamp::new"
+lines = [
+    465,
+    485,
+]
+hash = "sha256:bef2759e4cea38816a94715bc471dbcd6f1297adfbd6586290a816753822a7b1"
+doc_hash = "sha256:734faae1a3b64e2ae5995659794c64e2fbd9a42bd7ed044185ceb4059f357f5d"
+callees = ["fn:3b208720a219c220"]
+reached_by = [
+    "#5",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."curves.rs".function]]
+id = "fn:3b208720a219c220"
+name = "with_conversion"
+qual = "Haverkamp::with_conversion"
+lines = [
+    487,
+    522,
+]
+hash = "sha256:4976c0563301fe868f4679357fb0ffdd9bab35fc8fc998e7d5e7b9910f01f78d"
+doc_hash = "sha256:8c16a288b77dba56b0195427ba3e9bad4e887e765781f9d57c4d2cb8d5960d10"
+reached_by = [
+    "#5",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."curves.rs".function]]
+id = "fn:8e62ee23c38b213f"
+name = "celia_1977_sand"
+qual = "Haverkamp::celia_1977_sand"
+lines = [
+    524,
+    530,
+]
+hash = "sha256:ae12b02959fb8908e6e9b2d2f5835030fd0518b9d06e38d4163032d28fede129"
+doc_hash = "sha256:4458616723e57421f8325e4138ff20cd4f0fec39f1095d69ef7a42fb7e49b2e0"
+callees = ["fn:a1fe2796fba9a0a3"]
+reached_by = [
+    "#5",
+    "#22",
+    "#23",
+    "#24",
+    "#26",
+    "#27",
+]
+
+[[module."curves.rs".function]]
+id = "fn:1c1bd89bfa08ff2b"
+name = "abs_head_cm"
+qual = "Haverkamp::abs_head_cm"
+lines = [
+    532,
+    541,
+]
+hash = "sha256:9e6faece891cfa599d5d2467f6edf71ab2dbaf75318b2b365c36a90f8b18e4a5"
+doc_hash = "sha256:76e043d3b3744cae77964156bd9daec4e2ec71167e37517e5093858c21229254"
+reached_by = [
+    "#4",
+    "#5",
+    "#13",
+    "#18",
+    "#21",
+    "#23",
+    "#27",
+    "#31",
+    "#32",
+    "#34",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+]
+
+[[module."curves.rs".function]]
+id = "fn:de5ace3c85bc9ad0"
+name = "effective_saturation"
+qual = "Haverkamp::effective_saturation"
+lines = [
+    545,
+    551,
+]
+hash = "sha256:d9db90f6a7bf65ea532bf754a1ed4ce7ece60070a4077e31dc52b1dcbc4bf600"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:1c1bd89bfa08ff2b"]
+reached_by = [
+    "#4",
+    "#5",
+    "#13",
+    "#18",
+    "#21",
+    "#23",
+    "#27",
+    "#31",
+    "#32",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+]
+
+[[module."curves.rs".function]]
+id = "fn:13042f9e361de2be"
+name = "d_se_d_pc"
+qual = "Haverkamp::d_se_d_pc"
+lines = [
+    553,
+    562,
+]
+hash = "sha256:0a055c2556b12b715c46ff046242d567cab74a8e16788d83f898d5180c215039"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:1c1bd89bfa08ff2b"]
+reached_by = [
+    "#21",
+    "#23",
+    "#31",
+    "#34",
+]
+
+[[module."curves.rs".function]]
+id = "fn:675d3e1e02e6132a"
+name = "relative_permeability"
+qual = "Haverkamp::relative_permeability"
+lines = [
+    564,
+    575,
+]
+hash = "sha256:f3e322fdd09bbce90a93aeb8bbceea821c09497156ff585135e292849cabdc10"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#20",
+    "#22",
+    "#24",
+    "#28",
+    "#29",
+    "#57",
+    "#58",
+]
+
+[[module."curves.rs".function]]
+id = "fn:c1be9af07231dea7"
+name = "d_kr_d_se"
+qual = "Haverkamp::d_kr_d_se"
+lines = [
+    577,
+    594,
+]
+hash = "sha256:8e62a686634f93db339bdcadafca69d0dffb79e70af0e1c0048af3791140308f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#20",
+    "#22",
+    "#33",
+]
+
+[[module."curves.rs".function]]
+id = "fn:6013010a6e2ee3f6"
+name = "residual_saturation"
+qual = "Haverkamp::residual_saturation"
+lines = [
+    596,
+    599,
+]
+hash = "sha256:dc842b94cf8103eb7fdf8c0926ad572437b3978de022c0b0e1bfa90ccedc9688"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#4",
+    "#5",
+    "#10",
+    "#13",
+    "#17",
+    "#26",
+    "#30",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+]
+
+[[module."curves.rs".function]]
+id = "fn:2c9b748c2c6f3c19"
+name = "pc"
+qual = "pc"
+lines = [
+    607,
+    609,
+]
+hash = "sha256:3f96b60456354fee600edab5ce0babd69abab28f2bf8f57ed85e087ba44bcafd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:1dd79d7006d9e9db"
+name = "sat"
+qual = "sat"
+lines = [
+    610,
+    612,
+]
+hash = "sha256:1e8f1f7289d502ffde2e31c74e8ccdf945443df7ee9db8a7ff50807883d9cbe7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:58dbabbd1e768b54"
+name = "se_val"
+qual = "se_val"
+lines = [
+    613,
+    615,
+]
+hash = "sha256:2e192236c11d5d55a1a20f96e5e31dfa33bd31ab8cbe7fa292593369cb532d40"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c9b748c2c6f3c19",
+    "fn:b67bf54573dacd38",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:ee400ac383259547"
+name = "kr_val"
+qual = "kr_val"
+lines = [
+    616,
+    618,
+]
+hash = "sha256:a43c682ecf89b2a28e9d90f2657880616d6517887d47fe4a94c6f292cc40ed21"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1dd79d7006d9e9db",
+    "fn:202b5538182435ea",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:6c072e077264e4bc"
+name = "vg"
+qual = "vg"
+lines = [
+    620,
+    622,
+]
+hash = "sha256:fd0c93b9ba9b44457dd79c41cf76a1be1d92db869377c18a1ca9f9547f9c2321"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9e37996c217c2f29"]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:3d8ff2b09aca49da"
+name = "bc"
+qual = "bc"
+lines = [
+    623,
+    625,
+]
+hash = "sha256:d4b832d523aba887056d17861c1e4e42949a07d59417e6504f64abaa72d53f33"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4c7f4c9ed1a4c950"]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:46e0904fc29f50fb"
+name = "vg_new_sets_m"
+qual = "vg_new_sets_m"
+lines = [
+    627,
+    631,
+]
+hash = "sha256:4ca030859013cffaa0a6f02284cd2f922fdd94e0abf53d8712fbd85e7ad89a8f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9e37996c217c2f29"]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:6b17f01ec36b393e"
+name = "saturated_zone_is_fully_saturated"
+qual = "saturated_zone_is_fully_saturated"
+lines = [
+    633,
+    640,
+]
+hash = "sha256:023c4d9ee5b22aabb00e832dff49dd0597fa037d0d34d881871539f650a541ae"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c9b748c2c6f3c19",
+    "fn:3d8ff2b09aca49da",
+    "fn:58dbabbd1e768b54",
+    "fn:6c072e077264e4bc",
+    "fn:70b317e7fd210879",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:3c90796a7f7137f3"
+name = "se_in_unit_interval_and_monotone_decreasing"
+qual = "se_in_unit_interval_and_monotone_decreasing"
+lines = [
+    642,
+    654,
+]
+hash = "sha256:5ce849de0ce2569efcbb740707385809c79a3d8753d652664b0783360777191d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3d8ff2b09aca49da",
+    "fn:58dbabbd1e768b54",
+    "fn:6c072e077264e4bc",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:fe0cba592c088e32"
+name = "kr_in_unit_interval_and_endpoints"
+qual = "kr_in_unit_interval_and_endpoints"
+lines = [
+    656,
+    673,
+]
+hash = "sha256:683f8d087e22377aa75570523f1b1fcf5e20c1b9f6795d8820f1689e8f1d14f8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3d8ff2b09aca49da",
+    "fn:6c072e077264e4bc",
+    "fn:ee400ac383259547",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:bbf021ade331f94c"
+name = "residual_saturation_reported"
+qual = "residual_saturation_reported"
+lines = [
+    675,
+    679,
+]
+hash = "sha256:2ccef79c92433da7ddef11a218a065bfd12574b05624036a20dc6db79fba7727"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3d8ff2b09aca49da",
+    "fn:6c072e077264e4bc",
+    "fn:db0f9fa08db0bb77",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:24e18e1d3dc9f92a"
+name = "d_se_d_pc_matches_finite_difference"
+qual = "d_se_d_pc_matches_finite_difference"
+lines = [
+    681,
+    701,
+]
+hash = "sha256:52078efc23598e4a77fab246eaca5fd0151f357e01f995bc87fa425db5b4eb4b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c9b748c2c6f3c19",
+    "fn:3d8ff2b09aca49da",
+    "fn:58dbabbd1e768b54",
+    "fn:6c072e077264e4bc",
+    "fn:70b317e7fd210879",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:0c0f649c6c31285c"
+name = "d_kr_d_se_matches_finite_difference"
+qual = "d_kr_d_se_matches_finite_difference"
+lines = [
+    703,
+    719,
+]
+hash = "sha256:2b2a8965a6f935544b6450ddf0394dec23e83e6a083e721637e62d418697df0f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1dd79d7006d9e9db",
+    "fn:3d8ff2b09aca49da",
+    "fn:6c072e077264e4bc",
+    "fn:a440752b00218dc3",
+    "fn:ee400ac383259547",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:e18bc23b594b7de7"
+name = "vg_dse_dpc_is_nonpositive"
+qual = "vg_dse_dpc_is_nonpositive"
+lines = [
+    721,
+    728,
+]
+hash = "sha256:6b985b7434b3bf4bce7c91c16f2437342537500dc9bad3bcd1e490d34da0bdf1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c9b748c2c6f3c19",
+    "fn:6c072e077264e4bc",
+    "fn:70b317e7fd210879",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:642b1e0e916ec330"
+name = "bc_air_entry_saturated_below_bubbling_pressure"
+qual = "bc_air_entry_saturated_below_bubbling_pressure"
+lines = [
+    730,
+    739,
+]
+hash = "sha256:a4dc2554088976987c05b9cd086091a7995f9a0bf552eddb0a0cc8c98ab6f2f2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3d8ff2b09aca49da",
+    "fn:58dbabbd1e768b54",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:ee931381ac881eee"
+name = "vg_dkr_endpoints_no_nan"
+qual = "vg_dkr_endpoints_no_nan"
+lines = [
+    741,
+    748,
+]
+hash = "sha256:67c38f9dd45e30097c76913886141e1cd843364ad21e6e4463db92e8a324bea2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1dd79d7006d9e9db",
+    "fn:6c072e077264e4bc",
+    "fn:a440752b00218dc3",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:826b2517e483e625"
+name = "inputs_are_clamped"
+qual = "inputs_are_clamped"
+lines = [
+    750,
+    757,
+]
+hash = "sha256:c2b3a2130efa3b2a601a96e6d71aed696f28b749e7d5fadfd9e4bf99a4e03248"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3d8ff2b09aca49da",
+    "fn:6c072e077264e4bc",
+    "fn:ee400ac383259547",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:301524ebf2a685e5"
+name = "constructors_reject_bad_inputs"
+qual = "constructors_reject_bad_inputs"
+lines = [
+    759,
+    766,
+]
+hash = "sha256:18c7c43296511d61f2bf0478b9bfab31dc5f87e03336d8c33ac21de85ad3a968"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4c7f4c9ed1a4c950",
+    "fn:9e37996c217c2f29",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:7534cbfeb5caf2aa"
+name = "hv"
+qual = "hv"
+lines = [
+    770,
+    772,
+]
+hash = "sha256:63f17b0355448772b2181a09d159d3b36f2af61ad8c43df167f37a488f2a2ec4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:8e62ee23c38b213f"]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:2b93dfe682523db4"
+name = "haverkamp_se_bounds_and_monotone"
+qual = "haverkamp_se_bounds_and_monotone"
+lines = [
+    774,
+    790,
+]
+hash = "sha256:d376aabdf0ca8f4256f30f6654e968931938bf3f95864e1f912b934e34b643ac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:58dbabbd1e768b54",
+    "fn:7534cbfeb5caf2aa",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:8a1155c33e2969d1"
+name = "haverkamp_kr_bounds_and_endpoints"
+qual = "haverkamp_kr_bounds_and_endpoints"
+lines = [
+    792,
+    805,
+]
+hash = "sha256:6a5a70f940ccdc69cf6541aaa128c71c40d57c525179ac7ee4b2a100058c6c06"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7534cbfeb5caf2aa",
+    "fn:ee400ac383259547",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:4cbbc4a50480f9fc"
+name = "haverkamp_residual_is_theta_ratio"
+qual = "haverkamp_residual_is_theta_ratio"
+lines = [
+    807,
+    812,
+]
+hash = "sha256:bf2783476129d4425da2b4111d25f7574d132fbcd9a33a506df1189cd63c34a7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:8e62ee23c38b213f",
+    "fn:db0f9fa08db0bb77",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:5ccaa20ae51792f8"
+name = "haverkamp_d_se_d_pc_matches_finite_difference"
+qual = "haverkamp_d_se_d_pc_matches_finite_difference"
+lines = [
+    814,
+    826,
+]
+hash = "sha256:df35b16e35b5dd2ca14c4547de6f26e4e38eb1880b0e3bb0d6e7f2c69a21629f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c9b748c2c6f3c19",
+    "fn:58dbabbd1e768b54",
+    "fn:70b317e7fd210879",
+    "fn:7534cbfeb5caf2aa",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:511b59f9c8f4f3a8"
+name = "haverkamp_d_kr_d_se_matches_finite_difference"
+qual = "haverkamp_d_kr_d_se_matches_finite_difference"
+lines = [
+    828,
+    840,
+]
+hash = "sha256:356833eae338236bc22d0ccd91d496b4dc2663aaded3f70e568c89bd3718ce02"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1dd79d7006d9e9db",
+    "fn:7534cbfeb5caf2aa",
+    "fn:a440752b00218dc3",
+    "fn:ee400ac383259547",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:5df00d5b1565c799"
+name = "haverkamp_rejects_bad_inputs"
+qual = "haverkamp_rejects_bad_inputs"
+lines = [
+    842,
+    849,
+]
+hash = "sha256:2683d6a2172301870fd8075a357d9ef10fb8009874074655de80e52c012b2f88"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3b208720a219c220",
+    "fn:a1fe2796fba9a0a3",
+]
+test = true
+
+[module."eos.rs"]
+path = "crate::properties::eos"
+
+[[module."eos.rs".function]]
+id = "fn:3314477cb8c66b97"
+name = "water"
+qual = "LiquidWaterEos::water"
+lines = [
+    74,
+    89,
+]
+hash = "sha256:fbe7091b2ffde12eb97a0e18c40a3f6dbca67b025d86954d519caaf7e9ee7ccb"
+doc_hash = "sha256:8fe0670251c80337c16139527be2d0e4f24c921c08fc87562a4edfcb8795ca4a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#36",
+    "#37",
+    "#38",
+    "#40",
+    "#41",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+]
+
+[[module."eos.rs".function]]
+id = "fn:424c71e9146c7638"
+name = "new"
+qual = "LiquidWaterEos::new"
+lines = [
+    91,
+    136,
+]
+hash = "sha256:2c9db4c547970c9111cbd2342dd5b6bcb70c60cc55e5aa5406e1d6bc07c8d656"
+doc_hash = "sha256:349e247492b28a244c76a7170ab4198c3d5c6609e76cc08c4d71450af66b8ab5"
+reached_by = [
+    "#39",
+    "#41",
+    "#61",
+    "#62",
+    "#63",
+]
+
+[[module."eos.rs".function]]
+id = "fn:970680ebb495a85e"
+name = "density"
+qual = "LiquidWaterEos::density"
+lines = [
+    138,
+    147,
+]
+hash = "sha256:01ac3b262b47be65923f3bbd5a43b077170734ea4d5d09f7154b62f9d1664b8a"
+doc_hash = "sha256:caddcf8a7eb4d3e5c0329c96d8fb58a814509e484ea13957d297ea10a341df87"
+callees = ["fn:51ffa9c8aa51580b"]
+reached_by = [
+    "#0",
+    "#4",
+    "#36",
+    "#37",
+    "#38",
+    "#57",
+    "#58",
+]
+
+[[module."eos.rs".function]]
+id = "fn:0fe52190fb06c3d4"
+name = "d_density_d_pressure"
+qual = "LiquidWaterEos::d_density_d_pressure"
+lines = [
+    149,
+    157,
+]
+hash = "sha256:0b73c38e421bf42791faa1a1b1b9439865816c98108612d0c6ff5a9e6e339308"
+doc_hash = "sha256:762395b004f074e01efd21724fb2eea45aba8c23c8a06875436a1fcb88ac5282"
+callees = ["fn:51ffa9c8aa51580b"]
+reached_by = ["#36"]
+
+[[module."eos.rs".function]]
+id = "fn:50ee5fc701cfa1bb"
+name = "viscosity"
+qual = "LiquidWaterEos::viscosity"
+lines = [
+    159,
+    162,
+]
+hash = "sha256:29398dbb70743243f8a6e7dd267a5207279fe3895159e4ea62a73400fdc78c03"
+doc_hash = "sha256:9359f3039332d6f1bd3a856f16101a7571222db17e0effe86f8accea3f935ef0"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#40",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+]
+
+[[module."eos.rs".function]]
+id = "fn:51ffa9c8aa51580b"
+name = "density_si"
+qual = "LiquidWaterEos::density_si"
+lines = [
+    164,
+    168,
+]
+hash = "sha256:f3b0661094ef89ff977f6f38f122272b5c7e86c8acdab0d22bb469a185f1de03"
+doc_hash = "sha256:9778826545fbbc54fbc3ada7e028208042980ab46afdcd7e172f6c948a50d166"
+reached_by = [
+    "#0",
+    "#4",
+    "#36",
+    "#37",
+    "#38",
+    "#57",
+    "#58",
+]
+
+[[module."eos.rs".function]]
+id = "fn:ba36bc2153318761"
+name = "pressure"
+qual = "pressure"
+lines = [
+    176,
+    178,
+]
+hash = "sha256:bf9b2716a86fe79a4686428c55210b0d0f0f229b47b4b927be4988a2d79c86e8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."eos.rs".function]]
+id = "fn:489dff9a027e8642"
+name = "water_defaults_are_valid_and_match_new"
+qual = "water_defaults_are_valid_and_match_new"
+lines = [
+    180,
+    185,
+]
+hash = "sha256:2995dcf04e4104dc21d449414254a31a7aab969693eabb5e9a1743b0faac65e1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3314477cb8c66b97",
+    "fn:424c71e9146c7638",
+]
+test = true
+
+[[module."eos.rs".function]]
+id = "fn:3060e7ffcaf5aec6"
+name = "density_equals_reference_at_reference_pressure"
+qual = "density_equals_reference_at_reference_pressure"
+lines = [
+    187,
+    194,
+]
+hash = "sha256:a1751512268d5046b8b029b14dc8ac75eee17732d085af527d63fbb32d697ddd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3314477cb8c66b97",
+    "fn:970680ebb495a85e",
+    "fn:ba36bc2153318761",
+]
+test = true
+
+[[module."eos.rs".function]]
+id = "fn:9196dd6bb1cb0ad0"
+name = "density_increases_with_pressure"
+qual = "density_increases_with_pressure"
+lines = [
+    196,
+    212,
+]
+hash = "sha256:4021ac4810cc8b61fcd44920720cb5d4945b38cc41484bcfec8bddc01af23b25"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3314477cb8c66b97",
+    "fn:970680ebb495a85e",
+    "fn:ba36bc2153318761",
+]
+test = true
+
+[[module."eos.rs".function]]
+id = "fn:4a26600ef4f77d76"
+name = "d_density_d_pressure_matches_finite_difference"
+qual = "d_density_d_pressure_matches_finite_difference"
+lines = [
+    214,
+    233,
+]
+hash = "sha256:833ce7f0e7d161ff3fe4ac6b6937c0c7fd60ad7d20dd2f7fbc6dd759cdd28a9b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0fe52190fb06c3d4",
+    "fn:3314477cb8c66b97",
+    "fn:970680ebb495a85e",
+    "fn:ba36bc2153318761",
+]
+test = true
+
+[[module."eos.rs".function]]
+id = "fn:fb678e57a1a614c1"
+name = "viscosity_is_constant_and_positive"
+qual = "viscosity_is_constant_and_positive"
+lines = [
+    235,
+    239,
+]
+hash = "sha256:bad74fe32d09052ae7c5c18a90c4aa41d92ec777f06b4aabfcb22ee0e8cf614b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3314477cb8c66b97",
+    "fn:50ee5fc701cfa1bb",
+]
+test = true
+
+[[module."eos.rs".function]]
+id = "fn:78af08d3897c2ba2"
+name = "new_rejects_bad_inputs"
+qual = "new_rejects_bad_inputs"
+lines = [
+    241,
+    248,
+]
+hash = "sha256:bd6b97dc5413f50c921dbac13fee71657a5fc925df5a8bfb72dbc7d68d76c538"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:424c71e9146c7638"]
+test = true
+
+[module."mod.rs"]
+path = "crate::properties"
+
+[module."thermal.rs"]
+path = "crate::properties::thermal"
+
+[[module."thermal.rs".function]]
+id = "fn:099860ea73b761a2"
+name = "water"
+qual = "ThermalWaterProperties::water"
+lines = [
+    132,
+    155,
+]
+hash = "sha256:a40f62b4c01675f0317b1c12ac87cb1696a0cd36906cf67577cdd6c67d09294a"
+doc_hash = "sha256:0e6ad3b0b731360fd9a7d6481a410fd469a9a72e3295fbba42c02ad4b3f10b39"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."thermal.rs".function]]
+id = "fn:b7794fe0b6e7a3b9"
+name = "new"
+qual = "ThermalWaterProperties::new"
+lines = [
+    157,
+    236,
+]
+hash = "sha256:e674bffacf8876ae5d0f6cd2ec7df4f79348f6a6536979516ad017e354d7b58c"
+doc_hash = "sha256:4454ae1ba82b3e03d2701e6de980939db395f17fd32e48fb26ca0f282f95973e"
+reached_by = [
+    "#52",
+    "#53",
+]
+
+[[module."thermal.rs".function]]
+id = "fn:481ecb618d72921c"
+name = "density"
+qual = "ThermalWaterProperties::density"
+lines = [
+    238,
+    248,
+]
+hash = "sha256:c41ac48453683a2f8161b61bbf58ec7de101586424c8a6436a8f6c04fb37fc39"
+doc_hash = "sha256:fec5c80ebb37687f8435c31761f0d98bbddbb42b11982ca775f0d3115bdf0d49"
+callees = ["fn:963509fc0b8bf562"]
+reached_by = [
+    "#7",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+]
+
+[[module."thermal.rs".function]]
+id = "fn:901fc15ea163e1d2"
+name = "d_density_d_temperature"
+qual = "ThermalWaterProperties::d_density_d_temperature"
+lines = [
+    250,
+    259,
+]
+hash = "sha256:25faa46a0d9ff5b16ffc85f451e62ca8ab0635d177329120ded10964c341111a"
+doc_hash = "sha256:bd0d2491251564c4f689ba956f6d66f03527c71d23de3792015da765426ab7e0"
+callees = ["fn:963509fc0b8bf562"]
+reached_by = [
+    "#42",
+    "#43",
+]
+
+[[module."thermal.rs".function]]
+id = "fn:b6c3c59341d37492"
+name = "viscosity"
+qual = "ThermalWaterProperties::viscosity"
+lines = [
+    261,
+    274,
+]
+hash = "sha256:dd8a7f939bb4f0f08dd7764bb0dfa0b0b934d3ccec446e0a659a1c7cf27d053a"
+doc_hash = "sha256:9901cc3c1a7ddcf0bd447e1641a89030f3d616cce1841b121dd557e9e37eb467"
+reached_by = [
+    "#50",
+    "#51",
+]
+
+[[module."thermal.rs".function]]
+id = "fn:8c1d64073099a069"
+name = "specific_heat"
+qual = "ThermalWaterProperties::specific_heat"
+lines = [
+    276,
+    279,
+]
+hash = "sha256:4ccfd77fd88e4c5c2eb9b44ce9ce41e9a37d875f7b80f684fe2bf20a8ded2a4b"
+doc_hash = "sha256:98161e9f627506ab28a990edaaff03b3683443a99be2def640870e7d98224bac"
+reached_by = [
+    "#7",
+    "#49",
+]
+
+[[module."thermal.rs".function]]
+id = "fn:c1c00978e7f85c74"
+name = "thermal_conductivity"
+qual = "ThermalWaterProperties::thermal_conductivity"
+lines = [
+    281,
+    284,
+]
+hash = "sha256:3806cc500f0306f5cc953315e7613c0e7b8c9a8a501de66ed6a971d86d9b395c"
+doc_hash = "sha256:88efddf3971253754f212460dd359d7e44279d6b3da9b8cb66f848594547c8f6"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#49",
+]
+
+[[module."thermal.rs".function]]
+id = "fn:963509fc0b8bf562"
+name = "density_si"
+qual = "ThermalWaterProperties::density_si"
+lines = [
+    286,
+    292,
+]
+hash = "sha256:014e67dc4f6a2089010369e9e27c80232718b98ea6578d7397351c0a6951ae61"
+doc_hash = "sha256:c8f1d9e8833eae002f9360a5d0d831952517618890cc61d3ed7d26db79e5a5db"
+reached_by = [
+    "#7",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+]
+
+[[module."thermal.rs".function]]
+id = "fn:c984ceba96c95d9f"
+name = "generic_rock"
+qual = "RockThermalProperties::generic_rock"
+lines = [
+    321,
+    334,
+]
+hash = "sha256:9fddd2184e40ccbc1ba04bcadf53b480d7cdedc7abfd22aeb11229a3c4da42e9"
+doc_hash = "sha256:0778b0908cd482dce6da2146d622b52547fa054ec4650ea1ae6d6a7f3b741170"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#47",
+]
+
+[[module."thermal.rs".function]]
+id = "fn:aa83d375dc81cc50"
+name = "new"
+qual = "RockThermalProperties::new"
+lines = [
+    336,
+    373,
+]
+hash = "sha256:840fc15095405354bedb33fba1f755b7d2b62d15d79dc3c0b1d8d092fa9c7645"
+doc_hash = "sha256:5a54d51c4ed4ff41c0161bd2c8a79ea26593b951e37b21bb411277bd3cd6865c"
+reached_by = [
+    "#47",
+    "#48",
+]
+
+[[module."thermal.rs".function]]
+id = "fn:4c8023b7cd81d711"
+name = "pressure"
+qual = "pressure"
+lines = [
+    381,
+    383,
+]
+hash = "sha256:bf9b2716a86fe79a4686428c55210b0d0f0f229b47b4b927be4988a2d79c86e8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."thermal.rs".function]]
+id = "fn:5f3bc035e9c68101"
+name = "temperature"
+qual = "temperature"
+lines = [
+    385,
+    387,
+]
+hash = "sha256:5b25aed2de4c2d64c17fe5072901c4bd7b7d086aa31969a0689eb8eb0df9e22c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."thermal.rs".function]]
+id = "fn:5a07ad225e862b3f"
+name = "water_defaults_are_valid_and_match_new"
+qual = "water_defaults_are_valid_and_match_new"
+lines = [
+    389,
+    397,
+]
+hash = "sha256:4da1ca626406ad6a4e4ddabf59c7fb868d5c94b70435952c6e9c12d936200c88"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:099860ea73b761a2",
+    "fn:b7794fe0b6e7a3b9",
+]
+test = true
+
+[[module."thermal.rs".function]]
+id = "fn:b2b6a70d92c79d26"
+name = "density_equals_reference_at_reference_state"
+qual = "density_equals_reference_at_reference_state"
+lines = [
+    399,
+    409,
+]
+hash = "sha256:d61b721e5b99153a9dc56d84eb38c93ebdd44359605bbf09076435213c5a2f89"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:099860ea73b761a2",
+    "fn:481ecb618d72921c",
+    "fn:4c8023b7cd81d711",
+    "fn:5f3bc035e9c68101",
+]
+test = true
+
+[[module."thermal.rs".function]]
+id = "fn:d8529f6a2fe71714"
+name = "density_decreases_with_temperature"
+qual = "density_decreases_with_temperature"
+lines = [
+    411,
+    428,
+]
+hash = "sha256:ca6539c98ccdb725a80ea0d34959032b96a1f790d8dfdc19a88cbde9808cb0ce"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:099860ea73b761a2",
+    "fn:481ecb618d72921c",
+    "fn:4c8023b7cd81d711",
+    "fn:5f3bc035e9c68101",
+]
+test = true
+
+[[module."thermal.rs".function]]
+id = "fn:9d61c6707044d60a"
+name = "density_increases_with_pressure"
+qual = "density_increases_with_pressure"
+lines = [
+    430,
+    441,
+]
+hash = "sha256:788907e8b44b52f085ece27dbef2804f614ab176f5a9fb9da142141aa69f6fa0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:099860ea73b761a2",
+    "fn:481ecb618d72921c",
+    "fn:4c8023b7cd81d711",
+    "fn:5f3bc035e9c68101",
+]
+test = true
+
+[[module."thermal.rs".function]]
+id = "fn:c25c553a6b659577"
+name = "d_density_d_temperature_matches_finite_difference"
+qual = "d_density_d_temperature_matches_finite_difference"
+lines = [
+    443,
+    463,
+]
+hash = "sha256:a3ddb2c986f8566655f9b2392de70ac183cfa250d250f9c088292932ac938747"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:099860ea73b761a2",
+    "fn:481ecb618d72921c",
+    "fn:4c8023b7cd81d711",
+    "fn:5f3bc035e9c68101",
+    "fn:901fc15ea163e1d2",
+]
+test = true
+
+[[module."thermal.rs".function]]
+id = "fn:4f2204c2910ab3ce"
+name = "d_density_d_temperature_is_non_positive"
+qual = "d_density_d_temperature_is_non_positive"
+lines = [
+    465,
+    470,
+]
+hash = "sha256:95d0233b59d5ab991ff289133c3e2664bf83fd52df47c1171532084cd2d582ea"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:099860ea73b761a2",
+    "fn:4c8023b7cd81d711",
+    "fn:5f3bc035e9c68101",
+    "fn:901fc15ea163e1d2",
+]
+test = true
+
+[[module."thermal.rs".function]]
+id = "fn:24c1aa355c1b6a03"
+name = "viscosity_equals_reference_at_reference_temperature"
+qual = "viscosity_equals_reference_at_reference_temperature"
+lines = [
+    472,
+    479,
+]
+hash = "sha256:39ce4b0a8c21b5eb94d27559d783c3f49c1218d4173bff1a4f5b9af7705079d2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:099860ea73b761a2",
+    "fn:5f3bc035e9c68101",
+    "fn:b6c3c59341d37492",
+]
+test = true
+
+[[module."thermal.rs".function]]
+id = "fn:e6463048731bbdb5"
+name = "viscosity_decreases_with_temperature"
+qual = "viscosity_decreases_with_temperature"
+lines = [
+    481,
+    496,
+]
+hash = "sha256:a5d6b3798cab3f9dc715342fc7066bce9cbcce586c2e28979186dcb854e5da63"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:099860ea73b761a2",
+    "fn:5f3bc035e9c68101",
+    "fn:b6c3c59341d37492",
+]
+test = true
+
+[[module."thermal.rs".function]]
+id = "fn:77bc48d685c65f31"
+name = "transport_coefficients_are_returned"
+qual = "transport_coefficients_are_returned"
+lines = [
+    498,
+    503,
+]
+hash = "sha256:3ba6a2cfcfd0a313fea4170c43c4268d324ece058b67a5b84de73f9651f9a0f6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:099860ea73b761a2",
+    "fn:8c1d64073099a069",
+    "fn:c1c00978e7f85c74",
+]
+test = true
+
+[[module."thermal.rs".function]]
+id = "fn:82409d7a8836d605"
+name = "water_new_rejects_bad_inputs"
+qual = "water_new_rejects_bad_inputs"
+lines = [
+    505,
+    559,
+]
+hash = "sha256:69c875a62548753886ae7e05c10d4e5ae8a21dec30f5655dc2c3fbd8d2d283f8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b7794fe0b6e7a3b9"]
+test = true
+
+[[module."thermal.rs".function]]
+id = "fn:8e86b4789ed24e12"
+name = "generic_rock_defaults_are_valid_and_match_new"
+qual = "generic_rock_defaults_are_valid_and_match_new"
+lines = [
+    561,
+    566,
+]
+hash = "sha256:5ba51fc6075b1ed08b353e198e573c56ecc26427857f3b4c6ef3f61bd2614f4d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:aa83d375dc81cc50",
+    "fn:c984ceba96c95d9f",
+]
+test = true
+
+[[module."thermal.rs".function]]
+id = "fn:2feb2f007d209fbb"
+name = "rock_new_rejects_bad_inputs"
+qual = "rock_new_rejects_bad_inputs"
+lines = [
+    568,
+    575,
+]
+hash = "sha256:1c6ec7758b01b5712f89877ecda2a0f8d1c23c7a2108b1f993e109fb89e8def8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:aa83d375dc81cc50"]
+test = true

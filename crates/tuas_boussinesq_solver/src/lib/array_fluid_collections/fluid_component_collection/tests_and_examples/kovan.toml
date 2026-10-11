@@ -1,0 +1,137 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples"
+
+[module."air_pipe_example.rs"]
+path = "crate::array_fluid_collections::fluid_component_collection::tests_and_examples::air_pipe_example"
+
+[[module."air_pipe_example.rs".function]]
+id = "fn:d76284951cdd999e"
+name = "simple_fluid_pipe_example_1"
+qual = "simple_fluid_pipe_example_1"
+lines = [
+    1,
+    385,
+]
+hash = "sha256:f720aaee864341cf8fcb1b60b7e983ebc2719cd9431d832ad7de9845300bffd7"
+doc_hash = "sha256:6757d7f2ce409dd154952fa4f10b1e33d05ff74409f805d06c65aaa5853b9453"
+callees = [
+    "fn:cfb206ae6884b1bb",
+    "fn:f388412baf9ce13a",
+]
+test = true
+
+[module."collection_fluid_components_in_parallel.rs"]
+path = "crate::array_fluid_collections::fluid_component_collection::tests_and_examples::collection_fluid_components_in_parallel"
+
+[[module."collection_fluid_components_in_parallel.rs".function]]
+id = "fn:8255befffa7de943"
+name = "simple_fluid_collection_example_6"
+qual = "simple_fluid_collection_example_6"
+lines = [
+    49,
+    231,
+]
+hash = "sha256:aa52d9428c616405fd4e11f994dd0bc6aa1fd8e2f5f1a7b9d6f5c54535210e51"
+doc_hash = "sha256:35278940771629bae061c3df177b32e55734f6594d5b4c183176352ee23d5010"
+callees = [
+    "fn:05069460783feca0",
+    "fn:288f9cb36b686daf",
+    "fn:b96c71a8e07cc6c4",
+    "fn:bb0f352d6024ab79",
+]
+test = true
+
+[module."collection_fluid_components_in_series.rs"]
+path = "crate::array_fluid_collections::fluid_component_collection::tests_and_examples::collection_fluid_components_in_series"
+
+[[module."collection_fluid_components_in_series.rs".function]]
+id = "fn:c7a39cc03424cc00"
+name = "simple_fluid_collection_example_5"
+qual = "simple_fluid_collection_example_5"
+lines = [
+    49,
+    215,
+]
+hash = "sha256:5076651feaa86e73d1a0138a3e0de6806071d0ce97d6541ac375e5358d67aa2d"
+doc_hash = "sha256:bf9b323bbe7a07473b9be84f01dcc814cb2375ff685c66b504aac75b8765ae32"
+callees = [
+    "fn:288f9cb36b686daf",
+    "fn:bb0f352d6024ab79",
+    "fn:dfbb105fd75c4b01",
+]
+test = true
+
+[module."concurrency_and_multithreading_example.rs"]
+path = "crate::array_fluid_collections::fluid_component_collection::tests_and_examples::concurrency_and_multithreading_example"
+
+[[module."concurrency_and_multithreading_example.rs".function]]
+id = "fn:7e85bbb6ba9efcd9"
+name = "coriolis_flowmeter_empirical_custom_component_example_3"
+qual = "coriolis_flowmeter_empirical_custom_component_example_3"
+lines = [
+    1,
+    475,
+]
+hash = "sha256:2810c0ff72c3677455ea4ac5719473895b403b704278032ecc6056d6464c1f7f"
+doc_hash = "sha256:cdc3db468bee3ad6b441b8ede088b0555065c08f549057b72055f20fe89a8126"
+callees = ["fn:c9002ba20db6841b"]
+test = true
+
+[module."coriolis_flowmeter_example.rs"]
+path = "crate::array_fluid_collections::fluid_component_collection::tests_and_examples::coriolis_flowmeter_example"
+
+[[module."coriolis_flowmeter_example.rs".function]]
+id = "fn:936e941bf3ada5cf"
+name = "coriolis_flowmeter_empirical_custom_component_example_3"
+qual = "coriolis_flowmeter_empirical_custom_component_example_3"
+lines = [
+    1,
+    383,
+]
+hash = "sha256:5df672c26426d85d07505c2d5ece7e431420b3d1c66eff6bd42c67b39d107051"
+doc_hash = "sha256:c643b256c2bd90d51ef74856f2f014dfe87c58c517fd43e6df1285cf387e3f81"
+callees = ["fn:c9002ba20db6841b"]
+test = true
+
+[module."mod.rs"]
+path = "crate::array_fluid_collections::fluid_component_collection::tests_and_examples"
+
+[module."super_collection_fluid_components_in_parallel.rs"]
+path = "crate::array_fluid_collections::fluid_component_collection::tests_and_examples::super_collection_fluid_components_in_parallel"
+
+[[module."super_collection_fluid_components_in_parallel.rs".function]]
+id = "fn:4e0688b2eec51cb8"
+name = "super_fluid_collection_example_7"
+qual = "super_fluid_collection_example_7"
+lines = [
+    49,
+    240,
+]
+hash = "sha256:944859e9eb0d82939d28cc01fc91f718447002cf583c69044048ba632fc3dd1c"
+doc_hash = "sha256:eb38e39849533c1327546c39646f06df1d850b8bb3d7e1b44b5064c98d1d2cfa"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:352eae89cdf05026",
+    "fn:89b98b3aca1482a0",
+    "fn:b75ea3b819726281",
+    "fn:bb0f352d6024ab79",
+    "fn:db9d47c6c6cd72d4",
+]
+test = true
+
+[module."water_pipe_example.rs"]
+path = "crate::array_fluid_collections::fluid_component_collection::tests_and_examples::water_pipe_example"
+
+[[module."water_pipe_example.rs".function]]
+id = "fn:ec1c06654de7a0fa"
+name = "water_pipe_with_internal_pump_example_2"
+qual = "water_pipe_with_internal_pump_example_2"
+lines = [
+    1,
+    440,
+]
+hash = "sha256:fe29d405d0b716017a659afd687aaf9d8166133114559e3edf5353373bab17f9"
+doc_hash = "sha256:806a0fb9ee5d82328c46a75dd3eda288bacf89e71444bed794f0d967514eb884"
+test = true

@@ -1,0 +1,92 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/examples/boon_lay_decay_simulator/decay_simulator_v1"
+
+[module."mod.rs"]
+path = "example:boon_lay_decay_simulator::decay_simulator_v1"
+
+[[module."mod.rs".function]]
+id = "fn:438e8ad082342a12"
+name = "decay_simulator_v1"
+qual = "decay_simulator_v1"
+lines = [
+    14,
+    27,
+]
+hash = "sha256:7067fb106a6dab82901e7182e98fd7e80fd13318c79bdca03100e17183475a36"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9269d109ba943202"]
+
+[[module."mod.rs".function]]
+id = "fn:9269d109ba943202"
+name = "new"
+qual = "DecaySimApp::new"
+lines = [
+    59,
+    161,
+]
+hash = "sha256:673fb6271efdddacb691cbb85ba23bc49c2df9e797ff5b46022ae24b66ea9221"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6d6f7f7a3514e01f",
+    "fn:80623c3adf6170a7",
+    "fn:d6d6d935d50c60fe",
+]
+
+[[module."mod.rs".function]]
+id = "fn:80623c3adf6170a7"
+name = "default"
+qual = "DecaySimApp::default"
+lines = [
+    165,
+    227,
+]
+hash = "sha256:79a000592fd95f4a0cd50f7faedeb225eb4dbbecf3b62eefaa2f82e374fdf09b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a67552a0a4dd332e",
+    "fn:f15a8d016a2b0e99",
+]
+
+[[module."mod.rs".function]]
+id = "fn:8484163d1e579586"
+name = "save"
+qual = "DecaySimApp::save"
+lines = [
+    231,
+    233,
+]
+hash = "sha256:ee5b663383af4346062f6c5afe09f3c56f3ed9f42247d25e88d8338717248339"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:2d57e8e5fcdf0d2c"
+name = "ui"
+qual = "DecaySimApp::ui"
+lines = [
+    235,
+    313,
+]
+hash = "sha256:7e0aded072a4a46db4341ec6b6eb901eb6877afc40fd7002e7f55ba79d380709"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6f9831a5892083d4",
+    "fn:83b405c5135dca9a",
+    "fn:b2d23c68f8ed5039",
+    "fn:c1e39a5fea5f565f",
+    "fn:c73031de3eabb042",
+    "fn:dd88537d604e83a7",
+    "fn:e5b7676d25f3542f",
+]
+
+[[module."mod.rs".function]]
+id = "fn:dd88537d604e83a7"
+name = "powered_by_egui_and_eframe"
+qual = "powered_by_egui_and_eframe"
+lines = [
+    316,
+    328,
+]
+hash = "sha256:1ce2c849c23f39f3a1c5e893be8b4a165089abf5391f3b79ebb3f03836f89609"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

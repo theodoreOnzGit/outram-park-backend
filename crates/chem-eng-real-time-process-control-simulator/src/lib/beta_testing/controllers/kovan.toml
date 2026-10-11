@@ -1,0 +1,7 @@
+schema_version = 1
+kind = "code_folder"
+crate = "chem-eng-real-time-process-control-simulator"
+dir = "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/controllers"
+
+[module."mod.rs"]
+path = "crate::beta_testing::controllers"

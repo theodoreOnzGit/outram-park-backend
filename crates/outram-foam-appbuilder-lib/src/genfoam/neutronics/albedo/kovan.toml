@@ -1,0 +1,219 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/albedo"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/albedo/tests.rs::a_non_physical_diffusion_coefficient_degrades_to_vacuum",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/albedo/tests.rs::the_albedo_coefficient_reproduces_its_two_limits",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/albedo/tests.rs::the_discretised_weight_matches_the_analytic_robin_face_value",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/albedo/tests.rs::the_limits_reduce_to_zero_gradient_and_to_fixed_value",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/albedo/tests.rs::the_weight_tracks_the_groups_own_diffusion_coefficient",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_reference_state_keff_against_upstream",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_per_cell_cross_sections",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_precursor_drift",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_with_upstreams_albedo_boundary",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reactivity_coefficients_from_upstreams_perturbed_states",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reference_state_keff_brackets_upstream",
+]
+
+[module."mod.rs"]
+path = "crate::genfoam::neutronics::albedo"
+
+[[module."mod.rs".function]]
+id = "fn:84dc4944b0597ba1"
+name = "weight"
+qual = "AlbedoLinearisation::weight"
+lines = [
+    159,
+    166,
+]
+hash = "sha256:22716dce6ec13bd3fc298e5ca1ccf231b501e73170ee020ed68e4a376da255d9"
+doc_hash = "sha256:01a68c31c58a4b24158968e3d8ef481cd99918fcb95a2d9a1d220b2b7daf990f"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3be223528b67fb2a"
+name = "gamma_from_albedo"
+qual = "gamma_from_albedo"
+lines = [
+    169,
+    195,
+]
+hash = "sha256:b0cdcc08f1a10f4cc7ce91a4f1dcc7c23b51429c997de707aa868816f422746a"
+doc_hash = "sha256:14c2933444d5b4904e23d4b61382d5b20bfbb9a737d8514ef4ce01d24a89a71b"
+reached_by = ["#1"]
+
+[[module."mod.rs".function]]
+id = "fn:93121d645a43bf27"
+name = "albedo_patch_field"
+qual = "albedo_patch_field"
+lines = [
+    197,
+    280,
+]
+hash = "sha256:871f4fd203e242ca567acf26f59de68f71083d4788af46accc08b9f47d859551"
+doc_hash = "sha256:1a37557ac0c6b0129018ec2bc2aba453dfeb6b20e5420c6a61a09afaa9790d8b"
+callees = [
+    "fn:0b7b54d6516aee08",
+    "fn:4aea3161a87c6021",
+    "fn:592ba81db630e42b",
+    "fn:84dc4944b0597ba1",
+    "fn:f59a35e9cbd8b293",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[module."tests.rs"]
+path = "crate::genfoam::neutronics::albedo::tests"
+
+[[module."tests.rs".function]]
+id = "fn:4a6b8dc8bebde7e7"
+name = "bar"
+qual = "bar"
+lines = [
+    14,
+    55,
+]
+hash = "sha256:4652db686d69295786430560ca4d86cb9e5e8c6203586d35a319721cbd3d1fc6"
+doc_hash = "sha256:e78dc927df9f3f14a800b9bb5cca45d1f83e959c381697c91fe4fc03d22beb80"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:a38a96361de9187c"
+name = "weight_of"
+qual = "weight_of"
+lines = [
+    57,
+    62,
+]
+hash = "sha256:18c96d821fa82beae887d9de8b8f36ff414f82c350e6484feae7a634072ad402"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6d45af0d518e142d"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:68b1dd3947549e16"
+name = "the_albedo_coefficient_reproduces_its_two_limits"
+qual = "the_albedo_coefficient_reproduces_its_two_limits"
+lines = [
+    64,
+    82,
+]
+hash = "sha256:60e405d3513e450f7427d4d8eca25abf3bc49594d8863a9ca9b7e0baffbe2fd1"
+doc_hash = "sha256:099458e66e76e1343962ea0db006ac2e5806984493f274143d376ed3b58d05a0"
+callees = ["fn:3be223528b67fb2a"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:5f5d284e998c0cb1"
+name = "the_limits_reduce_to_zero_gradient_and_to_fixed_value"
+qual = "the_limits_reduce_to_zero_gradient_and_to_fixed_value"
+lines = [
+    84,
+    120,
+]
+hash = "sha256:46a68aa5f485ed4ec35dcfc05d18fb7c3d9ada4d06bc62428fbf235f66ac24bb"
+doc_hash = "sha256:d0ece503d960fd3493b3f96e5f8f3e48eed4c850a8180bb217b6383502922740"
+callees = [
+    "fn:4a6b8dc8bebde7e7",
+    "fn:636e75b664f14254",
+    "fn:93121d645a43bf27",
+    "fn:a38a96361de9187c",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:ea6975f2f7b72758"
+name = "the_weight_tracks_the_groups_own_diffusion_coefficient"
+qual = "the_weight_tracks_the_groups_own_diffusion_coefficient"
+lines = [
+    122,
+    168,
+]
+hash = "sha256:29413ca02b633566518f8e024a6a0736aab13485cc2f401eb75215101a43fee5"
+doc_hash = "sha256:614abe6603796178577beff5d5ed0961a4b6bcbb3b4d814ed2f9ae833d30c406"
+callees = [
+    "fn:4a6b8dc8bebde7e7",
+    "fn:636e75b664f14254",
+    "fn:93121d645a43bf27",
+    "fn:a38a96361de9187c",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:eb11ba38372fdf68"
+name = "the_discretised_weight_matches_the_analytic_robin_face_value"
+qual = "the_discretised_weight_matches_the_analytic_robin_face_value"
+lines = [
+    170,
+    264,
+]
+hash = "sha256:0736ef16eb9da96c954855f935d6a6777e3b1c84742c640c7e477e7eca797a66"
+doc_hash = "sha256:3777fc6eec4e0b1a1d611373d004e203be0a423213fd55e7cb715f04e6ca3772"
+callees = [
+    "fn:4a6b8dc8bebde7e7",
+    "fn:636e75b664f14254",
+    "fn:93121d645a43bf27",
+    "fn:a38a96361de9187c",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:edae1efc13d2a399"
+name = "a_non_physical_diffusion_coefficient_degrades_to_vacuum"
+qual = "a_non_physical_diffusion_coefficient_degrades_to_vacuum"
+lines = [
+    266,
+    296,
+]
+hash = "sha256:d41201af4989bb3f5a8a2136fc15f5bf191b31fccec7c9f2b63d33c4c75905be"
+doc_hash = "sha256:ae15f45bc04c876f8e6bae837683919884a27c2c1ff878e62e84b81143c5ee64"
+callees = [
+    "fn:4a6b8dc8bebde7e7",
+    "fn:636e75b664f14254",
+    "fn:93121d645a43bf27",
+    "fn:a38a96361de9187c",
+]
+test = true

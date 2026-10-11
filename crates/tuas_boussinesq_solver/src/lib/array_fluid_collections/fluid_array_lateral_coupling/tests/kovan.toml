@@ -1,0 +1,228 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests"
+
+[module."joint_mixing.rs"]
+path = "crate::array_fluid_collections::fluid_array_lateral_coupling::tests::joint_mixing"
+
+[[module."joint_mixing.rs".function]]
+id = "fn:fa351f938006f4a1"
+name = "fluid_array_adiabatic_mixing_joint_test"
+qual = "fluid_array_adiabatic_mixing_joint_test"
+lines = [
+    1,
+    215,
+]
+hash = "sha256:e0884da060630ad48a6650d1ce3d4e96dc2ddf6e44c678abfad0a77dcea0dac3"
+doc_hash = "sha256:da3474ad8306dbeafbc1e456d82d6c2481486c5d091f33a709a3586297ae9146"
+callees = [
+    "fn:039e453dc6e2f78b",
+    "fn:11f95cab3fbb1677",
+    "fn:14badbbf142d8694",
+    "fn:3ab99241909cec96",
+    "fn:4cad4ddd84ccee48",
+    "fn:5e3e746d7a558eea",
+    "fn:618c4cf4f7a78751",
+    "fn:810f0c5a83e70442",
+    "fn:87055d9068815d2a",
+    "fn:bb0f352d6024ab79",
+    "fn:f3cde3d60d3dff8d",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::array_fluid_collections::fluid_array_lateral_coupling::tests"
+
+[module."parasitic_heat_loss.rs"]
+path = "crate::array_fluid_collections::fluid_array_lateral_coupling::tests::parasitic_heat_loss"
+
+[[module."parasitic_heat_loss.rs".function]]
+id = "fn:d89e1dae5487700b"
+name = "parasitic_heat_loss_integration_test_with_hte_1m"
+qual = "parasitic_heat_loss_integration_test_with_hte_1m"
+lines = [
+    6,
+    275,
+]
+hash = "sha256:61412ac40f90626ec7f05d02eb864869ec9707e3c838035cb533b0f9c367e856"
+doc_hash = "sha256:086f8ebfaae178487d561a19f4194dd9da05d548cafe25a77512e389028f70e3"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:126ee82fa03643bf",
+    "fn:2d0477b1a1450172",
+    "fn:2d7b8ddc9930a271",
+    "fn:313305118add2fcf",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:81ebbad2a6b015cb",
+    "fn:a5016d77314ec973",
+    "fn:a9731bce0af70c00",
+    "fn:bb0f352d6024ab79",
+    "fn:d2ef60a016252736",
+    "fn:feec71215f335f20",
+]
+test = true
+
+[[module."parasitic_heat_loss.rs".function]]
+id = "fn:5c57487176fae7ab"
+name = "parasitic_heat_loss_integration_test_with_hte_3m"
+qual = "parasitic_heat_loss_integration_test_with_hte_3m"
+lines = [
+    277,
+    546,
+]
+hash = "sha256:b54770c71243be8fe92d757f5aa9a9baa15e0d1203d59f9afbb45a40932d9dc8"
+doc_hash = "sha256:086f8ebfaae178487d561a19f4194dd9da05d548cafe25a77512e389028f70e3"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:126ee82fa03643bf",
+    "fn:2d0477b1a1450172",
+    "fn:2d7b8ddc9930a271",
+    "fn:313305118add2fcf",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:81ebbad2a6b015cb",
+    "fn:a5016d77314ec973",
+    "fn:a9731bce0af70c00",
+    "fn:bb0f352d6024ab79",
+    "fn:d2ef60a016252736",
+    "fn:feec71215f335f20",
+]
+test = true
+
+[[module."parasitic_heat_loss.rs".function]]
+id = "fn:2f2ac1adf3aaddc7"
+name = "parasitic_heat_loss_integration_test_with_hte_5m"
+qual = "parasitic_heat_loss_integration_test_with_hte_5m"
+lines = [
+    548,
+    817,
+]
+hash = "sha256:f62a97601c330853a1c1e6ee29008e893573090be8bb8e6072f7a80857650e58"
+doc_hash = "sha256:086f8ebfaae178487d561a19f4194dd9da05d548cafe25a77512e389028f70e3"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:126ee82fa03643bf",
+    "fn:2d0477b1a1450172",
+    "fn:2d7b8ddc9930a271",
+    "fn:313305118add2fcf",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:81ebbad2a6b015cb",
+    "fn:a5016d77314ec973",
+    "fn:a9731bce0af70c00",
+    "fn:bb0f352d6024ab79",
+    "fn:d2ef60a016252736",
+    "fn:feec71215f335f20",
+]
+test = true
+
+[[module."parasitic_heat_loss.rs".function]]
+id = "fn:3994ecb1faf55b4d"
+name = "parasitic_heat_loss_integration_test_with_hte_7m"
+qual = "parasitic_heat_loss_integration_test_with_hte_7m"
+lines = [
+    819,
+    1088,
+]
+hash = "sha256:1b357a24f2615de19057c806f563655f896cd3c8497b44c18c418e654908cc8d"
+doc_hash = "sha256:086f8ebfaae178487d561a19f4194dd9da05d548cafe25a77512e389028f70e3"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:126ee82fa03643bf",
+    "fn:2d0477b1a1450172",
+    "fn:2d7b8ddc9930a271",
+    "fn:313305118add2fcf",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:81ebbad2a6b015cb",
+    "fn:a5016d77314ec973",
+    "fn:a9731bce0af70c00",
+    "fn:bb0f352d6024ab79",
+    "fn:d2ef60a016252736",
+    "fn:feec71215f335f20",
+]
+test = true
+
+[[module."parasitic_heat_loss.rs".function]]
+id = "fn:07b6e7d31c7e2e88"
+name = "parasitic_heat_loss_integration_test_with_hte_9m"
+qual = "parasitic_heat_loss_integration_test_with_hte_9m"
+lines = [
+    1090,
+    1361,
+]
+hash = "sha256:7b33d58ba7ff683ffc0eb3b9807aae47465542c0d68d064d5520cf7ca410833b"
+doc_hash = "sha256:086f8ebfaae178487d561a19f4194dd9da05d548cafe25a77512e389028f70e3"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:126ee82fa03643bf",
+    "fn:2d0477b1a1450172",
+    "fn:2d7b8ddc9930a271",
+    "fn:313305118add2fcf",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:81ebbad2a6b015cb",
+    "fn:a5016d77314ec973",
+    "fn:a9731bce0af70c00",
+    "fn:bb0f352d6024ab79",
+    "fn:d2ef60a016252736",
+    "fn:feec71215f335f20",
+]
+test = true
+
+[[module."parasitic_heat_loss.rs".function]]
+id = "fn:2fed708b1abba8fe"
+name = "cp_for_therminol_vp_1"
+qual = "cp_for_therminol_vp_1"
+lines = [
+    1363,
+    1384,
+]
+hash = "sha256:bad896d9b8938415f54b450a921b6508c4590b3c9ad09fdfa457c66474983eec"
+doc_hash = "sha256:de9c4c2ba4b11561dddc54d0d6160a31c7ece1743c7e405d91549ec7089a0443"
+callees = ["fn:126ee82fa03643bf"]
+test = true
+
+[[module."parasitic_heat_loss.rs".function]]
+id = "fn:a9731bce0af70c00"
+name = "calc_overall_thermal_resistance_for_pipe"
+qual = "calc_overall_thermal_resistance_for_pipe"
+lines = [
+    1385,
+    1453,
+]
+hash = "sha256:efcae84a2f774feb131116e7b6544ecac4164257337f8ebb041c07bc3962372e"
+doc_hash = "sha256:2609c89592cf8fa10a6727ae7a4b0d0598a52f0e0fee2b3d34118311254bd201"
+callees = [
+    "fn:6e00abb03521f424",
+    "fn:721fa91849e08cd0",
+]
+test = true
+physical_interface = true

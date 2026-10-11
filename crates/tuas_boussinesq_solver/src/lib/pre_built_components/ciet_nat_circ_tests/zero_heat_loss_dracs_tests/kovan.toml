@@ -1,0 +1,445 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/debugging_thermal_hydraulics.rs::dracs_branch_pressure_change_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/debugging_thermal_hydraulics.rs::dracs_natural_circ_thermal_hydraulics_test_prototype_1",
+]
+
+[module."case_a.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::case_a"
+
+[[module."case_a.rs".function]]
+id = "fn:6871b30dcfff3ce5"
+name = "case_a_tchx_out_319_kelvin_46_celsius"
+qual = "case_a_tchx_out_319_kelvin_46_celsius"
+lines = [
+    1,
+    828,
+]
+hash = "sha256:03a4ae80035f5e036874a72081b9c0aac8833985ae3b11c8b3bf911235bb87b1"
+doc_hash = "sha256:4ad23e454252550576a278714d359641f9c9e9529aaac87a2e42825b632c5cb7"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:165e0de92fdc30f9",
+    "fn:26e415a2516474b8",
+    "fn:352eae89cdf05026",
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:44b0242f8ce5613f",
+    "fn:4cad4ddd84ccee48",
+    "fn:4e7dcb14e36b36c7",
+    "fn:5898244cb765d25d",
+    "fn:6472671d822a61ab",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:6fdf5b3db5ce2173",
+    "fn:71e0b3e056618526",
+    "fn:74172f53fcffc1fc",
+    "fn:75d1e2e16257fc20",
+    "fn:7ee6570130bd052b",
+    "fn:89b98b3aca1482a0",
+    "fn:91f7627d113aa8f5",
+    "fn:93844cc452449d04",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a3a04100486196dc",
+    "fn:a466cf7d23703edb",
+    "fn:ab7102b91b02cb50",
+    "fn:b36ec305413e9570",
+    "fn:c2da8a31daabb980",
+    "fn:d080d9cf81960954",
+    "fn:e1d822f0823e13bf",
+    "fn:e79236623dec9507",
+    "fn:f66c6613b2fa9c0c",
+    "fn:f8b8b8874aae4e2b",
+    "fn:ffe5f6af51a6ee46",
+]
+
+[module."case_b.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::case_b"
+
+[[module."case_b.rs".function]]
+id = "fn:0270843d83227170"
+name = "case_b_tchx_out_308_kelvin_35_celsius"
+qual = "case_b_tchx_out_308_kelvin_35_celsius"
+lines = [
+    1,
+    837,
+]
+hash = "sha256:76c37a448efcd24fda3b4dba4d81cb4b4d586525f0d6ef9b51a4b28760bdac83"
+doc_hash = "sha256:077fa0d0ba3d15e8dcd7df254f5ef0147f9ae54d96fb305b206e64568f83aaf0"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:165e0de92fdc30f9",
+    "fn:26e415a2516474b8",
+    "fn:352eae89cdf05026",
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:44b0242f8ce5613f",
+    "fn:4cad4ddd84ccee48",
+    "fn:4e7dcb14e36b36c7",
+    "fn:5898244cb765d25d",
+    "fn:6472671d822a61ab",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:6fdf5b3db5ce2173",
+    "fn:71e0b3e056618526",
+    "fn:74172f53fcffc1fc",
+    "fn:75d1e2e16257fc20",
+    "fn:7ee6570130bd052b",
+    "fn:89b98b3aca1482a0",
+    "fn:91f7627d113aa8f5",
+    "fn:93844cc452449d04",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a3a04100486196dc",
+    "fn:a466cf7d23703edb",
+    "fn:ab7102b91b02cb50",
+    "fn:b36ec305413e9570",
+    "fn:c2da8a31daabb980",
+    "fn:d080d9cf81960954",
+    "fn:e1d822f0823e13bf",
+    "fn:e79236623dec9507",
+    "fn:f66c6613b2fa9c0c",
+    "fn:f8b8b8874aae4e2b",
+    "fn:ffe5f6af51a6ee46",
+]
+
+[module."case_c.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::case_c"
+
+[[module."case_c.rs".function]]
+id = "fn:fe19aa9b0a8cc144"
+name = "case_c_tchx_out_313_kelvin_40_celsius"
+qual = "case_c_tchx_out_313_kelvin_40_celsius"
+lines = [
+    1,
+    843,
+]
+hash = "sha256:88364843750cb0e1fc421c115e7eaa5805537684082b723771bbb396b06e54cb"
+doc_hash = "sha256:077fa0d0ba3d15e8dcd7df254f5ef0147f9ae54d96fb305b206e64568f83aaf0"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:165e0de92fdc30f9",
+    "fn:26e415a2516474b8",
+    "fn:352eae89cdf05026",
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:44b0242f8ce5613f",
+    "fn:4cad4ddd84ccee48",
+    "fn:4e7dcb14e36b36c7",
+    "fn:5898244cb765d25d",
+    "fn:6472671d822a61ab",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:6fdf5b3db5ce2173",
+    "fn:71e0b3e056618526",
+    "fn:74172f53fcffc1fc",
+    "fn:75d1e2e16257fc20",
+    "fn:7ee6570130bd052b",
+    "fn:89b98b3aca1482a0",
+    "fn:91f7627d113aa8f5",
+    "fn:93844cc452449d04",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a3a04100486196dc",
+    "fn:a466cf7d23703edb",
+    "fn:ab7102b91b02cb50",
+    "fn:b36ec305413e9570",
+    "fn:c2da8a31daabb980",
+    "fn:d080d9cf81960954",
+    "fn:e1d822f0823e13bf",
+    "fn:e79236623dec9507",
+    "fn:f66c6613b2fa9c0c",
+    "fn:f8b8b8874aae4e2b",
+    "fn:ffe5f6af51a6ee46",
+]
+
+[module."debugging_pid_controller.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::debugging_pid_controller"
+
+[[module."debugging_pid_controller.rs".function]]
+id = "fn:2284235b03021d3e"
+name = "dracs_natural_circ_thermal_hydraulics_pid_test_prototype_1"
+qual = "dracs_natural_circ_thermal_hydraulics_pid_test_prototype_1"
+lines = [
+    1,
+    692,
+]
+hash = "sha256:e7a99987829d57b77df8019801305ee18130c4214bb0ca6451977e8637be4958"
+doc_hash = "sha256:c5599abfd39dc6d8ae026f323ab569e3ad05a926ab1cf06a92ba9a678e4ad96f"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:165e0de92fdc30f9",
+    "fn:26e415a2516474b8",
+    "fn:352eae89cdf05026",
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:44b0242f8ce5613f",
+    "fn:4cad4ddd84ccee48",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:6472671d822a61ab",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:6fdf5b3db5ce2173",
+    "fn:71e0b3e056618526",
+    "fn:74172f53fcffc1fc",
+    "fn:75d1e2e16257fc20",
+    "fn:7ee6570130bd052b",
+    "fn:89b98b3aca1482a0",
+    "fn:91f7627d113aa8f5",
+    "fn:93844cc452449d04",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a3a04100486196dc",
+    "fn:a466cf7d23703edb",
+    "fn:ab7102b91b02cb50",
+    "fn:b36ec305413e9570",
+    "fn:c2da8a31daabb980",
+    "fn:d080d9cf81960954",
+    "fn:e1d822f0823e13bf",
+    "fn:e79236623dec9507",
+    "fn:f66c6613b2fa9c0c",
+    "fn:f8b8b8874aae4e2b",
+    "fn:ffe5f6af51a6ee46",
+]
+test = true
+
+[module."debugging_thermal_hydraulics.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::debugging_thermal_hydraulics"
+
+[[module."debugging_thermal_hydraulics.rs".function]]
+id = "fn:75a3017ce8f5be14"
+name = "dracs_hot_branch_builder"
+qual = "dracs_hot_branch_builder"
+lines = [
+    6,
+    34,
+]
+hash = "sha256:79eb5d4225a817887f125651edb5e90169ca20456374ef2e82d28ace1d99841b"
+doc_hash = "sha256:c0bfc166d55e31f9989ba93042fc53eff5e71e976c9f971a5fc8fa3f90711761"
+callees = [
+    "fn:165e0de92fdc30f9",
+    "fn:44b0242f8ce5613f",
+    "fn:6fdf5b3db5ce2173",
+    "fn:7ee6570130bd052b",
+    "fn:93844cc452449d04",
+    "fn:ab7102b91b02cb50",
+    "fn:d080d9cf81960954",
+    "fn:e1d822f0823e13bf",
+    "fn:e79236623dec9507",
+    "fn:ffe5f6af51a6ee46",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."debugging_thermal_hydraulics.rs".function]]
+id = "fn:5581480733a7b5b9"
+name = "dracs_cold_branch_builder"
+qual = "dracs_cold_branch_builder"
+lines = [
+    36,
+    63,
+]
+hash = "sha256:5aa5d303fa057689a9d197c3e59132bc44df46140eb217785e34775b98b1f84f"
+doc_hash = "sha256:ca7e9fad3d683e28fe3a8a50d570e700b9bc3731499eb843edbedac11cac42f5"
+callees = [
+    "fn:26e415a2516474b8",
+    "fn:4e7dcb14e36b36c7",
+    "fn:6472671d822a61ab",
+    "fn:75d1e2e16257fc20",
+    "fn:91f7627d113aa8f5",
+    "fn:93844cc452449d04",
+    "fn:a16a9747f145abfe",
+    "fn:b36ec305413e9570",
+    "fn:e79236623dec9507",
+    "fn:f8b8b8874aae4e2b",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."debugging_thermal_hydraulics.rs".function]]
+id = "fn:30de85ffe6548b72"
+name = "dracs_branch_pressure_change_test"
+qual = "dracs_branch_pressure_change_test"
+lines = [
+    65,
+    124,
+]
+hash = "sha256:49be2b9a743c734b6a651a37b65b6c3fa7fbc678cece70ed6915f218b005b8f0"
+doc_hash = "sha256:73ab6eb6b6e5c0d0d8c12b688a86cafef1080b6d36be9eb84af8bc4d3c2f8d49"
+callees = [
+    "fn:288f9cb36b686daf",
+    "fn:5581480733a7b5b9",
+    "fn:75a3017ce8f5be14",
+]
+test = true
+
+[[module."debugging_thermal_hydraulics.rs".function]]
+id = "fn:7d20f8b357b490a8"
+name = "dracs_natural_circ_thermal_hydraulics_regression_test_prototype_2"
+qual = "dracs_natural_circ_thermal_hydraulics_regression_test_prototype_2"
+lines = [
+    126,
+    665,
+]
+hash = "sha256:b4d459763df72bc7f695361e95d63802776364335dd31efe1fa3cc080cff49a5"
+doc_hash = "sha256:4d1e2dcf47102890de569448206066b424bad542678d86f8e89d1f65dd1a2fac"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:165e0de92fdc30f9",
+    "fn:26e415a2516474b8",
+    "fn:352eae89cdf05026",
+    "fn:3ab99241909cec96",
+    "fn:3f6427f87e7e0f62",
+    "fn:44b0242f8ce5613f",
+    "fn:4cad4ddd84ccee48",
+    "fn:4e7dcb14e36b36c7",
+    "fn:6472671d822a61ab",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:6fdf5b3db5ce2173",
+    "fn:71e0b3e056618526",
+    "fn:74172f53fcffc1fc",
+    "fn:75d1e2e16257fc20",
+    "fn:7ee6570130bd052b",
+    "fn:89b98b3aca1482a0",
+    "fn:91f7627d113aa8f5",
+    "fn:93844cc452449d04",
+    "fn:a16a9747f145abfe",
+    "fn:a3a04100486196dc",
+    "fn:ab7102b91b02cb50",
+    "fn:b36ec305413e9570",
+    "fn:d080d9cf81960954",
+    "fn:e1d822f0823e13bf",
+    "fn:e79236623dec9507",
+    "fn:f66c6613b2fa9c0c",
+    "fn:f8b8b8874aae4e2b",
+    "fn:ffe5f6af51a6ee46",
+]
+test = true
+
+[[module."debugging_thermal_hydraulics.rs".function]]
+id = "fn:ceddc0fa9cc7a956"
+name = "dracs_natural_circ_thermal_hydraulics_test_prototype_1"
+qual = "dracs_natural_circ_thermal_hydraulics_test_prototype_1"
+lines = [
+    667,
+    812,
+]
+hash = "sha256:63becf9036fcabcf9003c1b735bdd892377d85b37fa31891e6a07947095ab465"
+doc_hash = "sha256:81215777ba26cee37d72cae7d97996cc011d3ad21b82cf4b6eebd4aaf068ff2b"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:352eae89cdf05026",
+    "fn:5581480733a7b5b9",
+    "fn:74172f53fcffc1fc",
+    "fn:75a3017ce8f5be14",
+    "fn:89b98b3aca1482a0",
+]
+test = true
+
+[module."misc_debugging.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::misc_debugging"
+
+[[module."misc_debugging.rs".function]]
+id = "fn:3fd66ae730e0e987"
+name = "steel_properties_debugging"
+qual = "steel_properties_debugging"
+lines = [
+    1,
+    360,
+]
+hash = "sha256:7e6f3a99d0bc359fc9db5fced87f368d0c549311c3cee87ab522256963aeb01a"
+doc_hash = "sha256:4d1e2dcf47102890de569448206066b424bad542678d86f8e89d1f65dd1a2fac"
+callees = [
+    "fn:165e0de92fdc30f9",
+    "fn:26e415a2516474b8",
+    "fn:3ab99241909cec96",
+    "fn:44b0242f8ce5613f",
+    "fn:4cad4ddd84ccee48",
+    "fn:4e7dcb14e36b36c7",
+    "fn:6472671d822a61ab",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:6fdf5b3db5ce2173",
+    "fn:71e0b3e056618526",
+    "fn:75d1e2e16257fc20",
+    "fn:7ee6570130bd052b",
+    "fn:91f7627d113aa8f5",
+    "fn:a16a9747f145abfe",
+    "fn:a3a04100486196dc",
+    "fn:ab7102b91b02cb50",
+    "fn:b36ec305413e9570",
+    "fn:d080d9cf81960954",
+    "fn:e1d822f0823e13bf",
+    "fn:f66c6613b2fa9c0c",
+    "fn:f8b8b8874aae4e2b",
+    "fn:ffe5f6af51a6ee46",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests"
+
+[[module."mod.rs".function]]
+id = "fn:fad091be6287ce24"
+name = "dracs_natural_circ_thermal_hydraulics_pid_test_prototype_2"
+qual = "dracs_natural_circ_thermal_hydraulics_pid_test_prototype_2"
+lines = [
+    121,
+    820,
+]
+hash = "sha256:c08c95f66199a2e53d8769cfb42ecf1c12158d4a0bc2035e19e6b1b441fbd6b5"
+doc_hash = "sha256:c5599abfd39dc6d8ae026f323ab569e3ad05a926ab1cf06a92ba9a678e4ad96f"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:165e0de92fdc30f9",
+    "fn:26e415a2516474b8",
+    "fn:352eae89cdf05026",
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:44b0242f8ce5613f",
+    "fn:4cad4ddd84ccee48",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:6472671d822a61ab",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:6fdf5b3db5ce2173",
+    "fn:71e0b3e056618526",
+    "fn:74172f53fcffc1fc",
+    "fn:75d1e2e16257fc20",
+    "fn:7ee6570130bd052b",
+    "fn:89b98b3aca1482a0",
+    "fn:91f7627d113aa8f5",
+    "fn:93844cc452449d04",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a3a04100486196dc",
+    "fn:a466cf7d23703edb",
+    "fn:ab7102b91b02cb50",
+    "fn:b36ec305413e9570",
+    "fn:c2da8a31daabb980",
+    "fn:d080d9cf81960954",
+    "fn:e1d822f0823e13bf",
+    "fn:e79236623dec9507",
+    "fn:f66c6613b2fa9c0c",
+    "fn:f8b8b8874aae4e2b",
+    "fn:ffe5f6af51a6ee46",
+]
+test = true

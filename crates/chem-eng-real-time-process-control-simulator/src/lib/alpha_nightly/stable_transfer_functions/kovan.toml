@@ -1,0 +1,3116 @@
+schema_version = 1
+kind = "code_folder"
+crate = "chem-eng-real-time-process-control-simulator"
+dir = "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions"
+test_ids = [
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::block_state_size_does_not_grow_with_step_index",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::decaying_exponential_recurrence_matches_analytic_superposition",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::decaying_sinusoid_recurrence_matches_analytic_superposition",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::first_order_recurrence_handles_dead_time_with_a_bounded_queue",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::first_order_recurrence_is_exact_on_an_irregular_time_grid",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::first_order_recurrence_matches_analytic_superposition",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::first_order_with_zeroes_recurrence_matches_analytic_superposition",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::pid_step_cost_does_not_grow_with_step_index",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::second_order_recurrence_matches_analytic_superposition",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/transfer_fn_wrapper_and_enums/generic_second_order.rs::test_dead_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::restarting_starts_a_fresh_run_and_abandons_the_old_one",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::the_map_reset_button_restarts_the_plant_and_keeps_the_map_view",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::default_commands_hold_the_plant_bounded",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::determinism_same_config_same_trace",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::matches_the_recorded_reference_baseline",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::the_trace_carries_a_closing_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_against_liu_and_cao_table_8",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_conserves_energy_and_vents_the_published_mass",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_with_air_ingress_indicative_30_min",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::kinetics_fuel_node_tracks_the_bed_node_after_a_scram",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_at_the_published_test_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_reactor_shuts_itself_down",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_with_and_without_xenon",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::no_corner_of_the_command_envelope_crosses_or_clamps",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_rod_position_that_holds_three_megawatts",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_steady_state_bed_temperature_at_the_opening_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::reproduce_issue_22_scram_cooldown_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_core_side_energy_chain_conserves_energy",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_exchanger_holds_its_courant_margin_at_maximum_circulator_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_gh351_excursion_runs_through_2000_k_with_a_resolved_fuel_stack",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_helium_never_leaves_the_core_hotter_than_the_bed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_kernel_doppler_channel_is_ablated_on_the_lofc_transient",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_live_map_field_is_off_by_default_and_only_the_gui_builder_turns_it_on",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_passive_path_conserves_energy_through_a_full_plant_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_plant_outer_correctors_converge",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_snapshot_publishes_each_runs_own_transit_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_conserves_energy_from_fission_to_the_steam_generator",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_steps_at_the_gui_timestep",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_against_gao_shi_and_liu_cao",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_conserves_energy_and_follows_the_published_sequence",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::where_the_plant_step_spends_its_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::condenser_energy_balance_closes_onto_the_cooling_water",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::feedwater_enthalpy_is_condensate_plus_real_pump_work",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::feedwater_flow_tracks_duty_and_stays_in_range",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::manual_feedwater_holds_the_commanded_flow_and_auto_does_not",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::manual_rebuilds_the_controller",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::net_power_nets_off_the_feed_pump",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::no_duty_can_drive_a_temperature_cross_on_the_steam_side",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::raising_the_condenser_pressure_costs_turbine_work",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::saturation_temperature_matches_if97_reference",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_absorbable_duty_cap_no_longer_binds",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_auto_setpoint_moves_the_settled_steam_temperature",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_condenser_pressure_range_keeps_a_cooling_water_approach",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_feedback_only_loop_holds_setpoint",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_secondary_piping_residence_time_is_a_real_transport_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::turbine_work_never_exceeds_heat_input",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/tede_accumulator.rs::the_plant_publishes_a_deterministic_integral",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::the_plant_settles_the_shaft_a_little_under_synchronous_speed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::default_controls_do_not_change_the_plants_initial_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::submitted_controls_survive_the_round_trip",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::tick_advances_exactly_one_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::trip_reset_is_consumed_not_latched",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v1_uncalibrated/mod.rs::quick_test_uncalibrated_dracs_loop",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_extra_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_shorter",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/heat_transfer_ambient_calib.rs::hot_leg_htc_to_ambient_calibration_v1_failed",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_insulation_thickness_calibration_v1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/pipe_nusselt_number_calibration.rs::hot_leg_nusselt_calibration_failed",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/wall_correction_isolated_dracs_loop_regression.rs::parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/debugging_pid_controller.rs::dracs_natural_circ_thermal_hydraulics_pid_test_prototype_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/mod.rs::dracs_natural_circ_thermal_hydraulics_pid_test_prototype_2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::ciet_coupled_nat_circ_set_a1_for_three_branch",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_fwd_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_reverse_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::zero_flow_for_three_branch_ver_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::ciet_coupled_nat_circ_set_a1_for_three_branch",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_fwd_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_reverse_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::zero_flow_for_three_branch_ver_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_dhx_blocked",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_reverse_diode_effect",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_steady_state_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_short_test_dhx_blocked",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_short_test_reverse_diode_effect",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_steady_state_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/uw_madison_flibe_loop_components/flibe_loop_iteration_one/parasitic_heat_loss_calibration.rs::parasitic_heat_loss_calibration_dry_run_1",
+]
+
+[module."decaying_exponentials.rs"]
+path = "crate::alpha_nightly::stable_transfer_functions::decaying_exponentials"
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:7db71d584047ae14"
+name = "zeroed_for"
+qual = "SecondOrderExponentialModes::zeroed_for"
+lines = [
+    101,
+    114,
+]
+hash = "sha256:973ca18200e31867e03e456adda5430f923315f723728730ffbc60ad870cba33"
+doc_hash = "sha256:e9bab3de336451cf48adccb37a093d7b2ed415ef0a0422297b494d0c38249aa3"
+reached_by = [
+    "#0",
+    "#1",
+    "#9",
+]
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:bded7e51f30da503"
+name = "matches"
+qual = "SecondOrderExponentialModes::matches"
+lines = [
+    116,
+    126,
+]
+hash = "sha256:64ad05474b1f572c93aa49559a162518575e8f8ac239caab80e2c08f79d3b27c"
+doc_hash = "sha256:aa362327f78e3059f2b831841c641823845da340984d9913003eb494e35e1538"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:fa90f2f76b861628"
+name = "output"
+qual = "SecondOrderExponentialModes::output"
+lines = [
+    128,
+    141,
+]
+hash = "sha256:f4f64ce687a9ecc832553870748565b3adcfe794fddfdac070cf0c4e870112c4"
+doc_hash = "sha256:3b51a0a635899e99a9d89dd738e3b28ce95c3466c6ea668b7c959ed4d7cc281f"
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:3a8ce8591640021a"
+name = "advance"
+qual = "SecondOrderExponentialModes::advance"
+lines = [
+    143,
+    169,
+]
+hash = "sha256:5989a5ea4cbfa03c732300b720c6f4afd2efc371abda11b3b5351b29822dcf3a"
+doc_hash = "sha256:a28c9994f08120d81126064bce54f3ad40eff953f2a520156282ed99ef94ea8d"
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:61f5a953f910b001"
+name = "inject_overdamped"
+qual = "SecondOrderExponentialModes::inject_overdamped"
+lines = [
+    171,
+    194,
+]
+hash = "sha256:8ae8bec507e6737d21fff5f303816dd474b62591e987eee954afbb10d2a75d4f"
+doc_hash = "sha256:f5be121addb91ac6903fd7909c9d4d878ba6d5c3c88b8c7adb40f09a8a3e9e15"
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:473297da2df11d91"
+name = "inject_critically_damped"
+qual = "SecondOrderExponentialModes::inject_critically_damped"
+lines = [
+    196,
+    217,
+]
+hash = "sha256:e08ae149ec77c7613d25b3588129458730229b597938945334c6367156b6f9a2"
+doc_hash = "sha256:0c794b500a95a0f09b78378f5e4d80e830a9c226237aa1edcace8856e9fa7eec"
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:91dd799e76500f76"
+name = "new_overdamped"
+qual = "DecayingSecondOrderExponential::new_overdamped"
+lines = [
+    290,
+    339,
+]
+hash = "sha256:9f73ef69cd3f73be06629974f113e2e27071bb57f0c033d3e4e00dfb94b50ac1"
+doc_hash = "sha256:8cd9ed7a3e89d69071ee19bd0d2a70025917074e40baa0ad066503e772ee64b9"
+callees = ["fn:7db71d584047ae14"]
+reached_by = [
+    "#0",
+    "#1",
+    "#9",
+]
+physical_interface = true
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:480da13e3d6dc3ba"
+name = "new_critical"
+qual = "DecayingSecondOrderExponential::new_critical"
+lines = [
+    341,
+    407,
+]
+hash = "sha256:4526ac0c340307f41c153d255837f3915c06a57226e149b0b1d5274ba18950d6"
+doc_hash = "sha256:27c189b9b5aecaf06621ec642584095848d14873ab95dde56b3a186d0091e6fe"
+callees = ["fn:7db71d584047ae14"]
+reached_by = [
+    "#1",
+    "#9",
+]
+physical_interface = true
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:286b97e41dfb6a85"
+name = "set_user_input_and_calc_output"
+qual = "DecayingSecondOrderExponential::set_user_input_and_calc_output"
+lines = [
+    409,
+    454,
+]
+hash = "sha256:0b4fe360bedce3bbcc05e01e72b1db7f83a19539a0cc7114cbff155631207663"
+doc_hash = "sha256:27bbbd588f16e82b1413f1d3f16ed7320b06ff3f94d4df50c434e8338f8d4ee3"
+callees = [
+    "fn:6fc3ac12acf8cdcc",
+    "fn:7db71d584047ae14",
+    "fn:a3e0fccdc9ecce5f",
+    "fn:b65316c80f098596",
+    "fn:bded7e51f30da503",
+    "fn:fa90f2f76b861628",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:a3e0fccdc9ecce5f"
+name = "advance_to"
+qual = "DecayingSecondOrderExponential::advance_to"
+lines = [
+    456,
+    472,
+]
+hash = "sha256:d3c3ea398b0d0fa6b7f8e8c871deb0e0faac040e26ec9340ff04f63d1b38195e"
+doc_hash = "sha256:2b28c7451ffc5f97c54ded8d9125196d3167a9a7c3a9cf3af21863eeb3248db3"
+callees = ["fn:3a8ce8591640021a"]
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:b65316c80f098596"
+name = "activate"
+qual = "DecayingSecondOrderExponential::activate"
+lines = [
+    474,
+    500,
+]
+hash = "sha256:cc80c1f43dba423dba044d869b64e326f22a43441a35ed06fc1d2918afec8a69"
+doc_hash = "sha256:74023011c29ec467f3884253d845848209f42d74b28083432916289fc1410739"
+callees = [
+    "fn:473297da2df11d91",
+    "fn:61f5a953f910b001",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:6fc3ac12acf8cdcc"
+name = "activate_due_inputs"
+qual = "DecayingSecondOrderExponential::activate_due_inputs"
+lines = [
+    502,
+    511,
+]
+hash = "sha256:b6dc2bc1292eadf4de2fbeee5437e2d8745969ca83a932414d23b64625b20d33"
+doc_hash = "sha256:61b4275df6acaa5d1d7ed421ae2471b28de06182872b5eb1b1a8555bd45e12c8"
+callees = ["fn:b65316c80f098596"]
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:9c2b783d48214918"
+name = "state_size"
+qual = "DecayingSecondOrderExponential::state_size"
+lines = [
+    513,
+    518,
+]
+hash = "sha256:fd2ef436337b6b7cfe215f61c9b1b0a283a24fc14f524f90a81f6a944553f2a2"
+doc_hash = "sha256:ec6156f34a185f15e0224cfbbf49fc206aaa003202109dc0b1cdc28264e1b4a4"
+reached_by = ["#0"]
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:6105a853fac138d9"
+name = "default"
+qual = "DecaySecondOrderExponentialResponse::default"
+lines = [
+    553,
+    568,
+]
+hash = "sha256:0dc21ef14729799eb8fdb3febd65a681a9f35321902b9f8d71e381c575b33b51"
+doc_hash = "sha256:ffba1fa2fa1c94c96aab479ea24b61349b6243f2b4f665bb24172f842f028f48"
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:6e6b5b9d31a2e052"
+name = "new_overdamped"
+qual = "DecaySecondOrderExponentialResponse::new_overdamped"
+lines = [
+    573,
+    611,
+]
+hash = "sha256:3e77a2187e0eb592f1b48ceba59601195e0952a2613944f7aec4de01232c0349"
+doc_hash = "sha256:9a5016cb62c9868f9414a01dc5736cffa940f65e723b187e3756582e29399b9d"
+reached_by = ["#1"]
+physical_interface = true
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:c759dabc8dd0b3e4"
+name = "new_critical"
+qual = "DecaySecondOrderExponentialResponse::new_critical"
+lines = [
+    613,
+    661,
+]
+hash = "sha256:d82aae504653ca540b9d8328b9e3eb733ca205e1b5e4352fd757a1e5c3d69841"
+doc_hash = "sha256:4ddf3788e726395d77403093c2fef9e00cb321751ea617bebfefe1498f8f37d9"
+reached_by = ["#1"]
+physical_interface = true
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:2e13b4cd43003f8b"
+name = "is_steady_state"
+qual = "DecaySecondOrderExponentialResponse::is_steady_state"
+lines = [
+    663,
+    725,
+]
+hash = "sha256:d0a8ebb0117b15d5ec71e9ac5b67fc4c80b575a11e4047202cf0759025f74336"
+doc_hash = "sha256:d4dbab81b650d75dd6658030ee7000361788a4363c6c1bb006a1a2e58e05b92d"
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:7d7163d1e69f3c8e"
+name = "calculate_response"
+qual = "DecaySecondOrderExponentialResponse::calculate_response"
+lines = [
+    727,
+    777,
+]
+hash = "sha256:2fbe6a85281f7ae92f34a5442e9faf0b21ade5b2d443e063f52b2e29d4dcc90a"
+doc_hash = "sha256:d8226759afa741f4839b71c726f6915e83eb3816e92b238a20226c583b5bcc43"
+reached_by = ["#1"]
+physical_interface = true
+
+[[module."decaying_exponentials.rs".function]]
+id = "fn:4964ea657402a2d6"
+name = "steady_state_value"
+qual = "DecaySecondOrderExponentialResponse::steady_state_value"
+lines = [
+    779,
+    785,
+]
+hash = "sha256:05cb20fd37505d291a869f17084c0b98f418a604bc28f1c286ee45b491668a45"
+doc_hash = "sha256:3e70d5931fbeffe27814e20cd8a36e44a7f762baafed37591cad32db5efd0930"
+physical_interface = true
+
+[module."decaying_sinusoid.rs"]
+path = "crate::alpha_nightly::stable_transfer_functions::decaying_sinusoid"
+
+[[module."decaying_sinusoid.rs".function]]
+id = "fn:260617f8897fa1f5"
+name = "default"
+qual = "DecayingSinusoid::default"
+lines = [
+    142,
+    161,
+]
+hash = "sha256:bff492524eb855cbe1ee8acc40d6d83cd3a4cdba7c220774013f8ca782725475"
+doc_hash = "sha256:546e28511705311aec27d900a834de6971477c505fbcc42fd33c67978b070410"
+
+[[module."decaying_sinusoid.rs".function]]
+id = "fn:b794de09037e61e5"
+name = "new_sine"
+qual = "DecayingSinusoid::new_sine"
+lines = [
+    165,
+    218,
+]
+hash = "sha256:1bdffcfae2a8f643a54024faa0bb0965f46ae6e639a6030cc210ac80e5c77a22"
+doc_hash = "sha256:0ccc812b5d538a04c48a9f3217cd3845bc2d33195627f795c36a9ebf0bdaed64"
+reached_by = [
+    "#0",
+    "#2",
+    "#9",
+]
+physical_interface = true
+
+[[module."decaying_sinusoid.rs".function]]
+id = "fn:04887012eb0c7a58"
+name = "new_cosine"
+qual = "DecayingSinusoid::new_cosine"
+lines = [
+    220,
+    256,
+]
+hash = "sha256:f5fdea267ca74cdb09f500225a1100529304f191e22ac851034dad7c7c3b9474"
+doc_hash = "sha256:e0f3378ca219f687cb0b1e70b9d563151d67b3bfd75634530462dd2ac6b34bcb"
+reached_by = [
+    "#2",
+    "#9",
+]
+physical_interface = true
+
+[[module."decaying_sinusoid.rs".function]]
+id = "fn:b69a4232d05d1e2d"
+name = "set_user_input_and_calc_output"
+qual = "DecayingSinusoid::set_user_input_and_calc_output"
+lines = [
+    258,
+    303,
+]
+hash = "sha256:e39558848d973182b9690ee0f950807b569f8be3c3fc73dfe459bb011afba636"
+doc_hash = "sha256:27bbbd588f16e82b1413f1d3f16ed7320b06ff3f94d4df50c434e8338f8d4ee3"
+callees = [
+    "fn:6473eb41d12ca67c",
+    "fn:bd7fb25d7cf474dd",
+    "fn:be0e972e5430395e",
+]
+reached_by = [
+    "#0",
+    "#2",
+]
+physical_interface = true
+
+[[module."decaying_sinusoid.rs".function]]
+id = "fn:be0e972e5430395e"
+name = "advance_to"
+qual = "DecayingSinusoid::advance_to"
+lines = [
+    305,
+    328,
+]
+hash = "sha256:ba7f69688f379d5a9e7cbd909abb0fb02b125fed0a051f3d1a60cf64027996a0"
+doc_hash = "sha256:eb64d492b94698054f83de7a2278934b4abdf4cbef336e0e5a875383cb2b3a0f"
+reached_by = [
+    "#0",
+    "#2",
+]
+physical_interface = true
+
+[[module."decaying_sinusoid.rs".function]]
+id = "fn:6473eb41d12ca67c"
+name = "activate"
+qual = "DecayingSinusoid::activate"
+lines = [
+    330,
+    341,
+]
+hash = "sha256:3bcca0e464480f92d2eee702af3178431725146285e027e6ab4fb1f26e4640ff"
+doc_hash = "sha256:74023011c29ec467f3884253d845848209f42d74b28083432916289fc1410739"
+reached_by = [
+    "#0",
+    "#2",
+]
+physical_interface = true
+
+[[module."decaying_sinusoid.rs".function]]
+id = "fn:bd7fb25d7cf474dd"
+name = "activate_due_inputs"
+qual = "DecayingSinusoid::activate_due_inputs"
+lines = [
+    343,
+    352,
+]
+hash = "sha256:b6dc2bc1292eadf4de2fbeee5437e2d8745969ca83a932414d23b64625b20d33"
+doc_hash = "sha256:61b4275df6acaa5d1d7ed421ae2471b28de06182872b5eb1b1a8555bd45e12c8"
+callees = ["fn:6473eb41d12ca67c"]
+reached_by = [
+    "#0",
+    "#2",
+]
+physical_interface = true
+
+[[module."decaying_sinusoid.rs".function]]
+id = "fn:7f409ea8c5afa2e9"
+name = "state_size"
+qual = "DecayingSinusoid::state_size"
+lines = [
+    354,
+    359,
+]
+hash = "sha256:0e530506e2889ee0363437ca2a5738c1bc1cb95249501300f20caaa81edc0519"
+doc_hash = "sha256:6996babe6461b9772f2103bcc7551e0d843ebd2e2034ad78b4224059b42fb2f1"
+reached_by = ["#0"]
+
+[[module."decaying_sinusoid.rs".function]]
+id = "fn:eb61899870e4fe28"
+name = "default"
+qual = "DecaySinusoidResponse::default"
+lines = [
+    385,
+    399,
+]
+hash = "sha256:76b3aee7ed7b852bddff5e9201417c6eec382e8fc31046c37915beb36e916470"
+doc_hash = "sha256:ffba1fa2fa1c94c96aab479ea24b61349b6243f2b4f665bb24172f842f028f48"
+
+[[module."decaying_sinusoid.rs".function]]
+id = "fn:7337f51837d12009"
+name = "new"
+qual = "DecaySinusoidResponse::new"
+lines = [
+    404,
+    438,
+]
+hash = "sha256:69c822aad36fd3100be25ebaacb1f53e134a616c7c5c54d92c133b6f1bf0941e"
+doc_hash = "sha256:8358cb25f2b28a4a0a012080cc8727294cf775213988afea0256c209e6418fbf"
+reached_by = ["#2"]
+physical_interface = true
+
+[[module."decaying_sinusoid.rs".function]]
+id = "fn:8f3e632796aa0cd1"
+name = "is_steady_state"
+qual = "DecaySinusoidResponse::is_steady_state"
+lines = [
+    440,
+    458,
+]
+hash = "sha256:57fd883c701da922cee570559aa9decce0be9429c530c80d8bde332feb324ce6"
+doc_hash = "sha256:d4dbab81b650d75dd6658030ee7000361788a4363c6c1bb006a1a2e58e05b92d"
+
+[[module."decaying_sinusoid.rs".function]]
+id = "fn:3e6abac339025ced"
+name = "calculate_response"
+qual = "DecaySinusoidResponse::calculate_response"
+lines = [
+    460,
+    493,
+]
+hash = "sha256:2c7b7ef8e09d308894c6f75ff168ee2bb4c85522300b553cbb76967c8db72b94"
+doc_hash = "sha256:09a48fab79354c1aa5c311aeb249791a5df66d22080e1e9c6cf3b9555c7e3b46"
+reached_by = ["#2"]
+physical_interface = true
+
+[[module."decaying_sinusoid.rs".function]]
+id = "fn:301298b71cb5a329"
+name = "steady_state_value"
+qual = "DecaySinusoidResponse::steady_state_value"
+lines = [
+    495,
+    500,
+]
+hash = "sha256:05cb20fd37505d291a869f17084c0b98f418a604bc28f1c286ee45b491668a45"
+doc_hash = "sha256:8e5e0d975db106cfb2ed4a696aceab8a84ffeec51a7b0a6b466359ecbdca3a6c"
+physical_interface = true
+
+[module."first_order_transfer_fn.rs"]
+path = "crate::alpha_nightly::stable_transfer_functions::first_order_transfer_fn"
+
+[[module."first_order_transfer_fn.rs".function]]
+id = "fn:80880b95f9704976"
+name = "default"
+qual = "FirstOrderStableTransferFnNoZeroes::default"
+lines = [
+    187,
+    204,
+]
+hash = "sha256:54ca489056c159819e3d83004ec300b28aeb655dfc6b4d95ccc050d26ea64bca"
+doc_hash = "sha256:2e5f0f3e39ec44f11ecd049c53f4aa97ad81c99b6174b591c0b31fe987974a02"
+
+[[module."first_order_transfer_fn.rs".function]]
+id = "fn:79d34a7229764580"
+name = "new"
+qual = "FirstOrderStableTransferFnNoZeroes::new"
+lines = [
+    208,
+    247,
+]
+hash = "sha256:b08c7e8d4a5a18d11699c5257ff06559a9149f88bcd1b85c7c386c02cf82ff50"
+doc_hash = "sha256:88754d871b8fc7fae67938490980b5f99030832259b1b75d22442da319fe0f79"
+reached_by = [
+    "#0",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+]
+physical_interface = true
+
+[[module."first_order_transfer_fn.rs".function]]
+id = "fn:7c186199a32abac6"
+name = "new_filter"
+qual = "FirstOrderStableTransferFnNoZeroes::new_filter"
+lines = [
+    249,
+    284,
+]
+hash = "sha256:7260ce7210ae02e570662a794c2ccdadb032e3007cc982ccdbbe2ce5a73c9a53"
+doc_hash = "sha256:0af2c0cca0bec53b985d01a367bcc87c62d0ba27544500389a1cc3f0e4886e42"
+physical_interface = true
+
+[[module."first_order_transfer_fn.rs".function]]
+id = "fn:ecc2aa132a730d2c"
+name = "set_user_input_and_calc_output"
+qual = "FirstOrderStableTransferFnNoZeroes::set_user_input_and_calc_output"
+lines = [
+    286,
+    339,
+]
+hash = "sha256:b576be1a43992bc6487c65411eaf36ad02cd70cabadef762e215c13dcbbf0253"
+doc_hash = "sha256:094d7c764c6db08599d2cf806bcf1b26cac22bafd5522aaa85034ca06576743d"
+callees = [
+    "fn:3b3a2f50d18cc48e",
+    "fn:4219fa18239be822",
+    "fn:879481a5c36a86e0",
+]
+reached_by = [
+    "#0",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#10",
+    "#11",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#50",
+    "#51",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#60",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+]
+physical_interface = true
+
+[[module."first_order_transfer_fn.rs".function]]
+id = "fn:879481a5c36a86e0"
+name = "advance_to"
+qual = "FirstOrderStableTransferFnNoZeroes::advance_to"
+lines = [
+    341,
+    361,
+]
+hash = "sha256:17c8f33ae414d257d99c177135c612b8e0ef9bffae77a272d2e15757b339975c"
+doc_hash = "sha256:7cab0e91f7245e53e32c5add945a434207a18f2829805375391a2a93f1fe4a0b"
+reached_by = [
+    "#0",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#10",
+    "#11",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#50",
+    "#51",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#60",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+]
+physical_interface = true
+
+[[module."first_order_transfer_fn.rs".function]]
+id = "fn:4219fa18239be822"
+name = "activate"
+qual = "FirstOrderStableTransferFnNoZeroes::activate"
+lines = [
+    363,
+    378,
+]
+hash = "sha256:35aaa0cfe20de0b0b344ff99d19f55c4fe2e9e3fc4e3dd7224b649e46e0f4ec2"
+doc_hash = "sha256:99a0e50ae7ed0d9af492f247da72659ab5777e378e7f2f77be9c0e579a3e9562"
+reached_by = [
+    "#0",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#10",
+    "#11",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#50",
+    "#51",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#60",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+]
+physical_interface = true
+
+[[module."first_order_transfer_fn.rs".function]]
+id = "fn:3b3a2f50d18cc48e"
+name = "activate_due_inputs"
+qual = "FirstOrderStableTransferFnNoZeroes::activate_due_inputs"
+lines = [
+    380,
+    391,
+]
+hash = "sha256:b6dc2bc1292eadf4de2fbeee5437e2d8745969ca83a932414d23b64625b20d33"
+doc_hash = "sha256:e03d08459d53c25f825a152e71d464f1012201ded8d1c9febc4ee6fba7c1ea69"
+callees = ["fn:4219fa18239be822"]
+reached_by = [
+    "#0",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#10",
+    "#11",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#50",
+    "#51",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#60",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+]
+physical_interface = true
+
+[[module."first_order_transfer_fn.rs".function]]
+id = "fn:ed541cd4206432e3"
+name = "state_size"
+qual = "FirstOrderStableTransferFnNoZeroes::state_size"
+lines = [
+    393,
+    402,
+]
+hash = "sha256:0e530506e2889ee0363437ca2a5738c1bc1cb95249501300f20caaa81edc0519"
+doc_hash = "sha256:d5fd056132b535e5267fc1948cbccc8c99339784bc01866e44afe1ef9c891dfc"
+reached_by = ["#0"]
+
+[[module."first_order_transfer_fn.rs".function]]
+id = "fn:f1781d90311d53fb"
+name = "default"
+qual = "FirstOrderResponse::default"
+lines = [
+    437,
+    445,
+]
+hash = "sha256:bbaa74709a99be6b1cb625e2bd695f7dbb7062183ef39c0e3a6e2c5b08cee898"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."first_order_transfer_fn.rs".function]]
+id = "fn:28d053e03a318d45"
+name = "new"
+qual = "FirstOrderResponse::new"
+lines = [
+    450,
+    476,
+]
+hash = "sha256:f71426ee8f8e24b9402667be8c80627ea3117f5fc97402e9405d9a043b7eed94"
+doc_hash = "sha256:929c19cbd8b2787c9fc7a97a751c647ec1b46f5a6c28ad9b39937269bf783e05"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+physical_interface = true
+
+[[module."first_order_transfer_fn.rs".function]]
+id = "fn:4114be69784f90ec"
+name = "is_steady_state"
+qual = "FirstOrderResponse::is_steady_state"
+lines = [
+    478,
+    493,
+]
+hash = "sha256:8d048da538088bf63b593954cd9b8a823c6e3d06bbd8e763f62dbf8df1c492f8"
+doc_hash = "sha256:66eea4dc2d2775d26137b4850d649186f1ef683c48a54ae1f51fe2fa1f143e38"
+
+[[module."first_order_transfer_fn.rs".function]]
+id = "fn:1f04413443a04e2c"
+name = "calculate_response"
+qual = "FirstOrderResponse::calculate_response"
+lines = [
+    495,
+    521,
+]
+hash = "sha256:51524f5b72685c126c3c7c7d590f53d0c22b4f26ccd18586dbb8e8561615d446"
+doc_hash = "sha256:610eb14ffebe30d78c3f13437e97d13a3fb2c022160f943dbe7679ceec13a7f3"
+callees = ["fn:5074bbf6be2334ff"]
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+physical_interface = true
+
+[[module."first_order_transfer_fn.rs".function]]
+id = "fn:5074bbf6be2334ff"
+name = "steady_state_value"
+qual = "FirstOrderResponse::steady_state_value"
+lines = [
+    523,
+    527,
+]
+hash = "sha256:c84ed1df3245e79010679b767e144b4ce0a27a65b9d7f8e397eef23bb343f338"
+doc_hash = "sha256:75e54444d4621ca504febf042af2919c191ba7b893915d6ef49effee7b162819"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+physical_interface = true
+
+[module."first_order_transfer_fn_with_zeroes.rs"]
+path = "crate::alpha_nightly::stable_transfer_functions::first_order_transfer_fn_with_zeroes"
+
+[[module."first_order_transfer_fn_with_zeroes.rs".function]]
+id = "fn:fb7d0fe4ccb12297"
+name = "default"
+qual = "FirstOrderStableTransferFnForZeroes::default"
+lines = [
+    99,
+    116,
+]
+hash = "sha256:1143203261a2b337d969df716e62d465c910ca185ce43d9bf586f3f78741d05d"
+doc_hash = "sha256:374fd4c138bcfd8aaac1577569b91fe45a618061bc5c5bd21632077adbcc7b15"
+
+[[module."first_order_transfer_fn_with_zeroes.rs".function]]
+id = "fn:a0a19fbe353a68c2"
+name = "new"
+qual = "FirstOrderStableTransferFnForZeroes::new"
+lines = [
+    120,
+    158,
+]
+hash = "sha256:acc9c536aeff854cf36fe0aec7c7ecf666df6b4a0e21b1bee011173045c31fc8"
+doc_hash = "sha256:a4e89185baf6707a0be18234baeef3e358a355fd4239c2769d1362c473f08961"
+reached_by = [
+    "#0",
+    "#6",
+    "#7",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+]
+physical_interface = true
+
+[[module."first_order_transfer_fn_with_zeroes.rs".function]]
+id = "fn:afe0a24e6bdb03fb"
+name = "set_user_input_and_calc_output"
+qual = "FirstOrderStableTransferFnForZeroes::set_user_input_and_calc_output"
+lines = [
+    160,
+    204,
+]
+hash = "sha256:3c8ee0ebbfe7ffed71028155e82a1db19b2419d18737805cd5c1bdca37f4818e"
+doc_hash = "sha256:ebeda54c3044075f0c15f0d765515e124509a6cfb7ff41cde7cda7b563a838b8"
+callees = [
+    "fn:58238686f3d28962",
+    "fn:b9c37f3760aaa3c9",
+    "fn:ff2b4dd25ad07dab",
+]
+reached_by = [
+    "#0",
+    "#6",
+    "#7",
+    "#10",
+    "#11",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#50",
+    "#51",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#60",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+]
+physical_interface = true
+
+[[module."first_order_transfer_fn_with_zeroes.rs".function]]
+id = "fn:ff2b4dd25ad07dab"
+name = "advance_to"
+qual = "FirstOrderStableTransferFnForZeroes::advance_to"
+lines = [
+    206,
+    222,
+]
+hash = "sha256:17c8f33ae414d257d99c177135c612b8e0ef9bffae77a272d2e15757b339975c"
+doc_hash = "sha256:ac7c73ca90eda241bb14e173487d827de8349c10601334a092920f014ab0f67b"
+reached_by = [
+    "#0",
+    "#6",
+    "#7",
+    "#10",
+    "#11",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#50",
+    "#51",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#60",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+]
+physical_interface = true
+
+[[module."first_order_transfer_fn_with_zeroes.rs".function]]
+id = "fn:58238686f3d28962"
+name = "activate"
+qual = "FirstOrderStableTransferFnForZeroes::activate"
+lines = [
+    224,
+    230,
+]
+hash = "sha256:c48ba0e9fbf742c4b7eb09830e4210e8d27c452d9bff5b6c250296f371a05ac8"
+doc_hash = "sha256:74023011c29ec467f3884253d845848209f42d74b28083432916289fc1410739"
+reached_by = [
+    "#0",
+    "#6",
+    "#7",
+    "#10",
+    "#11",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#50",
+    "#51",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#60",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+]
+physical_interface = true
+
+[[module."first_order_transfer_fn_with_zeroes.rs".function]]
+id = "fn:b9c37f3760aaa3c9"
+name = "activate_due_inputs"
+qual = "FirstOrderStableTransferFnForZeroes::activate_due_inputs"
+lines = [
+    232,
+    241,
+]
+hash = "sha256:b6dc2bc1292eadf4de2fbeee5437e2d8745969ca83a932414d23b64625b20d33"
+doc_hash = "sha256:61b4275df6acaa5d1d7ed421ae2471b28de06182872b5eb1b1a8555bd45e12c8"
+callees = ["fn:58238686f3d28962"]
+reached_by = [
+    "#0",
+    "#6",
+    "#7",
+    "#10",
+    "#11",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#50",
+    "#51",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#60",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+]
+physical_interface = true
+
+[[module."first_order_transfer_fn_with_zeroes.rs".function]]
+id = "fn:5e345b805a4e20bf"
+name = "state_size"
+qual = "FirstOrderStableTransferFnForZeroes::state_size"
+lines = [
+    243,
+    249,
+]
+hash = "sha256:cfb2b3d599e98f0c1691cb5a809d337f30c1020ef5b26d92ef8cedd558316f7e"
+doc_hash = "sha256:5fe2d46d55e1ae5aba1cf038480e52ee6d0d9e747e3b0a13a35236636c71e6fc"
+reached_by = ["#0"]
+
+[[module."first_order_transfer_fn_with_zeroes.rs".function]]
+id = "fn:00fbb4e735a3e958"
+name = "reference_response"
+qual = "FirstOrderStableTransferFnForZeroes::reference_response"
+lines = [
+    251,
+    290,
+]
+hash = "sha256:85a962dc8209c3e1d73004710e977b57815077efc7a71816dba48b48cc140142"
+doc_hash = "sha256:ab7f577233f6b4a965baeb53b23409cb51fe12fe39c174b66d9830b7d0e1af4d"
+callees = [
+    "fn:1f04413443a04e2c",
+    "fn:28d053e03a318d45",
+    "fn:4c8e5752e77f8c32",
+    "fn:fa92f2fc59ef7c47",
+]
+reached_by = ["#6"]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::alpha_nightly::stable_transfer_functions"
+
+[module."recurrence_tests.rs"]
+path = "crate::alpha_nightly::stable_transfer_functions::recurrence_tests"
+
+[[module."recurrence_tests.rs".function]]
+id = "fn:f3ccdc69708b80d5"
+name = "drive_signal"
+qual = "drive_signal"
+lines = [
+    58,
+    63,
+]
+hash = "sha256:1948c014ecc6049af5fd52d01e1ba491def8d0f6174b87815ffe90faa0bda35f"
+doc_hash = "sha256:e3614091468ec64a51daa469c783371ad10e2a7e603c839052936a8ef0f55460"
+test = true
+physical_interface = true
+
+[[module."recurrence_tests.rs".function]]
+id = "fn:cec873c9f98f6df8"
+name = "abs_ratio"
+qual = "abs_ratio"
+lines = [
+    65,
+    68,
+]
+hash = "sha256:47582ffb258eab30a3534a4ce84d6c1bd0a05423022d19805d0272697ee25255"
+doc_hash = "sha256:39f6c2e4021131ecf17f8434816c86c929b425533ddc34810cfa57a34f0e93ac"
+test = true
+physical_interface = true
+
+[[module."recurrence_tests.rs".function]]
+id = "fn:c710f3883391a75b"
+name = "first_order_recurrence_matches_analytic_superposition"
+qual = "first_order_recurrence_matches_analytic_superposition"
+lines = [
+    70,
+    144,
+]
+hash = "sha256:5efe6f6c4600b6065157a5c18cac689119e312be887dc8a06ce99372ac64ae4e"
+doc_hash = "sha256:e1a3a32ab903f9cf0b9cacb6b06251d0d46c6bae4b461d17f79ceb833e4d6c18"
+callees = [
+    "fn:1f04413443a04e2c",
+    "fn:28d053e03a318d45",
+    "fn:79d34a7229764580",
+    "fn:cec873c9f98f6df8",
+    "fn:ecc2aa132a730d2c",
+    "fn:f3ccdc69708b80d5",
+]
+test = true
+
+[[module."recurrence_tests.rs".function]]
+id = "fn:891ea3d93f703fb7"
+name = "first_order_with_zeroes_recurrence_matches_analytic_superposition"
+qual = "first_order_with_zeroes_recurrence_matches_analytic_superposition"
+lines = [
+    146,
+    205,
+]
+hash = "sha256:55a9a52497cfeecc3b2f121bfafb7dc919ad72f54858f23e0c7071c148da2f8b"
+doc_hash = "sha256:c1e52cbef81da62ebc6cfb2cbc7997ef880794a3c12f7ad3b61f7bfd0c6cee76"
+callees = [
+    "fn:00fbb4e735a3e958",
+    "fn:a0a19fbe353a68c2",
+    "fn:afe0a24e6bdb03fb",
+    "fn:cec873c9f98f6df8",
+    "fn:f3ccdc69708b80d5",
+]
+test = true
+
+[[module."recurrence_tests.rs".function]]
+id = "fn:ab93b2a0756beca6"
+name = "second_order_recurrence_matches_analytic_superposition"
+qual = "second_order_recurrence_matches_analytic_superposition"
+lines = [
+    207,
+    323,
+]
+hash = "sha256:749d2110488ef5b24b736441e26aa470ec4421982d985177e893513565db2653"
+doc_hash = "sha256:26d2993fea4aeadba885d5094c327d74dd08b316d90b77679326f242b3d0d860"
+callees = [
+    "fn:472e44ed99eed4d5",
+    "fn:77b924b088e03020",
+    "fn:c1e16934ceddc1c8",
+    "fn:cec873c9f98f6df8",
+    "fn:f3ccdc69708b80d5",
+    "fn:f88958ce67c331cb",
+]
+test = true
+
+[[module."recurrence_tests.rs".function]]
+id = "fn:abba32fbbc56a510"
+name = "decaying_sinusoid_recurrence_matches_analytic_superposition"
+qual = "decaying_sinusoid_recurrence_matches_analytic_superposition"
+lines = [
+    325,
+    414,
+]
+hash = "sha256:f8f1eca6d9b826aef53cb5f2e89df7abadeb3213ec9c573ffa0a49e2bd937221"
+doc_hash = "sha256:65d8f8ab06800519299f1e0abb0a3d6a286ed411c51fbdd9d1facafdba7cd951"
+callees = [
+    "fn:04887012eb0c7a58",
+    "fn:3e6abac339025ced",
+    "fn:7337f51837d12009",
+    "fn:b69a4232d05d1e2d",
+    "fn:b794de09037e61e5",
+    "fn:cec873c9f98f6df8",
+    "fn:f3ccdc69708b80d5",
+]
+test = true
+
+[[module."recurrence_tests.rs".function]]
+id = "fn:6cdaab6f774d19dc"
+name = "decaying_exponential_recurrence_matches_analytic_superposition"
+qual = "decaying_exponential_recurrence_matches_analytic_superposition"
+lines = [
+    416,
+    560,
+]
+hash = "sha256:1ea893baf5bc6c95b2d998ff65949341b227aa9b1a6182b01788c275988981f4"
+doc_hash = "sha256:d2d6d6255e23e21378c8944c1379e4f3a08ad3c6b9bf03afd6fa99ba3d104f3d"
+callees = [
+    "fn:286b97e41dfb6a85",
+    "fn:480da13e3d6dc3ba",
+    "fn:6e6b5b9d31a2e052",
+    "fn:7d7163d1e69f3c8e",
+    "fn:91dd799e76500f76",
+    "fn:c759dabc8dd0b3e4",
+    "fn:cec873c9f98f6df8",
+    "fn:f3ccdc69708b80d5",
+]
+test = true
+
+[[module."recurrence_tests.rs".function]]
+id = "fn:ee6529ab462345a7"
+name = "first_order_recurrence_is_exact_on_an_irregular_time_grid"
+qual = "first_order_recurrence_is_exact_on_an_irregular_time_grid"
+lines = [
+    562,
+    638,
+]
+hash = "sha256:d9784de09402649a54552bd04f7ba0dfef6adab1305659825d5d29f0767a3abe"
+doc_hash = "sha256:3483571fd3018996f3f75539a7373a3d8609e88db0b3446e14b2ecb550701746"
+callees = [
+    "fn:1f04413443a04e2c",
+    "fn:28d053e03a318d45",
+    "fn:79d34a7229764580",
+    "fn:cec873c9f98f6df8",
+    "fn:ecc2aa132a730d2c",
+    "fn:f3ccdc69708b80d5",
+]
+test = true
+
+[[module."recurrence_tests.rs".function]]
+id = "fn:28eab4de2e62d90b"
+name = "first_order_recurrence_handles_dead_time_with_a_bounded_queue"
+qual = "first_order_recurrence_handles_dead_time_with_a_bounded_queue"
+lines = [
+    640,
+    728,
+]
+hash = "sha256:23179c69c2b68d77223e4ab441d435f358bd1c734beaca7eb83ed8ab33bcddbc"
+doc_hash = "sha256:100afd2f77b0c68da15167e6d532626da754738f49c0e7c76b0159653578b87c"
+callees = [
+    "fn:1f04413443a04e2c",
+    "fn:28d053e03a318d45",
+    "fn:79d34a7229764580",
+    "fn:cec873c9f98f6df8",
+    "fn:ecc2aa132a730d2c",
+    "fn:f3ccdc69708b80d5",
+]
+test = true
+
+[[module."recurrence_tests.rs".function]]
+id = "fn:d4ba03fa5c91e745"
+name = "block_state_size_does_not_grow_with_step_index"
+qual = "block_state_size_does_not_grow_with_step_index"
+lines = [
+    730,
+    859,
+]
+hash = "sha256:89afde4f1b23f077fb616e83eaedcbfd5f84eadc6d7110b0462d97f9b8392089"
+doc_hash = "sha256:2da67ea7a334a99ca59feca8002e9171c5322f03f8c1ba89f94347c7f00b1afc"
+callees = [
+    "fn:260be91da8e1377c",
+    "fn:286b97e41dfb6a85",
+    "fn:5e345b805a4e20bf",
+    "fn:79d34a7229764580",
+    "fn:7f409ea8c5afa2e9",
+    "fn:91dd799e76500f76",
+    "fn:9c2b783d48214918",
+    "fn:a0a19fbe353a68c2",
+    "fn:afe0a24e6bdb03fb",
+    "fn:b69a4232d05d1e2d",
+    "fn:b794de09037e61e5",
+    "fn:c1e16934ceddc1c8",
+    "fn:ecc2aa132a730d2c",
+    "fn:ed541cd4206432e3",
+    "fn:f3ccdc69708b80d5",
+    "fn:f88958ce67c331cb",
+]
+test = true
+
+[[module."recurrence_tests.rs".function]]
+id = "fn:8615fab23bc0f34c"
+name = "pid_step_cost_does_not_grow_with_step_index"
+qual = "pid_step_cost_does_not_grow_with_step_index"
+lines = [
+    861,
+    1021,
+]
+hash = "sha256:efcb4f21a6c36f1503218fb42d2d9c4da130dbcf934a66abe951034bff89b68d"
+doc_hash = "sha256:8f0d84c232133f7d379ef1e29cc4cd480ea8311461bdbecc1448b193f70cdc46"
+callees = [
+    "fn:3e41f0f4036b1c69",
+    "fn:679eea7225e5e653",
+    "fn:a466cf7d23703edb",
+    "fn:f3ccdc69708b80d5",
+]
+test = true
+
+[module."second_order_transfer_fn.rs"]
+path = "crate::alpha_nightly::stable_transfer_functions::second_order_transfer_fn"
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:dd0526ffd95208d8"
+name = "zeroed_for"
+qual = "SecondOrderDecayingModes::zeroed_for"
+lines = [
+    121,
+    141,
+]
+hash = "sha256:e8257bf5d2bff8ed5b1e746fae30107c3a25cd5c2b6f705571e45518c1c83695"
+doc_hash = "sha256:330937e719a6f141741adfa88b3083592a76b788e49cef08c782e7a84288cc09"
+reached_by = [
+    "#0",
+    "#8",
+    "#9",
+]
+physical_interface = true
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:8ea7bbcc747f3950"
+name = "matches_regime"
+qual = "SecondOrderDecayingModes::matches_regime"
+lines = [
+    143,
+    152,
+]
+hash = "sha256:3f604d002eb709fefecdbd4511f796de25373e34e4bb5fc0ed0bd8a9a706e1d9"
+doc_hash = "sha256:a3bc6af0837a38f9f93a83a45f81eb0ec450ee10377b4a0a5c664881d627ccf2"
+reached_by = [
+    "#0",
+    "#8",
+]
+physical_interface = true
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:705bedfe870039f6"
+name = "transient"
+qual = "SecondOrderDecayingModes::transient"
+lines = [
+    154,
+    175,
+]
+hash = "sha256:0088742b8f720be51d7bcffdcc32ff5c7287b11044c84b8e69721cd2d7acdcd1"
+doc_hash = "sha256:c35426f9772a340ef3b02cc227e4d08dfc4ad07e88a9dd00cada00b853a63cc6"
+reached_by = [
+    "#0",
+    "#8",
+]
+physical_interface = true
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:1f336e678807b7eb"
+name = "advance"
+qual = "SecondOrderDecayingModes::advance"
+lines = [
+    177,
+    226,
+]
+hash = "sha256:7626f2f5622833fb608b005d62b9169597f1a71fad77777da66c7dab264d4c9d"
+doc_hash = "sha256:72dd7b30606287ba18db30aeae076b2fca5cbc5798a6356d48bfeab0d4c4ea99"
+reached_by = [
+    "#0",
+    "#8",
+]
+physical_interface = true
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:b617f97e8efc28c5"
+name = "inject"
+qual = "SecondOrderDecayingModes::inject"
+lines = [
+    228,
+    276,
+]
+hash = "sha256:854a0385d93f4319ce623100e40e95cad5fa9ad462f24f3eb1c4891734ed41c4"
+doc_hash = "sha256:31d5a21f78d9da1613303f0cbac910d6a779856d758dae95d266b1628af329e0"
+reached_by = [
+    "#0",
+    "#8",
+]
+physical_interface = true
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:591b611bc97b56b5"
+name = "default"
+qual = "SecondOrderStableTransferFnNoZeroes::default"
+lines = [
+    337,
+    359,
+]
+hash = "sha256:d775303649c2cf2a28c55e1a91599b186e4a536c45f1e1aaa6ebe62f330400ad"
+doc_hash = "sha256:db036a5b2fd13375b25a20b97d2a47da59db87a48ee8120308a2c986c7fd012e"
+callees = ["fn:dd0526ffd95208d8"]
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:f88958ce67c331cb"
+name = "new"
+qual = "SecondOrderStableTransferFnNoZeroes::new"
+lines = [
+    363,
+    409,
+]
+hash = "sha256:f2339042f5d9e8e75515e4115d63de5c90ad7acc07fc97ba0ef8f16ebdf04d56"
+doc_hash = "sha256:a6d0a507dd6599482fc0116bbabe9c1c0f7fa7c2c7f363ab9745f4686dd0e023"
+callees = ["fn:dd0526ffd95208d8"]
+reached_by = [
+    "#0",
+    "#8",
+    "#9",
+]
+physical_interface = true
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:c1e16934ceddc1c8"
+name = "set_user_input_and_calc_output"
+qual = "SecondOrderStableTransferFnNoZeroes::set_user_input_and_calc_output"
+lines = [
+    411,
+    456,
+]
+hash = "sha256:e6aae267b17b4286f34f759019c6f9f7327ccc9d3648d709e6396a6f618ba0d7"
+doc_hash = "sha256:27bbbd588f16e82b1413f1d3f16ed7320b06ff3f94d4df50c434e8338f8d4ee3"
+callees = [
+    "fn:229e4afcedafa663",
+    "fn:2b2d34eef0b370a3",
+    "fn:5ed6cffff59b7b0b",
+    "fn:705bedfe870039f6",
+    "fn:8ea7bbcc747f3950",
+    "fn:dd0526ffd95208d8",
+]
+reached_by = [
+    "#0",
+    "#8",
+]
+physical_interface = true
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:5ed6cffff59b7b0b"
+name = "advance_to"
+qual = "SecondOrderStableTransferFnNoZeroes::advance_to"
+lines = [
+    458,
+    474,
+]
+hash = "sha256:5eddc3bd29503456d82728ac800afc9d66bb208880af30c54026f9929c8370fb"
+doc_hash = "sha256:2b28c7451ffc5f97c54ded8d9125196d3167a9a7c3a9cf3af21863eeb3248db3"
+callees = ["fn:1f336e678807b7eb"]
+reached_by = [
+    "#0",
+    "#8",
+]
+physical_interface = true
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:229e4afcedafa663"
+name = "activate"
+qual = "SecondOrderStableTransferFnNoZeroes::activate"
+lines = [
+    476,
+    487,
+]
+hash = "sha256:8e4a80b51c0580f3ca62022d6277955f71bf44526c061074ed843a5de3acfd98"
+doc_hash = "sha256:74023011c29ec467f3884253d845848209f42d74b28083432916289fc1410739"
+callees = ["fn:b617f97e8efc28c5"]
+reached_by = [
+    "#0",
+    "#8",
+]
+physical_interface = true
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:2b2d34eef0b370a3"
+name = "activate_due_inputs"
+qual = "SecondOrderStableTransferFnNoZeroes::activate_due_inputs"
+lines = [
+    489,
+    498,
+]
+hash = "sha256:b6dc2bc1292eadf4de2fbeee5437e2d8745969ca83a932414d23b64625b20d33"
+doc_hash = "sha256:61b4275df6acaa5d1d7ed421ae2471b28de06182872b5eb1b1a8555bd45e12c8"
+callees = ["fn:229e4afcedafa663"]
+reached_by = [
+    "#0",
+    "#8",
+]
+physical_interface = true
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:260be91da8e1377c"
+name = "state_size"
+qual = "SecondOrderStableTransferFnNoZeroes::state_size"
+lines = [
+    500,
+    506,
+]
+hash = "sha256:fd2ef436337b6b7cfe215f61c9b1b0a283a24fc14f524f90a81f6a944553f2a2"
+doc_hash = "sha256:52699ef0c131e4e1332027261f8f6aced3475f5b5ddcfd3815b293ad6bb2d546"
+reached_by = ["#0"]
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:22c77c3c424670c6"
+name = "default"
+qual = "SecondOrderStableStepResponse::default"
+lines = [
+    536,
+    548,
+]
+hash = "sha256:af24df23e3357b14aabeb1073af89c8a868562bbb5a88a40f5b284ec2c9d3542"
+doc_hash = "sha256:65d830d9c6a62ed60ba256451ba1dcbee8d811a7bb26bf1e1f73df29efdc2f4f"
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:77b924b088e03020"
+name = "new"
+qual = "SecondOrderStableStepResponse::new"
+lines = [
+    553,
+    584,
+]
+hash = "sha256:14d59b7c8a6df20ed70907dd377b96454f09b5b8ed34a6df35e6bd22d9be181f"
+doc_hash = "sha256:0a97b5c03bbd9e8f0ebab3197a0aa292686e85836bff7cff5b24868f09426d09"
+reached_by = ["#8"]
+physical_interface = true
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:54d954092783b59a"
+name = "is_steady_state"
+qual = "SecondOrderStableStepResponse::is_steady_state"
+lines = [
+    586,
+    648,
+]
+hash = "sha256:6ad487616ed8693c4c95c0eb13039555790930f7da00e7849a5dfa5cd4b4b53f"
+doc_hash = "sha256:eb8e584a0da8c275f1493d7a9baf8e389d42486799708d18ab0db818f3b745e4"
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:472e44ed99eed4d5"
+name = "calculate_response"
+qual = "SecondOrderStableStepResponse::calculate_response"
+lines = [
+    650,
+    771,
+]
+hash = "sha256:b84dd38daa8b15b3fa5cc64ceffdcacc475555bdfdaae891e2ea52776bbce1c4"
+doc_hash = "sha256:12c16913a7eff7b77a39e4c435af8081049e30d868bebb2da52bc58d258e5661"
+callees = ["fn:156559ac2ab95393"]
+reached_by = ["#8"]
+physical_interface = true
+
+[[module."second_order_transfer_fn.rs".function]]
+id = "fn:156559ac2ab95393"
+name = "steady_state_value"
+qual = "SecondOrderStableStepResponse::steady_state_value"
+lines = [
+    773,
+    777,
+]
+hash = "sha256:c84ed1df3245e79010679b767e144b4ce0a27a65b9d7f8e397eef23bb343f338"
+doc_hash = "sha256:75e54444d4621ca504febf042af2919c191ba7b893915d6ef49effee7b162819"
+reached_by = ["#8"]
+physical_interface = true
+
+[module."step_fn.rs"]
+path = "crate::alpha_nightly::stable_transfer_functions::step_fn"
+
+[[module."step_fn.rs".function]]
+id = "fn:813890c84bf09b62"
+name = "default"
+qual = "StepFunction::default"
+lines = [
+    34,
+    41,
+]
+hash = "sha256:d4db47dbec5b48da873ba6c6a6a7a0eb073389f8fd833cd1337c2da7bf5f6310"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."step_fn.rs".function]]
+id = "fn:4c8e5752e77f8c32"
+name = "new"
+qual = "StepFunction::new"
+lines = [
+    46,
+    59,
+]
+hash = "sha256:38205e08fc5294b7bf573d1aa5904e94411f50c3f5a524212b3fb2fa5e92a5de"
+doc_hash = "sha256:632f5d6dcf8773d0c5f8a974b5bf948445d67a81e8085acfac3454e5a1d77561"
+reached_by = ["#6"]
+physical_interface = true
+
+[[module."step_fn.rs".function]]
+id = "fn:f6b1d650a749861b"
+name = "is_steady_state"
+qual = "StepFunction::is_steady_state"
+lines = [
+    61,
+    71,
+]
+hash = "sha256:49a96fab0462fd6e4150d167b00a01a59553a451dfe465f7ff5f14296bd6b9ba"
+doc_hash = "sha256:9902b9f633ea549d5e3a7b79cc461f1301037191b4e6619a0421b3a18fb28232"
+
+[[module."step_fn.rs".function]]
+id = "fn:fa92f2fc59ef7c47"
+name = "calculate_response"
+qual = "StepFunction::calculate_response"
+lines = [
+    73,
+    97,
+]
+hash = "sha256:5080d893a1e2514e020c9203df06758f17494efd2ad97b6530d9c3df9ca1d4b8"
+doc_hash = "sha256:895abc49cc7c5b29531610baedb43c537ece86dc8b5c6aaa51c3dbc337163676"
+callees = ["fn:6eb1ce59593b8658"]
+reached_by = ["#6"]
+physical_interface = true
+
+[[module."step_fn.rs".function]]
+id = "fn:6eb1ce59593b8658"
+name = "steady_state_value"
+qual = "StepFunction::steady_state_value"
+lines = [
+    99,
+    104,
+]
+hash = "sha256:c84ed1df3245e79010679b767e144b4ce0a27a65b9d7f8e397eef23bb343f338"
+doc_hash = "sha256:3a8bead5a69737e6b7aa91f4a3a79532a827daf17bd8301f73db1dd873248d32"
+reached_by = ["#6"]
+physical_interface = true

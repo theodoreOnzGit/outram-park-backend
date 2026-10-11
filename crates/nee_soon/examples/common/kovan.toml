@@ -1,0 +1,129 @@
+schema_version = 1
+kind = "code_folder"
+crate = "nee_soon"
+dir = "crates/nee_soon/examples/common"
+
+[module."htr10_kvsh.rs"]
+path = "example:htr10_endf8_kvsh_heavy::htr10_kvsh"
+
+[[module."htr10_kvsh.rs".function]]
+id = "fn:69a4d3893929cb20"
+name = "parse_args"
+qual = "parse_args"
+lines = [
+    59,
+    87,
+]
+hash = "sha256:9178b24ad34f92aa6589a1c80b2dd255038322f93ccfb0a52bc2734583e000ad"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."htr10_kvsh.rs".function]]
+id = "fn:38c517289f500ff2"
+name = "git_commit"
+qual = "git_commit"
+lines = [
+    89,
+    113,
+]
+hash = "sha256:cb9ec33dca783f0a839e97e21675f932f94607b93a0f90a2de98dfec1c1b0d53"
+doc_hash = "sha256:843b10c9da69053a69efbbddec4ca0c663f2b500c406968563558d0d3bb18b52"
+
+[[module."htr10_kvsh.rs".function]]
+id = "fn:d0d9e158f53db4c6"
+name = "cpu_affinity"
+qual = "cpu_affinity"
+lines = [
+    115,
+    125,
+]
+hash = "sha256:2d61aa8a62abe36ac76510dd57963c467d6ddf9549d2ea65cb4aeda1436af501"
+doc_hash = "sha256:0542a0d31ccd6ebe14d156383ae53a7c15317a0644a85869f01ee894dca7de37"
+
+[[module."htr10_kvsh.rs".function]]
+id = "fn:1af8d6cb0e3a6add"
+name = "write_record"
+qual = "write_record"
+lines = [
+    127,
+    136,
+]
+hash = "sha256:0add3e6e2da938ed107c9c908ff5f2a9a0e68704cb7a3c8197a2a961fe73d5fb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:8823af9796398d96",
+    "fn:8a5c42869683eb9e",
+    "fn:8fa23dd16a0f69ef",
+]
+
+[[module."htr10_kvsh.rs".function]]
+id = "fn:f349fa932bd64002"
+name = "run_sweep"
+qual = "run_sweep"
+lines = [
+    138,
+    331,
+]
+hash = "sha256:62712d72ad9e50e5b04686050bb5ca264c4f2211c6bc94bf1e888d2f93705431"
+doc_hash = "sha256:21eb34f25711affa57beaf8738f4a96f67de79119d234b2446fd4210265f6c0f"
+callees = [
+    "fn:1af8d6cb0e3a6add",
+    "fn:1bc7ac6137589ec3",
+    "fn:275a80ac1e755261",
+    "fn:287949e80288e01d",
+    "fn:38c517289f500ff2",
+    "fn:3a39ba18e42ff777",
+    "fn:3b46afdb213471df",
+    "fn:69a4d3893929cb20",
+    "fn:7c952feebfb50522",
+    "fn:805df5c70660485c",
+    "fn:87319dc849f544c5",
+    "fn:8f35c1992221632e",
+    "fn:8fa23dd16a0f69ef",
+    "fn:917974dac4409fe6",
+    "fn:a806bd1baee256d6",
+    "fn:b77e1d5a0f6c9a36",
+    "fn:c3f67069af8569a9",
+    "fn:c5011e8cbdc0dc98",
+    "fn:ca05c2c819ef4964",
+    "fn:cc90d7b7261c8ed8",
+    "fn:d0d9e158f53db4c6",
+    "fn:eb0d723f9cc75435",
+    "fn:f41d06f1b1757f02",
+]
+
+[module."htr10_rod_metal_case.rs"]
+path = "example:htr10_rod_metal_full::htr10_rod_metal_case"
+
+[[module."htr10_rod_metal_case.rs".function]]
+id = "fn:2ef726fe284da10c"
+name = "run"
+qual = "run"
+lines = [
+    51,
+    159,
+]
+hash = "sha256:110aed748a2a884ad2a2ac5191f8a57c63f35b88892c508bcc221c54adeaa105"
+doc_hash = "sha256:fde01c5fb4c6d750740d8d4a459035fd292158e788699e53ddd3b9564321ca79"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:1b352f5a3a0a3ecc",
+    "fn:275a80ac1e755261",
+    "fn:287949e80288e01d",
+    "fn:3b46afdb213471df",
+    "fn:77b3f887f8a8f5de",
+    "fn:805df5c70660485c",
+    "fn:87319dc849f544c5",
+    "fn:917974dac4409fe6",
+    "fn:9a6b1a9088a3265c",
+    "fn:9b1683fffae43795",
+    "fn:a0ade86c3ebd834b",
+    "fn:a806bd1baee256d6",
+    "fn:b77e1d5a0f6c9a36",
+    "fn:c3f67069af8569a9",
+    "fn:c5011e8cbdc0dc98",
+    "fn:ced6110e475fed20",
+    "fn:cee6d34201e1fcab",
+    "fn:d427b7e9ab874c91",
+    "fn:eb0d723f9cc75435",
+    "fn:fabbfafa1d782ad1",
+]

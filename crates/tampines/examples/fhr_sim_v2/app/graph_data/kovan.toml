@@ -1,0 +1,67 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/examples/fhr_sim_v2/app/graph_data"
+
+[module."mod.rs"]
+path = "example:fhr_sim_v2::app::graph_data"
+
+[[module."mod.rs".function]]
+id = "fn:eb7be9834f2dd933"
+name = "insert_reactor_power_data"
+qual = "PagePlotData::insert_reactor_power_data"
+lines = [
+    25,
+    67,
+]
+hash = "sha256:adcf5dd017949d6d0e8c6afc938ecad3917d12cbaf8573a4480855f5bf7c2794"
+doc_hash = "sha256:d7bfd07a9138e65aa608dd7c46c5a9672e9614b1f941ca3c13e90f47d4983ec4"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:96ce13c6f712fb21"
+name = "get_reactor_power_megawatts_vs_time_secs_vec"
+qual = "PagePlotData::get_reactor_power_megawatts_vs_time_secs_vec"
+lines = [
+    69,
+    91,
+]
+hash = "sha256:568cecf5a5ae5da1e33f2369533993c6f171b751ccbf2968864f68b3668b5bf4"
+doc_hash = "sha256:d71a94e3984baac61100f7ef8a8795aa7fa4146295fdf8ed14042df122111e86"
+
+[[module."mod.rs".function]]
+id = "fn:a1f5ca9ee76a9404"
+name = "get_reactor_power_no_decay_heat_megawatts_vs_time_secs_vec"
+qual = "PagePlotData::get_reactor_power_no_decay_heat_megawatts_vs_time_secs_vec"
+lines = [
+    93,
+    118,
+]
+hash = "sha256:99843a26cd8225640a512362246f51d93292e823ac0a551f160722157961eb83"
+doc_hash = "sha256:d71a94e3984baac61100f7ef8a8795aa7fa4146295fdf8ed14042df122111e86"
+
+[[module."mod.rs".function]]
+id = "fn:06cda9a75c7ea9eb"
+name = "default"
+qual = "PagePlotData::default"
+lines = [
+    122,
+    137,
+]
+hash = "sha256:fd95312ad93d0e1c277ccc14911081e7e14c190f51c884e9565528dcf8ce8da6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."update.rs"]
+path = "example:fhr_sim_v2::app::graph_data::update"
+
+[[module."update.rs".function]]
+id = "fn:bfc0d2b7f949235f"
+name = "update_plot_from_fhr_state"
+qual = "FHRSimulatorApp::update_plot_from_fhr_state"
+lines = [
+    14,
+    56,
+]
+hash = "sha256:18ca25c3c8631d3b43ba81a1095058183b7678352826cb961ea52dd35409a4be"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:eb7be9834f2dd933"]

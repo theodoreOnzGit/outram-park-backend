@@ -1,0 +1,7401 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kaki-bukit"
+dir = "crates/kaki-bukit/src"
+crate_root = true
+test_ids = [
+    "crates/kaki-bukit/src/agent.rs::age_is_zero_on_the_entry_step",
+    "crates/kaki-bukit/src/agent.rs::alive_covers_entry_decommissioning_and_retirement",
+    "crates/kaki-bukit/src/agent.rs::an_infinite_lifetime_has_no_exit_time_and_never_retires",
+    "crates/kaki-bukit/src/agent.rs::exit_time_reproduces_upstreams_off_by_one",
+    "crates/kaki-bukit/src/agent.rs::hierarchy_nesting_is_enforced",
+    "crates/kaki-bukit/src/agent.rs::kind_strings_match_upstream",
+    "crates/kaki-bukit/src/agent.rs::lifetime_rejects_zero_and_other_negatives",
+    "crates/kaki-bukit/src/agent.rs::lifetime_round_trips_through_upstreams_integer_encoding",
+    "crates/kaki-bukit/src/agent.rs::retired_is_true_from_the_exit_step_onward",
+    "crates/kaki-bukit/src/agents/sink.rs::a_full_sink_stops_requesting",
+    "crates/kaki-bukit/src/agents/sink.rs::a_recipe_sink_requests_that_composition",
+    "crates/kaki-bukit/src/agents/sink.rs::a_sink_refuses_to_supply",
+    "crates/kaki-bukit/src/agents/sink.rs::accepted_material_accumulates_and_conserves_mass",
+    "crates/kaki-bukit/src/agents/sink.rs::an_overrun_delivery_is_refused",
+    "crates/kaki-bukit/src/agents/sink.rs::capacity_and_remaining_space_both_cap_the_request",
+    "crates/kaki-bukit/src/agents/sink.rs::requests_its_capacity_for_each_commodity_under_one_constraint",
+    "crates/kaki-bukit/src/agents/source.rs::a_finite_inventory_depletes_and_then_retires_the_source",
+    "crates/kaki-bukit/src/agents/source.rs::a_source_refuses_a_delivery",
+    "crates/kaki-bukit/src/agents/source.rs::an_unbounded_inventory_never_retires",
+    "crates/kaki-bukit/src/agents/source.rs::bids_the_requested_quantity_when_unconstrained",
+    "crates/kaki-bukit/src/agents/source.rs::does_not_bid_on_a_commodity_it_does_not_supply",
+    "crates/kaki-bukit/src/agents/source.rs::throughput_caps_the_bid",
+    "crates/kaki-bukit/src/agents/source.rs::with_no_recipe_it_supplies_the_requested_composition",
+    "crates/kaki-bukit/src/arithmetic.rs::empty_sums_to_zero",
+    "crates/kaki-bukit/src/arithmetic.rs::is_order_independent_because_it_sorts",
+    "crates/kaki-bukit/src/arithmetic.rs::matches_exact_sum_on_representable_input",
+    "crates/kaki-bukit/src/arithmetic.rs::recovers_small_addends_a_naive_sum_would_lose",
+    "crates/kaki-bukit/src/arithmetic.rs::sorted_variant_agrees_when_input_is_sorted",
+    "crates/kaki-bukit/src/comp_math.rs::add_carries_through_nuclides_present_in_only_one_operand",
+    "crates/kaki-bukit/src/comp_math.rs::add_matches_the_upstream_header_example",
+    "crates/kaki-bukit/src/comp_math.rs::all_positive_admits_zero",
+    "crates/kaki-bukit/src/comp_math.rs::almost_eq_is_relative",
+    "crates/kaki-bukit/src/comp_math.rs::almost_eq_preserves_the_upstream_zero_branch",
+    "crates/kaki-bukit/src/comp_math.rs::almost_eq_requires_the_same_key_set",
+    "crates/kaki-bukit/src/comp_math.rs::apply_threshold_erases_rather_than_zeroing",
+    "crates/kaki-bukit/src/comp_math.rs::apply_threshold_rejects_a_negative_threshold",
+    "crates/kaki-bukit/src/comp_math.rs::normalize_leaves_an_all_zero_composition_alone",
+    "crates/kaki-bukit/src/comp_math.rs::normalize_scales_to_the_requested_total",
+    "crates/kaki-bukit/src/comp_math.rs::sub_may_leave_negative_entries",
+    "crates/kaki-bukit/src/comp_math.rs::sum_is_compensated",
+    "crates/kaki-bukit/src/comp_math.rs::valid_nucs_rejects_an_element_id",
+    "crates/kaki-bukit/src/composition.rs::a_nuclide_missing_from_the_table_is_an_error_not_a_zero",
+    "crates/kaki-bukit/src/composition.rs::explicit_table_overrides_the_mass_number_approximation",
+    "crates/kaki-bukit/src/composition.rs::fractions_of_an_absent_nuclide_are_zero",
+    "crates/kaki-bukit/src/composition.rs::from_mass_and_from_atom_round_trip",
+    "crates/kaki-bukit/src/composition.rs::from_nuclide_is_a_pure_single_nuclide",
+    "crates/kaki-bukit/src/composition.rs::mass_basis_follows_from_atom_basis_by_atomic_mass",
+    "crates/kaki-bukit/src/composition.rs::mass_number_approximation_rejects_an_element_id",
+    "crates/kaki-bukit/src/composition.rs::normalized_views_sum_to_one",
+    "crates/kaki-bukit/src/composition.rs::rejects_a_negative_quantity",
+    "crates/kaki-bukit/src/composition.rs::rejects_an_invalid_nuclide",
+    "crates/kaki-bukit/src/composition.rs::uo2_from_atom_has_two_oxygens_per_uranium",
+    "crates/kaki-bukit/src/context.rs::a_build_scheduled_in_the_past_moves_to_the_next_step",
+    "crates/kaki-bukit/src/context.rs::a_decommissioning_scheduled_in_the_past_fires_this_step",
+    "crates/kaki-bukit/src/context.rs::a_duplicate_recipe_name_is_rejected_rather_than_overwritten",
+    "crates/kaki-bukit/src/context.rs::a_recipe_round_trips_by_name",
+    "crates/kaki-bukit/src/context.rs::an_empty_prototype_name_is_rejected",
+    "crates/kaki-bukit/src/context.rs::an_unknown_recipe_is_a_key_error",
+    "crates/kaki-bukit/src/context.rs::builds_come_due_only_on_their_exact_step",
+    "crates/kaki-bukit/src/context.rs::builds_due_in_the_same_step_keep_their_scheduling_order",
+    "crates/kaki-bukit/src/context.rs::decommissionings_come_due_at_or_before_their_step",
+    "crates/kaki-bukit/src/context.rs::recipe_names_are_sorted_so_iteration_reproduces",
+    "crates/kaki-bukit/src/decay.rs::a_daughter_outside_the_list_is_dropped",
+    "crates/kaki-bukit/src/decay.rs::a_stable_nuclide_does_not_decay",
+    "crates/kaki-bukit/src/decay.rs::an_isobaric_chain_keeps_its_mass",
+    "crates/kaki-bukit/src/decay.rs::an_underflowing_step_is_refused",
+    "crates/kaki-bukit/src/decay.rs::atom_count_is_conserved_in_a_closed_chain",
+    "crates/kaki-bukit/src/decay.rs::bad_time_and_tolerance_are_rejected",
+    "crates/kaki-bukit/src/decay.rs::branching_ratios_summing_above_one_are_rejected",
+    "crates/kaki-bukit/src/decay.rs::chain_accessors_report_stability_consistently",
+    "crates/kaki-bukit/src/decay.rs::decay_matrix_has_parents_in_columns_and_daughters_in_rows",
+    "crates/kaki-bukit/src/decay.rs::decaying_a_material_conserves_atoms_and_rebuilds_the_mass",
+    "crates/kaki-bukit/src/decay.rs::empty_material_only_advances_its_decay_time",
+    "crates/kaki-bukit/src/decay.rs::half_life_round_trips_through_the_decay_constant",
+    "crates/kaki-bukit/src/decay.rs::malformed_chains_are_rejected",
+    "crates/kaki-bukit/src/decay.rs::matrix_build_rejects_an_empty_or_duplicated_nuclide_list",
+    "crates/kaki-bukit/src/decay.rs::max_num_terms_follows_the_poisson_tail",
+    "crates/kaki-bukit/src/decay.rs::mismatched_dimensions_are_rejected",
+    "crates/kaki-bukit/src/decay.rs::negative_decay_constant_is_rejected",
+    "crates/kaki-bukit/src/decay.rs::negative_decay_time_is_rejected",
+    "crates/kaki-bukit/src/decay.rs::one_half_life_leaves_half",
+    "crates/kaki-bukit/src/decay.rs::reachable_closure_walks_the_whole_chain",
+    "crates/kaki-bukit/src/decay.rs::single_nuclide_matches_exponential_decay",
+    "crates/kaki-bukit/src/decay.rs::solver_matches_elementwise_exp_on_a_diagonal_matrix",
+    "crates/kaki-bukit/src/decay.rs::transposed_decay_matrix_fails_bateman",
+    "crates/kaki-bukit/src/decay.rs::truncated_branching_loses_atoms_by_the_missing_fraction",
+    "crates/kaki-bukit/src/decay.rs::two_nuclide_chain_matches_bateman",
+    "crates/kaki-bukit/src/decay.rs::vv_report",
+    "crates/kaki-bukit/src/decay.rs::zero_elapsed_time_is_the_identity",
+    "crates/kaki-bukit/src/exchange/bid.rs::a_bid_defaults_to_inheriting_the_requesters_preference",
+    "crates/kaki-bukit/src/exchange/bid.rs::a_shared_offer_tag_is_recorded",
+    "crates/kaki-bukit/src/exchange/bid.rs::a_zero_or_negative_offer_is_rejected",
+    "crates/kaki-bukit/src/exchange/bid.rs::an_overridden_preference_must_be_positive_and_finite",
+    "crates/kaki-bukit/src/exchange/constraint.rs::a_constant_converter_ignores_the_resource",
+    "crates/kaki-bukit/src/exchange/constraint.rs::a_constraint_reports_its_capacity_and_converts_through_it",
+    "crates/kaki-bukit/src/exchange/constraint.rs::a_scaled_converter_is_a_blend_fraction_times_the_quantity",
+    "crates/kaki-bukit/src/exchange/constraint.rs::the_request_mass_coefficient_weights_mutual_requests",
+    "crates/kaki-bukit/src/exchange/constraint.rs::the_trivial_converter_returns_the_resources_own_quantity",
+    "crates/kaki-bukit/src/exchange/graph.rs::add_arc_wires_both_node_arc_lists_and_derives_exclusivity",
+    "crates/kaki-bukit/src/exchange/graph.rs::an_exclusive_bid_needs_a_request_at_least_as_large",
+    "crates/kaki-bukit/src/exchange/graph.rs::an_exclusive_request_needs_a_bid_at_least_as_large",
+    "crates/kaki-bukit/src/exchange/graph.rs::has_arcs_follows_the_preference_map_as_upstream_does",
+    "crates/kaki-bukit/src/exchange/graph.rs::non_exclusive_arcs_have_no_exclusive_value",
+    "crates/kaki-bukit/src/exchange/graph.rs::two_exclusive_nodes_agree_within_two_ulps_but_not_three",
+    "crates/kaki-bukit/src/exchange/greedy.rs::a_match_below_the_epsilon_is_not_recorded",
+    "crates/kaki-bukit/src/exchange/greedy.rs::a_node_with_no_group_is_a_state_error",
+    "crates/kaki-bukit/src/exchange/greedy.rs::a_request_larger_than_one_bid_is_split_across_two",
+    "crates/kaki-bukit/src/exchange/greedy.rs::a_request_node_takes_the_maximum_over_its_constraints_and_a_bid_the_minimum",
+    "crates/kaki-bukit/src/exchange/greedy.rs::a_request_with_no_bids_is_entirely_unmatched_and_does_not_panic",
+    "crates/kaki-bukit/src/exchange/greedy.rs::a_supply_constraint_binds_below_the_bid_quantity",
+    "crates/kaki-bukit/src/exchange/greedy.rs::a_unit_capacity_above_unity_converts_the_constraint",
+    "crates/kaki-bukit/src/exchange/greedy.rs::an_exclusive_arc_is_costed_by_its_whole_order",
+    "crates/kaki-bukit/src/exchange/greedy.rs::an_exclusive_bid_is_matched_in_full",
+    "crates/kaki-bukit/src/exchange/greedy.rs::an_exclusive_bid_larger_than_the_demand_is_not_matched_at_all",
+    "crates/kaki-bukit/src/exchange/greedy.rs::an_exclusive_order_at_exactly_two_ulps_short_is_matched_in_full",
+    "crates/kaki-bukit/src/exchange/greedy.rs::an_exclusive_order_one_ulp_short_of_capacity_is_still_matched_in_full",
+    "crates/kaki-bukit/src/exchange/greedy.rs::an_exclusive_order_three_ulps_short_of_capacity_is_matched_not_at_all",
+    "crates/kaki-bukit/src/exchange/greedy.rs::an_exclusive_request_is_met_whole_or_not_at_all",
+    "crates/kaki-bukit/src/exchange/greedy.rs::an_unlimited_capacity_does_not_divide_by_the_unit_capacity",
+    "crates/kaki-bukit/src/exchange/greedy.rs::demand_beyond_the_available_bids_is_reported_unmatched",
+    "crates/kaki-bukit/src/exchange/greedy.rs::one_request_met_exactly_by_one_bid",
+    "crates/kaki-bukit/src/exchange/greedy.rs::the_higher_preference_bid_is_matched_first",
+    "crates/kaki-bukit/src/exchange/greedy.rs::the_objective_accumulates_flow_over_preference_plus_a_pseudo_cost_for_unmet_demand",
+    "crates/kaki-bukit/src/exchange/greedy.rs::the_pseudo_cost_exceeds_every_real_arc_cost",
+    "crates/kaki-bukit/src/exchange/greedy.rs::the_unlimited_sentinel_is_never_decremented",
+    "crates/kaki-bukit/src/exchange/greedy.rs::two_request_groups_are_served_in_conditioned_order",
+    "crates/kaki-bukit/src/exchange/portfolio.rs::a_bid_portfolio_adopts_one_bidder_and_keeps_insertion_order",
+    "crates/kaki-bukit/src/exchange/portfolio.rs::a_request_portfolio_sums_quantities_and_adopts_one_requester",
+    "crates/kaki-bukit/src/exchange/portfolio.rs::a_second_requester_is_rejected",
+    "crates/kaki-bukit/src/exchange/portfolio.rs::an_empty_or_unknown_mutual_set_is_an_error_rather_than_a_nan",
+    "crates/kaki-bukit/src/exchange/portfolio.rs::mutual_requests_average_the_demand_and_weight_the_coefficients",
+    "crates/kaki-bukit/src/exchange/preconditioner.rs::avg_pref_is_zero_without_arcs_and_the_mean_with_them",
+    "crates/kaki-bukit/src/exchange/preconditioner.rs::the_preference_factor_is_bounded_so_commodity_weight_always_dominates",
+    "crates/kaki-bukit/src/exchange/preconditioner.rs::with_no_weights_ordering_falls_back_to_average_preference",
+    "crates/kaki-bukit/src/exchange/request.rs::a_non_positive_preference_is_rejected_at_construction",
+    "crates/kaki-bukit/src/exchange/request.rs::a_request_carries_either_resource_kind_without_being_generic",
+    "crates/kaki-bukit/src/exchange/request.rs::a_simple_request_takes_the_default_preference",
+    "crates/kaki-bukit/src/exchange/translate.rs::a_bid_naming_an_unknown_request_is_a_key_error",
+    "crates/kaki-bukit/src/exchange/translate.rs::a_bid_preference_overrides_the_requesters_and_reorders_the_match",
+    "crates/kaki-bukit/src/exchange/translate.rs::a_bidders_throughput_constraint_binds_through_the_translated_unit_capacity",
+    "crates/kaki-bukit/src/exchange/translate.rs::a_translated_exchange_solves_and_back_translates_to_one_trade",
+    "crates/kaki-bukit/src/exchange/translate.rs::exclusive_bids_sharing_one_offer_form_one_exclusive_group",
+    "crates/kaki-bukit/src/exchange/translate.rs::mutual_requests_are_satisfied_by_a_full_order_of_either",
+    "crates/kaki-bukit/src/exchange/translate.rs::the_automatic_mass_constraint_caps_a_request_group_at_its_own_demand",
+    "crates/kaki-bukit/src/exchange/translate.rs::translating_twice_gives_the_same_graph",
+    "crates/kaki-bukit/src/limits.rs::almost_eq_matches_upstream_tolerance",
+    "crates/kaki-bukit/src/limits.rs::float_distance_counts_representable_values",
+    "crates/kaki-bukit/src/limits.rs::float_distance_crosses_zero_symmetrically",
+    "crates/kaki-bukit/src/limits.rs::float_distance_is_zero_for_nan",
+    "crates/kaki-bukit/src/limits.rs::is_negative_tolerates_epsilon_sized_rounding",
+    "crates/kaki-bukit/src/material.rs::absorb_averages_unit_value_by_mass",
+    "crates/kaki-bukit/src/material.rs::absorb_blends_compositions_by_mass",
+    "crates/kaki-bukit/src/material.rs::absorb_refuses_a_more_decayed_material",
+    "crates/kaki-bukit/src/material.rs::extract_comp_clears_residue_below_the_threshold",
+    "crates/kaki-bukit/src/material.rs::extract_comp_leaves_the_correct_remainder",
+    "crates/kaki-bukit/src/material.rs::extract_comp_rejects_taking_more_of_a_nuclide_than_is_present",
+    "crates/kaki-bukit/src/material.rs::extract_qty_conserves_mass_and_composition",
+    "crates/kaki-bukit/src/material.rs::extract_qty_rejects_more_than_is_present",
+    "crates/kaki-bukit/src/material.rs::extract_then_absorb_round_trips_exactly",
+    "crates/kaki-bukit/src/material.rs::new_rejects_a_negative_quantity",
+    "crates/kaki-bukit/src/material.rs::nuclide_masses_scales_the_composition_to_the_quantity",
+    "crates/kaki-bukit/src/material.rs::transmute_keeps_mass_and_advances_the_decay_clock",
+    "crates/kaki-bukit/src/nuclide.rs::decomposes_a_metastable_state",
+    "crates/kaki-bukit/src/nuclide.rs::decomposes_u235",
+    "crates/kaki-bukit/src/nuclide.rs::display_uses_pyne_name_form",
+    "crates/kaki-bukit/src/nuclide.rs::from_zam_rejects_out_of_range_fields",
+    "crates/kaki-bukit/src/nuclide.rs::from_zam_round_trips",
+    "crates/kaki-bukit/src/nuclide.rs::is_nuclide_matches_upstream_conditions",
+    "crates/kaki-bukit/src/nuclide.rs::validated_reports_the_offending_id",
+    "crates/kaki-bukit/src/product.rs::absorb_requires_matching_quality",
+    "crates/kaki-bukit/src/product.rs::absorb_sums_matching_qualities_and_weights_unit_value",
+    "crates/kaki-bukit/src/product.rs::extract_conserves_quantity_and_quality",
+    "crates/kaki-bukit/src/product.rs::extract_rejects_more_than_is_present",
+    "crates/kaki-bukit/src/product.rs::new_rejects_a_negative_quantity",
+    "crates/kaki-bukit/src/product.rs::units_is_the_quality_string",
+    "crates/kaki-bukit/src/resource.rs::asking_a_product_for_a_material_is_an_error",
+    "crates/kaki-bukit/src/resource.rs::dispatches_quantity_and_units_by_variant",
+    "crates/kaki-bukit/src/resource.rs::extract_qty_works_through_the_enum",
+    "crates/kaki-bukit/src/resource.rs::quality_tag_distinguishes_products_and_defers_for_materials",
+    "crates/kaki-bukit/src/resource.rs::resource_type_strings_match_upstream",
+    "crates/kaki-bukit/src/sim.rs::calendar_handles_a_january_start",
+    "crates/kaki-bukit/src/sim.rs::calendar_rolls_over_the_year",
+    "crates/kaki-bukit/src/sim.rs::decay_mode_round_trips_through_its_upstream_string",
+    "crates/kaki-bukit/src/sim.rs::kill_stops_the_clock_after_the_current_step",
+    "crates/kaki-bukit/src/sim.rs::lazy_decay_is_rejected_rather_than_silently_downgraded",
+    "crates/kaki-bukit/src/sim.rs::reset_returns_the_clock_to_the_start",
+    "crates/kaki-bukit/src/sim.rs::seconds_for_scales_by_the_time_step",
+    "crates/kaki-bukit/src/sim.rs::steps_until_inverts_calendar_at",
+    "crates/kaki-bukit/src/sim.rs::steps_until_is_negative_before_the_start",
+    "crates/kaki-bukit/src/sim.rs::timer_runs_for_exactly_the_configured_duration",
+    "crates/kaki-bukit/src/sim.rs::validate_rejects_a_nonsense_configuration",
+    "crates/kaki-bukit/src/toolkit/enrichment.rs::assay_ignores_nuclides_that_are_not_u235_or_u238",
+    "crates/kaki-bukit/src/toolkit/enrichment.rs::assay_of_a_material_with_no_uranium_is_zero",
+    "crates/kaki-bukit/src/toolkit/enrichment.rs::atom_assay_exceeds_mass_assay_for_natural_uranium",
+    "crates/kaki-bukit/src/toolkit/enrichment.rs::feed_and_tails_are_homogeneous_of_degree_one_in_product",
+    "crates/kaki-bukit/src/toolkit/enrichment.rs::feed_and_tails_match_the_closed_form_and_conserve_mass",
+    "crates/kaki-bukit/src/toolkit/enrichment.rs::round_trip_through_materials_reproduces_the_assays",
+    "crates/kaki-bukit/src/toolkit/enrichment.rs::swu_for_the_textbook_case_matches_the_closed_form",
+    "crates/kaki-bukit/src/toolkit/enrichment.rs::uranium_assay_atom_returns_the_enrichment_it_was_built_with",
+    "crates/kaki-bukit/src/toolkit/enrichment.rs::uranium_assay_mass_returns_the_enrichment_it_was_built_with",
+    "crates/kaki-bukit/src/toolkit/enrichment.rs::uranium_qty_excludes_the_oxygen",
+    "crates/kaki-bukit/src/toolkit/enrichment.rs::value_func_is_zero_at_one_half_and_symmetric_about_it",
+    "crates/kaki-bukit/src/toolkit/enrichment.rs::value_func_matches_the_closed_form_at_the_textbook_assays",
+    "crates/kaki-bukit/src/toolkit/mat_query.rs::all_mass_sums_to_the_quantity",
+    "crates/kaki-bukit/src/toolkit/mat_query.rs::almost_eq_compares_composition_not_quantity",
+    "crates/kaki-bukit/src/toolkit/mat_query.rs::amount_is_limited_by_the_scarcest_ingredient",
+    "crates/kaki-bukit/src/toolkit/mat_query.rs::amount_is_zero_when_a_needed_nuclide_is_absent",
+    "crates/kaki-bukit/src/toolkit/mat_query.rs::amount_of_its_own_composition_is_the_whole_material",
+    "crates/kaki-bukit/src/toolkit/mat_query.rs::mass_and_atom_fractions_differ_as_the_mass_numbers_do",
+    "crates/kaki-bukit/src/toolkit/mat_query.rs::mass_scales_the_fraction_by_the_quantity",
+    "crates/kaki-bukit/src/toolkit/mat_query.rs::moles_converts_kilograms_through_the_molar_mass",
+    "crates/kaki-bukit/src/toolkit/mat_query.rs::set_fractions_sum_the_members",
+    "crates/kaki-bukit/src/toolkit/mat_query.rs::wrapper_agrees_with_the_free_functions",
+    "crates/kaki-bukit/src/toolkit/position.rs::a_degree_of_latitude_is_about_111_km_anywhere",
+    "crates/kaki-bukit/src/toolkit/position.rs::a_degree_of_longitude_shrinks_with_the_cosine_of_latitude",
+    "crates/kaki-bukit/src/toolkit/position.rs::a_quarter_of_the_equator_matches_the_closed_form",
+    "crates/kaki-bukit/src/toolkit/position.rs::coordinates_round_trip_to_within_a_tenth_of_an_arcsecond",
+    "crates/kaki-bukit/src/toolkit/position.rs::distance_is_symmetric_and_zero_to_itself",
+    "crates/kaki-bukit/src/toolkit/position.rs::london_to_paris_is_the_published_great_circle_distance",
+    "crates/kaki-bukit/src/toolkit/position.rs::pole_to_pole_matches_the_closed_form",
+    "crates/kaki-bukit/src/toolkit/position.rs::set_precision_reproduces_the_upstream_idiom",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::a_buffer_holds_products_as_readily_as_materials",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::capacity_cannot_be_set_below_the_contents",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::capacity_is_enforced_on_push",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::pop_back_returns_the_newest",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::pop_n_takes_whole_objects_and_rejects_an_overlarge_count",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::pop_qty_eps_absorbs_a_rounding_overshoot_by_taking_everything",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::pop_qty_of_the_whole_inventory_empties_the_buffer_exactly",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::pop_qty_of_zero_is_a_no_op",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::pop_qty_spans_several_objects_and_splits_only_the_last",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::pop_qty_splits_a_resource_and_conserves_mass_exactly",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::popping_from_an_empty_buffer_is_an_error",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::popping_more_than_is_held_is_an_error_and_changes_nothing",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::push_all_is_all_or_nothing",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::push_tolerates_an_eps_sized_overshoot",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::repeated_split_pops_conserve_mass_to_machine_precision",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::resources_come_out_oldest_first",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::space_bookkeeping_tracks_pushes_and_pops",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::squash_all_rejects_an_empty_list",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::squash_combines_materials_and_preserves_mass",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::squash_of_zero_or_one_object_is_a_no_op",
+    "crates/kaki-bukit/src/toolkit/res_buf.rs::squash_refuses_to_mix_materials_and_products",
+    "crates/kaki-bukit/src/toolkit/symbolic.rs::a_flat_demand_is_a_linear_function_with_zero_slope",
+    "crates/kaki-bukit/src/toolkit/symbolic.rs::exponential_honours_its_intercept_and_decays_for_a_negative_rate",
+    "crates/kaki-bukit/src/toolkit/symbolic.rs::exponential_matches_its_closed_form",
+    "crates/kaki-bukit/src/toolkit/symbolic.rs::linear_matches_its_closed_form",
+    "crates/kaki-bukit/src/toolkit/symbolic.rs::pieces_are_kept_in_ascending_order_however_they_are_pushed",
+    "crates/kaki-bukit/src/toolkit/symbolic.rs::piecewise_is_zero_before_its_first_piece_and_when_empty",
+    "crates/kaki-bukit/src/toolkit/symbolic.rs::piecewise_nests",
+    "crates/kaki-bukit/src/toolkit/symbolic.rs::piecewise_selects_the_right_piece_and_shifts_its_argument",
+    "crates/kaki-bukit/src/toolkit/total_inv_tracker.rs::constrained_space_reflects_the_site_wide_limit",
+    "crates/kaki-bukit/src/toolkit/total_inv_tracker.rs::space_never_goes_negative",
+    "crates/kaki-bukit/src/toolkit/total_inv_tracker.rs::sums_the_quantities_of_every_tracked_buffer",
+    "crates/kaki-bukit/src/toolkit/total_inv_tracker.rs::the_cap_cannot_be_lowered_below_the_contents",
+    "crates/kaki-bukit/tests/fuel_cycle.rs::a_malformed_hierarchy_is_rejected",
+    "crates/kaki-bukit/tests/fuel_cycle.rs::a_simulation_with_no_requests_is_a_no_op",
+    "crates/kaki-bukit/tests/fuel_cycle.rs::an_exhausted_source_stops_trading_and_retires",
+    "crates/kaki-bukit/tests/fuel_cycle.rs::mine_to_repository",
+    "crates/kaki-bukit/tests/fuel_cycle.rs::the_tighter_constraint_is_the_one_that_binds",
+]
+
+[module."agent.rs"]
+path = "crate::agent"
+
+[[module."agent.rs".function]]
+id = "fn:d44cd25153766aa4"
+name = "index"
+qual = "AgentId::index"
+lines = [
+    55,
+    60,
+]
+hash = "sha256:fe08c1210d157b27a8d9f13104c3adf4a98e0f5d2fe8056f1abb5ae193f0e96c"
+doc_hash = "sha256:e06a05a0bf070c8ba89bac325b10b6cf7ebc7e3236a682b55ee39446d399119b"
+reached_by = [
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."agent.rs".function]]
+id = "fn:0a1e05a8ee8ca3c7"
+name = "as_str"
+qual = "AgentRole::as_str"
+lines = [
+    81,
+    89,
+]
+hash = "sha256:6255561b8905974d81fa4aadf4dcefbb0eba1745bd2bcb03ea854d07bdf089ca"
+doc_hash = "sha256:1210862be3def43905e8da963cec4e00186431735cbb041efbebe7074874fb84"
+reached_by = ["#5"]
+
+[[module."agent.rs".function]]
+id = "fn:e1997364c8a8598e"
+name = "parent_role"
+qual = "AgentRole::parent_role"
+lines = [
+    91,
+    100,
+]
+hash = "sha256:ec248a76adea15a3d6e999769c2be8659555f451d6ec49ffc61944420cd43c30"
+doc_hash = "sha256:f20593440cfd377f5471045fc24c37850f6cb7b952b5e0dc2ef360fd4a26aaf4"
+reached_by = [
+    "#4",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."agent.rs".function]]
+id = "fn:9fabf6e2023dc378"
+name = "may_sit_under"
+qual = "AgentRole::may_sit_under"
+lines = [
+    102,
+    111,
+]
+hash = "sha256:3295967e50ac6bc36306bb3c38ed6e2dfd0b5a9311e38dc2b2e069c24bf9051f"
+doc_hash = "sha256:6f58a8f47d8f9243490a6cc2f5816dfb7d2e00ee063c906a78b4b2bc86f0debd"
+callees = ["fn:e1997364c8a8598e"]
+reached_by = [
+    "#4",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."agent.rs".function]]
+id = "fn:c4f005c45d6e03df"
+name = "as_upstream_int"
+qual = "Lifetime::as_upstream_int"
+lines = [
+    131,
+    138,
+]
+hash = "sha256:f818ca16da3e2d889f5100d38fddb90f4bb414685b5f211ec04b61e3ab2560bc"
+doc_hash = "sha256:a4cbb32ffa46373523fec6ded632001b104b8f39a5906bdf548b9773f8e09ff4"
+reached_by = ["#7"]
+
+[[module."agent.rs".function]]
+id = "fn:c8cd17d3c500fc6a"
+name = "from_upstream_int"
+qual = "Lifetime::from_upstream_int"
+lines = [
+    140,
+    154,
+]
+hash = "sha256:4ed340909da0ba74951161703102b4afb88cd89d55ad5ac1c83ca603b3ea1da0"
+doc_hash = "sha256:d7327830920615dd7803deb0eb4ef9d01adf114eb594b1513d6080b55bc69248"
+reached_by = [
+    "#6",
+    "#7",
+]
+
+[[module."agent.rs".function]]
+id = "fn:8736bbfb1f339428"
+name = "new"
+qual = "AgentInfo::new"
+lines = [
+    189,
+    209,
+]
+hash = "sha256:57bbd439df926bb43ed86f2f586f445def8e3280aa07f01ed2f8da5e7b13ba94"
+doc_hash = "sha256:cb1b19329a822e09e93bfa6d29e862fe6772711ae13806e02ab1459034b58f31"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#8",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."agent.rs".function]]
+id = "fn:f3f6b0dd48c79345"
+name = "with_lifetime"
+qual = "AgentInfo::with_lifetime"
+lines = [
+    211,
+    216,
+]
+hash = "sha256:e719a9d0e8425a7c812539d61db66583b1390ee94507adca11bf909f75788ace"
+doc_hash = "sha256:b260bf649a99f573c84aff2c1940870a0f2ac89c12334dc0aab6df8d2f0f2b93"
+reached_by = [
+    "#1",
+    "#3",
+    "#8",
+]
+
+[[module."agent.rs".function]]
+id = "fn:b2113611c83d0abd"
+name = "with_parent"
+qual = "AgentInfo::with_parent"
+lines = [
+    218,
+    223,
+]
+hash = "sha256:d376df0f12a4089d81bb9eb09e78485548d7966e591c55ff4537bbade0de22a3"
+doc_hash = "sha256:9bca7ebcede5bbeb477ca9e036a5166cd89dfad075c5675a526d92d3b5394129"
+
+[[module."agent.rs".function]]
+id = "fn:de7bc4c32027171d"
+name = "exit_time"
+qual = "AgentInfo::exit_time"
+lines = [
+    225,
+    253,
+]
+hash = "sha256:c7f0570ba8b8387c14d794544a6e8c20811515447b9d1a0eb2043a7266a9486a"
+doc_hash = "sha256:23d4e7fd5037d4fa11e91c2627b034669500bb4b4207a45626baa9d99fdb53f9"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#8",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."agent.rs".function]]
+id = "fn:d7f04f179fc311d2"
+name = "retired"
+qual = "AgentInfo::retired"
+lines = [
+    255,
+    265,
+]
+hash = "sha256:4dc1d9d5f1f6b2c7c66a45e209833c65f73af951be77422e61ec333c666652b5"
+doc_hash = "sha256:0fe3a44280e313d660260c4ad2f9085ffd7342f6395742f3a26ba25c119d3e75"
+callees = ["fn:de7bc4c32027171d"]
+reached_by = [
+    "#1",
+    "#2",
+    "#8",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."agent.rs".function]]
+id = "fn:030b8a431033d838"
+name = "alive"
+qual = "AgentInfo::alive"
+lines = [
+    267,
+    272,
+]
+hash = "sha256:40d1cdab67a5bbb2f9a502f3dc2eee5d38722ce9f339563abb59c1816da810c4"
+doc_hash = "sha256:c8028c998a65e494115ddc58bbfe0faa40038a1440909951245753ed6ca5df5f"
+callees = ["fn:d7f04f179fc311d2"]
+reached_by = [
+    "#1",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."agent.rs".function]]
+id = "fn:3edf13d9b38917e6"
+name = "age"
+qual = "AgentInfo::age"
+lines = [
+    274,
+    281,
+]
+hash = "sha256:c5e5c739e45121addcba49473cc7bf9c6c4c284e9d91f07924930f0292815147"
+doc_hash = "sha256:0c4d3abc996c855f21db7ad75cd4370631e45fa6c2cd5a432065d67e8933b842"
+reached_by = ["#0"]
+
+[[module."agent.rs".function]]
+id = "fn:88b44f28cd4feaa8"
+name = "facility"
+qual = "facility"
+lines = [
+    288,
+    296,
+]
+hash = "sha256:2b4501fc255dea040f1cb6e8b6b351c6a46429ca6308c3ff5e2b583e76daa32e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:8736bbfb1f339428"]
+test = true
+
+[[module."agent.rs".function]]
+id = "fn:e7f0bf43740aae7f"
+name = "kind_strings_match_upstream"
+qual = "kind_strings_match_upstream"
+lines = [
+    298,
+    303,
+]
+hash = "sha256:297b97f1ed7e9396b85f7a30dd2765c91c79c29e2e40179259208c9847e0fd00"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:0a1e05a8ee8ca3c7"]
+test = true
+
+[[module."agent.rs".function]]
+id = "fn:fd7c5d70914cd1d4"
+name = "hierarchy_nesting_is_enforced"
+qual = "hierarchy_nesting_is_enforced"
+lines = [
+    305,
+    315,
+]
+hash = "sha256:2dfe346fb493cf1762f668d675fa739e0971745fba7da9f64a12aaf13456456f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9fabf6e2023dc378"]
+test = true
+
+[[module."agent.rs".function]]
+id = "fn:4deb385456987632"
+name = "exit_time_reproduces_upstreams_off_by_one"
+qual = "exit_time_reproduces_upstreams_off_by_one"
+lines = [
+    317,
+    326,
+]
+hash = "sha256:24a7474fe40d9013facc218f04c72e7491d4049a55a2a6abdb2359297fa5a8cc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:88b44f28cd4feaa8",
+    "fn:de7bc4c32027171d",
+    "fn:f3f6b0dd48c79345",
+]
+test = true
+
+[[module."agent.rs".function]]
+id = "fn:9d3147018d4c63a5"
+name = "an_infinite_lifetime_has_no_exit_time_and_never_retires"
+qual = "an_infinite_lifetime_has_no_exit_time_and_never_retires"
+lines = [
+    328,
+    334,
+]
+hash = "sha256:9615c35eb6e5d59378a01e59d6d75108b12f23152e9e6da1f27e3735b256835a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:88b44f28cd4feaa8",
+    "fn:d7f04f179fc311d2",
+    "fn:de7bc4c32027171d",
+]
+test = true
+
+[[module."agent.rs".function]]
+id = "fn:2d6f75477a154a26"
+name = "retired_is_true_from_the_exit_step_onward"
+qual = "retired_is_true_from_the_exit_step_onward"
+lines = [
+    336,
+    342,
+]
+hash = "sha256:e75c788a178a57fb71bbfbb92ea338880a7dfdceb63a854fc263f82e030b6a0a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:88b44f28cd4feaa8",
+    "fn:d7f04f179fc311d2",
+    "fn:f3f6b0dd48c79345",
+]
+test = true
+
+[[module."agent.rs".function]]
+id = "fn:51722a4d860d79ed"
+name = "alive_covers_entry_decommissioning_and_retirement"
+qual = "alive_covers_entry_decommissioning_and_retirement"
+lines = [
+    344,
+    359,
+]
+hash = "sha256:e358512fa8d0753ca37de31798310547f0ae82071a7186ebf29c42c9390d32fc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:030b8a431033d838",
+    "fn:88b44f28cd4feaa8",
+    "fn:f3f6b0dd48c79345",
+]
+test = true
+
+[[module."agent.rs".function]]
+id = "fn:4d9259631dcf3a57"
+name = "age_is_zero_on_the_entry_step"
+qual = "age_is_zero_on_the_entry_step"
+lines = [
+    361,
+    367,
+]
+hash = "sha256:005198d15356d491f703e2a1aaf2ce976c8f12432ec091b321fa421bc20cffb0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3edf13d9b38917e6",
+    "fn:88b44f28cd4feaa8",
+]
+test = true
+
+[[module."agent.rs".function]]
+id = "fn:6f99fcce5627f302"
+name = "lifetime_round_trips_through_upstreams_integer_encoding"
+qual = "lifetime_round_trips_through_upstreams_integer_encoding"
+lines = [
+    369,
+    377,
+]
+hash = "sha256:6b454800916470ac9ef5f0afd5cee89ed441a0c9c56ebeee043650b511619aaa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:c4f005c45d6e03df",
+    "fn:c8cd17d3c500fc6a",
+]
+test = true
+
+[[module."agent.rs".function]]
+id = "fn:f53ae0e503cadf97"
+name = "lifetime_rejects_zero_and_other_negatives"
+qual = "lifetime_rejects_zero_and_other_negatives"
+lines = [
+    379,
+    383,
+]
+hash = "sha256:e212767272b7df1fd1b997de4d2410a9a3247aab7f093b656fc329775261b205"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:c8cd17d3c500fc6a"]
+test = true
+
+[module."arithmetic.rs"]
+path = "crate::arithmetic"
+
+[[module."arithmetic.rs".function]]
+id = "fn:3c48f35783aec75e"
+name = "kahan_sum"
+qual = "kahan_sum"
+lines = [
+    22,
+    72,
+]
+hash = "sha256:533ef900286c2a59f018b6959e06a0cc87a844e005a8067203e71028924d18dc"
+doc_hash = "sha256:dd79d316b5c590196ddea7229945847c7453a2fc8e5dc089c6ce4a9ddc28c552"
+reached_by = [
+    "#10",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#36",
+    "#37",
+    "#39",
+    "#43",
+    "#45",
+    "#46",
+    "#48",
+    "#51",
+    "#55",
+    "#64",
+    "#66",
+    "#68",
+    "#71",
+    "#72",
+    "#74",
+    "#78",
+    "#79",
+    "#85",
+    "#87",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#158",
+    "#160",
+    "#161",
+    "#191",
+    "#192",
+    "#193",
+    "#196",
+    "#198",
+    "#199",
+    "#200",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#257",
+]
+
+[[module."arithmetic.rs".function]]
+id = "fn:187d0cd7506e97b0"
+name = "sort_ascending"
+qual = "sort_ascending"
+lines = [
+    74,
+    83,
+]
+hash = "sha256:9b9ca883e39c74384708d6bc0089d39bd6e0f32de784bbe5d9fc3650a0415409"
+doc_hash = "sha256:e680123e2f317552cd402d096bb3894ec70e8b6a7a482d9982da95bc93801328"
+reached_by = ["#27"]
+
+[[module."arithmetic.rs".function]]
+id = "fn:00395ca468405c27"
+name = "kahan_sum_sorted"
+qual = "kahan_sum_sorted"
+lines = [
+    85,
+    102,
+]
+hash = "sha256:b0c87c14d36790a40bbd39c51d2beada35b25916aace5feb1ea376fd6dd317c5"
+doc_hash = "sha256:c7bac317c39650780ecc945241a205d59b15517627282d5b4eebcfb7067eebeb"
+reached_by = ["#27"]
+
+[[module."arithmetic.rs".function]]
+id = "fn:5c898a7074f05bc9"
+name = "recovers_small_addends_a_naive_sum_would_lose"
+qual = "recovers_small_addends_a_naive_sum_would_lose"
+lines = [
+    109,
+    119,
+]
+hash = "sha256:51c044ae7ac5a3ac7c69eb889d9ce6a8f74e7a07505f300f9623951f702d98e5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3c48f35783aec75e"]
+test = true
+
+[[module."arithmetic.rs".function]]
+id = "fn:a7c1f4c653c39dde"
+name = "matches_exact_sum_on_representable_input"
+qual = "matches_exact_sum_on_representable_input"
+lines = [
+    121,
+    125,
+]
+hash = "sha256:59685d6a4539de505280574aa18c1df5d82aa01db68bb9473f92a1823fba95dc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3c48f35783aec75e"]
+test = true
+
+[[module."arithmetic.rs".function]]
+id = "fn:4ee83271c5f5fcfe"
+name = "empty_sums_to_zero"
+qual = "empty_sums_to_zero"
+lines = [
+    127,
+    130,
+]
+hash = "sha256:544bfeb822afc40ed99982c3e6898eaa89cff37151ed6bab0a4912b904e3a351"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3c48f35783aec75e"]
+test = true
+
+[[module."arithmetic.rs".function]]
+id = "fn:2609b7b723873b1a"
+name = "is_order_independent_because_it_sorts"
+qual = "is_order_independent_because_it_sorts"
+lines = [
+    132,
+    137,
+]
+hash = "sha256:012e9f77ff36fcb1349a60b9633cff6cd7de0e09baeb3ab91f8a4b57d931aa36"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3c48f35783aec75e"]
+test = true
+
+[[module."arithmetic.rs".function]]
+id = "fn:a4e5497c2b997ae9"
+name = "sorted_variant_agrees_when_input_is_sorted"
+qual = "sorted_variant_agrees_when_input_is_sorted"
+lines = [
+    139,
+    143,
+]
+hash = "sha256:c952387fad835a824b1d3b1b5c31fb7beb99880abb44cb7b52f811751d3801a0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:00395ca468405c27",
+    "fn:187d0cd7506e97b0",
+    "fn:3c48f35783aec75e",
+]
+test = true
+
+[module."comp_math.rs"]
+path = "crate::comp_math"
+
+[[module."comp_math.rs".function]]
+id = "fn:ee9eca63e9714ed7"
+name = "add"
+qual = "add"
+lines = [
+    43,
+    72,
+]
+hash = "sha256:882473991cd8c2ccd152cd89b9a8b9961000aeb2af7a2b597df2ae75e68dfed7"
+doc_hash = "sha256:9a722db2d3796e39a7119bb332815acfaf57234ec31732ecaf2060c7a57011da"
+reached_by = [
+    "#28",
+    "#29",
+    "#150",
+    "#151",
+    "#152",
+    "#158",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+]
+
+[[module."comp_math.rs".function]]
+id = "fn:3cd730b835beae8b"
+name = "sub"
+qual = "sub"
+lines = [
+    74,
+    88,
+]
+hash = "sha256:1248755abdf9335234da42baef7b23e31d9a03e978bbf063b10b2fcf82b73e96"
+doc_hash = "sha256:2addd258b91cbfaf8db409e2e3700744cd5fe69d965c3ca583f4ea7ef17e9afb"
+reached_by = [
+    "#38",
+    "#153",
+    "#154",
+    "#155",
+]
+
+[[module."comp_math.rs".function]]
+id = "fn:2ec541aa2ae75949"
+name = "sum"
+qual = "sum"
+lines = [
+    90,
+    100,
+]
+hash = "sha256:8f5575478964a1bfa81b46646957ff7f1ea5c376e2d381c79add5e87c441100f"
+doc_hash = "sha256:ac7554d7c52bb3c71be51cd7082d3f79569af9433aac16cfcdb644a961827f6f"
+callees = ["fn:3c48f35783aec75e"]
+reached_by = [
+    "#10",
+    "#22",
+    "#36",
+    "#37",
+    "#39",
+    "#43",
+    "#45",
+    "#46",
+    "#48",
+    "#51",
+    "#55",
+    "#64",
+    "#66",
+    "#71",
+    "#72",
+    "#79",
+    "#85",
+    "#87",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#158",
+    "#160",
+    "#161",
+    "#191",
+    "#192",
+    "#193",
+    "#196",
+    "#198",
+    "#199",
+    "#200",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#257",
+]
+
+[[module."comp_math.rs".function]]
+id = "fn:d05e8892e36fc6ff"
+name = "apply_threshold"
+qual = "apply_threshold"
+lines = [
+    102,
+    120,
+]
+hash = "sha256:cddf165ba521306d02955c17411d0ad3970fc7702d70cb87dcf96d304ef706c9"
+doc_hash = "sha256:3f62c55429f6b4da4bec29e1ec302a9c6122b13f0133af6df7984f7f97dba311"
+callees = ["fn:186f15e345e7acd8"]
+reached_by = [
+    "#34",
+    "#35",
+    "#153",
+    "#154",
+    "#155",
+]
+
+[[module."comp_math.rs".function]]
+id = "fn:6f487de0cf3e712e"
+name = "normalize"
+qual = "normalize"
+lines = [
+    122,
+    136,
+]
+hash = "sha256:f6e5bdb9a25569add26c211d6d05695ea560e3cebe3f592e8fd6aa2f1555f69b"
+doc_hash = "sha256:9d15d0ef60a02d8100f48dd621f24b1d08779253c39a09f89f16fd7059bcd436"
+callees = ["fn:2ec541aa2ae75949"]
+reached_by = [
+    "#36",
+    "#37",
+    "#48",
+    "#71",
+    "#87",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#158",
+    "#160",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#211",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+]
+
+[[module."comp_math.rs".function]]
+id = "fn:83f58cf237abbfac"
+name = "valid_nucs"
+qual = "valid_nucs"
+lines = [
+    138,
+    142,
+]
+hash = "sha256:ce7538fb846b0db68d6672025f23cb0b395e9ad0a8e252bf33991f8eb3d5bd05"
+doc_hash = "sha256:8ccb80d632cc06c32d948fffd0013cc2593069cca0cf8a1b8511ac2fad7014a6"
+callees = ["fn:123709471c989c54"]
+reached_by = ["#40"]
+
+[[module."comp_math.rs".function]]
+id = "fn:93c31ff5e5ea1559"
+name = "first_invalid_nuc"
+qual = "first_invalid_nuc"
+lines = [
+    144,
+    153,
+]
+hash = "sha256:c6d679a7e5985eb23063dd8a78b054362c3ba9e1818afe57588af59c9f7c5ce0"
+doc_hash = "sha256:e29faea7e98c03d98381810b8742fdf7f3ed1ff47db7a0ccf4aa81dda84e68f3"
+callees = ["fn:123709471c989c54"]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#54",
+    "#55",
+    "#61",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#71",
+    "#72",
+    "#79",
+    "#80",
+    "#82",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#135",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#176",
+    "#177",
+    "#178",
+    "#191",
+    "#192",
+    "#193",
+    "#196",
+    "#198",
+    "#199",
+    "#200",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."comp_math.rs".function]]
+id = "fn:455cad7bca4e3138"
+name = "all_positive"
+qual = "all_positive"
+lines = [
+    155,
+    162,
+]
+hash = "sha256:538c0dd813e5e207488c4098bde110293d8b5a5d711bd463cd26782452983bb5"
+doc_hash = "sha256:e82c4836000cec31c25cc5d33440a7f7c5606c7c966f80d6d1443e78d648a636"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#30",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#54",
+    "#55",
+    "#61",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#71",
+    "#72",
+    "#79",
+    "#80",
+    "#82",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#135",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#176",
+    "#177",
+    "#178",
+    "#191",
+    "#192",
+    "#193",
+    "#196",
+    "#198",
+    "#199",
+    "#200",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."comp_math.rs".function]]
+id = "fn:f3dc2de0ecf4f913"
+name = "almost_eq"
+qual = "almost_eq"
+lines = [
+    164,
+    217,
+]
+hash = "sha256:2173af301d95bdb24eb9b70eff9912611123025d316b942115e691c8296d68cb"
+doc_hash = "sha256:507167b9ea22c2798d7463bd4dda53ee5141faa1affaf1cf7682a92ca9841c95"
+callees = ["fn:186f15e345e7acd8"]
+reached_by = [
+    "#31",
+    "#32",
+    "#33",
+    "#44",
+    "#204",
+]
+
+[[module."comp_math.rs".function]]
+id = "fn:f806bf908d208108"
+name = "comp"
+qual = "comp"
+lines = [
+    225,
+    227,
+]
+hash = "sha256:195d0c4d5f8b68f44da5be4cef60f33160a045251dc62b694a3b39c2dd1fc9bf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."comp_math.rs".function]]
+id = "fn:29299c8299278e16"
+name = "add_matches_the_upstream_header_example"
+qual = "add_matches_the_upstream_header_example"
+lines = [
+    229,
+    236,
+]
+hash = "sha256:58254082160876cde1f39d69db3b94d51dfff41a0cb5c4bb94da05494180d3fd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:ee9eca63e9714ed7",
+    "fn:f806bf908d208108",
+]
+test = true
+
+[[module."comp_math.rs".function]]
+id = "fn:7044388f6c3c1d61"
+name = "add_carries_through_nuclides_present_in_only_one_operand"
+qual = "add_carries_through_nuclides_present_in_only_one_operand"
+lines = [
+    238,
+    246,
+]
+hash = "sha256:d6ba168f42b5480013ab8d18ba7f1cbabdb9f5caf9f8362e5f4dc932afae1c1d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:ee9eca63e9714ed7",
+    "fn:f806bf908d208108",
+]
+test = true
+
+[[module."comp_math.rs".function]]
+id = "fn:17b49e2029775638"
+name = "sub_may_leave_negative_entries"
+qual = "sub_may_leave_negative_entries"
+lines = [
+    248,
+    253,
+]
+hash = "sha256:a789416af2b78b1145e92003c9e57f44439893c796aeeac687a1a6e32af9555a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3cd730b835beae8b",
+    "fn:f806bf908d208108",
+]
+test = true
+
+[[module."comp_math.rs".function]]
+id = "fn:9f54fca8e5637856"
+name = "sum_is_compensated"
+qual = "sum_is_compensated"
+lines = [
+    255,
+    259,
+]
+hash = "sha256:6ff8beb721be20f6633442704c5ef92d93e2bf4a056a5b3d6410a165ce3a38f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2ec541aa2ae75949",
+    "fn:f806bf908d208108",
+]
+test = true
+
+[[module."comp_math.rs".function]]
+id = "fn:b84c233aaaae275d"
+name = "normalize_scales_to_the_requested_total"
+qual = "normalize_scales_to_the_requested_total"
+lines = [
+    261,
+    268,
+]
+hash = "sha256:61dee86dd900a84972d3f425d4e5e698c479e8960176f57481b03bc4df54a5c0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2ec541aa2ae75949",
+    "fn:6f487de0cf3e712e",
+    "fn:f806bf908d208108",
+]
+test = true
+
+[[module."comp_math.rs".function]]
+id = "fn:cbb91f04f1980a58"
+name = "normalize_leaves_an_all_zero_composition_alone"
+qual = "normalize_leaves_an_all_zero_composition_alone"
+lines = [
+    270,
+    275,
+]
+hash = "sha256:84b41f5672da8e159800c58b42268304b29e345160dfbe9b4bab90f7f3eec36a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6f487de0cf3e712e",
+    "fn:f806bf908d208108",
+]
+test = true
+
+[[module."comp_math.rs".function]]
+id = "fn:da234737ba2f4c07"
+name = "apply_threshold_erases_rather_than_zeroing"
+qual = "apply_threshold_erases_rather_than_zeroing"
+lines = [
+    277,
+    283,
+]
+hash = "sha256:1a7eccbdbfe3da7837ee0f4a67df5ca30ef14e629344168b1ce7342e2d3abe2e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:d05e8892e36fc6ff",
+    "fn:f806bf908d208108",
+]
+test = true
+
+[[module."comp_math.rs".function]]
+id = "fn:db41dbecbea99330"
+name = "apply_threshold_rejects_a_negative_threshold"
+qual = "apply_threshold_rejects_a_negative_threshold"
+lines = [
+    285,
+    292,
+]
+hash = "sha256:0315f753740839e810248a44f8596f40502cbca50685c2b43e9a009b64ce0642"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:d05e8892e36fc6ff",
+    "fn:f806bf908d208108",
+]
+test = true
+
+[[module."comp_math.rs".function]]
+id = "fn:adbe4f8591352691"
+name = "valid_nucs_rejects_an_element_id"
+qual = "valid_nucs_rejects_an_element_id"
+lines = [
+    294,
+    300,
+]
+hash = "sha256:de600c6635eede530ec898ca805ee2b2998a049c5b309dc27c1e3a68fcfd704b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:83f58cf237abbfac",
+    "fn:93c31ff5e5ea1559",
+    "fn:f806bf908d208108",
+]
+test = true
+
+[[module."comp_math.rs".function]]
+id = "fn:b62973e0c84f559a"
+name = "all_positive_admits_zero"
+qual = "all_positive_admits_zero"
+lines = [
+    302,
+    306,
+]
+hash = "sha256:7396797f3216b5a03347c4ebeebae9f71dd6827df70316c0056edf40f0a3c810"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:455cad7bca4e3138",
+    "fn:f806bf908d208108",
+]
+test = true
+
+[[module."comp_math.rs".function]]
+id = "fn:8ca4d888231632ec"
+name = "almost_eq_is_relative"
+qual = "almost_eq_is_relative"
+lines = [
+    308,
+    315,
+]
+hash = "sha256:5e7cb6bf14f2585725b7ae854d42f5dbcb3faaab1587403c0214516b5429d359"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:f3dc2de0ecf4f913",
+    "fn:f806bf908d208108",
+]
+test = true
+
+[[module."comp_math.rs".function]]
+id = "fn:8f6bc907c5162680"
+name = "almost_eq_requires_the_same_key_set"
+qual = "almost_eq_requires_the_same_key_set"
+lines = [
+    317,
+    323,
+]
+hash = "sha256:2c9f29abdaccdf085396a37fb51d443a7a44f594cb8726b8674ddb102a948777"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:f3dc2de0ecf4f913",
+    "fn:f806bf908d208108",
+]
+test = true
+
+[[module."comp_math.rs".function]]
+id = "fn:0dd4a5dd4c89ad7a"
+name = "almost_eq_preserves_the_upstream_zero_branch"
+qual = "almost_eq_preserves_the_upstream_zero_branch"
+lines = [
+    325,
+    335,
+]
+hash = "sha256:ea2ebc5c290a4fd619e1fcfc05c0ad511a50623384d2ec20feb4d0ef4db43876"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:f3dc2de0ecf4f913",
+    "fn:f806bf908d208108",
+]
+test = true
+
+[[module."comp_math.rs".function]]
+id = "fn:d76b8e5af43e453e"
+name = "iteration_is_deterministic_in_nuclide_order"
+qual = "iteration_is_deterministic_in_nuclide_order"
+lines = [
+    337,
+    342,
+]
+hash = "sha256:e0dd250c4245c192cd6ff77df5ebd3ad8a8b875beacd45f5f092191d7b5c8320"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f806bf908d208108"]
+test = true
+
+[module."composition.rs"]
+path = "crate::composition"
+
+[[module."composition.rs".function]]
+id = "fn:2bef836794bb5ef6"
+name = "from_pairs"
+qual = "AtomicMasses::from_pairs"
+lines = [
+    97,
+    101,
+]
+hash = "sha256:2c7d8e22b0b1da634c9e71bfa50e2c64f185bc65c0bf03e1203b421edb3f26ac"
+doc_hash = "sha256:35a7309e497f5abe60f036ed335ee374e50ef7bb77614a9b954888757586c373"
+reached_by = [
+    "#41",
+    "#42",
+]
+
+[[module."composition.rs".function]]
+id = "fn:b750b0fbb9a2b9d8"
+name = "mass_of"
+qual = "AtomicMasses::mass_of"
+lines = [
+    103,
+    126,
+]
+hash = "sha256:3dc5474544fe315d5d6a7e550923b555dd1bf7f01f213ad409b3ce22501539dd"
+doc_hash = "sha256:fbf98b666648dcdeab49377215340a881ac8ce2f42a2ab36e54b7858a013768d"
+callees = [
+    "fn:21dcaa86349b5a44",
+    "fn:936e11ec2d78e627",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#54",
+    "#55",
+    "#61",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#71",
+    "#72",
+    "#79",
+    "#80",
+    "#82",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#135",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#176",
+    "#177",
+    "#178",
+    "#191",
+    "#192",
+    "#193",
+    "#196",
+    "#198",
+    "#199",
+    "#200",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."composition.rs".function]]
+id = "fn:cc9020a7c9cd165b"
+name = "from_atom"
+qual = "Composition::from_atom"
+lines = [
+    147,
+    182,
+]
+hash = "sha256:030f74e3da8c4a9a143fa29f94719e52b9532c900c5a0c46b350fdec3a87f7a5"
+doc_hash = "sha256:d3b534f4fd126c97c6c0a2aa54dfd495994d12129048a96b49768dcc50e29ae6"
+callees = [
+    "fn:86b72eb8d97f112f",
+    "fn:b750b0fbb9a2b9d8",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#15",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#71",
+    "#72",
+    "#79",
+    "#80",
+    "#82",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#191",
+    "#192",
+    "#196",
+    "#198",
+    "#200",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."composition.rs".function]]
+id = "fn:c1e70f92aea5cccf"
+name = "from_mass"
+qual = "Composition::from_mass"
+lines = [
+    184,
+    198,
+]
+hash = "sha256:1c589088489bc44fab676d8bba47cd6e5efc6abfb472e1f3621662617778106c"
+doc_hash = "sha256:c6363d9bfde12a5c146a584719b6b4a2ce34c2c13d09f9ca5192732ed33a6685"
+callees = [
+    "fn:86b72eb8d97f112f",
+    "fn:b750b0fbb9a2b9d8",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#44",
+    "#54",
+    "#55",
+    "#61",
+    "#135",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#176",
+    "#177",
+    "#178",
+    "#193",
+    "#199",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."composition.rs".function]]
+id = "fn:f105326c077b6546"
+name = "from_nuclide"
+qual = "Composition::from_nuclide"
+lines = [
+    200,
+    213,
+]
+hash = "sha256:49d4a2d844aea28ea5d3b7e8f69ffb27161550e9b8a05862cdffc7944c37e8e5"
+doc_hash = "sha256:d8e2516a21163cea7af780ac56087542a0230e20984214971e7d12c407d11482"
+callees = [
+    "fn:123709471c989c54",
+    "fn:936e11ec2d78e627",
+    "fn:cc9020a7c9cd165b",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#15",
+    "#45",
+    "#64",
+    "#71",
+    "#72",
+    "#87",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."composition.rs".function]]
+id = "fn:86b72eb8d97f112f"
+name = "validate"
+qual = "Composition::validate"
+lines = [
+    215,
+    224,
+]
+hash = "sha256:6f1ae7fff6a5602e28134b27b84aac641bb30e77fbb61513f2600f7a73f3400b"
+doc_hash = "sha256:d12ed763d3da7063877e5d1f2a52ce29f1192718db82d78ebf455ec19544596f"
+callees = [
+    "fn:455cad7bca4e3138",
+    "fn:936e11ec2d78e627",
+    "fn:93c31ff5e5ea1559",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#54",
+    "#55",
+    "#61",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#71",
+    "#72",
+    "#79",
+    "#80",
+    "#82",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#135",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#176",
+    "#177",
+    "#178",
+    "#191",
+    "#192",
+    "#193",
+    "#196",
+    "#198",
+    "#199",
+    "#200",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."composition.rs".function]]
+id = "fn:e258eb078267fc42"
+name = "atom"
+qual = "Composition::atom"
+lines = [
+    226,
+    230,
+]
+hash = "sha256:f7b04947d4ec2dd13e0716ab8e70a51d6649bb75e7772c2d7ff3edb30984e31c"
+doc_hash = "sha256:3de9db16bad5cbd119e288f8e1fcedddcbef82126613bd2d842590b087feb6b7"
+reached_by = [
+    "#44",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#71",
+    "#72",
+    "#79",
+    "#80",
+    "#82",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+]
+
+[[module."composition.rs".function]]
+id = "fn:589ce647342018a0"
+name = "mass"
+qual = "Composition::mass"
+lines = [
+    232,
+    236,
+]
+hash = "sha256:150430dc12fc1f61437cf05128b359f3795d87759eea8941ffb1a08020fdaa21"
+doc_hash = "sha256:dca192e4bf79aa61c156c1441ebcb97c1d8438bd4bfe7809339d1a9294920ff0"
+reached_by = [
+    "#42",
+    "#44",
+    "#46",
+    "#64",
+    "#71",
+    "#72",
+    "#79",
+    "#87",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#158",
+    "#160",
+    "#203",
+    "#212",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+]
+
+[[module."composition.rs".function]]
+id = "fn:0209d524125b98a1"
+name = "atom_frac"
+qual = "Composition::atom_frac"
+lines = [
+    238,
+    245,
+]
+hash = "sha256:7d65e3d61e5c6ddf8a0cdcf10279221b12b82b43c1c337c1d37493e7877139c5"
+doc_hash = "sha256:458fd8ed9b6efd9052c82875fff137fff690c0b60068ff7cf941916cf98dda33"
+callees = ["fn:e15b793bb2a64203"]
+reached_by = [
+    "#43",
+    "#45",
+    "#51",
+    "#191",
+    "#192",
+    "#193",
+    "#196",
+    "#198",
+    "#208",
+    "#212",
+]
+
+[[module."composition.rs".function]]
+id = "fn:3a3027db3b0ada6c"
+name = "mass_frac"
+qual = "Composition::mass_frac"
+lines = [
+    247,
+    253,
+]
+hash = "sha256:115c93410ad79b6e8b0b2e52ceead24b5ee48457906cf5942c9b023c172db049"
+doc_hash = "sha256:f87064655eb7a4bc1ff0f57bd3ff0c2cfdff8fb6fe7ee4d9e9bb96926f22b172"
+callees = ["fn:e15b793bb2a64203"]
+reached_by = [
+    "#10",
+    "#22",
+    "#43",
+    "#45",
+    "#46",
+    "#55",
+    "#151",
+    "#158",
+    "#161",
+    "#192",
+    "#193",
+    "#196",
+    "#199",
+    "#200",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#239",
+    "#257",
+]
+
+[[module."composition.rs".function]]
+id = "fn:4fead1f3afb2a51f"
+name = "normalized_atom"
+qual = "Composition::normalized_atom"
+lines = [
+    255,
+    261,
+]
+hash = "sha256:775968e27d5516bdc883564ffaade38581edd4ea3a266980731b4d2a84f86980"
+doc_hash = "sha256:b751ccea3715b7a823204ffe8031fc15e7f00a777c5d3ad0aaf8b52816df2936"
+callees = ["fn:6f487de0cf3e712e"]
+reached_by = [
+    "#48",
+    "#211",
+]
+
+[[module."composition.rs".function]]
+id = "fn:335268b163c6aa5d"
+name = "normalized_mass"
+qual = "Composition::normalized_mass"
+lines = [
+    263,
+    271,
+]
+hash = "sha256:0e1a5630749863a6ea673c8863999efc86842afa083c156d339e29cc5d594912"
+doc_hash = "sha256:c9a29eeb4539e9f3a219a0310509e6ab2a4e89c4e11033dbaead14f160b7efeb"
+callees = ["fn:6f487de0cf3e712e"]
+reached_by = [
+    "#48",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+]
+
+[[module."composition.rs".function]]
+id = "fn:5f1cf912e9a4f458"
+name = "is_empty"
+qual = "Composition::is_empty"
+lines = [
+    273,
+    277,
+]
+hash = "sha256:15bcbd45f5c00cd7ac5341a8fc767c3ecfb8500c773f94499c74070196b30e13"
+doc_hash = "sha256:560eaef9dd759014a94ac7584d46ea896e6fa5a988cfd075fbe7a7ea5b0b5626"
+reached_by = [
+    "#64",
+    "#71",
+    "#72",
+    "#79",
+    "#87",
+]
+
+[[module."composition.rs".function]]
+id = "fn:a760add522764059"
+name = "len"
+qual = "Composition::len"
+lines = [
+    279,
+    283,
+]
+hash = "sha256:634983f9aee53c2a1ccb034cf38474912fae91b9fbc534464faba06decff0264"
+doc_hash = "sha256:35b6dff66083a0387e36ebd87f74d4a47798548d989fbaea026a9981728c4b00"
+reached_by = ["#45"]
+
+[[module."composition.rs".function]]
+id = "fn:5521d2577106beda"
+name = "almost_eq"
+qual = "Composition::almost_eq"
+lines = [
+    285,
+    293,
+]
+hash = "sha256:1bfc14fd48814fcee9033b802f62829035cfe81eeada23e5c6aa825be0214089"
+doc_hash = "sha256:43602201abfbab5d702d65319568053f0a4010854adabd80e6f766857ce56eb2"
+callees = ["fn:f3dc2de0ecf4f913"]
+reached_by = ["#44"]
+
+[[module."composition.rs".function]]
+id = "fn:e15b793bb2a64203"
+name = "frac"
+qual = "frac"
+lines = [
+    296,
+    303,
+]
+hash = "sha256:14bff10737019d648066c6963acc4e964bc6d8c296f869db7798ee1754971330"
+doc_hash = "sha256:15934be8765b86d461759c2af3bbda5f208012aecd521245f5fc42794781d79a"
+callees = ["fn:2ec541aa2ae75949"]
+reached_by = [
+    "#10",
+    "#22",
+    "#43",
+    "#45",
+    "#46",
+    "#51",
+    "#55",
+    "#151",
+    "#158",
+    "#161",
+    "#191",
+    "#192",
+    "#193",
+    "#196",
+    "#198",
+    "#199",
+    "#200",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#239",
+    "#257",
+]
+
+[[module."composition.rs".function]]
+id = "fn:ac29b831d713d672"
+name = "comp"
+qual = "comp"
+lines = [
+    310,
+    312,
+]
+hash = "sha256:195d0c4d5f8b68f44da5be4cef60f33160a045251dc62b694a3b39c2dd1fc9bf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."composition.rs".function]]
+id = "fn:b99d32458149308b"
+name = "uo2_from_atom_has_two_oxygens_per_uranium"
+qual = "uo2_from_atom_has_two_oxygens_per_uranium"
+lines = [
+    314,
+    323,
+]
+hash = "sha256:e7d2bb01ff6aa7717b4de3a6858e2042bf940401b55ea9d2ba1ba3688914e690"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0209d524125b98a1",
+    "fn:ac29b831d713d672",
+    "fn:cc9020a7c9cd165b",
+]
+test = true
+
+[[module."composition.rs".function]]
+id = "fn:9976a54b52f4b485"
+name = "mass_basis_follows_from_atom_basis_by_atomic_mass"
+qual = "mass_basis_follows_from_atom_basis_by_atomic_mass"
+lines = [
+    325,
+    336,
+]
+hash = "sha256:76c5d0462f060333be226a88ed3a9f81bf84ac386d45c774637e5209a67c753a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3a3027db3b0ada6c",
+    "fn:589ce647342018a0",
+    "fn:ac29b831d713d672",
+    "fn:cc9020a7c9cd165b",
+]
+test = true
+
+[[module."composition.rs".function]]
+id = "fn:064937b2c448d437"
+name = "from_mass_and_from_atom_round_trip"
+qual = "from_mass_and_from_atom_round_trip"
+lines = [
+    338,
+    347,
+]
+hash = "sha256:523930eb75cec8f343601168d9ed4818fc8dacf992c3442ce621e834eb014852"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5521d2577106beda",
+    "fn:589ce647342018a0",
+    "fn:ac29b831d713d672",
+    "fn:c1e70f92aea5cccf",
+    "fn:cc9020a7c9cd165b",
+    "fn:e258eb078267fc42",
+]
+test = true
+
+[[module."composition.rs".function]]
+id = "fn:d47c1e47fdb7ad3e"
+name = "rejects_an_invalid_nuclide"
+qual = "rejects_an_invalid_nuclide"
+lines = [
+    349,
+    353,
+]
+hash = "sha256:a6f25f4eafe14d634a674bd5457db016fdd64d7b6a3c1f5c720113c3e38e2ea4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:936e11ec2d78e627",
+    "fn:ac29b831d713d672",
+    "fn:cc9020a7c9cd165b",
+]
+test = true
+
+[[module."composition.rs".function]]
+id = "fn:74cadc4b635f3bbd"
+name = "rejects_a_negative_quantity"
+qual = "rejects_a_negative_quantity"
+lines = [
+    355,
+    359,
+]
+hash = "sha256:046b9bc46fbcbfcff0e6cd4e46fa5f5a04f7c2d7449efa426ae4eb5987432268"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:ac29b831d713d672",
+    "fn:cc9020a7c9cd165b",
+]
+test = true
+
+[[module."composition.rs".function]]
+id = "fn:b099660b1b1f8758"
+name = "from_nuclide_is_a_pure_single_nuclide"
+qual = "from_nuclide_is_a_pure_single_nuclide"
+lines = [
+    361,
+    367,
+]
+hash = "sha256:59b419e7b9cad436ad98875a5db2f8c9834b995791b0c65e53805a9bd03c69bf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0209d524125b98a1",
+    "fn:3a3027db3b0ada6c",
+    "fn:a760add522764059",
+    "fn:f105326c077b6546",
+]
+test = true
+
+[[module."composition.rs".function]]
+id = "fn:7d0226b4101ad85d"
+name = "fractions_of_an_absent_nuclide_are_zero"
+qual = "fractions_of_an_absent_nuclide_are_zero"
+lines = [
+    369,
+    374,
+]
+hash = "sha256:36c9377607234aa8a24f5b8286d0f1346c2860fc07997e91f64e0d5ac21447e8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0209d524125b98a1",
+    "fn:3a3027db3b0ada6c",
+    "fn:ac29b831d713d672",
+    "fn:cc9020a7c9cd165b",
+]
+test = true
+
+[[module."composition.rs".function]]
+id = "fn:1b65163ee6c2331b"
+name = "normalized_views_sum_to_one"
+qual = "normalized_views_sum_to_one"
+lines = [
+    376,
+    385,
+]
+hash = "sha256:3ce8333365126e9e16d9629a21e0815f5cefc6145a4100c5a5e4f35e5954d299"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2ec541aa2ae75949",
+    "fn:335268b163c6aa5d",
+    "fn:4fead1f3afb2a51f",
+    "fn:ac29b831d713d672",
+    "fn:cc9020a7c9cd165b",
+]
+test = true
+
+[[module."composition.rs".function]]
+id = "fn:5c49ec8bb558586e"
+name = "explicit_table_overrides_the_mass_number_approximation"
+qual = "explicit_table_overrides_the_mass_number_approximation"
+lines = [
+    387,
+    393,
+]
+hash = "sha256:6623e9a485a56997cbb03c257932e76f4cdfaca5de0277fa23375307dc1ccc39"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2bef836794bb5ef6",
+    "fn:589ce647342018a0",
+    "fn:ac29b831d713d672",
+    "fn:cc9020a7c9cd165b",
+]
+test = true
+
+[[module."composition.rs".function]]
+id = "fn:d520e48642b0bc3f"
+name = "a_nuclide_missing_from_the_table_is_an_error_not_a_zero"
+qual = "a_nuclide_missing_from_the_table_is_an_error_not_a_zero"
+lines = [
+    395,
+    403,
+]
+hash = "sha256:face4de674319e12d7126164d4b418fa52ad968e1893d48b4fc008068f879700"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2bef836794bb5ef6",
+    "fn:ac29b831d713d672",
+    "fn:cc9020a7c9cd165b",
+]
+test = true
+
+[[module."composition.rs".function]]
+id = "fn:dbe77906c6e60ecb"
+name = "mass_number_approximation_rejects_an_element_id"
+qual = "mass_number_approximation_rejects_an_element_id"
+lines = [
+    405,
+    412,
+]
+hash = "sha256:11d316ff3036ea9aeb66ccbdc36642cfe7c3095d2e767d9a8b413665a79d4696"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:936e11ec2d78e627",
+    "fn:b750b0fbb9a2b9d8",
+]
+test = true
+
+[module."context.rs"]
+path = "crate::context"
+
+[[module."context.rs".function]]
+id = "fn:c6ef0423d6a8c62d"
+name = "new"
+qual = "Context::new"
+lines = [
+    95,
+    107,
+]
+hash = "sha256:2b74f59f9c27e19d67b8a7963f2c3a0750d0c79b0ceb7ffae376bc126639133f"
+doc_hash = "sha256:379c7fb70a50e02c8a0ddfaca25c7e63f11b98210855b1afff097048428c702d"
+callees = ["fn:284faebf4f083820"]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."context.rs".function]]
+id = "fn:db92b9bbd9a5df66"
+name = "time"
+qual = "Context::time"
+lines = [
+    109,
+    113,
+]
+hash = "sha256:56253fe62e61fd4e12ffe79f811e16b8586ded51a8707aae34cd623f59ab7fff"
+doc_hash = "sha256:a066a5082ee76e8efe9fdde6e67e97a7806ad5a09d7e7ca8f5e3bd738668df9b"
+callees = ["fn:a6142f5dc4bd8e9f"]
+reached_by = [
+    "#52",
+    "#53",
+    "#56",
+    "#58",
+    "#59",
+    "#60",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."context.rs".function]]
+id = "fn:fd82e206461dc130"
+name = "sim_info"
+qual = "Context::sim_info"
+lines = [
+    115,
+    119,
+]
+hash = "sha256:41cde816d8a045b9241121fdc7ec67725a80caf897f506dcc499f677a3934c77"
+doc_hash = "sha256:9f196e5d6c29ee1aa2ffdb7e77d828ab7b65c96c0d41bba725854cc25fe4d417"
+callees = ["fn:41f2064a40b150c6"]
+
+[[module."context.rs".function]]
+id = "fn:27203b6bc679b67e"
+name = "timer"
+qual = "Context::timer"
+lines = [
+    121,
+    125,
+]
+hash = "sha256:b5ed56554c862d7c57d9da0674cb6f99a837f42f3da98c8488e1f27dbdbf716f"
+doc_hash = "sha256:99a1bfbb274bd9c5309f151ef467d460e9f8337ea4c5589f6e84141cc7ceb308"
+reached_by = [
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."context.rs".function]]
+id = "fn:e7ce893282479c6d"
+name = "timer_mut"
+qual = "Context::timer_mut"
+lines = [
+    127,
+    130,
+]
+hash = "sha256:cd23e312c374e88e7c47d91c0fae586c35d5ac02a1de5ae987719b284da871fc"
+doc_hash = "sha256:cac9b0b327ebbe711bcfcef6973d1c0779242a31659a2ffb4bd8c04c610ed975"
+reached_by = [
+    "#52",
+    "#53",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."context.rs".function]]
+id = "fn:814c2f47b188fa60"
+name = "add_recipe"
+qual = "Context::add_recipe"
+lines = [
+    134,
+    153,
+]
+hash = "sha256:e32ce499ab7e9e55a506f98488ced65e1f3b07516bc817459b0f1a3b0fe3eeb4"
+doc_hash = "sha256:2b239549db1b2d6c3c7d287d2c4c11f518e36ab0beb8f497fe0281b4f7159946"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#54",
+    "#55",
+    "#61",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."context.rs".function]]
+id = "fn:306b27bbfe77c6d9"
+name = "replace_recipe"
+qual = "Context::replace_recipe"
+lines = [
+    155,
+    161,
+]
+hash = "sha256:fa366fca22a708fa145b7896bca76f00fba89cc1e46df3390a5ce27fcef162c1"
+doc_hash = "sha256:57dda6ef207d71a1d918b5c2d40d7d2931b70693f9cc9edb143acbf84a2a10a2"
+reached_by = ["#54"]
+
+[[module."context.rs".function]]
+id = "fn:aa6a59fe0a4fd0f4"
+name = "recipe"
+qual = "Context::recipe"
+lines = [
+    163,
+    173,
+]
+hash = "sha256:05b68fc835ef188d3a677be51851138c5cb10bb736d09f93263ad3c38fa39830"
+doc_hash = "sha256:ac62f61c690c944c37d8b5ab5a63eb61295e411b2d1acbf0694d4c321af843e3"
+reached_by = [
+    "#9",
+    "#10",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#55",
+    "#57",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."context.rs".function]]
+id = "fn:6c97987786806081"
+name = "has_recipe"
+qual = "Context::has_recipe"
+lines = [
+    175,
+    179,
+]
+hash = "sha256:52a72e528d20bc2a1a8d3fc4910d51610b1ecfc49afa14bf50b7486c16c7c153"
+doc_hash = "sha256:86693ab3e5559c9ee4e816a638809d052599da56b3e0ecd4bd7d1c9e903f39a7"
+reached_by = ["#55"]
+
+[[module."context.rs".function]]
+id = "fn:9bf8feb720b75b9e"
+name = "recipe_names"
+qual = "Context::recipe_names"
+lines = [
+    181,
+    185,
+]
+hash = "sha256:5b5d856740524f0c7cd7bcd3071305cb7a881223aa62f29a60c43151deac2f7d"
+doc_hash = "sha256:5aba7f58917aa336536383329d85c4203d9b877f74a0d15f8b805b668f0da649"
+reached_by = ["#61"]
+
+[[module."context.rs".function]]
+id = "fn:f847ab1e4011b8d0"
+name = "sched_build"
+qual = "Context::sched_build"
+lines = [
+    189,
+    209,
+]
+hash = "sha256:79719de8cc753f99bd4ec4a96f89610081e5ea2ebbef6082d01222e3de46192b"
+doc_hash = "sha256:ec83569d4d2fa65312fb9f13c12cc1d2ccc23ef4abac4f00f99b80e1e2c518f9"
+callees = ["fn:db92b9bbd9a5df66"]
+reached_by = [
+    "#52",
+    "#56",
+    "#58",
+    "#59",
+]
+
+[[module."context.rs".function]]
+id = "fn:584550baf79369ab"
+name = "sched_decom"
+qual = "Context::sched_decom"
+lines = [
+    211,
+    220,
+]
+hash = "sha256:bb471a7c39d29bd2ee4dc1b4aefe7f2a9e36cf71844e22b1bf7916e71bc6ebb3"
+doc_hash = "sha256:339350dc217d6e21ca8d157a6944c99714d0aad08f8f175346da629715b42808"
+callees = ["fn:db92b9bbd9a5df66"]
+reached_by = [
+    "#53",
+    "#60",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."context.rs".function]]
+id = "fn:8769133897deb64e"
+name = "take_builds_due"
+qual = "Context::take_builds_due"
+lines = [
+    222,
+    240,
+]
+hash = "sha256:54bcef135b4a3e1ceadbdb8c123f4ef2c100443e70ee7c0707ebf4d4b79fdb10"
+doc_hash = "sha256:3ff3fe9e846d7b92be99e67c1ad9d38c93e80338459e8bc97044ca9dbada52ee"
+reached_by = [
+    "#58",
+    "#59",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."context.rs".function]]
+id = "fn:d19549588c8cc5c4"
+name = "take_decoms_due"
+qual = "Context::take_decoms_due"
+lines = [
+    242,
+    261,
+]
+hash = "sha256:477c6e537a4d33499817a1e24bab3c50845083d08eaf3a7e383a70170f66a85b"
+doc_hash = "sha256:9cae3df06f9f010b737c0f2650a0a9ab9d59111709c8cdf2796a4afb5b6076a8"
+reached_by = [
+    "#60",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."context.rs".function]]
+id = "fn:63568e1a71cb1c15"
+name = "build_queue"
+qual = "Context::build_queue"
+lines = [
+    263,
+    267,
+]
+hash = "sha256:97d39468163a0fa029246ef40df5bef0a9a457249f693dfc31b471f4a9ee33a2"
+doc_hash = "sha256:0a2506fee6947b57a48617b9e8ddd46a8b6896abc2c7a900742a36e3d06ad893"
+reached_by = [
+    "#52",
+    "#58",
+]
+
+[[module."context.rs".function]]
+id = "fn:28289e804f7e0e7c"
+name = "decom_queue"
+qual = "Context::decom_queue"
+lines = [
+    269,
+    273,
+]
+hash = "sha256:6729379e35013e8d59f1d3a33dd64d3ff4841cecd3898ef84c648457c1ba7351"
+doc_hash = "sha256:fab399bf674560fa58b3c0a82defa6ac7f9363964e91b5cc015c899003682ed5"
+reached_by = [
+    "#53",
+    "#60",
+]
+
+[[module."context.rs".function]]
+id = "fn:694ffef413957ccc"
+name = "ctx"
+qual = "ctx"
+lines = [
+    283,
+    285,
+]
+hash = "sha256:7bd26ea8dd6d09efc04de651fe97de416fbde8630c49dcaaba5cca78ba29032c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:063006c0b85b33f2",
+    "fn:c6ef0423d6a8c62d",
+]
+test = true
+
+[[module."context.rs".function]]
+id = "fn:507fe96957114ae9"
+name = "natural_u"
+qual = "natural_u"
+lines = [
+    287,
+    292,
+]
+hash = "sha256:725971281b7a0f1a20588996e38f5474fafd0567542ad9bf77a732530fcb203a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:c1e70f92aea5cccf"]
+test = true
+
+[[module."context.rs".function]]
+id = "fn:ac8df8a455e1cfd3"
+name = "a_recipe_round_trips_by_name"
+qual = "a_recipe_round_trips_by_name"
+lines = [
+    294,
+    301,
+]
+hash = "sha256:7ce872b5d905ab27c3edf32f48bb39ab92d7e4d18cd6e8ef46607f0a58116409"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3a3027db3b0ada6c",
+    "fn:507fe96957114ae9",
+    "fn:694ffef413957ccc",
+    "fn:6c97987786806081",
+    "fn:814c2f47b188fa60",
+    "fn:aa6a59fe0a4fd0f4",
+]
+test = true
+
+[[module."context.rs".function]]
+id = "fn:0053fbf4f1ffd6cd"
+name = "an_unknown_recipe_is_a_key_error"
+qual = "an_unknown_recipe_is_a_key_error"
+lines = [
+    303,
+    310,
+]
+hash = "sha256:7af47ba60fb8c5d054e83dd85256fb0ed4813e5eafd3ee002fb86e113bc12968"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:694ffef413957ccc",
+    "fn:aa6a59fe0a4fd0f4",
+]
+test = true
+
+[[module."context.rs".function]]
+id = "fn:67720d938e4d9527"
+name = "a_duplicate_recipe_name_is_rejected_rather_than_overwritten"
+qual = "a_duplicate_recipe_name_is_rejected_rather_than_overwritten"
+lines = [
+    312,
+    322,
+]
+hash = "sha256:140a9d07b63af71c19d1074918d7c280fede04803e86cf325be546ab93261507"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:306b27bbfe77c6d9",
+    "fn:507fe96957114ae9",
+    "fn:694ffef413957ccc",
+    "fn:814c2f47b188fa60",
+]
+test = true
+
+[[module."context.rs".function]]
+id = "fn:67454adbc94b335a"
+name = "recipe_names_are_sorted_so_iteration_reproduces"
+qual = "recipe_names_are_sorted_so_iteration_reproduces"
+lines = [
+    324,
+    331,
+]
+hash = "sha256:6345f27ee7ccb6d8b2107b4012d3f3f9269a5f4da9fbfe9c4e4bb360a2452dd6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:507fe96957114ae9",
+    "fn:694ffef413957ccc",
+    "fn:814c2f47b188fa60",
+    "fn:9bf8feb720b75b9e",
+]
+test = true
+
+[[module."context.rs".function]]
+id = "fn:53bf8f50fc6fc357"
+name = "builds_come_due_only_on_their_exact_step"
+qual = "builds_come_due_only_on_their_exact_step"
+lines = [
+    333,
+    344,
+]
+hash = "sha256:a357756c23d2a5990b3ef7f8aea4bf2e2319f1650f49d650feed2f7b8968bed7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:63568e1a71cb1c15",
+    "fn:694ffef413957ccc",
+    "fn:8769133897deb64e",
+    "fn:f847ab1e4011b8d0",
+]
+test = true
+
+[[module."context.rs".function]]
+id = "fn:eac1b86ca9a52319"
+name = "builds_due_in_the_same_step_keep_their_scheduling_order"
+qual = "builds_due_in_the_same_step_keep_their_scheduling_order"
+lines = [
+    346,
+    355,
+]
+hash = "sha256:d88ee5ac08bd8eb9d18bc39e8ca33a5b5dcbb4215e7a1979e58a6aa2fecf0912"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:694ffef413957ccc",
+    "fn:8769133897deb64e",
+    "fn:f847ab1e4011b8d0",
+]
+test = true
+
+[[module."context.rs".function]]
+id = "fn:417e132e1eb461e7"
+name = "a_build_scheduled_in_the_past_moves_to_the_next_step"
+qual = "a_build_scheduled_in_the_past_moves_to_the_next_step"
+lines = [
+    357,
+    364,
+]
+hash = "sha256:427da199b93129eefcb6fe4a57453d8f7647d42cf637ca8f02965e2bd48d18e8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:63568e1a71cb1c15",
+    "fn:694ffef413957ccc",
+    "fn:e7ce893282479c6d",
+    "fn:efbbdd236db415ef",
+    "fn:f847ab1e4011b8d0",
+]
+test = true
+
+[[module."context.rs".function]]
+id = "fn:7e77a9eb1a84103c"
+name = "an_empty_prototype_name_is_rejected"
+qual = "an_empty_prototype_name_is_rejected"
+lines = [
+    366,
+    373,
+]
+hash = "sha256:34f9c4df6bb29baa8eb38fcbf2a94360721fe3ab68abe0f8fa4e1ca9dfed69c3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:694ffef413957ccc",
+    "fn:f847ab1e4011b8d0",
+]
+test = true
+
+[[module."context.rs".function]]
+id = "fn:259be3b5e9a8a024"
+name = "decommissionings_come_due_at_or_before_their_step"
+qual = "decommissionings_come_due_at_or_before_their_step"
+lines = [
+    375,
+    386,
+]
+hash = "sha256:f9a36747abff1f77bbefb97f0d086e660f5536e5abdb0d2b2b0c29081c344c57"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:28289e804f7e0e7c",
+    "fn:584550baf79369ab",
+    "fn:694ffef413957ccc",
+    "fn:d19549588c8cc5c4",
+]
+test = true
+
+[[module."context.rs".function]]
+id = "fn:dc38a7d7ced1fbda"
+name = "a_decommissioning_scheduled_in_the_past_fires_this_step"
+qual = "a_decommissioning_scheduled_in_the_past_fires_this_step"
+lines = [
+    388,
+    395,
+]
+hash = "sha256:0368f8399dc8073eacf2971d148511a64c53a70b9a43b45bc8bc655c2f8d8597"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:28289e804f7e0e7c",
+    "fn:584550baf79369ab",
+    "fn:694ffef413957ccc",
+    "fn:e7ce893282479c6d",
+    "fn:efbbdd236db415ef",
+]
+test = true
+
+[module."decay.rs"]
+path = "crate::decay"
+
+[[module."decay.rs".function]]
+id = "fn:6a824f5950f3adc9"
+name = "new"
+qual = "DecayData::new"
+lines = [
+    276,
+    284,
+]
+hash = "sha256:e8e259ef6ecc6af79568e340175f80fba8e45122a14f2c5a990df42a3050c7c9"
+doc_hash = "sha256:d2c63dde6474e1db9e39826277e82c482264f05a60a44619118301bf502b0140"
+reached_by = [
+    "#68",
+    "#70",
+    "#74",
+    "#80",
+    "#82",
+    "#85",
+    "#87",
+]
+
+[[module."decay.rs".function]]
+id = "fn:0e8f6f4bb2448ba3"
+name = "stable"
+qual = "DecayData::stable"
+lines = [
+    286,
+    297,
+]
+hash = "sha256:9ad74398a1be1b08a0bdfb77508c5234f0c7385852b0062285bd908a22f2f487"
+doc_hash = "sha256:e58baaf95b3c3d7c74fab9626e1470a1e8062cdb8a554386ad731ab94d8fe8ca"
+reached_by = [
+    "#63",
+    "#64",
+    "#66",
+    "#69",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#79",
+    "#81",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+]
+
+[[module."decay.rs".function]]
+id = "fn:10fe73c2e96802d0"
+name = "single"
+qual = "DecayData::single"
+lines = [
+    299,
+    308,
+]
+hash = "sha256:202bf3feda49b1ae92bc7449b06818aec9b1d1fbb59410573cbb23913284794c"
+doc_hash = "sha256:ab7d8b21736592874118174a82554b470f7355501c406599f315aad382511224"
+reached_by = [
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#74",
+    "#75",
+    "#78",
+    "#79",
+    "#81",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+]
+
+[[module."decay.rs".function]]
+id = "fn:cd640c152a06dd18"
+name = "from_half_life"
+qual = "DecayData::from_half_life"
+lines = [
+    310,
+    328,
+]
+hash = "sha256:12501fd30abab46009c5aca41cd32413e0c8b9da1ae02c70d41ae75b72673a80"
+doc_hash = "sha256:1d32425c3a323c9748d356e038ac3a1de4a1e2cc7f0ff1d5a7488731c42fc47a"
+callees = ["fn:f420940c421868d5"]
+reached_by = ["#73"]
+
+[[module."decay.rs".function]]
+id = "fn:0e06fa99df902a0a"
+name = "is_stable"
+qual = "DecayData::is_stable"
+lines = [
+    330,
+    334,
+]
+hash = "sha256:314e33164898210523c15cf02935c6488b537f06ef44265e2ce51a4ceec25da7"
+doc_hash = "sha256:27c414169865415bbca6b7787a9bd975dc8cdff12082e8a0b443a79c4afde2fd"
+reached_by = [
+    "#69",
+    "#73",
+]
+
+[[module."decay.rs".function]]
+id = "fn:065fb8a1344916b0"
+name = "half_life"
+qual = "DecayData::half_life"
+lines = [
+    336,
+    346,
+]
+hash = "sha256:303e39c973b4033ad492b5efe0645b4c61800537bd9bba7dba56ed56edf95113"
+doc_hash = "sha256:bd752a5191bdcdc9f3e1ec7ad02966462b0dde29d87a8e5491e56a7b18eeeb9d"
+callees = ["fn:f420940c421868d5"]
+reached_by = [
+    "#73",
+    "#80",
+    "#87",
+]
+
+[[module."decay.rs".function]]
+id = "fn:e9ccbe96008d628c"
+name = "branch_sum"
+qual = "DecayData::branch_sum"
+lines = [
+    348,
+    356,
+]
+hash = "sha256:704f89a7ab820e3ac87ddbb255cc0bacfbbee07d4af0804a10ad8fc9f8102140"
+doc_hash = "sha256:8ab938869b636b9846415aa53e8425fc960f1b75bc4a68f05ed793172f7bdb34"
+callees = ["fn:3c48f35783aec75e"]
+reached_by = [
+    "#68",
+    "#74",
+    "#78",
+]
+
+[[module."decay.rs".function]]
+id = "fn:52b91f1f56d3d77c"
+name = "new"
+qual = "DecayChain::new"
+lines = [
+    379,
+    385,
+]
+hash = "sha256:9098b2456194297618b63ece69c0b6ce0ebf8d71c409c96b388df17695693cd1"
+doc_hash = "sha256:9d5559bdcbe98e3288b893cff5196cad31f6627dff304ce329225273f1b6dc90"
+reached_by = [
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#74",
+    "#75",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+]
+
+[[module."decay.rs".function]]
+id = "fn:eb12587ea134c9fe"
+name = "insert"
+qual = "DecayChain::insert"
+lines = [
+    387,
+    392,
+]
+hash = "sha256:8ce6b4e999408b4611837ef4f207175baf2aa682f7f1e58b4d492c207173cc12"
+doc_hash = "sha256:962be8ac72b849462d89e17a2a6e596fe978a5cc7a8c52fb4474ab302dcfef38"
+
+[[module."decay.rs".function]]
+id = "fn:abcea4c358f9f82e"
+name = "with"
+qual = "DecayChain::with"
+lines = [
+    394,
+    414,
+]
+hash = "sha256:55288b3060d0795ba1313c46a47aeff1bda7dfce6bc90a75c4ae6dc9199770cf"
+doc_hash = "sha256:f1c849853e0c00aed38523eb56e853b094b64b89c4a0a9a05facb28df7e8c0d0"
+reached_by = [
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#74",
+    "#75",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+]
+
+[[module."decay.rs".function]]
+id = "fn:31eea3d8322cf192"
+name = "get"
+qual = "DecayChain::get"
+lines = [
+    416,
+    421,
+]
+hash = "sha256:d3c229394c1a5b86e5788c52132d8aa9aa086b339a6bf214fa0cdf411e7bcdfe"
+doc_hash = "sha256:7337c14ecf8af154d8477ca48b92a056a8d3afcdd7284ccfa481ff7e1eee60f9"
+reached_by = [
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#70",
+    "#71",
+    "#72",
+    "#74",
+    "#75",
+    "#78",
+    "#79",
+    "#80",
+    "#82",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+]
+
+[[module."decay.rs".function]]
+id = "fn:cfcbccd755b5366d"
+name = "len"
+qual = "DecayChain::len"
+lines = [
+    423,
+    427,
+]
+hash = "sha256:09d46fb130bf01f7420ff5147d689be3aa40cd03c2cbd38138a8b586eb386f8c"
+doc_hash = "sha256:b775911181d80049be51076129b688412ad777da61d8bbc538175f8f62708984"
+reached_by = ["#69"]
+
+[[module."decay.rs".function]]
+id = "fn:5db81a08842c1838"
+name = "is_empty"
+qual = "DecayChain::is_empty"
+lines = [
+    429,
+    433,
+]
+hash = "sha256:91b3e6cf5c7bedcc858f47e6efd2e9b8d42a926f05aaa77c828e92bbb8e13acc"
+doc_hash = "sha256:44138016188244b009b75093eb8317a9e0247819d53b5463577dac2f487221e9"
+reached_by = ["#69"]
+
+[[module."decay.rs".function]]
+id = "fn:ec3cb4a3a252d029"
+name = "parents"
+qual = "DecayChain::parents"
+lines = [
+    435,
+    439,
+]
+hash = "sha256:d4b544a3723d67fcf93b36447aa611b29de569ec82b85a51a716e43d3cbf13ec"
+doc_hash = "sha256:8415a46c05310ddae3ca82b85399a748520b1581815d9ef7a0abd0df283e3e67"
+reached_by = ["#69"]
+
+[[module."decay.rs".function]]
+id = "fn:cfbc745423224d19"
+name = "decay_constant"
+qual = "DecayChain::decay_constant"
+lines = [
+    441,
+    448,
+]
+hash = "sha256:ece3b6c5e4d31ae539ea43734eeadd0508ccf1582433e461a364c534bd71fdd5"
+doc_hash = "sha256:8e3bf9674b8d65211f925700bcf65ee1b3f8dcc6659790a883b766c8114fd755"
+reached_by = ["#69"]
+
+[[module."decay.rs".function]]
+id = "fn:fab4862025278dcf"
+name = "is_stable"
+qual = "DecayChain::is_stable"
+lines = [
+    450,
+    455,
+]
+hash = "sha256:59e76107f66b7f7b19d7c9c8b359b3c636ee33ae5f18fecb782550e237c65a53"
+doc_hash = "sha256:8dd236c0242d6d9c332a5786139fdb8558530f88001ccd30cc7a1dc28a27ca1f"
+callees = ["fn:0e06fa99df902a0a"]
+reached_by = ["#69"]
+
+[[module."decay.rs".function]]
+id = "fn:f34f844dc3642bf0"
+name = "validate"
+qual = "DecayChain::validate"
+lines = [
+    457,
+    465,
+]
+hash = "sha256:bce546fcd58d9d51d1af2705e6776ab0cbb878d52a9156763eb56091ea8ef494"
+doc_hash = "sha256:ccf8a577a16f96a4791cf146fe6bb4d95ba3513349787716bb5c831be8051333"
+callees = ["fn:1c41a1a3f56c8a47"]
+reached_by = [
+    "#68",
+    "#74",
+    "#78",
+]
+
+[[module."decay.rs".function]]
+id = "fn:1c41a1a3f56c8a47"
+name = "validate_with_tol"
+qual = "DecayChain::validate_with_tol"
+lines = [
+    467,
+    538,
+]
+hash = "sha256:343e017f5b043ea87ec8ac83996e2762c39939985f2a295ec3b88299cc1baf5d"
+doc_hash = "sha256:fc2e9948c74c88d0532da8710263fda5a92b96c742c6c78775cf0bbb3c977900"
+callees = [
+    "fn:123709471c989c54",
+    "fn:936e11ec2d78e627",
+    "fn:e9ccbe96008d628c",
+]
+reached_by = [
+    "#68",
+    "#74",
+    "#78",
+]
+
+[[module."decay.rs".function]]
+id = "fn:0394db2beea418e4"
+name = "reachable_closure"
+qual = "DecayChain::reachable_closure"
+lines = [
+    540,
+    571,
+]
+hash = "sha256:ffdac97b26751e8e1fb8111606aa24b819799cffdc50217a20253da7a03451a5"
+doc_hash = "sha256:4e202d30be107b7fa8c64b42757465619295b8175d95c4bcfb7b1621e389eff8"
+reached_by = [
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#71",
+    "#72",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+]
+
+[[module."decay.rs".function]]
+id = "fn:c7676a1ecd04274b"
+name = "build_decay_matrix"
+qual = "build_decay_matrix"
+lines = [
+    578,
+    704,
+]
+hash = "sha256:e86633460ba171e99e19f6f10ab896aea9efcb430b78abab8a76676df7d74073"
+doc_hash = "sha256:80d28666b5710a61938534b5bab0c44501b2b7c5e636e144a4c4f6f797db4493"
+callees = [
+    "fn:094f415070da869b",
+    "fn:31eea3d8322cf192",
+    "fn:76a379df1f000107",
+    "fn:f5c6e3617027d74f",
+]
+reached_by = [
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#70",
+    "#71",
+    "#72",
+    "#74",
+    "#75",
+    "#78",
+    "#79",
+    "#80",
+    "#82",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+]
+
+[[module."decay.rs".function]]
+id = "fn:5e1146a15530ab41"
+name = "solve"
+qual = "UniformTaylor::solve"
+lines = [
+    730,
+    826,
+]
+hash = "sha256:d9f5d3d86e890b4926ac5fb81cfca3be2ce79cc74e8b64b0f0968a0a15321242"
+doc_hash = "sha256:34ca1fd3685472194f2caf712e9b8c6f5aee74510c693eaf9aa65a61551e31f2"
+callees = [
+    "fn:094f415070da869b",
+    "fn:5842ef9824d7be52",
+    "fn:76a379df1f000107",
+    "fn:9723100f328a2ca2",
+    "fn:d8887b2c322d3000",
+    "fn:d8fb6a2afdcc54da",
+]
+reached_by = [
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#71",
+    "#72",
+    "#77",
+    "#79",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+]
+
+[[module."decay.rs".function]]
+id = "fn:7322509ab60721f9"
+name = "solve_default_tol"
+qual = "UniformTaylor::solve_default_tol"
+lines = [
+    828,
+    838,
+]
+hash = "sha256:9ff7a3ecf1f5bd9733a9b0d6fa7972eba8423e0db45064040fea8ad5951b363d"
+doc_hash = "sha256:375e208ba1f7a0308a192b6ce32ebdb6c4abb40c9df716006b6535a75f44818f"
+callees = ["fn:5e1146a15530ab41"]
+
+[[module."decay.rs".function]]
+id = "fn:d8fb6a2afdcc54da"
+name = "max_abs_diag"
+qual = "UniformTaylor::max_abs_diag"
+lines = [
+    840,
+    860,
+]
+hash = "sha256:4132f7956cce692e77fdf50a778b58038ee0d5d0ea5108ec4c60e3e4387fb665"
+doc_hash = "sha256:9f855219081f44d0cf559477c6df3effd390352b493c92cd91d5e584ccbe93f4"
+callees = [
+    "fn:186f15e345e7acd8",
+    "fn:76a379df1f000107",
+    "fn:9723100f328a2ca2",
+    "fn:d8887b2c322d3000",
+]
+reached_by = [
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#71",
+    "#72",
+    "#77",
+    "#79",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+]
+
+[[module."decay.rs".function]]
+id = "fn:f117940ea936023a"
+name = "max_num_terms"
+qual = "UniformTaylor::max_num_terms"
+lines = [
+    862,
+    910,
+]
+hash = "sha256:6a07324e9d9249214d74ce6d180774a0dafd97aa248c43fc4bb96455dd6556ad"
+doc_hash = "sha256:fded4ffddce8ff1bfc9ae7c478ac428bb66393ea245c539a229ff12d88874f71"
+callees = ["fn:20504b494388607e"]
+reached_by = [
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#71",
+    "#72",
+    "#76",
+    "#77",
+    "#79",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+]
+
+[[module."decay.rs".function]]
+id = "fn:5842ef9824d7be52"
+name = "solution_vector"
+qual = "UniformTaylor::solution_vector"
+lines = [
+    912,
+    952,
+]
+hash = "sha256:a5cffe98ff0a7c153c196a31e5208c4a501d68adb26e00218901d696a0feb11b"
+doc_hash = "sha256:80df76af05dce4b8adbeee6b3a7361da9963a2085f4c4fad680c1326c7907cca"
+callees = [
+    "fn:20504b494388607e",
+    "fn:66a0dc3d05a01a99",
+    "fn:f117940ea936023a",
+]
+reached_by = [
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#71",
+    "#72",
+    "#77",
+    "#79",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+]
+
+[[module."decay.rs".function]]
+id = "fn:4301d9e64ddcd1b0"
+name = "decay_composition"
+qual = "decay_composition"
+lines = [
+    959,
+    1065,
+]
+hash = "sha256:93db9b454f3ceae895327a3a04d192d3b8d22ad855da63b2cbff08df6bef3449"
+doc_hash = "sha256:a6b1c7d5d3c80836022ab74e1c13b75abf52977625977fed3c71af4787b98a74"
+callees = ["fn:8e7db1d2fc509ca5"]
+reached_by = [
+    "#63",
+    "#65",
+    "#66",
+    "#79",
+    "#80",
+    "#82",
+    "#86",
+    "#87",
+    "#88",
+]
+
+[[module."decay.rs".function]]
+id = "fn:8e7db1d2fc509ca5"
+name = "decay_composition_with_tol"
+qual = "decay_composition_with_tol"
+lines = [
+    1067,
+    1117,
+]
+hash = "sha256:3959772cb846671e9f5845cb743d3677d5f6d4b704c0158723b527512fa9c7fd"
+doc_hash = "sha256:d38959813c454f274f7204abdd7080643931adfb6f142be348d06dce03da032e"
+callees = [
+    "fn:0394db2beea418e4",
+    "fn:5e1146a15530ab41",
+    "fn:c7676a1ecd04274b",
+    "fn:cc9020a7c9cd165b",
+    "fn:e258eb078267fc42",
+]
+reached_by = [
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#71",
+    "#72",
+    "#79",
+    "#80",
+    "#82",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+]
+
+[[module."decay.rs".function]]
+id = "fn:a5cfb7c11931a0b1"
+name = "decay_material"
+qual = "decay_material"
+lines = [
+    1119,
+    1180,
+]
+hash = "sha256:ca6f133a973f96cfa44707fb49018c46e48fd2793cc4f7d3490a0ffd089bc974"
+doc_hash = "sha256:73e8d57b5bb889a7a91193219adc07cd328e5313acdc2767b3452b24072aa9b6"
+callees = ["fn:63b844f5c436501b"]
+reached_by = [
+    "#71",
+    "#72",
+    "#79",
+    "#87",
+]
+
+[[module."decay.rs".function]]
+id = "fn:63b844f5c436501b"
+name = "decay_material_with_tol"
+qual = "decay_material_with_tol"
+lines = [
+    1182,
+    1244,
+]
+hash = "sha256:8a2c3b84084c29df0a42c8f4904c8b7261ababa303f66c134d786e5395d2cc1c"
+doc_hash = "sha256:7c7b1aa75c20e7170b6c68099388f88354a92a3716146dd5126f70e86c9ce0eb"
+callees = [
+    "fn:2ec541aa2ae75949",
+    "fn:320b49d00cf88c49",
+    "fn:3c3e86a622680afd",
+    "fn:589ce647342018a0",
+    "fn:59e9d9060360959d",
+    "fn:5f1cf912e9a4f458",
+    "fn:66f23483c63730d6",
+    "fn:8e7db1d2fc509ca5",
+    "fn:cc9020a7c9cd165b",
+    "fn:e258eb078267fc42",
+    "fn:e8bf10d7b2eaa931",
+]
+reached_by = [
+    "#64",
+    "#71",
+    "#72",
+    "#79",
+    "#87",
+]
+
+[[module."decay.rs".function]]
+id = "fn:53f7e85ab637d3a1"
+name = "lambda_sr90"
+qual = "lambda_sr90"
+lines = [
+    1263,
+    1265,
+]
+hash = "sha256:b1ac865575e0d0de41c7d07c30f8834e8492d5dbd1037f3bdc9bcafba56cb52a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f420940c421868d5"]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:125f71c3f66c100a"
+name = "lambda_y90"
+qual = "lambda_y90"
+lines = [
+    1267,
+    1269,
+]
+hash = "sha256:edb6f3420ad50fffa0d33ce2e9f8bf2647aaa14920be1651054dcc9a6c85b71d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f420940c421868d5"]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:5874dcc687e52507"
+name = "lambda_po210"
+qual = "lambda_po210"
+lines = [
+    1271,
+    1273,
+]
+hash = "sha256:e0f0cf830446bb66e8e9c22edfcf90b6aaed318fd91d9c0e0b098733d0385873"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f420940c421868d5"]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:fdc01ac82b78fa54"
+name = "rel_err"
+qual = "rel_err"
+lines = [
+    1275,
+    1281,
+]
+hash = "sha256:3bda65e84af49b3db4509227609ab13d8dd64b658aed058cfd519ec404ddfb0a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:186f15e345e7acd8"]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:b7fbf91326e620ca"
+name = "sr_y_zr_chain"
+qual = "sr_y_zr_chain"
+lines = [
+    1283,
+    1288,
+]
+hash = "sha256:4687b3023b4a7cf705951cef10ad03ee4c91f8cb38b9663eac57fe769e5d3871"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0e8f6f4bb2448ba3",
+    "fn:10fe73c2e96802d0",
+    "fn:125f71c3f66c100a",
+    "fn:52b91f1f56d3d77c",
+    "fn:53f7e85ab637d3a1",
+    "fn:abcea4c358f9f82e",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:e4ee018509a24d4d"
+name = "atom_comp"
+qual = "atom_comp"
+lines = [
+    1290,
+    1296,
+]
+hash = "sha256:682da491e08df6afabb21924fa68c93a0db9e6381e782060c409763b6557199b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:cc9020a7c9cd165b"]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:8836cffd7b54ffb3"
+name = "single_nuclide_matches_exponential_decay"
+qual = "single_nuclide_matches_exponential_decay"
+lines = [
+    1302,
+    1326,
+]
+hash = "sha256:c2f870789a138a19d92d33f7f430553dedc68fe92e60714f50af51b2293698ab"
+doc_hash = "sha256:1721e4be68ba8c6fe1adb54d495845b5f9e1248ca30d32d96c83c63f7c7b9330"
+callees = [
+    "fn:20504b494388607e",
+    "fn:4301d9e64ddcd1b0",
+    "fn:52b91f1f56d3d77c",
+    "fn:53f7e85ab637d3a1",
+    "fn:6a824f5950f3adc9",
+    "fn:abcea4c358f9f82e",
+    "fn:e258eb078267fc42",
+    "fn:e4ee018509a24d4d",
+    "fn:fdc01ac82b78fa54",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:dd137a8be7956e55"
+name = "two_nuclide_chain_matches_bateman"
+qual = "two_nuclide_chain_matches_bateman"
+lines = [
+    1332,
+    1401,
+]
+hash = "sha256:8415b086677f375e7d39b414c64bd074533289793ed511398356731126b1aa6d"
+doc_hash = "sha256:2a7d2d6a1dc0042a802b41cee7f16c161ec504cd5d6a0837f841b0d2f5a38168"
+callees = [
+    "fn:125f71c3f66c100a",
+    "fn:20504b494388607e",
+    "fn:4301d9e64ddcd1b0",
+    "fn:53f7e85ab637d3a1",
+    "fn:8e7db1d2fc509ca5",
+    "fn:b7fbf91326e620ca",
+    "fn:e258eb078267fc42",
+    "fn:e4ee018509a24d4d",
+    "fn:fdc01ac82b78fa54",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:9953abb40eda61bf"
+name = "transposed_decay_matrix_fails_bateman"
+qual = "transposed_decay_matrix_fails_bateman"
+lines = [
+    1403,
+    1434,
+]
+hash = "sha256:8adabf62475823831193b2ce14f93697a69e846f5cb86ec1bb70cb40808c104e"
+doc_hash = "sha256:d888b070f05d7d44e41e9dbbb580dfe477fa9be59d248d37bf28f12ab45908cb"
+callees = [
+    "fn:094f415070da869b",
+    "fn:125f71c3f66c100a",
+    "fn:20504b494388607e",
+    "fn:53f7e85ab637d3a1",
+    "fn:5e1146a15530ab41",
+    "fn:76a379df1f000107",
+    "fn:b7fbf91326e620ca",
+    "fn:c7676a1ecd04274b",
+    "fn:f5c6e3617027d74f",
+    "fn:fdc01ac82b78fa54",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:b06ee4c3e4dac631"
+name = "atom_count_is_conserved_in_a_closed_chain"
+qual = "atom_count_is_conserved_in_a_closed_chain"
+lines = [
+    1440,
+    1496,
+]
+hash = "sha256:19218cc87758afe5bc4fbc9828f967558bea03f539da23ae2e9043eedc8a50f0"
+doc_hash = "sha256:3f47019493c5a96a5d82dd8ccd6ce37273fd1223643bd4714ec408048856561e"
+callees = [
+    "fn:2ec541aa2ae75949",
+    "fn:4301d9e64ddcd1b0",
+    "fn:8e7db1d2fc509ca5",
+    "fn:b7fbf91326e620ca",
+    "fn:e258eb078267fc42",
+    "fn:e4ee018509a24d4d",
+    "fn:fdc01ac82b78fa54",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:303ee91c3c7abd94"
+name = "truncated_branching_loses_atoms_by_the_missing_fraction"
+qual = "truncated_branching_loses_atoms_by_the_missing_fraction"
+lines = [
+    1498,
+    1516,
+]
+hash = "sha256:22bfbe70e9dbd881a6212c63c08876412ec969b227fbaf9b034cd41d4866231a"
+doc_hash = "sha256:7b281fcb10dadcf962312172f7096d8e16c8c94a749e7fdd1c565841c8aff585"
+callees = [
+    "fn:20504b494388607e",
+    "fn:2ec541aa2ae75949",
+    "fn:52b91f1f56d3d77c",
+    "fn:5874dcc687e52507",
+    "fn:6a824f5950f3adc9",
+    "fn:8e7db1d2fc509ca5",
+    "fn:abcea4c358f9f82e",
+    "fn:e258eb078267fc42",
+    "fn:e4ee018509a24d4d",
+    "fn:fdc01ac82b78fa54",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:e41893b85f93f43e"
+name = "a_stable_nuclide_does_not_decay"
+qual = "a_stable_nuclide_does_not_decay"
+lines = [
+    1518,
+    1536,
+]
+hash = "sha256:6476fb263e72d33dcfa81448e2d86b3d7fa9ea897640387488294e63caff7bc3"
+doc_hash = "sha256:d4c7c645aeb5e4b132fae78da0c193584f224c6bb484843db6266290f9db6e04"
+callees = [
+    "fn:4301d9e64ddcd1b0",
+    "fn:52b91f1f56d3d77c",
+    "fn:b7fbf91326e620ca",
+    "fn:e258eb078267fc42",
+    "fn:e4ee018509a24d4d",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:5c3a7015c727a87d"
+name = "one_half_life_leaves_half"
+qual = "one_half_life_leaves_half"
+lines = [
+    1538,
+    1561,
+]
+hash = "sha256:075aea56c5f87de1993784babba41c6baca2bc64bd38b4a78df0befd0f48ae5d"
+doc_hash = "sha256:ef32bd0981efeaf55571171f273dad6f261844f0a13798d08ac7297cc91bf176"
+callees = [
+    "fn:065fb8a1344916b0",
+    "fn:4301d9e64ddcd1b0",
+    "fn:52b91f1f56d3d77c",
+    "fn:53f7e85ab637d3a1",
+    "fn:5874dcc687e52507",
+    "fn:6a824f5950f3adc9",
+    "fn:abcea4c358f9f82e",
+    "fn:e258eb078267fc42",
+    "fn:e4ee018509a24d4d",
+    "fn:fdc01ac82b78fa54",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:a0cdef135e1248a8"
+name = "zero_elapsed_time_is_the_identity"
+qual = "zero_elapsed_time_is_the_identity"
+lines = [
+    1563,
+    1583,
+]
+hash = "sha256:8966ac005641c5814f38c80ee05dc15cbd09047d38f2734ca64167ab9d13b882"
+doc_hash = "sha256:7fb17f0ef38b38ae8e8cda9570e1bf420df9ecc4dccc7794ab181e62375764a4"
+callees = [
+    "fn:4301d9e64ddcd1b0",
+    "fn:5e1146a15530ab41",
+    "fn:b7fbf91326e620ca",
+    "fn:c7676a1ecd04274b",
+    "fn:e258eb078267fc42",
+    "fn:e4ee018509a24d4d",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:d6a96b716bd3458b"
+name = "solver_matches_elementwise_exp_on_a_diagonal_matrix"
+qual = "solver_matches_elementwise_exp_on_a_diagonal_matrix"
+lines = [
+    1589,
+    1616,
+]
+hash = "sha256:6a8515ad8f1066ede899000a25209eb84709a7fd205aeecedc77abbd0047656d"
+doc_hash = "sha256:348d5d51a2010c86c0c502b659645ff958c0d05d0bcec098bf13602bb794678b"
+callees = [
+    "fn:094f415070da869b",
+    "fn:20504b494388607e",
+    "fn:5e1146a15530ab41",
+    "fn:d8fb6a2afdcc54da",
+    "fn:f5c6e3617027d74f",
+    "fn:fdc01ac82b78fa54",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:771e38fb20a3702b"
+name = "max_num_terms_follows_the_poisson_tail"
+qual = "max_num_terms_follows_the_poisson_tail"
+lines = [
+    1618,
+    1630,
+]
+hash = "sha256:8f657dc35e58417c3c95e11c0936aab80f8d55b2abc372cc7128aa9534b73592"
+doc_hash = "sha256:31a6803f1b84991ead2d7eaaa0f1a58cb786f7b1739df7e26638b902c2f7c897"
+callees = ["fn:f117940ea936023a"]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:3cb13dc45c49d8fc"
+name = "decay_matrix_has_parents_in_columns_and_daughters_in_rows"
+qual = "decay_matrix_has_parents_in_columns_and_daughters_in_rows"
+lines = [
+    1636,
+    1667,
+]
+hash = "sha256:5edef7082485c4c1a952326b54a40f4e7b85440d9bf25ffbfa0df651494a89e2"
+doc_hash = "sha256:72c0cc30fef613213b576548087bcef96342dd6ab90477ff85dccca344f030d0"
+callees = [
+    "fn:10fe73c2e96802d0",
+    "fn:186f15e345e7acd8",
+    "fn:52b91f1f56d3d77c",
+    "fn:6a824f5950f3adc9",
+    "fn:76a379df1f000107",
+    "fn:9723100f328a2ca2",
+    "fn:abcea4c358f9f82e",
+    "fn:c7676a1ecd04274b",
+    "fn:d8887b2c322d3000",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:4dffd98056fa1972"
+name = "a_daughter_outside_the_list_is_dropped"
+qual = "a_daughter_outside_the_list_is_dropped"
+lines = [
+    1669,
+    1678,
+]
+hash = "sha256:e1da1cba046cd670061f0db8029e891ecda804a722fe18e68ce6828d74cd20b4"
+doc_hash = "sha256:3d2910b8650db8bf7359af1937e6458827545c5a510ef8c16b19a044aea61b75"
+callees = [
+    "fn:10fe73c2e96802d0",
+    "fn:52b91f1f56d3d77c",
+    "fn:76a379df1f000107",
+    "fn:abcea4c358f9f82e",
+    "fn:c7676a1ecd04274b",
+    "fn:d8887b2c322d3000",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:701d16ebe4a86b58"
+name = "reachable_closure_walks_the_whole_chain"
+qual = "reachable_closure_walks_the_whole_chain"
+lines = [
+    1680,
+    1696,
+]
+hash = "sha256:6e90b680edf3efcdc6eaae0b8afd93d8483948de8cc038879c54b939617e2093"
+doc_hash = "sha256:c97a37a5fcaed127e4a191e70836c8467ce091fb9ed16de77dd7a53134e85bd4"
+callees = [
+    "fn:0394db2beea418e4",
+    "fn:10fe73c2e96802d0",
+    "fn:52b91f1f56d3d77c",
+    "fn:abcea4c358f9f82e",
+    "fn:b7fbf91326e620ca",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:aa3bf514748d9052"
+name = "decaying_a_material_conserves_atoms_and_rebuilds_the_mass"
+qual = "decaying_a_material_conserves_atoms_and_rebuilds_the_mass"
+lines = [
+    1702,
+    1763,
+]
+hash = "sha256:ddc6ee03cc696dc83f96085fa87e98a803a4ade1ab0751695de799681ae24fa6"
+doc_hash = "sha256:191008f54ecd9e6d8042bd0cf5e44068bef2034397e1b06bf7828e6c85d837c8"
+callees = [
+    "fn:10fe73c2e96802d0",
+    "fn:20504b494388607e",
+    "fn:21dcaa86349b5a44",
+    "fn:52b91f1f56d3d77c",
+    "fn:5874dcc687e52507",
+    "fn:63b844f5c436501b",
+    "fn:66f23483c63730d6",
+    "fn:9e76db42fecb473e",
+    "fn:a5cfb7c11931a0b1",
+    "fn:abcea4c358f9f82e",
+    "fn:d1cbb3ec82723033",
+    "fn:f105326c077b6546",
+    "fn:f84dcb1a8ba27ec3",
+    "fn:fdc01ac82b78fa54",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:d580d4d6cbf24fdb"
+name = "empty_material_only_advances_its_decay_time"
+qual = "empty_material_only_advances_its_decay_time"
+lines = [
+    1765,
+    1782,
+]
+hash = "sha256:8c18255b684dde033fad629493157981cb61537c2c2a0eab3480578fda8da564"
+doc_hash = "sha256:a4f87e79f39d7dd31f0e1bb92acc73939423f2c1b092982920aba8e7a781b81a"
+callees = [
+    "fn:320b49d00cf88c49",
+    "fn:59e9d9060360959d",
+    "fn:66f23483c63730d6",
+    "fn:9e76db42fecb473e",
+    "fn:a5cfb7c11931a0b1",
+    "fn:b7fbf91326e620ca",
+    "fn:f105326c077b6546",
+    "fn:f84dcb1a8ba27ec3",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:faa5c5041af6fd04"
+name = "an_isobaric_chain_keeps_its_mass"
+qual = "an_isobaric_chain_keeps_its_mass"
+lines = [
+    1784,
+    1810,
+]
+hash = "sha256:7c748c0dca95b4a8a0e787828c42c6b98a3cc4295352417361cc105e3112cc4e"
+doc_hash = "sha256:7b73f6ec970ad406e4c19634bb2c432ed527fb308d65359473953182b2aec658"
+callees = [
+    "fn:63b844f5c436501b",
+    "fn:66f23483c63730d6",
+    "fn:9e76db42fecb473e",
+    "fn:b7fbf91326e620ca",
+    "fn:f105326c077b6546",
+    "fn:fdc01ac82b78fa54",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:e339f7675e7bdb72"
+name = "mismatched_dimensions_are_rejected"
+qual = "mismatched_dimensions_are_rejected"
+lines = [
+    1816,
+    1829,
+]
+hash = "sha256:a5c9980ba79fed36f89a965948efbbc971c1a7eaa0106b13571527ba80b3b8e7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5e1146a15530ab41",
+    "fn:f5c6e3617027d74f",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:dc613133dda7c7de"
+name = "bad_time_and_tolerance_are_rejected"
+qual = "bad_time_and_tolerance_are_rejected"
+lines = [
+    1831,
+    1846,
+]
+hash = "sha256:8fe2960887d4bd02a290ab34bc38f08e879f2e47c54f37ae1a1cbfeea4e336f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5e1146a15530ab41",
+    "fn:f5c6e3617027d74f",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:9b26f84bcdadac85"
+name = "negative_decay_constant_is_rejected"
+qual = "negative_decay_constant_is_rejected"
+lines = [
+    1848,
+    1856,
+]
+hash = "sha256:c6cd6e2e243a24510c992851576dee69f6b0d5f2765330b17d12b4d2fc70cb6c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:10fe73c2e96802d0",
+    "fn:52b91f1f56d3d77c",
+    "fn:abcea4c358f9f82e",
+    "fn:c7676a1ecd04274b",
+    "fn:f34f844dc3642bf0",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:44afd58e020b3947"
+name = "branching_ratios_summing_above_one_are_rejected"
+qual = "branching_ratios_summing_above_one_are_rejected"
+lines = [
+    1858,
+    1869,
+]
+hash = "sha256:84b1c7661ea4d94118886913464e775e03fe4a18335888b53cb29ec6e8b12a07"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:52b91f1f56d3d77c",
+    "fn:6a824f5950f3adc9",
+    "fn:abcea4c358f9f82e",
+    "fn:f34f844dc3642bf0",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:f759f7c627c1c4ab"
+name = "malformed_chains_are_rejected"
+qual = "malformed_chains_are_rejected"
+lines = [
+    1871,
+    1901,
+]
+hash = "sha256:2d7ab24216432dca4482b51b633054d1dddace42fe880a817151265493e1d08e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:10fe73c2e96802d0",
+    "fn:52b91f1f56d3d77c",
+    "fn:6a824f5950f3adc9",
+    "fn:abcea4c358f9f82e",
+    "fn:b7fbf91326e620ca",
+    "fn:c7676a1ecd04274b",
+    "fn:f34f844dc3642bf0",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:a5646523a30716f5"
+name = "matrix_build_rejects_an_empty_or_duplicated_nuclide_list"
+qual = "matrix_build_rejects_an_empty_or_duplicated_nuclide_list"
+lines = [
+    1903,
+    1914,
+]
+hash = "sha256:5df7abfa5bb35f1da201dce95f195845f7c85a3a07b220f46e153edd254dface"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b7fbf91326e620ca",
+    "fn:c7676a1ecd04274b",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:2d7bbb3926dc581f"
+name = "negative_decay_time_is_rejected"
+qual = "negative_decay_time_is_rejected"
+lines = [
+    1916,
+    1930,
+]
+hash = "sha256:cfebc737fd12a79b2d9efc5b91b315750f08b3a3f716b5f8e70bc0c4fab92b01"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4301d9e64ddcd1b0",
+    "fn:9e76db42fecb473e",
+    "fn:a5cfb7c11931a0b1",
+    "fn:b7fbf91326e620ca",
+    "fn:e4ee018509a24d4d",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:926b77c568722bb3"
+name = "an_underflowing_step_is_refused"
+qual = "an_underflowing_step_is_refused"
+lines = [
+    1932,
+    1945,
+]
+hash = "sha256:66be726cee35a78568f4d2faef8c94e971e8853373a9bf13d92b3dde818871d7"
+doc_hash = "sha256:bb7f3e58844a012dbe228292652acf0ac82688ebf16b7dc4b6f4dfcc7ec38207"
+callees = [
+    "fn:10fe73c2e96802d0",
+    "fn:4301d9e64ddcd1b0",
+    "fn:52b91f1f56d3d77c",
+    "fn:abcea4c358f9f82e",
+    "fn:e4ee018509a24d4d",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:b637806227463e56"
+name = "half_life_round_trips_through_the_decay_constant"
+qual = "half_life_round_trips_through_the_decay_constant"
+lines = [
+    1947,
+    1957,
+]
+hash = "sha256:1173f1b42bc2c6eaff3fe67ba890bc3cf4a9874bf91c7d64b00404d2e04a4e14"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:065fb8a1344916b0",
+    "fn:0e06fa99df902a0a",
+    "fn:0e8f6f4bb2448ba3",
+    "fn:5874dcc687e52507",
+    "fn:cd640c152a06dd18",
+    "fn:fdc01ac82b78fa54",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:fe2bf2fb3528c0c8"
+name = "chain_accessors_report_stability_consistently"
+qual = "chain_accessors_report_stability_consistently"
+lines = [
+    1959,
+    1971,
+]
+hash = "sha256:188bb56c864dd55c87c3effe1440367372fee0889fa6a2fa9efa531de7bfbdaf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:52b91f1f56d3d77c",
+    "fn:53f7e85ab637d3a1",
+    "fn:5db81a08842c1838",
+    "fn:b7fbf91326e620ca",
+    "fn:cfbc745423224d19",
+    "fn:cfcbccd755b5366d",
+    "fn:ec3cb4a3a252d029",
+    "fn:fab4862025278dcf",
+    "fn:fdc01ac82b78fa54",
+]
+test = true
+
+[[module."decay.rs".function]]
+id = "fn:c9fdd0bb6b2a738f"
+name = "vv_report"
+qual = "vv_report"
+lines = [
+    1973,
+    2125,
+]
+hash = "sha256:7a4a502747b2cf6eef7882eb989658d0e938082757ba861938bc30ba9977a8b2"
+doc_hash = "sha256:51211a79b3d8c65d0585cae724b72fbc5cd20b29227edc21ebe0651f9f6b1d73"
+callees = [
+    "fn:065fb8a1344916b0",
+    "fn:094f415070da869b",
+    "fn:10fe73c2e96802d0",
+    "fn:125f71c3f66c100a",
+    "fn:20504b494388607e",
+    "fn:21dcaa86349b5a44",
+    "fn:2ec541aa2ae75949",
+    "fn:4301d9e64ddcd1b0",
+    "fn:52b91f1f56d3d77c",
+    "fn:53f7e85ab637d3a1",
+    "fn:5874dcc687e52507",
+    "fn:5e1146a15530ab41",
+    "fn:63b844f5c436501b",
+    "fn:66f23483c63730d6",
+    "fn:6a824f5950f3adc9",
+    "fn:76a379df1f000107",
+    "fn:8e7db1d2fc509ca5",
+    "fn:9e76db42fecb473e",
+    "fn:a5cfb7c11931a0b1",
+    "fn:abcea4c358f9f82e",
+    "fn:b7fbf91326e620ca",
+    "fn:c7676a1ecd04274b",
+    "fn:d1cbb3ec82723033",
+    "fn:e258eb078267fc42",
+    "fn:e4ee018509a24d4d",
+    "fn:f105326c077b6546",
+    "fn:f117940ea936023a",
+    "fn:f5c6e3617027d74f",
+    "fn:fdc01ac82b78fa54",
+]
+test = true
+
+[module."error.rs"]
+path = "crate::error"
+
+[[module."error.rs".function]]
+id = "fn:888dcb46809080e9"
+name = "fmt"
+qual = "CyclusError::fmt"
+lines = [
+    94,
+    105,
+]
+hash = "sha256:8aa3fa1d15109af84aecc06d69e911cc69b3105ab6c2a31664057de42826da1b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."error.rs".function]]
+id = "fn:3005f573f084d26e"
+name = "from"
+qual = "CyclusError::from"
+lines = [
+    109,
+    111,
+]
+hash = "sha256:29d4b01a7d7fda0a88f29230cbfe9d3ad59222ca4b05b8357e3cae296472ece6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."lib.rs"]
+path = "crate"
+
+[module."limits.rs"]
+path = "crate::limits"
+
+[[module."limits.rs".function]]
+id = "fn:186f15e345e7acd8"
+name = "abs"
+qual = "abs"
+lines = [
+    85,
+    97,
+]
+hash = "sha256:2680fd82b3dcfff9f548a90db3f06b889ecf98956b2355dee7741c59ef743e0b"
+doc_hash = "sha256:b754b9880516f83e0945307912311cc51ff776fbda059bb02478e1a79bc997e1"
+reached_by = [
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#44",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#77",
+    "#79",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#153",
+    "#154",
+    "#155",
+    "#191",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#229",
+    "#230",
+    "#233",
+    "#235",
+    "#237",
+    "#239",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#252",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."limits.rs".function]]
+id = "fn:4b3d83ad8ceca881"
+name = "is_negative"
+qual = "is_negative"
+lines = [
+    99,
+    108,
+]
+hash = "sha256:dad2a5dad546ab8334b9d883385db2bf83e398a3a5cc5cd19521552bda007799"
+doc_hash = "sha256:074f9f4bc9e209ebb970aa65ebf07fe5f81d285ecad38fa594044d08c86e1303"
+reached_by = [
+    "#104",
+    "#106",
+    "#108",
+    "#109",
+    "#110",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#125",
+    "#138",
+    "#139",
+    "#140",
+    "#142",
+    "#143",
+    "#149",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."limits.rs".function]]
+id = "fn:5519dd18be75b928"
+name = "almost_eq"
+qual = "almost_eq"
+lines = [
+    110,
+    116,
+]
+hash = "sha256:015b1f5fae589db95e959e667fc1d051267b74da2845182ccf8cf11dd39358e4"
+doc_hash = "sha256:f96b3a86a895f9ee8b8d8512f9d476874a1f153105fa7b2630bc7bfee52defe6"
+callees = ["fn:186f15e345e7acd8"]
+reached_by = [
+    "#122",
+    "#130",
+    "#132",
+    "#142",
+    "#145",
+]
+
+[[module."limits.rs".function]]
+id = "fn:322f50f24e49e6f9"
+name = "float_distance"
+qual = "float_distance"
+lines = [
+    118,
+    170,
+]
+hash = "sha256:a6fe099cef22e724a43e1770fce1e564b5b64fc9764141de2c806fad69107407"
+doc_hash = "sha256:f5fdadccc3f6e4801a982bdaad897aeb2e5bff440b21d32762ab2f37959454b7"
+reached_by = [
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#131",
+    "#133",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#146",
+    "#147",
+    "#148",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."limits.rs".function]]
+id = "fn:b0a401860582f23e"
+name = "is_negative_tolerates_epsilon_sized_rounding"
+qual = "is_negative_tolerates_epsilon_sized_rounding"
+lines = [
+    176,
+    182,
+]
+hash = "sha256:2ab6ad9616e65e2168422531ea713c620155301ffe809cdeb89834fb0bf0ff8f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4b3d83ad8ceca881"]
+test = true
+
+[[module."limits.rs".function]]
+id = "fn:9c5c15bfe9df1578"
+name = "float_distance_counts_representable_values"
+qual = "float_distance_counts_representable_values"
+lines = [
+    184,
+    190,
+]
+hash = "sha256:ff39176bc5adba853f322b5260950a6fe9866899357a74a2f4b92c94e2e555b6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:322f50f24e49e6f9"]
+test = true
+
+[[module."limits.rs".function]]
+id = "fn:fc83612da3dd9793"
+name = "float_distance_crosses_zero_symmetrically"
+qual = "float_distance_crosses_zero_symmetrically"
+lines = [
+    192,
+    198,
+]
+hash = "sha256:0b8bde58b4f65669b92a1e1b8590dbecf58411ba412a6baf192c0295169ae87a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:322f50f24e49e6f9"]
+test = true
+
+[[module."limits.rs".function]]
+id = "fn:003ef89984639a48"
+name = "float_distance_is_zero_for_nan"
+qual = "float_distance_is_zero_for_nan"
+lines = [
+    200,
+    204,
+]
+hash = "sha256:94f0c7aaeb78d34c479f71c246ae23c7416357f0c05887f8b4dee4af122b13d8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:322f50f24e49e6f9"]
+test = true
+
+[[module."limits.rs".function]]
+id = "fn:20dcf57394222249"
+name = "almost_eq_matches_upstream_tolerance"
+qual = "almost_eq_matches_upstream_tolerance"
+lines = [
+    206,
+    210,
+]
+hash = "sha256:d0eb5e5d2a1e420476fadd73b35d2ac58bd9c6c00a2cc61e7c383796fad2caef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:5519dd18be75b928"]
+test = true
+
+[module."material.rs"]
+path = "crate::material"
+
+[[module."material.rs".function]]
+id = "fn:9e76db42fecb473e"
+name = "new"
+qual = "Material::new"
+lines = [
+    63,
+    96,
+]
+hash = "sha256:21a9feca6d104b3a91a2c875f5ae4c428bba72d781b92aefb5e8b859aff77857"
+doc_hash = "sha256:7a4de923176105d8c299ab19aa55105758f331f1948bf0958854490019b381f7"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#64",
+    "#71",
+    "#72",
+    "#79",
+    "#87",
+    "#135",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#176",
+    "#177",
+    "#178",
+    "#191",
+    "#192",
+    "#193",
+    "#196",
+    "#198",
+    "#199",
+    "#200",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#239",
+    "#240",
+    "#241",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."material.rs".function]]
+id = "fn:59e9d9060360959d"
+name = "with_unit_value"
+qual = "Material::with_unit_value"
+lines = [
+    98,
+    113,
+]
+hash = "sha256:9f05fabc2e1fc201a768dc5c22d754435823ff9b3875e817f4745d7dfe452729"
+doc_hash = "sha256:96ab647004c95988346dc3476a89dcffcf33e18035b8d667dede5ec4f79e5bff"
+callees = ["fn:9e76db42fecb473e"]
+reached_by = [
+    "#64",
+    "#71",
+    "#72",
+    "#79",
+    "#87",
+    "#150",
+]
+
+[[module."material.rs".function]]
+id = "fn:66f23483c63730d6"
+name = "quantity"
+qual = "Material::quantity"
+lines = [
+    115,
+    119,
+]
+hash = "sha256:b38fe98cfc61815dc087cbbf3398644641c151f5a67af9e10f41f62d51294b95"
+doc_hash = "sha256:1b68fc5b7f4ba69ace6308da04d0967ef0bb6958ecbac2d4f8617a12efb331bc"
+reached_by = [
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#64",
+    "#71",
+    "#72",
+    "#79",
+    "#87",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#151",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#161",
+    "#176",
+    "#177",
+    "#192",
+    "#196",
+    "#200",
+    "#205",
+    "#206",
+    "#207",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#239",
+    "#240",
+    "#241",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."material.rs".function]]
+id = "fn:169f68b988b59a87"
+name = "units"
+qual = "Material::units"
+lines = [
+    121,
+    126,
+]
+hash = "sha256:cdb8cf87e97cbd08d83f8cfe9e6b64852cf01629249d03a1cd0fe4c1d8df0362"
+doc_hash = "sha256:cf7d93750c4136d19bd9334bd9afc0c3cf0cf9a369dbebf9f36f685f054cdef5"
+reached_by = ["#176"]
+
+[[module."material.rs".function]]
+id = "fn:e8bf10d7b2eaa931"
+name = "comp"
+qual = "Material::comp"
+lines = [
+    128,
+    132,
+]
+hash = "sha256:b63c9286003dfdab4148285173268d227787d0926f9b58e8124ee22c872455e6"
+doc_hash = "sha256:13f03f90b8ec622fbbd8753fc43d36b05804bce318d961617c6edf9580f0c1fe"
+reached_by = [
+    "#10",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#64",
+    "#71",
+    "#72",
+    "#79",
+    "#87",
+    "#151",
+    "#156",
+    "#158",
+    "#161",
+    "#191",
+    "#192",
+    "#193",
+    "#196",
+    "#198",
+    "#199",
+    "#200",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#239",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."material.rs".function]]
+id = "fn:320b49d00cf88c49"
+name = "unit_value"
+qual = "Material::unit_value"
+lines = [
+    134,
+    138,
+]
+hash = "sha256:17511a0257049e4ef21156c24403fa9a27d65b2344d052b2b1053dd341c97f96"
+doc_hash = "sha256:0f77ffc95a8234e4d0ba25085a9a812bfd04f2242f1464b565682bdc085d7da3"
+reached_by = [
+    "#64",
+    "#71",
+    "#72",
+    "#79",
+    "#87",
+    "#150",
+]
+
+[[module."material.rs".function]]
+id = "fn:2af485eb40f25b4c"
+name = "set_unit_value"
+qual = "Material::set_unit_value"
+lines = [
+    140,
+    143,
+]
+hash = "sha256:f234b0cea23a0ee89ef7daa29973f610cb26f2e7ecfd57c086e656a5116f52ec"
+doc_hash = "sha256:3fab5f43203f4ebe6ec022ce6ce448b7f94ea91320db482a6f377f88a20ad203"
+
+[[module."material.rs".function]]
+id = "fn:f84dcb1a8ba27ec3"
+name = "prev_decay_time"
+qual = "Material::prev_decay_time"
+lines = [
+    145,
+    149,
+]
+hash = "sha256:7f4c8c538e4090c1e1a912daee82d3990082a45cb563e59f168604dbca47c2e3"
+doc_hash = "sha256:7a1152767ae950f25db9e7852790faeb1f5f1d4da91110b68f26a6ba74994411"
+reached_by = [
+    "#71",
+    "#72",
+    "#161",
+]
+
+[[module."material.rs".function]]
+id = "fn:3c3e86a622680afd"
+name = "set_prev_decay_time"
+qual = "Material::set_prev_decay_time"
+lines = [
+    151,
+    154,
+]
+hash = "sha256:683e1d8758d3b1a13d137d106df4b68022591c865d50a5aa226175c44f6b4d81"
+doc_hash = "sha256:29828945aa0934b45b5d31fb875e0a4a1ffdbebb5277a00543ff856cb0484e7b"
+reached_by = [
+    "#64",
+    "#71",
+    "#72",
+    "#79",
+    "#87",
+    "#152",
+]
+
+[[module."material.rs".function]]
+id = "fn:d1cbb3ec82723033"
+name = "nuclide_masses"
+qual = "Material::nuclide_masses"
+lines = [
+    156,
+    167,
+]
+hash = "sha256:16f3b4c6b4eb3a4d1d20b694636d14ad90e650cb85ee98fd0ab8ab9c2ebd40b4"
+doc_hash = "sha256:7ec360404e58e04fce5e75158b94a68ff0008b2c86a9f772169314356a687a54"
+callees = [
+    "fn:589ce647342018a0",
+    "fn:6f487de0cf3e712e",
+]
+reached_by = [
+    "#71",
+    "#87",
+    "#154",
+    "#160",
+    "#203",
+]
+
+[[module."material.rs".function]]
+id = "fn:15475c11ab23cd6a"
+name = "extract_qty"
+qual = "Material::extract_qty"
+lines = [
+    169,
+    193,
+]
+hash = "sha256:4474b668c44b66e3a06bb616106bd4dacadc6daec2fba6a9362fe9ef152ec53c"
+doc_hash = "sha256:9367d46b50b74fe8a338b02dce213d48f2c01ee24919de4f7857686b42077b70"
+reached_by = [
+    "#156",
+    "#157",
+    "#158",
+    "#177",
+    "#221",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#232",
+    "#235",
+    "#237",
+]
+
+[[module."material.rs".function]]
+id = "fn:23c0788e5f90bc85"
+name = "extract_comp"
+qual = "Material::extract_comp"
+lines = [
+    195,
+    267,
+]
+hash = "sha256:ba8d95ab7c5f770345b55de85a0f6798194a5fbbb99294a6f6d8118c8c021e2b"
+doc_hash = "sha256:bbe4f5f6475367bd3a767e4a71204b023b2a18894bc5e6b95dad2495a8a5ef02"
+callees = [
+    "fn:3cd730b835beae8b",
+    "fn:455cad7bca4e3138",
+    "fn:589ce647342018a0",
+    "fn:6f487de0cf3e712e",
+    "fn:c1e70f92aea5cccf",
+    "fn:d05e8892e36fc6ff",
+]
+reached_by = [
+    "#153",
+    "#154",
+    "#155",
+]
+
+[[module."material.rs".function]]
+id = "fn:2162be1d62e87bc2"
+name = "absorb"
+qual = "Material::absorb"
+lines = [
+    269,
+    313,
+]
+hash = "sha256:cedf5703549073db782faee713443a8259d7a88720d495178d4047e7f54f8cf0"
+doc_hash = "sha256:77cbd1350b1d900cbcdcd03f8b9c132d82f3332fd2b6acc8644c286c5c6c02c1"
+callees = [
+    "fn:589ce647342018a0",
+    "fn:6f487de0cf3e712e",
+    "fn:c1e70f92aea5cccf",
+    "fn:ee9eca63e9714ed7",
+]
+reached_by = [
+    "#150",
+    "#151",
+    "#152",
+    "#158",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+]
+
+[[module."material.rs".function]]
+id = "fn:a09499b4fdcf1545"
+name = "transmute"
+qual = "Material::transmute"
+lines = [
+    315,
+    328,
+]
+hash = "sha256:400dbae5d9ea22b60e0dbe08d313e77c591e531caeefc185f03fe0902caac4de"
+doc_hash = "sha256:366e30a47f488edce762dbf4ec8779c652fd3eba61dc6f6ce03cd54403609f52"
+reached_by = ["#161"]
+
+[[module."material.rs".function]]
+id = "fn:b4a67c933e457ba4"
+name = "is_empty"
+qual = "Material::is_empty"
+lines = [
+    330,
+    338,
+]
+hash = "sha256:c37d4fce3a8f4d08ba947a778a5ba7ce80f18d0264284791ae12737bb05a9fea"
+doc_hash = "sha256:a9dc45154dcf5eaa821249a942b2e47bb8d2e898ca7bf4db19443c598d124f00"
+reached_by = ["#153"]
+
+[[module."material.rs".function]]
+id = "fn:45dbabdb6f77a7db"
+name = "masses"
+qual = "masses"
+lines = [
+    346,
+    348,
+]
+hash = "sha256:60f0f873729d00286f59dcd004efbe2b6fe5b563bf56a36df5c5d314546d5e00"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."material.rs".function]]
+id = "fn:995608ae37a08c1e"
+name = "comp"
+qual = "comp"
+lines = [
+    350,
+    353,
+]
+hash = "sha256:dcc930d6e64b042199e67861a1eca6497bf7c577ca1a778e701ba992b6d15507"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:45dbabdb6f77a7db",
+    "fn:c1e70f92aea5cccf",
+]
+test = true
+
+[[module."material.rs".function]]
+id = "fn:70a90f017da44637"
+name = "extract_qty_conserves_mass_and_composition"
+qual = "extract_qty_conserves_mass_and_composition"
+lines = [
+    355,
+    366,
+]
+hash = "sha256:19f5c46c50c11bf4b679edb3f101bb604657e842200b4333e2e03838202ff32f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:15475c11ab23cd6a",
+    "fn:66f23483c63730d6",
+    "fn:995608ae37a08c1e",
+    "fn:9e76db42fecb473e",
+    "fn:e8bf10d7b2eaa931",
+]
+test = true
+
+[[module."material.rs".function]]
+id = "fn:01cddfd8911a40d2"
+name = "extract_qty_rejects_more_than_is_present"
+qual = "extract_qty_rejects_more_than_is_present"
+lines = [
+    368,
+    376,
+]
+hash = "sha256:621d4900fcd21b505cf7de2ebc1ab1b5529182364b1f873a4dc7b7b53036c9b3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:15475c11ab23cd6a",
+    "fn:66f23483c63730d6",
+    "fn:995608ae37a08c1e",
+    "fn:9e76db42fecb473e",
+]
+test = true
+
+[[module."material.rs".function]]
+id = "fn:3d7a0491f36a37cf"
+name = "extract_comp_leaves_the_correct_remainder"
+qual = "extract_comp_leaves_the_correct_remainder"
+lines = [
+    378,
+    393,
+]
+hash = "sha256:470a722c2c84ea437cc1a18cedf3bb94378307e95c344786ded81468c3d82bfc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:23c0788e5f90bc85",
+    "fn:45dbabdb6f77a7db",
+    "fn:66f23483c63730d6",
+    "fn:995608ae37a08c1e",
+    "fn:9e76db42fecb473e",
+    "fn:d1cbb3ec82723033",
+]
+test = true
+
+[[module."material.rs".function]]
+id = "fn:3851d185b948b498"
+name = "extract_comp_rejects_taking_more_of_a_nuclide_than_is_present"
+qual = "extract_comp_rejects_taking_more_of_a_nuclide_than_is_present"
+lines = [
+    395,
+    407,
+]
+hash = "sha256:82bc69313796be36499d28b95208cad0c11b010d29328075a2b3173b75f8c816"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:23c0788e5f90bc85",
+    "fn:45dbabdb6f77a7db",
+    "fn:66f23483c63730d6",
+    "fn:995608ae37a08c1e",
+    "fn:9e76db42fecb473e",
+]
+test = true
+
+[[module."material.rs".function]]
+id = "fn:ea1d22ecf5e154f9"
+name = "extract_comp_clears_residue_below_the_threshold"
+qual = "extract_comp_clears_residue_below_the_threshold"
+lines = [
+    409,
+    419,
+]
+hash = "sha256:9f54b27d4832f90a139b686c16feebcdeb070d75c4c15acba490b818ef9ae04c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:23c0788e5f90bc85",
+    "fn:45dbabdb6f77a7db",
+    "fn:66f23483c63730d6",
+    "fn:995608ae37a08c1e",
+    "fn:9e76db42fecb473e",
+    "fn:b4a67c933e457ba4",
+]
+test = true
+
+[[module."material.rs".function]]
+id = "fn:e28accc49ee02abc"
+name = "absorb_blends_compositions_by_mass"
+qual = "absorb_blends_compositions_by_mass"
+lines = [
+    421,
+    432,
+]
+hash = "sha256:f803b0da9c060b8d7485242dfd7930a410ad09e067009582b6bcae0bd90dc56b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2162be1d62e87bc2",
+    "fn:3a3027db3b0ada6c",
+    "fn:45dbabdb6f77a7db",
+    "fn:66f23483c63730d6",
+    "fn:995608ae37a08c1e",
+    "fn:9e76db42fecb473e",
+    "fn:e8bf10d7b2eaa931",
+]
+test = true
+
+[[module."material.rs".function]]
+id = "fn:b23a81639f7c3d5f"
+name = "absorb_averages_unit_value_by_mass"
+qual = "absorb_averages_unit_value_by_mass"
+lines = [
+    434,
+    441,
+]
+hash = "sha256:260f87f4abb8e239791347c51d60b4223e1b9e5bfb4705f3d99f6c262898ad9c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2162be1d62e87bc2",
+    "fn:320b49d00cf88c49",
+    "fn:45dbabdb6f77a7db",
+    "fn:59e9d9060360959d",
+    "fn:995608ae37a08c1e",
+]
+test = true
+
+[[module."material.rs".function]]
+id = "fn:435bc11c310da058"
+name = "absorb_refuses_a_more_decayed_material"
+qual = "absorb_refuses_a_more_decayed_material"
+lines = [
+    443,
+    454,
+]
+hash = "sha256:6242e8fa4e14766710ef55ef64549c08eb864cdae9de6af8de98cbd00642f4d0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2162be1d62e87bc2",
+    "fn:3c3e86a622680afd",
+    "fn:45dbabdb6f77a7db",
+    "fn:995608ae37a08c1e",
+    "fn:9e76db42fecb473e",
+]
+test = true
+
+[[module."material.rs".function]]
+id = "fn:c3c5dc9a751ab6d6"
+name = "extract_then_absorb_round_trips_exactly"
+qual = "extract_then_absorb_round_trips_exactly"
+lines = [
+    456,
+    464,
+]
+hash = "sha256:44aafe6d1a7602cbb5e021a1b5d189923693cbadd8942d74b0707948d0c2076d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:15475c11ab23cd6a",
+    "fn:2162be1d62e87bc2",
+    "fn:3a3027db3b0ada6c",
+    "fn:45dbabdb6f77a7db",
+    "fn:66f23483c63730d6",
+    "fn:995608ae37a08c1e",
+    "fn:9e76db42fecb473e",
+    "fn:e8bf10d7b2eaa931",
+]
+test = true
+
+[[module."material.rs".function]]
+id = "fn:31f3f9f8354dcc9b"
+name = "transmute_keeps_mass_and_advances_the_decay_clock"
+qual = "transmute_keeps_mass_and_advances_the_decay_clock"
+lines = [
+    466,
+    473,
+]
+hash = "sha256:4959e91e822fda3f57f897403d8d4b668701b8952b0adbb308814a54f84ade00"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3a3027db3b0ada6c",
+    "fn:66f23483c63730d6",
+    "fn:995608ae37a08c1e",
+    "fn:9e76db42fecb473e",
+    "fn:a09499b4fdcf1545",
+    "fn:e8bf10d7b2eaa931",
+    "fn:f84dcb1a8ba27ec3",
+]
+test = true
+
+[[module."material.rs".function]]
+id = "fn:677fe5d6ae236848"
+name = "nuclide_masses_scales_the_composition_to_the_quantity"
+qual = "nuclide_masses_scales_the_composition_to_the_quantity"
+lines = [
+    475,
+    481,
+]
+hash = "sha256:40264ff916ce45f938835d378b4a2e376378aeb878cb4cf253326e67f370cd24"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:995608ae37a08c1e",
+    "fn:9e76db42fecb473e",
+    "fn:d1cbb3ec82723033",
+]
+test = true
+
+[[module."material.rs".function]]
+id = "fn:41e091c853c9d422"
+name = "new_rejects_a_negative_quantity"
+qual = "new_rejects_a_negative_quantity"
+lines = [
+    483,
+    489,
+]
+hash = "sha256:30dbfcb45d5a42f3e8169d937a39b430cf7384c8eeae02d5ace1b77e84dd6f29"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:995608ae37a08c1e",
+    "fn:9e76db42fecb473e",
+]
+test = true
+
+[module."nuclide.rs"]
+path = "crate::nuclide"
+
+[[module."nuclide.rs".function]]
+id = "fn:90ceec71e01e7baa"
+name = "new"
+qual = "Nuc::new"
+lines = [
+    64,
+    69,
+]
+hash = "sha256:5bca6247727935231b27db4e754a2264d194fafb94bf25b844719bda48b4a8d1"
+doc_hash = "sha256:efdef8fd158fe61bec0925b07e85948c49cd665e3544a36b0795e6ae3bd326cd"
+reached_by = [
+    "#162",
+    "#164",
+    "#167",
+]
+
+[[module."nuclide.rs".function]]
+id = "fn:0446ef9a0cc83929"
+name = "validated"
+qual = "Nuc::validated"
+lines = [
+    71,
+    83,
+]
+hash = "sha256:dcff4357dcff40a56927ea69b408d9a9c3f2aad296a2690d1f12000b020bef2c"
+doc_hash = "sha256:3fe7c1031d08374178bc1ef08f0e05d70cbefcd64fe74362483c5947b3407e25"
+callees = ["fn:123709471c989c54"]
+reached_by = ["#168"]
+
+[[module."nuclide.rs".function]]
+id = "fn:e7a9cabfd2e6958b"
+name = "from_zam"
+qual = "Nuc::from_zam"
+lines = [
+    85,
+    119,
+]
+hash = "sha256:7ccca7ee1ac0c0c57b58922367bd56b37b858908f727ce2a55664a785f57bb09"
+doc_hash = "sha256:91def51d6fa0c8f97da0d99de6b76fdc6c9fb22fcde727f3aff6da3b3ec7a689"
+reached_by = [
+    "#165",
+    "#166",
+    "#167",
+]
+
+[[module."nuclide.rs".function]]
+id = "fn:936e11ec2d78e627"
+name = "raw"
+qual = "Nuc::raw"
+lines = [
+    121,
+    126,
+]
+hash = "sha256:ac7cf4eafa442eab735c61a211314d716abdc0ea8585f9df2dd5c5b84cb15096"
+doc_hash = "sha256:67cb2e5b8c93f7890eb83f6a741aaec391689a6ebca31e27dd82f56b36dcf2f7"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#54",
+    "#55",
+    "#61",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#68",
+    "#71",
+    "#72",
+    "#74",
+    "#78",
+    "#79",
+    "#80",
+    "#82",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#135",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#176",
+    "#177",
+    "#178",
+    "#191",
+    "#192",
+    "#193",
+    "#196",
+    "#198",
+    "#199",
+    "#200",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."nuclide.rs".function]]
+id = "fn:aaa1a6fbe521806c"
+name = "z"
+qual = "Nuc::z"
+lines = [
+    128,
+    133,
+]
+hash = "sha256:47a1b543a359f05c2143685c7a49df7a9ed3ebd79852abd1c264629f14cebf84"
+doc_hash = "sha256:70dd626997333983c3c52427544acc8db32ea4b8458bf078f1f1c2d4098a21c3"
+reached_by = [
+    "#162",
+    "#163",
+    "#164",
+    "#166",
+]
+
+[[module."nuclide.rs".function]]
+id = "fn:21dcaa86349b5a44"
+name = "a"
+qual = "Nuc::a"
+lines = [
+    135,
+    143,
+]
+hash = "sha256:ec0849af5907bccce78dd9be8bc4063f4667705e5e151815e4102543152257c5"
+doc_hash = "sha256:0bf2199f25596e4c4e538cf882886a3cf9894dc42b2c8ce316714f0d4e7db8ea"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#54",
+    "#55",
+    "#61",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#71",
+    "#72",
+    "#79",
+    "#80",
+    "#82",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#135",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#166",
+    "#176",
+    "#177",
+    "#178",
+    "#191",
+    "#192",
+    "#193",
+    "#196",
+    "#198",
+    "#199",
+    "#200",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."nuclide.rs".function]]
+id = "fn:2a05840e9cd57db8"
+name = "m"
+qual = "Nuc::m"
+lines = [
+    145,
+    151,
+]
+hash = "sha256:eb3d498ea0f838893d05ebbb523e57e1f890e47859990cb97f1c3f1999fd3991"
+doc_hash = "sha256:412af996a4917852b6a35f3d737fdf0e16cda3f526b5910aed423e6db904cef1"
+reached_by = [
+    "#162",
+    "#163",
+    "#166",
+]
+
+[[module."nuclide.rs".function]]
+id = "fn:d0343e533b3e8424"
+name = "n"
+qual = "Nuc::n"
+lines = [
+    153,
+    162,
+]
+hash = "sha256:07a02aa40a3eb783e6792260658f535c2a3f61f13300cc7424ab3c33979bed4a"
+doc_hash = "sha256:f76749471d02f21e158bbaa51485188f3fa57367ef05ae55d0688895067f9e97"
+callees = [
+    "fn:21dcaa86349b5a44",
+    "fn:aaa1a6fbe521806c",
+]
+reached_by = ["#163"]
+
+[[module."nuclide.rs".function]]
+id = "fn:123709471c989c54"
+name = "is_nuclide"
+qual = "Nuc::is_nuclide"
+lines = [
+    164,
+    206,
+]
+hash = "sha256:48535973ff6c948c279b67f710d563d26037db3cd843a853df28c935c725fad2"
+doc_hash = "sha256:1b751fff87fc53d60f8db2a744e49a3b0b040d50ea9b30ac7291ac848829eb5f"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#54",
+    "#55",
+    "#61",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#68",
+    "#71",
+    "#72",
+    "#74",
+    "#78",
+    "#79",
+    "#80",
+    "#82",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#135",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#167",
+    "#168",
+    "#176",
+    "#177",
+    "#178",
+    "#191",
+    "#192",
+    "#193",
+    "#196",
+    "#198",
+    "#199",
+    "#200",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."nuclide.rs".function]]
+id = "fn:0e52a50b9cd00e38"
+name = "is_element"
+qual = "Nuc::is_element"
+lines = [
+    208,
+    214,
+]
+hash = "sha256:008db66e451c0af74698a880f1c80393e87d375635e6728451210d07afa4095d"
+doc_hash = "sha256:4c3299604b155cb34dcb9294dcac71222e8ab2589fd56547c867dd8b5b11208f"
+reached_by = ["#167"]
+
+[[module."nuclide.rs".function]]
+id = "fn:0168d81460e37c1b"
+name = "symbol"
+qual = "Nuc::symbol"
+lines = [
+    216,
+    222,
+]
+hash = "sha256:7605dec84f15d5776b885461cc329c19c657595f7190bf38bf0d2c115b0a3619"
+doc_hash = "sha256:287715f78dada331cb2a894c683dcc88e4ff6d6f398c77195e838af9fc44b051"
+callees = [
+    "fn:7abfdec0ed17b283",
+    "fn:aaa1a6fbe521806c",
+]
+reached_by = [
+    "#163",
+    "#164",
+]
+
+[[module."nuclide.rs".function]]
+id = "fn:ac7a853e5efb74d2"
+name = "fmt"
+qual = "Nuc::fmt"
+lines = [
+    232,
+    246,
+]
+hash = "sha256:cb5f4d546e7e355bfa99ba3f5040f587a53dc71f090c2a4b371d9ff3b6110469"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0168d81460e37c1b",
+    "fn:21dcaa86349b5a44",
+    "fn:2a05840e9cd57db8",
+]
+
+[[module."nuclide.rs".function]]
+id = "fn:7abfdec0ed17b283"
+name = "element_symbol"
+qual = "element_symbol"
+lines = [
+    261,
+    269,
+]
+hash = "sha256:8ee2b44b6325ffb8648fb3be9e37bd0127be9882f12c1d588f2ae20d836f4fc0"
+doc_hash = "sha256:bc31137e8d6faff80bee7648600559bbdf4311ecdbecffdf02d63955280075c7"
+reached_by = [
+    "#163",
+    "#164",
+]
+
+[[module."nuclide.rs".function]]
+id = "fn:9b6d8192d0182291"
+name = "decomposes_u235"
+qual = "decomposes_u235"
+lines = [
+    300,
+    308,
+]
+hash = "sha256:09cc3352ab10199d2a9c50c6a8cf062967dd0970bfd0888d94103cbf42275e70"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0168d81460e37c1b",
+    "fn:21dcaa86349b5a44",
+    "fn:2a05840e9cd57db8",
+    "fn:aaa1a6fbe521806c",
+    "fn:d0343e533b3e8424",
+]
+test = true
+
+[[module."nuclide.rs".function]]
+id = "fn:b3d43ce8fb3208fc"
+name = "decomposes_a_metastable_state"
+qual = "decomposes_a_metastable_state"
+lines = [
+    310,
+    316,
+]
+hash = "sha256:fa0a31bfc16230f34df3f7befa20f92b7b2018ffadca21ba2743b71260387110"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:21dcaa86349b5a44",
+    "fn:2a05840e9cd57db8",
+    "fn:90ceec71e01e7baa",
+    "fn:aaa1a6fbe521806c",
+]
+test = true
+
+[[module."nuclide.rs".function]]
+id = "fn:02337cec5daf3641"
+name = "from_zam_round_trips"
+qual = "from_zam_round_trips"
+lines = [
+    318,
+    324,
+]
+hash = "sha256:2d0c99554b2c2edb9280ca55ce997514b21d0f99c720ee420d074e0020523b76"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:21dcaa86349b5a44",
+    "fn:2a05840e9cd57db8",
+    "fn:aaa1a6fbe521806c",
+    "fn:e7a9cabfd2e6958b",
+]
+test = true
+
+[[module."nuclide.rs".function]]
+id = "fn:26ec62484e107bea"
+name = "from_zam_rejects_out_of_range_fields"
+qual = "from_zam_rejects_out_of_range_fields"
+lines = [
+    326,
+    331,
+]
+hash = "sha256:03f61c31d58868929dcc6d47d2c453f372684f7d1c1bdc2114cee542b77d9616"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:e7a9cabfd2e6958b"]
+test = true
+
+[[module."nuclide.rs".function]]
+id = "fn:fcf0b2bcc7a6cf27"
+name = "is_nuclide_matches_upstream_conditions"
+qual = "is_nuclide_matches_upstream_conditions"
+lines = [
+    333,
+    354,
+]
+hash = "sha256:426a787d750688a85812a9c2e8e4e99d555499e3c8e9e794d8f901c623f6b21d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0e52a50b9cd00e38",
+    "fn:123709471c989c54",
+    "fn:90ceec71e01e7baa",
+    "fn:e7a9cabfd2e6958b",
+]
+test = true
+
+[[module."nuclide.rs".function]]
+id = "fn:9766a728003f67a1"
+name = "validated_reports_the_offending_id"
+qual = "validated_reports_the_offending_id"
+lines = [
+    356,
+    363,
+]
+hash = "sha256:db699f945d1ec6ed6a9d0fbda514497a80951130df64d8f2d4056b3bbf8a4044"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:0446ef9a0cc83929"]
+test = true
+
+[[module."nuclide.rs".function]]
+id = "fn:692ac33fa1eefe77"
+name = "display_uses_pyne_name_form"
+qual = "display_uses_pyne_name_form"
+lines = [
+    365,
+    376,
+]
+hash = "sha256:6024c987b690ed1a77530e3cacc552a0fd3ecb60511011153ffb3da1986a8334"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0168d81460e37c1b",
+    "fn:90ceec71e01e7baa",
+]
+test = true
+
+[[module."nuclide.rs".function]]
+id = "fn:fc47c02f932dbc96"
+name = "ordering_is_by_raw_id_so_compmaps_iterate_deterministically"
+qual = "ordering_is_by_raw_id_so_compmaps_iterate_deterministically"
+lines = [
+    378,
+    383,
+]
+hash = "sha256:51b21702c62e278e6ee4f735081ee7bd8ad83f206ff3b977d16189ac0d84f7e3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."product.rs"]
+path = "crate::product"
+
+[[module."product.rs".function]]
+id = "fn:830e57b80fa3a07f"
+name = "new"
+qual = "Product::new"
+lines = [
+    36,
+    61,
+]
+hash = "sha256:65a07e12512c56c1ba468c87160b0aa3108520873427ee7b3241e9d9a9544380"
+doc_hash = "sha256:181b7f2d553fae41bd718c35e225f2acc3eb7b7b3c1cd0e953482a53d574adf6"
+reached_by = [
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#178",
+    "#221",
+    "#241",
+]
+
+[[module."product.rs".function]]
+id = "fn:1f851f8fda564562"
+name = "quantity"
+qual = "Product::quantity"
+lines = [
+    63,
+    67,
+]
+hash = "sha256:b38fe98cfc61815dc087cbbf3398644641c151f5a67af9e10f41f62d51294b95"
+doc_hash = "sha256:0200d511c73532c5f230cc134453b50ba0e228e0586badf0c6dcb7a78fdc8184"
+reached_by = [
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#170",
+    "#171",
+    "#172",
+    "#176",
+    "#177",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#239",
+    "#240",
+    "#241",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."product.rs".function]]
+id = "fn:b9771097d3c47506"
+name = "quality"
+qual = "Product::quality"
+lines = [
+    69,
+    73,
+]
+hash = "sha256:86bb4969a2c9770c9e217964b8351780ab53d1374898a9b11bfaa4505c94ccf4"
+doc_hash = "sha256:35be34f8b313b1eb7e896d82d2a9bbaafc85d58419e60d0e83e4b5b5ce89e495"
+reached_by = [
+    "#171",
+    "#178",
+]
+
+[[module."product.rs".function]]
+id = "fn:9243b6c8b1a70766"
+name = "units"
+qual = "Product::units"
+lines = [
+    75,
+    79,
+]
+hash = "sha256:86bb4969a2c9770c9e217964b8351780ab53d1374898a9b11bfaa4505c94ccf4"
+doc_hash = "sha256:0416b80434513adc7725418b4ad9438103418eb4825eff4c0684825c886562a9"
+reached_by = [
+    "#174",
+    "#176",
+]
+
+[[module."product.rs".function]]
+id = "fn:74bdf4d6d6d87789"
+name = "unit_value"
+qual = "Product::unit_value"
+lines = [
+    81,
+    85,
+]
+hash = "sha256:17511a0257049e4ef21156c24403fa9a27d65b2344d052b2b1053dd341c97f96"
+doc_hash = "sha256:0aeb8a90c434f0afc0e7a0277085ac3d17ec4ca218dac86f682c0e727461d6bb"
+reached_by = ["#170"]
+
+[[module."product.rs".function]]
+id = "fn:e1288e001001e674"
+name = "set_unit_value"
+qual = "Product::set_unit_value"
+lines = [
+    87,
+    90,
+]
+hash = "sha256:f234b0cea23a0ee89ef7daa29973f610cb26f2e7ecfd57c086e656a5116f52ec"
+doc_hash = "sha256:3fab5f43203f4ebe6ec022ce6ce448b7f94ea91320db482a6f377f88a20ad203"
+reached_by = ["#170"]
+
+[[module."product.rs".function]]
+id = "fn:36078fb74761786f"
+name = "extract_qty"
+qual = "Product::extract_qty"
+lines = [
+    92,
+    111,
+]
+hash = "sha256:fb78539cde07b2242535ad8179bf7443486642317a09f19a8d24c910f98b635f"
+doc_hash = "sha256:7a9a7d4a240e1a6dfb539b5eb8725bf81c42c7d748fe867d9a5c38403a486d0d"
+reached_by = [
+    "#171",
+    "#172",
+    "#177",
+    "#221",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#232",
+    "#235",
+    "#237",
+]
+
+[[module."product.rs".function]]
+id = "fn:c90bd62e417ace7e"
+name = "absorb"
+qual = "Product::absorb"
+lines = [
+    113,
+    131,
+]
+hash = "sha256:7ab7a4280177708f2926b4fcf9f19de7f347be32e2c5a7e5274065f1955bc1dc"
+doc_hash = "sha256:a0f82a4e600143c2981061995680dd8a48126fd6e19fe27a74c56f05cedb1012"
+reached_by = [
+    "#169",
+    "#170",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+]
+
+[[module."product.rs".function]]
+id = "fn:edef06a4ef344c7b"
+name = "is_empty"
+qual = "Product::is_empty"
+lines = [
+    133,
+    137,
+]
+hash = "sha256:c37d4fce3a8f4d08ba947a778a5ba7ce80f18d0264284791ae12737bb05a9fea"
+doc_hash = "sha256:b478fb0bcd24f91d0bbe2bde20dccb9fda1220743b96e07025eae45f2efac4eb"
+
+[[module."product.rs".function]]
+id = "fn:22397215fdf607b9"
+name = "extract_conserves_quantity_and_quality"
+qual = "extract_conserves_quantity_and_quality"
+lines = [
+    144,
+    151,
+]
+hash = "sha256:52f1c98f0e7a0b95e27190b26368627fe8b68ba0a0ae35a3a5cdaa1a4dc8a701"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1f851f8fda564562",
+    "fn:36078fb74761786f",
+    "fn:830e57b80fa3a07f",
+    "fn:b9771097d3c47506",
+]
+test = true
+
+[[module."product.rs".function]]
+id = "fn:ba9230df1937fc0a"
+name = "extract_rejects_more_than_is_present"
+qual = "extract_rejects_more_than_is_present"
+lines = [
+    153,
+    161,
+]
+hash = "sha256:1da24e78d1cdb1bf936454de0e1057c02872b64b5d012e60cf6c33e225365b33"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1f851f8fda564562",
+    "fn:36078fb74761786f",
+    "fn:830e57b80fa3a07f",
+]
+test = true
+
+[[module."product.rs".function]]
+id = "fn:49cb98af265f8625"
+name = "absorb_requires_matching_quality"
+qual = "absorb_requires_matching_quality"
+lines = [
+    163,
+    173,
+]
+hash = "sha256:2b8edf8a2d199f439f465ff62be8eecfcee894df9c792aabbfb9ec15b58eb897"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:830e57b80fa3a07f",
+    "fn:c90bd62e417ace7e",
+]
+test = true
+
+[[module."product.rs".function]]
+id = "fn:e0b4c74c8e5fa2a7"
+name = "absorb_sums_matching_qualities_and_weights_unit_value"
+qual = "absorb_sums_matching_qualities_and_weights_unit_value"
+lines = [
+    175,
+    184,
+]
+hash = "sha256:62297c327ecfde945b5e54033248d2e9d6db3e4b552f87cef8df7cdcbe239023"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1f851f8fda564562",
+    "fn:74bdf4d6d6d87789",
+    "fn:830e57b80fa3a07f",
+    "fn:c90bd62e417ace7e",
+    "fn:e1288e001001e674",
+]
+test = true
+
+[[module."product.rs".function]]
+id = "fn:cfe4ebb64512a03e"
+name = "units_is_the_quality_string"
+qual = "units_is_the_quality_string"
+lines = [
+    186,
+    190,
+]
+hash = "sha256:730efa9a74f45130dcb1c1abc808df8299f251ad4cb46798599c7e35233e2a52"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:830e57b80fa3a07f",
+    "fn:9243b6c8b1a70766",
+]
+test = true
+
+[[module."product.rs".function]]
+id = "fn:8dc272277b7dfeb8"
+name = "new_rejects_a_negative_quantity"
+qual = "new_rejects_a_negative_quantity"
+lines = [
+    192,
+    198,
+]
+hash = "sha256:0a06517002e90dbae9dad656acaa51ff38882d3195fa7cc6c7896f6804951a89"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:830e57b80fa3a07f"]
+test = true
+
+[module."resource.rs"]
+path = "crate::resource"
+
+[[module."resource.rs".function]]
+id = "fn:2223ff2c3182169b"
+name = "as_str"
+qual = "ResourceType::as_str"
+lines = [
+    53,
+    61,
+]
+hash = "sha256:15d1eaefa0354c672d8a1146e0a38ebc8a625ecb6d0a1bb9ef280c0076251767"
+doc_hash = "sha256:6880710360771dd3ec3a9485ab4997968720cd52e67f97ab4ea39f4f2e5ae341"
+reached_by = ["#179"]
+
+[[module."resource.rs".function]]
+id = "fn:233f77d3437e6bc5"
+name = "resource_type"
+qual = "Resource::resource_type"
+lines = [
+    65,
+    72,
+]
+hash = "sha256:6ae8bdd2d881fb7fe039fc823c832a4379eb32218082789a96e905f0bcad8d51"
+doc_hash = "sha256:3ad4a4e05498ec07f9cba09fd9d14401b06e3b365ff9ae40522e3a0035ffcc5e"
+reached_by = [
+    "#176",
+    "#177",
+]
+
+[[module."resource.rs".function]]
+id = "fn:fd504fa81f0b0a10"
+name = "quantity"
+qual = "Resource::quantity"
+lines = [
+    74,
+    82,
+]
+hash = "sha256:b766466f4cd8546b99b3b71efee7a75aa2b5040f1f495db5d2c29e30b11ed7db"
+doc_hash = "sha256:34414e9d6983912dbff61e33f745eddfac1700656a65b6e498563f49b3e04409"
+callees = [
+    "fn:1f851f8fda564562",
+    "fn:66f23483c63730d6",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#176",
+    "#177",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#239",
+    "#240",
+    "#241",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."resource.rs".function]]
+id = "fn:760136f2209599c3"
+name = "units"
+qual = "Resource::units"
+lines = [
+    84,
+    92,
+]
+hash = "sha256:d91e1f9389e68f3247de70b96e385181494c012d8d68368e1922c1273d1699d2"
+doc_hash = "sha256:883d1d31b8edbf1a78984802108a04f2425d72ee60cc0135e47e0efb151248a9"
+callees = [
+    "fn:169f68b988b59a87",
+    "fn:9243b6c8b1a70766",
+]
+reached_by = ["#176"]
+
+[[module."resource.rs".function]]
+id = "fn:82bf8949c304145b"
+name = "unit_value"
+qual = "Resource::unit_value"
+lines = [
+    94,
+    101,
+]
+hash = "sha256:4391a1193c3f7969fa88a4d1f30947e4e139c5856c8220961c9ca63cb16dc3d4"
+doc_hash = "sha256:0f77ffc95a8234e4d0ba25085a9a812bfd04f2242f1464b565682bdc085d7da3"
+callees = [
+    "fn:320b49d00cf88c49",
+    "fn:74bdf4d6d6d87789",
+]
+
+[[module."resource.rs".function]]
+id = "fn:03e018a9e7d31184"
+name = "is_empty"
+qual = "Resource::is_empty"
+lines = [
+    103,
+    110,
+]
+hash = "sha256:3672b747740d1278afd36a01e1004bdcb44587e1a3f1d8b34d09bcfdd05513c0"
+doc_hash = "sha256:b478fb0bcd24f91d0bbe2bde20dccb9fda1220743b96e07025eae45f2efac4eb"
+callees = [
+    "fn:b4a67c933e457ba4",
+    "fn:edef06a4ef344c7b",
+]
+
+[[module."resource.rs".function]]
+id = "fn:7af704bc3af9e560"
+name = "extract_qty"
+qual = "Resource::extract_qty"
+lines = [
+    112,
+    126,
+]
+hash = "sha256:a162b3a1e57adbb72df35edc1752ba65ae94d15722e3267f13cf36955b4befc2"
+doc_hash = "sha256:6be98431773309ea114ccf256fe5318fe08de8368cd8115946883e595bd74081"
+callees = [
+    "fn:15475c11ab23cd6a",
+    "fn:36078fb74761786f",
+]
+reached_by = [
+    "#177",
+    "#221",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#232",
+    "#235",
+    "#237",
+]
+
+[[module."resource.rs".function]]
+id = "fn:2ca707731860102b"
+name = "as_material"
+qual = "Resource::as_material"
+lines = [
+    128,
+    135,
+]
+hash = "sha256:62f7c1012fe2032048d9631703235c54e7feaaf74d764f7832f3cd9dbb87f4f3"
+doc_hash = "sha256:6bc9edfd8deeae0b17a1137b87490c6e99135e6cf925b042a8320129740f3e58"
+reached_by = [
+    "#10",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#175",
+    "#239",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."resource.rs".function]]
+id = "fn:354185a2d0b076a6"
+name = "as_material_mut"
+qual = "Resource::as_material_mut"
+lines = [
+    137,
+    144,
+]
+hash = "sha256:2de7d606590e048af48a676002f619c433d36a775cdbbe7ea9c25f5e92e1d7f6"
+doc_hash = "sha256:da5275bddaff422293d6e3dc3472b28ef4f6bd6e94b104d178c7efc06776e19e"
+
+[[module."resource.rs".function]]
+id = "fn:32749a8f4a17dc37"
+name = "as_product"
+qual = "Resource::as_product"
+lines = [
+    146,
+    153,
+]
+hash = "sha256:e23850c168e405e4b142b3f8565becf3403630ef613bfe0e6b25eaf7fb96986b"
+doc_hash = "sha256:ea0d54619717734aa4415b889ab178dbe1e96b45a059e6cda426c5527c311295"
+
+[[module."resource.rs".function]]
+id = "fn:53dadd28f83db1e0"
+name = "into_material"
+qual = "Resource::into_material"
+lines = [
+    155,
+    167,
+]
+hash = "sha256:1b90ea94897406c20d29c9158424a241542f5fa52a22d7fcf4e41c909d470cc9"
+doc_hash = "sha256:46f11cf6e16747dde21e698a98b54a54f4b2563d88c94848c66981da83207e5f"
+reached_by = [
+    "#175",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+]
+
+[[module."resource.rs".function]]
+id = "fn:f106a5f48ee48756"
+name = "into_product"
+qual = "Resource::into_product"
+lines = [
+    169,
+    179,
+]
+hash = "sha256:3cb47bf64eea75c95a0ecd47f8d3bf3f5abb485222ae30d30146d65cb037120a"
+doc_hash = "sha256:00238c2d3f4592736cb5ed8f71e8434c3d580537b3b0af759e4ec69cd7ef86f3"
+reached_by = [
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+]
+
+[[module."resource.rs".function]]
+id = "fn:09f987ff148cc632"
+name = "quality_tag"
+qual = "Resource::quality_tag"
+lines = [
+    181,
+    196,
+]
+hash = "sha256:615d568691d1d702ce64da0294c2f3865de8e2110ac004d9ee40400778603d48"
+doc_hash = "sha256:a773bac3a0f3ea0056e23f18e95987afb07fa711a388061ef2493dc4a5c81884"
+callees = ["fn:b9771097d3c47506"]
+reached_by = ["#178"]
+
+[[module."resource.rs".function]]
+id = "fn:e890f3ae23e40eea"
+name = "from"
+qual = "Resource::from#1"
+lines = [
+    200,
+    202,
+]
+hash = "sha256:fda7066e195af20e5fe823ed40ee70554bfaddfb35d1e6da253b4af51211f27a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#135",
+    "#176",
+    "#177",
+    "#178",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#239",
+    "#240",
+    "#241",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."resource.rs".function]]
+id = "fn:71b563b5631bb8fe"
+name = "from"
+qual = "Resource::from#2"
+lines = [
+    206,
+    208,
+]
+hash = "sha256:94368677e24771073a2f915283e4db409f2733489be5de62207d7c8a55c7b845"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#175",
+    "#176",
+    "#178",
+    "#221",
+    "#241",
+]
+
+[[module."resource.rs".function]]
+id = "fn:1e21eb797a14abf5"
+name = "material"
+qual = "material"
+lines = [
+    218,
+    222,
+]
+hash = "sha256:838ada1e78b8ae35dc9b5dc8497a86d85e28d113b4b3c7ea6f6a7be1b122137a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:9e76db42fecb473e",
+    "fn:c1e70f92aea5cccf",
+]
+test = true
+
+[[module."resource.rs".function]]
+id = "fn:1dd4604c6858d8b6"
+name = "dispatches_quantity_and_units_by_variant"
+qual = "dispatches_quantity_and_units_by_variant"
+lines = [
+    224,
+    235,
+]
+hash = "sha256:b72d6116259ff974ef1dc05ad22e6cd1a7efeafa2b2fad9b0331f3926bea5804"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e21eb797a14abf5",
+    "fn:233f77d3437e6bc5",
+    "fn:71b563b5631bb8fe",
+    "fn:760136f2209599c3",
+    "fn:830e57b80fa3a07f",
+    "fn:e890f3ae23e40eea",
+    "fn:fd504fa81f0b0a10",
+]
+test = true
+
+[[module."resource.rs".function]]
+id = "fn:51864674dd74f646"
+name = "resource_type_strings_match_upstream"
+qual = "resource_type_strings_match_upstream"
+lines = [
+    237,
+    241,
+]
+hash = "sha256:5e9b6b3e417759489ddd8d400724a8ac19213906f24dbd61919854a25a2d278f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2223ff2c3182169b"]
+test = true
+
+[[module."resource.rs".function]]
+id = "fn:522c143ce5ebd600"
+name = "extract_qty_works_through_the_enum"
+qual = "extract_qty_works_through_the_enum"
+lines = [
+    243,
+    250,
+]
+hash = "sha256:21da7bd7daee3be94e0326489fecb3db951f3f207265bcedd5de4abb418cc576"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e21eb797a14abf5",
+    "fn:233f77d3437e6bc5",
+    "fn:7af704bc3af9e560",
+    "fn:e890f3ae23e40eea",
+    "fn:fd504fa81f0b0a10",
+]
+test = true
+
+[[module."resource.rs".function]]
+id = "fn:42ee6117a83aea83"
+name = "asking_a_product_for_a_material_is_an_error"
+qual = "asking_a_product_for_a_material_is_an_error"
+lines = [
+    252,
+    260,
+]
+hash = "sha256:f28e6eef2bfb967aa672370ceebef61a20e7d2fd27f60ca9b7ac5cb3baa0a6dd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2ca707731860102b",
+    "fn:53dadd28f83db1e0",
+    "fn:71b563b5631bb8fe",
+    "fn:830e57b80fa3a07f",
+]
+test = true
+
+[[module."resource.rs".function]]
+id = "fn:1122eb19de6030e0"
+name = "quality_tag_distinguishes_products_and_defers_for_materials"
+qual = "quality_tag_distinguishes_products_and_defers_for_materials"
+lines = [
+    262,
+    268,
+]
+hash = "sha256:e165aa01059ee9b4e5da3a075e23b7ba919d2e666f5974c862d5d9c291c4412b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:09f987ff148cc632",
+    "fn:1e21eb797a14abf5",
+    "fn:71b563b5631bb8fe",
+    "fn:830e57b80fa3a07f",
+    "fn:e890f3ae23e40eea",
+]
+test = true
+
+[module."sim.rs"]
+path = "crate::sim"
+
+[[module."sim.rs".function]]
+id = "fn:579cddc2fb3d78f0"
+name = "as_str"
+qual = "DecayMode::as_str"
+lines = [
+    98,
+    106,
+]
+hash = "sha256:4e6c4d7eaafb877849b3a1fabce4b23f6efc5b3b560f942ea95fda43dbce3ecd"
+doc_hash = "sha256:a72362e11b65e1ae6f18dabfc0d596feacd8642be84fc3c4a7272fa139de3524"
+reached_by = ["#182"]
+
+[[module."sim.rs".function]]
+id = "fn:243c9b8ede90ec54"
+name = "parse"
+qual = "DecayMode::parse"
+lines = [
+    108,
+    121,
+]
+hash = "sha256:836c9a9beaf514abb4f3cbf83d9bccce11ad8cdd7dccac9f37f3c123f4b3f29f"
+doc_hash = "sha256:bfa3fa9d8f4858bdd59e43671c3acc2c52e17e1a5027c645258bf6a546653b6f"
+reached_by = ["#182"]
+
+[[module."sim.rs".function]]
+id = "fn:a27bf88422abf80b"
+name = "default"
+qual = "SimInfo::default"
+lines = [
+    163,
+    178,
+]
+hash = "sha256:dc05ffe7ccdf6c758546060ba94cb9b57256660c1cefd3ca6575c14f61098c3c"
+doc_hash = "sha256:cce420f1f0f9f8654f7cfe12b33bdc886f39956a5706d1db5279cace50438eef"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#180",
+    "#181",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."sim.rs".function]]
+id = "fn:063006c0b85b33f2"
+name = "new"
+qual = "SimInfo::new"
+lines = [
+    182,
+    190,
+]
+hash = "sha256:83d4afa7b09deac32ee23d58d070a9961c3b43f1fce03a81d2df25559817d4df"
+doc_hash = "sha256:ef9dee19bf5b013088a158a59486833813c10a4ef14dcf79dc08657772100251"
+callees = ["fn:a27bf88422abf80b"]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#189",
+    "#190",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."sim.rs".function]]
+id = "fn:a5b4a20059459454"
+name = "starting"
+qual = "SimInfo::starting"
+lines = [
+    192,
+    201,
+]
+hash = "sha256:56330e5bcb38802ded58c5b3fb25dc3917146b54986d70e2a89ca0ab9fe48a8d"
+doc_hash = "sha256:d88bc4c89acdf1ac6129f79fa3e11be18a3750d224ef4735110332b571e2c391"
+callees = ["fn:a27bf88422abf80b"]
+reached_by = [
+    "#180",
+    "#181",
+    "#187",
+    "#188",
+    "#190",
+]
+
+[[module."sim.rs".function]]
+id = "fn:a6d418ce6af22006"
+name = "with_handle"
+qual = "SimInfo::with_handle"
+lines = [
+    203,
+    208,
+]
+hash = "sha256:aeaf115c451788bbca2bd2771e3521366aa120414e61b221d14138b4aab6e3ac"
+doc_hash = "sha256:74cf3829f8f2be32d19431acf6ac77abd991e91b7a25760e042c3532570772b7"
+reached_by = ["#257"]
+
+[[module."sim.rs".function]]
+id = "fn:3edee8da70a36d6c"
+name = "with_decay"
+qual = "SimInfo::with_decay"
+lines = [
+    210,
+    215,
+]
+hash = "sha256:1ed6a76d098be8ea50e75e4d131b64d15a82cf060455283cc74f7f7893f4e8cc"
+doc_hash = "sha256:eb8ce9d9b485a2a56a6b5dc5249f1044cf21df4682aa219d5895e65f28e0e821"
+reached_by = ["#184"]
+
+[[module."sim.rs".function]]
+id = "fn:50b0b056b6fe8892"
+name = "validate"
+qual = "SimInfo::validate"
+lines = [
+    217,
+    245,
+]
+hash = "sha256:b20d8129ea64b0becf596d4c056675ef39683ea132dc235194c96b715c85d092"
+doc_hash = "sha256:4cba6e38cb6a441444840eab19ae7930e8654d0e565103eaa3e8f9c61aad3a25"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#183",
+    "#184",
+    "#185",
+    "#189",
+    "#190",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."sim.rs".function]]
+id = "fn:547f67f00625c430"
+name = "calendar_at"
+qual = "SimInfo::calendar_at"
+lines = [
+    247,
+    268,
+]
+hash = "sha256:df17778e37f260ff080e107c0e14575e7e55f6c03d2a2e44ef8a98e9a5624dd8"
+doc_hash = "sha256:eab423008dc8213d8c52de019c99c3e65883cae767c3d85840231f793d2bdf09"
+reached_by = [
+    "#180",
+    "#181",
+    "#187",
+]
+
+[[module."sim.rs".function]]
+id = "fn:d5ee0d0687fa3bd2"
+name = "steps_until"
+qual = "SimInfo::steps_until"
+lines = [
+    270,
+    277,
+]
+hash = "sha256:6e851adcb93d8af94c3c666b93e9cf87e76f1c9902e31633d616ddd1508944a5"
+doc_hash = "sha256:d15757729759e1f2f086fc6934427e9f94c141a43998653ecc5303bf7131ff7d"
+reached_by = [
+    "#187",
+    "#188",
+]
+
+[[module."sim.rs".function]]
+id = "fn:fa7b3a88ca913521"
+name = "seconds_for"
+qual = "SimInfo::seconds_for"
+lines = [
+    279,
+    283,
+]
+hash = "sha256:72585c1ce8d82c5d2d5840457e110d67f2c573baf26ae2abe2a5ce06c08d4feb"
+doc_hash = "sha256:73edffdaa0776f32ff490a8fdb3373ea99c88906e2913229f95524b32b416599"
+reached_by = ["#186"]
+
+[[module."sim.rs".function]]
+id = "fn:284faebf4f083820"
+name = "new"
+qual = "Timer::new"
+lines = [
+    338,
+    350,
+]
+hash = "sha256:6f63567d9cd59d4e075457d7bf38b93ee989e2c47ed96ce66c72e6a37a28c7d8"
+doc_hash = "sha256:18afd75cb72e94a458a0eedeb364c833720ad7a706d356517aa25dc95efd9ade"
+callees = ["fn:50b0b056b6fe8892"]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#183",
+    "#185",
+    "#189",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."sim.rs".function]]
+id = "fn:a6142f5dc4bd8e9f"
+name = "time"
+qual = "Timer::time"
+lines = [
+    352,
+    356,
+]
+hash = "sha256:31480a935b47e97f50990c7d5393146b87a7b7d2e0bdad1813860206c7fb65dd"
+doc_hash = "sha256:4a834050f6cbde0023f2751b76b41f10ed45415585e5114877d1c72529c7fdbd"
+reached_by = [
+    "#52",
+    "#53",
+    "#56",
+    "#58",
+    "#59",
+    "#60",
+    "#185",
+    "#189",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."sim.rs".function]]
+id = "fn:b2d102b358925ca3"
+name = "duration"
+qual = "Timer::duration"
+lines = [
+    358,
+    362,
+]
+hash = "sha256:1472faedd8ff6ffcf053939c6648a830822bc8ceddd5f6e86bdc4ee22c3116c9"
+doc_hash = "sha256:fa80ff1e9220eb823ff9d546fb58cb2c4859b595c3979a47917340994ac68866"
+
+[[module."sim.rs".function]]
+id = "fn:41f2064a40b150c6"
+name = "info"
+qual = "Timer::info"
+lines = [
+    364,
+    368,
+]
+hash = "sha256:421b5c4f6098f8027f4fc835a4375ad1aee50d38487bd120cb22b5dbb6db04ce"
+doc_hash = "sha256:77585551e83d1daa6ea4939c40c88875aa422970439528c05a4eae96f4aa3374"
+
+[[module."sim.rs".function]]
+id = "fn:7f95845d9cc9450b"
+name = "running"
+qual = "Timer::running"
+lines = [
+    370,
+    376,
+]
+hash = "sha256:69aac91eebe636981d96330a0bb0671ede907204d3f93a1802cf0bafd0a7a1cd"
+doc_hash = "sha256:a6ad7079b72429edb700762670ff07c185c5e046a63e15c119d2e0cccb8086f0"
+reached_by = [
+    "#183",
+    "#185",
+    "#189",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."sim.rs".function]]
+id = "fn:09be4f2c33b14df5"
+name = "kill"
+qual = "Timer::kill"
+lines = [
+    378,
+    385,
+]
+hash = "sha256:8e9524f10aa5392f0b9093eec586cd4a71e1a11f8e61be6caef90dec3d55f977"
+doc_hash = "sha256:33b271ea7023c2e204109af1b0f9490cda2c1ac4d412f4c61e508dbee1dc99af"
+reached_by = [
+    "#183",
+    "#185",
+]
+
+[[module."sim.rs".function]]
+id = "fn:18fbef90d115f45e"
+name = "killed"
+qual = "Timer::killed"
+lines = [
+    387,
+    391,
+]
+hash = "sha256:8bad77bbab6d48ee03564227d69269a0ada82dfaae8f8e35f448fac7c3b1312d"
+doc_hash = "sha256:9d4c392469c65700d493b293675219607526d0f801fcd4250ef2aa365e25372e"
+reached_by = [
+    "#183",
+    "#185",
+]
+
+[[module."sim.rs".function]]
+id = "fn:efbbdd236db415ef"
+name = "advance"
+qual = "Timer::advance"
+lines = [
+    393,
+    396,
+]
+hash = "sha256:764472e94ed7f9ceb39ccd615c895151f8fd78da587ee9493db1b7e8a598a600"
+doc_hash = "sha256:f00d179edd87a25808ff25040b7c6ed265ca31b7b34f5f0483f7984fc3c7dc1c"
+reached_by = [
+    "#52",
+    "#53",
+    "#183",
+    "#185",
+    "#189",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+]
+
+[[module."sim.rs".function]]
+id = "fn:1335022d604dd6d4"
+name = "calendar"
+qual = "Timer::calendar"
+lines = [
+    398,
+    402,
+]
+hash = "sha256:6f7ada6053e5ab67681aae6e8076a9e820f544ae166d5a282bbd4929178a5b8e"
+doc_hash = "sha256:23176fb5cf501889a3371286dbd60558f257eaa6bd0ed5fec9b1ac33c960848d"
+callees = ["fn:547f67f00625c430"]
+
+[[module."sim.rs".function]]
+id = "fn:2a4662d26b54b8aa"
+name = "reset"
+qual = "Timer::reset"
+lines = [
+    404,
+    409,
+]
+hash = "sha256:f021c675f5ed6f39ff20eae8899d916746ab48bcd17b69b5d12a7d217417de44"
+doc_hash = "sha256:356a983340affbaf5babbc652b67489501f77977709614a3c3dc72168aaba90b"
+reached_by = ["#185"]
+
+[[module."sim.rs".function]]
+id = "fn:9e51ec64dc7dc22a"
+name = "a_time_step_is_upstreams_month_in_seconds"
+qual = "a_time_step_is_upstreams_month_in_seconds"
+lines = [
+    417,
+    422,
+]
+hash = "sha256:62335e3c4a31c20c7f12d9fccb0805dc3b0296d554feba76d7e4e62a9261fb70"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."sim.rs".function]]
+id = "fn:addfac320eb5614b"
+name = "calendar_rolls_over_the_year"
+qual = "calendar_rolls_over_the_year"
+lines = [
+    424,
+    431,
+]
+hash = "sha256:4d2642b35e88a062aa0f1d87a39530a65b2b8d70362d8c747d69d21ed248b5b7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:547f67f00625c430",
+    "fn:a5b4a20059459454",
+]
+test = true
+
+[[module."sim.rs".function]]
+id = "fn:fe55f4d4bbcf681f"
+name = "calendar_handles_a_january_start"
+qual = "calendar_handles_a_january_start"
+lines = [
+    433,
+    439,
+]
+hash = "sha256:0182fc0e598abfa3aef08260001e7e8c8bec437f149046337d8dfcbbe9f37adb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:547f67f00625c430",
+    "fn:a5b4a20059459454",
+]
+test = true
+
+[[module."sim.rs".function]]
+id = "fn:63f3d906e6bf08d9"
+name = "steps_until_inverts_calendar_at"
+qual = "steps_until_inverts_calendar_at"
+lines = [
+    441,
+    448,
+]
+hash = "sha256:5dafbd4cd123fe191cd2fd3041e9e61728b6e194abd9bf1b34fa7bd5363c4d2d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:547f67f00625c430",
+    "fn:a5b4a20059459454",
+    "fn:d5ee0d0687fa3bd2",
+]
+test = true
+
+[[module."sim.rs".function]]
+id = "fn:f2210b18b076d683"
+name = "steps_until_is_negative_before_the_start"
+qual = "steps_until_is_negative_before_the_start"
+lines = [
+    450,
+    455,
+]
+hash = "sha256:6221cdca2e0288ace0c913114764f03b850a8da3b29afcd516cbab9c4e6f4f4f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a5b4a20059459454",
+    "fn:d5ee0d0687fa3bd2",
+]
+test = true
+
+[[module."sim.rs".function]]
+id = "fn:01846b6ce0cef589"
+name = "validate_rejects_a_nonsense_configuration"
+qual = "validate_rejects_a_nonsense_configuration"
+lines = [
+    457,
+    472,
+]
+hash = "sha256:6dcd326b46c4e07533454d5d49b13d4603550e49317c6969bdbf5bf10c3cb72b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:063006c0b85b33f2",
+    "fn:50b0b056b6fe8892",
+    "fn:a5b4a20059459454",
+]
+test = true
+
+[[module."sim.rs".function]]
+id = "fn:b92de510f10212aa"
+name = "lazy_decay_is_rejected_rather_than_silently_downgraded"
+qual = "lazy_decay_is_rejected_rather_than_silently_downgraded"
+lines = [
+    474,
+    483,
+]
+hash = "sha256:4034aeb25dcb71750bd7a550241d69bd8af9699e2918a0dc3e0f3e57b93f9e43"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:063006c0b85b33f2",
+    "fn:3edee8da70a36d6c",
+    "fn:50b0b056b6fe8892",
+]
+test = true
+
+[[module."sim.rs".function]]
+id = "fn:d9ef2fa9f595a640"
+name = "decay_mode_round_trips_through_its_upstream_string"
+qual = "decay_mode_round_trips_through_its_upstream_string"
+lines = [
+    485,
+    491,
+]
+hash = "sha256:3d222a6f93e824c0cffa7e0b46e2c778bde1c6778a7d30cb03a7b3e962617ee5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:243c9b8ede90ec54",
+    "fn:579cddc2fb3d78f0",
+]
+test = true
+
+[[module."sim.rs".function]]
+id = "fn:1eadeef7c72dc80b"
+name = "timer_runs_for_exactly_the_configured_duration"
+qual = "timer_runs_for_exactly_the_configured_duration"
+lines = [
+    493,
+    503,
+]
+hash = "sha256:297713339d8008fed7cac96f4618f5d70c7c236f192af3e8e64e4d8887297f99"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:063006c0b85b33f2",
+    "fn:284faebf4f083820",
+    "fn:7f95845d9cc9450b",
+    "fn:a6142f5dc4bd8e9f",
+    "fn:efbbdd236db415ef",
+]
+test = true
+
+[[module."sim.rs".function]]
+id = "fn:f4fcde3d6ec9bdf7"
+name = "kill_stops_the_clock_after_the_current_step"
+qual = "kill_stops_the_clock_after_the_current_step"
+lines = [
+    505,
+    518,
+]
+hash = "sha256:4cd0237429485b7b8117a35d5531a4178174aa3a55d149cfccb94c12e0aacbeb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:063006c0b85b33f2",
+    "fn:09be4f2c33b14df5",
+    "fn:18fbef90d115f45e",
+    "fn:284faebf4f083820",
+    "fn:7f95845d9cc9450b",
+    "fn:efbbdd236db415ef",
+]
+test = true
+
+[[module."sim.rs".function]]
+id = "fn:4177323c88503910"
+name = "reset_returns_the_clock_to_the_start"
+qual = "reset_returns_the_clock_to_the_start"
+lines = [
+    520,
+    530,
+]
+hash = "sha256:715cb0a5ebaf466c5f9122c1fb8d296f30ee265b7e8c2efc288778bf7c434f10"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:063006c0b85b33f2",
+    "fn:09be4f2c33b14df5",
+    "fn:18fbef90d115f45e",
+    "fn:284faebf4f083820",
+    "fn:2a4662d26b54b8aa",
+    "fn:7f95845d9cc9450b",
+    "fn:a6142f5dc4bd8e9f",
+    "fn:efbbdd236db415ef",
+]
+test = true
+
+[[module."sim.rs".function]]
+id = "fn:093bcce2d8456d26"
+name = "phase_order_matches_upstreams_run_loop"
+qual = "phase_order_matches_upstreams_run_loop"
+lines = [
+    532,
+    546,
+]
+hash = "sha256:5882fa9fa63e614909dac8124de3cef12f100e3de499fbaf7eff9077c5c78445"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."sim.rs".function]]
+id = "fn:7c3f8e2545afdc2c"
+name = "seconds_for_scales_by_the_time_step"
+qual = "seconds_for_scales_by_the_time_step"
+lines = [
+    548,
+    552,
+]
+hash = "sha256:2b0585a8610a2697f430d1d802c02acf3bd796d7fbe03c8a4e5d7bd9881372e8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:063006c0b85b33f2",
+    "fn:fa7b3a88ca913521",
+]
+test = true

@@ -1,0 +1,205 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/examples/distillation_sim_v1/physics"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/distillation_sim_v1/app/mod.rs::restarting_starts_a_fresh_run_and_abandons_the_old_one",
+    "crates/outram-park-digital-twin-engine/examples/distillation_sim_v1/physics/mod.rs::plant_relaxes_to_the_validated_steady_profile",
+    "crates/outram-park-digital-twin-engine/examples/distillation_sim_v1/physics/mod.rs::same_commands_are_a_no_op_rebuild",
+]
+
+[module."column_config.rs"]
+path = "example:distillation_sim_v1::physics::column_config"
+
+[[module."column_config.rs".function]]
+id = "fn:79b0281f6fa64fd4"
+name = "column_input"
+qual = "column_input"
+lines = [
+    75,
+    118,
+]
+hash = "sha256:161665b9466d528e4d248f5a2cb9e91c868ba157c8604f6915694a69e9a4ee01"
+doc_hash = "sha256:11bb2261004c00d2e0cf2819e0733d7161144ffecbb047b41184087eb5bb5d09"
+callees = [
+    "fn:036d3ed7a4aa5498",
+    "fn:104dacd375331203",
+    "fn:294bf5cc6e728123",
+    "fn:306a6c2735ed928c",
+    "fn:92002dfdc484360e",
+    "fn:9c0ea8aca0858b7e",
+    "fn:aa2532ec30df1bc6",
+    "fn:ad25f7d3c474847e",
+    "fn:b17b3e221ebd680f",
+    "fn:ca2071fa639eb8a3",
+    "fn:ccf05150596a62c8",
+    "fn:d5bb35a0780ecab2",
+    "fn:d8a9d9dfe0b4de8d",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."column_config.rs".function]]
+id = "fn:2b9005ce9a47d33b"
+name = "steady_reboiler_duty_watts"
+qual = "steady_reboiler_duty_watts"
+lines = [
+    120,
+    141,
+]
+hash = "sha256:91d640a5ca4350593dd34a0e03a4150f3e0f05903ad537f14a5d205093f5dfba"
+doc_hash = "sha256:c4aa98931e319b9821ee8c98fe29ff04411a4d8c2f06f8085821740af204dced"
+callees = [
+    "fn:351b46d769fa8873",
+    "fn:51872d9773971008",
+    "fn:79b0281f6fa64fd4",
+    "fn:a8f050c8d5a1d953",
+    "fn:add96df3bf2d3fa4",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."column_config.rs".function]]
+id = "fn:551b9173efb7720c"
+name = "default_operating"
+qual = "default_operating"
+lines = [
+    143,
+    156,
+]
+hash = "sha256:e2fd825fb1f6048a5fd9a3d7f62ee90c150986cdf9800359b8dcb84649f8dfda"
+doc_hash = "sha256:c9d53dd45cfc1be56602d17d217c69942e09d5fd3880d0a8b3fd6ae92cf3ee6d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[module."mod.rs"]
+path = "example:distillation_sim_v1::physics"
+
+[[module."mod.rs".function]]
+id = "fn:aa65a48ea1984dc4"
+name = "default"
+qual = "PlantCommands::default"
+lines = [
+    71,
+    78,
+]
+hash = "sha256:0940d5c6a367622b36ed1377d82a28eeacb14050cff1ccf327ec069c7cc6757f"
+doc_hash = "sha256:39ecb272e87ec4455f7d737195a266803839abcc83d5030227d7dd4e6e5c1d70"
+callees = ["fn:2b9005ce9a47d33b"]
+
+[[module."mod.rs".function]]
+id = "fn:2b7c97d8e775cbb6"
+name = "new"
+qual = "DistillationPlant::new"
+lines = [
+    94,
+    126,
+]
+hash = "sha256:7cbd024cf0ecd34de01c54ec538337879fe3c3f7afdde220d879633923b971d5"
+doc_hash = "sha256:9c3aefd8861b42f85d128c2b11a7dbc54ce3446cacecba9cb87990d1c5870b59"
+callees = [
+    "fn:0b84124eb9abf6dd",
+    "fn:2b9005ce9a47d33b",
+    "fn:551b9173efb7720c",
+    "fn:79b0281f6fa64fd4",
+    "fn:919023de689645e1",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:541ad47b331ad34e"
+name = "step"
+qual = "DistillationPlant::step"
+lines = [
+    128,
+    161,
+]
+hash = "sha256:a6f0b6044b405745507364fb6169272827720dbfffe156ed6b580e4113c85859"
+doc_hash = "sha256:54996108a5879e126b92069c95da3c7e7417743b5e47284d18198aca30ebd9f5"
+callees = [
+    "fn:0b84124eb9abf6dd",
+    "fn:a1b7eb1ca047d726",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:332dcc0a427347a6"
+name = "write_snapshot"
+qual = "DistillationPlant::write_snapshot"
+lines = [
+    163,
+    181,
+]
+hash = "sha256:b3f26704fd76127d02d3cb63face5c6b06e7fc7df7efa0e684460bd42612e7f0"
+doc_hash = "sha256:939aa3b54cbed6d078875e073c871cf69e39a384168bc8dc6a7cd5e041b7f6bc"
+callees = [
+    "fn:1a1102a15a832d33",
+    "fn:265238534558ae4a",
+]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:5aca6a81894c3bbd"
+name = "default"
+qual = "DistillationPlant::default"
+lines = [
+    185,
+    187,
+]
+hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2b7c97d8e775cbb6"]
+
+[[module."mod.rs".function]]
+id = "fn:773fa29090553f14"
+name = "plant_relaxes_to_the_validated_steady_profile"
+qual = "plant_relaxes_to_the_validated_steady_profile"
+lines = [
+    194,
+    285,
+]
+hash = "sha256:8f3cc814b02d3ab155834c070de3d2fda8278c7a1d57f3352502719bb11fde6b"
+doc_hash = "sha256:2fc0595ce2932c0a42e987a67c347b9acc434cc9f9dccb728c70844f6898f18d"
+callees = [
+    "fn:265238534558ae4a",
+    "fn:2b7c97d8e775cbb6",
+    "fn:351b46d769fa8873",
+    "fn:51872d9773971008",
+    "fn:541ad47b331ad34e",
+    "fn:79b0281f6fa64fd4",
+    "fn:add96df3bf2d3fa4",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:3af4af64da96cdd9"
+name = "same_commands_are_a_no_op_rebuild"
+qual = "same_commands_are_a_no_op_rebuild"
+lines = [
+    287,
+    304,
+]
+hash = "sha256:ec2ed20fa33a508c7036093b8d100e2b1cd59ebbe27677297afd4bea68be2e90"
+doc_hash = "sha256:b0c75c0f67707f9332ed655b43878655357a595c13c1eab72dc79e399c59f022"
+callees = [
+    "fn:2b7c97d8e775cbb6",
+    "fn:541ad47b331ad34e",
+]
+test = true

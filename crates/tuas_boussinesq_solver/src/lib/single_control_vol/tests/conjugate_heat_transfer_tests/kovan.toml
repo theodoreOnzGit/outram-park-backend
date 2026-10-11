@@ -1,0 +1,684 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests"
+
+[module."ciet_heater_v2_single_cv.rs"]
+path = "crate::single_control_vol::tests::conjugate_heat_transfer_tests::ciet_heater_v2_single_cv"
+
+[[module."ciet_heater_v2_single_cv.rs".function]]
+id = "fn:a2e56a6df091338f"
+name = "ciet_heater_v_2_0_test_steady_state_v_1_0"
+qual = "ciet_heater_v_2_0_test_steady_state_v_1_0"
+lines = [
+    37,
+    1007,
+]
+hash = "sha256:70a5e829a3bfabbdd613bd577b37971cf13a447222b4f696c3245baee09864dd"
+doc_hash = "sha256:0c85ce1a1a46aab0ae0fcabbf494c30c4f393cda8420f49edc94981354016c3a"
+callees = [
+    "fn:1971325e25d34c9b",
+    "fn:2169b5644de6ba5d",
+    "fn:2d0477b1a1450172",
+    "fn:35779dd7872acf8b",
+    "fn:35ab935de3d4fb7c",
+    "fn:39b1dfdff20f4ecd",
+    "fn:596f306f3fb318d5",
+    "fn:688af171e3e001e7",
+    "fn:7734ee5dc80229ad",
+    "fn:9775e3774dab067b",
+    "fn:c599cd8554ebc1fa",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+    "fn:ecd45ac50d6912be",
+    "fn:efc0a2bd73065273",
+]
+test = true
+
+[[module."ciet_heater_v2_single_cv.rs".function]]
+id = "fn:8820faeb1a94b248"
+name = "ciet_heater_v_2_0_test_steady_state_functional_test_v_1_0"
+qual = "ciet_heater_v_2_0_test_steady_state_functional_test_v_1_0"
+lines = [
+    1009,
+    1969,
+]
+hash = "sha256:c082c3129060f1ee7c9109919d8fc01d23a7dd003995cba2fcc83752b37c0b54"
+doc_hash = "sha256:895acced18c00d24f0703671de68af5120605ff9f574cfcbbdd54fc07be3b9ee"
+callees = [
+    "fn:1971325e25d34c9b",
+    "fn:2169b5644de6ba5d",
+    "fn:2d0477b1a1450172",
+    "fn:35779dd7872acf8b",
+    "fn:35ab935de3d4fb7c",
+    "fn:39b1dfdff20f4ecd",
+    "fn:596f306f3fb318d5",
+    "fn:688af171e3e001e7",
+    "fn:7734ee5dc80229ad",
+    "fn:9775e3774dab067b",
+    "fn:c599cd8554ebc1fa",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+    "fn:ecd45ac50d6912be",
+    "fn:efc0a2bd73065273",
+]
+test = true
+
+[[module."ciet_heater_v2_single_cv.rs".function]]
+id = "fn:05e2a7d680601b9f"
+name = "_analog_poresky_2017_power_signal"
+qual = "_analog_poresky_2017_power_signal"
+lines = [
+    1971,
+    2009,
+]
+hash = "sha256:5c730b4de222dd41d02f1269b912910de444c4cd72e7ec55457805dd5644b65f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv.rs".function]]
+id = "fn:ac276a3eaeffcae0"
+name = "_mfbs_power_signal_logspace_custom"
+qual = "_mfbs_power_signal_logspace_custom"
+lines = [
+    2011,
+    2055,
+]
+hash = "sha256:2bbbd12dd09d04744d50e7167ae2d0674f217079aedfbeb55aafffcd3941a6d3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:389facc0bcfa7ec4"]
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv.rs".function]]
+id = "fn:389facc0bcfa7ec4"
+name = "_logspace"
+qual = "_logspace"
+lines = [
+    2057,
+    2067,
+]
+hash = "sha256:67fcd93fd1f25a7063fdf9ec56b8d8250719ea7efc53ad992130b0be6346cb6f"
+doc_hash = "sha256:50c7405190e2772fcf1c075ff983fe4eac4f33efb91c2ba7cc766b2ac54672cc"
+test = true
+
+[[module."ciet_heater_v2_single_cv.rs".function]]
+id = "fn:701c0bba7290edb4"
+name = "ciet_heater_v_2_0_nusselt_number"
+qual = "ciet_heater_v_2_0_nusselt_number"
+lines = [
+    2070,
+    2076,
+]
+hash = "sha256:e313dc98fe44a4338adb914a1c0e2e07017d82fde21119a85c1c8dc6470a395e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv.rs".function]]
+id = "fn:a9643ecc6f3b7239"
+name = "ciet_heater_v_2_0_reynolds_nunber"
+qual = "ciet_heater_v_2_0_reynolds_nunber"
+lines = [
+    2078,
+    2085,
+]
+hash = "sha256:109bd1e0e303d1b8075d45cd8955b0e81d1fb7219669b6f0dd8455e3ed82454e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv.rs".function]]
+id = "fn:2169b5644de6ba5d"
+name = "heat_transfer_coefficient_ciet_v_2_0"
+qual = "heat_transfer_coefficient_ciet_v_2_0"
+lines = [
+    2087,
+    2112,
+]
+hash = "sha256:4fb2d77e3d5c0ec16c9345bad9bf6a38fc950febe8635481d26e41728d1eba83"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:02939c8aa1045366",
+    "fn:2e88cee31ae4c249",
+    "fn:45de95a2df8c0305",
+    "fn:701c0bba7290edb4",
+    "fn:a9643ecc6f3b7239",
+]
+test = true
+physical_interface = true
+
+[module."ciet_heater_v2_single_cv_speedup_multithreading.rs"]
+path = "crate::single_control_vol::tests::conjugate_heat_transfer_tests::ciet_heater_v2_single_cv_speedup_multithreading"
+
+[[module."ciet_heater_v2_single_cv_speedup_multithreading.rs".function]]
+id = "fn:4c914711b76e152a"
+name = "ciet_heater_v_2_0_test_steady_state_v_1_1_speedup_threads"
+qual = "ciet_heater_v_2_0_test_steady_state_v_1_1_speedup_threads"
+lines = [
+    23,
+    1694,
+]
+hash = "sha256:b5906df072a5595dd87c0939f3d193a9ed9230cf2ef0773e6afbf1cd2c3290c0"
+doc_hash = "sha256:03bf6ff61380f5f4e9ef254a012fbf9b7d437723017125bd7f30358fdea16be5"
+callees = [
+    "fn:1971325e25d34c9b",
+    "fn:35ab935de3d4fb7c",
+    "fn:39b1dfdff20f4ecd",
+    "fn:54aa39a4498878c3",
+    "fn:585474e92027bb7d",
+    "fn:596f306f3fb318d5",
+    "fn:688af171e3e001e7",
+    "fn:7734ee5dc80229ad",
+    "fn:915eff0299d3a31f",
+    "fn:c599cd8554ebc1fa",
+    "fn:d4c1f5f1b3861d53",
+    "fn:e1f75cb3868d2028",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+    "fn:ecd45ac50d6912be",
+    "fn:efc0a2bd73065273",
+]
+test = true
+
+[[module."ciet_heater_v2_single_cv_speedup_multithreading.rs".function]]
+id = "fn:c10697ec98bffbf2"
+name = "ciet_heater_v_2_0_test_steady_state_functional_test_v_1_1"
+qual = "ciet_heater_v_2_0_test_steady_state_functional_test_v_1_1"
+lines = [
+    1696,
+    2970,
+]
+hash = "sha256:549d154582b5e84650e43478aed17bed76c1741346ebaeed86fab78f727c78eb"
+doc_hash = "sha256:895acced18c00d24f0703671de68af5120605ff9f574cfcbbdd54fc07be3b9ee"
+callees = [
+    "fn:1971325e25d34c9b",
+    "fn:2d0477b1a1450172",
+    "fn:35779dd7872acf8b",
+    "fn:35ab935de3d4fb7c",
+    "fn:39b1dfdff20f4ecd",
+    "fn:596f306f3fb318d5",
+    "fn:688af171e3e001e7",
+    "fn:7734ee5dc80229ad",
+    "fn:9775e3774dab067b",
+    "fn:9b88c8eb04d72c0f",
+    "fn:c599cd8554ebc1fa",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+    "fn:ecd45ac50d6912be",
+    "fn:efc0a2bd73065273",
+]
+test = true
+
+[[module."ciet_heater_v2_single_cv_speedup_multithreading.rs".function]]
+id = "fn:89299cdbba5df52b"
+name = "_analog_poresky_2017_power_signal"
+qual = "_analog_poresky_2017_power_signal"
+lines = [
+    2972,
+    3010,
+]
+hash = "sha256:5c730b4de222dd41d02f1269b912910de444c4cd72e7ec55457805dd5644b65f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv_speedup_multithreading.rs".function]]
+id = "fn:ae4f82a86cccd1c8"
+name = "_mfbs_power_signal_logspace_custom"
+qual = "_mfbs_power_signal_logspace_custom"
+lines = [
+    3012,
+    3056,
+]
+hash = "sha256:2bbbd12dd09d04744d50e7167ae2d0674f217079aedfbeb55aafffcd3941a6d3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:bc7882c0567a39cd"]
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv_speedup_multithreading.rs".function]]
+id = "fn:bc7882c0567a39cd"
+name = "_logspace"
+qual = "_logspace"
+lines = [
+    3058,
+    3068,
+]
+hash = "sha256:67fcd93fd1f25a7063fdf9ec56b8d8250719ea7efc53ad992130b0be6346cb6f"
+doc_hash = "sha256:50c7405190e2772fcf1c075ff983fe4eac4f33efb91c2ba7cc766b2ac54672cc"
+test = true
+
+[[module."ciet_heater_v2_single_cv_speedup_multithreading.rs".function]]
+id = "fn:8fd741e7c0179fdf"
+name = "ciet_heater_v_2_0_nusselt_number"
+qual = "ciet_heater_v_2_0_nusselt_number"
+lines = [
+    3071,
+    3077,
+]
+hash = "sha256:e313dc98fe44a4338adb914a1c0e2e07017d82fde21119a85c1c8dc6470a395e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv_speedup_multithreading.rs".function]]
+id = "fn:67c4c9d566e5d94b"
+name = "ciet_heater_v_2_0_reynolds_nunber"
+qual = "ciet_heater_v_2_0_reynolds_nunber"
+lines = [
+    3079,
+    3086,
+]
+hash = "sha256:109bd1e0e303d1b8075d45cd8955b0e81d1fb7219669b6f0dd8455e3ed82454e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv_speedup_multithreading.rs".function]]
+id = "fn:9b88c8eb04d72c0f"
+name = "heat_transfer_coefficient_ciet_v_2_0"
+qual = "heat_transfer_coefficient_ciet_v_2_0"
+lines = [
+    3088,
+    3113,
+]
+hash = "sha256:4fb2d77e3d5c0ec16c9345bad9bf6a38fc950febe8635481d26e41728d1eba83"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:02939c8aa1045366",
+    "fn:2e88cee31ae4c249",
+    "fn:45de95a2df8c0305",
+    "fn:67c4c9d566e5d94b",
+    "fn:8fd741e7c0179fdf",
+]
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv_speedup_multithreading.rs".function]]
+id = "fn:915eff0299d3a31f"
+name = "link_inner_shell_to_outer_shell"
+qual = "link_inner_shell_to_outer_shell"
+lines = [
+    3114,
+    3165,
+]
+hash = "sha256:e38ab1a1e9c5415bf969aec08d8250713831c665d0f777a4cec813a4e3391989"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:35779dd7872acf8b",
+    "fn:e914b3ed909034f5",
+]
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv_speedup_multithreading.rs".function]]
+id = "fn:54aa39a4498878c3"
+name = "add_heater_power_to_shell"
+qual = "add_heater_power_to_shell"
+lines = [
+    3167,
+    3192,
+]
+hash = "sha256:6b24be0570ad807d10e6e13554e5fe6a18449aac149ae835b7f4ad0ffb9b22d0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2d0477b1a1450172",
+    "fn:9775e3774dab067b",
+    "fn:e914b3ed909034f5",
+]
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv_speedup_multithreading.rs".function]]
+id = "fn:585474e92027bb7d"
+name = "connect_fluid_and_steel_inner_node"
+qual = "connect_fluid_and_steel_inner_node#2"
+lines = [
+    3193,
+    3238,
+]
+hash = "sha256:f4c4e5f68dfcf5f0713aafc5002385dfc03367cbc8e3582e9049422da42869a1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:9b88c8eb04d72c0f",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+]
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv_speedup_multithreading.rs".function]]
+id = "fn:e1f75cb3868d2028"
+name = "link_outer_shell_to_ambient_temperature"
+qual = "link_outer_shell_to_ambient_temperature"
+lines = [
+    3239,
+    3299,
+]
+hash = "sha256:b101970309eff981867dd733164e7f824b041144e0224ea850a305d255eccb51"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+]
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv_speedup_multithreading.rs".function]]
+id = "fn:d4c1f5f1b3861d53"
+name = "link_mid_heater_nodes_via_advection"
+qual = "link_mid_heater_nodes_via_advection"
+lines = [
+    3300,
+    3345,
+]
+hash = "sha256:0058fb78654fb027e3788a3f1ce530a304befe52eb3c689e142c2a1145459aba"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:688af171e3e001e7",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+]
+test = true
+physical_interface = true
+
+[module."ciet_heater_v2_single_cv_speedup_one_radial_steel_shell_node.rs"]
+path = "crate::single_control_vol::tests::conjugate_heat_transfer_tests::ciet_heater_v2_single_cv_speedup_one_radial_steel_shell_node"
+
+[[module."ciet_heater_v2_single_cv_speedup_one_radial_steel_shell_node.rs".function]]
+id = "fn:39edd4a195656882"
+name = "ciet_heater_v_2_0_test_steady_state_functional_test_v_1_2_one_steel_node"
+qual = "ciet_heater_v_2_0_test_steady_state_functional_test_v_1_2_one_steel_node"
+lines = [
+    21,
+    955,
+]
+hash = "sha256:8b1f30216761c68d70a60980d1d6ca9d847fae53768cdd8145829c9e6b1491ea"
+doc_hash = "sha256:0fa4f003b952455962046294a68ff4a25a7f43e3d568b1105585ebcb05a07590"
+callees = [
+    "fn:1971325e25d34c9b",
+    "fn:2d0477b1a1450172",
+    "fn:34834aa75a035c50",
+    "fn:35ab935de3d4fb7c",
+    "fn:39b1dfdff20f4ecd",
+    "fn:596f306f3fb318d5",
+    "fn:688af171e3e001e7",
+    "fn:7734ee5dc80229ad",
+    "fn:9775e3774dab067b",
+    "fn:c599cd8554ebc1fa",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+    "fn:ecd45ac50d6912be",
+    "fn:efc0a2bd73065273",
+]
+test = true
+
+[[module."ciet_heater_v2_single_cv_speedup_one_radial_steel_shell_node.rs".function]]
+id = "fn:34834aa75a035c50"
+name = "heat_transfer_coefficient_ciet_v_2_0"
+qual = "heat_transfer_coefficient_ciet_v_2_0"
+lines = [
+    957,
+    982,
+]
+hash = "sha256:4fb2d77e3d5c0ec16c9345bad9bf6a38fc950febe8635481d26e41728d1eba83"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:02939c8aa1045366",
+    "fn:2e88cee31ae4c249",
+    "fn:3df11185bccf1293",
+    "fn:45de95a2df8c0305",
+    "fn:814b8778f4ff54b0",
+]
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv_speedup_one_radial_steel_shell_node.rs".function]]
+id = "fn:3df11185bccf1293"
+name = "ciet_heater_v_2_0_nusselt_number"
+qual = "ciet_heater_v_2_0_nusselt_number"
+lines = [
+    984,
+    990,
+]
+hash = "sha256:e313dc98fe44a4338adb914a1c0e2e07017d82fde21119a85c1c8dc6470a395e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv_speedup_one_radial_steel_shell_node.rs".function]]
+id = "fn:814b8778f4ff54b0"
+name = "ciet_heater_v_2_0_reynolds_nunber"
+qual = "ciet_heater_v_2_0_reynolds_nunber"
+lines = [
+    992,
+    999,
+]
+hash = "sha256:109bd1e0e303d1b8075d45cd8955b0e81d1fb7219669b6f0dd8455e3ed82454e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[module."ciet_heater_v2_single_cv_speedup_three_axial_nodes.rs"]
+path = "crate::single_control_vol::tests::conjugate_heat_transfer_tests::ciet_heater_v2_single_cv_speedup_three_axial_nodes"
+
+[[module."ciet_heater_v2_single_cv_speedup_three_axial_nodes.rs".function]]
+id = "fn:d81272934d6b089d"
+name = "ciet_heater_v_2_0_test_steady_state_v_1_2_three_nodes"
+qual = "ciet_heater_v_2_0_test_steady_state_v_1_2_three_nodes"
+lines = [
+    21,
+    1068,
+]
+hash = "sha256:78f5e2d2c54757a74fae9f572aaccc0c30c8c158d1c26f770c649ac4fa3a482a"
+doc_hash = "sha256:03bf6ff61380f5f4e9ef254a012fbf9b7d437723017125bd7f30358fdea16be5"
+callees = [
+    "fn:1971325e25d34c9b",
+    "fn:2d0477b1a1450172",
+    "fn:35779dd7872acf8b",
+    "fn:35ab935de3d4fb7c",
+    "fn:39b1dfdff20f4ecd",
+    "fn:4fb497ee88d3d607",
+    "fn:596f306f3fb318d5",
+    "fn:688af171e3e001e7",
+    "fn:7734ee5dc80229ad",
+    "fn:9775e3774dab067b",
+    "fn:c599cd8554ebc1fa",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+    "fn:ecd45ac50d6912be",
+    "fn:efc0a2bd73065273",
+]
+test = true
+
+[[module."ciet_heater_v2_single_cv_speedup_three_axial_nodes.rs".function]]
+id = "fn:4fb497ee88d3d607"
+name = "heat_transfer_coefficient_ciet_v_2_0"
+qual = "heat_transfer_coefficient_ciet_v_2_0"
+lines = [
+    1070,
+    1095,
+]
+hash = "sha256:4fb2d77e3d5c0ec16c9345bad9bf6a38fc950febe8635481d26e41728d1eba83"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:02939c8aa1045366",
+    "fn:2e88cee31ae4c249",
+    "fn:42a9a91884d5e31e",
+    "fn:45de95a2df8c0305",
+    "fn:c05f6da153229a90",
+]
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv_speedup_three_axial_nodes.rs".function]]
+id = "fn:c05f6da153229a90"
+name = "ciet_heater_v_2_0_nusselt_number"
+qual = "ciet_heater_v_2_0_nusselt_number"
+lines = [
+    1097,
+    1103,
+]
+hash = "sha256:e313dc98fe44a4338adb914a1c0e2e07017d82fde21119a85c1c8dc6470a395e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."ciet_heater_v2_single_cv_speedup_three_axial_nodes.rs".function]]
+id = "fn:42a9a91884d5e31e"
+name = "ciet_heater_v_2_0_reynolds_nunber"
+qual = "ciet_heater_v_2_0_reynolds_nunber"
+lines = [
+    1105,
+    1112,
+]
+hash = "sha256:109bd1e0e303d1b8075d45cd8955b0e81d1fb7219669b6f0dd8455e3ed82454e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::single_control_vol::tests::conjugate_heat_transfer_tests"
+
+[module."one_dimension_heater.rs"]
+path = "crate::single_control_vol::tests::conjugate_heat_transfer_tests::one_dimension_heater"
+
+[[module."one_dimension_heater.rs".function]]
+id = "fn:fb1189845d529a28"
+name = "one_dimension_ciet_heater_v_1_0_test_for_better_sampling_frequency"
+qual = "one_dimension_ciet_heater_v_1_0_test_for_better_sampling_frequency"
+lines = [
+    33,
+    384,
+]
+hash = "sha256:2d362f05ec4dc19825ba7bbfce871ccc28fbf999c0b73a9ea640280eefabec4f"
+doc_hash = "sha256:512e5cfe9f56c46d3be82b838f0a761c6b33023c39445b25a9e3414ca233851c"
+callees = [
+    "fn:1971325e25d34c9b",
+    "fn:2d0477b1a1450172",
+    "fn:35ab935de3d4fb7c",
+    "fn:39b1dfdff20f4ecd",
+    "fn:596f306f3fb318d5",
+    "fn:688af171e3e001e7",
+    "fn:970a7747163b4158",
+    "fn:9775e3774dab067b",
+    "fn:c0d12a216ab731be",
+    "fn:c599cd8554ebc1fa",
+    "fn:e44702aef2fdfdf1",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+    "fn:ecd45ac50d6912be",
+    "fn:efc0a2bd73065273",
+]
+test = true
+
+[[module."one_dimension_heater.rs".function]]
+id = "fn:bdf745fc306d686e"
+name = "one_dimension_ciet_heater_v_1_0_auto_timestep_test"
+qual = "one_dimension_ciet_heater_v_1_0_auto_timestep_test"
+lines = [
+    386,
+    696,
+]
+hash = "sha256:d673fb420efa206644925aef638c0ebb3485e687d12989abba7b4f5b32a3d68e"
+doc_hash = "sha256:50b55bd680b2d4cee7334eb705e3a79e1ccee10f9eb1553c857ce45f917d5f19"
+callees = [
+    "fn:1971325e25d34c9b",
+    "fn:2d0477b1a1450172",
+    "fn:35ab935de3d4fb7c",
+    "fn:39b1dfdff20f4ecd",
+    "fn:596f306f3fb318d5",
+    "fn:688af171e3e001e7",
+    "fn:9775e3774dab067b",
+    "fn:c0d12a216ab731be",
+    "fn:c599cd8554ebc1fa",
+    "fn:e44702aef2fdfdf1",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+    "fn:ecd45ac50d6912be",
+    "fn:efc0a2bd73065273",
+]
+test = true
+
+[[module."one_dimension_heater.rs".function]]
+id = "fn:7f914b05056dc969"
+name = "one_dimension_ciet_heater_v_1_0_functional_test"
+qual = "one_dimension_ciet_heater_v_1_0_functional_test"
+lines = [
+    698,
+    1002,
+]
+hash = "sha256:f3945990f373d36e7a6dd5e91d2b5a982b7e6ae336e334aa37b9232e53ce9a81"
+doc_hash = "sha256:590f19c2d7e4f3dd58ed68ebc3b0ae91205e0f04b220d090b92971a67841ae3a"
+callees = [
+    "fn:0d46c19b161a6373",
+    "fn:1971325e25d34c9b",
+    "fn:2d0477b1a1450172",
+    "fn:35ab935de3d4fb7c",
+    "fn:39b1dfdff20f4ecd",
+    "fn:596f306f3fb318d5",
+    "fn:688af171e3e001e7",
+    "fn:6db3987b2791485e",
+    "fn:9775e3774dab067b",
+    "fn:c0d12a216ab731be",
+    "fn:c599cd8554ebc1fa",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+    "fn:ecd45ac50d6912be",
+    "fn:efc0a2bd73065273",
+]
+test = true
+
+[[module."one_dimension_heater.rs".function]]
+id = "fn:970a7747163b4158"
+name = "mfbs_poresky_2017_power_signal"
+qual = "mfbs_poresky_2017_power_signal"
+lines = [
+    1004,
+    1054,
+]
+hash = "sha256:5e6595a3164cc23461bcd4c751258bdad1041d6d149cf5d59c1d415a3225e20b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."one_dimension_heater.rs".function]]
+id = "fn:6db3987b2791485e"
+name = "analog_poresky_2017_power_signal"
+qual = "analog_poresky_2017_power_signal"
+lines = [
+    1056,
+    1094,
+]
+hash = "sha256:5c730b4de222dd41d02f1269b912910de444c4cd72e7ec55457805dd5644b65f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."one_dimension_heater.rs".function]]
+id = "fn:e44702aef2fdfdf1"
+name = "mfbs_power_signal_logspace_custom"
+qual = "mfbs_power_signal_logspace_custom"
+lines = [
+    1096,
+    1140,
+]
+hash = "sha256:c1a26584479ef888a5163644c4b7a9334648831214a9bfb8e8e89eeee56334a7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:751c9b4e808722c8"]
+test = true
+physical_interface = true
+
+[[module."one_dimension_heater.rs".function]]
+id = "fn:751c9b4e808722c8"
+name = "logspace"
+qual = "logspace"
+lines = [
+    1142,
+    1152,
+]
+hash = "sha256:67fcd93fd1f25a7063fdf9ec56b8d8250719ea7efc53ad992130b0be6346cb6f"
+doc_hash = "sha256:50c7405190e2772fcf1c075ff983fe4eac4f33efb91c2ba7cc766b2ac54672cc"
+test = true

@@ -1,0 +1,401 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/preprocessing"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v2_insulated_and_non_insulated_conductance_fluid_arr_to_pipe",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v2_insulated_and_non_insulated_conductance_twisted_tape_to_pipe_fluid_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::example_heated_section_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_10kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_3kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_4kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_6kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_8kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::example_heated_section_regression_new_and_old",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_steel_shell_to_ambient",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_steel_shell_to_pipe_fluid_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_twisted_tape_to_pipe_fluid_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_top_bottom_mx10_struct_supports.rs::heater_plus_mx_10_with_supports",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads.rs::test_inclusive_heater_top_bottom_head",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads_and_mx10.rs::heater_plus_mx_10_without_supports",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heater_example_with_data_record.rs::example_heater_with_struct_supports_and_mx10",
+]
+
+[module."ciet_heater_v2.rs"]
+path = "crate::pre_built_components::non_insul_porous_media_fluid::preprocessing::ciet_heater_v2"
+
+[[module."ciet_heater_v2.rs".function]]
+id = "fn:c5b682111a7e809d"
+name = "ciet_heater_v2_lateral_and_miscellaneous_connections"
+qual = "NonInsulatedPorousMediaFluidComponent::ciet_heater_v2_lateral_and_miscellaneous_connections"
+lines = [
+    23,
+    170,
+]
+hash = "sha256:483fb26a1d20ebb67ff79a9886dd345ea9e3f570be96fb60ea4b9565e842ad18"
+doc_hash = "sha256:dc18c2dd4344460390005075879d6ce4658da52c81f8eb2f4f8ef9800fa0998b"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:31460dffcbca9508",
+    "fn:38c76120d7dc8012",
+    "fn:42ba40f09c031cbb",
+    "fn:4f08e35087543a15",
+    "fn:5d98210c138bcbdb",
+    "fn:86b7775079c503a5",
+    "fn:8a180ca0986c72b8",
+    "fn:9212f011bf144631",
+    "fn:9cf2732f8b0c6890",
+    "fn:a5016d77314ec973",
+    "fn:abafd5a5e42d6a30",
+    "fn:be40085a8ed290cd",
+    "fn:c3075df95e80cc51",
+    "fn:eb89be045205dc88",
+    "fn:f8fcd27da58670ac",
+]
+reached_by = [
+    "#2",
+    "#8",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+physical_interface = true
+
+[[module."ciet_heater_v2.rs".function]]
+id = "fn:31460dffcbca9508"
+name = "ciet_heater_v2_get_air_steel_nodal_shell_conductance"
+qual = "NonInsulatedPorousMediaFluidComponent::ciet_heater_v2_get_air_steel_nodal_shell_conductance"
+lines = [
+    171,
+    217,
+]
+hash = "sha256:4344edc4075cb691bcf338054aa65b171301600c7ad8d713225181520e793a59"
+doc_hash = "sha256:c660875feeeff1a1c4d08058c3988e3a4ff018ca6bdd4508ab1262b4ac7c446e"
+callees = [
+    "fn:7d9e7837937bfa18",
+    "fn:a2275733c3fa6168",
+    "fn:eb89be045205dc88",
+]
+reached_by = [
+    "#2",
+    "#8",
+    "#9",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+physical_interface = true
+
+[[module."ciet_heater_v2.rs".function]]
+id = "fn:38c76120d7dc8012"
+name = "ciet_heater_v2_get_therminol_node_steel_shell_conductance"
+qual = "NonInsulatedPorousMediaFluidComponent::ciet_heater_v2_get_therminol_node_steel_shell_conductance"
+lines = [
+    219,
+    351,
+]
+hash = "sha256:8181ecb53a8e46fd6be98fcbbd3dc81820d756bd9ed3f73b5019e9468eb983db"
+doc_hash = "sha256:a85a96d66395d19576af631ffd067ac99f4e39ea4c5783d312c66df60df59adf"
+callees = [
+    "fn:25614892f3618c5c",
+    "fn:33511a1688b49614",
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+    "fn:6e00abb03521f424",
+    "fn:73557a9fd36d4690",
+    "fn:7d9e7837937bfa18",
+    "fn:84b7870b4d7c7d91",
+    "fn:88d0cf1bfa769aac",
+    "fn:89feb71c7a73a1df",
+    "fn:a03d943953e2b3cb",
+    "fn:a2275733c3fa6168",
+    "fn:d2ef60a016252736",
+    "fn:eb89be045205dc88",
+]
+reached_by = [
+    "#2",
+    "#8",
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+physical_interface = true
+
+[[module."ciet_heater_v2.rs".function]]
+id = "fn:73557a9fd36d4690"
+name = "heater_v2_hydraulic_diameter_reynolds"
+qual = "NonInsulatedPorousMediaFluidComponent::heater_v2_hydraulic_diameter_reynolds"
+lines = [
+    353,
+    379,
+]
+hash = "sha256:82a2a29d9ecfa28dc0484ff7f9d401040877d281f2e0976657440b240674e07d"
+doc_hash = "sha256:eba1a0d21e0d712b7ab7d522170f966607484c97f43c847f01fcc774bda91764"
+callees = ["fn:578b1cf1bdc5bf1b"]
+reached_by = [
+    "#2",
+    "#8",
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+physical_interface = true
+
+[[module."ciet_heater_v2.rs".function]]
+id = "fn:c3075df95e80cc51"
+name = "ciet_heater_v2_get_therminol_node_twisted_tape_conductance"
+qual = "NonInsulatedPorousMediaFluidComponent::ciet_heater_v2_get_therminol_node_twisted_tape_conductance"
+lines = [
+    381,
+    550,
+]
+hash = "sha256:20883c1df34738816a1ac8b69103d9a8ab60ef3f204745adc29c17b4362e1d6f"
+doc_hash = "sha256:c96de050a7613b7a9069375e6e98b00041c88068492d4033d03c97e940858558"
+callees = [
+    "fn:281e000f5919abf9",
+    "fn:3245d77c3a9aeedf",
+    "fn:330da43b34525c55",
+    "fn:484a6e38fea0d402",
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+    "fn:6e00abb03521f424",
+    "fn:84b7870b4d7c7d91",
+    "fn:a03d943953e2b3cb",
+    "fn:d2ef60a016252736",
+]
+reached_by = [
+    "#2",
+    "#8",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+physical_interface = true
+
+[[module."ciet_heater_v2.rs".function]]
+id = "fn:616b76fcdacd6972"
+name = "ciet_heater_v2_lateral_connection_thread_spawn"
+qual = "NonInsulatedPorousMediaFluidComponent::ciet_heater_v2_lateral_connection_thread_spawn"
+lines = [
+    552,
+    577,
+]
+hash = "sha256:2340c23162a1e307c307b4213838cadf3a908a7bc475f81a7046fcbb4eb21e43"
+doc_hash = "sha256:7809504681bbe25b3da16a9fa2496f2d3cdd3d3ea42f1d553d449e46df9937d9"
+callees = ["fn:c5b682111a7e809d"]
+reached_by = [
+    "#2",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::non_insul_porous_media_fluid::preprocessing"
+
+[[module."mod.rs".function]]
+id = "fn:246526ca48917741"
+name = "lateral_and_miscellaneous_connections"
+qual = "NonInsulatedPorousMediaFluidComponent::lateral_and_miscellaneous_connections"
+lines = [
+    33,
+    170,
+]
+hash = "sha256:1c25f39fa984fb1b06d285891330f794844943d02460d9b68c2cc6c43019fe12"
+doc_hash = "sha256:d8484f0c0d2d5a84fdd95fbc56ecb320fbf1efbd46e5c8923ea65c3cb49207f2"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:32b905bc29a904a7",
+    "fn:42ba40f09c031cbb",
+    "fn:4f08e35087543a15",
+    "fn:5d98210c138bcbdb",
+    "fn:86b7775079c503a5",
+    "fn:8a180ca0986c72b8",
+    "fn:9cf2732f8b0c6890",
+    "fn:a5016d77314ec973",
+    "fn:abafd5a5e42d6a30",
+    "fn:be40085a8ed290cd",
+    "fn:d9eddfec6b6d7c46",
+    "fn:e2c98e6c95732fd2",
+    "fn:eb89be045205dc88",
+    "fn:f8fcd27da58670ac",
+]
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:e2c98e6c95732fd2"
+name = "get_ambient_to_pipe_shell_nodal_conductance"
+qual = "NonInsulatedPorousMediaFluidComponent::get_ambient_to_pipe_shell_nodal_conductance"
+lines = [
+    172,
+    230,
+]
+hash = "sha256:455da8465e9b72cfb7a9a8070b3acf30927c798df010d9fc150a0020abee93ef"
+doc_hash = "sha256:45064938bb61ece33ae4bf1d2d154f8aefc38223965a8a29afa7f46682662680"
+callees = [
+    "fn:a2275733c3fa6168",
+    "fn:eb89be045205dc88",
+    "fn:ec70396f559f0f67",
+]
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:5d98210c138bcbdb"
+name = "zero_power_bc_connection"
+qual = "NonInsulatedPorousMediaFluidComponent::zero_power_bc_connection"
+lines = [
+    232,
+    277,
+]
+hash = "sha256:cf326023558a2a71bf935880122bd495efe528474de97de160a6732236bc6cb7"
+doc_hash = "sha256:2c57eaa96f2f1c03aaaf91822a49c22d4809f6412a93e7b67ad87ccfafb7424a"
+callees = [
+    "fn:2d0477b1a1450172",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."mod.rs".function]]
+id = "fn:32b905bc29a904a7"
+name = "get_interior_to_fluid_nodal_conductance"
+qual = "NonInsulatedPorousMediaFluidComponent::get_interior_to_fluid_nodal_conductance"
+lines = [
+    279,
+    459,
+]
+hash = "sha256:d780a69d8ed37a795266b4ac07ff570aa8cedd34a053b78b8b790db8bb0f2a8d"
+doc_hash = "sha256:7e1f1f3a706fde421df8be2f0f7a471b1ca8f77f5beff946379d3dfc67daf12f"
+callees = [
+    "fn:195f184ebca45812",
+    "fn:1b21730f0fc7aa69",
+    "fn:26aff73e30f8632a",
+    "fn:281e000f5919abf9",
+    "fn:3245d77c3a9aeedf",
+    "fn:37b8829042d7906e",
+    "fn:457e96f4f0b76ef7",
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+    "fn:578b1cf1bdc5bf1b",
+    "fn:7860f11bd51dbb37",
+    "fn:7b8091c3b21fab1e",
+    "fn:84b7870b4d7c7d91",
+    "fn:a03d943953e2b3cb",
+    "fn:a2275733c3fa6168",
+    "fn:d2ef60a016252736",
+    "fn:e4ef3b79543287e1",
+    "fn:eb89be045205dc88",
+    "fn:feec71215f335f20",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#11",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:d9eddfec6b6d7c46"
+name = "get_pipe_shell_to_fluid_nodal_conductance"
+qual = "NonInsulatedPorousMediaFluidComponent::get_pipe_shell_to_fluid_nodal_conductance"
+lines = [
+    461,
+    633,
+]
+hash = "sha256:c01f7c0a3e5255e042603623dc57bec02e279669e5750b2eeb42df3dd5475c5c"
+doc_hash = "sha256:8355e1f74dfcb8f1c3af59adf7fcb6a9a3c4ae2005508da2f8349ce4a6b5c403"
+callees = [
+    "fn:195f184ebca45812",
+    "fn:1b21730f0fc7aa69",
+    "fn:26aff73e30f8632a",
+    "fn:281e000f5919abf9",
+    "fn:37b8829042d7906e",
+    "fn:457e96f4f0b76ef7",
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+    "fn:578b1cf1bdc5bf1b",
+    "fn:7860f11bd51dbb37",
+    "fn:7b8091c3b21fab1e",
+    "fn:84b7870b4d7c7d91",
+    "fn:a03d943953e2b3cb",
+    "fn:a2275733c3fa6168",
+    "fn:d2ef60a016252736",
+    "fn:e4ef3b79543287e1",
+    "fn:eb89be045205dc88",
+    "fn:feec71215f335f20",
+]
+reached_by = [
+    "#0",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#10",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:acb728f91e2c12cb"
+name = "lateral_connection_thread_spawn"
+qual = "NonInsulatedPorousMediaFluidComponent::lateral_connection_thread_spawn"
+lines = [
+    635,
+    667,
+]
+hash = "sha256:c688d19e148266f9b6a289785ef275eb6439326a2401a117783f5158d144fedf"
+doc_hash = "sha256:7809504681bbe25b3da16a9fa2496f2d3cdd3d3ea42f1d553d449e46df9937d9"
+callees = ["fn:246526ca48917741"]
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+physical_interface = true

@@ -1,0 +1,306 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/triso_atops_fork/run_file"
+test_ids = [
+    "crates/boon-lay/src/triso_atops_fork/run_file/mod.rs::a_good_run_file_converts_and_carries_years_into_seconds",
+    "crates/boon-lay/src/triso_atops_fork/run_file/mod.rs::accident_keys_are_only_required_when_the_accident_runs",
+    "crates/boon-lay/src/triso_atops_fork/run_file/mod.rs::every_problem_is_reported_not_just_the_first",
+    "crates/boon-lay/src/triso_atops_fork/run_file/mod.rs::k_clean_is_forced_to_zero_when_the_hps_is_off",
+    "crates/boon-lay/src/triso_atops_fork/run_file/mod.rs::time_units_match_upstream_factors",
+    "crates/boon-lay/tests/triso_atops_code_to_code.rs::convert_time_factors_match_upstream",
+    "crates/boon-lay/tests/triso_atops_upstream_run_file.rs::every_case_agrees_with_upstream_process_run_file",
+]
+
+[module."mod.rs"]
+path = "crate::triso_atops_fork::run_file"
+
+[[module."mod.rs".function]]
+id = "fn:f5caa9d482058451"
+name = "seconds"
+qual = "TimeUnit::seconds"
+lines = [
+    77,
+    87,
+]
+hash = "sha256:3593bac03a446b265a57636ccde1593a5a95861ffe005d72b0b74a42291220fa"
+doc_hash = "sha256:638390792b9e563fbe5b74e29a803315376272909cc035eba0063a36aa227717"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:bb3bb965bdd5e28b"
+name = "parse"
+qual = "TimeUnit::parse"
+lines = [
+    89,
+    104,
+]
+hash = "sha256:48a765403379e66dd4a8549e3e096079126eab35e691976607ba056dd88822b6"
+doc_hash = "sha256:8d8f43ef3615f0c40f54794faa82366734540966e5b65f5b88cecc2df637a0ed"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:fca9138d7d203340"
+name = "to_time"
+qual = "TimeUnit::to_time"
+lines = [
+    106,
+    110,
+]
+hash = "sha256:530a1d93326283c1aae3eb344ff52025409ee276d36989f0933c6c8cb6d2a96d"
+doc_hash = "sha256:b57e0d3bf8b29ddd0f90b76e4406a00ef616ab68032a37a47a0099c838965335"
+callees = ["fn:f5caa9d482058451"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:88b7dd996a2dac5b"
+name = "to_config"
+qual = "RunFile::to_config"
+lines = [
+    268,
+    448,
+]
+hash = "sha256:5a0cbc48ac0c59c6d6a09d3a9aef8ea910cbc3f7a176c0ff45aef1e016be1dfd"
+doc_hash = "sha256:9a41f505d71d33810b9b22abd462f6d122713623e687be8bf73175f0ace7e820"
+callees = ["fn:fca9138d7d203340"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:5e4f4c2fc5f4005f"
+name = "minimal"
+qual = "minimal"
+lines = [
+    458,
+    486,
+]
+hash = "sha256:ef84c803659fc49f80a28eccd0c61e1eda750fc6e1461b15e1c263788a3de2fe"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:51aa046af882a5c1"
+name = "time_units_match_upstream_factors"
+qual = "time_units_match_upstream_factors"
+lines = [
+    488,
+    498,
+]
+hash = "sha256:8d7439f3e508f8b45d2fd0cc25aeb7fbb70957ec0dd9986c03e75231c1de0abc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:bb3bb965bdd5e28b",
+    "fn:f5caa9d482058451",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:7bb23f279cb6245e"
+name = "a_good_run_file_converts_and_carries_years_into_seconds"
+qual = "a_good_run_file_converts_and_carries_years_into_seconds"
+lines = [
+    500,
+    506,
+]
+hash = "sha256:16a7043e9e718ed3643fe62216b817b58d50c026f5e00eadbada3cc4077b4196"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5e4f4c2fc5f4005f",
+    "fn:88b7dd996a2dac5b",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:7207268bf7b59576"
+name = "k_clean_is_forced_to_zero_when_the_hps_is_off"
+qual = "k_clean_is_forced_to_zero_when_the_hps_is_off"
+lines = [
+    508,
+    515,
+]
+hash = "sha256:31568dcf85b17a83cc3ca680283e625d0daf5f33747bcca26e615ab295a36987"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5e4f4c2fc5f4005f",
+    "fn:88b7dd996a2dac5b",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:763fab735a7b44a9"
+name = "every_problem_is_reported_not_just_the_first"
+qual = "every_problem_is_reported_not_just_the_first"
+lines = [
+    517,
+    528,
+]
+hash = "sha256:6c590955fe0a81a158a2de11d12778614e52f1e5d47273113bfa0673faee7d18"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5e4f4c2fc5f4005f",
+    "fn:88b7dd996a2dac5b",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:f89d714548cafa9d"
+name = "accident_keys_are_only_required_when_the_accident_runs"
+qual = "accident_keys_are_only_required_when_the_accident_runs"
+lines = [
+    530,
+    539,
+]
+hash = "sha256:6a9c3a380f19a513894e5aa53a6b11b6cb7d1a30c023d77a6469330af7148845"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5e4f4c2fc5f4005f",
+    "fn:88b7dd996a2dac5b",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:3732fc4397d087fe"
+name = "round_trips_through_json"
+qual = "round_trips_through_json"
+lines = [
+    541,
+    547,
+]
+hash = "sha256:c7590d37e1a1fac4ac9a65962e08fed74b33d9ac2da4cb5d0e8c90a996fa7c8d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:5e4f4c2fc5f4005f"]
+test = true
+
+[module."upstream.rs"]
+path = "crate::triso_atops_fork::run_file::upstream"
+
+[[module."upstream.rs".function]]
+id = "fn:869f01d9220c51d2"
+name = "read_upstream_run_file"
+qual = "read_upstream_run_file"
+lines = [
+    150,
+    162,
+]
+hash = "sha256:fff8b4116ec901060ac136ec2526190ea96fe96b21b3b04e28345619fe5be75b"
+doc_hash = "sha256:0e3a427d53fd806155e70eb0b0b4ccad706bf6c065b1a851ea8e3297cc9d203b"
+callees = ["fn:323d07f54f702214"]
+reached_by = ["#6"]
+
+[[module."upstream.rs".function]]
+id = "fn:323d07f54f702214"
+name = "parse"
+qual = "parse"
+lines = [
+    164,
+    357,
+]
+hash = "sha256:fdaf6c688427845d1add04705a75f08bf29e1a04444a532bf1405160b2d5f613"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0e7e1fb5c7353583",
+    "fn:a70d96072f0762c1",
+    "fn:b59f51a42a34581d",
+    "fn:bb3bb965bdd5e28b",
+    "fn:c913c848f17058e7",
+    "fn:d20a025ddfbe2c46",
+    "fn:e05d8fbccf283bab",
+    "fn:f5caa9d482058451",
+]
+reached_by = ["#6"]
+
+[[module."upstream.rs".function]]
+id = "fn:b59f51a42a34581d"
+name = "read_profile"
+qual = "read_profile"
+lines = [
+    359,
+    365,
+]
+hash = "sha256:665d85958a50d58b3a42d86c984b95cc87f84beedf3d0eed36cf9da3f07c22fc"
+doc_hash = "sha256:fcba462e06518ceeb5f4ce5a7336f6ecc398fab07f29c296aa0a3b23e7349edd"
+callees = ["fn:0e7e1fb5c7353583"]
+reached_by = ["#6"]
+
+[[module."upstream.rs".function]]
+id = "fn:0e7e1fb5c7353583"
+name = "read_csv"
+qual = "read_csv"
+lines = [
+    367,
+    381,
+]
+hash = "sha256:9cdcc3ed496ab29eda1531a44e8608aab68afafa3ba610871a63cd0170684a09"
+doc_hash = "sha256:b49a75d3e3d82f42683ed89de1aa934ea0bfcd3fc31f0745710833fb093c9604"
+reached_by = ["#6"]
+
+[[module."upstream.rs".function]]
+id = "fn:c913c848f17058e7"
+name = "read_csv_strings"
+qual = "read_csv_strings"
+lines = [
+    383,
+    392,
+]
+hash = "sha256:1c42362c93a303d935773b0c08e281104e626268772e308e6fa23e11d07dc7cf"
+doc_hash = "sha256:0288a26a685084ad1708dfdb5dce1c76ce968e78935118bd7e50db605ad7d90a"
+reached_by = ["#6"]
+
+[[module."upstream.rs".function]]
+id = "fn:a70d96072f0762c1"
+name = "column"
+qual = "column"
+lines = [
+    394,
+    396,
+]
+hash = "sha256:23c47f95015a81d55076a1e48bcda9bb75209e4c1d5f5144236bcdc575aa59f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#6"]
+
+[[module."upstream.rs".function]]
+id = "fn:d20a025ddfbe2c46"
+name = "inline_2d"
+qual = "inline_2d"
+lines = [
+    398,
+    410,
+]
+hash = "sha256:1f8cfcb5024f3aea99cbc2df6b508080342392ed406a281749d7f438adfe23b8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#6"]
+
+[[module."upstream.rs".function]]
+id = "fn:e05d8fbccf283bab"
+name = "inline_3d"
+qual = "inline_3d"
+lines = [
+    412,
+    414,
+]
+hash = "sha256:9d26dfd1c38e4c04aba604458c9593ddce6131557bd32578bb9c784e899d5fac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d20a025ddfbe2c46"]
+reached_by = ["#6"]

@@ -1,0 +1,247 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/ascii"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/ascii/mod.rs::arrow_head_encodes_direction_with_y_growing_down",
+    "crates/outram-park-digital-twin-engine/src/ascii/mod.rs::degenerate_extent_does_not_divide_by_zero",
+    "crates/outram-park-digital-twin-engine/src/ascii/mod.rs::out_of_bounds_is_dropped_not_panicking",
+    "crates/outram-park-digital-twin-engine/src/ascii/mod.rs::rect_is_labelled_and_closed",
+]
+
+[module."mod.rs"]
+path = "crate::ascii"
+
+[[module."mod.rs".function]]
+id = "fn:4302f8af930fb961"
+name = "new"
+qual = "AsciiCanvas::new"
+lines = [
+    55,
+    83,
+]
+hash = "sha256:8ebca148eb09b885d4a65f786f4bade3e748c1bf7baece1018377e07a4024378"
+doc_hash = "sha256:696490817599c0e72e6d5f2f4cee3638b46fdb65db1f1017ac6092f0e38945ac"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:1223d49efde98f79"
+name = "size"
+qual = "AsciiCanvas::size"
+lines = [
+    85,
+    88,
+]
+hash = "sha256:3bacb480245cd53ccb1e4ed42eaa22019c473bf08e07b02ce3a927c57523fba2"
+doc_hash = "sha256:2147049ea5d04dd65e48271722fc8c1d0976d726de7e8d4df51b100f7b624520"
+
+[[module."mod.rs".function]]
+id = "fn:55a9d988ec808cb6"
+name = "cell_of"
+qual = "AsciiCanvas::cell_of"
+lines = [
+    90,
+    103,
+]
+hash = "sha256:46d8e7cfef71b5476e380a8b45f559405a19b743ef20b802eacfa18a7a3633ba"
+doc_hash = "sha256:691ab190f0dc0d3551671b9576998b6c6c83a69af1a20896fe0af6622356808c"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:d57d4f5416145799"
+name = "point"
+qual = "AsciiCanvas::point"
+lines = [
+    105,
+    111,
+]
+hash = "sha256:98ae302d607b5079da1fa38eaabe0158c23135b24211014b435b08dcac5cffc5"
+doc_hash = "sha256:c2d57338e39ca7d217e35c7c3a5ad619c3d0fa908aa60621f196737cf3f3ae85"
+callees = ["fn:55a9d988ec808cb6"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:cf6d4620d899487d"
+name = "line"
+qual = "AsciiCanvas::line"
+lines = [
+    113,
+    120,
+]
+hash = "sha256:5781a6610ba5cf6a062a30896150cbc39179d405f2aaf98c3aa71f8a94b5cb5a"
+doc_hash = "sha256:a020a69f2dbe27c6cde4c81765b741c9e51ec766c733fbbc1026b4f740478269"
+callees = ["fn:d57d4f5416145799"]
+reached_by = [
+    "#0",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c3167bf09b296529"
+name = "polyline"
+qual = "AsciiCanvas::polyline"
+lines = [
+    122,
+    127,
+]
+hash = "sha256:79a4c83aa54add85202206b01acef1fc4a9ff9877367a922aa92c2e52257608b"
+doc_hash = "sha256:c4a88958e400b16c25da78e45a9d4c8751dfc5744cc9b6e123a33436a9cedb9c"
+callees = ["fn:cf6d4620d899487d"]
+
+[[module."mod.rs".function]]
+id = "fn:5d158ccdb02a4528"
+name = "rect"
+qual = "AsciiCanvas::rect"
+lines = [
+    129,
+    145,
+]
+hash = "sha256:a0e940f74958821b3e38062f936ba4b20d756fd2957430d8960c9f22ab06aefe"
+doc_hash = "sha256:876f25bd20a1a8f6d31b0d23030af87274123710a63a0232888d2604e6be47d4"
+callees = [
+    "fn:ca0872c671590109",
+    "fn:cf6d4620d899487d",
+    "fn:d57d4f5416145799",
+]
+reached_by = ["#3"]
+
+[[module."mod.rs".function]]
+id = "fn:15b84e2d63cfd4c2"
+name = "arrow"
+qual = "AsciiCanvas::arrow"
+lines = [
+    147,
+    168,
+]
+hash = "sha256:b03efebe8dfef72d02e68ad7eadf7de800f825fbbf225505f54437d3bfaa3b47"
+doc_hash = "sha256:560b3c83f1639fcad3bd6f6478ec9f0217b2f2c786c2c0c57b1d497e578ffa57"
+callees = [
+    "fn:cf6d4620d899487d",
+    "fn:d57d4f5416145799",
+]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:ca0872c671590109"
+name = "text"
+qual = "AsciiCanvas::text"
+lines = [
+    170,
+    180,
+]
+hash = "sha256:044ddf66f679714b7ad441e20b834a2eb61b0541289b33d4588218075d6c5eff"
+doc_hash = "sha256:ea18c8a46c49a0f152dee6649f8f0ac8fe6902a39b8a9649bcfef903ea919b08"
+callees = ["fn:55a9d988ec808cb6"]
+reached_by = ["#3"]
+
+[[module."mod.rs".function]]
+id = "fn:95f3abdae21d50bf"
+name = "render"
+qual = "AsciiCanvas::render"
+lines = [
+    182,
+    194,
+]
+hash = "sha256:791290a83fbc30bbd58be19c2943bf1d285c259495aa8d1998d11bc5bddd2fca"
+doc_hash = "sha256:e790fa7973a2ad53ec49bbbe26ca8fedc63ceb2df37ff49d71957056f5b61a01"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:05605c5b3631ecce"
+name = "fmt"
+qual = "AsciiCanvas::fmt"
+lines = [
+    198,
+    200,
+]
+hash = "sha256:3bea5c6268af65df618d7d4381f1d0f0a92dac379d70e7fd66c67e46d4650102"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:95f3abdae21d50bf"]
+
+[[module."mod.rs".function]]
+id = "fn:c618a91727c5cc84"
+name = "arrow_head_encodes_direction_with_y_growing_down"
+qual = "arrow_head_encodes_direction_with_y_growing_down"
+lines = [
+    207,
+    223,
+]
+hash = "sha256:f8445484f85d4ebd0359918601b9e51ca49c324800d43eb5aed3daddec014d69"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:15b84e2d63cfd4c2",
+    "fn:4302f8af930fb961",
+    "fn:95f3abdae21d50bf",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:89024b082cb98c46"
+name = "out_of_bounds_is_dropped_not_panicking"
+qual = "out_of_bounds_is_dropped_not_panicking"
+lines = [
+    225,
+    232,
+]
+hash = "sha256:aa667233b12e1361abb05b5a793dd0788b453b48b1b1c7bb048c54d222690fdc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4302f8af930fb961",
+    "fn:95f3abdae21d50bf",
+    "fn:d57d4f5416145799",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:500ba85a20b07826"
+name = "rect_is_labelled_and_closed"
+qual = "rect_is_labelled_and_closed"
+lines = [
+    234,
+    241,
+]
+hash = "sha256:f653b5abe5f1e384d32e6565d1d9d126512c43ec2dee3c52c53a63ce3dc3a86a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4302f8af930fb961",
+    "fn:5d158ccdb02a4528",
+    "fn:95f3abdae21d50bf",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:828f618749ab8612"
+name = "degenerate_extent_does_not_divide_by_zero"
+qual = "degenerate_extent_does_not_divide_by_zero"
+lines = [
+    243,
+    248,
+]
+hash = "sha256:43032e93a24133f6900e627b390be79cd2f483e16608556ddabee3eda5d07d10"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4302f8af930fb961",
+    "fn:95f3abdae21d50bf",
+    "fn:d57d4f5416145799",
+]
+test = true

@@ -1,0 +1,7 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/lagrangian_decay_simulator"
+
+[module."mod.rs"]
+path = "crate::lagrangian_decay_simulator"

@@ -1,0 +1,151 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials"
+
+[module."mod.rs"]
+path = "crate::pre_built_components::insulated_pipes_and_fluid_components::tutorials"
+
+[module."tutorial_1.rs"]
+path = "crate::pre_built_components::insulated_pipes_and_fluid_components::tutorials::tutorial_1"
+
+[[module."tutorial_1.rs".function]]
+id = "fn:c824cb0adb35e164"
+name = "fluid_mechanics_basics"
+qual = "fluid_mechanics_basics"
+lines = [
+    16,
+    184,
+]
+hash = "sha256:48c7ce09d2378c480dd1e898968930d4023e0fd4b32d4d7f76fae8a3bc095783"
+doc_hash = "sha256:33e67cbcc1321631d9af79a2cfcba47fbc42c2ee1531c1a77e4c4b86f5159f33"
+callees = [
+    "fn:11279e4a55558e05",
+    "fn:4c77b592a8ab611f",
+]
+test = true
+
+[module."tutorial_2.rs"]
+path = "crate::pre_built_components::insulated_pipes_and_fluid_components::tutorials::tutorial_2"
+
+[[module."tutorial_2.rs".function]]
+id = "fn:302e871112cf7043"
+name = "fluid_mechanics_get_mass_flowrate_from_pressure_drop"
+qual = "fluid_mechanics_get_mass_flowrate_from_pressure_drop"
+lines = [
+    16,
+    131,
+]
+hash = "sha256:8fabc4ac0d910fc53b534041fcbac523c162fef1628ecbe0ad3b8d00e2e83c0f"
+doc_hash = "sha256:549edccbb82c134c01d26fe2075fe84f0ade4a6fbd03a84d46089b1f2552c8dd"
+callees = [
+    "fn:11279e4a55558e05",
+    "fn:4c77b592a8ab611f",
+    "fn:8d55b8e75fdd2c86",
+]
+test = true
+
+[module."tutorial_3.rs"]
+path = "crate::pre_built_components::insulated_pipes_and_fluid_components::tutorials::tutorial_3"
+
+[[module."tutorial_3.rs".function]]
+id = "fn:5ac309e8631c9d4b"
+name = "fluid_mechanics_get_mass_flowrate_from_pressure_chg"
+qual = "fluid_mechanics_get_mass_flowrate_from_pressure_chg"
+lines = [
+    16,
+    221,
+]
+hash = "sha256:58acc2eeabff9cc1db3b7db22104667f33c22f14f77f264699c8ddaf2b7fc312"
+doc_hash = "sha256:464f6f880bd2b901e00af30bb6c243fc3bdaf2aaf209772b86195b43649eecf5"
+callees = [
+    "fn:11279e4a55558e05",
+    "fn:4c77b592a8ab611f",
+]
+test = true
+
+[module."tutorial_4.rs"]
+path = "crate::pre_built_components::insulated_pipes_and_fluid_components::tutorials::tutorial_4"
+
+[[module."tutorial_4.rs".function]]
+id = "fn:91227c272054f9c9"
+name = "heated_flow_through_a_pipe"
+qual = "heated_flow_through_a_pipe"
+lines = [
+    20,
+    447,
+]
+hash = "sha256:23339c358b8829d17c8a0b99d9b5ebe1a124e9150e45f4070d700ac83a92ff05"
+doc_hash = "sha256:924a832ac03a2838d281be605784dc0ebea951aff1487bbe03bab5fc7e7b23e5"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:2d0477b1a1450172",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:3f6427f87e7e0f62",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4c77b592a8ab611f",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:81ebbad2a6b015cb",
+    "fn:a3a04100486196dc",
+]
+test = true
+
+[module."tutorial_5.rs"]
+path = "crate::pre_built_components::insulated_pipes_and_fluid_components::tutorials::tutorial_5"
+
+[[module."tutorial_5.rs".function]]
+id = "fn:3a571b806b6d30db"
+name = "thermal_hydraulics_flow_through_a_pipe"
+qual = "thermal_hydraulics_flow_through_a_pipe"
+lines = [
+    20,
+    187,
+]
+hash = "sha256:2c223bab42aee68ea400e73aaba69778e8a2dea869397922e419d5543c85fd56"
+doc_hash = "sha256:24e4d2ab52c0a201900c0844a6bc30a572fb0be7b32bc79aa974f060df13d7c1"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:2d0477b1a1450172",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:3f6427f87e7e0f62",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4c77b592a8ab611f",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:81ebbad2a6b015cb",
+    "fn:8d55b8e75fdd2c86",
+    "fn:a3a04100486196dc",
+]
+test = true
+
+[module."tutorial_6.rs"]
+path = "crate::pre_built_components::insulated_pipes_and_fluid_components::tutorials::tutorial_6"
+
+[[module."tutorial_6.rs".function]]
+id = "fn:e3d42df6c712628e"
+name = "gfhr_pipe_with_custom_graphite_material"
+qual = "gfhr_pipe_with_custom_graphite_material"
+lines = [
+    23,
+    269,
+]
+hash = "sha256:724c0019d55ffafb348cf8776d97e1f6c2ef370d19fa3d1bf37274ba1a715994"
+doc_hash = "sha256:2ae14c8dd137878fbcf389d07aa696a16182022646f3c224b22c8dde57864f17"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:2d0477b1a1450172",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:3f6427f87e7e0f62",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4c77b592a8ab611f",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:81ebbad2a6b015cb",
+    "fn:8d55b8e75fdd2c86",
+    "fn:a3a04100486196dc",
+]
+test = true

@@ -1,0 +1,1395 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-semantics"
+dir = "crates/kovan-semantics/src"
+crate_root = true
+test_ids = [
+    "crates/kovan-semantics/src/lib.rs::adapters_name_their_tools",
+    "crates/kovan-semantics/src/lib.rs::catalogue_finds_this_crates_own_symbols",
+    "crates/kovan-semantics/src/lib.rs::markdown_outputs_render_from_a_real_scan",
+    "crates/kovan-semantics/src/lib.rs::ripgrep_first_scan_finds_this_crates_functions",
+    "crates/kovan-semantics/src/ontology.rs::a_concept_resolved_by_id_name_or_alias_has_one_canonical_id",
+    "crates/kovan-semantics/src/ontology.rs::a_user_concept_cannot_shadow_a_core_concepts_id",
+    "crates/kovan-semantics/src/ontology.rs::an_empty_graph_reports_empty",
+    "crates/kovan-semantics/src/ontology.rs::approximation_edges_carry_structured_applicability",
+    "crates/kovan-semantics/src/ontology.rs::core_concept_ids_are_stable_strings_not_derived_from_the_variant_name",
+    "crates/kovan-semantics/src/ontology.rs::edges_are_directional_not_symmetric",
+    "crates/kovan-semantics/src/ontology.rs::edges_connect_concepts_across_different_curated_domains",
+    "crates/kovan-semantics/src/ontology.rs::every_relation_has_a_human_label_distinct_from_its_variant_name",
+    "crates/kovan-semantics/src/ontology.rs::parameterized_by_and_contradicts_work_on_a_minimal_synthetic_graph",
+    "crates/kovan-semantics/src/ontology.rs::plain_relate_defaults_to_established_while_relate_with_can_mark_provisional",
+    "crates/kovan-semantics/src/ontology.rs::relate_rejects_a_dangling_edge",
+    "crates/kovan-semantics/src/ontology.rs::relation_families_are_named_correctly",
+    "crates/kovan-semantics/src/ontology.rs::resolve_matches_id_name_and_alias_case_and_punctuation_insensitively",
+    "crates/kovan-semantics/src/ontology.rs::resolve_reports_ambiguous_when_two_concepts_share_a_normalised_form",
+    "crates/kovan-semantics/src/ontology.rs::resolve_reports_not_found_distinctly_from_ambiguous",
+    "crates/kovan-semantics/src/ontology.rs::sample_ontology_is_large_enough_to_exercise_the_abstraction",
+    "crates/kovan-semantics/src/ontology.rs::user_concepts_can_relate_to_core_concepts_without_touching_the_core",
+    "crates/kovan-semantics/src/ontology.rs::verification_edges_carry_a_structured_record",
+    "crates/kovan-semantics/src/ontology.rs::verification_record_builder_round_trips_result_and_criterion",
+    "crates/kovan-semantics/src/outputs.rs::empty_symbols_render_a_note",
+    "crates/kovan-semantics/src/outputs.rs::repository_summary_counts_files_and_kinds",
+    "crates/kovan-semantics/src/outputs.rs::symbols_markdown_is_deterministic_and_lists_symbols",
+    "crates/kovan/src/corpus.rs::linked_topics_take_the_ontology_aliases",
+    "crates/kovan/src/tui/mod.rs::back_tab_cycles_backward_and_wraps_from_overview",
+    "crates/kovan/src/tui/mod.rs::digit_keys_switch_tabs",
+    "crates/kovan/src/tui/mod.rs::digit_seven_reaches_the_digitiser_tab",
+    "crates/kovan/src/tui/mod.rs::digit_six_reaches_the_ingest_tab",
+    "crates/kovan/src/tui/mod.rs::editing_suppresses_global_quit_and_tab_switch_keys",
+    "crates/kovan/src/tui/mod.rs::esc_also_quits_when_not_editing",
+    "crates/kovan/src/tui/mod.rs::every_tab_draws_without_panicking",
+    "crates/kovan/src/tui/mod.rs::literature_i_hands_the_selected_pdf_to_the_ingest_tab",
+    "crates/kovan/src/tui/mod.rs::overview_tab_ignores_navigation_keys_without_panicking",
+    "crates/kovan/src/tui/mod.rs::q_quits_from_the_default_overview_tab",
+    "crates/kovan/src/tui/mod.rs::quitting_is_blocked_while_an_import_is_in_flight",
+    "crates/kovan/src/tui/mod.rs::tab_bar_highlights_the_active_tab",
+    "crates/kovan/src/tui/mod.rs::tab_key_cycles_forward_and_wraps",
+    "crates/kovan/src/tui/symbols.rs::adapter_cycles_and_wraps_both_directions",
+    "crates/kovan/src/tui/symbols.rs::draw_list_view_and_markdown_view_do_not_panic",
+    "crates/kovan/src/tui/symbols.rs::edit_mode_types_into_root_and_enter_confirms_and_scans",
+    "crates/kovan/src/tui/symbols.rs::m_toggles_markdown_view",
+    "crates/kovan/src/tui/symbols.rs::markdown_view_scroll_does_not_move_the_list_selection",
+    "crates/kovan/src/tui/symbols.rs::nonexistent_root_reports_status_without_panicking",
+]
+
+[module."lib.rs"]
+path = "crate"
+
+[[module."lib.rs".function]]
+id = "fn:f910cfd5724a7262"
+name = "preferred_tool"
+qual = "LanguageAdapter::preferred_tool"
+lines = [
+    98,
+    106,
+]
+hash = "sha256:da5e8ca7ed29dd60e1c94876e329ccf9b8e64a0b0596234206162d7420cc832f"
+doc_hash = "sha256:f81ccb885022edc2d41832e9d5442eab90f36488432dd3edebc75bf6239f918d"
+reached_by = ["#0"]
+
+[[module."lib.rs".function]]
+id = "fn:988e9675a0d970cc"
+name = "extensions"
+qual = "LanguageAdapter::extensions"
+lines = [
+    108,
+    117,
+]
+hash = "sha256:c3032e9228ed7ff7a688fbd5a2b6967808a9822479d064649712be8ffd4d68d5"
+doc_hash = "sha256:a0f09daecb52476a8fcc19c500532c5c73c3a4a1ec6ec42d1c048f1c869ece1b"
+reached_by = [
+    "#1",
+    "#2",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+]
+
+[[module."lib.rs".function]]
+id = "fn:ba9945a088dcd1d5"
+name = "rough_definition_pattern"
+qual = "LanguageAdapter::rough_definition_pattern"
+lines = [
+    119,
+    134,
+]
+hash = "sha256:9e29cde1b54c7475b5dace23cd765f8d85af5cf03873461faa6124fb6603fa48"
+doc_hash = "sha256:7e794487c8d9cd948dbaf89ba8ece231fe200146ff7ffa928dbff6bf658b9a89"
+reached_by = ["#3"]
+
+[[module."lib.rs".function]]
+id = "fn:8cb3806a2693eb99"
+name = "file_kind"
+qual = "LanguageAdapter::file_kind"
+lines = [
+    136,
+    139,
+]
+hash = "sha256:245e042dbb696e88af1cca77197a74cec58962e3f16af8cd4c975abd1327df3a"
+doc_hash = "sha256:e46978c7a7a5514244fdc9d606e7963ad82ca65d701165cdfeae4505e9fd600c"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+]
+
+[[module."lib.rs".function]]
+id = "fn:deba83fa83a10676"
+name = "fmt"
+qual = "SemanticsError::fmt"
+lines = [
+    153,
+    158,
+]
+hash = "sha256:e24cc9b8d118e6d5b0df3fe3610630e09b26d124502bcfc57647feace0374574"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."lib.rs".function]]
+id = "fn:123ef30ed4e23149"
+name = "rough_definition_scan"
+qual = "rough_definition_scan"
+lines = [
+    163,
+    187,
+]
+hash = "sha256:110829a174675446323998038e798a2e4034e2ec2ee3ad620aefdbe3fa24ab82"
+doc_hash = "sha256:a8417508038861dd37805d4e78abd83e60060e61700f9f597ef0fd6269ae4ba0"
+callees = [
+    "fn:296e80a9fbd117f2",
+    "fn:8cb3806a2693eb99",
+    "fn:abde0f72eecc0b94",
+    "fn:ba9945a088dcd1d5",
+]
+reached_by = ["#3"]
+
+[[module."lib.rs".function]]
+id = "fn:8003ef159e6c87c8"
+name = "catalogue_symbols"
+qual = "catalogue_symbols"
+lines = [
+    189,
+    213,
+]
+hash = "sha256:27cb616787a5aaf3b5a46f2e8b9ad0e064001ad2cd8e4ac3389b4fb0837cb7fd"
+doc_hash = "sha256:d7916e476c1b12793b1ec2860a7311bf93207d5322cf9e3b80bd5973a3c04571"
+callees = [
+    "fn:55d6c8059e527d51",
+    "fn:c2a02e5ceda3cb45",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+]
+
+[[module."lib.rs".function]]
+id = "fn:9ba51cf3bb8cd354"
+name = "adapters_name_their_tools"
+qual = "adapters_name_their_tools"
+lines = [
+    219,
+    224,
+]
+hash = "sha256:0328edfc98cf8a1a8e63e53834cc263bdc04da8fe61fb8d725328dc697347fb8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:f32dd0b33fa086c8",
+    "fn:f910cfd5724a7262",
+]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:407af882a25485cf"
+name = "catalogue_finds_this_crates_own_symbols"
+qual = "catalogue_finds_this_crates_own_symbols"
+lines = [
+    226,
+    235,
+]
+hash = "sha256:96ffad2ad76cae4f46af20afd26f85577177fdfceea27fc26e2fde12f0742867"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:8003ef159e6c87c8"]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:44e57bc7b968cc5f"
+name = "ripgrep_first_scan_finds_this_crates_functions"
+qual = "ripgrep_first_scan_finds_this_crates_functions"
+lines = [
+    237,
+    242,
+]
+hash = "sha256:a518727c0cab0869602fd00d35f53061a2de5dfcf8bb16ec62211a3c8c7c5076"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:123ef30ed4e23149"]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:e9a69e429abab324"
+name = "markdown_outputs_render_from_a_real_scan"
+qual = "markdown_outputs_render_from_a_real_scan"
+lines = [
+    244,
+    251,
+]
+hash = "sha256:51ae9a605ee20bc13986a8140bd467ff913ca0fda991ec66ce25f8e73912e761"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5c14377cf68b43f9",
+    "fn:8003ef159e6c87c8",
+]
+test = true
+
+[module."ontology.rs"]
+path = "crate::ontology"
+
+[[module."ontology.rs".function]]
+id = "fn:79195e94e9a93a25"
+name = "label"
+qual = "Relation::label"
+lines = [
+    175,
+    204,
+]
+hash = "sha256:8f37f2df0b705557d476133d2528f58d611f11f0535918839fedd6a2be5b90ce"
+doc_hash = "sha256:bffc51e40c97443feb82142b32f62bc8f1d0adace4968bb265bc8391fcf0eedc"
+reached_by = ["#11"]
+
+[[module."ontology.rs".function]]
+id = "fn:d7ec323629246fe7"
+name = "is_approximation_family"
+qual = "Relation::is_approximation_family"
+lines = [
+    206,
+    220,
+]
+hash = "sha256:15eb616c5cbfbb16f52614f847dc9e5ebf3375d819b089498733d81a188918db"
+doc_hash = "sha256:4df9c7247c9af6e82aec47a14e3144dda6a2a604cf0b4a1f2f1df71b935276af"
+reached_by = ["#15"]
+
+[[module."ontology.rs".function]]
+id = "fn:60ebd87216cd09a2"
+name = "is_verification_family"
+qual = "Relation::is_verification_family"
+lines = [
+    222,
+    230,
+]
+hash = "sha256:fc252798199b8bd010f0c20f3310c00ab75934c411f75b63a9e75f02b3faca27"
+doc_hash = "sha256:5931dfb932185573b68c65dd274c88d8cee11ac860f855afbf443b1c87b34546"
+reached_by = ["#15"]
+
+[[module."ontology.rs".function]]
+id = "fn:2a6b1176acbdc9f2"
+name = "new"
+qual = "Applicability::new"
+lines = [
+    287,
+    291,
+]
+hash = "sha256:547ab483cf3130a6dcc1bf0cafce3a03336ebd889e78a86bab7b18ac945b75a8"
+doc_hash = "sha256:f00ead73d7e19e1cde651c31e4c96327117f2258e946d5b55b6f813698ad2071"
+reached_by = [
+    "#4",
+    "#7",
+    "#9",
+    "#10",
+    "#13",
+    "#16",
+    "#18",
+    "#19",
+    "#21",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:22b8ce90647cb01b"
+name = "with_assumption"
+qual = "Applicability::with_assumption"
+lines = [
+    293,
+    297,
+]
+hash = "sha256:703d8e5319c17097d60bdd24bc3ec7f00c791652c28b36e425df2dbf3ad7b2f3"
+doc_hash = "sha256:697a5ed43a77d6a6fd0fd04e5ec65c444db08756b5467e7b0655894755b37902"
+reached_by = [
+    "#4",
+    "#7",
+    "#9",
+    "#10",
+    "#13",
+    "#16",
+    "#18",
+    "#19",
+    "#21",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:26677936f9036b59"
+name = "with_validity_range"
+qual = "Applicability::with_validity_range"
+lines = [
+    299,
+    303,
+]
+hash = "sha256:03e2d64be8f942080ecdfdb13d2cb177c099683236ce4c1d433f84fecf8fff65"
+doc_hash = "sha256:54c0ef5ffaae5495a44bb6debae2af04875b32f1c1e745eb3dfa24055262c115"
+reached_by = [
+    "#4",
+    "#7",
+    "#9",
+    "#10",
+    "#13",
+    "#16",
+    "#18",
+    "#19",
+    "#21",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:9ffa609e11839a6f"
+name = "new"
+qual = "VerificationRecord::new"
+lines = [
+    329,
+    338,
+]
+hash = "sha256:2f06fc8f2e8cea6c05b7dbcd141d98a0279d2fd4580d128943e9059817acc4c6"
+doc_hash = "sha256:645a4b9ef1b0df51e2f1874e87906c429e612af5e2fe582084ed86dd8711bd09"
+reached_by = [
+    "#4",
+    "#7",
+    "#9",
+    "#10",
+    "#13",
+    "#16",
+    "#18",
+    "#19",
+    "#21",
+    "#22",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:ab34152d66d78f10"
+name = "with_result"
+qual = "VerificationRecord::with_result"
+lines = [
+    340,
+    345,
+]
+hash = "sha256:1d5021f7361352d301dc8d9b872df54c8fc515417ad07b1dec3c0e718da69b79"
+doc_hash = "sha256:31299c0db9fe46c566b4077a32730d4e6a5ed9add7a21a15385aab844c18c985"
+reached_by = ["#22"]
+
+[[module."ontology.rs".function]]
+id = "fn:6bf4b5227f8ccce7"
+name = "with_acceptance_criterion"
+qual = "VerificationRecord::with_acceptance_criterion"
+lines = [
+    347,
+    351,
+]
+hash = "sha256:24566e1e4c6b685c7a75d18cec5cb935d245f2f754c61c426eb08c6f934cc0d5"
+doc_hash = "sha256:cb7ed18717d18892cc148b574240033cd91561c507d56a16cb13812f6066b5f2"
+reached_by = ["#22"]
+
+[[module."ontology.rs".function]]
+id = "fn:85372ae76289253f"
+name = "id"
+qual = "CoreConcept::id"
+lines = [
+    387,
+    389,
+]
+hash = "sha256:f2eed486f435a74757b4960fa0378a3d87891546558ff0d0c9cf70b20ae3b5db"
+doc_hash = "sha256:c4a136978f6c34f7f9a7ac3551583028531b9866ce1f38f1fb8f02c73979c373"
+
+[[module."ontology.rs".function]]
+id = "fn:bf67790cc42c91c3"
+name = "name"
+qual = "CoreConcept::name"
+lines = [
+    390,
+    392,
+]
+hash = "sha256:f2eed486f435a74757b4960fa0378a3d87891546558ff0d0c9cf70b20ae3b5db"
+doc_hash = "sha256:9ed6f31bc491b90fd4518761f31188d1e0f3502e7bcac3f1a8371187aee2fecf"
+
+[[module."ontology.rs".function]]
+id = "fn:b77ed9b45adf0c47"
+name = "aliases"
+qual = "CoreConcept::aliases"
+lines = [
+    393,
+    397,
+]
+hash = "sha256:6d21ba03d6e307cec9e1db3b44d09485893edaf0de7ab48ec306785e5668272f"
+doc_hash = "sha256:1ccc11dd86579d4a1c28e5400488d60ad0815b79b918fabe113d134170b2c0ee"
+
+[[module."ontology.rs".function]]
+id = "fn:8559e2101ba7dee6"
+name = "id"
+qual = "Reactor::id"
+lines = [
+    427,
+    436,
+]
+hash = "sha256:bc33cb3768aa531388397f0f1136490e5f0f8d15b04cebf4f2282f447197f443"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#8",
+    "#26",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:46c6506f0221a595"
+name = "name"
+qual = "Reactor::name"
+lines = [
+    438,
+    447,
+]
+hash = "sha256:1ed255293977417efabbb07d3037f871aec71ebbe829f46f40a76f18924855d6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#26"]
+
+[[module."ontology.rs".function]]
+id = "fn:9905704199e7cc13"
+name = "aliases"
+qual = "Reactor::aliases"
+lines = [
+    449,
+    458,
+]
+hash = "sha256:5cd75bbcf68f9388145796836fa115b7008c4133dabfc85c3bbd46098e2ef963"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#26"]
+
+[[module."ontology.rs".function]]
+id = "fn:7186e9240d69d019"
+name = "id"
+qual = "Neutronics::id"
+lines = [
+    476,
+    481,
+]
+hash = "sha256:657231ab9337bd4602b3712471988284d0603f6cb9e610d9a1104366d07aba03"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#26"]
+
+[[module."ontology.rs".function]]
+id = "fn:261ea969c7e3a6aa"
+name = "name"
+qual = "Neutronics::name"
+lines = [
+    483,
+    488,
+]
+hash = "sha256:575f460eff0e712108ba95e1599a8025c72cd207be67fd3de10ffa9ef9a84772"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#26"]
+
+[[module."ontology.rs".function]]
+id = "fn:d6c8aab599073f5d"
+name = "aliases"
+qual = "Neutronics::aliases"
+lines = [
+    490,
+    492,
+]
+hash = "sha256:d316bb37080df9172ce185c11e4fd4e0b0182e8cbc1610fb45ad4936a0e321d3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#26"]
+
+[[module."ontology.rs".function]]
+id = "fn:7ab57a443e310f8a"
+name = "id"
+qual = "ThermalHydraulics::id"
+lines = [
+    516,
+    524,
+]
+hash = "sha256:c1e1817e470b67d1dece207540484a30fd2b043f96c9a39fbba4797022b09b27"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#8",
+    "#26",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:ad9a3e6af416703e"
+name = "name"
+qual = "ThermalHydraulics::name"
+lines = [
+    526,
+    534,
+]
+hash = "sha256:9fdf5ab0697ad8e95bdb487067767c098e2816792cd479604678206ceb1be6db"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#26"]
+
+[[module."ontology.rs".function]]
+id = "fn:141b017a9c161e89"
+name = "aliases"
+qual = "ThermalHydraulics::aliases"
+lines = [
+    536,
+    538,
+]
+hash = "sha256:d316bb37080df9172ce185c11e4fd4e0b0182e8cbc1610fb45ad4936a0e321d3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#26"]
+
+[[module."ontology.rs".function]]
+id = "fn:448a259c290adb7f"
+name = "single"
+qual = "ResolveOutcome::single"
+lines = [
+    591,
+    601,
+]
+hash = "sha256:7865336935200432e9c2ddb74a3104d0afe7fcedc49b26de42b19da7311d6761"
+doc_hash = "sha256:ddbe504731b575423c61ca3ce2d9dfba2304a98aa0b26d5e2515fd1e1d121f5f"
+reached_by = [
+    "#4",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:999b2f7263c4832e"
+name = "fmt"
+qual = "OntologyError::fmt"
+lines = [
+    621,
+    626,
+]
+hash = "sha256:4085109789f7870dac0c66a62f55dbef06a20dfe65f51ed02046002b4f2ee111"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."ontology.rs".function]]
+id = "fn:49f3110aa3ee8965"
+name = "new"
+qual = "ConceptGraph::new"
+lines = [
+    643,
+    646,
+]
+hash = "sha256:547ab483cf3130a6dcc1bf0cafce3a03336ebd889e78a86bab7b18ac945b75a8"
+doc_hash = "sha256:af67c798b24f44ae9e20c2100a9540f6a58c1b32e3f2f1220b9880ca99b070d3"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:d946d8c8f07322b2"
+name = "add_core"
+qual = "ConceptGraph::add_core"
+lines = [
+    648,
+    674,
+]
+hash = "sha256:308e20f912d4a1cf08187599dcf5cce6cd70f9a17f5598571b7b0de5774a824c"
+doc_hash = "sha256:2ef2e48ca572d7e6fbbfad019f673cce7f09ab41606ff1fa25dde6e2b9adf146"
+reached_by = [
+    "#4",
+    "#5",
+    "#7",
+    "#9",
+    "#10",
+    "#13",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:a03e205e947e8441"
+name = "add_user_concept"
+qual = "ConceptGraph::add_user_concept"
+lines = [
+    676,
+    685,
+]
+hash = "sha256:a536480f5e7fc4c3c56bda0af21c488a39e66ee409f4e436eef5b5a5da462894"
+doc_hash = "sha256:56b872e280a7f086ad6dc8d0e2fa43b8302d5bbbe0b772b6b98042438c70f109"
+callees = ["fn:d89528961e52910e"]
+reached_by = [
+    "#4",
+    "#5",
+    "#7",
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:94bdf5c095fdad0a"
+name = "add_literature_concept"
+qual = "ConceptGraph::add_literature_concept"
+lines = [
+    687,
+    697,
+]
+hash = "sha256:f8e7da8dc379eef6c14bebf17b974d3e49bbfa86e72d2542ae1b73f933c38106"
+doc_hash = "sha256:a5b7c49976c5a5e023bc0c9fecaffb81bf3536dc0372308841bc65352c76864f"
+callees = ["fn:d89528961e52910e"]
+reached_by = [
+    "#4",
+    "#7",
+    "#9",
+    "#10",
+    "#13",
+    "#16",
+    "#18",
+    "#19",
+    "#21",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:d89528961e52910e"
+name = "add_concept"
+qual = "ConceptGraph::add_concept"
+lines = [
+    699,
+    720,
+]
+hash = "sha256:c0ff729f8894e73ce5f2e394c19099fde6f5251f0293c8f429f5aaa1b2b5014c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#4",
+    "#5",
+    "#7",
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:0b8762ef4761791a"
+name = "relate"
+qual = "ConceptGraph::relate"
+lines = [
+    722,
+    739,
+]
+hash = "sha256:2e63b44efbd2f2b538a5d6d082df36a446e43155fee544055c8176c4f821361b"
+doc_hash = "sha256:9ebd487502a8cf18a84a4b64f1f50547bcf025a8a2681df889b84162683518d5"
+callees = ["fn:92ea1f900b81d974"]
+reached_by = [
+    "#4",
+    "#7",
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:92ea1f900b81d974"
+name = "relate_with"
+qual = "ConceptGraph::relate_with"
+lines = [
+    741,
+    766,
+]
+hash = "sha256:a96a8aa0c6046b2d6a02f48c8dce33bb3474605851493beee919e3674ad30a9c"
+doc_hash = "sha256:5b41eb0cfbb92a53019e9cc96d134504446dcf9c520f25792b411a358a056471"
+reached_by = [
+    "#4",
+    "#7",
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:1fb4a76edb787355"
+name = "normalize"
+qual = "ConceptGraph::normalize"
+lines = [
+    768,
+    776,
+]
+hash = "sha256:39c62da7d7e05964a638c260c9c3eaa83aa512334a5d81b0f723a3d4fae1aa05"
+doc_hash = "sha256:9a3e1715d38827e9935b3aa749b7ee8df793cf73d21f4d7a2b1c8d8c7c04a5d6"
+reached_by = [
+    "#4",
+    "#6",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:f15188241542de7f"
+name = "resolve"
+qual = "ConceptGraph::resolve"
+lines = [
+    778,
+    799,
+]
+hash = "sha256:60bdb55cf4e4c49f9a67640172db2961e3f96aeb0723ed22b0ef728613a820b7"
+doc_hash = "sha256:e125a3dc8538b48a953e19aa4721310d157e930f2811b41e9cab1003cf322b3f"
+callees = ["fn:1fb4a76edb787355"]
+reached_by = [
+    "#4",
+    "#6",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:be53afceda2a67c7"
+name = "concept"
+qual = "ConceptGraph::concept"
+lines = [
+    801,
+    805,
+]
+hash = "sha256:1c3c4a855802019af72d2a61282d4f75b554ed24592cc20cca1b6a2a71b8585d"
+doc_hash = "sha256:f1f6ea29f6e5735b47892654ef14917972034eb1b34ca85ad0ff86b72a5c56b3"
+reached_by = [
+    "#5",
+    "#20",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:615019b2b3ff975b"
+name = "concepts"
+qual = "ConceptGraph::concepts"
+lines = [
+    807,
+    810,
+]
+hash = "sha256:0c86df5373bc380b5bbf9ee230427f1db1f9e7c62bc26ea80bebaf0775cd75af"
+doc_hash = "sha256:d968fc1efad321d65043c3f026c5acba1daeee017da7b42e1982e036756cdb17"
+
+[[module."ontology.rs".function]]
+id = "fn:40ff0b57a620abaa"
+name = "edges"
+qual = "ConceptGraph::edges"
+lines = [
+    812,
+    815,
+]
+hash = "sha256:31dc5ac4508a6441269eacd50cb2408caf754fc13c8fb28f3b61e62033e1fe2b"
+doc_hash = "sha256:ef461c8114c1a4188b8d39d961822fc11829e8aa1b44e723b9a2daa0abb43dc7"
+reached_by = ["#19"]
+
+[[module."ontology.rs".function]]
+id = "fn:7e695ec8773d79ee"
+name = "outgoing"
+qual = "ConceptGraph::outgoing"
+lines = [
+    817,
+    825,
+]
+hash = "sha256:d0c4095a6d5164db2f23667d8a2340b1d34d908d66d572c1362a60279e52607c"
+doc_hash = "sha256:ba2b54217a9501210c1a7defac396d497c6d2cc7a001724636d57e2021836321"
+reached_by = [
+    "#7",
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+    "#20",
+    "#21",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:a749569203e3060b"
+name = "incoming"
+qual = "ConceptGraph::incoming"
+lines = [
+    827,
+    834,
+]
+hash = "sha256:a8c53b28e1c08aa28cb540bd0a04808d6f5b986ee1635cbb9ece18472b186310"
+doc_hash = "sha256:b4174ecc03ea6ccc46cbfdd30ab232cc2f603faf1bdf8821c3b91e1eda3a6a77"
+reached_by = ["#9"]
+
+[[module."ontology.rs".function]]
+id = "fn:89b22562da4a6727"
+name = "len"
+qual = "ConceptGraph::len"
+lines = [
+    836,
+    839,
+]
+hash = "sha256:393de144abc86aab05fb55ebdeb955914714e38291df6bb5b48d9c28b0bf02f6"
+doc_hash = "sha256:52d76ab499dbb80fee30e42cbfbd5edd8342d7ef2a1029434851731655b14258"
+reached_by = [
+    "#6",
+    "#19",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:8431366e99a77fc3"
+name = "is_empty"
+qual = "ConceptGraph::is_empty"
+lines = [
+    841,
+    844,
+]
+hash = "sha256:5c85bc2e172174aedab85de2bf9dcbe6a04857e5778d601c1ca4236c9b1afc0e"
+doc_hash = "sha256:e7f908b551e3b877a7afdf6872bd1c0c738633108250ef07884f0d14a0ee1ae5"
+reached_by = ["#6"]
+
+[[module."ontology.rs".function]]
+id = "fn:a672c152f7396ac3"
+name = "sample_ontology"
+qual = "sample_ontology"
+lines = [
+    851,
+    1077,
+]
+hash = "sha256:5fce77e7cca1b6637d331d0f4b1da157885896ec3ac6f6b8458745f96ab067e4"
+doc_hash = "sha256:cb56f284b245f98a977c1cafd3f58414e06dfe060eb06ee8989f70c6efd96fb1"
+callees = [
+    "fn:0b8762ef4761791a",
+    "fn:22b8ce90647cb01b",
+    "fn:26677936f9036b59",
+    "fn:2a6b1176acbdc9f2",
+    "fn:49f3110aa3ee8965",
+    "fn:92ea1f900b81d974",
+    "fn:94bdf5c095fdad0a",
+    "fn:9ffa609e11839a6f",
+    "fn:a03e205e947e8441",
+    "fn:d946d8c8f07322b2",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:57ef1d5811ff303a"
+name = "sample_ontology_is_large_enough_to_exercise_the_abstraction"
+qual = "sample_ontology_is_large_enough_to_exercise_the_abstraction"
+lines = [
+    1079,
+    1092,
+]
+hash = "sha256:b412c65bf610a7a09865992137da646917f593b06183d3da446ae7f140d2420c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:40ff0b57a620abaa",
+    "fn:89b22562da4a6727",
+    "fn:a672c152f7396ac3",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:9bda5a883c625a29"
+name = "resolve_matches_id_name_and_alias_case_and_punctuation_insensitively"
+qual = "resolve_matches_id_name_and_alias_case_and_punctuation_insensitively"
+lines = [
+    1096,
+    1110,
+]
+hash = "sha256:a56c9ed045c903312ba091e563f3f749a3e2bb7f93e2cbf8f3c8d7b75ec28d26"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:448a259c290adb7f",
+    "fn:a672c152f7396ac3",
+    "fn:f15188241542de7f",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:e3ec4c203056c045"
+name = "resolve_reports_not_found_distinctly_from_ambiguous"
+qual = "resolve_reports_not_found_distinctly_from_ambiguous"
+lines = [
+    1112,
+    1120,
+]
+hash = "sha256:01f6e7f9a120d892c622b0c70186dd6d6e49521e0d83fffb3daf1a97f7eb687c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:448a259c290adb7f",
+    "fn:a672c152f7396ac3",
+    "fn:f15188241542de7f",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:49ab28a9de70c78d"
+name = "resolve_reports_ambiguous_when_two_concepts_share_a_normalised_form"
+qual = "resolve_reports_ambiguous_when_two_concepts_share_a_normalised_form"
+lines = [
+    1122,
+    1135,
+]
+hash = "sha256:3373a680520c85ffc772741dd61aaba860eb5151c44697fc2b043826cbf587d1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:448a259c290adb7f",
+    "fn:49f3110aa3ee8965",
+    "fn:a03e205e947e8441",
+    "fn:f15188241542de7f",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:4005e1f33c108133"
+name = "core_concept_ids_are_stable_strings_not_derived_from_the_variant_name"
+qual = "core_concept_ids_are_stable_strings_not_derived_from_the_variant_name"
+lines = [
+    1139,
+    1144,
+]
+hash = "sha256:d04d5bb6469f92622464108dfdbd615f2b638901e922f8f0337b3158bc292c56"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7ab57a443e310f8a",
+    "fn:8559e2101ba7dee6",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:33fa1e3f72c75c55"
+name = "a_concept_resolved_by_id_name_or_alias_has_one_canonical_id"
+qual = "a_concept_resolved_by_id_name_or_alias_has_one_canonical_id"
+lines = [
+    1146,
+    1158,
+]
+hash = "sha256:c94a6d572ac1e4ee3d4f014abae7f7c5535fe6520b0c1b0b2b9ea8dd0c389dd3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:448a259c290adb7f",
+    "fn:a672c152f7396ac3",
+    "fn:f15188241542de7f",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:bcac1237ec86e882"
+name = "edges_are_directional_not_symmetric"
+qual = "edges_are_directional_not_symmetric"
+lines = [
+    1162,
+    1182,
+]
+hash = "sha256:13bc5e4357d40aab27a5021acc1fba0b0ef337c273111c178c44cb948690ca46"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7e695ec8773d79ee",
+    "fn:a672c152f7396ac3",
+    "fn:a749569203e3060b",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:f3bd2880235dffbd"
+name = "edges_connect_concepts_across_different_curated_domains"
+qual = "edges_connect_concepts_across_different_curated_domains"
+lines = [
+    1186,
+    1207,
+]
+hash = "sha256:8c63e6b0148a80a1b7980a085c6a4258fec1625dcf9ccdc57533fe4d3c73d068"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7e695ec8773d79ee",
+    "fn:a672c152f7396ac3",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:33fbfabd549ac36b"
+name = "user_concepts_can_relate_to_core_concepts_without_touching_the_core"
+qual = "user_concepts_can_relate_to_core_concepts_without_touching_the_core"
+lines = [
+    1211,
+    1230,
+]
+hash = "sha256:d5d2ea772d0df1677d93ccbf5555d60f16d50dd8c6512e930d0e443b4315f8ce"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0b8762ef4761791a",
+    "fn:49f3110aa3ee8965",
+    "fn:7e695ec8773d79ee",
+    "fn:a03e205e947e8441",
+    "fn:be53afceda2a67c7",
+    "fn:d946d8c8f07322b2",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:f13fcb1ae1a41f2e"
+name = "a_user_concept_cannot_shadow_a_core_concepts_id"
+qual = "a_user_concept_cannot_shadow_a_core_concepts_id"
+lines = [
+    1232,
+    1246,
+]
+hash = "sha256:d3e4872960e71004d93d68ed74ad291af1f8795c75e20d0ef59c4c39f72935ba"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:49f3110aa3ee8965",
+    "fn:a03e205e947e8441",
+    "fn:be53afceda2a67c7",
+    "fn:d946d8c8f07322b2",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:fb58551ceee0d288"
+name = "relate_rejects_a_dangling_edge"
+qual = "relate_rejects_a_dangling_edge"
+lines = [
+    1248,
+    1263,
+]
+hash = "sha256:a4c1f6f74671cf6f21400a40922aef00931448729f74ec444218afa86faa0e91"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0b8762ef4761791a",
+    "fn:49f3110aa3ee8965",
+    "fn:a03e205e947e8441",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:4b0a9787d1b876c3"
+name = "approximation_edges_carry_structured_applicability"
+qual = "approximation_edges_carry_structured_applicability"
+lines = [
+    1267,
+    1282,
+]
+hash = "sha256:0e6c99d400b266955bfcc11410a18673f7166c87cf1626e49fc4155dbe38f496"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7e695ec8773d79ee",
+    "fn:a672c152f7396ac3",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:f81233652671b6bd"
+name = "verification_edges_carry_a_structured_record"
+qual = "verification_edges_carry_a_structured_record"
+lines = [
+    1284,
+    1298,
+]
+hash = "sha256:758b044164d1cddea3638db5426b3280862ef4534d783f2e93bf1bdcfedbdb98"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7e695ec8773d79ee",
+    "fn:a672c152f7396ac3",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:df7f2c919b5a185e"
+name = "verification_record_builder_round_trips_result_and_criterion"
+qual = "verification_record_builder_round_trips_result_and_criterion"
+lines = [
+    1300,
+    1314,
+]
+hash = "sha256:cd2d4645405ed801f7f6b4ba6841a293038319544d7b1d09b1d58007ca0d8e98"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6bf4b5227f8ccce7",
+    "fn:9ffa609e11839a6f",
+    "fn:ab34152d66d78f10",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:ced35cca0886d1ff"
+name = "plain_relate_defaults_to_established_while_relate_with_can_mark_provisional"
+qual = "plain_relate_defaults_to_established_while_relate_with_can_mark_provisional"
+lines = [
+    1318,
+    1334,
+]
+hash = "sha256:5e94f7151f6a128c26719fd49bff26e083413f19af6955409c05db559e55c69d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7e695ec8773d79ee",
+    "fn:a672c152f7396ac3",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:40c04f6d6fadf769"
+name = "parameterized_by_and_contradicts_work_on_a_minimal_synthetic_graph"
+qual = "parameterized_by_and_contradicts_work_on_a_minimal_synthetic_graph"
+lines = [
+    1338,
+    1365,
+]
+hash = "sha256:8e4c4087c8f270d69f5680933c21e02725bbbee52e755e7b4d68a79ead44012a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0b8762ef4761791a",
+    "fn:49f3110aa3ee8965",
+    "fn:7e695ec8773d79ee",
+    "fn:a03e205e947e8441",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:56cb9eb717bda89a"
+name = "every_relation_has_a_human_label_distinct_from_its_variant_name"
+qual = "every_relation_has_a_human_label_distinct_from_its_variant_name"
+lines = [
+    1369,
+    1377,
+]
+hash = "sha256:dd8648d337996e0cce6f40b154c59f65edf56248d044b686163cb4bbe071c229"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:79195e94e9a93a25"]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:cc559d03f3cadc30"
+name = "relation_families_are_named_correctly"
+qual = "relation_families_are_named_correctly"
+lines = [
+    1379,
+    1388,
+]
+hash = "sha256:55df315cca56a06a8110ade7302ca98571fcb08302d4881f6ff5bc736e104951"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:60ebd87216cd09a2",
+    "fn:d7ec323629246fe7",
+]
+test = true
+
+[[module."ontology.rs".function]]
+id = "fn:08ad0c9db8869234"
+name = "an_empty_graph_reports_empty"
+qual = "an_empty_graph_reports_empty"
+lines = [
+    1390,
+    1396,
+]
+hash = "sha256:19c9f605312ab80c2e34e36a3370277302432d29cf5a641be46ea4fdc7af8b0e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:49f3110aa3ee8965",
+    "fn:8431366e99a77fc3",
+    "fn:89b22562da4a6727",
+    "fn:f15188241542de7f",
+]
+test = true
+
+[module."outputs.rs"]
+path = "crate::outputs"
+
+[[module."outputs.rs".function]]
+id = "fn:7250816f1968360b"
+name = "counts_by_kind"
+qual = "counts_by_kind"
+lines = [
+    40,
+    57,
+]
+hash = "sha256:54e845d45cef6b089b34972fd6a05b52169a6bd4906f65a2224aab6f115a5e0d"
+doc_hash = "sha256:ef3d0af8cc00930d30131c7279374c6a5fad3471d9e7390d2ad8a54f7729e2e4"
+callees = ["fn:5d48aa772b7be971"]
+reached_by = [
+    "#2",
+    "#23",
+    "#24",
+    "#25",
+    "#33",
+    "#38",
+    "#41",
+]
+
+[[module."outputs.rs".function]]
+id = "fn:27780a9646904aa8"
+name = "sorted"
+qual = "sorted"
+lines = [
+    59,
+    64,
+]
+hash = "sha256:32a87bc409630aca89ca54291de19f4fc2842e4f0c299bf283177bef6f859deb"
+doc_hash = "sha256:d3f8267399a8498b851c4484cae60ffef59387502eac10271e9bd873b1e519c7"
+reached_by = [
+    "#2",
+    "#23",
+    "#25",
+    "#33",
+    "#38",
+    "#41",
+]
+
+[[module."outputs.rs".function]]
+id = "fn:5c14377cf68b43f9"
+name = "symbols_markdown"
+qual = "symbols_markdown"
+lines = [
+    66,
+    102,
+]
+hash = "sha256:8d415202315af407f8762be232ea7afd3eeec8292b90bfe2a6bd2f07650d5689"
+doc_hash = "sha256:7a0ab14570be1acbdd0d69fa85183637646e1c17c86ad2b2432b7fd4f29c5c3f"
+callees = [
+    "fn:27780a9646904aa8",
+    "fn:5d48aa772b7be971",
+    "fn:7250816f1968360b",
+]
+reached_by = [
+    "#2",
+    "#23",
+    "#25",
+    "#33",
+    "#38",
+    "#41",
+]
+
+[[module."outputs.rs".function]]
+id = "fn:a4b1877694827548"
+name = "repository_summary_markdown"
+qual = "repository_summary_markdown"
+lines = [
+    104,
+    141,
+]
+hash = "sha256:c78a2af944171af6622c37dc74625b31a02f6f65cbe432e9b67f3783b42ba97e"
+doc_hash = "sha256:c14c188b7c18414174c67333530d4b6298c0bd48cbd414e93984bf7e26fa6613"
+callees = [
+    "fn:5d48aa772b7be971",
+    "fn:7250816f1968360b",
+]
+reached_by = ["#24"]
+
+[[module."outputs.rs".function]]
+id = "fn:9ea94f8ecaf9256f"
+name = "sym"
+qual = "sym"
+lines = [
+    148,
+    158,
+]
+hash = "sha256:86e8f961686240bba048232e08236dec5c2e6e3e82a81265c24e47c8194049a0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:5d48aa772b7be971"]
+test = true
+
+[[module."outputs.rs".function]]
+id = "fn:0b7524377c71fd1e"
+name = "symbols_markdown_is_deterministic_and_lists_symbols"
+qual = "symbols_markdown_is_deterministic_and_lists_symbols"
+lines = [
+    160,
+    174,
+]
+hash = "sha256:a30f88b80b11eae4cb892fa55c9b5168be3b560d7d0397a5226008e7fd465db1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5c14377cf68b43f9",
+    "fn:9ea94f8ecaf9256f",
+]
+test = true
+
+[[module."outputs.rs".function]]
+id = "fn:57d0c1068844b30a"
+name = "empty_symbols_render_a_note"
+qual = "empty_symbols_render_a_note"
+lines = [
+    176,
+    180,
+]
+hash = "sha256:0a1b61edb430400f8e130783bd72a4195847397e458432fcbe1353e5aae02a7b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:5c14377cf68b43f9"]
+test = true
+
+[[module."outputs.rs".function]]
+id = "fn:d074cc2e872e1d18"
+name = "repository_summary_counts_files_and_kinds"
+qual = "repository_summary_counts_files_and_kinds"
+lines = [
+    182,
+    199,
+]
+hash = "sha256:7010c671173009c6db45bc0adcf122ff236491b2548da254916581bba18e9c7d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:9ea94f8ecaf9256f",
+    "fn:a4b1877694827548",
+]
+test = true

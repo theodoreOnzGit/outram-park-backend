@@ -1,0 +1,896 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::dispatch_kind_and_keff_across_variants",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::scaffolds_report_not_implemented",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::approaches_diffusion_as_slab_grows",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::differs_on_small_slab",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::kinf_reduces_to_diffusion",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::null_transient_holds_steady",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::scaffold_reports_not_implemented",
+]
+
+[module."eigenvalue.rs"]
+path = "crate::genfoam::neutronics::sp3::eigenvalue"
+
+[[module."eigenvalue.rs".function]]
+id = "fn:a8f72030231715e3"
+name = "solve_eigenvalue"
+qual = "Sp3Neutronics::solve_eigenvalue"
+lines = [
+    41,
+    75,
+]
+hash = "sha256:f5f69d4c9f936933e61b7ffa86174ca41d3d253ff637352fe64f48cfe06ddfac"
+doc_hash = "sha256:637ca66fe15f62d0bca1add18b1b039ad1c014f160f398512e1e4b2de38a89a1"
+callees = ["fn:611da35c4ac4b817"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."eigenvalue.rs".function]]
+id = "fn:611da35c4ac4b817"
+name = "solve_eigenvalue_inner"
+qual = "Sp3Neutronics::solve_eigenvalue_inner"
+lines = [
+    77,
+    229,
+]
+hash = "sha256:9cba4f027d9845c27efb8e36c77dc09d17a49ecd4d01b9b50b2c7e44fe113454"
+doc_hash = "sha256:bab4aced378177dc563eb81c4ef77dc462baedb3ce35202586a6f85c421e8613"
+callees = [
+    "fn:0166bfdea1cb183d",
+    "fn:0625ae5f468e6035",
+    "fn:08775321a4f4fb88",
+    "fn:26ef51453e918097",
+    "fn:2aefc7a630854c09",
+    "fn:2b14ecba4b3a5375",
+    "fn:2fcb7cdc146181a1",
+    "fn:324de9b11afb163c",
+    "fn:46790210a82a3fcc",
+    "fn:5e0fc48c37045fb9",
+    "fn:5fbd8f3deb6d58f4",
+    "fn:6d45af0d518e142d",
+    "fn:6d83ed1828634754",
+    "fn:6f38d5e07fe3fca5",
+    "fn:7aafc4d9109000d4",
+    "fn:7d94409f5275095e",
+    "fn:96b5c3d947f087e5",
+    "fn:97eef171ca9640f2",
+    "fn:9b24a1ce8f5b2d47",
+    "fn:a34bf592be75221c",
+    "fn:b0ed875c4efafa46",
+    "fn:d5f5a7e6cc14c8e9",
+    "fn:da30b76517e265ad",
+    "fn:eae24a63871d2132",
+    "fn:ec3f3c666b78be3c",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."eigenvalue.rs".function]]
+id = "fn:46790210a82a3fcc"
+name = "scale_moments"
+qual = "Sp3Neutronics::scale_moments"
+lines = [
+    231,
+    245,
+]
+hash = "sha256:9bda8147f966cffd5cdeeef7314ee25caa517a44aedb5c872209b869d63876be"
+doc_hash = "sha256:3c8fed3b83832fa2dd9de858c6916d9700d496dd1d4b1c849b353597b1dfbb5c"
+callees = ["fn:96b5c3d947f087e5"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."eigenvalue.rs".function]]
+id = "fn:26ef51453e918097"
+name = "set_equilibrium_precursors"
+qual = "Sp3Neutronics::set_equilibrium_precursors"
+lines = [
+    247,
+    265,
+]
+hash = "sha256:dc47f6e4b0fdc712b10eb948d6d34ae7b0cf40e678f1a3946f617d2042141979"
+doc_hash = "sha256:4492e3a1dd0439d53e5c1e7592bd8b43f1d92a158665fdb3ae62596d6ba33393"
+callees = [
+    "fn:25e42b9aedf3930e",
+    "fn:6d45af0d518e142d",
+    "fn:7aafc4d9109000d4",
+    "fn:96b5c3d947f087e5",
+    "fn:b78c7eeddd76db08",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."eigenvalue.rs".function]]
+id = "fn:2b14ecba4b3a5375"
+name = "template"
+qual = "Sp3Neutronics::template"
+lines = [
+    267,
+    271,
+]
+hash = "sha256:d4ce83021b954c17a86a5c83e858d9a105ff8f40d5db5a98663506bd95135996"
+doc_hash = "sha256:bbf3bb1c05125168ecbd7791ed72577c0f33b8cd41f633cd9772c0c73e9a0779"
+callees = [
+    "fn:2fcb7cdc146181a1",
+    "fn:636e75b664f14254",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."eigenvalue.rs".function]]
+id = "fn:da30b76517e265ad"
+name = "relative_l2_change"
+qual = "relative_l2_change"
+lines = [
+    274,
+    291,
+]
+hash = "sha256:b8ed9348752865d4cf5f05c81dd822cfdcfc1ceb17307fa8bb02d453eca21454"
+doc_hash = "sha256:f9f87ce484f9e439240ed754cfcbc8f8a6f8eace18bd0a0970942f9cbe087567"
+callees = ["fn:6d45af0d518e142d"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[module."fields.rs"]
+path = "crate::genfoam::neutronics::sp3::fields"
+
+[[module."fields.rs".function]]
+id = "fn:a35767d7d8edda1a"
+name = "cell_field"
+qual = "cell_field"
+lines = [
+    66,
+    78,
+]
+hash = "sha256:ad3d347555a4e1c1d21d2ca4954a73741ebd0fa9003ed20f97ccd642b149dfb9"
+doc_hash = "sha256:bae39171309b53f9b010b37a0bd5d4ff3b4e35c5d85eb8df442964fa7bae87cd"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:a5457a6081dc438d",
+    "fn:f59a35e9cbd8b293",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."fields.rs".function]]
+id = "fn:77783f3a32ab39ec"
+name = "materialize"
+qual = "Sp3XsFields::materialize"
+lines = [
+    106,
+    163,
+]
+hash = "sha256:dbf5fab538726cd362130d085596c2d2d9873527e0c4187414cb73c6103c90b4"
+doc_hash = "sha256:b23b1dd33e13f36919a581e02a7f076c194de5217cc139c7bf2d84c0f7ce9d42"
+callees = [
+    "fn:5a7fa0a49e18c52a",
+    "fn:6d45af0d518e142d",
+    "fn:92fd53f240dcfb8e",
+    "fn:a35767d7d8edda1a",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."fields.rs".function]]
+id = "fn:2a9b506a4438f902"
+name = "energy_groups"
+qual = "Sp3XsFields::energy_groups"
+lines = [
+    165,
+    169,
+]
+hash = "sha256:af5e04106b0e8db91b4f571edb8bf04c490bdec7d6e2c9b8a065114317a145f5"
+doc_hash = "sha256:5cfd35079df1d31b52802d04d96253ab006524583ae94a104dc2ae2a09af5e1e"
+
+[[module."fields.rs".function]]
+id = "fn:772cde25b469f6dc"
+name = "prec_groups"
+qual = "Sp3XsFields::prec_groups"
+lines = [
+    171,
+    175,
+]
+hash = "sha256:6fd2ecce38cd5f738c0bf0cc9c45309ef623bccb637513c46203cb9f633f661a"
+doc_hash = "sha256:46406d082de526dd4cee371bfa7747ea7775a49caf78badb58ea41224d47db76"
+
+[module."mod.rs"]
+path = "crate::genfoam::neutronics::sp3"
+
+[[module."mod.rs".function]]
+id = "fn:f845ef454dcbc84b"
+name = "default"
+qual = "Sp3Settings::default"
+lines = [
+    140,
+    151,
+]
+hash = "sha256:c1cf02e9d879f67a65545e788b4e8aa468703a56da5993488c32cf0a532839e7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9866cf914c6ddd22"
+name = "new"
+qual = "Sp3Neutronics::new"
+lines = [
+    184,
+    206,
+]
+hash = "sha256:0a36ff1bdabd2c732e555ef67580b2478763f85e07227a6698751a3e40ba9283"
+doc_hash = "sha256:e0fe149418bde3cc97a0b0aa15e42aadd4b6baa49ba33d8a705c0d67ac5f52b5"
+callees = [
+    "fn:636e75b664f14254",
+    "fn:d6a9c884aaeb7775",
+    "fn:f845ef454dcbc84b",
+    "fn:ff8eecd3e4635175",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:02fe608705bd078a"
+name = "with_cross_sections"
+qual = "Sp3Neutronics::with_cross_sections"
+lines = [
+    208,
+    263,
+]
+hash = "sha256:dd0813d73c94f392eb3d1ea84750a2c45b2dcd21b0ecae393d82d7c35f4fef9e"
+doc_hash = "sha256:082861b3de1352b8ca702ca1b1ca93e7468210edc0e76a4bb9456eadc86f37f1"
+callees = [
+    "fn:04bf3cfc7a439dc8",
+    "fn:396518fd7ec63634",
+    "fn:5e0fc48c37045fb9",
+    "fn:636e75b664f14254",
+    "fn:77783f3a32ab39ec",
+    "fn:7ed13c51aace611b",
+    "fn:d6a9c884aaeb7775",
+    "fn:ff8eecd3e4635175",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:04bf3cfc7a439dc8"
+name = "apply_flux_boundary"
+qual = "Sp3Neutronics::apply_flux_boundary"
+lines = [
+    265,
+    285,
+]
+hash = "sha256:c064d598b0d21349a119c11bbdf87f17558065aa9898917a54b6e33c3c1663e7"
+doc_hash = "sha256:b8527cb7974c9882a657dc3ce7a657054cce62d42639bdf3c1a24fb44f7b6fb8"
+callees = [
+    "fn:0b7b54d6516aee08",
+    "fn:324de9b11afb163c",
+    "fn:a5457a6081dc438d",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:59e1b2091a3c6d58"
+name = "state"
+qual = "Sp3Neutronics::state"
+lines = [
+    287,
+    292,
+]
+hash = "sha256:a8c9d286615362c548476d611fbc0d2b969c0ac5ca8617ad10723bed05d361d7"
+doc_hash = "sha256:3764e70c1a814a5f819470e1916066384d99a83241ea730ea9f9f8e30d6a7112"
+reached_by = [
+    "#0",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:dbbfda17e6d64e8a"
+name = "xs_fields"
+qual = "Sp3Neutronics::xs_fields"
+lines = [
+    294,
+    299,
+]
+hash = "sha256:876a5cfd0a9dc8e1862a2b683b5e5caf0c3af95f9baa7aca4c8b2ea362a861dd"
+doc_hash = "sha256:7510019e3c1375b1e0c568449ebf8ec3b8b3bbeafe5aeb01a04c175cd3379e29"
+
+[[module."mod.rs".function]]
+id = "fn:ea1f272b68e88723"
+name = "settings"
+qual = "Sp3Neutronics::settings"
+lines = [
+    301,
+    305,
+]
+hash = "sha256:c05c9d3f7891d3803bad627e9fcfd86eb7c751472ce1b3de8948e688f5e71103"
+doc_hash = "sha256:475dec3d63a98eab47279b6ad76b13c6050ce8486dcc33b949a75b0cbc34d4c0"
+
+[[module."mod.rs".function]]
+id = "fn:1b52ab015df7d565"
+name = "flux_star"
+qual = "Sp3Neutronics::flux_star"
+lines = [
+    307,
+    312,
+]
+hash = "sha256:0df65bcb2941c725dcc10a03f8f2ec58af362521a216dbd2adfa8e72658933c5"
+doc_hash = "sha256:7a4f8db8994886c41b849557a663b203f84f443fad63ab75e309a582a6ca7eb0"
+
+[[module."mod.rs".function]]
+id = "fn:f9744e5ed580869f"
+name = "flux_star2"
+qual = "Sp3Neutronics::flux_star2"
+lines = [
+    314,
+    318,
+]
+hash = "sha256:85698b64288d932f5116029d9608c35cbb0644107c6b2eb460f95f650e2be753"
+doc_hash = "sha256:794511870b6178167ba2c7e6f5d9253576119eed0cda806f4017b94c81b286c7"
+reached_by = ["#4"]
+
+[[module."mod.rs".function]]
+id = "fn:08775321a4f4fb88"
+name = "energy_groups"
+qual = "Sp3Neutronics::energy_groups"
+lines = [
+    320,
+    324,
+]
+hash = "sha256:4e66271a95dab678f2d27e61c861e59ebe722daf8751582cfe307c6dc83410df"
+doc_hash = "sha256:5cfd35079df1d31b52802d04d96253ab006524583ae94a104dc2ae2a09af5e1e"
+callees = ["fn:ba171610648cb876"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b78c7eeddd76db08"
+name = "prec_groups"
+qual = "Sp3Neutronics::prec_groups"
+lines = [
+    326,
+    330,
+]
+hash = "sha256:68189baabc9ed2a684a6a0747e85da1ac0f55c4ada1848aac3ade0f248a047a9"
+doc_hash = "sha256:46406d082de526dd4cee371bfa7747ea7775a49caf78badb58ea41224d47db76"
+callees = ["fn:abeb2cb5a62f27a8"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:5e0fc48c37045fb9"
+name = "reconstruct_flux"
+qual = "Sp3Neutronics::reconstruct_flux"
+lines = [
+    334,
+    347,
+]
+hash = "sha256:5add3eeba2e89da667266c2f4e918e2445242cb211c1c683d8e2fb5f13fe8292"
+doc_hash = "sha256:e3d41f6739f8f496c0b851de2d5404b9b9bd505fc32f041773e730ead624bee7"
+callees = [
+    "fn:08775321a4f4fb88",
+    "fn:2fcb7cdc146181a1",
+    "fn:324de9b11afb163c",
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:7aafc4d9109000d4"
+name = "fission_production"
+qual = "Sp3Neutronics::fission_production"
+lines = [
+    349,
+    363,
+]
+hash = "sha256:9ebfb5963e6fc3604b8bb2fb7c10310b666ccf313fbf05e5f156d168c24217c7"
+doc_hash = "sha256:9a918e4b1e230c3c56df12ff9b3130abb0176f24e428ea1fe7421aa37c4a17a6"
+callees = [
+    "fn:2fcb7cdc146181a1",
+    "fn:6d45af0d518e142d",
+    "fn:a34bf592be75221c",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:97eef171ca9640f2"
+name = "fission_integral"
+qual = "Sp3Neutronics::fission_integral"
+lines = [
+    365,
+    370,
+]
+hash = "sha256:54d58c3adb8db3c39570af1f30f0b2578ce0d48d7158aac50821b365cf6efc29"
+doc_hash = "sha256:eb23149a276733508086b244dc1e815d0e106de586cef7fd4319a3e3ea97d7b2"
+callees = ["fn:2fcb7cdc146181a1"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6d83ed1828634754"
+name = "scattering_source"
+qual = "Sp3Neutronics::scattering_source"
+lines = [
+    372,
+    389,
+]
+hash = "sha256:8d276806822b63674b2497f3f3b6f06441676e7654579b90718b8b5fb0a87e9b"
+doc_hash = "sha256:d23216c9c6680db4916d38afdd1e3bf5ce32d8afcab5364f110db58eba7eac45"
+callees = [
+    "fn:2fcb7cdc146181a1",
+    "fn:6d45af0d518e142d",
+    "fn:a34bf592be75221c",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:02cf301d4e3bbcfb"
+name = "delayed_source"
+qual = "Sp3Neutronics::delayed_source"
+lines = [
+    391,
+    404,
+]
+hash = "sha256:0ac24ff3f009fc8f7dc10d3b92260ed5ddf7e6d1a48047668af024760cb19492"
+doc_hash = "sha256:91bef18af8fa2828698ee39b5e298cb0b7b3e37704ff85110e9eb5b57ae1ae3d"
+callees = [
+    "fn:2fcb7cdc146181a1",
+    "fn:6d45af0d518e142d",
+    "fn:ea10dd577d2f8c54",
+]
+reached_by = ["#5"]
+
+[[module."mod.rs".function]]
+id = "fn:d5f5a7e6cc14c8e9"
+name = "update_derived_fields"
+qual = "Sp3Neutronics::update_derived_fields"
+lines = [
+    406,
+    430,
+]
+hash = "sha256:8c7534e6a78eb5a900a943cd8ec987aaa6e40f199f758113db17c93bc4bbe57c"
+doc_hash = "sha256:30a823bb5bed48a09782659c1e145a15e2749002dfe220d2d8ccbe81cc24c32b"
+callees = [
+    "fn:1a0a9fa6e320d21b",
+    "fn:2fcb7cdc146181a1",
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+    "fn:9c62cd16d3c107a5",
+    "fn:a34bf592be75221c",
+    "fn:b6819fc8dd8e16f6",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0625ae5f468e6035"
+name = "write_moment"
+qual = "Sp3Neutronics::write_moment"
+lines = [
+    432,
+    443,
+]
+hash = "sha256:18b518127c167f2268230505b4cbcb3791e95c1ad79b2263e58c5c00c7021a63"
+doc_hash = "sha256:bf3ded920dca925863897941f14be82ca15fb7c596d4e06f9f2e2a8d5ddce096"
+callees = [
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ec3f3c666b78be3c"
+name = "with_values"
+qual = "with_values"
+lines = [
+    446,
+    450,
+]
+hash = "sha256:88f041a36e60b458fcc0a413b1092e8c1cf2c7cd4abab332c9d5637996a5f56b"
+doc_hash = "sha256:7711dc19e0531470a9cf57a26ffb6940c6fcfa7020c21000610275bb691ce947"
+callees = ["fn:f59a35e9cbd8b293"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[module."tests.rs"]
+path = "crate::genfoam::neutronics::sp3::tests"
+
+[[module."tests.rs".function]]
+id = "fn:338dcfc2fd182ebb"
+name = "self_scatter"
+qual = "OneGroup::self_scatter"
+lines = [
+    116,
+    119,
+]
+hash = "sha256:e44806e2071f958ede9cc2d92aa1b004b4021986c52bcd380175a8e6b47792d8"
+doc_hash = "sha256:539069acc42bef927aae1fcb1d70db74b7a7f8e89136c19a789f5ef80d2b0c81"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:ac10593749f69fee"
+name = "d0"
+qual = "OneGroup::d0"
+lines = [
+    121,
+    124,
+]
+hash = "sha256:f734c1dae499ad165d02d51f698679c6825aaa5e662892c5fc6571770961f74a"
+doc_hash = "sha256:2a05b1e66312416eaa7eeefda787502ba1a08a812faf5a77225a775020fe10c8"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:5224bb4ed2e677d6"
+name = "k_inf"
+qual = "OneGroup::k_inf"
+lines = [
+    126,
+    129,
+]
+hash = "sha256:beab9c5592a4a86ba557cc794d388ca2a238bcaa989a95131c781e70eabb2d13"
+doc_hash = "sha256:79df0122761a54a8202597b95fd28ddd8768b344c1f6fc472cb0afa91f6f950c"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b62072f10d8b6a74"
+name = "diffusion_slab_k"
+qual = "OneGroup::diffusion_slab_k"
+lines = [
+    131,
+    134,
+]
+hash = "sha256:54e37ac26c2cc82b144092ec9b1358cfde86d480e6395e311e9c4c158e13b870"
+doc_hash = "sha256:ba03bb242da653f32c8e8ed9fbed0392276adf009d16f32a0b014e88680fa515"
+callees = ["fn:ac10593749f69fee"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d77262b67ea309f4"
+name = "one_group_xs"
+qual = "one_group_xs"
+lines = [
+    137,
+    176,
+]
+hash = "sha256:b2c1859598f97eecfb81df12a4af2feb7e9ef695222140d0ff4a44eb3513fc35"
+doc_hash = "sha256:e842d34b51c92a6458989acd2e608f56ac3bd755b3341bd4c211ac93e49088b1"
+callees = [
+    "fn:03a2dfcca9151919",
+    "fn:338dcfc2fd182ebb",
+    "fn:ac10593749f69fee",
+    "fn:fc3e9008bc829799",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:979d2c38a228f2a1"
+name = "slab_mesh"
+qual = "slab_mesh"
+lines = [
+    178,
+    183,
+]
+hash = "sha256:bb8135f4ed1d26d49190afdf00bee65d6c9b66d0089c070d61f54ab584dbd8ae"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b507d433625293e6"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e70d4b86065dfb08"
+name = "slab_mesh_length"
+qual = "slab_mesh_length"
+lines = [
+    185,
+    194,
+]
+hash = "sha256:08dadd8133b33dd4d18a384fea358a3335126d8c91c5b33727fcaae7ab5b693c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b507d433625293e6"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:6f5ef2325bdde2bd"
+name = "medium"
+qual = "medium"
+lines = [
+    196,
+    202,
+]
+hash = "sha256:f6a825506c7bdd45de69d4b7750ebb77b02363a040106f3d7d70655d380f9a97"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e89b33f21986dbd6"
+name = "kinf_reduces_to_diffusion"
+qual = "kinf_reduces_to_diffusion"
+lines = [
+    204,
+    251,
+]
+hash = "sha256:3b7e97502c0115ce386f30d23076cfd0b4fcf18dbfc90c34e02186587bd394ae"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:02fe608705bd078a",
+    "fn:5224bb4ed2e677d6",
+    "fn:6d45af0d518e142d",
+    "fn:6f5ef2325bdde2bd",
+    "fn:979d2c38a228f2a1",
+    "fn:a8f72030231715e3",
+    "fn:d77262b67ea309f4",
+    "fn:f845ef454dcbc84b",
+    "fn:f9744e5ed580869f",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:a2323dddf8ec1a42"
+name = "sp3_and_diffusion_k"
+qual = "sp3_and_diffusion_k"
+lines = [
+    253,
+    286,
+]
+hash = "sha256:23b8c6be8dcbcc312207b14ee892922a3e1af3c9509f0b84cce8ca5e9e07f8ab"
+doc_hash = "sha256:34639e4b6a2005f849850aa2a83d592ab33f4fdec5780011c9406323b22d1606"
+callees = [
+    "fn:02fe608705bd078a",
+    "fn:1997bf3e13135b6f",
+    "fn:4d640dbf60fc6075",
+    "fn:65b415d212b73fac",
+    "fn:a8f72030231715e3",
+    "fn:d77262b67ea309f4",
+    "fn:e70d4b86065dfb08",
+    "fn:f845ef454dcbc84b",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d1707fc7d5ec828a"
+name = "approaches_diffusion_as_slab_grows"
+qual = "approaches_diffusion_as_slab_grows"
+lines = [
+    288,
+    309,
+]
+hash = "sha256:68e9f7c3da834c9303046c738225830a535ac554da6887c1dc0505fb2645555d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6f5ef2325bdde2bd",
+    "fn:a2323dddf8ec1a42",
+    "fn:b62072f10d8b6a74",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:5ae4728f68e62d26"
+name = "differs_on_small_slab"
+qual = "differs_on_small_slab"
+lines = [
+    311,
+    330,
+]
+hash = "sha256:25404c83715e1ea1897f4813ad5d12fd7bf647e57ce4f5c4b9e9c5d2f2cbf568"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6f5ef2325bdde2bd",
+    "fn:a2323dddf8ec1a42",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:a9ece9853ccdfa69"
+name = "null_transient_holds_steady"
+qual = "null_transient_holds_steady"
+lines = [
+    332,
+    367,
+]
+hash = "sha256:983907c451b56e9e4c2a7062ba6b711c932b5d8a7d223f17b3e2a52a9bf4a6b9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:02fe608705bd078a",
+    "fn:59e1b2091a3c6d58",
+    "fn:6f5ef2325bdde2bd",
+    "fn:a8f72030231715e3",
+    "fn:b7fa5e8bacc20f37",
+    "fn:d77262b67ea309f4",
+    "fn:e70d4b86065dfb08",
+    "fn:f82d3b27a07cc33d",
+    "fn:f845ef454dcbc84b",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:8928c33eb6fa9a62"
+name = "scaffold_reports_not_implemented"
+qual = "scaffold_reports_not_implemented"
+lines = [
+    369,
+    381,
+]
+hash = "sha256:3db8ef2267b2c2f21a2a55f14647932e6aab45067935609194317928fd0c3cb9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:979d2c38a228f2a1",
+    "fn:9866cf914c6ddd22",
+    "fn:a8f72030231715e3",
+]
+test = true
+
+[module."transient.rs"]
+path = "crate::genfoam::neutronics::sp3::transient"
+
+[[module."transient.rs".function]]
+id = "fn:b7fa5e8bacc20f37"
+name = "step"
+qual = "Sp3Neutronics::step"
+lines = [
+    45,
+    79,
+]
+hash = "sha256:9c113a6e4fd11d585a34b0de8dcf94249cdccd6cd55ad80a96ac959af26d6ce9"
+doc_hash = "sha256:a8126a07133223aaff25909b40c54c33782582a07a19cea988c454256190fc85"
+callees = ["fn:732593dac4e41a19"]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."transient.rs".function]]
+id = "fn:732593dac4e41a19"
+name = "step_inner"
+qual = "Sp3Neutronics::step_inner"
+lines = [
+    81,
+    180,
+]
+hash = "sha256:ff3651a5e94a7230e605c811d90250cab97bb15667df638ae934f5f9370340a2"
+doc_hash = "sha256:918386b14e8b3a7e4fcdf42998decd43bbb9064fb3f331628fd84d2c12f05520"
+callees = [
+    "fn:0166bfdea1cb183d",
+    "fn:02cf301d4e3bbcfb",
+    "fn:0625ae5f468e6035",
+    "fn:08775321a4f4fb88",
+    "fn:25e42b9aedf3930e",
+    "fn:2aefc7a630854c09",
+    "fn:2b14ecba4b3a5375",
+    "fn:2fcb7cdc146181a1",
+    "fn:324de9b11afb163c",
+    "fn:53d4791d95d80de6",
+    "fn:6d45af0d518e142d",
+    "fn:6d83ed1828634754",
+    "fn:6f38d5e07fe3fca5",
+    "fn:7aafc4d9109000d4",
+    "fn:7d94409f5275095e",
+    "fn:96b5c3d947f087e5",
+    "fn:9b24a1ce8f5b2d47",
+    "fn:b0ed875c4efafa46",
+    "fn:d5f5a7e6cc14c8e9",
+    "fn:ea10dd577d2f8c54",
+    "fn:eae24a63871d2132",
+    "fn:ec3f3c666b78be3c",
+]
+reached_by = ["#5"]

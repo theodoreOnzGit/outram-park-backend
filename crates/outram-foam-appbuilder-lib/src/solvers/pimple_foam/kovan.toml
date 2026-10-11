@@ -1,0 +1,206 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/solvers/pimple_foam"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::missing_case_directory_is_an_io_error",
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::unwired_solvers_refuse_before_reading_the_case",
+    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::backward_ddt_selection_is_live_and_not_worse_against_ghia",
+    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::gauss_linear_convection_beats_upwind_against_ghia_1982",
+    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::attaching_a_closure_changes_the_momentum_solution",
+    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::homogeneous_decay_matches_analytic_k_omega_solution",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_grid_convergence_re100",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_pressure_solver_comparison_fine_mesh",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_velocity_matches_icofoam",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_benchmark_re100",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_grid_convergence_re100",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_pressure_solver_comparison_fine_mesh",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_velocity_matches_icofoam",
+]
+
+[module."mod.rs"]
+path = "crate::solvers::pimple_foam"
+
+[[module."mod.rs".function]]
+id = "fn:d6573297a12e81f5"
+name = "correct_bcs"
+qual = "correct_bcs"
+lines = [
+    190,
+    203,
+]
+hash = "sha256:b2b497954f16f5a759f512b64934dc824e01a4d43ec2b04b3549b3ee8dcd4196"
+doc_hash = "sha256:90045520aa97c9d92651270f7603d6f2a99df335ee81bbc0ccbd9b8b9a33396c"
+callees = ["fn:da3db2be3d98eafe"]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2a2fa8dd10ea4a24"
+name = "correct_bcs_vec"
+qual = "correct_bcs_vec"
+lines = [
+    205,
+    215,
+]
+hash = "sha256:cce1098aab7019cc267d76582e56c9696133310ce3ce172368dd79bb728a8f90"
+doc_hash = "sha256:1302c69dabbf3e49cbe60857df60f3866c78808c3eefdbbfb29badf1056e741f"
+callees = ["fn:da3db2be3d98eafe"]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."mod.rs".function]]
+id = "fn:eb3004f5a8770077"
+name = "new"
+qual = "PimpleFoam::new"
+lines = [
+    294,
+    345,
+]
+hash = "sha256:f27528e68dece05316fc39581a573487096779d4f71c8bce061fd91860bb08f3"
+doc_hash = "sha256:64b0b1afabc8f0b8b70eeaf468197fad38be6dfa9f872f0e302b8ea130498f4d"
+callees = [
+    "fn:35c659fb699605b5",
+    "fn:636e75b664f14254",
+    "fn:acfb0f2d7b950994",
+    "fn:d6a9c884aaeb7775",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ec433d6c632e41b5"
+name = "step"
+qual = "PimpleFoam::step"
+lines = [
+    347,
+    597,
+]
+hash = "sha256:e5c4abbc3f348101e9b3440d80c4a10a2a8b1f4c72fa8c101decdae93678ca88"
+doc_hash = "sha256:dd56389e352c6b5905c1c6a3e4b659a856b019ec623e4a584f0d2d5fe66b92b1"
+callees = [
+    "fn:0166bfdea1cb183d",
+    "fn:10f32a17a906d1d2",
+    "fn:12a06403e27e4888",
+    "fn:13d801bd97c5b69d",
+    "fn:18855a2a89aa525e",
+    "fn:1e0c0abc3044dc8b",
+    "fn:2a2fa8dd10ea4a24",
+    "fn:456ce8c84f72ae6e",
+    "fn:472adef4837fb92c",
+    "fn:4a3d63f4a0e47a1c",
+    "fn:4aea3161a87c6021",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:636ae5a21be9336b",
+    "fn:65f8f3c9daf074d2",
+    "fn:670788b667835aeb",
+    "fn:6d45af0d518e142d",
+    "fn:8b1e80d2a2add1f9",
+    "fn:92fd53f240dcfb8e",
+    "fn:95630e24fcf1635e",
+    "fn:99b51c50cec539c3",
+    "fn:9ce7e8c2f9324984",
+    "fn:a2c1473f0e8fdd18",
+    "fn:b13c311a9e21788c",
+    "fn:bc062f8fb0a42b05",
+    "fn:bcd3c0fddc1f933d",
+    "fn:bd493cd7b8975238",
+    "fn:d26e6c14487b0898",
+    "fn:d6573297a12e81f5",
+    "fn:da3db2be3d98eafe",
+    "fn:ddf2344864918578",
+    "fn:ea6b6e6095ea6573",
+    "fn:f59a35e9cbd8b293",
+    "fn:f85d946ac4d4b864",
+    "fn:fb7ba145dba6413c",
+    "fn:fdbfa1ab352c02c0",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3c22792b6629d904"
+name = "run"
+qual = "PimpleFoam::run"
+lines = [
+    599,
+    641,
+]
+hash = "sha256:2b4d85517947749a446e89ad8c217c688eb66b871e18435691d1a3ba806bfcec"
+doc_hash = "sha256:103fdcdbe6a65b00e86f9b7916b6c721de5e913f95b3d347b2564b090a82a20a"
+callees = ["fn:ec433d6c632e41b5"]
+reached_by = [
+    "#2",
+    "#3",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]

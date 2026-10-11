@@ -1,0 +1,444 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/examples/fhr_sim_v2/app/local_widgets_and_buttons"
+
+[module."fhr_reactor_widget.rs"]
+path = "example:fhr_sim_v2::app::local_widgets_and_buttons::fhr_reactor_widget"
+
+[[module."fhr_reactor_widget.rs".function]]
+id = "fn:dcc1caee6cdbae42"
+name = "new"
+qual = "FHRReactorWidget::new"
+lines = [
+    28,
+    65,
+]
+hash = "sha256:131820445c46b1b0ecd49b10589221b3624c73e40c7eb9b81bea90b6c2d9116b"
+doc_hash = "sha256:fc731a4844d273f8ac2b7f7cb8359ebfdc4150e4dfe56394d99706923f537c9f"
+physical_interface = true
+
+[[module."fhr_reactor_widget.rs".function]]
+id = "fn:ec073912434f5a3d"
+name = "hotness"
+qual = "FHRReactorWidget::hotness"
+lines = [
+    67,
+    76,
+]
+hash = "sha256:0f36ed4c98c410365625156e24121ff4bf4ce01300150ed3c33a009915eeba8e"
+doc_hash = "sha256:845fa999066bc5a476f0b24b412d6e482f6a4b79dfa8da730bf41bde881db5eb"
+physical_interface = true
+
+[[module."fhr_reactor_widget.rs".function]]
+id = "fn:20c8d78f41d5ab78"
+name = "set_min_temp"
+qual = "FHRReactorWidget::set_min_temp"
+lines = [
+    78,
+    81,
+]
+hash = "sha256:c758afa7cb654b9eb455a588550331e98403f2ac52ca9917dae0fcbabb564716"
+doc_hash = "sha256:794f8c8714821453f307fbbfc9fd77994cc622b6d6af2cfc598ace0947d185a5"
+physical_interface = true
+
+[[module."fhr_reactor_widget.rs".function]]
+id = "fn:675c096dec8299eb"
+name = "set_max_temp"
+qual = "FHRReactorWidget::set_max_temp"
+lines = [
+    82,
+    85,
+]
+hash = "sha256:cf0c38ca718537eb125f33a01175674732a45b435076fe2ea1af6c229f3875e5"
+doc_hash = "sha256:c0d09095dc980e0193cfdd285c76c0234e17ee5ac429f2c019ef294db9b56bdd"
+physical_interface = true
+
+[[module."fhr_reactor_widget.rs".function]]
+id = "fn:50ad4606155f6621"
+name = "size"
+qual = "FHRReactorWidget::size"
+lines = [
+    87,
+    90,
+]
+hash = "sha256:7df4771420aa5f672b742ad9bbc5a4f698c905cbd67b3b0063aa9f41ddf297ce"
+doc_hash = "sha256:a34b1883ab09aba1bd1e20602ae83c4de13f5e0693a722c619e82a83f25aed95"
+
+[[module."fhr_reactor_widget.rs".function]]
+id = "fn:d695ddcf13f71ad3"
+name = "set_left_cr_frac"
+qual = "FHRReactorWidget::set_left_cr_frac"
+lines = [
+    93,
+    95,
+]
+hash = "sha256:d0ff4246376a157ab98d34437a19ab689c7087ba10d64549c605c036e76b43d5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."fhr_reactor_widget.rs".function]]
+id = "fn:18f7227f18dc89f0"
+name = "set_right_cr_frac"
+qual = "FHRReactorWidget::set_right_cr_frac"
+lines = [
+    97,
+    99,
+]
+hash = "sha256:437c1dd4751e37b973bdd5f98f6ef2bfb17f7957e9e09861e6dfc96b8009fcbb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."fhr_reactor_widget.rs".function]]
+id = "fn:fa5f113a82b0710f"
+name = "ui"
+qual = "FHRReactorWidget::ui"
+lines = [
+    103,
+    828,
+]
+hash = "sha256:1ea3332e9ebff2e85775a3473a3a6da81c9d4a8e9383e8db7830d7c3f0eb5f2b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:50ad4606155f6621",
+    "fn:6499903fc0268194",
+    "fn:ec073912434f5a3d",
+]
+
+[module."hot_to_cold_colour_functions.rs"]
+path = "example:fhr_sim_v2::app::local_widgets_and_buttons::hot_to_cold_colour_functions"
+
+[[module."hot_to_cold_colour_functions.rs".function]]
+id = "fn:6499903fc0268194"
+name = "hot_to_cold_colour_mark_1"
+qual = "hot_to_cold_colour_mark_1"
+lines = [
+    2,
+    21,
+]
+hash = "sha256:2e427ac3e5a9b3437dba3319b27745b79bf965e20c40a18586100ca6a4a59820"
+doc_hash = "sha256:c99c76be19eb01b131e49bdbe9730f8efa244f9dc69d008b5e288cabed04eb40"
+
+[[module."hot_to_cold_colour_functions.rs".function]]
+id = "fn:032a13e60bebf769"
+name = "hot_to_cold_colour_mark_2"
+qual = "hot_to_cold_colour_mark_2"
+lines = [
+    23,
+    40,
+]
+hash = "sha256:3c3bc7ea06236658722c6cc0de6bad074981168d3712e89eb4084597644c9327"
+doc_hash = "sha256:2f1d275ef3465ddfc8d0821f1eb03b998e40121b14d7e1b92a2e79da6aa1dc06"
+
+[module."mod.rs"]
+path = "example:fhr_sim_v2::app::local_widgets_and_buttons"
+
+[[module."mod.rs".function]]
+id = "fn:ddcb22e0493e06d0"
+name = "put_widget_with_size_and_centre"
+qual = "FHRSimulatorApp::put_widget_with_size_and_centre"
+lines = [
+    15,
+    43,
+]
+hash = "sha256:cf6784e33401b367a13f50f662019f2568dd563548485e683b28cd13cebc3f9a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:dbe62bb921d7a3a3"
+name = "place_vertical_widget_with_length"
+qual = "FHRSimulatorApp::place_vertical_widget_with_length"
+lines = [
+    45,
+    72,
+]
+hash = "sha256:462d8af3aab80019d8f065a53fcfcbf0453c806e47684b51957ce80fcbdc21f2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:ddcb22e0493e06d0"]
+
+[[module."mod.rs".function]]
+id = "fn:f4f6812203c03daf"
+name = "place_horizontal_widget_with_length"
+qual = "FHRSimulatorApp::place_horizontal_widget_with_length"
+lines = [
+    74,
+    100,
+]
+hash = "sha256:906748fe71a03352800ce3e1d5d6ca99b48432f5c6a1d057feddc33cb6a753da"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:ddcb22e0493e06d0"]
+
+[[module."mod.rs".function]]
+id = "fn:69d5f940fe5d6ce7"
+name = "new_temp_sensitive_button_blue_red"
+qual = "new_temp_sensitive_button_blue_red"
+lines = [
+    103,
+    115,
+]
+hash = "sha256:f755a774b1b17c1fac5b091859613f681a26a8827c3ce96161b23b3a8dd538a3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6499903fc0268194"]
+
+[[module."mod.rs".function]]
+id = "fn:b3856597bec5562c"
+name = "new_temp_sensitive_button_black_red"
+qual = "new_temp_sensitive_button_black_red"
+lines = [
+    117,
+    129,
+]
+hash = "sha256:9e9c5c3fe9569d66987da596027f8b9be13ac3335875cdff3b0c297c4345e946"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:032a13e60bebf769"]
+
+[module."pipes.rs"]
+path = "example:fhr_sim_v2::app::local_widgets_and_buttons::pipes"
+
+[[module."pipes.rs".function]]
+id = "fn:c763d78fa35cfc79"
+name = "new"
+qual = "SinglePipeColourBlueRedTempSensitive::new"
+lines = [
+    19,
+    50,
+]
+hash = "sha256:d88e79a7c1e879a0a0bb3200367fff4947a7712cca25b1694a95bd1993e03f7e"
+doc_hash = "sha256:c002e2ad5af933c31b1a5bfccc619db09873f9279ce6212fb966e1c924421eb5"
+physical_interface = true
+
+[[module."pipes.rs".function]]
+id = "fn:e0f31bf1c500fc15"
+name = "hotness"
+qual = "SinglePipeColourBlueRedTempSensitive::hotness"
+lines = [
+    52,
+    61,
+]
+hash = "sha256:0f36ed4c98c410365625156e24121ff4bf4ce01300150ed3c33a009915eeba8e"
+doc_hash = "sha256:845fa999066bc5a476f0b24b412d6e482f6a4b79dfa8da730bf41bde881db5eb"
+physical_interface = true
+
+[[module."pipes.rs".function]]
+id = "fn:4b3785eb44a4bf63"
+name = "size"
+qual = "SinglePipeColourBlueRedTempSensitive::size"
+lines = [
+    62,
+    65,
+]
+hash = "sha256:7df4771420aa5f672b742ad9bbc5a4f698c905cbd67b3b0063aa9f41ddf297ce"
+doc_hash = "sha256:a34b1883ab09aba1bd1e20602ae83c4de13f5e0693a722c619e82a83f25aed95"
+
+[[module."pipes.rs".function]]
+id = "fn:b6ffa4acc5e2330e"
+name = "ui"
+qual = "SinglePipeColourBlueRedTempSensitive::ui"
+lines = [
+    69,
+    95,
+]
+hash = "sha256:4f6bd1ec459b92702ee280e22bbf6275fde63a5222a00e7da5e3bf98ca1f8d47"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4b3785eb44a4bf63",
+    "fn:6499903fc0268194",
+    "fn:e0f31bf1c500fc15",
+]
+
+[[module."pipes.rs".function]]
+id = "fn:eadef1915ef0374b"
+name = "new"
+qual = "SinglePipeColourBlackRedTempSensitive::new"
+lines = [
+    107,
+    138,
+]
+hash = "sha256:d88e79a7c1e879a0a0bb3200367fff4947a7712cca25b1694a95bd1993e03f7e"
+doc_hash = "sha256:c002e2ad5af933c31b1a5bfccc619db09873f9279ce6212fb966e1c924421eb5"
+physical_interface = true
+
+[[module."pipes.rs".function]]
+id = "fn:ef3ddcc64cef9259"
+name = "hotness"
+qual = "SinglePipeColourBlackRedTempSensitive::hotness"
+lines = [
+    140,
+    149,
+]
+hash = "sha256:0f36ed4c98c410365625156e24121ff4bf4ce01300150ed3c33a009915eeba8e"
+doc_hash = "sha256:845fa999066bc5a476f0b24b412d6e482f6a4b79dfa8da730bf41bde881db5eb"
+physical_interface = true
+
+[[module."pipes.rs".function]]
+id = "fn:74b0bc1cc0e9811a"
+name = "size"
+qual = "SinglePipeColourBlackRedTempSensitive::size"
+lines = [
+    150,
+    153,
+]
+hash = "sha256:7df4771420aa5f672b742ad9bbc5a4f698c905cbd67b3b0063aa9f41ddf297ce"
+doc_hash = "sha256:a34b1883ab09aba1bd1e20602ae83c4de13f5e0693a722c619e82a83f25aed95"
+
+[[module."pipes.rs".function]]
+id = "fn:5932abb71046c889"
+name = "ui"
+qual = "SinglePipeColourBlackRedTempSensitive::ui"
+lines = [
+    157,
+    183,
+]
+hash = "sha256:3b685b7c5c2c1bed6dbb264304d8672733ff599c32aeaa54565b98ccebd7da4f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:032a13e60bebf769",
+    "fn:74b0bc1cc0e9811a",
+    "fn:ef3ddcc64cef9259",
+]
+
+[[module."pipes.rs".function]]
+id = "fn:946672841f710772"
+name = "new"
+qual = "SinglePipeColourBlueWhiteQualitySensitive::new"
+lines = [
+    193,
+    217,
+]
+hash = "sha256:71132a7942ef055f6096b4116fadda522bed6c468f5803bc03bcf2d465518c9b"
+doc_hash = "sha256:c002e2ad5af933c31b1a5bfccc619db09873f9279ce6212fb966e1c924421eb5"
+
+[[module."pipes.rs".function]]
+id = "fn:2a76275f02eb7cda"
+name = "size"
+qual = "SinglePipeColourBlueWhiteQualitySensitive::size"
+lines = [
+    219,
+    222,
+]
+hash = "sha256:7df4771420aa5f672b742ad9bbc5a4f698c905cbd67b3b0063aa9f41ddf297ce"
+doc_hash = "sha256:a34b1883ab09aba1bd1e20602ae83c4de13f5e0693a722c619e82a83f25aed95"
+
+[[module."pipes.rs".function]]
+id = "fn:b77deeb0ac2c2acf"
+name = "ui"
+qual = "SinglePipeColourBlueWhiteQualitySensitive::ui"
+lines = [
+    226,
+    252,
+]
+hash = "sha256:62707347539b8cb34d9757292df4f14886959297648b12fb2ab7c9b4a85cf410"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2a76275f02eb7cda",
+    "fn:32ef249194b04628",
+]
+
+[module."pumps.rs"]
+path = "example:fhr_sim_v2::app::local_widgets_and_buttons::pumps"
+
+[module."reactor_art.rs"]
+path = "example:fhr_sim_v2::app::local_widgets_and_buttons::reactor_art"
+
+[[module."reactor_art.rs".function]]
+id = "fn:f874cb13986e7ed5"
+name = "fhr_reactor_vessel_prototype"
+qual = "fhr_reactor_vessel_prototype"
+lines = [
+    15,
+    747,
+]
+hash = "sha256:24ac915d3a63b20090bf4ddca686d0dcc1334844db53c7aa9300cd7b3c2fa7ac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6499903fc0268194"]
+
+[module."simulator_trait.rs"]
+path = "example:fhr_sim_v2::app::local_widgets_and_buttons::simulator_trait"
+
+[[module."simulator_trait.rs".function]]
+id = "fn:fff3b27ae0c16865"
+name = "get_end_joint_coordinate"
+qual = "VisualSimulationObject::get_end_joint_coordinate"
+lines = [
+    3,
+    5,
+]
+hash = "sha256:b1ed3b4b23a335af0b7c7858b10569c40a89a5740944c3862a8b43483824eae1"
+doc_hash = "sha256:0dd5432b10f4421aade953f91bda4bb7364040fb959e1084411da010f4fd6a81"
+
+[module."steam_quality_colour_functions.rs"]
+path = "example:fhr_sim_v2::app::local_widgets_and_buttons::steam_quality_colour_functions"
+
+[[module."steam_quality_colour_functions.rs".function]]
+id = "fn:32ef249194b04628"
+name = "steam_quality_colour_mark_1"
+qual = "steam_quality_colour_mark_1"
+lines = [
+    3,
+    21,
+]
+hash = "sha256:6263715c7124a504606a3dcc33e084d472f3cd8caf8fa1d6fde663997a0afdb3"
+doc_hash = "sha256:5cf5311a1dd81c3b50bb50d249886be4531209b047a90bb6b8a92078353bd5a4"
+
+[module."turbine_widget.rs"]
+path = "example:fhr_sim_v2::app::local_widgets_and_buttons::turbine_widget"
+
+[[module."turbine_widget.rs".function]]
+id = "fn:147b4b1355d396b4"
+name = "new"
+qual = "TurbineWidget::new"
+lines = [
+    21,
+    23,
+]
+hash = "sha256:e480cd1dcbe5740b738539600cdb09bebfa1c3905ea72d2cc5c7a104aaa121b3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[[module."turbine_widget.rs".function]]
+id = "fn:4862e2644ed6a6ed"
+name = "size"
+qual = "TurbineWidget::size"
+lines = [
+    25,
+    28,
+]
+hash = "sha256:7df4771420aa5f672b742ad9bbc5a4f698c905cbd67b3b0063aa9f41ddf297ce"
+doc_hash = "sha256:a34b1883ab09aba1bd1e20602ae83c4de13f5e0693a722c619e82a83f25aed95"
+
+[[module."turbine_widget.rs".function]]
+id = "fn:5c9c1bafa0921aab"
+name = "set_theta"
+qual = "TurbineWidget::set_theta"
+lines = [
+    30,
+    32,
+]
+hash = "sha256:8f16db90f18287219095d041846fb2cd5f41ec7ff915da7b24c68bc862278ff5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[[module."turbine_widget.rs".function]]
+id = "fn:335cf174b2915cb8"
+name = "get_theta"
+qual = "TurbineWidget::get_theta"
+lines = [
+    34,
+    36,
+]
+hash = "sha256:4331cb9e02dfcf54260f8911e4cdaf97e8e575b821017051a1e11db42e6657cd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[[module."turbine_widget.rs".function]]
+id = "fn:a79e0a891a3eeb38"
+name = "ui"
+qual = "TurbineWidget::ui"
+lines = [
+    40,
+    260,
+]
+hash = "sha256:104bafd20cd3a66c8d9df08e8e48d2efcd7c8c64a08a299c045f73b0586e9421"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:335cf174b2915cb8",
+    "fn:4862e2644ed6a6ed",
+]

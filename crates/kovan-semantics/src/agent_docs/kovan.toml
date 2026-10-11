@@ -1,0 +1,652 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-semantics"
+dir = "crates/kovan-semantics/src/agent_docs"
+test_ids = [
+    "crates/kovan-semantics/src/agent_docs/agents_md.rs::an_empty_selection_is_stated_rather_than_left_blank",
+    "crates/kovan-semantics/src/agent_docs/agents_md.rs::harness_policy_is_excluded",
+    "crates/kovan-semantics/src/agent_docs/agents_md.rs::the_omitted_crates_are_named_and_the_agent_is_told_not_to_guess",
+    "crates/kovan-semantics/src/agent_docs/agents_md.rs::the_rules_that_govern_generated_code_are_present",
+    "crates/kovan-semantics/src/agent_docs/agents_md.rs::the_size_is_reported_as_an_estimate",
+    "crates/kovan-semantics/src/agent_docs/condense.rs::boilerplate_headings_are_dropped_but_real_ones_survive",
+    "crates/kovan-semantics/src/agent_docs/condense.rs::condensing_is_a_large_reduction",
+    "crates/kovan-semantics/src/agent_docs/condense.rs::exactly_one_description_line_is_kept_and_tables_are_dropped",
+    "crates/kovan-semantics/src/agent_docs/condense.rs::prose_outside_a_fence_is_never_mistaken_for_a_signature",
+    "crates/kovan-semantics/src/agent_docs/condense.rs::public_signatures_survive_and_private_fields_do_not",
+    "crates/kovan-semantics/src/agent_docs/mod.rs::a_bundle_filename_is_flat",
+    "crates/kovan-semantics/src/agent_docs/mod.rs::a_rerun_does_not_leave_a_deselected_crate_behind",
+    "crates/kovan-semantics/src/agent_docs/mod.rs::inventory_is_sorted_and_finds_api_docs",
+    "crates/kovan-semantics/src/agent_docs/mod.rs::package_name_is_read_from_the_package_section_only",
+    "crates/kovan-semantics/src/agent_docs/mod.rs::the_bundle_is_byte_identical_on_a_rerun",
+    "crates/kovan-semantics/src/agent_docs/mod.rs::the_token_figure_is_an_estimate_that_rounds_up",
+]
+
+[module."agents_md.rs"]
+path = "crate::agent_docs::agents_md"
+
+[[module."agents_md.rs".function]]
+id = "fn:3c4bb9f31ec54817"
+name = "agents_markdown"
+qual = "agents_markdown"
+lines = [
+    227,
+    294,
+]
+hash = "sha256:622f8d69403cbafcd244f02b876265c777562ca5ed0fb27396b210013dbf7028"
+doc_hash = "sha256:7ffd2320f3987472e60ab7c7fbf571761ba81cb3ea8ab2ed2566cd1cf61b4b45"
+callees = [
+    "fn:1174a3ebb9fc428d",
+    "fn:3ffbae6771f5ab26",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#11",
+    "#14",
+]
+
+[[module."agents_md.rs".function]]
+id = "fn:6efc1c77f3a457e9"
+name = "report_with"
+qual = "report_with"
+lines = [
+    301,
+    310,
+]
+hash = "sha256:82f04de66fb543c27fd2935fb8219577da6f613b0090d614fcafbc7045c3dd6e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."agents_md.rs".function]]
+id = "fn:b34c3b56946e1958"
+name = "the_rules_that_govern_generated_code_are_present"
+qual = "the_rules_that_govern_generated_code_are_present"
+lines = [
+    312,
+    329,
+]
+hash = "sha256:2b597ff1a75dd0fb7549070dcb97bce6723e88713f35412a2c603adcd69be58a"
+doc_hash = "sha256:c1b3994e4af917415e209a7cc7d55fee7ea2cd6bd2f0f084bc5aede78b06df80"
+callees = [
+    "fn:3c4bb9f31ec54817",
+    "fn:6efc1c77f3a457e9",
+]
+test = true
+
+[[module."agents_md.rs".function]]
+id = "fn:f16bfc25f010f650"
+name = "harness_policy_is_excluded"
+qual = "harness_policy_is_excluded"
+lines = [
+    331,
+    348,
+]
+hash = "sha256:0a38f4b59b10ddda3791a113fa0bc16dd1c9f1efca365177b821ec4a85a05b23"
+doc_hash = "sha256:8643153504e2e70293df9cebc551306fd91ed0e339ee46e8d685b0237fc0a031"
+callees = [
+    "fn:3c4bb9f31ec54817",
+    "fn:6efc1c77f3a457e9",
+]
+test = true
+
+[[module."agents_md.rs".function]]
+id = "fn:4c46af3e34b2496f"
+name = "the_omitted_crates_are_named_and_the_agent_is_told_not_to_guess"
+qual = "the_omitted_crates_are_named_and_the_agent_is_told_not_to_guess"
+lines = [
+    350,
+    363,
+]
+hash = "sha256:060d5902637862f763b02eda4df0f1cdc78c4358bfc9a6d7843d4ad9daf74967"
+doc_hash = "sha256:bbbdfffe1739efa335ac5e5742bc0158156698322968037e08a82ce74274ccf4"
+callees = [
+    "fn:3c4bb9f31ec54817",
+    "fn:6efc1c77f3a457e9",
+]
+test = true
+
+[[module."agents_md.rs".function]]
+id = "fn:46fe9723b46ce1cd"
+name = "the_size_is_reported_as_an_estimate"
+qual = "the_size_is_reported_as_an_estimate"
+lines = [
+    365,
+    371,
+]
+hash = "sha256:b257895d9540b884310704b5c9351ce1db79af96e21776e53ffd5aee7f79315e"
+doc_hash = "sha256:9946fb6653ec2129074fec30ac169f13c25ca5df0625c13af2365ec81e55857c"
+callees = [
+    "fn:3c4bb9f31ec54817",
+    "fn:6efc1c77f3a457e9",
+]
+test = true
+
+[[module."agents_md.rs".function]]
+id = "fn:d1b9018e77e5d4e8"
+name = "an_empty_selection_is_stated_rather_than_left_blank"
+qual = "an_empty_selection_is_stated_rather_than_left_blank"
+lines = [
+    373,
+    377,
+]
+hash = "sha256:c2a5f313553fcfaf4dff2b764c21fcd4fe44fcb6dff21913576c656d2efa0ace"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3c4bb9f31ec54817",
+    "fn:6efc1c77f3a457e9",
+]
+test = true
+
+[module."condense.rs"]
+path = "crate::agent_docs::condense"
+
+[[module."condense.rs".function]]
+id = "fn:b49fda4bc0d180cd"
+name = "condensed_index_markdown"
+qual = "condensed_index_markdown"
+lines = [
+    39,
+    129,
+]
+hash = "sha256:81b57bde4f296db87122e4b8e5b88ac5fb316604a694062c773a7e637cad5e5a"
+doc_hash = "sha256:0e36a8438970bd1a3f787e82dbfd2f92dce9ca8314987ffa93cd3945884862f4"
+callees = [
+    "fn:32ef32d73c83ec62",
+    "fn:61b89f66fbdd2a18",
+    "fn:6ec4a64fd777254a",
+    "fn:a96f992031006845",
+]
+reached_by = [
+    "#11",
+    "#14",
+]
+
+[[module."condense.rs".function]]
+id = "fn:94b10ee15a3433af"
+name = "crate_index_markdown"
+qual = "crate_index_markdown"
+lines = [
+    131,
+    155,
+]
+hash = "sha256:e9e668f0f220498ef5aa05c3465b53ce368d3fdd4d5dc4782d822ab89cd10284"
+doc_hash = "sha256:8c253ae2857666c0c5122bb3616b1c2fad8a5585060d8af5a2fceab45e9224bc"
+callees = [
+    "fn:a96f992031006845",
+    "fn:bbf17e1702ca2289",
+]
+reached_by = [
+    "#11",
+    "#14",
+]
+
+[[module."condense.rs".function]]
+id = "fn:bbf17e1702ca2289"
+name = "condense_api_markdown"
+qual = "condense_api_markdown"
+lines = [
+    157,
+    209,
+]
+hash = "sha256:1659cde3b031e335ed168daf3ca2dee41ff5c6fdfb19bfea4a26c84e47a9e30e"
+doc_hash = "sha256:9c9d50d25db041e22b9fcfd94cb5c01a5edb4596060f11f8afe173a2293827e9"
+callees = [
+    "fn:6eb45552355646a7",
+    "fn:956c1548c3e93eb7",
+]
+reached_by = [
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#11",
+    "#14",
+]
+
+[[module."condense.rs".function]]
+id = "fn:6eb45552355646a7"
+name = "is_public_signature"
+qual = "is_public_signature"
+lines = [
+    211,
+    219,
+]
+hash = "sha256:b870422aff15b1c0065b914b28d908119af46a351ab28cc195081c2300abe202"
+doc_hash = "sha256:7e1aeb78a7b29772fc1379b6bf3c6a0756e73c415f9f66bca158e19fe025fdfd"
+reached_by = [
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#11",
+    "#14",
+]
+
+[[module."condense.rs".function]]
+id = "fn:956c1548c3e93eb7"
+name = "condensed_heading"
+qual = "condensed_heading"
+lines = [
+    221,
+    240,
+]
+hash = "sha256:f97f4d7745fa1b923279a21c3d703ad7dd4717f78257f79c834126bc24cc561c"
+doc_hash = "sha256:a280a642ef178f7704c703b991ece2497b24f36f4e5ede37b2c75a3de9375949"
+reached_by = [
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#11",
+    "#14",
+]
+
+[[module."condense.rs".function]]
+id = "fn:17495309a41d1bf9"
+name = "boilerplate_headings_are_dropped_but_real_ones_survive"
+qual = "boilerplate_headings_are_dropped_but_real_ones_survive"
+lines = [
+    284,
+    291,
+]
+hash = "sha256:5714e6d54012d99e96a395fc002e30cbcdd995c7733ac8eec9623f2ca26a07a6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:bbf17e1702ca2289"]
+test = true
+
+[[module."condense.rs".function]]
+id = "fn:a36d7d1ba6bb57f8"
+name = "public_signatures_survive_and_private_fields_do_not"
+qual = "public_signatures_survive_and_private_fields_do_not"
+lines = [
+    293,
+    304,
+]
+hash = "sha256:002c07820163f999d2e78400b48ef7eee994e8f43e51c862ca76d823511871fd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:bbf17e1702ca2289"]
+test = true
+
+[[module."condense.rs".function]]
+id = "fn:0b0bf8564207188c"
+name = "exactly_one_description_line_is_kept_and_tables_are_dropped"
+qual = "exactly_one_description_line_is_kept_and_tables_are_dropped"
+lines = [
+    306,
+    318,
+]
+hash = "sha256:9d73adace659c2279ed3f8f53dc8e18cf500f26168e50c351c08f7d011795e9e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:bbf17e1702ca2289"]
+test = true
+
+[[module."condense.rs".function]]
+id = "fn:8bd1accc664e2467"
+name = "prose_outside_a_fence_is_never_mistaken_for_a_signature"
+qual = "prose_outside_a_fence_is_never_mistaken_for_a_signature"
+lines = [
+    320,
+    341,
+]
+hash = "sha256:d657d524e5c39b4473f53c44b2034b7c828700d707f3c69f2434cd9d3e6875f3"
+doc_hash = "sha256:72ada2e321cc1384b508b9227bdafbeda5edae1fabe62f152a156fcd51b0b1af"
+callees = ["fn:bbf17e1702ca2289"]
+test = true
+
+[[module."condense.rs".function]]
+id = "fn:8e79cd2edf327409"
+name = "condensing_is_a_large_reduction"
+qual = "condensing_is_a_large_reduction"
+lines = [
+    343,
+    352,
+]
+hash = "sha256:c90728f9b73225518bc1b50eb20f56692bbda467003ecdbcb8d337722eee14f0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:bbf17e1702ca2289"]
+test = true
+
+[module."mod.rs"]
+path = "crate::agent_docs"
+
+[[module."mod.rs".function]]
+id = "fn:32ef32d73c83ec62"
+name = "estimated_tokens"
+qual = "estimated_tokens"
+lines = [
+    73,
+    80,
+]
+hash = "sha256:0f3012da9cfe32040beb58c926b94a642a5a14969ac3cb132aaa6c857cc4290f"
+doc_hash = "sha256:084886c1776aa7521a0ca50b860468667dccc950cedb11a67a58844207128d0e"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#11",
+    "#14",
+    "#15",
+]
+
+[[module."mod.rs".function]]
+id = "fn:61b89f66fbdd2a18"
+name = "has_api_docs"
+qual = "CrateEntry::has_api_docs"
+lines = [
+    104,
+    107,
+]
+hash = "sha256:152d7efdefe80c8b8efa290d4fed25fa5e8863d829a34e70a1719e84e0b36610"
+doc_hash = "sha256:1e8cf41205250218654391ad6e670e4592cf5a548623198eb747b5c24c0ccf5a"
+reached_by = [
+    "#11",
+    "#12",
+    "#14",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a96f992031006845"
+name = "bundle_filename"
+qual = "CrateEntry::bundle_filename"
+lines = [
+    109,
+    116,
+]
+hash = "sha256:3ce6b5eabdc6b16f6c45cc31d5dba2932f569b235c6a84e54f7cc113daf8d22d"
+doc_hash = "sha256:1b8e74a1d08bc096a1881b0a5afe005d2b3412709417d4610d8f6823f1032004"
+reached_by = [
+    "#10",
+    "#11",
+    "#14",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6ec4a64fd777254a"
+name = "index_filename"
+qual = "CrateEntry::index_filename"
+lines = [
+    118,
+    122,
+]
+hash = "sha256:a9bd9255145737960ffc572a34fbe8164831695aca792dc02659715831acae4e"
+doc_hash = "sha256:474dce17abdd44bc8af85632dbedcea52708efa5d87217cdbd4731b946aca8ae"
+reached_by = [
+    "#11",
+    "#14",
+]
+
+[[module."mod.rs".function]]
+id = "fn:cba6ffe2056ca887"
+name = "inventory"
+qual = "inventory"
+lines = [
+    125,
+    183,
+]
+hash = "sha256:c6e76492f0c5a8b1aafc378ffa0d24bcb0e8a38f245b2051b7694459f12b0da0"
+doc_hash = "sha256:d7692eac7a36b11e530bae0a773983b9b73b4c7ccc2c46e26d7010841bc27751"
+callees = ["fn:f9f0de408fe89f11"]
+reached_by = [
+    "#11",
+    "#12",
+    "#14",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f9f0de408fe89f11"
+name = "package_name"
+qual = "package_name"
+lines = [
+    185,
+    211,
+]
+hash = "sha256:7fad936a3e842482ebdb0327581b32b1a3a3be494ed0886a6cffa365b1c8e695"
+doc_hash = "sha256:1ba64b9ebff7492a2e13a07c80fe2f1e8ba8be18707199d289a7b5d16a7b42b5"
+reached_by = [
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3ffbae6771f5ab26"
+name = "total_bytes"
+qual = "BundleReport::total_bytes"
+lines = [
+    233,
+    240,
+]
+hash = "sha256:eb2687354a00a71ad126534881c5aae02bbf03f5f8727338f2f802738b0a60d5"
+doc_hash = "sha256:5ec487136022092deb5c9c9a2f135b478658cefeaba1c0b68f9f6b88f6239abf"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#11",
+    "#14",
+]
+
+[[module."mod.rs".function]]
+id = "fn:50c90e3fd1509fb7"
+name = "core_bytes"
+qual = "BundleReport::core_bytes"
+lines = [
+    242,
+    255,
+]
+hash = "sha256:4e07266d584c6e42797cc7198a5655882e5eb3d101dba43446f42b42c537ea7b"
+doc_hash = "sha256:bf5f6a0a153df213b972f0b626058f3b615e4c9203f98f5409e0a50b64e2a85a"
+
+[[module."mod.rs".function]]
+id = "fn:5e17db5ad0fd9b55"
+name = "core_estimated_tokens"
+qual = "BundleReport::core_estimated_tokens"
+lines = [
+    257,
+    260,
+]
+hash = "sha256:4f8a5ac11e7419fb60f5f4cf3101c85165c753ed7d1e18f13eac77cf2cca0a63"
+doc_hash = "sha256:ec8b7af0477448a538a554155727e7dbcdf1b9f1931272241b76fc0cb5c8e240"
+callees = [
+    "fn:32ef32d73c83ec62",
+    "fn:50c90e3fd1509fb7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:fe7bd45d28d709b5"
+name = "optional_files"
+qual = "BundleReport::optional_files"
+lines = [
+    262,
+    273,
+]
+hash = "sha256:350a12cb058af28c71b1887f0ba67366791642645be2867ac6caae7e328beee3"
+doc_hash = "sha256:1f253cb6bf92377cfc3cf6a6d7b1f1744d9c8f220cf145b034432f0b8197efd9"
+
+[[module."mod.rs".function]]
+id = "fn:1174a3ebb9fc428d"
+name = "total_estimated_tokens"
+qual = "BundleReport::total_estimated_tokens"
+lines = [
+    275,
+    278,
+]
+hash = "sha256:8e11f7f6d73e55163f16151f95f0e074670c7886c23c147f6c248d1fab1e2a9d"
+doc_hash = "sha256:aa2648eb61bd601ea88bf76d9cb3f8f6b8e92e74f10d3c432f3d7399d1adc159"
+callees = [
+    "fn:32ef32d73c83ec62",
+    "fn:3ffbae6771f5ab26",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#11",
+    "#14",
+]
+
+[[module."mod.rs".function]]
+id = "fn:614b54dff960f001"
+name = "exceeds_budget"
+qual = "BundleReport::exceeds_budget"
+lines = [
+    280,
+    287,
+]
+hash = "sha256:1bef6fc1a7ab62227cef59bf21a6891d53bd8cf6ba518d884cff7139f3b3334c"
+doc_hash = "sha256:e1d3972886242c4b76675f50f4b8afb9dcce8c015fe63c97d6214bfdb4a25d9d"
+callees = ["fn:5e17db5ad0fd9b55"]
+
+[[module."mod.rs".function]]
+id = "fn:47050412b1ba788c"
+name = "write_bundle"
+qual = "write_bundle"
+lines = [
+    290,
+    364,
+]
+hash = "sha256:af992bb97a00487cf5aba6fce0ab9fd899143e8feabaeb6c95459eaa8406715e"
+doc_hash = "sha256:d07c00bd79653a7e6c0ef26bb3bc9f80e627ec60ac220c953e80d91b8889a3ef"
+callees = [
+    "fn:3315932df2302630",
+    "fn:3c4bb9f31ec54817",
+    "fn:61b89f66fbdd2a18",
+    "fn:6ec4a64fd777254a",
+    "fn:94b10ee15a3433af",
+    "fn:a96f992031006845",
+    "fn:b49fda4bc0d180cd",
+]
+reached_by = [
+    "#11",
+    "#14",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3315932df2302630"
+name = "write_and_record"
+qual = "write_and_record"
+lines = [
+    366,
+    376,
+]
+hash = "sha256:3529ee1373907f4cb15d1a74bfcfec7c39025a136e03b565a44d1d4970d0473d"
+doc_hash = "sha256:d3ad0d7458559ad266c66abdf1e5f941097850fec0aaa3ad22da159668065f1a"
+reached_by = [
+    "#11",
+    "#14",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4110b04ffe0a40eb"
+name = "fixture"
+qual = "fixture"
+lines = [
+    382,
+    405,
+]
+hash = "sha256:c2a2901be61591807da2b7eadaadab8104d8858ed92f1cc601ae609fdd38cd32"
+doc_hash = "sha256:26e4abf588cab1fbfea95778fea20776f347d49ee3bf48cf5d36579ece856339"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:6d2d369adf6d19ce"
+name = "inventory_is_sorted_and_finds_api_docs"
+qual = "inventory_is_sorted_and_finds_api_docs"
+lines = [
+    407,
+    423,
+]
+hash = "sha256:77dddc68659329c184a5427868bef6e324e30e9fd3948ad0e28902bdd71c7604"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4110b04ffe0a40eb",
+    "fn:61b89f66fbdd2a18",
+    "fn:cba6ffe2056ca887",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:cdfabcff8eafbe39"
+name = "a_bundle_filename_is_flat"
+qual = "a_bundle_filename_is_flat"
+lines = [
+    425,
+    440,
+]
+hash = "sha256:de57b2df92ad75db98ad9972f9115350413d852f7d79e1993a2b2ec9473d2084"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:a96f992031006845"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:1e8c08074934f537"
+name = "the_token_figure_is_an_estimate_that_rounds_up"
+qual = "the_token_figure_is_an_estimate_that_rounds_up"
+lines = [
+    442,
+    449,
+]
+hash = "sha256:a5feef8546132f1d31e7b65bbf819b0db73d5f580ac2cebee7031d5200f2e7ad"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:32ef32d73c83ec62"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:09ff863b58266c2c"
+name = "the_bundle_is_byte_identical_on_a_rerun"
+qual = "the_bundle_is_byte_identical_on_a_rerun"
+lines = [
+    451,
+    504,
+]
+hash = "sha256:28bf4c7a2aa6dd885011eadea6ecacdf31b2c8ccb3429d91a96b7efa70c4e8fa"
+doc_hash = "sha256:78a6743a4241f745fc514174b7846d45ace81026a96b98df10304f68892a86fd"
+callees = [
+    "fn:4110b04ffe0a40eb",
+    "fn:47050412b1ba788c",
+    "fn:cba6ffe2056ca887",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:652e0bb1a8eb6308"
+name = "a_rerun_does_not_leave_a_deselected_crate_behind"
+qual = "a_rerun_does_not_leave_a_deselected_crate_behind"
+lines = [
+    506,
+    524,
+]
+hash = "sha256:8fe64521691180c637e0cd454b4ad6e841aa8ba062ff5fa000f5df58c9f2f08c"
+doc_hash = "sha256:096f2d1eccd4eccca7db70e90953065d818ab5a0066c6bdf21b5f64978cc7ecb"
+callees = [
+    "fn:4110b04ffe0a40eb",
+    "fn:47050412b1ba788c",
+    "fn:cba6ffe2056ca887",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:83e81c5d669da1ed"
+name = "package_name_is_read_from_the_package_section_only"
+qual = "package_name_is_read_from_the_package_section_only"
+lines = [
+    526,
+    538,
+]
+hash = "sha256:19e808fdc7768256e1ce1ce2a6a804ee3229de26feda844f901d1ff4048928b2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f9f0de408fe89f11"]
+test = true

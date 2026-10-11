@@ -1,0 +1,783 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/nuclide_reaction_and_decay_data"
+test_ids = [
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::decay_changes_nuclide_to_higher_z_daughter",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::irradiation_transmutes_a_stable_target",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::no_field_leaves_a_stable_nuclide_unchanged",
+    "crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/tests.rs::decay_chain_th232",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_ba137m",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_c14",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_co60",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_cs137",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_h3",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_i131",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_k40",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_kr85",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_na22",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_po210",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_pu239",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_ra226",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_rn222",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_sr90",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_test_tritium",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_th232",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_u235",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_u238",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_xe135",
+    "crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/tests.rs::index_tritium",
+    "crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/tests.rs::test_decay_chain",
+    "crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/tests.rs::test_rng",
+    "crates/buangkok/tests/liu_cao_external_dose_cross_check.rs::the_ba137m_branching_agrees_with_the_decay_library",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::failure_history_is_monotone_and_starts_at_end_of_irradiation",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::layers_match_the_recorded_table_and_skip_the_todo",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_carries_every_modelled_nuclide",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_flows_balance_and_follow_upstream_routing",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_pools_reach_equilibrium_and_rise_with_temperature",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::the_slice_is_the_assembled_geometry",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::walk_and_its_check",
+]
+
+[module."actinides_test.rs"]
+path = "crate::nuclide_reaction_and_decay_data::actinides_test"
+
+[[module."actinides_test.rs".function]]
+id = "fn:3614fdacbd0e629d"
+name = "test_actinides_parsing"
+qual = "test_actinides_parsing"
+lines = [
+    3,
+    47,
+]
+hash = "sha256:34ba39e3ad5596f09cb98fd97b0413229114fb97a6160da0f7866c248c51c987"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."alkali_metals_and_hydrogen.rs"]
+path = "crate::nuclide_reaction_and_decay_data::alkali_metals_and_hydrogen"
+
+[[module."alkali_metals_and_hydrogen.rs".function]]
+id = "fn:acb713f49a85f34c"
+name = "test_hydrogen_parsing"
+qual = "test_hydrogen_parsing"
+lines = [
+    4,
+    23,
+]
+hash = "sha256:154b1dd0f05ff5734b0606f68dfe3cfce32a462f80f30ef265e73fa53759f9cd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."alkali_metals_and_hydrogen.rs".function]]
+id = "fn:478144618fbca854"
+name = "test_lithium_parsing"
+qual = "test_lithium_parsing"
+lines = [
+    25,
+    44,
+]
+hash = "sha256:11d6b43773c717cb220aef97e486d08ab40c663ed5130d5cfc5e5a803c0ecf9f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."alkali_metals_and_hydrogen.rs".function]]
+id = "fn:d7908d1a40155f9f"
+name = "test_sodium_parsing"
+qual = "test_sodium_parsing"
+lines = [
+    46,
+    65,
+]
+hash = "sha256:39edc2d3c6d829beba13feab6ce36ebd7d0e859e6080f144eef7cd050eeabf86"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."alkali_metals_and_hydrogen.rs".function]]
+id = "fn:f928be5e30b36612"
+name = "test_potassium_parsing"
+qual = "test_potassium_parsing"
+lines = [
+    67,
+    86,
+]
+hash = "sha256:c8fa3eccedb5603f4b7ed7385eb852296c0dc0a6d141c5ef282f117f5cf17c67"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."alkali_metals_and_hydrogen.rs".function]]
+id = "fn:bebccc33162908a7"
+name = "test_rubidium_parsing"
+qual = "test_rubidium_parsing"
+lines = [
+    88,
+    107,
+]
+hash = "sha256:3670d0470e56e36a3ee5f750ea44b1274cf2bb93690beb63cadd7716fff43a6b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."alkali_metals_and_hydrogen.rs".function]]
+id = "fn:319753150cd40dae"
+name = "test_cesium_parsing"
+qual = "test_cesium_parsing"
+lines = [
+    109,
+    128,
+]
+hash = "sha256:db0e6de7781cbc99d87230e0647ba5409522902aaae474c4c7ef52452054af5c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."alkali_metals_and_hydrogen.rs".function]]
+id = "fn:52dd086d13d7916f"
+name = "test_francium_parsing"
+qual = "test_francium_parsing"
+lines = [
+    130,
+    149,
+]
+hash = "sha256:2cbc9750e7bb2693c3503eb9c4e681f962b73f2d2085402a59538dea1a4f8a67"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."alkaline_earth_metals.rs"]
+path = "crate::nuclide_reaction_and_decay_data::alkaline_earth_metals"
+
+[[module."alkaline_earth_metals.rs".function]]
+id = "fn:6a2d19158bdc46a5"
+name = "test_beryllium_parsing"
+qual = "test_beryllium_parsing"
+lines = [
+    3,
+    22,
+]
+hash = "sha256:de125e597bca81e4591ee4d7246738ebdfdc9ec4a841b163f427359b86ff56e5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."alkaline_earth_metals.rs".function]]
+id = "fn:b606b76547b39420"
+name = "test_magnesium_parsing"
+qual = "test_magnesium_parsing"
+lines = [
+    24,
+    43,
+]
+hash = "sha256:c5d2acb1af8826f546f4b70bafd9576d530ef058d80fcac411c5a992bc3a5f00"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."alkaline_earth_metals.rs".function]]
+id = "fn:d7fc01cbc4bba4bc"
+name = "test_calcium_parsing"
+qual = "test_calcium_parsing"
+lines = [
+    45,
+    64,
+]
+hash = "sha256:c5d0564a160f706dc17b4bc9297cff1e7bd61d81f04c0f565f47f7107c6545e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."alkaline_earth_metals.rs".function]]
+id = "fn:74fd7d147020c487"
+name = "test_strontium_parsing"
+qual = "test_strontium_parsing"
+lines = [
+    66,
+    85,
+]
+hash = "sha256:8b0b57a184d3ebcfcd79a6520ed270f5e41912b2f053141cd635a831dcc230e0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."alkaline_earth_metals.rs".function]]
+id = "fn:248f7467acf6355e"
+name = "test_barium_parsing"
+qual = "test_barium_parsing"
+lines = [
+    87,
+    106,
+]
+hash = "sha256:86bf4a641196fd4f5c7922318a7e72a18ed475ffc3e7e56063025ef2f4c1d574"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."alkaline_earth_metals.rs".function]]
+id = "fn:4b7e12e9e1e44e3c"
+name = "test_radium_parsing"
+qual = "test_radium_parsing"
+lines = [
+    108,
+    127,
+]
+hash = "sha256:b283a4670549e45247465130cb11f84c3c74dfc1fb0f93a834a04af2256da725"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."boron_group_test.rs"]
+path = "crate::nuclide_reaction_and_decay_data::boron_group_test"
+
+[[module."boron_group_test.rs".function]]
+id = "fn:c4f5c68e104bfae3"
+name = "test_boron_group_parsing"
+qual = "test_boron_group_parsing"
+lines = [
+    4,
+    37,
+]
+hash = "sha256:a82e0a68c15b4e0d0ef9848a20b8041618b5df2ff99dcedc89276205b35cb192"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."carbon_group_test.rs"]
+path = "crate::nuclide_reaction_and_decay_data::carbon_group_test"
+
+[[module."carbon_group_test.rs".function]]
+id = "fn:8928626a7f6ed74d"
+name = "test_carbon_group_parsing"
+qual = "test_carbon_group_parsing"
+lines = [
+    4,
+    37,
+]
+hash = "sha256:5889f729444feb2122126080ef0bc4d4b9e41ccb615559b2264a1a9eb1cab3bc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."chalcogens_test.rs"]
+path = "crate::nuclide_reaction_and_decay_data::chalcogens_test"
+
+[[module."chalcogens_test.rs".function]]
+id = "fn:6b973d9dd61762a4"
+name = "test_oxygen_parsing"
+qual = "test_oxygen_parsing"
+lines = [
+    4,
+    23,
+]
+hash = "sha256:140b0a0727cfc68479fb25b60caef05c9607db03df4ab083c49d82ad9e9e65f5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."chalcogens_test.rs".function]]
+id = "fn:a9fda899fd29fae0"
+name = "test_sulfur_parsing"
+qual = "test_sulfur_parsing"
+lines = [
+    25,
+    44,
+]
+hash = "sha256:f7432416033097a1ae8552969b9ad2873ae89305e10d688d04a4ac85c298f18a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."chalcogens_test.rs".function]]
+id = "fn:508afdbf7b8be66a"
+name = "test_selenium_parsing"
+qual = "test_selenium_parsing"
+lines = [
+    46,
+    65,
+]
+hash = "sha256:b67e2ef2ddfdad14a4e8467e8f7e315f1cb2a73a0f8cfb7a380edaaee527e869"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."chalcogens_test.rs".function]]
+id = "fn:ffea2c0a7eb1abac"
+name = "test_tellurium_parsing"
+qual = "test_tellurium_parsing"
+lines = [
+    67,
+    86,
+]
+hash = "sha256:2ad39bc9f90afb195ecc537421137316c428f848bcdaef52986908ce01c39aeb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."chalcogens_test.rs".function]]
+id = "fn:91fb69db2c417ea7"
+name = "test_polonium_parsing"
+qual = "test_polonium_parsing"
+lines = [
+    87,
+    106,
+]
+hash = "sha256:ef27189213079a53263336ce5e706f859a97a30fe2510d42e49dbed084df0c98"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."halogens_test.rs"]
+path = "crate::nuclide_reaction_and_decay_data::halogens_test"
+
+[[module."halogens_test.rs".function]]
+id = "fn:e48c59743a42392b"
+name = "test_fluorine_parsing"
+qual = "test_fluorine_parsing"
+lines = [
+    4,
+    23,
+]
+hash = "sha256:22ccddf89fb1ed35c9edcacb0b95263867b66fc87cea1572f491c08eeb5fb96a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."halogens_test.rs".function]]
+id = "fn:472b4e7b01757fa9"
+name = "test_chlorine_parsing"
+qual = "test_chlorine_parsing"
+lines = [
+    25,
+    44,
+]
+hash = "sha256:fa85bf96c81758611d69651483a0ca9b5949bad8721005d953a0442cf88ce600"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."halogens_test.rs".function]]
+id = "fn:38c2ad9d7bf0086e"
+name = "test_bromine_parsing"
+qual = "test_bromine_parsing"
+lines = [
+    46,
+    65,
+]
+hash = "sha256:070aded9761762e3f158f413ed3cd063c1109b78150fe1a542deef768b6e4c06"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."halogens_test.rs".function]]
+id = "fn:8c62dcbeb8dd862a"
+name = "test_iodine_parsing"
+qual = "test_iodine_parsing"
+lines = [
+    67,
+    86,
+]
+hash = "sha256:fe0d4dfd11c1ff680ac81cf054536c8d789e0e59e1a6960dda631871a82b8611"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."halogens_test.rs".function]]
+id = "fn:f150ac8bd3b69ae6"
+name = "test_astatine_parsing"
+qual = "test_astatine_parsing"
+lines = [
+    87,
+    106,
+]
+hash = "sha256:2de51ca502a3357b6c65d3be3a4f33f5a86d60765ddc7a3982e307e681894187"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."heavier_than_actinides.rs"]
+path = "crate::nuclide_reaction_and_decay_data::heavier_than_actinides"
+
+[[module."heavier_than_actinides.rs".function]]
+id = "fn:2159b47e53c59d37"
+name = "test_rutherfordium_to_roentgenium_parsing"
+qual = "test_rutherfordium_to_roentgenium_parsing"
+lines = [
+    3,
+    37,
+]
+hash = "sha256:c2211dc54daa3bf8763da01475864db364fe3dc269d776f0f0c4f12396475263"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."lanthanides_test.rs"]
+path = "crate::nuclide_reaction_and_decay_data::lanthanides_test"
+
+[[module."lanthanides_test.rs".function]]
+id = "fn:139ea3d7e93d82b8"
+name = "test_lanthanides_parsing"
+qual = "test_lanthanides_parsing"
+lines = [
+    3,
+    44,
+]
+hash = "sha256:dff6d09db7643a737e568e919ef4d67a4c0131b9929e96d396e4fb1f38b7a1cd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."mod.rs"]
+path = "crate::nuclide_reaction_and_decay_data"
+
+[[module."mod.rs".function]]
+id = "fn:54d1d7bde3083944"
+name = "parse_from_string"
+qual = "DecayType::parse_from_string"
+lines = [
+    60,
+    89,
+]
+hash = "sha256:aebf3c0e31f2aa69cdcee7f1bc20a4fbd934466ad667995e167ab21c2b850521"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:6a0234a9be150f08"
+name = "from"
+qual = "NuclideReactionAndDecayData::from"
+lines = [
+    93,
+    217,
+]
+hash = "sha256:1c768fc4dfa145a29bec5f06e1d2175dce7552bbc3421178d2dd5b2ee04438bb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:54d1d7bde3083944"]
+
+[module."noble_gases_test.rs"]
+path = "crate::nuclide_reaction_and_decay_data::noble_gases_test"
+
+[[module."noble_gases_test.rs".function]]
+id = "fn:09f5c606e4d5e87c"
+name = "test_helium_parsing"
+qual = "test_helium_parsing"
+lines = [
+    4,
+    23,
+]
+hash = "sha256:bb7e01ea3f9337a052f495e18cba6e80319197c6ddd28a9a3e6fa0d8bb4f3be8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."noble_gases_test.rs".function]]
+id = "fn:ed3fb0ae1c1307b8"
+name = "test_neon_parsing"
+qual = "test_neon_parsing"
+lines = [
+    25,
+    44,
+]
+hash = "sha256:491f7ef23487ecf58ae7dab463a7608202609e3960a434b69a0de6f74d2e362d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."noble_gases_test.rs".function]]
+id = "fn:f5a87529e70ac591"
+name = "test_argon_parsing"
+qual = "test_argon_parsing"
+lines = [
+    46,
+    65,
+]
+hash = "sha256:23757bf3de1c347223b83f4a4773769e5674e2d3f1cb45e14c0e8505740f8ced"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."noble_gases_test.rs".function]]
+id = "fn:91541c8b1c047ab9"
+name = "test_krypton_parsing"
+qual = "test_krypton_parsing"
+lines = [
+    67,
+    86,
+]
+hash = "sha256:50c21243da871af712f96db72fab46d550da6bda579d6aedbea25ae108a2c917"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."noble_gases_test.rs".function]]
+id = "fn:ebca615b5ea4b0bc"
+name = "test_xenon_parsing"
+qual = "test_xenon_parsing"
+lines = [
+    87,
+    106,
+]
+hash = "sha256:780bb7456a9be84de70031df9c7b0b933d779ec01652096a6d9b7589af6db1db"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."noble_gases_test.rs".function]]
+id = "fn:6233321f2ee08c2e"
+name = "test_radon_parsing"
+qual = "test_radon_parsing"
+lines = [
+    108,
+    127,
+]
+hash = "sha256:2314e5f63777df0b4f11e8f36b04b3302621ba4563f225cf249857d6a5db6d8a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."parse_nuclides_to_decay_data.rs"]
+path = "crate::nuclide_reaction_and_decay_data::parse_nuclides_to_decay_data"
+
+[[module."parse_nuclides_to_decay_data.rs".function]]
+id = "fn:19825eb3e4081687"
+name = "computationally_expensive_parse_nuclide_to_decay_data"
+qual = "NuclideReactionAndDecayData::computationally_expensive_parse_nuclide_to_decay_data"
+lines = [
+    7,
+    20,
+]
+hash = "sha256:e34195261dd9482c875339f1d9dd216a22cd7b12b5f9bce493ea3a51c616745d"
+doc_hash = "sha256:0049a311466edddc2462bfaa2e3054881e0e3b548efa77f079b5aa695e5b7d52"
+callees = [
+    "fn:094c1bcb03a9b17f",
+    "fn:f5fc6e6d09e9c35b",
+]
+
+[[module."parse_nuclides_to_decay_data.rs".function]]
+id = "fn:c756d761a0c16d8d"
+name = "parse_nuclides_to_decay_data_vec_by_element"
+qual = "NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element"
+lines = [
+    22,
+    168,
+]
+hash = "sha256:bb06a7ff2d6a87a7e57c3545292902fd5201b1e9b8fdb1463b1358977c0208a1"
+doc_hash = "sha256:798fb80ffa775031f8c1e34cf9aadeef82975cbff76552ef785604e2b022fd93"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[module."pnictogens_test.rs"]
+path = "crate::nuclide_reaction_and_decay_data::pnictogens_test"
+
+[[module."pnictogens_test.rs".function]]
+id = "fn:b40c9a7846470832"
+name = "test_nitrogen_parsing"
+qual = "test_nitrogen_parsing"
+lines = [
+    4,
+    23,
+]
+hash = "sha256:5fb7e765d74b1532ff67aceb7e791656852ad3bdfdbd012aa09000ffc78173e2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."pnictogens_test.rs".function]]
+id = "fn:048701b329c267f5"
+name = "test_phosphorous_parsing"
+qual = "test_phosphorous_parsing"
+lines = [
+    25,
+    44,
+]
+hash = "sha256:12c30dd57afcdae5942a380777d32844e62b826d2f00815d80323532a7e8c1a8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."pnictogens_test.rs".function]]
+id = "fn:240ceb4bcc29043a"
+name = "test_arsenic_parsing"
+qual = "test_arsenic_parsing"
+lines = [
+    46,
+    65,
+]
+hash = "sha256:326e1df748f4414e9ab7bad31c1de62c3bb22ba0d096c831751acd36058481af"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."pnictogens_test.rs".function]]
+id = "fn:e7a7e1c58bbabcb4"
+name = "test_antimony_parsing"
+qual = "test_antimony_parsing"
+lines = [
+    67,
+    86,
+]
+hash = "sha256:9b127106100463158de1bf6daa9ddd0052576bffb75c36a079e34171b0f761d3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."pnictogens_test.rs".function]]
+id = "fn:07eda86e5425fff9"
+name = "test_bismuth_parsing"
+qual = "test_bismuth_parsing"
+lines = [
+    87,
+    106,
+]
+hash = "sha256:fc53758e250f70bf9605bf7792f347f64f31b033e0d82957745821930e235c91"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."transition_metals_test.rs"]
+path = "crate::nuclide_reaction_and_decay_data::transition_metals_test"
+
+[[module."transition_metals_test.rs".function]]
+id = "fn:b0d5c0cc237458dd"
+name = "test_scandium_parsing"
+qual = "test_scandium_parsing"
+lines = [
+    4,
+    23,
+]
+hash = "sha256:5d2aad0f5f30fe7f66eb46a8ab2b44f57adc03496235d5d588b417304a990a2c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."transition_metals_test.rs".function]]
+id = "fn:0f027e025982bffb"
+name = "test_titanium_parsing"
+qual = "test_titanium_parsing"
+lines = [
+    24,
+    43,
+]
+hash = "sha256:d0b042ec21299a747d1df6d63fbbdc78b8f230fe2bda9d7cbeb1e4177c2e4e54"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."transition_metals_test.rs".function]]
+id = "fn:f75c5b03efa658a8"
+name = "test_vanadium_parsing"
+qual = "test_vanadium_parsing"
+lines = [
+    45,
+    64,
+]
+hash = "sha256:743a0a8c57866818d707255514f09b83f3d3db146b86be1c343be5a511a0a30d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."transition_metals_test.rs".function]]
+id = "fn:d38b6d14b5b379e1"
+name = "test_chromium_parsing"
+qual = "test_chromium_parsing"
+lines = [
+    66,
+    85,
+]
+hash = "sha256:f2165c6215c7a2f07b7dee76c8fad68b030f538dc0378f741b08c3433e51d3f3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."transition_metals_test.rs".function]]
+id = "fn:dea05ceec482801e"
+name = "test_manganese_parsing"
+qual = "test_manganese_parsing"
+lines = [
+    87,
+    106,
+]
+hash = "sha256:44afc4b7df3aae1d3ef833761832240058f3b57eb5aef20d71809b467a768a30"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."transition_metals_test.rs".function]]
+id = "fn:6a0a9d172b721496"
+name = "test_iron_parsing"
+qual = "test_iron_parsing"
+lines = [
+    108,
+    127,
+]
+hash = "sha256:9704288a39be36aa40ac94a2febf1acdd8cd77b2aeeb074fb24e1afe131cbd6a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."transition_metals_test.rs".function]]
+id = "fn:c8d94f70563df629"
+name = "test_cobalt_parsing"
+qual = "test_cobalt_parsing"
+lines = [
+    129,
+    148,
+]
+hash = "sha256:4661ca64e282b1a73e78b113f3c4069f56611dbf6a36be2dcde8863639e0e216"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."transition_metals_test.rs".function]]
+id = "fn:1e251f47350d335d"
+name = "test_nickel_parsing"
+qual = "test_nickel_parsing"
+lines = [
+    150,
+    169,
+]
+hash = "sha256:6f627074d819d6ec1f145ca7130fef370eaee98bd16eb94bd1a88fa9c8466035"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."transition_metals_test.rs".function]]
+id = "fn:2047d90b158eb930"
+name = "test_copper_parsing"
+qual = "test_copper_parsing"
+lines = [
+    171,
+    190,
+]
+hash = "sha256:7bc931e89dc300068d46d53b3e7a55de353eecf37161a5591d3510d2c458d1f6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."transition_metals_test.rs".function]]
+id = "fn:9dee939007f572e7"
+name = "test_zinc_parsing"
+qual = "test_zinc_parsing"
+lines = [
+    191,
+    210,
+]
+hash = "sha256:2a14a2f8d76a416b65cfe073aaea0e824f252ed16660eb21829be67d493df89f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."transition_metals_test.rs".function]]
+id = "fn:c822b478d8b7f738"
+name = "test_ruthenium_parsing"
+qual = "test_ruthenium_parsing"
+lines = [
+    212,
+    231,
+]
+hash = "sha256:94a6efbc8411d89c58f7781ba7c6bb1c74a4d0a024e646eda0fdce6b57c8ee6f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."transition_metals_test.rs".function]]
+id = "fn:0f1656ad69d4ab3c"
+name = "test_transition_metals_parsing_y_to_hg_excl_ru"
+qual = "test_transition_metals_parsing_y_to_hg_excl_ru"
+lines = [
+    233,
+    279,
+]
+hash = "sha256:e2b7363c876e2c0004958d2d9ce51c6194780f7b294f6b3f35fdf7145f925944"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true

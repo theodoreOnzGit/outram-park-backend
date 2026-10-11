@@ -1,0 +1,954 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-coolprop"
+dir = "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::restarting_starts_a_fresh_run_and_abandons_the_old_one",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::the_map_reset_button_restarts_the_plant_and_keeps_the_map_view",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_against_liu_and_cao_table_8",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_conserves_energy_and_vents_the_published_mass",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_with_air_ingress_indicative_30_min",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::kinetics_fuel_node_tracks_the_bed_node_after_a_scram",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_at_the_published_test_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_reactor_shuts_itself_down",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_with_and_without_xenon",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::no_corner_of_the_command_envelope_crosses_or_clamps",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_rod_position_that_holds_three_megawatts",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_steady_state_bed_temperature_at_the_opening_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::reproduce_issue_22_scram_cooldown_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_core_side_energy_chain_conserves_energy",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_exchanger_holds_its_courant_margin_at_maximum_circulator_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_gh351_excursion_runs_through_2000_k_with_a_resolved_fuel_stack",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_helium_never_leaves_the_core_hotter_than_the_bed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_kernel_doppler_channel_is_ablated_on_the_lofc_transient",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_passive_path_conserves_energy_through_a_full_plant_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_plant_outer_correctors_converge",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_snapshot_publishes_each_runs_own_transit_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_conserves_energy_from_fission_to_the_steam_generator",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_steps_at_the_gui_timestep",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_against_gao_shi_and_liu_cao",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_conserves_energy_and_follows_the_published_sequence",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::where_the_plant_step_spends_its_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::commanded_flow_is_clamped_to_the_circulator_range",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::core_inlet_responds_to_secondary_heat_removal",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::core_temperature_rise_matches_the_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::loop_pressure_drop_sits_on_the_published_budget_and_rises_with_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::steam_generator_has_no_node_by_node_temperature_cross",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::the_primary_loop_closes_its_own_balance_and_hands_the_exchanger_its_enthalpy",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::the_return_leg_residence_time_scales_with_flow_and_carries_the_circulator_work",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_absorbable_duty_cap_no_longer_binds",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs::a_duty_step_is_filtered_by_the_metal_time_constant",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs::energy_balance_closes_across_the_exchanger",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs::sub_substep_calls_accumulate_rather_than_advancing_or_vanishing",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs::the_cold_stream_resolves_all_three_zones",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs::the_corrector_substep_trade_is_measured",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs::the_courant_number_bounds_the_array_substep",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs::the_gui_millisecond_timestep_reaches_the_same_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/tede_accumulator.rs::the_plant_publishes_a_deterministic_integral",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::tick_advances_exactly_one_step",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::non_positive_timestep_is_rejected",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stagnant_run_places_no_mark",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stepping_advances_the_backend",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::tracer_phase_persists_across_steps",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fluid_thermo/solid_thermo.rs::conduction_solve",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/ddt.rs::ddt_coeff_solves_to_old_when_no_spatial_terms",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/ddt.rs::ddt_solves_to_old_when_no_spatial_terms",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/ddt_vec.rs::ddt_coeff_vec_solves_to_old_when_no_spatial_terms",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/ddt_vec.rs::ddt_vec_recovers_constant_field",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/laplacian.rs::laplacian_solves_linear_dirichlet",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/laplacian_vec.rs::laplacian_vec_1d_linear_profile",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/fv_matrix.rs::solve_diagonal_system",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/fv_vector_matrix.rs::diagonal_system_solves_vector",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/conjugate_gradient.rs::cg_faster_than_gs_on_symmetric",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/conjugate_gradient.rs::cg_identity",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/conjugate_gradient.rs::cg_solves_1d_poisson",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gamg.rs::gamg_cycle_count_is_mesh_independent",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gamg.rs::gamg_handles_tiny_matrix",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gamg.rs::gamg_solves_1d_poisson",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gamg.rs::gamg_warm_start_returns_immediately",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gauss_seidel.rs::diagonal_system_one_iter",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gauss_seidel.rs::solves_diagonally_dominant_system",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::clear_vectors_empties_after_step",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::energy_balance_modes_agree_at_small_courant",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::energy_convection_is_bounded_at_an_advected_front",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::flow_reversal_keeps_enthalpy_bounded_by_both_end_states",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::implicit_energy_balance_survives_courant_above_one",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::implicit_mode_closes_the_steady_energy_balance",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::implicit_mode_preserves_boundedness_at_an_advected_front",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::inlet_enthalpy_bc_cools_uniform_field_without_reapplying_each_step",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::inlet_enthalpy_bc_heats_uniform_field_without_reapplying_each_step",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::inlet_outlet_bcs_drive_gas_flow_and_outlet_pressure_settles",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::lateral_conductance_cools_toward_colder_neighbour",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::lateral_heat_source_raises_temperature_over_a_step",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::mass_flow_inlet_closes_the_steady_energy_balance",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::mass_flow_inlet_imposes_the_prescribed_flowrate",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::pressure_bounding_clamps_transient_within_set_bounds",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::steady_energy_balance_closes_at_the_boundaries",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::transient_energy_imbalance_is_the_enthalpy_of_the_unconserved_mass",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/mod.rs::enthalpy_guard_clamps_and_counts",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/mod.rs::hybrid_mode_is_noop_on_subsonic_gas_and_matches_pimple",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/mod.rs::one_d_array_constructs_and_steps",
+    "crates/tampines/src/components/helical_coil_sg_standalone.rs::the_implicit_coupling_converges_and_beats_real_time_at_the_largest_stable_substep",
+    "crates/tampines/src/components/helical_coil_sg_standalone.rs::the_standalone_harness_is_deterministic",
+    "crates/tampines/tests/wasm_smoke.rs::helium_steam_generator_builds_and_advances_under_wasm",
+]
+
+[module."conjugate_gradient.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::ldu_matrix::solvers::conjugate_gradient"
+
+[[module."conjugate_gradient.rs".function]]
+id = "fn:c8430001e69ee5da"
+name = "conjugate_gradient"
+qual = "conjugate_gradient"
+lines = [
+    25,
+    155,
+]
+hash = "sha256:38c3db19f4c63c9138b6ddef262f0e26caaa19a5d51a5eb97cf1488de3d71169"
+doc_hash = "sha256:88bb8c433fe95fbf408ee8b4e07d23db5839fdcdb81c901c178cbc5c0ddedf69"
+callees = [
+    "fn:02c21016c0dec465",
+    "fn:273e05aaeeec8cdc",
+    "fn:5cdf256627b1425a",
+    "fn:b0cc7244bdde7b9a",
+    "fn:cccfde761fa2c88a",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#56",
+    "#57",
+    "#58",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+]
+
+[[module."conjugate_gradient.rs".function]]
+id = "fn:02c21016c0dec465"
+name = "dic_reciprocal_diag"
+qual = "dic_reciprocal_diag"
+lines = [
+    157,
+    178,
+]
+hash = "sha256:434f774b45369c375020fb9a1bf174fca3a4d97d438b78c5187cf393b0e69aa0"
+doc_hash = "sha256:ba2176cdecc3b55cabe1a6776de46905b33df015287a80e6589573fe0156008f"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#56",
+    "#57",
+    "#58",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+]
+
+[[module."conjugate_gradient.rs".function]]
+id = "fn:cccfde761fa2c88a"
+name = "dic_precondition"
+qual = "dic_precondition"
+lines = [
+    180,
+    203,
+]
+hash = "sha256:39cc7f58057f10cba531770130141b55fbb911d15d100f934a8978a92c0973f0"
+doc_hash = "sha256:3a4554a7f1fadb188ac8ed5cf12a2cc75774b61d0c417da927ebde69b10d89eb"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#56",
+    "#57",
+    "#58",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+]
+
+[[module."conjugate_gradient.rs".function]]
+id = "fn:273e05aaeeec8cdc"
+name = "dot"
+qual = "dot"
+lines = [
+    205,
+    208,
+]
+hash = "sha256:86b7ee14abcb9ba89d2df740d801edb7de23eb39ff0b3df6f1e5a9961e936a91"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#56",
+    "#57",
+    "#58",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+]
+
+[[module."conjugate_gradient.rs".function]]
+id = "fn:28321e648ef8ae4b"
+name = "tridiag"
+qual = "tridiag"
+lines = [
+    215,
+    228,
+]
+hash = "sha256:23942908a8a0ff506a708c6d5c37e422e1ec3fc2d044b5bdf91422119f930fe8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:94fd406843ac4017"]
+test = true
+
+[[module."conjugate_gradient.rs".function]]
+id = "fn:dbbf79ae49b0a67a"
+name = "cg_identity"
+qual = "cg_identity"
+lines = [
+    230,
+    244,
+]
+hash = "sha256:b6d2b4cfc7fa9d00fb8ee43e8ed5626bdb02d19e75afab68a4d0c121d7b70118"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:94fd406843ac4017",
+    "fn:c8430001e69ee5da",
+]
+test = true
+
+[[module."conjugate_gradient.rs".function]]
+id = "fn:c4f1ccba606f5617"
+name = "cg_solves_1d_poisson"
+qual = "cg_solves_1d_poisson"
+lines = [
+    246,
+    267,
+]
+hash = "sha256:9e9abaec77359895d9be68dde1d3c24b9b6eb9781f8956f3954b11083c392dbf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:28321e648ef8ae4b",
+    "fn:c8430001e69ee5da",
+]
+test = true
+
+[[module."conjugate_gradient.rs".function]]
+id = "fn:58a9ca9591c3bb11"
+name = "cg_faster_than_gs_on_symmetric"
+qual = "cg_faster_than_gs_on_symmetric"
+lines = [
+    269,
+    287,
+]
+hash = "sha256:bcb29b51ac841c777e43ad7b56ea204922d82028f8c8e94864d3a3549890891d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:28321e648ef8ae4b",
+    "fn:c8430001e69ee5da",
+]
+test = true
+
+[module."gamg.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::ldu_matrix::solvers::gamg"
+
+[[module."gamg.rs".function]]
+id = "fn:716667f36efd32ec"
+name = "build"
+qual = "GamgCycle::build"
+lines = [
+    107,
+    144,
+]
+hash = "sha256:011bd70c00523851eed877e486afd8048686702ed570347741650ccf04bdf0c4"
+doc_hash = "sha256:c33b62307f52db5403b30ecb84c9fbeca4df3e516b545c31e7974b9115ab9aee"
+callees = [
+    "fn:687f2a4524d2aeb7",
+    "fn:bb1caec265dd6267",
+]
+reached_by = [
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+]
+
+[[module."gamg.rs".function]]
+id = "fn:18ccf62171b91afc"
+name = "solve_level"
+qual = "GamgCycle::solve_level"
+lines = [
+    146,
+    185,
+]
+hash = "sha256:c743f233ee069c7ca18967f52d9eb6a6528007665541c3518f1f381a0627866b"
+doc_hash = "sha256:3b1afbfad6a675bd99f21ebec03e6fa9765e6f658ad8facd9ee239ff344c08fd"
+callees = [
+    "fn:12a15f6f12f205f5",
+    "fn:20572b62d9b8773b",
+    "fn:37a3c6181a094c5a",
+    "fn:4ba87bf94a78c7c4",
+    "fn:5cdf256627b1425a",
+    "fn:9ead8dae4cab90a7",
+    "fn:b0cc7244bdde7b9a",
+]
+reached_by = [
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+]
+
+[[module."gamg.rs".function]]
+id = "fn:1c26ad792975bff9"
+name = "gamg"
+qual = "gamg"
+lines = [
+    188,
+    288,
+]
+hash = "sha256:8f2e68c0d6f3c35f19e9abc118ecaaa9ccab52a5b822c2c84a7dcc6dcd5375f2"
+doc_hash = "sha256:6000e2a5b312198cad45ee7f373b0c8e781159b7e9d0d31b662bca9e7e53969e"
+callees = [
+    "fn:18ccf62171b91afc",
+    "fn:1a2102ab9a819728",
+    "fn:37a3c6181a094c5a",
+    "fn:5cdf256627b1425a",
+    "fn:716667f36efd32ec",
+]
+reached_by = [
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+]
+
+[[module."gamg.rs".function]]
+id = "fn:bb1caec265dd6267"
+name = "pair_agglomerate"
+qual = "pair_agglomerate"
+lines = [
+    292,
+    391,
+]
+hash = "sha256:c6d5a57944dc52b3655e1c1d4a9cf82cdcdd84e9fcdb42df247929e05874f24d"
+doc_hash = "sha256:8c977f7a0bad8d50cfef2c00f9b051ddb5d5521dd5d72d14ff7dd9a4c368ec5c"
+reached_by = [
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+]
+
+[[module."gamg.rs".function]]
+id = "fn:687f2a4524d2aeb7"
+name = "agglomerate_matrix"
+qual = "agglomerate_matrix"
+lines = [
+    393,
+    451,
+]
+hash = "sha256:203c98e1ef2220a980f1dddff75849f861518c1fe6db08a9c539d6f604d38cbf"
+doc_hash = "sha256:aa64505b0d57a5c729678a7392a2c42a00426c7317e748acf1a7fff9db5899f2"
+callees = ["fn:94fd406843ac4017"]
+reached_by = [
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+]
+
+[[module."gamg.rs".function]]
+id = "fn:12a15f6f12f205f5"
+name = "restrict_field"
+qual = "restrict_field"
+lines = [
+    455,
+    463,
+]
+hash = "sha256:11f5e380b04e0721dda313d65633fc91f4fb9076343c06fad33fe44a26870f7c"
+doc_hash = "sha256:afd2f5f16ce7a9407628b07e78d75118d721462e2f90e156385ef2bdc5b898bf"
+reached_by = [
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+]
+
+[[module."gamg.rs".function]]
+id = "fn:9ead8dae4cab90a7"
+name = "prolong_field"
+qual = "prolong_field"
+lines = [
+    465,
+    469,
+]
+hash = "sha256:de9cce46355376664cac85c036776b131f3ee47e4c0a9635c75f432afcc2ce52"
+doc_hash = "sha256:9b8fd98337d996b3161291216d629512fc92230a4c18556cc2df8546701a141b"
+reached_by = [
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+]
+
+[[module."gamg.rs".function]]
+id = "fn:20572b62d9b8773b"
+name = "smooth"
+qual = "smooth"
+lines = [
+    473,
+    480,
+]
+hash = "sha256:70f9980ad16195d30b88466959649e3a892bba072707b7488fd7bf5470857fce"
+doc_hash = "sha256:546041356fe22b7f6f304ea2416214a217f34aaad1de82c6af294dcb25c57960"
+callees = ["fn:272b87577b4cd14f"]
+reached_by = [
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+]
+
+[[module."gamg.rs".function]]
+id = "fn:37a3c6181a094c5a"
+name = "solve_coarsest"
+qual = "solve_coarsest"
+lines = [
+    482,
+    506,
+]
+hash = "sha256:141a84125b8046171406d6483ea7e64117ec464899ed4f8d2497c77f2e077a73"
+doc_hash = "sha256:623efe978646d393bb0ad460978c21184b4cf001d5f1817da011bf4ca8211f02"
+callees = [
+    "fn:20005ac2ae2c4e2a",
+    "fn:272b87577b4cd14f",
+    "fn:a8a2befceeba0d2b",
+    "fn:d0fb42446da66793",
+]
+reached_by = [
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+]
+
+[[module."gamg.rs".function]]
+id = "fn:1a2102ab9a819728"
+name = "l2"
+qual = "l2"
+lines = [
+    508,
+    512,
+]
+hash = "sha256:bc063d460755d2e87e3b709c06cb2a0733a407643e9a22cd261961fd15e6ff5c"
+doc_hash = "sha256:d769dfb34fd610622d4b97e56d025bdcb6f6e6cfa75ea3fa1fdbc676f87d56a2"
+reached_by = [
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+]
+
+[[module."gamg.rs".function]]
+id = "fn:4ba87bf94a78c7c4"
+name = "dot"
+qual = "dot"
+lines = [
+    514,
+    518,
+]
+hash = "sha256:fc7ad44625da3adc6fcc4e15cfa39f2f90c86fd5fbcc58e9caad2770c94c372c"
+doc_hash = "sha256:65f42b12a2df4fa89c8c60966929081fd38e52e59ed7fd0cb8d2a10e78459d20"
+reached_by = [
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+]
+
+[[module."gamg.rs".function]]
+id = "fn:3f656df33a68a838"
+name = "poisson_1d"
+qual = "poisson_1d"
+lines = [
+    524,
+    535,
+]
+hash = "sha256:8f24424b85fd12eb3ba2e91c495a952397cbbd9c1b1c1e30d63b4f5b2ab3ec1c"
+doc_hash = "sha256:bab0aa695bac4b3defa9d5c883de5c870bc31076338604eb3852582f33b65bd1"
+callees = ["fn:94fd406843ac4017"]
+test = true
+
+[[module."gamg.rs".function]]
+id = "fn:e31a407d61c0de1e"
+name = "gamg_solves_1d_poisson"
+qual = "gamg_solves_1d_poisson"
+lines = [
+    537,
+    557,
+]
+hash = "sha256:2c3a6db6f4dcf9bf4ed49d2c1d827ddc6e5a7fecb23dff0ec11d0b947fd8faf2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c26ad792975bff9",
+    "fn:3f656df33a68a838",
+]
+test = true
+
+[[module."gamg.rs".function]]
+id = "fn:ef854b1d380a88e3"
+name = "gamg_cycle_count_is_mesh_independent"
+qual = "gamg_cycle_count_is_mesh_independent"
+lines = [
+    559,
+    582,
+]
+hash = "sha256:55ae87b1fd52c00561b4d834b80f3abc747675a1b48fc2de142a29f8d43a4a51"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c26ad792975bff9",
+    "fn:3f656df33a68a838",
+]
+test = true
+
+[[module."gamg.rs".function]]
+id = "fn:ad0e2eeafe396c55"
+name = "gamg_warm_start_returns_immediately"
+qual = "gamg_warm_start_returns_immediately"
+lines = [
+    584,
+    596,
+]
+hash = "sha256:54d2a3660d1420842cc9ed5d1acab7cf152f6ba888881ccd6aef50fbe737a6be"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c26ad792975bff9",
+    "fn:3f656df33a68a838",
+]
+test = true
+
+[[module."gamg.rs".function]]
+id = "fn:b8ae7a9d2abeb4ea"
+name = "gamg_handles_tiny_matrix"
+qual = "gamg_handles_tiny_matrix"
+lines = [
+    598,
+    616,
+]
+hash = "sha256:cfabf028908735e338006f607f8c4b64e77c258cc1934e54289a8b8510542ff7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c26ad792975bff9",
+    "fn:94fd406843ac4017",
+]
+test = true
+
+[module."gauss_seidel.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::ldu_matrix::solvers::gauss_seidel"
+
+[[module."gauss_seidel.rs".function]]
+id = "fn:272b87577b4cd14f"
+name = "gauss_seidel"
+qual = "gauss_seidel"
+lines = [
+    24,
+    76,
+]
+hash = "sha256:f85c6cfeadb3380ee7877c9b31fa237d36b8a054f000dd6b1551791bd4c815f7"
+doc_hash = "sha256:6be1a21e2f4c44c349f0c6357cb438af610adc5e361aedd8de6ac29c3317e8e3"
+callees = ["fn:0d5aa76856f9070e"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+]
+
+[[module."gauss_seidel.rs".function]]
+id = "fn:9a52a81f22175df8"
+name = "tridiag_3x3"
+qual = "tridiag_3x3"
+lines = [
+    85,
+    91,
+]
+hash = "sha256:22a58a44f2f5f416c4ea13617363a3220ba88c29b4b8c01530b22d1f685282e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:94fd406843ac4017"]
+test = true
+
+[[module."gauss_seidel.rs".function]]
+id = "fn:6476f97634de7ccf"
+name = "solves_diagonally_dominant_system"
+qual = "solves_diagonally_dominant_system"
+lines = [
+    93,
+    104,
+]
+hash = "sha256:fed76423124951ae71a4c453ed2ceacaf86a2d3a0dafe314f9d80b9dd5193696"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:272b87577b4cd14f",
+    "fn:9a52a81f22175df8",
+]
+test = true
+
+[[module."gauss_seidel.rs".function]]
+id = "fn:d90ac82724a72c9b"
+name = "diagonal_system_one_iter"
+qual = "diagonal_system_one_iter"
+lines = [
+    106,
+    118,
+]
+hash = "sha256:64003de318ec411a3c30d3bb8f6d2f652a5f4b7b55090d6a5aec545dc528d9c5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:272b87577b4cd14f",
+    "fn:94fd406843ac4017",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::ldu_matrix::solvers"

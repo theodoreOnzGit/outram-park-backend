@@ -1,0 +1,120 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-coolprop"
+dir = "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/mesh"
+test_ids = [
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/mesh/region_interface.rs::exchange_temperature_matching",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/mesh/region_interface.rs::non_matching_interface_nearest_centre",
+]
+
+[module."mod.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::mesh"
+
+[module."region_interface.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::mesh::region_interface"
+
+[[module."region_interface.rs".function]]
+id = "fn:124d9ead04070f24"
+name = "matching"
+qual = "RegionInterface::matching"
+lines = [
+    51,
+    70,
+]
+hash = "sha256:0567590fe046000e4bee969c637bbed451c4f6746c36167e5063666fab60a8fe"
+doc_hash = "sha256:b8d45d9bcd8dd7ba2a924ebff4d00a92b6f7b2eebc3d11f616d7801952fa2cd1"
+reached_by = ["#0"]
+
+[[module."region_interface.rs".function]]
+id = "fn:82522982c7d660e0"
+name = "from_face_centres"
+qual = "RegionInterface::from_face_centres"
+lines = [
+    72,
+    114,
+]
+hash = "sha256:5f63dd6e5ef4849d3adfdc3a522f04a6c8ee1ae00fdfa0d1ee96398d30f89cdc"
+doc_hash = "sha256:8619f599b3a6791d87b83022bbd7201788c447a1ebaf9f9f188b51e5b4234b82"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:927492c9c3315b25",
+]
+reached_by = ["#1"]
+
+[[module."region_interface.rs".function]]
+id = "fn:a1b303d3cfadac7d"
+name = "exchange_temperature"
+qual = "RegionInterface::exchange_temperature"
+lines = [
+    116,
+    163,
+]
+hash = "sha256:8c797af560163d05f85e58911ca3556604f6ee63ad5ff04c3a9d94b0becc3726"
+doc_hash = "sha256:349afd6129ed5eb671a92b3245db7d179036419aed970f720521b84776c85b83"
+callees = [
+    "fn:09632ebb2b55664e",
+    "fn:be9269a88d02873a",
+]
+reached_by = ["#0"]
+
+[[module."region_interface.rs".function]]
+id = "fn:6861f03e7a9c6b66"
+name = "simple_mesh"
+qual = "simple_mesh"
+lines = [
+    174,
+    203,
+]
+hash = "sha256:357abb43bbd4a449187eece27d4ae29f01e0e5a74448acb040433f85545740a4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+test = true
+
+[[module."region_interface.rs".function]]
+id = "fn:1ae471fe2fbf28d7"
+name = "exchange_temperature_matching"
+qual = "exchange_temperature_matching"
+lines = [
+    205,
+    219,
+]
+hash = "sha256:fb283fbb21440f8abe5ffe4397234f1a3d98d5e94253331ce63242677e8eb396"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:09632ebb2b55664e",
+    "fn:124d9ead04070f24",
+    "fn:6861f03e7a9c6b66",
+    "fn:a1b303d3cfadac7d",
+    "fn:cebfdc7add5845c8",
+]
+test = true
+
+[[module."region_interface.rs".function]]
+id = "fn:7961fa946bfd87ef"
+name = "non_matching_interface_nearest_centre"
+qual = "non_matching_interface_nearest_centre"
+lines = [
+    221,
+    228,
+]
+hash = "sha256:d4626bfd0f03e5a7367a26d2a32743adad5ac62ee78bb5874aee1d7e432a939d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6861f03e7a9c6b66",
+    "fn:82522982c7d660e0",
+]
+test = true

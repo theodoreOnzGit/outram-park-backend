@@ -1,0 +1,42 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-cli"
+dir = "crates/outram-foam-cli/src"
+crate_root = true
+
+[module."lib.rs"]
+path = "crate"
+
+[[module."lib.rs".function]]
+id = "fn:dc13477d1f4798db"
+name = "case_dir"
+qual = "CaseArgs::case_dir"
+lines = [
+    46,
+    53,
+]
+hash = "sha256:831c29d4611b5eb412bea92968ee9dfe36770c6f7060ec515b6918794a0d4bcf"
+doc_hash = "sha256:e5c6fd69807bfdfb0a98d32da16d9390d43cc07a8e23ec3cbe2e82d891a78d70"
+
+[[module."lib.rs".function]]
+id = "fn:8fcc42431f992418"
+name = "openfoam_argv"
+qual = "openfoam_argv"
+lines = [
+    56,
+    87,
+]
+hash = "sha256:45880dfb355cf165f985ed11944860fb132308cee320aa2d721362d6e98312e3"
+doc_hash = "sha256:c21bfb97ade5a244fe9d1c26b0fc731c82a770d8bd24e6ae7ab230b04d8ac167"
+
+[[module."lib.rs".function]]
+id = "fn:6c5d1589368c5199"
+name = "openfoam_args"
+qual = "openfoam_args"
+lines = [
+    89,
+    94,
+]
+hash = "sha256:3596df2012993e014f6a453477647d8d860eb08515113adedee414d6be8a20dd"
+doc_hash = "sha256:4bf127a5e6f172072c51e959e710d6a7834f09107dee8e87fefe5c8972acbc4f"
+callees = ["fn:8fcc42431f992418"]

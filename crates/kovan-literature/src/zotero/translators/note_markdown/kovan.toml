@@ -1,0 +1,2056 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-literature"
+dir = "crates/kovan-literature/src/zotero/translators/note_markdown"
+test_ids = [
+    "crates/kovan-literature/src/zotero/translators/note_markdown/mod.rs::converts_a_minimal_note",
+    "crates/kovan-literature/src/zotero/translators/note_markdown/turndown.rs::escapes_and_joins_like_turndown",
+    "crates/kovan-literature/tests/zotero_translators.rs::biblatex_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators.rs::bibtex_chain_stable_where_upstream_is",
+    "crates/kovan-literature/tests/zotero_translators.rs::bibtex_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators.rs::bookmarks_chain_stable_where_upstream_is",
+    "crates/kovan-literature/tests/zotero_translators.rs::bookmarks_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators.rs::cff_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators.rs::cff_references_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators.rs::coins_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators.rs::csl_json_chain_stable_where_upstream_is",
+    "crates/kovan-literature/tests/zotero_translators.rs::csl_json_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators.rs::csv_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators.rs::evernote_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators.rs::refer_chain_stable_where_upstream_is",
+    "crates/kovan-literature/tests/zotero_translators.rs::refer_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators.rs::refworks_tagged_chain_stable_where_upstream_is",
+    "crates/kovan-literature/tests/zotero_translators.rs::refworks_tagged_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators.rs::ris_chain_stable_where_upstream_is",
+    "crates/kovan-literature/tests/zotero_translators.rs::ris_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators.rs::wikidata_quickstatements_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators.rs::wikipedia_citation_templates_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators_rdf.rs::bibliontology_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators_rdf.rs::dc_rdf_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators_rdf.rs::library_round_trip_matches_upstream",
+    "crates/kovan-literature/tests/zotero_translators_rdf.rs::library_round_trip_port_chain_equals_upstream_chain",
+    "crates/kovan-literature/tests/zotero_translators_rdf.rs::zotero_rdf_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_xml_translators.rs::endnote_xml_chain_matches_upstream",
+    "crates/kovan-literature/tests/zotero_xml_translators.rs::endnote_xml_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_xml_translators.rs::mods_chain_matches_upstream",
+    "crates/kovan-literature/tests/zotero_xml_translators.rs::mods_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_xml_translators.rs::note_html_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_xml_translators.rs::note_html_probes_match_upstream",
+    "crates/kovan-literature/tests/zotero_xml_translators.rs::note_markdown_export_matches_upstream",
+    "crates/kovan-literature/tests/zotero_xml_translators.rs::note_markdown_probes_match_upstream",
+    "crates/kovan-literature/tests/zotero_xml_translators.rs::tei_export_matches_upstream",
+]
+
+[module."mod.rs"]
+path = "crate::zotero::translators::note_markdown"
+
+[[module."mod.rs".function]]
+id = "fn:0eeb5fe9a465b219"
+name = "body"
+qual = "body"
+lines = [
+    47,
+    49,
+]
+hash = "sha256:ba9a324ccde9c66fe470313a6f2fa4c2841407fffa558921f0e6e4d411ce5365"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:bd53933ec4136d64",
+    "fn:cea288306c80a25a",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3ef2311dc5b92c0d"
+name = "parse_data_attr"
+qual = "parse_data_attr"
+lines = [
+    51,
+    56,
+]
+hash = "sha256:4db27add8268fcb7015a0672f679b0508f8e9412a6766db03c319d7e49738048"
+doc_hash = "sha256:b4dd9188d1f164ae8a05ffecede84278249b2424539f19e18e63d4acde8f8ef7"
+callees = [
+    "fn:233c0373830860a7",
+    "fn:c78b4f8868b0c764",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."mod.rs".function]]
+id = "fn:853401e6df32db7f"
+name = "replace_with"
+qual = "replace_with"
+lines = [
+    58,
+    67,
+]
+hash = "sha256:69f2e664353ff0c18fbbf349079b0f6cbbe1cf547d301a11e07a56aa8830f117"
+doc_hash = "sha256:18e45cb75e84520e542f0a60672d77ae00823e4c5902ea4530cf78889f4e0e7d"
+callees = [
+    "fn:029e1e64b2b6d512",
+    "fn:072f9644f0765b98",
+    "fn:b448b07415df6dcc",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."mod.rs".function]]
+id = "fn:fdf78a7079ee672e"
+name = "convert"
+qual = "convert"
+lines = [
+    69,
+    170,
+]
+hash = "sha256:03ba31abda850d2645d4bea143a4f0e02bd4813dbf88300ed81fe2d4a0276f07"
+doc_hash = "sha256:21421a3d75481c984622f2db37f81722fd1a71080f3ed41fc58cf8887ae23169"
+callees = [
+    "fn:029e1e64b2b6d512",
+    "fn:03c0bf37b79fb3f2",
+    "fn:06a510491aa870f0",
+    "fn:072f9644f0765b98",
+    "fn:0eeb5fe9a465b219",
+    "fn:211c294037c8febf",
+    "fn:3271ca1bb1a562c0",
+    "fn:3ef2311dc5b92c0d",
+    "fn:43fbe3902c8eb388",
+    "fn:5ce0384098b79549",
+    "fn:6eb1a802a6cee030",
+    "fn:7690f4f579409158",
+    "fn:853401e6df32db7f",
+    "fn:92a0b533855f7e57",
+    "fn:9a1aa6402cfcd8be",
+    "fn:9eb5ead7414668d3",
+    "fn:a0ca6e2fdc6e5cca",
+    "fn:bd53933ec4136d64",
+    "fn:c78b4f8868b0c764",
+    "fn:c946ab28d83b07c1",
+    "fn:cea288306c80a25a",
+    "fn:f5995cdb74bf9363",
+    "fn:f88b12cc14114bb6",
+    "fn:fa44f870a3294aa7",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."mod.rs".function]]
+id = "fn:366be0e173607aae"
+name = "do_export"
+qual = "do_export"
+lines = [
+    172,
+    197,
+]
+hash = "sha256:facc91e7e7fbc37bf74fa6036982ebf3799935163872c401fce457147e35e261"
+doc_hash = "sha256:7e92553a8403537db86f1400461a0ccbb775d9dd9e91011cb18f67132e85f450"
+callees = [
+    "fn:0eeb5fe9a465b219",
+    "fn:3271ca1bb1a562c0",
+    "fn:384cd22007e638e6",
+    "fn:39b17488aeecb4eb",
+    "fn:5022538f474ba8ae",
+    "fn:5dd7d283a9da95ef",
+    "fn:67ea38d3655e9461",
+    "fn:9160e07c575a767d",
+    "fn:bef20a1c21343ed4",
+    "fn:fc0fa4bfdc15f523",
+    "fn:fdf78a7079ee672e",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4913bed6beb8b7af"
+name = "converts_a_minimal_note"
+qual = "converts_a_minimal_note"
+lines = [
+    203,
+    207,
+]
+hash = "sha256:2fafaf6e4a1a135ff837168cf4b557b10517d9cbab3c45349643e78addb87771"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:39b17488aeecb4eb",
+    "fn:fdf78a7079ee672e",
+]
+test = true
+
+[module."turndown.rs"]
+path = "crate::zotero::translators::note_markdown::turndown"
+
+[[module."turndown.rs".function]]
+id = "fn:cf334044a150026d"
+name = "re"
+qual = "re"
+lines = [
+    33,
+    35,
+]
+hash = "sha256:b83ca9b10127ace940fdd3071f6a14b482ee8e2c12b7399941f9fc73ed14d5ea"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:a15d8d13f4093c64"
+name = "name"
+qual = "name"
+lines = [
+    109,
+    111,
+]
+hash = "sha256:68917cc37d12e68147cf9f85c23ad78f5083d8b5565801d25340b6067873ccb1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2f053c4c7df8a859"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:ec5ba3f7298860fe"
+name = "is_in"
+qual = "is_in"
+lines = [
+    113,
+    116,
+]
+hash = "sha256:19e885dee60f1e9c772475cf829990f9fe51aecd81e7ad6c602f46d0027c8e75"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:a15d8d13f4093c64"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:649142132a3ef12a"
+name = "is_block"
+qual = "is_block"
+lines = [
+    118,
+    120,
+]
+hash = "sha256:ff5a2b0fa5086eec762d0f191b9d5630f77de195e7a0cdfa67fdb9681cde343f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:ec5ba3f7298860fe"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:73665e65e2d094be"
+name = "is_void"
+qual = "is_void"
+lines = [
+    122,
+    124,
+]
+hash = "sha256:307ebdf13da33ca26c3eb322bf30adbe3fb912aaed32b3e258000c1d4deb4794"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:ec5ba3f7298860fe"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:40300cbebd413af7"
+name = "has"
+qual = "has"
+lines = [
+    126,
+    145,
+]
+hash = "sha256:e4510bd487ba8663bf3cd9fe81a28beb609d1e618e749f3b245f446e7528d163"
+doc_hash = "sha256:c7d22b04ab07b1140172786f4676b3071557c6d3f81772fa51a86b0116fa308d"
+callees = [
+    "fn:0cb4517c31e47f94",
+    "fn:2e50e15ecf8481ad",
+    "fn:69eea54b1cac72e7",
+    "fn:94335ba9022156d8",
+    "fn:b74a6860066ec240",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:5a17c48b2e246d08"
+name = "text_content"
+qual = "text_content"
+lines = [
+    147,
+    149,
+]
+hash = "sha256:69d01c3e69696b1a87b621f4a5cb65ecac4aac6ba57415603eb06fa50984939f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:5022538f474ba8ae"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:0de676d39a07e237"
+name = "data"
+qual = "data"
+lines = [
+    151,
+    156,
+]
+hash = "sha256:a4ee18d976933aece8315c9741bdfc2a3b5a646ca50b4ec02b4ab7a2ed21df26"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:94335ba9022156d8"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:92addbc9e010bc10"
+name = "all_space"
+qual = "all_space"
+lines = [
+    158,
+    161,
+]
+hash = "sha256:9fbf02e4a870c7c77f3069782461a50f8f356fdc251c6040ccc3c962ddba9177"
+doc_hash = "sha256:2530de9c8f3146ba6bd132e8a943c4bffb51255336e38ce10697ca29abc51725"
+callees = ["fn:ae819469c8519e71"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:6609237bc83a8b5c"
+name = "is_ascii_ws"
+qual = "is_ascii_ws"
+lines = [
+    173,
+    175,
+]
+hash = "sha256:2c787d07794e25f4272d893251b9f7c37a17314e8033d559e5a16515a638ceb8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:ae16d0746bee4668"
+name = "edge_whitespace"
+qual = "edge_whitespace"
+lines = [
+    177,
+    194,
+]
+hash = "sha256:bec4ffbf0843365e22f6cf80d854028185ee05e4acbc42b4bd01491263abffc0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6609237bc83a8b5c",
+    "fn:ae819469c8519e71",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:3ffe2d42e6cf6b22"
+name = "escape"
+qual = "escape"
+lines = [
+    196,
+    221,
+]
+hash = "sha256:b280e22becac3344b35a2969b8e0e5e5ef5ffb03368b7a069b738d26f0878408"
+doc_hash = "sha256:dc860bd170749fc9fa0400436ef677c3195a52a329acf2aeee0dd674af9cf6fa"
+callees = ["fn:cf334044a150026d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:5e6e5e29b25dddf5"
+name = "join"
+qual = "join"
+lines = [
+    223,
+    231,
+]
+hash = "sha256:f82e8cc2a0ffb4f4096f7409f1d1d4ee572d909c94f3c99ba7290b0def6692d0"
+doc_hash = "sha256:2ebddaa2f94cd6088401fe67a9e48a577c572b7f39e615986977229b95d14e29"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:d27ebdb727f26b6e"
+name = "clean_attribute"
+qual = "clean_attribute"
+lines = [
+    233,
+    243,
+]
+hash = "sha256:3385f0b015c255754007ff27e677766f5a08f2a38297ed0fcfe4cea050698f13"
+doc_hash = "sha256:0075bf681bf8c31d299930925144af0e695e362b97c341a4af153c79471ddc2f"
+callees = ["fn:cf334044a150026d"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:7690f4f579409158"
+name = "new"
+qual = "Turndown::new"
+lines = [
+    246,
+    252,
+]
+hash = "sha256:f06bbe91b5355333b6837cec10067c247edaf7ed762daf3da48868872b15cd2c"
+doc_hash = "sha256:36dcd59f19be9c253f59dae1dc25bf345d195059b47a92170a8761470837ce02"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:211c294037c8febf"
+name = "turndown"
+qual = "Turndown::turndown"
+lines = [
+    254,
+    266,
+]
+hash = "sha256:957e7d4ae8a499f4a7478a40ed8edc7b81f04d6047e249685a62fb8649c05745"
+doc_hash = "sha256:1ac0fad563c66b5292ef5b38606b21356c5736904b213c69a2abf9092dbf01b0"
+callees = [
+    "fn:34372c9a26f498ea",
+    "fn:3fe4fa7adf7d9db0",
+    "fn:5e6e5e29b25dddf5",
+    "fn:ae819469c8519e71",
+    "fn:fa0c4087d11cc76b",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:54e6e790239e8c03"
+name = "is_pre"
+qual = "Turndown::is_pre"
+lines = [
+    268,
+    270,
+]
+hash = "sha256:7867d69da4f6e68ab7133bca65b317dd37d61d0dced46df8e31ab6a79e7b18cd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:a15d8d13f4093c64"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:909b9feab5f32415"
+name = "next"
+qual = "Turndown::next"
+lines = [
+    272,
+    281,
+]
+hash = "sha256:6962c29af65a6e235b0a40860bbaa2eeeb1cd72859a60f8d4796d1059b0dd458"
+doc_hash = "sha256:e5c48d7ecc767db2b89beece0fc1e87d446c5a64298ac16f0ffe9c569a43c627"
+callees = [
+    "fn:072f9644f0765b98",
+    "fn:54e6e790239e8c03",
+    "fn:a0ca6e2fdc6e5cca",
+    "fn:fa44f870a3294aa7",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:41b7314d44080c9c"
+name = "remove"
+qual = "Turndown::remove"
+lines = [
+    283,
+    288,
+]
+hash = "sha256:06b77f60d613e18e94199cc61f9cbd126b459f4bf8d027e27f5075568dc1f619"
+doc_hash = "sha256:afa6876ce609eac919ae32b1d49b8306cfabf57f36378569acea7b3b68c3caa0"
+callees = [
+    "fn:072f9644f0765b98",
+    "fn:b448b07415df6dcc",
+    "fn:fa44f870a3294aa7",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:3fe4fa7adf7d9db0"
+name = "collapse_whitespace"
+qual = "Turndown::collapse_whitespace"
+lines = [
+    290,
+    353,
+]
+hash = "sha256:5a27a94ccc9f7b21bcfc2d26c891447af87ec8a9bafc44fa2ccbc33c1af79357"
+doc_hash = "sha256:8d3ce88ca6a667b445e95ced69009617195838d210454a7e01c9aa5e86cd8d03"
+callees = [
+    "fn:0de676d39a07e237",
+    "fn:41b7314d44080c9c",
+    "fn:54e6e790239e8c03",
+    "fn:649142132a3ef12a",
+    "fn:6c779aba7f1b6b1f",
+    "fn:73665e65e2d094be",
+    "fn:909b9feab5f32415",
+    "fn:94335ba9022156d8",
+    "fn:a0ca6e2fdc6e5cca",
+    "fn:a15d8d13f4093c64",
+    "fn:cf334044a150026d",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:23cdddda2e98d3ce"
+name = "is_blank"
+qual = "Turndown::is_blank"
+lines = [
+    355,
+    363,
+]
+hash = "sha256:fcabd871097b6926ac31c993bfe8aa9961bce1d5c559f559ed9b244b160d9030"
+doc_hash = "sha256:cc5abaea91ab223cd79fd7fff63cd413ac2adc8cda69eb353b52115c283c4607"
+callees = [
+    "fn:40300cbebd413af7",
+    "fn:5a17c48b2e246d08",
+    "fn:73665e65e2d094be",
+    "fn:92addbc9e010bc10",
+    "fn:ec5ba3f7298860fe",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:83ef08d692e0e7fa"
+name = "is_flanked"
+qual = "Turndown::is_flanked"
+lines = [
+    365,
+    388,
+]
+hash = "sha256:b2f7ee22401dbad90a6b9081dd38e1742ac8abc6594ad51425886ac29b57a728"
+doc_hash = "sha256:9ec2e037301cc5696e1b85cb80607a192f821e76819a82abd6e6a632d4ea784a"
+callees = [
+    "fn:464bcd09116a73a5",
+    "fn:5a17c48b2e246d08",
+    "fn:649142132a3ef12a",
+    "fn:94335ba9022156d8",
+    "fn:fa44f870a3294aa7",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:5ce3b3abb8ee9e9e"
+name = "flanking"
+qual = "Turndown::flanking"
+lines = [
+    390,
+    405,
+]
+hash = "sha256:1e04cf4d83bea2e5a933c58fb885dc5ff6e37ca6f2e6ac142ecd35d8f53f8050"
+doc_hash = "sha256:cd32c32a49b08f4f44a01ca187a5db87bbf20e9c3cd28e8f96bae0926eb6557e"
+callees = [
+    "fn:5a17c48b2e246d08",
+    "fn:649142132a3ef12a",
+    "fn:83ef08d692e0e7fa",
+    "fn:ae16d0746bee4668",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:fa0c4087d11cc76b"
+name = "process"
+qual = "Turndown::process"
+lines = [
+    407,
+    429,
+]
+hash = "sha256:8f31287e9acd5c9c41f31c108d47661b285e626adc5371ddff56b70646284f91"
+doc_hash = "sha256:eb6c1698d64768ba91335595b8593e813106ab8496c67508ada3e4d2a1809a3f"
+callees = [
+    "fn:03c0bf37b79fb3f2",
+    "fn:3ffe2d42e6cf6b22",
+    "fn:5e6e5e29b25dddf5",
+    "fn:7f39223555d4b45c",
+    "fn:94335ba9022156d8",
+    "fn:a15d8d13f4093c64",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:7f39223555d4b45c"
+name = "replacement_for_node"
+qual = "Turndown::replacement_for_node"
+lines = [
+    431,
+    449,
+]
+hash = "sha256:71251852cd5b367ed1e2530dd839a9fcb2ba73012d76c9e7060228345f48013d"
+doc_hash = "sha256:2c9b7eb880e2e8883d4b82fd79248966ec24afdae7d5d037e72639fb03256b39"
+callees = [
+    "fn:23cdddda2e98d3ce",
+    "fn:3c5c66960ed14945",
+    "fn:5ce3b3abb8ee9e9e",
+    "fn:649142132a3ef12a",
+    "fn:9160e07c575a767d",
+    "fn:fa0c4087d11cc76b",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:3c5c66960ed14945"
+name = "rule"
+qual = "Turndown::rule"
+lines = [
+    451,
+    639,
+]
+hash = "sha256:4f5f85b880b609a1f7ab78a5080f12e4990c0d8342f427cde65ba36cc0c43599"
+doc_hash = "sha256:9e3fc1b82375946bdae85380eafb02827013ba64ee97913a6c19407d64fa5e41"
+callees = [
+    "fn:03c0bf37b79fb3f2",
+    "fn:072f9644f0765b98",
+    "fn:119422ed626ad06b",
+    "fn:18da284936b09dfd",
+    "fn:23f8d39e27d9afc9",
+    "fn:26300d7ef2e0b68d",
+    "fn:464bcd09116a73a5",
+    "fn:5a17c48b2e246d08",
+    "fn:649142132a3ef12a",
+    "fn:9160e07c575a767d",
+    "fn:a0ca6e2fdc6e5cca",
+    "fn:a15d8d13f4093c64",
+    "fn:b7bd648c85307b93",
+    "fn:c78b4f8868b0c764",
+    "fn:cf334044a150026d",
+    "fn:d27ebdb727f26b6e",
+    "fn:edec804cf56435f8",
+    "fn:f4e40d3e89dca864",
+    "fn:fa44f870a3294aa7",
+    "fn:fb2ec7bf07e85d32",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:edec804cf56435f8"
+name = "first_row"
+qual = "Turndown::first_row"
+lines = [
+    641,
+    676,
+]
+hash = "sha256:926c3fc448467ca6139b7ca9cdac5c257fc9103dcb2f45170cacd15bc5d5a17b"
+doc_hash = "sha256:c6170bf9aa673a14ae9872396ba70101cccdfce85ed8bb70c41e575f663fcf16"
+callees = [
+    "fn:a15d8d13f4093c64",
+    "fn:fb2ec7bf07e85d32",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:23f8d39e27d9afc9"
+name = "is_heading_row"
+qual = "Turndown::is_heading_row"
+lines = [
+    678,
+    691,
+]
+hash = "sha256:c2367ff9c120c376c5cd3fdfdb477dc69c33b0c4004272541309acb2295d26ce"
+doc_hash = "sha256:ff3aa86e699fdbb93eca92e589bc9946c60be4dc8a5db23c38764b7f1c45a2fb"
+callees = [
+    "fn:03c0bf37b79fb3f2",
+    "fn:072f9644f0765b98",
+    "fn:11ce71dadbd68597",
+    "fn:a0ca6e2fdc6e5cca",
+    "fn:a15d8d13f4093c64",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:11ce71dadbd68597"
+name = "is_first_tbody"
+qual = "Turndown::is_first_tbody"
+lines = [
+    693,
+    700,
+]
+hash = "sha256:aa3d45e6c49bd5aef353f3e027595b9748365569d8e5e0d4b5635a67bfa7a645"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:464bcd09116a73a5",
+    "fn:5a17c48b2e246d08",
+    "fn:92addbc9e010bc10",
+    "fn:a15d8d13f4093c64",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:f4e40d3e89dca864"
+name = "cell"
+qual = "Turndown::cell"
+lines = [
+    702,
+    710,
+]
+hash = "sha256:4af937e1a1ec1a47083be28315a00560f7b4fea4492329ded2952b8240f63fee"
+doc_hash = "sha256:6b8506bf36ad84bd3fc67924ea24e18df1b98b76f5287956fd3b0962691e6c5a"
+callees = [
+    "fn:03c0bf37b79fb3f2",
+    "fn:072f9644f0765b98",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:18da284936b09dfd"
+name = "list_item"
+qual = "Turndown::list_item"
+lines = [
+    712,
+    745,
+]
+hash = "sha256:19500e9d5444b1b160b131eadd0cb103789f51e2fa12739587a3910d3522c1f6"
+doc_hash = "sha256:9857146b1258b38fad5d0c05d0b31bc801ab41fc9566d8f272a146dc9b989954"
+callees = [
+    "fn:072f9644f0765b98",
+    "fn:a15d8d13f4093c64",
+    "fn:c67145c2d5c07592",
+    "fn:c78b4f8868b0c764",
+    "fn:de9ba63cfbf8408d",
+    "fn:fa44f870a3294aa7",
+    "fn:fb2ec7bf07e85d32",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:119422ed626ad06b"
+name = "code_span"
+qual = "code_span"
+lines = [
+    748,
+    771,
+]
+hash = "sha256:97f90ed0fd0b49fc8ff59177da22c5430b9a77fc28011c880e44b94328b18e6d"
+doc_hash = "sha256:2cb5172ef36744e2b62e51a97d5d67ba17e39a341231d9816312312159ec512d"
+callees = ["fn:cf334044a150026d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."turndown.rs".function]]
+id = "fn:e92854aa88036187"
+name = "escapes_and_joins_like_turndown"
+qual = "escapes_and_joins_like_turndown"
+lines = [
+    777,
+    791,
+]
+hash = "sha256:51afaa0cd855741546030e115d052d77d136b4a19e13922fca20ac2c68313585"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:119422ed626ad06b",
+    "fn:3ffe2d42e6cf6b22",
+    "fn:5e6e5e29b25dddf5",
+    "fn:ae16d0746bee4668",
+]
+test = true

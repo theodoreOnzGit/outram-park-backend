@@ -1,0 +1,433 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/porous_drag.rs::laminar_drag_matches_stokes_darcy_limit",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::laminar_darcy_spinup_terminal_velocity",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::porous_energy_equilibrates_to_wall_temperature",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::turbulent_darcy_weisbach_pressure_drop",
+]
+
+[module."mod.rs"]
+path = "crate::genfoam::thermal_hydraulics::solver"
+
+[[module."mod.rs".function]]
+id = "fn:b2ab9823e66b4760"
+name = "step"
+qual = "ThermalHydraulicsSolver::step"
+lines = [
+    71,
+    78,
+]
+hash = "sha256:829917b3f66fc06eee505edb3f4c20614e4b9fe9dacc61059422f3848688ab64"
+doc_hash = "sha256:aec9faaffc895fae3a640f4da3ed2aa6bdb0b29964065d60ab67b70683636e81"
+callees = ["fn:8f7786b49a0a8d42"]
+
+[module."one_phase.rs"]
+path = "crate::genfoam::thermal_hydraulics::solver::one_phase"
+
+[[module."one_phase.rs".function]]
+id = "fn:cb9de336d58212d4"
+name = "new"
+qual = "OnePhaseSolver::new"
+lines = [
+    120,
+    143,
+]
+hash = "sha256:c0b286daae3e73906beea93dba4dd209a52973cca28c24c8cb9cb0d80cb32c54"
+doc_hash = "sha256:0452916fd7ad2d8e0f55b2200c1b12ae730c10bb00cf8debb45bb35e5df5099d"
+callees = [
+    "fn:636e75b664f14254",
+    "fn:d6a9c884aaeb7775",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."one_phase.rs".function]]
+id = "fn:8d94433a4ee57af8"
+name = "mesh"
+qual = "OnePhaseSolver::mesh"
+lines = [
+    145,
+    149,
+]
+hash = "sha256:9177eba2bafd4635216b811dd9cb4cf0b1dbdf93a40b06ccc5ad1b5a32c4847c"
+doc_hash = "sha256:9d5f9d167ec733adf922dd583df9f36d68389bae9c523a00d33e82f2e89b0081"
+
+[[module."one_phase.rs".function]]
+id = "fn:4f266dadb51c7724"
+name = "temperature"
+qual = "OnePhaseSolver::temperature"
+lines = [
+    151,
+    163,
+]
+hash = "sha256:a55a0c385ade8f890e23c2797cd8deac14155e47a24697c2c3d59bce64b2493f"
+doc_hash = "sha256:0dcfdd942113e04a1681514afa21e05e2f330337594f90be3c70637ddc2472d6"
+callees = [
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+    "fn:d6a9c884aaeb7775",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."one_phase.rs".function]]
+id = "fn:8f7786b49a0a8d42"
+name = "step"
+qual = "OnePhaseSolver::step"
+lines = [
+    165,
+    178,
+]
+hash = "sha256:714844e7fa87559c342eb169305fe8bcde80720491042997fbbe06779feb7616"
+doc_hash = "sha256:65d2d39889514686d073c8fe989ce4a7215fa97073c89e6bbdf257ce4e30c61a"
+callees = [
+    "fn:25866f90797097b3",
+    "fn:7bf1fa3f9416f466",
+]
+reached_by = [
+    "#1",
+    "#3",
+]
+
+[[module."one_phase.rs".function]]
+id = "fn:25866f90797097b3"
+name = "correct_fluid_mechanics"
+qual = "OnePhaseSolver::correct_fluid_mechanics"
+lines = [
+    180,
+    358,
+]
+hash = "sha256:106a108604ee1d7df041f2b6c472333bc4684e0012d33f11bff052d3f4d3dcb1"
+doc_hash = "sha256:98aca6b8c333461e7cc0bd19f63770dc8b37d5bf22b2117b3387b51221847fee"
+callees = [
+    "fn:10f32a17a906d1d2",
+    "fn:13d801bd97c5b69d",
+    "fn:18855a2a89aa525e",
+    "fn:1e0c0abc3044dc8b",
+    "fn:219095db9c026c67",
+    "fn:2c30f932a22ffb56",
+    "fn:2fcebb5c29d1f0d9",
+    "fn:329ec62309c98f22",
+    "fn:3ec5e342ab76d57e",
+    "fn:456ce8c84f72ae6e",
+    "fn:472adef4837fb92c",
+    "fn:4a3d63f4a0e47a1c",
+    "fn:4aea3161a87c6021",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:636ae5a21be9336b",
+    "fn:6cd6e8397d6ce797",
+    "fn:6d45af0d518e142d",
+    "fn:89dc43a078f68cb7",
+    "fn:8b1e80d2a2add1f9",
+    "fn:8b81130c44b810e7",
+    "fn:92fd53f240dcfb8e",
+    "fn:95630e24fcf1635e",
+    "fn:96b5c3d947f087e5",
+    "fn:a8a8aa01bdeead4b",
+    "fn:adb2c3d406d2bef3",
+    "fn:b13c311a9e21788c",
+    "fn:b39c58cda597407e",
+    "fn:bcd3c0fddc1f933d",
+    "fn:d26e6c14487b0898",
+    "fn:d6a9c884aaeb7775",
+    "fn:da3db2be3d98eafe",
+    "fn:ddf2344864918578",
+    "fn:ea6b6e6095ea6573",
+    "fn:f15591cb2414a42f",
+    "fn:f59a35e9cbd8b293",
+    "fn:fb73e8d34cdb6dcd",
+    "fn:fb7ba145dba6413c",
+    "fn:feb8a10aaf77ed2a",
+]
+reached_by = [
+    "#1",
+    "#3",
+]
+
+[[module."one_phase.rs".function]]
+id = "fn:7bf1fa3f9416f466"
+name = "correct_energy"
+qual = "OnePhaseSolver::correct_energy"
+lines = [
+    360,
+    430,
+]
+hash = "sha256:4cde3789a000f495e9416d0762ebf44e18bb83f7cf63bbdc906778e15b0a8350"
+doc_hash = "sha256:d97f5958712edd4ecbf09342b235929731893fe98c269e74191e4167220419de"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:219095db9c026c67",
+    "fn:4f266dadb51c7724",
+    "fn:53d4791d95d80de6",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:6d45af0d518e142d",
+    "fn:7493954e75e3a317",
+    "fn:8b1e80d2a2add1f9",
+    "fn:92fd53f240dcfb8e",
+    "fn:96b5c3d947f087e5",
+    "fn:b0ed875c4efafa46",
+    "fn:c3f73100c19cafbf",
+    "fn:d6a9c884aaeb7775",
+    "fn:feb8a10aaf77ed2a",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."one_phase.rs".function]]
+id = "fn:219095db9c026c67"
+name = "alpha_rho"
+qual = "OnePhaseSolver::alpha_rho"
+lines = [
+    432,
+    442,
+]
+hash = "sha256:0712457f6ffa70dabca84fd7b6434c4fea74e6c9230044f0b516fce30a6aff63"
+doc_hash = "sha256:87b39640712a32f59e4b81ef94680719ac61dbd922416978c17d66d925666d04"
+callees = [
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+    "fn:d6a9c884aaeb7775",
+    "fn:feb8a10aaf77ed2a",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+]
+
+[module."porous_drag.rs"]
+path = "crate::genfoam::thermal_hydraulics::solver::porous_drag"
+
+[[module."porous_drag.rs".function]]
+id = "fn:13b19fe5f8245990"
+name = "new"
+qual = "PorousDrag::new"
+lines = [
+    80,
+    89,
+]
+hash = "sha256:e3613dc75db3ef60954035d33130fa95aa3fb5c245a13df0facd110cd825880e"
+doc_hash = "sha256:1957b990c0bd4b2cbc4a3cc59b13d8751a2e53386d5384844e6e0d2bd4a7d960"
+callees = ["fn:983b1442c904d828"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."porous_drag.rs".function]]
+id = "fn:10203073c79c5f90"
+name = "with_min_mag_u"
+qual = "PorousDrag::with_min_mag_u"
+lines = [
+    91,
+    96,
+]
+hash = "sha256:e57df5b923804b44bbfbdcf6a904eb52a86993ceb8f134c3d7e716e112ff18a8"
+doc_hash = "sha256:87cc2fd7010e0f9e5abb06e3ad7b76873baf8b8e3eb32b10f05e588e94d0a07a"
+
+[[module."porous_drag.rs".function]]
+id = "fn:adb2c3d406d2bef3"
+name = "assemble_kd"
+qual = "PorousDrag::assemble_kd"
+lines = [
+    98,
+    143,
+]
+hash = "sha256:6bb321659f2d81397657fe896afe1d24b7d53ee730b47b14eefe6c1748a7102f"
+doc_hash = "sha256:1ef80523aff7d30c675e7dfe3db85a45e368112170fe896f7621d3b37f9d9642"
+callees = [
+    "fn:05d1c5f213fbd61f",
+    "fn:22c047979ce45fa8",
+    "fn:63533ec16312e3aa",
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+    "fn:983b1442c904d828",
+    "fn:d3aa2431c05b0482",
+    "fn:d6a9c884aaeb7775",
+    "fn:feb8a10aaf77ed2a",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+]
+
+[[module."porous_drag.rs".function]]
+id = "fn:3a544e2ae651f64f"
+name = "one_cell_mesh"
+qual = "one_cell_mesh"
+lines = [
+    154,
+    178,
+]
+hash = "sha256:303c549679934eda52ac28d09d3e839f4c17df4f664367e63cda2ca152658c2a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+test = true
+
+[[module."porous_drag.rs".function]]
+id = "fn:6a4a04bd83b0535a"
+name = "laminar_drag_matches_stokes_darcy_limit"
+qual = "laminar_drag_matches_stokes_darcy_limit"
+lines = [
+    180,
+    229,
+]
+hash = "sha256:c7b41c242a4d4d768da2ab4524ef9fe85ed4dafbd506db00047041edfc9f100c"
+doc_hash = "sha256:e7046de8ad5607c042a58ba17ce7bc8825a707a8560e372a44c27b8cefa8f7aa"
+callees = [
+    "fn:13b19fe5f8245990",
+    "fn:257c994bca528028",
+    "fn:2fcebb5c29d1f0d9",
+    "fn:3a544e2ae651f64f",
+    "fn:46466784b92e098d",
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb2c3d406d2bef3",
+]
+test = true
+
+[module."tests.rs"]
+path = "crate::genfoam::thermal_hydraulics::solver::tests"
+
+[[module."tests.rs".function]]
+id = "fn:af9f0fe7f648af4c"
+name = "one_cell_mesh"
+qual = "one_cell_mesh"
+lines = [
+    31,
+    57,
+]
+hash = "sha256:303c549679934eda52ac28d09d3e839f4c17df4f664367e63cda2ca152658c2a"
+doc_hash = "sha256:0f55327d3bde8c02ef7cefde53adef0732fe9544710ac7b63725a8c65a6d7856"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:63134ba968083c52"
+name = "set_cell"
+qual = "set_cell"
+lines = [
+    59,
+    61,
+]
+hash = "sha256:39a0ebe0f6fb31789e2f5975488b8965be96d75070ce0f6a2f9cc886e43f21b0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:96b5c3d947f087e5"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:0ac0919a0aba0cfc"
+name = "laminar_darcy_spinup_terminal_velocity"
+qual = "laminar_darcy_spinup_terminal_velocity"
+lines = [
+    63,
+    108,
+]
+hash = "sha256:b4f7d695a0f630881e942e0a9ec6420b511fa76847a4ce1996164c97c7844845"
+doc_hash = "sha256:4cec23898ea67cee497322602d931c72be6aaae816a0f341c3523507b95c5840"
+callees = [
+    "fn:13b19fe5f8245990",
+    "fn:257c994bca528028",
+    "fn:2fcebb5c29d1f0d9",
+    "fn:46466784b92e098d",
+    "fn:63134ba968083c52",
+    "fn:6d45af0d518e142d",
+    "fn:8f7786b49a0a8d42",
+    "fn:9e501e5f4cce23ae",
+    "fn:af9f0fe7f648af4c",
+    "fn:cb9de336d58212d4",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:8e2313edd6abd633"
+name = "turbulent_darcy_weisbach_pressure_drop"
+qual = "turbulent_darcy_weisbach_pressure_drop"
+lines = [
+    110,
+    165,
+]
+hash = "sha256:9e740f5c95ada10eb8c38496ec673c2b5e06dafa7da7d2e622c2916712fc5001"
+doc_hash = "sha256:6a69e84dfe439168566d3d42d85f1dd091b9171133fd121e611029a72b9063ef"
+callees = [
+    "fn:13b19fe5f8245990",
+    "fn:257c994bca528028",
+    "fn:2fcebb5c29d1f0d9",
+    "fn:46466784b92e098d",
+    "fn:63134ba968083c52",
+    "fn:6d45af0d518e142d",
+    "fn:8f7786b49a0a8d42",
+    "fn:96b5c3d947f087e5",
+    "fn:9e501e5f4cce23ae",
+    "fn:af9f0fe7f648af4c",
+    "fn:cb9de336d58212d4",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:c55732bc1ac27291"
+name = "porous_energy_equilibrates_to_wall_temperature"
+qual = "porous_energy_equilibrates_to_wall_temperature"
+lines = [
+    167,
+    218,
+]
+hash = "sha256:2d39d8bdac6867b46eba415bb6ca9cb9c0944acc16a44a0e5376dee3322675f7"
+doc_hash = "sha256:b5aaee3bd8dd98ef5832bc91b3732ca9d04d3a8fac272d9fd5a6e0d8ed4a308a"
+callees = [
+    "fn:13b19fe5f8245990",
+    "fn:257c994bca528028",
+    "fn:2fcebb5c29d1f0d9",
+    "fn:46466784b92e098d",
+    "fn:4f266dadb51c7724",
+    "fn:63134ba968083c52",
+    "fn:6d45af0d518e142d",
+    "fn:7bf1fa3f9416f466",
+    "fn:af9f0fe7f648af4c",
+    "fn:cb9de336d58212d4",
+]
+test = true

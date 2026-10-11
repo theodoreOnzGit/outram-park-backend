@@ -1,0 +1,1847 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement"
+
+[module."mesh_refinement_10_times.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_10_times"
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:9256b36964bf4026"
+name = "mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius"
+lines = [
+    10,
+    61,
+]
+hash = "sha256:3f869e06232caace4164bba4efffd40d980d95d2cb177b92d51aae3c8ca2049b"
+doc_hash = "sha256:e720b1a8d6e8cb88200822397a07d5e685eb7798a6487076ef877228780a89ec"
+callees = ["fn:eeabf832ba77ff97"]
+test = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:1b68d47e0c14b624"
+name = "mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius"
+lines = [
+    63,
+    81,
+]
+hash = "sha256:625f4cf2940bfe0746f84197305ef31b8bf8a3dc6126ecd6e06b0e03d3a5f646"
+doc_hash = "sha256:24b10cd0ef395dd195830bd06fb63f9dac4f81fc7752fbda25014d4d79d35b64"
+callees = ["fn:eeabf832ba77ff97"]
+test = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:31a902b637ca2483"
+name = "mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius"
+lines = [
+    82,
+    96,
+]
+hash = "sha256:12147f99dcd309a5891b62e9c52df1f34843b99758050c1821e73efaec0a8bad"
+doc_hash = "sha256:0076f79363d4d9cc8ad59932604ade04c110a5a1988e99457eb6f7efbe14ee60"
+callees = ["fn:eeabf832ba77ff97"]
+test = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:09fc53de93d3ab75"
+name = "mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius"
+lines = [
+    98,
+    112,
+]
+hash = "sha256:e2ea53deeee91cd6c7543f6ff685c3b9bedc4a177953169d523aed2f1cdd9fdf"
+doc_hash = "sha256:bda3aeb5bc2aa13ec1ede8b7a1d31da0213d4339f3f6a791a2583f2a80ec3107"
+callees = ["fn:eeabf832ba77ff97"]
+test = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:e7f592dae7433e67"
+name = "mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius"
+lines = [
+    113,
+    127,
+]
+hash = "sha256:6877861bae7740f069f8ef29a5a6361258602026bfa5b4c545c2eeda41e067ce"
+doc_hash = "sha256:7ddacd3497420c2d2d0210fe4963f11d6574c9082100c1290db5a01574355ebb"
+callees = ["fn:eeabf832ba77ff97"]
+test = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:7b9d735ac934f5df"
+name = "mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius"
+lines = [
+    128,
+    142,
+]
+hash = "sha256:fd8eb53bbc45560c9c11bc337da43114ce5f4384c585bbf533fd024a8fa8dee3"
+doc_hash = "sha256:ed28e54fb7bb57c47016a71ad2cf1f9661b95498a5a64dacdf088841f3042ab9"
+callees = ["fn:eeabf832ba77ff97"]
+test = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:3a934d1d14e1c95a"
+name = "mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius"
+lines = [
+    143,
+    157,
+]
+hash = "sha256:38087b60888ffd698cad171ef0ed49a3f5a37ea04259363d57882384f9ba4d24"
+doc_hash = "sha256:bd091bdb1a39f7128f0c8fd722197e9af7b8162462d7d8cd6e34952795d75e04"
+callees = ["fn:eeabf832ba77ff97"]
+test = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:a940e06e00a95c16"
+name = "mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius"
+lines = [
+    158,
+    172,
+]
+hash = "sha256:0af130024d7a6e46990d619e4fc3aee72acac1473b354afca2654da47bef5ef0"
+doc_hash = "sha256:4885e278a90ad2c2ce051013d88edfb46931321d2a059ba4c9edc86427e7d914"
+callees = ["fn:eeabf832ba77ff97"]
+test = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:3c27dc202497d719"
+name = "mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius"
+lines = [
+    173,
+    187,
+]
+hash = "sha256:48d98309dacce6dd67089a76e0d46a713f94782dd6735b7f6fb6f9c537049200"
+doc_hash = "sha256:6056ef87a217eb201a06a56ed85b4566dfb37b91d8d02a0032036b3f22598b09"
+callees = ["fn:eeabf832ba77ff97"]
+test = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:eeabf832ba77ff97"
+name = "verify_isolated_dhx_sam_solution"
+qual = "verify_isolated_dhx_sam_solution"
+lines = [
+    217,
+    901,
+]
+hash = "sha256:5b32345ee5890bc4651cad2bcc039acdfaf551052456d60a0546818639728423"
+doc_hash = "sha256:e34a4e1fd4e5fb315b37553d1b510e50a5f4741b240eaff3c7f74bc88ae445f9"
+callees = [
+    "fn:042772f0b70a6117",
+    "fn:134aefb246f7d585",
+    "fn:1de01d9c04a90024",
+    "fn:352eae89cdf05026",
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:400b84f385813ea1",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:57b8f8b3a37d0e8c",
+    "fn:5b42cdcaa8c81da9",
+    "fn:5d414deaf081e6be",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:6fdf234dfc396bdb",
+    "fn:71e0b3e056618526",
+    "fn:74172f53fcffc1fc",
+    "fn:89b98b3aca1482a0",
+    "fn:93844cc452449d04",
+    "fn:9400189168c02ee4",
+    "fn:9dc4b318c99b170d",
+    "fn:a062bfc4d1c08565",
+    "fn:a3a04100486196dc",
+    "fn:a466cf7d23703edb",
+    "fn:a5ee297a99e28d06",
+    "fn:ac52a6373858e68a",
+    "fn:c2da8a31daabb980",
+    "fn:d95ebae7d722f10a",
+    "fn:de757ea4d824ffd1",
+    "fn:e79236623dec9507",
+    "fn:f0f4656c00d4622a",
+    "fn:f4401253287110d2",
+    "fn:f66c6613b2fa9c0c",
+    "fn:f79cd1a4b96ae385",
+]
+test = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:6fdf234dfc396bdb"
+name = "new_mesh_refined_pipe_34"
+qual = "new_mesh_refined_pipe_34"
+lines = [
+    903,
+    988,
+]
+hash = "sha256:445689bfe1363bd9ba821a64f7f98e66c00eb774f705ae5d45e8bc7e60926060"
+doc_hash = "sha256:a2a44d00529f8870d980c546aebada420c918cba8052b76b271d3bd4842ca6b1"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:57b8f8b3a37d0e8c"
+name = "new_mesh_refined_pipe_33"
+qual = "new_mesh_refined_pipe_33"
+lines = [
+    990,
+    1059,
+]
+hash = "sha256:f6d60df808d70d47f5793d128252a2dbd4bc3224f6654f6bb745d5cb2a597654"
+doc_hash = "sha256:1f2ce3d4da9043533da8f874b80df68468431656b2b5381ddc446aef6d4054d2"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:9400189168c02ee4"
+name = "new_mesh_refined_pipe_32"
+qual = "new_mesh_refined_pipe_32"
+lines = [
+    1061,
+    1130,
+]
+hash = "sha256:59e558112b28cd914e69f1bf6f225d99fd80409c0cf6b1fb380357edd960b454"
+doc_hash = "sha256:2b30987081e26e2a8b3408a9ba479f05f76ee25feb4c02c60a04657030a023ba"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:400b84f385813ea1"
+name = "new_mesh_refined_static_mixer_61_label_31"
+qual = "new_mesh_refined_static_mixer_61_label_31"
+lines = [
+    1132,
+    1204,
+]
+hash = "sha256:ad28c1ae6161ccee107ca871db80249ff204d913c892fe9c2598c7bccfe58515"
+doc_hash = "sha256:dbe8a80bbd4efb9d7aa7c898c984efec677d485b322c53e1605532a78495dfcc"
+callees = ["fn:7e500817d4f2967c"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:de757ea4d824ffd1"
+name = "new_mesh_refined_pipe_31a"
+qual = "new_mesh_refined_pipe_31a"
+lines = [
+    1206,
+    1275,
+]
+hash = "sha256:07d6aa0dafc45ab6f415b0dedcd8de587bd21208dd1bcb7cdff6e9a0e9379ca9"
+doc_hash = "sha256:01bd59fa119902701c754eb32f70de78cc90b7e42292daf86ac927a6e0bb2c77"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:042772f0b70a6117"
+name = "new_mesh_refined_dhx_tube_side_30b"
+qual = "new_mesh_refined_dhx_tube_side_30b"
+lines = [
+    1277,
+    1349,
+]
+hash = "sha256:353c29515a93f7f961d227c04bfa3b431697fe1206883c0e8fe273b009d4174a"
+doc_hash = "sha256:44488d0f29c446567d1db1c81f52d2f1c46ec3e1dcb0e6f1dfb979a6f62e015e"
+callees = ["fn:70cae68e0ec8771e"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:5d414deaf081e6be"
+name = "new_mesh_refined_isolated_dhx_tube_side_30"
+qual = "new_mesh_refined_isolated_dhx_tube_side_30"
+lines = [
+    1351,
+    1442,
+]
+hash = "sha256:c8ed4fdd3278b182725cc268ea61e0347134bcbbe99fb22d04682860fea4b695"
+doc_hash = "sha256:2dbf3e1367e43dbe152ff7f897e15049c76710949f8514cd02b09f66aa36b29c"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:299657378dcaf0de"
+name = "_new_mesh_refined_isolated_dhx_tube_side_30_parallel_tubes"
+qual = "_new_mesh_refined_isolated_dhx_tube_side_30_parallel_tubes"
+lines = [
+    1444,
+    1538,
+]
+hash = "sha256:ef52062163c1e8dca4ad849b6ef15a4706b8254997c5e3d5ea6028e255cd4dd4"
+doc_hash = "sha256:d59325ed3c3189e594559957c4f13ea1744e33d1b5d52eed8b961b4c9da7b890"
+callees = [
+    "fn:2d4b62ea71933f75",
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:1de01d9c04a90024"
+name = "new_mesh_refined_dhx_tube_side_30a"
+qual = "new_mesh_refined_dhx_tube_side_30a"
+lines = [
+    1540,
+    1612,
+]
+hash = "sha256:4c91cea1cf1054d918169f63f5ffc09fa4f56d75916018ec05256d7f68e0ebd0"
+doc_hash = "sha256:5b8da4b5089423242ae27377a7ca509ae4d7880c4bee1e0317089a7173856d96"
+callees = ["fn:70cae68e0ec8771e"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:f0f4656c00d4622a"
+name = "new_mesh_refined_ndhx_tchx_horizontal_35a"
+qual = "new_mesh_refined_ndhx_tchx_horizontal_35a"
+lines = [
+    1614,
+    1696,
+]
+hash = "sha256:ea3f61f10b18b4d407c6e6f72fe8b4c6c6d01128ea59a7cf9afe0ec436ef14fe"
+doc_hash = "sha256:2ee6e961c325a35f4a94f47fd51431040b1f086b9f62dfaada13fef9bc477066"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:c79fa136163d3697",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:f79cd1a4b96ae385"
+name = "new_mesh_refined_ndhx_tchx_vertical_35b"
+qual = "new_mesh_refined_ndhx_tchx_vertical_35b"
+lines = [
+    1698,
+    1778,
+]
+hash = "sha256:0c682585100224fc11c432d80f44d1fdf949e44f5e3d26294ef5eb4b0afc41d9"
+doc_hash = "sha256:c51faeda72e534444f104413fea9b928b35f87a31f5158758a690c9aefe7a29f"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:193a3257c9b8862d"
+name = "_new_mesh_refined_ndhx_tchx_vertical_35b_1"
+qual = "_new_mesh_refined_ndhx_tchx_vertical_35b_1"
+lines = [
+    1780,
+    1858,
+]
+hash = "sha256:a3605e3e186e93b8943f78a9cb66b750aeb29f3b911117ed58469027ffac9147"
+doc_hash = "sha256:155b3cbffe66ab434715806eafce48ef9469c0369babb68f94f4f55b4bc4d795"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:67b68dcc95663463"
+name = "_new_mesh_refined_ndhx_tchx_vertical_35b_2"
+qual = "_new_mesh_refined_ndhx_tchx_vertical_35b_2"
+lines = [
+    1859,
+    1937,
+]
+hash = "sha256:591f8006f0b1dbad8bcfd66bda1d1be3d5bebf7e280037f708584079f6a37f9b"
+doc_hash = "sha256:a4e893591b361760d2be19ada2e23eb28388a2a390869c13b08454fde92c6102"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:a5ee297a99e28d06"
+name = "new_mesh_refined_pipe_36a"
+qual = "new_mesh_refined_pipe_36a"
+lines = [
+    1939,
+    2008,
+]
+hash = "sha256:c14b3ce23c20bb1ee1fd18ec7187520b3c41b653adce2cb97daf55ead74fd472"
+doc_hash = "sha256:e704634ae786601273ac2ea8db7f7b14198d7c678e4a26354ca44d3aa4bdc82c"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:d95ebae7d722f10a"
+name = "new_mesh_refined_static_mixer_60_label_36"
+qual = "new_mesh_refined_static_mixer_60_label_36"
+lines = [
+    2010,
+    2081,
+]
+hash = "sha256:26cec47ea9271e846fa1c3685bd932d9540ddf1fb3fd8642892f8785ebda7c88"
+doc_hash = "sha256:5d167db1c631d3a139687fef95c3cdb5c7a0bc4ee9ccfb20166f9ae72da7b765"
+callees = ["fn:7e500817d4f2967c"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:f4401253287110d2"
+name = "new_mesh_refined_pipe_37"
+qual = "new_mesh_refined_pipe_37"
+lines = [
+    2083,
+    2154,
+]
+hash = "sha256:b94779c83eabf7c311a23239ba2b59d7cb23da72ee8ada1638c87cfb13b8012c"
+doc_hash = "sha256:42086359ca7b644e988c03f19a3877294333c943a3f7f202eb69d5142c570817"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:5b42cdcaa8c81da9"
+name = "new_mesh_refined_flowmeter_60_37a"
+qual = "new_mesh_refined_flowmeter_60_37a"
+lines = [
+    2156,
+    2222,
+]
+hash = "sha256:d9c443312a8c4b1df68c735496f6bbc6b49f013d45040d12a46cff53696484ed"
+doc_hash = "sha256:816bed5cd99762f81a38485c5ad4ff2498ac4407a852507d2a602d16cdb4a82b"
+callees = ["fn:c79fa136163d3697"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:9dc4b318c99b170d"
+name = "new_mesh_refined_pipe_38"
+qual = "new_mesh_refined_pipe_38"
+lines = [
+    2224,
+    2293,
+]
+hash = "sha256:3109e55f393769f417cc44d3ad7f29bf350aca0787066d751d836d064073dd3b"
+doc_hash = "sha256:4e1289b4221962f857646eedb9edb3406e27c6240de98bba6f7308df316bff56"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_10_times.rs".function]]
+id = "fn:ac52a6373858e68a"
+name = "new_mesh_refined_pipe_39"
+qual = "new_mesh_refined_pipe_39"
+lines = [
+    2295,
+    2364,
+]
+hash = "sha256:7b22d6effac9aff58469f740ef93ee8d5805a3e86fbc1ea2c52a21219fe69342"
+doc_hash = "sha256:d10988f8a31799f1597a4f94c0b0aebb5b38d1c58d94a3170f6cc6d6f98a6cee"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[module."mesh_refinement_20_times.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_20_times"
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:df2969b31b481fbc"
+name = "mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius"
+lines = [
+    10,
+    61,
+]
+hash = "sha256:3f869e06232caace4164bba4efffd40d980d95d2cb177b92d51aae3c8ca2049b"
+doc_hash = "sha256:e720b1a8d6e8cb88200822397a07d5e685eb7798a6487076ef877228780a89ec"
+callees = ["fn:301a1bd08d5d4b1e"]
+test = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:834692abf6d88085"
+name = "mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius"
+lines = [
+    63,
+    81,
+]
+hash = "sha256:625f4cf2940bfe0746f84197305ef31b8bf8a3dc6126ecd6e06b0e03d3a5f646"
+doc_hash = "sha256:77f50c8bcb80d1e909a11e5b738cce69a4e7e38e5e3dbcec85eaa19e2b958adb"
+callees = ["fn:301a1bd08d5d4b1e"]
+test = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:dabd1e4688a61b37"
+name = "mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius"
+lines = [
+    82,
+    96,
+]
+hash = "sha256:12147f99dcd309a5891b62e9c52df1f34843b99758050c1821e73efaec0a8bad"
+doc_hash = "sha256:38a0cf011639d51c54e278d8ec3b98678f4d340d778f17215d07743b5d6badca"
+callees = ["fn:301a1bd08d5d4b1e"]
+test = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:cd7ca6bdd3b169fd"
+name = "mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius"
+lines = [
+    98,
+    112,
+]
+hash = "sha256:e2ea53deeee91cd6c7543f6ff685c3b9bedc4a177953169d523aed2f1cdd9fdf"
+doc_hash = "sha256:5150fd0a1e8ebfaf7ee8dd92c5a51bce39a5de066da2228e545e9e69383bbd76"
+callees = ["fn:301a1bd08d5d4b1e"]
+test = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:823a5ac6f2450c27"
+name = "mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius"
+lines = [
+    113,
+    127,
+]
+hash = "sha256:6877861bae7740f069f8ef29a5a6361258602026bfa5b4c545c2eeda41e067ce"
+doc_hash = "sha256:314d570a6ef598a9ee2276896862fedf8654403f541da50d5714d2b394006f41"
+callees = ["fn:301a1bd08d5d4b1e"]
+test = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:19058eac460646fa"
+name = "mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius"
+lines = [
+    128,
+    142,
+]
+hash = "sha256:fd8eb53bbc45560c9c11bc337da43114ce5f4384c585bbf533fd024a8fa8dee3"
+doc_hash = "sha256:e9d85c3eefd3bda579ec4e804b492c1e1aabadbc029440a8a139a3c74a07c062"
+callees = ["fn:301a1bd08d5d4b1e"]
+test = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:ceb3b4f9aef7a44c"
+name = "mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius"
+lines = [
+    143,
+    157,
+]
+hash = "sha256:38087b60888ffd698cad171ef0ed49a3f5a37ea04259363d57882384f9ba4d24"
+doc_hash = "sha256:9a21c295c299b915c3162e19bfd68d119e42e7e83293437306dd214302f82515"
+callees = ["fn:301a1bd08d5d4b1e"]
+test = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:210b9d52865236df"
+name = "mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius"
+lines = [
+    158,
+    172,
+]
+hash = "sha256:0af130024d7a6e46990d619e4fc3aee72acac1473b354afca2654da47bef5ef0"
+doc_hash = "sha256:8bbdd696f323be8a5b12c39fd8839a22910b62dbf583e0b493f82fe076e155aa"
+callees = ["fn:301a1bd08d5d4b1e"]
+test = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:9ae06152fddcd0ba"
+name = "mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius"
+lines = [
+    173,
+    187,
+]
+hash = "sha256:48d98309dacce6dd67089a76e0d46a713f94782dd6735b7f6fb6f9c537049200"
+doc_hash = "sha256:281b6d3f63d0c0fae8c332ee1bf72347b78a52edf6f60c8aafa17377d6ebb708"
+callees = ["fn:301a1bd08d5d4b1e"]
+test = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:301a1bd08d5d4b1e"
+name = "verify_isolated_dhx_sam_solution"
+qual = "verify_isolated_dhx_sam_solution"
+lines = [
+    217,
+    901,
+]
+hash = "sha256:da697eaeb36f7cbffc2ca4e312476cd51e897874c3c90f9d00b956640cfe6db3"
+doc_hash = "sha256:e34a4e1fd4e5fb315b37553d1b510e50a5f4741b240eaff3c7f74bc88ae445f9"
+callees = [
+    "fn:0dec2af446b2ab25",
+    "fn:134aefb246f7d585",
+    "fn:1b567b0d8738c713",
+    "fn:23824c7ef81bee01",
+    "fn:352eae89cdf05026",
+    "fn:3ab99241909cec96",
+    "fn:3be160897c406997",
+    "fn:3d86ecefc4b9b89f",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:424521506fbc4fa0",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:64622800623ea0d5",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:71e0b3e056618526",
+    "fn:74172f53fcffc1fc",
+    "fn:7c842334269a9ee4",
+    "fn:8912599b6e6a75ab",
+    "fn:89b98b3aca1482a0",
+    "fn:8ccaddb3e1124857",
+    "fn:93844cc452449d04",
+    "fn:959fc89f2db29678",
+    "fn:a062bfc4d1c08565",
+    "fn:a3a04100486196dc",
+    "fn:a466cf7d23703edb",
+    "fn:c2da8a31daabb980",
+    "fn:e1cdbc4ca57ed30b",
+    "fn:e79236623dec9507",
+    "fn:eb4a1178e2f0df3b",
+    "fn:f66c6613b2fa9c0c",
+    "fn:f6ab6171ab550a56",
+    "fn:f6ea91a7ac2aca70",
+    "fn:f8594439823ebd08",
+]
+test = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:3d86ecefc4b9b89f"
+name = "new_mesh_refined_pipe_34"
+qual = "new_mesh_refined_pipe_34"
+lines = [
+    903,
+    988,
+]
+hash = "sha256:a9e07301aaecec8288a2695b49b9c914d9558f5aa0875a15c81ba25ae5672737"
+doc_hash = "sha256:a2a44d00529f8870d980c546aebada420c918cba8052b76b271d3bd4842ca6b1"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:8912599b6e6a75ab"
+name = "new_mesh_refined_pipe_33"
+qual = "new_mesh_refined_pipe_33"
+lines = [
+    990,
+    1059,
+]
+hash = "sha256:2da56d849cae1edbeec8cc144541d69c696caec5c11ba5df746b3630e71c0a1a"
+doc_hash = "sha256:1f2ce3d4da9043533da8f874b80df68468431656b2b5381ddc446aef6d4054d2"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:3be160897c406997"
+name = "new_mesh_refined_pipe_32"
+qual = "new_mesh_refined_pipe_32"
+lines = [
+    1061,
+    1130,
+]
+hash = "sha256:db6ea5aaaa670d1ec948459b6fb3bc2d6300a16d8bb9386c88526eab30e79d41"
+doc_hash = "sha256:2b30987081e26e2a8b3408a9ba479f05f76ee25feb4c02c60a04657030a023ba"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:0dec2af446b2ab25"
+name = "new_mesh_refined_static_mixer_61_label_31"
+qual = "new_mesh_refined_static_mixer_61_label_31"
+lines = [
+    1132,
+    1204,
+]
+hash = "sha256:b31691d18e7ec4b1e7caf24ef7183b8d3eead1d8bd0867f8f677f5be1dc02010"
+doc_hash = "sha256:dbe8a80bbd4efb9d7aa7c898c984efec677d485b322c53e1605532a78495dfcc"
+callees = ["fn:7e500817d4f2967c"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:424521506fbc4fa0"
+name = "new_mesh_refined_pipe_31a"
+qual = "new_mesh_refined_pipe_31a"
+lines = [
+    1206,
+    1275,
+]
+hash = "sha256:0930cbccefaf69d126575803a4923ef85899eb33a17e5f11378bf5b61ecb351b"
+doc_hash = "sha256:01bd59fa119902701c754eb32f70de78cc90b7e42292daf86ac927a6e0bb2c77"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:7c842334269a9ee4"
+name = "new_mesh_refined_dhx_tube_side_30b"
+qual = "new_mesh_refined_dhx_tube_side_30b"
+lines = [
+    1277,
+    1349,
+]
+hash = "sha256:ed86b35eb04a6611e79a6ad970793b7b4dd37d917c9686a23e0a29fa89166b9e"
+doc_hash = "sha256:44488d0f29c446567d1db1c81f52d2f1c46ec3e1dcb0e6f1dfb979a6f62e015e"
+callees = ["fn:70cae68e0ec8771e"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:f6ab6171ab550a56"
+name = "new_mesh_refined_isolated_dhx_tube_side_30"
+qual = "new_mesh_refined_isolated_dhx_tube_side_30"
+lines = [
+    1351,
+    1442,
+]
+hash = "sha256:714c130f59e3c5805ee7e31a757bc71f46222ab40dcc24144c0b87749162cc1f"
+doc_hash = "sha256:2dbf3e1367e43dbe152ff7f897e15049c76710949f8514cd02b09f66aa36b29c"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:df73a0a480ea4b30"
+name = "_new_mesh_refined_isolated_dhx_tube_side_30_parallel_tubes"
+qual = "_new_mesh_refined_isolated_dhx_tube_side_30_parallel_tubes"
+lines = [
+    1444,
+    1538,
+]
+hash = "sha256:a5399af76805dbe85c7f84d433d3201cb3dde7967b50321df7f0c3b8f8ae4e92"
+doc_hash = "sha256:d59325ed3c3189e594559957c4f13ea1744e33d1b5d52eed8b961b4c9da7b890"
+callees = [
+    "fn:2d4b62ea71933f75",
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:64622800623ea0d5"
+name = "new_mesh_refined_dhx_tube_side_30a"
+qual = "new_mesh_refined_dhx_tube_side_30a"
+lines = [
+    1540,
+    1612,
+]
+hash = "sha256:d076864aa3ff0d3f48c988bece8447be98d11f72901cfcb30a922d7610120730"
+doc_hash = "sha256:5b8da4b5089423242ae27377a7ca509ae4d7880c4bee1e0317089a7173856d96"
+callees = ["fn:70cae68e0ec8771e"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:e1cdbc4ca57ed30b"
+name = "new_mesh_refined_ndhx_tchx_horizontal_35a"
+qual = "new_mesh_refined_ndhx_tchx_horizontal_35a"
+lines = [
+    1614,
+    1696,
+]
+hash = "sha256:5826e9670cd735954d0ed5ce1ff78745a0987582de88948c58ecd64a103b3760"
+doc_hash = "sha256:2ee6e961c325a35f4a94f47fd51431040b1f086b9f62dfaada13fef9bc477066"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:c79fa136163d3697",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:959fc89f2db29678"
+name = "new_mesh_refined_ndhx_tchx_vertical_35b"
+qual = "new_mesh_refined_ndhx_tchx_vertical_35b"
+lines = [
+    1698,
+    1778,
+]
+hash = "sha256:3cd7d6ddea54eeacae850a0465438b84b78c5edbdbf3c85e6eb118297f9e2808"
+doc_hash = "sha256:c51faeda72e534444f104413fea9b928b35f87a31f5158758a690c9aefe7a29f"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:8b585c8427343c59"
+name = "_new_mesh_refined_ndhx_tchx_vertical_35b_1"
+qual = "_new_mesh_refined_ndhx_tchx_vertical_35b_1"
+lines = [
+    1780,
+    1858,
+]
+hash = "sha256:b92c2f25c3747ebf80cda674874c0eeebca9dcb96acbe5b616f862b41a9f1762"
+doc_hash = "sha256:155b3cbffe66ab434715806eafce48ef9469c0369babb68f94f4f55b4bc4d795"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:d209cb69e0d53cdc"
+name = "_new_mesh_refined_ndhx_tchx_vertical_35b_2"
+qual = "_new_mesh_refined_ndhx_tchx_vertical_35b_2"
+lines = [
+    1859,
+    1937,
+]
+hash = "sha256:8bc1db7d150855fb6f1ebba77353be3b657212834a456b3d25832fb92a653fd1"
+doc_hash = "sha256:a4e893591b361760d2be19ada2e23eb28388a2a390869c13b08454fde92c6102"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:f8594439823ebd08"
+name = "new_mesh_refined_pipe_36a"
+qual = "new_mesh_refined_pipe_36a"
+lines = [
+    1939,
+    2008,
+]
+hash = "sha256:9eeaed0b7c7c6bba8b1db7c39bb35b6776029aa929f310dbf95e3ed2d974ca39"
+doc_hash = "sha256:e704634ae786601273ac2ea8db7f7b14198d7c678e4a26354ca44d3aa4bdc82c"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:8ccaddb3e1124857"
+name = "new_mesh_refined_static_mixer_60_label_36"
+qual = "new_mesh_refined_static_mixer_60_label_36"
+lines = [
+    2010,
+    2081,
+]
+hash = "sha256:d3a09f958668bc4c41094add20f8504873a6c9524feb91e02e6239069e1a14e5"
+doc_hash = "sha256:5d167db1c631d3a139687fef95c3cdb5c7a0bc4ee9ccfb20166f9ae72da7b765"
+callees = ["fn:7e500817d4f2967c"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:eb4a1178e2f0df3b"
+name = "new_mesh_refined_pipe_37"
+qual = "new_mesh_refined_pipe_37"
+lines = [
+    2083,
+    2154,
+]
+hash = "sha256:48ce6c0c5c70a9d779280b1fec40ca4add835dcb2142a3016dc52feb3b96c7ca"
+doc_hash = "sha256:42086359ca7b644e988c03f19a3877294333c943a3f7f202eb69d5142c570817"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:f6ea91a7ac2aca70"
+name = "new_mesh_refined_flowmeter_60_37a"
+qual = "new_mesh_refined_flowmeter_60_37a"
+lines = [
+    2156,
+    2222,
+]
+hash = "sha256:5f61c5fb304121e733e6d97dc71b93368a7acdf4f82ab098701ae3e594d4866a"
+doc_hash = "sha256:816bed5cd99762f81a38485c5ad4ff2498ac4407a852507d2a602d16cdb4a82b"
+callees = ["fn:c79fa136163d3697"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:1b567b0d8738c713"
+name = "new_mesh_refined_pipe_38"
+qual = "new_mesh_refined_pipe_38"
+lines = [
+    2224,
+    2293,
+]
+hash = "sha256:94be5edf77495578cced214cf3690d20272af2d3561827947da69cb527cc14f1"
+doc_hash = "sha256:4e1289b4221962f857646eedb9edb3406e27c6240de98bba6f7308df316bff56"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_20_times.rs".function]]
+id = "fn:23824c7ef81bee01"
+name = "new_mesh_refined_pipe_39"
+qual = "new_mesh_refined_pipe_39"
+lines = [
+    2295,
+    2364,
+]
+hash = "sha256:b6f98cf0ccc26d7b89b202caf8ecb2af4697bc4b1be2bc417b92042c0c36f97e"
+doc_hash = "sha256:d10988f8a31799f1597a4f94c0b0aebb5b38d1c58d94a3170f6cc6d6f98a6cee"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[module."mesh_refinement_five_times.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times"
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:bdb04f727fdff81d"
+name = "mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius"
+lines = [
+    10,
+    32,
+]
+hash = "sha256:2836167b834f8577d8ae352e7896f8d7a7ffc8371a4382e8bd5a30d3ab12cb18"
+doc_hash = "sha256:7b528f72b21122e27f1bd67e9579be605db0c64723107f7fa9bc535b15332224"
+callees = ["fn:6a82d6e07c6ee94f"]
+test = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:6547f9c05d4d670f"
+name = "mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius"
+lines = [
+    34,
+    56,
+]
+hash = "sha256:5044c600dbb7e9bed95fb7418fe3b2bdda5824fbbcdee9607e9c53b3fba28da6"
+doc_hash = "sha256:abd4fda8182bb2a3e943ecc525f39a6bfb881171cf637265651ec95f30bd07f0"
+callees = ["fn:6a82d6e07c6ee94f"]
+test = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:f7b9d2fcc39c8412"
+name = "mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius"
+lines = [
+    57,
+    75,
+]
+hash = "sha256:b9139817ada59ed1a520865eea07ff982b0591e073d747712675dd8c9ee69b9e"
+doc_hash = "sha256:3740c7aeeac60d72967f8ef1973103646d86829406948b810f3f115f0a8fc963"
+callees = ["fn:6a82d6e07c6ee94f"]
+test = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:70c3db6a318f4dc6"
+name = "mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius"
+lines = [
+    77,
+    95,
+]
+hash = "sha256:84578597054fd4e3b5fab0905e10cfa98c039510afc44338c304ee3aa3c909da"
+doc_hash = "sha256:d7c65657711072eb0fdf3d4b0fab73ec1e5f64f3fac9f154cf6a40edd11da11e"
+callees = ["fn:6a82d6e07c6ee94f"]
+test = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:84581e7f93f86137"
+name = "mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius"
+lines = [
+    96,
+    110,
+]
+hash = "sha256:77d0d15d8a3e59e47817aff2c671bba4176114c63c7efe2f89eb8bf6a605d6ce"
+doc_hash = "sha256:1c4c13421fb405239a330476db12e313937b5f97200a95b52226afb8fea25ad8"
+callees = ["fn:6a82d6e07c6ee94f"]
+test = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:b14b928e21c92b2e"
+name = "mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius"
+lines = [
+    111,
+    125,
+]
+hash = "sha256:f01ddf414ec39aac34aca4efe53fddb8e49357eb495b7a7a3f9980b21b4e1729"
+doc_hash = "sha256:63f1d1440c19016e81d01371fb3f9a21000cf3b2e0f8c554626994e0c9bb028c"
+callees = ["fn:6a82d6e07c6ee94f"]
+test = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:52b90e8c57b31266"
+name = "mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius"
+lines = [
+    126,
+    140,
+]
+hash = "sha256:adda8448970514703a38158b7f3209231fc6a89799c78ef9d0188d8af52bb7a3"
+doc_hash = "sha256:279931b5708a98433c5a662d5902f8a3376abced58592302e5a06843c02eab9c"
+callees = ["fn:6a82d6e07c6ee94f"]
+test = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:7094db00842f2e53"
+name = "mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius"
+lines = [
+    141,
+    155,
+]
+hash = "sha256:980a7bcd7a9eac2303087b5610c3072098991c224aa4979fff15ae7db17e50b2"
+doc_hash = "sha256:27b2cccf91dad5fc3edaef0d3fca3f020d7e2d9f0115d216fc093cc4b2cab13e"
+callees = ["fn:6a82d6e07c6ee94f"]
+test = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:929b957eaa3ce723"
+name = "mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius"
+lines = [
+    156,
+    170,
+]
+hash = "sha256:12e6b74f57c92637280ee92c979545b20a6e771566dfee6a64abb2db3d327780"
+doc_hash = "sha256:a51f1107ba8d392568beebacff14ca09d8f1b4f10cf824dac614368ba541039f"
+callees = ["fn:6a82d6e07c6ee94f"]
+test = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:6a82d6e07c6ee94f"
+name = "verify_isolated_dhx_sam_solution"
+qual = "verify_isolated_dhx_sam_solution"
+lines = [
+    237,
+    921,
+]
+hash = "sha256:99716dd71cf396b5ceba04c48ec6c15480b673cc7fba1410aa4636e424822502"
+doc_hash = "sha256:e34a4e1fd4e5fb315b37553d1b510e50a5f4741b240eaff3c7f74bc88ae445f9"
+callees = [
+    "fn:0e88fa70a9b61965",
+    "fn:11c8064d17b23b58",
+    "fn:134aefb246f7d585",
+    "fn:1cac66b5f72baf26",
+    "fn:208fc2f57a1740c1",
+    "fn:27b51001f1e7a684",
+    "fn:352eae89cdf05026",
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:44b3cf5cc0cde073",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:6dd140f7b834d442",
+    "fn:71e0b3e056618526",
+    "fn:7225140398fc785d",
+    "fn:74172f53fcffc1fc",
+    "fn:754abd88fc13a016",
+    "fn:85ad1c337343f70a",
+    "fn:886e49fa3f51f20d",
+    "fn:89b98b3aca1482a0",
+    "fn:93844cc452449d04",
+    "fn:9904c29cd115904c",
+    "fn:9d50fd41e3a51bd8",
+    "fn:a062bfc4d1c08565",
+    "fn:a3a04100486196dc",
+    "fn:a466cf7d23703edb",
+    "fn:a78c083045dc6bde",
+    "fn:c2da8a31daabb980",
+    "fn:cc4bc650c90746d7",
+    "fn:e79236623dec9507",
+    "fn:f66c6613b2fa9c0c",
+    "fn:f95d6aa639d5f40a",
+]
+test = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:cc4bc650c90746d7"
+name = "new_mesh_refined_pipe_34"
+qual = "new_mesh_refined_pipe_34"
+lines = [
+    923,
+    1008,
+]
+hash = "sha256:97dc9991a50971ac901fe4fefe068f9aeb57652431fde19977371dd01f09ba54"
+doc_hash = "sha256:a2a44d00529f8870d980c546aebada420c918cba8052b76b271d3bd4842ca6b1"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:6dd140f7b834d442"
+name = "new_mesh_refined_pipe_33"
+qual = "new_mesh_refined_pipe_33"
+lines = [
+    1010,
+    1079,
+]
+hash = "sha256:8a0b9c375316a2f7b130f5240eff7d799b3b7691e7bd7333a22375ba2c491812"
+doc_hash = "sha256:1f2ce3d4da9043533da8f874b80df68468431656b2b5381ddc446aef6d4054d2"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:85ad1c337343f70a"
+name = "new_mesh_refined_pipe_32"
+qual = "new_mesh_refined_pipe_32"
+lines = [
+    1081,
+    1150,
+]
+hash = "sha256:aec3e0e835c182fe9d20c80ce5a009ce6e1e928900561bb101dee0d501987171"
+doc_hash = "sha256:2b30987081e26e2a8b3408a9ba479f05f76ee25feb4c02c60a04657030a023ba"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:f95d6aa639d5f40a"
+name = "new_mesh_refined_static_mixer_61_label_31"
+qual = "new_mesh_refined_static_mixer_61_label_31"
+lines = [
+    1152,
+    1224,
+]
+hash = "sha256:eb2ec7b2b72078bc22af72693a0f6a5f00da1d543cb6f395b7db21a0168b492a"
+doc_hash = "sha256:dbe8a80bbd4efb9d7aa7c898c984efec677d485b322c53e1605532a78495dfcc"
+callees = ["fn:7e500817d4f2967c"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:11c8064d17b23b58"
+name = "new_mesh_refined_pipe_31a"
+qual = "new_mesh_refined_pipe_31a"
+lines = [
+    1226,
+    1295,
+]
+hash = "sha256:6b71732f6a05a66806b5386b8d46bc86eed7ccc9aee1e5b8f2e4c18ce597fb20"
+doc_hash = "sha256:01bd59fa119902701c754eb32f70de78cc90b7e42292daf86ac927a6e0bb2c77"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:208fc2f57a1740c1"
+name = "new_mesh_refined_dhx_tube_side_30b"
+qual = "new_mesh_refined_dhx_tube_side_30b"
+lines = [
+    1297,
+    1369,
+]
+hash = "sha256:5c3ca729824455d596b40ccf4a292e5471514ab99b3b45fb1b252c911b3a1567"
+doc_hash = "sha256:44488d0f29c446567d1db1c81f52d2f1c46ec3e1dcb0e6f1dfb979a6f62e015e"
+callees = ["fn:70cae68e0ec8771e"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:a78c083045dc6bde"
+name = "new_mesh_refined_isolated_dhx_tube_side_30"
+qual = "new_mesh_refined_isolated_dhx_tube_side_30"
+lines = [
+    1371,
+    1462,
+]
+hash = "sha256:a548fcd5aec63d265c56fb6ae7815d1dabcc79199b9128aa6c101461054fe99b"
+doc_hash = "sha256:2dbf3e1367e43dbe152ff7f897e15049c76710949f8514cd02b09f66aa36b29c"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:d308771757efc7fb"
+name = "_new_mesh_refined_isolated_dhx_tube_side_30_parallel_tubes"
+qual = "_new_mesh_refined_isolated_dhx_tube_side_30_parallel_tubes"
+lines = [
+    1464,
+    1558,
+]
+hash = "sha256:0139b7157eae8b8bce2ad4a872f0bcd0efd5ce28fc3ce9957ee84640dd70ecf0"
+doc_hash = "sha256:d59325ed3c3189e594559957c4f13ea1744e33d1b5d52eed8b961b4c9da7b890"
+callees = [
+    "fn:2d4b62ea71933f75",
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:1cac66b5f72baf26"
+name = "new_mesh_refined_dhx_tube_side_30a"
+qual = "new_mesh_refined_dhx_tube_side_30a"
+lines = [
+    1560,
+    1632,
+]
+hash = "sha256:f188f25c925e3b05a4f8d6abe93e5a1e297401277ab837371db9ca8a09e71c07"
+doc_hash = "sha256:5b8da4b5089423242ae27377a7ca509ae4d7880c4bee1e0317089a7173856d96"
+callees = ["fn:70cae68e0ec8771e"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:754abd88fc13a016"
+name = "new_mesh_refined_ndhx_tchx_horizontal_35a"
+qual = "new_mesh_refined_ndhx_tchx_horizontal_35a"
+lines = [
+    1634,
+    1716,
+]
+hash = "sha256:74ba5c68a6a4274261b7bf2a7df759ac6b169958f1b2b8fb9fec7bb354c3823e"
+doc_hash = "sha256:2ee6e961c325a35f4a94f47fd51431040b1f086b9f62dfaada13fef9bc477066"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:c79fa136163d3697",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:9d50fd41e3a51bd8"
+name = "new_mesh_refined_ndhx_tchx_vertical_35b"
+qual = "new_mesh_refined_ndhx_tchx_vertical_35b"
+lines = [
+    1718,
+    1798,
+]
+hash = "sha256:f78c997c67cbd78238dca729dc96ead0c4651f7f46275e08229f671896867191"
+doc_hash = "sha256:c51faeda72e534444f104413fea9b928b35f87a31f5158758a690c9aefe7a29f"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:57a8115ae98da0fc"
+name = "_new_mesh_refined_ndhx_tchx_vertical_35b_1"
+qual = "_new_mesh_refined_ndhx_tchx_vertical_35b_1"
+lines = [
+    1800,
+    1878,
+]
+hash = "sha256:c521dd6816ca2d07d7374ec4300b48564367bc476d03083390549406ee7cc070"
+doc_hash = "sha256:155b3cbffe66ab434715806eafce48ef9469c0369babb68f94f4f55b4bc4d795"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:e0c4ab4d0eb5d807"
+name = "_new_mesh_refined_ndhx_tchx_vertical_35b_2"
+qual = "_new_mesh_refined_ndhx_tchx_vertical_35b_2"
+lines = [
+    1879,
+    1957,
+]
+hash = "sha256:135bbf2feeb97c8fc30140bd4d39e062edc4016ca3e8303a8cd41217ddaef6d0"
+doc_hash = "sha256:a4e893591b361760d2be19ada2e23eb28388a2a390869c13b08454fde92c6102"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:7225140398fc785d"
+name = "new_mesh_refined_pipe_36a"
+qual = "new_mesh_refined_pipe_36a"
+lines = [
+    1959,
+    2028,
+]
+hash = "sha256:93a33d8a51bc38fee82b1f734ebb1bd587dcddb2cf08f7a8d8305c3e35209cf4"
+doc_hash = "sha256:e704634ae786601273ac2ea8db7f7b14198d7c678e4a26354ca44d3aa4bdc82c"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:27b51001f1e7a684"
+name = "new_mesh_refined_static_mixer_60_label_36"
+qual = "new_mesh_refined_static_mixer_60_label_36"
+lines = [
+    2030,
+    2101,
+]
+hash = "sha256:1d6445ffe5d9f78d2bd4e651b9bbef09830d6997278daece9fe1edda35c813d1"
+doc_hash = "sha256:5d167db1c631d3a139687fef95c3cdb5c7a0bc4ee9ccfb20166f9ae72da7b765"
+callees = ["fn:7e500817d4f2967c"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:44b3cf5cc0cde073"
+name = "new_mesh_refined_pipe_37"
+qual = "new_mesh_refined_pipe_37"
+lines = [
+    2103,
+    2174,
+]
+hash = "sha256:2d340f09df18446687ff53eb1a90e86b2663915190875073ef69d192e9bfd494"
+doc_hash = "sha256:42086359ca7b644e988c03f19a3877294333c943a3f7f202eb69d5142c570817"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:0e88fa70a9b61965"
+name = "new_mesh_refined_flowmeter_60_37a"
+qual = "new_mesh_refined_flowmeter_60_37a"
+lines = [
+    2176,
+    2242,
+]
+hash = "sha256:ab0a738221a8d4b07ab526da3d317fb09283f24b96dbd7b6c11475307de578a6"
+doc_hash = "sha256:816bed5cd99762f81a38485c5ad4ff2498ac4407a852507d2a602d16cdb4a82b"
+callees = ["fn:c79fa136163d3697"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:9904c29cd115904c"
+name = "new_mesh_refined_pipe_38"
+qual = "new_mesh_refined_pipe_38"
+lines = [
+    2244,
+    2313,
+]
+hash = "sha256:b35e3ce9df9e87d38b448ec5210dab7f090c0127ea791f1e3e5d7b6c9158647d"
+doc_hash = "sha256:4e1289b4221962f857646eedb9edb3406e27c6240de98bba6f7308df316bff56"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_five_times.rs".function]]
+id = "fn:886e49fa3f51f20d"
+name = "new_mesh_refined_pipe_39"
+qual = "new_mesh_refined_pipe_39"
+lines = [
+    2315,
+    2384,
+]
+hash = "sha256:18c08b3592795c2004eab065d82d5aa695060d7b3c2a84284ffb8b4cfcacc9d2"
+doc_hash = "sha256:d10988f8a31799f1597a4f94c0b0aebb5b38d1c58d94a3170f6cc6d6f98a6cee"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[module."mesh_refinement_two_times.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_two_times"
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:7de99f0ce215c338"
+name = "mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius"
+lines = [
+    10,
+    61,
+]
+hash = "sha256:5539a5bde638950caf83a922dcfb64f24e125d89598c0d6b047b073e06e7402c"
+doc_hash = "sha256:e720b1a8d6e8cb88200822397a07d5e685eb7798a6487076ef877228780a89ec"
+callees = ["fn:2e564965a6ac1de5"]
+test = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:f2af3f9f9946ad61"
+name = "mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius"
+lines = [
+    63,
+    81,
+]
+hash = "sha256:d30209ff4c3493cb21c8c3718e6d92792172e34f704251c9733cc5224c31d657"
+doc_hash = "sha256:db6dfcfde5ab064cf9955e3929be77f34ab0689b6f8ae3e2ec34e6831176562b"
+callees = ["fn:2e564965a6ac1de5"]
+test = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:fdf2cfa324e71d63"
+name = "mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius"
+lines = [
+    82,
+    96,
+]
+hash = "sha256:659cfd681012f011b2cdb0b4ded95257e741e116acde4529f09f19b30b37114e"
+doc_hash = "sha256:2d6e8a0bc549c557bcc0aa953895fc5cb7e633b565ea72c84d0e59613c94c147"
+callees = ["fn:2e564965a6ac1de5"]
+test = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:c0e311ecae8b321c"
+name = "mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius"
+lines = [
+    98,
+    112,
+]
+hash = "sha256:3b2df5780d5d437cc62c9200cf54aaa620f2bdf2ad87ee39fdf8b466e952daf5"
+doc_hash = "sha256:fc38d2cbb8c2e6c906874d944df34ca5a73f2367aef30192809c17bf8e0e2a48"
+callees = ["fn:2e564965a6ac1de5"]
+test = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:184115396114b73b"
+name = "mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius"
+lines = [
+    113,
+    127,
+]
+hash = "sha256:8d90f8d644130c11afdce2233e02113240bb886fd44a85ea653cb2e36d617c4e"
+doc_hash = "sha256:355023cf56b94446fe0f958f5af435574924bf0e5820a3fd750f4039d8025c3b"
+callees = ["fn:2e564965a6ac1de5"]
+test = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:f94d5b6b3c627779"
+name = "mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius"
+lines = [
+    128,
+    142,
+]
+hash = "sha256:d1b8b1094e643558229ffb2c30f82fe88d444524c062a5218a0b877b71894734"
+doc_hash = "sha256:c462385f753235c8d6c5c5c16f996675804f2b78c7a3540aece4787e32dfebab"
+callees = ["fn:2e564965a6ac1de5"]
+test = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:6199d8c52e808205"
+name = "mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius"
+lines = [
+    143,
+    157,
+]
+hash = "sha256:4ee0b85931efccc61193439724af3b0e80064139f570038853add7a9a67fc321"
+doc_hash = "sha256:55baf5da5f5dc6065e81cc0d7086eb0fcc81b6d7ff4ff197f05bcbe62642976d"
+callees = ["fn:2e564965a6ac1de5"]
+test = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:89624bee4a11fc14"
+name = "mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius"
+lines = [
+    158,
+    172,
+]
+hash = "sha256:e69513a169faefcd937a309458d0513dc986fd4192b540a2257fa3c2fe8800db"
+doc_hash = "sha256:108889d23f128962d63e5e41f39d2e747d81042e87d77a79ff49b2ea6dc9e578"
+callees = ["fn:2e564965a6ac1de5"]
+test = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:509c9d42a9d93ca3"
+name = "mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius"
+qual = "mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius"
+lines = [
+    173,
+    187,
+]
+hash = "sha256:9fdae4805d1679da55ffbade866307cf9586fc4026a2a63086d3f4eb85ba5d85"
+doc_hash = "sha256:c33adf0b030a87ddac60640c253a853c5b858c908614751723494389fd561a97"
+callees = ["fn:2e564965a6ac1de5"]
+test = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:2e564965a6ac1de5"
+name = "verify_isolated_dhx_sam_solution"
+qual = "verify_isolated_dhx_sam_solution"
+lines = [
+    217,
+    901,
+]
+hash = "sha256:5138d7ea85171d53071636009f556634eba4d8cef784dc0ac1ccfcb57499c87a"
+doc_hash = "sha256:e34a4e1fd4e5fb315b37553d1b510e50a5f4741b240eaff3c7f74bc88ae445f9"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:14e83883bf14279c",
+    "fn:3297874702599a14",
+    "fn:352eae89cdf05026",
+    "fn:399498b29818a9db",
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:4b61d850bccf1117",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:71e0b3e056618526",
+    "fn:74172f53fcffc1fc",
+    "fn:7549164a7063506b",
+    "fn:7d1b7e5ac2555a36",
+    "fn:7d5852a6b0fb2770",
+    "fn:89b98b3aca1482a0",
+    "fn:92365e98d420021a",
+    "fn:93844cc452449d04",
+    "fn:9a866842029a04e4",
+    "fn:a062bfc4d1c08565",
+    "fn:a3a04100486196dc",
+    "fn:a466cf7d23703edb",
+    "fn:b36cdcd3ac48aa82",
+    "fn:c2da8a31daabb980",
+    "fn:c85b52824c8cbcb6",
+    "fn:d40c52694ea4efcf",
+    "fn:d921aeefe854d653",
+    "fn:e1c81e332d51a580",
+    "fn:e79236623dec9507",
+    "fn:f0c30c63f40f76a8",
+    "fn:f66c6613b2fa9c0c",
+    "fn:f93d3a9c3f9fcc58",
+]
+test = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:9a866842029a04e4"
+name = "new_mesh_refined_pipe_34"
+qual = "new_mesh_refined_pipe_34"
+lines = [
+    903,
+    988,
+]
+hash = "sha256:d03e7278e84e646df5ba305b7ac041477655fd434da1ac849b899d108a120142"
+doc_hash = "sha256:a2a44d00529f8870d980c546aebada420c918cba8052b76b271d3bd4842ca6b1"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:e1c81e332d51a580"
+name = "new_mesh_refined_pipe_33"
+qual = "new_mesh_refined_pipe_33"
+lines = [
+    990,
+    1059,
+]
+hash = "sha256:61793ba7cb07f7626ed9c5b8ba6481cb82b6793ddef013badf771f3fedbdcb7d"
+doc_hash = "sha256:1f2ce3d4da9043533da8f874b80df68468431656b2b5381ddc446aef6d4054d2"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:b36cdcd3ac48aa82"
+name = "new_mesh_refined_pipe_32"
+qual = "new_mesh_refined_pipe_32"
+lines = [
+    1061,
+    1130,
+]
+hash = "sha256:f4e5d00f7e59396d8b33c328021f50d457d47ae8ad366e45942d24059459f71b"
+doc_hash = "sha256:2b30987081e26e2a8b3408a9ba479f05f76ee25feb4c02c60a04657030a023ba"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:3297874702599a14"
+name = "new_mesh_refined_static_mixer_61_label_31"
+qual = "new_mesh_refined_static_mixer_61_label_31"
+lines = [
+    1132,
+    1204,
+]
+hash = "sha256:9f04821f8ec9f99d6cf7bf0dabc6f0db01d51bab068412938c87a4074e421260"
+doc_hash = "sha256:dbe8a80bbd4efb9d7aa7c898c984efec677d485b322c53e1605532a78495dfcc"
+callees = ["fn:7e500817d4f2967c"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:d921aeefe854d653"
+name = "new_mesh_refined_pipe_31a"
+qual = "new_mesh_refined_pipe_31a"
+lines = [
+    1206,
+    1275,
+]
+hash = "sha256:326fad4ba63a1f46226729b3ae728d92e10fda50b760715d5d7904b7de8fd15c"
+doc_hash = "sha256:01bd59fa119902701c754eb32f70de78cc90b7e42292daf86ac927a6e0bb2c77"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:c85b52824c8cbcb6"
+name = "new_mesh_refined_dhx_tube_side_30b"
+qual = "new_mesh_refined_dhx_tube_side_30b"
+lines = [
+    1277,
+    1349,
+]
+hash = "sha256:b96e923d8c5ca422eb40824b5652c3e764dde3ff80e92b69669ecde4d188763b"
+doc_hash = "sha256:44488d0f29c446567d1db1c81f52d2f1c46ec3e1dcb0e6f1dfb979a6f62e015e"
+callees = ["fn:70cae68e0ec8771e"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:f0c30c63f40f76a8"
+name = "new_mesh_refined_isolated_dhx_tube_side_30"
+qual = "new_mesh_refined_isolated_dhx_tube_side_30"
+lines = [
+    1351,
+    1442,
+]
+hash = "sha256:7c124893deff2132cf9bb48b67b29f2dde3832f2fbd6b6acba5ad16c82366271"
+doc_hash = "sha256:2dbf3e1367e43dbe152ff7f897e15049c76710949f8514cd02b09f66aa36b29c"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:61c7c47141169cfb"
+name = "_new_mesh_refined_isolated_dhx_tube_side_30_parallel_tubes"
+qual = "_new_mesh_refined_isolated_dhx_tube_side_30_parallel_tubes"
+lines = [
+    1444,
+    1538,
+]
+hash = "sha256:6903f3154061c5ad8559c627acb2bf706afaf03574affdb8ffe512ba54fe4be8"
+doc_hash = "sha256:d59325ed3c3189e594559957c4f13ea1744e33d1b5d52eed8b961b4c9da7b890"
+callees = [
+    "fn:2d4b62ea71933f75",
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:92365e98d420021a"
+name = "new_mesh_refined_dhx_tube_side_30a"
+qual = "new_mesh_refined_dhx_tube_side_30a"
+lines = [
+    1540,
+    1612,
+]
+hash = "sha256:567d0b87db44b8cbfd61330290fb316e16fe4fc82f35ee973fadf7a313882aa9"
+doc_hash = "sha256:5b8da4b5089423242ae27377a7ca509ae4d7880c4bee1e0317089a7173856d96"
+callees = ["fn:70cae68e0ec8771e"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:f93d3a9c3f9fcc58"
+name = "new_mesh_refined_ndhx_tchx_horizontal_35a"
+qual = "new_mesh_refined_ndhx_tchx_horizontal_35a"
+lines = [
+    1614,
+    1696,
+]
+hash = "sha256:09693b65f74c81c89bfcd54eb754da17390969a3ef49a4c10db9d5b0da083102"
+doc_hash = "sha256:2ee6e961c325a35f4a94f47fd51431040b1f086b9f62dfaada13fef9bc477066"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:c79fa136163d3697",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:7d1b7e5ac2555a36"
+name = "new_mesh_refined_ndhx_tchx_vertical_35b"
+qual = "new_mesh_refined_ndhx_tchx_vertical_35b"
+lines = [
+    1698,
+    1778,
+]
+hash = "sha256:ea3a77c64fa9380bc2c7175b679cd39ebf72c3f82eb45596c292d12c683fbccb"
+doc_hash = "sha256:c51faeda72e534444f104413fea9b928b35f87a31f5158758a690c9aefe7a29f"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:e294824095edb351"
+name = "_new_mesh_refined_ndhx_tchx_vertical_35b_1"
+qual = "_new_mesh_refined_ndhx_tchx_vertical_35b_1"
+lines = [
+    1780,
+    1858,
+]
+hash = "sha256:0b74f6c428564935d75747f33b363e0183c4aabc3fcd10ed47e43e61ac901b5e"
+doc_hash = "sha256:155b3cbffe66ab434715806eafce48ef9469c0369babb68f94f4f55b4bc4d795"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:1fa8176ffb2aaea9"
+name = "_new_mesh_refined_ndhx_tchx_vertical_35b_2"
+qual = "_new_mesh_refined_ndhx_tchx_vertical_35b_2"
+lines = [
+    1859,
+    1937,
+]
+hash = "sha256:7a5b6b58dfb7977be1aea237e189cbb497c574ab6cbca34fab61788925771850"
+doc_hash = "sha256:a4e893591b361760d2be19ada2e23eb28388a2a390869c13b08454fde92c6102"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:7549164a7063506b"
+name = "new_mesh_refined_pipe_36a"
+qual = "new_mesh_refined_pipe_36a"
+lines = [
+    1939,
+    2008,
+]
+hash = "sha256:7e55a67b46841f6fd61a32070ebf857ab1051d403367cd1ccbca0ac4515e9525"
+doc_hash = "sha256:e704634ae786601273ac2ea8db7f7b14198d7c678e4a26354ca44d3aa4bdc82c"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:4b61d850bccf1117"
+name = "new_mesh_refined_static_mixer_60_label_36"
+qual = "new_mesh_refined_static_mixer_60_label_36"
+lines = [
+    2010,
+    2081,
+]
+hash = "sha256:38e591a2c9f8c2d716daaad04afa894b4129e3fcfd0e502a6d1020945f531bad"
+doc_hash = "sha256:5d167db1c631d3a139687fef95c3cdb5c7a0bc4ee9ccfb20166f9ae72da7b765"
+callees = ["fn:7e500817d4f2967c"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:399498b29818a9db"
+name = "new_mesh_refined_pipe_37"
+qual = "new_mesh_refined_pipe_37"
+lines = [
+    2083,
+    2154,
+]
+hash = "sha256:3365338376f131926ccc3b0ba4538a1d94581149fe943af98d6606f69795a32b"
+doc_hash = "sha256:42086359ca7b644e988c03f19a3877294333c943a3f7f202eb69d5142c570817"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:14e83883bf14279c"
+name = "new_mesh_refined_flowmeter_60_37a"
+qual = "new_mesh_refined_flowmeter_60_37a"
+lines = [
+    2156,
+    2222,
+]
+hash = "sha256:79030937a0263b7b52a56edc95b0b4917402e69caa939c3712497de8b8da25fc"
+doc_hash = "sha256:816bed5cd99762f81a38485c5ad4ff2498ac4407a852507d2a602d16cdb4a82b"
+callees = ["fn:c79fa136163d3697"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:7d5852a6b0fb2770"
+name = "new_mesh_refined_pipe_38"
+qual = "new_mesh_refined_pipe_38"
+lines = [
+    2224,
+    2293,
+]
+hash = "sha256:57ab553ec45b859b75784386d7a80a3d0c5763358ca79c15e24d9ae82d224bf4"
+doc_hash = "sha256:4e1289b4221962f857646eedb9edb3406e27c6240de98bba6f7308df316bff56"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[[module."mesh_refinement_two_times.rs".function]]
+id = "fn:d40c52694ea4efcf"
+name = "new_mesh_refined_pipe_39"
+qual = "new_mesh_refined_pipe_39"
+lines = [
+    2295,
+    2364,
+]
+hash = "sha256:cb6643bf2355aba5bac358ea931f5d2cd74ad1fc90fdc5dfe7c391bf6fe674fd"
+doc_hash = "sha256:d10988f8a31799f1597a4f94c0b0aebb5b38d1c58d94a3170f6cc6d6f98a6cee"
+callees = ["fn:4c77b592a8ab611f"]
+test = true
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement"

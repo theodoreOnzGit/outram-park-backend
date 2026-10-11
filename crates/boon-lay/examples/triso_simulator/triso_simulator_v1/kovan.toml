@@ -1,0 +1,92 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/examples/triso_simulator/triso_simulator_v1"
+
+[module."mod.rs"]
+path = "example:triso_simulator::triso_simulator_v1"
+
+[[module."mod.rs".function]]
+id = "fn:c47f0175606e9b3a"
+name = "triso_decay_diffusion_simulator_v1"
+qual = "triso_decay_diffusion_simulator_v1"
+lines = [
+    14,
+    27,
+]
+hash = "sha256:2d4e010ad0dd27446a11a3f51cf56f417df2faf26346e9e574a358769ad998fe"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:54fb73371ff4519d"]
+
+[[module."mod.rs".function]]
+id = "fn:54fb73371ff4519d"
+name = "new"
+qual = "TRISOSimApp::new"
+lines = [
+    59,
+    161,
+]
+hash = "sha256:b4eb86e7c05edaa6552aa27c99fe5bd5f3e591ec51d83f5733c0aa5283bfcca6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1ca8526714e532cd",
+    "fn:85326e95ff2a7a18",
+    "fn:f98a2d1ab7baa2a5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:85326e95ff2a7a18"
+name = "default"
+qual = "TRISOSimApp::default"
+lines = [
+    165,
+    227,
+]
+hash = "sha256:1b13eff3a3e3cd2651ca35c1673ad391ec7c8be8a01c6352fbafad64d61c7e56"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:cc663f02b8a1483f",
+    "fn:d2a46fc8ae82b43e",
+]
+
+[[module."mod.rs".function]]
+id = "fn:07be8a7f3f719574"
+name = "save"
+qual = "TRISOSimApp::save"
+lines = [
+    231,
+    233,
+]
+hash = "sha256:ee5b663383af4346062f6c5afe09f3c56f3ed9f42247d25e88d8338717248339"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:689ce543c3a589e3"
+name = "ui"
+qual = "TRISOSimApp::ui"
+lines = [
+    235,
+    313,
+]
+hash = "sha256:b9fc15a2e09151d2e2402ad3539108ab9cee380b2e3025d273f117bd590a8207"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:50276850eaf1523b",
+    "fn:5d53d4a2fd9435ba",
+    "fn:7eca8ad166b7d77c",
+    "fn:c184b3f1a5efbe02",
+    "fn:e0efc40e15eb5b0d",
+    "fn:ef80217d8cc242d1",
+    "fn:f837a57aacc79b57",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e0efc40e15eb5b0d"
+name = "powered_by_egui_and_eframe"
+qual = "powered_by_egui_and_eframe"
+lines = [
+    316,
+    328,
+]
+hash = "sha256:1ce2c849c23f39f3a1c5e893be8b4a165089abf5391f3b79ebb3f03836f89609"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

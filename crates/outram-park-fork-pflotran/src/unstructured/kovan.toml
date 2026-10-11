@@ -1,0 +1,573 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-pflotran"
+dir = "crates/outram-park-fork-pflotran/src/unstructured"
+test_ids = [
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::cell_id_index",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::empty_grid_rejected",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::from_faces_two_cell_mesh",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::invalid_face_references_nonexistent_cell",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::invalid_internal_face_self_connection",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::invalid_mismatched_lengths",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::invalid_negative_area_or_volume",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::invalid_zero_length_normal_and_coincident_centroids",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::ldu_addressing_lengths_and_ordering",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::ldu_addressing_normalises_reversed_connection",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::reversed_normal_gives_same_positive_transmissibility",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::single_cell_column_has_no_internal_faces",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::tpfa_projection_reduces_to_area_over_distance_for_unnormalised_normal",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::transmissibility_scales_as_area_over_distance",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::uniform_column_boundary_faces_have_one_owner_each",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::uniform_column_geometry_and_connectivity",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::uniform_column_invalid_inputs",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::volume_and_centroid_accessors_return_constructed_values",
+]
+
+[module."mod.rs"]
+path = "crate::unstructured"
+
+[[module."mod.rs".function]]
+id = "fn:582a8423cbc28525"
+name = "index"
+qual = "CellId::index"
+lines = [
+    97,
+    100,
+]
+hash = "sha256:34dccdab3f883c92df4fc6013fd3151eca41ad9d094eefa30fe28773fbf465e3"
+doc_hash = "sha256:2f1f2432d28190ab08143889f391eae4e7a043562885da2e89e39043de1b8887"
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:79c61f036b6198df"
+name = "from_faces"
+qual = "UnstructuredGrid::from_faces"
+lines = [
+    162,
+    301,
+]
+hash = "sha256:f3a8d4683453cbae2d7d7f4a69b11aca15adb09ae14680cb308df4c7a38aa386"
+doc_hash = "sha256:24f17d205694b568124289f6eabd9aebeb6c04b541274a1d7cca3827eea7a9b1"
+callees = [
+    "fn:2f7ba8b668a3e350",
+    "fn:8e5a787d0a904deb",
+    "fn:e3217bb4d7cc19bf",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9c7a917dd3ff39b9"
+name = "uniform_column"
+qual = "UnstructuredGrid::uniform_column"
+lines = [
+    303,
+    356,
+]
+hash = "sha256:1bba1445ba3846630658e3656b24b6be9a06b6c37ce5c93894bee133e5b858bc"
+doc_hash = "sha256:8154c11f59be673f87c9306744960a50343b92e16fcbd55c461ce21d9de29970"
+callees = ["fn:79c61f036b6198df"]
+reached_by = [
+    "#8",
+    "#11",
+    "#14",
+    "#15",
+    "#16",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f8ea7a3ff3f91a71"
+name = "n_cells"
+qual = "UnstructuredGrid::n_cells"
+lines = [
+    358,
+    361,
+]
+hash = "sha256:2c1357bb5dfc9cc60afded51ffa43eeb67f8eab2b95d8b3fb334bce93609025b"
+doc_hash = "sha256:b44ccc3702dd4f11531258a7720b3f4fb8949b7b45eab4750982ea1663174962"
+reached_by = [
+    "#2",
+    "#11",
+    "#14",
+    "#15",
+]
+
+[[module."mod.rs".function]]
+id = "fn:1b63c173ceafbd4c"
+name = "cell_volume"
+qual = "UnstructuredGrid::cell_volume"
+lines = [
+    363,
+    370,
+]
+hash = "sha256:cea2e0ce8a140080a14786040420c486a4500d3aa2bb1fab6ca8d043f1012d20"
+doc_hash = "sha256:dab0f25cd513c58395af7ef548cb54f8f9117695a31707b951661a3d5b2a6aba"
+reached_by = [
+    "#11",
+    "#15",
+    "#17",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b71d52c0200ec3d1"
+name = "cell_centroid"
+qual = "UnstructuredGrid::cell_centroid"
+lines = [
+    372,
+    379,
+]
+hash = "sha256:2b289ede63185384dfb4fe7f0a6ba75e999d818d82a6b8cc0c8d7631ab3176ac"
+doc_hash = "sha256:75f7e18137613399071e1b7c82a89f3050bfb0380beacfecf18f0ab58f026348"
+reached_by = [
+    "#15",
+    "#17",
+]
+
+[[module."mod.rs".function]]
+id = "fn:31141e39b0863f47"
+name = "connections"
+qual = "UnstructuredGrid::connections"
+lines = [
+    381,
+    386,
+]
+hash = "sha256:6defdb1c9a04a02ebb7f484489f73b5bae5142ba52974531b08404cb9930a672"
+doc_hash = "sha256:28e95042e363b09ad5edf02f80d30d018badb56acc390598fb44e0abdb3c5eac"
+reached_by = [
+    "#2",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#15",
+]
+
+[[module."mod.rs".function]]
+id = "fn:260e3f87b63e64dc"
+name = "boundary_faces"
+qual = "UnstructuredGrid::boundary_faces"
+lines = [
+    388,
+    392,
+]
+hash = "sha256:4f7e33f7d8acfb223e40b2f1975bf96b866d2914f952b394952394bb4856a36b"
+doc_hash = "sha256:497061296c2dc8db1442c6283d3b9419e6d7c084246aeeac31eeae2ff87265ff"
+reached_by = [
+    "#2",
+    "#11",
+    "#14",
+    "#15",
+]
+
+[[module."mod.rs".function]]
+id = "fn:33a6437136e9a4d4"
+name = "ldu_addressing"
+qual = "UnstructuredGrid::ldu_addressing"
+lines = [
+    394,
+    415,
+]
+hash = "sha256:0cd312411bee4d5b9400152b4a5e2470ddc31dc353dd6f580633092401ebb885"
+doc_hash = "sha256:8f6e3da5f9b7bb38d58cdc1a57912d339dcf35d322373d689351920559248038"
+reached_by = [
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:8e5a787d0a904deb"
+name = "sub"
+qual = "sub"
+lines = [
+    418,
+    421,
+]
+hash = "sha256:2b160ddb58ce049deecf914549ecb432a75a9253038675991238130ebd193d4a"
+doc_hash = "sha256:437a95f69ac624610e0b712d21449f3e542ea0f4795209e94cfa10f43c21fc8a"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2f7ba8b668a3e350"
+name = "dot"
+qual = "dot"
+lines = [
+    423,
+    426,
+]
+hash = "sha256:cec9037570794573bf84e2eb5b2041dd4ca81638b5a6fbc9634c14520897011e"
+doc_hash = "sha256:3df56d56a516b77607090fdd7ff26b19e2d84168b55b8529c992a0ea4f7866c7"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e3217bb4d7cc19bf"
+name = "normalise"
+qual = "normalise"
+lines = [
+    428,
+    439,
+]
+hash = "sha256:9c9511c5af3b2d35e1306fcb51a25feab66261e1fcae2706b71d4a91440c4d37"
+doc_hash = "sha256:7253fa553a5f5f33531f60a7077e9ffa905655373e0716cd6ae07b6c3aec0865"
+callees = ["fn:2f7ba8b668a3e350"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f846786fe65f782b"
+name = "uniform_column_geometry_and_connectivity"
+qual = "uniform_column_geometry_and_connectivity"
+lines = [
+    445,
+    468,
+]
+hash = "sha256:c394130e2711ef4df04ed14f1b1941da6cb43ee575e5b094354f22c9a0baedbb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1b63c173ceafbd4c",
+    "fn:260e3f87b63e64dc",
+    "fn:31141e39b0863f47",
+    "fn:9c7a917dd3ff39b9",
+    "fn:b71d52c0200ec3d1",
+    "fn:f8ea7a3ff3f91a71",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:09907318d15274ae"
+name = "uniform_column_boundary_faces_have_one_owner_each"
+qual = "uniform_column_boundary_faces_have_one_owner_each"
+lines = [
+    470,
+    487,
+]
+hash = "sha256:8eeac78262d0a1eee63cef35d42b27a91d1617975f13e9920853da9d85a7f99c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:260e3f87b63e64dc",
+    "fn:9c7a917dd3ff39b9",
+    "fn:f8ea7a3ff3f91a71",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:870edeabc09f1cb3"
+name = "from_faces_two_cell_mesh"
+qual = "from_faces_two_cell_mesh"
+lines = [
+    489,
+    513,
+]
+hash = "sha256:b7b183c73c42f71e8c83514c5627a956f8af297d61c0bfe5bc478edd53d61e6c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:260e3f87b63e64dc",
+    "fn:31141e39b0863f47",
+    "fn:79c61f036b6198df",
+    "fn:f8ea7a3ff3f91a71",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:c1c9892b5f5c6175"
+name = "ldu_addressing_lengths_and_ordering"
+qual = "ldu_addressing_lengths_and_ordering"
+lines = [
+    515,
+    524,
+]
+hash = "sha256:21547d36d098e12fe4120b2a55552a03f65a6357c049599cbc80c304d0ff5891"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:31141e39b0863f47",
+    "fn:33a6437136e9a4d4",
+    "fn:9c7a917dd3ff39b9",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:1efbd8b44d517f78"
+name = "ldu_addressing_normalises_reversed_connection"
+qual = "ldu_addressing_normalises_reversed_connection"
+lines = [
+    526,
+    540,
+]
+hash = "sha256:c0118b1a25cbbd27611a66f55448faef6f0db654f31972b4111c265a1c66bfa7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:33a6437136e9a4d4",
+    "fn:79c61f036b6198df",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:cf1c039557a6b0fa"
+name = "transmissibility_scales_as_area_over_distance"
+qual = "transmissibility_scales_as_area_over_distance"
+lines = [
+    542,
+    551,
+]
+hash = "sha256:fbea7540b20aecb7f52960dcb8e52b677455004c8a4f03e49925260c90f36045"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:8f436c4517c69771"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:8f436c4517c69771"
+name = "single_internal_conn"
+qual = "single_internal_conn"
+lines = [
+    553,
+    567,
+]
+hash = "sha256:f2f8fe942128335b6b49ab40f5bc25125127055b017d82a722efc0877d19e489"
+doc_hash = "sha256:6140fd9c5de6265699686d557d2c7e11daf3bb2c3548c77705e94436fbff61f2"
+callees = [
+    "fn:31141e39b0863f47",
+    "fn:79c61f036b6198df",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:60fe33aff26ae107"
+name = "tpfa_projection_reduces_to_area_over_distance_for_unnormalised_normal"
+qual = "tpfa_projection_reduces_to_area_over_distance_for_unnormalised_normal"
+lines = [
+    569,
+    585,
+]
+hash = "sha256:d21d9cab34119fe54ccdde6e6c9fcf698a10c3cd266d99e70e7ee6d3fac297e8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:31141e39b0863f47",
+    "fn:79c61f036b6198df",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:72433d1cc9848a43"
+name = "reversed_normal_gives_same_positive_transmissibility"
+qual = "reversed_normal_gives_same_positive_transmissibility"
+lines = [
+    587,
+    604,
+]
+hash = "sha256:116471ca055ad9a81a9c5cf5bd3080c7332842e23245cdecd679eb926401fe54"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:31141e39b0863f47",
+    "fn:79c61f036b6198df",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:f0e44c494949b8ec"
+name = "volume_and_centroid_accessors_return_constructed_values"
+qual = "volume_and_centroid_accessors_return_constructed_values"
+lines = [
+    606,
+    616,
+]
+hash = "sha256:480bc18b71f2721f5632e7ed54785e4112ad9b1a76565a329c1df02740298aee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1b63c173ceafbd4c",
+    "fn:79c61f036b6198df",
+    "fn:b71d52c0200ec3d1",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:103a66e1fb6f4127"
+name = "cell_id_index"
+qual = "cell_id_index"
+lines = [
+    618,
+    622,
+]
+hash = "sha256:eb114c928cdf1d67f736522c76669fd57686cfca27c9e492524094a2c290832b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:582a8423cbc28525"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:ec3ffe54cb7a6d94"
+name = "invalid_mismatched_lengths"
+qual = "invalid_mismatched_lengths"
+lines = [
+    624,
+    632,
+]
+hash = "sha256:30a4fedefbe65ffdb9356f47a57c3497004739ecf7024b5935440921ecaa7f7f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:79c61f036b6198df"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:9404f06f744e40f8"
+name = "invalid_face_references_nonexistent_cell"
+qual = "invalid_face_references_nonexistent_cell"
+lines = [
+    634,
+    651,
+]
+hash = "sha256:7404853e7bdc9f5360896df7754d76d20b2948e77e957897474eca94ee177066"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:79c61f036b6198df"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:79165f48350263ad"
+name = "invalid_negative_area_or_volume"
+qual = "invalid_negative_area_or_volume"
+lines = [
+    653,
+    664,
+]
+hash = "sha256:a8666fc5246aa3deac6588f055a2af829943ddd241e7d654e829c4f5d34e3992"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:79c61f036b6198df"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:4b1157ee78ba584a"
+name = "invalid_internal_face_self_connection"
+qual = "invalid_internal_face_self_connection"
+lines = [
+    666,
+    675,
+]
+hash = "sha256:3aa23a598886f5f780518c2a68166943055ddc8cfb595081e5baabea34e2d3ea"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:79c61f036b6198df"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:8c5c0aaa736c8e33"
+name = "invalid_zero_length_normal_and_coincident_centroids"
+qual = "invalid_zero_length_normal_and_coincident_centroids"
+lines = [
+    677,
+    692,
+]
+hash = "sha256:c920514ba86559e6ef25489bdb5d3f1692815390d40f9ac450c855dddc9489c5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:79c61f036b6198df"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:38225f9ebe1bb3db"
+name = "empty_grid_rejected"
+qual = "empty_grid_rejected"
+lines = [
+    694,
+    698,
+]
+hash = "sha256:722407d66aa8fd4a6af726bb064d1143b01dccb68c9644f484b1ed6738ca5bdc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:79c61f036b6198df"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:7e40c8ec4767274f"
+name = "uniform_column_invalid_inputs"
+qual = "uniform_column_invalid_inputs"
+lines = [
+    700,
+    707,
+]
+hash = "sha256:5feefab0537aea6a113f4f59e35ebab29e79f193268eb0988d74edc5f376a02b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9c7a917dd3ff39b9"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:fa547be45fae863b"
+name = "single_cell_column_has_no_internal_faces"
+qual = "single_cell_column_has_no_internal_faces"
+lines = [
+    709,
+    720,
+]
+hash = "sha256:f6a70e58b6ecb1b9a4b8f55b99e2b35ba9e3b3b806bf8bd2806f11f2c8a422b6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1b63c173ceafbd4c",
+    "fn:260e3f87b63e64dc",
+    "fn:31141e39b0863f47",
+    "fn:9c7a917dd3ff39b9",
+    "fn:f8ea7a3ff3f91a71",
+]
+test = true

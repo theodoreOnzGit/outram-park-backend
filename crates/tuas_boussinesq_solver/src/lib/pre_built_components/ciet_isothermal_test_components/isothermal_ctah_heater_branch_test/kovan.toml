@@ -1,0 +1,109 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_isothermal_test_components/isothermal_ctah_heater_branch_test"
+
+[module."debugging_tests.rs"]
+path = "crate::pre_built_components::ciet_isothermal_test_components::isothermal_ctah_heater_branch_test::debugging_tests"
+
+[[module."debugging_tests.rs".function]]
+id = "fn:0d38acae691f2e77"
+name = "heater_branch_pressure_change_regression_test"
+qual = "heater_branch_pressure_change_regression_test"
+lines = [
+    1,
+    43,
+]
+hash = "sha256:22cd2b37f0aa745da08e5f84df1f75a2604fa19275ab9318a58184342d58f403"
+doc_hash = "sha256:e0dc12930d6390ff794deab78f9233a7ebefce18e068acba435222a4bbe505cf"
+callees = [
+    "fn:288f9cb36b686daf",
+    "fn:ac3928da54814ee3",
+]
+test = true
+
+[[module."debugging_tests.rs".function]]
+id = "fn:40a7692ec7764599"
+name = "ctah_branch_pressure_change_regression_test"
+qual = "ctah_branch_pressure_change_regression_test"
+lines = [
+    45,
+    88,
+]
+hash = "sha256:485f43370b4799bc6bd4033e916dba39887cccf54ecb12944bc05e138b498630"
+doc_hash = "sha256:e0dc12930d6390ff794deab78f9233a7ebefce18e068acba435222a4bbe505cf"
+callees = [
+    "fn:288f9cb36b686daf",
+    "fn:8ad100a87b5aa859",
+]
+test = true
+
+[[module."debugging_tests.rs".function]]
+id = "fn:c2a6bf833f04af8a"
+name = "partial_ctah_branch_test"
+qual = "partial_ctah_branch_test"
+lines = [
+    89,
+    191,
+]
+hash = "sha256:e1f7fdf095b99e78ab085a9fe399d286d8c37a197edbce053cfdbe2ec67865a1"
+doc_hash = "sha256:f1828c5714315399b99d28e96e438113f459ea6c3ba7a5134fed443959d3dbb6"
+callees = [
+    "fn:148f30796e25b2c6",
+    "fn:288f9cb36b686daf",
+    "fn:3bc3f0f44ccdb2a3",
+    "fn:56ab551aa949fe97",
+    "fn:68009afc10893842",
+    "fn:6f9db37bb5514b49",
+    "fn:78ee315e9e1088f0",
+    "fn:831014fb4e896cde",
+    "fn:8344118d58b55c15",
+    "fn:8427a6111c8cb4e8",
+    "fn:93844cc452449d04",
+    "fn:aa91490ebe686886",
+    "fn:acc1b181e5e9de07",
+    "fn:c0b21511b8e67f32",
+    "fn:c7c15d72234b598d",
+    "fn:de4ed21e1e4689b6",
+    "fn:e23a3bf539680737",
+    "fn:e79236623dec9507",
+    "fn:e8a49300f0e05eba",
+    "fn:fa07bb0cb8fd7b33",
+]
+test = true
+
+[[module."debugging_tests.rs".function]]
+id = "fn:2057a5bf33cae4c4"
+name = "ctah_pump_should_give_zero_resistance"
+qual = "ctah_pump_should_give_zero_resistance"
+lines = [
+    193,
+    217,
+]
+hash = "sha256:543008a3b0c3d963424a0343e7d706b256fd2ef2a7d8fd5c30aea37d8331bf10"
+doc_hash = "sha256:c02dad00194475fff6528976cdb95d2835f1cf4b05fb9902c4446e24e177bbd2"
+callees = [
+    "fn:6f9db37bb5514b49",
+    "fn:d06404cc69270b9f",
+]
+test = true
+
+[[module."debugging_tests.rs".function]]
+id = "fn:b0bfa1487b194d6f"
+name = "isothermal_ctah_and_heater_branch_parallel_associated_functions_regression_test"
+qual = "isothermal_ctah_and_heater_branch_parallel_associated_functions_regression_test"
+lines = [
+    219,
+    380,
+]
+hash = "sha256:a293733b1682af0644f9fcc52a949561f49b4e01f4f4021f7381d9148149b592"
+doc_hash = "sha256:180dfe4a743d3f4569eecafa9d77b99052a5e556bc1e104fd53ea4000da18abc"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:352eae89cdf05026",
+    "fn:74172f53fcffc1fc",
+    "fn:89b98b3aca1482a0",
+    "fn:8ad100a87b5aa859",
+    "fn:ac3928da54814ee3",
+]
+test = true

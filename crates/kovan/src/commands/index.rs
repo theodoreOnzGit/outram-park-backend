@@ -17,7 +17,8 @@
 //!    before reading or writing anything: rust-analyzer is needed only to
 //!    regenerate the index, never to use it.
 //! 2. **SCIP.** `rust-analyzer scip` into `target/kovan-scip/index.scip`
-//!    (about 3-4 min for the workspace), or `--scip <file>`; an index
+//!    (about 3-4 min for the workspace on a 16-core desktop, 10 to 20 min on a
+//!    laptop), or `--scip <file>`; an index
 //!    written by another rust-analyzer than the installed one is
 //!    regenerated (D4).
 //! 3. **Links** per crate in scope, from the index ([`build_links`]).

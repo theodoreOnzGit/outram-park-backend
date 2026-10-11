@@ -1,0 +1,5277 @@
+schema_version = 1
+kind = "code_folder"
+crate = "njoy-outram-park-fork"
+dir = "crates/njoy-outram-park-fork/src"
+crate_root = true
+test_ids = [
+    "crates/dhoby-ghaut/examples/common/processed_cache.rs::a_cached_law_is_the_processed_law_bit_for_bit",
+    "crates/dhoby-ghaut/examples/common/processed_cache.rs::a_cached_nuclide_is_the_processed_nuclide_bit_for_bit",
+    "crates/dhoby-ghaut/examples/common/processed_cache.rs::the_code_version_pins_the_processing_output",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::a_traced_neutron_lays_out_and_steps",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::both_panes_run_the_same_neutron_from_the_same_variate",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::run_many_streams_every_method_in_turn",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::the_demo_majorant_bounds_every_material",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::the_engine_thread_loads_traces_and_runs",
+    "crates/dhoby-ghaut/examples/monte_carlo_web/main.rs::a_history_crosses_the_worker_boundary_bit_for_bit",
+    "crates/dhoby-ghaut/examples/monte_carlo_web/main.rs::every_godiva_history_leaks_or_is_absorbed_inside_the_sphere",
+    "crates/dhoby-ghaut/examples/monte_carlo_web/main.rs::every_history_ends_physically_inside_the_cell",
+    "crates/dhoby-ghaut/examples/monte_carlo_web/main.rs::stripping_covariances_changes_nothing_transport_reads",
+    "crates/dhoby-ghaut/examples/monte_carlo_web/main.rs::the_engine_thread_runs_the_headless_sequence",
+    "crates/dhoby-ghaut/examples/monte_carlo_web/main.rs::the_godiva_keff_run_counts_close_and_crosses_the_worker_boundary",
+    "crates/dhoby-ghaut/examples/monte_carlo_web/main.rs::the_headless_run_is_deterministic",
+    "crates/dhoby-ghaut/examples/monte_carlo_web/main.rs::the_headless_run_matches_the_committed_fixture",
+    "crates/dhoby-ghaut/examples/nuclear_data_web/main.rs::the_engine_serves_reconr_and_broadr_and_broadening_keeps_the_area",
+    "crates/nee_soon/src/htr10_rmc/data.rs::tapes_resolve_from_a_chosen_folder_by_identity",
+    "crates/nee_soon/src/htr10_rmc/data.rs::the_full_case_is_refused_until_gh339_is_fixed",
+    "crates/nee_soon/src/htr10_rmc/data_jobs.rs::the_jobs_path_builds_the_loaders_nuclides",
+    "crates/nee_soon/src/htr10_rmc/data_jobs.rs::the_jobs_path_builds_the_whole_core_set",
+    "crates/njoy-outram-park-fork/src/acer/energy/mf6.rs::survey_incident_energy_interpolation_laws",
+    "crates/njoy-outram-park-fork/src/acer/energy/tests.rs::fission_chi_distributions_are_valid",
+    "crates/njoy-outram-park-fork/src/acer/energy/tests.rs::fission_chi_parses_with_many_incident_energies",
+    "crates/njoy-outram-park-fork/src/acer/energy/tests.rs::fission_spectrum_peaks_near_1_mev",
+    "crates/njoy-outram-park-fork/src/acer/energy/tests.rs::mf6_energy_distributions_are_valid",
+    "crates/njoy-outram-park-fork/src/acer/energy/tests.rs::mf6_n2n_mean_energy_is_physical",
+    "crates/njoy-outram-park-fork/src/acer/energy/tests.rs::mf6_n2n_yield_and_frame",
+    "crates/njoy-outram-park-fork/src/acquire.rs::cache_path_layout",
+    "crates/njoy-outram-park-fork/src/acquire.rs::carbon_is_registered_for_graphite",
+    "crates/njoy-outram-park-fork/src/acquire.rs::element_table_round_trips",
+    "crates/njoy-outram-park-fork/src/acquire.rs::library_dirs_are_distinct",
+    "crates/njoy-outram-park-fork/src/acquire.rs::neutron_url_is_pinned_and_well_formed",
+    "crates/njoy-outram-park-fork/src/acquire.rs::parse_nuclide_splits_symbol_and_mass",
+    "crates/njoy-outram-park-fork/src/acquire.rs::tsl_acquire_path_is_well_formed",
+    "crates/njoy-outram-park-fork/src/acquire.rs::validate_endf_rejects_garbage",
+    "crates/njoy-outram-park-fork/src/acquire.rs::well_known_mat_is_correct",
+    "crates/njoy-outram-park-fork/src/endf_folder.rs::a_shared_mat_is_resolved_by_name_or_refused",
+    "crates/njoy-outram-park-fork/src/endf_folder.rs::an_extracted_library_is_scanned_and_matched_by_identity",
+    "crates/njoy-outram-park-fork/src/endf_folder.rs::the_scan_reads_mat_and_sublibrary_from_the_reference_tapes",
+    "crates/njoy-outram-park-fork/src/errorr/covariance.rs::real_tape_mf33_mt1_and_mt2_structural_invariants",
+    "crates/njoy-outram-park-fork/src/gpu.rs::curvefit_cpu_matches_manual",
+    "crates/njoy-outram-park-fork/src/gpu.rs::gpu_agrees_with_cpu_or_skips",
+    "crates/njoy-outram-park-fork/src/gpu_wmp.rs::gpu_wmp_agrees_with_cpu_or_skips",
+    "crates/njoy-outram-park-fork/src/leapr/decks.rs::deck_search_path_honours_the_env_override",
+    "crates/njoy-outram-park-fork/src/leapr/decks.rs::every_material_resolves_in_the_tsl_registry",
+    "crates/njoy-outram-park-fork/src/leapr/decks.rs::every_registered_material_has_an_embedded_deck",
+    "crates/njoy-outram-park-fork/src/leapr/generate.rs::always_regenerate_ignores_a_stale_disk_cache_entry",
+    "crates/njoy-outram-park-fork/src/leapr/generate.rs::cache_key_covers_every_input_that_changes_the_bytes",
+    "crates/njoy-outram-park-fork/src/leapr/generate.rs::recipe_text_is_an_audit_record",
+    "crates/njoy-outram-park-fork/src/leapr/generate.rs::use_cache_if_available_falls_back_gracefully_on_a_miss_and_then_populates_it",
+    "crates/njoy-outram-park-fork/src/nuclear_data/secondary.rs::survey_mf5_lf_codes",
+    "crates/njoy-outram-park-fork/src/perf_report.rs::detect_fills_cores_and_os",
+    "crates/njoy-outram-park-fork/src/perf_report.rs::format_report_has_header_table_and_verdict",
+    "crates/njoy-outram-park-fork/src/perf_report.rs::verdict_reports_no_gpu_win",
+    "crates/njoy-outram-park-fork/src/reference_data.rs::a_linked_worktree_resolves_to_its_main_checkout",
+    "crates/njoy-outram-park-fork/src/reference_data.rs::absent_tape_resolves_to_none",
+    "crates/njoy-outram-park-fork/src/reference_data.rs::dir_honours_the_environment_override",
+    "crates/njoy-outram-park-fork/src/reference_data.rs::either_spelling_finds_the_same_tape",
+    "crates/njoy-outram-park-fork/src/reference_data.rs::endf_extension_is_recognised_case_insensitively",
+    "crates/njoy-outram-park-fork/src/reference_data.rs::missing_reference_panics_when_required",
+    "crates/njoy-outram-park-fork/src/reference_data.rs::missing_reference_skips_by_default",
+    "crates/njoy-outram-park-fork/src/thermr/coherent.rs::bragg_reflection_cosines_are_physical",
+    "crates/njoy-outram-park-fork/src/thermr/coherent.rs::cross_section_decreases_with_temperature",
+    "crates/njoy-outram-park-fork/src/thermr/coherent.rs::cross_section_is_s_over_e_and_sawtooths",
+    "crates/njoy-outram-park-fork/src/thermr/coherent.rs::interpolated_cross_section_is_bracketed",
+    "crates/njoy-outram-park-fork/src/thermr/coherent.rs::out_of_range_temperature_is_an_error",
+    "crates/njoy-outram-park-fork/src/thermr/coherent.rs::zero_below_first_bragg_edge",
+    "crates/njoy-outram-park-fork/src/thermr/inelastic.rs::bound_cross_section_is_physical",
+    "crates/njoy-outram-park-fork/src/thermr/inelastic.rs::cross_section_rises_toward_free_gas_limit",
+    "crates/njoy-outram-park-fork/src/thermr/inelastic.rs::double_differential_nonnegative_and_finite",
+    "crates/njoy-outram-park-fork/src/thermr/inelastic.rs::inelastic_cross_section_is_positive_and_finite",
+    "crates/njoy-outram-park-fork/src/thermr/mf7.rs::al27_has_both_elastic_and_inelastic",
+    "crates/njoy-outram-park-fork/src/thermr/mf7.rs::coherent_elastic_bragg_edges_are_monotone",
+    "crates/njoy-outram-park-fork/src/thermr/mf7.rs::inelastic_s_alpha_beta_grid_is_consistent",
+    "crates/njoy-outram-park-fork/src/vv.rs::a_comparable_run_widens_the_gate_by_root_two",
+    "crates/njoy-outram-park-fork/src/vv.rs::no_recorded_value_means_no_drift_gate",
+    "crates/njoy-outram-park-fork/src/vv.rs::the_drift_gate_combines_both_uncertainties",
+    "crates/njoy-outram-park-fork/tests/ace_ce_decode_reference_library.rs::a_thermal_table_is_refused_rather_than_misread",
+    "crates/njoy-outram-park-fork/tests/ace_ce_decode_reference_library.rs::ace_nubar_equals_the_endf_evaluation",
+    "crates/njoy-outram-park-fork/tests/ace_ce_decode_reference_library.rs::every_secondary_law_in_the_reference_library_decodes",
+    "crates/njoy-outram-park-fork/tests/ace_ce_decode_reference_library.rs::fission_comes_from_the_partials_when_mt18_is_absent",
+    "crates/njoy-outram-park-fork/tests/ace_ce_decode_reference_library.rs::the_elastic_angular_block_decodes",
+    "crates/njoy-outram-park-fork/tests/ace_ce_decode_reference_library.rs::the_reference_tables_decode_with_the_evaluated_constants",
+    "crates/njoy-outram-park-fork/tests/ace_ce_decode_reference_library.rs::total_equals_elastic_plus_every_non_redundant_channel",
+    "crates/njoy-outram-park-fork/tests/ace_nu_single_block_with_dnu.rs::single_prompt_block_plus_dnu_gives_the_total",
+    "crates/njoy-outram-park-fork/tests/ace_photon_production_read.rs::u235s_583_photon_subsections_decode_with_openmcs_census",
+    "crates/njoy-outram-park-fork/tests/ace_read_type1_vs_type2.rs::every_obtainable_class_reads",
+    "crates/njoy-outram-park-fork/tests/ace_read_type1_vs_type2.rs::iopt7_resuffix_and_recomment_matches_njoy2016",
+    "crates/njoy-outram-park-fork/tests/ace_read_type1_vs_type2.rs::read_sniffs_the_container",
+    "crates/njoy-outram-park-fork/tests/ace_read_type1_vs_type2.rs::type1_and_type2_give_the_same_table",
+    "crates/njoy-outram-park-fork/tests/ace_read_type1_vs_type2.rs::type1_files_read_back_and_rewrite_byte_exactly",
+    "crates/njoy-outram-park-fork/tests/ace_read_type1_vs_type2.rs::type1_write_round_trips_through_values",
+    "crates/njoy-outram-park-fork/tests/ace_read_type1_vs_type2.rs::type2_write_reproduces_njoys_bytes",
+    "crates/njoy-outram-park-fork/tests/acer.rs::angular_table_roundtrips_through_file",
+    "crates/njoy-outram-park-fork/tests/acer.rs::esz_heating_column_is_physical",
+    "crates/njoy-outram-park-fork/tests/acer.rs::esz_total_equals_elastic_plus_partials",
+    "crates/njoy-outram-park-fork/tests/acer.rs::full_table_roundtrips_through_file",
+    "crates/njoy-outram-park-fork/tests/acer.rs::h2_elastic_angular_block_is_valid",
+    "crates/njoy-outram-park-fork/tests/acer.rs::h2_law6_producer_is_written_as_ace_law_66",
+    "crates/njoy-outram-park-fork/tests/acer.rs::h2_minimal_table_is_valid",
+    "crates/njoy-outram-park-fork/tests/acer.rs::one_writer_and_both_containers_for_a_built_table",
+    "crates/njoy-outram-park-fork/tests/acer.rs::type1_file_roundtrips",
+    "crates/njoy-outram-park-fork/tests/acer.rs::u235_ace_header_and_dimensions",
+    "crates/njoy-outram-park-fork/tests/acer.rs::u235_discrete_levels_carry_mf4_angular",
+    "crates/njoy-outram-park-fork/tests/acer.rs::u235_elastic_angular_block_is_valid",
+    "crates/njoy-outram-park-fork/tests/acer.rs::u235_full_table_mixes_law3_and_law4",
+    "crates/njoy-outram-park-fork/tests/acer_acesix_vs_njoy2016_ace.rs::acesix_reproduces_njoy2016_ace_thermal_bins",
+    "crates/njoy-outram-park-fork/tests/acer_dosimetry_vs_njoy2016.rs::h1_dosimetry_is_byte_identical_to_njoy2016",
+    "crates/njoy-outram-park-fork/tests/acer_dosimetry_vs_njoy2016.rs::h1_dosimetry_mcnpx_is_byte_identical_to_njoy2016",
+    "crates/njoy-outram-park-fork/tests/acer_dosimetry_vs_njoy2016.rs::mn55_dosimetry_is_byte_identical_to_njoy2016",
+    "crates/njoy-outram-park-fork/tests/acer_dosimetry_vs_njoy2016.rs::zero_kelvin_is_refused_rather_than_written_with_no_zaid",
+    "crates/njoy-outram-park-fork/tests/acer_photoatomic_vs_njoy2016.rs::eszg_is_logged_and_zeros_survive",
+    "crates/njoy-outram-park-fork/tests/acer_photoatomic_vs_njoy2016.rs::mcnpx_type1_output_is_byte_identical_to_njoy2016",
+    "crates/njoy-outram-park-fork/tests/acer_photoatomic_vs_njoy2016.rs::type1_output_is_byte_identical_to_njoy2016",
+    "crates/njoy-outram-park-fork/tests/acer_photoatomic_vs_njoy2016.rs::type2_output_matches_njoy2016_to_machine_precision",
+    "crates/njoy-outram-park-fork/tests/acer_photonuclear_vs_njoy2016.rs::a_corrupt_count_is_refused_rather_than_walked_past",
+    "crates/njoy-outram-park-fork/tests/acer_photonuclear_vs_njoy2016.rs::built_table_is_byte_identical_to_njoy2016",
+    "crates/njoy-outram-park-fork/tests/acer_photonuclear_vs_njoy2016.rs::photonuclear_layout_matches_njoy2016",
+    "crates/njoy-outram-park-fork/tests/acer_photonuclear_vs_njoy2016.rs::photonuclear_read_then_write_is_byte_exact",
+    "crates/njoy-outram-park-fork/tests/acer_photonuclear_vs_njoy2016.rs::unported_representations_refuse_by_name",
+    "crates/njoy-outram-park-fork/tests/acer_thermal_ifeng_vs_njoy2016.rs::ifeng1_is_skewed_and_declares_itself",
+    "crates/njoy-outram-park-fork/tests/acer_thermal_ifeng_vs_njoy2016.rs::ifeng2_itxe_layout_matches_njoy2016",
+    "crates/njoy-outram-park-fork/tests/acer_thermal_ifeng_vs_njoy2016.rs::ifeng2_stored_law_is_normalised",
+    "crates/njoy-outram-park-fork/tests/broadr_light_nuclide_pendf_golden.rs::be9_broadened_pendf_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/broadr_light_nuclide_pendf_golden.rs::c12_broadened_pendf_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/broadr_light_nuclide_pendf_golden.rs::f19_broadened_pendf_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/broadr_light_nuclide_pendf_golden.rs::h2_broadened_pendf_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/broadr_light_nuclide_pendf_golden.rs::li6_broadened_pendf_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/broadr_light_nuclide_pendf_golden.rs::si30_broadened_pendf_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/broadr_u238_urr_seam.rs::u238_urr_seam_survives_reconr_and_bounded_broadr",
+    "crates/njoy-outram-park-fork/tests/continuum_law_coverage_survey.rs::every_mf6_continuum_section_yields_an_evaluated_law",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_be9",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_c12",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_f19",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_h2_absolute",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_h2_relative",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_li6",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_si30",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_u234",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_u238",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_be9",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_c12",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_f19",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_h2_absolute",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_h2_relative",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_li6",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_si30",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_u234",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_u238",
+    "crates/njoy-outram-park-fork/tests/delayed_blocks_write_vs_njoy2016.rs::delayed_blocks_reproduce_njoys_words",
+    "crates/njoy-outram-park-fork/tests/dtfr_u238_claw_full_golden.rs::dtfr_u238_claw_full_tables_match_njoy",
+    "crates/njoy-outram-park-fork/tests/dtfr_u238_claw_njoy_golden.rs::dtfr_u238_claw_nn_table_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/endf_he4.rs::interpolation_within_he4_tab1",
+    "crates/njoy-outram-park-fork/tests/endf_he4.rs::mf3_mt2_cont_header",
+    "crates/njoy-outram-park-fork/tests/endf_he4.rs::mf3_mt2_cross_section_at_known_point",
+    "crates/njoy-outram-park-fork/tests/endf_he4.rs::mf3_mt2_first_and_last_energy",
+    "crates/njoy-outram-park-fork/tests/endf_he4.rs::mf3_mt2_tab1_point_count",
+    "crates/njoy-outram-park-fork/tests/endf_he4.rs::section_keys_are_correct",
+    "crates/njoy-outram-park-fork/tests/endf_he4.rs::tape_parses_without_error",
+    "crates/njoy-outram-park-fork/tests/endf_u235.rs::elastic_xs_cont_header",
+    "crates/njoy-outram-park-fork/tests/endf_u235.rs::elastic_xs_energy_bounds",
+    "crates/njoy-outram-park-fork/tests/endf_u235.rs::elastic_xs_tab1_structure",
+    "crates/njoy-outram-park-fork/tests/endf_u235.rs::elastic_xs_thermal_is_zero",
+    "crates/njoy-outram-park-fork/tests/endf_u235.rs::fission_xs_interpolation_at_thermal",
+    "crates/njoy-outram-park-fork/tests/endf_u235.rs::fission_xs_positive_throughout",
+    "crates/njoy-outram-park-fork/tests/endf_u235.rs::fission_xs_tab1_reads_cleanly",
+    "crates/njoy-outram-park-fork/tests/endf_u235.rs::general_info_za_awr",
+    "crates/njoy-outram-park-fork/tests/endf_u235.rs::key_sections_present",
+    "crates/njoy-outram-park-fork/tests/endf_u235.rs::resonance_section_exists_and_nonempty",
+    "crates/njoy-outram-park-fork/tests/endf_u235.rs::tape_parses_large_file",
+    "crates/njoy-outram-park-fork/tests/endf_u235.rs::total_xs_tab1_reads_cleanly",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_ar37_golden.rs::listing_resolved_and_unresolved_diagonals",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_ar37_golden.rs::original_tape_reproduces_the_variant_oracle",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_ar37_golden.rs::tier1_variant_tape_matches_njoy_tape23",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_ar37_golden.rs::tier2_crate_pendf_reported",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_cl35_rml_golden.rs::tier1_matches_njoy_tape23",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_cl35_rml_golden.rs::tier2_crate_pendf_reported",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_j33u238_lrf3_golden.rs::tier1_env_gated_matches_njoy_tape23",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_j33u238_lrf3_golden.rs::tier2_crate_pendf_and_listing",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::output_tape_round_trips_like_njoy_layout",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_be9",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_c12",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_f19",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_h2_iwt3_absolute",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_h2_iwt6_relative",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_li6",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_si30",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_u234_env_gated",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_u238_lumped_env_gated",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier2_be9_crate_reconr_broadr",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier2_h2_crate_reconr_broadr",
+    "crates/njoy-outram-park-fork/tests/gaminr_vs_njoy2016.rs::njoy_gaminr_synthetic_z6_matches_gamout",
+    "crates/njoy-outram-park-fork/tests/gaminr_vs_njoy2016.rs::njoy_gaminr_u_photoatomic_matches_gamout",
+    "crates/njoy-outram-park-fork/tests/gaspr_vs_njoy2016.rs::b10_gas_production_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/gaspr_vs_njoy2016.rs::be9_gas_production_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/gaspr_vs_njoy2016.rs::c12_gas_production_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/gaspr_vs_njoy2016.rs::h2_gas_production_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/gaspr_vs_njoy2016.rs::li6_gas_production_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/groupr_u235_mf10_golden.rs::endf_mf10_isomer_production_matches_loosely",
+    "crates/njoy-outram-park-fork/tests/groupr_u235_mf10_golden.rs::njoy_pendf_mf10_isomer_production_matches",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_derived_quantities_golden.rs::njoy_pendf_derived_quantities_match_gendf",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_elastic_matrix_golden.rs::njoy_pendf_elastic_matrix_matches_gendf_mf6",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_elastic_matrix_golden.rs::njoy_pendf_p3_elastic_matrix_matches_gendf_mf6_lord3",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_gendf_golden.rs::crate_reconr_broadr_vs_njoy_gendf",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_gendf_golden.rs::njoy_flux_calculator_heterogeneity",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_gendf_golden.rs::njoy_flux_calculator_slowing_down",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_gendf_golden.rs::njoy_pendf_isolates_the_group_averaging_engine",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_gendf_golden.rs::njoy_unresr_pendf_urr_self_shielding",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_inelastic_matrix_golden.rs::njoy_pendf_inelastic_matrices_1sigz",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_inelastic_matrix_golden.rs::njoy_pendf_inelastic_matrices_6sigz",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_inelastic_matrix_golden.rs::njoy_pendf_inelastic_vectors_1sigz",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_inelastic_matrix_golden.rs::njoy_pendf_inelastic_vectors_6sigz",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::be9_local0",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::fe58_userq_ed",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::h2_local0",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::li6_local1",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::o16_local0",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::si28_kchk_plot",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::si28_local0",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::si28_two_temperatures",
+    "crates/njoy-outram-park-fork/tests/heatr_kerma_vs_kinematics.rs::kerma_reproduces_the_closed_form_heating_models",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::energy_balance_subtracts_mt442_and_nothing_else",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::heating_matches_njoy_where_elastic_and_mf12_capture_are_the_only_channels",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt301_energy_balance_against_njoy_is_recorded",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt301_local1_kinematic_against_njoy_is_recorded",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt442_matches_njoy_at_print_precision",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt4_is_not_heated_beside_the_levels",
+    "crates/njoy-outram-park-fork/tests/heatr_vs_njoy2016.rs::damage_elastic_matches_njoy_where_scattering_is_isotropic",
+    "crates/njoy-outram-park-fork/tests/heatr_vs_njoy2016.rs::damage_total_against_njoy_is_recorded_not_asserted",
+    "crates/njoy-outram-park-fork/tests/heatr_vs_njoy2016.rs::kerma_matches_njoy_local_deposition_in_the_capture_regime",
+    "crates/njoy-outram-park-fork/tests/leapr_cold_hydrogen_njoy_oracle.rs::cold_para_hydrogen_reproduces_njoy2016_reference_tape",
+    "crates/njoy-outram-park-fork/tests/leapr_d2o_skold_njoy_oracle.rs::d_in_d2o_with_skold_reproduces_njoy_leapr_at_293_6_k",
+    "crates/njoy-outram-park-fork/tests/leapr_h2o_njoy_oracle.rs::h_in_h2o_reproduces_njoy_leapr_at_293_6_k",
+    "crates/njoy-outram-park-fork/tests/leapr_h2o_secondary_scatterer.rs::cross_section_matches_the_published_evaluation",
+    "crates/njoy-outram-park-fork/tests/leapr_h2o_secondary_scatterer.rs::effective_temperature_includes_translation_and_oscillators",
+    "crates/njoy-outram-park-fork/tests/leapr_h2o_secondary_scatterer.rs::generated_b_constants_carry_the_secondary_scatterer",
+    "crates/njoy-outram-park-fork/tests/leapr_run_driver_njoy_oracle.rs::d2o_skold_run_matches_njoy_tape",
+    "crates/njoy-outram-park-fork/tests/leapr_run_driver_njoy_oracle.rs::h2o_run_matches_njoy_tape",
+    "crates/njoy-outram-park-fork/tests/leapr_run_driver_njoy_oracle.rs::sio2_five_temperature_mixed_run_matches_njoy_tape",
+    "crates/njoy-outram-park-fork/tests/leapr_sic_coherent_elastic_oracle.rs::c_in_sic_coherent_elastic_matches_oracle_within_five_percent",
+    "crates/njoy-outram-park-fork/tests/leapr_sic_coherent_elastic_oracle.rs::coherent_elastic_is_identical_across_both_sic_materials",
+    "crates/njoy-outram-park-fork/tests/leapr_sic_coherent_elastic_oracle.rs::per_atom_debye_waller_flattens_the_difference_reflection_residual",
+    "crates/njoy-outram-park-fork/tests/leapr_sic_coherent_elastic_oracle.rs::published_sic_bragg_pattern_matches_an_invalid_centring_not_zinc_blende",
+    "crates/njoy-outram-park-fork/tests/leapr_sic_coherent_elastic_oracle.rs::si_in_sic_coherent_elastic_matches_oracle_within_five_percent",
+    "crates/njoy-outram-park-fork/tests/leapr_sio2_mixed_moderator_oracle.rs::sio2_alpha_contin_stage_values_vs_njoy_listing",
+    "crates/njoy-outram-park-fork/tests/leapr_sio2_mixed_moderator_oracle.rs::sio2_alpha_deck_parses_both_scatterers_temperature_blocks",
+    "crates/njoy-outram-park-fork/tests/leapr_sio2_mixed_moderator_oracle.rs::sio2_alpha_mixed_moderator_reproduces_njoy_leapr_at_every_temperature",
+    "crates/njoy-outram-park-fork/tests/leapr_temperature_block_selection.rs::a_declared_temperature_uses_its_own_block",
+    "crates/njoy-outram-park-fork/tests/leapr_temperature_block_selection.rs::off_grid_temperature_is_allowed_when_every_block_inherits",
+    "crates/njoy-outram-park-fork/tests/leapr_temperature_block_selection.rs::off_grid_temperature_is_refused_when_the_spectrum_is_per_temperature",
+    "crates/njoy-outram-park-fork/tests/leapr_temperature_block_selection.rs::only_the_liquid_decks_respecify_their_spectrum_per_temperature",
+    "crates/njoy-outram-park-fork/tests/leapr_temperature_block_selection.rs::si_in_sic_kernel_reproduces_the_published_evaluation_at_every_temperature",
+    "crates/njoy-outram-park-fork/tests/mf4_linearisation_tolerance_study.rs::angle_tol_is_priced_and_the_shipped_setting_is_justified",
+    "crates/njoy-outram-park-fork/tests/mf4_mean_cosine_vs_legendre_a1.rs::mean_cosine_reproduces_the_evaluations_first_legendre_coefficient",
+    "crates/njoy-outram-park-fork/tests/mf6_continuum_angular_vs_endf.rs::f19_mt91_continuum_is_isotropic_on_the_tape",
+    "crates/njoy-outram-park-fork/tests/mf6_continuum_angular_vs_endf.rs::mf6_mt91_angular_structure_is_reported",
+    "crates/njoy-outram-park-fork/tests/mf6_continuum_angular_vs_endf.rs::o16_mt91_is_kalbach_mann_and_reaches_transport",
+    "crates/njoy-outram-park-fork/tests/mf6_continuum_angular_vs_endf.rs::u235_mt91_continuum_is_anisotropic_on_the_tape",
+    "crates/njoy-outram-park-fork/tests/mf6_continuum_angular_vs_endf.rs::u238_mt91_continuum_is_anisotropic_on_the_tape",
+    "crates/njoy-outram-park-fork/tests/mf6_continuum_emission_vs_tape.rs::mf6_continuum_emission_satisfies_the_tape_s_own_invariants",
+    "crates/njoy-outram-park-fork/tests/mf6_continuum_emission_vs_tape.rs::mf6_continuum_mean_outgoing_energy_matches_the_recorded_values",
+    "crates/njoy-outram-park-fork/tests/mf6_law6_phase_space.rs::be9_mt16_law7_is_converted_not_faked",
+    "crates/njoy-outram-park-fork/tests/mf6_law6_phase_space.rs::h2_mt16_phase_space_matches_upstreams_closed_form",
+    "crates/njoy-outram-park-fork/tests/mf6_law7_conversion.rs::law7_conversion_preserves_the_evaluations_moments",
+    "crates/njoy-outram-park-fork/tests/mf6_law7_mu_weights.rs::law7_mu_grid_is_well_formed",
+    "crates/njoy-outram-park-fork/tests/mf6_law7_mu_weights.rs::law7_per_cosine_weights_are_not_uniform",
+    "crates/njoy-outram-park-fork/tests/mf6_subsection_scan_sweep.rs::mf6_subsection_scan_stays_aligned_across_the_whole_reference_library",
+    "crates/njoy-outram-park-fork/tests/mixr_h2_be9_njoy_golden.rs::mixr_h2_be9_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/moder_vs_njoy2016.rs::moder_selection_matches_njoy2016_tape",
+    "crates/njoy-outram-park-fork/tests/no_endf_inside_crates.rs::no_endf_tape_lives_under_crates",
+    "crates/njoy-outram-park-fork/tests/openmc_notebooks_data/mdgxs_part_i.rs::delayed_beta_and_nu_fission",
+    "crates/njoy-outram-park-fork/tests/openmc_notebooks_data/mdgxs_part_i.rs::delayed_chi_spectrum",
+    "crates/njoy-outram-park-fork/tests/openmc_notebooks_data/mdgxs_part_i.rs::precursor_decay_rates",
+    "crates/njoy-outram-park-fork/tests/openmc_notebooks_data/mdgxs_part_ii.rs::delayed_group_condensation",
+    "crates/njoy-outram-park-fork/tests/openmc_notebooks_data/mgxs_part_i.rs::collapse_to_notebook_two_group_structure",
+    "crates/njoy-outram-park-fork/tests/openmc_notebooks_data/mgxs_part_i.rs::flux_weighted_self_shielded_mgxs",
+    "crates/njoy-outram-park-fork/tests/openmc_notebooks_data/mgxs_part_i.rs::groupr_elastic_scatter_matrix_u235",
+    "crates/njoy-outram-park-fork/tests/openmc_notebooks_data/mgxs_part_i.rs::groupr_engine_vector_group_average",
+    "crates/njoy-outram-park-fork/tests/openmc_notebooks_data/mgxs_part_i.rs::self_shielded_mgxs_dilution_limits_u238",
+    "crates/njoy-outram-park-fork/tests/openmc_notebooks_data/mgxs_part_ii.rs::scatter_matrix_xs",
+    "crates/njoy-outram-park-fork/tests/openmc_notebooks_data/nuclear_data.rs::cross_sections_over_energy_array",
+    "crates/njoy-outram-park-fork/tests/openmc_notebooks_data/nuclear_data.rs::read_cross_sections_by_mt",
+    "crates/njoy-outram-park-fork/tests/openmc_notebooks_data/nuclear_data.rs::secondary_nubar_and_fission_spectrum",
+    "crates/njoy-outram-park-fork/tests/openmc_notebooks_data/search.rs::fuel_cross_sections_available_for_search",
+    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::broadr_ar37_mlbw_urr",
+    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::broadr_cl35_rml",
+    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::broadr_light_nuclides_lrp0",
+    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::broadr_si30_rm",
+    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::reconr_ar37_mlbw_urr_and_mf10",
+    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::reconr_si30_rm",
+    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::reconr_sr88_rml_background_rmatrix",
+    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::reconr_u234_rm_urr",
+    "crates/njoy-outram-park-fork/tests/photon.rs::u235_fission_photon_energy_is_physical",
+    "crates/njoy-outram-park-fork/tests/purr_u235_urr.rs::purr_probability_table_at_first_energy_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/purr_u235_urr.rs::unresr_and_infinite_dilution_reference_match_njoy",
+    "crates/njoy-outram-park-fork/tests/purr_u238_ptables_vs_njoy.rs::purr_probability_tables_match_njoy2016",
+    "crates/njoy-outram-park-fork/tests/purr_u238_urr.rs::nro1_scattering_radius_table_is_read_and_interpolated_like_terpa",
+    "crates/njoy-outram-park-fork/tests/purr_u238_urr.rs::purr_probability_table_at_first_energy_matches_njoy_on_u238",
+    "crates/njoy-outram-park-fork/tests/purr_u238_urr.rs::unresr_and_infinite_dilution_reference_match_njoy_on_u238",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::library_broaden_records_temperature",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::library_elastic_xs_uom_typed",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::library_fission_xs_is_zero",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::library_from_file_and_reconstruct",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::library_to_continuous_energy_data",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::mf1_za_and_awr",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::mf2_dwave_has_2_resonances",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::mf2_has_resolved_resonances",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::mf2_parses_without_error",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::mf2_resolved_range_energy_bounds",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::mf2_spi_and_ap",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::mf2_swave_has_5_resonances",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::mf2_swave_resonance_energies",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::reconr_all_xs_nonnegative",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::reconr_capture_peak_at_resonance",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::reconr_produces_elastic_section",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::reconr_resonance_peak_visible",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::reconr_runs_without_error",
+    "crates/njoy-outram-park-fork/tests/reconr_ar37_mlbw_njoy_golden.rs::ar37_mlbw_elastic_and_capture_match_njoy_tape21",
+    "crates/njoy-outram-park-fork/tests/reconr_cl35_rml_njoy_golden.rs::cl35_crate_reconr_end_to_end_reported",
+    "crates/njoy-outram-park-fork/tests/reconr_cl35_rml_njoy_golden.rs::cl35_rml_kernel_matches_njoy_reconr_at_its_nodes",
+    "crates/njoy-outram-park-fork/tests/reconr_h2.rs::mf1_emax",
+    "crates/njoy-outram-park-fork/tests/reconr_h2.rs::mf1_za_awr",
+    "crates/njoy-outram-park-fork/tests/reconr_h2.rs::mf2_lru0_no_resonances",
+    "crates/njoy-outram-park-fork/tests/reconr_h2.rs::mf2_potential_scattering_radius",
+    "crates/njoy-outram-park-fork/tests/reconr_h2.rs::reconr_all_xs_nonnegative",
+    "crates/njoy-outram-park-fork/tests/reconr_h2.rs::reconr_elastic_thermal_value",
+    "crates/njoy-outram-park-fork/tests/reconr_h2.rs::reconr_lin_lin_keeps_every_tape_point",
+    "crates/njoy-outram-park-fork/tests/reconr_h2.rs::reconr_produces_all_mf3_sections",
+    "crates/njoy-outram-park-fork/tests/reconr_h2.rs::reconr_runs_without_error",
+    "crates/njoy-outram-park-fork/tests/reconr_h2.rs::reconr_total_xs_energy_bounds",
+    "crates/njoy-outram-park-fork/tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs::fe57_reconr_is_bounded_and_matches_njoy2016",
+    "crates/njoy-outram-park-fork/tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs::mo95_reconr_is_bounded_and_matches_njoy2016",
+    "crates/njoy-outram-park-fork/tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs::case_a_and_lssf1_grid_and_flags_match_njoys_own",
+    "crates/njoy-outram-park-fork/tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs::case_b_stored_values_match_njoys_own",
+    "crates/njoy-outram-park-fork/tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs::fe58_disagreement_is_explained_by_upstreams_unfac_fall_through",
+    "crates/njoy-outram-park-fork/tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs::lssf1_stores_the_bare_kernel_with_no_mf3_background",
+    "crates/njoy-outram-park-fork/tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs::released_and_beta_fe58_carry_the_same_unresolved_parameters",
+    "crates/njoy-outram-park-fork/tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs::u238_lssf1_stored_values_match_njoys_own_exactly",
+    "crates/njoy-outram-park-fork/tests/reconr_mt152_vs_njoy2016.rs::the_agreeing_mf3_energies_are_exactly_the_mt152_energies",
+    "crates/njoy-outram-park-fork/tests/reconr_mt152_vs_njoy2016.rs::the_kernel_plus_background_reproduces_njoys_mt152_table_at_every_stored_energy",
+    "crates/njoy-outram-park-fork/tests/reconr_mt152_writer_vs_njoy2016.rs::a_material_without_an_unresolved_range_emits_no_section",
+    "crates/njoy-outram-park-fork/tests/reconr_mt152_writer_vs_njoy2016.rs::reconr_emits_the_section_and_it_still_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/reconr_mt152_writer_vs_njoy2016.rs::the_fifth_column_repeats_the_total",
+    "crates/njoy-outram-park-fork/tests/reconr_mt152_writer_vs_njoy2016.rs::the_written_mt152_matches_njoys_own",
+    "crates/njoy-outram-park-fork/tests/reconr_mt1_is_the_sum_of_its_parts.rs::mt1_equals_the_sum_of_our_own_partials",
+    "crates/njoy-outram-park-fork/tests/reconr_mt1_is_the_sum_of_its_parts.rs::mt1_reproduces_njoy2016_where_the_partials_carry_background",
+    "crates/njoy-outram-park-fork/tests/reconr_mt1_is_the_sum_of_its_parts.rs::u234_fission_follows_upstreams_mtr18_rule",
+    "crates/njoy-outram-park-fork/tests/reconr_si30_inter_resonance_capture.rs::si30_reconr_grid_matches_njoy_between_resonances",
+    "crates/njoy-outram-park-fork/tests/reconr_sr88_lrf7_kbk_njoy_golden.rs::sr88_elastic_matches_the_values_recorded_in_the_defect_report",
+    "crates/njoy-outram-park-fork/tests/reconr_sr88_lrf7_kbk_njoy_golden.rs::sr88_lrf7_background_rmatrix_reproduces_njoy2016",
+    "crates/njoy-outram-park-fork/tests/reconr_u234_unresolved_njoy_golden.rs::lssf1_materials_are_untouched_by_the_unresolved_reconstruction",
+    "crates/njoy-outram-park-fork/tests/reconr_u234_unresolved_njoy_golden.rs::unresolved_range_reproduces_njoy2016_and_is_never_zero",
+    "crates/njoy-outram-park-fork/tests/reconr_u235.rs::library_reconstructs_and_reports_fissile_xs",
+    "crates/njoy-outram-park-fork/tests/reconr_u235.rs::mf1_za_awr_and_fissile_flag",
+    "crates/njoy-outram-park-fork/tests/reconr_u235.rs::mf2_lowest_positive_resonances",
+    "crates/njoy-outram-park-fork/tests/reconr_u235.rs::mf2_parses_reich_moore_without_error",
+    "crates/njoy-outram-park-fork/tests/reconr_u235.rs::mf2_reich_moore_resonance_inventory",
+    "crates/njoy-outram-park-fork/tests/reconr_u235.rs::mf2_resolved_range_is_reich_moore",
+    "crates/njoy-outram-park-fork/tests/reconr_u235.rs::reconr_all_xs_nonnegative_and_finite",
+    "crates/njoy-outram-park-fork/tests/reconr_u235.rs::reconr_fission_is_substantial_and_finite",
+    "crates/njoy-outram-park-fork/tests/reconr_u235.rs::reconr_resonance_peaks_above_thermal",
+    "crates/njoy-outram-park-fork/tests/reconr_u235.rs::reconr_runs_without_error",
+    "crates/njoy-outram-park-fork/tests/reconr_u235.rs::reconr_thermal_cross_sections_match_accepted_values",
+    "crates/njoy-outram-park-fork/tests/reconr_urr_kernel_vs_njoy2016.rs::every_njoy_unresolved_point_is_either_reproduced_or_is_njoys_own_interpolation",
+    "crates/njoy-outram-park-fork/tests/reconr_urr_kernel_vs_njoy2016.rs::mf3_background_is_absent_below_the_top_of_the_unresolved_window",
+    "crates/njoy-outram-park-fork/tests/reconr_urr_njoy_converges_to_ours.rs::refinement_leaves_the_physics_unchanged_at_the_original_parameter_energies",
+    "crates/njoy-outram-park-fork/tests/reconr_urr_njoy_converges_to_ours.rs::refining_njoys_parameter_grid_moves_its_output_onto_ours",
+    "crates/njoy-outram-park-fork/tests/resxsr_h2_njoy_golden.rs::resxsr_h2_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/resxsr_h2_njoy_golden.rs::resxsr_h2_two_temperatures_matches_njoy",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::coherent_elastic_bragg_block_is_monotone",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::inelastic_blocks_are_consistent",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::thermal_table_header_and_dimensions",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::thermal_table_roundtrips_through_file",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::hzrh_has_incoherent_elastic_and_inelastic_but_no_coherent",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::incoherent_elastic_block_layout_is_consistent",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::incoherent_elastic_cross_section_physics",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::thermal_table_roundtrips_through_file",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::thermal_table_uses_idpnc3_elastic_branch",
+    "crates/njoy-outram-park-fork/tests/thermr_calcem_sigl_vs_quadrature.rs::sigl_cross_section_converges_onto_an_independent_quadrature",
+    "crates/njoy-outram-park-fork/tests/thermr_calcem_sigl_vs_quadrature.rs::sigl_equiprobable_cosines_reproduce_the_quadrature_mean_cosine",
+    "crates/njoy-outram-park-fork/tests/thermr_calcem_vs_njoy2016_golden.rs::calcem_iform0_reproduces_njoy2016_for_graphite_at_600k",
+    "crates/njoy-outram-park-fork/tests/thermr_iform1_continuous_law.rs::iform1_cross_section_matches_an_independent_integration",
+    "crates/njoy-outram-park-fork/tests/thermr_iform1_continuous_law.rs::iform1_joint_mu_energy_distribution_is_normalised",
+    "crates/njoy-outram-park-fork/tests/thermr_iform1_continuous_law.rs::iform1_mean_cosine_matches_a_double_quadrature",
+    "crates/njoy-outram-park-fork/tests/thermr_kernel_vs_njoy2016_matrix.rs::calcem_emission_kernel_reproduces_njoy2016_shape",
+    "crates/njoy-outram-park-fork/tests/thermr_kernel_vs_njoy2016_matrix.rs::equiprobable_emission_is_the_narrow_one",
+    "crates/njoy-outram-park-fork/tests/u238_doppler_verification/main.rs::capture_doppler_matches_openmc",
+    "crates/njoy-outram-park-fork/tests/u238_doppler_verification/main.rs::capture_pipeline_is_physical",
+    "crates/njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs::build_full_with_purr_writes_a_block_that_reads_back_as_generated",
+    "crates/njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs::purr_generates_njoys_bands_word_for_word",
+    "crates/njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs::reading_then_writing_reproduces_njoys_unr_block_word_for_word",
+    "crates/njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs::the_competition_flags_and_energy_grid_are_derived_exactly_as_njoy_derives_them",
+    "crates/njoy-outram-park-fork/tests/urr_from_ace_unr_block.rs::a_block_running_past_xss_is_refused",
+    "crates/njoy-outram-park-fork/tests/urr_from_ace_unr_block.rs::a_zero_locator_yields_none_rather_than_an_error",
+    "crates/njoy-outram-park-fork/tests/urr_from_ace_unr_block.rs::ace_tables_and_our_own_purr_agree_on_range_and_convention",
+    "crates/njoy-outram-park-fork/tests/urr_from_ace_unr_block.rs::u235_unr_block_decodes_and_differs_from_u238",
+    "crates/njoy-outram-park-fork/tests/urr_from_ace_unr_block.rs::u238_unr_block_decodes_into_sane_tables",
+    "crates/njoy-outram-park-fork/tests/wimsr_u238_njoy_golden.rs::library_matches_njoy_wimsd_tape",
+    "crates/njoy-outram-park-fork/tests/wimsr_u238_njoy_golden.rs::listing_stage_values",
+    "crates/njoy-outram-park-fork/tests/wmp_u238.rs::u238_capture_resonance_and_doppler_broadening",
+    "crates/njoy-outram-park-fork/tests/wmp_u238.rs::u238_cross_sections_are_physical_across_the_range",
+    "crates/njoy-outram-park-fork/tests/wmp_u238.rs::u238_loads_and_has_expected_metadata",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_continuum_angular_hook_ablates_exactly_the_angular_law",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_fission_source_hooks_do_not_interfere",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_fission_spectrum_hook_freezes_exactly_the_incident_energy",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_inelastic_hook_ablates_exactly_the_inelastic_channel",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_n2n_multiplicity_hook_ablates_exactly_the_second_neutron",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_n2n_multiplicity_hook_reaches_the_transport_kernel",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_n3n_channel_is_branched_and_changes_nothing_below_its_threshold",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_nubar_hook_freezes_exactly_the_yield_curve",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_target_motion_hook_ablates_exactly_the_target_velocity",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_target_motion_hook_is_a_no_op_above_the_free_gas_threshold",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_two_hooks_do_not_interfere",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_yield_hook_covers_the_n3n_channel_too",
+    "crates/outram-mc-libs/tests/ablation_suite.rs::ablating_elastic_anisotropy_removes_the_larger_share",
+    "crates/outram-mc-libs/tests/ablation_suite.rs::ablating_inelastic_anisotropy_moves_sigma_tr_by_the_diagnosed_amount",
+    "crates/outram-mc-libs/tests/ablation_suite.rs::ablating_the_mf6_continuum_law_hardens_the_secondary_spectrum",
+    "crates/outram-mc-libs/tests/ablation_suite.rs::aggregates_are_grid_converged",
+    "crates/outram-mc-libs/tests/ace_interp_regions_vs_openmc.rs::endf_route_carries_f19_histogram_yield",
+    "crates/outram-mc-libs/tests/ace_transport_channels_vs_openmc.rs::fission_cross_section_matches_openmc_including_partial_only_u234",
+    "crates/outram-mc-libs/tests/ace_transport_channels_vs_openmc.rs::transport_channels_match_openmc_redundancy_rule",
+    "crates/outram-mc-libs/tests/ace_transport_channels_vs_openmc.rs::u234_fission_spectrum_is_the_partial_mixture",
+    "crates/outram-mc-libs/tests/ace_transport_channels_vs_openmc.rs::u235_levels_reach_transport_with_their_q",
+    "crates/outram-mc-libs/tests/anisotropy_ablation_control.rs::ablation_removes_the_evaluated_cosine_and_nothing_else",
+    "crates/outram-mc-libs/tests/band_averaged_xs_vs_openmc.rs::band_averaged_cross_sections_match_openmc",
+    "crates/outram-mc-libs/tests/channel_branching_consistency.rs::the_collision_partition_closes_and_matches_what_is_sampled",
+    "crates/outram-mc-libs/tests/continuum_angular_ablation_control.rs::f19_continuum_is_isotropic_so_the_ablation_is_a_no_op",
+    "crates/outram-mc-libs/tests/continuum_angular_ablation_control.rs::u238_continuum_angular_ablation_changes_angles_and_nothing_else",
+    "crates/outram-mc-libs/tests/continuum_angular_ablation_control.rs::u238_continuum_angular_law_is_read_and_has_the_evaluated_energy_profile",
+    "crates/outram-mc-libs/tests/correct_physics_is_default.rs::from_ace_applies_delayed_spectra_by_default",
+    "crates/outram-mc-libs/tests/correct_physics_is_default.rs::from_ace_applies_urr_by_default",
+    "crates/outram-mc-libs/tests/correct_physics_is_default.rs::thermal_equiprobable_sampling_is_openmc_by_default",
+    "crates/outram-mc-libs/tests/dbrc_control.rs::dbrc_changes_the_kernel_near_a_resonance_and_not_far_from_one",
+    "crates/outram-mc-libs/tests/dbrc_control.rs::the_dbrc_table_carries_real_resonance_structure",
+    "crates/outram-mc-libs/tests/dbrc_from_ace.rs::a_0k_table_gives_dbrc_by_default",
+    "crates/outram-mc-libs/tests/dbrc_from_ace.rs::a_broadened_companion_is_refused",
+    "crates/outram-mc-libs/tests/dbrc_from_ace.rs::a_broadened_table_reports_why_dbrc_is_off",
+    "crates/outram-mc-libs/tests/dbrc_from_ace.rs::from_ace_file_finds_the_0k_companion_in_the_reference_library",
+    "crates/outram-mc-libs/tests/dbrc_from_ace.rs::pairing_a_broadened_table_with_its_0k_companion_attaches_dbrc",
+    "crates/outram-mc-libs/tests/delayed_from_ace.rs::a_table_without_delayed_data_gives_none",
+    "crates/outram-mc-libs/tests/delayed_from_ace.rs::u235_from_ace_has_delayed_neutrons",
+    "crates/outram-mc-libs/tests/delayed_group_sampling.rs::a_nuclide_without_delayed_data_reports_every_neutron_prompt",
+    "crates/outram-mc-libs/tests/delayed_group_sampling.rs::the_delayed_fraction_reproduces_the_evaluations_beta",
+    "crates/outram-mc-libs/tests/delayed_group_sampling.rs::the_group_shares_reproduce_the_normalised_tables",
+    "crates/outram-mc-libs/tests/elastic_anisotropy_vs_endf_mf4.rs::moderator_elastic_scattering_turns_forward_between_1_kev_and_14_mev",
+    "crates/outram-mc-libs/tests/elastic_anisotropy_vs_endf_mf4.rs::the_elastic_angular_sampler_reproduces_the_tabulated_mean_cosine",
+    "crates/outram-mc-libs/tests/elastic_mubar_vs_openmc.rs::elastic_mean_cosine_matches_openmc",
+    "crates/outram-mc-libs/tests/elastic_xi_h1_o16.rs::measured_xi_matches_analytic_for_h1_and_o16",
+    "crates/outram-mc-libs/tests/fission_spectrum_shape_vs_openmc.rs::fission_spectrum_shape_matches_openmc_band_by_band",
+    "crates/outram-mc-libs/tests/fission_spectrum_vs_openmc.rs::fission_spectrum_mean_energy_matches_openmc",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::bound_graphite_and_free_gas_agree_once_target_motion_is_sampled",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::diagnose_thermal_spectrum_reach",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::graphite_thermal_law_reaches_the_transport_kernel",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::majorant_still_bounds_total_xs_with_bound_graphite",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::regenerated_graphite_thermal_scattering_has_the_expected_shape",
+    "crates/outram-mc-libs/tests/inelastic_anisotropy_ablation_control.rs::inelastic_levels_are_anisotropic_and_the_ablation_removes_exactly_that",
+    "crates/outram-mc-libs/tests/inelastic_anisotropy_ablation_control.rs::the_two_ablations_are_independent",
+    "crates/outram-mc-libs/tests/inelastic_channel_vs_endf.rs::a_threshold_reaction_has_no_cross_section_below_its_threshold",
+    "crates/outram-mc-libs/tests/inelastic_channel_vs_endf.rs::continuum_inelastic_respects_two_body_energy_balance",
+    "crates/outram-mc-libs/tests/inelastic_channel_vs_endf.rs::f19_inelastic_reproduces_the_raw_endf_tape",
+    "crates/outram-mc-libs/tests/inelastic_channel_vs_endf.rs::the_inelastic_partials_sum_to_the_tapes_own_mt4",
+    "crates/outram-mc-libs/tests/inelastic_mubar_vs_openmc.rs::inelastic_level_mean_cosines_match_openmc",
+    "crates/outram-mc-libs/tests/inelastic_mubar_vs_openmc.rs::the_two_nuclides_differ_in_anisotropy_the_way_the_evaluation_says",
+    "crates/outram-mc-libs/tests/law7_lab_angle_energy_transport.rs::be9_law7_reaches_the_sampler_and_is_forward_peaked",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::approaches_the_free_atom_limit_at_the_cutoff",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::attaches_to_a_nuclide_and_overrides_below_the_cutoff",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::builds_at_temperature_with_no_elastic_channel",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::cold_neutrons_upscatter_toward_the_maxwellian",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::thermal_cross_section_matches_bound_light_water",
+    "crates/outram-mc-libs/tests/lump_collision_probability.rs::a_homogeneous_shell_cell_reproduces_the_infinite_medium_solution",
+    "crates/outram-mc-libs/tests/lump_collision_probability.rs::first_flight_reproduces_the_closed_form_sphere_escape_probability",
+    "crates/outram-mc-libs/tests/lump_collision_probability.rs::gauss_legendre_integrates_polynomials_exactly",
+    "crates/outram-mc-libs/tests/lump_collision_probability.rs::splitting_a_homogeneous_sphere_does_not_change_its_escape_probability",
+    "crates/outram-mc-libs/tests/lump_collision_probability.rs::surface_reciprocity_and_conservation_hold_on_a_multi_shell_cell",
+    "crates/outram-mc-libs/tests/lump_collision_probability.rs::the_thick_lump_matches_a_deterministic_collision_probability_solution",
+    "crates/outram-mc-libs/tests/mf45_uncorrelated_emission.rs::c12_mt91_uses_the_analytic_lf9_law_and_is_evaluated_isotropic",
+    "crates/outram-mc-libs/tests/mf45_uncorrelated_emission.rs::jendl_u238_mt91_samples_its_mf45_law_not_the_stand_in",
+    "crates/outram-mc-libs/tests/mt5_anything_channel.rs::mt5_has_a_law_a_tabulated_multiplicity_and_no_reach_below_5_mev",
+    "crates/outram-mc-libs/tests/mt91_transfer_vs_openmc.rs::mt91_offgrid_sampling_reproduces_openmcs_unit_base_construction",
+    "crates/outram-mc-libs/tests/mt91_transfer_vs_openmc.rs::mt91_transfer_law_agrees_with_openmc_in_the_op_os8x_band",
+    "crates/outram-mc-libs/tests/nuclide_from_ace_vs_endf.rs::a_nuclide_from_ace_has_the_right_physics",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_lwr_thermal_pin_benchmark",
+    "crates/outram-mc-libs/tests/other_neutron_channels_vs_openmc.rs::other_channels_match_openmc_on_both_routes",
+    "crates/outram-mc-libs/tests/processed_evaluation_round_trip.rs::a_shipped_thermal_law_is_the_built_law_bit_for_bit",
+    "crates/outram-mc-libs/tests/processed_evaluation_round_trip.rs::shipped_nuclides_are_the_direct_nuclides_bit_for_bit",
+    "crates/outram-mc-libs/tests/ring_rpt_hunt_lessons.rs::a_transparent_lump_gives_the_homogeneous_answer_only_under_a_white_boundary",
+    "crates/outram-mc-libs/tests/ring_rpt_hunt_lessons.rs::absorption_is_mt27_so_li6_shows_the_n_t_channel",
+    "crates/outram-mc-libs/tests/ring_rpt_hunt_lessons.rs::monte_carlo_matches_the_deterministic_slowing_down_solution",
+    "crates/outram-mc-libs/tests/ring_rpt_hunt_lessons.rs::self_shielded_absorption_is_not_the_dilute_limit",
+    "crates/outram-mc-libs/tests/slowing_down_kinematics.rs::isotropic_elastic_kinematics_match_the_closed_form",
+    "crates/outram-mc-libs/tests/slowing_down_kinematics.rs::sampled_elastic_energy_is_consistent_with_the_sampled_cm_angle",
+    "crates/outram-mc-libs/tests/speed_tier_fast_is_exact.rs::fast_matches_standard_on_u238_u234_and_f19_and_in_nuclide_selection",
+    "crates/outram-mc-libs/tests/speed_tier_fast_is_exact.rs::fast_matches_standard_through_the_sab_cutoff",
+    "crates/outram-mc-libs/tests/speed_tier_fast_is_exact.rs::ordinary_constructors_default_to_the_exact_fast_tier",
+    "crates/outram-mc-libs/tests/temperature_precedence.rs::free_gas_kt_is_the_data_temperature_for_pointwise_nuclides",
+    "crates/outram-mc-libs/tests/temperature_precedence.rs::which_temperature_takes_precedence",
+    "crates/outram-mc-libs/tests/thermal_cutoff_is_tape_emax.rs::hinh2o_cutoff_is_the_tapes_b4",
+    "crates/outram-mc-libs/tests/thermal_endf_route_xs_vs_njoy.rs::endf_route_inelastic_xs_matches_njoy_itix",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::bound_graphite_nuclide_keeps_its_dominant_channel",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_coherent_channel_is_detected_and_stored_exactly",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_elastic_dominates_thermal_scattering",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_htr10_temperature_points",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_sampling_matches_the_cross_section_split_and_bragg_law",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::interpolated_sigma_inel_stays_inside_its_bracket",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::light_water_has_no_elastic_channel_and_is_unchanged",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::zrh_incoherent_elastic_channel_is_forward_peaked",
+    "crates/outram-mc-libs/tests/thermal_kernel_stationary_distribution.rs::graphite_thermalises_onto_its_own_temperature",
+    "crates/outram-mc-libs/tests/thermal_kernel_stationary_distribution.rs::light_water_thermalises_onto_its_own_temperature",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_cross_sections_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_kernel_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_kernel_width_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_mean_cosine_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_cross_section_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_kernel_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_kernel_width_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_law_extends_to_njoys_10_ev",
+    "crates/outram-mc-libs/tests/thermal_standards.rs::b10_thermal_absorption_is_the_2200_ms_standard_and_exactly_one_over_v",
+    "crates/outram-mc-libs/tests/thermal_standards.rs::h1_bound_water_scattering_exceeds_free_gas_and_converges_to_it",
+    "crates/outram-mc-libs/tests/thermal_standards.rs::h1_free_gas_elastic_matches_the_analytic_doppler_broadened_free_atom",
+    "crates/outram-mc-libs/tests/total_fast_path_matches_full.rs::h1_with_thermal_scattering_matches_through_the_sab_cutoff",
+    "crates/outram-mc-libs/tests/total_fast_path_matches_full.rs::u235_fast_total_matches_the_full_evaluation",
+    "crates/outram-mc-libs/tests/total_fast_path_matches_full.rs::u238_fast_total_matches_the_full_evaluation",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::diagnose_channels",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::sic_carbon_and_graphite_carbon_are_different_scatterers",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::sic_carbon_binds_a_coherent_elastic_channel_within_the_characterised_band",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::sic_silicon_binds_the_same_lattice_elastic_channel_as_the_carbon_side",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::triso_carbon_coatings_bind_graphite_sab",
+    "crates/outram-mc-libs/tests/u238_vs_njoy_pendf_golden.rs::u238_fission_matches_njoy_where_the_channel_is_open",
+    "crates/outram-mc-libs/tests/u238_vs_njoy_pendf_golden.rs::u238_point_cross_sections_match_njoy_pendf",
+    "crates/outram-mc-libs/tests/uncorrelated_cm_emission.rs::cm_uncorrelated_law_is_transformed_to_the_lab",
+    "crates/outram-mc-libs/tests/urr_ptable_control.rs::a_nuclide_without_urr_tables_is_bit_identical_through_both_paths",
+    "crates/outram-mc-libs/tests/urr_ptable_control.rs::the_urr_ablation_removes_exactly_the_tables",
+    "crates/outram-mc-libs/tests/urr_ptable_control.rs::urr_tables_attach_and_carry_lssf1_self_shielding_factors",
+    "crates/outram-mc-libs/tests/urr_sampling_vs_openmc.rs::urr_cross_sections_match_openmc_calculate_urr_xs",
+    "crates/outram-mc-libs/tests/xs_and_tracks_plot_parity.rs::a_perturbed_value_is_detected",
+    "crates/outram-mc-libs/tests/xs_and_tracks_plot_parity.rs::emitted_scripts_render_pixel_identical_to_openmc",
+    "crates/outram-mc-libs/tests/xs_and_tracks_plot_parity.rs::plotted_data_is_bit_identical_to_openmc",
+    "crates/outram-mc-libs/tests/xs_and_tracks_plot_parity.rs::regenerate_c12_ace",
+    "crates/outram-park-digital-twin-engine/tests/ci_smoke/godiva.rs::godiva_keff_high_tier_local_endf",
+]
+
+[module."acquire.rs"]
+path = "crate::acquire"
+
+[[module."acquire.rs".function]]
+id = "fn:fd78f07ae67f01f5"
+name = "dir"
+qual = "EndfLibrary::dir"
+lines = [
+    126,
+    136,
+]
+hash = "sha256:34dccf5195b77e5430f7b4b309584103d2f4cd71eefa8fc166e4f53d75a49001"
+doc_hash = "sha256:436820935921fe34fd748f74eac7fe628c1ca300a94190aae735f21b8cd206af"
+reached_by = [
+    "#18",
+    "#19",
+    "#20",
+    "#28",
+    "#31",
+    "#32",
+    "#34",
+    "#44",
+    "#47",
+    "#50",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#451",
+    "#452",
+    "#453",
+    "#454",
+    "#455",
+    "#465",
+    "#466",
+    "#467",
+    "#468",
+    "#469",
+    "#482",
+    "#523",
+    "#524",
+    "#525",
+    "#526",
+    "#527",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:1cc0c1da543dbe04"
+name = "label"
+qual = "EndfLibrary::label"
+lines = [
+    138,
+    147,
+]
+hash = "sha256:040d0c20dfac74b450a96f68095c0f05e861b15cf1f2974ca2ddaadc531f1d5d"
+doc_hash = "sha256:44000933e761cfdb0ad5cd0ad90a8b76f55ef4ec1965ec8ae3647f3c76fbad5d"
+
+[[module."acquire.rs".function]]
+id = "fn:dbbcb25898abc8a5"
+name = "all"
+qual = "EndfLibrary::all"
+lines = [
+    149,
+    157,
+]
+hash = "sha256:d66e93896e2e2007f933409cada04cfb65312d3a471c38a4aa8c20789e5941b2"
+doc_hash = "sha256:d8e646e5c1d907271f83541d3dcbe90cc5e8c9ee7f6a2e54ba928e369c5d3a0c"
+reached_by = ["#31"]
+
+[[module."acquire.rs".function]]
+id = "fn:dc5a191d18733103"
+name = "neutron_url"
+qual = "EndfLibrary::neutron_url"
+lines = [
+    159,
+    171,
+]
+hash = "sha256:10788e3a10d129c6a5046208b74021c3dd2d9b13526d4e28f164d148ac85c6fb"
+doc_hash = "sha256:88b638975816d0a1f8f3c1395fc8cc1663b911c535aed997190ea15d2c48a278"
+callees = [
+    "fn:06db01f6c15fd2df",
+    "fn:fd78f07ae67f01f5",
+]
+reached_by = [
+    "#31",
+    "#32",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:ec9f9eca316dd6fc"
+name = "thermal_url"
+qual = "EndfLibrary::thermal_url"
+lines = [
+    173,
+    187,
+]
+hash = "sha256:e1afdc4afd52709844b79780700fd784ece3c04890f51407d94c09be0ddf2a5b"
+doc_hash = "sha256:3eb65be8e7d4b134990b9085e89b12f7da8979492424b287c4a2a660fabcf15d"
+callees = ["fn:fd78f07ae67f01f5"]
+reached_by = ["#34"]
+
+[[module."acquire.rs".function]]
+id = "fn:f713544c9efec461"
+name = "well_known_tsl"
+qual = "well_known_tsl"
+lines = [
+    207,
+    367,
+]
+hash = "sha256:7774f3e5b1feaf15da3926ac4d0678e05788e21c7bb7dd883aba81c551edf149"
+doc_hash = "sha256:9176af39ed3de1e0854556cb91e17297d61618ba839201da005a2c0aeb70442e"
+reached_by = [
+    "#18",
+    "#19",
+    "#20",
+    "#34",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#240",
+    "#241",
+    "#242",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#451",
+    "#452",
+    "#453",
+    "#454",
+    "#455",
+    "#465",
+    "#466",
+    "#467",
+    "#468",
+    "#469",
+    "#482",
+    "#523",
+    "#524",
+    "#525",
+    "#526",
+    "#527",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:06db01f6c15fd2df"
+name = "zip_filename"
+qual = "zip_filename"
+lines = [
+    369,
+    374,
+]
+hash = "sha256:4ff3c6fd3fbe9d7b690f3f385bf1959c3e41a1b45a265129c09e17235b7948f8"
+doc_hash = "sha256:c2af1cabe5c0ff901f166e7da858b1e29b1ad0bd6c8d3396022023ab2a6f90a9"
+reached_by = [
+    "#29",
+    "#31",
+    "#32",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:c7dacde84eb49fa7"
+name = "tape_filename"
+qual = "tape_filename"
+lines = [
+    376,
+    380,
+]
+hash = "sha256:fff51750379162399e3880cdbe5a5dd8a06e824b92dcf829b95900b13050d08b"
+doc_hash = "sha256:feb399010c6cfb6f2bf9f63c21b493480869e5d04438db712765651a6cba6eb6"
+reached_by = [
+    "#28",
+    "#32",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:8af58cb647fa7104"
+name = "well_known_mat"
+qual = "well_known_mat"
+lines = [
+    382,
+    434,
+]
+hash = "sha256:548b81cc1585ea836beb84813512589c30078b2c7595d073a3631d89ebcce2bd"
+doc_hash = "sha256:d943aa210c17aed8c21e1a7e8c08c65d2eb4090ba97362ef67a76d8af07a4e08"
+reached_by = [
+    "#29",
+    "#36",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:c9d2d1b4d28495cc"
+name = "symbol_for_z"
+qual = "symbol_for_z"
+lines = [
+    451,
+    454,
+]
+hash = "sha256:1351fca38fd981acfdf63ef67d5ec41ac3d26f84d9dc5b6d79d13eb455444c2a"
+doc_hash = "sha256:eaed4b1ed7d34e210a48c362a94fc037fb52e5f5f57a269a9eefe659f1ea0951"
+reached_by = [
+    "#30",
+    "#33",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:0c5fdbe6deecf394"
+name = "z_for_symbol"
+qual = "z_for_symbol"
+lines = [
+    456,
+    463,
+]
+hash = "sha256:d05b445ce5889ed877c4028708b60dab314461ac6146e05df9724b32283cf2ae"
+doc_hash = "sha256:fe2990a118861600cf5051c1ae7f97000e62e4cee2e07d38d7ee8f33e7d516b8"
+reached_by = [
+    "#30",
+    "#33",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:1de8ca090f7af84d"
+name = "parse_nuclide"
+qual = "parse_nuclide"
+lines = [
+    465,
+    491,
+]
+hash = "sha256:82e5ba90cb9d76bbeef289a2474c310b57fa1d2a21c2c25ca495a1e4289e04c1"
+doc_hash = "sha256:47eda9345dd20bda14d3371118759a94f0e7416842a5e8f129f5cc6747a3cde2"
+callees = [
+    "fn:0c5fdbe6deecf394",
+    "fn:c9d2d1b4d28495cc",
+]
+reached_by = ["#33"]
+
+[[module."acquire.rs".function]]
+id = "fn:a9f5eed3d9bf37a2"
+name = "default_dir"
+qual = "EndfCache::default_dir"
+lines = [
+    509,
+    522,
+]
+hash = "sha256:82428e4f9afdfa28d6018a9d0c72cd8c062579a31bde229a7c8b3ee735404b13"
+doc_hash = "sha256:f5d3452d503fa50d1284a2d25a0eff029ca71f63b9bc7aaf310cd576cca8c96a"
+reached_by = [
+    "#18",
+    "#19",
+    "#20",
+    "#44",
+    "#47",
+    "#50",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#451",
+    "#452",
+    "#453",
+    "#454",
+    "#455",
+    "#465",
+    "#466",
+    "#467",
+    "#468",
+    "#469",
+    "#482",
+    "#523",
+    "#524",
+    "#525",
+    "#526",
+    "#527",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:1aba6df3f003112e"
+name = "new"
+qual = "EndfCache::new"
+lines = [
+    524,
+    532,
+]
+hash = "sha256:70085591dac2ffb8482bbe6bd68dcfa499acfa592bbfbe36464cd964de1c61e6"
+doc_hash = "sha256:ed6a80223924bb4156ea5a962d459d6d261cb1fb14d8c011a6df679cd413a75b"
+callees = ["fn:a9f5eed3d9bf37a2"]
+reached_by = [
+    "#18",
+    "#19",
+    "#20",
+    "#47",
+    "#50",
+    "#234",
+    "#235",
+    "#236",
+    "#465",
+    "#466",
+    "#467",
+    "#468",
+    "#469",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:dca041cc66df6e67"
+name = "with_dir"
+qual = "EndfCache::with_dir"
+lines = [
+    534,
+    540,
+]
+hash = "sha256:16a40f9c8d0f25aae9754ab4d8641086c6b1c0226c5865ae55e23787cb73240c"
+doc_hash = "sha256:64fdc05c7737465c040fb99dbc139205a49d98762c4ad44c6c6b8b4077de306a"
+reached_by = [
+    "#28",
+    "#34",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:8e61c2ca1f60332c"
+name = "dir"
+qual = "EndfCache::dir"
+lines = [
+    542,
+    545,
+]
+hash = "sha256:1538ec9fa4f5b8108b2ba0bea7d25cceb78c087506cfd0657d551bb0ce9d922f"
+doc_hash = "sha256:4c3ad7d1a694ab6cd41c42a54764caf879151a0a4954c71d37cbf25ec9b1ec26"
+reached_by = [
+    "#18",
+    "#19",
+    "#20",
+    "#47",
+    "#50",
+    "#234",
+    "#235",
+    "#236",
+    "#465",
+    "#466",
+    "#467",
+    "#468",
+    "#469",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:90a497071575de72"
+name = "path_for"
+qual = "EndfCache::path_for"
+lines = [
+    547,
+    560,
+]
+hash = "sha256:559ab94fd62e481894fb00cbff054dfa92827e71404099a9894fbde3611f5997"
+doc_hash = "sha256:5a2bb1d7e8d69a7ff81eee0ba4456843c91954fe3d4c85f33e6c39391f4b2fc9"
+callees = [
+    "fn:c7dacde84eb49fa7",
+    "fn:fd78f07ae67f01f5",
+]
+reached_by = ["#28"]
+
+[[module."acquire.rs".function]]
+id = "fn:2579ff45dff6ad9b"
+name = "fetch"
+qual = "EndfCache::fetch"
+lines = [
+    562,
+    581,
+]
+hash = "sha256:c2e64ca40d0241336fda0bc00de6b8dde481dc0240e0cca4d92ea73fa3cf2e5b"
+doc_hash = "sha256:177d7bb21c4106fca118e607cf1a98d734a824fdab71fc96eafa4799ad1c9ccf"
+
+[[module."acquire.rs".function]]
+id = "fn:033858f0c45efd6c"
+name = "get_or_produce"
+qual = "EndfCache::get_or_produce"
+lines = [
+    583,
+    683,
+]
+hash = "sha256:f5bc99ae2a6d87925d3aa172b5834a37b67e93255c5f569331e4862793007431"
+doc_hash = "sha256:8447fd5f3b479adf4bfc8ea9320999df5ec59d851aba706a85d8580104dec614"
+callees = [
+    "fn:d45e994f6e53bd65",
+    "fn:d98a6db01940e61c",
+]
+reached_by = [
+    "#18",
+    "#19",
+    "#20",
+    "#47",
+    "#50",
+    "#234",
+    "#235",
+    "#236",
+    "#465",
+    "#466",
+    "#467",
+    "#468",
+    "#469",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:9a8e40528ae601d1"
+name = "fetch_to_path"
+qual = "EndfCache::fetch_to_path"
+lines = [
+    685,
+    700,
+]
+hash = "sha256:6a6c5c0a1a916ecd9d1f70dd2b66bfa54b821f67edcc9503cd9a7acf130961c2"
+doc_hash = "sha256:48880b3224390df3dcfc1de0b1f82ff87162262a9203e5d979b405cdbfad26e5"
+callees = ["fn:d44d60cf83813504"]
+
+[[module."acquire.rs".function]]
+id = "fn:b452d0ae41f39117"
+name = "path_for_tsl"
+qual = "EndfCache::path_for_tsl"
+lines = [
+    702,
+    709,
+]
+hash = "sha256:3ca7b811d07af8223c39514446b524927f914f988301c847ecd0e19c86f8c6a8"
+doc_hash = "sha256:b469a79a9a05bf69f758ac024855417a727923d850870f95b40f46523c9c7522"
+callees = ["fn:fd78f07ae67f01f5"]
+reached_by = ["#34"]
+
+[[module."acquire.rs".function]]
+id = "fn:18fb48ceaedd6942"
+name = "fetch_tsl"
+qual = "EndfCache::fetch_tsl"
+lines = [
+    711,
+    722,
+]
+hash = "sha256:5216b0e888de963b7a91ef0965acd1c4727255a9e3b828232d959141f23d447b"
+doc_hash = "sha256:44435f3ab5d0fddfb04f197fc5bda70fad5996470be9a1ff7a73163726abd132"
+
+[[module."acquire.rs".function]]
+id = "fn:69cffdcd073e8993"
+name = "fetch_tsl_by_name"
+qual = "EndfCache::fetch_tsl_by_name"
+lines = [
+    724,
+    741,
+]
+hash = "sha256:94e005e5bbb2f595314b53521f0456437526ba56225103e18044d9aa6a667f11"
+doc_hash = "sha256:5a8a75aa3eede8f5e3fa7e300ad44a420339b90c2efa6deac24bb188d373145b"
+callees = ["fn:f713544c9efec461"]
+
+[[module."acquire.rs".function]]
+id = "fn:97d522476a9b62a9"
+name = "download_tsl_tape"
+qual = "EndfCache::download_tsl_tape"
+lines = [
+    743,
+    753,
+]
+hash = "sha256:416ad69bca2d2310ea470cdab2086b491138d1888b0387a1eb326548c721ad27"
+doc_hash = "sha256:6e74051f159fdf5c508d0f4bad163f9f6c895ca71c36d995bd0a2437b1da680c"
+
+[[module."acquire.rs".function]]
+id = "fn:58c070d03fa779e3"
+name = "download_tape"
+qual = "EndfCache::download_tape"
+lines = [
+    755,
+    767,
+]
+hash = "sha256:6fa8f013bf7ae7921bebd558bd71d1661d19900734036ef6a874d04a08cc0c77"
+doc_hash = "sha256:8a4ce17f8f613ef192174c1b4aca8e6b612268bf8f630b36a98b8a698a8b050c"
+
+[[module."acquire.rs".function]]
+id = "fn:b1e63873fe9ec0da"
+name = "download_and_reconstruct"
+qual = "EndfCache::download_and_reconstruct"
+lines = [
+    769,
+    796,
+]
+hash = "sha256:d65b4da3e7eed08e3906f81d812231100980b81ad70a06a803bdfbc9b91dc5d7"
+doc_hash = "sha256:9742763b7a4195a0e26288cc496405cc5ff4a2698343253548018d144f619f65"
+
+[[module."acquire.rs".function]]
+id = "fn:7e65435e6eeec891"
+name = "fetch_by_name"
+qual = "EndfCache::fetch_by_name"
+lines = [
+    798,
+    810,
+]
+hash = "sha256:8a3553771e497a0b6588d4f83d905fa3ea7cfbcfb45bca769fb41b4453498283"
+doc_hash = "sha256:dab4eed079935df6c6ea504263a00d13dbd516a3ecb32fb46fc18b417899103b"
+callees = [
+    "fn:1de8ca090f7af84d",
+    "fn:8af58cb647fa7104",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:ee2928066cbaeafa"
+name = "download_and_reconstruct_by_name"
+qual = "EndfCache::download_and_reconstruct_by_name"
+lines = [
+    812,
+    828,
+]
+hash = "sha256:2353a57de38a4144fc47592d1a26b1b9890772c00ce750cf23ad22ab55072220"
+doc_hash = "sha256:df8de1d8f18978d4a9af4ba236b7bc944dc20bd4d302c0d1d15792fb9ac3a2f2"
+callees = [
+    "fn:1de8ca090f7af84d",
+    "fn:8af58cb647fa7104",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:00fcbedb0ee5224f"
+name = "first_mat"
+qual = "first_mat"
+lines = [
+    831,
+    835,
+]
+hash = "sha256:2dd8cfa69dc86a5c4d783a5ea1f0a5af0f860fc96522185ca809cb6e3d04fc37"
+doc_hash = "sha256:1666651b4295cdba425783aa853d0a56bfbab953c6baad49231875e4521b5961"
+
+[[module."acquire.rs".function]]
+id = "fn:148c13848aa05485"
+name = "http_get"
+qual = "http_get"
+lines = [
+    837,
+    850,
+]
+hash = "sha256:7c2f0799e264504197acdd669d2a0f41277fb07e20837febe674168ebb5ad181"
+doc_hash = "sha256:1110eefdfd4addd7a7e1fa7c4c42d5d8d3f0bed2fdb324bcbf16fe9b0a23db12"
+
+[[module."acquire.rs".function]]
+id = "fn:58ca44fa643fe887"
+name = "unzip_single"
+qual = "unzip_single"
+lines = [
+    852,
+    875,
+]
+hash = "sha256:0551a5903326b0be4c248a672aedbb668966570efe3e0823e17cc837e8936965"
+doc_hash = "sha256:df611015aeb2a8f71ddd5392b9133747dc5f74bb5897c4be707fc2ca7306c580"
+
+[[module."acquire.rs".function]]
+id = "fn:d44d60cf83813504"
+name = "validate_endf"
+qual = "validate_endf"
+lines = [
+    877,
+    898,
+]
+hash = "sha256:d0b8e6d2f5bf65f3f0d3cdffdb085ad6e403c6da23a64fff892bb46a5367c220"
+doc_hash = "sha256:a64777d77668c1805d9f82d43571452a5f37941c022b810a423f1d930b14ed29"
+reached_by = [
+    "#18",
+    "#19",
+    "#20",
+    "#35",
+    "#47",
+    "#50",
+    "#234",
+    "#235",
+    "#236",
+    "#465",
+    "#466",
+    "#467",
+    "#468",
+    "#469",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:d98a6db01940e61c"
+name = "hex_sha256"
+qual = "hex_sha256"
+lines = [
+    900,
+    909,
+]
+hash = "sha256:a032810e6d8315371aea5e2631cba8540bbb67e34ef60617378a66ad37a6d883"
+doc_hash = "sha256:8279ca8f314d6c44307eed3afbbf57cb52add83552efbbc818663fcb9823fcb3"
+reached_by = [
+    "#18",
+    "#19",
+    "#20",
+    "#47",
+    "#50",
+    "#234",
+    "#235",
+    "#236",
+    "#465",
+    "#466",
+    "#467",
+    "#468",
+    "#469",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:d45e994f6e53bd65"
+name = "unique_suffix"
+qual = "unique_suffix"
+lines = [
+    911,
+    918,
+]
+hash = "sha256:6dbe802ee2ec63d99e378f86650671157823f3f7573c4e8e2344692228839c84"
+doc_hash = "sha256:a4f65b9fe5474319f14b1b6ef6c298a4553091be24fcd683baad118c9ed7a06b"
+reached_by = [
+    "#18",
+    "#19",
+    "#20",
+    "#47",
+    "#50",
+    "#234",
+    "#235",
+    "#236",
+    "#465",
+    "#466",
+    "#467",
+    "#468",
+    "#469",
+]
+
+[[module."acquire.rs".function]]
+id = "fn:29ce8cdd8274bb9c"
+name = "neutron_url_is_pinned_and_well_formed"
+qual = "neutron_url_is_pinned_and_well_formed"
+lines = [
+    924,
+    936,
+]
+hash = "sha256:26810750158cf7dd335a7463b1dc542ac9639e42abbc337e6207ea7cd9fb02e2"
+doc_hash = "sha256:a9a1a08a557cf89d7200f3ca03eff28390bddcf46d8f17003d498cd7700bfc04"
+callees = [
+    "fn:06db01f6c15fd2df",
+    "fn:c7dacde84eb49fa7",
+    "fn:dc5a191d18733103",
+]
+test = true
+
+[[module."acquire.rs".function]]
+id = "fn:2c0266f2ddfb0ad7"
+name = "tsl_acquire_path_is_well_formed"
+qual = "tsl_acquire_path_is_well_formed"
+lines = [
+    938,
+    974,
+]
+hash = "sha256:8d3f80bc3e091146c2261067b4309bf60b1dffe5441dfaef8e77c5493f4b5372"
+doc_hash = "sha256:bdacb86b535d2ffa6666b9a867adc43ba7eb4cbc83e988d87be2b0f4fbb54e7b"
+callees = [
+    "fn:b452d0ae41f39117",
+    "fn:dca041cc66df6e67",
+    "fn:ec9f9eca316dd6fc",
+    "fn:f713544c9efec461",
+]
+test = true
+
+[[module."acquire.rs".function]]
+id = "fn:44ab3fd0cfdd606d"
+name = "library_dirs_are_distinct"
+qual = "library_dirs_are_distinct"
+lines = [
+    976,
+    987,
+]
+hash = "sha256:e6f18a252f057dcdc4ef611e18af42808a357fc880d3594f105ea874d36c59b1"
+doc_hash = "sha256:ef62c567e5cccaf4b69f081fc35c72a941ecb7bd940f5842df5f483ecb9705a0"
+callees = [
+    "fn:dbbcb25898abc8a5",
+    "fn:dc5a191d18733103",
+    "fn:fd78f07ae67f01f5",
+]
+test = true
+
+[[module."acquire.rs".function]]
+id = "fn:a4f458a543ca74a7"
+name = "well_known_mat_is_correct"
+qual = "well_known_mat_is_correct"
+lines = [
+    989,
+    998,
+]
+hash = "sha256:445894f4b3fe0686d6b9035bdfc4d0269cf7ef026f9b8f95c191eceb5003b00c"
+doc_hash = "sha256:05d87c3fe944a93a5cb228f62937d5e9e9937d2ff85aae36fa35a8b217701c2f"
+callees = ["fn:8af58cb647fa7104"]
+test = true
+
+[[module."acquire.rs".function]]
+id = "fn:7cac96564ac4d87f"
+name = "carbon_is_registered_for_graphite"
+qual = "carbon_is_registered_for_graphite"
+lines = [
+    1000,
+    1024,
+]
+hash = "sha256:4c816eda9978ec450417728799aa00ac64d68b17d829604d05596e16c8505863"
+doc_hash = "sha256:e6cba2d8a5c15b638e1f886fd1339488a0ba2f63de5932448a0cbb69a68c00c8"
+callees = [
+    "fn:06db01f6c15fd2df",
+    "fn:8af58cb647fa7104",
+]
+test = true
+
+[[module."acquire.rs".function]]
+id = "fn:488e30ea95e853a5"
+name = "element_table_round_trips"
+qual = "element_table_round_trips"
+lines = [
+    1026,
+    1037,
+]
+hash = "sha256:557cab610cd558359125b0f3c6eb1e58afbf5529ebe40c2694d87b160961922f"
+doc_hash = "sha256:f3579a3e47a8fa4632c1f7661f0855a882c124f26b51d4f6b46b119cf774eec1"
+callees = [
+    "fn:0c5fdbe6deecf394",
+    "fn:c9d2d1b4d28495cc",
+]
+test = true
+
+[[module."acquire.rs".function]]
+id = "fn:e155e4df758e2200"
+name = "parse_nuclide_splits_symbol_and_mass"
+qual = "parse_nuclide_splits_symbol_and_mass"
+lines = [
+    1039,
+    1048,
+]
+hash = "sha256:0d3d304dba716181682a5d19405d2f6809bbe94753383409054fc059df736a02"
+doc_hash = "sha256:170ec9cddfca3c466b55e983819ded316cc3215fe110aebe4b477a7b980a41ae"
+callees = ["fn:1de8ca090f7af84d"]
+test = true
+
+[[module."acquire.rs".function]]
+id = "fn:ddacb2a88a98bf7b"
+name = "cache_path_layout"
+qual = "cache_path_layout"
+lines = [
+    1050,
+    1058,
+]
+hash = "sha256:15a8b7473097419f1dccaf253099acc51956f26f286189a7f1a8e4e6409e6176"
+doc_hash = "sha256:769385ebd0c8b0f294bce6a9813e80986a7625fb975568c6399988d2e40e363d"
+callees = [
+    "fn:90a497071575de72",
+    "fn:dca041cc66df6e67",
+]
+test = true
+
+[[module."acquire.rs".function]]
+id = "fn:3ed1c2aac9630010"
+name = "validate_endf_rejects_garbage"
+qual = "validate_endf_rejects_garbage"
+lines = [
+    1060,
+    1068,
+]
+hash = "sha256:f12706f37f92a6b73ad13d3995461568e343eafdc9ec31a31ed2feb70e7246d1"
+doc_hash = "sha256:5fcff2ad1596f8250ce054ea9b0a0fb827438ba0b603abd1a4a28d1cec05df31"
+callees = ["fn:d44d60cf83813504"]
+test = true
+
+[module."endf_folder.rs"]
+path = "crate::endf_folder"
+
+[[module."endf_folder.rs".function]]
+id = "fn:29057303dd756993"
+name = "read"
+qual = "TapeHeader::read"
+lines = [
+    56,
+    91,
+]
+hash = "sha256:39fa91d84c2351152774775e31e1bbb5ddd33d90182e41e393618ec0ec96e57c"
+doc_hash = "sha256:d9f879da7885f6671c1d1a5eb31abc88c47bfc4dbf4e40e89f18da14df3f41e7"
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."endf_folder.rs".function]]
+id = "fn:52c1c9fac4d1bdf0"
+name = "kind"
+qual = "TapeHeader::kind"
+lines = [
+    93,
+    104,
+]
+hash = "sha256:1b4af837b3521c7634433140a1ae26832ab39581ebcd4e0f042fb0bc16e01d13"
+doc_hash = "sha256:42cba021dd8697eee3f5f9c0ca80d7ba526168008227706258a62cfd1c5baa4b"
+reached_by = ["#39"]
+
+[[module."endf_folder.rs".function]]
+id = "fn:d5b030d1eccd8327"
+name = "file_name"
+qual = "TapeHeader::file_name"
+lines = [
+    106,
+    110,
+]
+hash = "sha256:d020f38f21d9670b7d4745611ccc2ce586d5d577a690a479294b0202206f5e3b"
+doc_hash = "sha256:0a99f9e7a3521e37c3ea8a04618d8ac2da8c748818dde8b0834d740720844160"
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#37",
+    "#38",
+]
+
+[[module."endf_folder.rs".function]]
+id = "fn:051a5ee34cb6f457"
+name = "scan_endf_folder"
+qual = "scan_endf_folder"
+lines = [
+    128,
+    162,
+]
+hash = "sha256:5f59959f66db94f34f1b8c1a1d1fc48610556aaa6308eea307a2418077550d88"
+doc_hash = "sha256:e8974fbcf14857d99b6335966c033ba5109dcd46653e6641736d8327e11b9282"
+callees = ["fn:f1e5e20fc652c3c8"]
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."endf_folder.rs".function]]
+id = "fn:f1e5e20fc652c3c8"
+name = "scan_flat"
+qual = "scan_flat"
+lines = [
+    164,
+    186,
+]
+hash = "sha256:2c0579806a239769d5acc25170016ee108d2499ee8f9ef578c2a0b77b3a257ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:29057303dd756993"]
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."endf_folder.rs".function]]
+id = "fn:6e5f469255822559"
+name = "of_tape"
+qual = "TapeIdentity::of_tape"
+lines = [
+    211,
+    226,
+]
+hash = "sha256:d5f271c4320058733090a958bf014f6f032d5858c25345713d95efeb22c4bab1"
+doc_hash = "sha256:9a2a2b76ea3868426ad5db8e00ed230ab7b4ebcca8af453b96e37b6d73d367a2"
+callees = ["fn:29057303dd756993"]
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#37",
+    "#38",
+]
+
+[[module."endf_folder.rs".function]]
+id = "fn:7fc5f9eef5f7f77f"
+name = "matches"
+qual = "TapeIdentity::matches"
+lines = [
+    228,
+    236,
+]
+hash = "sha256:fc00757da13b2aafd6b081845c60476eb32c40581d278339e5bcec9734b58dd8"
+doc_hash = "sha256:ed34fe82884239027b8c1803bf6e6f1e7130fc7fc9ae6d5ea2348606afbc545e"
+callees = ["fn:d5b030d1eccd8327"]
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#37",
+    "#38",
+]
+
+[[module."endf_folder.rs".function]]
+id = "fn:15c942bbe954f617"
+name = "find"
+qual = "TapeIdentity::find"
+lines = [
+    238,
+    255,
+]
+hash = "sha256:f33e0b10622dda1170b59c8efe512da6ec2729555771117519832c7a623e67c5"
+doc_hash = "sha256:962619fe99d222a4d62f14817bc14d5d8afd8aaa6ddf73b3284f5922c47fa3d5"
+callees = [
+    "fn:7fc5f9eef5f7f77f",
+    "fn:d5b030d1eccd8327",
+]
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#37",
+    "#38",
+]
+
+[[module."endf_folder.rs".function]]
+id = "fn:f7e4f27c471d16a4"
+name = "scan"
+qual = "EndfFolder::scan"
+lines = [
+    270,
+    279,
+]
+hash = "sha256:730b02b8824f604839d79a66cab87f8f09ddf790258712617d98d989dffe3265"
+doc_hash = "sha256:b4a2bcc42f9f77ec5b974cf0ad30916465747927ffe7f6b543cfa525372599a2"
+callees = ["fn:051a5ee34cb6f457"]
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#37",
+    "#38",
+]
+
+[[module."endf_folder.rs".function]]
+id = "fn:8633ff2193d431b7"
+name = "locate"
+qual = "EndfFolder::locate"
+lines = [
+    281,
+    287,
+]
+hash = "sha256:bd903325e8ce34d2ca5d09a1c0291f85757d302ee1b4a7d2bbad856de62f4bb5"
+doc_hash = "sha256:e75cd7013c3a36e1b46c5236692d0570e496f024235886471800379bad20f6fb"
+callees = ["fn:15c942bbe954f617"]
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#37",
+    "#38",
+]
+
+[[module."endf_folder.rs".function]]
+id = "fn:8532161f40f78f7c"
+name = "reference_endf"
+qual = "reference_endf"
+lines = [
+    294,
+    296,
+]
+hash = "sha256:d6f64516e59675bb95d42acb1a9a8d5d79f718d1a8f22b5b8b71a8eaa696755d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:186da4b2e76906e3"]
+test = true
+
+[[module."endf_folder.rs".function]]
+id = "fn:d4c69135c5556804"
+name = "the_scan_reads_mat_and_sublibrary_from_the_reference_tapes"
+qual = "the_scan_reads_mat_and_sublibrary_from_the_reference_tapes"
+lines = [
+    298,
+    312,
+]
+hash = "sha256:6efdf9c722da2337d33e14607c9b90167e4db64045031548daf81a2831f6bc95"
+doc_hash = "sha256:367dbe0c697c027b49b95070e02302a14df212a364f2c36ef181344993589eac"
+callees = [
+    "fn:051a5ee34cb6f457",
+    "fn:52c1c9fac4d1bdf0",
+    "fn:8532161f40f78f7c",
+]
+test = true
+
+[[module."endf_folder.rs".function]]
+id = "fn:2514c53f48518f5a"
+name = "a_shared_mat_is_resolved_by_name_or_refused"
+qual = "a_shared_mat_is_resolved_by_name_or_refused"
+lines = [
+    314,
+    329,
+]
+hash = "sha256:c41265dc02fd8158cc6a1ce15f34d31451cc5699f0a7316864f2a0ab09873c78"
+doc_hash = "sha256:e29dbc59ac16fa5ceeaf5277ee4a6ddbb5781334604f66fa2dbcb1ab06467cba"
+callees = [
+    "fn:6e5f469255822559",
+    "fn:8532161f40f78f7c",
+    "fn:8633ff2193d431b7",
+    "fn:f7e4f27c471d16a4",
+]
+test = true
+
+[[module."endf_folder.rs".function]]
+id = "fn:a1cb35ae5ca2b85e"
+name = "an_extracted_library_is_scanned_and_matched_by_identity"
+qual = "an_extracted_library_is_scanned_and_matched_by_identity"
+lines = [
+    331,
+    366,
+]
+hash = "sha256:c2e31178d94912a812e69314ca306b917739df635304bf2586ae43de3a2580df"
+doc_hash = "sha256:3dfde29ac59ee92bfe2f70663eb8c5663013aec2869bd5c6204b1dd7b7ea860b"
+callees = [
+    "fn:6e5f469255822559",
+    "fn:8532161f40f78f7c",
+    "fn:8633ff2193d431b7",
+    "fn:f7e4f27c471d16a4",
+]
+test = true
+
+[module."error.rs"]
+path = "crate::error"
+
+[module."gpu.rs"]
+path = "crate::gpu"
+
+[[module."gpu.rs".function]]
+id = "fn:afea51e5eedce525"
+name = "curvefit_background_batch_cpu"
+qual = "curvefit_background_batch_cpu"
+lines = [
+    57,
+    105,
+]
+hash = "sha256:2c872dcb53f4c645ee4acc14b7f74e80162e177b8f1e94535d09c735004d4df3"
+doc_hash = "sha256:6ecaa028f911cfc09730c3fbb11d42230d275d0dd84a4542da2f8a80060cff51"
+reached_by = [
+    "#41",
+    "#42",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:ca2858b8a3916902"
+name = "adapter_label"
+qual = "GpuContext::adapter_label"
+lines = [
+    143,
+    152,
+]
+hash = "sha256:d07b0869c66dd1bde394764cf8bf0fe7be84076b8beba3d192fb7c65ea493ffe"
+doc_hash = "sha256:0a8634d41a22660d3c481649d106c47ff8ed6b301f4bcdbf460977b7368cc2a7"
+
+[[module."gpu.rs".function]]
+id = "fn:5e2e40b135683a9d"
+name = "probe"
+qual = "probe#1"
+lines = [
+    166,
+    184,
+]
+hash = "sha256:8aa5d2efc44ccec12d835ddd319e47d1206ff6fdfe249d4ae72ae45edacbaa91"
+doc_hash = "sha256:bf2df7e7c0cb3445ec808c03db57691fa78acae3da924fcd234693da2e0d2b95"
+
+[[module."gpu.rs".function]]
+id = "fn:f61f60d154c013a9"
+name = "probe"
+qual = "probe#2"
+lines = [
+    186,
+    214,
+]
+hash = "sha256:a004bb2ed0efb14e505b355ea08f962af3b3578fee28cd003bd94c35c7b33856"
+doc_hash = "sha256:7140c033a0bb636b8389c2958cdfa1890f681ec7e8aea85c6bc105da94491aa2"
+callees = ["fn:515392259eafcc65"]
+reached_by = [
+    "#42",
+    "#43",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:f1194ef58e3f3475"
+name = "curvefit_background_batch"
+qual = "GpuContext::curvefit_background_batch"
+lines = [
+    259,
+    466,
+]
+hash = "sha256:ff74905d014f1bb7469d8f2d07e94cde56b5a1177bae5821b7d27f0fc781b95b"
+doc_hash = "sha256:3960f36590e8ab0a0b3f5f89d7213a177f7ccdead52a6600c6e171103c9dc369"
+callees = [
+    "fn:6e901239d08d7bb7",
+    "fn:95ea668d46c2331b",
+]
+reached_by = ["#42"]
+
+[[module."gpu.rs".function]]
+id = "fn:95ea668d46c2331b"
+name = "f32_slice_to_le_bytes"
+qual = "f32_slice_to_le_bytes"
+lines = [
+    474,
+    486,
+]
+hash = "sha256:bb9df656a948c009fd871ee96b8d3c1267a14d63514b09586695a9aa88a8305e"
+doc_hash = "sha256:1c4f2d9d186c7d2fd8bee27354778a6087023dc2b5cf13c51ba68b9303b75f21"
+reached_by = [
+    "#42",
+    "#43",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:6e901239d08d7bb7"
+name = "le_bytes_to_f32_vec"
+qual = "le_bytes_to_f32_vec"
+lines = [
+    488,
+    498,
+]
+hash = "sha256:1e3d157151c76331a955f2cabba94eb9b97a2e1e818789617e88bd469ed16ebb"
+doc_hash = "sha256:10c93d597205b9fd274c09be4079529862a655f7460cb49a7e470c3c3664a873"
+reached_by = [
+    "#42",
+    "#43",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:515392259eafcc65"
+name = "block_on"
+qual = "block_on"
+lines = [
+    507,
+    547,
+]
+hash = "sha256:27d20c99f6dd09e2a61f0092611dd9e1f4a116059e9502778f56e34c8f5a2c1c"
+doc_hash = "sha256:39dd59068921117723d1c31fac0b71c5022d50eb59738950cf4d3d73fda5d2fd"
+reached_by = [
+    "#42",
+    "#43",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:75351da1bc215d57"
+name = "curvefit_cpu_matches_manual"
+qual = "curvefit_cpu_matches_manual"
+lines = [
+    553,
+    578,
+]
+hash = "sha256:098c8d7d35a9cf12a399257bb290c7623881447c72731f62467441a4f38a051d"
+doc_hash = "sha256:a2a97ab8b35cc4db556e494c1bf763a6bb6dd3eb97c1dd1df78d133514b0d3e1"
+callees = ["fn:afea51e5eedce525"]
+test = true
+
+[[module."gpu.rs".function]]
+id = "fn:9d12d2b874bbd3e9"
+name = "gpu_agrees_with_cpu_or_skips"
+qual = "gpu_agrees_with_cpu_or_skips"
+lines = [
+    580,
+    637,
+]
+hash = "sha256:7b7519feff8538145b8733eb210e98f95240bf49abbcb0800e0b9dfae50b5ac3"
+doc_hash = "sha256:1f0af1e45445748067b2cb9bedeaf08af43e57119e2db04c0a4e5619e27ebf13"
+callees = [
+    "fn:afea51e5eedce525",
+    "fn:f1194ef58e3f3475",
+    "fn:f61f60d154c013a9",
+]
+test = true
+
+[module."gpu_wmp.rs"]
+path = "crate::gpu_wmp"
+
+[[module."gpu_wmp.rs".function]]
+id = "fn:80a6954e1c4e87c5"
+name = "wmp_evaluate_batch_cpu"
+qual = "wmp_evaluate_batch_cpu"
+lines = [
+    78,
+    102,
+]
+hash = "sha256:c43ff6418ac2a5f3731ce7b59d22ba54fd555bae3c8224b9177bb339f6dc900b"
+doc_hash = "sha256:6db539acafbb3b57c836ce370c50888897329d05cbf18f834e6c231ba6674202"
+callees = ["fn:de8198f57a8203b0"]
+reached_by = ["#43"]
+
+[[module."gpu_wmp.rs".function]]
+id = "fn:0e6dbf1fe6c4ff69"
+name = "wmp_evaluate_batch"
+qual = "GpuContext::wmp_evaluate_batch"
+lines = [
+    320,
+    649,
+]
+hash = "sha256:f89d290003d3dd223aa6e4243f9eb38d85c90d560426f813a1a3490f8005c35e"
+doc_hash = "sha256:3862234cc1de2ab0b97a4e6cbfe0b0b5405da876e35ab9aa6affa97d95dc261d"
+callees = [
+    "fn:3b08a7057158c323",
+    "fn:6e901239d08d7bb7",
+    "fn:95ea668d46c2331b",
+    "fn:9a73bb65505b817a",
+]
+reached_by = ["#43"]
+
+[[module."gpu_wmp.rs".function]]
+id = "fn:51edc61129a85a8d"
+name = "gpu_wmp_agrees_with_cpu_or_skips"
+qual = "gpu_wmp_agrees_with_cpu_or_skips"
+lines = [
+    656,
+    748,
+]
+hash = "sha256:7c3e337ce641e2941743fd0a725592f6bf367987bd75565e0b50ff19f124f9e1"
+doc_hash = "sha256:a118e93b19394b6e4b6986c857933b0ce2146faf9d12fc57a5ee1ff96fdefd26"
+callees = [
+    "fn:0e6dbf1fe6c4ff69",
+    "fn:7778251b02c14b08",
+    "fn:80a6954e1c4e87c5",
+    "fn:a713ba16a3e19348",
+    "fn:f61f60d154c013a9",
+]
+test = true
+
+[module."interface.rs"]
+path = "crate::interface"
+
+[[module."interface.rs".function]]
+id = "fn:a05a2970c4364380"
+name = "from_file"
+qual = "NuclearDataLibrary::from_file"
+lines = [
+    65,
+    78,
+]
+hash = "sha256:837731b588bd31577c10cb162be12ee6b9fb96a44084072d8682c9b8bde8c29c"
+doc_hash = "sha256:ae5705ce1d1cbde9c286e0650ab864ceaf98eff627f3a8e3be05595dac8f5d9e"
+callees = [
+    "fn:6e86b6a77bc5c4fe",
+    "fn:f0bc42103bd3b793",
+]
+reached_by = [
+    "#281",
+    "#282",
+    "#284",
+    "#300",
+    "#301",
+    "#302",
+    "#303",
+    "#304",
+    "#353",
+    "#387",
+    "#388",
+    "#538",
+]
+
+[[module."interface.rs".function]]
+id = "fn:f0bc42103bd3b793"
+name = "from_tape"
+qual = "NuclearDataLibrary::from_tape"
+lines = [
+    80,
+    90,
+]
+hash = "sha256:d9dd889f6f0c1904d34689f67cadde97ae4e9eb82eb6fd331ec3e42d4f48859f"
+doc_hash = "sha256:6cc304f6ae9d8fd09075d35508066b1f1d85f9a293a55d9e37851d7771e196d4"
+reached_by = [
+    "#281",
+    "#282",
+    "#284",
+    "#300",
+    "#301",
+    "#302",
+    "#303",
+    "#304",
+    "#353",
+    "#387",
+    "#388",
+    "#538",
+]
+
+[[module."interface.rs".function]]
+id = "fn:312a6cb37f535f69"
+name = "reconstruct"
+qual = "NuclearDataLibrary::reconstruct"
+lines = [
+    94,
+    114,
+]
+hash = "sha256:b4ccd3b329618f1acdbf8a9184071b543b5bc2862fcff4ef52d31c2ddb27285a"
+doc_hash = "sha256:a33e37fa49ea73292493382df20ce0f329adb81f6da357b7f47a1c33fa368637"
+callees = ["fn:77685f9efde11e35"]
+reached_by = [
+    "#281",
+    "#282",
+    "#284",
+    "#300",
+    "#301",
+    "#302",
+    "#303",
+    "#304",
+    "#353",
+    "#387",
+    "#388",
+    "#538",
+]
+
+[[module."interface.rs".function]]
+id = "fn:ebc57c151b5b8a57"
+name = "broaden"
+qual = "NuclearDataLibrary::broaden"
+lines = [
+    116,
+    141,
+]
+hash = "sha256:95ffe63d14ab25a0ca802f07cbff7530ec071661ecc32be2cc9420ddc74f87ac"
+doc_hash = "sha256:a2542665529d4c879cc6afe0eb6f63c3cc98edf30af8bee56afeabd396d12b0b"
+callees = [
+    "fn:880c93c9b6e10faa",
+    "fn:ea1bd0239c09e88e",
+]
+reached_by = [
+    "#300",
+    "#387",
+    "#388",
+    "#538",
+]
+
+[[module."interface.rs".function]]
+id = "fn:4c253bb0dc54586d"
+name = "total_xs"
+qual = "NuclearDataLibrary::total_xs"
+lines = [
+    145,
+    150,
+]
+hash = "sha256:9423d5d3e62abceeef7ccde9aa117763cfffe3f5b9a69a96131bad3702647af2"
+doc_hash = "sha256:7dc3cd2fc216fcca3d5425ad24849528d5e882d6456b94fe6753995faacb8cc2"
+callees = ["fn:d95c54846856de30"]
+reached_by = ["#282"]
+
+[[module."interface.rs".function]]
+id = "fn:42b807000f3048af"
+name = "elastic_xs"
+qual = "NuclearDataLibrary::elastic_xs"
+lines = [
+    152,
+    155,
+]
+hash = "sha256:418b8d18f64be20e2b698ded7835bbafa9248ed8f0f635b94dbf01123b0eef40"
+doc_hash = "sha256:adef544e5b58eac6f2f62d65ea770e83081654584ea80722539cf67aef338018"
+callees = ["fn:d95c54846856de30"]
+reached_by = [
+    "#282",
+    "#301",
+]
+
+[[module."interface.rs".function]]
+id = "fn:1fb3173a754763a5"
+name = "fission_xs"
+qual = "NuclearDataLibrary::fission_xs"
+lines = [
+    157,
+    162,
+]
+hash = "sha256:73682b44fd45cd039fea6c554cf90763f55360db12eeaee2bc419c8ef4bf952a"
+doc_hash = "sha256:be44dea4fddca5e354c33242585237151eb16d97478ecf3b040b58f4aa3dd9ed"
+callees = ["fn:d95c54846856de30"]
+reached_by = [
+    "#282",
+    "#284",
+    "#302",
+    "#353",
+]
+
+[[module."interface.rs".function]]
+id = "fn:ca601c6358510ad7"
+name = "capture_xs"
+qual = "NuclearDataLibrary::capture_xs"
+lines = [
+    164,
+    167,
+]
+hash = "sha256:35e6bf48a1e6c592ee643383fb1fb47496be2550fbaaf367cdfbe728cfa9b22c"
+doc_hash = "sha256:bdb2207ac0fdbfd84a30cc50807ddb0c1e7c29d005020abfdc0022c4b68e5ff5"
+callees = ["fn:d95c54846856de30"]
+reached_by = [
+    "#282",
+    "#387",
+    "#388",
+]
+
+[[module."interface.rs".function]]
+id = "fn:6ea6cde34188bd90"
+name = "xs_for_reaction"
+qual = "NuclearDataLibrary::xs_for_reaction"
+lines = [
+    169,
+    182,
+]
+hash = "sha256:ae5d0e8eb9cece4033369f486f680840f4859c6ecc1886a391852a4bf799ec2f"
+doc_hash = "sha256:49f729b3a24f781a32a030dc3edf7af04f4e56ec98ecc7b49448402ca0bd8e9f"
+callees = ["fn:d95c54846856de30"]
+reached_by = ["#281"]
+
+[[module."interface.rs".function]]
+id = "fn:bac071685c1c5cc6"
+name = "temperature"
+qual = "NuclearDataLibrary::temperature"
+lines = [
+    184,
+    187,
+]
+hash = "sha256:210d18ecc5f9950b24922972b5c480418665a667b8787a0823b62d5420508abd"
+doc_hash = "sha256:2fb86a0622c9e9d6233727b54c1662a6c91f2af62b8df3ba3c43fb615d4e56a8"
+reached_by = ["#300"]
+
+[[module."interface.rs".function]]
+id = "fn:0c8ecebe09817584"
+name = "mat"
+qual = "NuclearDataLibrary::mat"
+lines = [
+    189,
+    192,
+]
+hash = "sha256:e054fac608c542720d799645581448dda49bea66381cef924c870ebe0936c69e"
+doc_hash = "sha256:cbdda0676e17c608006bf5fe908b3800aec283f4d9d45575d0e8e726ea38494e"
+reached_by = [
+    "#303",
+    "#353",
+]
+
+[[module."interface.rs".function]]
+id = "fn:7780afe40f4ba471"
+name = "za"
+qual = "NuclearDataLibrary::za"
+lines = [
+    194,
+    197,
+]
+hash = "sha256:93b37ab316cf3c9152ee436c9d4d63ca08fef7adfa0ac0a330abe3e011e57d6b"
+doc_hash = "sha256:1b53ea1783830712c15180cee34a8c0abe7de7981adaef637761bf132ee64049"
+reached_by = [
+    "#303",
+    "#353",
+]
+
+[[module."interface.rs".function]]
+id = "fn:880c93c9b6e10faa"
+name = "awr"
+qual = "NuclearDataLibrary::awr"
+lines = [
+    199,
+    202,
+]
+hash = "sha256:d5bd7c472c1d827f4b78a43a865d422b3f77147e0c2e2f414f65e7012b0f815d"
+doc_hash = "sha256:24a1608b868baf68aea78349317f465b2af81c7c34297312cca95fb1b4be21f5"
+reached_by = [
+    "#300",
+    "#387",
+    "#388",
+    "#538",
+]
+
+[[module."interface.rs".function]]
+id = "fn:2d75a336137dd931"
+name = "to_continuous_energy_data"
+qual = "NuclearDataLibrary::to_continuous_energy_data"
+lines = [
+    206,
+    243,
+]
+hash = "sha256:f7c2a5750eeb771a7b93623d5f1f1c706483dfbc76b3de112da18af9fb9557a2"
+doc_hash = "sha256:4282244a32c598964960010edcc6ee63b45b56ad2dfc5cfd421daf8a8bd0934c"
+reached_by = ["#304"]
+
+[[module."interface.rs".function]]
+id = "fn:16a034e8cbead85d"
+name = "write_pendf"
+qual = "NuclearDataLibrary::write_pendf"
+lines = [
+    245,
+    250,
+]
+hash = "sha256:70a0dfcdba19fba61cdad1dd69a8b6bbdda4807d8f1a0f52a6c3c2d2df0dceec"
+doc_hash = "sha256:ed6c50b62092ac6028b3b494fdbc6a3f1937aa05a13bb7bf9f6204fcba8af1a0"
+
+[[module."interface.rs".function]]
+id = "fn:fb1352ce86936497"
+name = "write_ace"
+qual = "NuclearDataLibrary::write_ace"
+lines = [
+    252,
+    276,
+]
+hash = "sha256:6b36b9ad0ff309aebf0b1b1e60d18adb01d0e5eb788b24de79a67adb79a25f98"
+doc_hash = "sha256:fa359ac9caf24fa70af8e9d55d48416f7983f1889bb4568a2150fc913675ef78"
+callees = [
+    "fn:31d89f589ff8b60d",
+    "fn:77d03481265faf4e",
+]
+reached_by = ["#538"]
+
+[[module."interface.rs".function]]
+id = "fn:e0c42b8004b28dbb"
+name = "write_ace_type2"
+qual = "NuclearDataLibrary::write_ace_type2"
+lines = [
+    278,
+    290,
+]
+hash = "sha256:72265f5144304eda1b4e9ec89965e57af6a02bd7cc491ee9875992061e6d6176"
+doc_hash = "sha256:4b87ee43d11a351416e4ab5b1de98016e15778463069685b56c734e6ddfb33a3"
+callees = [
+    "fn:25a8ee3699ea42c9",
+    "fn:31d89f589ff8b60d",
+]
+
+[[module."interface.rs".function]]
+id = "fn:31d89f589ff8b60d"
+name = "build_ace"
+qual = "NuclearDataLibrary::build_ace"
+lines = [
+    292,
+    343,
+]
+hash = "sha256:3443360d16d3487f81d137d52eec1ca0d0027a962046d79d5615f1d981d47f22"
+doc_hash = "sha256:f7db068bd67ec3e0f54b77ab7319d4dbc5950e84e796f909bc2c376e878cdd92"
+callees = [
+    "fn:7d82113855d4f727",
+    "fn:a4283be73a76f8ee",
+    "fn:a44d0ff32b059760",
+    "fn:b7b67ecc27b6f0aa",
+    "fn:d2187da6ba31b672",
+    "fn:ee7016b7afcdb600",
+    "fn:ef1e8bf8932b7261",
+    "fn:fb070b5043e6f476",
+    "fn:fcba4b26f279ef7b",
+]
+reached_by = ["#538"]
+
+[[module."interface.rs".function]]
+id = "fn:d95c54846856de30"
+name = "eval"
+qual = "NuclearDataLibrary::eval"
+lines = [
+    347,
+    355,
+]
+hash = "sha256:6eb5eb12af759f8ebc70f8e534a25eae70fcae05df331a5332fd0a767cbcb6d1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6e6951804fd97c5d"]
+reached_by = [
+    "#281",
+    "#282",
+    "#284",
+    "#301",
+    "#302",
+    "#353",
+    "#387",
+    "#388",
+]
+
+[[module."interface.rs".function]]
+id = "fn:7edf3429f85bac6a"
+name = "reaction"
+qual = "ContinuousEnergyData::reaction"
+lines = [
+    383,
+    388,
+]
+hash = "sha256:5eee5621b02b766c831826f28402bf524ddf11be57ac47878caa6421292f32c0"
+doc_hash = "sha256:332554cb55952a939a5bab874f30c0c948cdde3378664821f5a9d492b7466c92"
+reached_by = ["#304"]
+
+[[module."interface.rs".function]]
+id = "fn:328397f8402d9b77"
+name = "at"
+qual = "ReactionCrossSection::at"
+lines = [
+    405,
+    417,
+]
+hash = "sha256:b4e0c618246c715eabba8bd30cdbb9e693268006512d765f47cba7d20b739a6f"
+doc_hash = "sha256:05d30a838faa769d81d0a7d03f3e2af09d3dd57b35f7016a20aacaf273240694"
+callees = ["fn:6e6951804fd97c5d"]
+
+[module."lib.rs"]
+path = "crate"
+
+[module."modules.rs"]
+path = "crate::modules"
+
+[[module."modules.rs".function]]
+id = "fn:8ebe5a36a81ab35d"
+name = "run"
+qual = "NjoyModule::run"
+lines = [
+    80,
+    113,
+]
+hash = "sha256:43c680e1f3dfdbc8aecf3dbc103906766fc0418232b1b9bad2e5732a71b025db"
+doc_hash = "sha256:416f00c80f52182c865881aa01abefb15613ba53f3160cd0b2a5fd5c1b2a41b7"
+callees = [
+    "fn:0bfddfa028f030f3",
+    "fn:0e3adee13c2c641a",
+    "fn:128fe259b561f092",
+    "fn:1a774bbcf31f7c55",
+    "fn:1c4794341c1193af",
+    "fn:1eb9eb5146fb4c41",
+    "fn:2facbf31f7384bb6",
+    "fn:38a7f838a2f2f27b",
+    "fn:62ef4949b327f349",
+    "fn:6e1553f9b521de41",
+    "fn:70a592b622094a7d",
+    "fn:7b09bae948004f0e",
+    "fn:7ff9fb1cb3b62c3f",
+    "fn:810e3f8242a6327e",
+    "fn:81525cdc959e8985",
+    "fn:a197a8a833dafe6b",
+    "fn:a833764a66056a36",
+    "fn:a92b806235bc763e",
+    "fn:bcc3427c2d52cde1",
+    "fn:befbca909e946161",
+    "fn:c31d96a75fc2bb16",
+    "fn:d71e24fbaeac3d19",
+    "fn:d8856697cd1ada53",
+]
+
+[module."perf_report.rs"]
+path = "crate::perf_report"
+
+[[module."perf_report.rs".function]]
+id = "fn:d0dfc05468610493"
+name = "detect"
+qual = "HardwareInfo::detect"
+lines = [
+    70,
+    87,
+]
+hash = "sha256:c01802244b2bafb23d94ef681f1b01b29dc3912dd22cc209f4be724f59cce8eb"
+doc_hash = "sha256:638570ac1508c7bdaf5ba30bba18b6a4ad0b40bbf3e7fd93614e06ee5c77da99"
+reached_by = [
+    "#52",
+    "#54",
+]
+
+[[module."perf_report.rs".function]]
+id = "fn:8e2eccaac670b472"
+name = "summary_line"
+qual = "HardwareInfo::summary_line"
+lines = [
+    89,
+    93,
+]
+hash = "sha256:803fcefb0b6a734536ee3908db784ada472f87cbd67f0f6ec261b6230a5e8ba1"
+doc_hash = "sha256:d445e12919c1452c98c402c5e4c709c3702dac735f756821602b2ac1d61c5472"
+reached_by = [
+    "#53",
+    "#54",
+]
+
+[[module."perf_report.rs".function]]
+id = "fn:ae2a3580f7158807"
+name = "format_perf_report"
+qual = "format_perf_report"
+lines = [
+    96,
+    158,
+]
+hash = "sha256:9ea09e1902f8335942887e8632e43345328cb2637960d22081616fcd183e5c52"
+doc_hash = "sha256:466893139882baee838d447560e055c7a639dcd5e6e973ad994be09edbd17743"
+callees = ["fn:8e2eccaac670b472"]
+reached_by = [
+    "#53",
+    "#54",
+]
+
+[[module."perf_report.rs".function]]
+id = "fn:0e110f4cae152fe7"
+name = "write_local_perf_report"
+qual = "write_local_perf_report"
+lines = [
+    160,
+    183,
+]
+hash = "sha256:56a58fba4166a4bea012484a7a3fa6ab753443a3dda343b7abc7443cee4075d0"
+doc_hash = "sha256:b699e1ab0b87c10a6205dc0112dd856b930024f02c262822cc5b95bbd3a7734f"
+
+[[module."perf_report.rs".function]]
+id = "fn:c9852437a0f40c91"
+name = "format_report_has_header_table_and_verdict"
+qual = "format_report_has_header_table_and_verdict"
+lines = [
+    189,
+    227,
+]
+hash = "sha256:41af366ab3e0736674af0b54acc5d28150bd1e2476edbcc7c87feb32851c4b8e"
+doc_hash = "sha256:519bc72b766ea871f64816368f265dccca500891533b1d54e4f40990dc65f3f4"
+callees = ["fn:ae2a3580f7158807"]
+test = true
+
+[[module."perf_report.rs".function]]
+id = "fn:3d0245e803840e73"
+name = "detect_fills_cores_and_os"
+qual = "detect_fills_cores_and_os"
+lines = [
+    229,
+    236,
+]
+hash = "sha256:0a7f2c2a0a824a13e8367db7c41b9ca3821f4fd0eb3d0700aefba4170721914d"
+doc_hash = "sha256:c76dfa4edd35755d425b1e2413e67ed31cf301579ff4c4e0b7f7742fe7911637"
+callees = ["fn:d0dfc05468610493"]
+test = true
+
+[[module."perf_report.rs".function]]
+id = "fn:eeb22395b1e2ba1e"
+name = "verdict_reports_no_gpu_win"
+qual = "verdict_reports_no_gpu_win"
+lines = [
+    238,
+    251,
+]
+hash = "sha256:48f574c0d89a98726755cd7b2083f6277946df9b37bd781914b6b7a9af17cdce"
+doc_hash = "sha256:0649fbdec92010210ef9f246d7c5182ac43b20520f5f992b887a99487c49a4b8"
+callees = [
+    "fn:ae2a3580f7158807",
+    "fn:d0dfc05468610493",
+]
+test = true
+
+[module."prelude.rs"]
+path = "crate::prelude"
+
+[module."reference_data.rs"]
+path = "crate::reference_data"
+
+[[module."reference_data.rs".function]]
+id = "fn:186da4b2e76906e3"
+name = "reference_endf_dir"
+qual = "reference_endf_dir"
+lines = [
+    47,
+    61,
+]
+hash = "sha256:0ce0883507d9c652452598a95320e7780962673e434084bd3407e90a3927789f"
+doc_hash = "sha256:cfcbce65b8fdb1950c3396b37a7477979b0cb476dec7400f58bdf06cbc190b15"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#56",
+    "#57",
+    "#58",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#79",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#117",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#202",
+    "#203",
+    "#204",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#242",
+    "#243",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+    "#259",
+    "#260",
+    "#261",
+    "#262",
+    "#263",
+    "#264",
+    "#265",
+    "#267",
+    "#271",
+    "#272",
+    "#273",
+    "#274",
+    "#275",
+    "#276",
+    "#277",
+    "#278",
+    "#279",
+    "#280",
+    "#281",
+    "#282",
+    "#283",
+    "#284",
+    "#293",
+    "#294",
+    "#295",
+    "#296",
+    "#297",
+    "#298",
+    "#299",
+    "#300",
+    "#301",
+    "#302",
+    "#303",
+    "#304",
+    "#305",
+    "#306",
+    "#307",
+    "#308",
+    "#309",
+    "#310",
+    "#311",
+    "#312",
+    "#313",
+    "#314",
+    "#315",
+    "#316",
+    "#317",
+    "#318",
+    "#319",
+    "#320",
+    "#321",
+    "#322",
+    "#323",
+    "#324",
+    "#325",
+    "#326",
+    "#327",
+    "#328",
+    "#329",
+    "#330",
+    "#331",
+    "#332",
+    "#348",
+    "#353",
+    "#354",
+    "#355",
+    "#356",
+    "#357",
+    "#358",
+    "#359",
+    "#360",
+    "#361",
+    "#362",
+    "#363",
+    "#370",
+    "#371",
+    "#372",
+    "#373",
+    "#374",
+    "#375",
+    "#376",
+    "#377",
+    "#378",
+    "#379",
+    "#380",
+    "#381",
+    "#382",
+    "#383",
+    "#384",
+    "#385",
+    "#386",
+    "#387",
+    "#388",
+    "#389",
+    "#390",
+    "#392",
+    "#395",
+    "#419",
+    "#432",
+    "#433",
+    "#434",
+    "#442",
+    "#443",
+    "#444",
+    "#445",
+    "#446",
+    "#448",
+    "#458",
+    "#459",
+    "#460",
+    "#461",
+    "#464",
+    "#470",
+    "#475",
+    "#476",
+    "#477",
+    "#483",
+    "#484",
+    "#485",
+    "#486",
+    "#487",
+    "#488",
+    "#489",
+    "#490",
+    "#491",
+    "#492",
+    "#493",
+    "#494",
+    "#495",
+    "#496",
+    "#497",
+    "#498",
+    "#499",
+    "#500",
+    "#501",
+    "#502",
+    "#503",
+    "#504",
+    "#505",
+    "#506",
+    "#507",
+    "#508",
+    "#509",
+    "#510",
+    "#511",
+    "#512",
+    "#513",
+    "#514",
+    "#515",
+    "#516",
+    "#517",
+    "#518",
+    "#519",
+    "#520",
+    "#521",
+    "#522",
+    "#528",
+    "#529",
+    "#531",
+    "#532",
+    "#533",
+    "#538",
+    "#539",
+]
+
+[[module."reference_data.rs".function]]
+id = "fn:2c945092147fdb01"
+name = "reference_endf"
+qual = "reference_endf"
+lines = [
+    63,
+    108,
+]
+hash = "sha256:2d4853a772a2a27d9345b6c3540cd8abffb0e1d1eed67f73ed94879dcbda48b3"
+doc_hash = "sha256:bb9cb68789eb034d03d56e034c94a342d29e1d93bdb1c3e9949b50b4780ddb97"
+callees = ["fn:186da4b2e76906e3"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#56",
+    "#58",
+    "#79",
+    "#107",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#117",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#202",
+    "#203",
+    "#204",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#242",
+    "#243",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+    "#259",
+    "#260",
+    "#261",
+    "#262",
+    "#263",
+    "#264",
+    "#265",
+    "#267",
+    "#294",
+    "#295",
+    "#296",
+    "#297",
+    "#298",
+    "#299",
+    "#318",
+    "#319",
+    "#320",
+    "#331",
+    "#332",
+    "#348",
+    "#379",
+    "#380",
+    "#381",
+    "#382",
+    "#383",
+    "#384",
+    "#385",
+    "#386",
+    "#389",
+    "#390",
+    "#392",
+    "#395",
+    "#419",
+    "#432",
+    "#433",
+    "#434",
+    "#442",
+    "#443",
+    "#444",
+    "#445",
+    "#446",
+    "#448",
+    "#458",
+    "#459",
+    "#460",
+    "#461",
+    "#464",
+    "#470",
+    "#475",
+    "#476",
+    "#477",
+    "#483",
+    "#484",
+    "#485",
+    "#486",
+    "#487",
+    "#488",
+    "#489",
+    "#490",
+    "#491",
+    "#492",
+    "#493",
+    "#494",
+    "#495",
+    "#496",
+    "#497",
+    "#498",
+    "#499",
+    "#500",
+    "#501",
+    "#502",
+    "#503",
+    "#504",
+    "#505",
+    "#506",
+    "#507",
+    "#508",
+    "#509",
+    "#510",
+    "#511",
+    "#512",
+    "#513",
+    "#514",
+    "#515",
+    "#516",
+    "#517",
+    "#518",
+    "#519",
+    "#520",
+    "#521",
+    "#522",
+    "#528",
+    "#529",
+    "#531",
+    "#532",
+    "#533",
+    "#538",
+    "#539",
+]
+
+[[module."reference_data.rs".function]]
+id = "fn:1d7ef605f0522b22"
+name = "reference_data_required"
+qual = "reference_data_required"
+lines = [
+    131,
+    152,
+]
+hash = "sha256:e60bb0edd6db15c58f234ae2e5578b8593dae86f8d3e77a93657a6ed66d68150"
+doc_hash = "sha256:4001709bee6af3d173beecd0f2030686bd3b0afd7a170fcd20b16d037821d557"
+reached_by = [
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#237",
+    "#238",
+    "#239",
+    "#242",
+    "#243",
+    "#247",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+    "#259",
+    "#260",
+    "#261",
+    "#262",
+    "#263",
+    "#264",
+    "#265",
+    "#268",
+    "#269",
+    "#285",
+    "#286",
+    "#287",
+    "#288",
+    "#289",
+    "#290",
+    "#291",
+    "#292",
+    "#294",
+    "#295",
+    "#296",
+    "#297",
+    "#298",
+    "#299",
+    "#318",
+    "#319",
+    "#320",
+    "#331",
+    "#332",
+    "#333",
+    "#334",
+    "#335",
+    "#338",
+    "#339",
+    "#340",
+    "#344",
+    "#348",
+    "#350",
+    "#352",
+    "#364",
+    "#367",
+    "#368",
+    "#369",
+    "#379",
+    "#380",
+    "#381",
+    "#382",
+    "#383",
+    "#384",
+    "#385",
+    "#386",
+    "#390",
+    "#391",
+    "#392",
+    "#393",
+    "#394",
+    "#395",
+    "#396",
+    "#397",
+    "#398",
+    "#399",
+    "#400",
+    "#401",
+    "#402",
+    "#403",
+    "#404",
+    "#405",
+    "#406",
+    "#407",
+    "#408",
+    "#409",
+    "#410",
+    "#411",
+    "#412",
+    "#413",
+    "#414",
+    "#415",
+    "#416",
+    "#417",
+    "#418",
+    "#420",
+    "#421",
+    "#422",
+    "#423",
+    "#424",
+    "#425",
+    "#426",
+    "#427",
+    "#428",
+    "#429",
+    "#430",
+    "#431",
+    "#433",
+    "#434",
+    "#435",
+    "#436",
+    "#437",
+    "#438",
+    "#439",
+    "#440",
+    "#441",
+    "#442",
+    "#443",
+    "#444",
+    "#447",
+    "#448",
+    "#449",
+    "#450",
+    "#456",
+    "#457",
+    "#462",
+    "#463",
+    "#464",
+    "#476",
+    "#477",
+    "#478",
+    "#479",
+    "#480",
+    "#481",
+    "#530",
+    "#531",
+    "#532",
+    "#533",
+    "#534",
+    "#535",
+    "#536",
+    "#537",
+]
+
+[[module."reference_data.rs".function]]
+id = "fn:539a9e1c58799a65"
+name = "missing_reference"
+qual = "missing_reference"
+lines = [
+    154,
+    182,
+]
+hash = "sha256:0a4c080ddfbf6f322cb7a4447299e5cacb329d700e7c120ee31421a24e26c85d"
+doc_hash = "sha256:e29e672858be69ed324fa4b823a463b4ddadb473f84a9d5bd63bcdf0b15ab876"
+reached_by = [
+    "#60",
+    "#61",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#88",
+    "#91",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#237",
+    "#238",
+    "#239",
+    "#242",
+    "#243",
+    "#247",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+    "#259",
+    "#260",
+    "#261",
+    "#262",
+    "#263",
+    "#264",
+    "#265",
+    "#268",
+    "#269",
+    "#285",
+    "#286",
+    "#287",
+    "#288",
+    "#289",
+    "#290",
+    "#291",
+    "#292",
+    "#294",
+    "#295",
+    "#296",
+    "#297",
+    "#298",
+    "#299",
+    "#318",
+    "#319",
+    "#320",
+    "#331",
+    "#332",
+    "#333",
+    "#334",
+    "#335",
+    "#338",
+    "#339",
+    "#340",
+    "#344",
+    "#348",
+    "#350",
+    "#352",
+    "#364",
+    "#367",
+    "#368",
+    "#369",
+    "#379",
+    "#380",
+    "#381",
+    "#382",
+    "#383",
+    "#384",
+    "#385",
+    "#386",
+    "#390",
+    "#391",
+    "#392",
+    "#393",
+    "#394",
+    "#395",
+    "#396",
+    "#397",
+    "#398",
+    "#399",
+    "#403",
+    "#404",
+    "#405",
+    "#406",
+    "#407",
+    "#408",
+    "#409",
+    "#410",
+    "#411",
+    "#412",
+    "#413",
+    "#414",
+    "#415",
+    "#416",
+    "#417",
+    "#418",
+    "#420",
+    "#421",
+    "#422",
+    "#423",
+    "#424",
+    "#425",
+    "#426",
+    "#427",
+    "#428",
+    "#429",
+    "#430",
+    "#431",
+    "#433",
+    "#434",
+    "#435",
+    "#436",
+    "#437",
+    "#438",
+    "#439",
+    "#440",
+    "#441",
+    "#442",
+    "#443",
+    "#444",
+    "#447",
+    "#448",
+    "#449",
+    "#450",
+    "#456",
+    "#457",
+    "#462",
+    "#463",
+    "#464",
+    "#476",
+    "#477",
+    "#478",
+    "#479",
+    "#480",
+    "#481",
+    "#530",
+    "#531",
+    "#532",
+    "#533",
+    "#534",
+    "#535",
+    "#536",
+    "#537",
+]
+
+[[module."reference_data.rs".function]]
+id = "fn:db547bde4265c700"
+name = "reference_endf_or_skip"
+qual = "reference_endf_or_skip"
+lines = [
+    184,
+    212,
+]
+hash = "sha256:b9e724aab54d273b2c079cb479236358f8118d8fe3f1c48d20df5c3ceafa1785"
+doc_hash = "sha256:04c4dbf714894f377d16bfdd7d82117596006313fb046ac92b105dfeacd5cd02"
+callees = [
+    "fn:186da4b2e76906e3",
+    "fn:1d7ef605f0522b22",
+    "fn:2c945092147fdb01",
+    "fn:539a9e1c58799a65",
+]
+reached_by = [
+    "#107",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#117",
+    "#120",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#202",
+    "#203",
+    "#204",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#242",
+    "#243",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+    "#259",
+    "#260",
+    "#261",
+    "#262",
+    "#263",
+    "#264",
+    "#265",
+    "#294",
+    "#295",
+    "#296",
+    "#297",
+    "#298",
+    "#299",
+    "#318",
+    "#319",
+    "#320",
+    "#331",
+    "#332",
+    "#348",
+    "#379",
+    "#380",
+    "#381",
+    "#382",
+    "#383",
+    "#384",
+    "#385",
+    "#386",
+    "#433",
+    "#434",
+    "#442",
+    "#443",
+    "#444",
+    "#448",
+    "#464",
+    "#476",
+    "#477",
+    "#531",
+    "#532",
+    "#533",
+]
+
+[[module."reference_data.rs".function]]
+id = "fn:cb848bd4882c685d"
+name = "is_endf_tape"
+qual = "is_endf_tape"
+lines = [
+    214,
+    222,
+]
+hash = "sha256:a0cfc77bc2cbfc72e9a7ba0fc742e08904fc9be2696c3fc322107d82ee3bcf4b"
+doc_hash = "sha256:593f44304359691bc04a9a94f87260953b5dd2e380c4e277614d01f861afb939"
+reached_by = [
+    "#59",
+    "#270",
+]
+
+[[module."reference_data.rs".function]]
+id = "fn:37e8c7f318e1843d"
+name = "a_linked_worktree_resolves_to_its_main_checkout"
+qual = "a_linked_worktree_resolves_to_its_main_checkout"
+lines = [
+    226,
+    243,
+]
+hash = "sha256:859f078306f13b48ed4062e0252bb74b308cfc9a9d48c2af89a2bb4797976dfc"
+doc_hash = "sha256:6995f05ad8c19d7068efa54728f94478f6297a1149946d8f4fdf14fe87644a59"
+callees = ["fn:0c6d5a7d95e38f22"]
+test = true
+
+[[module."reference_data.rs".function]]
+id = "fn:e250bf802ca9c81b"
+name = "dir_honours_the_environment_override"
+qual = "dir_honours_the_environment_override"
+lines = [
+    247,
+    257,
+]
+hash = "sha256:998864f2aed32426ff3ca89e3f34d02e4878987c916210614fb9e251e080f764"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:186da4b2e76906e3"]
+test = true
+
+[[module."reference_data.rs".function]]
+id = "fn:1d700a447dd057f0"
+name = "absent_tape_resolves_to_none"
+qual = "absent_tape_resolves_to_none"
+lines = [
+    259,
+    264,
+]
+hash = "sha256:2984dc525a1dc43a8fad535ebca9e5904cde0c5ef7360f4d6c1e8f0cfa009532"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2c945092147fdb01"]
+test = true
+
+[[module."reference_data.rs".function]]
+id = "fn:6b6b110f4a530db6"
+name = "either_spelling_finds_the_same_tape"
+qual = "either_spelling_finds_the_same_tape"
+lines = [
+    266,
+    281,
+]
+hash = "sha256:5d0cb0f30c623eb58628cef35e18a4b6228995acacb9a4029f77916108e62eb9"
+doc_hash = "sha256:8b255f8f6fdf42e96cc98fb6e4db2bddbf15ded19365ac6f3f911883d869cbb5"
+callees = ["fn:2c945092147fdb01"]
+test = true
+
+[[module."reference_data.rs".function]]
+id = "fn:1a82fdecd3c9de21"
+name = "endf_extension_is_recognised_case_insensitively"
+qual = "endf_extension_is_recognised_case_insensitively"
+lines = [
+    283,
+    289,
+]
+hash = "sha256:2c4033ee49fad7a0f8d3a310cb57aa7d6b080ed6f34ba3e71ad05bbd0665a703"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:cb848bd4882c685d"]
+test = true
+
+[[module."reference_data.rs".function]]
+id = "fn:e1aac07d3b168e2e"
+name = "missing_reference_skips_by_default"
+qual = "missing_reference_skips_by_default"
+lines = [
+    291,
+    304,
+]
+hash = "sha256:cd997556d1aa4d59b4c93e282c1411bddb31535f1bd818a9622dfa09c7f0f235"
+doc_hash = "sha256:2f0c4725897554e75878b85687e9d75c4ea95774fffec40ad3e96533e38ec271"
+callees = ["fn:539a9e1c58799a65"]
+test = true
+
+[[module."reference_data.rs".function]]
+id = "fn:7fdc7fc4163df0b6"
+name = "missing_reference_panics_when_required"
+qual = "missing_reference_panics_when_required"
+lines = [
+    306,
+    323,
+]
+hash = "sha256:a5d79b0f1cc1712823e22c257bbf167315696344f6ad3792c5358a3d2690b682"
+doc_hash = "sha256:6214d3a94d9d529c1c6c3095b61e16d721c765f6a85336c10212bc9eb0f5b716"
+callees = ["fn:539a9e1c58799a65"]
+test = true
+
+[[module."reference_data.rs".function]]
+id = "fn:f394314892c35498"
+name = "reference_data_dir"
+qual = "reference_data_dir"
+lines = [
+    333,
+    365,
+]
+hash = "sha256:cab8d5e9da035a25c9ca8d0804a6443275aa085aa3ff472fbcc3f3445b32d7c2"
+doc_hash = "sha256:dd682680263d8dd331907e8368845f27e27c00e563aa35c98003d6ec4bc8002a"
+callees = [
+    "fn:08188cc4aa283da7",
+    "fn:0c6d5a7d95e38f22",
+]
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#51",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#88",
+    "#91",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#237",
+    "#238",
+    "#239",
+    "#247",
+    "#266",
+    "#268",
+    "#269",
+    "#285",
+    "#286",
+    "#287",
+    "#288",
+    "#289",
+    "#290",
+    "#291",
+    "#292",
+    "#296",
+    "#318",
+    "#319",
+    "#320",
+    "#331",
+    "#332",
+    "#333",
+    "#334",
+    "#335",
+    "#336",
+    "#337",
+    "#338",
+    "#339",
+    "#340",
+    "#341",
+    "#342",
+    "#343",
+    "#344",
+    "#345",
+    "#346",
+    "#347",
+    "#348",
+    "#349",
+    "#350",
+    "#351",
+    "#352",
+    "#364",
+    "#365",
+    "#366",
+    "#367",
+    "#368",
+    "#369",
+    "#390",
+    "#391",
+    "#392",
+    "#393",
+    "#394",
+    "#395",
+    "#396",
+    "#397",
+    "#398",
+    "#399",
+    "#403",
+    "#404",
+    "#405",
+    "#406",
+    "#407",
+    "#408",
+    "#409",
+    "#410",
+    "#411",
+    "#412",
+    "#413",
+    "#414",
+    "#415",
+    "#416",
+    "#417",
+    "#418",
+    "#420",
+    "#421",
+    "#422",
+    "#423",
+    "#424",
+    "#425",
+    "#426",
+    "#427",
+    "#428",
+    "#429",
+    "#430",
+    "#431",
+    "#435",
+    "#436",
+    "#437",
+    "#438",
+    "#439",
+    "#440",
+    "#441",
+    "#447",
+    "#449",
+    "#450",
+    "#456",
+    "#457",
+    "#462",
+    "#463",
+    "#478",
+    "#479",
+    "#480",
+    "#481",
+    "#530",
+    "#534",
+    "#535",
+    "#536",
+    "#537",
+]
+
+[[module."reference_data.rs".function]]
+id = "fn:08188cc4aa283da7"
+name = "dir_has_entries"
+qual = "dir_has_entries"
+lines = [
+    367,
+    370,
+]
+hash = "sha256:cbe95ab176cc9a4aca43de89492f030ccbfb5bf7e24304915f5c5f419320f060"
+doc_hash = "sha256:632dca3ad064f8dbf31de1cee9f4176071852eb38c8171b38092b988088c14ab"
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#51",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#88",
+    "#91",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#237",
+    "#238",
+    "#239",
+    "#247",
+    "#266",
+    "#268",
+    "#269",
+    "#285",
+    "#286",
+    "#287",
+    "#288",
+    "#289",
+    "#290",
+    "#291",
+    "#292",
+    "#296",
+    "#318",
+    "#319",
+    "#320",
+    "#331",
+    "#332",
+    "#333",
+    "#334",
+    "#335",
+    "#336",
+    "#337",
+    "#338",
+    "#339",
+    "#340",
+    "#341",
+    "#342",
+    "#343",
+    "#344",
+    "#345",
+    "#346",
+    "#347",
+    "#348",
+    "#349",
+    "#350",
+    "#351",
+    "#352",
+    "#364",
+    "#365",
+    "#366",
+    "#367",
+    "#368",
+    "#369",
+    "#390",
+    "#391",
+    "#392",
+    "#393",
+    "#394",
+    "#395",
+    "#396",
+    "#397",
+    "#398",
+    "#399",
+    "#403",
+    "#404",
+    "#405",
+    "#406",
+    "#407",
+    "#408",
+    "#409",
+    "#410",
+    "#411",
+    "#412",
+    "#413",
+    "#414",
+    "#415",
+    "#416",
+    "#417",
+    "#418",
+    "#420",
+    "#421",
+    "#422",
+    "#423",
+    "#424",
+    "#425",
+    "#426",
+    "#427",
+    "#428",
+    "#429",
+    "#430",
+    "#431",
+    "#435",
+    "#436",
+    "#437",
+    "#438",
+    "#439",
+    "#440",
+    "#441",
+    "#447",
+    "#449",
+    "#450",
+    "#456",
+    "#457",
+    "#462",
+    "#463",
+    "#478",
+    "#479",
+    "#480",
+    "#481",
+    "#530",
+    "#534",
+    "#535",
+    "#536",
+    "#537",
+]
+
+[[module."reference_data.rs".function]]
+id = "fn:0c6d5a7d95e38f22"
+name = "main_checkout_of_worktree"
+qual = "main_checkout_of_worktree"
+lines = [
+    372,
+    381,
+]
+hash = "sha256:69d32cb1b7377bdca4525da98e15ec6f15632a030e742def349db458becc96d1"
+doc_hash = "sha256:749a0386f85556570fca46f1d75c1da7bc5770e2a37dc18fafdd273928c822c1"
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#51",
+    "#55",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#88",
+    "#91",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#237",
+    "#238",
+    "#239",
+    "#247",
+    "#266",
+    "#268",
+    "#269",
+    "#285",
+    "#286",
+    "#287",
+    "#288",
+    "#289",
+    "#290",
+    "#291",
+    "#292",
+    "#296",
+    "#318",
+    "#319",
+    "#320",
+    "#331",
+    "#332",
+    "#333",
+    "#334",
+    "#335",
+    "#336",
+    "#337",
+    "#338",
+    "#339",
+    "#340",
+    "#341",
+    "#342",
+    "#343",
+    "#344",
+    "#345",
+    "#346",
+    "#347",
+    "#348",
+    "#349",
+    "#350",
+    "#351",
+    "#352",
+    "#364",
+    "#365",
+    "#366",
+    "#367",
+    "#368",
+    "#369",
+    "#390",
+    "#391",
+    "#392",
+    "#393",
+    "#394",
+    "#395",
+    "#396",
+    "#397",
+    "#398",
+    "#399",
+    "#403",
+    "#404",
+    "#405",
+    "#406",
+    "#407",
+    "#408",
+    "#409",
+    "#410",
+    "#411",
+    "#412",
+    "#413",
+    "#414",
+    "#415",
+    "#416",
+    "#417",
+    "#418",
+    "#420",
+    "#421",
+    "#422",
+    "#423",
+    "#424",
+    "#425",
+    "#426",
+    "#427",
+    "#428",
+    "#429",
+    "#430",
+    "#431",
+    "#435",
+    "#436",
+    "#437",
+    "#438",
+    "#439",
+    "#440",
+    "#441",
+    "#447",
+    "#449",
+    "#450",
+    "#456",
+    "#457",
+    "#462",
+    "#463",
+    "#478",
+    "#479",
+    "#480",
+    "#481",
+    "#530",
+    "#534",
+    "#535",
+    "#536",
+    "#537",
+]
+
+[[module."reference_data.rs".function]]
+id = "fn:e61fac490e669815"
+name = "reference_file"
+qual = "reference_file"
+lines = [
+    383,
+    391,
+]
+hash = "sha256:d768598901be075be88a54b200ebed779bf76c82ee240d71ca2b113ebf9cf5b3"
+doc_hash = "sha256:815bbada331e707f274950315115584c7eddfd50b0287ed93e8385c4995c5c4b"
+callees = ["fn:f394314892c35498"]
+reached_by = [
+    "#88",
+    "#91",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#151",
+    "#152",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#237",
+    "#238",
+    "#239",
+    "#247",
+    "#268",
+    "#269",
+    "#285",
+    "#286",
+    "#287",
+    "#288",
+    "#289",
+    "#290",
+    "#291",
+    "#292",
+    "#296",
+    "#318",
+    "#319",
+    "#320",
+    "#331",
+    "#332",
+    "#333",
+    "#334",
+    "#335",
+    "#336",
+    "#337",
+    "#338",
+    "#339",
+    "#340",
+    "#341",
+    "#342",
+    "#343",
+    "#344",
+    "#345",
+    "#346",
+    "#347",
+    "#348",
+    "#349",
+    "#350",
+    "#351",
+    "#352",
+    "#364",
+    "#365",
+    "#366",
+    "#367",
+    "#368",
+    "#369",
+    "#398",
+    "#399",
+    "#403",
+    "#404",
+    "#405",
+    "#406",
+    "#407",
+    "#408",
+    "#409",
+    "#410",
+    "#411",
+    "#412",
+    "#413",
+    "#414",
+    "#415",
+    "#416",
+    "#417",
+    "#418",
+    "#424",
+    "#425",
+    "#426",
+    "#427",
+    "#428",
+    "#429",
+    "#447",
+    "#449",
+    "#450",
+    "#456",
+    "#457",
+    "#462",
+    "#463",
+    "#478",
+    "#479",
+    "#480",
+]
+
+[[module."reference_data.rs".function]]
+id = "fn:0f6fce326d6412e0"
+name = "reference_file_or_skip"
+qual = "reference_file_or_skip"
+lines = [
+    393,
+    406,
+]
+hash = "sha256:2f5aeeb272539b6f02473b6b4ed96032dc3365864c686bf9b51caaa55d7dbb9c"
+doc_hash = "sha256:c932868b5b1489c54fb9eec80d4c868268cc22c856f3a6229bc4bf5c9a1d3dc8"
+callees = [
+    "fn:1d7ef605f0522b22",
+    "fn:539a9e1c58799a65",
+    "fn:e61fac490e669815",
+    "fn:f394314892c35498",
+]
+reached_by = [
+    "#88",
+    "#91",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#151",
+    "#152",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#237",
+    "#238",
+    "#239",
+    "#247",
+    "#268",
+    "#269",
+    "#285",
+    "#286",
+    "#287",
+    "#288",
+    "#289",
+    "#290",
+    "#291",
+    "#292",
+    "#296",
+    "#318",
+    "#319",
+    "#320",
+    "#331",
+    "#332",
+    "#333",
+    "#334",
+    "#335",
+    "#338",
+    "#339",
+    "#340",
+    "#344",
+    "#348",
+    "#350",
+    "#352",
+    "#364",
+    "#367",
+    "#368",
+    "#369",
+    "#398",
+    "#399",
+    "#403",
+    "#404",
+    "#405",
+    "#406",
+    "#407",
+    "#408",
+    "#409",
+    "#410",
+    "#411",
+    "#412",
+    "#413",
+    "#414",
+    "#415",
+    "#416",
+    "#417",
+    "#418",
+    "#424",
+    "#425",
+    "#426",
+    "#427",
+    "#428",
+    "#429",
+    "#447",
+    "#449",
+    "#450",
+    "#456",
+    "#457",
+    "#462",
+    "#463",
+    "#478",
+    "#479",
+    "#480",
+]
+
+[[module."reference_data.rs".function]]
+id = "fn:491ac11fb296a811"
+name = "ace_submodule_dir"
+qual = "ace_submodule_dir"
+lines = [
+    427,
+    430,
+]
+hash = "sha256:699eea93947a0104ab86e2f86cc2eb830e7438a285dd17d899222950596d770a"
+doc_hash = "sha256:d491a16c2299bb77b29c99d72e9a67db2bf49b96951fb4a48d6df0b92d8ed274"
+callees = ["fn:f394314892c35498"]
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#150",
+    "#390",
+    "#391",
+    "#392",
+    "#393",
+    "#394",
+    "#395",
+    "#396",
+    "#397",
+    "#420",
+    "#421",
+    "#422",
+    "#423",
+    "#430",
+    "#431",
+    "#435",
+    "#436",
+    "#437",
+    "#438",
+    "#439",
+    "#440",
+    "#441",
+    "#481",
+    "#530",
+    "#534",
+    "#535",
+    "#536",
+    "#537",
+]
+
+[[module."reference_data.rs".function]]
+id = "fn:1cb9425b2a45c680"
+name = "ace_submodule_is_populated"
+qual = "ace_submodule_is_populated"
+lines = [
+    432,
+    436,
+]
+hash = "sha256:f9a30d6dfe82374d8a5b737047fdd2e9732815309a07dddcb32801f3c6904d11"
+doc_hash = "sha256:0db67f9c0802b0e05f4fa560d5f17f07781a6ab79b1254c0e23cfd99c36c6689"
+callees = ["fn:491ac11fb296a811"]
+reached_by = [
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#150",
+    "#390",
+    "#391",
+    "#392",
+    "#393",
+    "#394",
+    "#395",
+    "#396",
+    "#397",
+    "#420",
+    "#421",
+    "#422",
+    "#423",
+    "#430",
+    "#431",
+    "#435",
+    "#436",
+    "#437",
+    "#438",
+    "#439",
+    "#440",
+    "#441",
+    "#481",
+    "#530",
+    "#534",
+    "#535",
+    "#536",
+    "#537",
+]
+
+[[module."reference_data.rs".function]]
+id = "fn:567bafb490489cf5"
+name = "ensure_ace_submodule"
+qual = "ensure_ace_submodule#1"
+lines = [
+    438,
+    505,
+]
+hash = "sha256:469fb123844a7083d88d9cb8ec7267e28a55d1b44aa2a25191946ca40baad405"
+doc_hash = "sha256:e6abc657cc6fbc597ae7c8c713f2a68d8ff06d223e11bfaf0f7aabe5cdff5d63"
+callees = [
+    "fn:1cb9425b2a45c680",
+    "fn:491ac11fb296a811",
+]
+reached_by = [
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#150",
+    "#390",
+    "#391",
+    "#392",
+    "#393",
+    "#394",
+    "#395",
+    "#396",
+    "#397",
+    "#420",
+    "#421",
+    "#422",
+    "#423",
+    "#430",
+    "#431",
+    "#435",
+    "#436",
+    "#437",
+    "#438",
+    "#439",
+    "#440",
+    "#441",
+    "#481",
+    "#530",
+    "#534",
+    "#535",
+    "#536",
+    "#537",
+]
+
+[[module."reference_data.rs".function]]
+id = "fn:c3d1dca7d78c0ea6"
+name = "ensure_ace_submodule"
+qual = "ensure_ace_submodule#2"
+lines = [
+    507,
+    512,
+]
+hash = "sha256:2c1b8ad29492f50a3ad395d06691a5ef4dd31890f4a6a310a1049bd30a072d4e"
+doc_hash = "sha256:6d1f3be3da6f17bf842892879623abcc6ce8e9ca9fe5d96c9e5a9537548a173f"
+callees = ["fn:1cb9425b2a45c680"]
+
+[[module."reference_data.rs".function]]
+id = "fn:ffec928fff35cb32"
+name = "ace_reference_file_or_skip"
+qual = "ace_reference_file_or_skip"
+lines = [
+    514,
+    535,
+]
+hash = "sha256:ceec8b6a7bb6b7ea93823d936c18af9dd21f8800084be9f880ca33ee4fe1f838"
+doc_hash = "sha256:845e1879dd7f6f9d2d7d1ffcc67df1e853656563719d8c727525a5496ec0af60"
+callees = [
+    "fn:1d7ef605f0522b22",
+    "fn:491ac11fb296a811",
+    "fn:539a9e1c58799a65",
+    "fn:567bafb490489cf5",
+]
+reached_by = [
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#150",
+    "#390",
+    "#391",
+    "#392",
+    "#393",
+    "#394",
+    "#395",
+    "#396",
+    "#397",
+    "#420",
+    "#421",
+    "#422",
+    "#423",
+    "#430",
+    "#431",
+    "#435",
+    "#436",
+    "#437",
+    "#438",
+    "#439",
+    "#440",
+    "#441",
+    "#481",
+    "#530",
+    "#534",
+    "#535",
+    "#536",
+    "#537",
+]
+
+[module."units.rs"]
+path = "crate::units"
+
+[module."vv.rs"]
+path = "crate::vv"
+
+[[module."vv.rs".function]]
+id = "fn:5dd63ab4b30ecc54"
+name = "abs_rel"
+qual = "WorstDeviation::abs_rel"
+lines = [
+    64,
+    68,
+]
+hash = "sha256:3ee5112b9540b240a8fe36c0d5cfd094865860b0181d969bb1db6e93344c2300"
+doc_hash = "sha256:4f4f0b579bc395aa17dea0415b8d652301dd850ff001efb6e2a9b9ff7e33594b"
+
+[[module."vv.rs".function]]
+id = "fn:113dc740eeb8eeae"
+name = "assert_relative"
+qual = "assert_relative"
+lines = [
+    71,
+    113,
+]
+hash = "sha256:589c0952748f5764cecb4fdb0e7251c63965256346e786cd0701e2cd7e161afe"
+doc_hash = "sha256:eb4bb03f6d8d2ad6fbb1e0ef5daa717f6f1acb21c4164dad58c73fd32ffabdef"
+reached_by = [
+    "#470",
+    "#473",
+]
+
+[[module."vv.rs".function]]
+id = "fn:1e8da20a79a07554"
+name = "assert_absolute"
+qual = "assert_absolute"
+lines = [
+    115,
+    144,
+]
+hash = "sha256:5e6356e47d1e589581cd9bc586fcf7a321e1b8c6f75a337f9b5e377b7924bfa8"
+doc_hash = "sha256:d8f80b1148f4bed4b618dd6c82d8d67c6e49009d2bafb5da7dfb6ad19ee452c8"
+reached_by = [
+    "#470",
+    "#471",
+    "#472",
+    "#474",
+    "#475",
+]
+
+[[module."vv.rs".function]]
+id = "fn:e948cbfe42837d51"
+name = "assert_table_relative"
+qual = "assert_table_relative"
+lines = [
+    146,
+    234,
+]
+hash = "sha256:608c7f8206eb287afd42a1808f4a5a8b71768d481590787fd481bdfa0a1ad371"
+doc_hash = "sha256:31a6de637258ac46fcec711f7077e85ebf1ebe2f81029218fd9606592470d7ec"
+callees = ["fn:5dd63ab4b30ecc54"]
+
+[[module."vv.rs".function]]
+id = "fn:38e76eeb4aab2d7a"
+name = "pooled"
+qual = "RecordedKeff::pooled"
+lines = [
+    265,
+    276,
+]
+hash = "sha256:53402f17b0cc9923b59b5c5cc8f5996685feb287dce467f56da81c71b63e5c7a"
+doc_hash = "sha256:fe8ad0497a42be176260ff103860392ef0a34748d20865a652bdfbe351e0c312"
+reached_by = [
+    "#77",
+    "#539",
+]
+
+[[module."vv.rs".function]]
+id = "fn:d11336aecff3b093"
+name = "from_comparable_run"
+qual = "RecordedKeff::from_comparable_run"
+lines = [
+    278,
+    291,
+]
+hash = "sha256:4652b279da0d0dda1f2dd0b7b3d680968175050e449322a867cebfb954fddc2e"
+doc_hash = "sha256:32584b93e1fe2ee0a3818dad6606c4bca0710c0247b96b6e725fe467840c56ff"
+reached_by = ["#75"]
+
+[[module."vv.rs".function]]
+id = "fn:85646bb72a8422db"
+name = "sigma_against"
+qual = "RecordedKeff::sigma_against"
+lines = [
+    293,
+    300,
+]
+hash = "sha256:2dccbb5fa107062eeaa22e6f70e66e7f2560bc2286d07ee78d9a6a13a55904d4"
+doc_hash = "sha256:1567dbd954113d829ece7d1a1119ddd1f8cc0b2de3886d6aee5bd33d17f39eb7"
+reached_by = [
+    "#75",
+    "#76",
+    "#77",
+    "#539",
+]
+
+[[module."vv.rs".function]]
+id = "fn:99fdb882ad101574"
+name = "assert_reproduces_keff"
+qual = "assert_reproduces_keff"
+lines = [
+    303,
+    388,
+]
+hash = "sha256:9baefe7ccb1c7be1702f9e7518705f586df7883e72f669b5206c8c973084abdc"
+doc_hash = "sha256:123fcfd16d40eb72768eda8c485ae52094d0df6ff66fc4708efb359a953b5956"
+callees = ["fn:85646bb72a8422db"]
+reached_by = [
+    "#75",
+    "#76",
+    "#77",
+    "#539",
+]
+
+[[module."vv.rs".function]]
+id = "fn:776cba67c4d7848b"
+name = "assert_reproduces_recorded"
+qual = "assert_reproduces_recorded"
+lines = [
+    390,
+    432,
+]
+hash = "sha256:3216dfd19f84fa1879e9600d5936f11970b8392f476a856fc47b427662789acb"
+doc_hash = "sha256:f4185609a903b3b3007bed48ac25b73387d18844e679fb854eb3b04b6b60de18"
+
+[[module."vv.rs".function]]
+id = "fn:76d287955e66f9b9"
+name = "assert_monotone"
+qual = "assert_monotone"
+lines = [
+    434,
+    485,
+]
+hash = "sha256:cd38eae0b5059a3a997de499afc1edd2400c2eafc6542e05a46d82e8eff425a7"
+doc_hash = "sha256:950cad51a3cfded0155d3af7930868842435e4ee34fc5bf1c8cbf930d9e4f493"
+
+[[module."vv.rs".function]]
+id = "fn:12c35d176fb7b37d"
+name = "drift_passes"
+qual = "drift_passes"
+lines = [
+    497,
+    515,
+]
+hash = "sha256:77678b32b15db53cf05bf3421ab3e4ea58fa2726a4097337dc58858ddd68096a"
+doc_hash = "sha256:2da2644c9efbfd0a8a325c3ad9e9ab2ef2039b431b1a9a79c242c60094ece7cb"
+callees = ["fn:99fdb882ad101574"]
+test = true
+
+[[module."vv.rs".function]]
+id = "fn:7c116a6447505f89"
+name = "the_drift_gate_combines_both_uncertainties"
+qual = "the_drift_gate_combines_both_uncertainties"
+lines = [
+    517,
+    550,
+]
+hash = "sha256:1cabc5e2a337c695c5281217b7223bb52a399238c22b8125c4f23a28f8d35919"
+doc_hash = "sha256:815b5446831714277608c0c2db20d7928bf4728a0838b5d43ea389209b4039ae"
+callees = [
+    "fn:12c35d176fb7b37d",
+    "fn:38e76eeb4aab2d7a",
+]
+test = true
+
+[[module."vv.rs".function]]
+id = "fn:d2cdf28e71cdcc8c"
+name = "a_comparable_run_widens_the_gate_by_root_two"
+qual = "a_comparable_run_widens_the_gate_by_root_two"
+lines = [
+    552,
+    584,
+]
+hash = "sha256:2c0f1aa350e2df20404b5fe1c29c237881337860223da22f73234e0befcdaf28"
+doc_hash = "sha256:f10a26932ae1ab2f5aa553badf3bf9879a6dffcede408cece2c030fe3f1330cf"
+callees = [
+    "fn:12c35d176fb7b37d",
+    "fn:d11336aecff3b093",
+]
+test = true
+
+[[module."vv.rs".function]]
+id = "fn:2feda7f94ee83a09"
+name = "no_recorded_value_means_no_drift_gate"
+qual = "no_recorded_value_means_no_drift_gate"
+lines = [
+    586,
+    598,
+]
+hash = "sha256:f97c65d23954b15529bd3168eafe1cf3cfcbd34a27c262abaf035b5ec121172f"
+doc_hash = "sha256:c819aeb3e88e230dda81bf01269e802ac021c554841c092d149d799314524f59"
+callees = ["fn:99fdb882ad101574"]
+test = true
+
+[module."wasm_par.rs"]
+path = "crate::wasm_par"
+
+[[module."wasm_par.rs".function]]
+id = "fn:0511578060aa9b75"
+name = "into_par_iter"
+qual = "IntoParallelIterator::into_par_iter"
+lines = [
+    45,
+    48,
+]
+hash = "sha256:888ec4a675d3b3d51ba9345afcb5200b6a5425726c1854c8b3b30d3e30898611"
+doc_hash = "sha256:1ae77e88eb36e720fbffa18f62a8c5411f6dd2df0a2b96e97e953f3cf45844a3"
+
+[[module."wasm_par.rs".function]]
+id = "fn:42db75bc2b2e7c7b"
+name = "par_iter"
+qual = "ParallelSlice::par_iter"
+lines = [
+    55,
+    56,
+]
+hash = "sha256:9bf12c5cab8c4646964a8700db863c4a70cecf10bb150d59b8588bff39a62e7e"
+doc_hash = "sha256:be20df012e4e5caa387762acfd0bd977a798ee031628e47ab8e9c0cbdd8d9c4f"
+
+[[module."wasm_par.rs".function]]
+id = "fn:2a12fd94a8a58e4e"
+name = "par_iter"
+qual = "[T]::par_iter"
+lines = [
+    60,
+    62,
+]
+hash = "sha256:6696bc2f44299dfef4d55fa1ef4f3f3041dd6f1425fd9b47787d442a69c823b8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."wasm_par.rs".function]]
+id = "fn:3a3ee98f13e40457"
+name = "par_iter_mut"
+qual = "ParallelSliceMut::par_iter_mut"
+lines = [
+    67,
+    68,
+]
+hash = "sha256:fead7b0c2bb847262d583e2013330238ae8921dd4a91c9d8fe6576b623a4fdc8"
+doc_hash = "sha256:5b681449c7d37b836ee211da30f248c3f9cd8ea5c0adeb512d039200ebffe7c9"
+
+[[module."wasm_par.rs".function]]
+id = "fn:8c833777f1f2f40b"
+name = "par_iter_mut"
+qual = "[T]::par_iter_mut"
+lines = [
+    72,
+    74,
+]
+hash = "sha256:307b1344577f83fa826aa60b84568e11e5906b67a2c6544b38549ba2895b4715"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

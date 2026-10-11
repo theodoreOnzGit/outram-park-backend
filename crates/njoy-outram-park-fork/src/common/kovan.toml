@@ -1,0 +1,46 @@
+schema_version = 1
+kind = "code_folder"
+crate = "njoy-outram-park-fork"
+dir = "crates/njoy-outram-park-fork/src/common"
+
+[module."mod.rs"]
+path = "crate::common"
+
+[module."phys.rs"]
+path = "crate::common::phys"
+
+[[module."phys.rs".function]]
+id = "fn:89dba60cb321b431"
+name = "boltzmann_constant"
+qual = "boltzmann_constant"
+lines = [
+    76,
+    81,
+]
+hash = "sha256:44ce3017b6655bdbea9eae925dc9c9e2b8ab7ed8cf92f7032c563692cb3975e2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."phys.rs".function]]
+id = "fn:62efd9b5c1d9ed3d"
+name = "electron_mass_energy"
+qual = "electron_mass_energy"
+lines = [
+    83,
+    91,
+]
+hash = "sha256:c8020409128f8a05a73c8808fddc4b43c43d53bc3ee32e75ab668ab4a2287176"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."phys.rs".function]]
+id = "fn:6e87aa948eff78bf"
+name = "neutron_mass_ratio_unity"
+qual = "neutron_mass_ratio_unity"
+lines = [
+    93,
+    97,
+]
+hash = "sha256:94886319185a1157b7dc1dde355dfc9367e3eb8f52cb484f6abafc9e75090d9f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true

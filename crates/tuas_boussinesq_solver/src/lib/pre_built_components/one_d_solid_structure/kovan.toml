@@ -1,0 +1,173 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/one_d_solid_structure"
+
+[module."calculation.rs"]
+path = "crate::pre_built_components::one_d_solid_structure::calculation"
+
+[[module."calculation.rs".function]]
+id = "fn:e82387bee34a05f4"
+name = "advance_timestep"
+qual = "SolidStructure::advance_timestep"
+lines = [
+    8,
+    15,
+]
+hash = "sha256:3414b6574a901aebf35308186f3635fffc37e9eb79a563e4a115c867ee69bf07"
+doc_hash = "sha256:a9d4c1f083d0af524587e6ff14c979507ab88d44f96d4a7bc709eaf4327d2334"
+callees = ["fn:03e08a20b60594d7"]
+physical_interface = true
+
+[[module."calculation.rs".function]]
+id = "fn:e48d8149edbfc6cc"
+name = "advance_timestep_thread_spawn"
+qual = "SolidStructure::advance_timestep_thread_spawn"
+lines = [
+    17,
+    33,
+]
+hash = "sha256:efaa79105f1d9998abecf2e2ccd7b4b570b6784ef264d2bb51cdb5021e36487f"
+doc_hash = "sha256:f6b97d5858d2a24b2396910d03d659356c98470f623432ebd6490099af38727c"
+callees = ["fn:e82387bee34a05f4"]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::one_d_solid_structure"
+
+[[module."mod.rs".function]]
+id = "fn:77475a41d0b5d9ac"
+name = "new_hollow_cylinder"
+qual = "SolidStructure::new_hollow_cylinder"
+lines = [
+    56,
+    91,
+]
+hash = "sha256:f89fedf8dd145007a610837c0dc23f92df1286ed5dbf8a49306fc81075b352e0"
+doc_hash = "sha256:3acae230be281d0f366b209a7805f128a503c723e6fa4b63b6390c31f6e23bb4"
+callees = [
+    "fn:1f95f8f45b36cfb9",
+    "fn:2ee4f67ebdd1986d",
+]
+physical_interface = true
+
+[module."postprocessing.rs"]
+path = "crate::pre_built_components::one_d_solid_structure::postprocessing"
+
+[[module."postprocessing.rs".function]]
+id = "fn:abdd81df3e873bc3"
+name = "array_temperature"
+qual = "SolidStructure::array_temperature"
+lines = [
+    7,
+    12,
+]
+hash = "sha256:341e381f42252310be135b0cdfb41d78820556259be0a12137d79a06de40fa24"
+doc_hash = "sha256:ad193a7765c69bea56436a1efe6e0f9696cdac74a0f690193adba99e354c51ad"
+callees = ["fn:81ebbad2a6b015cb"]
+physical_interface = true
+
+[module."preprocessing.rs"]
+path = "crate::pre_built_components::one_d_solid_structure::preprocessing"
+
+[[module."preprocessing.rs".function]]
+id = "fn:042708178c2d0902"
+name = "link_mixed_boundary_condition_laterally"
+qual = "SolidStructure::link_mixed_boundary_condition_laterally"
+lines = [
+    20,
+    96,
+]
+hash = "sha256:8c422515b294599a277779a3183c570c8324c03e609710eae95fd0e9bf777b3d"
+doc_hash = "sha256:4935fc1527bc759f6cb559a25ce856f777c03295e66f3974155dbb31c3b3a338"
+callees = [
+    "fn:62732656cd597cd5",
+    "fn:8a180ca0986c72b8",
+    "fn:9cf2732f8b0c6890",
+    "fn:abafd5a5e42d6a30",
+    "fn:eb89be045205dc88",
+    "fn:f8fcd27da58670ac",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:94e7e55e2c08eb65"
+name = "link_ambient_temperature_boundary_condition_laterally"
+qual = "SolidStructure::link_ambient_temperature_boundary_condition_laterally"
+lines = [
+    98,
+    165,
+]
+hash = "sha256:127f93d7c83e8597756fa5097305bc755ad2d2f61f966049a8abe55073fdcdc4"
+doc_hash = "sha256:9fd7a57ccacaa57730809ee628bb9ea23676e5ea11572298fab2be8905ab3bbb"
+callees = [
+    "fn:62732656cd597cd5",
+    "fn:8a180ca0986c72b8",
+    "fn:9cf2732f8b0c6890",
+    "fn:abafd5a5e42d6a30",
+    "fn:eb89be045205dc88",
+    "fn:f8fcd27da58670ac",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:62732656cd597cd5"
+name = "zero_power_bc_connection"
+qual = "SolidStructure::zero_power_bc_connection"
+lines = [
+    167,
+    197,
+]
+hash = "sha256:1d96556a314dba73bc9d8a7011530c034c4e37c6cec1c3ca2bb0dd0aff521a58"
+doc_hash = "sha256:72abc654c764febecd429e0699d6af1705b34551f77e81ee0139af6a4b507586"
+callees = [
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+]
+
+[[module."preprocessing.rs".function]]
+id = "fn:1e70b5e3b9208038"
+name = "get_ambient_surroundings_to_cylinder_thermal_conductance"
+qual = "SolidStructure::get_ambient_surroundings_to_cylinder_thermal_conductance"
+lines = [
+    199,
+    248,
+]
+hash = "sha256:c3020b76141d852db0d9e8d0a5f482f93a3a7f765a1f16b835c72cda4c905f10"
+doc_hash = "sha256:957f46f1817ef0e3c340bbe99b229dd4ff1e8ee353e232bfbfb202d26e5048bb"
+callees = [
+    "fn:7d9e7837937bfa18",
+    "fn:a2275733c3fa6168",
+    "fn:eb89be045205dc88",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:f1748c19e32290e7"
+name = "get_ambient_surroundings_to_hollow_cylinder_thermal_conductance"
+qual = "SolidStructure::get_ambient_surroundings_to_hollow_cylinder_thermal_conductance"
+lines = [
+    250,
+    299,
+]
+hash = "sha256:08f788b1bc1d7d91e16ad478dc0511f74a3446d6b4823286ff2e70551ff45563"
+doc_hash = "sha256:3417398f350cead7ff4bd5509d78ebb364afd3c14a5a8e657ddc5786aff60295"
+callees = [
+    "fn:7d9e7837937bfa18",
+    "fn:a2275733c3fa6168",
+    "fn:eb89be045205dc88",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:cc41133d9ef6b2c1"
+name = "lateral_connection_thread_spawn"
+qual = "SolidStructure::lateral_connection_thread_spawn"
+lines = [
+    301,
+    330,
+]
+hash = "sha256:120be9af6ecd685e02a897a7a3a8583b9184fb0fde4c528dad7d95507753b105"
+doc_hash = "sha256:7809504681bbe25b3da16a9fa2496f2d3cdd3d3ea42f1d553d449e46df9937d9"
+callees = ["fn:042708178c2d0902"]
+physical_interface = true

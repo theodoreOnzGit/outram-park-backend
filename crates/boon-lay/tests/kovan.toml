@@ -1,0 +1,1746 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/tests"
+
+[module."mhtgr_stoyer_workflow.rs"]
+path = "test:mhtgr_stoyer_workflow"
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:1baee06ed91589b2"
+name = "table"
+qual = "table"
+lines = [
+    131,
+    150,
+]
+hash = "sha256:906c8fb45b9ce4759492ee1f3e113bcbf209fa53a912c0003642e686e8cfe2af"
+doc_hash = "sha256:9064bb0ecf34b62ab4b1dabf3f86db1fb9fa27dcc8002d3d8632a7eb4d88b7f0"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:03f4100244ab1727"
+name = "f"
+qual = "f"
+lines = [
+    152,
+    156,
+]
+hash = "sha256:bea6414e8e99f94ebe6ab5c8bcd76ca692357209df5b465e98a9117c39e35b38"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:9438bd05a558783e"
+name = "port_case"
+qual = "port_case"
+lines = [
+    165,
+    173,
+]
+hash = "sha256:b9403c409cba326dc1f39c9c846f4a3c03c1694d485e329c18d928afa27ed36a"
+doc_hash = "sha256:2494c0dbcc8d32134465716d027264aa155998354e3b226408cc58546d1bd6e6"
+callees = ["fn:4d4282c04b9be5a5"]
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:4d4282c04b9be5a5"
+name = "port_case_nodal"
+qual = "port_case_nodal"
+lines = [
+    175,
+    296,
+]
+hash = "sha256:b39f208b26ba1aedc7fce0fd79d1556672a3c6e1d7746de20af18cd6bf785dcf"
+doc_hash = "sha256:d3016674c9204a28a819c166f16251bc1811204720c234d87548f5a2cec15ad3"
+callees = [
+    "fn:03f4100244ab1727",
+    "fn:1baee06ed91589b2",
+    "fn:2db20ac5ca82f2df",
+    "fn:34ff47a5448224c9",
+    "fn:44fd31aa536c0e7c",
+    "fn:5a2cfb2f89e6446a",
+    "fn:745bd77be64f687a",
+    "fn:9a8a6835861d321b",
+    "fn:e503a3d0722ff508",
+]
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:8d25b16bb87e33c6"
+name = "upstream"
+qual = "upstream"
+lines = [
+    298,
+    314,
+]
+hash = "sha256:538b6eea075af3a5d7c39745773931c10cdf7b332f63a19603868f0b8449c583"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:03f4100244ab1727",
+    "fn:1baee06ed91589b2",
+]
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:9ebac061e78bab77"
+name = "rel"
+qual = "rel"
+lines = [
+    316,
+    322,
+]
+hash = "sha256:6c3ed178717c77dab42ad2ed0faf5260d63634da983d3a19fc2353ad13b495e7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:a27450f0c21f4253"
+name = "port_matches_upstream_on_both_mhtgr_cases"
+qual = "port_matches_upstream_on_both_mhtgr_cases"
+lines = [
+    329,
+    362,
+]
+hash = "sha256:92a2198ad0272c13a9daf7812dfebb1199c69f4d6605e2fb6d49e1f7f31581d1"
+doc_hash = "sha256:0866ff46be7646689699c11ae1855f49d0b7eca7a8160da40aa95c05063f621b"
+callees = [
+    "fn:8d25b16bb87e33c6",
+    "fn:9438bd05a558783e",
+    "fn:9ebac061e78bab77",
+]
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:781715b0519de13c"
+name = "port_against_the_paper_tables_is_reported"
+qual = "port_against_the_paper_tables_is_reported"
+lines = [
+    364,
+    411,
+]
+hash = "sha256:d7b19335bd9ef849fce4623d6d760e7ac791342f3ddaaae12b9233bd56cd6db1"
+doc_hash = "sha256:4446d3ea4f36f59c3eb1178305942c1287d82bb2659cf6010e65db783ec4fc31"
+callees = [
+    "fn:03f4100244ab1727",
+    "fn:1baee06ed91589b2",
+    "fn:9438bd05a558783e",
+    "fn:9ebac061e78bab77",
+]
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:a8aed3662b6bb636"
+name = "fig5"
+qual = "fig5"
+lines = [
+    413,
+    426,
+]
+hash = "sha256:fe2fe2db2a651a96dcf41c4f61774a4498edba20a57549e54f4364ef72deddfe"
+doc_hash = "sha256:6e579fde36dc7cafdf05824306548f22e86bf2be36dd3eed997ba685155b0ae5"
+callees = [
+    "fn:03f4100244ab1727",
+    "fn:1baee06ed91589b2",
+]
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:51a1aaede9ebe26d"
+name = "constants"
+qual = "constants"
+lines = [
+    428,
+    443,
+]
+hash = "sha256:027488dd920548778e2241f4438bd0a61357d1e34b6d3e36c4ffd4e760191e6d"
+doc_hash = "sha256:b65b0c62aaa7ad887458edb04f5eb23f7354e508d9ac4fa687f4cf87493f0a6f"
+callees = [
+    "fn:03f4100244ab1727",
+    "fn:1baee06ed91589b2",
+]
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:3b3ff14f82ecd222"
+name = "port_accident_curve"
+qual = "port_accident_curve"
+lines = [
+    445,
+    584,
+]
+hash = "sha256:ea2bbba2de1c841b5f1f03951450002ed243549823c4802d841964b994e09691"
+doc_hash = "sha256:cd8af30a47a6767b6bb2c80b54831bfc6eefc72e2f29120529268ae93dd06de5"
+callees = [
+    "fn:34ff47a5448224c9",
+    "fn:36a8c82d150d877e",
+    "fn:429d6161b7f8bf68",
+    "fn:4534649caeaa347f",
+    "fn:5c206cdbedc0c475",
+    "fn:759c40b16c1f728e",
+    "fn:94487e3b2a5fbffa",
+    "fn:acec24ad5f8776f5",
+    "fn:d51049d00f066bb6",
+    "fn:ee64ea353c7ab103",
+]
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:3f6e0d4d55c7d452"
+name = "interp_hold"
+qual = "interp_hold"
+lines = [
+    586,
+    596,
+]
+hash = "sha256:780684b062dcd4e04c8da4d69c0f3825801da0692fd72e4ecad182ef6626d2f5"
+doc_hash = "sha256:775e2f7a53e61f96d6f5e82bf70db1a59d90d7449df309a15332a06193018a20"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:213aab4e69991a06"
+name = "accident_series_port_matches_upstream_for_figs_6_and_7"
+qual = "accident_series_port_matches_upstream_for_figs_6_and_7"
+lines = [
+    598,
+    642,
+]
+hash = "sha256:a87eec029eaff63db1d417298b458c5d2028411771ff1df112ef6c757432c324"
+doc_hash = "sha256:34771c9ee9e11e3b772ae86db7a8d56d10285d3fef054fe3e29c9b41c0ef96a0"
+callees = [
+    "fn:03f4100244ab1727",
+    "fn:1baee06ed91589b2",
+    "fn:3b3ff14f82ecd222",
+    "fn:3f6e0d4d55c7d452",
+    "fn:4d4282c04b9be5a5",
+    "fn:51a1aaede9ebe26d",
+    "fn:9ebac061e78bab77",
+    "fn:a8aed3662b6bb636",
+]
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:8f15303fd628da7a"
+name = "accident_final_releases_port_upstream_and_paper"
+qual = "accident_final_releases_port_upstream_and_paper"
+lines = [
+    644,
+    739,
+]
+hash = "sha256:289f3bac2edf471356d9ed53fffdf9468661537b3fc859230af3e9b5a4117076"
+doc_hash = "sha256:dfed502d1a6709d24b2dc641725e5110992e926a623290f2eddb9be1fc030edc"
+callees = [
+    "fn:03f4100244ab1727",
+    "fn:1baee06ed91589b2",
+    "fn:3b3ff14f82ecd222",
+    "fn:4d4282c04b9be5a5",
+    "fn:51a1aaede9ebe26d",
+    "fn:9ebac061e78bab77",
+    "fn:a8aed3662b6bb636",
+]
+test = true
+
+[module."triso_atops_booth_vs_crp6.rs"]
+path = "test:triso_atops_booth_vs_crp6"
+
+[[module."triso_atops_booth_vs_crp6.rs".function]]
+id = "fn:868242db271f9f94"
+name = "crp6_kernel_radius"
+qual = "crp6_kernel_radius"
+lines = [
+    88,
+    91,
+]
+hash = "sha256:b2deb4970d5dd42f1b0bf36d5af427562ee560b5c9d4170f15fb65e9585b4291"
+doc_hash = "sha256:45bf741fe81066ab424115fd6ba09836522713eb1012faac0f8219dbccecf525"
+test = true
+physical_interface = true
+
+[[module."triso_atops_booth_vs_crp6.rs".function]]
+id = "fn:b7c44d6cd656b64c"
+name = "early_time_law"
+qual = "early_time_law"
+lines = [
+    93,
+    96,
+]
+hash = "sha256:d93af79ea28d337f9c86710ea07fbb98c573866ed0a4367239b224ad0733b99d"
+doc_hash = "sha256:25deb41ffdd112bcd2a9d4dd155da54bbd38783bbcb604b4b205babda4765b4b"
+test = true
+
+[[module."triso_atops_booth_vs_crp6.rs".function]]
+id = "fn:20f28dc09bd024e0"
+name = "predicted_truncation_floor"
+qual = "predicted_truncation_floor"
+lines = [
+    98,
+    113,
+]
+hash = "sha256:5bcf112df6e36c4e6ca2264291b2957f6b176c1e4495ae03290a480247e6411b"
+doc_hash = "sha256:1767cbf4c02371b5a2b7bccb16ecccb4800112d4d31056e96c78c85a5dac213a"
+test = true
+
+[[module."triso_atops_booth_vs_crp6.rs".function]]
+id = "fn:a1ca34c90fb9ccb9"
+name = "crp6_case1_booth_equals_the_crank_series"
+qual = "crp6_case1_booth_equals_the_crank_series"
+lines = [
+    115,
+    164,
+]
+hash = "sha256:e16ae636ddf5bd49d9ec16b0a186b01a78085d312c5b51e47e32244d89ce88f4"
+doc_hash = "sha256:d229186011551ac856765d41d3bb13c1a55349a9d76805683553b5c4e2d7865b"
+callees = [
+    "fn:102121535cb2dea5",
+    "fn:2fc35c224f3db467",
+    "fn:7b3031e11dc9b5cf",
+    "fn:868242db271f9f94",
+    "fn:f23cfae2ca858daa",
+]
+test = true
+
+[[module."triso_atops_booth_vs_crp6.rs".function]]
+id = "fn:5de16f80358d1fea"
+name = "booth_longlived_has_the_predicted_truncation_floor_at_small_tau"
+qual = "booth_longlived_has_the_predicted_truncation_floor_at_small_tau"
+lines = [
+    166,
+    253,
+]
+hash = "sha256:afbc4730817b6f449a48b19962188d1c37b6da16ebb7d963643faa12c36c849c"
+doc_hash = "sha256:92533dfbbe4bfa0fe66095d8d6837e3ae007527df25f5d5a2009dd4d799e8669"
+callees = [
+    "fn:20f28dc09bd024e0",
+    "fn:2fc35c224f3db467",
+    "fn:b7c44d6cd656b64c",
+]
+test = true
+
+[[module."triso_atops_booth_vs_crp6.rs".function]]
+id = "fn:347995bef920ce34"
+name = "where_the_floor_bites_at_htgr_sim_v1_inputs"
+qual = "where_the_floor_bites_at_htgr_sim_v1_inputs"
+lines = [
+    255,
+    348,
+]
+hash = "sha256:b90fb42b9cda9ababb06b5058ccadf2478ab568b42e1c787a8d8730e88c5a40d"
+doc_hash = "sha256:107792aafa4ec01f17b5dff7e4b77ceabae5eced955fa8c21b1c64391cd6ee03"
+callees = [
+    "fn:2fc35c224f3db467",
+    "fn:8bc4c3bc717bd99d",
+    "fn:b7c44d6cd656b64c",
+]
+test = true
+
+[module."triso_atops_code_to_code.rs"]
+path = "test:triso_atops_code_to_code"
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:03eca69c88e5bfc4"
+name = "dc"
+qual = "dc"
+lines = [
+    189,
+    191,
+]
+hash = "sha256:c4b7e7c11ab6c324f95042a1e5f54b0f8ac3906ed6fff44c029b46fe23981422"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:75d7c8587a8ad74a"
+name = "len_m"
+qual = "len_m"
+lines = [
+    192,
+    194,
+]
+hash = "sha256:f83d70a686986f6e17bfa437ef3c5d3b750b27891b9b09c5ec646178fa7540b6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:3dd183d69ce986f2"
+name = "t_s"
+qual = "t_s"
+lines = [
+    195,
+    197,
+]
+hash = "sha256:abe0d869f8b3ddf01acdd6c0e3e79b3229f5e2c2f1ae33d0d4747e6bf6f45908"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:a167062c8b8bf5a8"
+name = "temp_c"
+qual = "temp_c"
+lines = [
+    198,
+    200,
+]
+hash = "sha256:ee84ef7b3d67ba379a568a10958b33d486cdba67b79072cecd34e177894809fa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:9b8692e8da0d6c05"
+name = "hz"
+qual = "hz"
+lines = [
+    201,
+    203,
+]
+hash = "sha256:3fcdf00ac8acee78bd7db87dde50475af16862bca6ce737f8da44cf23992cb2f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:1df16eebee990734"
+name = "rat"
+qual = "rat"
+lines = [
+    204,
+    206,
+]
+hash = "sha256:a500297501cfa7d906f6313e1dbef06b95129b0212901730652c8efc9bb74eb1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:07a763af5264cf27"
+name = "area_m2"
+qual = "area_m2"
+lines = [
+    207,
+    209,
+]
+hash = "sha256:c6327566d5563e5e1a8e72426e288d6bb3a75499223a623f40a083449767a994"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:cbc6db712729369f"
+name = "cases"
+qual = "cases"
+lines = [
+    231,
+    260,
+]
+hash = "sha256:5a4d41bb12a43eee881e5cea963a29c3acc5a4a050467f6bff224a5ff5f45759"
+doc_hash = "sha256:17c363fa2dc23ed3e44bf47bb2655c0abdfa8d22473a4c6f371dc1843e5b11b6"
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:d7393e60c0d1208a"
+name = "deviation"
+qual = "deviation"
+lines = [
+    262,
+    269,
+]
+hash = "sha256:6b7c20f684b17faf46bfad537264fbe5559c275242e65230e67e40a6c16e69de"
+doc_hash = "sha256:325568d67a471a6e447753a9a1d98c2b4a0041c75b859f37edd5ee7578741ff8"
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:40993ec41faa3e37"
+name = "check_group"
+qual = "check_group"
+lines = [
+    271,
+    326,
+]
+hash = "sha256:728965cc83b6cc0dc3e6d43c47491081395eb88f8e46147a26245c6163243723"
+doc_hash = "sha256:1f36a26a119581724ac9e285f7cee222c12c20e6a936fa44254b0c15286e3ae8"
+callees = [
+    "fn:cbc6db712729369f",
+    "fn:d7393e60c0d1208a",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:83d46b095c86604d"
+name = "diffusion_coefficient_kernel_matches_upstream"
+qual = "diffusion_coefficient_kernel_matches_upstream"
+lines = [
+    330,
+    339,
+]
+hash = "sha256:ae4f7d5174335bb112374ed866b6c0e3f897c000bd31d5cbd1c04b727ee45235"
+doc_hash = "sha256:e951c4be3326eb871eb749953d66f0307959fd3da3e2abbbef0047522d3e5b39"
+callees = [
+    "fn:40993ec41faa3e37",
+    "fn:8bc4c3bc717bd99d",
+    "fn:a167062c8b8bf5a8",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:1e2e7e9ade6320c5"
+name = "diffusion_coefficient_graphite_matches_upstream"
+qual = "diffusion_coefficient_graphite_matches_upstream"
+lines = [
+    341,
+    351,
+]
+hash = "sha256:a4018c59f68be382d69758995f2686ffa1303c08af57b0a6b4d136ccd33c1ab0"
+doc_hash = "sha256:5b125a6930bf259507b0a3860899287fa3f703ae1df6b5eb07d254221a16b1b7"
+callees = [
+    "fn:40993ec41faa3e37",
+    "fn:8bc4c3bc717bd99d",
+    "fn:a167062c8b8bf5a8",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:856615d3f441e6e5"
+name = "diffusion_coefficient_sic_ag_matches_upstream"
+qual = "diffusion_coefficient_sic_ag_matches_upstream"
+lines = [
+    353,
+    359,
+]
+hash = "sha256:29d39f850d1557941e85131c52d3bc40c326b727bfaa4528f6dc1facb2e7b1e7"
+doc_hash = "sha256:c67e929bfec7db2513b3f01e8ca46175eef19cae9163c355306d2c58fbc479a3"
+callees = [
+    "fn:40993ec41faa3e37",
+    "fn:7f5cefb7c1df6559",
+    "fn:a167062c8b8bf5a8",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:85eb52e317a5bd29"
+name = "rb_fail_noble_gases_matches_upstream"
+qual = "rb_fail_noble_gases_matches_upstream"
+lines = [
+    363,
+    370,
+]
+hash = "sha256:46a5e8d8db5fd3fb3ec107511eb7936f93c5ea6946e8ad81e4acee3bd348fb40"
+doc_hash = "sha256:89cf0aad6c9fdd6d17c217a02aa1831b2173ba6cfa8b5f0c94e4a237f199d992"
+callees = [
+    "fn:353a07bd52f264c2",
+    "fn:40993ec41faa3e37",
+    "fn:9b8692e8da0d6c05",
+    "fn:a167062c8b8bf5a8",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:8006c8f681667c8d"
+name = "breakthrough_model_matches_upstream"
+qual = "breakthrough_model_matches_upstream"
+lines = [
+    372,
+    378,
+]
+hash = "sha256:a32982543f4f62a16eedecfc48573716e1e8edb2d3e5854542e8b713c14a0f34"
+doc_hash = "sha256:5c1f24c8517df2c89ccaca9b0596bfcd455f98f41ef79ed5c5cdb2dc20657b40"
+callees = [
+    "fn:03eca69c88e5bfc4",
+    "fn:18f130883edf5867",
+    "fn:3dd183d69ce986f2",
+    "fn:40993ec41faa3e37",
+    "fn:75d7c8587a8ad74a",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:9d6c6d503b1bd5d4"
+name = "booth_longlived_matches_upstream"
+qual = "booth_longlived_matches_upstream"
+lines = [
+    380,
+    386,
+]
+hash = "sha256:1ace8a9c10dd27a1013b7ecb9f756efe29b88315e9cd0bcb1225e92f42735972"
+doc_hash = "sha256:f5d173401590dc70c244c8fe84e3ca78c704a8e5c593d4527e308321a3abd796"
+callees = [
+    "fn:03eca69c88e5bfc4",
+    "fn:2fc35c224f3db467",
+    "fn:3dd183d69ce986f2",
+    "fn:40993ec41faa3e37",
+    "fn:75d7c8587a8ad74a",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:a5151a97bd99b3e3"
+name = "booth_shortlived_matches_upstream"
+qual = "booth_shortlived_matches_upstream"
+lines = [
+    388,
+    394,
+]
+hash = "sha256:6dd1fb298c6715fd7b734cbd7de9305f259d9f5ab8e82ebc05dcf1ac59926eb3"
+doc_hash = "sha256:32f2c7ad8187443c72efaaee7847b44558cd4c080157f2ca36d8f7ed78875290"
+callees = [
+    "fn:03eca69c88e5bfc4",
+    "fn:40993ec41faa3e37",
+    "fn:75d7c8587a8ad74a",
+    "fn:9b8692e8da0d6c05",
+    "fn:ba1b5c7454e73103",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:6c848546a606c5ad"
+name = "attenuation_factor_matches_upstream"
+qual = "attenuation_factor_matches_upstream"
+lines = [
+    396,
+    404,
+]
+hash = "sha256:33deec314bacd55e4aaec97086afad94bef8beb80587a14b1bc2b34c500e4e3b"
+doc_hash = "sha256:e9e2f4137bf1d9ae6e5e98fdbab9033853fb74870fd1985f3fb44678ad2a3990"
+callees = [
+    "fn:03eca69c88e5bfc4",
+    "fn:3dd183d69ce986f2",
+    "fn:40683b291bd14f34",
+    "fn:40993ec41faa3e37",
+    "fn:75d7c8587a8ad74a",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:c29bdd9e63832e3d"
+name = "booth_transient_matches_upstream"
+qual = "booth_transient_matches_upstream"
+lines = [
+    408,
+    415,
+]
+hash = "sha256:603bb11ad15dc9fb562a273c7a494ab1ac9f5932d3abede442e6cf0dc6681229"
+doc_hash = "sha256:2baf8932fea8604f3920e2973f4dde5d6f7461bc2f143581d4da1ba00ac0e2e8"
+callees = [
+    "fn:1df16eebee990734",
+    "fn:40993ec41faa3e37",
+    "fn:7b3031e11dc9b5cf",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:3978c31fd8dfd01b"
+name = "breakthrough_model_transient_matches_upstream"
+qual = "breakthrough_model_transient_matches_upstream"
+lines = [
+    417,
+    425,
+]
+hash = "sha256:1a354ba2bd0be0e8026507b0c87471cb06a074397af5ae13f0488ac71ff2d72d"
+doc_hash = "sha256:bda003513df8cc8b99722f9396f2e9c22d694e0c1bffb9cdf662f9ec25236df7"
+callees = [
+    "fn:07a763af5264cf27",
+    "fn:1df16eebee990734",
+    "fn:40993ec41faa3e37",
+    "fn:75d7c8587a8ad74a",
+    "fn:f5b5a929974c73b5",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:28bc3349e76eef99"
+name = "booth_transient_zero_floor_is_unreachable"
+qual = "booth_transient_zero_floor_is_unreachable"
+lines = [
+    427,
+    490,
+]
+hash = "sha256:5dd1cbc21ce3f3d2c8dc4270cec5b83afffbfede65ba8c3a19862e81a163a0f6"
+doc_hash = "sha256:b3c557c89f1cd4636396ce4f94c182f40d7d3953ab068e4c830cb1a52d5f6466"
+callees = ["fn:cbc6db712729369f"]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:bf5f83768007640c"
+name = "rf_graph_matches_upstream"
+qual = "rf_graph_matches_upstream"
+lines = [
+    492,
+    497,
+]
+hash = "sha256:7fe568836f72031b4d3e54f058e9a888120b999ec7a8f65f5387f996221f480c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:07a763af5264cf27",
+    "fn:40993ec41faa3e37",
+    "fn:75d7c8587a8ad74a",
+    "fn:fffbbf11526a97b3",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:5c65867a6242e147"
+name = "circulating_steadystate_matches_upstream"
+qual = "circulating_steadystate_matches_upstream"
+lines = [
+    501,
+    507,
+]
+hash = "sha256:0a1533388c65293c2b6ece06243ffd4c239c6c3a739c8644ab7e3a4a704ca94e"
+doc_hash = "sha256:7efefdc8b90493d80dbe6a572f17afa1fa937aedc7599c78bbf77622a110e4eb"
+callees = [
+    "fn:269096cad00d2563",
+    "fn:40993ec41faa3e37",
+    "fn:9b8692e8da0d6c05",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:48d5e287bff316e2"
+name = "circulating_matches_upstream"
+qual = "circulating_matches_upstream"
+lines = [
+    509,
+    515,
+]
+hash = "sha256:164dd24cac0869fe39a1a77e93cfced43e673d0722cc031684a53a5451317e22"
+doc_hash = "sha256:254375e09f4b62777dabb5cc3697889a2b2dcfa6890d64362dea2fe19531a919"
+callees = [
+    "fn:3dd183d69ce986f2",
+    "fn:40993ec41faa3e37",
+    "fn:98e15d9c13a78899",
+    "fn:9b8692e8da0d6c05",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:47762dd766e913a2"
+name = "plate_out_steadystate_matches_upstream"
+qual = "plate_out_steadystate_matches_upstream"
+lines = [
+    517,
+    523,
+]
+hash = "sha256:04d1125658b8be3bb0b578670ec52c45cce4d6b3c0a04e65407bd748c8f94d98"
+doc_hash = "sha256:b1ec3f27b5e3646988057c7256a9977230a62036f535483f3ea80069cce89cbc"
+callees = [
+    "fn:40993ec41faa3e37",
+    "fn:8ea2eef18751cdc9",
+    "fn:9b8692e8da0d6c05",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:0fe2d1e7a39412ee"
+name = "plate_out_matches_upstream"
+qual = "plate_out_matches_upstream"
+lines = [
+    525,
+    532,
+]
+hash = "sha256:65fcb39d0a262482e539ed32e50c3acf832e6ce1c668bb98a6b4e3dbe535fc08"
+doc_hash = "sha256:dcb39f4d812973641d92b0a20f3a2ab67668ef6f572003184d68e8eb6fa18406"
+callees = [
+    "fn:3dd183d69ce986f2",
+    "fn:40993ec41faa3e37",
+    "fn:9515687f16091d7e",
+    "fn:9b8692e8da0d6c05",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:f149b38ece144b7e"
+name = "clean_up_steadystate_matches_upstream"
+qual = "clean_up_steadystate_matches_upstream"
+lines = [
+    534,
+    540,
+]
+hash = "sha256:5eb77da01aa7a04e534cce27a6508a97a02e2e1065e80eefeeff7a437886f8d0"
+doc_hash = "sha256:db8a00477834e1beddc37772481a94b6899897accd9d64d3c2d31ab1d8e4e276"
+callees = [
+    "fn:40993ec41faa3e37",
+    "fn:71fb69d2e7699d01",
+    "fn:9b8692e8da0d6c05",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:e99dc6418beae3bc"
+name = "clean_up_matches_upstream"
+qual = "clean_up_matches_upstream"
+lines = [
+    542,
+    550,
+]
+hash = "sha256:30c7b7aadb42ab54491e58c7ce283d6b1b0cddb880964e230809ba4ecd8ff568"
+doc_hash = "sha256:6fadb3f9ded251a15b01371cf64d47c7cc90fc1595edc8e64b171430ad430089"
+callees = [
+    "fn:1365b3b5318e0a5d",
+    "fn:3dd183d69ce986f2",
+    "fn:40993ec41faa3e37",
+    "fn:9b8692e8da0d6c05",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:488885b8f7ee5703"
+name = "rb_fail_dispatcher_matches_upstream"
+qual = "rb_fail_dispatcher_matches_upstream"
+lines = [
+    554,
+    573,
+]
+hash = "sha256:8b90bb762179303a6372313a4fa831a54afdd62650f6c67d79878222f7e3057e"
+doc_hash = "sha256:a6c2d6f2e114291f604885831dd8c44618d8cb8e27e61d10cd0fb3dbda0e62ea"
+callees = [
+    "fn:03eca69c88e5bfc4",
+    "fn:3dd183d69ce986f2",
+    "fn:40993ec41faa3e37",
+    "fn:75d7c8587a8ad74a",
+    "fn:9b8692e8da0d6c05",
+    "fn:9d27b0efc9f673f8",
+    "fn:a167062c8b8bf5a8",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:04843eea5c8bd17b"
+name = "release_rate_matches_upstream"
+qual = "release_rate_matches_upstream"
+lines = [
+    575,
+    596,
+]
+hash = "sha256:428f270600ca21cd9e7e461f1633fb6674d8b5bb12a883913bb8f349f9122362"
+doc_hash = "sha256:772242f564ecdfc9bc45abe9531f58ac1fd0edd6ab563c72d12d05663fefbd20"
+callees = [
+    "fn:1df16eebee990734",
+    "fn:2a3b6cbe3931c7f4",
+    "fn:2e610cfd767d4eb5",
+    "fn:3dd183d69ce986f2",
+    "fn:40993ec41faa3e37",
+    "fn:44fd31aa536c0e7c",
+    "fn:9b8692e8da0d6c05",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:23f4e45a97c94e61"
+name = "base_activities_source_matches_upstream"
+qual = "base_activities_source_matches_upstream"
+lines = [
+    598,
+    614,
+]
+hash = "sha256:c514b99b3c568417bf5379376a68fb4e045f9d75e89f6adbac6dc60273511600"
+doc_hash = "sha256:607f9d9bf220e8703e7e34045b9b5644f858d88add7c2b1ed04c2997bdc4f6a1"
+callees = [
+    "fn:03eca69c88e5bfc4",
+    "fn:2095c07b5f4097a8",
+    "fn:2e610cfd767d4eb5",
+    "fn:3dd183d69ce986f2",
+    "fn:40993ec41faa3e37",
+    "fn:75d7c8587a8ad74a",
+    "fn:9b8692e8da0d6c05",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:11a5ede8f3e16033"
+name = "base_activities_graphite_matches_upstream"
+qual = "base_activities_graphite_matches_upstream"
+lines = [
+    616,
+    632,
+]
+hash = "sha256:2fef67efae3807b0beb672ab95edc1b972d55a8998f92e195c2e5453f187da92"
+doc_hash = "sha256:2eecfdfbf67efedf9ba203818a922c3a5c54e3824040e4276608a38283aa9f25"
+callees = [
+    "fn:03eca69c88e5bfc4",
+    "fn:2095c07b5f4097a8",
+    "fn:2e610cfd767d4eb5",
+    "fn:3dd183d69ce986f2",
+    "fn:40993ec41faa3e37",
+    "fn:75d7c8587a8ad74a",
+    "fn:9b8692e8da0d6c05",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:2accfc3adb68ac65"
+name = "release_fraction_kernel_matches_upstream"
+qual = "release_fraction_kernel_matches_upstream"
+lines = [
+    636,
+    652,
+]
+hash = "sha256:5b4462992f0c4407144c9505341c8a68852c540da8adf76bb0f997209d926505"
+doc_hash = "sha256:ee61157b467231a9d24215652c92372084b135816833de7784ded3fe37e0eff8"
+callees = [
+    "fn:07a763af5264cf27",
+    "fn:2e610cfd767d4eb5",
+    "fn:40993ec41faa3e37",
+    "fn:5c206cdbedc0c475",
+    "fn:75d7c8587a8ad74a",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:32627dbe80cc65df"
+name = "release_fraction_graphite_matches_upstream"
+qual = "release_fraction_graphite_matches_upstream"
+lines = [
+    654,
+    670,
+]
+hash = "sha256:1033b7a8228eed42c02fdc01f7f715af763ae8301ff3a59df31764d34ac7059f"
+doc_hash = "sha256:be987cdb4e6b42d78fb451fe7a0dbf03e9702581b223179ef22f3ccb963dc3f9"
+callees = [
+    "fn:07a763af5264cf27",
+    "fn:2e610cfd767d4eb5",
+    "fn:40993ec41faa3e37",
+    "fn:5c206cdbedc0c475",
+    "fn:75d7c8587a8ad74a",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:8cc2560532ada00e"
+name = "check_integrate"
+qual = "check_integrate"
+lines = [
+    674,
+    691,
+]
+hash = "sha256:c34e61c4e4659974f39e23ad114aa5604dbf0737944c07533012fe67e05a0df8"
+doc_hash = "sha256:d137e1e48bef0ca31cff523d169f5a0c9afd27cfa7e11f6e06310edece31aea8"
+callees = [
+    "fn:3dd183d69ce986f2",
+    "fn:40993ec41faa3e37",
+    "fn:759c40b16c1f728e",
+    "fn:a167062c8b8bf5a8",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:ec43edf2fe3d06a2"
+name = "integrate_kernel_matches_upstream"
+qual = "integrate_kernel_matches_upstream"
+lines = [
+    693,
+    696,
+]
+hash = "sha256:ac633bd8164a900db194f959ea88e4f1c798d866772aef77c0b38f45763e93c9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:8cc2560532ada00e"]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:3b3163c76ab70053"
+name = "integrate_graphite_matches_upstream"
+qual = "integrate_graphite_matches_upstream"
+lines = [
+    698,
+    701,
+]
+hash = "sha256:3e9234d7b9f6a9d0d6cf4da4d9d5e19939b35c9b340e80d2469dfcf5527bc937"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:8cc2560532ada00e"]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:fb570feb65c11787"
+name = "node_outputs"
+qual = "node_outputs"
+lines = [
+    705,
+    760,
+]
+hash = "sha256:0f7f9f2237765d1d4b8bc05f0b455cc5c5ead2173aca60d4248fe9d2f155bd29"
+doc_hash = "sha256:c605d916e7ca60d6989800ab4b794a63f684790a564a042c2d1ff365fa7af2cc"
+callees = [
+    "fn:3dd183d69ce986f2",
+    "fn:44fd31aa536c0e7c",
+    "fn:521d4591f6090c64",
+    "fn:75d7c8587a8ad74a",
+    "fn:9a8a6835861d321b",
+    "fn:9b8692e8da0d6c05",
+    "fn:a167062c8b8bf5a8",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:cb71d9f3b9dcdae6"
+name = "node_release_rate_matches_upstream"
+qual = "node_release_rate_matches_upstream"
+lines = [
+    762,
+    765,
+]
+hash = "sha256:bacc625f05dfd7d7e058c7bcc160e5687cb45c213448275c0d741e42fdcb6b4d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:40993ec41faa3e37",
+    "fn:fb570feb65c11787",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:0f1105b640d7ca5c"
+name = "node_source_rate_matches_upstream"
+qual = "node_source_rate_matches_upstream"
+lines = [
+    767,
+    770,
+]
+hash = "sha256:8e33ed2cad8717d2592f2b59ba9a1cbfa7e54b10fd1e40b11e17863d06df5af3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:40993ec41faa3e37",
+    "fn:fb570feb65c11787",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:05cea28708b8c497"
+name = "node_graphite_activity_matches_upstream"
+qual = "node_graphite_activity_matches_upstream"
+lines = [
+    772,
+    777,
+]
+hash = "sha256:8aa6715e5909a7682e9d359a0376e95996a638f50d5899c0c9d38dceb3ac6162"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:40993ec41faa3e37",
+    "fn:fb570feb65c11787",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:dd20c6c8c3432733"
+name = "node_circulating_activity_matches_upstream"
+qual = "node_circulating_activity_matches_upstream"
+lines = [
+    779,
+    784,
+]
+hash = "sha256:8d2c57c907ea3328cf947234a8b06a75ccb4705dd6dddec908373d524d745ef4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:40993ec41faa3e37",
+    "fn:fb570feb65c11787",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:284e6baaf318ba96"
+name = "node_plate_out_activity_matches_upstream"
+qual = "node_plate_out_activity_matches_upstream"
+lines = [
+    786,
+    791,
+]
+hash = "sha256:371268214a7cba0d5b2837d2d75724aa5a084308b1481f42b4dd6db5de2ccd9e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:40993ec41faa3e37",
+    "fn:fb570feb65c11787",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:8f6bece3ec2929e8"
+name = "node_clean_up_activity_matches_upstream"
+qual = "node_clean_up_activity_matches_upstream"
+lines = [
+    793,
+    801,
+]
+hash = "sha256:ef83cdf47770854ca2eaaaf58bf5ece72f6457d9d8dd9a4d58e1cc0e1ac93b93"
+doc_hash = "sha256:7400c8398d4f80a5cb6fb23b13163a4697ca3ebb90e442979e6f32beec8ed498"
+callees = [
+    "fn:40993ec41faa3e37",
+    "fn:fb570feb65c11787",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:c20d62cce632186e"
+name = "accident_row"
+qual = "accident_row"
+lines = [
+    805,
+    829,
+]
+hash = "sha256:9573431cf5fa26ce0dacb5c7a7d40ee4f5965b70803036f52e69d92d9b794cd0"
+doc_hash = "sha256:9f31949156572316b6e9b7fd9bf351c9cdcfab2789998088aa8564fd22988952"
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:41c92604548982b2"
+name = "release_activity_kernel_matches_upstream"
+qual = "release_activity_kernel_matches_upstream"
+lines = [
+    831,
+    853,
+]
+hash = "sha256:c34ce395b0ec4dd716ee2c3d2d513c61caab47fb4544d1b73d6378daa7acccf3"
+doc_hash = "sha256:2980b0f8c17b571b75c23aa4faed1a4f0a15d0baeb8fc40e7dc6660947502d24"
+callees = [
+    "fn:2e610cfd767d4eb5",
+    "fn:40993ec41faa3e37",
+    "fn:429d6161b7f8bf68",
+    "fn:c20d62cce632186e",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:14ed52d198adcbf2"
+name = "release_activity_graphite_matches_upstream"
+qual = "release_activity_graphite_matches_upstream"
+lines = [
+    855,
+    871,
+]
+hash = "sha256:73ef23fff2e26fcbfb6ade9273bd8d692eb7eca35e16b782e973529dc227641e"
+doc_hash = "sha256:3370cecd83352e21c70aa49ea0cdc6db7fe82b1a00b7eb2d136b4b89e5159023"
+callees = [
+    "fn:2e610cfd767d4eb5",
+    "fn:40993ec41faa3e37",
+    "fn:429d6161b7f8bf68",
+    "fn:c20d62cce632186e",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:73c3a829545fd8cb"
+name = "decode_coolant_row"
+qual = "decode_coolant_row"
+lines = [
+    902,
+    927,
+]
+hash = "sha256:4c1fad556ad803bd41a89642c918c32c429d6b86fbe9058291e8c54b6ce7bc3f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:98f758dd23b5ecca"
+name = "coolant_mean_temperature_rate_matches_upstream"
+qual = "coolant_mean_temperature_rate_matches_upstream"
+lines = [
+    929,
+    941,
+]
+hash = "sha256:8f4fc3bdc4213b1372f53959198a39c5dc9b12eb5fd0d692c296a0be6eb8b76c"
+doc_hash = "sha256:6b908d84105c69f69b5c946fd7e41776b8ded7769acbc65cfe7d11da940ff83c"
+callees = [
+    "fn:40993ec41faa3e37",
+    "fn:4534649caeaa347f",
+    "fn:73c3a829545fd8cb",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:10eff2d25b371db3"
+name = "coolant_release_fraction_matches_upstream"
+qual = "coolant_release_fraction_matches_upstream"
+lines = [
+    943,
+    957,
+]
+hash = "sha256:eec70a505df80b3eb23a7391755f826ef24f61726da507315204428af4f7fada"
+doc_hash = "sha256:ee2db8dd240df930f2b5adcdebac2c3b57f1e147aee1af633766e6536547474d"
+callees = [
+    "fn:40993ec41faa3e37",
+    "fn:4534649caeaa347f",
+    "fn:73c3a829545fd8cb",
+    "fn:94487e3b2a5fbffa",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:a3a537eb5de045c2"
+name = "coolant_release_knife_edge_divergence_is_representation_noise"
+qual = "coolant_release_knife_edge_divergence_is_representation_noise"
+lines = [
+    959,
+    1059,
+]
+hash = "sha256:339f50ad960277e20a9cf237916d02ca0e171dc05a19f048713ba631af9264fa"
+doc_hash = "sha256:be22b21674d7ed7b460c2985d2f6d233c7ccf30b88b23f6210c5c143fb276091"
+callees = [
+    "fn:4534649caeaa347f",
+    "fn:73c3a829545fd8cb",
+    "fn:94487e3b2a5fbffa",
+    "fn:cbc6db712729369f",
+    "fn:d7393e60c0d1208a",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:17c70feb8e8ea051"
+name = "coolant_release_vent_times_match_upstream"
+qual = "coolant_release_vent_times_match_upstream"
+lines = [
+    1061,
+    1071,
+]
+hash = "sha256:ea682ae9b76f5c66da07767896972e95445bcedbadbb30c084d4fcaba3346bbc"
+doc_hash = "sha256:0a5ff35d244c7233416f11cef6e610b6d6074cfab911ef74f09eb41ca556ee15"
+callees = [
+    "fn:40993ec41faa3e37",
+    "fn:4534649caeaa347f",
+    "fn:73c3a829545fd8cb",
+    "fn:94487e3b2a5fbffa",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:3eeab5d0d49725b3"
+name = "decode_accident_scenario"
+qual = "decode_accident_scenario"
+lines = [
+    1106,
+    1160,
+]
+hash = "sha256:17dcc0c05f61a0d83638ef94c2cb777739ea7153fc2b62cac706444bd22ef273"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:d2d10361418fa791"
+name = "accident_scenarios"
+qual = "accident_scenarios"
+lines = [
+    1162,
+    1182,
+]
+hash = "sha256:8c2071a7a7143d2cc2c6dc4339b4d08c3fb1060ab132cb0ade45a360f9e9b378"
+doc_hash = "sha256:efe3d7253c443f9ca9c672340da3a5d20106ba6bc3341926fd48260924099c92"
+callees = [
+    "fn:3eeab5d0d49725b3",
+    "fn:cbc6db712729369f",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:3a2fb6be4f79ddca"
+name = "compose_accident_case"
+qual = "compose_accident_case"
+lines = [
+    1208,
+    1353,
+]
+hash = "sha256:a1795a1c6fc0c0f81e90153f67e3a29aeb8e4c0d615ba21d8cdd041bd1e33abd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:34ff47a5448224c9",
+    "fn:36a8c82d150d877e",
+    "fn:429d6161b7f8bf68",
+    "fn:4534649caeaa347f",
+    "fn:5c206cdbedc0c475",
+    "fn:759c40b16c1f728e",
+    "fn:94487e3b2a5fbffa",
+    "fn:d51049d00f066bb6",
+    "fn:ee64ea353c7ab103",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:a58f7b2abaeacaad"
+name = "accident_case_nuclide_selection_matches_upstream"
+qual = "accident_case_nuclide_selection_matches_upstream"
+lines = [
+    1355,
+    1387,
+]
+hash = "sha256:c313a48f33667823da4951e06107fee17c0783f1089a95417b433da1910d0942"
+doc_hash = "sha256:5c65f7f3da0a26680f05c4c32e47769662f442f4cf99cb065fca5eee386be4fa"
+callees = [
+    "fn:cbc6db712729369f",
+    "fn:d2d10361418fa791",
+    "fn:ee64ea353c7ab103",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:6ecf379476ca0b6e"
+name = "accident_case_nodal_kernel_matches_upstream"
+qual = "accident_case_nodal_kernel_matches_upstream"
+lines = [
+    1389,
+    1412,
+]
+hash = "sha256:586675c9cc397a28104a90d53bdfbc2ada3a677bb8141412846fb2cbdd7dcc3c"
+doc_hash = "sha256:d6d5f71f28f29b79708a87e17ead6e7c7e82b4763fd0638c398b9fa3b299edc6"
+callees = [
+    "fn:3a2fb6be4f79ddca",
+    "fn:a19fb8dd7685b349",
+    "fn:b8e43d7ae8f66310",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:65996927b74e9ca8"
+name = "accident_case_nodal_graphite_matches_upstream"
+qual = "accident_case_nodal_graphite_matches_upstream"
+lines = [
+    1414,
+    1424,
+]
+hash = "sha256:1999e67fae2546dc859c85eb4887dd4e7afb8241c9dafb4cc6f946af1240f7f0"
+doc_hash = "sha256:70f10477faae1335a083e8227d0d5d2b71129d69df6b32bfaa1463541b185e81"
+callees = [
+    "fn:3a2fb6be4f79ddca",
+    "fn:a19fb8dd7685b349",
+    "fn:b8e43d7ae8f66310",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:813077237cecc538"
+name = "accident_case_total_matches_upstream"
+qual = "accident_case_total_matches_upstream"
+lines = [
+    1426,
+    1475,
+]
+hash = "sha256:12c92f5d79e073cd239187a62c44c82953f8fbc8e70a2f2078b35a57d3a17ecf"
+doc_hash = "sha256:90d58f29aa928687403a9ba8692b1fc7b6027b557f6470a5177225da0f95e416"
+callees = [
+    "fn:34ff47a5448224c9",
+    "fn:36a8c82d150d877e",
+    "fn:3a2fb6be4f79ddca",
+    "fn:a19fb8dd7685b349",
+    "fn:acec24ad5f8776f5",
+    "fn:b8e43d7ae8f66310",
+    "fn:e1cb570a455c31b8",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:a19fb8dd7685b349"
+name = "nuclide_slot"
+qual = "nuclide_slot"
+lines = [
+    1477,
+    1482,
+]
+hash = "sha256:4f3bc8f66d0fd86506ce3de7aac02d46e2ae0fff3bc54a285ad58ea186b201d5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:b8e43d7ae8f66310"
+name = "check_prefixed_group"
+qual = "check_prefixed_group"
+lines = [
+    1484,
+    1529,
+]
+hash = "sha256:f6d3bed500a855967133172111153e6bbf29d0b2aba3c91ace69c813d861127b"
+doc_hash = "sha256:7dbb9b0a966701d7f7f64ec7b1aadc7d544549469e15f5783ebc0bcf15b34b0c"
+callees = [
+    "fn:cbc6db712729369f",
+    "fn:d2d10361418fa791",
+    "fn:d7393e60c0d1208a",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:3afbd757cb0148a6"
+name = "inventory_processing_matches_upstream"
+qual = "inventory_processing_matches_upstream"
+lines = [
+    1533,
+    1543,
+]
+hash = "sha256:76c421ee33907cdffe0152ed7a1cb51ee6edda0afd7770b3d92edfe643c53622"
+doc_hash = "sha256:08c907274fd01331e7db8e75909974e49c7e2615f38bd07d19bae34a314239a1"
+callees = [
+    "fn:1821cd8bfaa22038",
+    "fn:40993ec41faa3e37",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:cccc4b25399b72d9"
+name = "nuclide_short_lived_classification_matches_upstream"
+qual = "nuclide_short_lived_classification_matches_upstream"
+lines = [
+    1545,
+    1578,
+]
+hash = "sha256:d3e55f9a02bfd4505cc2f0f8afa49851256676654080decb7d29f77686ecad11"
+doc_hash = "sha256:a03dfb35be0127b034cffc6ad5138fc3fa99516e8e1672c049a7e699475661a0"
+callees = [
+    "fn:2db20ac5ca82f2df",
+    "fn:cbc6db712729369f",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:d787bea12f960b30"
+name = "nuclide_accident_retention_matches_upstream"
+qual = "nuclide_accident_retention_matches_upstream"
+lines = [
+    1580,
+    1607,
+]
+hash = "sha256:7e0ae966ebc8371b5bb922425507bf3d4cf80406cc10e3bfadfd0c463e1c2f23"
+doc_hash = "sha256:290a57b7b981082b31108871799e153cc3c1addf5a708aa124b5600f45a2e188"
+callees = [
+    "fn:cbc6db712729369f",
+    "fn:ee64ea353c7ab103",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:26fe80d1dbf64aa4"
+name = "name_normalisation_matches_upstream_regex"
+qual = "name_normalisation_matches_upstream_regex"
+lines = [
+    1611,
+    1685,
+]
+hash = "sha256:2bdc9104eb2ab6c2e6677bc1f50f75c73593289f5c1cbbdabfc48a93e39c7f15"
+doc_hash = "sha256:461996710ee6d99a7f11abf7c64e1e4af1dd5f7df6794c19eee31b41529f5d54"
+callees = [
+    "fn:3292f77e069a4060",
+    "fn:cbc6db712729369f",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:cd690b7465781274"
+name = "upstream_nuclide_sort_never_reorders"
+qual = "upstream_nuclide_sort_never_reorders"
+lines = [
+    1689,
+    1729,
+]
+hash = "sha256:5938c65a986f1e40c8dff5ed9d4818a475b645a1161cbea7ae96640b81cec486"
+doc_hash = "sha256:5239df0b703f19a438c149589a20d5169eef71c3f355726365143245c4cca979"
+callees = [
+    "fn:65fc83dc4226d102",
+    "fn:cbc6db712729369f",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:cae50639d99f80ae"
+name = "convert_time_factors_match_upstream"
+qual = "convert_time_factors_match_upstream"
+lines = [
+    1731,
+    1754,
+]
+hash = "sha256:45c32fcb6d55cd93c92da3536191f5b929bd329042e6829b5426d25f582f0f14"
+doc_hash = "sha256:cf33ff43de1c2c98bac1c8b68a0cb2b0e09ba7220554aaa900ea081a1bb8188d"
+callees = [
+    "fn:bb3bb965bdd5e28b",
+    "fn:cbc6db712729369f",
+    "fn:f5caa9d482058451",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:8c71f9bf99df47eb"
+name = "every_nuclide_decay_constant_matches_upstream"
+qual = "every_nuclide_decay_constant_matches_upstream"
+lines = [
+    1758,
+    1800,
+]
+hash = "sha256:6277a3fedd969618f2d9f2d19f8337fa497c9745cd7a42a7d14762b494d1d0dc"
+doc_hash = "sha256:ef2e9bdcecfe3ba74cf7612f843eaef963d71c3f7f394dd0e46ccb44ec89aaeb"
+callees = [
+    "fn:34ff47a5448224c9",
+    "fn:cbc6db712729369f",
+    "fn:d7393e60c0d1208a",
+    "fn:e1cb570a455c31b8",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:69de1ba20a11b749"
+name = "noble_gases_upstream_cannot_evaluate_use_the_xenon_fit"
+qual = "noble_gases_upstream_cannot_evaluate_use_the_xenon_fit"
+lines = [
+    1804,
+    1828,
+]
+hash = "sha256:b6a3e0cf93d75f5600743785a94307a7c89f58d322221b482b555a1661121a3b"
+doc_hash = "sha256:d6b47be7d951d8e3fef20f8971c7ec287f780565c896e9ebc09cb37b5d2cefaa"
+callees = [
+    "fn:353a07bd52f264c2",
+    "fn:9b8692e8da0d6c05",
+    "fn:a167062c8b8bf5a8",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:4207bf0d4dc5895b"
+name = "clean_up_without_guard_is_nan_where_upstream_raises"
+qual = "clean_up_without_guard_is_nan_where_upstream_raises"
+lines = [
+    1830,
+    1853,
+]
+hash = "sha256:98f4e1efa3d000680cf57088dd9a7040b93f0e7a84811d54b989548a81432439"
+doc_hash = "sha256:735002ab31cb953e281e058719d12a9957ffdb32badcb75dad045ecd46f9655f"
+callees = [
+    "fn:1365b3b5318e0a5d",
+    "fn:3dd183d69ce986f2",
+    "fn:9515687f16091d7e",
+    "fn:9b8692e8da0d6c05",
+]
+test = true
+
+[module."triso_atops_fork_verification.rs"]
+path = "test:triso_atops_fork_verification"
+
+[[module."triso_atops_fork_verification.rs".function]]
+id = "fn:2d2e766dfd5eb773"
+name = "iodine_kernel_diffusion_matches_correlation"
+qual = "iodine_kernel_diffusion_matches_correlation"
+lines = [
+    78,
+    90,
+]
+hash = "sha256:029522753b05b5b889723d1588b65b12ae0eb20936cb6fbac36c13f6ab237f22"
+doc_hash = "sha256:ecfad3451a5cec44ff06b1af0bd79d01af1478608c0f074cc340753f7522d89e"
+callees = ["fn:8bc4c3bc717bd99d"]
+test = true
+
+[[module."triso_atops_fork_verification.rs".function]]
+id = "fn:db7e5ca7f33a2f2d"
+name = "silver_sic_diffusion_matches_correlation"
+qual = "silver_sic_diffusion_matches_correlation"
+lines = [
+    92,
+    101,
+]
+hash = "sha256:866d8fb0c34219f6f63ef71635bed2a8b093f7feafbcddf7806143ed134d911f"
+doc_hash = "sha256:4f0a3ff646df8eb0737047b2a74dbae4d303d029e7b16310ec69fc90292a57c0"
+callees = ["fn:7f5cefb7c1df6559"]
+test = true
+
+[[module."triso_atops_fork_verification.rs".function]]
+id = "fn:f1b9f5e5ab824a0d"
+name = "cs137_decay_constant_from_database"
+qual = "cs137_decay_constant_from_database"
+lines = [
+    103,
+    113,
+]
+hash = "sha256:6bed1af32d51f1d24d107e133c7145ecbc3a16c80494c69ad40e42c323f29131"
+doc_hash = "sha256:cf316c07d3b7f17bb20284fc0375417f3e5baea84c0742c462cba4c052cd27c1"
+callees = [
+    "fn:34ff47a5448224c9",
+    "fn:d51049d00f066bb6",
+    "fn:e1cb570a455c31b8",
+]
+test = true
+
+[[module."triso_atops_fork_verification.rs".function]]
+id = "fn:5cc89c91e6e60177"
+name = "booth_longlived_analytical_limits_via_public_api"
+qual = "booth_longlived_analytical_limits_via_public_api"
+lines = [
+    115,
+    143,
+]
+hash = "sha256:da527def72f5eaa97d71acf8a5667faf90c6c3cbff005b36f8646b2e40604a25"
+doc_hash = "sha256:8b356b2bba8f64a54bda194c325f50d31a107affb45915b81ddf4544a29818e4"
+callees = ["fn:9d27b0efc9f673f8"]
+test = true
+
+[[module."triso_atops_fork_verification.rs".function]]
+id = "fn:c961bc5e3f34419f"
+name = "booth_longlived_early_time_law"
+qual = "booth_longlived_early_time_law"
+lines = [
+    145,
+    153,
+]
+hash = "sha256:0f0b6642ce8bc6c757e9ad245a8e8e7fa9616a6353ed878f8eb8f1a37c7f7789"
+doc_hash = "sha256:198ff2248d5b4f9d7bcd9f3b22e2931d87898db749c572d46bd88e37f6c6ccb0"
+test = true
+
+[[module."triso_atops_fork_verification.rs".function]]
+id = "fn:a64d79c1c16c6d61"
+name = "xenon_graphite_release_is_zero"
+qual = "xenon_graphite_release_is_zero"
+lines = [
+    155,
+    173,
+]
+hash = "sha256:876f873064f19171bc8d4705a1f13e7786e874cd0de4ba418cc89d858b0f4eb0"
+doc_hash = "sha256:41a5a1d9150e620530d5509e2edadcf387adf91de8372aa8e48eb6f05aa4b8df"
+callees = ["fn:5c206cdbedc0c475"]
+test = true
+
+[[module."triso_atops_fork_verification.rs".function]]
+id = "fn:cd161ecff125bdbb"
+name = "supported_nuclide_table_complete"
+qual = "supported_nuclide_table_complete"
+lines = [
+    175,
+    182,
+]
+hash = "sha256:50f173295bb2608085df388897ad0dc73f2bfc2bb521dedeb67168801d5650af"
+doc_hash = "sha256:8f805a9c994ec0700866b1db1947c6adb111e3223744b2fbd62f7804f6a4dbe9"
+callees = [
+    "fn:521d4591f6090c64",
+    "fn:e1cb570a455c31b8",
+]
+test = true
+
+[[module."triso_atops_fork_verification.rs".function]]
+id = "fn:da7a44f11356c7fd"
+name = "activity_units_ci_bq_and_lambda_n"
+qual = "activity_units_ci_bq_and_lambda_n"
+lines = [
+    184,
+    204,
+]
+hash = "sha256:9fabc919d12a7161f10fcb5ee567de0ebab4c1a8b5093e9c1cb8a090b160aaca"
+doc_hash = "sha256:021e73cc21c7b90771fe649dbeb209a0cd14c1aab868dfc630ff41942c5ebf35"
+callees = [
+    "fn:19e5783b37ef814f",
+    "fn:34ff47a5448224c9",
+    "fn:44fd31aa536c0e7c",
+    "fn:4e747b96b31630e2",
+    "fn:cef7daa77e029e71",
+    "fn:e1cb570a455c31b8",
+]
+test = true
+
+[[module."triso_atops_fork_verification.rs".function]]
+id = "fn:3a2d7413b6651ded"
+name = "normal_operation_node_i131_via_prelude"
+qual = "normal_operation_node_i131_via_prelude"
+lines = [
+    206,
+    259,
+]
+hash = "sha256:6f8794750a912aedca8ea0b5bf55bd2e883d191eedce03956832152642c5bad3"
+doc_hash = "sha256:d4b22c21f99a5da12510cc6cd905650133e011cea7d820150f745007479305d7"
+callees = [
+    "fn:34ff47a5448224c9",
+    "fn:44fd31aa536c0e7c",
+    "fn:5a2cfb2f89e6446a",
+    "fn:9a8a6835861d321b",
+    "fn:e1cb570a455c31b8",
+    "fn:e503a3d0722ff508",
+]
+test = true
+
+[module."triso_atops_upstream_run_file.rs"]
+path = "test:triso_atops_upstream_run_file"
+
+[[module."triso_atops_upstream_run_file.rs".function]]
+id = "fn:0e7ffa30cf9960f2"
+name = "dir"
+qual = "dir"
+lines = [
+    54,
+    56,
+]
+hash = "sha256:35edbb0f96208afd739419f16a4c0e1587cb79bd90e485c4cef2656856b85c8c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."triso_atops_upstream_run_file.rs".function]]
+id = "fn:03a8eeed3c741605"
+name = "flat"
+qual = "flat"
+lines = [
+    58,
+    64,
+]
+hash = "sha256:e46376f56c5e19374d0eb3194f10e38f5de6e4361937a5099bd79eaacbbc0365"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."triso_atops_upstream_run_file.rs".function]]
+id = "fn:872d8eec8d3389ad"
+name = "every_case_agrees_with_upstream_process_run_file"
+qual = "every_case_agrees_with_upstream_process_run_file"
+lines = [
+    66,
+    109,
+]
+hash = "sha256:ac665529e9665e1e250491093b41a22088f2183b214db9c68fd990a249398c8b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:03a8eeed3c741605",
+    "fn:0e7ffa30cf9960f2",
+    "fn:869f01d9220c51d2",
+]
+test = true
+
+[module."wasm_fallback.rs"]
+path = "test:wasm_fallback"
+
+[[module."wasm_fallback.rs".function]]
+id = "fn:0c3dae2b6a210929"
+name = "config"
+qual = "config"
+lines = [
+    53,
+    58,
+]
+hash = "sha256:4ea12b83e200ab5dae35da45ffdc4f7643dc858a507931c5fabe245f70a68bb6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."wasm_fallback.rs".function]]
+id = "fn:c523f3052a2b7661"
+name = "parallel_ensemble_runs_and_is_physical"
+qual = "parallel_ensemble_runs_and_is_physical"
+lines = [
+    60,
+    81,
+]
+hash = "sha256:b04abefdbad819cafdf8ff0d00692bc66d127912cf84c9b7424cc0cf01a0f20f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0c3dae2b6a210929",
+    "fn:ef570908064315a0",
+]
+test = true
+
+[[module."wasm_fallback.rs".function]]
+id = "fn:fa5ea366e747a6cb"
+name = "ensemble_is_reproducible_across_repeated_runs"
+qual = "ensemble_is_reproducible_across_repeated_runs"
+lines = [
+    83,
+    110,
+]
+hash = "sha256:5272ce59a51b1cd538da3af6ae61e3a72873fe97e11c2542830cda5ed18a24be"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0c3dae2b6a210929",
+    "fn:ef570908064315a0",
+]
+test = true
+
+[[module."wasm_fallback.rs".function]]
+id = "fn:3184c11fd5647c0f"
+name = "history_seeding_is_independent_of_worker_count"
+qual = "history_seeding_is_independent_of_worker_count"
+lines = [
+    112,
+    134,
+]
+hash = "sha256:1d106e78964f00b1fbd4a2e467d0ddb3e164f62f086babbb65628ee90dd699dc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9144c9970e3c598f"]
+test = true

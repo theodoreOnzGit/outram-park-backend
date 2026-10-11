@@ -1,0 +1,40 @@
+schema_version = 1
+kind = "code_folder"
+crate = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan"
+dir = "crates/kovan/examples"
+
+[module."digitiser_synthetic_demo.rs"]
+path = "example:digitiser_synthetic_demo"
+
+[[module."digitiser_synthetic_demo.rs".function]]
+id = "fn:f0701f1e5758cc35"
+name = "power_law"
+qual = "power_law"
+lines = [
+    27,
+    30,
+]
+hash = "sha256:f6facdd073726192929d40d018a0a4cd735e8e6f2ef3382597a41973352891a7"
+doc_hash = "sha256:9746c481600a03ceb595c3bcca7b6d8c4fb276dde3dcaa0d19ad6c58f9891672"
+
+[[module."digitiser_synthetic_demo.rs".function]]
+id = "fn:aade05c42a17166c"
+name = "main"
+qual = "main"
+lines = [
+    32,
+    108,
+]
+hash = "sha256:b1afee24316471e25c0f918fe3ae4a3834dd9c413cae2424f652290e874821a8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:00fdd8e63a8c3613",
+    "fn:04a29659d98a9311",
+    "fn:1978a94596494ac6",
+    "fn:5955620fffe42229",
+    "fn:6ece65dbb59fc459",
+    "fn:7c4d374092f3482c",
+    "fn:f0701f1e5758cc35",
+    "fn:fb0c89d17d0113ec",
+    "fn:fee7cc6f6b37fd8c",
+]

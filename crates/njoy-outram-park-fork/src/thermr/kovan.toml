@@ -1,0 +1,5702 @@
+schema_version = 1
+kind = "code_folder"
+crate = "njoy-outram-park-fork"
+dir = "crates/njoy-outram-park-fork/src/thermr"
+test_ids = [
+    "crates/dhoby-ghaut/examples/common/processed_cache.rs::a_cached_law_is_the_processed_law_bit_for_bit",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::a_traced_neutron_lays_out_and_steps",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::both_panes_run_the_same_neutron_from_the_same_variate",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::run_many_streams_every_method_in_turn",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::the_demo_majorant_bounds_every_material",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::the_engine_thread_loads_traces_and_runs",
+    "crates/dhoby-ghaut/examples/nuclear_data_web/main.rs::the_engine_serves_reconr_and_broadr_and_broadening_keeps_the_area",
+    "crates/nee_soon/src/htr10_rmc/data.rs::the_full_case_is_refused_until_gh339_is_fixed",
+    "crates/nee_soon/src/htr10_rmc/data_jobs.rs::the_jobs_path_builds_the_loaders_nuclides",
+    "crates/nee_soon/src/htr10_rmc/data_jobs.rs::the_jobs_path_builds_the_whole_core_set",
+    "crates/njoy-outram-park-fork/src/leapr/endout.rs::coherent_elastic_extra_temperature_tail_collapse_is_pinned",
+    "crates/njoy-outram-park-fork/src/leapr/endout.rs::coherent_elastic_roundtrips_and_is_monotone",
+    "crates/njoy-outram-park-fork/src/leapr/endout.rs::coherent_elastic_ten_temperatures_roundtrip",
+    "crates/njoy-outram-park-fork/src/leapr/endout.rs::ilog_stores_the_natural_log_of_the_linear_value",
+    "crates/njoy-outram-park-fork/src/leapr/endout.rs::incoherent_elastic_roundtrips",
+    "crates/njoy-outram-park-fork/src/leapr/endout.rs::inelastic_only_roundtrips_through_thermr",
+    "crates/njoy-outram-park-fork/src/leapr/endout.rs::isabt_stores_the_asymmetric_law",
+    "crates/njoy-outram-park-fork/src/leapr/endout.rs::lln_is_written_but_never_read_back",
+    "crates/njoy-outram-park-fork/src/leapr/generate.rs::always_regenerate_ignores_a_stale_disk_cache_entry",
+    "crates/njoy-outram-park-fork/src/leapr/generate.rs::use_cache_if_available_falls_back_gracefully_on_a_miss_and_then_populates_it",
+    "crates/njoy-outram-park-fork/src/thermr/coherent.rs::bragg_reflection_cosines_are_physical",
+    "crates/njoy-outram-park-fork/src/thermr/coherent.rs::cross_section_decreases_with_temperature",
+    "crates/njoy-outram-park-fork/src/thermr/coherent.rs::cross_section_is_s_over_e_and_sawtooths",
+    "crates/njoy-outram-park-fork/src/thermr/coherent.rs::interpolated_cross_section_is_bracketed",
+    "crates/njoy-outram-park-fork/src/thermr/coherent.rs::out_of_range_temperature_is_an_error",
+    "crates/njoy-outram-park-fork/src/thermr/coherent.rs::zero_below_first_bragg_edge",
+    "crates/njoy-outram-park-fork/src/thermr/incoherent_elastic.rs::cross_section_is_positive_and_falls_with_energy",
+    "crates/njoy-outram-park-fork/src/thermr/incoherent_elastic.rs::debye_waller_interpolates_and_clamps",
+    "crates/njoy-outram-park-fork/src/thermr/incoherent_elastic.rs::equiprobable_cosines_are_ordered_forward_peaked_and_bounded",
+    "crates/njoy-outram-park-fork/src/thermr/incoherent_elastic.rs::equiprobable_cosines_fall_back_to_uniform_at_zero_energy",
+    "crates/njoy-outram-park-fork/src/thermr/inelastic.rs::bound_cross_section_is_physical",
+    "crates/njoy-outram-park-fork/src/thermr/inelastic.rs::cross_section_rises_toward_free_gas_limit",
+    "crates/njoy-outram-park-fork/src/thermr/inelastic.rs::double_differential_nonnegative_and_finite",
+    "crates/njoy-outram-park-fork/src/thermr/inelastic.rs::inelastic_cross_section_is_positive_and_finite",
+    "crates/njoy-outram-park-fork/src/thermr/mf7.rs::al27_has_both_elastic_and_inelastic",
+    "crates/njoy-outram-park-fork/src/thermr/mf7.rs::coherent_elastic_bragg_edges_are_monotone",
+    "crates/njoy-outram-park-fork/src/thermr/mf7.rs::inelastic_s_alpha_beta_grid_is_consistent",
+    "crates/njoy-outram-park-fork/src/thermr/mf7.rs::lthr2_incoherent_elastic_only",
+    "crates/njoy-outram-park-fork/src/thermr/mf7.rs::lthr3_mixed_coherent_and_incoherent",
+    "crates/njoy-outram-park-fork/src/thermr/mf7.rs::select_temperature_interpolates_between_points",
+    "crates/njoy-outram-park-fork/src/thermr/mf7.rs::select_temperature_refuses_out_of_range",
+    "crates/njoy-outram-park-fork/src/thermr/mf7.rs::select_temperature_snaps_within_njoy_tolerance",
+    "crates/njoy-outram-park-fork/src/thermr/temperature_thinning.rs::accumulator_reports_max_rms_and_worst_point",
+    "crates/njoy-outram-park-fork/src/thermr/temperature_thinning.rs::bracket_finds_the_kept_neighbours",
+    "crates/njoy-outram-park-fork/src/thermr/temperature_thinning.rs::byte_model_matches_the_graphite_tape",
+    "crates/njoy-outram-park-fork/src/thermr/temperature_thinning.rs::leave_one_out_keeps_the_neighbours",
+    "crates/njoy-outram-park-fork/tests/acer_acesix_vs_njoy2016_ace.rs::acesix_reproduces_njoy2016_ace_thermal_bins",
+    "crates/njoy-outram-park-fork/tests/acer_thermal_ifeng_vs_njoy2016.rs::ifeng1_is_skewed_and_declares_itself",
+    "crates/njoy-outram-park-fork/tests/acer_thermal_ifeng_vs_njoy2016.rs::ifeng2_itxe_layout_matches_njoy2016",
+    "crates/njoy-outram-park-fork/tests/acer_thermal_ifeng_vs_njoy2016.rs::ifeng2_stored_law_is_normalised",
+    "crates/njoy-outram-park-fork/tests/leapr_cold_hydrogen_njoy_oracle.rs::cold_para_hydrogen_reproduces_njoy2016_reference_tape",
+    "crates/njoy-outram-park-fork/tests/leapr_d2o_skold_njoy_oracle.rs::d_in_d2o_with_skold_reproduces_njoy_leapr_at_293_6_k",
+    "crates/njoy-outram-park-fork/tests/leapr_graphite_coherent_elastic_parity.rs::both_boltzmann_vintages_are_measured_for_the_elastic_channel",
+    "crates/njoy-outram-park-fork/tests/leapr_graphite_coherent_elastic_parity.rs::bragg_edge_residual_is_the_econ_constant_vintage",
+    "crates/njoy-outram-park-fork/tests/leapr_graphite_coherent_elastic_parity.rs::coherent_elastic_parity_against_endf_tape",
+    "crates/njoy-outram-park-fork/tests/leapr_graphite_coherent_elastic_parity.rs::coherent_elastic_pins_the_absolute_debye_waller_and_structure_factor_scales",
+    "crates/njoy-outram-park-fork/tests/leapr_graphite_deck_parity.rs::debye_waller_conversion_matches_the_tape_temperature_trend",
+    "crates/njoy-outram-park-fork/tests/leapr_graphite_deck_parity.rs::sab_parity_against_endf_tape_at_1000k",
+    "crates/njoy-outram-park-fork/tests/leapr_graphite_deck_parity.rs::sab_parity_against_endf_tape_at_296k",
+    "crates/njoy-outram-park-fork/tests/leapr_h2o_njoy_oracle.rs::h_in_h2o_reproduces_njoy_leapr_at_293_6_k",
+    "crates/njoy-outram-park-fork/tests/leapr_h2o_secondary_scatterer.rs::cross_section_matches_the_published_evaluation",
+    "crates/njoy-outram-park-fork/tests/leapr_h2o_secondary_scatterer.rs::effective_temperature_includes_translation_and_oscillators",
+    "crates/njoy-outram-park-fork/tests/leapr_h2o_secondary_scatterer.rs::generated_b_constants_carry_the_secondary_scatterer",
+    "crates/njoy-outram-park-fork/tests/leapr_sic_coherent_elastic_oracle.rs::c_in_sic_coherent_elastic_matches_oracle_within_five_percent",
+    "crates/njoy-outram-park-fork/tests/leapr_sic_coherent_elastic_oracle.rs::coherent_elastic_is_identical_across_both_sic_materials",
+    "crates/njoy-outram-park-fork/tests/leapr_sic_coherent_elastic_oracle.rs::per_atom_debye_waller_flattens_the_difference_reflection_residual",
+    "crates/njoy-outram-park-fork/tests/leapr_sic_coherent_elastic_oracle.rs::published_sic_bragg_pattern_matches_an_invalid_centring_not_zinc_blende",
+    "crates/njoy-outram-park-fork/tests/leapr_sic_coherent_elastic_oracle.rs::si_in_sic_coherent_elastic_matches_oracle_within_five_percent",
+    "crates/njoy-outram-park-fork/tests/leapr_sio2_mixed_moderator_oracle.rs::sio2_alpha_mixed_moderator_reproduces_njoy_leapr_at_every_temperature",
+    "crates/njoy-outram-park-fork/tests/leapr_temperature_block_selection.rs::a_declared_temperature_uses_its_own_block",
+    "crates/njoy-outram-park-fork/tests/leapr_temperature_block_selection.rs::off_grid_temperature_is_allowed_when_every_block_inherits",
+    "crates/njoy-outram-park-fork/tests/leapr_temperature_block_selection.rs::off_grid_temperature_is_refused_when_the_spectrum_is_per_temperature",
+    "crates/njoy-outram-park-fork/tests/leapr_temperature_block_selection.rs::si_in_sic_kernel_reproduces_the_published_evaluation_at_every_temperature",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::coherent_elastic_bragg_block_is_monotone",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::inelastic_blocks_are_consistent",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::thermal_table_header_and_dimensions",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::thermal_table_roundtrips_through_file",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::hzrh_has_incoherent_elastic_and_inelastic_but_no_coherent",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::incoherent_elastic_block_layout_is_consistent",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::incoherent_elastic_cross_section_physics",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::thermal_table_roundtrips_through_file",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::thermal_table_uses_idpnc3_elastic_branch",
+    "crates/njoy-outram-park-fork/tests/thermal_graphite_coherent.rs::anchors_at_296k",
+    "crates/njoy-outram-park-fork/tests/thermal_graphite_coherent.rs::coherent_sigma_decreases_with_temperature",
+    "crates/njoy-outram-park-fork/tests/thermal_graphite_coherent.rs::consumer_surface_matches_mf7_level",
+    "crates/njoy-outram-park-fork/tests/thermal_graphite_coherent.rs::htr10_temperatures_interpolate_or_snap",
+    "crates/njoy-outram-park-fork/tests/thermal_graphite_coherent.rs::inelastic_interpolates_between_temperatures",
+    "crates/njoy-outram-park-fork/tests/thermal_graphite_coherent.rs::out_of_range_temperature_is_refused",
+    "crates/njoy-outram-park-fork/tests/thermal_h2o_sab.rs::approaches_free_atom_cross_section_at_high_energy",
+    "crates/njoy-outram-park-fork/tests/thermal_h2o_sab.rs::double_differential_obeys_detailed_balance",
+    "crates/njoy-outram-park-fork/tests/thermal_h2o_sab.rs::effective_temperature_is_physical",
+    "crates/njoy-outram-park-fork/tests/thermal_h2o_sab.rs::selects_the_293k_scattering_law",
+    "crates/njoy-outram-park-fork/tests/thermal_h2o_sab.rs::thermal_cross_section_matches_bound_water",
+    "crates/njoy-outram-park-fork/tests/thermal_temperature_thinning.rs::byte_savings_per_grid",
+    "crates/njoy-outram-park-fork/tests/thermal_temperature_thinning.rs::coherent_elastic_error_is_concentrated_above_the_thermal_window",
+    "crates/njoy-outram-park-fork/tests/thermal_temperature_thinning.rs::coherent_elastic_thinning_is_cheap_at_thermal_energies",
+    "crates/njoy-outram-park-fork/tests/thermal_temperature_thinning.rs::combined_thermal_cross_section_error_decides_the_trade",
+    "crates/njoy-outram-park-fork/tests/thermal_temperature_thinning.rs::evaluation_structure_is_as_documented",
+    "crates/njoy-outram-park-fork/tests/thermal_temperature_thinning.rs::inelastic_thinning_error_is_large_and_worst_at_high_energy",
+    "crates/njoy-outram-park-fork/tests/thermal_temperature_thinning.rs::log_space_halves_the_coherent_elastic_error",
+    "crates/njoy-outram-park-fork/tests/thermal_temperature_thinning.rs::production_interpolation_stays_inside_its_bracket",
+    "crates/njoy-outram-park-fork/tests/thermr_calcem_sigl_vs_quadrature.rs::sigl_cross_section_converges_onto_an_independent_quadrature",
+    "crates/njoy-outram-park-fork/tests/thermr_calcem_sigl_vs_quadrature.rs::sigl_equiprobable_cosines_reproduce_the_quadrature_mean_cosine",
+    "crates/njoy-outram-park-fork/tests/thermr_calcem_vs_njoy2016_golden.rs::calcem_iform0_reproduces_njoy2016_for_graphite_at_600k",
+    "crates/njoy-outram-park-fork/tests/thermr_iform1_continuous_law.rs::iform1_cross_section_matches_an_independent_integration",
+    "crates/njoy-outram-park-fork/tests/thermr_iform1_continuous_law.rs::iform1_joint_mu_energy_distribution_is_normalised",
+    "crates/njoy-outram-park-fork/tests/thermr_iform1_continuous_law.rs::iform1_mean_cosine_matches_a_double_quadrature",
+    "crates/njoy-outram-park-fork/tests/thermr_kernel_vs_njoy2016_matrix.rs::calcem_emission_kernel_reproduces_njoy2016_shape",
+    "crates/njoy-outram-park-fork/tests/thermr_kernel_vs_njoy2016_matrix.rs::equiprobable_emission_is_the_narrow_one",
+    "crates/outram-mc-libs/tests/correct_physics_is_default.rs::thermal_equiprobable_sampling_is_openmc_by_default",
+    "crates/outram-mc-libs/tests/elastic_xi_h1_o16.rs::measured_xi_matches_analytic_for_h1_and_o16",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::bound_graphite_and_free_gas_agree_once_target_motion_is_sampled",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::diagnose_thermal_spectrum_reach",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::graphite_thermal_law_reaches_the_transport_kernel",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::majorant_still_bounds_total_xs_with_bound_graphite",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::regenerated_graphite_thermal_scattering_has_the_expected_shape",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::approaches_the_free_atom_limit_at_the_cutoff",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::attaches_to_a_nuclide_and_overrides_below_the_cutoff",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::builds_at_temperature_with_no_elastic_channel",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::cold_neutrons_upscatter_toward_the_maxwellian",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::thermal_cross_section_matches_bound_light_water",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_lwr_thermal_pin_benchmark",
+    "crates/outram-mc-libs/tests/processed_evaluation_round_trip.rs::a_shipped_thermal_law_is_the_built_law_bit_for_bit",
+    "crates/outram-mc-libs/tests/speed_tier_fast_is_exact.rs::fast_matches_standard_through_the_sab_cutoff",
+    "crates/outram-mc-libs/tests/thermal_cutoff_is_tape_emax.rs::hinh2o_cutoff_is_the_tapes_b4",
+    "crates/outram-mc-libs/tests/thermal_endf_route_xs_vs_njoy.rs::endf_route_inelastic_xs_matches_njoy_itix",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::bound_graphite_nuclide_keeps_its_dominant_channel",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_coherent_channel_is_detected_and_stored_exactly",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_elastic_dominates_thermal_scattering",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_htr10_temperature_points",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_sampling_matches_the_cross_section_split_and_bragg_law",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::interpolated_sigma_inel_stays_inside_its_bracket",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::light_water_has_no_elastic_channel_and_is_unchanged",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::zrh_incoherent_elastic_channel_is_forward_peaked",
+    "crates/outram-mc-libs/tests/thermal_kernel_stationary_distribution.rs::graphite_thermalises_onto_its_own_temperature",
+    "crates/outram-mc-libs/tests/thermal_kernel_stationary_distribution.rs::light_water_thermalises_onto_its_own_temperature",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_cross_sections_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_kernel_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_kernel_width_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_mean_cosine_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_cross_section_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_kernel_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_kernel_width_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_law_extends_to_njoys_10_ev",
+    "crates/outram-mc-libs/tests/thermal_standards.rs::h1_bound_water_scattering_exceeds_free_gas_and_converges_to_it",
+    "crates/outram-mc-libs/tests/total_fast_path_matches_full.rs::h1_with_thermal_scattering_matches_through_the_sab_cutoff",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::diagnose_channels",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::sic_carbon_and_graphite_carbon_are_different_scatterers",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::sic_carbon_binds_a_coherent_elastic_channel_within_the_characterised_band",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::sic_silicon_binds_the_same_lattice_elastic_channel_as_the_carbon_side",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::triso_carbon_coatings_bind_graphite_sab",
+]
+
+[module."coherent.rs"]
+path = "crate::thermr::coherent"
+
+[[module."coherent.rs".function]]
+id = "fn:90dbf9b7b5d2ba8a"
+name = "base_temperature_k"
+qual = "CoherentElastic::base_temperature_k"
+lines = [
+    39,
+    43,
+]
+hash = "sha256:5ee25581103148aeaa14608f7fc5fc5b2c249b103d65f2e5ff92492ff539ec89"
+doc_hash = "sha256:f60b6dcf3ac4f23ac4244c7635d4d1e4a5f8b2ff3835c48a6d30495939f983f3"
+reached_by = [
+    "#11",
+    "#12",
+    "#20",
+    "#22",
+    "#25",
+    "#82",
+]
+
+[[module."coherent.rs".function]]
+id = "fn:256ed9698e55975c"
+name = "select"
+qual = "CoherentElastic::select"
+lines = [
+    45,
+    53,
+]
+hash = "sha256:b6042f1df23c747ef389574360026eb185f34490cf91181ea2061bac118a594f"
+doc_hash = "sha256:b47194c25037fd6631f08287473f68b64e4feb67dbde90bd7e2475258f4a5082"
+callees = ["fn:535338a96b00c6ca"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#12",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#47",
+    "#48",
+    "#49",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#87",
+    "#95",
+    "#96",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."coherent.rs".function]]
+id = "fn:2682be7d9738d0e4"
+name = "resolved_temperature_k"
+qual = "CoherentElastic::resolved_temperature_k"
+lines = [
+    55,
+    66,
+]
+hash = "sha256:9315dba33e8c991759a5c52161857894f43afd4c1f210d02ac838f144157f026"
+doc_hash = "sha256:10588b73caba31043568e25e75cc34f3253810bc85c7a82a9318b798de782bab"
+callees = [
+    "fn:0d0795bb59aee712",
+    "fn:256ed9698e55975c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#84",
+    "#85",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."coherent.rs".function]]
+id = "fn:0bb32eee5c6c0b6d"
+name = "s_at_index"
+qual = "CoherentElastic::s_at_index"
+lines = [
+    68,
+    87,
+]
+hash = "sha256:718c61ee54c9f5fc300641b682727e4611436a2cefe18c44b313345a6c8d19cc"
+doc_hash = "sha256:b49e051d2d7c8d0811c0306125056b3ee8634ef12489542b49de4da81bf24205"
+callees = ["fn:33504dd746a0620c"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#12",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#47",
+    "#48",
+    "#49",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#87",
+    "#95",
+    "#96",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."coherent.rs".function]]
+id = "fn:62477826212b64fd"
+name = "s_of_e_at"
+qual = "CoherentElastic::s_of_e_at"
+lines = [
+    89,
+    103,
+]
+hash = "sha256:89819cd65cc1dd822946146e47ab5328f9f94854a72a49b4021f546293bc9ef4"
+doc_hash = "sha256:67adba762aaca15dad3aeb4a93a1c6663c427724e224b097f90888bc8101e8a9"
+callees = [
+    "fn:0bb32eee5c6c0b6d",
+    "fn:256ed9698e55975c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#47",
+    "#48",
+    "#49",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#84",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."coherent.rs".function]]
+id = "fn:5fc4d31483850469"
+name = "cross_section"
+qual = "CoherentElastic::cross_section"
+lines = [
+    105,
+    127,
+]
+hash = "sha256:4665c7e48e3501f34a1fdcabb2e943a88bc2164dcb2bb4e002b588d037f639fb"
+doc_hash = "sha256:4279cb5af6167f47553df7b5e22e18e54efbffd4b5f224d7c01836512f3096a4"
+callees = [
+    "fn:0bb32eee5c6c0b6d",
+    "fn:256ed9698e55975c",
+]
+reached_by = [
+    "#12",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#87",
+    "#95",
+    "#96",
+]
+
+[[module."coherent.rs".function]]
+id = "fn:ba46b96026220333"
+name = "bragg_reflections"
+qual = "CoherentElastic::bragg_reflections"
+lines = [
+    129,
+    156,
+]
+hash = "sha256:7e1f72fb97e68b58d2e72950d652af2d7f254ce88686b4b7618e3f4b4228752b"
+doc_hash = "sha256:cf7adb71ff8618ff8bb4671351605dbf9c63d573133a0e5ed63dbe818b323b2a"
+callees = [
+    "fn:0bb32eee5c6c0b6d",
+    "fn:256ed9698e55975c",
+]
+reached_by = [
+    "#20",
+    "#82",
+]
+
+[[module."coherent.rs".function]]
+id = "fn:72187686187ddd23"
+name = "al27_coherent"
+qual = "al27_coherent"
+lines = [
+    165,
+    169,
+]
+hash = "sha256:64f9ac2562d9eb6e74c373ff1ec38248ef4aa82677ec7e3fcf14168fe70be20d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:186da4b2e76906e3",
+    "fn:6e86b6a77bc5c4fe",
+    "fn:fc582d571d31fa8e",
+]
+test = true
+
+[[module."coherent.rs".function]]
+id = "fn:beec0d7abf8ea533"
+name = "zero_below_first_bragg_edge"
+qual = "zero_below_first_bragg_edge"
+lines = [
+    171,
+    185,
+]
+hash = "sha256:9305e2be170684254f66163a0ea5c4a415ab8a2484487e9bc6ad18193010d350"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5fc4d31483850469",
+    "fn:72187686187ddd23",
+    "fn:90dbf9b7b5d2ba8a",
+]
+test = true
+
+[[module."coherent.rs".function]]
+id = "fn:c62a20a33e656419"
+name = "cross_section_is_s_over_e_and_sawtooths"
+qual = "cross_section_is_s_over_e_and_sawtooths"
+lines = [
+    187,
+    206,
+]
+hash = "sha256:d6886b9b5d53dba5eea079de0ef982598c7a46bf36a424638cee936eebfcac6d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5fc4d31483850469",
+    "fn:72187686187ddd23",
+    "fn:90dbf9b7b5d2ba8a",
+]
+test = true
+
+[[module."coherent.rs".function]]
+id = "fn:4c501c4da61d8bcd"
+name = "bragg_reflection_cosines_are_physical"
+qual = "bragg_reflection_cosines_are_physical"
+lines = [
+    208,
+    227,
+]
+hash = "sha256:16a86fb24ff37c1ae1a7ff3906772f32863b712acb74a5b02e190d386345af4b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5fc4d31483850469",
+    "fn:72187686187ddd23",
+    "fn:90dbf9b7b5d2ba8a",
+    "fn:ba46b96026220333",
+]
+test = true
+
+[[module."coherent.rs".function]]
+id = "fn:dcaa4dc46bb91044"
+name = "cross_section_decreases_with_temperature"
+qual = "cross_section_decreases_with_temperature"
+lines = [
+    229,
+    252,
+]
+hash = "sha256:320039e0085119de9a0045949ad344aa3dbb8781b3a7bc4339ac5ecf4e7c9c51"
+doc_hash = "sha256:0405975e716891aa2c213a2c25491fbc047ab86486fa2cc0cc88cda57566fd0e"
+callees = [
+    "fn:5fc4d31483850469",
+    "fn:72187686187ddd23",
+]
+test = true
+
+[[module."coherent.rs".function]]
+id = "fn:555eb77855d8d0e0"
+name = "interpolated_cross_section_is_bracketed"
+qual = "interpolated_cross_section_is_bracketed"
+lines = [
+    254,
+    276,
+]
+hash = "sha256:47155b906a50a9cd52388e93ff11feed43e77f60494f594a32ed3374ad806dd7"
+doc_hash = "sha256:5ffe727e801df0b134383340d65f80a6be8ff28e3de4cf9e26cd11b91c7da09f"
+callees = [
+    "fn:5d717fbab0b72d04",
+    "fn:5fc4d31483850469",
+    "fn:72187686187ddd23",
+]
+test = true
+
+[[module."coherent.rs".function]]
+id = "fn:9e9e9a717b6cb146"
+name = "out_of_range_temperature_is_an_error"
+qual = "out_of_range_temperature_is_an_error"
+lines = [
+    278,
+    293,
+]
+hash = "sha256:f3c92205554773eb19e99a998f5b196161352d65df3da5cbf858ab8dcfe95ee0"
+doc_hash = "sha256:50b4de9949fd3babc07437b627dfde97801906911cb4eeafaf5e90610e46209a"
+callees = [
+    "fn:5fc4d31483850469",
+    "fn:72187686187ddd23",
+]
+test = true
+
+[module."incoherent_elastic.rs"]
+path = "crate::thermr::incoherent_elastic"
+
+[[module."incoherent_elastic.rs".function]]
+id = "fn:ea1da2f9b9c2c228"
+name = "debye_waller"
+qual = "IncoherentElastic::debye_waller"
+lines = [
+    30,
+    53,
+]
+hash = "sha256:7d4cd521aef38cb3e4b1138f7e7878b908f5c9e0b4c327fc669229d056513055"
+doc_hash = "sha256:e9376af75fb45a53e0f65e327d55134b27e7bae8256b15f625b3469a7d1fec65"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#47",
+    "#48",
+    "#49",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."incoherent_elastic.rs".function]]
+id = "fn:5baa4d1d6af689a5"
+name = "cross_section"
+qual = "IncoherentElastic::cross_section"
+lines = [
+    55,
+    73,
+]
+hash = "sha256:0c3ca7827f6c7800c969d7b9c8d34fd7441c811ed2cc868d56e2d000d3869831"
+doc_hash = "sha256:ce90b3248a1de297cc1405d58ce761049ecd9859e00d67199ae651375745656a"
+callees = ["fn:ea1da2f9b9c2c228"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#26",
+    "#47",
+    "#48",
+    "#49",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."incoherent_elastic.rs".function]]
+id = "fn:95f64d137e62bc4b"
+name = "equiprobable_cosines"
+qual = "IncoherentElastic::equiprobable_cosines"
+lines = [
+    75,
+    111,
+]
+hash = "sha256:6870e1315781ca904ccdf8e7564516afe54c142df91166658f94bd86e30f5643"
+doc_hash = "sha256:eb1a5b989d576ec19d6e6a2315ff7dd9d7d5eb8b2f238572b62ce11e3c4c7523"
+callees = ["fn:ea1da2f9b9c2c228"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#28",
+    "#29",
+    "#47",
+    "#48",
+    "#49",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."incoherent_elastic.rs".function]]
+id = "fn:428207628626c5d9"
+name = "zrh_like"
+qual = "zrh_like"
+lines = [
+    118,
+    127,
+]
+hash = "sha256:6e271a36ad809df120a4f59d35b72c360bb0b8499a759254cda2a4bbda8e48f1"
+doc_hash = "sha256:9303af5f47d0878d9fb5d6141845a87ba3deca2d2609a9b88b462a3792fea776"
+test = true
+
+[[module."incoherent_elastic.rs".function]]
+id = "fn:500007a0a6447141"
+name = "debye_waller_interpolates_and_clamps"
+qual = "debye_waller_interpolates_and_clamps"
+lines = [
+    129,
+    138,
+]
+hash = "sha256:5d9df9db5274871f7ffd4e5087439be9a7a176216592666cd9ddf98b08a25d88"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:428207628626c5d9",
+    "fn:ea1da2f9b9c2c228",
+]
+test = true
+
+[[module."incoherent_elastic.rs".function]]
+id = "fn:95be95cbe2f07aaa"
+name = "cross_section_is_positive_and_falls_with_energy"
+qual = "cross_section_is_positive_and_falls_with_energy"
+lines = [
+    140,
+    155,
+]
+hash = "sha256:a85701c01ee8d97a499be6f23bc9388ad9a710d04f64ad65b225d29a1a152eae"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:428207628626c5d9",
+    "fn:5baa4d1d6af689a5",
+]
+test = true
+
+[[module."incoherent_elastic.rs".function]]
+id = "fn:9484ebd2ef8edcce"
+name = "equiprobable_cosines_are_ordered_forward_peaked_and_bounded"
+qual = "equiprobable_cosines_are_ordered_forward_peaked_and_bounded"
+lines = [
+    157,
+    170,
+]
+hash = "sha256:82f6ba327fb819c4b94937cf93f43776556eafaf0fabdf731b86919bd02e30cd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:428207628626c5d9",
+    "fn:95f64d137e62bc4b",
+]
+test = true
+
+[[module."incoherent_elastic.rs".function]]
+id = "fn:f6e81b85845ac311"
+name = "equiprobable_cosines_fall_back_to_uniform_at_zero_energy"
+qual = "equiprobable_cosines_fall_back_to_uniform_at_zero_energy"
+lines = [
+    172,
+    180,
+]
+hash = "sha256:aff59bb956b5f553fbd2814e16955712b066a9c9e83c5fbfb163d5ca298b1015"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:428207628626c5d9",
+    "fn:95f64d137e62bc4b",
+]
+test = true
+
+[module."inelastic.rs"]
+path = "crate::thermr::inelastic"
+
+[[module."inelastic.rs".function]]
+id = "fn:a420c8ffe6aa6bc8"
+name = "invert_cdf"
+qual = "invert_cdf"
+lines = [
+    50,
+    65,
+]
+hash = "sha256:b4cb0dc864f658b9fbcd57a5a6c3d5a36d3ba3c2919124ed92f25bc2d7ea502d"
+doc_hash = "sha256:b131b23c3b150c048b9e1f22e5c3eb626e0920b60c0749c697b058824d9a1711"
+reached_by = ["#108"]
+
+[[module."inelastic.rs".function]]
+id = "fn:b03e67c8e48cd623"
+name = "mass_ratio"
+qual = "IncoherentInelastic::mass_ratio"
+lines = [
+    71,
+    74,
+]
+hash = "sha256:860e452176f8a1253f9f0965da8aeb293b10097e9ac3e71d24520bcd91933736"
+doc_hash = "sha256:9c7a96ec40e2fe67b69e80a658aeee98304ae65164bdec2d317291e0c8d55c30"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#60",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#86",
+    "#88",
+    "#89",
+    "#91",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:208d71ad815504fd"
+name = "sigma_bound"
+qual = "IncoherentInelastic::sigma_bound"
+lines = [
+    76,
+    82,
+]
+hash = "sha256:ef1428e45d670689c8588c14e8c559ab7635bdb7607bde17bef9099d88502906"
+doc_hash = "sha256:6289564d23d8c5f073f72870aea73c6a237a9c2680f1c8632a37508d68580219"
+callees = ["fn:b03e67c8e48cd623"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#60",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#86",
+    "#88",
+    "#89",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:c849135768a4fcd9"
+name = "teff_ev"
+qual = "IncoherentInelastic::teff_ev"
+lines = [
+    84,
+    101,
+]
+hash = "sha256:3ded7c716501b63f58900071695d4b11f4ca8922ad805f2e6bf00195456f66d7"
+doc_hash = "sha256:a62339794bba74db152de81fd214a3ba01a3781cb0b0094503dbca46ef307e8e"
+callees = ["fn:e78bae58d84c9817"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#31",
+    "#32",
+    "#33",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#60",
+    "#61",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#86",
+    "#88",
+    "#89",
+    "#90",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:f09d4338cf05421e"
+name = "double_differential"
+qual = "IncoherentInelastic::double_differential"
+lines = [
+    103,
+    133,
+]
+hash = "sha256:36ca066d2389b25edb943849f69b0218f5cf118ea2b1d4fe042e93514f2ef469"
+doc_hash = "sha256:c8e328ca2b40807575ed3d533f5da4b82284f6322b2379f01d5d3a178bd4cc5a"
+callees = [
+    "fn:33504dd746a0620c",
+    "fn:75c7db968a6aab4c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#32",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#89",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:75c7db968a6aab4c"
+name = "double_differential_with"
+qual = "IncoherentInelastic::double_differential_with"
+lines = [
+    135,
+    233,
+]
+hash = "sha256:2fedd0a3dff6bbc092895561ab9a5e6e222d8b838ab7d12cf6af807353294040"
+doc_hash = "sha256:a7b0e0ca03d2fe9b042b514cd928622341f495d5b82c51c28ee62ca704f8796b"
+callees = [
+    "fn:208d71ad815504fd",
+    "fn:4d2dd4b8f700cc5b",
+    "fn:65de94e664212d12",
+    "fn:b03e67c8e48cd623",
+    "fn:b12cf1c4e490fca1",
+    "fn:b899331ce2025faa",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#31",
+    "#32",
+    "#33",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#60",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#86",
+    "#88",
+    "#89",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:b12cf1c4e490fca1"
+name = "sct_double_differential"
+qual = "IncoherentInelastic::sct_double_differential"
+lines = [
+    247,
+    291,
+]
+hash = "sha256:2f0e4588883d50b0e10ad1762c59cceb73cbe9f43c553788b0429d46c95bd7d7"
+doc_hash = "sha256:fc0fa5df81e5e8158422cd9add1ccc6992f8b7ab76d5f8c1a45448a957ef72c2"
+callees = [
+    "fn:208d71ad815504fd",
+    "fn:b03e67c8e48cd623",
+    "fn:c849135768a4fcd9",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#31",
+    "#32",
+    "#33",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#60",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#86",
+    "#88",
+    "#89",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:81c33cde46f2f6c3"
+name = "sigma_e_to_ep"
+qual = "IncoherentInelastic::sigma_e_to_ep"
+lines = [
+    293,
+    307,
+]
+hash = "sha256:abd424806e0919e915e48b9d4601dee5fc9671f1ede2f4f0e7d372313e1bf7a3"
+doc_hash = "sha256:3d196b374775c1e41ef205b8469d51c2c833a2b315a31649824e93537ba9ee75"
+callees = ["fn:f09d4338cf05421e"]
+reached_by = [
+    "#101",
+    "#108",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:295d974b67250547"
+name = "cross_section"
+qual = "IncoherentInelastic::cross_section"
+lines = [
+    309,
+    339,
+]
+hash = "sha256:5ebf582a685ff66058afd64b69d3e91e9f45738989b5fcd00360df4827511e4d"
+doc_hash = "sha256:46fd99627c0b87e790610e8900648bd10a3cc54dad03a75ae18b7aebd71e5253"
+callees = [
+    "fn:33504dd746a0620c",
+    "fn:933a793504b640a0",
+]
+reached_by = [
+    "#6",
+    "#31",
+    "#33",
+    "#60",
+    "#86",
+    "#88",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#104",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:edefe0025ddfe0c0"
+name = "sigma_ep_profile"
+qual = "IncoherentInelastic::sigma_ep_profile"
+lines = [
+    341,
+    348,
+]
+hash = "sha256:8abb110ed6b38cc39fb1bea67489fbf0da418237163254cb972be98cc7d2f906"
+doc_hash = "sha256:916d54f392ad3aafc8cf649841359b2801852f20b8be3d201319b901c232e510"
+callees = [
+    "fn:73da53ca1b639733",
+    "fn:81c33cde46f2f6c3",
+]
+reached_by = ["#108"]
+
+[[module."inelastic.rs".function]]
+id = "fn:933a793504b640a0"
+name = "sigma_ep_profile_with"
+qual = "IncoherentInelastic::sigma_ep_profile_with"
+lines = [
+    350,
+    374,
+]
+hash = "sha256:b1526ad69ef722bf55c5f652f829323dc0d773bee48c6bc01067a1c26beb2511"
+doc_hash = "sha256:4eb9ddb37c07fead366d43d24271de2485d9515f3c186b91bf6d293045158529"
+callees = [
+    "fn:73da53ca1b639733",
+    "fn:75c7db968a6aab4c",
+]
+reached_by = [
+    "#6",
+    "#31",
+    "#33",
+    "#60",
+    "#86",
+    "#88",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#104",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:73da53ca1b639733"
+name = "ep_profile"
+qual = "IncoherentInelastic::ep_profile"
+lines = [
+    376,
+    507,
+]
+hash = "sha256:98a4915cebfc4a5fc290e4674f5086fffe0252a3b867a49bc8c3f6725d96ad1d"
+doc_hash = "sha256:85bf6221f496c8d591fdb554faf5078e28bd8bc45aff51b2373ed7c0e2e2f72f"
+reached_by = [
+    "#6",
+    "#31",
+    "#33",
+    "#60",
+    "#86",
+    "#88",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#104",
+    "#108",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:15aa2b87f3d03cc9"
+name = "equiprobable_emission"
+qual = "IncoherentInelastic::equiprobable_emission"
+lines = [
+    509,
+    548,
+]
+hash = "sha256:7c68f87b3126e948acc5b8df4949f3166ebc83940f62ec5e8b64a0c2d921ccbe"
+doc_hash = "sha256:24b82bc5ad381ecfc5e4ac334897440ffb7e94d23ac4ff82e27ed87e55f18766"
+callees = [
+    "fn:1a9135f5cf630dc2",
+    "fn:a420c8ffe6aa6bc8",
+    "fn:edefe0025ddfe0c0",
+]
+reached_by = ["#108"]
+
+[[module."inelastic.rs".function]]
+id = "fn:1a9135f5cf630dc2"
+name = "equiprobable_cosines"
+qual = "IncoherentInelastic::equiprobable_cosines"
+lines = [
+    550,
+    587,
+]
+hash = "sha256:12d90dbaee62ffb7004d170a9c33f48309a2f43a406e10ac32366407abc5f686"
+doc_hash = "sha256:da72b563bca21d561012b2c13de68c2b2ef1e1ac7962e0a8e931ed5e50193a17"
+callees = [
+    "fn:a420c8ffe6aa6bc8",
+    "fn:f09d4338cf05421e",
+]
+reached_by = ["#108"]
+
+[[module."inelastic.rs".function]]
+id = "fn:b899331ce2025faa"
+name = "floored_corner"
+qual = "IncoherentInelastic::floored_corner"
+lines = [
+    589,
+    639,
+]
+hash = "sha256:9f21edaade79caa2dc84db2f2e2a67dc00c7235bc5b31b97437593203678cf29"
+doc_hash = "sha256:09baaf41aa2a6a7b58995adfca3a80e0dd40a438d46a70dbe09d9efa1ea18357"
+callees = ["fn:b03e67c8e48cd623"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#31",
+    "#32",
+    "#33",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#60",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#86",
+    "#88",
+    "#89",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:65de94e664212d12"
+name = "liquid_small_alpha_ln_s"
+qual = "IncoherentInelastic::liquid_small_alpha_ln_s"
+lines = [
+    641,
+    701,
+]
+hash = "sha256:1b7a0be9f8b1ca343fad9d7cd5b3ce8acaeb1575799f2fd844205993c5179de6"
+doc_hash = "sha256:aee289bb0cd8f758ce511c7eb2bac85393ef353ffbb1034dee0a32594a65a838"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#31",
+    "#32",
+    "#33",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#60",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#86",
+    "#88",
+    "#89",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:4d2dd4b8f700cc5b"
+name = "interp_ln_s"
+qual = "IncoherentInelastic::interp_ln_s"
+lines = [
+    703,
+    738,
+]
+hash = "sha256:9ea5525f718092267d2a474d72361bab958e802651a5011bb4178f69d3db9bc8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1dd230460c326ff3",
+    "fn:b4c39b1d7d165e70",
+    "fn:ba88fa4746926589",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#31",
+    "#32",
+    "#33",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#60",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#86",
+    "#88",
+    "#89",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:e78bae58d84c9817"
+name = "interp_linear"
+qual = "interp_linear"
+lines = [
+    741,
+    764,
+]
+hash = "sha256:a31f70f37ae4d198c1750edfae09daf4693b2cabe4fa5d700bf627ab6d21d821"
+doc_hash = "sha256:112b4a822d19c244cfbfc0f54e0c79ebd9002c5d66fe2fffaaeff150ce9c05cd"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#31",
+    "#32",
+    "#33",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#60",
+    "#61",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#86",
+    "#88",
+    "#89",
+    "#90",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:1dd230460c326ff3"
+name = "terp1_lin_lin"
+qual = "terp1_lin_lin"
+lines = [
+    766,
+    772,
+]
+hash = "sha256:d642c21102f5bd0b2dcb07a1cf71c9526c0fe551a2537cd1bbf61d0cab895e91"
+doc_hash = "sha256:8069cd5aa587482226d573c310b4d446cae570d5bbefabf4963d18a4307ad818"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#31",
+    "#32",
+    "#33",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#60",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#86",
+    "#88",
+    "#89",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:e3e4737de873fda2"
+name = "terp1_lin_log"
+qual = "terp1_lin_log"
+lines = [
+    774,
+    784,
+]
+hash = "sha256:0ac17fcdd1c9dff4f24fe158e462b781016090ae2931cfd74f8a10a47f1675bd"
+doc_hash = "sha256:e88b2018002aed4067857bbf99d8efb1dc3c88f5f4a2029918bd5a8e5544a11b"
+callees = ["fn:1dd230460c326ff3"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#31",
+    "#32",
+    "#33",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#60",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#86",
+    "#88",
+    "#89",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:b4c39b1d7d165e70"
+name = "terpq"
+qual = "terpq"
+lines = [
+    786,
+    853,
+]
+hash = "sha256:4be969965a0a2b6c43c7a8250d404d006b81fb1539a3a6389f31ac96e325dc98"
+doc_hash = "sha256:18d80e87199ccbbdc84da97a36a86a74158a8fb8c0d0de77a5ad5cbf6c7fdd87"
+callees = [
+    "fn:1dd230460c326ff3",
+    "fn:e3e4737de873fda2",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#31",
+    "#32",
+    "#33",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#60",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#86",
+    "#88",
+    "#89",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:ba88fa4746926589"
+name = "interp_alpha_ln_s"
+qual = "interp_alpha_ln_s"
+lines = [
+    855,
+    901,
+]
+hash = "sha256:1e51d529f5553af1aa8bbade5a7024197f2575f0005d5803c0fc2abc8a1904d1"
+doc_hash = "sha256:0dc5377c0de3159dce7b91f89c5cba2042c707d584576955688305b2c3cd6d29"
+callees = [
+    "fn:1dd230460c326ff3",
+    "fn:b4c39b1d7d165e70",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#31",
+    "#32",
+    "#33",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#60",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#78",
+    "#80",
+    "#81",
+    "#86",
+    "#88",
+    "#89",
+    "#92",
+    "#96",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."inelastic.rs".function]]
+id = "fn:1df8ffae87575c15"
+name = "al27"
+qual = "al27"
+lines = [
+    910,
+    914,
+]
+hash = "sha256:67927d2871b6eb01ffa0ad3dcd0200dd358444d70a5fa518b33fbdd005d08ffc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:186da4b2e76906e3",
+    "fn:6e86b6a77bc5c4fe",
+    "fn:fc582d571d31fa8e",
+]
+test = true
+
+[[module."inelastic.rs".function]]
+id = "fn:07b1149f2bd566d1"
+name = "bound_cross_section_is_physical"
+qual = "bound_cross_section_is_physical"
+lines = [
+    916,
+    923,
+]
+hash = "sha256:897da2b32a8e9048613dd54c732a33d5bdcec40c1b8c4c897e3f16fda349afe7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1df8ffae87575c15",
+    "fn:208d71ad815504fd",
+    "fn:b03e67c8e48cd623",
+]
+test = true
+
+[[module."inelastic.rs".function]]
+id = "fn:5e7aa3740f0cb18d"
+name = "double_differential_nonnegative_and_finite"
+qual = "double_differential_nonnegative_and_finite"
+lines = [
+    925,
+    935,
+]
+hash = "sha256:0f68d3fe4132f93d5bd38e2888365681b28908a7293b26eb571d63ece2c63c4f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1df8ffae87575c15",
+    "fn:f09d4338cf05421e",
+]
+test = true
+
+[[module."inelastic.rs".function]]
+id = "fn:bbb23a6f86b9722e"
+name = "inelastic_cross_section_is_positive_and_finite"
+qual = "inelastic_cross_section_is_positive_and_finite"
+lines = [
+    937,
+    948,
+]
+hash = "sha256:6443a5f768f44fef4c13311ca0cf8cd55e7c8d1938f806ac1519311b0c87e4d3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1df8ffae87575c15",
+    "fn:295d974b67250547",
+]
+test = true
+
+[[module."inelastic.rs".function]]
+id = "fn:467c5f09d51e0ff4"
+name = "cross_section_rises_toward_free_gas_limit"
+qual = "cross_section_rises_toward_free_gas_limit"
+lines = [
+    950,
+    967,
+]
+hash = "sha256:37caf3056c2616f8be10652e1c923594ff5728327fdc9eca931345adda7cdcea"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1df8ffae87575c15",
+    "fn:295d974b67250547",
+]
+test = true
+
+[module."mf7.rs"]
+path = "crate::thermr::mf7"
+
+[[module."mf7.rs".function]]
+id = "fn:5d717fbab0b72d04"
+name = "temperature_match_tolerance_k"
+qual = "temperature_match_tolerance_k"
+lines = [
+    237,
+    248,
+]
+hash = "sha256:bc22e08b7332aea92d72ca9b85061da77b142b9dfdd35c6724d5e1557b99acdd"
+doc_hash = "sha256:ff56322ccd2b1e296b0f80315d1f81f236bcaee9529aada8141b81eef8e08d68"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#39",
+    "#40",
+    "#41",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."mf7.rs".function]]
+id = "fn:0d0795bb59aee712"
+name = "resolved_temperature_k"
+qual = "TemperatureSelection::resolved_temperature_k"
+lines = [
+    273,
+    281,
+]
+hash = "sha256:2d3bfb52cbf3bbc4eedd4d0cfcf7d01bdddd0671f3330859883170224591f5fe"
+doc_hash = "sha256:a8edc92ee34cdf4188e799be0050d1db2807a44389affd8af900b8304d8c030d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#39",
+    "#41",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."mf7.rs".function]]
+id = "fn:535338a96b00c6ca"
+name = "select_temperature"
+qual = "select_temperature"
+lines = [
+    284,
+    343,
+]
+hash = "sha256:6ee7b43c2a8d02656748030908dfbedf6f781901e4f23476a30475eba6100b01"
+doc_hash = "sha256:73f3e809181b45e19ca593e127c820106ba2bdd14241ca6020f7502e122aff07"
+callees = ["fn:5d717fbab0b72d04"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#39",
+    "#40",
+    "#41",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."mf7.rs".function]]
+id = "fn:33504dd746a0620c"
+name = "interp_s_temperature"
+qual = "interp_s_temperature"
+lines = [
+    345,
+    365,
+]
+hash = "sha256:b0dad8971d3bd236047711adfc90eb147f5c36dab962dd3428f35c2080174183"
+doc_hash = "sha256:7f87913626da3cd26a0565045bb7a5aae3e558f7cb2cc6725ab8d1af7d5d960e"
+callees = [
+    "fn:23f2d8f8cb0057fa",
+    "fn:d46f0f3ebba8a85c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."mf7.rs".function]]
+id = "fn:fc582d571d31fa8e"
+name = "parse_mf7"
+qual = "parse_mf7"
+lines = [
+    367,
+    379,
+]
+hash = "sha256:81410d072c3620567449252c188b699fee496dfac5e3dee758b8745e7322cf49"
+doc_hash = "sha256:33cebf25be711aed3af7978a325027abe113e73cbea3b106e6c86a9460f74064"
+callees = ["fn:be4791f163d6968f"]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#47",
+    "#48",
+    "#49",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#87",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+]
+
+[[module."mf7.rs".function]]
+id = "fn:be4791f163d6968f"
+name = "parse_mf7_at_temperature"
+qual = "parse_mf7_at_temperature"
+lines = [
+    381,
+    437,
+]
+hash = "sha256:e2e00b03954a3bd8dab63688f5e00c994d3d43ec0b8eed2af728a409fa48f557"
+doc_hash = "sha256:756ae267a4d87b790c54bd66e1b21c4a5d8642cfd3cd337fbfdb16977088f06d"
+callees = [
+    "fn:0f64e488959f1d72",
+    "fn:6eacb2bdb269f0d7",
+    "fn:961b4d42810fc2c2",
+    "fn:9d1c38f6464a9904",
+    "fn:b7b67ecc27b6f0aa",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."mf7.rs".function]]
+id = "fn:9d1c38f6464a9904"
+name = "parse_elastic"
+qual = "parse_elastic"
+lines = [
+    439,
+    509,
+]
+hash = "sha256:26da3b42e8109880c5f52815f5b331e57d8238115f0364dc02da76cbedf73541"
+doc_hash = "sha256:f458744e6c8a646db7c0a9ea0de424cdf383fe403b800f610b77bb4a08fd854a"
+callees = [
+    "fn:0eeb11ce0cf60f33",
+    "fn:0f64e488959f1d72",
+    "fn:6c40ac0a77c8da25",
+    "fn:6eacb2bdb269f0d7",
+    "fn:9c8105b7a8ce5713",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."mf7.rs".function]]
+id = "fn:6c40ac0a77c8da25"
+name = "read_incoherent_elastic"
+qual = "read_incoherent_elastic"
+lines = [
+    511,
+    524,
+]
+hash = "sha256:c244ed62bca68d83ffe4cae4bb7c631ce08f9890ad9b5acdf3b5e0613bddb9f6"
+doc_hash = "sha256:f2f27ce76bc15fdac6688c534a1bf5a7296b61d508758d46320856cc846d58d3"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."mf7.rs".function]]
+id = "fn:961b4d42810fc2c2"
+name = "parse_inelastic"
+qual = "parse_inelastic"
+lines = [
+    526,
+    687,
+]
+hash = "sha256:b76918b9412a3de80bb3cdb6042225c57eaf979c4c0746f115ac6a6084f483d8"
+doc_hash = "sha256:1aaa7d57164513bd4daf8125c1affa6202a21403a546a21242df7220e0878e42"
+callees = [
+    "fn:0d0795bb59aee712",
+    "fn:0de1eade8681d5fd",
+    "fn:0eeb11ce0cf60f33",
+    "fn:0f64e488959f1d72",
+    "fn:33504dd746a0620c",
+    "fn:535338a96b00c6ca",
+    "fn:6eacb2bdb269f0d7",
+    "fn:9c8105b7a8ce5713",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."mf7.rs".function]]
+id = "fn:6b429ac935d268c4"
+name = "al27"
+qual = "al27"
+lines = [
+    697,
+    701,
+]
+hash = "sha256:16963034bcae80a5d6ed70fc9583033145bf7d1276a4a714596635f176f52053"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:186da4b2e76906e3",
+    "fn:6e86b6a77bc5c4fe",
+    "fn:fc582d571d31fa8e",
+]
+test = true
+
+[[module."mf7.rs".function]]
+id = "fn:7bd4dad566bafaab"
+name = "al27_has_both_elastic_and_inelastic"
+qual = "al27_has_both_elastic_and_inelastic"
+lines = [
+    703,
+    712,
+]
+hash = "sha256:d7da06f3b04be12ccc44ff7cec8d7565de1fc6f7a839786559e708fbb5085cf2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6b429ac935d268c4"]
+test = true
+
+[[module."mf7.rs".function]]
+id = "fn:11f76773cc92d96e"
+name = "coherent_elastic_bragg_edges_are_monotone"
+qual = "coherent_elastic_bragg_edges_are_monotone"
+lines = [
+    714,
+    751,
+]
+hash = "sha256:0c4547c0836072a18349b08e07604043580315edab752ba20948a810629099ec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6b429ac935d268c4"]
+test = true
+
+[[module."mf7.rs".function]]
+id = "fn:9dbef351757a6987"
+name = "inelastic_s_alpha_beta_grid_is_consistent"
+qual = "inelastic_s_alpha_beta_grid_is_consistent"
+lines = [
+    753,
+    770,
+]
+hash = "sha256:14e43cd6547f71e96ffe1de496976761452a631a617ccf2083a60c9c3cc59985"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6b429ac935d268c4"]
+test = true
+
+[[module."mf7.rs".function]]
+id = "fn:6462d348f17d7967"
+name = "section"
+qual = "section"
+lines = [
+    781,
+    790,
+]
+hash = "sha256:7037dd8e427773719391a8544bd119e9c995bf33e47777b3e6157512d0856bc9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mf7.rs".function]]
+id = "fn:32300cea9c739b34"
+name = "lthr2_incoherent_elastic_only"
+qual = "lthr2_incoherent_elastic_only"
+lines = [
+    792,
+    818,
+]
+hash = "sha256:3775101bf04fb75a35349313a4bf6ef482c40b5e1bc1b70e5ce2264984cd9620"
+doc_hash = "sha256:a20dfc1c0ee913cd6e57f1de1050a68c1dd4d2a0a1fc371072929b99a0a73b6e"
+callees = [
+    "fn:6462d348f17d7967",
+    "fn:9d1c38f6464a9904",
+]
+test = true
+
+[[module."mf7.rs".function]]
+id = "fn:dadfef5e732cf09c"
+name = "lthr3_mixed_coherent_and_incoherent"
+qual = "lthr3_mixed_coherent_and_incoherent"
+lines = [
+    820,
+    855,
+]
+hash = "sha256:27e90a581e3a16f1a5e706b1db424bb62524e954f0b4309f9e1ee9fb9a226c44"
+doc_hash = "sha256:f7b898f16139b1ebac98412676819b9ea276c2dc6f0767470cb47b93cbe7d319"
+callees = [
+    "fn:6462d348f17d7967",
+    "fn:9d1c38f6464a9904",
+]
+test = true
+
+[[module."mf7.rs".function]]
+id = "fn:d50311259e35bdb2"
+name = "select_temperature_snaps_within_njoy_tolerance"
+qual = "select_temperature_snaps_within_njoy_tolerance"
+lines = [
+    859,
+    868,
+]
+hash = "sha256:5295c405b4fefb627fd7a250a4b52c464afd75e5a7478f3fb3073a788b9bbf8f"
+doc_hash = "sha256:ef9fc342046b35d2aa0ac4173bbc98914f1ba09a5aa2c21ff48365b1a401983f"
+callees = [
+    "fn:0d0795bb59aee712",
+    "fn:535338a96b00c6ca",
+]
+test = true
+
+[[module."mf7.rs".function]]
+id = "fn:5d6b9219244083fe"
+name = "select_temperature_interpolates_between_points"
+qual = "select_temperature_interpolates_between_points"
+lines = [
+    870,
+    888,
+]
+hash = "sha256:cc721f9948bdcf732205b1179fddf3c8715ab79a089ced434683092b09b0dad3"
+doc_hash = "sha256:5a39cfcd6c076efa0fe10de9033a8536c18b43a3985df81a608a22b7e73ea754"
+callees = [
+    "fn:0d0795bb59aee712",
+    "fn:535338a96b00c6ca",
+]
+test = true
+
+[[module."mf7.rs".function]]
+id = "fn:a418941cc6642cd8"
+name = "select_temperature_refuses_out_of_range"
+qual = "select_temperature_refuses_out_of_range"
+lines = [
+    890,
+    909,
+]
+hash = "sha256:af91f34699d2810ac4728e1d166396fedfbb9425106969766c0329a2455e3cb6"
+doc_hash = "sha256:16975daa50cbcb9dd5e801e1468e52f56c792fca3b7503000c0c28e55b325d7e"
+callees = ["fn:535338a96b00c6ca"]
+test = true
+
+[module."mod.rs"]
+path = "crate::thermr"
+
+[[module."mod.rs".function]]
+id = "fn:128fe259b561f092"
+name = "run"
+qual = "run"
+lines = [
+    80,
+    90,
+]
+hash = "sha256:ea2fa82cda80944fa6f71005f97d8f09965b4d3c00599fc822c37fb01b0df7ad"
+doc_hash = "sha256:9ec52956ccc845feca7ee827760f2f08dad64047446ff2e832d0542c59ff4f39"
+
+[module."scattering.rs"]
+path = "crate::thermr::scattering"
+
+[[module."scattering.rs".function]]
+id = "fn:89bb12369ff10ef9"
+name = "from_endf_file"
+qual = "IncoherentInelasticScattering::from_endf_file"
+lines = [
+    138,
+    166,
+]
+hash = "sha256:36aecb0cea4778e50259fe866265c80da32ecadf8cb3298c1c54c7a4881000bd"
+doc_hash = "sha256:0c001c086133e5d6f227b907b3e235f47fffab0df515e34084ac5dfef83467c0"
+callees = [
+    "fn:6e86b6a77bc5c4fe",
+    "fn:ccfc5cd412f32db4",
+]
+reached_by = [
+    "#86",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:ccfc5cd412f32db4"
+name = "from_tape"
+qual = "IncoherentInelasticScattering::from_tape"
+lines = [
+    168,
+    190,
+]
+hash = "sha256:79fff91d56e460782063af8c7c132df161351481b42a02d3d8992bbd5961e473"
+doc_hash = "sha256:a84967c3549ae4c3caccfa1baea4faf2452ffff20c4ad11ef32ba0c7861ff3c6"
+callees = ["fn:be4791f163d6968f"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#60",
+    "#61",
+    "#62",
+    "#86",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:59d2e1de985bd8ae"
+name = "requested_temperature"
+qual = "IncoherentInelasticScattering::requested_temperature"
+lines = [
+    192,
+    195,
+]
+hash = "sha256:bbf3bfe1cd0fe961da8d9c94101a17d20cb2cb9e482c49bfa3df6580ad42d67b"
+doc_hash = "sha256:4547c6fd385fb33ee0a68d9d9360de90d172ab3d7fc9c0a72e5aa616f7bc1ea1"
+
+[[module."scattering.rs".function]]
+id = "fn:249468b81e27c016"
+name = "selected_temperature"
+qual = "IncoherentInelasticScattering::selected_temperature"
+lines = [
+    197,
+    205,
+]
+hash = "sha256:ac1cda37d2be2242b6d00cf986a6b9d6153d8b6cae35f661bb6d600b049fe70e"
+doc_hash = "sha256:98d2370721ed2ed2bb9550d9bbb173528b019c92934b2ee5402d10268812d18f"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#86",
+    "#89",
+    "#91",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:960a7ca216f7a1a2"
+name = "energy_max_ev"
+qual = "IncoherentInelasticScattering::energy_max_ev"
+lines = [
+    207,
+    219,
+]
+hash = "sha256:2640aa28dbd677a0bd2902a172ba5b2e21c9fba28bf0eebbd1545cfcbd679d9a"
+doc_hash = "sha256:f5ff86166255558f8618baf054316c6a0dd1f8d9fb3882dcf190286fa8d87255"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:4c50657f5e6fadfa"
+name = "principal_atom_count"
+qual = "IncoherentInelasticScattering::principal_atom_count"
+lines = [
+    221,
+    225,
+]
+hash = "sha256:886b1f561f82ef7a5ee214568e848538146e71210edfdfc1b4aaec358ba8f50f"
+doc_hash = "sha256:66ec67325393639dd8e4eea7c6368ee470b2cef2f1f5809fede0ff0c988070ba"
+reached_by = ["#91"]
+
+[[module."scattering.rs".function]]
+id = "fn:d694c6ca2e5de0e5"
+name = "mass_ratio"
+qual = "IncoherentInelasticScattering::mass_ratio"
+lines = [
+    227,
+    230,
+]
+hash = "sha256:d59e96f8e09951acb6563fba28409549bcc9f2775eeca3f85beda418cb8ef14e"
+doc_hash = "sha256:2e604e20afb58407f42ebfadfc562f92efd9e4e0c8b21007257ac292f88c7030"
+callees = ["fn:b03e67c8e48cd623"]
+reached_by = ["#91"]
+
+[[module."scattering.rs".function]]
+id = "fn:e55701637e074b64"
+name = "bound_cross_section"
+qual = "IncoherentInelasticScattering::bound_cross_section"
+lines = [
+    232,
+    236,
+]
+hash = "sha256:14d86cb4a2b4bc9a8011ddd84336eb210d9e16f48fe68151b680b1b6d5ecb64f"
+doc_hash = "sha256:6cd494cf1a20e2b2f06255a7ccf2c7731295730a330d35dc38fbbb58b17abfb6"
+callees = ["fn:208d71ad815504fd"]
+
+[[module."scattering.rs".function]]
+id = "fn:cec67f6c3eb2c3bc"
+name = "free_cross_section"
+qual = "IncoherentInelasticScattering::free_cross_section"
+lines = [
+    238,
+    242,
+]
+hash = "sha256:3d13bbafd41652b94c490be862ab492c8cef708f1710efdac05ec61770af1e6a"
+doc_hash = "sha256:e39ffd2f3312ac58c9ceaaae55e7af16320288c1605269a7b6ea86ceb0cea9e8"
+reached_by = [
+    "#6",
+    "#60",
+    "#88",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:8864fbfac4e49ebc"
+name = "effective_temperature"
+qual = "IncoherentInelasticScattering::effective_temperature"
+lines = [
+    244,
+    249,
+]
+hash = "sha256:050e1d6c9718828c370a612fda5dc01e02719d47ec3c2e700b0c99f61812bf3b"
+doc_hash = "sha256:10cfbd8bcddc824712c5f2f586f16f9d03e44b0e54740e410185471019f2c8a0"
+callees = ["fn:c849135768a4fcd9"]
+reached_by = [
+    "#61",
+    "#90",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:7e5838aef945d3b1"
+name = "inelastic_xs"
+qual = "IncoherentInelasticScattering::inelastic_xs"
+lines = [
+    251,
+    264,
+]
+hash = "sha256:f841e09c01d28207e4b562e12f13e6a938cf22ce5ef95e859d43c8050d88c626"
+doc_hash = "sha256:b617b65837a4a8bf58cef195b09529279f0f34b93fdf7ba0bbb6a0c065bd28cf"
+callees = ["fn:295d974b67250547"]
+reached_by = [
+    "#6",
+    "#60",
+    "#86",
+    "#88",
+    "#92",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:123d4a162623a169"
+name = "emission"
+qual = "IncoherentInelasticScattering::emission"
+lines = [
+    266,
+    295,
+]
+hash = "sha256:6ce1dee8e8b88f7005c45a34d2094d278a2600b10257c9ca02aea45124dea882"
+doc_hash = "sha256:440e35c395757c3c9c816509216b38038b25ef76e7fbde5871415d257818361a"
+callees = [
+    "fn:8b8b810cdb3160ae",
+    "fn:b7e98891d534964c",
+    "fn:d349bf6d975ba480",
+    "fn:e3e218106ee4b409",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:898adbdc3981061d"
+name = "calcem_inelastic_xs"
+qual = "IncoherentInelasticScattering::calcem_inelastic_xs"
+lines = [
+    297,
+    327,
+]
+hash = "sha256:f42563e5fa44ccb3ad120b48e306be18b94f13e7a4198db4f2a24c4b05b9f036"
+doc_hash = "sha256:e0efef3f9bd96a0e62c6541976219ff6a22a9751ba5b526674a988a3e32ff4a1"
+callees = [
+    "fn:19d1f9d9b74bc687",
+    "fn:d349bf6d975ba480",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:d0cb99dd7af84fc1"
+name = "calcem_inelastic_table"
+qual = "IncoherentInelasticScattering::calcem_inelastic_table"
+lines = [
+    329,
+    338,
+]
+hash = "sha256:766e66518d6e6fdd393e2952abcb074a21286056a5660d061d8c3f591c3a386d"
+doc_hash = "sha256:ea5b5d672ee11bbb6a3b4e50db363ef31dbdc9228945c5a35cbc0e2aafdb32ed"
+callees = ["fn:d349bf6d975ba480"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:dd4f50ec1c2e0b3a"
+name = "calcem_energy_max_ev"
+qual = "IncoherentInelasticScattering::calcem_energy_max_ev"
+lines = [
+    340,
+    347,
+]
+hash = "sha256:eaab0722b9f167e04c3112878f19455e625b6cdd0e1d5a415b89b945c27c0102"
+doc_hash = "sha256:196d0868f92ddf5e01e609115980129a9468abba625eca56d67af332df9d1e35"
+callees = ["fn:d349bf6d975ba480"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:d349bf6d975ba480"
+name = "calcem_table"
+qual = "IncoherentInelasticScattering::calcem_table"
+lines = [
+    349,
+    372,
+]
+hash = "sha256:0ec598bdd9fac60debea676d742913a302fae188762f84321e527b4757b4ee8e"
+doc_hash = "sha256:89aff7dabee5c9f80fea388dffa2f373246a14b3f52f5702f04c5c42595de14d"
+callees = [
+    "fn:8458e4a824076a72",
+    "fn:960a7ca216f7a1a2",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:61c7e3b1b120add9"
+name = "kernel"
+qual = "IncoherentInelasticScattering::kernel"
+lines = [
+    374,
+    378,
+]
+hash = "sha256:3d498dd10dd0417a8d1600f973e504543a3d266ed42248ad8355615392fd0575"
+doc_hash = "sha256:7b8d731e7bcd196d19178682f47a8e80d8029cf64ed1bb827a2d9fdcffbe6fd5"
+reached_by = [
+    "#62",
+    "#89",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:6f0f43081602655d"
+name = "from_endf_file"
+qual = "CoherentElasticScattering::from_endf_file"
+lines = [
+    419,
+    445,
+]
+hash = "sha256:36aecb0cea4778e50259fe866265c80da32ecadf8cb3298c1c54c7a4881000bd"
+doc_hash = "sha256:8cdbe5db6edcffa43ed7b37478af59abd4bcf4ff4d14914693c7ffab5a0c798a"
+callees = [
+    "fn:6e86b6a77bc5c4fe",
+    "fn:84250788fe33d204",
+]
+reached_by = [
+    "#84",
+    "#127",
+    "#130",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:84250788fe33d204"
+name = "from_tape"
+qual = "CoherentElasticScattering::from_tape"
+lines = [
+    447,
+    477,
+]
+hash = "sha256:e65ca1bb14b28bd4ea5362e7c11958b61f4c413d180bac6a491255e4622fb77e"
+doc_hash = "sha256:309f2afa5a1040f35b688c46fab9e93b33a5b0e4a96b2f5c4eda329d2a28c34f"
+callees = [
+    "fn:2682be7d9738d0e4",
+    "fn:62477826212b64fd",
+    "fn:be4791f163d6968f",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#84",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:01e7f171ea97d10a"
+name = "requested_temperature"
+qual = "CoherentElasticScattering::requested_temperature"
+lines = [
+    479,
+    482,
+]
+hash = "sha256:bbf3bfe1cd0fe961da8d9c94101a17d20cb2cb9e482c49bfa3df6580ad42d67b"
+doc_hash = "sha256:4547c6fd385fb33ee0a68d9d9360de90d172ab3d7fc9c0a72e5aa616f7bc1ea1"
+
+[[module."scattering.rs".function]]
+id = "fn:5e0a6428265ff538"
+name = "resolved_temperature"
+qual = "CoherentElasticScattering::resolved_temperature"
+lines = [
+    484,
+    489,
+]
+hash = "sha256:3d052afb8521beb8f16810e0973df6ed62b216c5653698316c2038d6c8737066"
+doc_hash = "sha256:b56545adf5b3524d6ac13010e50dd64592292484b8da56a88f7fd5788a370b30"
+reached_by = ["#84"]
+
+[[module."scattering.rs".function]]
+id = "fn:071db270ae7d9850"
+name = "tabulated_temperatures"
+qual = "CoherentElasticScattering::tabulated_temperatures"
+lines = [
+    491,
+    498,
+]
+hash = "sha256:6504155cca56d708a76871a37b368457c3f1f45d94ed6573d15fa857358dec27"
+doc_hash = "sha256:1c66474b0ed9eeb120fd635e641335f79d1120a803db631b66b04d95569f75bb"
+
+[[module."scattering.rs".function]]
+id = "fn:702736712d7d9691"
+name = "principal_atom_count"
+qual = "CoherentElasticScattering::principal_atom_count"
+lines = [
+    500,
+    504,
+]
+hash = "sha256:886b1f561f82ef7a5ee214568e848538146e71210edfdfc1b4aaec358ba8f50f"
+doc_hash = "sha256:70e710696c19f330f24f5805de0669b022376e0c60066c35de6b6285710aa39d"
+reached_by = ["#84"]
+
+[[module."scattering.rs".function]]
+id = "fn:0b3ddaa20aa9ce8c"
+name = "bragg_cutoff"
+qual = "CoherentElasticScattering::bragg_cutoff"
+lines = [
+    506,
+    514,
+]
+hash = "sha256:c6505b45d1e2f5a1988a5a17f3e4eca6002a8ba2eb7432cd0b16a1f87a91529c"
+doc_hash = "sha256:78df287fd927b25c59919c8a99ed71419abd2a3f78134ba6dfbf01206bb23a4a"
+reached_by = ["#84"]
+
+[[module."scattering.rs".function]]
+id = "fn:46259a1f7074957a"
+name = "bragg_edge_table"
+qual = "CoherentElasticScattering::bragg_edge_table"
+lines = [
+    516,
+    561,
+]
+hash = "sha256:f8574dc82c5c6a1f34e1d01949080d35946b03380d026d10343cd027c374da92"
+doc_hash = "sha256:934b2a9676929849a89e8face6cacf45d54d17e002db8fcb64778336d9287260"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:77073249a4d4dacf"
+name = "cross_section"
+qual = "CoherentElasticScattering::cross_section"
+lines = [
+    563,
+    578,
+]
+hash = "sha256:50f3fbcdd26c6b754619633d2f705d2f0d277360e22e0d47efb8286ba8245063"
+doc_hash = "sha256:57a4b77e767ca43252a4c710bb5cd202f593ed62bebcb16227e0b4adc2772e62"
+reached_by = [
+    "#6",
+    "#84",
+    "#127",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:be2ac92ddcbf5bd9"
+name = "bragg_reflections"
+qual = "CoherentElasticScattering::bragg_reflections"
+lines = [
+    580,
+    608,
+]
+hash = "sha256:aec86f930f4aaf86b31aa0ff26ab476ad739bac3b639128bcbee5bf05e9a4376"
+doc_hash = "sha256:664bf4234d2c0ecbda5d109392f4491258f5dd692edc11654c209bbde92263a3"
+reached_by = [
+    "#84",
+    "#130",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:dad703d148f71754"
+name = "sample"
+qual = "CoherentElasticScattering::sample"
+lines = [
+    610,
+    633,
+]
+hash = "sha256:4f72067bd84b172409b05bd64e1edd9e368fe2a48fceb0ecc5cc9c74f4829092"
+doc_hash = "sha256:e93fb6eae510237acb2bb2bcde5e9868103ba6eeed8a3c097763507d3fe8440f"
+reached_by = ["#84"]
+
+[[module."scattering.rs".function]]
+id = "fn:d0e1d10a4256700d"
+name = "from_endf_file"
+qual = "IncoherentElasticScattering::from_endf_file"
+lines = [
+    658,
+    677,
+]
+hash = "sha256:36aecb0cea4778e50259fe866265c80da32ecadf8cb3298c1c54c7a4881000bd"
+doc_hash = "sha256:4421e29711ca6205163fc088f3bde76a2d360707da3d155db1556cefe2c9054a"
+callees = [
+    "fn:6e86b6a77bc5c4fe",
+    "fn:c8b07afa6b31655a",
+]
+reached_by = ["#133"]
+
+[[module."scattering.rs".function]]
+id = "fn:c8b07afa6b31655a"
+name = "from_tape"
+qual = "IncoherentElasticScattering::from_tape"
+lines = [
+    679,
+    716,
+]
+hash = "sha256:2f028091226f30c6437c44a532e5eb421043c8e0222d694720346b6bbf469577"
+doc_hash = "sha256:a15a61d4de31fc08d9258750566062bb8653909691f846679ba7485eabce67a1"
+callees = [
+    "fn:5d717fbab0b72d04",
+    "fn:be4791f163d6968f",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:730b267f371e0544"
+name = "temperature"
+qual = "IncoherentElasticScattering::temperature"
+lines = [
+    718,
+    722,
+]
+hash = "sha256:bbf3bfe1cd0fe961da8d9c94101a17d20cb2cb9e482c49bfa3df6580ad42d67b"
+doc_hash = "sha256:f9c9c9d3448edfa5da7df7170548f60e1c537fa8886fa9a5f20b4e532252b939"
+
+[[module."scattering.rs".function]]
+id = "fn:2640b22a67d2495d"
+name = "principal_atom_count"
+qual = "IncoherentElasticScattering::principal_atom_count"
+lines = [
+    724,
+    728,
+]
+hash = "sha256:886b1f561f82ef7a5ee214568e848538146e71210edfdfc1b4aaec358ba8f50f"
+doc_hash = "sha256:63be32e3b5c6ee65ca48894c468e66fcabe5652e44c48534dd907826e31dd6ce"
+
+[[module."scattering.rs".function]]
+id = "fn:03e88a24c7732129"
+name = "cross_section"
+qual = "IncoherentElasticScattering::cross_section"
+lines = [
+    730,
+    739,
+]
+hash = "sha256:e69dab0832b6aca799b25db12a3eaf6b007fba3e588f7088549c31029add8752"
+doc_hash = "sha256:35977fafc1925edc6fc105d3f68d05248142b41c19bad4bbf21751470608284a"
+callees = ["fn:5baa4d1d6af689a5"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:d7755f5ab8df65e9"
+name = "equiprobable_cosines"
+qual = "IncoherentElasticScattering::equiprobable_cosines"
+lines = [
+    741,
+    750,
+]
+hash = "sha256:d90c2348c06bf02f37a5902c0e66be50346562ec46440ccfa7add745c84bc5e5"
+doc_hash = "sha256:ffaa39523b7ce24df98038c50bc6046cb6f3b450c946feca76a356228fb53124"
+callees = ["fn:95f64d137e62bc4b"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[[module."scattering.rs".function]]
+id = "fn:b7e98891d534964c"
+name = "nearest_record"
+qual = "nearest_record"
+lines = [
+    753,
+    781,
+]
+hash = "sha256:40217413734d3ed61de721fe4d06742afee937322b639950690f886d6e6fe3b1"
+doc_hash = "sha256:5e5f49154c91f4e95bfeef50fb89e378e0fcaedaa9b6614a9cb0b3a53da5c29d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+]
+
+[module."temperature_thinning.rs"]
+path = "crate::thermr::temperature_thinning"
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:e598dc43133290c2"
+name = "new"
+qual = "ErrorAccumulator::new"
+lines = [
+    133,
+    137,
+]
+hash = "sha256:ebaa10cae04f45bf5abd9a83a0147aa6bba9b2606aa6bf6e70635b66519e1655"
+doc_hash = "sha256:bd7979704191cfda88f2ac58ba3008e8144cd58ca4a171b7e724454900cbc327"
+callees = ["fn:bd83553976372a68"]
+reached_by = [
+    "#42",
+    "#94",
+    "#99",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:bd83553976372a68"
+name = "with_floor"
+qual = "ErrorAccumulator::with_floor"
+lines = [
+    139,
+    154,
+]
+hash = "sha256:7b8893ebd62eb49ac0c2e66fceb42c486d66bbee5c6701e7cfe618f063d2be45"
+doc_hash = "sha256:2bae1161d94203de5d0e1a4c3e841de2a9d1a588e3a9544b1a47e776861f432b"
+reached_by = [
+    "#42",
+    "#94",
+    "#98",
+    "#99",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:48ee6709694efad9"
+name = "push"
+qual = "ErrorAccumulator::push"
+lines = [
+    156,
+    177,
+]
+hash = "sha256:4d0725192d07a2c79152025bf34edecd9763b8c03dca32ba4bb371e1e233262f"
+doc_hash = "sha256:1e26745bcd17aac4ada0db6089018cece0c32a0df4f5bc630d0a2471b7eb9210"
+reached_by = [
+    "#42",
+    "#94",
+    "#98",
+    "#99",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:b0d8a2d0756e749c"
+name = "finish"
+qual = "ErrorAccumulator::finish"
+lines = [
+    179,
+    197,
+]
+hash = "sha256:db53341b7eea9139998feb710ffd771c29ac18da98f4c153a66a6b9f8e88f91c"
+doc_hash = "sha256:cc4a571d22d481b5a09edd7f8bafa671c50a4502c4b6557f4c4ff4c7f090cf05"
+reached_by = [
+    "#42",
+    "#94",
+    "#98",
+    "#99",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:6fc7108a9227cae7"
+name = "default"
+qual = "ErrorAccumulator::default"
+lines = [
+    201,
+    203,
+]
+hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:e598dc43133290c2"]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:aabc492697c33401"
+name = "from_kept_temperatures"
+qual = "ThinnedTemperatureGrid::from_kept_temperatures"
+lines = [
+    214,
+    242,
+]
+hash = "sha256:a7bacf4b9660535eb1602536d9a211be2d623180b65582fc52073d190853ef70"
+doc_hash = "sha256:9eb7ea3342e0c0a495147dbdbf727ee8d9382ff8bc96bd288cf347c4b303f528"
+reached_by = [
+    "#43",
+    "#95",
+    "#96",
+    "#98",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:2f12aafeadbb8a2e"
+name = "leave_one_out"
+qual = "ThinnedTemperatureGrid::leave_one_out"
+lines = [
+    244,
+    262,
+]
+hash = "sha256:7666cccea03a20ff551233e9325efc6c82e53cac24c5e14e6b498989595d155c"
+doc_hash = "sha256:3fb107ece3dd976f48ff11da09c2d717dc8e29ef6cdb06905f019d35250b3d21"
+reached_by = [
+    "#45",
+    "#94",
+    "#99",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:83a1595c41dc76eb"
+name = "kept_indices"
+qual = "ThinnedTemperatureGrid::kept_indices"
+lines = [
+    264,
+    267,
+]
+hash = "sha256:0f03d31b7e8fab4bb8c316239f5792cfa82bd1a922d95b796d9ae0282e4c6dad"
+doc_hash = "sha256:b5b3624d770bec91a5191efa42e31ec091d3cdc3a11a8445311ec42fd354cfe9"
+reached_by = ["#43"]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:3e4164fa9134a8e1"
+name = "len"
+qual = "ThinnedTemperatureGrid::len"
+lines = [
+    269,
+    272,
+]
+hash = "sha256:04f133dcb6cc8ce5bfcac8e648e6d92b4e4234123ee9003af4ecd17f05521613"
+doc_hash = "sha256:b9a916e23d72fb844f37e17ecdc8a7367174b64ac99c89698b6de09678250392"
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:305c08ecff9a5b13"
+name = "is_empty"
+qual = "ThinnedTemperatureGrid::is_empty"
+lines = [
+    274,
+    278,
+]
+hash = "sha256:7f39a98718fcaca803d71e26d8c351a1696b73f689b23acd4d88466248386461"
+doc_hash = "sha256:c6ff3b54776784e816523e0a6d61f2152231b22c5409891781366775aa21f721"
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:12e7d89d69fcaa6a"
+name = "is_kept"
+qual = "ThinnedTemperatureGrid::is_kept"
+lines = [
+    280,
+    283,
+]
+hash = "sha256:5b699c4c3def3a6d4eb78ebfa9290af609eed970c7c8ea6ea687c76c87dcb560"
+doc_hash = "sha256:a1b36ca09f78997aedc3fd2dc68c45e9ed76ca392b10544b99f8e6a1449791a1"
+reached_by = [
+    "#43",
+    "#45",
+    "#94",
+    "#95",
+    "#96",
+    "#98",
+    "#99",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:ddd44ca2c1b76237"
+name = "withheld_indices"
+qual = "ThinnedTemperatureGrid::withheld_indices"
+lines = [
+    285,
+    289,
+]
+hash = "sha256:445e93dfdc9fe342ea1a0edd56f9be52bbcdfbd929c75d84cce2ec656df9bedd"
+doc_hash = "sha256:3252c48b8b934e77cea710aea5e88567ad438b47d40574914acf08f9a9f53ffa"
+callees = ["fn:12e7d89d69fcaa6a"]
+reached_by = ["#43"]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:f8d3fde77439d8f2"
+name = "bracket"
+qual = "ThinnedTemperatureGrid::bracket"
+lines = [
+    291,
+    303,
+]
+hash = "sha256:49d6cad66e4fa60380490e9eb692dfa7167e9cf036dd13eeca3c2e703567e551"
+doc_hash = "sha256:85dacf508b1a448febf4d0d8dd8aaab56e21786014f646bd955586588f79e650"
+callees = ["fn:12e7d89d69fcaa6a"]
+reached_by = [
+    "#43",
+    "#45",
+    "#94",
+    "#95",
+    "#96",
+    "#98",
+    "#99",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:515bc54877e93ba8"
+name = "coherent_elastic_thinned_row"
+qual = "coherent_elastic_thinned_row"
+lines = [
+    306,
+    336,
+]
+hash = "sha256:0d6e35145dff4c8113079185d26255a91128514993d51c208a9c2435a170a2a9"
+doc_hash = "sha256:af6136d639814befa18356d720b408a9af29e37f1d358c5dadfad07c273487c6"
+callees = [
+    "fn:33504dd746a0620c",
+    "fn:f8d3fde77439d8f2",
+]
+reached_by = [
+    "#94",
+    "#95",
+    "#96",
+    "#99",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:59f4e1d4f93a70f2"
+name = "coherent_elastic_thinning_error"
+qual = "coherent_elastic_thinning_error"
+lines = [
+    338,
+    353,
+]
+hash = "sha256:c3eba2e732d4260db0e7d119c8c6abf3121ef61cfb0caa2ad61e32feceeca547"
+doc_hash = "sha256:cf19c2c02bbbc15819738187ac872b19be00c53e4a0891524339d6c41a2ca4ae"
+callees = ["fn:6d43135c79a95671"]
+reached_by = [
+    "#94",
+    "#99",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:6d43135c79a95671"
+name = "coherent_elastic_thinning_error_below"
+qual = "coherent_elastic_thinning_error_below"
+lines = [
+    355,
+    388,
+]
+hash = "sha256:78144d26ddd1939f52971dc0c507a272088dd12e894cc23a81abbe29970559e7"
+doc_hash = "sha256:e979a09b1ce00a4dbb5fdeeec6863820f623a2c0b0f1288fcbee08674353c9be"
+callees = [
+    "fn:48ee6709694efad9",
+    "fn:515bc54877e93ba8",
+    "fn:b0d8a2d0756e749c",
+    "fn:e598dc43133290c2",
+]
+reached_by = [
+    "#94",
+    "#99",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:02e189449c76a43d"
+name = "from_tape"
+qual = "SabTemperatureStack::from_tape"
+lines = [
+    432,
+    460,
+]
+hash = "sha256:dcc54e3735202480f9ea92e4d7af6f503199c88329623ae1b7ccb2add821ce32"
+doc_hash = "sha256:b92eb1ecb440ff36aff09bb78452a0d2d2c400b8da77e689dd510e7f62360a86"
+callees = [
+    "fn:be4791f163d6968f",
+    "fn:fc582d571d31fa8e",
+]
+reached_by = [
+    "#96",
+    "#98",
+    "#100",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:3492096ee40f435c"
+name = "thinned_kernel"
+qual = "SabTemperatureStack::thinned_kernel"
+lines = [
+    462,
+    476,
+]
+hash = "sha256:331909022ca5ee7cf7dc7fb561749c251e3867e87a99c9f9f03f48abfaf12808"
+doc_hash = "sha256:e3d2eb421fc6d5649aa2c1c09d614361f634acd6020ec7f3925e9aba51b73896"
+callees = ["fn:1bc560d1531b9a58"]
+reached_by = [
+    "#96",
+    "#98",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:1bc560d1531b9a58"
+name = "thinned_kernel_with_zero_policy"
+qual = "SabTemperatureStack::thinned_kernel_with_zero_policy"
+lines = [
+    478,
+    505,
+]
+hash = "sha256:4f6b29df6cb23f61e3269b0afb1a0e64154a25067407aa4d855c1822da928033"
+doc_hash = "sha256:e1141106f8240dfbba33dee4446b4dd6d44911523353aeec33b37dc119109305"
+callees = [
+    "fn:33504dd746a0620c",
+    "fn:f8d3fde77439d8f2",
+]
+reached_by = [
+    "#96",
+    "#98",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:ed8e2a7b29102023"
+name = "zero_cell_count"
+qual = "SabTemperatureStack::zero_cell_count"
+lines = [
+    507,
+    520,
+]
+hash = "sha256:21011ffacc39a90ee0665669c7fefa4d1590e2e86918e383d5c7145219458183"
+doc_hash = "sha256:686b19bd539f56bbff9c521137517967eaee56fe16c961d79c0c66eb18860277"
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:8fb094df1d7bad7e"
+name = "thinning_error"
+qual = "SabTemperatureStack::thinning_error"
+lines = [
+    522,
+    555,
+]
+hash = "sha256:ee8a49348a95f5532c5c4c93a3fc5b540d0c9c9960c383ff95f06b2ac749ca26"
+doc_hash = "sha256:f68c57db89f4523842acbdd9555550e3e9787e2689f47b03e283a6d458d1b6c6"
+callees = [
+    "fn:3492096ee40f435c",
+    "fn:48ee6709694efad9",
+    "fn:b0d8a2d0756e749c",
+    "fn:bd83553976372a68",
+]
+reached_by = ["#98"]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:7dae7a1cf2e4afc6"
+name = "max_s"
+qual = "SabTemperatureStack::max_s"
+lines = [
+    557,
+    565,
+]
+hash = "sha256:efeb0460c954d3df86b6e6d2543c809fe268e5ef36d46d4bb98c4093c1017bf5"
+doc_hash = "sha256:9615a51c442d64460a0449ecbcb07b889a2bbd62bf05ccf45a138b13b068a40c"
+reached_by = ["#98"]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:a94b191a34569eed"
+name = "inelastic_cross_section_thinning_error"
+qual = "inelastic_cross_section_thinning_error"
+lines = [
+    568,
+    604,
+]
+hash = "sha256:514681409c47e461987c38158b2412871a13463ce1747f881f596f7e51a0d835"
+doc_hash = "sha256:69d0090daf115087e278558bf4c2c5be945317618c94f67deca27375358fe3be"
+callees = [
+    "fn:1bc560d1531b9a58",
+    "fn:295d974b67250547",
+    "fn:48ee6709694efad9",
+    "fn:b0d8a2d0756e749c",
+    "fn:e598dc43133290c2",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:e83abb644d731395"
+name = "mf7_mt4_endf_bytes"
+qual = "mf7_mt4_endf_bytes"
+lines = [
+    613,
+    632,
+]
+hash = "sha256:a0998d4cf5fc831ded4b71b9eee98b3f21969b5324f1f808f42fd9a320be9d62"
+doc_hash = "sha256:0a2c4dcabd2d0c83a6f571b80cc0f5e611899e2fc32a7d5f234e09837196e070"
+reached_by = [
+    "#44",
+    "#93",
+]
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:c487d0125df918fe"
+name = "bracket_finds_the_kept_neighbours"
+qual = "bracket_finds_the_kept_neighbours"
+lines = [
+    638,
+    653,
+]
+hash = "sha256:681e64930b1434c65c58bf263e0d1d49c6d39e06565d0106933ab478bbd74066"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:83a1595c41dc76eb",
+    "fn:aabc492697c33401",
+    "fn:ddd44ca2c1b76237",
+    "fn:f8d3fde77439d8f2",
+]
+test = true
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:d224f6e567843e3c"
+name = "leave_one_out_keeps_the_neighbours"
+qual = "leave_one_out_keeps_the_neighbours"
+lines = [
+    655,
+    661,
+]
+hash = "sha256:4181925e607f2feab56b39a36103d6a93a35de6ee191e7e361932066561ed9f3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2f12aafeadbb8a2e",
+    "fn:f8d3fde77439d8f2",
+]
+test = true
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:9cc14cf24afa0eb8"
+name = "accumulator_reports_max_rms_and_worst_point"
+qual = "accumulator_reports_max_rms_and_worst_point"
+lines = [
+    663,
+    693,
+]
+hash = "sha256:e9a198df154a95fd8db4c3e1475f19a97b5a5dd606f163351cf61b07af4c3209"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:48ee6709694efad9",
+    "fn:b0d8a2d0756e749c",
+    "fn:e598dc43133290c2",
+]
+test = true
+
+[[module."temperature_thinning.rs".function]]
+id = "fn:ea34a7cdd30cf761"
+name = "byte_model_matches_the_graphite_tape"
+qual = "byte_model_matches_the_graphite_tape"
+lines = [
+    695,
+    701,
+]
+hash = "sha256:cbce26c7152dcfd88edc0abd756300a83a072d1f8a68bed701e51582f41585f9"
+doc_hash = "sha256:ff8b6590a1b2b47afb692205b210aca6c4df6d79cc829b83bd0ca6a9d0009e1d"
+callees = ["fn:e83abb644d731395"]
+test = true

@@ -1,0 +1,1292 @@
+schema_version = 1
+kind = "code_folder"
+crate = "njoy-outram-park-fork"
+dir = "crates/njoy-outram-park-fork/src/heatr"
+test_ids = [
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::all_four_phases_sum_additively",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::all_three_phases_sum_additively",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::capture_deposits_e_plus_q",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::charged_particle_only_exit_deposits_e_plus_q",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::continuum_inelastic_is_single_neutron_with_spectrum_mean",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::damage_empty_without_recoil_channels",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::default_displacement_energies_match_njoy_table",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::discrete_level_adds_to_damage",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::discrete_level_heating_is_reduced_by_negative_q",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::elastic_and_capture_sum_additively",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::elastic_damage_is_bounded_by_heating",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::eval_interpolates_between_grid_points",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::fission_heating_is_positive_and_order_200_mev",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::fission_heating_matches_energy_balance_formula",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::h5_sums_additively_with_all_prior_phases",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::heavy_target_transfers_small_fraction",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::hydrogen_elastic_loses_half_its_energy",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::lindhard_damage_fraction_falls_with_energy",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::lindhard_partition_bounds",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::multineutron_without_spectrum_contributes_nothing",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::n2n_heating_is_small_and_positive_at_14_mev",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::n2n_heating_subtracts_two_neutron_means",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::n3n_and_n4n_use_higher_multiplicity",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::nn_alpha_family_uses_single_neutron_formula",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::single_neutron_at_q_zero_matches_elastic_formula",
+    "crates/njoy-outram-park-fork/src/heatr/tests.rs::two_body_recoil_bounds_narrow_with_negative_q",
+    "crates/njoy-outram-park-fork/src/heatr/twobody.rs::a_level_is_interpolated_between_nodes",
+    "crates/njoy-outram-park-fork/src/heatr/twobody.rs::breakup_yields_follow_nheat",
+    "crates/njoy-outram-park-fork/src/heatr/twobody.rs::isotropic_elastic_is_the_two_body_mean",
+    "crates/njoy-outram-park-fork/tests/acer.rs::esz_heating_column_is_physical",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::be9_local0",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::fe58_userq_ed",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::h2_local0",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::li6_local1",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::o16_local0",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::si28_kchk_plot",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::si28_local0",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::si28_two_temperatures",
+    "crates/njoy-outram-park-fork/tests/heatr_kerma_vs_kinematics.rs::kerma_reproduces_the_closed_form_heating_models",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::energy_balance_subtracts_mt442_and_nothing_else",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::heating_matches_njoy_where_elastic_and_mf12_capture_are_the_only_channels",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt301_energy_balance_against_njoy_is_recorded",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt301_local1_kinematic_against_njoy_is_recorded",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt4_is_not_heated_beside_the_levels",
+    "crates/njoy-outram-park-fork/tests/heatr_vs_njoy2016.rs::damage_elastic_matches_njoy_where_scattering_is_isotropic",
+    "crates/njoy-outram-park-fork/tests/heatr_vs_njoy2016.rs::damage_total_against_njoy_is_recorded_not_asserted",
+    "crates/njoy-outram-park-fork/tests/heatr_vs_njoy2016.rs::kerma_matches_njoy_local_deposition_in_the_capture_regime",
+    "crates/njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs::build_full_with_purr_writes_a_block_that_reads_back_as_generated",
+    "crates/outram-mc-libs/tests/xs_and_tracks_plot_parity.rs::regenerate_c12_ace",
+]
+
+[module."damage.rs"]
+path = "crate::heatr::damage"
+
+[[module."damage.rs".function]]
+id = "fn:6615d43f6be81f08"
+name = "default_displacement_energy"
+qual = "default_displacement_energy"
+lines = [
+    11,
+    40,
+]
+hash = "sha256:87943b66e69581eb02c1a91b1e6af0a9c7adfee492c528a5e2ed2543e4bad39a"
+doc_hash = "sha256:133e6fa5e2cdd02f179ec472e09b483535c5c0556df0eeb48d9af1fd3b568740"
+reached_by = [
+    "#6",
+    "#7",
+    "#10",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#44",
+    "#45",
+    "#47",
+    "#48",
+]
+
+[[module."damage.rs".function]]
+id = "fn:ab3fd8a6a851937d"
+name = "lindhard_damage"
+qual = "lindhard_damage"
+lines = [
+    42,
+    83,
+]
+hash = "sha256:01880d5ad1a9144a0d152071e73b7624c5816e6c991ecf2738f5ecfb29e7342c"
+doc_hash = "sha256:78821bfaa701fbdea265f31a880a8fc171edd148211211321c6b0c6859effe16"
+reached_by = [
+    "#5",
+    "#7",
+    "#10",
+    "#17",
+    "#18",
+    "#44",
+    "#45",
+]
+
+[[module."damage.rs".function]]
+id = "fn:57327249b5f4e375"
+name = "from_reconr"
+qual = "DamageEnergy::from_reconr"
+lines = [
+    122,
+    165,
+]
+hash = "sha256:9e2e82ca14117333b746b6f6363cd3371a04bc6cd1b445f6905beaf42dbffe40"
+doc_hash = "sha256:db28c5be0b89320b2190e5e1325bc4d5d7689435b5566b675429f22b8e795f25"
+callees = [
+    "fn:6c1a703379e65f7e",
+    "fn:6e6951804fd97c5d",
+    "fn:c4bd3faec321320f",
+    "fn:e85409c9d034f1f2",
+]
+reached_by = [
+    "#5",
+    "#7",
+    "#10",
+    "#44",
+    "#45",
+]
+
+[[module."damage.rs".function]]
+id = "fn:6450475a81584598"
+name = "eval"
+qual = "DamageEnergy::eval"
+lines = [
+    167,
+    180,
+]
+hash = "sha256:ed0956c90dc40657ce74a973f2ac6e015b4a197d83d0a26a3cd9d7e7ae4b83af"
+doc_hash = "sha256:99ba8ab500c0e2345c017a9765a98ddb9e55e76815b86dde6392b701ee7614fc"
+callees = ["fn:6e6951804fd97c5d"]
+reached_by = [
+    "#5",
+    "#7",
+    "#10",
+    "#44",
+    "#45",
+]
+
+[[module."damage.rs".function]]
+id = "fn:6c1a703379e65f7e"
+name = "two_body_recoil_bounds"
+qual = "two_body_recoil_bounds"
+lines = [
+    183,
+    202,
+]
+hash = "sha256:5ffe6e2daceeb34e7c5044e62d42d1edab486491ecb86f3da5ba53c407bd6952"
+doc_hash = "sha256:a25c801b3a78948a85812e16b4c62d428ebb2560d3a99b068430fb457334d7e4"
+reached_by = [
+    "#5",
+    "#7",
+    "#10",
+    "#25",
+    "#44",
+    "#45",
+]
+
+[[module."damage.rs".function]]
+id = "fn:e85409c9d034f1f2"
+name = "mean_recoil_damage"
+qual = "mean_recoil_damage"
+lines = [
+    204,
+    229,
+]
+hash = "sha256:3e018be8b1555dfd503b2d8eb4b7c6ee5896d6ce9e516f7b147f84cac3d535ed"
+doc_hash = "sha256:b8cc68c70a0d3f665cbddc573a9d5abbf6c615d05f0353dba8d93beac0df318c"
+callees = ["fn:ab3fd8a6a851937d"]
+reached_by = [
+    "#5",
+    "#7",
+    "#10",
+    "#44",
+    "#45",
+]
+
+[module."kerma.rs"]
+path = "crate::heatr::kerma"
+
+[[module."kerma.rs".function]]
+id = "fn:29a3fbe3105f6a45"
+name = "from_reconr"
+qual = "Kerma::from_reconr"
+lines = [
+    29,
+    96,
+]
+hash = "sha256:85109fb1184a54e323338f147202ee1c37aeef6462c09f015895a056ba10c094"
+doc_hash = "sha256:3becba921e622ebf8ff7ad7f9fa49d3e41ffec77f73a93a90b9a285bd07ae179"
+callees = [
+    "fn:08bb3eff1fb7e0ae",
+    "fn:20a16fe24910c481",
+    "fn:548b1b2e6f3bb164",
+    "fn:67e56cd94ab6b1fe",
+    "fn:6e6951804fd97c5d",
+    "fn:bdf3206aaa46de8b",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#46",
+]
+
+[[module."kerma.rs".function]]
+id = "fn:037ade6fc196aa3f"
+name = "from_endf"
+qual = "Kerma::from_endf"
+lines = [
+    98,
+    251,
+]
+hash = "sha256:50c0103b5f7ea29f14b301101e62ab92f5a56b3ef8d948bc00faeea6f9b98d99"
+doc_hash = "sha256:9a691033cada69654388226426ebd4e051a44636b51c72dc583b6593519aeae9"
+callees = [
+    "fn:08bb3eff1fb7e0ae",
+    "fn:20a16fe24910c481",
+    "fn:4409d37190024de4",
+    "fn:548b1b2e6f3bb164",
+    "fn:66cb45a9206f7d64",
+    "fn:67e56cd94ab6b1fe",
+    "fn:6e6951804fd97c5d",
+    "fn:9628a591c607e545",
+    "fn:b7b67ecc27b6f0aa",
+    "fn:b8779e0af0747c82",
+    "fn:bdf3206aaa46de8b",
+    "fn:c4bd3faec321320f",
+    "fn:d9f88321db7dab73",
+    "fn:e88f8a91cc330cac",
+    "fn:fca5a1199cad11f4",
+]
+reached_by = [
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."kerma.rs".function]]
+id = "fn:de07b9571aee8cfc"
+name = "with_energy_balance"
+qual = "Kerma::with_energy_balance"
+lines = [
+    253,
+    294,
+]
+hash = "sha256:06ce9e37b8b6b36ba4e34458bf8ba2bd65b516d68699635b075aea5206692520"
+doc_hash = "sha256:68184beea0edb56c0339323bae532902a14fb2a58bcb8c352b2f496c53c083a0"
+callees = [
+    "fn:03127b153f8e7802",
+    "fn:4d7b1d8c8df223de",
+]
+reached_by = [
+    "#39",
+    "#40",
+    "#41",
+]
+
+[[module."kerma.rs".function]]
+id = "fn:225566bec2d8893a"
+name = "eval"
+qual = "Kerma::eval"
+lines = [
+    296,
+    309,
+]
+hash = "sha256:e1fa21d7f647cca771a99df74bf6567840e2ad49117d5e8ae21315c669058e9c"
+doc_hash = "sha256:de032c026252a7c3e391adfe7081b88e8b9f097910980c20fdd5ea5471eb5e3e"
+callees = ["fn:6e6951804fd97c5d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#46",
+]
+
+[[module."kerma.rs".function]]
+id = "fn:d9f88321db7dab73"
+name = "deposited_q"
+qual = "deposited_q"
+lines = [
+    312,
+    340,
+]
+hash = "sha256:f3589107a3c915a541910756fab480c344c693a7c042eef0aad1558ac2ead168"
+doc_hash = "sha256:aa0cb893be295045fd231daf00595de1b5798b4be2ad764f8037d8c307a11369"
+callees = [
+    "fn:0eeb11ce0cf60f33",
+    "fn:0f64e488959f1d72",
+    "fn:6eacb2bdb269f0d7",
+    "fn:b7b67ecc27b6f0aa",
+]
+reached_by = [
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."kerma.rs".function]]
+id = "fn:20a16fe24910c481"
+name = "kinematic_per_event"
+qual = "kinematic_per_event"
+lines = [
+    342,
+    366,
+]
+hash = "sha256:1aefac89164dfb1e15751042237c57ae67c696abb019fcec02e6d8dbd4689721"
+doc_hash = "sha256:cc1dd41418e25cca9641934bd865f74f1bb0c4b1c5520c0caa77dff75ce69493"
+callees = [
+    "fn:7be8a3429bd0a68f",
+    "fn:aa780832a54c6f8a",
+    "fn:e487cfca483ebf8b",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#46",
+]
+
+[[module."kerma.rs".function]]
+id = "fn:66cb45a9206f7d64"
+name = "nheat_threshold"
+qual = "nheat_threshold"
+lines = [
+    368,
+    381,
+]
+hash = "sha256:6dad7495c28f8eed2358d629905ef79b70a8019078647464dcd1d0706bb72bbd"
+doc_hash = "sha256:8906a0f4c373b92579f45aae8cd193051ba7664fa3aa5e8fb5088460dc5d2b90"
+callees = [
+    "fn:0de82dc907399679",
+    "fn:4409d37190024de4",
+    "fn:9b0c5dc4dda54fbd",
+]
+reached_by = [
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[module."mod.rs"]
+path = "crate::heatr"
+
+[[module."mod.rs".function]]
+id = "fn:befbca909e946161"
+name = "run"
+qual = "run"
+lines = [
+    136,
+    148,
+]
+hash = "sha256:2ef8b75f8a4f1a9c2105d9285a7fa7f9e503f3f99192b8b4b23f8d9377701214"
+doc_hash = "sha256:da536677cb7ed063d6792765e2a64c1501e540fefb647f4c102b92be2edaae19"
+
+[module."spectra.rs"]
+path = "crate::heatr::spectra"
+
+[[module."spectra.rs".function]]
+id = "fn:aa780832a54c6f8a"
+name = "mean_energy"
+qual = "EmissionSpectrum::mean_energy"
+lines = [
+    32,
+    39,
+]
+hash = "sha256:5e05e8458bbbb69e958bba3bf1aa4ffc1c7cd1c1bbb03ff57539a06022d74206"
+doc_hash = "sha256:fe201803df62ac2c404278df2b2be46335e83d9a2c99c5e2a0af57ec8de19e06"
+callees = [
+    "fn:7c001301adad12b7",
+    "fn:e487cfca483ebf8b",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#46",
+]
+
+[[module."spectra.rs".function]]
+id = "fn:0ad8c2483b0f1b71"
+name = "build_emission_spectra"
+qual = "build_emission_spectra"
+lines = [
+    46,
+    74,
+]
+hash = "sha256:81c80e2f8ceb442e6e26200ba02104267fb55f6135906ff8d89da58f3eecd38b"
+doc_hash = "sha256:1306600f4b5dc921b48c0b0e96ca2b10b81a977cc43d2c963a904ea150e11fd1"
+callees = [
+    "fn:073877215e6765bc",
+    "fn:660d79b420c51082",
+    "fn:b7b67ecc27b6f0aa",
+    "fn:d976fca29369f6c7",
+]
+reached_by = [
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#46",
+]
+
+[[module."spectra.rs".function]]
+id = "fn:67e56cd94ab6b1fe"
+name = "heating_model"
+qual = "heating_model"
+lines = [
+    121,
+    145,
+]
+hash = "sha256:3c531dd24f957abeefb74d33a13009724a9d0e83fb7f552ec93d4cfc1586f591"
+doc_hash = "sha256:a07990ca8aa06d66583f9bc3f8e4e9ca39cd87cb335ec768d135382e9a238a4a"
+callees = ["fn:c4bd3faec321320f"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#46",
+]
+
+[[module."spectra.rs".function]]
+id = "fn:08bb3eff1fb7e0ae"
+name = "neutron_multiplicity"
+qual = "neutron_multiplicity"
+lines = [
+    147,
+    161,
+]
+hash = "sha256:48e4587fc8a71de599490ab8bd99cc7afebf11d8dc85f2fa8f4f3b581f48d7f2"
+doc_hash = "sha256:193259967f34fbebf090578f4281038cb6cdb2fe06989196bfc94bf380b01b12"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#46",
+]
+
+[[module."spectra.rs".function]]
+id = "fn:548b1b2e6f3bb164"
+name = "emission_spectrum"
+qual = "emission_spectrum"
+lines = [
+    163,
+    172,
+]
+hash = "sha256:3c9c26d10320916566bcbb05d801d2bd80ae1d6765935b932566a61261a923ff"
+doc_hash = "sha256:8ad2f4f0cc56fabb31a0df4e23cd31ff0f6531a3848f4b5c7cf4933e43fedd47"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#46",
+]
+
+[[module."spectra.rs".function]]
+id = "fn:bdf3206aaa46de8b"
+name = "single_neutron_factor"
+qual = "single_neutron_factor"
+lines = [
+    174,
+    200,
+]
+hash = "sha256:8462464dc4e3d3d5917805a1ca83156665f4824795174ea55b93984e45560e5e"
+doc_hash = "sha256:7c0203dc1904e3652fae4acf5bf33a9595f3400d03bfb39ec61985ae8a7d7dae"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#46",
+]
+
+[module."tests.rs"]
+path = "crate::heatr::tests"
+
+[[module."tests.rs".function]]
+id = "fn:48b3d9220797f17c"
+name = "material"
+qual = "material"
+lines = [
+    11,
+    22,
+]
+hash = "sha256:a359f169e2acb2d5b885ad5119c7f8f71eefa53de2e8375701fefdf2c34942e1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:c4505cc27f2490ef"
+name = "recon"
+qual = "recon"
+lines = [
+    24,
+    31,
+]
+hash = "sha256:81535cf6fe8e653994c129836af86af59090eae532e8b365dabef0f3d7d416dc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:48b3d9220797f17c"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:c8b9b13c254441ef"
+name = "hydrogen_elastic_loses_half_its_energy"
+qual = "hydrogen_elastic_loses_half_its_energy"
+lines = [
+    33,
+    57,
+]
+hash = "sha256:f267ce6ea2b0f66629aa156223fb6dd3e98f9c28a2ce1e6cfa175f06a31be575"
+doc_hash = "sha256:9527998b10644e67a022c79e878b7a1853a371ff224032dbd7ae1daa96d6d0a0"
+callees = [
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:15f5694a2bf3fe28"
+name = "heavy_target_transfers_small_fraction"
+qual = "heavy_target_transfers_small_fraction"
+lines = [
+    59,
+    88,
+]
+hash = "sha256:2a92fa3e317a6f5dd4497f2621c602d7e5834d10965a1349127db73e6fabe81c"
+doc_hash = "sha256:78e7a360f9db1afda456ba24d31d3dc856e91d6d9c8251aa8a093bf0fdac583f"
+callees = [
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:89fff9c3164082b8"
+name = "multineutron_without_spectrum_contributes_nothing"
+qual = "multineutron_without_spectrum_contributes_nothing"
+lines = [
+    90,
+    114,
+]
+hash = "sha256:b9170d9a0d8f77f33b5ae2bc68c615d48273043c8447a4bb2e2e689aeae70b65"
+doc_hash = "sha256:8d6acbf6d7fd55aaacc3bf63009d06a8a9fbbf288db290aa55d1876cd54cb8dc"
+callees = [
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:4d3dc47a013b3ade"
+name = "capture_deposits_e_plus_q"
+qual = "capture_deposits_e_plus_q"
+lines = [
+    116,
+    141,
+]
+hash = "sha256:2edda454c08bd6eadb101a6bcacb5bd9592dcbef52a147b6bb2bd0d9661ee6ee"
+doc_hash = "sha256:d069760b1f9087ea0b9967ed947e3b52b2ac456b9ec391c62cd5faeaccbf1124"
+callees = [
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:711d82af9e9ce272"
+name = "charged_particle_only_exit_deposits_e_plus_q"
+qual = "charged_particle_only_exit_deposits_e_plus_q"
+lines = [
+    143,
+    166,
+]
+hash = "sha256:6c7085bad7729a02f7d07c40ad4ce89e88e2a8a9e2a5d66c2051149a874ca46d"
+doc_hash = "sha256:4441393406054878b7d7a4abba9433d30dea6a16129423c72e5b64543fb33669"
+callees = [
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:5de8172531555315"
+name = "single_neutron_at_q_zero_matches_elastic_formula"
+qual = "single_neutron_at_q_zero_matches_elastic_formula"
+lines = [
+    168,
+    192,
+]
+hash = "sha256:2c002515a683a66a06c35cbf20893d7641711e6a7511913d084d7bed524c8a0f"
+doc_hash = "sha256:af462e2d9bfeabdf16a70ad371ce6825b7cd4600baf1dc73ad00da10f9aba418"
+callees = [
+    "fn:073877215e6765bc",
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:6020509d2a32d648"
+name = "discrete_level_heating_is_reduced_by_negative_q"
+qual = "discrete_level_heating_is_reduced_by_negative_q"
+lines = [
+    194,
+    226,
+]
+hash = "sha256:755c07d74b2ed2c81958dd5db4842fe66296b0c408af32f7d6560eabf9defe2f"
+doc_hash = "sha256:0c7f3b84227686cdb1fff6b197ba23b94aead21a569eb7005f9ab6e61bfe1553"
+callees = [
+    "fn:073877215e6765bc",
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:c09122fb32f8a57c"
+name = "nn_alpha_family_uses_single_neutron_formula"
+qual = "nn_alpha_family_uses_single_neutron_formula"
+lines = [
+    228,
+    253,
+]
+hash = "sha256:41924ba33c31465065d347a952290815958fe2972943e78b5d8149239b6d7a70"
+doc_hash = "sha256:9712111c7ae8d8741f6773ef7ddcb0c6dcb85863cd7b885bcd5b924d349db611"
+callees = [
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:f01a7a7c4176bf3a"
+name = "all_three_phases_sum_additively"
+qual = "all_three_phases_sum_additively"
+lines = [
+    255,
+    293,
+]
+hash = "sha256:29f3b6715a8475485c14ff12537b5834d25eba9e791189bfb3fde117ed48d253"
+doc_hash = "sha256:80238cf0ca619428d967ea28ac1a7268134df4bc09c0a74399952774140b1d05"
+callees = [
+    "fn:073877215e6765bc",
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:2a2b5b417098dff9"
+name = "elastic_and_capture_sum_additively"
+qual = "elastic_and_capture_sum_additively"
+lines = [
+    295,
+    326,
+]
+hash = "sha256:41c1015504bf84fd21f7954507a9b3956cbc47e53424aef92f07569ecb2a625c"
+doc_hash = "sha256:82e288eb4e58d56d917a40c08987fa9fbbe057433b1a5ceab8287fa27d1cdea6"
+callees = [
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:53cd72a635f6b4ef"
+name = "eval_interpolates_between_grid_points"
+qual = "eval_interpolates_between_grid_points"
+lines = [
+    328,
+    349,
+]
+hash = "sha256:6e1bec2306658b7f55dadb437a8b2bc63876324df9c6fcdbef5f0049fa28ea75"
+doc_hash = "sha256:cfd45a10e2dcc008cf5c0244097772dc0f84c31744cf90cfecbaea1ee54f27f3"
+callees = [
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:0569ac0c007bead6"
+name = "fission_heating_matches_energy_balance_formula"
+qual = "fission_heating_matches_energy_balance_formula"
+lines = [
+    351,
+    385,
+]
+hash = "sha256:0d608456e60268bd258b84e60d8b088a1e939682f10853cef479bb7c3f804df5"
+doc_hash = "sha256:f7c50818f2bffa9f1087248d8be79a8335ec7878911d0329a3c64c9fcfdaffb2"
+callees = [
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:7be8a3429bd0a68f",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:630b59f64998c56d"
+name = "fission_heating_is_positive_and_order_200_mev"
+qual = "fission_heating_is_positive_and_order_200_mev"
+lines = [
+    387,
+    422,
+]
+hash = "sha256:f7bf2cd56d27f362a9c15451fff45a0ef0f5f35b6550ea0b3b291e1bd4f810df"
+doc_hash = "sha256:fdb44b4fd0f5d7eb2bebdeaa13e1a4b40d0ce933116508fb10aefcb0fd15690e"
+callees = [
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:76c104f44a22d004"
+name = "all_four_phases_sum_additively"
+qual = "all_four_phases_sum_additively"
+lines = [
+    424,
+    482,
+]
+hash = "sha256:81bbb9bc9473c07501db3df6daf61ac911e1965bf9ff23c642c3d1811053ef34"
+doc_hash = "sha256:85571510f2c09317928640a04a44db816f39f73937db162b480e4de635c83ef9"
+callees = [
+    "fn:073877215e6765bc",
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:338c12a85b252646"
+name = "n2n_heating_subtracts_two_neutron_means"
+qual = "n2n_heating_subtracts_two_neutron_means"
+lines = [
+    484,
+    516,
+]
+hash = "sha256:2eb0cb809d8210c68f907214de9ac5ada15b586d2ef35fa6d89e82a424d398fe"
+doc_hash = "sha256:ae7cb71b89c85886c268d8add1ef400534ab0123da320ecddb02e31b04def4c5"
+callees = [
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:2042fae825e613ed"
+name = "n3n_and_n4n_use_higher_multiplicity"
+qual = "n3n_and_n4n_use_higher_multiplicity"
+lines = [
+    518,
+    550,
+]
+hash = "sha256:97bfd53af85b34b36e39a8971f60103466fdee4289eb2b57a44fa846e1dce607"
+doc_hash = "sha256:9ae10877389e97f8b86d90c46a0e53699dfbf18ac9a7f92680be787167a4a541"
+callees = [
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:ccb5ed3d16628fa0"
+name = "continuum_inelastic_is_single_neutron_with_spectrum_mean"
+qual = "continuum_inelastic_is_single_neutron_with_spectrum_mean"
+lines = [
+    552,
+    584,
+]
+hash = "sha256:7ac628a70faabe4885f07e495ba6e64330c5142c9033d10da48ea9004d6f6b1d"
+doc_hash = "sha256:b0bf9a624cae67c43e7e5e8edaad0add0b06b4ca320f8f7002d559fbb1706b13"
+callees = [
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:3e70d9d6a16e7666"
+name = "n2n_heating_is_small_and_positive_at_14_mev"
+qual = "n2n_heating_is_small_and_positive_at_14_mev"
+lines = [
+    586,
+    627,
+]
+hash = "sha256:d0947b9bcc9dde2a20c9738c02617b3190f0cace7ab3763c3077df5e15ef9a0f"
+doc_hash = "sha256:ec2fd0dfd29da88c504efedea8185109cbaf116ce896cfc80e1ef3c4ee0ae45d"
+callees = [
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:9f085e1118000d27",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:a93f421796ea5a0d"
+name = "h5_sums_additively_with_all_prior_phases"
+qual = "h5_sums_additively_with_all_prior_phases"
+lines = [
+    629,
+    700,
+]
+hash = "sha256:a0f674f64c75f4d77e8b990f6adccd2505c7c6b70de0fd5bac2d9afdbede2353"
+doc_hash = "sha256:4f7df263f5e5c2f003c7d8cb7503e6287471a4ef8d17d078f270672bd545d399"
+callees = [
+    "fn:073877215e6765bc",
+    "fn:225566bec2d8893a",
+    "fn:29a3fbe3105f6a45",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:a51a6ba4e5c56b34"
+name = "default_displacement_energies_match_njoy_table"
+qual = "default_displacement_energies_match_njoy_table"
+lines = [
+    704,
+    714,
+]
+hash = "sha256:3dbb9f29a0c6402e830700086757fe7722fce32fefe8cca86956607ab0ad9ab3"
+doc_hash = "sha256:f0e2948e40532577a6f522202a0f826b26f2c58a82f02db82cc4864e734726a1"
+callees = ["fn:6615d43f6be81f08"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:f923d90df86b5fd6"
+name = "lindhard_partition_bounds"
+qual = "lindhard_partition_bounds"
+lines = [
+    716,
+    727,
+]
+hash = "sha256:bf1fb5cfac257a59127e7c55984cde2035cde6f0c459a173a63e4c1cff1bf4d7"
+doc_hash = "sha256:e758972ce11d7f0f94c05b7c376745ff1f0598a0d9a008f4a7db9cc93396f859"
+callees = ["fn:ab3fd8a6a851937d"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:542fcdf4c7a2797e"
+name = "lindhard_damage_fraction_falls_with_energy"
+qual = "lindhard_damage_fraction_falls_with_energy"
+lines = [
+    729,
+    741,
+]
+hash = "sha256:0426312b758597ece82cf8e21291427dd523c2be1bee22e8af6c2603489e7571"
+doc_hash = "sha256:86fba7e368e479c1cab2ae1211fc5df1d1df5e9109a6d1d8b103776827a8d6c3"
+callees = ["fn:ab3fd8a6a851937d"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:a90b47174789c8dd"
+name = "elastic_damage_is_bounded_by_heating"
+qual = "elastic_damage_is_bounded_by_heating"
+lines = [
+    743,
+    783,
+]
+hash = "sha256:e2b155543e7477f22f09d938573033560aebe21400b52a535712ed7074b15779"
+doc_hash = "sha256:51ef1aa0cdde99a6364880ace825e57c867de21e340894344803247586d26503"
+callees = [
+    "fn:57327249b5f4e375",
+    "fn:6450475a81584598",
+    "fn:6615d43f6be81f08",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b83d56c730235ffb"
+name = "damage_empty_without_recoil_channels"
+qual = "damage_empty_without_recoil_channels"
+lines = [
+    785,
+    799,
+]
+hash = "sha256:59191b521bdb87d9662b383772729e9a3f923bceb9ff32315f9726d1df99b2d7"
+doc_hash = "sha256:2d7fc84064fb6ac35df4f2e5f09f1ba16bbc6a48e56e75853b4ffab71d2c9997"
+callees = [
+    "fn:57327249b5f4e375",
+    "fn:6450475a81584598",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:f3a3248a07240e46"
+name = "two_body_recoil_bounds_narrow_with_negative_q"
+qual = "two_body_recoil_bounds_narrow_with_negative_q"
+lines = [
+    801,
+    820,
+]
+hash = "sha256:f49d81a2e96568ec73dc36c13033edd914f27c97fc109607db0eeefeefb341af"
+doc_hash = "sha256:e79a403787d3322d17cf38d6f5446da0751a4a47ed989ed1bdbc105da5db2715"
+callees = ["fn:6c1a703379e65f7e"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:59cf140c4ddd2737"
+name = "discrete_level_adds_to_damage"
+qual = "discrete_level_adds_to_damage"
+lines = [
+    822,
+    867,
+]
+hash = "sha256:d86cd8dd02716d0c31f07023611987814091ee16ac9d156a58afe0ff546a92c8"
+doc_hash = "sha256:80c1e2981a50659ffb50a2a0ae4f90b7f9996c94914849382f2ded5164e3a83f"
+callees = [
+    "fn:073877215e6765bc",
+    "fn:57327249b5f4e375",
+    "fn:6450475a81584598",
+    "fn:6615d43f6be81f08",
+    "fn:c4505cc27f2490ef",
+]
+test = true
+
+[module."twobody.rs"]
+path = "crate::heatr::twobody"
+
+[[module."twobody.rs".function]]
+id = "fn:9628a591c607e545"
+name = "new"
+qual = "DisbarWalker::new"
+lines = [
+    67,
+    90,
+]
+hash = "sha256:7688d8f78987147f60de53e0ad2af2509248a48237e84d0a2105a83ff8a069e6"
+doc_hash = "sha256:944d21404cce1af85b380f0f33ff338fb983045a61f937c39012382ab877b5d8"
+callees = [
+    "fn:0eb4670f3910d99b",
+    "fn:b7b67ecc27b6f0aa",
+    "fn:c73a7ee8e44922e7",
+]
+reached_by = [
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."twobody.rs".function]]
+id = "fn:952af6a5f2d3fe36"
+name = "mean_cosine"
+qual = "DisbarWalker::mean_cosine"
+lines = [
+    92,
+    101,
+]
+hash = "sha256:361a1b296b80b1e2b6bfb8e67b9645b0fa2472f242d037864796172c4b512afe"
+doc_hash = "sha256:746e6282dd7f33637acb86c74bd89d0ae38c5731d29e70f1cf400f05dfc6b7b0"
+callees = ["fn:8f62489c5fe2ac1e"]
+reached_by = [
+    "#26",
+    "#28",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."twobody.rs".function]]
+id = "fn:fca5a1199cad11f4"
+name = "ebar"
+qual = "DisbarWalker::ebar"
+lines = [
+    103,
+    134,
+]
+hash = "sha256:d56dbb67a343761f4f660c6d409e1ea531605060a1a5b9c75401586e66aa3aec"
+doc_hash = "sha256:381f0a536c9d83229afb33c140c4031693b4fb596a6d4172f87f2065be0f7bcb"
+callees = [
+    "fn:23f2d8f8cb0057fa",
+    "fn:952af6a5f2d3fe36",
+]
+reached_by = [
+    "#26",
+    "#28",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."twobody.rs".function]]
+id = "fn:b8779e0af0747c82"
+name = "level_yield"
+qual = "level_yield"
+lines = [
+    137,
+    146,
+]
+hash = "sha256:ada30b24c02f31403613e820afe61111f956660bd283d4de4c6348ad6f78ea1a"
+doc_hash = "sha256:35a2a330a28e28f334ab21fe1b7f7ec627c60dcb8dabfa91a4388423285b6168"
+reached_by = [
+    "#27",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."twobody.rs".function]]
+id = "fn:680c4ba8bbeca41f"
+name = "walker"
+qual = "walker"
+lines = [
+    152,
+    165,
+]
+hash = "sha256:e00353d6fa2f6b41fef2f6c7c52f3013116df33badfc2c13fdd953b496886806"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."twobody.rs".function]]
+id = "fn:e95661edc3ec66de"
+name = "isotropic_elastic_is_the_two_body_mean"
+qual = "isotropic_elastic_is_the_two_body_mean"
+lines = [
+    167,
+    176,
+]
+hash = "sha256:d962f285347c6b1673842b2cb498408636c5a4cf6c1616ab3b330b3598cb44db"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:680c4ba8bbeca41f",
+    "fn:fca5a1199cad11f4",
+]
+test = true
+
+[[module."twobody.rs".function]]
+id = "fn:14f52c3a1e8590f4"
+name = "a_level_is_interpolated_between_nodes"
+qual = "a_level_is_interpolated_between_nodes"
+lines = [
+    178,
+    196,
+]
+hash = "sha256:76461a6dc99c6ad5e8db56cf6cb3f9d1629e4f6d2ce11d085354d58f90295cbc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:680c4ba8bbeca41f",
+    "fn:fca5a1199cad11f4",
+]
+test = true
+
+[[module."twobody.rs".function]]
+id = "fn:3edc0140142a26f2"
+name = "breakup_yields_follow_nheat"
+qual = "breakup_yields_follow_nheat"
+lines = [
+    198,
+    204,
+]
+hash = "sha256:471d6d8bd0a6b10a804f6e3bc922223e8c0182bc94f3255c49f0a8a5198890fc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b8779e0af0747c82"]
+test = true

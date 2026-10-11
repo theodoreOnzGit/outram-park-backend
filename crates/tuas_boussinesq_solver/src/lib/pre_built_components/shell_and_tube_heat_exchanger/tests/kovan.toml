@@ -1,0 +1,315 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/calibration_functions.rs::calibration_regression_set_c9_no_heat_loss",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/calibration_functions.rs::calibration_regression_set_c9_no_heat_loss_mesh_refined",
+]
+
+[module."basic_postprocessing.rs"]
+path = "crate::pre_built_components::shell_and_tube_heat_exchanger::tests::basic_postprocessing"
+
+[[module."basic_postprocessing.rs".function]]
+id = "fn:e62fc76f27e6d993"
+name = "overall_htc_postprocessing_basic_test_shell_and_tube_heat_exchanger"
+qual = "overall_htc_postprocessing_basic_test_shell_and_tube_heat_exchanger"
+lines = [
+    1,
+    198,
+]
+hash = "sha256:9d3c0551ee22292d02518ff9921a84610cb580eab79f5091bcbf0a2df61abde1"
+doc_hash = "sha256:dafb5b4bf8838d7ccd8b3c0cd22eee603d3aff854c2c0e1ac46464cc29e46b73"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:5809a771c2fb7658",
+    "fn:9cf2732f8b0c6890",
+    "fn:a7684adf457511e5",
+    "fn:f92140d5b6a1018f",
+]
+test = true
+
+[[module."basic_postprocessing.rs".function]]
+id = "fn:a0bf764cf5406d3f"
+name = "shell_side_tube_bundle_area_basic_test_shell_and_tube_heat_exchanger"
+qual = "shell_side_tube_bundle_area_basic_test_shell_and_tube_heat_exchanger"
+lines = [
+    200,
+    383,
+]
+hash = "sha256:fb4d17e8d54be8f61d30a3ae76a79866f0ac7caa58b2839b498571c65c52e949"
+doc_hash = "sha256:a0c622097c643ddccd56099bac591d31f3fe62604aa1621047c09df2d3a533af"
+callees = [
+    "fn:049aaf459bc43a80",
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:5809a771c2fb7658",
+    "fn:9cf2732f8b0c6890",
+    "fn:a7684adf457511e5",
+]
+test = true
+
+[module."calibration_functions.rs"]
+path = "crate::pre_built_components::shell_and_tube_heat_exchanger::tests::calibration_functions"
+
+[[module."calibration_functions.rs".function]]
+id = "fn:a5cef24a95ac6053"
+name = "calibration_regression_set_c9_no_heat_loss"
+qual = "calibration_regression_set_c9_no_heat_loss"
+lines = [
+    1,
+    54,
+]
+hash = "sha256:476baac67dcc5febf8e36bb4769591a361991842d48c4bbd797f1ba52b1332f6"
+doc_hash = "sha256:60aa22f22bbcbe67f2041da87d247f50b2275f12fd644a5cf9c873e6ba0395e3"
+callees = ["fn:91f6fd788f2d4a98"]
+test = true
+
+[[module."calibration_functions.rs".function]]
+id = "fn:764d6a3549f28dc4"
+name = "calibration_regression_set_c9_no_heat_loss_mesh_refined"
+qual = "calibration_regression_set_c9_no_heat_loss_mesh_refined"
+lines = [
+    55,
+    109,
+]
+hash = "sha256:1b3d185cf8d784c0a7598315c1a031b1a9df16e7d2fde85981d44801ef53e36f"
+doc_hash = "sha256:b09523181dae0584d75868b169da5a73104caec63ff50ee41c70c2d7ab14ea40"
+callees = ["fn:91f6fd788f2d4a98"]
+test = true
+
+[[module."calibration_functions.rs".function]]
+id = "fn:91f6fd788f2d4a98"
+name = "dhx_calibration_regression_unit_test_shell_to_tube_only"
+qual = "dhx_calibration_regression_unit_test_shell_to_tube_only"
+lines = [
+    110,
+    639,
+]
+hash = "sha256:d37a11932b61726955aedf9310a20cb3885f1ea2bb59161d7971f9afe81141fb"
+doc_hash = "sha256:2f96ab5d50b64e075a965627547e7b39063fb40db65cdc328a73b56f23c0fe58"
+callees = [
+    "fn:049aaf459bc43a80",
+    "fn:0540098e0904056d",
+    "fn:29d3c7e4a86d3e41",
+    "fn:2ef478ed4f1c9216",
+    "fn:3896554af61511c5",
+    "fn:3ab99241909cec96",
+    "fn:428a459b059dec74",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:4fd006ce8ea20c8d",
+    "fn:59a1094a37dd8fb6",
+    "fn:5d919bdd46703ac5",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:75b2bf19978d095f",
+    "fn:794447db2cba5037",
+    "fn:835ea69942f39c9e",
+    "fn:86b916a07dca81de",
+    "fn:8aa901c827ccb826",
+    "fn:a2ae4cac3ac7df5a",
+    "fn:a30a4ebf70996f01",
+    "fn:a37f18cbee9ad2f1",
+    "fn:afcb0567a71406c2",
+    "fn:b113f725d215f11b",
+    "fn:cb686a3a508b4a07",
+    "fn:dda41651835c793f",
+    "fn:e4bff9f30142b5cc",
+    "fn:f43a7dfc3bb1f268",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."calibration_functions.rs".function]]
+id = "fn:b1964e3ee14dbcc0"
+name = "dhx_calibration_regression_unit_test_parasitic_heat_loss_only"
+qual = "dhx_calibration_regression_unit_test_parasitic_heat_loss_only"
+lines = [
+    641,
+    1154,
+]
+hash = "sha256:515071978617e8533464708d65002c792c225ad01254f99276b5bc6bfc5c2a8f"
+doc_hash = "sha256:2f96ab5d50b64e075a965627547e7b39063fb40db65cdc328a73b56f23c0fe58"
+callees = [
+    "fn:049aaf459bc43a80",
+    "fn:26148efbe6cf607f",
+    "fn:29d3c7e4a86d3e41",
+    "fn:2ef478ed4f1c9216",
+    "fn:3ab99241909cec96",
+    "fn:428a459b059dec74",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:4fd006ce8ea20c8d",
+    "fn:59a1094a37dd8fb6",
+    "fn:5d919bdd46703ac5",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:75b2bf19978d095f",
+    "fn:794447db2cba5037",
+    "fn:835ea69942f39c9e",
+    "fn:86b916a07dca81de",
+    "fn:8aa901c827ccb826",
+    "fn:9d4390b6bc663aca",
+    "fn:a2ae4cac3ac7df5a",
+    "fn:a30a4ebf70996f01",
+    "fn:a37f18cbee9ad2f1",
+    "fn:afcb0567a71406c2",
+    "fn:b113f725d215f11b",
+    "fn:b4457c9bde3df924",
+    "fn:be7da7171455f5f0",
+    "fn:cb686a3a508b4a07",
+    "fn:dda41651835c793f",
+    "fn:e493c50606fa62e9",
+    "fn:e4bff9f30142b5cc",
+    "fn:e9e73d663ec2c602",
+    "fn:efdff680f4757dd0",
+    "fn:fb99812124ae46b2",
+]
+
+[module."constructor_tests.rs"]
+path = "crate::pre_built_components::shell_and_tube_heat_exchanger::tests::constructor_tests"
+
+[[module."constructor_tests.rs".function]]
+id = "fn:93bedda76a86cfc3"
+name = "du_heat_exchanger_constructor_test"
+qual = "du_heat_exchanger_constructor_test"
+lines = [
+    1,
+    218,
+]
+hash = "sha256:37d72e0590fd83193a4520d80d4c72089d7a640fc50b8f59c101a67ad143fe70"
+doc_hash = "sha256:55e2c140312aee33992f7a00277ce800459c73bbe626d811f9aafa26e5e0184a"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:5809a771c2fb7658",
+    "fn:61571eb5e1cd42ad",
+    "fn:9cf2732f8b0c6890",
+    "fn:a7684adf457511e5",
+    "fn:da2ed991596bac1a",
+]
+test = true
+
+[[module."constructor_tests.rs".function]]
+id = "fn:6c46c60e27e4b977"
+name = "insulated_sthe_constructor_test"
+qual = "insulated_sthe_constructor_test"
+lines = [
+    220,
+    527,
+]
+hash = "sha256:6a41c30735a024c43352124f7225fe04cdb9e05fce49431d41d6e4f9712aec1b"
+doc_hash = "sha256:d5cd57ea2a881b3fb796f2ad5943f5bf439fbefafc6ea97b546a1505abeac9db"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:5809a771c2fb7658",
+    "fn:61571eb5e1cd42ad",
+    "fn:9cf2732f8b0c6890",
+    "fn:a7684adf457511e5",
+    "fn:c4ca0481503a6383",
+]
+test = true
+
+[module."heat_transfer_verification.rs"]
+path = "crate::pre_built_components::shell_and_tube_heat_exchanger::tests::heat_transfer_verification"
+
+[[module."heat_transfer_verification.rs".function]]
+id = "fn:3b3df93a05d413b5"
+name = "basic_test_shell_and_tube_heat_exchanger"
+qual = "basic_test_shell_and_tube_heat_exchanger"
+lines = [
+    1,
+    532,
+]
+hash = "sha256:57edef8d8b3c34a44c030a730af21a0870df7ffcd03c62f5ecf41b34a6870a95"
+doc_hash = "sha256:444475913eafae4141c51655d65ec86ec1f8771f27268f1be77cdaf1318960e2"
+callees = [
+    "fn:049aaf459bc43a80",
+    "fn:2d0477b1a1450172",
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:5809a771c2fb7658",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:75b2bf19978d095f",
+    "fn:81ebbad2a6b015cb",
+    "fn:9cf2732f8b0c6890",
+    "fn:a7684adf457511e5",
+    "fn:b113f725d215f11b",
+    "fn:f92140d5b6a1018f",
+]
+test = true
+
+[[module."heat_transfer_verification.rs".function]]
+id = "fn:f5a3e7273dc5e7cc"
+name = "basic_test_shell_and_tube_heat_exchanger_set_two"
+qual = "basic_test_shell_and_tube_heat_exchanger_set_two"
+lines = [
+    534,
+    1067,
+]
+hash = "sha256:a4f9ec4719512be038a2e7db5411359ca5bbae3514a64c295251ba0a2cf9cda3"
+doc_hash = "sha256:4e8b03f8a6f90980fb086da6eff3da30b00ce2fd82c150ea687aa837673452b9"
+callees = [
+    "fn:049aaf459bc43a80",
+    "fn:2d0477b1a1450172",
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:5809a771c2fb7658",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:75b2bf19978d095f",
+    "fn:81ebbad2a6b015cb",
+    "fn:9cf2732f8b0c6890",
+    "fn:a7684adf457511e5",
+    "fn:b113f725d215f11b",
+    "fn:f92140d5b6a1018f",
+]
+test = true
+
+[[module."heat_transfer_verification.rs".function]]
+id = "fn:cee15f6115bce380"
+name = "basic_test_shell_and_tube_heat_exchanger_set_three"
+qual = "basic_test_shell_and_tube_heat_exchanger_set_three"
+lines = [
+    1069,
+    1626,
+]
+hash = "sha256:6a372fd6ba00cc550e9f6ccb9ef843ac00860d11e58616092ec93b30a1af39b0"
+doc_hash = "sha256:fb2307a09bd7144c37773a605c272d586f5d60cda1e8206b56c05fe8ee78257d"
+callees = [
+    "fn:049aaf459bc43a80",
+    "fn:2d0477b1a1450172",
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:5809a771c2fb7658",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:75b2bf19978d095f",
+    "fn:81ebbad2a6b015cb",
+    "fn:9cf2732f8b0c6890",
+    "fn:a7684adf457511e5",
+    "fn:b113f725d215f11b",
+    "fn:f92140d5b6a1018f",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::shell_and_tube_heat_exchanger::tests"

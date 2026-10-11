@@ -1,0 +1,205 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-mc-libs"
+dir = "crates/outram-mc-libs/src/vv"
+test_ids = [
+    "crates/outram-mc-libs/src/vv/ugraphite.rs::homogenised_cell_has_the_requested_ratio",
+    "crates/outram-mc-libs/src/vv/ugraphite.rs::pebble_inventory_matches_the_specification",
+]
+
+[module."njoy_golden.rs"]
+path = "crate::vv::njoy_golden"
+
+[[module."njoy_golden.rs".function]]
+id = "fn:7670ec6830ebfad4"
+name = "interp_linlin"
+qual = "interp_linlin"
+lines = [
+    713,
+    738,
+]
+hash = "sha256:dd5323922c2e54f3987ccbbc9227ee1d837ad1638668ffe67a84087ec232484d"
+doc_hash = "sha256:d10e6985937156d667be9c81d0976c88aacc991c9012bc8b4d9f1e51169b948d"
+
+[module."ugraphite.rs"]
+path = "crate::vv::ugraphite"
+
+[[module."ugraphite.rs".function]]
+id = "fn:a9c4f73ec3cd87ff"
+name = "c_per_u"
+qual = "Mix::c_per_u"
+lines = [
+    79,
+    82,
+]
+hash = "sha256:c6c1c9baabe5f84dc294a9bf52a8f695cf1e4e1e9483513aa6769d1c503389bb"
+doc_hash = "sha256:9a23d55f81025b137af5ec3fe0fd89fabe8e88e57bcf48fe84a09cccf8551a17"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."ugraphite.rs".function]]
+id = "fn:26a670e7c3186f7a"
+name = "densities"
+qual = "Mix::densities"
+lines = [
+    84,
+    93,
+]
+hash = "sha256:3c303ce42f5fbb0bcfa20c8563eb8623d38716e4aaa89b84924141ae8f509329"
+doc_hash = "sha256:a83455c95199394d796f49767bce21948c1fdd83484b340d2293400b40ed1ffa"
+
+[[module."ugraphite.rs".function]]
+id = "fn:f81d494cdcbf265a"
+name = "material"
+qual = "Mix::material"
+lines = [
+    95,
+    113,
+]
+hash = "sha256:10bb75decc6c1c29cacef8cce925684b0aa2b7e9fa679e6010e2e40597510ac3"
+doc_hash = "sha256:0c1517ba2a6ab97da7b8ce88b44c5194277d4a4ccf18dae0bce72ac1cde7e747"
+callees = ["fn:26a670e7c3186f7a"]
+
+[[module."ugraphite.rs".function]]
+id = "fn:e0b9a4145efffa1c"
+name = "scaled"
+qual = "Mix::scaled"
+lines = [
+    115,
+    121,
+]
+hash = "sha256:d15e7823982455a8fc72efa0bb147438522348916f16d43323d492e5c8af679d"
+doc_hash = "sha256:b33458aaee569b9b11200cfebd73ec7008a5d76bb880eb13fc24216b632835c5"
+reached_by = ["#0"]
+
+[[module."ugraphite.rs".function]]
+id = "fn:ea890b26d1becb70"
+name = "htr10_pebble_mix"
+qual = "htr10_pebble_mix"
+lines = [
+    137,
+    171,
+]
+hash = "sha256:b4cea3ee22001bccc52422c5ae1c3969c1e254af6743fca4da01f5dc91fcdfc9"
+doc_hash = "sha256:4b0307190f42646c6c0f6ccc615970195b01c3529322883e4b122189c7135282"
+callees = [
+    "fn:8f0d1a3e98e2a0a9",
+    "fn:afd5bfe2623e96dc",
+]
+reached_by = ["#1"]
+
+[[module."ugraphite.rs".function]]
+id = "fn:d0260aee72c08dbf"
+name = "graphite_density"
+qual = "graphite_density"
+lines = [
+    173,
+    176,
+]
+hash = "sha256:64cb24c5bff909344fa4e7653d14c36a294ae1eafb097b69dddba7b2f1b49686"
+doc_hash = "sha256:d318ba19534e07321780a9ef6bde2b1f03614c04dd7b371e08e5dde082726ae2"
+reached_by = ["#0"]
+
+[[module."ugraphite.rs".function]]
+id = "fn:4d140869bdffbbc8"
+name = "natural_mix"
+qual = "natural_mix"
+lines = [
+    178,
+    188,
+]
+hash = "sha256:5449095b610e117eb1d752d854c13ce25994d957cea2cf98a66f831e17e9bbad"
+doc_hash = "sha256:197e05edd27248a9bc58bde1a0ff45ed453d23a020cd4eb3c9a06aa2d3fc7a31"
+callees = ["fn:d0260aee72c08dbf"]
+reached_by = ["#0"]
+
+[[module."ugraphite.rs".function]]
+id = "fn:7f4a072a34cf6be4"
+name = "uranium_metal"
+qual = "uranium_metal"
+lines = [
+    190,
+    198,
+]
+hash = "sha256:e98ed2f6919ae821563d60631a2d9da7b2cda0e50221f04bb38f00ec99ada7d2"
+doc_hash = "sha256:49abfc820976a69e7fdcf35e931c365d2d79f81af86127d90d53699d242ee361"
+reached_by = ["#0"]
+
+[[module."ugraphite.rs".function]]
+id = "fn:8d9cc6607857f87e"
+name = "graphite"
+qual = "graphite"
+lines = [
+    200,
+    206,
+]
+hash = "sha256:e738c94c93614587dcbb8b72bb7330c411f63c9006cda1dba58edaa4adc50313"
+doc_hash = "sha256:34e2b6a1b072319333f1ca6aed2ed956a678c79cac5094aafb397f58d2294bf3"
+callees = ["fn:d0260aee72c08dbf"]
+reached_by = ["#0"]
+
+[[module."ugraphite.rs".function]]
+id = "fn:7793d717ef3f01f2"
+name = "uranium_volume_fraction"
+qual = "uranium_volume_fraction"
+lines = [
+    208,
+    213,
+]
+hash = "sha256:2650972dbc9de0b48b15df7c2cdad7e34e98e51bc03aac537ff0acb884cfb2a0"
+doc_hash = "sha256:5bebc63990c5871c80e3588064db96fe648ed04e0b1546763cc685956e505309"
+callees = [
+    "fn:7f4a072a34cf6be4",
+    "fn:d0260aee72c08dbf",
+]
+reached_by = ["#0"]
+
+[[module."ugraphite.rs".function]]
+id = "fn:f079dc67219941cb"
+name = "cell_radius"
+qual = "cell_radius"
+lines = [
+    215,
+    219,
+]
+hash = "sha256:0300afac929bb96d560a66c96b86703e24e226a7ce674d1c0fc33ac5c54b40c8"
+doc_hash = "sha256:1ae7dc283a449d0130d625cfb7be0c6e498f99098ffd8fd9efd94a30bfacad93"
+callees = ["fn:7793d717ef3f01f2"]
+
+[[module."ugraphite.rs".function]]
+id = "fn:a9b8964b9b132339"
+name = "pebble_inventory_matches_the_specification"
+qual = "pebble_inventory_matches_the_specification"
+lines = [
+    225,
+    234,
+]
+hash = "sha256:dc03e96fde3e67c8b382221d2e3efdb7ac22eb12193eab8b2be93b308e5b58d3"
+doc_hash = "sha256:8259e736e0968942a839ffdfa2609c22d4587ab23eac2549f2a342cdebcc926d"
+callees = [
+    "fn:a9c4f73ec3cd87ff",
+    "fn:ea890b26d1becb70",
+]
+test = true
+
+[[module."ugraphite.rs".function]]
+id = "fn:f1153561ef226cbe"
+name = "homogenised_cell_has_the_requested_ratio"
+qual = "homogenised_cell_has_the_requested_ratio"
+lines = [
+    236,
+    249,
+]
+hash = "sha256:bc4814c692ddd0695c1a4fb3a814e22b3e436012df5d2030aa8142e43e659490"
+doc_hash = "sha256:f5dfde93c548224d126df4e274cf9c7b918a48e311843c5fd5f78a0a2c92fa44"
+callees = [
+    "fn:4d140869bdffbbc8",
+    "fn:7793d717ef3f01f2",
+    "fn:7f4a072a34cf6be4",
+    "fn:8d9cc6607857f87e",
+    "fn:a9c4f73ec3cd87ff",
+    "fn:e0b9a4145efffa1c",
+]
+test = true

@@ -1,0 +1,645 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-mc-libs"
+dir = "crates/outram-mc-libs/src/geometry"
+test_ids = [
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::a_traced_neutron_lays_out_and_steps",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::both_panes_run_the_same_neutron_from_the_same_variate",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::run_many_streams_every_method_in_turn",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::the_engine_thread_loads_traces_and_runs",
+    "crates/dhoby-ghaut/examples/mc_studio/main.rs::every_case_returns_a_finite_positive_k_with_sane_statistics",
+    "crates/dhoby-ghaut/examples/mc_studio/main.rs::the_analytic_and_csg_sphere_paths_agree",
+    "crates/dhoby-ghaut/examples/mc_studio/main.rs::the_headless_run_is_deterministic",
+    "crates/dhoby-ghaut/examples/mc_studio/main.rs::the_headless_run_matches_the_committed_fixture",
+    "crates/nee_soon/src/sim.rs::authored_sphere_csg_runs_and_is_near_critical",
+    "crates/nee_soon/src/sim.rs::cell_flux_tally_accumulates",
+    "crates/nee_soon/src/sim.rs::godiva_bare_sphere_is_near_critical",
+    "crates/nee_soon/src/sim.rs::no_materials_is_an_error",
+    "crates/nee_soon/tests/coupling_api.rs::defaults_are_usable_and_failures_are_actionable",
+    "crates/nee_soon/tests/coupling_api.rs::the_documented_three_call_path_works",
+    "crates/nee_soon/tests/direct_coupling_steady_state.rs::a_non_converging_solve_reports_its_residuals",
+    "crates/nee_soon/tests/direct_coupling_steady_state.rs::monte_carlo_and_genfoam_reach_a_coupled_steady_state",
+    "crates/nee_soon/tests/mc_to_genfoam_kinf.rs::genfoam_reproduces_the_monte_carlo_kinf_from_its_own_mgxs",
+    "crates/nee_soon/tests/mgxs_from_monte_carlo.rs::mgxs_from_a_monte_carlo_run_satisfies_neutron_balance",
+    "crates/outram-mc-libs/src/geometry/crossing/tests.rs::reflective_concentric_shells_do_not_leak",
+    "crates/outram-mc-libs/src/geometry/distribcell.rs::a_cyclic_universe_graph_is_refused",
+    "crates/outram-mc-libs/src/geometry/distribcell.rs::a_lattice_numbers_its_tiles_in_order",
+    "crates/outram-mc-libs/src/geometry/distribcell.rs::a_path_without_the_target_has_no_instance",
+    "crates/outram-mc-libs/src/geometry/distribcell.rs::nesting_multiplies_the_instance_count",
+    "crates/outram-mc-libs/src/geometry/distribcell.rs::out_of_range_indices_are_refused",
+    "crates/outram-mc-libs/src/geometry/distribcell.rs::preceding_siblings_shift_the_instance_numbering",
+    "crates/outram-mc-libs/src/pebble_beds/fhr_pebble.rs::reflective_pebble_transport_does_not_leak",
+    "crates/outram-mc-libs/src/physics/fixed_source.rs::subcritical_multiplication_is_tracked_and_bounded",
+    "crates/outram-mc-libs/src/physics/fixed_source.rs::void_streaming_mean_path_equals_radius",
+    "crates/outram-mc-libs/src/physics/reactor_physics.rs::machinery_invariants_fast_pincell",
+    "crates/outram-mc-libs/src/physics/reactor_physics.rs::no_fuel_material_errors",
+    "crates/outram-mc-libs/src/physics/reactor_physics.rs::thicker_moderator_softens_spectrum",
+    "crates/outram-mc-libs/src/physics/transport_csg.rs::plain_run_keff_csg_unchanged",
+    "crates/outram-mc-libs/src/physics/transport_csg.rs::reflective_sphere_has_no_leakage",
+    "crates/outram-mc-libs/src/physics/transport_csg.rs::stepping_matches_run_keff_csg_seq_bit_for_bit",
+    "crates/outram-mc-libs/src/physics/transport_csg.rs::the_progress_callback_observes_without_changing_the_run",
+    "crates/outram-mc-libs/src/physics/transport_csg.rs::vacuum_sphere_leaks",
+    "crates/outram-mc-libs/src/physics/transport_csg_distributed.rs::any_chunking_reproduces_run_keff_csg_par_bit_for_bit",
+    "crates/outram-mc-libs/src/physics/transport_csg_distributed.rs::the_reduction_refuses_incomplete_or_foreign_results",
+    "crates/outram-mc-libs/tests/cell_translation.rs::keff_is_bit_identical_under_the_translation_identity",
+    "crates/outram-mc-libs/tests/delta_collision_estimator.rs::delta_tally_matches_surface_track_length_on_a_bcc_cell",
+    "crates/outram-mc-libs/tests/delta_tracking_audit.rs::a_void_cell_inside_a_delta_region_is_crossed",
+    "crates/outram-mc-libs/tests/delta_tracking_audit.rs::cell_filter_in_a_delta_region_matches_surface_track_length",
+    "crates/outram-mc-libs/tests/delta_tracking_audit.rs::hybrid_cost_against_surface_tracking",
+    "crates/outram-mc-libs/tests/delta_tracking_audit.rs::majorant_violations_are_counted_not_hidden",
+    "crates/outram-mc-libs/tests/delta_tracking_bit_identity.rs::hybrid_csg_paths_are_bit_identical",
+    "crates/outram-mc-libs/tests/depletion_coupled_to_transport.rs::depletion_collapses_against_a_transport_solved_spectrum_each_step",
+    "crates/outram-mc-libs/tests/distribcell_end_to_end.rs::a_distribcell_tally_distinguishes_lattice_instances",
+    "crates/outram-mc-libs/tests/distribcell_end_to_end.rs::without_the_tables_a_distribcell_tally_scores_nothing",
+    "crates/outram-mc-libs/tests/hybrid_tracking_equivalence.rs::an_absorber_outside_the_region_does_not_raise_its_cost",
+    "crates/outram-mc-libs/tests/hybrid_tracking_equivalence.rs::hybrid_and_surface_tracking_agree",
+    "crates/outram-mc-libs/tests/openmc_notebooks/candu.rs::candu_cluster_per_pin_flux_tally",
+    "crates/outram-mc-libs/tests/openmc_notebooks/capi.rs::capi_in_memory_build_run_edit_rerun",
+    "crates/outram-mc-libs/tests/openmc_notebooks/expansion_filters.rs::expansion_moment_filters",
+    "crates/outram-mc-libs/tests/openmc_notebooks/flux_spectrum.rs::flux_energy_spectrum",
+    "crates/outram-mc-libs/tests/openmc_notebooks/hexagonal_lattice.rs::hexagonal_lattice_keff_smoke",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::csg_multithread_agrees_with_single_thread",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_heterogeneous_csg_with_cell_flux_tally",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_lwr_thermal_pin_benchmark",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_reflective_cell_suppresses_leakage",
+    "crates/outram-mc-libs/tests/openmc_notebooks/post_processing.rs::post_processing_statepoint",
+    "crates/outram-mc-libs/tests/openmc_notebooks/tally_arithmetic.rs::tally_arithmetic_derived",
+    "crates/outram-mc-libs/tests/openmc_notebooks/tally_power_normalization.rs::tally_power_normalization",
+    "crates/outram-mc-libs/tests/openmc_notebooks/triso.rs::corner_reflective_cube_surface_tracking_unbiased",
+    "crates/outram-mc-libs/tests/openmc_notebooks/triso.rs::triso_delta_tracking_unbiased_vs_surface_tracking",
+    "crates/outram-mc-libs/tests/openmc_notebooks/triso.rs::triso_nested_lattice_surface_vs_delta_keff",
+    "crates/outram-mc-libs/tests/particle_clock.rs::a_polar_filter_on_a_track_length_tally_sees_the_real_direction",
+    "crates/outram-mc-libs/tests/particle_clock.rs::the_clock_does_not_perturb_the_run",
+    "crates/outram-mc-libs/tests/particle_clock.rs::the_clock_matches_the_analytic_flight_time",
+    "crates/outram-mc-libs/tests/particle_clock.rs::the_clock_never_runs_backwards",
+    "crates/outram-mc-libs/tests/scatter_matrix_tally.rs::scatter_matrix_conserves_events_and_admits_upscatter",
+    "crates/outram-mc-libs/tests/shannon_entropy_in_keff.rs::entropy_is_reported_and_plateaus",
+    "crates/outram-mc-libs/tests/stats_move_fingerprints.rs::csg_nested_lattice_keff_is_bit_identical",
+    "crates/outram-mc-libs/tests/stats_move_fingerprints.rs::godiva_csg_with_entropy_and_trigger_is_bit_identical",
+    "crates/outram-mc-libs/tests/surface_source_two_stage.rs::a_replayed_crossing_carries_its_recorded_weight",
+    "crates/outram-mc-libs/tests/surface_source_two_stage.rs::a_truncated_bank_is_refused_rather_than_replayed",
+    "crates/outram-mc-libs/tests/surface_source_two_stage.rs::a_two_stage_surface_source_run_reproduces_the_single_stage_answer",
+    "crates/outram-mc-libs/tests/temperature_precedence.rs::which_temperature_takes_precedence",
+    "crates/outram-mc-libs/tests/track_capture.rs::a_surface_source_records_every_crossing_with_its_weight",
+    "crates/outram-mc-libs/tests/track_capture.rs::track_capture_does_not_perturb_the_run",
+    "crates/outram-mc-libs/tests/track_capture.rs::tracks_in_a_void_sphere_are_a_straight_line_to_the_boundary",
+    "crates/outram-mc-libs/tests/tracking_trace.rs::a_surface_trace_ends_every_segment_at_the_nearer_distance",
+    "crates/outram-mc-libs/tests/tracking_trace.rs::the_two_methods_agree_within_statistics",
+    "crates/outram-mc-libs/tests/tracking_trace.rs::traced_power_iterations_are_the_untraced_ones_bit_for_bit",
+    "crates/outram-mc-libs/tests/variance_reduction_parallel_and_weighted_fission.rs::analog_fission_under_weight_windows_is_unbiased",
+    "crates/outram-mc-libs/tests/variance_reduction_parallel_and_weighted_fission.rs::parallel_path_applies_survival_biasing",
+    "crates/outram-mc-libs/tests/variance_reduction_parallel_and_weighted_fission.rs::parallel_path_honours_the_keff_trigger",
+    "crates/outram-mc-libs/tests/volume_calc_vs_analytic.rs::closed_form_volumes_are_recovered",
+    "crates/outram-mc-libs/tests/volume_calc_vs_analytic.rs::the_quoted_uncertainty_matches_the_observed_scatter",
+    "crates/outram-mc-libs/tests/xs_and_tracks_plot_parity.rs::emitted_scripts_render_pixel_identical_to_openmc",
+    "crates/outram-mc-libs/tests/xs_and_tracks_plot_parity.rs::plotted_data_is_bit_identical_to_openmc",
+    "crates/outram-mc-libs/tests/xs_and_tracks_plot_parity.rs::recorded_tracks_convert_to_plot_tracks",
+]
+
+[module."cell.rs"]
+path = "crate::geometry::cell"
+
+[module."distribcell.rs"]
+path = "crate::geometry::distribcell"
+
+[[module."distribcell.rs".function]]
+id = "fn:9af9b79542a008da"
+name = "flat_tile"
+qual = "flat_tile"
+lines = [
+    75,
+    102,
+]
+hash = "sha256:b5d89e6b30cd7dffd1fcde57875cb171f3530ef05ab295ab377e26af30441f18"
+doc_hash = "sha256:6b916fbdaa10c4e40e0aa22deacf06256f86ae1f0aa579166910a7bdbe3d059d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#20",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#88",
+    "#89",
+    "#90",
+]
+
+[[module."distribcell.rs".function]]
+id = "fn:9007ef620046ac6f"
+name = "tile_universes"
+qual = "tile_universes"
+lines = [
+    104,
+    116,
+]
+hash = "sha256:8115a09584377a6115f21b302b06e2ec99ff6461a0399baadb3ec8ea62a82bfd"
+doc_hash = "sha256:032da8385885514fbb3eab12e4e2bb996f88148c555a57866071d983564aad77"
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+]
+
+[[module."distribcell.rs".function]]
+id = "fn:70d279453ee59925"
+name = "build"
+qual = "DistribcellOffsets::build"
+lines = [
+    119,
+    147,
+]
+hash = "sha256:d11fecf031f55532be4cee1ed6ef32d4e5ba6e7cd536f103a9aea045bd5dbf9f"
+doc_hash = "sha256:8241217fe172525d2fa2f0c1f83a49b04407492df8534e4b4a55fd6fc88f304a"
+callees = [
+    "fn:9007ef620046ac6f",
+    "fn:b7001ead86f851bb",
+]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+]
+
+[[module."distribcell.rs".function]]
+id = "fn:b7001ead86f851bb"
+name = "count_universe"
+qual = "DistribcellOffsets::count_universe"
+lines = [
+    149,
+    188,
+]
+hash = "sha256:3f5bdbeb5e0135850aa16b541c5cb883b4c5d3687733120b54b5aabeb254b856"
+doc_hash = "sha256:4bf4b333169f2302d1143495122676fcef52eff56e3532a64e89af44c11d76da"
+callees = ["fn:4e920b92bc738a70"]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+]
+
+[[module."distribcell.rs".function]]
+id = "fn:4e920b92bc738a70"
+name = "count_cell"
+qual = "DistribcellOffsets::count_cell"
+lines = [
+    190,
+    224,
+]
+hash = "sha256:145b1d5a35afc002dd366ba322a0469bb68d33b14901a5503e94f7f616765c0f"
+doc_hash = "sha256:dd3ab8756cf75f0f21cd53bed317691ba06112e4d78cd4cb96495e78b221cd82"
+callees = [
+    "fn:9007ef620046ac6f",
+    "fn:b7001ead86f851bb",
+]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+]
+
+[[module."distribcell.rs".function]]
+id = "fn:140b06573daae0a0"
+name = "instance_of"
+qual = "DistribcellOffsets::instance_of"
+lines = [
+    226,
+    255,
+]
+hash = "sha256:bcc9ef9a96be9ae92341072abd98dab7e0b806df4eb97b5d329d616c8e0c7c94"
+doc_hash = "sha256:3055431a454591c0de27724d8472091a9ec51749662e5d07cf40a826285dbebd"
+callees = ["fn:9af9b79542a008da"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#20",
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#88",
+    "#89",
+    "#90",
+]
+
+[[module."distribcell.rs".function]]
+id = "fn:7f7e15573aaae51b"
+name = "inside"
+qual = "inside"
+lines = [
+    267,
+    272,
+]
+hash = "sha256:0930dd964c1751b7b16b86f131278ef199156185816c51b3273a67ee89fe6897"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."distribcell.rs".function]]
+id = "fn:95a7bb31abc224cf"
+name = "lattice_geometry"
+qual = "lattice_geometry"
+lines = [
+    274,
+    313,
+]
+hash = "sha256:6ad619f1ab5c77bebda4fd0b4ede0e1ccf3ea494561fbde7f3ab5290f31e8b57"
+doc_hash = "sha256:2b50d4704232f8d97e356ff738fd196f97344997b76dca5ade57a241f3df97a1"
+callees = [
+    "fn:7f7e15573aaae51b",
+    "fn:8b1b36725917b52d",
+    "fn:abb149a5e5ce6cb0",
+    "fn:cb1fc1a67d38f99a",
+]
+test = true
+
+[[module."distribcell.rs".function]]
+id = "fn:be59a39a9d7aa9eb"
+name = "coord"
+qual = "coord"
+lines = [
+    315,
+    325,
+]
+hash = "sha256:af8f7acca84922d371897b57b9dd8f8397d7e55fee62329e426305f7977748a5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:cbb241b81b8f27f6"]
+test = true
+
+[[module."distribcell.rs".function]]
+id = "fn:c62c15d1b07c3f67"
+name = "a_lattice_numbers_its_tiles_in_order"
+qual = "a_lattice_numbers_its_tiles_in_order"
+lines = [
+    327,
+    348,
+]
+hash = "sha256:ee77d0d8073ad03e15dc2b3b3031c20075a8cfc517a3abae8b870d3eb1efc0ea"
+doc_hash = "sha256:f007d94f0410cbd7b075711b712c9f3be975672be88ab9673c1a06dad1b6f5f0"
+callees = [
+    "fn:140b06573daae0a0",
+    "fn:70d279453ee59925",
+    "fn:95a7bb31abc224cf",
+    "fn:be59a39a9d7aa9eb",
+]
+test = true
+
+[[module."distribcell.rs".function]]
+id = "fn:155ca02cf8c89e3f"
+name = "a_path_without_the_target_has_no_instance"
+qual = "a_path_without_the_target_has_no_instance"
+lines = [
+    350,
+    357,
+]
+hash = "sha256:8d3a5f9b0be99f3e7b9856911c8c3a52e3f9e7884d1e160be837c8ea231f4594"
+doc_hash = "sha256:fd18c29c4027e4428aae2af662bf37e0ace151345c549b892f63f502bb585cef"
+callees = [
+    "fn:140b06573daae0a0",
+    "fn:70d279453ee59925",
+    "fn:95a7bb31abc224cf",
+    "fn:be59a39a9d7aa9eb",
+]
+test = true
+
+[[module."distribcell.rs".function]]
+id = "fn:61ddd92cca662936"
+name = "preceding_siblings_shift_the_instance_numbering"
+qual = "preceding_siblings_shift_the_instance_numbering"
+lines = [
+    359,
+    390,
+]
+hash = "sha256:ab639592043e9007e1e05ab0e2daae2b85f8a905d15bd940bc2e1e64450fba92"
+doc_hash = "sha256:463d030f46fb329eb919c4ac9de111414a5cb0e4f3522e6aecb12144fee01fba"
+callees = [
+    "fn:140b06573daae0a0",
+    "fn:70d279453ee59925",
+    "fn:7f7e15573aaae51b",
+    "fn:8b1b36725917b52d",
+    "fn:95a7bb31abc224cf",
+    "fn:be59a39a9d7aa9eb",
+]
+test = true
+
+[[module."distribcell.rs".function]]
+id = "fn:e6040a30381080af"
+name = "nesting_multiplies_the_instance_count"
+qual = "nesting_multiplies_the_instance_count"
+lines = [
+    392,
+    422,
+]
+hash = "sha256:c83a8cd6e5aa999337fc1d3838420da28b4784b049833c2df9fbb945ad4e1c1b"
+doc_hash = "sha256:7484efc2456a996862bf5d4c750823b7263656b271c3e502b6ef281dc31829a4"
+callees = [
+    "fn:140b06573daae0a0",
+    "fn:70d279453ee59925",
+    "fn:7f7e15573aaae51b",
+    "fn:8b1b36725917b52d",
+    "fn:95a7bb31abc224cf",
+    "fn:abb149a5e5ce6cb0",
+    "fn:be59a39a9d7aa9eb",
+]
+test = true
+
+[[module."distribcell.rs".function]]
+id = "fn:085be6a354a854f0"
+name = "a_cyclic_universe_graph_is_refused"
+qual = "a_cyclic_universe_graph_is_refused"
+lines = [
+    424,
+    432,
+]
+hash = "sha256:f532576b5d5c5ac50bd8bf12622f36c128da707cb62e437e23862823a2c42a88"
+doc_hash = "sha256:7c351b254017217c2e295b5efbd6f7352c14560ab84b28d4283526968240eec9"
+callees = [
+    "fn:70d279453ee59925",
+    "fn:7f7e15573aaae51b",
+    "fn:95a7bb31abc224cf",
+    "fn:abb149a5e5ce6cb0",
+]
+test = true
+
+[[module."distribcell.rs".function]]
+id = "fn:23600b1350b20d49"
+name = "out_of_range_indices_are_refused"
+qual = "out_of_range_indices_are_refused"
+lines = [
+    434,
+    440,
+]
+hash = "sha256:059164b0aa3aedf8b7f77ad6e5498da2f62de5f641b12686cd73f8b7749a2e9c"
+doc_hash = "sha256:3119a265ba34fc5776a975b0a8ba5a1cc6d0b7f656cd564f13bc72c3d85701a2"
+callees = [
+    "fn:70d279453ee59925",
+    "fn:95a7bb31abc224cf",
+]
+test = true
+
+[module."geometry.rs"]
+path = "crate::geometry::geometry"
+
+[module."lattice.rs"]
+path = "crate::geometry::lattice"
+
+[module."mod.rs"]
+path = "crate::geometry"
+
+[module."plot.rs"]
+path = "crate::geometry::plot"
+
+[[module."plot.rs".function]]
+id = "fn:1cb9c6b95c7890b8"
+name = "material_id"
+qual = "Material::material_id"
+lines = [
+    13,
+    16,
+]
+hash = "sha256:9ab132033be55e910c6a38212fbe5dc5308c67139d329255d4630a0285e9b835"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."plot.rs".function]]
+id = "fn:0458e431115f73ab"
+name = "material_name"
+qual = "Material::material_name"
+lines = [
+    17,
+    20,
+]
+hash = "sha256:ed3f94b6b75d39c0bdab96cb3745c363cf14a1d07754108d9c28df4a7e6fc6cb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."position.rs"]
+path = "crate::geometry::position"
+
+[module."surface.rs"]
+path = "crate::geometry::surface"
+
+[module."triso_particle.rs"]
+path = "crate::geometry::triso_particle"
+
+[module."universe.rs"]
+path = "crate::geometry::universe"
+
+[module."volume_calc.rs"]
+path = "crate::geometry::volume_calc"
+
+[[module."volume_calc.rs".function]]
+id = "fn:1a7907ccad4a6b88"
+name = "volume"
+qual = "BoundingBox::volume"
+lines = [
+    89,
+    94,
+]
+hash = "sha256:41e43e4da03cc3f5d57d6c62f6fbdf366d734f416386958486c1b0278afab897"
+doc_hash = "sha256:5c7b0bb7a7c856b861fc59d4d57a2e921ea7500d76af833c8290d93c18e6c164"
+reached_by = [
+    "#86",
+    "#87",
+]
+
+[[module."volume_calc.rs".function]]
+id = "fn:a440e7502f1c9f07"
+name = "relative_error"
+qual = "VolumeResult::relative_error"
+lines = [
+    113,
+    120,
+]
+hash = "sha256:d78e54527ab4aef6b87aa6dcfd30077a34b9c2f77db9b8c0a1da7bffc8e99c70"
+doc_hash = "sha256:626a11569053d464266bbee7d38d2abb347d10cfa09d92ffd80acba188c9e3ce"
+
+[[module."volume_calc.rs".function]]
+id = "fn:a4ad78a95b0194f5"
+name = "execute"
+qual = "VolumeCalculation::execute"
+lines = [
+    134,
+    208,
+]
+hash = "sha256:3e2d9c98186c000f2c6f7c16df4b0a7a576715e1f3eded5d130a1de82b230fe1"
+doc_hash = "sha256:6d259e8139fe6a06eec9c6ce71999668f98c12b0c223c6d0bf7e7c608b3dd4b2"
+callees = [
+    "fn:1a7907ccad4a6b88",
+    "fn:681ddf6544e7b60b",
+    "fn:cb1fc1a67d38f99a",
+    "fn:cbb241b81b8f27f6",
+    "fn:dd52820befcbb8b1",
+    "fn:e1e248a14f38c41f",
+]
+reached_by = [
+    "#86",
+    "#87",
+]

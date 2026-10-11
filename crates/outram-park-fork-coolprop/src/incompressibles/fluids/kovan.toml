@@ -1,0 +1,385 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-coolprop"
+dir = "crates/outram-park-fork-coolprop/src/incompressibles/fluids"
+
+[module."acetone.rs"]
+path = "crate::incompressibles::fluids::acetone"
+
+[module."aeg.rs"]
+path = "crate::incompressibles::fluids::aeg"
+
+[module."air.rs"]
+path = "crate::incompressibles::fluids::air"
+
+[module."akf.rs"]
+path = "crate::incompressibles::fluids::akf"
+
+[module."al.rs"]
+path = "crate::incompressibles::fluids::al"
+
+[module."an.rs"]
+path = "crate::incompressibles::fluids::an"
+
+[module."apg.rs"]
+path = "crate::incompressibles::fluids::apg"
+
+[module."as10.rs"]
+path = "crate::incompressibles::fluids::as10"
+
+[module."as20.rs"]
+path = "crate::incompressibles::fluids::as20"
+
+[module."as30.rs"]
+path = "crate::incompressibles::fluids::as30"
+
+[module."as40.rs"]
+path = "crate::incompressibles::fluids::as40"
+
+[module."as55.rs"]
+path = "crate::incompressibles::fluids::as55"
+
+[module."deb.rs"]
+path = "crate::incompressibles::fluids::deb"
+
+[module."dowj.rs"]
+path = "crate::incompressibles::fluids::dowj"
+
+[module."dowj2.rs"]
+path = "crate::incompressibles::fluids::dowj2"
+
+[module."dowq.rs"]
+path = "crate::incompressibles::fluids::dowq"
+
+[module."dowq2.rs"]
+path = "crate::incompressibles::fluids::dowq2"
+
+[module."dsf.rs"]
+path = "crate::incompressibles::fluids::dsf"
+
+[module."ethanol.rs"]
+path = "crate::incompressibles::fluids::ethanol"
+
+[module."exampledigital.rs"]
+path = "crate::incompressibles::fluids::exampledigital"
+
+[module."exampledigitalpure.rs"]
+path = "crate::incompressibles::fluids::exampledigitalpure"
+
+[module."examplemelinder.rs"]
+path = "crate::incompressibles::fluids::examplemelinder"
+
+[module."examplepure.rs"]
+path = "crate::incompressibles::fluids::examplepure"
+
+[module."exampleseccool.rs"]
+path = "crate::incompressibles::fluids::exampleseccool"
+
+[module."examplesolution.rs"]
+path = "crate::incompressibles::fluids::examplesolution"
+
+[module."foodash.rs"]
+path = "crate::incompressibles::fluids::foodash"
+
+[module."foodcarbohydrate.rs"]
+path = "crate::incompressibles::fluids::foodcarbohydrate"
+
+[module."foodfat.rs"]
+path = "crate::incompressibles::fluids::foodfat"
+
+[module."foodfiber.rs"]
+path = "crate::incompressibles::fluids::foodfiber"
+
+[module."foodice.rs"]
+path = "crate::incompressibles::fluids::foodice"
+
+[module."foodprotein.rs"]
+path = "crate::incompressibles::fluids::foodprotein"
+
+[module."foodwater.rs"]
+path = "crate::incompressibles::fluids::foodwater"
+
+[module."fre.rs"]
+path = "crate::incompressibles::fluids::fre"
+
+[module."gkn.rs"]
+path = "crate::incompressibles::fluids::gkn"
+
+[module."hc10.rs"]
+path = "crate::incompressibles::fluids::hc10"
+
+[module."hc20.rs"]
+path = "crate::incompressibles::fluids::hc20"
+
+[module."hc30.rs"]
+path = "crate::incompressibles::fluids::hc30"
+
+[module."hc40.rs"]
+path = "crate::incompressibles::fluids::hc40"
+
+[module."hc50.rs"]
+path = "crate::incompressibles::fluids::hc50"
+
+[module."hcb.rs"]
+path = "crate::incompressibles::fluids::hcb"
+
+[module."hcm.rs"]
+path = "crate::incompressibles::fluids::hcm"
+
+[module."hexane.rs"]
+path = "crate::incompressibles::fluids::hexane"
+
+[module."hfe.rs"]
+path = "crate::incompressibles::fluids::hfe"
+
+[module."hfe2.rs"]
+path = "crate::incompressibles::fluids::hfe2"
+
+[module."hy20.rs"]
+path = "crate::incompressibles::fluids::hy20"
+
+[module."hy30.rs"]
+path = "crate::incompressibles::fluids::hy30"
+
+[module."hy40.rs"]
+path = "crate::incompressibles::fluids::hy40"
+
+[module."hy45.rs"]
+path = "crate::incompressibles::fluids::hy45"
+
+[module."hy50.rs"]
+path = "crate::incompressibles::fluids::hy50"
+
+[module."iceea.rs"]
+path = "crate::incompressibles::fluids::iceea"
+
+[module."icena.rs"]
+path = "crate::incompressibles::fluids::icena"
+
+[module."icepg.rs"]
+path = "crate::incompressibles::fluids::icepg"
+
+[module."libr.rs"]
+path = "crate::incompressibles::fluids::libr"
+
+[module."liqna.rs"]
+path = "crate::incompressibles::fluids::liqna"
+
+[module."mam.rs"]
+path = "crate::incompressibles::fluids::mam"
+
+[module."mam2.rs"]
+path = "crate::incompressibles::fluids::mam2"
+
+[module."mca.rs"]
+path = "crate::incompressibles::fluids::mca"
+
+[module."mca2.rs"]
+path = "crate::incompressibles::fluids::mca2"
+
+[module."mea.rs"]
+path = "crate::incompressibles::fluids::mea"
+
+[module."mea2.rs"]
+path = "crate::incompressibles::fluids::mea2"
+
+[module."meg.rs"]
+path = "crate::incompressibles::fluids::meg"
+
+[module."meg2.rs"]
+path = "crate::incompressibles::fluids::meg2"
+
+[module."mgl.rs"]
+path = "crate::incompressibles::fluids::mgl"
+
+[module."mgl2.rs"]
+path = "crate::incompressibles::fluids::mgl2"
+
+[module."mitsw.rs"]
+path = "crate::incompressibles::fluids::mitsw"
+
+[module."mka.rs"]
+path = "crate::incompressibles::fluids::mka"
+
+[module."mka2.rs"]
+path = "crate::incompressibles::fluids::mka2"
+
+[module."mkc.rs"]
+path = "crate::incompressibles::fluids::mkc"
+
+[module."mkc2.rs"]
+path = "crate::incompressibles::fluids::mkc2"
+
+[module."mkf.rs"]
+path = "crate::incompressibles::fluids::mkf"
+
+[module."mli.rs"]
+path = "crate::incompressibles::fluids::mli"
+
+[module."mma.rs"]
+path = "crate::incompressibles::fluids::mma"
+
+[module."mma2.rs"]
+path = "crate::incompressibles::fluids::mma2"
+
+[module."mmg.rs"]
+path = "crate::incompressibles::fluids::mmg"
+
+[module."mmg2.rs"]
+path = "crate::incompressibles::fluids::mmg2"
+
+[module."mna.rs"]
+path = "crate::incompressibles::fluids::mna"
+
+[module."mna2.rs"]
+path = "crate::incompressibles::fluids::mna2"
+
+[module."mod.rs"]
+path = "crate::incompressibles::fluids"
+
+[module."mpg.rs"]
+path = "crate::incompressibles::fluids::mpg"
+
+[module."mpg2.rs"]
+path = "crate::incompressibles::fluids::mpg2"
+
+[module."nak.rs"]
+path = "crate::incompressibles::fluids::nak"
+
+[module."nbs.rs"]
+path = "crate::incompressibles::fluids::nbs"
+
+[module."pbb.rs"]
+path = "crate::incompressibles::fluids::pbb"
+
+[module."pcl.rs"]
+path = "crate::incompressibles::fluids::pcl"
+
+[module."pcr.rs"]
+path = "crate::incompressibles::fluids::pcr"
+
+[module."pglt.rs"]
+path = "crate::incompressibles::fluids::pglt"
+
+[module."phe.rs"]
+path = "crate::incompressibles::fluids::phe"
+
+[module."phr.rs"]
+path = "crate::incompressibles::fluids::phr"
+
+[module."pk2.rs"]
+path = "crate::incompressibles::fluids::pk2"
+
+[module."pkl.rs"]
+path = "crate::incompressibles::fluids::pkl"
+
+[module."plr.rs"]
+path = "crate::incompressibles::fluids::plr"
+
+[module."pmr.rs"]
+path = "crate::incompressibles::fluids::pmr"
+
+[module."pms1.rs"]
+path = "crate::incompressibles::fluids::pms1"
+
+[module."pms2.rs"]
+path = "crate::incompressibles::fluids::pms2"
+
+[module."pnf.rs"]
+path = "crate::incompressibles::fluids::pnf"
+
+[module."pnf2.rs"]
+path = "crate::incompressibles::fluids::pnf2"
+
+[module."s800.rs"]
+path = "crate::incompressibles::fluids::s800"
+
+[module."sab.rs"]
+path = "crate::incompressibles::fluids::sab"
+
+[module."t66.rs"]
+path = "crate::incompressibles::fluids::t66"
+
+[module."t72.rs"]
+path = "crate::incompressibles::fluids::t72"
+
+[module."tco.rs"]
+path = "crate::incompressibles::fluids::tco"
+
+[module."td12.rs"]
+path = "crate::incompressibles::fluids::td12"
+
+[module."tvp1.rs"]
+path = "crate::incompressibles::fluids::tvp1"
+
+[module."tvp1869.rs"]
+path = "crate::incompressibles::fluids::tvp1869"
+
+[module."tx22.rs"]
+path = "crate::incompressibles::fluids::tx22"
+
+[module."ty10.rs"]
+path = "crate::incompressibles::fluids::ty10"
+
+[module."ty15.rs"]
+path = "crate::incompressibles::fluids::ty15"
+
+[module."ty20.rs"]
+path = "crate::incompressibles::fluids::ty20"
+
+[module."ty24.rs"]
+path = "crate::incompressibles::fluids::ty24"
+
+[module."vca.rs"]
+path = "crate::incompressibles::fluids::vca"
+
+[module."vkc.rs"]
+path = "crate::incompressibles::fluids::vkc"
+
+[module."vma.rs"]
+path = "crate::incompressibles::fluids::vma"
+
+[module."vmg.rs"]
+path = "crate::incompressibles::fluids::vmg"
+
+[module."vna.rs"]
+path = "crate::incompressibles::fluids::vna"
+
+[module."water.rs"]
+path = "crate::incompressibles::fluids::water"
+
+[module."xlt.rs"]
+path = "crate::incompressibles::fluids::xlt"
+
+[module."xlt2.rs"]
+path = "crate::incompressibles::fluids::xlt2"
+
+[module."zac.rs"]
+path = "crate::incompressibles::fluids::zac"
+
+[module."zfc.rs"]
+path = "crate::incompressibles::fluids::zfc"
+
+[module."zlc.rs"]
+path = "crate::incompressibles::fluids::zlc"
+
+[module."zm.rs"]
+path = "crate::incompressibles::fluids::zm"
+
+[module."zmc.rs"]
+path = "crate::incompressibles::fluids::zmc"
+
+[module."zs10.rs"]
+path = "crate::incompressibles::fluids::zs10"
+
+[module."zs25.rs"]
+path = "crate::incompressibles::fluids::zs25"
+
+[module."zs40.rs"]
+path = "crate::incompressibles::fluids::zs40"
+
+[module."zs45.rs"]
+path = "crate::incompressibles::fluids::zs45"
+
+[module."zs55.rs"]
+path = "crate::incompressibles::fluids::zs55"

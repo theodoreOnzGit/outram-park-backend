@@ -1,0 +1,158 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-codegen"
+dir = "crates/kovan-codegen/src/ode"
+test_ids = [
+    "crates/kovan-codegen/src/lib.rs::emitted_source_is_the_compiled_reference_verbatim",
+    "crates/kovan-codegen/src/lib.rs::generate_artifact_packages_source_and_provenance",
+    "crates/kovan-codegen/src/lib.rs::generate_artifact_propagates_unimplemented",
+    "crates/kovan-codegen/src/lib.rs::generate_dispatches_to_each_family",
+    "crates/kovan-codegen/src/lib.rs::generate_is_deterministic_across_families",
+    "crates/kovan-codegen/src/lib.rs::unimplemented_catalogue_entries_report_the_method",
+    "crates/kovan-codegen/src/ode/mod.rs::generate_is_deterministic",
+    "crates/kovan-codegen/src/ode/mod.rs::unimplemented_variants_error",
+    "crates/kovan/src/commands/gen.rs::every_root_finder_arg_maps_and_generates_or_reports_unimplemented",
+    "crates/kovan/src/commands/gen.rs::gmres_is_unimplemented",
+    "crates/kovan/src/commands/gen.rs::newton_raphson_generates_expected_source",
+    "crates/kovan/src/tui/methods.rs::draw_does_not_panic_in_any_family",
+    "crates/kovan/src/tui/methods.rs::enter_on_an_implemented_method_populates_the_preview",
+    "crates/kovan/src/tui/methods.rs::enter_on_an_unimplemented_method_reports_the_error_and_clears_preview",
+    "crates/kovan/src/tui/methods.rs::every_family_generates_every_catalogued_method_consistently_with_generate",
+    "crates/kovan/src/tui/methods.rs::family_cycles_and_resets_selection_and_preview",
+    "crates/kovan/src/tui/methods.rs::family_wraps_both_directions",
+    "crates/kovan/src/tui/methods.rs::method_selection_wraps_within_a_family",
+    "crates/kovan/src/tui/methods.rs::preview_scroll_saturates_at_zero",
+    "crates/kovan/src/tui/mod.rs::back_tab_cycles_backward_and_wraps_from_overview",
+    "crates/kovan/src/tui/mod.rs::digit_keys_switch_tabs",
+    "crates/kovan/src/tui/mod.rs::digit_seven_reaches_the_digitiser_tab",
+    "crates/kovan/src/tui/mod.rs::digit_six_reaches_the_ingest_tab",
+    "crates/kovan/src/tui/mod.rs::editing_suppresses_global_quit_and_tab_switch_keys",
+    "crates/kovan/src/tui/mod.rs::esc_also_quits_when_not_editing",
+    "crates/kovan/src/tui/mod.rs::literature_i_hands_the_selected_pdf_to_the_ingest_tab",
+    "crates/kovan/src/tui/mod.rs::overview_tab_ignores_navigation_keys_without_panicking",
+    "crates/kovan/src/tui/mod.rs::q_quits_from_the_default_overview_tab",
+    "crates/kovan/src/tui/mod.rs::quitting_is_blocked_while_an_import_is_in_flight",
+    "crates/kovan/src/tui/mod.rs::tab_key_cycles_forward_and_wraps",
+]
+
+[module."mod.rs"]
+path = "crate::ode"
+
+[[module."mod.rs".function]]
+id = "fn:9815e895e3ce53dd"
+name = "generate"
+qual = "generate"
+lines = [
+    34,
+    53,
+]
+hash = "sha256:95ccb2de59eb534f7cf833a3af77a60dc428b0c248a12826e1e69d4b90dedba4"
+doc_hash = "sha256:c511e4b166aefd6bd1d5c3109cbeba00851d4f27e71be9a28ce0b608d16f396e"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3120de92a2402716"
+name = "exp_rhs"
+qual = "exp_rhs"
+lines = [
+    60,
+    62,
+]
+hash = "sha256:d442be17221acfd34cda382b8d5403e56a71c4dcb5652ea985907180d3af4bf7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:fc5201dec2e60bbe"
+name = "rk4_matches_exponential"
+qual = "rk4_matches_exponential"
+lines = [
+    64,
+    70,
+]
+hash = "sha256:d1d35c78b3d6d67716aa4f059da3b7bd2590a64bbcde09be63767858594b9b48"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3120de92a2402716"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:3078f031956acf6b"
+name = "rk2_beats_euler_at_same_step"
+qual = "rk2_beats_euler_at_same_step"
+lines = [
+    72,
+    89,
+]
+hash = "sha256:1b49b8bce08bc35163840bb6454e218b603d15b9f6fb6090d71dc12e81885a6a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3120de92a2402716"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:3733c5eadc4b48a6"
+name = "backward_euler_is_stable_on_stiff_decay"
+qual = "backward_euler_is_stable_on_stiff_decay"
+lines = [
+    91,
+    104,
+]
+hash = "sha256:7ae62980b5049491e1f2f0aa52bebcaf0016c1b3226026cdcd94e8951ab22d3c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:739c176eaaf099cb"
+name = "generate_is_deterministic"
+qual = "generate_is_deterministic"
+lines = [
+    106,
+    116,
+]
+hash = "sha256:c7816f99410eaa29dfffe54417904cd9338951715e1e08a27037aa6b19cd3eec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9815e895e3ce53dd"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:48813d284721f06b"
+name = "unimplemented_variants_error"
+qual = "unimplemented_variants_error"
+lines = [
+    118,
+    122,
+]
+hash = "sha256:77baccbe0f0746a0389a7d4baa0fa91ff4bab2a364a0b4d32de80e4dfcab53f8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9815e895e3ce53dd"]
+test = true

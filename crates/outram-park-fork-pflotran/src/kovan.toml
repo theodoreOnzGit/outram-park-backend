@@ -1,0 +1,147 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-pflotran"
+dir = "crates/outram-park-fork-pflotran/src"
+crate_root = true
+test_ids = [
+    "crates/outram-park-fork-pflotran/src/gpu.rs::best_effort_agrees_with_cpu_reference",
+    "crates/outram-park-fork-pflotran/src/gpu.rs::cpu_reference_matches_van_genuchten",
+]
+
+[module."error.rs"]
+path = "crate::error"
+
+[module."gpu.rs"]
+path = "crate::gpu"
+
+[[module."gpu.rs".function]]
+id = "fn:79fce62a6aa675d1"
+name = "probe"
+qual = "probe"
+lines = [
+    51,
+    71,
+]
+hash = "sha256:3b3619babb597e5e8c1ffe0fc2aa29a03fa7e1cab786e7b63556f871b6734d66"
+doc_hash = "sha256:e8f0e230662f8c2b15ecf756b49dd8d3bfe1e96f2dcd9f663c87efed727cc830"
+callees = ["fn:3e6b81c1ffe1e55c"]
+reached_by = ["#0"]
+
+[[module."gpu.rs".function]]
+id = "fn:385121b53ff81793"
+name = "van_genuchten_se_cpu"
+qual = "van_genuchten_se_cpu"
+lines = [
+    94,
+    107,
+]
+hash = "sha256:a7eb29b564de256e628144d85b8deac09406ca697a238b29ee9adbc2d526ea26"
+doc_hash = "sha256:acc8c584bcbbf0e39c850688b8d847e6664aab1956d24daeb3ad43cc0a6e07e6"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:3a428f62b12a9bec"
+name = "try_van_genuchten_se_gpu"
+qual = "try_van_genuchten_se_gpu"
+lines = [
+    109,
+    231,
+]
+hash = "sha256:fa043eb07977546cc1c3608439c19233c958556a08509517fedbe3301d4cb9b8"
+doc_hash = "sha256:dcaec55c4f6a1ef0e4f69331d633d7295c77f124c8d0ffffa27d191b05444624"
+callees = [
+    "fn:99ddb2fba48f565c",
+    "fn:f3bd6313c8f8f66a",
+]
+reached_by = ["#0"]
+
+[[module."gpu.rs".function]]
+id = "fn:ea909771e8c9b9da"
+name = "van_genuchten_se_best_effort"
+qual = "van_genuchten_se_best_effort"
+lines = [
+    233,
+    243,
+]
+hash = "sha256:11b75c83a8cd6c00f1cf3a50a252ca1de9bccb8051ec74bcd90d79b566540903"
+doc_hash = "sha256:4f06dc0048d071d623e249b008680f10ba87eea493f316296ff1dce3bf96ed95"
+callees = [
+    "fn:385121b53ff81793",
+    "fn:3a428f62b12a9bec",
+    "fn:79fce62a6aa675d1",
+]
+reached_by = ["#0"]
+
+[[module."gpu.rs".function]]
+id = "fn:f3bd6313c8f8f66a"
+name = "f32_slice_to_bytes"
+qual = "f32_slice_to_bytes"
+lines = [
+    245,
+    251,
+]
+hash = "sha256:e40ccf976122014f42f15933b6735884bbde918299025fa5234a5cce46e12677"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#0"]
+
+[[module."gpu.rs".function]]
+id = "fn:99ddb2fba48f565c"
+name = "bytes_to_f32_vec"
+qual = "bytes_to_f32_vec"
+lines = [
+    253,
+    258,
+]
+hash = "sha256:0393675c208b6e6f285f88827e08e39b6f72fce278529df89d6d1706896bbaf5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#0"]
+
+[[module."gpu.rs".function]]
+id = "fn:3e6b81c1ffe1e55c"
+name = "block_on"
+qual = "block_on"
+lines = [
+    260,
+    282,
+]
+hash = "sha256:c2fc0b6e423dd59fe4ee71e0a9bbd518bcf569db0e7d3da915d65e8a1edb59c4"
+doc_hash = "sha256:5c8aa2ef78dcdde067673df3e96f4dbfe6e24a254150f345cdd3064441522706"
+reached_by = ["#0"]
+
+[[module."gpu.rs".function]]
+id = "fn:890dd4c62dd786e7"
+name = "cpu_reference_matches_van_genuchten"
+qual = "cpu_reference_matches_van_genuchten"
+lines = [
+    288,
+    305,
+]
+hash = "sha256:bcd0a22b8a449da99e31d0e42f830af60a1baad23a4fbffb00176343bc1683f1"
+doc_hash = "sha256:a6c76b24d45ddec08c99f2019d2f4dc8764c8672fab1622d0ed3b93f8cb9d149"
+callees = ["fn:385121b53ff81793"]
+test = true
+
+[[module."gpu.rs".function]]
+id = "fn:b15358f842c0a72f"
+name = "best_effort_agrees_with_cpu_reference"
+qual = "best_effort_agrees_with_cpu_reference"
+lines = [
+    307,
+    321,
+]
+hash = "sha256:4339322b0c99b49ae782c55d2e6f20921625b0629176281223daa4445b09e76c"
+doc_hash = "sha256:8c6dfac06ebb146b4144552e06979a8cd6be6ed2fc1a646ecfccb7c84e1ec3c4"
+callees = [
+    "fn:385121b53ff81793",
+    "fn:ea909771e8c9b9da",
+]
+test = true
+
+[module."lib.rs"]
+path = "crate"
+
+[module."units.rs"]
+path = "crate::units"

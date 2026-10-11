@@ -1,0 +1,277 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-dwsim-libs"
+dir = "crates/outram-park-fork-dwsim-libs/src/separator"
+test_ids = [
+    "crates/outram-park-fork-dwsim-libs/src/separator/mod.rs::adiabatic_mode_routes_on_caller_ph_flash",
+    "crates/outram-park-fork-dwsim-libs/src/separator/mod.rs::all_liquid_routes_everything_to_liquid_outlet",
+    "crates/outram-park-fork-dwsim-libs/src/separator/mod.rs::all_vapour_routes_everything_to_vapour_outlet",
+    "crates/outram-park-fork-dwsim-libs/src/separator/mod.rs::feed_validation_errors",
+    "crates/outram-park-fork-dwsim-libs/src/separator/mod.rs::peng_robinson_two_phase_split_conserves_mass",
+]
+
+[module."mod.rs"]
+path = "crate::separator"
+
+[[module."mod.rs".function]]
+id = "fn:c23cbcff289d8d76"
+name = "from_si"
+qual = "SeparatorFeed::from_si"
+lines = [
+    157,
+    171,
+]
+hash = "sha256:1ee9456a0fe3cbe3ac12d646d2c635a7ef33ef60d9c0be4fd93399668df11954"
+doc_hash = "sha256:e537568b0de2d0ea9c929c8fb5bfb639fa9ee6071f3af026822c261232cf5c9c"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:80c62d21f50f6e40"
+name = "new"
+qual = "Separator::new"
+lines = [
+    268,
+    272,
+]
+hash = "sha256:602be81cf5310762ae7d334152bff2cff5eb68d0913a8005cdb841384fbd3c97"
+doc_hash = "sha256:0cac921f4337b10342b966ce78c0f023de823f7be73e8f8030151aecc404db8b"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ddaa0e0d2f961c1c"
+name = "flash_isothermal"
+qual = "Separator::flash_isothermal"
+lines = [
+    274,
+    317,
+]
+hash = "sha256:ee605aef8567806822879c38902ee7ffdfa11c64b79e0e4334faa1c9336f4d4c"
+doc_hash = "sha256:0ddb78b3d59ec0114befe52cbd84ce85d322a069fd260d3b7d45e932b55eadee"
+callees = [
+    "fn:16689c80508b4d3a",
+    "fn:f0e79e32b86a8c48",
+    "fn:f771bc8cb652a5d8",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:9cbc14677b99995e"
+name = "flash_adiabatic"
+qual = "Separator::flash_adiabatic"
+lines = [
+    319,
+    368,
+]
+hash = "sha256:0d87bfe874fa49958b5e57bb55447cab4682271c36211bcc02e31b4a5875cc3b"
+doc_hash = "sha256:df58e14812c7aa86e9ccc23a0c7e51057245bc33d24020974d5cb5e2f6667bd5"
+callees = [
+    "fn:16689c80508b4d3a",
+    "fn:f0e79e32b86a8c48",
+]
+reached_by = ["#0"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:16689c80508b4d3a"
+name = "validate_feed"
+qual = "validate_feed"
+lines = [
+    371,
+    388,
+]
+hash = "sha256:a239bae7b1a7bfb4f93d809f4683df0cc01e1d4fc7eeb2f5c97b4754e40a5b56"
+doc_hash = "sha256:708e404f9b97c769b1a100069b97d294336011e3edef3c4a2eacce3d007576e9"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4383d8bb11f533db"
+name = "build_outlet"
+qual = "build_outlet"
+lines = [
+    390,
+    414,
+]
+hash = "sha256:ac64175294783e42d508f00300a54126ba3d1bc995b79e26e432884f2ba533b2"
+doc_hash = "sha256:7dd39302445ce23c528dc1dd891cde1e858b149b142389f969ec70cf75ef06f7"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f0e79e32b86a8c48"
+name = "route_phases"
+qual = "route_phases"
+lines = [
+    416,
+    436,
+]
+hash = "sha256:8a478d16ff4fd1c7956bcbf92fc6f625c8d8311f39b8a0811f190ecabfde4fd4"
+doc_hash = "sha256:458ae42a87632146da5574a2fd543f96db38c1f4a521318a4042abb212d3d528"
+callees = ["fn:4383d8bb11f533db"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:f06aeb8e0b04ffdb"
+name = "temp"
+qual = "temp"
+lines = [
+    462,
+    464,
+]
+hash = "sha256:4d9d465dd584cdd2589533317505e310cc4e849d223074972bbc090679b9db95"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:99a0031c480dfc03"
+name = "pres"
+qual = "pres"
+lines = [
+    465,
+    467,
+]
+hash = "sha256:14bdfaf682a699d4a7f55f594a2ddb946c8e5d01ffa6dc3ce8e74ecb8af86725"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:fba5c3ba0a4db090"
+name = "peng_robinson_two_phase_split_conserves_mass"
+qual = "peng_robinson_two_phase_split_conserves_mass"
+lines = [
+    469,
+    532,
+]
+hash = "sha256:22415c52aba2f012c3907b9bfe05dcdd6ce80c7eb61d08431b380f29893f2cc0"
+doc_hash = "sha256:734f77c01608cbf51269537c20a8f5092a56575aaeff8b5f2e6b19fb053bfec9"
+callees = [
+    "fn:80c62d21f50f6e40",
+    "fn:8a065a3fc9faf480",
+    "fn:99a0031c480dfc03",
+    "fn:c23cbcff289d8d76",
+    "fn:cfbb8a5609a498a9",
+    "fn:ddaa0e0d2f961c1c",
+    "fn:f06aeb8e0b04ffdb",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:dd407f67b259d695"
+name = "all_vapour_routes_everything_to_vapour_outlet"
+qual = "all_vapour_routes_everything_to_vapour_outlet"
+lines = [
+    534,
+    579,
+]
+hash = "sha256:a5028cf4bbf40b017b8326f46917dbcf701ca1ee60235ac14f19e5bd6d7da22b"
+doc_hash = "sha256:e435bd3e75cb2b0237fd776917918f1163e815c426b53e9e4cbaad6dd9f241b5"
+callees = [
+    "fn:80c62d21f50f6e40",
+    "fn:8a065a3fc9faf480",
+    "fn:99a0031c480dfc03",
+    "fn:c23cbcff289d8d76",
+    "fn:cfbb8a5609a498a9",
+    "fn:ddaa0e0d2f961c1c",
+    "fn:f06aeb8e0b04ffdb",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:20b9dbfc0aed5553"
+name = "all_liquid_routes_everything_to_liquid_outlet"
+qual = "all_liquid_routes_everything_to_liquid_outlet"
+lines = [
+    581,
+    622,
+]
+hash = "sha256:6f1e40c4c28194337d061e7bf0d84a61bb09a28b5a1b40f541b544b6c00d0fa5"
+doc_hash = "sha256:652cec123c4fe561c9860e4eeaa5cc7030971bbad7e71ee5587aafd1314fe4c0"
+callees = [
+    "fn:80c62d21f50f6e40",
+    "fn:8a065a3fc9faf480",
+    "fn:99a0031c480dfc03",
+    "fn:c23cbcff289d8d76",
+    "fn:cfbb8a5609a498a9",
+    "fn:ddaa0e0d2f961c1c",
+    "fn:f06aeb8e0b04ffdb",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:4bf809130458630b"
+name = "adiabatic_mode_routes_on_caller_ph_flash"
+qual = "adiabatic_mode_routes_on_caller_ph_flash"
+lines = [
+    624,
+    675,
+]
+hash = "sha256:96d73a657980fd4bae21b55dac684cb9052f54c59bfdfa01271bea63c86ca2a1"
+doc_hash = "sha256:fc4d42af33e70286ef366ce7c203c0817317fa09dc2987fdc7eb546d20a9e1a7"
+callees = [
+    "fn:80c62d21f50f6e40",
+    "fn:8a065a3fc9faf480",
+    "fn:99a0031c480dfc03",
+    "fn:9cbc14677b99995e",
+    "fn:c23cbcff289d8d76",
+    "fn:cfbb8a5609a498a9",
+    "fn:f771bc8cb652a5d8",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:3f9bd19e2b3a7b20"
+name = "feed_validation_errors"
+qual = "feed_validation_errors"
+lines = [
+    677,
+    701,
+]
+hash = "sha256:90c0d44c360df45b007dba79136e4588a81443754ed9a47c38ed5e1eb549cb26"
+doc_hash = "sha256:946e101c9406320eae3e3e2cf3e910a147d5f777a22e95bc41ea9cd0db518e87"
+callees = [
+    "fn:80c62d21f50f6e40",
+    "fn:8a065a3fc9faf480",
+    "fn:99a0031c480dfc03",
+    "fn:c23cbcff289d8d76",
+    "fn:cfbb8a5609a498a9",
+    "fn:ddaa0e0d2f961c1c",
+    "fn:f06aeb8e0b04ffdb",
+]
+test = true

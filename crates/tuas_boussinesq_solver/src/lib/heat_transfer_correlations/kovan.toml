@@ -1,0 +1,629 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/heat_transfer_correlations"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/joint_mixing.rs::fluid_array_adiabatic_mixing_joint_test",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::parasitic_heat_loss_integration_test_with_hte_1m",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::parasitic_heat_loss_integration_test_with_hte_3m",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::parasitic_heat_loss_integration_test_with_hte_5m",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::parasitic_heat_loss_integration_test_with_hte_7m",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::parasitic_heat_loss_integration_test_with_hte_9m",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/solid_array_lateral_coupling/tests/mod.rs::arraycv_transient_conduction_copper_medium_with_assert_only",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/standalone_fluid_nodes/core_fluid_node.rs::fluid_node_backflow_calculation_initial_test",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/standalone_fluid_nodes/core_fluid_node.rs::fluid_node_calculation_initial_test",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/standalone_solid_nodes/shell_solid_node.rs::fluid_solid_node_calculation_initial_test",
+    "crates/tuas_boussinesq_solver/src/lib/heat_transfer_correlations/heat_transfer_interactions/tests.rs::radial_conductance_solid_inside_liquid_inside_test",
+    "crates/tuas_boussinesq_solver/src/lib/heat_transfer_correlations/heat_transfer_interactions/tests.rs::radial_conductance_solid_inside_liquid_outside_test",
+    "crates/tuas_boussinesq_solver/src/lib/heat_transfer_correlations/heat_transfer_interactions/tests.rs::radial_conductance_solid_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v1_uncalibrated/mod.rs::quick_test_uncalibrated_dracs_loop",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_extra_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_shorter",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/heat_transfer_ambient_calib.rs::hot_leg_htc_to_ambient_calibration_v1_failed",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_insulation_thickness_calibration_v1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/pipe_nusselt_number_calibration.rs::hot_leg_nusselt_calibration_failed",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/wall_correction_isolated_dracs_loop_regression.rs::parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/debugging_pid_controller.rs::dracs_natural_circ_thermal_hydraulics_pid_test_prototype_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/debugging_thermal_hydraulics.rs::dracs_natural_circ_thermal_hydraulics_regression_test_prototype_2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/misc_debugging.rs::steel_properties_debugging",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/mod.rs::dracs_natural_circ_thermal_hydraulics_pid_test_prototype_2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::ciet_coupled_nat_circ_set_a1_for_three_branch",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_fwd_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_reverse_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::zero_flow_for_three_branch_ver_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::ciet_coupled_nat_circ_set_a1_for_three_branch",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_fwd_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_reverse_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::zero_flow_for_three_branch_ver_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_dhx_blocked",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_reverse_diode_effect",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_steady_state_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_short_test_dhx_blocked",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_short_test_reverse_diode_effect",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_steady_state_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/mod.rs::test_fhr_four_branch_full_th_long_regression",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/regression.rs::test_fhr_four_branch_solver_pri_and_intrmd_loop_full_th_short_regression",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/heat_transfer_entities/tests/mixing_joints/fwd_flow.rs::adiabatic_mixing_joint_test_hte_single_cv_only",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/heat_transfer_entities/tests/mixing_joints/fwd_flow.rs::adiabatic_mixing_joint_test_link_to_front_and_back",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/heat_transfer_entities/tests/mixing_joints/fwd_flow.rs::adiabatic_mixing_joint_test_link_to_front_only",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/heat_transfer_entities/tests/mixing_joints/reverse_flow.rs::adiabatic_mixing_joint_test_hte_single_cv_only",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/heat_transfer_entities/tests/mixing_joints/reverse_flow.rs::adiabatic_mixing_joint_test_link_to_front_and_back_reverse_flow",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/heat_transfer_entities/tests/mod.rs::ciet_heater_v2_speedup_using_fluid_array_solid_column_hte",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/axial_conduction_verification.rs::reduced_thickness_increased_ua_test_check_fluid_array_and_insulation_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/axial_conduction_verification.rs::reduced_thickness_increased_ua_test_interal_thermal_resistance_check_fluid_array_only",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/axial_conduction_verification.rs::static_mixer_41_label_6_1_meter_test_reduced_thickness_increased_ua",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/axial_conduction_verification.rs::static_mixer_41_label_6_1_meter_test_reduced_thickness_increased_ua_fluid_array_only",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_3_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_41_label_6_1_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_5_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_7_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_9_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_9_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt_extra_time",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/preliminaries.rs::assert_nodalised_ua_calcs",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/preliminaries.rs::static_mixer_41_label_6_1_meter_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/preliminaries.rs::static_mixer_41_label_6_1_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/preliminaries.rs::static_mixer_41_label_6_reduced_insulation_thickness_1_meter_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials/tutorial_4.rs::heated_flow_through_a_pipe",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials/tutorial_5.rs::thermal_hydraulics_flow_through_a_pipe",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials/tutorial_6.rs::gfhr_pipe_with_custom_graphite_material",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::assert_if_hydraulic_diameter_of_heater_v1_is_correct",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::check_if_number_of_nodes_is_correct",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v1_porous_and_non_porous_conductance_pipe_to_insulation_arr",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v2_insulated_and_non_insulated_conductance_fluid_arr_to_pipe",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v2_insulated_and_non_insulated_conductance_twisted_tape_to_pipe_fluid_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::test_to_assert_if_conductance_from_insulation_to_ambient_is_correct",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/steady_state_validation.rs::steady_state_test_for_heater_v1_eight_nodes_validation",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/transient_validation.rs::transient_test_stepdown_4050s_fig_2_21_zweibaum_thesis_for_heater_v1_eight_nodes_validation",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/transient_validation.rs::transient_test_stepup_4050s_fig_2_21_zweibaum_thesis_for_heater_v1_eight_nodes_validation",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::example_heated_section_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_10kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_3kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_4kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_6kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_8kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::example_heated_section_regression_new_and_old",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_steel_shell_to_ambient",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_steel_shell_to_pipe_fluid_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_twisted_tape_to_pipe_fluid_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_top_bottom_mx10_struct_supports.rs::heater_plus_mx_10_with_supports",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads.rs::test_inclusive_heater_top_bottom_head",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads_and_mx10.rs::heater_plus_mx_10_without_supports",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heater_example_with_data_record.rs::example_heater_with_struct_supports_and_mx10",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests/heated_section_only.rs::heated_section_test_v2_10kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests/heated_section_only.rs::heated_section_test_v2_3kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests/heated_section_only.rs::heated_section_test_v2_4kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests/heated_section_only.rs::heated_section_test_v2_6kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests/heated_section_only.rs::heated_section_test_v2_8kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_bare_pipes_debugging_heat_addition",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_bare_pipes_debugging_heat_addition_with_parasitic_heat_loss",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_bare_pipes_debugging_parasitic_heat_loss_thermal_inertia",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/calibration_functions.rs::calibration_regression_set_c9_no_heat_loss",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/calibration_functions.rs::calibration_regression_set_c9_no_heat_loss_mesh_refined",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/heat_transfer_verification.rs::basic_test_shell_and_tube_heat_exchanger",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/heat_transfer_verification.rs::basic_test_shell_and_tube_heat_exchanger_set_three",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/heat_transfer_verification.rs::basic_test_shell_and_tube_heat_exchanger_set_two",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/set_a.rs::du_test_shell_and_tube_heat_exchanger_set_a",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/set_b.rs::du_test_shell_and_tube_heat_exchanger_set_b",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/set_c.rs::du_test_shell_and_tube_heat_exchanger_set_c",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/uw_madison_flibe_loop_components/flibe_loop_iteration_one/parasitic_heat_loss_calibration.rs::parasitic_heat_loss_calibration_dry_run_1",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/automatic_timestep_using_lumped_capacitance.rs::lumped_capacitance_timestep_adjustment",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/automatic_timestep_using_lumped_capacitance.rs::lumped_capacitance_timestep_adjustment_improved_api",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/automatic_timestep_using_lumped_capacitance.rs::short_version_lumped_capacitance_timestep_adjustment_improved_api",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/ciet_heater_v2_single_cv.rs::ciet_heater_v_2_0_test_steady_state_functional_test_v_1_0",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/ciet_heater_v2_single_cv.rs::ciet_heater_v_2_0_test_steady_state_v_1_0",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/ciet_heater_v2_single_cv_speedup_multithreading.rs::ciet_heater_v_2_0_test_steady_state_functional_test_v_1_1",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/ciet_heater_v2_single_cv_speedup_multithreading.rs::ciet_heater_v_2_0_test_steady_state_v_1_1_speedup_threads",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/ciet_heater_v2_single_cv_speedup_one_radial_steel_shell_node.rs::ciet_heater_v_2_0_test_steady_state_functional_test_v_1_2_one_steel_node",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/ciet_heater_v2_single_cv_speedup_three_axial_nodes.rs::ciet_heater_v_2_0_test_steady_state_v_1_2_three_nodes",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/one_dimension_heater.rs::one_dimension_ciet_heater_v_1_0_auto_timestep_test",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/one_dimension_heater.rs::one_dimension_ciet_heater_v_1_0_functional_test",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/one_dimension_heater.rs::one_dimension_ciet_heater_v_1_0_test_for_better_sampling_frequency",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/lumped_heat_capacitance.rs::lumped_heat_capacitance_steel_ball_in_air",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/lumped_heat_capacitance.rs::lumped_heat_capacitance_steel_ball_in_air_improved_api",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/mixing_joint.rs::adiabatic_mixing_joint_test_single_cv_only",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/semi_infinite_one_dimension_transient_conduction.rs::arraycv_transient_conduction_copper_medium",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/semi_infinite_one_dimension_transient_conduction.rs::transient_conduction_semi_infinite_copper_medium",
+]
+
+[module."mod.rs"]
+path = "crate::heat_transfer_correlations"
+
+[module."parallel_heat_exchangers.rs"]
+path = "crate::heat_transfer_correlations::parallel_heat_exchangers"
+
+[[module."parallel_heat_exchangers.rs".function]]
+id = "fn:30413f3df2a481f0"
+name = "log_mean_temperature_difference"
+qual = "log_mean_temperature_difference"
+lines = [
+    4,
+    97,
+]
+hash = "sha256:0f4c69b59caf4d759e9487fbbd750804650bd2bd9627bb29674c2ad2b6a64518"
+doc_hash = "sha256:64406bb928268b2d5663a53f0862e4fc10f539c3fd3688d1e70727bd1d9f2fa2"
+callees = ["fn:dbeaa6f6d9da4f35"]
+physical_interface = true
+
+[[module."parallel_heat_exchangers.rs".function]]
+id = "fn:a876ad0bdf2c62ab"
+name = "calculate_lmtd_heat_flux_based_on_ambient_temp"
+qual = "calculate_lmtd_heat_flux_based_on_ambient_temp"
+lines = [
+    99,
+    140,
+]
+hash = "sha256:8cce0b8d4e8ef266ad995c8dc28e97072a1cd843a625995fe916d4760489a5b3"
+doc_hash = "sha256:73c9adfcc0aef36e5cdfed6d4117ab5b2afc2ac49ffaa34a9e4323efc53b18ac"
+callees = [
+    "fn:30413f3df2a481f0",
+    "fn:dbeaa6f6d9da4f35",
+]
+physical_interface = true
+
+[module."thermal_resistance.rs"]
+path = "crate::heat_transfer_correlations::thermal_resistance"
+
+[[module."thermal_resistance.rs".function]]
+id = "fn:dbeaa6f6d9da4f35"
+name = "subtract_two_thermodynamic_temperatures"
+qual = "subtract_two_thermodynamic_temperatures"
+lines = [
+    40,
+    81,
+]
+hash = "sha256:df98dc576fe1d3b79cc4f30b71c0a4459ef1ff2941f3794537249e71e8778275"
+doc_hash = "sha256:860f9a418e93cf78855d5ed9c946bae693b2c295490b35e0f6f4d1fbd49946e6"
+physical_interface = true
+
+[[module."thermal_resistance.rs".function]]
+id = "fn:46bc4d0dd222b42a"
+name = "obtain_power_two_convection_two_conduction_thermal_resistance"
+qual = "obtain_power_two_convection_two_conduction_thermal_resistance"
+lines = [
+    83,
+    139,
+]
+hash = "sha256:2be2e7f4b318b990f857051b13c2b360bde1586ffe3c2cd5c444f3dd3c45539f"
+doc_hash = "sha256:56bfacb727f5529d7f1270dfe443846dac77fd4b2e473578878ac3724e79101a"
+callees = ["fn:dbeaa6f6d9da4f35"]
+physical_interface = true
+
+[[module."thermal_resistance.rs".function]]
+id = "fn:36973a4b2f13d4f7"
+name = "obtain_power_one_convection_one_conduction_thermal_resistance"
+qual = "obtain_power_one_convection_one_conduction_thermal_resistance"
+lines = [
+    141,
+    182,
+]
+hash = "sha256:ce89a9af6a656f00a008f9486e0f94d92b61ea2c9368b0ec0de95cf03fbf73bf"
+doc_hash = "sha256:f64afc0874f442671d54b221263cd09dbce80020fc90bf8a180949e0a177cf7e"
+callees = ["fn:dbeaa6f6d9da4f35"]
+physical_interface = true
+
+[[module."thermal_resistance.rs".function]]
+id = "fn:e8b825e2628894b8"
+name = "obtain_power_two_convection_one_conduction_thermal_resistance"
+qual = "obtain_power_two_convection_one_conduction_thermal_resistance"
+lines = [
+    184,
+    226,
+]
+hash = "sha256:71a0e7e1f39d78433172315dbf9e305bda508b13f0326d54d551fd39419fc06d"
+doc_hash = "sha256:d5380cece92cb1b152cda75128b2381b36eb1708e065886a7ec2c4e17486e6f7"
+callees = ["fn:dbeaa6f6d9da4f35"]
+physical_interface = true
+
+[[module."thermal_resistance.rs".function]]
+id = "fn:d2b5d76e1b824cf2"
+name = "obtain_power_through_double_convection_thermal_resistance"
+qual = "obtain_power_through_double_convection_thermal_resistance"
+lines = [
+    228,
+    262,
+]
+hash = "sha256:41d6e86647627e9e5094c3c80836fd451c9f4244ed04c50b3712e8fffa6d861e"
+doc_hash = "sha256:167945701ad4f22660f48eee79f69ad48e72890353f80635bb4419e9d75def1c"
+callees = ["fn:dbeaa6f6d9da4f35"]
+physical_interface = true
+
+[[module."thermal_resistance.rs".function]]
+id = "fn:4ff9e54b3e977e73"
+name = "obtain_power_through_single_convection_thermal_resistance"
+qual = "obtain_power_through_single_convection_thermal_resistance"
+lines = [
+    264,
+    289,
+]
+hash = "sha256:7a9356e90c7e6495e5fd96d4076afea23bf36713cb56ecbd36170e6dc44bfd2a"
+doc_hash = "sha256:a4bc9abb21d3f7ec6ba2e33d79c18b34f209057dcc5ec9f42340ffef8459770a"
+callees = ["fn:dbeaa6f6d9da4f35"]
+physical_interface = true
+
+[[module."thermal_resistance.rs".function]]
+id = "fn:fade9f95d5631f6a"
+name = "obtain_power_through_two_layer_wall_thermal_resistance"
+qual = "obtain_power_through_two_layer_wall_thermal_resistance"
+lines = [
+    291,
+    324,
+]
+hash = "sha256:5647453bdfe8426377330bf90e0dc6b4b3e00bfe83f221d760121e8626673202"
+doc_hash = "sha256:4ed931d2389634c2ebbeca4af46ab56c55198bedd1799225fbf243a9c8d8c828"
+callees = ["fn:dbeaa6f6d9da4f35"]
+physical_interface = true
+
+[[module."thermal_resistance.rs".function]]
+id = "fn:88c8d798f8e7bbb5"
+name = "obtain_power_through_wall_thermal_resistance"
+qual = "obtain_power_through_wall_thermal_resistance"
+lines = [
+    326,
+    347,
+]
+hash = "sha256:80a94ab67a9542e42965cce1024d16d8d6d732ad49d11f46d53456d98604a5f2"
+doc_hash = "sha256:e5c08d83306ea2f3bababa2b67485d3002537cca0b2c2eb4276b41c932a00040"
+callees = ["fn:dbeaa6f6d9da4f35"]
+physical_interface = true
+
+[[module."thermal_resistance.rs".function]]
+id = "fn:721fa91849e08cd0"
+name = "try_get_thermal_conductance_annular_cylinder"
+qual = "try_get_thermal_conductance_annular_cylinder"
+lines = [
+    349,
+    407,
+]
+hash = "sha256:ab34c86a4098b4ff8b35fcc3f9920691e59b0c4a8a8ec34cb8312ab53dcd47f7"
+doc_hash = "sha256:10866dd0f7140995f399ee1b65b63bfc68cfdf3caa1689d0ea1d6555bdb0145e"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+]
+physical_interface = true

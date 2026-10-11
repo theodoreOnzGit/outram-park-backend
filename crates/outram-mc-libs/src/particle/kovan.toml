@@ -1,0 +1,80 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-mc-libs"
+dir = "crates/outram-mc-libs/src/particle"
+
+[module."bank.rs"]
+path = "crate::particle::bank"
+
+[[module."bank.rs".function]]
+id = "fn:af0e7f729ae9fbcd"
+name = "new"
+qual = "Bank::new"
+lines = [
+    27,
+    29,
+]
+hash = "sha256:c4e30b04edd380e036c3197e008914d72df6b262e5baf74ea6f5913537492ae6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."bank.rs".function]]
+id = "fn:a5fbfd0251b30b43"
+name = "push"
+qual = "Bank::push"
+lines = [
+    31,
+    33,
+]
+hash = "sha256:e2457e17e2455d8294d6a0f7fcca12a6988170d392cd3d2af0651d635b711243"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."bank.rs".function]]
+id = "fn:457e4487ef7883eb"
+name = "len"
+qual = "Bank::len"
+lines = [
+    35,
+    37,
+]
+hash = "sha256:6eda6e042efc9cff3b6040d15668482896848877a9261d46586e542a1dc7d453"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."bank.rs".function]]
+id = "fn:84564c955f8869f0"
+name = "clear"
+qual = "Bank::clear"
+lines = [
+    39,
+    41,
+]
+hash = "sha256:78337d604f5c0baaff947a67362fa888c65c266962ab662f1dc9ded89c795d37"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."bank.rs".function]]
+id = "fn:a89f379e797b188f"
+name = "default"
+qual = "Bank::default"
+lines = [
+    45,
+    47,
+]
+hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:af0e7f729ae9fbcd"]
+
+[module."mod.rs"]
+path = "crate::particle"
+
+[module."particle.rs"]
+path = "crate::particle::particle"
+
+[[module."particle.rs".function]]
+id = "fn:fd04f9c386944772"
+name = "new"
+qual = "Particle::new"
+lines = [
+    71,
+    87,
+]
+hash = "sha256:38a430cea58b3f450a0b044a24cb1ef41565a401f6c7557ca5dd6e3884d46578"
+doc_hash = "sha256:62ec2ebd792af831bd0224787472614de2b69afc126106bf32fa7ffeb7464be7"

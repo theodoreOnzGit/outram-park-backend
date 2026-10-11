@@ -1,0 +1,226 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/color_maps/crameri"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/color_maps/crameri/mod.rs::cyclic_map_wraps_without_a_seam",
+    "crates/outram-park-digital-twin-engine/src/color_maps/crameri/mod.rs::endpoints_are_exact",
+    "crates/outram-park-digital-twin-engine/src/color_maps/crameri/mod.rs::non_cyclic_maps_clamp",
+    "crates/outram-park-digital-twin-engine/src/color_maps/crameri/mod.rs::vik_midpoint_is_near_neutral",
+    "crates/outram-park-digital-twin-engine/src/components/condenser.rs::the_physics_path_paints_nothing_it_cannot_see",
+    "crates/outram-park-digital-twin-engine/src/components/condenser.rs::the_scalar_path_colours_both_circuits_from_supplied_state",
+    "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_physics_path_draws_no_plume_and_no_approach",
+    "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_scalar_path_colours_from_the_supplied_psychrometric_states",
+    "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::a_missing_duty_stays_missing",
+    "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_physics_path_draws_its_arrangement_but_paints_no_temperature",
+    "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_scalar_path_colours_both_streams_from_supplied_state",
+    "crates/outram-park-digital-twin-engine/src/components/legend.rs::legend_colours_match_the_widgets_exactly",
+    "crates/outram-park-digital-twin-engine/src/components/mod.rs::temperature_grades_blue_through_white_to_red",
+    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::gas_is_lighter_than_liquid",
+    "crates/outram-park-digital-twin-engine/src/components/pump.rs::fluid_colour_uses_the_shared_temperature_map",
+    "crates/outram-park-digital-twin-engine/src/components/pump.rs::wrapping_a_tampines_pump_invents_no_state",
+]
+
+[module."mod.rs"]
+path = "crate::color_maps::crameri"
+
+[[module."mod.rs".function]]
+id = "fn:bd2fe6eafeaa5c59"
+name = "sample"
+qual = "sample"
+lines = [
+    58,
+    75,
+]
+hash = "sha256:f491fcbf5acc6b01df89297db4985562d86aa787c49d71ed5ff07cdc43c52eb7"
+doc_hash = "sha256:0e262b5ef87a985974bf8a4224b33133336e11c26228db74b53e356614fabcca"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c80cb88edd5df9e0"
+name = "sample_cyclic"
+qual = "sample_cyclic"
+lines = [
+    77,
+    94,
+]
+hash = "sha256:522234526699441800d16bf797b4953f0eb0f7d23ef4af4adc7a482b12a1861d"
+doc_hash = "sha256:1b79d5f6722c32493970bc676ea91fbb2e6967406625b09bc14ae2e769fae346"
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:ee3a38d6dcf69a46"
+name = "vik"
+qual = "vik"
+lines = [
+    96,
+    103,
+]
+hash = "sha256:b2dc9f0b55d533d728e6065ee34f44141140572e13ac034ed719a4d4aaddedd6"
+doc_hash = "sha256:06368859d23b1a6627360d92de644dc0bfcd73cd61468afbdf6a3e8739b34be4"
+callees = ["fn:bd2fe6eafeaa5c59"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a04317b9558636ba"
+name = "roma"
+qual = "roma"
+lines = [
+    105,
+    109,
+]
+hash = "sha256:48448308e62d2495cd4345f1f115f20be45d583ee4ae9d750e7d5d46aa6c6357"
+doc_hash = "sha256:7ff3aa405aba2dc95a601c66476016ea152b69f3d3ce36c87f4e7e88cf37d476"
+callees = ["fn:bd2fe6eafeaa5c59"]
+
+[[module."mod.rs".function]]
+id = "fn:720da9d56414bc2f"
+name = "batlow"
+qual = "batlow"
+lines = [
+    111,
+    117,
+]
+hash = "sha256:3950c9beb91fab1a420835e23980f1019683c73416511637698a9c7ac0662375"
+doc_hash = "sha256:b4fdc0649605e2c0fb4847c978a20376f7421f17f82f701f20669abb88273187"
+callees = ["fn:bd2fe6eafeaa5c59"]
+reached_by = ["#2"]
+
+[[module."mod.rs".function]]
+id = "fn:52e252e01a9b32f1"
+name = "lajolla"
+qual = "lajolla"
+lines = [
+    119,
+    122,
+]
+hash = "sha256:e3554357b193882a696701a0a4105d9fa836c0ab6151f293a14362772693aa01"
+doc_hash = "sha256:1b7c56052f098773af7ca32f8bf5c1c0eb672ab8f53dd047e8af3ef3ecbcc24f"
+callees = ["fn:bd2fe6eafeaa5c59"]
+
+[[module."mod.rs".function]]
+id = "fn:c17e01e76eea94c2"
+name = "roma_o"
+qual = "roma_o"
+lines = [
+    124,
+    131,
+]
+hash = "sha256:b26fe75fd9c6e3e376dd91b500e23f94abebbb597b891bad64e5dff79c9d8e8c"
+doc_hash = "sha256:20b6af8e3c55eb043912a5816bc33013c8d5f72791d62553ed6e54d8460fb8aa"
+callees = ["fn:c80cb88edd5df9e0"]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:cfc2fe68e5791ba6"
+name = "tables_are_complete"
+qual = "tables_are_complete"
+lines = [
+    137,
+    146,
+]
+hash = "sha256:bf87e06749994439f17765a1a0b8e0186ed949546f07ab5a1e6abc529c219940"
+doc_hash = "sha256:aab57f5f074999aea4c0899119f1d1ab655704eb91c339c3b278e5352dc2f881"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:e91d08bd3f8cf285"
+name = "endpoints_are_exact"
+qual = "endpoints_are_exact"
+lines = [
+    148,
+    156,
+]
+hash = "sha256:e0cf201bfa8d087f73cdd8724a2dd5c1cb12051ec9edcd371803b180012c3fb1"
+doc_hash = "sha256:f850b304f1c2432a2a3f2ca085a56187bb6fcc0440c5087a0234b5a45d388f1c"
+callees = ["fn:ee3a38d6dcf69a46"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:5fd55bdfe3a73ec4"
+name = "non_cyclic_maps_clamp"
+qual = "non_cyclic_maps_clamp"
+lines = [
+    158,
+    165,
+]
+hash = "sha256:d480fa113a722dcadb3f4d1074aa195e896d840bb61fa5af50c52583d0f4b2b8"
+doc_hash = "sha256:f3cc454d8b6428fd03dfe92760d78a2304c04a17d5ca4e8143ec22a41b41a31c"
+callees = [
+    "fn:720da9d56414bc2f",
+    "fn:ee3a38d6dcf69a46",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:5321b352f12e0512"
+name = "cyclic_map_wraps_without_a_seam"
+qual = "cyclic_map_wraps_without_a_seam"
+lines = [
+    167,
+    189,
+]
+hash = "sha256:dab0ac0433f76e2745eb7036216b4f6d7cc4e985c5213bea388e7c8ae215c88e"
+doc_hash = "sha256:f8d55164e9eda9a60f74e0298d08f95abd30b2372e2c911af96efa4791db993f"
+callees = ["fn:c17e01e76eea94c2"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:5780a1bb571a0521"
+name = "batlow_is_monotonic_in_lightness"
+qual = "batlow_is_monotonic_in_lightness"
+lines = [
+    191,
+    213,
+]
+hash = "sha256:e4cb41d0635c55bd86b7459ef24f29333b91b362d4e4deceea3fb54fcc891598"
+doc_hash = "sha256:fddaf3eb90f22693087ea9d5f28bfcff0b0910a47c5afe78ce850b3e2afd2026"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:8a850d9f12e7f371"
+name = "vik_midpoint_is_near_neutral"
+qual = "vik_midpoint_is_near_neutral"
+lines = [
+    215,
+    223,
+]
+hash = "sha256:94696e53d2f5c1f0e4c15408bbe0ff5dc1bc2302ae9b692aa01c206e6eb52c5f"
+doc_hash = "sha256:1fcad9dda5a5fca9f534bab489868b022dec1ed8756605378159c63090b2c4b5"
+callees = ["fn:ee3a38d6dcf69a46"]
+test = true
+
+[module."tables.rs"]
+path = "crate::color_maps::crameri::tables"

@@ -1,0 +1,97 @@
+schema_version = 1
+kind = "code_folder"
+crate = "teh-o-prke"
+dir = "crates/teh-o-prke/examples/fhr_sim_v1"
+
+[module."main.rs"]
+path = "example:fhr_sim_v1"
+
+[[module."main.rs".function]]
+id = "fn:532033def73213b9"
+name = "main"
+qual = "main#1"
+lines = [
+    17,
+    18,
+]
+hash = "sha256:a32336f06f58e19f16f1b15b2998bc3fd5602540accacba125c4fac21797d3ab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:1b2ee22cc38b18fc"
+name = "main"
+qual = "main#2"
+lines = [
+    20,
+    30,
+]
+hash = "sha256:0920880db1e6e74a269ec3aeab444d8b55d964640c79b8db7d13c528c01f0b7d"
+doc_hash = "sha256:074f2830a52b507fab83db986337a95dec02d780b762ba16b2ab25bbff5abe20"
+callees = ["fn:a907f5a53656a024"]
+
+[[module."main.rs".function]]
+id = "fn:a907f5a53656a024"
+name = "fhr_simulator_v1"
+qual = "fhr_simulator_v1"
+lines = [
+    31,
+    50,
+]
+hash = "sha256:b46656a1575ee0da40acb9dfa932d9e70c50313cf43caea4ce57beed7f7915ae"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:aed6600850fa8d62"]
+
+[[module."main.rs".function]]
+id = "fn:a7d7dc5f1efd09d0"
+name = "default"
+qual = "FHRState::default"
+lines = [
+    133,
+    172,
+]
+hash = "sha256:092f30812f1acd4978c3cae3f84fa8f61d15728b1244b8fdda0b72c4257c3e10"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:a3578333988262fa"
+name = "obtain_average_heat_removal_rate_from_pebble_bed_and_reset_counter"
+qual = "FHRState::obtain_average_heat_removal_rate_from_pebble_bed_and_reset_counter"
+lines = [
+    177,
+    184,
+]
+hash = "sha256:551a456b2e340eeaea38af79b9518e94939be7d4a650d20e79d38ccae759fd5e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[[module."main.rs".function]]
+id = "fn:aed6600850fa8d62"
+name = "new"
+qual = "FHRSimulatorApp::new"
+lines = [
+    189,
+    228,
+]
+hash = "sha256:15a4c38a85c4468cd30f5877e8a8fd6af22789e45f4db64164cfd31cfb5ff948"
+doc_hash = "sha256:70d0e5349f6d492e8f3b4c3173fe8e05f0b3f501bba7dbfe9cd6e130c61388de"
+callees = [
+    "fn:58b2f529b232d434",
+    "fn:6a3b14c2f6811704",
+    "fn:ab825bbf9d3ef684",
+    "fn:f3063bfb7f185302",
+]
+
+[[module."main.rs".function]]
+id = "fn:6a3b14c2f6811704"
+name = "default"
+qual = "FHRSimulatorApp::default"
+lines = [
+    232,
+    244,
+]
+hash = "sha256:34876cbe1ff3119957a97303b2df40e62a418f146f22860f0eceeb3ea08f69b1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a7d7dc5f1efd09d0",
+    "fn:b412a5ee071af9f2",
+]

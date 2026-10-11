@@ -1,0 +1,83 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/interaction_with_decaying_nuclide_simulator"
+
+[module."mod.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::interaction_with_decaying_nuclide_simulator"
+
+[[module."mod.rs".function]]
+id = "fn:749526e38706d33c"
+name = "move_single_decaying_particle_isotropically"
+qual = "SingleParticleDiffusionSimulatorMC::move_single_decaying_particle_isotropically"
+lines = [
+    11,
+    25,
+]
+hash = "sha256:13bd6cf96699664a9fa6e407dafe0049b3ae0d7b7e65f3bbf18de6a3a1e8c024"
+doc_hash = "sha256:cd4748fb05a7377fff957d71312eff31ad2cd7a172475d2f1babfe09db234134"
+callees = ["fn:758333dfcd3ca042"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:e2905bdfa027346d"
+name = "move_single_decaying_particle_gaussian_mfp_and_no_of_collisions"
+qual = "SingleParticleDiffusionSimulatorMC::move_single_decaying_particle_gaussian_mfp_and_no_of_collisions"
+lines = [
+    27,
+    41,
+]
+hash = "sha256:b5e7a742de0cd532aee3a4fabe0b25f83229cbf4d430b16428e412bbec12b749"
+doc_hash = "sha256:eb5fc58bfa7a61c4fbee9215d73b6c988d5b07c9fa98005b305b341eb38f318c"
+callees = ["fn:804e0f85f79eca2e"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:4505b9d78eee3ec0"
+name = "move_single_decaying_particle_within_triso"
+qual = "SingleParticleDiffusionSimulatorMC::move_single_decaying_particle_within_triso"
+lines = [
+    43,
+    62,
+]
+hash = "sha256:1a0b4c4a6c484aab707877a0c8f06b084e44733f7ad314be3cf8ba759d07acfb"
+doc_hash = "sha256:bbfa54f451fe27ba0373571b7ad8f74d74ad43029460ad78bbcd430a49729b5b"
+callees = [
+    "fn:1ce3458a4f43f216",
+    "fn:d84c7e41f0b78cde",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:446c79e9c2b975d4"
+name = "move_single_decaying_particle_within_triso_based_on_fourier_no"
+qual = "SingleParticleDiffusionSimulatorMC::move_single_decaying_particle_within_triso_based_on_fourier_no"
+lines = [
+    64,
+    136,
+]
+hash = "sha256:b5b25aa8ce2fad73fc1c987aa5277b03322f29bf730d8e88f6a3f8c5ff23110d"
+doc_hash = "sha256:e366b49434c35f125419a9ea8834a2c2897751d9b0608ffd6b7a9107b520646d"
+callees = [
+    "fn:1ce3458a4f43f216",
+    "fn:26c97e03e84fc754",
+    "fn:6490390f3a2db2f4",
+    "fn:d84c7e41f0b78cde",
+]
+physical_interface = true
+
+[module."tests_for_auto_timestepping.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::interaction_with_decaying_nuclide_simulator::tests_for_auto_timestepping"
+
+[[module."tests_for_auto_timestepping.rs".function]]
+id = "fn:91954b58be9253af"
+name = "diffusion_fourier_number_calc"
+qual = "diffusion_fourier_number_calc"
+lines = [
+    17,
+    143,
+]
+hash = "sha256:1a0abad9c431da4df4c8c945227271ee8af1d2906dd27f6e0da03b3348049780"
+doc_hash = "sha256:d1844f4c4221c0484efcaa251b8953004b213da911354ba8a2d11f2195176a48"
+callees = ["fn:4bdea64528f551f6"]
+test = true

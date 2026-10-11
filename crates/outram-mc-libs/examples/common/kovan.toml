@@ -1,0 +1,438 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-mc-libs"
+dir = "crates/outram-mc-libs/examples/common"
+test_ids = ["crates/outram-mc-libs/examples/icsbep_five_route_keff.rs::draw_helpers_colour_by_material_and_draw_godiva_as_its_sphere"]
+
+[module."energy_only_slowing_down.rs"]
+path = "example:u238_resonance_escape::energy_only_slowing_down"
+
+[[module."energy_only_slowing_down.rs".function]]
+id = "fn:252f856246446c99"
+name = "default"
+qual = "KernelOptions::default"
+lines = [
+    77,
+    83,
+]
+hash = "sha256:9dc4c93fd5af44db83c5b30b8625ef6494c99bfc08f35cf882cd999c46da78f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."energy_only_slowing_down.rs".function]]
+id = "fn:9cac80dfdeeb4d57"
+name = "legacy"
+qual = "KernelOptions::legacy"
+lines = [
+    87,
+    95,
+]
+hash = "sha256:bcb318086e3a0f72a65ffafea5e742e1c8d7d7e120a72a90c84a9989be6a9c80"
+doc_hash = "sha256:3da2c911a913694f20638ad002cae9c2b835299f29fe847808266f83f8042fa8"
+
+[[module."energy_only_slowing_down.rs".function]]
+id = "fn:105000bbedd4d88b"
+name = "slow_down"
+qual = "slow_down"
+lines = [
+    110,
+    249,
+]
+hash = "sha256:4ea9372af0b71c781e5080a78511f4a164f79b16eada4238664c013d4bbbdf36"
+doc_hash = "sha256:2f852e57702212758d90ce286425f1a90d9d728c11ee0fa6f4129fbe14254cc7"
+callees = [
+    "fn:0822560e7bc2e8a6",
+    "fn:1195285e937a6177",
+    "fn:1ac1ee406f438ff8",
+    "fn:3eb1744367556890",
+    "fn:3feaf37e993173ea",
+    "fn:66b92b1e796d5c1d",
+    "fn:681ddf6544e7b60b",
+    "fn:7a5de66356f689d7",
+    "fn:82a593c437fa20fb",
+    "fn:87daab4e924439b8",
+    "fn:b5494bc83ca9b269",
+    "fn:c18707f1370d3347",
+    "fn:c529acd9bb420121",
+    "fn:c9317aaeb4555a01",
+    "fn:cbb241b81b8f27f6",
+    "fn:d02fb722410de7c4",
+    "fn:e1787dfe7b266275",
+    "fn:ff59051b88d7fa16",
+]
+
+[module."fhr_unit_cell.rs"]
+path = "example:dh_keff_vv::fhr"
+
+[[module."fhr_unit_cell.rs".function]]
+id = "fn:f4b94c8f60111585"
+name = "materials"
+qual = "materials"
+lines = [
+    35,
+    113,
+]
+hash = "sha256:58d66bd88d2002d7adc4808b869623973adc8419810eb249201cf2f51f6a93c8"
+doc_hash = "sha256:09fb7cb74418932bebe00cfe0ba316c3df5f272e9fce8687b66ad3b02f3721b1"
+
+[module."htr10_fuel_zone.rs"]
+path = "example:htr10_fuel_zone_kinf::fuel_zone"
+
+[[module."htr10_fuel_zone.rs".function]]
+id = "fn:cf33121bac98bb73"
+name = "build_materials"
+qual = "build_materials"
+lines = [
+    56,
+    104,
+]
+hash = "sha256:5cd65cade9d102993bbe9069c62169e2069f52c55d2dea5d3e040a41e173d30e"
+doc_hash = "sha256:2217786534d1817aa41d4b3e9b8bf56414cc2575335f58069f0f1177b305df9d"
+
+[[module."htr10_fuel_zone.rs".function]]
+id = "fn:5c8df3cb17bdbf96"
+name = "build_majorant"
+qual = "build_majorant"
+lines = [
+    106,
+    135,
+]
+hash = "sha256:60a348f5c64f2490efc535f9b104c18f2dc10ba69293384bf466f8bd1471d965"
+doc_hash = "sha256:515b6e6bae3c8c39f6b56ccdbe4a467a133824314cd93a564f3ddef607da5898"
+callees = ["fn:a051bd1637f9435b"]
+
+[[module."htr10_fuel_zone.rs".function]]
+id = "fn:00713c6fd0f77be8"
+name = "endf_layout"
+qual = "endf_layout"
+lines = [
+    152,
+    163,
+]
+hash = "sha256:b1c8c102092e76c4fd6737e4d6119e93fd5d7b7d3308ecf8478fa814b788c4c6"
+doc_hash = "sha256:1dd5ee98111494ed58f821ad4e0bb7f6ea85df35dbca1ce82b62e7d912d9e873"
+
+[[module."htr10_fuel_zone.rs".function]]
+id = "fn:ebaf0517da5fee63"
+name = "kernel_packing_fraction"
+qual = "kernel_packing_fraction"
+lines = [
+    165,
+    168,
+]
+hash = "sha256:8d2a365935d5bc92361e66bd2e9dda0456c71029bc3319da5ce034240844e95a"
+doc_hash = "sha256:04f24399799572078babfe5ad5dfcae00f068dafa0a1783fa4f2186a14d76250"
+
+[module."lct008_model.rs"]
+path = "example:icsbep_five_route_keff::lct008_model"
+
+[[module."lct008_model.rs".function]]
+id = "fn:2cf2a141da11bd9c"
+name = "materials_xml"
+qual = "materials_xml"
+lines = [
+    83,
+    89,
+]
+hash = "sha256:97c8961c81341fd0c913443e46ede0f36ad73774f4ee8e8a9bf4923457a972a7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#0"]
+
+[[module."lct008_model.rs".function]]
+id = "fn:bd36fdc574acbf12"
+name = "geometry_xml"
+qual = "geometry_xml"
+lines = [
+    90,
+    96,
+]
+hash = "sha256:0a0a7ca4c488a6ac366f12a163e9eae9d4de4f41e04224ad37896bebb7e7d45c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#0"]
+
+[[module."lct008_model.rs".function]]
+id = "fn:ddcad67b694275cf"
+name = "elements"
+qual = "elements"
+lines = [
+    192,
+    228,
+]
+hash = "sha256:46690d809e35cefb6d2990a52a084fc587788f37ef17cddb41b4e399d64ad847"
+doc_hash = "sha256:14404e52e045117ccd3fa35f8afd0c1d2225212842d4c7e6c2c6e297778dd9cd"
+reached_by = ["#0"]
+
+[[module."lct008_model.rs".function]]
+id = "fn:6a44d1d8d1377b76"
+name = "attr"
+qual = "attr"
+lines = [
+    230,
+    248,
+]
+hash = "sha256:0a2a3f2b9cf8fa7ec5331be7d7416b2587b3fc9d479617c111c332f087884909"
+doc_hash = "sha256:c0b05194e4baf584bc1dfa4d837fbf73bdeb28f558089303e0d836ca65228c03"
+reached_by = ["#0"]
+
+[[module."lct008_model.rs".function]]
+id = "fn:4e1c1bcb25b856fc"
+name = "strip_comments"
+qual = "strip_comments"
+lines = [
+    250,
+    264,
+]
+hash = "sha256:7d973cc24b3890f4592db8eee260fab6c5002676dbaee94cd08d13d952ef6b95"
+doc_hash = "sha256:88841e88ef1eaa98032ec3404141d7d9891e254968f95e6064220e37cde9ec0a"
+reached_by = ["#0"]
+
+[[module."lct008_model.rs".function]]
+id = "fn:e7570b3004d7b0d6"
+name = "num"
+qual = "num"
+lines = [
+    266,
+    270,
+]
+hash = "sha256:8a0983ab3278ca667447a5014d43485befc9b9e9755dcd254b1e233337d07c09"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#0"]
+
+[[module."lct008_model.rs".function]]
+id = "fn:e86425c2d5597a49"
+name = "parse_materials"
+qual = "parse_materials"
+lines = [
+    283,
+    305,
+]
+hash = "sha256:fe64a2bd9beaeb674cd0751c8209a5acd885ce33bddc03a51ce4406e2a4873e9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4e1c1bcb25b856fc",
+    "fn:6a44d1d8d1377b76",
+    "fn:ddcad67b694275cf",
+    "fn:e7570b3004d7b0d6",
+]
+reached_by = ["#0"]
+
+[[module."lct008_model.rs".function]]
+id = "fn:f5fd360ffc35221b"
+name = "build_materials"
+qual = "build_materials"
+lines = [
+    307,
+    357,
+]
+hash = "sha256:371e3054415f203fa72ecf80d66faef2423b66d6f9882ad95308b69c20b5df42"
+doc_hash = "sha256:cbaddb266f0953762e1377a74d532c74d1d48a3c561cdc2d0ecb5ab314d3ee1d"
+reached_by = ["#0"]
+
+[[module."lct008_model.rs".function]]
+id = "fn:482119544e9e9496"
+name = "report_omissions"
+qual = "report_omissions"
+lines = [
+    359,
+    390,
+]
+hash = "sha256:358d94cfcd29b76df1bc8022d941211f583a61059b9f503fe588c0d3aacd605e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#0"]
+
+[[module."lct008_model.rs".function]]
+id = "fn:b1303e570c701a80"
+name = "build_geometry"
+qual = "build_geometry"
+lines = [
+    419,
+    621,
+]
+hash = "sha256:abcac049cd0d7c42e7e36541cabb78d232e0ca01172c2aff24e433ed06e039aa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4e1c1bcb25b856fc",
+    "fn:6a44d1d8d1377b76",
+    "fn:8b1b36725917b52d",
+    "fn:abb149a5e5ce6cb0",
+    "fn:bd36fdc574acbf12",
+    "fn:cb1fc1a67d38f99a",
+    "fn:ddcad67b694275cf",
+    "fn:e06accd43e58aaea",
+    "fn:e0dbfc7ecee52e7b",
+    "fn:e7570b3004d7b0d6",
+]
+reached_by = ["#0"]
+
+[[module."lct008_model.rs".function]]
+id = "fn:e06accd43e58aaea"
+name = "block"
+qual = "block"
+lines = [
+    623,
+    632,
+]
+hash = "sha256:b0e35542879581ec441c3b73f5512356fb052bd762d7b85752466d8a38ef869b"
+doc_hash = "sha256:ba8413145bd241537219731d1cbcf4a7f3f44d8e2cb451251b55cd85ab154dae"
+callees = [
+    "fn:ddcad67b694275cf",
+    "fn:e7570b3004d7b0d6",
+]
+reached_by = ["#0"]
+
+[[module."lct008_model.rs".function]]
+id = "fn:e0dbfc7ecee52e7b"
+name = "parse_region"
+qual = "parse_region"
+lines = [
+    634,
+    670,
+]
+hash = "sha256:d6c62c644b911f8a7fbda44ba8593ad90593dd877bc34d904b0b4539593d8835"
+doc_hash = "sha256:072ef3881dd17a4877e978b696b56b1b4b520433b204962da361822a85f6e475"
+callees = ["fn:e7570b3004d7b0d6"]
+reached_by = ["#0"]
+
+[[module."lct008_model.rs".function]]
+id = "fn:295e34d2bc825f07"
+name = "check_geometry"
+qual = "check_geometry"
+lines = [
+    676,
+    857,
+]
+hash = "sha256:783c9052b07c8460f08cb44cab4f9d3a14b6c1cb6290472d1841ea8400b7fba8"
+doc_hash = "sha256:cdbc5a6a8fcfa145112e3da6ecf5a14210c94e421fb5c2ef251711ba748a3dc7"
+callees = [
+    "fn:b1303e570c701a80",
+    "fn:cb1fc1a67d38f99a",
+    "fn:cbb241b81b8f27f6",
+    "fn:e1e248a14f38c41f",
+]
+reached_by = ["#0"]
+
+[module."lct008_pin_cell.rs"]
+path = "example:lct008_pitch_sweep::lct008_pin_cell"
+
+[[module."lct008_pin_cell.rs".function]]
+id = "fn:579f381eebb1fb09"
+name = "vm_over_vf"
+qual = "vm_over_vf"
+lines = [
+    29,
+    32,
+]
+hash = "sha256:0e54fdc125c6030a0cc39fd0662e93f47a0ce0824517886e49eb2d75001c66a6"
+doc_hash = "sha256:834bba130b63b386334b05d294df68e0ad92419fec39649b97ef7ad0d5f9a797"
+
+[[module."lct008_pin_cell.rs".function]]
+id = "fn:38441689a52e99e7"
+name = "source_box"
+qual = "source_box"
+lines = [
+    34,
+    37,
+]
+hash = "sha256:97f2a2fdc541032363f6536fd9505e40d605c944a4118540507ce2344a056fdb"
+doc_hash = "sha256:08644f08d0192f2e72537d36a1387a2952b67531e80b1c520ab062a2df793da7"
+callees = ["fn:cb1fc1a67d38f99a"]
+
+[[module."lct008_pin_cell.rs".function]]
+id = "fn:c2b70a69aabd0c69"
+name = "pin_cell"
+qual = "pin_cell"
+lines = [
+    39,
+    79,
+]
+hash = "sha256:448c6a28066522b1ac5c7ceaa7bc4e31bbe36fac031a5d82087a0f27c3997a10"
+doc_hash = "sha256:c567ea2c19ca4570febf8e59a067373f27e5690108cfc6f5b76338b45c3d0912"
+callees = ["fn:8b1b36725917b52d"]
+
+[module."ugraphite_common.rs"]
+path = "example:lumped_ugraphite_kinf::ugraphite_common"
+
+[[module."ugraphite_common.rs".function]]
+id = "fn:bc625df4184edcf2"
+name = "htr10_pebble_mix"
+qual = "htr10_pebble_mix"
+lines = [
+    64,
+    73,
+]
+hash = "sha256:078e8d3df5a48232f3e1f2e16b9c1dc7ee8f94c95192ff0f80e697a39ea6907a"
+doc_hash = "sha256:7b6841f8c730f08f24e7ab6acf9081a808e67bda09d63cd3125568a6de9b9641"
+callees = ["fn:ea890b26d1becb70"]
+
+[[module."ugraphite_common.rs".function]]
+id = "fn:87511a2ce103a9bf"
+name = "env_or"
+qual = "env_or"
+lines = [
+    75,
+    80,
+]
+hash = "sha256:5351067ac22c8c083b83dfb5b886cc2b9135484107f64d8debf3f14eb39009c6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."ugraphite_common.rs".function]]
+id = "fn:94e9e6a63d7e83a9"
+name = "load_nuclides"
+qual = "load_nuclides"
+lines = [
+    82,
+    117,
+]
+hash = "sha256:826d42aa3943e70c52a863e8385d2e421fc562c132a3304a113eebe389f9add3"
+doc_hash = "sha256:85b83d05e9f51624022e5b94321e9158b8c542c8c3ee6a1d861cd3d82e261b29"
+callees = [
+    "fn:2c945092147fdb01",
+    "fn:9014fa79e1c55492",
+    "fn:c17fd96bd8c86251",
+    "fn:eeac8cab23ae8529",
+]
+
+[[module."ugraphite_common.rs".function]]
+id = "fn:ac1a2e5292e97c56"
+name = "physics_config"
+qual = "physics_config"
+lines = [
+    145,
+    166,
+]
+hash = "sha256:f631d825bd0903c69c6d011fd406896d4e9dc638d418576700f8db0ed7b45408"
+doc_hash = "sha256:40b81a657047f0b4c5fb8552dddc73f1de1e21a3b00d730e020833227e232508"
+callees = [
+    "fn:14a6fa25c0a1f183",
+    "fn:87511a2ce103a9bf",
+]
+
+[[module."ugraphite_common.rs".function]]
+id = "fn:73f825a210032b56"
+name = "run_case"
+qual = "run_case"
+lines = [
+    168,
+    240,
+]
+hash = "sha256:a93e89bab0ed8c1341e73faded39e0bd79ca23fc34166f83e5dfcbe02820198d"
+doc_hash = "sha256:7faaee3806c5d1b9fb7a5dcd8328b9ca38703e3b6aa32f640bb0de579822e3b8"
+callees = [
+    "fn:26a670e7c3186f7a",
+    "fn:8f4be9b7092d2161",
+    "fn:a9de1e524e4d5ebd",
+    "fn:ac1a2e5292e97c56",
+    "fn:c9317aaeb4555a01",
+    "fn:cb1fc1a67d38f99a",
+]
+
+[[module."ugraphite_common.rs".function]]
+id = "fn:f4533b242cc74427"
+name = "print_case"
+qual = "print_case"
+lines = [
+    242,
+    306,
+]
+hash = "sha256:455eef26ac3d9453424855546d2c15e8d87d38f3ae137511c20c1d2d81430249"
+doc_hash = "sha256:1ef528d7a3ee214c50f6720b04ec83f6bc293c27c386d150236cce99349db9df"
+callees = ["fn:d20a8466ed9def3d"]

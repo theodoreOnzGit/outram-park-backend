@@ -1,0 +1,241 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-cli"
+dir = "crates/outram-foam-cli/src/bin"
+
+[module."block_mesh.rs"]
+path = "test:mechanics_code_to_code::block_mesh"
+
+[[module."block_mesh.rs".function]]
+id = "fn:a7f758796d2388c6"
+name = "main"
+qual = "main"
+lines = [
+    24,
+    30,
+]
+hash = "sha256:0c0c2ba184d0fafdfffacfaecf3d8d0c8bcdc773b6bac7995b007d21ed15fd46"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6c5d1589368c5199",
+    "fn:a39666b16beb995c",
+]
+test = true
+
+[[module."block_mesh.rs".function]]
+id = "fn:a39666b16beb995c"
+name = "run"
+qual = "run"
+lines = [
+    32,
+    61,
+]
+hash = "sha256:5d43f1e21bbe4598a848906fc5381494f69f1d03add0173d78e6de33fe70ad91"
+doc_hash = "sha256:415a9ec394c4e38fdc938cd88b1df27b43e146fa08b89e5986b4101843b52fde"
+callees = [
+    "fn:0bc9666aa1a4dec5",
+    "fn:44d845d45358ed9a",
+    "fn:90f24de3a54409a7",
+    "fn:dc13477d1f4798db",
+    "fn:e64a66e2b44cad2d",
+]
+test = true
+
+[[module."block_mesh.rs".function]]
+id = "fn:44d845d45358ed9a"
+name = "bridge"
+qual = "bridge"
+lines = [
+    63,
+    83,
+]
+hash = "sha256:afa972f4b73e445b6aafcf2a9796d596f880a7ba248f063d3b883cb518289747"
+doc_hash = "sha256:483afbd15c889fcdb494ae0bb64da518acb770f76aba7d948bb1bae574f5f55b"
+test = true
+
+[[module."block_mesh.rs".function]]
+id = "fn:0bc9666aa1a4dec5"
+name = "print_summary"
+qual = "print_summary"
+lines = [
+    85,
+    102,
+]
+hash = "sha256:7c0cc334443e9835a2dd3ed1258d7fd766b1bc79421b243cd31f29a890580aaa"
+doc_hash = "sha256:a53309169b4c947713369926f1f960e0fc1ab8826e5daddbfc0ebb9d5d8374c5"
+callees = [
+    "fn:3ed8413e52fe07d2",
+    "fn:ce61afc044ad8519",
+    "fn:d88c045633b3ad05",
+]
+test = true
+
+[module."ideas_unv_to_foam.rs"]
+path = "test:mesh_tools::ideas_unv_to_foam"
+
+[[module."ideas_unv_to_foam.rs".function]]
+id = "fn:6a4fd848b16e0ed7"
+name = "main"
+qual = "main"
+lines = [
+    45,
+    52,
+]
+hash = "sha256:ac1dad788324ee77f67dbe7a335b0e22c57819ef42deb3a5cd2fd10e2f2ea712"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:8fcc42431f992418",
+    "fn:e49f3f09939d0a09",
+]
+test = true
+
+[[module."ideas_unv_to_foam.rs".function]]
+id = "fn:0503106c18977ea3"
+name = "run"
+qual = "run"
+lines = [
+    54,
+    63,
+]
+hash = "sha256:4dc59dacd9a62457ca96e017cfbcbdf995654f550b63ada72c7840f0834c10f9"
+doc_hash = "sha256:e476c77cfb80f45a928d2e8d253dd1ce5f71d4dd3f1095017b2fbdcfc5212f20"
+callees = ["fn:e49f3f09939d0a09"]
+test = true
+
+[[module."ideas_unv_to_foam.rs".function]]
+id = "fn:e49f3f09939d0a09"
+name = "run_with_unv"
+qual = "run_with_unv"
+lines = [
+    65,
+    89,
+]
+hash = "sha256:ca679795dce0f5d65ca259202db82e5c20c93ef9637bd926d275461158732322"
+doc_hash = "sha256:b875f534582b18cbcb99067e267af047529846200a43803eea18209d2a573774"
+callees = [
+    "fn:3f60ab5b0572b216",
+    "fn:7f5df754ad935b89",
+    "fn:8079c2da7213b2dd",
+    "fn:b95d86af960492e0",
+    "fn:dc13477d1f4798db",
+    "fn:e64a66e2b44cad2d",
+]
+test = true
+
+[[module."ideas_unv_to_foam.rs".function]]
+id = "fn:7f5df754ad935b89"
+name = "resolve_unv"
+qual = "resolve_unv"
+lines = [
+    91,
+    129,
+]
+hash = "sha256:6bf9c30d284f03874c5769e2743282a501b4b8b6496976d9d01993eb047de0ae"
+doc_hash = "sha256:735c21e139c579c253270ddd9cec8dd9486b652b7400db304ece7640d52a8081"
+test = true
+
+[[module."ideas_unv_to_foam.rs".function]]
+id = "fn:8079c2da7213b2dd"
+name = "bridge"
+qual = "bridge"
+lines = [
+    131,
+    160,
+]
+hash = "sha256:fc503b2b8baccd882bdbf881d5223c7dafde46f78b25a3535b5c50413b2fcf02"
+doc_hash = "sha256:3a6229907e4828bd0629a176059822de29911b9d442c49254c0f4a825ed80047"
+test = true
+
+[[module."ideas_unv_to_foam.rs".function]]
+id = "fn:3f60ab5b0572b216"
+name = "print_summary"
+qual = "print_summary"
+lines = [
+    162,
+    187,
+]
+hash = "sha256:1e83ae82e9a786dc5979d0483e319afbd28b5d2d44dda3c1e6157788bca326d3"
+doc_hash = "sha256:35fa73c1b66047d625a6a028d5453ddd27c141e3f449172e898490c9fd4f707b"
+test = true
+
+[module."poly_dual_mesh.rs"]
+path = "test:mesh_tools::poly_dual_mesh"
+
+[[module."poly_dual_mesh.rs".function]]
+id = "fn:b6e2c76c1a5955a6"
+name = "main"
+qual = "main"
+lines = [
+    48,
+    54,
+]
+hash = "sha256:76b1bdbcf0cd46116944bc477efa7f0bf574410af540c6c6bd1e2a839b046b6d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6c5d1589368c5199",
+    "fn:c6ecfd0d863d2090",
+]
+test = true
+
+[[module."poly_dual_mesh.rs".function]]
+id = "fn:c6ecfd0d863d2090"
+name = "run"
+qual = "run"
+lines = [
+    56,
+    88,
+]
+hash = "sha256:ddc3e613b04f5fb96c8aede1cb784e2ab2d62352e7121b72fea03563fb4164c4"
+doc_hash = "sha256:b87a0f422d2a081fa79824ed2a1ca0c4817a9163953347a6a78b969b304982e1"
+callees = [
+    "fn:09fdc658c100ae41",
+    "fn:1cd6445732a5058c",
+    "fn:22cba7f71d6be638",
+    "fn:27b8b6d1ab599c87",
+    "fn:9c705db8d6b0af61",
+    "fn:dc13477d1f4798db",
+    "fn:e64a66e2b44cad2d",
+]
+test = true
+
+[[module."poly_dual_mesh.rs".function]]
+id = "fn:22cba7f71d6be638"
+name = "to_primal"
+qual = "to_primal"
+lines = [
+    90,
+    114,
+]
+hash = "sha256:2dae08db2bf32c3368242187049193b508826c863a4ac1aa69d126b2a8c3446a"
+doc_hash = "sha256:10de615751b6a726d2342493c0f981ae135bf144633d7e0cefd252a53370d4d2"
+test = true
+
+[[module."poly_dual_mesh.rs".function]]
+id = "fn:9c705db8d6b0af61"
+name = "dual_to_io"
+qual = "dual_to_io"
+lines = [
+    116,
+    175,
+]
+hash = "sha256:8a09a893750a24f2e8094a6d08f8936993afdb051e92eab74b5db8205cd2c1a8"
+doc_hash = "sha256:773bdbb129aa4af5b69b126ee6f7ee7dee2ffddb65ce8e82969c936a90f035e9"
+callees = ["fn:3f65c61e733c613c"]
+test = true
+
+[[module."poly_dual_mesh.rs".function]]
+id = "fn:09fdc658c100ae41"
+name = "print_summary"
+qual = "print_summary"
+lines = [
+    177,
+    206,
+]
+hash = "sha256:f1c14dfd75c7638cafd4e2ac78184ff980a6476634c89e389fbdeafe8f7f5e30"
+doc_hash = "sha256:c5ce810eec31c89a2934707b506e4e2ebe000d862ec2402455456e4c32b911c9"
+callees = [
+    "fn:b5a8fe0a01201121",
+    "fn:c3e91ccf7885de77",
+    "fn:ed593828c43686d6",
+]
+test = true

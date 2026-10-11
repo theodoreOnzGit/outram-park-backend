@@ -1,0 +1,1206 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-common"
+dir = "crates/kovan-common/src/anchoring"
+test_ids = [
+    "crates/kovan-common/src/anchoring/tests/kovan_uses.rs::a_pdf_quote_survives_reextraction_with_hyphenation",
+    "crates/kovan-common/src/anchoring/tests/kovan_uses.rs::a_pdf_quote_survives_whitespace_only_changes",
+    "crates/kovan-common/src/anchoring/tests/kovan_uses.rs::b_note_quote_survives_an_edit_inside_it",
+    "crates/kovan-common/src/anchoring/tests/kovan_uses.rs::b_note_quote_survives_edits_around_it",
+    "crates/kovan-common/src/anchoring/tests/kovan_uses.rs::c_function_lines_survive_insertions_above_and_light_edits",
+    "crates/kovan-common/src/anchoring/tests/kovan_uses.rs::line_helpers",
+    "crates/kovan-common/src/anchoring/tests/kovan_uses.rs::position_is_tried_first_and_checked_against_the_quote",
+    "crates/kovan-common/src/anchoring/tests/kovan_uses.rs::selectors_serialise_in_w3c_shape",
+    "crates/kovan-common/src/anchoring/tests/upstream_approx.rs::empty_text_and_empty_pattern",
+    "crates/kovan-common/src/anchoring/tests/upstream_approx.rs::exact_match",
+    "crates/kovan-common/src/anchoring/tests/upstream_approx.rs::long_pattern",
+    "crates/kovan-common/src/anchoring/tests/upstream_approx.rs::long_text_short_pattern",
+    "crates/kovan-common/src/anchoring/tests/upstream_approx.rs::many_errors",
+    "crates/kovan-common/src/anchoring/tests/upstream_approx.rs::max_errors_exceeding_pattern_length_by_word_size",
+    "crates/kovan-common/src/anchoring/tests/upstream_approx.rs::no_match_returns_empty",
+    "crates/kovan-common/src/anchoring/tests/upstream_approx.rs::one_error",
+    "crates/kovan-common/src/anchoring/tests/upstream_approx.rs::pattern_length_equals_block_size",
+    "crates/kovan-common/src/anchoring/tests/upstream_approx.rs::pattern_length_exceeds_block_size",
+    "crates/kovan-common/src/anchoring/tests/upstream_approx.rs::pattern_length_multiple_of_block_size",
+    "crates/kovan-common/src/anchoring/tests/upstream_approx.rs::returns_all_matches",
+    "crates/kovan-common/src/anchoring/tests/upstream_approx.rs::unicode_counts_chars_not_utf16_units",
+    "crates/kovan-common/src/anchoring/tests/upstream_match_quote.rs::finds_best_approximate_match_if_no_exact_match",
+    "crates/kovan-common/src/anchoring/tests/upstream_match_quote.rs::finds_exact_match",
+    "crates/kovan-common/src/anchoring/tests/upstream_match_quote.rs::finds_match_with_best_context_match",
+    "crates/kovan-common/src/anchoring/tests/upstream_match_quote.rs::matches_at_end_of_text_with_nonempty_suffix",
+    "crates/kovan-common/src/anchoring/tests/upstream_match_quote.rs::matches_when_prefix_longer_than_match_start",
+    "crates/kovan-common/src/anchoring/tests/upstream_match_quote.rs::returns_none_if_no_acceptable_approximate_match",
+    "crates/kovan-common/src/anchoring/tests/upstream_match_quote.rs::returns_none_if_quote_or_text_empty",
+    "crates/kovan-common/src/anchoring/tests/upstream_match_quote.rs::scores_matches_based_on_prefix_similarity",
+    "crates/kovan-common/src/anchoring/tests/upstream_match_quote.rs::scores_matches_based_on_quote_similarity",
+    "crates/kovan-common/src/anchoring/tests/upstream_match_quote.rs::scores_matches_based_on_suffix_similarity",
+    "crates/kovan-common/src/anchoring/tests/upstream_match_quote.rs::uses_hint_as_tie_breaker",
+    "crates/kovan-common/src/anchoring/tests/upstream_misc.rs::failed_position_falls_back_to_quote",
+    "crates/kovan-common/src/anchoring/tests/upstream_misc.rs::position_round_trip",
+    "crates/kovan-common/src/anchoring/tests/upstream_misc.rs::quote_from_range_has_32_chars_of_context",
+    "crates/kovan-common/src/anchoring/tests/upstream_misc.rs::quote_round_trip_at_start_of_text",
+    "crates/kovan-common/src/anchoring/tests/upstream_misc.rs::quote_that_does_not_appear_is_orphaned",
+    "crates/kovan-common/src/anchoring/tests/upstream_misc.rs::translate_offsets_cases",
+    "crates/kovan-common/src/anchoring/tests/upstream_misc.rs::translate_offsets_edge_cases",
+    "crates/kovan-common/src/anchoring/tests/upstream_misc.rs::unsupported_selector_is_ignored",
+    "crates/kovan-common/src/anchoring/tests/upstream_pdf.rs::anchors_previously_created_selectors",
+    "crates/kovan-common/src/anchoring/tests/upstream_pdf.rs::anchors_quote_on_page_with_blank_items",
+    "crates/kovan-common/src/anchoring/tests/upstream_pdf.rs::anchors_quotes_to_best_match_across_all_pages",
+    "crates/kovan-common/src/anchoring/tests/upstream_pdf.rs::anchors_the_last_text_on_a_page",
+    "crates/kovan-common/src/anchoring/tests/upstream_pdf.rs::anchors_using_quote_when_position_fails",
+    "crates/kovan-common/src/anchoring/tests/upstream_pdf.rs::describe_page_selector_labels",
+    "crates/kovan-common/src/anchoring/tests/upstream_pdf.rs::describe_position_offsets_are_document_wide",
+    "crates/kovan-common/src/anchoring/tests/upstream_pdf.rs::describe_quote_has_32_chars_of_page_context",
+    "crates/kovan-common/src/anchoring/tests/upstream_pdf.rs::describe_returns_position_quote_and_page_selectors",
+    "crates/kovan-common/src/anchoring/tests/upstream_pdf.rs::fails_without_a_quote_selector",
+    "crates/kovan-common/src/anchoring/tests/upstream_pdf.rs::ignores_spaces_when_searching",
+    "crates/kovan-common/src/anchoring/tests/upstream_pdf.rs::prefers_a_context_match",
+    "crates/kovan-common/src/anchoring/tests/upstream_pdf.rs::quote_not_in_document_is_orphaned",
+    "crates/kovan/src/app/code_review_view.rs::a_pending_request_is_held_and_drawn_headless",
+    "crates/kovan/src/app/code_review_view.rs::organisations_window_and_attestation_picker_draw_headless",
+    "crates/kovan/src/app/code_review_view.rs::review_mode_replaces_the_map_headless",
+    "crates/kovan/src/app/code_review_view.rs::the_reconfirm_step_draws_the_callee_diff_headless",
+    "crates/kovan/src/app/code_review_view.rs::the_stamp_dialog_opens_and_draws_every_step_headless",
+    "crates/kovan/src/app/review_mode_panel.rs::a_saved_fix_turns_needs_fix_into_fixed_without_reopening",
+    "crates/kovan/src/app/review_mode_panel.rs::review_mode_draws_every_part_headless",
+    "crates/kovan/src/stamping/review_mode/highlight.rs::highlight_appends_and_reanchors",
+    "crates/kovan/src/stamping/review_mode/tests.rs::a_concept_is_linked_from_the_wizard",
+    "crates/kovan/src/stamping/review_mode/tests.rs::a_port_prefills_no_concept_and_links_upstream",
+    "crates/kovan/src/stamping/review_mode/tests.rs::function_view_diff_sections_blockers_and_walk",
+    "crates/kovan/src/stamping/review_mode/tests.rs::sections_highlights_and_cancel",
+]
+
+[module."approx_match.rs"]
+path = "crate::anchoring::approx_match"
+
+[[module."approx_match.rs".function]]
+id = "fn:77ef515d4be997e4"
+name = "advance_block"
+qual = "advance_block"
+lines = [
+    53,
+    90,
+]
+hash = "sha256:9f11d6fa19cbbcc9f0dbfa383e9abdba492df6b0b6ae790bf84becf0906bcaca"
+doc_hash = "sha256:8927fc35f730da844370545d4af33af2ed67f9a0c126605aa4ac4d60a880364f"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[[module."approx_match.rs".function]]
+id = "fn:1fd6703fafa24974"
+name = "find_match_ends"
+qual = "find_match_ends"
+lines = [
+    92,
+    200,
+]
+hash = "sha256:7061db16be13a23c0a0d7c61419d3ba6cf469e5c92fe11b0178c3ecfaa5f1f1b"
+doc_hash = "sha256:72ca0dd4f8191ee35a6754b6376b174bfc48916a6730af3963f5fbd72ea9913b"
+callees = ["fn:77ef515d4be997e4"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[[module."approx_match.rs".function]]
+id = "fn:9f06e4957c791188"
+name = "find_match_starts"
+qual = "find_match_starts"
+lines = [
+    202,
+    229,
+]
+hash = "sha256:ec21c616d13a86cad9a13a79b87bf47b5a8bdefb062a2503bcdc1810aa075a97"
+doc_hash = "sha256:6857f46049e115005a268fa4fd1ce6a4d33f56c0e15c3abfe486a9fc22c0c1c0"
+callees = ["fn:1fd6703fafa24974"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[[module."approx_match.rs".function]]
+id = "fn:26643c1ccffad6b8"
+name = "search"
+qual = "search"
+lines = [
+    231,
+    236,
+]
+hash = "sha256:8cb5068ad9bcd080ae3272e6875cf1e8f90289ffbff171e73d5a728d9c65421e"
+doc_hash = "sha256:94021d988e60d32feebca9eb45a89304a2b10dac2c86f0749467c2a5bc8587bf"
+callees = ["fn:2aceb83d0a4839cb"]
+reached_by = [
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."approx_match.rs".function]]
+id = "fn:b2c4c4e4f742cf77"
+name = "search_str"
+qual = "search_str"
+lines = [
+    238,
+    243,
+]
+hash = "sha256:0fe1230ae5219d35260f7e0129c73193bcc90d53d01bafee78a9f1e419339835"
+doc_hash = "sha256:c51e46a00f55bb99dfc52ba712aad32a765be15ac92cad0ed3fdae30ee61da66"
+callees = ["fn:26643c1ccffad6b8"]
+reached_by = [
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."approx_match.rs".function]]
+id = "fn:2aceb83d0a4839cb"
+name = "search_f64"
+qual = "search_f64"
+lines = [
+    245,
+    250,
+]
+hash = "sha256:3fef40d47385c28136981b9869b7b1288221fcaf60a23e9c1d0474b630211d5c"
+doc_hash = "sha256:95eb8d6bf742849e300b31652ab9a9cc3fc4409300737a640dc74cdc04e637a1"
+callees = [
+    "fn:1fd6703fafa24974",
+    "fn:9f06e4957c791188",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[module."match_quote.rs"]
+path = "crate::anchoring::match_quote"
+
+[[module."match_quote.rs".function]]
+id = "fn:d730febd0d7b4d76"
+name = "search"
+qual = "search"
+lines = [
+    59,
+    78,
+]
+hash = "sha256:da2a5f8fb22ec088a3a4a3ffee0fdf4e172185035b96e7abdaa7ad897a55aedf"
+doc_hash = "sha256:0937aa00cbada9a401ed702c0969619a7f0e581c783523378b71cbd2d662b2ac"
+callees = ["fn:2aceb83d0a4839cb"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[[module."match_quote.rs".function]]
+id = "fn:7eadff8a53670e02"
+name = "text_match_score"
+qual = "text_match_score"
+lines = [
+    80,
+    87,
+]
+hash = "sha256:5a7cef35a4fe68455db21b67e4c5671ed55f28e630f21a287dc2a4a799d89b22"
+doc_hash = "sha256:4cb7e4b9c78dc6c2ccff5c4a6bacd061e3e1d5b12cbed49dd6623e3e85773fbc"
+callees = ["fn:d730febd0d7b4d76"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[[module."match_quote.rs".function]]
+id = "fn:4db214484acf1077"
+name = "match_quote_chars"
+qual = "match_quote_chars"
+lines = [
+    89,
+    156,
+]
+hash = "sha256:9dc30d74baf772aef1a1c348519ae264ee40e26049d8ec335517641f47c136aa"
+doc_hash = "sha256:b8886b571bed4120a853851df9e780fb378718944688fa803aec1803ff3dd664"
+callees = [
+    "fn:7eadff8a53670e02",
+    "fn:d730febd0d7b4d76",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[[module."match_quote.rs".function]]
+id = "fn:f5f8f64a8d99abd3"
+name = "match_quote"
+qual = "match_quote"
+lines = [
+    158,
+    173,
+]
+hash = "sha256:77e2ded2360ae054f738776556f4874bda351b040d113f6d7755ec5da274754e"
+doc_hash = "sha256:46200a9ecf794b1cd1ae70e2758dc5402d332b76b1b61e7b757ad5708d92a9b1"
+callees = ["fn:4db214484acf1077"]
+reached_by = [
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+]
+
+[module."mod.rs"]
+path = "crate::anchoring"
+
+[[module."mod.rs".function]]
+id = "fn:7f683d2159ccf960"
+name = "anchor"
+qual = "Anchoring::anchor"
+lines = [
+    115,
+    121,
+]
+hash = "sha256:38e6ea74e8a57b27dcc8641923f092a91d392b8c79da6b62a6f97d37a084158b"
+doc_hash = "sha256:f277c2721e322c69a6e6d62c091d6a478b9fe56586eac24e3098d7960e359dea"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#32",
+    "#33",
+    "#35",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#50",
+    "#51",
+]
+
+[module."offsets.rs"]
+path = "crate::anchoring::offsets"
+
+[[module."offsets.rs".function]]
+id = "fn:a652468070b3484a"
+name = "is_space"
+qual = "is_space"
+lines = [
+    22,
+    26,
+]
+hash = "sha256:8d69cedc426b4fc4e207f092a24ba01de102caac898c52fc4f08abdb31334045"
+doc_hash = "sha256:1928999d6f0e4469eab6d430d1501f415cea6d1193ba7ac760c868e009fd7b5f"
+reached_by = [
+    "#0",
+    "#1",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."offsets.rs".function]]
+id = "fn:25492a492eb14671"
+name = "is_not_space"
+qual = "is_not_space"
+lines = [
+    28,
+    31,
+]
+hash = "sha256:43664d0a8ac4bc693ba186d0d8b847d4d2dd5f3f094cf346af80d77d0aef8f08"
+doc_hash = "sha256:cbfd51c8fb7531b5c09bb542bc72290a9842afab75cc355932c17ea0d3b007c0"
+callees = ["fn:a652468070b3484a"]
+reached_by = [
+    "#0",
+    "#1",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."offsets.rs".function]]
+id = "fn:4646db38bc9cb27c"
+name = "strip_spaces"
+qual = "strip_spaces"
+lines = [
+    33,
+    37,
+]
+hash = "sha256:88878cb71cf0b230e6a25ab716cadb3626a16ea6f2b4937d3e3320032bdf66ce"
+doc_hash = "sha256:ad79ca3c0988680abc904bf171c8ba55c29a9d8fe051316c8679226b4255f38c"
+callees = ["fn:a652468070b3484a"]
+reached_by = [
+    "#0",
+    "#1",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."offsets.rs".function]]
+id = "fn:dd3999fdde11dc20"
+name = "advance"
+qual = "advance"
+lines = [
+    39,
+    55,
+]
+hash = "sha256:8ea6d4c60db7832cd4abf09c667c554c563129bd5b82c56e770ef10091dee98e"
+doc_hash = "sha256:04e4d4d8e9599b6104b68553c28a85d8d64bf346ae92d24801c694963400214e"
+reached_by = [
+    "#0",
+    "#1",
+    "#37",
+    "#38",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."offsets.rs".function]]
+id = "fn:a84551d04d3babdb"
+name = "count_chars"
+qual = "count_chars"
+lines = [
+    57,
+    60,
+]
+hash = "sha256:6cd2c2d5a855bbf79c4d632bb22fca7b3465b9b505fdac72f4e2b61fdf0e05b0"
+doc_hash = "sha256:5c4fe8ea876b8db2f9a78617ec4efb951e7e5157caf6bbf51f3267a4babc8f95"
+reached_by = [
+    "#0",
+    "#1",
+    "#37",
+    "#38",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."offsets.rs".function]]
+id = "fn:9ed406609ca3ac82"
+name = "translate_offsets"
+qual = "translate_offsets"
+lines = [
+    62,
+    89,
+]
+hash = "sha256:a0c05e3730dc9692cfbd32087aa04f5c48bf075847e682f85e34f5a4713a180a"
+doc_hash = "sha256:4c46df24b34f2308906fa63f6d219d2c4b59869e6573834892d0a4ad96f2d107"
+callees = [
+    "fn:a84551d04d3babdb",
+    "fn:dd3999fdde11dc20",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#37",
+    "#38",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[module."pages.rs"]
+path = "crate::anchoring::pages"
+
+[[module."pages.rs".function]]
+id = "fn:ed84994966fff317"
+name = "describe_in_pages"
+qual = "describe_in_pages"
+lines = [
+    49,
+    78,
+]
+hash = "sha256:15d17d7960f6e9b77ee3c50e468edb8fac151e6c1340565870c70c2351760c9d"
+doc_hash = "sha256:ab099f660d1e1668dba9cf446522fe4731f098d2ac2b9a5a7b4480fcd8af3910"
+callees = ["fn:a1906ca945208d9b"]
+reached_by = [
+    "#0",
+    "#1",
+    "#7",
+    "#40",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+]
+
+[[module."pages.rs".function]]
+id = "fn:34ef5bcc659ae43c"
+name = "find_page_by_offset"
+qual = "find_page_by_offset"
+lines = [
+    80,
+    94,
+]
+hash = "sha256:1adc428f08b24eca83fbefc145f7ff17219231de18d97dd12de701e25f802bf0"
+doc_hash = "sha256:d3908a91ce8a436d10c286d4e2e2e42da9baf13912afb4e994105604c2eafc3e"
+reached_by = [
+    "#0",
+    "#1",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."pages.rs".function]]
+id = "fn:5859cd42fa5465a2"
+name = "substring"
+qual = "substring"
+lines = [
+    96,
+    103,
+]
+hash = "sha256:56747acef0629523357d77347339059d597a58ad20daf8ecdcc084d1a5841ddc"
+doc_hash = "sha256:55b446081ce1ce117b6950fef24fd4aa5f0cfd6db38c98506c97e50a68456ba6"
+reached_by = [
+    "#0",
+    "#1",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[[module."pages.rs".function]]
+id = "fn:25d1a93623993f4f"
+name = "anchor_in_pages"
+qual = "anchor_in_pages"
+lines = [
+    105,
+    221,
+]
+hash = "sha256:3db310b4ac396da847457c4437ea623407d05d948ebea0184ed0e1e096a58f9d"
+doc_hash = "sha256:10ce27d35af7ee18527d88f8822ec714bfdbfb0638ac3a636f64a8143b35d2ce"
+callees = [
+    "fn:25492a492eb14671",
+    "fn:34ef5bcc659ae43c",
+    "fn:3e702e62c634a9b8",
+    "fn:4646db38bc9cb27c",
+    "fn:4db214484acf1077",
+    "fn:5859cd42fa5465a2",
+    "fn:66fb8504b8fc6006",
+    "fn:6ba2cb04d06eff83",
+    "fn:9ed406609ca3ac82",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[module."selector.rs"]
+path = "crate::anchoring::selector"
+
+[[module."selector.rs".function]]
+id = "fn:6ba2cb04d06eff83"
+name = "quote"
+qual = "Selector::quote"
+lines = [
+    78,
+    84,
+]
+hash = "sha256:b741d8dd52f2dac6eac3bc7804cf81dfe4b9eb59e046e426b9c1156e3d5c3dcf"
+doc_hash = "sha256:88d89d3589d31b195a74e6ebef9431710dfbfc97b141c23a672ba28718737415"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#47",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[[module."selector.rs".function]]
+id = "fn:3e702e62c634a9b8"
+name = "position"
+qual = "Selector::position"
+lines = [
+    86,
+    92,
+]
+hash = "sha256:47314a190147e2c52d554cc09960dd327c314d66fe6d6371397a91af029ce418"
+doc_hash = "sha256:d6a6332ea07e9de85238ebf39078b01ceb2e0ed831fc8b3410934b5b32702016"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#46",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[[module."selector.rs".function]]
+id = "fn:66fb8504b8fc6006"
+name = "page"
+qual = "Selector::page"
+lines = [
+    94,
+    100,
+]
+hash = "sha256:347364340de15ff3481e8c1471f0079ace6a6c2be27710e0b84de2e5383a6d86"
+doc_hash = "sha256:6a243a14f444f98b593951affc96feebec4e8e91d6c012e17ccc0efe4cdcc12a"
+reached_by = [
+    "#0",
+    "#1",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+]
+
+[module."text.rs"]
+path = "crate::anchoring::text"
+
+[[module."text.rs".function]]
+id = "fn:f369677b993623ba"
+name = "describe_quote"
+qual = "describe_quote"
+lines = [
+    27,
+    34,
+]
+hash = "sha256:abe9881c4a4c85c63ae738e2e9a011343a2f735b6b74350c2f121faadec868ff"
+doc_hash = "sha256:7a14f0e3d52dd47ae351588ab51e002198c5d9f9f8227c1ed19854d3f4c3a3e1"
+callees = ["fn:a1906ca945208d9b"]
+reached_by = [
+    "#34",
+    "#35",
+]
+
+[[module."text.rs".function]]
+id = "fn:a1906ca945208d9b"
+name = "quote_of"
+qual = "quote_of"
+lines = [
+    36,
+    45,
+]
+hash = "sha256:97b8d1e2e1f29f3aa77f63ad00ef6fed259060a137e91d0db992cb24329178fe"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#33",
+    "#34",
+    "#35",
+    "#40",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#59",
+    "#60",
+    "#64",
+]
+
+[[module."text.rs".function]]
+id = "fn:f5819b875a04029b"
+name = "describe"
+qual = "describe"
+lines = [
+    47,
+    58,
+]
+hash = "sha256:5bd4476ef92f6808dcf14a03a98d0e84dddebe28c8585dc8207deeef0b11a5c6"
+doc_hash = "sha256:cd47d0c13b4d6ecb7a1623c78cf883e84b82d04eacbafed34c7080ac18959c3b"
+callees = ["fn:a1906ca945208d9b"]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#33",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#59",
+    "#60",
+    "#64",
+]
+
+[[module."text.rs".function]]
+id = "fn:b95be94e0d1c5ead"
+name = "anchor"
+qual = "anchor"
+lines = [
+    60,
+    129,
+]
+hash = "sha256:5c7913b94ea97a509214fe3b077c9f6a122e5d381ad63cde3ee55e06d8f15ade"
+doc_hash = "sha256:d90052540d1a5e9379c5e2465d607139868cc0ff1531b44b6201aa5f2179b2bf"
+callees = [
+    "fn:3e702e62c634a9b8",
+    "fn:4db214484acf1077",
+    "fn:6ba2cb04d06eff83",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#39",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[[module."text.rs".function]]
+id = "fn:618f6b2cde539ba7"
+name = "lines_to_range"
+qual = "lines_to_range"
+lines = [
+    131,
+    162,
+]
+hash = "sha256:28644c2f3e93db391857940420539e8a2984f0aaa485954ff8c167aa59b95b07"
+doc_hash = "sha256:3757229f176054e0ac44069896ad575afaba9b6ebdd41bcd391680e4ad247239"
+reached_by = [
+    "#4",
+    "#5",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#59",
+    "#60",
+    "#64",
+]
+
+[[module."text.rs".function]]
+id = "fn:c9e2267f80d5a1ff"
+name = "range_to_lines"
+qual = "range_to_lines"
+lines = [
+    164,
+    179,
+]
+hash = "sha256:5ba07c1b4ae1dd6c96941be54f3e200bd2b3a8fc72eca7ed1ee5784e8c715af6"
+doc_hash = "sha256:f44be19fe1794f40830e06e68f8612126422ac213ac754685e7ed4ace5e302b4"
+reached_by = [
+    "#4",
+    "#5",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]

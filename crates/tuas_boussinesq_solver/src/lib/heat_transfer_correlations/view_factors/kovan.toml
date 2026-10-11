@@ -1,0 +1,116 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/heat_transfer_correlations/view_factors"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/heat_transfer_correlations/view_factors/cocentric_cylinders.rs::cocentric_cylinders_view_factor_shld_equal_one_for_inner_cyl",
+    "crates/tuas_boussinesq_solver/src/lib/heat_transfer_correlations/view_factors/cocentric_cylinders.rs::cocentric_cylinders_view_factor_shld_equal_one_for_outer_cyl",
+]
+
+[module."cocentric_cylinders.rs"]
+path = "crate::heat_transfer_correlations::view_factors::cocentric_cylinders"
+
+[[module."cocentric_cylinders.rs".function]]
+id = "fn:27573e1763e8d6f3"
+name = "outer_cylinder_self_view_factor"
+qual = "outer_cylinder_self_view_factor"
+lines = [
+    5,
+    59,
+]
+hash = "sha256:db7e60e2f442e555167620af288c3d595526dc52cd3c840fc4066cbb4892dfa8"
+doc_hash = "sha256:49402779517804868a922a05cb426d44b1025660bc5233118e4d1e46a3ec5e5f"
+reached_by = ["#1"]
+physical_interface = true
+
+[[module."cocentric_cylinders.rs".function]]
+id = "fn:b3b7ab00acced735"
+name = "outer_cylinder_to_inner_cylinder_view_factor"
+qual = "outer_cylinder_to_inner_cylinder_view_factor"
+lines = [
+    61,
+    129,
+]
+hash = "sha256:5522a291eed189150b3346915632b668ac6df49017867bfe0818946dff049edf"
+doc_hash = "sha256:ee57a429b462b214a1fae7aa0cb3d6db8586a3c6126374a5fe2d299c532ed688"
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."cocentric_cylinders.rs".function]]
+id = "fn:0efc358d088df120"
+name = "outer_cylinder_to_annular_end_ring_view_factor"
+qual = "outer_cylinder_to_annular_end_ring_view_factor"
+lines = [
+    131,
+    228,
+]
+hash = "sha256:e5dce14601903129633f6d87c3a7d5f8392593c7c3e7a38f2009765a08551166"
+doc_hash = "sha256:d34594538ac9c7ece7180ce72207d18920a9425ff21e817f3497150d29f9a127"
+reached_by = ["#1"]
+physical_interface = true
+
+[[module."cocentric_cylinders.rs".function]]
+id = "fn:2aaefbc38df64dea"
+name = "cocentric_cylinders_view_factor_shld_equal_one_for_outer_cyl"
+qual = "cocentric_cylinders_view_factor_shld_equal_one_for_outer_cyl"
+lines = [
+    230,
+    267,
+]
+hash = "sha256:57dd0e34f26bc33e153010a14db81522bd8fc24eb9c0cc3a7f4a607b23e8fd4d"
+doc_hash = "sha256:1459740b475f351f23d6806ac5fc520126d27b11b659e488795efcfe215f8457"
+callees = [
+    "fn:0efc358d088df120",
+    "fn:27573e1763e8d6f3",
+    "fn:b3b7ab00acced735",
+]
+test = true
+
+[[module."cocentric_cylinders.rs".function]]
+id = "fn:20e5b510388123db"
+name = "inner_cylinder_to_outer_cylinder_view_factor"
+qual = "inner_cylinder_to_outer_cylinder_view_factor"
+lines = [
+    269,
+    289,
+]
+hash = "sha256:f32b1c1bb2999a89ad5992b1134df1632d483da06869baea5a7255021a1552ca"
+doc_hash = "sha256:032bfd4fbe2202a96392bda2bea87719b0760b7c4eef44018c062234d18490a5"
+callees = ["fn:b3b7ab00acced735"]
+reached_by = ["#0"]
+physical_interface = true
+
+[[module."cocentric_cylinders.rs".function]]
+id = "fn:bc8c3a3902aaddab"
+name = "inner_cylinder_to_annular_end_ring_view_factor"
+qual = "inner_cylinder_to_annular_end_ring_view_factor"
+lines = [
+    291,
+    356,
+]
+hash = "sha256:a1af3c398ebd097d1dbf4dce3efe012b64ec47ef406236e60d0d99fe94ec1522"
+doc_hash = "sha256:5496fcd20648d0e4618579585acf00bc1754fdab99fe3d31863dcd9a748816bf"
+reached_by = ["#0"]
+physical_interface = true
+
+[[module."cocentric_cylinders.rs".function]]
+id = "fn:d7ff5d1fc6af1e03"
+name = "cocentric_cylinders_view_factor_shld_equal_one_for_inner_cyl"
+qual = "cocentric_cylinders_view_factor_shld_equal_one_for_inner_cyl"
+lines = [
+    358,
+    391,
+]
+hash = "sha256:f4fb845c5b6f73f8726fcedc8aa6d97e11ea6fbcda3c53ab60fe503b85cf998c"
+doc_hash = "sha256:2205435b0f7f4308e2975e8d44ad651eb9326b6365a4fb9745b0d01a324c134d"
+callees = [
+    "fn:20e5b510388123db",
+    "fn:bc8c3a3902aaddab",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::heat_transfer_correlations::view_factors"

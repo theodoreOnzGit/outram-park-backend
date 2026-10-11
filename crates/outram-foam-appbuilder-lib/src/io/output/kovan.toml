@@ -1,0 +1,40 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/io/output"
+
+[module."mod.rs"]
+path = "crate::io::output"
+
+[[module."mod.rs".function]]
+id = "fn:8d4b0e450c12b3a1"
+name = "write_scalar_field"
+qual = "write_scalar_field"
+lines = [
+    33,
+    50,
+]
+hash = "sha256:226731212d264e33848781b9be2f867f8221580628a2d5b1eeee19e9dc1f8d67"
+doc_hash = "sha256:5d2cf962c988d3de79c44522f97aa56c4111f3ebe2f482c6836e64ed8baacc09"
+
+[[module."mod.rs".function]]
+id = "fn:831e2a6c4fd68175"
+name = "write_vector_field"
+qual = "write_vector_field"
+lines = [
+    52,
+    62,
+]
+hash = "sha256:94ab4c35c971bd9da1c1652e55096d3ef71bf9ad3976283905740bd6ea9b4d27"
+doc_hash = "sha256:75dfd87cf8e4b0776bc1f39f1c435e925aa99e54cb7a6456b166ad19e4ab1fb9"
+
+[[module."mod.rs".function]]
+id = "fn:bbe6ec6c0bd4748b"
+name = "write_vtk"
+qual = "write_vtk"
+lines = [
+    64,
+    75,
+]
+hash = "sha256:ec4e4ee109a513689ac12c4e8fa65f4750ec9124974fc75d5db50dcdd0d8be8c"
+doc_hash = "sha256:6184dd655bb7d099366808c1111fc33bf2d86a3ed343ab235ed3d63c1fca8e75"

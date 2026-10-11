@@ -1,0 +1,415 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/examples/mesh_studio"
+test_ids = [
+    "crates/dhoby-ghaut/examples/mesh_studio/main.rs::every_case_produces_a_valid_mesh_within_loose_bounds",
+    "crates/dhoby-ghaut/examples/mesh_studio/main.rs::surface_cleanup_does_not_wreck_the_volume_mesh",
+    "crates/dhoby-ghaut/examples/mesh_studio/main.rs::the_headless_sweep_is_deterministic",
+    "crates/dhoby-ghaut/examples/mesh_studio/main.rs::the_headless_sweep_matches_the_committed_fixture",
+]
+
+[module."main.rs"]
+path = "example:mesh_studio"
+
+[[module."main.rs".function]]
+id = "fn:cd3309e7dae2dac9"
+name = "main"
+qual = "main#1"
+lines = [
+    61,
+    62,
+]
+hash = "sha256:a32336f06f58e19f16f1b15b2998bc3fd5602540accacba125c4fac21797d3ab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:0cbff5e441e1d1bf"
+name = "main"
+qual = "main#2"
+lines = [
+    64,
+    85,
+]
+hash = "sha256:c49754791302ab78684c39f9ba5aa35d5561e12a6afe7f0295b9dc35a09db892"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:05cd8e84fbc212fb",
+    "fn:4c3247cf9a3cc74a",
+]
+
+[[module."main.rs".function]]
+id = "fn:bdab7e8acb14394c"
+name = "label"
+qual = "GeomKind::label"
+lines = [
+    115,
+    122,
+]
+hash = "sha256:d42e84e1ce70aa113118983ba41844d9989b00461e85b3bdb2e46fc0f1b002c6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:58c72e3c48cb59d1"
+name = "slug"
+qual = "GeomKind::slug"
+lines = [
+    124,
+    132,
+]
+hash = "sha256:a6b02acd0e81ea158115cf81093742821313fecbe6d7e93c63fbd6a19c30fc8f"
+doc_hash = "sha256:91a3f51c5955e736841c75a30b7a8f6ab7c15e587e4312573315e19e1aedeb10"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."main.rs".function]]
+id = "fn:a96446f074b7fa59"
+name = "from_slug"
+qual = "GeomKind::from_slug"
+lines = [
+    134,
+    136,
+]
+hash = "sha256:a19c34209c5f92547ad8ce5dc43e16f9ce3c1c49ccc967d3db7c98b4ea4d3168"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:58c72e3c48cb59d1"]
+
+[[module."main.rs".function]]
+id = "fn:0150e7993297d6ca"
+name = "label"
+qual = "Cleanup::label"
+lines = [
+    171,
+    178,
+]
+hash = "sha256:d3ef741d6c831cb02ef060f289cbebdc5edc53f7a86de5b9e4abd8bf11289804"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:32c40d8c460ab6be"
+name = "slug"
+qual = "Cleanup::slug"
+lines = [
+    180,
+    187,
+]
+hash = "sha256:d92bc82ea69c1ff11e608799191289800a6ce20d5611385ca4166477215d0e55"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+]
+
+[[module."main.rs".function]]
+id = "fn:a548336d4b66aca3"
+name = "default"
+qual = "Params::default"
+lines = [
+    212,
+    227,
+]
+hash = "sha256:124206bf2ef45e172ac609cae572bf9761bcc9fe97258cada8561324a6150443"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:a82f9af2fb84e735"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."main.rs".function]]
+id = "fn:bb6a7a0f95c5d624"
+name = "author_surface"
+qual = "author_surface"
+lines = [
+    239,
+    253,
+]
+hash = "sha256:dc4399470aed7a5942955b885497a4025c259740ac77deb9828737384037876f"
+doc_hash = "sha256:6f6ce7e55dee17253f98cd68aeb2c2f602d3d51787df68028657344e99e3e33f"
+callees = [
+    "fn:1befab586b6b6b11",
+    "fn:85799961cdf9fc6e",
+    "fn:9d1f86e0ac1ce36c",
+    "fn:d5d3abcd38f2491a",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."main.rs".function]]
+id = "fn:b0c30a2fd3d03d45"
+name = "clean_surface"
+qual = "clean_surface"
+lines = [
+    255,
+    266,
+]
+hash = "sha256:a5383cbc2bb5f3c9fba05ac65096f7284315a7247b49a979a14b38a2c0880cc1"
+doc_hash = "sha256:ee7dd6665240492a1fae4c70763a4e300e7e9948e1977093d83198bafbe94bab"
+callees = [
+    "fn:e1b81172faa97ce5",
+    "fn:fbb52dfa02937bbb",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."main.rs".function]]
+id = "fn:dcd4b9ebe646a47d"
+name = "build"
+qual = "build"
+lines = [
+    268,
+    279,
+]
+hash = "sha256:bf69d3ebc35eb8339e35e5b01032bfabaa647225085bb4198a6ada9a6e0373da"
+doc_hash = "sha256:98cbc8dd9405f5049aa09ec401f3e47f2626fb451926331ac92b941ad6161a48"
+callees = [
+    "fn:aa75b4bddbd1338b",
+    "fn:b0c30a2fd3d03d45",
+    "fn:bb6a7a0f95c5d624",
+    "fn:ff6c23da399d8b45",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."main.rs".function]]
+id = "fn:254ff07487bfa832"
+name = "run_case"
+qual = "run_case"
+lines = [
+    293,
+    318,
+]
+hash = "sha256:1b0ee77c8183f17817f1836eb3b6e366dc3fce174b1dc3e70a61865ca902a0a2"
+doc_hash = "sha256:d9fd6d34086788f53cece62e70ae24bcebf0a9859a8325a64f91f4b890513101"
+callees = [
+    "fn:32c40d8c460ab6be",
+    "fn:58c72e3c48cb59d1",
+    "fn:dcd4b9ebe646a47d",
+]
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."main.rs".function]]
+id = "fn:5e70bb9c879cc724"
+name = "run_sweep"
+qual = "run_sweep"
+lines = [
+    320,
+    336,
+]
+hash = "sha256:3713ca6c19bba352aae09acc233823b2b59237141c08688f75d849a84ba00137"
+doc_hash = "sha256:e619821d9dbafb9e577b059350ae4b34b6f2acaac360b7ed77fa62927c4adf57"
+callees = [
+    "fn:254ff07487bfa832",
+    "fn:a548336d4b66aca3",
+]
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."main.rs".function]]
+id = "fn:05cd8e84fbc212fb"
+name = "run"
+qual = "run"
+lines = [
+    338,
+    368,
+]
+hash = "sha256:148cd1035eba105bdbab817389fad6799ef24749cb3e75caf897cc3fa4e011b9"
+doc_hash = "sha256:6c178c1bc96f3f948df83add80827f7abb25ad2dfe6088cf948a74e71b74a705"
+callees = [
+    "fn:254ff07487bfa832",
+    "fn:58c72e3c48cb59d1",
+    "fn:5e70bb9c879cc724",
+    "fn:a548336d4b66aca3",
+    "fn:a96446f074b7fa59",
+]
+
+[[module."main.rs".function]]
+id = "fn:4c3247cf9a3cc74a"
+name = "default"
+qual = "MeshStudio::default"
+lines = [
+    397,
+    407,
+]
+hash = "sha256:2ef730848fcbccb7cec1b24f8a767b6282c62a6d63a11d4b454b7840510fe8a2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:a548336d4b66aca3"]
+
+[[module."main.rs".function]]
+id = "fn:2431cc46e1cb7e73"
+name = "launch_build"
+qual = "MeshStudio::launch_build"
+lines = [
+    411,
+    430,
+]
+hash = "sha256:5e4393682c7f6551dbcbf5947de7f7de3f986050c03de7fe29683da9d1a91b0d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:dcd4b9ebe646a47d"]
+
+[[module."main.rs".function]]
+id = "fn:76fdb94b2240522a"
+name = "poll"
+qual = "MeshStudio::poll"
+lines = [
+    432,
+    441,
+]
+hash = "sha256:1b37bba20944632fef30ba50c21017477d94c5012faad67b0515229241cec520"
+doc_hash = "sha256:3c06359ea5c6d2e0442ad3cc5ee1f124d5e42c2a590061b702d8f58c991c85d6"
+
+[[module."main.rs".function]]
+id = "fn:8bb41988306aa04a"
+name = "ui"
+qual = "MeshStudio::ui"
+lines = [
+    445,
+    469,
+]
+hash = "sha256:5b47c8d517cb68bffe52c359f42f7c268d20318bee7ae3d04209c4eeab678d8f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:354251dc350ce5be",
+    "fn:416d9c8b8dc18abd",
+    "fn:76fdb94b2240522a",
+]
+
+[[module."main.rs".function]]
+id = "fn:354251dc350ce5be"
+name = "controls_ui"
+qual = "MeshStudio::controls_ui"
+lines = [
+    473,
+    578,
+]
+hash = "sha256:fbad0c748395ae8a2fde1c320be58dac3d4f1ad97e9f6d827e0ad0394f1f26d7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0150e7993297d6ca",
+    "fn:0d0667091357fdcd",
+    "fn:2431cc46e1cb7e73",
+    "fn:bdab7e8acb14394c",
+]
+
+[[module."main.rs".function]]
+id = "fn:416d9c8b8dc18abd"
+name = "center_ui"
+qual = "MeshStudio::center_ui"
+lines = [
+    580,
+    669,
+]
+hash = "sha256:b15fe07c89e6ce4c2104c9dca69d8000aa15538bc8f818037f861e02938a82f3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:89481e66c0435c0a"]
+
+[[module."main.rs".function]]
+id = "fn:89481e66c0435c0a"
+name = "draw_wireframe"
+qual = "MeshStudio::draw_wireframe"
+lines = [
+    671,
+    708,
+]
+hash = "sha256:e94ac7a34da302043a679dc7f8fa8a8fae5830d9983f9b92454206bea95f1011"
+doc_hash = "sha256:8f9e7a9e9185ed1b096426d0b2ff7e0016ebc9efe241a4494368d2c3d0d1a886"
+callees = [
+    "fn:b2ae753c5c37a5ec",
+    "fn:fb64cca3ad27a716",
+]
+
+[[module."main.rs".function]]
+id = "fn:fb64cca3ad27a716"
+name = "project"
+qual = "MeshStudio::project"
+lines = [
+    710,
+    719,
+]
+hash = "sha256:6e288154fc0dd92446ae9cfd04c4452301963c7d4fd02b568f2dba32c51a94ec"
+doc_hash = "sha256:237ae2155af385060dee8c63ffcaf651b8f589419c1e3bc02edb67370e6bff8d"
+
+[[module."main.rs".function]]
+id = "fn:2c86d662509b18bd"
+name = "the_headless_sweep_is_deterministic"
+qual = "the_headless_sweep_is_deterministic"
+lines = [
+    736,
+    743,
+]
+hash = "sha256:e265c4c055e3c4cde2fbb19941d7ef4a9270b11a318b23688e17ff878b1a3dc6"
+doc_hash = "sha256:3e4dd522d04972f4b5db0cfb922f4c7c14ba6615bffd7cc754f072d9954e27a6"
+callees = ["fn:5e70bb9c879cc724"]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:587c9e760b2faa00"
+name = "the_headless_sweep_matches_the_committed_fixture"
+qual = "the_headless_sweep_matches_the_committed_fixture"
+lines = [
+    745,
+    754,
+]
+hash = "sha256:926e52a5f2e1f07e579618fde98f377bf2a123202bf961de84196fce045f8a67"
+doc_hash = "sha256:91140bc28fbcfe91bef28c05ae2c1e14b4c25553084b1a2bbfac61a8965d1dfb"
+callees = ["fn:5e70bb9c879cc724"]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:e224b3bab84d8f28"
+name = "every_case_produces_a_valid_mesh_within_loose_bounds"
+qual = "every_case_produces_a_valid_mesh_within_loose_bounds"
+lines = [
+    756,
+    800,
+]
+hash = "sha256:e8effbd1fb3dc9d271e68dc758a66279282290ca3c1bfe9262a82524f095621d"
+doc_hash = "sha256:d9e3987939c1295e4b79a1c44cce8bb12be0d068bccda283ec7c6908e4c83866"
+callees = [
+    "fn:32c40d8c460ab6be",
+    "fn:58c72e3c48cb59d1",
+    "fn:a548336d4b66aca3",
+    "fn:dcd4b9ebe646a47d",
+]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:40a84d7fa58afdbe"
+name = "surface_cleanup_does_not_wreck_the_volume_mesh"
+qual = "surface_cleanup_does_not_wreck_the_volume_mesh"
+lines = [
+    802,
+    893,
+]
+hash = "sha256:5486152b6d76e1d75004c70897aab0565587fbeffc91b6b48bd2b8571ab3e544"
+doc_hash = "sha256:228f70215540dc5a5a6e7ed9f7bcb02ab2c00b4f2c960551c48fa40750ee0d09"
+callees = [
+    "fn:58c72e3c48cb59d1",
+    "fn:a548336d4b66aca3",
+    "fn:dcd4b9ebe646a47d",
+]
+test = true

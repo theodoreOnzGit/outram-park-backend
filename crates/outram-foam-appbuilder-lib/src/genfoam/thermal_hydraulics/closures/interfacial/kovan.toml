@@ -1,0 +1,646 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial/tests.rs::annular_cutoff_branch_has_a_documented_jump_discontinuity",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial/tests.rs::bubble_diameter_reproduces_ideal_gas_scaling",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial/tests.rs::contact_partition_endpoints_and_composition",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial/tests.rs::dispersion_fluid1_fluid2_resolution_and_composition",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial/tests.rs::film_diameter_reproduces_endpoint_values",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial/tests.rs::gap_interior_blends_linearly_summing_to_one",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial/tests.rs::gap_junction_sharp_edges_are_reproduced_faithfully",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial/tests.rs::gap_quadratic_blend_matches_documented_formula",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial/tests.rs::outermost_regimes_extend_to_the_sentinel_not_their_declared_edge",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial/tests.rs::outermost_window_sentinel_does_not_yield_nan",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial/tests.rs::rod_bundle_geometry_constructors_reproduce_formulae",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial/tests.rs::single_regime_map_claims_every_parameter",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial/tests.rs::spherical_and_annular_reproduce_zuber_limit",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial/tests.rs::spherical_cutoff_branch_is_continuous",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/interfacial/tests.rs::virtual_mass_coefficient_pass_through",
+]
+
+[module."area.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::interfacial::area"
+
+[[module."area.rs".function]]
+id = "fn:e11d801378f9fd0c"
+name = "area_concentration"
+qual = "InterfacialArea::area_concentration"
+lines = [
+    164,
+    183,
+]
+hash = "sha256:c6c72b218c1251a81da957d6338f041f1f9b8eec69832fecba32967a027d3d2f"
+doc_hash = "sha256:1c4519b890a2416cf20d80872993c37d820202da5d905fbf635ab8f3131584e1"
+callees = [
+    "fn:20da05e42251c1d1",
+    "fn:8815d7b87e126767",
+]
+reached_by = [
+    "#0",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."area.rs".function]]
+id = "fn:20da05e42251c1d1"
+name = "value"
+qual = "InterfacialArea::value"
+lines = [
+    185,
+    234,
+]
+hash = "sha256:1cb2c0d114b168b0b32efa196bc309b7426469efa4ca1713a942f92219ee6573"
+doc_hash = "sha256:9c18cfa3d51a00c9522b3dd6a7beb91866e0255831d867e0998b576dfbe768d1"
+callees = ["fn:710237e4874d75e3"]
+reached_by = [
+    "#0",
+    "#12",
+    "#13",
+]
+
+[[module."area.rs".function]]
+id = "fn:be2ae33e1a2c2556"
+name = "no_kazimi_from_geometry"
+qual = "InterfacialArea::no_kazimi_from_geometry"
+lines = [
+    236,
+    249,
+]
+hash = "sha256:9a2837d0ee001f246bb14395cb599975a92de4d89fcc8028a75f3d4f4900eae8"
+doc_hash = "sha256:97aa11eebb9c7d499e488220e26cc48f4ff200feabe04e5b42f2d8e03b355e8b"
+reached_by = ["#10"]
+
+[[module."area.rs".function]]
+id = "fn:8d10fbfb3a004e17"
+name = "schor_from_geometry"
+qual = "InterfacialArea::schor_from_geometry"
+lines = [
+    251,
+    280,
+]
+hash = "sha256:e9dfc857b968a87d5ef41b0eb0d4cd1b65cb1585be2e3db81c75244a5fe6b478"
+doc_hash = "sha256:9f923a1767b9d17fd127fdc091c31beb664e64a3592a59b56d00c0e4e0f6a437"
+reached_by = ["#10"]
+
+[[module."area.rs".function]]
+id = "fn:710237e4874d75e3"
+name = "pair_normalize"
+qual = "pair_normalize"
+lines = [
+    283,
+    289,
+]
+hash = "sha256:ddff037d584b2b2304071c84e06022a0ef6631e79bff5fd6b7b625efaa778311"
+doc_hash = "sha256:44bb452e95affa7ddcc1c879594fce0d95f6440f92929fb9678dfcf3ae9326e9"
+reached_by = [
+    "#0",
+    "#12",
+    "#13",
+]
+
+[module."contact_partition.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::interfacial::contact_partition"
+
+[[module."contact_partition.rs".function]]
+id = "fn:b63fdf07f9efd19c"
+name = "value"
+qual = "ContactPartition::value"
+lines = [
+    68,
+    77,
+]
+hash = "sha256:a3b9872a1db6897f1d980c401528374bd837aa098d0cb5345512552be7ccc289"
+doc_hash = "sha256:f96038224899bdcea5191c9bf7a1d3f6afe920992f0c92937a1db6a587558c84"
+callees = ["fn:301e2019fa017a2b"]
+reached_by = ["#2"]
+physical_interface = true
+
+[[module."contact_partition.rs".function]]
+id = "fn:301e2019fa017a2b"
+name = "value_bare"
+qual = "ContactPartition::value_bare"
+lines = [
+    79,
+    84,
+]
+hash = "sha256:5b3db2f69637061d8617280224a9ef2f2743c27ddec67dc4b609bcff8d60823d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#2"]
+
+[module."diameter.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::interfacial::diameter"
+
+[[module."diameter.rs".function]]
+id = "fn:8653e50a60097624"
+name = "diameter"
+qual = "BubbleDiameter::diameter"
+lines = [
+    86,
+    96,
+]
+hash = "sha256:70692e8c9a666d2955510546d3efc963c6277717fd306afc984ca66eb6415bee"
+doc_hash = "sha256:9ee5d020ebac8fc87b431cbab430efe696f786294c6811ad96a10d138c476b4c"
+callees = [
+    "fn:5879aaccefb50083",
+    "fn:e2760c9dd961f9d6",
+]
+reached_by = ["#1"]
+physical_interface = true
+
+[[module."diameter.rs".function]]
+id = "fn:5879aaccefb50083"
+name = "value"
+qual = "BubbleDiameter::value"
+lines = [
+    98,
+    103,
+]
+hash = "sha256:72f9af92464298e1da00662500f80802e0f84d1e09d88bab75c4db9a551ddcfa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#1"]
+
+[[module."diameter.rs".function]]
+id = "fn:957602930af8d931"
+name = "diameter"
+qual = "FilmDiameter::diameter"
+lines = [
+    127,
+    139,
+]
+hash = "sha256:8f3b143f193d1def8461647104cd3c954d98ca9a6404d4e26a18b9cd55ed1add"
+doc_hash = "sha256:ed235d81d06636805362e711d807eff23cb39a5deb17560e6eb65ba9fb4c8d62"
+callees = [
+    "fn:0cda3c1dcf5428ba",
+    "fn:e2760c9dd961f9d6",
+]
+reached_by = ["#4"]
+physical_interface = true
+
+[[module."diameter.rs".function]]
+id = "fn:0cda3c1dcf5428ba"
+name = "value"
+qual = "FilmDiameter::value"
+lines = [
+    141,
+    148,
+]
+hash = "sha256:9ca3ed1f67029ad320e4d0f534c11b93e2480b95c357230c38b7e12c475105e4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#4"]
+
+[module."dispersion.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::interfacial::dispersion"
+
+[[module."dispersion.rs".function]]
+id = "fn:f2ee76e04edf5799"
+name = "constant_for_fluid1"
+qual = "TurbulentDispersion::constant_for_fluid1"
+lines = [
+    63,
+    83,
+]
+hash = "sha256:63acb7265a14b8110bfffe14d5869766b389527ec8f26e6f1884d4b9ec19da7b"
+doc_hash = "sha256:90bc29f59f2014db7e7bc56db896a436bd35fcc17bb1e97767bc48cf4c2117a2"
+reached_by = ["#3"]
+physical_interface = true
+
+[[module."dispersion.rs".function]]
+id = "fn:1bded4589a9b0122"
+name = "value_for_fluid1"
+qual = "TurbulentDispersion::value_for_fluid1"
+lines = [
+    85,
+    90,
+]
+hash = "sha256:19d9437b23c1453932fad89578dfabe461348ad5710ec20bfb2362be78e33858"
+doc_hash = "sha256:3480d5ad770ebc8ab67362fab1d059352acc4e484acd9fdff090372d4b6f2397"
+reached_by = ["#3"]
+physical_interface = true
+
+[[module."dispersion.rs".function]]
+id = "fn:1fb05de283c29540"
+name = "value_for_fluid2"
+qual = "TurbulentDispersion::value_for_fluid2"
+lines = [
+    92,
+    99,
+]
+hash = "sha256:b6ab2669ce1d6128d7cf2c00ce8ac1b0e6d691e47dafbee550ad331fa4bdf37d"
+doc_hash = "sha256:0144dfd66cd3d43c5075ad4a627301b3be124e381bedd09ccebb753d157265db"
+reached_by = ["#3"]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::interfacial"
+
+[module."regime_map.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::interfacial::regime_map"
+
+[[module."regime_map.rs".function]]
+id = "fn:2cfa8098eb982178"
+name = "new"
+qual = "RegimeMap1D::new"
+lines = [
+    176,
+    226,
+]
+hash = "sha256:7aa6f014cbb0f0c4fc5034179f269ef214e7f08329838627f0af4bf279b4b3c3"
+doc_hash = "sha256:e20da3e22388c24a09e32f42db8fa578d871e6efe6646f6337468779bf6ec5c9"
+reached_by = [
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#11",
+]
+
+[[module."regime_map.rs".function]]
+id = "fn:8b13e752701bebb0"
+name = "regime_weights"
+qual = "RegimeMap1D::regime_weights"
+lines = [
+    228,
+    298,
+]
+hash = "sha256:130b9b43e82b935f5c4fa8fc24c5a718a430b7cc07db5dd676b8c091aff24ce0"
+doc_hash = "sha256:8770a377b01270e1936376e398b83b6b553b6afbb83c73417a7dedbac97b5a47"
+reached_by = [
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#11",
+]
+
+[module."tests.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::interfacial::tests"
+
+[[module."tests.rs".function]]
+id = "fn:36f9627f119c899e"
+name = "r"
+qual = "r"
+lines = [
+    130,
+    132,
+]
+hash = "sha256:9bb56ece697b32dd6d0373ce1e67c1856393bb9beb2f89f281498f2a8764cc19"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."tests.rs".function]]
+id = "fn:24a20ef77966b0e2"
+name = "len"
+qual = "len"
+lines = [
+    133,
+    135,
+]
+hash = "sha256:12d93f4cfa558480f631aebdd46bbae812f955d45a9aa5faf81fcd390aacd21c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."tests.rs".function]]
+id = "fn:e5050671107a97b1"
+name = "pa"
+qual = "pa"
+lines = [
+    136,
+    138,
+]
+hash = "sha256:acb399320ab1d724526ea6d4a2ff41b9627c5a7c15859dafb5ae3a04e7a2ad17"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."tests.rs".function]]
+id = "fn:2169493ffd813d27"
+name = "kelvin_of"
+qual = "kelvin_of"
+lines = [
+    139,
+    141,
+]
+hash = "sha256:b2346b2a953a8aef175955304f93b31b51e810f67ae6eef138a954d45bb2fb79"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."tests.rs".function]]
+id = "fn:3b6a924ed1bb253d"
+name = "spherical_and_annular_reproduce_zuber_limit"
+qual = "spherical_and_annular_reproduce_zuber_limit"
+lines = [
+    147,
+    169,
+]
+hash = "sha256:70d767ceef4eccda06edab22923061d9ccf497aa9943f91cbdd546f081eb59a6"
+doc_hash = "sha256:4cfa9315bafa6354b8cbb97f23ddc35affa154c7cb06921b11463717c146b0b4"
+callees = [
+    "fn:24a20ef77966b0e2",
+    "fn:36f9627f119c899e",
+    "fn:e11d801378f9fd0c",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:eb71d4b90160f883"
+name = "spherical_cutoff_branch_is_continuous"
+qual = "spherical_cutoff_branch_is_continuous"
+lines = [
+    171,
+    193,
+]
+hash = "sha256:241feb4ed6d7d174b9475aba442ae0001655f6d2e0b9a5e1f1173ab07c6ce39d"
+doc_hash = "sha256:fe7f7d0067589e23ce150341dda8d9d60a9217653e1aeccc3c93b13e6c8a60e0"
+callees = [
+    "fn:24a20ef77966b0e2",
+    "fn:36f9627f119c899e",
+    "fn:e11d801378f9fd0c",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:cec1a1359c50bb4a"
+name = "annular_cutoff_branch_has_a_documented_jump_discontinuity"
+qual = "annular_cutoff_branch_has_a_documented_jump_discontinuity"
+lines = [
+    195,
+    226,
+]
+hash = "sha256:7bcfe91cc605e7833e77d9c155ef99b665e7b9ab29b63908f66e3dc7984eebc8"
+doc_hash = "sha256:e9a59a371fea3dd193f7d4ea0f315081b72d3c26a8db4bab38ea30f3588193c7"
+callees = [
+    "fn:24a20ef77966b0e2",
+    "fn:36f9627f119c899e",
+    "fn:e11d801378f9fd0c",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:cf670460e509267c"
+name = "rod_bundle_geometry_constructors_reproduce_formulae"
+qual = "rod_bundle_geometry_constructors_reproduce_formulae"
+lines = [
+    228,
+    270,
+]
+hash = "sha256:4e849045a58dffb2de2be66ee0202491fdbd7e1033c57160a5d4ededd79a3753"
+doc_hash = "sha256:be753e1d59361795c58ed2449ead5aa07f53a0d0e75202ab7a904a2161a3220c"
+callees = [
+    "fn:8d10fbfb3a004e17",
+    "fn:be2ae33e1a2c2556",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:3434f785442e9a0a"
+name = "bubble_diameter_reproduces_ideal_gas_scaling"
+qual = "bubble_diameter_reproduces_ideal_gas_scaling"
+lines = [
+    276,
+    316,
+]
+hash = "sha256:e2288fac8b1a9c1d1a569237920883321cb98ab4ffbd35856d1996fabed7c079"
+doc_hash = "sha256:fca4bae3e49a66a2f413863106d81bc3c89d6da778cbcd40e9d45f97df4cd1e4"
+callees = [
+    "fn:2169493ffd813d27",
+    "fn:8653e50a60097624",
+    "fn:e5050671107a97b1",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e96889e1f4cdcdcb"
+name = "film_diameter_reproduces_endpoint_values"
+qual = "film_diameter_reproduces_endpoint_values"
+lines = [
+    318,
+    345,
+]
+hash = "sha256:15f640d5f7b8853affa97be54f3bd976e2e701f25800e6fb3aedfc7296316403"
+doc_hash = "sha256:820f2482234aaa999e0d56091035852da70229651c912d97557344a74ac8236a"
+callees = [
+    "fn:24a20ef77966b0e2",
+    "fn:36f9627f119c899e",
+    "fn:957602930af8d931",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:87289885dfedc6e0"
+name = "virtual_mass_coefficient_pass_through"
+qual = "virtual_mass_coefficient_pass_through"
+lines = [
+    351,
+    370,
+]
+hash = "sha256:86147b7d2abf82fe0fb905fbdec096512da7e6ad59601486303ab8f124311789"
+doc_hash = "sha256:0937029074d3ade5c9563e2579f9e66924d35d32c733f7639d09669f32363716"
+callees = [
+    "fn:36f9627f119c899e",
+    "fn:942e2f5b0d5d729c",
+    "fn:f8c3d7e742e9a605",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:aaea41b520497069"
+name = "dispersion_fluid1_fluid2_resolution_and_composition"
+qual = "dispersion_fluid1_fluid2_resolution_and_composition"
+lines = [
+    376,
+    408,
+]
+hash = "sha256:3ba4e3b394ce816931be04bdddc0a9f803c61dbdc4fa105e263d4720c9791266"
+doc_hash = "sha256:ec09de5c67de0fab1615b7a177b052f8282dd7b549e6de2827c7f74c08e48b0f"
+callees = [
+    "fn:1bded4589a9b0122",
+    "fn:1fb05de283c29540",
+    "fn:36f9627f119c899e",
+    "fn:f2ee76e04edf5799",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:2f25750bff55c519"
+name = "contact_partition_endpoints_and_composition"
+qual = "contact_partition_endpoints_and_composition"
+lines = [
+    414,
+    446,
+]
+hash = "sha256:8e3dc16ae5f3f9758d3f3263bd1d1de61d822909f8c0ab2ad2b23386e0f2cb0b"
+doc_hash = "sha256:dc3caaaf427f1e6e9aa2a80222a67ebf8fb2c9884ccf90a1915128307884e18a"
+callees = [
+    "fn:36f9627f119c899e",
+    "fn:b63fdf07f9efd19c",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b8bcc32ac4b4be24"
+name = "single_regime_map_claims_every_parameter"
+qual = "single_regime_map_claims_every_parameter"
+lines = [
+    452,
+    469,
+]
+hash = "sha256:7c3ac167b99b83da68035f6336e47150e880e9a2253a690335f3558280ebb336"
+doc_hash = "sha256:536cc4110873353d9ad879309db9209d6cc40022f6b061cc30eff8dc807be89c"
+callees = [
+    "fn:2cfa8098eb982178",
+    "fn:8b13e752701bebb0",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:82720ec4c994858a"
+name = "outermost_regimes_extend_to_the_sentinel_not_their_declared_edge"
+qual = "outermost_regimes_extend_to_the_sentinel_not_their_declared_edge"
+lines = [
+    471,
+    502,
+]
+hash = "sha256:5e2cf7e8733c30ffdead2c437004236a9b420d8a02c628555186998b97cce945"
+doc_hash = "sha256:6a4e272bf8ec2afc09eef02401c33f273d8ea7f5a78f4dfde4edfd7f1da4fabc"
+callees = [
+    "fn:2cfa8098eb982178",
+    "fn:8b13e752701bebb0",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:320455b4b030d373"
+name = "gap_interior_blends_linearly_summing_to_one"
+qual = "gap_interior_blends_linearly_summing_to_one"
+lines = [
+    504,
+    530,
+]
+hash = "sha256:f3000bdfe5eefbb6f0e2e88320aa4da29fde1176c198f5f2f159283f386230c5"
+doc_hash = "sha256:a2f78285eb27063aa7ea9918c5a7f59621545f88a178a6cd9c89dfd5c9367445"
+callees = [
+    "fn:2cfa8098eb982178",
+    "fn:8b13e752701bebb0",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:6694df9bea0d7537"
+name = "gap_quadratic_blend_matches_documented_formula"
+qual = "gap_quadratic_blend_matches_documented_formula"
+lines = [
+    532,
+    572,
+]
+hash = "sha256:1b2f237b4eb6d3e83de2d2807ae873b1565395d9a64e81fb61d47caaa0a352d1"
+doc_hash = "sha256:e02469be6fb5365292aa2d5431090e3fa53325d4d683a84545ee82171b341f96"
+callees = [
+    "fn:2cfa8098eb982178",
+    "fn:8b13e752701bebb0",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:72aa4b8b10cd4e45"
+name = "gap_junction_sharp_edges_are_reproduced_faithfully"
+qual = "gap_junction_sharp_edges_are_reproduced_faithfully"
+lines = [
+    574,
+    615,
+]
+hash = "sha256:be26530a5a6119f1316410d8af3df1bd29342de76e9d4b65f02e41c64f72b4ea"
+doc_hash = "sha256:d4c9b36ce4ed8d2b6b8e7592d3d3c3f0e796d7a38a2963f9be90380380bf4fa2"
+callees = [
+    "fn:2cfa8098eb982178",
+    "fn:8b13e752701bebb0",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:6b5b412ab6d232f5"
+name = "outermost_window_sentinel_does_not_yield_nan"
+qual = "outermost_window_sentinel_does_not_yield_nan"
+lines = [
+    617,
+    637,
+]
+hash = "sha256:d1c3e1527fad70fb4aa4cfdfc5e46e99e82d5beb994ce61736610e9505dc72c7"
+doc_hash = "sha256:a622854db1df5ec4ae410138e15d044d8223aa6a872e1d9219370770c69ec228"
+callees = [
+    "fn:2cfa8098eb982178",
+    "fn:8b13e752701bebb0",
+]
+test = true
+
+[module."units.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::interfacial::units"
+
+[[module."units.rs".function]]
+id = "fn:8815d7b87e126767"
+name = "interfacial_area_concentration"
+qual = "interfacial_area_concentration"
+lines = [
+    67,
+    72,
+]
+hash = "sha256:3102ceb2513db1365aa29c354ad3c6bca7492602a3afac393744b8f67f0a813f"
+doc_hash = "sha256:da06d6800e18216a1284a4bbe428fda3463e5c2d7e1881cf14023955cc1028d0"
+reached_by = [
+    "#0",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."units.rs".function]]
+id = "fn:e2760c9dd961f9d6"
+name = "fluid_diameter"
+qual = "fluid_diameter"
+lines = [
+    74,
+    79,
+]
+hash = "sha256:adb6852f406bbc12692bea59088c4ac336c2ac95468ad852d23ed7d20f7665b5"
+doc_hash = "sha256:834a21bedd57e8ed5c5234d6e158b4c9bab4f467a9a1f0412c6abeab976d020f"
+reached_by = [
+    "#1",
+    "#4",
+]
+physical_interface = true
+
+[module."virtual_mass.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::interfacial::virtual_mass"
+
+[[module."virtual_mass.rs".function]]
+id = "fn:f8c3d7e742e9a605"
+name = "constant"
+qual = "VirtualMassCoefficient::constant"
+lines = [
+    63,
+    69,
+]
+hash = "sha256:191532b6d58c1645adf4e6d50b47b77a9dddf39680546ef4613efe698342c09c"
+doc_hash = "sha256:a9c1c12ce7bd4a798b08c26ac3ff73f04a9d97c481e6912f535907cf6732d28c"
+reached_by = ["#14"]
+physical_interface = true
+
+[[module."virtual_mass.rs".function]]
+id = "fn:942e2f5b0d5d729c"
+name = "coefficient"
+qual = "VirtualMassCoefficient::coefficient"
+lines = [
+    71,
+    78,
+]
+hash = "sha256:a993529ca1fff950cb1412b623f29fc2e0ace3938b67bf6bcacfaca6af0ad272"
+doc_hash = "sha256:049090ddffe3f9fcbbb6558b969b5b7f1cdfa4395a1a3f3c5fa51fe0e25b1299"
+reached_by = ["#14"]
+physical_interface = true

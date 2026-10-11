@@ -1,0 +1,67 @@
+schema_version = 1
+kind = "code_folder"
+crate = "teh-o-prke"
+dir = "crates/teh-o-prke/src/zero_power_prke"
+
+[module."mod.rs"]
+path = "crate::zero_power_prke"
+
+[module."tests.rs"]
+path = "crate::zero_power_prke::tests"
+
+[[module."tests.rs".function]]
+id = "fn:5f226050fc1b0cc5"
+name = "test_pu239_total_delayed_frac"
+qual = "test_pu239_total_delayed_frac"
+lines = [
+    10,
+    19,
+]
+hash = "sha256:620fde2a69dc96b1b3580a9968300c2a1c8cfe24f7e4ba3f7f51d71107cce09a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d780cab1aaf71fb3"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:4653118a3039aefa"
+name = "test_u233_total_delayed_frac"
+qual = "test_u233_total_delayed_frac"
+lines = [
+    21,
+    30,
+]
+hash = "sha256:2bbc10169c14dedcdd21abaa99b5aa8a69c07df5c70261a29861920072b69756"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b38a87ef4352ac9c"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e733cf25cfd34796"
+name = "test_u235_total_delayed_frac"
+qual = "test_u235_total_delayed_frac"
+lines = [
+    32,
+    46,
+]
+hash = "sha256:53a4274129779fa3001197768e0c73470a5916da6a5f7febc8641c3f320650a9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2c736b0b7e49f268"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:52db0d48cf551d04"
+name = "prke_test_zero_reactivity"
+qual = "prke_test_zero_reactivity"
+lines = [
+    48,
+    154,
+]
+hash = "sha256:a6f6169ef1fb1f857a4f203652c00ae9fea6b3ee5d0225eccf8179864b61b3e2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2abb9faaa2d323ca",
+    "fn:4b3f9d9f625fde38",
+    "fn:b12622c7ec7d2d84",
+    "fn:c402cc0c71506da8",
+]
+test = true

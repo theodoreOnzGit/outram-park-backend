@@ -1,0 +1,33 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-mesh"
+dir = "crates/outram-foam-mesh/examples"
+
+[module."sphere_in_box.rs"]
+path = "example:sphere_in_box"
+
+[[module."sphere_in_box.rs".function]]
+id = "fn:d5819238cd059282"
+name = "main"
+qual = "main"
+lines = [
+    62,
+    210,
+]
+hash = "sha256:ce8b75e92480c301098c518fecfa2a500c1f6301af7eac87ff36c81d534dd699"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0ef51a37e0ebd792",
+    "fn:1cd6445732a5058c",
+    "fn:28fe3306c8f6b4a7",
+    "fn:39e083c1ce49a569",
+    "fn:4847212dbb1a03b3",
+    "fn:56a6218488811848",
+    "fn:651ba19fe6421374",
+    "fn:6db499cb1bc6d41a",
+    "fn:9e501e5f4cce23ae",
+    "fn:a2c23093271efb87",
+    "fn:d16407c477c53508",
+    "fn:d25d104f244eb32b",
+    "fn:f6ce47201ff45f03",
+]

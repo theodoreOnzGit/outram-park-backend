@@ -1,0 +1,132 @@
+schema_version = 1
+kind = "code_folder"
+crate = "buangkok"
+dir = "crates/buangkok/examples"
+
+[module."plume_chi_over_q.rs"]
+path = "example:plume_chi_over_q"
+
+[[module."plume_chi_over_q.rs".function]]
+id = "fn:08990b1b9776be8d"
+name = "geometry"
+qual = "geometry"
+lines = [
+    85,
+    91,
+]
+hash = "sha256:97701dbc7df595ba0780be07a93da243ff0396b69554a79cb49a0699e05bc7e1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."plume_chi_over_q.rs".function]]
+id = "fn:094225f6dbe3bbcc"
+name = "scaling"
+qual = "scaling"
+lines = [
+    93,
+    95,
+]
+hash = "sha256:f99aa91d1acaf24f22aaa9ef7f019c637b07496092468c83011914bbdd20c231"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."plume_chi_over_q.rs".function]]
+id = "fn:275354a2f8f3b754"
+name = "chi_over_q"
+qual = "chi_over_q"
+lines = [
+    97,
+    100,
+]
+hash = "sha256:57119aa8552f77e8178242df21070f01be8a92f39006bc041b859d497e736a7d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:08990b1b9776be8d",
+    "fn:094225f6dbe3bbcc",
+    "fn:2fcfe1dc1604015a",
+    "fn:ce42673cbb55ed79",
+]
+
+[[module."plume_chi_over_q.rs".function]]
+id = "fn:b36544a8a88ec3ab"
+name = "main"
+qual = "main"
+lines = [
+    102,
+    158,
+]
+hash = "sha256:2cfc2f1da1a65da3a4e8c64ecfa9e575f38d715c3441d4bbb31bf54c8a3baff7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:275354a2f8f3b754",
+    "fn:48262d2d4e3d44f9",
+    "fn:92a7e43bc7707a75",
+]
+
+[module."plume_rise_and_wake.rs"]
+path = "example:plume_rise_and_wake"
+
+[[module."plume_rise_and_wake.rs".function]]
+id = "fn:e2ddaece69830384"
+name = "ground_chi_over_q"
+qual = "ground_chi_over_q"
+lines = [
+    83,
+    92,
+]
+hash = "sha256:854769eec18dcb8bf8d28ce7fd1101e395fb5eeceb1f978da7b3ba235595c76f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2fcfe1dc1604015a",
+    "fn:92a7e43bc7707a75",
+    "fn:ce42673cbb55ed79",
+]
+
+[[module."plume_rise_and_wake.rs".function]]
+id = "fn:1b9ee399b533a92d"
+name = "main"
+qual = "main"
+lines = [
+    94,
+    153,
+]
+hash = "sha256:f69d9d9a822c938ea68a2ea0ec4c527fcc81539f00af8f4032fac93fdedc84ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3a81820b65684c7e",
+    "fn:48262d2d4e3d44f9",
+    "fn:4d868319bfb3e58e",
+    "fn:5353b1aa1085e35c",
+    "fn:6f4d01156c1f2a04",
+    "fn:8748c4fda847952e",
+    "fn:e2ddaece69830384",
+    "fn:e4bc72139efb29fb",
+]
+
+[module."pydoseia_assessment.rs"]
+path = "example:pydoseia_assessment"
+
+[[module."pydoseia_assessment.rs".function]]
+id = "fn:ac836414d4e0aa3c"
+name = "main"
+qual = "main"
+lines = [
+    27,
+    114,
+]
+hash = "sha256:f2948ea7a2cfc4a9b8a99cf8228757c24ab78d6204ea96cb7959929d2bb7e034"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0c049a71327119d3",
+    "fn:25baba0cae82ad7b",
+    "fn:2abf5a1aa1710083",
+    "fn:314ff977498ac0ac",
+    "fn:3acda02cb596484a",
+    "fn:5d6cab740d4c48ae",
+    "fn:92415e58e72accca",
+    "fn:aa7d125da62b58b2",
+    "fn:b9cb62cf8ef7613e",
+    "fn:c98cffc1535ff4ca",
+    "fn:ce42673cbb55ed79",
+    "fn:ef604687781b63ec",
+    "fn:faf80c3cd1f5eafb",
+    "fn:fb689d3f758feca5",
+]

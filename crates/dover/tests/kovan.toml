@@ -1,0 +1,329 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dover"
+dir = "crates/dover/tests"
+
+[module."smr_cstr.rs"]
+path = "test:smr_cstr"
+
+[[module."smr_cstr.rs".function]]
+id = "fn:1ecb7233b39a15a5"
+name = "base_case"
+qual = "base_case"
+lines = [
+    15,
+    28,
+]
+hash = "sha256:0e117b7e57c1d7adc1af3c904b1f98a693d7755f9e152ed815547227452577d3"
+doc_hash = "sha256:d98761dd97693f785c4b89615f388b3e83930e1077256839b58e7f8dc6e1957b"
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:72113be43e167ca7"
+name = "reaction_enthalpies_match_the_textbook_values"
+qual = "reaction_enthalpies_match_the_textbook_values"
+lines = [
+    34,
+    61,
+]
+hash = "sha256:ebe15a5aecc3822b769fe207b329a0652bed6218f1e652a1645fc66ef4624f48"
+doc_hash = "sha256:29915ac572fd8aaab0eb8a2127e7457366ac9149346919118b4fe1f9f896807d"
+callees = [
+    "fn:05f08397bd182aa6",
+    "fn:cb2f49f1a1cdb8be",
+]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:195b1a6d8da7dccd"
+name = "the_overall_reaction_is_the_sum_of_the_two"
+qual = "the_overall_reaction_is_the_sum_of_the_two"
+lines = [
+    63,
+    86,
+]
+hash = "sha256:66e73ada027967441ab7fe6f6d79b7821831ee90126ed79e48e0d7888f7867c5"
+doc_hash = "sha256:2c51360afb258eaea97a69308e1768965aebfe9b3fd325af4d5781e0562aaf8c"
+callees = [
+    "fn:05f08397bd182aa6",
+    "fn:73b20dfb377d5dae",
+    "fn:cb2f49f1a1cdb8be",
+    "fn:e3efec19c9e88dc4",
+]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:06b1dd61951c0b4f"
+name = "mole_count_change_is_two_for_reforming_and_zero_for_the_shift"
+qual = "mole_count_change_is_two_for_reforming_and_zero_for_the_shift"
+lines = [
+    88,
+    111,
+]
+hash = "sha256:351e005e2f82a9cdd6e47ba807b1b391e32cf3444014054302387503b9138faa"
+doc_hash = "sha256:0e8ca4625071724aabaf6c7021e10c9afcca285e5cdddea28107c98e87c50fcb"
+callees = [
+    "fn:2c97cd3fbbc63691",
+    "fn:5959bccc6fadf23a",
+    "fn:5e80eb303da99b9f",
+]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:db66de5a4263b0c6"
+name = "reverse_rate_is_thermodynamically_consistent"
+qual = "reverse_rate_is_thermodynamically_consistent"
+lines = [
+    113,
+    145,
+]
+hash = "sha256:d40ddbd1c19e4988884f6b08720de30b63f9a08f3f59b96b8a7c6dcb823642a1"
+doc_hash = "sha256:9e64628a2ae90d3c995e8c6308cddc07ff2e87e3fa8626f38db5c1a45a567f20"
+callees = [
+    "fn:1ecb7233b39a15a5",
+    "fn:4bb86cce30dc9aa4",
+    "fn:5959bccc6fadf23a",
+    "fn:7e146900a5068c95",
+    "fn:aa87ca086eebef5e",
+]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:47dbf9829b776c8c"
+name = "every_atom_balances"
+qual = "every_atom_balances"
+lines = [
+    151,
+    189,
+]
+hash = "sha256:b8ed51b9b5204529361dba9ddfd34118d8b9bae0100edf623388c4ffcaf750f4"
+doc_hash = "sha256:27a14132b2679aabd89ffc5fdd1f5cf72836a422dd7b19875dcfde0cd138f292"
+callees = [
+    "fn:16a911e1aee1060c",
+    "fn:1ecb7233b39a15a5",
+    "fn:d574426cf3c33fda",
+]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:26aae1c9097508fd"
+name = "long_residence_time_approaches_thermodynamic_equilibrium"
+qual = "long_residence_time_approaches_thermodynamic_equilibrium"
+lines = [
+    191,
+    241,
+]
+hash = "sha256:45436512d57bf853b5a78b535f89e13b1b3945c9537c8b15ac35e27acf44792e"
+doc_hash = "sha256:43d759a760a2c44e5ccb0c9f005d5d3eb0cd77b0bf898d901d5b2f7154673a1a"
+callees = [
+    "fn:1e9559ab258b90c5",
+    "fn:1ecb7233b39a15a5",
+    "fn:569eeac59211eeed",
+    "fn:5959bccc6fadf23a",
+    "fn:d574426cf3c33fda",
+    "fn:ff13c117fc0613d7",
+]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:58920ae1683b8224"
+name = "conversion_rises_with_temperature"
+qual = "conversion_rises_with_temperature"
+lines = [
+    243,
+    261,
+]
+hash = "sha256:f7a2f21a67e461dd9cdce8818ee1324bb8d4175156dd07016f3f0cef8590f3cc"
+doc_hash = "sha256:050c2c0a1014acc0a8ad25f7296bd6d7b98eea94d2e92f171c135b5cca7d44e2"
+callees = [
+    "fn:1ecb7233b39a15a5",
+    "fn:d574426cf3c33fda",
+]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:2f1c0f0b096a05a3"
+name = "conversion_falls_with_pressure_at_equilibrium"
+qual = "conversion_falls_with_pressure_at_equilibrium"
+lines = [
+    263,
+    291,
+]
+hash = "sha256:ebf6ca8d9781c27f00b30d1b8a806ba62a81bf5779c0fbdde49b3912639c6cc3"
+doc_hash = "sha256:afde002c13471c62cfaf8cf926dd5be2b35510dd57b7e1f87b2909443b4c7e8b"
+callees = [
+    "fn:1ecb7233b39a15a5",
+    "fn:d574426cf3c33fda",
+]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:c086b4c896be84d4"
+name = "pressure_raises_conversion_in_the_kinetically_limited_regime"
+qual = "pressure_raises_conversion_in_the_kinetically_limited_regime"
+lines = [
+    293,
+    344,
+]
+hash = "sha256:bc3dfd8bba9aabafbbfd0eda7fd9a75d6d179b47ab40ec40da7b0af64c5a4cef"
+doc_hash = "sha256:9a5dfaac7ba99f9b1d750fbb725ef16debe9a9b980f6063b2439e27f88584dbc"
+callees = [
+    "fn:1e9559ab258b90c5",
+    "fn:1ecb7233b39a15a5",
+    "fn:569eeac59211eeed",
+    "fn:5959bccc6fadf23a",
+    "fn:d574426cf3c33fda",
+    "fn:ff13c117fc0613d7",
+]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:278ac79a3a2731ca"
+name = "conversion_rises_with_steam_to_carbon_at_equilibrium"
+qual = "conversion_rises_with_steam_to_carbon_at_equilibrium"
+lines = [
+    346,
+    369,
+]
+hash = "sha256:4907a84bd64b2e5632905a1c70ccc40e53423deff78ff92355180ecf0c7ec6d3"
+doc_hash = "sha256:5196e6a3eb5fecb9dfe20dd9e8a9e9e4726894199bdc943b4549565346975741"
+callees = [
+    "fn:1ecb7233b39a15a5",
+    "fn:d574426cf3c33fda",
+]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:a29bba0e3b5fe001"
+name = "shift_kinetics_only_set_the_approach_rate"
+qual = "shift_kinetics_only_set_the_approach_rate"
+lines = [
+    371,
+    417,
+]
+hash = "sha256:63a5ccb797257a1b7394b93f16eff3aca93fd3c203fc31bd8390332253b6c54b"
+doc_hash = "sha256:e9bb13b24bd658141f7f1d3adbf81dd6f421df4e4365d7e67e22bd27e70f38e6"
+callees = [
+    "fn:1e9559ab258b90c5",
+    "fn:1ecb7233b39a15a5",
+    "fn:569eeac59211eeed",
+    "fn:5959bccc6fadf23a",
+    "fn:d574426cf3c33fda",
+    "fn:ff13c117fc0613d7",
+]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:a0cbe4d643b6f293"
+name = "the_base_case_is_endothermic_and_makes_hydrogen"
+qual = "the_base_case_is_endothermic_and_makes_hydrogen"
+lines = [
+    419,
+    446,
+]
+hash = "sha256:4cd37e6e44c67f504c2067e36b92ad81174b74a8670537eecc3de0e443d5927e"
+doc_hash = "sha256:eae8a5510b0efdcbc2b056eb52a66dd70ded25014320979ebe919c0dcaaa8cd7"
+callees = [
+    "fn:1dcc9a46ee825928",
+    "fn:1ecb7233b39a15a5",
+    "fn:d574426cf3c33fda",
+    "fn:f4f2e6e16937c904",
+]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:d40ff0e7a6201755"
+name = "the_bundled_decks_parse_and_run"
+qual = "the_bundled_decks_parse_and_run"
+lines = [
+    452,
+    465,
+]
+hash = "sha256:a3c27c2ba422239981b235ea2db8dece8331ccd8acbd27042e672bbf20fec34b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:de371805f0225295"]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:721f3e17ea32979d"
+name = "a_deck_round_trips_through_toml"
+qual = "a_deck_round_trips_through_toml"
+lines = [
+    467,
+    473,
+]
+hash = "sha256:9b7ea5ba556aef9c30f2b8b97e34774e1b2c334a306b76bdadf278f47b5fdc2a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:355f17709d2aa8a0",
+    "fn:d74ee64a35481c16",
+]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:50224ea0d80c7fe0"
+name = "invalid_decks_are_rejected_with_a_reason"
+qual = "invalid_decks_are_rejected_with_a_reason"
+lines = [
+    475,
+    511,
+]
+hash = "sha256:939be49845b65c5db02020ee1c44256830a7a5ef536fb27411b43436392e6ba1"
+doc_hash = "sha256:d2b238bf89d6a63f2656a0e7558fa7352fd658cf10f3bd1ecebadd7ee9366df7"
+callees = ["fn:355f17709d2aa8a0"]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:a25a43b400d3841c"
+name = "unknown_keys_are_rejected_rather_than_ignored"
+qual = "unknown_keys_are_rejected_rather_than_ignored"
+lines = [
+    513,
+    522,
+]
+hash = "sha256:f38f0ca316e43d6bb65a2618605969517767b4dbc329543e76c5f56af5e2d184"
+doc_hash = "sha256:c13b6f9c30b0de792e4ce1fbb27b5ea7fbef95a48e4e81fcb9405b899a8fcb97"
+callees = ["fn:355f17709d2aa8a0"]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:83ab75970027235f"
+name = "the_headless_run_is_deterministic"
+qual = "the_headless_run_is_deterministic"
+lines = [
+    524,
+    533,
+]
+hash = "sha256:5ea612f88592cae8267a1d811ea629418794351bea20f621d36e11e2ca44dd4c"
+doc_hash = "sha256:f0e417f769f07ebb5b053a8d8af481e9e52db915d0ccf965784adc674cc30c19"
+callees = ["fn:de371805f0225295"]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:996c2e99adc03279"
+name = "a_sweep_expands_to_its_endpoints"
+qual = "a_sweep_expands_to_its_endpoints"
+lines = [
+    535,
+    545,
+]
+hash = "sha256:9b5eedf1518b2cdc637b391d8399e15965ab204bca232fad96a29cc756f30634"
+doc_hash = "sha256:56dade0eed91d7b74b899949f1de8a14e383cfc58266d0f9f9eb9b047b8fecae"
+callees = [
+    "fn:355f17709d2aa8a0",
+    "fn:960240b5605d22fc",
+]
+test = true
+
+[[module."smr_cstr.rs".function]]
+id = "fn:f30c599663322845"
+name = "the_committed_fixtures_still_reproduce"
+qual = "the_committed_fixtures_still_reproduce"
+lines = [
+    547,
+    579,
+]
+hash = "sha256:4cb18d511cc3fc2e8cc4405e38f4623dca66e331343fde5d8703d11af33408b2"
+doc_hash = "sha256:e218e2a3b5ff1d6b31ca491748c7c148141d9d375449c4a723960974dcfebb2c"
+callees = ["fn:de371805f0225295"]
+test = true

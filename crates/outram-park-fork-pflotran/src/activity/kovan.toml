@@ -1,0 +1,262 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-pflotran"
+dir = "crates/outram-park-fork-pflotran/src/activity"
+test_ids = [
+    "crates/outram-park-fork-pflotran/src/activity/mod.rs::a_constant_value",
+    "crates/outram-park-fork-pflotran/src/activity/mod.rs::davies_spot_check_i_0p1",
+    "crates/outram-park-fork-pflotran/src/activity/mod.rs::debye_huckel_bdot_raises_gamma",
+    "crates/outram-park-fork-pflotran/src/activity/mod.rs::dilute_limit_gamma_one",
+    "crates/outram-park-fork-pflotran/src/activity/mod.rs::divalent_depressed_more_than_monovalent",
+    "crates/outram-park-fork-pflotran/src/activity/mod.rs::gamma_decreases_with_ionic_strength",
+    "crates/outram-park-fork-pflotran/src/activity/mod.rs::ideal_always_one",
+    "crates/outram-park-fork-pflotran/src/activity/mod.rs::ionic_strength_length_mismatch_rejected",
+    "crates/outram-park-fork-pflotran/src/activity/mod.rs::ionic_strength_nacl",
+    "crates/outram-park-fork-pflotran/src/activity/mod.rs::ionic_strength_negative_concentration_rejected",
+    "crates/outram-park-fork-pflotran/src/activity/mod.rs::neutral_species_gamma_one",
+]
+
+[module."mod.rs"]
+path = "crate::activity"
+
+[[module."mod.rs".function]]
+id = "fn:db9a52f9a9131b0e"
+name = "ionic_strength"
+qual = "ActivityModel::ionic_strength"
+lines = [
+    109,
+    147,
+]
+hash = "sha256:35ef4a0073b2d3ecbf93a6edfabcaf2d759e1bd9280181c7a5fd2a13966c6654"
+doc_hash = "sha256:dca6e43c107be9371c7f0bc341745840118edf7ab1a97e5d541a39f12ace48e6"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c88e54eb1fdf400a"
+name = "log10_gamma"
+qual = "ActivityModel::log10_gamma"
+lines = [
+    149,
+    184,
+]
+hash = "sha256:30014e6e3018709f502429ea597e9cbd0b9bc3693551e5c9002cfc61a6bff8ed"
+doc_hash = "sha256:61599a73b0b6cdc3e9d7eed556c8e38ce75363c4ab368c2757e736d9190d9d53"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#10",
+]
+
+[[module."mod.rs".function]]
+id = "fn:72fce567981926e5"
+name = "gamma"
+qual = "ActivityModel::gamma"
+lines = [
+    186,
+    202,
+]
+hash = "sha256:f0ee62d95c437124ff022a4d444eabadebc9aa01e36bacf34687eb94622482da"
+doc_hash = "sha256:56a89d0be1634c48920b19ee61ae93b65d5bcf0e8217e96d14e79f24e57892b2"
+callees = ["fn:c88e54eb1fdf400a"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#10",
+]
+
+[[module."mod.rs".function]]
+id = "fn:18269414623a8b8b"
+name = "a_constant"
+qual = "ActivityModel::a_constant"
+lines = [
+    204,
+    208,
+]
+hash = "sha256:82dd7833bd26f0cb0e1e440ed1ca8a9da3a7e1dc71fd0b60162376cbe8978779"
+doc_hash = "sha256:80572b3dcae686578a7e37bf593ef43e099ff1b7857380e574ede0cf6418b229"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4e5848697c0ee97f"
+name = "dh"
+qual = "dh"
+lines = [
+    216,
+    221,
+]
+hash = "sha256:723f61e8694f73999288a8f7d65820406c4d167f4ab7cad4371c3665f403b71a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d3c20263fa09e1dd"
+name = "dilute_limit_gamma_one"
+qual = "dilute_limit_gamma_one"
+lines = [
+    223,
+    232,
+]
+hash = "sha256:628558d1b3cef84006c4f9fb779b13f3480d29c5974202f5b186793b76556bd3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4e5848697c0ee97f",
+    "fn:72fce567981926e5",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:0fa42de6f40b3cac"
+name = "ideal_always_one"
+qual = "ideal_always_one"
+lines = [
+    234,
+    241,
+]
+hash = "sha256:cab62743c834031874920dab0ade4d4e1ffed368c23734932fd34d335492797d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:72fce567981926e5"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:48be382929ce1cb2"
+name = "neutral_species_gamma_one"
+qual = "neutral_species_gamma_one"
+lines = [
+    243,
+    251,
+]
+hash = "sha256:62924030ab51d460e0939031a3a8528a2a9c9de04daf3a2e87777461d0b6ce49"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4e5848697c0ee97f",
+    "fn:72fce567981926e5",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d93da5378118035b"
+name = "gamma_decreases_with_ionic_strength"
+qual = "gamma_decreases_with_ionic_strength"
+lines = [
+    253,
+    273,
+]
+hash = "sha256:1fe656b4b9415ab971856570e1595f99d2b0d7e2779acb9f1dfeefd85e29db64"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4e5848697c0ee97f",
+    "fn:72fce567981926e5",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:f0de1ed90965d9a8"
+name = "divalent_depressed_more_than_monovalent"
+qual = "divalent_depressed_more_than_monovalent"
+lines = [
+    275,
+    285,
+]
+hash = "sha256:cb085066a5192b1bf0ae23fad056722685434f747e9ae4e9613763e1dd3a6fcb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4e5848697c0ee97f",
+    "fn:72fce567981926e5",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:4a45fa336f626db6"
+name = "davies_spot_check_i_0p1"
+qual = "davies_spot_check_i_0p1"
+lines = [
+    287,
+    300,
+]
+hash = "sha256:ae1bfd1f1a2e83d79502c1578fcf41be7ab80d3ae8d981aa390c130fa32cceb9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:18269414623a8b8b",
+    "fn:72fce567981926e5",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:26fc9ecd2d1c4c5b"
+name = "debye_huckel_bdot_raises_gamma"
+qual = "debye_huckel_bdot_raises_gamma"
+lines = [
+    302,
+    315,
+]
+hash = "sha256:a1ff7acfca203f0a723298ab353435ab70cff6c84a327a832fe91edb7e2b4dc6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:72fce567981926e5"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:7f02d390965ae085"
+name = "ionic_strength_nacl"
+qual = "ionic_strength_nacl"
+lines = [
+    317,
+    326,
+]
+hash = "sha256:17ad6412b2b3a053170bbd2bd49a833fb9eadb118314d1d1c8b4e3244cfad6b6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:db9a52f9a9131b0e"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:428304760c4f66f2"
+name = "ionic_strength_length_mismatch_rejected"
+qual = "ionic_strength_length_mismatch_rejected"
+lines = [
+    328,
+    332,
+]
+hash = "sha256:2cf60ed41399d8ea52c4738ffe6b5fbe50a1a7a7df2269b22a08cc8da3b551e7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:db9a52f9a9131b0e"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:04299aedbbb55104"
+name = "ionic_strength_negative_concentration_rejected"
+qual = "ionic_strength_negative_concentration_rejected"
+lines = [
+    334,
+    338,
+]
+hash = "sha256:3f3052052392ae174fa2aafd8d5a207366ab788d1fff4580717e56d2c444f18c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:db9a52f9a9131b0e"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:e559e515fb7165fd"
+name = "a_constant_value"
+qual = "a_constant_value"
+lines = [
+    340,
+    343,
+]
+hash = "sha256:e482cff753c7ec8cde09fea864a7a7d3922c4fa8e1b752ebc76bdbe6181bfacd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:18269414623a8b8b"]
+test = true

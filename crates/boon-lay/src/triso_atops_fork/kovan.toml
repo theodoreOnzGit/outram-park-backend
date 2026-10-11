@@ -1,0 +1,7 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/triso_atops_fork"
+
+[module."mod.rs"]
+path = "crate::triso_atops_fork"

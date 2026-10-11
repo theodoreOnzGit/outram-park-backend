@@ -1,0 +1,514 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-coolprop"
+dir = "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/matrix"
+test_ids = [
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gamg.rs::gamg_cycle_count_is_mesh_independent",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gamg.rs::gamg_handles_tiny_matrix",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gamg.rs::gamg_solves_1d_poisson",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gamg.rs::gamg_warm_start_returns_immediately",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/matrix/square_matrix.rs::fully_zero_matrix_returns_err",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/matrix/square_matrix.rs::hilbert_5x5_residual_acceptable",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/matrix/square_matrix.rs::lu_identity",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/matrix/square_matrix.rs::lu_multiple_rhs",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/matrix/square_matrix.rs::lu_solve_2x2",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/matrix/square_matrix.rs::lu_solve_3x3",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/matrix/square_matrix.rs::lu_solve_needs_pivoting",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/matrix/square_matrix.rs::scaled_pivoting_large_row_contrast",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/matrix/square_matrix.rs::singular_matrix_returns_err",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/mod.rs::rosenbrock23_reports_a_nan_jacobian",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/mod.rs::rosenbrock23_reports_nan_derivatives_instead_of_returning_ok",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/mod.rs::well_behaved_systems_still_integrate_after_the_fix",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/rosenbrock23.rs::rosenbrock23_nonstiff_decay",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/rosenbrock23.rs::rosenbrock23_rotation",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/rosenbrock23.rs::rosenbrock23_stiff_decay",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/rosenbrock23.rs::rosenbrock23_stiff_vdp_mu1000",
+]
+
+[module."mod.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::matrix"
+
+[module."square_matrix.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::matrix::square_matrix"
+
+[[module."square_matrix.rs".function]]
+id = "fn:9b5d3a6a92ab94ab"
+name = "fmt"
+qual = "MatrixError::fmt"
+lines = [
+    31,
+    37,
+]
+hash = "sha256:9d42493350c2bfa32f6ca97b3494dfb8a1f51303dd1631d9385698a912127ed4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."square_matrix.rs".function]]
+id = "fn:d0fb42446da66793"
+name = "new"
+qual = "SquareMatrix::new"
+lines = [
+    53,
+    58,
+]
+hash = "sha256:f02047503561467af5a572c11a369aa34c4fad26112d29a76a18dc7cc09db015"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."square_matrix.rs".function]]
+id = "fn:a3efc3208052be14"
+name = "n"
+qual = "SquareMatrix::n"
+lines = [
+    60,
+    62,
+]
+hash = "sha256:eb839fc31e736e7ee5ffebddd8d54cea15a1d8cef9b3965cae131f5f3546edfd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."square_matrix.rs".function]]
+id = "fn:f3e332723d455ea9"
+name = "get"
+qual = "SquareMatrix::get"
+lines = [
+    64,
+    79,
+]
+hash = "sha256:aab34dfbcf274fbba67ecea6a3e21c35cc3564a365a71cbb21b584e98f0c266d"
+doc_hash = "sha256:3f048bb3ecde81c088127b8040fc90012e8b140630f32117450997be6b0594a8"
+callees = ["fn:6856ebb51c6c0729"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."square_matrix.rs".function]]
+id = "fn:6856ebb51c6c0729"
+name = "offset"
+qual = "SquareMatrix::offset"
+lines = [
+    81,
+    90,
+]
+hash = "sha256:65133218391831af72934df2c76baf06a4834ed05149ce56d0cde942af1d1611"
+doc_hash = "sha256:b3b0a9d9e9a8a82a22a5f363513417d879793e4047d3b4a1a7577ab2420cb599"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."square_matrix.rs".function]]
+id = "fn:966f13993fdfad0d"
+name = "set"
+qual = "SquareMatrix::set"
+lines = [
+    92,
+    103,
+]
+hash = "sha256:d07d19c3a7f1cce5aca5bc41ff5dc919dce0ba024536b079bd860bd8901ffd16"
+doc_hash = "sha256:3ba19f9e5a47eedd9dcf40a3758bbea70880f972e7b353042a9e2dab7cd85846"
+callees = ["fn:6856ebb51c6c0729"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."square_matrix.rs".function]]
+id = "fn:20005ac2ae2c4e2a"
+name = "add"
+qual = "SquareMatrix::add"
+lines = [
+    105,
+    116,
+]
+hash = "sha256:9464f57058b38f12939e02d7be3dd6c8f912d52388cac9ef7595306a7eb4d6dd"
+doc_hash = "sha256:46f5597caff6f756841bba1524b687d95ecd6a2515a60a312dbcddc7a099dc0f"
+callees = ["fn:6856ebb51c6c0729"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."square_matrix.rs".function]]
+id = "fn:f5c5602df6635bdb"
+name = "swap_entries"
+qual = "SquareMatrix::swap_entries"
+lines = [
+    118,
+    129,
+]
+hash = "sha256:8866ca6456aa0b6c84e32ee6e7b247a05aa8e86174b9685c742dddae7f245eb7"
+doc_hash = "sha256:002918f900fbc0e869d9de42fdd00517bd78f8e6c8c68bce0309aad0f674d2d7"
+callees = ["fn:6856ebb51c6c0729"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."square_matrix.rs".function]]
+id = "fn:4392477fd8eeb434"
+name = "fill_zero"
+qual = "SquareMatrix::fill_zero"
+lines = [
+    131,
+    133,
+]
+hash = "sha256:fd1e3141dd9563ff04d8087d9e2ba024714c156e26f58cf1e2d6dcf2e9d57f3a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."square_matrix.rs".function]]
+id = "fn:02227dd3f0e4e85d"
+name = "lu_decompose"
+qual = "SquareMatrix::lu_decompose"
+lines = [
+    135,
+    221,
+]
+hash = "sha256:ce9354d139358dea7d4fe7b550a0a2d44c1cc42da5a3dabad95b511ceed83dc7"
+doc_hash = "sha256:b45131bd9fe290f27cb3e48f93653cb64b43e3f9daabe9e493cf6ec551dce16a"
+callees = [
+    "fn:966f13993fdfad0d",
+    "fn:f3e332723d455ea9",
+    "fn:f5c5602df6635bdb",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."square_matrix.rs".function]]
+id = "fn:eed04aad5e1ee092"
+name = "lu_back_substitute"
+qual = "SquareMatrix::lu_back_substitute"
+lines = [
+    223,
+    275,
+]
+hash = "sha256:022c604287eb79c9151a715ca7bbe5adb8bf1949c9a2ebecae244f9824311210"
+doc_hash = "sha256:766af82f805acc35bf6c53f91830c744826fba72de79c48ab5b897234ad8ecdf"
+callees = ["fn:f3e332723d455ea9"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."square_matrix.rs".function]]
+id = "fn:a8a2befceeba0d2b"
+name = "solve"
+qual = "SquareMatrix::solve"
+lines = [
+    277,
+    296,
+]
+hash = "sha256:7e599e2636ad38a670fd0c1c07b4aa27ad40d317e098a084f5d75225793cafa8"
+doc_hash = "sha256:ffab407f568e4db4cffcedb29813e1f19ad75fd0db22ce8d6cd74ee0167cad06"
+callees = [
+    "fn:02227dd3f0e4e85d",
+    "fn:eed04aad5e1ee092",
+    "fn:f3e332723d455ea9",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."square_matrix.rs".function]]
+id = "fn:617731f966cfafd1"
+name = "lu_solve_2x2"
+qual = "lu_solve_2x2"
+lines = [
+    303,
+    314,
+]
+hash = "sha256:bfe6da3d8f439d73bdfc6c3edefc93dda691b2e5b6cccc7133f1b0b2bd2c801f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:966f13993fdfad0d",
+    "fn:a8a2befceeba0d2b",
+    "fn:d0fb42446da66793",
+]
+test = true
+
+[[module."square_matrix.rs".function]]
+id = "fn:712837c12a37045a"
+name = "lu_solve_3x3"
+qual = "lu_solve_3x3"
+lines = [
+    316,
+    334,
+]
+hash = "sha256:fcb21b9045203a07ac812952a907704592b9707aa440d5203460dbfa3ae6790a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:966f13993fdfad0d",
+    "fn:a8a2befceeba0d2b",
+    "fn:d0fb42446da66793",
+]
+test = true
+
+[[module."square_matrix.rs".function]]
+id = "fn:d3fc7a119fcf2eaa"
+name = "lu_solve_needs_pivoting"
+qual = "lu_solve_needs_pivoting"
+lines = [
+    336,
+    348,
+]
+hash = "sha256:52795c3a4946053f921e989b02cfc5221998b8d96142a68caf9e5a43d703c1bf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:966f13993fdfad0d",
+    "fn:a8a2befceeba0d2b",
+    "fn:d0fb42446da66793",
+]
+test = true
+
+[[module."square_matrix.rs".function]]
+id = "fn:72ea9efbbaba0a07"
+name = "lu_identity"
+qual = "lu_identity"
+lines = [
+    350,
+    360,
+]
+hash = "sha256:6ad0045deaa01521c32a844f582a44958ae2838d28b86abd8aa7cd565edc872f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:966f13993fdfad0d",
+    "fn:a8a2befceeba0d2b",
+    "fn:d0fb42446da66793",
+]
+test = true
+
+[[module."square_matrix.rs".function]]
+id = "fn:d55b7473ca49a3bd"
+name = "singular_matrix_returns_err"
+qual = "singular_matrix_returns_err"
+lines = [
+    362,
+    376,
+]
+hash = "sha256:47a026f3c1c58a773c987d28ee46c97b2ec265fc205cef9bb7aabf05985c633d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:966f13993fdfad0d",
+    "fn:a8a2befceeba0d2b",
+    "fn:d0fb42446da66793",
+]
+test = true
+
+[[module."square_matrix.rs".function]]
+id = "fn:55d37717534e0ab5"
+name = "fully_zero_matrix_returns_err"
+qual = "fully_zero_matrix_returns_err"
+lines = [
+    378,
+    387,
+]
+hash = "sha256:7aa069aff4547c6b80538b67e8c24d47823ff72f6626df9c0507d342dcf67f44"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a8a2befceeba0d2b",
+    "fn:d0fb42446da66793",
+]
+test = true
+
+[[module."square_matrix.rs".function]]
+id = "fn:34927f7b27d97e48"
+name = "hilbert_5x5_residual_acceptable"
+qual = "hilbert_5x5_residual_acceptable"
+lines = [
+    389,
+    424,
+]
+hash = "sha256:e467890bf1cef3cc8f55588e6577ad9e88fbdfc488f46db0fb3c953370fd26cc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:966f13993fdfad0d",
+    "fn:a8a2befceeba0d2b",
+    "fn:d0fb42446da66793",
+    "fn:f3e332723d455ea9",
+]
+test = true
+
+[[module."square_matrix.rs".function]]
+id = "fn:dfa828026abda588"
+name = "scaled_pivoting_large_row_contrast"
+qual = "scaled_pivoting_large_row_contrast"
+lines = [
+    426,
+    444,
+]
+hash = "sha256:a86afa64fdf5afe8a817be061d49b11953e06bdc8cbb15e24ae9f25c7d31491d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:966f13993fdfad0d",
+    "fn:a8a2befceeba0d2b",
+    "fn:d0fb42446da66793",
+]
+test = true
+
+[[module."square_matrix.rs".function]]
+id = "fn:9da4e2b4e8fccd87"
+name = "lu_multiple_rhs"
+qual = "lu_multiple_rhs"
+lines = [
+    446,
+    467,
+]
+hash = "sha256:ce8343c25fc1fc4bbee6eeee77320361da892eb25cf4a264f9c5401f64baa382"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:02227dd3f0e4e85d",
+    "fn:966f13993fdfad0d",
+    "fn:d0fb42446da66793",
+    "fn:eed04aad5e1ee092",
+]
+test = true

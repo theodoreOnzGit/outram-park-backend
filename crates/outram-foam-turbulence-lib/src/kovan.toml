@@ -1,0 +1,72 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-turbulence-lib"
+dir = "crates/outram-foam-turbulence-lib/src"
+crate_root = true
+
+[module."error.rs"]
+path = "crate::error"
+
+[module."lib.rs"]
+path = "crate"
+
+[module."prelude.rs"]
+path = "crate::prelude"
+
+[module."traits.rs"]
+path = "crate::traits"
+
+[[module."traits.rs".function]]
+id = "fn:ff7711f8c7d8687d"
+name = "div_dev_rho_reff"
+qual = "TurbulenceModel::div_dev_rho_reff"
+lines = [
+    40,
+    45,
+]
+hash = "sha256:06885edf1fa375198ccce0fb304dce602a8c0e9a7fd910a1ce376f2d6dc41f55"
+doc_hash = "sha256:b9c472cd8ddef01d2a2424e03484d687ddaf7e34137755e2a3268869d1057c31"
+
+[[module."traits.rs".function]]
+id = "fn:54d86fc46c130418"
+name = "correct"
+qual = "TurbulenceModel::correct"
+lines = [
+    47,
+    51,
+]
+hash = "sha256:046155cc17e6686333000af00e518e52d58815081053174619ed1e9336724768"
+doc_hash = "sha256:a5dc49ad1b01b4d50ab7e992cd3405279084ee1edf7db7bf8626b1a7379625b2"
+
+[[module."traits.rs".function]]
+id = "fn:afe9619977a3edb8"
+name = "nu_t"
+qual = "TurbulenceModel::nu_t"
+lines = [
+    53,
+    55,
+]
+hash = "sha256:1c88c18fba0fcfe6d3cadc1525b1264b765d22fb94cf3ae32ec5b5239efcdc7d"
+doc_hash = "sha256:bc797e9936b34365c65343bcef9bcbd4a2ad7208076db6fba03ca77849e5d746"
+
+[[module."traits.rs".function]]
+id = "fn:90ac8d4795659069"
+name = "alpha_eff"
+qual = "TurbulenceModel::alpha_eff"
+lines = [
+    57,
+    61,
+]
+hash = "sha256:bc1c7d34fb99eba3a79afe406120745bcec9d4bfc568baf34e98a29713b80962"
+doc_hash = "sha256:2098691aac27da7ffe4c50325625eb77eea29dbc250fd81590a10f7100aceb83"
+
+[[module."traits.rs".function]]
+id = "fn:6ce7272fc7a27b7f"
+name = "mu_eff_field"
+qual = "TurbulenceModel::mu_eff_field"
+lines = [
+    63,
+    66,
+]
+hash = "sha256:e76d4e17e2aee0d3a9fa7127daf628f724187d247572baadfeb85f70cd0ca5c3"
+doc_hash = "sha256:407c2523d550aceb4a2630c265d453fd81ad8d9393011b24242699b471bbae9b"

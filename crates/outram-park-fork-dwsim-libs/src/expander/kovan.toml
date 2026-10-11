@@ -1,0 +1,193 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-dwsim-libs"
+dir = "crates/outram-park-fork-dwsim-libs/src/expander"
+test_ids = [
+    "crates/outram-park-fork-dwsim-libs/src/expander/isentropic.rs::generated_power_positive_for_normal_expansion",
+    "crates/outram-park-fork-dwsim-libs/src/expander/isentropic.rs::isentropic_and_polytropic_exponents_close_for_near_ideal_case",
+    "crates/outram-park-fork-dwsim-libs/src/expander/isentropic.rs::outlet_enthalpy_lower_than_inlet_for_positive_generated_power",
+    "crates/outram-park-fork-dwsim-libs/src/expander/isentropic.rs::schultz_factor_close_to_1_for_nearly_identical_exponents",
+    "crates/outram-park-fork-dwsim-libs/src/expander/isentropic.rs::solve_polytropic_efficiency_converges",
+]
+
+[module."isentropic.rs"]
+path = "crate::expander::isentropic"
+
+[[module."isentropic.rs".function]]
+id = "fn:03850adf915fdbdc"
+name = "generated_power"
+qual = "generated_power"
+lines = [
+    23,
+    34,
+]
+hash = "sha256:ccbdfb0383de91d0c1ff24cde90335c949be0b505a631384c4c7a863ce81cccd"
+doc_hash = "sha256:fe3d849389f898c11eec64c4b0e3d11d0a00935ab6251181528aa3c9dba67d48"
+reached_by = [
+    "#0",
+    "#2",
+    "#4",
+]
+physical_interface = true
+
+[[module."isentropic.rs".function]]
+id = "fn:3f4a51fafedd1351"
+name = "outlet_enthalpy"
+qual = "outlet_enthalpy"
+lines = [
+    36,
+    43,
+]
+hash = "sha256:8b74f65a755895355fc83e9c6d41fda4922fef46bdc9ab3a3bd4701b8ddf6779"
+doc_hash = "sha256:c76317b5f372bc9497fa6dddd261735af82b1e23281e0e5871dc4aa6770711b6"
+reached_by = [
+    "#2",
+    "#4",
+]
+physical_interface = true
+
+[[module."isentropic.rs".function]]
+id = "fn:25b36f65f91b54bf"
+name = "isentropic_exponent"
+qual = "isentropic_exponent"
+lines = [
+    45,
+    57,
+]
+hash = "sha256:cd1c4774dfee94bf941a0114589bfb0d9493b3935fbfd2e218ca49a9dcf31cdb"
+doc_hash = "sha256:ab35bfc25b9da62c2f55a5dbed0f7cc1c7f7457994b765031b85cd12e6b02a53"
+reached_by = [
+    "#1",
+    "#4",
+]
+physical_interface = true
+
+[[module."isentropic.rs".function]]
+id = "fn:7ee417f6c2b7b077"
+name = "polytropic_exponent"
+qual = "polytropic_exponent"
+lines = [
+    59,
+    70,
+]
+hash = "sha256:1b2eb52132e5ed879f0bb48d298452e5558f1326d0926ea1fce8dbabe2f6ded9"
+doc_hash = "sha256:7e69ef5e927d30f42bc13034b1017720e8d0894eaa96bf6ed2c6b4b8a4d89489"
+reached_by = [
+    "#1",
+    "#4",
+]
+physical_interface = true
+
+[[module."isentropic.rs".function]]
+id = "fn:6443e678375dd77c"
+name = "schultz_correction_factor"
+qual = "schultz_correction_factor"
+lines = [
+    72,
+    91,
+]
+hash = "sha256:33e5d1cc5b20c3155d90acacd93e7f00a4dd01f062c13b6d25de1c373aaa9cd8"
+doc_hash = "sha256:e693f9148a011fa8139d3dae0e1ec1d0a58d65b8a0e2f5f8d3fcd3f7dbb1e4fc"
+reached_by = [
+    "#3",
+    "#4",
+]
+physical_interface = true
+
+[[module."isentropic.rs".function]]
+id = "fn:3394a6d184ee79d6"
+name = "solve_polytropic_efficiency"
+qual = "solve_polytropic_efficiency"
+lines = [
+    106,
+    170,
+]
+hash = "sha256:654b00e110af8a3ac863dc8193c1e17e2635d24e82ba99fb4345e07b21f5f963"
+doc_hash = "sha256:f741af2b12c0ca1cd5268de06d83cd1dde3a4ae6067cdc50fb32fec751a9f89e"
+callees = [
+    "fn:03850adf915fdbdc",
+    "fn:25b36f65f91b54bf",
+    "fn:3f4a51fafedd1351",
+    "fn:6443e678375dd77c",
+    "fn:7ee417f6c2b7b077",
+]
+reached_by = ["#4"]
+physical_interface = true
+
+[[module."isentropic.rs".function]]
+id = "fn:28a93b39b469fdad"
+name = "generated_power_positive_for_normal_expansion"
+qual = "generated_power_positive_for_normal_expansion"
+lines = [
+    180,
+    188,
+]
+hash = "sha256:db9d50715358708b9dc772cadfc53a9f9a68268761adacc23fbc7fde3fecb6de"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:03850adf915fdbdc"]
+test = true
+
+[[module."isentropic.rs".function]]
+id = "fn:9206734d9b3bc6c2"
+name = "outlet_enthalpy_lower_than_inlet_for_positive_generated_power"
+qual = "outlet_enthalpy_lower_than_inlet_for_positive_generated_power"
+lines = [
+    190,
+    199,
+]
+hash = "sha256:ebe868f899ca0ce61a66ef28f6cc8c2948eb68bef964a076e321c0645812ea3c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:03850adf915fdbdc",
+    "fn:3f4a51fafedd1351",
+]
+test = true
+
+[[module."isentropic.rs".function]]
+id = "fn:fde29501ba512546"
+name = "isentropic_and_polytropic_exponents_close_for_near_ideal_case"
+qual = "isentropic_and_polytropic_exponents_close_for_near_ideal_case"
+lines = [
+    201,
+    214,
+]
+hash = "sha256:3164eda6bd95df9149481a02d59f35ec1955987f25bca53fa8bb427644db474e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:25b36f65f91b54bf",
+    "fn:7ee417f6c2b7b077",
+]
+test = true
+
+[[module."isentropic.rs".function]]
+id = "fn:66983c2cc7b905d9"
+name = "schultz_factor_close_to_1_for_nearly_identical_exponents"
+qual = "schultz_factor_close_to_1_for_nearly_identical_exponents"
+lines = [
+    216,
+    224,
+]
+hash = "sha256:8b98f91e4a89efdd0b9df5260497ee4e4518136b7a48421f4d85a2a86162e3e8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6443e678375dd77c"]
+test = true
+
+[[module."isentropic.rs".function]]
+id = "fn:0613b2dc6c1e0018"
+name = "solve_polytropic_efficiency_converges"
+qual = "solve_polytropic_efficiency_converges"
+lines = [
+    226,
+    264,
+]
+hash = "sha256:ee3abc788dad6e457d72ab0de362bd332f3ef8f527cb8c825d2ce37062f19518"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:03850adf915fdbdc",
+    "fn:3394a6d184ee79d6",
+    "fn:3f4a51fafedd1351",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::expander"

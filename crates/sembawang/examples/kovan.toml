@@ -1,0 +1,565 @@
+schema_version = 1
+kind = "code_folder"
+crate = "sembawang"
+dir = "crates/sembawang/examples"
+
+[module."htr10_air_ingress_human_audited_example.rs"]
+path = "example:htr10_air_ingress_human_audited_example"
+
+[[module."htr10_air_ingress_human_audited_example.rs".function]]
+id = "fn:09ba3df6bde9b392"
+name = "main"
+qual = "main"
+lines = [
+    250,
+    729,
+]
+hash = "sha256:445665b1d1fcd68d03606b398919bf08541de870af32049ec3e0409e3b4c0251"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0177d1b5ea3fc41c",
+    "fn:076643834c66e738",
+    "fn:133094d36406c3dc",
+    "fn:15a7910e29c3720a",
+    "fn:19babfa710213be3",
+    "fn:1ae1ccbc638b98af",
+    "fn:1e57febd5ccdca15",
+    "fn:25ca9397d7dd1587",
+    "fn:2c1c7cfcc57f058a",
+    "fn:2fcfe1dc1604015a",
+    "fn:34ff47a5448224c9",
+    "fn:3766afdfc8ede1ed",
+    "fn:5818c0f0d1e04928",
+    "fn:59924e55ceafa869",
+    "fn:5bbec45fdcdcf54b",
+    "fn:676b4ab4e4412d1e",
+    "fn:8e97ab60a978035d",
+    "fn:955c0c05ad3b1a57",
+    "fn:96a4981ab8e87d0f",
+    "fn:b3d09eba3a474d94",
+    "fn:b7c3ee50ff1a1430",
+    "fn:bddedca1229c4b5d",
+    "fn:ca60b91c1932b8be",
+    "fn:ce42673cbb55ed79",
+    "fn:d4a3a5a76438cc32",
+    "fn:d609ff6f6efcdcff",
+    "fn:e075fda1f213104b",
+    "fn:e1cb570a455c31b8",
+]
+
+[[module."htr10_air_ingress_human_audited_example.rs".function]]
+id = "fn:b7c3ee50ff1a1430"
+name = "max_chi_over_q"
+qual = "max_chi_over_q"
+lines = [
+    731,
+    743,
+]
+hash = "sha256:d99632b495f3c310156d64009ea2d7961b207198db0add2cb4cf20db359b4005"
+doc_hash = "sha256:75141c320c2c1aaa113266fa0f20835e9eb04a3d91e71152a830582fc3cb6f14"
+callees = [
+    "fn:2fcfe1dc1604015a",
+    "fn:ce42673cbb55ed79",
+]
+
+[[module."htr10_air_ingress_human_audited_example.rs".function]]
+id = "fn:59924e55ceafa869"
+name = "htr10_geometry_pebble_and_triso"
+qual = "htr10_geometry_pebble_and_triso"
+lines = [
+    745,
+    755,
+]
+hash = "sha256:5f92f7c720c483ddae02107a7b233120dbaadd4886926e383e36d823d40b5b5d"
+doc_hash = "sha256:bb3f4483956345ac581cd7f3816949cc3fa453aacfd4a38a3e878eeb65dc7811"
+callees = [
+    "fn:e3647ac8e40d827a",
+    "fn:fbf69aa7302a8637",
+]
+
+[[module."htr10_air_ingress_human_audited_example.rs".function]]
+id = "fn:133094d36406c3dc"
+name = "htr10_inventory"
+qual = "htr10_inventory"
+lines = [
+    757,
+    770,
+]
+hash = "sha256:b17f4a443541f41eabd26cbd2880821d8a65b6aeac4dbda10f4127d71adf47f3"
+doc_hash = "sha256:db71da5122c6fff8acc0d447aa593aae673d843f3c67e3b56c0a6c0feb2e07bf"
+callees = [
+    "fn:834887ea5459b8b0",
+    "fn:cc4a204b2260fc6f",
+    "fn:d4a3a5a76438cc32",
+    "fn:e1cb570a455c31b8",
+]
+
+[[module."htr10_air_ingress_human_audited_example.rs".function]]
+id = "fn:e075fda1f213104b"
+name = "flat_hold"
+qual = "flat_hold"
+lines = [
+    772,
+    781,
+]
+hash = "sha256:213e85eaa4b0fa7866add7f9f9bd1175afbb8ff95e381d9bc73565101db86378"
+doc_hash = "sha256:907a2d7ae70977f0ff3ed6d3c53e739d78a84c56b9085236620c7870c203ae49"
+callees = ["fn:0fb82a37e5879e94"]
+
+[module."htr10_air_ingress_kora_bound.rs"]
+path = "example:htr10_air_ingress_kora_bound"
+
+[[module."htr10_air_ingress_kora_bound.rs".function]]
+id = "fn:d1fa6493fe5c1a2e"
+name = "max_chi_over_q"
+qual = "max_chi_over_q"
+lines = [
+    254,
+    266,
+]
+hash = "sha256:d99632b495f3c310156d64009ea2d7961b207198db0add2cb4cf20db359b4005"
+doc_hash = "sha256:75141c320c2c1aaa113266fa0f20835e9eb04a3d91e71152a830582fc3cb6f14"
+callees = [
+    "fn:2fcfe1dc1604015a",
+    "fn:ce42673cbb55ed79",
+]
+
+[[module."htr10_air_ingress_kora_bound.rs".function]]
+id = "fn:89ee95de588acf78"
+name = "htr10_geometry"
+qual = "htr10_geometry"
+lines = [
+    268,
+    278,
+]
+hash = "sha256:5f92f7c720c483ddae02107a7b233120dbaadd4886926e383e36d823d40b5b5d"
+doc_hash = "sha256:bb3f4483956345ac581cd7f3816949cc3fa453aacfd4a38a3e878eeb65dc7811"
+callees = [
+    "fn:e3647ac8e40d827a",
+    "fn:fbf69aa7302a8637",
+]
+
+[[module."htr10_air_ingress_kora_bound.rs".function]]
+id = "fn:ffb8203192f7e742"
+name = "htr10_inventory"
+qual = "htr10_inventory"
+lines = [
+    280,
+    293,
+]
+hash = "sha256:b17f4a443541f41eabd26cbd2880821d8a65b6aeac4dbda10f4127d71adf47f3"
+doc_hash = "sha256:db71da5122c6fff8acc0d447aa593aae673d843f3c67e3b56c0a6c0feb2e07bf"
+callees = [
+    "fn:834887ea5459b8b0",
+    "fn:cc4a204b2260fc6f",
+    "fn:d4a3a5a76438cc32",
+    "fn:e1cb570a455c31b8",
+]
+
+[[module."htr10_air_ingress_kora_bound.rs".function]]
+id = "fn:c4e11833c98d9854"
+name = "flat_hold"
+qual = "flat_hold"
+lines = [
+    295,
+    304,
+]
+hash = "sha256:ea75c5afbc83878e289a880b5d34648d842a8d13129054af2eadde09d8c3067a"
+doc_hash = "sha256:907a2d7ae70977f0ff3ed6d3c53e739d78a84c56b9085236620c7870c203ae49"
+callees = ["fn:0fb82a37e5879e94"]
+
+[[module."htr10_air_ingress_kora_bound.rs".function]]
+id = "fn:f4019bba09945355"
+name = "main"
+qual = "main"
+lines = [
+    306,
+    608,
+]
+hash = "sha256:393b4574d3fe5dde5ca7b67d34b54971851bfc678034b08b916e66634d141f32"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0177d1b5ea3fc41c",
+    "fn:076643834c66e738",
+    "fn:15a7910e29c3720a",
+    "fn:19babfa710213be3",
+    "fn:1ae1ccbc638b98af",
+    "fn:1e57febd5ccdca15",
+    "fn:25ca9397d7dd1587",
+    "fn:2c1c7cfcc57f058a",
+    "fn:2fcfe1dc1604015a",
+    "fn:34ff47a5448224c9",
+    "fn:3766afdfc8ede1ed",
+    "fn:5818c0f0d1e04928",
+    "fn:5bbec45fdcdcf54b",
+    "fn:676b4ab4e4412d1e",
+    "fn:89ee95de588acf78",
+    "fn:8e97ab60a978035d",
+    "fn:955c0c05ad3b1a57",
+    "fn:96a4981ab8e87d0f",
+    "fn:b3d09eba3a474d94",
+    "fn:bddedca1229c4b5d",
+    "fn:c4e11833c98d9854",
+    "fn:ca60b91c1932b8be",
+    "fn:ce42673cbb55ed79",
+    "fn:d1fa6493fe5c1a2e",
+    "fn:d4a3a5a76438cc32",
+    "fn:d609ff6f6efcdcff",
+    "fn:e1cb570a455c31b8",
+    "fn:ffb8203192f7e742",
+]
+
+[module."htr10_dlofc_dose.rs"]
+path = "example:htr10_dlofc_dose"
+
+[[module."htr10_dlofc_dose.rs".function]]
+id = "fn:a8f5284116b9a3e4"
+name = "htr10_geometry"
+qual = "htr10_geometry"
+lines = [
+    109,
+    117,
+]
+hash = "sha256:5f92f7c720c483ddae02107a7b233120dbaadd4886926e383e36d823d40b5b5d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:e3647ac8e40d827a",
+    "fn:fbf69aa7302a8637",
+]
+
+[[module."htr10_dlofc_dose.rs".function]]
+id = "fn:f79c6abd5dd8ed31"
+name = "htr10_inventory"
+qual = "htr10_inventory"
+lines = [
+    119,
+    126,
+]
+hash = "sha256:e742a23b3f2ada5c31ebe0d810e452b468754dcf8cc976e7aedea3fc04c8e760"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:834887ea5459b8b0",
+    "fn:cc4a204b2260fc6f",
+    "fn:d4a3a5a76438cc32",
+    "fn:e1cb570a455c31b8",
+]
+
+[[module."htr10_dlofc_dose.rs".function]]
+id = "fn:b9c3d0f186c7c355"
+name = "max_chi_over_q"
+qual = "max_chi_over_q"
+lines = [
+    128,
+    139,
+]
+hash = "sha256:d99632b495f3c310156d64009ea2d7961b207198db0add2cb4cf20db359b4005"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2fcfe1dc1604015a",
+    "fn:ce42673cbb55ed79",
+]
+
+[[module."htr10_dlofc_dose.rs".function]]
+id = "fn:aef5db79b6af50e4"
+name = "dlofc_release"
+qual = "dlofc_release"
+lines = [
+    141,
+    160,
+]
+hash = "sha256:2e9aec6ec91087a852737232989d81255d05dbd19614c247ecb6a600af33624f"
+doc_hash = "sha256:e84428504a40ceb0821cbf99fecbb448058a50a8d0134c0620bc1c1c63fb5e70"
+callees = [
+    "fn:1f41d85992d63573",
+    "fn:5818c0f0d1e04928",
+    "fn:6b8c739eee488910",
+    "fn:955c0c05ad3b1a57",
+    "fn:a8f5284116b9a3e4",
+    "fn:b6c4e7ce3cecbb03",
+    "fn:c16b8b5f9d368edc",
+    "fn:ca60b91c1932b8be",
+    "fn:d609ff6f6efcdcff",
+    "fn:d8eacdb21e248f88",
+    "fn:f79c6abd5dd8ed31",
+]
+
+[[module."htr10_dlofc_dose.rs".function]]
+id = "fn:ac404fb23e1af3a0"
+name = "main"
+qual = "main"
+lines = [
+    162,
+    271,
+]
+hash = "sha256:08ad88e9d2b0d5c0e839ffa30378ee579c8b3fe483ba21046c619d606e88bf06"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0177d1b5ea3fc41c",
+    "fn:076643834c66e738",
+    "fn:15a7910e29c3720a",
+    "fn:19babfa710213be3",
+    "fn:1ae1ccbc638b98af",
+    "fn:2c1c7cfcc57f058a",
+    "fn:2fcfe1dc1604015a",
+    "fn:34ff47a5448224c9",
+    "fn:3766afdfc8ede1ed",
+    "fn:5bbec45fdcdcf54b",
+    "fn:676b4ab4e4412d1e",
+    "fn:aef5db79b6af50e4",
+    "fn:b3d09eba3a474d94",
+    "fn:b9c3d0f186c7c355",
+    "fn:ce42673cbb55ed79",
+    "fn:e1cb570a455c31b8",
+]
+
+[module."htr10_dlofc_panama_source_term.rs"]
+path = "example:htr10_dlofc_panama_source_term"
+
+[[module."htr10_dlofc_panama_source_term.rs".function]]
+id = "fn:e5178a90d48ef284"
+name = "htr10_geometry"
+qual = "htr10_geometry"
+lines = [
+    73,
+    82,
+]
+hash = "sha256:5f92f7c720c483ddae02107a7b233120dbaadd4886926e383e36d823d40b5b5d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:e3647ac8e40d827a",
+    "fn:fbf69aa7302a8637",
+]
+
+[[module."htr10_dlofc_panama_source_term.rs".function]]
+id = "fn:c202d533bfbd56ad"
+name = "htr10_inventory"
+qual = "htr10_inventory"
+lines = [
+    84,
+    102,
+]
+hash = "sha256:6d3b0762d7bdf35ebe7232d15fef90b6d50d5d44797f342da5f526664761b092"
+doc_hash = "sha256:ac3dd5399e9d3b18a888d5304cdb877e07ff9e35de5bee33f380861803a26e3f"
+callees = [
+    "fn:834887ea5459b8b0",
+    "fn:cc4a204b2260fc6f",
+    "fn:d4a3a5a76438cc32",
+    "fn:e1cb570a455c31b8",
+]
+
+[[module."htr10_dlofc_panama_source_term.rs".function]]
+id = "fn:793d22d5633b3fec"
+name = "released_bq"
+qual = "released_bq"
+lines = [
+    104,
+    110,
+]
+hash = "sha256:e0f8b5cbc979c257337d132290862bfc0d4b71cbccd11c9cbb7d2f374b468090"
+doc_hash = "sha256:98f0906e26a324c2b30082d5ed3cc744559943bc1820eef1e7584476d62e6acc"
+callees = ["fn:5818c0f0d1e04928"]
+
+[[module."htr10_dlofc_panama_source_term.rs".function]]
+id = "fn:b997f2c903f5c842"
+name = "run_case"
+qual = "run_case"
+lines = [
+    112,
+    146,
+]
+hash = "sha256:c1c78aa3a4564f2ac50afd4aba713b38e0b7586bfc82ee9c38b40d2630d8bf47"
+doc_hash = "sha256:d71d55bf02cfe3bd07ea829824899373e44f05bddbb31d0bc8c3f1332f310240"
+callees = [
+    "fn:793d22d5633b3fec",
+    "fn:c202d533bfbd56ad",
+    "fn:ca60b91c1932b8be",
+    "fn:d609ff6f6efcdcff",
+    "fn:d8eacdb21e248f88",
+    "fn:e5178a90d48ef284",
+]
+
+[[module."htr10_dlofc_panama_source_term.rs".function]]
+id = "fn:0250f0e397fa01e4"
+name = "main"
+qual = "main"
+lines = [
+    148,
+    448,
+]
+hash = "sha256:78afba6ca49ae781d8dd3d325b897f605b1abf462a70548ae30475c1c0c1c862"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e57febd5ccdca15",
+    "fn:1f41d85992d63573",
+    "fn:6b8c739eee488910",
+    "fn:955c0c05ad3b1a57",
+    "fn:b6c4e7ce3cecbb03",
+    "fn:b997f2c903f5c842",
+    "fn:c16b8b5f9d368edc",
+    "fn:c202d533bfbd56ad",
+    "fn:d4a3a5a76438cc32",
+    "fn:d759d6895df83cb7",
+    "fn:e5178a90d48ef284",
+]
+
+[module."lwr_nureg1465_counterpart.rs"]
+path = "example:lwr_nureg1465_counterpart"
+
+[[module."lwr_nureg1465_counterpart.rs".function]]
+id = "fn:d29aaad251a71ee7"
+name = "htr10_geometry"
+qual = "htr10_geometry"
+lines = [
+    156,
+    164,
+]
+hash = "sha256:5f92f7c720c483ddae02107a7b233120dbaadd4886926e383e36d823d40b5b5d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:e3647ac8e40d827a",
+    "fn:fbf69aa7302a8637",
+]
+
+[[module."lwr_nureg1465_counterpart.rs".function]]
+id = "fn:53f1b1395adadbf5"
+name = "by_group"
+qual = "by_group"
+lines = [
+    166,
+    177,
+]
+hash = "sha256:7d4988eced76e317f72c83551f9dd7ce4cc54443bf0f01dc65c4143c227e7bbe"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:857c20705c017a24"]
+
+[[module."lwr_nureg1465_counterpart.rs".function]]
+id = "fn:9dbac04de14f2b5d"
+name = "fractions_by_group"
+qual = "fractions_by_group"
+lines = [
+    179,
+    194,
+]
+hash = "sha256:f16685b2c71a88304ef8d4a88d3d2d1efc49f883f1a37ae8fe79d0e72005f9d3"
+doc_hash = "sha256:05481402f53131a65713ed8dc8685b67dd68c47d2f65d300da767d0f3aab09e2"
+callees = ["fn:857c20705c017a24"]
+
+[[module."lwr_nureg1465_counterpart.rs".function]]
+id = "fn:4381e1cabe7d7039"
+name = "frac_text"
+qual = "frac_text"
+lines = [
+    196,
+    198,
+]
+hash = "sha256:f30b61f741cf78f1402289217251ead67e637709d206dcc98af94d487acccb49"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."lwr_nureg1465_counterpart.rs".function]]
+id = "fn:2962fd5417340daa"
+name = "main"
+qual = "main"
+lines = [
+    200,
+    525,
+]
+hash = "sha256:abb992f334e6ef3c0a6a1f9c9b949044a71f88b3fac56884b1c1561c5047ce8f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0423a36ca5ab3841",
+    "fn:07e83486d8f99197",
+    "fn:1a4b24617194f09a",
+    "fn:24e25f9835625797",
+    "fn:2aca283b9a4fc908",
+    "fn:3bdd3f6e4b6f60c4",
+    "fn:4381e1cabe7d7039",
+    "fn:4fbb248a1a5c5a8c",
+    "fn:53616f7f7078cd9d",
+    "fn:53f1b1395adadbf5",
+    "fn:55a4424b6087c503",
+    "fn:5d2703a5da6aef7c",
+    "fn:5d63c6036d29b4f9",
+    "fn:7ec8d7485fec342b",
+    "fn:80f0953deec67698",
+    "fn:84a2036200466297",
+    "fn:9d2f991bd01c10ca",
+    "fn:9dbac04de14f2b5d",
+    "fn:a2d1d93ab0f4a214",
+    "fn:c6abac972ab63eee",
+    "fn:d29aaad251a71ee7",
+    "fn:d4a3a5a76438cc32",
+    "fn:d697f0d4b1bf85a7",
+]
+
+[module."npmhtgr_chain.rs"]
+path = "example:npmhtgr_chain"
+
+[[module."npmhtgr_chain.rs".function]]
+id = "fn:33220789bb5de5cb"
+name = "main"
+qual = "main"
+lines = [
+    111,
+    256,
+]
+hash = "sha256:c0c23350ff2a182fcc60703f7d7697efa4dacbfbb3a95fd6157bae30bbcabf66"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:04a8bf1ed7f00ed6",
+    "fn:062ed1fcbf39c30b",
+    "fn:1322f89306a5ac3e",
+    "fn:287655c3c5fb9c7a",
+    "fn:2bbb56c415a29725",
+    "fn:3ba47b1b617f33a4",
+    "fn:481d98adc0fc36ae",
+    "fn:49eca2863f100d7d",
+    "fn:5818c0f0d1e04928",
+    "fn:610faf13361f74de",
+    "fn:6f59b6d0e66adaaf",
+    "fn:747679b63465e341",
+    "fn:771c549884eb2f62",
+    "fn:80952b7847d8ca27",
+    "fn:976df1a90886aac8",
+    "fn:9f6d27a22deb4d56",
+    "fn:b42ea95c52b7587b",
+    "fn:d0063f58f6bbe28a",
+    "fn:d609ff6f6efcdcff",
+    "fn:e179a33cf72d377a",
+    "fn:f690f81defba2fa7",
+]
+
+[[module."npmhtgr_chain.rs".function]]
+id = "fn:9f6d27a22deb4d56"
+name = "print_table"
+qual = "print_table"
+lines = [
+    258,
+    276,
+]
+hash = "sha256:1e27fe50d4dd879544bef2c00da7d08452f4863534a61edcce43bbd0eeb7d133"
+doc_hash = "sha256:30eb821f4d95ab1371e1a41dc20e923b10ddcde91e7ebb82f4dd7bee97e94ab9"
+callees = ["fn:6b87c53ec5263de5"]
+
+[module."npmhtgr_release.rs"]
+path = "example:npmhtgr_release"
+
+[[module."npmhtgr_release.rs".function]]
+id = "fn:e3fad524fb317ed1"
+name = "main"
+qual = "main"
+lines = [
+    56,
+    147,
+]
+hash = "sha256:8333e4d085ef470b5d686ed2bfa8c37235945d34f988de2324312452982021bc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1322f89306a5ac3e",
+    "fn:287655c3c5fb9c7a",
+    "fn:3ba47b1b617f33a4",
+    "fn:5818c0f0d1e04928",
+    "fn:976df1a90886aac8",
+    "fn:d0063f58f6bbe28a",
+    "fn:d609ff6f6efcdcff",
+    "fn:f690f81defba2fa7",
+]

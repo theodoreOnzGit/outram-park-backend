@@ -1,0 +1,878 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_bare_pipes_debugging_heat_addition",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_bare_pipes_debugging_heat_addition_with_parasitic_heat_loss",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_bare_pipes_debugging_parasitic_heat_loss_thermal_inertia",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_fluid_component_test",
+]
+
+[module."calculation.rs"]
+path = "crate::pre_built_components::non_insulated_parallel_fluid_components::calculation"
+
+[[module."calculation.rs".function]]
+id = "fn:0109fa0043544916"
+name = "_advance_timestep_single_tube"
+qual = "NonInsulatedParallelFluidComponent::_advance_timestep_single_tube"
+lines = [
+    18,
+    26,
+]
+hash = "sha256:be3a7ada1360a0a0a72794204d84f5d57a6c74686532e58541dc482dbb0431e5"
+doc_hash = "sha256:85ab1a0c75b40c7251e559f4deb67259cd76f2c0f9f1f3fa6a012a6d8612e72e"
+callees = ["fn:03e08a20b60594d7"]
+physical_interface = true
+
+[[module."calculation.rs".function]]
+id = "fn:7a647903d43a5890"
+name = "advance_timestep"
+qual = "NonInsulatedParallelFluidComponent::advance_timestep"
+lines = [
+    28,
+    38,
+]
+hash = "sha256:855173902c3ac8467333cd1bd07a4226586a121d2620312f5f6af6c063be328a"
+doc_hash = "sha256:2c2c762cb9ca00a09bac7545d1d8cb8da9266501b7e64cc5a7b5a33a53f39a79"
+callees = [
+    "fn:3209ee7c07fd65b5",
+    "fn:9ee7c1007926a98e",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[[module."calculation.rs".function]]
+id = "fn:9ee7c1007926a98e"
+name = "advance_timestep_for_parallel_fluid_array_bundle"
+qual = "NonInsulatedParallelFluidComponent::advance_timestep_for_parallel_fluid_array_bundle"
+lines = [
+    40,
+    771,
+]
+hash = "sha256:82dcc9b507de9dcca1e3abfb26a1a85f17b2fb83bea0b91afb18da9e06cfe8ec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:10f595f5e14daa39",
+    "fn:25614892f3618c5c",
+    "fn:29b8c1ca86f721c9",
+    "fn:2d7b8ddc9930a271",
+    "fn:2e88cee31ae4c249",
+    "fn:45de95a2df8c0305",
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+    "fn:699fa23379f66832",
+    "fn:80d7c015ba040d18",
+    "fn:84b7870b4d7c7d91",
+    "fn:9b29effa4197411d",
+    "fn:a0b4115d2681280f",
+    "fn:b102dcadd8d4ca10",
+    "fn:e04a45132823706f",
+    "fn:eedc38381fcfd405",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[[module."calculation.rs".function]]
+id = "fn:3209ee7c07fd65b5"
+name = "advance_timestep_for_parallel_solid_column_bundle"
+qual = "NonInsulatedParallelFluidComponent::advance_timestep_for_parallel_solid_column_bundle"
+lines = [
+    773,
+    1363,
+]
+hash = "sha256:958e87d9c29259e8b0b0029f184bea3ba62e7c7dcbed289cbe196a39b6f20fd6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:45de95a2df8c0305",
+    "fn:7deae35d1cd72dec",
+    "fn:8039cff6211ad450",
+    "fn:8cb8a36af93a5e36",
+    "fn:9cf2732f8b0c6890",
+    "fn:a0b4115d2681280f",
+    "fn:a2275733c3fa6168",
+    "fn:b102dcadd8d4ca10",
+    "fn:e04a45132823706f",
+    "fn:eb89be045205dc88",
+    "fn:eedc1a53a24de8e0",
+    "fn:eedc38381fcfd405",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[[module."calculation.rs".function]]
+id = "fn:9893c77130d03738"
+name = "advance_timestep_thread_spawn"
+qual = "NonInsulatedParallelFluidComponent::advance_timestep_thread_spawn"
+lines = [
+    1365,
+    1381,
+]
+hash = "sha256:efaa79105f1d9998abecf2e2ccd7b4b570b6784ef264d2bb51cdb5021e36487f"
+doc_hash = "sha256:f6b97d5858d2a24b2396910d03d659356c98470f623432ebd6490099af38727c"
+callees = ["fn:7a647903d43a5890"]
+physical_interface = true
+
+[module."fluid_component.rs"]
+path = "crate::pre_built_components::non_insulated_parallel_fluid_components::fluid_component"
+
+[[module."fluid_component.rs".function]]
+id = "fn:38626e48c0770f05"
+name = "get_mass_flowrate"
+qual = "NonInsulatedParallelFluidComponent::get_mass_flowrate"
+lines = [
+    8,
+    18,
+]
+hash = "sha256:342ea67102c0404f976a6485c5375c6c9f3d9ba801de72104716de1510f0df00"
+doc_hash = "sha256:fb5244704d200b19b528602369fea2aea4e7d4dec4fd3e2b278fda79f3fd55cd"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:3f3a780cfa9bfb24"
+name = "set_mass_flowrate"
+qual = "NonInsulatedParallelFluidComponent::set_mass_flowrate"
+lines = [
+    20,
+    34,
+]
+hash = "sha256:092e951b0900034d08dfa5af96a983269156d85248f60f9710d259a4de4f253c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:9212f011bf144631",
+    "fn:f8fcd27da58670ac",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:265f9c5153881730"
+name = "get_mass_flowrate_from_pressure_loss_immutable"
+qual = "NonInsulatedParallelFluidComponent::get_mass_flowrate_from_pressure_loss_immutable"
+lines = [
+    36,
+    43,
+]
+hash = "sha256:501f3a28a25262933997a5eca13302613d02ffb95cd6f05165daea151e0af722"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e49a2c708f64bed",
+    "fn:4f08e35087543a15",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:5c91c9dab0ba819f"
+name = "get_pressure_loss"
+qual = "NonInsulatedParallelFluidComponent::get_pressure_loss"
+lines = [
+    45,
+    49,
+]
+hash = "sha256:53156019f7ef510f6aa03844cfcc9a7d2dac7c3a3c8a151b8831c55a05087dd7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:c1cd743e200a5b68",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:75d8b50cb9123c17"
+name = "set_pressure_loss"
+qual = "NonInsulatedParallelFluidComponent::set_pressure_loss"
+lines = [
+    51,
+    55,
+]
+hash = "sha256:6345ca104280d7b8dcbf09adccf97dbd9ef4852d8ab19abe85eeb333b4df3917"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5d36a8426cb919e3",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:936800f844bafa7f"
+name = "get_pressure_loss_immutable"
+qual = "NonInsulatedParallelFluidComponent::get_pressure_loss_immutable"
+lines = [
+    57,
+    63,
+]
+hash = "sha256:cf96a36cb978f5818be7fc33a61c2a13322a9936c1772b0b8dd53ee0b2af924e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5cc3a78cc9d2e79a",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:3bfaeed143307838"
+name = "get_cross_sectional_area"
+qual = "NonInsulatedParallelFluidComponent::get_cross_sectional_area"
+lines = [
+    65,
+    71,
+]
+hash = "sha256:fe1ff691a8e93b9b53f7072fdffa5b47e68d7e4ca39b59ac6a0682c166afbc6f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7860f11bd51dbb37",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:f5f3e85788bb39bf"
+name = "get_cross_sectional_area_immutable"
+qual = "NonInsulatedParallelFluidComponent::get_cross_sectional_area_immutable"
+lines = [
+    73,
+    79,
+]
+hash = "sha256:3b5f924d65b95ce54325c3b7e6d7b7f389aeb6955b308b5df58c3e86782ad74b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7860f11bd51dbb37",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:8f185d1d23bf8c21"
+name = "get_hydraulic_diameter"
+qual = "NonInsulatedParallelFluidComponent::get_hydraulic_diameter"
+lines = [
+    81,
+    88,
+]
+hash = "sha256:ee0d8dadec1017e45bf24132accacfde549b779ff5a514140ff641aada1271be"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:457e96f4f0b76ef7",
+    "fn:4f08e35087543a15",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:b53f598972dbe8de"
+name = "get_hydraulic_diameter_immutable"
+qual = "NonInsulatedParallelFluidComponent::get_hydraulic_diameter_immutable"
+lines = [
+    90,
+    97,
+]
+hash = "sha256:e0e6362b3593bf2807efd693c8bc30c09164c24b92ad7e9cef63c7098bbe8fac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:457e96f4f0b76ef7",
+    "fn:4f08e35087543a15",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:78cece0a06706e81"
+name = "get_fluid_viscosity_at_ref_temperature"
+qual = "NonInsulatedParallelFluidComponent::get_fluid_viscosity_at_ref_temperature"
+lines = [
+    99,
+    105,
+]
+hash = "sha256:9915a502bb3842e92f34552920482f34544137f364b1d6fd43b4d991b3947c75"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5dc3c4cb5f94e19e",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:a151e55d5653c074"
+name = "get_fluid_viscosity_immutable_at_ref_temperature"
+qual = "NonInsulatedParallelFluidComponent::get_fluid_viscosity_immutable_at_ref_temperature"
+lines = [
+    107,
+    113,
+]
+hash = "sha256:edd77088fd8c5470b910de2585b521e7cce6a9c2e6f8a4341d5a6f99069f9a14"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5dc3c4cb5f94e19e",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:b6a4a4001b4d9d58"
+name = "get_fluid_density_at_ref_temperature"
+qual = "NonInsulatedParallelFluidComponent::get_fluid_density_at_ref_temperature"
+lines = [
+    115,
+    121,
+]
+hash = "sha256:d8be028899ce629399e917c06b528b294b18c90aae14bbb7657af4940798664c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:129612370ebfb9ce",
+    "fn:4f08e35087543a15",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:35ad80bcb0d76daa"
+name = "get_fluid_density_immutable_at_ref_temperature"
+qual = "NonInsulatedParallelFluidComponent::get_fluid_density_immutable_at_ref_temperature"
+lines = [
+    123,
+    129,
+]
+hash = "sha256:80273993e178fd5c23049295def2506dd858d377f195c7bdcc17f084777d5c0a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:129612370ebfb9ce",
+    "fn:4f08e35087543a15",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:b51e22f7457c3331"
+name = "get_component_length"
+qual = "NonInsulatedParallelFluidComponent::get_component_length"
+lines = [
+    131,
+    138,
+]
+hash = "sha256:806753616100d3d26b973a90b4e0219280ef8f2c990218e4f2b01ead9862d3b7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7b8091c3b21fab1e",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:ea2e5c6b38fcb325"
+name = "get_component_length_immutable"
+qual = "NonInsulatedParallelFluidComponent::get_component_length_immutable"
+lines = [
+    140,
+    147,
+]
+hash = "sha256:4e6ca55dfdaf8699d718c23f57803620f96e2198138decb92f41743e32251fbd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7b8091c3b21fab1e",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:fed7dc0a98cfdc43"
+name = "get_incline_angle"
+qual = "NonInsulatedParallelFluidComponent::get_incline_angle"
+lines = [
+    149,
+    156,
+]
+hash = "sha256:6d9146ede3b5e96d3b98c55b8aaddc17ce682f3e96687ea332074e46bdea4658"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3115510adeccfc6e",
+    "fn:4f08e35087543a15",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:3c3db7c379972fbc"
+name = "get_incline_angle_immutable"
+qual = "NonInsulatedParallelFluidComponent::get_incline_angle_immutable"
+lines = [
+    158,
+    165,
+]
+hash = "sha256:297967b064e8783023917fbf7ba2b4a78c8bdd3148367359fe8d854e65a28f92"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3115510adeccfc6e",
+    "fn:4f08e35087543a15",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:6c8505ea508e122b"
+name = "get_internal_pressure_source"
+qual = "NonInsulatedParallelFluidComponent::get_internal_pressure_source"
+lines = [
+    167,
+    174,
+]
+hash = "sha256:9318e8586bd97d662988ced6a41d80c8113ed4d45826c5f10e31077bbe3f7510"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3399320921e68dcb",
+    "fn:4f08e35087543a15",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:4e932f86a019a007"
+name = "get_internal_pressure_source_immutable"
+qual = "NonInsulatedParallelFluidComponent::get_internal_pressure_source_immutable"
+lines = [
+    176,
+    183,
+]
+hash = "sha256:38bae95060b5156f8fb07ba8ddaa624b78c5118ec6e747f00a39eddafbb5868f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3399320921e68dcb",
+    "fn:4f08e35087543a15",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:77b2ee80d45e940e"
+name = "set_internal_pressure_source"
+qual = "NonInsulatedParallelFluidComponent::set_internal_pressure_source"
+lines = [
+    185,
+    194,
+]
+hash = "sha256:7da383a99720efb04a978dec182394eb229c40b09b032823b7d7e9d3922afeac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:ca08e804e6e3c21c",
+]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::non_insulated_parallel_fluid_components"
+
+[[module."mod.rs".function]]
+id = "fn:2d4b62ea71933f75"
+name = "new_bare_pipe_parallel_array"
+qual = "NonInsulatedParallelFluidComponent::new_bare_pipe_parallel_array"
+lines = [
+    89,
+    182,
+]
+hash = "sha256:aa2f6fba1d5f618dfe36aff2c7897e8d50bdcf5531e3a4b613cf737ff07f8379"
+doc_hash = "sha256:f6eb0fdbcf92c4e29d8179e52b04b4dc4074a6f7557a2e792f639fff1e986fe2"
+callees = [
+    "fn:1f95f8f45b36cfb9",
+    "fn:2ee4f67ebdd1986d",
+    "fn:5809a771c2fb7658",
+    "fn:a7684adf457511e5",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:0e3520d928fdc45a"
+name = "new_custom_component_parallel_array"
+qual = "NonInsulatedParallelFluidComponent::new_custom_component_parallel_array"
+lines = [
+    183,
+    265,
+]
+hash = "sha256:a1096b186c5b082729fd27b8096b589d3f2ebd5f20da16be1cc6b59f62db8f7f"
+doc_hash = "sha256:d900d0f799216217dc6a4fa9d06092b2edc28f17c8dc7aacfb60d688a10b8e99"
+callees = [
+    "fn:1f95f8f45b36cfb9",
+    "fn:2ee4f67ebdd1986d",
+    "fn:3306dfff34f781dd",
+    "fn:c9002ba20db6841b",
+]
+physical_interface = true
+
+[module."postprocessing.rs"]
+path = "crate::pre_built_components::non_insulated_parallel_fluid_components::postprocessing"
+
+[[module."postprocessing.rs".function]]
+id = "fn:ce71a3b5b79526d0"
+name = "pipe_shell_temperature"
+qual = "NonInsulatedParallelFluidComponent::pipe_shell_temperature"
+lines = [
+    7,
+    12,
+]
+hash = "sha256:7e53f0298fefb0b7fa34313ec57d0a224b492e55689da2f1ee13011ad3ee9199"
+doc_hash = "sha256:2c2d20f524a273794b480c9675019330e27bae78244460b6489313fc32e7a97c"
+callees = ["fn:81ebbad2a6b015cb"]
+physical_interface = true
+
+[[module."postprocessing.rs".function]]
+id = "fn:6c689c1c92833d83"
+name = "pipe_fluid_array_temperature"
+qual = "NonInsulatedParallelFluidComponent::pipe_fluid_array_temperature"
+lines = [
+    14,
+    19,
+]
+hash = "sha256:7ea2107427fd2bbc9cabfd70339a41b33b0cca4d09beb824d51db99255733594"
+doc_hash = "sha256:d1973c5b0793112ff33c42b53fc9507f0826fc811ecec15c8c08e029cf407200"
+callees = ["fn:81ebbad2a6b015cb"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[module."preprocessing.rs"]
+path = "crate::pre_built_components::non_insulated_parallel_fluid_components::preprocessing"
+
+[[module."preprocessing.rs".function]]
+id = "fn:59080dccaba71db7"
+name = "lateral_and_miscellaneous_connections_no_wall_correction"
+qual = "NonInsulatedParallelFluidComponent::lateral_and_miscellaneous_connections_no_wall_correction"
+lines = [
+    34,
+    63,
+]
+hash = "sha256:ffb6c376378c89f26f54228bb3ea7fd02cda1dd587f8714ee116602373316b65"
+doc_hash = "sha256:350dad53bd6d4e4b8a200997d27b7ba8fa94fe50c3efad26735187fa48fe308a"
+callees = ["fn:6b307aa3725bde94"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:5746075aa87156e6"
+name = "lateral_and_miscellaneous_connections_wall_correction"
+qual = "NonInsulatedParallelFluidComponent::lateral_and_miscellaneous_connections_wall_correction"
+lines = [
+    65,
+    94,
+]
+hash = "sha256:cb7e4e22f9ffa4e362a91f26a8b1bf4a8b3ea9253b59bf920a8fb560a1c65ece"
+doc_hash = "sha256:89e3308b0a445ca9204d8525b21fe6657b18c8bc94d31e24bc826487b623f7f7"
+callees = ["fn:6b307aa3725bde94"]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:6b307aa3725bde94"
+name = "lateral_and_miscellaneous_connections"
+qual = "NonInsulatedParallelFluidComponent::lateral_and_miscellaneous_connections"
+lines = [
+    96,
+    211,
+]
+hash = "sha256:292d998d24a89ba4beb385904508d6b2a5c7eb83a952a50d7fe3bdc6f3d6660f"
+doc_hash = "sha256:9794a4c4d061b2aafbaccd913d9e8be4962983af8e18c40f7617de127bcc36ef"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:3f3a780cfa9bfb24",
+    "fn:4f08e35087543a15",
+    "fn:6f83e0594ccc93a1",
+    "fn:86b7775079c503a5",
+    "fn:8a180ca0986c72b8",
+    "fn:9cf2732f8b0c6890",
+    "fn:a0a94855c9e1e3cb",
+    "fn:a2c73e865e5ad97f",
+    "fn:a5016d77314ec973",
+    "fn:abafd5a5e42d6a30",
+    "fn:be40085a8ed290cd",
+    "fn:eb89be045205dc88",
+    "fn:f8fcd27da58670ac",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:a2c73e865e5ad97f"
+name = "zero_power_bc_axial_connection"
+qual = "NonInsulatedParallelFluidComponent::zero_power_bc_axial_connection"
+lines = [
+    213,
+    248,
+]
+hash = "sha256:7cde4db62a90035f10dd2f9dd3e6a7ff9c3bd55f2e2b08ba22df181205b09d9c"
+doc_hash = "sha256:2c57eaa96f2f1c03aaaf91822a49c22d4809f6412a93e7b67ad87ccfafb7424a"
+callees = [
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."preprocessing.rs".function]]
+id = "fn:6f83e0594ccc93a1"
+name = "get_air_to_single_shell_nodal_shell_conductance"
+qual = "NonInsulatedParallelFluidComponent::get_air_to_single_shell_nodal_shell_conductance"
+lines = [
+    250,
+    294,
+]
+hash = "sha256:f5c6efc515e4f74821ca2a6f04ad3b39308790763d7caea4ab01c0e3c705d138"
+doc_hash = "sha256:5d568463a58a5fc5faff14deae2a0d969d485f703711d777eb9bb97d3f453494"
+callees = [
+    "fn:7d9e7837937bfa18",
+    "fn:a2275733c3fa6168",
+    "fn:b51e22f7457c3331",
+    "fn:eb89be045205dc88",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:a0a94855c9e1e3cb"
+name = "get_single_tube_fluid_array_node_pipe_shell_conductance"
+qual = "NonInsulatedParallelFluidComponent::get_single_tube_fluid_array_node_pipe_shell_conductance"
+lines = [
+    296,
+    457,
+]
+hash = "sha256:b6ac031174da8ed103dc709d786117e354f0f184e511c8317325afa5437e9606"
+doc_hash = "sha256:1519672f0135fe617cea55722b2cd8a80f9567510e791cbe2fea0c87be052b81"
+callees = [
+    "fn:25614892f3618c5c",
+    "fn:26aff73e30f8632a",
+    "fn:281e000f5919abf9",
+    "fn:33511a1688b49614",
+    "fn:37b8829042d7906e",
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+    "fn:578b1cf1bdc5bf1b",
+    "fn:7d9e7837937bfa18",
+    "fn:84b7870b4d7c7d91",
+    "fn:8f185d1d23bf8c21",
+    "fn:a03d943953e2b3cb",
+    "fn:a2275733c3fa6168",
+    "fn:bf4245b1c0d9cf88",
+    "fn:d2ef60a016252736",
+    "fn:e4ef3b79543287e1",
+    "fn:eb89be045205dc88",
+    "fn:f5f3e85788bb39bf",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:549edae191d9d1db"
+name = "get_reynolds_based_on_hydraulic_diameter_and_flow_area"
+qual = "NonInsulatedParallelFluidComponent::get_reynolds_based_on_hydraulic_diameter_and_flow_area"
+lines = [
+    459,
+    487,
+]
+hash = "sha256:209b1c840685802440309b0602e2481e3723db7853cd2483bb9af72003c85e98"
+doc_hash = "sha256:c0bea844f906fa4092de8e8471cee3f13b26d597e35a6fc876c3e5eba1571a54"
+callees = [
+    "fn:281e000f5919abf9",
+    "fn:4f08e35087543a15",
+    "fn:578b1cf1bdc5bf1b",
+    "fn:b53f598972dbe8de",
+    "fn:f5f3e85788bb39bf",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:b5493acda5550fbc"
+name = "lateral_connection_thread_spawn"
+qual = "NonInsulatedParallelFluidComponent::lateral_connection_thread_spawn"
+lines = [
+    489,
+    516,
+]
+hash = "sha256:98691b6dd722734bc88c0c709fce1bf28dcd4c7b51e30a285be7fa60c73d9261"
+doc_hash = "sha256:7809504681bbe25b3da16a9fa2496f2d3cdd3d3ea42f1d553d449e46df9937d9"
+callees = ["fn:59080dccaba71db7"]
+physical_interface = true
+
+[module."tests.rs"]
+path = "crate::pre_built_components::non_insulated_parallel_fluid_components::tests"
+
+[[module."tests.rs".function]]
+id = "fn:6156a7fd86c82322"
+name = "parallel_bare_pipes_debugging_heat_addition"
+qual = "parallel_bare_pipes_debugging_heat_addition"
+lines = [
+    1,
+    329,
+]
+hash = "sha256:d14743926a0ed65b6315546f2a98f4b060b7335c200863d74abe9a7fbbdc6e0f"
+doc_hash = "sha256:ecdd08b0759a3094833c3e171b6ed66878da42026ccdd492609bf7ae68e55ad0"
+callees = [
+    "fn:2d0477b1a1450172",
+    "fn:2d4b62ea71933f75",
+    "fn:2d7b8ddc9930a271",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:59080dccaba71db7",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:6c689c1c92833d83",
+    "fn:70cae68e0ec8771e",
+    "fn:71e0b3e056618526",
+    "fn:7a647903d43a5890",
+    "fn:f66c6613b2fa9c0c",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:43c4d3d7840f24cc"
+name = "parallel_bare_pipes_debugging_heat_addition_with_parasitic_heat_loss"
+qual = "parallel_bare_pipes_debugging_heat_addition_with_parasitic_heat_loss"
+lines = [
+    331,
+    659,
+]
+hash = "sha256:f72a9cbf2c2f83f2b69bfffa0aa4bd92a3a4eaf7cd16f2771598faf39a52f963"
+doc_hash = "sha256:2e21b4bdda34f2f9757e63c2c93dd3ef78b6451165dbcd4163a0368a39f8a910"
+callees = [
+    "fn:2d0477b1a1450172",
+    "fn:2d4b62ea71933f75",
+    "fn:2d7b8ddc9930a271",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:59080dccaba71db7",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:6c689c1c92833d83",
+    "fn:70cae68e0ec8771e",
+    "fn:71e0b3e056618526",
+    "fn:7a647903d43a5890",
+    "fn:f66c6613b2fa9c0c",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b7ffe0eed70390a2"
+name = "parallel_bare_pipes_debugging_parasitic_heat_loss_thermal_inertia"
+qual = "parallel_bare_pipes_debugging_parasitic_heat_loss_thermal_inertia"
+lines = [
+    661,
+    999,
+]
+hash = "sha256:e511ef623b815c29c19fc4ac208f297098f1054a367a680e85a5c623c24d295d"
+doc_hash = "sha256:440a59def10e4d8c7883ad85163a2c9afefd4e939bf5339c0b8a5db5203299cb"
+callees = [
+    "fn:2d0477b1a1450172",
+    "fn:2d4b62ea71933f75",
+    "fn:2d7b8ddc9930a271",
+    "fn:3248ee5ef13b429f",
+    "fn:3ab99241909cec96",
+    "fn:4290bfc4e6fe56c4",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:59080dccaba71db7",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:6c689c1c92833d83",
+    "fn:70cae68e0ec8771e",
+    "fn:71e0b3e056618526",
+    "fn:7a647903d43a5890",
+    "fn:f66c6613b2fa9c0c",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:9a6b3f92ef4f1e40"
+name = "parallel_fluid_component_test"
+qual = "parallel_fluid_component_test"
+lines = [
+    1001,
+    1201,
+]
+hash = "sha256:c849bc04845c8dcf0faea3b59fb8e56cfb82c414029af00db3d7fd3120ae645d"
+doc_hash = "sha256:8263d6802e7a1b4be5314ff0daf752711e4a4c45439568bb3a4068a247849e75"
+callees = [
+    "fn:2d4b62ea71933f75",
+    "fn:2d7b8ddc9930a271",
+    "fn:4a2cd58a91e33823",
+    "fn:4f08e35087543a15",
+    "fn:70cae68e0ec8771e",
+    "fn:c36fe0547d8dbc75",
+]
+test = true
+
+[module."type_conversion.rs"]
+path = "crate::pre_built_components::non_insulated_parallel_fluid_components::type_conversion"
+
+[[module."type_conversion.rs".function]]
+id = "fn:4a2cd58a91e33823"
+name = "into"
+qual = "NonInsulatedParallelFluidComponent::into"
+lines = [
+    9,
+    17,
+]
+hash = "sha256:3a8cf1c5f4270c46b29d1e8abb6efdc4c79d695604f4f72d2d5eac491e2309c8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4f08e35087543a15"]
+reached_by = ["#3"]

@@ -1,0 +1,309 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-turbulence-lib"
+dir = "crates/outram-foam-turbulence-lib/src/laminar"
+test_ids = [
+    "crates/outram-foam-turbulence-lib/src/laminar/mod.rs::effective_properties_equal_molecular",
+    "crates/outram-foam-turbulence-lib/src/laminar/mod.rs::nut_is_identically_zero",
+    "crates/outram-foam-turbulence-lib/src/laminar/mod.rs::shear_velocity_yields_finite_nonzero_stress",
+    "crates/outram-foam-turbulence-lib/src/laminar/mod.rs::uniform_velocity_yields_zero_stress",
+]
+
+[module."mod.rs"]
+path = "crate::laminar"
+
+[[module."mod.rs".function]]
+id = "fn:fd695b3b76e7599b"
+name = "outer"
+qual = "outer"
+lines = [
+    51,
+    55,
+]
+hash = "sha256:fe096e52d8accdfa8ed3a196a98205d8c765ee8b412e1f8a81f41ce6f5634ae9"
+doc_hash = "sha256:8ba986b985aaa7154e020240749701d3627c7767389ca74b5663bfe6f4406866"
+callees = ["fn:357ed3572c0cdd6b"]
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:833047a39948be7f"
+name = "tensor_dot_vec"
+qual = "tensor_dot_vec"
+lines = [
+    57,
+    65,
+]
+hash = "sha256:ca63424c839755abb62132ad77fc7bfb403f211713d388e58d98fc56a96c8c70"
+doc_hash = "sha256:4da0147a70e4d148ae14db68f169951c2f75634e00dbe6ecc6affef683209aec"
+callees = ["fn:9e501e5f4cce23ae"]
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a2d5a57e44e76471"
+name = "scalar_field"
+qual = "scalar_field"
+lines = [
+    67,
+    75,
+]
+hash = "sha256:79c6eea9a55dabce0ad39f19c65c3b7320b3ced8ef4593361337e74a96a07443"
+doc_hash = "sha256:27b5edaa19615553aab0e982d7b02f1f73a2f20a81072012532ffe0ffdf955fa"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:4a3d63f4a0e47a1c",
+    "fn:f59a35e9cbd8b293",
+]
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:56337e034372e77f"
+name = "grad_u"
+qual = "grad_u"
+lines = [
+    77,
+    99,
+]
+hash = "sha256:e1c3690b224114202ebe395826117a202cc0f846a9531efa6939422461c973b1"
+doc_hash = "sha256:d67389d54fd146ca2a95d74a5345ee101ab5ab6d493bec27bc415604a501cbe7"
+callees = [
+    "fn:36fb6fbe24620d61",
+    "fn:4aea3161a87c6021",
+    "fn:92fd53f240dcfb8e",
+    "fn:abc7404e3cca132a",
+    "fn:b1c4cc6aa93ebf33",
+    "fn:fd695b3b76e7599b",
+]
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4232c59384ddd90a"
+name = "new"
+qual = "LaminarModel::new"
+lines = [
+    121,
+    127,
+]
+hash = "sha256:3d2bf36869b3b037826fdd313eb60805516c29c1a7b71e288bcd4eb34e936d91"
+doc_hash = "sha256:64302f009fec4c0a11d17acb3cc6786697bb05bbf73830638e90f4e9b2707c88"
+callees = ["fn:d6a9c884aaeb7775"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f3f738c670978d8c"
+name = "div_dev_rho_reff"
+qual = "LaminarModel::div_dev_rho_reff"
+lines = [
+    131,
+    174,
+]
+hash = "sha256:340152fd9a9f79fca4a79b68541b6503f3e58cbdf29d73022e6ac92441561859"
+doc_hash = "sha256:245eeec4b78917bca2f540b859ac07287f07810cfc075ff7fe57a011c01972ea"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:141adee55eb7a86e",
+    "fn:1e0c0abc3044dc8b",
+    "fn:2bd71c55c515093e",
+    "fn:36fb6fbe24620d61",
+    "fn:4aea3161a87c6021",
+    "fn:56337e034372e77f",
+    "fn:636ae5a21be9336b",
+    "fn:65f8f3c9daf074d2",
+    "fn:6d45af0d518e142d",
+    "fn:833047a39948be7f",
+    "fn:a2d5a57e44e76471",
+    "fn:a8a8aa01bdeead4b",
+    "fn:b1c4cc6aa93ebf33",
+]
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:892799de1e82480e"
+name = "correct"
+qual = "LaminarModel::correct"
+lines = [
+    176,
+    177,
+]
+hash = "sha256:d1bc049fb3384daefb3b0b51c2be77a9021bdfcb0a9a38ca93492f11a80a888c"
+doc_hash = "sha256:8b1a24aee457d00c9067be5f636eeb225a4224ba2fee11359b5d72fef20e32d7"
+
+[[module."mod.rs".function]]
+id = "fn:5478d1ce02bbaf61"
+name = "nu_t"
+qual = "LaminarModel::nu_t"
+lines = [
+    179,
+    183,
+]
+hash = "sha256:4fad43b12788a6266e45d749dff6137cdef05e86509d8f0ba5263ca9d109e1a0"
+doc_hash = "sha256:61a7bde53382086accd54aa3f0fdd2545852eff5bd86f1016ebc08518221deed"
+reached_by = ["#1"]
+
+[[module."mod.rs".function]]
+id = "fn:fa4cac60d27ae1c5"
+name = "alpha_eff"
+qual = "LaminarModel::alpha_eff"
+lines = [
+    185,
+    189,
+]
+hash = "sha256:743c3081cb0acfa7d1cc8992b93c16c096b50e8d9e6e4d11a365b18656930f00"
+doc_hash = "sha256:4d933c779ea6f59f362016628d6bd9b21df8824c40a8400ce7609f0902ec5b85"
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:2856460eb7fdfd43"
+name = "mu_eff_field"
+qual = "LaminarModel::mu_eff_field"
+lines = [
+    191,
+    195,
+]
+hash = "sha256:59b8f7cc91cbc56c3174518ea93ff0b2ab179c1961a94b271153dc0ea77e72c2"
+doc_hash = "sha256:0d41e72e6c16b3340cf573186f2531c8e3e024e963b2ae1ac089d25b2e7ea4fe"
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:853d1b12c868c7e2"
+name = "vx"
+qual = "vx"
+lines = [
+    203,
+    205,
+]
+hash = "sha256:b8e1d88ee4bfa0e843673c772fc6aae5a8629591774ebd9fa9ddbfd12625f510"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9e501e5f4cce23ae"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:9a8707a4339a4efa"
+name = "line_mesh"
+qual = "line_mesh"
+lines = [
+    207,
+    229,
+]
+hash = "sha256:4d01e918dcdbbf1071e035948e73ad1870e4618617f593b6d2d8438a1373004a"
+doc_hash = "sha256:b128b2317bf332c0bc0841bbbb1fd6fb8a30d99174540b1d4733e675d89d8fe2"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:853d1b12c868c7e2",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:070987e09a218751"
+name = "nut_is_identically_zero"
+qual = "nut_is_identically_zero"
+lines = [
+    231,
+    249,
+]
+hash = "sha256:3e5435163ab2750357def1e216bc5a688b931c33e1a748ace7085be64718dc76"
+doc_hash = "sha256:6f2a2bc95962411b930424859087772d43bc6c0eab93b826831411f372dca324"
+callees = [
+    "fn:4232c59384ddd90a",
+    "fn:5478d1ce02bbaf61",
+    "fn:636e75b664f14254",
+    "fn:6d45af0d518e142d",
+    "fn:9a8707a4339a4efa",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:4c8d0dae27cf5111"
+name = "uniform_velocity_yields_zero_stress"
+qual = "uniform_velocity_yields_zero_stress"
+lines = [
+    251,
+    277,
+]
+hash = "sha256:a42a35a3f9e0bfb90f8d28f748b53cd4f940553b31ceb0f9b02d3afb421f4e26"
+doc_hash = "sha256:83a2585a9ab613b6c008ac6899920e8e3c74060f3b21a4f95b5fa69d3089cd58"
+callees = [
+    "fn:4232c59384ddd90a",
+    "fn:636e75b664f14254",
+    "fn:853d1b12c868c7e2",
+    "fn:9a8707a4339a4efa",
+    "fn:acfb0f2d7b950994",
+    "fn:da83a902c2e8f462",
+    "fn:ed7d718f646723fc",
+    "fn:f3f738c670978d8c",
+    "fn:f59a35e9cbd8b293",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:8373d072de4ac816"
+name = "shear_velocity_yields_finite_nonzero_stress"
+qual = "shear_velocity_yields_finite_nonzero_stress"
+lines = [
+    279,
+    317,
+]
+hash = "sha256:59ed0e55f46a60c95d035dc0a14db4bdd5f3e19087dfeef769d4a3ab32541d04"
+doc_hash = "sha256:2bc69ed8088bfb95825e54ef1eac972b65fa46ccbc7da8bbc1ccd3bb4a473783"
+callees = [
+    "fn:4232c59384ddd90a",
+    "fn:636e75b664f14254",
+    "fn:853d1b12c868c7e2",
+    "fn:9a8707a4339a4efa",
+    "fn:acfb0f2d7b950994",
+    "fn:da83a902c2e8f462",
+    "fn:ed7d718f646723fc",
+    "fn:f3f738c670978d8c",
+    "fn:f59a35e9cbd8b293",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:570efee32fc3b0ed"
+name = "effective_properties_equal_molecular"
+qual = "effective_properties_equal_molecular"
+lines = [
+    319,
+    357,
+]
+hash = "sha256:3e46b4c1636e411fbc519ed68d48b685a4e94179a51c67bff5a2e9675ae12fd1"
+doc_hash = "sha256:eba5cd279a998874f6ed0d6dfbb5b897d997c01c91c39cbfcb903d80f71c6bfb"
+callees = [
+    "fn:2856460eb7fdfd43",
+    "fn:4232c59384ddd90a",
+    "fn:636e75b664f14254",
+    "fn:6d45af0d518e142d",
+    "fn:9a8707a4339a4efa",
+    "fn:fa4cac60d27ae1c5",
+]
+test = true

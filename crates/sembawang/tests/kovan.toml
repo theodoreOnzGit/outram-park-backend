@@ -1,0 +1,800 @@
+schema_version = 1
+kind = "code_folder"
+crate = "sembawang"
+dir = "crates/sembawang/tests"
+
+[module."accident_release.rs"]
+path = "test:accident_release"
+
+[[module."accident_release.rs".function]]
+id = "fn:5bc45637262ad24d"
+name = "c"
+qual = "c"
+lines = [
+    31,
+    33,
+]
+hash = "sha256:697d74aa65ae1d79717e56d9368f71a89245927492b37fd878e3ecb24faf0ab3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."accident_release.rs".function]]
+id = "fn:51931f7095289890"
+name = "plant"
+qual = "plant"
+lines = [
+    35,
+    40,
+]
+hash = "sha256:1ca5f4568ed3856e6e09b042d3e071c6d3105a7a46c81fb5518b7ab89cd2804c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:976df1a90886aac8"]
+test = true
+
+[[module."accident_release.rs".function]]
+id = "fn:6cd3c53baedcc95f"
+name = "heating_transient"
+qual = "heating_transient"
+lines = [
+    42,
+    54,
+]
+hash = "sha256:e15747b24bb6c80eda9b64ced89aed46eb06d293c84ef4fb554be481ce4be530"
+doc_hash = "sha256:c3e340f92001f27e297b9fa6741a2c42e15d81459c50270f359958842ea6f563"
+callees = [
+    "fn:5bc45637262ad24d",
+    "fn:f690f81defba2fa7",
+]
+test = true
+
+[[module."accident_release.rs".function]]
+id = "fn:1e9840ae6c1361f2"
+name = "the_chain_runs_and_produces_a_well_formed_source_term"
+qual = "the_chain_runs_and_produces_a_well_formed_source_term"
+lines = [
+    56,
+    100,
+]
+hash = "sha256:082ebe930005638349ee80760183a69bc48c0d1683c54880d72e4f85ea94b430"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:287655c3c5fb9c7a",
+    "fn:51931f7095289890",
+    "fn:6cd3c53baedcc95f",
+    "fn:d0063f58f6bbe28a",
+    "fn:d32a22068ae5e17f",
+    "fn:d609ff6f6efcdcff",
+    "fn:ed4dcc33c0d21375",
+]
+test = true
+
+[[module."accident_release.rs".function]]
+id = "fn:bdfe2a2e1cbdb62d"
+name = "tellurium_is_classified_as_a_depositing_aerosol_not_a_halogen"
+qual = "tellurium_is_classified_as_a_depositing_aerosol_not_a_halogen"
+lines = [
+    102,
+    133,
+]
+hash = "sha256:1e915ef9c01728d317e98384ade32d0ecbca269eb84238aee784e3040a9aee8a"
+doc_hash = "sha256:7c8699e08ba85abd0a10b3cacada8679ed7e28038819a6496b1e33224b1c556b"
+callees = [
+    "fn:51931f7095289890",
+    "fn:6cd3c53baedcc95f",
+    "fn:d0063f58f6bbe28a",
+    "fn:d609ff6f6efcdcff",
+]
+test = true
+
+[[module."accident_release.rs".function]]
+id = "fn:32825271974bade6"
+name = "the_release_is_linear_in_the_inventory"
+qual = "the_release_is_linear_in_the_inventory"
+lines = [
+    135,
+    177,
+]
+hash = "sha256:68b2ee7c671c6fd6b2565c21318ae838ee52146c969d4ab89f5931ecc7b8e07b"
+doc_hash = "sha256:495f89a544d5be7cb1c81270f02279f0bd2398f967a7a48bf907cb2f46ecc731"
+callees = [
+    "fn:51931f7095289890",
+    "fn:6cd3c53baedcc95f",
+    "fn:d0063f58f6bbe28a",
+    "fn:d609ff6f6efcdcff",
+    "fn:e2ec07573ffc5233",
+]
+test = true
+
+[[module."accident_release.rs".function]]
+id = "fn:b3f67afe450a3195"
+name = "the_half_life_screen_reports_what_it_drops"
+qual = "the_half_life_screen_reports_what_it_drops"
+lines = [
+    179,
+    211,
+]
+hash = "sha256:f5e86365e03a6708c4ecfbc64e2f750239179d79164b1c48ef5e35d129c88791"
+doc_hash = "sha256:3460340dd047fa799caae458f4c20196257c808902845b9912567777686ef0ee"
+callees = [
+    "fn:51931f7095289890",
+    "fn:6cd3c53baedcc95f",
+    "fn:d0063f58f6bbe28a",
+    "fn:d609ff6f6efcdcff",
+]
+test = true
+
+[[module."accident_release.rs".function]]
+id = "fn:ce1aa0df0658d7b7"
+name = "a_heat_cool_reheat_transient_is_flagged_as_incomparable_with_upstream"
+qual = "a_heat_cool_reheat_transient_is_flagged_as_incomparable_with_upstream"
+lines = [
+    213,
+    250,
+]
+hash = "sha256:1472eb2b316c22fb0768344a542b7d5d512202ee002afde6e204a5b6d237196b"
+doc_hash = "sha256:f43dd28a3ed9c37059d31e716f9b9234c770779d0d49304b2f3f35acdfaddb52"
+callees = [
+    "fn:0fb82a37e5879e94",
+    "fn:4c9c1a31e6c1991a",
+    "fn:51931f7095289890",
+    "fn:5bc45637262ad24d",
+    "fn:d0063f58f6bbe28a",
+    "fn:d609ff6f6efcdcff",
+]
+test = true
+
+[[module."accident_release.rs".function]]
+id = "fn:23097115996dcec0"
+name = "the_released_fractions_are_physical_and_are_reported"
+qual = "the_released_fractions_are_physical_and_are_reported"
+lines = [
+    252,
+    312,
+]
+hash = "sha256:0f13530ff7bec3a285ba3aab04949e282aec51d2e7e5d34e03fead793665971b"
+doc_hash = "sha256:a122c38e3e3051e3bb8522576da3888936b5af1552d20075eb7e1a68963baee5"
+callees = [
+    "fn:287655c3c5fb9c7a",
+    "fn:3ba47b1b617f33a4",
+    "fn:4c9c1a31e6c1991a",
+    "fn:51931f7095289890",
+    "fn:6ae274634d640098",
+    "fn:6cd3c53baedcc95f",
+    "fn:b74cee70a19ec70d",
+    "fn:ce79aa44c181774d",
+    "fn:d0063f58f6bbe28a",
+    "fn:d609ff6f6efcdcff",
+]
+test = true
+
+[[module."accident_release.rs".function]]
+id = "fn:e880964b0d5a1a29"
+name = "nuclides_sharing_a_diffusion_bucket_release_identically"
+qual = "nuclides_sharing_a_diffusion_bucket_release_identically"
+lines = [
+    314,
+    402,
+]
+hash = "sha256:40ab737ee482f70df749add863d34d6e580242d57960cbd51b0d2d1ce794e3ef"
+doc_hash = "sha256:d3253b21fe3cd14d296de21c12767ea51bc7424d81efb1d8efdfcbd3123816e6"
+callees = [
+    "fn:51931f7095289890",
+    "fn:6ae274634d640098",
+    "fn:6cd3c53baedcc95f",
+    "fn:b439dd3bbfa618d8",
+    "fn:d0063f58f6bbe28a",
+    "fn:d609ff6f6efcdcff",
+]
+test = true
+
+[[module."accident_release.rs".function]]
+id = "fn:837c86d2fdc0c4c9"
+name = "the_defect_pathway_carries_the_magnitude_of_the_release"
+qual = "the_defect_pathway_carries_the_magnitude_of_the_release"
+lines = [
+    404,
+    444,
+]
+hash = "sha256:9f19f0f2c064784672651e15f7529b16583313dfc058bafeb9ec654755b0f712"
+doc_hash = "sha256:dbfa6a3f58bbfd55bd8f52c98e23a449df0ca70d8190d92f358009d6f8f7e1d5"
+callees = [
+    "fn:51931f7095289890",
+    "fn:6ae274634d640098",
+    "fn:6cd3c53baedcc95f",
+    "fn:d0063f58f6bbe28a",
+    "fn:d609ff6f6efcdcff",
+]
+test = true
+
+[[module."accident_release.rs".function]]
+id = "fn:67f5c653356c0633"
+name = "a_cooler_shorter_transient_does_not_differentiate_them_either"
+qual = "a_cooler_shorter_transient_does_not_differentiate_them_either"
+lines = [
+    446,
+    496,
+]
+hash = "sha256:2331a6f9e49a5eebf81765919fd7061af12bcde4382a101f4a6afb2d56f2d74c"
+doc_hash = "sha256:7945ca787bc430de8202df56df372ce3a9b5b355294b51dd6f62dad8ef9a26d8"
+callees = [
+    "fn:51931f7095289890",
+    "fn:5bc45637262ad24d",
+    "fn:6ae274634d640098",
+    "fn:b439dd3bbfa618d8",
+    "fn:d0063f58f6bbe28a",
+    "fn:d609ff6f6efcdcff",
+    "fn:f690f81defba2fa7",
+]
+test = true
+
+[module."chain_handoff.rs"]
+path = "test:chain_handoff"
+
+[[module."chain_handoff.rs".function]]
+id = "fn:681506e08efa9cc2"
+name = "s"
+qual = "s"
+lines = [
+    49,
+    51,
+]
+hash = "sha256:f14c909ae4b26f730573a5a8701a704cea33afbce669d3294b4abfc5d18e4bc3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."chain_handoff.rs".function]]
+id = "fn:775f00da3a924b62"
+name = "transient"
+qual = "transient"
+lines = [
+    53,
+    65,
+]
+hash = "sha256:d9d07860de0ca139794a2d1aeb5dc78c824e5f7ef0fbb5aba5ccd98aded5d72b"
+doc_hash = "sha256:8e81d11a63f99604f174245c59456e7874e8610bd7106607aa5037ff4d864556"
+callees = [
+    "fn:681506e08efa9cc2",
+    "fn:f690f81defba2fa7",
+]
+test = true
+
+[[module."chain_handoff.rs".function]]
+id = "fn:9f621ab3a1e343e7"
+name = "inventory"
+qual = "inventory"
+lines = [
+    67,
+    76,
+]
+hash = "sha256:02e154a73574d578ccece4773cafe894e032f259563f4064720678c5b7fe5666"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:834887ea5459b8b0",
+    "fn:cc4a204b2260fc6f",
+    "fn:e2ec07573ffc5233",
+]
+test = true
+
+[[module."chain_handoff.rs".function]]
+id = "fn:abab6ac738c34225"
+name = "run_chain"
+qual = "run_chain"
+lines = [
+    78,
+    136,
+]
+hash = "sha256:c52bcedbfbebd2137b5abbc4265a255c5404b16af321c4d507c7b276f58b3ae8"
+doc_hash = "sha256:266b7359d90daac510e8bbbcfc0de8d913e387a481e62b91c47eb1e4566b3090"
+callees = [
+    "fn:04a8bf1ed7f00ed6",
+    "fn:062ed1fcbf39c30b",
+    "fn:481d98adc0fc36ae",
+    "fn:610faf13361f74de",
+    "fn:681506e08efa9cc2",
+    "fn:747679b63465e341",
+    "fn:771c549884eb2f62",
+    "fn:775f00da3a924b62",
+    "fn:80952b7847d8ca27",
+    "fn:976df1a90886aac8",
+    "fn:9f621ab3a1e343e7",
+    "fn:d609ff6f6efcdcff",
+]
+test = true
+
+[[module."chain_handoff.rs".function]]
+id = "fn:7d89b46144e0304c"
+name = "padding_adds_no_activity_and_partitions_the_run_from_zero"
+qual = "padding_adds_no_activity_and_partitions_the_run_from_zero"
+lines = [
+    138,
+    165,
+]
+hash = "sha256:42a3f26d8fb1f8c8e9ba03bc7199ce853cbc6bff400e20ce05651c4136e67dd5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:04a8bf1ed7f00ed6",
+    "fn:062ed1fcbf39c30b",
+    "fn:5818c0f0d1e04928",
+    "fn:610faf13361f74de",
+    "fn:681506e08efa9cc2",
+    "fn:775f00da3a924b62",
+    "fn:976df1a90886aac8",
+    "fn:9f621ab3a1e343e7",
+    "fn:d609ff6f6efcdcff",
+]
+test = true
+
+[[module."chain_handoff.rs".function]]
+id = "fn:b9fc9bbae6647d71"
+name = "a_release_starting_after_zero_gets_a_leading_empty_window"
+qual = "a_release_starting_after_zero_gets_a_leading_empty_window"
+lines = [
+    167,
+    193,
+]
+hash = "sha256:7043339affe29083be232da39170a0ecd2b5b4eaba39d658e67995e574d63881"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:04a8bf1ed7f00ed6",
+    "fn:062ed1fcbf39c30b",
+    "fn:681506e08efa9cc2",
+    "fn:e8f58180c812fc7c",
+    "fn:fb931a92ca00058a",
+]
+test = true
+
+[[module."chain_handoff.rs".function]]
+id = "fn:07955ba499dc66a8"
+name = "the_chain_is_linear_in_the_inventory"
+qual = "the_chain_is_linear_in_the_inventory"
+lines = [
+    195,
+    220,
+]
+hash = "sha256:672a807d2706a8a626e8e61a53af96a616802fbb2913c092403139893d98037a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2bbb56c415a29725",
+    "fn:49eca2863f100d7d",
+    "fn:6b87c53ec5263de5",
+    "fn:abab6ac738c34225",
+]
+test = true
+
+[[module."chain_handoff.rs".function]]
+id = "fn:c213d15943d7052e"
+name = "noble_gases_deposit_exactly_zero_and_the_others_do_not"
+qual = "noble_gases_deposit_exactly_zero_and_the_others_do_not"
+lines = [
+    222,
+    235,
+]
+hash = "sha256:514c27c66d5555aed95f9cad20987578d2bfaaad08add9485ff99fdecce525db"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:49eca2863f100d7d",
+    "fn:6b87c53ec5263de5",
+    "fn:abab6ac738c34225",
+]
+test = true
+
+[module."normal_operation_pools_code_to_code.rs"]
+path = "test:normal_operation_pools_code_to_code"
+
+[[module."normal_operation_pools_code_to_code.rs".function]]
+id = "fn:3fda749529107052"
+name = "data"
+qual = "data"
+lines = [
+    82,
+    86,
+]
+hash = "sha256:5181661a0a0de90d6f66003a639a04a13ec22e0153d27e36bfa4cb1a2fa28735"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."normal_operation_pools_code_to_code.rs".function]]
+id = "fn:60bb0cfb5e049de6"
+name = "table"
+qual = "table"
+lines = [
+    88,
+    96,
+]
+hash = "sha256:6415a2234f23255738324120f9f783c094f7399cef9c5c29cb0ff84c1c98a3c0"
+doc_hash = "sha256:902b9d307554ec3bf638b21c99ba945a4657897d02b542fdcd1a11b2f8a2c32a"
+callees = ["fn:3fda749529107052"]
+test = true
+
+[[module."normal_operation_pools_code_to_code.rs".function]]
+id = "fn:fdf7f1f93a5db1b5"
+name = "f"
+qual = "f"
+lines = [
+    98,
+    100,
+]
+hash = "sha256:7816b5f2f0a15a5e173a02493ed4432b9022c041da0b829ae0d0965bb2ef6c2b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."normal_operation_pools_code_to_code.rs".function]]
+id = "fn:759d48c69a230b6a"
+name = "rel"
+qual = "rel"
+lines = [
+    102,
+    108,
+]
+hash = "sha256:6c3ed178717c77dab42ad2ed0faf5260d63634da983d3a19fc2353ad13b495e7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."normal_operation_pools_code_to_code.rs".function]]
+id = "fn:96c42ae6fedee50c"
+name = "fig5"
+qual = "fig5"
+lines = [
+    110,
+    123,
+]
+hash = "sha256:c4a98a5853d35a06476b4460b323eaa52460ff3364c98683420f39f11d8831ef"
+doc_hash = "sha256:d5bfd814a03f702463d6b7eb1f873f8c7c409bac1a4e6c33a2d31b8840cd6723"
+callees = [
+    "fn:60bb0cfb5e049de6",
+    "fn:fdf7f1f93a5db1b5",
+]
+test = true
+
+[[module."normal_operation_pools_code_to_code.rs".function]]
+id = "fn:702830a66a663aec"
+name = "plant"
+qual = "plant"
+lines = [
+    125,
+    171,
+]
+hash = "sha256:c46c5c9efbcdaa82b41400a615cfec450ceafd7c25724008379d317445c627e5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:60bb0cfb5e049de6",
+    "fn:fdf7f1f93a5db1b5",
+]
+test = true
+
+[[module."normal_operation_pools_code_to_code.rs".function]]
+id = "fn:c23a7d4a6ced7957"
+name = "inventory"
+qual = "inventory"
+lines = [
+    173,
+    184,
+]
+hash = "sha256:65c29b9abe1c2fff13822118ac02b5f86b982821e33641256d174d9633f8772c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:60bb0cfb5e049de6",
+    "fn:cc4a204b2260fc6f",
+    "fn:fdf7f1f93a5db1b5",
+]
+test = true
+
+[[module."normal_operation_pools_code_to_code.rs".function]]
+id = "fn:3b3b580e497818d7"
+name = "transient"
+qual = "transient"
+lines = [
+    186,
+    197,
+]
+hash = "sha256:1a7754b78ab126852f49d2d3534b712d037e7892c0817c242158ae6cf2946e46"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:0fb82a37e5879e94"]
+test = true
+
+[[module."normal_operation_pools_code_to_code.rs".function]]
+id = "fn:5dfa21df3b1dba19"
+name = "sembawang_with_real_pools_matches_upstream_accident_case_on_mhtgr_case_a"
+qual = "sembawang_with_real_pools_matches_upstream_accident_case_on_mhtgr_case_a"
+lines = [
+    199,
+    235,
+]
+hash = "sha256:3a8ed6d3b7448a69eb03713c38d8e8e6b595b2f9ea38bdaed73b8aeba0dc9160"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3b3b580e497818d7",
+    "fn:4c9c1a31e6c1991a",
+    "fn:60bb0cfb5e049de6",
+    "fn:702830a66a663aec",
+    "fn:759d48c69a230b6a",
+    "fn:96a4981ab8e87d0f",
+    "fn:96c42ae6fedee50c",
+    "fn:c23a7d4a6ced7957",
+    "fn:fdf7f1f93a5db1b5",
+]
+test = true
+
+[[module."normal_operation_pools_code_to_code.rs".function]]
+id = "fn:7d161e4e9a24fd04"
+name = "every_constructor_starts_from_real_pools_and_empty_is_an_explicit_ablation"
+qual = "every_constructor_starts_from_real_pools_and_empty_is_an_explicit_ablation"
+lines = [
+    237,
+    251,
+]
+hash = "sha256:d232f1d8e67586fe4e03e74af083189689758cc4ee603b4b10b6b1d7735e020b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:976df1a90886aac8",
+    "fn:b439dd3bbfa618d8",
+    "fn:b6c4e7ce3cecbb03",
+    "fn:ca60b91c1932b8be",
+]
+test = true
+
+[module."nuclide_names_code_to_code.rs"]
+path = "test:nuclide_names_code_to_code"
+
+[[module."nuclide_names_code_to_code.rs".function]]
+id = "fn:e33cb7362af96875"
+name = "nuclide_names_are_handled_as_upstream_does"
+qual = "nuclide_names_are_handled_as_upstream_does"
+lines = [
+    43,
+    74,
+]
+hash = "sha256:cd7906ba7c0586f4492bff62e5ac5a82cb3817268ad71de8fe35b41763764e36"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:976df1a90886aac8",
+    "fn:d0063f58f6bbe28a",
+    "fn:d609ff6f6efcdcff",
+    "fn:f690f81defba2fa7",
+]
+test = true
+
+[module."venting_modes.rs"]
+path = "test:venting_modes"
+
+[[module."venting_modes.rs".function]]
+id = "fn:0c066b3a4db59712"
+name = "c"
+qual = "c"
+lines = [
+    44,
+    46,
+]
+hash = "sha256:697d74aa65ae1d79717e56d9368f71a89245927492b37fd878e3ecb24faf0ab3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."venting_modes.rs".function]]
+id = "fn:7713d8357857e51d"
+name = "plant"
+qual = "plant"
+lines = [
+    48,
+    51,
+]
+hash = "sha256:1ca5f4568ed3856e6e09b042d3e071c6d3105a7a46c81fb5518b7ab89cd2804c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:976df1a90886aac8"]
+test = true
+
+[[module."venting_modes.rs".function]]
+id = "fn:79fe82f3caebc9c8"
+name = "inventory"
+qual = "inventory"
+lines = [
+    53,
+    55,
+]
+hash = "sha256:efea8923079b6053ea408b3bfc8774f0ab52f3fec5e8561cfd662ef0e262c24e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d0063f58f6bbe28a"]
+test = true
+
+[[module."venting_modes.rs".function]]
+id = "fn:02efe7233aae1cb5"
+name = "isothermal"
+qual = "isothermal"
+lines = [
+    57,
+    63,
+]
+hash = "sha256:98bb0fe585bebb42701fe6f027067d0033a2ed5b128aabd752a6316f65bb687e"
+doc_hash = "sha256:d6e91479c14c5c864268222c856046fc8587bc48d8103460b017a42e34ce6bc5"
+callees = [
+    "fn:0c066b3a4db59712",
+    "fn:0fb82a37e5879e94",
+]
+test = true
+
+[[module."venting_modes.rs".function]]
+id = "fn:38a28277eaad0309"
+name = "heating"
+qual = "heating"
+lines = [
+    65,
+    77,
+]
+hash = "sha256:3f3b6f55b78faa7f023f7774c76c27025e55813d6be155ebbca46179ad2235b8"
+doc_hash = "sha256:60373529557e4e2439c742a5868edc4b36292f42327fa0c4497c89a7f234f13e"
+callees = [
+    "fn:0c066b3a4db59712",
+    "fn:f690f81defba2fa7",
+]
+test = true
+
+[[module."venting_modes.rs".function]]
+id = "fn:da9e787af985454e"
+name = "totals"
+qual = "totals"
+lines = [
+    79,
+    85,
+]
+hash = "sha256:4a3accec9061793ef37342cb307c0a842c50b480dfac0eb9d767097e772ae3f9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:5818c0f0d1e04928"]
+test = true
+
+[[module."venting_modes.rs".function]]
+id = "fn:4737b681d41d9288"
+name = "run"
+qual = "run"
+lines = [
+    87,
+    89,
+]
+hash = "sha256:64f213968616370370f1af710780b79dd677346e37f3189122eb53abdb4b4dfb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7713d8357857e51d",
+    "fn:79fe82f3caebc9c8",
+    "fn:96a4981ab8e87d0f",
+]
+test = true
+
+[[module."venting_modes.rs".function]]
+id = "fn:953425fc40229c19"
+name = "the_isothermal_hold_vents_fully_as_upstream_does"
+qual = "the_isothermal_hold_vents_fully_as_upstream_does"
+lines = [
+    91,
+    104,
+]
+hash = "sha256:0a639b6e8133ffe4b808cd06c9e5f2f522f208a5a577791bc336de2b926d769d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:02efe7233aae1cb5",
+    "fn:7713d8357857e51d",
+    "fn:79fe82f3caebc9c8",
+    "fn:8ddc1763d36d3c41",
+    "fn:b74cee70a19ec70d",
+    "fn:d609ff6f6efcdcff",
+    "fn:da9e787af985454e",
+]
+test = true
+
+[[module."venting_modes.rs".function]]
+id = "fn:1f4afc1a4cddfc0c"
+name = "full_flow_through_equals_upstream_on_an_isothermal_hold"
+qual = "full_flow_through_equals_upstream_on_an_isothermal_hold"
+lines = [
+    106,
+    111,
+]
+hash = "sha256:2beaf0db904320c191297365d010d46a70a1c455ba5dc52b7c2bb716deae2c08"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:02efe7233aae1cb5",
+    "fn:4737b681d41d9288",
+    "fn:da9e787af985454e",
+]
+test = true
+
+[[module."venting_modes.rs".function]]
+id = "fn:88050fa012c66d9e"
+name = "full_flow_through_bounds_upstream_on_a_heating_transient"
+qual = "full_flow_through_bounds_upstream_on_a_heating_transient"
+lines = [
+    113,
+    122,
+]
+hash = "sha256:3b6f70fb6cdbad9835f6ebee877b01490dbc69e0794f29793c0ed82e7764cd51"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:38a28277eaad0309",
+    "fn:4737b681d41d9288",
+    "fn:da9e787af985454e",
+]
+test = true
+
+[[module."venting_modes.rs".function]]
+id = "fn:c1537cb34c3fb760"
+name = "prescribed_ones_equal_full_flow_through_and_a_half_halves_the_release"
+qual = "prescribed_ones_equal_full_flow_through_and_a_half_halves_the_release"
+lines = [
+    124,
+    144,
+]
+hash = "sha256:b71951f520c56eb4871bd9e79f547eec4b6be31b21af887517c0b70b35266b6f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:38a28277eaad0309",
+    "fn:4737b681d41d9288",
+    "fn:7713d8357857e51d",
+    "fn:79fe82f3caebc9c8",
+    "fn:96a4981ab8e87d0f",
+    "fn:b439dd3bbfa618d8",
+    "fn:da9e787af985454e",
+]
+test = true
+
+[[module."venting_modes.rs".function]]
+id = "fn:1f027d5809831354"
+name = "a_bad_prescription_is_an_error_not_a_clamp"
+qual = "a_bad_prescription_is_an_error_not_a_clamp"
+lines = [
+    146,
+    168,
+]
+hash = "sha256:9b276488d0c4a70e12b30fd021ec138dbb58dfc95ca315eaf953fc927e1d44ae"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:38a28277eaad0309",
+    "fn:7713d8357857e51d",
+    "fn:79fe82f3caebc9c8",
+    "fn:96a4981ab8e87d0f",
+]
+test = true
+
+[[module."venting_modes.rs".function]]
+id = "fn:e364c00b617a3595"
+name = "a_non_uniform_isothermal_field_is_an_error_not_a_silent_zero"
+qual = "a_non_uniform_isothermal_field_is_an_error_not_a_silent_zero"
+lines = [
+    170,
+    189,
+]
+hash = "sha256:9aab16d58d5856bd928babe66fc745bc0b3f6b7968a6e31a8dd09829623eca42"
+doc_hash = "sha256:87a67a7a654a013b7bee6a97d7ce86f94fd0556050bbbb99ce4fe4294cf9eae7"
+callees = [
+    "fn:0c066b3a4db59712",
+    "fn:0fb82a37e5879e94",
+    "fn:25ca9397d7dd1587",
+    "fn:7713d8357857e51d",
+    "fn:96a4981ab8e87d0f",
+    "fn:d0063f58f6bbe28a",
+    "fn:d609ff6f6efcdcff",
+    "fn:da9e787af985454e",
+]
+test = true
+
+[[module."venting_modes.rs".function]]
+id = "fn:0b33b027e80df414"
+name = "gao_shi_ventilation_is_one_air_change_per_day_cut_off_at_72_h"
+qual = "gao_shi_ventilation_is_one_air_change_per_day_cut_off_at_72_h"
+lines = [
+    191,
+    216,
+]
+hash = "sha256:c81a0723a1a34ce0571142bc5863a8683603ff7e82fa1f90c4218699b0a2bb4d"
+doc_hash = "sha256:980cc937b9ab18ef67a5cef8a5c942d281660fc03f7bbe398420d6e217c31d7d"
+callees = [
+    "fn:0c066b3a4db59712",
+    "fn:0fb82a37e5879e94",
+    "fn:25ca9397d7dd1587",
+    "fn:4737b681d41d9288",
+    "fn:7713d8357857e51d",
+    "fn:79fe82f3caebc9c8",
+    "fn:8ddc1763d36d3c41",
+    "fn:96a4981ab8e87d0f",
+    "fn:da9e787af985454e",
+]
+test = true

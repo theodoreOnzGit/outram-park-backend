@@ -1,0 +1,64 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/postprocessing"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::example_heated_section_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_10kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_3kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_4kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_6kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_8kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heater_example_with_data_record.rs::example_heater_with_struct_supports_and_mx10",
+]
+
+[module."mod.rs"]
+path = "crate::pre_built_components::non_insul_porous_media_fluid::postprocessing"
+
+[[module."mod.rs".function]]
+id = "fn:1ee07e7b7ded50fd"
+name = "pipe_shell_temperature"
+qual = "NonInsulatedPorousMediaFluidComponent::pipe_shell_temperature"
+lines = [
+    11,
+    15,
+]
+hash = "sha256:d8012f4f603909d4857028469a5bdc362ba8cf3c17c2c7b341e4dab074508b5d"
+doc_hash = "sha256:ca6997dbc7c3ab0fd936e7f65c756a0f3afe576a5e3307d4cc37656ec38ac2b9"
+callees = ["fn:81ebbad2a6b015cb"]
+reached_by = ["#6"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:7ec58b6a0215424a"
+name = "pipe_fluid_array_temperature"
+qual = "NonInsulatedPorousMediaFluidComponent::pipe_fluid_array_temperature"
+lines = [
+    17,
+    21,
+]
+hash = "sha256:d656132d94f72c38d59a7340a4ad7ea8c5b864d738ef62470d55d5dba95ffaea"
+doc_hash = "sha256:5d6f6df28da2b202dfb1f12303c5d9391745d7904e57386549649974878b557d"
+callees = ["fn:81ebbad2a6b015cb"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:448381cbd752ba6c"
+name = "interior_solid_array_temperature"
+qual = "NonInsulatedPorousMediaFluidComponent::interior_solid_array_temperature"
+lines = [
+    23,
+    29,
+]
+hash = "sha256:baf6d127ee0a9117e58c9c6df5317f181fc1b049da1e529c42cdb8d31b9ebba6"
+doc_hash = "sha256:827d1b0e613b66580fed57427052ce8a13b2f1f2f2221bd889b15f4f64a167f8"
+callees = ["fn:81ebbad2a6b015cb"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+physical_interface = true

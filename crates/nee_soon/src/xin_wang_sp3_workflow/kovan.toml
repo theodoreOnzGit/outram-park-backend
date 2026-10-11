@@ -1,0 +1,571 @@
+schema_version = 1
+kind = "code_folder"
+crate = "nee_soon"
+dir = "crates/nee_soon/src/xin_wang_sp3_workflow"
+test_ids = [
+    "crates/nee_soon/src/xin_wang_sp3_workflow/mod.rs::every_stage_run_is_a_beaded_placeholder",
+    "crates/nee_soon/src/xin_wang_sp3_workflow/mod.rs::fig_4_29_reference_curve_is_loaded_and_below_safety_limit",
+    "crates/nee_soon/src/xin_wang_sp3_workflow/mod.rs::stage_three_targets_sp3_neutronics",
+    "crates/nee_soon/src/xin_wang_sp3_workflow/mod.rs::workflow_exposes_eight_group_structure",
+]
+
+[module."case.rs"]
+path = "crate::xin_wang_sp3_workflow::case"
+
+[[module."case.rs".function]]
+id = "fn:332c1abd3cebaca3"
+name = "energy_group_lower_bounds"
+qual = "energy_group_lower_bounds"
+lines = [
+    31,
+    50,
+]
+hash = "sha256:f5c310489c05d59c72c5932193d7ae8d8b6313c6fd6e466e0157538dfc39f420"
+doc_hash = "sha256:88bb541a2be02b71d61c0bee235d83bb4dbb54e5f2a837bc5976f00c085a8424"
+physical_interface = true
+
+[[module."case.rs".function]]
+id = "fn:dbe2f3b0db07e2ec"
+name = "fuel_safety_limit"
+qual = "fuel_safety_limit"
+lines = [
+    52,
+    57,
+]
+hash = "sha256:0de3ee1e2705c67f8e75a0213a9b50169e0470d5a227460d688137d301ad3315"
+doc_hash = "sha256:20e0032e508abf8e16357a3e37eb1e1daa548ff3ade64d688f3abe606ee9b66e"
+reached_by = ["#1"]
+physical_interface = true
+
+[[module."case.rs".function]]
+id = "fn:dce5592b1b381578"
+name = "nominal"
+qual = "Mk1DesignPoint::nominal"
+lines = [
+    82,
+    93,
+]
+hash = "sha256:0dc8cec61afc5c235b2f55aa8d68ba2ed155b2fc208df4dc9d176b1d23982bc2"
+doc_hash = "sha256:13c083c985b24a049b133819384111a3fcf6892a3924e68ab0dfe0b7d1ba8dab"
+
+[[module."case.rs".function]]
+id = "fn:d30572df24c3174c"
+name = "fig_4_29"
+qual = "ControlRodRemovalTransient::fig_4_29"
+lines = [
+    112,
+    122,
+]
+hash = "sha256:8f45f6cb46514da948ffdabb389a16ac17e503d1e298cb1b4f7d07eddb2a98c9"
+doc_hash = "sha256:d1f3bbb260fb52e5baaace125ffa0ce733eed98078294a18a9175640e75ce231"
+
+[[module."case.rs".function]]
+id = "fn:fdb7de14f23ed787"
+name = "fig_4_29_reference_curve"
+qual = "fig_4_29_reference_curve"
+lines = [
+    134,
+    163,
+]
+hash = "sha256:361f8b7be25453f816024da7bb3bf5ce510c995b8f64dae4f6c6c6a7d758c1d3"
+doc_hash = "sha256:41adbcafb4496228ff6d356fe6f9c6a5b73398f0d5c37c457213db31531de987"
+
+[module."mesh_mc.rs"]
+path = "crate::xin_wang_sp3_workflow::mesh_mc"
+
+[[module."mesh_mc.rs".function]]
+id = "fn:bdc3d24ae7143584"
+name = "reference"
+qual = "Mk1CoreGeometry::reference"
+lines = [
+    43,
+    53,
+]
+hash = "sha256:196861e3bfff62d2f9a4941de498d410f4658322a60e7f0f04fc2f48c8ad209d"
+doc_hash = "sha256:a2c17a7ea81528b4c3c94524ee30faf128567437a750e02d679ff85f408872fa"
+
+[[module."mesh_mc.rs".function]]
+id = "fn:df8e4841f6e2a2be"
+name = "default"
+qual = "MeshMonteCarloStage::default"
+lines = [
+    67,
+    69,
+]
+hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:85faed20af8d8fa6"]
+
+[[module."mesh_mc.rs".function]]
+id = "fn:85faed20af8d8fa6"
+name = "new"
+qual = "MeshMonteCarloStage::new"
+lines = [
+    73,
+    80,
+]
+hash = "sha256:04efe21e14d274c132bb413040c07e893c1a1ed65307714da8a2d628f465b36c"
+doc_hash = "sha256:7aa1fede72d50f653a085c67d94026a318a0b051fc1320842b6b4a86a6631451"
+callees = ["fn:bdc3d24ae7143584"]
+
+[[module."mesh_mc.rs".function]]
+id = "fn:1a17225351a02872"
+name = "geometry"
+qual = "MeshMonteCarloStage::geometry"
+lines = [
+    82,
+    85,
+]
+hash = "sha256:32bfb12df53875b277b2c1453672d730d31319a27c136d4bd429614fd579fa1e"
+doc_hash = "sha256:b49ce38589d964c49c0d44b2c539dac88e559ae125cb9d91365823458093581b"
+
+[[module."mesh_mc.rs".function]]
+id = "fn:9c7398cd79b27522"
+name = "pebble_packing_fraction"
+qual = "MeshMonteCarloStage::pebble_packing_fraction"
+lines = [
+    87,
+    90,
+]
+hash = "sha256:39ce97c08161ac4bfa3ce2dda2e0ed2ecbfb15b26bc5c6c0d41a0070378ccfe7"
+doc_hash = "sha256:4339ee26ec909a83a93ad6b62cd698ca04d11888e861fef73cc1aca435861390"
+
+[[module."mesh_mc.rs".function]]
+id = "fn:9d1719dcfeacd366"
+name = "triso_per_pebble"
+qual = "MeshMonteCarloStage::triso_per_pebble"
+lines = [
+    92,
+    95,
+]
+hash = "sha256:fe0a1d2f97896d234549a7a582d973861da5a87d66291d0d2445b65220ca00bf"
+doc_hash = "sha256:e097e95b10923e52c3a9a74e308f8ae658fabd74454dbeb9c81118c1ef2ecfee"
+
+[[module."mesh_mc.rs".function]]
+id = "fn:381a03dc13cb04cc"
+name = "run"
+qual = "MeshMonteCarloStage::run"
+lines = [
+    97,
+    114,
+]
+hash = "sha256:4bc4ea2e7da3e36e29bce5900e3e86ee7916190c7bbd1c9d27789f74124fee64"
+doc_hash = "sha256:6713589124e9dedeebc7e87456a769fb89f13dfbc80797222710d0a302026228"
+reached_by = ["#0"]
+
+[module."mgxs.rs"]
+path = "crate::xin_wang_sp3_workflow::mgxs"
+
+[[module."mgxs.rs".function]]
+id = "fn:68f06d37344129c7"
+name = "all"
+qual = "Mk1MaterialRegion::all"
+lines = [
+    47,
+    58,
+]
+hash = "sha256:71bc7087912fb0fddb318f44e73f2e7e018e331c7563e987ef08acea706d76ed"
+doc_hash = "sha256:36ce343138c6715db5b917567432f5b3c59daa743f982bcbd6e71dada1542245"
+
+[[module."mgxs.rs".function]]
+id = "fn:858a3179f1840d1f"
+name = "default"
+qual = "MgxsGenerationStage::default"
+lines = [
+    68,
+    70,
+]
+hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:53eb70183b4381c8"]
+
+[[module."mgxs.rs".function]]
+id = "fn:53eb70183b4381c8"
+name = "new"
+qual = "MgxsGenerationStage::new"
+lines = [
+    74,
+    79,
+]
+hash = "sha256:acc0819743d45b40dd3575b900f64b33651f0267a7eeb611466a1e0fff3dd9b9"
+doc_hash = "sha256:cdf760c4af6aa5eee5812dabb4279be0d753c4d6e44a5e17bdcd3e83efde1fb1"
+callees = ["fn:332c1abd3cebaca3"]
+
+[[module."mgxs.rs".function]]
+id = "fn:50528ca77699d533"
+name = "group_lower_bounds"
+qual = "MgxsGenerationStage::group_lower_bounds"
+lines = [
+    81,
+    84,
+]
+hash = "sha256:98b893233440abd2272b61b274dc4e4d103354436d5c8479bced0dda5b981dfc"
+doc_hash = "sha256:c8a2df9a60fd5a8fbb9c5f4dac03c0d7bc04996a07854ed3bd68ded262e82019"
+reached_by = ["#3"]
+physical_interface = true
+
+[[module."mgxs.rs".function]]
+id = "fn:58637c886351c11b"
+name = "run"
+qual = "MgxsGenerationStage::run"
+lines = [
+    86,
+    102,
+]
+hash = "sha256:baa3dfaa38116b553bce8cbf8ccd92efd3682cee361c7b5b19793240218463b4"
+doc_hash = "sha256:6ccdedfbbd7209a90e2006e032d2dfa46e601b6d16d0fe5ba911665f9ef96885"
+reached_by = ["#0"]
+
+[module."mod.rs"]
+path = "crate::xin_wang_sp3_workflow"
+
+[[module."mod.rs".function]]
+id = "fn:7ebee6cb28dfed19"
+name = "new"
+qual = "XinWangSp3Workflow::new"
+lines = [
+    111,
+    114,
+]
+hash = "sha256:547ab483cf3130a6dcc1bf0cafce3a03336ebd889e78a86bab7b18ac945b75a8"
+doc_hash = "sha256:d42f532caf237a15ea553bf57cde6878a04a6fe8c39a10b518107973f94e5afe"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:26e9a813ae1ccf53"
+name = "mgxs"
+qual = "XinWangSp3Workflow::mgxs"
+lines = [
+    116,
+    119,
+]
+hash = "sha256:452e0f88b9f1839fb94afeb9db74c68da9729cef2ab00a58dbb2164c9fb67328"
+doc_hash = "sha256:d2b1330cafbede97d098dfb8ad19b3e03f14ae4cb771cef06f8fef90496fadca"
+reached_by = [
+    "#0",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9c36320ba65b30bb"
+name = "mesh_mc"
+qual = "XinWangSp3Workflow::mesh_mc"
+lines = [
+    121,
+    124,
+]
+hash = "sha256:89e9082cf3d9b743766433ba34fc52a6f87580d0970e1b13cf4b875f63fbeb17"
+doc_hash = "sha256:a17e83a096acd3bc36bb94aa355b05ddb684eee918a60e40cf0901ba4914f269"
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:bd3afd07e619718f"
+name = "sp3_multiphysics"
+qual = "XinWangSp3Workflow::sp3_multiphysics"
+lines = [
+    126,
+    129,
+]
+hash = "sha256:9f92cb98f5d5e44923da56328971891f2358699871d108049ed2799faf1492e6"
+doc_hash = "sha256:dd55afe89185e8e1bf28ad7c006376f7b96a9b28c4137261a6e85780ead3a1b4"
+reached_by = [
+    "#0",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:05fd2226ef9ad249"
+name = "validation"
+qual = "XinWangSp3Workflow::validation"
+lines = [
+    131,
+    134,
+]
+hash = "sha256:d10404e9a90025dc521028cc0561fce1a61ecb73b0996900d6b4bcf916935a38"
+doc_hash = "sha256:325f02ac4dcebb9cf82dc88acbd9b19907a35400017154d761fd49097deae704"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e6d26ae0e3382162"
+name = "run"
+qual = "XinWangSp3Workflow::run"
+lines = [
+    136,
+    149,
+]
+hash = "sha256:733fcfc473e422df7f9c0544eab832ff1d05e4af52640a36ff60b7182ab7d918"
+doc_hash = "sha256:c75049fcf28c814446b766e48bf4ecd1d73dcb3fd426d48aab86793ef9ebdf34"
+callees = [
+    "fn:054d28572090a918",
+    "fn:381a03dc13cb04cc",
+    "fn:58637c886351c11b",
+    "fn:c27ef265d5ff44ed",
+]
+
+[[module."mod.rs".function]]
+id = "fn:8d547b9b452a49eb"
+name = "workflow_exposes_eight_group_structure"
+qual = "workflow_exposes_eight_group_structure"
+lines = [
+    156,
+    164,
+]
+hash = "sha256:4c84a1c558fbd34ee4941e4d06197ac16fdd538e356c537e7a3c364553ac8023"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:26e9a813ae1ccf53",
+    "fn:50528ca77699d533",
+    "fn:7ebee6cb28dfed19",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:b74129e576474ced"
+name = "every_stage_run_is_a_beaded_placeholder"
+qual = "every_stage_run_is_a_beaded_placeholder"
+lines = [
+    166,
+    178,
+]
+hash = "sha256:2766b7d6ec4a4544f475b8c05d4e70ea0d3c59cec4ee13a622114ce462ab0027"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:054d28572090a918",
+    "fn:05fd2226ef9ad249",
+    "fn:26e9a813ae1ccf53",
+    "fn:381a03dc13cb04cc",
+    "fn:58637c886351c11b",
+    "fn:7ebee6cb28dfed19",
+    "fn:9c36320ba65b30bb",
+    "fn:bd3afd07e619718f",
+    "fn:c27ef265d5ff44ed",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d99522751f0499e1"
+name = "stage_three_targets_sp3_neutronics"
+qual = "stage_three_targets_sp3_neutronics"
+lines = [
+    180,
+    188,
+]
+hash = "sha256:71db2a5908dad6d8db524d1e7fc8d764f9615fc9edd1436bb1e1538e7e9da1ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:25e310555c53746f",
+    "fn:7ebee6cb28dfed19",
+    "fn:bd3afd07e619718f",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:61591bb0dcf1b3e0"
+name = "fig_4_29_reference_curve_is_loaded_and_below_safety_limit"
+qual = "fig_4_29_reference_curve_is_loaded_and_below_safety_limit"
+lines = [
+    190,
+    203,
+]
+hash = "sha256:d65b209e64f4f1f88a591b42f51fc2625a9ff7aef2fc9a881450378466fa1624"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:05fd2226ef9ad249",
+    "fn:7ebee6cb28dfed19",
+    "fn:dbe2f3b0db07e2ec",
+    "fn:ee340041b04809a3",
+]
+test = true
+
+[module."sp3_multiphysics.rs"]
+path = "crate::xin_wang_sp3_workflow::sp3_multiphysics"
+
+[[module."sp3_multiphysics.rs".function]]
+id = "fn:608b8c3c6dcc97a2"
+name = "mk1"
+qual = "PorousMediaClosures::mk1"
+lines = [
+    53,
+    60,
+]
+hash = "sha256:29cc523e43cf2cb92dcded49c7fcafd793a50d435c5cbc52c79d5b3c9649bcb8"
+doc_hash = "sha256:0cf18b54d38c6261f14b1907bdc70ee8b62ab8611a8ae6d5831f56cbf5cd2c1f"
+
+[[module."sp3_multiphysics.rs".function]]
+id = "fn:608a9da0db533b50"
+name = "default"
+qual = "Sp3MultiphysicsStage::default"
+lines = [
+    73,
+    75,
+]
+hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:78323752db9aac46"]
+
+[[module."sp3_multiphysics.rs".function]]
+id = "fn:78323752db9aac46"
+name = "new"
+qual = "Sp3MultiphysicsStage::new"
+lines = [
+    79,
+    88,
+]
+hash = "sha256:4f986f3916b7822ce2c620261db10823a21c59123099ee702b8de5c167bbce61"
+doc_hash = "sha256:877ec9773b4e16baa24f95b8e54fec268fea547338a697099043070b2c907992"
+callees = [
+    "fn:608b8c3c6dcc97a2",
+    "fn:d30572df24c3174c",
+]
+
+[[module."sp3_multiphysics.rs".function]]
+id = "fn:18bc4d23a73c0bb2"
+name = "energy_groups"
+qual = "Sp3MultiphysicsStage::energy_groups"
+lines = [
+    90,
+    93,
+]
+hash = "sha256:990ff8a79dd89db1e99878ff9fd115a41c58ea37720e07f0700e6657b382fae8"
+doc_hash = "sha256:016626bf4b866bdc90fcadcf62c6651e41fd6961e73da27b2512057ff9f9fffc"
+
+[[module."sp3_multiphysics.rs".function]]
+id = "fn:ecd2f9ba4e28b150"
+name = "delayed_groups"
+qual = "Sp3MultiphysicsStage::delayed_groups"
+lines = [
+    95,
+    98,
+]
+hash = "sha256:7f258c0f0a162a7ce08fb0519e999eef7b0df552a27f24932fc3386610c3eca8"
+doc_hash = "sha256:608457f7f5b2fe4e5412af5571590c0acff02243bdad764c3b3537e815d00dd9"
+
+[[module."sp3_multiphysics.rs".function]]
+id = "fn:2175454d669683a7"
+name = "porous_media_closures"
+qual = "Sp3MultiphysicsStage::porous_media_closures"
+lines = [
+    100,
+    103,
+]
+hash = "sha256:d8e35b9c876eeceecb654e5cff6ab233d2870b54cb83b4868b33e38e546b29ad"
+doc_hash = "sha256:f330a9422ed8e3fbd66587e55c10e1e65dc2c2528ddfe3ca563b42592ba7f5b2"
+
+[[module."sp3_multiphysics.rs".function]]
+id = "fn:81ed2fd284e94145"
+name = "transient"
+qual = "Sp3MultiphysicsStage::transient"
+lines = [
+    105,
+    108,
+]
+hash = "sha256:78e21e1d1f62d0dd23d0f11ee5a66e7b360557e9ff16f48284a90f963c412426"
+doc_hash = "sha256:a04027d74f1baef4b46388531b3e120d418ce124ccfb69e99f0bd4cd02951619"
+
+[[module."sp3_multiphysics.rs".function]]
+id = "fn:25e310555c53746f"
+name = "target_neutronics_kind"
+qual = "Sp3MultiphysicsStage::target_neutronics_kind"
+lines = [
+    110,
+    117,
+]
+hash = "sha256:2c1f82022a05924678b8aab934d02d677c162946da30c21fcde158d05fdcb853"
+doc_hash = "sha256:a7585448bb6d2f57c1a39bf77042afce2a7443cd8062cefbb9ee7fac91c267c6"
+reached_by = ["#2"]
+
+[[module."sp3_multiphysics.rs".function]]
+id = "fn:c27ef265d5ff44ed"
+name = "run"
+qual = "Sp3MultiphysicsStage::run"
+lines = [
+    119,
+    140,
+]
+hash = "sha256:4121bc028314f08e504e89e4dc803bfe7820eae8971024c704305b1f410ab08c"
+doc_hash = "sha256:c5ad0198eb1f4e41fd472b511a6d35b7b97a83c045ef562024f677462145e217"
+reached_by = ["#0"]
+
+[module."validation.rs"]
+path = "crate::xin_wang_sp3_workflow::validation"
+
+[[module."validation.rs".function]]
+id = "fn:cc2d405951e91bb9"
+name = "digitised"
+qual = "Fig429Target::digitised"
+lines = [
+    40,
+    48,
+]
+hash = "sha256:272fd370dda2fcfa616961829b09189ae5713a7c8827276764317741764c3308"
+doc_hash = "sha256:f221c8a5b1155d20707213e2eebddf79b93c7c172bf11d8ad8137ac7b6598bc9"
+
+[[module."validation.rs".function]]
+id = "fn:efbbbbe55071e0fc"
+name = "default"
+qual = "Fig429ValidationStage::default"
+lines = [
+    59,
+    61,
+]
+hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:8152abcac19acab6"]
+
+[[module."validation.rs".function]]
+id = "fn:8152abcac19acab6"
+name = "new"
+qual = "Fig429ValidationStage::new"
+lines = [
+    65,
+    71,
+]
+hash = "sha256:7878dadc136c11e98503fe34a88f4d0c9a01ffb77f412330faa4437d6621a310"
+doc_hash = "sha256:898feea64dc26e985f91439609991763badea6f59cbac9e3d4041aa2173542a7"
+callees = [
+    "fn:cc2d405951e91bb9",
+    "fn:fdb7de14f23ed787",
+]
+
+[[module."validation.rs".function]]
+id = "fn:ee340041b04809a3"
+name = "reference_curve"
+qual = "Fig429ValidationStage::reference_curve"
+lines = [
+    73,
+    76,
+]
+hash = "sha256:9cb6c73798f7e33258f1e7b8193d71d993a7ddc7f607749dd66f714cf3a12922"
+doc_hash = "sha256:72ad9cad5d5aa99b2e516b8ba5bff11324de352ac5321d7f4841c48d0d4009ae"
+reached_by = ["#1"]
+
+[[module."validation.rs".function]]
+id = "fn:ad88ce6cfcab0434"
+name = "target"
+qual = "Fig429ValidationStage::target"
+lines = [
+    78,
+    81,
+]
+hash = "sha256:fb275f7aa799cb5df689942d39bfb28366bb2b69bdd2cfeca592da77ca9d1a81"
+doc_hash = "sha256:c2ba7da0a78e1750bd39c2f5f82740c7cc82aab2be01bcb3e325f637bac854ad"
+
+[[module."validation.rs".function]]
+id = "fn:054d28572090a918"
+name = "run"
+qual = "Fig429ValidationStage::run"
+lines = [
+    83,
+    101,
+]
+hash = "sha256:98204c931458b248f853384db7a748936d16cba9177ebc0cc83bf523a9e1e1fa"
+doc_hash = "sha256:f2da3cceec4d4c1f4cd97a3bded41e98094fa839704e3e3114440bbd4bf6c5ea"
+reached_by = ["#0"]

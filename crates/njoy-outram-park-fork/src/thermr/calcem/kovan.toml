@@ -1,0 +1,664 @@
+schema_version = 1
+kind = "code_folder"
+crate = "njoy-outram-park-fork"
+dir = "crates/njoy-outram-park-fork/src/thermr/calcem"
+test_ids = [
+    "crates/dhoby-ghaut/examples/common/processed_cache.rs::a_cached_law_is_the_processed_law_bit_for_bit",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::a_traced_neutron_lays_out_and_steps",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::both_panes_run_the_same_neutron_from_the_same_variate",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::run_many_streams_every_method_in_turn",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::the_demo_majorant_bounds_every_material",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::the_engine_thread_loads_traces_and_runs",
+    "crates/dhoby-ghaut/examples/nuclear_data_web/main.rs::the_engine_serves_reconr_and_broadr_and_broadening_keeps_the_area",
+    "crates/nee_soon/src/htr10_rmc/data.rs::the_full_case_is_refused_until_gh339_is_fixed",
+    "crates/nee_soon/src/htr10_rmc/data_jobs.rs::the_jobs_path_builds_the_loaders_nuclides",
+    "crates/nee_soon/src/htr10_rmc/data_jobs.rs::the_jobs_path_builds_the_whole_core_set",
+    "crates/njoy-outram-park-fork/tests/acer_acesix_vs_njoy2016_ace.rs::acesix_reproduces_njoy2016_ace_thermal_bins",
+    "crates/njoy-outram-park-fork/tests/acer_thermal_ifeng_vs_njoy2016.rs::ifeng1_is_skewed_and_declares_itself",
+    "crates/njoy-outram-park-fork/tests/acer_thermal_ifeng_vs_njoy2016.rs::ifeng2_itxe_layout_matches_njoy2016",
+    "crates/njoy-outram-park-fork/tests/acer_thermal_ifeng_vs_njoy2016.rs::ifeng2_stored_law_is_normalised",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::coherent_elastic_bragg_block_is_monotone",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::inelastic_blocks_are_consistent",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::thermal_table_header_and_dimensions",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::thermal_table_roundtrips_through_file",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::incoherent_elastic_block_layout_is_consistent",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::thermal_table_roundtrips_through_file",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::thermal_table_uses_idpnc3_elastic_branch",
+    "crates/njoy-outram-park-fork/tests/thermr_calcem_sigl_vs_quadrature.rs::sigl_cross_section_converges_onto_an_independent_quadrature",
+    "crates/njoy-outram-park-fork/tests/thermr_calcem_sigl_vs_quadrature.rs::sigl_equiprobable_cosines_reproduce_the_quadrature_mean_cosine",
+    "crates/njoy-outram-park-fork/tests/thermr_calcem_vs_njoy2016_golden.rs::calcem_iform0_reproduces_njoy2016_for_graphite_at_600k",
+    "crates/njoy-outram-park-fork/tests/thermr_iform1_continuous_law.rs::iform1_cross_section_matches_an_independent_integration",
+    "crates/njoy-outram-park-fork/tests/thermr_iform1_continuous_law.rs::iform1_joint_mu_energy_distribution_is_normalised",
+    "crates/njoy-outram-park-fork/tests/thermr_iform1_continuous_law.rs::iform1_mean_cosine_matches_a_double_quadrature",
+    "crates/njoy-outram-park-fork/tests/thermr_kernel_vs_njoy2016_matrix.rs::calcem_emission_kernel_reproduces_njoy2016_shape",
+    "crates/outram-mc-libs/tests/correct_physics_is_default.rs::thermal_equiprobable_sampling_is_openmc_by_default",
+    "crates/outram-mc-libs/tests/elastic_xi_h1_o16.rs::measured_xi_matches_analytic_for_h1_and_o16",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::bound_graphite_and_free_gas_agree_once_target_motion_is_sampled",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::diagnose_thermal_spectrum_reach",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::graphite_thermal_law_reaches_the_transport_kernel",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::majorant_still_bounds_total_xs_with_bound_graphite",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::regenerated_graphite_thermal_scattering_has_the_expected_shape",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::approaches_the_free_atom_limit_at_the_cutoff",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::attaches_to_a_nuclide_and_overrides_below_the_cutoff",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::builds_at_temperature_with_no_elastic_channel",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::cold_neutrons_upscatter_toward_the_maxwellian",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::thermal_cross_section_matches_bound_light_water",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_lwr_thermal_pin_benchmark",
+    "crates/outram-mc-libs/tests/processed_evaluation_round_trip.rs::a_shipped_thermal_law_is_the_built_law_bit_for_bit",
+    "crates/outram-mc-libs/tests/speed_tier_fast_is_exact.rs::fast_matches_standard_through_the_sab_cutoff",
+    "crates/outram-mc-libs/tests/thermal_cutoff_is_tape_emax.rs::hinh2o_cutoff_is_the_tapes_b4",
+    "crates/outram-mc-libs/tests/thermal_endf_route_xs_vs_njoy.rs::endf_route_inelastic_xs_matches_njoy_itix",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::bound_graphite_nuclide_keeps_its_dominant_channel",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_coherent_channel_is_detected_and_stored_exactly",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_elastic_dominates_thermal_scattering",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_htr10_temperature_points",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_sampling_matches_the_cross_section_split_and_bragg_law",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::interpolated_sigma_inel_stays_inside_its_bracket",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::light_water_has_no_elastic_channel_and_is_unchanged",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::zrh_incoherent_elastic_channel_is_forward_peaked",
+    "crates/outram-mc-libs/tests/thermal_kernel_stationary_distribution.rs::graphite_thermalises_onto_its_own_temperature",
+    "crates/outram-mc-libs/tests/thermal_kernel_stationary_distribution.rs::light_water_thermalises_onto_its_own_temperature",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_cross_sections_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_kernel_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_kernel_width_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_mean_cosine_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_cross_section_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_kernel_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_kernel_width_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_law_extends_to_njoys_10_ev",
+    "crates/outram-mc-libs/tests/thermal_standards.rs::h1_bound_water_scattering_exceeds_free_gas_and_converges_to_it",
+    "crates/outram-mc-libs/tests/total_fast_path_matches_full.rs::h1_with_thermal_scattering_matches_through_the_sab_cutoff",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::diagnose_channels",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::sic_carbon_and_graphite_carbon_are_different_scatterers",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::sic_carbon_binds_a_coherent_elastic_channel_within_the_characterised_band",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::sic_silicon_binds_the_same_lattice_elastic_channel_as_the_carbon_side",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::triso_carbon_coatings_bind_graphite_sab",
+]
+
+[module."egrid.rs"]
+path = "crate::thermr::calcem::egrid"
+
+[[module."egrid.rs".function]]
+id = "fn:4325819b4feda3c0"
+name = "egrid_count"
+qual = "egrid_count"
+lines = [
+    60,
+    72,
+]
+hash = "sha256:523a4da2c05097f16a408f5472edf1d76bb43d000929a368c1d9f7439f6f9ec4"
+doc_hash = "sha256:17c5ce2fe5b773e6f9eb7d108bf0ae6c12582b6d7d78584d881535dcfc822afd"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+]
+
+[[module."egrid.rs".function]]
+id = "fn:eeb600b15a8e9e38"
+name = "rescale_iform0"
+qual = "rescale_iform0"
+lines = [
+    74,
+    95,
+]
+hash = "sha256:df8d6c510f99b5a674e8d7e62dac007949128362692aa518649640b72d8fc78d"
+doc_hash = "sha256:e364a5b13e246305896ef5376017cd07cbce6b088cdea12b5806143e382ccb95"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#23",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+]
+
+[[module."egrid.rs".function]]
+id = "fn:ae51964223bc08b6"
+name = "rescale_iform1"
+qual = "rescale_iform1"
+lines = [
+    97,
+    111,
+]
+hash = "sha256:6c6674c8107ffdc7f7c02441116cf4a21ecdda3c08f77dd67895c8498828390c"
+doc_hash = "sha256:c579b9ea6f6155e896fab29523295bab838897da49f0df684980d1994f42e06f"
+reached_by = [
+    "#24",
+    "#25",
+    "#26",
+]
+
+[module."iform0.rs"]
+path = "crate::thermr::calcem::iform0"
+
+[[module."iform0.rs".function]]
+id = "fn:126e56903669f757"
+name = "build_row"
+qual = "build_row"
+lines = [
+    46,
+    75,
+]
+hash = "sha256:848ab52c57f83883d37b1c7048dc273aae6230a0c2f3fabb4e6a2c04c3b33e47"
+doc_hash = "sha256:2c5a85d337c6215dbb442b1137166d2c6228decd779fb1772594d6382fbcf012"
+callees = ["fn:4409d37190024de4"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#23",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+]
+
+[[module."iform0.rs".function]]
+id = "fn:d91b7aff8290ce2c"
+name = "moment_sum"
+qual = "moment_sum"
+lines = [
+    77,
+    92,
+]
+hash = "sha256:0641823fcb2f399c88d1730ea8555d61da74f93c3a448e6b32a9109983b5c292"
+doc_hash = "sha256:3c7b33159e831d5268153092bf20b19711edefd2fbfb0c58a83e2e9c5a0ff3e5"
+callees = ["fn:88854f23978bf4b6"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#23",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+]
+
+[[module."iform0.rs".function]]
+id = "fn:8458e4a824076a72"
+name = "compute_iform0"
+qual = "compute_iform0"
+lines = [
+    94,
+    365,
+]
+hash = "sha256:2f4fde447b21f124ac718ec44061dd60c00c4875fb7fc2374e589277f4598b93"
+doc_hash = "sha256:8b0470244848d14d3f7b693d7a12a7169625a6f84426006d50904bdee2f70f0c"
+callees = [
+    "fn:126e56903669f757",
+    "fn:23f2d8f8cb0057fa",
+    "fn:4325819b4feda3c0",
+    "fn:4409d37190024de4",
+    "fn:b81029d3ec879d38",
+    "fn:d91b7aff8290ce2c",
+    "fn:eeb600b15a8e9e38",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#23",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+]
+
+[module."iform1.rs"]
+path = "crate::thermr::calcem::iform1"
+
+[[module."iform1.rs".function]]
+id = "fn:867de2843141ef99"
+name = "compute_iform1"
+qual = "compute_iform1"
+lines = [
+    56,
+    202,
+]
+hash = "sha256:4f2e9ef7118ab138ad3a1768dd0115f72969404207c51251ce3dd1a9e20e6111"
+doc_hash = "sha256:dfcc51e3f5cfd2a497a8cc0cd3e82e0a8bd4ffdb9e20e771898fa96ecca5b12c"
+callees = [
+    "fn:1a39b06b1caae312",
+    "fn:4325819b4feda3c0",
+    "fn:4409d37190024de4",
+    "fn:ae51964223bc08b6",
+]
+reached_by = [
+    "#24",
+    "#25",
+    "#26",
+]
+
+[module."mod.rs"]
+path = "crate::thermr::calcem"
+
+[module."sigl.rs"]
+path = "crate::thermr::calcem::sigl"
+
+[[module."sigl.rs".function]]
+id = "fn:b81029d3ec879d38"
+name = "sigl"
+qual = "sigl"
+lines = [
+    62,
+    406,
+]
+hash = "sha256:01bde58bf851177da93e372bbed91dd277abd3607183949b042011700f3273d3"
+doc_hash = "sha256:803d84de126ddfaae5058fb4ebfe6f677f6e9c38392725605aa8988cae6fd6fd"
+callees = [
+    "fn:4409d37190024de4",
+    "fn:88854f23978bf4b6",
+    "fn:b03e67c8e48cd623",
+    "fn:f09d4338cf05421e",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+]
+
+[module."sigu.rs"]
+path = "crate::thermr::calcem::sigu"
+
+[[module."sigu.rs".function]]
+id = "fn:ea7aa093eaa46146"
+name = "label_160"
+qual = "label_160"
+lines = [
+    70,
+    121,
+]
+hash = "sha256:7114f4b672244590af1df7d6c9ef6abb8cc130849eff9d3af04ec68f1b5db4ac"
+doc_hash = "sha256:3223761c915ff11918be41d1dab8db59c0ac423bf01c49f414385bf2b1b03913"
+reached_by = [
+    "#24",
+    "#25",
+    "#26",
+]
+physical_interface = true
+
+[[module."sigu.rs".function]]
+id = "fn:1a39b06b1caae312"
+name = "sigu"
+qual = "sigu"
+lines = [
+    123,
+    252,
+]
+hash = "sha256:3e6e6f7556db8e1af806e676ba5e976c9a66f151de1dd318ec9f93b0c0a122d0"
+doc_hash = "sha256:c174f13d3fc7f92b8b57001e15ffc6d5c1468acc8f64eca52a288916955c918d"
+callees = [
+    "fn:4409d37190024de4",
+    "fn:b03e67c8e48cd623",
+    "fn:ea7aa093eaa46146",
+    "fn:f09d4338cf05421e",
+]
+reached_by = [
+    "#24",
+    "#25",
+    "#26",
+]
+
+[module."types.rs"]
+path = "crate::thermr::calcem::types"

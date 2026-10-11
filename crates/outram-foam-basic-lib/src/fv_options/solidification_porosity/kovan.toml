@@ -1,0 +1,226 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-basic-lib"
+dir = "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity"
+
+[module."tests.rs"]
+path = "crate::fv_options::solidification_porosity::tests"
+
+[[module."tests.rs".function]]
+id = "fn:49bf279e8b835a15"
+name = "mesh"
+qual = "mesh"
+lines = [
+    36,
+    38,
+]
+hash = "sha256:f4880f2ec6c8db3540929571fe0572bcc59db9181e44840b9999c82d2324d6f2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:ce5c06050c849e86"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:9e7e98d7d6b7c7f5"
+name = "table"
+qual = "table"
+lines = [
+    40,
+    42,
+]
+hash = "sha256:7b9faf0e9ca9085112142c04f7442584baa6c695e87de7f80dfe73135e7fe544"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3e4b3b1e4cefaf16"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b7430bcceffcc421"
+name = "model"
+qual = "model"
+lines = [
+    44,
+    46,
+]
+hash = "sha256:d9c3faae6c173cac74cc9fb5e25f46994803f6ea999e4d7499b36479823031f8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:9e7e98d7d6b7c7f5",
+    "fn:eb93ffaa3bbc5c46",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:7c28e842346714e4"
+name = "uniform"
+qual = "uniform"
+lines = [
+    48,
+    50,
+]
+hash = "sha256:9be206dcc051e0429977ceb2f97fe5458b784759d5afe3278b3a6180bae66e58"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:636e75b664f14254"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:8d4b14aa1db91ca4"
+name = "drag_table_clamps_at_both_ends_instead_of_extrapolating"
+qual = "drag_table_clamps_at_both_ends_instead_of_extrapolating"
+lines = [
+    54,
+    81,
+]
+hash = "sha256:0e870bfadfd2142fdf82a8a48cd03ba507b760c9fdfee1d35d4ce6afe4c59b15"
+doc_hash = "sha256:8cda0577caee9290a15d39ce79deabb349a3ab4cda112bece223f44ed661d818"
+callees = [
+    "fn:9e7e98d7d6b7c7f5",
+    "fn:cc33c4134927fd19",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:edbcb3eda24b8600"
+name = "drag_table_is_linear_between_the_knots"
+qual = "drag_table_is_linear_between_the_knots"
+lines = [
+    83,
+    101,
+]
+hash = "sha256:43d523f3af7311df815a94611d2058612000999dae9cd9650d08303863c241bc"
+doc_hash = "sha256:a5e0e3fa1798b658388df7b81c02d7ad3ccdbe468734c0547bf1a3973e7ae604"
+callees = [
+    "fn:9e7e98d7d6b7c7f5",
+    "fn:cc33c4134927fd19",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:ac4114d59d431901"
+name = "drag_table_rejects_descending_temperatures"
+qual = "drag_table_rejects_descending_temperatures"
+lines = [
+    103,
+    114,
+]
+hash = "sha256:97bd3a1adebed6ae0a9248db54c3cee3be3d2318f53a750d5f18eaf250f61415"
+doc_hash = "sha256:62befd1992764bbe0ef7456c8eabd1288d6598a18895709d99dcec6646ea07ec"
+callees = ["fn:4aca38dff09db387"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:0882b86e4fab57e8"
+name = "kinematic_drag_adds_volume_times_d_to_the_diagonal"
+qual = "kinematic_drag_adds_volume_times_d_to_the_diagonal"
+lines = [
+    118,
+    146,
+]
+hash = "sha256:026924e0e63885b233055d3ef58db095fcb10064b050598a36f3942a6c79452a"
+doc_hash = "sha256:94ee10c9e24958c759a02387f0c55eef19f67ebf95a9922587fdd4b041071ca6"
+callees = [
+    "fn:49bf279e8b835a15",
+    "fn:5054bbbfbd8e20ae",
+    "fn:5d406c9626c87e00",
+    "fn:7c28e842346714e4",
+    "fn:b7430bcceffcc421",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:39846fc1f8129bf2"
+name = "density_weighted_form_scales_the_drag_by_rho"
+qual = "density_weighted_form_scales_the_drag_by_rho"
+lines = [
+    148,
+    178,
+]
+hash = "sha256:0ff305aac7644eacb47c9ab9636e1331fd2b555d3d318507443aca8324f0c1a2"
+doc_hash = "sha256:4261413798c207072781b8fbc203e2ecef3995bf0a13dd03fe036d9455305815"
+callees = [
+    "fn:49bf279e8b835a15",
+    "fn:5054bbbfbd8e20ae",
+    "fn:5d406c9626c87e00",
+    "fn:7c28e842346714e4",
+    "fn:b7430bcceffcc421",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:c7a8de6b1c3b9473"
+name = "fully_molten_cells_gain_exactly_no_drag"
+qual = "fully_molten_cells_gain_exactly_no_drag"
+lines = [
+    180,
+    202,
+]
+hash = "sha256:09e56c0927e544dd05f08ca7eaf5013bb267e812e2b6ffb89fe5b1bc3f314db0"
+doc_hash = "sha256:54c6d2aa43bf0db2d4542dbafece7b77ecadd8b97f020e7d4ec06501d5b52002"
+callees = [
+    "fn:49bf279e8b835a15",
+    "fn:5054bbbfbd8e20ae",
+    "fn:5d406c9626c87e00",
+    "fn:7c28e842346714e4",
+    "fn:b7430bcceffcc421",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:c6debddb024fc632"
+name = "phase_fraction_scales_the_drag_linearly"
+qual = "phase_fraction_scales_the_drag_linearly"
+lines = [
+    204,
+    232,
+]
+hash = "sha256:3ef9f8809c48c27a25f84087fc599a35964a5c7bd09ad7c690f8fa541c387a59"
+doc_hash = "sha256:44239c9061195deebffb359fe08eade34d516040a6edcb6ce31782fad73f64e6"
+callees = [
+    "fn:3cfc77e7e41ece25",
+    "fn:49bf279e8b835a15",
+    "fn:4a41417cc902d117",
+    "fn:5054bbbfbd8e20ae",
+    "fn:5d406c9626c87e00",
+    "fn:7c28e842346714e4",
+    "fn:b7430bcceffcc421",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:8dd83bf1f4126a49"
+name = "a_cell_zone_restricts_the_drag_to_its_own_cells"
+qual = "a_cell_zone_restricts_the_drag_to_its_own_cells"
+lines = [
+    234,
+    262,
+]
+hash = "sha256:dd05f3c5925723f5ec6080a386bf653c1630f04443ac0b6a49c92cd171d37eb6"
+doc_hash = "sha256:cd4ddc6c9335567a2986a81284c4600559d26cc7f9d6530071b16f8c77d5882b"
+callees = [
+    "fn:49bf279e8b835a15",
+    "fn:5054bbbfbd8e20ae",
+    "fn:5d406c9626c87e00",
+    "fn:6781135247f78259",
+    "fn:7c28e842346714e4",
+    "fn:9e7e98d7d6b7c7f5",
+    "fn:eb93ffaa3bbc5c46",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:cfb9674723edac1f"
+name = "force_diagonal_matches_the_assembled_momentum_diagonal"
+qual = "force_diagonal_matches_the_assembled_momentum_diagonal"
+lines = [
+    264,
+    292,
+]
+hash = "sha256:fa26ce0b0a6db7c914df25e3e00f7961f1a9b6f16d01e6517cd097b0f20573b9"
+doc_hash = "sha256:247a2138613da7d2f2779dc67f9f45005760610093ac26d5092817ce9a9bc1b0"
+callees = [
+    "fn:2467de1b040d8c7a",
+    "fn:49bf279e8b835a15",
+    "fn:5054bbbfbd8e20ae",
+    "fn:5d406c9626c87e00",
+    "fn:7c28e842346714e4",
+    "fn:b7430bcceffcc421",
+]
+test = true

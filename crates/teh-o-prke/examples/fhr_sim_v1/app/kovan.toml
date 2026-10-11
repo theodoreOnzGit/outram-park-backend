@@ -1,0 +1,78 @@
+schema_version = 1
+kind = "code_folder"
+crate = "teh-o-prke"
+dir = "crates/teh-o-prke/examples/fhr_sim_v1/app"
+
+[module."mod.rs"]
+path = "example:fhr_sim_v1::app"
+
+[[module."mod.rs".function]]
+id = "fn:b0270dd52a86e150"
+name = "save"
+qual = "FHRSimulatorApp::save"
+lines = [
+    15,
+    18,
+]
+hash = "sha256:ee5b663383af4346062f6c5afe09f3c56f3ed9f42247d25e88d8338717248339"
+doc_hash = "sha256:05c1f790602727e494c4b0061fcf288c7b4f4052fcc9a030b2fafe7b89c27aad"
+
+[[module."mod.rs".function]]
+id = "fn:f2136cee110eab2a"
+name = "ui"
+qual = "FHRSimulatorApp::ui"
+lines = [
+    20,
+    79,
+]
+hash = "sha256:4fbb7e89be66a19d2434bb1a8292472a644a7aa04c433edf3ac9b6f2c79c6cd5"
+doc_hash = "sha256:b582ab9c4712fc1dbdfe425b9eb4cb806dfc87f9ca904ab0c49fbcad65755b06"
+callees = [
+    "fn:a4f338415cf44ee5",
+    "fn:aa2bab59e7d337b3",
+    "fn:ba6ec8c9b79bb60d",
+    "fn:ce1e399268b77698",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a4f338415cf44ee5"
+name = "main_page"
+qual = "FHRSimulatorApp::main_page"
+lines = [
+    83,
+    209,
+]
+hash = "sha256:863ea9f2c23541fb6f4f9373a4ccba98cc8dc443007ada89a1e527c14bbe0f97"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1b151005bfa5d00a",
+    "fn:4516edffc2620c1e",
+    "fn:9b25da418695bfd9",
+    "fn:b6b12b4b345b2e05",
+]
+
+[[module."mod.rs".function]]
+id = "fn:aa2bab59e7d337b3"
+name = "powered_by_egui_and_eframe"
+qual = "powered_by_egui_and_eframe"
+lines = [
+    212,
+    224,
+]
+hash = "sha256:1ce2c849c23f39f3a1c5e893be8b4a165089abf5391f3b79ebb3f03836f89609"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."side_panel.rs"]
+path = "example:fhr_sim_v1::app::side_panel"
+
+[[module."side_panel.rs".function]]
+id = "fn:ba6ec8c9b79bb60d"
+name = "side_panel"
+qual = "FHRSimulatorApp::side_panel"
+lines = [
+    10,
+    346,
+]
+hash = "sha256:2558a3d2fb2d2d6ce9dfa734f22c4ecec2b0b9bb62b380dc97b650687902fbc2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:789588c3fddd40f5"]

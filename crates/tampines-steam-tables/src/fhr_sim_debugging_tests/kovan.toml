@@ -1,0 +1,131 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/src/fhr_sim_debugging_tests"
+
+[module."mod.rs"]
+path = "crate::fhr_sim_debugging_tests"
+
+[module."pool_boiling.rs"]
+path = "crate::fhr_sim_debugging_tests::pool_boiling"
+
+[[module."pool_boiling.rs".function]]
+id = "fn:6def6d1af132c709"
+name = "pool_boiling_improvised_correlation_as_fraction_of_maximum_lib"
+qual = "pool_boiling_improvised_correlation_as_fraction_of_maximum_lib"
+lines = [
+    60,
+    80,
+]
+hash = "sha256:49631bf48f9a8bb9682045c994b75b01443ce58de05afd3bbaf564621e50c5d8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:89dd813310599ab0",
+    "fn:d2f19c5ac1bd0c10",
+]
+test = true
+physical_interface = true
+
+[[module."pool_boiling.rs".function]]
+id = "fn:a66135a7fa912b36"
+name = "pool_boiling_assert_test_1"
+qual = "pool_boiling_assert_test_1"
+lines = [
+    81,
+    103,
+]
+hash = "sha256:55dd132b44cf3defda14614aea02c4a77870c5780b83d5fd4169106f881bfb99"
+doc_hash = "sha256:0dd6ead1768da585ead442f822be4edff7ccb596c04bcf3453fefda5ddae79a6"
+callees = ["fn:6def6d1af132c709"]
+test = true
+
+[[module."pool_boiling.rs".function]]
+id = "fn:2ad2913fb85d0d55"
+name = "pool_boiling_assert_test_2"
+qual = "pool_boiling_assert_test_2"
+lines = [
+    105,
+    127,
+]
+hash = "sha256:dddfe472069bd1f4e993e3b02f378ed994fbadcb85b8ff4652ab66d7fd5bba3a"
+doc_hash = "sha256:0dd6ead1768da585ead442f822be4edff7ccb596c04bcf3453fefda5ddae79a6"
+callees = ["fn:6def6d1af132c709"]
+test = true
+
+[[module."pool_boiling.rs".function]]
+id = "fn:9cb49c527a352383"
+name = "pool_boiling_assert_test_3"
+qual = "pool_boiling_assert_test_3"
+lines = [
+    129,
+    151,
+]
+hash = "sha256:90efb40dad8bac847877d2d9af481b2be6e385a83f9f8265e299277f8748d1e7"
+doc_hash = "sha256:0dd6ead1768da585ead442f822be4edff7ccb596c04bcf3453fefda5ddae79a6"
+callees = ["fn:6def6d1af132c709"]
+test = true
+
+[[module."pool_boiling.rs".function]]
+id = "fn:1cab72d572afbdfd"
+name = "pool_boiling_assert_test_4"
+qual = "pool_boiling_assert_test_4"
+lines = [
+    153,
+    175,
+]
+hash = "sha256:10d6c75b0b5ed7ec8560e08315d86ad3d1db1cf9eb114164eaceb5b4a93d089d"
+doc_hash = "sha256:0dd6ead1768da585ead442f822be4edff7ccb596c04bcf3453fefda5ddae79a6"
+callees = ["fn:6def6d1af132c709"]
+test = true
+
+[[module."pool_boiling.rs".function]]
+id = "fn:387790a42c9a590f"
+name = "pool_boiling_assert_test_5"
+qual = "pool_boiling_assert_test_5"
+lines = [
+    177,
+    199,
+]
+hash = "sha256:e8b3519e256f8de930b38091e9fb05e360d76d1fd495b2fc08cae8bbef485d7a"
+doc_hash = "sha256:0dd6ead1768da585ead442f822be4edff7ccb596c04bcf3453fefda5ddae79a6"
+callees = ["fn:6def6d1af132c709"]
+test = true
+
+[[module."pool_boiling.rs".function]]
+id = "fn:f6e45b2b30113d8e"
+name = "pool_boiling_assert_test_6"
+qual = "pool_boiling_assert_test_6"
+lines = [
+    201,
+    223,
+]
+hash = "sha256:8ea291e51cd7be785532c9ed3b8c7ee6aa4b8aeecbb489797a868b178f275c40"
+doc_hash = "sha256:0dd6ead1768da585ead442f822be4edff7ccb596c04bcf3453fefda5ddae79a6"
+callees = ["fn:6def6d1af132c709"]
+test = true
+
+[[module."pool_boiling.rs".function]]
+id = "fn:48b53c227da82f2c"
+name = "pool_boiling_assert_test_7"
+qual = "pool_boiling_assert_test_7"
+lines = [
+    225,
+    247,
+]
+hash = "sha256:bbebb789ba2a384c8994b277b1a14427bb71b28dfc12de5dd0ca2b70142c966b"
+doc_hash = "sha256:0dd6ead1768da585ead442f822be4edff7ccb596c04bcf3453fefda5ddae79a6"
+callees = ["fn:6def6d1af132c709"]
+test = true
+
+[[module."pool_boiling.rs".function]]
+id = "fn:b46e542ba0646456"
+name = "pool_boiling_assert_test_8"
+qual = "pool_boiling_assert_test_8"
+lines = [
+    249,
+    271,
+]
+hash = "sha256:2fecebcf0925fe6347f2d5578759853d107ceca5f057d7d804458fdac5ac3e8f"
+doc_hash = "sha256:0dd6ead1768da585ead442f822be4edff7ccb596c04bcf3453fefda5ddae79a6"
+callees = ["fn:6def6d1af132c709"]
+test = true

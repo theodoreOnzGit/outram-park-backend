@@ -1,0 +1,475 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-pflotran"
+dir = "crates/outram-park-fork-pflotran/src/surface_complexation"
+test_ids = [
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::dilute_metal_fraction_is_independent_of_concentration",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::dlm_potential_negative_at_high_ph",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::electrostatics_shift_the_edge_and_both_converge",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::extreme_conditions_do_not_panic_or_diverge",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::input_validation_rejects_bad_parameters",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::protonation_charge_sign_flips_across_pzc",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::site_balance_conserved_all_models",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::sorption_edge_is_rising_sigmoid_crossing_half",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::zero_metal_gives_zero_sorbed_fraction",
+]
+
+[module."mod.rs"]
+path = "crate::surface_complexation"
+
+[[module."mod.rs".function]]
+id = "fn:9bfa79c272a92f5b"
+name = "validate"
+qual = "SurfaceComplexationModel::validate"
+lines = [
+    213,
+    238,
+]
+hash = "sha256:b28c4dc6b535d695c56ba5b8379dfd16efff6d38fe1ac3c06a0cf553d3314cf4"
+doc_hash = "sha256:35bd57f15eb2641f3ea5349bc809d36164526ead3ddce05df9a9b4fb5de0b968"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:12b4bb0ab8936dd1"
+name = "new"
+qual = "SurfaceComplex::new"
+lines = [
+    284,
+    304,
+]
+hash = "sha256:b4545a27ca9bc61c85a1e18bde74228628f5a2a2eee58615b0108e511556960a"
+doc_hash = "sha256:93ff739be939553208b553e9ba6f3ccf4e0f2fdaf22be402445fae2653d074c0"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f5eef02a097ac788"
+name = "validate"
+qual = "SurfaceComplex::validate"
+lines = [
+    306,
+    309,
+]
+hash = "sha256:74885f035c0fc6241282413241dbe5d6baf95e2599d9328bb4d5eedd4e32815f"
+doc_hash = "sha256:481ddf9cb98d129ecdcc664b0714748c7120be8d2c6f8e2417b71c5bdc1083a8"
+callees = ["fn:12b4bb0ab8936dd1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:59a4d1219ac19cfb"
+name = "net_surface_charge"
+qual = "SurfaceSpeciation::net_surface_charge"
+lines = [
+    335,
+    343,
+]
+hash = "sha256:f83fc3c885b1345502633e1c88667639f7cae3cac49bec8dba56256e07e2de56"
+doc_hash = "sha256:a81339867e2a19753d3b2af0e8b1bfa7aa8f578e640d68809a537cf7cd6ff766"
+reached_by = ["#5"]
+
+[[module."mod.rs".function]]
+id = "fn:3470a22ed99ddbe4"
+name = "new"
+qual = "SurfaceSite::new"
+lines = [
+    347,
+    369,
+]
+hash = "sha256:4913133a87bee67a347620e369f3d79297255f7821f7bfd7eb3ae0ee9cd5b1be"
+doc_hash = "sha256:dfea6b62f601bb686f6768e01e9d9d102a25b8a0274b2dc0fe6e0fc378c79c17"
+callees = ["fn:57d8018bc02fbf12"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:57d8018bc02fbf12"
+name = "validate"
+qual = "SurfaceSite::validate"
+lines = [
+    371,
+    398,
+]
+hash = "sha256:4e95b85458d33a6734f3c271e0770c2aed8fc5b0e37258c2746f6b12e5566a71"
+doc_hash = "sha256:8e712dde950958d0b4d358acf2384d8d86081cd9288bebb4e7f6fee9baba35e4"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:18287b37bf0e4daf"
+name = "point_of_zero_charge_ph"
+qual = "SurfaceSite::point_of_zero_charge_ph"
+lines = [
+    400,
+    406,
+]
+hash = "sha256:9f3c8ba6c553ace7f2ccc7b12babea33804ea8fff4369b10d5f571106407a344"
+doc_hash = "sha256:3dcc4eac11ee870a6e8996a764fc8f0b34e3b77d12ddf1af93a640b9863d3264"
+reached_by = ["#5"]
+
+[[module."mod.rs".function]]
+id = "fn:058785729db14875"
+name = "boltzmann_p"
+qual = "SurfaceSite::boltzmann_p"
+lines = [
+    408,
+    411,
+]
+hash = "sha256:ce61a3f0d99f1d9f72fdaffa1ec197e13409cbc58517db194221f605ff5f221c"
+doc_hash = "sha256:f10a0e9ecc115ffb342e98ffd1f51a9fde54fed0f1fef2f0560eb023f87ed2d0"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6c8c989437ff38f1"
+name = "species_at"
+qual = "SurfaceSite::species_at"
+lines = [
+    413,
+    444,
+]
+hash = "sha256:10b01eec4c66c60f32f9a77e24252ffc7ee8ca9084bacf2ac75e283929b02900"
+doc_hash = "sha256:228ae427202f8cc66717d78b456c3e55a6b3eb045c82bfb13248039d2da25f19"
+callees = ["fn:058785729db14875"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:74ecf0aeaa637043"
+name = "surface_charge_density"
+qual = "SurfaceSite::surface_charge_density"
+lines = [
+    446,
+    455,
+]
+hash = "sha256:e6500509d8da528a3a08fdddb0744c9d17f2962c85da59856ac7a4f599aa6b3e"
+doc_hash = "sha256:9b762617b3f0fdc6f77d84b31104bd6c9f0f74565a6f3196719b91ec71ea1ba4"
+callees = ["fn:6c8c989437ff38f1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a06886ee02a9702c"
+name = "solve_potential"
+qual = "SurfaceSite::solve_potential"
+lines = [
+    457,
+    530,
+]
+hash = "sha256:a330a914a2e9592ae6824640fc4d3bca569100b1ef48221b3c5c23f7763f2935"
+doc_hash = "sha256:906494e6d53c3528fbabcaf3e54a9ccb3172ebb86218cd84fbae68750419fe70"
+callees = ["fn:74ecf0aeaa637043"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ae171a7a9c36f976"
+name = "speciate"
+qual = "SurfaceSite::speciate"
+lines = [
+    532,
+    612,
+]
+hash = "sha256:a6e01821293c181b7ed1c50ab986356fd7428002a6d937febc23b4d229fd6bd2"
+doc_hash = "sha256:3a20c4b4ea71a6439590825a5e7469f7b0b1517c606bb4c334cecdccac80bfb2"
+callees = [
+    "fn:57d8018bc02fbf12",
+    "fn:6c8c989437ff38f1",
+    "fn:9bfa79c272a92f5b",
+    "fn:a06886ee02a9702c",
+    "fn:f5eef02a097ac788",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:dd258759d24238cd"
+name = "sorption_edge"
+qual = "SurfaceSite::sorption_edge"
+lines = [
+    614,
+    636,
+]
+hash = "sha256:3129e7bddd962654fdb086d1a5ea4ef85ef274856aea4fdc0e888b2afc6db204"
+doc_hash = "sha256:66e84d1eefcda409a83d80893f5ad922c51c506b3d390c2c9fb4f6d7098d04f8"
+callees = ["fn:ae171a7a9c36f976"]
+reached_by = [
+    "#2",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:1ae03fcffe4461ac"
+name = "hfo_site"
+qual = "hfo_site"
+lines = [
+    643,
+    647,
+]
+hash = "sha256:47249d4e272b9350d14e93be7fb92fb20efac7ccb03e7ed5e3244aa8bc02ce41"
+doc_hash = "sha256:8297f44083502d7b5eac56afc1f0430ae3bdd2bbbb0b735ef5af2b0743e55151"
+callees = ["fn:3470a22ed99ddbe4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:9b8a274fb73f6df2"
+name = "metal_complex"
+qual = "metal_complex"
+lines = [
+    649,
+    652,
+]
+hash = "sha256:158ff50420f0fb50b66a606fd096ff72b37f148bf9d020d0ea56eb086514f0a3"
+doc_hash = "sha256:2ff627e3e23b6de62ffb6db18a99da6ed15bed5f16da4825635991258afbf1a8"
+callees = ["fn:12b4bb0ab8936dd1"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:fd90806e1d14a38f"
+name = "protonation_charge_sign_flips_across_pzc"
+qual = "protonation_charge_sign_flips_across_pzc"
+lines = [
+    654,
+    691,
+]
+hash = "sha256:0902705126d582d9334e39f0b4395165c85765b46e0886dd259de5198eb5186b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:18287b37bf0e4daf",
+    "fn:1ae03fcffe4461ac",
+    "fn:59a4d1219ac19cfb",
+    "fn:9b8a274fb73f6df2",
+    "fn:ae171a7a9c36f976",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:ba5e02f270078bde"
+name = "sorption_edge_is_rising_sigmoid_crossing_half"
+qual = "sorption_edge_is_rising_sigmoid_crossing_half"
+lines = [
+    693,
+    728,
+]
+hash = "sha256:c47c219ca440c4943852e27694b6d5860af843de1875586951e73ee1047b0355"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1ae03fcffe4461ac",
+    "fn:9b8a274fb73f6df2",
+    "fn:dd258759d24238cd",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:e8f9caf91627035c"
+name = "site_balance_conserved_all_models"
+qual = "site_balance_conserved_all_models"
+lines = [
+    730,
+    755,
+]
+hash = "sha256:ee7c8ae37925cb2fa7fa09e9ca0363fbf5e732f28c148c9529196b03c651ded1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1ae03fcffe4461ac",
+    "fn:9b8a274fb73f6df2",
+    "fn:ae171a7a9c36f976",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:95869febbe69762c"
+name = "electrostatics_shift_the_edge_and_both_converge"
+qual = "electrostatics_shift_the_edge_and_both_converge"
+lines = [
+    757,
+    818,
+]
+hash = "sha256:2e240600bb446c8127ffb818abae648ad52a4769a5dca4838d275ff4e7ce556b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1ae03fcffe4461ac",
+    "fn:9b8a274fb73f6df2",
+    "fn:ae171a7a9c36f976",
+    "fn:dd258759d24238cd",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:5d18f0ec0f9d7c66"
+name = "dlm_potential_negative_at_high_ph"
+qual = "dlm_potential_negative_at_high_ph"
+lines = [
+    820,
+    865,
+]
+hash = "sha256:6727a6337cd226b3f009fa0d59747211554cb6170471da12ada823e5f1164900"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1ae03fcffe4461ac",
+    "fn:9b8a274fb73f6df2",
+    "fn:ae171a7a9c36f976",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:8519b80cc7fc4374"
+name = "dilute_metal_fraction_is_independent_of_concentration"
+qual = "dilute_metal_fraction_is_independent_of_concentration"
+lines = [
+    867,
+    891,
+]
+hash = "sha256:0537d545949e5cf188d871e73d3e7f356412a3a8efd771eb281b22872ef162bb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1ae03fcffe4461ac",
+    "fn:9b8a274fb73f6df2",
+    "fn:ae171a7a9c36f976",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:ed4f797237f155a0"
+name = "input_validation_rejects_bad_parameters"
+qual = "input_validation_rejects_bad_parameters"
+lines = [
+    893,
+    941,
+]
+hash = "sha256:2b5e8e20b89bce7913c21d5c4b0ac228259340217b53930243c860c87ac3eae4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:12b4bb0ab8936dd1",
+    "fn:1ae03fcffe4461ac",
+    "fn:3470a22ed99ddbe4",
+    "fn:9b8a274fb73f6df2",
+    "fn:9bfa79c272a92f5b",
+    "fn:ae171a7a9c36f976",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:35d3caaad8281b8a"
+name = "zero_metal_gives_zero_sorbed_fraction"
+qual = "zero_metal_gives_zero_sorbed_fraction"
+lines = [
+    943,
+    951,
+]
+hash = "sha256:f363b6a9d9bc269b15278ee2a7dcae0d7c29b24a12d1282502e93be557c8a610"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1ae03fcffe4461ac",
+    "fn:9b8a274fb73f6df2",
+    "fn:ae171a7a9c36f976",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:abdfd365dea6c6ae"
+name = "extreme_conditions_do_not_panic_or_diverge"
+qual = "extreme_conditions_do_not_panic_or_diverge"
+lines = [
+    953,
+    971,
+]
+hash = "sha256:c639d1441974e3dba6517ffb10b0c7d42a5f502ecde9558218a89b37313c5d75"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:12b4bb0ab8936dd1",
+    "fn:1ae03fcffe4461ac",
+    "fn:ae171a7a9c36f976",
+]
+test = true

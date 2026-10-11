@@ -1,0 +1,1704 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-discovery"
+dir = "crates/kovan-discovery/src"
+crate_root = true
+test_ids = [
+    "crates/kovan-discovery/src/git.rs::binary_backend_declines_structured_ops_without_panicking",
+    "crates/kovan-discovery/src/git.rs::blame_attributes_lines_to_their_introducing_commit",
+    "crates/kovan-discovery/src/git.rs::discovers_repo_and_reports_root_and_branch",
+    "crates/kovan-discovery/src/git.rs::history_for_path_only_lists_touching_commits",
+    "crates/kovan-discovery/src/git.rs::history_is_newest_first_and_bounded",
+    "crates/kovan-discovery/src/git.rs::last_commit_for_path_attributes_each_file",
+    "crates/kovan-discovery/src/git.rs::open_on_non_repo_is_not_a_repository",
+    "crates/kovan-discovery/src/git.rs::open_preferring_library_uses_library_for_a_real_repo",
+    "crates/kovan-discovery/src/git.rs::tracked_files_lists_what_git_versions_sorted",
+    "crates/kovan-discovery/src/git.rs::worktree_dirty_flag_tracks_edits",
+    "crates/kovan-discovery/src/lib.rs::bad_pattern_errors",
+    "crates/kovan-discovery/src/lib.rs::discover_kind_filters_by_extension_and_respects_gitignore",
+    "crates/kovan-discovery/src/lib.rs::discover_nonexistent_root_returns_empty_not_panic",
+    "crates/kovan-discovery/src/lib.rs::discover_returns_sorted_stable_order",
+    "crates/kovan-discovery/src/lib.rs::discovers_own_source",
+    "crates/kovan-discovery/src/lib.rs::gitignore_excludes_matching_files_and_directories",
+    "crates/kovan-discovery/src/lib.rs::search_file_column_accounts_for_leading_offset",
+    "crates/kovan-discovery/src/lib.rs::search_file_missing_path_is_io_error",
+    "crates/kovan-discovery/src/lib.rs::search_file_reports_correct_line_and_column",
+    "crates/kovan-discovery/src/lib.rs::search_repository_bad_pattern_fails_before_touching_files",
+    "crates/kovan-discovery/src/lib.rs::search_repository_combines_discovery_and_search_deterministically",
+    "crates/kovan-discovery/src/lib.rs::searches_own_source",
+    "crates/kovan-metrics/src/baseline.rs::the_baseline_lives_inside_the_git_directory",
+    "crates/kovan-metrics/src/tokens.rs::a_message_with_no_comment_block_gets_the_trailer_appended",
+    "crates/kovan-metrics/src/tokens.rs::an_unreadable_message_file_is_a_no_op_not_a_panic",
+    "crates/kovan-metrics/src/tokens.rs::stamping_is_idempotent",
+    "crates/kovan-metrics/src/tokens.rs::the_trailer_lands_above_gits_comment_block",
+    "crates/kovan-semantics/src/lib.rs::catalogue_finds_this_crates_own_symbols",
+    "crates/kovan-semantics/src/lib.rs::markdown_outputs_render_from_a_real_scan",
+    "crates/kovan-semantics/src/lib.rs::ripgrep_first_scan_finds_this_crates_functions",
+    "crates/kovan/src/advanced_git.rs::history_reflects_a_real_commit",
+    "crates/kovan/src/app/advanced_git_view.rs::a_background_job_is_recorded_when_it_finishes_and_not_before",
+    "crates/kovan/src/app/advanced_git_view.rs::a_forced_pull_names_the_branch_the_unpushed_saves_were_kept_on",
+    "crates/kovan/src/app/advanced_git_view.rs::the_push_checkbox_reflects_the_library_setting",
+    "crates/kovan/src/app/advanced_git_view.rs::thousands_of_changes_do_not_push_the_save_button_off_screen",
+    "crates/kovan/src/app/code_review_view.rs::a_pending_request_is_held_and_drawn_headless",
+    "crates/kovan/src/app/code_review_view.rs::organisations_window_and_attestation_picker_draw_headless",
+    "crates/kovan/src/app/code_review_view.rs::review_mode_replaces_the_map_headless",
+    "crates/kovan/src/app/code_review_view.rs::the_reconfirm_step_draws_the_callee_diff_headless",
+    "crates/kovan/src/app/code_review_view.rs::the_stamp_dialog_opens_and_draws_every_step_headless",
+    "crates/kovan/src/app/need_you_view.rs::the_panel_draws_every_row_kind_headless",
+    "crates/kovan/src/app/review_mode_panel.rs::a_saved_fix_turns_needs_fix_into_fixed_without_reopening",
+    "crates/kovan/src/app/review_mode_panel.rs::review_mode_draws_every_part_headless",
+    "crates/kovan/src/code_review_data.rs::the_data_folder_is_built_from_a_saved_index_and_knows_when_it_is_current",
+    "crates/kovan/src/stamping/concepts.rs::links_and_formulas",
+    "crates/kovan/src/stamping/flow_tests.rs::flow_refuses_a_dirty_file_then_writes_needs_fix",
+    "crates/kovan/src/stamping/flow_tests.rs::flow_sets_up_a_key_signs_and_turns_valid",
+    "crates/kovan/src/stamping/flow_tests.rs::flow_without_root_and_with_several_keys",
+    "crates/kovan/src/stamping/need_you_tests.rs::a_deleted_function_goes_to_the_history_table",
+    "crates/kovan/src/stamping/need_you_tests.rs::acknowledging_a_cross_folder_move_moves_the_review_entry",
+    "crates/kovan/src/stamping/need_you_tests.rs::commit_and_push_lands_on_develop_refuses_main_and_merges_a_moved_remote",
+    "crates/kovan/src/stamping/need_you_tests.rs::the_queue_puts_stale_on_top_and_folds_new_functions_per_commit",
+    "crates/kovan/src/stamping/need_you_tests.rs::the_stamp_records_the_authorship_of_the_reviewed_change",
+    "crates/kovan/src/stamping/organisations_tests.rs::concept_link_reaches_rung_5_through_evaluate_workspace",
+    "crates/kovan/src/stamping/organisations_tests.rs::ivv_end_to_end_signs_records_stamps_and_judges",
+    "crates/kovan/src/stamping/review_mode/tests.rs::a_concept_is_linked_from_the_wizard",
+    "crates/kovan/src/stamping/review_mode/tests.rs::a_port_prefills_no_concept_and_links_upstream",
+    "crates/kovan/src/stamping/review_mode/tests.rs::bottom_up_is_enforced_before_the_wizard",
+    "crates/kovan/src/stamping/review_mode/tests.rs::flow_refuses_a_changed_hash_and_signs_no_concept",
+    "crates/kovan/src/stamping/review_mode/tests.rs::function_view_diff_sections_blockers_and_walk",
+    "crates/kovan/src/stamping/review_mode/tests.rs::inherited_stale_is_reconfirmed_without_the_wizard",
+    "crates/kovan/src/stamping/review_mode/tests.rs::sections_highlights_and_cancel",
+    "crates/kovan/src/stamping/tests.rs::restamp_replaces_keeps_unreadable_and_registration_keeps_comments",
+    "crates/kovan/src/stamping/tests.rs::stamp_is_valid_then_goes_stale_on_edit",
+    "crates/kovan/src/tui/browser.rs::edit_mode_types_into_root_and_enter_confirms_and_scans",
+    "crates/kovan/src/tui/browser.rs::esc_cancels_editing_without_running_a_scan",
+    "crates/kovan/src/tui/browser.rs::kind_filter_cycles_and_wraps_both_directions",
+    "crates/kovan/src/tui/browser.rs::navigation_on_empty_file_list_does_not_panic",
+    "crates/kovan/src/tui/browser.rs::nonexistent_root_reports_status_without_panicking",
+    "crates/kovan/src/tui/browser.rs::selection_wraps_up_and_down",
+    "crates/kovan/src/tui/ingest/mod.rs::a_bad_pdf_ends_in_the_failed_phase_with_a_message",
+    "crates/kovan/src/tui/ingest/mod.rs::a_failed_job_is_dismissed_back_to_the_picker",
+    "crates/kovan/src/tui/ingest/mod.rs::abandoning_a_running_job_returns_to_the_picker_immediately",
+    "crates/kovan/src/tui/ingest/mod.rs::discarding_a_review_writes_nothing_and_returns_to_the_picker",
+    "crates/kovan/src/tui/ingest/mod.rs::editing_an_output_path_pins_all_three",
+    "crates/kovan/src/tui/ingest/mod.rs::enter_with_no_selection_reports_instead_of_starting_a_job",
+    "crates/kovan/src/tui/ingest/mod.rs::esc_cancels_an_edit_and_restores_the_previous_value",
+    "crates/kovan/src/tui/ingest/mod.rs::filter_narrows_the_candidate_list_case_insensitively",
+    "crates/kovan/src/tui/ingest/mod.rs::ingest_path_points_the_picker_at_the_files_directory",
+    "crates/kovan/src/tui/ingest/mod.rs::left_right_cycles_the_document_type_only_on_that_row",
+    "crates/kovan/src/tui/ingest/mod.rs::missing_root_is_reported_not_panicked",
+    "crates/kovan/src/tui/ingest/mod.rs::pressing_e_on_the_type_row_explains_itself_instead_of_editing",
+    "crates/kovan/src/tui/ingest/mod.rs::quit_is_blocked_while_work_is_in_flight",
+    "crates/kovan/src/tui/ingest/mod.rs::review_navigation_moves_between_fields",
+    "crates/kovan/src/tui/ingest/mod.rs::saving_from_the_review_phase_writes_and_reports",
+    "crates/kovan/src/tui/ingest/mod.rs::scan_finds_pdfs_only",
+    "crates/kovan/src/tui/ingest/mod.rs::typing_a_root_then_enter_scans_it",
+    "crates/kovan/src/tui/ingest/mod.rs::typing_into_the_year_field_corrects_the_record",
+    "crates/kovan/src/tui/literature.rs::edit_mode_types_into_root_and_enter_confirms_and_scans",
+    "crates/kovan/src/tui/literature.rs::kind_filter_narrows_the_entry_list",
+    "crates/kovan/src/tui/literature.rs::nonexistent_root_reports_status_without_panicking",
+    "crates/kovan/src/tui/literature.rs::preview_bib_entry_shows_raw_text",
+    "crates/kovan/src/tui/literature.rs::preview_markdown_entry_shows_outline_and_content",
+    "crates/kovan/src/tui/literature.rs::r_rescans_without_entering_edit_mode",
+    "crates/kovan/src/tui/mod.rs::back_tab_cycles_backward_and_wraps_from_overview",
+    "crates/kovan/src/tui/mod.rs::digit_keys_switch_tabs",
+    "crates/kovan/src/tui/mod.rs::digit_seven_reaches_the_digitiser_tab",
+    "crates/kovan/src/tui/mod.rs::digit_six_reaches_the_ingest_tab",
+    "crates/kovan/src/tui/mod.rs::editing_suppresses_global_quit_and_tab_switch_keys",
+    "crates/kovan/src/tui/mod.rs::esc_also_quits_when_not_editing",
+    "crates/kovan/src/tui/mod.rs::literature_i_hands_the_selected_pdf_to_the_ingest_tab",
+    "crates/kovan/src/tui/mod.rs::overview_tab_ignores_navigation_keys_without_panicking",
+    "crates/kovan/src/tui/mod.rs::poll_interval_is_short_only_while_work_is_in_flight",
+    "crates/kovan/src/tui/mod.rs::q_quits_from_the_default_overview_tab",
+    "crates/kovan/src/tui/mod.rs::quitting_is_blocked_while_an_import_is_in_flight",
+    "crates/kovan/src/tui/mod.rs::tab_key_cycles_forward_and_wraps",
+    "crates/kovan/src/tui/symbols.rs::adapter_cycles_and_wraps_both_directions",
+    "crates/kovan/src/tui/symbols.rs::draw_list_view_and_markdown_view_do_not_panic",
+    "crates/kovan/src/tui/symbols.rs::edit_mode_types_into_root_and_enter_confirms_and_scans",
+    "crates/kovan/src/tui/symbols.rs::m_toggles_markdown_view",
+    "crates/kovan/src/tui/symbols.rs::markdown_view_scroll_does_not_move_the_list_selection",
+    "crates/kovan/src/tui/symbols.rs::nonexistent_root_reports_status_without_panicking",
+]
+
+[module."git.rs"]
+path = "crate::git"
+
+[[module."git.rs".function]]
+id = "fn:f0041df78c4dabc6"
+name = "fmt"
+qual = "GitError::fmt"
+lines = [
+    156,
+    175,
+]
+hash = "sha256:2feab5b0d00b9fb1ff9b27335957c4709536c7a358f023e4bf645a85df71dfe8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."git.rs".function]]
+id = "fn:796282ea5fc6f759"
+name = "repo_root"
+qual = "GitBackend::repo_root"
+lines = [
+    192,
+    194,
+]
+hash = "sha256:4e5cc3dbe8080be5efb1dbf1f2d849b6ee374fcda8f9d5c0ce44e570a42adf50"
+doc_hash = "sha256:8b35911f6e57a76538ffa1958da041a596962fb5b2ea50d4ff654c8fdb11308f"
+
+[[module."git.rs".function]]
+id = "fn:405ba4bea21b04ca"
+name = "head"
+qual = "GitBackend::head"
+lines = [
+    196,
+    197,
+]
+hash = "sha256:d6ed5dea90a295406796ed0b69c9f66903d06ca28be891a805cb512a73ae6a07"
+doc_hash = "sha256:8f3c3ac01add8aa2b050e3f570f5e5dcab8b7a747ec8b954db0358e28cdfcd89"
+
+[[module."git.rs".function]]
+id = "fn:8070646f3ec6228c"
+name = "tracked_files"
+qual = "GitBackend::tracked_files"
+lines = [
+    199,
+    201,
+]
+hash = "sha256:26d78613b9d106b162960dd21b606dd0dcd597bed8a04e5d7af5fce15eb2544f"
+doc_hash = "sha256:d10dc0eb04c78ba661f16283a836158def1e7c426e8e8ab0a24698cd54daa2da"
+
+[[module."git.rs".function]]
+id = "fn:78587a5dd374e2f7"
+name = "history"
+qual = "GitBackend::history"
+lines = [
+    203,
+    204,
+]
+hash = "sha256:5ce082c98828db6944889cf10a1c76cb9da519d95258043ad5b1e2fdded55c64"
+doc_hash = "sha256:bf1861643af2d19dd7f6bf305e70af07de8f3ba9dabf1a0d4097aa91b6e82198"
+
+[[module."git.rs".function]]
+id = "fn:f3aea921e80bc496"
+name = "history_for_path"
+qual = "GitBackend::history_for_path"
+lines = [
+    206,
+    207,
+]
+hash = "sha256:03121e5083fdc4de786c79b6da182c56528a4a3e09d372a84d37897ed1cbcb07"
+doc_hash = "sha256:620c99395b3efd91417356a2c1bc052b899556a392ae388559349931a3b0675b"
+
+[[module."git.rs".function]]
+id = "fn:0580655eab4c1c18"
+name = "last_commit_for_path"
+qual = "GitBackend::last_commit_for_path"
+lines = [
+    209,
+    211,
+]
+hash = "sha256:ffcbb1a5a4c728bca7ecf8784c18200c66740da983b51b4b926ca784c3804876"
+doc_hash = "sha256:c067becc07eb4289612a3e2f9e22c95dd67f52c358ed39f3fdf12d5820369a81"
+
+[[module."git.rs".function]]
+id = "fn:04cb95ba05054318"
+name = "blame_line"
+qual = "GitBackend::blame_line"
+lines = [
+    213,
+    215,
+]
+hash = "sha256:cd7d3f11f45d243f94f51013ffccb142be7bf3b66746eedafcdbe0f972bc2e85"
+doc_hash = "sha256:ff78f3f152fc115a868fe0c84cafdea011a3586ebb9af462748d98870bdb677b"
+
+[[module."git.rs".function]]
+id = "fn:7e588c4bf4abd030"
+name = "is_worktree_dirty"
+qual = "GitBackend::is_worktree_dirty"
+lines = [
+    217,
+    219,
+]
+hash = "sha256:958545312a5a3b061b71522d64e1c481de605fa8158ee9f3f1068b68c375fadd"
+doc_hash = "sha256:6c1535af01fb47eb137aa8206d59862ea588ee0b0e182bda778f5b9c9effa23b"
+
+[[module."git.rs".function]]
+id = "fn:c46fe358b57c3985"
+name = "discover"
+qual = "GixBackend::discover"
+lines = [
+    237,
+    251,
+]
+hash = "sha256:0b02a3022ce29a2c0de4e29093fe45077f364bafb99e28cfda9a3079b3a8aa0d"
+doc_hash = "sha256:b2ff518939c8f50886d1a1b5b14cd67a85630c981d0576958e8a46142eae375e"
+callees = ["fn:e0f596bb4ed69ec1"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."git.rs".function]]
+id = "fn:adc9f7c4f46ecd33"
+name = "open"
+qual = "GixBackend::open"
+lines = [
+    253,
+    261,
+]
+hash = "sha256:e590c819941f955da5d85bd6c8866426bfa348f0539a0d60d6390d73d6207b96"
+doc_hash = "sha256:446b50db88285f2a0b59c14c8338554f25b2df163ff5c18edf563e79a14baeeb"
+callees = ["fn:e0f596bb4ed69ec1"]
+
+[[module."git.rs".function]]
+id = "fn:e0f596bb4ed69ec1"
+name = "from_repo"
+qual = "GixBackend::from_repo"
+lines = [
+    263,
+    269,
+]
+hash = "sha256:c0100ff84f1f83bb2d1c82530709750ebee43f24e81d309842f94114353f72d4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."git.rs".function]]
+id = "fn:dd7863c820467242"
+name = "repository"
+qual = "GixBackend::repository"
+lines = [
+    271,
+    275,
+]
+hash = "sha256:3f465d9eaf06a160db15bd2369ee3501dddde718a506c6fc08896e3070282181"
+doc_hash = "sha256:77a5751801aa0246d8d066c0c00271e0aee5557f0c9148a0eedae6860a8a9c4c"
+
+[[module."git.rs".function]]
+id = "fn:0ade8f9b1b1c945d"
+name = "commit_info"
+qual = "GixBackend::commit_info"
+lines = [
+    277,
+    306,
+]
+hash = "sha256:96480e4489b045d9881d2b0fb81ed1367ad0ed70d90c0638215b5141367414bb"
+doc_hash = "sha256:fc335dd37e1dd795441ab9668a823c7bbb661c5cdc2c58512b861eba438033a5"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."git.rs".function]]
+id = "fn:4bd1df9b36574d95"
+name = "path_blob_id"
+qual = "GixBackend::path_blob_id"
+lines = [
+    308,
+    321,
+]
+hash = "sha256:878c82f611641aece4b5a8929da9986f2cfc6dea76f5c65988df16de3dbc1acd"
+doc_hash = "sha256:4c48f8f5c22cfef228eb1ec6b92260623ea0974a38c7eb032f8cbc7030534201"
+reached_by = [
+    "#0",
+    "#3",
+    "#5",
+]
+
+[[module."git.rs".function]]
+id = "fn:533b902aa5cda7a6"
+name = "head_commit"
+qual = "GixBackend::head_commit"
+lines = [
+    323,
+    333,
+]
+hash = "sha256:fcec5c4232a03dd5281d56d459a27bd3abd04458809910eccc2f0542132cba8f"
+doc_hash = "sha256:7825ae491a14798be85cfc325e0312c1613f566313bd102d102c8ee02a174a28"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."git.rs".function]]
+id = "fn:e08f710f369cf00d"
+name = "rev_walk_newest_first"
+qual = "GixBackend::rev_walk_newest_first"
+lines = [
+    335,
+    345,
+]
+hash = "sha256:58330890601801fdb991790d776fd9bec261f00c05d34ea0ed064ba171c1f96c"
+doc_hash = "sha256:db96165914f399ba7de95d3ee1f5a2aea48d5dc1b2917d556ab173ecc71e9a47"
+callees = ["fn:533b902aa5cda7a6"]
+reached_by = [
+    "#0",
+    "#3",
+    "#4",
+    "#5",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."git.rs".function]]
+id = "fn:56dbca6ee42b7c02"
+name = "repo_root"
+qual = "GixBackend::repo_root"
+lines = [
+    349,
+    351,
+]
+hash = "sha256:3eea68bc54f2efb3e3a78294dffaf1deccee84a7885e543c853c8c31a8fd8b25"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#2",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."git.rs".function]]
+id = "fn:07623b7a0d42d11e"
+name = "head"
+qual = "GixBackend::head"
+lines = [
+    353,
+    366,
+]
+hash = "sha256:50b4987507a452055071e4f4626db16b951329cfe74c8c0a9292f785e09135ba"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0ade8f9b1b1c945d",
+    "fn:533b902aa5cda7a6",
+]
+reached_by = [
+    "#0",
+    "#2",
+]
+
+[[module."git.rs".function]]
+id = "fn:e7277593a9b52e8b"
+name = "tracked_files"
+qual = "GixBackend::tracked_files"
+lines = [
+    368,
+    383,
+]
+hash = "sha256:6911848ddfac84567d61e4439c209cd065466c3e2bf30c37828308ddfc624f6e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#8",
+]
+
+[[module."git.rs".function]]
+id = "fn:3fdb00925040bb09"
+name = "history"
+qual = "GixBackend::history"
+lines = [
+    385,
+    398,
+]
+hash = "sha256:c2d31fdb4e20de6501c79ff634cc69d799104b4f4faf91e1b90ea840470a4221"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0ade8f9b1b1c945d",
+    "fn:e08f710f369cf00d",
+]
+reached_by = [
+    "#0",
+    "#4",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."git.rs".function]]
+id = "fn:5300163883435daa"
+name = "history_for_path"
+qual = "GixBackend::history_for_path"
+lines = [
+    400,
+    437,
+]
+hash = "sha256:d8661e3e7f038585fdd06ce132edbbc09adc3363c2c36f149be8fd56dc2d7a61"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0ade8f9b1b1c945d",
+    "fn:4bd1df9b36574d95",
+    "fn:e08f710f369cf00d",
+]
+reached_by = [
+    "#0",
+    "#3",
+    "#5",
+]
+
+[[module."git.rs".function]]
+id = "fn:c5c732c71192bba9"
+name = "last_commit_for_path"
+qual = "GixBackend::last_commit_for_path"
+lines = [
+    439,
+    441,
+]
+hash = "sha256:e9d7fbaaa80ed942a115c28a34dc6b1303099662392422b4463f3904490f528e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:5300163883435daa"]
+reached_by = [
+    "#0",
+    "#5",
+]
+
+[[module."git.rs".function]]
+id = "fn:7388435ab7a855bf"
+name = "blame_line"
+qual = "GixBackend::blame_line"
+lines = [
+    443,
+    471,
+]
+hash = "sha256:a5be8e96b5648c6648981bc66ef8a4f151ce17dbd121adcadbd05901798a8ff6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0ade8f9b1b1c945d",
+    "fn:533b902aa5cda7a6",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."git.rs".function]]
+id = "fn:32e49c20a23e5d58"
+name = "is_worktree_dirty"
+qual = "GixBackend::is_worktree_dirty"
+lines = [
+    473,
+    477,
+]
+hash = "sha256:e28227c6b18b2d48bdd579efefcb0a6b9169b33411d8782e787d99eec6688771"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#9",
+]
+
+[[module."git.rs".function]]
+id = "fn:950869037747c8ac"
+name = "new"
+qual = "GixCliBackend::new"
+lines = [
+    507,
+    514,
+]
+hash = "sha256:4b78a1888cae814f11e40e28ba429516af4b15b3094f5236bcc4aae521368cd1"
+doc_hash = "sha256:54d300bf3059a6a31f1e3088290aeef82412a2e425dd28f91ca0501d63a9e1ef"
+reached_by = [
+    "#0",
+    "#7",
+]
+
+[[module."git.rs".function]]
+id = "fn:72cc57b926697b8e"
+name = "with_program"
+qual = "GixCliBackend::with_program"
+lines = [
+    516,
+    523,
+]
+hash = "sha256:e0ce2284c9959acbb9a4d58f16049805f24ee00e7f5e2ad96eda08b88bbac0ce"
+doc_hash = "sha256:703c5195e1ba3d505adb23c64ceb0a709937110aa77aaac82ec8648d19665929"
+
+[[module."git.rs".function]]
+id = "fn:04e49cfa22939afb"
+name = "is_available"
+qual = "GixCliBackend::is_available"
+lines = [
+    525,
+    529,
+]
+hash = "sha256:d74cf87ad5811a1eaf4a5a584ba41dde58c7a3c569e54b14fb18ac73ad9f10a4"
+doc_hash = "sha256:2040ce8aa0c0e8ccc3348e413784a0fd102a2d68d6f5718676873ab763773ca1"
+callees = ["fn:cfedc1ea1bfd652d"]
+reached_by = ["#7"]
+
+[[module."git.rs".function]]
+id = "fn:cfedc1ea1bfd652d"
+name = "version"
+qual = "GixCliBackend::version#1"
+lines = [
+    531,
+    549,
+]
+hash = "sha256:1de139b6c66f8df2cb70e0dd2733c6fbf09ad079efce5c70047084be68d6fcd0"
+doc_hash = "sha256:f4185bfd373c1acf4c2b7e1c5e64334a0b9e231f493e5cb40f8d1e8f744e2bc5"
+reached_by = ["#7"]
+
+[[module."git.rs".function]]
+id = "fn:3b21ac99f78a97f2"
+name = "version"
+qual = "GixCliBackend::version#2"
+lines = [
+    551,
+    555,
+]
+hash = "sha256:ccc0e1d87474a55c2027ca3cce99b9cfecf220e35e4740089bba6268dd69d2c7"
+doc_hash = "sha256:350b5e168b427d086ef439ba2ea7f30e6ca6304682eeefe885fd7db8f45f0060"
+
+[[module."git.rs".function]]
+id = "fn:2fb82a078f4f11af"
+name = "decline"
+qual = "GixCliBackend::decline"
+lines = [
+    557,
+    569,
+]
+hash = "sha256:c1a4c5a70bb63b4f5427050ed97e85f01eae7743a0cd68b5b53d4d64e8608e0b"
+doc_hash = "sha256:6976b1a0c1d4fe4577bfcce578a2710345a292fb375516becf11b67b3cdc8d80"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#8",
+    "#9",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."git.rs".function]]
+id = "fn:034e3c0b5b5f7682"
+name = "repo_root"
+qual = "GixCliBackend::repo_root"
+lines = [
+    573,
+    575,
+]
+hash = "sha256:3eea68bc54f2efb3e3a78294dffaf1deccee84a7885e543c853c8c31a8fd8b25"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#2",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."git.rs".function]]
+id = "fn:7315fd6e86bafc9a"
+name = "head"
+qual = "GixCliBackend::head"
+lines = [
+    577,
+    579,
+]
+hash = "sha256:d72b79501014e3d123575b6478f33131ce248d1dc5ec72f4b1362041b7b19f93"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2fb82a078f4f11af"]
+reached_by = [
+    "#0",
+    "#2",
+]
+
+[[module."git.rs".function]]
+id = "fn:a8ecb883c6157f08"
+name = "tracked_files"
+qual = "GixCliBackend::tracked_files"
+lines = [
+    581,
+    583,
+]
+hash = "sha256:c34890281fda737679717a9ebeedb8682d4286acf235ca7ffdcd9c3760118b6f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2fb82a078f4f11af"]
+reached_by = [
+    "#0",
+    "#8",
+]
+
+[[module."git.rs".function]]
+id = "fn:b8761cb8a0a322aa"
+name = "history"
+qual = "GixCliBackend::history"
+lines = [
+    585,
+    587,
+]
+hash = "sha256:2aa4dd02d0753e65dc137dd7546a14e6f9f95174c109c86f56ada942d8077415"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2fb82a078f4f11af"]
+reached_by = [
+    "#0",
+    "#4",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."git.rs".function]]
+id = "fn:796ed4ece34f9c96"
+name = "history_for_path"
+qual = "GixCliBackend::history_for_path"
+lines = [
+    589,
+    595,
+]
+hash = "sha256:7acead20ce37e2d0377132e231371089427aa2778f1a163a7e7572995ef52941"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2fb82a078f4f11af"]
+reached_by = ["#3"]
+
+[[module."git.rs".function]]
+id = "fn:a95c63c9061ac9e1"
+name = "last_commit_for_path"
+qual = "GixCliBackend::last_commit_for_path"
+lines = [
+    597,
+    599,
+]
+hash = "sha256:31263f2d5ca294594a1cfb1d040a8b908d9ca1ac628c1d9a8c1f9e59b0f04f7d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2fb82a078f4f11af"]
+reached_by = [
+    "#0",
+    "#5",
+]
+
+[[module."git.rs".function]]
+id = "fn:d427b167551c4e13"
+name = "blame_line"
+qual = "GixCliBackend::blame_line"
+lines = [
+    601,
+    603,
+]
+hash = "sha256:8102acf38c2ac7d32fa2de5d58b724ed1dd9ab152c5ab6e0822a57f02f3f7815"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2fb82a078f4f11af"]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."git.rs".function]]
+id = "fn:db2cdaa3703d41cc"
+name = "is_worktree_dirty"
+qual = "GixCliBackend::is_worktree_dirty"
+lines = [
+    605,
+    607,
+]
+hash = "sha256:a683229cc43edd6aefdb552566dd73aaba5ac5d8bf6d9a7a193c69ded2cf3e0a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2fb82a078f4f11af"]
+reached_by = [
+    "#0",
+    "#9",
+]
+
+[[module."git.rs".function]]
+id = "fn:4350a879cc371a71"
+name = "open"
+qual = "GitProvider::open"
+lines = [
+    636,
+    645,
+]
+hash = "sha256:6bed9539d1ab36d60da6a70c477ee69b5e191c6a8f484f5e0bb99c481cae23e6"
+doc_hash = "sha256:4617f684cb84ea003e39285d642078087ebf6549242d830066d27d34a0b37297"
+callees = ["fn:c46fe358b57c3985"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."git.rs".function]]
+id = "fn:e503bcfde2594c49"
+name = "open_preferring_library"
+qual = "GitProvider::open_preferring_library"
+lines = [
+    647,
+    666,
+]
+hash = "sha256:90589c3cf5e9b74cc8ca6d1831f084af46b205f9ef53e9b9464dd35238ee7763"
+doc_hash = "sha256:aa5eed5ec8cdfb5285496a452b7625809fce87e65b2741d43a821bbe36be27e1"
+callees = [
+    "fn:04e49cfa22939afb",
+    "fn:950869037747c8ac",
+    "fn:c46fe358b57c3985",
+]
+reached_by = ["#7"]
+
+[[module."git.rs".function]]
+id = "fn:8c7a5680be5b3473"
+name = "binary"
+qual = "GitProvider::binary"
+lines = [
+    668,
+    673,
+]
+hash = "sha256:53d7cd30f3bb04d034dd47b12e30e97844296a7da454e4cab8df5536e4c6be51"
+doc_hash = "sha256:cb4f413a1655d9741486da7a82176c6dccf8623f1bf5f10d6e6764ad965cccf1"
+callees = ["fn:950869037747c8ac"]
+reached_by = ["#0"]
+
+[[module."git.rs".function]]
+id = "fn:b0881a5de4f9534f"
+name = "backend_kind"
+qual = "GitProvider::backend_kind"
+lines = [
+    675,
+    681,
+]
+hash = "sha256:77c2123e2be8e07cdcd694ffb38956ab43f848931e9bd98341c995e6dcbcc6d5"
+doc_hash = "sha256:8abef954df0bb621b9cdf4369bdda0e3abda946d2695be8044372aed217b31ed"
+reached_by = [
+    "#0",
+    "#2",
+    "#7",
+]
+
+[[module."git.rs".function]]
+id = "fn:5e38029090cdadd3"
+name = "repo_root"
+qual = "GitProvider::repo_root"
+lines = [
+    683,
+    689,
+]
+hash = "sha256:581058ae8518f94fd05d4b8ab4702514589de8fc186f6bc1cca1f15d41f1e817"
+doc_hash = "sha256:9c5e615304045f19523c6a93ae49cc1675eed12747a2207dde7642aa0970e064"
+callees = [
+    "fn:034e3c0b5b5f7682",
+    "fn:56dbca6ee42b7c02",
+]
+reached_by = [
+    "#2",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."git.rs".function]]
+id = "fn:19871e9eda48531c"
+name = "head"
+qual = "GitProvider::head"
+lines = [
+    691,
+    697,
+]
+hash = "sha256:4df67fa2f1059f0a29a7c9a638da07901966f391748c7192ccc2434f3b87fcbb"
+doc_hash = "sha256:4bc10725b0f92cfb70ea5a3fe1c70144d7904c22d657dafb27c46d8a11a76be6"
+callees = [
+    "fn:07623b7a0d42d11e",
+    "fn:7315fd6e86bafc9a",
+]
+reached_by = [
+    "#0",
+    "#2",
+]
+
+[[module."git.rs".function]]
+id = "fn:82a987e3caf9acc8"
+name = "tracked_files"
+qual = "GitProvider::tracked_files"
+lines = [
+    699,
+    705,
+]
+hash = "sha256:8997d7ae33c522e7fed85a5ae7ce0d93c4aabca2cb525ddd1b1c24d6649a172a"
+doc_hash = "sha256:5205262808a0f5909b821da1e7120c42610b786f1ace7c2772224e8cf6152a96"
+callees = [
+    "fn:a8ecb883c6157f08",
+    "fn:e7277593a9b52e8b",
+]
+reached_by = [
+    "#0",
+    "#8",
+]
+
+[[module."git.rs".function]]
+id = "fn:13d7a249ebb8e3f9"
+name = "history"
+qual = "GitProvider::history"
+lines = [
+    707,
+    713,
+]
+hash = "sha256:33228a6fb267cb001d9fb120d202c7a4ed47fb4d99c160a9d093993d784064c3"
+doc_hash = "sha256:abd335accc8d0ae182ad6dd92634c7dd7c3f8306b9dc3672749a6c28ff65d76e"
+callees = [
+    "fn:3fdb00925040bb09",
+    "fn:b8761cb8a0a322aa",
+]
+reached_by = [
+    "#0",
+    "#4",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+
+[[module."git.rs".function]]
+id = "fn:8cf0b961e96f1963"
+name = "history_for_path"
+qual = "GitProvider::history_for_path"
+lines = [
+    715,
+    726,
+]
+hash = "sha256:6d4b09f7e6b1c7600d48573e2b0c1458c9eea2ca13cadd611cb1a6d4e3016ef8"
+doc_hash = "sha256:d867f3b748284dd259af32653a18db214baf59da7eda6398c84ab80eba361c51"
+callees = [
+    "fn:5300163883435daa",
+    "fn:796ed4ece34f9c96",
+]
+reached_by = ["#3"]
+
+[[module."git.rs".function]]
+id = "fn:9a27fa7de904d2b0"
+name = "last_commit_for_path"
+qual = "GitProvider::last_commit_for_path"
+lines = [
+    728,
+    735,
+]
+hash = "sha256:ed31ae196e222aaf552d1f3bec5e26005c663f54e7cf8720ff6e0308a37a20e6"
+doc_hash = "sha256:397d278152852b7dcb11e81313bf95e41ae54e4774f4f69541231a13ad7abc32"
+callees = [
+    "fn:a95c63c9061ac9e1",
+    "fn:c5c732c71192bba9",
+]
+reached_by = [
+    "#0",
+    "#5",
+]
+
+[[module."git.rs".function]]
+id = "fn:8c782c59d84adb83"
+name = "blame_line"
+qual = "GitProvider::blame_line"
+lines = [
+    737,
+    744,
+]
+hash = "sha256:7debfa1907a906bf3ea4887650456909d5c04723cad89d8d44d7630134871711"
+doc_hash = "sha256:f78fc71d2f692f5fd4d9506084d8e686575105c345b014b278cb3e027667e71c"
+callees = [
+    "fn:7388435ab7a855bf",
+    "fn:d427b167551c4e13",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."git.rs".function]]
+id = "fn:f6c938870466543c"
+name = "is_worktree_dirty"
+qual = "GitProvider::is_worktree_dirty"
+lines = [
+    746,
+    752,
+]
+hash = "sha256:da922c320103767d093bab469ea23193f9428b8ea816c170be35946092e9e073"
+doc_hash = "sha256:8cb878a74001d3fbfa2d4fd1c5b45096e1d332b2b9c66d64efa2f6a65b251e0c"
+callees = [
+    "fn:32e49c20a23e5d58",
+    "fn:db2cdaa3703d41cc",
+]
+reached_by = [
+    "#0",
+    "#9",
+]
+
+[[module."git.rs".function]]
+id = "fn:a073c604fd4a52a7"
+name = "git"
+qual = "git"
+lines = [
+    761,
+    782,
+]
+hash = "sha256:acee502896cd63f5ce774a049a3aaff4a24f82b721252d1b1487da4c18d86ebd"
+doc_hash = "sha256:44af3b4d7c4aff264f22456d6cd4d510bb089ea9cac863a6934018e4dd95518b"
+test = true
+
+[[module."git.rs".function]]
+id = "fn:0113cb83cbe8ea6b"
+name = "fixture"
+qual = "fixture"
+lines = [
+    784,
+    810,
+]
+hash = "sha256:b54f578ae8fe89d378dcdd8073d3005a163ed8d478b62953457bb275cb71c493"
+doc_hash = "sha256:555409352eb35d698294274ebb4ff6777f2198259a78bc57e4413d1aa7aee519"
+callees = ["fn:a073c604fd4a52a7"]
+test = true
+
+[[module."git.rs".function]]
+id = "fn:524ce988e5145e66"
+name = "discovers_repo_and_reports_root_and_branch"
+qual = "discovers_repo_and_reports_root_and_branch"
+lines = [
+    812,
+    832,
+]
+hash = "sha256:b8845e9a56c7f4aa971321a64dc318975162a5c220ded92996b2f0c31aa39010"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0113cb83cbe8ea6b",
+    "fn:19871e9eda48531c",
+    "fn:4350a879cc371a71",
+    "fn:5e38029090cdadd3",
+    "fn:b0881a5de4f9534f",
+]
+test = true
+
+[[module."git.rs".function]]
+id = "fn:175ff9ba0e0dfab6"
+name = "open_on_non_repo_is_not_a_repository"
+qual = "open_on_non_repo_is_not_a_repository"
+lines = [
+    834,
+    842,
+]
+hash = "sha256:84268a30f55531a5b3d15ae9fccc46e7a1f3e483ad20a00c0ff04aab0e2ed3ea"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4350a879cc371a71"]
+test = true
+
+[[module."git.rs".function]]
+id = "fn:2a59568d313caf05"
+name = "tracked_files_lists_what_git_versions_sorted"
+qual = "tracked_files_lists_what_git_versions_sorted"
+lines = [
+    844,
+    858,
+]
+hash = "sha256:165b2cb0f84048059cd43c7b4cc75f2dbecff6790ca99b9bf7b03aba3d9cc2e8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0113cb83cbe8ea6b",
+    "fn:4350a879cc371a71",
+    "fn:82a987e3caf9acc8",
+]
+test = true
+
+[[module."git.rs".function]]
+id = "fn:aeb678bbdfc18c05"
+name = "history_is_newest_first_and_bounded"
+qual = "history_is_newest_first_and_bounded"
+lines = [
+    860,
+    875,
+]
+hash = "sha256:7bbc0af0991caac72716e080ed9a0398681ad30df8c55b2194f50e4671acc241"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0113cb83cbe8ea6b",
+    "fn:13d7a249ebb8e3f9",
+    "fn:4350a879cc371a71",
+]
+test = true
+
+[[module."git.rs".function]]
+id = "fn:5f99603168855d55"
+name = "last_commit_for_path_attributes_each_file"
+qual = "last_commit_for_path_attributes_each_file"
+lines = [
+    877,
+    905,
+]
+hash = "sha256:2c99a23255500a770f2e03c3037848cff9e437b3299db919c3651d247fe60f63"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0113cb83cbe8ea6b",
+    "fn:4350a879cc371a71",
+    "fn:9a27fa7de904d2b0",
+]
+test = true
+
+[[module."git.rs".function]]
+id = "fn:6d6c68aae9967b8f"
+name = "history_for_path_only_lists_touching_commits"
+qual = "history_for_path_only_lists_touching_commits"
+lines = [
+    907,
+    928,
+]
+hash = "sha256:b76b75d6d2d9f79fad7686793a1e269f95e6def522547d9ca22df2f358ea4cde"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0113cb83cbe8ea6b",
+    "fn:4350a879cc371a71",
+    "fn:8cf0b961e96f1963",
+]
+test = true
+
+[[module."git.rs".function]]
+id = "fn:d7b851255f174fc3"
+name = "blame_attributes_lines_to_their_introducing_commit"
+qual = "blame_attributes_lines_to_their_introducing_commit"
+lines = [
+    930,
+    948,
+]
+hash = "sha256:8cfba4deb31e445bbe7b0a349e365452e9ee81e33079763b0af388f7e618ff98"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0113cb83cbe8ea6b",
+    "fn:4350a879cc371a71",
+    "fn:8c782c59d84adb83",
+]
+test = true
+
+[[module."git.rs".function]]
+id = "fn:139304a9d19c4b9a"
+name = "worktree_dirty_flag_tracks_edits"
+qual = "worktree_dirty_flag_tracks_edits"
+lines = [
+    950,
+    970,
+]
+hash = "sha256:909ed52e3028bc769984c38e5152a6be3678df5df6087a4e4c64c0dc7fc5fbb9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0113cb83cbe8ea6b",
+    "fn:4350a879cc371a71",
+    "fn:f6c938870466543c",
+]
+test = true
+
+[[module."git.rs".function]]
+id = "fn:9e40a7cdd0f9129c"
+name = "binary_backend_declines_structured_ops_without_panicking"
+qual = "binary_backend_declines_structured_ops_without_panicking"
+lines = [
+    972,
+    988,
+]
+hash = "sha256:a7b5cd657de2e0fe28e7da1b84bca9b0b4130a456ccc284f531182b4be86feef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0113cb83cbe8ea6b",
+    "fn:13d7a249ebb8e3f9",
+    "fn:19871e9eda48531c",
+    "fn:82a987e3caf9acc8",
+    "fn:8c782c59d84adb83",
+    "fn:8c7a5680be5b3473",
+    "fn:9a27fa7de904d2b0",
+    "fn:b0881a5de4f9534f",
+    "fn:f6c938870466543c",
+]
+test = true
+
+[[module."git.rs".function]]
+id = "fn:7d1b68111c484ff3"
+name = "open_preferring_library_uses_library_for_a_real_repo"
+qual = "open_preferring_library_uses_library_for_a_real_repo"
+lines = [
+    990,
+    999,
+]
+hash = "sha256:1f6a50ede4eb778c2a337f6db84699b5b26a76ce271701d05e5bcfffc862aea6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0113cb83cbe8ea6b",
+    "fn:b0881a5de4f9534f",
+    "fn:e503bcfde2594c49",
+]
+test = true
+
+[module."lib.rs"]
+path = "crate"
+
+[[module."lib.rs".function]]
+id = "fn:4f7495d4ad862fc7"
+name = "extensions"
+qual = "FileKind::extensions"
+lines = [
+    93,
+    108,
+]
+hash = "sha256:ffc8421663d64777554cf8fa21e4844a966ff68256086a36385de61603239538"
+doc_hash = "sha256:1c8db7996ef2d6ce817bb60231eb1293e063db168fc02a6d909c2781627aed5f"
+reached_by = [
+    "#11",
+    "#14",
+    "#19",
+    "#20",
+    "#27",
+    "#28",
+    "#29",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+]
+
+[[module."lib.rs".function]]
+id = "fn:135e4c244b997e36"
+name = "fmt"
+qual = "DiscoveryError::fmt"
+lines = [
+    143,
+    148,
+]
+hash = "sha256:7b3cfe49295051068d09954aff9204e2fe8817937d48c925dbba9e223e4bf835"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."lib.rs".function]]
+id = "fn:98a0b1db4a6d70c1"
+name = "discover"
+qual = "discover"
+lines = [
+    153,
+    220,
+]
+hash = "sha256:63da602e16a4ebf460e8b2ea4e25e84aaae5d366c935a08b30acd0a7e2f7c401"
+doc_hash = "sha256:261f5849c7e15ed2ff8f4caf91e285bf70128909658e87ff6ac82f18439239d0"
+reached_by = [
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#19",
+    "#20",
+    "#27",
+    "#28",
+    "#29",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+]
+
+[[module."lib.rs".function]]
+id = "fn:abde0f72eecc0b94"
+name = "discover_kind"
+qual = "discover_kind"
+lines = [
+    222,
+    229,
+]
+hash = "sha256:700a780b71b34c05ba1c4dc9504ae607939dd129f420487e42030d68edf2edad"
+doc_hash = "sha256:67007b60856dbe72cebca60bc8a1e0ee516ecda4061bf98015b6cb3edb0bb7d4"
+callees = [
+    "fn:4f7495d4ad862fc7",
+    "fn:98a0b1db4a6d70c1",
+]
+reached_by = [
+    "#11",
+    "#14",
+    "#19",
+    "#20",
+    "#27",
+    "#28",
+    "#29",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+]
+
+[[module."lib.rs".function]]
+id = "fn:296e80a9fbd117f2"
+name = "search_file"
+qual = "search_file"
+lines = [
+    231,
+    282,
+]
+hash = "sha256:68a8adb64c259396c6a1e51833666f5c3094830cabc93311f326f64ecf93eac5"
+doc_hash = "sha256:b5ec4fbe29dff60c11a61fe801b5667f7fa5fbc83ae1071bf8ce20e9675619d4"
+reached_by = [
+    "#10",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#29",
+]
+
+[[module."lib.rs".function]]
+id = "fn:77f0ea5d2f4deed5"
+name = "search_repository"
+qual = "search_repository"
+lines = [
+    284,
+    324,
+]
+hash = "sha256:42393d48396b8aad56072659cae4d9c267c79d7e6c88ef9625e23233bbd5ac3d"
+doc_hash = "sha256:53e082ac728da1360a2b7bfbec666087e7e875d76c30399c341bf7114f382c37"
+callees = [
+    "fn:296e80a9fbd117f2",
+    "fn:abde0f72eecc0b94",
+]
+reached_by = [
+    "#19",
+    "#20",
+]
+
+[[module."lib.rs".function]]
+id = "fn:69f0796c70ffe81d"
+name = "crate_dir"
+qual = "crate_dir"
+lines = [
+    332,
+    334,
+]
+hash = "sha256:1c4a265f6dee9a3d890bbd10b3279842b800114c1f388a7d6c897797726f837e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:96597bebeb97941c"
+name = "discovers_own_source"
+qual = "discovers_own_source"
+lines = [
+    340,
+    344,
+]
+hash = "sha256:65cff91b865cf668c8e0f95a1ae9da727670be0d956421ae55509b001598d16f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:69f0796c70ffe81d",
+    "fn:abde0f72eecc0b94",
+]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:43116a44eafb172c"
+name = "searches_own_source"
+qual = "searches_own_source"
+lines = [
+    346,
+    351,
+]
+hash = "sha256:393c5694951285e71887df785492a6fcc401014c19e34cb401866ac520edbef0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:296e80a9fbd117f2",
+    "fn:69f0796c70ffe81d",
+]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:a92cd0359f4d1da0"
+name = "bad_pattern_errors"
+qual = "bad_pattern_errors"
+lines = [
+    353,
+    360,
+]
+hash = "sha256:93d613ed93ab4110bd3184eae917675977eee46136fd3548aef95ea4eefe17af"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:296e80a9fbd117f2",
+    "fn:69f0796c70ffe81d",
+]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:ee4b85f27b88e533"
+name = "fixture_repo"
+qual = "fixture_repo"
+lines = [
+    368,
+    406,
+]
+hash = "sha256:00bd5204b04fb4716674322023b990e5304d367a595808b89e44ad449cf8b9cf"
+doc_hash = "sha256:f3f25a63a80e8465da14cc1d7744836f90cf9fe3c94992edad2deb111f71cfc1"
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:e052e35d995b4b02"
+name = "gitignore_excludes_matching_files_and_directories"
+qual = "gitignore_excludes_matching_files_and_directories"
+lines = [
+    408,
+    430,
+]
+hash = "sha256:3af8a70e889b5002726373ad7446b7d8dd9ce06816d965a6a5fe030ccb14e11e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:98a0b1db4a6d70c1",
+    "fn:ee4b85f27b88e533",
+]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:3b6e23e44191081e"
+name = "discover_kind_filters_by_extension_and_respects_gitignore"
+qual = "discover_kind_filters_by_extension_and_respects_gitignore"
+lines = [
+    432,
+    443,
+]
+hash = "sha256:3ede60a5c9d3645c8872ae1b44f49a8dfa4c2a60b34e52030a3b8027bda7d908"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:abde0f72eecc0b94",
+    "fn:ee4b85f27b88e533",
+]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:edadf0ca7477ea77"
+name = "discover_returns_sorted_stable_order"
+qual = "discover_returns_sorted_stable_order"
+lines = [
+    445,
+    458,
+]
+hash = "sha256:550666db231ea56644c1fd16ad3b556cda4085cfa8b17dbb4428a416a4ead32d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:98a0b1db4a6d70c1",
+    "fn:ee4b85f27b88e533",
+]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:f831b2372c8e291b"
+name = "discover_nonexistent_root_returns_empty_not_panic"
+qual = "discover_nonexistent_root_returns_empty_not_panic"
+lines = [
+    460,
+    465,
+]
+hash = "sha256:2f9f2192d487a55e126df3dfc82c33fe73eab35ebd310aa746a7146144cf61c5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:98a0b1db4a6d70c1",
+    "fn:ee4b85f27b88e533",
+]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:a9c4fa2e2d102de0"
+name = "search_file_reports_correct_line_and_column"
+qual = "search_file_reports_correct_line_and_column"
+lines = [
+    467,
+    486,
+]
+hash = "sha256:82eb88d5634deafbbe0ec5dff8a20c11935f24b83795f852a0c5ba209703204a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:296e80a9fbd117f2",
+    "fn:ee4b85f27b88e533",
+]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:bb6b675d65ad7a91"
+name = "search_file_column_accounts_for_leading_offset"
+qual = "search_file_column_accounts_for_leading_offset"
+lines = [
+    488,
+    499,
+]
+hash = "sha256:31fc16a00e7c867efca7b4ab11accc0274c4fcd059d36a85ab8aafbbcc0ecde8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:296e80a9fbd117f2"]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:1a9aa4cd0c1a9a33"
+name = "search_file_missing_path_is_io_error"
+qual = "search_file_missing_path_is_io_error"
+lines = [
+    501,
+    509,
+]
+hash = "sha256:b3090d378fff164815aae2ef23fbe755c71974d99d37e2682e0ff1363133cf0c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:296e80a9fbd117f2"]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:6b07023174d6e8a4"
+name = "search_repository_combines_discovery_and_search_deterministically"
+qual = "search_repository_combines_discovery_and_search_deterministically"
+lines = [
+    511,
+    528,
+]
+hash = "sha256:323434d61dfb02fe3eca4a6df5ff6343d4846f64621a20d1d39682e244442643"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:77f0ea5d2f4deed5",
+    "fn:ee4b85f27b88e533",
+]
+test = true
+
+[[module."lib.rs".function]]
+id = "fn:f58678472397a28b"
+name = "search_repository_bad_pattern_fails_before_touching_files"
+qual = "search_repository_bad_pattern_fails_before_touching_files"
+lines = [
+    530,
+    537,
+]
+hash = "sha256:b6c25e0510905c13382a020608baff4d7bf2ea3ab0c77a04f90d15c999d877cc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:77f0ea5d2f4deed5",
+    "fn:ee4b85f27b88e533",
+]
+test = true

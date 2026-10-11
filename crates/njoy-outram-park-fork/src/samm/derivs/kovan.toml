@@ -1,0 +1,516 @@
+schema_version = 1
+kind = "code_folder"
+crate = "njoy-outram-park-fork"
+dir = "crates/njoy-outram-park-fork/src/samm/derivs"
+test_ids = [
+    "crates/njoy-outram-park-fork/src/samm/derivs/mod.rs::parameter_layout_and_babb_pattern",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_be9",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_c12",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_f19",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_h2_absolute",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_h2_relative",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_li6",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_si30",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_u234",
+    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_u238",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_ar37_golden.rs::listing_resolved_and_unresolved_diagonals",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_ar37_golden.rs::original_tape_reproduces_the_variant_oracle",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_ar37_golden.rs::tier1_variant_tape_matches_njoy_tape23",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_ar37_golden.rs::tier2_crate_pendf_reported",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_cl35_rml_golden.rs::tier1_matches_njoy_tape23",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_cl35_rml_golden.rs::tier2_crate_pendf_reported",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_j33u238_lrf3_golden.rs::tier1_env_gated_matches_njoy_tape23",
+    "crates/njoy-outram-park-fork/tests/errorr_mf32_j33u238_lrf3_golden.rs::tier2_crate_pendf_and_listing",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::output_tape_round_trips_like_njoy_layout",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_be9",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_c12",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_f19",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_h2_iwt3_absolute",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_h2_iwt6_relative",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_li6",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_si30",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_u234_env_gated",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier1_u238_lumped_env_gated",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier2_be9_crate_reconr_broadr",
+    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier2_h2_crate_reconr_broadr",
+]
+
+[module."energy.rs"]
+path = "crate::samm::derivs::energy"
+
+[[module."energy.rs".function]]
+id = "fn:41190db409e29f00"
+name = "pr_row"
+qual = "ParamEnergyTerms::pr_row"
+lines = [
+    33,
+    36,
+]
+hash = "sha256:3c6478383151ec92e6d3fc0ea7145ac3543b8871c04e80100994870b40d3568e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."energy.rs".function]]
+id = "fn:3ef5de203418dae8"
+name = "pi_row"
+qual = "ParamEnergyTerms::pi_row"
+lines = [
+    37,
+    40,
+]
+hash = "sha256:9b678c6d192bbbd1a3e1171812c873fc843c67689b672c35752346086f5dd2bb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."energy.rs".function]]
+id = "fn:c7c50c68f55ba0ca"
+name = "abpart_derivs"
+qual = "abpart_derivs"
+lines = [
+    43,
+    91,
+]
+hash = "sha256:960473cd0e3318a309de33c0429b497cf45c037cb0c8cb50cdba22892517697c"
+doc_hash = "sha256:e17ab83e3923a529fc8c7eafbc5329a2427f3f0f7c6aa28eb6f55b346e4bdbe9"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."energy.rs".function]]
+id = "fn:c5e6276b670e8b4f"
+name = "ijkl"
+qual = "ijkl"
+lines = [
+    93,
+    101,
+]
+hash = "sha256:ad02f98f8b17ed2f3bdf656eaf5c643d5eae34784a02079ef4b04ec1d0f5620e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."energy.rs".function]]
+id = "fn:000ec956543f855c"
+name = "r"
+qual = "QMatrix::r"
+lines = [
+    113,
+    116,
+]
+hash = "sha256:b379f8c648958669e6bf19fead0b0fe96677dbfbad594c288d53d35b10087efe"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."energy.rs".function]]
+id = "fn:45c7fedc452e0196"
+name = "i"
+qual = "QMatrix::i"
+lines = [
+    117,
+    120,
+]
+hash = "sha256:d2dd159782cc76d554b078def5ef4073b265a4ef8c4099625bb44118e65ef27b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."energy.rs".function]]
+id = "fn:79aadafea93e0f40"
+name = "setqri"
+qual = "setqri"
+lines = [
+    123,
+    186,
+]
+hash = "sha256:005b792a111d593012f028b1a3b59421de9e7e6c5eeec9156662f08344b708ba"
+doc_hash = "sha256:99eb7f04d84be3c8c090cb55a47e4dbea285844dbb6f1f551fbadb5ca818ec2a"
+callees = ["fn:c5e6276b670e8b4f"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."energy.rs".function]]
+id = "fn:84bf1f5dcc0fa240"
+name = "settri"
+qual = "settri"
+lines = [
+    199,
+    297,
+]
+hash = "sha256:a23e06c3fae0963e39c154f33c1a0e71002b250005fb2b4eb753daa8c6779746"
+doc_hash = "sha256:28ae1f113a642fa2f3512ee8df7c47e43acd0503b59a816f9d55abc71324fe25"
+callees = [
+    "fn:000ec956543f855c",
+    "fn:45c7fedc452e0196",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."energy.rs".function]]
+id = "fn:240a333d7268ba4b"
+name = "derres"
+qual = "derres"
+lines = [
+    299,
+    339,
+]
+hash = "sha256:91e7504b5e89fd848f1d4cbd0283c1d03ebb966da27018932e8e86f287b9cbd2"
+doc_hash = "sha256:071a1b713adfed5ace01ca13a12cfd9295ccd53edd744f2e3a82b3e6012c3ae9"
+callees = [
+    "fn:3ef5de203418dae8",
+    "fn:41190db409e29f00",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[module."mod.rs"]
+path = "crate::samm::derivs"
+
+[[module."mod.rs".function]]
+id = "fn:651d2252ffa57bd9"
+name = "group_of"
+qual = "DerivSetup::group_of"
+lines = [
+    74,
+    81,
+]
+hash = "sha256:e0d8ff4c649329530c8e72dbfaf88a8ac64e683608e023cc0198e63fd776b5ba"
+doc_hash = "sha256:8ee431ebbeeccbee095bc9328c8916bc5c90faddc5f0642d24687ef4ff95612e"
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:246f4c57a65b594d"
+name = "deriv_setup"
+qual = "deriv_setup"
+lines = [
+    84,
+    224,
+]
+hash = "sha256:2a9fe7f167ed5f8dc23650df3eefc860dfa5e6d3bb39206c64c0b08da1b4e4d1"
+doc_hash = "sha256:7482e076830497c3629c86624b793c373695646bba1018a1b975323e54dc40d4"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."mod.rs".function]]
+id = "fn:d29191055f9f29e9"
+name = "two_channel_section"
+qual = "two_channel_section"
+lines = [
+    233,
+    293,
+]
+hash = "sha256:0e9c1ea97e8152c1ce5ab55ee1f6fddb275e62a593d4750df0cf90bf04c65b06"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:384907a7f6d5a932"
+name = "parameter_layout_and_babb_pattern"
+qual = "parameter_layout_and_babb_pattern"
+lines = [
+    295,
+    336,
+]
+hash = "sha256:5bb85fcdf795a2ccec3a2f629c36f3d86a1c7c3fa3e55d4b347251880634f873"
+doc_hash = "sha256:a9e01ee0c034931e1980bb84be9c429e1c7d09206f68b0e8fd6aa50f16c10b28"
+callees = [
+    "fn:00889ff7b1e66860",
+    "fn:246f4c57a65b594d",
+    "fn:2a87bf5ef3fbb04a",
+    "fn:651d2252ffa57bd9",
+    "fn:673287c7d124675e",
+    "fn:d29191055f9f29e9",
+]
+test = true

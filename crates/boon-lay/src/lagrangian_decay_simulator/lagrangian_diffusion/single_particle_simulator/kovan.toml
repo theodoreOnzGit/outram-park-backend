@@ -1,0 +1,483 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator"
+test_ids = [
+    "crates/boon-lay/src/gpu.rs::best_effort_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/ensemble.rs::parallel_kernel_release_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::absorbing_sphere_release_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_analytical_solution.rs::test_analytical_fraction_released",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_analytical_solution.rs::test_analytical_fraction_released_at_t_zero",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_analytical_solution.rs::test_analytical_fraction_released_zero_radius_panics",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1a_cs_release_1200c_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1b_cs_release_1600c_matches_crank",
+    "crates/boon-lay/tests/triso_atops_booth_vs_crp6.rs::crp6_case1_booth_equals_the_crank_series",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::failure_history_is_monotone_and_starts_at_end_of_irradiation",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::layers_match_the_recorded_table_and_skip_the_todo",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_carries_every_modelled_nuclide",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_flows_balance_and_follow_upstream_routing",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_pools_reach_equilibrium_and_rise_with_temperature",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::the_slice_is_the_assembled_geometry",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::walk_and_its_check",
+]
+
+[module."cached_normals.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::cached_normals"
+
+[[module."cached_normals.rs".function]]
+id = "fn:655c0473bdc52138"
+name = "new"
+qual = "DiffusionRandomCache::new"
+lines = [
+    17,
+    31,
+]
+hash = "sha256:33a5c4fd8e6790c0c4bf546056c811e8436cdfd9008304be163385a4f37d568a"
+doc_hash = "sha256:9fe5db2c8188a05cb99bc71829725a461adf2fbc2a96ea38fd2707506dde1cda"
+callees = ["fn:96ab1fac00ee309f"]
+
+[[module."cached_normals.rs".function]]
+id = "fn:95336986c4cb6453"
+name = "get_normal"
+qual = "DiffusionRandomCache::get_normal"
+lines = [
+    33,
+    39,
+]
+hash = "sha256:358610d85ecc92a34ec4d2791733c0039b44b2c7a83f96fb0351fbda309a498f"
+doc_hash = "sha256:4a8aab16c65719229fce147f13310d3450c8e88512d159fa941e8cc50dfdcd26"
+
+[[module."cached_normals.rs".function]]
+id = "fn:f3b7397b3398dbe2"
+name = "get_normal_3d"
+qual = "DiffusionRandomCache::get_normal_3d"
+lines = [
+    41,
+    45,
+]
+hash = "sha256:54dfe6f62e9b5ace58f40b08a2fc9f3987be789a41df68624d4bd8ae01d64174"
+doc_hash = "sha256:fa00e0faff4840f750f985ad7d28424f1a7490006326d597d53f2e938b1f52c8"
+callees = ["fn:95336986c4cb6453"]
+
+[[module."cached_normals.rs".function]]
+id = "fn:97b783a73a328a35"
+name = "get_displacement_3d"
+qual = "DiffusionRandomCache::get_displacement_3d"
+lines = [
+    47,
+    52,
+]
+hash = "sha256:904946e7634242cdb6182389ed2627db0e7ff015b534e51caca48181b335f858"
+doc_hash = "sha256:2aa8f726683f002dda583e6156fe9f8b0848b605f47e62522adbeea5e2b0d96d"
+callees = ["fn:f3b7397b3398dbe2"]
+
+[[module."cached_normals.rs".function]]
+id = "fn:c1034e282845548b"
+name = "clone"
+qual = "DiffusionRandomCache::clone"
+lines = [
+    56,
+    64,
+]
+hash = "sha256:b289e79159a20a482b87761f1c0792665af6e80cf36190be87a4a1b6767b4447"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cached_normals.rs".function]]
+id = "fn:698ba6fea9b4a91e"
+name = "fmt"
+qual = "DiffusionRandomCache::fmt"
+lines = [
+    69,
+    75,
+]
+hash = "sha256:811a5e99405afb215a3e2e95debff778163099fc62319623004664dc78c57670"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cached_normals.rs".function]]
+id = "fn:24cc4f73388417dd"
+name = "eq"
+qual = "DiffusionRandomCache::eq"
+lines = [
+    80,
+    82,
+]
+hash = "sha256:60161dee04e56a076da100761ef78918e5e91d32edfa580db1c4f88db3c33da8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."cached_normals.rs".function]]
+id = "fn:fc54416f9b7ae924"
+name = "get_gaussian_velocity_vector_cached"
+qual = "SingleParticleDiffusionSimulatorMC::get_gaussian_velocity_vector_cached"
+lines = [
+    99,
+    125,
+]
+hash = "sha256:1d70da34fa1483b7efc499251b182016c2e1bb2d46cace0cff39508b7051c28f"
+doc_hash = "sha256:de6e609ebadbb1c01983226ac8acf9fbf8480d3d210c2ae3e18912059f9272f0"
+callees = [
+    "fn:decc848d43afec77",
+    "fn:f3b7397b3398dbe2",
+]
+physical_interface = true
+
+[[module."cached_normals.rs".function]]
+id = "fn:8613e4750e36d21d"
+name = "move_particle_gaussian_sampling_cached"
+qual = "SingleParticleDiffusionSimulatorMC::move_particle_gaussian_sampling_cached"
+lines = [
+    127,
+    149,
+]
+hash = "sha256:03030001a9c4d0aede71a5e270f9caa43985c7129f62af0c4d3c9cc2da69eb97"
+doc_hash = "sha256:33e4031466eaf4ac15f13a168cf71610f1475a6cbd72c16250b863a1fdcb25b3"
+callees = [
+    "fn:062a911593dca43f",
+    "fn:97b783a73a328a35",
+]
+physical_interface = true
+
+[[module."cached_normals.rs".function]]
+id = "fn:bd3e958040880585"
+name = "scatter_within_triso_particle_gaussian_cached"
+qual = "SingleParticleDiffusionSimulatorMC::scatter_within_triso_particle_gaussian_cached"
+lines = [
+    151,
+    240,
+]
+hash = "sha256:a7edce44234109e74a6dd4123b6fa5c014e1ca4ff504891a6fd625782112ee59"
+doc_hash = "sha256:846e24561771cb7bb93b381f15a695e18d0713533de258d897f448a8545a96df"
+callees = [
+    "fn:062a911593dca43f",
+    "fn:26c97e03e84fc754",
+    "fn:c393708ee2e250a5",
+    "fn:fc54416f9b7ae924",
+]
+physical_interface = true
+
+[[module."cached_normals.rs".function]]
+id = "fn:b4ec9081e3c235cb"
+name = "scatter_within_triso_particle_gaussian_simple_cached"
+qual = "SingleParticleDiffusionSimulatorMC::scatter_within_triso_particle_gaussian_simple_cached"
+lines = [
+    242,
+    270,
+]
+hash = "sha256:f32f3eaa45ae0fab99a61f4641dbb0451e029c9686ba275f836d5d017f4cf3be"
+doc_hash = "sha256:302068533c02e314132ccd6c095deb0a49e3221a311980324b0f59bbc8355b44"
+callees = [
+    "fn:26c97e03e84fc754",
+    "fn:8613e4750e36d21d",
+]
+physical_interface = true
+
+[[module."cached_normals.rs".function]]
+id = "fn:7024f5c7ed4aa8b2"
+name = "move_single_decaying_particle_gaussian_triso_particle_cached"
+qual = "SingleParticleDiffusionSimulatorMC::move_single_decaying_particle_gaussian_triso_particle_cached"
+lines = [
+    272,
+    286,
+]
+hash = "sha256:7a12f3839ad970b904d2cf53b6fc70ac0d337a9f15383b503aec33d5b4d8f677"
+doc_hash = "sha256:1a5b2d911fd304d5b04ad271b0d8e8759c9306c5f94abad106a98d900f075c91"
+callees = [
+    "fn:bd3e958040880585",
+    "fn:d84c7e41f0b78cde",
+]
+physical_interface = true
+
+[[module."cached_normals.rs".function]]
+id = "fn:fccf73cd35f7cc49"
+name = "move_single_decaying_particle_within_triso_based_on_fourier_no_cached"
+qual = "SingleParticleDiffusionSimulatorMC::move_single_decaying_particle_within_triso_based_on_fourier_no_cached"
+lines = [
+    288,
+    340,
+]
+hash = "sha256:e689a3655f5e839c8fabceb3bfa9bd012125ab722fdc375b2ee21dff049646cc"
+doc_hash = "sha256:e366b49434c35f125419a9ea8834a2c2897751d9b0608ffd6b7a9107b520646d"
+callees = [
+    "fn:26c97e03e84fc754",
+    "fn:6490390f3a2db2f4",
+    "fn:bd3e958040880585",
+    "fn:d84c7e41f0b78cde",
+]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator"
+
+[[module."mod.rs".function]]
+id = "fn:1f92a8368f2ad067"
+name = "new_from_rng"
+qual = "SingleParticleDiffusionSimulatorMC::new_from_rng"
+lines = [
+    21,
+    33,
+]
+hash = "sha256:6246a8d601290f8103a1aaa4de26ae359b4c8b128bc9b2979c0f949a82b0846d"
+doc_hash = "sha256:d02301d7a631c1e18a76aacab1b48d1d06b0f769abec780eb90aa2f1862266e3"
+callees = [
+    "fn:1f2e5b6c50cdd294",
+    "fn:5e3bc59ae3f50ddc",
+]
+
+[[module."mod.rs".function]]
+id = "fn:062a911593dca43f"
+name = "move_particle_using_array"
+qual = "SingleParticleDiffusionSimulatorMC::move_particle_using_array"
+lines = [
+    35,
+    44,
+]
+hash = "sha256:3fc2a8dbe94bc2130922be58aa350dee076ca6b260f005d5e54dabe9eb66c6fd"
+doc_hash = "sha256:eaf4b3677bebb486eeb63e44f7124496109aad3ee8bb662ede34956e5882c92e"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:a1905d6b9188a8ac"
+name = "move_particle_using_tuple"
+qual = "SingleParticleDiffusionSimulatorMC::move_particle_using_tuple"
+lines = [
+    46,
+    53,
+]
+hash = "sha256:9a490a64edd7f195c7b285b9e6c352d33688b5198bf22e89bf5eb0f0abfb07e7"
+doc_hash = "sha256:89aca43886b82dec15becdfa2bda698dc7cdebf8dc23242e04fc1f4aab64b902"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:804e0f85f79eca2e"
+name = "move_particle_gaussian_sampling_u64"
+qual = "SingleParticleDiffusionSimulatorMC::move_particle_gaussian_sampling_u64"
+lines = [
+    55,
+    69,
+]
+hash = "sha256:b76f079969c6b0c05ea0974acbe78b89ff82dee8756fc564dade9c983e0686b9"
+doc_hash = "sha256:4722630dfc74bce800f875fbfe6791ec357c9327834278093bd197934b93a345"
+callees = [
+    "fn:062a911593dca43f",
+    "fn:2d8cc520595b89ed",
+    "fn:a1bf7e1c579cb7f6",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:da6f5322ca2a32cd"
+name = "move_particle_gaussian_sampling_f64"
+qual = "SingleParticleDiffusionSimulatorMC::move_particle_gaussian_sampling_f64"
+lines = [
+    70,
+    84,
+]
+hash = "sha256:87fbe1a5a75e0beaee2d486d230fa26356356848243a0461affda7c6221b7b69"
+doc_hash = "sha256:4722630dfc74bce800f875fbfe6791ec357c9327834278093bd197934b93a345"
+callees = [
+    "fn:062a911593dca43f",
+    "fn:a1bf7e1c579cb7f6",
+    "fn:decc848d43afec77",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:37018330bd413c62"
+name = "get_gaussian_velocity_vector"
+qual = "SingleParticleDiffusionSimulatorMC::get_gaussian_velocity_vector"
+lines = [
+    86,
+    112,
+]
+hash = "sha256:b1323167615c46acb336269fc777da14075d0fc6c61026297a69f07de448f9c3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a1bf7e1c579cb7f6",
+    "fn:decc848d43afec77",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:915b2fe2dafcd84b"
+name = "sample_isotropic_direction"
+qual = "SingleParticleDiffusionSimulatorMC::sample_isotropic_direction"
+lines = [
+    114,
+    117,
+]
+hash = "sha256:e139eefd3f83c6c0da0f3add6eea5dc941a4db71748193f6ed38dd14ac9eeb37"
+doc_hash = "sha256:e3cfc76bb6234362ef1ee7cec0c916d9b0e04d6c9a1559791fb7f9a709bbf0da"
+callees = ["fn:719418725e5855dd"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:205f5800a2c21208"
+name = "sample_mean_free_path_given_sigma_s"
+qual = "SingleParticleDiffusionSimulatorMC::sample_mean_free_path_given_sigma_s"
+lines = [
+    119,
+    127,
+]
+hash = "sha256:dfa0a49c19b3b60a2cc5166a4eb8f8bc274c3b43dbb0ba91eef3257107084ad3"
+doc_hash = "sha256:e7709bd8e358811e4e075a58c0802c4736e7e84d716dfea04ab8b4f77eb8f286"
+callees = ["fn:9126106372b2fc1f"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:758333dfcd3ca042"
+name = "scatter_isotropically_using_macro_xs"
+qual = "SingleParticleDiffusionSimulatorMC::scatter_isotropically_using_macro_xs"
+lines = [
+    131,
+    142,
+]
+hash = "sha256:4913512da8810d97a009c28915d41e7bab6ca8669955f8d9afdcb50d2898dfe1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:062a911593dca43f",
+    "fn:205f5800a2c21208",
+    "fn:915b2fe2dafcd84b",
+]
+physical_interface = true
+
+[module."release_fraction_analytical_solution.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution"
+
+[[module."release_fraction_analytical_solution.rs".function]]
+id = "fn:102121535cb2dea5"
+name = "calculate_analytical_fraction_released"
+qual = "calculate_analytical_fraction_released"
+lines = [
+    13,
+    84,
+]
+hash = "sha256:8ddcc97b94609f52883af5dda446ba57cdebe98bf05557574de23a312744c4a2"
+doc_hash = "sha256:69517e38b751b04f175d3eca5490fd44eb14b1af99dfbdf86d2c30ac79173dfc"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+physical_interface = true
+
+[[module."release_fraction_analytical_solution.rs".function]]
+id = "fn:e7914f22a2a9056f"
+name = "test_analytical_fraction_released"
+qual = "test_analytical_fraction_released"
+lines = [
+    94,
+    117,
+]
+hash = "sha256:e675dde5590c95608117ac2d03283cea2059b592c0d5d0b40707e38a085b05d8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:102121535cb2dea5"]
+test = true
+
+[[module."release_fraction_analytical_solution.rs".function]]
+id = "fn:61e7959ee6324e7c"
+name = "test_analytical_fraction_released_at_t_zero"
+qual = "test_analytical_fraction_released_at_t_zero"
+lines = [
+    119,
+    126,
+]
+hash = "sha256:231adecbd8b049ebf02ed394f9d08d630629afe62e472471244f35e539f33d0d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:102121535cb2dea5"]
+test = true
+
+[[module."release_fraction_analytical_solution.rs".function]]
+id = "fn:2de155ee50764acd"
+name = "test_analytical_fraction_released_zero_radius_panics"
+qual = "test_analytical_fraction_released_zero_radius_panics"
+lines = [
+    128,
+    135,
+]
+hash = "sha256:ad9f251c45f1b99161f04fa1bc2bc457108a0816d5c57438c8cdea576c5528b0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:102121535cb2dea5"]
+test = true
+
+[[module."release_fraction_analytical_solution.rs".function]]
+id = "fn:975637bf28f62346"
+name = "test_cs_release_1200c_200h"
+qual = "test_cs_release_1200c_200h"
+lines = [
+    161,
+    201,
+]
+hash = "sha256:d66ff88b29f9b2861cd513fc6f215537757322c4233888a55390e76ffb14db4c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:102121535cb2dea5",
+    "fn:4bdea64528f551f6",
+]
+test = true
+
+[[module."release_fraction_analytical_solution.rs".function]]
+id = "fn:f89e98cd66142ee8"
+name = "test_cs_release_1600c_200h"
+qual = "test_cs_release_1600c_200h"
+lines = [
+    203,
+    238,
+]
+hash = "sha256:1690198bd9f0d82648f297c07a24f8b35ff0abb67d40c1c4b6406c5abc489ffb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:102121535cb2dea5",
+    "fn:4bdea64528f551f6",
+]
+test = true
+
+[module."release_fraction_crp_6_case_1a_1b.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_crp_6_case_1a_1b"
+
+[[module."release_fraction_crp_6_case_1a_1b.rs".function]]
+id = "fn:2b14e415e6f2c499"
+name = "test_cs_release_1200c_200h"
+qual = "test_cs_release_1200c_200h"
+lines = [
+    25,
+    65,
+]
+hash = "sha256:d66ff88b29f9b2861cd513fc6f215537757322c4233888a55390e76ffb14db4c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:102121535cb2dea5",
+    "fn:4bdea64528f551f6",
+]
+test = true
+
+[[module."release_fraction_crp_6_case_1a_1b.rs".function]]
+id = "fn:d1ddc1df6bf7b04a"
+name = "test_cs_release_1600c_200h"
+qual = "test_cs_release_1600c_200h"
+lines = [
+    67,
+    102,
+]
+hash = "sha256:1690198bd9f0d82648f297c07a24f8b35ff0abb67d40c1c4b6406c5abc489ffb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:102121535cb2dea5",
+    "fn:4bdea64528f551f6",
+]
+test = true

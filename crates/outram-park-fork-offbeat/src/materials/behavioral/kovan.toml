@@ -1,0 +1,1511 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-offbeat"
+dir = "crates/outram-park-fork-offbeat/src/materials/behavioral"
+test_ids = [
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/densification.rs::degenerate_parameters_are_reported_not_invented",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/densification.rs::densification_is_negative_and_monotonically_decreasing",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/densification.rs::densification_saturates",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/densification.rs::empirical_model_follows_its_exponential_exactly",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/densification.rs::frapcon_asymptote_temperature_branches_have_the_documented_ratios",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/densification.rs::frapcon_densification_is_exactly_zero_at_zero_burnup",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/densification.rs::frapcon_fallback_interpolation_window_is_flat_reproducing_upstream",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/densification.rs::frapcon_offset_solver_finds_the_root_or_says_it_cannot",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/densification.rs::out_of_range_inputs_clamp_in_value_and_error_in_value_checked",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/densification.rs::the_two_fits_agree_in_magnitude_for_the_same_fuel",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/densification.rs::zero_model_never_densifies",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/relocation.rs::gap_closure_is_monotonic_in_burnup",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/relocation.rs::gap_closure_saturates_early_in_life",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/relocation.rs::legacy_form_power_branches_are_discontinuous_reproducing_upstream",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/relocation.rs::modified_form_is_continuous_at_its_low_burnup_cutoff",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/relocation.rs::modified_form_power_ramp_matches_the_correlation",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/relocation.rs::out_of_range_and_unphysical_inputs_are_reported",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/relocation.rs::relocation_is_bounded_by_the_physical_gap",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/relocation.rs::strain_fraction_and_displacement_are_mutually_consistent",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/relocation.rs::the_two_formulations_differ_substantially_at_beginning_of_life",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/relocation.rs::zero_model_never_relocates",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::burnup_driven_swelling_is_monotonic",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::constant_model_rate_is_the_linear_component",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::every_bison_clad_type_grows_monotonically",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::every_model_is_zero_in_the_unirradiated_state",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::fbr_mox_rates_integrate_as_documented",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::fecral_is_linear_in_si_fluence",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::frapcon_and_matpro_solid_swelling_slopes_agree",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::frapcon_uo2_thresholds_and_continuity",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::matpro_closed_form_matches_upstream_euler_accumulation",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::out_of_range_inputs_clamp_in_value_and_error_in_value_checked",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::pyrocarbon_correlation_integrates_its_rate_polynomial",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::steel_void_swelling_peaks_at_the_fitted_temperature",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::swelling_strain_helpers_are_consistent",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::wright_sham_hastelloy_n_is_negative_below_its_incubation_dose",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::zero_model_never_swells",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::zircaloy_growth_closed_form_matches_incremental_accumulation",
+    "crates/outram-park-fork-offbeat/src/materials/behavioral/swelling.rs::zircaloy_growth_is_volume_conserving_and_anisotropic",
+]
+
+[module."densification.rs"]
+path = "crate::materials::behavioral::densification"
+
+[[module."densification.rs".function]]
+id = "fn:177105b7f630f857"
+name = "value"
+qual = "DensificationModel::value"
+lines = [
+    254,
+    331,
+]
+hash = "sha256:4f56afd67b39996eb69eae75f64b6fa81b2ac8869f9ac1892cfd07b973cd1176"
+doc_hash = "sha256:824c63b57f269c03cd44d52fdbebdf82ef846a33c157f908dab245a574c0f5a2"
+callees = [
+    "fn:048b04aa4718f2d5",
+    "fn:414610352f9fd8fd",
+    "fn:41928135b6c5e672",
+    "fn:e88ef318ca83d85d",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#8",
+    "#9",
+    "#10",
+]
+
+[[module."densification.rs".function]]
+id = "fn:6a0e1492be8bebea"
+name = "linear"
+qual = "DensificationModel::linear"
+lines = [
+    333,
+    342,
+]
+hash = "sha256:48f8e1413d692313505d2bab096afc465d3d48976711460aab024fa22c57e71e"
+doc_hash = "sha256:199b2d6327328e619615cf3d62ecf72addc1bd76d879844c77e16c509a33e226"
+callees = ["fn:177105b7f630f857"]
+reached_by = [
+    "#1",
+    "#10",
+]
+
+[[module."densification.rs".function]]
+id = "fn:950c8575e3d20500"
+name = "value_checked"
+qual = "DensificationModel::value_checked"
+lines = [
+    344,
+    372,
+]
+hash = "sha256:a73ac97e3a8743e63dc2313ed2afba8b228ef84b62df68fe4bd9a2fcaa68f4d6"
+doc_hash = "sha256:fdf995528be968c919945577475d909afd48ec48603d9e077303fc372e3eb28f"
+callees = [
+    "fn:177105b7f630f857",
+    "fn:2be3c37933588328",
+    "fn:36fdf819e9a8e89f",
+]
+reached_by = [
+    "#0",
+    "#8",
+    "#10",
+]
+
+[[module."densification.rs".function]]
+id = "fn:5e54d06ac6073b84"
+name = "linear_checked"
+qual = "DensificationModel::linear_checked"
+lines = [
+    374,
+    382,
+]
+hash = "sha256:011d1619a28a92c28b6ab5f6ec0ec206cc0a10634079db1edfd65f0cca4f73d1"
+doc_hash = "sha256:202be34fb756ebc461e652cc8fd3dd9f0c0875526e55700cb2c8b6ea07dfc55a"
+callees = ["fn:950c8575e3d20500"]
+
+[[module."densification.rs".function]]
+id = "fn:667e7ada03874305"
+name = "limits"
+qual = "DensificationModel::limits"
+lines = [
+    384,
+    403,
+]
+hash = "sha256:eaa0c0b3a164ad3e8ab4358d75bacc394ce6cef7282e0fd207c7e8c7771a3e4b"
+doc_hash = "sha256:8db776e7185e75e155837291eea456922c66347cbcc7a1f4277536e9089933af"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#8",
+    "#9",
+    "#10",
+]
+
+[[module."densification.rs".function]]
+id = "fn:414610352f9fd8fd"
+name = "clamped"
+qual = "DensificationModel::clamped"
+lines = [
+    405,
+    417,
+]
+hash = "sha256:b4dec7796faca97c04a6ab351ca7f7899f60ac50034b0ed8559c95de6073428c"
+doc_hash = "sha256:3564798d9b5870f1d63337af37bd93c5d76ce58b0f13dc74216ee00c7fe81fac"
+callees = ["fn:667e7ada03874305"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#8",
+    "#9",
+    "#10",
+]
+
+[[module."densification.rs".function]]
+id = "fn:36fdf819e9a8e89f"
+name = "check_range"
+qual = "DensificationModel::check_range"
+lines = [
+    419,
+    440,
+]
+hash = "sha256:bd3628599ca960893702e5dcc57dedc7fa9a6105637f7a8055196af908a30d24"
+doc_hash = "sha256:0a8847739ac23dc5206b205cfb7bd667e5b462f2ff8bd005360c8ecc63d6ec9b"
+callees = ["fn:667e7ada03874305"]
+reached_by = [
+    "#0",
+    "#8",
+    "#10",
+]
+
+[[module."densification.rs".function]]
+id = "fn:2be3c37933588328"
+name = "check_parameters"
+qual = "DensificationModel::check_parameters"
+lines = [
+    442,
+    522,
+]
+hash = "sha256:b8054fb2103afa61f15b5473eefae31eff2147304cdee015904f7f33f3530d26"
+doc_hash = "sha256:ec21e4fb6b60ce2454911badfc48606c00d2b0a5a6525764b49f626810236627"
+callees = [
+    "fn:048b04aa4718f2d5",
+    "fn:414610352f9fd8fd",
+    "fn:41928135b6c5e672",
+    "fn:e88ef318ca83d85d",
+]
+reached_by = [
+    "#0",
+    "#8",
+    "#10",
+]
+
+[[module."densification.rs".function]]
+id = "fn:41928135b6c5e672"
+name = "empirical_asymptote"
+qual = "empirical_asymptote"
+lines = [
+    533,
+    542,
+]
+hash = "sha256:cee5a2d9d76a93ac2149fae52e95be33c951f43aa76966bb47e7aa4ebd35c450"
+doc_hash = "sha256:01b400536b4c31ecb6e48cde180280669a88bcd8b9b84add622e8a6f7ae0a9ac"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#8",
+    "#9",
+    "#10",
+]
+
+[[module."densification.rs".function]]
+id = "fn:048b04aa4718f2d5"
+name = "frapcon_linear_asymptote"
+qual = "frapcon_linear_asymptote"
+lines = [
+    544,
+    601,
+]
+hash = "sha256:a6fbba00694bb7ce97bc132ec1fa36d6bfb0b030e901b48af532ba560c9d0e20"
+doc_hash = "sha256:a94c23a0841c2ad3b57df9f085159c6ecb3f1caf87f6f4d476cf8176eab3749c"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+]
+
+[[module."densification.rs".function]]
+id = "fn:e88ef318ca83d85d"
+name = "frapcon_offset"
+qual = "frapcon_offset"
+lines = [
+    603,
+    635,
+]
+hash = "sha256:e08c63c5c25d83fee9e1e2e90d9f34ca5a827a4e7f2a85c89a08c2b8ae221659"
+doc_hash = "sha256:c5ed4b684b4ad409ec17455f3140e7c834939904502d664c4382211d467aa71d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+]
+
+[[module."densification.rs".function]]
+id = "fn:80e1778a51c0cd41"
+name = "frapcon"
+qual = "frapcon"
+lines = [
+    641,
+    650,
+]
+hash = "sha256:46544d361fca785232165025572f137aa0bb9b99db2bf89f2258cb2aef639282"
+doc_hash = "sha256:34f7bf42d6c8be69d3106c71375ba06d32db2441528d7bc2d314e637fab630fe"
+test = true
+
+[[module."densification.rs".function]]
+id = "fn:6574a60a4613e267"
+name = "empirical"
+qual = "empirical"
+lines = [
+    652,
+    661,
+]
+hash = "sha256:be8c1200c36f90bffff47e31f1f7e5386a66afbe335d5b68fc57747031542af1"
+doc_hash = "sha256:91efb941c90be72ddd128e690f45120541f83eb6f27dff3249c6524850e0e9f7"
+test = true
+
+[[module."densification.rs".function]]
+id = "fn:13c1d63d9746fa13"
+name = "state"
+qual = "state"
+lines = [
+    663,
+    667,
+]
+hash = "sha256:412cef2259a95a0b65797e7b3cb51468af66278056a3c1d077fe1d71ac9bc89b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:59fe5b1ed5211786"]
+test = true
+
+[[module."densification.rs".function]]
+id = "fn:08f38ef636e20dc0"
+name = "zero_model_never_densifies"
+qual = "zero_model_never_densifies"
+lines = [
+    669,
+    675,
+]
+hash = "sha256:4cbae3e5dc18c48aa2313a758aa7902b2e72e644ef15954f10c1ee5ed31557ea"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:13c1d63d9746fa13",
+    "fn:177105b7f630f857",
+    "fn:6a0e1492be8bebea",
+    "fn:950c8575e3d20500",
+]
+test = true
+
+[[module."densification.rs".function]]
+id = "fn:d45ef3b8f282f37b"
+name = "frapcon_densification_is_exactly_zero_at_zero_burnup"
+qual = "frapcon_densification_is_exactly_zero_at_zero_burnup"
+lines = [
+    677,
+    725,
+]
+hash = "sha256:a4a78ea8b2127282c6007f6863c23f71088c120a17e598cf696c8de7dc352a59"
+doc_hash = "sha256:4fed966f526deeab71d4eee77c50e5eaddd06d40fd9ac97009bd776c2cb44e83"
+callees = [
+    "fn:13c1d63d9746fa13",
+    "fn:177105b7f630f857",
+    "fn:80e1778a51c0cd41",
+]
+test = true
+
+[[module."densification.rs".function]]
+id = "fn:bd25e0052b36e39a"
+name = "densification_is_negative_and_monotonically_decreasing"
+qual = "densification_is_negative_and_monotonically_decreasing"
+lines = [
+    727,
+    751,
+]
+hash = "sha256:be7bd32c1c84f55b5995e9f971c7343683a278ba448d13bf5de15c55a363dab4"
+doc_hash = "sha256:64836716f71a4c1f0b6266faf89631d93c554931e9083af4356b088d3318e9c9"
+callees = [
+    "fn:13c1d63d9746fa13",
+    "fn:177105b7f630f857",
+    "fn:6574a60a4613e267",
+    "fn:6a0e1492be8bebea",
+    "fn:80e1778a51c0cd41",
+]
+test = true
+
+[[module."densification.rs".function]]
+id = "fn:70fc0dede0ae5e0f"
+name = "densification_saturates"
+qual = "densification_saturates"
+lines = [
+    753,
+    776,
+]
+hash = "sha256:15ab000c8f40659a6fa08c5a9b94444042948f95fee50f1f333e9f9395ec65c7"
+doc_hash = "sha256:fc511d800798802349c38fdba322082906bcbbabcb8440aca47e778852bb174e"
+callees = [
+    "fn:13c1d63d9746fa13",
+    "fn:177105b7f630f857",
+    "fn:6574a60a4613e267",
+    "fn:80e1778a51c0cd41",
+]
+test = true
+
+[[module."densification.rs".function]]
+id = "fn:ea89207f0a1a13fd"
+name = "empirical_model_follows_its_exponential_exactly"
+qual = "empirical_model_follows_its_exponential_exactly"
+lines = [
+    778,
+    808,
+]
+hash = "sha256:214fe88d0f259c0db93d3f254bfd231290767d628c8f3e65ea49c10d92af6624"
+doc_hash = "sha256:a61a19ce6e3c232bf141b9ce263967ac043976e439e64987bde4401eda6644f0"
+callees = [
+    "fn:13c1d63d9746fa13",
+    "fn:177105b7f630f857",
+    "fn:41928135b6c5e672",
+    "fn:6574a60a4613e267",
+]
+test = true
+
+[[module."densification.rs".function]]
+id = "fn:0c36404941073b2f"
+name = "frapcon_asymptote_temperature_branches_have_the_documented_ratios"
+qual = "frapcon_asymptote_temperature_branches_have_the_documented_ratios"
+lines = [
+    810,
+    837,
+]
+hash = "sha256:b1fdd8c8f24e2c8a3c9f99ab486433bde5e86bce8b13c1f9c9bbe142fe85cccc"
+doc_hash = "sha256:f26b3c68d7f11ada87664bf400a051156eb20eed0670ae70b273af1327edbbf3"
+callees = ["fn:048b04aa4718f2d5"]
+test = true
+
+[[module."densification.rs".function]]
+id = "fn:3eb4f1ff404313ec"
+name = "frapcon_fallback_interpolation_window_is_flat_reproducing_upstream"
+qual = "frapcon_fallback_interpolation_window_is_flat_reproducing_upstream"
+lines = [
+    839,
+    865,
+]
+hash = "sha256:2bf56600a3eb298a60130522483f0a9280f091f3e2c11cba2469af0dd1d48fe1"
+doc_hash = "sha256:a45fe67263d4cca37d19e2aa0563c6c8b7e609007d1c9addd7559c5733db4772"
+callees = ["fn:048b04aa4718f2d5"]
+test = true
+
+[[module."densification.rs".function]]
+id = "fn:a8eb29bba14f3f10"
+name = "out_of_range_inputs_clamp_in_value_and_error_in_value_checked"
+qual = "out_of_range_inputs_clamp_in_value_and_error_in_value_checked"
+lines = [
+    867,
+    892,
+]
+hash = "sha256:c05ee27764445e82068be6ecfccbc26606a7d6a47eeb988ff240e9372034d629"
+doc_hash = "sha256:eabb7131463442dcdd404b794ccffb4d3048ef69846a007c94f2352defd61df7"
+callees = [
+    "fn:13c1d63d9746fa13",
+    "fn:177105b7f630f857",
+    "fn:80e1778a51c0cd41",
+    "fn:950c8575e3d20500",
+]
+test = true
+
+[[module."densification.rs".function]]
+id = "fn:8a7fe9096525602a"
+name = "degenerate_parameters_are_reported_not_invented"
+qual = "degenerate_parameters_are_reported_not_invented"
+lines = [
+    894,
+    966,
+]
+hash = "sha256:d2ff22ce11f4026d1e21188c862db7a717751015f24d1a13f3e9ea0fe365a88c"
+doc_hash = "sha256:4f5c4ef506a535be3cc30bdb1f80acbd76967cdfa74081798fd75334ab16cae8"
+callees = [
+    "fn:13c1d63d9746fa13",
+    "fn:177105b7f630f857",
+    "fn:950c8575e3d20500",
+]
+test = true
+
+[[module."densification.rs".function]]
+id = "fn:06ab33aef350d20e"
+name = "frapcon_offset_solver_finds_the_root_or_says_it_cannot"
+qual = "frapcon_offset_solver_finds_the_root_or_says_it_cannot"
+lines = [
+    968,
+    991,
+]
+hash = "sha256:157a77f2ca8bdd1bcedf6b9bdfddf70ebccd3c7a1ca81ba28e4876f857b860ac"
+doc_hash = "sha256:cf7ac009b6e1a46653c6fd27557f5fc9679b526d36a6acbf943571ff31452ed6"
+callees = ["fn:e88ef318ca83d85d"]
+test = true
+
+[[module."densification.rs".function]]
+id = "fn:8d03f4145c571b90"
+name = "the_two_fits_agree_in_magnitude_for_the_same_fuel"
+qual = "the_two_fits_agree_in_magnitude_for_the_same_fuel"
+lines = [
+    993,
+    1014,
+]
+hash = "sha256:bb07531076d17672a20550c83452cb352511036d679c8a8a8e876659e2aab0e0"
+doc_hash = "sha256:46a68116af98c9a2e963b662cede38be547a271e958f6292440f119813dc3919"
+callees = [
+    "fn:13c1d63d9746fa13",
+    "fn:177105b7f630f857",
+    "fn:6574a60a4613e267",
+    "fn:80e1778a51c0cd41",
+]
+test = true
+
+[module."failure.rs"]
+path = "crate::materials::behavioral::failure"
+
+[module."mod.rs"]
+path = "crate::materials::behavioral"
+
+[module."phase_transition.rs"]
+path = "crate::materials::behavioral::phase_transition"
+
+[module."relocation.rs"]
+path = "crate::materials::behavioral::relocation"
+
+[[module."relocation.rs".function]]
+id = "fn:9d31c7bdf34b99a2"
+name = "value"
+qual = "RelocationModel::value"
+lines = [
+    244,
+    301,
+]
+hash = "sha256:134017527b156b81f335981f0bc14509114ac551479450a9c7acdc05ae2d5dd8"
+doc_hash = "sha256:c927bbc1b62f02bf16eeb03195ecf69bf05a7db32da1e857e4d12a8fc6f5c378"
+callees = ["fn:4f0e2cf98f3a9f46"]
+reached_by = [
+    "#16",
+    "#17",
+    "#18",
+    "#20",
+]
+
+[[module."relocation.rs".function]]
+id = "fn:4f0e2cf98f3a9f46"
+name = "gap_closure_fraction"
+qual = "RelocationModel::gap_closure_fraction"
+lines = [
+    303,
+    331,
+]
+hash = "sha256:aab098600658fdf188582e114f1e0631320b6a32bb93337b088b14ec272852d9"
+doc_hash = "sha256:037add5beb93bc09ca07ff7fc2bc46e9c0ddda214d0172281d5ef07cedc0ed64"
+callees = [
+    "fn:4b972bdd285c6fb4",
+    "fn:bc81746d415ecb7d",
+]
+reached_by = [
+    "#11",
+    "#12",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."relocation.rs".function]]
+id = "fn:4d187b1d8eae40f8"
+name = "radial_displacement"
+qual = "RelocationModel::radial_displacement"
+lines = [
+    333,
+    352,
+]
+hash = "sha256:9fc97a0356682fe843f4da53787161a67d530476fc131fa7f65cd058d9e60e9d"
+doc_hash = "sha256:eacccdaa26975c315c1df4feb7a2cfe49f3471b723c3ef1e411db226ca8cd244"
+callees = ["fn:9d31c7bdf34b99a2"]
+reached_by = [
+    "#16",
+    "#17",
+    "#18",
+    "#20",
+]
+
+[[module."relocation.rs".function]]
+id = "fn:ffc8e05812d8976c"
+name = "value_checked"
+qual = "RelocationModel::value_checked"
+lines = [
+    354,
+    409,
+]
+hash = "sha256:35dd5497238a8215acb5763852425e0f3f8c55f8f2316699619cb979741fb035"
+doc_hash = "sha256:9176e15ec27721b7e2b8fde99e69ecdff374061889238598975b426dcb52be19"
+callees = ["fn:9d31c7bdf34b99a2"]
+reached_by = [
+    "#16",
+    "#20",
+]
+
+[[module."relocation.rs".function]]
+id = "fn:75584b225a603e6a"
+name = "gap_closure_fraction_checked"
+qual = "RelocationModel::gap_closure_fraction_checked"
+lines = [
+    411,
+    420,
+]
+hash = "sha256:db3451ed52d6356f40c4120b950629cf3fb38fba9413297f0505a0d079678e2b"
+doc_hash = "sha256:371a20772f44bf6e61c33cf0eecd59a61343ab2cc09dec407117082e3433b2f1"
+callees = [
+    "fn:4f0e2cf98f3a9f46",
+    "fn:ffc8e05812d8976c",
+]
+reached_by = ["#16"]
+
+[[module."relocation.rs".function]]
+id = "fn:062e66e2ac67048f"
+name = "radial_displacement_checked"
+qual = "RelocationModel::radial_displacement_checked"
+lines = [
+    422,
+    431,
+]
+hash = "sha256:0416041aaccca06bcb92fc60e08107cadd0d68b9075f7d709f13f4d39b6151e1"
+doc_hash = "sha256:7d130376cf9c020a2974d6c7454f7650498f7668df9bedc827ff1b1858ddb27c"
+callees = [
+    "fn:4d187b1d8eae40f8",
+    "fn:ffc8e05812d8976c",
+]
+reached_by = ["#16"]
+
+[[module."relocation.rs".function]]
+id = "fn:4b972bdd285c6fb4"
+name = "modified_gap_closure"
+qual = "modified_gap_closure"
+lines = [
+    434,
+    456,
+]
+hash = "sha256:a0da1886be163d119b011ffc5a07ef014e952da356df22a240bb3c0834ba068d"
+doc_hash = "sha256:4648abce7f76db55271292356ddaa156e826ae77ccf4b1b2b0722855b79580bc"
+reached_by = [
+    "#11",
+    "#12",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."relocation.rs".function]]
+id = "fn:bc81746d415ecb7d"
+name = "legacy_gap_closure"
+qual = "legacy_gap_closure"
+lines = [
+    458,
+    477,
+]
+hash = "sha256:77fad0ccb61e718fc85f48976701d5af0f6f6bb759cdbb0b58c27bb35c4bb12b"
+doc_hash = "sha256:00f7599bc9411bde6d62793d351020a2231300bb442f7d53cf6d2ef91d8e52c7"
+reached_by = [
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."relocation.rs".function]]
+id = "fn:a5d450b5ed755570"
+name = "model"
+qual = "model"
+lines = [
+    488,
+    495,
+]
+hash = "sha256:1d9dc46f07a14c4912a975c80688fb9e0f607d5d905387a5fc3f89c23ed2e395"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."relocation.rs".function]]
+id = "fn:30972ca033387bb8"
+name = "at"
+qual = "at"
+lines = [
+    497,
+    501,
+]
+hash = "sha256:579851b50c8b1b218e2a7b9d7c9b6e9fc5dd5dc225fe23acb4a856b202ba1bf1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:59fe5b1ed5211786"]
+test = true
+
+[[module."relocation.rs".function]]
+id = "fn:c07d2546ad881839"
+name = "zero_model_never_relocates"
+qual = "zero_model_never_relocates"
+lines = [
+    503,
+    510,
+]
+hash = "sha256:5732f63667653a84c642ffe40528f1ed750af214ec6d886a3fa89ca061f848cd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:30972ca033387bb8",
+    "fn:4d187b1d8eae40f8",
+    "fn:4f0e2cf98f3a9f46",
+    "fn:9d31c7bdf34b99a2",
+    "fn:ffc8e05812d8976c",
+]
+test = true
+
+[[module."relocation.rs".function]]
+id = "fn:0a4ceea859fcf647"
+name = "relocation_is_bounded_by_the_physical_gap"
+qual = "relocation_is_bounded_by_the_physical_gap"
+lines = [
+    512,
+    555,
+]
+hash = "sha256:75ee446a6feb3ac7c904e92543358e49fa64151f286836e743464e3cc3ab9c3c"
+doc_hash = "sha256:fc6c587fc18d45d02fc4f68bb21b4abb70f5e51506d926c5173e419dd664d775"
+callees = [
+    "fn:30972ca033387bb8",
+    "fn:4d187b1d8eae40f8",
+    "fn:4f0e2cf98f3a9f46",
+    "fn:a5d450b5ed755570",
+]
+test = true
+
+[[module."relocation.rs".function]]
+id = "fn:4fe085c567bb981a"
+name = "modified_form_is_continuous_at_its_low_burnup_cutoff"
+qual = "modified_form_is_continuous_at_its_low_burnup_cutoff"
+lines = [
+    557,
+    600,
+]
+hash = "sha256:e6c675acf728045d2edefc7d21c1233e2116c3372ca8ae96bfaf7ddd688be710"
+doc_hash = "sha256:2accb8d708d13220c724c9755827c7ae87137b839ec7f31f887d630db422b233"
+callees = [
+    "fn:30972ca033387bb8",
+    "fn:4f0e2cf98f3a9f46",
+    "fn:a5d450b5ed755570",
+]
+test = true
+
+[[module."relocation.rs".function]]
+id = "fn:e34822cf7b1101ea"
+name = "gap_closure_is_monotonic_in_burnup"
+qual = "gap_closure_is_monotonic_in_burnup"
+lines = [
+    602,
+    627,
+]
+hash = "sha256:12fec3b6f1aa223b78e344a9b6fb0544ac725d997a286ec264dd6629d152c0ef"
+doc_hash = "sha256:a48dfe7e89746cb099e9ea253367f4b4076e9386536887eaccf7b27c804c745f"
+callees = [
+    "fn:30972ca033387bb8",
+    "fn:4f0e2cf98f3a9f46",
+    "fn:a5d450b5ed755570",
+]
+test = true
+
+[[module."relocation.rs".function]]
+id = "fn:8293bedf13f9a50a"
+name = "gap_closure_saturates_early_in_life"
+qual = "gap_closure_saturates_early_in_life"
+lines = [
+    629,
+    649,
+]
+hash = "sha256:2e61faf82d96bbfa41bd08cff7b62a0d7c8860b13c59f4e08739648498f93037"
+doc_hash = "sha256:e2b6e7f400863409c1633b7744f99e73ead41a3d6b89af1a1c4bdf6efb6ce92b"
+callees = [
+    "fn:30972ca033387bb8",
+    "fn:4f0e2cf98f3a9f46",
+    "fn:a5d450b5ed755570",
+]
+test = true
+
+[[module."relocation.rs".function]]
+id = "fn:628beb51beabe296"
+name = "modified_form_power_ramp_matches_the_correlation"
+qual = "modified_form_power_ramp_matches_the_correlation"
+lines = [
+    651,
+    673,
+]
+hash = "sha256:218e33be076adfb2f1f95392ec0c6f215be4db7568ceb1d4578036c53139927d"
+doc_hash = "sha256:69c13093917e6df655fa1de2c372d6e60837af64dbe93a5d2a1cc78558fe9d45"
+callees = [
+    "fn:30972ca033387bb8",
+    "fn:4f0e2cf98f3a9f46",
+    "fn:a5d450b5ed755570",
+]
+test = true
+
+[[module."relocation.rs".function]]
+id = "fn:4b9e8c20ed9bbae7"
+name = "strain_fraction_and_displacement_are_mutually_consistent"
+qual = "strain_fraction_and_displacement_are_mutually_consistent"
+lines = [
+    675,
+    697,
+]
+hash = "sha256:d1671484c786b1488eadab5f96ef706e9bae6ee89de31210fa59ad40268952f7"
+doc_hash = "sha256:b44d5ca609c08f0447739bf671021c03d7903af0cbb2ce1a9e34ba6e2714d1bf"
+callees = [
+    "fn:30972ca033387bb8",
+    "fn:4d187b1d8eae40f8",
+    "fn:4f0e2cf98f3a9f46",
+    "fn:9d31c7bdf34b99a2",
+    "fn:a5d450b5ed755570",
+]
+test = true
+
+[[module."relocation.rs".function]]
+id = "fn:385784c79e9b3688"
+name = "the_two_formulations_differ_substantially_at_beginning_of_life"
+qual = "the_two_formulations_differ_substantially_at_beginning_of_life"
+lines = [
+    699,
+    718,
+]
+hash = "sha256:b1b8ef016734dc1741a43e6a5ee8ae10860240d09e2b28b7346aa296db2ad5a8"
+doc_hash = "sha256:041f2bb1e7ecccd2073d7b6d6954475be8258ac8cf9a51812e02814a3058713e"
+callees = [
+    "fn:30972ca033387bb8",
+    "fn:4f0e2cf98f3a9f46",
+    "fn:a5d450b5ed755570",
+]
+test = true
+
+[[module."relocation.rs".function]]
+id = "fn:9da56e3d9cce3646"
+name = "out_of_range_and_unphysical_inputs_are_reported"
+qual = "out_of_range_and_unphysical_inputs_are_reported"
+lines = [
+    720,
+    777,
+]
+hash = "sha256:9424c2bbe5b95a39dd3a5fac464877f8e95f33ce57c60fd7b28b48f0945c3a19"
+doc_hash = "sha256:9231a5bf0fe98b7d49dc8a4b9b4f5efc3d8f10d4ea32a2809c5d74aa91392e6a"
+callees = [
+    "fn:062e66e2ac67048f",
+    "fn:30972ca033387bb8",
+    "fn:75584b225a603e6a",
+    "fn:9d31c7bdf34b99a2",
+    "fn:a5d450b5ed755570",
+    "fn:ffc8e05812d8976c",
+]
+test = true
+
+[[module."relocation.rs".function]]
+id = "fn:e6aa73d9f9241662"
+name = "legacy_form_power_branches_are_discontinuous_reproducing_upstream"
+qual = "legacy_form_power_branches_are_discontinuous_reproducing_upstream"
+lines = [
+    779,
+    806,
+]
+hash = "sha256:9880588f34301ed0a9f45b5539e0fceac224b45232722b35654b2f103baf7303"
+doc_hash = "sha256:ab7f4d7cf9ba145a1614002e506eb1743fa5b3d4ce5034c1c15bcf4cf9e96edf"
+callees = ["fn:bc81746d415ecb7d"]
+test = true
+
+[module."swelling.rs"]
+path = "crate::materials::behavioral::swelling"
+
+[[module."swelling.rs".function]]
+id = "fn:97d051f63f298e74"
+name = "new"
+qual = "SwellingStrain::new"
+lines = [
+    176,
+    185,
+]
+hash = "sha256:ac34b9962dd3a6ddbee2731f87773db9b0ed322c2ebe42b29578bf53fbdd26c8"
+doc_hash = "sha256:d4a3eca52a53d3eb67bd1a8b70c219dfd9fc934b90987c50b11f314c4750c7c8"
+reached_by = [
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+]
+
+[[module."swelling.rs".function]]
+id = "fn:2d0f1e892f35639e"
+name = "isotropic"
+qual = "SwellingStrain::isotropic"
+lines = [
+    187,
+    196,
+]
+hash = "sha256:cd1466a18b52583b8457be7a61473d5f38b8daa2e2a038224e3de8b80a1acdaa"
+doc_hash = "sha256:6fef078e026384474cfd4bb85785987f3493b242e05c6a61be61f1ab86ccd5c9"
+callees = ["fn:97d051f63f298e74"]
+reached_by = [
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+]
+
+[[module."swelling.rs".function]]
+id = "fn:8e36a80bb542de8b"
+name = "volumetric"
+qual = "SwellingStrain::volumetric"
+lines = [
+    198,
+    209,
+]
+hash = "sha256:a1f0c4d56ca5ae1fe61aed1bb055b9cebaedb024c9207e7a689e0ffde7597c60"
+doc_hash = "sha256:21603eecef11cb1a5ceb74dd67f816b5a61dce49ee0c6992578172aa6640393e"
+reached_by = [
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#37",
+]
+
+[[module."swelling.rs".function]]
+id = "fn:ed972cb60217ab7a"
+name = "coefficients"
+qual = "BisonZircaloyCladType::coefficients"
+lines = [
+    241,
+    257,
+]
+hash = "sha256:768b3fd0adce2297eef4bc2572dde97c0809a9b933d5cc94b92b0e5826b1b59e"
+doc_hash = "sha256:20fc42598125978d70cc5ada8289fdd06d02bca193e786d176b3c332853e8a0a"
+reached_by = [
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+]
+
+[[module."swelling.rs".function]]
+id = "fn:71a074ec94d76088"
+name = "unconstrained"
+qual = "Limits::unconstrained"
+lines = [
+    620,
+    628,
+]
+hash = "sha256:bf797a12c335e1be8fcd4bb6749d29513db163fea9dc85522472d0caef18ca6d"
+doc_hash = "sha256:c53a9ab3accb9a5e07f96359bf24f3fb6da0e10a2c36a97eb31f47fbb3c534d4"
+reached_by = [
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+]
+
+[[module."swelling.rs".function]]
+id = "fn:8b17f7849eb0c806"
+name = "strain"
+qual = "SwellingModel::strain"
+lines = [
+    632,
+    792,
+]
+hash = "sha256:22adfb11062528c3b37f66ca2117045afa81c0d6b8e279635960fd0d29859f1b"
+doc_hash = "sha256:a4256633051c8a8390e8c87ea8cbdf0c2e89b6389512f4c7363634edb5b6ac32"
+callees = [
+    "fn:2d0f1e892f35639e",
+    "fn:2e8429c34d7c0a37",
+    "fn:686496b8fef5c8b2",
+    "fn:8afefecc3cbc3020",
+    "fn:97d051f63f298e74",
+    "fn:ed972cb60217ab7a",
+]
+reached_by = [
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+]
+
+[[module."swelling.rs".function]]
+id = "fn:c91b2621a6182543"
+name = "value"
+qual = "SwellingModel::value"
+lines = [
+    794,
+    825,
+]
+hash = "sha256:16426bf832ca961f8e1e2f41a862f76647bd9297bc263053114e99601d89d596"
+doc_hash = "sha256:985ed9e995f1d3c005e19fec1748a159abfd0a27f3c515e39eeb62c5664d5b49"
+callees = [
+    "fn:8b17f7849eb0c806",
+    "fn:8e36a80bb542de8b",
+]
+reached_by = [
+    "#21",
+    "#22",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#34",
+    "#35",
+]
+
+[[module."swelling.rs".function]]
+id = "fn:94c693de6f48ab5a"
+name = "strain_checked"
+qual = "SwellingModel::strain_checked"
+lines = [
+    827,
+    839,
+]
+hash = "sha256:97e071095a7c25bff7c74fa27c5758192272e8d6bdf57dad585e7e6c85644ba5"
+doc_hash = "sha256:3c313afe152d0fb658cd087e6f9fef2cc305a8dd0be6da624a7b54faf5747e3f"
+callees = [
+    "fn:8b17f7849eb0c806",
+    "fn:e9f3c5b26f466764",
+]
+reached_by = [
+    "#30",
+    "#35",
+]
+
+[[module."swelling.rs".function]]
+id = "fn:934ab4f024a107c2"
+name = "value_checked"
+qual = "SwellingModel::value_checked"
+lines = [
+    841,
+    862,
+]
+hash = "sha256:dac085b4559e0d78c9ad0f3ba3f275e02d31a68b82b355c5ad99715b764e600a"
+doc_hash = "sha256:57de5029f6c7b0286e031378ae13c5435b00ac8e36fefdd935ab8438acedbd61"
+callees = [
+    "fn:8e36a80bb542de8b",
+    "fn:94c693de6f48ab5a",
+]
+reached_by = [
+    "#30",
+    "#35",
+]
+
+[[module."swelling.rs".function]]
+id = "fn:8ceb06a687841d54"
+name = "limits"
+qual = "SwellingModel::limits"
+lines = [
+    864,
+    914,
+]
+hash = "sha256:07f151a85de73603cdac67d1fcb4ba63b0d08f8c193fca1b0c748580dd0a645f"
+doc_hash = "sha256:f31f1d34741808bfd0fa8320934419bbb81eea93fbd195a9954ac8ab6c6dd2c9"
+callees = ["fn:71a074ec94d76088"]
+reached_by = [
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+]
+
+[[module."swelling.rs".function]]
+id = "fn:8afefecc3cbc3020"
+name = "clamped"
+qual = "SwellingModel::clamped"
+lines = [
+    916,
+    931,
+]
+hash = "sha256:c0f4bf0d768bdccdf449519f4cc04cbf71e786211e878490325c1e6bf051811f"
+doc_hash = "sha256:3564798d9b5870f1d63337af37bd93c5d76ce58b0f13dc74216ee00c7fe81fac"
+callees = ["fn:8ceb06a687841d54"]
+reached_by = [
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+]
+
+[[module."swelling.rs".function]]
+id = "fn:e9f3c5b26f466764"
+name = "check"
+qual = "SwellingModel::check"
+lines = [
+    933,
+    955,
+]
+hash = "sha256:75597e2a8e96fb59e915cf6a04958d50e806125e924df3e906bcb466981c9a50"
+doc_hash = "sha256:0a8847739ac23dc5206b205cfb7bd667e5b462f2ff8bd005360c8ecc63d6ec9b"
+callees = ["fn:8ceb06a687841d54"]
+reached_by = [
+    "#30",
+    "#35",
+]
+
+[[module."swelling.rs".function]]
+id = "fn:2e8429c34d7c0a37"
+name = "steel_void_swelling"
+qual = "steel_void_swelling"
+lines = [
+    958,
+    979,
+]
+hash = "sha256:c1a1c34aace8064037209d8e0fc1e4529ba680443fccc1bd4d381b9fb940d47d"
+doc_hash = "sha256:937dba0a21711a9f3549c5683220948b75101b7618f372b3ef043f01fbacc717"
+reached_by = [
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+]
+
+[[module."swelling.rs".function]]
+id = "fn:72325e0a797078b3"
+name = "uo2_state"
+qual = "uo2_state"
+lines = [
+    985,
+    992,
+]
+hash = "sha256:330189056622948a2f148b5ca224efa441682ae433134ad481bc77a00d4dfc7f"
+doc_hash = "sha256:93c969b9b406df74572242ad8695d41bf382757f667e4b3b3d38f34c38ae30c4"
+callees = ["fn:59fe5b1ed5211786"]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:96bfb598e5d22e74"
+name = "zero_model_never_swells"
+qual = "zero_model_never_swells"
+lines = [
+    994,
+    1003,
+]
+hash = "sha256:66599431ab8081e82158ebb5d556ad2c5345c9c7d4c5a3a966af8c0b3b96afd5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:59fe5b1ed5211786",
+    "fn:8b17f7849eb0c806",
+    "fn:934ab4f024a107c2",
+    "fn:c91b2621a6182543",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:86ddc7bfcb3d1179"
+name = "every_model_is_zero_in_the_unirradiated_state"
+qual = "every_model_is_zero_in_the_unirradiated_state"
+lines = [
+    1005,
+    1047,
+]
+hash = "sha256:8bc34d2e906835b457bf98ee115591c7cc1d0fe69c7ad7fd95c7feda63fe5eb7"
+doc_hash = "sha256:38ab5424407400b826550b54c788a978581b5ab652649268c96ff1747c190ea4"
+callees = [
+    "fn:59fe5b1ed5211786",
+    "fn:c91b2621a6182543",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:b4d5b014852faef2"
+name = "burnup_driven_swelling_is_monotonic"
+qual = "burnup_driven_swelling_is_monotonic"
+lines = [
+    1049,
+    1082,
+]
+hash = "sha256:c23d21e40657ae5c90187b787bc74a995693ac27d02aeca42e4b9e528bc55d24"
+doc_hash = "sha256:1ed9c24991f839491ba6b30e5967373ede1e1d27fb899e4380e5c45914f71373"
+callees = [
+    "fn:72325e0a797078b3",
+    "fn:c91b2621a6182543",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:e3e75c877d012939"
+name = "frapcon_and_matpro_solid_swelling_slopes_agree"
+qual = "frapcon_and_matpro_solid_swelling_slopes_agree"
+lines = [
+    1084,
+    1138,
+]
+hash = "sha256:d8c839f6902d48db7f1bbefd48a2fb3ecae51afab1983b441be8dead94c9c468"
+doc_hash = "sha256:5af94d1d74a32a7839096dd3296d2d96a1a36ff30dc0bf91b40c853c3869b0d9"
+callees = [
+    "fn:59fe5b1ed5211786",
+    "fn:c91b2621a6182543",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:c1042971e86649af"
+name = "matpro_closed_form_matches_upstream_euler_accumulation"
+qual = "matpro_closed_form_matches_upstream_euler_accumulation"
+lines = [
+    1140,
+    1210,
+]
+hash = "sha256:6c90cedab6520bd4324de2b8d8045a2531c19205f8bd4f3256167cc9e259954f"
+doc_hash = "sha256:57d67412d55c486290549dc66d58c38bf4a58dfe6fa6ca8dc3fe2f5af5a4b3d7"
+callees = [
+    "fn:59fe5b1ed5211786",
+    "fn:686496b8fef5c8b2",
+    "fn:c91b2621a6182543",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:a67feb586f05c7d1"
+name = "zircaloy_growth_is_volume_conserving_and_anisotropic"
+qual = "zircaloy_growth_is_volume_conserving_and_anisotropic"
+lines = [
+    1212,
+    1241,
+]
+hash = "sha256:512394be850fc81bc4ed4acde1870b79183cdd4eec47dd1e0e0488202f8f2fb6"
+doc_hash = "sha256:3e031bc5665931ba1cfe56a8450d8693ccc3924cc6eed0fb12ec9e09d5d6c9c9"
+callees = [
+    "fn:59fe5b1ed5211786",
+    "fn:8b17f7849eb0c806",
+    "fn:8e36a80bb542de8b",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:e4aa2cd62471749d"
+name = "zircaloy_growth_closed_form_matches_incremental_accumulation"
+qual = "zircaloy_growth_closed_form_matches_incremental_accumulation"
+lines = [
+    1243,
+    1300,
+]
+hash = "sha256:88ef682b22641009e674a2bf6a1bc84535c5cc361032d341a7bcde2511c1d66c"
+doc_hash = "sha256:b854e263c8c2d184e3f79f1af0bff4a0c880fab44bc1dde5ce14ee48149c801a"
+callees = [
+    "fn:59fe5b1ed5211786",
+    "fn:8b17f7849eb0c806",
+    "fn:ed972cb60217ab7a",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:8d21ab682ca714ff"
+name = "frapcon_uo2_thresholds_and_continuity"
+qual = "frapcon_uo2_thresholds_and_continuity"
+lines = [
+    1302,
+    1333,
+]
+hash = "sha256:1d687a9ad5f1a87c84a82fe14210876b48c5a283dbb306f7005d580921cca847"
+doc_hash = "sha256:8f1e468472cd49b1f2155b0387bc194e7e1ac79120f9926a981ef245aa6a6589"
+callees = [
+    "fn:72325e0a797078b3",
+    "fn:c91b2621a6182543",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:c302facba2789e09"
+name = "fbr_mox_rates_integrate_as_documented"
+qual = "fbr_mox_rates_integrate_as_documented"
+lines = [
+    1335,
+    1360,
+]
+hash = "sha256:d94c116039f0fd9a9f579c643f8709290220dba63b779719c7d097b3352f9beb"
+doc_hash = "sha256:2d17ec80cab82e3403bcbf5b75212c8bb58bb1810260ced4e0b5acb1542e16b3"
+callees = [
+    "fn:72325e0a797078b3",
+    "fn:c91b2621a6182543",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:e34c023437ed35da"
+name = "steel_void_swelling_peaks_at_the_fitted_temperature"
+qual = "steel_void_swelling_peaks_at_the_fitted_temperature"
+lines = [
+    1362,
+    1390,
+]
+hash = "sha256:d2a7307fe51a9e9fca1e35a9acc70c7eadeee94af3f82dc1e3a59123cc62b3e2"
+doc_hash = "sha256:41d780f79db59fecd0618fc6f721d5932b8b6cb14d84aff50bfee4cc05b81961"
+callees = [
+    "fn:59fe5b1ed5211786",
+    "fn:c91b2621a6182543",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:77769fad1b68cb29"
+name = "wright_sham_hastelloy_n_is_negative_below_its_incubation_dose"
+qual = "wright_sham_hastelloy_n_is_negative_below_its_incubation_dose"
+lines = [
+    1392,
+    1419,
+]
+hash = "sha256:a74a39055aac5340566e242c4f006c00a6dfda0be0745c3dc993a6d70e7b6ebe"
+doc_hash = "sha256:34427b2b70bfc5567e68f0f91bc2d29cbca1976123a95cc64722d56ca7384f97"
+callees = [
+    "fn:59fe5b1ed5211786",
+    "fn:c91b2621a6182543",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:4b4910c8f40827c4"
+name = "pyrocarbon_correlation_integrates_its_rate_polynomial"
+qual = "pyrocarbon_correlation_integrates_its_rate_polynomial"
+lines = [
+    1421,
+    1466,
+]
+hash = "sha256:8cc86e9751bb5c04eb92fdd656aa6335a1c76f040490d1bd88d62acf5a7a9f3a"
+doc_hash = "sha256:d6ffb31386158ce8bce1f97782def02d118619962a3b2b7cac0eef5310134cab"
+callees = [
+    "fn:59fe5b1ed5211786",
+    "fn:8b17f7849eb0c806",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:c352d318736f64e3"
+name = "constant_model_rate_is_the_linear_component"
+qual = "constant_model_rate_is_the_linear_component"
+lines = [
+    1468,
+    1482,
+]
+hash = "sha256:054fa499ad78cc65618d2470ee21c4f833b5931967013c212436c26c12675c20"
+doc_hash = "sha256:d5709e9d33710f1b889d2df2ca144776807dd05a4b57ed2c6aa3d1f069c73abf"
+callees = [
+    "fn:59fe5b1ed5211786",
+    "fn:8b17f7849eb0c806",
+    "fn:c91b2621a6182543",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:4c4b56c7dd812b6c"
+name = "fecral_is_linear_in_si_fluence"
+qual = "fecral_is_linear_in_si_fluence"
+lines = [
+    1484,
+    1493,
+]
+hash = "sha256:100e7152b3c12f1409d4743481d198dab07b07533896c5ad465773c59b1a1494"
+doc_hash = "sha256:ffbb84dd9bf2324d12b83485186d456b0634d0a42f730474f35219a81e443a8f"
+callees = [
+    "fn:59fe5b1ed5211786",
+    "fn:8b17f7849eb0c806",
+    "fn:c91b2621a6182543",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:4b811975266a25ce"
+name = "out_of_range_inputs_clamp_in_value_and_error_in_value_checked"
+qual = "out_of_range_inputs_clamp_in_value_and_error_in_value_checked"
+lines = [
+    1495,
+    1544,
+]
+hash = "sha256:c7dbcea9ed69bacf6a0bfcc12b8cf4d2d2a53650d7d246c3df536fb02384997a"
+doc_hash = "sha256:4d49e5b37b4b4070a4b241b4b50472338c810330ac6fd2f39eab4adf54174ec4"
+callees = [
+    "fn:59fe5b1ed5211786",
+    "fn:72325e0a797078b3",
+    "fn:8b17f7849eb0c806",
+    "fn:934ab4f024a107c2",
+    "fn:94c693de6f48ab5a",
+    "fn:c91b2621a6182543",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:cccb1751c6ba7c45"
+name = "every_bison_clad_type_grows_monotonically"
+qual = "every_bison_clad_type_grows_monotonically"
+lines = [
+    1546,
+    1582,
+]
+hash = "sha256:f755d61d853d3a6bf46dfb8d578acb384f4205f07d88d706d8e6e2bc794d9cf5"
+doc_hash = "sha256:4d37429af4ac96fb61d6bb953deb2fbfaa29eade024de435b4221e843aba6ab3"
+callees = [
+    "fn:59fe5b1ed5211786",
+    "fn:8b17f7849eb0c806",
+]
+test = true
+
+[[module."swelling.rs".function]]
+id = "fn:c89fcd9dc0c4c8d1"
+name = "swelling_strain_helpers_are_consistent"
+qual = "swelling_strain_helpers_are_consistent"
+lines = [
+    1584,
+    1591,
+]
+hash = "sha256:2bb74d39f019c7028a021d2c848fafc609443d6111bb0aed22d04368c08b5256"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2d0f1e892f35639e",
+    "fn:8e36a80bb542de8b",
+    "fn:97d051f63f298e74",
+]
+test = true

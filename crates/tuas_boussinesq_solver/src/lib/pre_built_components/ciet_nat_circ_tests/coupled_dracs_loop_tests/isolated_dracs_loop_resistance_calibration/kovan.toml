@@ -1,0 +1,173 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration"
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::isolated_dracs_loop_resistance_calibration"
+
+[[module."mod.rs".function]]
+id = "fn:597717c05638aff1"
+name = "case_c_tchx_out_313_kelvin_40_celsius_test1"
+qual = "case_c_tchx_out_313_kelvin_40_celsius_test1"
+lines = [
+    42,
+    96,
+]
+hash = "sha256:d1078e7746bffee2e07004ba96226e0e579608d61bb6bbb0b32f989b9b197fab"
+doc_hash = "sha256:581b28051cc0f3083a841e5f67fc9d0d89c51925e98029d79d0177bb994ea5b7"
+callees = ["fn:968d97ccdb2d4bc3"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:307816054ff51152"
+name = "case_c_tchx_out_313_kelvin_40_celsius_test2"
+qual = "case_c_tchx_out_313_kelvin_40_celsius_test2"
+lines = [
+    98,
+    114,
+]
+hash = "sha256:d26510ad7882e92097d922c8cdaf280add11cf8f303f48027a92c11af54264c1"
+doc_hash = "sha256:6f46f4cb5643a3581cc988a3857dcf684877810735d5eeae1b9e0d85edfdfe94"
+callees = ["fn:968d97ccdb2d4bc3"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:f9d7b0ad1e878a4c"
+name = "case_c_tchx_out_313_kelvin_40_celsius_test3"
+qual = "case_c_tchx_out_313_kelvin_40_celsius_test3"
+lines = [
+    115,
+    130,
+]
+hash = "sha256:cb47cf0c13747e046477901eae36616ed894779a29267cf73efda4e575c9758f"
+doc_hash = "sha256:b035d61283b79c73a838aebc038b0f8e38b068f456bdc5cd12300434464c2726"
+callees = ["fn:968d97ccdb2d4bc3"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:cc90ca028d984232"
+name = "case_c_tchx_out_313_kelvin_40_celsius_test4"
+qual = "case_c_tchx_out_313_kelvin_40_celsius_test4"
+lines = [
+    131,
+    146,
+]
+hash = "sha256:6d09c1bc7d8d24210efef435642ca44181efb97d9e4c1a459aaa8112f5ee9af1"
+doc_hash = "sha256:5d859911999da8242cb4d98914d593ff5d746279669b3575a4232e0758f6589b"
+callees = ["fn:968d97ccdb2d4bc3"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:e58b5d729e00419c"
+name = "case_c_tchx_out_313_kelvin_40_celsius_test5"
+qual = "case_c_tchx_out_313_kelvin_40_celsius_test5"
+lines = [
+    147,
+    162,
+]
+hash = "sha256:8cb55dfbe146c4e75643f7d8bfdd6c97ba806ee3dc4b5298305b22fb70758775"
+doc_hash = "sha256:22fd65be196fc328055954da4292d9841eb9c5b742ddc4165fd06328aa9279ec"
+callees = ["fn:968d97ccdb2d4bc3"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:585e9ee199e1bb7c"
+name = "case_c_tchx_out_313_kelvin_40_celsius_test6"
+qual = "case_c_tchx_out_313_kelvin_40_celsius_test6"
+lines = [
+    163,
+    179,
+]
+hash = "sha256:a08153fa7bbfc2f8230726740627abc20ed64bb742aa948158a2a7deace36ca7"
+doc_hash = "sha256:8bf819680241c6e17f75ad85799198ce0ab5687811343283c2594b118f0ac7a3"
+callees = ["fn:968d97ccdb2d4bc3"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:5d58945f85a087cf"
+name = "case_c_tchx_out_313_kelvin_40_celsius_test7"
+qual = "case_c_tchx_out_313_kelvin_40_celsius_test7"
+lines = [
+    180,
+    195,
+]
+hash = "sha256:a7f679c8b17a9a0b768a5345407835fd092d325c11de14cc73e8d7d4a0aef78c"
+doc_hash = "sha256:d2b5edfe20d8e22a9960e450c0002fba2e27d7a0f522d426998dc72ff6867abd"
+callees = ["fn:968d97ccdb2d4bc3"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:72e900c9612a0b88"
+name = "case_c_tchx_out_313_kelvin_40_celsius_test8"
+qual = "case_c_tchx_out_313_kelvin_40_celsius_test8"
+lines = [
+    197,
+    212,
+]
+hash = "sha256:b560150a822b1ac85f25011a767f6773164601b1fcfa587b411dbfd298bc0dfd"
+doc_hash = "sha256:8b9ba403295b890dc6b2442913222751707828957a3414c46b52300430707d88"
+callees = ["fn:968d97ccdb2d4bc3"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:9c8ae43961844709"
+name = "case_c_tchx_out_313_kelvin_40_celsius_test9"
+qual = "case_c_tchx_out_313_kelvin_40_celsius_test9"
+lines = [
+    214,
+    230,
+]
+hash = "sha256:79d8f328ab14ee6fcc2dd9680c3f6ae60958f7427a260696056c5b2d25dca5d9"
+doc_hash = "sha256:ba4285fe7876d2431d565c121548e0d29dfba92884f8e0443716f331b9b43531"
+callees = ["fn:968d97ccdb2d4bc3"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:968d97ccdb2d4bc3"
+name = "verify_isolated_dhx_sam_solution"
+qual = "verify_isolated_dhx_sam_solution"
+lines = [
+    232,
+    949,
+]
+hash = "sha256:e5e08ca896b85ca4a9f880ae31acdfac15146f3912231ea737694df370a2a0d3"
+doc_hash = "sha256:f1081a91ae3e2cebd4dac80d7a418ca47ec32cc53d3d313f4e6a13b07a0e8c8f"
+callees = [
+    "fn:0120b5299e2da2da",
+    "fn:134aefb246f7d585",
+    "fn:165e0de92fdc30f9",
+    "fn:26e415a2516474b8",
+    "fn:352eae89cdf05026",
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:44b0242f8ce5613f",
+    "fn:4cad4ddd84ccee48",
+    "fn:4e7dcb14e36b36c7",
+    "fn:5898244cb765d25d",
+    "fn:6472671d822a61ab",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:6fdf5b3db5ce2173",
+    "fn:71e0b3e056618526",
+    "fn:74172f53fcffc1fc",
+    "fn:75d1e2e16257fc20",
+    "fn:7ee6570130bd052b",
+    "fn:89b98b3aca1482a0",
+    "fn:93844cc452449d04",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a3a04100486196dc",
+    "fn:a466cf7d23703edb",
+    "fn:ab7102b91b02cb50",
+    "fn:b36ec305413e9570",
+    "fn:c2da8a31daabb980",
+    "fn:d080d9cf81960954",
+    "fn:e1d822f0823e13bf",
+    "fn:e79236623dec9507",
+    "fn:f66c6613b2fa9c0c",
+    "fn:f8b8b8874aae4e2b",
+    "fn:ffe5f6af51a6ee46",
+]
+test = true

@@ -1,0 +1,13 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/src/openfoam_algorithms/simplefoam"
+
+[module."UEqn.rs"]
+path = "crate::openfoam_algorithms::simplefoam::UEqn"
+
+[module."mod.rs"]
+path = "crate::openfoam_algorithms::simplefoam"
+
+[module."pEqn.rs"]
+path = "crate::openfoam_algorithms::simplefoam::pEqn"

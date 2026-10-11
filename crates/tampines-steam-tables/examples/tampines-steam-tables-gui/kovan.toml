@@ -1,0 +1,3086 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/examples/tampines-steam-tables-gui"
+test_ids = [
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/app.rs::default_app_state_yields_finite_plottable_data_on_every_tab",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/citations.rs::reference_layer_citations_are_nonempty_and_deduplicated",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/curves.rs::critical_point_matches_the_published_constant",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/curves.rs::default_isobars_and_isotherms_produce_finite_ordered_segments",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/curves.rs::isenthalp_and_isentrope_sweep_cleanly_through_every_region",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/curves.rs::isochore_reproduces_the_requested_volume_including_inside_the_dome",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/curves.rs::quality_lines_follow_the_lever_rule_and_nest_inside_the_dome",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/curves.rs::saturation_curve_matches_the_wagner_steam_table",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/curves.rs::triple_point_matches_the_wagner_saturation_table",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/custom_lines.rs::every_custom_line_type_builds_a_tagged_layer_at_its_default_value",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/diagram.rs::each_diagram_projects_the_axes_it_advertises",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/diagram.rs::hover_formatters_name_the_right_symbol_and_invert_the_log_axis",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/evaluation.rs::representative_single_phase_points_resolve_on_every_diagram",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/evaluation.rs::ts_click_inside_the_dome_resolves_the_two_phase_lever_rule",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/export.rs::export_style_palette_reaches_the_rendered_png",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/export.rs::scenes_assemble_with_finite_ranges_and_the_required_caveats",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/export.rs::write_single_file_writes_the_exact_path_and_rejects_csv",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure/csv_export.rs::csv_export_is_byte_reproducible",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::availability_table_disables_only_degenerate_or_unmeasured_cases",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::every_reference_layer_yields_points",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::isobar_and_isotherm_layers_pair_their_line_with_published_wagner_crosses",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::layer_selection_restricts_which_isobars_and_isotherms_are_drawn",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::legend_groups_collapse_the_families_issue_26_names",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::tabulated_single_phase_axis_toggle_works_on_every_diagram",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::tabulated_single_phase_pairs_a_smooth_curve_where_not_degenerate",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::wagner_single_phase_points_respect_the_isobar_isotherm_selection",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/main.rs::headless_export_writes_valid_files_for_all_four_diagrams",
+]
+
+[module."app.rs"]
+path = "example:tampines-steam-tables-gui::app"
+
+[[module."app.rs".function]]
+id = "fn:c579e9a09d3aed39"
+name = "label"
+qual = "AppTab::label"
+lines = [
+    72,
+    79,
+]
+hash = "sha256:505fd35768169e61fd67390b84397164340b745750f2b71de284757fbcedca9c"
+doc_hash = "sha256:2aafd09ebf1b494ac6d7bb15b78560fbe31b8815ce33f79908d9e6910305e926"
+
+[[module."app.rs".function]]
+id = "fn:b13ef7d11a1bd25f"
+name = "label"
+qual = "ExportStyle::label"
+lines = [
+    150,
+    158,
+]
+hash = "sha256:918d63abe7dd0f55506498a378ef1a83a7243c40afb80f2be233b0d2efec940b"
+doc_hash = "sha256:788bbf3112ae39c26a471654f20075c5e84615464294a8e4ee63965ffb508741"
+
+[[module."app.rs".function]]
+id = "fn:62a8be4371439c65"
+name = "palette"
+qual = "ExportStyle::palette"
+lines = [
+    160,
+    169,
+]
+hash = "sha256:c7135b1242bf7b0e3b928cb74eb4070b5a9ee513b10a3f6ee5392fd2d31a148c"
+doc_hash = "sha256:25d263774ae968f261dcd4b4e18d1eff9f5f55bcc46f5d277538936371167823"
+callees = ["fn:4cb26e25f6883c23"]
+
+[[module."app.rs".function]]
+id = "fn:404b6d669cb619af"
+name = "label"
+qual = "LegendMode::label"
+lines = [
+    176,
+    183,
+]
+hash = "sha256:ffa75e2557b721cdcbbbeea09767daa522a86a379ae33618ebe69b009a5ea89c"
+doc_hash = "sha256:788bbf3112ae39c26a471654f20075c5e84615464294a8e4ee63965ffb508741"
+
+[[module."app.rs".function]]
+id = "fn:b4ddd51dfdb01e34"
+name = "run"
+qual = "run"
+lines = [
+    186,
+    208,
+]
+hash = "sha256:1288ca5da167afa414301f6255a81bf12770d8ac97af3d5ef0f71f5cdd2b8bc3"
+doc_hash = "sha256:68c55887f601c0af570c69500babf52953da9ff6c14f1208e9d0282af1d7f381"
+callees = ["fn:8b88a2d04016dc7d"]
+
+[[module."app.rs".function]]
+id = "fn:8b88a2d04016dc7d"
+name = "new"
+qual = "PlotterApp::new"
+lines = [
+    307,
+    346,
+]
+hash = "sha256:022c398ebf4b580bbf3ddfe0e2178806e842cc6ef4d7220092c429f91de9a819"
+doc_hash = "sha256:5d4d21cd7d66c6d55e104d5ed19201c9449d76fa37ed7f22d3a93a3b55c24e16"
+callees = [
+    "fn:1158bca61099c5f8",
+    "fn:3e785fb8560066f6",
+    "fn:7abf661a78c4f827",
+    "fn:7e3a0ca0acbf04f2",
+]
+reached_by = ["#0"]
+
+[[module."app.rs".function]]
+id = "fn:ad01af1308d24324"
+name = "active_layers"
+qual = "PlotterApp::active_layers"
+lines = [
+    348,
+    355,
+]
+hash = "sha256:a8813bc5eae47dfe4491279e3e9b97e293707b40d6bb1cdf809850e691957660"
+doc_hash = "sha256:c50625d5ef27aaa0a4c0e7fb4b2d245b61501bb0bc3384ef7f64fed105d70768"
+reached_by = ["#0"]
+
+[[module."app.rs".function]]
+id = "fn:9558b5a9db23e068"
+name = "layer_selection"
+qual = "PlotterApp::layer_selection"
+lines = [
+    357,
+    391,
+]
+hash = "sha256:aa77623ede7d837d8bf9cf23b58cf1d8fc8b3fcd820cba0884d3ec10045db0b1"
+doc_hash = "sha256:ba8fab24d9cbb0807cbf28a59c544e48893dc822cd80d2032c64f0bd134dfce0"
+reached_by = ["#0"]
+
+[[module."app.rs".function]]
+id = "fn:85f3b4100eeb5e6b"
+name = "invalidate"
+qual = "PlotterApp::invalidate"
+lines = [
+    393,
+    396,
+]
+hash = "sha256:9ea084ae50fafa80b89d3a44f8d35e664c5b9f83257bb2940649446c924defd6"
+doc_hash = "sha256:0fda200328a992976535c308c896d27f7d09c899b2abc674523766c34fbd6bc2"
+
+[[module."app.rs".function]]
+id = "fn:8d58e2fb2532ba97"
+name = "layers_for_active_tab"
+qual = "PlotterApp::layers_for_active_tab"
+lines = [
+    398,
+    408,
+]
+hash = "sha256:e5cb1ede598120f1c495abdd72f75e9b7e76b8c6ac44142641765b0e024b5441"
+doc_hash = "sha256:da6bfa7baf21a2d00d3e07155fd00e1449a18868f485de7917b941ac1bea9392"
+callees = [
+    "fn:9558b5a9db23e068",
+    "fn:ac3063c2e12b972c",
+    "fn:ad01af1308d24324",
+]
+reached_by = ["#0"]
+
+[[module."app.rs".function]]
+id = "fn:b008e82062362518"
+name = "custom_layers"
+qual = "PlotterApp::custom_layers"
+lines = [
+    410,
+    467,
+]
+hash = "sha256:e8bcb516100af0081f5e852c822946cdcc3184a6938ee2f1fe05e90d60242ba8"
+doc_hash = "sha256:4b5b055ff629715d3a6e8f606c9a02818064462ad162b5815292d04673b57cc9"
+callees = [
+    "fn:6781ce2c3eab59cd",
+    "fn:fdbe6e4d64198194",
+]
+
+[[module."app.rs".function]]
+id = "fn:3a64db7cf7dcacc4"
+name = "y_scale"
+qual = "PlotterApp::y_scale"
+lines = [
+    469,
+    476,
+]
+hash = "sha256:ed3f0219757a8c7c19a7b867ca2126ae3e28ab365261e48dd0ff8a00bebb1e7a"
+doc_hash = "sha256:a1e0c86c7ddf85797dbde187ca16c6a4403a59a932a3aba6c352664f15eb3a77"
+callees = ["fn:8ec4347b53225eba"]
+
+[[module."app.rs".function]]
+id = "fn:99634cb6702e9887"
+name = "export"
+qual = "PlotterApp::export"
+lines = [
+    478,
+    514,
+]
+hash = "sha256:f5b50f989037d3a486f673f878b4f5dc8e40017337026a745b191203879af115"
+doc_hash = "sha256:4b8080164367951d263db0391cb8e123191e1b44116725879e06c509cffa4ef6"
+callees = [
+    "fn:3a64db7cf7dcacc4",
+    "fn:578bd94746012f3a",
+    "fn:924aab144fd9557d",
+    "fn:9558b5a9db23e068",
+    "fn:ac3063c2e12b972c",
+    "fn:ad01af1308d24324",
+    "fn:b008e82062362518",
+]
+
+[[module."app.rs".function]]
+id = "fn:d9d592c8ea3f942b"
+name = "export_single"
+qual = "PlotterApp::export_single"
+lines = [
+    516,
+    550,
+]
+hash = "sha256:4da704a9fec6f88ee29bd6b02dc98543e26de8412917d2cebbd90f0a46ca1813"
+doc_hash = "sha256:6efebe23547153c1fa5da77ad150388ef7b49604d1c75554b06ea7da98794612"
+callees = [
+    "fn:3a64db7cf7dcacc4",
+    "fn:924aab144fd9557d",
+    "fn:9558b5a9db23e068",
+    "fn:ac3063c2e12b972c",
+    "fn:ad01af1308d24324",
+    "fn:b008e82062362518",
+    "fn:f0bc4888817f8807",
+]
+
+[[module."app.rs".function]]
+id = "fn:d9d9eb7c4d41dbd9"
+name = "layer_row"
+qual = "PlotterApp::layer_row"
+lines = [
+    552,
+    594,
+]
+hash = "sha256:ea9ccaabba95dcf8435278cc761750f8a7e4007f69d2b6bb2e806e394ffdcdcb"
+doc_hash = "sha256:d556b5592ef01037ea7864717756196ccf12421b0f3a5401e8b41c1dba543a07"
+callees = [
+    "fn:4871bcfa8ec5b7ba",
+    "fn:82faa102fffe1007",
+    "fn:f2755658c2280b16",
+]
+
+[[module."app.rs".function]]
+id = "fn:96e3247995cf0f8c"
+name = "multi_select_row"
+qual = "PlotterApp::multi_select_row"
+lines = [
+    596,
+    637,
+]
+hash = "sha256:c12b19063976b915111553d020332b234c6b04621fcdd373543589baca4ea94f"
+doc_hash = "sha256:f0544211dfe81b4ae71ea018711d398d3c36333ce948f71ff0a0aa082b6d773d"
+
+[[module."app.rs".function]]
+id = "fn:d3cde4300f4f21a5"
+name = "tabulated_single_phase_filter_row"
+qual = "PlotterApp::tabulated_single_phase_filter_row"
+lines = [
+    639,
+    702,
+]
+hash = "sha256:4624312df5449e5c037e207a96a1c5d1ea63409155073b677a67e7150c431d1b"
+doc_hash = "sha256:3404d78647ee0759e441fb9095bd6239f9ed91b708bce70057199a5c7dd4bca6"
+callees = ["fn:96e3247995cf0f8c"]
+
+[[module."app.rs".function]]
+id = "fn:d651ac3fb5fbc6b2"
+name = "sidebar"
+qual = "PlotterApp::sidebar"
+lines = [
+    704,
+    1004,
+]
+hash = "sha256:c1bc5044a33457c7b4f911848343c3a8d1837a379e2214d388417ea9ebac6377"
+doc_hash = "sha256:e41fe611ea371c8f70194a68b7dcf78c865f8af5a388a0aba8b4621c047ed921"
+callees = [
+    "fn:404b6d669cb619af",
+    "fn:557cd9a4e711ecb5",
+    "fn:5d6b5b978168cf4c",
+    "fn:62a8be4371439c65",
+    "fn:78285dc1bf958d77",
+    "fn:786505ea76ab595a",
+    "fn:82faa102fffe1007",
+    "fn:85f3b4100eeb5e6b",
+    "fn:8ec4347b53225eba",
+    "fn:919559c986bdb45d",
+    "fn:96e3247995cf0f8c",
+    "fn:b13ef7d11a1bd25f",
+    "fn:beef66df3ed21c30",
+    "fn:c1094ad3f872f378",
+    "fn:d3cde4300f4f21a5",
+    "fn:d9d9eb7c4d41dbd9",
+    "fn:e8ca990a7a9e133a",
+    "fn:f652f5929c26aef3",
+]
+
+[[module."app.rs".function]]
+id = "fn:fcb41b92f8cc24e8"
+name = "plot_panel"
+qual = "PlotterApp::plot_panel"
+lines = [
+    1006,
+    1098,
+]
+hash = "sha256:e601942d4649e2d67cc625e2b0e3fed546ee39a029103e25ab4a02c123c86ac4"
+doc_hash = "sha256:a95da91fec7d9ed97b962abf5f9528b6f26e21795693f30b30a1dc58cafd3a3b"
+callees = [
+    "fn:1d3e59eb6e2e5e95",
+    "fn:3a64db7cf7dcacc4",
+    "fn:3ff2ddffa6aee81e",
+    "fn:8d58e2fb2532ba97",
+    "fn:a46c7a499cb814ca",
+    "fn:adf4a51fb3c531c2",
+    "fn:b008e82062362518",
+    "fn:b1f27de55119abed",
+    "fn:e8ca990a7a9e133a",
+]
+
+[[module."app.rs".function]]
+id = "fn:5bf0006ead52acb4"
+name = "evaluation_sidebar"
+qual = "PlotterApp::evaluation_sidebar"
+lines = [
+    1100,
+    1158,
+]
+hash = "sha256:6ac69fbef1fa0423dc3fddbb4ca4f607cc0b4f9171f7c5a35e11fdf471dca28e"
+doc_hash = "sha256:3f80ab9b0cb213b6711808379764679e00c7ad3c67ea444829ac53596fe96261"
+callees = [
+    "fn:07b153fc05e26b55",
+    "fn:3e83ff1b07ac10b3",
+    "fn:e8ca990a7a9e133a",
+]
+
+[[module."app.rs".function]]
+id = "fn:3e83ff1b07ac10b3"
+name = "evaluation_points_csv"
+qual = "PlotterApp::evaluation_points_csv"
+lines = [
+    1160,
+    1174,
+]
+hash = "sha256:80ceb5637ebcee11a297ab2ebae925e2718553d0e3a1d6965d08d6530369ac42"
+doc_hash = "sha256:e690ab7e4873be495a979156f1970b962303f2ec76e68543628071a23aa4f8d4"
+callees = [
+    "fn:730c7513c16e3a1a",
+    "fn:e8ca990a7a9e133a",
+]
+
+[[module."app.rs".function]]
+id = "fn:b47cf62f57ab05b1"
+name = "evaluation_plot_panel"
+qual = "PlotterApp::evaluation_plot_panel"
+lines = [
+    1176,
+    1264,
+]
+hash = "sha256:c2f6f5526e05848af861ec1429597f1b51a4aa1f8949f4c8c866ca58eddb134f"
+doc_hash = "sha256:6d52397a9d2681999221cdba1b590802a7b5565d77d4d1c8e73b6e24bddd00c0"
+callees = [
+    "fn:07b153fc05e26b55",
+    "fn:1d3e59eb6e2e5e95",
+    "fn:2c69e2acd67bd407",
+    "fn:3ff2ddffa6aee81e",
+    "fn:6c8166513c596782",
+    "fn:8ec4347b53225eba",
+    "fn:a46c7a499cb814ca",
+    "fn:adf4a51fb3c531c2",
+    "fn:b1f27de55119abed",
+    "fn:b2154fe3b2fac4f2",
+    "fn:e8ca990a7a9e133a",
+]
+
+[[module."app.rs".function]]
+id = "fn:b1f27de55119abed"
+name = "draw_plot_layers"
+qual = "draw_plot_layers"
+lines = [
+    1267,
+    1341,
+]
+hash = "sha256:595d0c089d81c92bf07e2dd7d519242a8ac972c3243f83523709c230471c83d2"
+doc_hash = "sha256:69efd40d0e4e704071f3b287001b18b278ea441fd571303603765519830585b7"
+callees = [
+    "fn:41f00098921c58fb",
+    "fn:a33969ac212c1587",
+    "fn:ded77421d18bf6b6",
+]
+
+[[module."app.rs".function]]
+id = "fn:a5cdacf1bdc5b748"
+name = "ui"
+qual = "PlotterApp::ui"
+lines = [
+    1348,
+    1421,
+]
+hash = "sha256:65ba4602f6bf2ff6066d9fcfaa79a375c20515ea7b9fd9b82831ccf5ff0a4119"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:42b3003f1e4f360b",
+    "fn:5bf0006ead52acb4",
+    "fn:99634cb6702e9887",
+    "fn:ad01af1308d24324",
+    "fn:b47cf62f57ab05b1",
+    "fn:ba682cc0a30d6357",
+    "fn:c579e9a09d3aed39",
+    "fn:d651ac3fb5fbc6b2",
+    "fn:d9d592c8ea3f942b",
+    "fn:db2d039f1341fae1",
+    "fn:fcb41b92f8cc24e8",
+]
+
+[[module."app.rs".function]]
+id = "fn:41f00098921c58fb"
+name = "to_color32"
+qual = "to_color32"
+lines = [
+    1424,
+    1427,
+]
+hash = "sha256:180197a2fe531a163eac4c687521ccffaffe193e318e467daf8912254e77e0c5"
+doc_hash = "sha256:4baf9c9317b18b6861d4d81ab3f8f14ab62946894c48c251a305fbdec575f24a"
+
+[[module."app.rs".function]]
+id = "fn:a33969ac212c1587"
+name = "to_plot_marker"
+qual = "to_plot_marker"
+lines = [
+    1429,
+    1439,
+]
+hash = "sha256:1e42f6bcf6ab662d6fe6c0a732d95e22b1a13ac7770737c925dd7817747b0dee"
+doc_hash = "sha256:096aeabaa2de83fbdbbaaa93702f1f720e7a87e0b73a945a797f208bbef80f73"
+
+[[module."app.rs".function]]
+id = "fn:db7f67136690ab84"
+name = "default_app_state_yields_finite_plottable_data_on_every_tab"
+qual = "default_app_state_yields_finite_plottable_data_on_every_tab"
+lines = [
+    1441,
+    1481,
+]
+hash = "sha256:dafd7f81b56bccbe750322a44fb1383bdef5e355c85649a64ab587e7815b8c62"
+doc_hash = "sha256:8248880832d2d4ac40417d561619d53d387cc0e886dbb0d493727e92d76e2bbe"
+callees = [
+    "fn:8b88a2d04016dc7d",
+    "fn:8d58e2fb2532ba97",
+    "fn:8ec4347b53225eba",
+    "fn:ded77421d18bf6b6",
+]
+test = true
+
+[module."citations.rs"]
+path = "example:tampines-steam-tables-gui::citations"
+
+[[module."citations.rs".function]]
+id = "fn:e43eb2efd3f5399a"
+name = "reference_layer_citations"
+qual = "reference_layer_citations"
+lines = [
+    23,
+    44,
+]
+hash = "sha256:82c233d9f8dc66c958f8c68794282dc32095fe5bcf269034d2710a90b2c3daa6"
+doc_hash = "sha256:9d2cf6a8fc363485af17e0b496b8b6c6ade104e82d39c0215fd272984e1a3c56"
+callees = [
+    "fn:64c100e95c6e3e5c",
+    "fn:919559c986bdb45d",
+    "fn:f2755658c2280b16",
+]
+reached_by = ["#1"]
+
+[[module."citations.rs".function]]
+id = "fn:ba682cc0a30d6357"
+name = "ui"
+qual = "ui"
+lines = [
+    46,
+    83,
+]
+hash = "sha256:d69bfad7bc347c976876dae234a939d1ebf56070541d3715c77d609addff781f"
+doc_hash = "sha256:7e7454a1664b23257d74febc58f63f192f0a2570f42b89e7533741e9a1aedaed"
+callees = ["fn:e43eb2efd3f5399a"]
+
+[[module."citations.rs".function]]
+id = "fn:7bfb81cf609ea552"
+name = "reference_layer_citations_are_nonempty_and_deduplicated"
+qual = "reference_layer_citations_are_nonempty_and_deduplicated"
+lines = [
+    85,
+    118,
+]
+hash = "sha256:e6e860d6c8d1dddcf5d365738589228159442e966e6f0750ebc2b0a7bdadb010"
+doc_hash = "sha256:66cb99ee9f97db4d9fe0603ed421142d56ac1da47d4c7d3879f5f027f269f45f"
+callees = [
+    "fn:919559c986bdb45d",
+    "fn:e43eb2efd3f5399a",
+]
+test = true
+
+[module."curves.rs"]
+path = "example:tampines-steam-tables-gui::curves"
+
+[[module."curves.rs".function]]
+id = "fn:abfdb329420f3637"
+name = "is_physically_ordered"
+qual = "SaturationState::is_physically_ordered"
+lines = [
+    131,
+    172,
+]
+hash = "sha256:c3ac328dc270aecfd4068d3247672ad8cb186a4f2aa213516dba165fb8b58ff0"
+doc_hash = "sha256:6a501ecd4c50b19362920b1063a5be25a089969255417f235a98c5d8766d07c1"
+reached_by = [
+    "#0",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#9",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."curves.rs".function]]
+id = "fn:666de2724976aaf5"
+name = "at_quality"
+qual = "SaturationState::at_quality"
+lines = [
+    174,
+    194,
+]
+hash = "sha256:87f15c08388506d5d8162eeec131bbb18ef84fb87da543df41b1824194aa9485"
+doc_hash = "sha256:17fd00aefbde86da6b3524b48f7a3fc3fe6eee0dc5fbfad53ad50afe1d762973"
+callees = ["fn:ba2b94b9246b9596"]
+reached_by = [
+    "#0",
+    "#3",
+    "#6",
+    "#9",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."curves.rs".function]]
+id = "fn:3797d6cced0b5736"
+name = "saturation_state"
+qual = "saturation_state"
+lines = [
+    197,
+    266,
+]
+hash = "sha256:b338722c84a8605ed9f67320b186689d2cd91a050aea12e9411a41b3c851132c"
+doc_hash = "sha256:14445282c1979ac6779da0b9474c21c83a903c584a2eefdbbbbb741b9c55ce75"
+callees = [
+    "fn:099239be80dc1ca6",
+    "fn:12a248498be06e62",
+    "fn:172202f0a3c17998",
+    "fn:18c7efdcd3802f8d",
+    "fn:1ba64d29ffce9d30",
+    "fn:1f4c2155b3093c52",
+    "fn:4caddbbc32c6b32e",
+    "fn:628f1202631b29c4",
+    "fn:78a0277c7ceb5cbe",
+    "fn:93ea64b91e8738ff",
+    "fn:9af5e85d7190af60",
+    "fn:abfdb329420f3637",
+    "fn:b67737a281191925",
+    "fn:c163e9ad1c644298",
+    "fn:d583e918b521c991",
+    "fn:eaf02555c10078e2",
+]
+reached_by = [
+    "#0",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#9",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+physical_interface = true
+
+[[module."curves.rs".function]]
+id = "fn:7dc62040924f2a19"
+name = "saturation_sweep_temperatures"
+qual = "saturation_sweep_temperatures"
+lines = [
+    268,
+    286,
+]
+hash = "sha256:0188e53d031ab488433b5b617d8b520a0f4c67091ec014bd16122c84d8610483"
+doc_hash = "sha256:ed7dd5e3ebf07c9e352d8c74c7d0be9c719a9a68c433f497bded722723a60ede"
+reached_by = [
+    "#0",
+    "#9",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+physical_interface = true
+
+[[module."curves.rs".function]]
+id = "fn:fc9fbb1bd47f0a1e"
+name = "saturation_lines"
+qual = "saturation_lines"
+lines = [
+    288,
+    300,
+]
+hash = "sha256:5a25ad8823be605b02e6f153ca25176da8b7aa50b8601a8d0401768a62fd215c"
+doc_hash = "sha256:935396efadd348bad0d2329feda299d3c03f8c288e1834d71bf8ea12fa9281e2"
+callees = [
+    "fn:3797d6cced0b5736",
+    "fn:666de2724976aaf5",
+    "fn:7dc62040924f2a19",
+]
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."curves.rs".function]]
+id = "fn:471d0ece93cb8c87"
+name = "quality_line"
+qual = "quality_line"
+lines = [
+    302,
+    309,
+]
+hash = "sha256:8eb2b8b7a667ec3a8453e0afc5c7bc78e9ac5ac498952d0b2e1241af7c1bb3a7"
+doc_hash = "sha256:0852c5326f2a3fbb40d124a614d914af73d4da73ac6efc4ff9707d13b4bdf3e1"
+callees = [
+    "fn:3797d6cced0b5736",
+    "fn:666de2724976aaf5",
+    "fn:7dc62040924f2a19",
+]
+reached_by = [
+    "#0",
+    "#9",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."curves.rs".function]]
+id = "fn:a55b7eb71dbc6f4f"
+name = "critical_point"
+qual = "critical_point"
+lines = [
+    311,
+    338,
+]
+hash = "sha256:d8a7b8bd70320465a7bffc6b3e33dbe736d002b995e306ff15dbab91f7e4e55c"
+doc_hash = "sha256:1941816bd1af4d56b4c61832ce333519e2f31957d67ce3510492a5728b17a4b3"
+callees = [
+    "fn:4caddbbc32c6b32e",
+    "fn:628f1202631b29c4",
+    "fn:ba2b94b9246b9596",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."curves.rs".function]]
+id = "fn:94a92c4f9de2a6f0"
+name = "triple_point_liquid"
+qual = "triple_point_liquid"
+lines = [
+    340,
+    358,
+]
+hash = "sha256:ece7345df67790d3ff6c77de8fefe483b5a3d45ee96942a277338bcfec6b5dde"
+doc_hash = "sha256:37b40ce23f2f3102ce7d6311d88b2c1db3bbb3043ecc6502d3c3dd81b202a9b0"
+callees = [
+    "fn:172202f0a3c17998",
+    "fn:93ea64b91e8738ff",
+    "fn:ba2b94b9246b9596",
+]
+reached_by = [
+    "#0",
+    "#8",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."curves.rs".function]]
+id = "fn:cb18878d0516bc21"
+name = "single_phase_point"
+qual = "single_phase_point"
+lines = [
+    360,
+    367,
+]
+hash = "sha256:ed5b15ec5f06460624b66d9660730d1789df5a067cf25d64e4e66881721c8a56"
+doc_hash = "sha256:e4f11da1057b7f16a96f2a64a3baafc0a4f2ded333b756ecbbc91d8a0b1bd722"
+callees = [
+    "fn:07ba5cae0b1eb3e2",
+    "fn:9a5f6522c691e35b",
+    "fn:ba2b94b9246b9596",
+    "fn:e53249f3341cb2c4",
+]
+reached_by = [
+    "#0",
+    "#3",
+    "#5",
+    "#9",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+physical_interface = true
+
+[[module."curves.rs".function]]
+id = "fn:a6e030324b8a6cba"
+name = "isobar"
+qual = "isobar"
+lines = [
+    369,
+    438,
+]
+hash = "sha256:d63b51b4fd2586b5e4a99d744dc6329746bee06a9512d8fec3aa8456e21dfcab"
+doc_hash = "sha256:de56ac0b3de65800c9da5da85eb1b4b7ec6c6f9f73c9bf07ce68c737c98bf584"
+callees = [
+    "fn:3797d6cced0b5736",
+    "fn:666de2724976aaf5",
+    "fn:e7bf9eb348c98603",
+    "fn:eff47085ca6952fe",
+]
+reached_by = [
+    "#0",
+    "#3",
+    "#9",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+physical_interface = true
+
+[[module."curves.rs".function]]
+id = "fn:475e8a9966db419b"
+name = "isotherm"
+qual = "isotherm"
+lines = [
+    440,
+    501,
+]
+hash = "sha256:3daaa31050fad3173c8290765eb84063f8d04fb26b0acf36aae80e74d96d6818"
+doc_hash = "sha256:0e78cc6e11724113e4301118102fe5723fc7a92bd3df938a15020618a215cd7a"
+callees = [
+    "fn:3797d6cced0b5736",
+    "fn:666de2724976aaf5",
+    "fn:9bec0826764301ff",
+    "fn:c163e9ad1c644298",
+]
+reached_by = [
+    "#0",
+    "#3",
+    "#9",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+physical_interface = true
+
+[[module."curves.rs".function]]
+id = "fn:b9d7d8eb26163128"
+name = "isenthalp"
+qual = "isenthalp"
+lines = [
+    503,
+    539,
+]
+hash = "sha256:c6ce6cacb18a3cdbee1ce23e6dd511683a68dac29a8db3c9688184247faee0ec"
+doc_hash = "sha256:9290ae0c233ef37519165614c2d62c8a46e1e8bf5e26a3196a1907b2567138e3"
+callees = [
+    "fn:3ce84ed46805ebb4",
+    "fn:81a3bd65af8f5742",
+    "fn:99bd4383a7f6e920",
+    "fn:9a5f6522c691e35b",
+    "fn:ba2b94b9246b9596",
+]
+reached_by = [
+    "#4",
+    "#9",
+]
+physical_interface = true
+
+[[module."curves.rs".function]]
+id = "fn:8241c758de7936fc"
+name = "isentrope"
+qual = "isentrope"
+lines = [
+    541,
+    565,
+]
+hash = "sha256:315f3c795ec06e2524242667857ed5efa0a8286f2f654cb0f00598790855dbab"
+doc_hash = "sha256:cd5e8848794fc0d6226cff519aa1324b02ae854024ab00bce3964b72048a54a6"
+callees = [
+    "fn:101cc26069672d27",
+    "fn:5c08508c6de65093",
+    "fn:9a5f6522c691e35b",
+    "fn:aaf5074f93bcfbe7",
+    "fn:ba2b94b9246b9596",
+]
+reached_by = [
+    "#4",
+    "#9",
+]
+physical_interface = true
+
+[[module."curves.rs".function]]
+id = "fn:c2e3b36c23c15eae"
+name = "isochore"
+qual = "isochore"
+lines = [
+    567,
+    685,
+]
+hash = "sha256:145d7cf28b3a2dd0cdba79d06e46a6cfc1355e363d9cd424e182a02e1302cce4"
+doc_hash = "sha256:584eb3fc252c3acff37f3d8fae6acc8651317bb0e5b9bdaf9aff556f80387244"
+callees = ["fn:7e043c9c11113121"]
+reached_by = [
+    "#5",
+    "#9",
+]
+physical_interface = true
+
+[[module."curves.rs".function]]
+id = "fn:7e043c9c11113121"
+name = "isochore_point_at_temperature"
+qual = "isochore_point_at_temperature"
+lines = [
+    687,
+    833,
+]
+hash = "sha256:bce5325f48b3564b3359f87bff81670933a9992449c0cef5e02263d7d386c690"
+doc_hash = "sha256:c747f6479b8b11671fe8b2c1f71e7afe82c8af4aa0566a58db87487a43911c26"
+callees = [
+    "fn:123ad98ca0caec29",
+    "fn:3797d6cced0b5736",
+    "fn:8a6ffcf67423837d",
+    "fn:9a5f6522c691e35b",
+    "fn:a9885b4dd790282b",
+    "fn:ba2b94b9246b9596",
+    "fn:cb18878d0516bc21",
+    "fn:e68e4462ee057746",
+]
+reached_by = [
+    "#5",
+    "#9",
+]
+physical_interface = true
+
+[[module."curves.rs".function]]
+id = "fn:e68e4462ee057746"
+name = "isochore_single_phase_pressure"
+qual = "isochore_single_phase_pressure"
+lines = [
+    835,
+    906,
+]
+hash = "sha256:ca4d1d6dbeb080b63185c70bdb74f770920045caa33230740566580727183f7d"
+doc_hash = "sha256:89a853f1ccbd0308aa84005d8bcea895f387098c755cafd57038bcd7ff4b1490"
+callees = ["fn:aa0d8930d520e878"]
+reached_by = [
+    "#5",
+    "#9",
+]
+physical_interface = true
+
+[[module."curves.rs".function]]
+id = "fn:e7bf9eb348c98603"
+name = "single_phase_sweep_over_temperature"
+qual = "single_phase_sweep_over_temperature"
+lines = [
+    908,
+    924,
+]
+hash = "sha256:3ebe9a432876e488a3ced4510b75f4f05dc0514850737eb13cae910fbe8e068b"
+doc_hash = "sha256:023a0838ef6c9d80f067b7a293aece7ce554b021d96cf619e2b674c16de57cf1"
+callees = ["fn:cb18878d0516bc21"]
+reached_by = [
+    "#0",
+    "#3",
+    "#9",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+physical_interface = true
+
+[[module."curves.rs".function]]
+id = "fn:9bec0826764301ff"
+name = "single_phase_sweep_over_pressure"
+qual = "single_phase_sweep_over_pressure"
+lines = [
+    926,
+    946,
+]
+hash = "sha256:b0be4ebe8b2e642d4d009324873da4de4e46c119e07723d7008390929a81f779"
+doc_hash = "sha256:c06f14afa5a9fa551d312a30e3eb7226121e04bbed11a3f7dd828bb6395e71cd"
+callees = ["fn:cb18878d0516bc21"]
+reached_by = [
+    "#0",
+    "#3",
+    "#9",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+physical_interface = true
+
+[[module."curves.rs".function]]
+id = "fn:54a28ac48d05c221"
+name = "saturation_curve_matches_the_wagner_steam_table"
+qual = "saturation_curve_matches_the_wagner_steam_table"
+lines = [
+    993,
+    1073,
+]
+hash = "sha256:9b7574276e463a3bb1d80e4fd8d08c4e02a94c382ddca4782a34d830a22c5fde"
+doc_hash = "sha256:c707fb875d200baefc6fd50cff38eda3b20ead92121b324157bd422537083357"
+callees = ["fn:3797d6cced0b5736"]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:f940828523594100"
+name = "critical_point_matches_the_published_constant"
+qual = "critical_point_matches_the_published_constant"
+lines = [
+    1075,
+    1104,
+]
+hash = "sha256:02e7d38316e6eaa9010024a889fba79427a3024b1ea13d7798ac0f3eb3cc42d9"
+doc_hash = "sha256:eb078f5300a9c3c3c5411d48198e151dcfc4bb6fd6934bb22e335ea34701dd06"
+callees = [
+    "fn:9a5f6522c691e35b",
+    "fn:a55b7eb71dbc6f4f",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:1003ae6bb0ca9d59"
+name = "triple_point_matches_the_wagner_saturation_table"
+qual = "triple_point_matches_the_wagner_saturation_table"
+lines = [
+    1106,
+    1137,
+]
+hash = "sha256:df2bd137226ae48f4c9f6ab84a20c04b6892869be756dc88bda6a50deae8ebe7"
+doc_hash = "sha256:b653af997ae83a639a0617a5056f6a91e6bb70c9e213659142ab26ce240659b8"
+callees = ["fn:94a92c4f9de2a6f0"]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:257fd1760ff22daa"
+name = "quality_lines_follow_the_lever_rule_and_nest_inside_the_dome"
+qual = "quality_lines_follow_the_lever_rule_and_nest_inside_the_dome"
+lines = [
+    1139,
+    1186,
+]
+hash = "sha256:d32ba03d0dd9c2ef34db0985dd601ed05cfcfde10280066f328449149bdbada5"
+doc_hash = "sha256:eaa3b2c79116ac50def57cef15bc673f995aaacc0fca8256098421386837ed99"
+callees = [
+    "fn:3797d6cced0b5736",
+    "fn:666de2724976aaf5",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:eae75fa32913e447"
+name = "default_isobars_and_isotherms_produce_finite_ordered_segments"
+qual = "default_isobars_and_isotherms_produce_finite_ordered_segments"
+lines = [
+    1188,
+    1246,
+]
+hash = "sha256:c24f2f4837638472cade17459dbedd8a6c74b64f5eecaabd13b461842eb485c2"
+doc_hash = "sha256:608b51d25d1a95f5f724eea0008062cf1148aefaa40d61e5965bbaeb73fa5c57"
+callees = [
+    "fn:475e8a9966db419b",
+    "fn:9a5f6522c691e35b",
+    "fn:a6e030324b8a6cba",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:8d09ae8df7e98a0a"
+name = "isenthalp_and_isentrope_sweep_cleanly_through_every_region"
+qual = "isenthalp_and_isentrope_sweep_cleanly_through_every_region"
+lines = [
+    1248,
+    1321,
+]
+hash = "sha256:16f63c5887ada84bd089057481c43e99117f4db60c48a91ff9c1ef600df801d2"
+doc_hash = "sha256:efc3ee6e2feb41ce7ebaaea1fd94de7ebe090fccd12dd97c74d68729fdf94c19"
+callees = [
+    "fn:8241c758de7936fc",
+    "fn:9a5f6522c691e35b",
+    "fn:b9d7d8eb26163128",
+]
+test = true
+
+[[module."curves.rs".function]]
+id = "fn:727e72791a7daf96"
+name = "isochore_reproduces_the_requested_volume_including_inside_the_dome"
+qual = "isochore_reproduces_the_requested_volume_including_inside_the_dome"
+lines = [
+    1323,
+    1457,
+]
+hash = "sha256:e7709c6a4b4f1934c91aac9ef783b533d0805d71fc55ca206c74fcb0b75a97b5"
+doc_hash = "sha256:dbd2e9246cd384ab36ba4cbd71b7a6e68cb725b65c5b522c63252de40aa5e83e"
+callees = [
+    "fn:8593bfd0b29144f2",
+    "fn:9a5f6522c691e35b",
+    "fn:c2e3b36c23c15eae",
+]
+test = true
+
+[module."custom_lines.rs"]
+path = "example:tampines-steam-tables-gui::custom_lines"
+
+[[module."custom_lines.rs".function]]
+id = "fn:786505ea76ab595a"
+name = "label"
+qual = "CustomLineType::label"
+lines = [
+    72,
+    82,
+]
+hash = "sha256:91476adc1fd062c32b5cc25f276f65434d685531cb98bdf356f05771e01001ab"
+doc_hash = "sha256:788bbf3112ae39c26a471654f20075c5e84615464294a8e4ee63965ffb508741"
+reached_by = ["#9"]
+
+[[module."custom_lines.rs".function]]
+id = "fn:f652f5929c26aef3"
+name = "unit_display"
+qual = "CustomLineType::unit_display"
+lines = [
+    84,
+    94,
+]
+hash = "sha256:016ac6f75ba6d4bc9e2eaac4162d6017e87e685dd0344a01df38731d565e3df3"
+doc_hash = "sha256:fd7f3eade596e30c2fc5b7db0e324536820ffb40ddbe6016da0a45e8584f24f0"
+reached_by = ["#9"]
+
+[[module."custom_lines.rs".function]]
+id = "fn:52de2b57b981b10e"
+name = "unit_csv"
+qual = "CustomLineType::unit_csv"
+lines = [
+    96,
+    107,
+]
+hash = "sha256:5a7d47a9df675f021fa24e8e5c03b37632335528bae64596c41478022e2d8beb"
+doc_hash = "sha256:7ce4a97a5fc629c586d3c9d04cc5ea7b22120f3b2ea003b0619016aa980c902d"
+reached_by = ["#9"]
+
+[[module."custom_lines.rs".function]]
+id = "fn:f8b64225a05dc689"
+name = "key_csv"
+qual = "CustomLineType::key_csv"
+lines = [
+    109,
+    119,
+]
+hash = "sha256:ad0834427f93132b678baee9c4b1dd5dc2d4e7da9caf5c912704d8fc4bdf5dfe"
+doc_hash = "sha256:b949e5130a86de58f4fc8a92187ab3447117b41ee67738defa529a2da9b336b6"
+reached_by = ["#9"]
+
+[[module."custom_lines.rs".function]]
+id = "fn:cc6146d1b5e73884"
+name = "slider_range"
+qual = "CustomLineType::slider_range"
+lines = [
+    121,
+    135,
+]
+hash = "sha256:9b7da2c644611783df452aa76ac690c13beb73a717f3a84ad543a58bbd590a75"
+doc_hash = "sha256:43f83754c0c78106ed29964555bb2bb8483e1932f524e97cbe1d1cd7a5033f53"
+reached_by = [
+    "#0",
+    "#9",
+]
+
+[[module."custom_lines.rs".function]]
+id = "fn:3e785fb8560066f6"
+name = "default_value"
+qual = "CustomLineType::default_value"
+lines = [
+    137,
+    150,
+]
+hash = "sha256:2176b5eb19023b02ce14299e190f3e3f5a4c436ad60d496dea48531e9328c7e3"
+doc_hash = "sha256:7eaa2d14dc6291516483e189c112e8c1fe53a7e14b3c8bf356d7a6135dedd018"
+callees = ["fn:cc6146d1b5e73884"]
+reached_by = [
+    "#0",
+    "#9",
+]
+
+[[module."custom_lines.rs".function]]
+id = "fn:fdbe6e4d64198194"
+name = "build"
+qual = "CustomLine::build"
+lines = [
+    164,
+    218,
+]
+hash = "sha256:5911c714135569604c533bb593234791cb8d92bdf929b6bed8d997bc17a9f0a5"
+doc_hash = "sha256:f15ad2befcd5ba00c1b40490193005fb8748d9a881c2728841bdbc579e51f1b8"
+callees = [
+    "fn:471d0ece93cb8c87",
+    "fn:475e8a9966db419b",
+    "fn:52de2b57b981b10e",
+    "fn:786505ea76ab595a",
+    "fn:8241c758de7936fc",
+    "fn:a6e030324b8a6cba",
+    "fn:b9d7d8eb26163128",
+    "fn:c2e3b36c23c15eae",
+    "fn:f652f5929c26aef3",
+    "fn:f8b64225a05dc689",
+]
+reached_by = ["#9"]
+
+[[module."custom_lines.rs".function]]
+id = "fn:6781ce2c3eab59cd"
+name = "colour_for_index"
+qual = "colour_for_index"
+lines = [
+    232,
+    236,
+]
+hash = "sha256:de5ab77976b56c4848202c66910c427150e40c2b34d6a243f686d7abcd4f2676"
+doc_hash = "sha256:5465f84954d968d627abc03c0191720119c91888418c60a94f1abd6c3a9c3df1"
+
+[[module."custom_lines.rs".function]]
+id = "fn:78285dc1bf958d77"
+name = "add_line_controls"
+qual = "add_line_controls"
+lines = [
+    238,
+    272,
+]
+hash = "sha256:094954b187538375af197f40938b93d098c53688b95dad3b3efdb684f95be563"
+doc_hash = "sha256:78eee7620df523cd3e0eab4df69a71c1dffc0ae1eaefd10ef8d60aa653425de6"
+callees = [
+    "fn:3e785fb8560066f6",
+    "fn:786505ea76ab595a",
+    "fn:cc6146d1b5e73884",
+    "fn:f652f5929c26aef3",
+]
+
+[[module."custom_lines.rs".function]]
+id = "fn:a2010ea7159eefb2"
+name = "every_custom_line_type_builds_a_tagged_layer_at_its_default_value"
+qual = "every_custom_line_type_builds_a_tagged_layer_at_its_default_value"
+lines = [
+    274,
+    318,
+]
+hash = "sha256:a54efbbcfb28d135ece1b0b3f768a4402bd255d5e4aea06e29450fb9091d3824"
+doc_hash = "sha256:f86c59344e99e1037031ae4f762f48ae0c47bf0b11d8df998c431a008d8887c4"
+callees = [
+    "fn:3e785fb8560066f6",
+    "fn:52de2b57b981b10e",
+    "fn:674cf89da12f5b12",
+    "fn:7af6ccc18f8bd5c1",
+    "fn:f8b64225a05dc689",
+    "fn:fdbe6e4d64198194",
+]
+test = true
+
+[module."data.rs"]
+path = "example:tampines-steam-tables-gui::data"
+
+[[module."data.rs".function]]
+id = "fn:ba2b94b9246b9596"
+name = "new"
+qual = "ThermoPoint::new"
+lines = [
+    74,
+    90,
+]
+hash = "sha256:85030f65ec1c9b656c56fb9b686286f848204e0ece3919e944ae05e55b0a241f"
+doc_hash = "sha256:aaba67753e7eeda50f87bdae329b8d207a8b14f2c3a26f6c0f05305efbae5e77"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+physical_interface = true
+
+[[module."data.rs".function]]
+id = "fn:3c2d2c3a356ae20f"
+name = "with_reference_mass_flux"
+qual = "ThermoPoint::with_reference_mass_flux"
+lines = [
+    92,
+    96,
+]
+hash = "sha256:3d7cc68c6bdfae79b745630d2e261ee5f6a30500864844c3a78e434c0e7967ca"
+doc_hash = "sha256:778ab291c580e4c79461e4bd85d9a2ee8f3b823664c0968e140b4b779aa12734"
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+physical_interface = true
+
+[[module."data.rs".function]]
+id = "fn:9a5f6522c691e35b"
+name = "is_finite"
+qual = "ThermoPoint::is_finite"
+lines = [
+    98,
+    115,
+]
+hash = "sha256:e507feed3dab0b513e39e1445374c50f934cb7167e7a880dbe00cc095c4e447d"
+doc_hash = "sha256:5a6447266ce24d694d74e39a8b0a3e409d2b6724b090478d827ffc90ddbc497f"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."data.rs".function]]
+id = "fn:af3a976a8e15a781"
+name = "as_str"
+qual = "LayerKind::as_str"
+lines = [
+    134,
+    140,
+]
+hash = "sha256:4b049618f393b174fbbfbf2f1c696e3b59238e6d0df83075dea304f5991577e7"
+doc_hash = "sha256:8033b2b3503951b024d35806e49613817be209fc309bdfc1971e11ef4b4a539e"
+reached_by = [
+    "#17",
+    "#26",
+]
+
+[[module."data.rs".function]]
+id = "fn:7af6ccc18f8bd5c1"
+name = "point_count"
+qual = "PlotLayer::point_count"
+lines = [
+    195,
+    198,
+]
+hash = "sha256:15a86abb3e6ddce77cd2ddd3bf96ffb40ec28c37d9f84b51fc1ec6b7936dd2c8"
+doc_hash = "sha256:0889e426f452da74decf04474b855ef322597aaf81e20a45077d11605d50126e"
+reached_by = [
+    "#0",
+    "#9",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#23",
+    "#25",
+    "#26",
+]
+
+[module."diagram.rs"]
+path = "example:tampines-steam-tables-gui::diagram"
+
+[[module."diagram.rs".function]]
+id = "fn:e8ca990a7a9e133a"
+name = "tab_label"
+qual = "DiagramKind::tab_label"
+lines = [
+    64,
+    72,
+]
+hash = "sha256:f268ae447e40e0fd9cff11c1cfa88f74a80e3a766bba8d1d2ce28561e3d403a9"
+doc_hash = "sha256:0e8737dcb18de42c1fc46e527d18f27386559b905fd6eb19ac577ad3a7d54f61"
+reached_by = [
+    "#17",
+    "#26",
+]
+
+[[module."diagram.rs".function]]
+id = "fn:b9e9f6139919d167"
+name = "title"
+qual = "DiagramKind::title"
+lines = [
+    74,
+    90,
+]
+hash = "sha256:60348de66244e6d471031945f09ea071ed210e84ef49e1cec096671268eff611"
+doc_hash = "sha256:b2b3a774e896c405c61fd9369ffb461788082bb4e9ced09300cf3756b7521106"
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#26",
+]
+
+[[module."diagram.rs".function]]
+id = "fn:beef66df3ed21c30"
+name = "file_stem"
+qual = "DiagramKind::file_stem"
+lines = [
+    92,
+    101,
+]
+hash = "sha256:f5616182d1161fa6c554ccb1b1cd716f1b31084e6d6726a95c22006b4b66fa68"
+doc_hash = "sha256:7aabf6d2467fce6650e66c3bb600d1dbf4a5d5f91b2560a619e7b75f2ccac87e"
+reached_by = ["#26"]
+
+[[module."diagram.rs".function]]
+id = "fn:adf4a51fb3c531c2"
+name = "x_label"
+qual = "DiagramKind::x_label"
+lines = [
+    103,
+    110,
+]
+hash = "sha256:c234826c13284773debd5f8e85e3faa7bd83315585d6dd7e5c4a699af726db13"
+doc_hash = "sha256:705d440454cc838f14726c5eec08a0b0de210775d92e26e4fa5c76936fe0c27d"
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#26",
+]
+
+[[module."diagram.rs".function]]
+id = "fn:1d3e59eb6e2e5e95"
+name = "y_label"
+qual = "DiagramKind::y_label"
+lines = [
+    112,
+    119,
+]
+hash = "sha256:bd718407ac3ac97867b2852a015fa41d6c988d62ea347f7e3fa29d42f5f6722b"
+doc_hash = "sha256:d50d3b92c76b672bf6296056fe706a455e31e01ece4af680ff2b19d7ec7e5d27"
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#26",
+]
+
+[[module."diagram.rs".function]]
+id = "fn:8ec4347b53225eba"
+name = "y_is_pressure"
+qual = "DiagramKind::y_is_pressure"
+lines = [
+    121,
+    125,
+]
+hash = "sha256:063b4f69acfb0b1ac71444714e8f11b2e0bd4146c558e90bceab4e347d64554a"
+doc_hash = "sha256:e4f0464eda13eb91f2cdd9813824c70dbbad510f146123139e9b93514af78902"
+reached_by = [
+    "#0",
+    "#15",
+    "#26",
+]
+
+[[module."diagram.rs".function]]
+id = "fn:e1a32dd738fb6b0d"
+name = "default_y_scale"
+qual = "DiagramKind::default_y_scale"
+lines = [
+    127,
+    139,
+]
+hash = "sha256:9aa7450af51f5ca126ee65e3ea159232f5dd857ae7c62b8ef37dca6e3ab79b09"
+doc_hash = "sha256:275e45acbbfd0568ace86e48488ab1343425b53d9db84fb71de82a1e19f6006d"
+callees = ["fn:8ec4347b53225eba"]
+reached_by = [
+    "#15",
+    "#26",
+]
+
+[[module."diagram.rs".function]]
+id = "fn:e544441fd9d11ad6"
+name = "x_hover"
+qual = "DiagramKind::x_hover"
+lines = [
+    141,
+    151,
+]
+hash = "sha256:f74a06337564492cf7c2e2704d27db52dea70fd9caf34e2406a941da8e61b488"
+doc_hash = "sha256:127360f5bc2707f9be0b9830001e21acbf8e49cbe81bdfb0588686d263d275fc"
+reached_by = ["#11"]
+
+[[module."diagram.rs".function]]
+id = "fn:07793f6e59e04906"
+name = "y_hover"
+qual = "DiagramKind::y_hover"
+lines = [
+    153,
+    169,
+]
+hash = "sha256:b84cecfa6382ed22e3e09ab00eaae950814b106abeff61903f0975aaf13e2051"
+doc_hash = "sha256:9a027559beb0d794fa2107cfb3507bca14637536596c9fab6d56d127d0df36ca"
+reached_by = ["#11"]
+
+[[module."diagram.rs".function]]
+id = "fn:ded77421d18bf6b6"
+name = "project"
+qual = "DiagramKind::project"
+lines = [
+    171,
+    186,
+]
+hash = "sha256:72c4b026316c5e73fb2ce7641b2cbd5998f1ac98297dee611abb0bf206481beb"
+doc_hash = "sha256:9a5dd7d1f04566ed6911d889967059b0c61983af05fd892eb3e002bb1a8875b1"
+reached_by = [
+    "#0",
+    "#10",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#26",
+]
+
+[[module."diagram.rs".function]]
+id = "fn:d1fabb0c10de2ed5"
+name = "each_diagram_projects_the_axes_it_advertises"
+qual = "each_diagram_projects_the_axes_it_advertises"
+lines = [
+    189,
+    227,
+]
+hash = "sha256:054ea9c70a38ceda251469ac3200b3fb1f91a3ce76aab753170e1ccb7c53b63e"
+doc_hash = "sha256:505bc6cf4028b45888c86579c0b48a13ba3ea95f4492b6fc3eb51652fb3f2162"
+callees = [
+    "fn:ba2b94b9246b9596",
+    "fn:ded77421d18bf6b6",
+]
+test = true
+
+[[module."diagram.rs".function]]
+id = "fn:9fc165b7bfce7ff3"
+name = "hover_formatters_name_the_right_symbol_and_invert_the_log_axis"
+qual = "hover_formatters_name_the_right_symbol_and_invert_the_log_axis"
+lines = [
+    229,
+    285,
+]
+hash = "sha256:587380cf31f9aeb96a120c6aef63c9fbe03831b98ff227411d4a48b5ac1e0e73"
+doc_hash = "sha256:7d06e3d9976014a223f7c4ae48ff7608f0b41dd5331e63aaaf3194e46e36c06b"
+callees = [
+    "fn:07793f6e59e04906",
+    "fn:e544441fd9d11ad6",
+]
+test = true
+
+[module."evaluation.rs"]
+path = "example:tampines-steam-tables-gui::evaluation"
+
+[[module."evaluation.rs".function]]
+id = "fn:b7c7936ca7d58a28"
+name = "assemble"
+qual = "EvaluatedState::assemble"
+lines = [
+    77,
+    108,
+]
+hash = "sha256:178d46785010c17cee9933390ec8351cd4f257af0faffde66bf4b27e281d735d"
+doc_hash = "sha256:1d216a7c5dcc540064cf6b7685a7d81585c03ff94444539be757a1fee008733e"
+reached_by = [
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."evaluation.rs".function]]
+id = "fn:07b153fc05e26b55"
+name = "property_lines"
+qual = "EvaluatedState::property_lines"
+lines = [
+    110,
+    150,
+]
+hash = "sha256:d0b2d2bd8c567f59b850b1e90229895920b1765c7348633ab4140a66e201f92c"
+doc_hash = "sha256:0afa4830db17110a58a9c7f7f9f82b0d987a581f5f8530e5aeb5627ff0fe7ee5"
+reached_by = ["#12"]
+
+[[module."evaluation.rs".function]]
+id = "fn:730c7513c16e3a1a"
+name = "property_rows"
+qual = "EvaluatedState::property_rows"
+lines = [
+    152,
+    191,
+]
+hash = "sha256:dab21973d2c51b363c2c082f241bdce28bca38343994d0e1441feb46c8a4193f"
+doc_hash = "sha256:4e88908dda233cf9a39cc32c1f925e9bb28094f6ed20b3ffdb0d81953fcd90cd"
+
+[[module."evaluation.rs".function]]
+id = "fn:b2154fe3b2fac4f2"
+name = "evaluate_diagram_point"
+qual = "evaluate_diagram_point"
+lines = [
+    194,
+    218,
+]
+hash = "sha256:378acc33110cdd35e933769799c5ac65478eee44c5696af1066c1ce63f103480"
+doc_hash = "sha256:64f31e6a4883cd43ea5be76fa89bf98aee1efd304da843ffffd7487cb53274a2"
+callees = [
+    "fn:4850e1fb67247f77",
+    "fn:8e3bccc8602bfa86",
+    "fn:ac67f41789c779d2",
+    "fn:e8860baa6fa512b5",
+]
+reached_by = [
+    "#12",
+    "#13",
+]
+
+[[module."evaluation.rs".function]]
+id = "fn:142205a6a74c8483"
+name = "pressure_from_y"
+qual = "pressure_from_y"
+lines = [
+    220,
+    223,
+]
+hash = "sha256:66a3dab4c359f1da4f3dd46e5be9022b499fffcc573faff98fb807e85340c41e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."evaluation.rs".function]]
+id = "fn:8e3bccc8602bfa86"
+name = "evaluate_tp"
+qual = "evaluate_tp"
+lines = [
+    225,
+    237,
+]
+hash = "sha256:12883a2ecbdae1d37dabffefaf3628136270b0942ca5c376781e4d75552c39b9"
+doc_hash = "sha256:68b816bc0de3c1f2a5e02e4470af435ab4701691a5383b857b6545730f5315b0"
+callees = [
+    "fn:07ba5cae0b1eb3e2",
+    "fn:142205a6a74c8483",
+    "fn:aa0d8930d520e878",
+    "fn:b7c7936ca7d58a28",
+    "fn:e53249f3341cb2c4",
+]
+reached_by = [
+    "#12",
+    "#13",
+]
+
+[[module."evaluation.rs".function]]
+id = "fn:ac67f41789c779d2"
+name = "evaluate_ph"
+qual = "evaluate_ph"
+lines = [
+    239,
+    254,
+]
+hash = "sha256:b593c94130b45da6262fda8ece6a5f5a77fda6cc1cd76d2ac093599460626c29"
+doc_hash = "sha256:b2aa91782cf149f158f6f896c12b644c63623bab1b4fb3dfa97d6d11e8e3da9a"
+callees = [
+    "fn:142205a6a74c8483",
+    "fn:3ce84ed46805ebb4",
+    "fn:81a3bd65af8f5742",
+    "fn:8a6ffcf67423837d",
+    "fn:99bd4383a7f6e920",
+    "fn:b7c7936ca7d58a28",
+    "fn:c163e9ad1c644298",
+]
+reached_by = [
+    "#12",
+    "#13",
+]
+
+[[module."evaluation.rs".function]]
+id = "fn:e8860baa6fa512b5"
+name = "evaluate_ts"
+qual = "evaluate_ts"
+lines = [
+    256,
+    326,
+]
+hash = "sha256:2d4c3749f12b00b812da1438c124efdc9cde97b46bcd1d733b64301d06e7e6dd"
+doc_hash = "sha256:a26ae593419dbb4938da9d103ed89e88e254f05b45ee3ce877d0cf66f29b6a18"
+callees = [
+    "fn:07ba5cae0b1eb3e2",
+    "fn:2a0fa9918571cbc9",
+    "fn:3797d6cced0b5736",
+    "fn:a9d52f71cf7e0999",
+    "fn:aa0d8930d520e878",
+    "fn:b7c7936ca7d58a28",
+    "fn:e53249f3341cb2c4",
+]
+reached_by = [
+    "#12",
+    "#13",
+]
+
+[[module."evaluation.rs".function]]
+id = "fn:4850e1fb67247f77"
+name = "evaluate_hs"
+qual = "evaluate_hs"
+lines = [
+    328,
+    368,
+]
+hash = "sha256:d5cbd85b10806657d2d019d87a9f9c6353c58a6e67eba2ee18993476b80ea062"
+doc_hash = "sha256:14f1b5386ff03035989803701cdd85e118464292bc0eabfbb5727cc9574f53bf"
+callees = [
+    "fn:06b2820518a31793",
+    "fn:b7c7936ca7d58a28",
+    "fn:c163e9ad1c644298",
+]
+reached_by = [
+    "#12",
+    "#13",
+]
+
+[[module."evaluation.rs".function]]
+id = "fn:3ff2ddffa6aee81e"
+name = "hover_text"
+qual = "hover_text"
+lines = [
+    370,
+    381,
+]
+hash = "sha256:de6645e1a2dd06b5a9486e908d0f970700d08cfc0c61501f44f618c32feb716d"
+doc_hash = "sha256:27d7a997d2d26f4983740bf045364c4e7e26ab716248fb5883c839d617d774a8"
+callees = [
+    "fn:07793f6e59e04906",
+    "fn:07b153fc05e26b55",
+    "fn:b2154fe3b2fac4f2",
+    "fn:e544441fd9d11ad6",
+]
+
+[[module."evaluation.rs".function]]
+id = "fn:9efc14c3e853d7b9"
+name = "representative_single_phase_points_resolve_on_every_diagram"
+qual = "representative_single_phase_points_resolve_on_every_diagram"
+lines = [
+    383,
+    427,
+]
+hash = "sha256:a2475e536eda0376f3083a1563d8ff0fa4bab4049d0dea3e5a61b76bf4598962"
+doc_hash = "sha256:c00b3d72b16abd211031a46c2803be448d4d9487b7081596fb252889caddacdc"
+callees = [
+    "fn:07b153fc05e26b55",
+    "fn:b2154fe3b2fac4f2",
+]
+test = true
+
+[[module."evaluation.rs".function]]
+id = "fn:aa8f65d101077e25"
+name = "ts_click_inside_the_dome_resolves_the_two_phase_lever_rule"
+qual = "ts_click_inside_the_dome_resolves_the_two_phase_lever_rule"
+lines = [
+    429,
+    455,
+]
+hash = "sha256:7ddae0a91e0d8c55c6341bd9f776cfa5fce29000623429e4606d6ab45cc5ea68"
+doc_hash = "sha256:0980af58b8a0249d024912a2af4479718efb35dcad52807c3de110087ca3eefb"
+callees = [
+    "fn:3797d6cced0b5736",
+    "fn:b2154fe3b2fac4f2",
+]
+test = true
+
+[module."export.rs"]
+path = "example:tampines-steam-tables-gui::export"
+
+[[module."export.rs".function]]
+id = "fn:c1094ad3f872f378"
+name = "label"
+qual = "ExportFormat::label"
+lines = [
+    65,
+    73,
+]
+hash = "sha256:8d6dd24cde0146a4fcc459f7143a382c11e859c3063895bb6b33764f5b5d6f20"
+doc_hash = "sha256:a5b3428c5ac81dd4912cdf1bd0c78ad4a650bc0d49641c13efd749abb5cb2847"
+
+[[module."export.rs".function]]
+id = "fn:924aab144fd9557d"
+name = "build_scene"
+qual = "build_scene"
+lines = [
+    76,
+    116,
+]
+hash = "sha256:8f8d7fdd9465c31772354cea360adedebfecb7da40124ddc8e42700a19ce32ff"
+doc_hash = "sha256:7d318e41cf38939de510b2986097ba9a719cad203432f6c5971bf7f8c6740f36"
+callees = [
+    "fn:1d3e59eb6e2e5e95",
+    "fn:42b3003f1e4f360b",
+    "fn:44d311adc2291d22",
+    "fn:7af6ccc18f8bd5c1",
+    "fn:adf4a51fb3c531c2",
+    "fn:b9e9f6139919d167",
+    "fn:c9b2cd6153138955",
+    "fn:ded77421d18bf6b6",
+]
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#26",
+]
+
+[[module."export.rs".function]]
+id = "fn:42b3003f1e4f360b"
+name = "footnotes"
+qual = "footnotes"
+lines = [
+    118,
+    171,
+]
+hash = "sha256:18628df368906999d616b51e7b8533423f2ec0ce99cff72caec8cde3e92974cb"
+doc_hash = "sha256:a774a7d82bd9e809858c13ebe8949e2353bfa6cd9ab4bc36465d324310bba7b8"
+callees = [
+    "fn:557cd9a4e711ecb5",
+    "fn:82faa102fffe1007",
+]
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#26",
+]
+
+[[module."export.rs".function]]
+id = "fn:578bd94746012f3a"
+name = "write_files"
+qual = "write_files"
+lines = [
+    173,
+    228,
+]
+hash = "sha256:d41ab01b549c5ece85d2e5a60e7f27972437d6ee39c418cd17820ffeba359ad7"
+doc_hash = "sha256:81499d0f145023f7fed625ae909efebaeeee5173215c4b476d58bdfba7353c1a"
+callees = [
+    "fn:0ec10647c9440a7f",
+    "fn:236032e3a88e4d22",
+    "fn:2a52d7c71ee23abe",
+    "fn:497a67d2295b235a",
+    "fn:721bf7416791bc48",
+    "fn:beef66df3ed21c30",
+]
+reached_by = ["#26"]
+
+[[module."export.rs".function]]
+id = "fn:f0bc4888817f8807"
+name = "write_single_file"
+qual = "write_single_file"
+lines = [
+    230,
+    272,
+]
+hash = "sha256:2d0af3b2825cb3946beacff02fc323d9bf1360f628bce564b367e47e2c277206"
+doc_hash = "sha256:1afb8fe9fdb43979035545969e90f29ef8ba5841445aaa3cc340700da32a73ff"
+callees = [
+    "fn:0ec10647c9440a7f",
+    "fn:236032e3a88e4d22",
+    "fn:497a67d2295b235a",
+    "fn:721bf7416791bc48",
+]
+reached_by = [
+    "#14",
+    "#16",
+]
+
+[[module."export.rs".function]]
+id = "fn:0ec10647c9440a7f"
+name = "write"
+qual = "write"
+lines = [
+    274,
+    277,
+]
+hash = "sha256:dc7531ea59e93c2c19fd6050d7e2a72418820953541240092776e2542ee5ea22"
+doc_hash = "sha256:c0fd37f2ccce07f4467d6c7c9bab9952489baa520c5d8414ea19a3318fa74ffe"
+reached_by = [
+    "#14",
+    "#16",
+    "#26",
+]
+
+[[module."export.rs".function]]
+id = "fn:ac3063c2e12b972c"
+name = "build_layers"
+qual = "build_layers"
+lines = [
+    279,
+    296,
+]
+hash = "sha256:cca358332a902634cd8b4a6cce7d14202bc8c3416fef152a029f1435a7042a03"
+doc_hash = "sha256:f7336bda03ec637af5549f0a9940cca7a3fca00e5b33c1bf4e395ea8ddc99f99"
+callees = [
+    "fn:2c69e2acd67bd407",
+    "fn:557cd9a4e711ecb5",
+    "fn:7af6ccc18f8bd5c1",
+    "fn:82faa102fffe1007",
+]
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#26",
+]
+
+[[module."export.rs".function]]
+id = "fn:258610b0590617a0"
+name = "scenes_assemble_with_finite_ranges_and_the_required_caveats"
+qual = "scenes_assemble_with_finite_ranges_and_the_required_caveats"
+lines = [
+    298,
+    350,
+]
+hash = "sha256:c954b2e6554506637aa8df7c5c372e0b18771f478e53389f7825e1f9eae1c5aa"
+doc_hash = "sha256:54c14cb447ece3367d709cbd7041d789bd6f39adf97fd4bd4287970bf26603e3"
+callees = [
+    "fn:557cd9a4e711ecb5",
+    "fn:6c8166513c596782",
+    "fn:82faa102fffe1007",
+    "fn:924aab144fd9557d",
+    "fn:ac3063c2e12b972c",
+    "fn:e1a32dd738fb6b0d",
+]
+test = true
+
+[[module."export.rs".function]]
+id = "fn:8d1e18653d488c27"
+name = "write_single_file_writes_the_exact_path_and_rejects_csv"
+qual = "write_single_file_writes_the_exact_path_and_rejects_csv"
+lines = [
+    352,
+    450,
+]
+hash = "sha256:58c5f1498e8c55149dcfaced0cbef8d995768b6baed60ae17adb9c4fca702c37"
+doc_hash = "sha256:6cb3719b99e2f7ef3a36d54e014707be5c466a77ba3e903a389562517b22b087"
+callees = [
+    "fn:6c8166513c596782",
+    "fn:924aab144fd9557d",
+    "fn:ac3063c2e12b972c",
+    "fn:f0bc4888817f8807",
+]
+test = true
+
+[[module."export.rs".function]]
+id = "fn:e1727284506fb984"
+name = "export_style_palette_reaches_the_rendered_png"
+qual = "export_style_palette_reaches_the_rendered_png"
+lines = [
+    452,
+    541,
+]
+hash = "sha256:7771cfdffa8a2ce300cd58ce6a9542e89eee0f8833b6b20463ec82237285a115"
+doc_hash = "sha256:3dcdf345fc25441b3c17ec3e70897040bf8c2cb903a515c6e2b24f50c5e5ae59"
+callees = [
+    "fn:6c8166513c596782",
+    "fn:924aab144fd9557d",
+    "fn:ac3063c2e12b972c",
+    "fn:f0bc4888817f8807",
+]
+test = true
+
+[module."layers.rs"]
+path = "example:tampines-steam-tables-gui::layers"
+
+[[module."layers.rs".function]]
+id = "fn:557cd9a4e711ecb5"
+name = "is_available"
+qual = "Availability::is_available"
+lines = [
+    58,
+    61,
+]
+hash = "sha256:2f8e705ad44c3c0122a3d4d8165e21f4ccecb925fed1a872152f5392c8666eed"
+doc_hash = "sha256:5da5a03dd5428f454c7106c95296b9b469a8eb8e0fe7fafa5b94f1173ba017e1"
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:4871bcfa8ec5b7ba"
+name = "reason"
+qual = "Availability::reason"
+lines = [
+    63,
+    69,
+]
+hash = "sha256:c35c6e9ff9d086190997e9cc371f8a2d2b81873e14b3ddbc9ad44b3ca7ad5e2a"
+doc_hash = "sha256:9f58aced6e0d0ca7c2d3dc3ff0ae3dfebeb3d62b539a08533f8e9bc2898b8115"
+
+[[module."layers.rs".function]]
+id = "fn:6c8166513c596782"
+name = "default"
+qual = "LayerSelection::default"
+lines = [
+    189,
+    198,
+]
+hash = "sha256:2cb458344bab51197711e818e217b3de6e52cd316fccc48ee1f21faf7ac79ade"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1158bca61099c5f8",
+    "fn:7e3a0ca0acbf04f2",
+]
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:7e3a0ca0acbf04f2"
+name = "tabulated_isobar_values"
+qual = "tabulated_isobar_values"
+lines = [
+    201,
+    213,
+]
+hash = "sha256:de116c8b14b328af91d319038af0d95385f90c8cbdc81369a822440ff66ccf36"
+doc_hash = "sha256:2a4c620afdf2afd59d56e488a4613812d75a2fb943b7fe9c7dae4a48a9748c9b"
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:1158bca61099c5f8"
+name = "tabulated_isotherm_values"
+qual = "tabulated_isotherm_values"
+lines = [
+    215,
+    227,
+]
+hash = "sha256:68b7c95a8496cd9aa138be1c6cd9bab346c337474d495f7997ae5e741e67d3e4"
+doc_hash = "sha256:d328676c521e4560bccff045b253e9c33b7342e1504f23c64822b19e2551e682"
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:f2755658c2280b16"
+name = "label"
+qual = "LayerId::label"
+lines = [
+    250,
+    270,
+]
+hash = "sha256:45c91be5a0d3e328c70e0cef8d0fa43748c64a4569607387290af4614a2d3f6c"
+doc_hash = "sha256:4af8ce011553be71c451364b5a75e7f5e640ffb93d570e9e1cf57f31118cd488"
+reached_by = ["#1"]
+
+[[module."layers.rs".function]]
+id = "fn:919559c986bdb45d"
+name = "kind"
+qual = "LayerId::kind"
+lines = [
+    272,
+    292,
+]
+hash = "sha256:b058468805163ec7cd6dbe543bdc2228395e7764bc545ce60451a540b88de93f"
+doc_hash = "sha256:e9afdb2913e02bc655f4def83345e026382bb3d1f5a8dafda27b3b82f4202101"
+reached_by = [
+    "#0",
+    "#1",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:7abf661a78c4f827"
+name = "default_visible"
+qual = "LayerId::default_visible"
+lines = [
+    294,
+    310,
+]
+hash = "sha256:737641a211c051d594b69488451e564c53c3e078d0b23fc32f63f28276a542eb"
+doc_hash = "sha256:066dda71f4c8ae1ae1ba3ff5857fdc00c5b1fa163759942fd5a86836367c8837"
+reached_by = ["#0"]
+
+[[module."layers.rs".function]]
+id = "fn:64c100e95c6e3e5c"
+name = "provenance"
+qual = "LayerId::provenance"
+lines = [
+    312,
+    350,
+]
+hash = "sha256:bfbf9b67d247d61b8a2de61dbc4c95011180940f8053fc8181e7485a1411467d"
+doc_hash = "sha256:173926e3d85b4e5c92cbdf6b1c3c2781d1f072fe3a84385ee38910a3e9887d26"
+reached_by = [
+    "#0",
+    "#1",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:82faa102fffe1007"
+name = "availability_on"
+qual = "LayerId::availability_on"
+lines = [
+    352,
+    385,
+]
+hash = "sha256:bf4d9550d0f7dd056250dcc6f5f0c9a7d3a170070681097261e530ecd071a5e3"
+doc_hash = "sha256:d1b39faf7d940c2abc23eb137cd6c021b4cb71d99f9dd11325b3351b665f1c2e"
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:0c5544e04890e85f"
+name = "legend_group"
+qual = "LayerId::legend_group"
+lines = [
+    387,
+    411,
+]
+hash = "sha256:9a52450988947852f990cd5f554f69bd876ff5eb3537226577bef5533a2bba05"
+doc_hash = "sha256:2e11eace16a9d72371b51ec03f27278fad296c4a9b4b9e860dcebf53d964c4ac"
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:18fd18c936f01bbe"
+name = "colour"
+qual = "LayerId::colour"
+lines = [
+    413,
+    429,
+]
+hash = "sha256:7022652f0ec3497c97bd88a17cd05df92be8aa8aa00821d6f90e72fb5a0bbd25"
+doc_hash = "sha256:69403bde22b649835af77c370a7b5f08665de974f45c78d93dbfe95724247d54"
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:d7eaa32a58eda9de"
+name = "style"
+qual = "LayerId::style"
+lines = [
+    431,
+    499,
+]
+hash = "sha256:d511c630681e1a00ec0366cf53757b17a81cc2a03d70e317a735efd0bbc5c601"
+doc_hash = "sha256:33f00e067f3cd5b3a2a794f1630100b545c05b62eb92680eec5b9691514247d7"
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:2c69e2acd67bd407"
+name = "build"
+qual = "LayerId::build"
+lines = [
+    501,
+    724,
+]
+hash = "sha256:c02469b996228e9d29239032e5b943422c750103c1c14cbc6f38310854c963e0"
+doc_hash = "sha256:daf349e21598b5a3b7535e230147f534f4751f4173a0ac8158b4434d826b3670"
+callees = [
+    "fn:007defa8e8d0e608",
+    "fn:0c5544e04890e85f",
+    "fn:18b64e4700da2af9",
+    "fn:18fd18c936f01bbe",
+    "fn:471d0ece93cb8c87",
+    "fn:557cd9a4e711ecb5",
+    "fn:64c100e95c6e3e5c",
+    "fn:66c795ecbbf75262",
+    "fn:6e42589e35e6551c",
+    "fn:7e47570717cbc061",
+    "fn:82faa102fffe1007",
+    "fn:919559c986bdb45d",
+    "fn:92d135392bdb1b05",
+    "fn:94a92c4f9de2a6f0",
+    "fn:96cf35e3ebb944f4",
+    "fn:a55b7eb71dbc6f4f",
+    "fn:a73247733ccbe0fb",
+    "fn:aced04899edc1467",
+    "fn:bb9e484065a0eb89",
+    "fn:c68a0a67f8a967ba",
+    "fn:d4dcb28f32de456c",
+    "fn:d7eaa32a58eda9de",
+    "fn:ded6409928d60d83",
+    "fn:fc708b01933145f5",
+    "fn:fc9fbb1bd47f0a1e",
+]
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:bb9e484065a0eb89"
+name = "region_boundary_segments"
+qual = "region_boundary_segments"
+lines = [
+    727,
+    759,
+]
+hash = "sha256:80e71b6d01d02883b334b226a1ddba25395c35605649a9361c4fbe532ea3a7e1"
+doc_hash = "sha256:e43e822a858b207536c6cb880a78a334954829968d1c125343f45f15366f0c0c"
+callees = [
+    "fn:123ad98ca0caec29",
+    "fn:475e8a9966db419b",
+    "fn:cb18878d0516bc21",
+]
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:007defa8e8d0e608"
+name = "wagner_saturation_states"
+qual = "wagner_saturation_states"
+lines = [
+    761,
+    789,
+]
+hash = "sha256:4610727a1c8a24b6f1173410c4264f56fcdac4e6f8499f5c10f7391e676c0b3c"
+doc_hash = "sha256:9e1fcb519221b2042de5e668431f8d11ed6dd6908798dfba4aeac96e0b3d0a09"
+callees = ["fn:ba2b94b9246b9596"]
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:92d135392bdb1b05"
+name = "isobar_computed_line"
+qual = "isobar_computed_line"
+lines = [
+    791,
+    810,
+]
+hash = "sha256:29b376b348541c2c436de358c430efb94abfd39b31b0bc0cfcc87ddc8c1c377c"
+doc_hash = "sha256:b52ae279aa12244950412b60bd82124d03211c7b1041fb32de25c2a5c324d069"
+callees = [
+    "fn:0c5544e04890e85f",
+    "fn:18fd18c936f01bbe",
+    "fn:64c100e95c6e3e5c",
+    "fn:919559c986bdb45d",
+    "fn:a6e030324b8a6cba",
+    "fn:d7eaa32a58eda9de",
+]
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:c68a0a67f8a967ba"
+name = "isotherm_computed_line"
+qual = "isotherm_computed_line"
+lines = [
+    812,
+    828,
+]
+hash = "sha256:bb3cedacaaebdefa84bd7e78bcc556d252bcc5558947eda39f34d73e51317335"
+doc_hash = "sha256:287ba727ce22ce3eb2ce66f4ac3eb6a12599f90dae555fe0d69370a7b12eae12"
+callees = [
+    "fn:0c5544e04890e85f",
+    "fn:475e8a9966db419b",
+    "fn:64c100e95c6e3e5c",
+    "fn:919559c986bdb45d",
+    "fn:d4dcb28f32de456c",
+    "fn:d7eaa32a58eda9de",
+]
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:a73247733ccbe0fb"
+name = "tabulated_cross_layer"
+qual = "tabulated_cross_layer"
+lines = [
+    830,
+    875,
+]
+hash = "sha256:8d0ebef198d9b88ff81d20838d37749d6c12529488f94aed6dbfa1ccb56db7e1"
+doc_hash = "sha256:65a1bfe4b78268b7e0f901edcdfc7bebb83d27fde7f6a9b130bc23eed666eb03"
+callees = ["fn:ba2b94b9246b9596"]
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:7e47570717cbc061"
+name = "wagner_single_phase_states_for_selection"
+qual = "wagner_single_phase_states_for_selection"
+lines = [
+    887,
+    942,
+]
+hash = "sha256:55a3244eaef7d971291de296428d149045c8e5e2fb730ee4bb639c860916fb78"
+doc_hash = "sha256:b5dfa5688970f818911b579fa6a0a125aa17871ba6ef56c587cfea15cfe5e1b1"
+callees = [
+    "fn:6e42589e35e6551c",
+    "fn:ba2b94b9246b9596",
+    "fn:ded6409928d60d83",
+]
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:fc708b01933145f5"
+name = "moody_states"
+qual = "moody_states"
+lines = [
+    944,
+    974,
+]
+hash = "sha256:eee2a8f8d681e4762cc55dafd138fa575f14ed1512bb64231f2b05188ed50cc0"
+doc_hash = "sha256:3b2605e7c53b792b0f1a6e70254629e90d0da15b5d83bb8ae89eb0492274af42"
+callees = [
+    "fn:3c2d2c3a356ae20f",
+    "fn:fad1f44df34c3212",
+]
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:aced04899edc1467"
+name = "zaloudek_states"
+qual = "zaloudek_states"
+lines = [
+    976,
+    1003,
+]
+hash = "sha256:23655d690e6640ebe1eb1c31812fcf2bf44f24ce0096344d6f4f018508c1f504"
+doc_hash = "sha256:d6401224e3625b4a6b262fcdfe85744356e9b7fa6edc7dc9b822e3d3381676a6"
+callees = [
+    "fn:3797d6cced0b5736",
+    "fn:3c2d2c3a356ae20f",
+    "fn:666de2724976aaf5",
+    "fn:9a5f6522c691e35b",
+    "fn:eff47085ca6952fe",
+]
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:18b64e4700da2af9"
+name = "marviken_states"
+qual = "marviken_states"
+lines = [
+    1005,
+    1043,
+]
+hash = "sha256:2d6f0706aa78ef4e01de4ec6178ddf29a99e32b364618e6a0a65d87d6756a668"
+doc_hash = "sha256:8df497aec2b80a38c0d1ce0ee2cd7070b722cb2d41a41a1736f28439c6d4ec58"
+callees = [
+    "fn:172202f0a3c17998",
+    "fn:3c2d2c3a356ae20f",
+    "fn:93ea64b91e8738ff",
+    "fn:9a5f6522c691e35b",
+    "fn:ba2b94b9246b9596",
+    "fn:eff47085ca6952fe",
+]
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:66c795ecbbf75262"
+name = "edwards_initial_states"
+qual = "edwards_initial_states"
+lines = [
+    1045,
+    1056,
+]
+hash = "sha256:930b9a3ff2ba70c37c51487e432b0bd08a237658b6554b266af39be561b42125"
+doc_hash = "sha256:1b862128c1be492021a116c0527c655a0c25eb8cd9fddf62332bbbd7bb015c63"
+callees = ["fn:cb18878d0516bc21"]
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:96cf35e3ebb944f4"
+name = "edwards_gs1_states"
+qual = "edwards_gs1_states"
+lines = [
+    1058,
+    1080,
+]
+hash = "sha256:4f0d6b067d3fad81e06981cb7f7767cfb2a2575526b220a4c15afee1c4ab58b8"
+doc_hash = "sha256:5dd85053ce6cde9ef9be2610c34784fb4c326372e9fa8e9c209e6648546e1037"
+callees = [
+    "fn:3797d6cced0b5736",
+    "fn:666de2724976aaf5",
+    "fn:9a5f6522c691e35b",
+    "fn:eff47085ca6952fe",
+]
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."layers.rs".function]]
+id = "fn:fad1f44df34c3212"
+name = "point_from_ph"
+qual = "point_from_ph"
+lines = [
+    1082,
+    1094,
+]
+hash = "sha256:2f1b314731c9b003c9164cf88c9d37318bd6d3d751efa9dd68d4c449cdc50966"
+doc_hash = "sha256:c2cabb2ab26cbd3d8c7440f8f5f4f2af731fb5db17aee03a518744d0a6092e0a"
+callees = [
+    "fn:3ce84ed46805ebb4",
+    "fn:81a3bd65af8f5742",
+    "fn:99bd4383a7f6e920",
+    "fn:9a5f6522c691e35b",
+    "fn:ba2b94b9246b9596",
+    "fn:c163e9ad1c644298",
+]
+reached_by = [
+    "#0",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+physical_interface = true
+
+[[module."layers.rs".function]]
+id = "fn:70ed700f8fe9aa66"
+name = "availability_table_disables_only_degenerate_or_unmeasured_cases"
+qual = "availability_table_disables_only_degenerate_or_unmeasured_cases"
+lines = [
+    1096,
+    1174,
+]
+hash = "sha256:0454507be958d3341640d42f0f3e194370683d55c0aabc8dfdc56102df842ac6"
+doc_hash = "sha256:7a8704a80a57324da7fa8c755d44d4488b5812052fdd47955c9e8dc6a6142e5e"
+callees = [
+    "fn:557cd9a4e711ecb5",
+    "fn:82faa102fffe1007",
+]
+test = true
+
+[[module."layers.rs".function]]
+id = "fn:c421b2d65d566adc"
+name = "every_reference_layer_yields_points"
+qual = "every_reference_layer_yields_points"
+lines = [
+    1176,
+    1209,
+]
+hash = "sha256:8bb4a5c402530e154af1ea011c36627451e29c98175ca53dc7f880dc57263ca2"
+doc_hash = "sha256:5637db36c7ec935bce9e8b41afcbde037321cc7659607dbc67bc850d9faccdb9"
+callees = [
+    "fn:2c69e2acd67bd407",
+    "fn:6c8166513c596782",
+    "fn:7af6ccc18f8bd5c1",
+    "fn:919559c986bdb45d",
+]
+test = true
+
+[[module."layers.rs".function]]
+id = "fn:083c4c4e9dbdb5d0"
+name = "wagner_single_phase_points_respect_the_isobar_isotherm_selection"
+qual = "wagner_single_phase_points_respect_the_isobar_isotherm_selection"
+lines = [
+    1211,
+    1302,
+]
+hash = "sha256:d2736ff5a7ff65197183eebcee670682e5b4eae4746f9d62200e6cd910d93834"
+doc_hash = "sha256:a109ff0b1e676eef47987c3a960f135e53088625da0862b2c6a11b017966d109"
+callees = [
+    "fn:2c69e2acd67bd407",
+    "fn:6c8166513c596782",
+    "fn:6e42589e35e6551c",
+    "fn:7af6ccc18f8bd5c1",
+    "fn:7e47570717cbc061",
+]
+test = true
+
+[[module."layers.rs".function]]
+id = "fn:fdabbd4d080333fe"
+name = "tabulated_single_phase_axis_toggle_works_on_every_diagram"
+qual = "tabulated_single_phase_axis_toggle_works_on_every_diagram"
+lines = [
+    1304,
+    1377,
+]
+hash = "sha256:c0fb6de9f88918372c0bcf1c0738c714577417c9b8c8b2d35e71aa459646f5f1"
+doc_hash = "sha256:2a6b3328aee0b7178986d2e20f83b93675a2bfd97c54e43b5157f86dc7b68a46"
+callees = [
+    "fn:2c69e2acd67bd407",
+    "fn:6c8166513c596782",
+    "fn:6e42589e35e6551c",
+    "fn:7af6ccc18f8bd5c1",
+    "fn:ded6409928d60d83",
+]
+test = true
+
+[[module."layers.rs".function]]
+id = "fn:84ecd823532b6a42"
+name = "tabulated_single_phase_pairs_a_smooth_curve_where_not_degenerate"
+qual = "tabulated_single_phase_pairs_a_smooth_curve_where_not_degenerate"
+lines = [
+    1379,
+    1460,
+]
+hash = "sha256:cd7e0fd7d4fb042d5c6c513cdc860818b92c54c2e2ee7a865eb2aa103ce89ef4"
+doc_hash = "sha256:00c9dc66616d1813792995cbf7442020fb9a841626c86267ee1d6807e547aea7"
+callees = [
+    "fn:2c69e2acd67bd407",
+    "fn:6c8166513c596782",
+]
+test = true
+
+[[module."layers.rs".function]]
+id = "fn:0b314790e55afbae"
+name = "isobar_and_isotherm_layers_pair_their_line_with_published_wagner_crosses"
+qual = "isobar_and_isotherm_layers_pair_their_line_with_published_wagner_crosses"
+lines = [
+    1462,
+    1533,
+]
+hash = "sha256:b89ecdf3a62fecb5213b5a2f6b64fc7b63a9c792778c5def6ebeede61f959023"
+doc_hash = "sha256:16a372b8f410102f93601bc9ace0f58c518ba27944f67b590e2f8da1ff2f3f0d"
+callees = [
+    "fn:2c69e2acd67bd407",
+    "fn:6c8166513c596782",
+]
+test = true
+
+[[module."layers.rs".function]]
+id = "fn:e6844f5388bc6e18"
+name = "layer_selection_restricts_which_isobars_and_isotherms_are_drawn"
+qual = "layer_selection_restricts_which_isobars_and_isotherms_are_drawn"
+lines = [
+    1535,
+    1659,
+]
+hash = "sha256:e3867f5692ea3011827b45bebafd30605d42aff7ce70a3447878d65c51ecc4ef"
+doc_hash = "sha256:ec9074497f57c9e7e0ada88a968f90641899e7f96afba1dfead27fca98bd32ef"
+callees = [
+    "fn:2c69e2acd67bd407",
+    "fn:6c8166513c596782",
+]
+test = true
+
+[[module."layers.rs".function]]
+id = "fn:714586a604e949b4"
+name = "legend_groups_collapse_the_families_issue_26_names"
+qual = "legend_groups_collapse_the_families_issue_26_names"
+lines = [
+    1661,
+    1731,
+]
+hash = "sha256:1a6f101f9f2b0b114edd94c7899699d33d142f4abc88f30c4fefea7dfb2d99db"
+doc_hash = "sha256:637e7f3ac147c5907571a9017bcd11ebfd2cba3aaeb6ac35f4ea88c3c82ac16a"
+callees = [
+    "fn:0c5544e04890e85f",
+    "fn:2c69e2acd67bd407",
+    "fn:6c8166513c596782",
+    "fn:919559c986bdb45d",
+]
+test = true
+
+[module."main.rs"]
+path = "example:tampines-steam-tables-gui"
+
+[[module."main.rs".function]]
+id = "fn:d94076d118f5a6b9"
+name = "main"
+qual = "main#1"
+lines = [
+    70,
+    73,
+]
+hash = "sha256:a32336f06f58e19f16f1b15b2998bc3fd5602540accacba125c4fac21797d3ab"
+doc_hash = "sha256:9014e8b11c8723f342cf948fa360a628016e6c91132d50cd9a7162a6ef44c50a"
+
+[[module."main.rs".function]]
+id = "fn:6d8f206f3ff37870"
+name = "main"
+qual = "main#2"
+lines = [
+    100,
+    134,
+]
+hash = "sha256:0b5df41fa65e6882a97160d6d8121931e21faa66e7e57fbcb4ba2b34083e2020"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5579910c11fa21ad",
+    "fn:5a85d263cd4f99a1",
+    "fn:6c0b0f404c2ae66e",
+    "fn:b4ddd51dfdb01e34",
+]
+
+[[module."main.rs".function]]
+id = "fn:5579910c11fa21ad"
+name = "usage"
+qual = "usage"
+lines = [
+    136,
+    158,
+]
+hash = "sha256:c36b4b62c7849525f2823cb7a66bd4d4671251f746ad813738a70cec83de4bbc"
+doc_hash = "sha256:3b5ac2b8083c8cc8a764ed293df1dcf03fe2c64109293837bbe193b01def7d4e"
+
+[[module."main.rs".function]]
+id = "fn:6c0b0f404c2ae66e"
+name = "flag_value"
+qual = "flag_value"
+lines = [
+    160,
+    165,
+]
+hash = "sha256:98ba9d43099c38333f3f04dc1bed4829e39e15586414a51bd16af130f95a1eb0"
+doc_hash = "sha256:a79a03688a0292e9713d77e53b06532c44a2819611fa164f17df1254b2fe11d3"
+
+[[module."main.rs".function]]
+id = "fn:5a85d263cd4f99a1"
+name = "export_all"
+qual = "export_all"
+lines = [
+    167,
+    204,
+]
+hash = "sha256:4bedaf07ee057ab974c2a01548630f80107972f5dbcfd69ae89d3f28e63672f4"
+doc_hash = "sha256:a9f1b29bc20c06f62df92e57ff33f41426b93a418f3813e692a2ef53ec57dce4"
+callees = [
+    "fn:578bd94746012f3a",
+    "fn:6c8166513c596782",
+    "fn:924aab144fd9557d",
+    "fn:ac3063c2e12b972c",
+    "fn:e1a32dd738fb6b0d",
+]
+reached_by = ["#26"]
+
+[[module."main.rs".function]]
+id = "fn:33413053c4eb697a"
+name = "headless_export_writes_valid_files_for_all_four_diagrams"
+qual = "headless_export_writes_valid_files_for_all_four_diagrams"
+lines = [
+    206,
+    263,
+]
+hash = "sha256:52a0a808645d931c20db9d3f63f7f11bd2d836e55458eb07d8c9dfb94695b998"
+doc_hash = "sha256:8a5d2314a1d42423d390c9711932cb84594a4540ef78f987cf80233c159fde2a"
+callees = [
+    "fn:5a85d263cd4f99a1",
+    "fn:beef66df3ed21c30",
+]
+test = true
+
+[module."theme.rs"]
+path = "example:tampines-steam-tables-gui::theme"
+
+[[module."theme.rs".function]]
+id = "fn:5d6b5b978168cf4c"
+name = "label"
+qual = "GuiTheme::label"
+lines = [
+    47,
+    53,
+]
+hash = "sha256:392be3744af1d9f9a2355094b22179197f9fea90cb1fcf55db469f9ca6c8752a"
+doc_hash = "sha256:788bbf3112ae39c26a471654f20075c5e84615464294a8e4ee63965ffb508741"
+
+[[module."theme.rs".function]]
+id = "fn:db2d039f1341fae1"
+name = "apply"
+qual = "GuiTheme::apply"
+lines = [
+    55,
+    62,
+]
+hash = "sha256:39e341bbee1623d16cc8f1334b46bbeea6693635798403c146734025cc65967a"
+doc_hash = "sha256:022dd44897b9d0b8aac2f6fd479ea5c07fd2baae7115a0782b71dceadb27d803"
+callees = ["fn:22ac016598744231"]
+
+[[module."theme.rs".function]]
+id = "fn:4cb26e25f6883c23"
+name = "figure_palette"
+qual = "GuiTheme::figure_palette"
+lines = [
+    64,
+    84,
+]
+hash = "sha256:d16c67de9d146ad355ba16260ca4c06e7c45f3882f7a14a85ca0cda43791f97a"
+doc_hash = "sha256:a308c31842ebead7674a320418766ca2dd48270dc257051b331788d452975b72"
+callees = ["fn:63162ea8a31554a3"]
+
+[[module."theme.rs".function]]
+id = "fn:63162ea8a31554a3"
+name = "color32_to_rgb"
+qual = "color32_to_rgb"
+lines = [
+    87,
+    93,
+]
+hash = "sha256:ff229730cf988d7dd7984df7bb7e3aedf81f448a6c2b1c87573848bb3c1afa57"
+doc_hash = "sha256:9db8478c11625425c05e3b1a4321ff5499cc9980fbfd12c450cee6c2360fd5da"
+callees = ["fn:674cf89da12f5b12"]
+
+[[module."theme.rs".function]]
+id = "fn:22ac016598744231"
+name = "gruvbox_visuals"
+qual = "gruvbox_visuals"
+lines = [
+    114,
+    190,
+]
+hash = "sha256:f32c29d6f41fb08701cf54d32ad1ce46f4e6e1b07feeb29cdf1c6f8d06abb696"
+doc_hash = "sha256:e9e83611cedf05e9fd9b0300bc54d5c0e6edcca7ad7d97834f5d97757b008a73"
+
+[[module."theme.rs".function]]
+id = "fn:a46c7a499cb814ca"
+name = "live_ink_colour"
+qual = "live_ink_colour"
+lines = [
+    192,
+    214,
+]
+hash = "sha256:9745fc144f659823daff64b70328cb21a6f473e8d13b7d579ac6a916e6c9d018"
+doc_hash = "sha256:4e055656feb7a00aa71adc48f49111b394491bfcfbf32930247cbb756a19ceac"

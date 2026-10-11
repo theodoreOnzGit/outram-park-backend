@@ -1,0 +1,160 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-offbeat"
+dir = "crates/outram-park-fork-offbeat/src/rheology/aster/log_strain"
+
+[module."tests.rs"]
+path = "crate::rheology::aster::log_strain::tests"
+
+[[module."tests.rs".function]]
+id = "fn:b78165d93b7dafca"
+name = "hookean"
+qual = "hookean"
+lines = [
+    33,
+    47,
+]
+hash = "sha256:0e5e8ab037872c7c8f4c780baa5f3deac71012aba2f0cf99ce0fca386ed2df8c"
+doc_hash = "sha256:47668bb8767612d2835dd5c79b7cc59282f7ef57758c23d6c4a96cca548390c3"
+callees = [
+    "fn:27e86d8fe19529a2",
+    "fn:5542d71db464f60b",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:97c35ae019953f45"
+name = "max_component_diff"
+qual = "max_component_diff"
+lines = [
+    52,
+    63,
+]
+hash = "sha256:ccac042958534a87fc4dedbb890a2647d1e3e19d71cad211dcfd7ff5d6ec0fdc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:5e680b03c529ab0e"
+name = "the_wrapper_reduces_to_the_bare_law_at_small_strain"
+qual = "the_wrapper_reduces_to_the_bare_law_at_small_strain"
+lines = [
+    65,
+    130,
+]
+hash = "sha256:adba2a1330f4166b725c84ffc611f42240be957ce09a1fd3426100c86e66f7d6"
+doc_hash = "sha256:e1213b8c45b9515152f42e9928004b298338f12ad7b0b2904c0cec05ca80784c"
+callees = [
+    "fn:0dda29372b4defe7",
+    "fn:165fee89d927daf2",
+    "fn:27e86d8fe19529a2",
+    "fn:97c35ae019953f45",
+    "fn:b1c4cc6aa93ebf33",
+    "fn:b78165d93b7dafca",
+    "fn:ca4d7b0e9c95eb37",
+    "fn:cec3d8b42956dfa2",
+    "fn:fad31eb4e0360c1d",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:22ce629a4d3fe84c"
+name = "the_wrapped_stress_is_objective"
+qual = "the_wrapped_stress_is_objective"
+lines = [
+    132,
+    190,
+]
+hash = "sha256:911607b03945311fdbc6ec166e57e87ac0217f3683f8d9f1063a59aa5ba7f2d0"
+doc_hash = "sha256:4939111405919619ba7c7c90c5c00c462261d8ca0a88a17d6bd2b0dc344d6185"
+callees = [
+    "fn:0dda29372b4defe7",
+    "fn:27e86d8fe19529a2",
+    "fn:40cfb6d84a864744",
+    "fn:97c35ae019953f45",
+    "fn:aeeee0f3f20c3572",
+    "fn:b78165d93b7dafca",
+    "fn:c81daeace5b8172a",
+    "fn:ca4d7b0e9c95eb37",
+    "fn:cec3d8b42956dfa2",
+    "fn:fad31eb4e0360c1d",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e92b37540edc2eaf"
+name = "pure_dilatation_matches_the_closed_form"
+qual = "pure_dilatation_matches_the_closed_form"
+lines = [
+    192,
+    231,
+]
+hash = "sha256:671cd31521c757079766ec7a9f2ff6d05dc389a9af50d52eaa52a50a1252f403"
+doc_hash = "sha256:54e60fc83975ea73b163849cd99aca7c02149e98a66c4fe3b9f3eee99bd83316"
+callees = [
+    "fn:aeeee0f3f20c3572",
+    "fn:b78165d93b7dafca",
+    "fn:c81daeace5b8172a",
+    "fn:ca4d7b0e9c95eb37",
+    "fn:cec3d8b42956dfa2",
+    "fn:fad31eb4e0360c1d",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:afa98448e1d16e0d"
+name = "uniaxial_stretch_matches_the_closed_form"
+qual = "uniaxial_stretch_matches_the_closed_form"
+lines = [
+    233,
+    290,
+]
+hash = "sha256:0c6f04ce576bcb8bc32afe828ff1ea185770cf0a94757849354bc2581cf9e0a4"
+doc_hash = "sha256:55f65b47fbf4a55cb062d80233bbdae22d2b1ddf84a175b914584c9f2ebbb7e9"
+callees = [
+    "fn:aeeee0f3f20c3572",
+    "fn:b78165d93b7dafca",
+    "fn:c81daeace5b8172a",
+    "fn:ca4d7b0e9c95eb37",
+    "fn:cec3d8b42956dfa2",
+    "fn:fad31eb4e0360c1d",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:572014c1de33de50"
+name = "the_undeformed_state_is_stress_free"
+qual = "the_undeformed_state_is_stress_free"
+lines = [
+    292,
+    305,
+]
+hash = "sha256:90900053fbafec2ba58bda9c1523b706bb6b166e8539053573f4c8b80bdd46b0"
+doc_hash = "sha256:5eedb6b385e930dfe5797bae6ede1847e0fc14e5a4294a712b970053ace3730d"
+callees = [
+    "fn:0dda29372b4defe7",
+    "fn:7b129f8448bcfede",
+    "fn:aeeee0f3f20c3572",
+    "fn:b78165d93b7dafca",
+    "fn:cec3d8b42956dfa2",
+    "fn:fad31eb4e0360c1d",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:8de365b54fdaee21"
+name = "principal_stretches_are_recovered"
+qual = "principal_stretches_are_recovered"
+lines = [
+    307,
+    324,
+]
+hash = "sha256:fc5c03a0c5062a4e96c43fa4a88e6dd741aa903b7a446c7ee1c9af8413d57be3"
+doc_hash = "sha256:16fe8ac660e3b05243f28c191783251710926ba05868671087b176e8d619ec41"
+callees = [
+    "fn:aeeee0f3f20c3572",
+    "fn:bb134c33771bcda4",
+    "fn:c81daeace5b8172a",
+    "fn:ca4d7b0e9c95eb37",
+]
+test = true

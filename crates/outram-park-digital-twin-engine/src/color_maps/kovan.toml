@@ -1,0 +1,143 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/color_maps"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::the_first_frame_pays_the_pebble_bed_bake_and_no_later_frame_does",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::the_whole_render_body_costs_a_small_fraction_of_a_frame",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_colour_scale_clamps_and_greys_below_the_floor",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/thermal_tab.rs::an_unresolved_pebble_renders_as_dashes_not_as_the_bed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/thermal_tab.rs::the_colour_scale_clamps_and_does_not_wrap",
+    "crates/outram-park-digital-twin-engine/src/color_maps/mod.rs::hot_to_cold_mark_1_clamps_out_of_range",
+    "crates/outram-park-digital-twin-engine/src/color_maps/mod.rs::hot_to_cold_mark_1_endpoints",
+    "crates/outram-park-digital-twin-engine/src/color_maps/mod.rs::hot_to_cold_mark_2_endpoints",
+    "crates/outram-park-digital-twin-engine/src/color_maps/mod.rs::steam_quality_mark_1_clamps_out_of_range",
+    "crates/outram-park-digital-twin-engine/src/color_maps/mod.rs::steam_quality_mark_1_endpoints",
+    "crates/outram-park-digital-twin-engine/src/components/condenser.rs::a_missing_hotwell_level_stays_missing",
+    "crates/outram-park-digital-twin-engine/src/components/condenser.rs::the_physics_path_paints_nothing_it_cannot_see",
+    "crates/outram-park-digital-twin-engine/src/components/condenser.rs::the_scalar_path_colours_both_circuits_from_supplied_state",
+    "crates/outram-park-digital-twin-engine/src/components/temperature_button.rs::degc_conveniences_agree_with_the_typed_path",
+]
+
+[module."mod.rs"]
+path = "crate::color_maps"
+
+[[module."mod.rs".function]]
+id = "fn:3e96a3fcf8280ce3"
+name = "hot_to_cold_colour_mark_1"
+qual = "hot_to_cold_colour_mark_1"
+lines = [
+    19,
+    41,
+]
+hash = "sha256:dfe9dcb56afd83a93307224dc57b2c5c08ecb9a9a3fbd855a2732ac7f3794cb2"
+doc_hash = "sha256:04a63e3c034126f2789d3231495f58a6f8e99a5bd4db51d6676da4c92c0533d2"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#13",
+]
+
+[[module."mod.rs".function]]
+id = "fn:84010b43f7b9a186"
+name = "hot_to_cold_colour_mark_2"
+qual = "hot_to_cold_colour_mark_2"
+lines = [
+    43,
+    64,
+]
+hash = "sha256:aa215377d0b7d9887bf2dfed059b114043e53716ab059e4947a1115f7b6cca18"
+doc_hash = "sha256:ce9a3b06f6b7fce992900e182921912af7f33a587d08fd9713204286aeb61b86"
+reached_by = [
+    "#0",
+    "#1",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:bd19e321612fab89"
+name = "steam_quality_colour_mark_1"
+qual = "steam_quality_colour_mark_1"
+lines = [
+    66,
+    85,
+]
+hash = "sha256:02ab19e5d68567feeaeacb72f2ee6c034c74e0492ef16e19463b191c2e2e7fbf"
+doc_hash = "sha256:5660375773772174ff037a2269b01e0f4e71a7f535f57ef468c58489987163b8"
+reached_by = [
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."mod.rs".function]]
+id = "fn:143c6b20b236dde6"
+name = "hot_to_cold_mark_1_endpoints"
+qual = "hot_to_cold_mark_1_endpoints"
+lines = [
+    91,
+    98,
+]
+hash = "sha256:10a689485f4732c63683ae37c0acd7b7aa8ddfd4bed46b9cc9a4a58cf83a9a1f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3e96a3fcf8280ce3"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:c2b1e4872487e7f0"
+name = "hot_to_cold_mark_1_clamps_out_of_range"
+qual = "hot_to_cold_mark_1_clamps_out_of_range"
+lines = [
+    100,
+    110,
+]
+hash = "sha256:72a0cbffb54bf672e9d16b2d77476e28ffe2f803edc48cc5bf7290a17f662d7b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3e96a3fcf8280ce3"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:26d48672fe0a41c4"
+name = "hot_to_cold_mark_2_endpoints"
+qual = "hot_to_cold_mark_2_endpoints"
+lines = [
+    112,
+    116,
+]
+hash = "sha256:5100db098a4b18bfb8d94c62fa220f011eb144a69861010ba6dadae130dcfeba"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:84010b43f7b9a186"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:b0242c4f7a9b508f"
+name = "steam_quality_mark_1_endpoints"
+qual = "steam_quality_mark_1_endpoints"
+lines = [
+    118,
+    128,
+]
+hash = "sha256:c3d0c9e4303e952edb495d6e7fa4335b96418ba0e299528910605ddcb55a4caa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:bd19e321612fab89"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:41bd538309e08c50"
+name = "steam_quality_mark_1_clamps_out_of_range"
+qual = "steam_quality_mark_1_clamps_out_of_range"
+lines = [
+    130,
+    140,
+]
+hash = "sha256:495780ed9e0297ed8c8151722203af0deea176eac1ea31afabf23ad85bbe5ae9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:bd19e321612fab89"]
+test = true

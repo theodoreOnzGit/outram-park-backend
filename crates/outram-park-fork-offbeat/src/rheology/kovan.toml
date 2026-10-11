@@ -1,0 +1,2526 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-offbeat"
+dir = "crates/outram-park-fork-offbeat/src/rheology"
+test_ids = [
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::genfoam_and_offbeat_agree_on_the_clamped_thermoelastic_bar",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_agreement_and_the_convergence_order_survive_refinement",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_two_codes_agree_through_a_transient_elastic_response",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_two_codes_disagree_on_the_thermal_load_at_a_dirichlet_boundary",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::clamped_bar_relaxes_to_closed_form_exponential",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::constitutive_state_advances_once_per_step_not_once_per_corrector",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::creep_step_rejects_a_missing_law_and_a_negative_timestep",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::creep_time_step_control_bounds_the_next_step",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::free_thermal_expansion_with_creep_produces_no_creep_strain",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::spatially_varying_creep_keeps_the_axial_stress_uniform",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::displacement_profile_is_linear",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::eigenstrain_sources_superpose_and_cancel",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::fully_constrained_eigenstrain_gives_hydrostatic_compression",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::imposed_strain_solution_is_grid_independent",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::imposed_uniform_strain_gives_oedometric_stress",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::stress_is_linear_in_eigenstrain",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::advancing_the_state_accumulates_the_increment_exactly_once",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::catastrophic_softening_is_reported_rather_than_returned",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::creep_is_volume_preserving",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::creep_relaxes_stress_before_the_plastic_return_map_sees_it",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::creep_time_step_control_inverts_the_increment_limits",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::elastic_law_reproduces_hookes_law_exactly",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::fraptran_refuses_a_temperature_above_its_fit",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::fraptran_yield_stress_hardens_with_fluence_and_softens_with_temperature",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::hardening_curve_interpolates_linearly_and_holds_flat_outside",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::limback_constants_match_upstream",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::limback_irradiation_creep_scales_with_fast_flux",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::limback_refuses_a_temperature_where_its_modulus_fit_is_negative",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::limback_thermal_creep_is_temperature_activated",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::linear_creep_increment_matches_the_closed_form_implicit_solution",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::linear_hardening_matches_the_closed_form_return_map",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::malformed_hardening_curves_are_rejected",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::matpro_does_not_creep_an_unstressed_cell",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::matpro_fuel_creep_responds_to_temperature_fission_rate_and_grain_size",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::matpro_refuses_a_density_below_its_valid_range",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::per_material_dispatch_applies_the_right_law_to_each_cell",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::perfect_plasticity_returns_exactly_onto_the_yield_surface",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::plastic_flow_is_deviatoric_and_leaves_the_hydrostatic_stress_alone",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::plasticity_below_yield_returns_the_elastic_stress_unchanged",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::rheology_enum_dispatches_to_the_by_material_driver",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::stress_relaxation_follows_the_analytic_geometric_decay",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::stress_relaxes_monotonically_to_a_deviatorically_stress_free_state",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::von_mises_stress_never_exceeds_the_yield_surface",
+    "crates/outram-park-fork-offbeat/src/rheology/tests.rs::zero_timestep_produces_zero_creep_increment",
+]
+
+[module."by_material.rs"]
+path = "crate::rheology::by_material"
+
+[[module."by_material.rs".function]]
+id = "fn:b0e77fa65a0d34c4"
+name = "new"
+qual = "RheologyByMaterial::new"
+lines = [
+    71,
+    100,
+]
+hash = "sha256:357af95c8861306f90f24941f7fa476b7bd6b91d979ac2032a1e1775e68e0143"
+doc_hash = "sha256:7a90797f48c8c03dd2889934fc5eb0be2d0406a53ef87c4d25cab1b1723efee9"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#35",
+    "#39",
+]
+
+[[module."by_material.rs".function]]
+id = "fn:ee33b4b2f915a269"
+name = "uniform"
+qual = "RheologyByMaterial::uniform"
+lines = [
+    102,
+    116,
+]
+hash = "sha256:7c74e1934529735c7d912baaaef2126151555b21ac78b23f13df85ffeee1372a"
+doc_hash = "sha256:bd24b90c0e6a8eb9efae61b39872c268f1226f91fa1ef7c3f7fde9d36ed66ef1"
+callees = ["fn:b0e77fa65a0d34c4"]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#39",
+]
+
+[[module."by_material.rs".function]]
+id = "fn:786afc9ec1e759cf"
+name = "n_materials"
+qual = "RheologyByMaterial::n_materials"
+lines = [
+    118,
+    122,
+]
+hash = "sha256:d7abc98d4ac0fc4f0d17886123ac987516738bedfa229513913d5d0728d16406"
+doc_hash = "sha256:5d40b54e67dc48b58acdd8af32de9c992896f1b726b9122b6931c8cc6504b276"
+reached_by = ["#35"]
+
+[[module."by_material.rs".function]]
+id = "fn:d726e520ab849f57"
+name = "n_cells"
+qual = "RheologyByMaterial::n_cells"
+lines = [
+    124,
+    128,
+]
+hash = "sha256:480f7b1cc9508e1127b0443cef903f77fd2be6348744b01b0441af7e60a8f353"
+doc_hash = "sha256:0ebd14e5d7eaf8e42692de3296b9d6375273a645fa9da8779fc220a2517c99ef"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#35",
+    "#39",
+]
+
+[[module."by_material.rs".function]]
+id = "fn:73bee1d876d1d558"
+name = "law"
+qual = "RheologyByMaterial::law"
+lines = [
+    130,
+    143,
+]
+hash = "sha256:7aea930fca43a210e3b644ad4e527749b80e136c6766a0368b56fb9405ebc243"
+doc_hash = "sha256:4caa94d297ee6139121a3687612ce015ac02f522ca4989100469d9b695d838d7"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#35",
+    "#39",
+]
+
+[[module."by_material.rs".function]]
+id = "fn:0fd2ed156933c2a8"
+name = "correct"
+qual = "RheologyByMaterial::correct"
+lines = [
+    145,
+    161,
+]
+hash = "sha256:99c81cc75d1c40388fffb2f12f6a7db88744950a00ae410ce4488491a0889135"
+doc_hash = "sha256:9e559a3c4a329580738d235775a642bb4e778cff02d408ad84f0e8b25d707938"
+callees = [
+    "fn:14091f710ec6ef61",
+    "fn:73bee1d876d1d558",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#35",
+    "#39",
+]
+
+[[module."by_material.rs".function]]
+id = "fn:039f9cd95260fe67"
+name = "correct"
+qual = "Rheology::correct"
+lines = [
+    180,
+    194,
+]
+hash = "sha256:22faa787673a3f1ee826a4dff37335721a5976be505387163a90ebb05a22c328"
+doc_hash = "sha256:ef2f9d3e820d0c1494b9da9a26a14679139fa376d6b058c22e2985278eef207f"
+callees = ["fn:0fd2ed156933c2a8"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#39",
+]
+
+[[module."by_material.rs".function]]
+id = "fn:ea79385f08c645dd"
+name = "n_cells"
+qual = "Rheology::n_cells"
+lines = [
+    196,
+    202,
+]
+hash = "sha256:203b62edbf4ced5e5330a53a961c199fbc653ce583334bad42709d39d41a0825"
+doc_hash = "sha256:f037c44c1604e8b012ace64701dc06e590cb64cc1e145507d5df8d41c6c7b0e4"
+callees = ["fn:d726e520ab849f57"]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#39",
+]
+
+[module."creep.rs"]
+path = "crate::rheology::creep"
+
+[[module."creep.rs".function]]
+id = "fn:0483be0a749ab458"
+name = "thermal_prefactor"
+qual = "ZircaloyCladType::thermal_prefactor"
+lines = [
+    129,
+    138,
+]
+hash = "sha256:622c3d6e26a33f672cc62885afde6702803baea09da7c813a936de7e228d3af8"
+doc_hash = "sha256:e4572c0f28bf8e2acfa424e3512234b15cd08250ac4d49b833bdca6d0e6392d5"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."creep.rs".function]]
+id = "fn:c0b409f81b17f45c"
+name = "activation_energy"
+qual = "ZircaloyCladType::activation_energy"
+lines = [
+    140,
+    148,
+]
+hash = "sha256:d41e81379df0509d0aabbcaebc0912c2d19787262e78b44d7ad859bca432b9c2"
+doc_hash = "sha256:821d2b72bbc542d4b7a1cfcda1e5c5b531e2c07420cce1e35f5a434ed8e1f465"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."creep.rs".function]]
+id = "fn:e685ba3e4e54805e"
+name = "irradiation_coefficient"
+qual = "ZircaloyCladType::irradiation_coefficient"
+lines = [
+    150,
+    160,
+]
+hash = "sha256:d8ca62f55274918df0038df05cc797f4528b99aecb600c04e28bf074b7726899"
+doc_hash = "sha256:b8fa10b4da4f4b7a129e5559d4f1e89e7cb32db2acb006e0fc36b642c3baf672"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."creep.rs".function]]
+id = "fn:7a4f1e280dd9a9e3"
+name = "stress_exponent"
+qual = "ZircaloyCladType::stress_exponent"
+lines = [
+    162,
+    185,
+]
+hash = "sha256:86d15300a3604bd16864a2c3fc28bbc523b8906efcd66c038dac93aa1c9f4338"
+doc_hash = "sha256:816fc2ab1b8ec23cb005184122695a716f4db69bd868238509f54345d05de86c"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."creep.rs".function]]
+id = "fn:a4b13814619d5fe5"
+name = "none"
+qual = "CreepIncrement::none"
+lines = [
+    205,
+    214,
+]
+hash = "sha256:3e020ff92e1e60191e063253bfa291d06c662f6e44f621bcd7d771434626c612"
+doc_hash = "sha256:899da556831503d831970de2dcbdc37471d2c83dde126b14e65a57a3415d0ff8"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."creep.rs".function]]
+id = "fn:c92223864bc20ff7"
+name = "increment"
+qual = "CreepModel::increment"
+lines = [
+    329,
+    442,
+]
+hash = "sha256:5df194dc1f7d744906a88ac1eccd6d889fc8e25c25fdbaacf461f9c7dd62a704"
+doc_hash = "sha256:0afa794faf5d16446cbe8d45259bf77adea4efb11f27d9e1f0501c126758537f"
+callees = [
+    "fn:04946f71a8ea8a4c",
+    "fn:43433007c271b382",
+    "fn:a4b13814619d5fe5",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."creep.rs".function]]
+id = "fn:04946f71a8ea8a4c"
+name = "rate_and_derivative"
+qual = "CreepModel::rate_and_derivative"
+lines = [
+    444,
+    468,
+]
+hash = "sha256:3981dbd8a86ff8a8e452ad94f303092fee527065df87f3704d2ca440428fca85"
+doc_hash = "sha256:815a42282dbcf7a31bd8e8069e591ccb7e6d2ce0fd2756978892384dfeba9dcc"
+callees = [
+    "fn:76b04f6133dc3221",
+    "fn:b3e584df0ab11337",
+    "fn:ba4f76a5dce04822",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."creep.rs".function]]
+id = "fn:43433007c271b382"
+name = "primary_part"
+qual = "CreepModel::primary_part"
+lines = [
+    470,
+    486,
+]
+hash = "sha256:6c326b1c961e4b0fb71eb4e0310e48f3a0904edfeaf38fbed756d818154442c2"
+doc_hash = "sha256:467b42656ecb3e16f07bd663aabc0d75fb4c59c1a65d3248c8ff6723ec177661"
+callees = [
+    "fn:3c8311aebab27591",
+    "fn:c341b60a9ab7ed43",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."creep.rs".function]]
+id = "fn:b3e584df0ab11337"
+name = "power_law_rate"
+qual = "power_law_rate"
+lines = [
+    489,
+    518,
+]
+hash = "sha256:3bb8111c8c2bec67a94f29b15040fd71563171e44ce38b9a5c6a2827818f3342"
+doc_hash = "sha256:7f7e43adafbb6c9b76f454662ddada2ea4dfb253c0e38e6a4a561f4c50d67202"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."creep.rs".function]]
+id = "fn:3c8311aebab27591"
+name = "limback_secondary_rate_per_hour"
+qual = "limback_secondary_rate_per_hour"
+lines = [
+    520,
+    617,
+]
+hash = "sha256:f3633d37ad8ed996efabf866009226ae5d2955dd373ff945e0fbe1d843560b5e"
+doc_hash = "sha256:9f52938c49b091cea7ea573017dbedcf20fa1ccbaa91049e3dcf4ab8ebd543a9"
+callees = [
+    "fn:0483be0a749ab458",
+    "fn:7a4f1e280dd9a9e3",
+    "fn:c0b409f81b17f45c",
+    "fn:e685ba3e4e54805e",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."creep.rs".function]]
+id = "fn:c341b60a9ab7ed43"
+name = "limback_primary_increment"
+qual = "limback_primary_increment"
+lines = [
+    619,
+    660,
+]
+hash = "sha256:a77c6f47e0898d6f64d570d8a9a6ac84975210ba5fd386909c2fc89b0e125732"
+doc_hash = "sha256:1c89474f6563339629dec1f7260c2a1eccb0ca741ea8ed273a9bb28f2a9c08e7"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."creep.rs".function]]
+id = "fn:76b04f6133dc3221"
+name = "limback_rate"
+qual = "limback_rate"
+lines = [
+    662,
+    689,
+]
+hash = "sha256:1792b00650296497892ca8c7afe066f198710e2b608ecc4ab221a4bdb7a74373"
+doc_hash = "sha256:334f7557cce9ea88fc79c19d6b75072642464476c14c8dfa75a0a501564d9c0d"
+callees = [
+    "fn:3c8311aebab27591",
+    "fn:c341b60a9ab7ed43",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."creep.rs".function]]
+id = "fn:ba4f76a5dce04822"
+name = "matpro_rate"
+qual = "matpro_rate"
+lines = [
+    691,
+    786,
+]
+hash = "sha256:08a40a5d4e7e2afa26228c8eaf6dd0983208c1efe633437a75e7fdf721c25420"
+doc_hash = "sha256:1fd0f8bf6194325516e6d272722f5932f9d9cff0be16737597c024d6a37e61af"
+callees = ["fn:686496b8fef5c8b2"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."creep.rs".function]]
+id = "fn:6f20c13d8a89fabf"
+name = "default"
+qual = "CreepTimeStepControl::default"
+lines = [
+    814,
+    821,
+]
+hash = "sha256:1f977cca3571107e233921f7404f7bc9fd3189e1129ab21b4ac0553ba6546097"
+doc_hash = "sha256:df929a8237455ab9b7eb11a649f40d835984d51f2b54e690a0cef0d03cb7f651"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#20",
+]
+
+[[module."creep.rs".function]]
+id = "fn:136b62cf9a144f04"
+name = "next_time_step"
+qual = "CreepTimeStepControl::next_time_step"
+lines = [
+    825,
+    858,
+]
+hash = "sha256:6db71ff62484a2064e99444bb9bb00f623831257459aaaba06f73d6fac899e34"
+doc_hash = "sha256:bbd9632c3e1d2254254c7711860ed1b8e05710a6ebd84aac524360c7d3a88ff0"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#20",
+]
+
+[module."law.rs"]
+path = "crate::rheology::law"
+
+[[module."law.rs".function]]
+id = "fn:a568c39632262ba2"
+name = "perfectly_plastic"
+qual = "ConstitutiveLaw::perfectly_plastic"
+lines = [
+    111,
+    125,
+]
+hash = "sha256:7eb743ca19ce9b026bb36b4ad9f29d2fc4eaa32f5fc39ca0961258b75bf4f571"
+doc_hash = "sha256:1a86f96492369bb8ef869a4d6c81614ec301316792c9e2175cbb096399d06083"
+reached_by = [
+    "#19",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."law.rs".function]]
+id = "fn:49e1641346e2f937"
+name = "creep_model"
+qual = "ConstitutiveLaw::creep_model"
+lines = [
+    127,
+    134,
+]
+hash = "sha256:aac384a597260380d6b2fcf82973045e3097dd2b07dc034a2f539ea60e4b3063"
+doc_hash = "sha256:41d07278862a74ef2ee30e8b911981cf286edc3761b4803f747e7a99dbd7a610"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."law.rs".function]]
+id = "fn:14091f710ec6ef61"
+name = "correct"
+qual = "ConstitutiveLaw::correct"
+lines = [
+    136,
+    256,
+]
+hash = "sha256:4e9c316bba692938d53d8a454494c1d67bd9bc66de1b814b4a03b6a5e193150b"
+doc_hash = "sha256:b7d8d503c51d218cf6535e5ae2193bbc98ad9bfb04bd9f41d107e6e5821a91e2"
+callees = [
+    "fn:02099b65ce05b715",
+    "fn:2ae038f03542083e",
+    "fn:35604fe4fbd322dd",
+    "fn:36fa75011896ea88",
+    "fn:49e1641346e2f937",
+    "fn:4a9caf9bb5f34034",
+    "fn:4e47885c89f349ef",
+    "fn:5542d71db464f60b",
+    "fn:c92223864bc20ff7",
+    "fn:e04f00150cb84dd8",
+    "fn:f24f8ff07be74b55",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."law.rs".function]]
+id = "fn:e04f00150cb84dd8"
+name = "return_map"
+qual = "ConstitutiveLaw::return_map"
+lines = [
+    258,
+    383,
+]
+hash = "sha256:599aab22dfda260bd83e81b3ac5a8ebe13a9e801d362f9df8c40922efe512d61"
+doc_hash = "sha256:ac1ec1866d6234366299880e39f191e2a44b0281ae58d9a1dcb9098be0272c09"
+callees = [
+    "fn:0dda29372b4defe7",
+    "fn:20a239a2ac287211",
+    "fn:3d81597d1c137607",
+    "fn:4a9caf9bb5f34034",
+    "fn:4e47885c89f349ef",
+    "fn:c26b5e80622e6c78",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[module."mod.rs"]
+path = "crate::rheology"
+
+[module."state.rs"]
+path = "crate::rheology::state"
+
+[[module."state.rs".function]]
+id = "fn:6a9afad849696df9"
+name = "quasi_static"
+qual = "RheologyInputs::quasi_static"
+lines = [
+    137,
+    157,
+]
+hash = "sha256:b8acd5b1899fce174e3f8a8b5dc7ec88b0df6558c8a65d957bde9a9606e948e6"
+doc_hash = "sha256:dbed81ed0aa0a7e13f3b99e4bb9fe0b9d0c74c02e6b2fc315c224229c0c3c988"
+reached_by = [
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."state.rs".function]]
+id = "fn:d54503dfdcd009eb"
+name = "pristine"
+qual = "RheologyState::pristine"
+lines = [
+    228,
+    242,
+]
+hash = "sha256:2064b2b67750abeeaa8a6697c2016cdb79cb79e9d76cf1bcf4d974387dfe881c"
+doc_hash = "sha256:ddadb053187f70ae19a15a02153259f95a84f54d5244b706deb912bff8dde55f"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."state.rs".function]]
+id = "fn:3aa693346b7affcb"
+name = "advance"
+qual = "RheologyState::advance"
+lines = [
+    244,
+    258,
+]
+hash = "sha256:0ac0faaddbc1545dd968279986f77daf900c701c4e4761f917a418f0351e64d7"
+doc_hash = "sha256:494c9ec4ee11a8ae6c54c8603e05b9eb38ffd3a2e7c3fa0fe9d70d361aa5ecfd"
+callees = ["fn:d39c559533b44e5a"]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#16",
+    "#40",
+    "#41",
+]
+
+[[module."state.rs".function]]
+id = "fn:18c969b0a7ecb95d"
+name = "inelastic_strain"
+qual = "RheologyState::inelastic_strain"
+lines = [
+    260,
+    268,
+]
+hash = "sha256:2b84a2f7c48f78835484fdc09d409ba1a5c5e6c2aa04a6700013eb5aa9e3f0fe"
+doc_hash = "sha256:f351b78998cdc85c26eda58bfce8109d75209c0f80864676e2ea3831c20bf560"
+callees = ["fn:2ae038f03542083e"]
+reached_by = ["#16"]
+
+[[module."state.rs".function]]
+id = "fn:f44faff67d698ff7"
+name = "von_mises_stress"
+qual = "StressCorrection::von_mises_stress"
+lines = [
+    335,
+    344,
+]
+hash = "sha256:6d06bc0565d6fda77a9582eca3a6e3001a4e676e6fb0de03c7902602c9a43dc2"
+doc_hash = "sha256:b38df9b37435fe2aac2a659bddc01054d5cbf18e7d45126cdea6942dc160dc71"
+callees = ["fn:02099b65ce05b715"]
+reached_by = [
+    "#8",
+    "#19",
+    "#29",
+    "#30",
+    "#32",
+    "#35",
+    "#36",
+    "#38",
+    "#40",
+    "#41",
+    "#42",
+]
+
+[[module."state.rs".function]]
+id = "fn:c890c589041075da"
+name = "hydrostatic_stress"
+qual = "StressCorrection::hydrostatic_stress"
+lines = [
+    346,
+    350,
+]
+hash = "sha256:bbe78c01f5b1554fe17ef76378262b2a30dcd5800947921e30a18bd406e8c322"
+doc_hash = "sha256:b5227b8905dc1ad4eadc8b9c6d5ed93c598c227a17cf60514891775036d0d6e3"
+callees = ["fn:5542d71db464f60b"]
+reached_by = [
+    "#8",
+    "#18",
+    "#37",
+]
+
+[[module."state.rs".function]]
+id = "fn:02099b65ce05b715"
+name = "von_mises"
+qual = "von_mises"
+lines = [
+    353,
+    364,
+]
+hash = "sha256:5ba651f371e5cc98d56b8964fa6c1a350a97239dec4ea9fa17601624fc5e67fc"
+doc_hash = "sha256:3b4eb49e3c03bcd1dd635e730813de8d02334e25226920ef020ed18d2f8abe51"
+callees = [
+    "fn:326a7282820617b2",
+    "fn:4e47885c89f349ef",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."state.rs".function]]
+id = "fn:ab2667e5678838cb"
+name = "equivalent_strain"
+qual = "equivalent_strain"
+lines = [
+    366,
+    375,
+]
+hash = "sha256:1933a19679496f31bfc79f0d18e28a94af28369cd9e9957b90cd25f202f2435e"
+doc_hash = "sha256:aea1c575529020f24ae5eff09daf4721e67a221c62ca726ca3d1d10fa8de45b2"
+callees = [
+    "fn:326a7282820617b2",
+    "fn:4e47885c89f349ef",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#41",
+]
+
+[module."tests.rs"]
+path = "crate::rheology::tests"
+
+[[module."tests.rs".function]]
+id = "fn:3db586b2cf8a6349"
+name = "elastic"
+qual = "elastic"
+lines = [
+    52,
+    54,
+]
+hash = "sha256:0fcda0e617df7d37e7a2a830f05612ba86a39f52c8c310db77b25a470582871c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:a848817c23e36bf8"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:62243dbc2df769c1"
+name = "pure_shear"
+qual = "pure_shear"
+lines = [
+    56,
+    62,
+]
+hash = "sha256:3cd246bc535e84b20a7efcd5d11087f6fcff56f6d54d80315bde38feb1a0d9b1"
+doc_hash = "sha256:9ae6595d805dcbe2072e676b68c534b68125475643749bf3446216ae2ddb4074"
+callees = ["fn:27e86d8fe19529a2"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:7ae5365da9853f32"
+name = "quasi_static"
+qual = "quasi_static"
+lines = [
+    64,
+    66,
+]
+hash = "sha256:6a843f557cd13d6aea19e0a4f3d92884a686e40c24d10f866116150be3dcc15c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3db586b2cf8a6349",
+    "fn:59fe5b1ed5211786",
+    "fn:6a9afad849696df9",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e12bb8fc2df6c028"
+name = "elastic_law_reproduces_hookes_law_exactly"
+qual = "elastic_law_reproduces_hookes_law_exactly"
+lines = [
+    72,
+    103,
+]
+hash = "sha256:2a2d8def24f83c76ea2853f38f1ad08dd672f671edac62d402cb65269d03cd3f"
+doc_hash = "sha256:4385b459c2914aae4d763077f6100c37e1629b4cbc2f1996504a85d1e612fd99"
+callees = [
+    "fn:14091f710ec6ef61",
+    "fn:2ae038f03542083e",
+    "fn:36fa75011896ea88",
+    "fn:3db586b2cf8a6349",
+    "fn:62243dbc2df769c1",
+    "fn:7ae5365da9853f32",
+    "fn:adb6ff61789851e5",
+    "fn:d54503dfdcd009eb",
+    "fn:f24f8ff07be74b55",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:c7feacb09e20f62b"
+name = "plasticity_below_yield_returns_the_elastic_stress_unchanged"
+qual = "plasticity_below_yield_returns_the_elastic_stress_unchanged"
+lines = [
+    105,
+    135,
+]
+hash = "sha256:3d73f74db5d7e8bca8a2ab4417d92f77a5641c2f5c1acdb0945234bfb50a0198"
+doc_hash = "sha256:dd33664bf7ce6c57d6c3cc3346c3ff6f40f07f8b6cff0edfb366ea5b0d3db663"
+callees = [
+    "fn:14091f710ec6ef61",
+    "fn:2ae038f03542083e",
+    "fn:62243dbc2df769c1",
+    "fn:7ae5365da9853f32",
+    "fn:a568c39632262ba2",
+    "fn:adb6ff61789851e5",
+    "fn:d54503dfdcd009eb",
+    "fn:f44faff67d698ff7",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:f0bfb08aabc09d8a"
+name = "perfect_plasticity_returns_exactly_onto_the_yield_surface"
+qual = "perfect_plasticity_returns_exactly_onto_the_yield_surface"
+lines = [
+    141,
+    176,
+]
+hash = "sha256:53490d7c116cb0372c5b33bfa57efffe7f9e53cea55f1550397e76a92cae6bf0"
+doc_hash = "sha256:5f8b23a13f5ffa071c3b8a3fefc07c1098bf03f970b206c681445094a30b38d4"
+callees = [
+    "fn:0dda29372b4defe7",
+    "fn:14091f710ec6ef61",
+    "fn:36fa75011896ea88",
+    "fn:3db586b2cf8a6349",
+    "fn:4a9caf9bb5f34034",
+    "fn:4e47885c89f349ef",
+    "fn:62243dbc2df769c1",
+    "fn:7ae5365da9853f32",
+    "fn:a568c39632262ba2",
+    "fn:d54503dfdcd009eb",
+    "fn:f44faff67d698ff7",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:bee7af96823fd964"
+name = "linear_hardening_matches_the_closed_form_return_map"
+qual = "linear_hardening_matches_the_closed_form_return_map"
+lines = [
+    178,
+    219,
+]
+hash = "sha256:ca10a16e5ab838fb0290d46c61cc79ab6580237fcdc8564b8493d48fa89e5b37"
+doc_hash = "sha256:cc328380453bb0766a71e3b371c824a9d50a9b06c6d231c367438f0f2e6089c3"
+callees = [
+    "fn:0dda29372b4defe7",
+    "fn:14091f710ec6ef61",
+    "fn:36fa75011896ea88",
+    "fn:3db586b2cf8a6349",
+    "fn:4a9caf9bb5f34034",
+    "fn:4e47885c89f349ef",
+    "fn:57a499f0efc0c178",
+    "fn:62243dbc2df769c1",
+    "fn:7ae5365da9853f32",
+    "fn:d54503dfdcd009eb",
+    "fn:f44faff67d698ff7",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:43320aad5d597802"
+name = "von_mises_stress_never_exceeds_the_yield_surface"
+qual = "von_mises_stress_never_exceeds_the_yield_surface"
+lines = [
+    221,
+    250,
+]
+hash = "sha256:36d299c440f771161d285f23c6d3e8e80439178ac5976c30019d3b5e5d9d2b2e"
+doc_hash = "sha256:28ee2ba119d274aecf4452d840c3dd79bc13de126e5b2dfbb072e9a465974ea2"
+callees = [
+    "fn:14091f710ec6ef61",
+    "fn:57a499f0efc0c178",
+    "fn:62243dbc2df769c1",
+    "fn:7ae5365da9853f32",
+    "fn:d54503dfdcd009eb",
+    "fn:f44faff67d698ff7",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:918d166b60744db7"
+name = "plastic_flow_is_deviatoric_and_leaves_the_hydrostatic_stress_alone"
+qual = "plastic_flow_is_deviatoric_and_leaves_the_hydrostatic_stress_alone"
+lines = [
+    252,
+    282,
+]
+hash = "sha256:dd64f8e50be3c69e30077acbf05492e725d613d533974ffccb0a863dd529def1"
+doc_hash = "sha256:42e24cb301e1078d870808007727e4eee24a8d0109dd3f3ef5da7f7fed3e2735"
+callees = [
+    "fn:14091f710ec6ef61",
+    "fn:2ae038f03542083e",
+    "fn:3db586b2cf8a6349",
+    "fn:5542d71db464f60b",
+    "fn:62243dbc2df769c1",
+    "fn:7ae5365da9853f32",
+    "fn:a568c39632262ba2",
+    "fn:adb6ff61789851e5",
+    "fn:c890c589041075da",
+    "fn:d54503dfdcd009eb",
+    "fn:f24f8ff07be74b55",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:9df6ffbc513cd015"
+name = "catastrophic_softening_is_reported_rather_than_returned"
+qual = "catastrophic_softening_is_reported_rather_than_returned"
+lines = [
+    284,
+    309,
+]
+hash = "sha256:bdcf849ee476bfe599318f2c64e6f153a9cb21492535861d4bc6f04f5a6276ac"
+doc_hash = "sha256:1b4ed78dcfbbdbf2137c0d89a879831c71f7598eb420de04d399d4e66bf0b8c9"
+callees = [
+    "fn:14091f710ec6ef61",
+    "fn:57a499f0efc0c178",
+    "fn:62243dbc2df769c1",
+    "fn:7ae5365da9853f32",
+    "fn:d54503dfdcd009eb",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:35ee60f3f4aafc09"
+name = "linear_creep"
+qual = "linear_creep"
+lines = [
+    315,
+    328,
+]
+hash = "sha256:1510da3a91daa223e877f5b907df6ea97617b7938abe8a2911e30b614ab5aadc"
+doc_hash = "sha256:6cb8b8f89b8a41a400416c9d4bc70917fb15d6ff5d301117ed373c439a686706"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d8fb0f7c0904bd6e"
+name = "linear_creep_viscosity"
+qual = "linear_creep_viscosity"
+lines = [
+    330,
+    333,
+]
+hash = "sha256:74d12a31cad90b9b2319b30b74a3549ae6c43b92d9a62f88c80b08acfc4f3ada"
+doc_hash = "sha256:d842fb681c0f56e2927892f535c18e8e741a30a9f9b417e039e4768007b6b244"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:58ebb884c623a064"
+name = "linear_creep_increment_matches_the_closed_form_implicit_solution"
+qual = "linear_creep_increment_matches_the_closed_form_implicit_solution"
+lines = [
+    335,
+    381,
+]
+hash = "sha256:2c4c376776951aff28222f749603991c54964098ad54b0510becf29f906845ed"
+doc_hash = "sha256:385e8b70ae1c257b410df15313563b6399c70cb6d5e07eddfdfb1b0a2ae8b9e6"
+callees = [
+    "fn:02099b65ce05b715",
+    "fn:14091f710ec6ef61",
+    "fn:35ee60f3f4aafc09",
+    "fn:36fa75011896ea88",
+    "fn:3db586b2cf8a6349",
+    "fn:4a9caf9bb5f34034",
+    "fn:4e47885c89f349ef",
+    "fn:62243dbc2df769c1",
+    "fn:7ae5365da9853f32",
+    "fn:d54503dfdcd009eb",
+    "fn:d8fb0f7c0904bd6e",
+    "fn:f44faff67d698ff7",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:431508436b26811f"
+name = "stress_relaxation_follows_the_analytic_geometric_decay"
+qual = "stress_relaxation_follows_the_analytic_geometric_decay"
+lines = [
+    383,
+    428,
+]
+hash = "sha256:5990d5422b5a63afd7ca0dcbeb6a90063761c717cc8c03f07a3fc3098ce567ea"
+doc_hash = "sha256:eff81b32853517ebd602c250d3ffd81cbdddb8ecda65c3a9fc15c2aaa04dbfc3"
+callees = [
+    "fn:02099b65ce05b715",
+    "fn:14091f710ec6ef61",
+    "fn:35ee60f3f4aafc09",
+    "fn:36fa75011896ea88",
+    "fn:3aa693346b7affcb",
+    "fn:3db586b2cf8a6349",
+    "fn:4a9caf9bb5f34034",
+    "fn:4e47885c89f349ef",
+    "fn:62243dbc2df769c1",
+    "fn:7ae5365da9853f32",
+    "fn:d54503dfdcd009eb",
+    "fn:d8fb0f7c0904bd6e",
+    "fn:f44faff67d698ff7",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:c50c42b415b64777"
+name = "zero_timestep_produces_zero_creep_increment"
+qual = "zero_timestep_produces_zero_creep_increment"
+lines = [
+    434,
+    468,
+]
+hash = "sha256:b81886f3bcfda5f86364c15d35331e6b3cbac3be0fd1ff06c53bc9424535f047"
+doc_hash = "sha256:b87a9710797ffe813fb1ea050054391e0976641c548aad2fd41334cdb4f63c8c"
+callees = [
+    "fn:14091f710ec6ef61",
+    "fn:62243dbc2df769c1",
+    "fn:7ae5365da9853f32",
+    "fn:d54503dfdcd009eb",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:5baeeb487a51b6ce"
+name = "stress_relaxes_monotonically_to_a_deviatorically_stress_free_state"
+qual = "stress_relaxes_monotonically_to_a_deviatorically_stress_free_state"
+lines = [
+    470,
+    526,
+]
+hash = "sha256:aa37ad2e3305e5a0eb4721b0af7fadc275bb3af2f286311f85339919ad5d6354"
+doc_hash = "sha256:ed8b1ed13d6f807e76a809ed1d9fa366504520b66c967663658047aa6cc0819c"
+callees = [
+    "fn:02099b65ce05b715",
+    "fn:14091f710ec6ef61",
+    "fn:35ee60f3f4aafc09",
+    "fn:36fa75011896ea88",
+    "fn:3aa693346b7affcb",
+    "fn:3db586b2cf8a6349",
+    "fn:4a9caf9bb5f34034",
+    "fn:4e47885c89f349ef",
+    "fn:62243dbc2df769c1",
+    "fn:7ae5365da9853f32",
+    "fn:ab2667e5678838cb",
+    "fn:d54503dfdcd009eb",
+    "fn:f44faff67d698ff7",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d27e15ce0d86f8a7"
+name = "creep_is_volume_preserving"
+qual = "creep_is_volume_preserving"
+lines = [
+    528,
+    561,
+]
+hash = "sha256:bf0ab3dde901bed4e879859eb311c24154ce509060c47deb34e411b88ca68df0"
+doc_hash = "sha256:d8ef7b09438a1590e7922a0dff197586f2756df98a4d6d5e125b58337f5aac4e"
+callees = [
+    "fn:14091f710ec6ef61",
+    "fn:2ae038f03542083e",
+    "fn:35ee60f3f4aafc09",
+    "fn:3db586b2cf8a6349",
+    "fn:5542d71db464f60b",
+    "fn:62243dbc2df769c1",
+    "fn:7ae5365da9853f32",
+    "fn:adb6ff61789851e5",
+    "fn:c890c589041075da",
+    "fn:d54503dfdcd009eb",
+    "fn:f24f8ff07be74b55",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:78dae875698bf12e"
+name = "pwr_cladding_inputs"
+qual = "pwr_cladding_inputs"
+lines = [
+    567,
+    579,
+]
+hash = "sha256:aea192c04638af9ad1e1f5a67e7af12889b660e6a0ccfdb10949e7a02d7d4068"
+doc_hash = "sha256:735b2bbac8508c5aa6a1846d80d8a4939d40acdcb15583fc5da64dbb6b3df994"
+callees = [
+    "fn:3db586b2cf8a6349",
+    "fn:59fe5b1ed5211786",
+    "fn:6a9afad849696df9",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:027ba7f5265d8e53"
+name = "limback_irradiation_creep_scales_with_fast_flux"
+qual = "limback_irradiation_creep_scales_with_fast_flux"
+lines = [
+    581,
+    645,
+]
+hash = "sha256:74871313faae57893e8c9c6687c8626a1cdf19f8d5807f1dacc60fa995651c86"
+doc_hash = "sha256:bb99a610eec469fabb3c8f3089905f39c171f074747d87d01479b572d241efa7"
+callees = [
+    "fn:04946f71a8ea8a4c",
+    "fn:14091f710ec6ef61",
+    "fn:62243dbc2df769c1",
+    "fn:78dae875698bf12e",
+    "fn:d54503dfdcd009eb",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:c31f683377862e55"
+name = "limback_thermal_creep_is_temperature_activated"
+qual = "limback_thermal_creep_is_temperature_activated"
+lines = [
+    647,
+    695,
+]
+hash = "sha256:9ab375544587ca954f0915e0ed382870896469174547a0e74d98bf0df82e456c"
+doc_hash = "sha256:7654fe8c3b077c9f3ea91e30841ec55b3c8a2880db219f332c405da1b496d036"
+callees = [
+    "fn:04946f71a8ea8a4c",
+    "fn:78dae875698bf12e",
+    "fn:d54503dfdcd009eb",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:429a4873497e4579"
+name = "limback_constants_match_upstream"
+qual = "limback_constants_match_upstream"
+lines = [
+    697,
+    735,
+]
+hash = "sha256:19599d9e6b78930ac4193ca0196596f2c90baad6d92a5c4e1c1343b45673d81e"
+doc_hash = "sha256:6c7b41d63dfb68260d883b4bf6705b195e8949c91b7d7baa932b274bab9bb164"
+callees = [
+    "fn:0483be0a749ab458",
+    "fn:7a4f1e280dd9a9e3",
+    "fn:c0b409f81b17f45c",
+    "fn:e685ba3e4e54805e",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e5e03113fc428f06"
+name = "limback_refuses_a_temperature_where_its_modulus_fit_is_negative"
+qual = "limback_refuses_a_temperature_where_its_modulus_fit_is_negative"
+lines = [
+    737,
+    768,
+]
+hash = "sha256:8fd76d87ced56faafe13323c31182f1c1d1ddb4b7df127e0551d36ca45842d2f"
+doc_hash = "sha256:3420737d998e6e48d67ef762246c2e6aa9d396549addaae7759921f01c123f6b"
+callees = [
+    "fn:14091f710ec6ef61",
+    "fn:62243dbc2df769c1",
+    "fn:78dae875698bf12e",
+    "fn:d54503dfdcd009eb",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:8847201a2a90f090"
+name = "fuel_inputs"
+qual = "fuel_inputs"
+lines = [
+    774,
+    787,
+]
+hash = "sha256:435cf744bd0bdba3ef574608c33d4fb8665c30f189409d4ade41484b6a9c199f"
+doc_hash = "sha256:485a863626c3528fec6a35e600a10633c48b073a92471da816ab52008e5f5ed4"
+callees = [
+    "fn:3db586b2cf8a6349",
+    "fn:59fe5b1ed5211786",
+    "fn:6a9afad849696df9",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:235fa8eb0c5c1024"
+name = "matpro_fuel_creep_responds_to_temperature_fission_rate_and_grain_size"
+qual = "matpro_fuel_creep_responds_to_temperature_fission_rate_and_grain_size"
+lines = [
+    789,
+    854,
+]
+hash = "sha256:080e00846251e92b346aa2806c80be8782750cb168ec6c79d7e7c8d7227d4cfb"
+doc_hash = "sha256:5381a9aa72d2641c9b9b9c7d1376a3c2fbc9d5acec8989ffe3e167e362d22990"
+callees = [
+    "fn:14091f710ec6ef61",
+    "fn:62243dbc2df769c1",
+    "fn:8847201a2a90f090",
+    "fn:d54503dfdcd009eb",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:2dfdc45b0dae7bc4"
+name = "matpro_refuses_a_density_below_its_valid_range"
+qual = "matpro_refuses_a_density_below_its_valid_range"
+lines = [
+    856,
+    886,
+]
+hash = "sha256:2694ab9855c88adf0ec38db260e7f0a2d4f36221767a8e2bb385c53d31abd55b"
+doc_hash = "sha256:04c1f3762581b492c68657e3553c7bc859d49d0f86b21ae88517b376ff7924e8"
+callees = [
+    "fn:14091f710ec6ef61",
+    "fn:62243dbc2df769c1",
+    "fn:8847201a2a90f090",
+    "fn:d54503dfdcd009eb",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:5438073d7901eb54"
+name = "matpro_does_not_creep_an_unstressed_cell"
+qual = "matpro_does_not_creep_an_unstressed_cell"
+lines = [
+    888,
+    915,
+]
+hash = "sha256:ad0ef2ec5c4fa40ae68f22ed29e1d1ecc51bfc217af86abfb4cb5952fa662b01"
+doc_hash = "sha256:78e0cbd6485f2cf6f3e65c13dbb15f8ea0750c2d311b8d2c0aafe4a1e6d437dd"
+callees = [
+    "fn:14091f710ec6ef61",
+    "fn:8847201a2a90f090",
+    "fn:adb6ff61789851e5",
+    "fn:d54503dfdcd009eb",
+    "fn:f44faff67d698ff7",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b20bb09bd836982d"
+name = "hardening_curve_interpolates_linearly_and_holds_flat_outside"
+qual = "hardening_curve_interpolates_linearly_and_holds_flat_outside"
+lines = [
+    921,
+    944,
+]
+hash = "sha256:f0db19a64ebacdc199b6fd5fefe4971b31c9b27f323a55dc5a238c939dea21dd"
+doc_hash = "sha256:b512053e99395c68bec69d56fdf652b27bd5bd5b39bbef14e0d36743d6b3884d"
+callees = [
+    "fn:57a499f0efc0c178",
+    "fn:662c29e8258c2b23",
+    "fn:bf48dbda9dca4225",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:94ebcfb7256a6b73"
+name = "malformed_hardening_curves_are_rejected"
+qual = "malformed_hardening_curves_are_rejected"
+lines = [
+    946,
+    970,
+]
+hash = "sha256:d2bd84e89fc079a2a9ca7332103e785df6ca03c11c153885fd4f2d6375887dd9"
+doc_hash = "sha256:e268df3bfabdc9433a829fe098b87377654b718410c681258cb3a5a0d17a5f18"
+callees = ["fn:57a499f0efc0c178"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:fe8a46a124531ccb"
+name = "fraptran_yield_stress_hardens_with_fluence_and_softens_with_temperature"
+qual = "fraptran_yield_stress_hardens_with_fluence_and_softens_with_temperature"
+lines = [
+    972,
+    1018,
+]
+hash = "sha256:39557a789e7a084e5483f994ddb4afb8bc36c58ef0b6cf3f933125bd8cea8dd3"
+doc_hash = "sha256:9e5f0041179749290e5ffea124208f5625f61d00601df0327f94563c72e26526"
+callees = [
+    "fn:3d81597d1c137607",
+    "fn:3db586b2cf8a6349",
+    "fn:59fe5b1ed5211786",
+    "fn:62243dbc2df769c1",
+    "fn:6a9afad849696df9",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:91ee9b3e0476759e"
+name = "fraptran_refuses_a_temperature_above_its_fit"
+qual = "fraptran_refuses_a_temperature_above_its_fit"
+lines = [
+    1020,
+    1042,
+]
+hash = "sha256:ac897109ca10eca840dac250e111a7236aad029603e6d99ff5afc29ab8103149"
+doc_hash = "sha256:8aa7ac4eff9669fe31892ecdffe05f307adad8e088357e598997a2dda5402766"
+callees = [
+    "fn:3d81597d1c137607",
+    "fn:3db586b2cf8a6349",
+    "fn:59fe5b1ed5211786",
+    "fn:6a9afad849696df9",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:181c8a327d59c878"
+name = "advancing_the_state_accumulates_the_increment_exactly_once"
+qual = "advancing_the_state_accumulates_the_increment_exactly_once"
+lines = [
+    1048,
+    1088,
+]
+hash = "sha256:3408176e54bc54446c3cdf87cbc6ef6655b7b58e9d3e59a00bfb47ff9e983e82"
+doc_hash = "sha256:beef810a2741e6a9b5ad80347c9103b903c89b4e9544ef90487be9fa8b64bcb0"
+callees = [
+    "fn:14091f710ec6ef61",
+    "fn:18c969b0a7ecb95d",
+    "fn:2ae038f03542083e",
+    "fn:35ee60f3f4aafc09",
+    "fn:3aa693346b7affcb",
+    "fn:62243dbc2df769c1",
+    "fn:7ae5365da9853f32",
+    "fn:d54503dfdcd009eb",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:736fcc338c6ce4b5"
+name = "per_material_dispatch_applies_the_right_law_to_each_cell"
+qual = "per_material_dispatch_applies_the_right_law_to_each_cell"
+lines = [
+    1090,
+    1140,
+]
+hash = "sha256:a2dd1d405992f4ba6eabf4c262de688c4122f2187045bcaa6a8f0896dcaee17d"
+doc_hash = "sha256:5f944be789c471f2a5147071c41e1af85965474f59c0aa90b0c9c3ddc02e8f30"
+callees = [
+    "fn:0fd2ed156933c2a8",
+    "fn:62243dbc2df769c1",
+    "fn:786afc9ec1e759cf",
+    "fn:7ae5365da9853f32",
+    "fn:a568c39632262ba2",
+    "fn:b0e77fa65a0d34c4",
+    "fn:d54503dfdcd009eb",
+    "fn:d726e520ab849f57",
+    "fn:f44faff67d698ff7",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:3f0ec91289799ee1"
+name = "rheology_enum_dispatches_to_the_by_material_driver"
+qual = "rheology_enum_dispatches_to_the_by_material_driver"
+lines = [
+    1142,
+    1166,
+]
+hash = "sha256:45c7a64208b934cd5f3a0514b85eee39adaea0a9b0803fb7beb2e9a16d0fb90b"
+doc_hash = "sha256:e380322bb9e4744e268567c9b25cba9d0aea0b65dc7ec65ef399c24f9d97c7e9"
+callees = [
+    "fn:039f9cd95260fe67",
+    "fn:0fd2ed156933c2a8",
+    "fn:62243dbc2df769c1",
+    "fn:7ae5365da9853f32",
+    "fn:a568c39632262ba2",
+    "fn:d54503dfdcd009eb",
+    "fn:ea79385f08c645dd",
+    "fn:ee33b4b2f915a269",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b41411fc2d3836ce"
+name = "creep_time_step_control_inverts_the_increment_limits"
+qual = "creep_time_step_control_inverts_the_increment_limits"
+lines = [
+    1168,
+    1194,
+]
+hash = "sha256:d5244daeadaa1d75ae199450c38153bc3d15ca56815755184f707eba5248d026"
+doc_hash = "sha256:b6772d018471a4d9a0fec8ba195375d5174b76e3ea92310966882366ce346125"
+callees = [
+    "fn:136b62cf9a144f04",
+    "fn:6f20c13d8a89fabf",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:df45adce77b8503a"
+name = "creep_relaxes_stress_before_the_plastic_return_map_sees_it"
+qual = "creep_relaxes_stress_before_the_plastic_return_map_sees_it"
+lines = [
+    1196,
+    1242,
+]
+hash = "sha256:f6f3b5285b1f6d176508a741f697398d84b10302a1ec67c507bf58e642fb6d46"
+doc_hash = "sha256:ad9d04168b8ffdf6c654d20c4025124d553eac4b07c15f1423312f1d29aeff64"
+callees = [
+    "fn:14091f710ec6ef61",
+    "fn:35ee60f3f4aafc09",
+    "fn:62243dbc2df769c1",
+    "fn:7ae5365da9853f32",
+    "fn:a568c39632262ba2",
+    "fn:d54503dfdcd009eb",
+    "fn:f44faff67d698ff7",
+]
+test = true
+
+[module."yield_stress.rs"]
+path = "crate::rheology::yield_stress"
+
+[[module."yield_stress.rs".function]]
+id = "fn:57a499f0efc0c178"
+name = "new"
+qual = "HardeningCurve::new"
+lines = [
+    59,
+    123,
+]
+hash = "sha256:67818fa0a4006c45a4c730da3bacdac52c0d0b8a47423160744aceb2e26523de"
+doc_hash = "sha256:1d3338f811b1238aebb54e0b354b9f8858b6b3a2e7d5a57045d51b21015cf0cd"
+reached_by = [
+    "#17",
+    "#24",
+    "#30",
+    "#31",
+    "#42",
+]
+
+[[module."yield_stress.rs".function]]
+id = "fn:bf48dbda9dca4225"
+name = "yield_stress"
+qual = "HardeningCurve::yield_stress"
+lines = [
+    125,
+    146,
+]
+hash = "sha256:39c519797ef6fe09b84b0f4e822120e4f53d00a1c307fe57dbbbd00594856d1c"
+doc_hash = "sha256:fe5e92be4559bf0ab853f3f79e2e83abb99b4b941ca25749312dd28b026709a5"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."yield_stress.rs".function]]
+id = "fn:662c29e8258c2b23"
+name = "slope"
+qual = "HardeningCurve::slope"
+lines = [
+    148,
+    164,
+]
+hash = "sha256:db1194f66c1e3aae82675b79921629d81e6a563ddd1550bec915cbbdc7bd849a"
+doc_hash = "sha256:bdf944fcff32f71443940ae09a21839c1043eaf8a293f85c034d8f225125e075"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#24",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."yield_stress.rs".function]]
+id = "fn:3d81597d1c137607"
+name = "yield_stress"
+qual = "YieldStressModel::yield_stress"
+lines = [
+    232,
+    264,
+]
+hash = "sha256:ceee680537f5cd89db915dcfd9d8b87a2411c71eb0df6d50fac7abc6b7a499cc"
+doc_hash = "sha256:1efdf28682880bef3f4cad0a9e3d61466744ff9e2a9311001e06e6337673e8f0"
+callees = [
+    "fn:15eb0785d0481a4b",
+    "fn:b3823549d9bff325",
+    "fn:bf48dbda9dca4225",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."yield_stress.rs".function]]
+id = "fn:20a239a2ac287211"
+name = "hardening_modulus"
+qual = "YieldStressModel::hardening_modulus"
+lines = [
+    266,
+    288,
+]
+hash = "sha256:69d5d72f9c233091896186e10bd6262182a8d12a9d5f1bab8a9e37d23d74067e"
+doc_hash = "sha256:e055deb77f3ad1b472bef03b936bad01cebdf34eed0fc44aa50f2e63e4d5028d"
+callees = [
+    "fn:662c29e8258c2b23",
+    "fn:b3823549d9bff325",
+    "fn:f157c490b669e531",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."yield_stress.rs".function]]
+id = "fn:b3823549d9bff325"
+name = "new"
+qual = "FraptranCoefficients::new"
+lines = [
+    310,
+    420,
+]
+hash = "sha256:2dd16bf8b94a3babc1bd4562660fd106483ecfb6a7a5bb4670939c48ca95f526"
+doc_hash = "sha256:bf0ac450b47cc9dcf446999b0fd35d48d25c4779f8b1269c6cf822f6682701c9"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."yield_stress.rs".function]]
+id = "fn:15eb0785d0481a4b"
+name = "yield_stress"
+qual = "FraptranCoefficients::yield_stress"
+lines = [
+    422,
+    431,
+]
+hash = "sha256:b709d25c878572866f8e9ae2885720e0b38c9e957dcddb01dc8f0dba9a533c28"
+doc_hash = "sha256:714c0056eb8ab2ecfe23bd717f98d3b75e7ccde157b5acf2d9b4cb32713771e1"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."yield_stress.rs".function]]
+id = "fn:f157c490b669e531"
+name = "hardening_modulus"
+qual = "FraptranCoefficients::hardening_modulus"
+lines = [
+    433,
+    448,
+]
+hash = "sha256:1fabf112b3ee4bef1294edd04d23140e8ecdeb6ddd706e95a162c5894d87f5b4"
+doc_hash = "sha256:28b90eebb5c0d3af7ae2796141d631f4ecc0da882e5dd9d6c649d4236e4280da"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."yield_stress.rs".function]]
+id = "fn:5bbb9fef9bb765d7"
+name = "strain_rate_exponent"
+qual = "FraptranCoefficients::strain_rate_exponent"
+lines = [
+    450,
+    454,
+]
+hash = "sha256:4a9f07abc29065d3b64bff65a72eb8fdac9913cf30bde050a0c84d8b55ae7fd8"
+doc_hash = "sha256:6863c8cae75a9ae18da02ca030c875b687cf2c55546515c9af8a89600f2cf856"

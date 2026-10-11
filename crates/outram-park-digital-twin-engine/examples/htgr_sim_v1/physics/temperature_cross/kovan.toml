@@ -1,0 +1,1579 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/bedok_enthalpy_march.rs::a_crossed_htr10_profile_comes_back_cross_free",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/bedok_enthalpy_march.rs::a_healthy_profile_marches_to_the_same_steady_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/bedok_enthalpy_march.rs::an_unrepairable_exchanger_reports_rather_than_returning_a_crossed_profile",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/bedok_enthalpy_march.rs::bad_inputs_are_rejected_with_a_reason",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/bedok_enthalpy_march.rs::one_repair_costs_a_small_fraction_of_a_steam_generator_substep",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/bedok_enthalpy_march.rs::the_energy_discrepancy_is_computed_from_both_streams",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/bedok_enthalpy_march.rs::the_march_crosses_the_boiling_transition_without_zoning",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/bedok_enthalpy_march.rs::the_march_reproduces_the_analytic_counter_flow_solution",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/bedok_enthalpy_march.rs::the_repair_is_very_nearly_its_own_fixed_point",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/lmtd_profile.rs::a_hot_stream_below_saturation_yields_one_subcooled_zone",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/lmtd_profile.rs::a_supercritical_cold_side_is_refused_rather_than_zoned",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/lmtd_profile.rs::an_inverted_exchanger_is_refused",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/lmtd_profile.rs::the_energy_audit_is_computed_and_scales_with_the_stated_inventory",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/lmtd_profile.rs::the_lmtd_remedy_recovers_a_three_zone_profile_on_the_htr10_fixture",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/lmtd_profile.rs::the_lmtd_remedy_removes_the_cross_on_the_shared_fixture",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/lmtd_profile.rs::the_repaired_profile_keeps_the_counter_flow_orientation",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/lmtd_profile.rs::the_two_phase_zone_sits_exactly_on_the_if97_saturation_line",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/lmtd_profile.rs::two_phase_lmtd_and_effectiveness_ntu_are_the_same_equation",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/lmtd_profile.rs::unusable_inputs_are_rejected_as_bad_inputs",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/lmtd_profile.rs::zone_duties_and_conductances_close_on_their_balances",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/mod.rs::every_remedy_behaves_as_its_documentation_claims",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/mod.rs::the_default_remedy_repairs_nothing",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/mod.rs::the_detector_reports_the_worst_cross",
+]
+
+[module."bedok_enthalpy_march.rs"]
+path = "example:htgr_sim_v1::physics::temperature_cross::bedok_enthalpy_march"
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:a4c42c6d5f17bf9d"
+name = "report"
+qual = "EnthalpyMarchDiagnostics::report"
+lines = [
+    441,
+    460,
+]
+hash = "sha256:fdcbde3f10c86a3ed1f8ef73974021fdf0e1eb1a717cbbe7f9c76918ef4586e5"
+doc_hash = "sha256:17d89d573277650d0fd0e2e1a9b2ba99c5213ff6ce1eaf35ad7ef224fa0bdf2a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#21",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:ebd8ae5720a09f70"
+name = "repair"
+qual = "repair"
+lines = [
+    463,
+    494,
+]
+hash = "sha256:7807cd9111c145f7c9e68067a82a29b318e14335aa803b4ca628c0be43f3e3f3"
+doc_hash = "sha256:57163cad955c64bd10e4a614403c88e40d04b8b5107b71ec9071fbec151b6812"
+callees = ["fn:30c8e34f87ca7d91"]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#20",
+    "#21",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:30c8e34f87ca7d91"
+name = "repair_with_diagnostics"
+qual = "repair_with_diagnostics"
+lines = [
+    496,
+    573,
+]
+hash = "sha256:91537a48c3e5e44a2c22c981a2e09f3aec91776510f3afeaa2444976d033d877"
+doc_hash = "sha256:ee67f5b895943669f793af480d224604bd00adfb3c2d573423820351bf55c5de"
+callees = [
+    "fn:04df6f2b3b6de035",
+    "fn:0ff11c05ef604c71",
+    "fn:664cc6961e21c2a4",
+    "fn:a4c42c6d5f17bf9d",
+    "fn:ccd440da76dd092f",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#21",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:ccd440da76dd092f"
+name = "from_inputs"
+qual = "MarchContext::from_inputs"
+lines = [
+    629,
+    817,
+]
+hash = "sha256:86b7a6e22d5ce9301c3a5f799e866de6a812c48e58f77afbda1766eae468525c"
+doc_hash = "sha256:21fc905c8caf8360ff87ab98022ab6a767a26655f7da6375eb178a69f4dd5f54"
+callees = [
+    "fn:1ba64d29ffce9d30",
+    "fn:8a4f22fa5f5b628e",
+    "fn:93ea64b91e8738ff",
+    "fn:a034500d55b2a2be",
+    "fn:c163e9ad1c644298",
+    "fn:eff47085ca6952fe",
+    "fn:f09f00cc4fcef6cc",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#21",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:04df6f2b3b6de035"
+name = "quasi_steady_metal_temperature"
+qual = "quasi_steady_metal_temperature"
+lines = [
+    820,
+    830,
+]
+hash = "sha256:aec3200b318be787df45fc3337b18af62074feb104822fc96fea641706954b11"
+doc_hash = "sha256:5595b0f813dd0971ed06efcd366bcc679a9aa8f96869b67e0ae6d29a28b46d45"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#21",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:570631981ac0da12"
+name = "describe"
+qual = "MarchFailure::describe"
+lines = [
+    857,
+    868,
+]
+hash = "sha256:f31578bdc7c169e80a30c52ce8383634f59d00ca2f4a33de042ed08cbf99a412"
+doc_hash = "sha256:666a77a9d30d0e1730dc86837bfecc2a22665813f272830cf2acb9a8c5b56713"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#21",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:aa0575a0ec1353ad"
+name = "cold_temperature"
+qual = "cold_temperature"
+lines = [
+    889,
+    908,
+]
+hash = "sha256:016274eb950d6639f4e215547198fed00d882976b86f575eb2ba39cea2415f42"
+doc_hash = "sha256:e7666a0321a5b1814f471b69048a87e448802a43dfc7cd2225266eeca60a1df7"
+callees = ["fn:f09f00cc4fcef6cc"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#21",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:4b4d682f7aeaed00"
+name = "solve_node_power"
+qual = "solve_node_power"
+lines = [
+    910,
+    1006,
+]
+hash = "sha256:bd96580d91dbfaf7158d274ebefd1a0e95c9ecb038cc89adaa0b0df5066b8e91"
+doc_hash = "sha256:5bc7f42a1742f4ef8be3614dc4a58def172c6e63aa2b74810c0c271a78cd78de"
+callees = ["fn:aa0575a0ec1353ad"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#21",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:5b8f3a10eaea0680"
+name = "march"
+qual = "march"
+lines = [
+    1008,
+    1066,
+]
+hash = "sha256:d280c84f9183e15fe80b02945d3eee14246e12f8bd5258cdceb6701909e08576"
+doc_hash = "sha256:5cb23a55084840aa02ac9aae6b19edcb94f320b1afcab03b4ed6cc99faf13ac1"
+callees = [
+    "fn:4b4d682f7aeaed00",
+    "fn:aa0575a0ec1353ad",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#21",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:664cc6961e21c2a4"
+name = "shoot"
+qual = "shoot"
+lines = [
+    1068,
+    1227,
+]
+hash = "sha256:9d5c456aa28e93d1c554a76ac5f55d8c3c5a6b01c8fdbb04e5baa43905deeb07"
+doc_hash = "sha256:7ed4831500a32c068eb6f0f7fd6d6ed525b769f572ab5b2991a62a28c59957c5"
+callees = [
+    "fn:570631981ac0da12",
+    "fn:5b8f3a10eaea0680",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#21",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:0ff11c05ef604c71"
+name = "energy_discrepancy"
+qual = "energy_discrepancy"
+lines = [
+    1233,
+    1339,
+]
+hash = "sha256:f1dea41719886071080a9d8ead41be77e3833d41ac586339db9faf3972dc21e1"
+doc_hash = "sha256:41e43f92a02781bb20fc4d226c6a7efb6bb94de405fe28c89fe2febaf7a39327"
+callees = ["fn:a034500d55b2a2be"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#21",
+]
+physical_interface = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:ad2692522db9ccb3"
+name = "cold_pressure"
+qual = "cold_pressure"
+lines = [
+    1346,
+    1350,
+]
+hash = "sha256:d407e3ff599661117d4f2ae9e772e1a2f9678202d890e3a615538784c5c00b9f"
+doc_hash = "sha256:0ae9efca6d74e63d1885c257606b630f70cfae46994a7609ab72728a4224c924"
+test = true
+physical_interface = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:4e9b2fadf3351a31"
+name = "cold_enthalpy_at"
+qual = "cold_enthalpy_at"
+lines = [
+    1352,
+    1358,
+]
+hash = "sha256:ba27ef6e4350c87e525fcab844dbb699fc37b776d11aff0d414952565744c3c2"
+doc_hash = "sha256:6c32b4dcb5dbb124b61e7d2ac79b1cf2bae66eee801045f24c2cb1b0a723b153"
+callees = [
+    "fn:a034500d55b2a2be",
+    "fn:ad2692522db9ccb3",
+]
+test = true
+physical_interface = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:c2ff48c086b2a3e2"
+name = "htr10_inputs"
+qual = "htr10_inputs"
+lines = [
+    1360,
+    1400,
+]
+hash = "sha256:2d8fc4289b87523bee67507741c9a984f780892c5fbc3c7b4b01f7c4ab0c7be4"
+doc_hash = "sha256:1b50fbd297fe9b738fd1322462b33035cc4e767afc18d2d1a51ebbbf89a34824"
+callees = [
+    "fn:4e9b2fadf3351a31",
+    "fn:ad2692522db9ccb3",
+]
+test = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:fa86caefe1e919f6"
+name = "uncrossed_htr10"
+qual = "uncrossed_htr10"
+lines = [
+    1402,
+    1413,
+]
+hash = "sha256:6f67ac2e380acbcc7e662e5f56572dc872a1d08c281f0e01e3b75919ea1d3731"
+doc_hash = "sha256:97a8f14af2933ef37bf353bbcd247648f42eab82f26a9ec6a7e120d26aa6bd48"
+callees = [
+    "fn:ad2692522db9ccb3",
+    "fn:c2ff48c086b2a3e2",
+    "fn:eff47085ca6952fe",
+]
+test = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:dd359a0e6a072d53"
+name = "crossed_htr10"
+qual = "crossed_htr10"
+lines = [
+    1415,
+    1424,
+]
+hash = "sha256:d2158741978c29f8c69d5cb1a6092d486f05b98bcafee3356951cd1793b144c2"
+doc_hash = "sha256:973a31237e218068f48e39bfec96dadc1a6ae6123acae53d7b6bc284b9bef293"
+callees = [
+    "fn:ad2692522db9ccb3",
+    "fn:c2ff48c086b2a3e2",
+    "fn:eff47085ca6952fe",
+]
+test = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:84dbaaf4d2f616bf"
+name = "single_phase_case"
+qual = "single_phase_case"
+lines = [
+    1426,
+    1444,
+]
+hash = "sha256:1a68b0711f10e0c0a8e44d3371e51881f2411f4822f70c422b96178bd6ff3f05"
+doc_hash = "sha256:a6b05ce04681f8828092b07121f3c9433e10d79ac2c4069eb745b9925d7a3a79"
+callees = ["fn:c2ff48c086b2a3e2"]
+test = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:004cd6f28122709b"
+name = "worst_cross_margin_of"
+qual = "worst_cross_margin_of"
+lines = [
+    1446,
+    1461,
+]
+hash = "sha256:2e02c9c2c3a4e577f8c95daccf103d88262020410a188b9bae169e25675d5df9"
+doc_hash = "sha256:90f48002cecc6c2a9c4c8b9bc0122bd36ea44304fa3dc382210decf4a0383e4a"
+test = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:96fcc82d541216ae"
+name = "floored_worst_cross_of"
+qual = "floored_worst_cross_of"
+lines = [
+    1463,
+    1467,
+]
+hash = "sha256:e52a16835cefb45da61c84ac27b1742b6f80198b860cc7f9394e2f367f3f0e5c"
+doc_hash = "sha256:e3c3b8a3bbc931bd67fa26590c145b1374b056a11437b9b201df905984fa8cd6"
+callees = ["fn:004cd6f28122709b"]
+test = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:f92e23357bc985f1"
+name = "the_march_reproduces_the_analytic_counter_flow_solution"
+qual = "the_march_reproduces_the_analytic_counter_flow_solution"
+lines = [
+    1469,
+    1591,
+]
+hash = "sha256:61e461808291c1fa5dddf6517f86b82c3bcf8546c1ecd8957b7a0507c5fdcc01"
+doc_hash = "sha256:1f3b91357a6d1b3bdebc539c09d325d26e661153924a306296c4827fc4a8e0d0"
+callees = [
+    "fn:004cd6f28122709b",
+    "fn:30c8e34f87ca7d91",
+    "fn:84dbaaf4d2f616bf",
+    "fn:a4c42c6d5f17bf9d",
+    "fn:ad2692522db9ccb3",
+    "fn:cf1e6f5330854405",
+    "fn:f09f00cc4fcef6cc",
+]
+test = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:54c3e7a497bc05b7"
+name = "a_crossed_htr10_profile_comes_back_cross_free"
+qual = "a_crossed_htr10_profile_comes_back_cross_free"
+lines = [
+    1593,
+    1687,
+]
+hash = "sha256:556d817527d1b3f2e39a8396af1048d39638ab8dffcee304f8297eacde544a96"
+doc_hash = "sha256:62d79554c0e35ba9468008f886b35da41c5bd6455d86ea95072e073487bfe1e9"
+callees = [
+    "fn:004cd6f28122709b",
+    "fn:30c8e34f87ca7d91",
+    "fn:96fcc82d541216ae",
+    "fn:a4c42c6d5f17bf9d",
+    "fn:b41970881ea681bd",
+    "fn:dd359a0e6a072d53",
+]
+test = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:d2565831e8a61e89"
+name = "the_march_crosses_the_boiling_transition_without_zoning"
+qual = "the_march_crosses_the_boiling_transition_without_zoning"
+lines = [
+    1689,
+    1745,
+]
+hash = "sha256:45db28c9eb7734801ab707ecd6c37d0803c48474124a3fd0868ca3eac499886a"
+doc_hash = "sha256:4369255982c315d770be6a24aa8ab3f786efbb236a7c0673a1a747007728cd88"
+callees = [
+    "fn:30c8e34f87ca7d91",
+    "fn:ad2692522db9ccb3",
+    "fn:dd359a0e6a072d53",
+    "fn:eff47085ca6952fe",
+]
+test = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:bd35c35aa0702c4c"
+name = "the_repair_is_very_nearly_its_own_fixed_point"
+qual = "the_repair_is_very_nearly_its_own_fixed_point"
+lines = [
+    1747,
+    1826,
+]
+hash = "sha256:5d3359cdb78b1cc0eb867a9a44767a47d90357b29885cf4cf1b114b94459e827"
+doc_hash = "sha256:aa451ae1d30cb56bba32a2bd70253f774328a5bcaad72fb166264a4cb3401fe8"
+callees = [
+    "fn:30c8e34f87ca7d91",
+    "fn:dd359a0e6a072d53",
+]
+test = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:8f032c218e24c17d"
+name = "the_energy_discrepancy_is_computed_from_both_streams"
+qual = "the_energy_discrepancy_is_computed_from_both_streams"
+lines = [
+    1828,
+    1965,
+]
+hash = "sha256:dbbfac8c8abf1ba2d3655c03ce77253473115402111c0c3806211f0f11c3c7b5"
+doc_hash = "sha256:927d5b73f8d749b6622945e6a32549c4ae09a0d688aa7bffe239843bc41ab116"
+callees = [
+    "fn:30c8e34f87ca7d91",
+    "fn:84dbaaf4d2f616bf",
+    "fn:a034500d55b2a2be",
+    "fn:ad2692522db9ccb3",
+    "fn:dd359a0e6a072d53",
+    "fn:f09f00cc4fcef6cc",
+]
+test = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:3617d25f7f23a428"
+name = "an_unrepairable_exchanger_reports_rather_than_returning_a_crossed_profile"
+qual = "an_unrepairable_exchanger_reports_rather_than_returning_a_crossed_profile"
+lines = [
+    1967,
+    2006,
+]
+hash = "sha256:7f9c8292649cf413b1fab4716f3845fd6e6fd95ed8361469037b24cd367b655c"
+doc_hash = "sha256:d655f16574c9136220bdc8aef328e1a34003fa91526e09c3e4fe15d0bf08ea4f"
+callees = [
+    "fn:dd359a0e6a072d53",
+    "fn:ebd8ae5720a09f70",
+]
+test = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:4d61099b407bd219"
+name = "bad_inputs_are_rejected_with_a_reason"
+qual = "bad_inputs_are_rejected_with_a_reason"
+lines = [
+    2008,
+    2056,
+]
+hash = "sha256:eba21158c35fca5ef142112ddd68a2933488e6e59cf5626c85ff0679b3fcea79"
+doc_hash = "sha256:04ff31f37a6253907eee2123cc2a5a92d1a875de39eadc04755d7f100945d495"
+callees = [
+    "fn:dd359a0e6a072d53",
+    "fn:ebd8ae5720a09f70",
+]
+test = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:8670584833a656b4"
+name = "one_repair_costs_a_small_fraction_of_a_steam_generator_substep"
+qual = "one_repair_costs_a_small_fraction_of_a_steam_generator_substep"
+lines = [
+    2058,
+    2109,
+]
+hash = "sha256:b7f73f81dcff931ab53f4f3f08601cdea906c640154fe67e6a47b51d09556b3a"
+doc_hash = "sha256:53b67c3167c79939cf48e23561f36b0d1391de4a29a0cf4fb43a5ce139db3fcf"
+callees = [
+    "fn:dd359a0e6a072d53",
+    "fn:ebd8ae5720a09f70",
+]
+test = true
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:00a945602859ffc5"
+name = "a_healthy_profile_marches_to_the_same_steady_state"
+qual = "a_healthy_profile_marches_to_the_same_steady_state"
+lines = [
+    2111,
+    2169,
+]
+hash = "sha256:54708f7302d460b46031f983437752042030b309a01e5912d9eaa3a80c20dd08"
+doc_hash = "sha256:081f8d4b7025c442f5a6d4c484b7dd99566e908f034ed6aada82a46e56419a32"
+callees = [
+    "fn:004cd6f28122709b",
+    "fn:30c8e34f87ca7d91",
+    "fn:dd359a0e6a072d53",
+    "fn:fa86caefe1e919f6",
+]
+test = true
+
+[module."lmtd_profile.rs"]
+path = "example:htgr_sim_v1::physics::temperature_cross::lmtd_profile"
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:37b28a28c8e71947"
+name = "repair"
+qual = "repair"
+lines = [
+    231,
+    297,
+]
+hash = "sha256:673c364193665f0aea7870e52395f94e29c9411e693a32e32aabb7847b8082d2"
+doc_hash = "sha256:cf2fe5c0c2aac7497ff0f48f194bd78beef80d1370951db2b9aa90b8dd22789e"
+callees = [
+    "fn:18d848429af2a92a",
+    "fn:25558ca2b8f5d651",
+    "fn:35f9a3feee0983c5",
+    "fn:7160f624f2e59c55",
+    "fn:88bf37d658d47df4",
+    "fn:c515a9bf601391df",
+    "fn:d1ed1d23cae0e287",
+    "fn:e6a7cbed0e4c45d8",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#18",
+    "#20",
+    "#21",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:d1ed1d23cae0e287"
+name = "worst_cross_kelvin"
+qual = "worst_cross_kelvin"
+lines = [
+    299,
+    308,
+]
+hash = "sha256:635f399f9c857e12b07458fe4e9c605a8a89972323c98cfa9bb0e8d6b4061dac"
+doc_hash = "sha256:8f26c22e5ec9263d1c8a1474e0c78163561b64ea0c41eaf0bea92c442899dce9"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#18",
+    "#20",
+    "#21",
+]
+physical_interface = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:c515a9bf601391df"
+name = "validate"
+qual = "validate"
+lines = [
+    310,
+    390,
+]
+hash = "sha256:37369f11f116390317e634e456fe2e8616fc424282390b7485fefe41aa4d56b1"
+doc_hash = "sha256:e2b293a0585700f4fd33589b3b91ef63e762d7a65f11e9a39f6fac2303a68c8d"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:35f9a3feee0983c5"
+name = "at"
+qual = "ColdSaturation::at"
+lines = [
+    411,
+    455,
+]
+hash = "sha256:24aa2b5ae9d3709a96aa7a424d107b6502c20608b89e359b2d8f51f9198df330"
+doc_hash = "sha256:121d64ef8cda9703a1f027bb5ef01b724b01fc90528aef475a074b1c65b4c5e3"
+callees = [
+    "fn:170287b28dbbe20d",
+    "fn:78e2c88468989a4c",
+    "fn:a9d9e8c971318dc0",
+    "fn:c365ffcc3efa433e",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+physical_interface = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:88bf37d658d47df4"
+name = "build"
+qual = "SolveContext::build"
+lines = [
+    492,
+    564,
+]
+hash = "sha256:0296d280ea0f289cde9fddab1d2858d85700a13dab1f76791ba82a9e9c7e90af"
+doc_hash = "sha256:2e2f3380133f9d2e699dce2e0041f91013365aaae858e85cbc7e01ed79318266"
+callees = [
+    "fn:07ba5cae0b1eb3e2",
+    "fn:112507c39b6593b4",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:2af18a33e5b590d8"
+name = "cold_pressure"
+qual = "SolveContext::cold_pressure"
+lines = [
+    566,
+    569,
+]
+hash = "sha256:441d553a5bcd1a44ee6af0be601033d59124518032d78584aed27316434acf75"
+doc_hash = "sha256:e6c9ab7dcb766bb158efdfa269e19e851e4bbd5443d6148291afaf525717f4ab"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+physical_interface = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:6ad2077ac5310fac"
+name = "label"
+qual = "ZoneKind::label"
+lines = [
+    587,
+    594,
+]
+hash = "sha256:04ab8698666e93e27c8bd455e632d61d486a2c8e75ed5eb7af415ab9496c0271"
+doc_hash = "sha256:64ef725c58f764edef6248f68d879f7705e7a9e2be4d6ada6d61eb7029a143b0"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:25bb5b3f0cfbd7e0"
+name = "live"
+qual = "ZoneSet::live"
+lines = [
+    643,
+    646,
+]
+hash = "sha256:eccb0326deba5634cdcf7b132c6c19b9c49ec70d042a8d8949c5dd9e9196628a"
+doc_hash = "sha256:598df5b124180f03b8e8e6552e7cc712e20ba65e1decffa53bfd00225080f76d"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:18d848429af2a92a"
+name = "describe"
+qual = "ZoneSet::describe"
+lines = [
+    648,
+    659,
+]
+hash = "sha256:745fa92457a7807f7677ffe17fc02ba0da7a43d54de80c618d54a6bcba7c63ad"
+doc_hash = "sha256:f1cbb2846840881e3a06578928652f7d004972d0b7f9b38528711a250c59b93b"
+callees = [
+    "fn:25bb5b3f0cfbd7e0",
+    "fn:6ad2077ac5310fac",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:112507c39b6593b4"
+name = "cold_temperature_kelvin"
+qual = "cold_temperature_kelvin"
+lines = [
+    662,
+    679,
+]
+hash = "sha256:cca9a83fcb098b8bb1afa86664bf8698016478c932d8416895fcc6742ee89550"
+doc_hash = "sha256:7200de2faa069713db3d4b0f5ca276ef3201f4dbec32315cba579c374abdc6fc"
+callees = ["fn:3ce84ed46805ebb4"]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+physical_interface = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:f20b3d4fd9d761e1"
+name = "hot_specific_heat_j_per_kg_k"
+qual = "hot_specific_heat_j_per_kg_k"
+lines = [
+    681,
+    697,
+]
+hash = "sha256:62694922884f6c970595a31543386909d04cf636811bc6a65472d86cd9d15e0b"
+doc_hash = "sha256:335cfa5e4ef40345754b0634ba71f71b6bae9e5f7b23195eafee4e14c53e12ba"
+callees = ["fn:a9e5181d9a48d7b4"]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:ad3e28231101d809"
+name = "hot_specific_enthalpy_j_per_kg"
+qual = "hot_specific_enthalpy_j_per_kg"
+lines = [
+    699,
+    714,
+]
+hash = "sha256:d1d9128d07ce3f68afbff648d3a41fefc1b65d0462fc7eed2e93aa0eea0c7618"
+doc_hash = "sha256:9fd1c88d8b43d836ce0b97d5f4fd1d09ffa7e1e1087e6f490006994039103f37"
+callees = ["fn:a9e5181d9a48d7b4"]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:5f28e26cd12b0ad0"
+name = "zone_lmtd_kelvin"
+qual = "zone_lmtd_kelvin"
+lines = [
+    716,
+    745,
+]
+hash = "sha256:0acde23d41659e3825ff5f1c6c8994720bc9a1348a4417c0be0e4a7855761085"
+doc_hash = "sha256:c9f10f8508a397b1bc9935c872690a868e809e40bfcc4a99f264011cf4f7a323"
+callees = ["fn:5a330c58f581ce03"]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:8b91cc0028d3f543"
+name = "zones_at_duty"
+qual = "zones_at_duty"
+lines = [
+    747,
+    857,
+]
+hash = "sha256:66e768e54df6ead88c935a278c597a510b795832d73d90d0037b89965c2c30bc"
+doc_hash = "sha256:64607cbe38e4f9ce48a69f8248985052410ce8258db60cab6a9425fea957b796"
+callees = [
+    "fn:112507c39b6593b4",
+    "fn:2af18a33e5b590d8",
+    "fn:5f28e26cd12b0ad0",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:e6a7cbed0e4c45d8"
+name = "solve_duty"
+qual = "solve_duty"
+lines = [
+    859,
+    903,
+]
+hash = "sha256:f2dfdfa7906d795b77161d682b162b8f67b940e5060c4e80338fbbb9e2495dfe"
+doc_hash = "sha256:d97bc7e285582144b19e20e4cafd217e7e59d58e14b62ceefded3dfaabbcc8fc"
+callees = [
+    "fn:8121b3ae6fcfa2ea",
+    "fn:f20b3d4fd9d761e1",
+    "fn:f97ae677d2d269ba",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:8121b3ae6fcfa2ea"
+name = "secant_hot_capacity_rate"
+qual = "secant_hot_capacity_rate"
+lines = [
+    905,
+    923,
+]
+hash = "sha256:31d68645dd85f68e87da6cac05a7e139c2358d8a0a0aa9a885b5e4b41065df0b"
+doc_hash = "sha256:f2104cf6b65a793e4947b96689029c7a4e9c1126d118e53b5bd35eaa8edf334a"
+callees = ["fn:ad3e28231101d809"]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:f97ae677d2d269ba"
+name = "bisect_duty"
+qual = "bisect_duty"
+lines = [
+    925,
+    981,
+]
+hash = "sha256:c4befaf7e0626c53ab5d38a5196e1433d14e2431363f627d2cecdadc9d34ddbd"
+doc_hash = "sha256:67e714c2f31ad53dfef72f7d830473e2665449b4d1f36e85bab7b106dd6d540e"
+callees = ["fn:8b91cc0028d3f543"]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:7160f624f2e59c55"
+name = "rebuild_profiles"
+qual = "rebuild_profiles"
+lines = [
+    983,
+    1082,
+]
+hash = "sha256:76e9c9202b525dde99b28a924bde8455bde50f76a20bcbe43707b756fe11dc26"
+doc_hash = "sha256:32dba0c2cf6ac35f64186ae3a2655113986c4c4aa6a247ba0aba7cf4a7cff60e"
+callees = [
+    "fn:112507c39b6593b4",
+    "fn:25bb5b3f0cfbd7e0",
+    "fn:2af18a33e5b590d8",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#18",
+    "#20",
+    "#21",
+]
+physical_interface = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:f5662a9f33ab64ca"
+name = "cold_audit_enthalpy_j_per_kg"
+qual = "cold_audit_enthalpy_j_per_kg"
+lines = [
+    1084,
+    1110,
+]
+hash = "sha256:a25bbf3bc5b8e5583cc7bfeeef67922b52b93fd5e321824bd974f29199c578ea"
+doc_hash = "sha256:92d3d62f97b9385491f7c9dd85d4afc6b772eb71c7c4c8559d3d9cdbe4102efa"
+callees = ["fn:07ba5cae0b1eb3e2"]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#18",
+    "#20",
+    "#21",
+]
+physical_interface = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:25558ca2b8f5d651"
+name = "audit_energy_discrepancy"
+qual = "audit_energy_discrepancy"
+lines = [
+    1112,
+    1194,
+]
+hash = "sha256:ceb1505477c085603f6c6257ec1e463d8a2081ff0fd44d576d8a77dec1dd0e5b"
+doc_hash = "sha256:78c67283a6ef387874899d7f9af711ba3886dabe66bd81082a534c59d5544602"
+callees = [
+    "fn:ad3e28231101d809",
+    "fn:f5662a9f33ab64ca",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#18",
+    "#20",
+    "#21",
+]
+physical_interface = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:29dec1f2665b8d30"
+name = "k"
+qual = "k"
+lines = [
+    1207,
+    1210,
+]
+hash = "sha256:bb31ad5a203fb3c630a821cbc57c21e22bfec1bc888493c30060194387fa1816"
+doc_hash = "sha256:8bec76165482fe085812e65d14edc591e857accba2fdc02d3a99a0376ea999fa"
+test = true
+physical_interface = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:8389aa252d2700c3"
+name = "wk"
+qual = "wk"
+lines = [
+    1212,
+    1215,
+]
+hash = "sha256:cd5dec6c84cb2cecfb83052874383b728abf4a1a712c41bc31d017521f7442ef"
+doc_hash = "sha256:d1e5399729ee226d5d4459cef2f1a559c600a69eee87e9b0d51843abc5feec15"
+test = true
+physical_interface = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:5f08a710cba33770"
+name = "crossed_inputs"
+qual = "crossed_inputs"
+lines = [
+    1217,
+    1237,
+]
+hash = "sha256:aeb83953d499ddeeb7982987c2c4ced0929b0372c5f9364b4daa5ee466480e76"
+doc_hash = "sha256:9a8c3becf4080ac07659a1d1fe244bf3120042f7377cd8a6d24346f0798c417c"
+callees = [
+    "fn:29dec1f2665b8d30",
+    "fn:8389aa252d2700c3",
+]
+test = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:003d927e454f0d34"
+name = "htr10_like_crossed_inputs"
+qual = "htr10_like_crossed_inputs"
+lines = [
+    1239,
+    1278,
+]
+hash = "sha256:d16c93967b4168a96203dc49a6693d542e5c7613819bc3f8f1a428d93ab46780"
+doc_hash = "sha256:27f6189ad707cd7844e692800e56420c86b0373dbb6069034d08b8697e41e450"
+callees = [
+    "fn:07ba5cae0b1eb3e2",
+    "fn:29dec1f2665b8d30",
+    "fn:8389aa252d2700c3",
+]
+test = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:db30ea3c80e7c28e"
+name = "the_lmtd_remedy_removes_the_cross_on_the_shared_fixture"
+qual = "the_lmtd_remedy_removes_the_cross_on_the_shared_fixture"
+lines = [
+    1280,
+    1366,
+]
+hash = "sha256:4516f60b5c9bde0469d0624e94f5e01a1c08f5191cc5a74bbc3cd465ebe947f2"
+doc_hash = "sha256:e2357457958d153516a093efeb44c2470882fe963f1173cb876445ab1d507af0"
+callees = [
+    "fn:18d848429af2a92a",
+    "fn:35f9a3feee0983c5",
+    "fn:37b28a28c8e71947",
+    "fn:5f08a710cba33770",
+    "fn:88bf37d658d47df4",
+    "fn:b41970881ea681bd",
+    "fn:c515a9bf601391df",
+    "fn:d1ed1d23cae0e287",
+    "fn:e6a7cbed0e4c45d8",
+]
+test = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:b23f6f27c49f6ce2"
+name = "the_lmtd_remedy_recovers_a_three_zone_profile_on_the_htr10_fixture"
+qual = "the_lmtd_remedy_recovers_a_three_zone_profile_on_the_htr10_fixture"
+lines = [
+    1368,
+    1478,
+]
+hash = "sha256:a69222b894e02da3f6965162167595e8face6d7a067e7fa35d5e6f7ea4c0a67d"
+doc_hash = "sha256:72d0f39f61fbbfe0c6b488fb12fdba3c6dd5572808c4f82afb37a2797298ff4f"
+callees = [
+    "fn:003d927e454f0d34",
+    "fn:37b28a28c8e71947",
+    "fn:b41970881ea681bd",
+    "fn:d1ed1d23cae0e287",
+]
+test = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:153866a8b0f10b86"
+name = "two_phase_lmtd_and_effectiveness_ntu_are_the_same_equation"
+qual = "two_phase_lmtd_and_effectiveness_ntu_are_the_same_equation"
+lines = [
+    1480,
+    1562,
+]
+hash = "sha256:d6983d85bf018556acbc11892197891bfa232f873fd41c341a075897e1d3a9d8"
+doc_hash = "sha256:b936877380051fb4889a932fe3583e7d62e3bdb1419f4c9a419c3708a4ca30a8"
+callees = [
+    "fn:5f28e26cd12b0ad0",
+    "fn:8389aa252d2700c3",
+    "fn:c5d54a599a483d94",
+    "fn:d1334b89e2f75402",
+]
+test = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:503d113bb11ac20c"
+name = "zone_duties_and_conductances_close_on_their_balances"
+qual = "zone_duties_and_conductances_close_on_their_balances"
+lines = [
+    1564,
+    1629,
+]
+hash = "sha256:721eab564eee5406775d0886af66321edebf94888e59c25750cf5d2840e173d1"
+doc_hash = "sha256:cea65cf61074c98a72bd2dd38ac4ccc5022bd924d1ed4373e34a37666a22c9eb"
+callees = [
+    "fn:003d927e454f0d34",
+    "fn:18d848429af2a92a",
+    "fn:25bb5b3f0cfbd7e0",
+    "fn:35f9a3feee0983c5",
+    "fn:6ad2077ac5310fac",
+    "fn:88bf37d658d47df4",
+    "fn:c515a9bf601391df",
+    "fn:e6a7cbed0e4c45d8",
+]
+test = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:4bb56226cb5d3419"
+name = "the_two_phase_zone_sits_exactly_on_the_if97_saturation_line"
+qual = "the_two_phase_zone_sits_exactly_on_the_if97_saturation_line"
+lines = [
+    1631,
+    1695,
+]
+hash = "sha256:29c981d2b660110335d8c262adf18394ad8717282aa4bf70015a3e933e7868d5"
+doc_hash = "sha256:79cad7d1dc69d5a8f37990d79143112eae1dabed5c485fa4f3b2b137a263c2cc"
+callees = [
+    "fn:003d927e454f0d34",
+    "fn:25bb5b3f0cfbd7e0",
+    "fn:35f9a3feee0983c5",
+    "fn:88bf37d658d47df4",
+    "fn:c515a9bf601391df",
+    "fn:e6a7cbed0e4c45d8",
+]
+test = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:7786c02597efce60"
+name = "a_hot_stream_below_saturation_yields_one_subcooled_zone"
+qual = "a_hot_stream_below_saturation_yields_one_subcooled_zone"
+lines = [
+    1697,
+    1749,
+]
+hash = "sha256:8a4f810e75440e9c0614736f3b610999ba67525605f35078d272b1ce02a9c6b3"
+doc_hash = "sha256:bb07ee1b1a2c08e8c5f66617a3da0a6aae6f2bc8f512d62d4d3f1eb798f1f5e1"
+callees = [
+    "fn:18d848429af2a92a",
+    "fn:25bb5b3f0cfbd7e0",
+    "fn:29dec1f2665b8d30",
+    "fn:35f9a3feee0983c5",
+    "fn:37b28a28c8e71947",
+    "fn:5f08a710cba33770",
+    "fn:88bf37d658d47df4",
+    "fn:c515a9bf601391df",
+    "fn:d1ed1d23cae0e287",
+    "fn:e6a7cbed0e4c45d8",
+]
+test = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:0e74a653740b2a8a"
+name = "a_supercritical_cold_side_is_refused_rather_than_zoned"
+qual = "a_supercritical_cold_side_is_refused_rather_than_zoned"
+lines = [
+    1751,
+    1777,
+]
+hash = "sha256:e05d0271670a98930ceee54d9672d4af03adb2915995fd6bc8315fe4179e0432"
+doc_hash = "sha256:9affadc82e6ca306aa1f541b42a28e2ee6f840a56f5ec8134b229905fcfd111f"
+callees = [
+    "fn:37b28a28c8e71947",
+    "fn:5f08a710cba33770",
+]
+test = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:8b0580a4914d6e09"
+name = "unusable_inputs_are_rejected_as_bad_inputs"
+qual = "unusable_inputs_are_rejected_as_bad_inputs"
+lines = [
+    1779,
+    1819,
+]
+hash = "sha256:2d299390a7d4f532be1fed12f63fecf8b57c0862cfda88141a90836ac236a853"
+doc_hash = "sha256:76de2646f738d76a2c08d1f0a28c558f80ef9b56dea2f8e49d0e93f075058d58"
+callees = [
+    "fn:37b28a28c8e71947",
+    "fn:5f08a710cba33770",
+]
+test = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:10b31e09e2b70ed4"
+name = "an_inverted_exchanger_is_refused"
+qual = "an_inverted_exchanger_is_refused"
+lines = [
+    1821,
+    1845,
+]
+hash = "sha256:11f2a368226518d4bbbafacf38885a6c25ca062b30663d93a2b357e503e5a2f7"
+doc_hash = "sha256:ae02cc2aafefd7246b6e7cdd7d85230e01630976bd658ea7d0530263586dc662"
+callees = [
+    "fn:29dec1f2665b8d30",
+    "fn:37b28a28c8e71947",
+    "fn:5f08a710cba33770",
+]
+test = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:594561225498a5a5"
+name = "the_energy_audit_is_computed_and_scales_with_the_stated_inventory"
+qual = "the_energy_audit_is_computed_and_scales_with_the_stated_inventory"
+lines = [
+    1847,
+    1912,
+]
+hash = "sha256:5718be8a2d25ced29ecabc9e18877fcebb519eeaa90ae5ddb5a7b31cbecdecb4"
+doc_hash = "sha256:d4dc7c5445218e1512b1b632fa11e3561921ffa2ca955086c9e600a1b955b547"
+callees = [
+    "fn:003d927e454f0d34",
+    "fn:25558ca2b8f5d651",
+    "fn:35f9a3feee0983c5",
+    "fn:37b28a28c8e71947",
+]
+test = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:6a5ebf759b5afefd"
+name = "the_repaired_profile_keeps_the_counter_flow_orientation"
+qual = "the_repaired_profile_keeps_the_counter_flow_orientation"
+lines = [
+    1914,
+    1965,
+]
+hash = "sha256:0fe1eb04667fa150c6cb1356b8d710e153834c00cfa987649c03bd01a326ab6a"
+doc_hash = "sha256:1e942adabd47b3b38e40d917b852e99bc3cb70b11a7fe652cfb87645850ea704"
+callees = [
+    "fn:003d927e454f0d34",
+    "fn:112507c39b6593b4",
+    "fn:37b28a28c8e71947",
+]
+test = true
+
+[module."mod.rs"]
+path = "example:htgr_sim_v1::physics::temperature_cross"
+
+[[module."mod.rs".function]]
+id = "fn:8a4f22fa5f5b628e"
+name = "node_count"
+qual = "CrossRepairInputs::node_count"
+lines = [
+    226,
+    229,
+]
+hash = "sha256:134695bcce712fd0431f469231a14bdb60e31f127a41cb276cf371ad9e522fcf"
+doc_hash = "sha256:3dc6bd4301bf818a527f22cef8320a612f7578b4e279e194e7b7402fd83d6b9e"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b41970881ea681bd"
+name = "worst_cross_kelvin"
+qual = "CrossRepairInputs::worst_cross_kelvin"
+lines = [
+    231,
+    242,
+]
+hash = "sha256:509155cf5b2df9541865ea99d7d480cc6376daa81ab32710e91bd694df3c950c"
+doc_hash = "sha256:b6d30b40157c016f2186c9766d209073b43203f3c1168899c9833c452fab40fa"
+reached_by = [
+    "#0",
+    "#13",
+    "#14",
+    "#20",
+    "#22",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4ef65d9dab730cda"
+name = "fmt"
+qual = "CrossRepairError::fmt"
+lines = [
+    284,
+    294,
+]
+hash = "sha256:0acd7c300e341de1bec41566e97569837760c915815010385656d5a132d59004"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:d404f312401df6eb"
+name = "apply"
+qual = "TemperatureCrossRemedy::apply"
+lines = [
+    298,
+    319,
+]
+hash = "sha256:8b0ec69b6e963528aac49f8de84517c875b587895fc7a7a23893667020b105a7"
+doc_hash = "sha256:8e254d291e56fe73f74bf3db20ea36705456aa988e5be8d5363c795883c0b579"
+callees = [
+    "fn:37b28a28c8e71947",
+    "fn:ebd8ae5720a09f70",
+]
+reached_by = [
+    "#20",
+    "#21",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6f96c04643c07683"
+name = "label"
+qual = "TemperatureCrossRemedy::label"
+lines = [
+    321,
+    328,
+]
+hash = "sha256:f3195bd99a1ea632dd65dd44aaf937010206d9baffc00d5b9f37929490ee5716"
+doc_hash = "sha256:7e5ce2bdb0f653d9665cc9488c88c7dd3fba465a548d4044f96f901571dcd453"
+reached_by = ["#20"]
+
+[[module."mod.rs".function]]
+id = "fn:2bddb5d473cf6d36"
+name = "crossed_inputs"
+qual = "crossed_inputs"
+lines = [
+    340,
+    360,
+]
+hash = "sha256:7d8c13f2079ea0a13e4197efa3d1d13b3367a86bbedad0f51f11de92faf56589"
+doc_hash = "sha256:1ce47fdbf3e7156524b44d7234e10bcef15211c22206483e01efa3e0dadb7c2c"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:0aa8f5143340e621"
+name = "the_detector_reports_the_worst_cross"
+qual = "the_detector_reports_the_worst_cross"
+lines = [
+    362,
+    376,
+]
+hash = "sha256:237ff4f766bbdd0d2cab53e551d47205ec068d3fe81830b8421f3d2fdb4af3e9"
+doc_hash = "sha256:f919fc345eee35691347212b73c1c9a2b12ea5caef91b0f6b4822493ebd156d5"
+callees = [
+    "fn:2bddb5d473cf6d36",
+    "fn:8a4f22fa5f5b628e",
+    "fn:b41970881ea681bd",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:74dd99e606ec63b6"
+name = "the_default_remedy_repairs_nothing"
+qual = "the_default_remedy_repairs_nothing"
+lines = [
+    378,
+    397,
+]
+hash = "sha256:c6fdb049af885fa5e208538f5aa1f539c79e4539cf2ba5934c728717c136a3d9"
+doc_hash = "sha256:f72336bf97ec372a8a8feea9a6c45cd350346d82c4bebf5c88b99ae7174a3f50"
+callees = [
+    "fn:2bddb5d473cf6d36",
+    "fn:d404f312401df6eb",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:c4ac3c94f8618b66"
+name = "every_remedy_behaves_as_its_documentation_claims"
+qual = "every_remedy_behaves_as_its_documentation_claims"
+lines = [
+    399,
+    449,
+]
+hash = "sha256:21f03fb4d9a54711854796d79b5cb35b3b096e1bf3cede419d8c1c1df7af90a9"
+doc_hash = "sha256:4193efd5a48b200eff155efd0afb8042937c87606d501ca965721c6dadfb6e74"
+callees = [
+    "fn:2bddb5d473cf6d36",
+    "fn:6f96c04643c07683",
+    "fn:b41970881ea681bd",
+    "fn:d404f312401df6eb",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:bcbab4a2ef5f7662"
+name = "node_zero_is_the_hot_inlet_end_and_the_cold_stream_runs_the_other_way"
+qual = "node_zero_is_the_hot_inlet_end_and_the_cold_stream_runs_the_other_way"
+lines = [
+    451,
+    475,
+]
+hash = "sha256:954446f16d16e426539c92415d75e1aad23851f107228c8722f12b5f9ddc6e2b"
+doc_hash = "sha256:ea584990515317a8541a576d87a3a59c3c65bfa9d167692a6fd546f598658e40"
+callees = ["fn:2bddb5d473cf6d36"]
+test = true

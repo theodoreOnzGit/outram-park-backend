@@ -1,0 +1,992 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics"
+test_ids = [
+    "crates/nee_soon/tests/coupling_api.rs::defaults_are_usable_and_failures_are_actionable",
+    "crates/nee_soon/tests/coupling_api.rs::the_documented_three_call_path_works",
+    "crates/nee_soon/tests/mc_to_genfoam_kinf.rs::genfoam_reproduces_the_monte_carlo_kinf_from_its_own_mgxs",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::coupled_power_conservation_across_meshes",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::coupled_steady_state_negative_feedback",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::mesh_doppler_feedback_lowers_keff",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::negative_feedback_reduces_power",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::picard_loop_converges_consistently",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::prescribed_region_is_inert",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::a_zero_velocity_field_reproduces_the_chi_eff_collapse",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::drift_conserves_the_total_delayed_source",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::drift_lowers_k_eff_and_the_effect_grows_with_the_flow",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::keff_bare_slab_critical_buckling",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::keff_bare_slab_mesh_convergence",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::kinf_infinite_medium",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::null_transient_holds_steady",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::warm_start_reaches_the_same_k_in_fewer_iterations",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::dispatch_kind_and_keff_across_variants",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::point_kinetics_model_steps",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::scaffolds_report_not_implemented",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::scaffold_reports_not_implemented",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_approaches_diffusion_limit",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_kinf_no_scatter",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_kinf_with_scatter",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_order_convergence",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::approaches_diffusion_as_slab_grows",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::differs_on_small_slab",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::kinf_reduces_to_diffusion",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::null_transient_holds_steady",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::scaffold_reports_not_implemented",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/state.rs::keff_round_trips_through_uom",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/state.rs::new_allocates_group_fields_with_unit_flux",
+    "crates/outram-foam-appbuilder-lib/tests/foam_vv_cases/main.rs::genfoam_slab_1g_diffusion_is_critical",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_reference_state_keff_against_upstream",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_per_cell_cross_sections",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_precursor_drift",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_with_upstreams_albedo_boundary",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reactivity_coefficients_from_upstreams_perturbed_states",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reference_state_keff_brackets_upstream",
+]
+
+[module."mod.rs"]
+path = "crate::genfoam::neutronics"
+
+[[module."mod.rs".function]]
+id = "fn:b722753be9f65251"
+name = "new"
+qual = "PointKineticsModel::new"
+lines = [
+    162,
+    167,
+]
+hash = "sha256:44dc8fcba0e1c1e2a5034c19594226ff3efacacd788cd8f9b6f62be6ccd4f2af"
+doc_hash = "sha256:392030dc1534c776f6eb39f865b6c595a7ea8de7f66ed5cf17539ea2587a8916"
+reached_by = [
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:de9eb5a723974dba"
+name = "params"
+qual = "PointKineticsModel::params"
+lines = [
+    169,
+    173,
+]
+hash = "sha256:12edba88d8eea5a48aa953bea1f4e67de6e0b2ca93df4612ea11066175568c36"
+doc_hash = "sha256:e4f69f55b065bb43f0147e9f701723fd8f233bce16766453ec4c1eb5613e27b4"
+
+[[module."mod.rs".function]]
+id = "fn:d341474207264a8e"
+name = "state"
+qual = "PointKineticsModel::state"
+lines = [
+    175,
+    179,
+]
+hash = "sha256:f627ef7ebc7d1d72f23fe93cbb8cddde7b854ad2048ef7d1ca0d3b61a487b8ed"
+doc_hash = "sha256:4ca6c841c4cb4ba8aedec2ebaa79f9e9021b0ffc577cc9b7024769c146ef2246"
+reached_by = [
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:dc2c162c9561c533"
+name = "step"
+qual = "PointKineticsModel::step"
+lines = [
+    181,
+    198,
+]
+hash = "sha256:cfb7081462c97f96bce138db5015fa22052ec0d0e54951788262bc35b8586918"
+doc_hash = "sha256:798e74fb9119462d71191343450789d18565c51b20f86baed1141b1b0be3490d"
+callees = ["fn:fe939fee6c56ac78"]
+reached_by = ["#18"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:72bdae5807e48975"
+name = "kind"
+qual = "NeutronicsModel::kind"
+lines = [
+    231,
+    240,
+]
+hash = "sha256:7a0739a6d9c51a934f0b6055a8515bafae0a2896f865712957dc954409d11617"
+doc_hash = "sha256:b5c0b1e672bccc7bbc561f44723c4ae0e08f3ce01efa0856c46cf51c982143cf"
+reached_by = ["#17"]
+
+[[module."mod.rs".function]]
+id = "fn:3c9eecf098b725f4"
+name = "power"
+qual = "NeutronicsModel::power"
+lines = [
+    242,
+    254,
+]
+hash = "sha256:b848ce93e410d228a9cd7ae59b479e8de7d609b9580db13dc7584d2198640a60"
+doc_hash = "sha256:afa5a17ac0e4e1ede4aa9dd150e3a6a25a6675d194ea979861d3d106664161a2"
+callees = [
+    "fn:0dae5eba52d1c8eb",
+    "fn:582e3f7dd570776c",
+    "fn:588a62e4916606e5",
+    "fn:59e1b2091a3c6d58",
+    "fn:d2eff2d3d846f32a",
+    "fn:d341474207264a8e",
+]
+reached_by = ["#17"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:389296b00b032dc1"
+name = "k_eff"
+qual = "NeutronicsModel::k_eff"
+lines = [
+    256,
+    269,
+]
+hash = "sha256:a21661c801e31e28e506cc805fca6fabe9918ae016495d94c2ae4b4e16738552"
+doc_hash = "sha256:b5324fa2bf44f33b2b802d66b04952daf1d03bf76731e565b05e0b63fe51a7bc"
+callees = [
+    "fn:0dae5eba52d1c8eb",
+    "fn:582e3f7dd570776c",
+    "fn:59e1b2091a3c6d58",
+    "fn:e09bc74c8bdf4afe",
+]
+reached_by = ["#17"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:1c3315ff7c665cea"
+name = "slab"
+qual = "slab"
+lines = [
+    286,
+    291,
+]
+hash = "sha256:9b024e514bccf710d51f5aa1cdc197a91bf5b45f07dcedc28314bb606f8c1f6e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b507d433625293e6"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:736accc4455797a3"
+name = "point_kinetics_model"
+qual = "point_kinetics_model"
+lines = [
+    293,
+    302,
+]
+hash = "sha256:acba6dfbdabf787d6fb0d01329a3bcf08489427af75e11949cac3b16b892b3a0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3b3f6b7be75b2a35",
+    "fn:b722753be9f65251",
+    "fn:b929b23889bdb3f4",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:600dbe126d502cdd"
+name = "dispatch_kind_and_keff_across_variants"
+qual = "dispatch_kind_and_keff_across_variants"
+lines = [
+    304,
+    320,
+]
+hash = "sha256:079b571f5fd614d7b2ff95c02a89e63cd932ee748a979f03d2654078af1b2ba1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c3315ff7c665cea",
+    "fn:389296b00b032dc1",
+    "fn:3c9eecf098b725f4",
+    "fn:72bdae5807e48975",
+    "fn:736accc4455797a3",
+    "fn:9866cf914c6ddd22",
+    "fn:d94b4a0fe842b8b1",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:600bd8272100b39d"
+name = "scaffolds_report_not_implemented"
+qual = "scaffolds_report_not_implemented"
+lines = [
+    322,
+    338,
+]
+hash = "sha256:6292d2c1ca8cc094cee01049bdce66c7033dcb9895639d7bb751ec1b141f35f1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c3315ff7c665cea",
+    "fn:9866cf914c6ddd22",
+    "fn:a8f72030231715e3",
+    "fn:ab7b4317d47e9146",
+    "fn:d94b4a0fe842b8b1",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:0717a29f1c711148"
+name = "point_kinetics_model_steps"
+qual = "point_kinetics_model_steps"
+lines = [
+    340,
+    351,
+]
+hash = "sha256:3b7ec663aba5aef2976e4e80a93efa5f5e3d8c5a8d0d86b146ed68f66146597e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:588a62e4916606e5",
+    "fn:736accc4455797a3",
+    "fn:d341474207264a8e",
+    "fn:dc2c162c9561c533",
+]
+test = true
+
+[module."state.rs"]
+path = "crate::genfoam::neutronics::state"
+
+[[module."state.rs".function]]
+id = "fn:ff8eecd3e4635175"
+name = "new"
+qual = "NeutronicsState::new"
+lines = [
+    104,
+    136,
+]
+hash = "sha256:32e59e9669abb7c8e3597345a3dc5c3c71e49e669f40eb3290268eab3e8a6d98"
+doc_hash = "sha256:a6840e4e43a24b221696d74a637ce9a2b27d38cdd38ece2e0c8e5eb958d138a5"
+callees = [
+    "fn:636e75b664f14254",
+    "fn:d6a9c884aaeb7775",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."state.rs".function]]
+id = "fn:2fcb7cdc146181a1"
+name = "mesh"
+qual = "NeutronicsState::mesh"
+lines = [
+    138,
+    142,
+]
+hash = "sha256:9177eba2bafd4635216b811dd9cb4cf0b1dbdf93a40b06ccc5ad1b5a32c4847c"
+doc_hash = "sha256:9485c73e8e8936753fe6ebd5416f7d18b242d85ce95d11886d2b1f5ef31ab25a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."state.rs".function]]
+id = "fn:ba171610648cb876"
+name = "energy_groups"
+qual = "NeutronicsState::energy_groups"
+lines = [
+    144,
+    148,
+]
+hash = "sha256:4ceaccc935224b39b7fd9240d23e4634dd9272da769e535e00fc98c668dc991d"
+doc_hash = "sha256:5cfd35079df1d31b52802d04d96253ab006524583ae94a104dc2ae2a09af5e1e"
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#31",
+]
+
+[[module."state.rs".function]]
+id = "fn:abeb2cb5a62f27a8"
+name = "prec_groups"
+qual = "NeutronicsState::prec_groups"
+lines = [
+    150,
+    154,
+]
+hash = "sha256:703f6771fd5cbc91b96426898558658e6aad8908f827e374ece9d5f3dc6ea186"
+doc_hash = "sha256:46406d082de526dd4cee371bfa7747ea7775a49caf78badb58ea41224d47db76"
+reached_by = [
+    "#19",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#31",
+]
+
+[[module."state.rs".function]]
+id = "fn:a34bf592be75221c"
+name = "flux"
+qual = "NeutronicsState::flux"
+lines = [
+    156,
+    160,
+]
+hash = "sha256:dcd25642a39a81bfe05b5e7958a0f27cc9eeee6664c5141cedb1d49867de76f3"
+doc_hash = "sha256:56dfa975d339ac627f6a3bdd4304dad36ca72eaaed06ccde177da5e6b929312c"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."state.rs".function]]
+id = "fn:324de9b11afb163c"
+name = "flux_mut"
+qual = "NeutronicsState::flux_mut"
+lines = [
+    162,
+    166,
+]
+hash = "sha256:e9cfb3306300bb322fdd6d6d2bbdd0900c01043a9c32ee79b432df1ed6f11453"
+doc_hash = "sha256:e55cc81ca8161293494f6c68d70ef7bd0de40fed09b7388b3f92ed93c7d2f9c3"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."state.rs".function]]
+id = "fn:ea10dd577d2f8c54"
+name = "precursors"
+qual = "NeutronicsState::precursors"
+lines = [
+    168,
+    172,
+]
+hash = "sha256:da8bef6b0e7cab6db7dcf57f8bb40568a543ef63d74c5529ea414e944701e3d2"
+doc_hash = "sha256:e10282244650b3052391ef5099de52981ac79ada7d91e042a71038f46d969054"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#21",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."state.rs".function]]
+id = "fn:25e42b9aedf3930e"
+name = "precursors_mut"
+qual = "NeutronicsState::precursors_mut"
+lines = [
+    174,
+    178,
+]
+hash = "sha256:4980d46cb9e7a928ee6be3a472a7e20e6b2b0538e70462d4e0884caa2c46fc2c"
+doc_hash = "sha256:697cdb6fb1be53e3908d2bce499e8b84c9d2bee2d2d59f303b2100d0d17823a9"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#21",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."state.rs".function]]
+id = "fn:401ccb7e59507157"
+name = "power_density"
+qual = "NeutronicsState::power_density"
+lines = [
+    180,
+    184,
+]
+hash = "sha256:da22d7649a2a919866fd40d029ded503413ed3771f9a0ff3a02804a6adc59126"
+doc_hash = "sha256:4ad5576fbfb2a4cd35a94bfb6efdb010dde869f2d4704be70b701f5c1c8815d0"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."state.rs".function]]
+id = "fn:9c62cd16d3c107a5"
+name = "power_density_mut"
+qual = "NeutronicsState::power_density_mut"
+lines = [
+    186,
+    190,
+]
+hash = "sha256:7e16e3d7a895fe15ce08809b578205fcf92c480eb16f44efaa24a960c96fbc02"
+doc_hash = "sha256:9800c1fb8fe0e026570ffdd41398c4e084cce25258cf37cc5922f91303a36304"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."state.rs".function]]
+id = "fn:0fb6731c999223a1"
+name = "one_group_flux"
+qual = "NeutronicsState::one_group_flux"
+lines = [
+    192,
+    196,
+]
+hash = "sha256:5b4a9ba5f719c575582d406db21f6aa0484f96167cc14ec5b36d3a1cf6612ed2"
+doc_hash = "sha256:38bed70602389827f8039f0322dd2d4be3aab08677f8e7b98e54b541fb742a77"
+
+[[module."state.rs".function]]
+id = "fn:1a0a9fa6e320d21b"
+name = "one_group_flux_mut"
+qual = "NeutronicsState::one_group_flux_mut"
+lines = [
+    198,
+    202,
+]
+hash = "sha256:a8818aad30e77822b6bfd0516e8e2874d767642bb01e8e4b65d047d058c10c17"
+doc_hash = "sha256:1207827aabe766127aef5998ceb66a8501bf77408f2dbf0edcffdf1364f4aaa1"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."state.rs".function]]
+id = "fn:e09bc74c8bdf4afe"
+name = "k_eff"
+qual = "NeutronicsState::k_eff"
+lines = [
+    204,
+    208,
+]
+hash = "sha256:d824d878d5a61d2ee0e7f535264e79da30599a86277603542c4a3d23f381fa3c"
+doc_hash = "sha256:a6ed3bb6b417cb56ba5612fe1d66302d29ece8db4b8001bc16c0a7a7e9aa179b"
+reached_by = [
+    "#17",
+    "#30",
+    "#31",
+]
+physical_interface = true
+
+[[module."state.rs".function]]
+id = "fn:065967047213f7fa"
+name = "set_k_eff"
+qual = "NeutronicsState::set_k_eff"
+lines = [
+    210,
+    213,
+]
+hash = "sha256:fd710899c7bc42e0c79498e8d49bc65b511eb53321e414239e4fcee6b031b520"
+doc_hash = "sha256:53131ba27ef8983bbd6480d828e57584333e84b1f3397c9a331a052181849f7b"
+reached_by = ["#30"]
+physical_interface = true
+
+[[module."state.rs".function]]
+id = "fn:9b24a1ce8f5b2d47"
+name = "k_eff_raw"
+qual = "NeutronicsState::k_eff_raw"
+lines = [
+    215,
+    220,
+]
+hash = "sha256:dd1d61cc9f24e325d8cab1646b85f66213d82ee800d047e8e73f11c1c7745ead"
+doc_hash = "sha256:414a4374618ee59b5fbc7f6bf35f1675f6a3fbee45b038efe06b582dcb15e6d4"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."state.rs".function]]
+id = "fn:5fbd8f3deb6d58f4"
+name = "set_k_eff_raw"
+qual = "NeutronicsState::set_k_eff_raw"
+lines = [
+    222,
+    225,
+]
+hash = "sha256:3cf52414ed06f14690eb97883305d129f28ce56b30c94ec694e21dd70bef5d0a"
+doc_hash = "sha256:b47b9a817a9fe64879f202b9abf362097b71ad97028e14f6e74538c466a1d745"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."state.rs".function]]
+id = "fn:d2eff2d3d846f32a"
+name = "total_power"
+qual = "NeutronicsState::total_power"
+lines = [
+    227,
+    231,
+]
+hash = "sha256:6fdea582a4e6c59736d496135f7c994152fa09c4734c0651423745fe24f1942f"
+doc_hash = "sha256:a17baf75a77ec9ec1bb2879b6fe2172b06ef1af30ad15e6f9f32f144e5546281"
+reached_by = ["#17"]
+physical_interface = true
+
+[[module."state.rs".function]]
+id = "fn:b6819fc8dd8e16f6"
+name = "set_total_power_raw"
+qual = "NeutronicsState::set_total_power_raw"
+lines = [
+    233,
+    236,
+]
+hash = "sha256:906317f58b0aa8609d2b056c0497f5a3eb7d9fd54b5a1cff57dfc8a628d847c8"
+doc_hash = "sha256:e804c984ed210e71e1b25b2e4fa66df7a23116b37405805c9127a3e663bbfccd"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."state.rs".function]]
+id = "fn:f82d3b27a07cc33d"
+name = "total_power_raw"
+qual = "NeutronicsState::total_power_raw"
+lines = [
+    238,
+    242,
+]
+hash = "sha256:0c3d1bd3d85729ddc95bd04c5c99bbdec4579c2e254b138bb14f912fdd0d2e3a"
+doc_hash = "sha256:da6075c879931622931677bf666bb663f5bd4b2d7c16bd959c30c053be1c1967"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#15",
+    "#28",
+]
+
+[[module."state.rs".function]]
+id = "fn:2af54362da035cde"
+name = "slab"
+qual = "slab"
+lines = [
+    253,
+    258,
+]
+hash = "sha256:fa6cacab0e6d984418a1211e21403d9f66c0d358c5845f6104d88da61dcc8f04"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b507d433625293e6"]
+test = true
+
+[[module."state.rs".function]]
+id = "fn:8fd7b9404ed89aec"
+name = "new_allocates_group_fields_with_unit_flux"
+qual = "new_allocates_group_fields_with_unit_flux"
+lines = [
+    260,
+    272,
+]
+hash = "sha256:f2bd7ca89832bc7e93827d9c85ac34a8705225600adcbe0d92105ae499bc050e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2af54362da035cde",
+    "fn:4aea3161a87c6021",
+    "fn:a34bf592be75221c",
+    "fn:abeb2cb5a62f27a8",
+    "fn:ba171610648cb876",
+    "fn:e09bc74c8bdf4afe",
+    "fn:ea10dd577d2f8c54",
+    "fn:ff8eecd3e4635175",
+]
+test = true
+
+[[module."state.rs".function]]
+id = "fn:d0b0f2cd92e13053"
+name = "keff_round_trips_through_uom"
+qual = "keff_round_trips_through_uom"
+lines = [
+    274,
+    280,
+]
+hash = "sha256:c777d6118d89646cded341374a6a574bc574e524cb2889e5a8e47151bef5f79d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:065967047213f7fa",
+    "fn:2af54362da035cde",
+    "fn:9b24a1ce8f5b2d47",
+    "fn:e09bc74c8bdf4afe",
+    "fn:ff8eecd3e4635175",
+]
+test = true

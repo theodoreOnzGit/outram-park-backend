@@ -1,0 +1,382 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles"
+test_ids = [
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/joule_thomson.rs::superheated_steam",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_choked_flow_overexpanded.rs::dry_steam_test_overexpanded",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_choked_flow_overexpanded.rs::validate_against_cengel_choked_flow_nozzle",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_choked_flow_overexpanded.rs::validate_against_cengel_isentropic_steam_nozzle",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_choked_flow_overexpanded.rs::wet_steam_test",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_subsonic_flow.rs::dry_steam_test",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_subsonic_flow.rs::wet_steam_test",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/diverging_nozzle_perfectly_expanded_supersonic.rs::diverging_nozzle_perfectly_expanded_subsonic_dry_steam",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/diverging_nozzle_perfectly_expanded_supersonic.rs::diverging_nozzle_perfectly_expanded_supersonic_dry_steam",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/diverging_nozzle_perfectly_expanded_supersonic.rs::diverging_nozzle_perfectly_expanded_supersonic_wet_steam",
+]
+
+[module."differential_nozzle_equations.rs"]
+path = "crate::steam_turbine_equations::converging_diverging_nozzles::differential_nozzle_equations"
+
+[[module."differential_nozzle_equations.rs".function]]
+id = "fn:1cebd3245f5d8273"
+name = "_get_dp_isentropic_nozzle_diffuser"
+qual = "_get_dp_isentropic_nozzle_diffuser"
+lines = [
+    12,
+    35,
+]
+hash = "sha256:d00261621558f41fbbbd6ee120ec807584bc2a60521548412ec83c960e530d0a"
+doc_hash = "sha256:4b19fe83b8f1a9281b3c3263668d2d328845f252d4df6dc5199fdea06ce25c6e"
+callees = [
+    "fn:15ee137924cfebcf",
+    "fn:67093ab68bbef7b3",
+    "fn:d3ab77d823467d99",
+]
+physical_interface = true
+
+[[module."differential_nozzle_equations.rs".function]]
+id = "fn:47233997010b4f31"
+name = "_get_dv_isentropic_nozzle_diffuser"
+qual = "_get_dv_isentropic_nozzle_diffuser"
+lines = [
+    40,
+    62,
+]
+hash = "sha256:6c6d1737d3a641bc2c591eecd92b42cd2a539e97458fcf81d129d9a9daff5c4d"
+doc_hash = "sha256:6661b0d5215101ab425506fe3cfd266fe135588f6b46239ffbc74ecbac38061d"
+callees = [
+    "fn:67093ab68bbef7b3",
+    "fn:d3ab77d823467d99",
+]
+physical_interface = true
+
+[[module."differential_nozzle_equations.rs".function]]
+id = "fn:7378042923843f5f"
+name = "_get_dp_dv_isentropic_nozzle_diffuser"
+qual = "_get_dp_dv_isentropic_nozzle_diffuser"
+lines = [
+    64,
+    118,
+]
+hash = "sha256:fd12d07dc67ed8cb938b53400a14286478d13c05f8c865124aab2781d1ca38f6"
+doc_hash = "sha256:618351eaf48585fb635a6246e16e799b8efc70b5462926b3658b5965436112c0"
+callees = [
+    "fn:15ee137924cfebcf",
+    "fn:67093ab68bbef7b3",
+    "fn:6c0910531af29171",
+    "fn:a7990c092475f0f0",
+    "fn:d3ab77d823467d99",
+]
+physical_interface = true
+
+[[module."differential_nozzle_equations.rs".function]]
+id = "fn:055f6e39b8c28999"
+name = "_get_outlet_pressure_velocity_enthalpy_isentropic_nozzle_diffuser"
+qual = "_get_outlet_pressure_velocity_enthalpy_isentropic_nozzle_diffuser"
+lines = [
+    120,
+    200,
+]
+hash = "sha256:16f160a277afe9728543fbd98839368dad1654ae66783135210528bbdc86f3f9"
+doc_hash = "sha256:4f96317e729f526e3b7fb1c44a171f4fbc8cb755a0e1c586d496d3dbbdaab451"
+callees = [
+    "fn:7378042923843f5f",
+    "fn:8862646fe4088877",
+    "fn:f472eb21333733c8",
+]
+physical_interface = true
+
+[module."diverging_nozzle.rs"]
+path = "crate::steam_turbine_equations::converging_diverging_nozzles::diverging_nozzle"
+
+[[module."diverging_nozzle.rs".function]]
+id = "fn:6fca7bd3ec35636a"
+name = "guess_velocity_and_state_for_diverge_nozzle_from_choked_throat"
+qual = "guess_velocity_and_state_for_diverge_nozzle_from_choked_throat"
+lines = [
+    10,
+    333,
+]
+hash = "sha256:174da2879c033beeda8fc340e19a54ef68cdaa84da16d730a2cb568d1b9215b4"
+doc_hash = "sha256:71ca8d9c47b65b618345f8739242bcd87a27cfe2b657b8ca54a70c82742ffed9"
+callees = [
+    "fn:15ee137924cfebcf",
+    "fn:62e3270d1f8f4c71",
+    "fn:67093ab68bbef7b3",
+    "fn:9880a6d7b02ed0e6",
+    "fn:9ffd9c2de58f734d",
+    "fn:c365ffcc3efa433e",
+    "fn:d545a63120102302",
+    "fn:f357b2b40e3a9e84",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+physical_interface = true
+
+[[module."diverging_nozzle.rs".function]]
+id = "fn:62e3270d1f8f4c71"
+name = "calculate_isentropic_exit_pressure_velocity_and_state_supersonic"
+qual = "calculate_isentropic_exit_pressure_velocity_and_state_supersonic"
+lines = [
+    335,
+    503,
+]
+hash = "sha256:caa586d583f3666e047f2f6ffcfa3977b33cee3da4b76b8868d4dd474f9d71aa"
+doc_hash = "sha256:aad909bd6f383d5da8259222b8a360389dd02d9d6da3b08e30799b61878b3924"
+callees = [
+    "fn:15ee137924cfebcf",
+    "fn:43cfe7d0b0274caa",
+    "fn:8ed7910b571e1ad9",
+    "fn:9880a6d7b02ed0e6",
+    "fn:a7990c092475f0f0",
+    "fn:c365ffcc3efa433e",
+    "fn:d545a63120102302",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+]
+physical_interface = true
+
+[[module."diverging_nozzle.rs".function]]
+id = "fn:f357b2b40e3a9e84"
+name = "calculate_isentropic_exit_pressure_velocity_and_state_subsonic"
+qual = "calculate_isentropic_exit_pressure_velocity_and_state_subsonic"
+lines = [
+    505,
+    589,
+]
+hash = "sha256:ad13bd8be64403179dbaacd3183f12a6a41cb3a7b37cc7d7391863bf6404a4cb"
+doc_hash = "sha256:123709bb402aa8a176f521b4c8846e5603c5f42c29e6c27d3372f2eb70d24e9f"
+callees = [
+    "fn:15ee137924cfebcf",
+    "fn:43cfe7d0b0274caa",
+    "fn:6c0910531af29171",
+    "fn:8ed7910b571e1ad9",
+    "fn:9880a6d7b02ed0e6",
+    "fn:a7990c092475f0f0",
+    "fn:c365ffcc3efa433e",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+physical_interface = true
+
+[module."isentropic_converging_nozzle.rs"]
+path = "crate::steam_turbine_equations::converging_diverging_nozzles::isentropic_converging_nozzle"
+
+[[module."isentropic_converging_nozzle.rs".function]]
+id = "fn:77e1ccbda4ce98eb"
+name = "guess_massrate_and_state_for_converge_nozzle_from_stagnation"
+qual = "guess_massrate_and_state_for_converge_nozzle_from_stagnation"
+lines = [
+    157,
+    222,
+]
+hash = "sha256:cb345638ffed41ae638dee2be1c87465cbcf2d08695954f106f4f5ecb3e58ee9"
+doc_hash = "sha256:4db982ca3b9a13629c5799d2032e84ffea33a500946d5476c166e521076b3ce5"
+callees = [
+    "fn:15ee137924cfebcf",
+    "fn:43cfe7d0b0274caa",
+    "fn:67093ab68bbef7b3",
+    "fn:6c0910531af29171",
+    "fn:8ed7910b571e1ad9",
+    "fn:a7990c092475f0f0",
+    "fn:d545a63120102302",
+]
+physical_interface = true
+
+[[module."isentropic_converging_nozzle.rs".function]]
+id = "fn:e6e3c01db2847088"
+name = "get_choked_flow_massrate_and_state_from_stagnation_properties_and_area"
+qual = "get_choked_flow_massrate_and_state_from_stagnation_properties_and_area"
+lines = [
+    224,
+    256,
+]
+hash = "sha256:450f926ba0e4b69a46bb620302b09c9c94e3bdc017b448a0193f977726947468"
+doc_hash = "sha256:c885ef6f568ffe3ada3de966edfc916080ffdbaae11a32f6e43aea5afeeb5ebf"
+callees = [
+    "fn:15ee137924cfebcf",
+    "fn:43cfe7d0b0274caa",
+    "fn:67093ab68bbef7b3",
+    "fn:6c0910531af29171",
+    "fn:8ed7910b571e1ad9",
+    "fn:a7990c092475f0f0",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+physical_interface = true
+
+[module."joule_thomson.rs"]
+path = "crate::steam_turbine_equations::converging_diverging_nozzles::joule_thomson"
+
+[[module."joule_thomson.rs".function]]
+id = "fn:9ffd9c2de58f734d"
+name = "get_outlet_velocity_and_state_joule_thomson"
+qual = "get_outlet_velocity_and_state_joule_thomson"
+lines = [
+    4,
+    175,
+]
+hash = "sha256:97720879027cbdf34fa2eaea738c4178c14083b5fd4cd5f9dd6caa62a4998a6f"
+doc_hash = "sha256:d29a520ed575338b23e8d7dc70ddd2eb25b16e19935467de2f0f94a51d3b79af"
+callees = [
+    "fn:15ee137924cfebcf",
+    "fn:67093ab68bbef7b3",
+    "fn:a9d9e8c971318dc0",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+physical_interface = true
+
+[[module."joule_thomson.rs".function]]
+id = "fn:8b5f77f901c65c31"
+name = "superheated_steam"
+qual = "superheated_steam"
+lines = [
+    192,
+    229,
+]
+hash = "sha256:3d25208a1fbe3aa1e0d4b55d88ccac85a99c2e4bf08d4e19e6c03ce4f64d37e5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:15ee137924cfebcf",
+    "fn:57006ca6f00b0f92",
+    "fn:9ffd9c2de58f734d",
+    "fn:a9d9e8c971318dc0",
+    "fn:c365ffcc3efa433e",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::steam_turbine_equations::converging_diverging_nozzles"
+
+[[module."mod.rs".function]]
+id = "fn:92d91433ebb2fb4d"
+name = "calculate_velocity_mass_flowrate_and_state_in_cd_nozzle"
+qual = "calculate_velocity_mass_flowrate_and_state_in_cd_nozzle"
+lines = [
+    19,
+    140,
+]
+hash = "sha256:b4dc3c52d3e27f3228e2b569a1c27ad97da10eb8f94387167926d98a95e5ffad"
+doc_hash = "sha256:fa263f9502a0cd014230fe3b8a1da69d101a1b853df2bf5b5c8bbf998b0553fb"
+callees = [
+    "fn:15ee137924cfebcf",
+    "fn:43cfe7d0b0274caa",
+    "fn:67093ab68bbef7b3",
+    "fn:6fca7bd3ec35636a",
+    "fn:8ed7910b571e1ad9",
+    "fn:9880a6d7b02ed0e6",
+    "fn:c365ffcc3efa433e",
+    "fn:d545a63120102302",
+    "fn:e6e3c01db2847088",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+physical_interface = true
+
+[module."momentum_balance_rayleigh_line.rs"]
+path = "crate::steam_turbine_equations::converging_diverging_nozzles::momentum_balance_rayleigh_line"
+
+[[module."momentum_balance_rayleigh_line.rs".function]]
+id = "fn:0f1b7d582cdfc956"
+name = "_rayleigh_line_point"
+qual = "_rayleigh_line_point"
+lines = [
+    9,
+    30,
+]
+hash = "sha256:0b1279ccae746664d5357d530cc6c93b041d5701edb2eb8832ee9832c9e9ae53"
+doc_hash = "sha256:4f7b46f9f0b15df57fec604105452b0d368f9b79d0dcb219938ff80d594e2c2c"
+physical_interface = true
+
+[[module."momentum_balance_rayleigh_line.rs".function]]
+id = "fn:81c6f961c69924f1"
+name = "_momentum_balance_nozzle_residual"
+qual = "_momentum_balance_nozzle_residual"
+lines = [
+    32,
+    69,
+]
+hash = "sha256:574bfb070409c0e7d765ee4169824c501a03e655489d3dbc9eb04c5ba76f60a1"
+doc_hash = "sha256:190561c3456787148305b136e6e3d4c81b941f270afbb36634af6f42d930bbfc"
+callees = [
+    "fn:3e6a48a264e481b8",
+    "fn:67093ab68bbef7b3",
+    "fn:fdb738f8b3431582",
+]
+physical_interface = true
+
+[[module."momentum_balance_rayleigh_line.rs".function]]
+id = "fn:8a3bd1a7ad588bca"
+name = "_force_balance_isentropic_nozzle"
+qual = "_force_balance_isentropic_nozzle"
+lines = [
+    70,
+    104,
+]
+hash = "sha256:f984853e2a5957eea0911d7f06f6865fa1bcd6f6f56ca96fc5aea20443eea297"
+doc_hash = "sha256:671639887a377a147fea6da1aefb24c238fbc4f94e893d53a2971858d06fe2aa"
+callees = [
+    "fn:3e6a48a264e481b8",
+    "fn:67093ab68bbef7b3",
+    "fn:8ed7910b571e1ad9",
+    "fn:fdb738f8b3431582",
+]
+physical_interface = true
+
+[[module."momentum_balance_rayleigh_line.rs".function]]
+id = "fn:5c77aff58afdc8ed"
+name = "_print_graph_pts_for_outlet_pressure_and_force_balance_isentropic"
+qual = "_print_graph_pts_for_outlet_pressure_and_force_balance_isentropic"
+lines = [
+    106,
+    144,
+]
+hash = "sha256:dbee263d8e5820fe7877006a20f215f31136ca9fe31518a74e6a159b2445ae2e"
+doc_hash = "sha256:2f45bd385f0322ff246f51101ccd62eb0f7dbd5c30c37e1bde2fccbcfd804d70"
+callees = ["fn:8a3bd1a7ad588bca"]
+physical_interface = true

@@ -1,0 +1,232 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/nuclear_steady_state_pebble"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/nuclear_steady_state_pebble/tests.rs::every_rise_is_linear_in_the_power_density",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/nuclear_steady_state_pebble/tests.rs::the_gfhr_minimum_peak_fuel_temperature_reproduces_upstream",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/nuclear_steady_state_pebble/tests.rs::the_gfhr_pebble_rise_fits_inside_upstreams_reported_temperatures",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/nuclear_steady_state_pebble/tests.rs::the_maxwell_effective_conductivity_is_bounded_by_its_phases",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/nuclear_steady_state_pebble/tests.rs::the_temperature_chain_increases_monotonically_inward",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_gfhr_pebble_vs_upstream.rs::the_ported_pebble_chain_reproduces_upstreams_gfhr_fields",
+]
+
+[module."mod.rs"]
+path = "crate::genfoam::thermal_hydraulics::structure::nuclear_steady_state_pebble"
+
+[[module."mod.rs".function]]
+id = "fn:596429ccacfb08c2"
+name = "coating_resistance"
+qual = "PebbleGeometry::coating_resistance"
+lines = [
+    202,
+    213,
+]
+hash = "sha256:bceb4096bb30a50df6903eda20a44b3737bb46351c6887c3cfd21b847cf6cf7c"
+doc_hash = "sha256:be72b96f7fdc0a2ef6a58aefd6c68eec2995b99cc21fd5d274d002c4a0413c54"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e53375111e815d69"
+name = "packing_fraction"
+qual = "PebbleGeometry::packing_fraction"
+lines = [
+    215,
+    221,
+]
+hash = "sha256:fc0e5e681de661ebb3d81cd29d5e96e23f917a97e21a00633b971f7331bf23c5"
+doc_hash = "sha256:4929df93f27b0ab469301c66885c056ce83c8a6c9b085b117c48ead6700fb772"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:1e9844014a807c12"
+name = "effective_matrix_conductivity"
+qual = "PebbleGeometry::effective_matrix_conductivity"
+lines = [
+    223,
+    238,
+]
+hash = "sha256:041b7ca8db74feeb814c6865eb75914eec07ea95ce8c790857d4ca2af0f5f95e"
+doc_hash = "sha256:9971c42c0d61476b2fb2d33e29dcd7212405b1b21e0abaa6cdbbab71d5ae44f8"
+callees = [
+    "fn:596429ccacfb08c2",
+    "fn:e53375111e815d69",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:eb8dc07df58970d1"
+name = "steady_temperatures"
+qual = "PebbleGeometry::steady_temperatures"
+lines = [
+    240,
+    342,
+]
+hash = "sha256:10797fedcb3789c757a33a1991e8951b11d922b2fb605b1e505de35c4afb6a13"
+doc_hash = "sha256:50e978f220f2f742d60b3418143e79cad217fe647509818423812bda7df7063d"
+callees = [
+    "fn:1e9844014a807c12",
+    "fn:596429ccacfb08c2",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:09b40f849e0cbbbf"
+name = "total_rise"
+qual = "PebbleTemperatures::total_rise"
+lines = [
+    346,
+    355,
+]
+hash = "sha256:2f3c8182be7947fbfbca94a6920ef94bd21cd6c09c37a4dd82269747b4ec378f"
+doc_hash = "sha256:54b33783fd7e1af7ef564d87d71978612a6921c6c6465c5b6eb1ba717e7ebcae"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[module."tests.rs"]
+path = "crate::genfoam::thermal_hydraulics::structure::nuclear_steady_state_pebble::tests"
+
+[[module."tests.rs".function]]
+id = "fn:272dda8f4d1b3ab4"
+name = "gfhr"
+qual = "gfhr"
+lines = [
+    11,
+    26,
+]
+hash = "sha256:0fbe55a1969f7a7e2a3ca084e0378e43585f3926eda6542b50271be4b94ba608"
+doc_hash = "sha256:1fde586e682265b3f156e2f36201611309fe0b7595334bd405dcae1ce539d3e2"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:68f93239531a561c"
+name = "gfhr_k"
+qual = "gfhr_k"
+lines = [
+    28,
+    38,
+]
+hash = "sha256:51e56ea7ce26bcc1fd86b3f7ded72c180c37712f9b4ce7413c25bbf2e7bbb5ed"
+doc_hash = "sha256:05313b75aa297eec08b72c4ee0afe836584f657d5a5283c4fa061747a0ae5701"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:622b49edbd733c3d"
+name = "the_temperature_chain_increases_monotonically_inward"
+qual = "the_temperature_chain_increases_monotonically_inward"
+lines = [
+    51,
+    72,
+]
+hash = "sha256:d1c3ec24e1c1f2fc843b1c53dda5cc014adaf59a46a73a84f2a6bf786dcdda2b"
+doc_hash = "sha256:56f395c38773249863122d52ee20b3e0eb6dd8df547a5ac828ef309371d06841"
+callees = [
+    "fn:272dda8f4d1b3ab4",
+    "fn:68f93239531a561c",
+    "fn:eb8dc07df58970d1",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:9d1336704480b6af"
+name = "the_maxwell_effective_conductivity_is_bounded_by_its_phases"
+qual = "the_maxwell_effective_conductivity_is_bounded_by_its_phases"
+lines = [
+    74,
+    106,
+]
+hash = "sha256:73e34b0f4c8eb392120e3be857e68afb35ddedd395bebdfd2b8f32216f4ef416"
+doc_hash = "sha256:f9b27ef4cb0f785c2d0d0a8127152c7d734ef0191171a5d5758c0d2bbd88916e"
+callees = [
+    "fn:1e9844014a807c12",
+    "fn:272dda8f4d1b3ab4",
+    "fn:596429ccacfb08c2",
+    "fn:68f93239531a561c",
+    "fn:e53375111e815d69",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:860a10cc052a09b4"
+name = "every_rise_is_linear_in_the_power_density"
+qual = "every_rise_is_linear_in_the_power_density"
+lines = [
+    108,
+    128,
+]
+hash = "sha256:63b4b006b5e76b793aa94d1d1c65c37d4177ce78b018080c7461a157b99388e4"
+doc_hash = "sha256:e97657f6980564dc56db399d960d2bfd7e6afec220a00e202aea821bd8677411"
+callees = [
+    "fn:09b40f849e0cbbbf",
+    "fn:272dda8f4d1b3ab4",
+    "fn:68f93239531a561c",
+    "fn:eb8dc07df58970d1",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1dbbbab68412b4df"
+name = "the_gfhr_pebble_rise_fits_inside_upstreams_reported_temperatures"
+qual = "the_gfhr_pebble_rise_fits_inside_upstreams_reported_temperatures"
+lines = [
+    130,
+    220,
+]
+hash = "sha256:0ebc9fc2679117efa9b946e46e26293c522f5a7b4cc72324ccf10e688a35ab3d"
+doc_hash = "sha256:a13cbc1289d75d94925c05034c75750a55f8e9287e3e3639b4b073b43f11c978"
+callees = [
+    "fn:09b40f849e0cbbbf",
+    "fn:272dda8f4d1b3ab4",
+    "fn:68f93239531a561c",
+    "fn:eb8dc07df58970d1",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:a486fe116ad64984"
+name = "the_gfhr_minimum_peak_fuel_temperature_reproduces_upstream"
+qual = "the_gfhr_minimum_peak_fuel_temperature_reproduces_upstream"
+lines = [
+    222,
+    398,
+]
+hash = "sha256:1ff3b33f85716ea0d85d34858add06d522ab351ab8a777452bffce6aa454c466"
+doc_hash = "sha256:b206f07de1de31cab32e8bd37f20034f9a3b83a2a52ba428824dd8125420a5d4"
+callees = [
+    "fn:04735b464dfe2e8a",
+    "fn:09b40f849e0cbbbf",
+    "fn:272dda8f4d1b3ab4",
+    "fn:68f93239531a561c",
+    "fn:eb8dc07df58970d1",
+]
+test = true

@@ -1,0 +1,31 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/solid_array_lateral_coupling/tests"
+
+[module."mod.rs"]
+path = "crate::array_fluid_collections::solid_array_lateral_coupling::tests"
+
+[[module."mod.rs".function]]
+id = "fn:17f1d5eb35773968"
+name = "arraycv_transient_conduction_copper_medium_with_assert_only"
+qual = "arraycv_transient_conduction_copper_medium_with_assert_only"
+lines = [
+    24,
+    361,
+]
+hash = "sha256:0bbce73c7946ea16159e0ddf7960d29129ff55e19c7d97ab70e40bd69037ca03"
+doc_hash = "sha256:c8218b7d8b8f55230325e28961849755d3219ea3b3ef3f6e33c237600d1fcc4e"
+callees = [
+    "fn:04f1b4d679bb74fd",
+    "fn:1971325e25d34c9b",
+    "fn:3e8b46d93d8bf888",
+    "fn:81ebbad2a6b015cb",
+    "fn:9cf2732f8b0c6890",
+    "fn:b24dcaa3a2d254df",
+    "fn:e4ef3b79543287e1",
+    "fn:e599bee289f690ce",
+    "fn:e914b3ed909034f5",
+    "fn:eb89be045205dc88",
+]
+test = true

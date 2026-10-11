@@ -1,0 +1,11 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/src"
+crate_root = true
+
+[module."error.rs"]
+path = "crate::error"
+
+[module."lib.rs"]
+path = "crate"

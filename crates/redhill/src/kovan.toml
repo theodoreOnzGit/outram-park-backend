@@ -1,0 +1,20 @@
+schema_version = 1
+kind = "code_folder"
+crate = "redhill"
+dir = "crates/redhill/src"
+crate_root = true
+
+[module."lib.rs"]
+path = "crate"
+
+[[module."lib.rs".function]]
+id = "fn:411aef0f661993ad"
+name = "the_scope_is_recorded"
+qual = "the_scope_is_recorded"
+lines = [
+    115,
+    120,
+]
+hash = "sha256:58a4e2de42e795fb68dea5b225c3f38f954dc71c62b4be9b83b64def6c5769f7"
+doc_hash = "sha256:39a75bc3c67c0e39ea9088b1556daa155fd110b5196db761f923859225bd56cd"
+test = true

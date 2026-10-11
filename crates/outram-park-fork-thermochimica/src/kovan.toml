@@ -1,0 +1,444 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-thermochimica"
+dir = "crates/outram-park-fork-thermochimica/src"
+crate_root = true
+test_ids = [
+    "crates/outram-park-fork-thermochimica/src/gem.rs::ideal_binary_nernst_partition",
+    "crates/outram-park-fork-thermochimica/src/gem.rs::linear_solver_and_error_paths",
+    "crates/outram-park-fork-thermochimica/src/gem.rs::molten_fluoride_flibe_ideal_mixing",
+    "crates/outram-park-fork-thermochimica/src/gem.rs::pure_component_trivial_limit",
+    "crates/outram-park-fork-thermochimica/src/gem.rs::redlich_kister_activity_coefficient_identity",
+    "crates/outram-park-fork-thermochimica/src/gem.rs::regular_solution_partition_in_solver",
+]
+
+[module."gem.rs"]
+path = "crate::gem"
+
+[[module."gem.rs".function]]
+id = "fn:7a0487d9fcd6bc82"
+name = "ln_p_term"
+qual = "SolutionModel::ln_p_term"
+lines = [
+    277,
+    286,
+]
+hash = "sha256:4f4f9f861adb1e99e3c52be8ff908ee52468cbc0fa3de1d3211d282d2bcf72c1"
+doc_hash = "sha256:09dcbd329c964ee65c074b2b294c30860a00431f73daea7de14da1646e4c7957"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:8da277304960e01d"
+name = "ln_gamma"
+qual = "SolutionModel::ln_gamma"
+lines = [
+    288,
+    341,
+]
+hash = "sha256:9dccd73d61dbfe008f33495043e72693d431cfd86ee5d18b92ed90368f45111d"
+doc_hash = "sha256:1f663063ba3b1bbef138f75e1eb20a7240fd2251e46bcbfdf9d2c68c55a24876"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:3c26fd998b535870"
+name = "default"
+qual = "GemOptions::default"
+lines = [
+    392,
+    400,
+]
+hash = "sha256:f9c92c94a792b98aa9c96d45276e42a960fe10c38e77d3f22c83e62ca0827932"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:beb7f18cc4ce8bc6"
+name = "atom"
+qual = "Phase::atom"
+lines = [
+    492,
+    495,
+]
+hash = "sha256:00720e2b2e2b14e20b1ad4c64e08da5e20435bee8c9454cb388d569bb1254536"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:8f5a04b4de513538"
+name = "new"
+qual = "GemSystem::new"
+lines = [
+    512,
+    619,
+]
+hash = "sha256:fa218e4a2359c1e813eb4606e7d75a77dbe2e2191de71d785e90c5ca32ea8598"
+doc_hash = "sha256:557667b59fb687d50fe5be0622008c9ecc827d24d97d2f9abfd7596e1fc57486"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:477525973eee89ee"
+name = "n_elements"
+qual = "GemSystem::n_elements"
+lines = [
+    621,
+    625,
+]
+hash = "sha256:5c1a0f705e6eb495e85972a2d220db5d1387d2c45d4e132dc6eaf2741b3672e6"
+doc_hash = "sha256:29b7289ce84c36f37c93326b78431cd081d007dffc049990711e2c2f4282b4c3"
+
+[[module."gem.rs".function]]
+id = "fn:7dfb4469447a5c15"
+name = "n_phases"
+qual = "GemSystem::n_phases"
+lines = [
+    627,
+    631,
+]
+hash = "sha256:61f5455faa505d3de33ea4d73d47f764450965fc622ab23e77b0045e7b96081d"
+doc_hash = "sha256:c7095741a71cc5c4ecd949de96734d33170f5e9370643f4317fa278c769ad92c"
+
+[[module."gem.rs".function]]
+id = "fn:907eb92c1033c472"
+name = "n_species"
+qual = "GemSystem::n_species"
+lines = [
+    633,
+    637,
+]
+hash = "sha256:3423cf775107b691d9f4afe7a98a062f7bc18ecfe35f73c8f537949f7a17fbbf"
+doc_hash = "sha256:e97bded47211c3c129cfbcb95858c70ad03974df272d1a103bd61bdb3f7fba97"
+
+[[module."gem.rs".function]]
+id = "fn:e3d24b2a4d2a7b02"
+name = "element_symbols"
+qual = "GemSystem::element_symbols"
+lines = [
+    639,
+    643,
+]
+hash = "sha256:3874769820fff939fb158db5a65e4ba40965027184bb2307b6ca998058ba521f"
+doc_hash = "sha256:6a6c7e1ecc7809c6a4eb9ae8053ef487211263734dbbd2c75ab7dce1fdfd1bd7"
+
+[[module."gem.rs".function]]
+id = "fn:37f7f595cb241453"
+name = "species_names"
+qual = "GemSystem::species_names"
+lines = [
+    645,
+    649,
+]
+hash = "sha256:b94806ef06a406fbd61bd6c22ce4467a27e039af6a7c37587c89ba7f03e2e669"
+doc_hash = "sha256:90a3b755a557da4c08419a4322d3674c02cf973608bb437a1b9c80166c0c90bf"
+
+[[module."gem.rs".function]]
+id = "fn:78bc3f72951cb5af"
+name = "element_abundance"
+qual = "GemSystem::element_abundance"
+lines = [
+    651,
+    686,
+]
+hash = "sha256:e03384a87c1bd2fa42f872958d419eb91d5d3b5c78e27036080ed3279d5cf7cf"
+doc_hash = "sha256:16e70aa4b867154e3340baea53fa649ac2ee1301f73233504057cbf1f7fe9045"
+callees = ["fn:beb7f18cc4ce8bc6"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:9316de3e07981a11"
+name = "independent_element_mask"
+qual = "GemSystem::independent_element_mask"
+lines = [
+    688,
+    758,
+]
+hash = "sha256:33c1c5dcc0929ffd7078bd285ba07a047f883593d05878c96df3e986857cf0e4"
+doc_hash = "sha256:d852bd1b1caafb08b437449d09a66d3d62cbd72947e7025aa1df105aca8a370a"
+callees = ["fn:beb7f18cc4ce8bc6"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:255176c0a95d70ed"
+name = "minimize"
+qual = "GemSystem::minimize"
+lines = [
+    760,
+    1156,
+]
+hash = "sha256:626ae71d20111edca04bbe4007565070d186bc991d94286ca3ebe53a347158d4"
+doc_hash = "sha256:c10f99b14c4b62322dd290b4c0fb01cea1dfba4bfd55a0e24b285b07e28f0a92"
+callees = [
+    "fn:66cf7ec374ca5082",
+    "fn:78bc3f72951cb5af",
+    "fn:7a0487d9fcd6bc82",
+    "fn:8da277304960e01d",
+    "fn:9316de3e07981a11",
+    "fn:a9c5138fb8512f30",
+    "fn:beb7f18cc4ce8bc6",
+    "fn:dd0fc2cf982bcc48",
+    "fn:e5cca7adba6c25dd",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:e5cca7adba6c25dd"
+name = "total_gibbs_rt"
+qual = "GemSystem::total_gibbs_rt"
+lines = [
+    1158,
+    1173,
+]
+hash = "sha256:337f36acc7f161977ae01a4d09cc10eb04866e6f96e174e13fae83cfb33c891f"
+doc_hash = "sha256:1d14b575aafb87b6c82b93d0343f95a8fee1974d601e1e3178558c2011b2494f"
+callees = ["fn:8da277304960e01d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:66cf7ec374ca5082"
+name = "atom_violation"
+qual = "GemSystem::atom_violation"
+lines = [
+    1175,
+    1189,
+]
+hash = "sha256:2bc98b67def3c16fa6dcd7d6222f72263e7efc18a92ad9bb6451befde6b87b06"
+doc_hash = "sha256:257a2a99f96a6eee808a81b6eaeb890bfc79b036bb299c9556ad50638dcca367"
+callees = ["fn:beb7f18cc4ce8bc6"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:a9c5138fb8512f30"
+name = "final_element_potentials"
+qual = "GemSystem::final_element_potentials"
+lines = [
+    1191,
+    1220,
+]
+hash = "sha256:9e45979aa43a1d3c27b700af24cfd5bb1e24a92b39c417dbae6e2b4908fd8650"
+doc_hash = "sha256:9588ab4c78c8a50dcd26d82cebcd71a338265fb5f8f649102d1231573663832e"
+callees = [
+    "fn:beb7f18cc4ce8bc6",
+    "fn:dd0fc2cf982bcc48",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:dd0fc2cf982bcc48"
+name = "solve_linear"
+qual = "solve_linear"
+lines = [
+    1223,
+    1270,
+]
+hash = "sha256:8f6ff2dcc99a5f5dd0cca27988bd33f8719a56260637d5e6ff0e45354b60b14d"
+doc_hash = "sha256:0efc21c62754b7be116c2ebd855002c0ee13c1233868d55c564c6454b34b6763"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:198df1fb290a8075"
+name = "ideal"
+qual = "ideal"
+lines = [
+    1292,
+    1298,
+]
+hash = "sha256:e9f84ec718a918f7d5f96414218dccf63269b450ae5d76197d8076a710b83367"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."gem.rs".function]]
+id = "fn:8347bbdacd9ad24a"
+name = "assert_monotone_merit"
+qual = "assert_monotone_merit"
+lines = [
+    1300,
+    1312,
+]
+hash = "sha256:b1c0142a32c93b9e4181b881db5a080a8f8bcb2ca64cb86ba4aa3d8a99ae4f67"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."gem.rs".function]]
+id = "fn:68fe46213ef8cfa0"
+name = "pure_component_trivial_limit"
+qual = "pure_component_trivial_limit"
+lines = [
+    1314,
+    1348,
+]
+hash = "sha256:7e8e552cfa78a08e1535a316e2b5a86c324ca667d382eccde79f5a57b760c830"
+doc_hash = "sha256:3972b73984e641ae51ecbaeb40461510e76654fdcc955d287a7d80ff2cd73972"
+callees = [
+    "fn:198df1fb290a8075",
+    "fn:255176c0a95d70ed",
+    "fn:3c26fd998b535870",
+    "fn:78bc3f72951cb5af",
+    "fn:8f5a04b4de513538",
+]
+test = true
+
+[[module."gem.rs".function]]
+id = "fn:2e4449f36b9b885a"
+name = "ideal_binary_nernst_partition"
+qual = "ideal_binary_nernst_partition"
+lines = [
+    1350,
+    1406,
+]
+hash = "sha256:13649fdf061c98b3d8f41b402edb1f26c2774e4af5232cfbac553411a2df1932"
+doc_hash = "sha256:49d56e7eb58241baf5d3dc4ae94e4cbd1c36fffa55ed384c3e186e6cac9e6bde"
+callees = [
+    "fn:198df1fb290a8075",
+    "fn:255176c0a95d70ed",
+    "fn:3c26fd998b535870",
+    "fn:78bc3f72951cb5af",
+    "fn:8347bbdacd9ad24a",
+    "fn:8f5a04b4de513538",
+]
+test = true
+
+[[module."gem.rs".function]]
+id = "fn:a7a67c10ae49fc24"
+name = "redlich_kister_activity_coefficient_identity"
+qual = "redlich_kister_activity_coefficient_identity"
+lines = [
+    1408,
+    1477,
+]
+hash = "sha256:22e99ca288cbb2790fecd25107241687f597452cff1497a154d16418a382d158"
+doc_hash = "sha256:4fa69523ef4f4832506479f692feb64e13afad82dc1873d466cc3f3ce08b1850"
+callees = ["fn:8da277304960e01d"]
+test = true
+
+[[module."gem.rs".function]]
+id = "fn:622adacae511b68e"
+name = "regular_solution_partition_in_solver"
+qual = "regular_solution_partition_in_solver"
+lines = [
+    1479,
+    1553,
+]
+hash = "sha256:e4468b67950ebe26ab2a3d3f8d7137daa89be6aee7bdaef19dded12433e550e5"
+doc_hash = "sha256:012799dbe71b69b31354715c5cb4e76d88d77a2c3d29f38237002f44fe65b716"
+callees = [
+    "fn:198df1fb290a8075",
+    "fn:255176c0a95d70ed",
+    "fn:3c26fd998b535870",
+    "fn:78bc3f72951cb5af",
+    "fn:8347bbdacd9ad24a",
+    "fn:8f5a04b4de513538",
+]
+test = true
+
+[[module."gem.rs".function]]
+id = "fn:6cd1e536da7f954c"
+name = "molten_fluoride_flibe_ideal_mixing"
+qual = "molten_fluoride_flibe_ideal_mixing"
+lines = [
+    1555,
+    1637,
+]
+hash = "sha256:b053135ff034c1e47e35a475e3410cbca15e6966b9b9ffac99e0fa8b0fdce2d0"
+doc_hash = "sha256:98e31fbf70a87ef72693644d7e412d72cfa3de75b5e59b701685eb009cf0fa4d"
+callees = [
+    "fn:198df1fb290a8075",
+    "fn:255176c0a95d70ed",
+    "fn:3c26fd998b535870",
+    "fn:78bc3f72951cb5af",
+    "fn:8f5a04b4de513538",
+]
+test = true
+
+[[module."gem.rs".function]]
+id = "fn:6796ffe4c635d213"
+name = "linear_solver_and_error_paths"
+qual = "linear_solver_and_error_paths"
+lines = [
+    1639,
+    1687,
+]
+hash = "sha256:c989457b110d8904a8b30b0b705d3ae5b23fc5a8c000164d51dbe5e76998e182"
+doc_hash = "sha256:6b104224e12e1dd6192ef768aa25fc4d9eedf0f70ba09af9a123fcbe4e88c1a2"
+callees = [
+    "fn:198df1fb290a8075",
+    "fn:255176c0a95d70ed",
+    "fn:3c26fd998b535870",
+    "fn:8f5a04b4de513538",
+    "fn:dd0fc2cf982bcc48",
+]
+test = true
+
+[module."lib.rs"]
+path = "crate"

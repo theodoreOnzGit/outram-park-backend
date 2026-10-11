@@ -1,0 +1,30 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-basic-lib"
+dir = "crates/outram-foam-basic-lib/src/thermophysics"
+
+[module."constants.rs"]
+path = "crate::thermophysics::constants"
+
+[module."error.rs"]
+path = "crate::thermophysics::error"
+
+[[module."error.rs".function]]
+id = "fn:cc80a7ae855545b3"
+name = "fmt"
+qual = "ThermoError::fmt"
+lines = [
+    31,
+    39,
+]
+hash = "sha256:013bbcfd90015b6492b9a9e070ab8625ee52bf262417bf11bef5746ecbe95c5d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."imports.rs"]
+path = "crate::thermophysics::imports"
+
+[module."mod.rs"]
+path = "crate::thermophysics"
+
+[module."quantities.rs"]
+path = "crate::thermophysics::quantities"

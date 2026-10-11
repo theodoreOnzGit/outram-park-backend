@@ -1,0 +1,188 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/tests"
+
+[module."gpu_csg_parity.rs"]
+path = "test:gpu_csg_parity"
+
+[[module."gpu_csg_parity.rs".function]]
+id = "fn:8fc32a1f3e6a80f3"
+name = "scheme"
+qual = "scheme"
+lines = [
+    149,
+    158,
+]
+hash = "sha256:c63bed1a54faee7397add0f828acedffef6424bf9f5a9b6066e85cc64de7145c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:406e1da1b1d84411",
+    "fn:8d21d5fd652070a6",
+    "fn:9e38b57264963de3",
+    "fn:9ed51af57e573b4c",
+    "fn:a466f7e4f7b4bc02",
+]
+test = true
+
+[[module."gpu_csg_parity.rs".function]]
+id = "fn:e4c8658364d11f67"
+name = "eye"
+qual = "eye"
+lines = [
+    160,
+    167,
+]
+hash = "sha256:eee2b7270a5871facbac1b82f7a14be0d27017beb783fe7846767746fae323b5"
+doc_hash = "sha256:7686211eb09e9e7294cced8d632d44ae362ba0d366a238e86ce23a56f92032b1"
+callees = ["fn:cb1fc1a67d38f99a"]
+test = true
+
+[[module."gpu_csg_parity.rs".function]]
+id = "fn:b1d9d5b074697fcd"
+name = "view"
+qual = "view"
+lines = [
+    169,
+    196,
+]
+hash = "sha256:8bb277a959d3ce196b259731866943b6e947595c849239870a308e6d9f8bd648"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1a17663e4537a8c4",
+    "fn:66ddfe0a6730ae86",
+    "fn:cb1fc1a67d38f99a",
+    "fn:cbb241b81b8f27f6",
+    "fn:e4c8658364d11f67",
+    "fn:f0f061f2ed726984",
+]
+test = true
+
+[[module."gpu_csg_parity.rs".function]]
+id = "fn:2712f96561e4fb91"
+name = "mismatch"
+qual = "mismatch"
+lines = [
+    198,
+    200,
+]
+hash = "sha256:ff31b8f6f89b7ee5aff46130e0281cf81ffd95cfbda8bcdc5ffea96c053948f5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."gpu_csg_parity.rs".function]]
+id = "fn:b933a6f9f4fd7581"
+name = "dump"
+qual = "dump"
+lines = [
+    202,
+    210,
+]
+hash = "sha256:76d6c980df7540f67bf279cf66a199a3157dba64c8edc9b34f6fdc241f05eb47"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:5fc49fc203f283ac"]
+test = true
+
+[[module."gpu_csg_parity.rs".function]]
+id = "fn:575b799b341f874c"
+name = "gpu_time"
+qual = "gpu_time"
+lines = [
+    212,
+    232,
+]
+hash = "sha256:634b59a93c5cae20d89d51ee981cfcca67c42bf2d990eb19625822f10eba14f2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:206511b3b25543e9",
+    "fn:48d617bfddc79a4e",
+    "fn:a58872303a65e756",
+]
+test = true
+
+[[module."gpu_csg_parity.rs".function]]
+id = "fn:461940ac9f819549"
+name = "fuel_pebble"
+qual = "fuel_pebble"
+lines = [
+    234,
+    253,
+]
+hash = "sha256:847f24f357f9b40b04a7b2e271c2de240624701bd984b56a089b968972a5bb89"
+doc_hash = "sha256:6c3b25e9b56b3282934cc765ad24d42b95f6e1b1a64660d6a932933fede910f1"
+callees = [
+    "fn:a58ca62d960b9bc0",
+    "fn:cb1fc1a67d38f99a",
+    "fn:cbb241b81b8f27f6",
+    "fn:e1e248a14f38c41f",
+]
+test = true
+
+[[module."gpu_csg_parity.rs".function]]
+id = "fn:6358dd5c56bc711c"
+name = "htr10_views_gpu_match_cpu"
+qual = "htr10_views_gpu_match_cpu"
+lines = [
+    255,
+    273,
+]
+hash = "sha256:4443a3fa73bdb84e0e2a78a95e686da8e94778e25d070dbc37c3b3d62263c197"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:657c917c00c40e1f",
+    "fn:9e84867597fa2e5d",
+    "fn:c5011e8cbdc0dc98",
+]
+test = true
+
+[[module."gpu_csg_parity.rs".function]]
+id = "fn:630ae6575696ca6f"
+name = "dem_bed_views_gpu_match_cpu"
+qual = "dem_bed_views_gpu_match_cpu"
+lines = [
+    275,
+    324,
+]
+hash = "sha256:44d95a40c405062573ef2be33d9248b176ac2ace7b51ce273ae96604b9bd0589"
+doc_hash = "sha256:b60401726c0f4d859bd03a2fae52059acc20db77f39de54c8c9fe782a2a96d94"
+callees = [
+    "fn:1537ed09bf4183b8",
+    "fn:657c917c00c40e1f",
+    "fn:9e84867597fa2e5d",
+    "fn:a351d3dab87273d0",
+    "fn:d8960639536478e3",
+]
+test = true
+
+[[module."gpu_csg_parity.rs".function]]
+id = "fn:657c917c00c40e1f"
+name = "compare_views"
+qual = "compare_views"
+lines = [
+    326,
+    516,
+]
+hash = "sha256:a6744309c31de7d863e24c779513de5d193f12a6408c0e8c81b48cbfa1f99d69"
+doc_hash = "sha256:e5611fdefff79dcc88c8400a71140332e43f04463e50ac4bba30ae57885f7e99"
+callees = [
+    "fn:022d087efe93350a",
+    "fn:206511b3b25543e9",
+    "fn:2712f96561e4fb91",
+    "fn:461940ac9f819549",
+    "fn:48d617bfddc79a4e",
+    "fn:54027ec3f875eb66",
+    "fn:575b799b341f874c",
+    "fn:8fc32a1f3e6a80f3",
+    "fn:9c26415e51c2cd09",
+    "fn:abbb515c1a256703",
+    "fn:ac515933f23ca2fd",
+    "fn:b1d9d5b074697fcd",
+    "fn:b933a6f9f4fd7581",
+    "fn:caa206087fc2a464",
+    "fn:cb1fc1a67d38f99a",
+    "fn:d3ebed1d14cecb3c",
+    "fn:d4a13df2fbeb1d04",
+    "fn:e3e47ff80971c0cc",
+    "fn:f2899d0b9b799e28",
+]
+test = true

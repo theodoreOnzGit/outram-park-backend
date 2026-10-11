@@ -1,0 +1,222 @@
+schema_version = 1
+kind = "code_folder"
+crate = "changi"
+dir = "crates/changi/examples"
+
+[module."chi_over_q_survey.rs"]
+path = "example:chi_over_q_survey"
+
+[[module."chi_over_q_survey.rs".function]]
+id = "fn:16443af53a90ef44"
+name = "main"
+qual = "main"
+lines = [
+    61,
+    164,
+]
+hash = "sha256:ab6ec8c5ff0350d6b4df497d9fb11b1dfc50e475337500ffa59da50ad0433c5c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:747679b63465e341",
+    "fn:80952b7847d8ca27",
+    "fn:b42ea95c52b7587b",
+    "fn:bb26bc923acbb6ec",
+    "fn:ce42673cbb55ed79",
+    "fn:e179a33cf72d377a",
+]
+
+[module."field_timing.rs"]
+path = "example:field_timing"
+
+[[module."field_timing.rs".function]]
+id = "fn:7b84cc703e032050"
+name = "plume"
+qual = "plume"
+lines = [
+    83,
+    104,
+]
+hash = "sha256:8621c608d267140c4fe8bd825445e64c3eef0d94a066f109dfdba76681472260"
+doc_hash = "sha256:b8ef0fb08c5bec3092d96a3264142ea978f01fa8f3d137ce9ed21d38c6ea2bf1"
+
+[[module."field_timing.rs".function]]
+id = "fn:118068f62ad8cd8a"
+name = "median_time"
+qual = "median_time"
+lines = [
+    106,
+    124,
+]
+hash = "sha256:5953c0ad5786d70c2db782cc6432f5a1bd159e7cc5cfc5bb5a75c391f5034d6b"
+doc_hash = "sha256:ccc6381fec6b1deef37be539d1a971faf39443ca0a4a2fe01a768970de87fd85"
+
+[[module."field_timing.rs".function]]
+id = "fn:dac7ee5ddb39cda4"
+name = "main"
+qual = "main"
+lines = [
+    126,
+    261,
+]
+hash = "sha256:f0f27cd025ce99e533485dfde45a563950ce28ae19932bf06806e79c03d4a57c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:118068f62ad8cd8a",
+    "fn:34f18cedf688004e",
+    "fn:7b84cc703e032050",
+    "fn:8283424425e6444e",
+    "fn:8d55f0ec06b3e8b1",
+    "fn:ec7bf8fb5485eb50",
+]
+
+[module."puff_site_survey.rs"]
+path = "example:puff_site_survey"
+
+[[module."puff_site_survey.rs".function]]
+id = "fn:48f6934b9d212bed"
+name = "m"
+qual = "m"
+lines = [
+    61,
+    65,
+]
+hash = "sha256:f83d70a686986f6e17bfa437ef3c5d3b750b27891b9b09c5ec646178fa7540b6"
+doc_hash = "sha256:75687dab9bd38bfd2bf33726e4a2584a47e804405918622f79a6f8fa06ead611"
+physical_interface = true
+
+[[module."puff_site_survey.rs".function]]
+id = "fn:e55c7b7131002057"
+name = "s"
+qual = "s"
+lines = [
+    66,
+    68,
+]
+hash = "sha256:abe0d869f8b3ddf01acdd6c0e3e79b3229f5e2c2f1ae33d0d4747e6bf6f45908"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[[module."puff_site_survey.rs".function]]
+id = "fn:99f650ec38876510"
+name = "leak"
+qual = "leak"
+lines = [
+    70,
+    73,
+]
+hash = "sha256:862a3f6d1df670717c6afc1a9487d0bf5146473d593da0de7ad8410b09a846dc"
+doc_hash = "sha256:b6edd25102574aa6d9e5c3159b9cedc62f5e18c72d94afe1c9e2015d268e56b9"
+physical_interface = true
+
+[[module."puff_site_survey.rs".function]]
+id = "fn:63bd0f4cfaa660e7"
+name = "main"
+qual = "main"
+lines = [
+    75,
+    82,
+]
+hash = "sha256:fe729d115c0ca04cffc153c0f7b6e8a78c3d1e7c746e53e3deb7347d3bf24e60"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:23fb279d7bd561bf",
+    "fn:4ebb982610a320a9",
+    "fn:adeebbe4a4fc1f8e",
+]
+
+[[module."puff_site_survey.rs".function]]
+id = "fn:adeebbe4a4fc1f8e"
+name = "part_1_a_single_leak"
+qual = "part_1_a_single_leak"
+lines = [
+    84,
+    177,
+]
+hash = "sha256:2918f2263d2c0910785a3600c292582a7b54d7adcb16cfbb051a8a5d15b060f4"
+doc_hash = "sha256:1081875ca309e656e3928ae26068ca66165141c651ba9897e9325a14f7652ae6"
+callees = [
+    "fn:0604a7b127877480",
+    "fn:15e5495a96fa3fcc",
+    "fn:361ac40f083ae222",
+    "fn:48f6934b9d212bed",
+    "fn:5820461545e63b07",
+    "fn:75221dab28d7307d",
+    "fn:7e5bdd37455f6dfd",
+    "fn:80952b7847d8ca27",
+    "fn:99f650ec38876510",
+    "fn:e55c7b7131002057",
+]
+
+[[module."puff_site_survey.rs".function]]
+id = "fn:4ebb982610a320a9"
+name = "part_2_what_stability_does"
+qual = "part_2_what_stability_does"
+lines = [
+    179,
+    254,
+]
+hash = "sha256:0b4d449c34362fec728d3675e8af052a8b3570c4447ce5d15b68e9ea0f0ce649"
+doc_hash = "sha256:66423073e39576c0ea45adabf4b895fcdcd490b69546957b1fcc577d33fd0feb"
+callees = [
+    "fn:48f6934b9d212bed",
+    "fn:75221dab28d7307d",
+    "fn:7544e682f26b362f",
+    "fn:7e5bdd37455f6dfd",
+    "fn:802a30d4296eb3f1",
+    "fn:e179a33cf72d377a",
+    "fn:ee5531a48280ae0e",
+]
+
+[[module."puff_site_survey.rs".function]]
+id = "fn:23fb279d7bd561bf"
+name = "part_3_the_one_deliberate_divergence"
+qual = "part_3_the_one_deliberate_divergence"
+lines = [
+    256,
+    361,
+]
+hash = "sha256:cbffbe6a7707e8d205c9c9792f7b8639589e5346660029015c6559c4d6f1258f"
+doc_hash = "sha256:f705ed81d28b819eb4eb9cbd2811b3379e6bd2a72444bb774307205668fb8eda"
+callees = [
+    "fn:15e5495a96fa3fcc",
+    "fn:361ac40f083ae222",
+    "fn:48f6934b9d212bed",
+    "fn:75221dab28d7307d",
+    "fn:80952b7847d8ca27",
+    "fn:99f650ec38876510",
+    "fn:b5ac88f18c5e2f5b",
+    "fn:e179a33cf72d377a",
+    "fn:e55c7b7131002057",
+    "fn:ee5531a48280ae0e",
+]
+
+[module."site_activity_survey.rs"]
+path = "example:site_activity_survey"
+
+[[module."site_activity_survey.rs".function]]
+id = "fn:704185de70600031"
+name = "main"
+qual = "main"
+lines = [
+    78,
+    245,
+]
+hash = "sha256:e2a83e57846e88a99772d7e2c815ca7c737ec51d511a9e039bd43526ddab0507"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2bbb56c415a29725",
+    "fn:3ba47b1b617f33a4",
+    "fn:481d98adc0fc36ae",
+    "fn:49eca2863f100d7d",
+    "fn:4cf0e49c720989f7",
+    "fn:5818c0f0d1e04928",
+    "fn:6b87c53ec5263de5",
+    "fn:6f59b6d0e66adaaf",
+    "fn:747679b63465e341",
+    "fn:771c549884eb2f62",
+    "fn:80952b7847d8ca27",
+    "fn:b42ea95c52b7587b",
+    "fn:e179a33cf72d377a",
+    "fn:e8f58180c812fc7c",
+    "fn:fb931a92ca00058a",
+]

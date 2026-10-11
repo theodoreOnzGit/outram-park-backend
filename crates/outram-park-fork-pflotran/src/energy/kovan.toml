@@ -1,0 +1,369 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-pflotran"
+dir = "crates/outram-park-fork-pflotran/src/energy"
+test_ids = [
+    "crates/outram-park-fork-pflotran/src/decomposition/transport.rs::distributed_energy_conduction_matches_serial",
+    "crates/outram-park-fork-pflotran/src/energy/mod.rs::closed_domain_conserves_energy",
+    "crates/outram-park-fork-pflotran/src/energy/mod.rs::constructor_validates_inputs",
+    "crates/outram-park-fork-pflotran/src/energy/mod.rs::pure_conduction_steady_is_linear",
+    "crates/outram-park-fork-pflotran/src/energy/mod.rs::steady_advection_conduction_matches_closed_form",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::th_coupling_advects_a_thermal_front",
+]
+
+[module."mod.rs"]
+path = "crate::energy"
+
+[[module."mod.rs".function]]
+id = "fn:d6cd2dff0366fe80"
+name = "new"
+qual = "ThermalParameters::new"
+lines = [
+    128,
+    176,
+]
+hash = "sha256:6ad6b8f98dea5920dbc51e17bd3b95477edb862e5285abbf2f9fa919f1723851"
+doc_hash = "sha256:359b5f70850da035a754970fbc7087a63bf778a2a67a70ddebf890c26e1cd135"
+reached_by = [
+    "#0",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2853d76fa9975684"
+name = "water_rock_defaults"
+qual = "ThermalParameters::water_rock_defaults"
+lines = [
+    178,
+    194,
+]
+hash = "sha256:4b9a4991a0d87413caa8fdd8f87f0f0731c8374082f79685e865718f45a9405e"
+doc_hash = "sha256:90c9fe0a61ebac74422709b4f9b7f5197c18268049b53f8a946f6aaadc7ea292"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6345c018e18e7be2"
+name = "effective_conductivity"
+qual = "ThermalParameters::effective_conductivity"
+lines = [
+    196,
+    201,
+]
+hash = "sha256:52c157a9bfb544f968fc772c9c4ebccef472aa02636962e483b6ac5f915a0181"
+doc_hash = "sha256:b9ef687044c2bc00d8ca222bb0277ab95069a985b52466e64cce18572ac90d29"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:1e509b2aa5dd8fa4"
+name = "volumetric_heat_capacity"
+qual = "ThermalParameters::volumetric_heat_capacity"
+lines = [
+    203,
+    208,
+]
+hash = "sha256:872a32608143c0f1d67f03c96efe61d06b20a9af1bcdcd1640065f4e239a5896"
+doc_hash = "sha256:a3739bea319c38d499dfdf67c1803e4a193713912022fa412acae639c8b17927"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:8117083841601ffa"
+name = "new"
+qual = "EnergyTransport::new"
+lines = [
+    258,
+    345,
+]
+hash = "sha256:aaee79dba1dc64f9b403a1523ffed5cf2e00297b3ca4b5c40994ae064fa0586b"
+doc_hash = "sha256:6a6070a54db3148a98bcb95c654d1b66d5205b905a689478e8ba75016c24d67d"
+callees = [
+    "fn:25cc542eadf8b05d",
+    "fn:6cbbeb09ec2ceba3",
+    "fn:73269c3067ab9f80",
+    "fn:cc21726779f422b1",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e9500a7a0b5808cf"
+name = "set_timestep"
+qual = "EnergyTransport::set_timestep"
+lines = [
+    347,
+    351,
+]
+hash = "sha256:df6ef712d4e95bbc6e646e9dce5a955a993e27b94d067123a0b18dd67140f863"
+doc_hash = "sha256:7ac07ede97709017fedd3a0a71dba57afb5a2d97c58560a31159aa3f3633207a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9d54a98d0d9439e3"
+name = "set_previous"
+qual = "EnergyTransport::set_previous"
+lines = [
+    353,
+    367,
+]
+hash = "sha256:5502598678ecae47e990d08202381223bf01a26ba04a0890a2a7abe0eb79a36c"
+doc_hash = "sha256:b2e77b786901a48294dc42851bbe2a6fbb1e8a81fcb1d7fb518e9f4f02e146e8"
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c4c5a8cbb09c1f96"
+name = "n_cells"
+qual = "EnergyTransport::n_cells"
+lines = [
+    369,
+    372,
+]
+hash = "sha256:c8cf93c42835e11ba7ed3d891e561066b6726c1ff62e6b080236095c9a214057"
+doc_hash = "sha256:cdaa40714668c37868cbbbd28adc227f0df8ecbf0ddff670a433489d5f1fa47d"
+callees = ["fn:cc21726779f422b1"]
+reached_by = ["#5"]
+
+[[module."mod.rs".function]]
+id = "fn:f36c50ea2d174265"
+name = "step"
+qual = "EnergyTransport::step"
+lines = [
+    374,
+    506,
+]
+hash = "sha256:641b6dd4ee9c641aeb7d61a9c714792977f32712839db1f57803afd79d83bf28"
+doc_hash = "sha256:77317ddebc7413427d0321b60e465a84d073de0df0affd739a86e618d1af4652"
+callees = [
+    "fn:1e509b2aa5dd8fa4",
+    "fn:227604c46b8798ba",
+    "fn:231a6d8bc97b95be",
+    "fn:25cc542eadf8b05d",
+    "fn:417586cedef290ff",
+    "fn:55d3140c92e26e33",
+    "fn:62fc954337041036",
+    "fn:6345c018e18e7be2",
+    "fn:6cbbeb09ec2ceba3",
+    "fn:73269c3067ab9f80",
+    "fn:cc21726779f422b1",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:16c01a85ff30074a"
+name = "total_energy"
+qual = "EnergyTransport::total_energy"
+lines = [
+    508,
+    533,
+]
+hash = "sha256:20487b57db9802cfc954f1d523d169c38ea7bc25f852fe645218bbd3e451f4f6"
+doc_hash = "sha256:ea4036caa97dca8ec6e424e9dd2141b5bb14b697008cdbe9b014e100e4babf01"
+callees = [
+    "fn:1e509b2aa5dd8fa4",
+    "fn:417586cedef290ff",
+    "fn:cc21726779f422b1",
+]
+reached_by = [
+    "#1",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:25cc542eadf8b05d"
+name = "location_index"
+qual = "location_index"
+lines = [
+    536,
+    546,
+]
+hash = "sha256:6d6b47b6ccac8993a75e486ae8dbfc3c6ec1a35cb51f751dba2f203be28b1872"
+doc_hash = "sha256:2c7d21d738848c56c337fd5e5b2ad12efe6011b90e600fa388b37b9844a48fae"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b9b73dfab3010950"
+name = "m"
+qual = "m"
+lines = [
+    555,
+    557,
+]
+hash = "sha256:9585872182b21645c80095e4e6bc467c32916052ffa2112a8a33dd20e9d1aa2b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:cf20ebb17335ac7e"
+name = "grid_1d"
+qual = "grid_1d"
+lines = [
+    559,
+    563,
+]
+hash = "sha256:eec1bcb63d4fff2d254bb4f0e710393455450a11fdbe073b86b91a6faf2019cc"
+doc_hash = "sha256:c19e3ca9948ad1d1d0e69bb9ad8a01d8a5ecea913ab5388a503819aa996af2e2"
+callees = [
+    "fn:2767d8f4a3c9f6f1",
+    "fn:b9b73dfab3010950",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:7f801fdd47462eed"
+name = "uniform_x_flow"
+qual = "uniform_x_flow"
+lines = [
+    565,
+    585,
+]
+hash = "sha256:1d501553acd59130f2712e9e3a62689de80b195de60010e088ea4027a2bce8a4"
+doc_hash = "sha256:d839390c1dc1ed4ad4054fe4ab7244df3c3dca2d712684fed7b59d56f7a1b323"
+callees = [
+    "fn:6cbbeb09ec2ceba3",
+    "fn:73269c3067ab9f80",
+    "fn:cc21726779f422b1",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:b4afa934a7206d73"
+name = "steady_advection_conduction_matches_closed_form"
+qual = "steady_advection_conduction_matches_closed_form"
+lines = [
+    587,
+    669,
+]
+hash = "sha256:a75b9436709420f61394852400c79d305b10194cc31470b78409bb2fa85e799f"
+doc_hash = "sha256:5122373e0f7179483a12f8e1dcd2017c89a72edb0612bae6e63fa24f46ca5c04"
+callees = [
+    "fn:2853d76fa9975684",
+    "fn:7f801fdd47462eed",
+    "fn:8117083841601ffa",
+    "fn:9d54a98d0d9439e3",
+    "fn:cf20ebb17335ac7e",
+    "fn:e9500a7a0b5808cf",
+    "fn:f36c50ea2d174265",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:a9d7cf4a5f487c12"
+name = "pure_conduction_steady_is_linear"
+qual = "pure_conduction_steady_is_linear"
+lines = [
+    671,
+    727,
+]
+hash = "sha256:2ef0499ff6cd9738bd8fdfd67f5f44f47b204b6edfb7e5459d429dd733a99e59"
+doc_hash = "sha256:545c9df7f0fcf21c54e559d89051c32505e4cead22f4b6d20c499a033c519717"
+callees = [
+    "fn:2853d76fa9975684",
+    "fn:6cbbeb09ec2ceba3",
+    "fn:73269c3067ab9f80",
+    "fn:8117083841601ffa",
+    "fn:9d54a98d0d9439e3",
+    "fn:cc21726779f422b1",
+    "fn:cf20ebb17335ac7e",
+    "fn:e9500a7a0b5808cf",
+    "fn:f36c50ea2d174265",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:38e74c8de2de9a2a"
+name = "closed_domain_conserves_energy"
+qual = "closed_domain_conserves_energy"
+lines = [
+    729,
+    768,
+]
+hash = "sha256:98641210a3c4b411d8c411702a6c4aaefa30b6fb8b8eaa660570df14b2c9e250"
+doc_hash = "sha256:9bb891f9ca7c7a6c7896680505b570f358dc427120a4eacbf275fe812724eeec"
+callees = [
+    "fn:16c01a85ff30074a",
+    "fn:2767d8f4a3c9f6f1",
+    "fn:2853d76fa9975684",
+    "fn:6cbbeb09ec2ceba3",
+    "fn:73269c3067ab9f80",
+    "fn:8117083841601ffa",
+    "fn:9d54a98d0d9439e3",
+    "fn:b9b73dfab3010950",
+    "fn:cc21726779f422b1",
+    "fn:e9500a7a0b5808cf",
+    "fn:f36c50ea2d174265",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:9f1c4046b13d84b8"
+name = "constructor_validates_inputs"
+qual = "constructor_validates_inputs"
+lines = [
+    770,
+    800,
+]
+hash = "sha256:b1fb79bdb34c3ed069df0b6e7c1db20e9367400b2c80e86abb1bd6a0604db119"
+doc_hash = "sha256:3d18033bac584e17831a86ca666bfca2d43be9a507011c8257b9819698549ab9"
+callees = [
+    "fn:2853d76fa9975684",
+    "fn:6cbbeb09ec2ceba3",
+    "fn:73269c3067ab9f80",
+    "fn:8117083841601ffa",
+    "fn:cc21726779f422b1",
+    "fn:cf20ebb17335ac7e",
+    "fn:d6cd2dff0366fe80",
+    "fn:e9500a7a0b5808cf",
+    "fn:f36c50ea2d174265",
+]
+test = true

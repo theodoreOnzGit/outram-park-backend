@@ -1,0 +1,980 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-dwsim-libs"
+dir = "crates/outram-park-fork-dwsim-libs/src"
+crate_root = true
+test_ids = [
+    "crates/dover/tests/smr_cstr.rs::conversion_falls_with_pressure_at_equilibrium",
+    "crates/dover/tests/smr_cstr.rs::conversion_rises_with_steam_to_carbon_at_equilibrium",
+    "crates/dover/tests/smr_cstr.rs::conversion_rises_with_temperature",
+    "crates/dover/tests/smr_cstr.rs::every_atom_balances",
+    "crates/dover/tests/smr_cstr.rs::long_residence_time_approaches_thermodynamic_equilibrium",
+    "crates/dover/tests/smr_cstr.rs::pressure_raises_conversion_in_the_kinetically_limited_regime",
+    "crates/dover/tests/smr_cstr.rs::reverse_rate_is_thermodynamically_consistent",
+    "crates/dover/tests/smr_cstr.rs::shift_kinetics_only_set_the_approach_rate",
+    "crates/dover/tests/smr_cstr.rs::the_base_case_is_endothermic_and_makes_hydrogen",
+    "crates/dover/tests/smr_cstr.rs::the_bundled_decks_parse_and_run",
+    "crates/dover/tests/smr_cstr.rs::the_committed_fixtures_still_reproduce",
+    "crates/dover/tests/smr_cstr.rs::the_headless_run_is_deterministic",
+    "crates/outram-park-fork-dwsim-libs/src/reactions.rs::arrhenius_rate_constant",
+    "crates/outram-park-fork-dwsim-libs/src/reactions.rs::equilibrium_constant_forms",
+    "crates/outram-park-fork-dwsim-libs/src/reactions.rs::lh_dual_site_exponent_and_arrhenius_adsorption",
+    "crates/outram-park-fork-dwsim-libs/src/reactions.rs::lh_reduces_to_power_law_in_weak_adsorption_limit",
+    "crates/outram-park-fork-dwsim-libs/src/reactions.rs::lh_unimolecular_monotonic_and_saturating",
+    "crates/outram-park-fork-dwsim-libs/src/reactions.rs::power_law_net_rate",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/conversion_reactor.rs::extent_capped_at_availability",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/conversion_reactor.rs::honours_set_conversion_exactly",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/conversion_reactor.rs::mole_changing_reaction_atom_balance",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/cstr.rs::cstr_below_pfr_for_same_ktau",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/cstr.rs::first_order_matches_analytic_conversion",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/cstr.rs::reversible_reaction_converges_below_irreversible",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/equilibrium_reactor.rs::a_eq_b_reaches_keq",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/equilibrium_reactor.rs::larger_k_shifts_toward_product",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/equilibrium_reactor.rs::temperature_dependent_k_satisfied",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/gibbs_reactor.rs::gibbs_matches_equilibrium_reactor_a_to_b",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/pfr.rs::conversion_increases_with_residence_time",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/pfr.rs::first_order_matches_analytic_conversion",
+    "crates/outram-park-fork-dwsim-libs/src/reactors/pfr.rs::rejects_nonpositive_flow",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::liquid_phase_reaction_gap_is_recorded",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::overspecified_group_reaches_exact_optimum",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::parallel_group_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::penalty_scope_upstream_defect_is_not_reproduced",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::sequential_ranks_match_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::single_reaction_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_cstr_parity.rs::heterogeneous_catalytic_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_cstr_parity.rs::liquid_isomerisation_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_cstr_parity.rs::steam_reforming_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_cstr_parity.rs::vapour_isomerisation_matches_upstream_diagnostic_build",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_equilibrium_parity.rs::activity_basis_vapour_gap_is_recorded",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_equilibrium_parity.rs::ideal_phi_cost_is_recorded",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_equilibrium_parity.rs::smr_fugacity_basis_matches_partial_pressure_and_records_phi_gap",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_equilibrium_parity.rs::smr_mole_fraction_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_equilibrium_parity.rs::wgs_mole_fraction_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_pfr_parity.rs::heterogeneous_catalytic_bed_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_pfr_parity.rs::liquid_isomerisation_reproduces_upstream_truncated_segments",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_pfr_parity.rs::steam_reforming_matches_upstream",
+    "crates/outram-park-fork-dwsim-libs/tests/upstream_pfr_parity.rs::vapour_isomerisation_matches_upstream",
+]
+
+[module."lib.rs"]
+path = "crate"
+
+[module."prelude.rs"]
+path = "crate::prelude"
+
+[module."reactions.rs"]
+path = "crate::reactions"
+
+[[module."reactions.rs".function]]
+id = "fn:7be29599b7b98e90"
+name = "new"
+qual = "ReactionComponent::new"
+lines = [
+    191,
+    209,
+]
+hash = "sha256:ccdfdd4882502a2c38d299d9a89f78619a937cab3a73d5780573d53e4e10b532"
+doc_hash = "sha256:78e41f6cac01832a6e5f9c70cb6c06d06c5c2936b961f835fdefb853bf126341"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:cf3127ee88d3d1fc"
+name = "evaluate"
+qual = "EquilibriumConstant::evaluate"
+lines = [
+    257,
+    276,
+]
+hash = "sha256:b8ef1701bf16e78c0faf272283ad0ac3a4eb340210e0a81ff105849cfae8d109"
+doc_hash = "sha256:843078c0fe928d266e60a7774b25f482a3ce33e7dedd61b10e7268ed2771957a"
+reached_by = [
+    "#13",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:1e09045d7ac3019a"
+name = "new"
+qual = "AdsorptionTerm::new"
+lines = [
+    319,
+    329,
+]
+hash = "sha256:366e306d5dc558627d6d6dda3847497dd095e908d154fc1661be7f480e5f4ac6"
+doc_hash = "sha256:1065ebcfc24235d232725ad4e7029ba72ef22925fc43c84c472d888111850933"
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#37",
+    "#46",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:f880637e53f784e2"
+name = "adsorption_constant"
+qual = "AdsorptionTerm::adsorption_constant"
+lines = [
+    331,
+    337,
+]
+hash = "sha256:e975d003b24792e6da247a7ec87700fa2edf6e1c54860bd05a7d25f71896a8e1"
+doc_hash = "sha256:f5b048224ff3159f6e5714d56c4b0332fedd324f69cc61c4619779198595b384"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#14",
+    "#15",
+    "#16",
+    "#21",
+    "#22",
+    "#23",
+    "#28",
+    "#29",
+    "#30",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:683e87881b70771c"
+name = "value"
+qual = "AdsorptionTerm::value"
+lines = [
+    339,
+    352,
+]
+hash = "sha256:d1e2caf2edcf40a220ec05881d01f6b843aec9841ed8beacf7ac217e042611bb"
+doc_hash = "sha256:62ddb7d6889022c3da6b9bd7c0f4c8e16ebf8075b5d1c7c2b826b0f1a884dcab"
+callees = ["fn:f880637e53f784e2"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#14",
+    "#15",
+    "#16",
+    "#21",
+    "#22",
+    "#23",
+    "#28",
+    "#29",
+    "#30",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:448e20a5ff7e8bbe"
+name = "default"
+qual = "LangmuirHinshelwood::default"
+lines = [
+    384,
+    390,
+]
+hash = "sha256:a8a4474c91715bcecbd14dcf1e393e5eec2b99ef12e0b854d5a3856829135fc7"
+doc_hash = "sha256:d11d680989a642770db400fbcac8877cce1945bd8f0af081e5573450afdfd5ed"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:2b8f43acd7ff7072"
+name = "new"
+qual = "LangmuirHinshelwood::new"
+lines = [
+    394,
+    401,
+]
+hash = "sha256:3e475e7e049f184f849c25f4d4ee882adfba52e7a3654e83cc01df088364750d"
+doc_hash = "sha256:6cc4336007ffac11d9895a7d2100cadba3a8172d35dcbd77f23ba4c3a0bd0ff0"
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#37",
+    "#46",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:3d659d923581b4f7"
+name = "denominator_value"
+qual = "LangmuirHinshelwood::denominator_value"
+lines = [
+    403,
+    418,
+]
+hash = "sha256:c63d8727cf93cd88afd9e13dda1f1ae744271ec5ebbf7ad2bda3570a5071b0bb"
+doc_hash = "sha256:8c8033f475e4efd18f55f4654e96424b19c8d99cbab91642c14795015bcdb8ed"
+callees = ["fn:683e87881b70771c"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#14",
+    "#15",
+    "#16",
+    "#21",
+    "#22",
+    "#23",
+    "#28",
+    "#29",
+    "#30",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:9b6ed9e43c277780"
+name = "new"
+qual = "Reaction::new"
+lines = [
+    479,
+    505,
+]
+hash = "sha256:42ff014c5f48de1b588add0bbe9c94d6ea174b03623e0ea457551b9eb3ba80c0"
+doc_hash = "sha256:ac6a679c2083500817f99b5fb86855780e65ba71489e18741fd74c1272d3abf0"
+callees = ["fn:448e20a5ff7e8bbe"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:9f5e1f557d158a5b"
+name = "with_forward"
+qual = "Reaction::with_forward"
+lines = [
+    507,
+    513,
+]
+hash = "sha256:742fc279b16e1830ef6b7994b3824d365517c1d65066331f43a1eb93cf84a404"
+doc_hash = "sha256:1cb9b372dd15901c64d10358fb7fd12f4b9755d25d04034d31e21420efe7f57a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#21",
+    "#22",
+    "#23",
+    "#28",
+    "#29",
+    "#30",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:71d86f3566c4ac23"
+name = "with_reverse"
+qual = "Reaction::with_reverse"
+lines = [
+    515,
+    521,
+]
+hash = "sha256:3e4de97fdf0ce8ffbdbf09662e4ec6ea7739165e1b2585968e61f502255544fa"
+doc_hash = "sha256:cfed4ab10a8927969f901e1d837ab6affa018042d442f8953a288137b80db6c9"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#17",
+    "#23",
+    "#39",
+    "#48",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:8e7dc81a6b458476"
+name = "with_k_eq"
+qual = "Reaction::with_k_eq"
+lines = [
+    523,
+    528,
+]
+hash = "sha256:9e855c631cddd92a74e064ed985603649ea32e77cdc37fd134e4141dc6c1b725"
+doc_hash = "sha256:47637f867cb7edf3b57638b83b16a643e76fb38eb5326a0dcb619e6a44b2be9c"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:1d2e7800f4f33cfb"
+name = "with_conversion"
+qual = "Reaction::with_conversion"
+lines = [
+    530,
+    535,
+]
+hash = "sha256:c0bab586be782d82e7cb753644a2627b61792d6ded2364265d5e7de9749656ac"
+doc_hash = "sha256:430d010043ad92a5561744dd1753141d2002e63186a589e091280e6c2f454938"
+reached_by = [
+    "#18",
+    "#19",
+    "#20",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:d966cc556e37d4cf"
+name = "with_reaction_heat"
+qual = "Reaction::with_reaction_heat"
+lines = [
+    537,
+    542,
+]
+hash = "sha256:95bf1459d3d45723ee1d6eb5643a67b4538aa56d478696bed4b0f8827f2c76dc"
+doc_hash = "sha256:ac0c9cd2ce26c5fe9ce5b98d08301433c8c9c9820f1a5828d4385aab1b936632"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:06aa83775163a491"
+name = "with_langmuir_hinshelwood"
+qual = "Reaction::with_langmuir_hinshelwood"
+lines = [
+    544,
+    550,
+]
+hash = "sha256:14f38a6a67739b504f4ca7ee7a7930c58927e1a944242e03460bfeef52948376"
+doc_hash = "sha256:90716b534098e2eef61cda9a1b388563ba6a9ab4054780e41d0101012d5a97e1"
+reached_by = [
+    "#15",
+    "#16",
+    "#37",
+    "#46",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:94e3ac42dc387974"
+name = "base_stoich_coeff"
+qual = "Reaction::base_stoich_coeff"
+lines = [
+    552,
+    564,
+]
+hash = "sha256:b197cad815f961423967c93c66789e7c7c6e0ca2ba80ae4fb9ef264749ba119d"
+doc_hash = "sha256:cd531677b85efdb5f27f43ad1694939cd244c44774ee6ef0a96b8621a0220e62"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:ddca419625468662"
+name = "base_component_index"
+qual = "Reaction::base_component_index"
+lines = [
+    566,
+    576,
+]
+hash = "sha256:392b3b13425eb1113a35c6fd89f9e35cbbcdb0a0c7388d1df0346a66f0c556b6"
+doc_hash = "sha256:933c2dbd487eac3f906996b5c1df0a87d2658445dd1bb20262c9f41abdc8e17e"
+reached_by = [
+    "#18",
+    "#19",
+    "#20",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:4bb86cce30dc9aa4"
+name = "forward_rate_constant"
+qual = "Reaction::forward_rate_constant"
+lines = [
+    578,
+    590,
+]
+hash = "sha256:3cdb6939d707f8e5420f8a270918239263f1b9b45ba7cab9992dd9af0149c516"
+doc_hash = "sha256:0487f16a169ea8486b35b0afd0b3727632af4f5ad04485c2360a1c7403c0c03e"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#21",
+    "#22",
+    "#23",
+    "#28",
+    "#29",
+    "#30",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:aa87ca086eebef5e"
+name = "reverse_rate_constant"
+qual = "Reaction::reverse_rate_constant"
+lines = [
+    592,
+    600,
+]
+hash = "sha256:2d68bfee29d91a0f954d977ea70a304989135ec2a218039e38dec26787c4fd82"
+doc_hash = "sha256:8ca20af9e4a25b9389f50b92125bffa80c77a80433999b15508723e737b011a2"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#16",
+    "#17",
+    "#21",
+    "#22",
+    "#23",
+    "#28",
+    "#29",
+    "#30",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:167b01e664ba9648"
+name = "net_rate"
+qual = "Reaction::net_rate"
+lines = [
+    602,
+    638,
+]
+hash = "sha256:0a33c63ef793f0b9d9cb5808ab55116c2627b2ba9e19dd90704f0c892b4dc268"
+doc_hash = "sha256:6097583fcfdef1da846aceb22650a3056ccf02f2ef8f4cd1937fd8efdbd0cace"
+callees = [
+    "fn:4bb86cce30dc9aa4",
+    "fn:aa87ca086eebef5e",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#16",
+    "#17",
+    "#21",
+    "#22",
+    "#23",
+    "#28",
+    "#29",
+    "#30",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:88a3a24fb5db49a5"
+name = "langmuir_hinshelwood_rate"
+qual = "Reaction::langmuir_hinshelwood_rate"
+lines = [
+    640,
+    666,
+]
+hash = "sha256:c533d134afc2d458f859bea265ae98865da9965607fd375c62dc3252adfbe6ec"
+doc_hash = "sha256:75b3508e5b610aac7f07c7291f763b6d19503ce69ef0c97385fd8f738e5f05be"
+callees = [
+    "fn:167b01e664ba9648",
+    "fn:3d659d923581b4f7",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#16",
+    "#21",
+    "#22",
+    "#23",
+    "#28",
+    "#29",
+    "#30",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:7f446ce3531d172a"
+name = "equilibrium_constant"
+qual = "Reaction::equilibrium_constant"
+lines = [
+    668,
+    673,
+]
+hash = "sha256:ec8413a1d5f89d97f27171d2b8c01ab3152bfe3cf2805c81341a4eee32be009b"
+doc_hash = "sha256:7bf78ce719310703152dd28e96a5e2d3777ff20e6eab75b1cc48cbc42f9b7ddd"
+callees = ["fn:cf3127ee88d3d1fc"]
+reached_by = [
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:6d5139b3cf9bb440"
+name = "arrhenius_rate_constant"
+qual = "arrhenius_rate_constant"
+lines = [
+    680,
+    716,
+]
+hash = "sha256:4a89a659a9d7f8ad0d6967863f50571b01680104ceb92b5775036d6ca15759c6"
+doc_hash = "sha256:9fa310eff25490979f012cc6e009e4b763ed7a724a837ff484e2ade0c411e387"
+callees = [
+    "fn:4bb86cce30dc9aa4",
+    "fn:7be29599b7b98e90",
+    "fn:9b6ed9e43c277780",
+    "fn:9f5e1f557d158a5b",
+]
+test = true
+
+[[module."reactions.rs".function]]
+id = "fn:0a903fc865e9b294"
+name = "power_law_net_rate"
+qual = "power_law_net_rate"
+lines = [
+    718,
+    742,
+]
+hash = "sha256:1b339402d93de9f4fbbb8c90bc99b3d7dbedd803e6af13dda8eb3b5c24def196"
+doc_hash = "sha256:8916cd539277b912e611ca2896092dd0f7190237c99a3598a539ea774666abd1"
+callees = [
+    "fn:167b01e664ba9648",
+    "fn:71d86f3566c4ac23",
+    "fn:7be29599b7b98e90",
+    "fn:9b6ed9e43c277780",
+    "fn:9f5e1f557d158a5b",
+]
+test = true
+
+[[module."reactions.rs".function]]
+id = "fn:fe7ac5e6785b8816"
+name = "equilibrium_constant_forms"
+qual = "equilibrium_constant_forms"
+lines = [
+    744,
+    774,
+]
+hash = "sha256:f40fe76b5034070ebc3f197428d5a3d63bf021029fca4c4e666604bc3141b5b7"
+doc_hash = "sha256:3c5121f238b9ffeec3e2cfe99aaec2bbaa4477313a925ee6864b9e4250715068"
+callees = ["fn:cf3127ee88d3d1fc"]
+test = true
+
+[[module."reactions.rs".function]]
+id = "fn:aef9329939777034"
+name = "lh_reduces_to_power_law_in_weak_adsorption_limit"
+qual = "lh_reduces_to_power_law_in_weak_adsorption_limit"
+lines = [
+    776,
+    828,
+]
+hash = "sha256:a90218caa5422a83da69d96cfcf653ec3c33d7e45181e35a781734918db30838"
+doc_hash = "sha256:ac11d372990abe230663055cd9fbc574850e50281fd1edadbfd0e39aa1b8b342"
+callees = [
+    "fn:06aa83775163a491",
+    "fn:167b01e664ba9648",
+    "fn:1e09045d7ac3019a",
+    "fn:2b8f43acd7ff7072",
+    "fn:7be29599b7b98e90",
+    "fn:88a3a24fb5db49a5",
+    "fn:9b6ed9e43c277780",
+    "fn:9f5e1f557d158a5b",
+]
+test = true
+
+[[module."reactions.rs".function]]
+id = "fn:10f4d323307196ed"
+name = "lh_unimolecular_monotonic_and_saturating"
+qual = "lh_unimolecular_monotonic_and_saturating"
+lines = [
+    830,
+    870,
+]
+hash = "sha256:e0c046a0584b93a7c46105c58db8dfdf696068c872a84a1131744ab98b591e35"
+doc_hash = "sha256:46b34c8c84182a0f92b4aea6791d8f2c56e1ee0956a2a7a9ed69731e9bec261d"
+callees = [
+    "fn:06aa83775163a491",
+    "fn:1e09045d7ac3019a",
+    "fn:2b8f43acd7ff7072",
+    "fn:7be29599b7b98e90",
+    "fn:88a3a24fb5db49a5",
+    "fn:9b6ed9e43c277780",
+    "fn:9f5e1f557d158a5b",
+]
+test = true
+
+[[module."reactions.rs".function]]
+id = "fn:b3bdf6d3796d7a5e"
+name = "lh_dual_site_exponent_and_arrhenius_adsorption"
+qual = "lh_dual_site_exponent_and_arrhenius_adsorption"
+lines = [
+    872,
+    907,
+]
+hash = "sha256:7d37055d497244668647e055a216e7e58fb23f8db5764f468b4129da9e1170f7"
+doc_hash = "sha256:ae311d550f644e0650a3285f284b313c9c61109f1781d6ffbd4dc6a865c95ed2"
+callees = [
+    "fn:1e09045d7ac3019a",
+    "fn:2b8f43acd7ff7072",
+    "fn:3d659d923581b4f7",
+]
+test = true

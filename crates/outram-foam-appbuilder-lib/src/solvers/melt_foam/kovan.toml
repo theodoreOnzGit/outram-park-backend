@@ -1,0 +1,348 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::attached_model_contributes_to_both_equations_after_stepping",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::boussinesq_coefficients_convert_to_kinematic_units",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::hot_wall_drives_melting_with_bounded_liquid_fraction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::runs_without_any_fv_model",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::temperature_solver_defaults_to_a_tight_tolerance",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::velocity_field_keeps_its_name_after_correction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::wall_face_fluxes_are_constrained_to_the_velocity_bc",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::enthalpy_porosity_conserves_energy",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::gallium_melting_cavity_gau_viskanta_configuration",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::stefan_problem_matches_similarity_solution",
+]
+
+[module."mod.rs"]
+path = "crate::solvers::melt_foam"
+
+[[module."mod.rs".function]]
+id = "fn:2d976c61ac08bea8"
+name = "new"
+qual = "MeltFoam::new"
+lines = [
+    225,
+    264,
+]
+hash = "sha256:3f088433de057e793b90cb3b4a5fef6c5e84abe3e243233d3dc4aa8e6f943e99"
+doc_hash = "sha256:6f334d808726707a143fe1a58a4f882d86f3754b4e8f11e9f1f4bbc7f295eaaf"
+callees = [
+    "fn:0946d699612366f8",
+    "fn:35c659fb699605b5",
+    "fn:636e75b664f14254",
+    "fn:acfb0f2d7b950994",
+    "fn:d6a9c884aaeb7775",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:87903a6d2b5c0e8f"
+name = "boussinesq_coefficients"
+qual = "MeltFoam::boussinesq_coefficients"
+lines = [
+    266,
+    322,
+]
+hash = "sha256:da91f2607301797d59f28fc7e4f606a38623dd4cab8577d8d889ddd9bca0d6f4"
+doc_hash = "sha256:3153bb80ca880053fd8ec8e2f11e42c8e9dc960a673c4aff4987a9d08b647bd1"
+callees = ["fn:8f7ca4d3896a5926"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9c2ad20cd623c0da"
+name = "step"
+qual = "MeltFoam::step"
+lines = [
+    324,
+    568,
+]
+hash = "sha256:de14dc9229c024c0594d5e06c4ffbc90213215e4e6436f93a7a7d0e0d169a2a3"
+doc_hash = "sha256:aaaa40267891d474d2afc7553ebc7f9d5438a6e4443e77bf273e6f3284b9b1e5"
+callees = [
+    "fn:0166bfdea1cb183d",
+    "fn:04fbfd762e87db68",
+    "fn:10f32a17a906d1d2",
+    "fn:12a06403e27e4888",
+    "fn:13d801bd97c5b69d",
+    "fn:18855a2a89aa525e",
+    "fn:1e0c0abc3044dc8b",
+    "fn:329ec62309c98f22",
+    "fn:456ce8c84f72ae6e",
+    "fn:472adef4837fb92c",
+    "fn:4a3d63f4a0e47a1c",
+    "fn:4aea3161a87c6021",
+    "fn:4b926a3051111128",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:636ae5a21be9336b",
+    "fn:636e75b664f14254",
+    "fn:65f8f3c9daf074d2",
+    "fn:6cd6e8397d6ce797",
+    "fn:6d45af0d518e142d",
+    "fn:7493954e75e3a317",
+    "fn:8b1e80d2a2add1f9",
+    "fn:8b81130c44b810e7",
+    "fn:92fd53f240dcfb8e",
+    "fn:95630e24fcf1635e",
+    "fn:99b51c50cec539c3",
+    "fn:9ce7e8c2f9324984",
+    "fn:9ede23afd5c79bc4",
+    "fn:a8a8aa01bdeead4b",
+    "fn:a9ef331a0803eb1f",
+    "fn:b0ed875c4efafa46",
+    "fn:b13c311a9e21788c",
+    "fn:b39c58cda597407e",
+    "fn:bcd3c0fddc1f933d",
+    "fn:c3f73100c19cafbf",
+    "fn:c4820b8f9c766f2a",
+    "fn:d26e6c14487b0898",
+    "fn:da3db2be3d98eafe",
+    "fn:ddf2344864918578",
+    "fn:ea6b6e6095ea6573",
+    "fn:f59a35e9cbd8b293",
+    "fn:fb7ba145dba6413c",
+    "fn:fdbfa1ab352c02c0",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:806c9b1f171cbc6e"
+name = "run"
+qual = "MeltFoam::run"
+lines = [
+    570,
+    591,
+]
+hash = "sha256:2b4d85517947749a446e89ad8c217c688eb66b871e18435691d1a3ba806bfcec"
+doc_hash = "sha256:a8629b8457b97b8f1fe7a81060130f1d5c7b576b58c3bc5c6e84b09ed8e6ce19"
+callees = ["fn:9c2ad20cd623c0da"]
+
+[[module."mod.rs".function]]
+id = "fn:732dda8785653b79"
+name = "liquid_fraction"
+qual = "MeltFoam::liquid_fraction"
+lines = [
+    593,
+    605,
+]
+hash = "sha256:071c6e5adf90818665a7204f33ead932de6e5b8e55b89838f49bc52e69ce796d"
+doc_hash = "sha256:2a998ccf36b12d1669b6cc75c045deb2f9442531b4a946dabdbc6aeb86bd190e"
+callees = [
+    "fn:7b2178b8c241b41b",
+    "fn:f6199107c0514590",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[module."tests.rs"]
+path = "crate::solvers::melt_foam::tests"
+
+[[module."tests.rs".function]]
+id = "fn:713eb8c438e7b360"
+name = "line_mesh"
+qual = "line_mesh"
+lines = [
+    15,
+    46,
+]
+hash = "sha256:85c17f8c8b66ea07d78784afc53dd7a9bdf3329213fae9f824f3649ca7277191"
+doc_hash = "sha256:af48064975ffde90e7f4bebb61521fed35da858c6e0eb91121321fab6178fca1"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:30b8820078b4a897"
+name = "solver_with_model"
+qual = "solver_with_model"
+lines = [
+    48,
+    80,
+]
+hash = "sha256:fce25ed4a653f0836e9037fbee7dff8f5f8c9d3b78e997f20186d756cd57ad63"
+doc_hash = "sha256:0ed84af7d922156b43b91168ac6f177dea6a553def5ffa37061f58ca7223a5a9"
+callees = [
+    "fn:12245f102f37c352",
+    "fn:14f480c94a59d045",
+    "fn:25026aef8dc412e6",
+    "fn:2d976c61ac08bea8",
+    "fn:636e75b664f14254",
+    "fn:713eb8c438e7b360",
+    "fn:7e183b9184d0ba1b",
+    "fn:87903a6d2b5c0e8f",
+    "fn:9e501e5f4cce23ae",
+    "fn:da3db2be3d98eafe",
+    "fn:f8bf8efa3e1f4377",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:8a0489562f456a23"
+name = "boussinesq_coefficients_convert_to_kinematic_units"
+qual = "boussinesq_coefficients_convert_to_kinematic_units"
+lines = [
+    82,
+    117,
+]
+hash = "sha256:451dcdeaeb451e9431b96536876779c3d3df0535dee88c01f63d25b98547db1c"
+doc_hash = "sha256:e0ae122a81807edd557804c730858a334181f62988f72aa55d21768b0aeee5b9"
+callees = ["fn:87903a6d2b5c0e8f"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:7601b6e94de7d379"
+name = "velocity_field_keeps_its_name_after_correction"
+qual = "velocity_field_keeps_its_name_after_correction"
+lines = [
+    119,
+    146,
+]
+hash = "sha256:12f09ed9ac93f015c81e1773d9f372b8abfa0ab54905c052da4f642282a2da8a"
+doc_hash = "sha256:e3091ba6262bb380c7b499a63a152856bf07ee83dc5896c6ed305741a3cd8bb2"
+callees = [
+    "fn:30b8820078b4a897",
+    "fn:9c2ad20cd623c0da",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:f3907bf797065b29"
+name = "attached_model_contributes_to_both_equations_after_stepping"
+qual = "attached_model_contributes_to_both_equations_after_stepping"
+lines = [
+    148,
+    164,
+]
+hash = "sha256:c05b3755cc34572e0f0ec6aa3b61b22af29a419dc05c2873389c95723ac05f8f"
+doc_hash = "sha256:2f4ad24a2253b1d6c01f39b2f8ab9b1433218c266785adcb2bbd83301303108b"
+callees = [
+    "fn:30b8820078b4a897",
+    "fn:42da4e8b6cbcb16f",
+    "fn:9c2ad20cd623c0da",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:83b97e5dd20b5420"
+name = "hot_wall_drives_melting_with_bounded_liquid_fraction"
+qual = "hot_wall_drives_melting_with_bounded_liquid_fraction"
+lines = [
+    166,
+    190,
+]
+hash = "sha256:8eddb0c94fe18de8724e81738c123900c931e7eef6e2694a518542776d811ce8"
+doc_hash = "sha256:5b0162a6fa55e38f19556009128794dc128a485ae318b938f16167631e33b3ca"
+callees = [
+    "fn:30b8820078b4a897",
+    "fn:732dda8785653b79",
+    "fn:9c2ad20cd623c0da",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:3cd9bb3a4df86a12"
+name = "temperature_solver_defaults_to_a_tight_tolerance"
+qual = "temperature_solver_defaults_to_a_tight_tolerance"
+lines = [
+    192,
+    208,
+]
+hash = "sha256:a64678114be490f59b7d540a985f11073a425a781b62c3eef964dabe1e35370b"
+doc_hash = "sha256:edb773be29eaea3135179443dcd7033dbf7ba5494cd5f0d7a7736a47d18f4dd1"
+callees = [
+    "fn:14f480c94a59d045",
+    "fn:25026aef8dc412e6",
+    "fn:2d976c61ac08bea8",
+    "fn:713eb8c438e7b360",
+    "fn:f8bf8efa3e1f4377",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:6704a226461710fe"
+name = "runs_without_any_fv_model"
+qual = "runs_without_any_fv_model"
+lines = [
+    210,
+    236,
+]
+hash = "sha256:9fdd9864ea22e7687549a3bc32b5bae509343991eb5f161c76d019d2f48b930a"
+doc_hash = "sha256:f467de257c62d4d8eeffb9de2eb49f4545361102c71a8458b5a2db190f631e09"
+callees = [
+    "fn:14f480c94a59d045",
+    "fn:25026aef8dc412e6",
+    "fn:2d976c61ac08bea8",
+    "fn:636e75b664f14254",
+    "fn:6d45af0d518e142d",
+    "fn:713eb8c438e7b360",
+    "fn:732dda8785653b79",
+    "fn:9c2ad20cd623c0da",
+    "fn:f8bf8efa3e1f4377",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e5b439f347957ce5"
+name = "wall_face_fluxes_are_constrained_to_the_velocity_bc"
+qual = "wall_face_fluxes_are_constrained_to_the_velocity_bc"
+lines = [
+    238,
+    276,
+]
+hash = "sha256:a56d45f5f45de43b630b206c1909cb31a18c4e2de56da746146aacda2f080190"
+doc_hash = "sha256:071b6c9219c657b31cbddc075d6baf85401a2b1dfc153dc3ae36824022e00ea6"
+callees = [
+    "fn:30b8820078b4a897",
+    "fn:4aea3161a87c6021",
+    "fn:9c2ad20cd623c0da",
+    "fn:9e501e5f4cce23ae",
+    "fn:da3db2be3d98eafe",
+]
+test = true

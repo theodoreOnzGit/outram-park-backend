@@ -1,0 +1,507 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-offbeat"
+dir = "crates/outram-park-fork-offbeat/src/fgr"
+test_ids = [
+    "crates/outram-park-fork-offbeat/src/fgr/mod.rs::disabled_model_carries_the_inventory_forward_unchanged",
+    "crates/outram-park-fork-offbeat/src/fgr/mod.rs::fgr_time_step_control_matches_upstream",
+    "crates/outram-park-fork-offbeat/src/fgr/mod.rs::gas_production_is_the_yield_times_the_fission_rate",
+    "crates/outram-park-fork-offbeat/src/fgr/mod.rs::reference_volume_matches_upstream_ideal_gas_expression",
+    "crates/outram-park-fork-offbeat/src/fgr/mod.rs::release_fraction_is_zero_at_zero_burnup_and_bounded_in_zero_one",
+    "crates/outram-park-fork-offbeat/src/fgr/mod.rs::release_is_monotone_non_decreasing_in_temperature",
+    "crates/outram-park-fork-offbeat/src/fgr/mod.rs::sciantix_variant_reports_not_implemented_never_a_silent_zero",
+    "crates/outram-park-fork-offbeat/src/fgr/mod.rs::transient_venting_defaults_match_upstream",
+    "crates/outram-park-fork-offbeat/src/fgr/mod.rs::transient_venting_reproduces_the_three_upstream_branches",
+    "crates/outram-park-fork-offbeat/src/fgr/mod.rs::unphysical_inputs_are_rejected",
+    "crates/outram-park-fork-offbeat/src/fgr/mod.rs::venting_conserves_the_inventory",
+    "crates/outram-park-fork-offbeat/src/fgr/mod.rs::xenon_krypton_split_matches_upstream",
+]
+
+[module."mod.rs"]
+path = "crate::fgr"
+
+[[module."mod.rs".function]]
+id = "fn:1dbc0446376bf955"
+name = "fission_gas_production_rate"
+qual = "fission_gas_production_rate"
+lines = [
+    195,
+    230,
+]
+hash = "sha256:6d2ffb8414be83a59283ceb8d9c501a8416afa5f8cba59148b102c8c61aae0e2"
+doc_hash = "sha256:207570d243816510c2ffff6a01ab45e085b1e76aec96c8e0a3acc1974c39c32b"
+reached_by = ["#2"]
+
+[[module."mod.rs".function]]
+id = "fn:a3607bf336768c98"
+name = "release_fraction"
+qual = "release_fraction"
+lines = [
+    232,
+    273,
+]
+hash = "sha256:f7209d356f0a9f71ff859b426b3a887ff01af523ae4217d086272c22ed7ed3a1"
+doc_hash = "sha256:b4ec085a1aedb48e7963fed052ff0d6677e374eccb916d7c8f4ca4a6fc306ae9"
+reached_by = [
+    "#4",
+    "#10",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4bd4ced285300dfa"
+name = "from_released_atoms"
+qual = "ReleasedGasMoles::from_released_atoms"
+lines = [
+    308,
+    373,
+]
+hash = "sha256:844384231cdfaa027693dbb6ec5e6df13cf12b0b716c35b2cd0ee08034525a9f"
+doc_hash = "sha256:60f2787d43f21d0f5db5c63cb1624262d2aee1d8f74366142b60ec14dc2d05e0"
+reached_by = [
+    "#9",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b7cd84d63102755f"
+name = "total"
+qual = "ReleasedGasMoles::total"
+lines = [
+    375,
+    379,
+]
+hash = "sha256:f0a85d269d491e1511df5c131f92a36c3df8c1dd4a9070045c4d859b22400992"
+doc_hash = "sha256:0c6f14a0a1515e51114fb7b760941b1e94a302d237f69ad262a93d79c79f9bc1"
+reached_by = [
+    "#3",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:72b43657329b05a6"
+name = "volume_at_reference_conditions"
+qual = "ReleasedGasMoles::volume_at_reference_conditions"
+lines = [
+    381,
+    400,
+]
+hash = "sha256:c3bffda654246c9f328ebfc43ff5f6e7a32523aff20b2eb9bc63876526166f4d"
+doc_hash = "sha256:240360e4274fad816430088c4ff65ebf9e1ad4841905ad25b3ad9b6adac9ef34"
+callees = ["fn:b7cd84d63102755f"]
+reached_by = ["#3"]
+
+[[module."mod.rs".function]]
+id = "fn:f6de52f43d8762a1"
+name = "next_time_step_from_release_change"
+qual = "next_time_step_from_release_change"
+lines = [
+    403,
+    472,
+]
+hash = "sha256:74f4a2f4d168994bfa2bcbc5a9e14d15b51d71f4a9c910ea7688f467990a2fa8"
+doc_hash = "sha256:4e695546a5970df70b629430146e1f65890cef153bce906ce1667ac2172a0753"
+reached_by = ["#1"]
+
+[[module."mod.rs".function]]
+id = "fn:ad234f9071834754"
+name = "total_fission_gas"
+qual = "FissionGasInventory::total_fission_gas"
+lines = [
+    524,
+    530,
+]
+hash = "sha256:64653d4d64cbeb67037dbb8d4e0450dd9c4357cd2bff4f182a0c9ebd0df2e6d3"
+doc_hash = "sha256:1c63ceec7e5decde38a8e30679b3aeba8c97366b9f3b4efd287a2fffbf425097"
+reached_by = ["#10"]
+
+[[module."mod.rs".function]]
+id = "fn:3c8cf7d1a953dda6"
+name = "total_helium"
+qual = "FissionGasInventory::total_helium"
+lines = [
+    532,
+    536,
+]
+hash = "sha256:1c4d2d2849a262fc94bb7ebfd10680c11c322a56f1b243daee9991466440f02d"
+doc_hash = "sha256:d174462d35d27e46ee0e7b7b79f4b60c943fd928aa10d21bfd03a7cdef9f6169"
+reached_by = ["#10"]
+
+[[module."mod.rs".function]]
+id = "fn:d542f959bf5d7ead"
+name = "validate"
+qual = "FissionGasInventory::validate"
+lines = [
+    538,
+    581,
+]
+hash = "sha256:609b0764cd458c5751ad0ddca6ce36ecf09dfae9844ca995898dadf234243473"
+doc_hash = "sha256:3a3873330ad1f869ac3815c825fa7f2a102c75e592c0b5c35983c7ec57d501c8"
+reached_by = [
+    "#0",
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+]
+
+[[module."mod.rs".function]]
+id = "fn:5b1ef3124d5711ae"
+name = "fresh"
+qual = "FuelCellConditions::fresh"
+lines = [
+    611,
+    619,
+]
+hash = "sha256:805fa1c8c02a94a7994a4d1b74cee78214a1bfe8cef4c53bb955a0851686a69d"
+doc_hash = "sha256:2ead805202f9a44d43328a5b36da44f2f35a61143da58ab6dbc5e1f3b47b6a7f"
+reached_by = [
+    "#0",
+    "#6",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:aa1f084d4c34bb45"
+name = "validate"
+qual = "FuelCellConditions::validate"
+lines = [
+    621,
+    654,
+]
+hash = "sha256:782c57dc1fcde732f949e8f1c430c5e07b2659250548a63b404f5f3db3280856"
+doc_hash = "sha256:6a83bfad2990975d2ca07e9969b813bc0e4dc03b540696fb5e669e9ed2a147e8"
+reached_by = [
+    "#0",
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+]
+
+[[module."mod.rs".function]]
+id = "fn:316a9edfd6561b79"
+name = "default"
+qual = "TransientVentingThresholds::default"
+lines = [
+    736,
+    745,
+]
+hash = "sha256:1b80573223a881f0812e7fa0146c91d7a58eb73e4b0eac2c9b5896d908c93691"
+doc_hash = "sha256:af921693b9ec9ff68d9f4a5bfd0afd8b02f32abe9bd48ad7935a33b29f67a4e0"
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+]
+
+[[module."mod.rs".function]]
+id = "fn:83e0b48263a89104"
+name = "new"
+qual = "TransientVentingThresholds::new"
+lines = [
+    749,
+    797,
+]
+hash = "sha256:b00cd289d878664750f35bad1c7f32de2fed30b5e023d7b24b07d6e5a3b1e86e"
+doc_hash = "sha256:f92e8c85180a48b2cb71753d129160ea148241c135c0b83b3d050b19548b1ebe"
+reached_by = [
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:04b1bd6140fd3e19"
+name = "upstream_name"
+qual = "FissionGasReleaseModel::upstream_name"
+lines = [
+    897,
+    906,
+]
+hash = "sha256:e8f4d9cc24d8cc41438c89643e4e7081ebdb2bed655dfec30973efd525214f46"
+doc_hash = "sha256:7c095cc8c3ada082b71d726a77c0897b57eac70a7ed5f8bf3afe23c53eb55c9c"
+reached_by = [
+    "#0",
+    "#6",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e6a028c69d0ce93d"
+name = "is_implemented"
+qual = "FissionGasReleaseModel::is_implemented"
+lines = [
+    908,
+    915,
+]
+hash = "sha256:7cde2d895ac9f8476963eeb555aad65d01ddaa64ae8095500628c6722a19673a"
+doc_hash = "sha256:415c830c4783ef1e971e0b1ad0f054069a5381c04e6006df889b182d3d517abf"
+reached_by = [
+    "#0",
+    "#6",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:53755214dc1f467c"
+name = "correct"
+qual = "FissionGasReleaseModel::correct"
+lines = [
+    917,
+    1029,
+]
+hash = "sha256:0d53c8beff0191c79d59258a3baaca235c70802cb6cb396d2b3ca56a90ba237c"
+doc_hash = "sha256:ec9d95a7dc5b5da6fe9c87b8e24e2242d625ae770f939bdd77f2402af935b8e8"
+callees = [
+    "fn:aa1f084d4c34bb45",
+    "fn:d542f959bf5d7ead",
+]
+reached_by = [
+    "#0",
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+]
+
+[[module."mod.rs".function]]
+id = "fn:69ad16264a604c2f"
+name = "rel_diff"
+qual = "rel_diff"
+lines = [
+    1043,
+    1045,
+]
+hash = "sha256:8c1ae2d3022504c10856dd047138a2837c7570868dd7de23d15c5099ef324b3e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:7c6c4326c8ec5b39"
+name = "loaded_inventory"
+qual = "loaded_inventory"
+lines = [
+    1047,
+    1058,
+]
+hash = "sha256:7a992d196ae7efb9ad824723586b18460f0b8cb64fd93310abe116da3dc70c8e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:c2eba8d4f5534614"
+name = "xenon_krypton_split_matches_upstream"
+qual = "xenon_krypton_split_matches_upstream"
+lines = [
+    1060,
+    1097,
+]
+hash = "sha256:d0a29bcf6108c3b0a79242da686ab8df87c6049ba62711cf610699b0d8ae5243"
+doc_hash = "sha256:46a59f9eb3d00fbc4e06b25dce6158b8fd2dce67be56b1296098fe70514f43b2"
+callees = [
+    "fn:4bd4ced285300dfa",
+    "fn:69ad16264a604c2f",
+    "fn:b7cd84d63102755f",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:c84d2fe3169814b4"
+name = "reference_volume_matches_upstream_ideal_gas_expression"
+qual = "reference_volume_matches_upstream_ideal_gas_expression"
+lines = [
+    1099,
+    1131,
+]
+hash = "sha256:4aedf49b6d45c85c82df685c1b1785ac7a3b1d0482dbeea451bc366a56141f7c"
+doc_hash = "sha256:e2603e43fdc0f814eb1a40e878b78c21abb243a1b790763c072375ccc67fee97"
+callees = [
+    "fn:69ad16264a604c2f",
+    "fn:72b43657329b05a6",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:4a65d3c80be44c9e"
+name = "gas_production_is_the_yield_times_the_fission_rate"
+qual = "gas_production_is_the_yield_times_the_fission_rate"
+lines = [
+    1133,
+    1145,
+]
+hash = "sha256:a411f25c84d27d548400b03626afef902dd57f5cf5f406f66659046f23e0e7b4"
+doc_hash = "sha256:5da1761f5d7ea4c640cab5527ddaa02c09fab8ffe2d2a4201ad23898d266c90f"
+callees = [
+    "fn:1dbc0446376bf955",
+    "fn:69ad16264a604c2f",
+    "fn:7740b707c06a3ad0",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:ba4e03ab2e4862d5"
+name = "release_fraction_is_zero_at_zero_burnup_and_bounded_in_zero_one"
+qual = "release_fraction_is_zero_at_zero_burnup_and_bounded_in_zero_one"
+lines = [
+    1147,
+    1175,
+]
+hash = "sha256:6e2288ca27d0fc83ca02caec276563ad4eb47b928c167404e1ff49b5cdcb0be1"
+doc_hash = "sha256:a73e50518e8e219ba1bf2fe6e08503c40f763da08ac0be0cc0dff7f93a9fd392"
+callees = [
+    "fn:69ad16264a604c2f",
+    "fn:a3607bf336768c98",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:800489e4e446eeb8"
+name = "disabled_model_carries_the_inventory_forward_unchanged"
+qual = "disabled_model_carries_the_inventory_forward_unchanged"
+lines = [
+    1177,
+    1202,
+]
+hash = "sha256:5a116785c43c22d1a200130424410095eb58778efb4c27414900256ce70687db"
+doc_hash = "sha256:006b8d01ca9c49856eb323de49acec8c67df7e08782af36d0ec9d24e3b888e82"
+callees = [
+    "fn:04b1bd6140fd3e19",
+    "fn:53755214dc1f467c",
+    "fn:5b1ef3124d5711ae",
+    "fn:7c6c4326c8ec5b39",
+    "fn:e6a028c69d0ce93d",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:34fe83605103f625"
+name = "transient_venting_reproduces_the_three_upstream_branches"
+qual = "transient_venting_reproduces_the_three_upstream_branches"
+lines = [
+    1204,
+    1298,
+]
+hash = "sha256:8e63dde39fcbd135d911111eae957f3729b9e71b3892eb9b70b3312735f3db81"
+doc_hash = "sha256:934d0deb8cf4c919b7e68019f37e18bfdde27c130f6114f46f7c7aa38a9f3e53"
+callees = [
+    "fn:04b1bd6140fd3e19",
+    "fn:316a9edfd6561b79",
+    "fn:53755214dc1f467c",
+    "fn:69ad16264a604c2f",
+    "fn:7c6c4326c8ec5b39",
+    "fn:83e0b48263a89104",
+    "fn:e6a028c69d0ce93d",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:7c7dabf82e27c014"
+name = "release_is_monotone_non_decreasing_in_temperature"
+qual = "release_is_monotone_non_decreasing_in_temperature"
+lines = [
+    1300,
+    1364,
+]
+hash = "sha256:c23e0bd131e8d7db6f9c71cdb185f5327cbdec9f4d72f3b0d744836b88505a53"
+doc_hash = "sha256:ca2e3ef104e028fe48deaaedd73e8743a56c3cf2f88e82725ed11789c745c683"
+callees = [
+    "fn:316a9edfd6561b79",
+    "fn:53755214dc1f467c",
+    "fn:69ad16264a604c2f",
+    "fn:7c6c4326c8ec5b39",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:93c4ebbf4f7bdedf"
+name = "venting_conserves_the_inventory"
+qual = "venting_conserves_the_inventory"
+lines = [
+    1366,
+    1413,
+]
+hash = "sha256:cf6a6fff0e6a7ac182cdd4bb147a3137cf2adfa48699474f195fe76a282d22aa"
+doc_hash = "sha256:90d719e7902e9c0239cdb0befe935c705b1011fb9bd67c1167dc8ef6e70d86b9"
+callees = [
+    "fn:316a9edfd6561b79",
+    "fn:3c8cf7d1a953dda6",
+    "fn:53755214dc1f467c",
+    "fn:69ad16264a604c2f",
+    "fn:7c6c4326c8ec5b39",
+    "fn:a3607bf336768c98",
+    "fn:ad234f9071834754",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:cbfa44e6f808c466"
+name = "sciantix_variant_reports_not_implemented_never_a_silent_zero"
+qual = "sciantix_variant_reports_not_implemented_never_a_silent_zero"
+lines = [
+    1415,
+    1441,
+]
+hash = "sha256:ecdb20bda460dc1b473f035d4cc09b11479e28eebabc37b6a08cdf3d9d0a9a0e"
+doc_hash = "sha256:b626bafbabb2820fe61d5259c28e42d361039709760e7e417b108018aa68ce53"
+callees = [
+    "fn:04b1bd6140fd3e19",
+    "fn:53755214dc1f467c",
+    "fn:5b1ef3124d5711ae",
+    "fn:7c6c4326c8ec5b39",
+    "fn:e6a028c69d0ce93d",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:775ef3c7d27a2bfb"
+name = "fgr_time_step_control_matches_upstream"
+qual = "fgr_time_step_control_matches_upstream"
+lines = [
+    1443,
+    1484,
+]
+hash = "sha256:04f955e287d70866c1134d27f7c3a0ce4e0ea1d4c9cb5e737cfce7c28f5b00ad"
+doc_hash = "sha256:85078334a3c883a4b914b2f362e897369007aaff257a94042acd74f40f0d5914"
+callees = [
+    "fn:69ad16264a604c2f",
+    "fn:f6de52f43d8762a1",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:c5749866295dcfdd"
+name = "unphysical_inputs_are_rejected"
+qual = "unphysical_inputs_are_rejected"
+lines = [
+    1486,
+    1538,
+]
+hash = "sha256:9fe7dfe68bcc107746063b6efdf1b7695e7842dc357bea22977c11269d589d7d"
+doc_hash = "sha256:7011b363aee9eaad230ec3616f5b1f66e8569be7639cb180b80da1fed6279f1b"
+callees = [
+    "fn:316a9edfd6561b79",
+    "fn:4bd4ced285300dfa",
+    "fn:53755214dc1f467c",
+    "fn:5b1ef3124d5711ae",
+    "fn:7c6c4326c8ec5b39",
+    "fn:83e0b48263a89104",
+    "fn:d542f959bf5d7ead",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:156ec1877c573d8f"
+name = "transient_venting_defaults_match_upstream"
+qual = "transient_venting_defaults_match_upstream"
+lines = [
+    1540,
+    1552,
+]
+hash = "sha256:2f0668123c25d1a5d55824b2e7afc1ca4291d2dc1a88bdf61a6ed7eb83660c2c"
+doc_hash = "sha256:38b3728e74ca31b7164904cf750a1d8e5c5d961ff8407271461411d702bd2b1c"
+callees = ["fn:316a9edfd6561b79"]
+test = true

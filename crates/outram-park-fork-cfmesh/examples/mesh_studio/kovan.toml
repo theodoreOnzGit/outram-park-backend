@@ -1,0 +1,180 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-cfmesh"
+dir = "crates/outram-park-fork-cfmesh/examples/mesh_studio"
+
+[module."main.rs"]
+path = "example:mesh_studio"
+
+[[module."main.rs".function]]
+id = "fn:e03d14db022db024"
+name = "main"
+qual = "main#1"
+lines = [
+    32,
+    33,
+]
+hash = "sha256:a32336f06f58e19f16f1b15b2998bc3fd5602540accacba125c4fac21797d3ab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:6a297dd1564a8942"
+name = "main"
+qual = "main#2"
+lines = [
+    35,
+    47,
+]
+hash = "sha256:d664005f6e2f213bd31f43701b9213486f18da2c1535eb19deb732cfea865627"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:c21d1330aef8b55d"]
+
+[[module."main.rs".function]]
+id = "fn:c21d1330aef8b55d"
+name = "default"
+qual = "MeshStudio::default"
+lines = [
+    117,
+    143,
+]
+hash = "sha256:4b7f406d1b547e763338b4c6ecb5306835f8aa1e32a728afc77030d9428907f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:eb3fee2cfb430631"
+name = "surface"
+qual = "surface"
+lines = [
+    146,
+    153,
+]
+hash = "sha256:9add9f478390547802139bee6c4ca4f67c67bfd23ca1a00f00e74635c70d474d"
+doc_hash = "sha256:25afcdec8d687ee9e5b0c8e71d83269764bbf87223f2ade43f6ecf215313e463"
+callees = [
+    "fn:262cfa3b2e8581eb",
+    "fn:728cd1b72b92a97b",
+    "fn:a425c6868f6990e9",
+    "fn:c88a3e023469a925",
+]
+
+[[module."main.rs".function]]
+id = "fn:b89a8ce6ae557131"
+name = "build"
+qual = "build"
+lines = [
+    155,
+    222,
+]
+hash = "sha256:a8047026836b0d20bea770b5a28c194863a8917c304cfebcdedbb6698db3ba90"
+doc_hash = "sha256:5cd040dc54c05cbbc2d1c6b2a1179fd420cfb47d10c99faa7c7bf28f73e97cdc"
+callees = [
+    "fn:01c63950295f85d7",
+    "fn:21a2256faadd9502",
+    "fn:2e15c0317a694052",
+    "fn:4514531a46112af1",
+    "fn:451654b243cb4147",
+    "fn:7802dddfb20d5d4f",
+    "fn:83114d2ececeee2f",
+    "fn:eb3fee2cfb430631",
+    "fn:fd4f80b728398ba2",
+]
+
+[[module."main.rs".function]]
+id = "fn:ab120c376179d63c"
+name = "launch_build"
+qual = "MeshStudio::launch_build"
+lines = [
+    225,
+    242,
+]
+hash = "sha256:5e4393682c7f6551dbcbf5947de7f7de3f986050c03de7fe29683da9d1a91b0d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b89a8ce6ae557131"]
+
+[[module."main.rs".function]]
+id = "fn:3a2c40c7cbf682f7"
+name = "poll"
+qual = "MeshStudio::poll"
+lines = [
+    244,
+    253,
+]
+hash = "sha256:1b37bba20944632fef30ba50c21017477d94c5012faad67b0515229241cec520"
+doc_hash = "sha256:3c06359ea5c6d2e0442ad3cc5ee1f124d5e42c2a590061b702d8f58c991c85d6"
+
+[[module."main.rs".function]]
+id = "fn:b352af977281ee36"
+name = "ui"
+qual = "MeshStudio::ui"
+lines = [
+    257,
+    281,
+]
+hash = "sha256:e929dde665ef5fdfa0e1ca16347963dae2314424592d497141a589f5599e846c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3a2c40c7cbf682f7",
+    "fn:83d38df6eafbd4f9",
+    "fn:86154b07b5bb601e",
+]
+
+[[module."main.rs".function]]
+id = "fn:83d38df6eafbd4f9"
+name = "controls_ui"
+qual = "MeshStudio::controls_ui"
+lines = [
+    285,
+    357,
+]
+hash = "sha256:a3c9bb928f3c95d9e7e034a20917dc9682381ead7f47651816efbf38bbb1a915"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:121c8444e8f96423",
+    "fn:ab120c376179d63c",
+]
+
+[[module."main.rs".function]]
+id = "fn:86154b07b5bb601e"
+name = "center_ui"
+qual = "MeshStudio::center_ui"
+lines = [
+    359,
+    444,
+]
+hash = "sha256:f80d3a99e94a97896e60d6f4eaf1c82e1db3330f3e8fcc2eabab45e9b2a603cc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:01afff344f44d5bd",
+    "fn:3a99d1ff9eea316a",
+    "fn:451654b243cb4147",
+    "fn:b2ae753c5c37a5ec",
+    "fn:b4dc3def23a4189e",
+    "fn:dd8f31180713bf4d",
+    "fn:eb36367bc51ea167",
+]
+
+[[module."main.rs".function]]
+id = "fn:b4dc3def23a4189e"
+name = "draw_wireframe"
+qual = "MeshStudio::draw_wireframe"
+lines = [
+    446,
+    483,
+]
+hash = "sha256:e94ac7a34da302043a679dc7f8fa8a8fae5830d9983f9b92454206bea95f1011"
+doc_hash = "sha256:9223a157e18da4e5a153ed39db31c9049732576b96533d46cde1d677853ef21e"
+callees = [
+    "fn:b2ae753c5c37a5ec",
+    "fn:e0187e41a4a50ea5",
+]
+
+[[module."main.rs".function]]
+id = "fn:e0187e41a4a50ea5"
+name = "project"
+qual = "MeshStudio::project"
+lines = [
+    485,
+    494,
+]
+hash = "sha256:6e288154fc0dd92446ae9cfd04c4452301963c7d4fd02b568f2dba32c51a94ec"
+doc_hash = "sha256:237ae2155af385060dee8c63ffcaf651b8f589419c1e3bc02edb67370e6bff8d"

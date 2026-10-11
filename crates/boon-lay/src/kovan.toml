@@ -1,0 +1,538 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src"
+crate_root = true
+test_ids = [
+    "crates/boon-lay/src/compute.rs::fraction_one_matches_auto",
+    "crates/boon-lay/src/compute.rs::next_cycles_through_all_three",
+    "crates/boon-lay/src/compute.rs::resolve_is_always_at_least_one",
+    "crates/boon-lay/src/gpu.rs::best_effort_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::cpu_single_and_multi_advance_time_and_agree",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::gpu_selection_is_safe_and_advances",
+]
+
+[module."compute.rs"]
+path = "crate::compute"
+
+[[module."compute.rs".function]]
+id = "fn:ef85d35748487780"
+name = "resolve"
+qual = "ThreadCount::resolve"
+lines = [
+    110,
+    136,
+]
+hash = "sha256:e6fb24c21707ee73e67c44e8974abbc92f5be2ee192dfc83e60158c9c786dd06"
+doc_hash = "sha256:e87881a9c694abf374cd58e38f0031e6d45d1891f54e3a617d12bfc795d841b7"
+reached_by = [
+    "#0",
+    "#2",
+    "#4",
+    "#5",
+]
+
+[[module."compute.rs".function]]
+id = "fn:3dd0f116938f491e"
+name = "label"
+qual = "ComputeType::label"
+lines = [
+    140,
+    147,
+]
+hash = "sha256:1ceda00e83fd379da48df7bd6013f0f387b9f48695304bb61d1ad99458b1fa33"
+doc_hash = "sha256:ea3236fb9b496824ff6ba2cecea8de58b316ad058e6dd86e342c13e3f449d63a"
+
+[[module."compute.rs".function]]
+id = "fn:f533b6cabb93c728"
+name = "next"
+qual = "ComputeType::next"
+lines = [
+    149,
+    157,
+]
+hash = "sha256:7ffd1d555ff5aa4c849ce3666bedd02d7434d74bd374d6ecbe5334ee9f564599"
+doc_hash = "sha256:2d2decf926a2ec5af05ccf20c9f431733c897a31600d12759399bb7f540faed3"
+reached_by = ["#1"]
+
+[[module."compute.rs".function]]
+id = "fn:4794a98989e88a54"
+name = "resolve_is_always_at_least_one"
+qual = "resolve_is_always_at_least_one"
+lines = [
+    164,
+    174,
+]
+hash = "sha256:31bc3b1298c1d443103c24d229c1b7805573fe150cf7ba1cf8cbac10c746d7ed"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:ef85d35748487780"]
+test = true
+
+[[module."compute.rs".function]]
+id = "fn:fd752cd592c8496c"
+name = "fraction_one_matches_auto"
+qual = "fraction_one_matches_auto"
+lines = [
+    176,
+    182,
+]
+hash = "sha256:8bf3f49fe5c9bd89052de52c96d86151be892f55de8d12db5f96377217d984a1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:ef85d35748487780"]
+test = true
+
+[[module."compute.rs".function]]
+id = "fn:41a4eb30eef72984"
+name = "default_is_cpu_single_thread"
+qual = "default_is_cpu_single_thread"
+lines = [
+    184,
+    187,
+]
+hash = "sha256:63da9963a5656e97094ce097df76c8ab98a647d3e65453b60ba40353ba876293"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."compute.rs".function]]
+id = "fn:9798c2e60b9adfc0"
+name = "next_cycles_through_all_three"
+qual = "next_cycles_through_all_three"
+lines = [
+    189,
+    199,
+]
+hash = "sha256:87cd06a5358f0f15239a1e7f0be236562b7e53550a05bd97c7cd84abd98e1b0f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f533b6cabb93c728"]
+test = true
+
+[module."gpu.rs"]
+path = "crate::gpu"
+
+[[module."gpu.rs".function]]
+id = "fn:50d9cf53439cf20c"
+name = "adapter_name"
+qual = "GpuContext::adapter_name"
+lines = [
+    66,
+    69,
+]
+hash = "sha256:1d024c55d19123effb9b81e464aa7057b79281b8ad69ed8ccf1a14deb3c07d86"
+doc_hash = "sha256:651c33e4fe09e565d8e33ef8b0593e17b0d688adb0313b95e05aa260edded001"
+
+[[module."gpu.rs".function]]
+id = "fn:9fe62a3fed45b702"
+name = "fmt"
+qual = "GpuError::fmt"
+lines = [
+    84,
+    90,
+]
+hash = "sha256:a7b9255cc9cd31b8bdea80ddf3e4bfb9244462c889e344aea1daa4973e148ae6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."gpu.rs".function]]
+id = "fn:f9a8d5e74670049e"
+name = "cached_context"
+qual = "cached_context"
+lines = [
+    95,
+    104,
+]
+hash = "sha256:48ba447ad310bc4ee7c2d084a42a69f78371e054861960fbf4db545e2b602d8a"
+doc_hash = "sha256:288f42148452e44aaf7b3a98a189684451eb14686f5f1270d43ad81dc92b8780"
+callees = ["fn:844238c6a52e9852"]
+reached_by = [
+    "#4",
+    "#5",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:5d7a5338df787c0a"
+name = "gpu_available"
+qual = "gpu_available"
+lines = [
+    106,
+    110,
+]
+hash = "sha256:792a97f45758a6b6db8f9440d746b49635da86a105b5576b8808c4b51b5f98b1"
+doc_hash = "sha256:72a371a646e41f9b7deb8937d166023b0407338e27b2777e93d56cfca12ed2f0"
+callees = ["fn:f9a8d5e74670049e"]
+
+[[module."gpu.rs".function]]
+id = "fn:844238c6a52e9852"
+name = "probe"
+qual = "probe"
+lines = [
+    112,
+    140,
+]
+hash = "sha256:5fef665d56bb23318e2f75c59c3f648529f8e38b12d0969a0a9266c60d32941d"
+doc_hash = "sha256:08d3769d147dd919db634f8202e19e32823fe6d11d3c55e00473a825a11cf872"
+callees = ["fn:185234af90dc43a5"]
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:f4f7eea22fc0884a"
+name = "try_kernel_release_fraction_gpu"
+qual = "try_kernel_release_fraction_gpu"
+lines = [
+    216,
+    365,
+]
+hash = "sha256:e08b091038ce9787dec1317b67849a94f70c5bc93b91c56839f287241d4579ea"
+doc_hash = "sha256:4c791f81891869bf0dc6161ee0885d031a7583bf8fe323b7b8832e7de52604f6"
+callees = [
+    "fn:05cc386550941eeb",
+    "fn:9b735d6c292c5e3d",
+    "fn:e98b0ad44e731bef",
+    "fn:f23cfae2ca858daa",
+]
+reached_by = ["#3"]
+physical_interface = true
+
+[[module."gpu.rs".function]]
+id = "fn:e3f47fed96c88705"
+name = "kernel_release_fraction_best_effort"
+qual = "kernel_release_fraction_best_effort"
+lines = [
+    367,
+    386,
+]
+hash = "sha256:41829f74724ec74af904342766e1b2a89779e0ef779af2255c5834d3a38449a5"
+doc_hash = "sha256:35e756374be03e3604e7c4c32bdeaf07d8f0ad081bbf0d2c2296f3bc8949052d"
+callees = [
+    "fn:844238c6a52e9852",
+    "fn:ef570908064315a0",
+    "fn:f4f7eea22fc0884a",
+]
+reached_by = ["#3"]
+physical_interface = true
+
+[[module."gpu.rs".function]]
+id = "fn:ff3e3b2a962f8dbb"
+name = "layer_diffusion_um2_s"
+qual = "layer_diffusion_um2_s"
+lines = [
+    546,
+    573,
+]
+hash = "sha256:65dca151bb8c48129226baa38b1f31887f7994780e233159f53bde6e274adc9c"
+doc_hash = "sha256:d946f5dcce212589134b2268d12aca844ada2049b3e41aa1387049f86f35b4e9"
+callees = [
+    "fn:26c97e03e84fc754",
+    "fn:39426f9d04415b8f",
+]
+reached_by = [
+    "#4",
+    "#5",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:39426f9d04415b8f"
+name = "layer_radii_um"
+qual = "layer_radii_um"
+lines = [
+    575,
+    584,
+]
+hash = "sha256:0e6d0860ae067e079eb3dd6bec0e81ee2bdb9b342df082f2ca6dff0e9d516b00"
+doc_hash = "sha256:3bb0a5b1d44bd59b7937fff09d298eea61bfc7c84623b09911b4ebf7cb0648e3"
+callees = [
+    "fn:306b8ee609baf103",
+    "fn:7a2ac2c97a7da6df",
+    "fn:c505534bed2a6989",
+    "fn:c8693dbb849a9fc9",
+    "fn:e8bb775f59365324",
+]
+reached_by = [
+    "#4",
+    "#5",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:dd203631fea52642"
+name = "try_advance_multilayer_gpu"
+qual = "try_advance_multilayer_gpu"
+lines = [
+    586,
+    803,
+]
+hash = "sha256:dae8d46258c354f15548d9bc15e486946abe44c527f2be8d65d7353e9c371423"
+doc_hash = "sha256:0fddaccbc7e3cdc55827bc542d7d7b6a8a97c7f8d03ed1acda66d9993ecb0dfa"
+callees = [
+    "fn:0537dd108e04dd24",
+    "fn:05cc386550941eeb",
+    "fn:20d549248748e141",
+    "fn:39426f9d04415b8f",
+    "fn:9b735d6c292c5e3d",
+    "fn:e98b0ad44e731bef",
+    "fn:ff3e3b2a962f8dbb",
+]
+reached_by = [
+    "#4",
+    "#5",
+]
+physical_interface = true
+
+[[module."gpu.rs".function]]
+id = "fn:224e90662151f83b"
+name = "advance_multilayer_best_effort"
+qual = "advance_multilayer_best_effort"
+lines = [
+    805,
+    824,
+]
+hash = "sha256:fe9325d69cb0b0ed7c1e36f4eb65d0e27b67bf89620f67df96811d74a9e423dd"
+doc_hash = "sha256:b82d3d8dbd2819e9df3beff5d592f1a29304e5d76a2c4c5240fa2f08a616a9cb"
+callees = [
+    "fn:dd203631fea52642",
+    "fn:f9a8d5e74670049e",
+]
+reached_by = [
+    "#4",
+    "#5",
+]
+physical_interface = true
+
+[[module."gpu.rs".function]]
+id = "fn:0537dd108e04dd24"
+name = "map_and_wait"
+qual = "map_and_wait"
+lines = [
+    826,
+    843,
+]
+hash = "sha256:2bd28c0bec65404999209c49b8ec19085da5b8b0f73af297f1e57967bd4f8811"
+doc_hash = "sha256:1b9e508f69ea18728b8dd2f6ef2bdf4e9fcd3adf177e89f86c0317b45c77df04"
+reached_by = [
+    "#4",
+    "#5",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:20d549248748e141"
+name = "bytes_to_u32_vec"
+qual = "bytes_to_u32_vec"
+lines = [
+    845,
+    850,
+]
+hash = "sha256:1a4abd5ae4ed087d105c2f215996c0a6bd61e314490cdc8964a8e47f458804bd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#4",
+    "#5",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:05cc386550941eeb"
+name = "f32_slice_to_bytes"
+qual = "f32_slice_to_bytes"
+lines = [
+    852,
+    858,
+]
+hash = "sha256:e40ccf976122014f42f15933b6735884bbde918299025fa5234a5cce46e12677"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:9b735d6c292c5e3d"
+name = "bytes_to_f32_vec"
+qual = "bytes_to_f32_vec"
+lines = [
+    860,
+    865,
+]
+hash = "sha256:0393675c208b6e6f285f88827e08e39b6f72fce278529df89d6d1706896bbaf5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:185234af90dc43a5"
+name = "block_on"
+qual = "block_on"
+lines = [
+    867,
+    889,
+]
+hash = "sha256:c2fc0b6e423dd59fe4ee71e0a9bbd518bcf569db0e7d3da915d65e8a1edb59c4"
+doc_hash = "sha256:b8588282ba0f86b29bac36bee5503867b7c5c3babddf75e78d501c778ee69450"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:28d66e4f2aa82145"
+name = "crp6_inputs"
+qual = "crp6_inputs"
+lines = [
+    899,
+    916,
+]
+hash = "sha256:2ca6e53cd321ffc30d049b5fca2885da7598c889a38749c94dc78f8036df081e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."gpu.rs".function]]
+id = "fn:10f978ce00f61120"
+name = "best_effort_matches_crank"
+qual = "best_effort_matches_crank"
+lines = [
+    918,
+    931,
+]
+hash = "sha256:ec1f04b9460ec2a9a07361e0fc21a2c20516fb8b05de9edfda811b595080a6b1"
+doc_hash = "sha256:6ad845e8ef5137309b0464e80632f0b9f50a7834957612544072406954dc8f07"
+callees = [
+    "fn:102121535cb2dea5",
+    "fn:28d66e4f2aa82145",
+    "fn:e3f47fed96c88705",
+    "fn:f23cfae2ca858daa",
+]
+test = true
+
+[[module."gpu.rs".function]]
+id = "fn:84dafa3c87650ea2"
+name = "theta_table_is_monotonic"
+qual = "theta_table_is_monotonic"
+lines = [
+    933,
+    943,
+]
+hash = "sha256:72f752492b11f2fd98ffb1679bcc509b51fe85f533da45742f8a7ebcb44ec467"
+doc_hash = "sha256:f56433b429537e20d6d779d21e3e56e36f13a58bc2dbf1e0b513160d71d62e16"
+callees = ["fn:e98b0ad44e731bef"]
+test = true
+
+[module."lib.rs"]
+path = "crate"
+
+[module."wasm_par.rs"]
+path = "crate::wasm_par"
+
+[[module."wasm_par.rs".function]]
+id = "fn:9badc07e3902c032"
+name = "into_par_iter"
+qual = "IntoParallelIterator::into_par_iter"
+lines = [
+    53,
+    56,
+]
+hash = "sha256:888ec4a675d3b3d51ba9345afcb5200b6a5425726c1854c8b3b30d3e30898611"
+doc_hash = "sha256:1ae77e88eb36e720fbffa18f62a8c5411f6dd2df0a2b96e97e953f3cf45844a3"
+
+[[module."wasm_par.rs".function]]
+id = "fn:2ccd79e52d706f56"
+name = "par_iter"
+qual = "ParallelSlice::par_iter"
+lines = [
+    63,
+    64,
+]
+hash = "sha256:9bf12c5cab8c4646964a8700db863c4a70cecf10bb150d59b8588bff39a62e7e"
+doc_hash = "sha256:be20df012e4e5caa387762acfd0bd977a798ee031628e47ab8e9c0cbdd8d9c4f"
+
+[[module."wasm_par.rs".function]]
+id = "fn:54de499668aa8744"
+name = "par_iter"
+qual = "[T]::par_iter"
+lines = [
+    68,
+    70,
+]
+hash = "sha256:6696bc2f44299dfef4d55fa1ef4f3f3041dd6f1425fd9b47787d442a69c823b8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."wasm_par.rs".function]]
+id = "fn:deb3663537cf164b"
+name = "par_iter_mut"
+qual = "ParallelSliceMut::par_iter_mut"
+lines = [
+    75,
+    76,
+]
+hash = "sha256:fead7b0c2bb847262d583e2013330238ae8921dd4a91c9d8fe6576b623a4fdc8"
+doc_hash = "sha256:5b681449c7d37b836ee211da30f248c3f9cd8ea5c0adeb512d039200ebffe7c9"
+
+[[module."wasm_par.rs".function]]
+id = "fn:8aaad5cb2c8bac1b"
+name = "par_iter_mut"
+qual = "[T]::par_iter_mut"
+lines = [
+    80,
+    82,
+]
+hash = "sha256:307b1344577f83fa826aa60b84568e11e5906b67a2c6544b38549ba2895b4715"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."wasm_par.rs".function]]
+id = "fn:cd8cc791830e249c"
+name = "new"
+qual = "ThreadPoolBuilder::new"
+lines = [
+    95,
+    98,
+]
+hash = "sha256:12617fe2fe1c5cceb25c6be9c4527855cd859250a7a8aa75e74bb6cdbd8ce7ab"
+doc_hash = "sha256:10b801b678dbe6a133585de7685b016b14750a7449d1a44626ec47fe18e7def7"
+
+[[module."wasm_par.rs".function]]
+id = "fn:9bf4cdae1ca377ec"
+name = "num_threads"
+qual = "ThreadPoolBuilder::num_threads"
+lines = [
+    100,
+    103,
+]
+hash = "sha256:6214c290ecb8bc648bde900a4e4b5529d5144a333e3fc67bd908b3d73294e674"
+doc_hash = "sha256:46d3b989fa7e33a1b87be84efc903e6d2749b1c7a33219a98385284e968cb8cd"
+
+[[module."wasm_par.rs".function]]
+id = "fn:6ac36dba49732ecf"
+name = "build"
+qual = "ThreadPoolBuilder::build"
+lines = [
+    105,
+    109,
+]
+hash = "sha256:35852a2dc9ef7ff792d0650aaf809a1a63c176c79a418578af3ff7c2d6fb85b0"
+doc_hash = "sha256:34ea68b4ba5c849da15d3c48ae51fb22ed8088f02a7683f954e9e4537da0fabf"
+
+[[module."wasm_par.rs".function]]
+id = "fn:82f1cb4c80bac07c"
+name = "install"
+qual = "ThreadPool::install"
+lines = [
+    117,
+    120,
+]
+hash = "sha256:f7cd867cf56f5d5dbaae1de36f96f12acd7607ae759726aaa468048a871f8b97"
+doc_hash = "sha256:faf1af3abf6fd21829c1f335bd2a0c667a97339d0bddc38820e323ec86b7ef1a"
+
+[[module."wasm_par.rs".function]]
+id = "fn:ded2f6db1a5af813"
+name = "current_num_threads"
+qual = "ThreadPool::current_num_threads"
+lines = [
+    122,
+    127,
+]
+hash = "sha256:28f732560e1fa8d5284a0d597f8ca75d675b9e79a00d6644aaba7f997fa57560"
+doc_hash = "sha256:8da1a17d0c0912f8a67ba92a8b2b10dcd5a899a5b2a1876bd7f08e8072120e5c"
