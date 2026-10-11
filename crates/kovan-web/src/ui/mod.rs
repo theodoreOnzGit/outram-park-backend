@@ -182,7 +182,13 @@ pub struct CodeReview {
     results_for: String,
     focus_search: bool,
     status: Option<String>,
+    /// The hash this view last wrote ([`Self::sync_hash`]).
     last_hash: String,
+    /// The platform's hash as last read. Kept apart from `last_hash`
+    /// because natively `set_hash` writes nothing and `hash()` stays the
+    /// launch argument: comparing the two re-opened the map one frame after
+    /// every drill-in on desktop kovan (maintainer, 2026-10-11).
+    seen_hash: String,
     pending: Option<DeepLink>,
     /// The last Stamp / Needs-fix press, until the host takes it.
     host_request: Option<HostRequest>,
@@ -218,6 +224,7 @@ impl CodeReview {
             focus_search: false,
             status: None,
             last_hash: crate::platform::hash(),
+            seen_hash: crate::platform::hash(),
             pending: (link != DeepLink::Map).then_some(link),
             host_request: None,
             stamps: None,
@@ -368,6 +375,19 @@ impl CodeReview {
         if h != self.last_hash {
             crate::platform::set_hash(&h);
             self.last_hash = h;
+            // In a browser this reads back `h`; natively the launch argument.
+            self.seen_hash = crate::platform::hash();
+        }
+    }
+
+    /// Follow a hash the reader typed (or the browser's back button): only
+    /// a change in what the platform reports, never this view's own writes.
+    fn follow_platform_hash(&mut self) {
+        let h = crate::platform::hash();
+        if h != self.seen_hash {
+            self.seen_hash = h.clone();
+            self.last_hash = h.clone();
+            self.pending = Some(DeepLink::parse(&h));
         }
     }
 
@@ -436,12 +456,7 @@ impl CodeReview {
             self.panel_open = !narrow;
             self.panel_decided = true;
         }
-        // A hash the reader typed (or the browser's own back button).
-        let h = crate::platform::hash();
-        if h != self.last_hash {
-            self.last_hash = h.clone();
-            self.pending = Some(DeepLink::parse(&h));
-        }
+        self.follow_platform_hash();
         if let (Some(link), Some(map)) = (self.pending.clone(), snap.map.clone()) {
             self.pending = None;
             self.open_link(link, &map);
@@ -987,6 +1002,24 @@ impl CodeReview {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Desktop (no browser hash): a drill-in stays put on the next frame.
+    /// The view's own location used to be compared with the platform's
+    /// launch-argument hash, which never changes natively, so every click
+    /// into a crate re-opened the map one frame later (maintainer,
+    /// 2026-10-11).
+    #[test]
+    fn a_drill_in_is_not_undone_by_the_next_frame_natively() {
+        let src = DataSource::Dir { data: std::env::temp_dir(), workspace: ".".into() };
+        let mut r = CodeReview::new(Mode::Desktop, src);
+        r.go(Place::at(Level::Crate("tampines-steam-tables".into())));
+        r.follow_platform_hash();
+        assert_eq!(r.pending, None, "no phantom deep link");
+        assert_eq!(r.place.level, Level::Crate("tampines-steam-tables".into()));
+        r.go(Place::at(Level::Module { krate: "bl".into(), file: "crates/bl/src/lib.rs".into() }));
+        r.follow_platform_hash();
+        assert_eq!(r.pending, None);
+    }
 
     /// The crate the side panel's "Go back to JavaScript map" opens on.
     #[test]
