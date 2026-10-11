@@ -566,6 +566,26 @@ with the notices and a copy of the licence), owner-accepted as covering the repo
 documentation (#760, 2026-10-07); LICENSE and COPYRIGHT at idaholab/moose commit 21efd28 kept \
 beside the file (corpus README section 8)";
 
+/// The basis for the four MOOSE documentation pages at commit 6233f03 (added
+/// 2026-10-11, #832; corpus README section 8). Same ground as
+/// [`MOOSE_LGPL_BASIS`]; the LICENSE and COPYRIGHT at this commit are
+/// byte-identical to the copies kept from commit 21efd28.
+const MOOSE_LGPL_BASIS_6233F03: &str = "MOOSE's GNU LGPL 2.1 (section 1: verbatim copies may be \
+distributed with the notices and a copy of the licence), owner-accepted as covering the repository's \
+documentation (#760, 2026-10-07); LICENSE and COPYRIGHT at idaholab/moose commit 6233f03 are \
+byte-identical (SHA-256 compared 2026-10-11) to the copies kept beside the file (corpus README \
+section 8); filed 2026-10-11 (#832)";
+
+/// The basis for the PFLOTRAN documentation pages (added 2026-10-11, #832;
+/// corpus README section 8, ground 7 as extended that day).
+const PFLOTRAN_LGPL_BASIS: &str = "PFLOTRAN's LICENSE (\"PFLOTRAN is released under the GNU LESSER \
+GENERAL PUBLIC LICENSE (LGPL)\", version 3) and COPYRIGHT, in which Battelle Memorial Institute \
+\"grants permission to any person or entity lawfully obtaining a copy of this software and \
+associated documentation files ... to redistribute\" them, provided the notices and disclaimers are \
+retained (pflotran-documentation commit 98eb153; both files kept beside the pages as \
+pflotran-docs/LICENSE and COPYRIGHT, byte-identical to the code repository's files recorded in \
+crates/outram-park-fork-pflotran/NOTICE; corpus README section 8; owner, #832, 2026-10-11)";
+
 /// The basis for the NSA Cybersecurity Information Sheets (added
 /// 2026-10-07, corpus README section 11, ground 10).
 const NSA_SHARE_BASIS: &str = "U.S. Government Work (17 U.S.C. 105), and the sheet's \"Purpose\" \
@@ -977,6 +997,50 @@ pub const LITERATURE: &[CorpusLiterature] = &[
                        not claimed as public domain under 17 U.S.C. 105",
     },
     CorpusLiterature {
+        id: "ornl-tm-11685",
+        kind: LiteratureKind::Report,
+        title: "Fission Product Plateout and Liftoff in the MHTGR Primary System: A Review \
+                (NUREG/CR-5647, ORNL/TM-11685)",
+        authors: &["Wichner, R.P."],
+        year: Some(1991),
+        topics: &["02-nuclear-safety/source-terms"],
+        concept_document: Some("ornl-tm-11685"),
+        source_url: Some("https://www.osti.gov/servlets/purl/5875738"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/us-doe/ornl-tm-11685-nureg-cr-5647-fp-plateout-liftoff-mhtgr.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: "Report stamped \"DISTRIBUTION OF THIS DOCUMENT IS UNLIMITED\" (cover, PDF \
+                       page 1; read from the page image, checked 2026-10-11; corpus README \
+                       section 4). Written by ORNL (Martin Marietta Energy Systems, DOE contract \
+                       DE-AC05-84OR21400) for the NRC, so not claimed as public domain under \
+                       17 U.S.C. 105. Filed 2026-10-11 (#832)",
+    },
+    CorpusLiterature {
+        id: "ornl-tm-3144",
+        kind: LiteratureKind::Report,
+        title: "Fluorine Production and Recombination in Frozen MSR Salts After Reactor Operation \
+                (ORNL-TM-3144)",
+        authors: &["Haubenreich, P.N."],
+        year: Some(1970),
+        topics: &[
+            "02-nuclear-safety/nuclear-design/core-configurations/liquid-fuelled",
+            "17-radioactive-waste-management/radioactive-waste-management",
+        ],
+        concept_document: Some("ornl-tm-3144"),
+        source_url: Some("https://www.osti.gov/servlets/purl/4109510"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/us-doe/ornl-tm-3144-fluorine-frozen-msr-salts.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: "Report stamped \"DISTRIBUTION OF THIS DOCUMENT IS UNLIMITED\" (PDF pages 1 \
+                       and 3, checked 2026-10-11; corpus README section 4). The cover also keeps \
+                       the original 1970 notice that it is preliminary and \"prepared primarily \
+                       for internal use\" at ORNL; the owner accepted it with both (#832, \
+                       2026-10-11). Written by ORNL (Union Carbide, for the AEC), so not claimed \
+                       as public domain under 17 U.S.C. 105",
+    },
+    CorpusLiterature {
         id: "nureg-1520-rev2",
         kind: LiteratureKind::Report,
         title: "Standard Review Plan for Fuel Cycle Facilities License Applications, Final \
@@ -1363,7 +1427,9 @@ pub const LITERATURE: &[CorpusLiterature] = &[
         ],
         year: Some(2022),
         topics: &["17-radioactive-waste-management/decommissioning/release-criteria-and-final-survey"],
-        concept_document: None,
+        // The Sciences tree cites it (2026-10-11, #832): App. I Kd and
+        // retardation factor, F.10.1 advection-dispersion codes.
+        concept_document: Some("nureg-1757-v2-rev2"),
         source_url: Some("https://www.nrc.gov/docs/ML2219/ML22194A859.pdf"),
         corpus_file: Some("kovan-standard-open-corpus/nrc/ML22194A859.pdf"),
         status: SourceStatus::VerifiedPublicDomain,
@@ -2341,6 +2407,107 @@ pub const LITERATURE: &[CorpusLiterature] = &[
         status: SourceStatus::VerifiedOpenLicence,
         status_basis: MOOSE_LGPL_BASIS,
     },
+    // Added 2026-10-11 (#832; the maintainer: "Nuclear chemistry is ok"):
+    // four MOOSE pages for solid momentum and the finite element method, and
+    // two PFLOTRAN theory-guide pages for groundwater transport.
+    CorpusLiterature {
+        id: "moose-docs-dynamics",
+        kind: LiteratureKind::Other,
+        title: "MOOSE Solid Mechanics module documentation: Dynamics (Dynamics.md, \
+                idaholab/moose commit 6233f03)",
+        authors: &["MOOSE contributors (Battelle Energy Alliance, LLC, et al.)"],
+        year: Some(2026),
+        topics: &["02-nuclear-safety/design-of-structures-systems-and-components"],
+        concept_document: Some("moose-docs-dynamics"),
+        source_url: Some(
+            "https://github.com/idaholab/moose/blob/6233f03901aa2b9161270312fd2228ac3b3844b2/modules/solid_mechanics/doc/content/modules/solid_mechanics/Dynamics.md",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/moose-docs/Dynamics.md"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: MOOSE_LGPL_BASIS_6233F03,
+    },
+    CorpusLiterature {
+        id: "moose-docs-stress-divergence",
+        kind: LiteratureKind::Other,
+        title: "MOOSE Solid Mechanics module documentation: stress divergence kernels \
+                (supplementalStressDivergenceKernels.md, idaholab/moose commit 6233f03)",
+        authors: &["MOOSE contributors (Battelle Energy Alliance, LLC, et al.)"],
+        year: Some(2026),
+        topics: &["02-nuclear-safety/design-of-structures-systems-and-components"],
+        concept_document: Some("moose-docs-stress-divergence"),
+        source_url: Some(
+            "https://github.com/idaholab/moose/blob/6233f03901aa2b9161270312fd2228ac3b3844b2/modules/solid_mechanics/doc/content/modules/solid_mechanics/common/supplementalStressDivergenceKernels.md",
+        ),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/moose-docs/supplementalStressDivergenceKernels.md",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: MOOSE_LGPL_BASIS_6233F03,
+    },
+    CorpusLiterature {
+        id: "moose-docs-fem-concepts",
+        kind: LiteratureKind::Other,
+        title: "MOOSE documentation: Finite Element Concepts (fem_principles.md, \
+                idaholab/moose commit 6233f03)",
+        authors: &["MOOSE contributors (Battelle Energy Alliance, LLC, et al.)"],
+        year: Some(2026),
+        topics: &["02-nuclear-safety/design-of-structures-systems-and-components"],
+        concept_document: Some("moose-docs-fem-concepts"),
+        source_url: Some(
+            "https://github.com/idaholab/moose/blob/6233f03901aa2b9161270312fd2228ac3b3844b2/modules/doc/content/help/finite_element_concepts/fem_principles.md",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/moose-docs/fem_principles.md"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: MOOSE_LGPL_BASIS_6233F03,
+    },
+    CorpusLiterature {
+        id: "moose-docs-feproblembase",
+        kind: LiteratureKind::Other,
+        title: "MOOSE framework documentation: FEProblemBase, incl. Shape Functions \
+                (FEProblemBase.md, idaholab/moose commit 6233f03)",
+        authors: &["MOOSE contributors (Battelle Energy Alliance, LLC, et al.)"],
+        year: Some(2026),
+        topics: &["02-nuclear-safety/design-of-structures-systems-and-components"],
+        concept_document: Some("moose-docs-feproblembase"),
+        source_url: Some(
+            "https://github.com/idaholab/moose/blob/6233f03901aa2b9161270312fd2228ac3b3844b2/framework/doc/content/source/problems/FEProblemBase.md",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/moose-docs/FEProblemBase.md"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: MOOSE_LGPL_BASIS_6233F03,
+    },
+    CorpusLiterature {
+        id: "pflotran-docs-reactive-transport",
+        kind: LiteratureKind::Other,
+        title: "PFLOTRAN theory guide: Reactive Transport mode (mode_reactive_transport.rst, \
+                pflotran-documentation commit 98eb153)",
+        authors: &["PFLOTRAN developers"],
+        year: Some(2026),
+        topics: &["13-environmental-protection"],
+        concept_document: Some("pflotran-docs-reactive-transport"),
+        source_url: Some(
+            "https://gitlab.com/pflotran/pflotran-documentation/-/blob/98eb153238c90e9c597becdd69395005d229bfa3/source/theory_guide/mode_reactive_transport.rst",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/pflotran-docs/mode_reactive_transport.rst"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: PFLOTRAN_LGPL_BASIS,
+    },
+    CorpusLiterature {
+        id: "pflotran-docs-ufd-decay",
+        kind: LiteratureKind::Other,
+        title: "PFLOTRAN theory guide: UFD Decay process model (pm_ufd_decay.rst, \
+                pflotran-documentation commit 98eb153)",
+        authors: &["PFLOTRAN developers"],
+        year: Some(2026),
+        topics: &["17-radioactive-waste-management/radioactive-waste-management"],
+        concept_document: Some("pflotran-docs-ufd-decay"),
+        source_url: Some(
+            "https://gitlab.com/pflotran/pflotran-documentation/-/blob/98eb153238c90e9c597becdd69395005d229bfa3/source/theory_guide/pm_ufd_decay.rst",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/pflotran-docs/pm_ufd_decay.rst"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: PFLOTRAN_LGPL_BASIS,
+    },
     // Software-properties sources (#760, 2026-10-07): the 26 redistributable
     // documents cited by the timeless software-properties branch under SQA
     // (corpus README sections 1, 2 and 11 to 15). Metadata from each
@@ -3149,9 +3316,12 @@ mod tests {
             // ~~102 since 2026-10-10: Cardiff et al. 2018, solids4foam, CC BY (#829).~~
             // ~~113 since 2026-10-10: College Physics 2e as 11 parts of at most 30 MB
             // (#829; the maintainer: "split the 2e").~~
-            // 122 since 2026-10-11: Chemistry 2e as 9 parts of at most 30 MB
-            // (#829; the maintainer: "Go ahead and add it").
-            122,
+            // ~~122 since 2026-10-11: Chemistry 2e as 9 parts of at most 30 MB
+            // (#829; the maintainer: "Go ahead and add it").~~
+            // 130 since 2026-10-11: Wichner 1991 (ORNL/TM-11685), Haubenreich 1970
+            // (ORNL-TM-3144), four MOOSE pages and two PFLOTRAN theory-guide pages
+            // (#832; the maintainer: "Nuclear chemistry is ok").
+            130,
             "the maintainer's 2026-09-22 set, EPA FGR-11, FGR-13 and FGR-15 (2026-09-28), \
              the concept tree's 13 further documents (2026-10-06), and the software QA \
              set NUREG/BR-0167, DOE-STD-1172-2003 and DOE G 414.1-4 (2026-10-07, #760), Kendrick 2019 \
@@ -3160,7 +3330,9 @@ mod tests {
              the 26 software-properties sources (2026-10-07, #760), and the DOE Material \
              Science, Chemistry and Mathematics handbooks (2026-10-10, #829), OpenStax \
              University Physics Volumes 1-3, Cardiff et al. 2018 and College Physics 2e in 11 \
-             parts (2026-10-10, #829), and Chemistry 2e in 9 parts (2026-10-11, #829)"
+             parts (2026-10-10, #829), Chemistry 2e in 9 parts (2026-10-11, #829), and \
+             ORNL/TM-11685, ORNL-TM-3144, four MOOSE pages and two PFLOTRAN pages \
+             (2026-10-11, #832)"
         );
         let mut ids = HashSet::new();
         for l in LITERATURE {
