@@ -2,7 +2,7 @@
 
 > **Generated** from `src/concept_sciences_proposals.toml` by `tests/concept_sciences.rs` (`KOVAN_REGENERATE_SCIENCES=1 cargo test --release -p kovan-literature --test concept_sciences`). Edit the TOML, not this file.
 
-**Status: DRAFT FOR MAINTAINER REVIEW** (GitHub #727, maintainer direction 2026-10-10). 139 of 146 nodes are `approved` (marked **approved** below; their ids are permanent and listed in `src/concept_sciences_approved.txt`); every other node and every reference is still `proposed`, and is in neither tree until approved.
+**Status: DRAFT FOR MAINTAINER REVIEW** (GitHub #727, maintainer direction 2026-10-10). 139 of 146 nodes are `approved` (marked **approved** below; their ids are permanent and listed in `src/concept_sciences_approved.txt`); every other node is still `proposed` or `deferred`, and is in neither tree until approved. 3 of 69 references from the IAEA tab are approved (#830).
 
 ## Two tabs
 
@@ -368,18 +368,18 @@ Skeleton documents (NJOY2016 manual, NUREG/KM-0006, SAND2011-2195, the Brown sli
 | `openstax-college-physics-2e-part03` | OpenStax, College Physics 2e (Urone, Hinrichs et al.), part 3 of 11: chapters 11-13 (OpenStax, Rice University, 2022 (PDF ©2026); read 10 October 2026) | standard: `kovan-standard-open-corpus/cc-by-nc-sa/openstax2022-college-physics-2e-part03-ch11-13.pdf` | CC BY-NC-SA 4.0 (non-commercial, share-alike), stated on the book's copyright page; split into 11 parts of at most 30 MB for the corpus (maintainer, 2026-10-10); accepted by the maintainer 2026-10-10 | yes |
 | `openstax-college-physics-2e-part04` | OpenStax, College Physics 2e (Urone, Hinrichs et al.), part 4 of 11: chapters 14-16 (OpenStax, Rice University, 2022 (PDF ©2026); read 10 October 2026) | standard: `kovan-standard-open-corpus/cc-by-nc-sa/openstax2022-college-physics-2e-part04-ch14-16.pdf` | CC BY-NC-SA 4.0 (non-commercial, share-alike), stated on the book's copyright page; split into 11 parts of at most 30 MB for the corpus (maintainer, 2026-10-10); accepted by the maintainer 2026-10-10 | yes |
 
-## IAEA/NRC L2 to Sciences (proposed)
+## IAEA/NRC L2 to Sciences
 
-Every L2 node of the approved skeleton, with the Sciences nodes it would reference. A dash means no physics or computation reference is proposed (management, legal, financial and stakeholder categories). Software engineering and QA nodes will live on this IAEA side and reference Computation's trust aims.
+Every L2 node of the approved skeleton, with the Sciences nodes it references. Links the maintainer has approved (#830) are marked **approved**; the rest are proposed. A dash means no physics or computation reference is proposed (management, legal, financial and stakeholder categories). Software engineering and QA nodes will live on this IAEA side and reference Computation's trust aims.
 
 | L2 node | Title | Sciences references | Note |
 |---|---|---|---|
 | `01-national-position/need-for-power` | Need for power | - |  |
 | `02-nuclear-safety/facility-description` | Facility description | - |  |
 | `02-nuclear-safety/design-of-structures-systems-and-components` | Design of structures, systems and components | `materials/structural-mechanics`, `physical-principles/conservation-laws/momentum-balance/solid-continuum-momentum`, `physical-principles/constitutive-relations/hookes-law` |  |
-| `02-nuclear-safety/fuel-system-design` | Fuel system design | `materials/fuel-performance`, `materials/irradiation-damage`, `physical-principles/kinetics/heat-transfer/heat-conduction-equation`, `thermal-hydraulics/core-heat-generation-and-decay-heat` |  |
-| `02-nuclear-safety/nuclear-design` | Nuclear design and core physics | `neutronics`, `physical-principles/conservation-laws/particle-balance`, `physical-principles/radiation-interaction-with-matter/nuclear-reactions`, `physical-principles/conservation-laws/particle-balance/multiplication-eigenvalue` |  |
-| `02-nuclear-safety/moderator-and-reflector` | Moderator and reflector | `physical-principles/radiation-interaction-with-matter/nuclear-reactions/scattering`, `physical-principles/radiation-interaction-with-matter/target-motion/thermal-scattering-law`, `materials/irradiation-damage`, `materials/corrosion-and-chemistry` |  |
+| `02-nuclear-safety/fuel-system-design` | Fuel system design | **approved**: `materials/fuel-performance`, `materials/irradiation-damage`, `physical-principles/kinetics/heat-transfer/heat-conduction-equation`, `thermal-hydraulics/core-heat-generation-and-decay-heat`, `nuclear-chemistry/fission-product-release-from-fuel` |  |
+| `02-nuclear-safety/nuclear-design` | Nuclear design and core physics | **approved**: `neutronics`, `physical-principles/conservation-laws/particle-balance`, `physical-principles/radiation-interaction-with-matter/nuclear-reactions`, `physical-principles/conservation-laws/particle-balance/multiplication-eigenvalue` |  |
+| `02-nuclear-safety/moderator-and-reflector` | Moderator and reflector | **approved**: `physical-principles/radiation-interaction-with-matter/nuclear-reactions/scattering`, `physical-principles/radiation-interaction-with-matter/target-motion/thermal-scattering-law`, `materials/irradiation-damage`, `materials/corrosion-and-chemistry` |  |
 | `02-nuclear-safety/thermal-hydraulic-design` | Thermal-hydraulic design | `thermal-hydraulics`, `physical-principles/conservation-laws/mass-balance`, `physical-principles/conservation-laws/momentum-balance`, `physical-principles/conservation-laws/energy-balance`, `thermal-hydraulics/heat-transfer-correlations` |  |
 | `02-nuclear-safety/control-rods-and-drives` | Control rods and drives | `physical-principles/radiation-interaction-with-matter/nuclear-reactions/radiative-capture`, `neutronics/reactivity-feedback`, `neutronics/reactor-kinetics` |  |
 | `02-nuclear-safety/reactor-coolant-system` | Reactor coolant system | `thermal-hydraulics/single-phase-flow`, `thermal-hydraulics/natural-circulation`, `thermal-hydraulics/heat-exchangers`, `materials/structural-mechanics`, `nuclear-chemistry/radiolysis-and-coolant-chemistry`, `nuclear-chemistry/transport-and-deposition-in-coolant` |  |

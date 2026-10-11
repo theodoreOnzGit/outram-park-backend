@@ -604,7 +604,7 @@ fn render() -> String {
     .unwrap();
     writeln!(w).unwrap();
     let approved = s.science.iter().filter(|n| n.status == "approved").count();
-    writeln!(w, "**Status: DRAFT FOR MAINTAINER REVIEW** (GitHub #727, maintainer direction 2026-10-10). {approved} of {} nodes are `approved` (marked **approved** below; their ids are permanent and listed in `src/concept_sciences_approved.txt`); every other node and every reference is still `proposed`, and is in neither tree until approved.", s.science.len()).unwrap();
+    writeln!(w, "**Status: DRAFT FOR MAINTAINER REVIEW** (GitHub #727, maintainer direction 2026-10-10). {approved} of {} nodes are `approved` (marked **approved** below; their ids are permanent and listed in `src/concept_sciences_approved.txt`); every other node is still `proposed` or `deferred`, and is in neither tree until approved. {} of {} references from the IAEA tab are approved (#830).", s.science.len(), s.reference.iter().filter(|r| r.status == "approved").count(), s.reference.len()).unwrap();
     writeln!(w).unwrap();
     writeln!(w, "## Two tabs").unwrap();
     writeln!(w).unwrap();
@@ -804,20 +804,24 @@ fn render() -> String {
         .iter()
         .filter_map(|r| r.node.as_deref().map(|n| (n, r)))
         .collect();
-    writeln!(w, "## IAEA/NRC L2 to Sciences (proposed)").unwrap();
+    writeln!(w, "## IAEA/NRC L2 to Sciences").unwrap();
     writeln!(w).unwrap();
-    writeln!(w, "Every L2 node of the approved skeleton, with the Sciences nodes it would reference. A dash means no physics or computation reference is proposed (management, legal, financial and stakeholder categories). Software engineering and QA nodes will live on this IAEA side and reference Computation's trust aims.").unwrap();
+    writeln!(w, "Every L2 node of the approved skeleton, with the Sciences nodes it references. Links the maintainer has approved (#830) are marked **approved**; the rest are proposed. A dash means no physics or computation reference is proposed (management, legal, financial and stakeholder categories). Software engineering and QA nodes will live on this IAEA side and reference Computation's trust aims.").unwrap();
     writeln!(w).unwrap();
     writeln!(w, "| L2 node | Title | Sciences references | Note |").unwrap();
     writeln!(w, "|---|---|---|---|").unwrap();
     for n in sk.node.iter().filter(|n| n.path.split('/').count() == 2) {
         let (refs, note) = match refs_by_node.get(n.path.as_str()) {
             Some(r) => (
-                r.sciences
-                    .iter()
-                    .map(|x| format!("`{}`", short(x)))
-                    .collect::<Vec<_>>()
-                    .join(", "),
+                format!(
+                    "{}{}",
+                    if r.status == "approved" { "**approved**: " } else { "" },
+                    r.sciences
+                        .iter()
+                        .map(|x| format!("`{}`", short(x)))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
                 r.note.clone().unwrap_or_default(),
             ),
             None => ("-".to_owned(), String::new()),

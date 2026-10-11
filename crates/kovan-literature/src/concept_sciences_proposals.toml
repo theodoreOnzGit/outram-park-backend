@@ -71,7 +71,8 @@
 #               concept_proposals.toml
 #   sciences    Sciences paths it rests on; a list with no cap (an
 #               implementation leaf typically rests on many)
-#   status      "proposed"
+#   status      "proposed" or "approved" (maintainer approves in chat,
+#               batch by batch; #830)
 #   note        optional
 # Once approved, a reference moves into an optional `sciences = [...]` field
 # on that `[[concept]]` or `[[implementation]]` in concept_proposals.toml
@@ -1534,18 +1535,18 @@ status = "approved"
 
 [[reference]]
 node = "02-nuclear-safety/fuel-system-design"
-sciences = ["sciences/materials/fuel-performance", "sciences/materials/irradiation-damage", "sciences/physical-principles/kinetics/heat-transfer/heat-conduction-equation", "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat"]
-status = "proposed"
+sciences = ["sciences/materials/fuel-performance", "sciences/materials/irradiation-damage", "sciences/physical-principles/kinetics/heat-transfer/heat-conduction-equation", "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat", "sciences/nuclear-chemistry/fission-product-release-from-fuel"]
+status = "approved"
 
 [[reference]]
 node = "02-nuclear-safety/nuclear-design"
 sciences = ["sciences/neutronics", "sciences/physical-principles/conservation-laws/particle-balance", "sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions", "sciences/physical-principles/conservation-laws/particle-balance/multiplication-eigenvalue"]
-status = "proposed"
+status = "approved"
 
 [[reference]]
 node = "02-nuclear-safety/moderator-and-reflector"
 sciences = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/scattering", "sciences/physical-principles/radiation-interaction-with-matter/target-motion/thermal-scattering-law", "sciences/materials/irradiation-damage", "sciences/materials/corrosion-and-chemistry"]
-status = "proposed"
+status = "approved"
 
 [[reference]]
 node = "02-nuclear-safety/thermal-hydraulic-design"
