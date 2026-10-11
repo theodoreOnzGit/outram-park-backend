@@ -148,7 +148,7 @@ pub fn build(workspace: &Path, ctl: &RunControl) -> Result<BuildReport, String> 
     ctl.check()?;
 
     ctl.phase("code review data: building the call graph", 0);
-    let doc = call_graph::build_from_scip(workspace, None, ix)?;
+    let doc = call_graph::build_from_scip_controlled(workspace, None, ix, ctl)?;
     ctl.check()?;
     ctl.phase("code review data: writing", 0);
     call_graph::write_split(workspace, &doc, &graph)?;
@@ -233,6 +233,10 @@ mod tests {
 
         let report = build(p, &ctl).unwrap();
         assert_eq!(report.crates, 1);
+        // The call-graph progress reaches the run control the tab reads.
+        let log = ctl.snapshot().unwrap().log;
+        assert!(log.iter().any(|l| l.contains("functions to expand")), "{log:?}");
+        assert!(log.iter().any(|l| l.starts_with("call-graph: done in")), "{log:?}");
         assert!(report.not_in_scip.is_empty(), "{report:?}");
         assert!(report.describe().contains("all of them"));
         assert_eq!(data_state(p), DataState::Current);

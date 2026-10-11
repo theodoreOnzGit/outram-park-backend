@@ -467,8 +467,26 @@ impl CodeReviewView {
                     } else {
                         job.last.phase.as_str()
                     });
+                    // The call graph counts the functions it has expanded;
+                    // the other phases do not count.
+                    if job.last.total > 0 {
+                        ui.add(
+                            egui::ProgressBar::new(job.last.done as f32 / job.last.total as f32)
+                                .desired_width(360.0)
+                                .text(format!("{} / {}", job.last.done, job.last.total)),
+                        );
+                    }
                     ui.weak("This runs in the background; the other tabs stay usable.");
                 });
+                // What the terminal prints, newest last (as "Index fresh" shows it).
+                egui::CollapsingHeader::new("Log")
+                    .id_salt("code-review-data-log")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        for l in job.last.log.iter().rev().take(12).rev() {
+                            ui.weak(l);
+                        }
+                    });
             });
             return;
         }

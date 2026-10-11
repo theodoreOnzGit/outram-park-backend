@@ -666,7 +666,7 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
     // 4. Call graph.
     ctl.phase("building the call graph", 0);
     let names: Vec<String> = scope.iter().map(|m| m.0.clone()).collect();
-    let doc = super::call_graph::build_from_scip(&root, Some(&names), ix)?;
+    let doc = super::call_graph::build_from_scip_controlled(&root, Some(&names), ix, ctl)?;
     ctl.check()?;
     // 5. Inputs.
     ctl.phase("hashing functions and reading review.md / kovan.toml", 0);

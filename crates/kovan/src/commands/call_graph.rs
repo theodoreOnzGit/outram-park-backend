@@ -360,7 +360,7 @@ pub fn build_using(
             scip_workspace(&root, ix)?
         }
     };
-    let result = build_with(&mut ws, &all, &selected, map.as_ref(), started);
+    let result = build_with(&mut ws, &all, &selected, map.as_ref(), started, &super::index_control::RunControl::default());
     ws.close();
     let mut doc = result?;
     doc.generator = Some(generator);
@@ -402,6 +402,19 @@ pub fn build_from_scip(
     scope: Option<&[String]>,
     ix: crate::scip::ScipIndex,
 ) -> Result<CallGraphDoc, String> {
+    build_from_scip_controlled(root, scope, ix, &super::index_control::RunControl::default())
+}
+
+/// [`build_from_scip`] with progress the desktop app can show: the count of
+/// functions expanded is the phase's `done`/`total`, and the lines the
+/// terminal prints (`call-graph: 250/46467 functions, ...`) also go to
+/// `ctl`'s log.
+pub fn build_from_scip_controlled(
+    root: &Path,
+    scope: Option<&[String]>,
+    ix: crate::scip::ScipIndex,
+    ctl: &super::index_control::RunControl,
+) -> Result<CallGraphDoc, String> {
     let started = Instant::now();
     let root =
         dunce::canonicalize(root).map_err(|e| format!("resolving {}: {e}", root.display()))?;
@@ -423,7 +436,7 @@ pub fn build_from_scip(
         }
     };
     let (mut ws, generator) = scip_workspace(&root, ix)?;
-    let result = build_with(&mut ws, &all, &selected, map.as_ref(), started);
+    let result = build_with(&mut ws, &all, &selected, map.as_ref(), started, ctl);
     ws.close();
     let mut doc = result?;
     doc.generator = Some(generator);
@@ -448,6 +461,7 @@ fn build_with(
     selected: &[&Member],
     map: Option<&CodeMap>,
     started: Instant,
+    ctl: &super::index_control::RunControl,
 ) -> Result<CallGraphDoc, String> {
     let root = ws.root.clone();
     let exists = |rel: &str| root.join(rel).is_file();
@@ -575,10 +589,11 @@ fn build_with(
     let mut order: Vec<(String, u32)> = in_scope.keys().cloned().collect();
     order.sort();
     let total = order.len();
-    eprintln!(
+    ctl.say(format!(
         "call-graph: {} crate(s), {total} functions to expand",
         crates.len()
-    );
+    ));
+    ctl.phase("building the call graph: functions expanded", total);
     let mut walk = ws.start(&[])?;
     for (k, (file, line)) in order.iter().enumerate() {
         let decl = ws
@@ -589,12 +604,13 @@ fn build_with(
         let id = walk.graph.intern(Workspace::node(file, &decl));
         ws.expand(&mut walk, id)?;
         if (k + 1) % 250 == 0 || k + 1 == total {
-            eprintln!(
+            ctl.step(k + 1);
+            ctl.say(format!(
                 "call-graph: {}/{total} functions, {} queries, {:.1} s",
                 k + 1,
                 ws.queries,
                 started.elapsed().as_secs_f64()
-            );
+            ));
         }
     }
 
@@ -682,7 +698,7 @@ fn build_with(
     let mut doc = CallGraphDoc::assemble(crates, raw, outside, walk.external_calls);
     doc.commit = commit;
     doc.site_base = Some(citations::SITE_BASE.to_string());
-    eprintln!(
+    ctl.say(format!(
         "call-graph: done in {:.1} s: {} functions, {} calls ({} sites), {} unresolved, {} outside, {} queries",
         started.elapsed().as_secs_f64(),
         doc.totals.functions,
@@ -691,7 +707,7 @@ fn build_with(
         doc.totals.unresolved,
         doc.totals.outside,
         ws.queries
-    );
+    ));
     Ok(doc)
 }
 
