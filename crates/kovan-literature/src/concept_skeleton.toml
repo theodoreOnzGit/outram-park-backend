@@ -617,11 +617,15 @@ sources = [{ document = "nureg-0800-toc-rev6", section = "4.5, 4.6" }, { documen
 path = "02-nuclear-safety/reactor-coolant-system"
 title = "Reactor coolant system"
 sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 5" }, { document = "nureg-1537-part1", section = "Ch. 5" }, { document = "rg-1.232-rev0", section = "Sec. IV" }, { document = "ornl-tm-2018-976", section = "3.2 (proposed 5.4.20 fuel salt drain tank, 5.4.21 freeze valve boundary)" }]
+cross_links = ["02-nuclear-safety/thermal-hydraulic-design"]
+# One thermal-hydraulic family (maintainer, 2026-10-11, #830): cross-linked, not
+# merged, so each node keeps the NRC chapter it mirrors (4.4 core, Ch. 5 loop).
 
 [[node]]
 path = "02-nuclear-safety/msr-coolant-loop"
 title = "MSR coolant loop"
 sources = [{ document = "ornl-tm-2018-976", section = "3.2.4 (proposed SRP Section 5.5)" }]
+cross_links = ["02-nuclear-safety/thermal-hydraulic-design", "02-nuclear-safety/reactor-coolant-system"]
 
 [[node]]
 path = "02-nuclear-safety/engineered-safety-features"

@@ -722,7 +722,7 @@ status = "approved"
 [[science]]
 path = "sciences/physical-principles/kinetics/mass-transfer/convective-mass-transfer"
 title = "Convective mass transfer (boundary-layer mass transfer; Sherwood number)"
-sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (p. 13): Regime 3, boundary-layer control, limited by slow mass transfer through the stagnant boundary layer; 6.2 Challenges of Developing Oxidation Models (p. 71): convective versus diffusive mass transfer at the gas/graphite interface, referenced by the Sherwood number" }]
+sources = [{ document = "contescu-2022-graphite-oxidation", section = "4.2 Oxidation (p. 13): Regime 3, boundary-layer control, limited by slow mass transfer through the stagnant boundary layer; 6.2 Challenges of Developing Oxidation Models (p. 72; the section starts on p. 71): convective versus diffusive mass transfer at the gas/graphite interface, referenced by the Sherwood number" }]
 cross_links = ["sciences/physical-principles/kinetics/heat-transfer/convective-heat-transfer", "sciences/physical-principles/conservation-laws/mass-balance/species-transport"]
 note = "heat-transfer analogue: convection. The parallel is in the sources: DOE treats convection empirically because of the stagnant film; Contescu's Regime 3 is limited by the stagnant boundary layer. A general heat-mass analogy source (Chilton-Colburn) is not in the corpus"
 status = "approved"
@@ -1550,13 +1550,13 @@ status = "approved"
 
 [[reference]]
 node = "02-nuclear-safety/thermal-hydraulic-design"
-sciences = ["sciences/thermal-hydraulics", "sciences/physical-principles/conservation-laws/mass-balance", "sciences/physical-principles/conservation-laws/momentum-balance", "sciences/physical-principles/conservation-laws/energy-balance", "sciences/thermal-hydraulics/heat-transfer-correlations"]
+sciences = ["sciences/thermal-hydraulics", "sciences/physical-principles/conservation-laws/mass-balance", "sciences/physical-principles/conservation-laws/momentum-balance", "sciences/physical-principles/conservation-laws/energy-balance", "sciences/thermal-hydraulics/heat-transfer-correlations", "sciences/physical-principles/kinetics/heat-transfer", "sciences/thermal-hydraulics/two-phase-flow"]
 status = "proposed"
 
 [[reference]]
 node = "02-nuclear-safety/control-rods-and-drives"
 sciences = ["sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/radiative-capture", "sciences/neutronics/reactivity-feedback", "sciences/neutronics/reactor-kinetics"]
-status = "proposed"
+status = "approved"
 
 [[reference]]
 node = "02-nuclear-safety/reactor-coolant-system"
@@ -1565,7 +1565,7 @@ status = "proposed"
 
 [[reference]]
 node = "02-nuclear-safety/msr-coolant-loop"
-sciences = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/thermal-hydraulics/single-phase-flow", "sciences/neutronics/reactor-kinetics", "sciences/materials/corrosion-and-chemistry"]
+sciences = ["sciences/physical-principles/conservation-laws/mass-balance/species-transport", "sciences/thermal-hydraulics/single-phase-flow", "sciences/thermal-hydraulics/heat-exchangers", "sciences/neutronics/reactor-kinetics", "sciences/materials/corrosion-and-chemistry"]
 status = "proposed"
 
 [[reference]]
