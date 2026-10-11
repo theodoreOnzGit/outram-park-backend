@@ -1560,7 +1560,7 @@ status = "proposed"
 
 [[reference]]
 node = "02-nuclear-safety/reactor-coolant-system"
-sciences = ["sciences/thermal-hydraulics/single-phase-flow", "sciences/thermal-hydraulics/natural-circulation", "sciences/thermal-hydraulics/heat-exchangers", "sciences/materials/structural-mechanics", "sciences/nuclear-chemistry/radiolysis-and-coolant-chemistry", "sciences/nuclear-chemistry/transport-and-deposition-in-coolant"]
+sciences = ["sciences/thermal-hydraulics/single-phase-flow", "sciences/thermal-hydraulics/two-phase-flow", "sciences/thermal-hydraulics/natural-circulation", "sciences/thermal-hydraulics/heat-exchangers", "sciences/materials/structural-mechanics", "sciences/nuclear-chemistry/radiolysis-and-coolant-chemistry", "sciences/nuclear-chemistry/transport-and-deposition-in-coolant"]
 status = "proposed"
 
 [[reference]]
@@ -1571,17 +1571,17 @@ status = "proposed"
 [[reference]]
 node = "02-nuclear-safety/engineered-safety-features"
 sciences = ["sciences/thermal-hydraulics/natural-circulation", "sciences/thermal-hydraulics/core-heat-generation-and-decay-heat", "sciences/thermal-hydraulics/two-phase-flow"]
-status = "proposed"
+status = "approved"
 
 [[reference]]
 node = "02-nuclear-safety/containment"
 sciences = ["sciences/physical-principles/conservation-laws/energy-balance", "sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium", "sciences/thermal-hydraulics/two-phase-flow", "sciences/materials/structural-mechanics"]
-status = "proposed"
+status = "approved"
 
 [[reference]]
 node = "02-nuclear-safety/design-of-structures-systems-and-components"
 sciences = ["sciences/materials/structural-mechanics", "sciences/physical-principles/conservation-laws/momentum-balance/solid-continuum-momentum", "sciences/physical-principles/constitutive-relations/hookes-law"]
-status = "proposed"
+status = "approved"
 
 [[reference]]
 node = "02-nuclear-safety/instrumentation-and-control"
