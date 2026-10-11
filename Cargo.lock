@@ -5584,6 +5584,7 @@ dependencies = [
  "clap",
  "csv",
  "directories 5.0.1",
+ "dunce",
  "eframe",
  "egui",
  "egui-file-dialog",

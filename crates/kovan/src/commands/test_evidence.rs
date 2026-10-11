@@ -159,7 +159,7 @@ pub fn run(
     // The parent's copies of the write end are moved into `Command` and
     // dropped with it, so the reader sees EOF when cargo exits.
     // cargo reports absolute source paths; `root` may be relative (`.`).
-    let abs_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let abs_root = dunce::canonicalize(&root).unwrap_or_else(|_| root.to_path_buf());
     let mut parser = OutputParser::new(&abs_root.to_string_lossy());
     let stdout = std::io::stdout();
     for line in BufReader::new(reader).lines() {

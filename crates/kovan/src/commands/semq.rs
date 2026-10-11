@@ -59,7 +59,7 @@ pub(super) fn ra_timeout() -> Duration {
 /// a `--json` stdout stays clean and a slow index doesn't look like a hang.
 /// The fallback path when no daemon (`commands::lsp_daemon`) is reachable.
 pub(super) fn connect(root: &Path) -> Result<RustAnalyzerSession, String> {
-    let root = std::fs::canonicalize(root)
+    let root = dunce::canonicalize(root)
         .map_err(|e| format!("resolving workspace root {}: {e}", root.display()))?;
     let timeout = ra_timeout();
     eprintln!(

@@ -193,6 +193,21 @@ kovan-cli setup --dry-run   # report what would be installed, without installing
 "`setup`" below. It never runs automatically and has no bearing on the rest
 of this crate's offline/Android-clean operation (see "Android").
 
+### Windows: local drives only, not network shares
+
+**On Windows, kovan is not supported on a network share** (a `\\host\share`
+path, mapped to a drive letter or not). Keep the workspace, the kovan folder
+and the literature on a local drive; any drive letter works.
+
+The reason is the path form (GitHub #834). On Windows a resolved path comes
+back as `\\?\C:\...`. kovan resolves paths with `dunce::canonicalize`, which
+returns the ordinary `C:\...` for a local drive and leaves a share as
+`\\?\UNC\host\share\...`. Given a `\\?\` workspace root, `cargo metadata`
+spells the members two ways and `rust-analyzer scip` indexed 31 of this
+workspace's 48 crates (measured 2026-10-11; with the plain root, 48 of 48).
+A share has not been tested and is expected to fail the same way. Linux and
+macOS have one path form and are not affected.
+
 ## `kovan-cli` — CLI commands
 
 ```text

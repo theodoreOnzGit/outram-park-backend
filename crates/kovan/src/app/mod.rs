@@ -1037,12 +1037,12 @@ impl DigitiseApp {
     /// ([`crate::standard_corpus::paper_pdf`]).
     fn paper_owning_pdf(&self, path: &std::path::Path) -> Option<String> {
         let root = self.home.root()?;
-        let target = path.canonicalize().ok()?;
+        let target = dunce::canonicalize(&path).ok()?;
         let corpus = crate::standard_corpus::StandardCorpus::for_root(Some(root));
         root.paper_dirs().into_iter().find_map(|dir| {
             let config = EntityConfig::load(&dir).ok()?;
             let pdf = crate::standard_corpus::paper_pdf(root, &corpus, &config.id)?;
-            (pdf.canonicalize().ok()? == target).then_some(config.id)
+            (dunce::canonicalize(&pdf).ok()? == target).then_some(config.id)
         })
     }
 

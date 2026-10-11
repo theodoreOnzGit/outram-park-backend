@@ -190,7 +190,7 @@ impl LiteratureList {
             .cloned()
             .filter_map(|dir| {
                 let config = EntityConfig::load(&dir).ok()?;
-                let pdf = dir.join(config.source?.pdf?).canonicalize().ok()?;
+                let pdf = dunce::canonicalize(dir.join(config.source?.pdf?)).ok()?;
                 Some((pdf, config.id))
             })
             .collect();
@@ -200,8 +200,7 @@ impl LiteratureList {
                 .unwrap_or(&path)
                 .to_string_lossy()
                 .replace('\\', "/"),
-            citekey: path
-                .canonicalize()
+            citekey: dunce::canonicalize(&path)
                 .ok()
                 .and_then(|c| owners.get(&c).cloned()),
             path: Some(path),
@@ -223,7 +222,7 @@ impl LiteratureList {
                 let path = corpus.locate(lit);
                 let owner = path
                     .as_ref()
-                    .and_then(|p| p.canonicalize().ok())
+                    .and_then(|p| dunce::canonicalize(&p).ok())
                     .and_then(|c| owners.get(&c).cloned());
                 LiteratureItem {
                     label: format!("{}: {}", lit.id, lit.title),
@@ -270,7 +269,7 @@ impl LiteratureList {
         };
         let known: Vec<PathBuf> = standard_items
             .iter()
-            .filter_map(|i| i.path.as_ref()?.canonicalize().ok())
+            .filter_map(|i| dunce::canonicalize(i.path.as_ref()?).ok())
             .collect();
         let mut standard_dirs = tier_dirs(Tier::Standard);
         if let Some(root) = root.filter(|_| standard_dirs.is_empty()) {
@@ -281,7 +280,7 @@ impl LiteratureList {
         // or without a folder open.
         for dir in corpus.checkouts() {
             let same = |(d, _): &(PathBuf, String)| {
-                d == dir || matches!((d.canonicalize(), dir.canonicalize()), (Ok(a), Ok(b)) if a == b)
+                d == dir || matches!((dunce::canonicalize(&d), dunce::canonicalize(&dir)), (Ok(a), Ok(b)) if a == b)
             };
             if !standard_dirs.iter().any(same) {
                 standard_dirs.push((dir.clone(), String::new()));
@@ -295,7 +294,7 @@ impl LiteratureList {
         for (standard_dir, prefix) in &standard_dirs {
             let standard: Vec<PathBuf> = pdfs_under(&standard_dir.join(STANDARD_CORPUS_FOLDER))
                 .into_iter()
-                .filter(|p| p.canonicalize().map_or(true, |c| !known.contains(&c)))
+                .filter(|p| dunce::canonicalize(&p).map_or(true, |c| !known.contains(&c)))
                 .filter(|p| {
                     p.strip_prefix(standard_dir)
                         .map_or(true, |rel| seen.insert(rel.to_path_buf()))
@@ -349,7 +348,7 @@ impl LiteratureList {
             .flat_map(|g| {
                 g.items
                     .iter()
-                    .filter_map(|i| i.path.as_ref()?.canonicalize().ok())
+                    .filter_map(|i| dunce::canonicalize(i.path.as_ref()?).ok())
             })
             .collect();
         let others: Vec<LiteratureItem> = owners

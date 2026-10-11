@@ -812,7 +812,7 @@ fn commit_corpus_repos(root: &KovanRoot, note: &str) -> Result<(), RepositoryErr
         if !r.writable || !r.is_downloaded() {
             continue;
         }
-        let key = r.dir.canonicalize().unwrap_or_else(|_| r.dir.clone());
+        let key = dunce::canonicalize(&r.dir).unwrap_or_else(|_| r.dir.clone());
         if done.contains(&key) {
             continue;
         }

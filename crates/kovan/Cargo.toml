@@ -140,6 +140,7 @@ serde_json.workspace = true
 # (pure-Rust, Android-fine; the `cargo install` spawn itself is desktop-scope
 # and only runs when a user explicitly invokes `setup`).
 which.workspace = true
+dunce.workspace = true
 # `digitiser/gui/desktop/home.rs`'s recent-Kovan-roots list (op-9vo6.3, §2):
 # "Recent-roots list is local state -> .kovan/ or the XDG config dir, never
 # tracked" -- it lives here rather than under any one root's `.kovan/` since

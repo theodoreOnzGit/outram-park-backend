@@ -24,6 +24,22 @@ after the workbench's first build had typed ENDF and kovan-root fields.
 the setup folder (`src/app/setup.rs`) and the digitiser image path
 (`src/app/mod.rs`), both already have a "Browse…" picker beside them.
 
+## Resolve paths with `dunce::canonicalize`, never the std one (HARD RULE, #834)
+
+**Maintainer direction, 2026-10-11.** In this crate write
+`dunce::canonicalize(p)`, never `std::fs::canonicalize(p)` or
+`p.canonicalize()`. On Linux and macOS the two are the same call. On Windows
+the std one returns `\\?\C:\...`; handed to `cargo` and `rust-analyzer`, that
+form made the index skip 17 of 48 crates. One spelling everywhere also keeps
+path comparisons matching, so do not mix the two.
+
+- The one deliberate std call is in the test
+  `a_verbatim_prefix_is_removed_for_a_child_process`
+  (`src/commands/index_control.rs`), which shows the form being removed.
+- **Scope: on Windows, local drives only.** A network share keeps its `\\?\`
+  prefix under dunce and is not supported (`README.md`, "Windows: local
+  drives only, not network shares").
+
 ## Zotero import/export acts only on paths the user names (data policy, #747)
 
 `kovan-cli zotero` (GitHub #752; `src/commands/zotero.rs` over

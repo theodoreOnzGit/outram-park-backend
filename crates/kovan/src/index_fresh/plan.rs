@@ -93,7 +93,7 @@ pub struct FreshPlan {
 
 /// Build the plan for `dir` (no file is written).
 pub fn plan_fresh(dir: &Path) -> Result<FreshPlan, String> {
-    let dir = std::fs::canonicalize(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let dir = dunce::canonicalize(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let kind = detect_project(&dir).map_err(|e| e.to_string())?;
     let crates = crate::commands::call_graph::member_dirs(&dir)?;
     let root = inspect_root(&dir);
@@ -284,7 +284,7 @@ pub fn run_fresh(
     ctl: &RunControl,
 ) -> Result<FreshReport, FreshError> {
     ctl.phase("checking the target", 0);
-    let dir = std::fs::canonicalize(dir)
+    let dir = dunce::canonicalize(dir)
         .map_err(|e| FreshError::Index(IndexCmdError::Other(format!("{}: {e}", dir.display()))))?;
     let kind = detect_project(&dir).map_err(FreshError::Detect)?;
     ctl.say(format!(

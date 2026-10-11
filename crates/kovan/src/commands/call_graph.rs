@@ -135,7 +135,7 @@ struct Member {
 }
 
 fn relative(root: &Path, p: &Path) -> Option<String> {
-    let canon = std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    let canon = dunce::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
     let rel = canon.strip_prefix(root).ok()?;
     Some(
         rel.components()
@@ -264,12 +264,16 @@ pub fn generate_scip_controlled(root: &Path, ctl: &super::index_control::RunCont
         log_path.display()
     ));
     let started = Instant::now();
+    // No Windows verbatim prefix on what rust-analyzer is given: with one it
+    // indexed 31 of this workspace's 48 crates (GitHub #834).
+    let plain_root = super::index_control::plain_path(root);
+    let plain_out = super::index_control::plain_path(&out);
     let mut cmd = super::index_control::command(
         "rust-analyzer",
-        &["scip".as_ref(), root.as_os_str(), "--output".as_ref(), out.as_os_str()],
+        &["scip".as_ref(), plain_root.as_os_str(), "--output".as_ref(), plain_out.as_os_str()],
         ctl.nice,
     );
-    cmd.current_dir(root);
+    cmd.current_dir(&plain_root);
     let status = super::index_control::run_child(cmd, &log_path, "rust-analyzer scip", ctl)?;
     if !status.success() {
         return Err(format!(
@@ -300,7 +304,7 @@ pub fn build_using(
 ) -> Result<CallGraphDoc, String> {
     let started = Instant::now();
     let root =
-        std::fs::canonicalize(root).map_err(|e| format!("resolving {}: {e}", root.display()))?;
+        dunce::canonicalize(root).map_err(|e| format!("resolving {}: {e}", root.display()))?;
     let json = crate::code_map::run_cargo_metadata(&root, false)?;
     let all = members(&root, &json)?;
     let map = match CodeMap::from_cargo_metadata(&json) {
@@ -400,7 +404,7 @@ pub fn build_from_scip(
 ) -> Result<CallGraphDoc, String> {
     let started = Instant::now();
     let root =
-        std::fs::canonicalize(root).map_err(|e| format!("resolving {}: {e}", root.display()))?;
+        dunce::canonicalize(root).map_err(|e| format!("resolving {}: {e}", root.display()))?;
     let json = crate::code_map::run_cargo_metadata(&root, false)?;
     let all = members(&root, &json)?;
     let map = CodeMap::from_cargo_metadata(&json).ok();
@@ -430,7 +434,7 @@ pub fn build_from_scip(
 /// sorted by name (`cargo metadata --no-deps`).
 pub fn member_dirs(root: &Path) -> Result<Vec<(String, String)>, String> {
     let root =
-        std::fs::canonicalize(root).map_err(|e| format!("resolving {}: {e}", root.display()))?;
+        dunce::canonicalize(root).map_err(|e| format!("resolving {}: {e}", root.display()))?;
     let json = crate::code_map::run_cargo_metadata(&root, false)?;
     Ok(members(&root, &json)?
         .into_iter()

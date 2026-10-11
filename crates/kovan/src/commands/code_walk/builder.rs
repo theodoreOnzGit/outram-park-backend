@@ -392,7 +392,7 @@ pub(crate) struct Walk {
 
 impl Workspace {
     pub(crate) fn open(root: &Path) -> Result<Workspace, String> {
-        let root = std::fs::canonicalize(root)
+        let root = dunce::canonicalize(root)
             .map_err(|e| format!("resolving workspace root {}: {e}", root.display()))?;
         let resolver = Resolver::connect(&root)?;
         Ok(Workspace {
@@ -406,7 +406,7 @@ impl Workspace {
     /// A workspace whose definitions come from a SCIP index (#757) instead
     /// of rust-analyzer's LSP. No rust-analyzer process is started.
     pub(crate) fn open_scip(root: &Path, index: crate::scip::ScipIndex) -> Result<Workspace, String> {
-        let root = std::fs::canonicalize(root)
+        let root = dunce::canonicalize(root)
             .map_err(|e| format!("resolving workspace root {}: {e}", root.display()))?;
         Ok(Workspace {
             resolver: Resolver::Scip(ScipResolver::new(&root, index)),
@@ -453,7 +453,7 @@ impl Workspace {
     /// Workspace-relative `/` path for an absolute one, or `None` when it is
     /// outside the workspace (std, the cargo registry) or in a build tree.
     fn relative(&self, abs: &Path) -> Option<String> {
-        let canon = std::fs::canonicalize(abs).unwrap_or_else(|_| abs.to_path_buf());
+        let canon = dunce::canonicalize(abs).unwrap_or_else(|_| abs.to_path_buf());
         let rel = canon.strip_prefix(&self.root).ok()?;
         let s = rel
             .components()

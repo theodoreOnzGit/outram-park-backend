@@ -92,7 +92,7 @@ impl HashCache {
     /// match, otherwise hashed now and remembered. `None` if it cannot be
     /// read.
     pub fn sha256(&mut self, path: &Path) -> Option<String> {
-        let canonical = path.canonicalize().ok()?;
+        let canonical = dunce::canonicalize(&path).ok()?;
         let (len, mtime_ns) = stamp(&canonical)?;
         let key = canonical.to_string_lossy().into_owned();
         if let Some(e) = self.entries.get(&key) {

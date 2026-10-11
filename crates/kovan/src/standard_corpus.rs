@@ -118,7 +118,7 @@ impl StandardCorpus {
         for dir in checkouts {
             let same = |d: &PathBuf| {
                 d == &dir
-                    || matches!((d.canonicalize(), dir.canonicalize()), (Ok(a), Ok(b)) if a == b)
+                    || matches!((dunce::canonicalize(&d), dunce::canonicalize(&dir)), (Ok(a), Ok(b)) if a == b)
             };
             if !out.iter().any(same) {
                 out.push(dir);
@@ -160,12 +160,12 @@ impl StandardCorpus {
     /// The corpus document whose PDF `path` is (the same file, however it
     /// is reached), if any.
     pub fn entry_for_path(&self, path: &Path) -> Option<&'static CorpusLiterature> {
-        let target = path.canonicalize().ok()?;
+        let target = dunce::canonicalize(&path).ok()?;
         LITERATURE.iter().find(|l| {
             l.corpus_file.is_some_and(|file| {
                 self.checkouts
                     .iter()
-                    .any(|d| d.join(file).canonicalize().ok().as_ref() == Some(&target))
+                    .any(|d| dunce::canonicalize(d.join(file)).ok().as_ref() == Some(&target))
             })
         })
     }
@@ -270,14 +270,14 @@ pub fn paper_for(
     corpus: &StandardCorpus,
     lit: &CorpusLiterature,
 ) -> Option<String> {
-    let located = corpus.locate(lit).and_then(|p| p.canonicalize().ok());
+    let located = corpus.locate(lit).and_then(|p| dunce::canonicalize(&p).ok());
     root.paper_dirs().into_iter().find_map(|dir| {
         let config = EntityConfig::load(&dir).ok()?;
         let source = config.source.as_ref()?;
         if source.corpus.as_deref() == Some(lit.id) {
             return Some(config.id);
         }
-        let pdf = dir.join(source.pdf.as_ref()?).canonicalize().ok()?;
+        let pdf = dunce::canonicalize(dir.join(source.pdf.as_ref()?)).ok()?;
         (Some(&pdf) == located.as_ref()).then_some(config.id)
     })
 }
@@ -352,9 +352,8 @@ pub fn ensure_paper(
     // Record the PDF relative to the paper only when it is inside the
     // folder; a path into the shared application-data clone would not
     // survive a move to another machine, and `corpus` finds it anyway.
-    let inside = match (corpus.locate(lit), root.path().canonicalize()) {
-        (Some(pdf), Ok(root_dir)) => pdf
-            .canonicalize()
+    let inside = match (corpus.locate(lit), dunce::canonicalize(root.path())) {
+        (Some(pdf), Ok(root_dir)) => dunce::canonicalize(pdf)
             .ok()
             .filter(|c| c.starts_with(&root_dir))
             .map(|c| root.path().join(c.strip_prefix(&root_dir).unwrap_or(&c))),
@@ -468,11 +467,9 @@ mod tests {
                 &"02-nuclear-safety/severe-accidents/probabilistic-risk-assessment".to_string()
             ));
         assert_eq!(
-            paper_pdf(&root, &corpus, "wash-1400")
-                .unwrap()
-                .canonicalize()
+            dunce::canonicalize(paper_pdf(&root, &corpus, "wash-1400").unwrap())
                 .unwrap(),
-            corpus.locate(wash()).unwrap().canonicalize().unwrap()
+            dunce::canonicalize(corpus.locate(wash()).unwrap()).unwrap()
         );
         let bib = std::fs::read_to_string(root.bibliography_path()).unwrap();
         assert!(bib.contains("@techreport{wash-1400,"), "{bib}");

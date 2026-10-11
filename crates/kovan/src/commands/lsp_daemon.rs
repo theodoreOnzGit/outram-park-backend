@@ -145,7 +145,7 @@ mod unix_impl {
     /// error — on anything that stops this from working, so every caller can
     /// treat `None` as "fall back to the spawn-per-call path" uniformly.
     pub(in crate::commands) fn query(root: &Path, req: &Request) -> Option<Response> {
-        let root = std::fs::canonicalize(root).ok()?;
+        let root = dunce::canonicalize(root).ok()?;
         let socket_path = socket_path(&root);
 
         if let Ok(stream) = UnixStream::connect(&socket_path) {
@@ -169,7 +169,7 @@ mod unix_impl {
     /// shut down. Not an error if none is running for `root`; that's the
     /// already-stopped state, reported as such rather than as a failure.
     pub fn stop(root: PathBuf) -> Result<(), String> {
-        let root = std::fs::canonicalize(&root).map_err(|e| format!("resolving root: {e}"))?;
+        let root = dunce::canonicalize(&root).map_err(|e| format!("resolving root: {e}"))?;
         let path = socket_path(&root);
         let Ok(stream) = UnixStream::connect(&path) else {
             println!("no lsp-daemon running for {}", root.display());
@@ -218,7 +218,7 @@ mod unix_impl {
     /// `kovan-cli lsp-daemon-serve`, which [`spawn_daemon`] launches detached
     /// — never meant to be typed by a human or agent directly.
     pub fn serve(root: PathBuf) -> Result<(), String> {
-        let root = std::fs::canonicalize(&root).map_err(|e| format!("resolving root: {e}"))?;
+        let root = dunce::canonicalize(&root).map_err(|e| format!("resolving root: {e}"))?;
         let path = socket_path(&root);
 
         let listener = match UnixListener::bind(&path) {

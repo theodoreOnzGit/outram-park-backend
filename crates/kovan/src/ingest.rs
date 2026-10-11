@@ -245,7 +245,7 @@ pub fn find_existing(
     pdf: &Path,
     cache: &mut HashCache,
 ) -> Option<ExistingEntry> {
-    let target = pdf.canonicalize().ok()?;
+    let target = dunce::canonicalize(&pdf).ok()?;
     if let Some(lit) = corpus.entry_for_path(&target) {
         return Some(ExistingEntry::StandardCorpus {
             id: lit.id,
@@ -255,7 +255,7 @@ pub fn find_existing(
         });
     }
     let papers = paper_pdfs(root, corpus);
-    let same = |p: &Path| p.canonicalize().ok().as_ref() == Some(&target);
+    let same = |p: &Path| dunce::canonicalize(&p).ok().as_ref() == Some(&target);
     if let Some((citekey, p)) = papers.iter().find(|(_, p)| same(p)) {
         return Some(ExistingEntry::Paper {
             citekey: citekey.clone(),
@@ -336,7 +336,7 @@ fn repo_pdfs(root: &KovanRoot) -> Vec<(crate::corpus_tiers::CorpusRepo, PathBuf)
     let mut seen: Vec<PathBuf> = Vec::new();
     let mut out = Vec::new();
     for repo in root.corpus_repos() {
-        let key = repo.dir.canonicalize().unwrap_or_else(|_| repo.dir.clone());
+        let key = dunce::canonicalize(&repo.dir).unwrap_or_else(|_| repo.dir.clone());
         if seen.contains(&key) {
             continue;
         }
@@ -715,9 +715,9 @@ pub fn ingest_with(
 /// that repository's name (`None` for the conventional standard-corpus
 /// mount when `[repos]` dropped it); `None` otherwise.
 fn corpus_resident(root: &KovanRoot, pdf: &Path) -> Option<(PathBuf, Option<String>)> {
-    let pdf = pdf.canonicalize().ok()?;
-    let root_dir = root.path().canonicalize().ok()?;
-    let inside = |d: &Path| d.canonicalize().is_ok_and(|d| pdf.starts_with(d));
+    let pdf = dunce::canonicalize(&pdf).ok()?;
+    let root_dir = dunce::canonicalize(root.path()).ok()?;
+    let inside = |d: &Path| dunce::canonicalize(&d).is_ok_and(|d| pdf.starts_with(d));
     let repo = match root.corpus_repos().into_iter().find(|r| inside(&r.dir)) {
         Some(r) => Some(r.name),
         None if inside(&root.standard_corpus_dir()) => None,

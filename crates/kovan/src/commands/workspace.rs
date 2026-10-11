@@ -364,7 +364,7 @@ mod tests {
         // an output directory this function only resolves, never creates), and
         // `canonicalize` errors on a missing path. Falling back to `root` keeps
         // the assertion meaningful on any platform where canonicalisation fails.
-        let root_canonical = std::fs::canonicalize(&root).unwrap_or_else(|_| root.clone());
+        let root_canonical = dunce::canonicalize(&root).unwrap_or_else(|_| root.clone());
         assert!(
             dir.starts_with(&root_canonical),
             "got {}, expected it under {}",

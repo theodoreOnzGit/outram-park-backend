@@ -281,8 +281,8 @@ fn data_folder_import_export_reimport_round_trip() {
         article.file_name().unwrap().to_str().unwrap(),
     );
     assert_eq!(
-        found.unwrap().canonicalize().unwrap(),
-        pdf.canonicalize().unwrap()
+        dunce::canonicalize(found.unwrap()).unwrap(),
+        dunce::canonicalize(&pdf).unwrap()
     );
 
     // Lossless: every paper loads back as the item the import started from.

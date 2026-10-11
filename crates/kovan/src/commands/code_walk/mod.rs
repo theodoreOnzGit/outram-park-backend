@@ -185,7 +185,7 @@ pub(crate) fn generate(
 /// `../../../` from the directory holding `md` up to the workspace `root`,
 /// for mdBook `{{#include}}` paths (which are relative to the page).
 fn path_to_root(root: &Path, md: &Path) -> Result<String, String> {
-    let abs = std::fs::canonicalize(md).map_err(|e| format!("{}: {e}", md.display()))?;
+    let abs = dunce::canonicalize(md).map_err(|e| format!("{}: {e}", md.display()))?;
     let dir = abs
         .parent()
         .ok_or_else(|| format!("{} has no parent directory", md.display()))?;

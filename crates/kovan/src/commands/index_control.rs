@@ -115,6 +115,23 @@ impl RunControl {
     }
 }
 
+/// `path` in the form to hand a child process: on Windows the verbatim
+/// prefix of a drive path is removed (`\\?\C:\ws` becomes `C:\ws`) when the
+/// path stays valid without it (`dunce::simplified`: under 260 characters,
+/// no reserved name). Every other path, and every path on Linux and macOS,
+/// is returned as it is. A network share (`\\?\UNC\host\share`) keeps its
+/// prefix.
+///
+/// `std::fs::canonicalize` returns the verbatim form on Windows. Given a
+/// verbatim workspace root, `cargo metadata` reports some members under
+/// `\\?\C:\...` and others under `C:\...` (33 and 15 of this workspace's 48,
+/// measured 2026-10-11, cargo 1.97), and `rust-analyzer scip` then indexed
+/// 31 of the 48 crates; given the plain root it indexed all 48 (GitHub
+/// #834).
+pub fn plain_path(path: &Path) -> std::path::PathBuf {
+    dunce::simplified(path).to_path_buf()
+}
+
 /// The command that runs `program args`. With `nice` (the app's background
 /// run) it runs under `nice -n NICE_LEVEL` when a `nice` program exists
 /// (it `exec`s, so the child's process id is the program's own) and leads
@@ -232,6 +249,30 @@ mod tests {
         let ui = c.clone();
         ui.cancel();
         assert_eq!(c.check(), Err(CANCELLED.to_string()));
+    }
+
+    /// GitHub #834: the root handed to `rust-analyzer scip` carries no
+    /// Windows verbatim prefix, and other paths are left alone. The prefix
+    /// means something only on Windows, so the removal is asserted there;
+    /// elsewhere the same text is an ordinary file name and is kept.
+    #[test]
+    fn a_verbatim_prefix_is_removed_for_a_child_process() {
+        let plain = |s: &str| plain_path(Path::new(s)).to_str().unwrap().to_string();
+        #[cfg(windows)]
+        {
+            assert_eq!(plain(r"\\?\C:\Users\me\ws"), r"C:\Users\me\ws");
+            assert_eq!(plain(r"\\?\D:\ws"), r"D:\ws");
+            // A network share keeps its prefix (dunce simplifies drives only).
+            assert_eq!(plain(r"\\?\UNC\host\share\ws"), r"\\?\UNC\host\share\ws");
+            // The real case: a canonicalised folder comes back without it.
+            let here = std::fs::canonicalize(".").unwrap();
+            assert!(here.to_str().unwrap().starts_with(r"\\?\"));
+            assert!(!plain(here.to_str().unwrap()).starts_with(r"\\?\"));
+        }
+        #[cfg(not(windows))]
+        assert_eq!(plain(r"\\?\C:\Users\me\ws"), r"\\?\C:\Users\me\ws");
+        assert_eq!(plain(r"C:\Users\me\ws"), r"C:\Users\me\ws");
+        assert_eq!(plain("/home/me/ws"), "/home/me/ws");
     }
 
     #[test]

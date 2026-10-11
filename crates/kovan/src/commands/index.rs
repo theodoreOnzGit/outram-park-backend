@@ -581,7 +581,7 @@ pub fn run(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
 /// phases and during `rust-analyzer scip`, never once files are being
 /// written.
 pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Result<IndexSummary, IndexCmdError> {
-    let root = std::fs::canonicalize(root).map_err(|e| format!("{}: {e}", root.display()))?;
+    let root = dunce::canonicalize(root).map_err(|e| format!("{}: {e}", root.display()))?;
     if opts.refresh {
         return run_refresh(&root, opts, ctl);
     }

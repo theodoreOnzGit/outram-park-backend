@@ -91,7 +91,7 @@ fn resolve(path: &Path) -> PathBuf {
     let mut existing = abs.as_path();
     let mut tail: Vec<&std::ffi::OsStr> = Vec::new();
     loop {
-        if let Ok(c) = existing.canonicalize() {
+        if let Ok(c) = dunce::canonicalize(&existing) {
             let mut out = c;
             for t in tail.iter().rev() {
                 out.push(t);
@@ -123,9 +123,7 @@ fn is_this_repository(dir: &Path) -> bool {
 /// the user's own data and goes to their own Kovan folder.
 pub fn protected_location(target: &Path) -> Option<(PathBuf, &'static str)> {
     let target = resolve(target);
-    let source_checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
+    let source_checkout = dunce::canonicalize(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
         .ok()
         .filter(|d| is_this_repository(d));
     for dir in target.ancestors() {
@@ -151,7 +149,7 @@ mod tests {
         let inside = Path::new(env!("CARGO_MANIFEST_DIR")).join("not-yet/created");
         let (dir, what) = protected_location(&inside).expect("protected");
         assert!(what.contains("outram-park-backend"));
-        assert!(inside.canonicalize().is_err(), "nothing created");
+        assert!(dunce::canonicalize(&inside).is_err(), "nothing created");
         assert!(dir.join("crates/kovan/Cargo.toml").is_file());
     }
 
