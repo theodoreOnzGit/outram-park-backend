@@ -61,11 +61,15 @@ pub struct CostEstimate {
 }
 
 /// The cost message (#780: scaled honestly or said to be unknown). The
-/// only measured reference is outram-park-backend's own run.
+/// only measured reference is outram-park-backend's own runs: 4 to 7 min on
+/// a 16-core desktop (2026-10-07), and 8 to 23 min on a 15 GB laptop, where
+/// the long runs had a second rust-analyzer beside them (2026-10-10 and
+/// 2026-10-11, #821).
 pub fn cost_message(crates: usize, rs_files: usize, rs_lines: usize) -> String {
     format!(
         "This target: {crates} crate(s), {rs_files} indexed .rs file(s), {rs_lines} lines. For scale, \
-         the one measured run, outram-park-backend (48 crates), took about 4\u{2013}7 minutes with a \
+         outram-park-backend (48 crates) took about 4\u{2013}7 minutes on a 16-core desktop and \
+         10\u{2013}20 minutes on a 15 GB laptop, with a \
          15\u{2013}16 GB memory peak in rust-analyzer. The cost grows with the code AND its dependencies \
          (rust-analyzer loads those too, and builds build scripts and proc macros first), so this \
          target's time and memory are not known in advance; a small crate is usually far quicker. \

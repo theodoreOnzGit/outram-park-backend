@@ -244,8 +244,9 @@ pub fn rust_analyzer_version() -> String {
 
 /// Runs `rust-analyzer scip` over the workspace into
 /// `<root>/target/kovan-scip/index.scip` (never committed: `target/` is
-/// ignored), its log beside it, and returns the index path. About 3 min and
-/// several GB of memory for this workspace (#757).
+/// ignored), its log beside it, and returns the index path. For this workspace: about 3 min
+/// on a 16-core desktop, 8 to 23 min on a 15 GB laptop (measured 2026-10-10
+/// and 2026-10-11, #821), and up to about 15 GB of memory (#757).
 pub fn generate_scip(root: &Path) -> Result<PathBuf, String> {
     generate_scip_controlled(root, &super::index_control::RunControl::default())
 }
@@ -259,7 +260,7 @@ pub fn generate_scip_controlled(root: &Path, ctl: &super::index_control::RunCont
     let out = dir.join("index.scip");
     let log_path = dir.join("rust-analyzer-scip.log");
     ctl.say(format!(
-        "call-graph: running rust-analyzer scip over {} (about 3 min for outram-park; log in {})",
+        "call-graph: running rust-analyzer scip over {} (about 3 min on a 16-core desktop, 10 to 20 min on a laptop, for outram-park; log in {})",
         root.display(),
         log_path.display()
     ));

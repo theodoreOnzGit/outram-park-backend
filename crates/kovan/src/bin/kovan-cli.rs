@@ -496,7 +496,7 @@ enum Command {
         merge: Vec<PathBuf>,
         /// Where definitions come from (GitHub #757): `lsp` asks
         /// rust-analyzer's LSP per call-shaped token (default); `scip` runs
-        /// `rust-analyzer scip` once over the workspace (about 3 min) into
+        /// `rust-analyzer scip` once over the workspace (about 3 min on a 16-core desktop, 10 to 20 min on a laptop) into
         /// `target/kovan-scip/index.scip` and resolves every call from it,
         /// adding operator calls and functions passed as paths.
         #[arg(long, value_enum, default_value = "lsp")]

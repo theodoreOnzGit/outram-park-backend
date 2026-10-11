@@ -4,7 +4,7 @@
 //! Apache-2.0) is a protobuf file holding, for every source file of the
 //! workspace, every *occurrence* of a symbol: its range, the symbol string and
 //! whether the occurrence defines or references it. One `rust-analyzer scip`
-//! run over the whole workspace (about 3 min, 343 MB on 2026-10-07) therefore
+//! run over the whole workspace (about 3 min, 343 MB on 2026-10-07 on a 16-core desktop; 8 to 23 min on a 15 GB laptop, 2026-10-10 and 2026-10-11) therefore
 //! answers every "where is this defined?" question the call graph used to ask
 //! rust-analyzer's LSP one token at a time.
 //!

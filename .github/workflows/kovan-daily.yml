@@ -80,6 +80,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # A scheduled run starts from `main` (the default branch) and tests
+          # `develop`; a push or a dispatch tests the ref it was started on.
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
 
       # rust-analyzer: the SCIP and call-graph tests look for it on PATH.
       - uses: dtolnay/rust-toolchain@stable
@@ -95,9 +99,12 @@ jobs:
         shell: bash
         run: cargo build --release -p "$KOVAN_PKG" --bin kovan --bin kovan-cli --bin kovan-tui
 
+      # --no-fail-fast: a failing test binary must not hide the ones after it.
+      # The first run (2026-10-11) stopped at kovan's lib tests on Windows, so
+      # no integration test ran there.
       - name: Test kovan, kovan-common and kovan-web
         shell: bash
-        run: cargo test --release -p "$KOVAN_PKG" -p kovan-common -p kovan-web --lib --tests
+        run: cargo test --release --no-fail-fast -p "$KOVAN_PKG" -p kovan-common -p kovan-web --lib --tests
 
   web:
     name: web / wasm32
@@ -105,6 +112,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
