@@ -20,3 +20,22 @@ version = "1.97.1"
 [library]
 id = "outram-park-backend"
 name = "outram-park-backend"
+
+[code_review]
+founder = "github:theodoreOnzGit"
+
+[[reviewer]]
+id = "github:theodoreOnzGit"
+name = "teddy0ng"
+role = "maintainer"
+admitted = "2026-10-12"
+
+[[reviewer.key]]
+id = "k1"
+alg = "ed25519"
+public = "StJ/EE7JyvJli747XWV8NYk1mMR0E8BYtft3osBtlnA="
+created = "2026-10-12"
+
+[[reviewer.key.history]]
+event = "created"
+date = "2026-10-12"
