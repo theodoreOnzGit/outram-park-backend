@@ -895,7 +895,8 @@ workbench" ask (epic `op-9c2e`) — the pieces landed so far:
   Mindmap: Home, Wiki, Save Repository, Digitiser, Table Digitiser, PDF
   Reader, Kvim Editor, Bibliography. Code Map: a "Go to Code Review" button.
   Code Review: PDF Reader, Bibliography (the same pages as under Mindmap;
-  the major tab they were opened from stays selected).
+  the major tab they were opened from stays selected) and a "Back to map"
+  button to the Code Map.
 - **File picker** (`Browse…` next to the digitiser's image path field, and
   `Open PDF…` in the PDF reader) — a shared
   [`egui-file-dialog`](https://crates.io/crates/egui-file-dialog) instance

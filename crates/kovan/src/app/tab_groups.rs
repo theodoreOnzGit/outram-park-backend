@@ -4,10 +4,10 @@
 //! ```text
 //!  top row:    [ Mindmap ]            [ Code Map ]            [ Code Review ]
 //!  second row:  Home, Wiki, Save       Go to Code Review       PDF Reader,
-//!               Repository, Digitiser,  (a button)             Bibliography
-//!               Table Digitiser, PDF
-//!               Reader, Kvim Editor,
-//!               Bibliography
+//!               Repository, Digitiser,  (a button)             Bibliography,
+//!               Table Digitiser, PDF                           Back to map
+//!               Reader, Kvim Editor,                           (a button, to
+//!               Bibliography                                   the Code Map)
 //! ```
 //!
 //! A major tab's own page is the one it is named after; clicking it goes

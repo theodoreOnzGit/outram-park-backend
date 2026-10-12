@@ -3052,6 +3052,16 @@ impl DigitiseApp {
                 self.group = tab_groups::Group::CodeReview;
                 self.view = View::CodeReview;
             }
+            // The way back (maintainer, 2026-10-12).
+            if self.group == tab_groups::Group::CodeReview
+                && ui
+                    .button("Back to map")
+                    .on_hover_text("Return to the Code Map")
+                    .clicked()
+            {
+                self.group = tab_groups::Group::CodeMap;
+                self.view = View::CodeMap;
+            }
         });
     }
 
