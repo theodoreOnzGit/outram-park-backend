@@ -421,8 +421,9 @@ mod tests {
     /// `kovan_root.toml`; a second code repository is added beside it;
     /// the corpus is refused as code and the code repository refused as a
     /// corpus, each naming the reason, with nothing mounted or recorded;
-    /// the corpus is added as open and as proprietary under `literature/`;
-    /// a duplicate name is refused. The code repositories are not among the
+    /// the corpus is added as open under `literature/`, and then refused as
+    /// proprietary because its remote is by then an open repository's (so
+    /// public); a duplicate name is refused. The code repositories are not among the
     /// corpus repositories Save Repository loops over.
     ///
     /// Result (2026-10-12): passes.
@@ -452,7 +453,8 @@ mod tests {
         assert!(e.contains("already used"), "{e}");
 
         add_repository(&folder, &new(RepoKind::OpenCorpus, "papers", &corpus)).unwrap();
-        add_repository(&folder, &new(RepoKind::ProprietaryCorpus, "private-papers", &corpus)).unwrap_err();
+        let e = add_repository(&folder, &new(RepoKind::ProprietaryCorpus, "private-papers", &corpus)).unwrap_err();
+        assert!(e.contains("cannot hold a proprietary corpus"), "{e}");
         let root = KovanRoot::open(&folder).unwrap();
         let names: Vec<String> = root.code_repos().into_iter().map(|c| c.name).collect();
         assert_eq!(names, ["rust-a", "rust-b"]);
