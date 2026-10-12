@@ -21,7 +21,9 @@
 //!
 //! **Only the files kovan wrote in this session**, as the caller lists them
 //! (the stamp dialog's writes, acknowledged moves and deletions), and only
-//! the two kinds kovan writes: a folder's `review.md` and the workspace's
+//! the ~~two~~ three kinds kovan writes (**CORRECTED 2026-10-12**, #839: the
+//! repository's `docs/mindmap/connections.toml`, written by the "Add
+//! connection" window, is the third): a folder's `review.md` and the workspace's
 //! `kovan_root.toml` (a key registration in the dialog writes it, and a
 //! stamp by an unregistered key does not count, so the two travel
 //! together). #739 names `review.md` only; including `kovan_root.toml` when
@@ -148,8 +150,15 @@ fn is_kovan_file(rel: &str) -> bool {
     let safe = !rel.is_empty()
         && !rel.starts_with('/')
         && !rel.split('/').any(|c| c == ".." || c.is_empty());
-    safe && (rel == ROOT_FILE || rel == REVIEW_MD || rel.ends_with(&format!("/{REVIEW_MD}")))
+    safe && (rel == ROOT_FILE
+        || rel == CONNECTIONS
+        || rel == REVIEW_MD
+        || rel.ends_with(&format!("/{REVIEW_MD}")))
 }
+
+/// The code repository's connections file (GitHub #839), which the "Add
+/// connection" window writes.
+const CONNECTIONS: &str = crate::code_connections::REL_PATH;
 
 /// The checked-out branch; `None` when `HEAD` is detached.
 pub fn current_branch(root: &Path) -> Option<String> {
@@ -211,6 +220,11 @@ pub fn commit_message(root: &Path, files: &[String]) -> String {
     for f in files {
         if f == ROOT_FILE {
             body.push(format!("- {f}: reviewer keys registered"));
+            continue;
+        }
+        if f == CONNECTIONS {
+            let n = crate::code_connections::read(root).connections().len();
+            body.push(format!("- {f}: function connections to standard corpus concepts ({n} in all)"));
             continue;
         }
         let before = parse_review_md(&git::show(root, "HEAD", f).unwrap_or_default());

@@ -443,7 +443,8 @@ mod tests {
     ///
     /// Pass: refused while unreviewed and while stale, naming the state;
     /// accepted while the stamp is valid, recording the function's `fn:` id
-    /// and path; an unknown function is refused.
+    /// and path; an unknown function is refused. Commit and push plans the
+    /// connections file as a file kovan wrote.
     ///
     /// Result (2026-10-12): passes.
     #[test]
@@ -465,6 +466,14 @@ mod tests {
         assert!(ok.source.starts_with("fn:") && ok.added.created);
         let all = for_function(r.path(), &ok.source);
         assert_eq!((all.len(), all[0].path.as_str()), (1, leaf.as_str()));
+
+        // Commit and push takes the file (it is one of the kinds kovan
+        // writes), and its message names it. Not on `main`: that is refused.
+        r.git(&["checkout", "-q", "-b", "develop"]);
+        let session = std::collections::BTreeSet::from([REL_PATH.to_string()]);
+        let plan = crate::stamping::commit_push::plan(r.path(), &session).unwrap();
+        assert_eq!(plan.files, [REL_PATH]);
+        assert!(plan.message.contains("function connections"), "{}", plan.message);
 
         r.edit("x * 2.0", "x * 3.0");
         r.commit("edit leaf");
