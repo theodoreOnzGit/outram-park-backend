@@ -2,8 +2,16 @@
 
 
 Crate-specific guidance for Claude Code and other AI assistants working in
-`crates/raffles`. The workspace-root `CLAUDE.md` still binds in full — this
-file adds to it, and relaxes nothing.
+`crates/raffles`. ~~The workspace-root `CLAUDE.md` still binds in full — this
+file adds to it, and relaxes nothing.~~ **CORRECTED 2026-10-12** — the
+workspace-root `CLAUDE.md` still binds, except where maintainer direction
+recorded in [`AGENTS.md`](AGENTS.md) relaxes it for this crate.
+
+**Read [`AGENTS.md`](AGENTS.md) first.** It holds maintainer direction that
+binds every agent working here, and it takes precedence over this file and the
+root `CLAUDE.md` where they differ. Currently it covers one topic:
+**calibration is acceptable when it is the intention, and surrogate models
+calibrate by definition** (maintainer direction, 2026-10-12).
 
 **RAFFLES** — **R**isk **A**nalysis **F**ramework **F**or **L**earning &
 **E**nsemble **S**imulation. An independent pure-Rust port of the
