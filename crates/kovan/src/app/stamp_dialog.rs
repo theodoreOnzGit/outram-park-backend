@@ -1,5 +1,12 @@
-//! The **stamp dialog**'s drawing (GitHub #770, #740): a modal window over
-//! the Code Review tab, opened by the review bar's Stamp or Needs fix. Every
+//! The **stamp dialog**'s drawing (GitHub #770, #740): a window over the
+//! Code Review tab, opened by the review bar's Stamp or Needs fix.
+//!
+//! **A movable window, not a modal (maintainer, 2026-10-12: "it is
+//! obscuring the code").** It opens docked to the right edge at full height,
+//! over the sidebar, so the source on the left stays readable while the
+//! comments are written; it can be dragged and resized. A second Stamp or
+//! Needs fix while it is open is ignored (`CodeReviewView::take_request`
+//! waits for this one to close). Every
 //! decision (steps, transitions, form checks, the background jobs) is
 //! [`crate::stamping::flow::StampFlow`]'s, tested in
 //! `stamping/flow_tests.rs`; this file only draws the current step and turns
@@ -32,48 +39,55 @@ pub(crate) fn show(
         ctx.request_repaint_after(std::time::Duration::from_millis(150));
     }
     let mut close = false;
-    let screen = ctx.content_rect().size();
-    let max = egui::vec2((screen.x - 48.0).max(240.0), (screen.y - 140.0).max(200.0));
-    egui::Modal::new(egui::Id::new("code-review-stamp-dialog")).show(ctx, |ui| {
-        let what = match f.purpose {
-            Purpose::Stamp => "Stamp",
-            Purpose::NeedsFix => "Needs fix",
-            Purpose::Reconfirm => "Re-confirm",
-        };
-        ui.heading(format!("{what}: {}", f.target.name));
-        ui.monospace(&f.target.function);
-        if let Some(k) = f.key() {
-            if !matches!(f.step, Step::Loading | Step::PickKey | Step::SetupKey) {
-                ui.weak(format!("Signing identity: {} (key {})", k.reviewer, k.key));
-            }
-        }
-        ui.separator();
-        egui::Resize::default()
-            .id_salt("stamp-dialog-resize")
-            .default_size(egui::vec2(640.0_f32.min(max.x), 520.0_f32.min(max.y)))
-            .min_size(egui::vec2(240.0, 160.0))
-            .max_size(max)
-            .show(ui, |ui| {
-                egui::ScrollArea::vertical()
-                    .auto_shrink(false)
-                    .show(ui, |ui| body(ui, f, commit, root, session));
-            });
-        ui.separator();
-        ui.horizontal_wrapped(|ui| {
-            let label = if matches!(f.step, Step::Done(_)) {
-                "Close"
-            } else {
-                "Cancel"
+    let screen = ctx.content_rect();
+    let width = (screen.width() * 0.38)
+        .clamp(320.0, 600.0)
+        .min(screen.width());
+    egui::Window::new("Stamp")
+        .id(egui::Id::new("code-review-stamp-dialog"))
+        .title_bar(true)
+        .collapsible(false)
+        .movable(true)
+        .resizable(true)
+        .default_pos(egui::pos2(screen.right() - width, screen.top()))
+        .default_size(egui::vec2(width, screen.height()))
+        .min_size(egui::vec2(240.0, 200.0))
+        .constrain(true)
+        .show(ctx, |ui| {
+            let what = match f.purpose {
+                Purpose::Stamp => "Stamp",
+                Purpose::NeedsFix => "Needs fix",
+                Purpose::Reconfirm => "Re-confirm",
             };
-            if ui
-                .add_enabled(!f.working(), egui::Button::new(label))
-                .on_disabled_hover_text("Wait for the step running to finish")
-                .clicked()
-            {
-                close = true;
+            ui.heading(format!("{what}: {}", f.target.name));
+            ui.monospace(&f.target.function);
+            if let Some(k) = f.key() {
+                if !matches!(f.step, Step::Loading | Step::PickKey | Step::SetupKey) {
+                    ui.weak(format!("Signing identity: {} (key {})", k.reviewer, k.key));
+                }
             }
+            ui.separator();
+            // The buttons stay at the bottom of the window; the body scrolls.
+            egui::Panel::bottom("stamp-dialog-buttons").show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    let label = if matches!(f.step, Step::Done(_)) {
+                        "Close"
+                    } else {
+                        "Cancel"
+                    };
+                    if ui
+                        .add_enabled(!f.working(), egui::Button::new(label))
+                        .on_disabled_hover_text("Wait for the step running to finish")
+                        .clicked()
+                    {
+                        close = true;
+                    }
+                });
+            });
+            egui::ScrollArea::vertical()
+                .auto_shrink(false)
+                .show(ui, |ui| body(ui, f, commit, root, session));
         });
-    });
     close
 }
 
