@@ -569,7 +569,8 @@ fn questions(ui: &mut egui::Ui, w: &mut WizardForm) {
     for q in w.questions() {
         ui.add_space(6.0);
         ui.label(RichText::new(q.text.trim()).strong());
-        for o in &q.options {
+        let ctx = w.applicability();
+        for o in q.options.iter().filter(|o| o.offered(ctx)) {
             let selected = w.options.get(&q.key) == Some(&o.key);
             if ui.radio(selected, o.label.trim()).clicked() {
                 w.options.insert(q.key.clone(), o.key.clone());

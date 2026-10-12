@@ -348,7 +348,9 @@ pub struct StampContext {
     pub applicability: Applicability,
     /// The starting answers: this reviewer's previous answers still valid
     /// ([`ReviewWizard::prefill`]), plus `vv_case_author` from git
-    /// ([`vv_case_author_prefill`]) when not answered before.
+    /// ([`vv_case_author_prefill`]) when not answered before, plus, for a
+    /// test function, its "this is a test" answers
+    /// ([`kovan_common::review::wizard::test_function_prefill`]).
     pub answers: BTreeMap<String, String>,
     /// This reviewer already has a review of the function (it is replaced).
     pub restamp: bool,
@@ -391,6 +393,7 @@ fn applicability_for(
             .and_then(|m| m.doc.upstream())
             .is_some_and(|u| u.is_port),
         physical_interface: f.physical_interface,
+        is_test: f.test,
         tests: tests.as_ref().map(|t| t.authorship()).unwrap_or_default(),
     };
     let messages = tests
@@ -444,6 +447,13 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
         answers
             .entry("vv_case_author".to_string())
             .or_insert_with(|| a.to_string());
+    }
+    // A test function starts with its "this is a test" answers (maintainer,
+    // 2026-10-12); a previous answer is kept.
+    if applicability.is_test {
+        for (q, o) in kovan_common::review::wizard::test_function_prefill() {
+            answers.entry(q.to_string()).or_insert_with(|| o.to_string());
+        }
     }
     let upstream = folder.and_then(|m| m.doc.upstream());
     let architectures = ws

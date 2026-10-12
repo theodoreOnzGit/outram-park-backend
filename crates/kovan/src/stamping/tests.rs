@@ -390,3 +390,37 @@ fn restamp_replaces_keeps_unreadable_and_registration_keeps_comments() {
     register_reviewer(r.path(), &new).unwrap();
     assert!(register_reviewer(r.path(), &new).is_err());
 }
+
+/// Methodology: add a `#[test]` function to the fixture's `lib.rs`, commit
+/// and re-index, then open the wizard's context for it and for `leaf`
+/// (not a test).
+///
+/// Pass: the test function's context is marked as a test and starts with
+/// the four "this is a test" answers (limits, error handling, test reach,
+/// V&V evidence); `leaf` starts with none of them.
+///
+/// Result (2026-10-12): passes.
+#[test]
+fn a_test_function_starts_with_its_this_is_a_test_answers() {
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    let _key = founder_key(&r, store.path());
+    let src = r.read(LIB);
+    r.write(LIB, &format!("{src}\n#[test]\nfn checks_other() {{\n    assert_eq!(other(), 1);\n}}\n"));
+    r.commit("add a test");
+    r.reindex();
+
+    let t = prepare_stamp(r.path(), &format!("{LIB}::checks_other"), BY).unwrap();
+    assert!(t.applicability.is_test);
+    for (q, o) in [
+        ("limits_and_guards", "test_no_input"),
+        ("error_handling", "test_panics_on_failure"),
+        ("test_reach", "is_a_test"),
+        ("vv_evidence", "is_a_test"),
+    ] {
+        assert_eq!(t.answers.get(q).map(String::as_str), Some(o), "{q}");
+    }
+    let l = prepare_stamp(r.path(), &format!("{LIB}::leaf"), BY).unwrap();
+    assert!(!l.applicability.is_test);
+    assert!(!l.answers.values().any(|a| a.starts_with("test_") || a == "is_a_test"), "{:?}", l.answers);
+}

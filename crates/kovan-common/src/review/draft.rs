@@ -197,6 +197,7 @@ pub fn draft_review(input: &DraftInput) -> Result<ReviewEntry, DraftError> {
         is_port: input.is_port,
         physical_interface: f.physical_interface
             || input.checklist.contains_key("units_documented"),
+        is_test: f.test,
         tests: input.tests,
     };
     let gate = stamp_gate(&input.checklist, ctx);

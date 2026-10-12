@@ -35,6 +35,13 @@
 #    rung; it is derived from vv_evidence, vv_case_author and git, so the
 #    `rung` question and this effect are gone. See `wizard::derived_rung`.)
 #
+# only_when (on an option): the option is offered, and accepted, only then.
+#   test   the function under review is a test (`test = true` in its folder's
+#          kovan.toml). The "this is a test" options (maintainer, 2026-10-12:
+#          "test functions are allowed to panic. This is correct behaviour",
+#          asked for as choices so nothing has to be typed). The same answer
+#          on a function that is not a test is refused.
+#
 # requires_text: the option must carry text of at least 2 characters
 # (`Other: ____`, a justification). On disk the answer is `"<option>"`, or
 # `"<option>: <text>"` for these options.
@@ -177,6 +184,12 @@ effect = "none"
 requires_text = true
 
 [[question.option]]
+key = "test_no_input"
+label = "This is a test: it takes no input, so no limits apply"
+effect = "none"
+only_when = "test"
+
+[[question.option]]
 key = "other"
 label = "Other: ____"
 effect = "none"
@@ -262,6 +275,12 @@ key = "cannot_happen"
 label = "Nothing can go wrong, explained: ____"
 effect = "none"
 requires_text = true
+
+[[question.option]]
+key = "test_panics_on_failure"
+label = "This is a test: it panics when an assertion fails, which is correct"
+effect = "none"
+only_when = "test"
 
 [[question.option]]
 key = "other"
@@ -355,6 +374,12 @@ label = "No test reaches it (needs improvement)"
 effect = "flag"
 
 [[question.option]]
+key = "is_a_test"
+label = "This is a test, not applicable"
+effect = "none"
+only_when = "test"
+
+[[question.option]]
 key = "other"
 label = "Other: ____"
 effect = "none"
@@ -406,6 +431,12 @@ effect = "none"
 key = "none_yet"
 label = "None yet"
 effect = "none"
+
+[[question.option]]
+key = "is_a_test"
+label = "This is a test, not applicable"
+effect = "none"
+only_when = "test"
 
 [[question.option]]
 key = "other"

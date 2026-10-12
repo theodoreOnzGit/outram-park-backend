@@ -155,6 +155,15 @@ pub enum Prefill {
     GitTestAuthorship,
 }
 
+/// When an option is offered and accepted (an option without one always is).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OptionWhen {
+    /// The function under review is a test (`test = true` in its folder's
+    /// `kovan.toml`): the "this is a test" answers (maintainer, 2026-10-12).
+    Test,
+}
+
 /// What choosing an option does to the stamp.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -218,6 +227,19 @@ pub struct WizardOption {
     pub requires_text: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action: Option<OptionAction>,
+    /// Offered and accepted only then; `None` is always.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub only_when: Option<OptionWhen>,
+}
+
+impl WizardOption {
+    /// Whether the option is offered for a function with `ctx`.
+    pub fn offered(&self, ctx: Applicability) -> bool {
+        match self.only_when {
+            None => true,
+            Some(OptionWhen::Test) => ctx.is_test,
+        }
+    }
 }
 
 /// A clause in the kovan standard corpus that justifies a question (#769).
@@ -300,6 +322,9 @@ impl std::error::Error for WizardError {}
 pub struct Applicability {
     pub is_port: bool,
     pub physical_interface: bool,
+    /// The function is a test: the "this is a test" options are offered
+    /// and accepted ([`OptionWhen::Test`]).
+    pub is_test: bool,
     /// Git's view of who wrote the reaching tests (for the derived rung).
     pub tests: TestAuthorship,
 }
@@ -337,6 +362,11 @@ pub enum AnswerError {
         question: String,
         option: String,
     },
+    /// A "this is a test" option on a function that is not a test.
+    OptionNotOffered {
+        question: String,
+        option: String,
+    },
 }
 
 impl std::fmt::Display for AnswerError {
@@ -355,6 +385,9 @@ impl std::fmt::Display for AnswerError {
             }
             Self::UnexpectedText { question, option } => {
                 write!(f, "{question}: {option} takes no text")
+            }
+            Self::OptionNotOffered { question, option } => {
+                write!(f, "{question}: {option} is only for a test function, and this is not one")
             }
         }
     }
@@ -557,6 +590,10 @@ impl ReviewWizard {
             let (question, option) = choice();
             return Err(AnswerError::UnknownOption { question, option });
         };
+        if !o.offered(ctx) {
+            let (question, option) = choice();
+            return Err(AnswerError::OptionNotOffered { question, option });
+        }
         match (o.requires_text, text) {
             (true, Some(t)) if t.chars().count() >= 2 => Ok(o),
             (true, _) => {
@@ -670,6 +707,25 @@ pub fn stamp_gate(answers: &BTreeMap<String, String>, ctx: Applicability) -> Gat
     ReviewWizard::embedded().stamp_gate(answers, ctx)
 }
 
+/// The starting answers for a **test function** (maintainer, 2026-10-12:
+/// "if it is a test, autofill those options for me ... it's a test function,
+/// so obviously it doesn't need to be tested"): for each question that has
+/// one, its "this is a test" option ([`OptionWhen::Test`]), as (question,
+/// option). Only starting answers: the reviewer can change each, and signs
+/// what is chosen.
+pub fn test_function_prefill() -> Vec<(&'static str, &'static str)> {
+    ReviewWizard::embedded()
+        .questions
+        .iter()
+        .filter_map(|q| {
+            q.options
+                .iter()
+                .find(|o| o.only_when == Some(OptionWhen::Test))
+                .map(|o| (q.key.as_str(), o.key.as_str()))
+        })
+        .collect()
+}
+
 /// The pre-filled answer to `vv_case_author` from the messages of the
 /// commits that added the tests reaching the function (maintainer, #769,
 /// 2026-10-07): any agent trailer -> `agent_wrote_or_cowrote`; none ->
@@ -733,13 +789,56 @@ mod tests {
     const NONE: Applicability = Applicability {
         is_port: false,
         physical_interface: false,
+        is_test: false,
         tests: TestAuthorship::Unknown,
     };
     const BOTH: Applicability = Applicability {
         is_port: true,
         physical_interface: true,
+        is_test: false,
         tests: TestAuthorship::Unknown,
     };
+
+    /// Methodology: the four "this is a test" options (maintainer,
+    /// 2026-10-12) are put into an otherwise clean answer set, for a test
+    /// function and for one that is not.
+    ///
+    /// Pass: for a test function each is offered, needs no typed text and
+    /// the stamp gate passes with no flag (rung 3); for a function that is
+    /// not a test none is offered and the gate blocks each as an invalid
+    /// answer. No other option is restricted to tests.
+    ///
+    /// Result (2026-10-12): passes.
+    #[test]
+    fn the_test_function_answers_are_only_for_tests() {
+        let w = ReviewWizard::embedded();
+        let test_fn = Applicability { is_test: true, ..NONE };
+        let test_only = [
+            ("limits_and_guards", "test_no_input"),
+            ("error_handling", "test_panics_on_failure"),
+            ("test_reach", "is_a_test"),
+            ("vv_evidence", "is_a_test"),
+        ];
+        let restricted: Vec<(&str, &str)> = w
+            .questions
+            .iter()
+            .flat_map(|q| q.options.iter().filter(|o| o.only_when.is_some()).map(move |o| (q.key.as_str(), o.key.as_str())))
+            .collect();
+        assert_eq!(restricted, test_only);
+        assert_eq!(test_function_prefill(), test_only, "the autofill is exactly these");
+        let mut answers = clean();
+        for (q, o) in test_only {
+            let opt = w.question(q).unwrap().option(o).unwrap();
+            assert!(opt.offered(test_fn) && !opt.offered(NONE) && !opt.requires_text, "{q}/{o}");
+            answers.insert(q.to_string(), o.to_string());
+        }
+        let g = w.stamp_gate(&answers, test_fn);
+        assert!(g.stampable() && g.flags.is_empty(), "{g:?}");
+        assert_eq!(g.rung, Rung::Three);
+        let g = w.stamp_gate(&answers, NONE);
+        assert_eq!(g.blocked_by.len(), 4, "{g:?}");
+        assert!(g.blocked_by.iter().all(|r| matches!(r, GateReason::Invalid(AnswerError::OptionNotOffered { .. }))));
+    }
 
     /// Methodology: the embedded `data/review_wizard.toml` parses and passes
     /// [`ReviewWizard::validate`]; it has the 13 questions decided on #769

@@ -1205,6 +1205,7 @@ fn judge(
     let ctx = Applicability {
         is_port,
         physical_interface: b.checklist.contains_key("units_documented"),
+        is_test: cur.f.test,
         tests: tests_by,
     };
     let gate = stamp_gate(&b.checklist, ctx);
