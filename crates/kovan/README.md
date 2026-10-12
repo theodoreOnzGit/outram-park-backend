@@ -574,6 +574,18 @@ reviewed. Save keeps what was written to `review.md`; Cancel puts it back
 as it was on entering. Logic: `src/stamping/review_mode/`; drawing:
 `src/app/review_mode_panel.rs`.
 
+Added 2026-10-12 (#838): after a **squash merge or rebase**, the commit a
+stamp certifies is no longer in the branch's history, and the stamp shows
+as unverified with that reason (a shallow clone shows the same; there the
+remedy is a full fetch). The need-you panel lists one **Re-anchor** row per
+module (source file). Its window shows your reviews of that module whose
+code, doc comment, callees and `Cargo.lock` are unchanged, and signs them
+all again at `HEAD` with one passphrase entry, checklists carried over; a
+function that changed is listed with the reason and needs Stamp. Commit
+the result after the squash (`src/stamping/reanchor.rs`,
+`src/stamping/reanchor_flow.rs`). **Do not squash or rebase a branch that
+holds stamps unless you mean to re-anchor them.**
+
 Added 2026-10-10 (#770): an inherited-stale function (only callees
 changed) offers **Re-confirm**: the dialog shows each changed callee's
 diff and signs your previous answers again at `HEAD`, without the wizard

@@ -12,7 +12,7 @@
 //! |---|---|
 //! | `head` | `git rev-parse HEAD` |
 //! | `cargo_lock` | `sha256:` of `Cargo.lock` in the working tree |
-//! | `stamps[..].added_in` | the newest commit whose diff changes the number of occurrences of the stamp's signature value in its `review.md` (`git log -1 -S<value>`), taken only when `HEAD`'s `review.md` holds it (else not committed); `after_certified` is "not the certified commit and a descendant of it" (`git merge-base --is-ancestor`); the trailer check is [`agent_trailer`] on its message |
+//! | `stamps[..].added_in` | the newest commit whose diff changes the number of occurrences of the stamp's signature value in its `review.md` (`git log -1 -S<value>`), taken only when `HEAD`'s `review.md` holds it (else not committed); `after_certified` is "not the certified commit and a descendant of it" (`git merge-base --is-ancestor`); `certified_in_history` is "the certified commit is an ancestor of `HEAD`" (the same command against `HEAD`; false after a squash or rebase, and in a shallow clone, #838); the trailer check is [`agent_trailer`] on its message |
 //! | `stamps[..].hash_at_commit` | the function at the review's recorded `path`, re-hashed from `git show <commit>:<file>` with the same `syn` hasher |
 //! | `stamps[..].tests_at_review` | `reached_by` of the function in the folder's `kovan.toml` **as committed at the review commit**, and for each test the messages of the commits up to it that touched the test's file (file-level: coarser than the function, so an agent commit anywhere in the file counts, the conservative side) |
 //! | `hashes_at_test_run` | every function of a folder with `[test_run]`, re-hashed at the run's commit |
@@ -41,7 +41,7 @@ use std::path::Path;
 use kovan_common::call_graph::split::{StampState as WebStamp, StampVerdict};
 use kovan_common::review::engine::{
     evaluate, ConceptAreas, Evaluation, FolderReviews, GitFacts, ReviewKey, SignaturePolicy,
-    StampCommit, StampFacts, StampState, TestsAtReview,
+    StampCommit, StampFacts, StampState, TestsAtReview, UnverifiedReason,
 };
 use kovan_common::review::hash::{hash_functions, HashedFn};
 use kovan_common::review::index::FolderIndex;
@@ -187,9 +187,11 @@ fn added_in(root: &Path, review_md: &str, r: &ReviewEntry) -> Option<StampCommit
     let certified = &r.review.commit;
     let descendant = git::git(root, &["merge-base", "--is-ancestor", certified, &commit]).is_ok();
     let same = git::rev_parse(root, certified).is_ok_and(|c| c == commit);
+    let in_history = git::git(root, &["merge-base", "--is-ancestor", certified, "HEAD"]).is_ok();
     Some(StampCommit {
         commit,
         after_certified: descendant && !same,
+        certified_in_history: in_history,
         agent_trailer: agent_trailer(body).0,
         committer_time: time,
     })
@@ -482,6 +484,12 @@ fn describe(s: &StampState) -> String {
         }
         StampState::NeedsFixOpen { note, .. } => format!("needs fix: {note}"),
         StampState::Fixed { note, .. } => format!("fixed, awaiting re-review: {note}"),
+        StampState::Unverified(UnverifiedReason::CertifiedCommitNotInHistory) => {
+            "unverified: the commit this review certifies is not in this branch's history (a \
+             squash or rebase replaced it, or the clone is shallow); after a squash, re-anchor \
+             it in desktop kovan"
+                .into()
+        }
         StampState::Unverified(why) => format!("unverified: {why:?}"),
         StampState::Unreadable { message } => format!("unreadable: {message}"),
         StampState::Invalid(why) => format!("invalid: {why:?}"),

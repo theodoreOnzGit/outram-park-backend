@@ -37,7 +37,9 @@ use crate::stamping::flow::Worker;
 use crate::stamping::queue::{
     build, mark_seen, seen_path, Filter, NeedYou, QueueOptions, QueueRow, RowKind,
 };
+use crate::stamping::reanchor_flow::{ReanchorFlow, ReanchorStep};
 use crate::stamping::relocate::{acknowledge_moves, record_deletions, RelocateReport};
+use kovan_common::review::signing::keystore::Keystore;
 
 type Built = Result<NeedYou, String>;
 type Acted = Result<RelocateReport, String>;
@@ -59,6 +61,11 @@ pub(crate) struct NeedYouView {
     pub dirty: bool,
     /// Messages from the last acknowledge or record.
     pub notes: Vec<String>,
+    /// The keystore the re-anchor window signs with: `None` is kovan's
+    /// default location; tests inject a temporary one.
+    pub keystore: Option<Keystore>,
+    /// The module re-anchor window (GitHub #838), when open.
+    reanchor: Option<ReanchorFlow>,
     build_job: Option<Worker<Built>>,
     action: Option<Worker<Acted>>,
     /// The workspace the queue is for.
@@ -69,9 +76,10 @@ impl NeedYouView {
     /// The workspace changed: forget the queue.
     pub(crate) fn set_root(&mut self, root: Option<&Path>) {
         if self.root.as_deref() != root {
-            let open = self.open;
+            let (open, keystore) = (self.open, self.keystore.take());
             *self = Self {
                 open,
+                keystore,
                 root: root.map(Path::to_path_buf),
                 dirty: true,
                 ..Self::default()
@@ -93,7 +101,9 @@ impl NeedYouView {
     }
 
     pub(crate) fn busy(&self) -> bool {
-        self.build_job.is_some() || self.action.is_some()
+        self.build_job.is_some()
+            || self.action.is_some()
+            || self.reanchor.as_ref().is_some_and(ReanchorFlow::busy)
     }
 
     /// Take finished jobs; never blocks.
@@ -123,6 +133,33 @@ impl NeedYouView {
                 }
                 Err(e) => self.notes = vec![e],
             }
+        }
+    }
+
+    /// Take the re-anchor window's finished job: once it has signed, its
+    /// files join the session's and the queue is rebuilt.
+    fn poll_reanchor(&mut self, session: &mut BTreeSet<String>) {
+        let Some(f) = &mut self.reanchor else { return };
+        let was_done = matches!(f.step, ReanchorStep::Done(_));
+        f.poll();
+        if let (false, ReanchorStep::Done(rep)) = (was_done, &f.step) {
+            session.extend(rep.written.iter().cloned());
+            self.dirty = true;
+        }
+    }
+
+    /// Open the re-anchor window for `module` (its first job starts on a
+    /// worker). Under `cargo test` never the user's keystore.
+    pub(crate) fn open_reanchor(&mut self, module: String) {
+        let keystore = match &self.keystore {
+            Some(k) => Ok(k.clone()),
+            None if cfg!(test) => Err("tests never read the real keystore".to_string()),
+            None => Keystore::default_location().map_err(|e| e.to_string()),
+        };
+        match (self.root.clone(), keystore) {
+            (Some(root), Ok(ks)) => self.reanchor = Some(ReanchorFlow::new(root, ks, module)),
+            (_, Err(e)) => self.notes = vec![e],
+            (None, _) => {}
         }
     }
 
@@ -217,6 +254,8 @@ enum Click {
     Opened(QueueRow),
     Acknowledge(Vec<String>),
     Record(Vec<String>),
+    /// Open the re-anchor window for this module.
+    ReAnchor(String),
 }
 
 /// One row. GUI drawing code (exempt from the test rule).
@@ -260,6 +299,15 @@ fn row_ui(ui: &mut egui::Ui, row: &QueueRow, expanded: bool, out: &mut Vec<Click
                     .clicked()
                 {
                     out.push(Click::Acknowledge(ready.clone()));
+                }
+            }
+            if let RowKind::ReAnchor { module } = &row.kind {
+                if ui
+                    .small_button(format!("Re-anchor {} \u{25b8}", row.functions.len()))
+                    .on_hover_text("A squash or rebase replaced the commit these reviews certify. Sign your unchanged reviews of this module again at HEAD, in one sign-off; the checklists are carried over.")
+                    .clicked()
+                {
+                    out.push(Click::ReAnchor(module.clone()));
                 }
             }
             if row.kind == RowKind::Deleted
@@ -319,6 +367,101 @@ fn recent_ui(ui: &mut egui::Ui, v: &mut NeedYouView, out: &mut Vec<Click>) {
     }
 }
 
+/// The module re-anchor window (GitHub #838): what is ready, what is
+/// refused and why, the passphrase, one Sign for the module. GUI drawing
+/// code (exempt; the logic is `stamping::reanchor` and
+/// `stamping::reanchor_flow`, tested there). Returns false when closed.
+fn reanchor_window(ctx: &egui::Context, f: &mut ReanchorFlow) -> bool {
+    let mut open = true;
+    let mut close = false;
+    let mut sign = false;
+    egui::Window::new("Re-anchor reviews")
+        .id(egui::Id::new("code-review-reanchor"))
+        .open(&mut open)
+        .collapsible(false)
+        .resizable(true)
+        .default_size(egui::vec2(480.0, 420.0))
+        .min_size(egui::vec2(280.0, 200.0))
+        .constrain(true)
+        .show(ctx, |ui| {
+            ui.label(RichText::new(&f.module).monospace().strong());
+            match &f.step {
+                ReanchorStep::Loading => {
+                    ui.horizontal(|ui| {
+                        ui.spinner();
+                        ui.label("Checking the module's reviews\u{2026}");
+                    });
+                    return;
+                }
+                ReanchorStep::Failed(e) => {
+                    ui.colored_label(ui.visuals().error_fg_color, e);
+                    close = ui.button("Close").clicked();
+                    return;
+                }
+                ReanchorStep::Done(rep) => {
+                    ui.label(format!("Re-anchored {} review(s). Commit them with Commit and push.", rep.done.len()));
+                    for (path, why) in &rep.skipped {
+                        ui.weak(format!("Skipped {path}: {why}"));
+                    }
+                    close = ui.button("Close").clicked();
+                    return;
+                }
+                ReanchorStep::Ready | ReanchorStep::Signing => {}
+            }
+            let Some(m) = &f.prepared else { return };
+            let head: String = m.head.chars().take(10).collect();
+            ui.label(format!(
+                "A squash or rebase replaced the commits these reviews certify. Signing as {} \
+                 anchors the {} unchanged review(s) below to commit {head}; each checklist is \
+                 carried over and the comments note the re-anchor.",
+                m.by,
+                m.ready.len()
+            ));
+            egui::ScrollArea::vertical()
+                .max_height((ui.available_height() - 110.0).max(80.0))
+                .auto_shrink(false)
+                .show(ui, |ui| {
+                    for i in &m.ready {
+                        let was: String = i.previous.review.commit.chars().take(10).collect();
+                        ui.label(RichText::new(&i.path).monospace());
+                        ui.weak(format!("reviewed {} at {was}, rung {}", i.previous.review.date, i.previous.review.rung));
+                    }
+                    if !m.refused.is_empty() {
+                        ui.separator();
+                        ui.label(RichText::new("Not re-anchored").strong());
+                    }
+                    for (path, why) in &m.refused {
+                        ui.label(RichText::new(path).monospace());
+                        ui.colored_label(ui.visuals().warn_fg_color, why);
+                    }
+                });
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Passphrase");
+                ui.add(egui::TextEdit::singleline(&mut f.passphrase).password(true));
+            });
+            if let Some(e) = &f.error {
+                ui.colored_label(ui.visuals().error_fg_color, e);
+            }
+            ui.horizontal(|ui| {
+                let n = f.prepared.as_ref().map_or(0, |m| m.ready.len());
+                if ui
+                    .add_enabled(f.can_sign(), egui::Button::new(format!("Sign {n} re-anchor(s)")))
+                    .on_disabled_hover_text("Type your passphrase; a module with nothing ready cannot be signed")
+                    .clicked()
+                {
+                    sign = true;
+                }
+                if f.step == ReanchorStep::Signing {
+                    ui.spinner();
+                }
+            });
+        });
+    if sign {
+        f.sign();
+    }
+    open && !close
+}
+
 /// Draw the panel (when open) as a right side panel of `ui`; returns where
 /// to navigate the embedded Code Review UI. GUI drawing code (exempt from
 /// the test rule): the queue's logic is `stamping::queue`, and
@@ -330,6 +473,12 @@ pub(crate) fn show(
     commit: &mut CommitPushJob,
 ) -> Option<DeepLink> {
     v.poll(session);
+    v.poll_reanchor(session);
+    if let Some(f) = &mut v.reanchor {
+        if !reanchor_window(ui.ctx(), f) {
+            v.reanchor = None;
+        }
+    }
     if v.busy() || commit.busy() {
         ui.ctx()
             .request_repaint_after(std::time::Duration::from_millis(200));
@@ -426,6 +575,7 @@ pub(crate) fn show(
             Click::Opened(row) => v.opened(&row),
             Click::Acknowledge(ids) => v.acknowledge(ids),
             Click::Record(ids) => v.record(ids),
+            Click::ReAnchor(module) => v.open_reanchor(module),
         }
     }
     go
@@ -482,6 +632,9 @@ mod tests {
                 ready: vec!["fn:m".into()],
             },
             RowKind::Deleted,
+            RowKind::ReAnchor {
+                module: "crates/a/src/lib.rs".into(),
+            },
             RowKind::Unreadable,
             RowKind::Invalid,
             RowKind::Flag(FlagKind::IndependentVvNotCounted),
@@ -516,7 +669,7 @@ mod tests {
         });
         v.dirty = false;
         v.recent_open = true;
-        assert_eq!(v.count(), Some(10));
+        assert_eq!(v.count(), Some(11));
         v.filter = Filter::HumanOnly;
         assert_eq!(v.count(), Some(0));
         v.filter = Filter::All;
@@ -551,7 +704,32 @@ mod tests {
             v.poll(&mut session);
         }
         assert!(!v.notes.is_empty(), "{:?}", v.notes);
+
+        // The re-anchor window (#838): without an injected keystore a test
+        // never opens it; with one, on a folder that is not a workspace, it
+        // draws Loading, then the failure, and closes with the root.
+        v.open_reanchor("crates/a/src/lib.rs".into());
+        assert!(v.reanchor.is_none() && v.notes[0].contains("real keystore"), "{:?}", v.notes);
+        let store = tempfile::tempdir().unwrap();
+        v.keystore = Some(Keystore::at(store.path()));
+        v.open_reanchor("crates/a/src/lib.rs".into());
+        assert!(v.reanchor.is_some());
+        v.open = true;
+        while v.busy() {
+            assert!(start.elapsed() < std::time::Duration::from_secs(60));
+            let _ = ctx.run_ui(Default::default(), |ui| {
+                let _ = show(ui, &mut v, &mut session, &mut commit);
+            });
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let _ = ctx.run_ui(Default::default(), |ui| {
+            let _ = show(ui, &mut v, &mut session, &mut commit);
+        });
+        assert!(
+            matches!(v.reanchor.as_ref().map(|f| &f.step), Some(ReanchorStep::Failed(_))),
+            "an empty keystore cannot sign"
+        );
         v.set_root(None);
-        assert!(v.queue.is_none());
+        assert!(v.queue.is_none() && v.reanchor.is_none() && v.keystore.is_some());
     }
 }

@@ -165,6 +165,10 @@ pub struct StampCommit {
     pub commit: String,
     /// It is a strict descendant of the commit the stamp certifies.
     pub after_certified: bool,
+    /// The commit the stamp certifies is an ancestor of `HEAD` (or `HEAD`).
+    /// False after a squash merge or rebase replaced it, and in a shallow
+    /// clone that does not hold it (GitHub #838).
+    pub certified_in_history: bool,
     /// Its message carries `Co-Authored-By: Claude…` or `Claude-Session:`.
     pub agent_trailer: bool,
     /// Its committer time, seconds since the epoch (`git log -1
@@ -315,6 +319,11 @@ pub enum UnverifiedReason {
     /// Added in a commit with the agent attribution trailer ("AI never
     /// stamps").
     AgentTrailer,
+    /// The commit it certifies is not in `HEAD`'s history: a squash merge
+    /// or rebase replaced it, or the clone is shallow (GitHub #838). The
+    /// review itself may be sound; a squash is followed by a re-anchor, a
+    /// shallow clone by a full fetch.
+    CertifiedCommitNotInHistory,
     /// Added in, or before, the commit it certifies.
     NotAfterCertifiedCommit,
     /// The function at the certified commit does not hash to the recorded
@@ -784,6 +793,13 @@ fn authenticity_git(r: &ReviewEntry, git: &GitFacts, registry: &Registry) -> Opt
     let Some(added) = &facts.added_in else {
         return Some(UnverifiedReason::NotCommitted);
     };
+    // Before the trailer check (GitHub #838): after a squash the stamp is
+    // "added in" the squash commit, whose message is not the stamp commit's,
+    // so its trailer says nothing about who stamped. Either way the review
+    // is unverified; only the reason differs.
+    if !added.certified_in_history {
+        return Some(UnverifiedReason::CertifiedCommitNotInHistory);
+    }
     if added.agent_trailer {
         return Some(UnverifiedReason::AgentTrailer);
     }

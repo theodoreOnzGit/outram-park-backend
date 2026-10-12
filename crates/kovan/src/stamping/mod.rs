@@ -20,6 +20,10 @@
 //!                          (states.rs: GitFacts from git, engine::evaluate)
 //! ```
 //!
+//! **After a squash or rebase** (GitHub #838) the commits the stamps certify
+//! are gone from the branch: [`reanchor`] re-signs a module's unchanged
+//! reviews at `HEAD` in one sign-off, carrying each checklist over.
+//!
 //! The dialog's state machine (steps, form checks, worker jobs) is
 //! [`flow`]; its drawing is `app/stamp_dialog.rs` (GUI feature).
 //!
@@ -90,6 +94,8 @@ pub mod organisations;
 pub mod queue;
 pub mod recent;
 /// Re-confirming an inherited-stale review (#770, #740).
+pub mod reanchor;
+pub mod reanchor_flow;
 pub mod reconfirm;
 pub mod relocate;
 pub mod review_mode;
@@ -474,8 +480,18 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
 /// ([`kovan_common::review::draft::DraftError`]), or (#810) the request
 /// names a separation attestation the reviewer does not have.
 pub fn draft_stamp(root: &Path, req: &StampRequest) -> Result<DraftedStamp, String> {
-    let ws = load_workspace(root)?;
-    let (idx, file, f) = locate(root, &ws, &req.function)?;
+    draft_stamp_loaded(root, &load_workspace(root)?, req)
+}
+
+/// [`draft_stamp`] over a workspace already loaded, so a batch (a module's
+/// re-anchor, [`reanchor`]) loads it once. `ws` must be as loaded now: the
+/// same refusals apply.
+pub(crate) fn draft_stamp_loaded(
+    root: &Path,
+    ws: &Workspace,
+    req: &StampRequest,
+) -> Result<DraftedStamp, String> {
+    let (idx, file, f) = locate(root, ws, &req.function)?;
     let path = idx.file_path(file);
     let hashes = ws.hashes();
     let folder = ws.reviews.get(&idx.dir);

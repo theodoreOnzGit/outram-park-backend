@@ -130,6 +130,7 @@ fn git_for(r: &ReviewEntry) -> GitFacts {
             added_in: Some(StampCommit {
                 commit: "e".repeat(40),
                 after_certified: true,
+                certified_in_history: true,
                 agent_trailer: false,
                 committer_time: None,
             }),

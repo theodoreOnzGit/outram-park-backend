@@ -194,6 +194,7 @@ pub(super) fn git_for(rs: &[&FolderReviews]) -> GitFacts {
                     added_in: Some(StampCommit {
                         commit: "e".repeat(40),
                         after_certified: true,
+                        certified_in_history: true,
                         agent_trailer: false,
                         committer_time: None,
                     }),
@@ -479,6 +480,15 @@ fn d6_time_bound_stamps() {
     let mut f = good.clone();
     f.added_in.as_mut().unwrap().agent_trailer = true;
     assert_eq!(state_with(f), StampState::Unverified(UnverifiedReason::AgentTrailer));
+    // #838: a certified commit that is not in HEAD's history has its own
+    // reason, and it is named before the trailer of the commit that now
+    // holds the stamp (a squash commit's message is not the stamp's).
+    let mut f = good.clone();
+    f.added_in.as_mut().unwrap().certified_in_history = false;
+    f.added_in.as_mut().unwrap().after_certified = false;
+    assert_eq!(state_with(f.clone()), StampState::Unverified(UnverifiedReason::CertifiedCommitNotInHistory));
+    f.added_in.as_mut().unwrap().agent_trailer = true;
+    assert_eq!(state_with(f), StampState::Unverified(UnverifiedReason::CertifiedCommitNotInHistory));
     let mut f = good;
     f.added_in = None;
     assert_eq!(state_with(f), StampState::Unverified(UnverifiedReason::NotCommitted));

@@ -55,7 +55,9 @@ use std::path::{Path, PathBuf};
 
 use kovan_common::code_map::plain_maturity::plain_maturity;
 use kovan_common::code_map::CodeMap;
-use kovan_common::review::engine::{FunctionFlag, FunctionReport, InheritedCause, StampState};
+use kovan_common::review::engine::{
+    FunctionFlag, FunctionReport, InheritedCause, StampState, UnverifiedReason,
+};
 use kovan_common::review::state::{FlagKind, StateKind};
 use kovan_common::review::types::{AuthorshipKind, ChangeAuthorship};
 
@@ -85,6 +87,10 @@ pub enum RowKind {
         to_dir: String,
         ready: Vec<String>,
     },
+    /// Reviews whose certified commit left the branch's history (a squash
+    /// or rebase, GitHub #838), one row per module (source file): re-anchor
+    /// them in one sign-off ([`super::reanchor`]).
+    ReAnchor { module: String },
     /// The function is gone: record it in the deleted-functions history.
     Deleted,
     /// A review entry cannot be read.
@@ -118,6 +124,7 @@ impl RowKind {
             Self::Fixed => "fixed, awaiting re-review".into(),
             Self::DocChanged => "doc changed".into(),
             Self::Moved { .. } => "moved".into(),
+            Self::ReAnchor { .. } => "certified commit not in history: re-anchor".into(),
             Self::Deleted => "deleted".into(),
             Self::Unreadable => "review unreadable".into(),
             Self::Invalid => "review invalid".into(),
@@ -426,6 +433,52 @@ pub fn rows_from_evaluation(
                 review_commit: None,
             });
         }
+    }
+    // Re-anchor rows (#838), one per module. Not through `kind` above:
+    // unverified is not a state that needs a person in general, only this
+    // reason is.
+    let mut lost: BTreeMap<String, (Vec<QueueFn>, Option<String>, String)> = BTreeMap::new();
+    for (id, fr) in &we.evaluation.functions {
+        let Some(fi) = info.get(id) else { continue };
+        if fr.state != StampState::Unverified(UnverifiedReason::CertifiedCommitNotInHistory) {
+            continue;
+        }
+        let e = lost
+            .entry(fi.file.clone())
+            .or_insert_with(|| (Vec::new(), None, fi.krate.clone()));
+        e.0.push(QueueFn {
+            id: id.clone(),
+            call_graph_id: fi.call_graph_id.clone(),
+            path: format!("{}::{}", fi.file, fi.qual),
+        });
+        e.1 = match (e.1.take(), oldest_date(fr)) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        };
+    }
+    for (module, (functions, since, krate)) in lost {
+        let n = functions.len();
+        rows.push(QueueRow {
+            key: format!("reanchor:{module}"),
+            title: format!(
+                "{module} \u{2014} {n} review{} to re-anchor",
+                if n == 1 { "" } else { "s" }
+            ),
+            kind: RowKind::ReAnchor { module },
+            krate,
+            functions,
+            detail: vec![
+                "The commit these reviews certify is not in this branch's history (a squash or \
+                 rebase replaced it, or the clone is shallow)."
+                    .into(),
+                "Re-anchor signs your unchanged reviews again at HEAD, checklists carried over; \
+                 a function that changed since its review needs Stamp."
+                    .into(),
+            ],
+            authorship: None,
+            since,
+            review_commit: None,
+        });
     }
     for ((from_dir, to_dir), (functions, ready, detail, since, krate)) in moves {
         let n = functions.len();
