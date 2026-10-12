@@ -48,6 +48,11 @@
 //! the window. One job at a time, and no "sure anot?" prompt is shown while
 //! one runs.
 //!
+//! Re-reading the tab (the status, history, branches and each repository's
+//! remotes) runs off the GUI thread too, since 2026-10-12: it follows every
+//! Save and, on Windows, the `git` processes it starts froze the window for
+//! seconds ([`AdvancedGitState::refresh`], [`scan`]).
+//!
 //! # One exception to "presentation only": the conflicted-pull prompt
 //!
 //! Since GH issue #279 this file also owns a decision, not just a
@@ -144,6 +149,54 @@ pub struct AdvancedGitState {
     /// not freeze meanwhile (maintainer, 2026-09-29). One at a time: the
     /// buttons are disabled until it lands in [`Self::poll_job`].
     job: Option<GitJob>,
+    /// The `git status`, history, branches and remotes being re-read on a
+    /// background thread. On Windows this took seconds on the GUI thread
+    /// after every Save (each repository panel starts `git` processes), so
+    /// the window froze (maintainer, 2026-10-12). Applied by
+    /// [`Self::poll_scan`]; the previous results stay on screen meanwhile.
+    scan: Option<std::thread::JoinHandle<Scan>>,
+}
+
+/// What [`scan`] read, handed back to the GUI thread.
+struct Scan {
+    status: Result<SaveSummary, String>,
+    branches: Vec<BranchInfo>,
+    history: Vec<CommitInfo>,
+    repos: Vec<RepoPanel>,
+}
+
+/// Read the Kovan folder's status, branches, last 20 commits and every
+/// repository panel. Runs off the GUI thread ([`AdvancedGitState::refresh`]).
+fn scan(root: &KovanRoot) -> Scan {
+    // Every open and proprietary repository (#458); a tier with one
+    // repository keeps its plain label.
+    let corpus = root.corpus_repos();
+    let mut panels: Vec<(String, PathBuf)> =
+        vec![("Kovan folder".to_string(), root.path().to_path_buf())];
+    for tier in [
+        crate::corpus_tiers::Tier::Open,
+        crate::corpus_tiers::Tier::Proprietary,
+    ] {
+        let in_tier: Vec<_> = corpus.iter().filter(|r| r.tier == tier).collect();
+        for r in &in_tier {
+            let label = if in_tier.len() == 1 {
+                tier.label().to_string()
+            } else {
+                r.label()
+            };
+            panels.push((label, r.dir.clone()));
+        }
+    }
+    Scan {
+        status: advanced_git::status(root).map_err(|e| e.to_string()),
+        branches: advanced_git::local_branches(root).unwrap_or_default(),
+        history: advanced_git::history(root, 20).unwrap_or_default(),
+        repos: panels
+            .into_iter()
+            .filter(|(_, dir)| crate::corpus_repos::is_git_repo(dir))
+            .map(|(label, dir)| RepoPanel::load(label, dir))
+            .collect(),
+    }
 }
 
 /// A Git operation running off the GUI thread, and what to say meanwhile.
@@ -202,40 +255,41 @@ struct ForcePullPrompt {
 }
 
 impl AdvancedGitState {
+    /// Re-read the tab: the push setting at once (one small file), the Git
+    /// state on a background thread ([`scan`]). While a scan runs, a second
+    /// request is remembered as [`Self::stale`] and runs when it lands.
     fn refresh(&mut self, root: &KovanRoot) {
         self.loaded_once = true;
-        self.stale = false;
         self.push_after_save = advanced_git::push_after_save_setting(root);
-        match advanced_git::status(root) {
-            Ok(s) => self.status = Some(s),
-            Err(e) => self.set_error(e.to_string()),
+        if self.scan.is_some() {
+            self.stale = true;
+            return;
         }
-        self.branches = advanced_git::local_branches(root).unwrap_or_default();
-        self.history = advanced_git::history(root, 20).unwrap_or_default();
-        // Every open and proprietary repository (#458); a tier with one
-        // repository keeps its plain label.
-        let corpus = root.corpus_repos();
-        let mut panels: Vec<(String, PathBuf)> =
-            vec![("Kovan folder".to_string(), root.path().to_path_buf())];
-        for tier in [
-            crate::corpus_tiers::Tier::Open,
-            crate::corpus_tiers::Tier::Proprietary,
-        ] {
-            let in_tier: Vec<_> = corpus.iter().filter(|r| r.tier == tier).collect();
-            for r in &in_tier {
-                let label = if in_tier.len() == 1 {
-                    tier.label().to_string()
-                } else {
-                    r.label()
-                };
-                panels.push((label, r.dir.clone()));
+        self.stale = false;
+        let root = root.clone();
+        self.scan = Some(std::thread::spawn(move || scan(&root)));
+    }
+
+    /// Apply a finished [`scan`]; a no-op while it runs.
+    fn poll_scan(&mut self) {
+        if !self.scan.as_ref().is_some_and(|h| h.is_finished()) {
+            return;
+        }
+        let Some(handle) = self.scan.take() else {
+            return;
+        };
+        match handle.join() {
+            Ok(done) => {
+                match done.status {
+                    Ok(st) => self.status = Some(st),
+                    Err(e) => self.set_error(e),
+                }
+                self.branches = done.branches;
+                self.history = done.history;
+                self.repos = done.repos;
             }
+            Err(_) => self.set_error("reading the Git status failed unexpectedly"),
         }
-        self.repos = panels
-            .into_iter()
-            .filter(|(_, dir)| crate::corpus_repos::is_git_repo(dir))
-            .map(|(label, dir)| RepoPanel::load(label, dir))
-            .collect();
     }
 
     /// Mark the git status stale so the next [`Self::ui`] re-scans — call
@@ -261,13 +315,13 @@ impl AdvancedGitState {
         // "Changes since last save" has something real on it immediately —
         // the checkpoint's own point that most users shouldn't need to know
         // "Refresh" is a Git-status re-scan before they can even see it.
-        if !self.loaded_once || self.stale {
-            self.stale = false;
+        self.poll_scan();
+        if !self.loaded_once || (self.stale && self.scan.is_none()) {
             self.refresh(root);
         }
         self.poll_job(root);
         let busy = self.job.is_some();
-        if busy {
+        if busy || self.scan.is_some() {
             // Nothing else repaints an idle window; keep checking the job.
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_millis(100));
@@ -360,6 +414,9 @@ impl AdvancedGitState {
             if let Some(job) = &self.job {
                 ui.spinner();
                 ui.weak(&job.what);
+            } else if self.scan.is_some() {
+                ui.spinner();
+                ui.weak("reading Git status…");
             }
         });
         if save_result.is_some() {
@@ -1196,6 +1253,33 @@ mod tests {
         state.record_save(Ok(Some(summary)), Some(ok));
         assert!(!state.message_is_error);
         assert!(state.message.contains("nothing to push"));
+    }
+
+    /// The Git re-read runs off the GUI thread (maintainer, 2026-10-12: the
+    /// window lagged after Save Repository on Windows): `refresh` returns
+    /// with the scan still pending, a second request while it runs is queued
+    /// rather than started, and the result lands through `poll_scan`.
+    #[test]
+    fn the_git_status_is_read_off_the_gui_thread() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), crate::root::RootConfig::new("lib", "Lib"), true)
+            .unwrap();
+        let mut state = AdvancedGitState::default();
+        state.refresh(&root);
+        assert!(state.scan.is_some(), "refresh did not hand the scan to a thread");
+        assert!(state.status.is_none(), "status filled in on the GUI thread");
+        state.refresh(&root);
+        assert!(state.stale, "a refresh during a scan was dropped");
+        for _ in 0..2000 {
+            state.poll_scan();
+            if state.scan.is_none() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(state.scan.is_none(), "the scan never finished");
+        assert!(state.status.is_some(), "{}", state.message);
+        assert_eq!(state.repos.first().map(|r| r.label.as_str()), Some("Kovan folder"));
     }
 
     /// Drawn headless, the checkbox shows the library's persisted setting:
