@@ -3365,6 +3365,7 @@ mod tests {
 /// moved and resized, and its list stretches with it (maintainer,
 /// 2026-10-12: "I also want the windows to be resizable"). GUI drawing code
 /// (exempt from the test rule): it only configures an `egui::Window`.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
 pub(crate) fn picker_window(
     title: impl Into<egui::WidgetText>,
     ctx: &egui::Context,
@@ -3382,6 +3383,7 @@ pub(crate) fn picker_window(
 /// The height a picker's list may take, leaving `below` for the rows under
 /// it, so the list grows with the window instead of a fixed cap. GUI drawing
 /// code (exempt).
+#[cfg(all(feature = "gui", not(target_os = "android")))]
 pub(crate) fn picker_list_height(ui: &egui::Ui, below: f32) -> f32 {
     (ui.available_height() - below).max(80.0)
 }
