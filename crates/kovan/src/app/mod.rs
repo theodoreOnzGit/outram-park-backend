@@ -39,6 +39,7 @@ mod axes_lock_tests;
 mod series_select;
 mod setup;
 mod stamp_dialog;
+mod tab_groups;
 mod table_digitiser;
 mod theme;
 pub(crate) use theme::navigation_style;
@@ -354,6 +355,8 @@ struct WorkspaceKnowledge {
 pub struct DigitiseApp {
     // chrome
     view: View,
+    /// The major tab selected on the top row ([`tab_groups`]).
+    group: tab_groups::Group,
     /// The first-run setup dialog (#255) -- see [`setup`].
     setup: setup::SetupDialog,
     /// The "where should the standard corpus go?" window (2026-10-06) -- see
@@ -624,6 +627,7 @@ impl Default for DigitiseApp {
     fn default() -> Self {
         Self {
             view: View::default(),
+            group: tab_groups::Group::default(),
             setup: setup::SetupDialog::default(),
             corpus_folder: corpus_folder::CorpusFolderDialog::default(),
             background_jobs: Vec::new(),
@@ -2995,39 +2999,28 @@ impl DigitiseApp {
 }
 
 impl DigitiseApp {
-    /// Top bar: switch between the Digitiser, PDF Reader (op-95x6) and
-    /// Markdown Editor (op-wr08) panels, and the Gruvbox theme selector
-    /// (op-t5sq).
+    /// Top bar: ~~switch between the Digitiser, PDF Reader (op-95x6) and
+    /// Markdown Editor (op-wr08) panels~~ **CHANGED 2026-10-12**
+    /// (maintainer): three major tabs (Mindmap, Code Map, Code Review) on
+    /// the top row and the selected one's tabs on a second row
+    /// ([`tab_groups`]); and the Gruvbox theme selector (op-t5sq). GUI
+    /// drawing code (exempt from the test rule; the layout is
+    /// `tab_groups`, tested there).
     fn top_bar(&mut self, ui: &mut egui::Ui) {
         // Larger tabs and buttons in the top bar (maintainer direction,
         // 2026-09-22); the pages below keep the theme's own sizes.
         theme::navigation_style(ui);
+        // The page may have changed outside the bar (a paper opened, Back).
+        self.group = self.group.after(self.view);
         ui.horizontal(|ui| {
             self.nav_buttons(ui);
             ui.separator();
-            ui.selectable_value(&mut self.view, View::Home, "Home");
-            ui.selectable_value(&mut self.view, View::Wiki, "Wiki");
-            ui.selectable_value(&mut self.view, View::Mindmap, "Mindmap");
-            ui.selectable_value(&mut self.view, View::CodeMap, "Code Map");
-            ui.selectable_value(&mut self.view, View::CodeReview, "Code Review");
-            // op-wqaw (GH issue #35's 2026-09-01 checkpoint §21): the
-            // user-facing label is "Save Repository", not "Advanced Git" —
-            // most users shouldn't need Git vocabulary as the primary frame.
-            // The `View::AdvancedGit` variant name is unchanged (internal
-            // only); real Git concepts (branches/history/remotes) live under
-            // that tab's own collapsed "Advanced…" section now.
-            ui.selectable_value(&mut self.view, View::AdvancedGit, "Save Repository");
-            ui.selectable_value(&mut self.view, View::Digitiser, "Digitiser");
-            ui.selectable_value(&mut self.view, View::PdfReader, "PDF Reader");
-            // op-shjn (GH issue #35, "the markdown editor should use the
-            // kvim editor"): Kvim is the one user-facing paper-markdown
-            // editor. The older hand-rolled markdown_editor.rs was retired
-            // (op-9r26) once Bibliography moved off the old crate::project
-            // model, so there is nothing left for a second nav button to
-            // point at.
-            ui.selectable_value(&mut self.view, View::KvimEditor, "Kvim Editor");
-            ui.selectable_value(&mut self.view, View::Bibliography, "Bibliography");
-            ui.selectable_value(&mut self.view, View::TableDigitiser, "Table Digitiser");
+            for g in tab_groups::Group::ALL {
+                if ui.selectable_label(self.group == g, g.label()).clicked() {
+                    self.group = g;
+                    self.view = g.main();
+                }
+            }
             ui.separator();
             ComboBox::from_id_salt("gui-theme")
                 .selected_text(self.theme.label())
@@ -3042,6 +3035,21 @@ impl DigitiseApp {
                 .clicked()
             {
                 self.setup.show_for(self.home.root());
+            }
+        });
+        // The second row: the tabs under the selected major tab.
+        ui.horizontal_wrapped(|ui| {
+            for (view, label) in self.group.sub_tabs() {
+                ui.selectable_value(&mut self.view, *view, *label);
+            }
+            if self.group == tab_groups::Group::CodeMap
+                && ui
+                    .button("Go to Code Review")
+                    .on_hover_text("Open the Code Review of this workspace")
+                    .clicked()
+            {
+                self.group = tab_groups::Group::CodeReview;
+                self.view = View::CodeReview;
             }
         });
     }

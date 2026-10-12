@@ -878,13 +878,20 @@ The `kovan` binary is one window with a top-bar view switch, growing beyond
 the plot digitiser per GitHub issue #30's wider "PDF-native literature
 workbench" ask (epic `op-9c2e`) — the pieces landed so far:
 
+- **Top bar: three major tabs** (maintainer, 2026-10-12;
+  `src/app/tab_groups.rs`). The top row has **Mindmap**, **Code Map** and
+  **Code Review**; a second row shows the tabs under the selected one.
+  Mindmap: Home, Wiki, Save Repository, Digitiser, Table Digitiser, PDF
+  Reader, Kvim Editor, Bibliography. Code Map: a "Go to Code Review" button.
+  Code Review: PDF Reader, Bibliography (the same pages as under Mindmap;
+  the major tab they were opened from stays selected).
 - **File picker** (`Browse…` next to the digitiser's image path field, and
   `Open PDF…` in the PDF reader) — a shared
   [`egui-file-dialog`](https://crates.io/crates/egui-file-dialog) instance
   with Image (`png`/`jpg`/`jpeg`) and PDF filters, reused rather than
   hand-rolled (op-689u). Desktop-only, target-gated off Android alongside
   `eframe`/`egui`.
-- **PDF reader** (top bar → "PDF Reader") — open a PDF, page through it,
+- **PDF reader** (~~top bar → "PDF Reader"~~ **CORRECTED 2026-10-12**: second row, under the Mindmap or Code Review major tab) — open a PDF, page through it,
   zoom (op-95x6). Renders through `kopitiam_pdf::mupdf::rasterize_page`
   (op-6ez3's page-rendering-engine decision — see this crate's `Cargo.toml`
   for the record), one page rasterized and cached at a time so opening a
@@ -896,7 +903,7 @@ workbench" ask (epic `op-9c2e`) — the pieces landed so far:
   2026-09-28**: both exist now. The reader crops a region into the digitiser,
   and tables are digitised with no OCR, in a spreadsheet grid beside the PDF
   (GH #353).
-- **Save Repository** (top bar → the Save Repository tab) — commits every
+- **Save Repository** (~~top bar → the Save Repository tab~~ **CORRECTED 2026-10-12**: second row, under the Mindmap major tab) — commits every
   proprietary and open corpus repository and the Kovan folder, with an
   optional note, then (default ON, "Push after save" checkbox, persisted as
   `[save] push_after_save` in `kovan_root.toml`) pushes each corpus
