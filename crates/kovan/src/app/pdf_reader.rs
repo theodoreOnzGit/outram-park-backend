@@ -4469,10 +4469,7 @@ impl PdfReaderState {
                 mut kind,
                 mut kind_query,
             } => {
-                egui::Window::new("Add connection…")
-                    .collapsible(false)
-                    .resizable(true)
-                    .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO) // #281
+                crate::mindmap::picker_window("Add connection…", ctx) // #281
                     .show(ctx, |ui| {
                         let Some((root, index)) = root_index else {
                             ui.label("no library open");
@@ -4489,12 +4486,17 @@ impl PdfReaderState {
                         });
                         ui.add(
                             egui::TextEdit::singleline(&mut query)
-                                .hint_text("search papers, artifacts, topics, projects…"),
+                                .hint_text("search papers, artifacts, topics, projects…")
+                                .desired_width(f32::INFINITY),
                         );
                         ui.separator();
                         let candidates: Vec<LibraryCandidate> =
                             library_candidates(root, index, &query, &[]);
-                        egui::ScrollArea::vertical().max_height(240.0).show(ui, |ui| {
+                        let below = if self.connection_message.is_empty() { 40.0 } else { 72.0 };
+                        egui::ScrollArea::vertical()
+                            .max_height(crate::mindmap::picker_list_height(ui, below))
+                            .auto_shrink(false)
+                            .show(ui, |ui| {
                             if candidates.is_empty() {
                                 ui.label("no matches");
                             }
@@ -4533,10 +4535,7 @@ impl PdfReaderState {
                 }
             }
             ConnectionPopup::Manage { node } => {
-                egui::Window::new("Connections")
-                    .collapsible(false)
-                    .resizable(true)
-                    .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO) // #281
+                crate::mindmap::picker_window("Connections", ctx) // #281
                     .show(ctx, |ui| {
                         let Some((root, index)) = root_index else {
                             ui.label("no library open");
@@ -4546,39 +4545,45 @@ impl PdfReaderState {
                             return;
                         };
                         let conns = relation::connections(root, index, &node);
-                        if conns.is_empty() {
-                            ui.label("no connections");
-                        }
-                        for rel in &conns {
-                            ui.horizontal(|ui| {
-                                let (arrow, other) = relation_other_end(rel, &node);
-                                ui.label(format!("{arrow} {other}"));
-                                if ui
-                                    .button(rel.kind.label())
-                                    .on_hover_text("click to cycle the relation kind")
-                                    .clicked()
-                                {
-                                    if let Err(e) = relation::edit_connection(
-                                        root,
-                                        index,
-                                        &rel.id,
-                                        None,
-                                        Some(rel.kind.next()),
-                                    ) {
-                                        self.connection_message =
-                                            format!("could not edit connection: {e}");
-                                    }
-                                }
-                                if ui.button("Delete").clicked() {
-                                    if let Err(e) =
-                                        relation::delete_connection(root, index, &rel.id)
+                        let below = if self.connection_message.is_empty() { 40.0 } else { 72.0 };
+                        egui::ScrollArea::vertical()
+                            .max_height(crate::mindmap::picker_list_height(ui, below))
+                            .auto_shrink(false)
+                            .show(ui, |ui| {
+                            if conns.is_empty() {
+                                ui.label("no connections");
+                            }
+                            for rel in &conns {
+                                ui.horizontal(|ui| {
+                                    let (arrow, other) = relation_other_end(rel, &node);
+                                    ui.label(format!("{arrow} {other}"));
+                                    if ui
+                                        .button(rel.kind.label())
+                                        .on_hover_text("click to cycle the relation kind")
+                                        .clicked()
                                     {
-                                        self.connection_message =
-                                            format!("could not delete connection: {e}");
+                                        if let Err(e) = relation::edit_connection(
+                                            root,
+                                            index,
+                                            &rel.id,
+                                            None,
+                                            Some(rel.kind.next()),
+                                        ) {
+                                            self.connection_message =
+                                                format!("could not edit connection: {e}");
+                                        }
                                     }
-                                }
+                                    if ui.button("Delete").clicked() {
+                                        if let Err(e) =
+                                            relation::delete_connection(root, index, &rel.id)
+                                        {
+                                            self.connection_message =
+                                                format!("could not delete connection: {e}");
+                                        }
+                                    }
+                                });
+                            }
                             });
-                        }
                         if !self.connection_message.is_empty() {
                             ui.separator();
                             ui.label(&self.connection_message);

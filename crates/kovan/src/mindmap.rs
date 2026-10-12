@@ -2186,16 +2186,13 @@ impl MindmapState {
             .map(|c| c.title)
             .unwrap_or_else(|| source.path.clone());
 
-        egui::Window::new("Add hyperlink")
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+        picker_window("Add hyperlink", ui.ctx())
             .show(ui.ctx(), |ui| {
                 ui.label(format!("Link {source_label} to:"));
                 let field = ui.add(
                     egui::TextEdit::singleline(&mut text)
                         .hint_text("search topics and projects\u{2026}")
-                        .desired_width(360.0),
+                        .desired_width(f32::INFINITY),
                 );
                 if !field.has_focus() && text.is_empty() {
                     field.request_focus();
@@ -2208,7 +2205,8 @@ impl MindmapState {
                     &[CandidateKind::Topic, CandidateKind::Project],
                 );
                 egui::ScrollArea::vertical()
-                    .max_height(260.0)
+                    .max_height(picker_list_height(ui, 40.0))
+                    .auto_shrink(false)
                     .show(ui, |ui| {
                         if candidates.is_empty() {
                             ui.weak("no matches");
@@ -2511,16 +2509,13 @@ impl MindmapState {
         let concept = concept.clone();
         let mut chosen: Option<String> = None;
         let mut cancel = false;
-        egui::Window::new("Add literature")
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+        picker_window("Add literature", ui.ctx())
             .show(ui.ctx(), |ui| {
                 ui.label(format!("File a paper under {concept}:"));
                 ui.add(
                     egui::TextEdit::singleline(query)
                         .hint_text("search your library\u{2026}")
-                        .desired_width(360.0),
+                        .desired_width(f32::INFINITY),
                 );
                 ui.separator();
                 let hits = crate::autocomplete::library_candidates(
@@ -2530,7 +2525,8 @@ impl MindmapState {
                     &[crate::autocomplete::CandidateKind::Paper],
                 );
                 egui::ScrollArea::vertical()
-                    .max_height(260.0)
+                    .max_height(picker_list_height(ui, 32.0))
+                    .auto_shrink(false)
                     .show(ui, |ui| {
                         let mut any = false;
                         for hit in &hits {
@@ -3362,4 +3358,30 @@ mod tests {
         let index = KnowledgeIndex::rebuild(&root);
         assert!(create_subtopic(&root, &index, "", "   ", EntityKind::Topic).is_err());
     }
+}
+
+/// A search-and-pick window (Add connection, Connections, Add hyperlink, Add
+/// literature): it opens centred, as #281 asked of every prompt, but can be
+/// moved and resized, and its list stretches with it (maintainer,
+/// 2026-10-12: "I also want the windows to be resizable"). GUI drawing code
+/// (exempt from the test rule): it only configures an `egui::Window`.
+pub(crate) fn picker_window(
+    title: impl Into<egui::WidgetText>,
+    ctx: &egui::Context,
+) -> egui::Window<'static> {
+    egui::Window::new(title)
+        .collapsible(false)
+        .resizable(true)
+        .pivot(egui::Align2::CENTER_CENTER)
+        .default_pos(ctx.content_rect().center())
+        .default_size(egui::vec2(520.0, 420.0))
+        .min_size(egui::vec2(280.0, 200.0))
+        .constrain(true)
+}
+
+/// The height a picker's list may take, leaving `below` for the rows under
+/// it, so the list grows with the window instead of a fixed cap. GUI drawing
+/// code (exempt).
+pub(crate) fn picker_list_height(ui: &egui::Ui, below: f32) -> f32 {
+    (ui.available_height() - below).max(80.0)
 }
