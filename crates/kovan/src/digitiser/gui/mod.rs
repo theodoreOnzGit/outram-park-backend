@@ -55,11 +55,32 @@ pub fn run(_image_arg: Option<String>, _startup: Startup) -> Result<(), String> 
     Ok(())
 }
 
+/// The graphics backends for desktop kovan on Windows: DX12, unless the user
+/// chose one with `WGPU_BACKEND` (`None`: keep egui-wgpu's own choice, which
+/// reads that variable). GitHub #837: with wgpu's default the window
+/// flickered for a few seconds after it regained focus and the mouse moved;
+/// under `WGPU_BACKEND=dx12` it was smooth (maintainer, 2026-10-12).
+#[cfg(not(target_os = "android"))]
+fn windows_backends(env: Option<&std::ffi::OsStr>) -> Option<eframe::wgpu::Backends> {
+    match env {
+        Some(_) => None,
+        None => Some(eframe::wgpu::Backends::DX12),
+    }
+}
+
 /// Open the digitiser window, optionally pre-loading `image_arg` as the plot
 /// image. Blocks until the window is closed.
 #[cfg(not(target_os = "android"))]
 pub fn run(image_arg: Option<String>, startup: Startup) -> Result<(), String> {
-    let options = eframe::NativeOptions::default();
+    let mut options = eframe::NativeOptions::default();
+    // A runtime check, not `#[cfg(windows)]`, so this compiles (and is
+    // type-checked) on every desktop platform.
+    let chosen = std::env::var_os("WGPU_BACKEND");
+    if let Some(backends) = windows_backends(chosen.as_deref()).filter(|_| cfg!(windows)) {
+        if let eframe::egui_wgpu::WgpuSetup::CreateNew(setup) = &mut options.wgpu_options.wgpu_setup {
+            setup.instance_descriptor.backends = backends;
+        }
+    }
     eframe::run_native(
         "kovan",
         options,
@@ -80,4 +101,14 @@ pub fn run(image_arg: Option<String>, startup: Startup) -> Result<(), String> {
         }),
     )
     .map_err(|e| e.to_string())
+}
+
+#[cfg(all(test, not(target_os = "android")))]
+mod backend_tests {
+    /// DX12 on Windows by default; a `WGPU_BACKEND` the user set wins (#837).
+    #[test]
+    fn windows_defaults_to_dx12_unless_the_user_chose_a_backend() {
+        assert_eq!(super::windows_backends(None), Some(eframe::wgpu::Backends::DX12));
+        assert_eq!(super::windows_backends(Some(std::ffi::OsStr::new("vulkan"))), None);
+    }
 }
