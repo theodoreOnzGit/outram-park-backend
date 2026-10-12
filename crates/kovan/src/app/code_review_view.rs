@@ -119,6 +119,8 @@ pub(crate) struct CodeReviewView {
     review_mode: super::review_mode_panel::ReviewModePanel,
     /// "Sync down": pull the code repository, then rebuild (2026-10-12).
     sync: super::code_sync::CodeSync,
+    /// A reviewed function's "Add connection" window, while open (#839).
+    connection: Option<super::connection_picker::ConnectionPicker>,
 }
 
 /// Check the data of `workspace` and build it when missing or stale (or
@@ -177,10 +179,14 @@ impl CodeReviewView {
     /// the dialog is a movable window, no longer a modal that blocks the
     /// bar, so this drop is what keeps one dialog at a time).
     fn take_request(&mut self) {
-        if let Some(r) = self.review.as_mut().and_then(|r| r.take_host_request()) {
-            if self.pending.is_none() {
-                self.open(r);
+        match self.review.as_mut().and_then(|r| r.take_host_request()) {
+            Some(HostRequest::AddConnection(f)) => {
+                if let Some(root) = &self.workspace {
+                    self.connection = Some(super::connection_picker::ConnectionPicker::new(root, f));
+                }
             }
+            Some(r) if self.pending.is_none() => self.open(r),
+            _ => {}
         }
     }
 
@@ -199,6 +205,8 @@ impl CodeReviewView {
         let purpose = match &req {
             HostRequest::Stamp(_) => Purpose::Stamp,
             HostRequest::NeedsFix(_) => Purpose::NeedsFix,
+            // Not a stamp dialog: `take_request` opens its own window.
+            HostRequest::AddConnection(_) => return,
         };
         self.open_flow(purpose, req);
     }
@@ -208,7 +216,7 @@ impl CodeReviewView {
     /// held as a Stamp, the request kovan-web knows).
     fn open_flow(&mut self, purpose: Purpose, req: HostRequest) {
         let f = match &req {
-            HostRequest::Stamp(f) | HostRequest::NeedsFix(f) => f,
+            HostRequest::Stamp(f) | HostRequest::NeedsFix(f) | HostRequest::AddConnection(f) => f,
         };
         let target = Target {
             function: f.id.clone(),
@@ -605,6 +613,19 @@ impl CodeReviewView {
                 }
                 if closed {
                     self.close_dialog();
+                }
+                // The "Add connection" window (#839): the file it writes
+                // joins the session's, for Commit and push.
+                if let Some(p) = self.connection.as_mut() {
+                    if p.poll() {
+                        self.session.insert(crate::code_connections::REL_PATH.to_string());
+                    }
+                    if p.busy() {
+                        ctx.request_repaint_after(std::time::Duration::from_millis(200));
+                    }
+                    if !super::connection_picker::show(&ctx, p) {
+                        self.connection = None;
+                    }
                 }
             }
             None => {

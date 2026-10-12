@@ -380,6 +380,22 @@ impl CodeReview {
             self.status = Some("Walkthroughs are not published yet (#741); none pass through this function.".into());
             taken = true;
         }
+        // Desktop only (#839): connect a reviewed function to a concept.
+        if self.mode.can_stamp() {
+            let reviewed = snap.facts().review(id).is_valid();
+            if ui
+                .add_enabled(reviewed, egui::Button::new("Add connection\u{2026}"))
+                .on_hover_text("Connect this function to a concept of the standard corpus")
+                .on_disabled_hover_text("Available once the function is reviewed (a valid stamp)")
+                .clicked()
+            {
+                match self.function_ref(snap, id) {
+                    Some(f) => self.host_request = Some(super::HostRequest::AddConnection(f)),
+                    None => self.status = Some("The function is not in a loaded workspace crate.".into()),
+                }
+                taken = true;
+            }
+        }
         if ui.button("Copy link").clicked() {
             let link = crate::platform::url_with_hash(&model::DeepLink::Function { id: id.to_string(), source: false }.to_hash());
             ui.ctx().copy_text(link);

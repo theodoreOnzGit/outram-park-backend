@@ -574,6 +574,17 @@ reviewed. Save keeps what was written to `review.md`; Cancel puts it back
 as it was on entering. Logic: `src/stamping/review_mode/`; drawing:
 `src/app/review_mode_panel.rs`.
 
+Added 2026-10-12 (#839): right-click a function with a valid stamp and
+choose **Add connection…** to connect it to a concept of the standard
+corpus. The link is written to the code repository's
+`docs/mindmap/connections.toml` (created on the first one; a corrupted
+file is replaced fresh, never repaired) and joins the files Commit and push
+commits. It is unsigned and not part of the stamp (`src/code_connections.rs`,
+`src/app/connection_picker.rs`). The review wizard offers, and starts
+with, "this is a test" answers for a test function (limits, error
+handling, test reach, V&V evidence); they are refused on any other
+function.
+
 Added 2026-10-12 (#838): after a **squash merge or rebase**, the commit a
 stamp certifies is no longer in the branch's history, and the stamp shows
 as unverified with that reason (a shallow clone shows the same; there the

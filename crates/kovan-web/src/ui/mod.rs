@@ -150,6 +150,10 @@ pub enum HostRequest {
     Stamp(FunctionRef),
     /// The review bar's Needs fix.
     NeedsFix(FunctionRef),
+    /// A function's "Add connection…" (GitHub #839): offered only once the
+    /// function has a valid stamp. The host records a connection from it
+    /// to a standard corpus concept.
+    AddConnection(FunctionRef),
 }
 
 /// The Code Review UI.
