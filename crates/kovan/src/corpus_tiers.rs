@@ -49,6 +49,21 @@
 //! `remote`, `branch`, `default` and, for a standard repository only,
 //! `writable`.
 //!
+//! # The code corpus
+//!
+//! ```toml
+//! [[repos.code]]
+//! name = "outram-park-backend"
+//! remote = "https://github.com/example/some-rust-code.git"
+//! path = "code/outram-park-backend"
+//! ```
+//!
+//! Source code repositories mounted in the Kovan folder (GitHub #840;
+//! maintainer, 2026-10-12), Rust only for now. They are **not** a tier:
+//! [`resolve`] and [`Tier`] do not know them, so Save Repository never
+//! commits or pushes one. [`code_repos`] lists them; adding one is
+//! [`crate::repo_management`].
+//!
 //! # Backward compatibility (no migration needed)
 //!
 //! A file without `[repos]` behaves exactly as before. The older settings
@@ -180,6 +195,14 @@ pub struct RepoTiers {
     /// Extra proprietary repositories.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub proprietary: Vec<CorpusRepoConfig>,
+    /// The **code corpus** (GitHub #840; maintainer, 2026-10-12): source
+    /// code repositories mounted in the Kovan folder, Rust only for now.
+    /// Not a literature tier: [`resolve`] never lists them, so nothing that
+    /// loops over the corpus repositories (ingest, the literature list,
+    /// Save Repository and its push) ever touches one. See [`code_repos`].
+    /// `default` and `writable` mean nothing here.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub code: Vec<CorpusRepoConfig>,
 }
 
 impl Default for RepoTiers {
@@ -190,6 +213,7 @@ impl Default for RepoTiers {
             standard: Vec::new(),
             open: Vec::new(),
             proprietary: Vec::new(),
+            code: Vec::new(),
         }
     }
 }
@@ -279,6 +303,44 @@ impl CorpusRepo {
     pub fn label(&self) -> String {
         format!("{} ({})", self.tier.label(), self.name)
     }
+}
+
+/// One code repository of a Kovan folder (`[[repos.code]]`), resolved.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CodeRepo {
+    pub name: String,
+    /// Relative to the Kovan folder.
+    pub rel: PathBuf,
+    /// Absolute.
+    pub dir: PathBuf,
+    pub remote: Option<String>,
+    pub branch: Option<String>,
+}
+
+impl CodeRepo {
+    /// Whether the checkout is here (has its own `.git`).
+    pub fn is_downloaded(&self) -> bool {
+        self.dir.join(".git").exists()
+    }
+}
+
+/// The code corpus of the Kovan folder at `root_dir`: its `[[repos.code]]`
+/// entries, in file order (GitHub #840). Kept apart from [`resolve`] on
+/// purpose: a code repository is never ingested into, scanned for PDFs,
+/// committed or pushed by Save Repository.
+pub fn code_repos(root_dir: &Path, config: &RootConfig) -> Vec<CodeRepo> {
+    config
+        .repos
+        .code
+        .iter()
+        .map(|c| CodeRepo {
+            name: c.name.clone(),
+            rel: c.path.clone(),
+            dir: root_dir.join(&c.path),
+            remote: c.remote.clone(),
+            branch: c.branch.clone(),
+        })
+        .collect()
 }
 
 /// A reference to one repository, as the ingest form picks it.
@@ -491,6 +553,53 @@ pub fn validate(config: &RootConfig) -> Vec<String> {
                     other.tier.key(),
                     other.name,
                     other.rel.display()
+                ));
+            }
+        }
+    }
+    // The code corpus (#840): a unique, plain name; a relative path that
+    // no other repository, corpus or code, shares or nests with (a
+    // checkout inside another repository's checkout is committed by
+    // neither or by both).
+    let code = code_repos(Path::new(""), config);
+    for (i, c) in code.iter().enumerate() {
+        let where_ = format!("code repository {:?}", c.name);
+        if c.name.is_empty()
+            || !c
+                .name
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
+        {
+            problems.push(format!(
+                "{where_}: a name may only use letters, digits, '-', '_' and '.'"
+            ));
+        }
+        if c.rel.as_os_str().is_empty()
+            || c.rel.is_absolute()
+            || c.rel
+                .components()
+                .any(|p| matches!(p, Component::ParentDir | Component::Prefix(_)))
+        {
+            problems.push(format!(
+                "{where_}: path {} must be relative to the Kovan folder, without '..'",
+                c.rel.display()
+            ));
+        }
+        let others = repos
+            .iter()
+            .map(|r| (r.name.as_str(), r.rel.as_path(), r.tier.key()))
+            .chain(code[..i].iter().map(|o| (o.name.as_str(), o.rel.as_path(), "code")));
+        for (name, rel, kind) in others {
+            if name == c.name {
+                problems.push(format!(
+                    "{where_}: the name is already used by a {kind} repository"
+                ));
+            }
+            if rel_within(rel, &c.rel) || rel_within(&c.rel, rel) {
+                problems.push(format!(
+                    "{where_}: path {} overlaps the {kind} repository {name:?} at {}",
+                    c.rel.display(),
+                    rel.display()
                 ));
             }
         }

@@ -853,6 +853,12 @@ impl KovanRoot {
         crate::corpus_tiers::resolve(&self.root, &self.config)
     }
 
+    /// The folder's code corpus (`[[repos.code]]`, GitHub #840): see
+    /// [`crate::corpus_tiers::code_repos`].
+    pub fn code_repos(&self) -> Vec<crate::corpus_tiers::CodeRepo> {
+        crate::corpus_tiers::code_repos(&self.root, &self.config)
+    }
+
     /// The repositories of one tier, in order.
     pub fn tier_repos(
         &self,

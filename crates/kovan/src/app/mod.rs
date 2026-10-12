@@ -30,6 +30,7 @@ mod organisations_view;
 mod page_canvas;
 mod pdf_reader;
 mod plot_setup;
+mod repo_management_view;
 mod review_mode_panel;
 mod rust_analyzer_view;
 mod saved_digitisation;
@@ -358,6 +359,8 @@ pub struct DigitiseApp {
     view: View,
     /// The major tab selected on the top row ([`tab_groups`]).
     group: tab_groups::Group,
+    /// The Repository management page's repositories and windows (#841).
+    repo_management: repo_management_view::RepoManagementView,
     /// The first-run setup dialog (#255) -- see [`setup`].
     setup: setup::SetupDialog,
     /// The "where should the standard corpus go?" window (2026-10-06) -- see
@@ -629,6 +632,7 @@ impl Default for DigitiseApp {
         Self {
             view: View::default(),
             group: tab_groups::Group::default(),
+            repo_management: repo_management_view::RepoManagementView::default(),
             setup: setup::SetupDialog::default(),
             corpus_folder: corpus_folder::CorpusFolderDialog::default(),
             background_jobs: Vec::new(),
@@ -3650,9 +3654,22 @@ impl eframe::App for DigitiseApp {
             }
             View::AdvancedGit => {
                 if let Some(root) = self.home.root().cloned() {
+                    let mut added = false;
                     egui::CentralPanel::default().show(ui, |ui| {
+                        // The folder's repositories and "Add repository"
+                        // (#840, #841), above Save Repository.
+                        added = repo_management_view::show(ui, &mut self.repo_management, &root);
+                        ui.separator();
                         self.advanced_git.ui(ui, &root);
                     });
+                    // A repository was added: kovan_root.toml changed, so
+                    // read the folder again.
+                    if added {
+                        self.home.open_dir(root.path());
+                        if let Some(fresh) = self.home.root().cloned() {
+                            self.refresh_knowledge(&fresh);
+                        }
+                    }
                 } else {
                     egui::CentralPanel::default().show(ui, |ui| {
                         ui.centered_and_justified(|ui| {

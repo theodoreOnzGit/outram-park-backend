@@ -324,7 +324,7 @@ impl AdvancedGitState {
                 .request_repaint_after(std::time::Duration::from_millis(100));
         }
 
-        ui.heading("Save Repository");
+        ui.heading("Repository management");
         ui.small("Version history is kept using a Git backend.");
         ui.add_space(4.0);
 

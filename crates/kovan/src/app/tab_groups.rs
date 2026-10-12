@@ -3,8 +3,8 @@
 //!
 //! ```text
 //!  top row:    [ Mindmap ]            [ Code Map ]            [ Code Review ]
-//!  second row:  Home, Wiki, Save       Go to Code Review       PDF Reader,
-//!               Repository, Digitiser,  (a button)             Bibliography,
+//!  second row:  Home, Wiki, Repository Go to Code Review       PDF Reader,
+//!               management, Digitiser,  (a button)             Bibliography,
 //!               Table Digitiser, PDF                           Back to map
 //!               Reader, Kvim Editor,                           (a button, to
 //!               Bibliography                                   the Code Map)
@@ -58,9 +58,11 @@ impl Group {
             Group::Mindmap => &[
                 (View::Home, "Home"),
                 (View::Wiki, "Wiki"),
-                // "Save Repository", not "Advanced Git" (op-wqaw): most users
-                // should not need Git vocabulary as the primary frame.
-                (View::AdvancedGit, "Save Repository"),
+                // ~~"Save Repository"~~ **RENAMED 2026-10-12** (maintainer):
+                // "Repository management". The page also lists and adds
+                // the folder's repositories; Save Repository is its main
+                // button. Still not "Advanced Git" (op-wqaw).
+                (View::AdvancedGit, "Repository management"),
                 (View::Digitiser, "Digitiser"),
                 (View::TableDigitiser, "Table Digitiser"),
                 (View::PdfReader, "PDF Reader"),
@@ -126,7 +128,7 @@ mod tests {
             [
                 "Home",
                 "Wiki",
-                "Save Repository",
+                "Repository management",
                 "Digitiser",
                 "Table Digitiser",
                 "PDF Reader",

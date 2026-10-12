@@ -60,7 +60,7 @@ impl AppLocation {
             View::Mindmap => "Mindmap",
             View::CodeMap => "Code Map",
             View::CodeReview => "Code Review",
-            View::AdvancedGit => "Save Repository",
+            View::AdvancedGit => "Repository management",
             View::Digitiser => "Digitiser",
             View::PdfReader => "PDF Reader",
             View::KvimEditor => "Kvim Editor",

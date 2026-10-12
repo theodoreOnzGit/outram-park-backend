@@ -97,6 +97,7 @@ pub mod session;
 pub mod standard_corpus;
 pub mod project;
 pub mod relation;
+pub mod repo_management;
 pub mod repository;
 pub mod research_record;
 /// Recently opened papers — local, derived state in `.kovan/`, surfaced

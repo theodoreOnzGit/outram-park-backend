@@ -892,7 +892,8 @@ workbench" ask (epic `op-9c2e`) — the pieces landed so far:
 - **Top bar: three major tabs** (maintainer, 2026-10-12;
   `src/app/tab_groups.rs`). The top row has **Mindmap**, **Code Map** and
   **Code Review**; a second row shows the tabs under the selected one.
-  Mindmap: Home, Wiki, Save Repository, Digitiser, Table Digitiser, PDF
+  Mindmap: Home, Wiki, Repository management (~~Save Repository~~, renamed
+  2026-10-12), Digitiser, Table Digitiser, PDF
   Reader, Kvim Editor, Bibliography. Code Map: a "Go to Code Review" button.
   Code Review: PDF Reader, Bibliography (the same pages as under Mindmap;
   the major tab they were opened from stays selected) and a "Back to map"
@@ -915,7 +916,20 @@ workbench" ask (epic `op-9c2e`) — the pieces landed so far:
   2026-09-28**: both exist now. The reader crops a region into the digitiser,
   and tables are digitised with no OCR, in a spreadsheet grid beside the PDF
   (GH #353).
-- **Save Repository** (~~top bar → the Save Repository tab~~ **CORRECTED 2026-10-12**: second row, under the Mindmap major tab) — commits every
+- **Repository management** (GitHub #840, #841; 2026-10-12; second row,
+  under the Mindmap major tab; `src/repo_management.rs`,
+  `src/app/repo_management_view.rs`). Lists the Kovan folder's
+  repositories and has **Add repository…**: an open corpus, a proprietary
+  corpus or a Rust code repository, added as a git submodule when it is
+  kovan compatible (code: a `Cargo.toml` at its root; a corpus: not a Rust
+  code repository; proprietary: the remote is not public). Several of each
+  kind are allowed. Code repositories are the **code corpus**
+  (`[[repos.code]]` in `kovan_root.toml`). **Save Repository never commits
+  or pushes a code repository.** Each one has **Force add, commit and
+  push…**, which shows a warning, the branch and every change it would add,
+  and asks before doing it; it never pushes `main`, never force-pushes and
+  never adds ignored files.
+- **Save Repository** (~~top bar → the Save Repository tab~~ **CORRECTED 2026-10-12**: the main button of the Repository management page) — commits every
   proprietary and open corpus repository and the Kovan folder, with an
   optional note, then (default ON, "Push after save" checkbox, persisted as
   `[save] push_after_save` in `kovan_root.toml`) pushes each corpus
