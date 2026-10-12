@@ -39,6 +39,9 @@ pub struct ModNode {
     pub parent: Option<usize>,
     pub children: Vec<usize>,
     pub functions: usize,
+    /// The ids of those functions, for the card's reviewed / to-review
+    /// counts ([`Facts::review_split`]).
+    pub fn_ids: Vec<String>,
     pub maturity: Option<u8>,
     pub test: bool,
 }
@@ -78,6 +81,7 @@ impl ModTree {
                     parent: m.parent.as_deref().and_then(|p| index.get(p).copied()),
                     children: Vec::new(),
                     functions: m.functions.iter().filter(|f| tests || !f.test).count(),
+                    fn_ids: m.functions.iter().filter(|f| tests || !f.test).map(|f| f.id.clone()).collect(),
                     maturity: m.maturity,
                     test: m.test,
                 });
@@ -434,6 +438,15 @@ impl Facts {
             None => Review::Unreviewed,
             Some(s) => Review::Stamped(s.kind(), s.clone()),
         }
+    }
+
+    /// How many of `ids` are reviewed (a valid stamp) and how many need a
+    /// review (no stamp, or a stamp that no longer counts): the green and red
+    /// counts on a module card (maintainer, 2026-10-12: "so I can look at one
+    /// glance what functions need to be reviewed").
+    pub fn review_split(&self, ids: &[String]) -> (usize, usize) {
+        let reviewed = ids.iter().filter(|id| self.review(id).is_valid()).count();
+        (reviewed, ids.len() - reviewed)
     }
 
     /// The distinct workspace functions `id` calls (itself excluded), in
@@ -918,6 +931,14 @@ mod tests {
         };
         let facts = Facts::new(&[stamp(&a, StampVerdict::Valid), stamp("crates/other/src/lib.rs::z", StampVerdict::Stale)]);
         assert_eq!(facts.blocked_by(&map, &slice, &b), vec!["crates/other/src/lib.rs::z".to_string()]);
+        // A module card's counts: valid is reviewed; stale and unstamped are not.
+        let ids = [a.clone(), "crates/other/src/lib.rs::z".to_string(), b.clone()];
+        assert_eq!(facts.review_split(&ids), (1, 2));
+        assert_eq!(none.review_split(&ids), (0, 3));
+        // The tree carries each module's function ids for those counts.
+        let t = ModTree::build(&krate(), false);
+        let live = t.find("crates/bl/src/fork/act/live_pools.rs").unwrap();
+        assert_eq!(t.nodes[live].fn_ids.len(), t.nodes[live].functions);
         assert_eq!(crate_of(&map, &a), Some("bl"));
     }
 }

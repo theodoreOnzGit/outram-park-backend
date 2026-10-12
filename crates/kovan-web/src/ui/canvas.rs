@@ -49,8 +49,9 @@ fn topic_of(map: &CodeMap, krate: &str) -> Topic {
 }
 
 /// Text lines in a card, scaled with the zoom and clipped to the card;
-/// skipped when too small to read.
-fn card_text(painter: &egui::Painter, r: Rect, lines: &[(&str, f32, Color32)], scale: f32) {
+/// skipped when too small to read. Returns each line's drawn rectangle
+/// (`None` when skipped), so a caller can continue a line in another colour.
+fn card_text(painter: &egui::Painter, r: Rect, lines: &[(&str, f32, Color32)], scale: f32) -> Vec<Option<Rect>> {
     let p = painter.with_clip_rect(r.shrink(1.0));
     // Zoomed far out, the first line (the name) is kept at 8 pt, clipped to
     // the card, and the others dropped, so the whole map stays legible.
@@ -62,11 +63,31 @@ fn card_text(painter: &egui::Painter, r: Rect, lines: &[(&str, f32, Color32)], s
         .collect();
     let total: f32 = sizes.iter().map(|s| s * 1.25).sum();
     let mut y = r.center().y - 0.5 * total;
+    let mut drawn = Vec::with_capacity(lines.len());
     for ((text, _, colour), s) in lines.iter().zip(sizes) {
-        if s >= 5.0 {
-            p.text(Pos2::new(r.left() + (8.0 * scale).clamp(2.0, 12.0), y + 0.5 * s * 1.25), Align2::LEFT_CENTER, *text, font(s), *colour);
-        }
+        drawn.push((s >= 5.0).then(|| p.text(Pos2::new(r.left() + (8.0 * scale).clamp(2.0, 12.0), y + 0.5 * s * 1.25), Align2::LEFT_CENTER, *text, font(s), *colour)));
         y += s * 1.25;
+    }
+    drawn
+}
+
+/// Green for reviewed, red for to review: the module cards' counts and the
+/// unreviewed function cards (maintainer, 2026-10-12).
+const REVIEWED: Color32 = Color32::from_rgb(90, 190, 110);
+const TO_REVIEW: Color32 = Color32::from_rgb(220, 80, 80);
+
+/// Continue the line drawn at `after` with "· N reviewed" in green and
+/// "· M to review" in red (each only when non-zero), clipped to the card.
+/// GUI drawing code (exempt from the test rule; the counts are
+/// [`model::Facts::review_split`], tested).
+fn review_counts(painter: &egui::Painter, card: Rect, after: Option<Rect>, size: f32, (done, todo): (usize, usize)) {
+    let Some(after) = after else { return };
+    let p = painter.with_clip_rect(card.shrink(1.0));
+    let mut x = after.right();
+    for (n, what, colour) in [(done, "reviewed", REVIEWED), (todo, "to review", TO_REVIEW)] {
+        if n > 0 {
+            x = p.text(Pos2::new(x, after.center().y), Align2::LEFT_CENTER, format!(" \u{b7} {n} {what}"), font(size), colour).right();
+        }
     }
 }
 
@@ -466,6 +487,7 @@ impl CodeReview {
         let map = snap.map.as_ref()?;
         let slice = snap.slice(krate)?;
         let tree = ModTree::build(&slice.krate, self.show_tests);
+        let facts = snap.facts();
         let tl = model::tree_layout(&tree, &self.collapsed);
         let cam = self.cams.get(&self.place.level).copied().unwrap_or_default();
         let z = cam.scale as f32;
@@ -505,9 +527,10 @@ impl CodeReview {
                     let file = tree.lib_root.map(|i| tree.nodes[i].file.clone());
                     let selected = file.is_some() && sel == file;
                     painter.rect(r, 8.0 * z, fill_of(col), Stroke::new(if selected { 3.0 } else { 2.0 }, if selected { Color32::WHITE } else { col }), StrokeKind::Inside);
-                    let n = tree.lib_root.map(|i| tree.nodes[i].functions).unwrap_or(0);
-                    let sub = format!("M{} · lib.rs · {n} fn", slice.krate.maturity.unwrap_or(0));
-                    card_text(painter, r, &[(krate, 17.0, Color32::WHITE), (sub.as_str(), 11.0, Color32::from_gray(200))], z);
+                    let ids = tree.lib_root.map(|i| tree.nodes[i].fn_ids.as_slice()).unwrap_or(&[]);
+                    let sub = if ids.is_empty() { format!("M{} · lib.rs · 0 fn", slice.krate.maturity.unwrap_or(0)) } else { format!("M{} · lib.rs", slice.krate.maturity.unwrap_or(0)) };
+                    let drawn = card_text(painter, r, &[(krate, 17.0, Color32::WHITE), (sub.as_str(), 11.0, Color32::from_gray(200))], z);
+                    review_counts(painter, r, drawn.get(1).copied().flatten(), 11.0 * z, facts.review_split(ids));
                     if let Some(f) = file {
                         hits.push((r, Hit::TreeModule(f)));
                     }
@@ -522,8 +545,10 @@ impl CodeReview {
                     let selected = sel.as_deref() == Some(node.file.as_str());
                     painter.rect(r, 6.0 * z, Color32::from_rgb(28, 32, 42), Stroke::new(if selected { 3.0 } else { 1.5 }, if selected { Color32::WHITE } else { col }), StrokeKind::Inside);
                     let rel = node.file.strip_prefix(&format!("{}/", slice.krate.dir)).unwrap_or(&node.file).to_string();
-                    let sub = format!("mod · M{} · {} fn", node.maturity.or(slice.krate.maturity).unwrap_or(0), node.functions);
-                    card_text(painter, r, &[(node.name.as_str(), 14.0, Color32::WHITE), (rel.as_str(), 10.0, Color32::from_gray(170)), (sub.as_str(), 10.0, Color32::from_rgb(170, 200, 240))], z);
+                    let m = node.maturity.or(slice.krate.maturity).unwrap_or(0);
+                    let sub = if node.fn_ids.is_empty() { format!("mod · M{m} · 0 fn") } else { format!("mod · M{m}") };
+                    let drawn = card_text(painter, r, &[(node.name.as_str(), 14.0, Color32::WHITE), (rel.as_str(), 10.0, Color32::from_gray(170)), (sub.as_str(), 10.0, Color32::from_rgb(170, 200, 240))], z);
+                    review_counts(painter, r, drawn.get(2).copied().flatten(), 10.0 * z, facts.review_split(&node.fn_ids));
                     hits.push((r, Hit::TreeModule(node.file.clone())));
                     if !node.children.is_empty() {
                         let right = p.x >= 0.0;

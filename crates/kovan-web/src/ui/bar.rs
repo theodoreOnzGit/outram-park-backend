@@ -68,9 +68,15 @@ pub fn tone_colour(t: Tone) -> Color32 {
     }
 }
 
-/// The stamp state's colour, shared with the cards.
+/// The stamp state's colour, shared with the cards. An unreviewed function
+/// is red, not the neutral grey of its state's tone, so what still needs a
+/// review stands out at a glance (maintainer, 2026-10-12); valid stays green
+/// and stale states amber.
 pub fn review_colour(r: &Review) -> Color32 {
-    tone_colour(r.kind().tone())
+    match r {
+        Review::Unreviewed => tone_colour(Tone::Blocked),
+        Review::Stamped(..) => tone_colour(r.kind().tone()),
+    }
 }
 
 /// `"valid · rung 3 · Theodore Ong · 2026-10-06"`, `"unreviewed"`, or the
@@ -214,6 +220,14 @@ mod tests {
     /// panic.
     ///
     /// Result (2026-10-10): passes.
+    /// Unreviewed is red at a glance, not grey; a stamped state keeps its
+    /// tone's colour (maintainer, 2026-10-12).
+    #[test]
+    fn an_unreviewed_function_is_red() {
+        assert_eq!(review_colour(&Review::Unreviewed), tone_colour(Tone::Blocked));
+        assert_ne!(review_colour(&Review::Unreviewed), tone_colour(Tone::Neutral));
+    }
+
     #[test]
     fn stamp_is_disabled_while_blocked_bottom_up() {
         let r = stamp_blocked_reason(&info(&["leaf", "other"], false)).unwrap();
