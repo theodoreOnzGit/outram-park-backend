@@ -495,6 +495,61 @@ fn git_path_exists(dir: &std::path::Path, name: &str) -> bool {
     dir.join(path.trim()).exists()
 }
 
+/// The remote to pull from or push to: `origin` if present, otherwise the
+/// only remote; `None` when there are several and none is `origin` (never a
+/// guess).
+pub fn default_remote(remotes: &[RemoteInfo]) -> Option<&RemoteInfo> {
+    remotes
+        .iter()
+        .find(|r| r.name == "origin")
+        .or_else(|| (remotes.len() == 1).then(|| &remotes[0]))
+}
+
+/// What the Code Review tab's "Sync down" pulls (maintainer, 2026-10-12):
+/// the code repository at `dir`, its checked-out branch, from
+/// [`default_remote`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PullTarget {
+    pub dir: std::path::PathBuf,
+    pub remote: String,
+    pub branch: String,
+}
+
+/// Find [`PullTarget`] for `dir`, or say in words why there is none (not a
+/// repository, a detached checkout, no remote, several remotes and no
+/// `origin`).
+pub fn pull_target_in(dir: &std::path::Path) -> Result<PullTarget, String> {
+    // A workspace opened at a crate inside the repository pulls the whole
+    // repository, so the prompt names the folder a forced pull would reset.
+    let top = run_git_in(dir, &["rev-parse", "--show-toplevel"]).map_err(|_| {
+        format!("{} is not inside a Git repository", dir.display())
+    })?;
+    let dir = &std::path::PathBuf::from(top.trim());
+    let branch = current_branch_in(dir).ok_or_else(|| {
+        format!(
+            "{} is not on a branch (not a Git repository, or a detached checkout); \
+             check out a branch to sync",
+            dir.display()
+        )
+    })?;
+    let remotes = list_remotes_in(dir).map_err(|e| e.to_string())?;
+    let remote = default_remote(&remotes).ok_or_else(|| {
+        if remotes.is_empty() {
+            format!("{} has no remote to pull from", dir.display())
+        } else {
+            format!(
+                "{} has several remotes and none is called origin; pull from the terminal",
+                dir.display()
+            )
+        }
+    })?;
+    Ok(PullTarget {
+        dir: dir.to_path_buf(),
+        remote: remote.name.clone(),
+        branch,
+    })
+}
+
 /// [`push`] in the repository at `dir`.
 pub fn push_in(dir: &std::path::Path, remote: &str, branch: &str) -> Result<String, RemoteError> {
     run_git_in(dir, &["push", remote, branch])
@@ -660,6 +715,57 @@ mod tests {
         git(&theirs, &["push", "-q", "origin", "main"]);
 
         (dir, remote, ours)
+    }
+
+    /// "Sync down" (Code Review tab) pulls the checked-out branch from
+    /// origin: found from the clone, a clean pull fast-forwards, and an
+    /// uncommitted edit comes back as the conflict that raises the prompt.
+    #[test]
+    fn sync_down_pulls_the_checked_out_branch_from_origin() {
+        if !system_git_available() {
+            eprintln!("system git not available; skipping");
+            return;
+        }
+        let (_dir, _remote, ours) = diverging_pair();
+        let t = pull_target_in(&ours).unwrap();
+        assert_eq!((t.remote.as_str(), t.branch.as_str()), ("origin", "main"));
+        assert_eq!(
+            dunce::canonicalize(&t.dir).unwrap(),
+            dunce::canonicalize(&ours).unwrap()
+        );
+        // From a folder inside the repository, the repository itself.
+        std::fs::create_dir(ours.join("sub")).unwrap();
+        assert_eq!(pull_target_in(&ours.join("sub")).unwrap(), t);
+
+        write(&ours, "f.txt", "mine\n");
+        assert!(matches!(
+            pull_in(&t.dir, &t.remote, &t.branch),
+            Err(RemoteError::Conflict { .. })
+        ));
+        git(&ours, &["checkout", "--", "f.txt"]);
+        pull_in(&t.dir, &t.remote, &t.branch).unwrap();
+        assert_eq!(std::fs::read_to_string(ours.join("f.txt")).unwrap(), "theirs\n");
+    }
+
+    /// No branch, or no remote to choose without guessing: refused in words.
+    #[test]
+    fn sync_down_refuses_a_detached_checkout_or_an_ambiguous_remote() {
+        if !system_git_available() {
+            eprintln!("system git not available; skipping");
+            return;
+        }
+        let (_dir, _remote, ours) = diverging_pair();
+        git(&ours, &["remote", "rename", "origin", "a"]);
+        git(&ours, &["remote", "add", "b", "https://example.com/b.git"]);
+        let e = pull_target_in(&ours).unwrap_err();
+        assert!(e.contains("several remotes"), "{e}");
+
+        git(&ours, &["checkout", "-q", "--detach"]);
+        let e = pull_target_in(&ours).unwrap_err();
+        assert!(e.contains("not on a branch"), "{e}");
+
+        let plain = tempfile::tempdir().unwrap();
+        assert!(pull_target_in(plain.path()).is_err());
     }
 
     /// The needles in [`is_conflict`] against Git's real wording (captured

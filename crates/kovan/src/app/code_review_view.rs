@@ -117,6 +117,8 @@ pub(crate) struct CodeReviewView {
     /// Review mode and the review walk (#770, #740), drawn in place of the
     /// embedded map while a function is under review.
     review_mode: super::review_mode_panel::ReviewModePanel,
+    /// "Sync down": pull the code repository, then rebuild (2026-10-12).
+    sync: super::code_sync::CodeSync,
 }
 
 /// Check the data of `workspace` and build it when missing or stale (or
@@ -171,8 +173,9 @@ impl CodeReviewView {
     }
 
     /// Take the embedded UI's Stamp / Needs-fix press, if any, and open its
-    /// dialog. A press while a dialog is open is dropped (the modal blocks
-    /// the bar anyway).
+    /// dialog. A press while a dialog is open is dropped (since 2026-10-12
+    /// the dialog is a movable window, no longer a modal that blocks the
+    /// bar, so this drop is what keeps one dialog at a time).
     fn take_request(&mut self) {
         if let Some(r) = self.review.as_mut().and_then(|r| r.take_host_request()) {
             if self.pending.is_none() {
@@ -341,8 +344,15 @@ impl CodeReviewView {
             self.need_you.dirty = true;
             self.load_states();
         }
+        if self.sync.poll() {
+            // Pulled: the stamps and the code may both have moved. The same
+            // as pressing "Rebuild data" after a `git pull`.
+            self.need_you.dirty = true;
+            self.rebuild(true);
+        }
         let mut rebuild = false;
         let mut open_orgs = false;
+        let mut sync_now = false;
         // Review mode (#770): its workspace and keystore, and the function
         // selected on the embedded map, which [Review >] starts from.
         self.review_mode
@@ -382,6 +392,39 @@ impl CodeReviewView {
                         .clicked()
                 {
                     rebuild = true;
+                }
+                if self.workspace.is_some() {
+                    let free = self.job.is_none()
+                        && !self.sync.busy()
+                        && self.dialog.is_none()
+                        && self.review_mode.active.is_none();
+                    if ui
+                        .add_enabled(free, egui::Button::new("\u{2B07} Sync down"))
+                        .on_hover_text(
+                            "Pull this repository's branch (stamps and fixes pushed from \
+                             elsewhere), then rebuild this view. If the folder and the remote \
+                             disagree you are asked before anything is forced.",
+                        )
+                        .on_disabled_hover_text(
+                            "Wait for the running job, and close the stamp dialog or review mode",
+                        )
+                        .clicked()
+                    {
+                        sync_now = true;
+                    }
+                    if let Some(w) = self.sync.working() {
+                        ui.spinner();
+                        ui.weak(w);
+                    }
+                    match &self.sync.message {
+                        Some(Ok(t)) => {
+                            ui.weak(t);
+                        }
+                        Some(Err(e)) => {
+                            ui.colored_label(ui.visuals().error_fg_color, e);
+                        }
+                        None => {}
+                    }
                 }
                 match &self.note {
                     Some(Ok(text)) => {
@@ -434,6 +477,17 @@ impl CodeReviewView {
         if rebuild {
             self.rebuild(true);
         }
+        if sync_now {
+            if let Some(dir) = self.workspace.clone() {
+                self.sync.start(dir);
+            }
+        }
+        if self.sync.working().is_some() {
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(200));
+        }
+        let unsaved = self.session.len();
+        self.sync.prompt_ui(&ui.ctx().clone(), unsaved);
         if open_orgs {
             self.open_organisations();
         }

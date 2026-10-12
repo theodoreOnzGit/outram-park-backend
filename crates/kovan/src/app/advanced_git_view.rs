@@ -96,10 +96,7 @@ impl RepoPanel {
 
     /// The remote to use: `origin` if present, otherwise the only remote.
     fn remote(&self) -> Option<&RemoteInfo> {
-        self.remotes
-            .iter()
-            .find(|r| r.name == "origin")
-            .or_else(|| (self.remotes.len() == 1).then(|| &self.remotes[0]))
+        advanced_git::default_remote(&self.remotes)
     }
 }
 use crate::repository::SaveSummary;
@@ -800,46 +797,16 @@ impl AdvancedGitState {
         let Some(prompt) = self.pending_force_pull.take() else {
             return;
         };
-        let mut force = None;
-        // A real `egui::Modal`, not a `Window`: its backdrop blocks input to
-        // everything behind it, and its `should_close()` (escape, or a click
-        // on the backdrop) is deliberately ignored — a prompt that can
-        // destroy the folder is answered with one of the two buttons or not
-        // at all.
-        egui::Modal::new(egui::Id::new("advanced-git-force-pull"))
-            .show(ctx, |ui| {
-                ui.set_max_width(460.0);
-                ui.heading("Pull anyway?");
-                ui.label(format!("{} — {}", prompt.label, prompt.dir.display()));
-                ui.add_space(4.0);
-                ui.strong("You may have unsaved changes, u sure u want to pull anot?");
-                ui.add_space(4.0);
-                ui.colored_label(
-                    ui.visuals().warn_fg_color,
-                    format!(
-                        "\u{26a0} \"yes, can\" replaces this folder with {}/{}. Anything not \
-                         saved is gone for good — edits in progress and files you added but \
-                         never saved. Saves that were never pushed are moved aside onto a \
-                         kovan-kept/… branch (named once the pull is done), not deleted.",
-                        prompt.remote, prompt.branch
-                    ),
-                );
-                ui.weak("\"no, i manage myself\" leaves the folder exactly as it was before you pressed Pull.");
-                egui::CollapsingHeader::new("What Git said")
-                    .default_open(false)
-                    .show(ui, |ui| {
-                        ui.weak(&prompt.git_says);
-                    });
-                ui.add_space(4.0);
-                ui.horizontal(|ui| {
-                    if ui.button("yes, can").clicked() {
-                        force = Some(true);
-                    }
-                    if ui.button("no, i manage myself").clicked() {
-                        force = Some(false);
-                    }
-                });
-            });
+        let force = force_pull_modal(
+            ctx,
+            "advanced-git-force-pull",
+            &prompt.label,
+            &prompt.dir,
+            &prompt.remote,
+            &prompt.branch,
+            &prompt.git_says,
+            None,
+        );
 
         match force {
             Some(true) => {
@@ -872,6 +839,67 @@ impl AdvancedGitState {
         // Answered: the next queued corpus prompt (#422), if any, is raised
         // by `poll_job` once no job is running.
     }
+}
+
+/// The "Pull anyway?" prompt (GH issue #279), shared by this tab and the
+/// Code Review tab's Sync down (2026-10-12). `Some(true)` is "yes, can",
+/// `Some(false)` "no, i manage myself", `None` not answered yet (keep
+/// drawing it). `extra` is one more warning line, e.g. stamps written but
+/// not committed. GUI drawing code (exempt from the test rule; the tab's
+/// headless test draws it unanswered).
+///
+/// A real `egui::Modal`, not a `Window`: its backdrop blocks input to
+/// everything behind it, and its `should_close()` (escape, or a click on the
+/// backdrop) is deliberately ignored: a prompt that can destroy the folder
+/// is answered with one of the two buttons or not at all.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn force_pull_modal(
+    ctx: &egui::Context,
+    id: &str,
+    label: &str,
+    dir: &std::path::Path,
+    remote: &str,
+    branch: &str,
+    git_says: &str,
+    extra: Option<&str>,
+) -> Option<bool> {
+    let mut force = None;
+    egui::Modal::new(egui::Id::new(id)).show(ctx, |ui| {
+        ui.set_max_width(460.0);
+        ui.heading("Pull anyway?");
+        ui.label(format!("{label} \u{2014} {}", dir.display()));
+        ui.add_space(4.0);
+        ui.strong("You may have unsaved changes, u sure u want to pull anot?");
+        ui.add_space(4.0);
+        ui.colored_label(
+            ui.visuals().warn_fg_color,
+            format!(
+                "\u{26a0} \"yes, can\" replaces this folder with {remote}/{branch}. Anything not \
+                 saved is gone for good \u{2014} edits in progress and files you added but \
+                 never saved. Saves that were never pushed are moved aside onto a \
+                 kovan-kept/\u{2026} branch (named once the pull is done), not deleted."
+            ),
+        );
+        if let Some(extra) = extra {
+            ui.colored_label(ui.visuals().warn_fg_color, extra);
+        }
+        ui.weak("\"no, i manage myself\" leaves the folder exactly as it was before you pressed Pull.");
+        egui::CollapsingHeader::new("What Git said")
+            .default_open(false)
+            .show(ui, |ui| {
+                ui.weak(git_says);
+            });
+        ui.add_space(4.0);
+        ui.horizontal(|ui| {
+            if ui.button("yes, can").clicked() {
+                force = Some(true);
+            }
+            if ui.button("no, i manage myself").clicked() {
+                force = Some(false);
+            }
+        });
+    });
+    force
 }
 
 /// Height cap for the "Changes since last save" list: a third of the room left

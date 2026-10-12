@@ -13,6 +13,7 @@ mod advanced_git_view;
 mod bibliography;
 mod code_map_view;
 mod code_review_view;
+mod code_sync;
 mod index_fresh_view;
 mod need_you_view;
 mod box_handles;
