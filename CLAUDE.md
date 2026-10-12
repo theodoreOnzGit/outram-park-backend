@@ -138,6 +138,8 @@ neighbour grid iterated a randomly-seeded `HashMap`.
 **Maintainer direction, 2026-09-17.** This governs *what kind of model* to
 reach for, and in what order. It applies to every crate in this workspace.
 
+**Exception, `raffles` (maintainer direction, 2026-10-12):** calibration is acceptable when it is the intention — surrogates calibrate by definition; see [`crates/raffles/AGENTS.md`](crates/raffles/AGENTS.md).
+
 ### High-fidelity crates: the correct physical model is the top priority
 
 **Implement the governing physics. Nothing outranks it** — not ergonomics, not
