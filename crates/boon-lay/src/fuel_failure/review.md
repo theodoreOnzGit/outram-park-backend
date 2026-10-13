@@ -714,3 +714,54 @@ value = "tvDk0adoQAPe4ISqEASUaArr7Ld9UrdQQ2/jUIzggftMm1ZLKUk4prvSFEmRr6SMdmjIqBV
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 27c157e248.
+
+# Review: CorrosionInputError (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-corrosioninputerror-theodoreonzgit-62323e76"
+kind = "review"
+origin = "human"
+created = "2026-10-13T15:04:28+08:00"
+modified = "2026-10-13T15:04:28+08:00"
+target = "fn:62323e762b03b9bf"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/geometry.rs::CorrosionInputError"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T15:04:28+08:00"
+commit = "100e8df6b175ac18ae8828e2102e6171eb18f1d9"
+hash = "sha256:92583fc305b6c05cfec32e7a87ff1144049b4241fa00cd26f8a19ead15c00e69"
+doc_hash = "sha256:a11a990604096ceabc7b47f6e3423499347c6c160220e82c0545ccae83904284"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+no_concept = "plumbing"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_cases_complete = "yes"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "other: This is just an error struct"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "THCYF156esughCKN5UVmteIm5H2jLR/2kgQbtKk37kIIEkDnaFKrV1XDs9NXrrDgJP5Oi1n2hfxJFJEwVTYYBA=="
+```
+
+error type
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 100e8df6b1.
