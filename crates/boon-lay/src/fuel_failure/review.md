@@ -1184,3 +1184,63 @@ tests if guards are working properly for nonsense input values
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit a4a253183e.
+
+# Review: the_two_routes_to_the_stress_agree_exactly (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-the-two-routes-to-the-stress-agree-exactly-theodoreonzgit-edf75b06"
+kind = "review"
+origin = "human"
+created = "2026-10-13T15:25:41+08:00"
+modified = "2026-10-13T15:25:41+08:00"
+target = "fn:edf75b062b8f2cd5"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/stress.rs::the_two_routes_to_the_stress_agree_exactly"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T15:25:41+08:00"
+commit = "260c08aa0932809aa8d4d24e38dc249bcd290010"
+hash = "sha256:e97229bf787a9f190f74599a33369ba5d76157bbfba083b98f3d9789387ff7c5"
+doc_hash = "sha256:2241d0c8ebd9b6be73f4658e666b972f3434534ce6098b14ea128badf924be31"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+
+[review.callees]
+"fn:29fd23a48ca756df" = "sha256:a5bc0eaa4dfd6ab6d8cb39a94d1ab0d35058f689bd5c7fd1d3cffe785cab947a"
+"fn:c04cf2b3db90cf92" = "sha256:dd8d0e1854a1c7fe6a126c017cd5e6d289aaa4fbe9b8edbd82d62b7108fce2e1"
+"fn:cc30818aa7756c33" = "sha256:19bcf0ea7122ec816b6337fe91e61431c34361bcd05fc24fcecdf5d6b289e34d"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "test_panics_on_failure"
+independence = "someone_else"
+limits_and_guards = "test_no_input"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "is_a_test"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "is_a_test"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "mmEaY9WMKxjcrwsKKRVtjJtlNyWll6RuCZZIjUrsQ5O0eMs+Kpx5yEZsA2PBh0SoBPX2UvK0tYWoWillbtpsBA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
+kind = "implements"
+```
+
+This is a regression test. When passes it ensures that induced stress and induced stress exact are about the same. within some relative tolerance
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 260c08aa09.
