@@ -21,19 +21,19 @@ id = "review-weibull-failure-fraction-theodoreonzgit-dd41ff29"
 kind = "review"
 origin = "human"
 created = "2026-10-12T09:48:30+08:00"
-modified = "2026-10-12T09:48:30+08:00"
+modified = "2026-10-13T10:52:24+08:00"
 target = "fn:dd41ff2953124783"
 
 [review]
 path = "crates/boon-lay/src/fuel_failure/weibull.rs::weibull_failure_fraction"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-10-12"
-signed_at = "2026-10-12T09:48:31+08:00"
-commit = "8f7e6990c763118f62fdf8d97860d80da8698e27"
+date = "2026-10-13"
+signed_at = "2026-10-13T10:52:25+08:00"
+commit = "8b786d76b9e3ee1e984f2ede0df008ca592c2ec4"
 hash = "sha256:909caa1fbab166b538d958e5778a9e4b2bbb0ac2b44faa8f50ef9c0624a91539"
 doc_hash = "sha256:52c13390871b8991d976b786d6612153fdd5adfbc946875a3e173157e8b39949"
-cargo_lock = "sha256:4f41a7d1002fb86dae938001b977e9d208946bedf27faf10f859b5a7fa70eafe"
+cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
 
 [review.checklist]
 coding_standards = "yes"
@@ -49,24 +49,19 @@ units_documented = "not_documented"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "IKFR0WeclcmUOwQwt6FwuS7h7YJCceAAJLuHIjzduNSADRMOgn7HB1Xl3H3n6cE8hh9QsmhBzXeaKQB9sr2UCA=="
+value = "3w97DWVex+Quosm+ouZ1jBvb7KD4daZIe+sE9OQODUDscrUPyNmoWA3kkVEep9O3WTNfuxbQDh9DgElvAiaoBg=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
 kind = "implements"
 ```
 
-uom for induced stress and median strength, necessitaties pressure unit input at compile time. Weibulll modulus is bare f64, passable, though Ratio is preferred. There are guardes against zero, which is good
-
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-12, commit 8f7e6990c7.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 8b786d76b9.
 
 # Review: failure_is_monotone_in_stress (github:theodoreOnzGit)
 
