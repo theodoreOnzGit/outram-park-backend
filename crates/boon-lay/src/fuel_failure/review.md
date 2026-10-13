@@ -183,7 +183,7 @@ id = "review-failurefraction-theodoreonzgit-91b8101e"
 kind = "review"
 origin = "human"
 created = "2026-10-13T11:47:44+08:00"
-modified = "2026-10-13T11:48:50+08:00"
+modified = "2026-10-13T14:27:58+08:00"
 target = "fn:91b8101ebd5b4ec6"
 
 [review]
@@ -191,11 +191,11 @@ path = "crates/boon-lay/src/fuel_failure/mod.rs::FailureFraction"
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-10-13"
-signed_at = "2026-10-13T11:48:50+08:00"
-commit = "c4f5d60bf433463f35c0e9d331210933167e2d39"
+signed_at = "2026-10-13T14:27:59+08:00"
+commit = "67b8e9e0aecd01a456dd36442c1dbf2c346e64a0"
 hash = "sha256:e25ea516086e0a8fbc02c8ea06250f66767715f97c79fe584e00cef7420d6abe"
 doc_hash = "sha256:f96f0f82938286ec4ddf55657d44b14840c3233836fd56da0f822582bb467c2a"
-cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
 no_concept = "plumbing"
 
 [review.checklist]
@@ -210,16 +210,12 @@ vv_evidence = "reference_code_to_code"
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "98BjGHyXc4iH4FcTNfcGIYUaH7pf8VncXAXlOFp3Bg2mC+bY4n4FODPjIEU3y/zaMzWwy8BFw9HWRw4kJaZ5Cg=="
+value = "D1xh5F5zhEzZxTT8DsW8UEofCAxBozisIBzFQ1wSJxWi+/DEZ/mXjT/+qM7GbZytzLiRn8DDte1AXsRhmK3XBA=="
 ```
-
-Feels a bit redundant though, Ratio will suffice. But I suppose this makes it more readable?
-And traceable compared with upstream code? or TRISO ATOPS/PANAMA (though we didn't translate
-panama, just read docs and let Claude do the implementation)
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit c4f5d60bf4.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 67b8e9e0ae.
 
 # Review: a_larger_modulus_sharpens_the_transition (github:theodoreOnzGit)
 
