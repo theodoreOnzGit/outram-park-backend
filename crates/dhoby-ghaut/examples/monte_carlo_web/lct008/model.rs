@@ -41,6 +41,14 @@ pub const SPEED: SpeedTier = SpeedTier::VeryFast;
 
 /// The H in H₂O thermal scattering law, ENDF/B-VIII.0 (MAT 1).
 pub const SAB_TAPE: &str = "tsl-HinH2O.endf";
+/// The benchmark `k_eff` of case 1, 1.0007 ± 0.0016: the handbook value as
+/// tabulated in an open secondary source (the handbook itself is licence
+/// restricted, `DATA_POLICY.md`), Mosteller, *An Expanded Criticality
+/// Validation Suite for MCNP*, LA-UR-10-06230 (2010). The maintainer checked
+/// the row against the source page on 2026-10-13.
+pub const BENCHMARK_K: f64 = 1.0007;
+/// The benchmark's stated uncertainty on [`BENCHMARK_K`], same source.
+pub const BENCHMARK_SIGMA: f64 = 0.0016;
 
 /// Every tape, `(label, file)`: the 11-nuclide tier in `TAPES_CHEAP` order,
 /// then the S(α,β) law. Slot `i < 11` is nuclide `i`.

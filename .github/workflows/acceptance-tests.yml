@@ -33,6 +33,14 @@
 # `workflow_dispatch` works only once this file is on the default branch
 # (see `manual-tests.yml`).
 #
+# TWO TIERS (maintainer, 2026-10-14). On `develop` this is a SMOKE TEST: the
+# code builds and runs on every platform and gives a sane k, with the 200 pcm
+# code-to-code allowance as the bar (the lattice's measured +70 pcm at this
+# run size is inside it and is acceptable here). A merge to `main` is held to
+# more: a pull request into `main` runs this workflow with no path filter,
+# beside `full-tests.yml`, which runs the whole test suite there. The 50 pcm
+# criterion at full statistics is qualification testing, not CI.
+#
 # ANDROID IS AN EMULATOR, NOT A PHONE. The `android` job cross-compiles the
 # same driver for `x86_64-linux-android` with the runner's NDK and runs it
 # under the Android emulator: a real Android kernel and the Bionic C library,
@@ -56,6 +64,8 @@ on:
       - "crates/outram-mc-libs/verification_and_validation/icsbep/**"
       - "crates/outram-blender/src/csg/**"
       - "reference-data/endf/**"
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 env:

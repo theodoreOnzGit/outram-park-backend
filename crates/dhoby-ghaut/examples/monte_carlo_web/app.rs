@@ -107,6 +107,11 @@ impl Tracks {
             replay: histories,
         }
     }
+    /// The player beside a Run k_eff (gh:#859): empty and stopped until the
+    /// run is going, so every neutron it draws is born from the run's source.
+    fn for_run(fast: bool) -> Self {
+        Self { running: false, ..Self::recorded(Vec::new(), fast) }
+    }
     fn new(link: &McLink, fast: bool, autostart: bool) -> Self {
         link.send(Request::Run { n: PREFETCH, animate: true });
         Self {
@@ -525,6 +530,9 @@ pub struct McApp {
     /// (gh:#859, [`crate::recorded`]); `None` once live tracks take over, or
     /// for a rung or view that ships none.
     recorded: Option<Tracks>,
+    /// Run k_eff's neutrons, drawn on the geometry beside the plots
+    /// (gh:#859); `None` outside Run mode and for a rung without tracks.
+    run_tracks: Option<Tracks>,
 }
 
 impl McApp {
@@ -576,6 +584,7 @@ impl McApp {
             data_notes: Vec::new(),
             cache_info: None,
             recorded: None,
+            run_tracks: None,
         };
         // `?particles=&inactive=&active=&seed=` (natively `--particles` …)
         // preset the Run k_eff settings (gh:#859).
@@ -672,6 +681,7 @@ impl McApp {
     /// Build the screen for the current rung, mode and view, on loaded data.
     fn enter_screen(&mut self) {
         self.recorded = None;
+        self.run_tracks = None;
         let Some(link) = &self.link else { return };
         let fast = self.rung.info().spectrum == anim::Spectrum::Fast;
         self.phase = Phase::Ready(match (self.mode, self.watch_view, self.rung.watch_generations()) {
@@ -680,6 +690,7 @@ impl McApp {
                 if self.autostart {
                     it.start(link);
                 }
+                self.run_tracks = self.rung.has_tracks().then(|| Tracks::for_run(fast));
                 Screen::Run(it)
             }
             (Mode::Watch, WatchView::Generations, Some(cfg)) => {
@@ -778,6 +789,11 @@ impl McApp {
                     }
                 }
                 (Phase::Ready(Screen::Tracks(t)), Event::History { h, animate }) => t.receive(h, animate),
+                (Phase::Ready(Screen::Run(_)), Event::History { h, animate }) => {
+                    if let Some(t) = self.run_tracks.as_mut() {
+                        t.receive(h, animate);
+                    }
+                }
                 (Phase::Ready(Screen::Generations(it) | Screen::Run(it)), Event::KeffStarted { sites }) => it.sites = sites,
                 (Phase::Ready(Screen::Generations(it) | Screen::Run(it)), Event::Generation(g)) => it.receive(g),
                 (Phase::Ready(Screen::Generations(it) | Screen::Run(it)), Event::KeffDone) => it.done(rung),
@@ -803,7 +819,9 @@ impl McApp {
                 // read the result (gh:#859).
                 let (m, e) = it.result();
                 let k = if m.is_finite() { format!(" · k = {m:.5} ± {e:.5} · {:.0} s", it.elapsed) } else { String::new() };
-                format!("{name} · generation {}/{} · {:?}{k}", it.gens.len(), it.total_gens(), it.state)
+                let h = it.gens.last().and_then(|g| g.entropy).map_or(String::new(), |h| format!(" · entropy {h:.3} bits"));
+                let tr = self.run_tracks.as_ref().map_or(String::new(), |t| format!(" · {} neutrons drawn", t.stats.histories));
+                format!("{name} · generation {}/{} · {:?}{k}{h}{tr}", it.gens.len(), it.total_gens(), it.state)
             }
             Phase::Ready(Screen::Kinf(k)) => {
                 let at = match k.case.choices.iter().find(|c| c.0 == k.running_param) {
@@ -844,6 +862,12 @@ impl eframe::App for McApp {
             match s {
                 Screen::Tracks(t) => t.top_up(link),
                 Screen::Generations(it) | Screen::Run(it) => {
+                    // Run mode's drawn neutrons: asked for only while the
+                    // run is going, so each is born from its source.
+                    if let Some(t) = self.run_tracks.as_mut() {
+                        t.running = it.state == RunState::Running;
+                        t.top_up(link);
+                    }
                     it.pump(link);
                     if it.state == RunState::Running {
                         ctx.request_repaint_after(std::time::Duration::from_millis(100));
@@ -1480,9 +1504,9 @@ impl McApp {
         });
         ui.label(format!("{} of {} generations · {:.0} s", it.gens.len(), it.total_gens(), it.elapsed));
         ui.weak(
-            "Single-threaded, in this tab's background worker: outram-mc-libs' reference power iteration \
-             (`PowerIteration`, what `run_keff` runs), one generation at a time, on ENDF/B-VIII.0 processed at \
-             NJOY's tolerance.",
+            "Single-threaded, in this tab's background worker: outram-mc-libs' reference power iteration, one \
+             generation at a time, on ENDF/B-VIII.0 processed at NJOY's tolerance (which iteration: \
+             \"What this is\", below).",
         );
         if it.active_counts.tracked > 0 {
             ui.separator();
@@ -1493,12 +1517,12 @@ impl McApp {
             let (m, e) = it.result();
             ui.separator();
             ui.strong("Your result");
-            ui.label(RichText::new(format!("k = {m:.5} ± {e:.5}  ({:+.0} ± {:.0} pcm)", (m - 1.0) * 1e5, e * 1e5)).monospace());
+            ui.label(RichText::new(format!("k = {m:.5} ± {e:.5}  ({:+.0} ± {:.0} pcm from 1)", (m - 1.0) * 1e5, e * 1e5)).monospace());
             if let Some(r) = rung.reference() {
                 if let Some((name, k, s)) = r.experiment {
                     ui.label(format!("Experiment ({name}): {k:.4} ± {s:.4}."));
                 }
-                ui.label(format!("Recorded: {:.5} ± {:.5} ({:+.0} ± {:.0} pcm), {}.", r.k, r.sem, (r.k - 1.0) * 1e5, r.sem * 1e5, r.label));
+                ui.label(format!("Recorded: {:.5} ± {:.5} ({:+.0} ± {:.0} pcm from 1), {}.", r.k, r.sem, (r.k - 1.0) * 1e5, r.sem * 1e5, r.label));
                 let hist = (it.cfg.n_particles * it.cfg.n_active) as f64;
                 let expect = r.sd_one_run * (r.histories_one_run / hist).sqrt();
                 ui.weak(format!(
@@ -1670,7 +1694,16 @@ impl McApp {
         let is_layers = matches!(self.phase, Phase::Ready(Screen::Layers(_)));
         let is_beds = matches!(self.phase, Phase::Ready(Screen::Beds(_)));
         let is_slice = is_layers || matches!(self.phase, Phase::Ready(Screen::Geometry(_) | Screen::Core));
-        let (rect, xs_rect) = if !(xs_on || is_layers) {
+        // Run k_eff on a rung with tracks: the geometry and its neutrons
+        // beside the plots and the console (above them on a narrow screen).
+        let run_geo = is_run && self.run_tracks.is_some();
+        let (rect, xs_rect) = if run_geo && full.width() >= 700.0 && full.width() > full.height() {
+            let (a, b) = full.split_left_right_at_fraction(0.44);
+            (a, Some(b))
+        } else if run_geo {
+            let (a, b) = full.split_top_bottom_at_fraction(0.40);
+            (a, Some(b))
+        } else if !(xs_on || is_layers) {
             (full, None)
         } else if full.width() >= 700.0 && full.width() > full.height() {
             let (a, b) = full.split_left_right_at_fraction(0.58);
@@ -1685,7 +1718,7 @@ impl McApp {
         // zoom buttons and scale bar belong to its picture.
         let is_walk = matches!(self.phase, Phase::Ready(Screen::Walk(_)));
         let zoom_rect = if is_walk { crate::walkdemo::split(full).0 } else { rect };
-        if !is_run && !is_kinf && !is_slice && !is_beds && !is_walk {
+        if (!is_run || run_geo) && !is_kinf && !is_slice && !is_beds && !is_walk {
             self.view.handle_input(ui, &geo_resp);
             self.rung.draw(&painter, rect, &self.view);
         }
@@ -1760,11 +1793,26 @@ impl McApp {
             }
             Phase::Ready(Screen::Run(it)) => {
                 let experiment = rung.reference().and_then(|r| r.experiment).map(|(_, k, s)| (k, s));
-                match Self::run_view(ui, rect, &painter, it, self.run_text, experiment) {
+                if let Some(t) = self.run_tracks.as_mut() {
+                    play_tracks(ui, &painter, t, speed, to_screen);
+                    let note = match it.state {
+                        RunState::Idle => "the run's neutrons are drawn here once it starts",
+                        _ => "real histories born at this run's fission sites\ndrawn extra, not counted in k",
+                    };
+                    painter.text(rect.left_bottom() + Vec2::new(16.0, -40.0), egui::Align2::LEFT_BOTTOM, note, egui::FontId::proportional(12.0), Color32::from_rgb(170, 176, 190));
+                }
+                // Beside the geometry, the plots start at the pane's top; alone
+                // they leave room for the buttons over the main view.
+                let run_rect = xs_rect.unwrap_or(rect);
+                let top_pad = if run_rect.top() > full.top() + 1.0 { 6.0 } else { 52.0 };
+                match Self::run_view(ui, run_rect, &full_painter.with_clip_rect(run_rect), it, self.run_text, experiment, top_pad) {
                     RunAction::Start => {
                         if let Some(link) = &self.link {
                             it.cfg = self.run_cfg;
                             it.start(link);
+                            if let Some(t) = self.run_tracks.as_mut() {
+                                *t = Tracks::for_run(t.keep > 0);
+                            }
                         }
                     }
                     RunAction::Pause => it.state = RunState::Paused,
@@ -1862,14 +1910,14 @@ impl McApp {
         };
         if let Some(v) = &sview {
             scale_bar(&painter, sview_rect, v);
-        } else if !is_run && !is_kinf {
+        } else if (!is_run || run_geo) && !is_kinf {
             scale_bar(&painter, rect, &self.view);
         }
         self.panel.reopen_button(ui, full);
-        // + / − / Reset. In Run mode and the k∞ plot there is no geometry:
-        // they scale the text.
+        // + / − / Reset. In the k∞ plot, and in Run mode on a rung that draws
+        // no neutrons, there is no geometry: they scale the text.
         if let Some(z) = zoom_buttons(ui, zoom_rect) {
-            match (is_run || is_kinf, z) {
+            match ((is_run && !run_geo) || is_kinf, z) {
                 (false, z) => match sview {
                     Some(v) => apply_zoom(v, zoom_rect, z),
                     None => apply_zoom(&mut self.view, rect, z),
@@ -1937,13 +1985,16 @@ impl McApp {
 
     /// Run k_eff's main view: the two plots, then the console, scrolling,
     /// with Run / Pause / Resume on it (the panel is folded on a phone).
-    fn run_view(ui: &mut egui::Ui, rect: Rect, painter: &egui::Painter, it: &Iteration, text: f32, experiment: Option<(f64, f64)>) -> RunAction {
-        let top = rect.top() + 52.0;
+    fn run_view(ui: &mut egui::Ui, rect: Rect, painter: &egui::Painter, it: &Iteration, text: f32, experiment: Option<(f64, f64)>, top_pad: f32) -> RunAction {
+        let top = rect.top() + top_pad;
         let narrow = rect.width() < 700.0;
-        let plot_h = ((rect.height() - 60.0) * 0.36).clamp(110.0, 260.0);
+        // Narrow: k above the entropy, so both are always on screen.
+        let plot_h = if narrow { ((rect.height() - 60.0) * 0.50).clamp(170.0, 340.0) } else { ((rect.height() - 60.0) * 0.36).clamp(110.0, 260.0) };
         let plots = Rect::from_min_max(Pos2::new(rect.left() + 10.0, top), Pos2::new(rect.right() - 10.0, top + plot_h));
         if narrow {
-            draw_k(painter, plots, it, experiment);
+            let (a, b) = plots.split_top_bottom_at_fraction(0.5);
+            draw_k(painter, a.with_max_y(a.bottom() - 3.0), it, experiment);
+            draw_entropy(painter, b.with_min_y(b.top() + 3.0), it);
         } else {
             let (a, b) = plots.split_left_right_at_fraction(0.62);
             draw_k(painter, a, it, experiment);

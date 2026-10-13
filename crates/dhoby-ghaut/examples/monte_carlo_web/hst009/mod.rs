@@ -152,10 +152,11 @@ impl McRung for Hst009 {
             "Three stated approximations, as in the record: U-236 is omitted (0.5 % of the uranium, no tape here), O-17 is folded into O-16, and the tank's copper and zinc are omitted.",
             "Data: ENDF/B-VIII.0, eleven nuclides, processed in this browser by OUTRAM PARK's NJOY port. Hydrogen uses the H in H₂O S(α,β) thermal-scattering law, in the solution and in the reflector. Run k_eff: NJOY's tolerance 0.001 (as the record). Watch: the loosened 0.01, whose measured effect on this case is −57 ± 35 pcm.",
             "Run k_eff is true Monte Carlo: outram-mc-libs' single-thread CSG power iteration (`CsgPowerIteration`, what `run_keff_csg` runs), one generation at a time.",
-            "On this data the case sits above k = 1: OpenMC on NJOY2016 data gives +234 ± 22 pcm and outram-mc +198 ± 32 pcm (32 seeds each).",
+            "The benchmark k is 0.9990 ± 0.0043 (430 pcm), not 1. On this data the case sits inside that band: OpenMC on NJOY2016 data gives +334 ± 22 pcm from the benchmark k and outram-mc +298 ± 32 pcm (32 seeds each).",
             "Watch, one neutron at a time, is an illustration: each track is one real history (a one-particle fixed-source run), chained by hand. Tracks are 3D, drawn projected onto the plane of the picture.",
             "Watch, whole generations, is the real power iteration started from the centre of the solution, to show the source spreading.",
-            "A CSG run reports no source entropy and no leaked / captured / fissioned counts (the sphere-only iteration of the Godiva rung does).",
+            "The Shannon entropy of the fission source is on a 5 × 5 × 5 mesh over the solution's bounding box, so at most 6.97 bits. A CSG run reports no leaked / captured / fissioned counts (the sphere-only iteration of the Godiva rung does).",
+            "During Run k_eff the neutrons drawn on the geometry are real histories born at sites of the run's present fission source. They are run in addition to the run's own neutrons and are not counted in k.",
             "Education and research only. Not for reactor operation, licensing or safety decisions.",
         ]
     }
@@ -174,7 +175,7 @@ impl McRung for Hst009 {
             "hst009",
             "five-route study route 4, 32 seeds x 5000 x [40+120], 2026-09-30, at 0414bc8277",
             5000.0 * 120.0,
-            ("ICSBEP HEU-SOL-THERM-009 case 1, critical so k = 1; the ± is this workspace's stand-in band, not a handbook value", model::BENCHMARK_K, 0.006),
+            ("ICSBEP HEU-SOL-THERM-009 case 1 benchmark k, as tabulated by van der Marck (2006)", model::BENCHMARK_K, model::BENCHMARK_SIGMA),
         )
     }
     fn loading_note(_tier: Tier) -> Option<&'static str> {

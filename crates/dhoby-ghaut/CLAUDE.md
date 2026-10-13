@@ -127,7 +127,12 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
    box, where a fresh neutron is born) and takes `csgrung::Builder<Self>` as
    its `Builder`: data processing, the Watch chain and a Run k_eff on
    `CsgPowerIteration` come with it (`jemima/` and `hst009/` are the worked
-   examples). Any rung can ship **recorded tracks** that play over the
+   examples). Since 2026-10-14 the CSG run also reports the source entropy
+   (`CsgCase::entropy_box` sets the mesh's box: override it when the case
+   fissions outside its source box), and Run mode draws the geometry with
+   neutrons born at the run's fission sites: while a run is going, the
+   rung's `LoadedRung::run_next` must start its history at a site of that
+   run's source (`csgrung::Keff::source_site`). Any rung can ship **recorded tracks** that play over the
    geometry while its data load: `McRung::recorded_tracks` returning
    `include_bytes!("data/tracks.bin.z")`, written by `--bake-tracks <rung>`
    (`recorded.rs`); re-bake when the rung's geometry or Watch chain changes,

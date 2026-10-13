@@ -13,8 +13,12 @@ Statistics, and why these:
   quoted. Each run's own internal sigma is NOT averaged in: independent power
   iterations disagree by more than each run thinks it knows (the outram-mc
   ICSBEP record measured this), and the sem from the scatter captures that.
-* Delta vs experiment = (mean - 1) in pcm, sigma = sem (the benchmark's own
-  uncertainty is drawn as a band on the figure, not folded in).
+* Delta vs benchmark = (mean - benchmark k) in pcm, sigma = sem (the benchmark's
+  own uncertainty is drawn as a band on the figure, not folded in). Benchmark
+  k and band are the handbook values as tabulated in open secondary sources
+  (the handbook itself is licence-restricted): Mosteller, LA-UR-10-06230, and
+  van der Marck, Nucl. Data Sheets 107 (2006) 3061. Bib keys
+  mosteller2010expanded and vandermarck2006benchmarking.
 * Delta vs route 1 (OpenMC + NJOY2016) in pcm, sigma = sqrt(sem_r^2 + sem_1^2):
   the routes are independent runs, nothing cancels.
 
@@ -37,12 +41,14 @@ PER_SEED = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / "da
 OUT = pathlib.Path(sys.argv[2]) if len(sys.argv) > 2 else HERE.parent
 
 CASES = [
-    # key, title, reference band (half-width in k) or None, band provenance
-    ("godiva", "Godiva  HEU-MET-FAST-001", 0.0010, "ICSBEP ±0.0010"),
-    ("jemima", "Jemima  IEU-MET-FAST-002", 0.0030, "±0.003 stand-in, not the handbook value"),
-    ("hst009", "HEU-SOL-THERM-009 case 1", 0.0060, "±0.006 stand-in, not the handbook value"),
-    ("lct008", "LEU-COMP-THERM-008 case 1 (lattice, 11-nuclide tier)", 0.0060,
-     "±0.006 stand-in, not the handbook value"),
+    # key, title, benchmark k, band (half-width in k) or None, provenance
+    ("godiva", "Godiva  HEU-MET-FAST-001", 1.0000, 0.0010,
+     "±0.0010, Mosteller 2010; van der Marck 2006"),
+    ("jemima", "Jemima  IEU-MET-FAST-002", 1.0000, 0.0030,
+     "±0.0030, Mosteller 2010; van der Marck 2006"),
+    ("hst009", "HEU-SOL-THERM-009 case 1", 0.9990, 0.0043, "±0.0043, van der Marck 2006"),
+    ("lct008", "LEU-COMP-THERM-008 case 1 (lattice, 11-nuclide tier)", 1.0007, 0.0016,
+     "±0.0016, Mosteller 2010"),
 ]
 ROUTES = [
     ("route1", "1  OpenMC\nNJOY2016 ACE"),
@@ -61,7 +67,7 @@ INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 
 def summarise(rows):
     out = {}
-    for case, _, _, _ in CASES:
+    for case, _, _, _, _ in CASES:
         for route, _ in ROUTES:
             k = np.array([float(r["k"]) for r in rows if r["case"] == case and r["route"] == route])
             if k.size == 0:
@@ -92,20 +98,20 @@ def main():
     s = summarise(rows)
 
     (OUT / "data").mkdir(parents=True, exist_ok=True)
-    lines = ["| case | route | n | k_eff ± sem | seed sd [pcm] | Δ vs k=1 [pcm] | Δ vs route 1 [pcm] |",
+    lines = ["| case | route | n | k_eff ± sem | seed sd [pcm] | Δ vs benchmark [pcm] | Δ vs route 1 [pcm] |",
              "|---|---|---|---|---|---|---|"]
     with (OUT / "data" / "summary_keff.csv").open("w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(["case", "route", "n_seeds", "k_mean", "k_sem", "k_sd_seeds",
                     "mean_internal_sigma", "d_exp_pcm", "d_exp_sigma_pcm",
                     "d_route1_pcm", "d_route1_sigma_pcm", "d_route1_nsigma"])
-        for case, _, _, _ in CASES:
+        for case, _, k_bench, _, _ in CASES:
             ref = s.get((case, "route1"))
             for route, _ in ROUTES:
                 v = s.get((case, route))
                 if v is None:
                     continue
-                d_exp = 1e5 * (v["mean"] - 1.0)
+                d_exp = 1e5 * (v["mean"] - k_bench)
                 if ref is not None and route != "route1":
                     d1 = 1e5 * (v["mean"] - ref["mean"])
                     s1 = 1e5 * math.hypot(v["sem"], ref["sem"])
@@ -128,7 +134,7 @@ def main():
     fig, axes = plt.subplots(2, 4, figsize=(15, 7.4), sharex=True,
                              gridspec_kw={"height_ratios": [3, 2]}, constrained_layout=True)
     x = np.arange(len(ROUTES))
-    for j, (case, title, band, band_note) in enumerate(CASES):
+    for j, (case, title, k_bench, band, band_note) in enumerate(CASES):
         top, bot = axes[0, j], axes[1, j]
         ref = s.get((case, "route1"))
         for i, (route, _) in enumerate(ROUTES):
@@ -147,10 +153,12 @@ def main():
                 bot.annotate(f"{d1:+.0f}±{s1:.0f}", (x[i], d1), xytext=(8, 0),
                              textcoords="offset points", va="center", fontsize=7, color=INK2)
         if band is not None:
-            top.axhspan(1 - band, 1 + band, color=GRID, zorder=0, lw=0)
-            top.axhline(1.0, color=INK2, lw=1, zorder=1)
-            top.text(0.02, 0.97, f"experiment k = 1 ({band_note})", transform=top.transAxes,
-                     va="top", fontsize=7, color=INK2)
+            top.axhspan(k_bench - band, k_bench + band, color=GRID, zorder=0, lw=0)
+            top.axhline(k_bench, color=INK2, lw=1, zorder=1)
+            # Label on the side of the panel the points are not on.
+            low = ref is not None and ref["mean"] > k_bench
+            top.text(0.02, 0.03 if low else 0.97, f"benchmark k = {k_bench:.4f} ({band_note})",
+                     transform=top.transAxes, va="bottom" if low else "top", fontsize=7, color=INK2)
         else:
             top.text(0.02, 0.97, band_note, transform=top.transAxes, va="top",
                      fontsize=7, color="#b3261e", fontweight="bold")

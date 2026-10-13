@@ -113,23 +113,29 @@ pub fn summary_lines(c: &HistoryCounts, production: f64, cfg: KeffConfig, k_mean
     let sources = (cfg.n_particles * cfg.n_active) as f64;
     let pct = |x: u64| 100.0 * x as f64 / t;
     v.push(String::new());
-    v.push(format!(
-        " Neutrons followed (active): {} ({} source + {} (n,xn) secondaries)",
-        c.tracked,
-        sources,
-        c.tracked as i64 - sources as i64
-    ));
-    v.push(format!("   leaked     {:>9}  {:5.1} %", c.leaked, pct(c.leaked)));
-    v.push(format!("   captured   {:>9}  {:5.1} %", c.captured, pct(c.captured)));
-    v.push(format!("   fissioned  {:>9}  {:5.1} %", f, pct(f)));
-    let [b0, b1, b2] = c.fissions_by_energy;
-    v.push(format!("   fissions by incident energy: < 0.625 eV {b0}, 0.625 eV-100 keV {b1}, > 100 keV {b2}"));
-    if f > 0 {
-        let nu = production / f as f64;
-        let p_nl = 1.0 - c.leaked as f64 / t;
-        let k_inf = nu * f as f64 / (f + c.captured) as f64;
-        v.push(format!("   nu-bar {nu:.4}   k_inf = nu F/(F+C) = {k_inf:.5}   P_NL = 1 - L/N = {p_nl:.5}"));
-        v.push(format!("   k_inf x P_NL = {:.5}   (k = nu F / source neutrons = {:.5})", k_inf * p_nl, production / sources));
+    // A CSG iteration tallies no history counts: say so instead of printing
+    // a block of zeros.
+    if c.tracked == 0 {
+        v.push(" (this iteration tallies no leaked / captured / fissioned counts)".to_string());
+    } else {
+        v.push(format!(
+            " Neutrons followed (active): {} ({} source + {} (n,xn) secondaries)",
+            c.tracked,
+            sources,
+            c.tracked as i64 - sources as i64
+        ));
+        v.push(format!("   leaked     {:>9}  {:5.1} %", c.leaked, pct(c.leaked)));
+        v.push(format!("   captured   {:>9}  {:5.1} %", c.captured, pct(c.captured)));
+        v.push(format!("   fissioned  {:>9}  {:5.1} %", f, pct(f)));
+        let [b0, b1, b2] = c.fissions_by_energy;
+        v.push(format!("   fissions by incident energy: < 0.625 eV {b0}, 0.625 eV-100 keV {b1}, > 100 keV {b2}"));
+        if f > 0 {
+            let nu = production / f as f64;
+            let p_nl = 1.0 - c.leaked as f64 / t;
+            let k_inf = nu * f as f64 / (f + c.captured) as f64;
+            v.push(format!("   nu-bar {nu:.4}   k_inf = nu F/(F+C) = {k_inf:.5}   P_NL = 1 - L/N = {p_nl:.5}"));
+            v.push(format!("   k_inf x P_NL = {:.5}   (k = nu F / source neutrons = {:.5})", k_inf * p_nl, production / sources));
+        }
     }
     v.push(String::new());
     v.push(format!(" k-effective = {k_mean:.5} +/- {k_std:.5}   ({:+.0} +/- {:.0} pcm from 1)", (k_mean - 1.0) * 1e5, k_std * 1e5));

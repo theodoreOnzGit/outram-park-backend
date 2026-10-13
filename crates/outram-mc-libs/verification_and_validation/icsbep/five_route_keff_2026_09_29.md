@@ -74,6 +74,16 @@ The fuel, including U-234 and its B-10 impurity, is complete.
   literature corpus or the local notes holds it. The figure's ±0.006 band is the
   examples' stand-in and is labelled as such; Godiva's ±0.0010 is the one
   quoted ICSBEP value.
+  **CORRECTED 2026-10-14.** The benchmark k and uncertainty of all four cases
+  are now cited, as the handbook values tabulated in two open secondary
+  sources: Mosteller, *An Expanded Criticality Validation Suite for MCNP*, LA-UR-10-06230 (2010), and van der Marck, *Benchmarking ENDF/B-VII.0*, Nucl. Data Sheets 107 (2006) 3061. The maintainer checked the rows on 2026-10-13:
+  Godiva 1.0000 ± 0.0010, Jemima 1.0000 ± 0.0030, HEU-SOL-THERM-009 case 1
+  0.9990 ± 0.0043, LEU-COMP-THERM-008 case 1 1.0007 ± 0.0016.
+  `data/summary_keff.*` and the figure now measure "Δ vs benchmark" from
+  these (`scripts/make_figure.py`, regenerated 2026-10-14). **The "Δ vs k=1"
+  tables in this record are left as they were measured**: add 100 pcm for
+  HEU-SOL-THERM-009 and subtract 70 pcm for the lattice to read them against
+  the benchmark k.
 
 ### Routes
 
@@ -559,8 +569,11 @@ cross-check is running.
 
 ## What this cannot do
 
-- **Benchmark bands.** The handbook uncertainties are not available here;
-  Jemima, HST-009 and LCT-008 bands are stand-ins.
+- ~~**Benchmark bands.** The handbook uncertainties are not available here;
+  Jemima, HST-009 and LCT-008 bands are stand-ins.~~ **Corrected 2026-10-14:**
+  the bands are cited second-hand from open sources (see "Benchmark k"
+  above). They are the handbook's as of 2006 and 2010, not read from the
+  handbook itself.
 - **Data library.** Only ENDF/B-VIII.0 at 293.6 K is covered.
 - **LCT-008 nuclide list.** The lattice runs an 11-nuclide tier, not the full
   model `lct008_keff.rs` runs by default (35 nuclides in case 1). The dropped

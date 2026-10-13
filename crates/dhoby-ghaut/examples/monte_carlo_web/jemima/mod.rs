@@ -61,6 +61,10 @@ impl CsgCase for Jemima {
     fn source_box() -> SourceBox {
         model::source_box()
     }
+    /// The whole assembly: the natural-uranium reflector fissions too.
+    fn entropy_box() -> SourceBox {
+        SourceBox { lower: Position::new(-model::R_OUT, -model::R_OUT, model::Z_BOT), upper: Position::new(model::R_OUT, model::R_OUT, model::Z_TOP) }
+    }
     /// A uniform point of the core.
     fn fresh_birth(rng: &mut u64) -> Position {
         csgrung::uniform_in_cylinder(rng, model::R_CORE, model::Z_CORE_LO, model::Z_CORE_HI)
@@ -120,10 +124,11 @@ impl McRung for Jemima {
             "Model: ICSBEP IEU-MET-FAST-002 (Jemima), from the mit-crpg/benchmarks OpenMC model: a cylinder of 16 % enriched uranium metal, r = 19.05 cm and 31.951 cm tall, inside natural-uranium reflectors (7.62 cm below, 7.5184 cm above, to r = 26.6446 cm), 293.6 K. The numbers are outram-mc-libs' `vv::jemima`, the model the recorded result was measured on.",
             "Data: ENDF/B-VIII.0 (U-234, U-235, U-238), processed in this browser by OUTRAM PARK's NJOY port. Run k_eff: NJOY's tolerance 0.001 (as the record). Watch: the loosened 0.01, whose measured effect on Jemima is −18 ± 42 pcm.",
             "Run k_eff is true Monte Carlo: outram-mc-libs' single-thread CSG power iteration (`CsgPowerIteration`, what `run_keff_csg` runs), one generation at a time.",
-            "This case does not sit at k = 1 on this data: OpenMC on NJOY2016 data gives −406 ± 17 pcm and outram-mc −391 ± 27 pcm (32 seeds each). The two codes agree with each other; the difference from 1 is in the nuclear data or the benchmark model, not in the transport.",
+            "The benchmark k is 1.0000 ± 0.0030 (300 pcm). On this data the case sits below that band: OpenMC on NJOY2016 data gives −406 ± 17 pcm and outram-mc −391 ± 27 pcm (32 seeds each). The two codes agree with each other; the difference from the benchmark is in the nuclear data or the benchmark model, not in the transport.",
             "Watch, one neutron at a time, is an illustration: each track is one real history (a one-particle fixed-source run), chained by hand. Tracks are 3D, drawn projected from above, so a neutron in the reflector above the core is drawn over the core.",
             "Watch, whole generations, is the real power iteration started from the middle of the core, to show the source spreading.",
-            "A CSG run reports no source entropy and no leaked / captured / fissioned counts (the sphere-only iteration of the Godiva rung does).",
+            "The Shannon entropy of the fission source is on a 5 × 5 × 5 mesh over the whole assembly (the reflector fissions too), so at most 6.97 bits. A CSG run reports no leaked / captured / fissioned counts (the sphere-only iteration of the Godiva rung does).",
+            "During Run k_eff the neutrons drawn on the geometry are real histories born at sites of the run's present fission source. They are run in addition to the run's own neutrons and are not counted in k.",
             "Education and research only. Not for reactor operation, licensing or safety decisions.",
         ]
     }
@@ -142,7 +147,7 @@ impl McRung for Jemima {
             "jemima",
             "five-route study route 4, 32 seeds x 5000 x [40+120], 2026-09-30, at 0414bc8277",
             5000.0 * 120.0,
-            ("ICSBEP IEU-MET-FAST-002, critical so k = 1; the ± is this workspace's stand-in band, not a handbook value", model::BENCHMARK_K, 0.003),
+            ("ICSBEP IEU-MET-FAST-002 benchmark k, as tabulated by Mosteller (LA-UR-10-06230) and van der Marck (2006)", model::BENCHMARK_K, model::BENCHMARK_SIGMA),
         )
     }
     fn loading_note(tier: Tier) -> Option<&'static str> {

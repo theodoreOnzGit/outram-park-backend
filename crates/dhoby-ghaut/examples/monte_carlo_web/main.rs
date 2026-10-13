@@ -656,10 +656,14 @@ mod tests {
             (Rung::Hst009, (5000, 40, 120), 1.001975),
             (Rung::Lct008, (5000, 40, 120), 1.002360),
         ];
+        // Benchmark k and its uncertainty, as tabulated by Mosteller
+        // (LA-UR-10-06230) and van der Marck (Nucl. Data Sheets 107, 2006);
+        // the maintainer confirmed the four rows on 2026-10-13.
+        let bench = [(1.0000, 0.0010), (1.0000, 0.0030), (0.9990, 0.0043), (1.0007, 0.0016)];
         // Active histories of one seed of each record (the lattice's is the
         // campaign's 10 000 x 400, not the demo's default).
         let recorded = [600_000.0, 600_000.0, 600_000.0, 4_000_000.0];
-        for ((r, size, k), hist) in expect.into_iter().zip(recorded) {
+        for (((r, size, k), hist), bench) in expect.into_iter().zip(recorded).zip(bench) {
             let name = r.info().name;
             let d = r.run_default().unwrap_or_else(|| panic!("{name} has no Run k_eff"));
             assert_eq!((d.n_particles, d.n_inactive, d.n_active, d.seed), (size.0, size.1, size.2, 1), "{name}");
@@ -667,6 +671,7 @@ mod tests {
             assert_eq!(rec.k, k, "{name}");
             assert!(rec.sem > 0.0 && rec.sem < 0.0005 && rec.sd_one_run > rec.sem && rec.experiment.is_some(), "{name}");
             assert_eq!(rec.histories_one_run, hist, "{name}");
+            assert_eq!(rec.experiment.map(|(_, k, s)| (k, s)), Some(bench), "{name}");
             assert!(r.recorded_tracks().is_some(), "{name} ships no tracks");
         }
         // Route 1 is OpenMC on NJOY2016 data, the acceptance check's reference.
@@ -751,10 +756,16 @@ mod tests {
         let sites = l.keff_start(w).expect("start");
         assert_eq!(sites.len(), 300);
         assert!(sites.iter().all(|p| p[0].abs() < 0.06 && p[1].abs() < 0.06), "a point source starts at the axis");
+        // While the run is going, a drawn neutron is born at a site of its
+        // source: here, still the point at the axis.
+        let h = l.run_next();
+        assert!(h.from_fission && h.birth.x.abs() < 0.06 && h.birth.y.abs() < 0.06, "born at {:?}", h.birth);
         let mut n = 0;
         while let Some(g) = l.keff_step() {
             assert_eq!((g.report.index, g.report.active), (n, n >= 2));
-            assert!(g.report.entropy.is_none() && g.report.counts.tracked == 0);
+            // 5 x 5 x 5 mesh on the whole assembly: at most log2(125) bits.
+            let h = g.report.entropy.expect("a CSG generation reports its source entropy");
+            assert!(h > 0.0 && h <= 125f64.log2() && g.report.counts.tracked == 0, "entropy {h}");
             assert!((g.report.production - g.report.k * 300.0).abs() < 1e-9);
             assert!(g.sites.iter().any(|p| p[0].abs() > 1.0), "the source has spread");
             n += 1;

@@ -343,7 +343,9 @@ pub mod godiva {
     /// The benchmark `k_eff`: the assembly was critical, so 1.0000 by
     /// construction.
     pub const BENCHMARK_K: f64 = 1.0000;
-    /// The evaluation's stated uncertainty on [`BENCHMARK_K`].
+    /// The evaluation's stated uncertainty on [`BENCHMARK_K`], as tabulated
+    /// in Mosteller, LA-UR-10-06230 (2010) and van der Marck, Nucl. Data
+    /// Sheets 107 (2006) 3061 (rows checked by the maintainer, 2026-10-13).
     pub const BENCHMARK_SIGMA: f64 = 0.0010;
 
     /// The Godiva material, indexing nuclides `0, 1, 2` in [`NUCLIDES`] order.
@@ -453,10 +455,16 @@ pub mod jemima {
         ("oralloy core", &[("U234", 8.4430e-05), ("U235", 7.7777e-03), ("U238", 3.9671e-02)]),
         ("natural uranium reflector", &[("U234", 2.6433e-06), ("U235", 3.4603e-04), ("U238", 4.7711e-02)]),
     ];
-    /// The benchmark `k_eff`: critical, so 1.0000 by construction. No
-    /// handbook uncertainty is cited (the ICSBEP handbook is licence
-    /// restricted, `DATA_POLICY.md`).
+    /// The benchmark `k_eff`, 1.0000 ± 0.0030. ~~No handbook uncertainty is
+    /// cited.~~ **CORRECTED 2026-10-14:** the handbook value as tabulated in
+    /// two open secondary sources (the handbook itself is licence
+    /// restricted, `DATA_POLICY.md`): Mosteller, *An Expanded Criticality
+    /// Validation Suite for MCNP*, LA-UR-10-06230 (2010), and van der Marck,
+    /// *Benchmarking ENDF/B-VII.0*, Nucl. Data Sheets 107 (2006) 3061. The
+    /// maintainer checked the rows against the source pages on 2026-10-13.
     pub const BENCHMARK_K: f64 = 1.0000;
+    /// The benchmark's stated uncertainty on [`BENCHMARK_K`], same sources.
+    pub const BENCHMARK_SIGMA: f64 = 0.0030;
 
     /// The two materials, indexing nuclides in [`NUCLIDES`] order.
     pub fn materials() -> Vec<Material> {
@@ -579,8 +587,16 @@ pub mod hst009 {
         ),
         ("water reflector", &[("H1", 6.6659e-02), ("O16", 3.3316368309e-02 + 1.2631691e-05)]),
     ];
-    /// The benchmark `k_eff`: critical, so 1.0000 by construction.
-    pub const BENCHMARK_K: f64 = 1.0000;
+    /// The benchmark `k_eff`, 0.9990 ± 0.0043. ~~Critical, so 1.0000 by
+    /// construction.~~ **CORRECTED 2026-10-14:** the benchmark model's k is
+    /// not 1. This is the handbook value as tabulated in an open secondary
+    /// source (the handbook itself is licence restricted, `DATA_POLICY.md`):
+    /// van der Marck, *Benchmarking ENDF/B-VII.0*, Nucl. Data Sheets 107
+    /// (2006) 3061, HST-009 case 1. The maintainer checked the row against
+    /// the source page on 2026-10-13.
+    pub const BENCHMARK_K: f64 = 0.9990;
+    /// The benchmark's stated uncertainty on [`BENCHMARK_K`], same source.
+    pub const BENCHMARK_SIGMA: f64 = 0.0043;
 
     /// The three materials, indexing nuclides in [`NUCLIDES`] order.
     pub fn materials() -> Vec<Material> {

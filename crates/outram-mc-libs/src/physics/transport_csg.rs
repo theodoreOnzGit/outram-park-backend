@@ -2898,3 +2898,30 @@ impl CsgPowerIteration {
         self.source.iter().map(|s| s.r).collect()
     }
 }
+
+// At the end of the file for the same reason (2026-10-14, GitHub #859).
+impl CsgPowerIteration {
+    /// **Shannon entropy of the fission source on `mesh`, in bits**: the
+    /// source the next generation starts from (the initial source before the
+    /// first [`Self::step`]), binned on the mesh, through the same
+    /// [`raffles::estimators::shannon_entropy_bits`] the sphere iteration
+    /// uses ([`crate::tally::mesh::RegularMeshExt::shannon_entropy`]).
+    ///
+    /// A source site of this iteration carries no weight, so every site
+    /// counts one. A site outside the mesh is not counted, as in OpenMC
+    /// (`src/eigenvalue.cpp`, `shannon_entropy`). `None` when no site lies in
+    /// the mesh. Reading it draws no random number and changes nothing.
+    ///
+    /// The diagnostic is for judging `n_inactive`: the entropy drifts while
+    /// the source is still settling and scatters about a level once it has.
+    pub fn source_entropy(&self, mesh: &crate::tally::mesh::RegularMesh) -> Option<f64> {
+        use crate::tally::mesh::RegularMeshExt;
+        let mut counts = vec![0.0; mesh.n_bins()];
+        for s in &self.source {
+            if let Some(bin) = mesh.get_bin(s.r) {
+                counts[bin] += 1.0;
+            }
+        }
+        raffles::estimators::shannon_entropy_bits(&counts)
+    }
+}

@@ -159,10 +159,11 @@ impl McRung for Lct008 {
             "Model: ICSBEP LEU-COMP-THERM-008 case 1 (Babcock & Wilcox critical lattice): 4961 rods of 2.459 w/o UO₂ in Al-6061 clad, 1.63576 cm pitch, in water with 1511 ppm boron, arranged as a 7 × 7 core lattice of 15 × 15 pin lattices. Read at run time from the committed mit-crpg/benchmarks OpenMC cards by the same code the recorded result was measured with.",
             "Data: ENDF/B-VIII.0, processed in this browser by OUTRAM PARK's NJOY port. Watch: tolerance 0.01 (NJOY uses 0.001; measured effect on this lattice −65 ± 40 pcm). Run k_eff and the pitch view: NJOY's 0.001, as the record. Hydrogen in the water uses the H in H₂O S(α,β) thermal-scattering law. 11 nuclides: the clad's trace elements (Mg, Ti, Cr, Fe, Cu, Zn) and B-11 are left out, as in the quoted result.",
             "Each track is one real history (a one-particle fixed-source run through the nested lattices), drawn projected from above. Chaining one neutron after the next is the illustration.",
-            "Run k_eff is true Monte Carlo on the whole core: outram-mc-libs' single-thread CSG power iteration (`CsgPowerIteration`, what `run_keff_csg` runs), one generation at a time. Its default, 5000 neutrons × [40 inactive + 120 active], is sized to run in a browser, like the other benchmark rungs. It is smaller than the recorded campaign's 10 000 × [250 + 400] (96 seeds: +236 ± 8 pcm from k = 1; OpenMC on NJOY2016 data +244 ± 5), and at the default the fission source of this 1.5 m core has not fully settled: 16 native seeds gave k about 80 pcm above the campaign's. One run scatters by about 190 pcm, so that offset is inside one run's noise. For a k comparable with the record, set the campaign's numbers and wait.",
+            "Run k_eff is true Monte Carlo on the whole core: outram-mc-libs' single-thread CSG power iteration (`CsgPowerIteration`, what `run_keff_csg` runs), one generation at a time. Its default, 5000 neutrons × [40 inactive + 120 active], is sized to run in a browser, like the other benchmark rungs. It is smaller than the recorded campaign's 10 000 × [250 + 400] (96 seeds: +166 ± 8 pcm from the benchmark k of 1.0007 ± 0.0016; OpenMC on NJOY2016 data +174 ± 5), and at the default the fission source of this 1.5 m core has not fully settled: 16 native seeds gave k about 80 pcm above the campaign's. One run scatters by about 190 pcm, so that offset is inside one run's noise. For a k comparable with the record, set the campaign's numbers and wait.",
             "\"pitch k∞\" runs a real, single-threaded power iteration of ONE rod in a reflective square cell (an infinite lattice, no leakage) at the pitch you choose, on the same data, and draws it against the recorded sweep. It is k∞ of the pin lattice, not the core's k_eff.",
             "The σ(E) panel shows the cross sections this tab processed for transport, decimated for drawing: U-238 capture (σ_a − σ_f), U-235 fission and H-1 scattering with the water's S(α,β) law below its cutoff.",
-            "A CSG run reports no source entropy and no leaked / captured / fissioned counts (the sphere-only iteration of the Godiva rung does).",
+            "The Shannon entropy of the fission source is on a 5 × 5 × 5 mesh over the core's bounding box, so at most 6.97 bits. A CSG run reports no leaked / captured / fissioned counts (the sphere-only iteration of the Godiva rung does).",
+            "During Run k_eff the neutrons drawn on the geometry are real histories born at sites of the run's present fission source. They are run in addition to the run's own neutrons and are not counted in k.",
             "Animation speed is proportional to the neutron's real speed (classical kinetic energy, v proportional to √E).",
             "Education and research only. Not for reactor operation, licensing or safety decisions.",
         ]
@@ -185,7 +186,7 @@ impl McRung for Lct008 {
             "lct008",
             "five-route study route 4, 96 seeds x 10000 x [250+400], 2026-09-30, at 0414bc8277",
             10_000.0 * 400.0,
-            ("ICSBEP LEU-COMP-THERM-008 case 1, critical so k = 1; the ± is this workspace's stand-in band, not a handbook value", 1.0, 0.006),
+            ("ICSBEP LEU-COMP-THERM-008 case 1 benchmark k, as tabulated by Mosteller (LA-UR-10-06230)", model::BENCHMARK_K, model::BENCHMARK_SIGMA),
         )
     }
     fn recorded_tracks() -> Option<&'static [u8]> {
@@ -339,7 +340,12 @@ impl PinRun {
 }
 
 impl LoadedRung for Loaded {
+    /// While a whole-core run is going, the neutron is born at a site of
+    /// its present fission source; otherwise the Watch chain's next history.
     fn run_next(&mut self) -> History {
+        if let Some(k) = self.keff.as_ref().filter(|k| !k.finished()) {
+            self.chain.born_from(k);
+        }
         self.chain.run_next(&self.phys)
     }
     fn keff_start(&mut self, cfg: KeffConfig) -> Result<Vec<[f32; 2]>, String> {

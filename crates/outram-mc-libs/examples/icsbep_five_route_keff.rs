@@ -74,12 +74,15 @@
 //! **recorded route-1 `k`** (OpenMC on NJOY2016 data) of the same case, read
 //! from the committed campaign summary, never retyped.
 //!
-//! - **Why route 1 and not the benchmark `k = 1`.** The check is the
+//! - **Why route 1 and not the benchmark k.** The check is the
 //!   reduced-statistics form of the study's code-to-code criterion, so it is
 //!   judged against the same reference. It is also the only one the four
 //!   cases can all meet for a reason that is physics and not luck: on the
-//!   recorded data Jemima sits at −406 ± 17 pcm and the lattice at
-//!   +244 ± 5 pcm from `k = 1` on OpenMC itself.
+//!   recorded data Jemima sits at −406 ± 17 pcm and HEU-SOL-THERM-009 at
+//!   +334 ± 22 pcm from its benchmark k on OpenMC itself (benchmark values
+//!   1.0000 ± 0.0030 and 0.9990 ± 0.0043, cited in `vv::jemima` and
+//!   `vv::hst009`; corrected 2026-10-14, this line first measured from
+//!   `k = 1` and named the lattice, which is +174 ± 5 pcm from its 1.0007).
 //! - **Pass criterion.** `|k_run − k_route1| <= allowance` (200 pcm by
 //!   default), and the run must be able to tell: three combined standard
 //!   errors must fit inside the allowance, otherwise the verdict is

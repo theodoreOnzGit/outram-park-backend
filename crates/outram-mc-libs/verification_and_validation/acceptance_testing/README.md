@@ -22,6 +22,13 @@ Tracked on GitHub #859. The code under test is the Rust NJOY port
 Workflow: `.github/workflows/acceptance-tests.yml`. Scripts:
 `scripts/acceptance-keff.sh`, `scripts/acceptance-android.sh`.
 
+**Two tiers (maintainer, 2026-10-14).** On a push to `develop` the workflow
+is a smoke test: the code builds and runs on every platform and gives a sane
+`k`, with the 200 pcm code-to-code allowance as the bar. A pull request into
+`main` runs the same workflow with no path filter, beside `full-tests.yml`,
+which runs the whole test suite there. Neither is validation: the 50 pcm
+criterion at full statistics is qualification testing.
+
 ## Methodology
 
 ### What is run
@@ -76,9 +83,31 @@ issue left this open. The 200 pcm allowance is the reduced-statistics form of
 the study's 50 pcm *code-to-code* criterion, so it is judged against the same
 reference. And the benchmark value cannot be the reference for a reason that
 has nothing to do with this code: on this data OpenMC itself gives Jemima
-−406 ± 17 pcm and the lattice +244 ± 5 pcm from k = 1. A check against 1
-would fail both on any correct transport code. **This is a maintainer
-decision made by default here; it is flagged on #859.**
+−406 ± 17 pcm ~~and the lattice +244 ± 5 pcm from k = 1. A check against 1
+would fail both~~ and HEU-SOL-THERM-009 +334 ± 22 pcm from the benchmark k. A
+200 pcm check against the benchmark would fail both on any correct transport
+code. **This is a maintainer decision made by default here; it is flagged on
+#859.**
+
+**CORRECTED 2026-10-14: the benchmark values.** The sentence above first
+measured from k = 1, with no cited uncertainty for three cases. The benchmark
+k and its uncertainty are now cited for all four, as the handbook values
+tabulated in two open secondary sources (the handbook itself is licence
+restricted): Mosteller, *An Expanded Criticality Validation Suite for MCNP*, LA-UR-10-06230 (2010), and van der Marck, *Benchmarking ENDF/B-VII.0*, Nucl. Data Sheets 107 (2006) 3061. The maintainer checked the rows against the source
+pages on 2026-10-13.
+
+| case | benchmark k | source |
+|---|---|---|
+| Godiva, HEU-MET-FAST-001 | 1.0000 ± 0.0010 | Mosteller 2010; van der Marck 2006 |
+| Jemima, IEU-MET-FAST-002 | 1.0000 ± 0.0030 | Mosteller 2010; van der Marck 2006 |
+| HEU-SOL-THERM-009 case 1 | 0.9990 ± 0.0043 | van der Marck 2006 |
+| LEU-COMP-THERM-008 case 1 | 1.0007 ± 0.0016 | Mosteller 2010 |
+
+Against these, route 1 (OpenMC + NJOY2016) sits at +16 ± 21, −406 ± 17,
++334 ± 22 and +174 ± 5 pcm: Godiva and HEU-SOL-THERM-009 inside their bands,
+Jemima and the lattice outside (the lattice by 14 pcm). That comparison is
+validation and belongs to qualification testing. The acceptance criterion is
+unchanged by it.
 
 **The 50 pcm criterion is not tested here.** It belongs to the
 full-statistics qualification runs (the five-route campaign), which take
@@ -175,8 +204,46 @@ generations, seed): all four, in the side panel or by link
 
 **Not done.** No check on a real phone or at phone width for the new rungs
 (they use the demo's existing layout unchanged). The lattice was not run
-in a browser at its campaign size. A CSG rung reports no source entropy and no
-leak / capture / fission counts, which the Godiva rung does.
+in a browser at its campaign size. A CSG rung reports ~~no source entropy and~~
+no leak / capture / fission counts, which the Godiva rung does (**corrected
+2026-10-14:** the source entropy is now reported, see below; the phone-width
+check is now done for Jemima's run view, in headless Chromium at 390 × 800,
+still not on a real phone).
+
+**Added 2026-10-14: the run view, source entropy and benchmark values.**
+At the maintainer's request Run k_eff now shows, on all four rungs, the case
+geometry with neutrons walking through it beside the k plot, the entropy plot
+and the console (above them on a narrow screen), and the three CSG rungs
+report the Shannon entropy of the fission source
+(`CsgPowerIteration::source_entropy`, 5 × 5 × 5 mesh; pinned by
+`the_csg_source_entropy_is_bounded_and_reading_it_changes_nothing` in
+`tests/tracking_trace.rs`). Each drawn neutron is one extra traced history
+born at a site of the run's present fission source; it is not one of the
+run's own histories and is not counted in k. The "experiment" band of each
+rung is now the cited benchmark value (table under Methodology).
+
+Protocol as above, same machine and browser, tree after `f5c30d2a1b`, all data
+from the browser's cache. Screenshots were taken through the debugging port
+mid-run and at the end and were looked at by the AI assistant, not by a
+person.
+
+| rung, Run k_eff, default 5000 × [40 + 120], seed 1 | result | entropy at the end | neutrons drawn |
+|---|---|---|---|
+| Godiva | k = 0.99689 ± 0.00178 in 5 s | 6.131 bits | 9 |
+| Jemima | k = 0.99786 ± 0.00174 in 30 s | 5.696 bits | 3 |
+| HEU-SOL-THERM-009 | k = 1.00111 ± 0.00162 in 80 s | 6.488 bits | 3 |
+| LEU-COMP-THERM-008 | k = 1.00047 ± 0.00155 in 81 s | 6.008 bits | 22 |
+
+All four `k` are the same, to every printed digit, as in the table of
+2026-10-13 above, so drawing the extra neutrons and reading the entropy does
+not disturb the run. The seconds are longer than then for the two thermal
+cases; the machine was running test suites at the same time. On the lattice
+the entropy falls from 6.3 to 6.0 bits over the 40 inactive generations and
+is still drifting when the active ones start, which is the unsettled source
+the record already names as the reason this run size reads high. Few
+neutrons are drawn on Jemima and the solution because each is animated at
+the Watch view's speed. At 390 × 800 (Jemima) the geometry sits above the two
+plots and the console, and all four are on screen.
 
 ## What this does and does not establish
 
@@ -186,9 +253,11 @@ leak / capture / fission counts, which the Godiva rung does.
   with the run able to resolve that. The browser processes the same tapes
   and transports the same models.
 - **Does not establish:** agreement at the 50 pcm level (the campaign's
-  job), validation against the experiments (three of the four cases have no
-  citable handbook uncertainty here, and two sit hundreds of pcm from k = 1
-  on both codes), or anything about a power reactor.
+  job), validation against the experiments (~~three of the four cases have no
+  citable handbook uncertainty here~~ **corrected 2026-10-14:** all four
+  benchmark uncertainties are now cited, see above; Jemima and
+  HEU-SOL-THERM-009 sit hundreds of pcm from their benchmark k on both codes,
+  the second inside its ± 430 pcm band), or anything about a power reactor.
 - **Android is an emulator.** x86_64 Android under the emulator has a real
   Android kernel and the Bionic C library, which a Termux binary also runs
   on. It is not a run inside the Termux app on a physical aarch64 phone.
