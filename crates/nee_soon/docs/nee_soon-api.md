@@ -15651,7 +15651,7 @@ histories:
 | pass | filters | scores |
 |---|---|---|
 | scalar | `[Material, Energy]` | `Flux, Total, Absorption, NuFission, KappaFission, Fission` |
-| matrix | `[Material, Energy, EnergyOut]` | `ScatterN, NuFission` (births, for `chi`) |
+| matrix | `[Material, Energy, EnergyOut]` | `ScatterN` (nu-scatter), `NuFission` (births, for `chi`), `Scatter` (scatter-only, since 2026-10-13) |
 
 Because the histories are identical, the flux denominator from the scalar
 pass is the correct denominator for the matrix pass; they are not two
@@ -15726,6 +15726,26 @@ pub enum MgxsError {
     NotNested {
         edge_ev: f64,
     },
+    Inconsistent {
+        zone: String,
+        group: usize,
+        expected: f64,
+        row: f64,
+        residual: f64,
+        allowed: f64,
+    },
+    NoUncertainty {
+        zone: String,
+        group: usize,
+        relative: f64,
+    },
+    NoScatterOnly {
+        zone: String,
+    },
+    NotTransportable {
+        zone: String,
+        what: String,
+    },
 }
 ```
 
@@ -15783,6 +15803,63 @@ Fields:
 | Name | Type | Documentation |
 |------|------|---------------|
 | `edge_ev` | `f64` | The offending coarse edge \[eV\]. |
+
+###### `Inconsistent`
+
+[`MgxsLibrary::to_physics_mg`]: a group's scattering row disagrees with
+`Sigma_t - Sigma_a` by more than its statistics allow. The two come
+from separate estimators, so this is a condensation defect (or a
+library assembled wrongly), not noise.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `zone` | `String` | Zone name. |
+| `group` | `usize` | Group index in the library's own ascending order. |
+| `expected` | `f64` | `Sigma_t - Sigma_a` \[cm^-1\]. |
+| `row` | `f64` | The scattering row sum \[cm^-1\]. |
+| `residual` | `f64` | `row - expected` \[cm^-1\]. |
+| `allowed` | `f64` | The bound it was held to \[cm^-1\]. |
+
+###### `NoUncertainty`
+
+[`MgxsLibrary::to_physics_mg`]: the library carries no standard errors
+([`ZoneMgxs::sigma`] is `None`) and is not exactly balanced, so a
+statistical disagreement cannot be told from a defect.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `zone` | `String` | Zone name. |
+| `group` | `usize` | The first group found off balance (ascending order). |
+| `relative` | `f64` | Its relative residual. |
+
+###### `NoScatterOnly`
+
+[`MgxsLibrary::to_physics_mg`]: the library has no scatter-only matrix
+([`ZoneMgxs::scatter_only`] empty: condensed before 2026-10-13), so
+the scattering multiplicity cannot be formed.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `zone` | `String` | Zone name. |
+
+###### `NotTransportable`
+
+[`MgxsLibrary::to_physics_mg`]: an ordering the multigroup kernel
+requires does not hold (`Sigma_f <= Sigma_a <= Sigma_t`, a fissile zone
+with a birth spectrum, matching group counts).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `zone` | `String` | Zone name. |
+| `what` | `String` | What failed. |
 
 ##### Implementations
 
@@ -16120,7 +16197,9 @@ pub struct ZoneMgxs {
     pub nu_fission: Vec<f64>,
     pub kappa_fission: Vec<f64>,
     pub scatter: Vec<Vec<f64>>,
+    pub scatter_only: Vec<Vec<f64>>,
     pub chi: Vec<f64>,
+    pub sigma: Option<ZoneMgxsSigma>,
 }
 ```
 
@@ -16135,8 +16214,10 @@ pub struct ZoneMgxs {
 | `fission` | `Vec<f64>` | Fission `Sigma_f` \[cm^-1\] (added 2026-10-12, gh:#848). A multigroup<br>transport code needs it beside `nu * Sigma_f`: it is what `nu-bar`<br>and the capture/fission split at a collision are formed from<br>(`outram_mc_libs::physics::physics_mg::Mgxs::new`). |
 | `nu_fission` | `Vec<f64>` | Neutron production `nu * Sigma_f` \[cm^-1\]. |
 | `kappa_fission` | `Vec<f64>` | Fission energy deposition `kappa * Sigma_f` \[J cm^-1\]. |
-| `scatter` | `Vec<Vec<f64>>` | Isotropic (`P0`) scattering matrix, `scatter[g_in][g_out]` \[cm^-1\]. |
+| `scatter` | `Vec<Vec<f64>>` | Isotropic (`P0`) scattering matrix, `scatter[g_in][g_out]` \[cm^-1\].<br><br>**A nu-scatter matrix**: [`condense`] fills it from the tally's<br>`ScatterN` score, which counts every neutron a scatter emits, so an<br>(n,2n) contributes twice (once in each neutron's outgoing group). Its<br>row therefore exceeds `Sigma_t - Sigma_a` by the (n,xn) gain;<br>[`Self::scatter_only`] is the matrix that does not. |
+| `scatter_only` | `Vec<Vec<f64>>` | The scatter-only matrix, one count per scattering collision on the<br>primary neutron's outgoing group \[cm^-1\] (added 2026-10-13,<br>gh:#682); OpenMC's `scatter matrix` beside its `nu-scatter matrix`.<br>`scatter[g][g'] / scatter_only[g][g']` is the multiplicity, and its<br>row is the tallied estimate of `Sigma_t - Sigma_a`. **Empty** for a<br>library condensed before the score existed (records deserialise with<br>it empty). |
 | `chi` | `Vec<f64>` | Fission spectrum `chi_g`, normalised to sum to 1 over groups.<br><br>**Measured, not assumed**: condensed from the energies fission neutrons<br>were actually born with during the run, via<br>`outram_mc_libs::tally::scoring::score_fission_birth`. A zone that<br>fissioned not at all carries all zeros, and the sum is then 0 rather<br>than 1 -- check before using it as a source distribution. |
+| `sigma` | `Option<ZoneMgxsSigma>` | Standard errors of the constants above, per group, as [`condense`]<br>estimated them (added 2026-10-13, gh:#848). `None` when they are not<br>known: a library built by hand, one condensed from fewer than two<br>active batches, one derived by [`MgxsLibrary::collapse`],<br>[`MgxsLibrary::homogenised`] or [`MgxsLibrary::rebalanced`] (none of<br>which can carry them, see [`ZoneMgxsSigma`]), and every record written<br>before the field existed, which deserialise with `None`. |
 
 ##### Implementations
 
@@ -16171,6 +16252,209 @@ pub struct ZoneMgxs {
   pub fn scatter_out(self: &Self, g: usize) -> Option<f64> { /* ... */ }
   ```
   Scattering production out of group `g`, summed over outgoing groups.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ZoneMgxsSigma`
+
+One standard error per condensed constant of a [`ZoneMgxs`], with the
+same shapes and the same ascending group order.
+
+# How they are estimated, and what that misses
+
+Every constant is a ratio `R = X / phi` of two tally means over the same
+batches. [`condense`] takes each mean's standard error from its own bin
+([`TallyBin::rel_std_dev`], the standard error of the batch mean) and
+combines the two in quadrature:
+
+```text
+  sigma_R = |R| * sqrt( (sigma_X / X)^2 + (sigma_phi / phi)^2 )
+```
+
+That drops the covariance term `-2 rho (sigma_X/X)(sigma_phi/phi)`. The
+numerator and the flux are scored on the same tracks in the same batches,
+so `rho > 0` and the dropped term would make `sigma_R` **smaller**: these
+are upper estimates. The tally keeps per-bin moments only, not the
+covariance between bins, which is also why no `chi` uncertainty is given
+(each `chi_g` is a sum of bins of one batch) and why a group merged by
+[`MgxsLibrary::collapse`] has none.
+
+`flux` is the flux's own absolute standard error.
+
+```rust
+pub struct ZoneMgxsSigma {
+    pub flux: Vec<f64>,
+    pub total: Vec<f64>,
+    pub absorption: Vec<f64>,
+    pub fission: Vec<f64>,
+    pub nu_fission: Vec<f64>,
+    pub kappa_fission: Vec<f64>,
+    pub scatter: Vec<Vec<f64>>,
+    pub scatter_only: Vec<Vec<f64>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `flux` | `Vec<f64>` | Standard error of [`ZoneMgxs::flux`]. |
+| `total` | `Vec<f64>` | Standard error of [`ZoneMgxs::total`] \[cm^-1\]. |
+| `absorption` | `Vec<f64>` | Standard error of [`ZoneMgxs::absorption`] \[cm^-1\]. |
+| `fission` | `Vec<f64>` | Standard error of [`ZoneMgxs::fission`] \[cm^-1\]. |
+| `nu_fission` | `Vec<f64>` | Standard error of [`ZoneMgxs::nu_fission`] \[cm^-1\]. |
+| `kappa_fission` | `Vec<f64>` | Standard error of [`ZoneMgxs::kappa_fission`] \[J cm^-1\]. |
+| `scatter` | `Vec<Vec<f64>>` | Standard error of each [`ZoneMgxs::scatter`] element \[cm^-1\]. |
+| `scatter_only` | `Vec<Vec<f64>>` | Standard error of each [`ZoneMgxs::scatter_only`] element<br>\[cm^-1\]; empty when that matrix is. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn scatter_row_bound(self: &Self, g: usize) -> Option<f64> { /* ... */ }
+  ```
+  An upper bound on the standard error of row `g`'s sum,
+
+- ```rust
+  pub fn scatter_only_row_bound(self: &Self, g: usize) -> Option<f64> { /* ... */ }
+  ```
+  The same bound for [`ZoneMgxs::scatter_only`]'s row.
 
 ###### Trait Implementations
 
@@ -16382,6 +16666,16 @@ pub struct MgxsLibrary {
   The same library on the coarser structure `coarse`, whose edges must be
 
 - ```rust
+  pub fn to_physics_mg(self: &Self) -> Result<outram_mc_libs::physics::physics_mg::MgxsLibrary, MgxsError> { /* ... */ }
+  ```
+  Convert to the multigroup transport kernel's library,
+
+- ```rust
+  pub fn to_physics_mg_without_multiplicity(self: &Self) -> Result<outram_mc_libs::physics::physics_mg::MgxsLibrary, MgxsError> { /* ... */ }
+  ```
+  **Ablation**: [`Self::to_physics_mg`] without the scattering
+
+- ```rust
   pub fn in_descending_energy(self: &Self) -> Self { /* ... */ }
   ```
   The same library with every group axis reversed, so index 0 is the
@@ -16535,8 +16829,8 @@ Condense a completed pair of Monte Carlo tallies into group constants.
   the `MaterialFilter` the tallies carried.
 - `scalar` — a tally with filters `[Material, Energy]` and scores exactly
   [`SCALAR_SCORES`], already run.
-- `matrix` — a tally with filters `[Material, Energy, EnergyOut]` and score
-  `[ScatterN]`, already run at the same seed.
+- `matrix` — a tally with filters `[Material, Energy, EnergyOut]` and
+  scores exactly [`MATRIX_SCORE_TYPES`], already run at the same seed.
 - `n_realizations` — active batch count, for [`TallyBin::mean`].
 
 # Errors
@@ -16593,14 +16887,49 @@ pub fn matrix_tally(id: i32, groups: &GroupStructure, material_indices: Vec<usiz
 
 ### Constants and Statics
 
-#### Constant `MATRIX_SCORES`
+#### Constant `CONSISTENCY_Z`
 
-Scores carried by the matrix pass, in order: the scattering matrix and the
-fission-birth spectrum. Both need the same `[Material, Energy, EnergyOut]`
-filters, so they share one tally and one transport pass.
+How many standard errors a scattering row may differ from
+`Sigma_t - Sigma_a` before [`MgxsLibrary::to_physics_mg`] refuses it.
+
+Fixed at 4 before any library was converted. The bound it multiplies is
+itself an upper bound on the standard error (see [`ZoneMgxsSigma`]), so a
+genuine 4-sigma excursion is rarer than the nominal 6e-5 per group.
 
 ```rust
-pub const MATRIX_SCORES: usize = 2;
+pub const CONSISTENCY_Z: f64 = 4.0;
+```
+
+#### Constant `CONSISTENCY_REL_FLOOR`
+
+The relative balance a library must hold in every group when it carries
+no standard errors, and the floor under the statistical bound when it
+does: rounding, not statistics.
+
+```rust
+pub const CONSISTENCY_REL_FLOOR: f64 = 1.0e-9;
+```
+
+#### Constant `MATRIX_SCORE_TYPES`
+
+The score order the matrix pass must declare, and that [`condense`]
+assumes: the nu-scatter matrix (`ScatterN`), the fission births that give
+`chi` (`NuFission`) and, appended 2026-10-13 (gh:#682), the scatter-only
+matrix (`Scatter`). All three need the same
+`[Material, Energy, EnergyOut]` filters, so they share one tally and one
+transport pass. Exposed so a caller building its own matrix tally
+(`dhoby-ghaut`'s mesh tally) cannot disagree with the reader.
+
+```rust
+pub const MATRIX_SCORE_TYPES: [outram_mc_libs::tally::tally::ScoreType; 3] = _;
+```
+
+#### Constant `MATRIX_SCORES`
+
+Number of scores in the matrix pass (`MATRIX_SCORE_TYPES.len()`).
+
+```rust
+pub const MATRIX_SCORES: usize = _;
 ```
 
 #### Constant `SCALAR_SCORES`
@@ -16637,9 +16966,10 @@ Orchestration only, as everywhere in this crate: the transport is
 1. Process the nuclear data at the case temperature
    ([`crate::htr10_rmc::data`], ENDF/B-VIII.0, every material at that
    temperature: an **isothermal** state point).
-2. Assemble the model ([`cases::CaseModel`]). Today that is the full core,
-   Şeker & Çolak's 13-ball bed with explicit TRISO, the geometry every
-   recorded HTR-10 `k` in this crate is on.
+2. Assemble the model ([`cases::CaseModel`]): the full core, Şeker &
+   Çolak's 13-ball bed with explicit TRISO, the geometry every recorded
+   HTR-10 `k` in this crate is on; or, since 2026-10-13 (gh:#849), one of
+   the small cells of [`cells`] built from the same particle and pebbles.
 3. Run two k-eigenvalue passes at one seed, the scalar and the
    scattering-matrix tallies of [`crate::mgxs`], per material, on the
    **70-group tally structure** of [`groups`] (WIMS-69 plus 10-20 MeV).
@@ -16654,9 +16984,13 @@ Orchestration only, as everywhere in this crate: the transport is
 ## What a case does NOT do yet
 
 - **No multigroup `k_eff`.** The gate of #850 needs the converter to
-  `physics_mg` (#848) and the scattering multiplicity (#682). The saved
+  `physics_mg` (#848) and the scattering multiplicity (#682). ~~The saved
   library is what that gate will read, so these runs are not repeated
-  when it lands.
+  when it lands.~~ **CORRECTED 2026-10-13:** both have landed, and the
+  converter needs per-group standard errors and the scatter-only matrix,
+  which a record written before that date lacks; such a record converts
+  only through explicit ablations
+  (`verification_and_validation/htr10_mgxs_runs/README.md`).
 - **No uncertainty on the collapsed constants.** Tallies keep per-bin
   moments, not the covariance between the fine bins of one batch, so the
   σ of a merged group is not recoverable (see [`crate::mgxs`]). The
@@ -16695,6 +17029,7 @@ pub enum CaseModel {
     FullCore {
         layers: usize,
     },
+    Cell(super::cells::CellKind),
 }
 ```
 
@@ -16714,6 +17049,18 @@ Fields:
 | Name | Type | Documentation |
 |------|------|---------------|
 | `layers` | `usize` | Şeker layers N (bed height `9.798 N + 6` cm). |
+
+###### `Cell`
+
+One of the small cells of [`super::cells`] (added 2026-10-13,
+gh:#849): the single pebble or a Şeker cluster, built from the core's
+own particle and pebbles, reflective all round.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::cells::CellKind` |  |
 
 ##### Implementations
 
@@ -17102,6 +17449,484 @@ Active generations of a recorded case (the `k` record's 135).
 pub const RECORD_ACTIVE: usize = 135;
 ```
 
+#### Constant `PILOT_PARTICLES`
+
+Particles per generation of a cell pilot (`pilot_*`).
+
+```rust
+pub const PILOT_PARTICLES: usize = 2_000;
+```
+
+#### Constant `PILOT_INACTIVE`
+
+Inactive generations of a cell pilot. A reflective cell has no leakage
+mode to settle, so 10 suffices where the full core needs 20; the record's
+entropy trace says whether it did.
+
+```rust
+pub const PILOT_INACTIVE: usize = 10;
+```
+
+#### Constant `PILOT_ACTIVE`
+
+Active generations of a cell pilot.
+
+```rust
+pub const PILOT_ACTIVE: usize = 40;
+```
+
+## Module `cells`
+
+# HTR-10 cells for the MGXS gate (gh:#849)
+
+Two small CSG models built from the **same** particle, pebble and Şeker
+tile as the full core, so multigroup constants condensed on them describe
+the core's fuel:
+
+- [`Htr10Cell::single_pebble`]: one explicit-TRISO fuel pebble and helium
+  in a reflective cube of side 6 cm, the simplest cell for the gate.
+- [`Htr10Cell::seker_cluster`]: Şeker & Çolak (2003)'s 13-ball tiles at
+  the core's packing, fuel and dummy balls by the core's rule, in a
+  reflective hexagonal prism one tile high.
+
+The TRISO particle and its lattice are [`TrisoBuild`] and the pebbles of a
+tile [`build_tile_universes`], both extracted from the core builder for
+this module (2026-10-13); nothing is copied.
+
+# The single pebble's packing is 0.524, not 0.61
+
+One 6 cm ball in a 6 cm cube is simple cubic packing: `(pi/6) = 0.5236`
+of the volume is pebble. The core's bed is 0.61 (Şeker's 0.6448 in the
+interior). The single pebble is a deliberately simple cell. ~~Its helium
+fraction is too high for the core, though helium barely interacts.~~
+**CORRECTED 2026-10-13 (pilots, `verification_and_validation/htr10_mgxs_cells/`):**
+the helium matters little, but every ball in this cell is fuel, while the
+core's bed is 43 % dummy graphite balls. The cell is therefore
+under-moderated. Its kernel's one-group Σa is 28 % below the Şeker
+cluster's, and its `k_inf` is 6100 ± 536 pcm lower. Its constants do not
+describe the core's fuel; it serves as the simplest MG-against-CE gate.
+
+# The Şeker cluster's boundary, and why it is a superlattice hexagon
+
+Top and bottom are exact under reflection: the planes cut the flower
+balls through their centres, and the close-packed A-B-A stacking is
+mirror-symmetric about an A plane. **The side faces are not**: a tile's
+`Outer(k)` balls cross three of its faces and its neighbours' balls enter
+through the other three, so a reflected tile face distorts those balls.
+Periodic boundaries, which would be exact, are refused by
+`outram-mc-libs` (gh:#259).
+
+So the side boundary is the Wigner–Seitz hexagon of a **hexagonal
+superlattice** of the tile lattice, with superlattice vector
+`L = i a1 + j a2` (`a1`, `a2` the tile lattice vectors of
+`htr10_rmc::bed::tile_xy`): `(i, j) = (1, 0), (2, 1), (3, 2)` for
+`rings = 1, 2, 3`, holding `N = i^2 + i j + j^2 = 1, 7, 19` tiles' worth of
+bed. That hexagon is the exact periodic unit of the bed's geometry, so
+under periodic boundaries it would be exact; with reflective ones it is an
+approximation that **must be measured**, by the convergence of `k_inf` and
+the constants over N = 1, 7, 19, not assumed away. For N = 1 it is the tile
+itself; for N = 7 and 19 it is rotated against the tiles (by 19.1° and
+23.4°) and cuts through them. The ball fraction inside it is Şeker's
+0.6448 for every N, because the hexagon is a unit cell of the tiling.
+
+**What the convex hexagon replaces.** A boundary following the cluster's
+own zig-zag outline would need reflective planes that also pass through
+the cluster's interior, and a reflective surface reflects wherever it is
+crossed. A convex prism is the only reflective boundary this CSG can
+express without that error.
+
+# Fuel and dummy balls
+
+Every ball with a piece inside the prism takes part; they are ordered as
+`SekerBed::assign` orders the core's (by layer, then `rho^2`, then angle,
+then id), and the core's low-discrepancy rule makes a ball fuel when
+`floor((n + 1) f) > floor(n f)`, with `f` the design's
+`fuel_ball_fraction` (0.57 by default). A cell this small cannot hold
+exactly 0.57 of its ball volume as fuel; [`Htr10Cell::fuel_balls`] and
+[`Htr10Cell::dummy_balls`] report what it holds.
+
+**Research, education and V&V only** (`RESPONSIBLE_USE.md`).
+
+```rust
+pub mod cells { /* ... */ }
+```
+
+### Types
+
+#### Enum `CellKind`
+
+Which cell: the identity a case or a record names.
+
+```rust
+pub enum CellKind {
+    SinglePebble,
+    SekerCluster {
+        rings: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `SinglePebble`
+
+One fuel pebble and helium in a reflective 6 cm cube.
+
+###### `SekerCluster`
+
+Şeker tiles in the reflective superlattice prism of `rings` = 1, 2 or 3
+(1, 7 or 19 tiles' worth of bed).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rings` | `usize` | 1, 2 or 3. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn describe(self: &Self) -> String { /* ... */ }
+  ```
+  A short description for logs and records.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Htr10Cell`
+
+An assembled HTR-10 cell: the CSG geometry and what it holds.
+
+Material indices are those of `htr10_rmc::materials::htr10_material_set`
+(`htr10_rmc::core_model::mat`), so the same material and nuclide tables
+as the core run on it. The root cell is delta-tracked with majorant
+`majorant_index`, as the core's bed is, or surface-tracked when
+`majorant_index == usize::MAX`.
+
+```rust
+pub struct Htr10Cell {
+    pub kind: CellKind,
+    pub geometry: outram_mc_libs::geometry::geometry::Geometry,
+    pub half_extent: [f64; 3],
+    pub volume_cm3: f64,
+    pub triso_particles: usize,
+    pub fuel_balls: usize,
+    pub dummy_balls: usize,
+    pub balls: Vec<([f64; 3], bool)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kind` | `CellKind` | Which cell. |
+| `geometry` | `outram_mc_libs::geometry::geometry::Geometry` | The assembled geometry. |
+| `half_extent` | `[f64; 3]` | Half-extents of the cell's bounding box \[cm\], centred on the origin. |
+| `volume_cm3` | `f64` | Volume of the cell \[cm^3\]. |
+| `triso_particles` | `usize` | Whole TRISO particles per fuel pebble. |
+| `fuel_balls` | `usize` | Fuel balls with a piece inside the cell. |
+| `dummy_balls` | `usize` | Dummy (all-graphite) balls with a piece inside the cell. |
+| `balls` | `Vec<([f64; 3], bool)>` | Centre \[cm\] of every ball with a piece inside the cell, and whether<br>it is fuel: the identities the geometry was built from, kept so a<br>check can recount the cell's contents without going through the CSG. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn single_pebble() -> Self { /* ... */ }
+  ```
+  The single pebble at the default design, delta-tracked with majorant 0.
+
+- ```rust
+  pub fn single_pebble_with(design: &Htr10CoreDesign, majorant_index: usize) -> Self { /* ... */ }
+  ```
+  The single pebble of `design`: one fuel pebble (6 cm ball, the design's
+
+- ```rust
+  pub fn seker_cluster(rings: usize) -> Self { /* ... */ }
+  ```
+  The Şeker cluster of `rings` (1, 2 or 3) at the default design,
+
+- ```rust
+  pub fn seker_cluster_with(rings: usize, design: &Htr10CoreDesign, majorant_index: usize) -> Self { /* ... */ }
+  ```
+  The Şeker cluster of `rings` for `design`. See the module docs for the
+
+- ```rust
+  pub fn source_box(self: &Self) -> SourceBox { /* ... */ }
+  ```
+  The bounding box, for the initial fission source (rejection-sampled
+
+- ```rust
+  pub fn entropy_mesh(self: &Self) -> RegularMesh { /* ... */ }
+  ```
+  A 4 x 4 x 4 Shannon-entropy mesh over the bounding box.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `groups`
 
 The group structures of the HTR-10 MGXS cases.
