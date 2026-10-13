@@ -83,9 +83,30 @@ struct Tracks {
     dots: bool,
     /// Length of bright trail behind the neutron, cm; `None` draws it all.
     trail_cm: Option<f64>,
+    /// Recorded histories to play again when the queue runs out (gh:#859);
+    /// empty for live tracks, which ask the engine for more instead.
+    replay: Vec<History>,
 }
 
 impl Tracks {
+    /// A player of recorded tracks: no engine behind it, the same histories
+    /// round and round until the live ones are ready.
+    fn recorded(histories: Vec<History>, fast: bool) -> Self {
+        Self {
+            queue: histories.iter().cloned().collect(),
+            outstanding: 0,
+            current: None,
+            past: VecDeque::new(),
+            stats: Stats::default(),
+            running: true,
+            single: false,
+            want_single: false,
+            keep: if fast { 6 } else { 0 },
+            dots: true,
+            trail_cm: if fast { None } else { Some(80.0) },
+            replay: histories,
+        }
+    }
     fn new(link: &McLink, fast: bool, autostart: bool) -> Self {
         link.send(Request::Run { n: PREFETCH, animate: true });
         Self {
@@ -101,6 +122,7 @@ impl Tracks {
             keep: if fast { 6 } else { 0 },
             dots: true,
             trail_cm: if fast { None } else { Some(80.0) },
+            replay: Vec::new(),
         }
     }
     fn retire(&mut self, h: History) {
@@ -110,6 +132,9 @@ impl Tracks {
         }
     }
     fn start_next(&mut self) -> bool {
+        if self.queue.is_empty() && !self.replay.is_empty() {
+            self.queue.extend(self.replay.iter().cloned());
+        }
         let Some(h) = self.queue.pop_front() else { return false };
         if let Some(a) = self.current.take() {
             if !a.counted {
@@ -496,6 +521,10 @@ pub struct McApp {
     data_notes: Vec<String>,
     /// What the cache holds, as the engine last reported it.
     cache_info: Option<String>,
+    /// Recorded tracks played over the geometry while the rung's data load
+    /// (gh:#859, [`crate::recorded`]); `None` once live tracks take over, or
+    /// for a rung or view that ships none.
+    recorded: Option<Tracks>,
 }
 
 impl McApp {
@@ -546,7 +575,11 @@ impl McApp {
             data_sources: Vec::new(),
             data_notes: Vec::new(),
             cache_info: None,
+            recorded: None,
         };
+        // `?particles=&inactive=&active=&seed=` (natively `--particles` …)
+        // preset the Run k_eff settings (gh:#859).
+        app.run_cfg = run_cfg_from_query(app.run_cfg, &dhoby_ghaut::web_demo::platform::query_pairs());
         match link {
             Ok(l) => {
                 l.send(Request::CacheInfo);
@@ -602,8 +635,27 @@ impl McApp {
             self.xs.clear();
             self.xs_shown.clear();
             self.phase = Phase::Loading(LoadState::new(rung, need));
+            self.recorded = Self::recorded_player(rung, mode, self.watch_view);
             if let Some(link) = &self.link {
                 link.send(Request::Load { id: self.load_id, rung, tier: need });
+            }
+        }
+    }
+
+    /// The recorded tracks to play while `rung` loads: only for the view
+    /// they illustrate (Watch, one neutron at a time) and only where the rung
+    /// ships a readable file. A file that does not decode is logged and the
+    /// view waits for the data, as a rung without one does.
+    fn recorded_player(rung: Rung, mode: Mode, view: WatchView) -> Option<Tracks> {
+        if mode != Mode::Watch || view != WatchView::Neutrons {
+            return None;
+        }
+        match crate::recorded::histories(rung.recorded_tracks()?) {
+            Ok(h) if !h.is_empty() => Some(Tracks::recorded(h, rung.info().spectrum == anim::Spectrum::Fast)),
+            Ok(_) => None,
+            Err(e) => {
+                log::warn!("{}: recorded tracks unreadable: {e}", rung.info().name);
+                None
             }
         }
     }
@@ -619,6 +671,7 @@ impl McApp {
 
     /// Build the screen for the current rung, mode and view, on loaded data.
     fn enter_screen(&mut self) {
+        self.recorded = None;
         let Some(link) = &self.link else { return };
         let fast = self.rung.info().spectrum == anim::Spectrum::Fast;
         self.phase = Phase::Ready(match (self.mode, self.watch_view, self.rung.watch_generations()) {
@@ -736,13 +789,21 @@ impl McApp {
     fn title_now(&mut self, ctx: &egui::Context) {
         let name = self.rung.info().title;
         let t = match &self.phase {
-            Phase::Loading(l) => format!("{name} · loading {}/{} · {}", l.loading.done(), l.loading.labels.len(), l.loading.status_line()),
+            Phase::Loading(l) => {
+                // What an unattended browser check reads (gh:#859).
+                let rec = self.recorded.as_ref().map_or(String::new(), |r| format!(" · recorded tracks: {} played, {} in the file", r.stats.histories, r.replay.len()));
+                format!("{name} · loading {}/{} · {}{rec}", l.loading.done(), l.loading.labels.len(), l.loading.status_line())
+            }
             Phase::Ready(Screen::Tracks(r)) => format!(
                 "{name} · {} neutrons · {} fission · {} capture · {} leak",
                 r.stats.histories, r.stats.fissions, r.stats.captures, r.stats.leaks
             ),
             Phase::Ready(Screen::Generations(it) | Screen::Run(it)) => {
-                format!("{name} · generation {}/{} · {:?}", it.gens.len(), it.total_gens(), it.state)
+                // The running mean too, so an unattended browser check can
+                // read the result (gh:#859).
+                let (m, e) = it.result();
+                let k = if m.is_finite() { format!(" · k = {m:.5} ± {e:.5} · {:.0} s", it.elapsed) } else { String::new() };
+                format!("{name} · generation {}/{} · {:?}{k}", it.gens.len(), it.total_gens(), it.state)
             }
             Phase::Ready(Screen::Kinf(k)) => {
                 let at = match k.case.choices.iter().find(|c| c.0 == k.running_param) {
@@ -1378,7 +1439,7 @@ impl McApp {
                 ui.add(egui::DragValue::new(&mut cfg.n_particles).range(100..=20_000).speed(50));
                 ui.end_row();
                 ui.label("inactive generations");
-                ui.add(egui::DragValue::new(&mut cfg.n_inactive).range(1..=200));
+                ui.add(egui::DragValue::new(&mut cfg.n_inactive).range(1..=1000));
                 ui.end_row();
                 ui.label("active generations");
                 ui.add(egui::DragValue::new(&mut cfg.n_active).range(2..=1000));
@@ -1455,6 +1516,51 @@ impl McApp {
 }
 
 // ─── Main view ───────────────────────────────────────────────────────────────
+
+/// The Run k_eff settings a link asks for: `particles`, `inactive`, `active`
+/// and `seed` in the query replace `default`'s, each held to the range the
+/// panel's own controls allow; anything absent or unreadable keeps the default.
+fn run_cfg_from_query(default: KeffConfig, query: &[(String, String)]) -> KeffConfig {
+    let get = |name: &str, lo: u64, hi: u64, d: u64| {
+        dhoby_ghaut::web_demo::platform::query_value(query, name).and_then(|v| v.parse::<u64>().ok()).map_or(d, |v| v.clamp(lo, hi))
+    };
+    KeffConfig {
+        n_particles: get("particles", 100, 20_000, default.n_particles as u64) as usize,
+        n_inactive: get("inactive", 1, 1000, default.n_inactive as u64) as usize,
+        n_active: get("active", 2, 1000, default.n_active as u64) as usize,
+        seed: get("seed", 1, 1_000_000, default.seed),
+        ..default
+    }
+}
+
+/// Advance and draw one neutron-at-a-time view: the faded past tracks and
+/// the current one up to its head. Shared by the live view and the recorded
+/// tracks shown while a rung loads.
+fn play_tracks(ui: &egui::Ui, painter: &egui::Painter, r: &mut Tracks, speed: f64, to_screen: impl Fn(f64, f64) -> Pos2 + Copy) {
+    let dt = ui.input(|i| i.stable_dt).min(0.1) as f64;
+    if r.running || r.single {
+        match &mut r.current {
+            Some(a) if !a.finished() => a.advance(dt, speed),
+            Some(_) if r.single => r.single = false,
+            _ if r.running => {
+                r.start_next();
+            }
+            _ => {}
+        }
+        ui.ctx().request_repaint();
+    }
+    r.count_if_finished();
+    let n = r.past.len();
+    for (i, h) in r.past.iter().enumerate() {
+        let alpha = (25.0 + 45.0 * (i + 1) as f32 / n.max(1) as f32) as u8;
+        draw_track(painter, to_screen, h, None, alpha, false, None);
+    }
+    if let Some(a) = &r.current {
+        let upto = if a.finished() { None } else { Some(a.head()) };
+        let trail = r.trail_cm.map(|len| (a.cum.as_slice(), a.shown_cm.min(a.total()), len));
+        draw_track(painter, to_screen, &a.hist, upto, 255, r.dots, trail);
+    }
+}
 
 /// A plot frame with linear axes.
 struct Axes {
@@ -1598,35 +1704,29 @@ impl McApp {
                     (None, true) => Some(format!("So far: {}.", Source::summarize(l.sources.iter().flatten()))),
                     (Some(n), true) => Some(format!("{n}\nSo far: {}.", Source::summarize(l.sources.iter().flatten()))),
                 };
-                l.loading.card(&painter, rect, title, note.as_deref());
+                match &mut self.recorded {
+                    // Recorded tracks play over the geometry meanwhile
+                    // (gh:#859); the card moves to the top to leave it clear.
+                    Some(r) => {
+                        play_tracks(ui, &painter, r, speed, to_screen);
+                        painter.text(
+                            rect.left_bottom() + Vec2::new(16.0, -40.0),
+                            egui::Align2::LEFT_BOTTOM,
+                            "recorded tracks, shipped with the page · live ones start when the data are ready",
+                            egui::FontId::proportional(12.0),
+                            Color32::from_rgb(250, 200, 80),
+                        );
+                        let band = Rect::from_min_max(rect.min, Pos2::new(rect.right(), (rect.top() + 240.0).min(rect.bottom())));
+                        l.loading.card(&painter, band, title, note.as_deref());
+                    }
+                    None => l.loading.card(&painter, rect, title, note.as_deref()),
+                }
             }
             Phase::Failed(e) => {
                 painter.text(rect.center(), egui::Align2::CENTER_CENTER, format!("Failed: {e}"), egui::FontId::proportional(15.0), Color32::from_rgb(255, 110, 110));
             }
             Phase::Ready(Screen::Tracks(r)) => {
-                let dt = ui.input(|i| i.stable_dt).min(0.1) as f64;
-                if r.running || r.single {
-                    match &mut r.current {
-                        Some(a) if !a.finished() => a.advance(dt, speed),
-                        Some(_) if r.single => r.single = false,
-                        _ if r.running => {
-                            r.start_next();
-                        }
-                        _ => {}
-                    }
-                    ui.ctx().request_repaint();
-                }
-                r.count_if_finished();
-                let n = r.past.len();
-                for (i, h) in r.past.iter().enumerate() {
-                    let alpha = (25.0 + 45.0 * (i + 1) as f32 / n.max(1) as f32) as u8;
-                    draw_track(&painter, to_screen, h, None, alpha, false, None);
-                }
-                if let Some(a) = &r.current {
-                    let upto = if a.finished() { None } else { Some(a.head()) };
-                    let trail = r.trail_cm.map(|len| (a.cum.as_slice(), a.shown_cm.min(a.total()), len));
-                    draw_track(&painter, to_screen, &a.hist, upto, 255, r.dots, trail);
-                }
+                play_tracks(ui, &painter, r, speed, to_screen);
                 painter.text(rect.left_bottom() + Vec2::new(16.0, -40.0), egui::Align2::LEFT_BOTTOM, "illustration: real histories, chained by hand", egui::FontId::proportional(12.0), Color32::from_rgb(170, 176, 190));
                 if let Some(xr) = xs_rect {
                     // The marker rides the animated neutron; once it is
@@ -2053,4 +2153,43 @@ fn draw_kinf(painter: &egui::Painter, rect: Rect, k: &KinfRun, done: &[KinfPoint
     }
     line(&|a: Pos2| { painter.circle_filled(a + Vec2::new(12.0, 0.0), 4.5, mine); }, "your runs (hollow: stopped early), ± 1σ");
     line(&|a: Pos2| { painter.circle_filled(a + Vec2::new(12.0, 0.0), 5.0, live); }, "the run in progress, mean ± σ");
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+
+    /// A link's `?particles=&inactive=&active=&seed=` preset the Run k_eff
+    /// settings, inside the panel's ranges; the rest keep the rung's default.
+    #[test]
+    fn a_link_presets_the_run_settings() {
+        let d = KeffConfig { n_particles: 5000, n_inactive: 40, n_active: 120, seed: 1, point_source: false, want_sites: false };
+        let q = |s: &[(&str, &str)]| s.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect::<Vec<_>>();
+        assert_eq!(run_cfg_from_query(d, &q(&[])), d);
+        let c = run_cfg_from_query(d, &q(&[("particles", "2000"), ("inactive", "30"), ("active", "60"), ("seed", "7")]));
+        assert_eq!((c.n_particles, c.n_inactive, c.n_active, c.seed), (2000, 30, 60, 7));
+        let c = run_cfg_from_query(d, &q(&[("particles", "9999999"), ("inactive", "0"), ("active", "x")]));
+        assert_eq!((c.n_particles, c.n_inactive, c.n_active, c.seed), (20_000, 1, 120, 1));
+    }
+
+    /// The recorded tracks a benchmark rung ships (gh:#859) play only in the
+    /// view they illustrate, and round and round: asking for the next
+    /// history past the end of the file starts the file again.
+    #[test]
+    fn recorded_tracks_play_in_a_loop_while_a_rung_loads() {
+        assert!(McApp::recorded_player(Rung::Jemima, Mode::Run, WatchView::Neutrons).is_none());
+        assert!(McApp::recorded_player(Rung::Jemima, Mode::Watch, WatchView::Generations).is_none());
+        assert!(McApp::recorded_player(Rung::Triso, Mode::Watch, WatchView::Neutrons).is_none(), "triso ships no tracks");
+        let mut t = McApp::recorded_player(Rung::Jemima, Mode::Watch, WatchView::Neutrons).expect("jemima ships tracks");
+        let n = t.replay.len();
+        assert!(n >= 30 && t.queue.len() == n && t.running && t.outstanding == 0);
+        let first = t.queue[0].index;
+        for _ in 0..n {
+            assert!(t.start_next());
+        }
+        assert!(t.queue.is_empty());
+        assert!(t.start_next(), "the file starts again");
+        assert_eq!(t.current.as_ref().map(|a| a.hist.index), Some(first));
+        assert_eq!(t.queue.len(), n - 1);
+    }
 }

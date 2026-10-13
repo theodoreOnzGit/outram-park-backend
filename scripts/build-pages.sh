@@ -294,7 +294,8 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
   tutorials/monte-carlo/lct008.html tutorials/monte-carlo/triso.html \
   demos/triso-atops/index.html demos/triso-atops/triso_atops_web_bg.wasm \
   tutorials/triso-atops/index.html \
-  demos/dem/index.html demos/dem/dem_web_bg.wasm tutorials/monte-carlo/dem.html; do
+  demos/dem/index.html demos/dem/dem_web_bg.wasm tutorials/monte-carlo/dem.html \
+  tutorials/monte-carlo/benchmarks.html; do
   [[ -f "$OUT/$f" ]] || { echo "missing $OUT/$f" >&2; exit 1; }
 done
 

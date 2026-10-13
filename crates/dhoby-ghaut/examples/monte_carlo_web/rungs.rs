@@ -212,6 +212,13 @@ pub trait McRung {
     fn core_pool() -> bool {
         false
     }
+    /// Neutron tracks recorded natively and shipped with the page
+    /// ([`crate::recorded`], gh:#859), which Watch plays while the rung's
+    /// nuclear data are still being processed. `None` means the view waits
+    /// for the data.
+    fn recorded_tracks() -> Option<&'static [u8]> {
+        None
+    }
 }
 
 /// Generates, from a list `module: Marker`, the `mod` declarations, the
@@ -294,6 +301,9 @@ macro_rules! rung_table {
                 }
                 pub fn sweep(self) -> Option<RecordedSweep> {
                     match self { $( Rung::$t => <$crate::$m::$t as McRung>::sweep(), )+ }
+                }
+                pub fn recorded_tracks(self) -> Option<&'static [u8]> {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::recorded_tracks(), )+ }
                 }
                 pub fn has_core_pool(self) -> bool {
                     match self { $( Rung::$t => <$crate::$m::$t as McRung>::core_pool(), )+ }

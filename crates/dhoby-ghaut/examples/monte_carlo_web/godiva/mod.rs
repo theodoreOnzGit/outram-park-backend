@@ -17,6 +17,9 @@ use egui::{Color32, Rect, Stroke, Vec2};
 /// The marker type `rung_table!` names.
 pub struct Godiva;
 
+/// The recorded tracks the page ships (`--bake-tracks godiva`, gh:#859).
+const RECORDED_TRACKS: &[u8] = include_bytes!("data/tracks.bin.z");
+
 /// The recorded result for this model and data, to compare a reader's run
 /// with: **0.99994 ± 0.00005 (−6 ± 5 pcm)**, 1024 seeds × 5000 histories ×
 /// [40 inactive + 120 active], seed-to-seed sd 165 pcm,
@@ -124,6 +127,9 @@ impl McRung for Godiva {
             "Run k_eff processes at NJOY's tolerance 0.001, like the recorded result, so it takes about three \
              times longer than Watch mode (a fast desktop natively: about a minute; a browser or a phone: several).",
         )
+    }
+    fn recorded_tracks() -> Option<&'static [u8]> {
+        Some(RECORDED_TRACKS)
     }
 }
 

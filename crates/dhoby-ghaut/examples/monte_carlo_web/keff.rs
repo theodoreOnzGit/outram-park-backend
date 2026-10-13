@@ -53,6 +53,36 @@ pub struct Reference {
     pub experiment: Option<(&'static str, f64, f64)>,
 }
 
+/// The five-route study's campaign summary (four ICSBEP cases × five code and
+/// data routes), read at build time so no recorded `k` is retyped here.
+const FIVE_ROUTE_SUMMARY: &str =
+    include_str!("../../../outram-mc-libs/verification_and_validation/icsbep/five_route_keff/data/summary_keff.csv");
+
+/// One row of the five-route summary: `(k, standard error, seed-to-seed
+/// standard deviation)` of `case` on `route` (`route1` is OpenMC on NJOY2016
+/// data, `route4` outram-mc on the Rust NJOY port reading ENDF directly).
+pub fn five_route_row(case: &str, route: &str) -> Option<(f64, f64, f64)> {
+    let mut lines = FIVE_ROUTE_SUMMARY.lines();
+    let head: Vec<&str> = lines.next()?.split(',').collect();
+    let col = |n: &str| head.iter().position(|h| *h == n);
+    let (cc, cr, ck, cs, cd) = (col("case")?, col("route")?, col("k_mean")?, col("k_sem")?, col("k_sd_seeds")?);
+    lines.find_map(|l| {
+        let f: Vec<&str> = l.split(',').collect();
+        if f.get(cc) != Some(&case) || f.get(cr) != Some(&route) {
+            return None;
+        }
+        Some((f.get(ck)?.parse().ok()?, f.get(cs)?.parse().ok()?, f.get(cd)?.parse().ok()?))
+    })
+}
+
+/// A rung's [`Reference`] from the five-route study's route 4, the route this
+/// demo itself runs. `histories_one_run` is the campaign's active histories
+/// per seed; `experiment` is `(name, k, sigma)`.
+pub fn five_route_reference(case: &str, label: &'static str, histories_one_run: f64, experiment: (&'static str, f64, f64)) -> Option<Reference> {
+    let (k, sem, sd_one_run) = five_route_row(case, "route4")?;
+    Some(Reference { label, k, sem, sd_one_run, histories_one_run, experiment: Some(experiment) })
+}
+
 /// The console header, as `openmc.run()` prints it for an eigenvalue run
 /// with an entropy mesh.
 pub const CONSOLE_HEADER: [&str; 2] = [

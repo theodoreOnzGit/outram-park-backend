@@ -941,6 +941,14 @@ impl CsgPowerIteration {
         })
     }
 
+    /// Where the next generation's neutrons start (the initial source before
+    /// the first [`Self::step`]), as
+    /// [`crate::physics::keff::PowerIteration::source_positions`] gives for
+    /// the sphere. Reading it draws no random number.
+    pub fn source_positions(&self) -> Vec<Position> {
+        self.source.iter().map(|s| s.r).collect()
+    }
+
     /// Whether every generation has run (or the population died out).
     pub fn finished(&self) -> bool {
         self.finished

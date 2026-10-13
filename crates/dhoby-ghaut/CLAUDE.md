@@ -122,6 +122,16 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
    `LoadedRung::raster`. `dhshort/` and `packing/` are the worked examples.
    Add `render.rs` for the geometry review images (the
    drawing rule above) and wire it into `--render-geometry` in `main.rs`.
+   Since 2026-10-13 (gh:#859): a rung whose model is a small CSG geometry
+   implements `csgrung::CsgCase` instead (tapes, materials, geometry, source
+   box, where a fresh neutron is born) and takes `csgrung::Builder<Self>` as
+   its `Builder`: data processing, the Watch chain and a Run k_eff on
+   `CsgPowerIteration` come with it (`jemima/` and `hst009/` are the worked
+   examples). Any rung can ship **recorded tracks** that play over the
+   geometry while its data load: `McRung::recorded_tracks` returning
+   `include_bytes!("data/tracks.bin.z")`, written by `--bake-tracks <rung>`
+   (`recorded.rs`); re-bake when the rung's geometry or Watch chain changes,
+   and update the counts its test pins.
 2. **One line** in the `rung_table!` invocation in `main.rs`
    (`<module>: <Marker>,`, in ladder order). The macro declares the module and
    generates the `Rung` enum and all dispatch; the engine, app, worker and

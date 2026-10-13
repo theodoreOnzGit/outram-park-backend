@@ -65,6 +65,32 @@
 //!
 //! One CSV row is **appended per seed as soon as it finishes**, so a launcher
 //! can resume by asking only for the seeds not yet in the file.
+//!
+//! # `--accept`: the acceptance check (GitHub #859)
+//!
+//! `--accept <summary_keff.csv> [--allowance-pcm 200] [--accept-record out.csv]`
+//! turns a run into a pass/fail check for continuous integration, on any
+//! operating system: the mean `k` of this run's seeds is compared with the
+//! **recorded route-1 `k`** (OpenMC on NJOY2016 data) of the same case, read
+//! from the committed campaign summary, never retyped.
+//!
+//! - **Why route 1 and not the benchmark `k = 1`.** The check is the
+//!   reduced-statistics form of the study's code-to-code criterion, so it is
+//!   judged against the same reference. It is also the only one the four
+//!   cases can all meet for a reason that is physics and not luck: on the
+//!   recorded data Jemima sits at −406 ± 17 pcm and the lattice at
+//!   +244 ± 5 pcm from `k = 1` on OpenMC itself.
+//! - **Pass criterion.** `|k_run − k_route1| <= allowance` (200 pcm by
+//!   default), and the run must be able to tell: three combined standard
+//!   errors must fit inside the allowance, otherwise the verdict is
+//!   `UNRESOLVED` and the process fails too. A check that cannot fail checks
+//!   nothing.
+//! - **Record.** `--accept-record` appends one CSV row (operating system,
+//!   architecture, case, seeds, settings, `k`, reference, difference,
+//!   verdict, commit), which is what the acceptance-test record cites.
+//!
+//! Results by environment:
+//! `verification_and_validation/acceptance_testing/README.md`.
 
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -76,15 +102,15 @@ use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::plot::{render_material_slice, PlotBasis, Rgb, SlicePlot};
 use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind, ZCylinder, ZPlane};
+use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
 use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
-use outram_mc_libs::pebble_beds::fhr_pebble::fhr_pebble_geometry;
 use outram_mc_libs::physics::compute::{ComputeType, ThreadCount};
 use outram_mc_libs::physics::keff::{run_keff, KeffResult, KeffSettings};
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
+use outram_mc_libs::vv;
 
 #[path = "common/lct008_model.rs"]
 mod lct008_model;
@@ -142,75 +168,22 @@ fn case(name: &str) -> Case {
             model: Model::Sphere(8.7407),
             defaults: (5000, 40, 120),
         },
-        // jemima_keff.rs: IEU-MET-FAST-002, four-cell cylinder.
+        // IEU-MET-FAST-002, four-cell cylinder: `vv::jemima`, the model
+        // `jemima_keff.rs` transcribed (one copy shared with the web demo
+        // since 2026-10-13, GitHub #859; the numbers are unchanged).
         "jemima" => Case {
-            materials: vec![
-                (
-                    "oralloy core",
-                    vec![
-                        ("U234", 8.4430e-05),
-                        ("U235", 7.7777e-03),
-                        ("U238", 3.9671e-02),
-                    ],
-                ),
-                (
-                    "natural uranium reflector",
-                    vec![
-                        ("U234", 2.6433e-06),
-                        ("U235", 3.4603e-04),
-                        ("U238", 4.7711e-02),
-                    ],
-                ),
-            ],
+            materials: vv::jemima::MATERIALS.iter().map(|(n, c)| (*n, c.to_vec())).collect(),
             sab_on_h1: false,
-            model: jemima_model(),
+            model: Model::Csg(vv::jemima::geometry(), vv::jemima::source_box()),
             defaults: (5000, 40, 120),
         },
-        // hst009_keff.rs: HEU-SOL-THERM-009 case 1, with its three stated
-        // approximations (U-236 and Cu/Zn omitted, O-17 folded into O-16).
+        // HEU-SOL-THERM-009 case 1: `vv::hst009`, the model `hst009_keff.rs`
+        // transcribed, with its three stated approximations (U-236 and Cu/Zn
+        // omitted, O-17 folded into O-16).
         "hst009" => Case {
-            materials: vec![
-                (
-                    "uranium oxyfluoride solution",
-                    vec![
-                        ("U234", 1.7561e-05),
-                        ("U235", 1.6626e-03),
-                        ("U238", 9.4079e-05),
-                        ("F19", 3.5663e-03),
-                        ("O16", 3.334735656e-02 + 1.264344e-05),
-                        ("H1", 5.9587e-02),
-                    ],
-                ),
-                (
-                    "1100 aluminium tank",
-                    vec![
-                        ("Al27", 5.9699e-02),
-                        ("Si28", 5.09126279536e-04),
-                        ("Si29", 2.5851979832e-05),
-                        ("Si30", 1.7041740632e-05),
-                        ("Mn55", 1.4853e-05),
-                    ],
-                ),
-                (
-                    "water reflector",
-                    vec![
-                        ("H1", 6.6659e-02),
-                        ("O16", 3.3316368309e-02 + 1.2631691e-05),
-                    ],
-                ),
-            ],
+            materials: vv::hst009::MATERIALS.iter().map(|(n, c)| (*n, c.to_vec())).collect(),
             sab_on_h1: true,
-            model: {
-                let (rs, rt, rr) = (11.5177, 11.6764, 35.0);
-                let g = fhr_pebble_geometry(0.0, rs, rt, rr, 0, 1, 2, BoundaryType::Vacuum, TEMP_K);
-                Model::Csg(
-                    g,
-                    SourceBox {
-                        lower: Position::new(-rs, -rs, -rs),
-                        upper: Position::new(rs, rs, rs),
-                    },
-                )
-            },
+            model: Model::Csg(vv::hst009::geometry(), vv::hst009::source_box()),
             defaults: (5000, 40, 120),
         },
         "lct008" => lct008_lattice_case(false),
@@ -301,65 +274,101 @@ fn lct008_lattice_case(full: bool) -> Case {
     }
 }
 
-/// `jemima_keff.rs`'s `build_geometry`, unchanged: bottom reflector, core,
-/// radial reflector, top reflector; material 0 = core, 1 = reflector.
-fn jemima_model() -> Model {
-    const Z_BOT: f64 = 0.0;
-    const Z_CORE_LO: f64 = 7.62;
-    const Z_CORE_HI: f64 = 39.571;
-    const Z_TOP: f64 = 47.0894;
-    const R_CORE: f64 = 19.05;
-    const R_OUT: f64 = 26.6446;
-    let zp = |z0: f64, bc: BoundaryType| SurfaceKind::ZPlane(ZPlane { z0, bc });
-    let zc = |r: f64, bc: BoundaryType| {
-        SurfaceKind::ZCylinder(ZCylinder {
-            x0: 0.0,
-            y0: 0.0,
-            r,
-            bc,
-        })
+/// How an acceptance check ended (`--accept`, GitHub #859).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Verdict {
+    /// Inside the allowance, and the run could have shown otherwise.
+    Pass,
+    /// Outside the allowance.
+    Fail,
+    /// Three combined standard errors do not fit inside the allowance: the
+    /// run cannot tell a pass from a fail. Counts as a failure.
+    Unresolved,
+}
+
+impl Verdict {
+    fn name(self) -> &'static str {
+        match self {
+            Verdict::Pass => "PASS",
+            Verdict::Fail => "FAIL",
+            Verdict::Unresolved => "UNRESOLVED",
+        }
+    }
+}
+
+/// One acceptance check: this run's seeds against the recorded reference.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Acceptance {
+    n_seeds: usize,
+    k_mean: f64,
+    k_sem: f64,
+    k_ref: f64,
+    k_ref_sem: f64,
+    /// `k_mean - k_ref`, pcm.
+    delta_pcm: f64,
+    /// Standard error of `delta_pcm`: this run's and the reference's, in
+    /// quadrature.
+    sigma_pcm: f64,
+    verdict: Verdict,
+}
+
+/// The recorded route-1 (OpenMC + NJOY2016) `(k, standard error)` of `case`,
+/// from the campaign's `summary_keff.csv`, by header name.
+fn route1_reference(summary_csv: &str, case: &str) -> Result<(f64, f64), String> {
+    let mut lines = summary_csv.lines();
+    let head: Vec<&str> = lines.next().ok_or("empty summary")?.split(',').collect();
+    let col = |n: &str| head.iter().position(|h| *h == n).ok_or(format!("summary has no column {n}"));
+    let (cc, cr, ck, cs) = (col("case")?, col("route")?, col("k_mean")?, col("k_sem")?);
+    for l in lines {
+        let f: Vec<&str> = l.split(',').collect();
+        if f.get(cc) == Some(&case) && f.get(cr) == Some(&"route1") {
+            let num = |i: usize| f.get(i).and_then(|v| v.parse::<f64>().ok()).ok_or(format!("bad number in: {l}"));
+            return Ok((num(ck)?, num(cs)?));
+        }
+    }
+    Err(format!("summary has no route1 row for case {case}"))
+}
+
+/// Judge the seeds' `k` against `reference = (k, standard error)` with an
+/// allowance in pcm. See the module docs, "`--accept`".
+fn accept(ks: &[f64], reference: (f64, f64), allowance_pcm: f64) -> Result<Acceptance, String> {
+    if ks.len() < 2 {
+        return Err(format!("--accept needs at least 2 seeds for a standard error, got {}", ks.len()));
+    }
+    let (k_mean, _sd, k_sem) = outram_mc_libs::vv::pooled(ks);
+    let delta_pcm = (k_mean - reference.0) * 1.0e5;
+    let sigma_pcm = (k_sem * k_sem + reference.1 * reference.1).sqrt() * 1.0e5;
+    let verdict = if 3.0 * sigma_pcm > allowance_pcm {
+        Verdict::Unresolved
+    } else if delta_pcm.abs() <= allowance_pcm {
+        Verdict::Pass
+    } else {
+        Verdict::Fail
     };
-    let surfaces = vec![
-        zp(Z_BOT, BoundaryType::Vacuum),
-        zp(Z_CORE_LO, BoundaryType::Transmissive),
-        zp(Z_CORE_HI, BoundaryType::Transmissive),
-        zp(Z_TOP, BoundaryType::Vacuum),
-        zc(R_CORE, BoundaryType::Transmissive),
-        zc(R_OUT, BoundaryType::Vacuum),
-    ];
-    let hs =
-        |surface_idx: usize, sense: HalfSpaceSense| RegionToken::HalfSpace { surface_idx, sense };
-    let out = |i: usize| hs(i, HalfSpaceSense::Outside);
-    let ins = |i: usize| hs(i, HalfSpaceSense::Inside);
-    let and = RegionToken::Intersection;
-    let cells = vec![
-        Cell::material(1, vec![out(0), ins(1), and, ins(5), and], 1, TEMP_K),
-        Cell::material(2, vec![out(1), ins(2), and, ins(4), and], 0, TEMP_K),
-        Cell::material(
-            3,
-            vec![out(1), ins(2), and, out(4), and, ins(5), and],
-            1,
-            TEMP_K,
-        ),
-        Cell::material(4, vec![out(2), ins(3), and, ins(5), and], 1, TEMP_K),
-    ];
-    let cell_indices = (0..cells.len()).collect();
-    let g = Geometry {
-        surfaces,
-        cells,
-        universes: vec![Universe {
-            id: 0,
-            cell_indices,
-        }],
-        lattices: vec![],
-        root_universe: 0,
-    };
-    Model::Csg(
-        g,
-        SourceBox {
-            lower: Position::new(-R_CORE, -R_CORE, Z_CORE_LO),
-            upper: Position::new(R_CORE, R_CORE, Z_CORE_HI),
-        },
+    Ok(Acceptance { n_seeds: ks.len(), k_mean, k_sem, k_ref: reference.0, k_ref_sem: reference.1, delta_pcm, sigma_pcm, verdict })
+}
+
+/// The header and one row of the `--accept-record` CSV.
+const ACCEPT_HEADER: &str = "os,arch,case,route,n_seeds,particles,inactive,active,threads,k_mean,k_sem,k_route1,k_route1_sem,delta_pcm,sigma_pcm,allowance_pcm,verdict,load_s,transport_s,commit";
+
+#[allow(clippy::too_many_arguments)]
+fn accept_row(a: &Acceptance, case: &str, label: &str, run: (usize, usize, usize, usize), allowance_pcm: f64, load_s: f64, transport_s: f64, commit: &str) -> String {
+    format!(
+        "{},{},{case},{label},{},{},{},{},{},{:.6},{:.6},{:.6},{:.6},{:+.1},{:.1},{allowance_pcm:.0},{},{load_s:.1},{transport_s:.1},{commit}",
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        a.n_seeds,
+        run.0,
+        run.1,
+        run.2,
+        run.3,
+        a.k_mean,
+        a.k_sem,
+        a.k_ref,
+        a.k_ref_sem,
+        a.delta_pcm,
+        a.sigma_pcm,
+        a.verdict.name()
     )
 }
 
@@ -785,6 +794,8 @@ fn main() {
         )
         .expect("csv header");
     }
+    let mut ks: Vec<f64> = Vec::new();
+    let mut transport_s = 0.0;
     for seed in seeds {
         let s = KeffSettings {
             seed,
@@ -810,12 +821,78 @@ fn main() {
         )
         .expect("csv row");
         f.flush().expect("flush csv");
+        ks.push(r.k_mean);
+        transport_s += wall;
+    }
+
+    // `--accept <summary_keff.csv>`: the acceptance check (module docs).
+    if let Some(summary) = flag(&args, "--accept") {
+        let allowance: f64 = flag(&args, "--allowance-pcm").map_or(200.0, |s| s.parse().expect("--allowance-pcm"));
+        let text = std::fs::read_to_string(&summary).unwrap_or_else(|e| panic!("read {summary}: {e}"));
+        let reference = route1_reference(&text, &case_name).unwrap_or_else(|e| panic!("{e}"));
+        let a = accept(&ks, reference, allowance).unwrap_or_else(|e| panic!("{e}"));
+        println!(
+            "ACCEPTANCE {case_name} on {}/{}: k = {:.5} +/- {:.5} ({} seeds), route 1 recorded {:.5} +/- {:.5}, difference {:+.0} +/- {:.0} pcm, allowance {allowance:.0} pcm: {}",
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+            a.k_mean,
+            a.k_sem,
+            a.n_seeds,
+            a.k_ref,
+            a.k_ref_sem,
+            a.delta_pcm,
+            a.sigma_pcm,
+            a.verdict.name()
+        );
+        if let Some(rec) = flag(&args, "--accept-record") {
+            let new = !Path::new(&rec).is_file();
+            let mut out = std::fs::OpenOptions::new().create(true).append(true).open(&rec).expect("open accept record");
+            if new {
+                writeln!(out, "{ACCEPT_HEADER}").expect("record header");
+            }
+            writeln!(out, "{}", accept_row(&a, &case_name, &label, (np, ni, na, threads), allowance, load_s, transport_s, &commit)).expect("record row");
+        }
+        if a.verdict != Verdict::Pass {
+            std::process::exit(1);
+        }
     }
 }
 
 #[cfg(test)]
 mod draw_tests {
     use super::*;
+
+    /// The acceptance check (`--accept`, GitHub #859) reads its reference
+    /// from the committed campaign summary and gives each of its three
+    /// verdicts. Reference: Jemima on route 1, 0.995938 ± 0.000174.
+    #[test]
+    fn the_acceptance_check_passes_fails_and_refuses_to_guess() {
+        let summary = include_str!("../verification_and_validation/icsbep/five_route_keff/data/summary_keff.csv");
+        for case in ["godiva", "jemima", "hst009", "lct008"] {
+            let (k, s) = route1_reference(summary, case).expect(case);
+            assert!((k - 1.0).abs() < 0.006 && s > 0.0 && s < 0.0005, "{case}: {k} {s}");
+        }
+        let r = route1_reference(summary, "jemima").unwrap();
+        assert_eq!(r, (0.995938, 0.000174));
+        assert!(route1_reference(summary, "nosuch").is_err());
+        assert!(accept(&[0.996], r, 200.0).is_err(), "one seed has no standard error");
+
+        // Tight seeds near the reference: pass. +15 pcm, sigma ~ 23 pcm.
+        let a = accept(&[0.99580, 0.99620, 0.99610, 0.99625], r, 200.0).unwrap();
+        assert_eq!(a.verdict, Verdict::Pass);
+        assert!((a.delta_pcm - 14.95).abs() < 0.1 && a.sigma_pcm < 30.0, "{a:?}");
+        // The same seeds shifted to k = 1 (Jemima against the benchmark k,
+        // +406 pcm from route 1): fail.
+        let a = accept(&[0.99990, 1.00030, 1.00020, 1.00035], r, 200.0).unwrap();
+        assert_eq!(a.verdict, Verdict::Fail);
+        // Two seeds 400 pcm apart: 3 sigma is 600 pcm, wider than the
+        // allowance, so the run cannot tell.
+        let a = accept(&[0.9940, 0.9980], r, 200.0).unwrap();
+        assert_eq!(a.verdict, Verdict::Unresolved);
+        let row = accept_row(&a, "jemima", "route4", (5000, 40, 120, 4), 200.0, 50.0, 60.0, "abc");
+        assert_eq!(row.split(',').count(), ACCEPT_HEADER.split(',').count());
+        assert!(row.contains(",UNRESOLVED,") && row.ends_with(",abc"));
+    }
 
     /// The `--draw` helpers: material colours are keyed on what a material
     /// is (cladding before fuel, aluminium not matched on "al"), and Godiva,

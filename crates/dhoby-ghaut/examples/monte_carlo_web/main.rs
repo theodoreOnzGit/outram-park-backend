@@ -1,6 +1,10 @@
 //! **The Monte Carlo demo** — one app, a rung of the tutorial ladder at a time
 //! (gh:#520, #521), from `godiva`, a bare uranium sphere (Watch, and a true
-//! Run k_eff), to `htr10`; the full list is the rung table below. Every
+//! Run k_eff), to `htr10`; the full list is the rung table below. Four of the
+//! rungs are the ICSBEP benchmark cases the acceptance tests run (gh:#859):
+//! `godiva`, `jemima`, `hst009` and `lct008`, each with its geometry drawn,
+//! recorded tracks shipped with the page, and a Run k_eff at settings the
+//! reader chooses. Every
 //! neutron is transported by outram-mc-libs on real ENDF/B-VIII.0 data that
 //! the workspace's own NJOY port processes — in the browser, on the reader's
 //! machine. Single-threaded; runs natively and in the browser
@@ -11,6 +15,8 @@
 //! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless [n] [seed]
 //! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless-godiva [n] [seed]
 //! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless-keff [n inactive active seed] [--loose]
+//! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless-keff-rung <jemima|hst009|lct008> [n inactive active seed] [--loose]
+//! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --bake-tracks <rung> [n]
 //! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --render-geometry <dir>
 //! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --prepare-web-data <dir>
 //! cargo test -p dhoby-ghaut --example monte_carlo_web --release
@@ -65,6 +71,12 @@ mod beds;
 mod htr10_beds;
 #[cfg(not(target_os = "android"))]
 mod walkdemo;
+// What the small-CSG benchmark rungs share, and the tracks every benchmark
+// rung ships with the page (gh:#859).
+#[cfg(not(target_os = "android"))]
+mod csgrung;
+#[cfg(not(target_os = "android"))]
+mod recorded;
 // The processed nuclear data every demo shares, cached in the browser
 // (gh:#818; shared with `delta_tracking_web`).
 #[cfg(not(target_os = "android"))]
@@ -77,6 +89,8 @@ mod processed_cache;
 #[cfg(not(target_os = "android"))]
 rung_table! {
     godiva: Godiva,
+    jemima: Jemima,
+    hst009: Hst009,
     ugraphite: Ugraphite,
     lumped: Lumped,
     lct008: Lct008,
@@ -192,10 +206,53 @@ fn main() -> Result<(), String> {
             ugraphite::render::render_all(dir)?;
             lumped::render::render_all(dir)?;
             lct008::render::render_all(dir)?;
+            jemima::render::render_all(dir)?;
+            hst009::render::render_all(dir)?;
             htr10::render::render_all(dir)?;
             godiva::render::render_all(dir)
         }
         Some("--bake-htr10-core") => htr10::core::bake::bake_cli(&args),
+        Some("--bake-tracks") => {
+            // The tracks a rung ships with the page (gh:#859, `recorded.rs`).
+            let name = arg(1).ok_or("--bake-tracks needs a rung name")?;
+            let rung = *table::ALL.iter().find(|r| r.info().name == name).ok_or_else(|| format!("no rung named {name}"))?;
+            let n = num(2, recorded::DEFAULT_COUNT as u64)? as usize;
+            let bytes = recorded::bake(rung, n, timing)?;
+            let path = recorded::path(rung);
+            std::fs::create_dir_all(path.parent().ok_or("no parent")?).map_err(|e| e.to_string())?;
+            std::fs::write(&path, &bytes).map_err(|e| e.to_string())?;
+            let states: usize = recorded::histories(&bytes)?.iter().map(|h| h.track.states.len()).sum();
+            println!("{n} histories, {states} states, {:.1} kB -> {}", bytes.len() as f64 / 1e3, path.display());
+            Ok(())
+        }
+        Some("--headless-keff-rung") => {
+            // A benchmark rung's Run k_eff without a window (gh:#859):
+            // `--headless-keff-rung <jemima|hst009|lct008> [n inactive active seed] [--loose]`.
+            let name = arg(1).ok_or("--headless-keff-rung needs a rung name")?;
+            let rung = *table::ALL.iter().find(|r| r.info().name == name).ok_or_else(|| format!("no rung named {name}"))?;
+            let d = rung.run_default().ok_or("this rung has no Run k_eff")?;
+            let cfg = keff::KeffConfig {
+                n_particles: num(2, d.n_particles as u64)? as usize,
+                n_inactive: num(3, d.n_inactive as u64)? as usize,
+                n_active: num(4, d.n_active as u64)? as usize,
+                seed: num(5, d.seed)?,
+                ..d
+            };
+            let tier = if args.iter().any(|a| a == "--loose") { Tier::Loose } else { Tier::Exact };
+            eprintln!("Processing ENDF/B-VIII.0 for {} ({tier:?} tier):", rung.info().title);
+            let t0 = std::time::Instant::now();
+            let loaded = load_native(rung, tier, timing)?;
+            eprintln!("  data ready in {:.1} s; {} neutrons x [{} + {}], seed {}", t0.elapsed().as_secs_f64(), cfg.n_particles, cfg.n_inactive, cfg.n_active, cfg.seed);
+            let t = std::time::Instant::now();
+            match &loaded {
+                Loaded::Jemima(l) => csgrung::headless_keff::<jemima::Jemima>(&l.phys, cfg, |l| println!("{l}")),
+                Loaded::Hst009(l) => csgrung::headless_keff::<hst009::Hst009>(&l.phys, cfg, |l| println!("{l}")),
+                Loaded::Lct008(l) => lct008::headless_keff(&l.phys, cfg, |l| println!("{l}")),
+                _ => return Err(format!("--headless-keff-rung serves jemima, hst009 and lct008 (godiva: --headless-keff), not {name}")),
+            };
+            eprintln!("  transport: {:.1} s (single thread)", t.elapsed().as_secs_f64());
+            Ok(())
+        }
         Some("--prepare-web-data") => {
             let dir = std::path::Path::new(arg(1).ok_or("--prepare-web-data needs an output directory")?);
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
@@ -586,6 +643,198 @@ mod tests {
     /// Every rung's lesson link is a page path, names are unique, and the URL
     /// parser falls back sensibly: no rung opens the first (Godiva); a rung
     /// without Run ignores mode=run.
+    /// The four benchmark rungs of the acceptance tests (gh:#859) each have
+    /// what the issue asks of them, read from the rung table: a Run k_eff
+    /// whose default is the recorded campaign's run size, a recorded result
+    /// read from the five-route summary (route 4), and recorded tracks.
+    #[test]
+    fn the_benchmark_rungs_have_run_settings_a_record_and_shipped_tracks() {
+        let expect = [
+            (Rung::Godiva, (5000, 40, 120), 0.99994),
+            (Rung::Jemima, (5000, 40, 120), 0.996092),
+            (Rung::Hst009, (5000, 40, 120), 1.001975),
+            (Rung::Lct008, (10_000, 250, 400), 1.002360),
+        ];
+        for (r, size, k) in expect {
+            let name = r.info().name;
+            let d = r.run_default().unwrap_or_else(|| panic!("{name} has no Run k_eff"));
+            assert_eq!((d.n_particles, d.n_inactive, d.n_active, d.seed), (size.0, size.1, size.2, 1), "{name}");
+            let rec = r.reference().unwrap_or_else(|| panic!("{name} has no record"));
+            assert_eq!(rec.k, k, "{name}");
+            assert!(rec.sem > 0.0 && rec.sem < 0.0005 && rec.sd_one_run > rec.sem && rec.experiment.is_some(), "{name}");
+            assert_eq!(rec.histories_one_run, (size.0 * size.2) as f64, "{name}");
+            assert!(r.recorded_tracks().is_some(), "{name} ships no tracks");
+        }
+        // Route 1 is OpenMC on NJOY2016 data, the acceptance check's reference.
+        assert_eq!(keff::five_route_row("jemima", "route1"), Some((0.995938, 0.000174, 0.000987)));
+        assert!(keff::five_route_row("jemima", "route9").is_none());
+        // A rung that ships none says so.
+        assert!(Rung::Triso.recorded_tracks().is_none());
+    }
+
+    /// **Methodology.** Each benchmark rung's shipped track file
+    /// (`<rung>/data/tracks.bin.z`, written by `--bake-tracks`) is decoded as
+    /// the page decodes it. Every history must be complete (born first,
+    /// ended by a leak, a capture or a fission, nothing dropped) and every
+    /// state must lie inside the rung's model: within the radius the picture
+    /// is fitted to. **Result (2026-10-13):** Godiva 60 histories / 266
+    /// states, Jemima 60 / 1381, HEU-SOL-THERM-009 30 / 3185, LEU-COMP-THERM-008
+    /// 30 / 2288; none truncated, none outside.
+    #[test]
+    fn the_shipped_tracks_are_whole_histories_inside_their_geometry() {
+        for (r, n, states) in [(Rung::Godiva, 60, 266), (Rung::Jemima, 60, 1381), (Rung::Hst009, 30, 3185), (Rung::Lct008, 30, 2288)] {
+            let name = r.info().name;
+            let h = recorded::histories(r.recorded_tracks().expect("shipped")).unwrap_or_else(|e| panic!("{name}: {e}"));
+            assert_eq!((h.len(), h.iter().map(|x| x.track.states.len()).sum::<usize>()), (n, states), "{name}");
+            let reach = r.half_extent() * (1.0 + 1e-9);
+            for x in &h {
+                assert_eq!(x.track.states[0].event, TrackEvent::Born, "{name} history {}", x.index);
+                assert!(matches!(x.outcome, Some(TrackEvent::Leak | TrackEvent::Fission | TrackEvent::Absorption)), "{name} history {}: {}", x.index, history::outcome_name(x.outcome));
+                assert_eq!(x.track.dropped_states, 0);
+                for s in &x.track.states {
+                    assert!((s.r.x * s.r.x + s.r.y * s.r.y).sqrt() <= reach, "{name} history {}: a state at {:?}", x.index, s.r);
+                }
+            }
+        }
+        assert!(recorded::histories(b"not a track file").is_err());
+        assert!(recorded::path(Rung::Jemima).ends_with("jemima/data/tracks.bin.z"));
+    }
+
+    fn jemima_loaded() -> &'static std::sync::Mutex<csgrung::Loaded<jemima::Jemima>> {
+        static P: OnceLock<std::sync::Mutex<csgrung::Loaded<jemima::Jemima>>> = OnceLock::new();
+        P.get_or_init(|| match load_native(Rung::Jemima, Tier::Loose, |_, _| {}).expect("load nuclear data") {
+            Loaded::Jemima(l) => std::sync::Mutex::new(l),
+            _ => unreachable!(),
+        })
+    }
+
+    /// **Methodology.** The Jemima rung on the three ENDF/B-VIII.0 tapes at
+    /// the Watch tier (tolerance 0.01): 60 chained histories, then a small
+    /// headless Run k_eff (1000 neutrons × [10 inactive + 30 active], seed 1)
+    /// run twice. Checks: every history ends in a leak, a capture or a
+    /// fission inside the assembly; the run is deterministic; its `k` is
+    /// within 5 of its own σ of the recorded 0.99609 ± 0.00027 (five-route
+    /// route 4). A harness check, not V&V: a different tier and run size
+    /// from the record. **Result (2026-10-13):** `k = 0.99954 ± 0.00851`,
+    /// 0.4 σ from the record; all 60 histories ended properly.
+    #[test]
+    fn the_jemima_rung_tracks_neutrons_and_runs_its_keff() {
+        use rungs::{LoadedRung as _, McRung as _};
+        let mut l = jemima_loaded().lock().expect("lock");
+        let m = outram_mc_libs::vv::jemima::R_OUT * (1.0 + 1e-9);
+        for _ in 0..60 {
+            let h = l.run_next();
+            assert!(matches!(h.outcome, Some(TrackEvent::Leak | TrackEvent::Fission | TrackEvent::Absorption)), "history {}: {}", h.index, history::outcome_name(h.outcome));
+            assert_eq!(h.track.dropped_states, 0);
+            for s in &h.track.states {
+                assert!((s.r.x * s.r.x + s.r.y * s.r.y).sqrt() <= m && s.r.z >= -1e-9 && s.r.z <= outram_mc_libs::vv::jemima::Z_TOP * (1.0 + 1e-9));
+            }
+        }
+        let cfg = keff::KeffConfig { n_particles: 1000, n_inactive: 10, n_active: 30, seed: 1, point_source: false, want_sites: false };
+        let mut a = Vec::new();
+        let (k, s) = csgrung::headless_keff::<jemima::Jemima>(&l.phys, cfg, |line| a.push(line.to_string()));
+        let mut b = Vec::new();
+        assert_eq!(csgrung::headless_keff::<jemima::Jemima>(&l.phys, cfg, |line| b.push(line.to_string())), (k, s));
+        assert_eq!(a, b);
+        assert_eq!(a.len(), 2 + 40 + 4, "header, 40 generations, blank, result, experiment, record");
+        eprintln!("  Jemima 1000 x [10 + 30], Watch tier: k = {k:.5} +/- {s:.5}");
+        let rec = jemima::Jemima::reference().expect("record");
+        assert!((k - rec.k).abs() < 5.0 * s, "k {k} +/- {s} against the record {}", rec.k);
+
+        // Watch, whole generations: a point source at the middle of the core
+        // that spreads, one generation per step.
+        let w = keff::KeffConfig { n_particles: 300, n_inactive: 2, n_active: 2, seed: 1, point_source: true, want_sites: true };
+        let sites = l.keff_start(w).expect("start");
+        assert_eq!(sites.len(), 300);
+        assert!(sites.iter().all(|p| p[0].abs() < 0.06 && p[1].abs() < 0.06), "a point source starts at the axis");
+        let mut n = 0;
+        while let Some(g) = l.keff_step() {
+            assert_eq!((g.report.index, g.report.active), (n, n >= 2));
+            assert!(g.report.entropy.is_none() && g.report.counts.tracked == 0);
+            assert!((g.report.production - g.report.k * 300.0).abs() < 1e-9);
+            assert!(g.sites.iter().any(|p| p[0].abs() > 1.0), "the source has spread");
+            n += 1;
+        }
+        assert_eq!(n, 4);
+        assert!(l.keff_finished());
+    }
+
+    /// **Methodology.** The HEU-SOL-THERM-009 rung on its eleven tapes and
+    /// the H in H₂O law at the Watch tier: 40 chained histories, then a
+    /// small headless Run k_eff (1000 × [10 + 30], seed 1). Checks: every
+    /// history ends properly inside the reflector, most reach thermal
+    /// energies (a water-moderated solution), and `k` is within 5 of its own
+    /// σ of the recorded 1.00198 ± 0.00032 (five-route route 4). A harness
+    /// check, not V&V. Needs about half a minute of data processing, so it
+    /// is opt-in like the crate's other twelve-tape tests. **Result
+    /// (2026-10-13):** 28 of 40 histories thermalised; `k = 1.01633 ±
+    /// 0.00718`, 2.0 σ above the record, in 1.7 s (i9-13900K, one thread,
+    /// 62 GB, Linux, CPU only, shared machine). The σ of 30 correlated
+    /// generations is itself uncertain, and 10 inactive generations from a
+    /// uniform start is short; this run cannot say more than "no gross
+    /// error".
+    #[test]
+    #[ignore = "processes 12 ENDF tapes (~30 s); run with --ignored"]
+    fn the_hst009_rung_thermalises_and_runs_its_keff() {
+        use rungs::{LoadedRung as _, McRung as _};
+        let Loaded::Hst009(mut l) = load_native(Rung::Hst009, Tier::Loose, |_, _| {}).expect("load") else { unreachable!() };
+        let reach = outram_mc_libs::vv::hst009::R_REFLECTOR * (1.0 + 1e-9);
+        let (mut thermal, n) = (0, 40);
+        for _ in 0..n {
+            let h = l.run_next();
+            assert!(matches!(h.outcome, Some(TrackEvent::Leak | TrackEvent::Fission | TrackEvent::Absorption)), "history {}: {}", h.index, history::outcome_name(h.outcome));
+            assert_eq!(h.track.dropped_states, 0);
+            assert!(h.track.states.iter().all(|s| (s.r.x * s.r.x + s.r.y * s.r.y + s.r.z * s.r.z).sqrt() <= reach));
+            thermal += h.thermalised() as usize;
+        }
+        assert!(thermal > n / 2, "a water-moderated solution thermalises most neutrons; got {thermal} of {n}");
+        let cfg = keff::KeffConfig { n_particles: 1000, n_inactive: 10, n_active: 30, seed: 1, point_source: false, want_sites: false };
+        let t = std::time::Instant::now();
+        let (k, s) = csgrung::headless_keff::<hst009::Hst009>(&l.phys, cfg, |_| {});
+        eprintln!("  HST-009 1000 x [10 + 30], Watch tier: k = {k:.5} +/- {s:.5} in {:.1} s (one thread); {thermal} of {n} histories thermalised", t.elapsed().as_secs_f64());
+        let rec = hst009::Hst009::reference().expect("record");
+        assert!((k - rec.k).abs() < 5.0 * s, "k {k} +/- {s} against the record {}", rec.k);
+    }
+
+    /// **Methodology.** The LEU-COMP-THERM-008 rung's whole-core Run k_eff
+    /// (gh:#859) on its twelve tapes at the Watch tier, 2000 neutrons ×
+    /// [20 inactive + 20 active], seed 1, through the page's own
+    /// `keff_start` / `keff_step`. Checks: one generation per step, in
+    /// order, to the last; the source box finds fuel; `k` is within 0.03 of
+    /// the recorded 1.00236 (a harness check with a loose bound: 20
+    /// inactive generations do not converge this core's source, which is
+    /// why the rung's default is the campaign's 250). **Result
+    /// (2026-10-13):** `k = 0.99288 ± 0.00443`, 40 generations in 3.6 s
+    /// (i9-13900K, one thread, 62 GB, Linux, CPU only, shared machine):
+    /// 950 pcm below the record, 2.1 of its own σ, as expected of a source
+    /// that has not converged.
+    #[test]
+    #[ignore = "processes 12 ENDF tapes (~30 s); run with --ignored"]
+    fn the_lct008_rung_runs_a_whole_core_keff() {
+        use rungs::LoadedRung as _;
+        let Loaded::Lct008(mut l) = load_native(Rung::Lct008, Tier::Loose, |_, _| {}).expect("load") else { unreachable!() };
+        let cfg = keff::KeffConfig { n_particles: 2000, n_inactive: 20, n_active: 20, seed: 1, point_source: false, want_sites: true };
+        let sites = l.keff_start(cfg).expect("start");
+        assert_eq!(sites.len(), 2000);
+        assert!(sites.iter().all(|p| ((p[0] * p[0] + p[1] * p[1]) as f64).sqrt() < lct008::model::R_CORE));
+        let t = std::time::Instant::now();
+        let (mut n, mut last) = (0, None);
+        while let Some(g) = l.keff_step() {
+            assert_eq!(g.report.index, n);
+            n += 1;
+            last = g.report.k_mean;
+        }
+        let (k, s) = last.expect("active generations");
+        eprintln!("  LCT-008 core 2000 x [20 + 20], Watch tier: k = {k:.5} +/- {s:.5} in {:.1} s (one thread)", t.elapsed().as_secs_f64());
+        assert_eq!(n, 40);
+        assert!(l.keff_finished());
+        assert!((k - 1.00236).abs() < 0.03, "k {k} +/- {s}");
+        let b = lct008::source_box();
+        assert!(b.lower.z < b.upper.z && b.upper.x == lct008::model::R_CORE);
+        let (k2, _) = lct008::headless_keff(&l.phys, keff::KeffConfig { n_particles: 500, n_inactive: 2, n_active: 3, seed: 1, point_source: false, want_sites: false }, |_| {});
+        assert!(k2 > 0.8 && k2 < 1.2, "{k2}");
+    }
+
     #[test]
     fn the_rung_table_parses_urls() {
         let q = |s: &[(&str, &str)]| s.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect::<Vec<_>>();
