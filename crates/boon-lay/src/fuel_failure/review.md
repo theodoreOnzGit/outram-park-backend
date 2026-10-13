@@ -1123,3 +1123,64 @@ Guards could be improved for fkor, but the equation implemented is essentially c
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit a84bcd2e36.
+
+# Review: a_negative_corrosion_rate_is_refused_by_both_routes (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-a-negative-corrosion-rate-is-refused-by-both-routes-theodoreonzgit-1b50c85b"
+kind = "review"
+origin = "human"
+created = "2026-10-13T15:23:57+08:00"
+modified = "2026-10-13T15:23:57+08:00"
+target = "fn:1b50c85b20be031b"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/stress.rs::a_negative_corrosion_rate_is_refused_by_both_routes"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T15:23:57+08:00"
+commit = "a4a253183e85c863e83d9c336d657a9861f89cf9"
+hash = "sha256:bb785b7051ca14f3db8d34b7f85695b83ae87107280ece3669b4a2ceec60fa3c"
+doc_hash = "sha256:6f71882f491f8ffc92ed8911f3ecc1bad96a88e86faaab7335bdc857c8e4abed"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+
+[review.callees]
+"fn:29fd23a48ca756df" = "sha256:a5bc0eaa4dfd6ab6d8cb39a94d1ab0d35058f689bd5c7fd1d3cffe785cab947a"
+"fn:62323e762b03b9bf" = "sha256:92583fc305b6c05cfec32e7a87ff1144049b4241fa00cd26f8a19ead15c00e69"
+"fn:c04cf2b3db90cf92" = "sha256:dd8d0e1854a1c7fe6a126c017cd5e6d289aaa4fbe9b8edbd82d62b7108fce2e1"
+"fn:cc30818aa7756c33" = "sha256:19bcf0ea7122ec816b6337fe91e61431c34361bcd05fc24fcecdf5d6b289e34d"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "test_panics_on_failure"
+independence = "someone_else"
+limits_and_guards = "test_no_input"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "is_a_test"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "is_a_test"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "qi6YARwiQly/Usrvhptp9mNCP5oyCBfaEEJBdL0kJsb4D8JZEZjGcC6+n/HfPef32gHGTFaWopEXvyidqysKCg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
+kind = "implements"
+```
+
+tests if guards are working properly for nonsense input values
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit a4a253183e.
