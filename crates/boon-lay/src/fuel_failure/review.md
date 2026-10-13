@@ -943,3 +943,65 @@ checked against eq 7 (isothermal thinning factor), in PANAMA document
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit f3bcd907a7.
+
+# Review: induced_stress_exact (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-induced-stress-exact-theodoreonzgit-cc30818a"
+kind = "review"
+origin = "human"
+created = "2026-10-13T15:12:48+08:00"
+modified = "2026-10-13T15:12:48+08:00"
+target = "fn:cc30818aa7756c33"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/stress.rs::induced_stress_exact"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T15:12:48+08:00"
+commit = "04e00535a9f4d450353751526769826e800abe74"
+hash = "sha256:19bcf0ea7122ec816b6337fe91e61431c34361bcd05fc24fcecdf5d6b289e34d"
+doc_hash = "sha256:b60114464cd95855e4abd1ee01ea1a827bb30aa96ce3e24cdcb61d7901e9f5b7"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+
+[review.callees]
+"fn:2b07126502aff09a" = "sha256:6e0cc2c8f38953ed77c6c5ae6e96a20c995869623b64610b219fc6b3a9536e09"
+"fn:5b2b33cb94ca9a56" = "sha256:584f858091dbbbf399ba065790793304f75d430ba242966bd1e4deda1518564c"
+"fn:62323e762b03b9bf" = "sha256:92583fc305b6c05cfec32e7a87ff1144049b4241fa00cd26f8a19ead15c00e69"
+"fn:c110fac8ce3e9964" = "sha256:055f7daeb9d4f808015285dd822cd2196733ba27bc5da8ccdab88f9f8638129f"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "a5olP9MnCYfHzB/+vvJaOEzCzWMjVswUKNc2YlA7t36ovx/JueWJxVMH5ogBMuag1EtCnxpoutGc05JIuYQlAA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
+kind = "implements"
+```
+
+checked against page 484 of PANAMA, works well
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 04e00535a9.
