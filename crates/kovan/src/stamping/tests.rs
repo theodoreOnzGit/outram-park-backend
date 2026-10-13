@@ -465,7 +465,9 @@ pub(crate) fn clean_record() -> BTreeMap<String, String> {
 /// answers. `twice` then stamps, and its signed entry records the struct's
 /// hash beside `leaf`'s. Editing the struct's **method** makes the struct
 /// "changed since review" and `twice` "a callee changed"; the constant is
-/// untouched.
+/// untouched. Quick stamp (re-confirm) of `twice` is then refused until the
+/// struct is reviewed again, after which it names the struct as what
+/// changed and makes `twice` valid at rung 3 without the wizard (#857).
 ///
 /// Result (2026-10-13): passes.
 #[test]
@@ -545,6 +547,28 @@ fn types_and_constants_are_reviewed_bottom_up() {
     assert_eq!(r.state("twice").unwrap().kind(), StateKind::InheritedStale);
     assert_eq!(r.state("K_B").unwrap().kind(), StateKind::Valid);
     assert_eq!(r.state("leaf").unwrap().kind(), StateKind::Valid);
+
+    // Quick stamp covers a changed TYPE too (#857, maintainer 2026-10-13):
+    // `twice` is stale only because the record it uses changed. Refused
+    // while the record itself has no valid review (bottom-up), then the
+    // re-confirm names the record, and signing it makes `twice` valid again
+    // with the record's new hash and the same answers.
+    let e = reconfirm::prepare_reconfirm(r.path(), &format!("{LIB}::twice"), BY).unwrap_err();
+    assert!(e.contains("bottom-up") && e.contains("Fractions"), "{e}");
+    stamp_with("Fractions", clean_record()).unwrap();
+    assert_eq!(r.state("twice").unwrap().kind(), StateKind::InheritedStale);
+    let rc = reconfirm::prepare_reconfirm(r.path(), &format!("{LIB}::twice"), BY).unwrap();
+    assert_eq!(rc.changed.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), ["Fractions"]);
+    assert_eq!(rc.changed[0].id, fractions);
+    // The record's own lines did not change (its method did), so its diff
+    // is found and empty: nothing to misread.
+    assert_eq!(rc.changed[0].diff.as_ref().map(|d| d.diff.counts()), Ok((0, 0)));
+    reconfirm::sign_reconfirm(r.path(), &rc, &key).unwrap();
+    r.commit("quick stamp twice");
+    let s = r.state("twice").unwrap();
+    assert_eq!((s.kind(), s.rung), (StateKind::Valid, 3), "{}", s.reason);
+    let md = r.read(&format!("{DIR}/review.md"));
+    assert!(md.contains("Re-confirmed on") && md.contains("Fractions changed"), "{md}");
 }
 
 /// Methodology (#856): the workspace cache against a full load, on the

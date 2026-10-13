@@ -581,6 +581,11 @@ completed on Ctrl+N / Ctrl+P (Enter accepts, Esc closes; the list never
 opens by itself. ~~It opened as you typed, with Tab to accept~~, changed
 the same day on the maintainer's word).
 In it `:w` saves and stays open, `:q` closes, `:wq` saves and closes.
+Right-click a function whose stamp is stale only because something it
+calls or uses changed (a function, a type or a constant) and choose
+**Quick stamp**: it shows what changed there and renews the stamp with the
+same answers, without the wizard. It is refused while a reaching test
+fails or while the changed item has no valid review of its own.
 **No language server is started**: colours come from the `kopitiam-syntax`
 line lexer and completion from the cached index (`kovan.toml`), so
 completion knows names in this workspace, nearest first, but not types:

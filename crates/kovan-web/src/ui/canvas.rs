@@ -380,14 +380,15 @@ impl CodeReview {
             self.status = Some("Walkthroughs are not published yet (#741); none pass through this function.".into());
             taken = true;
         }
-        // Desktop only (#857): a stamp that went stale only because a callee
-        // changed is re-confirmed without the wizard.
+        // Desktop only (#857): a stamp that went stale only because a callee,
+        // or a type or constant the function uses, changed is re-confirmed
+        // without the wizard.
         if self.mode.can_stamp() {
             let inherited = snap.facts().review(id).kind() == kovan_common::review::state::StateKind::InheritedStale;
             if ui
-                .add_enabled(inherited, egui::Button::new("Quick stamp (a callee changed)\u{2026}"))
-                .on_hover_text("This function's own code did not change, something it calls did. Shows what changed there and renews your stamp with the same answers, without the questions.")
-                .on_disabled_hover_text("Only when the stamp is stale because something this function calls changed. If its own code changed, review it again with Stamp.")
+                .add_enabled(inherited, egui::Button::new("Quick stamp (something it uses changed)\u{2026}"))
+                .on_hover_text("This function's own code did not change; a function it calls, or a type or constant it uses, did. Shows what changed there and renews your stamp with the same answers, without the questions.")
+                .on_disabled_hover_text("Only when the stamp is stale because something this function calls or uses changed. If its own code changed, review it again with Stamp.")
                 .clicked()
             {
                 self.quick_stamp(snap, id);
