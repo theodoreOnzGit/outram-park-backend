@@ -58,7 +58,7 @@ layer over time
 ([`induced_stress`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#@@L:crates/boon-lay/src/fuel_failure/stress.rs:fn=induced_stress@@)):
 
 ```rust,ignore
-{{#include ../../../src/fuel_failure/stress.rs:46:56}}
+{{#include ../../../src/fuel_failure/stress.rs:50:59}}
 ```
 
 **3. Failure probability, Eq (1)**, a Weibull law

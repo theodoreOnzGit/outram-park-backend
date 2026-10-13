@@ -16073,9 +16073,14 @@ pub struct SicLayer {
   The original layer thickness `d_o = r_a − r_i` (page -484-).
 
 - ```rust
-  pub fn actual_thickness(self: &Self, corrosion_rate: Velocity, elapsed: Time) -> Length { /* ... */ }
+  pub fn actual_thickness(self: &Self, corrosion_rate: Velocity, elapsed: Time) -> Result<Length, CorrosionInputError> { /* ... */ }
   ```
   **Eq (7)** — the actual thickness after volume corrosion (page -492-):
+
+- ```rust
+  pub fn isothermal_thinning_factor(self: &Self, corrosion_rate: Velocity, elapsed: Time) -> Result<Ratio, CorrosionInputError> { /* ... */ }
+  ```
+  `FKOR = 1 + v̇·t/d_o` for one constant rate held for `elapsed`
 
 ###### Trait Implementations
 
@@ -16323,6 +16328,190 @@ Fields:
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &SicLayerError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `CorrosionInputError`
+
+Why a corrosion rate and an elapsed time cannot be used to thin a layer.
+Each case carries the offending value(s) in SI units (m/s, s).
+
+```rust
+pub enum CorrosionInputError {
+    NotFinite(f64, f64),
+    NegativeRate(f64),
+    NegativeTime(f64),
+}
+```
+
+##### Variants
+
+###### `NotFinite`
+
+The rate or the time is NaN or infinite (rate, time).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+| 1 | `f64` |  |
+
+###### `NegativeRate`
+
+A negative corrosion rate: the layer would grow, and at
+`v̇·t ≤ −d_o` Eq (7) divides by zero or returns a negative thickness.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `NegativeTime`
+
+A negative elapsed time, which has the same effect as a negative rate.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CorrosionInputError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CorrosionInputError) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -19350,8 +19539,12 @@ actual SiC layer thicknesses" — it is the linearisation of the exact form in
 Note the model is **thin-shell throughout**. The report contains no
 thick-wall (Lamé) formulation, so none is offered here.
 
+**Guarded (2026-10-13).** A negative or non-finite rate or time is refused
+([`SicLayer::isothermal_thinning_factor`]); before, a negative rate
+silently gave a stress below the uncorroded one.
+
 ```rust
-pub fn induced_stress(layer: &super::geometry::SicLayer, pressure: uom::si::f64::Pressure, corrosion_rate: uom::si::f64::Velocity, elapsed: uom::si::f64::Time) -> uom::si::f64::Pressure { /* ... */ }
+pub fn induced_stress(layer: &super::geometry::SicLayer, pressure: uom::si::f64::Pressure, corrosion_rate: uom::si::f64::Velocity, elapsed: uom::si::f64::Time) -> Result<uom::si::f64::Pressure, super::geometry::CorrosionInputError> { /* ... */ }
 ```
 
 #### Function `induced_stress_exact`
@@ -19373,12 +19566,14 @@ contradicts Eq (7). See [`SicLayer::actual_thickness`].
 
 Kept as its own function because computing the stress by two routes and
 asserting they agree is a real check on the algebra —
-`tests::the_two_routes_to_the_stress_agree_exactly`. `None` only if the
+`tests::the_two_routes_to_the_stress_agree_exactly`. ~~`None` only if the
 thickness is non-positive, which Eq (7) cannot produce; it guards against
-a caller supplying a negative rate.
+a caller supplying a negative rate.~~ **CORRECTED 2026-10-13**: that guard
+missed a negative rate that left the thickness positive. A negative or
+non-finite rate or time is now refused with an error that says which.
 
 ```rust
-pub fn induced_stress_exact(layer: &super::geometry::SicLayer, pressure: uom::si::f64::Pressure, corrosion_rate: uom::si::f64::Velocity, elapsed: uom::si::f64::Time) -> Option<uom::si::f64::Pressure> { /* ... */ }
+pub fn induced_stress_exact(layer: &super::geometry::SicLayer, pressure: uom::si::f64::Pressure, corrosion_rate: uom::si::f64::Velocity, elapsed: uom::si::f64::Time) -> Result<uom::si::f64::Pressure, super::geometry::CorrosionInputError> { /* ... */ }
 ```
 
 #### Function `induced_stress_with_thinning_factor`
@@ -19584,6 +19779,12 @@ pub use diffusion::reduced_diffusion_coefficient;
 
 ```rust
 pub use diffusion::KernelKind;
+```
+
+#### Re-export `CorrosionInputError`
+
+```rust
+pub use geometry::CorrosionInputError;
 ```
 
 #### Re-export `SicLayer`

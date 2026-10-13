@@ -192,7 +192,7 @@ pub use decomposition::{
     DecompositionCalibration, DECOMPOSITION_ACTIVATION_J_PER_MOL,
 };
 pub use diffusion::{reduced_diffusion_coefficient, KernelKind};
-pub use geometry::{SicLayer, SicLayerError};
+pub use geometry::{CorrosionInputError, SicLayer, SicLayerError};
 pub use grain_boundary::{
     advance_grain_boundary_exposure, corroded_weibull_modulus, grain_boundary_corrosion_rate,
     GrainBoundaryCorrosion,
@@ -327,7 +327,8 @@ mod tests {
             p,
             Velocity::new::<meter_per_second>(0.0),
             Time::new::<second>(0.0),
-        );
+        )
+        .unwrap();
         let phi1 = weibull_failure_fraction(sigma_t, Pressure::new::<megapascal>(200.0), 8.0);
         let total = total_failure_fraction(r(0.0), phi1, r(0.0));
         let v = total.get::<ratio>();

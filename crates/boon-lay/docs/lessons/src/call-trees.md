@@ -2805,14 +2805,14 @@ Everything `crates/boon-lay/src/fuel_failure/history.rs::AccidentHistory::run` r
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`geometry.rs::SicLayer::initial_thickness`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L121) `pub fn initial_thickness(&self) -> Length` — The original layer thickness `d_o = r_a − r_i` (page -484-). · called at [L555](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L555)
+[`geometry.rs::SicLayer::initial_thickness`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L146) `pub fn initial_thickness(&self) -> Length` — The original layer thickness `d_o = r_a − r_i` (page -484-). · called at [L555](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L555)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/geometry.rs:121 fn initial_thickness -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/geometry.rs:146 fn initial_thickness -->
 
 ```rust,ignore
-{{#include ../../../../../crates/boon-lay/src/fuel_failure/geometry.rs:121:123}}
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/geometry.rs:146:148}}
 ```
 
 </details>
@@ -2999,16 +2999,16 @@ Everything `crates/boon-lay/src/fuel_failure/history.rs::AccidentHistory::run` r
 
 <div class="cw-node" style="margin-left:2.7em">
 
-[`stress.rs::induced_stress_with_thinning_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L107) `pub fn induced_stress_with_thinning_factor(layer: &SicLayer, pressure: Pressure, thinning_factor: Ratio) -> Pressure` — Eq (2) written against a **carried** `FKOR` rather than an elapsed time (pages -484-, -492-): · called at [L516](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L516)
+[`stress.rs::induced_stress_with_thinning_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L109) `pub fn induced_stress_with_thinning_factor(layer: &SicLayer, pressure: Pressure, thinning_factor: Ratio) -> Pressure` — Eq (2) written against a **carried** `FKOR` rather than an elapsed time (pages -484-, -492-): · called at [L516](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L516)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:107 fn induced_stress_with_thinning_factor -->
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:113 initial_thickness -->
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:114 cbrt_mean_radius -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:109 fn induced_stress_with_thinning_factor -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:115 initial_thickness -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:116 cbrt_mean_radius -->
 
 ```rust,ignore
-{{#include ../../../../../crates/boon-lay/src/fuel_failure/stress.rs:107:115}}
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/stress.rs:109:117}}
 ```
 
 </details>
@@ -3016,20 +3016,20 @@ Everything `crates/boon-lay/src/fuel_failure/history.rs::AccidentHistory::run` r
 
 <div class="cw-node" style="margin-left:3.6em">
 
-`geometry.rs::SicLayer::initial_thickness` *(expanded elsewhere in this walk)* · called at [L113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L113)
+`geometry.rs::SicLayer::initial_thickness` *(expanded elsewhere in this walk)* · called at [L113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L115)
 
 </div>
 
 <div class="cw-node" style="margin-left:3.6em">
 
-[`geometry.rs::SicLayer::cbrt_mean_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L114) `pub fn cbrt_mean_radius(&self) -> Length` — The report's **average radius** `r = (0.5·(r_a³ + r_i³))^(1/3)` (page -484-). · called at [L114](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L114) · *(calls below the depth limit not shown)*
+[`geometry.rs::SicLayer::cbrt_mean_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L139) `pub fn cbrt_mean_radius(&self) -> Length` — The report's **average radius** `r = (0.5·(r_a³ + r_i³))^(1/3)` (page -484-). · called at [L114](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L116) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/geometry.rs:114 fn cbrt_mean_radius -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/geometry.rs:139 fn cbrt_mean_radius -->
 
 ```rust,ignore
-{{#include ../../../../../crates/boon-lay/src/fuel_failure/geometry.rs:114:118}}
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/geometry.rs:139:143}}
 ```
 
 </details>
@@ -3388,16 +3388,16 @@ Everything `crates/boon-lay/src/fuel_failure/htr10/mod.rs::end_of_irradiation_fa
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`stress.rs::induced_stress_with_thinning_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L107) `pub fn induced_stress_with_thinning_factor(layer: &SicLayer, pressure: Pressure, thinning_factor: Ratio) -> Pressure` — Eq (2) written against a **carried** `FKOR` rather than an elapsed time (pages -484-, -492-): · called at [L363](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L363)
+[`stress.rs::induced_stress_with_thinning_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L109) `pub fn induced_stress_with_thinning_factor(layer: &SicLayer, pressure: Pressure, thinning_factor: Ratio) -> Pressure` — Eq (2) written against a **carried** `FKOR` rather than an elapsed time (pages -484-, -492-): · called at [L363](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L363)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:107 fn induced_stress_with_thinning_factor -->
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:113 initial_thickness -->
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:114 cbrt_mean_radius -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:109 fn induced_stress_with_thinning_factor -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:115 initial_thickness -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:116 cbrt_mean_radius -->
 
 ```rust,ignore
-{{#include ../../../../../crates/boon-lay/src/fuel_failure/stress.rs:107:115}}
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/stress.rs:109:117}}
 ```
 
 </details>
@@ -3405,14 +3405,14 @@ Everything `crates/boon-lay/src/fuel_failure/htr10/mod.rs::end_of_irradiation_fa
 
 <div class="cw-node" style="margin-left:2.7em">
 
-[`geometry.rs::SicLayer::initial_thickness`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L121) `pub fn initial_thickness(&self) -> Length` — The original layer thickness `d_o = r_a − r_i` (page -484-). · called at [L113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L113)
+[`geometry.rs::SicLayer::initial_thickness`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L146) `pub fn initial_thickness(&self) -> Length` — The original layer thickness `d_o = r_a − r_i` (page -484-). · called at [L113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L115)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/geometry.rs:121 fn initial_thickness -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/geometry.rs:146 fn initial_thickness -->
 
 ```rust,ignore
-{{#include ../../../../../crates/boon-lay/src/fuel_failure/geometry.rs:121:123}}
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/geometry.rs:146:148}}
 ```
 
 </details>
@@ -3420,14 +3420,14 @@ Everything `crates/boon-lay/src/fuel_failure/htr10/mod.rs::end_of_irradiation_fa
 
 <div class="cw-node" style="margin-left:2.7em">
 
-[`geometry.rs::SicLayer::cbrt_mean_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L114) `pub fn cbrt_mean_radius(&self) -> Length` — The report's **average radius** `r = (0.5·(r_a³ + r_i³))^(1/3)` (page -484-). · called at [L114](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L114)
+[`geometry.rs::SicLayer::cbrt_mean_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L139) `pub fn cbrt_mean_radius(&self) -> Length` — The report's **average radius** `r = (0.5·(r_a³ + r_i³))^(1/3)` (page -484-). · called at [L114](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L116)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/geometry.rs:114 fn cbrt_mean_radius -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/geometry.rs:139 fn cbrt_mean_radius -->
 
 ```rust,ignore
-{{#include ../../../../../crates/boon-lay/src/fuel_failure/geometry.rs:114:118}}
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/geometry.rs:139:143}}
 ```
 
 </details>

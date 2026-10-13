@@ -25,7 +25,7 @@
 use uom::si::f64::{Pressure, Ratio, Time, Velocity};
 use uom::si::ratio::ratio;
 
-use super::geometry::SicLayer;
+use super::geometry::{CorrosionInputError, SicLayer};
 
 /// **Eq (2)** — the SiC hoop stress induced by internal gas pressure, in the
 /// report's preferred approximate form (page -484-).
@@ -43,16 +43,19 @@ use super::geometry::SicLayer;
 ///
 /// Note the model is **thin-shell throughout**. The report contains no
 /// thick-wall (Lamé) formulation, so none is offered here.
+///
+/// **Guarded (2026-10-13).** A negative or non-finite rate or time is refused
+/// ([`SicLayer::isothermal_thinning_factor`]); before, a negative rate
+/// silently gave a stress below the uncorroded one.
 pub fn induced_stress(
     layer: &SicLayer,
     pressure: Pressure,
     corrosion_rate: Velocity,
     elapsed: Time,
-) -> Pressure {
-    let d_o = layer.initial_thickness();
-    let thinning: Ratio = corrosion_rate * elapsed / d_o;
-    let base: Pressure = layer.cbrt_mean_radius() * pressure / (2.0 * d_o);
-    base * (Ratio::new::<ratio>(1.0) + thinning)
+) -> Result<Pressure, CorrosionInputError> {
+    let fkor = layer.isothermal_thinning_factor(corrosion_rate, elapsed)?;
+    let base: Pressure = layer.cbrt_mean_radius() * pressure / (2.0 * layer.initial_thickness());
+    Ok(base * fkor)
 }
 
 /// The thin-shell stress written through the thickness, `σ_t = r·p/(2·d_act)`
@@ -72,20 +75,19 @@ pub fn induced_stress(
 ///
 /// Kept as its own function because computing the stress by two routes and
 /// asserting they agree is a real check on the algebra —
-/// `tests::the_two_routes_to_the_stress_agree_exactly`. `None` only if the
+/// `tests::the_two_routes_to_the_stress_agree_exactly`. ~~`None` only if the
 /// thickness is non-positive, which Eq (7) cannot produce; it guards against
-/// a caller supplying a negative rate.
+/// a caller supplying a negative rate.~~ **CORRECTED 2026-10-13**: that guard
+/// missed a negative rate that left the thickness positive. A negative or
+/// non-finite rate or time is now refused with an error that says which.
 pub fn induced_stress_exact(
     layer: &SicLayer,
     pressure: Pressure,
     corrosion_rate: Velocity,
     elapsed: Time,
-) -> Option<Pressure> {
-    let d_act = layer.actual_thickness(corrosion_rate, elapsed);
-    if d_act.value <= 0.0 {
-        return None;
-    }
-    Some(layer.cbrt_mean_radius() * pressure / (2.0 * d_act))
+) -> Result<Pressure, CorrosionInputError> {
+    let d_act = layer.actual_thickness(corrosion_rate, elapsed)?;
+    Ok(layer.cbrt_mean_radius() * pressure / (2.0 * d_act))
 }
 
 /// Eq (2) written against a **carried** `FKOR` rather than an elapsed time
@@ -147,7 +149,7 @@ mod tests {
         let v = Velocity::new::<meter_per_second>(5.0e-11);
         for hours in [0.0, 1.0, 50.0, 300.0, 5000.0] {
             let t = Time::new::<hour>(hours);
-            let a = induced_stress(&l, p, v, t).get::<pascal>();
+            let a = induced_stress(&l, p, v, t).unwrap().get::<pascal>();
             let e = induced_stress_exact(&l, p, v, t)
                 .expect("Eq (7) is always positive")
                 .get::<pascal>();
@@ -169,6 +171,7 @@ mod tests {
             Velocity::new::<meter_per_second>(0.0),
             Time::new::<second>(0.0),
         )
+        .unwrap()
         .get::<pascal>();
         let expected = 268.639_995e-6 * 30.0e6 / (2.0 * 35.0e-6); // 115.1314 MPa
         assert!(
@@ -188,7 +191,7 @@ mod tests {
         let v = Velocity::new::<meter_per_second>(1.0e-10);
         let mut last = 0.0;
         for hours in [0.0, 10.0, 100.0, 1000.0, 100_000.0] {
-            let s = induced_stress(&l, p, v, Time::new::<hour>(hours)).get::<pascal>();
+            let s = induced_stress(&l, p, v, Time::new::<hour>(hours)).unwrap().get::<pascal>();
             assert!(s > last, "stress must rise: {s} after {last}");
             assert!(s.is_finite(), "and stay finite");
             last = s;
@@ -196,7 +199,19 @@ mod tests {
         // The thickness never reaches zero, so the stress never blows up.
         let far = l
             .actual_thickness(v, Time::new::<hour>(1.0e9))
+            .unwrap()
             .get::<micrometer>();
         assert!(far > 0.0, "Eq (7) thins asymptotically, never past zero");
+    }
+
+    /// A negative corrosion rate is refused by both routes to the stress.
+    /// Before 2026-10-13 `induced_stress` returned a stress BELOW the
+    /// uncorroded one for it, with no error.
+    #[test]
+    fn a_negative_corrosion_rate_is_refused_by_both_routes() {
+        let (l, p) = (layer(), Pressure::new::<megapascal>(30.0));
+        let (v, t) = (Velocity::new::<meter_per_second>(-1.0e-10), Time::new::<hour>(10.0));
+        assert_eq!(induced_stress(&l, p, v, t), Err(CorrosionInputError::NegativeRate(-1.0e-10)));
+        assert_eq!(induced_stress_exact(&l, p, v, t), Err(CorrosionInputError::NegativeRate(-1.0e-10)));
     }
 }

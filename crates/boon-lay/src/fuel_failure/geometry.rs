@@ -73,6 +73,31 @@ impl std::fmt::Display for SicLayerError {
 
 impl std::error::Error for SicLayerError {}
 
+/// Why a corrosion rate and an elapsed time cannot be used to thin a layer.
+/// Each case carries the offending value(s) in SI units (m/s, s).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CorrosionInputError {
+    /// The rate or the time is NaN or infinite (rate, time).
+    NotFinite(f64, f64),
+    /// A negative corrosion rate: the layer would grow, and at
+    /// `v̇·t ≤ −d_o` Eq (7) divides by zero or returns a negative thickness.
+    NegativeRate(f64),
+    /// A negative elapsed time, which has the same effect as a negative rate.
+    NegativeTime(f64),
+}
+
+impl std::fmt::Display for CorrosionInputError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotFinite(v, t) => write!(f, "corrosion rate ({v} m/s) or elapsed time ({t} s) is not finite"),
+            Self::NegativeRate(v) => write!(f, "corrosion rate must not be negative, got {v} m/s"),
+            Self::NegativeTime(t) => write!(f, "elapsed time must not be negative, got {t} s"),
+        }
+    }
+}
+
+impl std::error::Error for CorrosionInputError {}
+
 impl SicLayer {
     /// A layer from its inner radius `r_i` and outer radius `r_a`, in that
     /// order. Refuses radii that are not finite, an inner radius that is not
@@ -143,10 +168,38 @@ impl SicLayer {
     /// Always positive and monotonically decreasing — unlike the -484- form,
     /// which goes negative once `v̇·t > 1 m`. A layer thins asymptotically
     /// toward zero here, which is the physically right behaviour.
-    pub fn actual_thickness(&self, corrosion_rate: Velocity, elapsed: Time) -> Length {
-        let d_o = self.initial_thickness();
-        let fkor: Ratio = Ratio::new::<ratio>(1.0) + corrosion_rate * elapsed / d_o;
-        d_o / fkor
+    ///
+    /// **Guarded (2026-10-13).** "Always positive" holds only for a rate and a
+    /// time that are not negative; ~~nothing checked that~~, and
+    /// `v̇·t = −d_o` divided by zero. Such inputs are now refused through
+    /// [`SicLayer::isothermal_thinning_factor`].
+    pub fn actual_thickness(&self, corrosion_rate: Velocity, elapsed: Time) -> Result<Length, CorrosionInputError> {
+        Ok(self.initial_thickness() / self.isothermal_thinning_factor(corrosion_rate, elapsed)?)
+    }
+
+    /// `FKOR = 1 + v̇·t/d_o` for one constant rate held for `elapsed`
+    /// (page -492-), so `d_act = d_o/FKOR`. Never below 1.
+    ///
+    /// The one place a caller-supplied rate and time are checked: a value that
+    /// is not finite, a negative rate and a negative time are refused.
+    /// [`super::thinning_factor`] is the same quantity with the rate taken
+    /// from the report's corrosion law at a temperature.
+    pub fn isothermal_thinning_factor(
+        &self,
+        corrosion_rate: Velocity,
+        elapsed: Time,
+    ) -> Result<Ratio, CorrosionInputError> {
+        let (v, t) = (corrosion_rate.value, elapsed.value);
+        if !v.is_finite() || !t.is_finite() {
+            return Err(CorrosionInputError::NotFinite(v, t));
+        }
+        if v < 0.0 {
+            return Err(CorrosionInputError::NegativeRate(v));
+        }
+        if t < 0.0 {
+            return Err(CorrosionInputError::NegativeTime(t));
+        }
+        Ok(Ratio::new::<ratio>(1.0) + corrosion_rate * elapsed / self.initial_thickness())
     }
 }
 
@@ -200,5 +253,31 @@ mod tests {
         assert_eq!((ok.inner_radius(), ok.outer_radius()), (um(250.0), um(285.0)));
         let msg = SicLayer::new(um(285.0), um(250.0)).unwrap_err().to_string();
         assert!(msg.contains("must exceed"), "{msg}");
+    }
+
+    /// **Methodology.** The thinning of the 250/285 um layer is asked for
+    /// with each kind of impossible rate or time, which must be refused with
+    /// the matching error, and with a real pair, which must give Eq (7).
+    /// The real pair is `v̇·t = 35 um` (1e-10 m/s for 3.5e5 s), chosen so
+    /// that `FKOR = 2` and `d_act = d_o/2 = 17.5 um` by hand.
+    ///
+    /// **Result (2026-10-13).** Negative rate, negative time, NaN and
+    /// infinity are refused; the real pair gives 17.5 um to 1e-9 um, and
+    /// zero rate and zero time give the full 35 um.
+    #[test]
+    fn impossible_corrosion_inputs_are_refused() {
+        use uom::si::time::second;
+        use uom::si::velocity::meter_per_second;
+        let (l, v, t) = (layer(), Velocity::new::<meter_per_second>, Time::new::<second>);
+        assert_eq!(l.actual_thickness(v(-1.0e-10), t(3.5e5)), Err(CorrosionInputError::NegativeRate(-1.0e-10)));
+        assert_eq!(l.actual_thickness(v(1.0e-10), t(-3.5e5)), Err(CorrosionInputError::NegativeTime(-3.5e5)));
+        assert!(matches!(l.actual_thickness(v(f64::NAN), t(1.0)), Err(CorrosionInputError::NotFinite(..))));
+        assert!(matches!(l.actual_thickness(v(1.0e-10), t(f64::INFINITY)), Err(CorrosionInputError::NotFinite(..))));
+        let half = l.actual_thickness(v(1.0e-10), t(3.5e5)).unwrap().get::<micrometer>();
+        assert!((half - 17.5).abs() < 1e-9, "{half}");
+        let full = l.actual_thickness(v(0.0), t(0.0)).unwrap().get::<micrometer>();
+        assert!((full - 35.0).abs() < 1e-9, "{full}");
+        let msg = l.actual_thickness(v(-1.0), t(1.0)).unwrap_err().to_string();
+        assert!(msg.contains("must not be negative"), "{msg}");
     }
 }

@@ -191,18 +191,18 @@ Call chain from `history.rs::AccidentHistory::pressure_vessel_failure_at` to `st
     // … (the rest of the function: follow the link above)
 ```
 
-**2.** → [`stress.rs::induced_stress_with_thinning_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L107) · called at [L516](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L516) — Eq (2) written against a **carried** `FKOR` rather than an elapsed time (pages -484-, -492-):
+**2.** → [`stress.rs::induced_stress_with_thinning_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L109) · called at [L516](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L516) — Eq (2) written against a **carried** `FKOR` rather than an elapsed time (pages -484-, -492-):
 
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:107 fn induced_stress_with_thinning_factor -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:109 fn induced_stress_with_thinning_factor -->
 
 ```rust,ignore
-{{#include ../../../../../crates/boon-lay/src/fuel_failure/stress.rs:107:115}}
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/stress.rs:109:117}}
 ```
 <!-- /code-walk -->
 
 
 ```rust,ignore
-{{#include ../../../src/fuel_failure/stress.rs:46:56}}
+{{#include ../../../src/fuel_failure/stress.rs:50:59}}
 ```
 
 **The check.** `the_two_routes_to_the_stress_agree_exactly` pins the
