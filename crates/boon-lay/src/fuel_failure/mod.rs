@@ -192,7 +192,7 @@ pub use decomposition::{
     DecompositionCalibration, DECOMPOSITION_ACTIVATION_J_PER_MOL,
 };
 pub use diffusion::{reduced_diffusion_coefficient, KernelKind};
-pub use geometry::SicLayer;
+pub use geometry::{SicLayer, SicLayerError};
 pub use grain_boundary::{
     advance_grain_boundary_exposure, corroded_weibull_modulus, grain_boundary_corrosion_rate,
     GrainBoundaryCorrosion,
@@ -277,10 +277,7 @@ mod tests {
     /// A representative TRISO SiC layer: a 35 um shell whose inner surface
     /// sits at 250 um. Dimensions only; nothing is calibrated to them.
     fn layer() -> SicLayer {
-        SicLayer {
-            inner_radius: Length::new::<micrometer>(250.0),
-            outer_radius: Length::new::<micrometer>(285.0),
-        }
+        SicLayer::new(Length::new::<micrometer>(250.0), Length::new::<micrometer>(285.0)).unwrap()
     }
 
     #[test]

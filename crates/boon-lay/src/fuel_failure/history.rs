@@ -665,10 +665,7 @@ mod tests {
     fn particle() -> ParticleState {
         let t_b = ThermodynamicTemperature::new::<degree_celsius>(1000.0);
         ParticleState {
-            layer: SicLayer {
-                inner_radius: Length::new::<micrometer>(250.0),
-                outer_radius: Length::new::<micrometer>(285.0),
-            },
+            layer: SicLayer::new(Length::new::<micrometer>(250.0), Length::new::<micrometer>(285.0)).unwrap(),
             compound: KernelCompound::ThoriumUraniumOxide,
             diffusion_kernel: KernelKind::ThoriumUraniumOxide,
             kernel_volume: Volume::new::<cubic_meter>(9.0e-13),
@@ -712,10 +709,7 @@ mod tests {
         let t_b_time = Time::new::<day>(260.0);
         let gamma = 0.05;
         ParticleState {
-            layer: SicLayer {
-                inner_radius: Length::new::<micrometer>(250.0),
-                outer_radius: Length::new::<micrometer>(285.0),
-            },
+            layer: SicLayer::new(Length::new::<micrometer>(250.0), Length::new::<micrometer>(285.0)).unwrap(),
             compound: KernelCompound::UraniumOxide,
             diffusion_kernel: KernelKind::UraniumOxide,
             kernel_volume: Volume::new::<cubic_meter>(9.0e-13),
@@ -1474,10 +1468,7 @@ mod tests {
         let gamma = 0.6;
         let burnup = Ratio::new::<ratio>(0.082);
         ParticleState {
-            layer: SicLayer {
-                inner_radius: Length::new::<micrometer>(250.0),
-                outer_radius: Length::new::<micrometer>(285.0),
-            },
+            layer: SicLayer::new(Length::new::<micrometer>(250.0), Length::new::<micrometer>(285.0)).unwrap(),
             compound: KernelCompound::ThoriumUraniumOxide,
             diffusion_kernel: KernelKind::ThoriumUraniumOxide,
             kernel_volume: Volume::new::<cubic_meter>(9.0e-13),

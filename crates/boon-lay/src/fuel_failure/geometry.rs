@@ -31,15 +31,76 @@ use uom::si::ratio::ratio;
 ///
 /// Both radii are to the SiC layer itself — `r_i` its inner surface (the outer
 /// surface of the inner PyC) and `r_a` its outer surface.
+///
+/// **Guarded (2026-10-13).** A layer is built only through [`SicLayer::new`],
+/// which refuses radii that cannot describe a shell, so every method here may
+/// rely on `0 < r_i < r_a`, both finite. ~~The two radii were public fields
+/// and nothing stopped an impossible layer~~: an outer radius inside the inner
+/// one gave a negative thickness, and with it a negative stress, with no
+/// error anywhere.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SicLayer {
-    /// Inner radius `r_i` of the SiC layer.
-    pub inner_radius: Length,
-    /// Outer radius `r_a` of the SiC layer.
-    pub outer_radius: Length,
+    inner_radius: Length,
+    outer_radius: Length,
 }
 
+/// Why a pair of radii is not a SiC layer. Each case carries the offending
+/// value(s) in metres.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SicLayerError {
+    /// A radius is NaN or infinite (inner, outer).
+    NotFinite(f64, f64),
+    /// The inner radius is zero or negative: that is a solid sphere or
+    /// nonsense, and Eq (2)'s thin-shell stress does not describe either.
+    InnerRadiusNotPositive(f64),
+    /// The outer radius is not beyond the inner one (inner, outer), so the
+    /// layer has zero or negative thickness. Swapping the two arguments
+    /// lands here.
+    OuterNotBeyondInner(f64, f64),
+}
+
+impl std::fmt::Display for SicLayerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotFinite(ri, ra) => write!(f, "SiC layer radius is not finite: inner {ri} m, outer {ra} m"),
+            Self::InnerRadiusNotPositive(ri) => write!(f, "SiC layer inner radius must be positive, got {ri} m"),
+            Self::OuterNotBeyondInner(ri, ra) => {
+                write!(f, "SiC layer outer radius ({ra} m) must exceed its inner radius ({ri} m)")
+            }
+        }
+    }
+}
+
+impl std::error::Error for SicLayerError {}
+
 impl SicLayer {
+    /// A layer from its inner radius `r_i` and outer radius `r_a`, in that
+    /// order. Refuses radii that are not finite, an inner radius that is not
+    /// positive, and an outer radius that is not beyond the inner one.
+    pub fn new(inner_radius: Length, outer_radius: Length) -> Result<Self, SicLayerError> {
+        let (ri, ra) = (inner_radius.value, outer_radius.value);
+        if !ri.is_finite() || !ra.is_finite() {
+            return Err(SicLayerError::NotFinite(ri, ra));
+        }
+        if ri <= 0.0 {
+            return Err(SicLayerError::InnerRadiusNotPositive(ri));
+        }
+        if ra <= ri {
+            return Err(SicLayerError::OuterNotBeyondInner(ri, ra));
+        }
+        Ok(Self { inner_radius, outer_radius })
+    }
+
+    /// Inner radius `r_i` of the SiC layer.
+    pub fn inner_radius(&self) -> Length {
+        self.inner_radius
+    }
+
+    /// Outer radius `r_a` of the SiC layer.
+    pub fn outer_radius(&self) -> Length {
+        self.outer_radius
+    }
+
     /// The report's **average radius** `r = (0.5·(r_a³ + r_i³))^(1/3)`
     /// (page -484-).
     ///
@@ -47,7 +108,10 @@ impl SicLayer {
     /// The two agree to well under a percent for a real TRISO layer, which is
     /// precisely why substituting the arithmetic mean would never show up as
     /// an obvious error — so the printed definition is kept.
-    pub fn mean_radius(&self) -> Length {
+    ///
+    /// Needs no check of its own: [`SicLayer::new`] has already refused
+    /// impossible radii, so the result lies strictly between `r_i` and `r_a`.
+    pub fn cbrt_mean_radius(&self) -> Length {
         let ri = self.inner_radius.value;
         let ra = self.outer_radius.value;
         Length::new::<uom::si::length::meter>((0.5 * (ra.powi(3) + ri.powi(3))).cbrt())
@@ -94,16 +158,13 @@ mod tests {
     /// A representative TRISO SiC layer: a 35 um shell whose inner surface
     /// sits at 250 um. Dimensions only; nothing is calibrated to them.
     fn layer() -> SicLayer {
-        SicLayer {
-            inner_radius: Length::new::<micrometer>(250.0),
-            outer_radius: Length::new::<micrometer>(285.0),
-        }
+        SicLayer::new(Length::new::<micrometer>(250.0), Length::new::<micrometer>(285.0)).unwrap()
     }
 
     #[test]
-    fn mean_radius_is_the_cube_root_mean() {
+    fn cbrt_mean_radius_is_the_cube_root_mean() {
         let l = layer();
-        let r_cbrt = l.mean_radius().get::<micrometer>();
+        let r_cbrt = l.cbrt_mean_radius().get::<micrometer>();
         let arithmetic = 0.5 * (250.0 + 285.0);
         assert!(
             (r_cbrt - 268.639_995).abs() < 1e-4,
@@ -114,5 +175,30 @@ mod tests {
             "must not silently be the arithmetic mean ({arithmetic})"
         );
         assert!((l.initial_thickness().get::<micrometer>() - 35.0).abs() < 1e-9);
+        let (ri, ra) = (l.inner_radius().get::<micrometer>(), l.outer_radius().get::<micrometer>());
+        assert!(ri < r_cbrt && r_cbrt < ra, "the mean lies inside the layer");
+    }
+
+    /// **Methodology.** `SicLayer::new` is given each kind of impossible pair
+    /// of radii and must refuse it with the matching error; a real layer must
+    /// be accepted with its radii unchanged. The pass criterion is exact.
+    ///
+    /// **Result (2026-10-13).** All seven cases behave as stated: swapped
+    /// radii, equal radii, a zero and a negative inner radius, NaN and
+    /// infinity are refused; 250/285 um is accepted.
+    #[test]
+    fn impossible_radii_are_refused() {
+        let um = Length::new::<micrometer>;
+        let m = |x: f64| um(x).value;
+        assert_eq!(SicLayer::new(um(285.0), um(250.0)), Err(SicLayerError::OuterNotBeyondInner(m(285.0), m(250.0))));
+        assert_eq!(SicLayer::new(um(250.0), um(250.0)), Err(SicLayerError::OuterNotBeyondInner(m(250.0), m(250.0))));
+        assert_eq!(SicLayer::new(um(0.0), um(35.0)), Err(SicLayerError::InnerRadiusNotPositive(0.0)));
+        assert_eq!(SicLayer::new(um(-250.0), um(285.0)), Err(SicLayerError::InnerRadiusNotPositive(m(-250.0))));
+        assert!(matches!(SicLayer::new(um(f64::NAN), um(285.0)), Err(SicLayerError::NotFinite(..))));
+        assert!(matches!(SicLayer::new(um(250.0), um(f64::INFINITY)), Err(SicLayerError::NotFinite(..))));
+        let ok = SicLayer::new(um(250.0), um(285.0)).unwrap();
+        assert_eq!((ok.inner_radius(), ok.outer_radius()), (um(250.0), um(285.0)));
+        let msg = SicLayer::new(um(285.0), um(250.0)).unwrap_err().to_string();
+        assert!(msg.contains("must exceed"), "{msg}");
     }
 }

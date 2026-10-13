@@ -51,7 +51,7 @@ pub fn induced_stress(
 ) -> Pressure {
     let d_o = layer.initial_thickness();
     let thinning: Ratio = corrosion_rate * elapsed / d_o;
-    let base: Pressure = layer.mean_radius() * pressure / (2.0 * d_o);
+    let base: Pressure = layer.cbrt_mean_radius() * pressure / (2.0 * d_o);
     base * (Ratio::new::<ratio>(1.0) + thinning)
 }
 
@@ -85,7 +85,7 @@ pub fn induced_stress_exact(
     if d_act.value <= 0.0 {
         return None;
     }
-    Some(layer.mean_radius() * pressure / (2.0 * d_act))
+    Some(layer.cbrt_mean_radius() * pressure / (2.0 * d_act))
 }
 
 /// Eq (2) written against a **carried** `FKOR` rather than an elapsed time
@@ -111,7 +111,7 @@ pub fn induced_stress_with_thinning_factor(
 ) -> Pressure {
     let fkor = thinning_factor.get::<ratio>().max(1.0);
     let d_o = layer.initial_thickness();
-    layer.mean_radius() * pressure * Ratio::new::<ratio>(fkor) / (2.0 * d_o)
+    layer.cbrt_mean_radius() * pressure * Ratio::new::<ratio>(fkor) / (2.0 * d_o)
 }
 
 #[cfg(test)]
@@ -126,10 +126,7 @@ mod tests {
     /// A representative TRISO SiC layer: a 35 um shell whose inner surface
     /// sits at 250 um. Dimensions only; nothing is calibrated to them.
     fn layer() -> SicLayer {
-        SicLayer {
-            inner_radius: Length::new::<micrometer>(250.0),
-            outer_radius: Length::new::<micrometer>(285.0),
-        }
+        SicLayer::new(Length::new::<micrometer>(250.0), Length::new::<micrometer>(285.0)).unwrap()
     }
 
     /// **The two routes to the stress are the same expression.**
