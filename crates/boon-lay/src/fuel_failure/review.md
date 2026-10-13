@@ -609,3 +609,59 @@ Just a function getter for inner radius
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit f006756abc.
+
+# Review: SicLayer::outer_radius (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-outer-radius-theodoreonzgit-687b102a"
+kind = "review"
+origin = "human"
+created = "2026-10-13T13:45:09+08:00"
+modified = "2026-10-13T13:45:09+08:00"
+target = "fn:687b102a57f570d9"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/geometry.rs::SicLayer::outer_radius"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T13:45:09+08:00"
+commit = "0b509581991a54eb79e6d05cc2582976fb50ab3c"
+hash = "sha256:935e0917fd06aff0afb7130e62d19601da998c566f5d6517b6215dc4560eb136"
+doc_hash = "sha256:01bb0209c5cc7e043bfbc2c601d65ed01ed01f468b290c307cf6035835574d04"
+cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:5b2b33cb94ca9a56" = "sha256:ad3ca5f101a93f4b16f5b38275849a22be42f0adb309c3e2db7483022a40cc92"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "cannot_happen: guarded through constructor"
+independence = "someone_else"
+limits_and_guards = "no_limits: Already guarded thru constructor"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "T5322spFdvIfwzcg42DNgGd+SUkC4mqXFrXesE20mlSr37kkxxdVCctfD3pvC1o0Of8fl2MXjJ1ZZboPEQzFAg=="
+```
+
+getter for outer radius
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 0b50958199.
