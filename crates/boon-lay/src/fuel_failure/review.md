@@ -438,3 +438,59 @@ This is a constructor with error handling and result handling, prevents inner ra
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit ace4d205a0.
+
+# Review: layer (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-layer-theodoreonzgit-29fd23a4"
+kind = "review"
+origin = "human"
+created = "2026-10-13T13:38:53+08:00"
+modified = "2026-10-13T13:40:59+08:00"
+target = "fn:29fd23a48ca756df"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/stress.rs::layer"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T13:40:59+08:00"
+commit = "30c0ddb708c40ef1f38d14332b35856ee9cab089"
+hash = "sha256:a5bc0eaa4dfd6ab6d8cb39a94d1ab0d35058f689bd5c7fd1d3cffe785cab947a"
+doc_hash = "sha256:ee70dc49f575765ba59e8dc8aa1f3e934d4096b672da37dd4cfd18a815b974e0"
+cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:5b2b33cb94ca9a56" = "sha256:ad3ca5f101a93f4b16f5b38275849a22be42f0adb309c3e2db7483022a40cc92"
+"fn:c57b58c2e76f63ae" = "sha256:6a4876a9539dd7eabd2cb91002663c2858c4ad50c382d19a5fbe05bcbf988bcf"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "4kiioejFqg3WGZT7QFfZDYFpCD1b9IeeZTW/iKjvImLhxtHbXHaEBDUblWTS4cuGcgKyN1PybE/WpE1ukPj1AQ=="
+```
+
+representative layer for smoke tests, not based on triso particle dimensions:
+NUREG/CR-7107, Table 2.10 — Fuel particle data for HTR-10 fuel.
+inner layer is 390 microns, outer layer is 425 microns
+
+This is okay because layer is a private function, never gets out beyond the module. Just used for smoke tests
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 30c0ddb708.
