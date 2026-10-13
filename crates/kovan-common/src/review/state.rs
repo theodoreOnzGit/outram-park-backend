@@ -166,14 +166,18 @@ pub enum FlagKind {
     /// IV&V) but misses it; the reasons are listed (GitHub #809). The stamp
     /// still counts at its own rung.
     IndependentVvNotCounted,
+    /// A valid rung 4 review written before rung 4 asked about its two
+    /// axes (GitHub #855): it still counts; stamping again records them.
+    Rung4AxesNotRecorded,
 }
 
 impl FlagKind {
-    pub const ALL: [FlagKind; 4] = [
+    pub const ALL: [FlagKind; 5] = [
         Self::NewReachingTest,
         Self::DuplicateCode,
         Self::ImplausibleSigningTime,
         Self::IndependentVvNotCounted,
+        Self::Rung4AxesNotRecorded,
     ];
 
     pub fn label(self) -> &'static str {
@@ -182,6 +186,7 @@ impl FlagKind {
             Self::DuplicateCode => "duplicate code",
             Self::ImplausibleSigningTime => "implausible signing time",
             Self::IndependentVvNotCounted => "independent V&V not counted",
+            Self::Rung4AxesNotRecorded => "rung 4 axes not recorded (accuracy and usability)",
         }
     }
 

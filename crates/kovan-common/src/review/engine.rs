@@ -448,6 +448,10 @@ pub enum FunctionFlag {
     /// A valid review names a separation attestation (it claims rung 5,
     /// IV&V) but misses it (GitHub #809): every reason is listed.
     IndependentVvNotCounted { review: String, misses: Vec<Rung5Miss> },
+    /// A valid rung 4 review that predates the questions of rung 4's two
+    /// axes, physical accuracy and usability (GitHub #855): it still counts
+    /// at rung 4; stamping it again records them.
+    Rung4AxesNotRecorded { review: String },
 }
 
 impl FunctionFlag {
@@ -457,6 +461,7 @@ impl FunctionFlag {
             Self::DuplicateCode { .. } => FlagKind::DuplicateCode,
             Self::ImplausibleSignedAt { .. } => FlagKind::ImplausibleSigningTime,
             Self::IndependentVvNotCounted { .. } => FlagKind::IndependentVvNotCounted,
+            Self::Rung4AxesNotRecorded { .. } => FlagKind::Rung4AxesNotRecorded,
         }
     }
 }
@@ -534,6 +539,10 @@ pub struct ReviewReport {
     /// carries none, or on an unreadable entry). Added 2026-10-10 (#770): it orders two reviews of
     /// the same date when both carry it ([`super::ivv::earliest_first`]).
     pub signed_at: Option<String>,
+    /// The answers claim a hand-written validation case and do not answer
+    /// the questions of rung 4's two axes (GitHub #855): a review written
+    /// before those questions existed. It keeps its rung and is flagged.
+    pub rung4_axes_unrecorded: bool,
 }
 
 /// One function, judged.
@@ -870,6 +879,7 @@ pub fn evaluate(
                 rung: Some(b.rung),
                 qualifications: qualification_labels(root, &b.by),
                 independent: stamp_gate(&b.checklist, Applicability::default()).independent,
+                rung4_axes_unrecorded: !stamp_gate(&b.checklist, Applicability::default()).rung4_unanswered.is_empty(),
                 vv_case: Vec::new(),
                 separation_attestation: b.separation_attestation.clone(),
                 signed_at: b.signed_at.clone(),
@@ -1004,6 +1014,7 @@ pub fn evaluate(
                     vv_case: Vec::new(),
                     separation_attestation: None,
                     signed_at: None,
+                    rung4_axes_unrecorded: false,
                 }),
                 None => ev.orphan_unreadable.push(OrphanUnreadable {
                     dir: fr.dir.clone(),
@@ -1060,6 +1071,13 @@ pub fn evaluate(
         let ivv = judge_function(id, &cur.index.krate, &reviews, authors, root, &registry, concepts, policy);
         let rung = function_rung(&reviews, &ivv);
         let mut fn_flags = flags.remove(*id).unwrap_or_default();
+        for r in &reviews {
+            if r.rung4_axes_unrecorded && r.rung == Some(4) && r.state.kind().counts() {
+                fn_flags.push(FunctionFlag::Rung4AxesNotRecorded {
+                    review: r.artifact.clone().unwrap_or_default(),
+                });
+            }
+        }
         for c in &ivv.candidates {
             if c.attestation.is_some() && !c.misses.is_empty() {
                 fn_flags.push(FunctionFlag::IndependentVvNotCounted {
@@ -1207,6 +1225,8 @@ fn judge(
         physical_interface: b.checklist.contains_key("units_documented"),
         is_test: cur.f.test,
         tests: tests_by,
+        shape: cur.f.shape,
+        hand_written_vv: false,
     };
     let gate = stamp_gate(&b.checklist, ctx);
     if !gate.stampable() {

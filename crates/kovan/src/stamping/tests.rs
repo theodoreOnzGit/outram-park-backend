@@ -425,18 +425,51 @@ fn a_test_function_starts_with_its_this_is_a_test_answers() {
     assert!(!l.answers.values().any(|a| a.starts_with("test_") || a == "is_a_test"), "{:?}", l.answers);
 }
 
+/// The answers a named number (constant) stamps at rung 3 with.
+pub(crate) fn clean_named_number() -> BTreeMap<String, String> {
+    [
+        ("item_matches_description", "yes"),
+        ("item_test_use", "no_test_uses"),
+        ("item_value_source", "cited"),
+        ("vv_evidence", "unit_tests_only"),
+        ("vv_case_author", "agent_wrote_or_cowrote"),
+        ("maintainability", "yes"),
+        ("independence", "someone_else"),
+        ("coding_standards", "yes"),
+    ]
+    .iter()
+    .map(|(k, v)| (k.to_string(), v.to_string()))
+    .collect()
+}
+
+/// The answers a record (struct) stamps at rung 3 with.
+pub(crate) fn clean_record() -> BTreeMap<String, String> {
+    let mut m = clean_named_number();
+    m.remove("item_value_source");
+    m.insert("item_holds_extra".into(), "no".into());
+    m.insert("item_impossible_values".into(), "no_every_combination_valid".into());
+    m
+}
+
 /// Methodology (#843): add a struct with a method and a constant to the
-/// fixture's library, commit, and reindex with the rust-analyzer-free
-/// refresh. Pass: both are in the folder's `kovan.toml` with their shape;
-/// the struct's entry hashes as the struct at HEAD does (the lookup the
-/// stamp step makes, [`states::fn_at`]); the review diff finds it by name;
-/// asking to stamp either one is refused in plain words and writes no
-/// `review.md`; and stamping a function still works with the items in the
-/// index.
+/// fixture's library, commit, reindex with the rust-analyzer-free refresh,
+/// and record by hand that `twice` uses the struct (the uses need
+/// rust-analyzer, as the fixture's one call does). Then review bottom-up.
+///
+/// Pass: both items are in `kovan.toml` with their shape, and the struct's
+/// entry hashes as the struct at HEAD does. `twice` cannot be stamped
+/// while the struct it uses has no valid review (the refusal names it),
+/// even after its callee `leaf` is stamped. The struct is asked the record
+/// questions and the constant the named-number ones; function answers on
+/// the struct are refused; each stamps valid at rung 3 with its own
+/// answers. `twice` then stamps, and its signed entry records the struct's
+/// hash beside `leaf`'s. Editing the struct's **method** makes the struct
+/// "changed since review" and `twice` "a callee changed"; the constant is
+/// untouched.
 ///
 /// Result (2026-10-13): passes.
 #[test]
-fn types_and_constants_are_indexed_and_not_stamped_yet() {
+fn types_and_constants_are_reviewed_bottom_up() {
     use kovan_common::review::index::{FolderIndex, ItemShape};
     let r = Repo::new();
     let store = tempfile::tempdir().unwrap();
@@ -448,22 +481,69 @@ fn types_and_constants_are_indexed_and_not_stamped_yet() {
     r.write(LIB, &src);
     r.commit("add a record and a named number");
     r.reindex();
-    let idx = FolderIndex::parse(&r.read(&format!("{DIR}/kovan.toml"))).unwrap();
-    let entry = |q: &str| idx.modules["lib.rs"].functions.iter().find(|f| f.qual == q).cloned().unwrap();
-    assert_eq!(entry("Fractions").shape, Some(ItemShape::Struct));
-    assert_eq!(entry("K_B").shape, Some(ItemShape::Const));
-    assert_eq!(entry("Fractions::total").shape, None);
+    let toml = format!("{DIR}/kovan.toml");
+    let mut idx = FolderIndex::parse(&r.read(&toml)).unwrap();
+    let entry = |idx: &FolderIndex, q: &str| idx.modules["lib.rs"].functions.iter().find(|f| f.qual == q).cloned().unwrap();
+    assert_eq!(entry(&idx, "Fractions").shape, Some(ItemShape::Struct));
+    assert_eq!(entry(&idx, "K_B").shape, Some(ItemShape::Const));
+    assert_eq!(entry(&idx, "Fractions::total").shape, None);
+    let fractions = entry(&idx, "Fractions").id;
+    for f in &mut idx.modules.get_mut("lib.rs").unwrap().functions {
+        if f.qual == "twice" {
+            f.uses = vec![fractions.clone()];
+        }
+    }
+    r.write(&toml, &idx.to_toml().unwrap());
+    r.commit("record that twice uses Fractions");
     let head = r.git(&["rev-parse", "HEAD"]).trim().to_string();
     let mut cache = states::FileCache::new();
     let at_head = states::fn_at(&mut cache, r.path(), &head, LIB, "Fractions").unwrap();
-    assert_eq!(at_head.hashes.hash, entry("Fractions").hash);
-    assert!(review_mode::diff::find_fn(&src, "K_B").is_some());
-    for (q, what) in [("Fractions", "record"), ("K_B", "named number")] {
-        let e = prepare_stamp(r.path(), &format!("{LIB}::{q}"), BY).unwrap_err();
-        assert!(e.contains(what) && e.contains("#843") && e.contains("nothing was stamped"), "{e}");
-    }
-    assert!(!r.path().join(format!("{DIR}/review.md")).exists());
+    assert_eq!(at_head.hashes.hash, entry(&idx, "Fractions").hash);
+
+    let stamp_with = |qual: &str, checklist: BTreeMap<String, String>| -> Result<WrittenEntry, String> {
+        let req = StampRequest { function: format!("{LIB}::{qual}"), by: BY.into(), checklist, ..StampRequest::default() };
+        let mut d = draft_stamp(r.path(), &req)?;
+        key.sign_review(&mut d.entry).unwrap();
+        let w = write_review(r.path(), &d.entry, "")?;
+        r.commit(&format!("stamp {qual}"));
+        Ok(w)
+    };
+    // Bottom-up: the callee first, then the struct, then the user.
+    let e = prepare_stamp(r.path(), &format!("{LIB}::twice"), BY).unwrap_err();
+    assert!(e.contains("bottom-up"), "{e}");
     r.stamp(&key, "leaf", "");
+    let e = prepare_stamp(r.path(), &format!("{LIB}::twice"), BY).unwrap_err();
+    assert!(e.contains("bottom-up") && e.contains("Fractions"), "{e}");
+
+    let ctx = prepare_stamp(r.path(), &format!("{LIB}::Fractions"), BY).unwrap();
+    assert_eq!(ctx.applicability.shape, Some(ItemShape::Struct));
+    let asked: Vec<&str> = ReviewWizard::embedded().applicable(ctx.applicability).map(|q| q.key.as_str()).collect();
+    assert!(asked.contains(&"item_impossible_values") && !asked.contains(&"error_handling"), "{asked:?}");
+    let e = stamp_with("Fractions", clean()).unwrap_err();
+    assert!(e.contains("error_handling") || e.contains("not applicable") || e.contains("NotApplicable"), "{e}");
+    stamp_with("Fractions", clean_record()).unwrap();
+    assert_eq!(r.state("Fractions").unwrap().kind(), StateKind::Valid);
+    assert_eq!(r.state("Fractions").unwrap().rung, 3);
+
+    let ctx = prepare_stamp(r.path(), &format!("{LIB}::K_B"), BY).unwrap();
+    assert_eq!(ctx.applicability.shape, Some(ItemShape::Const));
+    assert!(stamp_with("K_B", clean_record()).is_err());
+    stamp_with("K_B", clean_named_number()).unwrap();
+    assert_eq!(r.state("K_B").unwrap().kind(), StateKind::Valid);
+
+    let w = stamp_with("twice", clean()).unwrap();
+    assert_eq!(r.state("twice").unwrap().kind(), StateKind::Valid);
+    let written = std::fs::read_to_string(&w.review_md).unwrap();
+    assert!(written.contains(&format!("\"{fractions}\" = \"{}\"", entry(&idx, "Fractions").hash)), "{written}");
+
+    // A method of the struct changes: the struct is stale, its user needs
+    // a re-confirm, the constant is untouched.
+    r.edit("        self.sic\n", "        self.sic * 1.0\n");
+    r.commit("edit a method of Fractions");
+    r.reindex();
+    assert_eq!(r.state("Fractions").unwrap().kind(), StateKind::DirectlyStale);
+    assert_eq!(r.state("twice").unwrap().kind(), StateKind::InheritedStale);
+    assert_eq!(r.state("K_B").unwrap().kind(), StateKind::Valid);
     assert_eq!(r.state("leaf").unwrap().kind(), StateKind::Valid);
 }
 

@@ -423,16 +423,6 @@ fn locate<'w>(
         .find(function)
         .ok_or_else(|| format!("{function} is not in any kovan.toml (run kovan-cli index)"))?;
     let path = idx.file_path(file);
-    // Types and constants are indexed and shown (#843); the questions a
-    // review of one asks are not built yet, and the function questions do
-    // not fit, so nothing is stamped.
-    if let Some(shape) = f.shape {
-        return Err(format!(
-            "{path}::{} is a {}: reviewing types and constants is not built yet (GitHub #843); nothing was stamped",
-            f.qual,
-            shape.plain_name()
-        ));
-    }
     if git::is_dirty(root, &path)? {
         return Err(format!(
             "{path} has changes not committed: a stamp certifies HEAD, commit first"
@@ -514,6 +504,8 @@ fn applicability_for(
         physical_interface: f.physical_interface,
         is_test: f.test,
         tests: tests.as_ref().map(|t| t.authorship()).unwrap_or_default(),
+        shape: f.shape,
+        hand_written_vv: false,
     };
     let messages = tests
         .map(|t| t.commit_messages.into_values().flatten().collect())
@@ -567,12 +559,27 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
             .entry("vv_case_author".to_string())
             .or_insert_with(|| a.to_string());
     }
-    // A test function starts with its "this is a test" answers (maintainer,
+    // A test function (or a type or constant that exists only for tests,
+    // #843) starts with its "this is a test" answers (maintainer,
     // 2026-10-12); a previous answer is kept.
     if applicability.is_test {
-        for (q, o) in kovan_common::review::wizard::test_function_prefill() {
+        for (q, o) in kovan_common::review::wizard::test_prefill_for(applicability) {
             answers.entry(q.to_string()).or_insert_with(|| o.to_string());
         }
+    }
+    // Rung 4's "do the tests that reach this pass?" starts from the last
+    // recorded full test run (#855): every reaching test passed in it. The
+    // question is asked only once the validation case is said to be
+    // hand-written, and the reviewer signs what is chosen.
+    if !f.reached_by.is_empty()
+        && idx.test_run.as_ref().is_some_and(|run| {
+            run.suite == kovan_common::review::index::Suite::Full
+                && f.reached_by.iter().all(|t| run.passed.contains(t))
+        })
+    {
+        answers
+            .entry("rung4_tests_pass".to_string())
+            .or_insert_with(|| "all_pass".to_string());
     }
     let upstream = folder.and_then(|m| m.doc.upstream());
     let architectures = ws

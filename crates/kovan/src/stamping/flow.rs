@@ -349,10 +349,14 @@ impl WizardForm {
 
     /// The applicability the gate and the draft use: a `units_documented`
     /// answer also turns `physical_interface` on, as `draft_review` does.
+    ///
+    /// Choosing "a human wrote and checked the validation case" makes it a
+    /// rung 4 review (GitHub #855): the questions of rung 4's two axes are
+    /// then asked, and stop being asked when the answer is changed.
     pub fn applicability(&self) -> Applicability {
         let mut a = self.ctx.applicability;
         a.physical_interface |= self.options.contains_key("units_documented");
-        a
+        a.with_answers(&self.options)
     }
 
     /// The questions asked for this function, in order.
@@ -430,7 +434,16 @@ impl WizardForm {
 
     /// The live stamp gate over the answers.
     pub fn gate(&self) -> GateResult {
-        ReviewWizard::embedded().stamp_gate(&self.answers(), self.applicability())
+        let mut g = ReviewWizard::embedded().stamp_gate(&self.answers(), self.applicability());
+        // A new stamp answers the rung 4 questions once they are asked, as
+        // the draft requires (`draft_review`, #855).
+        g.blocked_by.extend(
+            g.rung4_unanswered
+                .iter()
+                .cloned()
+                .map(kovan_common::review::wizard::GateReason::Unanswered),
+        );
+        g
     }
 
     /// The note a "Mark as Needs fix instead?" starts from: each prompting
