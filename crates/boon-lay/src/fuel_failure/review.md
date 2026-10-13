@@ -71,19 +71,19 @@ id = "review-failure-is-monotone-in-stress-theodoreonzgit-351b95e0"
 kind = "review"
 origin = "human"
 created = "2026-10-12T16:47:12+08:00"
-modified = "2026-10-12T16:47:12+08:00"
+modified = "2026-10-13T11:35:35+08:00"
 target = "fn:351b95e01b6d3f77"
 
 [review]
 path = "crates/boon-lay/src/fuel_failure/weibull.rs::failure_is_monotone_in_stress"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-10-12"
-signed_at = "2026-10-12T16:47:13+08:00"
-commit = "eb29c0cb6295a15fe5889e4505c4a28a5e3ce91d"
+date = "2026-10-13"
+signed_at = "2026-10-13T11:35:35+08:00"
+commit = "c0187fd2247ea1d32dc5033e874b81c6d4c9f9d9"
 hash = "sha256:56e275f8814a0f56baa77d6d623c89c513c53a828e17c155ff378b18ba7ff1cb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-cargo_lock = "sha256:4f41a7d1002fb86dae938001b977e9d208946bedf27faf10f859b5a7fa70eafe"
+cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
 
 [review.callees]
 "fn:dd41ff2953124783" = "sha256:909caa1fbab166b538d958e5778a9e4b2bbb0ac2b44faa8f50ef9c0624a91539"
@@ -101,21 +101,16 @@ unintended_function = "no"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "other: This is a test"
 
-[review.authorship]
-kind = "agent"
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "fSp1Us/WNMGh9QxYQ+ILJLzDQM2Gc/T3VBmRH9jGVPEbeD85U3KugAOn798GSZV36AxP6grY1YtoW1pA+w33DA=="
+value = "U49OiOVvGNdqbMCurvzSoEI12xvN88M4pCIXFIX/65xtu4psTYfujqaOOOcEEwp4LD6/hSJTkamvbDXNv9X6Cg=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
 kind = "implements"
 ```
 
-test function
-
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-12, commit eb29c0cb62.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit c0187fd224.
