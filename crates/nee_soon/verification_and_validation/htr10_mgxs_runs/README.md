@@ -47,5 +47,37 @@ The group structure is NJOY2016's built-in EPRI-CPM/WIMS 69-group table
 
 ## Results
 
-Per case, in each folder's `README.md`, and collected in `INDEX.md`. No case
-has been run yet (2026-10-12).
+Per case, in each folder's `README.md`, and collected in `INDEX.md`.
+
+### Tally verification on the full core (2026-10-13, `verify_tallies/`)
+
+Run before any recorded case was handed to the run machine, to check that the
+tallies are right on the real geometry, where the bed is delta-tracked and
+tallied with the tentative-collision estimator. Budget 4000 × \[10 + 40\], one
+seed, 4 threads, 2172 s. Every check passed:
+
+| check | measured |
+|---|---|
+| the two passes ran identical histories | k 0.993080613 in both, 200 000 histories each |
+| no history lost | 0 |
+| `Sigma_f <= Sigma_a <= Sigma_t` in every visited bin | no violation |
+| kernel `nu-bar` physical in every group | 70 groups, 2.4024 to 4.0859 |
+| tallied production/absorption reproduces `k_eff` | 0.991404 (after leakage 1.65e-4) vs 0.993081 ± 0.003017: −168 pcm, 0.56σ |
+| collapse conserves `k_inf` | to 9.0e-16 |
+| every kernel group visited | 0 of 70 empty |
+| `k` against the 2026-10-07 record | −204 pcm, −0.64σ |
+
+The collision-weighted balance residual `|Sigma_a + Sigma_s,row - Sigma_t| / Sigma_t`
+is 4.7e-4 on 2 groups, 6.4e-4 on 8 and 1.7e-3 on 70, so the scalar and matrix
+tallies agree in the bulk of the collisions. The worst single bins (0.53 on 2
+groups, 64 on 70) belong to sparsely visited zone/group pairs. On the small
+pin cell of `tests/mgxs_from_monte_carlo.rs`, residuals of that kind fell
+with the statistics when the budget was raised tenfold. The recorded cases'
+budget is 7.75 times this one.
+
+The same checks on the HEU/H-1 pin cell
+(`tests/mgxs_from_monte_carlo.rs`, 4000 × \[10 + 100\]): tallied
+`k_inf` against the driver's `k` −60 ± 195 pcm, `nu-bar` 2.43 to 2.61.
+
+The within-run σ understates the true uncertainty, because the HTR-10's
+dominance ratio is near 1 (#495).

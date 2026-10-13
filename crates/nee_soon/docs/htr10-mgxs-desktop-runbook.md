@@ -3,10 +3,6 @@
 > **Research, education and V&V only.** Not for reactor operation, licensing
 > or safety decisions (`RESPONSIBLE_USE.md`).
 
-> **STATUS 2026-10-13: DO NOT START THE QUEUE YET.** The full-core tally
-> verification (`verify_tallies`) is still running on the development
-> machine. This notice is removed in the commit that records its result.
-
 This page is for a session whose job is only to **run** the long HTR-10 MGXS
 cases (gh:#845) on a machine with many cores, using as few tokens as
 possible. Every decision about the cases (model, temperature, particle
