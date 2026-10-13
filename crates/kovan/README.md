@@ -577,7 +577,9 @@ as it was on entering. Logic: `src/stamping/review_mode/`; drawing:
 Added 2026-10-13 (#857): the reviewed source is drawn with syntax colours
 (also in kovan-web's source panel), and the quick-fix editor is a code
 buffer: syntax colours, new lines indented with spaces for Rust, and names
-completed as you type (Tab accepts, Ctrl+N / Ctrl+P choose, Esc closes).
+completed on Ctrl+N / Ctrl+P (Enter accepts, Esc closes; the list never
+opens by itself. ~~It opened as you typed, with Tab to accept~~, changed
+the same day on the maintainer's word).
 In it `:w` saves and stays open, `:q` closes, `:wq` saves and closes.
 **No language server is started**: colours come from the `kopitiam-syntax`
 line lexer and completion from the cached index (`kovan.toml`), so

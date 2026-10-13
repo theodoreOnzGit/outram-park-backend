@@ -98,10 +98,12 @@ impl CodeWords {
 
     /// Up to `limit` words starting with `prefix` (any case), nearest first
     /// and then shortest first. `in_buffer` names (locals and arguments of
-    /// the function being fixed) come before everything else. Nothing for a
-    /// prefix under two characters, and never the prefix itself.
+    /// the function being fixed) come before everything else. Nothing for an
+    /// empty prefix, and never the prefix itself. ~~Two characters were
+    /// needed~~ **CHANGED 2026-10-13**: the list now opens only when asked
+    /// for (Ctrl+N / Ctrl+P), so one character is enough.
     pub fn complete(&self, prefix: &str, in_buffer: &[String], limit: usize) -> Vec<CodeWord> {
-        if prefix.chars().count() < 2 {
+        if prefix.is_empty() {
             return Vec::new();
         }
         let p = prefix.to_lowercase();
@@ -188,10 +190,10 @@ mod tests {
 
     /// **Methodology.** An index of six entries over three files (the file
     /// being fixed, another file of its crate, another crate) is asked for
-    /// `"isoth"`, `"sic"`, a one-letter prefix and an exact name. Pass: the
+    /// `"isoth"`, `"sic"`, a one-letter prefix, nothing and an exact name. Pass: the
     /// order is this file, this crate, elsewhere; a test is never offered;
-    /// matching ignores case; one letter and the exact name give nothing
-    /// extra.
+    /// matching ignores case; nothing typed gives nothing and the exact
+    /// name is never offered back.
     ///
     /// **Result (2026-10-13).** As stated.
     #[test]
@@ -211,7 +213,8 @@ mod tests {
         let sic = w.complete("sic", &[], 10);
         assert_eq!(names(sic.clone()), ["SicLayer", "SicLayerError"]);
         assert_eq!(sic[0].detail, "record SicLayer in a/src/geometry.rs");
-        assert!(w.complete("i", &[], 10).is_empty(), "one letter is not enough");
+        assert_eq!(w.complete("i", &[], 10).len(), 3, "one letter is enough when asked");
+        assert!(w.complete("", &[], 10).is_empty(), "nothing typed, nothing offered");
         assert_eq!(names(w.complete("SicLayer", &[], 10)), ["SicLayerError"], "never the word already typed");
         assert_eq!(w.complete("isoth", &[], 2).len(), 2, "the limit holds");
         assert!(w.complete("zzz", &[], 10).is_empty());

@@ -216,6 +216,9 @@ impl CodeReviewView {
         let purpose = match &req {
             HostRequest::Stamp(_) => Purpose::Stamp,
             HostRequest::NeedsFix(_) => Purpose::NeedsFix,
+            // "Quick stamp" (#857): the re-confirm step, held as a Stamp
+            // like review mode's own Re-confirm.
+            HostRequest::Reconfirm(f) => return self.open_flow(Purpose::Reconfirm, HostRequest::Stamp(f.clone())),
             // Not a stamp dialog: `take_request` opens its own window.
             HostRequest::AddConnection(_) => return,
         };
@@ -227,7 +230,10 @@ impl CodeReviewView {
     /// held as a Stamp, the request kovan-web knows).
     fn open_flow(&mut self, purpose: Purpose, req: HostRequest) {
         let f = match &req {
-            HostRequest::Stamp(f) | HostRequest::NeedsFix(f) | HostRequest::AddConnection(f) => f,
+            HostRequest::Stamp(f)
+            | HostRequest::NeedsFix(f)
+            | HostRequest::AddConnection(f)
+            | HostRequest::Reconfirm(f) => f,
         };
         let target = Target {
             function: f.id.clone(),
@@ -757,7 +763,9 @@ mod tests {
             callees: None,
             lines: None,
         };
-        v.open_flow(Purpose::Reconfirm, HostRequest::Stamp(twice));
+        // Through the canvas's "Quick stamp" request (#857), which must
+        // reach the same re-confirm step.
+        v.open(HostRequest::Reconfirm(twice));
         v.dialog.as_mut().unwrap().wait();
         let d = v.dialog.as_ref().unwrap();
         assert_eq!(d.step, Step::Reconfirm, "{:?}", d.step);

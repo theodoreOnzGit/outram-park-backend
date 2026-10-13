@@ -155,6 +155,12 @@ pub enum HostRequest {
     /// function has a valid stamp. The host records a connection from it
     /// to a standard corpus concept.
     AddConnection(FunctionRef),
+    /// A function's "Quick stamp" (GitHub #857, maintainer 2026-10-13):
+    /// offered only when its stamp went stale because something it calls
+    /// changed, not its own code. The host opens the re-confirm step, which
+    /// shows what changed in the callee and signs a new review carrying the
+    /// previous answers, without the wizard.
+    Reconfirm(FunctionRef),
 }
 
 /// The Code Review UI.
@@ -233,6 +239,14 @@ impl CodeReview {
             pending: (link != DeepLink::Map).then_some(link),
             host_request: None,
             stamps: None,
+        }
+    }
+
+    /// Queue a "Quick stamp" (re-confirm) of function `id` for the host.
+    pub(crate) fn quick_stamp(&mut self, snap: &Snap, id: &str) {
+        match self.function_ref(snap, id) {
+            Some(f) => self.host_request = Some(HostRequest::Reconfirm(f)),
+            None => self.status = Some("The function is not in a loaded workspace crate.".into()),
         }
     }
 
@@ -1081,6 +1095,23 @@ mod tests {
             errors: vec![],
             stamps: None,
         }
+    }
+
+    /// "Quick stamp" queues a re-confirm request naming the function; a
+    /// function outside every workspace crate queues nothing and says why.
+    #[test]
+    fn quick_stamp_queues_a_reconfirm_request() {
+        let id = "crates/bl/src/chem.rs::Pool::rate";
+        let snap = snap_with_map();
+        let mut d = CodeReview::new(Mode::Desktop, DataSource::Dir { data: std::env::temp_dir(), workspace: ".".into() });
+        d.quick_stamp(&snap, id);
+        match d.take_host_request() {
+            Some(HostRequest::Reconfirm(f)) => assert_eq!((f.id.as_str(), f.name.as_str()), (id, "Pool::rate")),
+            other => panic!("{other:?}"),
+        }
+        d.quick_stamp(&snap, "vendor/x.rs::f");
+        assert_eq!(d.take_host_request(), None);
+        assert!(d.status.as_deref().is_some_and(|s| s.contains("not in a loaded workspace crate")));
     }
 
     /// Desktop: Stamp and Needs fix queue one request for the host, taken

@@ -65,7 +65,8 @@
 //!
 //! A buffer holding source code ([`KvimEditorState::set_code`], used by the
 //! review panel's quick fix) is drawn with syntax colours, indents with
-//! spaces, and completes names from kovan's cached index. None of it
+//! spaces, and completes names from kovan's cached index on Ctrl+N /
+//! Ctrl+P (Enter accepts, Esc closes; it never opens by itself). None of it
 //! starts a language server (maintainer, 2026-10-13: a second
 //! rust-analyzer is "too memory intensive").
 //!
@@ -273,9 +274,9 @@ pub struct KvimEditorState {
     popup_sel: usize,
     /// Where the name being typed starts.
     popup_start: Position,
-    /// The name the popup was dismissed for with Esc; it stays shut until
-    /// the name changes.
-    popup_dismissed: Option<String>,
+    /// Whether the completion list is open. Only Ctrl+N / Ctrl+P open it;
+    /// accepting, Esc, leaving Insert mode or running out of matches shut it.
+    popup_open: bool,
 }
 
 /// A key the completion popup takes before the engine sees it.
@@ -287,19 +288,22 @@ enum PopupAction {
     Dismiss,
 }
 
-/// Tab accepts, Ctrl+N / Down and Ctrl+P / Up choose, Esc shuts the popup
-/// (and still reaches the engine, to leave Insert mode).
-fn popup_action(event: &egui::Event) -> Option<PopupAction> {
+/// Ctrl+N and Ctrl+P open the list and choose in it; with it open, Enter
+/// accepts, the arrows choose too, and Esc shuts it (and still reaches the
+/// engine, to leave Insert mode, as in Vim). Nothing opens it but Ctrl+N
+/// and Ctrl+P (maintainer, 2026-10-13: "I'd rather the completion come
+/// only if I press Ctrl N and Ctrl P. Enter to accept. Esc to close").
+fn popup_action(event: &egui::Event, open: bool) -> Option<PopupAction> {
     let egui::Event::Key { key, pressed: true, modifiers, .. } = event else {
         return None;
     };
     match key {
-        egui::Key::Tab if !modifiers.any() => Some(PopupAction::Accept),
         egui::Key::N if modifiers.ctrl => Some(PopupAction::Next),
         egui::Key::P if modifiers.ctrl => Some(PopupAction::Previous),
-        egui::Key::ArrowDown => Some(PopupAction::Next),
-        egui::Key::ArrowUp => Some(PopupAction::Previous),
-        egui::Key::Escape => Some(PopupAction::Dismiss),
+        egui::Key::Enter if open && !modifiers.any() => Some(PopupAction::Accept),
+        egui::Key::ArrowDown if open => Some(PopupAction::Next),
+        egui::Key::ArrowUp if open => Some(PopupAction::Previous),
+        egui::Key::Escape if open => Some(PopupAction::Dismiss),
         _ => None,
     }
 }
@@ -339,7 +343,7 @@ impl Default for KvimEditorState {
             popup: Vec::new(),
             popup_sel: 0,
             popup_start: Position::ORIGIN,
-            popup_dismissed: None,
+            popup_open: false,
         }
     }
 }
@@ -400,25 +404,23 @@ impl KvimEditorState {
     }
 
     /// Work out the completion list for the name being typed (#857). Pure
-    /// state, no drawing: [`Self::popup`] is empty unless this is a code
-    /// buffer in Insert mode with at least two characters of a name before
-    /// the cursor and something to offer for them.
+    /// state, no drawing: [`Self::popup`] is empty unless the list has been
+    /// opened (Ctrl+N / Ctrl+P) in a code buffer in Insert mode and there
+    /// is something to offer for the name before the cursor. While open it
+    /// follows the typing; it shuts itself when nothing matches any more.
     fn refresh_code_popup(&mut self) {
         let was = std::mem::take(&mut self.popup);
-        let Some(words) = self.code_words.clone() else {
+        let Some(words) = self.code_words.clone().filter(|_| self.popup_open) else {
+            self.popup_open = false;
             return;
         };
         if self.editor.mode() != Mode::Insert {
-            self.popup_dismissed = None;
+            self.popup_open = false;
             return;
         }
         let cursor = self.editor.cursor();
         let before = self.prefix(cursor);
         let word = code_words::word_before(&before);
-        if self.popup_dismissed.as_deref().is_some_and(|d| d == word) {
-            return;
-        }
-        self.popup_dismissed = None;
         let in_buffer = code_words::buffer_words(&self.text());
         self.popup = words.complete(word, &in_buffer, 12);
         // One grapheme per character holds for a name (letters, digits, `_`).
@@ -427,6 +429,7 @@ impl KvimEditorState {
             self.popup_sel = 0;
         }
         self.popup_sel = self.popup_sel.min(self.popup.len().saturating_sub(1));
+        self.popup_open = !self.popup.is_empty();
     }
 
     /// Replace the name being typed with completion `index` of the popup.
@@ -443,12 +446,12 @@ impl KvimEditorState {
         }
         self.editor.move_cursor(end);
         self.popup.clear();
-        self.popup_dismissed = Some(word.name);
+        self.popup_open = false;
     }
 
     /// Draw the completion list under the caret; a click accepts. GUI
     /// drawing code: the list itself and accepting from it are tested
-    /// through [`Self::refresh_code_popup`] and Tab.
+    /// through [`Self::refresh_code_popup`] and the keys.
     fn code_popup_ui(&mut self, ui: &mut egui::Ui) {
         if self.popup.is_empty() {
             return;
@@ -465,7 +468,7 @@ impl KvimEditorState {
                         chosen = Some(i);
                     }
                 }
-                ui.weak("Tab accepts · Ctrl+N / Ctrl+P choose · Esc closes");
+                ui.weak("Enter accepts · Ctrl+N / Ctrl+P choose · Esc closes");
             });
         });
         if let Some(i) = chosen {
@@ -1067,7 +1070,7 @@ impl KvimEditorState {
         response
             .clone()
             .on_hover_text(if self.code_words.is_some() {
-                "names complete as you type: Tab accepts, Ctrl+N / Ctrl+P choose"
+                "Ctrl+N / Ctrl+P complete the name being typed; Enter accepts, Esc closes"
             } else {
                 "use @ for citation autocomplete, and [[ for other autocomplete"
             });
@@ -1105,12 +1108,13 @@ impl KvimEditorState {
             }
         }
 
-        if response.has_focus() && !self.popup.is_empty() {
-            // The completion popup takes its keys before the engine does.
+        if response.has_focus() && self.code_words.is_some() && self.editor.mode() == Mode::Insert {
+            // The completion list takes its keys before the engine does.
+            let open = self.popup_open;
             let mut actions = Vec::new();
             ui.input_mut(|i| {
-                i.events.retain(|event| match popup_action(event) {
-                    // Esc shuts the popup and still reaches the engine.
+                i.events.retain(|event| match popup_action(event, open) {
+                    // Esc shuts the list and still reaches the engine.
                     Some(PopupAction::Dismiss) => {
                         actions.push(PopupAction::Dismiss);
                         true
@@ -1123,15 +1127,24 @@ impl KvimEditorState {
                 });
             });
             for a in actions {
+                let opening = !self.popup_open && matches!(a, PopupAction::Next | PopupAction::Previous);
+                if opening {
+                    // Ctrl+N opens on the first name, Ctrl+P on the last.
+                    self.popup_open = true;
+                    self.refresh_code_popup();
+                    if a == PopupAction::Previous {
+                        self.popup_sel = self.popup.len().saturating_sub(1);
+                    }
+                    continue;
+                }
                 let n = self.popup.len().max(1);
                 match a {
                     PopupAction::Accept => self.accept_completion(self.popup_sel),
                     PopupAction::Next => self.popup_sel = (self.popup_sel + 1) % n,
                     PopupAction::Previous => self.popup_sel = (self.popup_sel + n - 1) % n,
                     PopupAction::Dismiss => {
-                        let before = self.prefix(self.editor.cursor());
-                        self.popup_dismissed = Some(code_words::word_before(&before).to_string());
                         self.popup.clear();
+                        self.popup_open = false;
                     }
                 }
             }
@@ -2333,56 +2346,67 @@ mod tests {
         });
     }
 
+    fn ctrl(key: egui::Key) -> egui::Event {
+        egui::Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::CTRL }
+    }
+
     /// **Methodology.** In a Rust code buffer with three indexed names,
-    /// `iso` is typed on a fresh line. Pass: the list offers the two names
-    /// that start with it, nearest and shortest first; Ctrl+N moves to the
-    /// second; Tab replaces `iso` with it and leaves Insert mode on, with
-    /// the caret after the name, so typing continues.
+    /// `layer.iso` is typed on a fresh line. Pass: nothing opens while
+    /// typing; Ctrl+N opens the list on the two names that start with
+    /// `iso`, nearest and shortest first; a second Ctrl+N moves to the
+    /// second; Enter replaces `iso` with it WITHOUT breaking the line, and
+    /// leaves Insert mode on with the caret after the name.
     ///
     /// **Result (2026-10-13).** As stated.
     #[test]
-    fn a_name_completes_from_the_index_with_tab() {
+    fn a_name_completes_on_ctrl_n_and_enter_accepts() {
         let mut state = KvimEditorState::default();
         state.set_code(Some(Language::Rust), Some(words(&["isothermal_thinning_factor", "isotherm", "actual_thickness"])));
         state.load_text("fn a() {\n}\n");
         state.pending_focus = true;
         let ctx = egui::Context::default();
-        let mut frames = vec![Vec::new(), Vec::new(), text("o")];
-        frames.push(text("layer.iso"));
-        drive_in(&ctx, &mut state, frames);
+        drive_in(&ctx, &mut state, vec![Vec::new(), Vec::new(), text("o"), text("layer.iso")]);
+        assert!(state.popup.is_empty(), "typing alone never opens the list");
+        drive_in(&ctx, &mut state, vec![vec![ctrl(egui::Key::N)]]);
         let offered: Vec<&str> = state.popup.iter().map(|w| w.name.as_str()).collect();
         assert_eq!(offered, ["isotherm", "isothermal_thinning_factor"]);
-        let ctrl_n = egui::Event::Key {
-            key: egui::Key::N,
-            physical_key: None,
-            pressed: true,
-            repeat: false,
-            modifiers: egui::Modifiers::CTRL,
-        };
-        let out = drive_in(&ctx, &mut state, vec![vec![ctrl_n], vec![key(egui::Key::Tab)], text("()")]);
+        assert_eq!(state.popup_sel, 0, "Ctrl+N opens on the first name");
+        let out = drive_in(&ctx, &mut state, vec![vec![ctrl(egui::Key::N)], vec![key(egui::Key::Enter)], text("()")]);
         assert_eq!(out, "fn a() {\n    layer.isothermal_thinning_factor()\n}\n");
         assert_eq!(state.mode_label(), "INSERT");
-        assert!(state.popup.is_empty(), "the list shuts once a name is accepted");
+        assert!(state.popup.is_empty() && !state.popup_open, "the list shuts once a name is accepted");
+        // With the list shut, Enter is an ordinary new line again.
+        let out = drive_in(&ctx, &mut state, vec![vec![key(egui::Key::Enter)]]);
+        assert!(out.starts_with("fn a() {\n    layer.isothermal_thinning_factor()\n"), "{out:?}");
+        assert_eq!(out.lines().count(), 4, "{out:?}");
     }
 
-    /// The list never opens outside a code buffer, in Normal mode, or for a
-    /// single letter; Esc shuts it until the name changes.
+    /// The list opens only in a code buffer and only on Ctrl+N / Ctrl+P;
+    /// Ctrl+P opens on the last name; it follows the typing and shuts when
+    /// nothing matches; Esc shuts it and leaves Insert mode.
     #[test]
-    fn the_completion_list_stays_out_of_the_way() {
+    fn the_completion_list_opens_only_when_asked() {
         let mut plain = KvimEditorState::default();
         plain.load_text("\n");
         plain.pending_focus = true;
-        drive(&mut plain, vec![Vec::new(), Vec::new(), text("i"), text("isoth")]);
+        drive(&mut plain, vec![Vec::new(), Vec::new(), text("i"), text("isoth"), vec![ctrl(egui::Key::N)]]);
         assert!(plain.popup.is_empty(), "a plain buffer has no code completion");
 
         let mut state = KvimEditorState::default();
-        state.set_code(Some(Language::Rust), Some(words(&["isotherm"])));
+        state.set_code(Some(Language::Rust), Some(words(&["isotherm", "isobar"])));
         state.load_text("\n");
         state.pending_focus = true;
         let ctx = egui::Context::default();
-        drive_in(&ctx, &mut state, vec![Vec::new(), Vec::new(), text("i"), text("i")]);
-        assert!(state.popup.is_empty(), "one letter is not enough");
-        drive_in(&ctx, &mut state, vec![text("so")]);
+        drive_in(&ctx, &mut state, vec![Vec::new(), Vec::new(), text("i"), text("iso")]);
+        assert!(state.popup.is_empty(), "not while typing");
+        drive_in(&ctx, &mut state, vec![vec![ctrl(egui::Key::P)]]);
+        assert_eq!(state.popup.len(), 2);
+        assert_eq!(state.popup[state.popup_sel].name, "isotherm", "Ctrl+P opens on the last name");
+        drive_in(&ctx, &mut state, vec![text("t")]);
+        assert_eq!(state.popup.iter().map(|w| w.name.as_str()).collect::<Vec<_>>(), ["isotherm"], "it follows the typing");
+        drive_in(&ctx, &mut state, vec![text("z")]);
+        assert!(state.popup.is_empty() && !state.popup_open, "nothing matches: it shuts");
+        drive_in(&ctx, &mut state, vec![vec![key(egui::Key::Backspace)], vec![ctrl(egui::Key::N)]]);
         assert_eq!(state.popup.len(), 1);
         drive_in(&ctx, &mut state, vec![vec![key(egui::Key::Escape)]]);
         assert!(state.popup.is_empty() && state.mode_label() == "NORMAL", "Esc shuts it and leaves Insert");
