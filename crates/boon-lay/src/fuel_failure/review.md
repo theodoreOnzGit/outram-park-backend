@@ -329,7 +329,7 @@ id = "review-siclayererror-theodoreonzgit-f4afa171"
 kind = "review"
 origin = "human"
 created = "2026-10-13T13:32:49+08:00"
-modified = "2026-10-13T13:32:49+08:00"
+modified = "2026-10-13T14:29:03+08:00"
 target = "fn:f4afa171b919e323"
 
 [review]
@@ -337,11 +337,11 @@ path = "crates/boon-lay/src/fuel_failure/geometry.rs::SicLayerError"
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-10-13"
-signed_at = "2026-10-13T13:32:49+08:00"
-commit = "00c35bca8d4bd80a8a7a0cbaa570d2dbcaa70f7b"
+signed_at = "2026-10-13T14:29:03+08:00"
+commit = "912b2915a5d1dbda986c85add3ad58fe38e3ffdf"
 hash = "sha256:cac43f9f475f58b14059cc80467030488465fb3e65af4bb412a8bd7492080689"
 doc_hash = "sha256:c8e79ddd48a039ad8f13f9692ee0b6c42d3d71225563929b57abe5e3988f96aa"
-cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
 no_concept = "plumbing"
 
 [review.checklist]
@@ -356,21 +356,15 @@ maintainability = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "unit_tests_only"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "S2PLpNm6s0JbaQvlYXSYYyomSH/94o8pzcP6LM0Vk2OwiO+CuOAFIJy9ff67RImuMQxoqVhEekZ7Qk55NXlSAw=="
+value = "szCu/BwO9EDZKURjaI4zbXRXb7PHqsB3ABlpy8WxxMT4iOHAeHxXjnyJVzWQtivcfayoRT+W8cAotM2bpTpYCg=="
 ```
-
-just an error type, now with guards
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 00c35bca8d.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 912b2915a5.
 
 # Review: SicLayer::new (github:theodoreOnzGit)
 
@@ -552,7 +546,7 @@ id = "review-inner-radius-theodoreonzgit-4b866c63"
 kind = "review"
 origin = "human"
 created = "2026-10-13T13:43:59+08:00"
-modified = "2026-10-13T13:43:59+08:00"
+modified = "2026-10-13T14:29:43+08:00"
 target = "fn:4b866c63ca3b0c52"
 
 [review]
@@ -560,15 +554,15 @@ path = "crates/boon-lay/src/fuel_failure/geometry.rs::SicLayer::inner_radius"
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-10-13"
-signed_at = "2026-10-13T13:43:59+08:00"
-commit = "f006756abc128c92d0c04db6f8b20673e2ee85a5"
+signed_at = "2026-10-13T14:29:43+08:00"
+commit = "912b2915a5d1dbda986c85add3ad58fe38e3ffdf"
 hash = "sha256:ffd77532a13d71570ed4abfd96d862326985edb735a43ebb38d8602172fe4ae4"
 doc_hash = "sha256:9621f3edd59f767ddb4c4ccfcc52a8b0281dfea7c877aecde8292e15d0942db9"
-cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
 no_concept = "generic_numerics"
 
 [review.callees]
-"fn:5b2b33cb94ca9a56" = "sha256:ad3ca5f101a93f4b16f5b38275849a22be42f0adb309c3e2db7483022a40cc92"
+"fn:5b2b33cb94ca9a56" = "sha256:584f858091dbbbf399ba065790793304f75d430ba242966bd1e4deda1518564c"
 
 [review.checklist]
 coding_standards = "yes"
@@ -584,21 +578,15 @@ units_documented = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "vWIPqtnNnjkC4k0kMnQh5B1lFA/L7RNmrlbGV37l/K+c8ViHtP7+mXJ3wWCf5NYilucPQTLZJsf/aMoFPRZJAg=="
+value = "07PtCqdbCkIgTsNnyVpfqC1VCLiCMxsHbAvjSPqoCrXfZFFuJwfFXzFaowk7WcCj/7Xq1L3yJ5RwkqbDGJL3BA=="
 ```
-
-Just a function getter for inner radius
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit f006756abc.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 912b2915a5.
 
 # Review: SicLayer::outer_radius (github:theodoreOnzGit)
 
