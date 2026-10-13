@@ -1244,3 +1244,54 @@ This is a regression test. When passes it ensures that induced stress and induce
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 260c08aa09.
+
+# Review: MIN_TENSILE_STRENGTH_MPA (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-min-tensile-strength-mpa-theodoreonzgit-28160a5b"
+kind = "review"
+origin = "human"
+created = "2026-10-13T15:28:26+08:00"
+modified = "2026-10-13T15:28:26+08:00"
+target = "fn:28160a5b4e94007b"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/strength.rs::MIN_TENSILE_STRENGTH_MPA"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T15:28:26+08:00"
+commit = "d63530d7e89d3cde29c4d2b03f724adbd51e0a71"
+hash = "sha256:e79a1918ddea29db328b79d1f61ac7a89bbddf2396e70cc1896ed20e40cd870b"
+doc_hash = "sha256:52623f996a46bce1811961eec8a0533fb16ea7830d3fecd780f426eba6b5aa1c"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "cited"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "CaFXlLe4Z8D1KpIUr7vEM/RPd1jYUOls9oz3eh1qz/wNXmOYlgn5gbyJmpZk2YRS266WcDozkV9NO5xpkqwtCQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
+kind = "implements"
+```
+
+Page 494 minimum triso tensile strength, checked
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit d63530d7e8.
