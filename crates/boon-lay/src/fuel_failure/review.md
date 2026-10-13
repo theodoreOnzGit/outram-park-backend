@@ -277,3 +277,55 @@ Smoke test really, nothing much here. Good to have anyway
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit c61a1a0a7a.
+
+# Review: SicLayer (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-siclayer-theodoreonzgit-5b2b33cb"
+kind = "review"
+origin = "human"
+created = "2026-10-13T13:14:51+08:00"
+modified = "2026-10-13T13:14:51+08:00"
+target = "fn:5b2b33cb94ca9a56"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/geometry.rs::SicLayer"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T13:14:51+08:00"
+commit = "a12eb37cda04593615e96788d078812db3536afa"
+hash = "sha256:18edec0c93f1c6e8fe71df6e1c9ec1d832d70d320c86eb244c8066c585d1677d"
+doc_hash = "sha256:b84905171a0e43375afede5d922fc04562306c2212f3d6c25b4979a06adf40e3"
+cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_holds_extra = "no"
+item_impossible_values = "yes_nothing_stops"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "8AO3jACwOlcLmnjDg5ODVUZ46YDjJElu1YNxHHFJ/ij7Wxs6lqpvn4o1XYaDR3iQZjcNsliKGkr9hoI74ZbRDg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel"
+kind = "implements"
+```
+
+Just holds inner and outer radius of silicon carbide, but i don't see checks for inner and outer radius
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit a12eb37cda.
