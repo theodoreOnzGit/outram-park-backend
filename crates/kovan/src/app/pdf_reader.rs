@@ -975,6 +975,8 @@ struct RegionDrag {
 
 #[derive(Default)]
 pub struct PdfReaderState {
+    /// How many times a document has been opened ([`Self::times_opened`]).
+    opened: u32,
     /// An unreadable block awaiting "Confirm delete" in
     /// [`Self::malformed_panel`]: its heading's line and text.
     confirm_remove_block: Option<(usize, String)>,
@@ -1727,10 +1729,18 @@ impl PdfReaderState {
         }
     }
 
+    /// How many times [`Self::open`] has run. Opening puts the reader back
+    /// on the first page with the scroll at the top, so this is how a
+    /// caller, or a test, tells "opened again" from "still open" (#858).
+    pub fn times_opened(&self) -> u32 {
+        self.opened
+    }
+
     /// Open `path` as the working document — a PDF or a raster image
     /// (op-wojr), dispatched by [`looks_like_pdf`] — replacing whatever was
     /// previously open.
     pub fn open(&mut self, path: &str) {
+        self.opened += 1;
         if looks_like_pdf(path) {
             self.open_pdf(path);
         } else {
