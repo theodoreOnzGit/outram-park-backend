@@ -553,3 +553,59 @@ I have verified the cube root mean equation on page 484
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit f5aae16042.
+
+# Review: SicLayer::inner_radius (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-inner-radius-theodoreonzgit-4b866c63"
+kind = "review"
+origin = "human"
+created = "2026-10-13T13:43:59+08:00"
+modified = "2026-10-13T13:43:59+08:00"
+target = "fn:4b866c63ca3b0c52"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/geometry.rs::SicLayer::inner_radius"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T13:43:59+08:00"
+commit = "f006756abc128c92d0c04db6f8b20673e2ee85a5"
+hash = "sha256:ffd77532a13d71570ed4abfd96d862326985edb735a43ebb38d8602172fe4ae4"
+doc_hash = "sha256:9621f3edd59f767ddb4c4ccfcc52a8b0281dfea7c877aecde8292e15d0942db9"
+cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:5b2b33cb94ca9a56" = "sha256:ad3ca5f101a93f4b16f5b38275849a22be42f0adb309c3e2db7483022a40cc92"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "vWIPqtnNnjkC4k0kMnQh5B1lFA/L7RNmrlbGV37l/K+c8ViHtP7+mXJ3wWCf5NYilucPQTLZJsf/aMoFPRZJAg=="
+```
+
+Just a function getter for inner radius
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit f006756abc.
