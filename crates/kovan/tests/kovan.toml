@@ -978,15 +978,28 @@ uses = [
 test = true
 
 [[module."code_map_tags.rs".function]]
-id = "fn:bf554a484ffee98e"
-name = "initials"
-qual = "initials"
+id = "fn:40d49608ad722f26"
+name = "spells"
+qual = "spells"
 lines = [
     92,
-    96,
+    130,
 ]
-hash = "sha256:537e69fc831e28a8d22f258cd80c7620a3e67536447bb7fd3929c26ae3dcc0cb"
-doc_hash = "sha256:4985fde0c3526746fe6b91a97d236db6dfecf1190cbfc6fa4b26c1f984e0f5ef"
+hash = "sha256:7d139333175a827cd9ea8780193f0f010598b257ecac60fb4ef7193c22cfb4e8"
+doc_hash = "sha256:79084ccd465b401bd435948dcb4571c714ec06a282f2352123b01e7d5da9730c"
+test = true
+
+[[module."code_map_tags.rs".function]]
+id = "fn:d8c6b23acef02cae"
+name = "the_spelling_rule_accepts_marked_letters_only"
+qual = "the_spelling_rule_accepts_marked_letters_only"
+lines = [
+    132,
+    148,
+]
+hash = "sha256:0f41d1162da06867825a7bcce61423e05b575f85dc0a242597f1bc02a7fdb8b7"
+doc_hash = "sha256:185d17447b186831c600cf6313799f9eb8d7ce33065ca400c48b23e1221b590f"
+callees = ["fn:40d49608ad722f26"]
 test = true
 
 [[module."code_map_tags.rs".function]]
@@ -994,14 +1007,14 @@ id = "fn:eb701cc2a4617065"
 name = "every_backronym_spells_its_crate_name"
 qual = "every_backronym_spells_its_crate_name"
 lines = [
-    98,
-    110,
+    150,
+    169,
 ]
-hash = "sha256:b58ca49fdb3827b2117bd636a568d0b71d7ed80ef5e38ae73b39739bb47f5d54"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+hash = "sha256:1b131d32d5c4cc2d135000198e57f2f5faf096e827179dffa15d03b8672a379d"
+doc_hash = "sha256:4a2b51ef9f72abac0f0c66cd358e2f7480a6ce7951f62b720b3e36cb8c36ac13"
 callees = [
+    "fn:40d49608ad722f26",
     "fn:9e7bca8093cffb46",
-    "fn:bf554a484ffee98e",
 ]
 test = true
 

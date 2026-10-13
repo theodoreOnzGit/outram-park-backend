@@ -1018,10 +1018,11 @@ name = "sic_layer"
 qual = "sic_layer"
 lines = [
     204,
-    210,
+    212,
 ]
-hash = "sha256:0aa94c2e2015ffd912a2970d3d798314750e971094f5b24c02f05e1babd60ccb"
-doc_hash = "sha256:8c426f82a861468bfd4d6db93c13223a4a782ef8c44269c117b63289a7456786"
+hash = "sha256:6e401182c0121df544f8ce3ba0e42322ce8f2f517599e4411d5c2bb7b9d3b16d"
+doc_hash = "sha256:b35a2cd7de968834a2cf1c53cf235470979a183c7e661679d4994d2fc18ef65b"
+callees = ["fn:c57b58c2e76f63ae"]
 uses = [
     "fn:5b2b33cb94ca9a56",
     "fn:c8e32fd8829930ba",
@@ -1121,8 +1122,8 @@ id = "fn:a3e057dacd5d79e7"
 name = "kernel_volume"
 qual = "kernel_volume"
 lines = [
-    212,
-    216,
+    214,
+    218,
 ]
 hash = "sha256:e1967804613aded0b47bccd5cf03901fc5d68bf98e60ba519fffb5deb688bb17"
 doc_hash = "sha256:3d61946debbee34379f7d6fe73632a2606647acb38ebf629e724ce3b595d0893"
@@ -1222,8 +1223,8 @@ id = "fn:06882adbca2e217d"
 name = "free_volume"
 qual = "free_volume"
 lines = [
-    218,
-    227,
+    220,
+    229,
 ]
 hash = "sha256:4541b91e6d29c37ab8d74c43e1482fbbca127eb0de83a6f098d22e2ac4c6ea07"
 doc_hash = "sha256:8af0aab82d557654ac22f12a207679694a89496e4306d9cdb7e9cb58f304ebdf"
@@ -1326,8 +1327,8 @@ id = "fn:095b847fba1a3254"
 name = "particle"
 qual = "particle"
 lines = [
-    229,
-    249,
+    231,
+    251,
 ]
 hash = "sha256:7f0930bc21f19aca923f1d06e38a061f136e85885a549b09c6153d4c6fdab795"
 doc_hash = "sha256:d0628ca732c25e8b6be5d2774fbf1dbdf6e4dd46c44c56b09dc744e4698957d9"
@@ -1431,8 +1432,8 @@ id = "fn:77f4fae7d6640ca0"
 name = "particle_with"
 qual = "particle_with"
 lines = [
-    251,
-    302,
+    253,
+    304,
 ]
 hash = "sha256:f5d10a1a585bd367e3994d8da08d4e1438058ee7435584697001543f9868a9f4"
 doc_hash = "sha256:5b941b6cedbd7388b2a2429df94bbbb37545ab4d054e6374735a4b1202e48e3a"
@@ -1549,8 +1550,8 @@ id = "fn:bddedca1229c4b5d"
 name = "end_of_irradiation_failure"
 qual = "end_of_irradiation_failure"
 lines = [
-    304,
-    328,
+    306,
+    330,
 ]
 hash = "sha256:f441fb6a7331e089c06fb4d5bc4ed02438ad07a11c98a8e68812796b4b1e8b79"
 doc_hash = "sha256:a623d1a803751e39f82673183247f493bc2dd266cf39fcb8670a5996e266003a"
@@ -1654,8 +1655,8 @@ id = "fn:da1ce98ca9947c47"
 name = "end_of_irradiation_failure_for"
 qual = "end_of_irradiation_failure_for"
 lines = [
-    330,
-    365,
+    332,
+    367,
 ]
 hash = "sha256:43fe1e19efa1f07dffcb24a9f59e497381e1b5bfaecef708109f501d1fdff7e1"
 doc_hash = "sha256:a7c12e3b7f2245f36ebfdb58fa4aec0405d1d17e7904f129488a190411d6aa4c"
@@ -1765,8 +1766,8 @@ id = "fn:4a87e405b1106144"
 name = "t_b"
 qual = "t_b"
 lines = [
-    374,
     376,
+    378,
 ]
 hash = "sha256:0b9eba265522a5e6fc92404ff4cadac2ef20631f7d7b00cfb3987b9d510f2c2d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -1778,8 +1779,8 @@ id = "fn:078486873c68c423"
 name = "end_of_irradiation_phi_1"
 qual = "end_of_irradiation_phi_1"
 lines = [
-    378,
     380,
+    382,
 ]
 hash = "sha256:da4d78acc76d3d8b623462d04800e0a828729a2c63efb70b5c9abb3828a6af20"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -1794,8 +1795,8 @@ id = "fn:d0bb28092949f4f8"
 name = "the_derived_inputs_follow_from_the_published_design_data"
 qual = "the_derived_inputs_follow_from_the_published_design_data"
 lines = [
-    382,
-    418,
+    384,
+    420,
 ]
 hash = "sha256:381d0d3abce3016bb61a60c0a63ed610a3c768332dc755dacb52e145585bea1c"
 doc_hash = "sha256:b2a7c52ef7ae30d1d2e1803e3a04bca19c8297272fd5f8fd6c6d33c424596c2f"
@@ -1816,8 +1817,8 @@ id = "fn:27f634334f82d653"
 name = "normal_operation_failure_is_negligible_against_the_placeholder"
 qual = "normal_operation_failure_is_negligible_against_the_placeholder"
 lines = [
-    420,
-    467,
+    422,
+    469,
 ]
 hash = "sha256:072a3e4922b562096e4260522ebd19d0642d0651ceb03da3f7edb0989534e324"
 doc_hash = "sha256:97e49eab92fc6d4c8f46c419cb12a992ec77f3689a7e6948f4dfbf353b0087e5"
@@ -1829,8 +1830,8 @@ id = "fn:4e5ba8f09fcb6ee1"
 name = "the_accident_sweep_is_where_fuel_failure_has_something_to_say"
 qual = "the_accident_sweep_is_where_fuel_failure_has_something_to_say"
 lines = [
-    469,
-    553,
+    471,
+    555,
 ]
 hash = "sha256:14f26b28f89a2c29ac9bf2fb98a1462aad75fb9686c5d6e8529d64f8425c7363"
 doc_hash = "sha256:2a36bf80c2731fc76c6df61830bf1a1cc25e390f10539ef0a595398600cc2014"

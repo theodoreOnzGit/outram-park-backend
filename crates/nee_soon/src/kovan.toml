@@ -916,8 +916,8 @@ qual = "NeeSoon"
 item = "type"
 shape = "struct"
 lines = [
-    106,
-    133,
+    107,
+    134,
 ]
 hash = "sha256:fba546156e6c1f30fd75b115a46653abf65a32dbd5ed3451a46f721a63b6b62f"
 doc_hash = "sha256:3758a62ed6232f58de1e0e6c11862b7c7f34e77617fc8d2b2e1642af48dddb08"
@@ -934,8 +934,8 @@ id = "fn:c31da882c4d8eabf"
 name = "new_prompt_excursion_model"
 qual = "NeeSoon::new_prompt_excursion_model"
 lines = [
-    136,
-    168,
+    137,
+    169,
 ]
 hash = "sha256:f2123ee0243dc89e72a861be09325f15d494fa97f17443da35e4d78a85ca07a8"
 doc_hash = "sha256:d21cd1a8519a9f20ff0e76148b38eed4291aed4ecbb81ba883e30d90ad894da6"
@@ -959,8 +959,8 @@ id = "fn:2126cddfcd0d2845"
 name = "prompt_excursion_model_matches_direct_teh_o_prke_construction"
 qual = "prompt_excursion_model_matches_direct_teh_o_prke_construction"
 lines = [
-    175,
-    214,
+    176,
+    215,
 ]
 hash = "sha256:c0540b37c94ea61fa3499f5aa00c76ce81965d306da29adafe133d9b71f4cedf"
 doc_hash = "sha256:055381395ead7538baa8c6b77170e5fcbafc166b610755d9339523407a0c9961"
