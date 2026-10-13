@@ -1346,3 +1346,61 @@ checked against page 494 of PANAMA manual
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 55ef18de56.
+
+# Review: irradiated_weibull_modulus (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-irradiated-weibull-modulus-theodoreonzgit-ff16d9bf"
+kind = "review"
+origin = "human"
+created = "2026-10-13T15:39:45+08:00"
+modified = "2026-10-13T15:39:45+08:00"
+target = "fn:ff16d9bf9f457f13"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/strength.rs::irradiated_weibull_modulus"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T15:39:45+08:00"
+commit = "f8eb8159fde86e46f582778f14770cb9a461c189"
+hash = "sha256:57b7d596ab143da4a49bd6837cf26bb2e0736b7a99b61b3a931b3afeb2c9b180"
+doc_hash = "sha256:e9557486f5536531c87d37fd5d7f97a47ce47e4204b8fe4a95073ffe5dee0161"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+
+[review.callees]
+"fn:72601fd84f0cb0d8" = "sha256:1f9d6b2ed6a27c7c42760f1007661908cca5967207c725fca41570ae1129e6d6"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "other: eqn implemented correct, but don't want to void a stamp"
+independence = "someone_else"
+limits_and_guards = "other: Doesn't guard, it is plain f64 function"
+maintainability = "yes"
+numerical_hazards = "other: doesn't block stamp, but may want to revisit the non-numerical guards"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "9zgrZEFBjpcqZ+/rHmNqy6R92KHamg9P84lE8a8kH18O9eksreP0gfx4kCTTwX/mtvcLmNsoUy7PUQYucW4lDw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
+kind = "implements"
+```
+
+Checks out against eq 8a and the log equations (assumed to be log10 here rather than LN), tested using graphs
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit f8eb8159fd.
