@@ -478,14 +478,14 @@ Everything `crates/sembawang/examples/htr10_air_ingress_kora_bound.rs::main` rea
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`mod.rs::particle`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L242) `pub fn particle(irradiation_temperature: ThermodynamicTemperature) -> ParticleState` — The HTR-10 particle as boon-lay fuel failure sees it, at a stated irradiation temperature. · called at [L615](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L615) · *(calls below the depth limit not shown)*
+[`mod.rs::particle`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L244) `pub fn particle(irradiation_temperature: ThermodynamicTemperature) -> ParticleState` — The HTR-10 particle as boon-lay fuel failure sees it, at a stated irradiation temperature. · called at [L615](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L615) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:242 fn particle -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:244 fn particle -->
 
 ```rust,ignore
-{{#include ../../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:242:249}}
+{{#include ../../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:244:251}}
 ```
 
 </details>
@@ -544,16 +544,16 @@ Everything `crates/sembawang/examples/htr10_air_ingress_kora_bound.rs::main` rea
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`mod.rs::end_of_irradiation_failure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L320) `pub fn end_of_irradiation_failure(irradiation_temperature: ThermodynamicTemperature) -> super::FailureFraction` — `φ₁` at the **end of irradiation** — the value the PANAMA-I report assigns to `t = 0` of an accident (page -482-), and the one that matters for normal operation. · called at [L319](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L319)
+[`mod.rs::end_of_irradiation_failure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L322) `pub fn end_of_irradiation_failure(irradiation_temperature: ThermodynamicTemperature) -> super::FailureFraction` — `φ₁` at the **end of irradiation** — the value the PANAMA-I report assigns to `t = 0` of an accident (page -482-), and the one that matters for normal operation. · called at [L319](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L319)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:320 fn end_of_irradiation_failure -->
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:323 end_of_irradiation_failure_for -->
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:324 particle -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:322 fn end_of_irradiation_failure -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:325 end_of_irradiation_failure_for -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:326 particle -->
 
 ```rust,ignore
-{{#include ../../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:320:325}}
+{{#include ../../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:322:327}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -562,14 +562,14 @@ Everything `crates/sembawang/examples/htr10_air_ingress_kora_bound.rs::main` rea
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`mod.rs::end_of_irradiation_failure_for`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L335) `pub fn end_of_irradiation_failure_for(p: &ParticleState, irradiation_temperature: ThermodynamicTemperature, irradiation_time: Time) -> super::FailureFraction` — `end_of_irradiation_failure` for an arbitrary `ParticleState` — the form the sweeps need, since they vary `F_b`, `t_B` and `Γ`. · called at [L323](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L323) · *(calls below the depth limit not shown)*
+[`mod.rs::end_of_irradiation_failure_for`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L337) `pub fn end_of_irradiation_failure_for(p: &ParticleState, irradiation_temperature: ThermodynamicTemperature, irradiation_time: Time) -> super::FailureFraction` — `end_of_irradiation_failure` for an arbitrary `ParticleState` — the form the sweeps need, since they vary `F_b`, `t_B` and `Γ`. · called at [L325](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L325) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:335 fn end_of_irradiation_failure_for -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:337 fn end_of_irradiation_failure_for -->
 
 ```rust,ignore
-{{#include ../../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:335:365}}
+{{#include ../../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:337:367}}
 ```
 
 </details>
@@ -577,7 +577,7 @@ Everything `crates/sembawang/examples/htr10_air_ingress_kora_bound.rs::main` rea
 
 <div class="cw-node" style="margin-left:1.8em">
 
-`mod.rs::particle` *(expanded elsewhere in this walk)* · called at [L324](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L324)
+`mod.rs::particle` *(expanded elsewhere in this walk)* · called at [L326](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L326)
 
 </div>
 
