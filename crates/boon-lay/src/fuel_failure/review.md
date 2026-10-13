@@ -228,7 +228,7 @@ id = "review-a-larger-modulus-sharpens-the-transition-theodoreonzgit-6e81554d"
 kind = "review"
 origin = "human"
 created = "2026-10-13T11:51:30+08:00"
-modified = "2026-10-13T15:00:51+08:00"
+modified = "2026-10-13T15:01:07+08:00"
 target = "fn:6e81554d3518df88"
 
 [review]
@@ -236,8 +236,8 @@ path = "crates/boon-lay/src/fuel_failure/weibull.rs::a_larger_modulus_sharpens_t
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-10-13"
-signed_at = "2026-10-13T15:00:51+08:00"
-commit = "6bade696e257c0c100bb6625c4365ec52f4c68a7"
+signed_at = "2026-10-13T15:01:07+08:00"
+commit = "c8ddf4a75e30b77fb08e36d08c1c4dc7ebf44efb"
 hash = "sha256:6742eb3ad47c54c18cc85b2a0de3997c2571eed14d9e205d2701c5fdc05e022c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
@@ -261,7 +261,7 @@ vv_evidence = "is_a_test"
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "BbVEL7hDx8NkmEKePCVffQ9RCbyBvXEaDfPb9WJVE9t+N1xk2REtOAzpTKsrhR4Wip3n5G45h44+inqaJwi9Cw=="
+value = "RY1dAxlG0v9tenioXbsQNoMoIPXkCor50nYHNAnmIIkitlT2EVNqWl5LEnIqL40BrPzT9ydqkCJXxpoxLksRCQ=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
@@ -270,7 +270,7 @@ kind = "implements"
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 6bade696e2.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit c8ddf4a75e.
 
 # Review: SicLayer (github:theodoreOnzGit)
 
