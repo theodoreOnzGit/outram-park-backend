@@ -5,9 +5,9 @@
 //!  top row:    [ Mindmap ]            [ Code Map ]            [ Code Review ]
 //!  second row:  Home, Wiki, Repository Go to Code Review       PDF Reader,
 //!               management, Digitiser,  (a button)             Bibliography,
-//!               Table Digitiser, PDF                           Back to map
-//!               Reader, Kvim Editor,                           (a button, to
-//!               Bibliography                                   the Code Map)
+//!               Table Digitiser, PDF                           Back to code
+//!               Reader, Kvim Editor,                           review, Back
+//!               Bibliography                                   to map (buttons)
 //! ```
 //!
 //! A major tab's own page is the one it is named after. ~~Clicking it goes
@@ -93,6 +93,14 @@ impl Group {
 
     /// The major tab selected once the app shows `view`: this one when it
     /// holds the page, else the first that does.
+    /// Whether the second row offers "Back to code review": under Code
+    /// Review, on any page but the review itself (its PDF Reader or
+    /// Bibliography), which otherwise has no tab of its own to click back
+    /// to (maintainer, 2026-10-13).
+    pub(super) fn offers_back_to_code_review(self, view: View) -> bool {
+        self == Group::CodeReview && view != View::CodeReview
+    }
+
     pub(super) fn after(self, view: View) -> Group {
         if self.holds(view) {
             self
@@ -221,6 +229,18 @@ mod tests {
 
     /// A page shared by two major tabs keeps the one it was opened from; a
     /// page the selected tab does not hold moves to its own.
+    /// "Back to code review" shows on the PDF Reader and the Bibliography
+    /// under Code Review, and nowhere else: not on the review itself, and
+    /// not on the same two pages under Mindmap.
+    #[test]
+    fn back_to_code_review_is_offered_only_away_from_it() {
+        assert!(Group::CodeReview.offers_back_to_code_review(View::PdfReader));
+        assert!(Group::CodeReview.offers_back_to_code_review(View::Bibliography));
+        assert!(!Group::CodeReview.offers_back_to_code_review(View::CodeReview));
+        assert!(!Group::Mindmap.offers_back_to_code_review(View::PdfReader));
+        assert!(!Group::CodeMap.offers_back_to_code_review(View::CodeMap));
+    }
+
     #[test]
     fn the_major_tab_follows_the_page() {
         assert_eq!(Group::CodeReview.after(View::PdfReader), Group::CodeReview);

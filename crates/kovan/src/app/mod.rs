@@ -3092,6 +3092,16 @@ impl DigitiseApp {
                 self.group = tab_groups::Group::CodeReview;
                 self.view = View::CodeReview;
             }
+            // From the PDF Reader or the Bibliography opened under Code
+            // Review, straight back to the review (maintainer, 2026-10-13).
+            if self.group.offers_back_to_code_review(self.view)
+                && ui
+                    .button("Back to code review")
+                    .on_hover_text("Return to the Code Review, as you left it")
+                    .clicked()
+            {
+                self.view = View::CodeReview;
+            }
             // The way back (maintainer, 2026-10-12).
             if self.group == tab_groups::Group::CodeReview
                 && ui
