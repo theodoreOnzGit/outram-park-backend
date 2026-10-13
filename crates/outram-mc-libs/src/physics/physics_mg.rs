@@ -111,8 +111,11 @@ use crate::geometry::crossing::GeometryExt;
 /// - the scattering matrix is `n_groups × n_groups`, stored **row-major** as
 ///   `scatter[g * G + g']` = Σ_s,g→g' (out of `g`, into `g'`);
 /// - `fission[g] ≤ absorption[g] ≤ total[g]` (fission is part of absorption);
-/// - χ sums to 1 (renormalised on construction if it does not, and it is
-///   non-zero).
+/// - χ sums to 1 (renormalised on construction if it does not), **for a
+///   fissile set**. A set with `ν·Σ_f = 0` in every group (graphite, helium,
+///   a TRISO coating) may carry an all-zero χ, which is kept as zeros. ~~χ
+///   must be non-zero~~ **CHANGED 2026-10-13 (gh:#848):** that assertion made
+///   every non-fissile material of a condensed library panic.
 ///
 /// The transport kernel treats `total[g] − absorption[g]` as the scatter-out
 /// cross section and samples the outgoing group from row `g`; see
@@ -198,6 +201,18 @@ impl Mgxs {
     /// inconsistent or an ordering invariant (`fission ≤ absorption ≤ total`) is
     /// violated. χ is renormalised to sum to 1.
     ///
+    /// # χ on a non-fissile material
+    ///
+    /// If no group has `ν·Σ_f > 0`, χ may be all zero and is kept so. This
+    /// follows upstream: `XsData::XsData` allocates `chi_prompt` and
+    /// `chi_delayed` only `if (fissionable)` (`src/xsdata.cpp:40-63`, OpenMC
+    /// `afa7a14`), and `XsData::from_hdf5` reads the fission block only for a
+    /// fissionable set (`:87-90`), so a non-fissile material never has a χ.
+    /// The kernel cannot sample it: the source is drawn only in fissile
+    /// cells ([`Mgxs::is_fissile`]) and a collision banks `n ≈ ν̄_g/k` sites,
+    /// which is zero when `ν·Σ_f = 0`. A **fissile** set with a zero χ still
+    /// panics, because its neutrons would have no birth group.
+    ///
     /// # Units
     /// All cross sections are **macroscopic**, \[cm⁻¹\]; χ is dimensionless.
     pub fn new(
@@ -231,8 +246,19 @@ impl Mgxs {
             );
         }
         let chi_sum: f64 = chi.iter().sum();
-        assert!(chi_sum > 0.0, "chi must be non-zero (fission spectrum)");
-        let chi = chi.into_iter().map(|c| c / chi_sum).collect();
+        let fissile = nu_fission.iter().any(|&v| v > 0.0);
+        let chi = if fissile {
+            assert!(
+                chi_sum > 0.0,
+                "chi must be non-zero for a fissile set (nu_fission > 0 in some group)"
+            );
+            chi.into_iter().map(|c| c / chi_sum).collect()
+        } else if chi_sum > 0.0 {
+            chi.into_iter().map(|c| c / chi_sum).collect()
+        } else {
+            // Non-fissile: no fission spectrum, as upstream (see doc above).
+            vec![0.0; g]
+        };
         Self {
             name: name.into(),
             n_groups: g,
@@ -946,5 +972,41 @@ mod tests {
         );
         assert!(!absorber.is_fissile());
         assert!((absorber.scatter_out(0)).abs() < 1e-15);
+    }
+
+    /// A non-fissile set (graphite-like) may carry an all-zero χ (gh:#848),
+    /// as upstream's `XsData` has no χ unless the set is fissionable. Before
+    /// the change `Mgxs::new` panicked here. Transport through such a set is
+    /// exercised by `nee_soon`'s `tests/mgxs_from_monte_carlo.rs` round trip,
+    /// whose moderator is non-fissile.
+    #[test]
+    fn non_fissile_set_may_have_zero_chi() {
+        let graphite = Mgxs::new(
+            "graphite",
+            vec![0.40, 0.42],
+            vec![1.0e-4, 3.0e-4],
+            vec![0.0, 0.0],
+            vec![0.0, 0.0],
+            vec![0.0, 0.0],
+            vec![0.38, 0.0199, 0.0, 0.4197],
+        );
+        assert!(!graphite.is_fissile());
+        assert_eq!(graphite.chi, vec![0.0, 0.0]);
+    }
+
+    /// A fissile set with no fission spectrum is still refused: its neutrons
+    /// would have no birth group.
+    #[test]
+    #[should_panic(expected = "chi must be non-zero for a fissile set")]
+    fn fissile_set_with_zero_chi_still_panics() {
+        let _ = Mgxs::new(
+            "fuel",
+            vec![0.30],
+            vec![0.10],
+            vec![0.05],
+            vec![0.13],
+            vec![0.0],
+            vec![0.20],
+        );
     }
 }
