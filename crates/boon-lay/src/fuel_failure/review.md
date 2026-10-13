@@ -1295,3 +1295,54 @@ Page 494 minimum triso tensile strength, checked
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit d63530d7e8.
+
+# Review: MIN_WEIBULL_MODULUS (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-min-weibull-modulus-theodoreonzgit-72601fd8"
+kind = "review"
+origin = "human"
+created = "2026-10-13T15:33:55+08:00"
+modified = "2026-10-13T15:33:55+08:00"
+target = "fn:72601fd84f0cb0d8"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/strength.rs::MIN_WEIBULL_MODULUS"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T15:33:55+08:00"
+commit = "55ef18de56617cec5f5d6c5152314c3e42a38bbb"
+hash = "sha256:1f9d6b2ed6a27c7c42760f1007661908cca5967207c725fca41570ae1129e6d6"
+doc_hash = "sha256:7624115720911050e9ac3bb545f86a25864dd6b0d9bf12548994c32a3e29c0fb"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "cited"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "1+oZ4uelM6m4VB2S2fVqzvzOZi2qhe6U/H0uLFRSXQ+GFmE0ThuYVrQOkMC+xa2GQDLwEs9xQ1xVngdFr2SgAw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
+kind = "implements"
+```
+
+checked against page 494 of PANAMA manual
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 55ef18de56.
