@@ -765,3 +765,58 @@ error type
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 100e8df6b1.
+
+# Review: CorrosionInputError::fmt (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-fmt-theodoreonzgit-e9002514"
+kind = "review"
+origin = "human"
+created = "2026-10-13T15:05:42+08:00"
+modified = "2026-10-13T15:05:42+08:00"
+target = "fn:e9002514133b6a4c"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/geometry.rs::CorrosionInputError::fmt"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T15:05:42+08:00"
+commit = "835c0846577a87108a81d1e80efdbd6bf5b2f7f4"
+hash = "sha256:9c52f5b79847b414393dd715f3650bb94037d52e330f6e7bcd260eca579573f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+no_concept = "io_format"
+
+[review.callees]
+"fn:62323e762b03b9bf" = "sha256:92583fc305b6c05cfec32e7a87ff1144049b4241fa00cd26f8a19ead15c00e69"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "no_doc"
+error_handling = "other: formatting"
+independence = "someone_else"
+limits_and_guards = "no_limits: formatting"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "other: formatting"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "sCtCD/WCyNR/9scQtgnrFZyj7PupUuGLlJb5LJZzw/epbebpfo+08IIIdoLlsVZuqyIKsVNdAFmRCFVdpRjBDg=="
+```
+
+formatting function for error
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 835c084657.
