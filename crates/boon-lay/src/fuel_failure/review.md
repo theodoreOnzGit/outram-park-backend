@@ -1612,3 +1612,63 @@ checked against eq 12 on page 495
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 7e7ec8d43e.
+
+# Review: decomposition_rate_constant (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-decomposition-rate-constant-theodoreonzgit-cc9ce868"
+kind = "review"
+origin = "human"
+created = "2026-10-13T16:05:17+08:00"
+modified = "2026-10-13T16:05:17+08:00"
+target = "fn:cc9ce8689ab25b4c"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/decomposition.rs::decomposition_rate_constant"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T16:05:17+08:00"
+commit = "18e9ad4a50a920f443130abacf84297214a62ee7"
+hash = "sha256:a45c39928c95292a5b23d425cb03245cd3604401d794bfeffefae189fe9d3e4f"
+doc_hash = "sha256:ab8a886101c3beda7599d616eb738377c2031a88087c79976907bb0e9717ad59"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+
+[review.callees]
+"fn:61c6b4b343818095" = "sha256:b4238d507203a351f1fbb97ec7c4ed9e7ea38eda17eac315b922d9f035a740de"
+"fn:754a22a9ab4477c6" = "sha256:a4d46079c620d78bb95f6e108f6fef62c1948182777a691249dd418440b8df04"
+"fn:99695b80bb110520" = "sha256:4d690dabf809ed9503d9c21e7af20297826988582604507134200ef1d52deefc"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: there are guards, but incomplete, mark for improvement, but shouldn't cause no-review"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: correct eq, but no guards, shouldn't block stamp"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "E5j6iRg1AMBObZ6j/ncqEatuqAzEdAD18B6rXaiJX/foXETCgtA7UDUdmPlj64QCB7LtTfuRxcWsbb2UlEQzDQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
+kind = "implements"
+```
+
+looks like it implements eq 12 correctly
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 18e9ad4a50.
