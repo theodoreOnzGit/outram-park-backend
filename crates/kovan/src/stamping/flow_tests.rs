@@ -30,6 +30,7 @@ fn context(answers: BTreeMap<String, String>) -> StampContext {
         applicability: Applicability::default(),
         answers,
         restamp: false,
+        previous_comments: String::new(),
         hash: String::new(),
         no_concept: None,
         suggested_architecture: None,
@@ -267,6 +268,31 @@ fn flow_sets_up_a_key_signs_and_turns_valid() {
     let w = again.wizard.as_ref().unwrap();
     assert!(w.ctx.restamp);
     assert_eq!(w.answers(), clean());
+    // The comments written last time are there to start from (maintainer,
+    // 2026-10-13): a re-stamp replaces the entry and its comments together,
+    // and the box used to start empty.
+    assert_eq!(w.ctx.previous_comments, "Checked by hand.");
+    assert_eq!(w.comments, "Checked by hand.");
+
+    // A note typed in the review panel's sidebar is added after them.
+    let ks = Keystore::at(store.path());
+    let mut seeded = StampFlow::new(r.path().to_path_buf(), ks, Purpose::Stamp, target("leaf"));
+    seeded.comments_seed = "Units re-checked.".into();
+    seeded.wait();
+    assert_eq!(seeded.wizard.as_ref().unwrap().comments, "Checked by hand.\n\nUnits re-checked.");
+}
+
+/// The comments box starts from the previous comments, then the sidebar
+/// note; neither alone is changed, an empty pair gives an empty box, and a
+/// sidebar note already in the previous comments is not repeated.
+#[test]
+fn the_comments_box_starts_from_what_was_written_before() {
+    use super::flow::starting_comments as start;
+    assert_eq!(start("", ""), "");
+    assert_eq!(start("Checked by hand.\n", ""), "Checked by hand.");
+    assert_eq!(start("", "  New note. "), "New note.");
+    assert_eq!(start("Checked by hand.", "New note."), "Checked by hand.\n\nNew note.");
+    assert_eq!(start("Checked by hand.\n\nNew note.", "New note."), "Checked by hand.\n\nNew note.");
 }
 
 /// Methodology: with a registered founder key, open Stamp on `leaf` (was

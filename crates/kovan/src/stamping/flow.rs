@@ -119,6 +119,23 @@ pub enum Purpose {
     Reconfirm,
 }
 
+/// What the wizard's comments box starts with: the comments already under
+/// this reviewer's previous review, then whatever was typed in the review
+/// panel's sidebar (maintainer, 2026-10-13). A re-stamp replaces the entry
+/// and its comments together, so starting from an empty box silently
+/// dropped what had been written before. Sidebar text already present in
+/// the previous comments is not repeated.
+pub fn starting_comments(previous: &str, seed: &str) -> String {
+    let (previous, seed) = (previous.trim(), seed.trim());
+    if seed.is_empty() || previous.contains(seed) {
+        previous.to_string()
+    } else if previous.is_empty() {
+        seed.to_string()
+    } else {
+        format!("{previous}\n\n{seed}")
+    }
+}
+
 /// The function the request names (from kovan-web's `FunctionRef`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Target {
@@ -712,9 +729,10 @@ impl StampFlow {
                     self.step = Step::Refused { message, hint };
                 }
                 Some(Ok((ctx, attestations))) => {
+                    let comments = starting_comments(&ctx.previous_comments, &self.comments_seed);
                     let mut w = WizardForm::new(ctx);
                     w.attestations = attestations;
-                    w.comments = self.comments_seed.clone();
+                    w.comments = comments;
                     self.wizard = Some(w);
                     self.step = Step::Wizard;
                 }

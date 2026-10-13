@@ -463,6 +463,12 @@ pub struct StampContext {
     pub answers: BTreeMap<String, String>,
     /// This reviewer already has a review of the function (it is replaced).
     pub restamp: bool,
+    /// Added 2026-10-13 (maintainer: "for comments previously written in
+    /// review.md, I want it autofilled as well"): the comments under this
+    /// reviewer's previous review, as written; empty when there is none.
+    /// The wizard's comments box starts from them, since a re-stamp
+    /// replaces the entry and its comments together.
+    pub previous_comments: String,
     /// Added 2026-10-10 (#770, #740 decision 7): the function's hash when
     /// the wizard opened. Signing refuses when the drafted hash differs
     /// (the code changed while it was being reviewed).
@@ -594,6 +600,13 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
         applicability,
         answers,
         restamp: previous.is_some(),
+        previous_comments: folder
+            .map(|m| review_mode::section::function_sections(&m.text, &f.id))
+            .unwrap_or_default()
+            .into_iter()
+            .find(|s| s.kind == review_mode::section::SectionKind::Review && s.by == by)
+            .map(|s| s.comments)
+            .unwrap_or_default(),
         hash: f.hash.clone(),
         no_concept: review_mode::prefill::no_concept_prefill(
             previous.and_then(|r| r.review.no_concept.as_deref()),
