@@ -114,3 +114,63 @@ kind = "implements"
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit c0187fd224.
+
+# Review: median_is_the_scale_parameter (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-median-is-the-scale-parameter-theodoreonzgit-81bac657"
+kind = "review"
+origin = "human"
+created = "2026-10-13T11:46:02+08:00"
+modified = "2026-10-13T11:46:02+08:00"
+target = "fn:81bac657a46a4b00"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/weibull.rs::median_is_the_scale_parameter"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T11:46:02+08:00"
+commit = "9310d33f562c2cb25a2ed9e561e23596c9cbe908"
+hash = "sha256:4e214aa2d7bff7f54dd7ba87724af2f77bcdcdb2f86eceef60680c9fe5d2a6be"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
+
+[review.callees]
+"fn:dd41ff2953124783" = "sha256:909caa1fbab166b538d958e5778a9e4b2bbb0ac2b44faa8f50ef9c0624a91539"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "no_doc"
+error_handling = "test_panics_on_failure"
+independence = "someone_else"
+limits_and_guards = "test_no_input"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "is_a_test"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "is_a_test"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "Kob1Ie9PVzqoqdjrvLduUoXXHyxmFcmBjnThQQ5oqd3pDyF0mpK60RThoCXY9o+SwEcYjnPE2kIqgl84sF1oCg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
+kind = "implements"
+```
+
+Just a test which at the median (centre part of the S curve), this no matter what the shape parameter (m),
+The median (s) will always determine the 0.5 mark. This shld be standard for weibull distribution.
+
+Hence, when the pressure is supplied at median (s), it will always return 0.5
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 9310d33f56.
