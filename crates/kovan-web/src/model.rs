@@ -456,13 +456,15 @@ impl Facts {
         (reviewed, ids.len() - reviewed)
     }
 
-    /// The distinct workspace functions `id` calls (itself excluded), in
+    /// The distinct workspace functions `id` calls, and (schema 4, #843) the
+    /// types and constants it uses (itself excluded), in
     /// `(crate, id)` order: every resolved call in the data is to a
     /// workspace function (std and dependencies are dropped at build).
     pub fn callees(&self, map: &CodeMap, slice: &CrateSlice, id: &str) -> Vec<String> {
         let mut v: Vec<(String, String)> = slice
             .calls
             .iter()
+            .chain(slice.uses.iter())
             .filter(|c| c.from == id && c.to != id)
             .map(|c| (crate_of(map, &c.to).unwrap_or("").to_string(), c.to.clone()))
             .collect();
@@ -471,11 +473,12 @@ impl Facts {
         v.into_iter().map(|(_, id)| id).collect()
     }
 
-    /// The distinct functions that call `id` (itself excluded), sorted, from
+    /// The distinct functions that call `id`, or use it when it is a type or
+    /// constant (itself excluded), sorted, from
     /// the slice of `id`'s crate (which holds every call into it from the
     /// crates in the build's scope).
     pub fn callers(&self, slice: &CrateSlice, id: &str) -> Vec<String> {
-        let mut v: Vec<String> = slice.calls.iter().filter(|c| c.to == id && c.from != id).map(|c| c.from.clone()).collect();
+        let mut v: Vec<String> = slice.calls.iter().chain(slice.uses.iter()).filter(|c| c.to == id && c.from != id).map(|c| c.from.clone()).collect();
         v.sort();
         v.dedup();
         v
@@ -934,8 +937,29 @@ mod tests {
             commit: None,
             site_base: None,
             files: vec![],
+            // Schema 4 (#843): `rate` uses the struct `Rates`.
+            uses: vec![call(&a, "crates/bl/src/chem.rs::Rates")],
         };
         let none = Facts::new(&[]);
+        // A used type blocks its user like a callee does, and the type's
+        // "callers" are the functions that use it.
+        let ty = "crates/bl/src/chem.rs::Rates".to_string();
+        assert_eq!(none.blocked_by(&map, &slice, &a), vec![ty.clone()]);
+        assert_eq!(none.callers(&slice, &ty), vec![a.clone()]);
+        assert!(Facts::new(&[StampState {
+            function: ty.clone(),
+            verdict: StampVerdict::Valid,
+            reason: String::new(),
+            rung: 3,
+            reviewer: "R".into(),
+            date: "2026-10-13".into(),
+            note: String::new(),
+            permalink: String::new(),
+            state: None,
+            ivv: None,
+        }])
+        .blocked_by(&map, &slice, &a)
+        .is_empty());
         assert_eq!(none.blocked_by(&map, &slice, &b).len(), 2);
         assert_eq!(none.review(&a), Review::Unreviewed);
         let stamp = |f: &str, v| StampState {

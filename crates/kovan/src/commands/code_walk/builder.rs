@@ -291,6 +291,49 @@ impl ScipResolver {
     }
 }
 
+impl ScipResolver {
+    /// Where every workspace symbol named on 0-based lines `from..=to` of
+    /// `rel` is defined, as `(line of the mention, defining file, 0-based
+    /// defining line)` (GitHub #843: which types and constants a function
+    /// uses). Definitions, locals and symbols with no definition in the
+    /// index (std, dependencies, macro-generated) are left out.
+    pub(crate) fn references_in(&mut self, rel: &str, from: u32, to: u32) -> Vec<(u32, String, u32)> {
+        // No function is being expanded: nothing is nested or hidden.
+        self.body = None;
+        self.hidden.clear();
+        let mut found = Vec::new();
+        {
+            let Some(doc) = self.index.document(rel) else {
+                return Vec::new();
+            };
+            for ln in from..=to {
+                for o in doc.on_line(ln) {
+                    if o.end_line != o.line
+                        || o.is_definition()
+                        || matches!(o.symbol, crate::scip::Sym::Local(_))
+                        || self.index.definitions(o.symbol).is_empty()
+                    {
+                        continue;
+                    }
+                    found.push((ln, o.symbol, o.start));
+                }
+            }
+        }
+        let mut out = Vec::new();
+        for (ln, sym, start) in found {
+            let text = cached_line(&mut self.lines, &self.root, rel, ln);
+            let col = self.index.document(rel).map_or(0, |d| d.encoding.char_col_of_units(&text, start));
+            let lead = path_head(&text, col);
+            if let Some((file, line, _)) = self.site_of(rel, ln, sym, lead.as_deref()) {
+                if let Some(def_rel) = self.rel(&file) {
+                    out.push((ln, def_rel, line));
+                }
+            }
+        }
+        out
+    }
+}
+
 impl Resolver {
     /// Connects to (or starts) the daemon for `root`, falling back to a
     /// one-shot session.
@@ -418,6 +461,15 @@ impl Workspace {
 
     pub(crate) fn close(self) {
         self.resolver.finish();
+    }
+
+    /// [`ScipResolver::references_in`]; empty with the LSP backend, which
+    /// has no list of the symbols a line names.
+    pub(crate) fn references_in(&mut self, rel: &str, from: u32, to: u32) -> Vec<(u32, String, u32)> {
+        match &mut self.resolver {
+            Resolver::Scip(s) => s.references_in(rel, from, to),
+            _ => Vec::new(),
+        }
     }
 
     pub(crate) fn index(&mut self, rel: &str) -> Result<&FileIndex, String> {

@@ -1094,10 +1094,10 @@ pub fn evaluate(
         .map(|(k, v)| (k.clone(), v.state.kind().counts()))
         .collect();
     for (id, cur) in &current {
+        // Callees and (#843) the types and constants it uses.
         let blocked: Vec<String> = cur
             .f
-            .callees
-            .iter()
+            .depends_on()
             .filter(|c| c.as_str() != *id && counts.get(*c) == Some(&false))
             .cloned()
             .collect();
@@ -1227,7 +1227,10 @@ fn judge(
             now: cur.f.hash.clone(),
         });
     }
-    let recorded: BTreeSet<&String> = b.callees.keys().collect();
+    // The types and constants a review recorded (#843) are compared by
+    // hash at step 6, not here: a review written before items were indexed
+    // records none and keeps its state.
+    let recorded: BTreeSet<&String> = b.callees.keys().filter(|k| !cur.f.uses.contains(*k)).collect();
     let now: BTreeSet<&String> = cur.f.callees.iter().collect();
     if recorded != now {
         return StampState::DirectlyStale(StaleWhy::CalleesResolveDifferently {

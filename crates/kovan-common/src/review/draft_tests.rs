@@ -32,6 +32,7 @@ fn func(qual: &str, hash: char, callees: &[&str]) -> FunctionIndex {
         qual: qual.into(),
         item: ItemKind::Fn,
         shape: None,
+        uses: Vec::new(),
         lines: [1, 3],
         hash: h(hash),
         doc_hash: h('d'),

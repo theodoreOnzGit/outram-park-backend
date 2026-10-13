@@ -697,12 +697,46 @@ fn build_with(
             }
         }
     }
+    // Schema 4 (#843): which function or item names which in-scope item.
+    // Only the SCIP backend lists the symbols on a line; the LSP backend
+    // gives the method -> own type uses alone.
+    ctl.phase("building the call graph: types and constants used", 0);
+    let mut item_at: HashMap<(String, u32), String> = HashMap::new();
+    let mut item_ids: BTreeSet<String> = BTreeSet::new();
+    // (file, first line, last line, id, the type or trait a method is for)
+    let mut spans: Vec<(String, u32, u32, String, Option<String>)> = Vec::new();
+    for c in &crates {
+        for t in c.targets.iter().chain(c.tests.iter()) {
+            for m in &t.modules {
+                for i in &m.items {
+                    item_at.insert((m.file.clone(), i.line), i.id.clone());
+                    item_ids.insert(i.id.clone());
+                }
+                for f in m.functions.iter().chain(m.items.iter()) {
+                    spans.push((m.file.clone(), f.start_line, f.end_line, f.id.clone(), f.owner.clone()));
+                }
+            }
+        }
+    }
+    let mut raw_uses = Vec::new();
+    for (file, start, end, id, owner) in &spans {
+        if let Some(own) = owner.as_ref().map(|o| format!("{file}::{o}")).filter(|o| item_ids.contains(o)) {
+            raw_uses.push(RawCall { from: id.clone(), to: own, kind: CallKind::Call, line: 0 });
+        }
+        for (ln, def_file, def_line) in ws.references_in(file, start.saturating_sub(1), end.saturating_sub(1)) {
+            if let Some(to) = item_at.get(&(def_file, def_line + 1)) {
+                raw_uses.push(RawCall { from: id.clone(), to: to.clone(), kind: CallKind::Call, line: ln + 1 });
+            }
+        }
+    }
+    ctl.check()?;
     // 5. Pages that cite each function, and each file's recent history.
     attach_citations(&root, &mut crates, &in_scope);
     let commit = attach_history(&root, &mut crates);
     let mut doc = CallGraphDoc::assemble(crates, raw, outside, walk.external_calls);
     doc.commit = commit;
     doc.site_base = Some(citations::SITE_BASE.to_string());
+    doc.set_uses(raw_uses);
     ctl.say(format!(
         "call-graph: done in {:.1} s: {} functions, {} calls ({} sites), {} unresolved, {} outside, {} queries",
         started.elapsed().as_secs_f64(),

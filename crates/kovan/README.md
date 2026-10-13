@@ -594,8 +594,15 @@ number); selecting one shows its definition. `kovan-cli index` and
 struct's or enum's hash also covers the methods written for it in the same
 file, so a method change makes its review stale. Not built yet: the
 questions a review of one asks (asking to stamp one is refused with that
-reason), which functions use which type, and methods written for a type in
-another file. Map data written before this change is rebuilt the next time
+reason), ~~which functions use which type,~~ and methods written for a type
+in another file. **Added 2026-10-13 (step 2):** the index run reads from
+rust-analyzer's SCIP index which workspace types and constants each
+function names and writes them as `uses` in `kovan.toml` (and in the map
+data, where a type unfolds to the functions that use it). The bottom-up
+rule covers them: a function cannot be stamped until the types it uses have
+a valid review, and a new stamp records their hashes, so a later change to
+a type asks for a re-confirm of its users. A review written before this
+keeps its state. A type's `reached_by` lists the tests that use it. Map data written before this change is rebuilt the next time
 the Code Review view opens (no rust-analyzer run needed).
 
 Added 2026-10-12 (#838): after a **squash merge or rebase**, the commit a

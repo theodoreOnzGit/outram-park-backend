@@ -174,6 +174,13 @@ pub struct FunctionIndex {
     /// unresolved calls are not listed).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub callees: Vec<String>,
+    /// Added 2026-10-13 (#843, additive): the workspace types and constants
+    /// this entry uses, by stable id. Kept apart from `callees` so that a
+    /// review written before items were indexed still compares its recorded
+    /// callees with `callees` alone. For a type or constant, `reached_by`
+    /// lists the tests that use it, directly or through a function.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub uses: Vec<String>,
     /// Every test that reaches the function (by test id).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub reached_by: Vec<String>,
@@ -193,6 +200,15 @@ pub struct FunctionIndex {
     /// ([`crate::code_index::physical`]).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub physical_interface: bool,
+}
+
+impl FunctionIndex {
+    /// Everything this entry rests on: the functions it calls, then the
+    /// types and constants it uses. What the bottom-up rule requires
+    /// reviewed first, and what a new review records the hashes of.
+    pub fn depends_on(&self) -> impl Iterator<Item = &String> {
+        self.callees.iter().chain(self.uses.iter())
+    }
 }
 
 fn is_fn(k: &ItemKind) -> bool {
@@ -433,6 +449,8 @@ impl FolderIndex {
             for f in &mut m.functions {
                 f.callees.sort();
                 f.callees.dedup();
+                f.uses.sort();
+                f.uses.dedup();
                 f.reached_by.sort();
                 f.reached_by.dedup();
             }
@@ -511,6 +529,7 @@ mod tests {
                     qual: "flash".into(),
                     item: ItemKind::Fn,
                     shape: None,
+                    uses: Vec::new(),
                     lines: [10, 20],
                     hash: h('a'),
                     doc_hash: h('b'),

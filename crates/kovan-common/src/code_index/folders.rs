@@ -24,7 +24,14 @@
 //! items, so two of one name get `#k`); one whose path id a function
 //! already holds is left out and counted in [`BuildReport::skipped_items`].
 //! An item is test code when it sits under `#[cfg(test)]` or in a test
-//! module or target. Its `callees` and `reached_by` are empty.
+//! module or target. Its `callees` are empty.
+//!
+//! `uses` (every entry): the workspace items the call graph says it names
+//! ([`CallGraphDoc::uses`], SCIP backend), by id; a use of an item that is
+//! not indexed is dropped. An item's `reached_by` is every test that uses
+//! it: a test function that names it, a test that reaches a function that
+//! names it, and the same through an item that names it (a struct holding
+//! it).
 //!
 //! # Fields
 //!
@@ -181,6 +188,8 @@ pub fn build(input: &BuildInput) -> Built {
         doc_hash: String,
         lines: [u32; 2],
         shape: Option<ItemShape>,
+        /// Carries a test attribute: an entry point of the reach walk.
+        test_fn: bool,
     }
     let mut rows: BTreeMap<String, Row> = BTreeMap::new();
     let mut folders: BTreeMap<String, FolderIndex> = BTreeMap::new();
@@ -223,6 +232,7 @@ pub fn build(input: &BuildInput) -> Built {
                                     doc_hash: h.hashes.doc_hash.clone(),
                                     lines: h.entry.lines,
                                     shape: None,
+                                    test_fn: f.test_fn,
                                 },
                             );
                         }
@@ -248,6 +258,7 @@ pub fn build(input: &BuildInput) -> Built {
                             doc_hash: h.hashes.doc_hash.clone(),
                             lines: h.entry.lines,
                             shape: h.entry.shape,
+                            test_fn: false,
                         },
                     );
                 }
@@ -309,10 +320,40 @@ pub fn build(input: &BuildInput) -> Built {
         out.into_iter().collect()
     };
     let reach = tests_reaching(doc);
+    // Item uses, both ways (module doc).
+    let mut uses_of: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    let mut users_of: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    for u in &doc.uses {
+        if u.from != u.to && rows.contains_key(&u.from) && rows.get(&u.to).is_some_and(|r| r.shape.is_some()) {
+            uses_of.entry(u.from.as_str()).or_default().insert(u.to.as_str());
+            users_of.entry(u.to.as_str()).or_default().insert(u.from.as_str());
+        }
+    }
+    let tests_using = |item: &str| -> Vec<String> {
+        let mut out = BTreeSet::new();
+        let mut seen: BTreeSet<&str> = BTreeSet::from([item]);
+        let mut stack: Vec<&str> = users_of.get(item).map(|s| s.iter().copied().collect()).unwrap_or_default();
+        while let Some(n) = stack.pop() {
+            if !seen.insert(n) {
+                continue;
+            }
+            let Some(r) = rows.get(n) else { continue };
+            if r.shape.is_some() {
+                stack.extend(users_of.get(n).into_iter().flatten().copied());
+            } else if r.test_fn {
+                out.insert(n.to_string());
+            } else if let Some(ts) = reach.get(n) {
+                out.extend(ts.iter().cloned());
+            }
+        }
+        out.into_iter().collect()
+    };
     // 4. Fill the folders.
     let mut missing = BTreeSet::new();
     for (pid, r) in &rows {
-        let reached_by: Vec<String> = if r.test {
+        let reached_by: Vec<String> = if r.shape.is_some() {
+            if r.test { Vec::new() } else { tests_using(pid) }
+        } else if r.test {
             Vec::new()
         } else {
             reach.get(pid).map(|s| s.iter().cloned().collect()).unwrap_or_default()
@@ -330,6 +371,12 @@ pub fn build(input: &BuildInput) -> Built {
             hash: r.hash.clone(),
             doc_hash: r.doc_hash.clone(),
             callees: callees_of(pid, &mut missing),
+            uses: uses_of
+                .get(pid.as_str())
+                .into_iter()
+                .flatten()
+                .filter_map(|u| ids.get(*u).cloned())
+                .collect(),
             reached_by,
             test: r.test,
             index_out_of_date: false,

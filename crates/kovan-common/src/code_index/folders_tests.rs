@@ -155,6 +155,7 @@ pub(crate) fn graph() -> CallGraphDoc {
         commit: None,
         site_base: None,
         generator: None,
+        uses: Vec::new(),
     }
 }
 
@@ -398,4 +399,54 @@ fn items_are_indexed_beside_functions() {
     let text = fi.to_toml().unwrap();
     assert!(text.contains("item = \"type\"") && text.contains("shape = \"struct\""), "{text}");
     assert_eq!(&FolderIndex::parse(&text).unwrap(), fi);
+}
+
+/// Methodology (#843): the items fixture with four uses in the call graph:
+/// `leaf` (reached by the tests `t_twice` and `it_leaf`) names `Fractions`
+/// and `SIGMA`; the struct `Fractions` names the alias `Fraction`; the test
+/// function `it_leaf` names `Regime` directly; and one use of something
+/// that is not an indexed item. Pass: `leaf` lists the two ids under
+/// `uses` and its `callees` are as before; `Fractions` lists `Fraction`;
+/// `Fractions` and `SIGMA` are reached by both tests, `Fraction` too
+/// (through the struct that holds it), `Regime` by `it_leaf` alone, the
+/// trait `Fluid` by none; the unknown use is dropped; and a refresh of the
+/// built folder reproduces it byte for byte.
+///
+/// Result (2026-10-13): passes.
+#[test]
+fn uses_link_functions_to_items_and_items_to_tests() {
+    let mut i = input_with_items(C1);
+    let l = |n: &str| format!("{LIB_RS}::{n}");
+    let t = |n: &str| format!("{TYPES_RS}::{n}");
+    let raw = |from: String, to: String| crate::call_graph::RawCall { from, to, kind: CallKind::Call, line: 3 };
+    i.doc.set_uses(vec![
+        raw(l("leaf"), t("Fractions")),
+        raw(l("leaf"), t("SIGMA")),
+        raw(l("leaf"), t("SIGMA")),
+        raw(t("Fractions"), t("Fraction")),
+        raw(format!("{IT_RS}::it_leaf"), t("Regime")),
+        raw(l("leaf"), "crates/other/src/lib.rs::Elsewhere".into()),
+        raw(l("leaf"), l("leaf")),
+    ]);
+    assert_eq!(i.doc.uses.len(), 5, "aggregated, self use dropped");
+    let b = build(&i);
+    let id = |file: &str, name: &str| find(&b, "crates/kern/src", file, name).id.clone();
+    let leaf = find(&b, "crates/kern/src", "lib.rs", "leaf");
+    let mut want = vec![id("types.rs", "Fractions"), id("types.rs", "SIGMA")];
+    want.sort();
+    assert_eq!(leaf.uses, want);
+    assert_eq!(leaf.callees, find(&build(&input(C1)), "crates/kern/src", "lib.rs", "leaf").callees);
+    let fr = find(&b, "crates/kern/src", "types.rs", "Fractions");
+    assert_eq!(fr.uses, vec![id("types.rs", "Fraction")]);
+    let both = vec![l("t_twice"), format!("{IT_RS}::it_leaf")];
+    assert_eq!(fr.reached_by, both);
+    assert_eq!(find(&b, "crates/kern/src", "types.rs", "SIGMA").reached_by, both);
+    assert_eq!(find(&b, "crates/kern/src", "types.rs", "Fraction").reached_by, both);
+    assert_eq!(find(&b, "crates/kern/src", "types.rs", "Regime").reached_by, vec![format!("{IT_RS}::it_leaf")]);
+    assert!(find(&b, "crates/kern/src", "types.rs", "Fluid").reached_by.is_empty());
+    let prev = &b.folders["crates/kern/src"];
+    let files: BTreeMap<String, String> =
+        [("lib.rs", LIB), ("util.rs", UTIL), ("types.rs", TYPES)].iter().map(|(f, t)| (f.to_string(), t.to_string())).collect();
+    let (same, _) = crate::code_index::refresh::refresh_folder("kern", "crates/kern/src", Some(prev), &files, None, &[], C2);
+    assert_eq!(same.to_toml().unwrap(), prev.to_toml().unwrap());
 }

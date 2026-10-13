@@ -18,7 +18,8 @@
 //!   previous index) keeps its committed `callees` and `reached_by`, and
 //!   its previous `index_out_of_date` flag;
 //! - a function that is **new or edited** cannot have its callees or
-//!   reaching tests recomputed without rust-analyzer: it keeps the previous
+//!   reaching tests recomputed without rust-analyzer (nor the types and
+//!   constants it uses, #843): it keeps the previous
 //!   lists (an edited one) or none (a new one) and is marked
 //!   `index_out_of_date = true`, shown as "index out of date: run kovan-cli
 //!   index", never silently trusted (Leak Before Break);
@@ -189,6 +190,7 @@ pub fn refresh_folder(
             hash: h.hashes.hash.clone(),
             doc_hash: h.hashes.doc_hash.clone(),
             callees: prev.map(|p| p.callees.clone()).unwrap_or_default(),
+            uses: prev.map(|p| p.uses.clone()).unwrap_or_default(),
             reached_by: prev.map(|p| p.reached_by.clone()).unwrap_or_default(),
             // The full run's answer (the call graph marks every function of
             // an integration-test target as test code); a new function:

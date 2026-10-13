@@ -37,6 +37,7 @@ pub(super) fn fun(id: &str, hash: char, callees: &[&str], tests: &[&str]) -> Fun
         qual,
         item: ItemKind::Fn,
         shape: None,
+        uses: Vec::new(),
         lines: [1, 5],
         hash: h(hash),
         doc_hash: h('d'),
@@ -1107,4 +1108,54 @@ fn implausible_signed_at_is_flagged_and_does_not_void() {
         if matches!(problems[..], [SignedAtProblem::DateMismatch { .. }])));
     let (f, _) = flags_for(Some("2026-10-06T14:03:09+08:00"), Some(t), Some(t - 90_000));
     assert!(matches!(&f[..], [FunctionFlag::ImplausibleSignedAt { problems, .. }] if problems.len() == 3));
+}
+
+/// Methodology (#843): a function `f` that uses a struct `T` (its index
+/// entry lists `T` under `uses`). (1) A review of `f` written before types
+/// were indexed (it records no callee): it stays valid, `T` unreviewed is
+/// listed as blocking a new stamp, and `T` changing does not touch it. (2)
+/// A review of `f` that recorded `T`'s hash, `T` reviewed and unchanged:
+/// valid, nothing blocks. (3) The same with `T`'s hash changed (its
+/// definition or a method): `T` is directly stale and `f` needs a
+/// re-confirm naming `T`. A recorded use is never read as "callees resolve
+/// differently".
+///
+/// Result (2026-10-13): passes.
+#[test]
+fn a_used_type_blocks_bottom_up_and_its_change_asks_for_reconfirm() {
+    use crate::review::index::ItemShape;
+    let t = "crates/x/src/a.rs::T";
+    let ty = |hash: char| {
+        let mut i = fun(t, hash, &[], &[]);
+        i.item = ItemKind::Type;
+        i.shape = Some(ItemShape::Struct);
+        i
+    };
+    let user = || {
+        let mut f = fun(F, 'a', &[], &["t::ok"]);
+        f.uses = vec![fid(t)];
+        f
+    };
+    let idx = |hash: char| [folder("x", D, &[("a.rs", vec![user(), ty(hash)])])];
+    // (1) An older review, no callee recorded.
+    let old = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
+    for hash in ['b', 'c'] {
+        let ev = run(&old, &idx(hash));
+        assert_eq!(kind(&ev, F), StateKind::Valid);
+        assert_eq!(kind(&ev, t), StateKind::New);
+        assert_eq!(ev.functions[&fid(F)].blocked_by, vec![fid(t)]);
+    }
+    // (2) Recorded and unchanged.
+    let new = [reviews_in("x", D, vec![review(F, M, 'a', &[(t, 'b')]), review(t, M, 'b', &[])])];
+    let ev = run(&new, &idx('b'));
+    assert_eq!(kind(&ev, F), StateKind::Valid);
+    assert_eq!(kind(&ev, t), StateKind::Valid);
+    assert!(ev.functions[&fid(F)].blocked_by.is_empty());
+    // (3) The type changed.
+    let ev = run(&new, &idx('c'));
+    assert_eq!(kind(&ev, t), StateKind::DirectlyStale);
+    match &ev.functions[&fid(F)].state {
+        StampState::InheritedStale { cause, .. } => assert_eq!(*cause, InheritedCause::Callees(vec![fid(t)])),
+        s => panic!("{s:?}"),
+    }
 }

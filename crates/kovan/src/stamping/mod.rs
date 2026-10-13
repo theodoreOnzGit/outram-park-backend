@@ -450,7 +450,7 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
         return Err(DraftError::IndexOutOfDate { path }.to_string());
     }
     let hashes = ws.hashes();
-    if let Some(c) = f.callees.iter().find(|c| !hashes.contains_key(*c)) {
+    if let Some(c) = f.depends_on().find(|c| !hashes.contains_key(*c)) {
         return Err(DraftError::MissingCalleeHash(c.clone()).to_string());
     }
     let snap = review_mode::Snapshot::load(root)?;
@@ -562,8 +562,7 @@ pub(crate) fn draft_stamp_loaded(
         function: f.clone(),
         file: path,
         callee_hashes: f
-            .callees
-            .iter()
+            .depends_on()
             .filter_map(|c| hashes.get(c).map(|h| (c.clone(), h.clone())))
             .collect(),
         by: req.by.clone(),

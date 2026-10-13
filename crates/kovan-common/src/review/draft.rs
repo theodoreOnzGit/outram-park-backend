@@ -184,7 +184,9 @@ pub fn draft_review(input: &DraftInput) -> Result<ReviewEntry, DraftError> {
         return Err(DraftError::IndexOutOfDate { path });
     }
     let mut callees = BTreeMap::new();
-    for c in &f.callees {
+    // Callees and (#843) the types and constants used, so a later change
+    // to one of them shows as "a callee changed".
+    for c in f.depends_on() {
         let h = input
             .callee_hashes
             .get(c)

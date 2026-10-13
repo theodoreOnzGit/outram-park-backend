@@ -106,6 +106,9 @@ pub struct CrateSlice {
     pub site_base: Option<String>,
     /// One per module file, sorted by file.
     pub files: Vec<SourceFile>,
+    /// Schema 4 (#843): the item uses whose user or item is in this crate.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub uses: Vec<Call>,
 }
 
 /// Per-file data of a [`CrateSlice`].
@@ -252,7 +255,7 @@ pub fn split(doc: &CallGraphDoc) -> Vec<CrateSlice> {
         for t in c.targets.iter().chain(c.tests.iter()) {
             for m in &t.modules {
                 file_crate.insert(m.file.as_str(), c.name.as_str());
-                for f in &m.functions {
+                for f in m.functions.iter().chain(m.items.iter()) {
                     fn_crate.insert(f.id.as_str(), c.name.as_str());
                 }
             }
@@ -293,6 +296,7 @@ pub fn split(doc: &CallGraphDoc) -> Vec<CrateSlice> {
                 commit: doc.commit.clone(),
                 site_base: doc.site_base.clone(),
                 files,
+                uses: doc.uses.iter().filter(|k| touches_fn(&k.from) || touches_fn(&k.to)).cloned().collect(),
             }
         })
         .collect()
