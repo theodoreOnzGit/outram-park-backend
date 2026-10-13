@@ -26,6 +26,7 @@ test_ids = [
     "crates/kovan/src/app/code_review_view.rs::the_stamp_dialog_opens_and_draws_every_step_headless",
     "crates/kovan/src/app/connection_picker.rs::a_reviewed_function_is_connected_to_a_standard_concept",
     "crates/kovan/src/app/need_you_view.rs::the_panel_draws_every_row_kind_headless",
+    "crates/kovan/src/app/review_mode_panel.rs::a_quick_fix_opens_without_an_index",
     "crates/kovan/src/app/review_mode_panel.rs::a_saved_fix_turns_needs_fix_into_fixed_without_reopening",
     "crates/kovan/src/app/review_mode_panel.rs::review_mode_draws_every_part_headless",
     "crates/kovan/src/code_connections.rs::only_a_function_with_a_valid_review_gets_a_connection",
@@ -48,6 +49,7 @@ test_ids = [
     "crates/kovan/src/stamping/reanchor.rs::a_shallow_clone_is_never_reanchored",
     "crates/kovan/src/stamping/reanchor.rs::a_squashed_module_is_reanchored_in_one_sign_off",
     "crates/kovan/src/stamping/reanchor_flow.rs::the_queue_row_opens_a_flow_that_signs_the_module",
+    "crates/kovan/src/stamping/review_mode/code_words.rs::the_real_index_ranks_this_file_first",
     "crates/kovan/src/stamping/review_mode/tests.rs::a_concept_is_linked_from_the_wizard",
     "crates/kovan/src/stamping/review_mode/tests.rs::a_port_prefills_no_concept_and_links_upstream",
     "crates/kovan/src/stamping/review_mode/tests.rs::bottom_up_is_enforced_before_the_wizard",
@@ -60,6 +62,7 @@ test_ids = [
     "crates/kovan/src/stamping/tests.rs::stamp_is_valid_then_goes_stale_on_edit",
     "crates/kovan/src/stamping/tests.rs::the_cache_gives_what_a_full_load_gives",
     "crates/kovan/src/stamping/tests.rs::types_and_constants_are_reviewed_bottom_up",
+    "crates/kovan/src/stamping/ws_cache.rs::the_root_used_longest_ago_is_dropped_first",
     "crates/kovan/tests/code_index_cli.rs::index_builds_heals_and_refreshes_without_rust_analyzer",
 ]
 
@@ -81,8 +84,8 @@ doc_hash = "sha256:03d7a40c12eea8b1ba9cfadd2f586f3db955f5e3e7773bbafb61465823173
 reached_by = [
     "#0",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."deleted.rs".function]]
@@ -105,8 +108,8 @@ uses = [
 reached_by = [
     "#0",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."deleted.rs".function]]
@@ -122,8 +125,8 @@ doc_hash = "sha256:3acc26e903ad907cacd0aba7062ed42616ad3cc1dd72d8ea1f52fdb8d268f
 reached_by = [
     "#0",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."deleted.rs".function]]
@@ -220,8 +223,8 @@ reached_by = [
     "#12",
     "#13",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."folders.rs".function]]
@@ -249,8 +252,8 @@ reached_by = [
     "#12",
     "#13",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."folders.rs".function]]
@@ -278,8 +281,8 @@ reached_by = [
     "#12",
     "#13",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."folders.rs".function]]
@@ -301,8 +304,8 @@ reached_by = [
     "#12",
     "#13",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."folders.rs".function]]
@@ -324,8 +327,8 @@ reached_by = [
     "#12",
     "#13",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."folders.rs".function]]
@@ -348,8 +351,8 @@ reached_by = [
     "#12",
     "#13",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."folders.rs".function]]
@@ -372,8 +375,8 @@ reached_by = [
     "#12",
     "#13",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."folders.rs".function]]
@@ -426,8 +429,8 @@ reached_by = [
     "#12",
     "#13",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [module."folders_tests.rs"]
@@ -849,8 +852,8 @@ doc_hash = "sha256:92ebb8ba19eecce3e645483bfda59818d9d3680a955a620671ea3ab532b44
 reached_by = [
     "#5",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."heal.rs".function]]
@@ -880,8 +883,8 @@ uses = ["fn:b94a50cd1ac1ddf6"]
 reached_by = [
     "#5",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."heal.rs".function]]
@@ -897,8 +900,8 @@ doc_hash = "sha256:6b72821b8e61b84c1330cffd265db424a4315e400bdcf127dcd5275648591
 reached_by = [
     "#5",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."heal.rs".function]]
@@ -923,8 +926,8 @@ uses = [
 reached_by = [
     "#5",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."heal.rs".function]]
@@ -940,8 +943,8 @@ doc_hash = "sha256:863330d9224ed551098cc5ed3da02632bb4aff3990884dfa425aaeb8a2246
 reached_by = [
     "#5",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."heal.rs".function]]
@@ -1035,6 +1038,9 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
+    "#59",
 ]
 
 [[module."ids.rs".function]]
@@ -1075,7 +1081,7 @@ reached_by = [
     "#31",
     "#32",
     "#33",
-    "#35",
+    "#34",
     "#36",
     "#37",
     "#38",
@@ -1097,6 +1103,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."ids.rs".function]]
@@ -1137,7 +1145,7 @@ reached_by = [
     "#31",
     "#32",
     "#33",
-    "#35",
+    "#34",
     "#36",
     "#37",
     "#38",
@@ -1159,6 +1167,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."ids.rs".function]]
@@ -1209,7 +1219,7 @@ reached_by = [
     "#31",
     "#32",
     "#33",
-    "#35",
+    "#34",
     "#36",
     "#37",
     "#38",
@@ -1231,6 +1241,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."ids.rs".function]]
@@ -1296,6 +1308,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."ids.rs".function]]
@@ -1366,6 +1380,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."ids.rs".function]]
@@ -1431,6 +1447,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."ids.rs".function]]
@@ -1496,6 +1514,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."ids.rs".function]]
@@ -1561,6 +1581,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."ids.rs".function]]
@@ -1630,6 +1652,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."ids.rs".function]]
@@ -1693,6 +1717,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."ids.rs".function]]
@@ -1758,6 +1784,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."ids.rs".function]]
@@ -1833,6 +1861,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."ids.rs".function]]
@@ -1859,8 +1889,8 @@ reached_by = [
     "#12",
     "#13",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [module."ids_tests.rs"]
@@ -1994,8 +2024,8 @@ hash = "sha256:c76b84d4a091f347a063de694c7593ece2b9dda11f20550d9b3729512303ed86"
 doc_hash = "sha256:7e81e28cfa31aaa65c55e190b11652fe736b257672c46cf533f477f840c61fd5"
 reached_by = [
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."links.rs".function]]
@@ -2014,9 +2044,9 @@ reached_by = [
     "#8",
     "#9",
     "#15",
-    "#29",
     "#30",
-    "#57",
+    "#31",
+    "#60",
 ]
 
 [[module."links.rs".function]]
@@ -2035,9 +2065,9 @@ reached_by = [
     "#8",
     "#9",
     "#15",
-    "#29",
     "#30",
-    "#57",
+    "#31",
+    "#60",
 ]
 
 [[module."links.rs".function]]
@@ -2056,9 +2086,9 @@ reached_by = [
     "#8",
     "#9",
     "#15",
-    "#29",
     "#30",
-    "#57",
+    "#31",
+    "#60",
 ]
 
 [[module."links.rs".function]]
@@ -2078,9 +2108,9 @@ reached_by = [
     "#8",
     "#9",
     "#15",
-    "#29",
     "#30",
-    "#57",
+    "#31",
+    "#60",
 ]
 
 [[module."links.rs".function]]
@@ -2098,9 +2128,9 @@ doc_hash = "sha256:d13251061a6b2bfc23481b0c195cbb8a5a8d56d4458e827339c4d6745516a
 reached_by = [
     "#9",
     "#15",
-    "#29",
     "#30",
-    "#57",
+    "#31",
+    "#60",
 ]
 
 [[module."links.rs".function]]
@@ -2119,8 +2149,8 @@ uses = ["fn:0be17872fab9ce68"]
 reached_by = [
     "#9",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."links.rs".function]]
@@ -2139,8 +2169,8 @@ uses = ["fn:ba2d78481691be70"]
 reached_by = [
     "#9",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."links.rs".function]]
@@ -2158,7 +2188,7 @@ doc_hash = "sha256:b924dbc26e09775fe4f335ee85d690a21f5f81fe15478906ef33f94eb8a3f
 reached_by = [
     "#8",
     "#9",
-    "#57",
+    "#60",
 ]
 
 [[module."links.rs".function]]
@@ -2186,8 +2216,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 reached_by = [
     "#9",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."links.rs".function]]
@@ -2214,8 +2244,8 @@ uses = [
 reached_by = [
     "#9",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."links.rs".function]]
@@ -2232,8 +2262,8 @@ uses = ["fn:2be167480db7d5e2"]
 reached_by = [
     "#9",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."links.rs".function]]
@@ -2255,7 +2285,7 @@ uses = [
 reached_by = [
     "#8",
     "#9",
-    "#57",
+    "#60",
 ]
 
 [[module."links.rs".function]]
@@ -2271,7 +2301,7 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 uses = ["fn:2be167480db7d5e2"]
 reached_by = [
     "#9",
-    "#57",
+    "#60",
 ]
 
 [[module."links.rs".function]]
@@ -2291,7 +2321,7 @@ uses = [
 ]
 reached_by = [
     "#9",
-    "#57",
+    "#60",
 ]
 
 [[module."links.rs".function]]
@@ -2307,7 +2337,7 @@ doc_hash = "sha256:c6e0740f8c3f8b09b8d306af61f7063756119087fdb5d18164ebf4a46fe8b
 uses = ["fn:2be167480db7d5e2"]
 reached_by = [
     "#9",
-    "#57",
+    "#60",
 ]
 
 [[module."links.rs".function]]
@@ -2330,7 +2360,7 @@ uses = [
 ]
 reached_by = [
     "#9",
-    "#57",
+    "#60",
 ]
 
 [[module."links.rs".function]]
@@ -2369,7 +2399,7 @@ uses = ["fn:2be167480db7d5e2"]
 reached_by = [
     "#8",
     "#9",
-    "#57",
+    "#60",
 ]
 
 [[module."links.rs".function]]
@@ -2387,9 +2417,9 @@ reached_by = [
     "#8",
     "#9",
     "#15",
-    "#29",
     "#30",
-    "#57",
+    "#31",
+    "#60",
 ]
 
 [[module."links.rs".function]]
@@ -2519,6 +2549,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."physical.rs".function]]
@@ -2584,6 +2616,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."physical.rs".function]]
@@ -2647,6 +2681,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."physical.rs".function]]
@@ -2706,6 +2742,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."physical.rs".function]]
@@ -2780,6 +2818,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."physical.rs".function]]
@@ -2844,6 +2884,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."physical.rs".function]]
@@ -2927,6 +2969,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."refresh.rs".function]]
@@ -3013,6 +3057,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [[module."refresh.rs".function]]
@@ -3050,7 +3096,7 @@ reached_by = [
     "#31",
     "#32",
     "#33",
-    "#35",
+    "#34",
     "#36",
     "#37",
     "#38",
@@ -3072,6 +3118,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
+    "#57",
+    "#58",
 ]
 
 [module."refresh_tests.rs"]
@@ -3281,8 +3329,8 @@ uses = ["fn:e21501b731a4e11e"]
 reached_by = [
     "#14",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."upstream_draft.rs".function]]
@@ -3300,8 +3348,8 @@ doc_hash = "sha256:3427c39bd915827380b15b97bcaf736adeaf6e7843245fbfd4cb5a000378a
 reached_by = [
     "#14",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."upstream_draft.rs".function]]
@@ -3317,8 +3365,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 reached_by = [
     "#14",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."upstream_draft.rs".function]]
@@ -3341,8 +3389,8 @@ uses = [
 reached_by = [
     "#14",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."upstream_draft.rs".function]]
@@ -3363,8 +3411,8 @@ uses = [
 reached_by = [
     "#14",
     "#15",
-    "#29",
     "#30",
+    "#31",
 ]
 
 [[module."upstream_draft.rs".function]]

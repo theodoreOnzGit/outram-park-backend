@@ -17,14 +17,21 @@ test_ids = [
     "crates/kovan-web/src/model.rs::unfolding_draws_each_function_once",
     "crates/kovan-web/src/search.rs::a_crate_is_found_by_its_backronym",
     "crates/kovan-web/src/search.rs::path_fragments_and_name_find_the_function",
+    "crates/kovan-web/src/syntax.rs::a_block_comment_carries_across_lines",
+    "crates/kovan-web/src/syntax.rs::a_rust_line_is_cut_into_kinds_that_rebuild_it",
+    "crates/kovan-web/src/syntax.rs::bad_spans_never_lose_or_split_text",
+    "crates/kovan-web/src/syntax.rs::every_kind_has_a_colour",
+    "crates/kovan-web/src/syntax.rs::the_language_comes_from_the_extension",
     "crates/kovan-web/src/ui/bar.rs::an_unreviewed_function_is_red",
     "crates/kovan-web/src/ui/bar.rs::stamp_is_disabled_while_blocked_bottom_up",
     "crates/kovan-web/src/ui/mod.rs::a_drill_in_is_not_undone_by_the_next_frame_natively",
     "crates/kovan-web/src/ui/mod.rs::focused_crate_follows_the_view",
     "crates/kovan-web/src/ui/mod.rs::navigate_opens_a_function_once_the_map_is_loaded",
+    "crates/kovan-web/src/ui/mod.rs::quick_stamp_queues_a_reconfirm_request",
     "crates/kovan-web/src/ui/mod.rs::selected_function_and_open_later_for_the_host",
     "crates/kovan-web/src/ui/mod.rs::set_stamps_replaces_the_stamp_states_read_by_the_views",
     "crates/kovan-web/src/ui/mod.rs::stamp_queues_a_host_request_in_desktop_mode_only",
+    "crates/kovan-web/src/ui/syntax_ui.rs::job_keeps_the_text",
     "crates/kovan/src/app/axes_lock_tests.rs::a_new_figure_starts_unlocked_and_incomplete_axes_cannot_be_locked",
     "crates/kovan/src/app/axes_lock_tests.rs::a_new_image_unlocks_and_a_restored_digitisation_comes_back_locked",
     "crates/kovan/src/app/axes_lock_tests.rs::relocking_moved_axes_rereads_every_point_through_them",
@@ -39,6 +46,28 @@ test_ids = [
     "crates/kovan/src/app/edit_digitisation_tests.rs::an_untouched_edit_after_a_hand_edited_header_keeps_every_value",
     "crates/kovan/src/app/edit_digitisation_tests.rs::four_series_and_a_lone_early_point_survive_an_untouched_round_trip",
     "crates/kovan/src/app/edit_digitisation_tests.rs::respelling_a_prefilled_range_is_not_a_change",
+    "crates/kovan/src/app/kvim_editor.rs::a_code_buffer_draws_and_tracks_saves",
+    "crates/kovan/src/app/kvim_editor.rs::a_frame_records_where_the_caret_is",
+    "crates/kovan/src/app/kvim_editor.rs::a_name_completes_on_ctrl_n_and_enter_accepts",
+    "crates/kovan/src/app/kvim_editor.rs::a_newline_in_insert_mode_advances_the_recorded_caret",
+    "crates/kovan/src/app/kvim_editor.rs::a_rust_buffer_indents_with_spaces_where_a_plain_one_keeps_tabs",
+    "crates/kovan/src/app/kvim_editor.rs::a_signal_is_delivered_once",
+    "crates/kovan/src/app/kvim_editor.rs::a_slow_press_on_the_preview_opens_the_same_line_a_quick_click_does",
+    "crates/kovan/src/app/kvim_editor.rs::an_idle_frame_does_not_move_the_caret",
+    "crates/kovan/src/app/kvim_editor.rs::arrow_keys_move_the_cursor_instead_of_moving_focus",
+    "crates/kovan/src/app/kvim_editor.rs::escape_then_u_undoes_rather_than_dropping_focus",
+    "crates/kovan/src/app/kvim_editor.rs::jumping_past_the_viewport_scrolls_it_to_the_caret",
+    "crates/kovan/src/app/kvim_editor.rs::moving_to_the_next_line_moves_the_recorded_caret",
+    "crates/kovan/src/app/kvim_editor.rs::ordinary_typing_signals_nothing",
+    "crates/kovan/src/app/kvim_editor.rs::quit_reaches_the_host",
+    "crates/kovan/src/app/kvim_editor.rs::the_completion_list_opens_only_when_asked",
+    "crates/kovan/src/app/kvim_editor.rs::write_reaches_the_host",
+    "crates/kovan/src/app/kvim_editor.rs::write_then_quit_reaches_the_host",
+    "crates/kovan/src/app/kvim_tab.rs::confirm_unlocks_and_done_editing_locks_again",
+    "crates/kovan/src/app/kvim_tab.rs::edit_shows_the_modal_and_cancel_leaves_it_locked",
+    "crates/kovan/src/app/kvim_tab.rs::escape_on_the_modal_cancels",
+    "crates/kovan/src/app/kvim_tab.rs::the_preview_renders_a_gfm_document_headlessly",
+    "crates/kovan/src/app/kvim_tab.rs::typing_while_locked_changes_nothing",
     "crates/kovan/src/app/mod.rs::a_banked_series_is_what_gets_written_not_the_emptied_live_one",
     "crates/kovan/src/app/mod.rs::a_corrected_range_rereads_restored_values_from_their_pixels",
     "crates/kovan/src/app/mod.rs::a_deskew_is_recorded_as_a_resample",
@@ -77,6 +106,8 @@ test_ids = [
     "crates/kovan/src/app/nav.rs::switching_pages_records_steps_that_back_and_forward_retrace",
     "crates/kovan/src/app/nav.rs::the_wiki_and_mindmap_share_one_concept_through_history",
     "crates/kovan/src/app/need_you_view.rs::the_panel_draws_every_row_kind_headless",
+    "crates/kovan/src/app/review_mode_panel.rs::a_saved_fix_turns_needs_fix_into_fixed_without_reopening",
+    "crates/kovan/src/app/review_mode_panel.rs::review_mode_draws_every_part_headless",
     "crates/kovan/src/app/series_select.rs::a_rename_in_the_name_box_applies_to_the_live_series",
     "crates/kovan/src/app/series_select.rs::an_empty_live_curve_is_not_banked",
     "crates/kovan/src/app/series_select.rs::an_unnamed_or_duplicate_live_curve_blocks_the_switch",
@@ -105,11 +136,11 @@ hash = "sha256:26140c067a5d8cf9e08c0d393104a630609d710e39156db38b6a1a154dfc21da"
 doc_hash = "sha256:6ccc94fd34ac02bd43dbc8c9fedccb0d6e09dd2d98591e58123fe1aa84091025"
 reached_by = [
     "#2",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."data.rs".function]]
@@ -126,12 +157,12 @@ hash = "sha256:e0a328480f45314a2c4b56e6c49bc684ac41169ec9fdf1bdd0fc9d63c3696e25"
 doc_hash = "sha256:90ee8047e7d2f8120feb0ea388f60a981ec3f4bc2e31fb89fbcf67dbd2f1bbd5"
 reached_by = [
     "#5",
-    "#16",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#21",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."data.rs".function]]
@@ -149,11 +180,6 @@ doc_hash = "sha256:f38bc322610511bd8ed0488b1e3d7edf8f5b7bb8ff59f4e1ef335d559e889
 reached_by = [
     "#1",
     "#2",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -161,7 +187,6 @@ reached_by = [
     "#24",
     "#25",
     "#26",
-    "#27",
     "#28",
     "#29",
     "#30",
@@ -176,28 +201,6 @@ reached_by = [
     "#39",
     "#40",
     "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
     "#64",
     "#65",
     "#66",
@@ -206,6 +209,7 @@ reached_by = [
     "#69",
     "#70",
     "#71",
+    "#72",
     "#73",
     "#74",
     "#75",
@@ -215,6 +219,34 @@ reached_by = [
     "#79",
     "#80",
     "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
 ]
 
 [[module."data.rs".function]]
@@ -233,11 +265,6 @@ uses = ["fn:9eae05dd82f45878"]
 reached_by = [
     "#1",
     "#2",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -245,7 +272,6 @@ reached_by = [
     "#24",
     "#25",
     "#26",
-    "#27",
     "#28",
     "#29",
     "#30",
@@ -260,28 +286,6 @@ reached_by = [
     "#39",
     "#40",
     "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
     "#64",
     "#65",
     "#66",
@@ -290,6 +294,7 @@ reached_by = [
     "#69",
     "#70",
     "#71",
+    "#72",
     "#73",
     "#74",
     "#75",
@@ -299,6 +304,34 @@ reached_by = [
     "#79",
     "#80",
     "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
 ]
 
 [[module."data.rs".function]]
@@ -317,11 +350,11 @@ uses = [
 ]
 reached_by = [
     "#1",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."data.rs".function]]
@@ -338,11 +371,6 @@ hash = "sha256:db3bf6cddfa20e84a00ebe5dc6b4cf6c2a0ef7e15dee4d072e476bfd72a2de78"
 doc_hash = "sha256:8ed6a6dd4600e7405fdc995630fd32cc93d99f1142c9654466d83bf72537c794"
 reached_by = [
     "#2",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -350,7 +378,6 @@ reached_by = [
     "#24",
     "#25",
     "#26",
-    "#27",
     "#28",
     "#29",
     "#30",
@@ -365,28 +392,6 @@ reached_by = [
     "#39",
     "#40",
     "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
     "#64",
     "#65",
     "#66",
@@ -395,6 +400,7 @@ reached_by = [
     "#69",
     "#70",
     "#71",
+    "#72",
     "#73",
     "#74",
     "#75",
@@ -404,6 +410,34 @@ reached_by = [
     "#79",
     "#80",
     "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
 ]
 
 [[module."data.rs".function]]
@@ -419,14 +453,15 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 uses = ["fn:bc1bd29adbce1aff"]
 reached_by = [
     "#2",
-    "#18",
-    "#19",
-    "#20",
+    "#23",
     "#24",
+    "#25",
     "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."data.rs".function]]
@@ -445,11 +480,6 @@ uses = ["fn:c49128f335122c3a"]
 reached_by = [
     "#0",
     "#2",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -457,7 +487,6 @@ reached_by = [
     "#24",
     "#25",
     "#26",
-    "#27",
     "#28",
     "#29",
     "#30",
@@ -472,28 +501,6 @@ reached_by = [
     "#39",
     "#40",
     "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
     "#64",
     "#65",
     "#66",
@@ -502,6 +509,7 @@ reached_by = [
     "#69",
     "#70",
     "#71",
+    "#72",
     "#73",
     "#74",
     "#75",
@@ -511,6 +519,34 @@ reached_by = [
     "#79",
     "#80",
     "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
 ]
 
 [[module."data.rs".function]]
@@ -528,11 +564,6 @@ doc_hash = "sha256:da131fc0182e8315e02be7d28912516ac9a6ba415213f7aa14db5786219a3
 reached_by = [
     "#0",
     "#2",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -540,7 +571,6 @@ reached_by = [
     "#24",
     "#25",
     "#26",
-    "#27",
     "#28",
     "#29",
     "#30",
@@ -555,28 +585,6 @@ reached_by = [
     "#39",
     "#40",
     "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
     "#64",
     "#65",
     "#66",
@@ -585,6 +593,7 @@ reached_by = [
     "#69",
     "#70",
     "#71",
+    "#72",
     "#73",
     "#74",
     "#75",
@@ -594,6 +603,34 @@ reached_by = [
     "#79",
     "#80",
     "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
 ]
 
 [[module."data.rs".function]]
@@ -609,11 +646,11 @@ doc_hash = "sha256:b5d005ce7140ca570d2f5a0ce8e0949294927bca17a03a36ee7fb1874e953
 uses = ["fn:c49128f335122c3a"]
 reached_by = [
     "#0",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."data.rs".function]]
@@ -642,11 +679,6 @@ hash = "sha256:66cb0bc9d6ff54812d99207e15a2d87fbeb549bdd9a01f8cfe39c47be23eca57"
 doc_hash = "sha256:493aabe7906726d5a1c42fa789855276a4f9cd89ee307779f0b674cc5ccdcab6"
 reached_by = [
     "#2",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -654,7 +686,6 @@ reached_by = [
     "#24",
     "#25",
     "#26",
-    "#27",
     "#28",
     "#29",
     "#30",
@@ -669,28 +700,6 @@ reached_by = [
     "#39",
     "#40",
     "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
     "#64",
     "#65",
     "#66",
@@ -699,6 +708,7 @@ reached_by = [
     "#69",
     "#70",
     "#71",
+    "#72",
     "#73",
     "#74",
     "#75",
@@ -708,6 +718,34 @@ reached_by = [
     "#79",
     "#80",
     "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
 ]
 
 [[module."data.rs".function]]
@@ -735,11 +773,6 @@ uses = [
 ]
 reached_by = [
     "#2",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -747,7 +780,6 @@ reached_by = [
     "#24",
     "#25",
     "#26",
-    "#27",
     "#28",
     "#29",
     "#30",
@@ -762,28 +794,6 @@ reached_by = [
     "#39",
     "#40",
     "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
     "#64",
     "#65",
     "#66",
@@ -792,6 +802,7 @@ reached_by = [
     "#69",
     "#70",
     "#71",
+    "#72",
     "#73",
     "#74",
     "#75",
@@ -801,6 +812,34 @@ reached_by = [
     "#79",
     "#80",
     "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
 ]
 
 [[module."data.rs".function]]
@@ -817,11 +856,6 @@ hash = "sha256:15155473943a7338d5ecbfb41d4fae8e2d781dd11187e401ff2374184db3ace4"
 doc_hash = "sha256:4b9cffdcc6c2ea2f16d884d4f825638517bbde3fa2bfb823170c24cb2ab39dfc"
 reached_by = [
     "#2",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -829,7 +863,6 @@ reached_by = [
     "#24",
     "#25",
     "#26",
-    "#27",
     "#28",
     "#29",
     "#30",
@@ -844,28 +877,6 @@ reached_by = [
     "#39",
     "#40",
     "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
     "#64",
     "#65",
     "#66",
@@ -874,6 +885,7 @@ reached_by = [
     "#69",
     "#70",
     "#71",
+    "#72",
     "#73",
     "#74",
     "#75",
@@ -883,6 +895,34 @@ reached_by = [
     "#79",
     "#80",
     "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
 ]
 
 [[module."data.rs".function]]
@@ -903,11 +943,6 @@ uses = [
 ]
 reached_by = [
     "#2",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -915,7 +950,6 @@ reached_by = [
     "#24",
     "#25",
     "#26",
-    "#27",
     "#28",
     "#29",
     "#30",
@@ -930,28 +964,6 @@ reached_by = [
     "#39",
     "#40",
     "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
     "#64",
     "#65",
     "#66",
@@ -960,6 +972,7 @@ reached_by = [
     "#69",
     "#70",
     "#71",
+    "#72",
     "#73",
     "#74",
     "#75",
@@ -969,6 +982,34 @@ reached_by = [
     "#79",
     "#80",
     "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
 ]
 
 [[module."data.rs".function]]
@@ -987,17 +1028,18 @@ uses = [
 ]
 reached_by = [
     "#2",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
+    "#21",
+    "#22",
+    "#23",
     "#24",
+    "#25",
     "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."data.rs".function]]
@@ -1015,11 +1057,11 @@ uses = [
     "fn:f718dfa8b9e05f5d",
 ]
 reached_by = [
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."data.rs".function]]
@@ -1038,12 +1080,12 @@ uses = [
     "fn:f718dfa8b9e05f5d",
 ]
 reached_by = [
-    "#16",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#21",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."data.rs".function]]
@@ -1071,11 +1113,11 @@ uses = [
 ]
 reached_by = [
     "#2",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."data.rs".function]]
@@ -1099,11 +1141,11 @@ uses = [
 ]
 reached_by = [
     "#2",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."data.rs".function]]
@@ -1126,11 +1168,11 @@ uses = [
     "fn:f718dfa8b9e05f5d",
 ]
 reached_by = [
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."data.rs".function]]
@@ -1156,11 +1198,11 @@ uses = [
 ]
 reached_by = [
     "#2",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."data.rs".function]]
@@ -1176,11 +1218,11 @@ doc_hash = "sha256:ce2cd684154fbcb3ca667964bb7fc499f63f24ecc4e001fcfb097d3b423c4
 callees = ["fn:62b39799931c4e9c"]
 reached_by = [
     "#2",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."data.rs".function]]
@@ -1258,17 +1300,12 @@ qual = "Mode"
 item = "type"
 shape = "enum"
 lines = [
-    57,
-    65,
+    60,
+    68,
 ]
 hash = "sha256:09c888cb4de33a1837776a36d68d49b23ab3320a6aeb322f9b5ee62b3b067d1b"
 doc_hash = "sha256:f0e5ab086886cd9a6ff4bf2a7bc14b8b2804081fbcf7c2a8c7977aa13b1dcc32"
 reached_by = [
-    "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
     "#19",
     "#20",
     "#21",
@@ -1277,7 +1314,6 @@ reached_by = [
     "#24",
     "#25",
     "#26",
-    "#27",
     "#28",
     "#29",
     "#30",
@@ -1292,28 +1328,6 @@ reached_by = [
     "#39",
     "#40",
     "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
     "#64",
     "#65",
     "#66",
@@ -1322,6 +1336,7 @@ reached_by = [
     "#69",
     "#70",
     "#71",
+    "#72",
     "#73",
     "#74",
     "#75",
@@ -1331,6 +1346,34 @@ reached_by = [
     "#79",
     "#80",
     "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
 ]
 
 [[module."lib.rs".function]]
@@ -1338,20 +1381,20 @@ id = "fn:fefe82faa384e81e"
 name = "can_stamp"
 qual = "Mode::can_stamp"
 lines = [
-    68,
     71,
+    74,
 ]
 hash = "sha256:37947b45323f2910e8f018c49c2a41996cf01381d450316b6bad6437bf0dd426"
 doc_hash = "sha256:380a9bac96c1fc3e9343cab53759d928e45c44e43e74a0e7076a428ccf5851a3"
 uses = ["fn:ea6d061a8880a16d"]
 reached_by = [
-    "#14",
-    "#20",
-    "#24",
+    "#19",
     "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [module."model.rs"]
@@ -1375,11 +1418,11 @@ reached_by = [
     "#7",
     "#8",
     "#9",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1400,11 +1443,11 @@ reached_by = [
     "#7",
     "#8",
     "#9",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1430,11 +1473,11 @@ reached_by = [
     "#7",
     "#8",
     "#9",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1453,11 +1496,11 @@ reached_by = [
     "#7",
     "#8",
     "#9",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1474,11 +1517,11 @@ uses = ["fn:639293963b5ee3ef"]
 reached_by = [
     "#7",
     "#8",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1494,11 +1537,11 @@ doc_hash = "sha256:0dd2ccb64c83d0b2a151c5eb18b63418598712712e6ad9d792ce2e306ff41
 uses = ["fn:639293963b5ee3ef"]
 reached_by = [
     "#8",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1514,11 +1557,11 @@ doc_hash = "sha256:902fde6ba733938f2ce40adb3a4a4633512509ae3bd6f1a652b37a21e6a33
 uses = ["fn:639293963b5ee3ef"]
 reached_by = [
     "#8",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1535,11 +1578,11 @@ hash = "sha256:66b31dbe7a6702f01d1738238c39a90434ffeaf8c6c4eeb5a5488fdc05a32f4f"
 doc_hash = "sha256:47bdd41c87ee725be4320218c94c89ef781ef5778157b65b8e4f5157ec0cf97c"
 reached_by = [
     "#7",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1560,11 +1603,11 @@ uses = [
 ]
 reached_by = [
     "#7",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1584,11 +1627,11 @@ uses = [
 ]
 reached_by = [
     "#7",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1605,11 +1648,11 @@ hash = "sha256:1299ca7f3763e286772d8bb4e3dd7036045e7761dbf2c6fa6635aa7a66a81d30"
 doc_hash = "sha256:1ee42763bff73a2797d174f0dd8409816b9786feb24bf9f3af8d2b663f8234a3"
 reached_by = [
     "#7",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1626,11 +1669,11 @@ hash = "sha256:529b19d8ae32ed2cc4973eb07264f562ea2be5d93a8f8824e62aa3eb28c85687"
 doc_hash = "sha256:5eb3b6dd4a19b77129e1908088268eddefcdac7311cf10ac47ed2a51650f60b2"
 reached_by = [
     "#7",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1647,11 +1690,11 @@ hash = "sha256:a1af74ebd0e2a33049eb3e4a19ae260824c2d414d900aaf3e34127aee8bfd1a9"
 doc_hash = "sha256:06cee8bdfbaab4fb87ac2d5d9c52be47c72141e1f835fb37da8ff08945a60069"
 reached_by = [
     "#7",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1678,11 +1721,11 @@ uses = [
 ]
 reached_by = [
     "#7",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1699,11 +1742,6 @@ hash = "sha256:c492a4a698caab82bab49d03fe165bff4630417a8f5ae4721a284e13bd929fae"
 doc_hash = "sha256:9d36278ee96890ef6f0afccc6f68412f0190e9e9bc2e12391b892b4f3131cde9"
 reached_by = [
     "#4",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -1711,7 +1749,6 @@ reached_by = [
     "#24",
     "#25",
     "#26",
-    "#27",
     "#28",
     "#29",
     "#30",
@@ -1726,28 +1763,6 @@ reached_by = [
     "#39",
     "#40",
     "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
     "#64",
     "#65",
     "#66",
@@ -1766,6 +1781,35 @@ reached_by = [
     "#79",
     "#80",
     "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
 ]
 
 [[module."model.rs".function]]
@@ -1781,17 +1825,18 @@ doc_hash = "sha256:e08c977f3919e72f656bf5e9252abd622aceba4c60839063bd0a431ce7ca5
 reached_by = [
     "#4",
     "#5",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
+    "#21",
+    "#22",
+    "#23",
     "#24",
+    "#25",
     "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1808,17 +1853,18 @@ callees = ["fn:965c204603e828c0"]
 uses = ["fn:cec1f00dc9c5c7e0"]
 reached_by = [
     "#4",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
+    "#21",
+    "#22",
+    "#23",
     "#24",
+    "#25",
     "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1834,15 +1880,15 @@ doc_hash = "sha256:cd09735a5d30436b7d8d34ff02936223f2a97d3387e3fa8fdc9644e92b196
 uses = ["fn:cec1f00dc9c5c7e0"]
 reached_by = [
     "#4",
-    "#15",
-    "#16",
-    "#17",
     "#20",
-    "#24",
+    "#21",
+    "#22",
     "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1858,12 +1904,12 @@ doc_hash = "sha256:1b7f480cef6d4104e5ac1da3f7a5489421caede6d64e40854fa906c1e69ca
 callees = ["fn:1d09c2cc6a894d9f"]
 reached_by = [
     "#5",
-    "#16",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#21",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1878,11 +1924,11 @@ hash = "sha256:01b861e6aceafb0e791e9d37e5699ca421d4d0ef2e81899c1e138662c37c0c75"
 doc_hash = "sha256:9417cd2966283e18bfab9c3a9044384b296da5011c5eea047fc4d4e851696368"
 reached_by = [
     "#5",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1897,12 +1943,12 @@ hash = "sha256:474b0ad242e40e8b5483c79df7bd94caf105e133079a538a5a89244c7fef433c"
 doc_hash = "sha256:3db5ba4b6e150d11a6b97f0b83925636300d8b50e6e305b893f9024a79e81655"
 reached_by = [
     "#5",
-    "#16",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#21",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1918,14 +1964,15 @@ doc_hash = "sha256:56fcf6e412abb2ec2d58b15c3f4754f5d730c445ad75fe1d04aa4875db2a9
 uses = ["fn:be9ebef516780172"]
 reached_by = [
     "#3",
-    "#17",
-    "#18",
-    "#20",
+    "#22",
+    "#23",
     "#24",
     "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1940,14 +1987,15 @@ hash = "sha256:8ab9c07d3f5844a2e840b660eae6a8897fc34293787f2cb20f9bedb9bcb37c8a"
 doc_hash = "sha256:8a365b4666b680eb2650bb4984b7d67c267dca76241b50410e40849ef77cb96f"
 reached_by = [
     "#4",
-    "#17",
-    "#18",
-    "#20",
+    "#22",
+    "#23",
     "#24",
     "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1962,14 +2010,15 @@ hash = "sha256:579eaac59841a2b313677a37c0f490436485611c23c6a2950b6864cef59feba6"
 doc_hash = "sha256:910064e230f8b4f082dcfa4b2c4d050b31954bf45f417563519c7827be8d7ff9"
 reached_by = [
     "#4",
-    "#14",
-    "#18",
-    "#20",
+    "#19",
+    "#23",
     "#24",
     "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -1990,14 +2039,14 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#13",
-    "#14",
+    "#18",
     "#19",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#25",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2016,12 +2065,12 @@ uses = [
     "fn:943224921b543e6e",
 ]
 reached_by = [
-    "#14",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#19",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2038,12 +2087,12 @@ callees = ["fn:7c3884a797e4bdbb"]
 uses = ["fn:943224921b543e6e"]
 reached_by = [
     "#3",
-    "#19",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#25",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2059,11 +2108,11 @@ doc_hash = "sha256:5b7909ab51a295b891aed537273ee7a65a85e19c500dabd340a100d26dd88
 callees = ["fn:f4a278ff53138914"]
 uses = ["fn:943224921b543e6e"]
 reached_by = [
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2081,13 +2130,13 @@ uses = [
     "fn:943224921b543e6e",
 ]
 reached_by = [
-    "#13",
-    "#14",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#18",
+    "#19",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2105,14 +2154,15 @@ doc_hash = "sha256:9e60a265e99da13cc2affec0910457ab8a6ec9c5f8e61906a5b162c88b41d
 uses = ["fn:8178563b434b1a38"]
 reached_by = [
     "#3",
-    "#18",
-    "#19",
-    "#20",
+    "#23",
     "#24",
+    "#25",
     "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2131,14 +2181,15 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#18",
-    "#19",
-    "#20",
+    "#23",
     "#24",
+    "#25",
     "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2158,12 +2209,12 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#19",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#25",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2183,11 +2234,11 @@ callees = [
 uses = ["fn:7e41362bb094ff34"]
 reached_by = [
     "#3",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2208,13 +2259,14 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#18",
-    "#20",
+    "#23",
     "#24",
     "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2233,11 +2285,11 @@ uses = [
 ]
 reached_by = [
     "#3",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2281,11 +2333,11 @@ reached_by = [
     "#7",
     "#8",
     "#9",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2301,11 +2353,11 @@ doc_hash = "sha256:52dbebebe1f9ee56bd81453d447d83bfc44b56b3a11fa3fbee241b76b9491
 uses = ["fn:f72f1154da2633b4"]
 reached_by = [
     "#9",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2326,13 +2378,14 @@ uses = [
 ]
 reached_by = [
     "#9",
-    "#18",
-    "#20",
+    "#23",
     "#24",
     "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2351,11 +2404,11 @@ uses = [
     "fn:f66499af535ba65d",
 ]
 reached_by = [
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2370,11 +2423,11 @@ hash = "sha256:72265686d0d21ef48f8484d8b20e5a0df3fa6c4fe202a558bbf96e3d7a101d1f"
 doc_hash = "sha256:6a8bb26769cb26394b5443a18506bfac608dd61bb297198e4ff517a249416f4f"
 reached_by = [
     "#6",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2390,11 +2443,11 @@ doc_hash = "sha256:c54d56d30dd6ffa7fd7e6ea3425ee878b9e11e2dc4b9067f8d75c9b25497e
 callees = ["fn:9f876d480ecab19e"]
 reached_by = [
     "#6",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2414,11 +2467,11 @@ uses = [
 ]
 reached_by = [
     "#6",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2437,11 +2490,11 @@ uses = [
     "fn:f66499af535ba65d",
 ]
 reached_by = [
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2458,11 +2511,6 @@ hash = "sha256:12ca20fb27878aa6a94990a565f451d2ea645881514ab032dc0d879c85179fb0"
 doc_hash = "sha256:e3642108ffb57c8e968b26ec36c684c488674c1c1696ae752e35ed54c5e0ca3f"
 reached_by = [
     "#10",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -2470,7 +2518,6 @@ reached_by = [
     "#24",
     "#25",
     "#26",
-    "#27",
     "#28",
     "#29",
     "#30",
@@ -2485,28 +2532,6 @@ reached_by = [
     "#39",
     "#40",
     "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
     "#64",
     "#65",
     "#66",
@@ -2515,6 +2540,7 @@ reached_by = [
     "#69",
     "#70",
     "#71",
+    "#72",
     "#73",
     "#74",
     "#75",
@@ -2524,6 +2550,34 @@ reached_by = [
     "#79",
     "#80",
     "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
 ]
 
 [[module."model.rs".function]]
@@ -2541,11 +2595,11 @@ doc_hash = "sha256:0591cd9ddc79b4d5d4c7efb5fd58f6dc90ac17e9ec0e2eeddf152b73214b9
 uses = ["fn:ea9ce98def9724e0"]
 reached_by = [
     "#10",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2563,11 +2617,11 @@ uses = [
     "fn:ea9ce98def9724e0",
 ]
 reached_by = [
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2585,11 +2639,11 @@ uses = [
     "fn:ea9ce98def9724e0",
 ]
 reached_by = [
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2606,11 +2660,11 @@ hash = "sha256:1931f395177bf808761714eb2ea2b9a35fa0541e2bd32ab343b3497c9b74cc17"
 doc_hash = "sha256:4f2468b35e0e91e39e558c46bd00bb08e877c7346df93276cc99c2189e47721e"
 reached_by = [
     "#10",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2627,11 +2681,11 @@ hash = "sha256:345d3c6443ebac483128227398fd56c9b4d67b6804c75745104d8a2bb275c099"
 doc_hash = "sha256:f1c470b6fccc3864b028c02a12361ca5203131a373d7b45068c2afa9cb123629"
 reached_by = [
     "#10",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2658,11 +2712,11 @@ uses = [
 ]
 reached_by = [
     "#10",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."model.rs".function]]
@@ -2914,11 +2968,11 @@ hash = "sha256:9f7024c325bef45fee64107a0d44d17924d6879aa145f0e97b01a9bdc4ca0076"
 doc_hash = "sha256:8cc37d64de6fbcefdd28dd84500cee8913f5ce7baf7b76e7819918d4ac683d5c"
 reached_by = [
     "#2",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."platform.rs".function]]
@@ -2932,17 +2986,18 @@ lines = [
 hash = "sha256:49f8c61cd37131112d35475e35f50eb37691b809c42ff4a262004f718ed271c8"
 doc_hash = "sha256:81ad6a10e2874f6cb8ec26a933eeae0c2b3406051c723a53897b923742cb77bb"
 reached_by = [
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
+    "#21",
+    "#22",
+    "#23",
     "#24",
+    "#25",
     "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."platform.rs".function]]
@@ -2956,15 +3011,15 @@ lines = [
 hash = "sha256:da5e03c31ffe539b8353b79322c954bf6f7518edf51fd145de53e618b6ca5f36"
 doc_hash = "sha256:12ecccc15fe4799c49dca9dff733f1953f3aef8eb6702caa06f0d5e16123cb4c"
 reached_by = [
-    "#15",
-    "#16",
-    "#17",
     "#20",
-    "#24",
+    "#21",
+    "#22",
     "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."platform.rs".function]]
@@ -2978,11 +3033,11 @@ lines = [
 hash = "sha256:86ae03f0ce4c1ba070869030904058cfbe6da382f2b25f485209548f107ff555"
 doc_hash = "sha256:7c7903c7181b8c53475a91d4928ea083795cd49952fedddc9da0b0806a6bb4ef"
 reached_by = [
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [module."search.rs"]
@@ -3003,11 +3058,6 @@ doc_hash = "sha256:c1eebe59acfe767ece155ae5badfb327691efa52730db0ae003a7030e4a92
 reached_by = [
     "#11",
     "#12",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -3015,7 +3065,6 @@ reached_by = [
     "#24",
     "#25",
     "#26",
-    "#27",
     "#28",
     "#29",
     "#30",
@@ -3030,28 +3079,6 @@ reached_by = [
     "#39",
     "#40",
     "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
     "#64",
     "#65",
     "#66",
@@ -3060,6 +3087,7 @@ reached_by = [
     "#69",
     "#70",
     "#71",
+    "#72",
     "#73",
     "#74",
     "#75",
@@ -3069,6 +3097,34 @@ reached_by = [
     "#79",
     "#80",
     "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
 ]
 
 [[module."search.rs".function]]
@@ -3087,11 +3143,6 @@ uses = ["fn:0abf57fbe98b4861"]
 reached_by = [
     "#11",
     "#12",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -3099,7 +3150,6 @@ reached_by = [
     "#24",
     "#25",
     "#26",
-    "#27",
     "#28",
     "#29",
     "#30",
@@ -3114,28 +3164,6 @@ reached_by = [
     "#39",
     "#40",
     "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
     "#64",
     "#65",
     "#66",
@@ -3144,6 +3172,7 @@ reached_by = [
     "#69",
     "#70",
     "#71",
+    "#72",
     "#73",
     "#74",
     "#75",
@@ -3153,6 +3182,34 @@ reached_by = [
     "#79",
     "#80",
     "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
 ]
 
 [[module."search.rs".function]]
@@ -3169,11 +3226,11 @@ callees = ["fn:b50da58157165dc6"]
 reached_by = [
     "#11",
     "#12",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."search.rs".function]]
@@ -3196,11 +3253,11 @@ uses = [
 reached_by = [
     "#11",
     "#12",
-    "#24",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 
 [[module."search.rs".function]]
@@ -3240,4 +3297,253 @@ uses = [
     "fn:20842e7bcd664107",
     "fn:be9ebef516780172",
 ]
+test = true
+
+[module."syntax.rs"]
+path = "crate::syntax"
+
+[[module."syntax.rs".function]]
+id = "fn:972eb58829a1da59"
+name = "language_of"
+qual = "language_of"
+lines = [
+    26,
+    30,
+]
+hash = "sha256:22a0e404a597091860b29667d3d2396c8d85d1028bea7cbee7b8da20742190ef"
+doc_hash = "sha256:548a0f5510afc4838d1589408a0bce145237abcd2414f38abf38cae737e5aecc"
+reached_by = [
+    "#17",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#102",
+    "#103",
+]
+
+[[module."syntax.rs".function]]
+id = "fn:8dfe6d7b520824b5"
+name = "highlight"
+qual = "highlight"
+lines = [
+    32,
+    39,
+]
+hash = "sha256:cacd7f91f426494b162968ab73e6c666059cb991f19d89763387dc7d9244bfe1"
+doc_hash = "sha256:ab04a79d75093eaf98fe2371a6229518049c18a9fee6eefa306ad04d07c68534"
+reached_by = [
+    "#13",
+    "#14",
+    "#15",
+    "#27",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#103",
+]
+
+[[module."syntax.rs".function]]
+id = "fn:a91cc8e44a730ee1"
+name = "runs"
+qual = "runs"
+lines = [
+    41,
+    63,
+]
+hash = "sha256:f569739077b8094b6c5dbbca40db2970e3f81d93aee71ec492b5f2fd0ed3dad5"
+doc_hash = "sha256:0ce6f8c35b452b7281b3f46ed0bdd315d3cd8d7988009307a49bf5a45abb1baf"
+reached_by = [
+    "#14",
+    "#15",
+    "#27",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#103",
+]
+
+[[module."syntax.rs".function]]
+id = "fn:248a65e9dc409824"
+name = "kind_at"
+qual = "kind_at"
+lines = [
+    65,
+    68,
+]
+hash = "sha256:01e7dbb8bff8d964c0f2739af6fd9f90fdd6e12bf072229c6a63df5e43b34e70"
+doc_hash = "sha256:4ba733dd3e396b4e468de62d16675cfd13d2e46daa87a92c3f492be33c995c95"
+reached_by = [
+    "#13",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+
+[[module."syntax.rs".function]]
+id = "fn:db50e5a4024bc28a"
+name = "rgb"
+qual = "rgb"
+lines = [
+    70,
+    96,
+]
+hash = "sha256:4965d8690716e9ef6a73955074fe82e99f6f891cd12459805f14b7193dabad69"
+doc_hash = "sha256:023d353c05a37d09709e234072b570244ae5b4675fdda3c44b6e71a2a8e99125"
+reached_by = [
+    "#16",
+    "#27",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#103",
+]
+
+[[module."syntax.rs".function]]
+id = "fn:78953cf269cdaa51"
+name = "a_rust_line_is_cut_into_kinds_that_rebuild_it"
+qual = "a_rust_line_is_cut_into_kinds_that_rebuild_it"
+lines = [
+    102,
+    123,
+]
+hash = "sha256:49959284f90ee310a4bd03605d2b591c222e223aac81922ce69b33e699c778ca"
+doc_hash = "sha256:9bf7f5bd201f4ec7c7f9c4c169b55e33210a82368f40a99c010bf8a18c5ff9af"
+callees = [
+    "fn:8dfe6d7b520824b5",
+    "fn:a91cc8e44a730ee1",
+]
+test = true
+
+[[module."syntax.rs".function]]
+id = "fn:e57166d8f994ee39"
+name = "a_block_comment_carries_across_lines"
+qual = "a_block_comment_carries_across_lines"
+lines = [
+    125,
+    131,
+]
+hash = "sha256:78e305afb5f89760c6cc7fe8b1f4f81ced1b6a8ec2f7a0f8f672eed43a9dc106"
+doc_hash = "sha256:ba1a08bba4495b6024cdd49aa434236af19c855f1925af5e6382e89ef9ef8a28"
+callees = [
+    "fn:248a65e9dc409824",
+    "fn:8dfe6d7b520824b5",
+]
+test = true
+
+[[module."syntax.rs".function]]
+id = "fn:d59df510b2979227"
+name = "bad_spans_never_lose_or_split_text"
+qual = "bad_spans_never_lose_or_split_text"
+lines = [
+    133,
+    153,
+]
+hash = "sha256:abda110c3ed05370635029d044d04c20cddb95fd925eadb6361be6a345addc6b"
+doc_hash = "sha256:e56fa94bbb10bc56eeb4a2fd592eb0044afb24fdc9d1a38c068d99c691094d74"
+callees = [
+    "fn:8dfe6d7b520824b5",
+    "fn:a91cc8e44a730ee1",
+]
+test = true
+
+[[module."syntax.rs".function]]
+id = "fn:cbe9a884df2ea99a"
+name = "the_language_comes_from_the_extension"
+qual = "the_language_comes_from_the_extension"
+lines = [
+    155,
+    161,
+]
+hash = "sha256:a4b66f7ed80a997bff5f2b2d8ab27a3a07076437d7e838f20e12739a1c216b7d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:972eb58829a1da59"]
+test = true
+
+[[module."syntax.rs".function]]
+id = "fn:d2652d7b0d44387c"
+name = "every_kind_has_a_colour"
+qual = "every_kind_has_a_colour"
+lines = [
+    163,
+    175,
+]
+hash = "sha256:8f17c02cb919055b6736307e03ac255891d80e9082ac61c1c61617445c15a9cc"
+doc_hash = "sha256:d9b3ff51d3dc78a32ee887e78da172a6d71ddd7f88dc5930b69d9b87609852f4"
+callees = ["fn:db50e5a4024bc28a"]
 test = true

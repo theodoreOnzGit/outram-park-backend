@@ -131,6 +131,7 @@ test_ids = [
     "crates/kovan/src/app/code_review_view.rs::the_stamp_dialog_opens_and_draws_every_step_headless",
     "crates/kovan/src/app/connection_picker.rs::a_reviewed_function_is_connected_to_a_standard_concept",
     "crates/kovan/src/app/need_you_view.rs::the_panel_draws_every_row_kind_headless",
+    "crates/kovan/src/app/review_mode_panel.rs::a_quick_fix_opens_without_an_index",
     "crates/kovan/src/app/review_mode_panel.rs::a_saved_fix_turns_needs_fix_into_fixed_without_reopening",
     "crates/kovan/src/app/review_mode_panel.rs::review_mode_draws_every_part_headless",
     "crates/kovan/src/code_connections.rs::only_a_function_with_a_valid_review_gets_a_connection",
@@ -154,6 +155,7 @@ test_ids = [
     "crates/kovan/src/stamping/reanchor.rs::a_shallow_clone_is_never_reanchored",
     "crates/kovan/src/stamping/reanchor.rs::a_squashed_module_is_reanchored_in_one_sign_off",
     "crates/kovan/src/stamping/reanchor_flow.rs::the_queue_row_opens_a_flow_that_signs_the_module",
+    "crates/kovan/src/stamping/review_mode/code_words.rs::the_real_index_ranks_this_file_first",
     "crates/kovan/src/stamping/review_mode/highlight.rs::highlight_appends_and_reanchors",
     "crates/kovan/src/stamping/review_mode/section.rs::sections_are_this_functions_entries_only",
     "crates/kovan/src/stamping/review_mode/section.rs::splice_changes_only_the_comments",
@@ -169,6 +171,7 @@ test_ids = [
     "crates/kovan/src/stamping/tests.rs::stamp_is_valid_then_goes_stale_on_edit",
     "crates/kovan/src/stamping/tests.rs::the_cache_gives_what_a_full_load_gives",
     "crates/kovan/src/stamping/tests.rs::types_and_constants_are_reviewed_bottom_up",
+    "crates/kovan/src/stamping/ws_cache.rs::the_root_used_longest_ago_is_dropped_first",
     "crates/kovan/tests/index_fresh_cli.rs::index_fresh_on_a_single_crate_and_a_workspace",
     "crates/kovan/tests/review_kinds_764.rs::rewriting_through_kovan_keeps_every_review_field",
 ]
@@ -238,13 +241,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."approx_match.rs".function]]
@@ -309,13 +312,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."approx_match.rs".function]]
@@ -378,13 +381,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."approx_match.rs".function]]
@@ -452,13 +455,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."approx_match.rs".function]]
@@ -523,13 +526,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."approx_match.rs".function]]
@@ -653,13 +656,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [module."match_quote.rs"]
@@ -714,13 +717,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."match_quote.rs".function]]
@@ -798,13 +801,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."match_quote.rs".function]]
@@ -855,13 +858,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."match_quote.rs".function]]
@@ -919,13 +922,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."match_quote.rs".function]]
@@ -998,13 +1001,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."mod.rs".function]]
@@ -1046,13 +1049,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."mod.rs".function]]
@@ -1093,13 +1096,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."mod.rs".function]]
@@ -1144,13 +1147,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."mod.rs".function]]
@@ -1624,6 +1627,9 @@ reached_by = [
     "#165",
     "#166",
     "#167",
+    "#168",
+    "#169",
+    "#170",
 ]
 
 [[module."selector.rs".function]]
@@ -1779,6 +1785,9 @@ reached_by = [
     "#165",
     "#166",
     "#167",
+    "#168",
+    "#169",
+    "#170",
 ]
 
 [[module."selector.rs".function]]
@@ -1934,6 +1943,9 @@ reached_by = [
     "#165",
     "#166",
     "#167",
+    "#168",
+    "#169",
+    "#170",
 ]
 
 [[module."selector.rs".function]]
@@ -2094,6 +2106,9 @@ reached_by = [
     "#165",
     "#166",
     "#167",
+    "#168",
+    "#169",
+    "#170",
 ]
 
 [[module."selector.rs".function]]
@@ -2137,13 +2152,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."selector.rs".function]]
@@ -2187,13 +2202,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."selector.rs".function]]
@@ -2262,9 +2277,9 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#129",
-    "#151",
-    "#160",
+    "#130",
+    "#153",
+    "#162",
 ]
 
 [[module."text.rs".function]]
@@ -2320,9 +2335,9 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#129",
-    "#151",
-    "#160",
+    "#130",
+    "#153",
+    "#162",
 ]
 
 [[module."text.rs".function]]
@@ -2352,9 +2367,9 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#129",
-    "#151",
-    "#160",
+    "#130",
+    "#153",
+    "#162",
 ]
 
 [[module."text.rs".function]]
@@ -2394,13 +2409,13 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
 
 [[module."text.rs".function]]
@@ -2421,9 +2436,9 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#129",
-    "#151",
-    "#160",
+    "#130",
+    "#153",
+    "#162",
 ]
 
 [[module."text.rs".function]]
@@ -2444,11 +2459,11 @@ reached_by = [
     "#123",
     "#124",
     "#125",
-    "#128",
     "#129",
-    "#151",
-    "#154",
-    "#155",
-    "#158",
+    "#130",
+    "#153",
+    "#156",
+    "#157",
     "#160",
+    "#162",
 ]
