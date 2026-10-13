@@ -24,6 +24,7 @@ mod camera;
 mod canvas;
 mod ivv;
 mod source;
+pub mod syntax_ui;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;

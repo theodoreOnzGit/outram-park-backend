@@ -38,6 +38,8 @@ maturity = 1
 kovan-common = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+# Syntax colours for the source panel (#857): a pure-Rust line lexer.
+kopitiam-syntax = { workspace = true }
 
 # The UI. Off Android only: the workspace's windowing exemption (the pure
 # model, `model` and `data`, still builds and is tested there).

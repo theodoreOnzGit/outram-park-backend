@@ -578,6 +578,11 @@ kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.2" }
 kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.1" }
 # The Code Review UI (egui). Desktop kovan embeds it (GitHub #820).
 kovan-web        = { path = "crates/kovan-web",        version = "0.0.1" }
+# The line lexer kopitiam-neovim highlights with (pure Rust, no dependencies,
+# already in Cargo.lock through kopitiam-neovim). Used directly since
+# 2026-10-13 (#857) to colour source in kovan's review views and its kvim
+# editor, with no language server.
+kopitiam-syntax  = "0.2.5"
 
 # outram-blender — Blender-inspired mesh-authoring frontend. Pure-Rust,
 # Android-safe by default. Two opt-in solver bridges are now real (not stubs):

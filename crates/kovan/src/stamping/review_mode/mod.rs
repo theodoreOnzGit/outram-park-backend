@@ -34,6 +34,7 @@
 //! Every function here reads files or runs git: call it off the UI thread
 //! (root `CLAUDE.md`, no-lag HARD RULE).
 
+pub mod code_words;
 pub mod diff;
 pub mod highlight;
 pub mod prefill;

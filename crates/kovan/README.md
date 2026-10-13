@@ -574,6 +574,17 @@ reviewed. Save keeps what was written to `review.md`; Cancel puts it back
 as it was on entering. Logic: `src/stamping/review_mode/`; drawing:
 `src/app/review_mode_panel.rs`.
 
+Added 2026-10-13 (#857): the reviewed source is drawn with syntax colours
+(also in kovan-web's source panel), and the quick-fix editor is a code
+buffer: syntax colours, new lines indented with spaces for Rust, and names
+completed as you type (Tab accepts, Ctrl+N / Ctrl+P choose, Esc closes).
+In it `:w` saves and stays open, `:q` closes, `:wq` saves and closes.
+**No language server is started**: colours come from the `kopitiam-syntax`
+line lexer and completion from the cached index (`kovan.toml`), so
+completion knows names in this workspace, nearest first, but not types:
+after `x.` it does not narrow to the methods of `x`'s type, it knows
+nothing from `std` or crates.io, and there are no live diagnostics.
+
 Added 2026-10-12 (#839): right-click a function with a valid stamp and
 choose **Add connection…** to connect it to a concept of the standard
 corpus. The link is written to the code repository's

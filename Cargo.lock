@@ -5849,6 +5849,7 @@ dependencies = [
  "eframe",
  "egui",
  "js-sys",
+ "kopitiam-syntax",
  "kovan-common",
  "serde",
  "serde_json",
