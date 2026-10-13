@@ -33,6 +33,15 @@ callees = [
     "fn:abd07b5e3380d5b8",
     "fn:be40085a8ed290cd",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:9cd1446ef56c9f1c",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:da49a3ce55b275a6",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -62,6 +71,15 @@ callees = [
     "fn:be40085a8ed290cd",
     "fn:fa4c88819cd78d3b",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:9cd1446ef56c9f1c",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:da49a3ce55b275a6",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -77,6 +95,10 @@ doc_hash = "sha256:860f1971cc81af771b7cc4642cd7beb4a142d9585fd9af0bbdd5fa997ef0b
 callees = [
     "fn:555fc8f83ccb1fc4",
     "fn:57d1ac7e6da1d27b",
+]
+uses = [
+    "fn:9cd1446ef56c9f1c",
+    "fn:da49a3ce55b275a6",
 ]
 test = true
 
@@ -107,6 +129,16 @@ callees = [
     "fn:be40085a8ed290cd",
     "fn:d9eddfec6b6d7c46",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:9cd1446ef56c9f1c",
+    "fn:a1d8556b6efb3257",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:da49a3ce55b275a6",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -136,6 +168,16 @@ callees = [
     "fn:be40085a8ed290cd",
     "fn:c138713c917f24e4",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:9cd1446ef56c9f1c",
+    "fn:a1d8556b6efb3257",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:da49a3ce55b275a6",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -152,6 +194,7 @@ callees = [
     "fn:57d1ac7e6da1d27b",
     "fn:8b475e25a076d068",
 ]
+uses = ["fn:9cd1446ef56c9f1c"]
 test = true
 
 [module."steady_state_validation.rs"]
@@ -189,6 +232,15 @@ callees = [
     "fn:c9639f97ba6fc460",
     "fn:d4bf59327d45740c",
     "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:9cd1446ef56c9f1c",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
 ]
 test = true
 
@@ -228,6 +280,15 @@ callees = [
     "fn:d4bf59327d45740c",
     "fn:eb89be045205dc88",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:9cd1446ef56c9f1c",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [[module."transient_validation.rs".function]]
@@ -262,5 +323,14 @@ callees = [
     "fn:c9639f97ba6fc460",
     "fn:d4bf59327d45740c",
     "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:9cd1446ef56c9f1c",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
 ]
 test = true

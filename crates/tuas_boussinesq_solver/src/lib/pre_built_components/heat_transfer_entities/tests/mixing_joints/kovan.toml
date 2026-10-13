@@ -32,6 +32,14 @@ callees = [
     "fn:dda41651835c793f",
     "fn:f3cde3d60d3dff8d",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:4a19e9ba06c44963",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [[module."fwd_flow.rs".function]]
@@ -60,6 +68,14 @@ callees = [
     "fn:e914b3ed909034f5",
     "fn:f3cde3d60d3dff8d",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:4a19e9ba06c44963",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [[module."fwd_flow.rs".function]]
@@ -84,6 +100,12 @@ callees = [
     "fn:dda41651835c793f",
     "fn:e914b3ed909034f5",
     "fn:f3cde3d60d3dff8d",
+]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:7a10a768152b5992",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
 ]
 test = true
 
@@ -119,6 +141,14 @@ callees = [
     "fn:dda41651835c793f",
     "fn:f3cde3d60d3dff8d",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:4a19e9ba06c44963",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [[module."reverse_flow.rs".function]]
@@ -143,5 +173,11 @@ callees = [
     "fn:dda41651835c793f",
     "fn:e914b3ed909034f5",
     "fn:f3cde3d60d3dff8d",
+]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:7a10a768152b5992",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
 ]
 test = true

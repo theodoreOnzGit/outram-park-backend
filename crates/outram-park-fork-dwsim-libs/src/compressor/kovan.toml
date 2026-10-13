@@ -91,6 +91,20 @@ reached_by = ["#4"]
 physical_interface = true
 
 [[module."mod.rs".function]]
+id = "fn:fbbc8f8295d2c4e0"
+name = "PolytropicResult"
+qual = "PolytropicResult"
+item = "type"
+shape = "struct"
+lines = [
+    173,
+    185,
+]
+hash = "sha256:af63bd55c3e8c788221824439a6e4fb3f1175026ba3acc790d853021498e449e"
+doc_hash = "sha256:2e6c8c92359009fef0906cca34ad212db8b0f84d695dcc070aa651a7317c9ac3"
+reached_by = ["#4"]
+
+[[module."mod.rs".function]]
 id = "fn:e2760473c07f5fba"
 name = "solve_polytropic_efficiency"
 qual = "solve_polytropic_efficiency"
@@ -106,6 +120,7 @@ callees = [
     "fn:bb5c9df1987a07bd",
     "fn:ecaaedbc56300f50",
 ]
+uses = ["fn:fbbc8f8295d2c4e0"]
 reached_by = ["#4"]
 physical_interface = true
 

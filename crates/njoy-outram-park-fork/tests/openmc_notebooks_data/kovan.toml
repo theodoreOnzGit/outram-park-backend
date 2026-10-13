@@ -10,6 +10,20 @@ path = "test:openmc_notebooks_data"
 path = "test:openmc_notebooks_data::mdgxs_part_i"
 
 [[module."mdgxs_part_i.rs".function]]
+id = "fn:93f989d3fc22a383"
+name = "U235_MAT"
+qual = "U235_MAT"
+item = "const"
+shape = "const"
+lines = [
+    55,
+    55,
+]
+hash = "sha256:2819400630f12e3042b7b64095abcba3a1cd7df33a005dcbc4c17214dc17052f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mdgxs_part_i.rs".function]]
 id = "fn:068de904b07a3abe"
 name = "u235_tape"
 qual = "u235_tape"
@@ -23,6 +37,7 @@ callees = [
     "fn:186da4b2e76906e3",
     "fn:6e86b6a77bc5c4fe",
 ]
+uses = ["fn:ea1a9906af166241"]
 test = true
 
 [[module."mdgxs_part_i.rs".function]]
@@ -41,6 +56,11 @@ callees = [
     "fn:4d770e5d6566d8c8",
     "fn:7b0f90f0a84c4700",
     "fn:8688f954665fb298",
+]
+uses = [
+    "fn:0fc54b509adb4882",
+    "fn:3054137ad30098ca",
+    "fn:93f989d3fc22a383",
 ]
 test = true
 
@@ -63,6 +83,12 @@ callees = [
     "fn:7be8a3429bd0a68f",
     "fn:faa42c5ac2562969",
 ]
+uses = [
+    "fn:1c8b1f7de186bc40",
+    "fn:3054137ad30098ca",
+    "fn:93f989d3fc22a383",
+    "fn:e4b5f092716882f5",
+]
 test = true
 
 [[module."mdgxs_part_i.rs".function]]
@@ -82,10 +108,28 @@ callees = [
     "fn:be8a80edda7dc711",
     "fn:faa42c5ac2562969",
 ]
+uses = [
+    "fn:1c8b1f7de186bc40",
+    "fn:93f989d3fc22a383",
+]
 test = true
 
 [module."mdgxs_part_ii.rs"]
 path = "test:openmc_notebooks_data::mdgxs_part_ii"
+
+[[module."mdgxs_part_ii.rs".function]]
+id = "fn:267f70128e6e3e31"
+name = "U235_MAT"
+qual = "U235_MAT"
+item = "const"
+shape = "const"
+lines = [
+    46,
+    46,
+]
+hash = "sha256:2819400630f12e3042b7b64095abcba3a1cd7df33a005dcbc4c17214dc17052f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."mdgxs_part_ii.rs".function]]
 id = "fn:6f0510699b675e0c"
@@ -101,6 +145,7 @@ callees = [
     "fn:186da4b2e76906e3",
     "fn:6e86b6a77bc5c4fe",
 ]
+uses = ["fn:ea1a9906af166241"]
 test = true
 
 [[module."mdgxs_part_ii.rs".function]]
@@ -124,6 +169,14 @@ callees = [
     "fn:b858dd5b5f27c2dd",
     "fn:f7dce17b13d37696",
 ]
+uses = [
+    "fn:1c8b1f7de186bc40",
+    "fn:267f70128e6e3e31",
+    "fn:3054137ad30098ca",
+    "fn:457d1814d17fe71c",
+    "fn:8f9b50dbffe0fc15",
+    "fn:e4b5f092716882f5",
+]
 test = true
 
 [[module."mdgxs_part_ii.rs".function]]
@@ -142,6 +195,34 @@ test = true
 path = "test:openmc_notebooks_data::mgxs_part_i"
 
 [[module."mgxs_part_i.rs".function]]
+id = "fn:9c0f921cf5e3f502"
+name = "U235_MAT"
+qual = "U235_MAT"
+item = "const"
+shape = "const"
+lines = [
+    69,
+    69,
+]
+hash = "sha256:2819400630f12e3042b7b64095abcba3a1cd7df33a005dcbc4c17214dc17052f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mgxs_part_i.rs".function]]
+id = "fn:8d38d65fbe9eb61f"
+name = "U238_MAT"
+qual = "U238_MAT"
+item = "const"
+shape = "const"
+lines = [
+    70,
+    72,
+]
+hash = "sha256:37cd718ac21fb34f0e9731cc85dcfc43acf62de5e2079409b1e4fe4dc2d60953"
+doc_hash = "sha256:c856799dc635e5cb8d0809d071baa1931501eb46c29c8ba0c8e67803fc25b0db"
+test = true
+
+[[module."mgxs_part_i.rs".function]]
 id = "fn:ea5b484777bfa4f5"
 name = "u235_tape"
 qual = "u235_tape"
@@ -155,6 +236,7 @@ callees = [
     "fn:186da4b2e76906e3",
     "fn:6e86b6a77bc5c4fe",
 ]
+uses = ["fn:ea1a9906af166241"]
 test = true
 
 [[module."mgxs_part_i.rs".function]]
@@ -171,6 +253,7 @@ callees = [
     "fn:186da4b2e76906e3",
     "fn:6e86b6a77bc5c4fe",
 ]
+uses = ["fn:ea1a9906af166241"]
 test = true
 
 [[module."mgxs_part_i.rs".function]]
@@ -191,6 +274,14 @@ callees = [
     "fn:b1a7a1e23403f995",
     "fn:db4bc7f6957806e1",
     "fn:ea5b484777bfa4f5",
+]
+uses = [
+    "fn:0fc54b509adb4882",
+    "fn:457d1814d17fe71c",
+    "fn:63e818b9cfcce31d",
+    "fn:9c0f921cf5e3f502",
+    "fn:ac3f3f9518440bc2",
+    "fn:e4b5f092716882f5",
 ]
 test = true
 
@@ -214,6 +305,16 @@ callees = [
     "fn:b1a7a1e23403f995",
     "fn:db4bc7f6957806e1",
     "fn:ea5b484777bfa4f5",
+]
+uses = [
+    "fn:0fc54b509adb4882",
+    "fn:3b0cb8021025f423",
+    "fn:457d1814d17fe71c",
+    "fn:63e818b9cfcce31d",
+    "fn:9c0f921cf5e3f502",
+    "fn:ac3f3f9518440bc2",
+    "fn:ba3ea7fa3122ee5b",
+    "fn:e4b5f092716882f5",
 ]
 test = true
 
@@ -245,6 +346,17 @@ callees = [
     "fn:ea5b484777bfa4f5",
     "fn:edfd74f8ee949c63",
 ]
+uses = [
+    "fn:0fc54b509adb4882",
+    "fn:3b0cb8021025f423",
+    "fn:457d1814d17fe71c",
+    "fn:63e818b9cfcce31d",
+    "fn:9c0f921cf5e3f502",
+    "fn:ba3ea7fa3122ee5b",
+    "fn:c9f0598b0b3823bc",
+    "fn:e4b5f092716882f5",
+    "fn:fd0b8b0efd90aff2",
+]
 test = true
 
 [[module."mgxs_part_i.rs".function]]
@@ -270,6 +382,16 @@ callees = [
     "fn:ea5b484777bfa4f5",
     "fn:eac67d4e8170d800",
 ]
+uses = [
+    "fn:0fc54b509adb4882",
+    "fn:3b0cb8021025f423",
+    "fn:457d1814d17fe71c",
+    "fn:63e818b9cfcce31d",
+    "fn:6b894b1ecab9e5a3",
+    "fn:9c0f921cf5e3f502",
+    "fn:ba3ea7fa3122ee5b",
+    "fn:f117ce943b91b8f0",
+]
 test = true
 
 [[module."mgxs_part_i.rs".function]]
@@ -292,10 +414,47 @@ callees = [
     "fn:d0f8eccdc430604d",
     "fn:db4bc7f6957806e1",
 ]
+uses = [
+    "fn:0fc54b509adb4882",
+    "fn:3b0cb8021025f423",
+    "fn:457d1814d17fe71c",
+    "fn:63e818b9cfcce31d",
+    "fn:8d38d65fbe9eb61f",
+    "fn:ba3ea7fa3122ee5b",
+    "fn:c9f0598b0b3823bc",
+]
 test = true
 
 [module."mgxs_part_ii.rs"]
 path = "test:openmc_notebooks_data::mgxs_part_ii"
+
+[[module."mgxs_part_ii.rs".function]]
+id = "fn:d0bccddae19d232d"
+name = "U235_MAT"
+qual = "U235_MAT"
+item = "const"
+shape = "const"
+lines = [
+    63,
+    63,
+]
+hash = "sha256:2819400630f12e3042b7b64095abcba3a1cd7df33a005dcbc4c17214dc17052f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mgxs_part_ii.rs".function]]
+id = "fn:d0b2d355943f56a7"
+name = "NOTEBOOK_FINE_BOUNDS"
+qual = "NOTEBOOK_FINE_BOUNDS"
+item = "const"
+shape = "const"
+lines = [
+    65,
+    74,
+]
+hash = "sha256:34cfdf6e03a6ebe9cee0c7c058dedbdd285a9c7e8eeac5a4a3f35ed010ab6e04"
+doc_hash = "sha256:1a59bc286f9ffe8c8c6d8e05a9686f667b7df59a64351a40536ea467824b513f"
+test = true
 
 [[module."mgxs_part_ii.rs".function]]
 id = "fn:921d8478aa6c51b4"
@@ -311,6 +470,7 @@ callees = [
     "fn:186da4b2e76906e3",
     "fn:6e86b6a77bc5c4fe",
 ]
+uses = ["fn:ea1a9906af166241"]
 test = true
 
 [[module."mgxs_part_ii.rs".function]]
@@ -327,6 +487,11 @@ callees = [
     "fn:77685f9efde11e35",
     "fn:921d8478aa6c51b4",
     "fn:db4bc7f6957806e1",
+]
+uses = [
+    "fn:0fc54b509adb4882",
+    "fn:63e818b9cfcce31d",
+    "fn:d0bccddae19d232d",
 ]
 test = true
 
@@ -351,6 +516,15 @@ callees = [
     "fn:c4a55d5c1237c415",
     "fn:eac67d4e8170d800",
 ]
+uses = [
+    "fn:0fc54b509adb4882",
+    "fn:3b0cb8021025f423",
+    "fn:457d1814d17fe71c",
+    "fn:6b894b1ecab9e5a3",
+    "fn:ba3ea7fa3122ee5b",
+    "fn:d0b2d355943f56a7",
+    "fn:f117ce943b91b8f0",
+]
 test = true
 
 [[module."mgxs_part_ii.rs".function]]
@@ -368,6 +542,10 @@ callees = [
     "fn:5a3ced596e189cc1",
     "fn:9f085e1118000d27",
 ]
+uses = [
+    "fn:d0b2d355943f56a7",
+    "fn:fd0b8b0efd90aff2",
+]
 test = true
 
 [[module."mgxs_part_ii.rs".function]]
@@ -378,7 +556,7 @@ lines = [
     356,
     378,
 ]
-hash = "sha256:f5a2cf475f4cdeb73a286bf714a6ccecef5a4d1a118230b933a940363ea8f5d7"
+hash = "sha256:8ba014221ca8d90682872b5937456a8ab1c03202a8732dae243e5c5c0c260966"
 doc_hash = "sha256:85231818b1eb1dd8a81749a39f2a75b0aa3941188a1ebf80a42c80504b1fb4b9"
 test = true
 
@@ -411,6 +589,20 @@ test = true
 
 [module."nuclear_data.rs"]
 path = "test:openmc_notebooks_data::nuclear_data"
+
+[[module."nuclear_data.rs".function]]
+id = "fn:ce2405bf15832f38"
+name = "U235_MAT"
+qual = "U235_MAT"
+item = "const"
+shape = "const"
+lines = [
+    44,
+    44,
+]
+hash = "sha256:2819400630f12e3042b7b64095abcba3a1cd7df33a005dcbc4c17214dc17052f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."nuclear_data.rs".function]]
 id = "fn:14d9ace95ebc73d2"
@@ -471,6 +663,10 @@ callees = [
     "fn:ca601c6358510ad7",
     "fn:dc068496c6d2125c",
 ]
+uses = [
+    "fn:ab22d1371ac34717",
+    "fn:ce2405bf15832f38",
+]
 test = true
 
 [[module."nuclear_data.rs".function]]
@@ -490,6 +686,11 @@ callees = [
     "fn:a05a2970c4364380",
     "fn:dc068496c6d2125c",
 ]
+uses = [
+    "fn:0fc54b509adb4882",
+    "fn:ab22d1371ac34717",
+    "fn:ce2405bf15832f38",
+]
 test = true
 
 [[module."nuclear_data.rs".function]]
@@ -508,6 +709,7 @@ callees = [
     "fn:a713ba16a3e19348",
     "fn:de8198f57a8203b0",
 ]
+uses = ["fn:6dfcb0effb231e43"]
 test = true
 
 [[module."nuclear_data.rs".function]]
@@ -527,6 +729,12 @@ callees = [
     "fn:7be8a3429bd0a68f",
     "fn:b55bd89bff1a90f3",
     "fn:e487cfca483ebf8b",
+]
+uses = [
+    "fn:ce2405bf15832f38",
+    "fn:e4b5f092716882f5",
+    "fn:ea1a9906af166241",
+    "fn:fd0b8b0efd90aff2",
 ]
 test = true
 
@@ -549,6 +757,7 @@ callees = [
     "fn:e7f120176f8aa444",
     "fn:f311e605f0ec5306",
 ]
+uses = ["fn:3c57f0a9f5ed6776"]
 test = true
 
 [[module."nuclear_data_resonance_covariance.rs".function]]
@@ -579,6 +788,20 @@ test = true
 path = "test:openmc_notebooks_data::search"
 
 [[module."search.rs".function]]
+id = "fn:799f8ab0e03a99fa"
+name = "U235_MAT"
+qual = "U235_MAT"
+item = "const"
+shape = "const"
+lines = [
+    27,
+    27,
+]
+hash = "sha256:2819400630f12e3042b7b64095abcba3a1cd7df33a005dcbc4c17214dc17052f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."search.rs".function]]
 id = "fn:fe20035817de1588"
 name = "u235_path"
 qual = "u235_path"
@@ -606,6 +829,10 @@ callees = [
     "fn:312a6cb37f535f69",
     "fn:a05a2970c4364380",
     "fn:fe20035817de1588",
+]
+uses = [
+    "fn:799f8ab0e03a99fa",
+    "fn:ab22d1371ac34717",
 ]
 test = true
 

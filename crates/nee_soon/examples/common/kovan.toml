@@ -7,6 +7,19 @@ dir = "crates/nee_soon/examples/common"
 path = "example:htr10_endf8_kvsh_heavy::htr10_kvsh"
 
 [[module."htr10_kvsh.rs".function]]
+id = "fn:2366843180939cf0"
+name = "Args"
+qual = "Args"
+item = "type"
+shape = "struct"
+lines = [
+    53,
+    57,
+]
+hash = "sha256:06ebbcaeaeb3c441ab8a0a94217ddcc653d2357258f1e4526e889c019adc55ca"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."htr10_kvsh.rs".function]]
 id = "fn:69a4d3893929cb20"
 name = "parse_args"
 qual = "parse_args"
@@ -16,6 +29,11 @@ lines = [
 ]
 hash = "sha256:9178b24ad34f92aa6589a1c80b2dd255038322f93ccfb0a52bc2734583e000ad"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:2366843180939cf0",
+    "fn:356f521809523f3b",
+    "fn:6382ebf1dc603b35",
+]
 
 [[module."htr10_kvsh.rs".function]]
 id = "fn:38c517289f500ff2"
@@ -54,6 +72,10 @@ callees = [
     "fn:8a5c42869683eb9e",
     "fn:8fa23dd16a0f69ef",
 ]
+uses = [
+    "fn:d96bd05b2452c690",
+    "fn:e270fa6a892ea0ab",
+]
 
 [[module."htr10_kvsh.rs".function]]
 id = "fn:f349fa932bd64002"
@@ -90,9 +112,111 @@ callees = [
     "fn:eb0d723f9cc75435",
     "fn:f41d06f1b1757f02",
 ]
+uses = [
+    "fn:0a0f9a8aef6610f4",
+    "fn:0f736535b9d23d01",
+    "fn:155454d7f49046ef",
+    "fn:356f521809523f3b",
+    "fn:a76aa0a8dc7b1249",
+    "fn:d96bd05b2452c690",
+    "fn:e00827c42d560d15",
+    "fn:e270fa6a892ea0ab",
+    "fn:f0947f9f757d92d2",
+]
 
 [module."htr10_rod_metal_case.rs"]
 path = "example:htr10_rod_metal_full::htr10_rod_metal_case"
+
+[[module."htr10_rod_metal_case.rs".function]]
+id = "fn:2f281801d0cc4a52"
+name = "TEMP_K"
+qual = "TEMP_K"
+item = "const"
+shape = "const"
+lines = [
+    35,
+    36,
+]
+hash = "sha256:d3558c5e8132ae405a6275924e6ece6164693eff625420deffe53633a5fc8bf8"
+doc_hash = "sha256:17fa5f1b7396c0e674e7d521cf9888ffaf5f393a774541790cc9e860902a92ce"
+
+[[module."htr10_rod_metal_case.rs".function]]
+id = "fn:95861c9284724299"
+name = "LAYERS"
+qual = "LAYERS"
+item = "const"
+shape = "const"
+lines = [
+    37,
+    38,
+]
+hash = "sha256:9aa918d88123a09d83d7ab8df4cc84e6526e58bed44f3197a57a69b62bcb6f1f"
+doc_hash = "sha256:9fee2f8e45ef56e93f47f2699647ad919287db9127998185893783ac84187f62"
+
+[[module."htr10_rod_metal_case.rs".function]]
+id = "fn:1c9236fb60a28468"
+name = "RINGS"
+qual = "RINGS"
+item = "const"
+shape = "const"
+lines = [
+    39,
+    40,
+]
+hash = "sha256:0ac7657dcb87c35a1b0cf812b2acbba9e1b473ef90a1dc1562af2a67f231afd2"
+doc_hash = "sha256:ac6cab32058700f2d1258c01d84dd628d86fed1cd23c78f083141fa8f3fcf96f"
+
+[[module."htr10_rod_metal_case.rs".function]]
+id = "fn:c4b173156e4655c9"
+name = "PARTICLES"
+qual = "PARTICLES"
+item = "const"
+shape = "const"
+lines = [
+    41,
+    42,
+]
+hash = "sha256:d13a4a21474942dbaebf98a8a986567f2a4c63d566c52b3795b42eb965b9b296"
+doc_hash = "sha256:2db10207a0a2fcdeca011f40ea4ce81e26567c9a0670fd3a6773fa59ff69e0a3"
+
+[[module."htr10_rod_metal_case.rs".function]]
+id = "fn:57af26f456cda872"
+name = "INACTIVE"
+qual = "INACTIVE"
+item = "const"
+shape = "const"
+lines = [
+    43,
+    44,
+]
+hash = "sha256:dfd6097af5d799936417997cbe65bc6f338feea5baaa175ebc086db8fe475856"
+doc_hash = "sha256:519b97b7eed50763ad0c3d123e4eb6a7f313513af1078dce615953c71a9f9954"
+
+[[module."htr10_rod_metal_case.rs".function]]
+id = "fn:f75f9d402f87e368"
+name = "ACTIVE"
+qual = "ACTIVE"
+item = "const"
+shape = "const"
+lines = [
+    45,
+    46,
+]
+hash = "sha256:9a0344dd9de83a2bc7974f962c0ffe59d287a7a27260d0b5403d2c34a61a23bc"
+doc_hash = "sha256:0f70c3f4b3931f314a6ed288b20f622392407118524d5dc9c9a35b7586e4594f"
+
+[[module."htr10_rod_metal_case.rs".function]]
+id = "fn:d1a224610cb1fabc"
+name = "SEED"
+qual = "SEED"
+item = "const"
+shape = "const"
+lines = [
+    47,
+    49,
+]
+hash = "sha256:7b1a34769e511a1ccabcf1cd3b5a2ee4b6b3a28b0f91e208b079dd5210fb45dc"
+doc_hash = "sha256:06c77564a9dc05c6fc94495cff893400dcc923befc7db6bd3ea87c6fc530a723"
 
 [[module."htr10_rod_metal_case.rs".function]]
 id = "fn:2ef726fe284da10c"
@@ -126,4 +250,22 @@ callees = [
     "fn:d427b7e9ab874c91",
     "fn:eb0d723f9cc75435",
     "fn:fabbfafa1d782ad1",
+]
+uses = [
+    "fn:040aba8efb432ef5",
+    "fn:0a0f9a8aef6610f4",
+    "fn:155454d7f49046ef",
+    "fn:1c9236fb60a28468",
+    "fn:2f281801d0cc4a52",
+    "fn:57af26f456cda872",
+    "fn:770c5941dead0a7e",
+    "fn:95861c9284724299",
+    "fn:a76aa0a8dc7b1249",
+    "fn:afd63c8186b7d3f0",
+    "fn:bda5c77a17ef0158",
+    "fn:c4b173156e4655c9",
+    "fn:d1a224610cb1fabc",
+    "fn:d2829b30ebf7ecc9",
+    "fn:f0947f9f757d92d2",
+    "fn:f75f9d402f87e368",
 ]

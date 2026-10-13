@@ -21,6 +21,10 @@ callees = [
     "fn:e04a45132823706f",
     "fn:eedc38381fcfd405",
 ]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:540617e338f429d7",
+]
 physical_interface = true
 
 [[module."conductance_array_functions.rs".function]]
@@ -34,6 +38,10 @@ lines = [
 hash = "sha256:257db7516262852fe72702891d18678234ed48d96b503671479e0e398d6fb2e5"
 doc_hash = "sha256:097b7bdec23bdb4285b1c060abfcecc27ef8974c9573473eafc4430a1c37d7fe"
 callees = ["fn:a0b4115d2681280f"]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:540617e338f429d7",
+]
 physical_interface = true
 
 [module."mod.rs"]

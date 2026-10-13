@@ -21,6 +21,10 @@ callees = [
     "fn:be8a3aba3961e684",
     "fn:f5fc6e6d09e9c35b",
 ]
+uses = [
+    "fn:c611e024756fd19b",
+    "fn:e3d3971cf92a6302",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -37,6 +41,10 @@ callees = [
     "fn:045f5259db97b626",
     "fn:be8a3aba3961e684",
     "fn:f5fc6e6d09e9c35b",
+]
+uses = [
+    "fn:c611e024756fd19b",
+    "fn:e3d3971cf92a6302",
 ]
 test = true
 physical_interface = true

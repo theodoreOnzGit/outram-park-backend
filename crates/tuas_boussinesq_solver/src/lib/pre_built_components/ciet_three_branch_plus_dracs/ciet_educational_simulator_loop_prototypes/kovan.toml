@@ -211,6 +211,17 @@ callees = [
     "fn:fa07bb0cb8fd7b33",
     "fn:ff764db25e60524d",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:4a19e9ba06c44963",
+    "fn:540617e338f429d7",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
 test = true
 
 [module."version_2.rs"]
@@ -349,5 +360,16 @@ callees = [
     "fn:f3cde3d60d3dff8d",
     "fn:fa07bb0cb8fd7b33",
     "fn:ff764db25e60524d",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:4a19e9ba06c44963",
+    "fn:540617e338f429d7",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
 ]
 test = true

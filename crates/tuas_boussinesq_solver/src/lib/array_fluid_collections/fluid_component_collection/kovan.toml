@@ -127,6 +127,7 @@ test_ids = [
     "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/single_branch.rs::ihx_branch_test_get_pressure_change_from_mass_flowrate",
     "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/single_branch.rs::reactor_branch_test_get_mass_flowrate_from_pressure_change",
     "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/single_branch.rs::reactor_branch_test_get_pressure_change_from_mass_flowrate",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_fluid_component_test",
     "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/calibration_functions.rs::calibration_regression_set_c9_no_heat_loss",
     "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/calibration_functions.rs::calibration_regression_set_c9_no_heat_loss_mesh_refined",
     "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/heat_transfer_verification.rs::basic_test_shell_and_tube_heat_exchanger",
@@ -141,6 +142,137 @@ test_ids = [
 path = "crate::array_fluid_collections::fluid_component_collection::collection_series_and_parallel_functions"
 
 [[module."collection_series_and_parallel_functions.rs".function]]
+id = "fn:5bcbbf392051e369"
+name = "FluidComponentCollectionSeriesAssociatedFunctions"
+qual = "FluidComponentCollectionSeriesAssociatedFunctions"
+item = "type"
+shape = "trait"
+lines = [
+    64,
+    402,
+]
+hash = "sha256:414ad7cb1b766661b74f1aff4fab71f2ae70426c11c9663847dab1a3a6c1323e"
+doc_hash = "sha256:9817953b278a7a26e76d06fd9535dfa84d0cd23e2d67ee3edcaf135af0fbacfd"
+uses = ["fn:d4b239bd4b67db13"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+]
+physical_interface = true
+
+[[module."collection_series_and_parallel_functions.rs".function]]
 id = "fn:0dbde7796262d45e"
 name = "calculate_pressure_change_from_mass_flowrate"
 qual = "FluidComponentCollectionSeriesAssociatedFunctions::calculate_pressure_change_from_mass_flowrate"
@@ -150,6 +282,10 @@ lines = [
 ]
 hash = "sha256:3c235fb2d12a5ac67131a83533b3bbcd12e021016afb936e4cc9c663a2162d4f"
 doc_hash = "sha256:f949cf3665da32af0dda2f1ebbd8960a43761b103ee3f32bffb8ce228155625b"
+uses = [
+    "fn:5bcbbf392051e369",
+    "fn:d4b239bd4b67db13",
+]
 physical_interface = true
 
 [[module."collection_series_and_parallel_functions.rs".function]]
@@ -162,6 +298,141 @@ lines = [
 ]
 hash = "sha256:4cd465d7f42647c943faa00e462820153aafe018ef5a05db8c498c4a689b9d12"
 doc_hash = "sha256:65a1f41af51af65e696dc5c0f9a000596aeb8715c3c04fe5f4d32f26567ae3b1"
+uses = [
+    "fn:5bcbbf392051e369",
+    "fn:d4b239bd4b67db13",
+]
+physical_interface = true
+
+[[module."collection_series_and_parallel_functions.rs".function]]
+id = "fn:d8ab1798294e590a"
+name = "FluidComponentCollectionParallelAssociatedFunctions"
+qual = "FluidComponentCollectionParallelAssociatedFunctions"
+item = "type"
+shape = "trait"
+lines = [
+    404,
+    1002,
+]
+hash = "sha256:298103e5cf7e94d560f207910a5ed8aeada3c34076316f088c172db204b3b480"
+doc_hash = "sha256:24266ebff5cd46e5242673155c8a858dffd26ab70222f8ee978347e2aa3b39e1"
+uses = ["fn:d4b239bd4b67db13"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+]
 physical_interface = true
 
 [[module."collection_series_and_parallel_functions.rs".function]]
@@ -174,6 +445,10 @@ lines = [
 ]
 hash = "sha256:229533b61e28a81497273dc2ab096febe731f367e8c2209bcf1c7dd9f0ea8e50"
 doc_hash = "sha256:fed086ae12c2abc3eeba5ceefcdbe1c05a093351cfb708cef74b9e72d7e59525"
+uses = [
+    "fn:d4b239bd4b67db13",
+    "fn:d8ab1798294e590a",
+]
 physical_interface = true
 
 [[module."collection_series_and_parallel_functions.rs".function]]
@@ -186,6 +461,10 @@ lines = [
 ]
 hash = "sha256:f3b0153fa26149f59f73c656add8263db2806cd06451c664cdb6563fc1370db6"
 doc_hash = "sha256:8f4aa6c8a4a3cc8362c936fe7bd4307c77d5cc9239aa958f6d9434a730516e5f"
+uses = [
+    "fn:d4b239bd4b67db13",
+    "fn:d8ab1798294e590a",
+]
 physical_interface = true
 
 [[module."collection_series_and_parallel_functions.rs".function]]
@@ -198,6 +477,10 @@ lines = [
 ]
 hash = "sha256:47cb5bca6431f12ea9064b200db9f9f3b4b28cfbeff3aa7cdff26f9bd9c4c434"
 doc_hash = "sha256:b7e2a212f7a88be7a2f646c2737f02732039eb1662413ee56c302f24f33a5d06"
+uses = [
+    "fn:d4b239bd4b67db13",
+    "fn:d8ab1798294e590a",
+]
 physical_interface = true
 
 [[module."collection_series_and_parallel_functions.rs".function]]
@@ -210,6 +493,10 @@ lines = [
 ]
 hash = "sha256:04e3d9c7cb7b1a780ab6ebd399285ea37395322431a6d617c99fb9a7aa894ee4"
 doc_hash = "sha256:ca4663dfbb1fdd194ebc4b2579394edb8b239fe4461a4ea0e7079e3c3bbb42f8"
+uses = [
+    "fn:d4b239bd4b67db13",
+    "fn:d8ab1798294e590a",
+]
 physical_interface = true
 
 [[module."collection_series_and_parallel_functions.rs".function]]
@@ -223,6 +510,10 @@ lines = [
 hash = "sha256:461c0294507b4ad27db51e0a7c155f73a062a7de26f2e01c6a211111c8a334c1"
 doc_hash = "sha256:9b932083a394d0125195cb8d33496d15a4f7208104d306388567aee1c3e856b8"
 callees = ["fn:f995777d543324f2"]
+uses = [
+    "fn:d4b239bd4b67db13",
+    "fn:d8ab1798294e590a",
+]
 physical_interface = true
 
 [[module."collection_series_and_parallel_functions.rs".function]]
@@ -235,6 +526,7 @@ lines = [
 ]
 hash = "sha256:62945402867b299693ba5e52265f4f2950e2b19cd2b83ae3c321464c1dd8bc85"
 doc_hash = "sha256:5ee23e138e24ee24550e439b06c9bdaa44cbd067b878e2876ad3b069b6cd9923"
+uses = ["fn:d8ab1798294e590a"]
 physical_interface = true
 
 [[module."collection_series_and_parallel_functions.rs".function]]
@@ -247,6 +539,7 @@ lines = [
 ]
 hash = "sha256:fc92b3e073d53e943c759605dc485f72ead23439d7fdcf2bb67777453ff1eaa2"
 doc_hash = "sha256:99c82c2f4d3cf89563b4c8226e0de3a9ff063bf6a978291533c87d4b38e66344"
+uses = ["fn:d8ab1798294e590a"]
 physical_interface = true
 
 [[module."collection_series_and_parallel_functions.rs".function]]
@@ -259,10 +552,160 @@ lines = [
 ]
 hash = "sha256:93db61e0cddacea01e5fad2861116a64103b630361be0c38fdf82bad75755a05"
 doc_hash = "sha256:c099840b39d4433773a70dc809e0b8f4e057bb7af098303706bbe0190fd34ee1"
+uses = ["fn:d8ab1798294e590a"]
 physical_interface = true
 
 [module."fluid_component.rs"]
 path = "crate::array_fluid_collections::fluid_component_collection::fluid_component"
+
+[[module."fluid_component.rs".function]]
+id = "fn:d4b239bd4b67db13"
+name = "FluidComponent"
+qual = "FluidComponent"
+item = "type"
+shape = "enum"
+lines = [
+    6,
+    22,
+]
+hash = "sha256:0eeb92a72c07d871e7a2a8ed7e616ff6366820c88e84854378347d023f4a9140"
+doc_hash = "sha256:5b1663ff72e37715a61fc3c1e0eca9b33b94360e60d5e44836ad3401206ebafc"
+uses = ["fn:07c5060b9c48fc1b"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+]
 
 [[module."fluid_component.rs".function]]
 id = "fn:05069460783feca0"
@@ -275,6 +718,7 @@ lines = [
 hash = "sha256:e28ec27aebef64aea3d8072445227f4db3fcb7c3bbb4e2e54c59c8ebbacc56d7"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:522ca19d58b3d90a"]
+uses = ["fn:d4b239bd4b67db13"]
 reached_by = ["#1"]
 physical_interface = true
 
@@ -289,6 +733,7 @@ lines = [
 hash = "sha256:1a160458ba70e64072aaa238ec6321cdcc2009e5503a413a4695f1030d41441f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:9212f011bf144631"]
+uses = ["fn:d4b239bd4b67db13"]
 reached_by = ["#2"]
 physical_interface = true
 
@@ -303,6 +748,7 @@ lines = [
 hash = "sha256:fe5a8369cb2d9cb96f355c794bcd8430157ea85d9571201c93ff74cc068d5721"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:1e49a2c708f64bed"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -316,6 +762,7 @@ lines = [
 hash = "sha256:aa334943a10e9e78b8b33e30ff3c6a89465b5eddaa51df0e837f054012dcd5ac"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:c1cd743e200a5b68"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -329,6 +776,7 @@ lines = [
 hash = "sha256:48756ab68880a3df99f9aaff694cb5d06398114fdde7292d4fb7622ee800feff"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:5d36a8426cb919e3"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -342,6 +790,7 @@ lines = [
 hash = "sha256:caf3545e5f3d16167855261828b15529bf9c049e3d69c6261c984a167e89368f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:5cc3a78cc9d2e79a"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -355,6 +804,7 @@ lines = [
 hash = "sha256:8ce341caa3cc010e373f14805b16f27bda97adc11b241c17c3ac0b525f55150c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:699fa23379f66832"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -368,6 +818,7 @@ lines = [
 hash = "sha256:2d2452b419e6ce46d720aa19ed17139da79de110aabdf3dba6f2c539814a768d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:7860f11bd51dbb37"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -384,6 +835,7 @@ callees = [
     "fn:12e1a066661e37f1",
     "fn:699fa23379f66832",
 ]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -400,6 +852,7 @@ callees = [
     "fn:457e96f4f0b76ef7",
     "fn:7860f11bd51dbb37",
 ]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -413,6 +866,7 @@ lines = [
 hash = "sha256:dc527a6719ede3dfe20c69392b297dddb3b65fd665a338e2b52c6571fb19527b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:484a6e38fea0d402"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -426,6 +880,7 @@ lines = [
 hash = "sha256:de5569ed2ac302a12a922bc3f18daab529198cbaf798511d74e060a83604185e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:5dc3c4cb5f94e19e"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -439,6 +894,7 @@ lines = [
 hash = "sha256:adf59dd50e611f9b0a707ff64cdb91680d8842fb9b325ad3d8bab92cf9c4e95f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:455f4b7fc2167bab"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -452,6 +908,7 @@ lines = [
 hash = "sha256:960a088e6e778681014cb7c44b0a816e4cb2f2b249f270b92bdaf245b30eeebf"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:129612370ebfb9ce"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -465,6 +922,7 @@ lines = [
 hash = "sha256:5a2426bce93c048441ba067723cf9d5426fc09eddabb98297d459d3736747567"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:25614892f3618c5c"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -478,6 +936,7 @@ lines = [
 hash = "sha256:1f18fccb8952ac16c41a63a1c91d37777a9f0703e562d59493de37a0a939f767"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:7b8091c3b21fab1e"]
+uses = ["fn:d4b239bd4b67db13"]
 reached_by = [
     "#23",
     "#24",
@@ -535,7 +994,6 @@ reached_by = [
     "#113",
     "#117",
     "#119",
-    "#124",
     "#125",
     "#126",
     "#127",
@@ -543,6 +1001,7 @@ reached_by = [
     "#129",
     "#130",
     "#131",
+    "#132",
 ]
 physical_interface = true
 
@@ -557,6 +1016,7 @@ lines = [
 hash = "sha256:5d2e33d230b4a5a8fb53bdfc83704e7179fd74e6dd5057430aae686f5a560b07"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:4271c0ed9ed2770e"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -570,6 +1030,7 @@ lines = [
 hash = "sha256:ebaff8a11c4d74e6ec0ea578f0b35b0e026dfd6670827be436ac7ca713690574"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:3115510adeccfc6e"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -583,6 +1044,7 @@ lines = [
 hash = "sha256:01a19fe719126d7e07ea1456781a268a12f8c9cdf81b570bc2afe18182fba46b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:c4b43f1b08c1c087"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -596,6 +1058,7 @@ lines = [
 hash = "sha256:7172c24cc8ad022d3dc3a6e663ae3000bb48a1761c75cb1ae446a094714a0424"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:3399320921e68dcb"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [[module."fluid_component.rs".function]]
@@ -609,10 +1072,275 @@ lines = [
 hash = "sha256:f337e7cd7c2409c6466a3bf3bc1b601faa5f7cbcf3cdb0bc78d21dde170bfe8c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:ca08e804e6e3c21c"]
+uses = ["fn:d4b239bd4b67db13"]
 physical_interface = true
 
 [module."fluid_component_collection.rs"]
 path = "crate::array_fluid_collections::fluid_component_collection::fluid_component_collection"
+
+[[module."fluid_component_collection.rs".function]]
+id = "fn:ebf3ac43832118cf"
+name = "FluidComponentCollection"
+qual = "FluidComponentCollection"
+item = "type"
+shape = "struct"
+lines = [
+    58,
+    74,
+]
+hash = "sha256:f6c808b63a739a1646728125741273d2b84d8db68ab8313b30c049fdfb0ea4c3"
+doc_hash = "sha256:938410abeda7dc2fb8b584734845889b14c9f3e3125715fe3d3603099beb9589"
+uses = [
+    "fn:d4b239bd4b67db13",
+    "fn:e50c45d0f7cecaac",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+]
+
+[[module."fluid_component_collection.rs".function]]
+id = "fn:e50c45d0f7cecaac"
+name = "FluidComponentCollectionOreintation"
+qual = "FluidComponentCollectionOreintation"
+item = "type"
+shape = "enum"
+lines = [
+    76,
+    86,
+]
+hash = "sha256:f1cabb382e72d75980565fdd61de6b7fc3d164c2f736e038310560c54c73a975"
+doc_hash = "sha256:be5dd02edd2c65c59ab4f0794a4605e4f09ca1e72789a7fe16a832231653e002"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+]
 
 [[module."fluid_component_collection.rs".function]]
 id = "fn:758bc5578ccfb600"
@@ -624,6 +1352,10 @@ lines = [
 ]
 hash = "sha256:09f637f5986201322ec4efee1e6a10e2474ea698e0100eecddd0c847e6235089"
 doc_hash = "sha256:a9a3974ff1aca9f718f723bad7f0b45e91379b63015ce8a3ea56a8d4b1a928f4"
+uses = [
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
 reached_by = ["#114"]
 
 [[module."fluid_component_collection.rs".function]]
@@ -636,6 +1368,10 @@ lines = [
 ]
 hash = "sha256:310e40d2514bcf1b0e6b1cb342de55790b88184c71e77233a5ca51de75621b62"
 doc_hash = "sha256:91ba49ef9e02f6d6c95bd2db894668a26675658903ce5d484e17a6fb499cf03d"
+uses = [
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
 
 [[module."fluid_component_collection.rs".function]]
 id = "fn:095d1a53671f873a"
@@ -647,6 +1383,10 @@ lines = [
 ]
 hash = "sha256:aba66f373fb6f8512b21724586858237d09445f6be8b963665116756860fd238"
 doc_hash = "sha256:bbe5acef07e50ca00e8f48bf79c2d9a2061b654e869aa2345ec771ee82cbf9a7"
+uses = [
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
 
 [[module."fluid_component_collection.rs".function]]
 id = "fn:9de3dae251630b16"
@@ -658,6 +1398,10 @@ lines = [
 ]
 hash = "sha256:1eda5f90e39a8967feb6e0ebdf7cd10ee293feba43cac81335aa17e273f0f60d"
 doc_hash = "sha256:bf624d3743a02987a7c33c12ee549c3d2d0840de06e38a0e05e7acdeba9c83c3"
+uses = [
+    "fn:540617e338f429d7",
+    "fn:ebf3ac43832118cf",
+]
 
 [[module."fluid_component_collection.rs".function]]
 id = "fn:16be29ab04796389"
@@ -670,6 +1414,11 @@ lines = [
 hash = "sha256:7a2e938f32f3784318f45cb9e2a83e90e69f8fa6435f6c66f774b5a75ab8000f"
 doc_hash = "sha256:dfa8ea427a0589e08fab9ddafc3b4d090fda66d64deba3526e493cdf22f04d0d"
 callees = ["fn:758bc5578ccfb600"]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
 
 [[module."fluid_component_collection.rs".function]]
 id = "fn:02b39f8cf70a6cf6"
@@ -681,6 +1430,10 @@ lines = [
 ]
 hash = "sha256:0d89d2fae15aca582548f3a9cbab48c9abfeea553834ed3eb1ad23d6f3082e12"
 doc_hash = "sha256:60569e14bcb84c1994e00efbd41180af1b85971030b012f03cde693c86ca0769"
+uses = [
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
 
 [[module."fluid_component_collection.rs".function]]
 id = "fn:e79236623dec9507"
@@ -692,6 +1445,10 @@ lines = [
 ]
 hash = "sha256:290b3658a1bc9290668a3037b956a9650d185bfebb2da6dffd03a2422ee2f164"
 doc_hash = "sha256:2391bc5f13094cf78e46b5d0b74f2a5baf65c5c3c3bb79a65128e98686b561ea"
+uses = [
+    "fn:e50c45d0f7cecaac",
+    "fn:ebf3ac43832118cf",
+]
 reached_by = [
     "#0",
     "#4",
@@ -816,6 +1573,10 @@ lines = [
 ]
 hash = "sha256:ab15b2ef44584169727e56d9ea472e407c09197dfe108392feeb3e7b088e7755"
 doc_hash = "sha256:d788ed486393d5f421b113b6819a377398957fa11396a5da1920cbce116e795b"
+uses = [
+    "fn:e50c45d0f7cecaac",
+    "fn:ebf3ac43832118cf",
+]
 
 [[module."fluid_component_collection.rs".function]]
 id = "fn:b0e511daa3d4c3ae"
@@ -827,6 +1588,11 @@ lines = [
 ]
 hash = "sha256:186ebb09e50f3c8f7b3dfc89e94b9c4ff7a9e67f94ba210c96aa8a1e061a0b38"
 doc_hash = "sha256:42c50beffd83467d75717deae79d42a70e206bbc0a4c05680e945b36140c9d10"
+uses = [
+    "fn:540617e338f429d7",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
 
 [[module."fluid_component_collection.rs".function]]
 id = "fn:93844cc452449d04"
@@ -838,6 +1604,10 @@ lines = [
 ]
 hash = "sha256:870505affdc479cacc8508822598493ac3f429900b985e5d1a7344c83b0a9f85"
 doc_hash = "sha256:a5bac0bbf72d83927a7df70dd07e7f50c5b1e185ce40c44de43d4e9d602d52a3"
+uses = [
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
 reached_by = [
     "#0",
     "#4",
@@ -962,6 +1732,10 @@ lines = [
 ]
 hash = "sha256:5019a497cf19b3bfdd3eada9a6c1897aac5576d0db31deb7da9a98717b95fc44"
 doc_hash = "sha256:d8cdbc2fed380e6145def05d74e3ec2c2a085f2d06d0ebb24c200db7a33ec033"
+uses = [
+    "fn:540617e338f429d7",
+    "fn:ebf3ac43832118cf",
+]
 
 [[module."fluid_component_collection.rs".function]]
 id = "fn:288f9cb36b686daf"
@@ -973,6 +1747,12 @@ lines = [
 ]
 hash = "sha256:919fa3afdb60238f2b956dfcca69dff94744019881058d72e2cc8340473ac3b2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:5bcbbf392051e369",
+    "fn:d8ab1798294e590a",
+    "fn:e50c45d0f7cecaac",
+    "fn:ebf3ac43832118cf",
+]
 reached_by = [
     "#1",
     "#2",
@@ -998,6 +1778,12 @@ lines = [
 ]
 hash = "sha256:94106245b1ae4a8ce4c9f184551071e755cc4213de3dd7f67f6d46df328593c8"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:5bcbbf392051e369",
+    "fn:d8ab1798294e590a",
+    "fn:e50c45d0f7cecaac",
+    "fn:ebf3ac43832118cf",
+]
 reached_by = [
     "#0",
     "#1",
@@ -1107,6 +1893,37 @@ reached_by = [
 physical_interface = true
 
 [[module."fluid_component_collection.rs".function]]
+id = "fn:f340400526996cc5"
+name = "FluidComponentCollectionMethods"
+qual = "FluidComponentCollectionMethods"
+item = "type"
+shape = "trait"
+lines = [
+    249,
+    305,
+]
+hash = "sha256:e9b0890a95321bd41644ca1bd3f446f89d205308e6108fc6c8e3506ed39ca1bc"
+doc_hash = "sha256:daf398c43b81fa1e091c3137c7f9b95ec90eef79cb6d1de7ed96313a8ec0c7e1"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#13",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#99",
+]
+physical_interface = true
+
+[[module."fluid_component_collection.rs".function]]
 id = "fn:34acf80dc49e3928"
 name = "get_pressure_loss"
 qual = "FluidComponentCollectionMethods::get_pressure_loss"
@@ -1116,6 +1933,7 @@ lines = [
 ]
 hash = "sha256:60abfde31ea43ad83e8cfb9b3ae3a43e53a971b3654b1d311cdfceff09757209"
 doc_hash = "sha256:5c85ae9fb5d4c8a06e60cc316936ff1c09921bc44c4f73d9ea3b94174466d1b0"
+uses = ["fn:f340400526996cc5"]
 physical_interface = true
 
 [[module."fluid_component_collection.rs".function]]
@@ -1128,6 +1946,7 @@ lines = [
 ]
 hash = "sha256:e8dd0569ca042c726175a9498f487ea727b12648350f866accbad5d191f4a12b"
 doc_hash = "sha256:bfc9fda845ae41a3d5a10b2e44b6d3b19e72b0ab9561d7bf493a97acc50cdec2"
+uses = ["fn:f340400526996cc5"]
 physical_interface = true
 
 [[module."fluid_component_collection.rs".function]]
@@ -1140,6 +1959,7 @@ lines = [
 ]
 hash = "sha256:f045020fb298a8d79a16618e9a4a9d53f3cec4cd82c7ce66a064f9732a1edf8c"
 doc_hash = "sha256:1eaa2f41ef6f5cd735804dd399f71643bd686f848e5c04e3451b96b962713196"
+uses = ["fn:f340400526996cc5"]
 physical_interface = true
 
 [[module."fluid_component_collection.rs".function]]
@@ -1152,10 +1972,132 @@ lines = [
 ]
 hash = "sha256:db09c3ebe7adc96a4aba6aa8639d92cfba7cd2723f8120a8524337c2263f706f"
 doc_hash = "sha256:ee0223b7948c66cd33f970b4384f085dcb039efccf0ca83ccea26bd35f1e8d48"
+uses = ["fn:f340400526996cc5"]
 physical_interface = true
 
 [module."fluid_component_super_collection.rs"]
 path = "crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection"
+
+[[module."fluid_component_super_collection.rs".function]]
+id = "fn:ca62ba45b75e81ac"
+name = "FluidComponentSuperCollection"
+qual = "FluidComponentSuperCollection"
+item = "type"
+shape = "struct"
+lines = [
+    53,
+    62,
+]
+hash = "sha256:7bfa8bcd895da29655077a1842d93771e43133e2c78e3b829a75d392e2b9503b"
+doc_hash = "sha256:5da2a1fa38e7fd38528630f207c71d9b915ce5f8043c771d0fcaf4d09da41ed4"
+uses = [
+    "fn:e50c45d0f7cecaac",
+    "fn:ebf3ac43832118cf",
+]
+reached_by = [
+    "#0",
+    "#3",
+    "#6",
+    "#7",
+    "#10",
+    "#12",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+]
 
 [[module."fluid_component_super_collection.rs".function]]
 id = "fn:cea03dd5d2c74e29"
@@ -1167,6 +2109,10 @@ lines = [
 ]
 hash = "sha256:e273c488425f8c308040f54cc6cd9b2ef980ff76785b371fd587dced87faeefd"
 doc_hash = "sha256:f6287ddb80c5e20d4f67942fb96773e8de26c98b2d0e60804c56027447c6d724"
+uses = [
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
 reached_by = ["#114"]
 
 [[module."fluid_component_super_collection.rs".function]]
@@ -1179,6 +2125,10 @@ lines = [
 ]
 hash = "sha256:3f6e891952e304f0accb243784e742b2ea0cf2bc3bf24c2160f5b46d08d08413"
 doc_hash = "sha256:acaf34e55029b5b9e58c180dcd6cc3bde3d67a55da65cd0a2712d56caae95d72"
+uses = [
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
 reached_by = ["#3"]
 
 [[module."fluid_component_super_collection.rs".function]]
@@ -1192,6 +2142,10 @@ lines = [
 hash = "sha256:d8d4f2536102d513c2df54f5fdd45412db58905e56c41325aefe331cdd950c0a"
 doc_hash = "sha256:082a0c7083fbf5f843849fcb90948151d4388764587ee9659c04f78dc4236be7"
 callees = ["fn:b75ea3b819726281"]
+uses = [
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
 
 [[module."fluid_component_super_collection.rs".function]]
 id = "fn:03d3b56d0d4f0d1d"
@@ -1204,6 +2158,10 @@ lines = [
 hash = "sha256:265f70b78895ada11f6953d7c0d2c9367b3bc48e24528e793f9741bae9ba0044"
 doc_hash = "sha256:4a34a4497937e285b3391dd329425a8af3a34d0594b76e46a7c1ae07f126fae4"
 callees = ["fn:b75ea3b819726281"]
+uses = [
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
 
 [[module."fluid_component_super_collection.rs".function]]
 id = "fn:a1740b634af4e9ce"
@@ -1216,6 +2174,10 @@ lines = [
 hash = "sha256:4c18a2199fd15328c00ffcd2ba951e92e57332a7b899b61f0bb32a1bdbda9eb2"
 doc_hash = "sha256:b120870f049a55c62a9116a94784837a3ba8b2c55573aa599fab7e0614f27da7"
 callees = ["fn:cea03dd5d2c74e29"]
+uses = [
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
 
 [[module."fluid_component_super_collection.rs".function]]
 id = "fn:96169f6920873fbe"
@@ -1228,6 +2190,10 @@ lines = [
 hash = "sha256:166ac2c782fc82ecddb9b985b5cda66d43f74ff9130e7f18a4e12ac0f15b876f"
 doc_hash = "sha256:1b40ed3bd05a18c521b2e06ba5cd017fb86488fba0c475ddfb2d91362c5263ef"
 callees = ["fn:b75ea3b819726281"]
+uses = [
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
 
 [[module."fluid_component_super_collection.rs".function]]
 id = "fn:621c2efa25ec1113"
@@ -1239,6 +2205,10 @@ lines = [
 ]
 hash = "sha256:885d64679045d5e7ca84362583df8bb6e001f5ef367947a7243761636d640401"
 doc_hash = "sha256:e65b251db009bf2656e3434a5441d9a898330b4d053ca76f5d31c1e45beb5226"
+uses = [
+    "fn:ca62ba45b75e81ac",
+    "fn:e50c45d0f7cecaac",
+]
 
 [[module."fluid_component_super_collection.rs".function]]
 id = "fn:89b98b3aca1482a0"
@@ -1250,6 +2220,10 @@ lines = [
 ]
 hash = "sha256:616f3b42798592cb694e83c28ce33bf0a7b084970b0a9d8e2ccf64a240eed6b9"
 doc_hash = "sha256:94d808ccc19d3190c9b03343a6198cb07c6ba858e601896b41ef3380d581bff2"
+uses = [
+    "fn:ca62ba45b75e81ac",
+    "fn:e50c45d0f7cecaac",
+]
 reached_by = [
     "#0",
     "#3",
@@ -1366,6 +2340,10 @@ lines = [
 hash = "sha256:c2e782d8d490ae8fadb6c8410c75999cc41e26e3f8514628a2e05acac91f1ae4"
 doc_hash = "sha256:009d6439369776ca37951494ecca4064a0dc47486a5c956b041ad79da33f5321"
 callees = ["fn:b96c71a8e07cc6c4"]
+uses = [
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
 reached_by = [
     "#0",
     "#6",
@@ -1480,6 +2458,10 @@ lines = [
 ]
 hash = "sha256:34408f9b9882d1597e29013382fd3bd6cef1ca8ffeee17b81adb5a4cfdae10f0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:ca62ba45b75e81ac",
+    "fn:e50c45d0f7cecaac",
+]
 reached_by = [
     "#0",
     "#3",
@@ -1595,6 +2577,12 @@ lines = [
 ]
 hash = "sha256:8deeac65c60905e15f1e24141b48c3dc54e2f02d14331d9a5b192a95908b2ac7"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:535f2f1e7a49d36f",
+    "fn:c077ceedfafe83f6",
+    "fn:ca62ba45b75e81ac",
+    "fn:e50c45d0f7cecaac",
+]
 reached_by = [
     "#0",
     "#3",
@@ -1707,6 +2695,12 @@ lines = [
 ]
 hash = "sha256:6f8b89800cc50cde71e9f8d14210572941fbab52f705b6b259c788de31d19321"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:535f2f1e7a49d36f",
+    "fn:c077ceedfafe83f6",
+    "fn:ca62ba45b75e81ac",
+    "fn:e50c45d0f7cecaac",
+]
 reached_by = ["#3"]
 physical_interface = true
 
@@ -1715,6 +2709,121 @@ path = "crate::array_fluid_collections::fluid_component_collection"
 
 [module."super_collection_series_and_parallel_functions.rs"]
 path = "crate::array_fluid_collections::fluid_component_collection::super_collection_series_and_parallel_functions"
+
+[[module."super_collection_series_and_parallel_functions.rs".function]]
+id = "fn:535f2f1e7a49d36f"
+name = "FluidComponentSuperCollectionSeriesAssociatedFunctions"
+qual = "FluidComponentSuperCollectionSeriesAssociatedFunctions"
+item = "type"
+shape = "trait"
+lines = [
+    61,
+    602,
+]
+hash = "sha256:ec0806d298d4ef12f215ff6731fc8547be3d397103a30976bc269eb72fbb250e"
+doc_hash = "sha256:f09c13097f674c0ecdb8820315611af5fff181e06391ddba8165948d4d6397b8"
+uses = ["fn:ebf3ac43832118cf"]
+reached_by = [
+    "#0",
+    "#3",
+    "#10",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+]
+physical_interface = true
 
 [[module."super_collection_series_and_parallel_functions.rs".function]]
 id = "fn:9229c4c7665c5ea8"
@@ -1727,6 +2836,10 @@ lines = [
 hash = "sha256:6509461c42ffa8c15567f3f7582a88b555226e0bf7839886e9e418a886153b7c"
 doc_hash = "sha256:ac3438b26553ea957c8d147e11d34d3fc8451247b183fbc62075720220bfedc9"
 callees = ["fn:288f9cb36b686daf"]
+uses = [
+    "fn:535f2f1e7a49d36f",
+    "fn:ebf3ac43832118cf",
+]
 physical_interface = true
 
 [[module."super_collection_series_and_parallel_functions.rs".function]]
@@ -1737,8 +2850,128 @@ lines = [
     114,
     601,
 ]
-hash = "sha256:3a971ba6f24a29864b20cb7d6995f3d139cf3378a0c35cbd52c9844e52aec185"
+hash = "sha256:dfc5bd638ccba98899f28474b0c2145097f9cf623e65f23886fb336c1ede160f"
 doc_hash = "sha256:6e01c2c554866a641604d38b874b96864c514210fedf5ba1347c38620f957f66"
+uses = [
+    "fn:535f2f1e7a49d36f",
+    "fn:ebf3ac43832118cf",
+]
+physical_interface = true
+
+[[module."super_collection_series_and_parallel_functions.rs".function]]
+id = "fn:c077ceedfafe83f6"
+name = "FluidComponentSuperCollectionParallelAssociatedFunctions"
+qual = "FluidComponentSuperCollectionParallelAssociatedFunctions"
+item = "type"
+shape = "trait"
+lines = [
+    604,
+    1362,
+]
+hash = "sha256:410bbe86c762f545b5a0f4f944f84f155368a856151522f37f09f7b18c2f6423"
+doc_hash = "sha256:24266ebff5cd46e5242673155c8a858dffd26ab70222f8ee978347e2aa3b39e1"
+uses = ["fn:ebf3ac43832118cf"]
+reached_by = [
+    "#0",
+    "#3",
+    "#10",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+]
 physical_interface = true
 
 [[module."super_collection_series_and_parallel_functions.rs".function]]
@@ -1752,6 +2985,10 @@ lines = [
 hash = "sha256:899be3b037405b5a67a327c33e836f896a69551d34bac859e1fdccd1366724d7"
 doc_hash = "sha256:fed086ae12c2abc3eeba5ceefcdbe1c05a093351cfb708cef74b9e72d7e59525"
 callees = ["fn:b96c71a8e07cc6c4"]
+uses = [
+    "fn:c077ceedfafe83f6",
+    "fn:ebf3ac43832118cf",
+]
 physical_interface = true
 
 [[module."super_collection_series_and_parallel_functions.rs".function]]
@@ -1764,6 +3001,10 @@ lines = [
 ]
 hash = "sha256:00ebd250bb47d01fed9ac68ab28d0caa9b4118a725246b646c4add3ce1bd642e"
 doc_hash = "sha256:e80d12cc01830d6d8e94392b4321bbce3d65ca0d5d51d72cb95fb423c5807016"
+uses = [
+    "fn:c077ceedfafe83f6",
+    "fn:ebf3ac43832118cf",
+]
 physical_interface = true
 
 [[module."super_collection_series_and_parallel_functions.rs".function]]
@@ -1777,6 +3018,10 @@ lines = [
 hash = "sha256:33140eae1f00db7f403c21a89bc7a438bc3e064ac8807c46185d8ff78684f919"
 doc_hash = "sha256:0b9f9033ce5f9e67ec2d46d9784d90a07d8732bd8db12f9e0acb6c2929bf3e66"
 callees = ["fn:288f9cb36b686daf"]
+uses = [
+    "fn:c077ceedfafe83f6",
+    "fn:ebf3ac43832118cf",
+]
 physical_interface = true
 
 [[module."super_collection_series_and_parallel_functions.rs".function]]
@@ -1789,6 +3034,10 @@ lines = [
 ]
 hash = "sha256:fe34ca52359382b3d5fb82d57be94fb51a357ffd8efc94d980ff3867fbe0e3b6"
 doc_hash = "sha256:60d3b61f6f86fa0bca9fe494d9b3926beca6fecffae54c3254a201ff066f1e80"
+uses = [
+    "fn:c077ceedfafe83f6",
+    "fn:ebf3ac43832118cf",
+]
 physical_interface = true
 
 [[module."super_collection_series_and_parallel_functions.rs".function]]
@@ -1801,6 +3050,10 @@ lines = [
 ]
 hash = "sha256:5f3cd4b2e8d0f42b83c8ae0f3126e89ed676948cbec1238b8696645f589109ac"
 doc_hash = "sha256:b70ce41aeba37853aab4021b1a50c03bcfa4986138b42918e7e1440fa0408135"
+uses = [
+    "fn:c077ceedfafe83f6",
+    "fn:ebf3ac43832118cf",
+]
 physical_interface = true
 
 [[module."super_collection_series_and_parallel_functions.rs".function]]
@@ -1814,6 +3067,10 @@ lines = [
 hash = "sha256:8274e7f72fe162f94965e688b8db1bd75e002e529c0c614749e68a69e3af136b"
 doc_hash = "sha256:ca4663dfbb1fdd194ebc4b2579394edb8b239fe4461a4ea0e7079e3c3bbb42f8"
 callees = ["fn:288f9cb36b686daf"]
+uses = [
+    "fn:c077ceedfafe83f6",
+    "fn:ebf3ac43832118cf",
+]
 physical_interface = true
 
 [[module."super_collection_series_and_parallel_functions.rs".function]]
@@ -1826,6 +3083,10 @@ lines = [
 ]
 hash = "sha256:c88175c9616831df8f606ce103b2fb0ae4e37c6904175b8a7e7163f56f59551f"
 doc_hash = "sha256:9b932083a394d0125195cb8d33496d15a4f7208104d306388567aee1c3e856b8"
+uses = [
+    "fn:c077ceedfafe83f6",
+    "fn:ebf3ac43832118cf",
+]
 physical_interface = true
 
 [[module."super_collection_series_and_parallel_functions.rs".function]]
@@ -1838,6 +3099,7 @@ lines = [
 ]
 hash = "sha256:62945402867b299693ba5e52265f4f2950e2b19cd2b83ae3c321464c1dd8bc85"
 doc_hash = "sha256:5ee23e138e24ee24550e439b06c9bdaa44cbd067b878e2876ad3b069b6cd9923"
+uses = ["fn:c077ceedfafe83f6"]
 physical_interface = true
 
 [[module."super_collection_series_and_parallel_functions.rs".function]]
@@ -1850,6 +3112,7 @@ lines = [
 ]
 hash = "sha256:fc92b3e073d53e943c759605dc485f72ead23439d7fdcf2bb67777453ff1eaa2"
 doc_hash = "sha256:99c82c2f4d3cf89563b4c8226e0de3a9ff063bf6a978291533c87d4b38e66344"
+uses = ["fn:c077ceedfafe83f6"]
 physical_interface = true
 
 [[module."super_collection_series_and_parallel_functions.rs".function]]
@@ -1862,4 +3125,5 @@ lines = [
 ]
 hash = "sha256:93db61e0cddacea01e5fad2861116a64103b630361be0c38fdf82bad75755a05"
 doc_hash = "sha256:c099840b39d4433773a70dc809e0b8f4e057bb7af098303706bbe0190fd34ee1"
+uses = ["fn:c077ceedfafe83f6"]
 physical_interface = true

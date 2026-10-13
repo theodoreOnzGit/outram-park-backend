@@ -13,6 +13,20 @@ test_ids = [
 path = "crate::genfoam::thermal_hydraulics::solver"
 
 [[module."mod.rs".function]]
+id = "fn:f895ddbb50273cad"
+name = "ThermalHydraulicsSolver"
+qual = "ThermalHydraulicsSolver"
+item = "type"
+shape = "enum"
+lines = [
+    57,
+    68,
+]
+hash = "sha256:3fc60baff85a8dca6f5976633dc6b3767f825fc70fc0cf347be96b4165c8f867"
+doc_hash = "sha256:e7a83c284f8fe70648278903ddb571a142af580ec0cfca03866aa6d6701427e6"
+uses = ["fn:48cc4d4081fe3e66"]
+
+[[module."mod.rs".function]]
 id = "fn:b2ab9823e66b4760"
 name = "step"
 qual = "ThermalHydraulicsSolver::step"
@@ -23,9 +37,38 @@ lines = [
 hash = "sha256:829917b3f66fc06eee505edb3f4c20614e4b9fe9dacc61059422f3848688ab64"
 doc_hash = "sha256:aec9faaffc895fae3a640f4da3ed2aa6bdb0b29964065d60ab67b70683636e81"
 callees = ["fn:8f7786b49a0a8d42"]
+uses = [
+    "fn:35e5ba76ac9ceafb",
+    "fn:f895ddbb50273cad",
+]
 
 [module."one_phase.rs"]
 path = "crate::genfoam::thermal_hydraulics::solver::one_phase"
+
+[[module."one_phase.rs".function]]
+id = "fn:48cc4d4081fe3e66"
+name = "OnePhaseSolver"
+qual = "OnePhaseSolver"
+item = "type"
+shape = "struct"
+lines = [
+    69,
+    117,
+]
+hash = "sha256:e234685ccef32ac36a8302b1ecdaaea797f732d2e51946d4a3f5ec3ab2229aee"
+doc_hash = "sha256:765162d75c422703e974935bd2a98d18ab9312f7fcebbf9d369e40a83a8f78b3"
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:4ace30a7e775c624",
+    "fn:7aa70dd1c009cc88",
+    "fn:901bae8c64d6cc22",
+    "fn:ef05859ef19acee7",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+]
 
 [[module."one_phase.rs".function]]
 id = "fn:cb9de336d58212d4"
@@ -40,6 +83,14 @@ doc_hash = "sha256:0452916fd7ad2d8e0f55b2200c1b12ae730c10bb00cf8debb45bb35e5df50
 callees = [
     "fn:636e75b664f14254",
     "fn:d6a9c884aaeb7775",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:48cc4d4081fe3e66",
+    "fn:4ace30a7e775c624",
+    "fn:7aa70dd1c009cc88",
+    "fn:901bae8c64d6cc22",
+    "fn:ef05859ef19acee7",
 ]
 reached_by = [
     "#1",
@@ -57,6 +108,10 @@ lines = [
 ]
 hash = "sha256:9177eba2bafd4635216b811dd9cb4cf0b1dbdf93a40b06ccc5ad1b5a32c4847c"
 doc_hash = "sha256:9d5f9d167ec733adf922dd583df9f36d68389bae9c523a00d33e82f2e89b0081"
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:48cc4d4081fe3e66",
+]
 
 [[module."one_phase.rs".function]]
 id = "fn:4f266dadb51c7724"
@@ -72,6 +127,10 @@ callees = [
     "fn:6d45af0d518e142d",
     "fn:96b5c3d947f087e5",
     "fn:d6a9c884aaeb7775",
+]
+uses = [
+    "fn:48cc4d4081fe3e66",
+    "fn:7aa70dd1c009cc88",
 ]
 reached_by = [
     "#1",
@@ -92,6 +151,10 @@ doc_hash = "sha256:65d2d39889514686d073c8fe989ce4a7215fa97073c89e6bbdf257ce4e30c
 callees = [
     "fn:25866f90797097b3",
     "fn:7bf1fa3f9416f466",
+]
+uses = [
+    "fn:35e5ba76ac9ceafb",
+    "fn:48cc4d4081fe3e66",
 ]
 reached_by = [
     "#1",
@@ -148,6 +211,16 @@ callees = [
     "fn:fb7ba145dba6413c",
     "fn:feb8a10aaf77ed2a",
 ]
+uses = [
+    "fn:35e5ba76ac9ceafb",
+    "fn:48cc4d4081fe3e66",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+    "fn:f354cdd32c8e9ebe",
+]
 reached_by = [
     "#1",
     "#3",
@@ -179,6 +252,12 @@ callees = [
     "fn:d6a9c884aaeb7775",
     "fn:feb8a10aaf77ed2a",
 ]
+uses = [
+    "fn:35e5ba76ac9ceafb",
+    "fn:48cc4d4081fe3e66",
+    "fn:7aa70dd1c009cc88",
+    "fn:f354cdd32c8e9ebe",
+]
 reached_by = [
     "#1",
     "#2",
@@ -201,6 +280,10 @@ callees = [
     "fn:d6a9c884aaeb7775",
     "fn:feb8a10aaf77ed2a",
 ]
+uses = [
+    "fn:48cc4d4081fe3e66",
+    "fn:7aa70dd1c009cc88",
+]
 reached_by = [
     "#1",
     "#2",
@@ -209,6 +292,29 @@ reached_by = [
 
 [module."porous_drag.rs"]
 path = "crate::genfoam::thermal_hydraulics::solver::porous_drag"
+
+[[module."porous_drag.rs".function]]
+id = "fn:4ace30a7e775c624"
+name = "PorousDrag"
+qual = "PorousDrag"
+item = "type"
+shape = "struct"
+lines = [
+    58,
+    77,
+]
+hash = "sha256:836ce69cd688c921c15e4769b164fe0d90711828ccad95d57a0bb1176b603ad6"
+doc_hash = "sha256:9a5a4c155544c02d6d8ee37247b5a5e78e81a30f280c834bef6450445c188300"
+uses = [
+    "fn:d45bd48797fb1b2f",
+    "fn:f27df7ac7f947e64",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
 
 [[module."porous_drag.rs".function]]
 id = "fn:13b19fe5f8245990"
@@ -221,6 +327,10 @@ lines = [
 hash = "sha256:e3613dc75db3ef60954035d33130fa95aa3fb5c245a13df0facd110cd825880e"
 doc_hash = "sha256:1957b990c0bd4b2cbc4a3cc59b13d8751a2e53386d5384844e6e0d2bd4a7d960"
 callees = ["fn:983b1442c904d828"]
+uses = [
+    "fn:4ace30a7e775c624",
+    "fn:f27df7ac7f947e64",
+]
 reached_by = [
     "#0",
     "#1",
@@ -238,6 +348,7 @@ lines = [
 ]
 hash = "sha256:e57df5b923804b44bbfbdcf6a904eb52a86993ceb8f134c3d7e716e112ff18a8"
 doc_hash = "sha256:87cc2fd7010e0f9e5abb06e3ad7b76873baf8b8e3eb32b10f05e588e94d0a07a"
+uses = ["fn:4ace30a7e775c624"]
 
 [[module."porous_drag.rs".function]]
 id = "fn:adb2c3d406d2bef3"
@@ -259,6 +370,11 @@ callees = [
     "fn:d3aa2431c05b0482",
     "fn:d6a9c884aaeb7775",
     "fn:feb8a10aaf77ed2a",
+]
+uses = [
+    "fn:4ace30a7e775c624",
+    "fn:7aa70dd1c009cc88",
+    "fn:901bae8c64d6cc22",
 ]
 reached_by = [
     "#0",
@@ -291,6 +407,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."porous_drag.rs".function]]
@@ -313,6 +436,13 @@ callees = [
     "fn:96b5c3d947f087e5",
     "fn:9e501e5f4cce23ae",
     "fn:adb2c3d406d2bef3",
+]
+uses = [
+    "fn:1a2072e1006a548d",
+    "fn:4ace30a7e775c624",
+    "fn:901bae8c64d6cc22",
+    "fn:ef05859ef19acee7",
+    "fn:f27df7ac7f947e64",
 ]
 test = true
 
@@ -344,6 +474,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -357,6 +494,7 @@ lines = [
 hash = "sha256:39a0ebe0f6fb31789e2f5975488b8965be96d75070ce0f6a2f9cc886e43f21b0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:96b5c3d947f087e5"]
+uses = ["fn:7aa70dd1c009cc88"]
 test = true
 
 [[module."tests.rs".function]]
@@ -380,6 +518,14 @@ callees = [
     "fn:9e501e5f4cce23ae",
     "fn:af9f0fe7f648af4c",
     "fn:cb9de336d58212d4",
+]
+uses = [
+    "fn:1a2072e1006a548d",
+    "fn:48cc4d4081fe3e66",
+    "fn:4ace30a7e775c624",
+    "fn:901bae8c64d6cc22",
+    "fn:ef05859ef19acee7",
+    "fn:f27df7ac7f947e64",
 ]
 test = true
 
@@ -406,6 +552,14 @@ callees = [
     "fn:af9f0fe7f648af4c",
     "fn:cb9de336d58212d4",
 ]
+uses = [
+    "fn:1a2072e1006a548d",
+    "fn:48cc4d4081fe3e66",
+    "fn:4ace30a7e775c624",
+    "fn:901bae8c64d6cc22",
+    "fn:ef05859ef19acee7",
+    "fn:f27df7ac7f947e64",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -429,5 +583,12 @@ callees = [
     "fn:7bf1fa3f9416f466",
     "fn:af9f0fe7f648af4c",
     "fn:cb9de336d58212d4",
+]
+uses = [
+    "fn:1a2072e1006a548d",
+    "fn:48cc4d4081fe3e66",
+    "fn:4ace30a7e775c624",
+    "fn:901bae8c64d6cc22",
+    "fn:f27df7ac7f947e64",
 ]
 test = true

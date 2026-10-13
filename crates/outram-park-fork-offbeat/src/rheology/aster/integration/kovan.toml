@@ -7,6 +7,20 @@ dir = "crates/outram-park-fork-offbeat/src/rheology/aster/integration"
 path = "crate::rheology::aster::integration::tests"
 
 [[module."tests.rs".function]]
+id = "fn:34adbd691f9afb8c"
+name = "ROOT"
+qual = "ROOT"
+item = "const"
+shape = "const"
+lines = [
+    34,
+    39,
+]
+hash = "sha256:832775f263138ad1562729b39cc049f4874558145875703b539d5f6126d65a61"
+doc_hash = "sha256:e66b33bc42453efa002bc59bd25303d6ad94d5eff6728dc9fbffc99e49faddc0"
+test = true
+
+[[module."tests.rs".function]]
 id = "fn:a76a23127b650933"
 name = "f"
 qual = "f"
@@ -56,6 +70,7 @@ callees = [
     "fn:413537819b32e906",
     "fn:a76a23127b650933",
 ]
+uses = ["fn:34adbd691f9afb8c"]
 test = true
 
 [[module."tests.rs".function]]
@@ -69,6 +84,7 @@ lines = [
 hash = "sha256:8f7a855782ee87d98e2ff3306ba5f617b7fb57c71afcc34f90909273d1bd1d2f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:a76a23127b650933"]
+uses = ["fn:34adbd691f9afb8c"]
 test = true
 
 [[module."tests.rs".function]]
@@ -81,6 +97,7 @@ lines = [
 ]
 hash = "sha256:b328592a8ae2fc6f33b8bc7f601185eea61ce3982cbf22b49af68b92fa929c08"
 doc_hash = "sha256:37dcd799ddd19c10438d1a20ce740e72278d4cdddae5ca4476f4d2a82cd74044"
+uses = ["fn:34adbd691f9afb8c"]
 test = true
 
 [[module."tests.rs".function]]
@@ -147,6 +164,7 @@ callees = [
     "fn:a76a23127b650933",
     "fn:b21146e0ee985dee",
 ]
+uses = ["fn:bb0a408e79844e00"]
 test = true
 
 [[module."tests.rs".function]]
@@ -168,6 +186,10 @@ callees = [
     "fn:b21146e0ee985dee",
     "fn:ffd6df609af953d6",
 ]
+uses = [
+    "fn:34adbd691f9afb8c",
+    "fn:bb0a408e79844e00",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -185,6 +207,10 @@ callees = [
     "fn:09cffd1b75030c24",
     "fn:413537819b32e906",
     "fn:a76a23127b650933",
+]
+uses = [
+    "fn:34adbd691f9afb8c",
+    "fn:bb0a408e79844e00",
 ]
 test = true
 
@@ -204,6 +230,7 @@ callees = [
     "fn:413537819b32e906",
     "fn:a76a23127b650933",
 ]
+uses = ["fn:bb0a408e79844e00"]
 test = true
 
 [[module."tests.rs".function]]
@@ -220,6 +247,7 @@ callees = [
     "fn:0312554b5ee29a4b",
     "fn:09cffd1b75030c24",
 ]
+uses = ["fn:bb0a408e79844e00"]
 test = true
 
 [[module."tests.rs".function]]
@@ -239,6 +267,7 @@ callees = [
     "fn:413537819b32e906",
     "fn:a76a23127b650933",
 ]
+uses = ["fn:bb0a408e79844e00"]
 test = true
 
 [[module."tests.rs".function]]
@@ -255,6 +284,7 @@ callees = [
     "fn:0312554b5ee29a4b",
     "fn:09cffd1b75030c24",
 ]
+uses = ["fn:bb0a408e79844e00"]
 test = true
 
 [[module."tests.rs".function]]
@@ -271,6 +301,10 @@ callees = [
     "fn:0108dd6ed67cbf4c",
     "fn:413537819b32e906",
     "fn:a76a23127b650933",
+]
+uses = [
+    "fn:a3d963a4f0e4783d",
+    "fn:bb0a408e79844e00",
 ]
 test = true
 
@@ -305,4 +339,5 @@ callees = [
     "fn:5f5f83f888eb8c28",
     "fn:bf579d2db9701507",
 ]
+uses = ["fn:c2d2dfdbfa50e29f"]
 test = true

@@ -47,6 +47,55 @@ lines = [
 hash = "sha256:15ca23436aec8e258d83d078a5bf661731bab4aceb8e55b4db9ac25254a09f89"
 doc_hash = "sha256:af275aab7ee91a9dd2fd6ea8bc18ade8a1f65199c298e206ac1789f448baf59d"
 callees = ["fn:1a305e2bab9fd539"]
+uses = ["fn:a70fc38a274a1899"]
+
+[[module."main.rs".function]]
+id = "fn:a70fc38a274a1899"
+name = "FHRSimulatorApp"
+qual = "FHRSimulatorApp"
+item = "type"
+shape = "struct"
+lines = [
+    106,
+    152,
+]
+hash = "sha256:2d1afd9c5cebb2d14bbf2b5591623174e2b1b3fac3e046fb4e2ea782ca26c2ce"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:0256baab788d6320",
+    "fn:5244d7529c279542",
+    "fn:5d225cbd74f7f43d",
+    "fn:8fa1d61f79295f85",
+    "fn:ef79e1598de007c9",
+    "fn:f32c12308e75fae8",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."main.rs".function]]
+id = "fn:8fa1d61f79295f85"
+name = "FHRState"
+qual = "FHRState"
+item = "type"
+shape = "struct"
+lines = [
+    154,
+    258,
+]
+hash = "sha256:bd680c338f8b1f36c48d9ac6d8f29b81d89c029084d39a4994a309a530d01fee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
 
 [[module."main.rs".function]]
 id = "fn:a3264904f4da2ab9"
@@ -58,6 +107,7 @@ lines = [
 ]
 hash = "sha256:a098133f16995f5c48da537ed8695d60adba3a9eb40df0016c3f82d0a510355a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:8fa1d61f79295f85"]
 reached_by = [
     "#0",
     "#1",
@@ -76,6 +126,7 @@ lines = [
 ]
 hash = "sha256:551a456b2e340eeaea38af79b9518e94939be7d4a650d20e79d38ccae759fd5e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:8fa1d61f79295f85"]
 physical_interface = true
 
 [[module."main.rs".function]]
@@ -95,6 +146,13 @@ callees = [
     "fn:c63f881c6e77c9a9",
     "fn:e823218dee1d7627",
 ]
+uses = [
+    "fn:5244d7529c279542",
+    "fn:5d225cbd74f7f43d",
+    "fn:8fa1d61f79295f85",
+    "fn:a70fc38a274a1899",
+    "fn:f32c12308e75fae8",
+]
 
 [[module."main.rs".function]]
 id = "fn:50405425c945732b"
@@ -111,6 +169,15 @@ callees = [
     "fn:9aa6a2ec87e1c839",
     "fn:a3264904f4da2ab9",
     "fn:c6a3c2940b75a583",
+]
+uses = [
+    "fn:0256baab788d6320",
+    "fn:5244d7529c279542",
+    "fn:5d225cbd74f7f43d",
+    "fn:8fa1d61f79295f85",
+    "fn:a70fc38a274a1899",
+    "fn:ef79e1598de007c9",
+    "fn:f32c12308e75fae8",
 ]
 reached_by = [
     "#0",

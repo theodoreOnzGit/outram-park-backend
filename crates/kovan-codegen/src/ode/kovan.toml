@@ -48,6 +48,10 @@ lines = [
 ]
 hash = "sha256:95ccb2de59eb534f7cf833a3af77a60dc428b0c248a12826e1e69d4b90dedba4"
 doc_hash = "sha256:c511e4b166aefd6bd1d5c3109cbeba00851d4f27e71be9a28ce0b608d16f396e"
+uses = [
+    "fn:1d0bbdacb12154cf",
+    "fn:c1f22eb1335777c5",
+]
 reached_by = [
     "#0",
     "#1",
@@ -142,6 +146,7 @@ lines = [
 hash = "sha256:c7816f99410eaa29dfffe54417904cd9338951715e1e08a27037aa6b19cd3eec"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:9815e895e3ce53dd"]
+uses = ["fn:c1f22eb1335777c5"]
 test = true
 
 [[module."mod.rs".function]]
@@ -155,4 +160,5 @@ lines = [
 hash = "sha256:77baccbe0f0746a0389a7d4baa0fa91ff4bab2a364a0b4d32de80e4dfcab53f8"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:9815e895e3ce53dd"]
+uses = ["fn:c1f22eb1335777c5"]
 test = true

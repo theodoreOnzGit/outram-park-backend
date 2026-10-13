@@ -27,6 +27,24 @@ test_ids = [
 path = "crate::genfoam::thermal_hydraulics::closures::phase_change::latent_heat"
 
 [[module."latent_heat.rs".function]]
+id = "fn:563272e211653d5c"
+name = "LatentHeatModel"
+qual = "LatentHeatModel"
+item = "type"
+shape = "enum"
+lines = [
+    48,
+    72,
+]
+hash = "sha256:5bb301aedb59e82c50a018b5461e4996a02489d3daa977183b9e72dd859ed6a6"
+doc_hash = "sha256:8fd237b2f11971ee7881276b1f781da96da0047eab06f90ca0aea1fe8e18a17b"
+reached_by = [
+    "#3",
+    "#5",
+    "#11",
+]
+
+[[module."latent_heat.rs".function]]
 id = "fn:9a1a954def278458"
 name = "latent_heat"
 qual = "LatentHeatModel::latent_heat"
@@ -39,6 +57,10 @@ doc_hash = "sha256:70966e5170b23689a3d5f02e887dc555d5a8c9860b2f9c837fe1364a05a35
 callees = [
     "fn:42b47a688358b9e7",
     "fn:c942075649708a4c",
+]
+uses = [
+    "fn:18d4ae271637391e",
+    "fn:563272e211653d5c",
 ]
 reached_by = [
     "#3",
@@ -83,6 +105,90 @@ reached_by = [
 path = "crate::genfoam::thermal_hydraulics::closures::phase_change"
 
 [[module."mod.rs".function]]
+id = "fn:18d4ae271637391e"
+name = "LatentHeat"
+qual = "LatentHeat"
+item = "type"
+shape = "alias"
+lines = [
+    87,
+    95,
+]
+hash = "sha256:871d8798d14f2399723fe830b739c3e878db94ac83edd5979daf09ff73f8a8fb"
+doc_hash = "sha256:407bc130c291bcbbbf4cf7b81073aa38819a218baa888ed45f013c8a00d10291"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:d684df62d8658f48"
+name = "InterfacialHeatFlux"
+qual = "InterfacialHeatFlux"
+item = "type"
+shape = "alias"
+lines = [
+    97,
+    108,
+]
+hash = "sha256:e1284c91c1f5eefe095ebf445af22948346127c0a5bedf4964e16a06b49e8da7"
+doc_hash = "sha256:c8ce28185ee32b16dee677b77e6020a2a245254984ea51b79e876bc3da02210b"
+reached_by = [
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4e3e0beedf3701a6"
+name = "PhaseChangeRate"
+qual = "PhaseChangeRate"
+item = "type"
+shape = "alias"
+lines = [
+    110,
+    118,
+]
+hash = "sha256:387c2ff4391487174eda7ef3709f67ca5e3b1179d363e0393bd94b20c588bc4b"
+doc_hash = "sha256:daf96f84dc27ec415e32a97e614604e36dd22e82a8509f87fd8c5047d9e27c08"
+uses = [
+    "fn:18d4ae271637391e",
+    "fn:d684df62d8658f48",
+]
+reached_by = [
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9f44ca4d6960864a"
+name = "SaturationPressureSlope"
+qual = "SaturationPressureSlope"
+item = "type"
+shape = "alias"
+lines = [
+    120,
+    124,
+]
+hash = "sha256:7a75f9e16f393e754af629698d4859a45dd8535bea39f7b65063f5edadcb9ef8"
+doc_hash = "sha256:02870fcb1284e466b2cbc868df2ee68ed4db4ad848c22c2c5582c69935d62953"
+reached_by = ["#2"]
+
+[[module."mod.rs".function]]
 id = "fn:ddea189f6a2a2409"
 name = "phase_change_rate"
 qual = "phase_change_rate"
@@ -92,6 +198,11 @@ lines = [
 ]
 hash = "sha256:ad8e780f5c56e15af15bc3d3765b006a3311e25d4ac11683f47eaebf8097182b"
 doc_hash = "sha256:cb6cf7143cef818053383b9c91c5662cc6ab2f082452bfa5133a8d838d710991"
+uses = [
+    "fn:18d4ae271637391e",
+    "fn:4e3e0beedf3701a6",
+    "fn:d684df62d8658f48",
+]
 reached_by = [
     "#4",
     "#10",
@@ -108,6 +219,7 @@ lines = [
 ]
 hash = "sha256:a9456a6962bc298608262f6d3ea23f82215de21a0db34619ec11fed3cf4ece41"
 doc_hash = "sha256:c61e35f3f15e319349455cfe0ce1db0e2beada2c781a4dfe6da93ee7f12ef782"
+uses = ["fn:4e3e0beedf3701a6"]
 reached_by = [
     "#4",
     "#6",
@@ -122,6 +234,27 @@ physical_interface = true
 path = "crate::genfoam::thermal_hydraulics::closures::phase_change::rate"
 
 [[module."rate.rs".function]]
+id = "fn:962cb8f112b08cbb"
+name = "PhaseChangeRateModel"
+qual = "PhaseChangeRateModel"
+item = "type"
+shape = "enum"
+lines = [
+    43,
+    92,
+]
+hash = "sha256:8ed1bec08e4a7267e1dc75af7ce3462eac951d6509dc6882b0a4ff8acf9a6369"
+doc_hash = "sha256:1ad533e64fde6d1a364ca7fa14055bf3b56c9e933cdc02cde180c9453daf0f69"
+uses = ["fn:4e3e0beedf3701a6"]
+reached_by = [
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."rate.rs".function]]
 id = "fn:52c8299b5ff9573a"
 name = "mass_transfer_rate"
 qual = "PhaseChangeRateModel::mass_transfer_rate"
@@ -134,6 +267,12 @@ doc_hash = "sha256:0b2811689e4287e86ce133f79a4e185dcbbbd69f5cd89c137bd169b97f935
 callees = [
     "fn:27b4a177a364075d",
     "fn:e62953a699acc3e1",
+]
+uses = [
+    "fn:18d4ae271637391e",
+    "fn:4e3e0beedf3701a6",
+    "fn:962cb8f112b08cbb",
+    "fn:d684df62d8658f48",
 ]
 reached_by = [
     "#4",
@@ -154,6 +293,7 @@ lines = [
 ]
 hash = "sha256:e3f1ad9eeb41e1a039f5199d84185a603c357d8f9cbbc8fb9d1e77f63ea76be1"
 doc_hash = "sha256:94861bea35bfbf971def8fe0f832ac9ee31dd9c7435086cb87ed6a4553f3bbf7"
+uses = ["fn:d684df62d8658f48"]
 reached_by = [
     "#4",
     "#6",
@@ -173,6 +313,7 @@ lines = [
 ]
 hash = "sha256:3008731495cbae86549229067c5502377b0b32767c41eaabdf74c2a903f2743e"
 doc_hash = "sha256:b581cefb26731d89b1dfdc9b14dbc6cd079f86e9077a85df6e32e8b5bff9b6ff"
+uses = ["fn:d684df62d8658f48"]
 reached_by = [
     "#4",
     "#6",
@@ -186,6 +327,30 @@ physical_interface = true
 path = "crate::genfoam::thermal_hydraulics::closures::phase_change::saturation"
 
 [[module."saturation.rs".function]]
+id = "fn:5abd248ff0dcd72e"
+name = "SaturationModel"
+qual = "SaturationModel"
+item = "type"
+shape = "enum"
+lines = [
+    40,
+    93,
+]
+hash = "sha256:eacbb03ee0adaff0d2dfdc53f876208d7022bba1ad84d0ddf544ac0a636709bb"
+doc_hash = "sha256:cbc7138931964f82511f875ce546548139b7da5e281cad5cc889c37baef1891d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+
+[[module."saturation.rs".function]]
 id = "fn:36bcb762a7a025c2"
 name = "t_sat"
 qual = "SaturationModel::t_sat"
@@ -196,6 +361,7 @@ lines = [
 hash = "sha256:81982268f1f6e83dba0c60f78c2ee3e5695b1464c80e5c154497aa425f491eb9"
 doc_hash = "sha256:961c3380fc773f22c8cb64d4837c25a5ec514b430bc1a0ad9789e4b325056934"
 callees = ["fn:3b60cccac01af5b3"]
+uses = ["fn:5abd248ff0dcd72e"]
 reached_by = [
     "#1",
     "#2",
@@ -218,6 +384,7 @@ lines = [
 hash = "sha256:08b93c1fd9875da79ef99d897aa00826163513bc294931c899d52ffd023d3f32"
 doc_hash = "sha256:97b18c449915ab4f0ee3dafe50431e5e119fca179c9cda505fce6b09614b8a50"
 callees = ["fn:fe6c14394c24fb4f"]
+uses = ["fn:5abd248ff0dcd72e"]
 reached_by = [
     "#0",
     "#1",
@@ -240,6 +407,7 @@ lines = [
 hash = "sha256:84528bd661a50b8f61e9e54a307547a9b9b4e1cbafe11a8229ae2fac1e5ea0e9"
 doc_hash = "sha256:a894f5a8735fdb8aa0e6e0d71a1f0a18b7e43145ebc2969044321919eab4a05e"
 callees = ["fn:fe6c14394c24fb4f"]
+uses = ["fn:5abd248ff0dcd72e"]
 reached_by = [
     "#0",
     "#2",
@@ -257,6 +425,10 @@ lines = [
 hash = "sha256:80290a0e0b2d8a3a7a7f56217da5992aa1be179f8ff692a4813367075060f6fa"
 doc_hash = "sha256:c980bb13b79a79fc85355438a0b0f13aaa3a0b59a346e40fd9e4d623defdddc2"
 callees = ["fn:d6dd7219aa23ba47"]
+uses = [
+    "fn:5abd248ff0dcd72e",
+    "fn:9f44ca4d6960864a",
+]
 reached_by = ["#2"]
 physical_interface = true
 
@@ -275,6 +447,7 @@ callees = [
     "fn:69385bc90a9d0df0",
     "fn:700df4ba01f7000a",
 ]
+uses = ["fn:5abd248ff0dcd72e"]
 reached_by = [
     "#1",
     "#2",
@@ -300,6 +473,7 @@ callees = [
     "fn:cfddab1374a58826",
     "fn:db51edad05f4e3ba",
 ]
+uses = ["fn:5abd248ff0dcd72e"]
 reached_by = [
     "#0",
     "#1",
@@ -325,7 +499,80 @@ callees = [
     "fn:5bd8155518acd275",
     "fn:f27dc64bd4f2cccd",
 ]
+uses = ["fn:5abd248ff0dcd72e"]
 reached_by = ["#2"]
+
+[[module."saturation.rs".function]]
+id = "fn:0ebf7ca1d9053f55"
+name = "WATER_A"
+qual = "WATER_A"
+item = "const"
+shape = "const"
+lines = [
+    177,
+    177,
+]
+hash = "sha256:9579fc3b1b90071c75167e3204956bb8a6074890823a558ae211d7064221bec2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+
+[[module."saturation.rs".function]]
+id = "fn:c83938607683a84b"
+name = "WATER_B"
+qual = "WATER_B"
+item = "const"
+shape = "const"
+lines = [
+    178,
+    178,
+]
+hash = "sha256:0f5699f8e33cbc6b28b512e97bea7b2f0c990b0fd47dc2ff0db0448627e260cf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+
+[[module."saturation.rs".function]]
+id = "fn:63d7f2769e4bdcd2"
+name = "WATER_C"
+qual = "WATER_C"
+item = "const"
+shape = "const"
+lines = [
+    179,
+    179,
+]
+hash = "sha256:a10f367183b22069c7247840df1a9557958b10dee84273a2b9b6fbc4efa71030"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
 
 [[module."saturation.rs".function]]
 id = "fn:cfddab1374a58826"
@@ -337,6 +584,11 @@ lines = [
 ]
 hash = "sha256:c18b48c29773bf25b29a45efd73164ce67a7741b8e733c8182569557fda2c62e"
 doc_hash = "sha256:d48cbd538c4f12e903b8d33542e753a155e96edfb2dc37b4cb763eedafa57a8d"
+uses = [
+    "fn:0ebf7ca1d9053f55",
+    "fn:63d7f2769e4bdcd2",
+    "fn:c83938607683a84b",
+]
 reached_by = [
     "#0",
     "#1",
@@ -357,6 +609,11 @@ lines = [
 ]
 hash = "sha256:7d2b081c04f904f6c8d06997d83f3aad67dbf055debb81c0549d9deb1bcc3a54"
 doc_hash = "sha256:d93576e6ca6a98881f5959bdf88c7e00321ad6cac7028bfd0b645ebba7c506e8"
+uses = [
+    "fn:0ebf7ca1d9053f55",
+    "fn:63d7f2769e4bdcd2",
+    "fn:c83938607683a84b",
+]
 reached_by = ["#2"]
 
 [[module."saturation.rs".function]]
@@ -369,6 +626,33 @@ lines = [
 ]
 hash = "sha256:57d4d492114e0c56d9097a155bf6002174763a82bde148cdc2702fa1d1415796"
 doc_hash = "sha256:fa0ad348095e6fb8f24944e267aab2ea37f0a15451126b36a32a9eeed27ae221"
+uses = [
+    "fn:0ebf7ca1d9053f55",
+    "fn:63d7f2769e4bdcd2",
+    "fn:c83938607683a84b",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+
+[[module."saturation.rs".function]]
+id = "fn:4b048bcf54bf9766"
+name = "WATER_TRACE_RV"
+qual = "WATER_TRACE_RV"
+item = "const"
+shape = "const"
+lines = [
+    204,
+    206,
+]
+hash = "sha256:cbdc8f716ec72d8a5924d59aea0d7a302c200b8b4837f28641df9eef62008787"
+doc_hash = "sha256:620e255895a5ca7993c7a8330603d8af76d408d144e5b74b32cd8733708351fb"
 reached_by = [
     "#1",
     "#2",
@@ -409,6 +693,7 @@ lines = [
 ]
 hash = "sha256:ab0cbcb08f71553dc94e21c6faa79751f30366d314f5890a42691f412a0405dd"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:4b048bcf54bf9766"]
 reached_by = ["#2"]
 
 [[module."saturation.rs".function]]
@@ -421,6 +706,7 @@ lines = [
 ]
 hash = "sha256:b13c0510123649abdd1f540009e1ee38abd8bb280af09c2ab7cee78e2f0e54b6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:4b048bcf54bf9766"]
 reached_by = [
     "#1",
     "#2",
@@ -544,6 +830,7 @@ lines = [
 ]
 hash = "sha256:edf1b96a02306836bee3a03ec6eb9aa6d5862b46e1e2f77a54b9f3ee92df31db"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:18d4ae271637391e"]
 test = true
 physical_interface = true
 
@@ -557,6 +844,7 @@ lines = [
 ]
 hash = "sha256:47da231a735c7c7891269bce1e1a7f09eb44098293089cf66425173c62378c6d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:d684df62d8658f48"]
 test = true
 physical_interface = true
 
@@ -578,6 +866,49 @@ callees = [
     "fn:8fca2a47f1208d9d",
     "fn:ce663635d5e5502a",
 ]
+uses = ["fn:5abd248ff0dcd72e"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1f4018b61a32688b"
+name = "WATER_A"
+qual = "WATER_A"
+item = "const"
+shape = "const"
+lines = [
+    144,
+    144,
+]
+hash = "sha256:9579fc3b1b90071c75167e3204956bb8a6074890823a558ae211d7064221bec2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:04a5bab94ff0c326"
+name = "WATER_B"
+qual = "WATER_B"
+item = "const"
+shape = "const"
+lines = [
+    145,
+    145,
+]
+hash = "sha256:0f5699f8e33cbc6b28b512e97bea7b2f0c990b0fd47dc2ff0db0448627e260cf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b83e2926f789ea15"
+name = "WATER_C"
+qual = "WATER_C"
+item = "const"
+shape = "const"
+lines = [
+    146,
+    146,
+]
+hash = "sha256:a10f367183b22069c7247840df1a9557958b10dee84273a2b9b6fbc4efa71030"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."tests.rs".function]]
@@ -594,6 +925,12 @@ callees = [
     "fn:2fff8ba84407f1a1",
     "fn:81d2a765055a73cf",
     "fn:8fca2a47f1208d9d",
+]
+uses = [
+    "fn:04a5bab94ff0c326",
+    "fn:1f4018b61a32688b",
+    "fn:5abd248ff0dcd72e",
+    "fn:b83e2926f789ea15",
 ]
 test = true
 
@@ -613,6 +950,7 @@ callees = [
     "fn:81d2a765055a73cf",
     "fn:8fca2a47f1208d9d",
 ]
+uses = ["fn:5abd248ff0dcd72e"]
 test = true
 
 [[module."tests.rs".function]]
@@ -629,6 +967,7 @@ callees = [
     "fn:2fff8ba84407f1a1",
     "fn:36bcb762a7a025c2",
 ]
+uses = ["fn:5abd248ff0dcd72e"]
 test = true
 
 [[module."tests.rs".function]]
@@ -645,6 +984,7 @@ callees = [
     "fn:2fff8ba84407f1a1",
     "fn:36bcb762a7a025c2",
 ]
+uses = ["fn:5abd248ff0dcd72e"]
 test = true
 
 [[module."tests.rs".function]]
@@ -662,6 +1002,7 @@ callees = [
     "fn:36bcb762a7a025c2",
     "fn:8fca2a47f1208d9d",
 ]
+uses = ["fn:5abd248ff0dcd72e"]
 test = true
 
 [[module."tests.rs".function]]
@@ -680,6 +1021,7 @@ callees = [
     "fn:81d2a765055a73cf",
     "fn:8fca2a47f1208d9d",
 ]
+uses = ["fn:5abd248ff0dcd72e"]
 test = true
 
 [[module."tests.rs".function]]
@@ -698,6 +1040,7 @@ callees = [
     "fn:8fca2a47f1208d9d",
     "fn:ce663635d5e5502a",
 ]
+uses = ["fn:5abd248ff0dcd72e"]
 test = true
 
 [[module."tests.rs".function]]
@@ -716,6 +1059,7 @@ callees = [
     "fn:81d2a765055a73cf",
     "fn:8fca2a47f1208d9d",
 ]
+uses = ["fn:5abd248ff0dcd72e"]
 test = true
 
 [[module."tests.rs".function]]
@@ -733,6 +1077,7 @@ callees = [
     "fn:81d2a765055a73cf",
     "fn:9a1a954def278458",
 ]
+uses = ["fn:563272e211653d5c"]
 test = true
 
 [[module."tests.rs".function]]
@@ -750,6 +1095,7 @@ callees = [
     "fn:81d2a765055a73cf",
     "fn:9a1a954def278458",
 ]
+uses = ["fn:563272e211653d5c"]
 test = true
 
 [[module."tests.rs".function]]
@@ -767,6 +1113,7 @@ callees = [
     "fn:81d2a765055a73cf",
     "fn:9a1a954def278458",
 ]
+uses = ["fn:563272e211653d5c"]
 test = true
 
 [[module."tests.rs".function]]
@@ -801,6 +1148,7 @@ callees = [
     "fn:52c8299b5ff9573a",
     "fn:54ed3bc105cab180",
 ]
+uses = ["fn:962cb8f112b08cbb"]
 test = true
 
 [[module."tests.rs".function]]
@@ -819,6 +1167,7 @@ callees = [
     "fn:52c8299b5ff9573a",
     "fn:54ed3bc105cab180",
 ]
+uses = ["fn:962cb8f112b08cbb"]
 test = true
 
 [[module."tests.rs".function]]
@@ -837,6 +1186,7 @@ callees = [
     "fn:52c8299b5ff9573a",
     "fn:54ed3bc105cab180",
 ]
+uses = ["fn:962cb8f112b08cbb"]
 test = true
 
 [[module."tests.rs".function]]
@@ -855,6 +1205,7 @@ callees = [
     "fn:52c8299b5ff9573a",
     "fn:54ed3bc105cab180",
 ]
+uses = ["fn:962cb8f112b08cbb"]
 test = true
 
 [[module."tests.rs".function]]
@@ -874,4 +1225,5 @@ callees = [
     "fn:54ed3bc105cab180",
     "fn:ddea189f6a2a2409",
 ]
+uses = ["fn:962cb8f112b08cbb"]
 test = true

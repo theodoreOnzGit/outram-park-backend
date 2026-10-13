@@ -16,7 +16,20 @@ test_ids = [
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/lmtd_profile.rs::zone_duties_and_conductances_close_on_their_balances",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/mod.rs::every_remedy_behaves_as_its_documentation_claims",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/mod.rs::the_default_remedy_repairs_nothing",
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/heat_exchanger_tab.rs::the_physics_row_follows_the_components_own_arrangement",
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/heat_exchanger_tab.rs::the_physics_row_never_picks_up_the_state_driven_sliders",
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/heat_exchanger_tab.rs::the_state_driven_row_passes_the_sliders_through_unchanged",
+    "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::a_missing_duty_stays_missing",
+    "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_arrangement_round_trips_through_the_physics_enum",
     "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_end_brackets_are_the_two_ends_of_the_log_mean",
+    "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_physics_path_draws_its_arrangement_but_paints_no_temperature",
+    "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_scalar_path_colours_both_streams_from_supplied_state",
+    "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_scalar_path_passes_state_through_unchanged",
+    "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_widget_accessors_agree_with_the_free_functions",
+    "crates/outram-park-digital-twin-engine/src/components/steam_generator.rs::the_level_is_stored_unclamped",
+    "crates/outram-park-digital-twin-engine/src/components/steam_generator.rs::the_physics_constructor_starts_isothermal_until_told_otherwise",
+    "crates/outram-park-digital-twin-engine/src/components/steam_generator.rs::the_physics_path_reads_the_live_secondary_temperature",
+    "crates/outram-park-digital-twin-engine/src/components/steam_generator.rs::the_scalar_path_passes_state_through_unchanged",
     "crates/outram-park-fork-dwsim-libs/src/heat_exchanger/f_correction.rs::balanced_r_equals_1_case_does_not_panic",
     "crates/outram-park-fork-dwsim-libs/src/heat_exchanger/f_correction.rs::more_shell_passes_gives_higher_or_equal_f_for_same_duty",
     "crates/outram-park-fork-dwsim-libs/src/heat_exchanger/f_correction.rs::single_shell_pass_f_factor_within_unit_range",
@@ -48,9 +61,9 @@ lines = [
 hash = "sha256:0cb1e561404f9976c55e7d7a229be40217950d9211a2972d5a2d8ad080bed55d"
 doc_hash = "sha256:9d7f081cd6c6646bd180365709f72ca4fa86c9899d5cb894da8b5575854d5dca"
 reached_by = [
-    "#14",
-    "#15",
-    "#16",
+    "#27",
+    "#28",
+    "#29",
 ]
 physical_interface = true
 
@@ -97,15 +110,17 @@ test = true
 path = "crate::heat_exchanger::lmtd"
 
 [[module."lmtd.rs".function]]
-id = "fn:5a330c58f581ce03"
-name = "lmtd"
-qual = "lmtd"
+id = "fn:7a3e30b70b92840b"
+name = "FlowArrangement"
+qual = "FlowArrangement"
+item = "type"
+shape = "enum"
 lines = [
-    23,
-    44,
+    13,
+    21,
 ]
-hash = "sha256:f5eef71cb34143a365c7b61c0be7e32b01a5b27ecb717fef59948fae73143d3c"
-doc_hash = "sha256:ab730d1beadff5866fa38314e5b775302fe8261080f646355d7aa7208bb29bfa"
+hash = "sha256:439e1f309e31e4f097c047a5ccfd07ea1292faaa66382f98b465b93056d0a22e"
+doc_hash = "sha256:f42dc176d896a30e8be9c8bae74cf824894fe034bbbb26872a603a96f554f42f"
 reached_by = [
     "#0",
     "#1",
@@ -121,8 +136,55 @@ reached_by = [
     "#11",
     "#12",
     "#13",
+    "#14",
+    "#15",
+    "#16",
     "#17",
     "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#30",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+
+[[module."lmtd.rs".function]]
+id = "fn:5a330c58f581ce03"
+name = "lmtd"
+qual = "lmtd"
+lines = [
+    23,
+    44,
+]
+hash = "sha256:f5eef71cb34143a365c7b61c0be7e32b01a5b27ecb717fef59948fae73143d3c"
+doc_hash = "sha256:ab730d1beadff5866fa38314e5b775302fe8261080f646355d7aa7208bb29bfa"
+uses = ["fn:7a3e30b70b92840b"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#18",
+    "#30",
+    "#31",
 ]
 physical_interface = true
 
@@ -138,7 +200,7 @@ hash = "sha256:0ccc27f9721a120c2a1790f18aaab34732480bb19b29f6f00567801ed8a52468"
 doc_hash = "sha256:08a4dbb9b3ac7c0b2de87859c1703f92f22da90565155029fca60c90ee589e48"
 reached_by = [
     "#8",
-    "#19",
+    "#32",
 ]
 physical_interface = true
 
@@ -164,7 +226,7 @@ lines = [
 ]
 hash = "sha256:b7e2bb31a4a2a19f1576abc2c1fcec4056544fd3a6a79a2d00019ec90628f49b"
 doc_hash = "sha256:5963d6f69b0e8ff5d8ce6e4227ba77b25e5c75bb881fa927cac502cb0868cee4"
-reached_by = ["#19"]
+reached_by = ["#32"]
 physical_interface = true
 
 [[module."lmtd.rs".function]]
@@ -178,6 +240,7 @@ lines = [
 hash = "sha256:b50973cbc688812fced46a2d502852f5fd8eb03320689c3b971e0570fee5f645"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:5a330c58f581ce03"]
+uses = ["fn:7a3e30b70b92840b"]
 test = true
 
 [[module."lmtd.rs".function]]
@@ -191,6 +254,7 @@ lines = [
 hash = "sha256:99f4760da977a08a65c2c298979af1dd7efc7762cd6273faa8555d7c4001b503"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:5a330c58f581ce03"]
+uses = ["fn:7a3e30b70b92840b"]
 test = true
 
 [[module."lmtd.rs".function]]
@@ -216,6 +280,26 @@ path = "crate::heat_exchanger"
 path = "crate::heat_exchanger::ntu_effectiveness"
 
 [[module."ntu_effectiveness.rs".function]]
+id = "fn:e65793f26ce0442a"
+name = "NtuResult"
+qual = "NtuResult"
+item = "type"
+shape = "struct"
+lines = [
+    22,
+    31,
+]
+hash = "sha256:655459814afc4d5d2c08f02ac324dafe99d975ad0564939b5b55e1b5fcb79c8a"
+doc_hash = "sha256:909ff65b11373d2e3752879629c3d4a798c82eac36b7e7a5ac7f3fbee5f29eb6"
+reached_by = [
+    "#8",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+
+[[module."ntu_effectiveness.rs".function]]
 id = "fn:c5d54a599a483d94"
 name = "evaluate"
 qual = "evaluate"
@@ -225,12 +309,16 @@ lines = [
 ]
 hash = "sha256:02a0ccf191426d85bf3cecd2d013b8302fa65c1543c69312f3b3f885bf430129"
 doc_hash = "sha256:bd8c45ba0e62a1cb769a4c69911bbfef6c187e4bf9c3035ee06fdfffc5614d0a"
+uses = [
+    "fn:7a3e30b70b92840b",
+    "fn:e65793f26ce0442a",
+]
 reached_by = [
     "#8",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 physical_interface = true
 
@@ -244,7 +332,8 @@ lines = [
 ]
 hash = "sha256:ad123c0f71d9e2bb7103e9bd881bc7a365f0ca0fd7aa39135cf492350c6ce788"
 doc_hash = "sha256:bd1b2f82645c1158f210b706919d9babcc147f5806df2d0a1af66d4ba028d293"
-reached_by = ["#23"]
+uses = ["fn:e65793f26ce0442a"]
+reached_by = ["#36"]
 physical_interface = true
 
 [[module."ntu_effectiveness.rs".function]]
@@ -258,6 +347,7 @@ lines = [
 hash = "sha256:31a4c3fc6360a0bcc4d5a7fce1c32496cf527aa52105d65ec4636cdc91353ad6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:c5d54a599a483d94"]
+uses = ["fn:7a3e30b70b92840b"]
 test = true
 
 [[module."ntu_effectiveness.rs".function]]
@@ -271,6 +361,7 @@ lines = [
 hash = "sha256:79ee251abe7e2944fe2ca05e3db273a50c06e56808d8186de5d4aab81d5b6bfe"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:c5d54a599a483d94"]
+uses = ["fn:7a3e30b70b92840b"]
 test = true
 
 [[module."ntu_effectiveness.rs".function]]
@@ -284,6 +375,7 @@ lines = [
 hash = "sha256:7928de2d9b76b08186f0509847d12ef947026244523726638568e88330639ebd"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:c5d54a599a483d94"]
+uses = ["fn:7a3e30b70b92840b"]
 test = true
 
 [[module."ntu_effectiveness.rs".function]]
@@ -300,10 +392,110 @@ callees = [
     "fn:72734051f029c43d",
     "fn:c5d54a599a483d94",
 ]
+uses = ["fn:7a3e30b70b92840b"]
 test = true
 
 [module."tinker_shell_and_tube.rs"]
 path = "crate::heat_exchanger::tinker_shell_and_tube"
+
+[[module."tinker_shell_and_tube.rs".function]]
+id = "fn:4f706f5a4da6ded0"
+name = "FoulingFactor"
+qual = "FoulingFactor"
+item = "type"
+shape = "struct"
+lines = [
+    47,
+    52,
+]
+hash = "sha256:440e0237f2cb8536f924ac44b11cb38b3a725caa9e4baa61b2df24d0c801722b"
+doc_hash = "sha256:4f8994aadb132c63fae5926f2b30153cb54df68ce345f3df04c1e03e699c6763"
+reached_by = [
+    "#37",
+    "#38",
+    "#40",
+    "#41",
+]
+
+[[module."tinker_shell_and_tube.rs".function]]
+id = "fn:1c3d12712c7acb4a"
+name = "TubeLayout"
+qual = "TubeLayout"
+item = "type"
+shape = "enum"
+lines = [
+    54,
+    65,
+]
+hash = "sha256:f2a633de1d2d586c2c13b34d0dc8e88960732a7ddcef0e511500cfe244a011ce"
+doc_hash = "sha256:dda982d821ec8651b2de33b4a5097a9ff2b3a99582dc843e386019e7e7cff31d"
+reached_by = [
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+]
+
+[[module."tinker_shell_and_tube.rs".function]]
+id = "fn:c49d7fb72f02d609"
+name = "ShellAndTubeGeometry"
+qual = "ShellAndTubeGeometry"
+item = "type"
+shape = "struct"
+lines = [
+    67,
+    108,
+]
+hash = "sha256:8c6d79b1eb46ae9212e7d98758f721c2913e997d0051c8549155d3a97baf6fb0"
+doc_hash = "sha256:5963ccb4bacd6fd1390c8abcb662b0605f6d0cd0ac9653cf3b129f51cd413e89"
+uses = [
+    "fn:1c3d12712c7acb4a",
+    "fn:4f706f5a4da6ded0",
+]
+reached_by = [
+    "#37",
+    "#38",
+    "#40",
+    "#41",
+]
+
+[[module."tinker_shell_and_tube.rs".function]]
+id = "fn:a7324581af91dd90"
+name = "ShellAndTubeError"
+qual = "ShellAndTubeError"
+item = "type"
+shape = "enum"
+lines = [
+    110,
+    122,
+]
+hash = "sha256:f614b625788e675763bd9c6142fb64855008d845f1c769dac7cdac4281c60c8b"
+doc_hash = "sha256:bce5a05fbb85a65f62ed7698ef310c8d84274c5b3d335e19f00b612169830004"
+reached_by = [
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."tinker_shell_and_tube.rs".function]]
+id = "fn:e2e49b6997a8151e"
+name = "TubeSideResult"
+qual = "TubeSideResult"
+item = "type"
+shape = "struct"
+lines = [
+    124,
+    136,
+]
+hash = "sha256:db4c38fb6d0091a60947d68676710d409f63e027e580f573b0f1051985a9d35b"
+doc_hash = "sha256:08bb07c92cbba897a1c06462099eabfe8e2e85de6fe2a02d37aeed9625a2955c"
+reached_by = [
+    "#37",
+    "#38",
+    "#41",
+]
 
 [[module."tinker_shell_and_tube.rs".function]]
 id = "fn:409cea3515092e45"
@@ -315,10 +507,14 @@ lines = [
 ]
 hash = "sha256:37c5f203bebe1b3134991a87c672002856f83a2ae6a3d96a530e619b23b4a137"
 doc_hash = "sha256:fa1d07b91d4fa98c30505620cab6351d02e0f99e8cccec1bb7ff79366dbcad48"
+uses = [
+    "fn:c49d7fb72f02d609",
+    "fn:e2e49b6997a8151e",
+]
 reached_by = [
-    "#24",
-    "#25",
-    "#28",
+    "#37",
+    "#38",
+    "#41",
 ]
 physical_interface = true
 
@@ -332,10 +528,11 @@ lines = [
 ]
 hash = "sha256:8544987ecaafff8db0d139632e97e4e21c2705c377d760a46e43551cdf6cab08"
 doc_hash = "sha256:3c329509069a9c73c6931d4559baf3f4adf914bbce21d662c9157069ed394d11"
+uses = ["fn:1c3d12712c7acb4a"]
 reached_by = [
-    "#24",
-    "#25",
-    "#27",
+    "#37",
+    "#38",
+    "#40",
 ]
 
 [[module."tinker_shell_and_tube.rs".function]]
@@ -349,10 +546,11 @@ lines = [
 hash = "sha256:033f2bd449c69221657f8b4284ecf6bbcf5058d9f472d1c160822017c9f31859"
 doc_hash = "sha256:62ba33476b3796d499872ca330d8ac1254d393f4a99c8db72428f673d4aef877"
 callees = ["fn:b013ba85d2e97a22"]
+uses = ["fn:1c3d12712c7acb4a"]
 reached_by = [
-    "#24",
-    "#25",
-    "#27",
+    "#37",
+    "#38",
+    "#40",
 ]
 physical_interface = true
 
@@ -366,10 +564,11 @@ lines = [
 ]
 hash = "sha256:615fd7379ba762c1f0e02a6d4637c1f892bf3d6cb60f476baa1b9f1dd036b76f"
 doc_hash = "sha256:d794742b38fc2a4923ae9d5e6ae014061cc68b53368755d7306bee7f5efd6470"
+uses = ["fn:1c3d12712c7acb4a"]
 reached_by = [
-    "#24",
-    "#25",
-    "#27",
+    "#37",
+    "#38",
+    "#40",
 ]
 physical_interface = true
 
@@ -383,10 +582,11 @@ lines = [
 ]
 hash = "sha256:64551d93c5fb1ea43da2e878caf83b787d5acd39cc30687293104713859f943c"
 doc_hash = "sha256:9d6d5ff9463309ee6ebe034af3808220a2ef24556f26f353439adeccd54e2714"
+uses = ["fn:1c3d12712c7acb4a"]
 reached_by = [
-    "#24",
-    "#25",
-    "#27",
+    "#37",
+    "#38",
+    "#40",
 ]
 physical_interface = true
 
@@ -400,13 +600,35 @@ lines = [
 ]
 hash = "sha256:b742eecf92e473af1f399ac1e6f5b199f2cf4597944b7c23473cbc302f582766"
 doc_hash = "sha256:1cc6d740dfa1c9f1f1da324db0fcec9717d8081cc9baebd8de5eaf0dbe23df21"
+uses = [
+    "fn:1c3d12712c7acb4a",
+    "fn:a7324581af91dd90",
+]
 reached_by = [
-    "#24",
-    "#25",
-    "#26",
-    "#27",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
 ]
 physical_interface = true
+
+[[module."tinker_shell_and_tube.rs".function]]
+id = "fn:d39c3759247f1b08"
+name = "ShellSideResult"
+qual = "ShellSideResult"
+item = "type"
+shape = "struct"
+lines = [
+    405,
+    414,
+]
+hash = "sha256:7c8c46074b9b918debdf05a9133f7d15575b53e75dcc0ed8f24bb6ff32b3d5b2"
+doc_hash = "sha256:709b4f191e3776d3a0878656d1632f0f7ae9b106bdd563bcb045783d2e8e3171"
+reached_by = [
+    "#37",
+    "#38",
+    "#40",
+]
 
 [[module."tinker_shell_and_tube.rs".function]]
 id = "fn:1b32517b87826ecb"
@@ -424,10 +646,16 @@ callees = [
     "fn:afbc65e962a70aa4",
     "fn:b1d97785f61c60d6",
 ]
+uses = [
+    "fn:1c3d12712c7acb4a",
+    "fn:a7324581af91dd90",
+    "fn:c49d7fb72f02d609",
+    "fn:d39c3759247f1b08",
+]
 reached_by = [
-    "#24",
-    "#25",
-    "#27",
+    "#37",
+    "#38",
+    "#40",
 ]
 physical_interface = true
 
@@ -441,9 +669,14 @@ lines = [
 ]
 hash = "sha256:080033ca6a9ab0dcd1b8c11ec44b5c29f6b5c3e8dab1fdfa4ef96294b646f81b"
 doc_hash = "sha256:4998f2c3552f7a5bdf2a43b2f814ed58632b92cb5f4ef641247ceedbb74b9c91"
+uses = [
+    "fn:c49d7fb72f02d609",
+    "fn:d39c3759247f1b08",
+    "fn:e2e49b6997a8151e",
+]
 reached_by = [
-    "#24",
-    "#25",
+    "#37",
+    "#38",
 ]
 physical_interface = true
 
@@ -457,7 +690,13 @@ lines = [
 ]
 hash = "sha256:3c5a64e85e07ad7f1bc9aafffcef02a3e55ac15a363b06b0d302df34880c97bb"
 doc_hash = "sha256:a4fbeb7336981678801705ab5af1498ad30c6d900c490a363c6cfa3f5755f093"
-reached_by = ["#24"]
+uses = [
+    "fn:4f706f5a4da6ded0",
+    "fn:c49d7fb72f02d609",
+    "fn:d39c3759247f1b08",
+    "fn:e2e49b6997a8151e",
+]
+reached_by = ["#37"]
 physical_interface = true
 
 [[module."tinker_shell_and_tube.rs".function]]
@@ -470,6 +709,11 @@ lines = [
 ]
 hash = "sha256:ed85b74252d1d4f62100b3295beaf30d9c964863ab46d22946aa39ad8c2478c4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:1c3d12712c7acb4a",
+    "fn:4f706f5a4da6ded0",
+    "fn:c49d7fb72f02d609",
+]
 test = true
 
 [[module."tinker_shell_and_tube.rs".function]]
@@ -486,6 +730,7 @@ callees = [
     "fn:409cea3515092e45",
     "fn:dc9ee2c565fb8dd2",
 ]
+uses = ["fn:1c3d12712c7acb4a"]
 test = true
 
 [[module."tinker_shell_and_tube.rs".function]]
@@ -502,6 +747,7 @@ callees = [
     "fn:1b32517b87826ecb",
     "fn:dc9ee2c565fb8dd2",
 ]
+uses = ["fn:1c3d12712c7acb4a"]
 test = true
 
 [[module."tinker_shell_and_tube.rs".function]]
@@ -515,6 +761,10 @@ lines = [
 hash = "sha256:8492cef2ad38764516464ef70a46cfe0792b7e88e0c294da829eee9abd38719b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:b1d97785f61c60d6"]
+uses = [
+    "fn:1c3d12712c7acb4a",
+    "fn:a7324581af91dd90",
+]
 test = true
 
 [[module."tinker_shell_and_tube.rs".function]]
@@ -532,6 +782,10 @@ callees = [
     "fn:2666937dc6ad642f",
     "fn:409cea3515092e45",
     "fn:dc9ee2c565fb8dd2",
+]
+uses = [
+    "fn:1c3d12712c7acb4a",
+    "fn:4f706f5a4da6ded0",
 ]
 test = true
 
@@ -552,4 +806,5 @@ callees = [
     "fn:8d302411029ceb94",
     "fn:dc9ee2c565fb8dd2",
 ]
+uses = ["fn:1c3d12712c7acb4a"]
 test = true

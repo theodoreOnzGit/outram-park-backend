@@ -20,6 +20,7 @@ callees = [
     "fn:cfb206ae6884b1bb",
     "fn:f388412baf9ce13a",
 ]
+uses = ["fn:da49a3ce55b275a6"]
 test = true
 
 [module."collection_fluid_components_in_parallel.rs"]
@@ -41,6 +42,16 @@ callees = [
     "fn:b96c71a8e07cc6c4",
     "fn:bb0f352d6024ab79",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:9447740069e81383",
+    "fn:d4b239bd4b67db13",
+    "fn:da49a3ce55b275a6",
+    "fn:de020efa1d48c9ac",
+    "fn:e50c45d0f7cecaac",
+    "fn:ebf3ac43832118cf",
+    "fn:f340400526996cc5",
+]
 test = true
 
 [module."collection_fluid_components_in_series.rs"]
@@ -61,6 +72,16 @@ callees = [
     "fn:bb0f352d6024ab79",
     "fn:dfbb105fd75c4b01",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:9447740069e81383",
+    "fn:d4b239bd4b67db13",
+    "fn:da49a3ce55b275a6",
+    "fn:de020efa1d48c9ac",
+    "fn:e50c45d0f7cecaac",
+    "fn:ebf3ac43832118cf",
+    "fn:f340400526996cc5",
+]
 test = true
 
 [module."concurrency_and_multithreading_example.rs"]
@@ -77,6 +98,13 @@ lines = [
 hash = "sha256:2810c0ff72c3677455ea4ac5719473895b403b704278032ecc6056d6464c1f7f"
 doc_hash = "sha256:cdc3db468bee3ad6b441b8ede088b0555065c08f549057b72055f20fe89a8126"
 callees = ["fn:c9002ba20db6841b"]
+uses = [
+    "fn:2a72559eaa8a90c0",
+    "fn:540617e338f429d7",
+    "fn:bc21f2d2bd530dd7",
+    "fn:da49a3ce55b275a6",
+    "fn:f7cbf16a78489306",
+]
 test = true
 
 [module."coriolis_flowmeter_example.rs"]
@@ -93,6 +121,13 @@ lines = [
 hash = "sha256:5df672c26426d85d07505c2d5ece7e431420b3d1c66eff6bd42c67b39d107051"
 doc_hash = "sha256:c643b256c2bd90d51ef74856f2f014dfe87c58c517fd43e6df1285cf387e3f81"
 callees = ["fn:c9002ba20db6841b"]
+uses = [
+    "fn:2a72559eaa8a90c0",
+    "fn:540617e338f429d7",
+    "fn:bc21f2d2bd530dd7",
+    "fn:da49a3ce55b275a6",
+    "fn:f7cbf16a78489306",
+]
 test = true
 
 [module."mod.rs"]
@@ -119,6 +154,16 @@ callees = [
     "fn:bb0f352d6024ab79",
     "fn:db9d47c6c6cd72d4",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:9447740069e81383",
+    "fn:ca62ba45b75e81ac",
+    "fn:d4b239bd4b67db13",
+    "fn:de020efa1d48c9ac",
+    "fn:e50c45d0f7cecaac",
+    "fn:ebf3ac43832118cf",
+    "fn:f340400526996cc5",
+]
 test = true
 
 [module."water_pipe_example.rs"]
@@ -134,4 +179,9 @@ lines = [
 ]
 hash = "sha256:fe29d405d0b716017a659afd687aaf9d8166133114559e3edf5353373bab17f9"
 doc_hash = "sha256:806a0fb9ee5d82328c46a75dd3eda288bacf89e71444bed794f0d967514eb884"
+uses = [
+    "fn:1e0d98712927aed3",
+    "fn:3d4ae45fcf3828f8",
+    "fn:da49a3ce55b275a6",
+]
 test = true

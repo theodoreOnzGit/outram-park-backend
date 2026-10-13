@@ -6,6 +6,8 @@ test_ids = [
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::cloning_the_whole_fhr_state_is_not_the_bottleneck",
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::the_first_frame_pays_the_pebble_bed_bake_and_no_later_frame_does",
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::the_whole_render_body_costs_a_small_fraction_of_a_frame",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/mod.rs::the_ua_slider_crossed_partway_up_at_the_nominal_operating_point",
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/salt_freeze_guard.rs::a_frozen_loop_is_detected_named_and_located",
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/salt_freeze_guard.rs::a_healthy_plant_is_not_reported_as_frozen",
@@ -30,7 +32,12 @@ lines = [
 hash = "sha256:d236b79d2378ad555e02f957175f94439924a4dc7e5f6c26f89d22cb7e44fed5"
 doc_hash = "sha256:9dd08afd2b97399fbdb2c4272ae1d2ab68b0cad8749e2d85bfcdde8fca89444b"
 callees = ["fn:4c77b592a8ab611f"]
-reached_by = ["#3"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -44,7 +51,12 @@ lines = [
 hash = "sha256:24b332ff4b435ef40cedc8ef3e89f453d30cf51c05770bf6c8ef9a0bdb35823e"
 doc_hash = "sha256:73dbc7c1aa4a1bbc9929f03cb2e62b5994180db8131e1e15169ea9939da583db"
 callees = ["fn:4c77b592a8ab611f"]
-reached_by = ["#3"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -58,7 +70,12 @@ lines = [
 hash = "sha256:e708bb6af52b655b89f08d4ddeb7955fa2dc32d3540391140e650b9edd93801c"
 doc_hash = "sha256:53613920205e247a0eed373bd2f34564664ecc4e330dd0a2a21695e53e395037"
 callees = ["fn:4c77b592a8ab611f"]
-reached_by = ["#3"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -72,7 +89,12 @@ lines = [
 hash = "sha256:438c111b877a5e491a0341cef6527ab95e2c895cdbfe9be5c1e7fe37fe9f6af1"
 doc_hash = "sha256:d95c008e21682ac98bf9b1bdcf7e1aa32ef9bc11855c3f3fdc134ad2d185213d"
 callees = ["fn:4c77b592a8ab611f"]
-reached_by = ["#3"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -86,7 +108,12 @@ lines = [
 hash = "sha256:36ad64fff8361b0cc86a235b19ed4da71081e405418c1c27a03c99e3a3336083"
 doc_hash = "sha256:62d2a815a82c7d54402e8ceeaaf0a8262c57a50e6b1cacbcff63e1ce9aeb70e1"
 callees = ["fn:4c77b592a8ab611f"]
-reached_by = ["#3"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -100,7 +127,12 @@ lines = [
 hash = "sha256:e5644d44efaff42a48fe027c201eeafff97dfa9c0dda92c0444aca7776184ed3"
 doc_hash = "sha256:c2d979b65d47b9b2c1c476eb2af3702b34f832a791a26b566f3a252e6606734a"
 callees = ["fn:c79fa136163d3697"]
-reached_by = ["#3"]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -114,7 +146,12 @@ lines = [
 hash = "sha256:6fac8873f05aafc6b8a6a80a5d151c760c829badacd94d5c4d84716821d2ce4d"
 doc_hash = "sha256:858b817ebed2df38b1e8aa602d8f1b646ac16774d08b396e7aed2badf72f7243"
 callees = ["fn:4c77b592a8ab611f"]
-reached_by = ["#3"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -128,7 +165,12 @@ lines = [
 hash = "sha256:025a6e0e3fa1a9f3ab7ef4f417da8110b9d305d9a961532879f04cdf6d49f074"
 doc_hash = "sha256:316d46a96e728ddaa28d1f51742525f25d2b7761b887799d41c3467b20b6304f"
 callees = ["fn:4c77b592a8ab611f"]
-reached_by = ["#3"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -146,7 +188,15 @@ callees = [
     "fn:61571eb5e1cd42ad",
     "fn:ec1bb94e3b0efdfb",
 ]
-reached_by = ["#3"]
+uses = [
+    "fn:0a50e017198e2657",
+    "fn:68ae150e37a870db",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -160,7 +210,12 @@ lines = [
 hash = "sha256:a75321a3dcc37910c64a736c559fd9406d92f9efbd5970fef970cb52b7f6ece6"
 doc_hash = "sha256:27a87d7e2af3a010efd4c3d4dee25d86a54775aa17bbe336bd949ad015ee2f1c"
 callees = ["fn:4c77b592a8ab611f"]
-reached_by = ["#3"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -174,6 +229,11 @@ lines = [
 hash = "sha256:1aea477302aff306fb8736751f59ed17efc908a7a40fb6d49406cd0491431d6e"
 doc_hash = "sha256:418a5cd147a10442ae096effcd30865fef372efc09de96e9dd9d62411651b2f5"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -187,7 +247,12 @@ lines = [
 hash = "sha256:e722b8269db33e5b0d710514d03db1dce031b85f2af1bbe397ce2298a09ce4e6"
 doc_hash = "sha256:69b9cb88f6e4a18e4b04210ca4e52ef74450aaf31ca26f89a33d9de99c628471"
 callees = ["fn:4c77b592a8ab611f"]
-reached_by = ["#3"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -201,7 +266,12 @@ lines = [
 hash = "sha256:98982800e8c63bd495aa5fc40b2b74d0c356710af90c595f0b43480d7dc368c2"
 doc_hash = "sha256:3bf511c2405c7128d6b6c3a2b7c18eacc78410ed67c46d01bdee6e5d09f92ce5"
 callees = ["fn:4c77b592a8ab611f"]
-reached_by = ["#3"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -215,7 +285,12 @@ lines = [
 hash = "sha256:dfb7415a3a0f7bd79330dabebc0f5bf668c9899c2ce8d4311c04c353121d11ee"
 doc_hash = "sha256:ecfcccf288137328a34e6133db1f95a657ee63cad7d6d57a8388e4b400aef648"
 callees = ["fn:4c77b592a8ab611f"]
-reached_by = ["#3"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -229,7 +304,12 @@ lines = [
 hash = "sha256:345cd59e6a6af658d760b0d70d62d38c21c0095aecef5d8c84a5ab2453d3239d"
 doc_hash = "sha256:972995dc6f73f8055f7b552211a98a41286a846c1afabc6d6f776468e1692ffa"
 callees = ["fn:c79fa136163d3697"]
-reached_by = ["#3"]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -243,7 +323,12 @@ lines = [
 hash = "sha256:d9a3ae7c5ba546ebcf07b0cc011fbb367c764e49aa60b36921de86e7f027af07"
 doc_hash = "sha256:c64b6a92ba5bf5a5ace81a5137bbd9ea92182168f2fa42834136a2c7fff99e82"
 callees = ["fn:4c77b592a8ab611f"]
-reached_by = ["#3"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -261,7 +346,14 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:c79fa136163d3697",
 ]
-reached_by = ["#3"]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -275,7 +367,12 @@ lines = [
 hash = "sha256:98982800e8c63bd495aa5fc40b2b74d0c356710af90c595f0b43480d7dc368c2"
 doc_hash = "sha256:74a0bbf209ba8bfbe295670c27d54e1f2085793976b3b10dd7d9e772db7ccdc8"
 callees = ["fn:4c77b592a8ab611f"]
-reached_by = ["#3"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -292,6 +389,11 @@ callees = [
     "fn:596f306f3fb318d5",
     "fn:5e3e746d7a558eea",
     "fn:f3cde3d60d3dff8d",
+]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
 ]
 physical_interface = true
 
@@ -310,6 +412,11 @@ callees = [
     "fn:5e3e746d7a558eea",
     "fn:f3cde3d60d3dff8d",
 ]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -326,6 +433,11 @@ callees = [
     "fn:596f306f3fb318d5",
     "fn:5e3e746d7a558eea",
     "fn:f3cde3d60d3dff8d",
+]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
 ]
 physical_interface = true
 
@@ -344,10 +456,35 @@ callees = [
     "fn:5e3e746d7a558eea",
     "fn:f3cde3d60d3dff8d",
 ]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [module."fhr_thermal_hydraulics_state.rs"]
 path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::fhr_thermal_hydraulics_state"
+
+[[module."fhr_thermal_hydraulics_state.rs".function]]
+id = "fn:41062386b2648e49"
+name = "FHRThermalHydraulicsState"
+qual = "FHRThermalHydraulicsState"
+item = "type"
+shape = "struct"
+lines = [
+    4,
+    107,
+]
+hash = "sha256:cffafdb091a9ba4fc5ecea9c9484702079ecd00bde572070fe4d9afc7c0e5cc7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7c5ee630dddc8820"]
+reached_by = [
+    "#6",
+    "#7",
+    "#11",
+    "#12",
+]
 
 [module."mod.rs"]
 path = "example:fhr_sim_v2::app::thermal_hydraulics_backend"
@@ -386,6 +523,18 @@ callees = [
     "fn:d29f0cb22c120e5f",
     "fn:f66c6613b2fa9c0c",
     "fn:fa5c92d5b6a14105",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:1be8442ab54a492c",
+    "fn:41062386b2648e49",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:97fc8cbae769968e",
+    "fn:9b373dcfa52e169e",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
 ]
 physical_interface = true
 
@@ -435,6 +584,18 @@ callees = [
     "fn:deeae77b220ce784",
     "fn:f241daed20aed39e",
 ]
+uses = [
+    "fn:1e9e054cc5b5a361",
+    "fn:41062386b2648e49",
+    "fn:5244d7529c279542",
+    "fn:666d5a4fb0c09257",
+    "fn:68428a981ede0f7d",
+    "fn:7c5ee630dddc8820",
+    "fn:87bb457a9eec06de",
+    "fn:8fa1d61f79295f85",
+    "fn:97fc8cbae769968e",
+    "fn:eab1b85d88915df0",
+]
 
 [[module."mod.rs".function]]
 id = "fn:b998b9037e024539"
@@ -477,7 +638,7 @@ lines = [
     1702,
     1927,
 ]
-hash = "sha256:537abda2b4efaf3d6565a427ed6d08e04082f4b5e94cc6c0b7ad187ada685e85"
+hash = "sha256:44113309a1e0b18a7442949f3e8c7ffec64b57f47712606f4b90c75417228f9a"
 doc_hash = "sha256:3dae52df421e120bf8e2573baac4d5c68b8d74bbeac54d57857ea9658d184fca"
 callees = [
     "fn:126ee82fa03643bf",
@@ -486,10 +647,72 @@ callees = [
     "fn:d1c084d9ef78b882",
     "fn:f09f00cc4fcef6cc",
 ]
+uses = [
+    "fn:7c5ee630dddc8820",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [module."salt_freeze_guard.rs"]
 path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::salt_freeze_guard"
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:68428a981ede0f7d"
+name = "MELT_RESTORE_TEMPERATURE_DEGC"
+qual = "MELT_RESTORE_TEMPERATURE_DEGC"
+item = "const"
+shape = "const"
+lines = [
+    88,
+    97,
+]
+hash = "sha256:9aed2d960a1b837000b5ec951cb30d95cbca17697417dbeb871d58ec0948338d"
+doc_hash = "sha256:af0da6de3ea7b7dd7bf797d3426ab075dc8517f0ed86f1c0775e9822ae69ff7f"
+reached_by = [
+    "#9",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:eab1b85d88915df0"
+name = "FREEZE_PAUSE_POLL_INTERVAL_MS"
+qual = "FREEZE_PAUSE_POLL_INTERVAL_MS"
+item = "const"
+shape = "const"
+lines = [
+    99,
+    102,
+]
+hash = "sha256:54a7f1d46b88ce10f36abbeb096ebb519d5536d8823557c1bde064739de12c0b"
+doc_hash = "sha256:2a80a63dffed173546af3c9a693a8541e023a040b1b2411c4396adddd8795f01"
+reached_by = ["#12"]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:666d5a4fb0c09257"
+name = "FrozenLoop"
+qual = "FrozenLoop"
+item = "type"
+shape = "enum"
+lines = [
+    104,
+    114,
+]
+hash = "sha256:b1d48205c5c09da56d77ad4e16bcf5fa04535968002316e9adbe556fe96d00dc"
+doc_hash = "sha256:9e8c28eb7b65ab7350ed20953ca5e088f706db83c75eb520d392f4371c832698"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
 
 [[module."salt_freeze_guard.rs".function]]
 id = "fn:58aaacd5cd564e61"
@@ -501,14 +724,18 @@ lines = [
 ]
 hash = "sha256:c558e4b2e07ca6fedd3f22ddb1076f10bdd08fd2607abae475e0a198157abe66"
 doc_hash = "sha256:3eb70e9edfdcc69e38bd1459b8d9f189045aa520d913fc0b36c01ba3d42e7242"
+uses = [
+    "fn:666d5a4fb0c09257",
+    "fn:de020efa1d48c9ac",
+]
 reached_by = [
-    "#4",
-    "#5",
     "#6",
     "#7",
     "#8",
     "#9",
     "#10",
+    "#11",
+    "#12",
 ]
 
 [[module."salt_freeze_guard.rs".function]]
@@ -521,7 +748,8 @@ lines = [
 ]
 hash = "sha256:094d8e1e32cf959a4f6ed8e2045e3882f61553676d526d81219dc70dc285bf3c"
 doc_hash = "sha256:9d83ff15f01951f1618b865119c0ce617d91dab9b366c48be8d1f75843669a5a"
-reached_by = ["#4"]
+uses = ["fn:666d5a4fb0c09257"]
+reached_by = ["#6"]
 
 [[module."salt_freeze_guard.rs".function]]
 id = "fn:2b743454959d0def"
@@ -533,6 +761,7 @@ lines = [
 ]
 hash = "sha256:631f8ce2c4b8820e94f7525dd6aa66f39b9ea9bd434566d97d9a5c8a17ed5d1d"
 doc_hash = "sha256:a70b025aadb9e9546c9caa9986b87299038e6778dabdac92a1bce64d2014ab57"
+uses = ["fn:666d5a4fb0c09257"]
 
 [[module."salt_freeze_guard.rs".function]]
 id = "fn:243933a20b9a5927"
@@ -548,14 +777,15 @@ callees = [
     "fn:26aff73e30f8632a",
     "fn:58aaacd5cd564e61",
 ]
+uses = ["fn:666d5a4fb0c09257"]
 reached_by = [
-    "#4",
-    "#5",
     "#6",
     "#7",
     "#8",
     "#9",
     "#10",
+    "#11",
+    "#12",
 ]
 physical_interface = true
 
@@ -570,14 +800,42 @@ lines = [
 hash = "sha256:ce5f8179931688cd579a09f037b308f60ec1ab567c46fc4fbf3cdaac8b89c5d6"
 doc_hash = "sha256:782bb7c8859cc6f14133cca857f85477287055dfcd8132e96a3edaf41d76f8b0"
 callees = ["fn:243933a20b9a5927"]
+uses = ["fn:666d5a4fb0c09257"]
 reached_by = [
-    "#4",
-    "#5",
     "#6",
     "#7",
     "#8",
     "#9",
     "#10",
+    "#11",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:89da5fca2c7e8b72"
+name = "SaltFreezeEvent"
+qual = "SaltFreezeEvent"
+item = "type"
+shape = "struct"
+lines = [
+    158,
+    175,
+]
+hash = "sha256:739d887182971374c5e9bf2698181f1c21800c6cd0109e603c422a50b5645be5"
+doc_hash = "sha256:6786271572eba8c8bc56637cab5799753e5d606249a20ca185e9223fe6b8db79"
+uses = ["fn:666d5a4fb0c09257"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
 ]
 
 [[module."salt_freeze_guard.rs".function]]
@@ -591,7 +849,8 @@ lines = [
 hash = "sha256:a16f13fee051fbfa8e1fbdc41d6f5c70f86c93932d246ad46fa4461cd0ec9bab"
 doc_hash = "sha256:3fab6c1aeca6d418e7eacca27fa92a848c1ed697d5c3946d26054441c43200b8"
 callees = ["fn:ee70a6d50439f167"]
-reached_by = ["#4"]
+uses = ["fn:89da5fca2c7e8b72"]
+reached_by = ["#6"]
 
 [[module."salt_freeze_guard.rs".function]]
 id = "fn:a09641700168eb20"
@@ -603,7 +862,8 @@ lines = [
 ]
 hash = "sha256:2e386f955e8acaed4865b6eb8588ca30c56ebf37b97eae08efa8188d53a3b086"
 doc_hash = "sha256:f2d8a990d74d394a080f5c4da962fd45dbf5840cd34478701d81a195ab4515ea"
-reached_by = ["#4"]
+uses = ["fn:89da5fca2c7e8b72"]
+reached_by = ["#6"]
 
 [[module."salt_freeze_guard.rs".function]]
 id = "fn:f383f986d3b6d64e"
@@ -615,11 +875,15 @@ lines = [
 ]
 hash = "sha256:887119cd8f3535487552342d38e9c405ad8a5efbec8b0cdadb276e11f525c671"
 doc_hash = "sha256:77aa8c8444137c82267fae8f306b2fd7d71ce0a94f738d99f11df03cb7e5c401"
+uses = [
+    "fn:41062386b2648e49",
+    "fn:666d5a4fb0c09257",
+]
 reached_by = [
-    "#4",
-    "#5",
-    "#9",
-    "#10",
+    "#6",
+    "#7",
+    "#11",
+    "#12",
 ]
 
 [[module."salt_freeze_guard.rs".function]]
@@ -636,11 +900,63 @@ callees = [
     "fn:8f3061641269887f",
     "fn:f383f986d3b6d64e",
 ]
+uses = [
+    "fn:41062386b2648e49",
+    "fn:89da5fca2c7e8b72",
+]
 reached_by = [
+    "#6",
+    "#7",
+    "#11",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:5244d7529c279542"
+name = "SaltFreezeMonitor"
+qual = "SaltFreezeMonitor"
+item = "type"
+shape = "struct"
+lines = [
+    331,
+    346,
+]
+hash = "sha256:1cc4ed0f261c3740e2bc17e3a5f6ac8017dd99fdd549269477a3c269cd90cc6a"
+doc_hash = "sha256:61423dea67e51dda785ae54f587ea71ece7c1d5c18fe6011e38b17c67fd36105"
+uses = ["fn:48c4404a1ab18882"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
     "#4",
-    "#5",
-    "#9",
+    "#8",
     "#10",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:48c4404a1ab18882"
+name = "SaltFreezeMonitorInner"
+qual = "SaltFreezeMonitorInner"
+item = "type"
+shape = "struct"
+lines = [
+    348,
+    359,
+]
+hash = "sha256:9b8f19608db31d9b307b9e2b0c56861f87d6f97e5d11cc0c3bf4e108aec7cb0e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:89da5fca2c7e8b72"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#10",
+    "#12",
 ]
 
 [[module."salt_freeze_guard.rs".function]]
@@ -653,13 +969,17 @@ lines = [
 ]
 hash = "sha256:ccb668d49144fbf45a6be4a56c47f7102f923154019bafa78a72f617e5548045"
 doc_hash = "sha256:de9e18c44876cee7de737b20d26355f029b66131421827fc41fd29286fa7efb4"
+uses = [
+    "fn:48c4404a1ab18882",
+    "fn:5244d7529c279542",
+]
 reached_by = [
     "#0",
     "#1",
     "#2",
-    "#6",
     "#8",
     "#10",
+    "#12",
 ]
 
 [[module."salt_freeze_guard.rs".function]]
@@ -672,10 +992,11 @@ lines = [
 ]
 hash = "sha256:1dc88608353a38710e78f6a86c9bed2d010c518b2018c7ab5f7c029bb06b607f"
 doc_hash = "sha256:924e536dc79642f58eda0c2994bdec6747f3eec39e61084dc0bccdfb527f6380"
+uses = ["fn:5244d7529c279542"]
 reached_by = [
-    "#6",
     "#8",
     "#10",
+    "#12",
 ]
 
 [[module."salt_freeze_guard.rs".function]]
@@ -689,10 +1010,14 @@ lines = [
 hash = "sha256:fcf2f4484265d6a5a197326b807515dc76153830f02807d9899c5af603a6d679"
 doc_hash = "sha256:6635e170aaedac7c98fbdd323b39755833a284f56e5b9cf2412fec08e13bdeb6"
 callees = ["fn:9e12e35312203ea7"]
+uses = [
+    "fn:5244d7529c279542",
+    "fn:89da5fca2c7e8b72",
+]
 reached_by = [
-    "#6",
     "#8",
     "#10",
+    "#12",
 ]
 
 [[module."salt_freeze_guard.rs".function]]
@@ -705,10 +1030,14 @@ lines = [
 ]
 hash = "sha256:c04b81b6d228e51a6a4f4f9a936975c3a67b3a738457ea6819b48a89b3f4ce23"
 doc_hash = "sha256:53275fe2ed3870cc956ad88a85068aaf5ab061bb991e7fe3010c9cf81e09be0a"
+uses = [
+    "fn:5244d7529c279542",
+    "fn:89da5fca2c7e8b72",
+]
 reached_by = [
-    "#6",
     "#8",
     "#10",
+    "#12",
 ]
 
 [[module."salt_freeze_guard.rs".function]]
@@ -721,9 +1050,10 @@ lines = [
 ]
 hash = "sha256:1f257aeae7d2ad3d1c72cd6aafdabd07847b24312aded1038673fbdb3eb7c18a"
 doc_hash = "sha256:5733733b16ad0c3dfc7c9d679bc2f94d66f1cdf63d91edd707ec302b052b9305"
+uses = ["fn:5244d7529c279542"]
 reached_by = [
-    "#6",
-    "#10",
+    "#8",
+    "#12",
 ]
 
 [[module."salt_freeze_guard.rs".function]]
@@ -736,9 +1066,10 @@ lines = [
 ]
 hash = "sha256:1e5cb81f0903213fb6054b72a0c2669f44f42697abb32fc83e3a725d8171b426"
 doc_hash = "sha256:bdbc39fda90444bfe01bbc9c969e9fd120a4d25af28861e02940fb8338784259"
+uses = ["fn:5244d7529c279542"]
 reached_by = [
-    "#6",
-    "#10",
+    "#8",
+    "#12",
 ]
 
 [[module."salt_freeze_guard.rs".function]]
@@ -752,6 +1083,7 @@ lines = [
 hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:8574c272754a100e"]
+uses = ["fn:5244d7529c279542"]
 
 [[module."salt_freeze_guard.rs".function]]
 id = "fn:5ab090248217cfe1"
@@ -763,7 +1095,12 @@ lines = [
 ]
 hash = "sha256:132ac03ccb2b9292ca025a076dd83ef0e365dae59bc90c7d0368e0292ec9412d"
 doc_hash = "sha256:99305aa528b40d790b9f4f962483406358e56799c6be1d5a882c971e29478b4c"
-reached_by = ["#10"]
+uses = [
+    "fn:41062386b2648e49",
+    "fn:666d5a4fb0c09257",
+    "fn:68428a981ede0f7d",
+]
+reached_by = ["#12"]
 
 [[module."salt_freeze_guard.rs".function]]
 id = "fn:a18ace2dfae76343"
@@ -773,7 +1110,7 @@ lines = [
     492,
     590,
 ]
-hash = "sha256:9de1d357518cf1b7fb9e2585352abcc73d937d4de7d4a544ea9fc3a90130c130"
+hash = "sha256:606cad457f2d20029e5c1bbada22abd40a97af4556b386fdae44116b36d42db1"
 doc_hash = "sha256:b3dc3092676260ba315f863babe5a5542dbed9eaccd6812023bf79f1b7a7b255"
 callees = [
     "fn:2b743454959d0def",
@@ -782,6 +1119,10 @@ callees = [
     "fn:d938d84e52273ffb",
     "fn:ddb0eb067b163e2d",
     "fn:ee70a6d50439f167",
+]
+uses = [
+    "fn:5244d7529c279542",
+    "fn:68428a981ede0f7d",
 ]
 
 [[module."salt_freeze_guard.rs".function]]
@@ -794,6 +1135,10 @@ lines = [
 ]
 hash = "sha256:421d62c9255f0c84f5e53aa1f8f0d11fece6df4b162e88f119dc34ade9e078bc"
 doc_hash = "sha256:642fbddf5f52de193bcd2858f248661ec7d20285c8afb4e08f800eb96f25375a"
+uses = [
+    "fn:41062386b2648e49",
+    "fn:7c5ee630dddc8820",
+]
 test = true
 
 [[module."salt_freeze_guard.rs".function]]
@@ -809,6 +1154,10 @@ doc_hash = "sha256:051d0b179ed26d1aa89d237699f21df65b33b69eb60e7880c31ecce483a88
 callees = [
     "fn:243933a20b9a5927",
     "fn:8f3061641269887f",
+]
+uses = [
+    "fn:666d5a4fb0c09257",
+    "fn:68428a981ede0f7d",
 ]
 test = true
 
@@ -836,7 +1185,7 @@ lines = [
     719,
     788,
 ]
-hash = "sha256:b9c3aa65dab07c9cfcfdef30c5e2a56588a54dd6bbe4287457af4e0722e79d0b"
+hash = "sha256:358f0b19805858f37b5adad0ea39f6a4492d2d3e15b41c1cea21b91affecc041"
 doc_hash = "sha256:297f05a320b137f81df488e9288a0fa13d3f515128456da09adbba943d5e21e9"
 callees = [
     "fn:5f429154b173314e",
@@ -845,6 +1194,7 @@ callees = [
     "fn:ddb0eb067b163e2d",
     "fn:ee70a6d50439f167",
 ]
+uses = ["fn:666d5a4fb0c09257"]
 test = true
 
 [[module."salt_freeze_guard.rs".function]]
@@ -861,6 +1211,7 @@ callees = [
     "fn:5f429154b173314e",
     "fn:763a45fd979111da",
 ]
+uses = ["fn:666d5a4fb0c09257"]
 test = true
 
 [[module."salt_freeze_guard.rs".function]]
@@ -884,6 +1235,12 @@ callees = [
     "fn:c36e78cec3b22e6e",
     "fn:d938d84e52273ffb",
 ]
+uses = [
+    "fn:5244d7529c279542",
+    "fn:666d5a4fb0c09257",
+    "fn:68428a981ede0f7d",
+    "fn:eab1b85d88915df0",
+]
 test = true
 
 [[module."salt_freeze_guard.rs".function]]
@@ -905,6 +1262,11 @@ callees = [
     "fn:c36e78cec3b22e6e",
     "fn:d938d84e52273ffb",
 ]
+uses = [
+    "fn:5244d7529c279542",
+    "fn:666d5a4fb0c09257",
+    "fn:89da5fca2c7e8b72",
+]
 test = true
 
 [[module."salt_freeze_guard.rs".function]]
@@ -922,5 +1284,10 @@ callees = [
     "fn:8574c272754a100e",
     "fn:8f3061641269887f",
     "fn:c36e78cec3b22e6e",
+]
+uses = [
+    "fn:5244d7529c279542",
+    "fn:666d5a4fb0c09257",
+    "fn:89da5fca2c7e8b72",
 ]
 test = true

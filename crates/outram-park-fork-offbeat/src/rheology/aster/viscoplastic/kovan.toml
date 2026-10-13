@@ -16,6 +16,10 @@ lines = [
 ]
 hash = "sha256:402d608985a39b1c0a12a44a4eeec7786f7f40c5b24b1b821eef05f5478d360b"
 doc_hash = "sha256:dcc4f5c26e6446a7d40008090b07a9082096788433b5aab7b34d79a1265d233d"
+uses = [
+    "fn:26c5554d5ea7a332",
+    "fn:4b38b81dac0c3db9",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -29,6 +33,7 @@ lines = [
 hash = "sha256:692a4447859d04304641d563fe7925bba2049712acb216115fb2b40ec1dcc292"
 doc_hash = "sha256:e871f46c919b221f79f9bac376c94686e7d8fb0a01ba47f579c4ad477cefac56"
 callees = ["fn:27e86d8fe19529a2"]
+uses = ["fn:250c638c8bd6b322"]
 test = true
 
 [[module."tests.rs".function]]
@@ -48,6 +53,7 @@ callees = [
     "fn:8f434b8de90535e2",
     "fn:e655dba31d076665",
 ]
+uses = ["fn:250c638c8bd6b322"]
 test = true
 
 [[module."tests.rs".function]]
@@ -65,6 +71,7 @@ callees = [
     "fn:81a2b448e5e79281",
     "fn:e655dba31d076665",
 ]
+uses = ["fn:250c638c8bd6b322"]
 test = true
 
 [[module."tests.rs".function]]
@@ -94,6 +101,11 @@ lines = [
 hash = "sha256:d1d42eefc70a428c6bf1bbebf98c620df701ddea10aba2f8098c74068d768679"
 doc_hash = "sha256:eebabb58c5711c5413380c757201e9e67b13d85a150a16aba40c90af186ccca5"
 callees = ["fn:b8b7299002a000c4"]
+uses = [
+    "fn:26c5554d5ea7a332",
+    "fn:4b38b81dac0c3db9",
+    "fn:fe560b5665f4f32f",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -107,6 +119,10 @@ lines = [
 hash = "sha256:90b821a112da8fa3726c6b67a2c9702fff1d88e4824243c6f9f0ddcfb96747d8"
 doc_hash = "sha256:528fe3b7e2fc6a259a011996e5f173aa9a5fa6d135997a69bfc3f706cfb95946"
 callees = ["fn:b8b7299002a000c4"]
+uses = [
+    "fn:26c5554d5ea7a332",
+    "fn:fe560b5665f4f32f",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -125,6 +141,7 @@ callees = [
     "fn:44aea982274675c9",
     "fn:8d8c1e341c9bf653",
 ]
+uses = ["fn:250c638c8bd6b322"]
 test = true
 
 [[module."tests.rs".function]]
@@ -144,6 +161,7 @@ callees = [
     "fn:5542d71db464f60b",
     "fn:8d8c1e341c9bf653",
 ]
+uses = ["fn:250c638c8bd6b322"]
 test = true
 
 [[module."tests.rs".function]]
@@ -182,6 +200,7 @@ callees = [
     "fn:8d8c1e341c9bf653",
     "fn:e655dba31d076665",
 ]
+uses = ["fn:250c638c8bd6b322"]
 test = true
 
 [[module."tests.rs".function]]
@@ -199,6 +218,10 @@ callees = [
     "fn:44aea982274675c9",
     "fn:81a2b448e5e79281",
     "fn:e655dba31d076665",
+]
+uses = [
+    "fn:26c5554d5ea7a332",
+    "fn:4b38b81dac0c3db9",
 ]
 test = true
 
@@ -233,6 +256,10 @@ callees = [
     "fn:8d8c1e341c9bf653",
     "fn:b45c278caf17169c",
 ]
+uses = [
+    "fn:26c5554d5ea7a332",
+    "fn:fe560b5665f4f32f",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -245,6 +272,10 @@ lines = [
 ]
 hash = "sha256:5b67409a5a27aa768ff70600b64d82f35862f7e42dbdab2c5bd1dacd8040f8b0"
 doc_hash = "sha256:8f41a59481d365ba929b2df453ad7b222069bc45669d222aeccbf2898e7dc2ca"
+uses = [
+    "fn:169e359b68d73c14",
+    "fn:26c5554d5ea7a332",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -279,6 +310,7 @@ callees = [
     "fn:b8b7299002a000c4",
     "fn:d6274d2f90a5b2ca",
 ]
+uses = ["fn:26c5554d5ea7a332"]
 test = true
 
 [[module."tests.rs".function]]
@@ -330,4 +362,5 @@ callees = [
     "fn:b6e8763f1a8717a7",
     "fn:d6274d2f90a5b2ca",
 ]
+uses = ["fn:26c5554d5ea7a332"]
 test = true

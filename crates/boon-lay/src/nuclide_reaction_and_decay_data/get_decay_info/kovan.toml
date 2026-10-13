@@ -52,6 +52,7 @@ lines = [
 ]
 hash = "sha256:1cb0aabe2ee7c705b10917da2647c137d107db00655d51311aac63562aee6eb2"
 doc_hash = "sha256:744a152e85ebad660d7db5d7e59c0a2b6444712f8054d2287889828b070ee6e7"
+uses = ["fn:2544367c1b848785"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -64,6 +65,7 @@ lines = [
 ]
 hash = "sha256:a05993665b3a389cc9488d3d4b9d33941a35277d69ec3f114fb305eae644219a"
 doc_hash = "sha256:29a6c0f0bd5013053b8634dfa301e464efb820aac14bc6e79b5c22dde6e200d6"
+uses = ["fn:2544367c1b848785"]
 reached_by = [
     "#3",
     "#4",
@@ -151,6 +153,7 @@ lines = [
 ]
 hash = "sha256:5615126df3faf99cccceee2827ce990ff806c1758828f32138f63b7d76503416"
 doc_hash = "sha256:b92f067c14f3a4bce7e67dc7c1f7c9bf744f424a7ab3e2778f6ff68bc49401b4"
+uses = ["fn:2544367c1b848785"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -163,6 +166,7 @@ lines = [
 ]
 hash = "sha256:c6a8a8c220520342cdcb90088220dca72d8a4aac0251e53661e50fe05b7b3276"
 doc_hash = "sha256:ff68cfa15bcb14d678680d0a5e6a7f0b298f8083b9647fe48eb2d81211307c4b"
+uses = ["fn:3894a8681f2d5771"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -176,6 +180,10 @@ lines = [
 hash = "sha256:afbcc39375c96a30cbcb10115b67a71c53947ce1df6d971aaffe8131f1e7a511"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:390c172a67546051"]
+uses = [
+    "fn:3894a8681f2d5771",
+    "fn:985bf4f6adecc6ad",
+]
 reached_by = ["#24"]
 
 [[module."mod.rs".function]]
@@ -188,6 +196,7 @@ lines = [
 ]
 hash = "sha256:22f4ae98320a681c95c6cd9af92840e0e9d951c15c276c9d83e05227e68f69b2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:3894a8681f2d5771"]
 reached_by = [
     "#0",
     "#1",
@@ -244,6 +253,11 @@ callees = [
     "fn:841bfe59a1c43d51",
     "fn:f5fc6e6d09e9c35b",
 ]
+uses = [
+    "fn:3894a8681f2d5771",
+    "fn:985bf4f6adecc6ad",
+    "fn:c611e024756fd19b",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -260,5 +274,10 @@ callees = [
     "fn:3dbac5330a933de5",
     "fn:bf034958dfa63f73",
     "fn:f5fc6e6d09e9c35b",
+]
+uses = [
+    "fn:2544367c1b848785",
+    "fn:72e9a39cf82b0ce8",
+    "fn:c611e024756fd19b",
 ]
 test = true

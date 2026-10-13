@@ -28,6 +28,91 @@ test_ids = [
 path = "crate::published::accident_dose_by_distance"
 
 [[module."accident_dose_by_distance.rs".function]]
+id = "fn:9b2637c85010cab1"
+name = "HTR10_ACCIDENT_DOSE_BY_DISTANCE_CSV"
+qual = "HTR10_ACCIDENT_DOSE_BY_DISTANCE_CSV"
+item = "const"
+shape = "const"
+lines = [
+    117,
+    120,
+]
+hash = "sha256:82cf7a5d27ddfaaaecf17408daf37b9352c11b0f4f249cbd217735def3cb275d"
+doc_hash = "sha256:c68b6ca5e58e62ccaf16fb55c313f5608fd0a350c27dfe6fafcb2e4280ef7edf"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."accident_dose_by_distance.rs".function]]
+id = "fn:0070bf3650acf75c"
+name = "PublishedAccidentDoses"
+qual = "PublishedAccidentDoses"
+item = "type"
+shape = "struct"
+lines = [
+    127,
+    136,
+]
+hash = "sha256:31b7f050e13110c8824e5ee8f78bec37e6ed5e1aa3c5bf82bd7356c5a77735b1"
+doc_hash = "sha256:22db0e292aae96189cf6b8b19b1e6b36823729d4b097a77ab8d75fb676b269f5"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."accident_dose_by_distance.rs".function]]
+id = "fn:478d37bf941833bd"
+name = "PublishedAccidentDoseAtDistance"
+qual = "PublishedAccidentDoseAtDistance"
+item = "type"
+shape = "struct"
+lines = [
+    138,
+    148,
+]
+hash = "sha256:da0fe7cfd427523da8110c673fffe66758f745bef3760efb4e6a7af44cb5e84c"
+doc_hash = "sha256:1d1f3d198c6781ed7ac7625a796d17817f159b8c5a010146f44f6d12cb01ec92"
+uses = ["fn:0070bf3650acf75c"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."accident_dose_by_distance.rs".function]]
 id = "fn:ab0a4f1d338819da"
 name = "doses"
 qual = "PublishedAccidentDoseAtDistance::doses"
@@ -37,6 +122,11 @@ lines = [
 ]
 hash = "sha256:07570aa858448e759f4450d287d080a00a43a28d7c1388b05df0da4b230e9d99"
 doc_hash = "sha256:f2428dc25d5f938420050c7a1a3208c4fc2e0a4b111cf7d687f016c0414ff5a0"
+uses = [
+    "fn:0070bf3650acf75c",
+    "fn:478d37bf941833bd",
+    "fn:9ad99c82037c06c5",
+]
 reached_by = [
     "#0",
     "#1",
@@ -59,6 +149,11 @@ lines = [
 ]
 hash = "sha256:f96f4af7293e808976887a406986b0c6cf0937647ec821bd8f9aa5f3570172b8"
 doc_hash = "sha256:47eca40001dc2dad6d5f42c1a8935c68d99c0026562314807f415074c4ec70cb"
+uses = [
+    "fn:0070bf3650acf75c",
+    "fn:478d37bf941833bd",
+    "fn:9b2637c85010cab1",
+]
 reached_by = [
     "#0",
     "#1",
@@ -76,6 +171,21 @@ reached_by = [
 ]
 
 [[module."accident_dose_by_distance.rs".function]]
+id = "fn:70a567ccea48858d"
+name = "CASES"
+qual = "CASES"
+item = "const"
+shape = "const"
+lines = [
+    198,
+    198,
+]
+hash = "sha256:123c8b37e183641f5c24c774bb93c6865250f1d9b8bf1ebfe1825342849d5c9f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:9ad99c82037c06c5"]
+test = true
+
+[[module."accident_dose_by_distance.rs".function]]
 id = "fn:0e1ff38ed2e93a7d"
 name = "km"
 qual = "km"
@@ -85,6 +195,7 @@ lines = [
 ]
 hash = "sha256:99edb727df8e365377e114a1f40f1bae4a9692410e5bc941ec90caa4a8b5d6dd"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:478d37bf941833bd"]
 test = true
 
 [[module."accident_dose_by_distance.rs".function]]
@@ -118,6 +229,10 @@ callees = [
     "fn:8e97ab60a978035d",
     "fn:ab0a4f1d338819da",
 ]
+uses = [
+    "fn:0070bf3650acf75c",
+    "fn:9ad99c82037c06c5",
+]
 test = true
 
 [[module."accident_dose_by_distance.rs".function]]
@@ -133,6 +248,10 @@ doc_hash = "sha256:6302a70871e8ec843e4ea6d0ca6c7d5274f2eea0625bf3016300a0388eb8b
 callees = [
     "fn:8e97ab60a978035d",
     "fn:ab0a4f1d338819da",
+]
+uses = [
+    "fn:0070bf3650acf75c",
+    "fn:70a567ccea48858d",
 ]
 test = true
 
@@ -151,6 +270,7 @@ callees = [
     "fn:8e97ab60a978035d",
     "fn:ab0a4f1d338819da",
 ]
+uses = ["fn:70a567ccea48858d"]
 test = true
 
 [[module."accident_dose_by_distance.rs".function]]
@@ -184,6 +304,7 @@ callees = [
     "fn:8e97ab60a978035d",
     "fn:ab0a4f1d338819da",
 ]
+uses = ["fn:70a567ccea48858d"]
 test = true
 
 [module."mod.rs"]
@@ -191,6 +312,48 @@ path = "crate::published"
 
 [module."normal_operation_dose_by_distance.rs"]
 path = "crate::published::normal_operation_dose_by_distance"
+
+[[module."normal_operation_dose_by_distance.rs".function]]
+id = "fn:b3b086591e5b708c"
+name = "HTR10_NORMAL_OPERATION_DOSE_BY_DISTANCE_CSV"
+qual = "HTR10_NORMAL_OPERATION_DOSE_BY_DISTANCE_CSV"
+item = "const"
+shape = "const"
+lines = [
+    74,
+    77,
+]
+hash = "sha256:cfc12462bbd1ef319851673e74bba4831f92f6370569b0f89582a90c2e1e101c"
+doc_hash = "sha256:c68b6ca5e58e62ccaf16fb55c313f5608fd0a350c27dfe6fafcb2e4280ef7edf"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#12",
+]
+
+[[module."normal_operation_dose_by_distance.rs".function]]
+id = "fn:4c1136390c89aa8d"
+name = "PublishedDoseAtDistance"
+qual = "PublishedDoseAtDistance"
+item = "type"
+shape = "struct"
+lines = [
+    79,
+    89,
+]
+hash = "sha256:afac74ab9cd5325a8c002c1d734a56cf065e1b3699995e465e5e40f6e9c0967d"
+doc_hash = "sha256:10ea1f1dd03c300a6b660cae8765297dcb69c0a66092038a4bbea7255336f49e"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#12",
+]
 
 [[module."normal_operation_dose_by_distance.rs".function]]
 id = "fn:48aadfd1336c0315"
@@ -202,6 +365,10 @@ lines = [
 ]
 hash = "sha256:86175d8802654001fc0ba62c7dc14a2a5eed935146aa43285359b473e8e5ca0b"
 doc_hash = "sha256:198f483291a4579c87064143a3bebd40585060cfc0cda916a9d925d0d4207fe3"
+uses = [
+    "fn:4c1136390c89aa8d",
+    "fn:b3b086591e5b708c",
+]
 reached_by = [
     "#6",
     "#7",

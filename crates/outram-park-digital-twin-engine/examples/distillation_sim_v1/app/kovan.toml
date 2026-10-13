@@ -8,6 +8,34 @@ test_ids = ["crates/outram-park-digital-twin-engine/examples/distillation_sim_v1
 path = "example:distillation_sim_v1::app"
 
 [[module."mod.rs".function]]
+id = "fn:99b42d2b0fd7e6c1"
+name = "PHYSICS_TICK"
+qual = "PHYSICS_TICK"
+item = "const"
+shape = "const"
+lines = [
+    34,
+    36,
+]
+hash = "sha256:fdd9e888a5b76c13c4ed77bb1dfa9bb1f4f0a273349d8310260a1e4ca7ddf265"
+doc_hash = "sha256:2a4875e18a8fbf47d75ab1048a69387146592c1a51a26d6b45df7ed7007a356f"
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:f1f1542884f1d6d4"
+name = "PLOT_TICK"
+qual = "PLOT_TICK"
+item = "const"
+shape = "const"
+lines = [
+    37,
+    38,
+]
+hash = "sha256:fdd9e888a5b76c13c4ed77bb1dfa9bb1f4f0a273349d8310260a1e4ca7ddf265"
+doc_hash = "sha256:6c5bef9fdb7f7c4ebb5b1d3676b1ad4dff191776ef4012893fc1353811722b7c"
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
 id = "fn:101bd69aca500258"
 name = "plant_time_per_tick"
 qual = "plant_time_per_tick"
@@ -17,6 +45,10 @@ lines = [
 ]
 hash = "sha256:53ee33723ce0febaeb79932ac238d35f7caeb6325459e946be7e5ee945aecec6"
 doc_hash = "sha256:2dfc68eaca5b9ef0c3a02f6b5fc72c94c308419e2b30360d0cc3d5492198b610"
+uses = [
+    "fn:ab2016d847da28e4",
+    "fn:afa07b51d5072cce",
+]
 reached_by = ["#0"]
 physical_interface = true
 
@@ -30,6 +62,51 @@ lines = [
 ]
 hash = "sha256:357891887f7882b6011ca0626ba3595f02a2eec963942e10eded7365f8bb88a1"
 doc_hash = "sha256:3b6334e7f5e682e509f5e98c1e01533cd35307cd6d2f24f00f8010933369baef"
+uses = [
+    "fn:87466884351c903b",
+    "fn:ca20cdd04e906fd1",
+]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:6c598c92467a5a33"
+name = "DistColSimApp"
+qual = "DistColSimApp"
+item = "type"
+shape = "struct"
+lines = [
+    57,
+    68,
+]
+hash = "sha256:6cce51f21f4c57bf90914933ae03842348cbdf7c1431d3cee3f28fd7a8b569be"
+doc_hash = "sha256:0c693c16f63e3f79359aacb3f160462af03bd158ecc3015c9cb7fd1e08aacd34"
+uses = [
+    "fn:84a1299bc3cb3a8f",
+    "fn:bad2b7979bc77d07",
+    "fn:c72127dc6f402677",
+    "fn:ca20cdd04e906fd1",
+    "fn:f32c12308e75fae8",
+]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:f669f99f7a97c4ea"
+name = "SimulationRun"
+qual = "SimulationRun"
+item = "type"
+shape = "struct"
+lines = [
+    70,
+    77,
+]
+hash = "sha256:921432f2482728c1f1e4affd2432a603a2f83e8a2a5f0987b4469b4ac71da3be"
+doc_hash = "sha256:28c99a8bc36df51bf7f99b161e6fdf3ee72a5e20f2c4827c4d4db71a5ac6bbff"
+uses = [
+    "fn:bad2b7979bc77d07",
+    "fn:c72127dc6f402677",
+    "fn:ca20cdd04e906fd1",
+    "fn:f32c12308e75fae8",
+]
 reached_by = ["#0"]
 
 [[module."mod.rs".function]]
@@ -60,6 +137,17 @@ callees = [
     "fn:da51acab1169f5ca",
     "fn:f1939dfaaa246e8c",
 ]
+uses = [
+    "fn:18618b66b78f55f5",
+    "fn:1ba0784c7e271c18",
+    "fn:99b42d2b0fd7e6c1",
+    "fn:bad2b7979bc77d07",
+    "fn:c72127dc6f402677",
+    "fn:ca20cdd04e906fd1",
+    "fn:f1f1542884f1d6d4",
+    "fn:f32c12308e75fae8",
+    "fn:f669f99f7a97c4ea",
+]
 reached_by = ["#0"]
 
 [[module."mod.rs".function]]
@@ -73,6 +161,10 @@ lines = [
 hash = "sha256:c6d85a17290a9f0b121d7f0996546da7b7209647aa3b9b195cb2b57859a64603"
 doc_hash = "sha256:4b0ee79d34b289ab16b778e23f5d8edd88a9b6152f0f8991b692dbcaf86de0da"
 callees = ["fn:7d71791c490e0cc3"]
+uses = [
+    "fn:6c598c92467a5a33",
+    "fn:84a1299bc3cb3a8f",
+]
 
 [[module."mod.rs".function]]
 id = "fn:3a7035d98b357803"
@@ -88,6 +180,7 @@ callees = [
     "fn:3f77eafc0dd2778c",
     "fn:7d71791c490e0cc3",
 ]
+uses = ["fn:6c598c92467a5a33"]
 reached_by = ["#0"]
 
 [[module."mod.rs".function]]
@@ -111,6 +204,11 @@ callees = [
     "fn:f60c93e7137adb5f",
     "fn:fb3cee7e410afced",
 ]
+uses = [
+    "fn:3be1112e447ddebd",
+    "fn:6c598c92467a5a33",
+    "fn:84a1299bc3cb3a8f",
+]
 
 [[module."mod.rs".function]]
 id = "fn:864e242dc1a7c6d1"
@@ -120,7 +218,7 @@ lines = [
     210,
     276,
 ]
-hash = "sha256:0a88cbfb28f1a8525e2612519707d41e681e49a0d42c700d0778734df1704193"
+hash = "sha256:22658e2d9254b2f49db58de12ecd3061662c09db345f851b4474412346db8b15"
 doc_hash = "sha256:50a4dbcd8262304defb9fa668d4f24f2ed68912a1717dfd6a3d4c0b4a95a3d27"
 callees = [
     "fn:3a7035d98b357803",
@@ -128,10 +226,30 @@ callees = [
     "fn:799721a1413dc73b",
     "fn:7d71791c490e0cc3",
 ]
+uses = [
+    "fn:6c598c92467a5a33",
+    "fn:84a1299bc3cb3a8f",
+    "fn:ab2016d847da28e4",
+    "fn:afa07b51d5072cce",
+]
 test = true
 
 [module."panels.rs"]
 path = "example:distillation_sim_v1::app::panels"
+
+[[module."panels.rs".function]]
+id = "fn:84a1299bc3cb3a8f"
+name = "Panel"
+qual = "Panel"
+item = "type"
+shape = "enum"
+lines = [
+    11,
+    20,
+]
+hash = "sha256:275e81f9a178f17a4d4d4d358afd673908c243a877ce5842fb9efc13626fd360"
+doc_hash = "sha256:5bbb67ceb5b4f880a39821af93972a70213d8cb36fef4a0d4dcf21e4ca2831ab"
+reached_by = ["#0"]
 
 [[module."panels.rs".function]]
 id = "fn:3dda270d42083ac8"
@@ -143,6 +261,33 @@ lines = [
 ]
 hash = "sha256:dc4bce805f8f85708ec72797a2938ad09e03f6a5bb60e01ddae17f99243cd239"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:84a1299bc3cb3a8f"]
+
+[[module."panels.rs".function]]
+id = "fn:52ea19b9711b4517"
+name = "REFLUX_RATIO_RANGE"
+qual = "REFLUX_RATIO_RANGE"
+item = "const"
+shape = "const"
+lines = [
+    34,
+    39,
+]
+hash = "sha256:7f5968a1ae8480ccef330b1b084b749ffb461ac8a85027c180b860fe7879301c"
+doc_hash = "sha256:05193a858be6b45f4de111a3fd7af9306789ff0e783f681c2d799d26da9ef802"
+
+[[module."panels.rs".function]]
+id = "fn:c9cd4d409829c288"
+name = "REBOILER_DUTY_RANGE_W"
+qual = "REBOILER_DUTY_RANGE_W"
+item = "const"
+shape = "const"
+lines = [
+    40,
+    42,
+]
+hash = "sha256:03489ee585111525e828d32954491964bc093f471017f0b38fde6b93eedc208c"
+doc_hash = "sha256:5a2b73084852fe587fbd1d0c2e5cb3a7a0a4e61339e107e4b77c00848e1ab953"
 
 [[module."panels.rs".function]]
 id = "fn:803087da3412e3ad"
@@ -155,6 +300,12 @@ lines = [
 hash = "sha256:8ac8ae90869f5a7555c64bc2e8eefa839c3578370e5d4caa2dca6cbf972e4a34"
 doc_hash = "sha256:b758eafa277ffcb373d939d0eb19f876e61e25941a407c0016226b39ee5c92ce"
 callees = ["fn:b3c41b880fb345c9"]
+uses = [
+    "fn:52ea19b9711b4517",
+    "fn:bad2b7979bc77d07",
+    "fn:c9cd4d409829c288",
+    "fn:ca20cdd04e906fd1",
+]
 
 [[module."panels.rs".function]]
 id = "fn:fb3cee7e410afced"
@@ -167,6 +318,7 @@ lines = [
 hash = "sha256:b4cd066af1cba85a8bea09f91f12cfc7165f37e2937d1655de82abea557fd1cb"
 doc_hash = "sha256:b254e898b5267a4999aa706331dbd9c1a3a30392413322d243f1335c44f5fd45"
 callees = ["fn:4664acfde64ca2f5"]
+uses = ["fn:ca20cdd04e906fd1"]
 
 [[module."panels.rs".function]]
 id = "fn:cff580ab2e4ce036"
@@ -178,6 +330,7 @@ lines = [
 ]
 hash = "sha256:502c32a17a527d8fd9471413827705bccef05709e76f7a914a793f019a3d1dba"
 doc_hash = "sha256:805881d3f007879c0642f58b9ab9f1ee3d8093d40bda65db48381a3859a4745c"
+uses = ["fn:c72127dc6f402677"]
 
 [[module."panels.rs".function]]
 id = "fn:38f5008ce789ce53"
@@ -189,6 +342,10 @@ lines = [
 ]
 hash = "sha256:91d0a755d0354ce998bbb4f2e7498accd919e1cc2e07ace76ed1e8b26cb9f7d6"
 doc_hash = "sha256:f4f692e0fc669d75ad942abbe9a94ffb83432b79f693931a9db5a25dd10e952f"
+uses = [
+    "fn:70f5daf8df5d99ff",
+    "fn:ca20cdd04e906fd1",
+]
 
 [module."schematic.rs"]
 path = "example:distillation_sim_v1::app::schematic"
@@ -207,6 +364,14 @@ callees = [
     "fn:9e88e43bd191d827",
     "fn:a152739189d2e83b",
 ]
+uses = [
+    "fn:70f5daf8df5d99ff",
+    "fn:8a67e1933974a95d",
+    "fn:8d67e743573b6b73",
+    "fn:ca20cdd04e906fd1",
+    "fn:dd9d116d5dd9607e",
+    "fn:f74330c474dc0c21",
+]
 
 [[module."schematic.rs".function]]
 id = "fn:a152739189d2e83b"
@@ -223,6 +388,34 @@ doc_hash = "sha256:53d39a05685c31a5e7e5efdb152d39880ed16f15542bb96c7d889df88d9b5
 path = "example:distillation_sim_v1::app::state"
 
 [[module."state.rs".function]]
+id = "fn:68021dc482a27991"
+name = "MAX_PLOT_SAMPLES"
+qual = "MAX_PLOT_SAMPLES"
+item = "const"
+shape = "const"
+lines = [
+    6,
+    7,
+]
+hash = "sha256:595e7b1465dbc1f16495b431fa4a2c9023000ca64c1b8106933186645120a5f6"
+doc_hash = "sha256:f2b56d5eabae1fdc20574a76ef27f3fbb46d18bb7ee2bccd9064ccb385bc8f9a"
+reached_by = ["#0"]
+
+[[module."state.rs".function]]
+id = "fn:ca20cdd04e906fd1"
+name = "ColumnSnapshot"
+qual = "ColumnSnapshot"
+item = "type"
+shape = "struct"
+lines = [
+    9,
+    52,
+]
+hash = "sha256:ecdb0046481f1e53cc50cbd70118a9f37a58c4f073f3595a0c7fbac75a18e275"
+doc_hash = "sha256:97aa3a49f10cb852b65f26fdaa9d7cd7dba45acfe74c0d3aba145976e23e6043"
+reached_by = ["#0"]
+
+[[module."state.rs".function]]
 id = "fn:739e53c4b6e7d8a8"
 name = "default"
 qual = "ColumnSnapshot::default"
@@ -232,6 +425,25 @@ lines = [
 ]
 hash = "sha256:59d3023102e1ec53059fb25de8021a473b6429842d4304c9b8131cb13bf1d424"
 doc_hash = "sha256:20133ac2b62c9f203f33ec36aaeea2f8ca55be728b081ffd8c1eca04bd5b1bc2"
+uses = [
+    "fn:48a9eb279bb0bae7",
+    "fn:70f5daf8df5d99ff",
+    "fn:ca20cdd04e906fd1",
+]
+reached_by = ["#0"]
+
+[[module."state.rs".function]]
+id = "fn:c72127dc6f402677"
+name = "ColumnPlotData"
+qual = "ColumnPlotData"
+item = "type"
+shape = "struct"
+lines = [
+    82,
+    99,
+]
+hash = "sha256:e10e510ceb245a8218ca279448fdf2c61663a1d2998fe149316a9c05ffa35169"
+doc_hash = "sha256:6d5b94cf8371f883fa1533384e0ff381d60cfffb13e56f1243950aec74fbdbda"
 reached_by = ["#0"]
 
 [[module."state.rs".function]]
@@ -245,6 +457,10 @@ lines = [
 hash = "sha256:d888bf3adc907bc9075d68275ea3ef4d358c5e9747f15161d44d0e339e410992"
 doc_hash = "sha256:9837904fd8cd82170a0bed7677d77be2e327b429252f13015dc29bb72ea8008c"
 callees = ["fn:b9af8da3d66f952b"]
+uses = [
+    "fn:c72127dc6f402677",
+    "fn:ca20cdd04e906fd1",
+]
 reached_by = ["#0"]
 
 [[module."state.rs".function]]
@@ -257,4 +473,5 @@ lines = [
 ]
 hash = "sha256:21048b2a129cff08c6dea296a6bf13be697ea9aea470fc0bdded6240a4e57f58"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:68021dc482a27991"]
 reached_by = ["#0"]

@@ -7,6 +7,48 @@ dir = "crates/outram-park-digital-twin-engine/src/components/pebble_bed_texture"
 path = "crate::components::pebble_bed_texture::tests"
 
 [[module."tests.rs".function]]
+id = "fn:6a9d769841462c13"
+name = "EXAMPLE_VESSEL_BOX"
+qual = "EXAMPLE_VESSEL_BOX"
+item = "const"
+shape = "const"
+lines = [
+    18,
+    21,
+]
+hash = "sha256:22babe725c011e6a46c61843244d05b3674857cdc4b528ae52162f3f00ff524a"
+doc_hash = "sha256:eae8aceac2cc22f0b6f5909047a389890c71c0e03d611cfe3b2eccde3516404d"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1e9d43243d359548"
+name = "EXAMPLE_FHR_BOX"
+qual = "EXAMPLE_FHR_BOX"
+item = "const"
+shape = "const"
+lines = [
+    23,
+    25,
+]
+hash = "sha256:28f114aec4bf618a30edbae5f1af74ab69c5a4cd0eaa4e50a86f2a144dbe65a9"
+doc_hash = "sha256:0b2bd97afba8923a39947fc69ff89b17d26dadfd3fe8b1fe9416d4e487be3857"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:265c6f2f933ca1e2"
+name = "BenchVessel"
+qual = "BenchVessel"
+item = "type"
+shape = "enum"
+lines = [
+    27,
+    38,
+]
+hash = "sha256:bab3e5bddeea1525735c6be2e21dbc005006339459ea693099990cf27bb72bf0"
+doc_hash = "sha256:157515b5ebc22c9c6ca966be445da94f709a9d51943079faabf5fe284164cf78"
+test = true
+
+[[module."tests.rs".function]]
 id = "fn:abaf88d887258eac"
 name = "headless_context"
 qual = "headless_context"
@@ -16,6 +58,20 @@ lines = [
 ]
 hash = "sha256:6dd68ca45cfdb98b1f95837eb47c791577e4065c7d4f608a42c441c5d9b1c97f"
 doc_hash = "sha256:9ec91c7c640b785f7eb99734ae971582fe6a512b75c45fd07ec436af52035b8c"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b70f2eac8561bcf4"
+name = "FrameCost"
+qual = "FrameCost"
+item = "type"
+shape = "struct"
+lines = [
+    54,
+    62,
+]
+hash = "sha256:4411af6c7f2da5e5a9a99811d6435f31009167073ea3b983a554adb17ff049a3"
+doc_hash = "sha256:ea33d6ee4130bec37a8d72ad672efaa57e24c34de6511c2941e8bcf5e6e8664c"
 test = true
 
 [[module."tests.rs".function]]
@@ -31,6 +87,12 @@ doc_hash = "sha256:800b9bb2c6c6f8410ad3f8f7aee299202bc64b0efc2c6c8a531fd6fe70512
 callees = [
     "fn:5cedec083a4498fd",
     "fn:c2b1db5aa20c11f6",
+]
+uses = [
+    "fn:265c6f2f933ca1e2",
+    "fn:2ea46930fe21adf3",
+    "fn:8bc029c647a9bcb5",
+    "fn:b70f2eac8561bcf4",
 ]
 test = true
 
@@ -60,6 +122,12 @@ callees = [
     "fn:6ba555e768ab0b4e",
     "fn:e377725cacfcae15",
 ]
+uses = [
+    "fn:517af8acb544d0d1",
+    "fn:526aee2178a76bbf",
+    "fn:60bdd0684176e795",
+    "fn:e44b50c322b9aa1e",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -77,6 +145,10 @@ callees = [
     "fn:abaf88d887258eac",
     "fn:f68ec44c3783347c",
 ]
+uses = [
+    "fn:93ae51addb732267",
+    "fn:e44b50c322b9aa1e",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -90,6 +162,7 @@ lines = [
 hash = "sha256:4a1374acc4ff5b89951554fa741716106cb47cbb3043e84abb7f5ef704a334b0"
 doc_hash = "sha256:7f04b6beafcbaf89a5cf11ad129843b41ac3c756542a01d275cf5350c3cd7437"
 callees = ["fn:e5b834089ac05a0e"]
+uses = ["fn:8c4259e43f4e59fb"]
 test = true
 
 [[module."tests.rs".function]]
@@ -109,6 +182,11 @@ callees = [
     "fn:dfdade2d0f4762b2",
     "fn:f873514b7114cef3",
 ]
+uses = [
+    "fn:517af8acb544d0d1",
+    "fn:60bdd0684176e795",
+    "fn:e44b50c322b9aa1e",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -125,6 +203,10 @@ callees = [
     "fn:abaf88d887258eac",
     "fn:d7f5a1374469e429",
 ]
+uses = [
+    "fn:265c6f2f933ca1e2",
+    "fn:6a9d769841462c13",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -135,12 +217,18 @@ lines = [
     479,
     596,
 ]
-hash = "sha256:e416f8adbd93b243da7a7febe89064022bba6c92599c4a585f0f11494eb3335c"
+hash = "sha256:f45c0c55fef7b82a1ee23a68f67a4d14bb2c90a3e100fe92a9569e82e3712ffa"
 doc_hash = "sha256:f83bce89ea5642d293fc4b46db0f4abaa94253f72d264a51a40cbf242a8dd9a8"
 callees = [
     "fn:96c9348f6cb9e5f7",
     "fn:abaf88d887258eac",
     "fn:d7f5a1374469e429",
+]
+uses = [
+    "fn:1e9d43243d359548",
+    "fn:265c6f2f933ca1e2",
+    "fn:6a9d769841462c13",
+    "fn:b70f2eac8561bcf4",
 ]
 test = true
 
@@ -161,6 +249,11 @@ callees = [
     "fn:dfdade2d0f4762b2",
     "fn:f873514b7114cef3",
 ]
+uses = [
+    "fn:517af8acb544d0d1",
+    "fn:60bdd0684176e795",
+    "fn:e44b50c322b9aa1e",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -176,5 +269,10 @@ doc_hash = "sha256:2161d18395ee71f4091b2136dbe02f73173a77de940728d1949529496c508
 callees = [
     "fn:6ba555e768ab0b4e",
     "fn:b09cbf4e1aa149fc",
+]
+uses = [
+    "fn:219c7c4befa9be7d",
+    "fn:517af8acb544d0d1",
+    "fn:716946324f699968",
 ]
 test = true

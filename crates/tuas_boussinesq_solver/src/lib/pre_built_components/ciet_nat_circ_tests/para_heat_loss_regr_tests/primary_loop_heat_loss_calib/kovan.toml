@@ -58,6 +58,15 @@ callees = [
     "fn:dda41651835c793f",
     "fn:e0f6ccbea3b4fcfc",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 reached_by = ["#0"]
 
 [module."mod.rs"]
@@ -117,6 +126,17 @@ callees = [
     "fn:dda41651835c793f",
     "fn:e0f6ccbea3b4fcfc",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:54679033f1efb4f4",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
 reached_by = ["#1"]
 
 [[module."pipe_nusselt_number_calibration.rs".function]]
@@ -153,5 +173,16 @@ callees = [
     "fn:d57dbe3f80933fd7",
     "fn:dda41651835c793f",
     "fn:e0f6ccbea3b4fcfc",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:54679033f1efb4f4",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
 ]
 reached_by = ["#1"]

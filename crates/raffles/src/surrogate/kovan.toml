@@ -25,6 +25,19 @@ path = "crate::surrogate"
 path = "crate::surrogate::neural"
 
 [[module."neural.rs".function]]
+id = "fn:ebf93502423039a0"
+name = "Scaler"
+qual = "Scaler"
+item = "type"
+shape = "struct"
+lines = [
+    62,
+    71,
+]
+hash = "sha256:949cc572f66015a39a6ca090a6263135a073a85f6e3f80ea419db1debc5cd4f6"
+doc_hash = "sha256:1ac2067cb7b008ea46bc52cf8b8b6bc14c58f54a2c3e7d54816e59fbe7f3487c"
+
+[[module."neural.rs".function]]
 id = "fn:104fe8600fe97248"
 name = "fit"
 qual = "Scaler::fit"
@@ -34,6 +47,7 @@ lines = [
 ]
 hash = "sha256:5e33d9fd8f3a25356b588a9af9c25b7ad0b2d738d32992f503a7a53be40b8cec"
 doc_hash = "sha256:8c4112027299557484010d6f366ded3e8024eaf242386748f2207dd512643e03"
+uses = ["fn:ebf93502423039a0"]
 
 [[module."neural.rs".function]]
 id = "fn:54026328a0cefec2"
@@ -45,6 +59,7 @@ lines = [
 ]
 hash = "sha256:6ba097241ff342d157655619802d7a2bc26bca2cfe0deeed1d13e7ba445fd057"
 doc_hash = "sha256:0d825909552093f8df0b5bde5d5c5491b0f8d5ea86d8d565654e3719ff1b5055"
+uses = ["fn:ebf93502423039a0"]
 
 [[module."neural.rs".function]]
 id = "fn:d1714756f739d75e"
@@ -56,6 +71,7 @@ lines = [
 ]
 hash = "sha256:ee2661e8ae20151cb9a32eb3fc315b3eddec26d47280509633e6b156fb6f5c68"
 doc_hash = "sha256:0a2bbcc96d71836216a190d09b9cc13aadf8e7f18bac1c18e7d04082ee94bc9d"
+uses = ["fn:ebf93502423039a0"]
 
 [[module."neural.rs".function]]
 id = "fn:316661565a641974"
@@ -67,6 +83,7 @@ lines = [
 ]
 hash = "sha256:2cf8da57a013bdff1e7c399e9ae2da611e1df3f5a46614109f39099bcecab540"
 doc_hash = "sha256:00fcf5499f81f6867f348fab94f41b2c7ddea83d0cbcb1d047d4505343ba677b"
+uses = ["fn:ebf93502423039a0"]
 
 [[module."neural.rs".function]]
 id = "fn:0bb4e04e0436ae53"
@@ -78,6 +95,20 @@ lines = [
 ]
 hash = "sha256:631e828be874b9554d66b551284932bc7f3b0e81c71f33cedf9effdcf757a40e"
 doc_hash = "sha256:d3ae56a4ac84fd02a78e9bead19250a427e23d069cd955eeb1d0aba9e9992fbd"
+uses = ["fn:ebf93502423039a0"]
+
+[[module."neural.rs".function]]
+id = "fn:db9363fde54dbab4"
+name = "TrainingConfig"
+qual = "TrainingConfig"
+item = "type"
+shape = "struct"
+lines = [
+    129,
+    143,
+]
+hash = "sha256:798322b430c696ac8d8a184f58e5fba209bf8d63bb91ff85a30a8f440f65ea6e"
+doc_hash = "sha256:444a1c86740378369818ebcdb990c16e7de3d90f32f56e8eff55480c067a595c"
 
 [[module."neural.rs".function]]
 id = "fn:490e290c70349792"
@@ -89,6 +120,7 @@ lines = [
 ]
 hash = "sha256:f125d15a60006189b0dbe559d05c72c060853f482f9362bd811ec50382b8796f"
 doc_hash = "sha256:741fd69f839efdd839bf4a1f556b32b5bf412f13e56c012bdc50306b6a6c710c"
+uses = ["fn:db9363fde54dbab4"]
 
 [[module."neural.rs".function]]
 id = "fn:cf885bb6d501a6f2"
@@ -100,6 +132,20 @@ lines = [
 ]
 hash = "sha256:84b7b13584ecfe6c57fd6a1690e2f1777a947ce14291c7a4c487c410ec1d7a3f"
 doc_hash = "sha256:bd4d1937f1da2f2bcfc8b7f4e6aaa467c1545b08677253907ddda9bff27e118e"
+uses = ["fn:db9363fde54dbab4"]
+
+[[module."neural.rs".function]]
+id = "fn:af1af46615561df9"
+name = "TrainingReport"
+qual = "TrainingReport"
+item = "type"
+shape = "struct"
+lines = [
+    193,
+    203,
+]
+hash = "sha256:8b019b9fde436eb2c70d775e5eb1eb0559d4399111d5a743ae49a29f3e4c2a84"
+doc_hash = "sha256:89901d420d0be279ce0a592c0264b91ab1a6d0d5d6f7a380e60e1508ec17df0f"
 
 [[module."neural.rs".function]]
 id = "fn:f5ab68fb7ff81a6d"
@@ -111,6 +157,7 @@ lines = [
 ]
 hash = "sha256:de85b26d812fcd2729bfca26b4ae130608fcc404d49eab0d4dff9d47c1bb92ed"
 doc_hash = "sha256:67f3ee9081ae369226365a02a759156566affbab463c988806885c3d81a9a149"
+uses = ["fn:af1af46615561df9"]
 
 [[module."neural.rs".function]]
 id = "fn:b8d0404014d80d69"
@@ -122,6 +169,7 @@ lines = [
 ]
 hash = "sha256:eae6a5d6fb1300a38bf452c08162a7fb7e022429f166e68b39e77e238e2c2ef7"
 doc_hash = "sha256:8d81b8cf5d540578bbe4a56e25ca66f70c8f8ce30894d19be37016983affefe4"
+uses = ["fn:af1af46615561df9"]
 
 [[module."neural.rs".function]]
 id = "fn:02afac692a88982a"
@@ -133,6 +181,20 @@ lines = [
 ]
 hash = "sha256:83eb380d890f8431b76ebcfa6e74e6551cf52f911248919b8f2fa329c166a172"
 doc_hash = "sha256:8283a04688e8dd86eabd981608a90345808154b1d187ef61464b4b014af479c9"
+uses = ["fn:af1af46615561df9"]
+
+[[module."neural.rs".function]]
+id = "fn:6acad7b45d7887f8"
+name = "NeuralSurrogate"
+qual = "NeuralSurrogate"
+item = "type"
+shape = "struct"
+lines = [
+    242,
+    254,
+]
+hash = "sha256:72090a4cbd1d17c3c090a877a3e8b65ad911cdcd06bc541ecb28e3fc9f8c6540"
+doc_hash = "sha256:f1891c846eaffd5d860e84c71be414c3b2bd4b782195590bc26db9b5fd5ea317"
 
 [[module."neural.rs".function]]
 id = "fn:0b38022bf65a75c4"
@@ -144,6 +206,7 @@ lines = [
 ]
 hash = "sha256:d7c6df9b8aeb3d588c97946eb346661bbc8a2e0c31b725fcdf220bf5a809817f"
 doc_hash = "sha256:98d1b666dfc69671b8311bf5e2d9e761694dfd11c151f59ef94e09667d7ef3f5"
+uses = ["fn:6acad7b45d7887f8"]
 
 [[module."neural.rs".function]]
 id = "fn:969d1c8acbb20b3d"
@@ -155,6 +218,7 @@ lines = [
 ]
 hash = "sha256:ada4d6ae060878832f4f76529e4cbc8d883c4bf61c697dac1aa9ccc56de48f75"
 doc_hash = "sha256:d4ac819af52bf0e78b5e288380e6f4264e070a7e9ff54affa843c76aff79b1e6"
+uses = ["fn:6acad7b45d7887f8"]
 
 [[module."neural.rs".function]]
 id = "fn:4a8189efe4290944"
@@ -166,6 +230,7 @@ lines = [
 ]
 hash = "sha256:3bd8f4bce21a170c1dc40ce667b3d562f0accfd2a9292d6f883122bfbce73fba"
 doc_hash = "sha256:6d6f4de28c18ab8229ad00e3398092fb8e65e6ab3b0cfd17c20468d610c21a98"
+uses = ["fn:6acad7b45d7887f8"]
 
 [[module."neural.rs".function]]
 id = "fn:8ecd98f04c6cd863"
@@ -177,6 +242,7 @@ lines = [
 ]
 hash = "sha256:170b41679f5fc8d76466507f38d86a5b913f945439ba2d82c35c3cd54b8071ca"
 doc_hash = "sha256:c9a3fdd4526a8f8178e82422917faa9a75a4a992486858967dd20b0834eaa56c"
+uses = ["fn:6acad7b45d7887f8"]
 
 [[module."neural.rs".function]]
 id = "fn:bb42f7ffba66eaf8"
@@ -188,6 +254,7 @@ lines = [
 ]
 hash = "sha256:7ab947d95118194118212aa0958052d031c178d48ce0604dd89e4503729109c3"
 doc_hash = "sha256:01d65aa1015e766e79663aad84a8b5ee53ec3900fad81be5c801bbf712d45679"
+uses = ["fn:6acad7b45d7887f8"]
 
 [[module."neural.rs".function]]
 id = "fn:e545f76d9548a809"
@@ -199,6 +266,20 @@ lines = [
 ]
 hash = "sha256:6435f67f7fd6153df1a0192b93b41d67659d390e53354c1cb356737d0cb43568"
 doc_hash = "sha256:08f230444592268fa2995f083131fe8c2694edad6b0f7cb6f090f64fc0ec0a71"
+
+[[module."neural.rs".function]]
+id = "fn:60eee24ade1532c4"
+name = "TestBackend"
+qual = "TestBackend"
+item = "type"
+shape = "alias"
+lines = [
+    478,
+    478,
+]
+hash = "sha256:63c60da4905270df27b5f4eba812989cdd664cb924ceb65fff686bc781cddd59"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."neural.rs".function]]
 id = "fn:c60ed7fdb378c66e"
@@ -244,7 +325,7 @@ lines = [
     533,
     566,
 ]
-hash = "sha256:ea723c29ccff879559d29634cf60f1516c07f24a97e1baf46a0e3d6b88f75710"
+hash = "sha256:1f52fb892aff5b265834d5c3301e21f52a2a5307e894e034627d633384cd85d3"
 doc_hash = "sha256:9c9128234ef067554baca601f142984a43865da7f1dc37d03c0f265abbfc0922"
 test = true
 
@@ -300,6 +381,34 @@ test = true
 path = "crate::surrogate::polynomial"
 
 [[module."polynomial.rs".function]]
+id = "fn:4b47b224d044f7bf"
+name = "PolynomialSurrogate"
+qual = "PolynomialSurrogate"
+item = "type"
+shape = "struct"
+lines = [
+    46,
+    63,
+]
+hash = "sha256:67f8eb9a7f14e52d9b2c66954f652e7490a5a7cc360e35fd660847a1ee2d01b9"
+doc_hash = "sha256:1740ef2e6289378847eabf7da105463de2c7614395e4de63f1cbd748ffc5c8a2"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."polynomial.rs".function]]
 id = "fn:70d834d3773715e3"
 name = "basis_size"
 qual = "PolynomialSurrogate::basis_size"
@@ -309,6 +418,7 @@ lines = [
 ]
 hash = "sha256:6c6622c9eebb82e305f0a7eb87569e1a183ba6b09097a338925cc29f46951d09"
 doc_hash = "sha256:b1ce84864ec57cf38afa8da2610328925c2ca859e596225ba444f820b3c5e66d"
+uses = ["fn:4b47b224d044f7bf"]
 reached_by = [
     "#0",
     "#1",
@@ -323,12 +433,17 @@ lines = [
     79,
     230,
 ]
-hash = "sha256:d99ac35dcd82401d605a1ad35552ece529c804fcc9e8171c80c042fa3599cb9e"
+hash = "sha256:0d77b32ddc3b4a033a078f9ce07e1a3634d3b6cd83b6297a499f22c7b80a3557"
 doc_hash = "sha256:05d9b48448b10906434bc5c495d743bb888b7f93ac3597793d78c9ca7256e7a9"
 callees = [
     "fn:27256f25cdd27abd",
     "fn:5d99856ccb2e207a",
     "fn:6974af5d846a00b0",
+]
+uses = [
+    "fn:4b47b224d044f7bf",
+    "fn:6bed5c894beebde8",
+    "fn:a344c30956c72449",
 ]
 reached_by = [
     "#0",
@@ -356,6 +471,11 @@ lines = [
 hash = "sha256:40cd54b99469774253b4d4479a0157fddfd9370ec1af921448432b2243f99bf5"
 doc_hash = "sha256:a16547896b04c974f91f81a7456291f3cce298291dd17852aa07e5ec466c7978"
 callees = ["fn:5d99856ccb2e207a"]
+uses = [
+    "fn:4b47b224d044f7bf",
+    "fn:6bed5c894beebde8",
+    "fn:a344c30956c72449",
+]
 reached_by = [
     "#0",
     "#1",
@@ -380,6 +500,7 @@ lines = [
 ]
 hash = "sha256:a641578131fdc7c93c07a6a09dd38690ffa1c15f253df6465c7895fc4db0874b"
 doc_hash = "sha256:6a1645425fea05623ad37ac8c5163940307037e5b4865d2794eca31b84c4e02f"
+uses = ["fn:4b47b224d044f7bf"]
 
 [[module."polynomial.rs".function]]
 id = "fn:5afbf693f339d6e4"
@@ -391,6 +512,7 @@ lines = [
 ]
 hash = "sha256:242a79dfe6c7c9c1cb2035a788a40a8f43d9ca59f1478a35fd462018b1d1fe0d"
 doc_hash = "sha256:5f33a0e1a39577d51d4864192cb692c8b2a5986b3605c9f50e5ba9c50f317e5d"
+uses = ["fn:4b47b224d044f7bf"]
 reached_by = [
     "#2",
     "#8",
@@ -407,6 +529,7 @@ lines = [
 ]
 hash = "sha256:f9004135828882555962203ae163ab7f5fc70b542c1661a9b339ab219b95f204"
 doc_hash = "sha256:2e4d37c678519d4d251c6e34a560beec75949cc4ef583e19e2b74bd5bcfd8eea"
+uses = ["fn:4b47b224d044f7bf"]
 
 [[module."polynomial.rs".function]]
 id = "fn:9b3c24f1fa0fbb2c"
@@ -418,6 +541,7 @@ lines = [
 ]
 hash = "sha256:fec8e87622d8b49ff46a421c72af20437495f100cedf3a5ec1f2e1f8c1df0bae"
 doc_hash = "sha256:bc84f0b8e6c3128f7aeaed6e0ca865d8a2ec03be889a8a6c5c48f5eb30296d58"
+uses = ["fn:4b47b224d044f7bf"]
 
 [[module."polynomial.rs".function]]
 id = "fn:af73dd302c867871"
@@ -430,6 +554,11 @@ lines = [
 hash = "sha256:09cfbba4109871a9b07cb55d2e30efd1cda8e7969d09e39de982f4dc555d6a13"
 doc_hash = "sha256:df3b16e66cabe812d8b7f06321de08e3b046cfbed2d9c67f0d02fd7e39ea9fb6"
 callees = ["fn:3f2b3a7c2b8475b5"]
+uses = [
+    "fn:4b47b224d044f7bf",
+    "fn:6bed5c894beebde8",
+    "fn:a344c30956c72449",
+]
 reached_by = [
     "#4",
     "#10",
@@ -446,6 +575,11 @@ lines = [
 hash = "sha256:204181c24eafc3baf4017f8d0b1719afac75cf2b675f3b2374e3a27933783e9e"
 doc_hash = "sha256:95803b3bba9f45fc992c36aaea60a9816d88bc5b19ef7cf75237160f00d9ae13"
 callees = ["fn:3f2b3a7c2b8475b5"]
+uses = [
+    "fn:4b47b224d044f7bf",
+    "fn:6bed5c894beebde8",
+    "fn:a344c30956c72449",
+]
 reached_by = [
     "#4",
     "#6",
@@ -543,6 +677,7 @@ callees = [
     "fn:6974af5d846a00b0",
     "fn:70d834d3773715e3",
 ]
+uses = ["fn:4b47b224d044f7bf"]
 test = true
 
 [[module."polynomial.rs".function]]
@@ -553,7 +688,7 @@ lines = [
     451,
     493,
 ]
-hash = "sha256:b92adfbd5a8c4900a86c6a0bf2bba33f3cf367e83c862ed5284e3510cd7df718"
+hash = "sha256:fe8fa19e582d0fa35bd3373cff8384d4991421c0c0ea1ea637f81f12909286ad"
 doc_hash = "sha256:23f76e7496405be7ef99b907c9d40b9652b7afba2d268916410ba6a6c770e7c1"
 callees = [
     "fn:681ddf6544e7b60b",
@@ -562,6 +697,7 @@ callees = [
     "fn:e3f20004b4bade0c",
     "fn:e51c12d05b6c783c",
 ]
+uses = ["fn:4b47b224d044f7bf"]
 test = true
 
 [[module."polynomial.rs".function]]
@@ -582,6 +718,7 @@ callees = [
     "fn:e3f20004b4bade0c",
     "fn:e51c12d05b6c783c",
 ]
+uses = ["fn:4b47b224d044f7bf"]
 test = true
 
 [[module."polynomial.rs".function]]
@@ -592,7 +729,7 @@ lines = [
     549,
     605,
 ]
-hash = "sha256:4cbf20e17bf7c1b198a7bd599d2e6a956c11bbc695c29cbd7bca08167816f418"
+hash = "sha256:7b60cd29e695d4370fca0a5911a8a35659bc7b17c6bb6272f523d9bdabfd8835"
 doc_hash = "sha256:cc371b2181ed9aafad7a8294e7b97506749725ef5c64f04cd6126e72faf50beb"
 callees = [
     "fn:5afbf693f339d6e4",
@@ -601,6 +738,7 @@ callees = [
     "fn:e3f20004b4bade0c",
     "fn:e51c12d05b6c783c",
 ]
+uses = ["fn:4b47b224d044f7bf"]
 test = true
 
 [[module."polynomial.rs".function]]
@@ -614,6 +752,7 @@ lines = [
 hash = "sha256:a28f86fca954b1686e58a9e0504320707db429d5cbf6d04f90194dc8310d35e7"
 doc_hash = "sha256:73115cb29a323dcb2f7234779b1509ac41e3195e44c3508ef50aabe8e9214dfb"
 callees = ["fn:e3f20004b4bade0c"]
+uses = ["fn:4b47b224d044f7bf"]
 test = true
 
 [[module."polynomial.rs".function]]
@@ -632,6 +771,7 @@ callees = [
     "fn:e3f20004b4bade0c",
     "fn:e51c12d05b6c783c",
 ]
+uses = ["fn:4b47b224d044f7bf"]
 test = true
 
 [[module."polynomial.rs".function]]
@@ -648,10 +788,33 @@ callees = [
     "fn:3f2b3a7c2b8475b5",
     "fn:e3f20004b4bade0c",
 ]
+uses = ["fn:4b47b224d044f7bf"]
 test = true
 
 [module."validation.rs"]
 path = "crate::surrogate::validation"
+
+[[module."validation.rs".function]]
+id = "fn:7b5409771b9b473e"
+name = "LeaveOneOut"
+qual = "LeaveOneOut"
+item = "type"
+shape = "struct"
+lines = [
+    56,
+    65,
+]
+hash = "sha256:4b4819428af6506b458d5b355d70a9aa00a5f640c5a12ac00ef93ad41daf1cf4"
+doc_hash = "sha256:5580ac5eee8f1705ed63869cf67e84504cb06254cefb35bdc9ed38b0ad2bd358"
+uses = ["fn:4b47b224d044f7bf"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+]
 
 [[module."validation.rs".function]]
 id = "fn:3dfbac05fb13e97e"
@@ -666,6 +829,12 @@ doc_hash = "sha256:de0e416e01fdde6314c01bc8649baac82b239ba781a9a552d2992b4e24084
 callees = [
     "fn:3f2b3a7c2b8475b5",
     "fn:e3f20004b4bade0c",
+]
+uses = [
+    "fn:4b47b224d044f7bf",
+    "fn:6bed5c894beebde8",
+    "fn:7b5409771b9b473e",
+    "fn:a344c30956c72449",
 ]
 reached_by = [
     "#0",
@@ -686,6 +855,7 @@ lines = [
 ]
 hash = "sha256:e294a71d12fd82caee6905bec174a79c1abafd3051863bdafb6ababed49b76b1"
 doc_hash = "sha256:2efee0b7f7eac0b0b207537d9d79fceebe630281d767688f55c4eaccad985e96"
+uses = ["fn:7b5409771b9b473e"]
 reached_by = [
     "#0",
     "#1",
@@ -704,6 +874,11 @@ lines = [
 ]
 hash = "sha256:5ebbf2d7134a55d838525cfcc1601d6f8df112c8b0754bdc486edc364f7c2b3f"
 doc_hash = "sha256:14fc243665b04abc723871c806df3175516b8a121a84fc6450628f08dcfd84fd"
+uses = [
+    "fn:6bed5c894beebde8",
+    "fn:7b5409771b9b473e",
+    "fn:a344c30956c72449",
+]
 reached_by = [
     "#2",
     "#12",
@@ -720,6 +895,11 @@ lines = [
 hash = "sha256:cda298ef8203186dd1073f1f45d62860a98cde3dc4e6dc5bfc9416b27835aa95"
 doc_hash = "sha256:8e339ffc64a08ed6ce2abaacfc7189a9e4426b755e1ef1f2edd83c45388c49a2"
 callees = ["fn:3f2b3a7c2b8475b5"]
+uses = [
+    "fn:6bed5c894beebde8",
+    "fn:7b5409771b9b473e",
+    "fn:a344c30956c72449",
+]
 reached_by = [
     "#2",
     "#11",
@@ -741,6 +921,7 @@ callees = [
     "fn:3a38a9506524614b",
     "fn:3dfbac05fb13e97e",
 ]
+uses = ["fn:7b5409771b9b473e"]
 test = true
 
 [[module."validation.rs".function]]
@@ -759,4 +940,5 @@ callees = [
     "fn:3dfbac05fb13e97e",
     "fn:4e67267e650524ce",
 ]
+uses = ["fn:7b5409771b9b473e"]
 test = true

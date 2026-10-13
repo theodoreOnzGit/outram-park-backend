@@ -39,6 +39,10 @@ callees = [
     "fn:dc13477d1f4798db",
     "fn:e64a66e2b44cad2d",
 ]
+uses = [
+    "fn:70e944b0ad99ff17",
+    "fn:b7b4c168c436333b",
+]
 test = true
 
 [[module."block_mesh.rs".function]]
@@ -51,6 +55,11 @@ lines = [
 ]
 hash = "sha256:afa972f4b73e445b6aafcf2a9796d596f880a7ba248f063d3b883cb518289747"
 doc_hash = "sha256:483afbd15c889fcdb494ae0bb64da518acb770f76aba7d948bb1bae574f5f55b"
+uses = [
+    "fn:7500e89f0e88845d",
+    "fn:c9a07978bb3afb8e",
+    "fn:ddbf3dac1d991d9f",
+]
 test = true
 
 [[module."block_mesh.rs".function]]
@@ -68,10 +77,25 @@ callees = [
     "fn:ce61afc044ad8519",
     "fn:d88c045633b3ad05",
 ]
+uses = ["fn:c9a07978bb3afb8e"]
 test = true
 
 [module."ideas_unv_to_foam.rs"]
 path = "test:mesh_tools::ideas_unv_to_foam"
+
+[[module."ideas_unv_to_foam.rs".function]]
+id = "fn:da2140866e556231"
+name = "Args"
+qual = "Args"
+item = "type"
+shape = "struct"
+lines = [
+    33,
+    43,
+]
+hash = "sha256:04a47bbfc6514f7783edd58d5a871aae3ea38f6acd23f28bb888ac8638d55e10"
+doc_hash = "sha256:a7f24cb1bd72a71f94d700ade48ede1c2bec055d75113300b77e88edb35a39fd"
+test = true
 
 [[module."ideas_unv_to_foam.rs".function]]
 id = "fn:6a4fd848b16e0ed7"
@@ -87,6 +111,10 @@ callees = [
     "fn:8fcc42431f992418",
     "fn:e49f3f09939d0a09",
 ]
+uses = [
+    "fn:b7b4c168c436333b",
+    "fn:da2140866e556231",
+]
 test = true
 
 [[module."ideas_unv_to_foam.rs".function]]
@@ -100,6 +128,10 @@ lines = [
 hash = "sha256:4dc59dacd9a62457ca96e017cfbcbdf995654f550b63ada72c7840f0834c10f9"
 doc_hash = "sha256:e476c77cfb80f45a928d2e8d253dd1ce5f71d4dd3f1095017b2fbdcfc5212f20"
 callees = ["fn:e49f3f09939d0a09"]
+uses = [
+    "fn:70e944b0ad99ff17",
+    "fn:b7b4c168c436333b",
+]
 test = true
 
 [[module."ideas_unv_to_foam.rs".function]]
@@ -120,6 +152,10 @@ callees = [
     "fn:dc13477d1f4798db",
     "fn:e64a66e2b44cad2d",
 ]
+uses = [
+    "fn:70e944b0ad99ff17",
+    "fn:b7b4c168c436333b",
+]
 test = true
 
 [[module."ideas_unv_to_foam.rs".function]]
@@ -132,6 +168,7 @@ lines = [
 ]
 hash = "sha256:6bf9c30d284f03874c5769e2743282a501b4b8b6496976d9d01993eb047de0ae"
 doc_hash = "sha256:735c21e139c579c253270ddd9cec8dd9486b652b7400db304ece7640d52a8081"
+uses = ["fn:70e944b0ad99ff17"]
 test = true
 
 [[module."ideas_unv_to_foam.rs".function]]
@@ -144,6 +181,11 @@ lines = [
 ]
 hash = "sha256:fc503b2b8baccd882bdbf881d5223c7dafde46f78b25a3535b5c50413b2fcf02"
 doc_hash = "sha256:3a6229907e4828bd0629a176059822de29911b9d442c49254c0f4a825ed80047"
+uses = [
+    "fn:5e692f225586e45e",
+    "fn:7500e89f0e88845d",
+    "fn:ddbf3dac1d991d9f",
+]
 test = true
 
 [[module."ideas_unv_to_foam.rs".function]]
@@ -156,10 +198,39 @@ lines = [
 ]
 hash = "sha256:1e83ae82e9a786dc5979d0483e319afbd28b5d2d44dda3c1e6157788bca326d3"
 doc_hash = "sha256:35fa73c1b66047d625a6a028d5453ddd27c141e3f449172e898490c9fd4f707b"
+uses = ["fn:5e692f225586e45e"]
 test = true
 
 [module."poly_dual_mesh.rs"]
 path = "test:mesh_tools::poly_dual_mesh"
+
+[[module."poly_dual_mesh.rs".function]]
+id = "fn:1c1be7ce514f1838"
+name = "DUAL_OUTPUT_SUBDIR"
+qual = "DUAL_OUTPUT_SUBDIR"
+item = "const"
+shape = "const"
+lines = [
+    39,
+    43,
+]
+hash = "sha256:1c87ac1347bb334e2ec240a748195ef86149aa3d91e8363f65ba5984d8882b5c"
+doc_hash = "sha256:a8343453a4bdfddb50e516dab2748dda07a7a44f9131685dfe13ea52e07fa38e"
+test = true
+
+[[module."poly_dual_mesh.rs".function]]
+id = "fn:d497e873f771c140"
+name = "DEFAULT_FEATURE_ANGLE_DEG"
+qual = "DEFAULT_FEATURE_ANGLE_DEG"
+item = "const"
+shape = "const"
+lines = [
+    45,
+    46,
+]
+hash = "sha256:6c8c26444bbb18959520c5391445a563400d4344137c283d532ef9e35d5c3546"
+doc_hash = "sha256:1ee583dfdcc1fd2a944c44366cd0896c1f25d0517f88d1e08486314e946de9c0"
+test = true
 
 [[module."poly_dual_mesh.rs".function]]
 id = "fn:b6e2c76c1a5955a6"
@@ -196,6 +267,14 @@ callees = [
     "fn:dc13477d1f4798db",
     "fn:e64a66e2b44cad2d",
 ]
+uses = [
+    "fn:1c1be7ce514f1838",
+    "fn:293183d62b7ee5f9",
+    "fn:70e944b0ad99ff17",
+    "fn:b7b4c168c436333b",
+    "fn:d497e873f771c140",
+    "fn:ddbf3dac1d991d9f",
+]
 test = true
 
 [[module."poly_dual_mesh.rs".function]]
@@ -208,6 +287,11 @@ lines = [
 ]
 hash = "sha256:2dae08db2bf32c3368242187049193b508826c863a4ac1aa69d126b2a8c3446a"
 doc_hash = "sha256:10de615751b6a726d2342493c0f981ae135bf144633d7e0cefd252a53370d4d2"
+uses = [
+    "fn:70e944b0ad99ff17",
+    "fn:ac1277f9ff5ece5e",
+    "fn:ddbf3dac1d991d9f",
+]
 test = true
 
 [[module."poly_dual_mesh.rs".function]]
@@ -221,6 +305,13 @@ lines = [
 hash = "sha256:8a09a893750a24f2e8094a6d08f8936993afdb051e92eab74b5db8205cd2c1a8"
 doc_hash = "sha256:773bdbb129aa4af5b69b126ee6f7ee7dee2ffddb65ce8e82969c936a90f035e9"
 callees = ["fn:3f65c61e733c613c"]
+uses = [
+    "fn:0b8cd91ca6b1b21b",
+    "fn:293183d62b7ee5f9",
+    "fn:7500e89f0e88845d",
+    "fn:91df6861a4ea25c2",
+    "fn:ddbf3dac1d991d9f",
+]
 test = true
 
 [[module."poly_dual_mesh.rs".function]]
@@ -238,4 +329,5 @@ callees = [
     "fn:c3e91ccf7885de77",
     "fn:ed593828c43686d6",
 ]
+uses = ["fn:ddbf3dac1d991d9f"]
 test = true

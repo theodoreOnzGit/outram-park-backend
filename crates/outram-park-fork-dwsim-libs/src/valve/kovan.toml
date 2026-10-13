@@ -15,6 +15,58 @@ test_ids = [
 path = "crate::valve::iec_60534"
 
 [[module."iec_60534.rs".function]]
+id = "fn:0778986d9390a533"
+name = "REFERENCE_WATER_DENSITY_KG_PER_M3"
+qual = "REFERENCE_WATER_DENSITY_KG_PER_M3"
+item = "const"
+shape = "const"
+lines = [
+    22,
+    24,
+]
+hash = "sha256:57085d5eb02c19b1ae897e07ca7e952c139674b1b9eb83582890484ac0515123"
+doc_hash = "sha256:1dd82d49756d882851e95d8c4debd7c574ea87c12c89f4555a1c0768eb71034b"
+reached_by = [
+    "#0",
+    "#5",
+]
+
+[[module."iec_60534.rs".function]]
+id = "fn:934d3a03895df4a7"
+name = "N6"
+qual = "N6"
+item = "const"
+shape = "const"
+lines = [
+    26,
+    28,
+]
+hash = "sha256:f1f778d6441e9c96d31840fdc9ee3ec40b17aab22ee278d6d9c8c108211bb8bc"
+doc_hash = "sha256:1d7c3c7f7e0622ea0efc1f7172052ab57ca3cf5aa045ce31865bc894be98808c"
+reached_by = ["#4"]
+
+[[module."iec_60534.rs".function]]
+id = "fn:2433acafd045ba35"
+name = "ValveFlowCoefficient"
+qual = "ValveFlowCoefficient"
+item = "type"
+shape = "struct"
+lines = [
+    30,
+    35,
+]
+hash = "sha256:af6d32465866f910bf04f33bbd79cf687f4bd94aa65930f59c3e720bf4312d47"
+doc_hash = "sha256:2fee063e57674dd0eadd4e43d8fc2a471c7a4b56a54392d0071d307ae1a057b0"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."iec_60534.rs".function]]
 id = "fn:14f45a0157c4147c"
 name = "to_cv"
 qual = "ValveFlowCoefficient::to_cv"
@@ -24,6 +76,7 @@ lines = [
 ]
 hash = "sha256:d1435617abe20c5df0f48dee3d224998ab75a2bea26a45d6688cf8d7b745ced5"
 doc_hash = "sha256:382351050006e02d47885147ee70abecd9f1fc765fa13408aba2b2a1b59fa1ef"
+uses = ["fn:2433acafd045ba35"]
 reached_by = ["#1"]
 
 [[module."iec_60534.rs".function]]
@@ -36,6 +89,7 @@ lines = [
 ]
 hash = "sha256:e5d6ea6bde1d9a609e24d4c69b25afd13eaac35aecb4864329818b3bc8e98ca5"
 doc_hash = "sha256:901f5bf228bb1d9e7878b16cc615ba94b241275594513464de4981a0d4c99ced"
+uses = ["fn:2433acafd045ba35"]
 reached_by = ["#1"]
 
 [[module."iec_60534.rs".function]]
@@ -85,6 +139,10 @@ lines = [
 ]
 hash = "sha256:849c3b627b7fc8aa062b9da474771a0c1c2b9445b97c59a974eee182787ee2e6"
 doc_hash = "sha256:aacfc2aeb969b1e17dca424c8d01805a536226cc1203e5f88517dd59272293f9"
+uses = [
+    "fn:0778986d9390a533",
+    "fn:2433acafd045ba35",
+]
 reached_by = [
     "#0",
     "#5",
@@ -101,6 +159,10 @@ lines = [
 ]
 hash = "sha256:8a19baf4d4c49556659430b90ff3c2140e89908791cc43a74bace7440441bfac"
 doc_hash = "sha256:0c2b15e1210eae6135c0d0ecb2f76aff98f6fadc4302383e3960cfebdfc4fc01"
+uses = [
+    "fn:0778986d9390a533",
+    "fn:2433acafd045ba35",
+]
 reached_by = ["#0"]
 physical_interface = true
 
@@ -114,6 +176,10 @@ lines = [
 ]
 hash = "sha256:ed97545db29c1a80e669dc2e08c55ee22057ee9063794cad206f04300b30c306"
 doc_hash = "sha256:26378515dff79c1bd9e868f6a54537ef789e37fbe17b3614ba9d0661d9412651"
+uses = [
+    "fn:0778986d9390a533",
+    "fn:2433acafd045ba35",
+]
 reached_by = ["#5"]
 physical_interface = true
 
@@ -170,6 +236,10 @@ lines = [
 ]
 hash = "sha256:1242e6d366376390fb67cac4b880676048e6029c85fed2858cfca7b90f4b9921"
 doc_hash = "sha256:c977212d0c5ef84da593cda7721a51707af834eceda951d309c9efdd8d44901a"
+uses = [
+    "fn:2433acafd045ba35",
+    "fn:934d3a03895df4a7",
+]
 reached_by = ["#4"]
 physical_interface = true
 
@@ -183,6 +253,10 @@ lines = [
 ]
 hash = "sha256:7ffbd7d044337befc9a6d34e2f0c694b52e7f6fe8af67b0e362f999129f84c85"
 doc_hash = "sha256:7cd56ab8fb72b5bf2b603987d5477cfe5f9935574534c7f363c30c9a8a1746fd"
+uses = [
+    "fn:2433acafd045ba35",
+    "fn:934d3a03895df4a7",
+]
 reached_by = ["#4"]
 physical_interface = true
 
@@ -200,6 +274,7 @@ callees = [
     "fn:3a0c075926f7739c",
     "fn:ff81af6ed303e391",
 ]
+uses = ["fn:2433acafd045ba35"]
 reached_by = ["#4"]
 physical_interface = true
 
@@ -213,6 +288,7 @@ lines = [
 ]
 hash = "sha256:ff2ad0df4d113f95c3759caf2d7cfba2d3079add7ce6d35b38bd8bad0b7cd8b8"
 doc_hash = "sha256:2c2e6980b84715bdc9c5f96ce14d1de98eb9995ef0147389addd02877d010cde"
+uses = ["fn:2433acafd045ba35"]
 physical_interface = true
 
 [[module."iec_60534.rs".function]]
@@ -228,6 +304,23 @@ doc_hash = "sha256:4b2dec85426a5972cb12bd58ce0f4233d664f0d9324bd946d903775acbb98
 physical_interface = true
 
 [[module."iec_60534.rs".function]]
+id = "fn:351ea82c9b09d955"
+name = "OpeningCharacteristic"
+qual = "OpeningCharacteristic"
+item = "type"
+shape = "enum"
+lines = [
+    295,
+    311,
+]
+hash = "sha256:7cae2f31c1fc831a480be1067ad16be764dc7d8829beca0165d5f8e927dd4eca"
+doc_hash = "sha256:2135e26c30a9355f30eb207d1534b14fefb20ccd9831a29af3bd0c5b841f9cff"
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."iec_60534.rs".function]]
 id = "fn:d3395ae65c375916"
 name = "kv_at_opening"
 qual = "OpeningCharacteristic::kv_at_opening"
@@ -237,6 +330,10 @@ lines = [
 ]
 hash = "sha256:3a936f3b32ace38c1dff73247eb971f327d0d42e638b529f8409c53a4518738f"
 doc_hash = "sha256:12e5c2d96c5f5eae230f5db7e7a39a8442fe4c3af244cbf974eebe551894f4af"
+uses = [
+    "fn:2433acafd045ba35",
+    "fn:351ea82c9b09d955",
+]
 reached_by = [
     "#2",
     "#3",
@@ -304,6 +401,10 @@ lines = [
 hash = "sha256:a46d11e07cec0db22459c5e492fef7dda511a54c94fd6a7d8f4a9b8a3f88650a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:d3395ae65c375916"]
+uses = [
+    "fn:2433acafd045ba35",
+    "fn:351ea82c9b09d955",
+]
 test = true
 
 [[module."iec_60534.rs".function]]
@@ -317,6 +418,10 @@ lines = [
 hash = "sha256:b64f30c31991e93486f2adacd309f122291d682a377cd4fe7c224b9e3c2412ee"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:d3395ae65c375916"]
+uses = [
+    "fn:2433acafd045ba35",
+    "fn:351ea82c9b09d955",
+]
 test = true
 
 [[module."iec_60534.rs".function]]
@@ -333,6 +438,7 @@ callees = [
     "fn:14f45a0157c4147c",
     "fn:435403f87da4f556",
 ]
+uses = ["fn:2433acafd045ba35"]
 test = true
 
 [module."mod.rs"]

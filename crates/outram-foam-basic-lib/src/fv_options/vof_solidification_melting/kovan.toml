@@ -7,6 +7,76 @@ dir = "crates/outram-foam-basic-lib/src/fv_options/vof_solidification_melting"
 path = "crate::fv_options::vof_solidification_melting::tests"
 
 [[module."tests.rs".function]]
+id = "fn:3f20b1fe4be985ef"
+name = "T_SOLID"
+qual = "T_SOLID"
+item = "const"
+shape = "const"
+lines = [
+    28,
+    28,
+]
+hash = "sha256:3cbbe9e1d22ad36661f6008b0557e191996b49c19df38d24307169abae75a33d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:a998b5bf2aaaf5fe"
+name = "T_LIQUID"
+qual = "T_LIQUID"
+item = "const"
+shape = "const"
+lines = [
+    29,
+    29,
+]
+hash = "sha256:69c081361d4c9c2e768b9b740e5ae7a2bad40915f11c8d23c70a704146379f7c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:76fcef4555483ef4"
+name = "LATENT_HEAT"
+qual = "LATENT_HEAT"
+item = "const"
+shape = "const"
+lines = [
+    30,
+    30,
+]
+hash = "sha256:9c4d7d6c0775e01da55765ab8f95a2f5ad5258b0cbc281c351cc3ecf5335b722"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:9dd548ce1414d4a9"
+name = "N_CELLS"
+qual = "N_CELLS"
+item = "const"
+shape = "const"
+lines = [
+    32,
+    32,
+]
+hash = "sha256:d9c40b477e4c713c85e70f509add80e01145fa3c6510d5efb255e963e880b711"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:608f8c2b9b0d301b"
+name = "CELL_VOLUME"
+qual = "CELL_VOLUME"
+item = "const"
+shape = "const"
+lines = [
+    33,
+    33,
+]
+hash = "sha256:adbff84824d6f3e321f28cc7fb48ab6f5435800bea4e58c97dc317891e1eae50"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tests.rs".function]]
 id = "fn:44fd5904077702be"
 name = "mesh"
 qual = "mesh"
@@ -17,6 +87,10 @@ lines = [
 hash = "sha256:f4880f2ec6c8db3540929571fe0572bcc59db9181e44840b9999c82d2324d6f2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:ce5c06050c849e86"]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:9dd548ce1414d4a9",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -30,6 +104,11 @@ lines = [
 hash = "sha256:47e93504c62c0b661f99de20042d5231c7a8c0539acc4068dcc67332f3b28983"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:3e4b3b1e4cefaf16"]
+uses = [
+    "fn:1a0a50dc5e2dc6b0",
+    "fn:3f20b1fe4be985ef",
+    "fn:a998b5bf2aaaf5fe",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -46,6 +125,12 @@ callees = [
     "fn:9a434049171b9bdc",
     "fn:fef46484229799a1",
 ]
+uses = [
+    "fn:23069c05f874c286",
+    "fn:44bbfe82a98bd79a",
+    "fn:76fcef4555483ef4",
+    "fn:9dd548ce1414d4a9",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -59,6 +144,10 @@ lines = [
 hash = "sha256:9be206dcc051e0429977ceb2f97fe5458b784759d5afe3278b3a6180bae66e58"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:636e75b664f14254"]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -154,6 +243,10 @@ callees = [
     "fn:e4c4bca8aa422e22",
     "fn:ec4e92e1ffffc83e",
 ]
+uses = [
+    "fn:5c58987100382184",
+    "fn:9dd548ce1414d4a9",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -174,6 +267,10 @@ callees = [
     "fn:85f4774d4d2006d8",
     "fn:e4c4bca8aa422e22",
     "fn:ec4e92e1ffffc83e",
+]
+uses = [
+    "fn:5c58987100382184",
+    "fn:608f8c2b9b0d301b",
 ]
 test = true
 
@@ -197,6 +294,11 @@ callees = [
     "fn:e4c4bca8aa422e22",
     "fn:ec4e92e1ffffc83e",
 ]
+uses = [
+    "fn:5283285159112606",
+    "fn:608f8c2b9b0d301b",
+    "fn:76fcef4555483ef4",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -219,6 +321,7 @@ callees = [
     "fn:e4c4bca8aa422e22",
     "fn:ec4e92e1ffffc83e",
 ]
+uses = ["fn:5283285159112606"]
 test = true
 
 [[module."tests.rs".function]]
@@ -239,5 +342,9 @@ callees = [
     "fn:5039cc454f732604",
     "fn:e4c4bca8aa422e22",
     "fn:ec4e92e1ffffc83e",
+]
+uses = [
+    "fn:5283285159112606",
+    "fn:9dd548ce1414d4a9",
 ]
 test = true

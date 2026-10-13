@@ -14,6 +14,23 @@ path = "example:fhr_sim_v2::app::local_widgets_and_buttons"
 path = "example:fhr_sim_v2::app::local_widgets_and_buttons::pipes"
 
 [[module."pipes.rs".function]]
+id = "fn:eb0e4e3b97fe92f9"
+name = "SinglePipeColourBlueRedTempSensitive"
+qual = "SinglePipeColourBlueRedTempSensitive"
+item = "type"
+shape = "struct"
+lines = [
+    8,
+    14,
+]
+hash = "sha256:4092966ac666b244ae4c667e3976ccb541b1b9338cc74a2dd5860242a8ccc9ca"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."pipes.rs".function]]
 id = "fn:e9acb4c6bf02d080"
 name = "new"
 qual = "SinglePipeColourBlueRedTempSensitive::new"
@@ -23,6 +40,7 @@ lines = [
 ]
 hash = "sha256:d88e79a7c1e879a0a0bb3200367fff4947a7712cca25b1694a95bd1993e03f7e"
 doc_hash = "sha256:c002e2ad5af933c31b1a5bfccc619db09873f9279ce6212fb966e1c924421eb5"
+uses = ["fn:eb0e4e3b97fe92f9"]
 reached_by = [
     "#0",
     "#1",
@@ -39,6 +57,7 @@ lines = [
 ]
 hash = "sha256:0f36ed4c98c410365625156e24121ff4bf4ce01300150ed3c33a009915eeba8e"
 doc_hash = "sha256:845fa999066bc5a476f0b24b412d6e482f6a4b79dfa8da730bf41bde881db5eb"
+uses = ["fn:eb0e4e3b97fe92f9"]
 physical_interface = true
 
 [[module."pipes.rs".function]]
@@ -51,6 +70,7 @@ lines = [
 ]
 hash = "sha256:7df4771420aa5f672b742ad9bbc5a4f698c905cbd67b3b0063aa9f41ddf297ce"
 doc_hash = "sha256:a34b1883ab09aba1bd1e20602ae83c4de13f5e0693a722c619e82a83f25aed95"
+uses = ["fn:eb0e4e3b97fe92f9"]
 
 [[module."pipes.rs".function]]
 id = "fn:471c015fc469ef54"
@@ -67,6 +87,24 @@ callees = [
     "fn:8ba2dbdb4db6b7d1",
     "fn:9d575f87449fdfea",
 ]
+uses = ["fn:eb0e4e3b97fe92f9"]
+
+[[module."pipes.rs".function]]
+id = "fn:4f1ecf71274288d9"
+name = "SinglePipeColourBlackRedTempSensitive"
+qual = "SinglePipeColourBlackRedTempSensitive"
+item = "type"
+shape = "struct"
+lines = [
+    96,
+    102,
+]
+hash = "sha256:100c0fe6d2d9347008c2ab85c1937379259265372c42fa2c98a6ea46c1a87bc7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+]
 
 [[module."pipes.rs".function]]
 id = "fn:ff7479c87285cd8e"
@@ -78,6 +116,7 @@ lines = [
 ]
 hash = "sha256:d88e79a7c1e879a0a0bb3200367fff4947a7712cca25b1694a95bd1993e03f7e"
 doc_hash = "sha256:c002e2ad5af933c31b1a5bfccc619db09873f9279ce6212fb966e1c924421eb5"
+uses = ["fn:4f1ecf71274288d9"]
 reached_by = [
     "#0",
     "#1",
@@ -94,6 +133,7 @@ lines = [
 ]
 hash = "sha256:0f36ed4c98c410365625156e24121ff4bf4ce01300150ed3c33a009915eeba8e"
 doc_hash = "sha256:845fa999066bc5a476f0b24b412d6e482f6a4b79dfa8da730bf41bde881db5eb"
+uses = ["fn:4f1ecf71274288d9"]
 physical_interface = true
 
 [[module."pipes.rs".function]]
@@ -106,6 +146,7 @@ lines = [
 ]
 hash = "sha256:7df4771420aa5f672b742ad9bbc5a4f698c905cbd67b3b0063aa9f41ddf297ce"
 doc_hash = "sha256:a34b1883ab09aba1bd1e20602ae83c4de13f5e0693a722c619e82a83f25aed95"
+uses = ["fn:4f1ecf71274288d9"]
 
 [[module."pipes.rs".function]]
 id = "fn:2b7d46f433ac69c3"
@@ -122,6 +163,24 @@ callees = [
     "fn:84010b43f7b9a186",
     "fn:c6e28b0b090b4fc7",
 ]
+uses = ["fn:4f1ecf71274288d9"]
+
+[[module."pipes.rs".function]]
+id = "fn:dcc069fb05e667fb"
+name = "SinglePipeColourBlueWhiteQualitySensitive"
+qual = "SinglePipeColourBlueWhiteQualitySensitive"
+item = "type"
+shape = "struct"
+lines = [
+    184,
+    188,
+]
+hash = "sha256:0c43ba507de1e874853bc15ce9eae6c9bec3a3a3867fd946945f0410f4cdf973"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+]
 
 [[module."pipes.rs".function]]
 id = "fn:4f7341877557ee22"
@@ -133,6 +192,7 @@ lines = [
 ]
 hash = "sha256:71132a7942ef055f6096b4116fadda522bed6c468f5803bc03bcf2d465518c9b"
 doc_hash = "sha256:c002e2ad5af933c31b1a5bfccc619db09873f9279ce6212fb966e1c924421eb5"
+uses = ["fn:dcc069fb05e667fb"]
 reached_by = [
     "#0",
     "#1",
@@ -148,6 +208,7 @@ lines = [
 ]
 hash = "sha256:7df4771420aa5f672b742ad9bbc5a4f698c905cbd67b3b0063aa9f41ddf297ce"
 doc_hash = "sha256:a34b1883ab09aba1bd1e20602ae83c4de13f5e0693a722c619e82a83f25aed95"
+uses = ["fn:dcc069fb05e667fb"]
 
 [[module."pipes.rs".function]]
 id = "fn:423d701a8a218275"
@@ -163,9 +224,27 @@ callees = [
     "fn:872aead0542702b6",
     "fn:bd19e321612fab89",
 ]
+uses = ["fn:dcc069fb05e667fb"]
 
 [module."turbine_widget.rs"]
 path = "example:fhr_sim_v2::app::local_widgets_and_buttons::turbine_widget"
+
+[[module."turbine_widget.rs".function]]
+id = "fn:9648355dc7b4c05b"
+name = "TurbineWidget"
+qual = "TurbineWidget"
+item = "type"
+shape = "struct"
+lines = [
+    9,
+    14,
+]
+hash = "sha256:23863ec0ee7df3be14fdb8f350bb4d12d68a64ccb23495a439ee673f66ea2664"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+]
 
 [[module."turbine_widget.rs".function]]
 id = "fn:51fccbc8271c260e"
@@ -177,6 +256,7 @@ lines = [
 ]
 hash = "sha256:e480cd1dcbe5740b738539600cdb09bebfa1c3905ea72d2cc5c7a104aaa121b3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:9648355dc7b4c05b"]
 reached_by = [
     "#0",
     "#1",
@@ -193,6 +273,7 @@ lines = [
 ]
 hash = "sha256:7df4771420aa5f672b742ad9bbc5a4f698c905cbd67b3b0063aa9f41ddf297ce"
 doc_hash = "sha256:a34b1883ab09aba1bd1e20602ae83c4de13f5e0693a722c619e82a83f25aed95"
+uses = ["fn:9648355dc7b4c05b"]
 
 [[module."turbine_widget.rs".function]]
 id = "fn:c0db2f4c7d9b4180"
@@ -204,6 +285,7 @@ lines = [
 ]
 hash = "sha256:8f16db90f18287219095d041846fb2cd5f41ec7ff915da7b24c68bc862278ff5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:9648355dc7b4c05b"]
 physical_interface = true
 
 [[module."turbine_widget.rs".function]]
@@ -216,6 +298,7 @@ lines = [
 ]
 hash = "sha256:4331cb9e02dfcf54260f8911e4cdaf97e8e575b821017051a1e11db42e6657cd"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:9648355dc7b4c05b"]
 physical_interface = true
 
 [[module."turbine_widget.rs".function]]
@@ -232,3 +315,4 @@ callees = [
     "fn:121c1b01cd4a7f15",
     "fn:9b198d046df134d8",
 ]
+uses = ["fn:9648355dc7b4c05b"]

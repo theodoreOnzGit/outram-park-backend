@@ -28,4 +28,14 @@ callees = [
     "fn:e914b3ed909034f5",
     "fn:eb89be045205dc88",
 ]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:631601b455e86caa",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+]
 test = true

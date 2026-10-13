@@ -11,6 +11,57 @@ test_ids = [
 path = "example:fhr_sim_v2::app::prke_backend"
 
 [[module."mod.rs".function]]
+id = "fn:c12a92d788579662"
+name = "DELAYED_NEUTRON_FRACTION_BETA"
+qual = "DELAYED_NEUTRON_FRACTION_BETA"
+item = "const"
+shape = "const"
+lines = [
+    28,
+    35,
+]
+hash = "sha256:316ed196b8744ce1aac71829c2abb1aeae803fd8b6df0a3f48741739613aad0e"
+doc_hash = "sha256:d3da33b60dde8fd727b0f9aed8739a789fb5ac2f48932c68ab7a9f281daee31b"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c16cd65f8af7a67e"
+name = "FUEL_FEEDBACK_COEFFICIENT_PER_KELVIN"
+qual = "FUEL_FEEDBACK_COEFFICIENT_PER_KELVIN"
+item = "const"
+shape = "const"
+lines = [
+    37,
+    43,
+]
+hash = "sha256:a5f0f5020d8114857c0a2cd70a98cb45f00e3252a27a8e8582931d1297c2211e"
+doc_hash = "sha256:bf44f6f2e04a9c64902d6c5307fe927bfae48614e5ac491ca68e8d96e7518dc5"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."mod.rs".function]]
+id = "fn:68cd58d1a1b00278"
+name = "FUEL_REFERENCE_TEMPERATURE_DEGC"
+qual = "FUEL_REFERENCE_TEMPERATURE_DEGC"
+item = "const"
+shape = "const"
+lines = [
+    45,
+    50,
+]
+hash = "sha256:a7b49794577b85e68459c828b7793afd0238d858797f40145450e839a1185f32"
+doc_hash = "sha256:cc24124f6f9f37e6b431d31ee863285ac9e8039eb209e64b28465734f2eed422"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."mod.rs".function]]
 id = "fn:72223489ccafcc3d"
 name = "calculate_prke_loop"
 qual = "FHRSimulatorApp::calculate_prke_loop"
@@ -28,6 +79,19 @@ callees = [
     "fn:a2ace910c1483fa8",
     "fn:c31da882c4d8eabf",
     "fn:c3de694177dbbc26",
+]
+uses = [
+    "fn:3dcb4576875108f9",
+    "fn:4b3b71a3a4f6268c",
+    "fn:4e148532c3ff40e3",
+    "fn:68cd58d1a1b00278",
+    "fn:6b960afbc70b271b",
+    "fn:a5d599a6fb8c8dbb",
+    "fn:bbc1dd07cffc2c7a",
+    "fn:c12a92d788579662",
+    "fn:c16cd65f8af7a67e",
+    "fn:e79b6a5ba032cc45",
+    "fn:ef649023d7d648a7",
 ]
 
 [[module."mod.rs".function]]
@@ -56,6 +120,18 @@ callees = [
     "fn:d1f0de01aaeed52e",
     "fn:ef0e68fb37998d86",
     "fn:f79aa9e6e321cdec",
+]
+uses = [
+    "fn:1a8002bb19b4233c",
+    "fn:4b3b71a3a4f6268c",
+    "fn:4e148532c3ff40e3",
+    "fn:6aab0600bcdcda5f",
+    "fn:6b960afbc70b271b",
+    "fn:a5d599a6fb8c8dbb",
+    "fn:bbc1dd07cffc2c7a",
+    "fn:c12a92d788579662",
+    "fn:e79b6a5ba032cc45",
+    "fn:ef649023d7d648a7",
 ]
 reached_by = ["#1"]
 physical_interface = true
@@ -111,6 +187,13 @@ lines = [
 hash = "sha256:24a8dba84e972d6ff8c10b9236c54a55db83fee04cc6bc0b51acc53d8f290566"
 doc_hash = "sha256:189ac1e07d2303f1677cf6b33c1498236aac2f8874a4b7404f3e5f603cc01090"
 callees = ["fn:c31da882c4d8eabf"]
+uses = [
+    "fn:3dcb4576875108f9",
+    "fn:68cd58d1a1b00278",
+    "fn:6b960afbc70b271b",
+    "fn:c12a92d788579662",
+    "fn:c16cd65f8af7a67e",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -144,6 +227,16 @@ callees = [
     "fn:cfccc409a6575b06",
     "fn:d1f0de01aaeed52e",
     "fn:f79aa9e6e321cdec",
+]
+uses = [
+    "fn:1a8002bb19b4233c",
+    "fn:4b3b71a3a4f6268c",
+    "fn:4e148532c3ff40e3",
+    "fn:6aab0600bcdcda5f",
+    "fn:a5d599a6fb8c8dbb",
+    "fn:bbc1dd07cffc2c7a",
+    "fn:e79b6a5ba032cc45",
+    "fn:ef649023d7d648a7",
 ]
 test = true
 physical_interface = true
@@ -180,7 +273,7 @@ lines = [
     774,
     829,
 ]
-hash = "sha256:751e9f3b2805d337daf6302ce11b1d1872aeaf0b83dd777a07c4e7115fc7780a"
+hash = "sha256:e73073c6e9e50add48d7dc85db79fd764619395dbd567ea50e71925c622f6097"
 doc_hash = "sha256:2469b3bb75f157858497812f4851dd104991979015f6cdd76c76cf46cab833d6"
 callees = [
     "fn:603ca36350c5da17",
@@ -211,10 +304,36 @@ callees = [
     "fn:cccdc4816b7acd78",
     "fn:d95b0728351a9f9f",
 ]
+uses = [
+    "fn:4b3b71a3a4f6268c",
+    "fn:4e148532c3ff40e3",
+    "fn:6aab0600bcdcda5f",
+    "fn:a5d599a6fb8c8dbb",
+    "fn:bbc1dd07cffc2c7a",
+    "fn:e79b6a5ba032cc45",
+    "fn:ef649023d7d648a7",
+]
 test = true
 
 [module."pebble_bed_thermal_hydraulics.rs"]
 path = "example:fhr_sim_v2::app::prke_backend::pebble_bed_thermal_hydraulics"
+
+[[module."pebble_bed_thermal_hydraulics.rs".function]]
+id = "fn:4b3b71a3a4f6268c"
+name = "PebbleBedThermalHydraulics"
+qual = "PebbleBedThermalHydraulics"
+item = "type"
+shape = "struct"
+lines = [
+    6,
+    18,
+]
+hash = "sha256:40a2263d54dd1a1c78ddaca55831360529e19b8e9232ad4d60296a29a184b2f3"
+doc_hash = "sha256:e8e6b9a02f478a2ad31b442c43966bf4b538ffb405ab30c93800e583961e3a9d"
+reached_by = [
+    "#0",
+    "#1",
+]
 
 [[module."pebble_bed_thermal_hydraulics.rs".function]]
 id = "fn:ad02ae9080dde8f0"
@@ -227,6 +346,7 @@ lines = [
 hash = "sha256:9afc372020a3ae7e48957f7ecff9ca7fafde6dc2298ccab58de14f2c80b55613"
 doc_hash = "sha256:f020aae1675dad6802814018720c5c28354c9474df5231b951a1badf81c47a04"
 callees = ["fn:ac75d3546ab055cd"]
+uses = ["fn:4b3b71a3a4f6268c"]
 reached_by = [
     "#0",
     "#1",
@@ -244,6 +364,7 @@ lines = [
 hash = "sha256:7c75edd2d1c2ecc631e3ec6a7ecd282b0fb2a71bd271288e6da1d700710f06f6"
 doc_hash = "sha256:66b50aa8ccba956bb11da5f85bfa8e43c296038d56d36fd1870a6628f11b0ede"
 callees = ["fn:895d1bfdf7570b2c"]
+uses = ["fn:4b3b71a3a4f6268c"]
 reached_by = [
     "#0",
     "#1",
@@ -259,6 +380,7 @@ lines = [
 ]
 hash = "sha256:c0c91839370b97ae08328f98fdfe42465e4092a3a9753d6963eb525170fd5178"
 doc_hash = "sha256:05c3ca26bb911746ce36d954faef599c8df6501aab2ff386ae28b9786d2623ae"
+uses = ["fn:4b3b71a3a4f6268c"]
 physical_interface = true
 
 [[module."pebble_bed_thermal_hydraulics.rs".function]]
@@ -271,6 +393,7 @@ lines = [
 ]
 hash = "sha256:662d3a3ecddf5d468aec03eed26254c7deed22d9540851b78d962775e7c91dc6"
 doc_hash = "sha256:05c3ca26bb911746ce36d954faef599c8df6501aab2ff386ae28b9786d2623ae"
+uses = ["fn:4b3b71a3a4f6268c"]
 reached_by = [
     "#0",
     "#1",
@@ -287,6 +410,7 @@ lines = [
 ]
 hash = "sha256:3df203168b2500e1f006993272d11e4455aa9c5093327ef78ed4fc0d2fd13f85"
 doc_hash = "sha256:55b6a70661477d5673f5bf62c324632e53a836e9ea808e61f41c25c69938c4f7"
+uses = ["fn:4b3b71a3a4f6268c"]
 reached_by = [
     "#0",
     "#1",
@@ -303,4 +427,5 @@ lines = [
 ]
 hash = "sha256:bf62b12ba2663816a8932f5a29fa3e9709c7520535fc7faafcb10eb1390d0e92"
 doc_hash = "sha256:a1f68c53de058089e09a23b2001c7940c42abefe24d975a983fcaefc91f899bb"
+uses = ["fn:4b3b71a3a4f6268c"]
 physical_interface = true

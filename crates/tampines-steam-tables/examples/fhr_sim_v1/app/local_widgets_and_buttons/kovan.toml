@@ -7,6 +7,19 @@ dir = "crates/tampines-steam-tables/examples/fhr_sim_v1/app/local_widgets_and_bu
 path = "example:fhr_sim_v1::app::local_widgets_and_buttons::fhr_reactor_widget"
 
 [[module."fhr_reactor_widget.rs".function]]
+id = "fn:243c2aeaec2904ad"
+name = "FHRReactorWidget"
+qual = "FHRReactorWidget"
+item = "type"
+shape = "struct"
+lines = [
+    9,
+    27,
+]
+hash = "sha256:e6d8bcca6dd9bdb1ea4fbca3e10855a79ebd197a7d2187512ccccaef97495947"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."fhr_reactor_widget.rs".function]]
 id = "fn:308363ce3a9a5fef"
 name = "new"
 qual = "FHRReactorWidget::new"
@@ -16,6 +29,7 @@ lines = [
 ]
 hash = "sha256:131820445c46b1b0ecd49b10589221b3624c73e40c7eb9b81bea90b6c2d9116b"
 doc_hash = "sha256:fc731a4844d273f8ac2b7f7cb8359ebfdc4150e4dfe56394d99706923f537c9f"
+uses = ["fn:243c2aeaec2904ad"]
 physical_interface = true
 
 [[module."fhr_reactor_widget.rs".function]]
@@ -28,6 +42,7 @@ lines = [
 ]
 hash = "sha256:0f36ed4c98c410365625156e24121ff4bf4ce01300150ed3c33a009915eeba8e"
 doc_hash = "sha256:845fa999066bc5a476f0b24b412d6e482f6a4b79dfa8da730bf41bde881db5eb"
+uses = ["fn:243c2aeaec2904ad"]
 physical_interface = true
 
 [[module."fhr_reactor_widget.rs".function]]
@@ -40,6 +55,7 @@ lines = [
 ]
 hash = "sha256:c758afa7cb654b9eb455a588550331e98403f2ac52ca9917dae0fcbabb564716"
 doc_hash = "sha256:794f8c8714821453f307fbbfc9fd77994cc622b6d6af2cfc598ace0947d185a5"
+uses = ["fn:243c2aeaec2904ad"]
 physical_interface = true
 
 [[module."fhr_reactor_widget.rs".function]]
@@ -52,6 +68,7 @@ lines = [
 ]
 hash = "sha256:cf0c38ca718537eb125f33a01175674732a45b435076fe2ea1af6c229f3875e5"
 doc_hash = "sha256:c0d09095dc980e0193cfdd285c76c0234e17ee5ac429f2c019ef294db9b56bdd"
+uses = ["fn:243c2aeaec2904ad"]
 physical_interface = true
 
 [[module."fhr_reactor_widget.rs".function]]
@@ -64,6 +81,7 @@ lines = [
 ]
 hash = "sha256:7df4771420aa5f672b742ad9bbc5a4f698c905cbd67b3b0063aa9f41ddf297ce"
 doc_hash = "sha256:a34b1883ab09aba1bd1e20602ae83c4de13f5e0693a722c619e82a83f25aed95"
+uses = ["fn:243c2aeaec2904ad"]
 
 [[module."fhr_reactor_widget.rs".function]]
 id = "fn:d115185563bbb8f3"
@@ -75,6 +93,7 @@ lines = [
 ]
 hash = "sha256:d0ff4246376a157ab98d34437a19ab689c7087ba10d64549c605c036e76b43d5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:243c2aeaec2904ad"]
 
 [[module."fhr_reactor_widget.rs".function]]
 id = "fn:9724dcfb779271dc"
@@ -86,6 +105,7 @@ lines = [
 ]
 hash = "sha256:437c1dd4751e37b973bdd5f98f6ef2bfb17f7957e9e09861e6dfc96b8009fcbb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:243c2aeaec2904ad"]
 
 [[module."fhr_reactor_widget.rs".function]]
 id = "fn:8f5a3ad9b55d0801"
@@ -102,6 +122,7 @@ callees = [
     "fn:48eefac0f07cebf2",
     "fn:6be8599a49ccf00c",
 ]
+uses = ["fn:243c2aeaec2904ad"]
 
 [module."hot_to_cold_colour_functions.rs"]
 path = "example:fhr_sim_v1::app::local_widgets_and_buttons::hot_to_cold_colour_functions"
@@ -194,6 +215,19 @@ callees = ["fn:8318ec87e85da338"]
 path = "example:fhr_sim_v1::app::local_widgets_and_buttons::pipes"
 
 [[module."pipes.rs".function]]
+id = "fn:e5d2a36734b99400"
+name = "SinglePipeColourBlueRedTempSensitive"
+qual = "SinglePipeColourBlueRedTempSensitive"
+item = "type"
+shape = "struct"
+lines = [
+    10,
+    16,
+]
+hash = "sha256:4092966ac666b244ae4c667e3976ccb541b1b9338cc74a2dd5860242a8ccc9ca"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."pipes.rs".function]]
 id = "fn:689fad0043679540"
 name = "new"
 qual = "SinglePipeColourBlueRedTempSensitive::new"
@@ -203,6 +237,7 @@ lines = [
 ]
 hash = "sha256:d88e79a7c1e879a0a0bb3200367fff4947a7712cca25b1694a95bd1993e03f7e"
 doc_hash = "sha256:c002e2ad5af933c31b1a5bfccc619db09873f9279ce6212fb966e1c924421eb5"
+uses = ["fn:e5d2a36734b99400"]
 physical_interface = true
 
 [[module."pipes.rs".function]]
@@ -215,6 +250,7 @@ lines = [
 ]
 hash = "sha256:0f36ed4c98c410365625156e24121ff4bf4ce01300150ed3c33a009915eeba8e"
 doc_hash = "sha256:845fa999066bc5a476f0b24b412d6e482f6a4b79dfa8da730bf41bde881db5eb"
+uses = ["fn:e5d2a36734b99400"]
 physical_interface = true
 
 [[module."pipes.rs".function]]
@@ -227,6 +263,7 @@ lines = [
 ]
 hash = "sha256:7df4771420aa5f672b742ad9bbc5a4f698c905cbd67b3b0063aa9f41ddf297ce"
 doc_hash = "sha256:a34b1883ab09aba1bd1e20602ae83c4de13f5e0693a722c619e82a83f25aed95"
+uses = ["fn:e5d2a36734b99400"]
 
 [[module."pipes.rs".function]]
 id = "fn:5c23ab444b3ecb4d"
@@ -243,6 +280,20 @@ callees = [
     "fn:2e748ea1a24e5382",
     "fn:99b12cb41230155b",
 ]
+uses = ["fn:e5d2a36734b99400"]
+
+[[module."pipes.rs".function]]
+id = "fn:b33b1bb52c704fd3"
+name = "SinglePipeColourBlackRedTempSensitive"
+qual = "SinglePipeColourBlackRedTempSensitive"
+item = "type"
+shape = "struct"
+lines = [
+    98,
+    104,
+]
+hash = "sha256:100c0fe6d2d9347008c2ab85c1937379259265372c42fa2c98a6ea46c1a87bc7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."pipes.rs".function]]
 id = "fn:d0609f342aac407b"
@@ -254,6 +305,7 @@ lines = [
 ]
 hash = "sha256:d88e79a7c1e879a0a0bb3200367fff4947a7712cca25b1694a95bd1993e03f7e"
 doc_hash = "sha256:c002e2ad5af933c31b1a5bfccc619db09873f9279ce6212fb966e1c924421eb5"
+uses = ["fn:b33b1bb52c704fd3"]
 physical_interface = true
 
 [[module."pipes.rs".function]]
@@ -266,6 +318,7 @@ lines = [
 ]
 hash = "sha256:0f36ed4c98c410365625156e24121ff4bf4ce01300150ed3c33a009915eeba8e"
 doc_hash = "sha256:845fa999066bc5a476f0b24b412d6e482f6a4b79dfa8da730bf41bde881db5eb"
+uses = ["fn:b33b1bb52c704fd3"]
 physical_interface = true
 
 [[module."pipes.rs".function]]
@@ -278,6 +331,7 @@ lines = [
 ]
 hash = "sha256:7df4771420aa5f672b742ad9bbc5a4f698c905cbd67b3b0063aa9f41ddf297ce"
 doc_hash = "sha256:a34b1883ab09aba1bd1e20602ae83c4de13f5e0693a722c619e82a83f25aed95"
+uses = ["fn:b33b1bb52c704fd3"]
 
 [[module."pipes.rs".function]]
 id = "fn:614debd2ccba368b"
@@ -294,6 +348,20 @@ callees = [
     "fn:54ba3caa1593b116",
     "fn:8318ec87e85da338",
 ]
+uses = ["fn:b33b1bb52c704fd3"]
+
+[[module."pipes.rs".function]]
+id = "fn:7b783d8b0f8ccddf"
+name = "SinglePipeColourBlueWhiteQualitySensitive"
+qual = "SinglePipeColourBlueWhiteQualitySensitive"
+item = "type"
+shape = "struct"
+lines = [
+    186,
+    190,
+]
+hash = "sha256:0c43ba507de1e874853bc15ce9eae6c9bec3a3a3867fd946945f0410f4cdf973"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."pipes.rs".function]]
 id = "fn:eb6f838d54b58e21"
@@ -305,6 +373,7 @@ lines = [
 ]
 hash = "sha256:71132a7942ef055f6096b4116fadda522bed6c468f5803bc03bcf2d465518c9b"
 doc_hash = "sha256:c002e2ad5af933c31b1a5bfccc619db09873f9279ce6212fb966e1c924421eb5"
+uses = ["fn:7b783d8b0f8ccddf"]
 
 [[module."pipes.rs".function]]
 id = "fn:8bfb8bf6543443b7"
@@ -316,6 +385,7 @@ lines = [
 ]
 hash = "sha256:7df4771420aa5f672b742ad9bbc5a4f698c905cbd67b3b0063aa9f41ddf297ce"
 doc_hash = "sha256:a34b1883ab09aba1bd1e20602ae83c4de13f5e0693a722c619e82a83f25aed95"
+uses = ["fn:7b783d8b0f8ccddf"]
 
 [[module."pipes.rs".function]]
 id = "fn:0234796a5686f6df"
@@ -331,6 +401,7 @@ callees = [
     "fn:8bfb8bf6543443b7",
     "fn:d09547f4f1649fc1",
 ]
+uses = ["fn:7b783d8b0f8ccddf"]
 
 [module."pumps.rs"]
 path = "example:fhr_sim_v1::app::local_widgets_and_buttons::pumps"
@@ -354,6 +425,19 @@ callees = ["fn:205b9ca78be477e8"]
 path = "example:fhr_sim_v1::app::local_widgets_and_buttons::simulator_trait"
 
 [[module."simulator_trait.rs".function]]
+id = "fn:24a06607a423ed6b"
+name = "VisualSimulationObject"
+qual = "VisualSimulationObject"
+item = "type"
+shape = "trait"
+lines = [
+    2,
+    6,
+]
+hash = "sha256:eb1e507cc93b6557d3021ff00e84c565da6dff6f2b9ef3a7ba509c9b67d2efec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."simulator_trait.rs".function]]
 id = "fn:b0bfb5096b87bf94"
 name = "get_end_joint_coordinate"
 qual = "VisualSimulationObject::get_end_joint_coordinate"
@@ -363,6 +447,7 @@ lines = [
 ]
 hash = "sha256:b1ed3b4b23a335af0b7c7858b10569c40a89a5740944c3862a8b43483824eae1"
 doc_hash = "sha256:0dd5432b10f4421aade953f91bda4bb7364040fb959e1084411da010f4fd6a81"
+uses = ["fn:24a06607a423ed6b"]
 
 [module."steam_quality_colour_functions.rs"]
 path = "example:fhr_sim_v1::app::local_widgets_and_buttons::steam_quality_colour_functions"
@@ -380,3 +465,16 @@ doc_hash = "sha256:5cf5311a1dd81c3b50bb50d249886be4531209b047a90bb6b8a92078353bd
 
 [module."turbine_widget.rs"]
 path = "example:fhr_sim_v1::app::local_widgets_and_buttons::turbine_widget"
+
+[[module."turbine_widget.rs".function]]
+id = "fn:ed8ca43196f5d31f"
+name = "TurbineWidget"
+qual = "TurbineWidget"
+item = "type"
+shape = "struct"
+lines = [
+    1,
+    1,
+]
+hash = "sha256:1a1fc5b71a15373214fa72356179f6752a26403737f26c343843a637cb4454aa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

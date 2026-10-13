@@ -7,6 +7,20 @@ dir = "crates/outram-foam-mesh/tests"
 path = "test:block_mesh"
 
 [[module."block_mesh.rs".function]]
+id = "fn:788e1c556a7ddb07"
+name = "CAVITY_DICT"
+qual = "CAVITY_DICT"
+item = "const"
+shape = "const"
+lines = [
+    53,
+    53,
+]
+hash = "sha256:3be75cb6e5ef746605073dd9b9457eb5623c3bfe48913a63ad37be72d67af83a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."block_mesh.rs".function]]
 id = "fn:ec197328ba1e5bcb"
 name = "cavity_topology_counts"
 qual = "cavity_topology_counts"
@@ -22,6 +36,7 @@ callees = [
     "fn:ce61afc044ad8519",
     "fn:d88c045633b3ad05",
 ]
+uses = ["fn:788e1c556a7ddb07"]
 test = true
 
 [[module."block_mesh.rs".function]]
@@ -38,6 +53,7 @@ callees = [
     "fn:3ed8413e52fe07d2",
     "fn:b9242b9533836f50",
 ]
+uses = ["fn:788e1c556a7ddb07"]
 test = true
 
 [[module."block_mesh.rs".function]]
@@ -54,6 +70,7 @@ callees = [
     "fn:b9242b9533836f50",
     "fn:d07d62c596215407",
 ]
+uses = ["fn:788e1c556a7ddb07"]
 test = true
 
 [[module."block_mesh.rs".function]]
@@ -71,6 +88,7 @@ callees = [
     "fn:81fa798a3c96bac0",
     "fn:b9242b9533836f50",
 ]
+uses = ["fn:788e1c556a7ddb07"]
 test = true
 
 [[module."block_mesh.rs".function]]
@@ -84,6 +102,10 @@ lines = [
 hash = "sha256:501ddb7bae617b04bf16b93008da34fbd09274d6e834b15a2b13eab5d565c5c1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:a6bfb77614aa41a8"]
+uses = [
+    "fn:4ebcb877d5be8d9b",
+    "fn:788e1c556a7ddb07",
+]
 test = true
 
 [[module."block_mesh.rs".function]]
@@ -102,6 +124,7 @@ callees = [
     "fn:b9242b9533836f50",
     "fn:d88c045633b3ad05",
 ]
+uses = ["fn:788e1c556a7ddb07"]
 test = true
 
 [[module."block_mesh.rs".function]]
@@ -112,7 +135,7 @@ lines = [
     165,
     211,
 ]
-hash = "sha256:ac2238d9f484a2395702d199b8f1f3b88ec2bb33534ea5b81800a71ed2d05cff"
+hash = "sha256:8b83acc932eadf48674bd0be0a7506e646557a203ef2b4c86be273bfce615267"
 doc_hash = "sha256:34f11411fd83e94d200eab258541442dbe0d482fe31ed61a8cea56b155dd53bf"
 callees = [
     "fn:81fa798a3c96bac0",
@@ -131,7 +154,7 @@ lines = [
     213,
     242,
 ]
-hash = "sha256:c923af1c1e499e8e2883c2dba11cf65fcb110523b8cb5b046a2c0c41ce18303e"
+hash = "sha256:361382fe7530f578982d56fa1c884bb74bcda979136e94a064e74e2245a06f57"
 doc_hash = "sha256:8dad3934170c2abb39d48786065e715a8adcccc6b2d02e0061b636b3b0656f95"
 callees = [
     "fn:b9242b9533836f50",
@@ -158,10 +181,56 @@ callees = [
     "fn:c57eacbfb48efb5d",
     "fn:e64a66e2b44cad2d",
 ]
+uses = [
+    "fn:788e1c556a7ddb07",
+    "fn:ddbf3dac1d991d9f",
+]
 test = true
 
 [module."cyclic_snapping.rs"]
 path = "test:cyclic_snapping"
+
+[[module."cyclic_snapping.rs".function]]
+id = "fn:a3867a98acbe0605"
+name = "LO"
+qual = "LO"
+item = "const"
+shape = "const"
+lines = [
+    30,
+    31,
+]
+hash = "sha256:b3018280af5e7034ba0691207878498a84783aa3653b125be64c7c0cc3c031ad"
+doc_hash = "sha256:ac3f5139b6fe86c50ad3391d4b56721c765772021a89cf2c20889a8e012066d6"
+test = true
+
+[[module."cyclic_snapping.rs".function]]
+id = "fn:820b59a9c6fbfb0e"
+name = "HI"
+qual = "HI"
+item = "const"
+shape = "const"
+lines = [
+    32,
+    32,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."cyclic_snapping.rs".function]]
+id = "fn:1977062767a32794"
+name = "HALF"
+qual = "HALF"
+item = "const"
+shape = "const"
+lines = [
+    33,
+    36,
+]
+hash = "sha256:b1133a1cfbd50ac4740a710d26841fcadca0a9d4fc65b722af830ff59f183d5f"
+doc_hash = "sha256:f50ad3169d21cefd4e3665ea296f320f087a90d87afb23d25dddd8a809ce7b55"
+test = true
 
 [[module."cyclic_snapping.rs".function]]
 id = "fn:f212a5c141501ca8"
@@ -176,6 +245,13 @@ doc_hash = "sha256:e6ead891f7dba51e9a2fdabe4c34b5fb2a400ebfe7f1102e89074865aaab5
 callees = [
     "fn:010a2105c71d2afa",
     "fn:9e501e5f4cce23ae",
+]
+uses = [
+    "fn:1977062767a32794",
+    "fn:54fc8cb49b51447b",
+    "fn:820b59a9c6fbfb0e",
+    "fn:a3867a98acbe0605",
+    "fn:ef05859ef19acee7",
 ]
 test = true
 
@@ -198,6 +274,15 @@ callees = [
     "fn:f212a5c141501ca8",
     "fn:f6ce47201ff45f03",
 ]
+uses = [
+    "fn:3361892f2f114524",
+    "fn:63acd0432bb2a60b",
+    "fn:67aec2a77b8f5866",
+    "fn:820b59a9c6fbfb0e",
+    "fn:a3867a98acbe0605",
+    "fn:e83300962cdd5def",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."cyclic_snapping.rs".function]]
@@ -213,6 +298,11 @@ doc_hash = "sha256:fb8a3dd771da1749bd030089df6c97420620245c8e971b757ae011aeca4a4
 callees = [
     "fn:12a06403e27e4888",
     "fn:99b51c50cec539c3",
+]
+uses = [
+    "fn:63acd0432bb2a60b",
+    "fn:820b59a9c6fbfb0e",
+    "fn:a3867a98acbe0605",
 ]
 test = true
 
@@ -231,6 +321,12 @@ callees = [
     "fn:6d28dd4e7edaf154",
     "fn:c23e5ab9156516fa",
 ]
+uses = [
+    "fn:293183d62b7ee5f9",
+    "fn:820b59a9c6fbfb0e",
+    "fn:a3867a98acbe0605",
+    "fn:c08cfca197a7a2bf",
+]
 test = true
 
 [[module."cyclic_snapping.rs".function]]
@@ -241,7 +337,7 @@ lines = [
     137,
     192,
 ]
-hash = "sha256:b7d8e04fa0a2ba40c4008030af1e848644f78e4fe2fcee305a4c8a0a5aafbddf"
+hash = "sha256:b34ee63637d4dd143b967734aa24e1c2bbd0d71f6c67edf34ecc27f227b9d2b0"
 doc_hash = "sha256:ae5096e72cf611b6e33c6bcae5d7d4a2dfe31327cc721786e26be7a3a396c26b"
 callees = [
     "fn:224a57a5f3cba072",
@@ -252,6 +348,10 @@ callees = [
     "fn:b423c578a73e2c00",
     "fn:b9d3c0d4f26bf3e0",
     "fn:f212a5c141501ca8",
+]
+uses = [
+    "fn:63834d8acc04b3ca",
+    "fn:c08cfca197a7a2bf",
 ]
 test = true
 
@@ -273,6 +373,10 @@ callees = [
     "fn:c23e5ab9156516fa",
     "fn:f212a5c141501ca8",
 ]
+uses = [
+    "fn:293183d62b7ee5f9",
+    "fn:63834d8acc04b3ca",
+]
 test = true
 
 [[module."cyclic_snapping.rs".function]]
@@ -289,6 +393,10 @@ callees = [
     "fn:224a57a5f3cba072",
     "fn:6d28dd4e7edaf154",
     "fn:9e501e5f4cce23ae",
+]
+uses = [
+    "fn:c08cfca197a7a2bf",
+    "fn:ef05859ef19acee7",
 ]
 test = true
 
@@ -310,6 +418,10 @@ callees = [
     "fn:3ec5e342ab76d57e",
     "fn:89dc43a078f68cb7",
     "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:5e692f225586e45e",
+    "fn:ef05859ef19acee7",
 ]
 test = true
 
@@ -334,6 +446,20 @@ callees = [
 test = true
 
 [[module."ideas_unv_to_foam.rs".function]]
+id = "fn:d1d073bfe5293662"
+name = "TET_UNV"
+qual = "TET_UNV"
+item = "const"
+shape = "const"
+lines = [
+    135,
+    153,
+]
+hash = "sha256:2a482db18027616c5b7d3a16088fe472bee1fe355e79da749faa52dd19e05d8a"
+doc_hash = "sha256:5a40e02b38a19a3f71d857b0b637281cb71124fa8145cfd90be4093b6e737417"
+test = true
+
+[[module."ideas_unv_to_foam.rs".function]]
 id = "fn:8840c4d268b5d13e"
 name = "single_tet_volume_and_faces"
 qual = "single_tet_volume_and_faces"
@@ -351,6 +477,7 @@ callees = [
     "fn:9e8babf455d1a3cd",
     "fn:e00c2fb04682e00d",
 ]
+uses = ["fn:d1d073bfe5293662"]
 test = true
 
 [[module."ideas_unv_to_foam.rs".function]]
@@ -367,10 +494,25 @@ callees = [
     "fn:5b54501c9f16a520",
     "fn:88f63aa9e8e29fe8",
 ]
+uses = ["fn:d1d073bfe5293662"]
 test = true
 
 [module."poly_dual_mesh.rs"]
 path = "test:poly_dual_mesh"
+
+[[module."poly_dual_mesh.rs".function]]
+id = "fn:ffac41903e853e12"
+name = "TOL"
+qual = "TOL"
+item = "const"
+shape = "const"
+lines = [
+    51,
+    51,
+]
+hash = "sha256:96d02f8b478b36fd219e1275bf75914b26445db1b08e4f8801fb6cae160b1fc6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."poly_dual_mesh.rs".function]]
 id = "fn:ff33caab3fae276e"
@@ -416,6 +558,10 @@ callees = [
     "fn:b3cdb24ed5559104",
     "fn:b946c06cfa67e013",
     "fn:ff33caab3fae276e",
+]
+uses = [
+    "fn:ac1277f9ff5ece5e",
+    "fn:ffac41903e853e12",
 ]
 test = true
 
@@ -474,6 +620,7 @@ callees = [
     "fn:b946c06cfa67e013",
     "fn:ff33caab3fae276e",
 ]
+uses = ["fn:ac1277f9ff5ece5e"]
 test = true
 
 [[module."poly_dual_mesh.rs".function]]
@@ -491,6 +638,7 @@ callees = [
     "fn:27b8b6d1ab599c87",
     "fn:b946c06cfa67e013",
 ]
+uses = ["fn:ac1277f9ff5ece5e"]
 test = true
 
 [[module."poly_dual_mesh.rs".function]]
@@ -512,6 +660,7 @@ callees = [
     "fn:9e8babf455d1a3cd",
     "fn:b946c06cfa67e013",
 ]
+uses = ["fn:ac1277f9ff5ece5e"]
 test = true
 
 [[module."poly_dual_mesh.rs".function]]
@@ -531,6 +680,10 @@ callees = [
     "fn:b946c06cfa67e013",
     "fn:c57eacbfb48efb5d",
     "fn:d45e4a849f17ee0f",
+]
+uses = [
+    "fn:ac1277f9ff5ece5e",
+    "fn:ffac41903e853e12",
 ]
 test = true
 
@@ -552,6 +705,25 @@ callees = [
     "fn:a6f0175a2ae4289f",
     "fn:b08af05cd98b9915",
 ]
+uses = [
+    "fn:54fc8cb49b51447b",
+    "fn:bb7fbdc91a6d806e",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."snappy_hex_mesh.rs".function]]
+id = "fn:e1152dfcc9800a2c"
+name = "TETRA_ASCII_STL"
+qual = "TETRA_ASCII_STL"
+item = "const"
+shape = "const"
+lines = [
+    99,
+    131,
+]
+hash = "sha256:73b52f26a18942518037689e8458426ff68540fa3981fa8750ea1c2ec5d1666a"
+doc_hash = "sha256:088a7bfb3c7effe3a31f49ed5b65cfc687e2f756f3dfed868291bd1e202f5a41"
 test = true
 
 [[module."snappy_hex_mesh.rs".function]]
@@ -569,6 +741,10 @@ callees = [
     "fn:39e083c1ce49a569",
     "fn:9e501e5f4cce23ae",
     "fn:ab3f002a2bfc3322",
+]
+uses = [
+    "fn:e1152dfcc9800a2c",
+    "fn:ef05859ef19acee7",
 ]
 test = true
 
@@ -588,6 +764,7 @@ callees = [
     "fn:9e501e5f4cce23ae",
     "fn:c0c989d440fdcc94",
 ]
+uses = ["fn:ef05859ef19acee7"]
 test = true
 
 [[module."snappy_hex_mesh.rs".function]]
@@ -605,6 +782,7 @@ callees = [
     "fn:834be64503338614",
     "fn:9e501e5f4cce23ae",
 ]
+uses = ["fn:ef05859ef19acee7"]
 test = true
 
 [[module."snappy_hex_mesh.rs".function]]
@@ -624,6 +802,7 @@ callees = [
     "fn:a9defe72d88c59c6",
     "fn:ed7d718f646723fc",
 ]
+uses = ["fn:ef05859ef19acee7"]
 test = true
 
 [[module."snappy_hex_mesh.rs".function]]
@@ -643,6 +822,10 @@ callees = [
     "fn:df59642a881da0d8",
     "fn:ed7d718f646723fc",
 ]
+uses = [
+    "fn:bb7fbdc91a6d806e",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."snappy_hex_mesh.rs".function]]
@@ -659,6 +842,10 @@ callees = [
     "fn:3ec5e342ab76d57e",
     "fn:89dc43a078f68cb7",
     "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:ef05859ef19acee7",
 ]
 test = true
 
@@ -683,6 +870,12 @@ callees = [
     "fn:ed7d718f646723fc",
     "fn:f6ce47201ff45f03",
 ]
+uses = [
+    "fn:3361892f2f114524",
+    "fn:67aec2a77b8f5866",
+    "fn:e83300962cdd5def",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."snappy_hex_mesh.rs".function]]
@@ -706,6 +899,12 @@ callees = [
     "fn:ed7d718f646723fc",
     "fn:f6ce47201ff45f03",
 ]
+uses = [
+    "fn:3361892f2f114524",
+    "fn:67aec2a77b8f5866",
+    "fn:e83300962cdd5def",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."snappy_hex_mesh.rs".function]]
@@ -727,6 +926,12 @@ callees = [
     "fn:9e8babf455d1a3cd",
     "fn:e33ce922cf743028",
     "fn:f6ce47201ff45f03",
+]
+uses = [
+    "fn:3361892f2f114524",
+    "fn:67aec2a77b8f5866",
+    "fn:e83300962cdd5def",
+    "fn:ef05859ef19acee7",
 ]
 test = true
 
@@ -756,6 +961,14 @@ callees = [
     "fn:ed7d718f646723fc",
     "fn:f6ce47201ff45f03",
 ]
+uses = [
+    "fn:3361892f2f114524",
+    "fn:63834d8acc04b3ca",
+    "fn:63acd0432bb2a60b",
+    "fn:67aec2a77b8f5866",
+    "fn:e83300962cdd5def",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."snappy_hex_mesh.rs".function]]
@@ -783,6 +996,15 @@ callees = [
     "fn:f6ce47201ff45f03",
     "fn:f7178df40dfbc8cb",
 ]
+uses = [
+    "fn:326198af5b946429",
+    "fn:3361892f2f114524",
+    "fn:545c15d02df3d70a",
+    "fn:63834d8acc04b3ca",
+    "fn:67aec2a77b8f5866",
+    "fn:e83300962cdd5def",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."snappy_hex_mesh.rs".function]]
@@ -800,6 +1022,7 @@ callees = [
     "fn:82ec08858216bc76",
     "fn:a11db2664c3545af",
 ]
+uses = ["fn:545c15d02df3d70a"]
 test = true
 
 [[module."snappy_hex_mesh.rs".function]]
@@ -823,5 +1046,12 @@ callees = [
     "fn:9e8babf455d1a3cd",
     "fn:e33ce922cf743028",
     "fn:f6ce47201ff45f03",
+]
+uses = [
+    "fn:3361892f2f114524",
+    "fn:545c15d02df3d70a",
+    "fn:67aec2a77b8f5866",
+    "fn:e83300962cdd5def",
+    "fn:ef05859ef19acee7",
 ]
 test = true

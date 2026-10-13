@@ -23,6 +23,11 @@ callees = [
     "fn:11279e4a55558e05",
     "fn:4c77b592a8ab611f",
 ]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [module."tutorial_2.rs"]
@@ -43,6 +48,11 @@ callees = [
     "fn:4c77b592a8ab611f",
     "fn:8d55b8e75fdd2c86",
 ]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [module."tutorial_3.rs"]
@@ -61,6 +71,11 @@ doc_hash = "sha256:464f6f880bd2b901e00af30bb6c243fc3bdaf2aaf209772b86195b43649ee
 callees = [
     "fn:11279e4a55558e05",
     "fn:4c77b592a8ab611f",
+]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
 ]
 test = true
 
@@ -89,6 +104,14 @@ callees = [
     "fn:6495f5fa3bc8a5b5",
     "fn:81ebbad2a6b015cb",
     "fn:a3a04100486196dc",
+]
+uses = [
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
 ]
 test = true
 
@@ -119,6 +142,14 @@ callees = [
     "fn:8d55b8e75fdd2c86",
     "fn:a3a04100486196dc",
 ]
+uses = [
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [module."tutorial_6.rs"]
@@ -147,5 +178,13 @@ callees = [
     "fn:81ebbad2a6b015cb",
     "fn:8d55b8e75fdd2c86",
     "fn:a3a04100486196dc",
+]
+uses = [
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
 ]
 test = true

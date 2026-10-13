@@ -7,6 +7,45 @@ dir = "crates/buangkok/examples"
 path = "example:plume_chi_over_q"
 
 [[module."plume_chi_over_q.rs".function]]
+id = "fn:c11607c1a9145346"
+name = "RELEASE_HEIGHT_M"
+qual = "RELEASE_HEIGHT_M"
+item = "const"
+shape = "const"
+lines = [
+    78,
+    79,
+]
+hash = "sha256:53f89aeee4e9ec6d11ef17c268d07eba9c798a27704004943f049f62558a6f47"
+doc_hash = "sha256:b08e16477dbe824c811058e5319df5aee0b4c4f7a4d7c64d2c00ab04d9f4b4e9"
+
+[[module."plume_chi_over_q.rs".function]]
+id = "fn:9a39a16006335c4d"
+name = "MEASUREMENT_HEIGHT_M"
+qual = "MEASUREMENT_HEIGHT_M"
+item = "const"
+shape = "const"
+lines = [
+    80,
+    81,
+]
+hash = "sha256:24d4b673907ebba2647f36dfd90c864f2bd3d94a0a4209a99c4ed575cf00ef39"
+doc_hash = "sha256:64163f6ea77b714e696901377897292381d2dd9d4803649d76fb50605af43961"
+
+[[module."plume_chi_over_q.rs".function]]
+id = "fn:269a74a03d50a6ed"
+name = "WIND_AT_10M_M_PER_S"
+qual = "WIND_AT_10M_M_PER_S"
+item = "const"
+shape = "const"
+lines = [
+    82,
+    83,
+]
+hash = "sha256:42e089c3395003b2b1735afa39c3940d07d6e0ff3589243147e47c8e11d3b147"
+doc_hash = "sha256:03e21a09463c4092b58b1f2ab7a44f841d3d39539c19f723adc854859fe31a15"
+
+[[module."plume_chi_over_q.rs".function]]
 id = "fn:08990b1b9776be8d"
 name = "geometry"
 qual = "geometry"
@@ -16,6 +55,12 @@ lines = [
 ]
 hash = "sha256:97701dbc7df595ba0780be07a93da243ff0396b69554a79cb49a0699e05bc7e1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:3a591bbe9ce20d1e",
+    "fn:8ab78a6538b9fa36",
+    "fn:9a39a16006335c4d",
+    "fn:c11607c1a9145346",
+]
 
 [[module."plume_chi_over_q.rs".function]]
 id = "fn:094225f6dbe3bbcc"
@@ -27,6 +72,10 @@ lines = [
 ]
 hash = "sha256:f99aa91d1acaf24f22aaa9ef7f019c637b07496092468c83011914bbdd20c231"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:269a74a03d50a6ed",
+    "fn:b97cbee887f6a998",
+]
 
 [[module."plume_chi_over_q.rs".function]]
 id = "fn:275354a2f8f3b754"
@@ -53,16 +102,98 @@ lines = [
     102,
     158,
 ]
-hash = "sha256:2cfc2f1da1a65da3a4e8c64ecfa9e575f38d715c3441d4bbb31bf54c8a3baff7"
+hash = "sha256:f55a3738da39580ef35d41c2b73d72ef37870898575b1b4cfe4ac6b38b446489"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:275354a2f8f3b754",
     "fn:48262d2d4e3d44f9",
     "fn:92a7e43bc7707a75",
 ]
+uses = [
+    "fn:be919e5b1086560a",
+    "fn:c11607c1a9145346",
+]
 
 [module."plume_rise_and_wake.rs"]
 path = "example:plume_rise_and_wake"
+
+[[module."plume_rise_and_wake.rs".function]]
+id = "fn:02881baa15997a33"
+name = "W0"
+qual = "W0"
+item = "const"
+shape = "const"
+lines = [
+    70,
+    71,
+]
+hash = "sha256:24d4b673907ebba2647f36dfd90c864f2bd3d94a0a4209a99c4ed575cf00ef39"
+doc_hash = "sha256:303f8af830efe60bcf930dbe5a76f44fda0b59f0b10d1cb0252e1970646f8163"
+
+[[module."plume_rise_and_wake.rs".function]]
+id = "fn:ffca97338ed05b97"
+name = "D_I"
+qual = "D_I"
+item = "const"
+shape = "const"
+lines = [
+    72,
+    73,
+]
+hash = "sha256:ae2c297afe4ee0f76dbe59db60c57dc9c7c65095975951d7f9393439ff3fdf77"
+doc_hash = "sha256:4ae60926173f35ec842b7e7ed20558ab078c000a5d162590179872a910ab6e4a"
+
+[[module."plume_rise_and_wake.rs".function]]
+id = "fn:987f7e23f5152ae7"
+name = "D_E"
+qual = "D_E"
+item = "const"
+shape = "const"
+lines = [
+    74,
+    75,
+]
+hash = "sha256:10d6e8a99a9e6941666ab7d0ff7183ebdae2581b8899a1f115964a515389d700"
+doc_hash = "sha256:db39d7d29a2b344369a5ff2ac8816d39599ad941fabad35cca7a9e9087b76cfb"
+
+[[module."plume_rise_and_wake.rs".function]]
+id = "fn:5bf9fb0233064088"
+name = "U"
+qual = "U"
+item = "const"
+shape = "const"
+lines = [
+    76,
+    77,
+]
+hash = "sha256:42e089c3395003b2b1735afa39c3940d07d6e0ff3589243147e47c8e11d3b147"
+doc_hash = "sha256:a3bb231e7c62f72a5da19aefdad643761656da33f4d9d33e865798cd541d5185"
+
+[[module."plume_rise_and_wake.rs".function]]
+id = "fn:93fa536be2304dd3"
+name = "H_STACK_M"
+qual = "H_STACK_M"
+item = "const"
+shape = "const"
+lines = [
+    78,
+    79,
+]
+hash = "sha256:53f89aeee4e9ec6d11ef17c268d07eba9c798a27704004943f049f62558a6f47"
+doc_hash = "sha256:e6c0c93710d4d0f80f36b0d4f4a13345113f4f261f455e9f046684c499e34b32"
+
+[[module."plume_rise_and_wake.rs".function]]
+id = "fn:5195d7f4d5284310"
+name = "BUILDING_AREA_M2"
+qual = "BUILDING_AREA_M2"
+item = "const"
+shape = "const"
+lines = [
+    80,
+    81,
+]
+hash = "sha256:01c0179858419e7681917e85863a4c81c30aa2ff22cfc96a0c77e0e0d505b904"
+doc_hash = "sha256:fd4618bd831c3030ee697184368ecf2e3d68088906540392f8e6c0816acd7dcb"
 
 [[module."plume_rise_and_wake.rs".function]]
 id = "fn:e2ddaece69830384"
@@ -79,6 +210,12 @@ callees = [
     "fn:92a7e43bc7707a75",
     "fn:ce42673cbb55ed79",
 ]
+uses = [
+    "fn:3a591bbe9ce20d1e",
+    "fn:8ab78a6538b9fa36",
+    "fn:b97cbee887f6a998",
+    "fn:be919e5b1086560a",
+]
 
 [[module."plume_rise_and_wake.rs".function]]
 id = "fn:1b9ee399b533a92d"
@@ -88,7 +225,7 @@ lines = [
     94,
     153,
 ]
-hash = "sha256:f69d9d9a822c938ea68a2ea0ec4c527fcc81539f00af8f4032fac93fdedc84ef"
+hash = "sha256:40f75be4c941a66612d5b07b9f13ee2e7d59404743fd41897ef67df3ef02d0f6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:3a81820b65684c7e",
@@ -99,6 +236,16 @@ callees = [
     "fn:8748c4fda847952e",
     "fn:e2ddaece69830384",
     "fn:e4bc72139efb29fb",
+]
+uses = [
+    "fn:02881baa15997a33",
+    "fn:5195d7f4d5284310",
+    "fn:5bf9fb0233064088",
+    "fn:907a3e6dec5e0152",
+    "fn:93fa536be2304dd3",
+    "fn:987f7e23f5152ae7",
+    "fn:be919e5b1086560a",
+    "fn:ffca97338ed05b97",
 ]
 
 [module."pydoseia_assessment.rs"]
@@ -129,4 +276,19 @@ callees = [
     "fn:ef604687781b63ec",
     "fn:faf80c3cd1f5eafb",
     "fn:fb689d3f758feca5",
+]
+uses = [
+    "fn:0af51fa0e2ba5b1d",
+    "fn:0c7b7004d75d26b5",
+    "fn:1ad9e6f9fdbfabc5",
+    "fn:27a5496ee17020ed",
+    "fn:38d27ccdc826993f",
+    "fn:4036a4507973d1f0",
+    "fn:74845a06c9c517de",
+    "fn:7b43a317aa5ad08b",
+    "fn:89af831160eab1ea",
+    "fn:8db1c9dd8ce40e72",
+    "fn:b5d97e1a6b9b3a4c",
+    "fn:c36cd67069b75d09",
+    "fn:f6d3ada6e21015dd",
 ]

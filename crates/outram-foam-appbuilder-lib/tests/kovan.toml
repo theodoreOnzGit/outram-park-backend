@@ -7,6 +7,76 @@ dir = "crates/outram-foam-appbuilder-lib/tests"
 path = "test:fv_scheme_selection"
 
 [[module."fv_scheme_selection.rs".function]]
+id = "fn:ad6445170345cca2"
+name = "CASE_DIR"
+qual = "CASE_DIR"
+item = "const"
+shape = "const"
+lines = [
+    48,
+    51,
+]
+hash = "sha256:47a9e5d41589f8699b54e512b22100edd3c06a0f0f41ec2249948e766399d817"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."fv_scheme_selection.rs".function]]
+id = "fn:212beffdd4c16bbc"
+name = "U_LID"
+qual = "U_LID"
+item = "const"
+shape = "const"
+lines = [
+    52,
+    52,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."fv_scheme_selection.rs".function]]
+id = "fn:a556cccaf3959214"
+name = "L"
+qual = "L"
+item = "const"
+shape = "const"
+lines = [
+    53,
+    53,
+]
+hash = "sha256:f851f55e16b2857b6f8941083542219d2565fe749e7a739aa151177cedb01393"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."fv_scheme_selection.rs".function]]
+id = "fn:6f4962a4005bb50a"
+name = "GHIA_Y"
+qual = "GHIA_Y"
+item = "const"
+shape = "const"
+lines = [
+    56,
+    59,
+]
+hash = "sha256:7bf5a073cf8d2253db11833b1ebf4ba4b81baf19183cb6ac1ec4ed8bcb55b0e7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."fv_scheme_selection.rs".function]]
+id = "fn:665a0b92baf801ba"
+name = "GHIA_UX"
+qual = "GHIA_UX"
+item = "const"
+shape = "const"
+lines = [
+    60,
+    63,
+]
+hash = "sha256:cde3065180338c64a60aded1f7c573236261d17d1ffdf195c3d77aa68396c706"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."fv_scheme_selection.rs".function]]
 id = "fn:6671f8968cc5b802"
 name = "case_dir"
 qual = "case_dir"
@@ -16,6 +86,7 @@ lines = [
 ]
 hash = "sha256:037388cda53dc732fec3f02e2cdfa76e95b05ded344ff4a58362313638e70942"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:ad6445170345cca2"]
 test = true
 
 [[module."fv_scheme_selection.rs".function]]
@@ -38,6 +109,15 @@ callees = [
     "fn:f66e81a8a8f38feb",
     "fn:f8bf8efa3e1f4377",
 ]
+uses = [
+    "fn:3f165bca5d68b785",
+    "fn:42e1c8f76b7043c0",
+    "fn:6ba3358f6a29c123",
+    "fn:7aa70dd1c009cc88",
+    "fn:b0768c6e7263ae77",
+    "fn:e0ff37b7796b05a6",
+    "fn:f11bcf88c9cf8afa",
+]
 test = true
 
 [[module."fv_scheme_selection.rs".function]]
@@ -50,6 +130,11 @@ lines = [
 ]
 hash = "sha256:0636381eb9c0cbf596515577230988c505ee01d3d0a126b04a63ac3deec50ae4"
 doc_hash = "sha256:0c6c07b7f12120de3956a4a752703463aff85ccb19b18f6805fb75a17745cf4f"
+uses = [
+    "fn:212beffdd4c16bbc",
+    "fn:a556cccaf3959214",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."fv_scheme_selection.rs".function]]
@@ -79,6 +164,11 @@ callees = [
     "fn:6d45af0d518e142d",
     "fn:8a9eb0ea81d33b16",
 ]
+uses = [
+    "fn:42e1c8f76b7043c0",
+    "fn:665a0b92baf801ba",
+    "fn:6f4962a4005bb50a",
+]
 test = true
 
 [[module."fv_scheme_selection.rs".function]]
@@ -89,7 +179,7 @@ lines = [
     159,
     266,
 ]
-hash = "sha256:acddf9d6be9465d8adfde1331431d524ccbf2670127e1627241e5bd2e9f717e0"
+hash = "sha256:a84cfd2a680ff83bc499d6218dd90e553b4288a9d52e5d5cd01adf0273d1e69f"
 doc_hash = "sha256:c4895ac27c4d76d8998a81f4f3ab5d8c7a12b2ca3966063a482755035eecb778"
 callees = [
     "fn:12a06403e27e4888",
@@ -99,6 +189,10 @@ callees = [
     "fn:6d45af0d518e142d",
     "fn:836f3066e3c9e799",
     "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:3f165bca5d68b785",
+    "fn:5c89f9573311557b",
 ]
 test = true
 
@@ -110,7 +204,7 @@ lines = [
     268,
     403,
 ]
-hash = "sha256:c1638be7913502e7e5d20d2f2a1882cc33570c6c7c5888b12a9c3429238ab6ab"
+hash = "sha256:4bb9d6ea4b250c0eec0a120920152db7e59984e4612035340bb41c62ff3047a9"
 doc_hash = "sha256:130e1c404559131cf3afa7e450ec0f60aa3c896f0cf1e763f063669bd8e186af"
 callees = [
     "fn:12a06403e27e4888",
@@ -121,10 +215,58 @@ callees = [
     "fn:836f3066e3c9e799",
     "fn:ed7d718f646723fc",
 ]
+uses = [
+    "fn:3f165bca5d68b785",
+    "fn:42e1c8f76b7043c0",
+    "fn:5c89f9573311557b",
+    "fn:c88ce1856cc29fe5",
+]
 test = true
 
 [module."genfoam_gfhr_pebble_vs_upstream.rs"]
 path = "test:genfoam_gfhr_pebble_vs_upstream"
+
+[[module."genfoam_gfhr_pebble_vs_upstream.rs".function]]
+id = "fn:12535ec2e3cf198a"
+name = "ALPHA_STRUCTURE"
+qual = "ALPHA_STRUCTURE"
+item = "const"
+shape = "const"
+lines = [
+    59,
+    60,
+]
+hash = "sha256:73fcd2389290dac0b6c70701f83073c850bf939e068bd1d266ab0960436a07cd"
+doc_hash = "sha256:c1253c6a13f41f7fcca5391eb8164f54f285f4e018f9d188b0bd827bafaae784"
+test = true
+
+[[module."genfoam_gfhr_pebble_vs_upstream.rs".function]]
+id = "fn:064b8f3b078e95c6"
+name = "POWER_DENSITY"
+qual = "POWER_DENSITY"
+item = "const"
+shape = "const"
+lines = [
+    61,
+    61,
+]
+hash = "sha256:6e4e37b32e7673f886509e6b81b133d457a897796ee19becb9fff3433a353fca"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."genfoam_gfhr_pebble_vs_upstream.rs".function]]
+id = "fn:c09f94d2f6b32e3c"
+name = "UPSTREAM_KEFFMATRIX"
+qual = "UPSTREAM_KEFFMATRIX"
+item = "const"
+shape = "const"
+lines = [
+    62,
+    63,
+]
+hash = "sha256:5caca235a415bd8979ad31583d965b862d3b2e8e0f954696219bb4845867ed0c"
+doc_hash = "sha256:582f29bb7c45ef8841c9c6f75e0a101c36dc717ea345a64d83026b538d2e11da"
+test = true
 
 [[module."genfoam_gfhr_pebble_vs_upstream.rs".function]]
 id = "fn:20cab9944eaa35c2"
@@ -136,6 +278,7 @@ lines = [
 ]
 hash = "sha256:0fbe55a1969f7a7e2a3ca084e0378e43585f3926eda6542b50271be4b94ba608"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:1e65f2a36cac84b6"]
 test = true
 
 [[module."genfoam_gfhr_pebble_vs_upstream.rs".function]]
@@ -147,6 +290,21 @@ lines = [
     87,
 ]
 hash = "sha256:51e56ea7ce26bcc1fd86b3f7ded72c180c37712f9b4ce7413c25bbf2e7bbb5ed"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:9f99c1cd00eac7f0"]
+test = true
+
+[[module."genfoam_gfhr_pebble_vs_upstream.rs".function]]
+id = "fn:89e642fa955aba88"
+name = "Row"
+qual = "Row"
+item = "type"
+shape = "struct"
+lines = [
+    89,
+    96,
+]
+hash = "sha256:fc64b17d8a2d30175b49936b9262f18b5c68dfd7f3531f11356253a821757328"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -160,6 +318,7 @@ lines = [
 ]
 hash = "sha256:e686ef9e92691165f49b2e23c8289561f50f6d18329725e26df87866d7ec584b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:89e642fa955aba88"]
 test = true
 
 [[module."genfoam_gfhr_pebble_vs_upstream.rs".function]]
@@ -170,7 +329,7 @@ lines = [
     118,
     178,
 ]
-hash = "sha256:ddfd7709608e83374710f87794f816d5de92503a82363698b7da59afb87e1e06"
+hash = "sha256:afb12687c37112c0e285fb3b470644760f77d1397d2ea051964cbf9a9e6ec98c"
 doc_hash = "sha256:fd3537fbddc2ee6694567ef5b86106e2e297aa7590484a600610fdc70b46a984"
 callees = [
     "fn:165afc309e3149c7",
@@ -179,10 +338,57 @@ callees = [
     "fn:445711209093e3c8",
     "fn:eb8dc07df58970d1",
 ]
+uses = [
+    "fn:064b8f3b078e95c6",
+    "fn:12535ec2e3cf198a",
+    "fn:c09f94d2f6b32e3c",
+]
 test = true
 
 [module."genfoam_point_kinetics_inhour.rs"]
 path = "test:genfoam_point_kinetics_inhour"
+
+[[module."genfoam_point_kinetics_inhour.rs".function]]
+id = "fn:96e4236523a21db3"
+name = "BETAS"
+qual = "BETAS"
+item = "const"
+shape = "const"
+lines = [
+    95,
+    96,
+]
+hash = "sha256:1ec669ba20a8933aba704071fd75fc24f6323a95069b91e64079cb8578e47b7c"
+doc_hash = "sha256:c035767af4a3ab81779b607e9addb84433fbebef9653b39755b936772e50e4d2"
+test = true
+
+[[module."genfoam_point_kinetics_inhour.rs".function]]
+id = "fn:5053243059f006cd"
+name = "LAMBDAS"
+qual = "LAMBDAS"
+item = "const"
+shape = "const"
+lines = [
+    97,
+    97,
+]
+hash = "sha256:6348803f7eb3558f653f9ef9cb5725080cb95892d26fde2f9c6a959676b37b43"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."genfoam_point_kinetics_inhour.rs".function]]
+id = "fn:61e53855a4ec1f22"
+name = "LAMBDA_GEN"
+qual = "LAMBDA_GEN"
+item = "const"
+shape = "const"
+lines = [
+    98,
+    98,
+]
+hash = "sha256:a2e209b2d0e3d21c0d9329d088a9805363b3a1010f0757335ef74b7c659d7d9f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."genfoam_point_kinetics_inhour.rs".function]]
 id = "fn:1da2fcb0101740fb"
@@ -195,6 +401,12 @@ lines = [
 hash = "sha256:27c2272582373419cd70704709af11ce63373db811938ba035009e0db1560ed8"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:3b3f6b7be75b2a35"]
+uses = [
+    "fn:12e3b237ed377744",
+    "fn:5053243059f006cd",
+    "fn:61e53855a4ec1f22",
+    "fn:96e4236523a21db3",
+]
 test = true
 
 [[module."genfoam_point_kinetics_inhour.rs".function]]
@@ -207,6 +419,11 @@ lines = [
 ]
 hash = "sha256:26d2d8e4bc200fdce210610853a522a68a270793978bbc13c310b6c6b54371f1"
 doc_hash = "sha256:699872b4e8a99474492b28f7b0f75915ce1825cd70a70d31f31d444099bdf2a6"
+uses = [
+    "fn:5053243059f006cd",
+    "fn:61e53855a4ec1f22",
+    "fn:96e4236523a21db3",
+]
 test = true
 
 [[module."genfoam_point_kinetics_inhour.rs".function]]
@@ -220,6 +437,7 @@ lines = [
 hash = "sha256:9b9b4c2790caf380ce46df5f061a06ee2d4ebb96a97e3e119c815ab0b1f21fb0"
 doc_hash = "sha256:003f90820e1aa921f9c0df7d683d68388575c25792583d84d42b7a1d17695da1"
 callees = ["fn:4abc6ad7ad7cc73b"]
+uses = ["fn:61e53855a4ec1f22"]
 test = true
 
 [[module."genfoam_point_kinetics_inhour.rs".function]]
@@ -230,7 +448,7 @@ lines = [
     140,
     212,
 ]
-hash = "sha256:adf360809b58dac89d38f96d16c405632bdbe8ba0065a21d717c5cfd12bfc15a"
+hash = "sha256:2a2a9f1a8a85c160728dc77e1d8e05d28a1000da33a0ffae0f3c05b710db1ac4"
 doc_hash = "sha256:c9c601a0c0aa23a9de6512b12c5e8dfe652c3ba2bade0d3bb43370adf201da56"
 callees = [
     "fn:1da2fcb0101740fb",
@@ -239,6 +457,7 @@ callees = [
     "fn:b929b23889bdb3f4",
     "fn:fe939fee6c56ac78",
 ]
+uses = ["fn:2d16a91040b3faaf"]
 test = true
 
 [[module."genfoam_point_kinetics_inhour.rs".function]]
@@ -257,10 +476,39 @@ callees = [
     "fn:b929b23889bdb3f4",
     "fn:fe939fee6c56ac78",
 ]
+uses = ["fn:2d16a91040b3faaf"]
 test = true
 
 [module."genfoam_psbt_closures.rs"]
 path = "test:genfoam_psbt_closures"
+
+[[module."genfoam_psbt_closures.rs".function]]
+id = "fn:8d35e8d0e25baaee"
+name = "DECLARED_DH"
+qual = "DECLARED_DH"
+item = "const"
+shape = "const"
+lines = [
+    78,
+    80,
+]
+hash = "sha256:3e97c692dfacf6c9d6d0da78b02a6ab0c524ce6ee781119131ea53556672732a"
+doc_hash = "sha256:ac42f245e13eb74c89e027118ddd06956655a67fc8e1251d9150986cd4b6b266"
+test = true
+
+[[module."genfoam_psbt_closures.rs".function]]
+id = "fn:2305fd6b9cea827d"
+name = "Cell"
+qual = "Cell"
+item = "type"
+shape = "struct"
+lines = [
+    82,
+    90,
+]
+hash = "sha256:a7b20015732f113294c11ce490da0bd70fc5507581ec2de30119ea5a08957e99"
+doc_hash = "sha256:a0b9743f8267abded0f7f84feb02259248eae60f71fccd0cd4c1630ca73d3692"
+test = true
 
 [[module."genfoam_psbt_closures.rs".function]]
 id = "fn:33404d7e93ce09e0"
@@ -272,6 +520,7 @@ lines = [
 ]
 hash = "sha256:dc3a87c48180536c9188728d9e1f5a4b5e1dc10c9083e03143afa0421004c0f5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2305fd6b9cea827d"]
 test = true
 
 [[module."genfoam_psbt_closures.rs".function]]
@@ -282,11 +531,16 @@ lines = [
     112,
     186,
 ]
-hash = "sha256:54fd7ebc74e10fcef1154b0f0bddce6dcd8b7be79f85c171927f68663e1af3c8"
+hash = "sha256:5fe0a0f6679528614de734d605875da8ccc08baea0356ef17581b20da8912d17"
 doc_hash = "sha256:dd059af49150723072ea7776ea3c44061eb91e31ff989d142c2b443237b04aae"
 callees = [
     "fn:05d1c5f213fbd61f",
     "fn:33404d7e93ce09e0",
+]
+uses = [
+    "fn:8d35e8d0e25baaee",
+    "fn:d45bd48797fb1b2f",
+    "fn:f27df7ac7f947e64",
 ]
 test = true
 
@@ -298,11 +552,16 @@ lines = [
     188,
     231,
 ]
-hash = "sha256:3613d5ae64b19826531845f7d44b7e540cb758dea1c9311ddaab65501fbc7ae3"
+hash = "sha256:5707e87a46e16a08f8a40704408f6b4cdf23732534e5ee0a3358390351871c86"
 doc_hash = "sha256:e82a5e3dfac87dc8086564877fcab3e896ea36e6054e08d3613fedee74368a5a"
 callees = [
     "fn:05d1c5f213fbd61f",
     "fn:33404d7e93ce09e0",
+]
+uses = [
+    "fn:8d35e8d0e25baaee",
+    "fn:d45bd48797fb1b2f",
+    "fn:f27df7ac7f947e64",
 ]
 test = true
 
@@ -334,6 +593,20 @@ doc_hash = "sha256:950d6f435ab3ef831b31bdc03697463347277f6a601cf46a70c5bb581f997
 test = true
 
 [[module."genfoam_tutorial_keff.rs".function]]
+id = "fn:fc5b91ea51ea2627"
+name = "Solved"
+qual = "Solved"
+item = "type"
+shape = "struct"
+lines = [
+    173,
+    181,
+]
+hash = "sha256:3cc1e098273005752c39891ebf61e37f64a571a4a538b9babc3e5274f6bb01e7"
+doc_hash = "sha256:290ae296ca8fb3ca2ff96e5ae3dc9497bf14413cc5d9ed600b734f1bff036efe"
+test = true
+
+[[module."genfoam_tutorial_keff.rs".function]]
 id = "fn:8f12044437182274"
 name = "read_cell_state"
 qual = "read_cell_state"
@@ -356,6 +629,10 @@ lines = [
 hash = "sha256:c74b6bbd701fc0b3913d6767f410ed9b2c5623a447f7977bc74ba526f13beddd"
 doc_hash = "sha256:bdeb4b3a3cfd586be72d3350423872617e7eac95bb9a214d92d934106ce443ef"
 callees = ["fn:16a0f6849805ee59"]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:fc574220058ff8f7",
+]
 test = true
 
 [[module."genfoam_tutorial_keff.rs".function]]
@@ -369,6 +646,10 @@ lines = [
 hash = "sha256:4fcad42f24ef4be97d415e456338fddce9019e2d468e1c3c7df893cea92ccd02"
 doc_hash = "sha256:c683b33d50326adc88ff3f3e59733e4b829f3cba61144ef362a886d16bd8289a"
 callees = ["fn:c4be36b37061050a"]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:fc5b91ea51ea2627",
+]
 test = true
 
 [[module."genfoam_tutorial_keff.rs".function]]
@@ -382,6 +663,10 @@ lines = [
 hash = "sha256:045d1890a0b65dbc309254dc60800435e8340923fb7246eeea91387f0d6daf33"
 doc_hash = "sha256:4cdb3bc55b29845c3dcc6c20699d7dafa7ddc3446c41b155297f7871cbdb2da1"
 callees = ["fn:3a7c8648a9cdd034"]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:fc5b91ea51ea2627",
+]
 test = true
 
 [[module."genfoam_tutorial_keff.rs".function]]
@@ -395,6 +680,10 @@ lines = [
 hash = "sha256:a6ac2fdf6dd6af0685ebc7335bd239b2a88e0d9a7b9d38688b80814ea8d5074d"
 doc_hash = "sha256:1544e444e8038e87696ce5548dc03da5665ad4dfa92581e95bf5c39c4a01fb5d"
 callees = ["fn:5c9e192c0a0933e8"]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:fc5b91ea51ea2627",
+]
 test = true
 
 [[module."genfoam_tutorial_keff.rs".function]]
@@ -425,6 +714,17 @@ callees = [
     "fn:e57060f634ddcb43",
     "fn:fc3e9008bc829799",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:3ff7989783b3f5b9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:7b835b35b6f19937",
+    "fn:b11c440f559911d4",
+    "fn:f354cdd32c8e9ebe",
+    "fn:fc5b91ea51ea2627",
+    "fn:fd95fe87f7f6dfae",
+]
 test = true
 
 [[module."genfoam_tutorial_keff.rs".function]]
@@ -435,8 +735,9 @@ lines = [
     409,
     429,
 ]
-hash = "sha256:61f1cfd55c889f7a18b66168df9696f0ff55865f1cfb216b9689ff566388981b"
+hash = "sha256:2bf87911ac50c855b84cb14279b9ce0eeaf87892c8df447cf9ea247cd79e3364"
 doc_hash = "sha256:31c812edb3a3e434b44a5977f4b8848070f4fa19c38746d3e32fed3c0e841c56"
+uses = ["fn:fc5b91ea51ea2627"]
 test = true
 
 [[module."genfoam_tutorial_keff.rs".function]]
@@ -447,13 +748,14 @@ lines = [
     449,
     528,
 ]
-hash = "sha256:071a642e1c34662c07271d0b11ad0ce1eaead150a47670a60afb72f5f2d89fdf"
+hash = "sha256:7fc92a53743190e2203a5c6915ccd20adc03b98964b0c016eacf1ede91a9940d"
 doc_hash = "sha256:3962b3da8117971af6dc9a21130e3798c876a9a69d469534e15106c4a4960dc5"
 callees = [
     "fn:3f4854369ca09bf9",
     "fn:8b1caed35d2be6f2",
     "fn:cb3c12b254078c29",
 ]
+uses = ["fn:7217c4fc0f1bc32b"]
 test = true
 
 [[module."genfoam_tutorial_keff.rs".function]]
@@ -464,13 +766,14 @@ lines = [
     530,
     633,
 ]
-hash = "sha256:238a95d8094c68cc48e0b08ee25dcd3cc035858f2612d27d03e2279088322a6c"
+hash = "sha256:a8b973b1d9eb2d5c034feba20f916491aa36eb22c4036506c4bebc124b7187d6"
 doc_hash = "sha256:a3bc108bb8dd00bdeedfedcf5e8d3f8d2d017f7e84e301cae3f3612b2b085f5b"
 callees = [
     "fn:3f4854369ca09bf9",
     "fn:8b1caed35d2be6f2",
     "fn:cb3c12b254078c29",
 ]
+uses = ["fn:7217c4fc0f1bc32b"]
 test = true
 
 [[module."genfoam_tutorial_keff.rs".function]]
@@ -481,13 +784,14 @@ lines = [
     635,
     747,
 ]
-hash = "sha256:27dff46801e83a2543350859c7cbfe6f6ee4196574948deb8e1fc6e5c1f9eef9"
+hash = "sha256:dbc1c515d95675a76f5a00f645ea2bd6d7de4ac9be5f7428b9005f56c48d009f"
 doc_hash = "sha256:90e6626b0e686c9ae86995dd9a9f1c332b8bb0566fd2d97610a77b3202ae9cad"
 callees = [
     "fn:8b1caed35d2be6f2",
     "fn:c4be36b37061050a",
     "fn:cb3c12b254078c29",
 ]
+uses = ["fn:7217c4fc0f1bc32b"]
 test = true
 
 [[module."genfoam_tutorial_keff.rs".function]]
@@ -498,12 +802,13 @@ lines = [
     749,
     801,
 ]
-hash = "sha256:777fb6e35fb6ec54e6a9663f754a7e83abf032b9d0586a5b0d7a03b4c72c369c"
+hash = "sha256:7ce1fc5836e3ad5a355b21a6dcdaf480b446a64f51d58a2950ac143a374b4bae"
 doc_hash = "sha256:b6dbeb1a6eb6f9f63bfc45df66ecd2eb247c2fc960c84047012efa92adcff5aa"
 callees = [
     "fn:3a7c8648a9cdd034",
     "fn:8b1caed35d2be6f2",
 ]
+uses = ["fn:7217c4fc0f1bc32b"]
 test = true
 
 [[module."genfoam_tutorial_keff.rs".function]]
@@ -514,12 +819,13 @@ lines = [
     803,
     911,
 ]
-hash = "sha256:039ade5279e53dd4695069a1c70d650f3d24c990878399d6ee2300b25553fd14"
+hash = "sha256:c794c8af2ca73a0be08eab159e48e029b5123a5861f20c983a7ff44d29a9a2db"
 doc_hash = "sha256:a7c4eb0e088daa7c50db46dddd28c833b682965834dfb90fa19a51a81b43427e"
 callees = [
     "fn:3a7c8648a9cdd034",
     "fn:8b1caed35d2be6f2",
 ]
+uses = ["fn:7217c4fc0f1bc32b"]
 test = true
 
 [[module."genfoam_tutorial_keff.rs".function]]
@@ -530,12 +836,13 @@ lines = [
     913,
     1032,
 ]
-hash = "sha256:35d2cca04703644799018c33f48e6f37f38baf4c75c6403ddb035ab66fd23e80"
+hash = "sha256:649172a082459a78b2e50d68642211c742a58f86b84167ca37a5430fdc8977d2"
 doc_hash = "sha256:3d1d98dd3fcfe089e3b464018d67379dce60b88215b0d63435f7d580a13f123d"
 callees = [
     "fn:3a7c8648a9cdd034",
     "fn:8b1caed35d2be6f2",
 ]
+uses = ["fn:7217c4fc0f1bc32b"]
 test = true
 
 [[module."genfoam_tutorial_keff.rs".function]]
@@ -546,12 +853,13 @@ lines = [
     1034,
     1214,
 ]
-hash = "sha256:ffc131ca87eb64682edb1f7faa11d2b4f79874e4cfa9a3244bd7ecf8538fa910"
+hash = "sha256:d03a5573b1c2defebe55276ba9fefde6eca76d467effdf8e92d519eb293640d3"
 doc_hash = "sha256:8343a54d031dc287412aae23a7ceff409e7d9954eee8f9883c9cfbcedd85cd06"
 callees = [
     "fn:5c9e192c0a0933e8",
     "fn:8b1caed35d2be6f2",
 ]
+uses = ["fn:7217c4fc0f1bc32b"]
 test = true
 
 [[module."genfoam_tutorial_keff.rs".function]]
@@ -562,17 +870,46 @@ lines = [
     1216,
     1350,
 ]
-hash = "sha256:4be26e8e255d0c7e258ffbe8c06663e9846d5a38e61043b9c5dd978c53b191e8"
+hash = "sha256:34cb914a2b2628742cc1cbb5111ce901afa55925457dff65242a4e1c7bdd0a19"
 doc_hash = "sha256:8fcf3b33a9e7af6819154d9cda2c85046e106a7fee026f5c193aeb99401cf2cf"
 callees = [
     "fn:5c9e192c0a0933e8",
     "fn:8b1caed35d2be6f2",
     "fn:8f12044437182274",
 ]
+uses = ["fn:7217c4fc0f1bc32b"]
 test = true
 
 [module."turbulence_coupling.rs"]
 path = "test:turbulence_coupling"
+
+[[module."turbulence_coupling.rs".function]]
+id = "fn:cd2e61862577c7cc"
+name = "BETA"
+qual = "BETA"
+item = "const"
+shape = "const"
+lines = [
+    63,
+    63,
+]
+hash = "sha256:542d2741974f15bcec7d8c45e8ff954b38eafcacdfe96577e3c269de43b71258"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."turbulence_coupling.rs".function]]
+id = "fn:3b06a7da75b6771f"
+name = "BETA_STAR"
+qual = "BETA_STAR"
+item = "const"
+shape = "const"
+lines = [
+    64,
+    64,
+]
+hash = "sha256:a040152000162d1e7e2d3c243caa0a1074623354aa180d89a96fc0705f53078a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."turbulence_coupling.rs".function]]
 id = "fn:05ab8f30d73d0850"
@@ -585,6 +922,7 @@ lines = [
 hash = "sha256:7776ed6fb4c54b0c9a21801b2072b128552bd790b0c37538d6f69421fb16f0b2"
 doc_hash = "sha256:3cd7cbacf78d15cae96162578d35181bdd506e9ebb2b860ae3f2bd3bfac17567"
 callees = ["fn:abf4b590a1b83263"]
+uses = ["fn:05040b6b1b09bb4e"]
 test = true
 
 [[module."turbulence_coupling.rs".function]]
@@ -609,6 +947,16 @@ callees = [
     "fn:ec433d6c632e41b5",
     "fn:f8bf8efa3e1f4377",
 ]
+uses = [
+    "fn:25df17e04ecf98ae",
+    "fn:3f165bca5d68b785",
+    "fn:42e1c8f76b7043c0",
+    "fn:6ba3358f6a29c123",
+    "fn:7aa70dd1c009cc88",
+    "fn:b0768c6e7263ae77",
+    "fn:e0ff37b7796b05a6",
+    "fn:f11bcf88c9cf8afa",
+]
 test = true
 
 [[module."turbulence_coupling.rs".function]]
@@ -619,9 +967,13 @@ lines = [
     106,
     226,
 ]
-hash = "sha256:bc451240c98057250c7570bbea9bc22c463084bfa3c120bad9ba4d36eccbd50f"
+hash = "sha256:3a0966c7dbf5cc79c420d1b94d200449c28644a4fb1a953897a80bbddd3746b2"
 doc_hash = "sha256:efc68e678ddd4220bd0ff99558f546ed8e643a72210b0f5bbb05d6f95843ee20"
 callees = ["fn:110e6e072a1356f4"]
+uses = [
+    "fn:3b06a7da75b6771f",
+    "fn:cd2e61862577c7cc",
+]
 test = true
 
 [[module."turbulence_coupling.rs".function]]
@@ -632,7 +984,7 @@ lines = [
     228,
     358,
 ]
-hash = "sha256:16ffd8714e566f57e261d70eac310a5f857248a88c76ad70961e456fbccc3e3a"
+hash = "sha256:eda2283904a82c965fb2614c720d8d44a2e42fb5cf2bf78743d0126810a5feef"
 doc_hash = "sha256:e7ebad85125a19ba6cd550f1ec2c1f4dd75ec5fa50c7d9b0d0386ec2cbe01941"
 callees = [
     "fn:05ab8f30d73d0850",
@@ -650,5 +1002,16 @@ callees = [
     "fn:ed7d718f646723fc",
     "fn:f66e81a8a8f38feb",
     "fn:f8bf8efa3e1f4377",
+]
+uses = [
+    "fn:25df17e04ecf98ae",
+    "fn:3f165bca5d68b785",
+    "fn:42e1c8f76b7043c0",
+    "fn:6ba3358f6a29c123",
+    "fn:7aa70dd1c009cc88",
+    "fn:b0768c6e7263ae77",
+    "fn:e0ff37b7796b05a6",
+    "fn:ef05859ef19acee7",
+    "fn:f11bcf88c9cf8afa",
 ]
 test = true

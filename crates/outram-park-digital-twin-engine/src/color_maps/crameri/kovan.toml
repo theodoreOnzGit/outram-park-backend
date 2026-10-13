@@ -3,9 +3,11 @@ kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/color_maps/crameri"
 test_ids = [
+    "crates/outram-park-digital-twin-engine/src/color_maps/crameri/mod.rs::batlow_is_monotonic_in_lightness",
     "crates/outram-park-digital-twin-engine/src/color_maps/crameri/mod.rs::cyclic_map_wraps_without_a_seam",
     "crates/outram-park-digital-twin-engine/src/color_maps/crameri/mod.rs::endpoints_are_exact",
     "crates/outram-park-digital-twin-engine/src/color_maps/crameri/mod.rs::non_cyclic_maps_clamp",
+    "crates/outram-park-digital-twin-engine/src/color_maps/crameri/mod.rs::tables_are_complete",
     "crates/outram-park-digital-twin-engine/src/color_maps/crameri/mod.rs::vik_midpoint_is_near_neutral",
     "crates/outram-park-digital-twin-engine/src/components/condenser.rs::the_physics_path_paints_nothing_it_cannot_see",
     "crates/outram-park-digital-twin-engine/src/components/condenser.rs::the_scalar_path_colours_both_circuits_from_supplied_state",
@@ -35,10 +37,8 @@ lines = [
 hash = "sha256:f491fcbf5acc6b01df89297db4985562d86aa787c49d71ed5ff07cdc43c52eb7"
 doc_hash = "sha256:0e262b5ef87a985974bf8a4224b33133336e11c26228db74b53e356614fabcca"
 reached_by = [
-    "#1",
     "#2",
     "#3",
-    "#4",
     "#5",
     "#6",
     "#7",
@@ -50,6 +50,8 @@ reached_by = [
     "#13",
     "#14",
     "#15",
+    "#16",
+    "#17",
 ]
 
 [[module."mod.rs".function]]
@@ -62,7 +64,7 @@ lines = [
 ]
 hash = "sha256:522234526699441800d16bf797b4953f0eb0f7d23ef4af4adc7a482b12a1861d"
 doc_hash = "sha256:1b79d5f6722c32493970bc676ea91fbb2e6967406625b09bc14ae2e769fae346"
-reached_by = ["#0"]
+reached_by = ["#1"]
 
 [[module."mod.rs".function]]
 id = "fn:ee3a38d6dcf69a46"
@@ -75,11 +77,10 @@ lines = [
 hash = "sha256:b2dc9f0b55d533d728e6065ee34f44141140572e13ac034ed719a4d4aaddedd6"
 doc_hash = "sha256:06368859d23b1a6627360d92de644dc0bfcd73cd61468afbdf6a3e8739b34be4"
 callees = ["fn:bd2fe6eafeaa5c59"]
+uses = ["fn:3154959f87f5a796"]
 reached_by = [
-    "#1",
     "#2",
     "#3",
-    "#4",
     "#5",
     "#6",
     "#7",
@@ -91,6 +92,8 @@ reached_by = [
     "#13",
     "#14",
     "#15",
+    "#16",
+    "#17",
 ]
 
 [[module."mod.rs".function]]
@@ -104,6 +107,7 @@ lines = [
 hash = "sha256:48448308e62d2495cd4345f1f115f20be45d583ee4ae9d750e7d5d46aa6c6357"
 doc_hash = "sha256:7ff3aa405aba2dc95a601c66476016ea152b69f3d3ce36c87f4e7e88cf37d476"
 callees = ["fn:bd2fe6eafeaa5c59"]
+uses = ["fn:cbfc50875bed3747"]
 
 [[module."mod.rs".function]]
 id = "fn:720da9d56414bc2f"
@@ -116,7 +120,8 @@ lines = [
 hash = "sha256:3950c9beb91fab1a420835e23980f1019683c73416511637698a9c7ac0662375"
 doc_hash = "sha256:b4fdc0649605e2c0fb4847c978a20376f7421f17f82f701f20669abb88273187"
 callees = ["fn:bd2fe6eafeaa5c59"]
-reached_by = ["#2"]
+uses = ["fn:bc14e4d8a9a37d5d"]
+reached_by = ["#3"]
 
 [[module."mod.rs".function]]
 id = "fn:52e252e01a9b32f1"
@@ -129,6 +134,7 @@ lines = [
 hash = "sha256:e3554357b193882a696701a0a4105d9fa836c0ab6151f293a14362772693aa01"
 doc_hash = "sha256:1b7c56052f098773af7ca32f8bf5c1c0eb672ab8f53dd047e8af3ef3ecbcc24f"
 callees = ["fn:bd2fe6eafeaa5c59"]
+uses = ["fn:e15c7d1fb7f223d6"]
 
 [[module."mod.rs".function]]
 id = "fn:c17e01e76eea94c2"
@@ -141,7 +147,8 @@ lines = [
 hash = "sha256:b26fe75fd9c6e3e376dd91b500e23f94abebbb597b891bad64e5dff79c9d8e8c"
 doc_hash = "sha256:20b6af8e3c55eb043912a5816bc33013c8d5f72791d62553ed6e54d8460fb8aa"
 callees = ["fn:c80cb88edd5df9e0"]
-reached_by = ["#0"]
+uses = ["fn:dbdf31eed9c9e038"]
+reached_by = ["#1"]
 
 [[module."mod.rs".function]]
 id = "fn:cfc2fe68e5791ba6"
@@ -153,6 +160,13 @@ lines = [
 ]
 hash = "sha256:bf87e06749994439f17765a1a0b8e0186ed949546f07ab5a1e6abc529c219940"
 doc_hash = "sha256:aab57f5f074999aea4c0899119f1d1ab655704eb91c339c3b278e5352dc2f881"
+uses = [
+    "fn:3154959f87f5a796",
+    "fn:bc14e4d8a9a37d5d",
+    "fn:cbfc50875bed3747",
+    "fn:dbdf31eed9c9e038",
+    "fn:e15c7d1fb7f223d6",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -166,6 +180,7 @@ lines = [
 hash = "sha256:e0cf201bfa8d087f73cdd8724a2dd5c1cb12051ec9edcd371803b180012c3fb1"
 doc_hash = "sha256:f850b304f1c2432a2a3f2ca085a56187bb6fcc0440c5087a0234b5a45d388f1c"
 callees = ["fn:ee3a38d6dcf69a46"]
+uses = ["fn:3154959f87f5a796"]
 test = true
 
 [[module."mod.rs".function]]
@@ -195,6 +210,7 @@ lines = [
 hash = "sha256:dab0ac0433f76e2745eb7036216b4f6d7cc4e985c5213bea388e7c8ae215c88e"
 doc_hash = "sha256:f8d55164e9eda9a60f74e0298d08f95abd30b2372e2c911af96efa4791db993f"
 callees = ["fn:c17e01e76eea94c2"]
+uses = ["fn:dbdf31eed9c9e038"]
 test = true
 
 [[module."mod.rs".function]]
@@ -207,6 +223,7 @@ lines = [
 ]
 hash = "sha256:e4cb41d0635c55bd86b7459ef24f29333b91b362d4e4deceea3fb54fcc891598"
 doc_hash = "sha256:fddaf3eb90f22693087ea9d5f28bfcff0b0910a47c5afe78ce850b3e2afd2026"
+uses = ["fn:bc14e4d8a9a37d5d"]
 test = true
 
 [[module."mod.rs".function]]
@@ -224,3 +241,97 @@ test = true
 
 [module."tables.rs"]
 path = "crate::color_maps::crameri::tables"
+
+[[module."tables.rs".function]]
+id = "fn:3154959f87f5a796"
+name = "VIK"
+qual = "VIK"
+item = "const"
+shape = "const"
+lines = [
+    17,
+    275,
+]
+hash = "sha256:d133d868ccfe9285cb6752951390fc4da90f6920386235e5b39756e0d50884fa"
+doc_hash = "sha256:d3dc11244f6227437bdecd8063dddbe7ba4c164c92c22e4ede64d2073f633520"
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+
+[[module."tables.rs".function]]
+id = "fn:cbfc50875bed3747"
+name = "ROMA"
+qual = "ROMA"
+item = "const"
+shape = "const"
+lines = [
+    277,
+    535,
+]
+hash = "sha256:d305f1b1f34569600090bbbf41ed32289c8288a76c7e0615d946dcf8bd7ac7de"
+doc_hash = "sha256:7573026785e5d01f0b3ce4b16391f52ae641c96f45862c7b899f8093311773b0"
+reached_by = ["#4"]
+
+[[module."tables.rs".function]]
+id = "fn:bc14e4d8a9a37d5d"
+name = "BATLOW"
+qual = "BATLOW"
+item = "const"
+shape = "const"
+lines = [
+    537,
+    795,
+]
+hash = "sha256:91a7174020213a9de8d0da0357996a411a8e8affb82946186fc725ee5c98859f"
+doc_hash = "sha256:f9435939add7bcd42a0b72e58e59897cea7b94edf55417787aeb432d51a3942c"
+reached_by = [
+    "#0",
+    "#3",
+    "#4",
+]
+
+[[module."tables.rs".function]]
+id = "fn:e15c7d1fb7f223d6"
+name = "LAJOLLA"
+qual = "LAJOLLA"
+item = "const"
+shape = "const"
+lines = [
+    797,
+    1055,
+]
+hash = "sha256:ab62c289b67a012b0f1dd5ed4c472a8b95de3da30b55c38e8d4004e23216f6ca"
+doc_hash = "sha256:242aa033723019a348fac921add561c3ca51fbeba596dc5cde2e7bfcfd0c467f"
+reached_by = ["#4"]
+
+[[module."tables.rs".function]]
+id = "fn:dbdf31eed9c9e038"
+name = "ROMA_O"
+qual = "ROMA_O"
+item = "const"
+shape = "const"
+lines = [
+    1057,
+    1315,
+]
+hash = "sha256:c59671dbfd344ba34638de099fddce892a9f3f91108c2c27083b9205ed0da7af"
+doc_hash = "sha256:46f63b3fa965f62cc8ed5a79ec03fc1711f3388ad42b2bbfb4676ce45ba923b0"
+reached_by = [
+    "#1",
+    "#4",
+]

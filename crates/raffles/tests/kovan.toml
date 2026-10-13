@@ -19,6 +19,20 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [[module."scram_alignments.rs".function]]
+id = "fn:eb1eba0738c24913"
+name = "Oracle"
+qual = "Oracle"
+item = "type"
+shape = "struct"
+lines = [
+    50,
+    59,
+]
+hash = "sha256:6604b32c65141786fc58610a2254ed2218a3445620b3bd504a835f9fbca4092e"
+doc_hash = "sha256:11b52d8d8051887185c25e192b202fcdfe957365f7ce70ae46ba73de7fc615e9"
+test = true
+
+[[module."scram_alignments.rs".function]]
 id = "fn:6c66d59577ab51b2"
 name = "load"
 qual = "load"
@@ -29,6 +43,7 @@ lines = [
 hash = "sha256:090f8c87ba81d7f7af653fe4b58a5c634591a003db10929c88bdf0f6c5c54637"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:da0923a2d0ad338c"]
+uses = ["fn:eb1eba0738c24913"]
 test = true
 
 [[module."scram_alignments.rs".function]]
@@ -81,6 +96,11 @@ callees = [
     "fn:e86d1a8ff9ddb0ab",
     "fn:ed03efcea9f80424",
 ]
+uses = [
+    "fn:2f80921e76e3ad80",
+    "fn:7a90d4cd74f5406d",
+    "fn:d3ca909e56ec5bcd",
+]
 test = true
 
 [[module."scram_alignments.rs".function]]
@@ -100,6 +120,7 @@ callees = [
     "fn:c4679d7db9f9d5ac",
     "fn:da0923a2d0ad338c",
 ]
+uses = ["fn:2f80921e76e3ad80"]
 test = true
 
 [[module."scram_alignments.rs".function]]
@@ -110,16 +131,45 @@ lines = [
     245,
     324,
 ]
-hash = "sha256:d863f7f5fa454312b53df3e90c9100252199a9b06330b5837923791b1293da6e"
+hash = "sha256:cbc4575bfba116c8dd59438dcf82f33184ea487b733d423fea50ac6666c78749"
 doc_hash = "sha256:668a7420a96de9c2d383808f31892e232548aa018dcb00dd815b81ba9afb3b5a"
 callees = [
     "fn:6505b8f0a3becdfb",
     "fn:737ae375a9294ae4",
 ]
+uses = ["fn:2f80921e76e3ad80"]
 test = true
 
 [module."scram_bdd_oracle.rs"]
 path = "test:scram_bdd_oracle"
+
+[[module."scram_bdd_oracle.rs".function]]
+id = "fn:63bf91fcfa0b6e8f"
+name = "Oracle"
+qual = "Oracle"
+item = "type"
+shape = "struct"
+lines = [
+    45,
+    50,
+]
+hash = "sha256:b4f288aff2e602ad8e371490bb37b306cde2dca6d1eb0cf169aeab203215bcf4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."scram_bdd_oracle.rs".function]]
+id = "fn:f38be43af91bb1c7"
+name = "ModelSpec"
+qual = "ModelSpec"
+item = "type"
+shape = "struct"
+lines = [
+    52,
+    64,
+]
+hash = "sha256:e2c8e3800241d8dc14b515e5c0382cc2b929a4e326cb1faec84b0b01b3cc50e4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."scram_bdd_oracle.rs".function]]
 id = "fn:97fe07ea12c4bd54"
@@ -144,6 +194,7 @@ lines = [
 hash = "sha256:ed11a7e6a5efe65c11466b8a008d1245929162c783036f3bc0c1bc97f0fea9b2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:97fe07ea12c4bd54"]
+uses = ["fn:63bf91fcfa0b6e8f"]
 test = true
 
 [[module."scram_bdd_oracle.rs".function]]
@@ -183,6 +234,7 @@ lines = [
 hash = "sha256:a2f570de11bdb4c7461b7b2950bb5ab1789422d13d01f2b93927b31b7d7d13c2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:97fe07ea12c4bd54"]
+uses = ["fn:f38be43af91bb1c7"]
 test = true
 
 [[module."scram_bdd_oracle.rs".function]]
@@ -193,7 +245,7 @@ lines = [
     235,
     337,
 ]
-hash = "sha256:2ea51e7ee3386ca8b546fa6ce0436544ab8e920c3bb5dcc1084c8e17a8cef2d3"
+hash = "sha256:ec1e12bad87da15180b930e34779dfe6a2a5c678c2ab33d7e9d9e358f3b06b6f"
 doc_hash = "sha256:51ef4c29a77b62814c9871d1636ac97506016d89540ea774a75face858f88235"
 callees = [
     "fn:0c9ce00af140da9c",
@@ -202,6 +254,13 @@ callees = [
     "fn:b2c354521dc8a6ad",
     "fn:ea39665bcf09389d",
     "fn:fbb977a98de02604",
+]
+uses = [
+    "fn:005ad62070ea520a",
+    "fn:562514d5620a3abb",
+    "fn:63bf91fcfa0b6e8f",
+    "fn:b3ec8414cb75ea04",
+    "fn:f38be43af91bb1c7",
 ]
 test = true
 
@@ -238,6 +297,7 @@ callees = [
     "fn:f1f03ba1a4fc7c50",
     "fn:fbb977a98de02604",
 ]
+uses = ["fn:d6770dcb2f1ec65e"]
 test = true
 
 [[module."scram_bdd_oracle.rs".function]]
@@ -261,6 +321,12 @@ callees = [
     "fn:ed03efcea9f80424",
     "fn:f1f03ba1a4fc7c50",
 ]
+uses = [
+    "fn:7a90d4cd74f5406d",
+    "fn:d26f119036e2d28b",
+    "fn:d3ca909e56ec5bcd",
+    "fn:d6770dcb2f1ec65e",
+]
 test = true
 
 [[module."scram_bdd_oracle.rs".function]]
@@ -271,7 +337,7 @@ lines = [
     461,
     510,
 ]
-hash = "sha256:9a2fbdddd889179e53a2377bd549575e5cd5682e75b04ca6a08d19e6562226cd"
+hash = "sha256:3e7c489b944cf283b5b2868cec4f5a47ba87b33673ba2510b73af35d97c3655f"
 doc_hash = "sha256:6e685bf63d56f7e600e147c38f4ab729480d4e385c1f84ad5091c1f0292d388a"
 callees = [
     "fn:0e30006ab2b782d7",
@@ -284,6 +350,11 @@ callees = [
     "fn:ed03efcea9f80424",
     "fn:f1f03ba1a4fc7c50",
     "fn:fbb977a98de02604",
+]
+uses = [
+    "fn:7a90d4cd74f5406d",
+    "fn:d3ca909e56ec5bcd",
+    "fn:d6770dcb2f1ec65e",
 ]
 test = true
 
@@ -308,6 +379,12 @@ callees = [
     "fn:ab03b7f939501258",
     "fn:b2c354521dc8a6ad",
     "fn:f1f03ba1a4fc7c50",
+]
+uses = [
+    "fn:005ad62070ea520a",
+    "fn:562514d5620a3abb",
+    "fn:b3ec8414cb75ea04",
+    "fn:d6770dcb2f1ec65e",
 ]
 test = true
 
@@ -334,6 +411,10 @@ callees = [
     "fn:c15dfd1a1fa24196",
     "fn:ed03efcea9f80424",
 ]
+uses = [
+    "fn:7a90d4cd74f5406d",
+    "fn:d6770dcb2f1ec65e",
+]
 test = true
 
 [[module."scram_bdd_oracle.rs".function]]
@@ -344,7 +425,7 @@ lines = [
     696,
     880,
 ]
-hash = "sha256:00b5b8e6cb388b7ef73b695f91466aa03a43c9838ea8a51f694a2da9fba9f58f"
+hash = "sha256:23422eb910dba98c1d8fcf7cfb99e34197bd7029a8149a090d93ce0c2df7c8a8"
 doc_hash = "sha256:771be623da9b1f8f3b8ceefd3ac0dc593d49913c344ee2470e5217741e3a58ea"
 callees = [
     "fn:0e30006ab2b782d7",
@@ -359,6 +440,7 @@ callees = [
     "fn:ef36757946dbe8ce",
     "fn:fbb977a98de02604",
 ]
+uses = ["fn:d6770dcb2f1ec65e"]
 test = true
 
 [[module."scram_bdd_oracle.rs".function]]
@@ -381,6 +463,7 @@ callees = [
     "fn:c5a52243b9b1f824",
     "fn:f1f03ba1a4fc7c50",
 ]
+uses = ["fn:d6770dcb2f1ec65e"]
 test = true
 
 [[module."scram_bdd_oracle.rs".function]]
@@ -404,6 +487,7 @@ callees = [
     "fn:60a26b5c201d4d50",
     "fn:c15dfd1a1fa24196",
 ]
+uses = ["fn:029cb18358961da0"]
 test = true
 
 [[module."scram_bdd_oracle.rs".function]]
@@ -457,6 +541,20 @@ callees = ["fn:8b9a16cb046197d8"]
 test = true
 
 [[module."scram_ccf.rs".function]]
+id = "fn:18266700653f9ed5"
+name = "Oracle"
+qual = "Oracle"
+item = "type"
+shape = "struct"
+lines = [
+    59,
+    67,
+]
+hash = "sha256:a64fe1738103e09f28e6f38b107ae1e2e34b7dfe0589976c1fca1e633664e97d"
+doc_hash = "sha256:7dac598666f12460eec29e2ace04c3b33ef037b6c8025d4557ebb91a5e2f4377"
+test = true
+
+[[module."scram_ccf.rs".function]]
 id = "fn:24f0b0d0bd24ce36"
 name = "load"
 qual = "load"
@@ -467,6 +565,7 @@ lines = [
 hash = "sha256:93299a26371fc689cae38001c6506fbfba067dfbc0b792d5e0105f0872bf7894"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:8b9a16cb046197d8"]
+uses = ["fn:18266700653f9ed5"]
 test = true
 
 [[module."scram_ccf.rs".function]]
@@ -497,6 +596,10 @@ callees = [
     "fn:3b957c91c7854431",
     "fn:ed03efcea9f80424",
     "fn:fed2ac2b3a44612f",
+]
+uses = [
+    "fn:7a90d4cd74f5406d",
+    "fn:b3ec8414cb75ea04",
 ]
 test = true
 
@@ -532,6 +635,7 @@ callees = [
     "fn:d1444539698443b6",
     "fn:fed2ac2b3a44612f",
 ]
+uses = ["fn:2f80921e76e3ad80"]
 test = true
 
 [[module."scram_ccf.rs".function]]
@@ -559,6 +663,12 @@ callees = [
     "fn:ed03efcea9f80424",
     "fn:fed2ac2b3a44612f",
 ]
+uses = [
+    "fn:2f80921e76e3ad80",
+    "fn:7a90d4cd74f5406d",
+    "fn:d26f119036e2d28b",
+    "fn:d3ca909e56ec5bcd",
+]
 test = true
 
 [[module."scram_ccf.rs".function]]
@@ -569,7 +679,7 @@ lines = [
     300,
     379,
 ]
-hash = "sha256:f7b32f94b9b613a428de568db9bd028ef4d6a2ce29367c2bcf3e75044fa5e03d"
+hash = "sha256:c4e71f8a0c90e5cb6fe145839af3c561b470cf15c4670a2198d29549c3d770eb"
 doc_hash = "sha256:5305e6586e3e92469eb705232263efa10a3992ff0d39b311ddfee52a21b96243"
 callees = [
     "fn:012593aa42e5e642",
@@ -584,6 +694,11 @@ callees = [
     "fn:e86d1a8ff9ddb0ab",
     "fn:ed03efcea9f80424",
 ]
+uses = [
+    "fn:2f80921e76e3ad80",
+    "fn:7a90d4cd74f5406d",
+    "fn:d3ca909e56ec5bcd",
+]
 test = true
 
 [[module."scram_ccf.rs".function]]
@@ -594,7 +709,7 @@ lines = [
     381,
     524,
 ]
-hash = "sha256:49335a29ba0f2bc0bbe22f37bc186737448b6e8d36a429fad54980def9c74188"
+hash = "sha256:c721e3bdd8e1184bf94de65a42f5b8ff199e0a57b743a41ccf4b4f4960cdbbde"
 doc_hash = "sha256:cbb9200df2925858c8340310e0a4323056688e130d8ca919debf603bc5759451"
 callees = [
     "fn:4cff1114911ac616",
@@ -604,10 +719,71 @@ callees = [
     "fn:d1444539698443b6",
     "fn:ecc2dcc10a41d8e1",
 ]
+uses = [
+    "fn:2f80921e76e3ad80",
+    "fn:83668bc824835d70",
+    "fn:defa74d5af6bce1d",
+]
 test = true
 
 [module."scram_cross_code.rs"]
 path = "test:scram_cross_code"
+
+[[module."scram_cross_code.rs".function]]
+id = "fn:f2597ecc667a3942"
+name = "VALVE_ONE"
+qual = "VALVE_ONE"
+item = "const"
+shape = "const"
+lines = [
+    24,
+    25,
+]
+hash = "sha256:f334aaaeb26569bcb99e6ff6a532fd9375b6dbc1137c8deb1b112f70638a4fa4"
+doc_hash = "sha256:b7978765a145f4eeff58eceef1b371cbcae50c20eb1f3fa07722e6a700803492"
+test = true
+
+[[module."scram_cross_code.rs".function]]
+id = "fn:d2e8606d60a12e9d"
+name = "VALVE_TWO"
+qual = "VALVE_TWO"
+item = "const"
+shape = "const"
+lines = [
+    26,
+    26,
+]
+hash = "sha256:f00f93bca09c20ac36c9d21cd55e5973be08321dd56c3fa913093d85b2d60641"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."scram_cross_code.rs".function]]
+id = "fn:967a307d55366977"
+name = "PUMP_ONE"
+qual = "PUMP_ONE"
+item = "const"
+shape = "const"
+lines = [
+    27,
+    27,
+]
+hash = "sha256:6805ea92c119e90890f4c06ce3c680c811981fd29d948af4d4aa269648edf80e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."scram_cross_code.rs".function]]
+id = "fn:097a3ca6ba2c010d"
+name = "PUMP_TWO"
+qual = "PUMP_TWO"
+item = "const"
+shape = "const"
+lines = [
+    28,
+    28,
+]
+hash = "sha256:59a5e8ce9a05349920ac13580febb3d2df80e6fac745f9b0053099aed23b0db3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."scram_cross_code.rs".function]]
 id = "fn:1e3c986bba458fff"
@@ -619,6 +795,12 @@ lines = [
 ]
 hash = "sha256:8714a05f5d0a62a0463a266e72d689d11edf3d3b5330fe0c9539d4d9b0385f81"
 doc_hash = "sha256:d82eb4a4a25cb9dfd7fbefc5633e00259a37e55640d2085f1851c1a9ac385c0a"
+uses = [
+    "fn:097a3ca6ba2c010d",
+    "fn:967a307d55366977",
+    "fn:d2e8606d60a12e9d",
+    "fn:f2597ecc667a3942",
+]
 test = true
 
 [[module."scram_cross_code.rs".function]]
@@ -632,6 +814,13 @@ lines = [
 hash = "sha256:bcbfa9efc8c54b1effca02eb43ae54e9be20f5898714d7f8de388054c2942cfa"
 doc_hash = "sha256:80d560ad63aeb18d6e9d4554007a60502830aa88369a2a3a67d9fe2f5a54cfee"
 callees = ["fn:3c1857d8572d0477"]
+uses = [
+    "fn:029cb18358961da0",
+    "fn:097a3ca6ba2c010d",
+    "fn:967a307d55366977",
+    "fn:d2e8606d60a12e9d",
+    "fn:f2597ecc667a3942",
+]
 test = true
 
 [[module."scram_cross_code.rs".function]]
@@ -667,6 +856,7 @@ callees = [
     "fn:a4d6b63d65305db0",
     "fn:e86d1a8ff9ddb0ab",
 ]
+uses = ["fn:d3ca909e56ec5bcd"]
 test = true
 
 [[module."scram_cross_code.rs".function]]
@@ -677,12 +867,17 @@ lines = [
     141,
     214,
 ]
-hash = "sha256:04e4a2e088be40059aef9d8cfd930eea3e29e77ad2315c62e0c3f159c0b15a96"
+hash = "sha256:7e08c37f4914c2126c755ccc9eae253fb23954c26697dbc55954f8b5815491ea"
 doc_hash = "sha256:ef1d78b5becfe088ca71e75b556a06a7968b794a82eafdf9a0c3896d033701ec"
 callees = [
     "fn:1177138feda40795",
     "fn:1e3c986bba458fff",
     "fn:a4d6b63d65305db0",
+]
+uses = [
+    "fn:967a307d55366977",
+    "fn:d3ca909e56ec5bcd",
+    "fn:f2597ecc667a3942",
 ]
 test = true
 
@@ -701,6 +896,7 @@ callees = [
     "fn:a4d6b63d65305db0",
     "fn:e86d1a8ff9ddb0ab",
 ]
+uses = ["fn:d3ca909e56ec5bcd"]
 test = true
 
 [[module."scram_cross_code.rs".function]]
@@ -718,6 +914,11 @@ callees = [
     "fn:3c1857d8572d0477",
     "fn:a4d6b63d65305db0",
     "fn:e86d1a8ff9ddb0ab",
+]
+uses = [
+    "fn:029cb18358961da0",
+    "fn:d3ca909e56ec5bcd",
+    "fn:f2597ecc667a3942",
 ]
 test = true
 
@@ -772,6 +973,7 @@ lines = [
 hash = "sha256:529b4435d2b7a0e8eca53f48307e8d74974b132f6908827649c1848fbff0a7a1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:3a7e9a20a17fbbc5"]
+uses = ["fn:0238cd82e9234a7d"]
 test = true
 
 [[module."scram_deviates.rs".function]]
@@ -784,6 +986,7 @@ lines = [
 ]
 hash = "sha256:a47169b904485e3a5e9b2b92ba2c9af97f81afce65dfea15fbaf4a3bdc43134c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:0238cd82e9234a7d"]
 test = true
 
 [[module."scram_deviates.rs".function]]
@@ -805,6 +1008,7 @@ callees = [
     "fn:88b5f28f6c862f31",
     "fn:d32de9c2e27d4f31",
 ]
+uses = ["fn:2f80921e76e3ad80"]
 test = true
 
 [[module."scram_deviates.rs".function]]
@@ -827,6 +1031,7 @@ callees = [
     "fn:d32de9c2e27d4f31",
     "fn:fb2ab209fe0d3b8e",
 ]
+uses = ["fn:2f80921e76e3ad80"]
 test = true
 
 [[module."scram_deviates.rs".function]]
@@ -849,6 +1054,7 @@ callees = [
     "fn:edfaa030a05f0cf3",
     "fn:fbd8b8eee8bcf3c3",
 ]
+uses = ["fn:0238cd82e9234a7d"]
 test = true
 
 [[module."scram_deviates.rs".function]]
@@ -871,6 +1077,12 @@ callees = [
     "fn:ca865d6d393ad235",
     "fn:edfaa030a05f0cf3",
 ]
+uses = [
+    "fn:01980688cf3cfeaf",
+    "fn:0238cd82e9234a7d",
+    "fn:765c4c06e9cd51f6",
+    "fn:79fbb5d09b50f05b",
+]
 test = true
 
 [[module."scram_deviates.rs".function]]
@@ -892,6 +1104,11 @@ callees = [
     "fn:c280055221620d52",
     "fn:c80fcaf046b4828f",
     "fn:edfaa030a05f0cf3",
+]
+uses = [
+    "fn:0238cd82e9234a7d",
+    "fn:765c4c06e9cd51f6",
+    "fn:79fbb5d09b50f05b",
 ]
 test = true
 
@@ -920,6 +1137,12 @@ callees = [
     "fn:d6e3fd7ee4bec63b",
     "fn:edfaa030a05f0cf3",
 ]
+uses = [
+    "fn:0238cd82e9234a7d",
+    "fn:05e4c04e63558f6e",
+    "fn:765c4c06e9cd51f6",
+    "fn:79fbb5d09b50f05b",
+]
 test = true
 
 [[module."scram_deviates.rs".function]]
@@ -938,6 +1161,7 @@ callees = [
     "fn:b96c9cbab479e704",
     "fn:edfaa030a05f0cf3",
 ]
+uses = ["fn:0238cd82e9234a7d"]
 test = true
 
 [module."scram_expressions.rs"]
@@ -973,6 +1197,11 @@ callees = [
     "fn:c80fcaf046b4828f",
     "fn:f008e9bea2a93549",
 ]
+uses = [
+    "fn:0238cd82e9234a7d",
+    "fn:765c4c06e9cd51f6",
+    "fn:79fbb5d09b50f05b",
+]
 test = true
 
 [[module."scram_expressions.rs".function]]
@@ -994,6 +1223,10 @@ callees = [
     "fn:bcc286461de020ed",
     "fn:ca8d4edbc44eb138",
 ]
+uses = [
+    "fn:0238cd82e9234a7d",
+    "fn:79fbb5d09b50f05b",
+]
 test = true
 
 [[module."scram_expressions.rs".function]]
@@ -1014,6 +1247,10 @@ callees = [
     "fn:bb7f81650351ffc7",
     "fn:c80fcaf046b4828f",
     "fn:ca8d4edbc44eb138",
+]
+uses = [
+    "fn:0238cd82e9234a7d",
+    "fn:79fbb5d09b50f05b",
 ]
 test = true
 
@@ -1046,6 +1283,20 @@ callees = ["fn:35c61b62bd362c5b"]
 test = true
 
 [[module."scram_mef.rs".function]]
+id = "fn:5681be33f43d46fd"
+name = "Oracle"
+qual = "Oracle"
+item = "type"
+shape = "struct"
+lines = [
+    82,
+    93,
+]
+hash = "sha256:633ebc9d6d4dc35f5cb7a3a6a41188fe172d89930b6ee59b3256b9ead992148c"
+doc_hash = "sha256:d0795a936ff2d2797974ebfeb4b734f42bace69b90e11be54412a1ab7851a93b"
+test = true
+
+[[module."scram_mef.rs".function]]
 id = "fn:1fdf22619e682879"
 name = "load_oracles"
 qual = "load_oracles"
@@ -1056,6 +1307,7 @@ lines = [
 hash = "sha256:26f4413662aa24642fc84182e490defa7891842ec28ae8f2dc033b16167776e2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:35c61b62bd362c5b"]
+uses = ["fn:5681be33f43d46fd"]
 test = true
 
 [[module."scram_mef.rs".function]]
@@ -1069,6 +1321,7 @@ lines = [
 hash = "sha256:9e0f23f5fe8c8ad4ace606904976e20f0c56c20a34de2caec719dedf02f95c98"
 doc_hash = "sha256:48d5ace01cc9d4ae6cfd373f3e0fce067446f8ef9d1acfc066be6fbb5998be0d"
 callees = ["fn:1fdf22619e682879"]
+uses = ["fn:5681be33f43d46fd"]
 test = true
 
 [[module."scram_mef.rs".function]]
@@ -1085,6 +1338,11 @@ callees = [
     "fn:4cff1114911ac616",
     "fn:878a2e1d8d044744",
     "fn:f14301f7e3460cfe",
+]
+uses = [
+    "fn:2f80921e76e3ad80",
+    "fn:5681be33f43d46fd",
+    "fn:b3ec8414cb75ea04",
 ]
 test = true
 
@@ -1103,6 +1361,10 @@ callees = [
     "fn:3abb5d88fe67fcbb",
     "fn:3b957c91c7854431",
     "fn:ed03efcea9f80424",
+]
+uses = [
+    "fn:7a90d4cd74f5406d",
+    "fn:b3ec8414cb75ea04",
 ]
 test = true
 
@@ -1176,6 +1438,12 @@ callees = [
     "fn:ef36757946dbe8ce",
     "fn:f1f03ba1a4fc7c50",
 ]
+uses = [
+    "fn:7a90d4cd74f5406d",
+    "fn:d26f119036e2d28b",
+    "fn:d3ca909e56ec5bcd",
+    "fn:d6770dcb2f1ec65e",
+]
 test = true
 
 [[module."scram_mef.rs".function]]
@@ -1199,6 +1467,11 @@ callees = [
     "fn:ed03efcea9f80424",
     "fn:ef36757946dbe8ce",
 ]
+uses = [
+    "fn:7a90d4cd74f5406d",
+    "fn:d26f119036e2d28b",
+    "fn:d3ca909e56ec5bcd",
+]
 test = true
 
 [[module."scram_mef.rs".function]]
@@ -1209,7 +1482,7 @@ lines = [
     412,
     502,
 ]
-hash = "sha256:0af8d713ebd68e1eff709ab5dfc8fdf25a85d5cf738da492f3c74272da12cfc5"
+hash = "sha256:9efe0251663df8659c8846d8a7d9ff1056f18b35e8256ea0ed2c17b2f32df26e"
 doc_hash = "sha256:df95e9c62a2ea66a43c169019c83bc88d21ca0a919818ee951496717beac5e02"
 callees = [
     "fn:1fdf22619e682879",
@@ -1217,6 +1490,10 @@ callees = [
     "fn:6df4fb5b8a7cdba6",
     "fn:878a2e1d8d044744",
     "fn:f14301f7e3460cfe",
+]
+uses = [
+    "fn:2f80921e76e3ad80",
+    "fn:fc9a117cae71eb76",
 ]
 test = true
 
@@ -1237,6 +1514,7 @@ callees = [
     "fn:a4e4a252bb2c2f19",
     "fn:f14301f7e3460cfe",
 ]
+uses = ["fn:2f80921e76e3ad80"]
 test = true
 
 [[module."scram_mef.rs".function]]
@@ -1247,7 +1525,7 @@ lines = [
     551,
     619,
 ]
-hash = "sha256:aef1084633c9873ac1bcd44900192c44a951155f6236ff8afc9df527fecd60a2"
+hash = "sha256:c2ceeee8a842504521b04ef2b73de444b24bd12926c09e44ff012a92629deceb"
 doc_hash = "sha256:4ef3e81e7748d390c7de8d1371572542448ff33d4f13f6579996d0a8e8bbc051"
 callees = [
     "fn:1fdf22619e682879",
@@ -1265,6 +1543,12 @@ callees = [
     "fn:f14301f7e3460cfe",
     "fn:f1f03ba1a4fc7c50",
 ]
+uses = [
+    "fn:2f80921e76e3ad80",
+    "fn:7a90d4cd74f5406d",
+    "fn:d3ca909e56ec5bcd",
+    "fn:d6770dcb2f1ec65e",
+]
 test = true
 
 [[module."scram_mef.rs".function]]
@@ -1275,12 +1559,13 @@ lines = [
     621,
     707,
 ]
-hash = "sha256:4ed4788c1e6ef7d0c0bbc5c375ea7fcb3ef02f545ed0edb21527531463e0da98"
+hash = "sha256:19c9fd138506ae39419ac362cf781a30c41dfc23452a8d4d799d1d996e97a10f"
 doc_hash = "sha256:937dab7675409a682398433fa4d3de4d776fb283cb09b9dcaebd62aac2996684"
 callees = [
     "fn:6505b8f0a3becdfb",
     "fn:737ae375a9294ae4",
 ]
+uses = ["fn:2f80921e76e3ad80"]
 test = true
 
 [[module."scram_mef.rs".function]]
@@ -1302,10 +1587,39 @@ callees = [
     "fn:88b5f28f6c862f31",
     "fn:f14301f7e3460cfe",
 ]
+uses = ["fn:2f80921e76e3ad80"]
 test = true
 
 [module."scram_mocus_oracle.rs"]
 path = "test:scram_mocus_oracle"
+
+[[module."scram_mocus_oracle.rs".function]]
+id = "fn:ec4b9ca7860f292f"
+name = "ModelSpec"
+qual = "ModelSpec"
+item = "type"
+shape = "struct"
+lines = [
+    51,
+    63,
+]
+hash = "sha256:63d968384d9567f629894161dd70c107f8695055391ac012584859d16d2a5e2c"
+doc_hash = "sha256:8741da637c605b7ae71a5784345db5dda27b4b9e296050e97615cc2cf6d6859e"
+test = true
+
+[[module."scram_mocus_oracle.rs".function]]
+id = "fn:6f31b170cf7e0f4b"
+name = "Oracle"
+qual = "Oracle"
+item = "type"
+shape = "struct"
+lines = [
+    65,
+    72,
+]
+hash = "sha256:1456fc052ae97abdd3d33494798424754e628b0777b9fb9737073289ac1724e2"
+doc_hash = "sha256:49b204c9fc91b9ecf0800320bd100024d9965765039eeb1f77f4d67fc12250c1"
+test = true
 
 [[module."scram_mocus_oracle.rs".function]]
 id = "fn:d0dda163e1d27308"
@@ -1330,6 +1644,7 @@ lines = [
 hash = "sha256:e9f70983931efbcf374586da10c70319703bf6f49ea94367fdbb7598b0ec3d11"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:d0dda163e1d27308"]
+uses = ["fn:ec4b9ca7860f292f"]
 test = true
 
 [[module."scram_mocus_oracle.rs".function]]
@@ -1343,6 +1658,21 @@ lines = [
 hash = "sha256:34e515994c3bed6acd81e7a1339b91a92045136596b3588bbdefc950d684db46"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:d0dda163e1d27308"]
+uses = ["fn:6f31b170cf7e0f4b"]
+test = true
+
+[[module."scram_mocus_oracle.rs".function]]
+id = "fn:28cec5c21c6d492d"
+name = "UNPRICED"
+qual = "UNPRICED"
+item = "const"
+shape = "const"
+lines = [
+    187,
+    197,
+]
+hash = "sha256:adbff84824d6f3e321f28cc7fb48ab6f5435800bea4e58c97dc317891e1eae50"
+doc_hash = "sha256:2bb6a1a7ddf797c44a6d5cb42cde6447cdf5d52b956fc3a1c283b81e460aa4bb"
 test = true
 
 [[module."scram_mocus_oracle.rs".function]]
@@ -1362,6 +1692,14 @@ callees = [
     "fn:b2c354521dc8a6ad",
     "fn:ea39665bcf09389d",
 ]
+uses = [
+    "fn:005ad62070ea520a",
+    "fn:28cec5c21c6d492d",
+    "fn:562514d5620a3abb",
+    "fn:6f31b170cf7e0f4b",
+    "fn:b3ec8414cb75ea04",
+    "fn:ec4b9ca7860f292f",
+]
 test = true
 
 [[module."scram_mocus_oracle.rs".function]]
@@ -1372,9 +1710,10 @@ lines = [
     277,
     292,
 ]
-hash = "sha256:70f1fbd0190cee6ce573b4cef1b80cfcbf8f519af43ddda5c189923f57bce42e"
+hash = "sha256:de2e5bd3661726ecbef7eda7d6aa23539f63c210e46dfd5115e133297fe9a5e4"
 doc_hash = "sha256:21e16407e8ac1b26858e042c9b38c5659c193d69237d0fc985862523e7781916"
 callees = ["fn:012593aa42e5e642"]
+uses = ["fn:029cb18358961da0"]
 test = true
 
 [[module."scram_mocus_oracle.rs".function]]
@@ -1409,6 +1748,7 @@ callees = [
     "fn:b7092faa0c519da7",
     "fn:ed03efcea9f80424",
 ]
+uses = ["fn:7a90d4cd74f5406d"]
 test = true
 
 [[module."scram_mocus_oracle.rs".function]]
@@ -1432,6 +1772,11 @@ callees = [
     "fn:e86d1a8ff9ddb0ab",
     "fn:ed03efcea9f80424",
 ]
+uses = [
+    "fn:7a90d4cd74f5406d",
+    "fn:d26f119036e2d28b",
+    "fn:d3ca909e56ec5bcd",
+]
 test = true
 
 [[module."scram_mocus_oracle.rs".function]]
@@ -1442,7 +1787,7 @@ lines = [
     497,
     578,
 ]
-hash = "sha256:f73eb12c363fbe5b2403a5db021da624bc544df1739c9ddaff6608002440cf2c"
+hash = "sha256:31f182ffc4b73b5da581332e7268da56b8c77b5fadb1701969debd023a7f318a"
 doc_hash = "sha256:eee6b4144e6ec803cb8afd43090ac709bd73c20c41ebc42047e4b7b1980074f9"
 callees = [
     "fn:012593aa42e5e642",
@@ -1454,6 +1799,7 @@ callees = [
     "fn:b7092faa0c519da7",
     "fn:ed03efcea9f80424",
 ]
+uses = ["fn:7a90d4cd74f5406d"]
 test = true
 
 [[module."scram_mocus_oracle.rs".function]]
@@ -1472,6 +1818,11 @@ callees = [
     "fn:3abb5d88fe67fcbb",
     "fn:4290d771143b78ee",
     "fn:67270da09e2e62e5",
+]
+uses = [
+    "fn:562514d5620a3abb",
+    "fn:b3ec8414cb75ea04",
+    "fn:c6dbb460d9f00a49",
 ]
 test = true
 
@@ -1500,6 +1851,12 @@ callees = [
     "fn:f1f03ba1a4fc7c50",
     "fn:f69ed439b9b3cf0b",
 ]
+uses = [
+    "fn:005ad62070ea520a",
+    "fn:562514d5620a3abb",
+    "fn:7a90d4cd74f5406d",
+    "fn:d6770dcb2f1ec65e",
+]
 test = true
 
 [[module."scram_mocus_oracle.rs".function]]
@@ -1520,6 +1877,7 @@ callees = [
     "fn:b7092faa0c519da7",
     "fn:ed03efcea9f80424",
 ]
+uses = ["fn:7a90d4cd74f5406d"]
 test = true
 
 [[module."scram_mocus_oracle.rs".function]]
@@ -1530,7 +1888,7 @@ lines = [
     764,
     885,
 ]
-hash = "sha256:0b7c392376e822f5969849cd4e097a5acca39b5f70ff6b70ddf498d4af483dae"
+hash = "sha256:cf4946b5ba5a57efb375771c9b08839c3ced309b5640540f863c3936325549ff"
 doc_hash = "sha256:0a812c1926fcea351c42792c5a22d4a326b953175060a008e374b478428a3dad"
 callees = [
     "fn:1177138feda40795",
@@ -1544,10 +1902,57 @@ callees = [
     "fn:c5a52243b9b1f824",
     "fn:ed03efcea9f80424",
 ]
+uses = [
+    "fn:7a90d4cd74f5406d",
+    "fn:d26f119036e2d28b",
+    "fn:d3ca909e56ec5bcd",
+]
 test = true
 
 [module."scram_noncoherent.rs"]
 path = "test:scram_noncoherent"
+
+[[module."scram_noncoherent.rs".function]]
+id = "fn:68147a8f5ac3edeb"
+name = "FIXTURE"
+qual = "FIXTURE"
+item = "const"
+shape = "const"
+lines = [
+    45,
+    45,
+]
+hash = "sha256:59690a1d60734a164e9849fd5e69fa06c711dd2cfa48b7522b5c90e3ea9c42b5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."scram_noncoherent.rs".function]]
+id = "fn:fd3e0910f246ba46"
+name = "Oracle"
+qual = "Oracle"
+item = "type"
+shape = "struct"
+lines = [
+    51,
+    55,
+]
+hash = "sha256:2ff507a426958106632bbc02a364e07069bda76454f86e4a1e1c6b15d95f3f82"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."scram_noncoherent.rs".function]]
+id = "fn:45ccfda582439844"
+name = "ModelSpec"
+qual = "ModelSpec"
+item = "type"
+shape = "struct"
+lines = [
+    57,
+    65,
+]
+hash = "sha256:06e2d6c05a4969852ae182da51a2cf7e19e3156ed318bca87acf58ecd030a44e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."scram_noncoherent.rs".function]]
 id = "fn:77c050b65f3c9f8d"
@@ -1572,6 +1977,10 @@ lines = [
 hash = "sha256:ba2f7d22862d266e27a668a90b2edd624462bac3d0f7415e3cb151a284c1f696"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:77c050b65f3c9f8d"]
+uses = [
+    "fn:68147a8f5ac3edeb",
+    "fn:fd3e0910f246ba46",
+]
 test = true
 
 [[module."scram_noncoherent.rs".function]]
@@ -1585,6 +1994,7 @@ lines = [
 hash = "sha256:2f4240b38f91399e650a45b49e8cbd3f27a8b1a7bf287c8eb4dfb288f54f72b4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:77c050b65f3c9f8d"]
+uses = ["fn:45ccfda582439844"]
 test = true
 
 [[module."scram_noncoherent.rs".function]]
@@ -1607,6 +2017,12 @@ callees = [
     "fn:ea39665bcf09389d",
     "fn:ef36757946dbe8ce",
 ]
+uses = [
+    "fn:005ad62070ea520a",
+    "fn:562514d5620a3abb",
+    "fn:b3ec8414cb75ea04",
+    "fn:fd3e0910f246ba46",
+]
 test = true
 
 [[module."scram_noncoherent.rs".function]]
@@ -1620,6 +2036,10 @@ lines = [
 hash = "sha256:c665fc70195a5e0fcf6f1267e6e9d88f93b2811d3bf0aedee64dacb476b8fa61"
 doc_hash = "sha256:bb53beb75b8a3f215dfc1d1a23c414aa667f55dfc79f14d63154b518eb20aafe"
 callees = ["fn:3c1857d8572d0477"]
+uses = [
+    "fn:029cb18358961da0",
+    "fn:fd3e0910f246ba46",
+]
 test = true
 
 [[module."scram_noncoherent.rs".function]]
@@ -1652,6 +2072,7 @@ callees = [
     "fn:c4ba16a85e74ec0a",
     "fn:ed03efcea9f80424",
 ]
+uses = ["fn:7a90d4cd74f5406d"]
 test = true
 
 [[module."scram_noncoherent.rs".function]]
@@ -1662,7 +2083,7 @@ lines = [
     323,
     385,
 ]
-hash = "sha256:31bafce9ee848696e2d0712a0e13889d9ebb97bb93e4881b5262f7d5c1797388"
+hash = "sha256:93d4172d51393ec10540f6c70ff8693bae76fa33bbfccbe0874ec9d7aeb2a7a5"
 doc_hash = "sha256:f9d634b09fa31161667042d22a243a1d17294554eecb3be1d007f693ad2d92f8"
 callees = [
     "fn:3abb5d88fe67fcbb",
@@ -1672,6 +2093,10 @@ callees = [
     "fn:c4ba16a85e74ec0a",
     "fn:e86d1a8ff9ddb0ab",
     "fn:ed03efcea9f80424",
+]
+uses = [
+    "fn:7a90d4cd74f5406d",
+    "fn:d3ca909e56ec5bcd",
 ]
 test = true
 
@@ -1691,6 +2116,7 @@ callees = [
     "fn:c4ba16a85e74ec0a",
     "fn:e86d1a8ff9ddb0ab",
 ]
+uses = ["fn:d3ca909e56ec5bcd"]
 test = true
 
 [[module."scram_noncoherent.rs".function]]
@@ -1709,6 +2135,7 @@ callees = [
     "fn:c4ba16a85e74ec0a",
     "fn:ed03efcea9f80424",
 ]
+uses = ["fn:7a90d4cd74f5406d"]
 test = true
 
 [[module."scram_noncoherent.rs".function]]
@@ -1734,10 +2161,30 @@ callees = [
     "fn:ed03efcea9f80424",
     "fn:f69ed439b9b3cf0b",
 ]
+uses = [
+    "fn:005ad62070ea520a",
+    "fn:562514d5620a3abb",
+    "fn:7a90d4cd74f5406d",
+    "fn:b3ec8414cb75ea04",
+]
 test = true
 
 [module."scram_oracle_suite.rs"]
 path = "test:scram_oracle_suite"
+
+[[module."scram_oracle_suite.rs".function]]
+id = "fn:47bfeb106e6f9a22"
+name = "Oracle"
+qual = "Oracle"
+item = "type"
+shape = "struct"
+lines = [
+    44,
+    55,
+]
+hash = "sha256:bd33e61080de78209c9d4d1487e24519e77aab38f736a7af11828e2ebf22736b"
+doc_hash = "sha256:d0795a936ff2d2797974ebfeb4b734f42bace69b90e11be54412a1ab7851a93b"
+test = true
 
 [[module."scram_oracle_suite.rs".function]]
 id = "fn:053b9386f55d897b"
@@ -1749,6 +2196,7 @@ lines = [
 ]
 hash = "sha256:ccf6dceb87ff0a6d8e7e22d24966a5d25c71b792ba6995b30a1445b871f8aaba"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:47bfeb106e6f9a22"]
 test = true
 
 [[module."scram_oracle_suite.rs".function]]
@@ -1762,6 +2210,10 @@ lines = [
 hash = "sha256:132e5d4f591735165693b4a80b584c888d2278b177f640922a241a05d5bb9c7d"
 doc_hash = "sha256:91b375ff0cf000ff80e7931ee741dde9d229a640506e3695f0faa467aa646b69"
 callees = ["fn:3c1857d8572d0477"]
+uses = [
+    "fn:029cb18358961da0",
+    "fn:47bfeb106e6f9a22",
+]
 test = true
 
 [[module."scram_oracle_suite.rs".function]]
@@ -1792,6 +2244,10 @@ callees = [
     "fn:8a0d00aba6bb2796",
     "fn:e86d1a8ff9ddb0ab",
 ]
+uses = [
+    "fn:d26f119036e2d28b",
+    "fn:d3ca909e56ec5bcd",
+]
 test = true
 
 [[module."scram_oracle_suite.rs".function]]
@@ -1820,13 +2276,17 @@ lines = [
     240,
     313,
 ]
-hash = "sha256:d628a927d3143c06d6eb27cccfbeb1a942489784d567be53dc6a17522c6da35c"
+hash = "sha256:a50c7f5378a55cd42e4324a06d36397dcec90f6277576805e7fd7dc35e27b9a7"
 doc_hash = "sha256:803eb45cc1619b96f50380b4aca7f19dd886954939537877b5ec254aaf9bc502"
 callees = [
     "fn:053b9386f55d897b",
     "fn:1177138feda40795",
     "fn:2618163c6bb9c0f9",
     "fn:8a0d00aba6bb2796",
+]
+uses = [
+    "fn:d26f119036e2d28b",
+    "fn:d3ca909e56ec5bcd",
 ]
 test = true
 
@@ -1838,17 +2298,64 @@ lines = [
     315,
     382,
 ]
-hash = "sha256:c26dd8a039cfee46df181655bd8f07ae4fecf000b69b23e0379dd30e27b50d6c"
+hash = "sha256:3f3aa151460a8be8c5b5eb808a250c32a89c1b67755adb2a38935e29261ed8cd"
 doc_hash = "sha256:a6bd7b3b6c9819c4acbeb0f324225765a67865e081d1528ae56904adc77d32d0"
 callees = [
     "fn:053b9386f55d897b",
     "fn:1177138feda40795",
     "fn:8a0d00aba6bb2796",
 ]
+uses = [
+    "fn:d26f119036e2d28b",
+    "fn:d3ca909e56ec5bcd",
+]
 test = true
 
 [module."scram_prime_implicants.rs"]
 path = "test:scram_prime_implicants"
+
+[[module."scram_prime_implicants.rs".function]]
+id = "fn:18e920665fa18823"
+name = "NamedImplicant"
+qual = "NamedImplicant"
+item = "type"
+shape = "alias"
+lines = [
+    30,
+    31,
+]
+hash = "sha256:f4727397ac4f77d30dd378e438120e2eaf712d21e8d3d228a41b237ad43110ea"
+doc_hash = "sha256:890a9758fcbba9f04afc79fe9af3a801c5a9c84f00ba76d32f618f5cc38d9374"
+test = true
+
+[[module."scram_prime_implicants.rs".function]]
+id = "fn:b8849827cb12990f"
+name = "Oracle"
+qual = "Oracle"
+item = "type"
+shape = "struct"
+lines = [
+    33,
+    37,
+]
+hash = "sha256:65b730ac80fde06a33bfd47d7d15f0a4d71f555f2feeb89143cf984da49c73c2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:18e920665fa18823"]
+test = true
+
+[[module."scram_prime_implicants.rs".function]]
+id = "fn:0a760bf2efa4c584"
+name = "ModelSpec"
+qual = "ModelSpec"
+item = "type"
+shape = "struct"
+lines = [
+    39,
+    48,
+]
+hash = "sha256:ab4e70bee511a7a98a76e62fd5e2c3577e64e804c0d614acc48611f20211ef12"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."scram_prime_implicants.rs".function]]
 id = "fn:6737cb7c26594a95"
@@ -1873,6 +2380,10 @@ lines = [
 hash = "sha256:d4f8be1658775eb6f49fe2e671efb0f7436265f253b592f607a79e1c1db9f70b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:6737cb7c26594a95"]
+uses = [
+    "fn:18e920665fa18823",
+    "fn:b8849827cb12990f",
+]
 test = true
 
 [[module."scram_prime_implicants.rs".function]]
@@ -1886,6 +2397,7 @@ lines = [
 hash = "sha256:a2f570de11bdb4c7461b7b2950bb5ab1789422d13d01f2b93927b31b7d7d13c2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:6737cb7c26594a95"]
+uses = ["fn:0a760bf2efa4c584"]
 test = true
 
 [[module."scram_prime_implicants.rs".function]]
@@ -1905,6 +2417,13 @@ callees = [
     "fn:b2c354521dc8a6ad",
     "fn:ea39665bcf09389d",
 ]
+uses = [
+    "fn:005ad62070ea520a",
+    "fn:0a760bf2efa4c584",
+    "fn:562514d5620a3abb",
+    "fn:b3ec8414cb75ea04",
+    "fn:b8849827cb12990f",
+]
 test = true
 
 [[module."scram_prime_implicants.rs".function]]
@@ -1921,6 +2440,11 @@ callees = [
     "fn:3b957c91c7854431",
     "fn:6df7f35367dbf4de",
     "fn:b8d9c08dab49b6ee",
+]
+uses = [
+    "fn:18e920665fa18823",
+    "fn:b3ec8414cb75ea04",
+    "fn:ddbcce5fb7836440",
 ]
 test = true
 
@@ -1992,6 +2516,7 @@ callees = [
     "fn:f1f03ba1a4fc7c50",
     "fn:f69ed439b9b3cf0b",
 ]
+uses = ["fn:d6770dcb2f1ec65e"]
 test = true
 
 [module."scram_substitutions.rs"]
@@ -2023,6 +2548,20 @@ callees = ["fn:733df3a6f185fba2"]
 test = true
 
 [[module."scram_substitutions.rs".function]]
+id = "fn:d431cba3f081d2cf"
+name = "Oracle"
+qual = "Oracle"
+item = "type"
+shape = "struct"
+lines = [
+    57,
+    64,
+]
+hash = "sha256:a64fe1738103e09f28e6f38b107ae1e2e34b7dfe0589976c1fca1e633664e97d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."scram_substitutions.rs".function]]
 id = "fn:16cf90e210ac1270"
 name = "load"
 qual = "load"
@@ -2033,6 +2572,7 @@ lines = [
 hash = "sha256:99159ebbabab325b8b6527ed0e739900e9dd5100c4f6f806ccc65112191793b3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:733df3a6f185fba2"]
+uses = ["fn:d431cba3f081d2cf"]
 test = true
 
 [[module."scram_substitutions.rs".function]]
@@ -2071,6 +2611,10 @@ callees = [
     "fn:f098b50281939e13",
     "fn:fa165e7caf887567",
 ]
+uses = [
+    "fn:2f80921e76e3ad80",
+    "fn:7a90d4cd74f5406d",
+]
 test = true
 
 [[module."scram_substitutions.rs".function]]
@@ -2081,7 +2625,7 @@ lines = [
     187,
     246,
 ]
-hash = "sha256:90f2c2e27f68f814381f9afbeea59c1043f205fc84a653b394d5f37c23b7fc15"
+hash = "sha256:877d32fe5acdf9c5c3d35d860ebbd853c69e5b5f9adb365c6cc80de359ac111b"
 doc_hash = "sha256:5ac2f8154fd2d268b16a48401f5d0b28854b2d82ca632d85055a5888bdda5feb"
 callees = [
     "fn:1015f4048713b537",
@@ -2097,6 +2641,13 @@ callees = [
     "fn:f1f03ba1a4fc7c50",
     "fn:fa165e7caf887567",
 ]
+uses = [
+    "fn:2f80921e76e3ad80",
+    "fn:7a90d4cd74f5406d",
+    "fn:d26f119036e2d28b",
+    "fn:d3ca909e56ec5bcd",
+    "fn:d6770dcb2f1ec65e",
+]
 test = true
 
 [[module."scram_substitutions.rs".function]]
@@ -2107,7 +2658,7 @@ lines = [
     248,
     349,
 ]
-hash = "sha256:6e9d371a8fc5676d6f8e083876b452a49c0dc48c13242d9ca4c90a82d4c755ad"
+hash = "sha256:a34d5d4af3d97f11f6caae590b049541ffe4b69416e8dddbae9c78f58c88b4ef"
 doc_hash = "sha256:04d859381fdff25666fe1f933e046edcd162e3cb740b61fa04c5d9e486468c53"
 callees = [
     "fn:1015f4048713b537",
@@ -2124,6 +2675,12 @@ callees = [
     "fn:f1f03ba1a4fc7c50",
     "fn:fa165e7caf887567",
 ]
+uses = [
+    "fn:2f80921e76e3ad80",
+    "fn:7a90d4cd74f5406d",
+    "fn:d3ca909e56ec5bcd",
+    "fn:d6770dcb2f1ec65e",
+]
 test = true
 
 [[module."scram_substitutions.rs".function]]
@@ -2134,7 +2691,7 @@ lines = [
     351,
     392,
 ]
-hash = "sha256:24cf9d72bd6abd3769e44316cf955c80ff39b2824e45f0398e39ddfe32221209"
+hash = "sha256:f97ea50f6d398d6d8bff1ad3005409bdde5f00fa1e475d417c0d079892beb58e"
 doc_hash = "sha256:916ed49ce24e8bd4cfd3ab944870e54269ad740986b107dc5adc62fcbd983dc0"
 callees = [
     "fn:1015f4048713b537",
@@ -2149,6 +2706,11 @@ callees = [
     "fn:f098b50281939e13",
     "fn:fa165e7caf887567",
 ]
+uses = [
+    "fn:2f80921e76e3ad80",
+    "fn:7a90d4cd74f5406d",
+    "fn:d3ca909e56ec5bcd",
+]
 test = true
 
 [[module."scram_substitutions.rs".function]]
@@ -2159,7 +2721,7 @@ lines = [
     394,
     458,
 ]
-hash = "sha256:b76de1ca7ecf650a8b8f9208f4e6b746a9e90ab681eda30bd0391d74ba5f2c55"
+hash = "sha256:8e8976f56c441620e7c4235d76e4263ab0daf28539050479080214f24615c03e"
 doc_hash = "sha256:d31bff4f0885ea67148bb88c9e30256a3e2696b9a19d09c4e716d74c29b4bf1e"
 callees = [
     "fn:02f3fa1456a3e395",
@@ -2167,6 +2729,10 @@ callees = [
     "fn:4cff1114911ac616",
     "fn:4f69dc333477cea7",
     "fn:fa165e7caf887567",
+]
+uses = [
+    "fn:2f80921e76e3ad80",
+    "fn:3cee5a08fbaf5109",
 ]
 test = true
 
@@ -2178,13 +2744,14 @@ lines = [
     460,
     563,
 ]
-hash = "sha256:690a429c301caea62da39e9581ea2622ecf54e28b6822786fa209cde477aefb6"
+hash = "sha256:3dd47448e811f42b2b8e0355a368696fc48f7c5d92174d6b4d8d2fbaceb0c0cf"
 doc_hash = "sha256:281afda60955fc354f5a3582c0af3c7f9c112d22fb65a1216654562f6eb5245d"
 callees = [
     "fn:6505b8f0a3becdfb",
     "fn:737ae375a9294ae4",
     "fn:878a2e1d8d044744",
 ]
+uses = ["fn:2f80921e76e3ad80"]
 test = true
 
 [module."scram_uncertainty.rs"]
@@ -2216,6 +2783,20 @@ callees = ["fn:a2c02207a3d3d2fb"]
 test = true
 
 [[module."scram_uncertainty.rs".function]]
+id = "fn:64c1b6e2111cc62e"
+name = "Oracle"
+qual = "Oracle"
+item = "type"
+shape = "struct"
+lines = [
+    66,
+    76,
+]
+hash = "sha256:498dc47f7a894f9e558f2b678a010ce0d7f2bc152b31fdb0ddac4e40615fbdb9"
+doc_hash = "sha256:053713333b2aba2aeb2f787d6c30b1b4e9be1bb070ca2c1e57a5414349946b30"
+test = true
+
+[[module."scram_uncertainty.rs".function]]
 id = "fn:a833275caa4006a0"
 name = "load"
 qual = "load"
@@ -2226,6 +2807,7 @@ lines = [
 hash = "sha256:46b2999491527bdbcf9a2d843fdbd2b408de10ec9028f2d91b741755621126ac"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:a2c02207a3d3d2fb"]
+uses = ["fn:64c1b6e2111cc62e"]
 test = true
 
 [[module."scram_uncertainty.rs".function]]
@@ -2247,6 +2829,12 @@ callees = [
     "fn:f1f03ba1a4fc7c50",
     "fn:f8024e2a9bd025df",
 ]
+uses = [
+    "fn:2f80921e76e3ad80",
+    "fn:76a54b9fc9314973",
+    "fn:b10e4d3905b64d11",
+    "fn:d6770dcb2f1ec65e",
+]
 test = true
 
 [[module."scram_uncertainty.rs".function]]
@@ -2257,7 +2845,7 @@ lines = [
     143,
     191,
 ]
-hash = "sha256:a2e4685b792cce3c6a8d79a96c6105c1fb069077f968d2918dbde444c34e2f52"
+hash = "sha256:3282bfb3216206c59ab2d3f60263eeba90c6ac97c7b1322afdd700362ea4df25"
 doc_hash = "sha256:e23af3e2c4eb742f491c625d004c98869b3118333502b662156081c7dd6bca53"
 callees = [
     "fn:4cff1114911ac616",
@@ -2266,6 +2854,7 @@ callees = [
     "fn:b1ba71cb55804f7d",
     "fn:fb2ab209fe0d3b8e",
 ]
+uses = ["fn:2f80921e76e3ad80"]
 test = true
 
 [[module."scram_uncertainty.rs".function]]
@@ -2276,7 +2865,7 @@ lines = [
     193,
     244,
 ]
-hash = "sha256:675f662c47054a422705c784b3a1ebe96915f36a7b365956d25e6582a7925bef"
+hash = "sha256:ff877ceb94f703ea2a4bc4d04a6683ec95eccedf419c3cb9c7ac3fdd205e9a0b"
 doc_hash = "sha256:62df4160314d469be322676de18d4a71dd530e37e421fb31fc844d6c23d2dd88"
 callees = [
     "fn:4cff1114911ac616",
@@ -2285,6 +2874,7 @@ callees = [
     "fn:b1ba71cb55804f7d",
     "fn:fb2ab209fe0d3b8e",
 ]
+uses = ["fn:2f80921e76e3ad80"]
 test = true
 
 [[module."scram_uncertainty.rs".function]]
@@ -2307,6 +2897,11 @@ callees = [
     "fn:bc572d847556f421",
     "fn:c280055221620d52",
 ]
+uses = [
+    "fn:0238cd82e9234a7d",
+    "fn:765c4c06e9cd51f6",
+    "fn:79fbb5d09b50f05b",
+]
 test = true
 
 [[module."scram_uncertainty.rs".function]]
@@ -2320,6 +2915,7 @@ lines = [
 hash = "sha256:3d65954ce43ee464dfdafa08b4860de41b5f165fb81f65ca9797daf45074be3b"
 doc_hash = "sha256:a1e4b34e24e9ad559cf95848eef7fb099af67a6207868ab73fd3dde7976b83df"
 callees = ["fn:3495aa0874a95a10"]
+uses = ["fn:b10e4d3905b64d11"]
 test = true
 
 [[module."scram_uncertainty.rs".function]]
@@ -2330,7 +2926,7 @@ lines = [
     445,
     497,
 ]
-hash = "sha256:13e0d1e4f8462e32cfefba681ebb51822b7ced0d284a6cc77878456742e0eb62"
+hash = "sha256:6492132028f25ddb134d682818ffd27bc4a77587ac87a1a4a278fa42640f84a3"
 doc_hash = "sha256:5a80f94ffa65f3542c9eee02eaa1741ffbbbfe596b0109dbf8ec275207319d03"
 callees = [
     "fn:4cff1114911ac616",
@@ -2338,6 +2934,7 @@ callees = [
     "fn:a833275caa4006a0",
     "fn:b1ba71cb55804f7d",
 ]
+uses = ["fn:2f80921e76e3ad80"]
 test = true
 
 [[module."scram_uncertainty.rs".function]]
@@ -2360,5 +2957,10 @@ callees = [
     "fn:88d599237b6a4860",
     "fn:f1f03ba1a4fc7c50",
     "fn:f8024e2a9bd025df",
+]
+uses = [
+    "fn:2f80921e76e3ad80",
+    "fn:b10e4d3905b64d11",
+    "fn:d6770dcb2f1ec65e",
 ]
 test = true

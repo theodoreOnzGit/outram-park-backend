@@ -101,6 +101,47 @@ physical_interface = true
 path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::central_limit_theorem::oorandom_rng"
 
 [[module."oorandom_rng.rs".function]]
+id = "fn:c609ec17a374f2d4"
+name = "OoRng64"
+qual = "OoRng64"
+item = "type"
+shape = "struct"
+lines = [
+    3,
+    11,
+]
+hash = "sha256:fde6c3a6e7bbaf72d17e19fbd815ee3ee54761a03bfdec1792a5d53a8294585b"
+doc_hash = "sha256:66267195a74206e5c168a96c335e3e304d3a29eafb8b8a1a09a40a416eaf9004"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+]
+
+[[module."oorandom_rng.rs".function]]
 id = "fn:7219c0f3c4ac548c"
 name = "from_u128"
 qual = "OoRng64::from_u128"
@@ -110,6 +151,11 @@ lines = [
 ]
 hash = "sha256:dd18c546433443a9239609cf5eeb5ed7ccbae9f60937b0edfa06ad1f90046e65"
 doc_hash = "sha256:6d226bcf8ad7c5b0a922d224e1dd7caf556a3ab6c25ea40f2a4613afd7348201"
+uses = [
+    "fn:753a37cf1d65784f",
+    "fn:a4ea8cdd8a0e37b1",
+    "fn:c609ec17a374f2d4",
+]
 reached_by = [
     "#0",
     "#1",
@@ -150,6 +196,7 @@ lines = [
 hash = "sha256:c7a3415ccde6ae5a29c9d006f1e372b983a25a2c7fcf55b6d1ce0803601bb41c"
 doc_hash = "sha256:9bb0102ea6822baa85a2e26e30aad23b1133de09430c2ce24d6a0ee2d7cf9688"
 callees = ["fn:7219c0f3c4ac548c"]
+uses = ["fn:c609ec17a374f2d4"]
 reached_by = [
     "#0",
     "#1",
@@ -190,6 +237,7 @@ lines = [
 hash = "sha256:255db194e674d39489a76467f84132afa6a86177890c1d370832cd70939e1e35"
 doc_hash = "sha256:e7499d64e6b72bffc0f2712525aebf5feb1eb82c5a5313890972887dd2fbeb69"
 callees = ["fn:681ddf6544e7b60b"]
+uses = ["fn:c609ec17a374f2d4"]
 reached_by = [
     "#16",
     "#17",
@@ -212,6 +260,11 @@ lines = [
 ]
 hash = "sha256:1cb86a53adfb8965e136fd874b0eee5557187be178a734f70678e11456727473"
 doc_hash = "sha256:660994e55cc9a0177983dd2fc0a2ff4aa81ef916f394029c93a814809bf0f292"
+uses = [
+    "fn:753a37cf1d65784f",
+    "fn:a4ea8cdd8a0e37b1",
+    "fn:c609ec17a374f2d4",
+]
 reached_by = [
     "#0",
     "#4",

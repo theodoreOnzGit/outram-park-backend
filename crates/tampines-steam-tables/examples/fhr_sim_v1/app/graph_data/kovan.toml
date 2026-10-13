@@ -7,6 +7,32 @@ dir = "crates/tampines-steam-tables/examples/fhr_sim_v1/app/graph_data"
 path = "example:fhr_sim_v1::app::graph_data"
 
 [[module."mod.rs".function]]
+id = "fn:91598bd5de0ec2f5"
+name = "PagePlotData"
+qual = "PagePlotData"
+item = "type"
+shape = "struct"
+lines = [
+    6,
+    20,
+]
+hash = "sha256:368819c21a6ba774171e8ca872fedf6e66d9afb23a1e0c022bd55ae840728bae"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:d852fd9dca0bcc53"
+name = "NUM_DATA_PTS_IN_PLOTS"
+qual = "NUM_DATA_PTS_IN_PLOTS"
+item = "const"
+shape = "const"
+lines = [
+    22,
+    22,
+]
+hash = "sha256:13bbe99d34c046607a90b39b85332d1ef245e30c15fe4c866859c6e6edd6ccd0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
 id = "fn:aaebfc9acbd1b821"
 name = "insert_reactor_power_data"
 qual = "PagePlotData::insert_reactor_power_data"
@@ -16,6 +42,10 @@ lines = [
 ]
 hash = "sha256:adcf5dd017949d6d0e8c6afc938ecad3917d12cbaf8573a4480855f5bf7c2794"
 doc_hash = "sha256:d7bfd07a9138e65aa608dd7c46c5a9672e9614b1f941ca3c13e90f47d4983ec4"
+uses = [
+    "fn:91598bd5de0ec2f5",
+    "fn:d852fd9dca0bcc53",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -28,6 +58,7 @@ lines = [
 ]
 hash = "sha256:568cecf5a5ae5da1e33f2369533993c6f171b751ccbf2968864f68b3668b5bf4"
 doc_hash = "sha256:d71a94e3984baac61100f7ef8a8795aa7fa4146295fdf8ed14042df122111e86"
+uses = ["fn:91598bd5de0ec2f5"]
 
 [[module."mod.rs".function]]
 id = "fn:e3413af5bd8ee53e"
@@ -39,6 +70,7 @@ lines = [
 ]
 hash = "sha256:99843a26cd8225640a512362246f51d93292e823ac0a551f160722157961eb83"
 doc_hash = "sha256:d71a94e3984baac61100f7ef8a8795aa7fa4146295fdf8ed14042df122111e86"
+uses = ["fn:91598bd5de0ec2f5"]
 
 [[module."mod.rs".function]]
 id = "fn:7a54a8560d391e37"
@@ -50,6 +82,10 @@ lines = [
 ]
 hash = "sha256:fd95312ad93d0e1c277ccc14911081e7e14c190f51c884e9565528dcf8ce8da6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:91598bd5de0ec2f5",
+    "fn:d852fd9dca0bcc53",
+]
 
 [module."update.rs"]
 path = "example:fhr_sim_v1::app::graph_data::update"
@@ -65,3 +101,7 @@ lines = [
 hash = "sha256:18ca25c3c8631d3b43ba81a1095058183b7678352826cb961ea52dd35409a4be"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:aaebfc9acbd1b821"]
+uses = [
+    "fn:273d771359223f8f",
+    "fn:91598bd5de0ec2f5",
+]

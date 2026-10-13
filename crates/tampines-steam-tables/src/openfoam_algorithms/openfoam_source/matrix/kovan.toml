@@ -16,9 +16,18 @@ test_ids = [
     "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/matrix/square_matrix.rs::lu_solve_needs_pivoting",
     "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/matrix/square_matrix.rs::scaled_pivoting_large_row_contrast",
     "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/matrix/square_matrix.rs::singular_matrix_returns_err",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ode/euler.rs::euler_exponential_decay",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ode/euler.rs::euler_rotation",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ode/mod.rs::euler_reports_nan_instead_of_returning_ok",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ode/mod.rs::rkf45_reports_nan_instead_of_returning_ok",
     "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ode/mod.rs::rosenbrock23_reports_a_nan_jacobian",
     "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ode/mod.rs::rosenbrock23_reports_nan_derivatives_instead_of_returning_ok",
     "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ode/mod.rs::well_behaved_systems_still_integrate_after_the_fix",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ode/rkf45.rs::rkf45_convergence_order_is_fifth",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ode/rkf45.rs::rkf45_decay_to_5",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ode/rkf45.rs::rkf45_exceeds_steps_on_stiff_vdp",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ode/rkf45.rs::rkf45_exponential_decay",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ode/rkf45.rs::rkf45_nonstiff_vdp",
     "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ode/rosenbrock23.rs::rosenbrock23_nonstiff_decay",
     "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ode/rosenbrock23.rs::rosenbrock23_rotation",
     "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ode/rosenbrock23.rs::rosenbrock23_stiff_decay",
@@ -32,6 +41,33 @@ path = "crate::openfoam_algorithms::openfoam_source::matrix"
 path = "crate::openfoam_algorithms::openfoam_source::matrix::square_matrix"
 
 [[module."square_matrix.rs".function]]
+id = "fn:67ba6cf79eb63bf0"
+name = "MatrixError"
+qual = "MatrixError"
+item = "type"
+shape = "enum"
+lines = [
+    22,
+    28,
+]
+hash = "sha256:0d28b020d7f2e21143b9fa90df588762769d600810b795ff6442e5e0776d9cc8"
+doc_hash = "sha256:19b7afc19d30b992e8d511cde1e0abd619f0eede2e827c65b9cc87a8394483f4"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."square_matrix.rs".function]]
 id = "fn:f263fb6e7f411145"
 name = "fmt"
 qual = "MatrixError::fmt"
@@ -41,17 +77,20 @@ lines = [
 ]
 hash = "sha256:9d42493350c2bfa32f6ca97b3494dfb8a1f51303dd1631d9385698a912127ed4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:67ba6cf79eb63bf0"]
 
 [[module."square_matrix.rs".function]]
-id = "fn:cf445cab68a2892b"
-name = "new"
-qual = "SquareMatrix::new"
+id = "fn:b38962cb4f99ea06"
+name = "SquareMatrix"
+qual = "SquareMatrix"
+item = "type"
+shape = "struct"
 lines = [
-    53,
-    59,
+    42,
+    50,
 ]
-hash = "sha256:f02047503561467af5a572c11a369aa34c4fad26112d29a76a18dc7cc09db015"
-doc_hash = "sha256:d42457e21028113e7ef4034896d8ef0021968a8eef0cc9b10aa318260eaba43a"
+hash = "sha256:b3b14a85d75dddae71405bdd035fdc3dcece1d767f00f54a699aaa13be1b4a05"
+doc_hash = "sha256:e5b8a384c789db8433f1f841f1a80c9e30a47dc55b94bb99c223290c8a3bd7c5"
 reached_by = [
     "#0",
     "#1",
@@ -73,6 +112,49 @@ reached_by = [
     "#17",
     "#18",
     "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+]
+
+[[module."square_matrix.rs".function]]
+id = "fn:cf445cab68a2892b"
+name = "new"
+qual = "SquareMatrix::new"
+lines = [
+    53,
+    59,
+]
+hash = "sha256:f02047503561467af5a572c11a369aa34c4fad26112d29a76a18dc7cc09db015"
+doc_hash = "sha256:d42457e21028113e7ef4034896d8ef0021968a8eef0cc9b10aa318260eaba43a"
+uses = ["fn:b38962cb4f99ea06"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#17",
+    "#18",
+    "#19",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
 ]
 
 [[module."square_matrix.rs".function]]
@@ -85,6 +167,7 @@ lines = [
 ]
 hash = "sha256:eb839fc31e736e7ee5ffebddd8d54cea15a1d8cef9b3965cae131f5f3546edfd"
 doc_hash = "sha256:e76c43b4b03ad8d6158088992857f5a068cb30ad469dd699ef0a0944c24c89f4"
+uses = ["fn:b38962cb4f99ea06"]
 
 [[module."square_matrix.rs".function]]
 id = "fn:06dcd591a087e023"
@@ -97,6 +180,7 @@ lines = [
 hash = "sha256:aab34dfbcf274fbba67ecea6a3e21c35cc3564a365a71cbb21b584e98f0c266d"
 doc_hash = "sha256:638261e2351556169dcfb2837fef139dd41165f7810d497115331ef4829ebb10"
 callees = ["fn:8f855a8d9ba0e523"]
+uses = ["fn:b38962cb4f99ea06"]
 reached_by = [
     "#0",
     "#1",
@@ -111,13 +195,13 @@ reached_by = [
     "#10",
     "#11",
     "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
     "#17",
     "#18",
     "#19",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
 ]
 
 [[module."square_matrix.rs".function]]
@@ -130,6 +214,7 @@ lines = [
 ]
 hash = "sha256:65133218391831af72934df2c76baf06a4834ed05149ce56d0cde942af1d1611"
 doc_hash = "sha256:b3b0a9d9e9a8a82a22a5f363513417d879793e4047d3b4a1a7577ab2420cb599"
+uses = ["fn:b38962cb4f99ea06"]
 reached_by = [
     "#0",
     "#1",
@@ -144,13 +229,13 @@ reached_by = [
     "#10",
     "#11",
     "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
     "#17",
     "#18",
     "#19",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
 ]
 
 [[module."square_matrix.rs".function]]
@@ -164,6 +249,7 @@ lines = [
 hash = "sha256:d07d19c3a7f1cce5aca5bc41ff5dc919dce0ba024536b079bd860bd8901ffd16"
 doc_hash = "sha256:36200eedf4f349cc15b2876755e908d4987d7d38862253c23b49ab7ef932f2b0"
 callees = ["fn:8f855a8d9ba0e523"]
+uses = ["fn:b38962cb4f99ea06"]
 reached_by = [
     "#0",
     "#1",
@@ -178,13 +264,13 @@ reached_by = [
     "#10",
     "#11",
     "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
     "#17",
     "#18",
     "#19",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
 ]
 
 [[module."square_matrix.rs".function]]
@@ -198,18 +284,19 @@ lines = [
 hash = "sha256:9464f57058b38f12939e02d7be3dd6c8f912d52388cac9ef7595306a7eb4d6dd"
 doc_hash = "sha256:966a555f6370577a9cdbceb28f87952fdfaff8d67fa39587bee4840e6ac5f6a5"
 callees = ["fn:8f855a8d9ba0e523"]
+uses = ["fn:b38962cb4f99ea06"]
 reached_by = [
     "#0",
     "#1",
     "#2",
     "#3",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
     "#17",
     "#18",
     "#19",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
 ]
 
 [[module."square_matrix.rs".function]]
@@ -223,6 +310,7 @@ lines = [
 hash = "sha256:8866ca6456aa0b6c84e32ee6e7b247a05aa8e86174b9685c742dddae7f245eb7"
 doc_hash = "sha256:002918f900fbc0e869d9de42fdd00517bd78f8e6c8c68bce0309aad0f674d2d7"
 callees = ["fn:8f855a8d9ba0e523"]
+uses = ["fn:b38962cb4f99ea06"]
 reached_by = [
     "#0",
     "#1",
@@ -237,13 +325,13 @@ reached_by = [
     "#10",
     "#11",
     "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
     "#17",
     "#18",
     "#19",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
 ]
 
 [[module."square_matrix.rs".function]]
@@ -256,6 +344,7 @@ lines = [
 ]
 hash = "sha256:fd1e3141dd9563ff04d8087d9e2ba024714c156e26f58cf1e2d6dcf2e9d57f3a"
 doc_hash = "sha256:e870f9beb382040c0bf21b8d438ee06df3dc4db0b0dccaf40d1183823c87e569"
+uses = ["fn:b38962cb4f99ea06"]
 
 [[module."square_matrix.rs".function]]
 id = "fn:2d82dae6d7ad1baf"
@@ -272,6 +361,7 @@ callees = [
     "fn:4848041d5189d0ca",
     "fn:c2d571920a1cae9f",
 ]
+uses = ["fn:b38962cb4f99ea06"]
 reached_by = [
     "#0",
     "#1",
@@ -286,13 +376,13 @@ reached_by = [
     "#10",
     "#11",
     "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
     "#17",
     "#18",
     "#19",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
 ]
 
 [[module."square_matrix.rs".function]]
@@ -306,6 +396,7 @@ lines = [
 hash = "sha256:022c604287eb79c9151a715ca7bbe5adb8bf1949c9a2ebecae244f9824311210"
 doc_hash = "sha256:766af82f805acc35bf6c53f91830c744826fba72de79c48ab5b897234ad8ecdf"
 callees = ["fn:06dcd591a087e023"]
+uses = ["fn:b38962cb4f99ea06"]
 reached_by = [
     "#0",
     "#1",
@@ -320,13 +411,13 @@ reached_by = [
     "#10",
     "#11",
     "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
     "#17",
     "#18",
     "#19",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
 ]
 
 [[module."square_matrix.rs".function]]
@@ -343,6 +434,10 @@ callees = [
     "fn:06dcd591a087e023",
     "fn:2d82dae6d7ad1baf",
     "fn:bf4ff0c2344eae60",
+]
+uses = [
+    "fn:67ba6cf79eb63bf0",
+    "fn:b38962cb4f99ea06",
 ]
 reached_by = [
     "#0",
@@ -374,6 +469,7 @@ callees = [
     "fn:c2d571920a1cae9f",
     "fn:cf445cab68a2892b",
 ]
+uses = ["fn:b38962cb4f99ea06"]
 test = true
 
 [[module."square_matrix.rs".function]]
@@ -391,6 +487,7 @@ callees = [
     "fn:c2d571920a1cae9f",
     "fn:cf445cab68a2892b",
 ]
+uses = ["fn:b38962cb4f99ea06"]
 test = true
 
 [[module."square_matrix.rs".function]]
@@ -408,6 +505,7 @@ callees = [
     "fn:c2d571920a1cae9f",
     "fn:cf445cab68a2892b",
 ]
+uses = ["fn:b38962cb4f99ea06"]
 test = true
 
 [[module."square_matrix.rs".function]]
@@ -425,6 +523,7 @@ callees = [
     "fn:c2d571920a1cae9f",
     "fn:cf445cab68a2892b",
 ]
+uses = ["fn:b38962cb4f99ea06"]
 test = true
 
 [[module."square_matrix.rs".function]]
@@ -442,6 +541,10 @@ callees = [
     "fn:c2d571920a1cae9f",
     "fn:cf445cab68a2892b",
 ]
+uses = [
+    "fn:67ba6cf79eb63bf0",
+    "fn:b38962cb4f99ea06",
+]
 test = true
 
 [[module."square_matrix.rs".function]]
@@ -457,6 +560,10 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:7c28835448c7717f",
     "fn:cf445cab68a2892b",
+]
+uses = [
+    "fn:67ba6cf79eb63bf0",
+    "fn:b38962cb4f99ea06",
 ]
 test = true
 
@@ -476,6 +583,7 @@ callees = [
     "fn:c2d571920a1cae9f",
     "fn:cf445cab68a2892b",
 ]
+uses = ["fn:b38962cb4f99ea06"]
 test = true
 
 [[module."square_matrix.rs".function]]
@@ -493,6 +601,7 @@ callees = [
     "fn:c2d571920a1cae9f",
     "fn:cf445cab68a2892b",
 ]
+uses = ["fn:b38962cb4f99ea06"]
 test = true
 
 [[module."square_matrix.rs".function]]
@@ -511,4 +620,5 @@ callees = [
     "fn:c2d571920a1cae9f",
     "fn:cf445cab68a2892b",
 ]
+uses = ["fn:b38962cb4f99ea06"]
 test = true

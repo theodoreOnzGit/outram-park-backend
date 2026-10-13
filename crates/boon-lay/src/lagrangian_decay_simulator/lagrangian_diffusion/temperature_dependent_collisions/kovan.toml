@@ -99,6 +99,7 @@ callees = [
     "fn:eb9b9e6d7b0f9a9c",
     "fn:f6f96e9259dea849",
 ]
+uses = ["fn:359972b9e99804c1"]
 reached_by = [
     "#0",
     "#1",
@@ -139,6 +140,58 @@ reached_by = [
     "#37",
 ]
 physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:359972b9e99804c1"
+name = "TrisoPebbleLayerMaterial"
+qual = "TrisoPebbleLayerMaterial"
+item = "type"
+shape = "enum"
+lines = [
+    170,
+    190,
+]
+hash = "sha256:119b93b427498c60884d91557ceb0e1c78e37ade04eedddac043312faa950c34"
+doc_hash = "sha256:b82840c4dbdc4b6d72b66686e34a08c8c93f1c8ac7179db052bbecbf2ac73d75"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+]
 
 [[module."mod.rs".function]]
 id = "fn:d0b95c10084eeb1e"

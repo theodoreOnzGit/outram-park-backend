@@ -3,6 +3,10 @@ kind = "code_folder"
 crate = "outram-foam-appbuilder-lib"
 dir = "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics"
 test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/boundary_conditions/blackbody_radiation.rs::face_temperature_from_flux_matches_stefan_boltzmann_closed_form",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/boundary_conditions/blackbody_radiation.rs::fourier_heat_flux_matches_hand_calculation",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/boundary_conditions/blackbody_radiation.rs::update_face_temperature_matches_composed_half_steps",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/boundary_conditions/blackbody_radiation.rs::update_face_temperature_skips_uninitialised_cell_temperature",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/ff_drag/tests.rs::autruffe_floor_clamp_at_pure_vapour",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/ff_drag/tests.rs::bestion_co_equals_one_skips_velocity_slip_factor",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/ff_drag/tests.rs::bestion_trace_reproduces_formula",
@@ -14,13 +18,27 @@ test_ids = [
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/fs_drag/tests.rs::churchill_matches_colebrook_white_smooth_pipe",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/fs_drag/tests.rs::churchill_recovers_laminar_hagen_poiseuille",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/fs_drag/tests.rs::engel_laminar_constant_is_99",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::basu_onb_nonzero_htc_reproduces_formula",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::basu_onb_zero_htc_limit_is_saturation_temperature",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::chen_flow_enhancement_factor",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::chen_suppression_factor",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::cobra_tf_flow_enhancement_and_mixture_reynolds_number",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::cobra_tf_suppression_factor_and_limits",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::constant_chf_passes_through",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::constant_subcooled_boiling_fraction_passes_through",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::ff_nusselt_hydraulic_diameter_floor",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::ff_nusselt_reproduces_source_formula",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::gorenflo_delta_t_and_heat_flux_forms_are_self_consistent",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::gorenflo_reproduces_reference_state",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::multi_regime_below_saturation_high_void_fraction_is_full_condensation",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::multi_regime_below_saturation_low_void_fraction_ignores_condensation",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::multi_regime_below_saturation_no_condensation_model",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::multi_regime_between_saturation_and_onb_is_plain_convection",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::multi_regime_condensation_blend_matches_literal_upstream_formula",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::multi_regime_nucleate_boiling_flux_superposition_n1",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::multi_regime_nucleate_boiling_flux_superposition_n2",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::multi_regime_nucleate_boiling_htc_superposition",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::multi_regime_nucleate_boiling_with_suppression_factor",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::nusselt_and_wall_series_combination_and_limit",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::nusselt_peclet_fast_path_matches_general_form",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::nusselt_reproduces_dittus_boelter",
@@ -29,6 +47,9 @@ test_ids = [
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::rezkallah_sims_flow_enhancement_factor",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::saha_zuber_deeply_subcooled_clamps_to_zero",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::saha_zuber_subcooled_boiling_fraction_matches_published_formula",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::shah_coefficient_blend_matches_literature_endpoints_and_is_continuous",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::shah_nonpositive_delta_t_returns_zero",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/heat_transfer/tests.rs::superposition_nucleate_boiling_is_linear_combination",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence/tests.rs::porous_2phase_equilibrium_k_reduces_to_1phase_at_zero_alpha_coeff",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence/tests.rs::porous_equilibrium_epsilon_matches_openfoam_mixing_length_correlation",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence/tests.rs::porous_equilibrium_k_matches_openfoam_intensity_correlation",
@@ -39,6 +60,20 @@ test_ids = [
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::laminar_darcy_spinup_terminal_velocity",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::porous_energy_equilibrates_to_wall_temperature",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::turbulent_darcy_weisbach_pressure_drop",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/heat_exchanger.rs::struct_wrapper_matches_free_function",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/heat_exchanger.rs::symmetric_hx_wall_temperature",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/heat_exchanger.rs::zero_coefficients_do_not_nan",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/heat_source.rs::explicit_source_matches_hand_calc",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/heat_source.rs::passive_structure_relaxes_to_fluid_temperature",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/heat_source.rs::wall_heat_flux_matches_definition",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/mod.rs::integrated_steady_state_energy_balance",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/mod.rs::scram_relaxes_structure_to_fluid",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/nuclear_steady_state_pebble/tests.rs::the_gfhr_minimum_peak_fuel_temperature_reproduces_upstream",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/power_model.rs::fixed_power_adiabatic_step_matches_hand_calc",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/power_model.rs::fixed_power_steady_state_matches_hand_calc",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/power_model.rs::fixed_temperature_evaluates_profile",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_psbt_closures.rs::the_ported_wall_friction_reproduces_upstreams_psbt_drag",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_psbt_closures.rs::the_two_phase_cells_show_the_multiplier_the_single_phase_relation_omits",
 ]
 
 [module."mod.rs"]
@@ -48,20 +83,18 @@ path = "crate::genfoam::thermal_hydraulics"
 path = "crate::genfoam::thermal_hydraulics::units"
 
 [[module."units.rs".function]]
-id = "fn:983b1442c904d828"
-name = "reynolds_number"
-qual = "reynolds_number"
+id = "fn:d45bd48797fb1b2f"
+name = "ReynoldsNumber"
+qual = "ReynoldsNumber"
+item = "type"
+shape = "alias"
 lines = [
-    72,
-    79,
+    36,
+    43,
 ]
-hash = "sha256:689a9f8ea7864b4e67a3e99312a0781fcefb4af9d71dafccfaf05ef33794f9a9"
-doc_hash = "sha256:0db49fc65e59820229c06d2b8b2bc55c89b8c70a96c08575ad3c6bf1300414c7"
+hash = "sha256:e25ea516086e0a8fbc02c8ea06250f66767715f97c79fe584e00cef7420d6abe"
+doc_hash = "sha256:1918ceb07a0c6e78c8819d151ef4ad63bab642a20a2b2135afcec76899d31fa1"
 reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
     "#4",
     "#5",
     "#6",
@@ -73,14 +106,76 @@ reached_by = [
     "#12",
     "#13",
     "#14",
-    "#15",
-    "#16",
     "#17",
     "#18",
     "#19",
     "#20",
-    "#21",
     "#22",
+    "#23",
+    "#24",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#65",
+    "#69",
+    "#70",
+]
+
+[[module."units.rs".function]]
+id = "fn:96ed316b39f2041f"
+name = "DarcyFrictionFactor"
+qual = "DarcyFrictionFactor"
+item = "type"
+shape = "alias"
+lines = [
+    45,
+    56,
+]
+hash = "sha256:e25ea516086e0a8fbc02c8ea06250f66767715f97c79fe584e00cef7420d6abe"
+doc_hash = "sha256:2871179bff866adbb7f0dbf23ddb7b32cc3602bc30f4a3ffb22117146bd3c4f3"
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#53",
+    "#54",
+    "#56",
+    "#69",
+    "#70",
+]
+
+[[module."units.rs".function]]
+id = "fn:86c29c1cbed08c30"
+name = "HeatTransferCoefficient"
+qual = "HeatTransferCoefficient"
+item = "type"
+shape = "alias"
+lines = [
+    58,
+    63,
+]
+hash = "sha256:07da173791d3a32f42035d7d834fe034fbfe7926674b245ae5f1cf94859f72a1"
+doc_hash = "sha256:8b74c168b6f14a2bbbd66b6ad65d83335b86bd0cca033f2fbd755f879ade9b04"
+reached_by = [
+    "#15",
+    "#16",
     "#23",
     "#24",
     "#25",
@@ -94,6 +189,121 @@ reached_by = [
     "#33",
     "#34",
     "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#44",
+    "#45",
+    "#46",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+]
+
+[[module."units.rs".function]]
+id = "fn:e81f0b6f9d93f75a"
+name = "HeatFlux"
+qual = "HeatFlux"
+item = "type"
+shape = "alias"
+lines = [
+    65,
+    70,
+]
+hash = "sha256:927667b537fe5adbfe69186571caba38f6e4affe1a97ab9016952cf824b0aa0b"
+doc_hash = "sha256:c76da0b8df0578e1fa46176daa5e0755c499adcf4e34c026008a2cc9a1a55792"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#21",
+    "#22",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#42",
+    "#43",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#66",
+    "#67",
+    "#68",
+]
+
+[[module."units.rs".function]]
+id = "fn:983b1442c904d828"
+name = "reynolds_number"
+qual = "reynolds_number"
+lines = [
+    72,
+    79,
+]
+hash = "sha256:689a9f8ea7864b4e67a3e99312a0781fcefb4af9d71dafccfaf05ef33794f9a9"
+doc_hash = "sha256:0db49fc65e59820229c06d2b8b2bc55c89b8c70a96c08575ad3c6bf1300414c7"
+uses = ["fn:d45bd48797fb1b2f"]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
+    "#23",
+    "#24",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
 ]
 physical_interface = true
 
@@ -107,4 +317,5 @@ lines = [
 ]
 hash = "sha256:11596c59d2f595c3349e59a94491b5027529a2541a229e2b3ae0b4f074a02e8b"
 doc_hash = "sha256:16a905063d9c2c8bd854c3c2c007f74c8667c164af44274902c513a3fa5d49c5"
+uses = ["fn:96ed316b39f2041f"]
 physical_interface = true

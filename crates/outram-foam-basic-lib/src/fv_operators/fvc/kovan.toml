@@ -190,6 +190,13 @@ callees = [
     "fn:a44e88aef7a7c4ab",
     "fn:ca4222e53c9b2667",
 ]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+]
 reached_by = [
     "#30",
     "#31",
@@ -243,6 +250,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."ddt_corr.rs".function]]
@@ -262,6 +276,10 @@ callees = [
     "fn:4aea3161a87c6021",
     "fn:9ce7e8c2f9324984",
     "fn:9e501e5f4cce23ae",
+]
+uses = [
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
 ]
 test = true
 
@@ -284,6 +302,14 @@ callees = [
     "fn:9e501e5f4cce23ae",
     "fn:a5457a6081dc438d",
 ]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."ddt_corr.rs".function]]
@@ -304,6 +330,14 @@ callees = [
     "fn:9ce7e8c2f9324984",
     "fn:9e501e5f4cce23ae",
     "fn:ca4222e53c9b2667",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
 ]
 test = true
 
@@ -326,6 +360,12 @@ callees = [
     "fn:4a3d63f4a0e47a1c",
     "fn:4aea3161a87c6021",
     "fn:a44e88aef7a7c4ab",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
 ]
 reached_by = [
     "#35",
@@ -370,6 +410,12 @@ callees = [
     "fn:a44e88aef7a7c4ab",
     "fn:f86d68dcb668b50a",
 ]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+]
 reached_by = [
     "#35",
     "#36",
@@ -400,6 +446,13 @@ callees = [
     "fn:a44e88aef7a7c4ab",
     "fn:f86d68dcb668b50a",
 ]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:75b64c5620c869e8",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
 
 [[module."div.rs".function]]
 id = "fn:9e619f16a5bcf5c8"
@@ -426,6 +479,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."div.rs".function]]
@@ -441,6 +501,13 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:35109efd2ed02837",
     "fn:a5457a6081dc438d",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
 ]
 test = true
 
@@ -505,6 +572,14 @@ callees = [
     "fn:9c52e30db6388370",
     "fn:a44e88aef7a7c4ab",
 ]
+uses = [
+    "fn:24a3d15a404f9a52",
+    "fn:75b64c5620c869e8",
+    "fn:7a05aabc9b2c5609",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
 reached_by = [
     "#28",
     "#29",
@@ -548,6 +623,13 @@ callees = [
     "fn:92fd53f240dcfb8e",
     "fn:a44e88aef7a7c4ab",
     "fn:a596791835345706",
+]
+uses = [
+    "fn:4f8013f6f4ebe6b6",
+    "fn:75b64c5620c869e8",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
 ]
 reached_by = [
     "#78",
@@ -594,6 +676,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."div_tensor.rs".function]]
@@ -615,6 +704,13 @@ callees = [
     "fn:b1c4cc6aa93ebf33",
     "fn:ca4d7b0e9c95eb37",
     "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:24a3d15a404f9a52",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7a05aabc9b2c5609",
+    "fn:dde232a1ea648ca8",
 ]
 test = true
 
@@ -638,6 +734,13 @@ callees = [
     "fn:81ebebc69b5080f1",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:4f8013f6f4ebe6b6",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
+]
 test = true
 
 [module."flux.rs"]
@@ -660,6 +763,13 @@ callees = [
     "fn:92fd53f240dcfb8e",
     "fn:99b51c50cec539c3",
     "fn:a44e88aef7a7c4ab",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
 ]
 reached_by = [
     "#25",
@@ -732,6 +842,14 @@ callees = [
     "fn:99b51c50cec539c3",
     "fn:a44e88aef7a7c4ab",
 ]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
 reached_by = ["#80"]
 
 [[module."flux.rs".function]]
@@ -759,6 +877,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."flux.rs".function]]
@@ -778,6 +903,10 @@ callees = [
     "fn:9e501e5f4cce23ae",
     "fn:ff0984b64618a0f2",
 ]
+uses = [
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."flux.rs".function]]
@@ -796,6 +925,10 @@ callees = [
     "fn:636e75b664f14254",
     "fn:9e501e5f4cce23ae",
     "fn:ff0984b64618a0f2",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:ef05859ef19acee7",
 ]
 test = true
 
@@ -822,6 +955,13 @@ callees = [
     "fn:65f8f3c9daf074d2",
     "fn:92fd53f240dcfb8e",
     "fn:a44e88aef7a7c4ab",
+]
+uses = [
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
 ]
 reached_by = [
     "#25",
@@ -925,6 +1065,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."grad.rs".function]]
@@ -943,6 +1090,7 @@ callees = [
     "fn:636e75b664f14254",
     "fn:bcd3c0fddc1f933d",
 ]
+uses = ["fn:7aa70dd1c009cc88"]
 test = true
 
 [[module."grad.rs".function]]
@@ -963,10 +1111,39 @@ callees = [
     "fn:bcd3c0fddc1f933d",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+]
 test = true
 
 [module."grad_least_squares.rs"]
 path = "crate::fv_operators::fvc::grad_least_squares"
+
+[[module."grad_least_squares.rs".function]]
+id = "fn:cec1be91dca8025d"
+name = "RANK_TOL"
+qual = "RANK_TOL"
+item = "const"
+shape = "const"
+lines = [
+    79,
+    85,
+]
+hash = "sha256:3a6d250dd3e59919a2802f82e21fc2dcb268985d2e4fbff10df9701bc91d0106"
+doc_hash = "sha256:80e42ca3b255e7a26dfd8148652cf6c9b0ac2c8a5381fc258bcd52a6e1bdb9cf"
+reached_by = [
+    "#84",
+    "#85",
+    "#86",
+    "#101",
+    "#102",
+    "#106",
+    "#107",
+    "#108",
+]
 
 [[module."grad_least_squares.rs".function]]
 id = "fn:5e7bd6dee18139fa"
@@ -979,6 +1156,10 @@ lines = [
 hash = "sha256:7cfbe753039e4c675b91fb3cc1e8c3f6d625e75589d7952de20bb45a674675fd"
 doc_hash = "sha256:c1182a416d7924550dd1978cb28c68c6af49c2413d6fa32cc4e28ea81480703f"
 callees = ["fn:4aea3161a87c6021"]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:7aa70dd1c009cc88",
+]
 reached_by = [
     "#84",
     "#85",
@@ -1017,6 +1198,15 @@ callees = [
     "fn:9e501e5f4cce23ae",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:33a2eb8456953def",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:cec1be91dca8025d",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
 reached_by = [
     "#84",
     "#85",
@@ -1053,6 +1243,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."grad_least_squares.rs".function]]
@@ -1072,6 +1269,7 @@ callees = [
     "fn:8bfa348bdafb8a29",
     "fn:ed7d718f646723fc",
 ]
+uses = ["fn:7aa70dd1c009cc88"]
 test = true
 
 [[module."grad_least_squares.rs".function]]
@@ -1092,6 +1290,11 @@ callees = [
     "fn:995c44e8dd4bfdb1",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+]
 test = true
 
 [[module."grad_least_squares.rs".function]]
@@ -1110,6 +1313,10 @@ callees = [
     "fn:8bfa348bdafb8a29",
     "fn:ce5c06050c849e86",
     "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
 ]
 test = true
 
@@ -1137,6 +1344,13 @@ callees = [
     "fn:a44e88aef7a7c4ab",
     "fn:c3cbd6da42ef009a",
     "fn:f5bc64c09b6618df",
+]
+uses = [
+    "fn:24a3d15a404f9a52",
+    "fn:75b64c5620c869e8",
+    "fn:7a05aabc9b2c5609",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
 ]
 reached_by = [
     "#28",
@@ -1186,6 +1400,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."grad_vec.rs".function]]
@@ -1204,6 +1425,10 @@ callees = [
     "fn:9573429ffda5c360",
     "fn:9e501e5f4cce23ae",
     "fn:ab689e0eef362ebf",
+]
+uses = [
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
 ]
 test = true
 
@@ -1227,6 +1452,13 @@ callees = [
     "fn:ab689e0eef362ebf",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [module."interpolate.rs"]
@@ -1246,6 +1478,7 @@ callees = [
     "fn:12a06403e27e4888",
     "fn:ed7d718f646723fc",
 ]
+uses = ["fn:05040b6b1b09bb4e"]
 reached_by = [
     "#0",
     "#1",
@@ -1418,6 +1651,14 @@ callees = [
     "fn:706875bb9663ee97",
     "fn:a44e88aef7a7c4ab",
     "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:1dfc1f5e5c08be1a",
+    "fn:293183d62b7ee5f9",
+    "fn:5b58f3d277cecf9b",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
 ]
 reached_by = [
     "#0",
@@ -1597,6 +1838,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."interpolate.rs".function]]
@@ -1615,6 +1863,7 @@ callees = [
     "fn:92fd53f240dcfb8e",
     "fn:a4f8d906083f7d12",
 ]
+uses = ["fn:7aa70dd1c009cc88"]
 test = true
 
 [[module."interpolate.rs".function]]
@@ -1634,6 +1883,7 @@ callees = [
     "fn:a4f8d906083f7d12",
     "fn:d6a9c884aaeb7775",
 ]
+uses = ["fn:7aa70dd1c009cc88"]
 test = true
 
 [[module."interpolate.rs".function]]
@@ -1653,6 +1903,10 @@ callees = [
     "fn:ce5c06050c849e86",
     "fn:d6a9c884aaeb7775",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+]
 test = true
 
 [module."mod.rs"]
@@ -1660,6 +1914,31 @@ path = "crate::fv_operators::fvc"
 
 [module."muscl.rs"]
 path = "crate::fv_operators::fvc::muscl"
+
+[[module."muscl.rs".function]]
+id = "fn:eae118e23384cf7a"
+name = "Limiter"
+qual = "Limiter"
+item = "type"
+shape = "enum"
+lines = [
+    35,
+    50,
+]
+hash = "sha256:12968b4e625d987dea9da4bba646f5d2d3cf94b6514fbca3c5d88c4a5195e881"
+doc_hash = "sha256:4730f7cec0b2b497a1d9e2524db374df41b2ad82a3b6fbee4ab54d4a8bc10ccc"
+reached_by = [
+    "#61",
+    "#62",
+    "#70",
+    "#71",
+    "#72",
+    "#92",
+    "#93",
+    "#94",
+    "#114",
+    "#115",
+]
 
 [[module."muscl.rs".function]]
 id = "fn:e5c88dcd1df662bd"
@@ -1671,6 +1950,7 @@ lines = [
 ]
 hash = "sha256:43427e12ecce540115d5e6c6f2283342155451474b6bc4dcace2c0564055c9d2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:eae118e23384cf7a"]
 reached_by = [
     "#61",
     "#62",
@@ -1704,6 +1984,14 @@ callees = [
     "fn:bcd3c0fddc1f933d",
     "fn:e5c88dcd1df662bd",
     "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+    "fn:eae118e23384cf7a",
 ]
 reached_by = [
     "#61",
@@ -1743,6 +2031,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."muscl.rs".function]]
@@ -1761,6 +2056,12 @@ callees = [
     "fn:8955a18f3ff3c6df",
     "fn:d6a9c884aaeb7775",
     "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+    "fn:eae118e23384cf7a",
 ]
 test = true
 
@@ -1781,6 +2082,11 @@ callees = [
     "fn:d6a9c884aaeb7775",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+    "fn:eae118e23384cf7a",
+]
 test = true
 
 [[module."muscl.rs".function]]
@@ -1799,6 +2105,11 @@ callees = [
     "fn:8955a18f3ff3c6df",
     "fn:d6a9c884aaeb7775",
     "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+    "fn:eae118e23384cf7a",
 ]
 test = true
 
@@ -1820,6 +2131,10 @@ callees = [
     "fn:234202bbbb86e5be",
     "fn:9e501e5f4cce23ae",
     "fn:ba34bd6dc5a8f876",
+]
+uses = [
+    "fn:7a05aabc9b2c5609",
+    "fn:ef05859ef19acee7",
 ]
 reached_by = [
     "#35",
@@ -1862,6 +2177,14 @@ callees = [
     "fn:636ae5a21be9336b",
     "fn:65f8f3c9daf074d2",
     "fn:a44e88aef7a7c4ab",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:75b64c5620c869e8",
+    "fn:7a05aabc9b2c5609",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
 ]
 reached_by = [
     "#35",
@@ -1908,6 +2231,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."reconstruct.rs".function]]
@@ -1928,6 +2258,10 @@ callees = [
     "fn:9e501e5f4cce23ae",
     "fn:d44f4d2f88d1fe04",
 ]
+uses = [
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."reconstruct.rs".function]]
@@ -1946,6 +2280,12 @@ callees = [
     "fn:6ba18f449c30e861",
     "fn:d44f4d2f88d1fe04",
     "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
 ]
 test = true
 
@@ -1970,6 +2310,14 @@ callees = [
     "fn:706875bb9663ee97",
     "fn:a44e88aef7a7c4ab",
     "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:293183d62b7ee5f9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
 ]
 reached_by = [
     "#25",
@@ -2043,6 +2391,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."sn_grad.rs".function]]
@@ -2061,6 +2416,7 @@ callees = [
     "fn:636e75b664f14254",
     "fn:ddf2344864918578",
 ]
+uses = ["fn:7aa70dd1c009cc88"]
 test = true
 
 [[module."sn_grad.rs".function]]
@@ -2080,6 +2436,7 @@ callees = [
     "fn:d6a9c884aaeb7775",
     "fn:ddf2344864918578",
 ]
+uses = ["fn:7aa70dd1c009cc88"]
 test = true
 
 [[module."sn_grad.rs".function]]
@@ -2099,6 +2456,12 @@ callees = [
     "fn:ddf2344864918578",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+]
 test = true
 
 [[module."sn_grad.rs".function]]
@@ -2117,5 +2480,9 @@ callees = [
     "fn:ce5c06050c849e86",
     "fn:d6a9c884aaeb7775",
     "fn:ddf2344864918578",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
 ]
 test = true

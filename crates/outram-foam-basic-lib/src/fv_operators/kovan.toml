@@ -193,6 +193,11 @@ callees = [
     "fn:1e0c0abc3044dc8b",
     "fn:4aea3161a87c6021",
 ]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:8d6cd763d46808ac",
+]
 reached_by = [
     "#73",
     "#74",
@@ -223,6 +228,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."adjust_phi.rs".function]]
@@ -244,6 +256,14 @@ callees = [
     "fn:da83a902c2e8f462",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."adjust_phi.rs".function]]
@@ -263,6 +283,14 @@ callees = [
     "fn:da6f8f153cedc206",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [module."mod.rs"]
@@ -270,6 +298,30 @@ path = "crate::fv_operators"
 
 [module."naming.rs"]
 path = "crate::fv_operators::naming"
+
+[[module."naming.rs".function]]
+id = "fn:74b136207fdea2ff"
+name = "ELIDED_OPERAND"
+qual = "ELIDED_OPERAND"
+item = "const"
+shape = "const"
+lines = [
+    62,
+    66,
+]
+hash = "sha256:5abe8466e3824515663af15d9adc53abef6f29e63ab4dae0faf244007e06ccac"
+doc_hash = "sha256:310798810c18120841fb4efadb117e520bf253ae22d0edc881dd0b466afbdcbc"
+reached_by = [
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#108",
+    "#109",
+    "#111",
+]
 
 [[module."naming.rs".function]]
 id = "fn:269193273067057f"
@@ -644,6 +696,7 @@ lines = [
 hash = "sha256:2777fbc22732832873b35aaaa66e96810bebdf1dc62f51221a2816ebc8b74b55"
 doc_hash = "sha256:719c128c42a8f6ff29c5d3d156e12b369c7845a1e8224247073c15e37700ce3a"
 callees = ["fn:269193273067057f"]
+uses = ["fn:74b136207fdea2ff"]
 reached_by = [
     "#35",
     "#36",

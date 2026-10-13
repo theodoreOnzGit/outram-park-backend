@@ -291,6 +291,10 @@ callees = [
     "fn:e04a45132823706f",
     "fn:eedc38381fcfd405",
 ]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:540617e338f429d7",
+]
 reached_by = [
     "#56",
     "#57",
@@ -316,6 +320,15 @@ callees = [
     "fn:b102dcadd8d4ca10",
     "fn:e04a45132823706f",
 ]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:4a19e9ba06c44963",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:9aef9d55f58acba3",
+    "fn:de020efa1d48c9ac",
+    "fn:e6f457f9221aaceb",
+]
 test = true
 
 [[module."core_fluid_node.rs".function]]
@@ -336,6 +349,15 @@ callees = [
     "fn:b102dcadd8d4ca10",
     "fn:e04a45132823706f",
 ]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:4a19e9ba06c44963",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:9aef9d55f58acba3",
+    "fn:de020efa1d48c9ac",
+    "fn:e6f457f9221aaceb",
+]
 test = true
 
 [module."mod.rs"]
@@ -355,6 +377,10 @@ callees = [
     "fn:93c3afb9f6d2d0be",
     "fn:b5820164c26172db",
     "fn:c2e4c782b543c255",
+]
+uses = [
+    "fn:2d1a21089bcd5928",
+    "fn:540617e338f429d7",
 ]
 reached_by = [
     "#0",
@@ -645,5 +671,9 @@ callees = [
     "fn:a0b4115d2681280f",
     "fn:e04a45132823706f",
     "fn:eedc38381fcfd405",
+]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:540617e338f429d7",
 ]
 physical_interface = true

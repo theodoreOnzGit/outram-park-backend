@@ -8,6 +8,30 @@ test_ids = ["crates/outram-foam-appbuilder-lib/src/solvers/rho_pimple_foam/mod.r
 path = "crate::solvers::rho_pimple_foam"
 
 [[module."mod.rs".function]]
+id = "fn:ac168af58cf4828b"
+name = "RhoPimpleFoam"
+qual = "RhoPimpleFoam"
+item = "type"
+shape = "struct"
+lines = [
+    39,
+    91,
+]
+hash = "sha256:642b1c9611b2bfa517b790d584fae4b3326e303fc4b167a26e7c608d39c84db5"
+doc_hash = "sha256:59d75e4a4d48e61b8e03d621c05e67b4c6dc0a58c3431447e7f76272efd2ed85"
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:25df17e04ecf98ae",
+    "fn:3f165bca5d68b785",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:b0768c6e7263ae77",
+    "fn:e0ff37b7796b05a6",
+]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
 id = "fn:211f4083d8513b90"
 name = "new"
 qual = "RhoPimpleFoam::new"
@@ -22,6 +46,17 @@ callees = [
     "fn:636e75b664f14254",
     "fn:acfb0f2d7b950994",
     "fn:d6a9c884aaeb7775",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:25df17e04ecf98ae",
+    "fn:3f165bca5d68b785",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ac168af58cf4828b",
+    "fn:b0768c6e7263ae77",
+    "fn:e0ff37b7796b05a6",
 ]
 reached_by = ["#0"]
 
@@ -40,6 +75,12 @@ callees = [
     "fn:4a3d63f4a0e47a1c",
     "fn:4aea3161a87c6021",
     "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:ac168af58cf4828b",
+    "fn:dde232a1ea648ca8",
 ]
 reached_by = ["#0"]
 
@@ -101,6 +142,18 @@ callees = [
     "fn:fb73e8d34cdb6dcd",
     "fn:fb7ba145dba6413c",
 ]
+uses = [
+    "fn:25df17e04ecf98ae",
+    "fn:35e5ba76ac9ceafb",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ac168af58cf4828b",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+    "fn:f354cdd32c8e9ebe",
+]
 reached_by = ["#0"]
 
 [[module."mod.rs".function]]
@@ -114,6 +167,12 @@ lines = [
 hash = "sha256:2b4d85517947749a446e89ad8c217c688eb66b871e18435691d1a3ba806bfcec"
 doc_hash = "sha256:103fdcdbe6a65b00e86f9b7916b6c721de5e913f95b3d347b2564b090a82a20a"
 callees = ["fn:0d3380f693977f66"]
+uses = [
+    "fn:35e5ba76ac9ceafb",
+    "fn:6ba3358f6a29c123",
+    "fn:ac168af58cf4828b",
+    "fn:f11bcf88c9cf8afa",
+]
 
 [[module."mod.rs".function]]
 id = "fn:4848c0221bc56f6b"
@@ -138,5 +197,14 @@ callees = [
     "fn:ed7d718f646723fc",
     "fn:f66e81a8a8f38feb",
     "fn:f8bf8efa3e1f4377",
+]
+uses = [
+    "fn:3f165bca5d68b785",
+    "fn:6ba3358f6a29c123",
+    "fn:7aa70dd1c009cc88",
+    "fn:ac168af58cf4828b",
+    "fn:b0768c6e7263ae77",
+    "fn:e0ff37b7796b05a6",
+    "fn:f11bcf88c9cf8afa",
 ]
 test = true

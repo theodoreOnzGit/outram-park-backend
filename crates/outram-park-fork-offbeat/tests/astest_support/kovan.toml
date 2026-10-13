@@ -7,6 +7,35 @@ dir = "crates/outram-park-fork-offbeat/tests/astest_support"
 path = "test:astest_ssnv126a::astest_support"
 
 [[module."mod.rs".function]]
+id = "fn:79c2a6f8d17b4f6b"
+name = "Extrapolation"
+qual = "Extrapolation"
+item = "type"
+shape = "enum"
+lines = [
+    44,
+    55,
+]
+hash = "sha256:1973cbcab5075338c81d7dadecc2938fde70b7e9945050483170989630d029ab"
+doc_hash = "sha256:ea19f6961734008a5f100a1c42687958bd8b5d2830530306e4461c3f9ecbdb66"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d2e3cdc78f1238af"
+name = "PiecewiseLinear"
+qual = "PiecewiseLinear"
+item = "type"
+shape = "struct"
+lines = [
+    57,
+    67,
+]
+hash = "sha256:9570fb2793bdee47610049d3d4eefb3cccf58156b5061445700253f41fb99a87"
+doc_hash = "sha256:2e1e9f1d56e2c9800a4b0450ca24fa58c8475a67051c19dc3c4d4e6a42983a76"
+uses = ["fn:79c2a6f8d17b4f6b"]
+test = true
+
+[[module."mod.rs".function]]
 id = "fn:2ac6b30799094362"
 name = "new"
 qual = "PiecewiseLinear::new"
@@ -16,6 +45,10 @@ lines = [
 ]
 hash = "sha256:f2fde66846e8b11a817bb3ae106eaeec023013505ad92395d161731ec9731a71"
 doc_hash = "sha256:c145691d6c046a5998fc2dfb1c4327085bc93b22836605d395cb2c649d76af84"
+uses = [
+    "fn:79c2a6f8d17b4f6b",
+    "fn:d2e3cdc78f1238af",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -28,6 +61,28 @@ lines = [
 ]
 hash = "sha256:ca72bf37be30d006c5dd225b38c3389277fd08e38252d67dd872876f42c4c64a"
 doc_hash = "sha256:97e17dcacec1334ce67d947c339ec414170efbcd9b0ccb3f710d59ed7a9d4655"
+uses = [
+    "fn:79c2a6f8d17b4f6b",
+    "fn:d2e3cdc78f1238af",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:b8609dba56a860ac"
+name = "Nappe"
+qual = "Nappe"
+item = "type"
+shape = "struct"
+lines = [
+    127,
+    138,
+]
+hash = "sha256:b9c1ac2e297b85d50702f675d4fac068a942b1c0333a0588ceea7ad3e2e8d9eb"
+doc_hash = "sha256:e8b79242e1aa540c748e95641e9ffd24ca9c5f6ae592021edcbd011cdb614a57"
+uses = [
+    "fn:79c2a6f8d17b4f6b",
+    "fn:d2e3cdc78f1238af",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -40,6 +95,11 @@ lines = [
 ]
 hash = "sha256:a4fee6815a0fde7570989ee81b9097ddbea5c798f95e1a82f1401b32b4c67edb"
 doc_hash = "sha256:96d72ad12e8e61ce6820e02a954de0eedf9306d1ae4911b6b1c7dfb98a7fc776"
+uses = [
+    "fn:79c2a6f8d17b4f6b",
+    "fn:b8609dba56a860ac",
+    "fn:d2e3cdc78f1238af",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -53,6 +113,24 @@ lines = [
 hash = "sha256:a6a1a7c29c5086b8ff13cc82c5d8e36b6a8f65a82b1df229b8d604bcd37d4b61"
 doc_hash = "sha256:2035bd7068e4833d589b3ed6e4d9401f1423580007a9251fcdc44c3ef7aeed53"
 callees = ["fn:f002c303dabea238"]
+uses = [
+    "fn:79c2a6f8d17b4f6b",
+    "fn:b8609dba56a860ac",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:16120c6af40d9819"
+name = "Control"
+qual = "Control"
+item = "type"
+shape = "enum"
+lines = [
+    207,
+    219,
+]
+hash = "sha256:619a5581f8eb5223ff3e67bf0c62dc00b8fbacbc2fa29e289d3d18e9f7a93f6f"
+doc_hash = "sha256:7a133a18c84051200c08d47a821464c1997edbd3320af2dbce99520c8f62f53d"
 test = true
 
 [[module."mod.rs".function]]
@@ -65,6 +143,7 @@ lines = [
 ]
 hash = "sha256:a90b3f0c84a2feac69f53674f10d3cde24249f44eefd1ff613bc0436dd6969f0"
 doc_hash = "sha256:847677a92fb7b7979d0465721ff276562d0ffbbda05321d72b04ec9cba352343"
+uses = ["fn:250c638c8bd6b322"]
 test = true
 
 [[module."mod.rs".function]]
@@ -78,6 +157,22 @@ lines = [
 hash = "sha256:24929c2423ebd150af453d572ca0214d7f53b17fa5e777f503b8b196c08fae0e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:27e86d8fe19529a2"]
+uses = ["fn:250c638c8bd6b322"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:4f2013c895adbd13"
+name = "MixedSolution"
+qual = "MixedSolution"
+item = "type"
+shape = "struct"
+lines = [
+    233,
+    246,
+]
+hash = "sha256:b39be1255036aecfec0b0df3629a877d357ec757dbb809b82c1ff5b3c317cb80"
+doc_hash = "sha256:5ac6b872ce16d7373c46fab3f768816132142733c7b6b3190ceeb134a68cda4c"
+uses = ["fn:250c638c8bd6b322"]
 test = true
 
 [[module."mod.rs".function]]
@@ -94,6 +189,11 @@ callees = [
     "fn:2b61f824de229353",
     "fn:441b5f6ed1ba08d4",
 ]
+uses = [
+    "fn:16120c6af40d9819",
+    "fn:250c638c8bd6b322",
+    "fn:4f2013c895adbd13",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -109,6 +209,10 @@ doc_hash = "sha256:f8708a0a877ab5d38cd41c2619aee8c9bbbb694de94aa04ffcacc74b0cc31
 callees = [
     "fn:2ac6b30799094362",
     "fn:f002c303dabea238",
+]
+uses = [
+    "fn:79c2a6f8d17b4f6b",
+    "fn:d2e3cdc78f1238af",
 ]
 test = true
 
@@ -127,6 +231,11 @@ callees = [
     "fn:65970f6f4f745c84",
     "fn:c09d93b2e3eacf1c",
 ]
+uses = [
+    "fn:79c2a6f8d17b4f6b",
+    "fn:b8609dba56a860ac",
+    "fn:d2e3cdc78f1238af",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -142,5 +251,9 @@ doc_hash = "sha256:f618222c3e578a48b0ed904ef0c42a67d2ee5c1e0575a1b1afb9ff99ca333
 callees = [
     "fn:27e86d8fe19529a2",
     "fn:db422ed6d9b22684",
+]
+uses = [
+    "fn:16120c6af40d9819",
+    "fn:250c638c8bd6b322",
 ]
 test = true

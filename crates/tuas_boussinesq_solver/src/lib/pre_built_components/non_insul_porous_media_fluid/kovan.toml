@@ -108,6 +108,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:522ca19d58b3d90a",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [[module."fluid_entity.rs".function]]
@@ -126,6 +127,7 @@ callees = [
     "fn:9212f011bf144631",
     "fn:f8fcd27da58670ac",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 reached_by = [
     "#0",
     "#1",
@@ -159,6 +161,7 @@ callees = [
     "fn:1e49a2c708f64bed",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [[module."fluid_entity.rs".function]]
@@ -175,6 +178,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:c1cd743e200a5b68",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [[module."fluid_entity.rs".function]]
@@ -191,6 +195,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:5d36a8426cb919e3",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [[module."fluid_entity.rs".function]]
@@ -207,6 +212,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:5cc3a78cc9d2e79a",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [[module."fluid_entity.rs".function]]
@@ -223,6 +229,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:7860f11bd51dbb37",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [[module."fluid_entity.rs".function]]
@@ -239,6 +246,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:7860f11bd51dbb37",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 reached_by = [
     "#2",
     "#8",
@@ -264,6 +272,7 @@ callees = [
     "fn:457e96f4f0b76ef7",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 reached_by = [
     "#2",
     "#8",
@@ -289,6 +298,7 @@ callees = [
     "fn:457e96f4f0b76ef7",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 reached_by = [
     "#1",
     "#2",
@@ -320,6 +330,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:5dc3c4cb5f94e19e",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [[module."fluid_entity.rs".function]]
@@ -336,6 +347,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:5dc3c4cb5f94e19e",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [[module."fluid_entity.rs".function]]
@@ -352,6 +364,7 @@ callees = [
     "fn:129612370ebfb9ce",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [[module."fluid_entity.rs".function]]
@@ -368,6 +381,7 @@ callees = [
     "fn:129612370ebfb9ce",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [[module."fluid_entity.rs".function]]
@@ -384,6 +398,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:7b8091c3b21fab1e",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 reached_by = ["#15"]
 physical_interface = true
 
@@ -401,6 +416,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:7b8091c3b21fab1e",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [[module."fluid_entity.rs".function]]
@@ -417,6 +433,7 @@ callees = [
     "fn:3115510adeccfc6e",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [[module."fluid_entity.rs".function]]
@@ -433,6 +450,7 @@ callees = [
     "fn:3115510adeccfc6e",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [[module."fluid_entity.rs".function]]
@@ -449,6 +467,7 @@ callees = [
     "fn:3399320921e68dcb",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [[module."fluid_entity.rs".function]]
@@ -465,6 +484,7 @@ callees = [
     "fn:3399320921e68dcb",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [[module."fluid_entity.rs".function]]
@@ -481,10 +501,47 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:5d36a8426cb919e3",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 physical_interface = true
 
 [module."mod.rs"]
 path = "crate::pre_built_components::non_insul_porous_media_fluid"
+
+[[module."mod.rs".function]]
+id = "fn:a1d8556b6efb3257"
+name = "NonInsulatedPorousMediaFluidComponent"
+qual = "NonInsulatedPorousMediaFluidComponent"
+item = "type"
+shape = "struct"
+lines = [
+    48,
+    182,
+]
+hash = "sha256:3bd8b3e62aa82970ff4c5bd23ba924df38183996647b5e4082d5a25691a6436d"
+doc_hash = "sha256:dc7add822371adb7444c76ac6d2aacdb92a179f87bfcf1becb9c75b9a6ccc138"
+uses = [
+    "fn:a6efe5f766b47fef",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
 
 [[module."mod.rs".function]]
 id = "fn:00d2aeb987ca80d7"
@@ -507,6 +564,16 @@ callees = [
     "fn:89feb71c7a73a1df",
     "fn:8d4119880af67bb8",
     "fn:9cf2732f8b0c6890",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:5ea8fd594a61fae6",
+    "fn:69cb4e66450be2fb",
+    "fn:9447740069e81383",
+    "fn:a1d8556b6efb3257",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
 ]
 reached_by = [
     "#0",
@@ -550,6 +617,16 @@ callees = [
     "fn:9cf2732f8b0c6890",
     "fn:a7684adf457511e5",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:5ea8fd594a61fae6",
+    "fn:69cb4e66450be2fb",
+    "fn:9447740069e81383",
+    "fn:a1d8556b6efb3257",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -574,6 +651,16 @@ callees = [
     "fn:9cf2732f8b0c6890",
     "fn:a7684adf457511e5",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:5ea8fd594a61fae6",
+    "fn:69cb4e66450be2fb",
+    "fn:9447740069e81383",
+    "fn:a1d8556b6efb3257",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
 reached_by = [
     "#12",
     "#15",
@@ -594,3 +681,7 @@ lines = [
 hash = "sha256:96aba3b1789761dfd9783709257013c944384310395729fdcd2d1e2b4a1ff606"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:4f08e35087543a15"]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:d4b239bd4b67db13",
+]

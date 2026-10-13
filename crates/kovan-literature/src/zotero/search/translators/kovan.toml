@@ -3,6 +3,7 @@ kind = "code_folder"
 crate = "kovan-literature"
 dir = "crates/kovan-literature/src/zotero/search/translators"
 test_ids = [
+    "crates/kovan-literature/src/zotero/search/mod.rs::order_is_priority_then_file_name",
     "crates/kovan-literature/src/zotero/search/translators/ads_bibcode.rs::bibcodes_and_types_like_upstream",
     "crates/kovan-literature/src/zotero/search/translators/camara_isbn.rs::detects_brazilian_isbns_only",
     "crates/kovan-literature/src/zotero/search/translators/camara_isbn.rs::without_a_configured_key_it_fails_without_a_request",
@@ -32,6 +33,36 @@ test_ids = [
 path = "crate::zotero::search::translators::ads_bibcode"
 
 [[module."ads_bibcode.rs".function]]
+id = "fn:f859453ab63300e9"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    30,
+    43,
+]
+hash = "sha256:22f72a113a1031c5ae64c0846dda8c25b2ee9c8850f28f3ff1b527efb99c4c8b"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."ads_bibcode.rs".function]]
 id = "fn:e2af2df045c665c0"
 name = "type_error"
 qual = "type_error"
@@ -41,13 +72,13 @@ lines = [
 ]
 hash = "sha256:0741d5209322333f534afd5f78d6b60a1d73a60f9bfaf789317f75f729bf8027"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:6f97bd3be56538d2"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -55,6 +86,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."ads_bibcode.rs".function]]
@@ -69,8 +101,7 @@ hash = "sha256:ab2855962be21a5021bfb4877c41ca49bd00261ba565ce8c8df4db16c5a6a509"
 doc_hash = "sha256:05e4a69c3f7c657ffde48f5342bd695028a658c66f0c9268132e109f6f781b0b"
 callees = ["fn:ae819469c8519e71"]
 reached_by = [
-    "#0",
-    "#9",
+    "#1",
     "#10",
     "#11",
     "#12",
@@ -84,6 +115,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."ads_bibcode.rs".function]]
@@ -101,8 +133,8 @@ callees = [
     "fn:924a39e0ad51951d",
     "fn:de118d5ee2192deb",
 ]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
@@ -116,6 +148,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."ads_bibcode.rs".function]]
@@ -129,10 +162,10 @@ lines = [
 hash = "sha256:b6a4998a97cba677887ab7e7adda0d876b0b1e11e4d27850c2be8cc92539ef33"
 doc_hash = "sha256:0526afb4702a9a59cfea13f0c2fbf85d449380b769d1b22492a18d87ed62e8b9"
 callees = ["fn:45b2b0e666e83956"]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -142,6 +175,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."ads_bibcode.rs".function]]
@@ -158,13 +192,17 @@ callees = [
     "fn:2ecb31c2800289b3",
     "fn:45b2b0e666e83956",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -172,6 +210,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."ads_bibcode.rs".function]]
@@ -185,13 +224,12 @@ lines = [
 hash = "sha256:c5ec172b7e5ce5ef69f3cb3a26a8dd4d3db99132b43515d7a1304949403faaca"
 doc_hash = "sha256:639cef7eb14fd161f94784adaf8f35078b9d127a8223cf427beb5adc4e6fe0cb"
 reached_by = [
-    "#0",
-    "#9",
+    "#1",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -199,6 +237,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."ads_bibcode.rs".function]]
@@ -212,14 +251,14 @@ lines = [
 hash = "sha256:69c8803f741c41fa688c8ded64a5c33f37ffe243e01d2be13702b51942f7c015"
 doc_hash = "sha256:d39626fe9649a3ae70d57266852bbde33b77de5f478b447530d585cefa7c66bd"
 callees = ["fn:233c0373830860a7"]
+uses = ["fn:6f97bd3be56538d2"]
 reached_by = [
-    "#0",
-    "#9",
+    "#1",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -227,6 +266,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."ads_bibcode.rs".function]]
@@ -249,13 +289,18 @@ callees = [
     "fn:e87ba1fcaf8d27d6",
     "fn:faa3059e067889e9",
 ]
+uses = [
+    "fn:4bba79b3caec4da7",
+    "fn:6f97bd3be56538d2",
+    "fn:9cb17a5ee667012b",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -263,6 +308,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."ads_bibcode.rs".function]]
@@ -290,13 +336,18 @@ callees = [
     "fn:f9a8072a9af91de9",
     "fn:fc0fa4bfdc15f523",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+    "fn:b278a27158f0ca13",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -304,6 +355,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."ads_bibcode.rs".function]]
@@ -327,6 +379,64 @@ test = true
 path = "crate::zotero::search::translators::arxiv"
 
 [[module."arxiv.rs".function]]
+id = "fn:790097fccb913dad"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    30,
+    43,
+]
+hash = "sha256:8f79e8643232ab7de25531a8523bd81dc221050e7e09f60e8ec8c816ca173599"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."arxiv.rs".function]]
+id = "fn:9b9b3fb617a31fe4"
+name = "CATEGORIES"
+qual = "CATEGORIES"
+item = "const"
+shape = "const"
+lines = [
+    45,
+    246,
+]
+hash = "sha256:3bdd848282508c1464378d16deb2747e44c7a7e03c1c2b2cee5cc347f0481195"
+doc_hash = "sha256:dd405027f988340ca4b3379aa17832dd6cfe2a73234f65b40e89fe4b925c1c77"
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."arxiv.rs".function]]
 id = "fn:710238dda6461d70"
 name = "category"
 qual = "category"
@@ -336,13 +446,13 @@ lines = [
 ]
 hash = "sha256:80b53406bdc81188aaa42347a90cb567d81fb53667873ff0b9d7cd0db2a283eb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:9b9b3fb617a31fe4"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -350,6 +460,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."arxiv.rs".function]]
@@ -363,10 +474,10 @@ lines = [
 hash = "sha256:a76e51c63e888357d69c83ac3842326aa3557db94ebbf2fd354701685dc6ad40"
 doc_hash = "sha256:a04d6d4f4e58fc35f26e5a15b1c68d18bfc0ceddf74919cd3cac6f76dafec71c"
 callees = ["fn:5fa0779c3d670846"]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -376,6 +487,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."arxiv.rs".function]]
@@ -395,13 +507,17 @@ callees = [
     "fn:b66488f6e0e50879",
     "fn:d98eae34a3dcad53",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -409,6 +525,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."arxiv.rs".function]]
@@ -425,13 +542,18 @@ callees = [
     "fn:42a6c8d0c56ba169",
     "fn:7b0bdc9686e6594a",
 ]
+uses = [
+    "fn:4bba79b3caec4da7",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -439,6 +561,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."arxiv.rs".function]]
@@ -456,13 +579,16 @@ callees = [
     "fn:0cb4517c31e47f94",
     "fn:e0defe658e2748d2",
 ]
+uses = [
+    "fn:b50bb81c0f596dee",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -470,6 +596,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."arxiv.rs".function]]
@@ -487,13 +614,16 @@ callees = [
     "fn:9160e07c575a767d",
     "fn:de93719930ae2755",
 ]
+uses = [
+    "fn:b50bb81c0f596dee",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -501,6 +631,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."arxiv.rs".function]]
@@ -518,13 +649,16 @@ callees = [
     "fn:c78b4f8868b0c764",
     "fn:de93719930ae2755",
 ]
+uses = [
+    "fn:b50bb81c0f596dee",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -532,6 +666,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."arxiv.rs".function]]
@@ -549,13 +684,17 @@ callees = [
     "fn:c958b6c566bf4bba",
     "fn:cea288306c80a25a",
 ]
+uses = [
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -563,6 +702,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."arxiv.rs".function]]
@@ -576,12 +716,11 @@ lines = [
 hash = "sha256:f05f217a92c69e6cd9fa6265f826ee4cf28a384eeb4e878df22653ef34cf65ce"
 doc_hash = "sha256:ab9ce6a0e0451820cd84f3a2a6f7b41ea93fed8c2ea999a46b8d1018ee895900"
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -589,6 +728,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."arxiv.rs".function]]
@@ -624,13 +764,24 @@ callees = [
     "fn:f9a8072a9af91de9",
     "fn:fc0fa4bfdc15f523",
 ]
+uses = [
+    "fn:15406dc4687bb131",
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+    "fn:b278a27158f0ca13",
+    "fn:b50bb81c0f596dee",
+    "fn:c6aef6f93f9888a0",
+    "fn:d7d2605aa15a13f3",
+    "fn:dc611d402b27d072",
+    "fn:f961a669079588a5",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -638,10 +789,69 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [module."bnf_isbn.rs"]
 path = "crate::zotero::search::translators::bnf_isbn"
+
+[[module."bnf_isbn.rs".function]]
+id = "fn:e0b4f54a6731fc42"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    27,
+    40,
+]
+hash = "sha256:c978973c89b509e07c71fce2be70bf9ef45cdd873628ac869157b820a231aab9"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."bnf_isbn.rs".function]]
+id = "fn:32eead75f89452f6"
+name = "NS"
+qual = "NS"
+item = "const"
+shape = "const"
+lines = [
+    42,
+    45,
+]
+hash = "sha256:b7a1746a51ca171778786a57f693a0c151c0b5c944d8dbbeb7acd20dd276f2b9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."bnf_isbn.rs".function]]
 id = "fn:f1cc3126992af8cf"
@@ -654,10 +864,10 @@ lines = [
 hash = "sha256:bf2dd0673949f707d06d0e57e814240ea5c1001a2b092b1c4d5b775960220980"
 doc_hash = "sha256:7eafcc6b0a034fa3ab5ea0ae25a529b0564abd4c029efeb13fa1d0c608845c4a"
 callees = ["fn:5fa0779c3d670846"]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -667,6 +877,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."bnf_isbn.rs".function]]
@@ -693,13 +904,21 @@ callees = [
     "fn:9a5415a9b65ef240",
     "fn:ff0f2370dce64749",
 ]
+uses = [
+    "fn:0c0ebbeabbd712b8",
+    "fn:208bdcd6bb956739",
+    "fn:32eead75f89452f6",
+    "fn:6f97bd3be56538d2",
+    "fn:9cb17a5ee667012b",
+    "fn:b0d567e807338d78",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -707,10 +926,70 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [module."camara_isbn.rs"]
 path = "crate::zotero::search::translators::camara_isbn"
+
+[[module."camara_isbn.rs".function]]
+id = "fn:36b8a80b6fdc1e62"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    42,
+    55,
+]
+hash = "sha256:75e08d69f0a3c9d8e7f13b819545131b5fa04c895e2a1aaa26e334cdf4e9315d"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."camara_isbn.rs".function]]
+id = "fn:58e9c9c01402127a"
+name = "API_KEY_PREF"
+qual = "API_KEY_PREF"
+item = "const"
+shape = "const"
+lines = [
+    57,
+    58,
+]
+hash = "sha256:078d72bea9f6a3df8dcc82a06121463497eddbd6e8a8206f5b0a2359d2424df5"
+doc_hash = "sha256:a2122ba5b785a291dd6e81717adfe1b896247694773ef2516aa9c11e78daf3ad"
+reached_by = [
+    "#3",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."camara_isbn.rs".function]]
 id = "fn:2cbe702221179a26"
@@ -728,10 +1007,10 @@ callees = [
     "fn:5dd7d283a9da95ef",
     "fn:924a39e0ad51951d",
 ]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#1",
     "#2",
-    "#9",
+    "#3",
     "#10",
     "#11",
     "#12",
@@ -745,6 +1024,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."camara_isbn.rs".function]]
@@ -758,11 +1038,11 @@ lines = [
 hash = "sha256:e6e36df150399b22cc62d7c65347de4fad22c6d45fbf9338f32d69a5f088dc0d"
 doc_hash = "sha256:0f772234b36c57378db23082bf3328c2138a4a622c243a73a0158b81245b5366"
 callees = ["fn:2cbe702221179a26"]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#1",
-    "#10",
+    "#2",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -772,6 +1052,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."camara_isbn.rs".function]]
@@ -793,14 +1074,20 @@ callees = [
     "fn:e13e3ed129d47d0a",
     "fn:faa3059e067889e9",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:4bba79b3caec4da7",
+    "fn:58e9c9c01402127a",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#2",
-    "#9",
+    "#3",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -808,6 +1095,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."camara_isbn.rs".function]]
@@ -820,14 +1108,14 @@ lines = [
 ]
 hash = "sha256:0741d5209322333f534afd5f78d6b60a1d73a60f9bfaf789317f75f729bf8027"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:6f97bd3be56538d2"]
 reached_by = [
-    "#2",
-    "#9",
+    "#3",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -835,6 +1123,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."camara_isbn.rs".function]]
@@ -849,13 +1138,12 @@ hash = "sha256:dfaea2646e9f51bcb92f2ce16bc53b0493dda9c5e751567c2e81cb4a12641d4a"
 doc_hash = "sha256:33cc9dcbf62a674442928578a6ed44c3562e77a33e810021ac04bea2b21b359c"
 callees = ["fn:4654d7e3bec49f81"]
 reached_by = [
-    "#2",
-    "#9",
+    "#3",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -863,6 +1151,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."camara_isbn.rs".function]]
@@ -876,13 +1165,12 @@ lines = [
 hash = "sha256:7debdfe75a5a54721a601cd3facfae7d0224289a58e19da7b9123f72cb1a8240"
 doc_hash = "sha256:e82a15fd0c2d97c9d98d8f6d1c1451c52118bf6af969cc1eff95dfcb9e3a6b53"
 reached_by = [
-    "#2",
-    "#9",
+    "#3",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -890,6 +1178,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."camara_isbn.rs".function]]
@@ -903,13 +1192,12 @@ lines = [
 hash = "sha256:4d0d733d4c64bcfda219bbedffd248580e5c876612de45743e7b1541ba4b2aa5"
 doc_hash = "sha256:f90370810346fb84dda30a1a3721dd17d8fc95af575e929775901a597b66e120"
 reached_by = [
-    "#2",
-    "#9",
+    "#3",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -917,6 +1205,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."camara_isbn.rs".function]]
@@ -933,14 +1222,14 @@ callees = [
     "fn:ac2f1219290069d1",
     "fn:c4f7ab84259689e1",
 ]
+uses = ["fn:b278a27158f0ca13"]
 reached_by = [
-    "#2",
-    "#9",
+    "#3",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -948,6 +1237,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."camara_isbn.rs".function]]
@@ -978,14 +1268,20 @@ callees = [
     "fn:c4f7ab84259689e1",
     "fn:dec42dae346c37c3",
 ]
+uses = [
+    "fn:15406dc4687bb131",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+    "fn:b278a27158f0ca13",
+    "fn:dc611d402b27d072",
+]
 reached_by = [
-    "#2",
-    "#9",
+    "#3",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -993,6 +1289,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."camara_isbn.rs".function]]
@@ -1007,13 +1304,12 @@ hash = "sha256:8e8f7c543e2748811ba47d3c3539cba647444d5f9920198530361ba3808cf96b"
 doc_hash = "sha256:5ce02eaa8ea7695768de28deac8dd8551fdf88079b81cc99fd017affcfe43eba"
 callees = ["fn:ae819469c8519e71"]
 reached_by = [
-    "#2",
-    "#9",
+    "#3",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1021,6 +1317,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."camara_isbn.rs".function]]
@@ -1037,6 +1334,7 @@ callees = [
     "fn:62a57721fdce4aef",
     "fn:f9a8072a9af91de9",
 ]
+uses = ["fn:208bdcd6bb956739"]
 test = true
 
 [[module."camara_isbn.rs".function]]
@@ -1054,6 +1352,7 @@ callees = [
     "fn:dcd68caa9509811a",
     "fn:f9a8072a9af91de9",
 ]
+uses = ["fn:208bdcd6bb956739"]
 test = true
 
 [[module."camara_isbn.rs".function]]
@@ -1074,10 +1373,47 @@ callees = [
     "fn:675c60a11749143a",
     "fn:e9b70db00c906708",
 ]
+uses = [
+    "fn:58e9c9c01402127a",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+    "fn:bcabfba8347d7c9c",
+    "fn:bfcbcbff795af588",
+]
 test = true
 
 [module."crossref_rest.rs"]
 path = "crate::zotero::search::translators::crossref_rest"
+
+[[module."crossref_rest.rs".function]]
+id = "fn:6007e95c5dd0cc5c"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    34,
+    47,
+]
+hash = "sha256:b86d5f86c59690e238b3689471d9f1db3490b12d364801d78b94304f37c18136"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."crossref_rest.rs".function]]
 id = "fn:40945c94c3d311f7"
@@ -1090,13 +1426,12 @@ lines = [
 hash = "sha256:b83ca9b10127ace940fdd3071f6a14b482ee8e2c12b7399941f9fc73ed14d5ea"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
-    "#3",
-    "#9",
+    "#4",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1104,6 +1439,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1118,13 +1454,12 @@ hash = "sha256:c7f2d561ded29edf8a7c80196b5dd02738670c2b446ac5c54cd8cad78e2052ea"
 doc_hash = "sha256:cd00964f3fa3c7dcff7393b199266f6f30c09836f2d50619841a05aa771f7a71"
 callees = ["fn:40945c94c3d311f7"]
 reached_by = [
-    "#3",
-    "#9",
+    "#4",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1132,6 +1467,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1146,13 +1482,12 @@ hash = "sha256:f5c84bbe4563e83cb3cd2ed0c1c933414ab67b321245bfb017da9b03ded67ed2"
 doc_hash = "sha256:5d8ec4a78ab387cf464bb3ab795be4d65a1cc165cf98cd27fa8ac78ce82f02c9"
 callees = ["fn:40945c94c3d311f7"]
 reached_by = [
-    "#3",
-    "#9",
+    "#4",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1160,6 +1495,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1177,12 +1513,11 @@ callees = [
     "fn:aee01cc88ba1a261",
 ]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1190,6 +1525,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1204,12 +1540,11 @@ hash = "sha256:ebd239d45f166c18c6a60317ba29e1cbe5fec8fe3eee9333912a38790a418f2f"
 doc_hash = "sha256:75a7fd241fb6cff50a790f7e775aa278f2ba84c5bdc15b0b7dafd4d857f5d65b"
 callees = ["fn:3271ca1bb1a562c0"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1217,6 +1552,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1230,12 +1566,11 @@ lines = [
 hash = "sha256:65278daf799f3bb4d74b7f53d2977168c091fab79079dbbfedc00ef57ce5e67e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1243,6 +1578,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1256,12 +1592,11 @@ lines = [
 hash = "sha256:dfb0ee6fc9bb23de017a605ac3a6d14dc52506fc6ae17c0859958bd8758debdb"
 doc_hash = "sha256:4716f54afa1cd3bc835091584594bbe1828293836fd90ec3108722329e671f18"
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1269,6 +1604,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1283,12 +1619,11 @@ hash = "sha256:38631ea7b0842ba28c4425d75c795ff0760a3c549fdc8747eff5d701dc2957fb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:3271ca1bb1a562c0"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1296,6 +1631,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1313,13 +1649,16 @@ callees = [
     "fn:5dd7d283a9da95ef",
     "fn:9ae23911c44ec2de",
 ]
+uses = [
+    "fn:15406dc4687bb131",
+    "fn:b278a27158f0ca13",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1327,6 +1666,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1341,12 +1681,11 @@ hash = "sha256:284b6c7b2512f00e8987fd6bd1cb781aba0fde233e99c12d5d917c72561a0dce"
 doc_hash = "sha256:c3a8304190b2ae6c7030555a58c85d9a2168542a6f00fc8ca45ec34598ce4005"
 callees = ["fn:5dd7d283a9da95ef"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1354,6 +1693,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1372,12 +1712,11 @@ callees = [
     "fn:9ae23911c44ec2de",
 ]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1385,6 +1724,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1398,12 +1738,11 @@ lines = [
 hash = "sha256:d2495d2c25d91a8c1afc88608e16099dcc0a4c89e21d2c88f82b5b949abb2127"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1411,6 +1750,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1423,13 +1763,13 @@ lines = [
 ]
 hash = "sha256:d77b9f912c7e16d6319b3a8b6921235c35156447ca2d6d267625f093f6cce773"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:6f97bd3be56538d2"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1437,6 +1777,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1472,13 +1813,20 @@ callees = [
     "fn:f2b82914c0858b10",
     "fn:f4d623c08c1abdf1",
 ]
+uses = [
+    "fn:15406dc4687bb131",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+    "fn:b278a27158f0ca13",
+    "fn:b9ab0892b8bf14cb",
+    "fn:c6aef6f93f9888a0",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1486,6 +1834,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1500,13 +1849,12 @@ hash = "sha256:43626a8728142e8f55ef28f0c1bb439edcaa6825812524fbc9035d29c8ed06a3"
 doc_hash = "sha256:773bbe4b76d3ffbf8d20fb00948e85abe47265b7207ba9b35e52ed773d43be6e"
 callees = ["fn:4e4a5670485101c0"]
 reached_by = [
-    "#3",
-    "#9",
+    "#4",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1514,6 +1862,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1526,10 +1875,10 @@ lines = [
 ]
 hash = "sha256:eec8cd937aa79583b6803c3f671911a502e5cdffeb5321a519e40a780d2dad6c"
 doc_hash = "sha256:3ed838b3f2f07443f9e557bb930489ffab1e823769449072861615d49db1f287"
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -1539,6 +1888,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1562,13 +1912,17 @@ callees = [
     "fn:b66488f6e0e50879",
     "fn:f81e2b6d81f47d28",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1576,6 +1930,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."crossref_rest.rs".function]]
@@ -1599,6 +1954,36 @@ test = true
 path = "crate::zotero::search::translators::doi_content_negotiation"
 
 [[module."doi_content_negotiation.rs".function]]
+id = "fn:3192f4efc711f1b2"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    26,
+    39,
+]
+hash = "sha256:e2bee01600b939f8c2e8ab4a3f07c901dcc9c228e5e432243879a264971a60c4"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."doi_content_negotiation.rs".function]]
 id = "fn:6a075ed28aa371d5"
 name = "filter_query"
 qual = "filter_query"
@@ -1614,8 +1999,8 @@ callees = [
     "fn:924a39e0ad51951d",
     "fn:f81e2b6d81f47d28",
 ]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
@@ -1629,6 +2014,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."doi_content_negotiation.rs".function]]
@@ -1642,10 +2028,10 @@ lines = [
 hash = "sha256:b6a4998a97cba677887ab7e7adda0d876b0b1e11e4d27850c2be8cc92539ef33"
 doc_hash = "sha256:6cdbf6d24e6f7f3f2ef3203553dc38594efb429883d563dc5790a8fe71533b16"
 callees = ["fn:6a075ed28aa371d5"]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -1655,6 +2041,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."doi_content_negotiation.rs".function]]
@@ -1671,13 +2058,17 @@ callees = [
     "fn:6a075ed28aa371d5",
     "fn:890e5049cf4b39ba",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1685,6 +2076,35 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
+]
+
+[[module."doi_content_negotiation.rs".function]]
+id = "fn:e4e3083009561e95"
+name = "ACCEPT"
+qual = "ACCEPT"
+item = "const"
+shape = "const"
+lines = [
+    67,
+    67,
+]
+hash = "sha256:a2ff3b8f7059546ac273de5f55c906e7a821e2dc6b0c7db617a355c7e79d8582"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
 ]
 
 [[module."doi_content_negotiation.rs".function]]
@@ -1706,13 +2126,19 @@ callees = [
     "fn:c4f7ab84259689e1",
     "fn:e64f5323b376e50a",
 ]
+uses = [
+    "fn:4bba79b3caec4da7",
+    "fn:6f97bd3be56538d2",
+    "fn:9cb17a5ee667012b",
+    "fn:b0d567e807338d78",
+    "fn:e4e3083009561e95",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1720,6 +2146,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."doi_content_negotiation.rs".function]]
@@ -1738,13 +2165,16 @@ callees = [
     "fn:924a39e0ad51951d",
     "fn:f4d623c08c1abdf1",
 ]
+uses = [
+    "fn:6f97bd3be56538d2",
+    "fn:b278a27158f0ca13",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1752,10 +2182,41 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [module."eidr.rs"]
 path = "crate::zotero::search::translators::eidr"
+
+[[module."eidr.rs".function]]
+id = "fn:3ce506d87ebcaaca"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    30,
+    43,
+]
+hash = "sha256:f748d2a96e8742d7f7e4264a0ee06733c8addf098ddc177e2e02fb8ebad21434"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."eidr.rs".function]]
 id = "fn:7db9290c807011b7"
@@ -1768,12 +2229,11 @@ lines = [
 hash = "sha256:7cd84841288399106065bf4e9a316e4c93cebd081c1bfb8502eb2d0731c28626"
 doc_hash = "sha256:3532bf59009d6be37db1cf8584fa28efd81990401c917a4f31309a5f7c391628"
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1781,6 +2241,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eidr.rs".function]]
@@ -1794,12 +2255,11 @@ lines = [
 hash = "sha256:53f747519331621dfd55f93fe31bc0de4a68ec5cf7013ddaff49575d3279547d"
 doc_hash = "sha256:1ef0b8f635b3522d74da9109f40e97f41631ba0712d232b1b16c4c8cf43a16aa"
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1807,6 +2267,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eidr.rs".function]]
@@ -1819,14 +2280,14 @@ lines = [
 ]
 hash = "sha256:0741d5209322333f534afd5f78d6b60a1d73a60f9bfaf789317f75f729bf8027"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:6f97bd3be56538d2"]
 reached_by = [
-    "#4",
-    "#9",
+    "#5",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1834,6 +2295,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eidr.rs".function]]
@@ -1848,13 +2310,12 @@ hash = "sha256:46673fa6a7ed8b626fc8d89051566aba9fc85e3e01742ef536f80e2c863da455"
 doc_hash = "sha256:d8fd4b0e48f906ad037f250dca1392ddda76c08106edc6fc418f91faaf0179a5"
 callees = ["fn:9160e07c575a767d"]
 reached_by = [
-    "#4",
-    "#9",
+    "#5",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1862,6 +2323,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eidr.rs".function]]
@@ -1878,13 +2340,16 @@ callees = [
     "fn:5022538f474ba8ae",
     "fn:b14fbf941f8dc624",
 ]
+uses = [
+    "fn:b50bb81c0f596dee",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1892,6 +2357,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eidr.rs".function]]
@@ -1908,10 +2374,10 @@ callees = [
     "fn:3271ca1bb1a562c0",
     "fn:924a39e0ad51951d",
 ]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -1921,6 +2387,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eidr.rs".function]]
@@ -1957,13 +2424,21 @@ callees = [
     "fn:cea288306c80a25a",
     "fn:fa44f870a3294aa7",
 ]
+uses = [
+    "fn:0c0ebbeabbd712b8",
+    "fn:15406dc4687bb131",
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+    "fn:b278a27158f0ca13",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -1971,6 +2446,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eidr.rs".function]]
@@ -1987,14 +2463,14 @@ callees = [
     "fn:460fbf343517818a",
     "fn:ff16ffa63506b7d0",
 ]
+uses = ["fn:6f97bd3be56538d2"]
 reached_by = [
-    "#4",
-    "#9",
+    "#5",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2002,6 +2478,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eidr.rs".function]]
@@ -2016,13 +2493,12 @@ hash = "sha256:f748925ee7170a40781e53c021e767de0742732b0c9d6706d14c88b93ed58429"
 doc_hash = "sha256:69370be6892c598cf869d0b4cd6576df83bd197cc66452e08bf303fd0313a7f4"
 callees = ["fn:c67145c2d5c07592"]
 reached_by = [
-    "#4",
-    "#9",
+    "#5",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2030,6 +2506,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eidr.rs".function]]
@@ -2052,6 +2529,36 @@ test = true
 path = "crate::zotero::search::translators::eric"
 
 [[module."eric.rs".function]]
+id = "fn:0fefda36e1bd38db"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    28,
+    41,
+]
+hash = "sha256:93d3ab80f63f685e862d2940942d9d267409da8321c5aa061a47b14d3056b838"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."eric.rs".function]]
 id = "fn:26caccfac4840888"
 name = "get_type"
 qual = "get_type"
@@ -2062,12 +2569,11 @@ lines = [
 hash = "sha256:7501c0a966f9a61b005d42b3fa88c8abb70cf4dd765097d10a6d44dc057c2b76"
 doc_hash = "sha256:3fff57b22d7ab3af6bb02d0c363030c9f0596efca75fe5659fd24586d567c71b"
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2075,6 +2581,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eric.rs".function]]
@@ -2088,9 +2595,9 @@ lines = [
 hash = "sha256:ff52bdf3fd56d7ce6bc4ad5606dc41c69bcf2cb1a1dbe178657fc901a611f629"
 doc_hash = "sha256:41da1591038f20b16f5169c6468f10e5a8ad01e345fb48fefd50b4be745b4a51"
 callees = ["fn:39e5638f6dcf825a"]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#5",
-    "#9",
+    "#6",
     "#10",
     "#11",
     "#12",
@@ -2104,6 +2611,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eric.rs".function]]
@@ -2117,10 +2625,10 @@ lines = [
 hash = "sha256:cdbf5e5e1074613a9de51fa04fe29f842534e3b12801fc36920e9fa6c580e1c5"
 doc_hash = "sha256:ce33eb99f10f3c9a326fc1a3adf243173a1eb4d337454c93e47219323af3ec4a"
 callees = ["fn:3115bd16f3e432ec"]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -2130,6 +2638,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eric.rs".function]]
@@ -2142,13 +2651,13 @@ lines = [
 ]
 hash = "sha256:d77b9f912c7e16d6319b3a8b6921235c35156447ca2d6d267625f093f6cce773"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:6f97bd3be56538d2"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2156,6 +2665,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eric.rs".function]]
@@ -2170,12 +2680,11 @@ hash = "sha256:18a0409083ae6d02c770ecca3385b621558a5411bddf11854166cb574ae7499b"
 doc_hash = "sha256:01a05b8041ce55e6b2a58d6ab317bc0a0c58a8d96ec26d7202a412c6f4d18ab9"
 callees = ["fn:5dd7d283a9da95ef"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2183,6 +2692,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eric.rs".function]]
@@ -2197,12 +2707,11 @@ hash = "sha256:38631ea7b0842ba28c4425d75c795ff0760a3c549fdc8747eff5d701dc2957fb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:3271ca1bb1a562c0"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2210,6 +2719,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eric.rs".function]]
@@ -2224,13 +2734,12 @@ hash = "sha256:9d49f076c871dce80b1c07601882e5e2d509077bdacce4c7a567c218050a4732"
 doc_hash = "sha256:5020eb0e405b7529219176ba326f46bfc98f32926eda8c4067652904e4c49c68"
 callees = ["fn:ae819469c8519e71"]
 reached_by = [
-    "#5",
-    "#9",
+    "#6",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2238,6 +2747,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eric.rs".function]]
@@ -2251,12 +2761,11 @@ lines = [
 hash = "sha256:37c18742e2f41fcfc38d8c0caed703dddc50af560418ef09649634a95d5aeab8"
 doc_hash = "sha256:c0c6f266f677ab5bbd6b5b89a1ce2312b17b752c54e016d85d3afd53545153c1"
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2264,6 +2773,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eric.rs".function]]
@@ -2300,13 +2810,21 @@ callees = [
     "fn:f81e2b6d81f47d28",
     "fn:f9a8072a9af91de9",
 ]
+uses = [
+    "fn:15406dc4687bb131",
+    "fn:208bdcd6bb956739",
+    "fn:4bba79b3caec4da7",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+    "fn:b278a27158f0ca13",
+    "fn:dc611d402b27d072",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2314,6 +2832,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."eric.rs".function]]
@@ -2332,10 +2851,41 @@ callees = [
     "fn:7a8f379bfe10a03b",
     "fn:f9a8072a9af91de9",
 ]
+uses = ["fn:208bdcd6bb956739"]
 test = true
 
 [module."gbv_isbn.rs"]
 path = "crate::zotero::search::translators::gbv_isbn"
+
+[[module."gbv_isbn.rs".function]]
+id = "fn:638d50be288058d4"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    20,
+    33,
+]
+hash = "sha256:58b1618ead46efb51f9025c3012f5172554539ab6df7979dd01e1259f8e2a502"
+doc_hash = "sha256:bb21efc94a43c356ca96be42e8cfc1b285ef82b2116ac1657364d785b6bdb88f"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."gbv_isbn.rs".function]]
 id = "fn:f3047988d668ad1b"
@@ -2347,10 +2897,10 @@ lines = [
 ]
 hash = "sha256:eec8cd937aa79583b6803c3f671911a502e5cdffeb5321a519e40a780d2dad6c"
 doc_hash = "sha256:d0ec30acc09f1a987b0bd33185b664f763b7dd3994966e42abd7ceccdb862352"
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -2360,6 +2910,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."gbv_isbn.rs".function]]
@@ -2372,13 +2923,17 @@ lines = [
 ]
 hash = "sha256:67f953b81baca425118b7c16c8e2f8836942596f25894b112fa047040ff3eb42"
 doc_hash = "sha256:72878a25484dc96a62058d1d0c732651b20ce650f093e0b4b89285d766a109cd"
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2386,10 +2941,41 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [module."k10plus_isbn.rs"]
 path = "crate::zotero::search::translators::k10plus_isbn"
+
+[[module."k10plus_isbn.rs".function]]
+id = "fn:e2275f69a1990dc6"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    28,
+    41,
+]
+hash = "sha256:53e8f530ed96f3db8b26dba847a85b52ece4bb50d940e2def453ceaa5d46dc48"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."k10plus_isbn.rs".function]]
 id = "fn:d1d308682469a6f9"
@@ -2402,10 +2988,10 @@ lines = [
 hash = "sha256:bf2dd0673949f707d06d0e57e814240ea5c1001a2b092b1c4d5b775960220980"
 doc_hash = "sha256:18537375f26782b9821bd7dce6512b188fb0b9feb159d2009e8e343d14efb686"
 callees = ["fn:5fa0779c3d670846"]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -2415,6 +3001,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."k10plus_isbn.rs".function]]
@@ -2438,13 +3025,18 @@ callees = [
     "fn:a81f9325124150d2",
     "fn:b66488f6e0e50879",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:9cb17a5ee667012b",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2452,6 +3044,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."k10plus_isbn.rs".function]]
@@ -2477,13 +3070,19 @@ callees = [
     "fn:f9a8072a9af91de9",
     "fn:fc0fa4bfdc15f523",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:84cb0209ea2238b7",
+    "fn:b278a27158f0ca13",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2491,10 +3090,41 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [module."libris_isbn.rs"]
 path = "crate::zotero::search::translators::libris_isbn"
+
+[[module."libris_isbn.rs".function]]
+id = "fn:1f93443edd96e4f9"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    24,
+    37,
+]
+hash = "sha256:b0046668ac8e9075a73e23c200d617b34320024bcbc574deed2e8a36c73e8e8b"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."libris_isbn.rs".function]]
 id = "fn:d9cd4071a2ef934d"
@@ -2510,10 +3140,10 @@ callees = [
     "fn:0dbf9e700f8c6de6",
     "fn:924a39e0ad51951d",
 ]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -2523,6 +3153,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."libris_isbn.rs".function]]
@@ -2546,13 +3177,20 @@ callees = [
     "fn:924a39e0ad51951d",
     "fn:e622e06e0bb14282",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:4bba79b3caec4da7",
+    "fn:6f97bd3be56538d2",
+    "fn:9cb17a5ee667012b",
+    "fn:b0d567e807338d78",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2560,10 +3198,41 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [module."loc_isbn.rs"]
 path = "crate::zotero::search::translators::loc_isbn"
+
+[[module."loc_isbn.rs".function]]
+id = "fn:d7a0a953cdf24eda"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    22,
+    35,
+]
+hash = "sha256:1864576822a095c3987a2b0679118f47ad37319633f46c3bcb5c1c025f4a4511"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."loc_isbn.rs".function]]
 id = "fn:d247d1cc279c3207"
@@ -2576,10 +3245,10 @@ lines = [
 hash = "sha256:bf2dd0673949f707d06d0e57e814240ea5c1001a2b092b1c4d5b775960220980"
 doc_hash = "sha256:4d97d8f2a5535685131d5aa8efc744c249152ea193e69e0a6a8aa287608d4e4b"
 callees = ["fn:5fa0779c3d670846"]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -2589,6 +3258,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."loc_isbn.rs".function]]
@@ -2611,13 +3281,18 @@ callees = [
     "fn:9a5415a9b65ef240",
     "fn:b66488f6e0e50879",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:9cb17a5ee667012b",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2625,10 +3300,41 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [module."lulu.rs"]
 path = "crate::zotero::search::translators::lulu"
+
+[[module."lulu.rs".function]]
+id = "fn:4e1b39ea08202160"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    32,
+    45,
+]
+hash = "sha256:66e5a58f9ecfe3ffe5fd542519434e827cf866bd6e1cc32f23118e18f15d2d6c"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."lulu.rs".function]]
 id = "fn:ff83eb79ac2e16ec"
@@ -2640,10 +3346,10 @@ lines = [
 ]
 hash = "sha256:eec8cd937aa79583b6803c3f671911a502e5cdffeb5321a519e40a780d2dad6c"
 doc_hash = "sha256:0d6f85c503782912fef9bb6af5ba5b79ebad78b0babf0b85f9e38b82d7908667"
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -2653,6 +3359,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."lulu.rs".function]]
@@ -2669,13 +3376,17 @@ callees = [
     "fn:278e8c9118340e4f",
     "fn:cea288306c80a25a",
 ]
+uses = [
+    "fn:0c0ebbeabbd712b8",
+    "fn:6f97bd3be56538d2",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2683,6 +3394,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."lulu.rs".function]]
@@ -2700,13 +3412,16 @@ callees = [
     "fn:7f7dd910f8097ff8",
     "fn:cedb79b81b85c025",
 ]
+uses = [
+    "fn:b50bb81c0f596dee",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2714,6 +3429,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."lulu.rs".function]]
@@ -2727,13 +3443,17 @@ lines = [
 hash = "sha256:fe715f47b7403c78d8768bd81891b0eeb9620cc6fc9823d668711e22e536b678"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:05851e9b910797c2"]
+uses = [
+    "fn:0c0ebbeabbd712b8",
+    "fn:6f97bd3be56538d2",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2741,6 +3461,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."lulu.rs".function]]
@@ -2770,13 +3491,21 @@ callees = [
     "fn:ef8452611098a506",
     "fn:f9a8072a9af91de9",
 ]
+uses = [
+    "fn:15406dc4687bb131",
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:84cb0209ea2238b7",
+    "fn:b0d567e807338d78",
+    "fn:b278a27158f0ca13",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2784,6 +3513,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."lulu.rs".function]]
@@ -2811,13 +3541,17 @@ callees = [
     "fn:e9fcff9703ebfd9f",
     "fn:f0fa0ecb154fb6ab",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2825,10 +3559,98 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [module."medra.rs"]
 path = "crate::zotero::search::translators::medra"
+
+[[module."medra.rs".function]]
+id = "fn:c9b224d240dafcdd"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    34,
+    47,
+]
+hash = "sha256:ee97e5ffd4d057b56c2baf6e56ac483a36a133cc37eab8620e2098cb17d1dedf"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."medra.rs".function]]
+id = "fn:46f75181e64bbbd0"
+name = "MetaVal"
+qual = "MetaVal"
+item = "type"
+shape = "enum"
+lines = [
+    49,
+    55,
+]
+hash = "sha256:b26c136ccedf2fbd4d03499f4a9ce2cf981f44573610c838d9979e9560daeede"
+doc_hash = "sha256:311ec008d313865c106258bc1cba3d9663e664f06831e14b07eb6f3ffc4ba9d3"
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."medra.rs".function]]
+id = "fn:223e83210715ad05"
+name = "Meta"
+qual = "Meta"
+item = "type"
+shape = "struct"
+lines = [
+    57,
+    60,
+]
+hash = "sha256:52bcecf35aed6718a8fd5d545158806d958e898c731222fbcde6968d84c2f95c"
+doc_hash = "sha256:543dd73107bbd68c2807f7a832b7d77e42feeee5fc79eabb0e2f2095ee80a04f"
+uses = ["fn:46f75181e64bbbd0"]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."medra.rs".function]]
 id = "fn:01ef735295d9eb9c"
@@ -2840,13 +3662,16 @@ lines = [
 ]
 hash = "sha256:be4df8466f923e057d2521d97b872ff0d574b72a75f7702a133b4b035fe3550c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:223e83210715ad05",
+    "fn:46f75181e64bbbd0",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2854,6 +3679,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -2867,13 +3693,16 @@ lines = [
 hash = "sha256:06eeddd2bb8057a4a0462df00b9a2d63ec939f6546ab2523c7aee06cbe18bf9d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:01ef735295d9eb9c"]
+uses = [
+    "fn:223e83210715ad05",
+    "fn:46f75181e64bbbd0",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2881,6 +3710,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -2893,13 +3723,16 @@ lines = [
 ]
 hash = "sha256:d2627350c55f7c334f5f2469f7742f0e50464dfba9184f3f47c819cf1c3d12fd"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:223e83210715ad05",
+    "fn:46f75181e64bbbd0",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2907,6 +3740,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -2919,13 +3753,16 @@ lines = [
 ]
 hash = "sha256:ced2134d66ad1fedca088a73f150390694779bb96690af655b9c5e7440c3e8bd"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:223e83210715ad05",
+    "fn:46f75181e64bbbd0",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2933,6 +3770,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -2945,13 +3783,13 @@ lines = [
 ]
 hash = "sha256:073aabb4a92815fdf22cd7e6a2b5f422a8f36758b321d997c6d74d8116a9a601"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:223e83210715ad05"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2959,6 +3797,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -2971,13 +3810,13 @@ lines = [
 ]
 hash = "sha256:0741d5209322333f534afd5f78d6b60a1d73a60f9bfaf789317f75f729bf8027"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:6f97bd3be56538d2"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -2985,6 +3824,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -2998,13 +3838,16 @@ lines = [
 hash = "sha256:32919d28d1f1a7f8ae5dc83938986ded01584d1d836e3b251ff46b09a0b83e61"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:fb2ec7bf07e85d32"]
+uses = [
+    "fn:b50bb81c0f596dee",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3012,6 +3855,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -3030,13 +3874,17 @@ callees = [
     "fn:6725579b2e4d0634",
     "fn:9029d31f16424e22",
 ]
+uses = [
+    "fn:223e83210715ad05",
+    "fn:6f97bd3be56538d2",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3044,6 +3892,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -3066,13 +3915,18 @@ callees = [
     "fn:b41cb6994968139c",
     "fn:d3e67fe732790a6a",
 ]
+uses = [
+    "fn:223e83210715ad05",
+    "fn:6f97bd3be56538d2",
+    "fn:b50bb81c0f596dee",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3080,6 +3934,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -3093,12 +3948,11 @@ lines = [
 hash = "sha256:3b6ff8d3607d0df19678a1194f5ecd6b1871e712020553242644415b71f493e6"
 doc_hash = "sha256:0cee3352f642937f8a6002853552561483d9734434ced454b7ee7b38d3761dc0"
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3106,6 +3960,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -3130,13 +3985,20 @@ callees = [
     "fn:d3e67fe732790a6a",
     "fn:f151220304eac36f",
 ]
+uses = [
+    "fn:223e83210715ad05",
+    "fn:46f75181e64bbbd0",
+    "fn:6f97bd3be56538d2",
+    "fn:84cb0209ea2238b7",
+    "fn:b50bb81c0f596dee",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3144,6 +4006,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -3157,13 +4020,17 @@ lines = [
 hash = "sha256:2ab51905d9a12775c0e290b2bbbe6a4880e86ed090e5a6690833b887f39b3d1d"
 doc_hash = "sha256:e5b8aa3cd78f8a1030397753e207527c829d7271ff8bad8e9fcce417e7950fa2"
 callees = ["fn:0a3688f97cad14ee"]
+uses = [
+    "fn:223e83210715ad05",
+    "fn:46f75181e64bbbd0",
+    "fn:84cb0209ea2238b7",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3171,6 +4038,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -3184,12 +4052,11 @@ lines = [
 hash = "sha256:186c000466c27cb163616cf4af2426783b263cf36c13474e8583500b376d5c10"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3197,6 +4064,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -3209,13 +4077,16 @@ lines = [
 ]
 hash = "sha256:03d53f90fa178447241fc328a48aa3d6ee6607c41a8d7d4ef64fdc7b6afc6228"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:15406dc4687bb131",
+    "fn:93765623e04ab1cf",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3223,6 +4094,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -3241,13 +4113,13 @@ callees = [
     "fn:ba4bb0a02a74fd04",
     "fn:db709009bc7977fc",
 ]
+uses = ["fn:15406dc4687bb131"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3255,6 +4127,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -3279,13 +4152,20 @@ callees = [
     "fn:9160e07c575a767d",
     "fn:c4f7ab84259689e1",
 ]
+uses = [
+    "fn:46f75181e64bbbd0",
+    "fn:6f97bd3be56538d2",
+    "fn:84cb0209ea2238b7",
+    "fn:b0d567e807338d78",
+    "fn:b278a27158f0ca13",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3293,6 +4173,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -3311,13 +4192,13 @@ callees = [
     "fn:924a39e0ad51951d",
     "fn:f81e2b6d81f47d28",
 ]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3325,6 +4206,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -3337,10 +4219,10 @@ lines = [
 ]
 hash = "sha256:eec8cd937aa79583b6803c3f671911a502e5cdffeb5321a519e40a780d2dad6c"
 doc_hash = "sha256:79efe9361b2cd275740a583e1ee6a7ca1610c8e094393a4da3bd2c08f1ea919b"
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -3350,6 +4232,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."medra.rs".function]]
@@ -3368,13 +4251,17 @@ callees = [
     "fn:c6e3ddacc51b9851",
     "fn:c97b7a4ce34bc4e3",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3382,6 +4269,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [module."mod.rs"]
@@ -3389,6 +4277,36 @@ path = "crate::zotero::search::translators"
 
 [module."nlp_isbn.rs"]
 path = "crate::zotero::search::translators::nlp_isbn"
+
+[[module."nlp_isbn.rs".function]]
+id = "fn:59df2bb84372e525"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    22,
+    35,
+]
+hash = "sha256:b26cf5c877cecd6de2e84dca48e133383c31444131222b351c4cf7160c076a52"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."nlp_isbn.rs".function]]
 id = "fn:9b2fc63f929e317b"
@@ -3401,11 +4319,11 @@ lines = [
 hash = "sha256:a05dd1e033d3e7488eb3050d42f241f10ed37870cfb9b0ed18e13d455c16e8ee"
 doc_hash = "sha256:b54f2e66811dc9d316f5201e32de1f6d2bb387cae4cd99ff650c1651c4f71ddb"
 callees = ["fn:924a39e0ad51951d"]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#6",
-    "#10",
+    "#7",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -3415,6 +4333,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."nlp_isbn.rs".function]]
@@ -3438,13 +4357,19 @@ callees = [
     "fn:9a5415a9b65ef240",
     "fn:e622e06e0bb14282",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:9cb17a5ee667012b",
+    "fn:b0d567e807338d78",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3452,6 +4377,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."nlp_isbn.rs".function]]
@@ -3470,13 +4396,16 @@ callees = [
     "fn:2e50e15ecf8481ad",
     "fn:cea288306c80a25a",
 ]
+uses = [
+    "fn:b50bb81c0f596dee",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3484,6 +4413,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."nlp_isbn.rs".function]]
@@ -3501,10 +4431,41 @@ callees = [
     "fn:9b2fc63f929e317b",
     "fn:f9a8072a9af91de9",
 ]
+uses = ["fn:208bdcd6bb956739"]
 test = true
 
 [module."open_worldcat.rs"]
 path = "crate::zotero::search::translators::open_worldcat"
+
+[[module."open_worldcat.rs".function]]
+id = "fn:c976937a5e211636"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    41,
+    54,
+]
+hash = "sha256:f2419e0c2f42af5401fe0d6225e819192977b89b5aee91cd791433f0512185ed"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."open_worldcat.rs".function]]
 id = "fn:4ae73754583d0cbf"
@@ -3517,12 +4478,11 @@ lines = [
 hash = "sha256:5e49ce8e62085d29944485b16f64d737ffd1207c5bfa63f8f4d949db86923634"
 doc_hash = "sha256:89071d10b504d098330b32c75312b49e6df5bd93a157d81b4918bddf7d2fbb0e"
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3530,6 +4490,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."open_worldcat.rs".function]]
@@ -3543,12 +4504,11 @@ lines = [
 hash = "sha256:a7e24426d9630e189cad66374805e085f55d664b074e643bb0a19aafbebd7577"
 doc_hash = "sha256:d665d7a1c3e6bb51ec537cf1aba820a324fc89b300653b450274c36c6c856bcf"
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3556,6 +4516,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."open_worldcat.rs".function]]
@@ -3570,12 +4531,11 @@ hash = "sha256:f77bdb8036fe0c92afb02b1bb310640b485c2430b0ba3b4beb322c135b03b9eb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:5dd7d283a9da95ef"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3583,6 +4543,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."open_worldcat.rs".function]]
@@ -3596,12 +4557,11 @@ lines = [
 hash = "sha256:37f3b8eda79a398b904811e6a0fa9c92ae55c06499a0851cda6c46a2e373b654"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3609,6 +4569,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."open_worldcat.rs".function]]
@@ -3635,13 +4596,18 @@ callees = [
     "fn:f81e2b6d81f47d28",
     "fn:fc0fa4bfdc15f523",
 ]
+uses = [
+    "fn:15406dc4687bb131",
+    "fn:b0d567e807338d78",
+    "fn:b278a27158f0ca13",
+    "fn:dc611d402b27d072",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3649,6 +4615,35 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
+]
+
+[[module."open_worldcat.rs".function]]
+id = "fn:0b44f1e62a021b73"
+name = "RECORD_KEYS"
+qual = "RECORD_KEYS"
+item = "const"
+shape = "const"
+lines = [
+    218,
+    241,
+]
+hash = "sha256:bc09ed73a5194fed0f459d16dd079d2131e58278fbe88cf06449f86e4f6a8cbc"
+doc_hash = "sha256:1d91b7ba69bd396e8b2a7f3638b1eab91f09ccf818b9f4d9e3b79271b9cc4775"
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
 ]
 
 [[module."open_worldcat.rs".function]]
@@ -3673,12 +4668,48 @@ callees = [
     "fn:f9a8072a9af91de9",
     "fn:fc0fa4bfdc15f523",
 ]
+uses = [
+    "fn:0b44f1e62a021b73",
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+    "fn:b278a27158f0ca13",
+    "fn:f961a669079588a5",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."open_worldcat.rs".function]]
+id = "fn:0d309fcde9a30bbf"
+name = "Clean"
+qual = "Clean"
+item = "type"
+shape = "struct"
+lines = [
+    280,
+    285,
+]
+hash = "sha256:152feeef28e72bb8f33a94e5847ccdf905831fb19ea7c49205fd297635d36190"
+doc_hash = "sha256:bd03f5534c95eea6d01442cb5b01557ea0ec58d27f2b6a3bc14ee59e788c0a3d"
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
     "#15",
     "#16",
     "#17",
@@ -3687,6 +4718,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."open_worldcat.rs".function]]
@@ -3704,8 +4736,11 @@ callees = [
     "fn:9160e07c575a767d",
     "fn:924a39e0ad51951d",
 ]
+uses = [
+    "fn:0d309fcde9a30bbf",
+    "fn:208bdcd6bb956739",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
@@ -3719,6 +4754,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."open_worldcat.rs".function]]
@@ -3732,10 +4768,10 @@ lines = [
 hash = "sha256:d816086aabd180d6cd6cac46dc779e0a2a0bd488a54a1c79c1b02d2b863e1f18"
 doc_hash = "sha256:73e472b81d098400273b850784ec20c8b55bf32a2665c22202120fe756ccb8ea"
 callees = ["fn:acfd6b7d108a044d"]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -3745,6 +4781,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."open_worldcat.rs".function]]
@@ -3768,13 +4805,18 @@ callees = [
     "fn:da024d177573b032",
     "fn:e64f5323b376e50a",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:4bba79b3caec4da7",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3782,6 +4824,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."open_worldcat.rs".function]]
@@ -3796,12 +4839,11 @@ hash = "sha256:a196f1e24f1072033977b58aadd64fcb662a002979b89394a2b523e3f6f2d2dd"
 doc_hash = "sha256:6d30c3eb0931172ca6bf9f05687ba7eb3b8c57d298a2546669286c29e4a3dafd"
 callees = ["fn:3271ca1bb1a562c0"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3809,6 +4851,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."open_worldcat.rs".function]]
@@ -3830,13 +4873,17 @@ callees = [
     "fn:9160e07c575a767d",
     "fn:ac697c4414c9811f",
 ]
+uses = [
+    "fn:4bba79b3caec4da7",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3844,6 +4891,36 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
+]
+
+[[module."open_worldcat.rs".function]]
+id = "fn:0ba65b3bc09b72a9"
+name = "RANGES"
+qual = "RANGES"
+item = "static"
+shape = "static"
+lines = [
+    405,
+    1591,
+]
+hash = "sha256:b2f725cfbc64da534647d0e9661cd591bc93aaeaf4f684d24cfa8a20ba02278c"
+doc_hash = "sha256:95c0406c23dabec3954c6d6af80cdb9a00c75f34729fcd67eaa5bf52596bda27"
+reached_by = [
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
 ]
 
 [[module."open_worldcat.rs".function]]
@@ -3856,14 +4933,14 @@ lines = [
 ]
 hash = "sha256:3c14542b6f7b1d6e0c4fe95db10ddb72c7095e69c7f97e83c56e997781473181"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:0ba65b3bc09b72a9"]
 reached_by = [
-    "#7",
-    "#9",
+    "#8",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3871,6 +4948,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."open_worldcat.rs".function]]
@@ -3885,13 +4963,12 @@ hash = "sha256:e71df05b39df158c3cd09d498ffdcdcc4f440daf45d71ea20f374eca471f9858"
 doc_hash = "sha256:c870ef9856720af8e8fc99a0d27d4d298cddadfa8828bae3d4a7804374b43d70"
 callees = ["fn:9ec14ba96752285c"]
 reached_by = [
-    "#7",
-    "#9",
+    "#8",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3899,7 +4976,22 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
+
+[[module."open_worldcat.rs".function]]
+id = "fn:b30782add6a58d6c"
+name = "Mode"
+qual = "Mode"
+item = "type"
+shape = "enum"
+lines = [
+    1656,
+    1660,
+]
+hash = "sha256:83eced595931b87e7bd33d6c5e0a558ec9a57dd2dad2fc92ba6ac6bb524c67a5"
+doc_hash = "sha256:f0a286d8f2e6e3df17cfcbb1b88608482889d82b668eaaf581e0536e0f87445c"
+reached_by = ["#9"]
 
 [[module."open_worldcat.rs".function]]
 id = "fn:67f8afffc39570ca"
@@ -3911,7 +5003,8 @@ lines = [
 ]
 hash = "sha256:4f14402b28089ad9256f1785eec30aa8c273fa1013f65705bdbd8d6c2dc344d3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#8"]
+uses = ["fn:b30782add6a58d6c"]
+reached_by = ["#9"]
 
 [[module."open_worldcat.rs".function]]
 id = "fn:01df773d3d5e9e60"
@@ -3923,7 +5016,7 @@ lines = [
 ]
 hash = "sha256:ba5af1e027344e25f9bc0f9d338e92c587ee4539bfb7e08182dd9a6bb582f195"
 doc_hash = "sha256:ded445b98dad8d843134532e1dc1d70d0f028aa9224b97090105746cabacb626"
-reached_by = ["#8"]
+reached_by = ["#9"]
 
 [[module."open_worldcat.rs".function]]
 id = "fn:a2d5faa5effabca1"
@@ -3939,7 +5032,8 @@ callees = [
     "fn:01df773d3d5e9e60",
     "fn:67f8afffc39570ca",
 ]
-reached_by = ["#8"]
+uses = ["fn:b30782add6a58d6c"]
+reached_by = ["#9"]
 
 [[module."open_worldcat.rs".function]]
 id = "fn:8ad85ba65391ff26"
@@ -3951,13 +5045,13 @@ lines = [
 ]
 hash = "sha256:7e068b7ea87687d2210afe21a32f158e3f02399c8cc10381d1924934f734f51d"
 doc_hash = "sha256:f938d8e4a1420707c88156e4e70d14f794a6c745b49a9359045603ed37296bdd"
+uses = ["fn:6f97bd3be56538d2"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -3965,6 +5059,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."open_worldcat.rs".function]]
@@ -3997,6 +5092,36 @@ test = true
 path = "crate::zotero::search::translators::openalex"
 
 [[module."openalex.rs".function]]
+id = "fn:69375844f599f59a"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    23,
+    36,
+]
+hash = "sha256:9f79534411a8c0c2cc8bbbeaa19837c7cd3e448b4537c79b07a9e170871a3635"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."openalex.rs".function]]
 id = "fn:64499dfce941def5"
 name = "detect_search"
 qual = "detect_search"
@@ -4007,10 +5132,10 @@ lines = [
 hash = "sha256:9a1dfba3bef6b1b12b987e89056f5cf8fc79c738cf29c907923e7d54fdb7a889"
 doc_hash = "sha256:caf81673e6b501a6f6ddafaebfb3bec4f5a2142183068637059ff3257c009960"
 callees = ["fn:5fa0779c3d670846"]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -4020,6 +5145,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."openalex.rs".function]]
@@ -4037,13 +5163,17 @@ callees = [
     "fn:5dd7d283a9da95ef",
     "fn:924a39e0ad51951d",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -4051,6 +5181,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."openalex.rs".function]]
@@ -4068,13 +5199,18 @@ callees = [
     "fn:0409319a0cd90714",
     "fn:7b0bdc9686e6594a",
 ]
+uses = [
+    "fn:4bba79b3caec4da7",
+    "fn:6f97bd3be56538d2",
+    "fn:9cb17a5ee667012b",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -4082,10 +5218,41 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [module."pubmed.rs"]
 path = "crate::zotero::search::translators::pubmed"
+
+[[module."pubmed.rs".function]]
+id = "fn:64faff8ab365b4ab"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    26,
+    39,
+]
+hash = "sha256:c8e06ce072c373c117c720bd3db7da7522d617d8d9e0d76ee63c1de6e0f5c1dd"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."pubmed.rs".function]]
 id = "fn:4fb0fa32a2b20599"
@@ -4098,8 +5265,8 @@ lines = [
 hash = "sha256:71250b73f112c66f5d8d91b7d711eb35839d54af0291cee352397acb109cb7e9"
 doc_hash = "sha256:b792fe7303e6e3781b0245c36e9536b9b3a8b7099d3bb0f05aa39e2fb7ee04c5"
 callees = ["fn:233c0373830860a7"]
+uses = ["fn:6f97bd3be56538d2"]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
@@ -4113,6 +5280,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pubmed.rs".function]]
@@ -4129,10 +5297,10 @@ callees = [
     "fn:3271ca1bb1a562c0",
     "fn:924a39e0ad51951d",
 ]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -4142,6 +5310,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pubmed.rs".function]]
@@ -4161,10 +5330,10 @@ callees = [
     "fn:924a39e0ad51951d",
     "fn:e0916f99476d0152",
 ]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -4174,6 +5343,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pubmed.rs".function]]
@@ -4193,13 +5363,17 @@ callees = [
     "fn:6b608031afc281c3",
     "fn:924a39e0ad51951d",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -4207,6 +5381,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pubmed.rs".function]]
@@ -4224,13 +5399,17 @@ callees = [
     "fn:0409319a0cd90714",
     "fn:9a5415a9b65ef240",
 ]
+uses = [
+    "fn:6f97bd3be56538d2",
+    "fn:9cb17a5ee667012b",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -4238,10 +5417,41 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [module."who.rs"]
 path = "crate::zotero::search::translators::who"
+
+[[module."who.rs".function]]
+id = "fn:c32e2609d3840737"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    26,
+    39,
+]
+hash = "sha256:e7f4e18a65f9e2018f6e4edff1bd164e87b56240a15708848152e5c28abfe746"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = ["fn:2718c0bba0d5822f"]
+reached_by = [
+    "#0",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."who.rs".function]]
 id = "fn:d72efcd05ab753ab"
@@ -4259,10 +5469,10 @@ callees = [
     "fn:5fa0779c3d670846",
     "fn:924a39e0ad51951d",
 ]
+uses = ["fn:208bdcd6bb956739"]
 reached_by = [
-    "#10",
     "#11",
-    "#13",
+    "#12",
     "#14",
     "#15",
     "#16",
@@ -4272,6 +5482,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."who.rs".function]]
@@ -4303,13 +5514,19 @@ callees = [
     "fn:da7522eb5e4b0fab",
     "fn:f9a8072a9af91de9",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:6f97bd3be56538d2",
+    "fn:84cb0209ea2238b7",
+    "fn:9cb17a5ee667012b",
+    "fn:b0d567e807338d78",
+]
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -4317,6 +5534,7 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."who.rs".function]]
@@ -4330,12 +5548,11 @@ lines = [
 hash = "sha256:e2d140934a5f815354fa7e27a3dc620f90c95e3c184bbd57b129c8c98c1d5b9d"
 doc_hash = "sha256:c7261b0e64616be14ade24ddd6ac63872f86516bddb73edaf9b4455827e4f84d"
 reached_by = [
-    "#9",
     "#10",
     "#11",
     "#12",
     "#13",
-    "#15",
+    "#14",
     "#16",
     "#17",
     "#18",
@@ -4343,4 +5560,5 @@ reached_by = [
     "#20",
     "#21",
     "#22",
+    "#23",
 ]

@@ -7,6 +7,19 @@ dir = "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/thermoph
 path = "crate::genfoam::thermal_hydraulics::thermophysical"
 
 [[module."mod.rs".function]]
+id = "fn:b09802cf7577feb1"
+name = "BespokeFluidPropertyModel"
+qual = "BespokeFluidPropertyModel"
+item = "type"
+shape = "enum"
+lines = [
+    58,
+    71,
+]
+hash = "sha256:91d5bd1fa362f509a791fba7f8afe0a0c3e07ef9817ea74c2331d8c5b1a87238"
+doc_hash = "sha256:66ea0b3c62eb9dcd91580e4c10bcf6fbfde0b18b3f8acf623e826a96b46e5dd9"
+
+[[module."mod.rs".function]]
 id = "fn:3a38a9963c7a162f"
 name = "density"
 qual = "BespokeFluidPropertyModel::density"
@@ -17,6 +30,10 @@ lines = [
 hash = "sha256:36bcd13fc489604d78227a86035cde0047d9ebea578709fe04f1c8f28757832d"
 doc_hash = "sha256:3130b5e825c6f1f89fab0ac430d2c16d5c35b740a00e02c1a26de3ff47c5ac43"
 callees = ["fn:88de8fba9323b9eb"]
+uses = [
+    "fn:84379240bb4f5a8c",
+    "fn:b09802cf7577feb1",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -30,6 +47,10 @@ lines = [
 hash = "sha256:74eaa61b47286ced55e320ee552e69cf2d8bced75529e8f4c81150ddb6eb7eb5"
 doc_hash = "sha256:d4d96b9f6da47979bc954fa28d7bc305f006998a66b897ab50044b53f563aa8f"
 callees = ["fn:2b07d919b1f3c62d"]
+uses = [
+    "fn:b09802cf7577feb1",
+    "fn:d923e383dfacacfc",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -43,6 +64,10 @@ lines = [
 hash = "sha256:50c53f3ae8304b33a0428f224efafc354e86d052c5390a2f8eccb488e7266079"
 doc_hash = "sha256:b65f65555cf78d5aeb86219ee3354eda23e4d492ec664f5a435fec881c643c33"
 callees = ["fn:7b1480540d7565d3"]
+uses = [
+    "fn:b09802cf7577feb1",
+    "fn:d923e383dfacacfc",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -56,6 +81,10 @@ lines = [
 hash = "sha256:d85ac5ebfc97ed8b23ea042f63871ec56ea999210fb9e469d8dd0ee91ab42b20"
 doc_hash = "sha256:a37fe9bbf6f42d2a5cd481be1aa6d90adfb8f3699f754024210ab74ee7bf3caa"
 callees = ["fn:6fc88614394d3f12"]
+uses = [
+    "fn:304ab3d1dfe66287",
+    "fn:b09802cf7577feb1",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -69,6 +98,10 @@ lines = [
 hash = "sha256:d837f9055386f0169adfd589feb0cca8fe9939af39de1fb7ebc417ea0aa89e8d"
 doc_hash = "sha256:9e46b45732524617fffc17941360282fc1c135eb44f4829d9edfb0ea2fb8f2fc"
 callees = ["fn:56dcfb51b95c3a55"]
+uses = [
+    "fn:20f31acee2fd542f",
+    "fn:b09802cf7577feb1",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -82,6 +115,10 @@ lines = [
 hash = "sha256:340d51e084a87eae78fbe2f4412e5009bb1513294be3af4f085294cf9e77a96d"
 doc_hash = "sha256:6882ecb36718541d7f42a981c7256b0789dd0a5f0a15fe9b6e7381c12d5de6b0"
 callees = ["fn:7eaea95715b8ff29"]
+uses = [
+    "fn:b09802cf7577feb1",
+    "fn:deb9b53c0f9f8aec",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -95,6 +132,10 @@ lines = [
 hash = "sha256:e28fcfd09e1152e742d18d3a52cccfdddef3b9759a5ac3582841e838fe9b290f"
 doc_hash = "sha256:922300a080aa6888d20c45ab2f39f4fc5bab4d3262ce995c97ae3d1ab0dd552c"
 callees = ["fn:384af1ebc6104988"]
+uses = [
+    "fn:73ab9dd2a47cc88e",
+    "fn:b09802cf7577feb1",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -108,6 +149,10 @@ lines = [
 hash = "sha256:ffad9fe9f064d8c140d5d537b3e1a478558aea4cea4aa90e8b778aa5686ca7a7"
 doc_hash = "sha256:3d52f4ffd4ec7f02f4ea57270358ac6a944a7fd4937681d985b0113bc904ed25"
 callees = ["fn:71281dd32779ba51"]
+uses = [
+    "fn:b09802cf7577feb1",
+    "fn:cf40854ae7a62971",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -121,6 +166,10 @@ lines = [
 hash = "sha256:5dd75ae31cbe09a6528019e6f22b29cd043d37a9c43c9bb0f1c4f4b8cf11d280"
 doc_hash = "sha256:c3bed16b6ce7264a356edf778804da0b92693d2d31643e8995519b234a37bfbe"
 callees = ["fn:ad9ed683cf5d32ae"]
+uses = [
+    "fn:780a24c63c071179",
+    "fn:b09802cf7577feb1",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -134,6 +183,10 @@ lines = [
 hash = "sha256:b742689985762d457b171caf4c93e5e3814b4d7909799f4e3ea00fd959b02924"
 doc_hash = "sha256:3b21dd902c565ab7d55a52ec28643cb0bfea632b720154141ccbb9581c72793a"
 callees = ["fn:0ec4e9f9ed4cfa07"]
+uses = [
+    "fn:6b242ad7da9df7fc",
+    "fn:b09802cf7577feb1",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -147,6 +200,10 @@ lines = [
 hash = "sha256:b56c486d389e025306004850de2ec433249574753185cf574c3741ad72def501"
 doc_hash = "sha256:8482bbeb96c48ecb120fa87def24af382df26fc0e35a12cc3cd9af4ba1ba75af"
 callees = ["fn:249e93bbc87a7e43"]
+uses = [
+    "fn:5b26ff7edce0695f",
+    "fn:b09802cf7577feb1",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -160,7 +217,141 @@ lines = [
 hash = "sha256:ca03dea0bf4211672b28ad60471831062f1b00191e8bb6bfb256f255f14c208b"
 doc_hash = "sha256:b10770d336e4d2c8e39e2cb1905184206f4e64de6cb1281e6fbb78d3dc37a679"
 callees = ["fn:e541ab2385598ad6"]
+uses = [
+    "fn:304ab3d1dfe66287",
+    "fn:b09802cf7577feb1",
+]
 physical_interface = true
 
 [module."units.rs"]
 path = "crate::genfoam::thermal_hydraulics::thermophysical::units"
+
+[[module."units.rs".function]]
+id = "fn:84379240bb4f5a8c"
+name = "MassDensity"
+qual = "MassDensity"
+item = "type"
+shape = "alias"
+lines = [
+    31,
+    32,
+]
+hash = "sha256:688309da91b64fc9d5e61f0aeb945a706ef70987dcb8a781598774f3acc9eef9"
+doc_hash = "sha256:bf5581fcfb8d0d540dd8f1512834c4d0ee3759b5fe9eb06d849f6eac3be9e519"
+
+[[module."units.rs".function]]
+id = "fn:d923e383dfacacfc"
+name = "SpecificHeatCapacity"
+qual = "SpecificHeatCapacity"
+item = "type"
+shape = "alias"
+lines = [
+    34,
+    35,
+]
+hash = "sha256:4bfeb71b628c1404edcaee5315a67be68fecec48a91ca7652004f022303fb1aa"
+doc_hash = "sha256:c34d30d0b3ccdfca19323fc14bad69c35d0d75f3f32a1eff66f7d4fe26ab50eb"
+
+[[module."units.rs".function]]
+id = "fn:deb9b53c0f9f8aec"
+name = "SpecificEnthalpy"
+qual = "SpecificEnthalpy"
+item = "type"
+shape = "alias"
+lines = [
+    37,
+    40,
+]
+hash = "sha256:0048b90bbb6d738b64fdcd69d2f7357381327ee1e4355206bedd58dde7bf320b"
+doc_hash = "sha256:fc64c15a6c63454cc011aabe0171ade6b9eac7716bb4343fdabf1fd144ea933b"
+
+[[module."units.rs".function]]
+id = "fn:73ab9dd2a47cc88e"
+name = "SpecificEntropy"
+qual = "SpecificEntropy"
+item = "type"
+shape = "alias"
+lines = [
+    42,
+    46,
+]
+hash = "sha256:4bfeb71b628c1404edcaee5315a67be68fecec48a91ca7652004f022303fb1aa"
+doc_hash = "sha256:ca9b7945d3bec43abe83a961da3b9fd41e96a8c6dcc66b35445c4df426be764b"
+
+[[module."units.rs".function]]
+id = "fn:304ab3d1dfe66287"
+name = "DynamicViscosity"
+qual = "DynamicViscosity"
+item = "type"
+shape = "alias"
+lines = [
+    48,
+    49,
+]
+hash = "sha256:0bcd972bff6feb5439d245caadad5b14749e8e655dbbedeb3196aa1ed88e5f3f"
+doc_hash = "sha256:b3738f369f7577893b51d79dfedbe3e65318e7262489a57aab8b2ad08c732999"
+
+[[module."units.rs".function]]
+id = "fn:20f31acee2fd542f"
+name = "ThermalConductivity"
+qual = "ThermalConductivity"
+item = "type"
+shape = "alias"
+lines = [
+    51,
+    52,
+]
+hash = "sha256:d477b744461d03815380f8e6f1d53cc8111c4f14bf9ca36e8935c22684f64db9"
+doc_hash = "sha256:2911bbeba2bdda7c676e50610b848d0c2b04f4a578ccd8a1cec85966814724b6"
+
+[[module."units.rs".function]]
+id = "fn:780a24c63c071179"
+name = "MoleFraction"
+qual = "MoleFraction"
+item = "type"
+shape = "alias"
+lines = [
+    54,
+    56,
+]
+hash = "sha256:ae6e39a6895555ffce440e4e034714a793db30baf969406c1922ae501add0404"
+doc_hash = "sha256:70788a6cccacdcef918dcc290c6db1bfd6ed5f9594a76e882ca88b05b7ee7fdd"
+
+[[module."units.rs".function]]
+id = "fn:6b242ad7da9df7fc"
+name = "MassFraction"
+qual = "MassFraction"
+item = "type"
+shape = "alias"
+lines = [
+    58,
+    60,
+]
+hash = "sha256:ae6e39a6895555ffce440e4e034714a793db30baf969406c1922ae501add0404"
+doc_hash = "sha256:1a6cc59989e7036341e81a554baf7da802411c9020722af63552d7fd1962c7f6"
+
+[[module."units.rs".function]]
+id = "fn:5b26ff7edce0695f"
+name = "SpecificVolume"
+qual = "SpecificVolume"
+item = "type"
+shape = "alias"
+lines = [
+    62,
+    64,
+]
+hash = "sha256:a2c113ed92a5c356e4f5e7dd9db1f9b29853103210f05ed8da4e1a91158afa43"
+doc_hash = "sha256:768a6fee83e1df3142b00929d78a336adc2c7abdada9215967b74b19d3aae8ac"
+
+[[module."units.rs".function]]
+id = "fn:cf40854ae7a62971"
+name = "PrandtlNumber"
+qual = "PrandtlNumber"
+item = "type"
+shape = "alias"
+lines = [
+    66,
+    68,
+]
+hash = "sha256:ae6e39a6895555ffce440e4e034714a793db30baf969406c1922ae501add0404"
+doc_hash = "sha256:ceea8a0fcca73aba67455816261a56a423d07f20c69f5b5ef3618b57c0f87878"

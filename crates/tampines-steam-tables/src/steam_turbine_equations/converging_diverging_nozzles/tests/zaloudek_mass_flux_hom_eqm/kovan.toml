@@ -22,6 +22,7 @@ callees = [
     "fn:c365ffcc3efa433e",
     "fn:f49e0ebaa3072ae1",
 ]
+uses = ["fn:a490e693d7e67617"]
 test = true
 
 [[module."backward_throat_to_stagnation.rs".function]]
@@ -319,6 +320,10 @@ callees = [
     "fn:c365ffcc3efa433e",
     "fn:f49e0ebaa3072ae1",
 ]
+uses = [
+    "fn:02068af2a18e3f6a",
+    "fn:a490e693d7e67617",
+]
 test = true
 
 [[module."generic_multiphase_stagnation.rs".function]]
@@ -605,7 +610,7 @@ lines = [
     18,
     94,
 ]
-hash = "sha256:8569910f0f8e80e043c98be05b401e49b83b0968b26f39a445255acd3b980f29"
+hash = "sha256:c781252feaf78ae81364dbf17b151398689fdc9376884aacc725e9ec29043fb5"
 doc_hash = "sha256:2a37ac71f91a5b5c38fa947abb77bff5092c6cb2060cb0adf088e01ba0573dbe"
 callees = [
     "fn:78e2c88468989a4c",
@@ -614,6 +619,10 @@ callees = [
     "fn:a9d9e8c971318dc0",
     "fn:c365ffcc3efa433e",
     "fn:f49e0ebaa3072ae1",
+]
+uses = [
+    "fn:02068af2a18e3f6a",
+    "fn:a490e693d7e67617",
 ]
 test = true
 
@@ -904,7 +913,7 @@ lines = [
     27,
     80,
 ]
-hash = "sha256:d42466df83a28b5533777895139e6f1ed34d8c0ac54b40c44a9d6467450bbb68"
+hash = "sha256:b8e87e6507fd649472a7b38ba12973af4744213aeb9a51b4ebe9153d78fe2309"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:78e2c88468989a4c",
@@ -913,6 +922,10 @@ callees = [
     "fn:a9d9e8c971318dc0",
     "fn:c365ffcc3efa433e",
     "fn:f49e0ebaa3072ae1",
+]
+uses = [
+    "fn:02068af2a18e3f6a",
+    "fn:a490e693d7e67617",
 ]
 test = true
 
@@ -941,6 +954,7 @@ callees = [
     "fn:eff47085ca6952fe",
     "fn:f49e0ebaa3072ae1",
 ]
+uses = ["fn:a490e693d7e67617"]
 test = true
 
 [[module."outside_dome_stagnation_subcooled.rs".function]]
@@ -1227,7 +1241,7 @@ lines = [
     31,
     92,
 ]
-hash = "sha256:0c960f253b8e58d5f612d3f769694e0f3f6e34e4eabf9c13ccbeadf3189dda1d"
+hash = "sha256:a4d14b782aeceb9416bf9e63298cb4b5a0deb46812561b09a7e174d4724e72d3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:460a5b0d8c060b59",
@@ -1238,6 +1252,10 @@ callees = [
     "fn:a9d9e8c971318dc0",
     "fn:c365ffcc3efa433e",
     "fn:f49e0ebaa3072ae1",
+]
+uses = [
+    "fn:02068af2a18e3f6a",
+    "fn:a490e693d7e67617",
 ]
 test = true
 

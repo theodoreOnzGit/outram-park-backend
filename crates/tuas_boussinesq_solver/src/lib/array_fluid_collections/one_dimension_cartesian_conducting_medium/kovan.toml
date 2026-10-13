@@ -24,10 +24,32 @@ callees = [
     "fn:e04a45132823706f",
     "fn:eedc38381fcfd405",
 ]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:87cb2016912114a3",
+]
 physical_interface = true
 
 [module."mod.rs"]
 path = "crate::array_fluid_collections::one_dimension_cartesian_conducting_medium"
+
+[[module."mod.rs".function]]
+id = "fn:901dbabcb856e895"
+name = "CartesianConduction1DArray"
+qual = "CartesianConduction1DArray"
+item = "type"
+shape = "struct"
+lines = [
+    26,
+    96,
+]
+hash = "sha256:54751abaca41da51d604494d39ba47cac19a7d947ab4916d9ff07ac922f17f4c"
+doc_hash = "sha256:7e0a6d949a56b85cc1e561e28476eb8d109d6113798ccff7507e182936435465"
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:4a19e9ba06c44963",
+    "fn:f811c4c8869b08b0",
+]
 
 [[module."mod.rs".function]]
 id = "fn:4883847386965b5f"
@@ -43,6 +65,12 @@ callees = [
     "fn:f58bb8cc279a2ab8",
     "fn:ffedc0b6df67ff7d",
 ]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:4a19e9ba06c44963",
+    "fn:540617e338f429d7",
+    "fn:901dbabcb856e895",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -55,6 +83,10 @@ lines = [
 ]
 hash = "sha256:4e3bada1ebcc31bca339bf119d053602a22aa8e7ed5a2cf57d6eb05460effc2e"
 doc_hash = "sha256:701beb22ae1a482c3d09051c06483116c30581e83915cc620dce31e20b8e3712"
+uses = [
+    "fn:540617e338f429d7",
+    "fn:901dbabcb856e895",
+]
 
 [[module."mod.rs".function]]
 id = "fn:fa69bc569f17b1a0"
@@ -66,6 +98,10 @@ lines = [
 ]
 hash = "sha256:c0cd579e27cd48aea9f8a5bdcd353b541ce00c6b5931bc81c70add0da61a0154"
 doc_hash = "sha256:11d4da0e1733fcd26c4ba436f3073884721d6362de470a264bd18b02ae316185"
+uses = [
+    "fn:540617e338f429d7",
+    "fn:901dbabcb856e895",
+]
 physical_interface = true
 
 [module."postprocessing.rs"]
@@ -81,6 +117,7 @@ lines = [
 ]
 hash = "sha256:9cc0d8f4de87ea09bc9629262069a6201ed2a63901b1f0a95298f45ed286e776"
 doc_hash = "sha256:1fe9db482a630e89a7350c1a42f7bd6dc7a13a884a71b4d86447ddad2c08dc1c"
+uses = ["fn:540617e338f429d7"]
 physical_interface = true
 
 [module."preprocessing.rs"]
@@ -101,6 +138,10 @@ callees = [
     "fn:c599cd8554ebc1fa",
     "fn:fa69bc569f17b1a0",
 ]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:540617e338f429d7",
+]
 physical_interface = true
 
 [[module."preprocessing.rs".function]]
@@ -114,6 +155,10 @@ lines = [
 hash = "sha256:2f854bf47fc923c75ed5139020e563938d15fdde58533b04bcbf1f38c6cbcfec"
 doc_hash = "sha256:492f86de38f91a643ffa32a0ee726aeec0a4d2bd4670aa3f9b195ef21172e0e1"
 callees = ["fn:b102dcadd8d4ca10"]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:540617e338f429d7",
+]
 physical_interface = true
 
 [[module."preprocessing.rs".function]]
@@ -127,4 +172,9 @@ lines = [
 hash = "sha256:9bc0060078e6728bb605c5a3763224de272c632a18a78d4660ed528e5e660b0c"
 doc_hash = "sha256:1f5e53023ed42d85661d87405d10175457716917539ed500eab9ae9aa50c0bf0"
 callees = ["fn:45de95a2df8c0305"]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:540617e338f429d7",
+    "fn:87cb2016912114a3",
+]
 physical_interface = true

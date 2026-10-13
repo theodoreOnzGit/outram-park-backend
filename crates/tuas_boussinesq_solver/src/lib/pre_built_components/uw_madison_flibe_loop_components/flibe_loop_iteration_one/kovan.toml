@@ -17,6 +17,11 @@ lines = [
 hash = "sha256:8bffc265a048ba04c1c317b4ff5401523969891d3fa04e26169b42eefd711926"
 doc_hash = "sha256:29acc9ea54f51fbd3ebca8b2972bb57b41ac4bc18e52fb68cd428bead1d09e74"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -31,6 +36,11 @@ lines = [
 hash = "sha256:630c4d731ecf97059a3e8c1e222916d96ed4d749ab816d084bb8775ccc4d3995"
 doc_hash = "sha256:ffce7e06145c54306cffa84e24d8947011463f2aa3602b456bd5f4edc918de03"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -45,6 +55,11 @@ lines = [
 hash = "sha256:886af7e75917c33c044c259edb4c39cdd31ece1de587cffdc87e9d4d7106ead2"
 doc_hash = "sha256:6a646638cda63e83117ba78d04e174c4342cf5415e2c766aaef01f1226aa8db0"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -59,6 +74,11 @@ lines = [
 hash = "sha256:a2e30cc6d248a4779a3128365ccd3e85e005eaf1d54797d47aa2ba1bf735b8bd"
 doc_hash = "sha256:4d6682487aa8f138075408a2299d0209a0eabb4ac922cef8cbaa3ce20c02c734"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -73,6 +93,11 @@ lines = [
 hash = "sha256:71710184e3534c9b2748b35fbad606501dc94a32862331b35bbe4f9d4bdf3306"
 doc_hash = "sha256:f6e2e360a913a3ed4f46632f6e3f8257d85708a07557b5d315ce545660f3cb2c"
 callees = ["fn:70cae68e0ec8771e"]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -87,6 +112,11 @@ lines = [
 hash = "sha256:bb7094d53ea84d3d64206cc9cac9e37c9a6339f3b9b195790b886d0e6572a1d2"
 doc_hash = "sha256:235268345cd1726f8b47a549a7c37fd252a984682e3c0cc7c14367805868f6b3"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -101,6 +131,11 @@ lines = [
 hash = "sha256:0f4ec44faab21b3f9a907df083cab8560d63986083dae26cafc941fd29200128"
 doc_hash = "sha256:68051e2de068c45bf7b895c171568afa2598be882c18a74db90931791699727d"
 callees = ["fn:70cae68e0ec8771e"]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -115,6 +150,11 @@ lines = [
 hash = "sha256:21be028880225e6331b0e8aad9b3ffc1846b59ea66f6a1437ae08818961b81cc"
 doc_hash = "sha256:38ae6fac3828eb2c11f0b4ba42f99c3fb3dd2a6d82a1540fb425ede50fadc3c1"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -129,6 +169,11 @@ lines = [
 hash = "sha256:1fbf4a299a9bafb8e7a26ccead33bd9fcabe859c4bf3a8a89bbb861473f67fb3"
 doc_hash = "sha256:6e9156c3b7e9f81e7ae2bc326a4dedeb32d756942e49d663cf7fbcf1beb4b401"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -143,6 +188,11 @@ lines = [
 hash = "sha256:927c3fc8a0719df1f515e1f4c5a03bcf4b3a9f294e3128866e0e805ec902bb83"
 doc_hash = "sha256:c3b4167f8ed7dda7248bfed1e2810e765984c68eeceedd0b5946524e70f5200e"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -157,6 +207,11 @@ lines = [
 hash = "sha256:c78b5770f50ce6af1bada674f3c4aa707aea692594cfa8fd9cb1abb1ee3c5c23"
 doc_hash = "sha256:7307431500ad041556da05f9f42cacea44e4f2714b96ac878c47cab602cd0c2e"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -171,6 +226,11 @@ lines = [
 hash = "sha256:be8dbcb6ac556709beab4510cc8dd345deac1ca4366b00b775088de24261fa18"
 doc_hash = "sha256:4b14b66562bb332860ae6037f05c7de6838786e34d969abd7197d08b4ba898df"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -185,6 +245,11 @@ lines = [
 hash = "sha256:c1d7c025e40b0a13265dafb5477071c9e3587bf935f09451da4a37147f22619c"
 doc_hash = "sha256:4b14b66562bb332860ae6037f05c7de6838786e34d969abd7197d08b4ba898df"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -277,6 +342,11 @@ callees = [
     "fn:e1fc7bd44d503e6b",
     "fn:f744389bcd81145a",
 ]
+uses = [
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+]
 test = true
 
 [module."thermal_hydraulics_calculations.rs"]
@@ -296,6 +366,7 @@ callees = [
     "fn:134aefb246f7d585",
     "fn:74172f53fcffc1fc",
 ]
+uses = ["fn:ca62ba45b75e81ac"]
 test = true
 physical_interface = true
 
@@ -315,6 +386,12 @@ callees = [
     "fn:89b98b3aca1482a0",
     "fn:93844cc452449d04",
     "fn:e79236623dec9507",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
 ]
 test = true
 physical_interface = true
@@ -336,6 +413,12 @@ callees = [
     "fn:71e0b3e056618526",
     "fn:a3a04100486196dc",
 ]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -353,6 +436,10 @@ callees = [
     "fn:3f6427f87e7e0f62",
     "fn:f66c6613b2fa9c0c",
 ]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+]
 test = true
 physical_interface = true
 
@@ -367,5 +454,9 @@ lines = [
 hash = "sha256:11cc55f5820648d041eb0849870ab76ff6722e67aa6f0ff2b42560ad0f46bc7a"
 doc_hash = "sha256:521b6cd9338fb6de79932420fdbc843ceadf7d6cbb125a579713684f66e8a45d"
 callees = ["fn:5898244cb765d25d"]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+]
 test = true
 physical_interface = true

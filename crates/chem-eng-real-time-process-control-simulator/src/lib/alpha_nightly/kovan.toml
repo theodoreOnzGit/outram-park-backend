@@ -2,9 +2,30 @@ schema_version = 1
 kind = "code_folder"
 crate = "chem-eng-real-time-process-control-simulator"
 dir = "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly"
+test_ids = [
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/mod.rs::timesq_test",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/transfer_fn_wrapper_and_enums/generic_second_order.rs::test_dead_time",
+]
 
 [module."mod.rs"]
 path = "crate::alpha_nightly"
+
+[[module."mod.rs".function]]
+id = "fn:4d0ff0584ab22b25"
+name = "TimeSquared"
+qual = "TimeSquared"
+item = "type"
+shape = "alias"
+lines = [
+    32,
+    32,
+]
+hash = "sha256:7bef83dc77b7e2a67a25076413dc1d73a434e1875a78baeb2e1cb56b3c0146d9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+]
 
 [[module."mod.rs".function]]
 id = "fn:87111cae7b42e3c2"
@@ -16,6 +37,7 @@ lines = [
 ]
 hash = "sha256:82d12ad3ee3a77cff098317233cbece0c0064bfa93f1fdb23dd55b893f815727"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:4d0ff0584ab22b25"]
 test = true
 
 [module."prelude.rs"]

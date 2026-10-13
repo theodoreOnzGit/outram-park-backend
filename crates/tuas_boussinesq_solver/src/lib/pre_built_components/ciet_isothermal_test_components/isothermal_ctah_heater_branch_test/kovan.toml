@@ -20,6 +20,7 @@ callees = [
     "fn:288f9cb36b686daf",
     "fn:ac3928da54814ee3",
 ]
+uses = ["fn:f340400526996cc5"]
 test = true
 
 [[module."debugging_tests.rs".function]]
@@ -36,6 +37,7 @@ callees = [
     "fn:288f9cb36b686daf",
     "fn:8ad100a87b5aa859",
 ]
+uses = ["fn:f340400526996cc5"]
 test = true
 
 [[module."debugging_tests.rs".function]]
@@ -70,6 +72,10 @@ callees = [
     "fn:e8a49300f0e05eba",
     "fn:fa07bb0cb8fd7b33",
 ]
+uses = [
+    "fn:ebf3ac43832118cf",
+    "fn:f340400526996cc5",
+]
 test = true
 
 [[module."debugging_tests.rs".function]]
@@ -86,6 +92,7 @@ callees = [
     "fn:6f9db37bb5514b49",
     "fn:d06404cc69270b9f",
 ]
+uses = ["fn:da49a3ce55b275a6"]
 test = true
 
 [[module."debugging_tests.rs".function]]
@@ -105,5 +112,9 @@ callees = [
     "fn:89b98b3aca1482a0",
     "fn:8ad100a87b5aa859",
     "fn:ac3928da54814ee3",
+]
+uses = [
+    "fn:ca62ba45b75e81ac",
+    "fn:f340400526996cc5",
 ]
 test = true

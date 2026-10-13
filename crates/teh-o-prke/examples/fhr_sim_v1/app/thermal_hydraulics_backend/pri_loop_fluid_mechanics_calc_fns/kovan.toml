@@ -27,6 +27,13 @@ callees = [
     "fn:93844cc452449d04",
     "fn:e79236623dec9507",
 ]
+uses = [
+    "fn:0a50e017198e2657",
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -43,6 +50,7 @@ callees = [
     "fn:134aefb246f7d585",
     "fn:74172f53fcffc1fc",
 ]
+uses = ["fn:ca62ba45b75e81ac"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -59,6 +67,7 @@ callees = [
     "fn:134aefb246f7d585",
     "fn:74172f53fcffc1fc",
 ]
+uses = ["fn:ca62ba45b75e81ac"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -77,6 +86,13 @@ callees = [
     "fn:93844cc452449d04",
     "fn:bfb302a098e5d621",
     "fn:e79236623dec9507",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
 ]
 physical_interface = true
 
@@ -99,6 +115,14 @@ callees = [
     "fn:c5b03a40b86a1ce1",
     "fn:e79236623dec9507",
 ]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:9cd1446ef56c9f1c",
+    "fn:ca62ba45b75e81ac",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
 physical_interface = true
 
 [module."parallel_branch_flow_calculator.rs"]
@@ -119,6 +143,10 @@ callees = [
     "fn:b96c71a8e07cc6c4",
     "fn:cea03dd5d2c74e29",
 ]
+uses = [
+    "fn:c077ceedfafe83f6",
+    "fn:ca62ba45b75e81ac",
+]
 physical_interface = true
 
 [[module."parallel_branch_flow_calculator.rs".function]]
@@ -132,6 +160,11 @@ lines = [
 hash = "sha256:ffc2335d8dc42cb7eb867a9f93723c82b8b88edf83337e6ece8887567bbe69f2"
 doc_hash = "sha256:b70ce41aeba37853aab4021b1a50c03bcfa4986138b42918e7e1440fa0408135"
 callees = ["fn:efab24e6162a7b94"]
+uses = [
+    "fn:c077ceedfafe83f6",
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
 physical_interface = true
 
 [[module."parallel_branch_flow_calculator.rs".function]]
@@ -148,6 +181,7 @@ callees = [
     "fn:758bc5578ccfb600",
     "fn:bdf805cfdb4ccc1b",
 ]
+uses = ["fn:ebf3ac43832118cf"]
 physical_interface = true
 
 [[module."parallel_branch_flow_calculator.rs".function]]
@@ -160,4 +194,9 @@ lines = [
 ]
 hash = "sha256:72360a76e38a31956263597b71258164e6d41a330604c648722dcf50dfdf1df3"
 doc_hash = "sha256:65a1f41af51af65e696dc5c0f9a000596aeb8715c3c04fe5f4d32f26567ae3b1"
+uses = [
+    "fn:5bcbbf392051e369",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
 physical_interface = true

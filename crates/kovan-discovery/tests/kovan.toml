@@ -7,6 +7,81 @@ dir = "crates/kovan-discovery/tests"
 path = "test:zotero_search"
 
 [[module."zotero_search.rs".function]]
+id = "fn:e71c0fb118bede83"
+name = "NOW"
+qual = "NOW"
+item = "const"
+shape = "const"
+lines = [
+    55,
+    55,
+]
+hash = "sha256:63047a74067442ea277177c44edfdff5afdc1d1916d8a3872b050e0e8977eb3c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:b418f739a7129b88"
+name = "NOW_ISO"
+qual = "NOW_ISO"
+item = "const"
+shape = "const"
+lines = [
+    56,
+    56,
+]
+hash = "sha256:ac7b522897cd7bcda17d31c625c9e6ec454dfbfcb68e57fb1c7fa62fe1c429e7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:687031bfcff850ee"
+name = "TEST_PDF_TEXT"
+qual = "TEST_PDF_TEXT"
+item = "const"
+shape = "const"
+lines = [
+    57,
+    58,
+]
+hash = "sha256:7e6a9b668ab4ae2b1ad3e85641b03bf3c987a9b77b8b3d82b8c8b2462cfb8e14"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:79b10444609192fc"
+name = "Fx"
+qual = "Fx"
+item = "type"
+shape = "struct"
+lines = [
+    60,
+    66,
+]
+hash = "sha256:9c94695e24b90f7756d72e864b0c9aa8004de3716f352a1968d59c38c8929a77"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:32cb4b11fcc591df",
+    "fn:5315e59b99e3c06d",
+    "fn:69d76da05965d2cc",
+]
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:43fb14fd3944abf5"
+name = "Base"
+qual = "Base"
+item = "type"
+shape = "struct"
+lines = [
+    68,
+    75,
+]
+hash = "sha256:47560754afb6f3942954f51b2907a0d5cfce62cb6ee817dee9f6e679ca9379cd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_search.rs".function]]
 id = "fn:3c803a2745400e7d"
 name = "new"
 qual = "Fx::new"
@@ -16,6 +91,7 @@ lines = [
 ]
 hash = "sha256:f2a8e0863dea7c394cf9e7c306581d526c851ab3d43794b1141da08d7d2eb734"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -28,6 +104,7 @@ lines = [
 ]
 hash = "sha256:7530831a840b16aaa8de67e88c76e796b64f3b02e01957910f3004c879d4f97c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -41,6 +118,7 @@ lines = [
 hash = "sha256:4d343a51cafd18312fa33c31f1f15686d7cb130578c2d8792af0b3ee77ffaf7a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:f2e963ecd5b13df7"]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -54,6 +132,7 @@ lines = [
 hash = "sha256:dc0cd6bf44f5a7059f9800fefb8d8a7202a6482c1a1cffdc3fa32aaa813a9105"
 doc_hash = "sha256:330a9dea872cb668f9ee029000e673a5f21d70d8a0d50692155fef43e7ad1d3e"
 callees = ["fn:21ecd21bad5bf136"]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -67,6 +146,7 @@ lines = [
 hash = "sha256:ff2ebc6b0a3c4705fd59770d6debd905f908f715c0d4cb8020da3e7a42bcfb2d"
 doc_hash = "sha256:b1298523305ecf1080e1aa3ec1acfdf8b794ff33838e617956ae878efa81ac90"
 callees = ["fn:21ecd21bad5bf136"]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -80,6 +160,11 @@ lines = [
 hash = "sha256:0a8875295ae3ac0642da0cf46b1b97e005d09c4fa214e233578966eb0d1b3d43"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:529f10709bdb34b8"]
+uses = [
+    "fn:5315e59b99e3c06d",
+    "fn:79b10444609192fc",
+    "fn:b418f739a7129b88",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -93,6 +178,11 @@ lines = [
 hash = "sha256:61bf9b89665213fc89c983365ca4ff1d97065bec2ed2ddfa11954237e2b772c6"
 doc_hash = "sha256:cc3df8f520d645caf126e52882fdecf12c12ee1f379e402f7600c1e45dae30a8"
 callees = ["fn:190aa4779e7729a9"]
+uses = [
+    "fn:3401e09672b3090f",
+    "fn:5315e59b99e3c06d",
+    "fn:79b10444609192fc",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -109,6 +199,11 @@ callees = [
     "fn:a9ebd0ed702585a1",
     "fn:ee7dfc4209de4402",
 ]
+uses = [
+    "fn:3401e09672b3090f",
+    "fn:5315e59b99e3c06d",
+    "fn:79b10444609192fc",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -124,6 +219,10 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:16721c7f3982e622",
     "fn:249582a8a5e3e843",
+]
+uses = [
+    "fn:79b10444609192fc",
+    "fn:d4ea0d49816f0858",
 ]
 test = true
 
@@ -142,6 +241,14 @@ callees = [
     "fn:a9ebd0ed702585a1",
     "fn:ee7dfc4209de4402",
 ]
+uses = [
+    "fn:3401e09672b3090f",
+    "fn:5315e59b99e3c06d",
+    "fn:79b10444609192fc",
+    "fn:a88980268a226fcb",
+    "fn:d4ea0d49816f0858",
+    "fn:fc9448e19be821dc",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -155,6 +262,11 @@ lines = [
 hash = "sha256:956ab25e48265c2effda6d2b1290cc9167487d860cb1ed75ac9bf232dc2285f6"
 doc_hash = "sha256:849ecb8392394452f8e952d9576ef7397b3727d6d23ef743e6a888a4701049c4"
 callees = ["fn:754824c322d03020"]
+uses = [
+    "fn:687031bfcff850ee",
+    "fn:79b10444609192fc",
+    "fn:fc9448e19be821dc",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -168,6 +280,10 @@ lines = [
 hash = "sha256:e8f2fa0f97c79c984789e4e890a431f9f1cfdde13bd9b4f06d228ed695946879"
 doc_hash = "sha256:0ae6e1abe0ca65307151acef316303e4a589f1db19858fcafdd98f9ad8048293"
 callees = ["fn:754824c322d03020"]
+uses = [
+    "fn:79b10444609192fc",
+    "fn:fc9448e19be821dc",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -185,6 +301,13 @@ callees = [
     "fn:b44c568fb7c0e708",
     "fn:ee7dfc4209de4402",
 ]
+uses = [
+    "fn:3401e09672b3090f",
+    "fn:4d2bc7a2050eb70b",
+    "fn:5315e59b99e3c06d",
+    "fn:79b10444609192fc",
+    "fn:8185c9e0c6849121",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -200,6 +323,11 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:a9ebd0ed702585a1",
     "fn:ee7dfc4209de4402",
+]
+uses = [
+    "fn:3401e09672b3090f",
+    "fn:5315e59b99e3c06d",
+    "fn:79b10444609192fc",
 ]
 test = true
 
@@ -218,6 +346,10 @@ callees = [
     "fn:61cf55fde625da12",
     "fn:b44c568fb7c0e708",
 ]
+uses = [
+    "fn:69d76da05965d2cc",
+    "fn:79b10444609192fc",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -230,6 +362,10 @@ lines = [
 ]
 hash = "sha256:0743287db57c301a29d1a97ae1917f1e2312bd2eae2ff2cd048889235e575beb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:5315e59b99e3c06d",
+    "fn:79b10444609192fc",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -243,6 +379,10 @@ lines = [
 hash = "sha256:bdcba56135877e247092c890429ef25b649aefac01ace5d48700beee16cacccb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:244a1e743234f9a4"]
+uses = [
+    "fn:79b10444609192fc",
+    "fn:8185c9e0c6849121",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -261,6 +401,10 @@ callees = [
     "fn:529f10709bdb34b8",
     "fn:ac778f58f81ed2ef",
     "fn:b44c568fb7c0e708",
+]
+uses = [
+    "fn:32cb4b11fcc591df",
+    "fn:79b10444609192fc",
 ]
 test = true
 
@@ -281,6 +425,14 @@ callees = [
     "fn:e8ec52a2731eb7dc",
     "fn:f1e4f28432ec3d97",
 ]
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:32cb4b11fcc591df",
+    "fn:79b10444609192fc",
+    "fn:df852ef7e140d349",
+    "fn:e71c0fb118bede83",
+    "fn:feb2b02d65a3bdbc",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -300,6 +452,13 @@ callees = [
     "fn:4ec6f62450f22e58",
     "fn:754824c322d03020",
 ]
+uses = [
+    "fn:43fb14fd3944abf5",
+    "fn:687031bfcff850ee",
+    "fn:79b10444609192fc",
+    "fn:d4ea0d49816f0858",
+    "fn:fc9448e19be821dc",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -316,6 +475,7 @@ callees = [
     "fn:18f850f9a7a85ea0",
     "fn:ac778f58f81ed2ef",
 ]
+uses = ["fn:32cb4b11fcc591df"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -331,6 +491,10 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:164a1653be1f499b",
     "fn:29e03665c3af57fe",
+]
+uses = [
+    "fn:32cb4b11fcc591df",
+    "fn:79b10444609192fc",
 ]
 test = true
 
@@ -357,6 +521,10 @@ lines = [
 hash = "sha256:febfc3cda0cf4020f1301366bca1aa559a5dab5d82b7b8c1e87f3b8d5ede9154"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:d1f67a6565e9c44e"]
+uses = [
+    "fn:4dc7413f2da0eef4",
+    "fn:8cb0a05f95b036a6",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -372,6 +540,10 @@ doc_hash = "sha256:adcaf271dae10bd307a54998dbbd8e1ad61a040c92074aba479fe09ff4198
 callees = [
     "fn:08a8650dd5394d06",
     "fn:ac778f58f81ed2ef",
+]
+uses = [
+    "fn:32cb4b11fcc591df",
+    "fn:382911e2256ac1df",
 ]
 test = true
 
@@ -393,6 +565,7 @@ callees = [
     "fn:acc4968cc831d23c",
     "fn:ae2d7245e5782101",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -410,6 +583,10 @@ callees = [
     "fn:249582a8a5e3e843",
     "fn:3c803a2745400e7d",
 ]
+uses = [
+    "fn:79b10444609192fc",
+    "fn:df852ef7e140d349",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -422,6 +599,11 @@ lines = [
 ]
 hash = "sha256:8ad08d439e232877bf24a2b5786cd9a75ce6685756f8446bac229e4235cf0b99"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:6852ce0de4a725e2",
+    "fn:8c38637f9a8af066",
+    "fn:bef9f5e3c61ae369",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -452,6 +634,7 @@ callees = [
     "fn:87bc0ddc1d31c123",
     "fn:d1e040de2cca416c",
 ]
+uses = ["fn:6852ce0de4a725e2"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -469,6 +652,11 @@ callees = [
     "fn:7ed2d89dff5918a1",
     "fn:87bc0ddc1d31c123",
     "fn:d1e040de2cca416c",
+]
+uses = [
+    "fn:6852ce0de4a725e2",
+    "fn:a86b59760becb50c",
+    "fn:bef9f5e3c61ae369",
 ]
 test = true
 
@@ -488,6 +676,11 @@ callees = [
     "fn:87bc0ddc1d31c123",
     "fn:d1e040de2cca416c",
 ]
+uses = [
+    "fn:6852ce0de4a725e2",
+    "fn:a86b59760becb50c",
+    "fn:bef9f5e3c61ae369",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -505,6 +698,7 @@ callees = [
     "fn:87bc0ddc1d31c123",
     "fn:d1e040de2cca416c",
 ]
+uses = ["fn:6852ce0de4a725e2"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -525,6 +719,10 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:c704cd510336dd0d",
     "fn:f9b7bdd59f30586f",
+]
+uses = [
+    "fn:8eae36010dc3938a",
+    "fn:d4ea0d49816f0858",
 ]
 test = true
 
@@ -547,6 +745,10 @@ callees = [
     "fn:c704cd510336dd0d",
     "fn:f9b7bdd59f30586f",
 ]
+uses = [
+    "fn:8eae36010dc3938a",
+    "fn:d4ea0d49816f0858",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -567,6 +769,10 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:c704cd510336dd0d",
     "fn:f9b7bdd59f30586f",
+]
+uses = [
+    "fn:8eae36010dc3938a",
+    "fn:d4ea0d49816f0858",
 ]
 test = true
 
@@ -592,6 +798,7 @@ callees = [
     "fn:b75942b6339dcb59",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -614,6 +821,7 @@ callees = [
     "fn:c704cd510336dd0d",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -638,6 +846,10 @@ callees = [
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
 ]
+uses = [
+    "fn:4d2bc7a2050eb70b",
+    "fn:d4ea0d49816f0858",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -660,6 +872,7 @@ callees = [
     "fn:b75942b6339dcb59",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -684,6 +897,7 @@ callees = [
     "fn:b75942b6339dcb59",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -707,6 +921,7 @@ callees = [
     "fn:b75942b6339dcb59",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -752,6 +967,7 @@ callees = [
     "fn:b75942b6339dcb59",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -775,6 +991,7 @@ callees = [
     "fn:c704cd510336dd0d",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:d4ea0d49816f0858"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -798,6 +1015,7 @@ callees = [
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:d4ea0d49816f0858"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -821,6 +1039,7 @@ callees = [
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:d4ea0d49816f0858"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -844,6 +1063,7 @@ callees = [
     "fn:c704cd510336dd0d",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -865,6 +1085,10 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
+]
+uses = [
+    "fn:4d2bc7a2050eb70b",
+    "fn:8eae36010dc3938a",
 ]
 test = true
 
@@ -907,6 +1131,7 @@ callees = [
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -929,6 +1154,10 @@ callees = [
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
 ]
+uses = [
+    "fn:4d2bc7a2050eb70b",
+    "fn:8eae36010dc3938a",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -950,6 +1179,7 @@ callees = [
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:8eae36010dc3938a"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -972,6 +1202,7 @@ callees = [
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -994,6 +1225,7 @@ callees = [
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:8eae36010dc3938a"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1017,6 +1249,7 @@ callees = [
     "fn:c704cd510336dd0d",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1041,6 +1274,10 @@ callees = [
     "fn:c704cd510336dd0d",
     "fn:f9b7bdd59f30586f",
 ]
+uses = [
+    "fn:8eae36010dc3938a",
+    "fn:d4ea0d49816f0858",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1061,6 +1298,10 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
+]
+uses = [
+    "fn:8eae36010dc3938a",
+    "fn:d4ea0d49816f0858",
 ]
 test = true
 
@@ -1101,6 +1342,7 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1121,6 +1363,7 @@ callees = [
     "fn:acc4968cc831d23c",
     "fn:ae2d7245e5782101",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1140,6 +1383,7 @@ callees = [
     "fn:a34637778e5fa540",
     "fn:ae2d7245e5782101",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1159,6 +1403,7 @@ callees = [
     "fn:a34637778e5fa540",
     "fn:ae2d7245e5782101",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1179,6 +1424,7 @@ callees = [
     "fn:acc4968cc831d23c",
     "fn:ae2d7245e5782101",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1198,6 +1444,7 @@ callees = [
     "fn:529f10709bdb34b8",
     "fn:ae2d7245e5782101",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1220,6 +1467,7 @@ callees = [
     "fn:b44c568fb7c0e708",
     "fn:c704cd510336dd0d",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1242,6 +1490,10 @@ callees = [
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
 ]
+uses = [
+    "fn:4d2bc7a2050eb70b",
+    "fn:8eae36010dc3938a",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1261,6 +1513,7 @@ callees = [
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:8eae36010dc3938a"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1282,6 +1535,7 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:fc9448e19be821dc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1302,6 +1556,7 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1321,6 +1576,10 @@ callees = [
     "fn:acc4968cc831d23c",
     "fn:ae2d7245e5782101",
     "fn:f9b7bdd59f30586f",
+]
+uses = [
+    "fn:3401e09672b3090f",
+    "fn:d4ea0d49816f0858",
 ]
 test = true
 
@@ -1342,6 +1601,10 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:f9b7bdd59f30586f",
 ]
+uses = [
+    "fn:3401e09672b3090f",
+    "fn:d4ea0d49816f0858",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1361,6 +1624,7 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:d4ea0d49816f0858"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1380,6 +1644,7 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:d4ea0d49816f0858"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1417,6 +1682,10 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:d214ae8da4b5e478",
     "fn:f9b7bdd59f30586f",
+]
+uses = [
+    "fn:3401e09672b3090f",
+    "fn:d4ea0d49816f0858",
 ]
 test = true
 
@@ -1527,6 +1796,7 @@ callees = [
     "fn:c704cd510336dd0d",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:e71c0fb118bede83"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1780,6 +2050,7 @@ callees = [
     "fn:b75942b6339dcb59",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1801,6 +2072,7 @@ callees = [
     "fn:b75942b6339dcb59",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1860,6 +2132,7 @@ callees = [
     "fn:c704cd510336dd0d",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:d4ea0d49816f0858"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1882,6 +2155,7 @@ callees = [
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:d4ea0d49816f0858"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1905,6 +2179,7 @@ callees = [
     "fn:c704cd510336dd0d",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:d4ea0d49816f0858"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -1925,6 +2200,7 @@ callees = [
     "fn:ac778f58f81ed2ef",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:32cb4b11fcc591df"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2044,6 +2320,7 @@ callees = [
     "fn:b75942b6339dcb59",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2064,6 +2341,7 @@ callees = [
     "fn:b75942b6339dcb59",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2086,6 +2364,11 @@ callees = [
     "fn:c704cd510336dd0d",
     "fn:d1f67a6565e9c44e",
     "fn:f9b7bdd59f30586f",
+]
+uses = [
+    "fn:4dc7413f2da0eef4",
+    "fn:8cb0a05f95b036a6",
+    "fn:d4ea0d49816f0858",
 ]
 test = true
 
@@ -2125,6 +2408,7 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:c704cd510336dd0d",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2144,6 +2428,7 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:c704cd510336dd0d",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2163,6 +2448,7 @@ callees = [
     "fn:529f10709bdb34b8",
     "fn:ae2d7245e5782101",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2181,6 +2467,7 @@ callees = [
     "fn:44c2055e2451f7a9",
     "fn:ae2d7245e5782101",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2200,6 +2487,7 @@ callees = [
     "fn:a34637778e5fa540",
     "fn:ae2d7245e5782101",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2216,6 +2504,7 @@ callees = [
     "fn:44c2055e2451f7a9",
     "fn:ae2d7245e5782101",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2234,6 +2523,7 @@ callees = [
     "fn:acc4968cc831d23c",
     "fn:c704cd510336dd0d",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2254,6 +2544,11 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:d1f67a6565e9c44e",
 ]
+uses = [
+    "fn:4dc7413f2da0eef4",
+    "fn:79b10444609192fc",
+    "fn:8cb0a05f95b036a6",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2273,6 +2568,10 @@ callees = [
     "fn:acc4968cc831d23c",
     "fn:ae2d7245e5782101",
 ]
+uses = [
+    "fn:79b10444609192fc",
+    "fn:8eae36010dc3938a",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2291,6 +2590,7 @@ callees = [
     "fn:acc4968cc831d23c",
     "fn:c704cd510336dd0d",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2309,6 +2609,7 @@ callees = [
     "fn:acc4968cc831d23c",
     "fn:c704cd510336dd0d",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2327,6 +2628,7 @@ callees = [
     "fn:acc4968cc831d23c",
     "fn:c704cd510336dd0d",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2345,6 +2647,7 @@ callees = [
     "fn:acc4968cc831d23c",
     "fn:c704cd510336dd0d",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2363,6 +2666,7 @@ callees = [
     "fn:acc4968cc831d23c",
     "fn:c704cd510336dd0d",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2384,6 +2688,10 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
+]
+uses = [
+    "fn:4d2bc7a2050eb70b",
+    "fn:8eae36010dc3938a",
 ]
 test = true
 
@@ -2408,6 +2716,10 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
+]
+uses = [
+    "fn:4d2bc7a2050eb70b",
+    "fn:8eae36010dc3938a",
 ]
 test = true
 
@@ -2434,6 +2746,10 @@ callees = [
     "fn:b44c568fb7c0e708",
     "fn:f9b7bdd59f30586f",
 ]
+uses = [
+    "fn:4d2bc7a2050eb70b",
+    "fn:8eae36010dc3938a",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2455,6 +2771,7 @@ callees = [
     "fn:b75942b6339dcb59",
     "fn:f9b7bdd59f30586f",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2488,6 +2805,10 @@ lines = [
 hash = "sha256:0abe515c08e0b3e278035531cb831af496c875ad12891ca549be0104b674887c"
 doc_hash = "sha256:71c5a21db814e5a9ada8e997165e7db294b60a0d24d37c80f302baae40d67dac"
 callees = ["fn:754824c322d03020"]
+uses = [
+    "fn:79b10444609192fc",
+    "fn:fc9448e19be821dc",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2504,6 +2825,7 @@ callees = [
     "fn:44c2055e2451f7a9",
     "fn:ae2d7245e5782101",
 ]
+uses = ["fn:79b10444609192fc"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2609,6 +2931,10 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:f9b7bdd59f30586f",
 ]
+uses = [
+    "fn:32cb4b11fcc591df",
+    "fn:4d2bc7a2050eb70b",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2630,6 +2956,10 @@ callees = [
     "fn:ae2d7245e5782101",
     "fn:f9b7bdd59f30586f",
 ]
+uses = [
+    "fn:32cb4b11fcc591df",
+    "fn:4d2bc7a2050eb70b",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2648,6 +2978,7 @@ callees = [
     "fn:ac778f58f81ed2ef",
     "fn:c9546dce99e9d27e",
 ]
+uses = ["fn:32cb4b11fcc591df"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2672,6 +3003,10 @@ callees = [
     "fn:b44c568fb7c0e708",
     "fn:c704cd510336dd0d",
 ]
+uses = [
+    "fn:32cb4b11fcc591df",
+    "fn:79b10444609192fc",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2694,6 +3029,7 @@ callees = [
     "fn:ac778f58f81ed2ef",
     "fn:c9546dce99e9d27e",
 ]
+uses = ["fn:32cb4b11fcc591df"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2723,6 +3059,7 @@ callees = [
     "fn:9a0f926aaec4a79e",
     "fn:ac778f58f81ed2ef",
 ]
+uses = ["fn:32cb4b11fcc591df"]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2739,6 +3076,10 @@ callees = [
     "fn:809c0b4c714e009a",
     "fn:9a0f926aaec4a79e",
     "fn:ac778f58f81ed2ef",
+]
+uses = [
+    "fn:32cb4b11fcc591df",
+    "fn:382911e2256ac1df",
 ]
 test = true
 
@@ -2762,6 +3103,11 @@ callees = [
     "fn:c704cd510336dd0d",
     "fn:f9b7bdd59f30586f",
 ]
+uses = [
+    "fn:d4ea0d49816f0858",
+    "fn:f2022eb479ff475d",
+    "fn:f7e0d23478e950cf",
+]
 test = true
 
 [[module."zotero_search.rs".function]]
@@ -2784,5 +3130,18 @@ callees = [
     "fn:e8ec52a2731eb7dc",
     "fn:ee7dfc4209de4402",
     "fn:f1e4f28432ec3d97",
+]
+uses = [
+    "fn:0a47f32cb2e49aa7",
+    "fn:2f034faea09aec25",
+    "fn:32cb4b11fcc591df",
+    "fn:3401e09672b3090f",
+    "fn:382911e2256ac1df",
+    "fn:5315e59b99e3c06d",
+    "fn:72a48df1a2c60b42",
+    "fn:d4ea0d49816f0858",
+    "fn:df852ef7e140d349",
+    "fn:e71c0fb118bede83",
+    "fn:feb2b02d65a3bdbc",
 ]
 test = true

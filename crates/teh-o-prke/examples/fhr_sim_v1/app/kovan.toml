@@ -33,6 +33,7 @@ callees = [
     "fn:ba6ec8c9b79bb60d",
     "fn:ce1e399268b77698",
 ]
+uses = ["fn:93ae0cbbb1308bdc"]
 
 [[module."mod.rs".function]]
 id = "fn:a4f338415cf44ee5"
@@ -49,6 +50,11 @@ callees = [
     "fn:4516edffc2620c1e",
     "fn:9b25da418695bfd9",
     "fn:b6b12b4b345b2e05",
+]
+uses = [
+    "fn:09bec2ed18d33444",
+    "fn:0bfb59a6832841a9",
+    "fn:8467459c4a663c4c",
 ]
 
 [[module."mod.rs".function]]
@@ -76,3 +82,4 @@ lines = [
 hash = "sha256:2558a3d2fb2d2d6ce9dfa734f22c4ecec2b0b9bb62b380dc97b650687902fbc2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:789588c3fddd40f5"]
+uses = ["fn:8467459c4a663c4c"]

@@ -25,6 +25,31 @@ path = "crate::genfoam::thermal_hydraulics::phase"
 path = "crate::genfoam::thermal_hydraulics::phase::phase_base"
 
 [[module."phase_base.rs".function]]
+id = "fn:40a7bc04887daf2e"
+name = "VolumeFraction"
+qual = "VolumeFraction"
+item = "type"
+shape = "alias"
+lines = [
+    45,
+    53,
+]
+hash = "sha256:e25ea516086e0a8fbc02c8ea06250f66767715f97c79fe584e00cef7420d6abe"
+doc_hash = "sha256:5dd6e8fd8e69e98fa48aa31d48e16f18a82676695e9e76af93ec571a8af9ed28"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."phase_base.rs".function]]
 id = "fn:5b29719309d2422c"
 name = "volume_fraction"
 qual = "volume_fraction"
@@ -34,6 +59,7 @@ lines = [
 ]
 hash = "sha256:4ef973a0c826dfff8ca8dd18c7a9895b1a43d505200c681e20eb34b9d46cce04"
 doc_hash = "sha256:612aa0efea219b200adbb1bd99a9e608fe26e9d46c22244ae77a2ab43c890291"
+uses = ["fn:40a7bc04887daf2e"]
 reached_by = [
     "#0",
     "#1",
@@ -49,6 +75,36 @@ reached_by = [
 physical_interface = true
 
 [[module."phase_base.rs".function]]
+id = "fn:bf6fc8b5037e2f87"
+name = "PhaseBase"
+qual = "PhaseBase"
+item = "type"
+shape = "struct"
+lines = [
+    62,
+    83,
+]
+hash = "sha256:ce293e34948ecbe1041bdafa28f1f9baab8808b8120da75b10016d25118fd086"
+doc_hash = "sha256:31d66faeff61e4f2b1b2c88cd9ab3653f8a5edc7210053372450bf1a50131686"
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:40a7bc04887daf2e",
+    "fn:7aa70dd1c009cc88",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."phase_base.rs".function]]
 id = "fn:9380d18f9df464d6"
 name = "new"
 qual = "PhaseBase::new"
@@ -61,6 +117,11 @@ doc_hash = "sha256:2ef8f0b8f58be43a0d689edeb99476f93c0ef4eef694dfc38764a958e4729
 callees = [
     "fn:5b29719309d2422c",
     "fn:d6a9c884aaeb7775",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+    "fn:bf6fc8b5037e2f87",
 ]
 reached_by = [
     "#0",
@@ -85,6 +146,7 @@ lines = [
 ]
 hash = "sha256:8abb2abb6e1b0f66fd10ee41e29ffac0471cca20aef7194345da1d5b4b121b3b"
 doc_hash = "sha256:942abd3531d60a296b01dbe6551295b4c99ae878e06f317da89d025f14114786"
+uses = ["fn:bf6fc8b5037e2f87"]
 reached_by = [
     "#0",
     "#1",
@@ -108,6 +170,10 @@ lines = [
 ]
 hash = "sha256:9177eba2bafd4635216b811dd9cb4cf0b1dbdf93a40b06ccc5ad1b5a32c4847c"
 doc_hash = "sha256:84660e91d4038c1d3f6bd1645d3665895cd5460ba8561106f21328d46f9a354c"
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:bf6fc8b5037e2f87",
+]
 reached_by = [
     "#4",
     "#9",
@@ -125,6 +191,10 @@ lines = [
 ]
 hash = "sha256:e8ef4a834094e05fd38ed7088979de2602108472f60f64fcf26a9a9ba2226f48"
 doc_hash = "sha256:a55f3d85fefecc462e7cc2c9995cbf783b65236131f5a9d8e9d413ea2444ea6a"
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:bf6fc8b5037e2f87",
+]
 reached_by = [
     "#0",
     "#3",
@@ -144,6 +214,10 @@ lines = [
 ]
 hash = "sha256:680ec985df7a5a24d7ddf63cf67741ae12717787c3c80078d25fb4433b23bf34"
 doc_hash = "sha256:81059d12eff9ef52e4d47b53ddef8ba3134fd3dbf5077e3a93913602af248a91"
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:bf6fc8b5037e2f87",
+]
 reached_by = [
     "#0",
     "#9",
@@ -162,6 +236,10 @@ lines = [
 ]
 hash = "sha256:86bec4a87f670aff3f7cbaf89467c4b5fad60d558ecdb096ba56930433f91dc7"
 doc_hash = "sha256:26a0177ae255d23b26ecd151face4bcb49fc5e5abb474455d7ab5249154a7f00"
+uses = [
+    "fn:40a7bc04887daf2e",
+    "fn:bf6fc8b5037e2f87",
+]
 physical_interface = true
 
 [[module."phase_base.rs".function]]
@@ -174,6 +252,10 @@ lines = [
 ]
 hash = "sha256:8ffa8ace2a07bf0a7a8cc3aa31b2d68c711c60a916945b4ac7c9143b20847435"
 doc_hash = "sha256:a08548f41911da051e6573e2a9631f06be2bc56873524b571346e6d83834b1ec"
+uses = [
+    "fn:40a7bc04887daf2e",
+    "fn:bf6fc8b5037e2f87",
+]
 physical_interface = true
 
 [module."phase_pair.rs"]
@@ -193,6 +275,10 @@ callees = [
     "fn:6d45af0d518e142d",
     "fn:96b5c3d947f087e5",
     "fn:d6a9c884aaeb7775",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:d45bd48797fb1b2f",
 ]
 reached_by = [
     "#7",
@@ -220,6 +306,10 @@ callees = [
     "fn:d6a9c884aaeb7775",
     "fn:ed7d718f646723fc",
 ]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+]
 reached_by = ["#6"]
 
 [[module."phase_pair.rs".function]]
@@ -236,6 +326,10 @@ callees = [
     "fn:6d45af0d518e142d",
     "fn:96b5c3d947f087e5",
     "fn:d6a9c884aaeb7775",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:d45bd48797fb1b2f",
 ]
 reached_by = ["#6"]
 physical_interface = true
@@ -259,6 +353,11 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."phase_pair.rs".function]]
@@ -272,6 +371,10 @@ lines = [
 hash = "sha256:e50f891a4a80cc5402d8d8f95650b325f62c8ce02e4f3c4f0563f160e028bcbe"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:636e75b664f14254"]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+]
 test = true
 
 [[module."phase_pair.rs".function]]
@@ -332,5 +435,9 @@ callees = [
     "fn:983b1442c904d828",
     "fn:9e501e5f4cce23ae",
     "fn:acfb0f2d7b950994",
+]
+uses = [
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
 ]
 test = true

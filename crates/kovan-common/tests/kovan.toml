@@ -41,6 +41,12 @@ callees = [
     "fn:f46f6bcf0442124f",
     "fn:fe01325fdea59149",
 ]
+uses = [
+    "fn:172326af75efdc60",
+    "fn:842c00c159aa93db",
+    "fn:b07b8e5717934b35",
+    "fn:fab10e4f2c22952e",
+]
 test = true
 
 [[module."kovan_document_schema_compat.rs".function]]
@@ -54,6 +60,11 @@ lines = [
 hash = "sha256:d28b16b66ac28678773ba8f05fde3ecc347e70df3763be273aafd5c120137b17"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:aa521857b5d2af86"]
+uses = [
+    "fn:172326af75efdc60",
+    "fn:b07b8e5717934b35",
+    "fn:fab10e4f2c22952e",
+]
 test = true
 
 [[module."kovan_document_schema_compat.rs".function]]
@@ -70,6 +81,7 @@ callees = [
     "fn:cb3425e920a0a5f3",
     "fn:cfa2af3c4fb18f2f",
 ]
+uses = ["fn:b07b8e5717934b35"]
 test = true
 
 [[module."kovan_document_schema_compat.rs".function]]
@@ -86,6 +98,7 @@ callees = [
     "fn:cb3425e920a0a5f3",
     "fn:cfa2af3c4fb18f2f",
 ]
+uses = ["fn:b07b8e5717934b35"]
 test = true
 
 [[module."kovan_document_schema_compat.rs".function]]
@@ -99,6 +112,10 @@ lines = [
 hash = "sha256:87479c07f4c5d7677a3aad045d18f0280691290f1b28da206623ce88a61268de"
 doc_hash = "sha256:c60a61af987ab629758d89acb0e9b8e1702014dd5d31d86a102225d57b0b7e45"
 callees = ["fn:6dd3106fbfb42fb0"]
+uses = [
+    "fn:5315e59b99e3c06d",
+    "fn:b07b8e5717934b35",
+]
 test = true
 
 [module."review_schema_compat.rs"]
@@ -127,6 +144,11 @@ callees = [
     "fn:ead765b76cbf90df",
     "fn:ec325cd403e837ff",
 ]
+uses = [
+    "fn:0a1d45ef13493b92",
+    "fn:1a4d98accc4b004a",
+    "fn:321b1194bd3385b9",
+]
 test = true
 
 [[module."review_schema_compat.rs".function]]
@@ -144,6 +166,11 @@ callees = [
     "fn:4b481d56c49f94f1",
     "fn:65d98a3b2cd1a89e",
     "fn:ead765b76cbf90df",
+]
+uses = [
+    "fn:353378af4199c16d",
+    "fn:5cc10fccc34d17a0",
+    "fn:dc5eb431dfec916f",
 ]
 test = true
 
@@ -168,6 +195,48 @@ test = true
 path = "test:zotero_port"
 
 [[module."zotero_port.rs".function]]
+id = "fn:9f4460521231f729"
+name = "CITEPROC_EXPORT"
+qual = "CITEPROC_EXPORT"
+item = "const"
+shape = "const"
+lines = [
+    29,
+    29,
+]
+hash = "sha256:aa62c61cefa5bfd4ebf49f4070b2b5333560bc37a679b913b12a87b03ef8a750"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_port.rs".function]]
+id = "fn:8189cead15200f6c"
+name = "ITEM_JSON"
+qual = "ITEM_JSON"
+item = "const"
+shape = "const"
+lines = [
+    30,
+    30,
+]
+hash = "sha256:7f85b51f813b0b098fc21013f3edcc1a1a7a5413ec2166bb004667b3a3b90dab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_port.rs".function]]
+id = "fn:8b8cb9a88266da38"
+name = "JOURNAL_ARTICLE"
+qual = "JOURNAL_ARTICLE"
+item = "const"
+shape = "const"
+lines = [
+    31,
+    31,
+]
+hash = "sha256:f1f968778965e3b556a929fe17ab8e08d6f1407fbed0d833c9d1750e3f96a027"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_port.rs".function]]
 id = "fn:118ed97d2b816407"
 name = "opts"
 qual = "opts"
@@ -178,6 +247,7 @@ lines = [
 hash = "sha256:7958c94be8241b0a59025c5aeefae2297961635e16761feedc96c79df9c35426"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:f49eb73a3b72ba1c"]
+uses = ["fn:4d9d6af1d21070bb"]
 test = true
 
 [[module."zotero_port.rs".function]]
@@ -215,6 +285,21 @@ callees = [
     "fn:cedc79742e5d95c5",
     "fn:f39e84a0dd6597b6",
 ]
+uses = [
+    "fn:33e3b25b52e5e081",
+    "fn:3401e09672b3090f",
+    "fn:3ee4d50d12e827b6",
+    "fn:4dc7413f2da0eef4",
+    "fn:9cda42542551c607",
+    "fn:a4e31f71638979f5",
+    "fn:aa08f1bb7ce62986",
+    "fn:adc54566714feea4",
+    "fn:afac11a061e6e32f",
+    "fn:c0e10c0c4d08a2fc",
+    "fn:d2c56fa465e27bbb",
+    "fn:d4ea0d49816f0858",
+    "fn:e22b3f4f6b5fe0ac",
+]
 test = true
 
 [[module."zotero_port.rs".function]]
@@ -234,6 +319,10 @@ callees = [
     "fn:8707fbf9198153a9",
     "fn:c0cbc247b615f701",
 ]
+uses = [
+    "fn:5315e59b99e3c06d",
+    "fn:8189cead15200f6c",
+]
 test = true
 
 [[module."zotero_port.rs".function]]
@@ -252,6 +341,7 @@ callees = [
     "fn:c0cbc247b615f701",
     "fn:d5e582fe34a57d11",
 ]
+uses = ["fn:9f4460521231f729"]
 test = true
 
 [[module."zotero_port.rs".function]]
@@ -270,6 +360,7 @@ callees = [
     "fn:c0cbc247b615f701",
     "fn:d5e582fe34a57d11",
 ]
+uses = ["fn:9f4460521231f729"]
 test = true
 
 [[module."zotero_port.rs".function]]
@@ -287,6 +378,11 @@ callees = [
     "fn:118ed97d2b816407",
     "fn:88f42faa8ef48bbd",
     "fn:c0cbc247b615f701",
+]
+uses = [
+    "fn:5315e59b99e3c06d",
+    "fn:8189cead15200f6c",
+    "fn:9f4460521231f729",
 ]
 test = true
 
@@ -307,6 +403,11 @@ callees = [
     "fn:88f42faa8ef48bbd",
     "fn:c0cbc247b615f701",
 ]
+uses = [
+    "fn:5315e59b99e3c06d",
+    "fn:8b8cb9a88266da38",
+    "fn:d4ea0d49816f0858",
+]
 test = true
 
 [[module."zotero_port.rs".function]]
@@ -326,6 +427,10 @@ callees = [
     "fn:8707fbf9198153a9",
     "fn:a74d66495c775412",
     "fn:fe0136b18348f914",
+]
+uses = [
+    "fn:5315e59b99e3c06d",
+    "fn:69d76da05965d2cc",
 ]
 test = true
 
@@ -361,6 +466,12 @@ callees = [
     "fn:f46f6bcf0442124f",
     "fn:fe01325fdea59149",
 ]
+uses = [
+    "fn:172326af75efdc60",
+    "fn:842c00c159aa93db",
+    "fn:b07b8e5717934b35",
+    "fn:fab10e4f2c22952e",
+]
 test = true
 
 [[module."zotero_port.rs".function]]
@@ -378,6 +489,12 @@ callees = [
     "fn:69a25389726cb20d",
     "fn:6dd3106fbfb42fb0",
     "fn:8707fbf9198153a9",
+]
+uses = [
+    "fn:3401e09672b3090f",
+    "fn:5315e59b99e3c06d",
+    "fn:b07b8e5717934b35",
+    "fn:fab10e4f2c22952e",
 ]
 test = true
 
@@ -398,6 +515,11 @@ callees = [
     "fn:6dd3106fbfb42fb0",
     "fn:c0cbc247b615f701",
 ]
+uses = [
+    "fn:5315e59b99e3c06d",
+    "fn:8189cead15200f6c",
+    "fn:d4ea0d49816f0858",
+]
 test = true
 
 [[module."zotero_port.rs".function]]
@@ -416,6 +538,10 @@ callees = [
     "fn:6c8ab2587e36846c",
     "fn:6dd3106fbfb42fb0",
 ]
+uses = [
+    "fn:5315e59b99e3c06d",
+    "fn:d4ea0d49816f0858",
+]
 test = true
 
 [[module."zotero_port.rs".function]]
@@ -433,5 +559,11 @@ callees = [
     "fn:6c8ab2587e36846c",
     "fn:6dd3106fbfb42fb0",
     "fn:c0cbc247b615f701",
+]
+uses = [
+    "fn:172326af75efdc60",
+    "fn:5315e59b99e3c06d",
+    "fn:8189cead15200f6c",
+    "fn:d4ea0d49816f0858",
 ]
 test = true

@@ -27,6 +27,7 @@ callees = [
     "fn:c88a3e023469a925",
     "fn:eb36367bc51ea167",
 ]
+uses = ["fn:0bb173954082584d"]
 
 [module."coolant_around_pebble.rs"]
 path = "example:coolant_around_pebble"
@@ -57,6 +58,7 @@ callees = [
     "fn:e135c7311df4374b",
     "fn:eb36367bc51ea167",
 ]
+uses = ["fn:0bb173954082584d"]
 
 [module."lwr_pin_lattice.rs"]
 path = "example:lwr_pin_lattice"
@@ -110,6 +112,7 @@ callees = [
     "fn:dd8f31180713bf4d",
     "fn:f9c97f7c7a6d6a93",
 ]
+uses = ["fn:0bb173954082584d"]
 
 [module."pebble_bed.rs"]
 path = "example:pebble_bed"
@@ -164,6 +167,7 @@ callees = [
     "fn:ec7fa485a03a44b7",
     "fn:fd4f80b728398ba2",
 ]
+uses = ["fn:0bb173954082584d"]
 
 [module."tet_mesh.rs"]
 path = "example:tet_mesh"
@@ -192,3 +196,4 @@ callees = [
     "fn:eb36367bc51ea167",
     "fn:fd4f80b728398ba2",
 ]
+uses = ["fn:0bb173954082584d"]

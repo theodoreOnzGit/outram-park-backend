@@ -115,6 +115,13 @@ callees = [
     "fn:ee48fed6fbd70492",
     "fn:f8b8b8874aae4e2b",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+]
 
 [module."validate_dracs_loop_v1.rs"]
 path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v1_uncalibrated::validate_dracs_loop_v1"
@@ -186,5 +193,12 @@ callees = [
     "fn:e4bff9f30142b5cc",
     "fn:ee48fed6fbd70492",
     "fn:f8b8b8874aae4e2b",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
 ]
 reached_by = ["#0"]

@@ -13,6 +13,25 @@ test_ids = [
 path = "crate::feedback_mechanisms"
 
 [[module."mod.rs".function]]
+id = "fn:e79b6a5ba032cc45"
+name = "SixFactorFormulaFeedback"
+qual = "SixFactorFormulaFeedback"
+item = "type"
+shape = "struct"
+lines = [
+    4,
+    35,
+]
+hash = "sha256:8df644e0e9ce836e1eab41254fe7e516d3991b42a6b3a0d855fabbe4df8414a1"
+doc_hash = "sha256:e012d929392e089cdcb0440b228844bd7a21b4fd8c97fd1db2f7a2ce91781721"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
 id = "fn:b3bb11ef6decce3c"
 name = "calc_keff"
 qual = "SixFactorFormulaFeedback::calc_keff"
@@ -22,6 +41,7 @@ lines = [
 ]
 hash = "sha256:cc925f1a18703bc1d810ad50eaeccc369bdaa73df9166f6f154c9367e188885a"
 doc_hash = "sha256:50619666efa38ac80231e109405d236fef1c8770d6937e095281cb263746f0cd"
+uses = ["fn:e79b6a5ba032cc45"]
 reached_by = [
     "#0",
     "#1",
@@ -41,6 +61,7 @@ lines = [
 hash = "sha256:e17f99a966befcee74c2cf7a66af76ee0030fe872e62970f71f5ae114b899122"
 doc_hash = "sha256:91352b0db250d07bae13d894feca679f084a7f49a92a7e1bb4ffaf5c60c91a66"
 callees = ["fn:b3bb11ef6decce3c"]
+uses = ["fn:e79b6a5ba032cc45"]
 reached_by = [
     "#0",
     "#1",
@@ -59,6 +80,7 @@ lines = [
 ]
 hash = "sha256:98c689e82576e0df27b5e3c8eaac47da050a08f9e34907e2fd90ac86e561e655"
 doc_hash = "sha256:2ded2c105038ee17aa8e2a3cad348d331877a2d6d2d9bb29b93f222a95abe5e8"
+uses = ["fn:e79b6a5ba032cc45"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -71,6 +93,7 @@ lines = [
 ]
 hash = "sha256:5a5f960b4d23529cfe03cb3e11c7d4a1a568371ec9496232ca09fa599f0ea07c"
 doc_hash = "sha256:cc43ceb4279bd2add5d9c66d9e9032e13108ccd1ae093aa2b4590138733b2eb4"
+uses = ["fn:e79b6a5ba032cc45"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -83,6 +106,7 @@ lines = [
 ]
 hash = "sha256:5a5f960b4d23529cfe03cb3e11c7d4a1a568371ec9496232ca09fa599f0ea07c"
 doc_hash = "sha256:057de29b7635a1df28030c7e5fd4d33209b306ac29f6a7e68d799d4c0ac2934e"
+uses = ["fn:e79b6a5ba032cc45"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -95,6 +119,7 @@ lines = [
 ]
 hash = "sha256:c1fd071f87717fedc13ffb0e6918549cdbb47e91f455b0641bf45c478b98143c"
 doc_hash = "sha256:1c5c2e46c875811ab3e026b2fa2764c884c95686b04540ad3308c7ed514dd1ff"
+uses = ["fn:e79b6a5ba032cc45"]
 reached_by = [
     "#0",
     "#1",
@@ -113,6 +138,7 @@ lines = [
 ]
 hash = "sha256:c11c7c7803be6b231b6b9f6d17ea1abbb56b4232375f963e8aa80b403d78ec73"
 doc_hash = "sha256:5786c0dfb6fa9af36019722b31d07c5d430beea024c2ebc35a8594d1bdbc6e08"
+uses = ["fn:e79b6a5ba032cc45"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -125,6 +151,7 @@ lines = [
 ]
 hash = "sha256:cfb535e190301eb2cd880c3fc87defb147e902b31a1e366bf8121e4c3690f70f"
 doc_hash = "sha256:c81990fd74cc73cdf8ef05f7e4f45476d099fe3b424184c23853e183874574a4"
+uses = ["fn:e79b6a5ba032cc45"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -137,6 +164,7 @@ lines = [
 ]
 hash = "sha256:2ae01cafbeca51a8b7012de5371b62ccc1033388f88d7f5adafb19f5dc59c841"
 doc_hash = "sha256:334be0ecbf05a5a17536991a57ce82ef0d595b78fa1749635ac04ac6b907b3a4"
+uses = ["fn:e79b6a5ba032cc45"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -149,6 +177,7 @@ lines = [
 ]
 hash = "sha256:9b21fee053b29d2b81f1dacfce7710dd077c7b600ddaf47edee872cf15329d5c"
 doc_hash = "sha256:67524726822659eabb5e6971b51eba756869542fd6210ac0871ad9d8b341fcd5"
+uses = ["fn:e79b6a5ba032cc45"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -161,6 +190,7 @@ lines = [
 ]
 hash = "sha256:0ce7bc32ca574ef74c1628506f25edcbc37810e8237ce816ed6f46c7ad42eebe"
 doc_hash = "sha256:d36d729af32ae1e75c93a8a2dba91c286de17ca1494b8f6727bd5e6a437084c7"
+uses = ["fn:e79b6a5ba032cc45"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -173,6 +203,7 @@ lines = [
 ]
 hash = "sha256:3e0a330e0eb075bbbfcec9dfc8f304ff52ff0ac4e0be6b30737c33a2bf9d0f0c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:e79b6a5ba032cc45"]
 reached_by = [
     "#0",
     "#1",

@@ -28,3 +28,4 @@ lines = [
 hash = "sha256:ea611b3f2f84c13a0372e3171bce62e8be31be87a278c701500225ebc33a63db"
 doc_hash = "sha256:4c91ff607cab54ac7c1e9b4d277f08ac48a34044b4654a00f0e7e88bdcb20fc6"
 callees = ["fn:b621fdc2fb590405"]
+uses = ["fn:6c598c92467a5a33"]

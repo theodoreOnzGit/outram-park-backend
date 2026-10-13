@@ -11,6 +11,20 @@ test_ids = [
 path = "example:fhr_sim_v2::app::frame_cost"
 
 [[module."frame_cost.rs".function]]
+id = "fn:fdb1f08f476d7064"
+name = "SCREEN"
+qual = "SCREEN"
+item = "const"
+shape = "const"
+lines = [
+    93,
+    97,
+]
+hash = "sha256:c861b00676568f5a2a3e8aa93cb76b594b40098ee6322e773388e88af4f02dc8"
+doc_hash = "sha256:2a7597228db4f9d2e877edce33d83482cfce967039417d597d30ca9fea4bc0d0"
+test = true
+
+[[module."frame_cost.rs".function]]
 id = "fn:4a9281b19d8e1f92"
 name = "headless_context"
 qual = "headless_context"
@@ -20,6 +34,35 @@ lines = [
 ]
 hash = "sha256:5145fa34ba876e94d83644646d4dc38803327adda5714e80700b25cb24be62b7"
 doc_hash = "sha256:a34ca23f9b8b86b0a991569ef9a90ff85e07105a940367626f285aacbb02bfb5"
+uses = ["fn:fdb1f08f476d7064"]
+test = true
+
+[[module."frame_cost.rs".function]]
+id = "fn:193ddbee2aa25ea8"
+name = "FrameCost"
+qual = "FrameCost"
+item = "type"
+shape = "struct"
+lines = [
+    114,
+    122,
+]
+hash = "sha256:4411af6c7f2da5e5a9a99811d6435f31009167073ea3b983a554adb17ff049a3"
+doc_hash = "sha256:818674137a44baa7ee5f7201fb58d6351477247f81a91912723952e1934806e9"
+test = true
+
+[[module."frame_cost.rs".function]]
+id = "fn:8cb74857228c9d2d"
+name = "Part"
+qual = "Part"
+item = "type"
+shape = "enum"
+lines = [
+    124,
+    139,
+]
+hash = "sha256:4a0992c45966452256a071f370ca965a6cf10bd310f18a4e1fa7fa385cf2c913"
+doc_hash = "sha256:6d09cdabfa893ab6f634c6333486305ce67fa03b39a1ec247fae87af74af3972"
 test = true
 
 [[module."frame_cost.rs".function]]
@@ -37,6 +80,11 @@ callees = [
     "fn:94143b462e93f315",
     "fn:a1bdc69ffa9d4fed",
 ]
+uses = [
+    "fn:193ddbee2aa25ea8",
+    "fn:8cb74857228c9d2d",
+    "fn:a70fc38a274a1899",
+]
 test = true
 
 [[module."frame_cost.rs".function]]
@@ -50,6 +98,11 @@ lines = [
 hash = "sha256:13f6c9db735579aaae2604fa8f1083fb0aeda7132fd532da0ba93c2342b95a9d"
 doc_hash = "sha256:8bd23334f5bc33f02ef0e578cadfce147efa1e2c6bed86013f29058fa6b91f85"
 callees = ["fn:0f21ec8102c2beeb"]
+uses = [
+    "fn:193ddbee2aa25ea8",
+    "fn:8cb74857228c9d2d",
+    "fn:a70fc38a274a1899",
+]
 test = true
 
 [[module."frame_cost.rs".function]]
@@ -63,6 +116,7 @@ lines = [
 hash = "sha256:382319e47e6d6c77d99684fe70714a16d43c69de45db262631918123e4827a0f"
 doc_hash = "sha256:cd31cd660ac92afdee8ec3ba5545adfa8f723e7887bd8d83a698ae0f01ec7507"
 callees = ["fn:a3264904f4da2ab9"]
+uses = ["fn:8fa1d61f79295f85"]
 test = true
 
 [[module."frame_cost.rs".function]]
@@ -79,6 +133,7 @@ callees = [
     "fn:50405425c945732b",
     "fn:b33d5be5c3168ae3",
 ]
+uses = ["fn:a70fc38a274a1899"]
 test = true
 
 [[module."frame_cost.rs".function]]
@@ -96,6 +151,10 @@ callees = [
     "fn:9aef3d5657dc4930",
     "fn:e8992e06514e1115",
 ]
+uses = [
+    "fn:193ddbee2aa25ea8",
+    "fn:8cb74857228c9d2d",
+]
 test = true
 
 [[module."frame_cost.rs".function]]
@@ -106,12 +165,13 @@ lines = [
     340,
     421,
 ]
-hash = "sha256:f29ffaea4d80407708a7b5dc58db27f206cafaa9bb25c205b7c718e68e2852cc"
+hash = "sha256:7046116bc6e50541eba0891c9ba437d29d6b18f5696c9aaa506de5b764c3d2fd"
 doc_hash = "sha256:a792e8ecca9cb1d4784f5f2d353885a6386849f17a0f84c0299168313831da15"
 callees = [
     "fn:9aa6a2ec87e1c839",
     "fn:e8992e06514e1115",
 ]
+uses = ["fn:5d225cbd74f7f43d"]
 test = true
 
 [[module."frame_cost.rs".function]]
@@ -130,6 +190,7 @@ callees = [
     "fn:9aef3d5657dc4930",
     "fn:e8992e06514e1115",
 ]
+uses = ["fn:8cb74857228c9d2d"]
 test = true
 
 [module."mod.rs"]
@@ -166,6 +227,7 @@ callees = [
     "fn:a1bdc69ffa9d4fed",
     "fn:ee95e92deaf7a204",
 ]
+uses = ["fn:0256baab788d6320"]
 
 [[module."mod.rs".function]]
 id = "fn:94143b462e93f315"
@@ -185,6 +247,14 @@ callees = [
     "fn:c2b1db5aa20c11f6",
     "fn:e9acb4c6bf02d080",
     "fn:ff7479c87285cd8e",
+]
+uses = [
+    "fn:4f1ecf71274288d9",
+    "fn:8bc029c647a9bcb5",
+    "fn:8fa1d61f79295f85",
+    "fn:9648355dc7b4c05b",
+    "fn:dcc069fb05e667fb",
+    "fn:eb0e4e3b97fe92f9",
 ]
 reached_by = [
     "#0",
@@ -223,6 +293,7 @@ callees = [
     "fn:b1cb312f3056a106",
     "fn:fd61efaa92101915",
 ]
+uses = ["fn:8fa1d61f79295f85"]
 reached_by = [
     "#0",
     "#1",

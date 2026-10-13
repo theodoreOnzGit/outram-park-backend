@@ -395,6 +395,7 @@ callees = [
     "fn:9a6c178f55db41e1",
     "fn:e636bc0c5ef77ad0",
 ]
+uses = ["fn:ee0f976682afd992"]
 reached_by = [
     "#0",
     "#1",

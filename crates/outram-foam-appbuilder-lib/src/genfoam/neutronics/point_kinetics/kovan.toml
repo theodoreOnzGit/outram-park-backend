@@ -3,24 +3,217 @@ kind = "code_folder"
 crate = "outram-foam-appbuilder-lib"
 dir = "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/point_kinetics"
 test_ids = [
+    "crates/nee_soon/tests/coupling_api.rs::defaults_are_usable_and_failures_are_actionable",
+    "crates/nee_soon/tests/coupling_api.rs::the_documented_three_call_path_works",
+    "crates/nee_soon/tests/direct_coupling_steady_state.rs::a_non_converging_solve_reports_its_residuals",
+    "crates/nee_soon/tests/direct_coupling_steady_state.rs::monte_carlo_and_genfoam_reach_a_coupled_steady_state",
+    "crates/nee_soon/tests/mc_to_genfoam_kinf.rs::genfoam_reproduces_the_monte_carlo_kinf_from_its_own_mgxs",
     "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::coupled_power_conservation_across_meshes",
     "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::coupled_steady_state_negative_feedback",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::mesh_doppler_feedback_lowers_keff",
     "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::negative_feedback_reduces_power",
     "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::picard_loop_converges_consistently",
     "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::prescribed_region_is_inert",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/reactivity_feedback.rs::multiterm_superposition_and_log_law",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/reactivity_feedback.rs::spatial_profile_negative_feedback",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/reactivity_feedback.rs::uniform_field_reduces_to_lumped",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::a_zero_velocity_field_reproduces_the_chi_eff_collapse",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::drift_conserves_the_total_delayed_source",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::drift_lowers_k_eff_and_the_effect_grows_with_the_flow",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::keff_bare_slab_critical_buckling",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::keff_bare_slab_mesh_convergence",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::kinf_infinite_medium",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::null_transient_holds_steady",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::warm_start_reaches_the_same_k_in_fewer_iterations",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::dispatch_kind_and_keff_across_variants",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::point_kinetics_model_steps",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::scaffolds_report_not_implemented",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/point_kinetics/mod.rs::mismatched_group_lengths_error",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/point_kinetics/mod.rs::non_positive_time_step_error",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/point_kinetics/mod.rs::null_transient_holds_steady",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/point_kinetics/mod.rs::reactivity_sign_moves_power_correctly",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/point_kinetics/mod.rs::total_delayed_fraction_sums_groups",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::scaffold_reports_not_implemented",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_approaches_diffusion_limit",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_kinf_no_scatter",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_kinf_with_scatter",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_order_convergence",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::approaches_diffusion_as_slab_grows",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::differs_on_small_slab",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::kinf_reduces_to_diffusion",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::null_transient_holds_steady",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::scaffold_reports_not_implemented",
+    "crates/outram-foam-appbuilder-lib/tests/foam_vv_cases/main.rs::genfoam_slab_1g_diffusion_is_critical",
     "crates/outram-foam-appbuilder-lib/tests/genfoam_point_kinetics_inhour.rs::asymptotic_period_matches_inhour_equation",
     "crates/outram-foam-appbuilder-lib/tests/genfoam_point_kinetics_inhour.rs::null_transient_control",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_reference_state_keff_against_upstream",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_per_cell_cross_sections",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_precursor_drift",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_with_upstreams_albedo_boundary",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reactivity_coefficients_from_upstreams_perturbed_states",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reference_state_keff_brackets_upstream",
 ]
 
 [module."mod.rs"]
 path = "crate::genfoam::neutronics::point_kinetics"
+
+[[module."mod.rs".function]]
+id = "fn:936b05465151aabe"
+name = "Reactivity"
+qual = "Reactivity"
+item = "type"
+shape = "alias"
+lines = [
+    133,
+    135,
+]
+hash = "sha256:e25ea516086e0a8fbc02c8ea06250f66767715f97c79fe584e00cef7420d6abe"
+doc_hash = "sha256:508be666f8ed4625853d847e95001b11da8d16812c2e64f6714708c8248c0f2d"
+reached_by = [
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#22",
+    "#23",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#41",
+    "#42",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6e77c70b5bfbb082"
+name = "DecayConstant"
+qual = "DecayConstant"
+item = "type"
+shape = "alias"
+lines = [
+    137,
+    139,
+]
+hash = "sha256:ea14821948029f3e6fad9e6158fe9078d576f804d7c111f2f14856b0c0fc6605"
+doc_hash = "sha256:a66cdcd80f1f2bffecb59b350e2d637886facb54ea51ad1f2e9bc59d1a62555a"
+reached_by = [
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#22",
+    "#23",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#41",
+    "#42",
+]
+
+[[module."mod.rs".function]]
+id = "fn:836ab14bb233ac25"
+name = "PromptGenerationTime"
+qual = "PromptGenerationTime"
+item = "type"
+shape = "alias"
+lines = [
+    141,
+    143,
+]
+hash = "sha256:08cbf6f48af6822333b9a623f0a25805ebc336810e7f778214eddc720484d69c"
+doc_hash = "sha256:a959ae0fd193af49a59169de021c224c5338594eedf3ea874224148bb1b0e2e7"
+reached_by = [
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#22",
+    "#23",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#41",
+    "#42",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2d36142867e63e33"
+name = "PointKineticsError"
+qual = "PointKineticsError"
+item = "type"
+shape = "enum"
+lines = [
+    145,
+    188,
+]
+hash = "sha256:0eccf78773d835cada2d14db6bf0738bbf648ebc040441efcf12c683094ad7ff"
+doc_hash = "sha256:65b4642351e7f5e2d6b58c293cf45e9450ac23533013c7ecb1b06a8d760a51b1"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+]
 
 [[module."mod.rs".function]]
 id = "fn:86d966eae1f5c8f0"
@@ -32,6 +225,44 @@ lines = [
 ]
 hash = "sha256:f49e05de9f57a5a702c49a19166a3f0ada024b58d476dc7c44f4ca87ef6832cf"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:11cee6578cd45823",
+    "fn:2d36142867e63e33",
+]
+
+[[module."mod.rs".function]]
+id = "fn:12e3b237ed377744"
+name = "PointKineticsParameters"
+qual = "PointKineticsParameters"
+item = "type"
+shape = "struct"
+lines = [
+    198,
+    222,
+]
+hash = "sha256:700c5307c0b595119f243020fc5a6db3e988c00c14ba68c305d669fe921411b2"
+doc_hash = "sha256:a7c5a0d16c9f29d8ac0f71f3f99e359f6469ddb594253e9920b7e5f51fe0801e"
+uses = [
+    "fn:6e77c70b5bfbb082",
+    "fn:836ab14bb233ac25",
+    "fn:936b05465151aabe",
+]
+reached_by = [
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#22",
+    "#23",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#41",
+    "#42",
+]
 
 [[module."mod.rs".function]]
 id = "fn:3b3f6b7be75b2a35"
@@ -44,18 +275,25 @@ lines = [
 hash = "sha256:a88ac67daf81e72fa718e244fc07b50a4cdac6448c7c2be25bce972236a280cd"
 doc_hash = "sha256:88dfbcba01daf54f4547ae7c65aad9948ddf4a6feacc5c258bc82df5a9575f96"
 callees = ["fn:ea127540985df5eb"]
+uses = [
+    "fn:12e3b237ed377744",
+    "fn:2d36142867e63e33",
+    "fn:6e77c70b5bfbb082",
+    "fn:836ab14bb233ac25",
+    "fn:936b05465151aabe",
+]
 reached_by = [
-    "#2",
-    "#3",
-    "#5",
-    "#6",
-    "#7",
     "#8",
     "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
+    "#22",
+    "#23",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#41",
+    "#42",
 ]
 physical_interface = true
 
@@ -69,18 +307,25 @@ lines = [
 ]
 hash = "sha256:0c650cc4eb21d09ee6808ed2a802b49b3cfd474d2131be37022b89d00685eae1"
 doc_hash = "sha256:6118e329bb8102dcba28887dfae98570257335000ab3b305327e46784b776152"
+uses = [
+    "fn:12e3b237ed377744",
+    "fn:2d36142867e63e33",
+    "fn:6e77c70b5bfbb082",
+    "fn:836ab14bb233ac25",
+    "fn:936b05465151aabe",
+]
 reached_by = [
-    "#2",
-    "#3",
-    "#5",
-    "#6",
-    "#7",
     "#8",
     "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
+    "#22",
+    "#23",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#41",
+    "#42",
 ]
 physical_interface = true
 
@@ -94,18 +339,19 @@ lines = [
 ]
 hash = "sha256:05487b250a641c11b7a77fb60304e8020a8b79bbc80ef4189518e8a534c2e81e"
 doc_hash = "sha256:46406d082de526dd4cee371bfa7747ea7775a49caf78badb58ea41224d47db76"
+uses = ["fn:12e3b237ed377744"]
 reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
+    "#5",
     "#6",
     "#8",
     "#9",
     "#10",
-    "#12",
-    "#13",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#41",
+    "#42",
 ]
 
 [[module."mod.rs".function]]
@@ -118,6 +364,10 @@ lines = [
 ]
 hash = "sha256:e5f54a29955136de647f4e5c358aa72a21dfeec89346524099bab37deb83f06b"
 doc_hash = "sha256:d4dce1eeb0fc5b074755fe23e4fcb8fa97a0d6ae91798d63dc25bc1bbbd59dc6"
+uses = [
+    "fn:12e3b237ed377744",
+    "fn:936b05465151aabe",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -130,6 +380,10 @@ lines = [
 ]
 hash = "sha256:51146f79c6078b7a2e0410783bda2092d427f871183328d711a5475409990de1"
 doc_hash = "sha256:7bc142145d3dd8c6c266019d49d57786612d0926b466dd43cd0a47318a064378"
+uses = [
+    "fn:12e3b237ed377744",
+    "fn:6e77c70b5bfbb082",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -142,6 +396,10 @@ lines = [
 ]
 hash = "sha256:a191696e60989c0be2da082aeef77d8057cc7a01301c39c5ae6f41195a7b72bc"
 doc_hash = "sha256:03b85b184d1b346de7272040df6d668dc1bc2f21a0a0bf3e7c3e9e915240a2ab"
+uses = [
+    "fn:12e3b237ed377744",
+    "fn:836ab14bb233ac25",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -154,6 +412,10 @@ lines = [
 ]
 hash = "sha256:665105705061872570c0d4ab1828aacda681628afab8b3b4aad684d888798b45"
 doc_hash = "sha256:df6d99801ac24ca79265a7a173427c72f43af622ed2b6148b80ddd479b109a10"
+uses = [
+    "fn:12e3b237ed377744",
+    "fn:936b05465151aabe",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -166,21 +428,52 @@ lines = [
 ]
 hash = "sha256:d930c7941fb3a0a19652f3ce1f0e1740ff7cdf854721c16333e3d3988c5c983d"
 doc_hash = "sha256:2c9c17f4c8b7d04eb8f02df769ac6997f680018d87981a1f680b23a7ee0c3f52"
+uses = [
+    "fn:12e3b237ed377744",
+    "fn:936b05465151aabe",
+]
 reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
+    "#5",
     "#6",
     "#8",
     "#9",
     "#10",
-    "#11",
-    "#12",
-    "#13",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#41",
+    "#42",
 ]
 physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:2d16a91040b3faaf"
+name = "PointKineticsState"
+qual = "PointKineticsState"
+item = "type"
+shape = "struct"
+lines = [
+    331,
+    345,
+]
+hash = "sha256:3dc5ab1b7760ca9e63e8b6f10def4eef29d15844f1a497de93cf8ca4eea1f39b"
+doc_hash = "sha256:75a256050fbd8ecb9dc5d1d0aac218a241cc80ead2390050278b31d66366f16a"
+reached_by = [
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#41",
+    "#42",
+]
 
 [[module."mod.rs".function]]
 id = "fn:b929b23889bdb3f4"
@@ -192,16 +485,20 @@ lines = [
 ]
 hash = "sha256:6d0d1c86e1c0502eaa256e68a4bcd423dacc0a2d8b98c3b14db1cc6ba09206ad"
 doc_hash = "sha256:d5c998e34acdbb74d2006e638fc44b430bfeabb4c149d30f414b2fd10af69642"
+uses = [
+    "fn:12e3b237ed377744",
+    "fn:2d16a91040b3faaf",
+]
 reached_by = [
-    "#2",
-    "#3",
-    "#5",
-    "#6",
     "#8",
     "#9",
-    "#10",
-    "#12",
-    "#13",
+    "#22",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#41",
+    "#42",
 ]
 physical_interface = true
 
@@ -215,6 +512,7 @@ lines = [
 ]
 hash = "sha256:e36a11192faa8d2b06651d22fb2d4e093639473b66e58cb13059ee7c07122c27"
 doc_hash = "sha256:95ff19e20df92c3b31c7d635a52c0810f70466993525d60864ee6a66cff7edde"
+uses = ["fn:2d16a91040b3faaf"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -227,18 +525,19 @@ lines = [
 ]
 hash = "sha256:78f616153412cd15a4e8f4b10d64ced9f9a739aeb832109dbfa1b5d2fa21ce82"
 doc_hash = "sha256:207851d45adac1728220b238fcc3c7ec948dd8f8dcdd6cfdb25defdc18ea0f96"
+uses = ["fn:2d16a91040b3faaf"]
 reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
     "#5",
     "#6",
+    "#8",
     "#9",
     "#10",
-    "#12",
-    "#13",
+    "#22",
+    "#23",
+    "#27",
+    "#28",
+    "#41",
+    "#42",
 ]
 physical_interface = true
 
@@ -252,6 +551,7 @@ lines = [
 ]
 hash = "sha256:89581fd869a455dbfed2d75aaba590bbbc082bb25bffd2e15ffaea0272b5fd33"
 doc_hash = "sha256:36b933f69ed1ff561a6c441c7f6914d2b4b36002793476a70637a3c81705307e"
+uses = ["fn:2d16a91040b3faaf"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -264,6 +564,7 @@ lines = [
 ]
 hash = "sha256:ec375607657189c637830343fd2628fbc2789513731328408364e615229bb623"
 doc_hash = "sha256:517ee2d2781e31a4feb3175d736874fbc086373b00a9f962b4bc6b7d69540b04"
+uses = ["fn:2d16a91040b3faaf"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -283,18 +584,25 @@ callees = [
     "fn:6dc82a6475c2f1e2",
     "fn:b38e16969be0c08c",
 ]
+uses = [
+    "fn:12e3b237ed377744",
+    "fn:2d16a91040b3faaf",
+    "fn:2d36142867e63e33",
+    "fn:33a2eb8456953def",
+    "fn:936b05465151aabe",
+]
 reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
+    "#5",
     "#6",
     "#8",
     "#9",
     "#10",
-    "#12",
-    "#13",
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#41",
+    "#42",
 ]
 physical_interface = true
 
@@ -309,6 +617,7 @@ lines = [
 hash = "sha256:44f4aeeb65bba69774605a92dea1f8d5046c0dfc53839a8a9a23e5e0e1cf06fd"
 doc_hash = "sha256:22aa007a321cb1dbdd5d18c79274254cf0d1244dc2fb79371f946d7826a0f7f8"
 callees = ["fn:3b3f6b7be75b2a35"]
+uses = ["fn:12e3b237ed377744"]
 test = true
 
 [[module."mod.rs".function]]
@@ -343,6 +652,7 @@ callees = [
     "fn:b929b23889bdb3f4",
     "fn:fe939fee6c56ac78",
 ]
+uses = ["fn:2d16a91040b3faaf"]
 test = true
 
 [[module."mod.rs".function]]
@@ -361,6 +671,7 @@ callees = [
     "fn:b929b23889bdb3f4",
     "fn:fe939fee6c56ac78",
 ]
+uses = ["fn:2d16a91040b3faaf"]
 test = true
 
 [[module."mod.rs".function]]
@@ -374,6 +685,10 @@ lines = [
 hash = "sha256:e64e309670073185bb75b754be137b6beaebc96a499863875768e6e9698c8d8f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:3b3f6b7be75b2a35"]
+uses = [
+    "fn:12e3b237ed377744",
+    "fn:2d36142867e63e33",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -390,5 +705,9 @@ callees = [
     "fn:327109e14ffd214e",
     "fn:b929b23889bdb3f4",
     "fn:fe939fee6c56ac78",
+]
+uses = [
+    "fn:2d16a91040b3faaf",
+    "fn:2d36142867e63e33",
 ]
 test = true

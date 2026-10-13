@@ -55,6 +55,7 @@ lines = [
 hash = "sha256:32b088831c7eb20ddc21d80bcdd1fdb73a77ae31402d3f2d04ee61d9b9ac7389"
 doc_hash = "sha256:dae29716b2187e68fe62b582165dba3524455b79161b3786cd899a0aab2c083d"
 callees = ["fn:390c172a67546051"]
+uses = ["fn:985bf4f6adecc6ad"]
 reached_by = [
     "#3",
     "#4",
@@ -101,6 +102,7 @@ lines = [
 ]
 hash = "sha256:6d4aa0134301c34e39a74bf37fc1e97433aacbde78a816c72eb20b530d49e6aa"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:4e41f8c2e2e72b73"]
 reached_by = [
     "#0",
     "#1",
@@ -144,6 +146,61 @@ reached_by = [
 path = "crate::nuclide_reaction_and_decay_data::decay_library"
 
 [[module."mod.rs".function]]
+id = "fn:c611e024756fd19b"
+name = "DecayLibrary"
+qual = "DecayLibrary"
+item = "type"
+shape = "struct"
+lines = [
+    5,
+    129,
+]
+hash = "sha256:4f5a7cfb5ad3f6ede7e7fe6a26dff7e8e85ec07471406a778d753ee80e53b2be"
+doc_hash = "sha256:4635c245f47cfdf92c460a70eb5490140d923d4c1da9c3b107ad603ecf82d2ea"
+uses = [
+    "fn:4e41f8c2e2e72b73",
+    "fn:985bf4f6adecc6ad",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+
+[[module."mod.rs".function]]
 id = "fn:f5fc6e6d09e9c35b"
 name = "new"
 qual = "DecayLibrary::new"
@@ -156,6 +213,11 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:841bfe59a1c43d51",
     "fn:c756d761a0c16d8d",
+]
+uses = [
+    "fn:4e41f8c2e2e72b73",
+    "fn:985bf4f6adecc6ad",
+    "fn:c611e024756fd19b",
 ]
 reached_by = [
     "#0",
@@ -212,5 +274,10 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:094c1bcb03a9b17f",
     "fn:f5fc6e6d09e9c35b",
+]
+uses = [
+    "fn:2544367c1b848785",
+    "fn:4e41f8c2e2e72b73",
+    "fn:c611e024756fd19b",
 ]
 test = true

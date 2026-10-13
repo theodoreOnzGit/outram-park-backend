@@ -14,7 +14,7 @@ lines = [
     35,
     41,
 ]
-hash = "sha256:db190e71f96ca5112c3d1978db478411d3a5535e4af950e9a8513a57c8921312"
+hash = "sha256:410a921f579e16c87dd94bdcb77c4ca3130459c79122f20a4ed03b8e18c85061"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."hybrid_gpu_report.rs".function]]
@@ -30,6 +30,32 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = ["fn:109107ab710163df"]
 
 [[module."hybrid_gpu_report.rs".function]]
+id = "fn:a05d87d655be699d"
+name = "SIZES"
+qual = "SIZES"
+item = "const"
+shape = "const"
+lines = [
+    65,
+    68,
+]
+hash = "sha256:3e16d76b846a6620b3cc63e4ce88f21efb5dbd36b97ce4ffb98e16b1578e6963"
+doc_hash = "sha256:6b678db08492c0c75d264cbd6d65c2034d455833c19889115809f7e7b8975863"
+
+[[module."hybrid_gpu_report.rs".function]]
+id = "fn:68d857d114c07184"
+name = "REPEATS"
+qual = "REPEATS"
+item = "const"
+shape = "const"
+lines = [
+    70,
+    72,
+]
+hash = "sha256:650edbfd298cf1debc7c2bbf8d5852ec8b7d6ee54eace712d36ed41fb03f15c3"
+doc_hash = "sha256:8002c4cc7b455a585b4a2b304dcb20f80bd7b32e1a855ceba6936ee6e0e3d3d5"
+
+[[module."hybrid_gpu_report.rs".function]]
 id = "fn:109107ab710163df"
 name = "run"
 qual = "run"
@@ -37,7 +63,7 @@ lines = [
     74,
     99,
 ]
-hash = "sha256:606ffe85404ac6d99d6d60cbf1ffb36762261bff53e1a865181c0bd581d30603"
+hash = "sha256:e5bd397e7e347da79941dd14c5889fb91a1789b7e0d234f8a6ef4acf916b45d4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:06750dfc46bf5268"]
 
@@ -189,6 +215,13 @@ callees = [
     "fn:ed7d718f646723fc",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
 
 [[module."tutorial_finite_volume_basics.rs".function]]
 id = "fn:4415dfde9048d38d"
@@ -207,4 +240,10 @@ callees = [
     "fn:bcd3c0fddc1f933d",
     "fn:ce5c06050c849e86",
     "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
 ]

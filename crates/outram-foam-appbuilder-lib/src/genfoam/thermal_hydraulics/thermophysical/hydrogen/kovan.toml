@@ -91,6 +91,162 @@ reached_by = ["#5"]
 path = "crate::genfoam::thermal_hydraulics::thermophysical::hydrogen::constants"
 
 [[module."constants.rs".function]]
+id = "fn:20d6522e48e4eed5"
+name = "W"
+qual = "W"
+item = "const"
+shape = "const"
+lines = [
+    39,
+    40,
+]
+hash = "sha256:6994b4191b5f71333a3f907b285046c5a0748e65cfc908f53ac9b5a38eb24167"
+doc_hash = "sha256:b2962dc1a356f61adaa8e3573d383be4003ae1c2d6b8e0ad59f59ff0b62f00c6"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."constants.rs".function]]
+id = "fn:2cee2d1148c8cb93"
+name = "W_H"
+qual = "W_H"
+item = "const"
+shape = "const"
+lines = [
+    42,
+    43,
+]
+hash = "sha256:22c0171cb57d63bfe4d5159897635de7ab57ff665ec69fb85489182b253da719"
+doc_hash = "sha256:db9f4336af842be349b035515e2af0b76a5f8f0fc0a05c6a9e513e4cffd3e02c"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."constants.rs".function]]
+id = "fn:88db01e0cfb48a34"
+name = "R"
+qual = "R"
+item = "const"
+shape = "const"
+lines = [
+    45,
+    46,
+]
+hash = "sha256:41481cd5d53fe230b7fbc655166b51d3393bb88a471f1e74d6edc356075cd17c"
+doc_hash = "sha256:760422efa64ffcc820ff44adce9f6907e838282fed4e23286a2e5f3e4dbe2c35"
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."constants.rs".function]]
+id = "fn:49e2ce0694e96c59"
+name = "TC"
+qual = "TC"
+item = "const"
+shape = "const"
+lines = [
+    48,
+    49,
+]
+hash = "sha256:c566b7f36448d68b65c0738074d574ca7bff076e4b965d02658d8c3483d2258c"
+doc_hash = "sha256:27843f8c1ecbb1ff55733b9c187fe290404513b2e93d38da6958e9be7f6ef8d6"
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."constants.rs".function]]
+id = "fn:44fb634ee3186225"
+name = "PC"
+qual = "PC"
+item = "const"
+shape = "const"
+lines = [
+    51,
+    52,
+]
+hash = "sha256:b6a412e34f69d129ff6661f7ea7fc93e54971b7e8109a40a5fb5a3c2221bba51"
+doc_hash = "sha256:7fdf857e3e7989f8632595d7c88042e580e31cb08d2e852611225437c19ac448"
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."constants.rs".function]]
+id = "fn:3ed0759ed793a402"
+name = "VC"
+qual = "VC"
+item = "const"
+shape = "const"
+lines = [
+    54,
+    55,
+]
+hash = "sha256:6048faf59d27eabd5e5755847d2c7c20f0cdac033eba73b45fc0507459b44e78"
+doc_hash = "sha256:1de395fe72a41b5347dac0ad4bf8af94f091bf61991e058c0125191057434459"
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."constants.rs".function]]
+id = "fn:836a9d6faf152c10"
+name = "OMEGA"
+qual = "OMEGA"
+item = "const"
+shape = "const"
+lines = [
+    57,
+    58,
+]
+hash = "sha256:d1ebcb9ba0738d1b1a72262bd1f39f55d89ff2d122a498c56c553b223e2536d1"
+doc_hash = "sha256:933c86f681d6d710cf9a8324e0b8185efce14fdb0ae6b5f9ea5b7b9252f4a02e"
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."constants.rs".function]]
 id = "fn:f36613069f9f366d"
 name = "n"
 qual = "n"
@@ -100,6 +256,7 @@ lines = [
 ]
 hash = "sha256:afbe366884dae74a09a653b1bbfdfbb84797f72b25b26de135f8246fcada53ee"
 doc_hash = "sha256:387e1fbef9e47742d2fd4b2e516e5108a277ad66967811164080966d26096079"
+uses = ["fn:836a9d6faf152c10"]
 reached_by = [
     "#2",
     "#3",
@@ -120,6 +277,11 @@ lines = [
 ]
 hash = "sha256:5747595205d811ef272004c23999a666bd34f0cd66a1f4f070bcdd6dd639c0c2"
 doc_hash = "sha256:6cff1a1375f774d02235048c65a7f47d9c8f25ce9c10910b024ac1341fbc20f5"
+uses = [
+    "fn:44fb634ee3186225",
+    "fn:49e2ce0694e96c59",
+    "fn:88db01e0cfb48a34",
+]
 reached_by = [
     "#2",
     "#3",
@@ -140,6 +302,11 @@ lines = [
 ]
 hash = "sha256:0b8702895b39eabe445eb66d3e4d8ce12cda4c57c18739778db25e10158aa3ec"
 doc_hash = "sha256:1fbfd61a643f6f2914ae30e21acc14bca7604497e8c36e9653cfdb86a287b699"
+uses = [
+    "fn:44fb634ee3186225",
+    "fn:49e2ce0694e96c59",
+    "fn:88db01e0cfb48a34",
+]
 reached_by = [
     "#2",
     "#3",
@@ -163,6 +330,12 @@ doc_hash = "sha256:5a939ef0baa2978b6fe7e11a07c5e75d26146e3d8128d1379f2306748e6cd
 callees = [
     "fn:13b99a19c9e8ad7c",
     "fn:23242047a0d78d2c",
+]
+uses = [
+    "fn:3ed0759ed793a402",
+    "fn:44fb634ee3186225",
+    "fn:49e2ce0694e96c59",
+    "fn:88db01e0cfb48a34",
 ]
 reached_by = [
     "#2",
@@ -188,11 +361,29 @@ lines = [
 hash = "sha256:c369c0df808fc8562fe1be7d4f9a7a2cc37c06d9143bdd477c755995b0e71845"
 doc_hash = "sha256:5327712a7e8bb9531bdd50aecc42239e9add7a9e4f5a926d564c6e783e549309"
 callees = ["fn:e817af89f2236107"]
+uses = [
+    "fn:20d6522e48e4eed5",
+    "fn:2cee2d1148c8cb93",
+]
 reached_by = [
     "#0",
     "#5",
     "#8",
 ]
+
+[[module."diffusion.rs".function]]
+id = "fn:902585a67ff29d84"
+name = "PSIA"
+qual = "PSIA"
+item = "const"
+shape = "const"
+lines = [
+    63,
+    63,
+]
+hash = "sha256:07da5905b29c060eaa23ec2e707fd23a5c2ac4b4ed28743e48a0bab852b953f0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."diffusion.rs".function]]
 id = "fn:ccdb7584c6171317"
@@ -205,6 +396,7 @@ lines = [
 hash = "sha256:40bde09b5391fcb2c01fa95cf46d613cacf37283cc15adf6a205bfdbb58cf930"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:052a31a0b8fdc3dc"]
+uses = ["fn:902585a67ff29d84"]
 test = true
 
 [module."dissociation.rs"]
@@ -264,6 +456,10 @@ lines = [
 hash = "sha256:f2f395b3940d5d3d73a1059351909fc3647adb4685f4e5726c4aa4f57dc415c0"
 doc_hash = "sha256:3f993cfd29d591e6affcaca5c82fb354535c25ab826fbd1b13a9e2de34f83956"
 callees = ["fn:be2c35527d2116b4"]
+uses = [
+    "fn:20d6522e48e4eed5",
+    "fn:2cee2d1148c8cb93",
+]
 reached_by = [
     "#2",
     "#3",
@@ -273,6 +469,20 @@ reached_by = [
     "#7",
     "#8",
 ]
+
+[[module."dissociation.rs".function]]
+id = "fn:f22dfc6ff23a4def"
+name = "ATM"
+qual = "ATM"
+item = "const"
+shape = "const"
+lines = [
+    85,
+    85,
+]
+hash = "sha256:3338129b7c500693f13701da60aaef6991cf8a1b2049c360983c33649dc886f5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."dissociation.rs".function]]
 id = "fn:91443eaefd10827a"
@@ -285,6 +495,7 @@ lines = [
 hash = "sha256:69fc86a9f28f9b49c6e0d1a73317270806c6a6db073c3fc474a29fd05bd12f73"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:be2c35527d2116b4"]
+uses = ["fn:f22dfc6ff23a4def"]
 test = true
 
 [module."equation_of_state.rs"]
@@ -300,6 +511,10 @@ lines = [
 ]
 hash = "sha256:b316ceb1e8aa8e51161d57b0b7ba01889d5c5cfe75bfd4a6f6d619eb3b496758"
 doc_hash = "sha256:ae7019dcae2a02d48b1100975a921d8c43d269fdee32434e9020d43b8f748607"
+uses = [
+    "fn:2cee2d1148c8cb93",
+    "fn:88db01e0cfb48a34",
+]
 reached_by = [
     "#2",
     "#5",
@@ -321,6 +536,11 @@ callees = [
     "fn:23242047a0d78d2c",
     "fn:f2551554656b1345",
     "fn:f36613069f9f366d",
+]
+uses = [
+    "fn:20d6522e48e4eed5",
+    "fn:49e2ce0694e96c59",
+    "fn:88db01e0cfb48a34",
 ]
 reached_by = [
     "#2",
@@ -354,6 +574,23 @@ reached_by = [
 ]
 
 [[module."equation_of_state.rs".function]]
+id = "fn:9d47e26d66547552"
+name = "MassBasisEosState"
+qual = "MassBasisEosState"
+item = "type"
+shape = "struct"
+lines = [
+    113,
+    136,
+]
+hash = "sha256:96ee9286b68028dc0117576285c36f90264239da2c11c78a3bda7a3233f88e0e"
+doc_hash = "sha256:bc94be816dd02747167df49da36e2e7ec025a82d33e36de604c3c3f6baa9acea"
+reached_by = [
+    "#3",
+    "#4",
+]
+
+[[module."equation_of_state.rs".function]]
 id = "fn:760659aa8a01a398"
 name = "at"
 qual = "MassBasisEosState::at"
@@ -368,6 +605,14 @@ callees = [
     "fn:23242047a0d78d2c",
     "fn:f36613069f9f366d",
     "fn:f89e02c573b96ebd",
+]
+uses = [
+    "fn:20d6522e48e4eed5",
+    "fn:3ed0759ed793a402",
+    "fn:44fb634ee3186225",
+    "fn:49e2ce0694e96c59",
+    "fn:88db01e0cfb48a34",
+    "fn:9d47e26d66547552",
 ]
 reached_by = [
     "#3",
@@ -385,7 +630,22 @@ lines = [
 hash = "sha256:9db8a94a73a501786b5a86d5c82c47fee6ee5a54192420ff21080f44b3a91d0a"
 doc_hash = "sha256:8b9e2de685bb21410ea324759688636e5306a0959672a0a853c2002634e2a007"
 callees = ["fn:760659aa8a01a398"]
+uses = ["fn:9d47e26d66547552"]
 reached_by = ["#4"]
+
+[[module."equation_of_state.rs".function]]
+id = "fn:74a65aebe69272f5"
+name = "PSIA"
+qual = "PSIA"
+item = "const"
+shape = "const"
+lines = [
+    208,
+    208,
+]
+hash = "sha256:07da5905b29c060eaa23ec2e707fd23a5c2ac4b4ed28743e48a0bab852b953f0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."equation_of_state.rs".function]]
 id = "fn:59e2017e6f392546"
@@ -398,6 +658,7 @@ lines = [
 hash = "sha256:92a1e85f14ac1615ecb26f7a5a8865cb39606e7817c428fb110af591fa900bd3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:6c3bd14b3cfc7c4a"]
+uses = ["fn:74a65aebe69272f5"]
 test = true
 
 [module."heat_capacity.rs"]
@@ -432,6 +693,7 @@ lines = [
 ]
 hash = "sha256:bc5cfec784b96fc079a5fbc5a952e79342ea472b8815abf3f860c2a5bd00a364"
 doc_hash = "sha256:4716c1762e55cb599f9cb09af6fb7037bbc6cb97e46edadcd2f12e8c92ce8e04"
+uses = ["fn:2cee2d1148c8cb93"]
 reached_by = [
     "#3",
     "#4",
@@ -452,6 +714,7 @@ callees = [
     "fn:760659aa8a01a398",
     "fn:b470b9e344b3a9c3",
 ]
+uses = ["fn:9d47e26d66547552"]
 reached_by = [
     "#3",
     "#4",
@@ -504,6 +767,10 @@ lines = [
 hash = "sha256:369d693a31ebfad3b590c2c714b97e04fc8c258256e443dca23767a223408244"
 doc_hash = "sha256:c31e2456779f748d837d422a709aea37d79e8b34ce66f9a2043c6297be4fa5b1"
 callees = ["fn:be2c35527d2116b4"]
+uses = [
+    "fn:20d6522e48e4eed5",
+    "fn:2cee2d1148c8cb93",
+]
 
 [[module."heat_capacity.rs".function]]
 id = "fn:6f2a084274c1a1a9"
@@ -581,6 +848,7 @@ lines = [
 hash = "sha256:a12599b9e89fb3865ed052f63cc0f0a3af2dac75d2325f84ab65c5df19dabc96"
 doc_hash = "sha256:a85a0baaeecc3a3273a8d3fdaa842b8be69871f5a9339654e35a8f93b2c992e2"
 callees = ["fn:6c3bd14b3cfc7c4a"]
+uses = ["fn:84379240bb4f5a8c"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -594,6 +862,7 @@ lines = [
 hash = "sha256:de4e614ac8a1ecc6720fda46cb8c88dec5b3b366cb2a1929f123b99ec9474f6c"
 doc_hash = "sha256:43e36e5a49630055523b2c9cc7b533306ca95ff5d44fdb1910fc580b925b3ebc"
 callees = ["fn:c29fe305e1297f8d"]
+uses = ["fn:d923e383dfacacfc"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -607,6 +876,7 @@ lines = [
 hash = "sha256:378fbbfe01d92b5492800ff95ace903541ccd0dfdf1ce06b5cf9a218d04da9b0"
 doc_hash = "sha256:f453bf4ef18053857ccc93bfa9649ee2c26a4ca3c669a46ad39f0f25d44d25a5"
 callees = ["fn:daccdd00ae5de992"]
+uses = ["fn:d923e383dfacacfc"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -620,6 +890,7 @@ lines = [
 hash = "sha256:70c247d47c9c73f82ac130424940c80ad48f0127b56e65e52ff736ddfe54804d"
 doc_hash = "sha256:3da5a45a24ffadb3a989b24c4b7632b32b90e8d54d8d38853cf9c501d222874b"
 callees = ["fn:22d2c140ce202887"]
+uses = ["fn:304ab3d1dfe66287"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -633,6 +904,7 @@ lines = [
 hash = "sha256:dd112d422bf6e4913c41485f6e4211ba87203f97f014ffd2b16a352f2a49aef4"
 doc_hash = "sha256:581fd87ddbcd14178eaf8c34f9c4d82f69e8464c2bba044f86e606684d635568"
 callees = ["fn:cb64b760aed66b5d"]
+uses = ["fn:20f31acee2fd542f"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -646,6 +918,7 @@ lines = [
 hash = "sha256:a686a69d7b93f64b97358f20013ee7d973ce2f072a39115764b333c12a9f4a42"
 doc_hash = "sha256:13d2d1a89d765c6f730011ece0a01a3b8d7f35f7927d04712f4907141a70e6e6"
 callees = ["fn:821c1a600476622d"]
+uses = ["fn:deb9b53c0f9f8aec"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -659,6 +932,7 @@ lines = [
 hash = "sha256:452e266298dde42f41bcc47336137dbf3d9d7259d21f6a81c423353b4a083539"
 doc_hash = "sha256:09ad34ff034570759c114840c554d4ae6fc3b42cef2eec0da7f4509210791ed7"
 callees = ["fn:69d2c2e399e95d0e"]
+uses = ["fn:73ab9dd2a47cc88e"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -672,6 +946,7 @@ lines = [
 hash = "sha256:6f7426ebf9647f3fe2f0866e2b864a4f897706f040a588f2a00926433bedf8c9"
 doc_hash = "sha256:3a7859c087160021e2c5d19a95a3eb4a3c4db1ea46d8192342dd345d9c6d7783"
 callees = ["fn:be2c35527d2116b4"]
+uses = ["fn:780a24c63c071179"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -685,6 +960,7 @@ lines = [
 hash = "sha256:f0c1e18c3d913fce3723526e0b34d08f63bd655587130b91b874b6beca334070"
 doc_hash = "sha256:e93c5c49bc632d8f5adba9471ebf56513bba6891cd5c6c310e052547d9c93548"
 callees = ["fn:e8a3afa77ee1312c"]
+uses = ["fn:6b242ad7da9df7fc"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -698,6 +974,7 @@ lines = [
 hash = "sha256:d7ed85ba4a80ca4ac78139f30e265f599de4a952c7c0cf76a2fdf4d1f834363f"
 doc_hash = "sha256:b388ab565cc2b47e08f26bc4036d74f30f964a1267b7f01276e41e21b234dadd"
 callees = ["fn:f4bddc17053de402"]
+uses = ["fn:5b26ff7edce0695f"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -711,6 +988,7 @@ lines = [
 hash = "sha256:a994f5802a366536478b6059c82d774f0b7ca5a412fd4f746c7e0203b5fad71a"
 doc_hash = "sha256:63d6b8d220d95a85690b162feb449d23587d1815dd9fa7760ffae7c9d7844a0c"
 callees = ["fn:81bbcacbaaee3bd6"]
+uses = ["fn:cf40854ae7a62971"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -724,6 +1002,7 @@ lines = [
 hash = "sha256:bb14dd6dc7d48cd9c307142057b563a3304fbfc0a0db16d02055507403d36f97"
 doc_hash = "sha256:fbc1816384bf119e2d01b2a5345f28cff604d3f9a261cc5ea3811e71b1d5196a"
 callees = ["fn:1df7d6f14da40b0b"]
+uses = ["fn:304ab3d1dfe66287"]
 physical_interface = true
 
 [module."thermal_conductivity.rs"]
@@ -763,6 +1042,11 @@ callees = [
     "fn:b84c9f09362ce307",
     "fn:be2c35527d2116b4",
 ]
+uses = [
+    "fn:20d6522e48e4eed5",
+    "fn:2cee2d1148c8cb93",
+    "fn:88db01e0cfb48a34",
+]
 reached_by = ["#5"]
 
 [[module."thermal_conductivity.rs".function]]
@@ -797,6 +1081,20 @@ callees = [
 ]
 
 [[module."thermal_conductivity.rs".function]]
+id = "fn:ef547e3119189eee"
+name = "PSIA"
+qual = "PSIA"
+item = "const"
+shape = "const"
+lines = [
+    187,
+    187,
+]
+hash = "sha256:07da5905b29c060eaa23ec2e707fd23a5c2ac4b4ed28743e48a0bab852b953f0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."thermal_conductivity.rs".function]]
 id = "fn:bc14b4e16cb5d089"
 name = "thermal_conductivity_is_positive_and_order_of_magnitude_sane"
 qual = "thermal_conductivity_is_positive_and_order_of_magnitude_sane"
@@ -807,6 +1105,7 @@ lines = [
 hash = "sha256:15ec0ee3c4e7cace90ad3f32456ae3e521b682a406768a66ff242beacebb9739"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:cb64b760aed66b5d"]
+uses = ["fn:ef547e3119189eee"]
 test = true
 
 [module."thermodynamics.rs"]
@@ -823,6 +1122,10 @@ lines = [
 hash = "sha256:58032476e5a8966228c8947e70a95bc6917c67e9873960f6a4ba062d66f254b7"
 doc_hash = "sha256:c4281cb7e75506e5e4ec2352815af7fdddb46cdf2205c527d489fe1ff4b716ae"
 callees = ["fn:b470b9e344b3a9c3"]
+uses = [
+    "fn:20d6522e48e4eed5",
+    "fn:88db01e0cfb48a34",
+]
 reached_by = ["#7"]
 
 [[module."thermodynamics.rs".function]]
@@ -836,6 +1139,10 @@ lines = [
 hash = "sha256:de41650bbfba017f141acf7baafc072f9633f1219b9fc4987db8f5970330cd9e"
 doc_hash = "sha256:f5e037d45ccc35f577682bb11e5ad512ab5948ef809e39169ac7fd3b98ec69a5"
 callees = ["fn:d84661e71216a8c6"]
+uses = [
+    "fn:2cee2d1148c8cb93",
+    "fn:88db01e0cfb48a34",
+]
 reached_by = ["#7"]
 
 [[module."thermodynamics.rs".function]]
@@ -855,6 +1162,11 @@ callees = [
     "fn:f2551554656b1345",
     "fn:f36613069f9f366d",
     "fn:f89e02c573b96ebd",
+]
+uses = [
+    "fn:20d6522e48e4eed5",
+    "fn:49e2ce0694e96c59",
+    "fn:88db01e0cfb48a34",
 ]
 reached_by = ["#7"]
 
@@ -885,6 +1197,7 @@ lines = [
 ]
 hash = "sha256:c1dfffd9f5086c2a8c728fa4d3dc3f827b501b06fee702440e3edc1e4369de5c"
 doc_hash = "sha256:f46be27a03d681abac8d9311e69ceb4758d247d7d300cbe10bf050e6e2af29a8"
+uses = ["fn:2cee2d1148c8cb93"]
 reached_by = [
     "#5",
     "#6",
@@ -907,6 +1220,11 @@ callees = [
     "fn:f36613069f9f366d",
     "fn:f89e02c573b96ebd",
 ]
+uses = [
+    "fn:20d6522e48e4eed5",
+    "fn:49e2ce0694e96c59",
+    "fn:88db01e0cfb48a34",
+]
 reached_by = [
     "#5",
     "#6",
@@ -928,6 +1246,34 @@ callees = [
     "fn:e8a3afa77ee1312c",
 ]
 reached_by = ["#6"]
+
+[[module."thermodynamics.rs".function]]
+id = "fn:e981d0cf024487a0"
+name = "PSIA"
+qual = "PSIA"
+item = "const"
+shape = "const"
+lines = [
+    164,
+    164,
+]
+hash = "sha256:07da5905b29c060eaa23ec2e707fd23a5c2ac4b4ed28743e48a0bab852b953f0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."thermodynamics.rs".function]]
+id = "fn:53e35f22f45a6726"
+name = "TEMPERATURES_K"
+qual = "TEMPERATURES_K"
+item = "const"
+shape = "const"
+lines = [
+    165,
+    168,
+]
+hash = "sha256:080f77c66b78e87977d7c26917f5c3271c2c99c858d01dc3c5505142e5a096a5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."thermodynamics.rs".function]]
 id = "fn:fffd05517809e077"
@@ -955,6 +1301,10 @@ callees = [
     "fn:821c1a600476622d",
     "fn:fffd05517809e077",
 ]
+uses = [
+    "fn:53e35f22f45a6726",
+    "fn:e981d0cf024487a0",
+]
 test = true
 
 [[module."thermodynamics.rs".function]]
@@ -971,6 +1321,10 @@ callees = [
     "fn:69d2c2e399e95d0e",
     "fn:fffd05517809e077",
 ]
+uses = [
+    "fn:53e35f22f45a6726",
+    "fn:e981d0cf024487a0",
+]
 test = true
 
 [module."viscosity.rs"]
@@ -986,6 +1340,7 @@ lines = [
 ]
 hash = "sha256:2b74a1b620a75b5f8b9e29f5c8a79ac0d42e5671e0d173cea30a3ae8e15eef04"
 doc_hash = "sha256:15ef471ff497868b7eb96b468391b1f5227810cec628f17a8a319a83ff1cf81a"
+uses = ["fn:20d6522e48e4eed5"]
 reached_by = ["#8"]
 
 [[module."viscosity.rs".function]]
@@ -1012,6 +1367,7 @@ lines = [
 hash = "sha256:ec00d2a9a561ff957859c43a6c29e45c898bc026f717f56b2be12e7e48680ecf"
 doc_hash = "sha256:8d9c22b837e17158e3ffa4746209dce0e77caea393bbb8a7a6d05286a198a98d"
 callees = ["fn:7f97f6a062537338"]
+uses = ["fn:2cee2d1148c8cb93"]
 reached_by = [
     "#5",
     "#8",
@@ -1036,7 +1392,41 @@ callees = [
     "fn:a6ba43e14ce0955d",
     "fn:be2c35527d2116b4",
 ]
+uses = [
+    "fn:20d6522e48e4eed5",
+    "fn:2cee2d1148c8cb93",
+    "fn:49e2ce0694e96c59",
+    "fn:88db01e0cfb48a34",
+]
 reached_by = ["#8"]
+
+[[module."viscosity.rs".function]]
+id = "fn:52373e4224c756f2"
+name = "PSIA"
+qual = "PSIA"
+item = "const"
+shape = "const"
+lines = [
+    155,
+    155,
+]
+hash = "sha256:07da5905b29c060eaa23ec2e707fd23a5c2ac4b4ed28743e48a0bab852b953f0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."viscosity.rs".function]]
+id = "fn:e8d8ee6febfec6ee"
+name = "TEMPERATURES_K"
+qual = "TEMPERATURES_K"
+item = "const"
+shape = "const"
+lines = [
+    156,
+    159,
+]
+hash = "sha256:080f77c66b78e87977d7c26917f5c3271c2c99c858d01dc3c5505142e5a096a5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."viscosity.rs".function]]
 id = "fn:f79fb9617c6612d4"
@@ -1063,5 +1453,9 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:22d2c140ce202887",
     "fn:f79fb9617c6612d4",
+]
+uses = [
+    "fn:52373e4224c756f2",
+    "fn:e8d8ee6febfec6ee",
 ]
 test = true

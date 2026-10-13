@@ -23,6 +23,10 @@ lines = [
 hash = "sha256:fe096e52d8accdfa8ed3a196a98205d8c765ee8b412e1f8a81f41ce6f5634ae9"
 doc_hash = "sha256:8ba986b985aaa7154e020240749701d3627c7767389ca74b5663bfe6f4406866"
 callees = ["fn:357ed3572c0cdd6b"]
+uses = [
+    "fn:7a05aabc9b2c5609",
+    "fn:ef05859ef19acee7",
+]
 reached_by = [
     "#2",
     "#3",
@@ -39,6 +43,10 @@ lines = [
 hash = "sha256:ca63424c839755abb62132ad77fc7bfb403f211713d388e58d98fc56a96c8c70"
 doc_hash = "sha256:4da0147a70e4d148ae14db68f169951c2f75634e00dbe6ecc6affef683209aec"
 callees = ["fn:9e501e5f4cce23ae"]
+uses = [
+    "fn:7a05aabc9b2c5609",
+    "fn:ef05859ef19acee7",
+]
 reached_by = [
     "#2",
     "#3",
@@ -58,6 +66,12 @@ callees = [
     "fn:456ce8c84f72ae6e",
     "fn:4a3d63f4a0e47a1c",
     "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
 ]
 reached_by = [
     "#2",
@@ -82,7 +96,35 @@ callees = [
     "fn:b1c4cc6aa93ebf33",
     "fn:fd695b3b76e7599b",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7a05aabc9b2c5609",
+    "fn:8d6cd763d46808ac",
+]
 reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:dd12ba70f3ae90c5"
+name = "LaminarModel"
+qual = "LaminarModel"
+item = "type"
+shape = "struct"
+lines = [
+    101,
+    118,
+]
+hash = "sha256:2a7202fafa841cd5209e1aaa05621f4f5024c59a91a985fd96cca9500f273309"
+doc_hash = "sha256:ef909ec9b2880451139f6d672966a692964bd4eba294f520cccbb3267310cbf1"
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+]
+reached_by = [
+    "#0",
+    "#1",
     "#2",
     "#3",
 ]
@@ -98,6 +140,11 @@ lines = [
 hash = "sha256:3d2bf36869b3b037826fdd313eb60805516c29c1a7b71e288bcd4eb34e936d91"
 doc_hash = "sha256:64302f009fec4c0a11d17acb3cc6786697bb05bbf73830638e90f4e9b2707c88"
 callees = ["fn:d6a9c884aaeb7775"]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+    "fn:dd12ba70f3ae90c5",
+]
 reached_by = [
     "#0",
     "#1",
@@ -131,6 +178,13 @@ callees = [
     "fn:a8a8aa01bdeead4b",
     "fn:b1c4cc6aa93ebf33",
 ]
+uses = [
+    "fn:5c58987100382184",
+    "fn:7a05aabc9b2c5609",
+    "fn:8d6cd763d46808ac",
+    "fn:dd12ba70f3ae90c5",
+    "fn:ef05859ef19acee7",
+]
 reached_by = [
     "#2",
     "#3",
@@ -146,6 +200,7 @@ lines = [
 ]
 hash = "sha256:d1bc049fb3384daefb3b0b51c2be77a9021bdfcb0a9a38ca93492f11a80a888c"
 doc_hash = "sha256:8b1a24aee457d00c9067be5f636eeb225a4224ba2fee11359b5d72fef20e32d7"
+uses = ["fn:dd12ba70f3ae90c5"]
 
 [[module."mod.rs".function]]
 id = "fn:5478d1ce02bbaf61"
@@ -157,6 +212,10 @@ lines = [
 ]
 hash = "sha256:4fad43b12788a6266e45d749dff6137cdef05e86509d8f0ba5263ca9d109e1a0"
 doc_hash = "sha256:61a7bde53382086accd54aa3f0fdd2545852eff5bd86f1016ebc08518221deed"
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:dd12ba70f3ae90c5",
+]
 reached_by = ["#1"]
 
 [[module."mod.rs".function]]
@@ -169,6 +228,10 @@ lines = [
 ]
 hash = "sha256:743c3081cb0acfa7d1cc8992b93c16c096b50e8d9e6e4d11a365b18656930f00"
 doc_hash = "sha256:4d933c779ea6f59f362016628d6bd9b21df8824c40a8400ce7609f0902ec5b85"
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:dd12ba70f3ae90c5",
+]
 reached_by = ["#0"]
 
 [[module."mod.rs".function]]
@@ -181,6 +244,10 @@ lines = [
 ]
 hash = "sha256:59b8f7cc91cbc56c3174518ea93ff0b2ab179c1961a94b271153dc0ea77e72c2"
 doc_hash = "sha256:0d41e72e6c16b3340cf573186f2531c8e3e024e963b2ae1ac089d25b2e7ea4fe"
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:dd12ba70f3ae90c5",
+]
 reached_by = ["#0"]
 
 [[module."mod.rs".function]]
@@ -194,6 +261,7 @@ lines = [
 hash = "sha256:b8e1d88ee4bfa0e843673c772fc6aae5a8629591774ebd9fa9ddbfd12625f510"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:9e501e5f4cce23ae"]
+uses = ["fn:ef05859ef19acee7"]
 test = true
 
 [[module."mod.rs".function]]
@@ -221,6 +289,12 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -239,6 +313,10 @@ callees = [
     "fn:636e75b664f14254",
     "fn:6d45af0d518e142d",
     "fn:9a8707a4339a4efa",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:dd12ba70f3ae90c5",
 ]
 test = true
 
@@ -263,6 +341,12 @@ callees = [
     "fn:f3f738c670978d8c",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:dd12ba70f3ae90c5",
+    "fn:dde232a1ea648ca8",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -286,6 +370,12 @@ callees = [
     "fn:f3f738c670978d8c",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:dd12ba70f3ae90c5",
+    "fn:dde232a1ea648ca8",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -305,5 +395,9 @@ callees = [
     "fn:6d45af0d518e142d",
     "fn:9a8707a4339a4efa",
     "fn:fa4cac60d27ae1c5",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:dd12ba70f3ae90c5",
 ]
 test = true

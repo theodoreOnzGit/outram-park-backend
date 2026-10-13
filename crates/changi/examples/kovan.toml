@@ -7,6 +7,72 @@ dir = "crates/changi/examples"
 path = "example:chi_over_q_survey"
 
 [[module."chi_over_q_survey.rs".function]]
+id = "fn:49c01b7c684ef831"
+name = "DISTANCES_M"
+qual = "DISTANCES_M"
+item = "const"
+shape = "const"
+lines = [
+    32,
+    33,
+]
+hash = "sha256:704ee84cbb1b45202d9ad38cd925ba9a2dbb963ea75deb282706bd4622d7a571"
+doc_hash = "sha256:15485c984a7127b48d4bc02be8a1beeb6f27d18afd9bb6cd4a0cc279bcb787ec"
+
+[[module."chi_over_q_survey.rs".function]]
+id = "fn:555491b7414a8b7a"
+name = "WIND_SPEED_M_PER_S"
+qual = "WIND_SPEED_M_PER_S"
+item = "const"
+shape = "const"
+lines = [
+    35,
+    44,
+]
+hash = "sha256:1f4984637dc6207e30ab0c58ff893f21f2388219f392e6db77a978e4a501c5bd"
+doc_hash = "sha256:2762ad1940f390e27fae73b0de7b541d46b3906aa5056b83387982354ba7cc19"
+uses = ["fn:3582f4634144f0bc"]
+
+[[module."chi_over_q_survey.rs".function]]
+id = "fn:a8c9c6204aa8af86"
+name = "STEP_S"
+qual = "STEP_S"
+item = "const"
+shape = "const"
+lines = [
+    46,
+    48,
+]
+hash = "sha256:24d4b673907ebba2647f36dfd90c864f2bd3d94a0a4209a99c4ed575cf00ef39"
+doc_hash = "sha256:462c3d011c1f768a86a66506bc5f616880683f343bedac6435748d6735f9170c"
+
+[[module."chi_over_q_survey.rs".function]]
+id = "fn:970a75ba8dab18e8"
+name = "DURATION_S"
+qual = "DURATION_S"
+item = "const"
+shape = "const"
+lines = [
+    50,
+    52,
+]
+hash = "sha256:24f37a5c73e63e9738a3a17518b3e55d71d29751624539aeded33946ae1b9375"
+doc_hash = "sha256:a1a9f3954a6f7f68fb21b952437a899333274219ab8330efb2fb4edc12c8b82e"
+
+[[module."chi_over_q_survey.rs".function]]
+id = "fn:0053beabd5d3765f"
+name = "PUFF_LIFETIME_S"
+qual = "PUFF_LIFETIME_S"
+item = "const"
+shape = "const"
+lines = [
+    54,
+    59,
+]
+hash = "sha256:7c0826d2b1bc70e04c65adaa83296b1ea09a3ac3829b3b11d6ae7f3b75317ff1"
+doc_hash = "sha256:ff84c6f16aab4ed95b0cecf9240854c48f1cd765945e1abfca8481b94882cfc9"
+
+[[module."chi_over_q_survey.rs".function]]
 id = "fn:16443af53a90ef44"
 name = "main"
 qual = "main"
@@ -14,7 +80,7 @@ lines = [
     61,
     164,
 ]
-hash = "sha256:ab6ec8c5ff0350d6b4df497d9fb11b1dfc50e475337500ffa59da50ad0433c5c"
+hash = "sha256:5ca11e1539e58b960b7b77837c8cbe6f323d712fa67e50b74b181d1d686e1878"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:747679b63465e341",
@@ -24,9 +90,128 @@ callees = [
     "fn:ce42673cbb55ed79",
     "fn:e179a33cf72d377a",
 ]
+uses = [
+    "fn:0053beabd5d3765f",
+    "fn:34e7a8e6254b4d03",
+    "fn:3ee160e3151a16c2",
+    "fn:49c01b7c684ef831",
+    "fn:555491b7414a8b7a",
+    "fn:89884b20f87934f0",
+    "fn:970a75ba8dab18e8",
+    "fn:9cad8b1fd50f5f2b",
+    "fn:a2c44b6fbbf6de9f",
+    "fn:a8c9c6204aa8af86",
+    "fn:a96b0a643a472979",
+    "fn:acd9601de4eeb03a",
+]
 
 [module."field_timing.rs"]
 path = "example:field_timing"
+
+[[module."field_timing.rs".function]]
+id = "fn:0d1c61fe4ff3debf"
+name = "CELLS"
+qual = "CELLS"
+item = "const"
+shape = "const"
+lines = [
+    48,
+    49,
+]
+hash = "sha256:908c7e9f0491741619c1ae623c2972bd240eb1e962501711839d7d6b19472d1b"
+doc_hash = "sha256:5bcd8f505455c8596339b79eda3dfc586a83a9fdedbf2502f541081ff5f328db"
+
+[[module."field_timing.rs".function]]
+id = "fn:f27927752fc3eebb"
+name = "HALF_WIDTH_M"
+qual = "HALF_WIDTH_M"
+item = "const"
+shape = "const"
+lines = [
+    50,
+    51,
+]
+hash = "sha256:1e4a2127a93b024bef387cd3079555631868c96e9bd07978c209465682991c8a"
+doc_hash = "sha256:a222d0f37b8480e85a9f27a021e6321562ad06c04915bfa4fedcbf3c0a5abe92"
+
+[[module."field_timing.rs".function]]
+id = "fn:75df5e5b7265f5bf"
+name = "SOURCE_HEIGHT_M"
+qual = "SOURCE_HEIGHT_M"
+item = "const"
+shape = "const"
+lines = [
+    52,
+    53,
+]
+hash = "sha256:5695f030b0e61bb945166e57f21f38bc3cb7440140eadc4d1d99265eb45fcd53"
+doc_hash = "sha256:b86651e078a3d12549e01fc9f5f33032b76b48c39f5ff863fbc88d5e76fccc32"
+
+[[module."field_timing.rs".function]]
+id = "fn:61827289285dfef0"
+name = "REPEATS"
+qual = "REPEATS"
+item = "const"
+shape = "const"
+lines = [
+    55,
+    56,
+]
+hash = "sha256:716fa36a178d4ac76b0df7020150c2a7c95c9c562a3f4686d06da5de31192c91"
+doc_hash = "sha256:a0c96a166df2ca669b9c121f88ce27b73d27af437db1d699c99a44a769433e4c"
+
+[[module."field_timing.rs".function]]
+id = "fn:00ee9481cf58fb49"
+name = "SIMULATOR_WORKING_POINT"
+qual = "SIMULATOR_WORKING_POINT"
+item = "const"
+shape = "const"
+lines = [
+    58,
+    60,
+]
+hash = "sha256:55e338a096b37f1214f701795f30c81b10e6f4d6983139bcb5002ee8c49f5324"
+doc_hash = "sha256:58472789dca58954e2ccb818ce8087ab4061f01cfcd8c95bc11a7a2b49fae0a9"
+
+[[module."field_timing.rs".function]]
+id = "fn:2832c7174fe1ea32"
+name = "PUFF_COUNTS"
+qual = "PUFF_COUNTS"
+item = "const"
+shape = "const"
+lines = [
+    62,
+    63,
+]
+hash = "sha256:91dd97515cac70119b6747e03f4f61ccb0873bdcba04c483f37ea131acb65bf5"
+doc_hash = "sha256:2a4a557a2f05919c8ef53f43dee641d89109a3139968abd5d5c7a9e8f74692ab"
+uses = ["fn:00ee9481cf58fb49"]
+
+[[module."field_timing.rs".function]]
+id = "fn:f631d305d2d376b9"
+name = "LIVE_MAP_PUFFS"
+qual = "LIVE_MAP_PUFFS"
+item = "const"
+shape = "const"
+lines = [
+    65,
+    74,
+]
+hash = "sha256:7c39e9cccfb679ce260a17c30fc18a7a6b822996fc0769e1da181457e9f2d6b7"
+doc_hash = "sha256:3e3e4a8d5e3ae85dcdf23a53482abec4ec06ba6f189e56c1aff6b37fda466c56"
+
+[[module."field_timing.rs".function]]
+id = "fn:db5fa81dfde57807"
+name = "CELL_COUNTS"
+qual = "CELL_COUNTS"
+item = "const"
+shape = "const"
+lines = [
+    76,
+    81,
+]
+hash = "sha256:8746d560f765bd3ab0170dd3cd8dfb047257442e6ccff621abe89dce6dd1e607"
+doc_hash = "sha256:c42a313b274c71fb93c139d82035edefb661d93c514ba37a8240963cc7c1386c"
 
 [[module."field_timing.rs".function]]
 id = "fn:7b84cc703e032050"
@@ -38,6 +223,7 @@ lines = [
 ]
 hash = "sha256:8621c608d267140c4fe8bd825445e64c3eef0d94a066f109dfdba76681472260"
 doc_hash = "sha256:b8ef0fb08c5bec3092d96a3264142ea978f01fa8f3d137ce9ed21d38c6ea2bf1"
+uses = ["fn:c5ca1c67e6b30da0"]
 
 [[module."field_timing.rs".function]]
 id = "fn:118068f62ad8cd8a"
@@ -49,6 +235,7 @@ lines = [
 ]
 hash = "sha256:5953c0ad5786d70c2db782cc6432f5a1bd159e7cc5cfc5bb5a75c391f5034d6b"
 doc_hash = "sha256:ccc6381fec6b1deef37be539d1a971faf39443ca0a4a2fe01a768970de87fd85"
+uses = ["fn:61827289285dfef0"]
 
 [[module."field_timing.rs".function]]
 id = "fn:dac7ee5ddb39cda4"
@@ -58,7 +245,7 @@ lines = [
     126,
     261,
 ]
-hash = "sha256:f0f27cd025ce99e533485dfde45a563950ce28ae19932bf06806e79c03d4a57c"
+hash = "sha256:3921bf1dd6924e46d11262d13e5b6a32908b11bda9c43a21d19a9c7e83130abc"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:118068f62ad8cd8a",
@@ -67,6 +254,16 @@ callees = [
     "fn:8283424425e6444e",
     "fn:8d55f0ec06b3e8b1",
     "fn:ec7bf8fb5485eb50",
+]
+uses = [
+    "fn:00ee9481cf58fb49",
+    "fn:0d1c61fe4ff3debf",
+    "fn:2832c7174fe1ea32",
+    "fn:75df5e5b7265f5bf",
+    "fn:7e60ec1eaa947a4c",
+    "fn:db5fa81dfde57807",
+    "fn:f27927752fc3eebb",
+    "fn:f631d305d2d376b9",
 ]
 
 [module."puff_site_survey.rs"]
@@ -132,7 +329,7 @@ lines = [
     84,
     177,
 ]
-hash = "sha256:2918f2263d2c0910785a3600c292582a7b54d7adcb16cfbb051a8a5d15b060f4"
+hash = "sha256:7a998f8c6a22c2a77f2959e33ec217e49c2ff0f7c06bf290622a641f98a10fac"
 doc_hash = "sha256:1081875ca309e656e3928ae26068ca66165141c651ba9897e9325a14f7652ae6"
 callees = [
     "fn:0604a7b127877480",
@@ -146,6 +343,14 @@ callees = [
     "fn:99f650ec38876510",
     "fn:e55c7b7131002057",
 ]
+uses = [
+    "fn:34e7a8e6254b4d03",
+    "fn:3ee160e3151a16c2",
+    "fn:663a2f3e077b7b4e",
+    "fn:89884b20f87934f0",
+    "fn:9cad8b1fd50f5f2b",
+    "fn:acd9601de4eeb03a",
+]
 
 [[module."puff_site_survey.rs".function]]
 id = "fn:4ebb982610a320a9"
@@ -155,7 +360,7 @@ lines = [
     179,
     254,
 ]
-hash = "sha256:0b4d449c34362fec728d3675e8af052a8b3570c4447ce5d15b68e9ea0f0ce649"
+hash = "sha256:14e24858df8db9b786899618ed252a9548560dc8cd9863a67061008e418b5b7b"
 doc_hash = "sha256:66423073e39576c0ea45adabf4b895fcdcd490b69546957b1fcc577d33fd0feb"
 callees = [
     "fn:48f6934b9d212bed",
@@ -166,6 +371,11 @@ callees = [
     "fn:e179a33cf72d377a",
     "fn:ee5531a48280ae0e",
 ]
+uses = [
+    "fn:2af54cf58e6d86c8",
+    "fn:663a2f3e077b7b4e",
+    "fn:9380b55ee5ba5f86",
+]
 
 [[module."puff_site_survey.rs".function]]
 id = "fn:23fb279d7bd561bf"
@@ -175,7 +385,7 @@ lines = [
     256,
     361,
 ]
-hash = "sha256:cbffbe6a7707e8d205c9c9792f7b8639589e5346660029015c6559c4d6f1258f"
+hash = "sha256:183f13c133f41230611b758a60c1c9964047eb1cf09a7602032411ed1cb8a959"
 doc_hash = "sha256:f705ed81d28b819eb4eb9cbd2811b3379e6bd2a72444bb774307205668fb8eda"
 callees = [
     "fn:15e5495a96fa3fcc",
@@ -189,9 +399,136 @@ callees = [
     "fn:e55c7b7131002057",
     "fn:ee5531a48280ae0e",
 ]
+uses = [
+    "fn:2af54cf58e6d86c8",
+    "fn:34e7a8e6254b4d03",
+    "fn:3ee160e3151a16c2",
+    "fn:663a2f3e077b7b4e",
+    "fn:89884b20f87934f0",
+    "fn:9cad8b1fd50f5f2b",
+    "fn:acd9601de4eeb03a",
+]
 
 [module."site_activity_survey.rs"]
 path = "example:site_activity_survey"
+
+[[module."site_activity_survey.rs".function]]
+id = "fn:0e62be62b2fe28fb"
+name = "DISTANCES_M"
+qual = "DISTANCES_M"
+item = "const"
+shape = "const"
+lines = [
+    43,
+    44,
+]
+hash = "sha256:248a602f01df9b9aafe6db7e678584daa642c3a926975ea3c967f97d8ef2a43a"
+doc_hash = "sha256:f602b35d44d6be95a9bae96fede26147516121ac697fc0d17fe2110ad98c5cd3"
+
+[[module."site_activity_survey.rs".function]]
+id = "fn:3a2a995e3b288b86"
+name = "WIND_SPEED_M_PER_S"
+qual = "WIND_SPEED_M_PER_S"
+item = "const"
+shape = "const"
+lines = [
+    46,
+    55,
+]
+hash = "sha256:1f4984637dc6207e30ab0c58ff893f21f2388219f392e6db77a978e4a501c5bd"
+doc_hash = "sha256:2762ad1940f390e27fae73b0de7b541d46b3906aa5056b83387982354ba7cc19"
+uses = ["fn:3582f4634144f0bc"]
+
+[[module."site_activity_survey.rs".function]]
+id = "fn:13e0433a032a1ad3"
+name = "STEP_S"
+qual = "STEP_S"
+item = "const"
+shape = "const"
+lines = [
+    57,
+    58,
+]
+hash = "sha256:24d4b673907ebba2647f36dfd90c864f2bd3d94a0a4209a99c4ed575cf00ef39"
+doc_hash = "sha256:010dee93f884498252fee5ad5e9da9d78337ca57042be39213ebc814e73375be"
+
+[[module."site_activity_survey.rs".function]]
+id = "fn:6288d90a55d31c65"
+name = "RELEASE_S"
+qual = "RELEASE_S"
+item = "const"
+shape = "const"
+lines = [
+    60,
+    61,
+]
+hash = "sha256:24f37a5c73e63e9738a3a17518b3e55d71d29751624539aeded33946ae1b9375"
+doc_hash = "sha256:f76828f0cee21c77b64ccc747cd2294f6cea95f8cb6dbc1e27c518e1dadd1ea9"
+
+[[module."site_activity_survey.rs".function]]
+id = "fn:97de25bf59b151a0"
+name = "N_RELEASE_WINDOWS"
+qual = "N_RELEASE_WINDOWS"
+item = "const"
+shape = "const"
+lines = [
+    62,
+    62,
+]
+hash = "sha256:a5a44a1dfc24f8863031abe8e072d7ce8d46faa33c4014dda0df0e07dd363e02"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."site_activity_survey.rs".function]]
+id = "fn:ac3d2b4d60d7edea"
+name = "PUFF_LIFETIME_S"
+qual = "PUFF_LIFETIME_S"
+item = "const"
+shape = "const"
+lines = [
+    64,
+    68,
+]
+hash = "sha256:3e43e52a481829677842ef2055d7a820d5cc4382ecf32b538c0c4255d04d6baa"
+doc_hash = "sha256:4570a45ef6684f8c829ead5ccb343977352aff338ba81fd32796713df78fa789"
+
+[[module."site_activity_survey.rs".function]]
+id = "fn:ab20db0762203f42"
+name = "RELEASED_CI"
+qual = "RELEASED_CI"
+item = "const"
+shape = "const"
+lines = [
+    70,
+    72,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:7e9b309577d166822ec0a08c260cefd4cbba2670051c3807cea5bf8193091ca6"
+
+[[module."site_activity_survey.rs".function]]
+id = "fn:ab7dfd578a126ae4"
+name = "KR88_HALF_LIFE_S"
+qual = "KR88_HALF_LIFE_S"
+item = "const"
+shape = "const"
+lines = [
+    74,
+    75,
+]
+hash = "sha256:83fee7d6f842c3d20f99c721c014a7c417b264aac1707ff640899476d9321b5d"
+doc_hash = "sha256:b7b1f7af924d7a6c91c90af712e3e95cfac094b197ee640e839d506e0f26d0aa"
+
+[[module."site_activity_survey.rs".function]]
+id = "fn:71598341727a2e80"
+name = "I131_HALF_LIFE_S"
+qual = "I131_HALF_LIFE_S"
+item = "const"
+shape = "const"
+lines = [
+    76,
+    76,
+]
+hash = "sha256:bb2381b812f2a1d3ce314db98d8e5ad98b44b8037a0233e2d43092e33946447d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."site_activity_survey.rs".function]]
 id = "fn:704185de70600031"
@@ -201,7 +538,7 @@ lines = [
     78,
     245,
 ]
-hash = "sha256:e2a83e57846e88a99772d7e2c815ca7c737ec51d511a9e039bd43526ddab0507"
+hash = "sha256:4a758e7c0e0cf4994dff0f3968a3f70cf0eb5ace974addc54d27d1ea544e33f4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:2bbb56c415a29725",
@@ -219,4 +556,27 @@ callees = [
     "fn:e179a33cf72d377a",
     "fn:e8f58180c812fc7c",
     "fn:fb931a92ca00058a",
+]
+uses = [
+    "fn:0e62be62b2fe28fb",
+    "fn:13e0433a032a1ad3",
+    "fn:1d027e95c09921cf",
+    "fn:34e7a8e6254b4d03",
+    "fn:3a2a995e3b288b86",
+    "fn:3ab326e925a26c44",
+    "fn:3ee160e3151a16c2",
+    "fn:6288d90a55d31c65",
+    "fn:68d6ccce8d9bf4a8",
+    "fn:71598341727a2e80",
+    "fn:89884b20f87934f0",
+    "fn:9621fcd6881cdd3d",
+    "fn:97de25bf59b151a0",
+    "fn:99a4d5a16c49329c",
+    "fn:9cad8b1fd50f5f2b",
+    "fn:a2c44b6fbbf6de9f",
+    "fn:a96b0a643a472979",
+    "fn:ab20db0762203f42",
+    "fn:ab7dfd578a126ae4",
+    "fn:ac3d2b4d60d7edea",
+    "fn:acd9601de4eeb03a",
 ]

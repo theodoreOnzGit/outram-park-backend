@@ -3,6 +3,10 @@ kind = "code_folder"
 crate = "teh-o-prke"
 dir = "crates/teh-o-prke/src/zero_power_prke/six_group_precursor_prke"
 test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
+    "crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
+    "crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
     "crates/teh-o-prke/src/zero_power_prke/tests.rs::prke_test_zero_reactivity",
     "crates/teh-o-prke/src/zero_power_prke/tests.rs::test_pu239_total_delayed_frac",
     "crates/teh-o-prke/src/zero_power_prke/tests.rs::test_u233_total_delayed_frac",
@@ -23,6 +27,10 @@ lines = [
 hash = "sha256:0a78195c2a09d4f84ba21c208ce441a7b3b0ffab9c8fc214b7a6e3a9090ead11"
 doc_hash = "sha256:afc67737312b96ffe7837a7224daa1f4b607dd7f66f58575fde43567cfe7392c"
 callees = ["fn:6d9f7a8cd81f4c9d"]
+uses = [
+    "fn:6122734c2da30e96",
+    "fn:bfe9d7366b93e138",
+]
 physical_interface = true
 
 [module."implicit_solver.rs"]
@@ -45,7 +53,11 @@ callees = [
     "fn:cb04a7a486e2e730",
     "fn:cc53a908256e4d26",
 ]
-reached_by = ["#0"]
+uses = [
+    "fn:bfe9d7366b93e138",
+    "fn:f9c8ce1116817058",
+]
+reached_by = ["#4"]
 physical_interface = true
 
 [[module."implicit_solver.rs".function]]
@@ -58,7 +70,7 @@ lines = [
 ]
 hash = "sha256:e3bf1d68bcfd17286ebb64c54db2acdcd68e1a35b0534cf559375f5bc7ee4a30"
 doc_hash = "sha256:fd11fb3aff9ae7813afd9dc4124aac3e4d5c65b7ecab1e4672c7174ba65e42b8"
-reached_by = ["#0"]
+reached_by = ["#4"]
 physical_interface = true
 
 [[module."implicit_solver.rs".function]]
@@ -71,11 +83,43 @@ lines = [
 ]
 hash = "sha256:b397b7ac8ff332a95a810d9fc427916cdca60c0c36a64844cebf2768726181c2"
 doc_hash = "sha256:006ce1365943187babb17303fcc6c87376aeccae4d6ee0aa1eba78fc3abdebfa"
-reached_by = ["#0"]
+reached_by = ["#4"]
 physical_interface = true
 
 [module."mod.rs"]
 path = "crate::zero_power_prke::six_group_precursor_prke"
+
+[[module."mod.rs".function]]
+id = "fn:82ce15274aff1187"
+name = "DecayConstant"
+qual = "DecayConstant"
+item = "type"
+shape = "alias"
+lines = [
+    13,
+    14,
+]
+hash = "sha256:ea14821948029f3e6fad9e6158fe9078d576f804d7c111f2f14856b0c0fc6605"
+doc_hash = "sha256:e5328315de65aba4ba5b7e212ee14682f5466d01d1dbbb0c1b3eeb40a671e593"
+reached_by = ["#4"]
+
+[[module."mod.rs".function]]
+id = "fn:aa11b87dc61e5c93"
+name = "SixGroupPRKE"
+qual = "SixGroupPRKE"
+item = "type"
+shape = "struct"
+lines = [
+    15,
+    30,
+]
+hash = "sha256:4da9a129de7dcf39b080f0a417bc0346b069b96aac7a239ff70f7fac75783e11"
+doc_hash = "sha256:d9161392177700043bec7cff0046a4ec12263a2d766acf991592f9ac19e0499e"
+uses = [
+    "fn:1a8002bb19b4233c",
+    "fn:82ce15274aff1187",
+]
+reached_by = ["#4"]
 
 [[module."mod.rs".function]]
 id = "fn:8a6dd7869c10830a"
@@ -91,6 +135,10 @@ callees = [
     "fn:4b3f9d9f625fde38",
     "fn:c402cc0c71506da8",
 ]
+uses = [
+    "fn:1a8002bb19b4233c",
+    "fn:aa11b87dc61e5c93",
+]
 
 [[module."mod.rs".function]]
 id = "fn:b12622c7ec7d2d84"
@@ -102,7 +150,8 @@ lines = [
 ]
 hash = "sha256:524fbcc12c90cc7e909f466e169e5f452c0ca2d0aab9b007aa6c20c9e968090c"
 doc_hash = "sha256:e606b03e4da31261457219db60448f306d6a1d837d1bbb36e060986cdc7adff6"
-reached_by = ["#0"]
+uses = ["fn:aa11b87dc61e5c93"]
+reached_by = ["#4"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -115,6 +164,7 @@ lines = [
 ]
 hash = "sha256:75f988778194ba64d92720b71ae88e28e2fb7075cb5bff0936ab96724f707729"
 doc_hash = "sha256:97db41d0b8b03966dc80e14b0914b59556a2e4bbba5349182a6f6be970a6fec7"
+uses = ["fn:aa11b87dc61e5c93"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -128,6 +178,10 @@ lines = [
 hash = "sha256:84a61d83b627bb6856cb1004eb72c9b8f6ad2c4bb0697cc96e268d3ed3cb1da6"
 doc_hash = "sha256:93e8b75461c1e3c2952e33b38813ada415dfae0836b829c142c8ca72bd28af6a"
 callees = ["fn:2abb9faaa2d323ca"]
+uses = [
+    "fn:aa11b87dc61e5c93",
+    "fn:bfe9d7366b93e138",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -141,6 +195,10 @@ lines = [
 hash = "sha256:ddb1caec5bae316db52746adfc9797cc061d8460316b00d746743bfedf3ae53e"
 doc_hash = "sha256:4a9bec11eef56951aa82520ca888187b0043356f3d8966a199f46e19fcb59ec1"
 callees = ["fn:477ba38e9e5c84fa"]
+uses = [
+    "fn:aa11b87dc61e5c93",
+    "fn:bfe9d7366b93e138",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -153,10 +211,31 @@ lines = [
 ]
 hash = "sha256:f8c61f0dcc74049ec0a76649b6b0401d27d458ceb4f200716b87fca16f1049ba"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:aa11b87dc61e5c93"]
 physical_interface = true
 
 [module."six_group_constants.rs"]
 path = "crate::zero_power_prke::six_group_precursor_prke::six_group_constants"
+
+[[module."six_group_constants.rs".function]]
+id = "fn:1a8002bb19b4233c"
+name = "FissioningNuclideType"
+qual = "FissioningNuclideType"
+item = "type"
+shape = "enum"
+lines = [
+    10,
+    19,
+]
+hash = "sha256:0c5ebdd6fc64dfffd9c90785a4b589763044b648684472d582cfc7b0db3bb339"
+doc_hash = "sha256:db887dc2c6e21a86cca647b13dddfd5b9515a3120c7fe0da40a88547f8153ac0"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
 
 [[module."six_group_constants.rs".function]]
 id = "fn:c402cc0c71506da8"
@@ -169,7 +248,11 @@ lines = [
 hash = "sha256:0bca5ff97ba5a2b1c0ac5d2b438bbf2a5f91586fe1bf0523b746485c92b08837"
 doc_hash = "sha256:3dc8bd3221a887395238ec7e27d20b95e0334a67e613a66fc8a1b6893cd39a1b"
 callees = ["fn:db73e746fe70de6a"]
-reached_by = ["#0"]
+uses = [
+    "fn:1a8002bb19b4233c",
+    "fn:82ce15274aff1187",
+]
+reached_by = ["#4"]
 physical_interface = true
 
 [[module."six_group_constants.rs".function]]
@@ -187,7 +270,8 @@ callees = [
     "fn:b38a87ef4352ac9c",
     "fn:d780cab1aaf71fb3",
 ]
-reached_by = ["#0"]
+uses = ["fn:1a8002bb19b4233c"]
+reached_by = ["#4"]
 physical_interface = true
 
 [[module."six_group_constants.rs".function]]
@@ -200,7 +284,8 @@ lines = [
 ]
 hash = "sha256:437934345fc1621c4ea8079e70cb1bef9c31e60410a443bf519a912e784dfad9"
 doc_hash = "sha256:03ce44457af28e969ea781b88dc158562f241d34375d10946a469d0254dc57ab"
-reached_by = ["#0"]
+uses = ["fn:82ce15274aff1187"]
+reached_by = ["#4"]
 physical_interface = true
 
 [[module."six_group_constants.rs".function]]
@@ -214,8 +299,8 @@ lines = [
 hash = "sha256:ce2309a5a1a0d8e3acbb3a853265317fda285480490c808e97ed0c83c3fe01b8"
 doc_hash = "sha256:3e79a5bd23bf86dbf1516316fd7d82d5f929cebdc992f895cd6e87cab3ab16d5"
 reached_by = [
-    "#0",
-    "#2",
+    "#4",
+    "#6",
 ]
 physical_interface = true
 
@@ -230,8 +315,8 @@ lines = [
 hash = "sha256:af9e5b8b0a52cd75a5944f3d40309fbcf8c3263f3640cc1a57e739217fa9d72f"
 doc_hash = "sha256:7e8fbb857d53f6aadfb23b296ffea96edf3d944eed4d4a15cc260167dee3715a"
 reached_by = [
-    "#0",
-    "#3",
+    "#4",
+    "#7",
 ]
 physical_interface = true
 
@@ -246,7 +331,7 @@ lines = [
 hash = "sha256:bc63d5480f79b5c33f51def178a8a41cfd37aff550a0e0fbda8a282d408db444"
 doc_hash = "sha256:e1caa593b5b9ca955ee2f7726a9a0c7b93950ec43465565d7ba89d7c03bbd3cd"
 reached_by = [
-    "#0",
-    "#1",
+    "#4",
+    "#5",
 ]
 physical_interface = true

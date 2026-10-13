@@ -24,6 +24,7 @@ test_ids = [
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/lmtd_profile.rs::unusable_inputs_are_rejected_as_bad_inputs",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/lmtd_profile.rs::zone_duties_and_conductances_close_on_their_balances",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/mod.rs::every_remedy_behaves_as_its_documentation_claims",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/mod.rs::node_zero_is_the_hot_inlet_end_and_the_cold_stream_runs_the_other_way",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/mod.rs::the_default_remedy_repairs_nothing",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/temperature_cross/mod.rs::the_detector_reports_the_worst_cross",
 ]
@@ -32,15 +33,17 @@ test_ids = [
 path = "example:htgr_sim_v1::physics::temperature_cross::bedok_enthalpy_march"
 
 [[module."bedok_enthalpy_march.rs".function]]
-id = "fn:a4c42c6d5f17bf9d"
-name = "report"
-qual = "EnthalpyMarchDiagnostics::report"
+id = "fn:047204739d089d08"
+name = "MIN_NODE_COUNT"
+qual = "MIN_NODE_COUNT"
+item = "const"
+shape = "const"
 lines = [
-    441,
-    460,
+    282,
+    286,
 ]
-hash = "sha256:fdcbde3f10c86a3ed1f8ef73974021fdf0e1eb1a717cbbe7f9c76918ef4586e5"
-doc_hash = "sha256:17d89d573277650d0fd0e2e1a9b2ba99c5213ff6ce1eaf35ad7ef224fa0bdf2a"
+hash = "sha256:6805ea92c119e90890f4c06ce3c680c811981fd29d948af4d4aa269648edf80e"
+doc_hash = "sha256:4e95059094b3ba05758cb417a6dce9d4cf593dea8a90f808869ad015ab1121ad"
 reached_by = [
     "#0",
     "#1",
@@ -52,7 +55,448 @@ reached_by = [
     "#7",
     "#8",
     "#20",
-    "#21",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:31472e014a976f21"
+name = "IF97_MIN_TEMPERATURE_K"
+qual = "IF97_MIN_TEMPERATURE_K"
+item = "const"
+shape = "const"
+lines = [
+    288,
+    293,
+]
+hash = "sha256:f4ca8025a3e5be82641e923b882b519d5f91bfd96bbf29d346f689c5e354a9e4"
+doc_hash = "sha256:1f6a304e34f831a275fa3630bb32107a3da7754ea9a5fdea84e196688c7434d8"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:9ad3a1d4ae0cbc92"
+name = "IF97_MAX_TEMPERATURE_K"
+qual = "IF97_MAX_TEMPERATURE_K"
+item = "const"
+shape = "const"
+lines = [
+    295,
+    300,
+]
+hash = "sha256:ff7d8436439725470de934bdcbf3b5964cff30bb65fed83e7f3c1efc05374508"
+doc_hash = "sha256:725aed0946073ff2b376307203d2428dc7610ef0bc6d8b5920870ecc7845b1de"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:9668792d28b9b73c"
+name = "IF97_MAX_PRESSURE_PA"
+qual = "IF97_MAX_PRESSURE_PA"
+item = "const"
+shape = "const"
+lines = [
+    302,
+    303,
+]
+hash = "sha256:64bcf1441ebba61f80638df087f3f836c1b320a9bfddd7ccb09686cca7e57944"
+doc_hash = "sha256:279323568e4e9a630e7fef5600e43b3ea3a7a52690d0fcf78101c3e35727dc3a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:246f75109188fa94"
+name = "WATER_CRITICAL_PRESSURE_PA"
+qual = "WATER_CRITICAL_PRESSURE_PA"
+item = "const"
+shape = "const"
+lines = [
+    305,
+    309,
+]
+hash = "sha256:82d184f23af9daad09fffbcae20be954be05c34c27679ae43755e34ec7b6ae4a"
+doc_hash = "sha256:4d19188c72e3d007c5fd1f3fac4b946e4f7f9ea1b6d7ead1b150144994836961"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:c8dc61cb78ec02d0"
+name = "SATURATION_TOLERANCE_KELVIN"
+qual = "SATURATION_TOLERANCE_KELVIN"
+item = "const"
+shape = "const"
+lines = [
+    311,
+    320,
+]
+hash = "sha256:95197b0b49705eee31ab49bac616baf81ca8d3fc35f0924ad08d48bfacddd9b2"
+doc_hash = "sha256:3eb28bd1dd69b6052f52c4552abd4dd1d794518cc01b219140ee6674a114176d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:f72d832d77076e60"
+name = "MIN_HOT_TEMPERATURE_DROP_KELVIN"
+qual = "MIN_HOT_TEMPERATURE_DROP_KELVIN"
+item = "const"
+shape = "const"
+lines = [
+    322,
+    327,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:35b3b3b1b36bcb7601170466dfac0ffe36f20e4443057b9a2547e54dee6c85cc"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:de396bebb9a9f498"
+name = "MIN_PLAUSIBLE_HOT_CP"
+qual = "MIN_PLAUSIBLE_HOT_CP"
+item = "const"
+shape = "const"
+lines = [
+    329,
+    335,
+]
+hash = "sha256:715ff62dc298d9b0b1c992033f85e725b78807b021b2d6b50f66325ae4e8ed6f"
+doc_hash = "sha256:acb58f3df93ca06bc1a9829b850080327e226e652a5662cccd664093dabdef47"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:fd8e0da0bfb3476f"
+name = "MAX_PLAUSIBLE_HOT_CP"
+qual = "MAX_PLAUSIBLE_HOT_CP"
+item = "const"
+shape = "const"
+lines = [
+    337,
+    340,
+]
+hash = "sha256:c3d247158aea7a6fed147f3368955fee28f1abfdb20dbe1fe192e5de4d09254a"
+doc_hash = "sha256:7bdcadfa8931a73f58d270eddf93bbee0dcbb2632b53e8ab311d21acb749820c"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:f01dbec36edd407e"
+name = "SHOOTING_TOLERANCE_KELVIN"
+qual = "SHOOTING_TOLERANCE_KELVIN"
+item = "const"
+shape = "const"
+lines = [
+    342,
+    347,
+]
+hash = "sha256:f364de570f9746c8f4685ca69afaa49ee498675814ee7c46edbdee7b1eb1818d"
+doc_hash = "sha256:67c548620cd3605b30ce252a4ec50a1f4b5d1f346fd2d9423177729ce8da0d86"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:1eea30df8dba9808"
+name = "MAX_SHOOTING_ITERATIONS"
+qual = "MAX_SHOOTING_ITERATIONS"
+item = "const"
+shape = "const"
+lines = [
+    349,
+    352,
+]
+hash = "sha256:a83cfed03a6f0dc222b81ae6306de1c190d0ad66455b9b49139cc453ee4004f0"
+doc_hash = "sha256:a636b802778bf009fb35b7bb88823471a4f33ab4750118d7a224608aa1ff2a61"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:c6336c7dcf636afa"
+name = "MAX_BRACKET_WALKS"
+qual = "MAX_BRACKET_WALKS"
+item = "const"
+shape = "const"
+lines = [
+    354,
+    357,
+]
+hash = "sha256:ae89f605a27f7f9f4721e3d914935fb310ac55ea69f7549a7bf4533ef3048845"
+doc_hash = "sha256:78ecf442561da11c05fba4f246bb8baa2282064f5a7200e88de02b2d7fea1faf"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:219516b39f81ef21"
+name = "MAX_NODE_ITERATIONS"
+qual = "MAX_NODE_ITERATIONS"
+item = "const"
+shape = "const"
+lines = [
+    359,
+    360,
+]
+hash = "sha256:ae89f605a27f7f9f4721e3d914935fb310ac55ea69f7549a7bf4533ef3048845"
+doc_hash = "sha256:46cd3e3b4f15efde03bab306548c01dd346eb68c7fa6030dc7d7becb66ac0c77"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:8b32416825a82279"
+name = "NODE_TOLERANCE_WATT"
+qual = "NODE_TOLERANCE_WATT"
+item = "const"
+shape = "const"
+lines = [
+    362,
+    370,
+]
+hash = "sha256:f364de570f9746c8f4685ca69afaa49ee498675814ee7c46edbdee7b1eb1818d"
+doc_hash = "sha256:b7dcc87f4cd5aa572a9961b4f29b4a73d114d3f9fcc80742af2d9285e049f080"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:6f0a524fa28aaeed"
+name = "NODE_RELATIVE_TOLERANCE"
+qual = "NODE_RELATIVE_TOLERANCE"
+item = "const"
+shape = "const"
+lines = [
+    372,
+    380,
+]
+hash = "sha256:d48dc899a45929660743db0d52583587b0eb84eb21472a25f7b5ec37faee85c7"
+doc_hash = "sha256:409d0d73fdf33b78ba3df1d2d6f29e82aa1c7163d6d68b0530af3acbe268d7e1"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:daea3a5a6502c8c8"
+name = "REFERENCE_INVENTORY_TIME_S"
+qual = "REFERENCE_INVENTORY_TIME_S"
+item = "const"
+shape = "const"
+lines = [
+    382,
+    392,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:254a115dec14df5c43efe646b8363698a163a6a05df084100fae42793de74175"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:581132ffa8572dcf"
+name = "EnthalpyMarchDiagnostics"
+qual = "EnthalpyMarchDiagnostics"
+item = "type"
+shape = "struct"
+lines = [
+    398,
+    438,
+]
+hash = "sha256:72afe40307276bc504286f426937c274565d4f134404851aa9db032af456a287"
+doc_hash = "sha256:32c752418bca46083afaf7fed3bece3dd9ffb3b5b38b3fe1ee9980496a5351f0"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:a4c42c6d5f17bf9d"
+name = "report"
+qual = "EnthalpyMarchDiagnostics::report"
+lines = [
+    441,
+    460,
+]
+hash = "sha256:4ce0bc9639769539b7e127d2c622d63263264bcf92319fc64b756ceea311d595"
+doc_hash = "sha256:17d89d573277650d0fd0e2e1a9b2ba99c5213ff6ce1eaf35ad7ef224fa0bdf2a"
+uses = ["fn:581132ffa8572dcf"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
 ]
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -66,12 +510,17 @@ lines = [
 hash = "sha256:7807cd9111c145f7c9e68067a82a29b318e14335aa803b4ca628c0be43f3e3f3"
 doc_hash = "sha256:57163cad955c64bd10e4a614403c88e40d04b8b5107b71ec9071fbec151b6812"
 callees = ["fn:30c8e34f87ca7d91"]
+uses = [
+    "fn:1033ea674a6e4760",
+    "fn:9df02ec2b43b1af0",
+    "fn:f1b485a214ecf9d0",
+]
 reached_by = [
     "#2",
     "#3",
     "#4",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -82,7 +531,7 @@ lines = [
     496,
     573,
 ]
-hash = "sha256:91537a48c3e5e44a2c22c981a2e09f3aec91776510f3afeaa2444976d033d877"
+hash = "sha256:422250b6b4a12833230f0a9cbbc5fff25fe1ebaf761a402eeae34c5c2e56a191"
 doc_hash = "sha256:ee67f5b895943669f793af480d224604bd00adfb3c2d573423820351bf55c5de"
 callees = [
     "fn:04df6f2b3b6de035",
@@ -90,6 +539,13 @@ callees = [
     "fn:664cc6961e21c2a4",
     "fn:a4c42c6d5f17bf9d",
     "fn:ccd440da76dd092f",
+]
+uses = [
+    "fn:1033ea674a6e4760",
+    "fn:53e783fda60f3978",
+    "fn:581132ffa8572dcf",
+    "fn:9df02ec2b43b1af0",
+    "fn:f1b485a214ecf9d0",
 ]
 reached_by = [
     "#0",
@@ -102,7 +558,33 @@ reached_by = [
     "#7",
     "#8",
     "#20",
-    "#21",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:53e783fda60f3978"
+name = "MarchContext"
+qual = "MarchContext"
+item = "type"
+shape = "struct"
+lines = [
+    579,
+    626,
+]
+hash = "sha256:36bf6b69b8781ab9b2d2ba7a092c809d6110bd7632886807ec8c8d23354a4ffa"
+doc_hash = "sha256:ec6d5c06ab73433807085248370d1f0ae27c1c53beba1eaa3441841825869876"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
 ]
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -113,7 +595,7 @@ lines = [
     629,
     817,
 ]
-hash = "sha256:86b7a6e22d5ce9301c3a5f799e866de6a812c48e58f77afbda1766eae468525c"
+hash = "sha256:ed48807c4e64f07eda828d4267230c347bcc92f7e77ea5a4a6ef0f5516b396f3"
 doc_hash = "sha256:21fc905c8caf8360ff87ab98022ab6a767a26655f7da6375eb178a69f4dd5f54"
 callees = [
     "fn:1ba64d29ffce9d30",
@@ -123,6 +605,19 @@ callees = [
     "fn:c163e9ad1c644298",
     "fn:eff47085ca6952fe",
     "fn:f09f00cc4fcef6cc",
+]
+uses = [
+    "fn:047204739d089d08",
+    "fn:1033ea674a6e4760",
+    "fn:246f75109188fa94",
+    "fn:31472e014a976f21",
+    "fn:53e783fda60f3978",
+    "fn:9668792d28b9b73c",
+    "fn:9ad3a1d4ae0cbc92",
+    "fn:de396bebb9a9f498",
+    "fn:f1b485a214ecf9d0",
+    "fn:f72d832d77076e60",
+    "fn:fd8e0da0bfb3476f",
 ]
 reached_by = [
     "#0",
@@ -135,7 +630,7 @@ reached_by = [
     "#7",
     "#8",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -148,6 +643,7 @@ lines = [
 ]
 hash = "sha256:aec3200b318be787df45fc3337b18af62074feb104822fc96fea641706954b11"
 doc_hash = "sha256:5595b0f813dd0971ed06efcd366bcc679a9aa8f96869b67e0ae6d29a28b46d45"
+uses = ["fn:53e783fda60f3978"]
 reached_by = [
     "#0",
     "#1",
@@ -159,7 +655,33 @@ reached_by = [
     "#7",
     "#8",
     "#20",
-    "#21",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:fc1a21835c5f05f7"
+name = "MarchFailure"
+qual = "MarchFailure"
+item = "type"
+shape = "enum"
+lines = [
+    836,
+    854,
+]
+hash = "sha256:5f5b201db14f2b8c991299a67fc36f48f34e73640caf0e599da54d725e8f91a9"
+doc_hash = "sha256:d47feb8e6cae9380908f78a3379c799bd81f96530efe10b1ee38a09aca340572"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
 ]
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -170,8 +692,9 @@ lines = [
     857,
     868,
 ]
-hash = "sha256:f31578bdc7c169e80a30c52ce8383634f59d00ca2f4a33de042ed08cbf99a412"
+hash = "sha256:85ec7d7cfb0f798d5c17c1aa1d2cab91b337c8ffb8f22dbf380d755933bb827c"
 doc_hash = "sha256:666a77a9d30d0e1730dc86837bfecc2a22665813f272830cf2acb9a8c5b56713"
+uses = ["fn:fc1a21835c5f05f7"]
 reached_by = [
     "#0",
     "#1",
@@ -183,7 +706,33 @@ reached_by = [
     "#7",
     "#8",
     "#20",
-    "#21",
+    "#22",
+]
+
+[[module."bedok_enthalpy_march.rs".function]]
+id = "fn:932d268c51fc80e3"
+name = "March"
+qual = "March"
+item = "type"
+shape = "struct"
+lines = [
+    871,
+    887,
+]
+hash = "sha256:c17742cb78528c82f9196906976201eeff0d0ed7603e2bf85bc87d1cda8e9df0"
+doc_hash = "sha256:188f8486b34bf994e7a9170826ce7ebd56494c69cf57b4668f1f8c0bc210c746"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#20",
+    "#22",
 ]
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -197,6 +746,10 @@ lines = [
 hash = "sha256:016274eb950d6639f4e215547198fed00d882976b86f575eb2ba39cea2415f42"
 doc_hash = "sha256:e7666a0321a5b1814f471b69048a87e448802a43dfc7cd2225266eeca60a1df7"
 callees = ["fn:f09f00cc4fcef6cc"]
+uses = [
+    "fn:53e783fda60f3978",
+    "fn:fc1a21835c5f05f7",
+]
 reached_by = [
     "#0",
     "#1",
@@ -208,7 +761,7 @@ reached_by = [
     "#7",
     "#8",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -222,6 +775,13 @@ lines = [
 hash = "sha256:bd96580d91dbfaf7158d274ebefd1a0e95c9ecb038cc89adaa0b0df5066b8e91"
 doc_hash = "sha256:5bc7f42a1742f4ef8be3614dc4a58def172c6e63aa2b74810c0c271a78cd78de"
 callees = ["fn:aa0575a0ec1353ad"]
+uses = [
+    "fn:219516b39f81ef21",
+    "fn:53e783fda60f3978",
+    "fn:6f0a524fa28aaeed",
+    "fn:8b32416825a82279",
+    "fn:fc1a21835c5f05f7",
+]
 reached_by = [
     "#0",
     "#1",
@@ -233,7 +793,7 @@ reached_by = [
     "#7",
     "#8",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -250,6 +810,11 @@ callees = [
     "fn:4b4d682f7aeaed00",
     "fn:aa0575a0ec1353ad",
 ]
+uses = [
+    "fn:53e783fda60f3978",
+    "fn:932d268c51fc80e3",
+    "fn:fc1a21835c5f05f7",
+]
 reached_by = [
     "#0",
     "#1",
@@ -261,7 +826,7 @@ reached_by = [
     "#7",
     "#8",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -272,11 +837,20 @@ lines = [
     1068,
     1227,
 ]
-hash = "sha256:9d5c456aa28e93d1c554a76ac5f55d8c3c5a6b01c8fdbb04e5baa43905deeb07"
+hash = "sha256:9ec8c8b2d7f7f6890729d0898cab99a78be5fa44e87bdf6dce0c6786c7c7d1d4"
 doc_hash = "sha256:7ed4831500a32c068eb6f0f7fd6d6ed525b769f572ab5b2991a62a28c59957c5"
 callees = [
     "fn:570631981ac0da12",
     "fn:5b8f3a10eaea0680",
+]
+uses = [
+    "fn:1eea30df8dba9808",
+    "fn:53e783fda60f3978",
+    "fn:932d268c51fc80e3",
+    "fn:c6336c7dcf636afa",
+    "fn:f01dbec36edd407e",
+    "fn:f1b485a214ecf9d0",
+    "fn:fc1a21835c5f05f7",
 ]
 reached_by = [
     "#0",
@@ -289,7 +863,7 @@ reached_by = [
     "#7",
     "#8",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -303,6 +877,15 @@ lines = [
 hash = "sha256:f1dea41719886071080a9d8ead41be77e3833d41ac586339db9faf3972dc21e1"
 doc_hash = "sha256:41e43f92a02781bb20fc4d226c6a7efb6bb94de405fe28c89fe2febaf7a39327"
 callees = ["fn:a034500d55b2a2be"]
+uses = [
+    "fn:1033ea674a6e4760",
+    "fn:31472e014a976f21",
+    "fn:53e783fda60f3978",
+    "fn:932d268c51fc80e3",
+    "fn:9ad3a1d4ae0cbc92",
+    "fn:c8dc61cb78ec02d0",
+    "fn:daea3a5a6502c8c8",
+]
 reached_by = [
     "#0",
     "#1",
@@ -314,7 +897,7 @@ reached_by = [
     "#7",
     "#8",
     "#20",
-    "#21",
+    "#22",
 ]
 physical_interface = true
 
@@ -362,6 +945,7 @@ callees = [
     "fn:4e9b2fadf3351a31",
     "fn:ad2692522db9ccb3",
 ]
+uses = ["fn:1033ea674a6e4760"]
 test = true
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -379,6 +963,7 @@ callees = [
     "fn:c2ff48c086b2a3e2",
     "fn:eff47085ca6952fe",
 ]
+uses = ["fn:1033ea674a6e4760"]
 test = true
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -396,6 +981,7 @@ callees = [
     "fn:c2ff48c086b2a3e2",
     "fn:eff47085ca6952fe",
 ]
+uses = ["fn:1033ea674a6e4760"]
 test = true
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -409,6 +995,7 @@ lines = [
 hash = "sha256:1a68b0711f10e0c0a8e44d3371e51881f2411f4822f70c422b96178bd6ff3f05"
 doc_hash = "sha256:a6b05ce04681f8828092b07121f3c9433e10d79ac2c4069eb745b9925d7a3a79"
 callees = ["fn:c2ff48c086b2a3e2"]
+uses = ["fn:1033ea674a6e4760"]
 test = true
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -421,6 +1008,7 @@ lines = [
 ]
 hash = "sha256:2e02c9c2c3a4e577f8c95daccf103d88262020410a188b9bae169e25675d5df9"
 doc_hash = "sha256:90f48002cecc6c2a9c4c8b9bc0122bd36ea44304fa3dc382210decf4a0383e4a"
+uses = ["fn:9df02ec2b43b1af0"]
 test = true
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -434,6 +1022,7 @@ lines = [
 hash = "sha256:e52a16835cefb45da61c84ac27b1742b6f80198b860cc7f9394e2f367f3f0e5c"
 doc_hash = "sha256:e3c3b8a3bbc931bd67fa26590c145b1374b056a11437b9b201df905984fa8cd6"
 callees = ["fn:004cd6f28122709b"]
+uses = ["fn:9df02ec2b43b1af0"]
 test = true
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -444,7 +1033,7 @@ lines = [
     1469,
     1591,
 ]
-hash = "sha256:61e461808291c1fa5dddf6517f86b82c3bcf8546c1ecd8957b7a0507c5fdcc01"
+hash = "sha256:7bfc21e8baa6b78d82ec4358abec208f32e30c95a6a145c1b5f91b25939ab2c0"
 doc_hash = "sha256:1f3b91357a6d1b3bdebc539c09d325d26e661153924a306296c4827fc4a8e0d0"
 callees = [
     "fn:004cd6f28122709b",
@@ -493,6 +1082,7 @@ callees = [
     "fn:dd359a0e6a072d53",
     "fn:eff47085ca6952fe",
 ]
+uses = ["fn:c8dc61cb78ec02d0"]
 test = true
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -503,7 +1093,7 @@ lines = [
     1747,
     1826,
 ]
-hash = "sha256:5d3359cdb78b1cc0eb867a9a44767a47d90357b29885cf4cf1b114b94459e827"
+hash = "sha256:d37f7bc5c27e06963219bec83f5513fb33092924c102653bfe28e084ebe9d308"
 doc_hash = "sha256:aa451ae1d30cb56bba32a2bd70253f774328a5bcaad72fb166264a4cb3401fe8"
 callees = [
     "fn:30c8e34f87ca7d91",
@@ -519,7 +1109,7 @@ lines = [
     1828,
     1965,
 ]
-hash = "sha256:dbbfac8c8abf1ba2d3655c03ce77253473115402111c0c3806211f0f11c3c7b5"
+hash = "sha256:b528f20ab43efbdf3d80a26f0a9755303d8a7fde5fa55054b9c4c37481a973c5"
 doc_hash = "sha256:927d5b73f8d749b6622945e6a32549c4ae09a0d688aa7bffe239843bc41ab116"
 callees = [
     "fn:30c8e34f87ca7d91",
@@ -529,6 +1119,7 @@ callees = [
     "fn:dd359a0e6a072d53",
     "fn:f09f00cc4fcef6cc",
 ]
+uses = ["fn:daea3a5a6502c8c8"]
 test = true
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -545,6 +1136,7 @@ callees = [
     "fn:dd359a0e6a072d53",
     "fn:ebd8ae5720a09f70",
 ]
+uses = ["fn:f1b485a214ecf9d0"]
 test = true
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -561,6 +1153,7 @@ callees = [
     "fn:dd359a0e6a072d53",
     "fn:ebd8ae5720a09f70",
 ]
+uses = ["fn:f1b485a214ecf9d0"]
 test = true
 
 [[module."bedok_enthalpy_march.rs".function]]
@@ -601,6 +1194,135 @@ test = true
 path = "example:htgr_sim_v1::physics::temperature_cross::lmtd_profile"
 
 [[module."lmtd_profile.rs".function]]
+id = "fn:9f1a942ea09fc13c"
+name = "IF97_MAX_TEMPERATURE_KELVIN"
+qual = "IF97_MAX_TEMPERATURE_KELVIN"
+item = "const"
+shape = "const"
+lines = [
+    187,
+    193,
+]
+hash = "sha256:ff7d8436439725470de934bdcbf3b5964cff30bb65fed83e7f3c1efc05374508"
+doc_hash = "sha256:adada1e84db9865b0cfacb66b714b4b3da72a6fa89e9123f6aae107b22facab0"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:b361faec029b12c2"
+name = "HELIUM_IDEAL_GAS_CP_J_PER_KG_K"
+qual = "HELIUM_IDEAL_GAS_CP_J_PER_KG_K"
+item = "const"
+shape = "const"
+lines = [
+    195,
+    201,
+]
+hash = "sha256:b5823f61e27c70e6079aed123b54848c4266bb35df8d1643a0766b675cb4d4a4"
+doc_hash = "sha256:b5fe4ef75a5e9ca851c4ab8942e47e40060396b86cad74020b4af3351b9a33a0"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:8da9a8889546fef4"
+name = "SATURATION_AUDIT_BAND_KELVIN"
+qual = "SATURATION_AUDIT_BAND_KELVIN"
+item = "const"
+shape = "const"
+lines = [
+    203,
+    212,
+]
+hash = "sha256:ff10b9419d12916d705df7bea3fa047f648e475109e4e0e353805bb696669658"
+doc_hash = "sha256:353d169506efb244fd5edccd8d7defc2f88d857ec799f2edab966dcae59fe6c2"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#18",
+    "#20",
+    "#22",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:0f54b2b6209eccf2"
+name = "AUDIT_REFERENCE_RESIDENCE_TIME_S"
+qual = "AUDIT_REFERENCE_RESIDENCE_TIME_S"
+item = "const"
+shape = "const"
+lines = [
+    214,
+    225,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:573ac3ca3f3df81d9c171eb3015ed2833738bbcdfaca838b1b56374631ff8949"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#18",
+    "#20",
+    "#22",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:a14ec41609f3de5b"
+name = "CROSS_TOLERANCE_KELVIN"
+qual = "CROSS_TOLERANCE_KELVIN"
+item = "const"
+shape = "const"
+lines = [
+    227,
+    229,
+]
+hash = "sha256:d48dc899a45929660743db0d52583587b0eb84eb21472a25f7b5ec37faee85c7"
+doc_hash = "sha256:da53e860c40a2e6227625a5d0bd44fbfda95a6f0e478aef2bf8a34d34ca8a4ff"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#18",
+    "#20",
+    "#22",
+]
+
+[[module."lmtd_profile.rs".function]]
 id = "fn:37b28a28c8e71947"
 name = "repair"
 qual = "repair"
@@ -608,7 +1330,7 @@ lines = [
     231,
     297,
 ]
-hash = "sha256:673c364193665f0aea7870e52395f94e29c9411e693a32e32aabb7847b8082d2"
+hash = "sha256:719dad2dc744d7ad0428b47cf0f501291d5ca53e6fb64f3fe820cb556fcd07ba"
 doc_hash = "sha256:cf2fe5c0c2aac7497ff0f48f194bd78beef80d1370951db2b9aa90b8dd22789e"
 callees = [
     "fn:18d848429af2a92a",
@@ -620,6 +1342,14 @@ callees = [
     "fn:d1ed1d23cae0e287",
     "fn:e6a7cbed0e4c45d8",
 ]
+uses = [
+    "fn:1033ea674a6e4760",
+    "fn:138ab4687643041c",
+    "fn:9df02ec2b43b1af0",
+    "fn:a14ec41609f3de5b",
+    "fn:c0787e33588367b0",
+    "fn:f1b485a214ecf9d0",
+]
 reached_by = [
     "#9",
     "#10",
@@ -630,7 +1360,7 @@ reached_by = [
     "#15",
     "#18",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."lmtd_profile.rs".function]]
@@ -653,7 +1383,7 @@ reached_by = [
     "#15",
     "#18",
     "#20",
-    "#21",
+    "#22",
 ]
 physical_interface = true
 
@@ -667,6 +1397,10 @@ lines = [
 ]
 hash = "sha256:37369f11f116390317e634e456fe2e8616fc424282390b7485fefe41aa4d56b1"
 doc_hash = "sha256:e2b293a0585700f4fd33589b3b91ef63e762d7a65f11e9a39f6fac2303a68c8d"
+uses = [
+    "fn:1033ea674a6e4760",
+    "fn:f1b485a214ecf9d0",
+]
 reached_by = [
     "#9",
     "#10",
@@ -679,7 +1413,34 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
+    "#22",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:c0787e33588367b0"
+name = "ColdSaturation"
+qual = "ColdSaturation"
+item = "type"
+shape = "struct"
+lines = [
+    392,
+    408,
+]
+hash = "sha256:16d6280d8bbfd17842fdc95c772ad755cae0b3f1948804e449f83f9adae5e277"
+doc_hash = "sha256:f18b474165a2d76d32b44101f54a563df839c7c6ce82079bcb8d0c62b56576c1"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
 ]
 
 [[module."lmtd_profile.rs".function]]
@@ -690,13 +1451,18 @@ lines = [
     411,
     455,
 ]
-hash = "sha256:24aa2b5ae9d3709a96aa7a424d107b6502c20608b89e359b2d8f51f9198df330"
+hash = "sha256:643a097afb07a662c501abd29e2951979290c978785032a5d7978f66d7f58420"
 doc_hash = "sha256:121d64ef8cda9703a1f027bb5ef01b724b01fc90528aef475a074b1c65b4c5e3"
 callees = [
     "fn:170287b28dbbe20d",
     "fn:78e2c88468989a4c",
     "fn:a9d9e8c971318dc0",
     "fn:c365ffcc3efa433e",
+]
+uses = [
+    "fn:a490e693d7e67617",
+    "fn:c0787e33588367b0",
+    "fn:f1b485a214ecf9d0",
 ]
 reached_by = [
     "#9",
@@ -710,9 +1476,37 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
+    "#22",
 ]
 physical_interface = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:138ab4687643041c"
+name = "SolveContext"
+qual = "SolveContext"
+item = "type"
+shape = "struct"
+lines = [
+    458,
+    489,
+]
+hash = "sha256:3c54669a7571bbe934a327980f64facee03bf6ceb7e98012dd70f9d27fe94930"
+doc_hash = "sha256:73decce58a6687250e28aeb69cc247b9f5955ae95040f1f3cfc9f1fa857f4b10"
+uses = ["fn:c0787e33588367b0"]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
+]
 
 [[module."lmtd_profile.rs".function]]
 id = "fn:88bf37d658d47df4"
@@ -722,11 +1516,18 @@ lines = [
     492,
     564,
 ]
-hash = "sha256:0296d280ea0f289cde9fddab1d2858d85700a13dab1f76791ba82a9e9c7e90af"
+hash = "sha256:6757c98ed874f8946ec4b051b44799f629a27a5f0fe8de0b6c9199a765b5e550"
 doc_hash = "sha256:2e2f3380133f9d2e699dce2e0041f91013365aaae858e85cbc7e01ed79318266"
 callees = [
     "fn:07ba5cae0b1eb3e2",
     "fn:112507c39b6593b4",
+]
+uses = [
+    "fn:1033ea674a6e4760",
+    "fn:138ab4687643041c",
+    "fn:9f1a942ea09fc13c",
+    "fn:c0787e33588367b0",
+    "fn:f1b485a214ecf9d0",
 ]
 reached_by = [
     "#9",
@@ -740,7 +1541,7 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."lmtd_profile.rs".function]]
@@ -753,6 +1554,7 @@ lines = [
 ]
 hash = "sha256:441d553a5bcd1a44ee6af0be601033d59124518032d78584aed27316434acf75"
 doc_hash = "sha256:e6c9ab7dcb766bb158efdfa269e19e851e4bbd5443d6148291afaf525717f4ab"
+uses = ["fn:138ab4687643041c"]
 reached_by = [
     "#9",
     "#10",
@@ -765,9 +1567,36 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
+    "#22",
 ]
 physical_interface = true
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:e7e9983068e411d8"
+name = "ZoneKind"
+qual = "ZoneKind"
+item = "type"
+shape = "enum"
+lines = [
+    572,
+    584,
+]
+hash = "sha256:360241ceb5fb0586b1315adbe0b43d03dfc34b899d61aa4b382c086d6da9c6d1"
+doc_hash = "sha256:547649ad940f800ace39626849f5ac35e2e31bc12a215b68f26fe9e6326b0af1"
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
+]
 
 [[module."lmtd_profile.rs".function]]
 id = "fn:6ad2077ac5310fac"
@@ -779,6 +1608,7 @@ lines = [
 ]
 hash = "sha256:04ab8698666e93e27c8bd455e632d61d486a2c8e75ed5eb7af415ab9496c0271"
 doc_hash = "sha256:64ef725c58f764edef6248f68d879f7705e7a9e2be4d6ada6d61eb7029a143b0"
+uses = ["fn:e7e9983068e411d8"]
 reached_by = [
     "#9",
     "#10",
@@ -790,7 +1620,63 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
+    "#22",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:deb18f90e317ff31"
+name = "Zone"
+qual = "Zone"
+item = "type"
+shape = "struct"
+lines = [
+    597,
+    624,
+]
+hash = "sha256:30af3ad56e695c8da952b3a3575576d0e08bd10a333f479b0c5790e640692dfc"
+doc_hash = "sha256:a1789e9612a26f38340378b47e18724569828a3b658749e919ad34db21aae9f8"
+uses = ["fn:e7e9983068e411d8"]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
+]
+
+[[module."lmtd_profile.rs".function]]
+id = "fn:b9ccc89d92eba8f7"
+name = "ZoneSet"
+qual = "ZoneSet"
+item = "type"
+shape = "struct"
+lines = [
+    626,
+    640,
+]
+hash = "sha256:7a7c714a301bbd759f6066e89069c1baee847a92d8c7ce5b71490f932b3940f7"
+doc_hash = "sha256:727c8838ceb2b0bbd16c948fb9e0fae53e22bfa6e4cba1333782027eaff26f16"
+uses = ["fn:deb18f90e317ff31"]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
 ]
 
 [[module."lmtd_profile.rs".function]]
@@ -803,6 +1689,10 @@ lines = [
 ]
 hash = "sha256:eccb0326deba5634cdcf7b132c6c19b9c49ec70d042a8d8949c5dd9e9196628a"
 doc_hash = "sha256:598df5b124180f03b8e8e6552e7cc712e20ba65e1decffa53bfd00225080f76d"
+uses = [
+    "fn:b9ccc89d92eba8f7",
+    "fn:deb18f90e317ff31",
+]
 reached_by = [
     "#9",
     "#10",
@@ -815,7 +1705,7 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."lmtd_profile.rs".function]]
@@ -832,6 +1722,7 @@ callees = [
     "fn:25bb5b3f0cfbd7e0",
     "fn:6ad2077ac5310fac",
 ]
+uses = ["fn:b9ccc89d92eba8f7"]
 reached_by = [
     "#9",
     "#10",
@@ -843,7 +1734,7 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."lmtd_profile.rs".function]]
@@ -857,6 +1748,7 @@ lines = [
 hash = "sha256:cca9a83fcb098b8bb1afa86664bf8698016478c932d8416895fcc6742ee89550"
 doc_hash = "sha256:7200de2faa069713db3d4b0f5ca276ef3201f4dbec32315cba579c374abdc6fc"
 callees = ["fn:3ce84ed46805ebb4"]
+uses = ["fn:f1b485a214ecf9d0"]
 reached_by = [
     "#9",
     "#10",
@@ -869,7 +1761,7 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
+    "#22",
 ]
 physical_interface = true
 
@@ -884,6 +1776,10 @@ lines = [
 hash = "sha256:62694922884f6c970595a31543386909d04cf636811bc6a65472d86cd9d15e0b"
 doc_hash = "sha256:335cfa5e4ef40345754b0634ba71f71b6bae9e5f7b23195eafee4e14c53e12ba"
 callees = ["fn:a9e5181d9a48d7b4"]
+uses = [
+    "fn:76b3c86a3f053867",
+    "fn:b361faec029b12c2",
+]
 reached_by = [
     "#9",
     "#10",
@@ -896,7 +1792,7 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."lmtd_profile.rs".function]]
@@ -910,6 +1806,7 @@ lines = [
 hash = "sha256:d1d9128d07ce3f68afbff648d3a41fefc1b65d0462fc7eed2e93aa0eea0c7618"
 doc_hash = "sha256:9fd1c88d8b43d836ce0b97d5f4fd1d09ffa7e1e1087e6f490006994039103f37"
 callees = ["fn:a9e5181d9a48d7b4"]
+uses = ["fn:76b3c86a3f053867"]
 reached_by = [
     "#9",
     "#10",
@@ -922,7 +1819,7 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."lmtd_profile.rs".function]]
@@ -936,6 +1833,7 @@ lines = [
 hash = "sha256:0acde23d41659e3825ff5f1c6c8994720bc9a1348a4417c0be0e4a7855761085"
 doc_hash = "sha256:c9f10f8508a397b1bc9935c872690a868e809e40bfcc4a99f264011cf4f7a323"
 callees = ["fn:5a330c58f581ce03"]
+uses = ["fn:7a3e30b70b92840b"]
 reached_by = [
     "#9",
     "#10",
@@ -949,7 +1847,7 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."lmtd_profile.rs".function]]
@@ -967,6 +1865,13 @@ callees = [
     "fn:2af18a33e5b590d8",
     "fn:5f28e26cd12b0ad0",
 ]
+uses = [
+    "fn:138ab4687643041c",
+    "fn:b9ccc89d92eba8f7",
+    "fn:deb18f90e317ff31",
+    "fn:e7e9983068e411d8",
+    "fn:f1b485a214ecf9d0",
+]
 reached_by = [
     "#9",
     "#10",
@@ -979,7 +1884,7 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."lmtd_profile.rs".function]]
@@ -997,6 +1902,11 @@ callees = [
     "fn:f20b3d4fd9d761e1",
     "fn:f97ae677d2d269ba",
 ]
+uses = [
+    "fn:138ab4687643041c",
+    "fn:b9ccc89d92eba8f7",
+    "fn:f1b485a214ecf9d0",
+]
 reached_by = [
     "#9",
     "#10",
@@ -1009,7 +1919,7 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."lmtd_profile.rs".function]]
@@ -1023,6 +1933,7 @@ lines = [
 hash = "sha256:31d68645dd85f68e87da6cac05a7e139c2358d8a0a0aa9a885b5e4b41065df0b"
 doc_hash = "sha256:f2104cf6b65a793e4947b96689029c7a4e9c1126d118e53b5bd35eaa8edf334a"
 callees = ["fn:ad3e28231101d809"]
+uses = ["fn:138ab4687643041c"]
 reached_by = [
     "#9",
     "#10",
@@ -1035,7 +1946,7 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."lmtd_profile.rs".function]]
@@ -1046,9 +1957,14 @@ lines = [
     925,
     981,
 ]
-hash = "sha256:c4befaf7e0626c53ab5d38a5196e1433d14e2431363f627d2cecdadc9d34ddbd"
+hash = "sha256:9b518a14e1e6a4c69cf0c4e9d139aa2d362f081bf205c0386bf9766e4822ce02"
 doc_hash = "sha256:67e714c2f31ad53dfef72f7d830473e2665449b4d1f36e85bab7b106dd6d540e"
 callees = ["fn:8b91cc0028d3f543"]
+uses = [
+    "fn:138ab4687643041c",
+    "fn:b9ccc89d92eba8f7",
+    "fn:f1b485a214ecf9d0",
+]
 reached_by = [
     "#9",
     "#10",
@@ -1061,7 +1977,7 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."lmtd_profile.rs".function]]
@@ -1072,12 +1988,18 @@ lines = [
     983,
     1082,
 ]
-hash = "sha256:76e9c9202b525dde99b28a924bde8455bde50f76a20bcbe43707b756fe11dc26"
+hash = "sha256:a2614667b5e1260e69b9d8021a7d553814b5b9cefb45d9f397bca08b74a24bbc"
 doc_hash = "sha256:32dba0c2cf6ac35f64186ae3a2655113986c4c4aa6a247ba0aba7cf4a7cff60e"
 callees = [
     "fn:112507c39b6593b4",
     "fn:25bb5b3f0cfbd7e0",
     "fn:2af18a33e5b590d8",
+]
+uses = [
+    "fn:1033ea674a6e4760",
+    "fn:138ab4687643041c",
+    "fn:b9ccc89d92eba8f7",
+    "fn:f1b485a214ecf9d0",
 ]
 reached_by = [
     "#9",
@@ -1089,7 +2011,7 @@ reached_by = [
     "#15",
     "#18",
     "#20",
-    "#21",
+    "#22",
 ]
 physical_interface = true
 
@@ -1101,9 +2023,14 @@ lines = [
     1084,
     1110,
 ]
-hash = "sha256:a25bbf3bc5b8e5583cc7bfeeef67922b52b93fd5e321824bd974f29199c578ea"
+hash = "sha256:96ff9472da32230ef8725308fc914cae7693b0fce393b991972202db952e6a2c"
 doc_hash = "sha256:92d3d62f97b9385491f7c9dd85d4afc6b772eb71c7c4c8559d3d9cdbe4102efa"
 callees = ["fn:07ba5cae0b1eb3e2"]
+uses = [
+    "fn:8da9a8889546fef4",
+    "fn:c0787e33588367b0",
+    "fn:f1b485a214ecf9d0",
+]
 reached_by = [
     "#9",
     "#10",
@@ -1114,7 +2041,7 @@ reached_by = [
     "#15",
     "#18",
     "#20",
-    "#21",
+    "#22",
 ]
 physical_interface = true
 
@@ -1132,6 +2059,13 @@ callees = [
     "fn:ad3e28231101d809",
     "fn:f5662a9f33ab64ca",
 ]
+uses = [
+    "fn:0f54b2b6209eccf2",
+    "fn:1033ea674a6e4760",
+    "fn:b361faec029b12c2",
+    "fn:c0787e33588367b0",
+    "fn:f1b485a214ecf9d0",
+]
 reached_by = [
     "#9",
     "#10",
@@ -1142,7 +2076,7 @@ reached_by = [
     "#15",
     "#18",
     "#20",
-    "#21",
+    "#22",
 ]
 physical_interface = true
 
@@ -1186,6 +2120,7 @@ callees = [
     "fn:29dec1f2665b8d30",
     "fn:8389aa252d2700c3",
 ]
+uses = ["fn:1033ea674a6e4760"]
 test = true
 
 [[module."lmtd_profile.rs".function]]
@@ -1203,6 +2138,7 @@ callees = [
     "fn:29dec1f2665b8d30",
     "fn:8389aa252d2700c3",
 ]
+uses = ["fn:1033ea674a6e4760"]
 test = true
 
 [[module."lmtd_profile.rs".function]]
@@ -1213,7 +2149,7 @@ lines = [
     1280,
     1366,
 ]
-hash = "sha256:4516f60b5c9bde0469d0624e94f5e01a1c08f5191cc5a74bbc3cd465ebe947f2"
+hash = "sha256:0f21d292cdf7f8c22bd3ad9b7e0d9055c4fb6ee5a721edeb433c7eb2ee9c3c55"
 doc_hash = "sha256:e2357457958d153516a093efeb44c2470882fe963f1173cb876445ab1d507af0"
 callees = [
     "fn:18d848429af2a92a",
@@ -1225,6 +2161,11 @@ callees = [
     "fn:c515a9bf601391df",
     "fn:d1ed1d23cae0e287",
     "fn:e6a7cbed0e4c45d8",
+]
+uses = [
+    "fn:138ab4687643041c",
+    "fn:a14ec41609f3de5b",
+    "fn:c0787e33588367b0",
 ]
 test = true
 
@@ -1244,6 +2185,7 @@ callees = [
     "fn:b41970881ea681bd",
     "fn:d1ed1d23cae0e287",
 ]
+uses = ["fn:a14ec41609f3de5b"]
 test = true
 
 [[module."lmtd_profile.rs".function]]
@@ -1254,7 +2196,7 @@ lines = [
     1480,
     1562,
 ]
-hash = "sha256:d6983d85bf018556acbc11892197891bfa232f873fd41c341a075897e1d3a9d8"
+hash = "sha256:fc911616b1e8a4eec58814c0f798474bf9ddd855b4a9bcb2c17131d82ca2f161"
 doc_hash = "sha256:b936877380051fb4889a932fe3583e7d62e3bdb1419f4c9a419c3708a4ca30a8"
 callees = [
     "fn:5f28e26cd12b0ad0",
@@ -1262,6 +2204,7 @@ callees = [
     "fn:c5d54a599a483d94",
     "fn:d1334b89e2f75402",
 ]
+uses = ["fn:7a3e30b70b92840b"]
 test = true
 
 [[module."lmtd_profile.rs".function]]
@@ -1272,7 +2215,7 @@ lines = [
     1564,
     1629,
 ]
-hash = "sha256:721eab564eee5406775d0886af66321edebf94888e59c25750cf5d2840e173d1"
+hash = "sha256:dee889b5283cba4afba901b1fcc7e65df1f7e2a8f2639e8518baa509e5c15c88"
 doc_hash = "sha256:cea65cf61074c98a72bd2dd38ac4ccc5022bd924d1ed4373e34a37666a22c9eb"
 callees = [
     "fn:003d927e454f0d34",
@@ -1284,6 +2227,10 @@ callees = [
     "fn:c515a9bf601391df",
     "fn:e6a7cbed0e4c45d8",
 ]
+uses = [
+    "fn:138ab4687643041c",
+    "fn:c0787e33588367b0",
+]
 test = true
 
 [[module."lmtd_profile.rs".function]]
@@ -1294,7 +2241,7 @@ lines = [
     1631,
     1695,
 ]
-hash = "sha256:29c981d2b660110335d8c262adf18394ad8717282aa4bf70015a3e933e7868d5"
+hash = "sha256:7c28f4b2e86c042bcf0c4d0c45549ea418082a3116d1f34c9dfd7381409b6ad1"
 doc_hash = "sha256:79cad7d1dc69d5a8f37990d79143112eae1dabed5c485fa4f3b2b137a263c2cc"
 callees = [
     "fn:003d927e454f0d34",
@@ -1303,6 +2250,11 @@ callees = [
     "fn:88bf37d658d47df4",
     "fn:c515a9bf601391df",
     "fn:e6a7cbed0e4c45d8",
+]
+uses = [
+    "fn:138ab4687643041c",
+    "fn:c0787e33588367b0",
+    "fn:e7e9983068e411d8",
 ]
 test = true
 
@@ -1328,6 +2280,12 @@ callees = [
     "fn:d1ed1d23cae0e287",
     "fn:e6a7cbed0e4c45d8",
 ]
+uses = [
+    "fn:138ab4687643041c",
+    "fn:a14ec41609f3de5b",
+    "fn:c0787e33588367b0",
+    "fn:e7e9983068e411d8",
+]
 test = true
 
 [[module."lmtd_profile.rs".function]]
@@ -1344,6 +2302,7 @@ callees = [
     "fn:37b28a28c8e71947",
     "fn:5f08a710cba33770",
 ]
+uses = ["fn:f1b485a214ecf9d0"]
 test = true
 
 [[module."lmtd_profile.rs".function]]
@@ -1359,6 +2318,10 @@ doc_hash = "sha256:76de2646f738d76a2c08d1f0a28c558f80ef9b56dea2f8e49d0e93f075058
 callees = [
     "fn:37b28a28c8e71947",
     "fn:5f08a710cba33770",
+]
+uses = [
+    "fn:1033ea674a6e4760",
+    "fn:f1b485a214ecf9d0",
 ]
 test = true
 
@@ -1377,6 +2340,7 @@ callees = [
     "fn:37b28a28c8e71947",
     "fn:5f08a710cba33770",
 ]
+uses = ["fn:f1b485a214ecf9d0"]
 test = true
 
 [[module."lmtd_profile.rs".function]]
@@ -1387,7 +2351,7 @@ lines = [
     1847,
     1912,
 ]
-hash = "sha256:5718be8a2d25ced29ecabc9e18877fcebb519eeaa90ae5ddb5a7b31cbecdecb4"
+hash = "sha256:0397d4ac2489d53da16de2c51f9b4cd2638ab69c9e4a1283047b2d38bc9e13ce"
 doc_hash = "sha256:d4dc7c5445218e1512b1b632fa11e3561921ffa2ca955086c9e600a1b955b547"
 callees = [
     "fn:003d927e454f0d34",
@@ -1395,6 +2359,7 @@ callees = [
     "fn:35f9a3feee0983c5",
     "fn:37b28a28c8e71947",
 ]
+uses = ["fn:c0787e33588367b0"]
 test = true
 
 [[module."lmtd_profile.rs".function]]
@@ -1405,7 +2370,7 @@ lines = [
     1914,
     1965,
 ]
-hash = "sha256:0fe1eb04667fa150c6cb1356b8d710e153834c00cfa987649c03bd01a326ab6a"
+hash = "sha256:0129bc51e86d9cacb1800283c360729a0718ffb7549bbba35ff3f0479bbf4f58"
 doc_hash = "sha256:1e942adabd47b3b38e40d917b852e99bc3cb70b11a7fe652cfb87645850ea704"
 callees = [
     "fn:003d927e454f0d34",
@@ -1418,6 +2383,61 @@ test = true
 path = "example:htgr_sim_v1::physics::temperature_cross"
 
 [[module."mod.rs".function]]
+id = "fn:c64c56abd502fef7"
+name = "TemperatureCrossRemedy"
+qual = "TemperatureCrossRemedy"
+item = "type"
+shape = "enum"
+lines = [
+    96,
+    184,
+]
+hash = "sha256:8e799bdd27c2bb1a1ecce18e9abc53efa3c6c3b5e9a7a60ee03387feb3f4a2de"
+doc_hash = "sha256:7239980c26523a98f2e95895a3bbfa910c97d9c12601ab4cbfbe27315cca76dd"
+reached_by = [
+    "#20",
+    "#22",
+]
+
+[[module."mod.rs".function]]
+id = "fn:1033ea674a6e4760"
+name = "CrossRepairInputs"
+qual = "CrossRepairInputs"
+item = "type"
+shape = "struct"
+lines = [
+    186,
+    223,
+]
+hash = "sha256:2aa663a98e0e504523e30a0da0c30955dbbd5d230e9308b72e44b05db68867c1"
+doc_hash = "sha256:ac0fa838006ad83f553f7f41eddd7d2e580db4270c55cb8d39474129ea9d29bd"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."mod.rs".function]]
 id = "fn:8a4f22fa5f5b628e"
 name = "node_count"
 qual = "CrossRepairInputs::node_count"
@@ -1427,6 +2447,7 @@ lines = [
 ]
 hash = "sha256:134695bcce712fd0431f469231a14bdb60e31f127a41cb276cf371ad9e522fcf"
 doc_hash = "sha256:3dc6bd4301bf818a527f22cef8320a612f7578b4e279e194e7b7402fd83d6b9e"
+uses = ["fn:1033ea674a6e4760"]
 reached_by = [
     "#0",
     "#1",
@@ -1438,8 +2459,8 @@ reached_by = [
     "#7",
     "#8",
     "#20",
-    "#21",
     "#22",
+    "#23",
 ]
 
 [[module."mod.rs".function]]
@@ -1452,10 +2473,81 @@ lines = [
 ]
 hash = "sha256:509155cf5b2df9541865ea99d7d480cc6376daa81ab32710e91bd694df3c950c"
 doc_hash = "sha256:b6d30b40157c016f2186c9766d209073b43203f3c1168899c9833c452fab40fa"
+uses = ["fn:1033ea674a6e4760"]
 reached_by = [
     "#0",
     "#13",
     "#14",
+    "#20",
+    "#23",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9df02ec2b43b1af0"
+name = "CrossRepairOutcome"
+qual = "CrossRepairOutcome"
+item = "type"
+shape = "struct"
+lines = [
+    245,
+    264,
+]
+hash = "sha256:50f7113c266a4b7579e9cc9c731c292c8b1b31c6c1b17b714dfe5aaf39643882"
+doc_hash = "sha256:164611c1ba721a7bb0f7e67b869c2e33cc8f7aba9163edee54cecca790751a07"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#18",
+    "#20",
+    "#22",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f1b485a214ecf9d0"
+name = "CrossRepairError"
+qual = "CrossRepairError"
+item = "type"
+shape = "enum"
+lines = [
+    266,
+    281,
+]
+hash = "sha256:151e92e41e360a127ad87280300fe8b0ce13aed06ba22cd4390eb04a13e68765"
+doc_hash = "sha256:fcb5907011afd941674b74e6905dec68de3c9685fdbc8240f29f524db540379a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
     "#20",
     "#22",
 ]
@@ -1470,6 +2562,7 @@ lines = [
 ]
 hash = "sha256:0acd7c300e341de1bec41566e97569837760c915815010385656d5a132d59004"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:f1b485a214ecf9d0"]
 
 [[module."mod.rs".function]]
 id = "fn:d404f312401df6eb"
@@ -1485,9 +2578,15 @@ callees = [
     "fn:37b28a28c8e71947",
     "fn:ebd8ae5720a09f70",
 ]
+uses = [
+    "fn:1033ea674a6e4760",
+    "fn:9df02ec2b43b1af0",
+    "fn:c64c56abd502fef7",
+    "fn:f1b485a214ecf9d0",
+]
 reached_by = [
     "#20",
-    "#21",
+    "#22",
 ]
 
 [[module."mod.rs".function]]
@@ -1500,6 +2599,7 @@ lines = [
 ]
 hash = "sha256:f3195bd99a1ea632dd65dd44aaf937010206d9baffc00d5b9f37929490ee5716"
 doc_hash = "sha256:7e5ce2bdb0f653d9665cc9488c88c7dd3fba465a548d4044f96f901571dcd453"
+uses = ["fn:c64c56abd502fef7"]
 reached_by = ["#20"]
 
 [[module."mod.rs".function]]
@@ -1512,6 +2612,7 @@ lines = [
 ]
 hash = "sha256:7d8c13f2079ea0a13e4197efa3d1d13b3367a86bbedad0f51f11de92faf56589"
 doc_hash = "sha256:1ce47fdbf3e7156524b44d7234e10bcef15211c22206483e01efa3e0dadb7c2c"
+uses = ["fn:1033ea674a6e4760"]
 test = true
 
 [[module."mod.rs".function]]
@@ -1545,6 +2646,7 @@ callees = [
     "fn:2bddb5d473cf6d36",
     "fn:d404f312401df6eb",
 ]
+uses = ["fn:c64c56abd502fef7"]
 test = true
 
 [[module."mod.rs".function]]
@@ -1562,6 +2664,10 @@ callees = [
     "fn:6f96c04643c07683",
     "fn:b41970881ea681bd",
     "fn:d404f312401df6eb",
+]
+uses = [
+    "fn:1033ea674a6e4760",
+    "fn:c64c56abd502fef7",
 ]
 test = true
 

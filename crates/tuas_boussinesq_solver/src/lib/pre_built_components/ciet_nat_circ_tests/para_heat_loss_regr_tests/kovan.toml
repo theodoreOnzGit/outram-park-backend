@@ -54,4 +54,15 @@ callees = [
     "fn:ff8521081362840f",
     "fn:ffe5f6af51a6ee46",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9b373dcfa52e169e",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:de020efa1d48c9ac",
+]
 test = true

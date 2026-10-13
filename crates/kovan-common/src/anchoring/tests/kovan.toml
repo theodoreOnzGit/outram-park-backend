@@ -38,7 +38,7 @@ lines = [
     31,
     42,
 ]
-hash = "sha256:cb8f107d33ea09e15d17e8db6374215c23956c9e6286121abece6b40bf9b3b8d"
+hash = "sha256:bdef5446e4d7f5b020933f7691e9321bc056d635329eec8fbb2fd918e6f5c0fc"
 doc_hash = "sha256:558e39b381c2ad92513d2a183359003f2fed4ecf7fa7b9528728691d0352c237"
 test = true
 
@@ -50,7 +50,7 @@ lines = [
     44,
     58,
 ]
-hash = "sha256:c398c8d75460cdc4ebe7cdbfd78ddb8227fcdbecce1886879ebb1ec6c3e8c752"
+hash = "sha256:e83ad9554059f247fa34c3441a506e57812cf94c7da83f79df5bddf54abf6ab3"
 doc_hash = "sha256:6736e753d37959066e28caa76c32878b6f3f4d23cf333331c6762f37845eab13"
 test = true
 
@@ -73,6 +73,7 @@ callees = [
     "fn:dd837b50eec311b1",
     "fn:ed84994966fff317",
 ]
+uses = ["fn:eef8bf94b31cd31a"]
 test = true
 
 [[module."kovan_uses.rs".function]]
@@ -94,6 +95,35 @@ callees = [
     "fn:dd837b50eec311b1",
     "fn:ed84994966fff317",
 ]
+uses = ["fn:eef8bf94b31cd31a"]
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:e8ad292e83fb9a8c"
+name = "NOTE_OLD"
+qual = "NOTE_OLD"
+item = "const"
+shape = "const"
+lines = [
+    132,
+    136,
+]
+hash = "sha256:d1ec263dc6279f9341771672c21e103962106eb835b3ed1ffd2450650298685f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:13e8f99bc853d239"
+name = "NOTE_NEW"
+qual = "NOTE_NEW"
+item = "const"
+shape = "const"
+lines = [
+    138,
+    143,
+]
+hash = "sha256:70578cc7b0ce00511bc5a342548543e2f7c1140b36037600c7b3fefacc7b4874"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."kovan_uses.rs".function]]
@@ -110,6 +140,11 @@ callees = [
     "fn:7f683d2159ccf960",
     "fn:b95be94e0d1c5ead",
     "fn:f5819b875a04029b",
+]
+uses = [
+    "fn:13e8f99bc853d239",
+    "fn:e8ad292e83fb9a8c",
+    "fn:eef8bf94b31cd31a",
 ]
 test = true
 
@@ -128,6 +163,39 @@ callees = [
     "fn:b95be94e0d1c5ead",
     "fn:f5819b875a04029b",
 ]
+uses = [
+    "fn:13e8f99bc853d239",
+    "fn:e8ad292e83fb9a8c",
+    "fn:eef8bf94b31cd31a",
+]
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:bd3333837d0611dc"
+name = "CODE_OLD"
+qual = "CODE_OLD"
+item = "const"
+shape = "const"
+lines = [
+    235,
+    249,
+]
+hash = "sha256:fa6a8c98953fc2f23a148b85ad92e905c88b59aa671fe4fa6ba3c5ac4e157bf9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:57fd4fdd16e9e836"
+name = "CODE_NEW"
+qual = "CODE_NEW"
+item = "const"
+shape = "const"
+lines = [
+    251,
+    269,
+]
+hash = "sha256:4ec8635693b21cba39da72c884a17e3ca669f0f7a3853083989357a732fa6222"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."kovan_uses.rs".function]]
@@ -148,6 +216,11 @@ callees = [
     "fn:c9e2267f80d5a1ff",
     "fn:f5819b875a04029b",
 ]
+uses = [
+    "fn:57fd4fdd16e9e836",
+    "fn:bd3333837d0611dc",
+    "fn:eef8bf94b31cd31a",
+]
 test = true
 
 [[module."kovan_uses.rs".function]]
@@ -164,6 +237,7 @@ callees = [
     "fn:ed84994966fff317",
     "fn:f5819b875a04029b",
 ]
+uses = ["fn:5ea3c9fbfec15423"]
 test = true
 
 [[module."kovan_uses.rs".function]]
@@ -197,6 +271,7 @@ callees = [
     "fn:b95be94e0d1c5ead",
     "fn:f5819b875a04029b",
 ]
+uses = ["fn:eef8bf94b31cd31a"]
 test = true
 
 [module."mod.rs"]
@@ -227,6 +302,7 @@ lines = [
 ]
 hash = "sha256:11d7297055b29133a003346109cdc2c0dc6d0b0238c5149b42a222432d345693"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:0288416ca7eec353"]
 test = true
 
 [[module."upstream_approx.rs".function]]
@@ -240,6 +316,7 @@ lines = [
 hash = "sha256:faadbf7b40971283340379afc5276db348a0a5c406b14b4db0e0a980576c65ac"
 doc_hash = "sha256:0722c4e273419359204eb1521b91368a62a3b391cc7b464545e3ad0824b02f1e"
 callees = ["fn:b2c4c4e4f742cf77"]
+uses = ["fn:0288416ca7eec353"]
 test = true
 
 [[module."upstream_approx.rs".function]]
@@ -395,6 +472,20 @@ callees = ["fn:b2c4c4e4f742cf77"]
 test = true
 
 [[module."upstream_approx.rs".function]]
+id = "fn:a2281f19c1c2b5ab"
+name = "WORD_SIZE_TEXT"
+qual = "WORD_SIZE_TEXT"
+item = "const"
+shape = "const"
+lines = [
+    115,
+    115,
+]
+hash = "sha256:8834f3de7d00a76e5690881a343355d153c00a3726904e968e41bf90ffdebbaf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."upstream_approx.rs".function]]
 id = "fn:2eee17334e419964"
 name = "pattern_length_equals_block_size"
 qual = "pattern_length_equals_block_size"
@@ -408,6 +499,7 @@ callees = [
     "fn:b2c4c4e4f742cf77",
     "fn:b3fb2588296da82a",
 ]
+uses = ["fn:a2281f19c1c2b5ab"]
 test = true
 
 [[module."upstream_approx.rs".function]]
@@ -425,6 +517,7 @@ callees = [
     "fn:b2c4c4e4f742cf77",
     "fn:b3fb2588296da82a",
 ]
+uses = ["fn:a2281f19c1c2b5ab"]
 test = true
 
 [[module."upstream_approx.rs".function]]
@@ -466,7 +559,7 @@ lines = [
     13,
     19,
 ]
-hash = "sha256:477fc4adc0c758642221ceb86499c2fe27e9c4853dc88dc4c3691269f9da0d87"
+hash = "sha256:1a692942f965ab5afb78a9bc97c18409a920a0cae1c0c04b438543b314739023"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:7e92f41b8b1062de"]
 test = true
@@ -479,7 +572,7 @@ lines = [
     21,
     30,
 ]
-hash = "sha256:9c1f7cd82cf74111d2bf0b56797aa5251c690f7ae62aff709dca33c6844bd2e5"
+hash = "sha256:1ddba736175d8586fe650ccbc24817ed6f583807c3131f90c164ef81c7337e4b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:7e92f41b8b1062de"]
 test = true
@@ -518,6 +611,7 @@ lines = [
 ]
 hash = "sha256:de7b8b965af1f1e30b6f44851923e7e40cfd054d964269600ed390b4366c5f77"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:0b4ca42acda67689"]
 test = true
 
 [[module."upstream_match_quote.rs".function]]
@@ -535,6 +629,7 @@ callees = [
     "fn:cf3c159e24b2b0c1",
     "fn:f5f8f64a8d99abd3",
 ]
+uses = ["fn:0b4ca42acda67689"]
 test = true
 
 [[module."upstream_match_quote.rs".function]]
@@ -552,6 +647,7 @@ callees = [
     "fn:cf3c159e24b2b0c1",
     "fn:f5f8f64a8d99abd3",
 ]
+uses = ["fn:0b4ca42acda67689"]
 test = true
 
 [[module."upstream_match_quote.rs".function]]
@@ -581,6 +677,7 @@ callees = [
     "fn:cf3c159e24b2b0c1",
     "fn:f5f8f64a8d99abd3",
 ]
+uses = ["fn:0b4ca42acda67689"]
 test = true
 
 [[module."upstream_match_quote.rs".function]]
@@ -634,6 +731,7 @@ callees = [
     "fn:cf3c159e24b2b0c1",
     "fn:f5f8f64a8d99abd3",
 ]
+uses = ["fn:0b4ca42acda67689"]
 test = true
 
 [[module."upstream_match_quote.rs".function]]
@@ -647,6 +745,7 @@ lines = [
 hash = "sha256:36e3b5299480ed6ad8783fd75d789f01c656d53c695d4d68dccf6eb0463fc8d3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:f5f8f64a8d99abd3"]
+uses = ["fn:0b4ca42acda67689"]
 test = true
 
 [[module."upstream_match_quote.rs".function]]
@@ -684,6 +783,7 @@ callees = [
     "fn:b2ffbf3f87228f48",
     "fn:f5f8f64a8d99abd3",
 ]
+uses = ["fn:0b4ca42acda67689"]
 test = true
 
 [[module."upstream_match_quote.rs".function]]
@@ -768,6 +868,10 @@ callees = [
     "fn:b95be94e0d1c5ead",
     "fn:f369677b993623ba",
 ]
+uses = [
+    "fn:5ea3c9fbfec15423",
+    "fn:fbe95a1dc9f81333",
+]
 test = true
 
 [[module."upstream_misc.rs".function]]
@@ -789,6 +893,20 @@ callees = [
 test = true
 
 [[module."upstream_misc.rs".function]]
+id = "fn:f302d45089d94e05"
+name = "LOREM"
+qual = "LOREM"
+item = "const"
+shape = "const"
+lines = [
+    78,
+    79,
+]
+hash = "sha256:333d75b7c557986908cc32adae16a4bd3599a5d271a9f909a6e426b7378e868c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."upstream_misc.rs".function]]
 id = "fn:a3c22c990f2b9ade"
 name = "valid_quote"
 qual = "valid_quote"
@@ -798,6 +916,10 @@ lines = [
 ]
 hash = "sha256:7b519b827120e1bff3bb7f324f10024f0a6bcf04e9f4f8dbcf53d3480f5b8243"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:5ea3c9fbfec15423",
+    "fn:fbe95a1dc9f81333",
+]
 test = true
 
 [[module."upstream_misc.rs".function]]
@@ -811,6 +933,13 @@ lines = [
 hash = "sha256:c9859713043a50c92bab64aac32a1d0fbef0000f483ad8c658ae0bed0a21595b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:b95be94e0d1c5ead"]
+uses = [
+    "fn:3c0fc445d34a60cf",
+    "fn:5ea3c9fbfec15423",
+    "fn:853986f62ed2c3a7",
+    "fn:f302d45089d94e05",
+    "fn:fbe95a1dc9f81333",
+]
 test = true
 
 [[module."upstream_misc.rs".function]]
@@ -828,6 +957,12 @@ callees = [
     "fn:a3c22c990f2b9ade",
     "fn:b95be94e0d1c5ead",
 ]
+uses = [
+    "fn:29660130ed3aff05",
+    "fn:5ea3c9fbfec15423",
+    "fn:eef8bf94b31cd31a",
+    "fn:f302d45089d94e05",
+]
 test = true
 
 [[module."upstream_misc.rs".function]]
@@ -844,6 +979,10 @@ callees = [
     "fn:7f683d2159ccf960",
     "fn:a3c22c990f2b9ade",
     "fn:b95be94e0d1c5ead",
+]
+uses = [
+    "fn:5ea3c9fbfec15423",
+    "fn:f302d45089d94e05",
 ]
 test = true
 
@@ -916,7 +1055,7 @@ lines = [
     22,
     36,
 ]
-hash = "sha256:0df6df663ee93976d82171ea3eaf4b74c5c6e39abe711741358b3d5c6908d7c7"
+hash = "sha256:2da7265c342bbd8d0e1c10c805f89444c86115c070af0c557279968be8af5b51"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -931,6 +1070,7 @@ lines = [
 hash = "sha256:ee2767294cc01d86905cddf531b6627d6d5ad7cb2793335e1d50a89874b498bc"
 doc_hash = "sha256:b3dcce7353eaba40cea72849fef4e7711c8cfd1fed47334bcc0bdf6023c06da5"
 callees = ["fn:ed84994966fff317"]
+uses = ["fn:5ea3c9fbfec15423"]
 test = true
 
 [[module."upstream_pdf.rs".function]]
@@ -944,6 +1084,7 @@ lines = [
 hash = "sha256:7c2fc8a84d773af0f3330a798479cb7c8e3d5b97297a68325ebe4f84c8daff6e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:7f683d2159ccf960"]
+uses = ["fn:3c0fc445d34a60cf"]
 test = true
 
 [[module."upstream_pdf.rs".function]]
@@ -956,6 +1097,10 @@ lines = [
 ]
 hash = "sha256:484a281c294891be58e996ac7207597c4fbc8037538748974a6dd47fe002a607"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:5ea3c9fbfec15423",
+    "fn:fbe95a1dc9f81333",
+]
 test = true
 
 [[module."upstream_pdf.rs".function]]
@@ -972,6 +1117,7 @@ callees = [
     "fn:07c924bae2d1ee6b",
     "fn:a9c6579b4b49a744",
 ]
+uses = ["fn:5ea3c9fbfec15423"]
 test = true
 
 [[module."upstream_pdf.rs".function]]
@@ -988,6 +1134,10 @@ callees = [
     "fn:07c924bae2d1ee6b",
     "fn:3e702e62c634a9b8",
     "fn:a9c6579b4b49a744",
+]
+uses = [
+    "fn:29660130ed3aff05",
+    "fn:5ea3c9fbfec15423",
 ]
 test = true
 
@@ -1006,6 +1156,10 @@ callees = [
     "fn:6ba2cb04d06eff83",
     "fn:a9c6579b4b49a744",
 ]
+uses = [
+    "fn:5ea3c9fbfec15423",
+    "fn:fbe95a1dc9f81333",
+]
 test = true
 
 [[module."upstream_pdf.rs".function]]
@@ -1023,6 +1177,10 @@ callees = [
     "fn:66fb8504b8fc6006",
     "fn:a9c6579b4b49a744",
     "fn:ed84994966fff317",
+]
+uses = [
+    "fn:5ea3c9fbfec15423",
+    "fn:eb7cf71e554a77ee",
 ]
 test = true
 
@@ -1045,6 +1203,10 @@ callees = [
     "fn:7f683d2159ccf960",
     "fn:a9c6579b4b49a744",
 ]
+uses = [
+    "fn:5ea3c9fbfec15423",
+    "fn:eef8bf94b31cd31a",
+]
 test = true
 
 [[module."upstream_pdf.rs".function]]
@@ -1060,6 +1222,12 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:25d1a93623993f4f",
     "fn:a9c6579b4b49a744",
+]
+uses = [
+    "fn:29660130ed3aff05",
+    "fn:3c0fc445d34a60cf",
+    "fn:5ea3c9fbfec15423",
+    "fn:853986f62ed2c3a7",
 ]
 test = true
 
@@ -1133,6 +1301,12 @@ callees = [
     "fn:7f683d2159ccf960",
     "fn:a9c6579b4b49a744",
 ]
+uses = [
+    "fn:29660130ed3aff05",
+    "fn:5ea3c9fbfec15423",
+    "fn:eef8bf94b31cd31a",
+    "fn:fbe95a1dc9f81333",
+]
 test = true
 
 [[module."upstream_pdf.rs".function]]
@@ -1170,6 +1344,10 @@ callees = [
     "fn:6ba2cb04d06eff83",
     "fn:a9c6579b4b49a744",
 ]
+uses = [
+    "fn:29660130ed3aff05",
+    "fn:5ea3c9fbfec15423",
+]
 test = true
 
 [[module."upstream_pdf.rs".function]]
@@ -1186,5 +1364,9 @@ callees = [
     "fn:25d1a93623993f4f",
     "fn:2a7674de45fe2f90",
     "fn:a9c6579b4b49a744",
+]
+uses = [
+    "fn:3c0fc445d34a60cf",
+    "fn:853986f62ed2c3a7",
 ]
 test = true

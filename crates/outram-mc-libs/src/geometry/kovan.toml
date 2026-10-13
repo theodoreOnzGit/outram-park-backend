@@ -103,6 +103,110 @@ path = "crate::geometry::cell"
 path = "crate::geometry::distribcell"
 
 [[module."distribcell.rs".function]]
+id = "fn:5a06a1d67a83440c"
+name = "DistribcellOffsets"
+qual = "DistribcellOffsets"
+item = "type"
+shape = "struct"
+lines = [
+    61,
+    73,
+]
+hash = "sha256:c250210a795336734928d50f3d0faeeef23f2c43506e715914f7f6787fd1e5cc"
+doc_hash = "sha256:3f5cd471bd4e86eb569c0726539b209248dd2fa8dcdff7c7992b6229f368a532"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#88",
+    "#89",
+    "#90",
+]
+
+[[module."distribcell.rs".function]]
 id = "fn:9af9b79542a008da"
 name = "flat_tile"
 qual = "flat_tile"
@@ -112,6 +216,10 @@ lines = [
 ]
 hash = "sha256:b5d89e6b30cd7dffd1fcde57875cb171f3530ef05ab295ab377e26af30441f18"
 doc_hash = "sha256:6b916fbdaa10c4e40e0aa22deacf06256f86ae1f0aa579166910a7bdbe3d059d"
+uses = [
+    "fn:8a6f6c1ba4a90a90",
+    "fn:f3642e11265c9d9a",
+]
 reached_by = [
     "#0",
     "#1",
@@ -212,6 +320,11 @@ lines = [
 ]
 hash = "sha256:8115a09584377a6115f21b302b06e2ec99ff6461a0399baadb3ec8ea62a82bfd"
 doc_hash = "sha256:032da8385885514fbb3eab12e4e2bb996f88148c555a57866071d983564aad77"
+uses = [
+    "fn:38efdab767d16a2f",
+    "fn:8a6f6c1ba4a90a90",
+    "fn:f3642e11265c9d9a",
+]
 reached_by = [
     "#19",
     "#20",
@@ -236,6 +349,10 @@ callees = [
     "fn:9007ef620046ac6f",
     "fn:b7001ead86f851bb",
 ]
+uses = [
+    "fn:5a06a1d67a83440c",
+    "fn:8a6f6c1ba4a90a90",
+]
 reached_by = [
     "#19",
     "#20",
@@ -254,9 +371,13 @@ lines = [
     149,
     188,
 ]
-hash = "sha256:3f5bdbeb5e0135850aa16b541c5cb883b4c5d3687733120b54b5aabeb254b856"
+hash = "sha256:3b61d1020216f4e4b32943a991ae9a4efa44d33359197566365e421b5b3b316a"
 doc_hash = "sha256:4bf4b333169f2302d1143495122676fcef52eff56e3532a64e89af44c11d76da"
 callees = ["fn:4e920b92bc738a70"]
+uses = [
+    "fn:5a06a1d67a83440c",
+    "fn:8a6f6c1ba4a90a90",
+]
 reached_by = [
     "#19",
     "#20",
@@ -275,11 +396,16 @@ lines = [
     190,
     224,
 ]
-hash = "sha256:145b1d5a35afc002dd366ba322a0469bb68d33b14901a5503e94f7f616765c0f"
+hash = "sha256:7188b20c3a4baf425fe48e71e6a9e27d0744d303156077a12340bcf946f46235"
 doc_hash = "sha256:dd3ab8756cf75f0f21cd53bed317691ba06112e4d78cd4cb96495e78b221cd82"
 callees = [
     "fn:9007ef620046ac6f",
     "fn:b7001ead86f851bb",
+]
+uses = [
+    "fn:5a06a1d67a83440c",
+    "fn:7bd8aa8577c8f39c",
+    "fn:8a6f6c1ba4a90a90",
 ]
 reached_by = [
     "#19",
@@ -302,6 +428,12 @@ lines = [
 hash = "sha256:bcc9ef9a96be9ae92341072abd98dab7e0b806df4eb97b5d329d616c8e0c7c94"
 doc_hash = "sha256:3055431a454591c0de27724d8472091a9ec51749662e5d07cf40a826285dbebd"
 callees = ["fn:9af9b79542a008da"]
+uses = [
+    "fn:5a06a1d67a83440c",
+    "fn:7bd8aa8577c8f39c",
+    "fn:8a6f6c1ba4a90a90",
+    "fn:c0f278481d7a2cdf",
+]
 reached_by = [
     "#0",
     "#1",
@@ -402,6 +534,10 @@ lines = [
 ]
 hash = "sha256:0930dd964c1751b7b16b86f131278ef199156185816c51b3273a67ee89fe6897"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:0101487ca706ad91",
+    "fn:647cfe485b5afd17",
+]
 test = true
 
 [[module."distribcell.rs".function]]
@@ -420,6 +556,18 @@ callees = [
     "fn:abb149a5e5ce6cb0",
     "fn:cb1fc1a67d38f99a",
 ]
+uses = [
+    "fn:006d55971bc9e1e3",
+    "fn:15c0bf0d621b4704",
+    "fn:286d54607f01cd59",
+    "fn:37836d247be84011",
+    "fn:7bd8aa8577c8f39c",
+    "fn:8a6f6c1ba4a90a90",
+    "fn:8a79e8b4689769ae",
+    "fn:d89a7a4cb065bdb7",
+    "fn:f3642e11265c9d9a",
+    "fn:f9e1cb2a3dac88e1",
+]
 test = true
 
 [[module."distribcell.rs".function]]
@@ -433,6 +581,11 @@ lines = [
 hash = "sha256:af8f7acca84922d371897b57b9dd8f8397d7e55fee62329e426305f7977748a5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:cbb241b81b8f27f6"]
+uses = [
+    "fn:006d55971bc9e1e3",
+    "fn:675edefa7ec82788",
+    "fn:c0f278481d7a2cdf",
+]
 test = true
 
 [[module."distribcell.rs".function]]
@@ -451,6 +604,7 @@ callees = [
     "fn:95a7bb31abc224cf",
     "fn:be59a39a9d7aa9eb",
 ]
+uses = ["fn:5a06a1d67a83440c"]
 test = true
 
 [[module."distribcell.rs".function]]
@@ -469,6 +623,7 @@ callees = [
     "fn:95a7bb31abc224cf",
     "fn:be59a39a9d7aa9eb",
 ]
+uses = ["fn:5a06a1d67a83440c"]
 test = true
 
 [[module."distribcell.rs".function]]
@@ -488,6 +643,10 @@ callees = [
     "fn:8b1b36725917b52d",
     "fn:95a7bb31abc224cf",
     "fn:be59a39a9d7aa9eb",
+]
+uses = [
+    "fn:286d54607f01cd59",
+    "fn:5a06a1d67a83440c",
 ]
 test = true
 
@@ -510,6 +669,13 @@ callees = [
     "fn:abb149a5e5ce6cb0",
     "fn:be59a39a9d7aa9eb",
 ]
+uses = [
+    "fn:006d55971bc9e1e3",
+    "fn:286d54607f01cd59",
+    "fn:5a06a1d67a83440c",
+    "fn:7bd8aa8577c8f39c",
+    "fn:f9e1cb2a3dac88e1",
+]
 test = true
 
 [[module."distribcell.rs".function]]
@@ -528,6 +694,12 @@ callees = [
     "fn:95a7bb31abc224cf",
     "fn:abb149a5e5ce6cb0",
 ]
+uses = [
+    "fn:006d55971bc9e1e3",
+    "fn:286d54607f01cd59",
+    "fn:5a06a1d67a83440c",
+    "fn:7bd8aa8577c8f39c",
+]
 test = true
 
 [[module."distribcell.rs".function]]
@@ -544,6 +716,7 @@ callees = [
     "fn:70d279453ee59925",
     "fn:95a7bb31abc224cf",
 ]
+uses = ["fn:5a06a1d67a83440c"]
 test = true
 
 [module."geometry.rs"]
@@ -596,6 +769,58 @@ path = "crate::geometry::universe"
 path = "crate::geometry::volume_calc"
 
 [[module."volume_calc.rs".function]]
+id = "fn:d9bb2fef18c4f079"
+name = "STREAM_VOLUME"
+qual = "STREAM_VOLUME"
+item = "const"
+shape = "const"
+lines = [
+    67,
+    68,
+]
+hash = "sha256:2f7bbc500ab50bd88c11a82e9ae6ed0f788d3c4d02464e155d973e54eb477c92"
+doc_hash = "sha256:09006ffa86f392d7bd60911c016dbefa4d7fea37d2d2acf1bf306d259fb5aa11"
+reached_by = [
+    "#86",
+    "#87",
+]
+
+[[module."volume_calc.rs".function]]
+id = "fn:9bcc74e7748cb9c3"
+name = "VolumeDomain"
+qual = "VolumeDomain"
+item = "type"
+shape = "enum"
+lines = [
+    70,
+    77,
+]
+hash = "sha256:7ab130dd9224211f2ac5dba4730779e578af4d5d5c7869c3b1463b094d0b0e87"
+doc_hash = "sha256:3ddd658063ee2f4f17b56cbac324d9f61391f61995e86d4b741865dff289cd43"
+reached_by = [
+    "#86",
+    "#87",
+]
+
+[[module."volume_calc.rs".function]]
+id = "fn:bc77234f98c23576"
+name = "BoundingBox"
+qual = "BoundingBox"
+item = "type"
+shape = "struct"
+lines = [
+    79,
+    86,
+]
+hash = "sha256:96941e9108d14b0ce14285040010cf371f761ddde1e4e4f562084f1a29db581b"
+doc_hash = "sha256:54737a1da720438312fcbbadae8b04bed1cd74b78346e040d675c4f2b90d556b"
+uses = ["fn:006d55971bc9e1e3"]
+reached_by = [
+    "#86",
+    "#87",
+]
+
+[[module."volume_calc.rs".function]]
 id = "fn:1a7907ccad4a6b88"
 name = "volume"
 qual = "BoundingBox::volume"
@@ -605,6 +830,24 @@ lines = [
 ]
 hash = "sha256:41e43e4da03cc3f5d57d6c62f6fbdf366d734f416386958486c1b0278afab897"
 doc_hash = "sha256:5c7b0bb7a7c856b861fc59d4d57a2e921ea7500d76af833c8290d93c18e6c164"
+uses = ["fn:bc77234f98c23576"]
+reached_by = [
+    "#86",
+    "#87",
+]
+
+[[module."volume_calc.rs".function]]
+id = "fn:00699c04dea98e7d"
+name = "VolumeResult"
+qual = "VolumeResult"
+item = "type"
+shape = "struct"
+lines = [
+    97,
+    110,
+]
+hash = "sha256:0e371d17013a4c3aa310e1460ba4361aa8a1872635d26a4e524deb7aa5fe4a39"
+doc_hash = "sha256:13764f9172af1aac7c5d821b49558c9dce9f1a1bdeee097a7b9fd756302a7340"
 reached_by = [
     "#86",
     "#87",
@@ -620,6 +863,28 @@ lines = [
 ]
 hash = "sha256:d78e54527ab4aef6b87aa6dcfd30077a34b9c2f77db9b8c0a1da7bffc8e99c70"
 doc_hash = "sha256:626a11569053d464266bbee7d38d2abb347d10cfa09d92ffd80acba188c9e3ce"
+uses = ["fn:00699c04dea98e7d"]
+
+[[module."volume_calc.rs".function]]
+id = "fn:4af67d2affa6a517"
+name = "VolumeCalculation"
+qual = "VolumeCalculation"
+item = "type"
+shape = "struct"
+lines = [
+    123,
+    131,
+]
+hash = "sha256:1a08d49b095b43c1af6f5c01ede1f1bd1c41e80e8348388fe4278053bb94dcc0"
+doc_hash = "sha256:0a78620071c2e4a2ef281465ce9950d2830c9f1028d6d9b691fa6650906e8035"
+uses = [
+    "fn:9bcc74e7748cb9c3",
+    "fn:bc77234f98c23576",
+]
+reached_by = [
+    "#86",
+    "#87",
+]
 
 [[module."volume_calc.rs".function]]
 id = "fn:a4ad78a95b0194f5"
@@ -638,6 +903,16 @@ callees = [
     "fn:cbb241b81b8f27f6",
     "fn:dd52820befcbb8b1",
     "fn:e1e248a14f38c41f",
+]
+uses = [
+    "fn:00699c04dea98e7d",
+    "fn:006d55971bc9e1e3",
+    "fn:4af67d2affa6a517",
+    "fn:675edefa7ec82788",
+    "fn:8a6f6c1ba4a90a90",
+    "fn:9bcc74e7748cb9c3",
+    "fn:ccaef4c37195ff0f",
+    "fn:d9bb2fef18c4f079",
 ]
 reached_by = [
     "#86",

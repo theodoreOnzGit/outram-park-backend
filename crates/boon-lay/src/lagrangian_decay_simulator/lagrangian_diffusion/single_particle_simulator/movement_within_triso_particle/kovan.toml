@@ -28,6 +28,10 @@ callees = [
     "fn:c8693dbb849a9fc9",
     "fn:e8bb775f59365324",
 ]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:f98387bb08ac6885",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -44,6 +48,7 @@ callees = [
     "fn:26c97e03e84fc754",
     "fn:da6f5322ca2a32cd",
 ]
+uses = ["fn:57c5c52fb5126efd"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -59,6 +64,10 @@ doc_hash = "sha256:35f96a394e0623065a716bb023e34668420fd5699ec781eaae049e5b5143c
 callees = [
     "fn:1ce3458a4f43f216",
     "fn:d84c7e41f0b78cde",
+]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:e3d3971cf92a6302",
 ]
 physical_interface = true
 
@@ -76,4 +85,5 @@ callees = [
     "fn:26c97e03e84fc754",
     "fn:da6f5322ca2a32cd",
 ]
+uses = ["fn:57c5c52fb5126efd"]
 physical_interface = true

@@ -17,6 +17,26 @@ lines = [
 hash = "sha256:7067fb106a6dab82901e7182e98fd7e80fd13318c79bdca03100e17183475a36"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:9269d109ba943202"]
+uses = ["fn:d8d5334bcc25dadc"]
+
+[[module."mod.rs".function]]
+id = "fn:d8d5334bcc25dadc"
+name = "DecaySimApp"
+qual = "DecaySimApp"
+item = "type"
+shape = "struct"
+lines = [
+    29,
+    56,
+]
+hash = "sha256:4240d331e8089c58591c11fc49001d1ad418d8bf55bd4ce642885357c5f996b4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:06f3d1ff810a9738",
+    "fn:975f1ed560f2ad46",
+    "fn:c611e024756fd19b",
+    "fn:e3d3971cf92a6302",
+]
 
 [[module."mod.rs".function]]
 id = "fn:9269d109ba943202"
@@ -33,6 +53,12 @@ callees = [
     "fn:80623c3adf6170a7",
     "fn:d6d6d935d50c60fe",
 ]
+uses = [
+    "fn:975f1ed560f2ad46",
+    "fn:c611e024756fd19b",
+    "fn:d8d5334bcc25dadc",
+    "fn:e3d3971cf92a6302",
+]
 
 [[module."mod.rs".function]]
 id = "fn:80623c3adf6170a7"
@@ -48,6 +74,13 @@ callees = [
     "fn:a67552a0a4dd332e",
     "fn:f15a8d016a2b0e99",
 ]
+uses = [
+    "fn:06f3d1ff810a9738",
+    "fn:975f1ed560f2ad46",
+    "fn:c611e024756fd19b",
+    "fn:d8d5334bcc25dadc",
+    "fn:e3d3971cf92a6302",
+]
 
 [[module."mod.rs".function]]
 id = "fn:8484163d1e579586"
@@ -59,6 +92,7 @@ lines = [
 ]
 hash = "sha256:ee5b663383af4346062f6c5afe09f3c56f3ed9f42247d25e88d8338717248339"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:d8d5334bcc25dadc"]
 
 [[module."mod.rs".function]]
 id = "fn:2d57e8e5fcdf0d2c"
@@ -78,6 +112,10 @@ callees = [
     "fn:c73031de3eabb042",
     "fn:dd88537d604e83a7",
     "fn:e5b7676d25f3542f",
+]
+uses = [
+    "fn:06f3d1ff810a9738",
+    "fn:d8d5334bcc25dadc",
 ]
 
 [[module."mod.rs".function]]

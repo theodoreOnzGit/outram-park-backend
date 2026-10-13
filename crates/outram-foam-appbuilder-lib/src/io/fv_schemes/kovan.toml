@@ -5,7 +5,9 @@ dir = "crates/outram-foam-appbuilder-lib/src/io/fv_schemes"
 test_ids = [
     "crates/outram-foam-appbuilder-lib/src/case_runner.rs::missing_case_directory_is_an_io_error",
     "crates/outram-foam-appbuilder-lib/src/case_runner.rs::unwired_solvers_refuse_before_reading_the_case",
+    "crates/outram-foam-appbuilder-lib/src/solvers/hrm_foam/mod.rs::default_relaxation_time_matches_downar_zapolski_constants",
     "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::attached_model_contributes_to_both_equations_after_stepping",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::boussinesq_coefficients_convert_to_kinematic_units",
     "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::hot_wall_drives_melting_with_bounded_liquid_fraction",
     "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::runs_without_any_fv_model",
     "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::temperature_solver_defaults_to_a_tight_tolerance",
@@ -18,6 +20,9 @@ test_ids = [
     "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::rejects_mesh_mismatch",
     "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::thermal_equilibration_conserves_energy",
     "crates/outram-foam-appbuilder-lib/src/solvers/rho_pimple_foam/mod.rs::compressible_lid_cavity_stays_stable",
+    "crates/outram-foam-appbuilder-lib/src/solvers/schemes.rs::backward_ddt_matches_the_bdf2_formula",
+    "crates/outram-foam-appbuilder-lib/src/solvers/schemes.rs::linear_div_adds_the_exact_central_difference_correction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/schemes.rs::unimplemented_schemes_error_rather_than_falling_back",
     "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::backward_ddt_selection_is_live_and_not_worse_against_ghia",
     "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::gauss_linear_convection_beats_upwind_against_ghia_1982",
     "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::enthalpy_porosity_conserves_energy",
@@ -48,26 +53,81 @@ test_ids = [
 path = "crate::io::fv_schemes"
 
 [[module."mod.rs".function]]
-id = "fn:41a6e7d65fe164e2"
-name = "read"
-qual = "FvSchemes::read"
+id = "fn:3f165bca5d68b785"
+name = "FvSchemes"
+qual = "FvSchemes"
+item = "type"
+shape = "struct"
 lines = [
-    95,
-    110,
+    30,
+    39,
 ]
-hash = "sha256:374ada1eb21991dfd4038c4229692033d47ac3d7f1b45af0aa1992fb8a7942a9"
-doc_hash = "sha256:0708201907c6621567e63a70d819e8fc685c6454f74953c23a82f3d3965349bc"
+hash = "sha256:f02b500497430c26751b17652db2fcfda5c5cd69d1aa98679e071505c9f6eaca"
+doc_hash = "sha256:33e5ceff40750ba19ea7f1008961ee8c3a3b488d4d5346bf40713625c015e88b"
+uses = [
+    "fn:0a5d192a5105163d",
+    "fn:5c89f9573311557b",
+    "fn:674e8aab016b11b1",
+    "fn:808a5c8ab042b1d9",
+    "fn:c88ce1856cc29fe5",
+    "fn:ef20a17c4c806247",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
 
 [[module."mod.rs".function]]
-id = "fn:14f480c94a59d045"
-name = "default"
-qual = "FvSchemes::default"
+id = "fn:c88ce1856cc29fe5"
+name = "DdtScheme"
+qual = "DdtScheme"
+item = "type"
+shape = "enum"
 lines = [
-    114,
-    140,
+    41,
+    49,
 ]
-hash = "sha256:a73a5ff07c9c5fb44fc19384c718287445bff48ae290eff7c157d8a7b0d3b90b"
-doc_hash = "sha256:4e83e6b16f2e829f4043a9b98b5e7e4035e53132fc5d5bd29a9d286e80dc7505"
+hash = "sha256:dabe6b2ce9e47f31a230641fd9255822189a3afe0ac1e99a5f7d2dcc05331331"
+doc_hash = "sha256:27b902b4ea60928f55542ae09ef520ab0d10b5e2c3278a9ae0cda7b49974f1a7"
 reached_by = [
     "#0",
     "#1",
@@ -87,6 +147,119 @@ reached_by = [
     "#15",
     "#16",
     "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."mod.rs".function]]
+id = "fn:674e8aab016b11b1"
+name = "GradScheme"
+qual = "GradScheme"
+item = "type"
+shape = "enum"
+lines = [
+    51,
+    57,
+]
+hash = "sha256:5f9e8ab215aea42b5dc7eeb402a39d184d21dab2d8de7fa1c5beabc9dbae0332"
+doc_hash = "sha256:5c585ee6c03e3de40ee06dfac1b71b81a50b0ab0ee0d9dab0d0b1f94d7948074"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."mod.rs".function]]
+id = "fn:5c89f9573311557b"
+name = "DivScheme"
+qual = "DivScheme"
+item = "type"
+shape = "enum"
+lines = [
+    59,
+    68,
+]
+hash = "sha256:18f10fca0f9cacfde9555e142f91df34665d6973a83eb7c385441b7a881ba18e"
+doc_hash = "sha256:22c6eb1dbb9c6ae132e4310c9d370e3f6c312df5d05e33713a85933eb638b0c7"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
     "#18",
     "#19",
     "#20",
@@ -108,4 +281,253 @@ reached_by = [
     "#36",
     "#37",
     "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."mod.rs".function]]
+id = "fn:808a5c8ab042b1d9"
+name = "LaplacianScheme"
+qual = "LaplacianScheme"
+item = "type"
+shape = "enum"
+lines = [
+    70,
+    76,
+]
+hash = "sha256:325a701a109ccde216a175124f437c3fb983ed606dc5b172d268438c21fb4396"
+doc_hash = "sha256:bc64c9c3a674e66cfe730467d9dbdfeaa7080358df6757437a5114c249bab384"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ef20a17c4c806247"
+name = "SnGradScheme"
+qual = "SnGradScheme"
+item = "type"
+shape = "enum"
+lines = [
+    78,
+    84,
+]
+hash = "sha256:29debcd39733919b3b524ea8d2d0ba57d60c9a20819686b7f8a0242bd14ea5fe"
+doc_hash = "sha256:da1cec2376b367b21871883bfd8e0755df17c5ea341f1fd354040347b131f5ac"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0a5d192a5105163d"
+name = "InterpolationScheme"
+qual = "InterpolationScheme"
+item = "type"
+shape = "enum"
+lines = [
+    86,
+    92,
+]
+hash = "sha256:4a189b12137df6a6f00de54372eaad3c5927a8be87c11b2e072aeaab50b85225"
+doc_hash = "sha256:58f12ad5e7672d39298b115669bdcd7d5f5220120d4c1d704e4a27c38c339954"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."mod.rs".function]]
+id = "fn:41a6e7d65fe164e2"
+name = "read"
+qual = "FvSchemes::read"
+lines = [
+    95,
+    110,
+]
+hash = "sha256:374ada1eb21991dfd4038c4229692033d47ac3d7f1b45af0aa1992fb8a7942a9"
+doc_hash = "sha256:0708201907c6621567e63a70d819e8fc685c6454f74953c23a82f3d3965349bc"
+uses = [
+    "fn:35e5ba76ac9ceafb",
+    "fn:3f165bca5d68b785",
+]
+
+[[module."mod.rs".function]]
+id = "fn:14f480c94a59d045"
+name = "default"
+qual = "FvSchemes::default"
+lines = [
+    114,
+    140,
+]
+hash = "sha256:a73a5ff07c9c5fb44fc19384c718287445bff48ae290eff7c157d8a7b0d3b90b"
+doc_hash = "sha256:4e83e6b16f2e829f4043a9b98b5e7e4035e53132fc5d5bd29a9d286e80dc7505"
+uses = [
+    "fn:0a5d192a5105163d",
+    "fn:3f165bca5d68b785",
+    "fn:5c89f9573311557b",
+    "fn:674e8aab016b11b1",
+    "fn:808a5c8ab042b1d9",
+    "fn:c88ce1856cc29fe5",
+    "fn:ef20a17c4c806247",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
 ]

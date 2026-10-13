@@ -57,6 +57,19 @@ callees = [
     "fn:f8b8b8874aae4e2b",
     "fn:ffe5f6af51a6ee46",
 ]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9b373dcfa52e169e",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:ca62ba45b75e81ac",
+    "fn:de020efa1d48c9ac",
+    "fn:ebf3ac43832118cf",
+    "fn:f340400526996cc5",
+]
 
 [module."case_b.rs"]
 path = "crate::pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::case_b"
@@ -108,6 +121,19 @@ callees = [
     "fn:f8b8b8874aae4e2b",
     "fn:ffe5f6af51a6ee46",
 ]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9b373dcfa52e169e",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:ca62ba45b75e81ac",
+    "fn:de020efa1d48c9ac",
+    "fn:ebf3ac43832118cf",
+    "fn:f340400526996cc5",
+]
 
 [module."case_c.rs"]
 path = "crate::pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::case_c"
@@ -158,6 +184,19 @@ callees = [
     "fn:f66c6613b2fa9c0c",
     "fn:f8b8b8874aae4e2b",
     "fn:ffe5f6af51a6ee46",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9b373dcfa52e169e",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:ca62ba45b75e81ac",
+    "fn:de020efa1d48c9ac",
+    "fn:ebf3ac43832118cf",
+    "fn:f340400526996cc5",
 ]
 
 [module."debugging_pid_controller.rs"]
@@ -211,6 +250,19 @@ callees = [
     "fn:f8b8b8874aae4e2b",
     "fn:ffe5f6af51a6ee46",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9b373dcfa52e169e",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:ca62ba45b75e81ac",
+    "fn:de020efa1d48c9ac",
+    "fn:ebf3ac43832118cf",
+    "fn:f340400526996cc5",
+]
 test = true
 
 [module."debugging_thermal_hydraulics.rs"]
@@ -238,6 +290,7 @@ callees = [
     "fn:e79236623dec9507",
     "fn:ffe5f6af51a6ee46",
 ]
+uses = ["fn:ebf3ac43832118cf"]
 reached_by = [
     "#0",
     "#1",
@@ -266,6 +319,7 @@ callees = [
     "fn:e79236623dec9507",
     "fn:f8b8b8874aae4e2b",
 ]
+uses = ["fn:ebf3ac43832118cf"]
 reached_by = [
     "#0",
     "#1",
@@ -287,6 +341,7 @@ callees = [
     "fn:5581480733a7b5b9",
     "fn:75a3017ce8f5be14",
 ]
+uses = ["fn:f340400526996cc5"]
 test = true
 
 [[module."debugging_thermal_hydraulics.rs".function]]
@@ -330,6 +385,15 @@ callees = [
     "fn:f8b8b8874aae4e2b",
     "fn:ffe5f6af51a6ee46",
 ]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:de020efa1d48c9ac",
+    "fn:ebf3ac43832118cf",
+    "fn:f340400526996cc5",
+]
 test = true
 
 [[module."debugging_thermal_hydraulics.rs".function]]
@@ -349,6 +413,11 @@ callees = [
     "fn:74172f53fcffc1fc",
     "fn:75a3017ce8f5be14",
     "fn:89b98b3aca1482a0",
+]
+uses = [
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+    "fn:f340400526996cc5",
 ]
 test = true
 
@@ -388,6 +457,12 @@ callees = [
     "fn:f66c6613b2fa9c0c",
     "fn:f8b8b8874aae4e2b",
     "fn:ffe5f6af51a6ee46",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
 ]
 test = true
 
@@ -441,5 +516,18 @@ callees = [
     "fn:f66c6613b2fa9c0c",
     "fn:f8b8b8874aae4e2b",
     "fn:ffe5f6af51a6ee46",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9b373dcfa52e169e",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:ca62ba45b75e81ac",
+    "fn:de020efa1d48c9ac",
+    "fn:ebf3ac43832118cf",
+    "fn:f340400526996cc5",
 ]
 test = true

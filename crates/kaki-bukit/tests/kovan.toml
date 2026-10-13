@@ -38,7 +38,7 @@ lines = [
     57,
     72,
 ]
-hash = "sha256:2d5d11ad51fce39706f58e127156da4199666a778e4944ddd285bcef7b3f2fde"
+hash = "sha256:4b34fae02cb4e8d43a124e833b5f5788a459821d0cff4536652be3de64ecfe37"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:3aa5a54cc87b7bd0",
@@ -54,7 +54,7 @@ lines = [
     74,
     83,
 ]
-hash = "sha256:9fb7641c99c0e5d8e373daebc772851115488be4067875387e5ee0d35b504e1f"
+hash = "sha256:9512e535d74c3772180c0dc74f2ebc7a895e66b20c9ab58558473c395c335943"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:3aa5a54cc87b7bd0",
@@ -70,7 +70,7 @@ lines = [
     85,
     94,
 ]
-hash = "sha256:00fe90552347a03600e7e2f02ec3c8dd52cee6fdb44b717405203755a5e0101d"
+hash = "sha256:3961992e0fd4169683598775d0423f9760d63c8299f603b7bcdcc73f47dbab55"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:3aa5a54cc87b7bd0",
@@ -86,7 +86,7 @@ lines = [
     96,
     110,
 ]
-hash = "sha256:a68c2ac59067833011f1f2027946656ced3e2fa316dac264e32e031d38a47cfb"
+hash = "sha256:1a7ea7d6f16258a71b15c160b31aafdbf212ca4b8a2ac8ba5d0215856aa53cc2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -98,7 +98,7 @@ lines = [
     112,
     130,
 ]
-hash = "sha256:4d8925791cf974b5024010e472c72ea6fbf640274a711139e80db14b04d73981"
+hash = "sha256:8ce7660c4b00383040ae7415826c3507d42b664835ec8c43ff2d0717ac5ba12c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:3aa5a54cc87b7bd0"]
 test = true
@@ -111,7 +111,7 @@ lines = [
     132,
     165,
 ]
-hash = "sha256:f028e0f5df397ab94d3f5707ada8f33de941bc647a376956e127df2ccbe632a5"
+hash = "sha256:f166a49f6ef2a5d4ce1645938074ceac4baebe350a0552b6d407e0c992145d9b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -129,6 +129,13 @@ lines = [
 hash = "sha256:fa1da0c2e130e54f3ccb5e9c3ae88370eba601e384446bedd06cb6237aac421c"
 doc_hash = "sha256:d566b06dfacc08f408a7686fd0132879ef4b2a7577ccf40c1da674474ae5ba5c"
 callees = ["fn:c1e70f92aea5cccf"]
+uses = [
+    "fn:085b673c2ad165c6",
+    "fn:20f0a9d6637eefc6",
+    "fn:2758cbb06786fb64",
+    "fn:68a23970b56eac19",
+    "fn:85dcce1c264aa575",
+]
 test = true
 
 [[module."fuel_cycle.rs".function]]
@@ -167,6 +174,17 @@ callees = [
     "fn:f52d02a47a490c49",
     "fn:fcc953453851e425",
 ]
+uses = [
+    "fn:0163af4a71f2b8cf",
+    "fn:0f523b54ae21d4f8",
+    "fn:1ffb841282730c05",
+    "fn:6234c537f37dd747",
+    "fn:68a23970b56eac19",
+    "fn:85dcce1c264aa575",
+    "fn:a4742a6439f7184b",
+    "fn:c580ea6d0b986b2d",
+    "fn:e8a9c8e7005de09f",
+]
 test = true
 
 [[module."fuel_cycle.rs".function]]
@@ -193,6 +211,16 @@ callees = [
     "fn:c70aa246511d635d",
     "fn:e25425bf435e6f39",
     "fn:f2132905a060a2ae",
+]
+uses = [
+    "fn:0163af4a71f2b8cf",
+    "fn:0f523b54ae21d4f8",
+    "fn:1ffb841282730c05",
+    "fn:6234c537f37dd747",
+    "fn:85dcce1c264aa575",
+    "fn:a4742a6439f7184b",
+    "fn:c580ea6d0b986b2d",
+    "fn:e8a9c8e7005de09f",
 ]
 test = true
 
@@ -223,6 +251,16 @@ callees = [
     "fn:f2132905a060a2ae",
     "fn:f52d02a47a490c49",
 ]
+uses = [
+    "fn:0163af4a71f2b8cf",
+    "fn:0f523b54ae21d4f8",
+    "fn:1ffb841282730c05",
+    "fn:6234c537f37dd747",
+    "fn:85dcce1c264aa575",
+    "fn:a4742a6439f7184b",
+    "fn:c580ea6d0b986b2d",
+    "fn:e8a9c8e7005de09f",
+]
 test = true
 
 [[module."fuel_cycle.rs".function]]
@@ -241,6 +279,15 @@ callees = [
     "fn:80c727f097cb0e43",
     "fn:c6ef0423d6a8c62d",
     "fn:f2132905a060a2ae",
+]
+uses = [
+    "fn:0163af4a71f2b8cf",
+    "fn:1ffb841282730c05",
+    "fn:6234c537f37dd747",
+    "fn:85dcce1c264aa575",
+    "fn:a4742a6439f7184b",
+    "fn:c580ea6d0b986b2d",
+    "fn:e8a9c8e7005de09f",
 ]
 test = true
 
@@ -266,6 +313,15 @@ callees = [
     "fn:c70aa246511d635d",
     "fn:f2132905a060a2ae",
 ]
+uses = [
+    "fn:0163af4a71f2b8cf",
+    "fn:1ffb841282730c05",
+    "fn:6234c537f37dd747",
+    "fn:85dcce1c264aa575",
+    "fn:a4742a6439f7184b",
+    "fn:c580ea6d0b986b2d",
+    "fn:e8a9c8e7005de09f",
+]
 test = true
 
 [[module."fuel_cycle.rs".function]]
@@ -282,5 +338,10 @@ callees = [
     "fn:27f518f743fc7e87",
     "fn:6fcbd44007d2f2be",
     "fn:c50691d076833118",
+]
+uses = [
+    "fn:0f523b54ae21d4f8",
+    "fn:c580ea6d0b986b2d",
+    "fn:e8a9c8e7005de09f",
 ]
 test = true

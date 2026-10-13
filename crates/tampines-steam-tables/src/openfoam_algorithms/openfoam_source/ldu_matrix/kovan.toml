@@ -114,6 +114,218 @@ test_ids = [
 path = "crate::openfoam_algorithms::openfoam_source::ldu_matrix::fv_matrix"
 
 [[module."fv_matrix.rs".function]]
+id = "fn:4c133bac4e1ca70d"
+name = "FvMatrix"
+qual = "FvMatrix"
+item = "type"
+shape = "struct"
+lines = [
+    34,
+    46,
+]
+hash = "sha256:96b5190927afc6db0197ed429356ce4b3993cd19c284879f480c2d8541a985ce"
+doc_hash = "sha256:110fb6e7e4ecd36628615b5688eb1958c441aded47e5d3f38f918ade5510156b"
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:1de348bd6bbdd8f8",
+    "fn:529cdf9967e527a2",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#55",
+    "#56",
+    "#58",
+    "#59",
+    "#61",
+    "#62",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:4c2ae8cf4fb397b1"
+name = "SolverSettings"
+qual = "SolverSettings"
+item = "type"
+shape = "struct"
+lines = [
+    48,
+    53,
+]
+hash = "sha256:8405b18d40565751cf47ed705dda22670cff50be86f5f7c1a129ab2cdb6c6bbc"
+doc_hash = "sha256:e81232e0d8fb842db2e35c0ece7b7606f692fa34631f549711cbaed21dce497a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#49",
+    "#51",
+    "#53",
+    "#54",
+    "#58",
+    "#60",
+    "#62",
+    "#64",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_matrix.rs".function]]
 id = "fn:57fdd824115feee6"
 name = "default"
 qual = "SolverSettings::default"
@@ -123,6 +335,7 @@ lines = [
 ]
 hash = "sha256:e653f90bea879f3ba0c712798ef51684a2a97ab165af44b6d795699f0ed0b041"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:4c2ae8cf4fb397b1"]
 reached_by = [
     "#0",
     "#1",
@@ -211,6 +424,112 @@ reached_by = [
 ]
 
 [[module."fv_matrix.rs".function]]
+id = "fn:15127b61d1aee80d"
+name = "SolverPerformance"
+qual = "SolverPerformance"
+item = "type"
+shape = "struct"
+lines = [
+    64,
+    70,
+]
+hash = "sha256:94411121c7ad5ce5394494daed453b7716389408b799c00aaa7a4649f87162e3"
+doc_hash = "sha256:8c728846831e34f558531c2714f3502c626c4649394d59a6cbae559839015c88"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#49",
+    "#51",
+    "#53",
+    "#54",
+    "#58",
+    "#60",
+    "#62",
+    "#64",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_matrix.rs".function]]
 id = "fn:4bebd214043d7235"
 name = "new"
 qual = "FvMatrix::new"
@@ -223,6 +542,12 @@ doc_hash = "sha256:b4d10eecb313da67e3164ebfef80e2db81b490427c99f8731a9d4c1ed8970
 callees = [
     "fn:304dea8b5feb1f7c",
     "fn:a7f42f3ebfbc6d4e",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:1de348bd6bbdd8f8",
+    "fn:4c133bac4e1ca70d",
+    "fn:529cdf9967e527a2",
 ]
 reached_by = [
     "#0",
@@ -330,6 +655,14 @@ callees = [
     "fn:e926a8bf496edb4b",
     "fn:f8fbd28a45837347",
 ]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:aed0adc6bf107c03",
+]
 reached_by = [
     "#0",
     "#1",
@@ -424,6 +757,12 @@ lines = [
 hash = "sha256:1da255dc8532825aa42ca13c6d7b62040d0b796c2a3072ae27a7d3461de6939f"
 doc_hash = "sha256:e7505e00755de66b0d64ac98ae6612d1efce764c20d72b8e8a4b86bac2eb2426"
 callees = ["fn:62494361677b4270"]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:aed0adc6bf107c03",
+]
 reached_by = [
     "#0",
     "#1",
@@ -516,6 +855,12 @@ callees = [
     "fn:0684dffc925661fd",
     "fn:62494361677b4270",
 ]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:aed0adc6bf107c03",
+]
 
 [[module."fv_matrix.rs".function]]
 id = "fn:62494361677b4270"
@@ -533,6 +878,14 @@ callees = [
     "fn:51e65f672bc57d73",
     "fn:94b505b2ca2c50f7",
     "fn:e926a8bf496edb4b",
+]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:aed0adc6bf107c03",
 ]
 reached_by = [
     "#0",
@@ -623,6 +976,12 @@ lines = [
 hash = "sha256:fe7c5986b9d129a3af884ed30ccdf7faa3e8ceff3f57dac1ccf6767d2eef0798"
 doc_hash = "sha256:925dca749c2d4d275c009c2c52520e5c8a7df5c350e030c59cdd315fed5531b4"
 callees = ["fn:dd671af881d9dfe6"]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:aed0adc6bf107c03",
+]
 
 [[module."fv_matrix.rs".function]]
 id = "fn:0adab87d0671d0b7"
@@ -637,6 +996,12 @@ doc_hash = "sha256:8394d99d505e8cb37c18d15d581c89522486ee3f22d6932827eaf02a6d04c
 callees = [
     "fn:0684dffc925661fd",
     "fn:dd671af881d9dfe6",
+]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:aed0adc6bf107c03",
 ]
 
 [[module."fv_matrix.rs".function]]
@@ -656,6 +1021,14 @@ callees = [
     "fn:94b505b2ca2c50f7",
     "fn:e926a8bf496edb4b",
 ]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:aed0adc6bf107c03",
+]
 
 [[module."fv_matrix.rs".function]]
 id = "fn:346a943d807f2da1"
@@ -668,6 +1041,10 @@ lines = [
 hash = "sha256:81d8ee3fe0be02875c163c81a7061c5411278660aeed62a91d8341a28755ddd9"
 doc_hash = "sha256:2b95c2a5ff8e9265978fbcafada939dc04c44db34dff3f5d8a73161fbd08c499"
 callees = ["fn:94b505b2ca2c50f7"]
+uses = [
+    "fn:4c133bac4e1ca70d",
+    "fn:529cdf9967e527a2",
+]
 
 [[module."fv_matrix.rs".function]]
 id = "fn:c9befb523dd8995e"
@@ -680,6 +1057,10 @@ lines = [
 hash = "sha256:2b6a2bc8f79fe70f19f79194b935306d883b2f297beafaeb2d2b582b49f61ab2"
 doc_hash = "sha256:3c4c02f777bf8512758e882c66feb720f048c761d075eb76e5a875d447e0187c"
 callees = ["fn:333b7695175ca22e"]
+uses = [
+    "fn:4c133bac4e1ca70d",
+    "fn:529cdf9967e527a2",
+]
 
 [[module."fv_matrix.rs".function]]
 id = "fn:2bdb7edbcc7ebd21"
@@ -691,6 +1072,7 @@ lines = [
 ]
 hash = "sha256:2be48bab2afb03edd01f954fc7792c5bd52e9063e9f5bb663cc31f2120951a30"
 doc_hash = "sha256:c6e6624d836d96abcb97228113b4209078e010b9a2df76598d8f7c634105b8bf"
+uses = ["fn:4c133bac4e1ca70d"]
 reached_by = ["#61"]
 
 [[module."fv_matrix.rs".function]]
@@ -704,6 +1086,7 @@ lines = [
 hash = "sha256:d87ce4331cf2c24f0885028b6ea6e663e49349252c6099cc7f6e5c00430d4d5a"
 doc_hash = "sha256:1bd866e7f6ddb9f2cbb89437ecbb6f8e4c9a533d6bc2cc6901680695a7348798"
 callees = ["fn:e3b184e79e6044fe"]
+uses = ["fn:4c133bac4e1ca70d"]
 
 [[module."fv_matrix.rs".function]]
 id = "fn:42a0596cd37ff9d0"
@@ -719,6 +1102,12 @@ callees = [
     "fn:06a8878c5f5ab966",
     "fn:51e65f672bc57d73",
     "fn:e926a8bf496edb4b",
+]
+uses = [
+    "fn:4c133bac4e1ca70d",
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:aed0adc6bf107c03",
 ]
 
 [[module."fv_matrix.rs".function]]
@@ -737,6 +1126,12 @@ callees = [
     "fn:51e65f672bc57d73",
     "fn:e926a8bf496edb4b",
 ]
+uses = [
+    "fn:4c133bac4e1ca70d",
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:aed0adc6bf107c03",
+]
 
 [[module."fv_matrix.rs".function]]
 id = "fn:448d8baaaa6b0cd0"
@@ -749,6 +1144,7 @@ lines = [
 hash = "sha256:f54150c4ea00d125bedde84a4baba9b077b109e1e6446e0a62cb0c3423416ab7"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:333b7695175ca22e"]
+uses = ["fn:4c133bac4e1ca70d"]
 reached_by = [
     "#0",
     "#1",
@@ -838,6 +1234,7 @@ lines = [
 hash = "sha256:4f1ccdabcacc2d25c339f58794a89dc3f265add7323f1204cb82726773b8f12a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:2fe7786789bcb253"]
+uses = ["fn:4c133bac4e1ca70d"]
 
 [[module."fv_matrix.rs".function]]
 id = "fn:58fa21d9c1c53eb2"
@@ -850,6 +1247,7 @@ lines = [
 hash = "sha256:add67fb6ebca8cd2fe6a520beb4ea640ec7c1108cb7bed5b3639c9504f2cca80"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:6550904d91be0688"]
+uses = ["fn:4c133bac4e1ca70d"]
 
 [[module."fv_matrix.rs".function]]
 id = "fn:2b3d2251a45f678b"
@@ -862,6 +1260,7 @@ lines = [
 hash = "sha256:ee9af3a9325a900295a969770bd1f60e57dc5c7106bce9027abdf5760fce390d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:333b7695175ca22e"]
+uses = ["fn:4c133bac4e1ca70d"]
 
 [[module."fv_matrix.rs".function]]
 id = "fn:9f13ae3fa163b734"
@@ -874,6 +1273,7 @@ lines = [
 hash = "sha256:30fa422c6efe97c683e25f5bd0eb2cddb96830f1029314ef61f8bd0fd58e1a07"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:2fe7786789bcb253"]
+uses = ["fn:4c133bac4e1ca70d"]
 
 [[module."fv_matrix.rs".function]]
 id = "fn:8762c934958a179a"
@@ -900,6 +1300,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."fv_matrix.rs".function]]
@@ -920,6 +1327,11 @@ callees = [
     "fn:57fdd824115feee6",
     "fn:8762c934958a179a",
 ]
+uses = [
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:529cdf9967e527a2",
+]
 test = true
 
 [[module."fv_matrix.rs".function]]
@@ -937,10 +1349,114 @@ callees = [
     "fn:4bebd214043d7235",
     "fn:8762c934958a179a",
 ]
+uses = ["fn:4c133bac4e1ca70d"]
 test = true
 
 [module."fv_vector_matrix.rs"]
 path = "crate::openfoam_algorithms::openfoam_source::ldu_matrix::fv_vector_matrix"
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:e005d9bfaf529f57"
+name = "FvVectorMatrix"
+qual = "FvVectorMatrix"
+item = "type"
+shape = "struct"
+lines = [
+    34,
+    47,
+]
+hash = "sha256:9e077ecbe7e325a22263a2ec154aa068f3e0b061870055d85c5b17245b8872b6"
+doc_hash = "sha256:37d5ea67edff7f5ed2ff6f3a5989d5b60b710c0c963d897dd05efa66d6bfeb94"
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:1de348bd6bbdd8f8",
+    "fn:529cdf9967e527a2",
+    "fn:ef05859ef19acee7",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#52",
+    "#53",
+    "#54",
+    "#57",
+    "#60",
+    "#63",
+    "#64",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
 
 [[module."fv_vector_matrix.rs".function]]
 id = "fn:a297582505d9673f"
@@ -955,6 +1471,13 @@ doc_hash = "sha256:e880f8646872ab74113e54f02744761fa09497cbe1aa39bffdc8a0fdf1f96
 callees = [
     "fn:447674abbc1e5435",
     "fn:a7f42f3ebfbc6d4e",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:1de348bd6bbdd8f8",
+    "fn:529cdf9967e527a2",
+    "fn:e005d9bfaf529f57",
+    "fn:ef05859ef19acee7",
 ]
 reached_by = [
     "#0",
@@ -1051,6 +1574,10 @@ lines = [
 ]
 hash = "sha256:32c2ffb1a3d133a29cd243784b2e4fde293671ac0680b0fbc335cec9e6bab786"
 doc_hash = "sha256:85f0ae69113b2565d8540eb8f21a579d7604ebb4e3066d532f84e16012730588"
+uses = [
+    "fn:529cdf9967e527a2",
+    "fn:e005d9bfaf529f57",
+]
 
 [[module."fv_vector_matrix.rs".function]]
 id = "fn:b22985568c2f9c8b"
@@ -1066,6 +1593,11 @@ callees = [
     "fn:365b4ebf95314225",
     "fn:65f8f3c9daf074d2",
     "fn:e3b184e79e6044fe",
+]
+uses = [
+    "fn:529cdf9967e527a2",
+    "fn:e005d9bfaf529f57",
+    "fn:ef05859ef19acee7",
 ]
 
 [[module."fv_vector_matrix.rs".function]]
@@ -1084,6 +1616,10 @@ callees = [
     "fn:65f8f3c9daf074d2",
     "fn:e3b184e79e6044fe",
 ]
+uses = [
+    "fn:e005d9bfaf529f57",
+    "fn:ef05859ef19acee7",
+]
 
 [[module."fv_vector_matrix.rs".function]]
 id = "fn:c790149ff10d2b90"
@@ -1099,6 +1635,12 @@ callees = [
     "fn:06a8878c5f5ab966",
     "fn:51e65f672bc57d73",
     "fn:e926a8bf496edb4b",
+]
+uses = [
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:aed0adc6bf107c03",
+    "fn:e005d9bfaf529f57",
 ]
 reached_by = [
     "#0",
@@ -1197,6 +1739,13 @@ callees = [
     "fn:636ae5a21be9336b",
     "fn:ca96d8c89afa53c7",
 ]
+uses = [
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:a38013d0ab9c0158",
+    "fn:e005d9bfaf529f57",
+    "fn:ef05859ef19acee7",
+]
 reached_by = [
     "#0",
     "#1",
@@ -1292,6 +1841,15 @@ callees = [
     "fn:9e501e5f4cce23ae",
     "fn:ca96d8c89afa53c7",
     "fn:f8fbd28a45837347",
+]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:a38013d0ab9c0158",
+    "fn:e005d9bfaf529f57",
+    "fn:ef05859ef19acee7",
 ]
 reached_by = [
     "#0",
@@ -1391,6 +1949,7 @@ callees = [
     "fn:9206161a1b2f9205",
     "fn:e3b184e79e6044fe",
 ]
+uses = ["fn:e005d9bfaf529f57"]
 reached_by = [
     "#0",
     "#1",
@@ -1485,6 +2044,7 @@ callees = [
     "fn:9206161a1b2f9205",
     "fn:e3b184e79e6044fe",
 ]
+uses = ["fn:e005d9bfaf529f57"]
 
 [[module."fv_vector_matrix.rs".function]]
 id = "fn:0971beafeac94d54"
@@ -1502,6 +2062,7 @@ callees = [
     "fn:9206161a1b2f9205",
     "fn:e3b184e79e6044fe",
 ]
+uses = ["fn:e005d9bfaf529f57"]
 
 [[module."fv_vector_matrix.rs".function]]
 id = "fn:c0d33252c8a684cd"
@@ -1519,6 +2080,7 @@ callees = [
     "fn:9206161a1b2f9205",
     "fn:e3b184e79e6044fe",
 ]
+uses = ["fn:e005d9bfaf529f57"]
 
 [[module."fv_vector_matrix.rs".function]]
 id = "fn:4e36c763177cd07e"
@@ -1536,6 +2098,7 @@ callees = [
     "fn:9206161a1b2f9205",
     "fn:e3b184e79e6044fe",
 ]
+uses = ["fn:e005d9bfaf529f57"]
 
 [[module."fv_vector_matrix.rs".function]]
 id = "fn:adcaef254f73331b"
@@ -1562,6 +2125,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."fv_vector_matrix.rs".function]]
@@ -1583,6 +2153,11 @@ callees = [
     "fn:e3b184e79e6044fe",
     "fn:ef4939f8f02bea0c",
 ]
+uses = [
+    "fn:4c2ae8cf4fb397b1",
+    "fn:e005d9bfaf529f57",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."fv_vector_matrix.rs".function]]
@@ -1601,10 +2176,131 @@ callees = [
     "fn:adcaef254f73331b",
     "fn:c790149ff10d2b90",
 ]
+uses = ["fn:e005d9bfaf529f57"]
 test = true
 
 [module."ldu_matrix.rs"]
 path = "crate::openfoam_algorithms::openfoam_source::ldu_matrix::ldu_matrix"
+
+[[module."ldu_matrix.rs".function]]
+id = "fn:1de348bd6bbdd8f8"
+name = "LduMatrix"
+qual = "LduMatrix"
+item = "type"
+shape = "struct"
+lines = [
+    22,
+    50,
+]
+hash = "sha256:943c08541ea0f43483ad3e164ce08b69c2b875486ed3d688b590c91bc267138e"
+doc_hash = "sha256:f7f4cb49124b681c50871de8ac619829b5db72f517f1dda4812e8e7fcdb13856"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
 
 [[module."ldu_matrix.rs".function]]
 id = "fn:a7f42f3ebfbc6d4e"
@@ -1616,6 +2312,7 @@ lines = [
 ]
 hash = "sha256:c862a7f94f83d935a3495f7b831a71c207663fef30092bcd5df05a4266b1b940"
 doc_hash = "sha256:8cc724e3581eebf40910724e634ce49f28d5577880a1963d0014e7f5da776003"
+uses = ["fn:1de348bd6bbdd8f8"]
 reached_by = [
     "#0",
     "#1",
@@ -1734,6 +2431,7 @@ lines = [
 ]
 hash = "sha256:680c06f234b758e71de25972485d9f87e9e44d01cd2dc02fba36cfbea4b288e4"
 doc_hash = "sha256:75306316ce1651afa09394fc5f2c4a662c5033cfbbab3623ed7ccd4136dc8d86"
+uses = ["fn:1de348bd6bbdd8f8"]
 reached_by = [
     "#0",
     "#1",
@@ -1844,6 +2542,7 @@ lines = [
 hash = "sha256:14951ba0b40e148b4f35bab5e2cfdbbde1867fa6c45e928887bfdbe3c3a5d1d8"
 doc_hash = "sha256:ec030a297fb6d5719561b9be46b24489c57f406b3444f6d2dc1d2a706d9277d8"
 callees = ["fn:0a7d35864c446c8c"]
+uses = ["fn:1de348bd6bbdd8f8"]
 reached_by = [
     "#0",
     "#1",
@@ -1941,6 +2640,7 @@ lines = [
 hash = "sha256:e87280fdc46b8ee5b17408c6f11ac5c1f9470f9b8d2b139e36ace8001a52f274"
 doc_hash = "sha256:0697cf4d9a44b16dd3026128120d82f6ef71a4f2e8a9b82f60799309be11b8f1"
 callees = ["fn:0a7d35864c446c8c"]
+uses = ["fn:1de348bd6bbdd8f8"]
 reached_by = [
     "#0",
     "#1",
@@ -2045,6 +2745,7 @@ lines = [
 hash = "sha256:76c009f228fb473c6d681e3eb14c6e132e06ef08be4cafa092cdc20edebf1779"
 doc_hash = "sha256:975759a6f43895bbe4d05cfdcfbb4c9070a6dfb02942a2647f4b2aed8f806acd"
 callees = ["fn:a7f42f3ebfbc6d4e"]
+uses = ["fn:1de348bd6bbdd8f8"]
 test = true
 
 [[module."ldu_matrix.rs".function]]
@@ -2058,6 +2759,7 @@ lines = [
 hash = "sha256:31cf4467a2ac9fa9033a70d5e05c41db5ecd184bb94d84264443ff3a7d2470ff"
 doc_hash = "sha256:3cecaec531b25d541182d8d273b9cb7d2ad30b9b600793a53bf6e737075e1cde"
 callees = ["fn:a7f42f3ebfbc6d4e"]
+uses = ["fn:1de348bd6bbdd8f8"]
 test = true
 
 [[module."ldu_matrix.rs".function]]

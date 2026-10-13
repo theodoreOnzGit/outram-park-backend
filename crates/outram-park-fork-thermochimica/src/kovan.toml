@@ -16,6 +16,90 @@ test_ids = [
 path = "crate::gem"
 
 [[module."gem.rs".function]]
+id = "fn:a0c9395f08cab8c3"
+name = "R"
+qual = "R"
+item = "const"
+shape = "const"
+lines = [
+    201,
+    205,
+]
+hash = "sha256:3eb7e8af83569a60e40f72c011df29343d9680dc1725e7b11b1c960c36773946"
+doc_hash = "sha256:9643206826aff4302f1579a60a7668f4665364454d9d6244954517ea57a0259b"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:9161c54871d09705"
+name = "MERIT_PENALTY"
+qual = "MERIT_PENALTY"
+item = "const"
+shape = "const"
+lines = [
+    207,
+    215,
+]
+hash = "sha256:24d4b673907ebba2647f36dfd90c864f2bd3d94a0a4209a99c4ed575cf00ef39"
+doc_hash = "sha256:9c266e9227edf9af9c54c7d781edd049d51407e5f0df8c67884938e3eb28127d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:1635eedb9ed4ac7e"
+name = "BinaryInteraction"
+qual = "BinaryInteraction"
+item = "type"
+shape = "struct"
+lines = [
+    217,
+    244,
+]
+hash = "sha256:8fe59231a12904435b43eff22557011511b8ec8542ddd62543c5cd0e236454e0"
+doc_hash = "sha256:2600ed25050fd67e79aceda83129e0992b2b4c04286720fb5914382fbcb05f52"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:ea3482a3e28444af"
+name = "SolutionModel"
+qual = "SolutionModel"
+item = "type"
+shape = "enum"
+lines = [
+    246,
+    274,
+]
+hash = "sha256:169586ddc746b55fea2a2ce0c843fd05d347c990f9466e4fcfb96e7da98f8c3e"
+doc_hash = "sha256:95a752379764c296f353bdeb642350e5e4fc4b4807e2e7cdb49c10048d9c0013"
+uses = ["fn:1635eedb9ed4ac7e"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."gem.rs".function]]
 id = "fn:7a0487d9fcd6bc82"
 name = "ln_p_term"
 qual = "SolutionModel::ln_p_term"
@@ -25,6 +109,7 @@ lines = [
 ]
 hash = "sha256:4f4f9f861adb1e99e3c52be8ff908ee52468cbc0fa3de1d3211d282d2bcf72c1"
 doc_hash = "sha256:09dcbd329c964ee65c074b2b294c30860a00431f73daea7de14da1646e4c7957"
+uses = ["fn:ea3482a3e28444af"]
 reached_by = [
     "#0",
     "#1",
@@ -43,12 +128,54 @@ lines = [
 ]
 hash = "sha256:9dccd73d61dbfe008f33495043e72693d431cfd86ee5d18b92ed90368f45111d"
 doc_hash = "sha256:1f663063ba3b1bbef138f75e1eb20a7240fd2251e46bcbfdf9d2c68c55a24876"
+uses = ["fn:ea3482a3e28444af"]
 reached_by = [
     "#0",
     "#1",
     "#2",
     "#3",
     "#4",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:1fd0c31d7b01cfdc"
+name = "PhaseInput"
+qual = "PhaseInput"
+item = "type"
+shape = "struct"
+lines = [
+    344,
+    361,
+]
+hash = "sha256:2d27a33bcee9e5a87253ae15c410cbd1295d8c3cb70d1ca664092ff0ea0168f6"
+doc_hash = "sha256:99983a15a7400c6649232cfc5eb35497672e6782e25051333f15baebd2a21ae4"
+uses = ["fn:ea3482a3e28444af"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:99c3b411fc712e98"
+name = "GemOptions"
+qual = "GemOptions"
+item = "type"
+shape = "struct"
+lines = [
+    363,
+    389,
+]
+hash = "sha256:7c38a014eb5f681ab3eeceb9b666f5a908efc96f1e762b74c44d906a9e5e6756"
+doc_hash = "sha256:461200498a5e98d2aa189020843061b8f9446b1d915b373667e9928fcd0e0085"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
     "#5",
 ]
 
@@ -62,6 +189,68 @@ lines = [
 ]
 hash = "sha256:f9c92c94a792b98aa9c96d45276e42a960fe10c38e77d3f22c83e62ca0827932"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:99c3b411fc712e98"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:f4b2c3a2cae78bbe"
+name = "GemResult"
+qual = "GemResult"
+item = "type"
+shape = "struct"
+lines = [
+    403,
+    438,
+]
+hash = "sha256:23967a884c7efc2567f60119600efa229be05a5fc8fd9ed2bde8ad4ae70749b2"
+doc_hash = "sha256:9676ec33f2623d6692616ad8f0b54b89762866b0f16e8b2f4845cc3723ab176e"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:014b4c872a3f8ce1"
+name = "GemError"
+qual = "GemError"
+item = "type"
+shape = "enum"
+lines = [
+    440,
+    479,
+]
+hash = "sha256:4a402e0eeea70888d059355c19440504a494a5da4e129005737133d1ff95e0d6"
+doc_hash = "sha256:890690a07667a77805a80aeec1d657a44130b0d7c234dc9b31d7a4a12f9ab974"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:cec8b22da2ea4b5e"
+name = "Phase"
+qual = "Phase"
+item = "type"
+shape = "struct"
+lines = [
+    481,
+    489,
+]
+hash = "sha256:84678f5365bb5536db8f32e5e7eb3d6ffcb763fbd69f3694b7779ddf1a08892e"
+doc_hash = "sha256:36c70d6151cf77a22273c0be8ace320f17f25fa62a54f30e9b698b3574345cb5"
+uses = ["fn:ea3482a3e28444af"]
 reached_by = [
     "#0",
     "#1",
@@ -80,6 +269,28 @@ lines = [
 ]
 hash = "sha256:00720e2b2e2b14e20b1ad4c64e08da5e20435bee8c9454cb388d569bb1254536"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:cec8b22da2ea4b5e"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."gem.rs".function]]
+id = "fn:ac7a83bff39338d0"
+name = "GemSystem"
+qual = "GemSystem"
+item = "type"
+shape = "struct"
+lines = [
+    498,
+    509,
+]
+hash = "sha256:3f0b0a0524a5b37eee32980a7cdce413adb377cd6bf115aaa84113387154abe8"
+doc_hash = "sha256:969534fa0ad1097463513c8f10ac46703a90d38c26ad7e4234b7b5c09046b0eb"
+uses = ["fn:cec8b22da2ea4b5e"]
 reached_by = [
     "#0",
     "#1",
@@ -98,6 +309,13 @@ lines = [
 ]
 hash = "sha256:fa218e4a2359c1e813eb4606e7d75a77dbe2e2191de71d785e90c5ca32ea8598"
 doc_hash = "sha256:557667b59fb687d50fe5be0622008c9ecc827d24d97d2f9abfd7596e1fc57486"
+uses = [
+    "fn:014b4c872a3f8ce1",
+    "fn:1fd0c31d7b01cfdc",
+    "fn:ac7a83bff39338d0",
+    "fn:cec8b22da2ea4b5e",
+    "fn:ea3482a3e28444af",
+]
 reached_by = [
     "#0",
     "#1",
@@ -116,6 +334,7 @@ lines = [
 ]
 hash = "sha256:5c1a0f705e6eb495e85972a2d220db5d1387d2c45d4e132dc6eaf2741b3672e6"
 doc_hash = "sha256:29b7289ce84c36f37c93326b78431cd081d007dffc049990711e2c2f4282b4c3"
+uses = ["fn:ac7a83bff39338d0"]
 
 [[module."gem.rs".function]]
 id = "fn:7dfb4469447a5c15"
@@ -127,6 +346,7 @@ lines = [
 ]
 hash = "sha256:61f5455faa505d3de33ea4d73d47f764450965fc622ab23e77b0045e7b96081d"
 doc_hash = "sha256:c7095741a71cc5c4ecd949de96734d33170f5e9370643f4317fa278c769ad92c"
+uses = ["fn:ac7a83bff39338d0"]
 
 [[module."gem.rs".function]]
 id = "fn:907eb92c1033c472"
@@ -138,6 +358,7 @@ lines = [
 ]
 hash = "sha256:3423cf775107b691d9f4afe7a98a062f7bc18ecfe35f73c8f537949f7a17fbbf"
 doc_hash = "sha256:e97bded47211c3c129cfbcb95858c70ad03974df272d1a103bd61bdb3f7fba97"
+uses = ["fn:ac7a83bff39338d0"]
 
 [[module."gem.rs".function]]
 id = "fn:e3d24b2a4d2a7b02"
@@ -149,6 +370,7 @@ lines = [
 ]
 hash = "sha256:3874769820fff939fb158db5a65e4ba40965027184bb2307b6ca998058ba521f"
 doc_hash = "sha256:6a6c7e1ecc7809c6a4eb9ae8053ef487211263734dbbd2c75ab7dce1fdfd1bd7"
+uses = ["fn:ac7a83bff39338d0"]
 
 [[module."gem.rs".function]]
 id = "fn:37f7f595cb241453"
@@ -160,6 +382,7 @@ lines = [
 ]
 hash = "sha256:b94806ef06a406fbd61bd6c22ce4467a27e039af6a7c37587c89ba7f03e2e669"
 doc_hash = "sha256:90a3b755a557da4c08419a4322d3674c02cf973608bb437a1b9c80166c0c90bf"
+uses = ["fn:ac7a83bff39338d0"]
 
 [[module."gem.rs".function]]
 id = "fn:78bc3f72951cb5af"
@@ -172,6 +395,10 @@ lines = [
 hash = "sha256:e03384a87c1bd2fa42f872958d419eb91d5d3b5c78e27036080ed3279d5cf7cf"
 doc_hash = "sha256:16e70aa4b867154e3340baea53fa649ac2ee1301f73233504057cbf1f7fe9045"
 callees = ["fn:beb7f18cc4ce8bc6"]
+uses = [
+    "fn:014b4c872a3f8ce1",
+    "fn:ac7a83bff39338d0",
+]
 reached_by = [
     "#0",
     "#1",
@@ -191,6 +418,7 @@ lines = [
 hash = "sha256:33c1c5dcc0929ffd7078bd285ba07a047f883593d05878c96df3e986857cf0e4"
 doc_hash = "sha256:d852bd1b1caafb08b437449d09a66d3d62cbd72947e7025aa1df105aca8a370a"
 callees = ["fn:beb7f18cc4ce8bc6"]
+uses = ["fn:ac7a83bff39338d0"]
 reached_by = [
     "#0",
     "#1",
@@ -220,6 +448,14 @@ callees = [
     "fn:dd0fc2cf982bcc48",
     "fn:e5cca7adba6c25dd",
 ]
+uses = [
+    "fn:014b4c872a3f8ce1",
+    "fn:9161c54871d09705",
+    "fn:99c3b411fc712e98",
+    "fn:a0c9395f08cab8c3",
+    "fn:ac7a83bff39338d0",
+    "fn:f4b2c3a2cae78bbe",
+]
 reached_by = [
     "#0",
     "#1",
@@ -239,6 +475,7 @@ lines = [
 hash = "sha256:337f36acc7f161977ae01a4d09cc10eb04866e6f96e174e13fae83cfb33c891f"
 doc_hash = "sha256:1d14b575aafb87b6c82b93d0343f95a8fee1974d601e1e3178558c2011b2494f"
 callees = ["fn:8da277304960e01d"]
+uses = ["fn:ac7a83bff39338d0"]
 reached_by = [
     "#0",
     "#1",
@@ -258,6 +495,7 @@ lines = [
 hash = "sha256:2bc98b67def3c16fa6dcd7d6222f72263e7efc18a92ad9bb6451befde6b87b06"
 doc_hash = "sha256:257a2a99f96a6eee808a81b6eaeb890bfc79b036bb299c9556ad50638dcca367"
 callees = ["fn:beb7f18cc4ce8bc6"]
+uses = ["fn:ac7a83bff39338d0"]
 reached_by = [
     "#0",
     "#1",
@@ -280,6 +518,7 @@ callees = [
     "fn:beb7f18cc4ce8bc6",
     "fn:dd0fc2cf982bcc48",
 ]
+uses = ["fn:ac7a83bff39338d0"]
 reached_by = [
     "#0",
     "#1",
@@ -316,6 +555,10 @@ lines = [
 ]
 hash = "sha256:e9f84ec718a918f7d5f96414218dccf63269b450ae5d76197d8076a710b83367"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:1fd0c31d7b01cfdc",
+    "fn:ea3482a3e28444af",
+]
 test = true
 
 [[module."gem.rs".function]]
@@ -328,6 +571,7 @@ lines = [
 ]
 hash = "sha256:b1c0142a32c93b9e4181b881db5a080a8f8bcb2ca64cb86ba4aa3d8a99ae4f67"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:f4b2c3a2cae78bbe"]
 test = true
 
 [[module."gem.rs".function]]
@@ -346,6 +590,10 @@ callees = [
     "fn:3c26fd998b535870",
     "fn:78bc3f72951cb5af",
     "fn:8f5a04b4de513538",
+]
+uses = [
+    "fn:99c3b411fc712e98",
+    "fn:ac7a83bff39338d0",
 ]
 test = true
 
@@ -367,6 +615,11 @@ callees = [
     "fn:8347bbdacd9ad24a",
     "fn:8f5a04b4de513538",
 ]
+uses = [
+    "fn:99c3b411fc712e98",
+    "fn:a0c9395f08cab8c3",
+    "fn:ac7a83bff39338d0",
+]
 test = true
 
 [[module."gem.rs".function]]
@@ -380,6 +633,11 @@ lines = [
 hash = "sha256:22e99ca288cbb2790fecd25107241687f597452cff1497a154d16418a382d158"
 doc_hash = "sha256:4fa69523ef4f4832506479f692feb64e13afad82dc1873d466cc3f3ce08b1850"
 callees = ["fn:8da277304960e01d"]
+uses = [
+    "fn:1635eedb9ed4ac7e",
+    "fn:a0c9395f08cab8c3",
+    "fn:ea3482a3e28444af",
+]
 test = true
 
 [[module."gem.rs".function]]
@@ -400,6 +658,14 @@ callees = [
     "fn:8347bbdacd9ad24a",
     "fn:8f5a04b4de513538",
 ]
+uses = [
+    "fn:1635eedb9ed4ac7e",
+    "fn:1fd0c31d7b01cfdc",
+    "fn:99c3b411fc712e98",
+    "fn:a0c9395f08cab8c3",
+    "fn:ac7a83bff39338d0",
+    "fn:ea3482a3e28444af",
+]
 test = true
 
 [[module."gem.rs".function]]
@@ -419,6 +685,11 @@ callees = [
     "fn:78bc3f72951cb5af",
     "fn:8f5a04b4de513538",
 ]
+uses = [
+    "fn:99c3b411fc712e98",
+    "fn:a0c9395f08cab8c3",
+    "fn:ac7a83bff39338d0",
+]
 test = true
 
 [[module."gem.rs".function]]
@@ -437,6 +708,14 @@ callees = [
     "fn:3c26fd998b535870",
     "fn:8f5a04b4de513538",
     "fn:dd0fc2cf982bcc48",
+]
+uses = [
+    "fn:014b4c872a3f8ce1",
+    "fn:1635eedb9ed4ac7e",
+    "fn:1fd0c31d7b01cfdc",
+    "fn:99c3b411fc712e98",
+    "fn:ac7a83bff39338d0",
+    "fn:ea3482a3e28444af",
 ]
 test = true
 

@@ -7,6 +7,62 @@ dir = "crates/njoy-outram-park-fork/tests/u238_doppler_verification"
 path = "test:u238_doppler_verification"
 
 [[module."main.rs".function]]
+id = "fn:f273ba3681eb1d14"
+name = "U238_MAT"
+qual = "U238_MAT"
+item = "const"
+shape = "const"
+lines = [
+    67,
+    68,
+]
+hash = "sha256:37cd718ac21fb34f0e9731cc85dcfc43acf62de5e2079409b1e4fe4dc2d60953"
+doc_hash = "sha256:2f72825fc8654f9e1d73bb4451b2ccc2ebd28f2dcda6768d4cca0f25df4a77df"
+test = true
+
+[[module."main.rs".function]]
+id = "fn:26287deeff6519fe"
+name = "RECONR_TOL"
+qual = "RECONR_TOL"
+item = "const"
+shape = "const"
+lines = [
+    69,
+    70,
+]
+hash = "sha256:472ea30ea6094d619e37f742db1f04082d5595c892db43059a8b3e2909714c52"
+doc_hash = "sha256:536231920a289ff0005260ab045df38ffd25f82df4dd98e4beeb2eb2ed3030a9"
+test = true
+
+[[module."main.rs".function]]
+id = "fn:d526e1a3ec2dba40"
+name = "RRR_MAX_EV"
+qual = "RRR_MAX_EV"
+item = "const"
+shape = "const"
+lines = [
+    71,
+    74,
+]
+hash = "sha256:7b13430303b3f9007027757bac2e8a49030a0e9d4d58a973c522c28886630988"
+doc_hash = "sha256:93b920f4813b38f2f4acf9a8b66397e31e160ff1e2fab6e31fec61ca65f22389"
+test = true
+
+[[module."main.rs".function]]
+id = "fn:8592f175dca6188c"
+name = "SIGNIFICANT_B"
+qual = "SIGNIFICANT_B"
+item = "const"
+shape = "const"
+lines = [
+    75,
+    78,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:aa50e7533d37d1f682910401edda23211b25c5381c0a9378f63298de586ba5bd"
+test = true
+
+[[module."main.rs".function]]
 id = "fn:667e9f62146c1aa3"
 name = "manifest"
 qual = "manifest"
@@ -86,6 +142,11 @@ callees = [
     "fn:a05a2970c4364380",
     "fn:ebc57c151b5b8a57",
 ]
+uses = [
+    "fn:26287deeff6519fe",
+    "fn:ab22d1371ac34717",
+    "fn:f273ba3681eb1d14",
+]
 test = true
 
 [[module."main.rs".function]]
@@ -105,6 +166,25 @@ callees = [
     "fn:a49a670467107fa9",
     "fn:ca601c6358510ad7",
 ]
+uses = [
+    "fn:26287deeff6519fe",
+    "fn:ab22d1371ac34717",
+    "fn:f273ba3681eb1d14",
+]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:a678ae0245a1dc5b"
+name = "Metrics"
+qual = "Metrics"
+item = "type"
+shape = "struct"
+lines = [
+    168,
+    177,
+]
+hash = "sha256:2c3993cc86bfa6d34f7f4943c87d298af2bac7690b6a929908bd895c828d7c45"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."main.rs".function]]
@@ -122,6 +202,11 @@ callees = [
     "fn:a49a670467107fa9",
     "fn:ca601c6358510ad7",
     "fn:e04309ab272a3abb",
+]
+uses = [
+    "fn:8592f175dca6188c",
+    "fn:a678ae0245a1dc5b",
+    "fn:d526e1a3ec2dba40",
 ]
 test = true
 
