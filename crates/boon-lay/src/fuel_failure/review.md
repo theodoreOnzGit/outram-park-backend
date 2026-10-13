@@ -820,3 +820,64 @@ formatting function for error
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 835c084657.
+
+# Review: SicLayer::isothermal_thinning_factor (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-isothermal-thinning-factor-theodoreonzgit-85780296"
+kind = "review"
+origin = "human"
+created = "2026-10-13T15:07:25+08:00"
+modified = "2026-10-13T15:07:25+08:00"
+target = "fn:85780296f48ec680"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/geometry.rs::SicLayer::isothermal_thinning_factor"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T15:07:25+08:00"
+commit = "cc8ba965b2a59e7b8f5f7187e725cc692bea8091"
+hash = "sha256:c8e5ee6a302c3857ee1377d1b0ab0fdd0d3caf0315d2aea4d482b5cab08bacf5"
+doc_hash = "sha256:d84a53ea55504c85e5f3dccf58d3a62ddac9ac308d42b26f6569c104d3a69382"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+
+[review.callees]
+"fn:5b2b33cb94ca9a56" = "sha256:584f858091dbbbf399ba065790793304f75d430ba242966bd1e4deda1518564c"
+"fn:62323e762b03b9bf" = "sha256:92583fc305b6c05cfec32e7a87ff1144049b4241fa00cd26f8a19ead15c00e69"
+"fn:fcce2a003b237da0" = "sha256:e665814f5470eed89b70cd9e974d70ec2d2ed400481ab8673925c70d414e44b4"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "handled"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "a+V2w1OSNa3PnSSOju6iCYuOW4/cN9c7nhD7KsoCR8tA1ENsMzGeaPHHBDkHl9U2vg8oqsmxafsjZjT//CfnCA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
+kind = "implements"
+```
+
+checked against equation on page 492,  works well
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit cc8ba965b2.
