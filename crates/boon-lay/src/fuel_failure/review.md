@@ -1459,3 +1459,54 @@ checked against 8a, looks correct
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 40c95c7a03.
+
+# Review: GAS_CONSTANT_J_PER_MOL_K (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-gas-constant-j-per-mol-k-theodoreonzgit-754a22a9"
+kind = "review"
+origin = "human"
+created = "2026-10-13T15:58:01+08:00"
+modified = "2026-10-13T15:58:01+08:00"
+target = "fn:754a22a9ab4477c6"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/pressure.rs::GAS_CONSTANT_J_PER_MOL_K"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T15:58:02+08:00"
+commit = "766a6663a4f406f9f50a054e967cfb592ebfd7f9"
+hash = "sha256:a4d46079c620d78bb95f6e108f6fef62c1948182777a691249dd418440b8df04"
+doc_hash = "sha256:ce586729a9c5019df12c47edbc7413728a034bd5922a43cccc9e2a48200dde13"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "cited"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "ZXwXcMm0mqR4NO6+9T0Hs3WoDluctI/aPxtqRWRnXAfFmnj1k/6POgJ5BLQmPqJCutm5iZD/OVZISvsSaPAMBQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
+kind = "implements"
+```
+
+Okay lah, gas constant, correct from memory. but also checked against page 485 of panama, correct
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 766a6663a4.
