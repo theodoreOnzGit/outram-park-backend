@@ -466,3 +466,72 @@ fn types_and_constants_are_indexed_and_not_stamped_yet() {
     r.stamp(&key, "leaf", "");
     assert_eq!(r.state("leaf").unwrap().kind(), StateKind::Valid);
 }
+
+/// Methodology (#856): the workspace cache against a full load, on the
+/// fixture plus a second indexed folder (`crates/demo/src/sub`). After each
+/// change below the cached load must equal [`load_workspace_uncached`]
+/// (every folder index, every `review.md`, `HEAD`), and the number of
+/// folders it refreshed must be the number the change touches:
+///
+/// 1. first load: both folders; 2. nothing changed: none;
+/// 3. one file edited to a text of the **same length**, not committed: its
+///    folder only (the edit is caught by content, since the timestamp is
+///    too fresh to trust);
+/// 4. commit and reindex, then a stamp is written (`review.md`, new
+///    `HEAD`, new claims): the stamped folder only, the other reused;
+/// 5. a new file with a new function in `sub` (its id is minted with
+///    `HEAD`): `sub` only; then a commit moves `HEAD`: `sub` again, because
+///    its minted id depends on it, while the other folder is reused;
+/// 6. the file is deleted: `sub` only; 7. `forget`: both again.
+///
+/// Result (2026-10-13): passes.
+#[test]
+fn the_cache_gives_what_a_full_load_gives() {
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    let key = founder_key(&r, store.path());
+    let sub = format!("{DIR}/sub");
+    r.write(&format!("{sub}/a.rs"), "pub fn deep() -> u8 {\n    1\n}\n");
+    r.commit("a second folder");
+    let head = r.git(&["rev-parse", "HEAD"]).trim().to_string();
+    let files = BTreeMap::from([("a.rs".to_string(), r.read(&format!("{sub}/a.rs")))]);
+    let (mut idx, _) = refresh_folder("demo", &sub, None, &files, None, &[], &head);
+    for m in idx.modules.values_mut() {
+        m.path = "crate::sub::a".into();
+        for f in &mut m.functions {
+            f.index_out_of_date = false;
+        }
+    }
+    r.write(&format!("{sub}/kovan.toml"), &idx.to_toml().unwrap());
+    r.commit("index the second folder");
+
+    let same_as_full = |what: &str| -> usize {
+        let cached = load_workspace(r.path()).unwrap();
+        let full = load_workspace_uncached(r.path()).unwrap();
+        assert_eq!(cached.indexes, full.indexes, "{what}");
+        assert_eq!(cached.reviews, full.reviews, "{what}");
+        assert_eq!(cached.head, full.head, "{what}");
+        assert_eq!(format!("{:?}", cached.review_root), format!("{:?}", full.review_root), "{what}");
+        ws_cache::refreshed_last(r.path()).unwrap()
+    };
+    ws_cache::forget(r.path());
+    assert_eq!(same_as_full("first load"), 2);
+    assert_eq!(same_as_full("nothing changed"), 0);
+    r.edit("x * 2.0", "x * 3.0");
+    assert_eq!(same_as_full("a same-length edit"), 1);
+    assert_eq!(same_as_full("after the edit, nothing more"), 0);
+    r.commit("edit leaf");
+    r.reindex();
+    assert_eq!(same_as_full("reindexed"), 1);
+    r.stamp(&key, "leaf", "");
+    assert_eq!(same_as_full("a stamp was written"), 1);
+    assert_eq!(same_as_full("after the stamp, nothing more"), 0);
+    r.write(&format!("{sub}/b.rs"), "pub fn fresh() {}\n");
+    assert_eq!(same_as_full("a new file"), 1);
+    r.commit("add b.rs");
+    assert_eq!(same_as_full("HEAD moved under a minted id"), 1);
+    std::fs::remove_file(r.path().join(format!("{sub}/b.rs"))).unwrap();
+    assert_eq!(same_as_full("a file deleted"), 1);
+    ws_cache::forget(r.path());
+    assert_eq!(same_as_full("forgotten"), 2);
+}

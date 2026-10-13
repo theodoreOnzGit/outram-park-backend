@@ -100,22 +100,85 @@ pub(crate) fn fn_at(
     }
 }
 
+/// `git log` for one file up to `rev`: the commit messages, newest first.
+fn log_messages(root: &Path, rev: &str, file: &str) -> Vec<String> {
+    git::git(root, &["log", "--format=%B%x1e", rev, "--", file])
+        .map(|out| {
+            out.split('\x1e')
+                .map(str::trim)
+                .filter(|m| !m.is_empty())
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// A full commit id: what it names never changes, so what git says about
+/// it can be kept for the life of the process.
+fn is_full_sha(rev: &str) -> bool {
+    rev.len() == 40 && rev.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+type KeptMessages = std::collections::HashMap<(std::path::PathBuf, String, String), Vec<String>>;
+
+/// Messages kept across calls, for full commit ids only (GitHub #856).
+fn kept_messages() -> &'static std::sync::Mutex<KeptMessages> {
+    static KEPT: std::sync::OnceLock<std::sync::Mutex<KeptMessages>> = std::sync::OnceLock::new();
+    KEPT.get_or_init(Default::default)
+}
+
+/// Fill `cache` with the messages of the commits up to `rev` that touched
+/// each of `files`. One `git log` per file, as before (the history of each
+/// file is simplified on its own, which one log over all of them would not
+/// reproduce); what is new (#856) is that the logs run side by side, two
+/// cores left free, and that the answer for a full commit id is kept for
+/// the life of the process. Measured 2026-10-13 on this workspace: the
+/// reaching tests of one reviewed function took 1.08 s one after another.
+fn fetch_messages(cache: &mut MessageCache, root: &Path, rev: &str, files: &BTreeSet<String>) {
+    let keep = is_full_sha(rev);
+    let mut missing: Vec<&String> = Vec::new();
+    for f in files {
+        if cache.contains_key(&(rev.to_string(), f.clone())) {
+            continue;
+        }
+        let kept = keep
+            .then(|| kept_messages().lock().ok()?.get(&(root.to_path_buf(), rev.to_string(), f.clone())).cloned())
+            .flatten();
+        match kept {
+            Some(m) => {
+                cache.insert((rev.to_string(), f.clone()), m);
+            }
+            None => missing.push(f),
+        }
+    }
+    if missing.is_empty() {
+        return;
+    }
+    let threads = std::thread::available_parallelism()
+        .map_or(1, |n| n.get().saturating_sub(2))
+        .max(1);
+    let per = missing.len().div_ceil(threads).max(1);
+    let got: Vec<(String, Vec<String>)> = std::thread::scope(|scope| {
+        let handles: Vec<_> = missing
+            .chunks(per)
+            .map(|part| scope.spawn(move || part.iter().map(|f| ((*f).clone(), log_messages(root, rev, f))).collect::<Vec<_>>()))
+            .collect();
+        handles.into_iter().flat_map(|h| h.join().expect("git log does not panic")).collect()
+    });
+    for (f, m) in got {
+        if keep {
+            if let Ok(mut k) = kept_messages().lock() {
+                k.insert((root.to_path_buf(), rev.to_string(), f.clone()), m.clone());
+            }
+        }
+        cache.insert((rev.to_string(), f), m);
+    }
+}
+
 /// Messages of the commits up to `rev` that touched `file`.
 fn messages(cache: &mut MessageCache, root: &Path, rev: &str, file: &str) -> Vec<String> {
-    cache
-        .entry((rev.to_string(), file.to_string()))
-        .or_insert_with(|| {
-            git::git(root, &["log", "--format=%B%x1e", rev, "--", file])
-                .map(|out| {
-                    out.split('\x1e')
-                        .map(str::trim)
-                        .filter(|m| !m.is_empty())
-                        .map(str::to_string)
-                        .collect()
-                })
-                .unwrap_or_default()
-        })
-        .clone()
+    fetch_messages(cache, root, rev, &BTreeSet::from([file.to_string()]));
+    cache.get(&(rev.to_string(), file.to_string())).cloned().unwrap_or_default()
 }
 
 /// The tests that reached function `id` at `commit`, from the folder's
@@ -131,6 +194,9 @@ pub(crate) fn tests_at(
     let text = git::show(root, commit, &join(dir, KOVAN_TOML))?;
     let idx = FolderIndex::parse(&text).ok()?;
     let f = idx.functions().find(|(_, f)| f.id == id)?.1.clone();
+    let test_files: BTreeSet<String> =
+        f.reached_by.iter().filter_map(|t| t.split_once(".rs::").map(|(file, _)| format!("{file}.rs"))).collect();
+    fetch_messages(cache, root, commit, &test_files);
     let mut commit_messages = BTreeMap::new();
     for t in &f.reached_by {
         if let Some((file, _)) = t.split_once(".rs::") {

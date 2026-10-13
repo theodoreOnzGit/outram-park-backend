@@ -61,7 +61,7 @@
 //! Nothing here signs. [`write_review`] refuses an unsigned review, and a
 //! signature needs a key unlocked by its human owner's passphrase.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use kovan_common::artifact::relation::RelationRecord;
@@ -100,6 +100,7 @@ pub mod reconfirm;
 pub mod relocate;
 pub mod review_mode;
 mod states;
+pub mod ws_cache;
 
 pub use states::{
     evaluate_loaded, evaluate_loaded_with, evaluate_workspace, evaluate_workspace_with, git_facts, stamp_states,
@@ -150,6 +151,18 @@ pub(crate) fn join(dir: &str, name: &str) -> String {
     }
 }
 
+/// The names of the `.rs` files directly in `dir` (workspace-relative).
+fn rust_file_names(root: &Path, dir: &str) -> BTreeSet<String> {
+    let Ok(rd) = std::fs::read_dir(root.join(dir)) else {
+        return BTreeSet::new();
+    };
+    rd.flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().and_then(|x| x.to_str()) == Some("rs") && p.is_file())
+        .filter_map(|p| p.file_name().and_then(|n| n.to_str()).map(str::to_string))
+        .collect()
+}
+
 /// The `.rs` files directly in `dir` (workspace-relative), by file name.
 fn rust_files(root: &Path, dir: &str) -> BTreeMap<String, String> {
     let mut out = BTreeMap::new();
@@ -175,19 +188,49 @@ fn rust_files(root: &Path, dir: &str) -> BTreeMap<String, String> {
 /// `kovan_root.toml`. `Err` only when `kovan_root.toml` exists and does not
 /// parse (the registry cannot be built then).
 pub fn load_workspace(root: &Path) -> Result<Workspace, String> {
+    let mut cache = ws_cache::take(root);
+    let ws = load_workspace_with(root, &mut cache);
+    ws_cache::put(root, cache);
+    ws
+}
+
+/// [`load_workspace`] computing everything, the cache neither read nor
+/// written: what the cache is checked against.
+pub fn load_workspace_uncached(root: &Path) -> Result<Workspace, String> {
+    load_workspace_with(root, &mut ws_cache::RootCache::default())
+}
+
+/// [`load_workspace`] over `cache`: a `review.md` or a folder whose inputs
+/// are unchanged is taken from it ([`ws_cache`]); everything else is read
+/// and refreshed, and stored back.
+fn load_workspace_with(root: &Path, cache: &mut ws_cache::RootCache) -> Result<Workspace, String> {
     let head = git::rev_parse(root, "HEAD").unwrap_or_default();
+    let now = std::time::SystemTime::now();
+    // One walk for both file kinds.
+    let found = kovan_discovery::discover(root, &["md", "toml"]);
+    let named = |p: &Path, name: &str| p.file_name().and_then(|f| f.to_str()) == Some(name);
     let mut reviews = BTreeMap::new();
-    for p in kovan_discovery::discover(root, &["md"]) {
-        if p.file_name().and_then(|f| f.to_str()) != Some(REVIEW_MD) {
-            continue;
-        }
-        let Ok(text) = std::fs::read_to_string(&p) else {
-            continue;
-        };
+    let mut kept_reviews = BTreeMap::new();
+    for p in found.iter().filter(|p| named(p, REVIEW_MD)) {
         let dir = p.parent().map(|d| rel(root, d)).unwrap_or_default();
-        let doc = parse_review_md(&text);
-        reviews.insert(dir, ReviewMdFile { text, doc });
+        let entry = match cache.reviews.remove(&dir) {
+            Some(c) if c.seen.still(p, c.cached_at) => c,
+            _ => {
+                let Ok(text) = std::fs::read_to_string(p) else {
+                    continue;
+                };
+                let doc = parse_review_md(&text);
+                ws_cache::CachedReview {
+                    seen: ws_cache::Seen::of(p, &text),
+                    cached_at: now,
+                    file: ReviewMdFile { text, doc },
+                }
+            }
+        };
+        reviews.insert(dir.clone(), entry.file.clone());
+        kept_reviews.insert(dir, entry);
     }
+    cache.reviews = kept_reviews;
     let by_path: BTreeMap<String, ReviewDocument> = reviews
         .iter()
         .map(|(d, f)| (join(d, REVIEW_MD), f.doc.clone()))
@@ -198,47 +241,92 @@ pub fn load_workspace(root: &Path) -> Result<Workspace, String> {
     } else {
         head.as_str()
     };
-    let mut folders: Vec<(FolderIndex, String)> = Vec::new();
-    for p in kovan_discovery::discover(root, &["toml"]) {
-        if p.file_name().and_then(|f| f.to_str()) != Some(KOVAN_TOML) {
-            continue;
-        }
-        let Ok(text) = std::fs::read_to_string(&p) else {
-            continue;
-        };
-        let Ok(fi) = FolderIndex::parse(&text) else {
-            continue;
-        };
-        let dir = p.parent().map(|d| rel(root, d)).unwrap_or_default();
-        if fi.dir != dir {
-            continue; // a fixture or a copy, not this folder's index
-        }
-        folders.push((fi, dir));
+    // Folders in walk order: reused from the cache, or to refresh.
+    enum Slot {
+        Cached(Box<ws_cache::CachedFolder>),
+        Refresh,
     }
-    // Refreshing parses every `.rs` file of the workspace: by far the
-    // slowest step (measured 2026-10-13 on this workspace, 801 folders:
-    // 14.1 s on one thread). Folders are independent, so they are shared
-    // out over the cores, two left free for the machine's user.
+    let mut dirs: Vec<(String, PathBuf, Slot)> = Vec::new();
+    for p in found.iter().filter(|p| named(p, KOVAN_TOML)) {
+        let dir = p.parent().map(|d| rel(root, d)).unwrap_or_default();
+        let names = rust_file_names(root, &dir);
+        let review = reviews.get(&dir).map(|f| ws_cache::text_hash(&f.text));
+        let slot = match cache.folders.remove(&dir) {
+            Some(c) if c.valid(root, &dir, &names, review, &claims, &head) => Slot::Cached(Box::new(c)),
+            _ => Slot::Refresh,
+        };
+        dirs.push((dir, p.clone(), slot));
+    }
+    // Refreshing parses every `.rs` file of a folder: by far the slowest
+    // step (measured 2026-10-13 on this workspace, 801 folders: 14.1 s on
+    // one thread, 2.5 s shared out). Folders are independent, so those the
+    // cache does not hold are shared out over the cores, two left free for
+    // the machine's user.
+    let todo: Vec<(&str, &Path)> = dirs
+        .iter()
+        .filter(|(_, _, s)| matches!(s, Slot::Refresh))
+        .map(|(d, p, _)| (d.as_str(), p.as_path()))
+        .collect();
+    cache.refreshed_last = todo.len();
     let threads = std::thread::available_parallelism()
         .map_or(1, |n| n.get().saturating_sub(2))
         .max(1);
-    let per = folders.len().div_ceil(threads).max(1);
-    let refresh = |part: &[(FolderIndex, String)]| -> Vec<FolderIndex> {
+    let per = todo.len().div_ceil(threads).max(1);
+    let refresh = |part: &[(&str, &Path)]| -> Vec<Option<ws_cache::CachedFolder>> {
         part.iter()
-            .map(|(fi, dir)| {
+            .map(|(dir, toml_path)| {
+                let text = std::fs::read_to_string(toml_path).ok()?;
+                let fi = FolderIndex::parse(&text).ok()?;
+                if fi.dir != *dir {
+                    return None; // a fixture or a copy, not this folder's index
+                }
                 let files = rust_files(root, dir);
-                let doc = reviews.get(dir).map(|f| &f.doc);
-                refresh_folder(&fi.krate, &fi.dir, Some(fi), &files, doc, &claims, mint).0
+                let review = reviews.get(*dir);
+                let fresh =
+                    refresh_folder(&fi.krate, &fi.dir, Some(&fi), &files, review.map(|f| &f.doc), &claims, mint).0;
+                let prior_ids: BTreeSet<String> = fi.functions().map(|(_, f)| f.id.clone()).collect();
+                let relevant = ws_cache::CachedFolder::relevant(dir, &prior_ids, &fresh, &claims);
+                // An id that neither the previous index nor a claim gave
+                // was minted with HEAD.
+                let minted = fresh
+                    .functions()
+                    .any(|(_, f)| !prior_ids.contains(&f.id) && !relevant.iter().any(|c| c.id == f.id));
+                Some(ws_cache::CachedFolder {
+                    cached_at: now,
+                    toml: ws_cache::Seen::of(toml_path, &text),
+                    files: files
+                        .iter()
+                        .map(|(n, t)| (n.clone(), ws_cache::Seen::of(&root.join(dir).join(n), t)))
+                        .collect(),
+                    review: review.map(|f| ws_cache::text_hash(&f.text)),
+                    claims: relevant,
+                    head: minted.then(|| head.clone()),
+                    prior_ids,
+                    fresh,
+                })
             })
             .collect()
     };
-    let indexes: Vec<FolderIndex> = std::thread::scope(|scope| {
-        let handles: Vec<_> = folders.chunks(per).map(|part| scope.spawn(|| refresh(part))).collect();
+    let mut refreshed: std::collections::VecDeque<Option<ws_cache::CachedFolder>> = std::thread::scope(|scope| {
+        let handles: Vec<_> = todo.chunks(per).map(|part| scope.spawn(|| refresh(part))).collect();
         handles
             .into_iter()
             .flat_map(|h| h.join().expect("a folder refresh does not panic"))
             .collect()
     });
+    let mut indexes = Vec::new();
+    let mut kept = BTreeMap::new();
+    for (dir, _, slot) in dirs {
+        let entry = match slot {
+            Slot::Cached(c) => Some(*c),
+            Slot::Refresh => refreshed.pop_front().flatten(),
+        };
+        if let Some(e) = entry {
+            indexes.push(e.fresh.clone());
+            kept.insert(dir, e);
+        }
+    }
+    cache.folders = kept;
     let root_path = root.join(ROOT_FILE);
     let review_root = match std::fs::read_to_string(&root_path) {
         Ok(t) => ReviewRoot::parse(&t).map_err(|e| e.to_string())?,
