@@ -21,7 +21,7 @@ id = "review-weibull-failure-fraction-theodoreonzgit-dd41ff29"
 kind = "review"
 origin = "human"
 created = "2026-10-12T09:48:30+08:00"
-modified = "2026-10-13T10:52:24+08:00"
+modified = "2026-10-13T15:00:07+08:00"
 target = "fn:dd41ff2953124783"
 
 [review]
@@ -29,11 +29,14 @@ path = "crates/boon-lay/src/fuel_failure/weibull.rs::weibull_failure_fraction"
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-10-13"
-signed_at = "2026-10-13T10:52:25+08:00"
-commit = "8b786d76b9e3ee1e984f2ede0df008ca592c2ec4"
+signed_at = "2026-10-13T15:00:07+08:00"
+commit = "55d541bb7dd6743bcd70f1eeb1771edbd396c6ea"
 hash = "sha256:909caa1fbab166b538d958e5778a9e4b2bbb0ac2b44faa8f50ef9c0624a91539"
 doc_hash = "sha256:52c13390871b8991d976b786d6612153fdd5adfbc946875a3e173157e8b39949"
-cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+
+[review.callees]
+"fn:91b8101ebd5b4ec6" = "sha256:e25ea516086e0a8fbc02c8ea06250f66767715f97c79fe584e00cef7420d6abe"
 
 [review.checklist]
 coding_standards = "yes"
@@ -52,7 +55,7 @@ vv_evidence = "reference_code_to_code"
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "3w97DWVex+Quosm+ouZ1jBvb7KD4daZIe+sE9OQODUDscrUPyNmoWA3kkVEep9O3WTNfuxbQDh9DgElvAiaoBg=="
+value = "luZ+wSc3fNOkEVaimXDeKdl7ccuoNVhhNY8Jt/6iguHGMPZQYQiMwhwUcGEjVTQhloluaNrHR2YbxTchi2DACQ=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
@@ -61,7 +64,7 @@ kind = "implements"
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 8b786d76b9.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 55d541bb7d.
 
 # Review: failure_is_monotone_in_stress (github:theodoreOnzGit)
 
