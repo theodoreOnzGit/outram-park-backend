@@ -98,7 +98,7 @@ jobs:
 
       - name: Four ICSBEP cases, reduced statistics, 200 pcm allowance
         shell: bash
-        run: scripts/acceptance-keff.sh target/acceptance/keff_acceptance.csv
+        run: bash scripts/acceptance-keff.sh target/acceptance/keff_acceptance.csv
 
       - name: Record in the job summary
         if: always()
