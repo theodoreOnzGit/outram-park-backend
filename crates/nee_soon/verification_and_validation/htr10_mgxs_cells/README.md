@@ -102,7 +102,19 @@ The DH arm is random packing in a reflective equal-volume sphere
 (r = 3.7221 cm). Pass criterion: |Δk| < 3σ combined. Prediction, made before
 the run: |Δk| < 300 pcm, sign not predicted.
 
-**Result:** PENDING (filled in by the run below).
+**Result** (2026-10-13; 4000 x [10 + 50], seed 20 261 013; 4-core Xeon @
+2.10 GHz; 494 s CSG, 66 s DH):
+
+| arm | k |
+|---|---|
+| CSG single pebble | 1.68619 ± 0.00223 (0 histories lost) |
+| DhUniverse pebble | 1.68517 ± 0.00266 |
+| CSG − DH | **+102 ± 347 pcm (+0.29σ): passes** |
+
+The two independently built pebbles agree. **This budget does not resolve
+the prediction**, because σ = 347 pcm exceeds the 300 pcm bound. What it does
+exclude, at about 3σ, is a gross build defect, such as #316's TRISO-count
+error (+353 pcm on the core). A probe at 500 x [2 + 3] gave −12 ± 1864 pcm.
 
 ## 4. Cell-size convergence, 1 / 7 / 19 tiles
 

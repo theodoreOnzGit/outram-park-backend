@@ -30,11 +30,12 @@
 //!   tracking (`DhTreatment::DeltaTracking`).
 //! - **Same settings** for both: 4000 × \[10 + 50\] by default
 //!   (`OUTRAM_CELL_PARTICLES` / `_INACTIVE` / `_ACTIVE` override), 300.15 K,
-//!   seed 20261013, all threads. The budget comes from a measured probe
-//!   (500 × \[2 + 3\], 2026-10-13, 4-core Xeon @ 2.10 GHz): 2.4 ms per
-//!   history wall on the CSG arm and 10 ms on the DH arm. So the default
-//!   costs about 10 + 40 min there, and 10 000 × \[20 + 100\] would cost
-//!   about 3.5 h on the DH arm alone.
+//!   seed 20261013, all threads. ~~The budget comes from a measured probe
+//!   (500 × \[2 + 3\]): 2.4 ms per history on the CSG arm and 10 ms on the
+//!   DH arm, so about 10 + 40 min.~~ **CORRECTED 2026-10-13:** that probe was
+//!   dominated by set-up. The default run measured 494 s (CSG) and 66 s
+//!   (DH) on a 4-core Xeon @ 2.10 GHz, 755 s for the whole test including
+//!   about 3 min of data loading.
 //! - **What differs, by construction:** the particle positions (cubic
 //!   lattice against random packing) and the reflective boundary (cube
 //!   against sphere, around a near-transparent helium gap). Neither is
@@ -44,9 +45,21 @@
 //! - **Pass (gh:#849):** `|dk| < 3 sigma_combined`, with each arm's own
 //!   `k_std` (single seed; the autocorrelation-corrected sigma is #850's).
 //!
-//! ## Results
+//! ## Results (2026-10-13, 4000 × \[10 + 50\], 4-core Xeon @ 2.10 GHz)
 //!
-//! See the test's own doc comment.
+//! | arm | k |
+//! |---|---|
+//! | CSG single pebble | 1.68619 ± 0.00223 (0 histories lost) |
+//! | DhUniverse pebble | 1.68517 ± 0.00266 |
+//! | CSG − DH | **+102 ± 347 pcm (+0.29σ): passes** |
+//!
+//! The two independently built pebbles agree. **The budget does not resolve
+//! the prediction:** σ = 347 pcm is larger than the 300 pcm bound, so this
+//! run cannot tell a 300 pcm lattice-against-random-packing effect from
+//! zero. What it does exclude is a defect of the size the crate's
+//! drawn-geometry rule exists for (#316's 100 missing particles were
+//! +353 pcm on the core; here they would be more, all fuel being in one
+//! pebble) at about 3σ, not more.
 
 use nee_soon::htr10_mgxs::cells::Htr10Cell;
 use nee_soon::htr10_rmc::core_model::mat;
@@ -67,7 +80,8 @@ fn env_usize(k: &str, d: usize) -> usize {
 ///
 /// # Results
 ///
-/// Recorded in `verification_and_validation/htr10_mgxs_cells/README.md`.
+/// +102 ± 347 pcm (2026-10-13); see the module docs and
+/// `verification_and_validation/htr10_mgxs_cells/README.md`.
 #[test]
 #[cfg_attr(
     not(feature = "long-tests"),
