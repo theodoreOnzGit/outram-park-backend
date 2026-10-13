@@ -124,6 +124,14 @@ pub enum MindmapAction {
     /// and absent from every view until the folder is reopened.
     KnowledgeChanged,
     /// Something needing a Kovan folder was asked for while none is open —
+    /// A code review listed on a concept's menu was chosen (GitHub #844):
+    /// the caller opens Code Review on the mounted code repository at
+    /// `repo_dir`, at `entry` (`path/to/file.rs::qual`).
+    OpenCodeReview {
+        repo_dir: std::path::PathBuf,
+        entry: String,
+    },
+    /// Something needing a Kovan folder was asked for while none is open —
     /// the caller should open the setup dialog (maintainer, 2026-09-22).
     ///
     /// The map draws the built-in corpus with no folder at all (#247), so
@@ -1081,6 +1089,15 @@ pub struct MindmapState {
     /// when their files change.
     links: LinkCache,
     bib: BibCache,
+    /// The code reviews of the folder's mounted code repositories, by
+    /// concept (GitHub #844): the last result of [`Self::code_reviews_job`].
+    code_reviews: Vec<crate::code_review_artifacts::CodeReviewArtifact>,
+    /// Collecting them runs the staleness engine over each repository, so
+    /// it runs on a worker and the map draws from the last result.
+    code_reviews_job: Option<crate::stamping::flow::Worker<Vec<crate::code_review_artifacts::CodeReviewArtifact>>>,
+    /// The Kovan folder `code_reviews` was collected for; `None` asks for a
+    /// fresh collection.
+    code_reviews_for: Option<std::path::PathBuf>,
 }
 
 #[cfg(all(feature = "gui", not(target_os = "android")))]
@@ -1108,6 +1125,9 @@ impl Default for MindmapState {
             hyperlink_draft: None,
             links: LinkCache::default(),
             bib: BibCache::default(),
+            code_reviews: Vec::new(),
+            code_reviews_job: None,
+            code_reviews_for: None,
         }
     }
 }
@@ -1137,6 +1157,49 @@ fn star_key(current: &Option<crate::node_id::NodeId>) -> String {
 
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 impl MindmapState {
+    /// Ask for the code reviews to be collected again the next time the map
+    /// is drawn (the caller knows reviews may have changed: Code Review was
+    /// shown, or a repository was added).
+    pub fn invalidate_code_reviews(&mut self) {
+        self.code_reviews_for = None;
+    }
+
+    /// The code reviews last collected.
+    pub fn code_reviews(&self) -> &[crate::code_review_artifacts::CodeReviewArtifact] {
+        &self.code_reviews
+    }
+
+    /// Set the code reviews directly (tests; the app uses the worker).
+    pub fn set_code_reviews(&mut self, all: Vec<crate::code_review_artifacts::CodeReviewArtifact>) {
+        self.code_reviews = all;
+    }
+
+    /// Take a finished collection, and start one when the folder changed
+    /// or a fresh one was asked for. Never waits. Returns whether a
+    /// collection is running (the caller repaints to pick it up).
+    pub fn poll_code_reviews(&mut self, root: Option<&KovanRoot>) -> bool {
+        if let Some(found) = self.code_reviews_job.as_ref().and_then(|j| j.try_take()) {
+            self.code_reviews = found;
+            self.code_reviews_job = None;
+        }
+        let Some(root) = root else {
+            self.code_reviews.clear();
+            self.code_reviews_for = None;
+            return false;
+        };
+        if self.code_reviews_job.is_none() && self.code_reviews_for.as_deref() != Some(root.path()) {
+            self.code_reviews_for = Some(root.path().to_path_buf());
+            let repos = root.code_repos();
+            if repos.is_empty() {
+                self.code_reviews.clear();
+            } else {
+                self.code_reviews_job =
+                    Some(crate::stamping::flow::Worker::spawn(move || crate::code_review_artifacts::collect(&repos)));
+            }
+        }
+        self.code_reviews_job.is_some()
+    }
+
     /// The concept at the centre (`None` is the top). Read by the app's
     /// back/forward history (#242).
     pub(crate) fn current(&self) -> Option<&crate::node_id::NodeId> {
@@ -1239,6 +1302,12 @@ impl MindmapState {
         use crate::node_id::{Namespace, NodeId};
 
         let mut action = None;
+        // Code reviews of the mounted code repositories (#844): collected
+        // on a worker; repaint until the result is in.
+        if self.poll_code_reviews(root) {
+            ui.ctx().request_repaint_after(std::time::Duration::from_millis(200));
+        }
+        let mut opened_review: Option<(std::path::PathBuf, String)> = None;
 
         // ── Breadcrumb ──────────────────────────────────────────────────
         let mut crumb_to: Option<Option<NodeId>> = None;
@@ -1868,6 +1937,21 @@ impl MindmapState {
                             }
                         }
                     }
+                    // #844: the code reviews tied to this concept in the
+                    // folder's mounted code repositories, beside its
+                    // literature artefacts. Opening one opens Code Review
+                    // at that entry.
+                    let reviews = crate::code_review_artifacts::for_concept(&self.code_reviews, &concept.id);
+                    if !reviews.is_empty() {
+                        ui.separator();
+                        ui.weak(format!("{} code review(s)", reviews.len()));
+                        for a in reviews {
+                            if ui.button(a.label()).on_hover_text(a.detail()).clicked() {
+                                opened_review = Some((a.repo_dir.clone(), a.entry.clone()));
+                                ui.close();
+                            }
+                        }
+                    }
                     ui.separator();
                     if ui.button("Go here").clicked() {
                         drilled = Some(concept.id.clone());
@@ -2126,6 +2210,9 @@ impl MindmapState {
         }
         if let Some(citekey) = opened_paper {
             action = Some(MindmapAction::OpenPaper(citekey));
+        }
+        if let Some((repo_dir, entry)) = opened_review {
+            action = Some(MindmapAction::OpenCodeReview { repo_dir, entry });
         }
         if let Some(id) = opened_corpus {
             action = Some(MindmapAction::OpenCorpusLiterature(id));

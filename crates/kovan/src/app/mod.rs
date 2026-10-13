@@ -3573,6 +3573,7 @@ impl eframe::App for DigitiseApp {
                 let mut sort_paper = None;
                 let mut open_setup = false;
                 let mut knowledge_changed = false;
+                let mut open_review: Option<(std::path::PathBuf, String)> = None;
                 let (index, graph) = match self.workspace.as_ref() {
                     Some(w) if root.is_some() => (Some(&w.index), Some(&w.graph)),
                     _ => (None, None),
@@ -3590,9 +3591,20 @@ impl eframe::App for DigitiseApp {
                         // leaving the request nowhere.
                         Some(MindmapAction::OpenSetup) => open_setup = true,
                         Some(MindmapAction::KnowledgeChanged) => knowledge_changed = true,
+                        Some(MindmapAction::OpenCodeReview { repo_dir, entry }) => {
+                            open_review = Some((repo_dir, entry))
+                        }
                         None => {}
                     }
                 });
+                // #844: a code review chosen on a concept opens Code Review
+                // on that mounted repository, at that entry.
+                if let Some((repo_dir, entry)) = open_review {
+                    self.code_map.load_workspace(repo_dir.clone());
+                    self.code_review.open_entry(&repo_dir, &entry);
+                    self.group = tab_groups::Group::CodeReview;
+                    self.view = View::CodeReview;
+                }
                 if knowledge_changed {
                     if let Some(root) = root.clone() {
                         self.refresh_knowledge(&root);
@@ -3650,6 +3662,9 @@ impl eframe::App for DigitiseApp {
                 self.code_map.ensure_default_workspace();
                 let workspace = self.code_map.workspace().map(std::path::Path::to_path_buf);
                 self.code_review.set_workspace(workspace.as_deref());
+                // Reviews may change here: the mindmap collects its code
+                // reviews again when it is next shown (#844).
+                self.mindmap.invalidate_code_reviews();
                 egui::CentralPanel::default().show(ui, |ui| self.code_review.ui(ui));
             }
             View::AdvancedGit => {

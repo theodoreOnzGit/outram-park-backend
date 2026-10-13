@@ -84,6 +84,9 @@ struct Job {
 #[derive(Default)]
 pub(crate) struct CodeReviewView {
     workspace: Option<PathBuf>,
+    /// An entry to open as soon as the embedded UI exists
+    /// ([`Self::open_entry`]).
+    open_at: Option<String>,
     /// The embedded UI, once the data is ready.
     review: Option<kovan_web::ui::CodeReview>,
     job: Option<Job>,
@@ -156,6 +159,14 @@ impl CodeReviewView {
                 ..Self::default()
             };
         }
+    }
+
+    /// Open `entry` (`path/to/file.rs::qual`) of `workspace`, with its
+    /// source, once the workspace's data is loaded (GitHub #844: a code
+    /// review chosen on the mindmap).
+    pub(crate) fn open_entry(&mut self, workspace: &Path, entry: &str) {
+        self.set_workspace(Some(workspace));
+        self.open_at = Some(entry.to_string());
     }
 
     /// An "Index fresh" of `dir` finished: rebuild its data now, in the
@@ -561,6 +572,9 @@ impl CodeReviewView {
                     &mut self.commit,
                 ) {
                     review.navigate(link);
+                }
+                if let Some(id) = self.open_at.take() {
+                    review.navigate(kovan_web::model::DeepLink::Function { id, source: true });
                 }
                 if self.review_mode.active.is_some() {
                     self.review_mode.ui(ui);
@@ -992,5 +1006,25 @@ mod tests {
                 "the picker keeps a valid choice and clears one with no choices"
             );
         }
+    }
+
+    /// Methodology (#844): a code review chosen on the mindmap asks the
+    /// view to open an entry of a mounted repository. Pass: the view takes
+    /// that repository as its workspace and remembers the entry; showing
+    /// the same workspace again (what the app does every frame) keeps it;
+    /// switching to another workspace drops it with the rest of the view.
+    ///
+    /// Result (2026-10-13): passes.
+    #[test]
+    fn an_entry_chosen_on_the_mindmap_is_remembered_until_the_data_is_ready() {
+        let mut v = CodeReviewView::default();
+        let (a, b) = (Path::new("/tmp/kovan-a"), Path::new("/tmp/kovan-b"));
+        v.open_entry(a, "src/lib.rs::leaf");
+        assert_eq!(v.workspace.as_deref(), Some(a));
+        assert_eq!(v.open_at.as_deref(), Some("src/lib.rs::leaf"));
+        v.set_workspace(Some(a));
+        assert_eq!(v.open_at.as_deref(), Some("src/lib.rs::leaf"));
+        v.set_workspace(Some(b));
+        assert_eq!(v.open_at, None);
     }
 }

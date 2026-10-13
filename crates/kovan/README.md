@@ -621,7 +621,19 @@ if the physics were wrong; is the tolerance justified) and two on usability
 quantity by accident). An answer that fails an axis leaves the stamp at
 rung 3. A rung 4 review written before these questions keeps rung 4 and is
 listed in the need-you queue as "rung 4 axes not recorded" until it is
-stamped again. Map data written before this change is rebuilt the next time
+stamped again.
+
+**Code reviews on the mindmap (#844, 2026-10-13):** when the Kovan folder
+mounts a code repository (Repository management, `[[repos.code]]`), each
+entry a reviewer tied to a standard corpus concept is listed on that
+concept's right-click menu, beside its literature artefacts: the entry, the
+repository, and the review in words ("rung 3, valid", "changed since
+review"). Choosing one opens Code Review on that repository at that entry.
+An entry is tied to a concept in Code Review, by **Add connection…** or by
+the concept link chosen while stamping; both are stored in the code
+repository, nothing in the Kovan folder. The list is collected on a
+background thread and again after Code Review was shown
+(`src/code_review_artifacts.rs`). Map data written before this change is rebuilt the next time
 the Code Review view opens (no rust-analyzer run needed).
 
 Added 2026-10-12 (#838): after a **squash merge or rebase**, the commit a
