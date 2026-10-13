@@ -1401,3 +1401,61 @@ checked against 9a, not 8a
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 46c92f0a88.
+
+# Review: irradiated_strength (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-irradiated-strength-theodoreonzgit-6d19c034"
+kind = "review"
+origin = "human"
+created = "2026-10-13T15:42:02+08:00"
+modified = "2026-10-13T15:42:02+08:00"
+target = "fn:6d19c034ff85e598"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/strength.rs::irradiated_strength"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T15:42:02+08:00"
+commit = "40c95c7a03ef374b1a5538350dad2f4f73222f24"
+hash = "sha256:733e8c62dfa9749bfc5dfe4c68b5b0697f611b7d2c2498c551e8b1466d6f0ee5"
+doc_hash = "sha256:6b9b571c1947f910d8898e6a0ab49a572145ca464707fe80c488af82523c3a0a"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+
+[review.callees]
+"fn:28160a5b4e94007b" = "sha256:e79a1918ddea29db328b79d1f61ac7a89bbddf2396e70cc1896ed20e40cd870b"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "other: no guards, but eqn is essentially correct"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "ZBOiLtVt53IwCnVIsP/8mlyKKn63YDff0bwkBhUWfhdvu532yzKEabkAQ/2RixQ/KeF4Tos6LQsGTHYp3JEIAA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
+kind = "implements"
+```
+
+checked against 8a, looks correct
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 40c95c7a03.
