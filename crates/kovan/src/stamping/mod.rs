@@ -314,6 +314,16 @@ fn locate<'w>(
         .find(function)
         .ok_or_else(|| format!("{function} is not in any kovan.toml (run kovan-cli index)"))?;
     let path = idx.file_path(file);
+    // Types and constants are indexed and shown (#843); the questions a
+    // review of one asks are not built yet, and the function questions do
+    // not fit, so nothing is stamped.
+    if let Some(shape) = f.shape {
+        return Err(format!(
+            "{path}::{} is a {}: reviewing types and constants is not built yet (GitHub #843); nothing was stamped",
+            f.qual,
+            shape.plain_name()
+        ));
+    }
     if git::is_dirty(root, &path)? {
         return Err(format!(
             "{path} has changes not committed: a stamp certifies HEAD, commit first"

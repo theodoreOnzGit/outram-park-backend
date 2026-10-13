@@ -65,3 +65,52 @@ fn refresh_recomputes_hashes_and_flags_what_it_cannot_recompute() {
     assert_eq!(new.modules["lib.rs"].path, "?");
     assert_eq!(r.out_of_date.len(), new.functions().count());
 }
+
+/// Methodology (#843): the refresh on a folder with items. (1) Unchanged
+/// source reproduces the full build byte for byte. (2) A method of
+/// `Fractions` is edited: the struct keeps its id, has a new hash and is
+/// flagged, as the method is; the enum, trait, alias and constant are
+/// untouched. (3) A previous index written before items existed (functions
+/// only): the refresh adds every item, flagged, and keeps every function
+/// entry as it was.
+///
+/// Result (2026-10-13): passes.
+#[test]
+fn refresh_handles_items_like_functions() {
+    use crate::code_index::folders::tests::{input_with_items, TYPES};
+    let full = build(&input_with_items(C1));
+    let prev = &full.folders["crates/kern/src"];
+    let mut fs = files(LIB, UTIL);
+    fs.insert("types.rs".into(), TYPES.into());
+    let (same, r) = refresh_folder("kern", "crates/kern/src", Some(prev), &fs, None, &[], C2);
+    assert_eq!(same.to_toml().unwrap(), prev.to_toml().unwrap());
+    assert!(r.out_of_date.is_empty());
+
+    fs.insert("types.rs".into(), TYPES.replace("        self.sic\n", "        self.sic * 1.0\n"));
+    let (ix, r) = refresh_folder("kern", "crates/kern/src", Some(prev), &fs, None, &[], C2);
+    let get = |i: &FolderIndex, q: &str| i.modules["types.rs"].functions.iter().find(|f| f.qual == q).cloned().unwrap();
+    let (old, new) = (get(prev, "Fractions"), get(&ix, "Fractions"));
+    assert_eq!(new.id, old.id);
+    assert_ne!(new.hash, old.hash);
+    assert!(new.index_out_of_date);
+    for q in ["Regime", "Fluid", "Fraction", "SIGMA", "TOL"] {
+        assert_eq!(get(&ix, q), get(prev, q), "{q}");
+    }
+    assert_eq!(
+        r.out_of_date,
+        vec!["crates/kern/src/types.rs::Fractions", "crates/kern/src/types.rs::Fractions::total"]
+    );
+
+    let mut before_items = prev.clone();
+    for m in before_items.modules.values_mut() {
+        m.functions.retain(|f| f.item.is_fn());
+    }
+    fs.insert("types.rs".into(), TYPES.into());
+    let (ix, _) = refresh_folder("kern", "crates/kern/src", Some(&before_items), &fs, None, &[], C2);
+    for (name, m) in &before_items.modules {
+        let fns: Vec<&FunctionIndex> = ix.modules[name].functions.iter().filter(|f| f.item.is_fn()).collect();
+        assert_eq!(fns, m.functions.iter().collect::<Vec<_>>(), "{name}");
+    }
+    let added = get(&ix, "SIGMA");
+    assert!(added.index_out_of_date && added.shape.is_some());
+}

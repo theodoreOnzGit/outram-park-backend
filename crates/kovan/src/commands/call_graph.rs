@@ -547,6 +547,9 @@ fn build_with(
                 for f in &functions {
                     in_scope.insert((file.clone(), f.line), f.id.clone());
                 }
+                // Schema 4 (#843): the file's types and constants.
+                let fn_ids: BTreeSet<String> = functions.iter().map(|f| f.id.clone()).collect();
+                let items = crate::call_graph::items::items_of(&file, &idx.lines.join("\n"), &fn_ids, test);
                 let maturity = match kind {
                     TargetKind::Lib => module_maturity(map, &m.name, &path),
                     TargetKind::Example | TargetKind::Test => {
@@ -563,6 +566,7 @@ fn build_with(
                     upstream,
                     upstream_unparsed,
                     history: Vec::new(),
+                    items,
                     concepts,
                 });
             }
@@ -971,6 +975,7 @@ fn functions_of(
             unresolved: Vec::new(),
             test_fn,
             reached_by: None,
+            shape: None,
             cited_by: Vec::new(),
         });
     }

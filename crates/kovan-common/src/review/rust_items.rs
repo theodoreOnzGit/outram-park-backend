@@ -21,6 +21,25 @@
 //! so it cannot be stamped by itself. (`code-walk`'s text scanner does see
 //! nested `fn`s; that is the one place the two differ.)
 //!
+//! # Which other items exist (GitHub #843, 2026-10-13)
+//!
+//! Besides functions the parser lists, in [`ParsedFile::items`], every
+//! `struct`, `enum`, `union`, `trait`, `type` alias, `const` and `static` at
+//! item level (any depth of inline `mod`), each as an [`FnEntry`] whose
+//! [`FnEntry::shape`] says which it is. Left out: `const _` (an unnamed
+//! compile-time check), and constants and types declared inside an `impl` or
+//! a `trait` (they are part of that block). A trait is listed once as an
+//! item and its methods are still listed as functions.
+//!
+//! An item's code text is its whole definition. For a struct, enum or union
+//! the name-free text the hash is taken over also carries the name-free code
+//! of **every method written for it in the same file** (inherent and trait
+//! `impl` blocks whose self type has that name), sorted, so that changing,
+//! adding or removing a method changes the type's hash (maintainer, #843,
+//! 2026-10-13: "changes in definitions and methods make structs and enums
+//! stamp stale"). An `impl` in another file is not folded in: the parser
+//! reads one file at a time.
+//!
 //! # How a path names one
 //!
 //! Exactly as `kovan-cli code-walk` names it (`commands/code_walk/source.rs`
@@ -63,6 +82,8 @@ use quote::ToTokens;
 use syn::spanned::Spanned;
 use syn::{Attribute, Expr, ExprLit, ImplItem, Item, Lit, Meta, TraitItem};
 
+use super::index::{ItemKind, ItemShape};
+
 /// The block a function is declared in.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Container {
@@ -99,9 +120,19 @@ pub struct FnEntry {
     pub is_test: bool,
     /// Inline modules enclosing the function, outermost first.
     pub inline_parents: Vec<String>,
+    /// 1-based line the item's own name is written on.
+    pub name_line: u32,
+    /// `None` for a function; which kind of item otherwise (module doc,
+    /// "Which other items exist").
+    pub shape: Option<ItemShape>,
 }
 
 impl FnEntry {
+    /// The index's item kind: a function, a constant, a static or a type.
+    pub fn item(&self) -> ItemKind {
+        self.shape.map_or(ItemKind::Fn, ItemShape::item)
+    }
+
     /// `Type::name` for a method, `Trait::name` for a trait declaration,
     /// `name` for a free function (`code-walk`'s qualified name).
     pub fn qualname(&self) -> String {
@@ -129,6 +160,8 @@ pub struct ModDecl {
 #[derive(Debug, Clone, Default)]
 pub struct ParsedFile {
     pub fns: Vec<FnEntry>,
+    /// Every other reviewable item (module doc, "Which other items exist").
+    pub items: Vec<FnEntry>,
     pub mods: Vec<ModDecl>,
     /// Every inline `mod name { ... }`, as its full inline path.
     pub inline_mods: Vec<Vec<String>>,
@@ -168,6 +201,7 @@ pub fn parse_file(text: &str) -> Result<ParsedFile, String> {
     })?;
     let mut out = ParsedFile::default();
     walk_items(&file.items, &mut Vec::new(), false, &mut out);
+    fold_methods(&mut out);
     // proc-macro2 keeps every parsed source in a per-thread map so spans can
     // report lines; nothing above holds a span any more, so free it (a
     // long-running GUI would otherwise keep every file it ever parsed).
@@ -223,7 +257,7 @@ fn walk_items(items: &[Item], inline: &mut Vec<String>, in_test: bool, out: &mut
                 let mut bare = f.clone();
                 let doc = take_docs(&mut bare.attrs);
                 out.fns.push(entry(
-                    f.sig.ident.to_string(),
+                    &f.sig.ident,
                     Container::Free,
                     f.span(),
                     doc,
@@ -248,7 +282,7 @@ fn walk_items(items: &[Item], inline: &mut Vec<String>, in_test: bool, out: &mut
                         let mut bare = f.clone();
                         let doc = take_docs(&mut bare.attrs);
                         out.fns.push(entry(
-                            f.sig.ident.to_string(),
+                            &f.sig.ident,
                             container.clone(),
                             f.span(),
                             doc,
@@ -259,7 +293,14 @@ fn walk_items(items: &[Item], inline: &mut Vec<String>, in_test: bool, out: &mut
                     }
                 }
             }
+            Item::Struct(i) => push_item(&i.ident, ItemShape::Struct, &i.attrs, item, in_test, inline, out),
+            Item::Enum(i) => push_item(&i.ident, ItemShape::Enum, &i.attrs, item, in_test, inline, out),
+            Item::Union(i) => push_item(&i.ident, ItemShape::Union, &i.attrs, item, in_test, inline, out),
+            Item::Type(i) => push_item(&i.ident, ItemShape::Alias, &i.attrs, item, in_test, inline, out),
+            Item::Const(i) => push_item(&i.ident, ItemShape::Const, &i.attrs, item, in_test, inline, out),
+            Item::Static(i) => push_item(&i.ident, ItemShape::Static, &i.attrs, item, in_test, inline, out),
             Item::Trait(t) => {
+                push_item(&t.ident, ItemShape::Trait, &t.attrs, item, in_test, inline, out);
                 let in_test = in_test || is_cfg_test(&t.attrs);
                 let container = Container::Trait {
                     name: t.ident.to_string(),
@@ -269,7 +310,7 @@ fn walk_items(items: &[Item], inline: &mut Vec<String>, in_test: bool, out: &mut
                         let mut bare = f.clone();
                         let doc = take_docs(&mut bare.attrs);
                         out.fns.push(entry(
-                            f.sig.ident.to_string(),
+                            &f.sig.ident,
                             container.clone(),
                             f.span(),
                             doc,
@@ -302,8 +343,84 @@ fn walk_items(items: &[Item], inline: &mut Vec<String>, in_test: bool, out: &mut
     }
 }
 
+/// Lists one non-function item (module doc, "Which other items exist").
+/// `const _` is skipped: it has no name to review it under.
+fn push_item(
+    ident: &syn::Ident,
+    shape: ItemShape,
+    attrs: &[Attribute],
+    item: &Item,
+    in_test: bool,
+    inline: &[String],
+    out: &mut ParsedFile,
+) {
+    let name = ident.to_string();
+    if name == "_" {
+        return;
+    }
+    let name_line = ident.span().start().line as u32;
+    let is_test = in_test || is_cfg_test(attrs);
+    let mut bare = item.clone();
+    let doc = match &mut bare {
+        Item::Struct(i) => take_docs(&mut i.attrs),
+        Item::Enum(i) => take_docs(&mut i.attrs),
+        Item::Union(i) => take_docs(&mut i.attrs),
+        Item::Type(i) => take_docs(&mut i.attrs),
+        Item::Const(i) => take_docs(&mut i.attrs),
+        Item::Static(i) => take_docs(&mut i.attrs),
+        Item::Trait(i) => take_docs(&mut i.attrs),
+        _ => Vec::new(),
+    };
+    let code = bare.to_token_stream();
+    let mut code_text = String::new();
+    push_tokens(code.clone(), &mut code_text);
+    let mut anon = String::new();
+    let mut dropped = false;
+    for tt in code {
+        if !dropped && matches!(&tt, TokenTree::Ident(i) if *i == name) {
+            dropped = true;
+            continue;
+        }
+        push_tokens(std::iter::once(tt).collect(), &mut anon);
+    }
+    let span = item.span();
+    out.items.push(FnEntry {
+        code_without_name: anon.trim_end().to_string(),
+        name,
+        container: Container::Free,
+        lines: [span.start().line as u32, span.end().line as u32],
+        doc: normalise_doc(&doc),
+        code: code_text.trim_end().to_string(),
+        is_test,
+        inline_parents: inline.to_vec(),
+        name_line,
+        shape: Some(shape),
+    });
+}
+
+/// Appends to each struct, enum and union's name-free text the name-free
+/// code of every method written for it in this file, sorted (module doc).
+fn fold_methods(out: &mut ParsedFile) {
+    for it in &mut out.items {
+        if !matches!(it.shape, Some(ItemShape::Struct | ItemShape::Enum | ItemShape::Union)) {
+            continue;
+        }
+        let mut methods: Vec<&str> = out
+            .fns
+            .iter()
+            .filter(|f| matches!(&f.container, Container::Impl { self_ty, .. } if *self_ty == it.name))
+            .map(|f| f.code_without_name.as_str())
+            .collect();
+        methods.sort_unstable();
+        for m in methods {
+            it.code_without_name.push_str("\nmethod: ");
+            it.code_without_name.push_str(m);
+        }
+    }
+}
+
 fn entry(
-    name: String,
+    ident: &syn::Ident,
     container: Container,
     span: proc_macro2::Span,
     doc: Vec<String>,
@@ -311,11 +428,13 @@ fn entry(
     is_test: bool,
     inline: &[String],
 ) -> FnEntry {
+    let name = ident.to_string();
     let mut code_text = String::new();
     push_tokens(code.clone(), &mut code_text);
     let mut anon = String::new();
     push_tokens_without_name(code, &name, &mut anon);
     FnEntry {
+        name_line: ident.span().start().line as u32,
         code_without_name: anon.trim_end().to_string(),
         name,
         container,
@@ -324,6 +443,7 @@ fn entry(
         code: code_text.trim_end().to_string(),
         is_test,
         inline_parents: inline.to_vec(),
+        shape: None,
     }
 }
 
@@ -554,6 +674,57 @@ mod tests {
                 has_path_attr: false
             },]
         );
+    }
+
+    /// Methodology: the fixture's other items (#843). Every struct, trait,
+    /// alias, constant and static is listed with its shape and line range;
+    /// `const _` is not. A struct's hash text changes when a method written
+    /// for it in the same file changes, is added or is removed, and when a
+    /// field changes; renaming the struct alone, reformatting and comments
+    /// keep it. A method on another type does not touch it.
+    ///
+    /// Result (2026-10-13): passes.
+    #[test]
+    fn lists_types_constants_and_folds_methods_into_a_type() {
+        let p = parse_file(SRC).unwrap();
+        let got: Vec<(&str, ItemShape)> = p.items.iter().map(|i| (i.name.as_str(), i.shape.unwrap())).collect();
+        assert_eq!(got, [("Sphere", ItemShape::Struct), ("Shape", ItemShape::Trait)]);
+        assert_eq!(p.items[0].lines, [12, 12]);
+        assert_eq!(p.items[0].item(), ItemKind::Type);
+        assert_eq!(p.fns[0].item(), ItemKind::Fn);
+
+        let one = |src: &str, name: &str| -> FnEntry {
+            parse_file(src).unwrap().items.into_iter().find(|i| i.name == name).unwrap()
+        };
+        let base_src = "/// A ball.\npub struct Ball { r: f64 }\nimpl Ball { fn area(&self) -> f64 { 4.0 * self.r } }\nstruct Other; impl Other { fn a(&self) {} }\npub const PI2: f64 = 6.28;\npub static N: u8 = 1;\ntype R = f64;\nenum E { A, B }\nunion U { a: u8 }\nconst _: () = ();";
+        let base = one(base_src, "Ball");
+        assert_eq!(base.doc, "A ball.");
+        assert_eq!(base.code, "pub struct Ball { r : f64 }");
+        let shapes: Vec<ItemShape> = parse_file(base_src).unwrap().items.iter().map(|i| i.shape.unwrap()).collect();
+        assert_eq!(
+            shapes,
+            [ItemShape::Struct, ItemShape::Struct, ItemShape::Const, ItemShape::Static, ItemShape::Alias, ItemShape::Enum, ItemShape::Union]
+        );
+        let same = [
+            base_src.replace("Ball", "Globe"),
+            base_src.replace("{ r: f64 }", "{\n    r: f64, // radius\n}").replace("r: f64,", "r: f64"),
+            base_src.replace("fn area", "fn surface"),
+            base_src.replace("fn a(&self) {}", "fn a(&self) { let _x = 1; }"),
+        ];
+        for s in &same {
+            let name = if s.contains("Globe") { "Globe" } else { "Ball" };
+            assert_eq!(one(s, name).code_without_name, base.code_without_name, "{s}");
+        }
+        let differ = [
+            base_src.replace("4.0 * self.r", "3.0 * self.r"),
+            base_src.replace("impl Ball { fn area(&self) -> f64 { 4.0 * self.r } }", ""),
+            base_src.replace("struct Other;", "impl Ball { fn two(&self) {} } struct Other;"),
+            base_src.replace("{ r: f64 }", "{ r: f32 }"),
+        ];
+        for s in &differ {
+            assert_ne!(one(s, "Ball").code_without_name, base.code_without_name, "{s}");
+        }
+        assert_eq!(one(base_src, "PI2").code_without_name, "pub const : f64 = 6.28 ;");
     }
 
     /// Methodology: the parser must read real workspace code, not only

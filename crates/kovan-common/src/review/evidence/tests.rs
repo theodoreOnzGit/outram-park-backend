@@ -244,6 +244,7 @@ fn func(file: &str, name: &str, id_suffix: &str) -> Function {
         source: String::new(),
         unresolved: Vec::new(),
         reached_by: None,
+        shape: None,
         cited_by: Vec::new(),
     }
 }
@@ -259,6 +260,7 @@ fn module(file: &str, path: &str, functions: Vec<Function>) -> Module {
         upstream: None,
         upstream_unparsed: None,
         history: Vec::new(),
+        items: Vec::new(),
         concepts: Vec::new(),
     }
 }

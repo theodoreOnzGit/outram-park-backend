@@ -221,8 +221,10 @@ fn call_graph_against_a_real_rust_analyzer() {
     // Schema 2 (#746).
     // ~~`assert_eq!(v["schema"], 2)`~~ CORRECTED 2026-10-07: schema 3 (#757)
     // only adds the `operator` call kind and `generator`; the schema-2
-    // checks below are unchanged.
-    assert_eq!(v["schema"], 3);
+    // checks below are unchanged. ~~`assert_eq!(v["schema"], 3)`~~
+    // CORRECTED 2026-10-13: schema 4 (#843) only adds `Module.items` and
+    // `Function.shape`.
+    assert_eq!(v["schema"], 4);
     assert_eq!(v["generator"]["backend"], "lsp");
     let kern = &v["crates"][1];
     assert_eq!(kern["tests"][0]["kind"], "test");

@@ -180,6 +180,7 @@ mod tests {
             name: "flash".into(),
             qual: "Steam::flash".into(),
             item: Default::default(),
+            shape: None,
             lines: [3, 8],
             hash: format!("sha256:{}", "a".repeat(64)),
             doc_hash: format!("sha256:{}", "b".repeat(64)),

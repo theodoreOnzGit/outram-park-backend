@@ -71,6 +71,7 @@ fn module_of(file: &str, path: &str, text: &str, extra: &[(&str, u32, u32)]) -> 
                 source: String::new(),
                 unresolved: Vec::new(),
                 reached_by: None,
+                shape: None,
                 cited_by: Vec::new(),
             }
         })
@@ -96,6 +97,7 @@ fn module_of(file: &str, path: &str, text: &str, extra: &[(&str, u32, u32)]) -> 
         upstream: None,
         upstream_unparsed: None,
         history: Vec::new(),
+        items: Vec::new(),
         concepts: Vec::new(),
     }
 }
@@ -293,4 +295,107 @@ fn output_is_deterministic_and_reviewed_ids_survive_losing_the_cache() {
     let rebuilt = build(&with_review);
     assert_eq!(find(&rebuilt, "crates/kern/src", "lib.rs", "leaf").id, "fn:00000000000000aa");
     assert_eq!(find(&rebuilt, "crates/kern/src", "util.rs", "helper").id, helper.id);
+}
+
+/// A file holding only items, as a `types.rs` would.
+pub(crate) const TYPES: &str = "/// Failure fraction of each coating layer.
+pub struct Fractions {
+    pub sic: f64,
+}
+
+impl Fractions {
+    pub fn total(&self) -> f64 {
+        self.sic
+    }
+}
+
+/// Flow regime.
+pub enum Regime {
+    Laminar,
+    Turbulent,
+}
+
+pub trait Fluid {
+    fn density(&self) -> f64;
+}
+
+pub type Fraction = f64;
+
+/// Stefan-Boltzmann constant, W/(m2 K4), CODATA 2018.
+pub const SIGMA: f64 = 5.670374e-8;
+
+#[cfg(test)]
+mod tests {
+    const TOL: f64 = 1e-9;
+}
+";
+
+pub(crate) const TYPES_RS: &str = "crates/kern/src/types.rs";
+
+/// [`input`] with a third library file, `types.rs`, and every file's items.
+pub(crate) fn input_with_items(commit: &str) -> BuildInput {
+    let mut i = input(commit);
+    i.doc.crates[0].targets[0].modules.push(module_of(TYPES_RS, "types", TYPES, &[]));
+    i.hashed.insert(TYPES_RS.into(), hash_functions(TYPES).unwrap());
+    for (p, t) in [(LIB_RS, LIB), (UTIL_RS, UTIL), (IT_RS, IT), (TYPES_RS, TYPES)] {
+        i.items.insert(p.into(), crate::review::hash::hash_items(t).unwrap());
+    }
+    i
+}
+
+/// Methodology (#843): build the fixture with a `types.rs` holding a
+/// struct with a method, an enum, a trait, a type alias, a constant and a
+/// constant under `#[cfg(test)]`. Pass: each is written to the folder's
+/// `kovan.toml` beside the functions with its `item`, `shape`, hash and
+/// line range; the test constant is marked test code; ids are minted
+/// `fn:` ids and stay the same on a second build at another commit; the
+/// functions of the fixture are exactly as they were without items; a
+/// first-version reader's view survives (the text parses back to the same
+/// index); and an input without items writes no item.
+///
+/// Result (2026-10-13): passes.
+#[test]
+fn items_are_indexed_beside_functions() {
+    let b = build(&input_with_items(C1));
+    assert!(b.report.skipped_items.is_empty());
+    let fi = &b.folders["crates/kern/src"];
+    let got: Vec<(String, ItemKind, Option<ItemShape>, bool)> = fi.modules["types.rs"]
+        .functions
+        .iter()
+        .map(|f| (f.qual.clone(), f.item, f.shape, f.test))
+        .collect();
+    let want = [
+        ("Fractions", ItemKind::Type, Some(ItemShape::Struct), false),
+        ("Fractions::total", ItemKind::Fn, None, false),
+        ("Regime", ItemKind::Type, Some(ItemShape::Enum), false),
+        ("Fluid", ItemKind::Type, Some(ItemShape::Trait), false),
+        ("Fluid::density", ItemKind::Fn, None, false),
+        ("Fraction", ItemKind::Type, Some(ItemShape::Alias), false),
+        ("SIGMA", ItemKind::Const, Some(ItemShape::Const), false),
+        ("TOL", ItemKind::Const, Some(ItemShape::Const), true),
+    ];
+    let mut got_sorted = got.clone();
+    got_sorted.sort();
+    let mut want_sorted: Vec<_> = want.iter().map(|(q, i, s, t)| (q.to_string(), *i, *s, *t)).collect();
+    want_sorted.sort();
+    assert_eq!(got_sorted, want_sorted);
+    let fr = find(&b, "crates/kern/src", "types.rs", "Fractions");
+    assert_eq!(fr.lines, [1, 4]);
+    assert!(fr.id.starts_with("fn:") && fr.hash.starts_with("sha256:"));
+    assert!(fr.callees.is_empty() && fr.reached_by.is_empty());
+    // Ids are stable across builds, with the first build as the priors.
+    let mut again = input_with_items(C2);
+    again.previous = b.folders.clone();
+    let b2 = build(&again);
+    assert_eq!(b2.folders, b.folders);
+    // The functions are untouched by indexing items.
+    let plain = build(&input(C1));
+    for (name, m) in &plain.folders["crates/kern/src"].modules {
+        let fns: Vec<&FunctionIndex> = fi.modules[name].functions.iter().filter(|f| f.item.is_fn()).collect();
+        assert_eq!(fns, m.functions.iter().collect::<Vec<_>>(), "{name}");
+    }
+    assert!(plain.folders.values().all(|f| f.functions().all(|(_, f)| f.shape.is_none())));
+    let text = fi.to_toml().unwrap();
+    assert!(text.contains("item = \"type\"") && text.contains("shape = \"struct\""), "{text}");
+    assert_eq!(&FolderIndex::parse(&text).unwrap(), fi);
 }

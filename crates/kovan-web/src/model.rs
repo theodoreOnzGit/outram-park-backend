@@ -39,7 +39,8 @@ pub struct ModNode {
     pub parent: Option<usize>,
     pub children: Vec<usize>,
     pub functions: usize,
-    /// The ids of those functions, for the card's reviewed / to-review
+    /// The ids of those functions and of the module's types and constants
+    /// (#843), for the card's reviewed / to-review
     /// counts ([`Facts::review_split`]).
     pub fn_ids: Vec<String>,
     pub maturity: Option<u8>,
@@ -81,7 +82,7 @@ impl ModTree {
                     parent: m.parent.as_deref().and_then(|p| index.get(p).copied()),
                     children: Vec::new(),
                     functions: m.functions.iter().filter(|f| tests || !f.test).count(),
-                    fn_ids: m.functions.iter().filter(|f| tests || !f.test).map(|f| f.id.clone()).collect(),
+                    fn_ids: reviewables(m, tests).map(|f| f.id.clone()).collect(),
                     maturity: m.maturity,
                     test: m.test,
                 });
@@ -482,11 +483,23 @@ impl Facts {
     }
 }
 
-/// A function and the module it is in, by id (integration-test targets
-/// included, schema 2).
+/// Everything of a module that is reviewed: its functions, then its types
+/// and constants (schema 4, #843). Test code only when `tests`.
+pub fn reviewables(m: &Module, tests: bool) -> impl Iterator<Item = &Function> {
+    m.functions.iter().chain(m.items.iter()).filter(move |f| tests || !f.test)
+}
+
+/// What a card or list row calls the entry: `Type::name` for a method, the
+/// bare name otherwise.
+pub fn display_name(f: &Function) -> String {
+    f.owner.as_ref().map(|o| format!("{o}::{}", f.name)).unwrap_or(f.name.clone())
+}
+
+/// A function, type or constant and the module it is in, by id
+/// (integration-test targets included, schema 2; items since schema 4).
 pub fn find_function<'a>(krate: &'a CrateGraph, id: &str) -> Option<(&'a Module, &'a Function, TargetKind)> {
     krate.targets.iter().chain(krate.tests.iter()).find_map(|t| {
-        t.modules.iter().find_map(|m| m.functions.iter().find(|f| f.id == id).map(|f| (m, f, t.kind)))
+        t.modules.iter().find_map(|m| m.functions.iter().chain(m.items.iter()).find(|f| f.id == id).map(|f| (m, f, t.kind)))
     })
 }
 
@@ -692,6 +705,7 @@ mod tests {
             unresolved: Vec::new(),
             test_fn: false,
             reached_by: None,
+            shape: None,
             cited_by: Vec::new(),
         }
     }
@@ -707,6 +721,7 @@ mod tests {
             upstream: None,
             upstream_unparsed: None,
             history: Vec::new(),
+            items: Vec::new(),
             concepts: Vec::new(),
         }
     }
@@ -940,5 +955,40 @@ mod tests {
         let live = t.find("crates/bl/src/fork/act/live_pools.rs").unwrap();
         assert_eq!(t.nodes[live].fn_ids.len(), t.nodes[live].functions);
         assert_eq!(crate_of(&map, &a), Some("bl"));
+    }
+
+    /// Methodology (#843): give `chem.rs` a struct item beside its one
+    /// function. Pass: [`reviewables`] lists the function then the struct;
+    /// [`find_function`] finds the struct by id with its module; the module
+    /// tree counts one function and carries both ids for the reviewed /
+    /// to-review split; a test-only item is hidden unless tests are shown;
+    /// and a method shows as `Type::name`, an item by its bare name.
+    ///
+    /// Result (2026-10-13): passes.
+    #[test]
+    fn types_and_constants_are_listed_with_the_functions() {
+        use kovan_common::review::index::ItemShape;
+        let mut k = krate();
+        let file = "crates/bl/src/chem.rs";
+        let m = k.targets[0].modules.iter_mut().find(|m| m.file == file).unwrap();
+        let mut rec = func(file, "Rates", 20);
+        rec.shape = Some(ItemShape::Struct);
+        let mut hidden = func(file, "Tol", 30);
+        hidden.shape = Some(ItemShape::Const);
+        hidden.test = true;
+        m.items = vec![rec, hidden];
+        let m = k.targets[0].modules.iter().find(|m| m.file == file).unwrap();
+        let ids: Vec<&str> = reviewables(m, false).map(|f| f.id.as_str()).collect();
+        assert_eq!(ids, ["crates/bl/src/chem.rs::rate", "crates/bl/src/chem.rs::Rates"]);
+        assert_eq!(reviewables(m, true).count(), 3);
+        let (found_in, f, _) = find_function(&k, "crates/bl/src/chem.rs::Rates").unwrap();
+        assert_eq!((found_in.file.as_str(), f.shape), (file, Some(ItemShape::Struct)));
+        assert_eq!(display_name(f), "Rates");
+        let mut method = func(file, "at", 5);
+        method.owner = Some("Rates".into());
+        assert_eq!(display_name(&method), "Rates::at");
+        let t = ModTree::build(&k, false);
+        let node = &t.nodes[t.find(file).unwrap()];
+        assert_eq!((node.functions, node.fn_ids.len()), (1, 2));
     }
 }

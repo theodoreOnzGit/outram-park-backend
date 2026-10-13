@@ -14,6 +14,18 @@
 //! out; it is counted in [`BuildReport::unhashed`]. Its calls are not
 //! lost: `callees` looks **through** it (below).
 //!
+//! # Other items (GitHub #843, 2026-10-13)
+//!
+//! Every struct, enum, union, trait, type alias, constant and static the
+//! hasher lists for a file of the call graph
+//! ([`crate::review::hash::hash_items`], passed as [`BuildInput::items`])
+//! is written beside the functions, with `item` and `shape` set. Its path
+//! id is `file::Name` ([`crate::call_graph::function_ids`] over the file's
+//! items, so two of one name get `#k`); one whose path id a function
+//! already holds is left out and counted in [`BuildReport::skipped_items`].
+//! An item is test code when it sits under `#[cfg(test)]` or in a test
+//! module or target. Its `callees` and `reached_by` are empty.
+//!
 //! # Fields
 //!
 //! - `id`: [`super::ids`].
@@ -57,10 +69,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::call_graph::reach::tests_reaching;
-use crate::call_graph::{CallGraphDoc, TargetKind};
+use crate::call_graph::{function_ids, CallGraphDoc, TargetKind};
 use crate::review::hash::HashedFn;
 use crate::review::index::{
-    CachedReview, DeletedFolder, FolderIndex, FunctionIndex, ItemKind, ModuleIndex, TestRun,
+    CachedReview, DeletedFolder, FolderIndex, FunctionIndex, ItemKind, ItemShape, ModuleIndex, TestRun,
 };
 use crate::review::review_md::ReviewDocument;
 
@@ -74,6 +86,9 @@ pub struct BuildInput {
     /// Workspace-relative file -> its hashed functions. A file missing here
     /// (it did not parse) contributes no functions; the caller reports it.
     pub hashed: BTreeMap<String, Vec<HashedFn>>,
+    /// Workspace-relative file -> its other hashed items (module doc,
+    /// "Other items"). Empty: only functions are indexed.
+    pub items: BTreeMap<String, Vec<HashedFn>>,
     /// Workspace-relative `review.md` path -> parsed.
     pub reviews: BTreeMap<String, ReviewDocument>,
     /// Folder -> its previous, readable `kovan.toml`.
@@ -98,6 +113,8 @@ pub struct BuildReport {
     pub unmatched: Vec<Unmatched>,
     /// Out-of-scope callees with no known id (scoped runs).
     pub outside_without_id: Vec<String>,
+    /// Items whose path id a function already holds (module doc).
+    pub skipped_items: Vec<String>,
 }
 
 /// The folders' indexes and the report.
@@ -163,6 +180,7 @@ pub fn build(input: &BuildInput) -> Built {
         hash: String,
         doc_hash: String,
         lines: [u32; 2],
+        shape: Option<ItemShape>,
     }
     let mut rows: BTreeMap<String, Row> = BTreeMap::new();
     let mut folders: BTreeMap<String, FolderIndex> = BTreeMap::new();
@@ -204,11 +222,34 @@ pub fn build(input: &BuildInput) -> Built {
                                     hash: h.hashes.hash.clone(),
                                     doc_hash: h.hashes.doc_hash.clone(),
                                     lines: h.entry.lines,
+                                    shape: None,
                                 },
                             );
                         }
                         None => report.unhashed.push(f.id.clone()),
                     }
+                }
+                let its = input.items.get(&m.file).map(Vec::as_slice).unwrap_or(&[]);
+                let quals: Vec<String> = its.iter().map(|h| h.entry.name.clone()).collect();
+                for (h, (pid, _)) in its.iter().zip(function_ids(&m.file, &quals)) {
+                    if rows.contains_key(&pid) {
+                        report.skipped_items.push(pid);
+                        continue;
+                    }
+                    rows.insert(
+                        pid,
+                        Row {
+                            dir: dir.clone(),
+                            file: file_name(&m.file).to_string(),
+                            name: h.entry.name.clone(),
+                            test: h.entry.is_test || m.test || t.kind == TargetKind::Test,
+                            physical: input.quantities.is_physical(&h.entry.code),
+                            hash: h.hashes.hash.clone(),
+                            doc_hash: h.hashes.doc_hash.clone(),
+                            lines: h.entry.lines,
+                            shape: h.entry.shape,
+                        },
+                    );
                 }
             }
         }
@@ -283,7 +324,8 @@ pub fn build(input: &BuildInput) -> Built {
                 .strip_prefix(&format!("{}/{}::", r.dir, r.file))
                 .unwrap_or(pid)
                 .to_string(),
-            item: ItemKind::Fn,
+            item: r.shape.map_or(ItemKind::Fn, ItemShape::item),
+            shape: r.shape,
             lines: r.lines,
             hash: r.hash.clone(),
             doc_hash: r.doc_hash.clone(),
@@ -302,6 +344,7 @@ pub fn build(input: &BuildInput) -> Built {
     }
     report.outside_without_id = missing.into_iter().collect();
     report.unhashed.sort();
+    report.skipped_items.sort();
     for (dir, fi) in &mut folders {
         fi.test_run = input.test_runs.get(dir).cloned();
         let md = if dir.is_empty() {

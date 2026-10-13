@@ -27,6 +27,7 @@ fn func(qual: &str) -> FunctionIndex {
         name: qual.into(),
         qual: qual.into(),
         item: ItemKind::Fn,
+        shape: None,
         lines: [1, 3],
         hash: format!("sha256:{}", "b".repeat(64)),
         doc_hash: format!("sha256:{}", "d".repeat(64)),

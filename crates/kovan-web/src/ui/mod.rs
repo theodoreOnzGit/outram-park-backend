@@ -953,12 +953,21 @@ impl CodeReview {
         let facts = snap.facts();
         let map = snap.map.clone();
         let mut pick = None;
-        for f in module.functions.iter().filter(|f| self.show_tests || !f.test) {
+        let mut items_headed = false;
+        for f in model::reviewables(&module, self.show_tests) {
+            // The module's types and constants follow its functions (#843).
+            if f.shape.is_some() && !items_headed {
+                items_headed = true;
+                ui.separator();
+                ui.label(RichText::new("Types and constants").strong());
+            }
             let sel = self.place.selected.as_deref() == Some(f.id.as_str());
             ui.horizontal_wrapped(|ui| {
-                let name = f.owner.as_ref().map(|o| format!("{o}::{}", f.name)).unwrap_or(f.name.clone());
-                if ui.selectable_label(sel, RichText::new(name).monospace().strong()).clicked() {
+                if ui.selectable_label(sel, RichText::new(model::display_name(f)).monospace().strong()).clicked() {
                     pick = Some(f.id.clone());
+                }
+                if let Some(shape) = f.shape {
+                    ui.weak(shape.plain_name());
                 }
                 let r = facts.review(&f.id);
                 ui.colored_label(bar::review_colour(&r), r.label());

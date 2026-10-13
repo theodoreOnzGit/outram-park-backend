@@ -589,7 +589,7 @@ impl CodeReview {
         let slice = snap.slice(krate)?;
         let (module, _, _) = model::find_module(&slice.krate, file)?;
         let facts = snap.facts();
-        let ring_ids: Vec<String> = module.functions.iter().filter(|f| self.show_tests || !f.test).map(|f| f.id.clone()).collect();
+        let ring_ids: Vec<String> = model::reviewables(module, self.show_tests).map(|f| f.id.clone()).collect();
         let slice_for = |id: &str| -> Option<Arc<CrateSlice>> { snap.slice_of(id).cloned() };
         let hl = model::hierarchy_layout(
             &ring_ids,
@@ -631,7 +631,12 @@ impl CodeReview {
         painter.rect(mr, 8.0 * z, fill_of(col), Stroke::new(2.0, col), StrokeKind::Inside);
         let name = file.rsplit('/').next().unwrap_or(file).to_string();
         let path = if module.path.is_empty() { format!("{krate} (target root)") } else { module.path.clone() };
-        let sub = format!("{} functions", ring_ids.len());
+        let n_items = module.items.iter().filter(|f| self.show_tests || !f.test).count();
+        let sub = if n_items == 0 {
+            format!("{} functions", ring_ids.len())
+        } else {
+            format!("{} functions · {n_items} types and constants", ring_ids.len() - n_items)
+        };
         card_text(painter, mr, &[(name.as_str(), 16.0, Color32::WHITE), (path.as_str(), 10.0, Color32::from_gray(190)), (sub.as_str(), 11.0, Color32::from_gray(200))], z);
         hits.push((mr, Hit::ModuleCard));
         let mut draw_fn = |id: &str, p: Point, toggles: (bool, bool)| {
@@ -643,14 +648,15 @@ impl CodeReview {
             let selected = sel.as_deref() == Some(id);
             let fill = if k == krate { Color32::from_rgb(30, 34, 44) } else { fill_of(tc) };
             painter.rect(r, 6.0 * z, fill, Stroke::new(if selected { 3.5 } else { 2.0 }, if selected { Color32::WHITE } else { review_colour(&review) }), StrokeKind::Inside);
-            let found = snap.slice_of(id).and_then(|s| model::find_function(&s.krate, id).map(|(m, f, _)| (model::function_maturity(m, map, k), f.owner.clone(), f.name.clone())));
+            let found = snap.slice_of(id).and_then(|s| model::find_function(&s.krate, id).map(|(m, f, _)| (model::function_maturity(m, map, k), model::display_name(f), f.shape)));
             let title = match &found {
-                Some((_, Some(o), n)) => format!("{o}::{n}"),
-                Some((_, None, n)) => n.clone(),
+                Some((_, n, _)) => n.clone(),
                 None => model::short_name(id).to_string(),
             };
             let mat = found.as_ref().and_then(|f| f.0).map(|m| format!("M{m} · ")).unwrap_or_default();
-            let line2 = format!("{mat}{}", review.label());
+            // A type or constant says what it is in plain words (#843).
+            let what = found.as_ref().and_then(|f| f.2).map(|s| format!("{} · ", s.plain_name())).unwrap_or_default();
+            let line2 = format!("{what}{mat}{}", review.label());
             let mut lines = vec![(title.as_str(), 12.5, Color32::WHITE), (line2.as_str(), 10.0, review_colour(&review))];
             if k != krate {
                 lines.push((k, 9.5, tc));

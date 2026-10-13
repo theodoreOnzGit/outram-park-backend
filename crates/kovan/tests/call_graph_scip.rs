@@ -149,7 +149,8 @@ fn scip_backend_agrees_with_lsp_and_adds_operators() {
     let index = root.join("target/kovan-scip/index.scip");
     assert!(index.is_file(), "the index is written under target/");
 
-    assert_eq!(scip["schema"], 3);
+    // Schema 4 since 2026-10-13 (#843: `Module.items`, `Function.shape`).
+    assert_eq!(scip["schema"], 4);
     assert_eq!(lsp["generator"]["backend"], "lsp");
     assert_eq!(scip["generator"]["backend"], "scip");
     assert!(scip["generator"]["rust_analyzer"]

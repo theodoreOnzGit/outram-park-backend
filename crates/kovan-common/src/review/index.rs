@@ -99,6 +99,56 @@ pub enum ItemKind {
     Type,
 }
 
+impl ItemKind {
+    /// A function; every other kind is reviewed with the item questions.
+    pub fn is_fn(self) -> bool {
+        self == ItemKind::Fn
+    }
+}
+
+/// Which kind of non-function item an entry is (GitHub #843, additive,
+/// 2026-10-13). [`ItemKind`] keeps the three coarse kinds a first-version
+/// reader knows; this says which questions the review wizard asks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ItemShape {
+    /// A record: a named group of values.
+    Struct,
+    /// A list of cases.
+    Enum,
+    Union,
+    /// An interface: what every model of some kind must provide.
+    Trait,
+    /// A shorthand name for an existing type.
+    Alias,
+    /// A named number.
+    Const,
+    Static,
+}
+
+impl ItemShape {
+    /// The coarse kind written as `item`.
+    pub fn item(self) -> ItemKind {
+        match self {
+            ItemShape::Const => ItemKind::Const,
+            ItemShape::Static => ItemKind::Static,
+            _ => ItemKind::Type,
+        }
+    }
+
+    /// The plain-language name shown to a reviewer (maintainer, #843,
+    /// 2026-10-13: no software jargon in review questions).
+    pub fn plain_name(self) -> &'static str {
+        match self {
+            ItemShape::Struct | ItemShape::Union => "record",
+            ItemShape::Enum => "list of cases",
+            ItemShape::Trait => "interface",
+            ItemShape::Alias => "shorthand name",
+            ItemShape::Const | ItemShape::Static => "named number",
+        }
+    }
+}
+
 /// One function (item) of a file.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FunctionIndex {
@@ -112,6 +162,10 @@ pub struct FunctionIndex {
     pub qual: String,
     #[serde(default, skip_serializing_if = "is_fn")]
     pub item: ItemKind,
+    /// Added 2026-10-13 (#843, additive): which kind of non-function item;
+    /// absent for a function.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shape: Option<ItemShape>,
     /// 1-based inclusive line range, doc comment included.
     pub lines: [u32; 2],
     pub hash: String,
@@ -456,6 +510,7 @@ mod tests {
                     name: "flash".into(),
                     qual: "flash".into(),
                     item: ItemKind::Fn,
+                    shape: None,
                     lines: [10, 20],
                     hash: h('a'),
                     doc_hash: h('b'),

@@ -585,6 +585,19 @@ with, "this is a test" answers for a test function (limits, error
 handling, test reach, V&V evidence); they are refused on any other
 function.
 
+Added 2026-10-13 (#843, first step): a module's **types and constants**
+(structs, enums, unions, traits, type aliases, constants and statics) are
+on the Code Review map beside its functions, each card saying what it is
+in plain words (record, list of cases, interface, shorthand name, named
+number); selecting one shows its definition. `kovan-cli index` and
+`--refresh` write them into `kovan.toml` with `item` and `shape`; a
+struct's or enum's hash also covers the methods written for it in the same
+file, so a method change makes its review stale. Not built yet: the
+questions a review of one asks (asking to stamp one is refused with that
+reason), which functions use which type, and methods written for a type in
+another file. Map data written before this change is rebuilt the next time
+the Code Review view opens (no rust-analyzer run needed).
+
 Added 2026-10-12 (#838): after a **squash merge or rebase**, the commit a
 stamp certifies is no longer in the branch's history, and the stamp shows
 as unverified with that reason (a shallow clone shows the same; there the

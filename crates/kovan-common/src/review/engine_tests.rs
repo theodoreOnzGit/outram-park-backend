@@ -36,6 +36,7 @@ pub(super) fn fun(id: &str, hash: char, callees: &[&str], tests: &[&str]) -> Fun
         name: qual.rsplit("::").next().unwrap_or("").into(),
         qual,
         item: ItemKind::Fn,
+        shape: None,
         lines: [1, 5],
         hash: h(hash),
         doc_hash: h('d'),

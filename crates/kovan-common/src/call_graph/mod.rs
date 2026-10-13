@@ -78,6 +78,21 @@
 //! code); a schema-2 *reader* meets an unknown `"operator"` kind, which is
 //! why the version moved.
 //!
+//! # Schema 4 (2026-10-13, GitHub #843): additions only
+//!
+//! ```text
+//! Module.items[]                 the file's structs, enums, unions, traits,
+//!                                type aliases, constants and statics, each
+//!                                a Function-shaped entry (id `file::Name`,
+//!                                lines, the declaration line as signature,
+//!                                first doc sentence, source): see [`items`]
+//! Function.shape                 struct|enum|union|trait|alias|const|static
+//!                                on an item; absent on a function
+//! ```
+//!
+//! A schema-3 document reads unchanged, and a schema-3 reader that ignores
+//! unknown fields reads schema 4 (it sees no items).
+//!
 //! # Function ids
 //!
 //! A function's `id` is `code-walk`'s form, `path/to/file.rs::name` for a
@@ -101,6 +116,7 @@
 pub mod citations;
 pub mod compare;
 pub mod history;
+pub mod items;
 pub mod modules;
 pub mod reach;
 pub mod split;
@@ -115,7 +131,7 @@ use serde::{Deserialize, Serialize};
 /// ignores unknown fields reads it unchanged. Schema 3 (2026-10-07, #757)
 /// adds the `operator` call kind and `generator`; schema-2 documents still
 /// load ([`OLDEST_READABLE_SCHEMA`]).
-pub const SCHEMA_VERSION: u32 = 3;
+pub const SCHEMA_VERSION: u32 = 4;
 
 /// The oldest schema this model still reads: every version since only added
 /// fields and values.
@@ -218,6 +234,9 @@ pub struct Module {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub maturity: Option<u8>,
     pub functions: Vec<Function>,
+    /// Schema 4 (#843): the file's other reviewable items ([`items`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub items: Vec<Function>,
     /// Schema 2: the upstream counterpart from the file's attribution
     /// header ([`upstream`]); absent when the file has none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -293,6 +312,10 @@ pub struct Function {
     /// ([`citations`]).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cited_by: Vec<citations::Citation>,
+    /// Schema 4 (#843): which kind of non-function item this is; absent on
+    /// a function.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shape: Option<crate::review::index::ItemShape>,
 }
 
 /// A call `code-walk` marks `UNRESOLVED(<kind>)`: never guessed, never
@@ -673,6 +696,17 @@ impl CallGraphDoc {
         })
     }
 
+    /// Every other reviewable item (schema 4), with its crate and module.
+    pub fn items(&self) -> impl Iterator<Item = (&CrateGraph, &Module, &Function)> {
+        self.crates.iter().flat_map(|c| {
+            c.targets.iter().chain(c.tests.iter()).flat_map(move |t| {
+                t.modules
+                    .iter()
+                    .flat_map(move |m| m.items.iter().map(move |f| (c, m, f)))
+            })
+        })
+    }
+
     /// The function with this id, if it is in scope.
     pub fn function(&self, id: &str) -> Option<&Function> {
         self.functions().map(|(_, _, f)| f).find(|f| f.id == id)
@@ -706,6 +740,7 @@ mod tests {
             unresolved,
             test_fn: false,
             reached_by: None,
+            shape: None,
             cited_by: Vec::new(),
         }
     }
@@ -721,6 +756,7 @@ mod tests {
             upstream: None,
             upstream_unparsed: None,
             history: Vec::new(),
+            items: Vec::new(),
             concepts: Vec::new(),
         }
     }

@@ -10,7 +10,7 @@
 //! ```
 //!
 //! The function is found in each text with the same `syn` hasher the index
-//! uses ([`kovan_common::review::hash::hash_functions`]), by its qualified
+//! uses ([`kovan_common::review::hash::hash_all`]), by its qualified
 //! name and `#k` duplicate index ([`super::super::states::fn_at`]'s rule),
 //! so the diff covers exactly the lines (doc comment included) that the
 //! hash covers.
@@ -30,7 +30,7 @@
 
 use std::path::Path;
 
-use kovan_common::review::hash::{hash_functions, HashedFn};
+use kovan_common::review::hash::{hash_all, HashedFn};
 
 use crate::stamping::git;
 
@@ -177,9 +177,10 @@ fn split_qual(qual: &str) -> (String, Option<usize>) {
     }
 }
 
-/// The function `qual` in the Rust `source`, as the index finds it.
+/// The function, type or constant (#843) `qual` in the Rust `source`, as
+/// the index finds it.
 pub fn find_fn(source: &str, qual: &str) -> Option<HashedFn> {
-    let fns = hash_functions(source).ok()?;
+    let fns = hash_all(source).ok()?;
     let (base, k) = split_qual(qual);
     let same: Vec<&HashedFn> = fns
         .iter()

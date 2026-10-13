@@ -424,3 +424,45 @@ fn a_test_function_starts_with_its_this_is_a_test_answers() {
     assert!(!l.applicability.is_test);
     assert!(!l.answers.values().any(|a| a.starts_with("test_") || a == "is_a_test"), "{:?}", l.answers);
 }
+
+/// Methodology (#843): add a struct with a method and a constant to the
+/// fixture's library, commit, and reindex with the rust-analyzer-free
+/// refresh. Pass: both are in the folder's `kovan.toml` with their shape;
+/// the struct's entry hashes as the struct at HEAD does (the lookup the
+/// stamp step makes, [`states::fn_at`]); the review diff finds it by name;
+/// asking to stamp either one is refused in plain words and writes no
+/// `review.md`; and stamping a function still works with the items in the
+/// index.
+///
+/// Result (2026-10-13): passes.
+#[test]
+fn types_and_constants_are_indexed_and_not_stamped_yet() {
+    use kovan_common::review::index::{FolderIndex, ItemShape};
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    let key = founder_key(&r, store.path());
+    let src = format!(
+        "{}\n/// Failure fraction of each layer.\npub struct Fractions {{\n    pub sic: f64,\n}}\n\nimpl Fractions {{\n    pub fn total(&self) -> f64 {{\n        self.sic\n    }}\n}}\n\n/// Boltzmann constant, J/K, CODATA 2018.\npub const K_B: f64 = 1.380649e-23;\n",
+        r.read(LIB)
+    );
+    r.write(LIB, &src);
+    r.commit("add a record and a named number");
+    r.reindex();
+    let idx = FolderIndex::parse(&r.read(&format!("{DIR}/kovan.toml"))).unwrap();
+    let entry = |q: &str| idx.modules["lib.rs"].functions.iter().find(|f| f.qual == q).cloned().unwrap();
+    assert_eq!(entry("Fractions").shape, Some(ItemShape::Struct));
+    assert_eq!(entry("K_B").shape, Some(ItemShape::Const));
+    assert_eq!(entry("Fractions::total").shape, None);
+    let head = r.git(&["rev-parse", "HEAD"]).trim().to_string();
+    let mut cache = states::FileCache::new();
+    let at_head = states::fn_at(&mut cache, r.path(), &head, LIB, "Fractions").unwrap();
+    assert_eq!(at_head.hashes.hash, entry("Fractions").hash);
+    assert!(review_mode::diff::find_fn(&src, "K_B").is_some());
+    for (q, what) in [("Fractions", "record"), ("K_B", "named number")] {
+        let e = prepare_stamp(r.path(), &format!("{LIB}::{q}"), BY).unwrap_err();
+        assert!(e.contains(what) && e.contains("#843") && e.contains("nothing was stamped"), "{e}");
+    }
+    assert!(!r.path().join(format!("{DIR}/review.md")).exists());
+    r.stamp(&key, "leaf", "");
+    assert_eq!(r.state("leaf").unwrap().kind(), StateKind::Valid);
+}

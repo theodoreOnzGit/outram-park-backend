@@ -43,7 +43,7 @@ use kovan_common::review::engine::{
     evaluate, ConceptAreas, Evaluation, FolderReviews, GitFacts, ReviewKey, SignaturePolicy,
     StampCommit, StampFacts, StampState, TestsAtReview, UnverifiedReason,
 };
-use kovan_common::review::hash::{hash_functions, HashedFn};
+use kovan_common::review::hash::{hash_all, HashedFn};
 use kovan_common::review::index::FolderIndex;
 use kovan_common::review::ivv_view::summarise;
 use kovan_common::review::review_md::ReviewEntry;
@@ -75,7 +75,7 @@ fn split_qual(qual: &str) -> (String, Option<usize>) {
     }
 }
 
-/// The function `qual` of `file` at `rev`, hashed as the index hashes it
+/// The function, type or constant (#843) `qual` of `file` at `rev`, hashed as the index hashes it
 /// (the same `#k` rule as `kovan_common::call_graph::function_ids`).
 pub(crate) fn fn_at(
     cache: &mut FileCache,
@@ -86,7 +86,7 @@ pub(crate) fn fn_at(
 ) -> Option<HashedFn> {
     let fns = cache
         .entry((rev.to_string(), file.to_string()))
-        .or_insert_with(|| git::show(root, rev, file).and_then(|t| hash_functions(&t).ok()))
+        .or_insert_with(|| git::show(root, rev, file).and_then(|t| hash_all(&t).ok()))
         .as_ref()?;
     let (base, k) = split_qual(qual);
     let same: Vec<&HashedFn> = fns
