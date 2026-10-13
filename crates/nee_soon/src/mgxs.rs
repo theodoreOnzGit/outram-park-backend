@@ -158,6 +158,55 @@ pub enum MgxsError {
         /// The offending coarse edge \[eV\].
         edge_ev: f64,
     },
+    /// [`MgxsLibrary::to_physics_mg`]: a group's scattering row disagrees with
+    /// `Sigma_t - Sigma_a` by more than its statistics allow. The two come
+    /// from separate estimators, so this is a condensation defect (or a
+    /// library assembled wrongly), not noise.
+    #[error(
+        "zone '{zone}' group {group} (ascending): Sigma_t - Sigma_a = {expected:.6e} but the \
+         scattering row sums to {row:.6e}; the difference {residual:.3e} exceeds the \
+         allowed {allowed:.3e} cm^-1"
+    )]
+    Inconsistent {
+        /// Zone name.
+        zone: String,
+        /// Group index in the library's own ascending order.
+        group: usize,
+        /// `Sigma_t - Sigma_a` \[cm^-1\].
+        expected: f64,
+        /// The scattering row sum \[cm^-1\].
+        row: f64,
+        /// `row - expected` \[cm^-1\].
+        residual: f64,
+        /// The bound it was held to \[cm^-1\].
+        allowed: f64,
+    },
+    /// [`MgxsLibrary::to_physics_mg`]: the library carries no standard errors
+    /// ([`ZoneMgxs::sigma`] is `None`) and is not exactly balanced, so a
+    /// statistical disagreement cannot be told from a defect.
+    #[error(
+        "zone '{zone}' has no standard errors and its balance is off by {relative:.3e} \
+         (relative) in group {group}: cannot tell noise from a defect. Condense with \
+         `condense` (which estimates them) or convert `rebalanced()` as an explicit ablation"
+    )]
+    NoUncertainty {
+        /// Zone name.
+        zone: String,
+        /// The first group found off balance (ascending order).
+        group: usize,
+        /// Its relative residual.
+        relative: f64,
+    },
+    /// [`MgxsLibrary::to_physics_mg`]: an ordering the multigroup kernel
+    /// requires does not hold (`Sigma_f <= Sigma_a <= Sigma_t`, a fissile zone
+    /// with a birth spectrum, matching group counts).
+    #[error("zone '{zone}': {what}")]
+    NotTransportable {
+        /// Zone name.
+        zone: String,
+        /// What failed.
+        what: String,
+    },
 }
 
 /// An energy group structure, as ascending bin edges in eV.
@@ -293,6 +342,88 @@ pub struct ZoneMgxs {
     /// fissioned not at all carries all zeros, and the sum is then 0 rather
     /// than 1 -- check before using it as a source distribution.
     pub chi: Vec<f64>,
+    /// Standard errors of the constants above, per group, as [`condense`]
+    /// estimated them (added 2026-10-13, gh:#848). `None` when they are not
+    /// known: a library built by hand, one condensed from fewer than two
+    /// active batches, one derived by [`MgxsLibrary::collapse`],
+    /// [`MgxsLibrary::homogenised`] or [`MgxsLibrary::rebalanced`] (none of
+    /// which can carry them, see [`ZoneMgxsSigma`]), and every record written
+    /// before the field existed, which deserialise with `None`.
+    #[serde(default)]
+    pub sigma: Option<ZoneMgxsSigma>,
+}
+
+/// One standard error per condensed constant of a [`ZoneMgxs`], with the
+/// same shapes and the same ascending group order.
+///
+/// # How they are estimated, and what that misses
+///
+/// Every constant is a ratio `R = X / phi` of two tally means over the same
+/// batches. [`condense`] takes each mean's standard error from its own bin
+/// ([`TallyBin::rel_std_dev`], the standard error of the batch mean) and
+/// combines the two in quadrature:
+///
+/// ```text
+///   sigma_R = |R| * sqrt( (sigma_X / X)^2 + (sigma_phi / phi)^2 )
+/// ```
+///
+/// That drops the covariance term `-2 rho (sigma_X/X)(sigma_phi/phi)`. The
+/// numerator and the flux are scored on the same tracks in the same batches,
+/// so `rho > 0` and the dropped term would make `sigma_R` **smaller**: these
+/// are upper estimates. The tally keeps per-bin moments only, not the
+/// covariance between bins, which is also why no `chi` uncertainty is given
+/// (each `chi_g` is a sum of bins of one batch) and why a group merged by
+/// [`MgxsLibrary::collapse`] has none.
+///
+/// `flux` is the flux's own absolute standard error.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ZoneMgxsSigma {
+    /// Standard error of [`ZoneMgxs::flux`].
+    pub flux: Vec<f64>,
+    /// Standard error of [`ZoneMgxs::total`] \[cm^-1\].
+    pub total: Vec<f64>,
+    /// Standard error of [`ZoneMgxs::absorption`] \[cm^-1\].
+    pub absorption: Vec<f64>,
+    /// Standard error of [`ZoneMgxs::fission`] \[cm^-1\].
+    pub fission: Vec<f64>,
+    /// Standard error of [`ZoneMgxs::nu_fission`] \[cm^-1\].
+    pub nu_fission: Vec<f64>,
+    /// Standard error of [`ZoneMgxs::kappa_fission`] \[J cm^-1\].
+    pub kappa_fission: Vec<f64>,
+    /// Standard error of each [`ZoneMgxs::scatter`] element \[cm^-1\].
+    pub scatter: Vec<Vec<f64>>,
+}
+
+impl ZoneMgxsSigma {
+    /// An upper bound on the standard error of row `g`'s sum,
+    /// `sum_g' Sigma_s,g->g'`: the plain sum of the element errors. The
+    /// elements of a row come from one batch, so they are correlated and the
+    /// quadrature sum is not safe; the plain sum is the worst case
+    /// (correlation 1), whatever the correlation is.
+    #[must_use]
+    pub fn scatter_row_bound(&self, g: usize) -> Option<f64> {
+        Some(self.scatter.get(g)?.iter().sum())
+    }
+
+    fn reversed(&self) -> Self {
+        let rev = |v: &Vec<f64>| -> Vec<f64> { v.iter().rev().copied().collect() };
+        let n = self.flux.len();
+        let mut scatter = vec![vec![0.0; n]; n];
+        for gi in 0..n {
+            for go in 0..n {
+                scatter[n - 1 - gi][n - 1 - go] = self.scatter[gi][go];
+            }
+        }
+        Self {
+            flux: rev(&self.flux),
+            total: rev(&self.total),
+            absorption: rev(&self.absorption),
+            fission: rev(&self.fission),
+            nu_fission: rev(&self.nu_fission),
+            kappa_fission: rev(&self.kappa_fission),
+            scatter,
+        }
+    }
 }
 
 impl ZoneMgxs {
@@ -481,6 +612,9 @@ impl MgxsLibrary {
             kappa_fission: vec![0.0; g],
             scatter: vec![vec![0.0; g]; g],
             chi: vec![0.0; g],
+            // Not carried: a flux-weighted sum over zones needs the
+            // covariance between them (see `ZoneMgxsSigma`).
+            sigma: None,
         };
 
         let picked = || which.iter().filter_map(|&i| self.zones.get(i));
@@ -753,6 +887,9 @@ impl MgxsLibrary {
                     let abs = out.absorption.get(g).copied().unwrap_or(0.0);
                     out.total[g] = abs + row;
                 }
+                // The rebalanced total is a sum of correlated constants, so
+                // the tallied standard errors no longer describe it.
+                out.sigma = None;
                 out
             })
             .collect();
@@ -911,6 +1048,9 @@ impl MgxsLibrary {
                     kappa_fission: vec![0.0; n_c],
                     scatter: vec![vec![0.0; n_c]; n_c],
                     chi: vec![0.0; n_c],
+                    // Not recoverable: merging groups needs the covariance
+                    // between the fine bins (module docs, `ZoneMgxsSigma`).
+                    sigma: None,
                 };
                 // Accumulate rates, then divide by the merged flux.
                 for (g, &c) in of.iter().enumerate() {
@@ -955,6 +1095,90 @@ impl MgxsLibrary {
         })
     }
 
+    /// Convert to the multigroup transport kernel's library,
+    /// [`outram_mc_libs::physics::physics_mg::MgxsLibrary`], refusing a library
+    /// the kernel would transport wrongly.
+    ///
+    /// # What changes on the way
+    ///
+    /// - **Group order is reversed**: `physics_mg` has group 0 fastest, this
+    ///   module group 0 slowest ([`Self::in_descending_energy`]).
+    /// - **The scattering matrix is flattened row-major**,
+    ///   `scatter[g * G + g'] = Sigma_s,g->g'` in the reversed order, which is
+    ///   `physics_mg::Mgxs`'s layout.
+    /// - `Sigma_t`, `Sigma_a`, `Sigma_f`, `nu Sigma_f` and `chi` pass through
+    ///   unchanged; nothing is rebalanced. A non-fissile zone keeps its
+    ///   all-zero `chi` (allowed by `Mgxs::new` since gh:#848).
+    ///
+    /// **Zone `i` becomes material index `i`.** The kernel looks a material
+    /// up by the index its geometry carries, so the library must hold one zone
+    /// per material, in material-index order, which is what [`condense`]
+    /// produces when its tallies list every material in order.
+    ///
+    /// # The consistency it requires
+    ///
+    /// The kernel scatters with probability `(Sigma_t - Sigma_a)/Sigma_t` and
+    /// takes only the SHAPE of the scattering row, so a row that does not sum
+    /// to `Sigma_t - Sigma_a` is not used as tallied. The two come from
+    /// separate estimators (track length and analog events), so they agree
+    /// only statistically. In every group with flux, the residual
+    /// `row - (Sigma_t - Sigma_a)` must lie within [`CONSISTENCY_Z`] times
+    /// the bound `sigma_t + sigma_a + sum_g' sigma_s,g->g'` built from
+    /// [`ZoneMgxs::sigma`] (an upper bound: see [`ZoneMgxsSigma`]), or within
+    /// [`CONSISTENCY_REL_FLOOR`] of `Sigma_t`.
+    ///
+    /// The matrix [`condense`] produces is a **nu**-scatter matrix (every
+    /// neutron an (n,2n) emits is scored), so its row may exceed
+    /// `Sigma_t - Sigma_a` by the (n,xn) gain. This converter does not yet
+    /// carry that gain into the kernel (gh:#682), so here it counts as an
+    /// inconsistency like any other.
+    ///
+    /// A library with no standard errors (`sigma: None`: one built by hand,
+    /// collapsed, homogenised, or recorded before 2026-10-13) is converted
+    /// only if every group balances to [`CONSISTENCY_REL_FLOOR`]. Real tallies
+    /// never do, so such a library is refused; [`Self::rebalanced`] is the
+    /// explicit, visible ablation that makes it convertible.
+    ///
+    /// # Errors
+    ///
+    /// [`MgxsError::Inconsistent`], [`MgxsError::NoUncertainty`], or
+    /// [`MgxsError::NotTransportable`] (`Sigma_f > Sigma_a`,
+    /// `Sigma_a > Sigma_t`, a fissile zone with no birth spectrum, or an
+    /// empty library).
+    pub fn to_physics_mg(
+        &self,
+    ) -> Result<outram_mc_libs::physics::physics_mg::MgxsLibrary, MgxsError> {
+        use outram_mc_libs::physics::physics_mg as mg;
+        if self.zones.is_empty() {
+            return Err(MgxsError::NotTransportable {
+                zone: String::new(),
+                what: "the library has no zones".into(),
+            });
+        }
+        let n = self.groups.n_groups();
+        for z in &self.zones {
+            check_transportable(z, n)?;
+        }
+        let desc = self.in_descending_energy();
+        let materials = desc
+            .zones
+            .iter()
+            .map(|z| {
+                let flat: Vec<f64> = z.scatter.iter().flat_map(|row| row.iter().copied()).collect();
+                mg::Mgxs::new(
+                    z.name.clone(),
+                    z.total.clone(),
+                    z.absorption.clone(),
+                    z.fission.clone(),
+                    z.nu_fission.clone(),
+                    z.chi.clone(),
+                    flat,
+                )
+            })
+            .collect();
+        Ok(mg::MgxsLibrary::new(materials))
+    }
+
     /// The same library with every group axis reversed, so index 0 is the
     /// **highest**-energy group — the usual reactor-physics convention.
     ///
@@ -987,6 +1211,7 @@ impl MgxsLibrary {
                     kappa_fission: rev(&z.kappa_fission),
                     scatter,
                     chi: rev(&z.chi),
+                    sigma: z.sigma.as_ref().map(ZoneMgxsSigma::reversed),
                 }
             })
             .collect();
@@ -1000,6 +1225,95 @@ impl MgxsLibrary {
             zones,
         }
     }
+}
+
+/// How many standard errors a scattering row may differ from
+/// `Sigma_t - Sigma_a` before [`MgxsLibrary::to_physics_mg`] refuses it.
+///
+/// Fixed at 4 before any library was converted. The bound it multiplies is
+/// itself an upper bound on the standard error (see [`ZoneMgxsSigma`]), so a
+/// genuine 4-sigma excursion is rarer than the nominal 6e-5 per group.
+pub const CONSISTENCY_Z: f64 = 4.0;
+
+/// The relative balance a library must hold in every group when it carries
+/// no standard errors, and the floor under the statistical bound when it
+/// does: rounding, not statistics.
+pub const CONSISTENCY_REL_FLOOR: f64 = 1.0e-9;
+
+/// The checks [`MgxsLibrary::to_physics_mg`] makes on one zone, in the
+/// library's own ascending order.
+fn check_transportable(z: &ZoneMgxs, n: usize) -> Result<(), MgxsError> {
+    let bad = |what: String| MgxsError::NotTransportable {
+        zone: z.name.clone(),
+        what,
+    };
+    let lens = [
+        z.flux.len(),
+        z.total.len(),
+        z.absorption.len(),
+        z.fission.len(),
+        z.nu_fission.len(),
+        z.chi.len(),
+        z.scatter.len(),
+    ];
+    if lens.iter().any(|&l| l != n) || z.scatter.iter().any(|r| r.len() != n) {
+        return Err(bad(format!("vectors do not all have {n} groups")));
+    }
+    // The kernel's own ordering invariants, checked here so a bad library is
+    // an error rather than a panic in `physics_mg::Mgxs::new` (whose slack is
+    // an absolute 1e-12).
+    for g in 0..n {
+        if z.fission[g] > z.absorption[g] + 1e-12 {
+            return Err(bad(format!(
+                "group {g}: Sigma_f {:.6e} exceeds Sigma_a {:.6e}",
+                z.fission[g], z.absorption[g]
+            )));
+        }
+        if z.absorption[g] > z.total[g] + 1e-12 {
+            return Err(bad(format!(
+                "group {g}: Sigma_a {:.6e} exceeds Sigma_t {:.6e}",
+                z.absorption[g], z.total[g]
+            )));
+        }
+    }
+    if z.nu_fission.iter().any(|&v| v > 0.0) && !(z.chi.iter().sum::<f64>() > 0.0) {
+        return Err(bad("fissile, but no fission neutron was born in it (chi = 0)".into()));
+    }
+    for g in 0..n {
+        if !(z.flux[g] > 0.0) {
+            continue;
+        }
+        let expected = z.total[g] - z.absorption[g];
+        let row: f64 = z.scatter[g].iter().sum();
+        let residual = row - expected;
+        let floor = CONSISTENCY_REL_FLOOR * z.total[g].abs();
+        match &z.sigma {
+            Some(s) => {
+                let bound = s.total[g] + s.absorption[g] + s.scatter_row_bound(g).unwrap_or(0.0);
+                let allowed = (CONSISTENCY_Z * bound).max(floor);
+                if residual.abs() > allowed {
+                    return Err(MgxsError::Inconsistent {
+                        zone: z.name.clone(),
+                        group: g,
+                        expected,
+                        row,
+                        residual,
+                        allowed,
+                    });
+                }
+            }
+            None => {
+                if residual.abs() > floor {
+                    return Err(MgxsError::NoUncertainty {
+                        zone: z.name.clone(),
+                        group: g,
+                        relative: residual.abs() / z.total[g].abs().max(f64::MIN_POSITIVE),
+                    });
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Scores carried by the matrix pass, in order: the scattering matrix and the
@@ -1094,6 +1408,27 @@ pub fn condense(
     let mat = |z: usize, gi: usize, go: usize, s: usize| -> f64 {
         matrix.bins[((z * n_g + gi) * n_g + go) * MATRIX_SCORES + s].mean(n_realizations)
     };
+    // Relative standard error of a bin's mean, 0 for a bin never scored
+    // (a zero mean has no relative error to speak of, and its ratio is 0).
+    let rel = |bin: &TallyBin| -> f64 {
+        if bin.sum == 0.0 {
+            0.0
+        } else {
+            bin.rel_std_dev(n_realizations)
+        }
+    };
+    let scal_rel = |z: usize, g: usize, s: usize| rel(&scalar.bins[(z * n_g + g) * n_s + s]);
+    let mat_rel = |z: usize, gi: usize, go: usize, s: usize| {
+        rel(&matrix.bins[((z * n_g + gi) * n_g + go) * MATRIX_SCORES + s])
+    };
+    // Standard errors need at least two batches; with fewer, none are given
+    // rather than infinities (which a JSON record cannot hold).
+    let with_sigma = n_realizations >= 2;
+    // sigma of R = X/phi, X and phi uncorrelated (an upper estimate, see
+    // `ZoneMgxsSigma`).
+    let ratio_sigma = |r: f64, rel_x: f64, rel_phi: f64| -> f64 {
+        r.abs() * (rel_x * rel_x + rel_phi * rel_phi).sqrt()
+    };
 
     let mut zones = Vec::with_capacity(n_z);
     for (z, name) in zone_names.iter().enumerate() {
@@ -1104,6 +1439,15 @@ pub fn condense(
         let mut nu_fission = vec![0.0; n_g];
         let mut kappa_fission = vec![0.0; n_g];
         let mut scatter = vec![vec![0.0; n_g]; n_g];
+        let mut sig = ZoneMgxsSigma {
+            flux: vec![0.0; n_g],
+            total: vec![0.0; n_g],
+            absorption: vec![0.0; n_g],
+            fission: vec![0.0; n_g],
+            nu_fission: vec![0.0; n_g],
+            kappa_fission: vec![0.0; n_g],
+            scatter: vec![vec![0.0; n_g]; n_g],
+        };
 
         for g in 0..n_g {
             let phi = scal(z, g, 0);
@@ -1120,6 +1464,18 @@ pub fn condense(
             fission[g] = scal(z, g, 5) / phi;
             for go in 0..n_g {
                 scatter[g][go] = mat(z, g, go, 0) / phi;
+            }
+            if with_sigma {
+                let rp = scal_rel(z, g, 0);
+                sig.flux[g] = phi * rp;
+                sig.total[g] = ratio_sigma(total[g], scal_rel(z, g, 1), rp);
+                sig.absorption[g] = ratio_sigma(absorption[g], scal_rel(z, g, 2), rp);
+                sig.nu_fission[g] = ratio_sigma(nu_fission[g], scal_rel(z, g, 3), rp);
+                sig.kappa_fission[g] = ratio_sigma(kappa_fission[g], scal_rel(z, g, 4), rp);
+                sig.fission[g] = ratio_sigma(fission[g], scal_rel(z, g, 5), rp);
+                for go in 0..n_g {
+                    sig.scatter[g][go] = ratio_sigma(scatter[g][go], mat_rel(z, g, go, 0), rp);
+                }
             }
         }
 
@@ -1149,6 +1505,7 @@ pub fn condense(
             kappa_fission,
             scatter,
             chi,
+            sigma: with_sigma.then_some(sig),
         });
     }
 
@@ -1404,6 +1761,7 @@ mod tests {
                 kappa_fission: vec![0.0, 0.0],
                 scatter: vec![vec![0.40, 0.10], vec![0.05, 0.75]],
                 chi: vec![1.0, 0.0],
+                sigma: None,
             }],
         };
 
@@ -1473,6 +1831,7 @@ mod tests {
             kappa_fission: vec![0.0],
             scatter: vec![vec![row]],
             chi: vec![0.0],
+            sigma: None,
         };
 
         let inferred = z.inferred_absorption(0).expect("group 0 exists");
@@ -1505,6 +1864,7 @@ mod tests {
             kappa_fission: vec![0.0, 0.0],
             scatter: vec![vec![0.75, 0.25], vec![0.1, 1.5]],
             chi: vec![0.6, 0.4],
+            sigma: None,
         };
         // group 0: total 2.0, within-group 0.75 -> removal 1.25
         assert!((z.removal(0).unwrap() - 1.25).abs() < 1e-12);
@@ -1611,6 +1971,7 @@ mod tests {
                 vec![0.0, 0.01, 0.47],
             ],
             chi: vec![0.0, 0.2, 0.8],
+            sigma: None,
         };
         MgxsLibrary {
             groups: GroupStructure::new(vec![1.0e-5, 0.625, 1.0e3, 2.0e7]).expect("ascending"),
@@ -1708,5 +2069,196 @@ mod tests {
         let mut v: serde_json::Value = serde_json::from_str(&text).expect("json");
         v["groups"] = serde_json::json!([1.0e-5, 1.0e3, 0.625, 2.0e7]);
         assert!(serde_json::from_value::<MgxsLibrary>(v).is_err());
+    }
+
+    /// `to_physics_mg` reverses the group order and flattens the matrix in
+    /// the reversed order, with nothing else changed.
+    ///
+    /// # Methodology
+    ///
+    /// The three-group fixture (balanced in every group, distinct numbers in
+    /// every slot) is converted, and each `physics_mg` vector is compared
+    /// with the fixture read backwards; the flattened matrix is compared
+    /// element by element against `scatter[G-1-g][G-1-g']`, which a
+    /// transposed or unreversed layout fails (the matrix is not symmetric).
+    ///
+    /// # Result (2026-10-13)
+    ///
+    /// Passes exactly (no tolerance).
+    #[test]
+    fn to_physics_mg_reverses_groups_and_flattens_row_major() {
+        let lib = three_group_lib();
+        let mg = lib.to_physics_mg().expect("balanced fixture converts");
+        let n = 3;
+        assert_eq!(mg.n_groups(), n);
+        for (i, z) in lib.zones.iter().enumerate() {
+            let m = mg.material(i);
+            assert_eq!(m.name, z.name, "zone i is material i");
+            let back = |v: &Vec<f64>| v.iter().rev().copied().collect::<Vec<_>>();
+            assert_eq!(m.total, back(&z.total));
+            assert_eq!(m.absorption, back(&z.absorption));
+            assert_eq!(m.fission, back(&z.fission));
+            assert_eq!(m.nu_fission, back(&z.nu_fission));
+            assert_eq!(m.chi, back(&z.chi));
+            for g in 0..n {
+                for gp in 0..n {
+                    assert_eq!(
+                        m.scatter[g * n + gp],
+                        z.scatter[n - 1 - g][n - 1 - gp],
+                        "transfer {g}->{gp} (descending)"
+                    );
+                }
+            }
+        }
+        // The fastest group is 0 in physics_mg: fuel's 20 MeV group has the
+        // fixture's smallest total.
+        assert_eq!(mg.material(0).total[0], 0.5);
+    }
+
+    /// A library with no standard errors converts only if it balances, so a
+    /// real tally condensed before `sigma` existed is refused, and
+    /// `rebalanced()` is the visible way through.
+    #[test]
+    fn a_library_without_sigma_must_balance_exactly() {
+        let mut lib = three_group_lib();
+        lib.zones[1].total[2] += 1.0e-3;
+        match lib.to_physics_mg() {
+            Err(MgxsError::NoUncertainty { zone, group, .. }) => {
+                assert_eq!((zone.as_str(), group), ("graphite", 2));
+            }
+            other => panic!("expected NoUncertainty, got {other:?}"),
+        }
+        assert!(lib.rebalanced().to_physics_mg().is_ok());
+    }
+
+    /// With standard errors the residual is judged against them: inside
+    /// `CONSISTENCY_Z` times the bound it converts, outside it is refused.
+    ///
+    /// The bound for fuel group 2 is `sigma_t + sigma_a + sum sigma_s`
+    /// `= 1e-4 + 1e-4 + 3 * 1e-4 = 5e-4`, so 4 sigma allows `2e-3`. A
+    /// residual of `1.9e-3` converts; `2.1e-3` does not.
+    #[test]
+    fn residual_is_judged_against_the_standard_errors() {
+        let with = |extra: f64| {
+            let mut lib = three_group_lib();
+            for z in &mut lib.zones {
+                z.sigma = Some(ZoneMgxsSigma {
+                    flux: vec![0.0; 3],
+                    total: vec![1.0e-4; 3],
+                    absorption: vec![1.0e-4; 3],
+                    fission: vec![0.0; 3],
+                    nu_fission: vec![0.0; 3],
+                    kappa_fission: vec![0.0; 3],
+                    scatter: vec![vec![1.0e-4; 3]; 3],
+                });
+            }
+            lib.zones[0].scatter[2][2] += extra;
+            lib
+        };
+        assert!(with(1.9e-3).to_physics_mg().is_ok());
+        match with(2.1e-3).to_physics_mg() {
+            Err(MgxsError::Inconsistent {
+                zone,
+                group,
+                residual,
+                allowed,
+                ..
+            }) => {
+                assert_eq!((zone.as_str(), group), ("fuel", 2));
+                assert!((residual - 2.1e-3).abs() < 1e-12);
+                assert!((allowed - 2.0e-3).abs() < 1e-12);
+            }
+            other => panic!("expected Inconsistent, got {other:?}"),
+        }
+    }
+
+    /// A non-fissile zone with an all-zero chi converts (graphite, helium);
+    /// a fissile one with no birth spectrum is refused rather than handed to
+    /// a kernel that would panic.
+    #[test]
+    fn non_fissile_zero_chi_converts_but_fissile_zero_chi_does_not() {
+        let mut lib = three_group_lib();
+        let g = &mut lib.zones[1];
+        g.fission = vec![0.0; 3];
+        g.nu_fission = vec![0.0; 3];
+        g.kappa_fission = vec![0.0; 3];
+        g.chi = vec![0.0; 3];
+        let mg = lib.to_physics_mg().expect("non-fissile graphite converts");
+        assert!(!mg.material(1).is_fissile());
+        lib.zones[0].chi = vec![0.0; 3];
+        assert!(matches!(
+            lib.to_physics_mg(),
+            Err(MgxsError::NotTransportable { .. })
+        ));
+    }
+
+    /// `condense` estimates each constant's standard error from its bins.
+    ///
+    /// # Methodology
+    ///
+    /// One zone, two groups, two realizations. Every flux bin is scored 1
+    /// then 3 (mean 2, sample variance 2, standard error of the mean 1, so
+    /// relative 0.5). Every other scalar bin and every matrix bin is scored
+    /// 1 then 1 (relative error 0). So each ratio `R = X / phi = 0.5` must
+    /// carry `sigma_R = 0.5 * sqrt(0 + 0.5^2) = 0.25`, and the flux its own
+    /// `sigma = 1`. A record without the field deserialises with `None`.
+    ///
+    /// # Result (2026-10-13)
+    ///
+    /// Passes to 1e-15.
+    #[test]
+    fn condense_estimates_standard_errors_from_the_bins() {
+        let (n_z, n_g) = (1, 2);
+        let n_s = SCALAR_SCORES.len();
+        let mut sb = vec![TallyBin::default(); n_z * n_g * n_s];
+        for g in 0..n_g {
+            for s_i in 0..n_s {
+                let (a, b) = if s_i == 0 { (1.0, 3.0) } else { (1.0, 1.0) };
+                sb[g * n_s + s_i].score(a);
+                sb[g * n_s + s_i].score(b);
+            }
+        }
+        let mut mb = vec![TallyBin::default(); n_z * n_g * n_g * MATRIX_SCORES];
+        for gi in 0..n_g {
+            for go in 0..n_g {
+                mb[(gi * n_g + go) * MATRIX_SCORES].score(1.0);
+                mb[(gi * n_g + go) * MATRIX_SCORES].score(1.0);
+            }
+        }
+        let scalar = Tally {
+            id: 1,
+            name: "scalar".into(),
+            filters: vec![],
+            scores: SCALAR_SCORES.to_vec(),
+            bins: sb,
+        };
+        let matrix = Tally {
+            id: 2,
+            name: "matrix".into(),
+            filters: vec![],
+            scores: vec![ScoreType::ScatterN, ScoreType::NuFission],
+            bins: mb,
+        };
+        let lib = condense(&two_group(), &["z".into()], &scalar, &matrix, 2).expect("condense");
+        let z = &lib.zones[0];
+        let sig = z.sigma.as_ref().expect("two realizations give standard errors");
+        for g in 0..n_g {
+            assert!((z.total[g] - 0.5).abs() < 1e-15);
+            assert!((sig.flux[g] - 1.0).abs() < 1e-15);
+            for v in [sig.total[g], sig.absorption[g], sig.fission[g], sig.nu_fission[g]] {
+                assert!((v - 0.25).abs() < 1e-15, "{v}");
+            }
+            for go in 0..n_g {
+                assert!((sig.scatter[g][go] - 0.25).abs() < 1e-15);
+            }
+        }
+        // One realization: no standard errors, not infinities.
+        let one = condense(&two_group(), &["z".into()], &scalar, &matrix, 1).expect("condense");
+        assert!(one.zones[0].sigma.is_none());
+        // A record written before the field existed still loads.
+        let mut v = serde_json::to_value(&lib).expect("json");
+        v["zones"][0].as_object_mut().expect("zone").remove("sigma");
+        let old: MgxsLibrary = serde_json::from_value(v).expect("old record loads");
+        assert!(old.zones[0].sigma.is_none());
     }
 }

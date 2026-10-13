@@ -419,6 +419,7 @@ mod tests {
                     kappa_fission: vec![0.0],
                     scatter: vec![vec![0.9]],
                     chi: vec![1.0],
+                    sigma: None,
                 }],
             },
             collapsed: vec![CollapsedSummary {

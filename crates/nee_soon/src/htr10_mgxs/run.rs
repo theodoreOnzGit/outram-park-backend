@@ -440,6 +440,7 @@ mod tests {
                 kappa_fission: vec![0.0; n],
                 scatter: vec![vec![0.5 / n as f64; n]; n],
                 chi: vec![1.0 / n as f64; n],
+                sigma: None,
             }],
         }
     }

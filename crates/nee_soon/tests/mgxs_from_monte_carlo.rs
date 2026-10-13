@@ -391,3 +391,80 @@ fn mgxs_from_a_monte_carlo_run_satisfies_neutron_balance() {
         mc.k_std
     );
 }
+
+/// **Round trip through the multigroup kernel** (gh:#848): the pin cell's
+/// own condensed constants, converted by `MgxsLibrary::to_physics_mg`, run
+/// through `physics_mg::run_keff_mg` on the same CSG geometry.
+///
+/// # Methodology
+///
+/// The two CE passes of the test above (400 × \[10 + 40\], seed 20260919,
+/// 4 log-spaced groups, one zone per material) are condensed and converted
+/// with no rebalancing; the converter's own consistency check must accept
+/// them (standard errors are carried since 2026-10-13). The MG eigenvalue is
+/// run on the same geometry at 2000 × \[20 + 50\] and compared with the CE
+/// driver's `k`.
+///
+/// **This is a wiring check, not the gate (#850).** Four groups and one
+/// zone per material are too coarse for agreement to mean much, so the
+/// bound is loose: `|k_MG - k_CE| < 5000 pcm`, fixed before the first run
+/// with a prediction of `|dk| < 3000 pcm`, sign not predicted. What it
+/// catches is a wiring defect: unreversed groups put fission births in the
+/// thermal group and a transposed matrix up-scatters the moderator, and
+/// either moves `k` by far more than 5000 pcm. The moderator is
+/// non-fissile with an all-zero `chi`, so this also transports through the
+/// gh:#848 non-fissile case of `physics_mg::Mgxs::new`.
+///
+/// # Results (2026-10-13)
+///
+/// The converter accepted the raw library (no group outside 4 sigma). CE
+/// `k = 1.87170 ± 0.00807`, MG `k = 1.86376 ± 0.00310`: **−794 ± 864 pcm
+/// (0.9σ)**, inside the predicted 3000 pcm. Both arms are single seeds at a
+/// quick budget, so this resolves nothing finer than about ±2600 pcm at 3σ;
+/// it shows the chain is wired, not how well 4-group constants do.
+#[test]
+fn condensed_constants_run_through_the_multigroup_kernel() {
+    use outram_mc_libs::physics::physics_mg::{run_keff_mg, MgSettings};
+    let (r_fuel, half) = (0.4, 0.63);
+    let geom = pincell(r_fuel, half);
+    let mats = materials();
+    let nucs = nuclides();
+    let groups =
+        GroupStructure::log_spaced(1.0e-3, 2.0e7, N_GROUPS).expect("valid group structure");
+    let names: Vec<String> = mats.iter().map(|m| m.name.clone()).collect();
+    let src = SourceBox {
+        lower: Position::new(-r_fuel, -r_fuel, -1.0),
+        upper: Position::new(r_fuel, r_fuel, 1.0),
+    };
+    let mut scalar = scalar_tally(1, &groups, vec![0, 1]);
+    let ce = run_keff_csg(&geom, &mats, &nucs, src, &settings(), Some(&mut scalar));
+    let mut matrix = matrix_tally(2, &groups, vec![0, 1]);
+    run_keff_csg(&geom, &mats, &nucs, src, &settings(), Some(&mut matrix));
+    let lib = condense(&groups, &names, &scalar, &matrix, settings().n_active as u64)
+        .expect("condensation");
+    assert!(lib.zones.iter().all(|z| z.sigma.is_some()), "condense carries sigma");
+
+    let mg_lib = lib.to_physics_mg().expect("the raw condensed library is consistent");
+    assert!(mg_lib.material(0).is_fissile());
+    assert!(!mg_lib.material(1).is_fissile());
+    let mg_settings = MgSettings {
+        n_particles: 2000,
+        n_inactive: 20,
+        n_active: 50,
+        seed: SEED,
+    };
+    let mg = run_keff_mg(&geom, &mg_lib, src, &mg_settings);
+    let dk_pcm = (mg.k_mean - ce.k_mean) * 1e5;
+    let sigma_pcm = (mg.k_std.powi(2) + ce.k_std.powi(2)).sqrt() * 1e5;
+    println!(
+        "CE k = {:.5} +/- {:.5}, MG k ({N_GROUPS} groups) = {:.5} +/- {:.5}: {dk_pcm:+.0} +/- {sigma_pcm:.0} pcm",
+        ce.k_mean, ce.k_std, mg.k_mean, mg.k_std
+    );
+    assert!(mg.k_mean.is_finite() && mg.k_mean > 0.0);
+    assert!(
+        dk_pcm.abs() < 5000.0,
+        "MG k {:.5} is {dk_pcm:+.0} pcm from CE k {:.5}: a wiring defect (group order, matrix layout)",
+        mg.k_mean,
+        ce.k_mean
+    );
+}

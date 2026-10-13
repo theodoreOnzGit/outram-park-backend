@@ -1021,6 +1021,7 @@ mod tests {
                 } else {
                     vec![0.0, 0.0]
                 },
+                sigma: None,
             }
         }
         fn region(&self, name: &str) -> RegionXs {
