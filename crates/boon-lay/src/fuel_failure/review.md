@@ -881,3 +881,65 @@ checked against equation on page 492,  works well
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit cc8ba965b2.
+
+# Review: SicLayer::actual_thickness (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-actual-thickness-theodoreonzgit-c110fac8"
+kind = "review"
+origin = "human"
+created = "2026-10-13T15:09:26+08:00"
+modified = "2026-10-13T15:09:26+08:00"
+target = "fn:c110fac8ce3e9964"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/geometry.rs::SicLayer::actual_thickness"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T15:09:26+08:00"
+commit = "f3bcd907a7a9efa1a55c1c674c51af91138625de"
+hash = "sha256:055f7daeb9d4f808015285dd822cd2196733ba27bc5da8ccdab88f9f8638129f"
+doc_hash = "sha256:fcc46d4a2475f0a9dc8ec378c1ad4fd945de789808c34d2dce69178f528fb108"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+
+[review.callees]
+"fn:5b2b33cb94ca9a56" = "sha256:584f858091dbbbf399ba065790793304f75d430ba242966bd1e4deda1518564c"
+"fn:62323e762b03b9bf" = "sha256:92583fc305b6c05cfec32e7a87ff1144049b4241fa00cd26f8a19ead15c00e69"
+"fn:85780296f48ec680" = "sha256:c8e5ee6a302c3857ee1377d1b0ab0fdd0d3caf0315d2aea4d482b5cab08bacf5"
+"fn:fcce2a003b237da0" = "sha256:e665814f5470eed89b70cd9e974d70ec2d2ed400481ab8673925c70d414e44b4"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "wlDtRDhDzNmBl1hbeFOzNGdEE8ml8j81KkgWYQ7aI7VJZY0pmHEZSePouGBo84E+qxwIstipc6F7F/JWEYF0Aw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
+kind = "implements"
+```
+
+checked against eq 7 (isothermal thinning factor), in PANAMA document
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit f3bcd907a7.
