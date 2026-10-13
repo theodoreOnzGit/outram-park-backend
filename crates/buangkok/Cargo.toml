@@ -31,6 +31,7 @@ row = 2
 topic = "risk"
 fidelity = 1
 maturity = 2
+backronym = "Bioeffects, Uncertainty and ALARA for Nuclear Guidance, Keeping Operational Knowledge"
 
 # A dose calculation would read CHANGI's air concentrations and deposition
 # and, for uncertainty, RAFFLES; each edge is declared when code here calls

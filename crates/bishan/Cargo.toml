@@ -29,6 +29,7 @@ row = 2
 topic = "risk"
 fidelity = 0
 maturity = 1
+backronym = "Building Internal Source-term and Hazard Analysis Network"
 
 # `uom` since 2026-09-29: the building CV (gh:#400) is the first code, and
 # its API carries physical quantities. RAFFLES (the roadmap's probabilistic

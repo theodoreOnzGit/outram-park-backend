@@ -27,6 +27,7 @@ row = 2
 topic = "fuel-performance"
 fidelity = 1
 maturity = 2
+backronym = "BOmbardment of neutrons On Nuclides with Lagrangian transport and transmutation Yields"
 
 [dependencies]
 uom             = { workspace = true }

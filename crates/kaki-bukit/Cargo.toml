@@ -36,6 +36,7 @@ row = 2
 topic = "fuel-cycle"
 fidelity = 0
 maturity = 1
+backronym = "Kernel for Agent-based Key-resource Inventory, Backend for Utility, Key Infrastructure and Transactions"
 
 [dependencies]
 # PETIR is the ONLY dependency, and that is the point of this crate's design.

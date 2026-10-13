@@ -27,6 +27,7 @@ row = 2
 topic = "risk"
 fidelity = [1, 3]
 maturity = 2
+backronym = "Consequence and Hazard Analysis for Nuclear Ground-level and atmospheric Impacts"
 
 [dependencies]
 uom   = { workspace = true }

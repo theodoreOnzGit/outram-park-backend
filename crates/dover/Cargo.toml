@@ -26,6 +26,7 @@ row = 4
 topic = "app"
 fidelity = 0
 maturity = 1
+backronym = "Deck-based Open-source Visualisation Engine for Reactors"
 
 # Dependencies arrive only when code here calls into them (the crate rule from
 # when this was an empty skeleton still holds). Each of these is called.

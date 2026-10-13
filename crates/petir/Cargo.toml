@@ -40,6 +40,7 @@ exclude = ["docs", "upstream_source/GSL"]
 row = 0
 topic = "utility"
 maturity = 2
+backronym = "Polynomials, Equations, Transforms, Integration and Roots"
 
 [dependencies]
 # libm is REQUIRED, not a nicety: in no_std the f64 transcendentals are
