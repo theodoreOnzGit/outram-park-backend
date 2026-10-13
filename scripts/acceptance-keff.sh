@@ -14,9 +14,18 @@
 # results by environment are in
 # crates/outram-mc-libs/verification_and_validation/acceptance_testing/.
 #
-# Seeds per case are sized so three standard errors sit well inside 200 pcm
-# (seed-to-seed sd of one run, from the campaign: Godiva 183, Jemima 152,
-# HST-009 181, lattice 74 pcm). Run sizes are the campaign's own.
+# Every case runs at one size, 5000 histories x [40 inactive + 120 active].
+# This is acceptance (does it run, and give a sane k, on this platform), not
+# validation, so the lattice no longer runs the campaign's
+# 10 000 x [250 + 400] (CHANGED 2026-10-13, maintainer direction): that size
+# made it two-thirds of the transport time on its own.
+#
+# Seeds per case are sized so three standard errors sit well inside 200 pcm.
+# Seed-to-seed sd of one run, from the campaign: Godiva 183, Jemima 152,
+# HST-009 181 pcm at this size; the lattice 74 pcm at its campaign size, which
+# at this size is predicted ~190 pcm (scaled by the square root of active
+# histories), so it runs 16 seeds rather than the campaign's 6: at 6 seeds
+# three standard errors would be ~240 pcm and every run UNRESOLVED.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -36,7 +45,7 @@ seeds_for() {
     godiva) echo 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16 ;;
     jemima) echo 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24 ;;
     hst009) echo 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16 ;;
-    lct008) echo 1,2,3,4,5,6 ;;
+    lct008) echo 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16 ;;
     *) echo "unknown case $1" >&2; exit 2 ;;
   esac
 }
@@ -49,6 +58,7 @@ for c in "${cases[@]}"; do
   rm -f "$per_seed"
   cargo run --release -q -p outram-mc-libs --features endf-pebble-cases --example icsbep_five_route_keff -- \
     --case "$c" --route endf --label route4 --seeds "$(seeds_for "$c")" --threads "$threads" \
+    --particles 5000 --inactive 40 --active 120 \
     --csv "$per_seed" --commit "$commit" \
     --accept "$summary" --allowance-pcm 200 --accept-record "$record" || status=1
 done

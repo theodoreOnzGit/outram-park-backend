@@ -83,7 +83,12 @@ for the fission source to settle. With fewer, k is biased, not just noisier.
 ## How the acceptance check decides
 
 On every operating system the check runs the four cases at reduced statistics
-and compares the mean k with the recorded OpenMC + NJOY2016 value:
+and compares the mean k with the recorded OpenMC + NJOY2016 value. Since
+2026-10-13 every case, the lattice included, runs at 5000 × [40 + 120], with
+16 seeds on the lattice: the check asks whether the code runs and gives a sane
+k on that platform, not whether it is validated. The lattice's 40 inactive
+generations are fewer than the 250 the paragraph above asks for, so its k can
+carry a source-convergence bias; the check would catch a bias over 200 pcm.
 
 - **pass** if they differ by at most 200 pcm;
 - **unresolved**, which also fails, if three standard errors do not fit
