@@ -19,6 +19,11 @@ Tracked on GitHub #859. The code under test is the Rust NJOY port
 | 4 | Android | CI job `k-eff / android emulator (x86_64)`: the same driver, cross-compiled and run under the Android emulator | **PASS**, all four cases (run 38419666325); an emulator, not a phone |
 | 5 | web browser | the Monte Carlo demo, built and published by the `pages` workflow; checked in headless Chromium | **PASS** in headless Chromium, with the limits listed under "Web browser" |
 
+**Re-run 2026-10-14.** Run 38476700995, on `5286ff93d5` (the commit that
+added the source entropy and the cited benchmark values), passed all four
+cases in all four CI environments, with every `k` and standard error equal to
+run 38419666325's to the six printed decimals.
+
 Workflow: `.github/workflows/acceptance-tests.yml`. Scripts:
 `scripts/acceptance-keff.sh`, `scripts/acceptance-android.sh`.
 
