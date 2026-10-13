@@ -33,9 +33,10 @@
 //! 1. Process the nuclear data at the case temperature
 //!    ([`crate::htr10_rmc::data`], ENDF/B-VIII.0, every material at that
 //!    temperature: an **isothermal** state point).
-//! 2. Assemble the model ([`cases::CaseModel`]). Today that is the full core,
-//!    Şeker & Çolak's 13-ball bed with explicit TRISO, the geometry every
-//!    recorded HTR-10 `k` in this crate is on.
+//! 2. Assemble the model ([`cases::CaseModel`]): the full core, Şeker &
+//!    Çolak's 13-ball bed with explicit TRISO, the geometry every recorded
+//!    HTR-10 `k` in this crate is on; or, since 2026-10-13 (gh:#849), one of
+//!    the small cells of [`cells`] built from the same particle and pebbles.
 //! 3. Run two k-eigenvalue passes at one seed, the scalar and the
 //!    scattering-matrix tallies of [`crate::mgxs`], per material, on the
 //!    **70-group tally structure** of [`groups`] (WIMS-69 plus 10-20 MeV).
@@ -65,6 +66,7 @@
 //!   is at the case temperature.
 
 pub mod cases;
+pub mod cells;
 pub mod groups;
 pub mod record;
 pub mod run;

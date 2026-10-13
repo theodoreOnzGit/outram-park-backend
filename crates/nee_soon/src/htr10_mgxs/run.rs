@@ -29,6 +29,7 @@ use outram_mc_libs::tally::tally::Tally;
 use uom::si::thermodynamic_temperature::kelvin;
 
 use super::cases::{CaseModel, MgxsCase, RECORDED_K_N12_T300};
+use super::cells::{CellKind, Htr10Cell};
 use super::groups::{tally_structure, Collapse};
 use super::record::{CaseRecord, Check, CollapsedSummary, PassRecord, Provenance};
 use crate::htr10_rmc::core_model::{assemble_explicit_triso, mat};
@@ -114,13 +115,24 @@ pub fn run_case(
     ];
     data_notes.extend(layout.notes.iter().cloned());
 
-    // 2. The model.
-    let core = match case.model {
-        CaseModel::FullCore { layers } => assemble_explicit_triso(RINGS, layers, 0),
+    // 2. The model: the full core, or a cell of `super::cells` (gh:#849),
+    // both delta-tracked with majorant 0 over the bed's materials.
+    let (geometry, source, entropy) = match case.model {
+        CaseModel::FullCore { layers } => {
+            let core = assemble_explicit_triso(RINGS, layers, 0);
+            let (s, e) = (fissile_source_box(&core), fissile_entropy_mesh(&core));
+            (core.geometry, s, e)
+        }
+        CaseModel::Cell(kind) => {
+            let cell = match kind {
+                CellKind::SinglePebble => Htr10Cell::single_pebble(),
+                CellKind::SekerCluster { rings } => Htr10Cell::seker_cluster(rings),
+            };
+            let (s, e) = (cell.source_box(), cell.entropy_mesh());
+            (cell.geometry, s, e)
+        }
     };
     let majorant = bed_majorant(&mats, &nucs);
-    let entropy = fissile_entropy_mesh(&core);
-    let source = fissile_source_box(&core);
     let settings = KeffSettings {
         n_particles: case.particles,
         n_inactive: case.inactive,
@@ -144,7 +156,7 @@ pub fn run_case(
     let generations = case.inactive + case.active;
     let mut passes = Vec::with_capacity(2);
     for (label, tally) in [("scalar", &mut scalar), ("matrix", &mut matrix)] {
-        let (res, secs) = transport(&core, &mats, &nucs, &majorant, &entropy, source, &settings, tally, generations, label, &mut say);
+        let (res, secs) = transport(&geometry, &mats, &nucs, &majorant, &entropy, source, &settings, tally, generations, label, &mut say);
         say(&format!(
             "{label} pass: k = {:.6} +/- {:.6}, {:.0} s",
             res.k_mean, res.k_std, secs
@@ -203,7 +215,7 @@ pub fn run_case(
 /// One transport pass, reporting every tenth of its generations.
 #[allow(clippy::too_many_arguments)]
 fn transport(
-    core: &crate::htr10_rmc::core_model::AssembledCore,
+    geometry: &outram_mc_libs::geometry::geometry::Geometry,
     mats: &[outram_mc_libs::material::material::Material],
     nucs: &[outram_mc_libs::material::nuclide::Nuclide],
     majorant: &outram_mc_libs::pebble_beds::delta_tracking::Majorant,
@@ -218,7 +230,7 @@ fn transport(
     let t = Instant::now();
     let step = (generations / 10).max(1);
     let res = run_keff_csg_hybrid_with_progress(
-        &core.geometry,
+        geometry,
         mats,
         nucs,
         std::slice::from_ref(majorant),
