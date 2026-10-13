@@ -1068,3 +1068,64 @@ looks like the eq 2 on page 484, implemented properly
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit af92cf3e65.
+
+# Review: induced_stress_with_thinning_factor (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-induced-stress-with-thinning-factor-theodoreonzgit-bb12bcfe"
+kind = "review"
+origin = "human"
+created = "2026-10-13T15:21:21+08:00"
+modified = "2026-10-13T15:21:21+08:00"
+target = "fn:bb12bcfe4e38d67a"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/stress.rs::induced_stress_with_thinning_factor"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T15:21:21+08:00"
+commit = "a84bcd2e36b18e3b65a6b19934a4303989058791"
+hash = "sha256:df990056b7c16e15de2eabb7091840c8d26efb6792d907e9ac6021a69bfb7562"
+doc_hash = "sha256:b5a62bbfd2d05ee79a50dbde20c2d8a5004ed4ad7ef7f122b717fa4ffdfab467"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+
+[review.callees]
+"fn:2b07126502aff09a" = "sha256:6e0cc2c8f38953ed77c6c5ae6e96a20c995869623b64610b219fc6b3a9536e09"
+"fn:5b2b33cb94ca9a56" = "sha256:584f858091dbbbf399ba065790793304f75d430ba242966bd1e4deda1518564c"
+"fn:fcce2a003b237da0" = "sha256:e665814f5470eed89b70cd9e974d70ec2d2ed400481ab8673925c70d414e44b4"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "other: If someone uses a negative thinning factor, will mess up equation. marking for improvement. But not worth un-stamping"
+independence = "someone_else"
+limits_and_guards = "guard_present_range_undocumented"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "not_documented"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "gNBJfNtzikoDXG1HYk0enbSLk0ml6OGQWfQpiwofN9dWKSgootbvqSZu6qRigmzNULXKFx5WZ7FmqiEjBe/+DA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
+kind = "implements"
+```
+
+Guards could be improved for fkor, but the equation implemented is essentially correct. Result can also be used to wrap this. good numerical utility anyway. But not up to QA standards
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit a84bcd2e36.
