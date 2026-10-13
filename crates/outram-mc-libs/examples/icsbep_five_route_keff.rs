@@ -85,6 +85,14 @@
 //!   errors must fit inside the allowance, otherwise the verdict is
 //!   `UNRESOLVED` and the process fails too. A check that cannot fail checks
 //!   nothing.
+//! - **Run size.** The acceptance scripts pass `--particles 5000 --inactive
+//!   40 --active 120` for every case. For the lattice that is smaller than
+//!   the campaign's 10 000 × [250 + 400] (maintainer direction, 2026-10-13:
+//!   acceptance is seeing it run on every platform, not validation). Its
+//!   source is then not fully converged: 16 seeds gave +70 ± 28 pcm against
+//!   route 1 (i9-13900K, 14 threads, 2026-10-13) where the campaign size
+//!   gives −8 ± 9. Inside the allowance, and not a number to quote for the
+//!   lattice's `k`.
 //! - **Record.** `--accept-record` appends one CSV row (operating system,
 //!   architecture, case, seeds, settings, `k`, reference, difference,
 //!   verdict, commit), which is what the acceptance-test record cites.

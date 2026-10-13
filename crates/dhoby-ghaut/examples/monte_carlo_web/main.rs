@@ -645,24 +645,28 @@ mod tests {
     /// without Run ignores mode=run.
     /// The four benchmark rungs of the acceptance tests (gh:#859) each have
     /// what the issue asks of them, read from the rung table: a Run k_eff
-    /// whose default is the recorded campaign's run size, a recorded result
-    /// read from the five-route summary (route 4), and recorded tracks.
+    /// with one default run size for all four (the campaign's own for three;
+    /// smaller than the campaign's for the lattice), a recorded result read
+    /// from the five-route summary (route 4), and recorded tracks.
     #[test]
     fn the_benchmark_rungs_have_run_settings_a_record_and_shipped_tracks() {
         let expect = [
             (Rung::Godiva, (5000, 40, 120), 0.99994),
             (Rung::Jemima, (5000, 40, 120), 0.996092),
             (Rung::Hst009, (5000, 40, 120), 1.001975),
-            (Rung::Lct008, (10_000, 250, 400), 1.002360),
+            (Rung::Lct008, (5000, 40, 120), 1.002360),
         ];
-        for (r, size, k) in expect {
+        // Active histories of one seed of each record (the lattice's is the
+        // campaign's 10 000 x 400, not the demo's default).
+        let recorded = [600_000.0, 600_000.0, 600_000.0, 4_000_000.0];
+        for ((r, size, k), hist) in expect.into_iter().zip(recorded) {
             let name = r.info().name;
             let d = r.run_default().unwrap_or_else(|| panic!("{name} has no Run k_eff"));
             assert_eq!((d.n_particles, d.n_inactive, d.n_active, d.seed), (size.0, size.1, size.2, 1), "{name}");
             let rec = r.reference().unwrap_or_else(|| panic!("{name} has no record"));
             assert_eq!(rec.k, k, "{name}");
             assert!(rec.sem > 0.0 && rec.sem < 0.0005 && rec.sd_one_run > rec.sem && rec.experiment.is_some(), "{name}");
-            assert_eq!(rec.histories_one_run, (size.0 * size.2) as f64, "{name}");
+            assert_eq!(rec.histories_one_run, hist, "{name}");
             assert!(r.recorded_tracks().is_some(), "{name} ships no tracks");
         }
         // Route 1 is OpenMC on NJOY2016 data, the acceptance check's reference.

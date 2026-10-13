@@ -54,15 +54,17 @@ Each of the four rungs does the same five things.
 
 ## What to expect from Run k_eff
 
-The defaults are the run sizes of the recorded campaign, so one run of yours is
-one seed of the many the record pools.
+Every rung's default is 5000 neutrons × [40 inactive + 120 active]. For the
+first three cases that is the run size of the recorded campaign, so one run of
+yours is one seed of the many the record pools. For the lattice it is smaller
+than the campaign's 10 000 × [250 + 400], chosen so that it runs in a browser.
 
 | case | default run | recorded, outram-mc (route 4) | recorded, OpenMC + NJOY2016 (route 1) |
 |---|---|---|---|
 | Godiva | 5000 × [40 + 120] | −10 ± 11 pcm (288 seeds) | +16 ± 21 pcm |
 | Jemima | 5000 × [40 + 120] | −391 ± 27 pcm | −406 ± 17 pcm |
 | HEU-SOL-THERM-009 | 5000 × [40 + 120] | +198 ± 32 pcm | +234 ± 22 pcm |
-| LEU-COMP-THERM-008 | 10 000 × [250 + 400] | +236 ± 8 pcm | +244 ± 5 pcm |
+| LEU-COMP-THERM-008 | 5000 × [40 + 120] (record: 10 000 × [250 + 400]) | +236 ± 8 pcm | +244 ± 5 pcm |
 
 All figures are differences from k = 1, from the
 [five-route record](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff_2026_09_29.md).
@@ -76,9 +78,13 @@ why the acceptance check compares with the other code and not with 1.
 One run of yours will scatter around the recorded value by about 150 to
 200 pcm on the first three cases. That is the spread of one run, not an error.
 
-The lattice is slow: its default is 6.5 million histories on one thread. A
-smaller run is quicker, but this 1.5 m core needs its 250 inactive generations
-for the fission source to settle. With fewer, k is biased, not just noisier.
+The lattice at the default size is not a converged calculation. Its 1.5 m core
+needs about 250 inactive generations for the fission source to settle; with
+40, k comes out about 80 pcm above the campaign's (16 seeds gave +70 ± 28 pcm
+against OpenMC + NJOY2016, where the campaign size gives −8 ± 9). One run
+scatters by about 190 pcm, so you will not see that offset in a single run.
+For a k comparable with the record, set the campaign's numbers in the panel
+and wait.
 
 ## How the acceptance check decides
 
@@ -87,15 +93,16 @@ and compares the mean k with the recorded OpenMC + NJOY2016 value. Since
 2026-10-13 every case, the lattice included, runs at 5000 × [40 + 120], with
 16 seeds on the lattice: the check asks whether the code runs and gives a sane
 k on that platform, not whether it is validated. The lattice's 40 inactive
-generations are fewer than the 250 the paragraph above asks for, so its k can
-carry a source-convergence bias; the check would catch a bias over 200 pcm.
+generations are fewer than the 250 this core's source wants, so its k carries
+a source-convergence bias, measured at about +80 pcm (above); the check would
+catch a bias over 200 pcm.
 
 - **pass** if they differ by at most 200 pcm;
 - **unresolved**, which also fails, if three standard errors do not fit
   inside 200 pcm. A check that cannot fail checks nothing.
 
-The tighter 50 pcm criterion belongs to the full-statistics runs of the
-record, which take hours.
+The tighter 50 pcm criterion belongs to qualification testing, which is the
+proper V&V: the full-statistics runs of the record, which take hours.
 
 The results for each environment, with the run they came from, are in the
 [acceptance record](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/verification_and_validation/acceptance_testing/README.md).

@@ -15,11 +15,14 @@
 //! lesson quotes the recorded result instead.~~ **CORRECTED 2026-10-13**
 //! (gh:#859): the rung has a Run k_eff, the real core on
 //! `CsgPowerIteration` ([`crate::csgrung::Keff`]) at settings the reader
-//! chooses, on data processed at NJOY's tolerance. Its default is the
-//! recorded campaign's own run size, 10 000 × [250 + 400], which is one seed
-//! of the 96 the record pools and is slow in a browser (the notes say how
-//! slow); pinning `k` to the record's ±8 pcm still takes ~4 × 10⁸ histories
-//! and is not a browser job.
+//! chooses, on data processed at NJOY's tolerance. Its default is the other
+//! benchmark rungs' 5000 × [40 + 120] (maintainer direction, 2026-10-13: the
+//! demo is acceptance, seeing it run, not validation), which is NOT the
+//! recorded campaign's 10 000 × [250 + 400]: at the default the fission
+//! source is not fully converged and `k` sits about 80 pcm above the
+//! campaign's (16 native seeds, 2026-10-13: +70 ± 28 pcm against OpenMC +
+//! NJOY2016, where the campaign size gives −8 ± 9). Pinning `k` to the
+//! record's ±8 pcm takes ~4 × 10⁸ histories and is not a browser job.
 
 pub mod model;
 #[cfg(not(target_arch = "wasm32"))]
@@ -156,7 +159,7 @@ impl McRung for Lct008 {
             "Model: ICSBEP LEU-COMP-THERM-008 case 1 (Babcock & Wilcox critical lattice): 4961 rods of 2.459 w/o UO₂ in Al-6061 clad, 1.63576 cm pitch, in water with 1511 ppm boron, arranged as a 7 × 7 core lattice of 15 × 15 pin lattices. Read at run time from the committed mit-crpg/benchmarks OpenMC cards by the same code the recorded result was measured with.",
             "Data: ENDF/B-VIII.0, processed in this browser by OUTRAM PARK's NJOY port. Watch: tolerance 0.01 (NJOY uses 0.001; measured effect on this lattice −65 ± 40 pcm). Run k_eff and the pitch view: NJOY's 0.001, as the record. Hydrogen in the water uses the H in H₂O S(α,β) thermal-scattering law. 11 nuclides: the clad's trace elements (Mg, Ti, Cr, Fe, Cu, Zn) and B-11 are left out, as in the quoted result.",
             "Each track is one real history (a one-particle fixed-source run through the nested lattices), drawn projected from above. Chaining one neutron after the next is the illustration.",
-            "Run k_eff is true Monte Carlo on the whole core: outram-mc-libs' single-thread CSG power iteration (`CsgPowerIteration`, what `run_keff_csg` runs), one generation at a time. Its default, 10 000 neutrons × [250 inactive + 400 active], is the recorded campaign's run size: one seed of the 96 the record pools (+236 ± 8 pcm from k = 1; OpenMC on NJOY2016 data gives +244 ± 5). That is 6.5 million histories on one thread: about 8 minutes natively on a fast desktop, several times longer in a browser. A smaller run is quicker, but the fission source of this 1.5 m core needs its 250 inactive generations: with fewer, k is biased, not just noisier.",
+            "Run k_eff is true Monte Carlo on the whole core: outram-mc-libs' single-thread CSG power iteration (`CsgPowerIteration`, what `run_keff_csg` runs), one generation at a time. Its default, 5000 neutrons × [40 inactive + 120 active], is sized to run in a browser, like the other benchmark rungs. It is smaller than the recorded campaign's 10 000 × [250 + 400] (96 seeds: +236 ± 8 pcm from k = 1; OpenMC on NJOY2016 data +244 ± 5), and at the default the fission source of this 1.5 m core has not fully settled: 16 native seeds gave k about 80 pcm above the campaign's. One run scatters by about 190 pcm, so that offset is inside one run's noise. For a k comparable with the record, set the campaign's numbers and wait.",
             "\"pitch k∞\" runs a real, single-threaded power iteration of ONE rod in a reflective square cell (an infinite lattice, no leakage) at the pitch you choose, on the same data, and draws it against the recorded sweep. It is k∞ of the pin lattice, not the core's k_eff.",
             "The σ(E) panel shows the cross sections this tab processed for transport, decimated for drawing: U-238 capture (σ_a − σ_f), U-235 fission and H-1 scattering with the water's S(α,β) law below its cutoff.",
             "A CSG run reports no source entropy and no leaked / captured / fissioned counts (the sphere-only iteration of the Godiva rung does).",
@@ -167,11 +170,12 @@ impl McRung for Lct008 {
     fn loading_note(_tier: Tier) -> Option<&'static str> {
         Some("Twelve tapes, including the water's thermal-scattering law: allow a few minutes in a browser, longer on a phone. Later visits read the processed data from this browser's cache.")
     }
-    /// **The recorded campaign's own run size**, 10 000 neutrons × [250
-    /// inactive + 400 active], seed 1: one seed of the 96 the record pools
-    /// (module docs, and the rung's notes, on what that costs).
+    /// 5000 neutrons × [40 inactive + 120 active], seed 1, as the other
+    /// benchmark rungs: sized to run in a browser, and smaller than the
+    /// recorded campaign's run (module docs, and the rung's notes, on what
+    /// that does to `k`).
     fn run_default() -> Option<KeffConfig> {
-        Some(KeffConfig { n_particles: 10_000, n_inactive: 250, n_active: 400, seed: 1, point_source: false, want_sites: false })
+        Some(KeffConfig { n_particles: 5000, n_inactive: 40, n_active: 120, seed: 1, point_source: false, want_sites: false })
     }
     /// Route 4 of the five-route study (outram-mc on the Rust NJOY port,
     /// ENDF read directly; the 11-nuclide tier this rung runs), read from
