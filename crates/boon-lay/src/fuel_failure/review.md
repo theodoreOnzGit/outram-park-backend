@@ -1510,3 +1510,54 @@ Okay lah, gas constant, correct from memory. but also checked against page 485 o
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 766a6663a4.
+
+# Review: DECOMPOSITION_FRONT_VELOCITY_M_PER_S (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-decomposition-front-velocity-m-per-s-theodoreonzgit-61c6b4b3"
+kind = "review"
+origin = "human"
+created = "2026-10-13T16:00:08+08:00"
+modified = "2026-10-13T16:00:08+08:00"
+target = "fn:61c6b4b343818095"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/decomposition.rs::DECOMPOSITION_FRONT_VELOCITY_M_PER_S"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T16:00:08+08:00"
+commit = "6e531bb555c6c6c13343c2dd7f1f534066713c1e"
+hash = "sha256:b4238d507203a351f1fbb97ec7c4ed9e7ea38eda17eac315b922d9f035a740de"
+doc_hash = "sha256:f3a4b55e6f289b80f65d03c87da47b8ff460e270440fe62ffa78027ea0e298e0"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "cited"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "LQZtaMikAqa3u5Uc/g0M0yHKK5fjPrsg3Csf1PPLUfWmzKxgGlYTF5CFGMngjr5liOYMEU8+3M3IPRQAGkDuAQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
+kind = "implements"
+```
+
+page 496 checked
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 6e531bb555.
