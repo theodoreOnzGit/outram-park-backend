@@ -28,8 +28,13 @@
 //!   with a helium shell to the **equal-volume sphere** of the cube,
 //!   `r = (3 * 216 / (4 pi))^(1/3) = 3.7221 cm`, reflective there, delta
 //!   tracking (`DhTreatment::DeltaTracking`).
-//! - **Same settings** for both: particles × \[inactive + active\] as below,
-//!   300.15 K, seed 20261013, all threads.
+//! - **Same settings** for both: 4000 × \[10 + 50\] by default
+//!   (`OUTRAM_CELL_PARTICLES` / `_INACTIVE` / `_ACTIVE` override), 300.15 K,
+//!   seed 20261013, all threads. The budget comes from a measured probe
+//!   (500 × \[2 + 3\], 2026-10-13, 4-core Xeon @ 2.10 GHz): 2.4 ms per
+//!   history wall on the CSG arm and 10 ms on the DH arm. So the default
+//!   costs about 10 + 40 min there, and 10 000 × \[20 + 100\] would cost
+//!   about 3.5 h on the DH arm alone.
 //! - **What differs, by construction:** the particle positions (cubic
 //!   lattice against random packing) and the reflective boundary (cube
 //!   against sphere, around a near-transparent helium gap). Neither is
@@ -86,9 +91,9 @@ fn csg_single_pebble_matches_the_dh_universe_pebble() {
     let mats = htr10_material_set(&layout, Htr10MaterialConfig::benchmark_default(t_k));
     let threads = std::thread::available_parallelism().map_or(1, |n| n.get());
     let settings = KeffSettings {
-        n_particles: env_usize("OUTRAM_CELL_PARTICLES", 10_000),
-        n_inactive: env_usize("OUTRAM_CELL_INACTIVE", 20),
-        n_active: env_usize("OUTRAM_CELL_ACTIVE", 100),
+        n_particles: env_usize("OUTRAM_CELL_PARTICLES", 4_000),
+        n_inactive: env_usize("OUTRAM_CELL_INACTIVE", 10),
+        n_active: env_usize("OUTRAM_CELL_ACTIVE", 50),
         temperature_k: t_k,
         seed: 20_261_013,
         compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(threads)),
