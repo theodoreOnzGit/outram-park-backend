@@ -382,11 +382,11 @@ impl CodeReview {
         }
         // Desktop only (#839): connect a reviewed function to a concept.
         if self.mode.can_stamp() {
-            let reviewed = snap.facts().review(id).is_valid();
+            let reviewed = snap.facts().review(id).holds();
             if ui
                 .add_enabled(reviewed, egui::Button::new("Add connection\u{2026}"))
                 .on_hover_text("Connect this function to a concept of the standard corpus")
-                .on_disabled_hover_text("Available once the function is reviewed (a valid stamp)")
+                .on_disabled_hover_text("Available once the function is reviewed (its stamp is valid, or waits only for a workspace test)")
                 .clicked()
             {
                 match self.function_ref(snap, id) {

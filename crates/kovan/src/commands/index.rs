@@ -81,7 +81,7 @@ use kovan_common::code_index::heal::{classify, is_own_orphan, Existing};
 use kovan_common::code_index::links::{self, FileOccs, Occ, Site, LINKS_FILE};
 use kovan_common::code_index::refresh::{all_claims, refresh_folder};
 use kovan_common::code_index::{deleted, upstream_draft};
-use kovan_common::review::hash::{hash_functions, hash_items};
+use kovan_common::review::hash::hash_both;
 use kovan_common::review::index::{FolderIndex, TestRun};
 use kovan_common::review::review_md::{parse_review_md, ReviewDocument};
 use kovan_common::review::root::{
@@ -687,10 +687,10 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
             continue;
         }
         let Some(text) = read(&root, &file) else { continue };
-        match hash_functions(&text) {
-            Ok(h) => {
+        match hash_both(&text) {
+            Ok((h, i)) => {
                 hashed.insert(file.clone(), h);
-                items.insert(file.clone(), hash_items(&text).unwrap_or_default());
+                items.insert(file.clone(), i);
             }
             Err(e) => say!(ctl, "index: {file}: {e}; its functions are left out"),
         }

@@ -104,6 +104,15 @@ impl StateKind {
         self == Self::Valid
     }
 
+    /// Whether a person's review of the code as it is now stands: valid,
+    /// or valid but for a workspace test run awaited after `Cargo.lock`
+    /// changed. Used where the question is "has someone reviewed this?"
+    /// (adding a connection from a reviewed function, #839), never for
+    /// maturity ([`Self::counts`]).
+    pub fn review_holds(self) -> bool {
+        matches!(self, Self::Valid | Self::PendingWorkspaceTest)
+    }
+
     /// Whether it belongs in the desktop ⚑ queue (#740 U1).
     pub fn needs_person(self) -> bool {
         matches!(

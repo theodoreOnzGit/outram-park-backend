@@ -414,6 +414,12 @@ impl Review {
     pub fn is_valid(&self) -> bool {
         matches!(self, Review::Stamped(k, _) if k.counts())
     }
+    /// Whether a person's review of the code as it is now stands
+    /// ([`StateKind::review_holds`]): valid, or awaiting only a workspace
+    /// test run.
+    pub fn holds(&self) -> bool {
+        matches!(self, Review::Stamped(k, _) if k.review_holds())
+    }
     pub fn kind(&self) -> StateKind {
         match self {
             Review::Unreviewed => StateKind::New,

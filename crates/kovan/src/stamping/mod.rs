@@ -198,7 +198,7 @@ pub fn load_workspace(root: &Path) -> Result<Workspace, String> {
     } else {
         head.as_str()
     };
-    let mut indexes = Vec::new();
+    let mut folders: Vec<(FolderIndex, String)> = Vec::new();
     for p in kovan_discovery::discover(root, &["toml"]) {
         if p.file_name().and_then(|f| f.to_str()) != Some(KOVAN_TOML) {
             continue;
@@ -213,11 +213,32 @@ pub fn load_workspace(root: &Path) -> Result<Workspace, String> {
         if fi.dir != dir {
             continue; // a fixture or a copy, not this folder's index
         }
-        let files = rust_files(root, &dir);
-        let doc = reviews.get(&dir).map(|f| &f.doc);
-        let (fresh, _) = refresh_folder(&fi.krate, &fi.dir, Some(&fi), &files, doc, &claims, mint);
-        indexes.push(fresh);
+        folders.push((fi, dir));
     }
+    // Refreshing parses every `.rs` file of the workspace: by far the
+    // slowest step (measured 2026-10-13 on this workspace, 801 folders:
+    // 14.1 s on one thread). Folders are independent, so they are shared
+    // out over the cores, two left free for the machine's user.
+    let threads = std::thread::available_parallelism()
+        .map_or(1, |n| n.get().saturating_sub(2))
+        .max(1);
+    let per = folders.len().div_ceil(threads).max(1);
+    let refresh = |part: &[(FolderIndex, String)]| -> Vec<FolderIndex> {
+        part.iter()
+            .map(|(fi, dir)| {
+                let files = rust_files(root, dir);
+                let doc = reviews.get(dir).map(|f| &f.doc);
+                refresh_folder(&fi.krate, &fi.dir, Some(fi), &files, doc, &claims, mint).0
+            })
+            .collect()
+    };
+    let indexes: Vec<FolderIndex> = std::thread::scope(|scope| {
+        let handles: Vec<_> = folders.chunks(per).map(|part| scope.spawn(|| refresh(part))).collect();
+        handles
+            .into_iter()
+            .flat_map(|h| h.join().expect("a folder refresh does not panic"))
+            .collect()
+    });
     let root_path = root.join(ROOT_FILE);
     let review_root = match std::fs::read_to_string(&root_path) {
         Ok(t) => ReviewRoot::parse(&t).map_err(|e| e.to_string())?,

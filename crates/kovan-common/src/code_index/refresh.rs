@@ -38,7 +38,7 @@
 use std::collections::BTreeMap;
 
 use crate::call_graph::function_ids;
-use crate::review::hash::{hash_functions, hash_items};
+use crate::review::hash::hash_both;
 use crate::review::index::{CachedReview, FolderIndex, FunctionIndex, ModuleIndex};
 use crate::review::review_md::ReviewDocument;
 
@@ -96,16 +96,15 @@ pub fn refresh_folder(
     let mut located = Vec::new();
     for (file, text) in files {
         let path = idx.file_path(file);
-        match hash_functions(text) {
-            Ok(fns) => {
+        match hash_both(text) {
+            Ok((fns, items)) => {
                 let quals: Vec<String> = fns
                     .iter()
                     .map(|h| h.entry.qualname().split_whitespace().collect())
                     .collect();
                 let ids = function_ids(&path, &quals);
-                // The file parsed above, so its items do too. One whose
-                // path id a function holds is left out, as in a full run.
-                let items = hash_items(text).unwrap_or_default();
+                // An item whose path id a function holds is left out, as
+                // in a full run.
                 let item_quals: Vec<String> = items.iter().map(|h| h.entry.name.clone()).collect();
                 let item_ids: Vec<(String, bool)> = function_ids(&path, &item_quals)
                     .into_iter()

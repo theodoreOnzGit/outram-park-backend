@@ -135,10 +135,37 @@ pub fn hash_items(source: &str) -> Result<Vec<HashedFn>, HashError> {
 /// leaves it out too: [`crate::code_index::folders`], "Other items"). For
 /// looking an index entry up by its `qual` in a file's text.
 pub fn hash_all(source: &str) -> Result<Vec<HashedFn>, HashError> {
-    let mut all = hash_functions(source)?;
+    let (mut all, items) = hash_both(source)?;
     let taken: std::collections::BTreeSet<String> = all.iter().map(|h| h.entry.qualname()).collect();
-    all.extend(hash_items(source)?.into_iter().filter(|h| !taken.contains(&h.entry.name)));
+    all.extend(items.into_iter().filter(|h| !taken.contains(&h.entry.name)));
     Ok(all)
+}
+
+/// [`hash_functions`] and [`hash_items`] from **one** parse of the file.
+/// Parsing is the cost: a caller that wants both (the refresh, which runs
+/// over every file of a workspace) must not parse twice.
+pub fn hash_both(source: &str) -> Result<(Vec<HashedFn>, Vec<HashedFn>), HashError> {
+    let parsed = parse_file(source).map_err(HashError)?;
+    let fns = parsed
+        .fns
+        .into_iter()
+        .map(|entry| {
+            let hashes = fn_hashes(&entry);
+            HashedFn { entry, hashes }
+        })
+        .collect();
+    let items = parsed
+        .items
+        .into_iter()
+        .map(|entry| {
+            let hashes = FnHashes {
+                hash: item_code_hash(&entry.code_without_name),
+                doc_hash: doc_hash(&entry.doc),
+            };
+            HashedFn { entry, hashes }
+        })
+        .collect();
+    Ok((fns, items))
 }
 
 #[cfg(test)]
@@ -219,6 +246,10 @@ mod tests {
         let names: Vec<String> = all.iter().map(|h| h.entry.qualname()).collect();
         assert_eq!(names, ["f", "Ball::r", "Ball"]);
         assert!(all[0].entry.shape.is_none() && all[2].entry.shape.is_some());
+        // One parse gives what the two separate calls give.
+        let (fns, items) = hash_both(src).unwrap();
+        assert_eq!(fns, hash_functions(src).unwrap());
+        assert_eq!(items, a);
     }
 
     /// Methodology: methods, generics and trait declarations drop their

@@ -208,7 +208,9 @@ mod tests {
     /// accepts (the two share the standard corpus); the unreviewed function
     /// is refused with the reason and nothing is written; once reviewed the
     /// add writes `docs/mindmap/connections.toml`, the window lists the
-    /// connection, and it draws without a display.
+    /// connection, and it draws without a display. After `Cargo.lock`
+    /// changes the function is "pending workspace test" and a second
+    /// connection is still accepted (corrected 2026-10-13: it was refused).
     ///
     /// Result (2026-10-12): passes.
     #[test]
@@ -233,6 +235,19 @@ mod tests {
         assert_eq!(p.existing.len(), 1);
         assert_eq!(p.existing[0].target.path, first);
         assert!(r.path().join(REL_PATH).is_file());
+
+        // `Cargo.lock` changes (an unrelated dependency): the review now
+        // awaits a workspace test, and still stands for a connection.
+        r.write("Cargo.lock", "version = 4\n");
+        r.commit("a dependency changed");
+        assert_eq!(
+            r.state("leaf").unwrap().kind(),
+            kovan_common::review::state::StateKind::PendingWorkspaceTest
+        );
+        let second = p.matches().iter().map(|c| c.path.clone()).find(|c| *c != first).unwrap();
+        p.add(&second);
+        assert!(p.wait(), "{:?}", p.note);
+        assert_eq!(p.existing.len(), 2);
 
         let ctx = egui::Context::default();
         let _ = ctx.run_ui(Default::default(), |ui| {
