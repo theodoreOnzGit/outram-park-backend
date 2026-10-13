@@ -441,6 +441,7 @@ mod tests {
                 scatter: vec![vec![0.5 / n as f64; n]; n],
                 chi: vec![1.0 / n as f64; n],
                 sigma: None,
+                scatter_only: Vec::new(),
             }],
         }
     }

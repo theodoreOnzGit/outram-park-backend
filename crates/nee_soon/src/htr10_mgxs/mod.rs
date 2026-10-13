@@ -50,9 +50,13 @@
 //! ## What a case does NOT do yet
 //!
 //! - **No multigroup `k_eff`.** The gate of #850 needs the converter to
-//!   `physics_mg` (#848) and the scattering multiplicity (#682). The saved
+//!   `physics_mg` (#848) and the scattering multiplicity (#682). ~~The saved
 //!   library is what that gate will read, so these runs are not repeated
-//!   when it lands.
+//!   when it lands.~~ **CORRECTED 2026-10-13:** both have landed, and the
+//!   converter needs per-group standard errors and the scatter-only matrix,
+//!   which a record written before that date lacks; such a record converts
+//!   only through explicit ablations
+//!   (`verification_and_validation/htr10_mgxs_runs/README.md`).
 //! - **No uncertainty on the collapsed constants.** Tallies keep per-bin
 //!   moments, not the covariance between the fine bins of one batch, so the
 //!   σ of a merged group is not recoverable (see [`crate::mgxs`]). The

@@ -200,6 +200,7 @@ mod tests {
                     scatter: vec![vec![0.40, 0.08], vec![0.10, 0.38]],
                     chi: vec![0.0, 1.0],
                     sigma: None,
+                    scatter_only: Vec::new(),
                 },
                 ZoneMgxs {
                     name: "boring band".into(),
@@ -212,6 +213,7 @@ mod tests {
                     scatter: vec![vec![0.30, 0.099], vec![0.05, 0.349]],
                     chi: vec![0.0, 0.0],
                     sigma: None,
+                    scatter_only: Vec::new(),
                 },
             ],
         };

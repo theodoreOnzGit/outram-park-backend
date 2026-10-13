@@ -29,8 +29,27 @@ Carlo run of the full HTR-10 core, one zone per material:
 continuous-energy `k_eff` of the same run. They are **not** yet a verification
 gate: the multigroup `k_eff` that #850 compares against the continuous-energy
 one needs #848 (the converter to `physics_mg`) and #682 (scattering
-multiplicity). The saved libraries are what that gate reads, so these runs are
-not repeated when it lands. Per-case checks (identical passes, no lost
+multiplicity). ~~The saved libraries are what that gate reads, so these runs are
+not repeated when it lands.~~
+
+**CORRECTED 2026-10-13.** #848 and #682 have landed, and the converter
+(`MgxsLibrary::to_physics_mg`) needs two things a record written before that
+date does not carry:
+- per-group standard errors (`ZoneMgxs::sigma`), to judge whether a scattering
+  row agrees with `Sigma_t - Sigma_a`;
+- the scatter-only matrix (`ZoneMgxs::scatter_only`), to form the (n,xn)
+  multiplicity.
+
+Such a record still loads (both fields default to empty), but the default
+conversion refuses it (`NoUncertainty`, `NoScatterOnly`). It converts only
+through explicit ablations: `rebalanced()` and
+`to_physics_mg_without_multiplicity()`. So runs made before 2026-10-13 either
+are repeated with the current tallies, or are read by the gate with both
+ablations stated. Checked by
+`mgxs::tests::a_library_without_sigma_must_balance_exactly` and
+`no_scatter_only_is_refused_unless_ablated`. On HTR-10 the multiplicity is
+expected to be small (C-12's (n,2n) opens at 18.7 MeV, U-238's at 6 MeV), but
+that is not measured. Per-case checks (identical passes, no lost
 histories, collapse conserves `k_inf`, every kernel group visited, agreement of
 the 300 K `k` with the 2026-10-07 record) are in each `README.md`.
 

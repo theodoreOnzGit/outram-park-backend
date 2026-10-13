@@ -420,6 +420,7 @@ mod tests {
                     scatter: vec![vec![0.9]],
                     chi: vec![1.0],
                     sigma: None,
+                    scatter_only: Vec::new(),
                 }],
             },
             collapsed: vec![CollapsedSummary {

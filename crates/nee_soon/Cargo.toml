@@ -31,6 +31,13 @@ topic = "neutronics"
 fidelity = 4
 maturity = 2
 
+[features]
+default = ["long-tests"]
+# Tests over five minutes, or that need the reference nuclear data, are
+# gated behind this feature, on by default
+# (docs/claude-md/long-tests-and-ci.md). Added 2026-10-13 (gh:#849).
+long-tests = []
+
 [dependencies]
 # Integration targets — the crates NEE_SOON composes and re-exposes. Declared
 # here so the coupling surface is wired even though the scaffold does not yet

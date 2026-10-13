@@ -1022,6 +1022,7 @@ mod tests {
                     vec![0.0, 0.0]
                 },
                 sigma: None,
+                scatter_only: Vec::new(),
             }
         }
         fn region(&self, name: &str) -> RegionXs {

@@ -62,7 +62,7 @@
 //! | pass | filters | scores |
 //! |---|---|---|
 //! | scalar | `[Material, Energy]` | `Flux, Total, Absorption, NuFission, KappaFission, Fission` |
-//! | matrix | `[Material, Energy, EnergyOut]` | `ScatterN, NuFission` (births, for `chi`) |
+//! | matrix | `[Material, Energy, EnergyOut]` | `ScatterN` (nu-scatter), `NuFission` (births, for `chi`), `Scatter` (scatter-only, since 2026-10-13) |
 //!
 //! Because the histories are identical, the flux denominator from the scalar
 //! pass is the correct denominator for the matrix pass; they are not two
@@ -196,6 +196,18 @@ pub enum MgxsError {
         group: usize,
         /// Its relative residual.
         relative: f64,
+    },
+    /// [`MgxsLibrary::to_physics_mg`]: the library has no scatter-only matrix
+    /// ([`ZoneMgxs::scatter_only`] empty: condensed before 2026-10-13), so
+    /// the scattering multiplicity cannot be formed.
+    #[error(
+        "zone '{zone}' has no scatter-only matrix, so its (n,xn) multiplicity cannot be \
+         formed; re-condense with the current matrix tally, or convert with \
+         `to_physics_mg_without_multiplicity` as an explicit ablation"
+    )]
+    NoScatterOnly {
+        /// Zone name.
+        zone: String,
     },
     /// [`MgxsLibrary::to_physics_mg`]: an ordering the multigroup kernel
     /// requires does not hold (`Sigma_f <= Sigma_a <= Sigma_t`, a fissile zone
@@ -333,7 +345,22 @@ pub struct ZoneMgxs {
     /// Fission energy deposition `kappa * Sigma_f` \[J cm^-1\].
     pub kappa_fission: Vec<f64>,
     /// Isotropic (`P0`) scattering matrix, `scatter[g_in][g_out]` \[cm^-1\].
+    ///
+    /// **A nu-scatter matrix**: [`condense`] fills it from the tally's
+    /// `ScatterN` score, which counts every neutron a scatter emits, so an
+    /// (n,2n) contributes twice (once in each neutron's outgoing group). Its
+    /// row therefore exceeds `Sigma_t - Sigma_a` by the (n,xn) gain;
+    /// [`Self::scatter_only`] is the matrix that does not.
     pub scatter: Vec<Vec<f64>>,
+    /// The scatter-only matrix, one count per scattering collision on the
+    /// primary neutron's outgoing group \[cm^-1\] (added 2026-10-13,
+    /// gh:#682); OpenMC's `scatter matrix` beside its `nu-scatter matrix`.
+    /// `scatter[g][g'] / scatter_only[g][g']` is the multiplicity, and its
+    /// row is the tallied estimate of `Sigma_t - Sigma_a`. **Empty** for a
+    /// library condensed before the score existed (records deserialise with
+    /// it empty).
+    #[serde(default)]
+    pub scatter_only: Vec<Vec<f64>>,
     /// Fission spectrum `chi_g`, normalised to sum to 1 over groups.
     ///
     /// **Measured, not assumed**: condensed from the energies fission neutrons
@@ -392,6 +419,10 @@ pub struct ZoneMgxsSigma {
     pub kappa_fission: Vec<f64>,
     /// Standard error of each [`ZoneMgxs::scatter`] element \[cm^-1\].
     pub scatter: Vec<Vec<f64>>,
+    /// Standard error of each [`ZoneMgxs::scatter_only`] element
+    /// \[cm^-1\]; empty when that matrix is.
+    #[serde(default)]
+    pub scatter_only: Vec<Vec<f64>>,
 }
 
 impl ZoneMgxsSigma {
@@ -405,15 +436,14 @@ impl ZoneMgxsSigma {
         Some(self.scatter.get(g)?.iter().sum())
     }
 
+    /// The same bound for [`ZoneMgxs::scatter_only`]'s row.
+    #[must_use]
+    pub fn scatter_only_row_bound(&self, g: usize) -> Option<f64> {
+        Some(self.scatter_only.get(g)?.iter().sum())
+    }
+
     fn reversed(&self) -> Self {
         let rev = |v: &Vec<f64>| -> Vec<f64> { v.iter().rev().copied().collect() };
-        let n = self.flux.len();
-        let mut scatter = vec![vec![0.0; n]; n];
-        for gi in 0..n {
-            for go in 0..n {
-                scatter[n - 1 - gi][n - 1 - go] = self.scatter[gi][go];
-            }
-        }
         Self {
             flux: rev(&self.flux),
             total: rev(&self.total),
@@ -421,7 +451,8 @@ impl ZoneMgxsSigma {
             fission: rev(&self.fission),
             nu_fission: rev(&self.nu_fission),
             kappa_fission: rev(&self.kappa_fission),
-            scatter,
+            scatter: reverse_matrix(&self.scatter),
+            scatter_only: reverse_matrix(&self.scatter_only),
         }
     }
 }
@@ -611,11 +642,22 @@ impl MgxsLibrary {
             nu_fission: vec![0.0; g],
             kappa_fission: vec![0.0; g],
             scatter: vec![vec![0.0; g]; g],
+            // Kept only if every picked zone tallied it.
+            scatter_only: if which
+                .iter()
+                .filter_map(|&i| self.zones.get(i))
+                .all(|z| !z.scatter_only.is_empty())
+            {
+                vec![vec![0.0; g]; g]
+            } else {
+                Vec::new()
+            },
             chi: vec![0.0; g],
             // Not carried: a flux-weighted sum over zones needs the
             // covariance between them (see `ZoneMgxsSigma`).
             sigma: None,
         };
+        let keep_only = !out.scatter_only.is_empty();
 
         let picked = || which.iter().filter_map(|&i| self.zones.get(i));
 
@@ -631,6 +673,9 @@ impl MgxsLibrary {
                 out.kappa_fission[gi] += z.kappa_fission[gi] * w;
                 for gj in 0..g {
                     out.scatter[gi][gj] += z.scatter[gi][gj] * w;
+                    if keep_only {
+                        out.scatter_only[gi][gj] += z.scatter_only[gi][gj] * w;
+                    }
                 }
             }
         }
@@ -644,6 +689,9 @@ impl MgxsLibrary {
                 out.kappa_fission[gi] /= phi;
                 for gj in 0..g {
                     out.scatter[gi][gj] /= phi;
+                    if keep_only {
+                        out.scatter_only[gi][gj] /= phi;
+                    }
                 }
             }
         }
@@ -756,6 +804,11 @@ impl MgxsLibrary {
     /// Returns, per zone and group, `(Sigma_t, Sigma_a + Sigma_s,row, relative
     /// discrepancy)`. A relative discrepancy far from zero is a CONDENSATION
     /// defect, not a solver one.
+    ///
+    /// **The row is the nu-scatter row** ([`ZoneMgxs::scatter`]), so in a
+    /// group with (n,xn) the discrepancy also carries the net gain, which is
+    /// physics, not a defect (noted 2026-10-13, gh:#682). The check
+    /// [`Self::to_physics_mg`] makes uses the scatter-only row instead.
     #[must_use]
     pub fn balance_check(&self) -> Vec<(String, Vec<(f64, f64, f64)>)> {
         self.zones
@@ -821,9 +874,25 @@ impl MgxsLibrary {
 
     /// Infinite-multiplication factor implied by these constants, zero leakage.
     ///
-    /// `k_inf = sum_g nu_Sigma_f,g phi_g / sum_g Sigma_a,g phi_g`, over every
-    /// zone. This is the algebraic answer the group constants encode, and is
-    /// the thing a zero-leakage deterministic solve must reproduce — so a
+    /// ~~`k_inf = sum_g nu_Sigma_f,g phi_g / sum_g Sigma_a,g phi_g`~~
+    /// **CORRECTED 2026-10-13 (gh:#682):**
+    ///
+    /// ```text
+    ///   k_inf = sum nu_Sigma_f,g phi_g / sum ( Sigma_a,g - G_g ) phi_g
+    ///   G_g   = sum_g' nu_Sigma_s,g->g' - sum_g' Sigma_s,g->g'
+    /// ```
+    ///
+    /// over every zone, where `G_g` is the net (n,xn) gain: the nu-scatter
+    /// row less the scatter-only row ([`ZoneMgxs::scatter_only`]). An (n,2n)
+    /// removes one neutron and returns two, so in neutron balance it is a
+    /// negative absorption. The old form left it out, and on a beryllium /
+    /// HEU infinite medium read 1.716 against the transport's 1.903
+    /// (`tests/mgxs_multiplicity_infinite_medium.rs`). A zone with no
+    /// scatter-only matrix (condensed before 2026-10-13) contributes no gain,
+    /// as before.
+    ///
+    /// This is the algebraic answer the group constants encode, and is the
+    /// thing a zero-leakage deterministic solve must reproduce — so a
     /// disagreement between this and the diffusion solver is a SOLVER defect,
     /// while a disagreement between this and the Monte Carlo system `k_inf` is
     /// a CONDENSATION defect. Separating those two is the point.
@@ -835,6 +904,10 @@ impl MgxsLibrary {
             for gi in 0..z.flux.len() {
                 prod += z.nu_fission[gi] * z.flux[gi];
                 absn += z.absorption[gi] * z.flux[gi];
+                if let (Some(nu), Some(so)) = (z.scatter.get(gi), z.scatter_only.get(gi)) {
+                    let gain = nu.iter().sum::<f64>() - so.iter().sum::<f64>();
+                    absn -= gain * z.flux[gi];
+                }
             }
         }
         if absn > 0.0 {
@@ -845,7 +918,10 @@ impl MgxsLibrary {
     }
 
     /// The same library with every group's total rebalanced to
-    /// `Sigma_t,g = Sigma_a,g + sum_g' Sigma_s,g->g'`.
+    /// `Sigma_t,g = Sigma_a,g + sum_g' Sigma_s,g->g'`, using the scatter-only
+    /// row ([`ZoneMgxs::scatter_only`]) where it was tallied and the
+    /// nu-scatter row otherwise (**CHANGED 2026-10-13**, gh:#682: before,
+    /// always the nu-scatter row, which counts an (n,2n) twice).
     ///
     /// # Why this is the right repair, and why on the total
     ///
@@ -882,8 +958,18 @@ impl MgxsLibrary {
             .iter()
             .map(|z| {
                 let mut out = z.clone();
+                // The scatter-only row where it was tallied (since gh:#682):
+                // a scatter removes one neutron from the group however many
+                // it emits. A library without it falls back to the
+                // nu-scatter row, as before.
+                let rows = if out.scatter_only.is_empty() {
+                    &out.scatter
+                } else {
+                    &out.scatter_only
+                };
+                let sums: Vec<f64> = rows.iter().map(|r| r.iter().sum()).collect();
                 for g in 0..out.total.len() {
-                    let row: f64 = out.scatter.get(g).map_or(0.0, |r| r.iter().sum());
+                    let row = sums.get(g).copied().unwrap_or(0.0);
                     let abs = out.absorption.get(g).copied().unwrap_or(0.0);
                     out.total[g] = abs + row;
                 }
@@ -1047,11 +1133,17 @@ impl MgxsLibrary {
                     nu_fission: vec![0.0; n_c],
                     kappa_fission: vec![0.0; n_c],
                     scatter: vec![vec![0.0; n_c]; n_c],
+                    scatter_only: if z.scatter_only.is_empty() {
+                        Vec::new()
+                    } else {
+                        vec![vec![0.0; n_c]; n_c]
+                    },
                     chi: vec![0.0; n_c],
                     // Not recoverable: merging groups needs the covariance
                     // between the fine bins (module docs, `ZoneMgxsSigma`).
                     sigma: None,
                 };
+                let keep_only = !out.scatter_only.is_empty();
                 // Accumulate rates, then divide by the merged flux.
                 for (g, &c) in of.iter().enumerate() {
                     let w = z.flux[g];
@@ -1064,6 +1156,9 @@ impl MgxsLibrary {
                     out.chi[c] += z.chi[g];
                     for (go, &co) in of.iter().enumerate() {
                         out.scatter[c][co] += z.scatter[g][go] * w;
+                        if keep_only {
+                            out.scatter_only[c][co] += z.scatter_only[g][go] * w;
+                        }
                     }
                 }
                 for c in 0..n_c {
@@ -1077,6 +1172,11 @@ impl MgxsLibrary {
                         for v in &mut out.scatter[c] {
                             *v /= phi;
                         }
+                        if keep_only {
+                            for v in &mut out.scatter_only[c] {
+                                *v /= phi;
+                            }
+                        }
                     } else {
                         out.total[c] = 0.0;
                         out.absorption[c] = 0.0;
@@ -1084,6 +1184,9 @@ impl MgxsLibrary {
                         out.nu_fission[c] = 0.0;
                         out.kappa_fission[c] = 0.0;
                         out.scatter[c] = vec![0.0; n_c];
+                        if keep_only {
+                            out.scatter_only[c] = vec![0.0; n_c];
+                        }
                     }
                 }
                 out
@@ -1109,6 +1212,13 @@ impl MgxsLibrary {
     /// - `Sigma_t`, `Sigma_a`, `Sigma_f`, `nu Sigma_f` and `chi` pass through
     ///   unchanged; nothing is rebalanced. A non-fissile zone keeps its
     ///   all-zero `chi` (allowed by `Mgxs::new` since gh:#848).
+    /// - **The scattering multiplicity is attached, by default** (gh:#682):
+    ///   the matrix passed is the nu-scatter one ([`ZoneMgxs::scatter`]) and
+    ///   the per-transfer multiplicity is `scatter / scatter_only`, OpenMC's
+    ///   `multiplicity_matrix`; `physics_mg` weights each scatter by it
+    ///   (`physics_mg::ScatterMultiplicity`). Without it a nu-scatter library
+    ///   loses its (n,xn) gain. [`Self::to_physics_mg_without_multiplicity`]
+    ///   is the ablation.
     ///
     /// **Zone `i` becomes material index `i`.** The kernel looks a material
     /// up by the index its geometry carries, so the library must hold one zone
@@ -1127,11 +1237,14 @@ impl MgxsLibrary {
     /// [`ZoneMgxs::sigma`] (an upper bound: see [`ZoneMgxsSigma`]), or within
     /// [`CONSISTENCY_REL_FLOOR`] of `Sigma_t`.
     ///
-    /// The matrix [`condense`] produces is a **nu**-scatter matrix (every
-    /// neutron an (n,2n) emits is scored), so its row may exceed
-    /// `Sigma_t - Sigma_a` by the (n,xn) gain. This converter does not yet
-    /// carry that gain into the kernel (gh:#682), so here it counts as an
-    /// inconsistency like any other.
+    /// The row checked is the **scatter-only** one ([`ZoneMgxs::scatter_only`]),
+    /// since a scatter removes one neutron from its group however many it
+    /// emits; the nu-scatter row's excess over it is the (n,xn) gain, carried
+    /// as multiplicity. ~~This converter does not yet carry that gain into
+    /// the kernel (gh:#682), so here it counts as an inconsistency like any
+    /// other.~~ (**CHANGED 2026-10-13**, gh:#682.) The nu-scatter matrix must
+    /// also be at least the scatter-only one in every transfer, which holds
+    /// exactly for analog scores of the same collisions.
     ///
     /// A library with no standard errors (`sigma: None`: one built by hand,
     /// collapsed, homogenised, or recorded before 2026-10-13) is converted
@@ -1141,12 +1254,35 @@ impl MgxsLibrary {
     ///
     /// # Errors
     ///
-    /// [`MgxsError::Inconsistent`], [`MgxsError::NoUncertainty`], or
-    /// [`MgxsError::NotTransportable`] (`Sigma_f > Sigma_a`,
-    /// `Sigma_a > Sigma_t`, a fissile zone with no birth spectrum, or an
-    /// empty library).
+    /// [`MgxsError::Inconsistent`], [`MgxsError::NoUncertainty`],
+    /// [`MgxsError::NoScatterOnly`], or [`MgxsError::NotTransportable`]
+    /// (`Sigma_f > Sigma_a`, `Sigma_a > Sigma_t`, nu-scatter below scatter,
+    /// a fissile zone with no birth spectrum, or an empty library).
     pub fn to_physics_mg(
         &self,
+    ) -> Result<outram_mc_libs::physics::physics_mg::MgxsLibrary, MgxsError> {
+        self.convert(true)
+    }
+
+    /// **Ablation**: [`Self::to_physics_mg`] without the scattering
+    /// multiplicity, so the nu-scatter matrix is sampled for its shape only
+    /// and the (n,xn) gain is lost, as the kernel did before gh:#682. The
+    /// consistency check is then on the nu-scatter row, as it was. Needs no
+    /// scatter-only matrix, so it also converts a library condensed before
+    /// 2026-10-13 (if it carries standard errors, or balances exactly).
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::to_physics_mg`], except [`MgxsError::NoScatterOnly`].
+    pub fn to_physics_mg_without_multiplicity(
+        &self,
+    ) -> Result<outram_mc_libs::physics::physics_mg::MgxsLibrary, MgxsError> {
+        self.convert(false)
+    }
+
+    fn convert(
+        &self,
+        multiplicity: bool,
     ) -> Result<outram_mc_libs::physics::physics_mg::MgxsLibrary, MgxsError> {
         use outram_mc_libs::physics::physics_mg as mg;
         if self.zones.is_empty() {
@@ -1157,25 +1293,46 @@ impl MgxsLibrary {
         }
         let n = self.groups.n_groups();
         for z in &self.zones {
-            check_transportable(z, n)?;
+            check_transportable(z, n, multiplicity)?;
         }
         let desc = self.in_descending_energy();
-        let materials = desc
-            .zones
-            .iter()
-            .map(|z| {
-                let flat: Vec<f64> = z.scatter.iter().flat_map(|row| row.iter().copied()).collect();
-                mg::Mgxs::new(
-                    z.name.clone(),
-                    z.total.clone(),
-                    z.absorption.clone(),
-                    z.fission.clone(),
-                    z.nu_fission.clone(),
-                    z.chi.clone(),
-                    flat,
-                )
-            })
-            .collect();
+        let mut materials = Vec::with_capacity(desc.zones.len());
+        for z in &desc.zones {
+            let flat = |m: &[Vec<f64>]| -> Vec<f64> { m.iter().flatten().copied().collect() };
+            let set = mg::Mgxs::new(
+                z.name.clone(),
+                z.total.clone(),
+                z.absorption.clone(),
+                z.fission.clone(),
+                z.nu_fission.clone(),
+                z.chi.clone(),
+                flat(&z.scatter),
+            );
+            if !multiplicity {
+                materials.push(set);
+                continue;
+            }
+            // OpenMC's `multiplicity_matrix = nu-scatter / scatter`
+            // (`mgxs_library.py:1710`), 0 where both are 0 (read as 1 by the
+            // kernel, as upstream's `base_init`), infinite where only (n,xn)
+            // neutrons reach the transfer.
+            let mult: Vec<f64> = flat(&z.scatter)
+                .iter()
+                .zip(flat(&z.scatter_only))
+                .map(|(&nu, s)| match (nu > 0.0, s > 0.0) {
+                    (_, true) => (nu / s).max(1.0),
+                    (true, false) => f64::INFINITY,
+                    (false, false) => 0.0,
+                })
+                .collect();
+            let set = set
+                .with_scattering_multiplicity(mult)
+                .map_err(|what| MgxsError::NotTransportable {
+                    zone: z.name.clone(),
+                    what,
+                })?;
+            materials.push(set);
+        }
         Ok(mg::MgxsLibrary::new(materials))
     }
 
@@ -1187,20 +1344,11 @@ impl MgxsLibrary {
     /// wrong eigenvalue, so the caller states which convention it wants.
     #[must_use]
     pub fn in_descending_energy(&self) -> Self {
-        let n = self.groups.n_groups();
         let rev = |v: &Vec<f64>| -> Vec<f64> { v.iter().rev().copied().collect() };
         let zones = self
             .zones
             .iter()
             .map(|z| {
-                // Both axes of the matrix reverse together: element
-                // (g_in, g_out) moves to (n-1-g_in, n-1-g_out).
-                let mut scatter = vec![vec![0.0; n]; n];
-                for gi in 0..n {
-                    for go in 0..n {
-                        scatter[n - 1 - gi][n - 1 - go] = z.scatter[gi][go];
-                    }
-                }
                 ZoneMgxs {
                     name: z.name.clone(),
                     flux: rev(&z.flux),
@@ -1209,7 +1357,8 @@ impl MgxsLibrary {
                     fission: rev(&z.fission),
                     nu_fission: rev(&z.nu_fission),
                     kappa_fission: rev(&z.kappa_fission),
-                    scatter,
+                    scatter: reverse_matrix(&z.scatter),
+                    scatter_only: reverse_matrix(&z.scatter_only),
                     chi: rev(&z.chi),
                     sigma: z.sigma.as_ref().map(ZoneMgxsSigma::reversed),
                 }
@@ -1242,7 +1391,7 @@ pub const CONSISTENCY_REL_FLOOR: f64 = 1.0e-9;
 
 /// The checks [`MgxsLibrary::to_physics_mg`] makes on one zone, in the
 /// library's own ascending order.
-fn check_transportable(z: &ZoneMgxs, n: usize) -> Result<(), MgxsError> {
+fn check_transportable(z: &ZoneMgxs, n: usize, multiplicity: bool) -> Result<(), MgxsError> {
     let bad = |what: String| MgxsError::NotTransportable {
         zone: z.name.clone(),
         what,
@@ -1279,17 +1428,48 @@ fn check_transportable(z: &ZoneMgxs, n: usize) -> Result<(), MgxsError> {
     if z.nu_fission.iter().any(|&v| v > 0.0) && !(z.chi.iter().sum::<f64>() > 0.0) {
         return Err(bad("fissile, but no fission neutron was born in it (chi = 0)".into()));
     }
+    if multiplicity {
+        if z.scatter_only.is_empty() {
+            return Err(MgxsError::NoScatterOnly {
+                zone: z.name.clone(),
+            });
+        }
+        if z.scatter_only.len() != n || z.scatter_only.iter().any(|r| r.len() != n) {
+            return Err(bad(format!("scatter_only is not {n} x {n}")));
+        }
+        // Every collision scores 1 into both on the primary's outgoing group
+        // and the nu-scatter matrix adds the secondaries, so nu >= scatter in
+        // every transfer, exactly for analog weights.
+        for g in 0..n {
+            for gp in 0..n {
+                let (nu, so) = (z.scatter[g][gp], z.scatter_only[g][gp]);
+                if nu < so * (1.0 - 1e-12) {
+                    return Err(bad(format!(
+                        "transfer {g} -> {gp}: nu-scatter {nu:.6e} is below scatter {so:.6e}"
+                    )));
+                }
+            }
+        }
+    }
+    // The row that must match Sigma_t - Sigma_a: scatter-only with
+    // multiplicity, the nu-scatter row in the ablation.
+    let (rows, row_bound): (&Vec<Vec<f64>>, fn(&ZoneMgxsSigma, usize) -> Option<f64>) =
+        if multiplicity {
+            (&z.scatter_only, ZoneMgxsSigma::scatter_only_row_bound)
+        } else {
+            (&z.scatter, ZoneMgxsSigma::scatter_row_bound)
+        };
     for g in 0..n {
         if !(z.flux[g] > 0.0) {
             continue;
         }
         let expected = z.total[g] - z.absorption[g];
-        let row: f64 = z.scatter[g].iter().sum();
+        let row: f64 = rows[g].iter().sum();
         let residual = row - expected;
         let floor = CONSISTENCY_REL_FLOOR * z.total[g].abs();
         match &z.sigma {
             Some(s) => {
-                let bound = s.total[g] + s.absorption[g] + s.scatter_row_bound(g).unwrap_or(0.0);
+                let bound = s.total[g] + s.absorption[g] + row_bound(s, g).unwrap_or(0.0);
                 let allowed = (CONSISTENCY_Z * bound).max(floor);
                 if residual.abs() > allowed {
                     return Err(MgxsError::Inconsistent {
@@ -1316,10 +1496,31 @@ fn check_transportable(z: &ZoneMgxs, n: usize) -> Result<(), MgxsError> {
     Ok(())
 }
 
-/// Scores carried by the matrix pass, in order: the scattering matrix and the
-/// fission-birth spectrum. Both need the same `[Material, Energy, EnergyOut]`
-/// filters, so they share one tally and one transport pass.
-pub const MATRIX_SCORES: usize = 2;
+/// A matrix with both axes reversed: element `(g_in, g_out)` moves to
+/// `(n-1-g_in, n-1-g_out)`. An empty matrix stays empty.
+fn reverse_matrix(m: &[Vec<f64>]) -> Vec<Vec<f64>> {
+    let n = m.len();
+    let mut out = vec![vec![0.0; n]; n];
+    for gi in 0..n {
+        for go in 0..n {
+            out[n - 1 - gi][n - 1 - go] = m[gi][go];
+        }
+    }
+    out
+}
+
+/// The score order the matrix pass must declare, and that [`condense`]
+/// assumes: the nu-scatter matrix (`ScatterN`), the fission births that give
+/// `chi` (`NuFission`) and, appended 2026-10-13 (gh:#682), the scatter-only
+/// matrix (`Scatter`). All three need the same
+/// `[Material, Energy, EnergyOut]` filters, so they share one tally and one
+/// transport pass. Exposed so a caller building its own matrix tally
+/// (`dhoby-ghaut`'s mesh tally) cannot disagree with the reader.
+pub const MATRIX_SCORE_TYPES: [ScoreType; 3] =
+    [ScoreType::ScatterN, ScoreType::NuFission, ScoreType::Scatter];
+
+/// Number of scores in the matrix pass (`MATRIX_SCORE_TYPES.len()`).
+pub const MATRIX_SCORES: usize = MATRIX_SCORE_TYPES.len();
 
 /// The score order the scalar pass must declare, and that [`condense`] assumes.
 ///
@@ -1344,8 +1545,8 @@ pub const SCALAR_SCORES: [ScoreType; 6] = [
 ///   the `MaterialFilter` the tallies carried.
 /// - `scalar` — a tally with filters `[Material, Energy]` and scores exactly
 ///   [`SCALAR_SCORES`], already run.
-/// - `matrix` — a tally with filters `[Material, Energy, EnergyOut]` and score
-///   `[ScatterN]`, already run at the same seed.
+/// - `matrix` — a tally with filters `[Material, Energy, EnergyOut]` and
+///   scores exactly [`MATRIX_SCORE_TYPES`], already run at the same seed.
 /// - `n_realizations` — active batch count, for [`TallyBin::mean`].
 ///
 /// # Errors
@@ -1404,7 +1605,8 @@ pub fn condense(
         scalar.bins[(z * n_g + g) * n_s + s].mean(n_realizations)
     };
     // [Material, Energy, EnergyOut] with MATRIX_SCORES scores: score 0 is the
-    // scattering matrix, score 1 the fission-birth count.
+    // nu-scatter matrix, score 1 the fission-birth count, score 2 the
+    // scatter-only matrix.
     let mat = |z: usize, gi: usize, go: usize, s: usize| -> f64 {
         matrix.bins[((z * n_g + gi) * n_g + go) * MATRIX_SCORES + s].mean(n_realizations)
     };
@@ -1439,6 +1641,7 @@ pub fn condense(
         let mut nu_fission = vec![0.0; n_g];
         let mut kappa_fission = vec![0.0; n_g];
         let mut scatter = vec![vec![0.0; n_g]; n_g];
+        let mut scatter_only = vec![vec![0.0; n_g]; n_g];
         let mut sig = ZoneMgxsSigma {
             flux: vec![0.0; n_g],
             total: vec![0.0; n_g],
@@ -1447,6 +1650,7 @@ pub fn condense(
             nu_fission: vec![0.0; n_g],
             kappa_fission: vec![0.0; n_g],
             scatter: vec![vec![0.0; n_g]; n_g],
+            scatter_only: vec![vec![0.0; n_g]; n_g],
         };
 
         for g in 0..n_g {
@@ -1464,6 +1668,7 @@ pub fn condense(
             fission[g] = scal(z, g, 5) / phi;
             for go in 0..n_g {
                 scatter[g][go] = mat(z, g, go, 0) / phi;
+                scatter_only[g][go] = mat(z, g, go, 2) / phi;
             }
             if with_sigma {
                 let rp = scal_rel(z, g, 0);
@@ -1475,6 +1680,8 @@ pub fn condense(
                 sig.fission[g] = ratio_sigma(fission[g], scal_rel(z, g, 5), rp);
                 for go in 0..n_g {
                     sig.scatter[g][go] = ratio_sigma(scatter[g][go], mat_rel(z, g, go, 0), rp);
+                    sig.scatter_only[g][go] =
+                        ratio_sigma(scatter_only[g][go], mat_rel(z, g, go, 2), rp);
                 }
             }
         }
@@ -1504,6 +1711,7 @@ pub fn condense(
             nu_fission,
             kappa_fission,
             scatter,
+            scatter_only,
             chi,
             sigma: with_sigma.then_some(sig),
         });
@@ -1560,13 +1768,14 @@ pub fn matrix_tally(id: i32, groups: &GroupStructure, material_indices: Vec<usiz
                 bins: groups.edges().to_vec(),
             }),
         ],
-        // Two scores on one filter set: ScatterN is filled by the analog
-        // scatter estimator and NuFission by the fission-birth estimator. They
-        // cannot contaminate each other (each scoring function writes only its
-        // own score), and a track-length event cannot reach this tally at all
+        // Three scores on one filter set: ScatterN (every emitted neutron)
+        // and Scatter (once per collision) are filled by the analog scatter
+        // estimator, NuFission by the fission-birth estimator. They cannot
+        // contaminate each other (each scoring function writes only its own
+        // scores), and a track-length event cannot reach this tally at all
         // because it carries no outgoing energy and the EnergyOutFilter
-        // rejects it. That is what lets chi ride along without a third pass.
-        scores: vec![ScoreType::ScatterN, ScoreType::NuFission],
+        // rejects it. That is what lets chi ride along without another pass.
+        scores: MATRIX_SCORE_TYPES.to_vec(),
         bins: vec![TallyBin::default(); n * MATRIX_SCORES],
     }
 }
@@ -1614,7 +1823,7 @@ mod tests {
             id: 2,
             name: "matrix".into(),
             filters: vec![],
-            scores: vec![ScoreType::ScatterN, ScoreType::NuFission],
+            scores: MATRIX_SCORE_TYPES.to_vec(),
             bins,
         }
     }
@@ -1762,6 +1971,7 @@ mod tests {
                 scatter: vec![vec![0.40, 0.10], vec![0.05, 0.75]],
                 chi: vec![1.0, 0.0],
                 sigma: None,
+                scatter_only: Vec::new(),
             }],
         };
 
@@ -1832,6 +2042,7 @@ mod tests {
             scatter: vec![vec![row]],
             chi: vec![0.0],
             sigma: None,
+            scatter_only: Vec::new(),
         };
 
         let inferred = z.inferred_absorption(0).expect("group 0 exists");
@@ -1865,6 +2076,7 @@ mod tests {
             scatter: vec![vec![0.75, 0.25], vec![0.1, 1.5]],
             chi: vec![0.6, 0.4],
             sigma: None,
+            scatter_only: Vec::new(),
         };
         // group 0: total 2.0, within-group 0.75 -> removal 1.25
         assert!((z.removal(0).unwrap() - 1.25).abs() < 1e-12);
@@ -1972,6 +2184,12 @@ mod tests {
             ],
             chi: vec![0.0, 0.2, 0.8],
             sigma: None,
+            // No (n,xn): the scatter-only matrix equals the nu-scatter one.
+            scatter_only: vec![
+                vec![0.40, 0.15, 0.05],
+                vec![0.02, 0.50, 0.13],
+                vec![0.0, 0.01, 0.47],
+            ],
         };
         MgxsLibrary {
             groups: GroupStructure::new(vec![1.0e-5, 0.625, 1.0e3, 2.0e7]).expect("ascending"),
@@ -2150,8 +2368,12 @@ mod tests {
                     nu_fission: vec![0.0; 3],
                     kappa_fission: vec![0.0; 3],
                     scatter: vec![vec![1.0e-4; 3]; 3],
+                    scatter_only: vec![vec![1.0e-4; 3]; 3],
                 });
             }
+            // The row the converter checks is the scatter-only one; the
+            // nu-scatter element moves with it so nu >= scatter still holds.
+            lib.zones[0].scatter_only[2][2] += extra;
             lib.zones[0].scatter[2][2] += extra;
             lib
         };
@@ -2260,5 +2482,137 @@ mod tests {
         v["zones"][0].as_object_mut().expect("zone").remove("sigma");
         let old: MgxsLibrary = serde_json::from_value(v).expect("old record loads");
         assert!(old.zones[0].sigma.is_none());
+    }
+
+    /// [`three_group_lib`] with an (n,2n)-like gain in the fastest group
+    /// (ascending index 2): its nu-scatter row exceeds the scatter-only row,
+    /// which still equals `Sigma_t - Sigma_a`.
+    fn multiplying_lib() -> MgxsLibrary {
+        let mut lib = three_group_lib();
+        for z in &mut lib.zones {
+            // Fast-to-epithermal transfer emits 1.5 neutrons per scatter.
+            z.scatter[2][1] = 0.015;
+        }
+        lib
+    }
+
+    /// The scattering multiplicity is ON by default (gh:#682), pinned the
+    /// way `outram-mc-libs/tests/correct_physics_is_default.rs` pins physics:
+    /// through the ordinary path, `to_physics_mg()`, and asserted present.
+    /// The ablation is the named `to_physics_mg_without_multiplicity`.
+    ///
+    /// Fixture ([`multiplying_lib`]): ascending group 2 (descending group 0)
+    /// has nu-scatter row `0.0 + 0.015 + 0.47 = 0.485` and scatter-only row
+    /// `0.0 + 0.01 + 0.47 = 0.48`, so the row multiplicity must be
+    /// `0.485 / 0.48`, and the per-transfer one `0.015 / 0.01 = 1.5` on
+    /// descending `0 -> 1`.
+    #[test]
+    fn multiplicity_is_attached_by_default_and_ablated_by_name() {
+        let lib = multiplying_lib();
+        let on = lib.to_physics_mg().expect("converts");
+        let m = on.material(0);
+        let mult = m.multiplicity.as_ref().expect("multiplicity is on by default");
+        let nu_row: f64 = lib.zones[0].scatter[2].iter().sum();
+        let s_row: f64 = lib.zones[0].scatter_only[2].iter().sum();
+        assert!((mult.row[0] - nu_row / s_row).abs() < 1e-15);
+        assert!((mult.per_transfer[1] - 1.5).abs() < 1e-12, "desc 0 -> 1");
+        assert_eq!(mult.row[1], 1.0);
+        assert_eq!(mult.row[2], 1.0);
+        let off = lib.to_physics_mg_without_multiplicity();
+        // The ablation checks the nu-scatter row, which is now off balance
+        // by the gain; with no standard errors that is refused, as it must
+        // be. The rebalanced library converts and carries no multiplicity.
+        assert!(matches!(off, Err(MgxsError::NoUncertainty { .. })));
+        let off = three_group_lib().to_physics_mg_without_multiplicity().expect("balanced");
+        assert!(off.material(0).multiplicity.is_none());
+    }
+
+    /// A library condensed before the scatter-only score existed cannot form
+    /// the multiplicity: refused by default, converted by the ablation.
+    #[test]
+    fn no_scatter_only_is_refused_unless_ablated() {
+        let mut lib = three_group_lib();
+        for z in &mut lib.zones {
+            z.scatter_only.clear();
+        }
+        assert!(matches!(
+            lib.to_physics_mg(),
+            Err(MgxsError::NoScatterOnly { .. })
+        ));
+        assert!(lib.to_physics_mg_without_multiplicity().is_ok());
+        // An old record (no `scatter_only` key) loads with it empty.
+        let mut v = serde_json::to_value(three_group_lib()).expect("json");
+        v["zones"][0].as_object_mut().expect("zone").remove("scatter_only");
+        let old: MgxsLibrary = serde_json::from_value(v).expect("old record loads");
+        assert!(old.zones[0].scatter_only.is_empty());
+    }
+
+    /// Nu-scatter below scatter in a transfer is a defect (a scatter cannot
+    /// emit fewer neutrons than one), refused rather than converted.
+    #[test]
+    fn nu_scatter_below_scatter_is_refused() {
+        let mut lib = three_group_lib();
+        lib.zones[1].scatter[0][0] -= 0.01;
+        lib.zones[1].total[0] -= 0.01;
+        match lib.to_physics_mg() {
+            Err(MgxsError::NotTransportable { zone, what }) => {
+                assert_eq!(zone, "graphite");
+                assert!(what.contains("below scatter"), "{what}");
+            }
+            other => panic!("expected NotTransportable, got {other:?}"),
+        }
+    }
+
+    /// `condense` reads the scatter-only matrix from the matrix tally's third
+    /// score, and collapse, the descending view and the subset homogenisation
+    /// carry it like the nu-scatter matrix.
+    #[test]
+    fn condense_reads_scatter_only_and_derived_libraries_carry_it() {
+        let (n_z, n_g) = (1, 2);
+        let scalar = scalar_with(n_z, n_g, |_, _, s| if s == 0 { 2.0 } else { 1.0 });
+        let mut mb = vec![TallyBin::default(); n_z * n_g * n_g * MATRIX_SCORES];
+        for gi in 0..n_g {
+            for go in 0..n_g {
+                let b = (gi * n_g + go) * MATRIX_SCORES;
+                mb[b].score(3.0); // nu-scatter
+                mb[b + 2].score(2.0); // scatter-only
+            }
+        }
+        let matrix = Tally {
+            id: 2,
+            name: "m".into(),
+            filters: vec![],
+            scores: MATRIX_SCORE_TYPES.to_vec(),
+            bins: mb,
+        };
+        let lib = condense(&two_group(), &["z".into()], &scalar, &matrix, 1).expect("condense");
+        let z = &lib.zones[0];
+        assert_eq!(z.scatter, vec![vec![1.5; 2]; 2]);
+        assert_eq!(z.scatter_only, vec![vec![1.0; 2]; 2]);
+        let one = lib
+            .collapse(&GroupStructure::new(vec![1.0e-3, 2.0e7]).expect("ascending"))
+            .expect("nested");
+        assert!((one.zones[0].scatter_only[0][0] - 2.0).abs() < 1e-15);
+        assert_eq!(lib.in_descending_energy().zones[0].scatter_only, z.scatter_only);
+        assert_eq!(lib.homogenised("h").zones[0].scatter_only, z.scatter_only);
+    }
+
+    /// `k_inf` counts the net (n,xn) gain as a negative absorption: in
+    /// [`multiplying_lib`] each zone's fast group gains `0.005` cm^-1 of
+    /// neutrons per unit flux, so the denominator falls by `0.005 * phi_2`.
+    #[test]
+    fn k_inf_counts_the_nxn_gain() {
+        let base = three_group_lib();
+        let lib = multiplying_lib();
+        let (mut p, mut a) = (0.0, 0.0);
+        for z in &base.zones {
+            for g in 0..3 {
+                p += z.nu_fission[g] * z.flux[g];
+                a += z.absorption[g] * z.flux[g];
+            }
+            a -= 0.005 * z.flux[2];
+        }
+        assert!((lib.k_inf() - p / a).abs() < 1e-12, "{} vs {}", lib.k_inf(), p / a);
+        assert!(lib.k_inf() > base.k_inf());
     }
 }

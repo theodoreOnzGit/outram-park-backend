@@ -93,7 +93,7 @@ use crate::physics::variance_reduction::{
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
 use crate::tally::scoring::{
-    flush_batch, flush_bins, score_fission_birth, score_scatter_matrix,
+    flush_batch, flush_bins, score_fission_birth, score_scatter_matrix, ScatterEmission,
     score_track_length,
 };
 use crate::tally::tally::{Tally, TallyBin};
@@ -2058,7 +2058,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     // short: inelastic is where a fast neutron loses most of its
                     // energy on a heavy nuclide.
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
                     }
                     e = e2;
                     u = u2;
@@ -2106,7 +2106,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     // neutron actually emitted scores its own (E_in, E_out). The
                     // secondary is scored only when emitted, matching its gate.
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
                         if nuc.emits_n2n_secondary() {
                             score_scatter_matrix(
                                 batch,
@@ -2118,6 +2118,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                 sec_e2,
                                 r,
                                 w,
+                                ScatterEmission::Secondary,
                             );
                         }
                     }
@@ -2168,12 +2169,13 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                     se,
                                     r,
                                     w,
+                                    ScatterEmission::Secondary,
                                 );
                             }
                         }
                     }
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
                     }
                     e = e2;
                     u = u2;
@@ -2227,11 +2229,12 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                 *se,
                                 r,
                                 w,
+                                ScatterEmission::Secondary,
                             );
                         }
                     }
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
                     }
                     e = e2;
                     u = u2;
@@ -2258,11 +2261,11 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                             time_s,
                         ));
                         if let Some(t) = tally {
-                            score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, *se, r, w);
+                            score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary);
                         }
                     }
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, o.e, r, w);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, o.e, r, w, ScatterEmission::Primary);
                     }
                     e = o.e;
                     u = o.u;
@@ -2312,7 +2315,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     // is left to the track-length estimator (see
                     // `score_scatter_matrix`).
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
                     }
                     e = e2;
                     u = u2;

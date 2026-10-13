@@ -447,6 +447,19 @@ fn condensed_constants_run_through_the_multigroup_kernel() {
     let mg_lib = lib.to_physics_mg().expect("the raw condensed library is consistent");
     assert!(mg_lib.material(0).is_fissile());
     assert!(!mg_lib.material(1).is_fissile());
+    // gh:#682: the scattering multiplicity is attached by default.
+    assert!(
+        mg_lib.material(0).multiplicity.is_some(),
+        "to_physics_mg must carry the (n,xn) multiplicity by default"
+    );
+    let fast_mult = mg_lib.material(0).scatter_weight(0);
+    let top = N_GROUPS - 1;
+    println!(
+        "fuel fastest group: nu-scatter row {:.12e}, scatter-only row {:.12e}, row multiplicity {fast_mult:.9}",
+        lib.zones[0].scatter[top].iter().sum::<f64>(),
+        lib.zones[0].scatter_only[top].iter().sum::<f64>()
+    );
+    assert!(fast_mult >= 1.0);
     let mg_settings = MgSettings {
         n_particles: 2000,
         n_inactive: 20,
@@ -454,6 +467,17 @@ fn condensed_constants_run_through_the_multigroup_kernel() {
         seed: SEED,
     };
     let mg = run_keff_mg(&geom, &mg_lib, src, &mg_settings);
+    // The ablation, for the multiplicity's worth on this cell.
+    let ablated = lib
+        .to_physics_mg_without_multiplicity()
+        .expect("ablation converts");
+    let mg_off = run_keff_mg(&geom, &ablated, src, &mg_settings);
+    println!(
+        "MG k without multiplicity = {:.5} +/- {:.5}; with minus without = {:+.0} pcm",
+        mg_off.k_mean,
+        mg_off.k_std,
+        (mg.k_mean - mg_off.k_mean) * 1e5
+    );
     let dk_pcm = (mg.k_mean - ce.k_mean) * 1e5;
     let sigma_pcm = (mg.k_std.powi(2) + ce.k_std.powi(2)).sqrt() * 1e5;
     println!(
