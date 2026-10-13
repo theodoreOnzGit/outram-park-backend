@@ -720,3 +720,58 @@ helps return useful error outpur
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit a23162e19e.
+
+# Review: SicLayer::initial_thickness (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-initial-thickness-theodoreonzgit-fcce2a00"
+kind = "review"
+origin = "human"
+created = "2026-10-13T13:48:21+08:00"
+modified = "2026-10-13T13:48:21+08:00"
+target = "fn:fcce2a003b237da0"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/geometry.rs::SicLayer::initial_thickness"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T13:48:22+08:00"
+commit = "bf4cfdc0aa85888153ebcaa785e4fd3a9ed3e806"
+hash = "sha256:e665814f5470eed89b70cd9e974d70ec2d2ed400481ab8673925c70d414e44b4"
+doc_hash = "sha256:0a1635e772bae07a3d0e21bdf5e1820a0bc4be1022588ce829d675d67a17db7d"
+cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:5b2b33cb94ca9a56" = "sha256:ad3ca5f101a93f4b16f5b38275849a22be42f0adb309c3e2db7483022a40cc92"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "cannot_happen: constructor alr guards this"
+independence = "someone_else"
+limits_and_guards = "no_limits: Constructor already guards this"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "Vuz3BGl5xkwwlBShPZVYRi86N7yuAWimOTifMjTlDGMlWl77g89IMQPNq9gswSTfz3GGB0slAf54b6etTuJaCg=="
+```
+
+just returns thickness of outer-inner radius, before corrosion or anything
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit bf4cfdc0aa.
