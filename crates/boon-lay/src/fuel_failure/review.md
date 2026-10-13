@@ -1561,3 +1561,54 @@ page 496 checked
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 6e531bb555.
+
+# Review: DECOMPOSITION_ACTIVATION_J_PER_MOL (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-decomposition-activation-j-per-mol-theodoreonzgit-99695b80"
+kind = "review"
+origin = "human"
+created = "2026-10-13T16:02:50+08:00"
+modified = "2026-10-13T16:02:50+08:00"
+target = "fn:99695b80bb110520"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/decomposition.rs::DECOMPOSITION_ACTIVATION_J_PER_MOL"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T16:02:51+08:00"
+commit = "7e7ec8d43e883ab84aa7db987c4f208f4a235566"
+hash = "sha256:4d690dabf809ed9503d9c21e7af20297826988582604507134200ef1d52deefc"
+doc_hash = "sha256:7357f1a117b2fec44da23039debb9dab5038199ac34d790880f7ee9a6dc3ca6f"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "cited"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "RdNU+MtjxQ2A8um+2lyy2glsX/AB8ikuKoHHJCtgBzsn48YyhHHIWvdx7DEzA14c1S5psxXTskswO/95i7QQCA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"
+kind = "implements"
+```
+
+checked against eq 12 on page 495
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 7e7ec8d43e.
