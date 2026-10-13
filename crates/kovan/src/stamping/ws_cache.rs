@@ -49,9 +49,18 @@ use super::ReviewMdFile;
 /// content, not by timestamp (module doc).
 const RACY: Duration = Duration::from_secs(2);
 
-/// At most this many workspace roots are remembered (tests open many
-/// throwaway ones); beyond it the cache starts again.
-const MAX_ROOTS: usize = 16;
+/// At most this many workspace roots are remembered; beyond it the one
+/// used longest ago is dropped ([`evict_to`]).
+///
+/// ~~Beyond it the cache starts again~~ **CORRECTED 2026-10-13**: dropping
+/// everything also dropped the workspace in use, so opening a seventeenth
+/// root made the next load of the current one slow again. It also made
+/// `the_cache_gives_what_a_full_load_gives` fail now and then: the test
+/// suite opens hundreds of throwaway roots in parallel, and another test's
+/// seventeenth wiped the cache that test was counting on. Under `cargo
+/// test` the limit is therefore large, so no test's root is dropped by
+/// another's; the dropping rule itself is tested with a small limit.
+const MAX_ROOTS: usize = if cfg!(test) { 4096 } else { 16 };
 
 /// A file as last seen: length, modification time, content hash.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -178,6 +187,20 @@ pub(super) struct RootCache {
     /// How many folders the last load had to refresh (the rest were
     /// reused).
     pub(super) refreshed_last: usize,
+    /// When it was last put back, as a count that only rises: the lowest
+    /// is the one used longest ago.
+    pub(super) used: u64,
+}
+
+/// Drop the roots used longest ago until fewer than `max` remain, so one
+/// more fits. Never drops more than it must.
+fn evict_to(m: &mut HashMap<PathBuf, RootCache>, max: usize) {
+    while m.len() >= max.max(1) {
+        let Some(oldest) = m.iter().min_by_key(|(_, c)| c.used).map(|(k, _)| k.clone()) else {
+            return;
+        };
+        m.remove(&oldest);
+    }
 }
 
 fn store() -> &'static Mutex<HashMap<PathBuf, RootCache>> {
@@ -194,10 +217,12 @@ pub(super) fn take(root: &Path) -> RootCache {
 }
 
 /// Remember `cache` for `root`.
-pub(super) fn put(root: &Path, cache: RootCache) {
+pub(super) fn put(root: &Path, mut cache: RootCache) {
+    static TICK: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    cache.used = TICK.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     if let Ok(mut m) = store().lock() {
-        if m.len() >= MAX_ROOTS {
-            m.clear();
+        if !m.contains_key(root) {
+            evict_to(&mut m, MAX_ROOTS);
         }
         m.insert(root.to_path_buf(), cache);
     }
@@ -219,4 +244,30 @@ pub fn refreshed_last(root: &Path) -> Option<usize> {
 /// The content hash [`CachedFolder::review`] holds.
 pub(super) fn text_hash(text: &str) -> u64 {
     hash_of(text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Methodology: a store of three roots, used in the order a, b, c, is
+    /// made to fit a limit of three (one must go to admit another), then a
+    /// limit of one. Pass: the first drops only `a`, the one used longest
+    /// ago; the second leaves nothing; a store under its limit is left
+    /// alone. Result (2026-10-13): as stated.
+    #[test]
+    fn the_root_used_longest_ago_is_dropped_first() {
+        let root = |used| RootCache { used, ..RootCache::default() };
+        let mut m: HashMap<PathBuf, RootCache> =
+            [("a", 1), ("b", 2), ("c", 3)].into_iter().map(|(k, u)| (PathBuf::from(k), root(u))).collect();
+        evict_to(&mut m, 4);
+        assert_eq!(m.len(), 3, "under the limit: nothing dropped");
+        evict_to(&mut m, 3);
+        let mut left: Vec<_> = m.keys().map(|k| k.display().to_string()).collect();
+        left.sort();
+        assert_eq!(left, ["b", "c"]);
+        evict_to(&mut m, 1);
+        assert!(m.is_empty());
+        evict_to(&mut m, 0);
+    }
 }
