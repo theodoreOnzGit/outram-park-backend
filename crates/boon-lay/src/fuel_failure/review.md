@@ -374,7 +374,7 @@ id = "review-new-theodoreonzgit-c57b58c2"
 kind = "review"
 origin = "human"
 created = "2026-10-13T13:34:45+08:00"
-modified = "2026-10-13T13:34:45+08:00"
+modified = "2026-10-13T14:31:59+08:00"
 target = "fn:c57b58c2e76f63ae"
 
 [review]
@@ -382,15 +382,15 @@ path = "crates/boon-lay/src/fuel_failure/geometry.rs::SicLayer::new"
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-10-13"
-signed_at = "2026-10-13T13:34:45+08:00"
-commit = "ace4d205a04647fc8639d1a8e4c3602c908c4194"
+signed_at = "2026-10-13T14:31:59+08:00"
+commit = "fcbd81ccbe016d7068d517dfce37b8b9481378a5"
 hash = "sha256:6a4876a9539dd7eabd2cb91002663c2858c4ad50c382d19a5fbe05bcbf988bcf"
 doc_hash = "sha256:657efa4d19b327c50f93f98cb7ff77f9bece00c062e190d80e00eb86b30575e3"
-cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
 no_concept = "upstream_structure"
 
 [review.callees]
-"fn:5b2b33cb94ca9a56" = "sha256:ad3ca5f101a93f4b16f5b38275849a22be42f0adb309c3e2db7483022a40cc92"
+"fn:5b2b33cb94ca9a56" = "sha256:584f858091dbbbf399ba065790793304f75d430ba242966bd1e4deda1518564c"
 "fn:f4afa171b919e323" = "sha256:cac43f9f475f58b14059cc80467030488465fb3e65af4bb412a8bd7492080689"
 
 [review.checklist]
@@ -407,21 +407,15 @@ units_documented = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "unit_tests_only"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "vBvvLpfAo276tslnq+22RIJEkk8xujFluqeVgzTA8k+soJMDo/KrFcpO/93jMQh/WdbfLlw799hDs4DTmFYGBg=="
+value = "ZNr3PeGqS0K8oZt5JDxhKcN3mJJi77UD/SMTH7kstTYcbVt6Gn1sirHiYl48HdkcNV6IYYHkddmsaIEDQhDaBg=="
 ```
-
-This is a constructor with error handling and result handling, prevents inner radius from being more than outer radius
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit ace4d205a0.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit fcbd81ccbe.
 
 # Review: layer (github:theodoreOnzGit)
 
@@ -596,7 +590,7 @@ id = "review-outer-radius-theodoreonzgit-687b102a"
 kind = "review"
 origin = "human"
 created = "2026-10-13T13:45:09+08:00"
-modified = "2026-10-13T13:45:09+08:00"
+modified = "2026-10-13T14:30:48+08:00"
 target = "fn:687b102a57f570d9"
 
 [review]
@@ -604,15 +598,15 @@ path = "crates/boon-lay/src/fuel_failure/geometry.rs::SicLayer::outer_radius"
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-10-13"
-signed_at = "2026-10-13T13:45:09+08:00"
-commit = "0b509581991a54eb79e6d05cc2582976fb50ab3c"
+signed_at = "2026-10-13T14:30:48+08:00"
+commit = "fcbd81ccbe016d7068d517dfce37b8b9481378a5"
 hash = "sha256:935e0917fd06aff0afb7130e62d19601da998c566f5d6517b6215dc4560eb136"
 doc_hash = "sha256:01bb0209c5cc7e043bfbc2c601d65ed01ed01f468b290c307cf6035835574d04"
-cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
 no_concept = "generic_numerics"
 
 [review.callees]
-"fn:5b2b33cb94ca9a56" = "sha256:ad3ca5f101a93f4b16f5b38275849a22be42f0adb309c3e2db7483022a40cc92"
+"fn:5b2b33cb94ca9a56" = "sha256:584f858091dbbbf399ba065790793304f75d430ba242966bd1e4deda1518564c"
 
 [review.checklist]
 coding_standards = "yes"
@@ -628,21 +622,15 @@ units_documented = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "T5322spFdvIfwzcg42DNgGd+SUkC4mqXFrXesE20mlSr37kkxxdVCctfD3pvC1o0Of8fl2MXjJ1ZZboPEQzFAg=="
+value = "dOGMcyLSr1fSNEOUwaBAwXhq++eqJcMfdWFW4KPB7MHo4q7o4lmc0HpH+Sdom+OJ5LEX+H6J+niEsRViZg3JAA=="
 ```
-
-getter for outer radius
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 0b50958199.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit fcbd81ccbe.
 
 # Review: SicLayerError::fmt (github:theodoreOnzGit)
 
@@ -652,7 +640,7 @@ id = "review-fmt-theodoreonzgit-8b48ef30"
 kind = "review"
 origin = "human"
 created = "2026-10-13T13:46:45+08:00"
-modified = "2026-10-13T13:46:45+08:00"
+modified = "2026-10-13T14:30:08+08:00"
 target = "fn:8b48ef30aabd6ed1"
 
 [review]
@@ -660,11 +648,11 @@ path = "crates/boon-lay/src/fuel_failure/geometry.rs::SicLayerError::fmt"
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-10-13"
-signed_at = "2026-10-13T13:46:46+08:00"
-commit = "a23162e19ef91a2519bf111f2beb9fd1fca953f1"
+signed_at = "2026-10-13T14:30:08+08:00"
+commit = "fcbd81ccbe016d7068d517dfce37b8b9481378a5"
 hash = "sha256:8ffe22a3277f083e611ebed49974ed8a61ffc1e7b5b01c584718b2a5672a2067"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
+cargo_lock = "sha256:56a96b33380a80b7d9aacfc685db7ea064a6a38f1820dfe55ac9cdb337227dcf"
 no_concept = "io_format"
 
 [review.callees]
@@ -683,21 +671,15 @@ unintended_function = "no"
 vv_case_author = "other: formatter"
 vv_evidence = "other: just formatting"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01FwJfxkCwJ6bukAQ2gWpSmw"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "PzQlpNNJXIP4k3IjpRDgXLcrH6fkmHP7vwVLe8f8ZcpWNhibM/qgmBBM32kCjL5AJlHW57zyQP/PIEP5YSBgBg=="
+value = "uOXjHqeaqX09pxHTBBF6S+bcDMkCtTKKlVqvtuq4H7mE63KntOZ1GXKdPNRz8smMc7Z2I2i8EKqDLMOLMBRfAA=="
 ```
-
-helps return useful error outpur
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit a23162e19e.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit fcbd81ccbe.
 
 # Review: SicLayer::initial_thickness (github:theodoreOnzGit)
 
