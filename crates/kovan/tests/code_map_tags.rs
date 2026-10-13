@@ -36,7 +36,7 @@
 //!   crate itself, and says why;
 //! - a backronym spells the crate's name, by the letters its text marks
 //!   (`spells` below). ~~sembawang carries one.~~ **CORRECTED 2026-10-13**:
-//!   fifteen crates carry one.
+//!   seventeen crates carry one.
 //!
 //! Since 2026-10-06 (#734) the tags are read by the same parser the map is
 //! drawn from, `kovan::code_map::CodeMap::from_cargo_metadata` (which reports
@@ -93,8 +93,8 @@ fn the_real_workspace_lays_out_cleanly() {
 ///
 /// Each word gives its first letter, or nothing. It may give further letters
 /// only where the text itself marks them: capitals after the first letter
-/// ("BOmbardment" gives BO, "INtegrated" gives IN), or a word written wholly
-/// in lower case ("by" gives BY). Words split on spaces and hyphens, so
+/// ("BOmbardment" gives BO, "INtegrated" gives IN, "RisK" gives RK), or the
+/// leading letters of a word written wholly in lower case ("by" gives BY). Words split on spaces and hyphens, so
 /// "Multi-Phase" gives M and P. The letters given, in order, must be the name.
 ///
 /// ~~The rule was "the capital initials of the words are the name".~~
@@ -111,12 +111,17 @@ fn spells(backronym: &str, name: &str) -> bool {
         let lower = w.iter().all(|c| !c.is_uppercase());
         let mut next = reach.clone();
         for p in (0..name.len()).filter(|&p| reach[p]) {
+            let mut q = p;
             for (i, c) in w.iter().enumerate() {
                 let marked = i == 0 || lower || c.is_uppercase();
-                if !marked || p + i >= name.len() || c.to_uppercase().next() != Some(name[p + i]) {
+                if !marked && !lower {
+                    continue; // an unmarked letter inside the word is skipped
+                }
+                if q >= name.len() || c.to_uppercase().next() != Some(name[q]) {
                     break;
                 }
-                next[p + i + 1] = true;
+                q += 1;
+                next[q] = true;
             }
         }
         reach = next;
@@ -125,8 +130,9 @@ fn spells(backronym: &str, name: &str) -> bool {
 }
 
 /// The rule itself, on the maintainer's backronyms and on text that must fail.
-/// NEE SOON's and FARRER PARK's README texts are among the failures: they
-/// spell NESOOON and FARRERPAR, so those two crates carry no backronym yet.
+/// NEE SOON's and FARRER PARK's earlier README lettering is among the
+/// failures: it spelled NESOOON and FARRERPAR. Both READMEs were corrected on
+/// 2026-10-13 (NEutron, RisK) and the corrected texts pass.
 #[test]
 fn the_spelling_rule_accepts_marked_letters_only() {
     assert!(spells("Severe-accident Evolution and Melt Behaviour Analysis Workbench for Advanced Nuclear Geometries", "sembawang"));
@@ -134,6 +140,8 @@ fn the_spelling_rule_accepts_marked_letters_only() {
     assert!(spells("Digital High-fidelity Orchestration by GUI for a Human-friendly Automated Unified Toolkit", "dhoby-ghaut"));
     assert!(spells("Thermal-hydraulic Artificial-intelligence Multi-Phase INtegrated Emulator System", "tampines"));
     assert!(!spells("Severe-accident Evolution and Melt Behaviour", "sembawang"), "too short");
+    assert!(spells("NEutron Energy-dependent Simulation using Open-source Object-Oriented Numerics", "nee_soon"));
+    assert!(spells("Finite-element Analysis for Reactor Reliability, Engineering Response, Plasticity And RisK", "farrer-park"));
     assert!(!spells("Neutron Energy-dependent Simulation using Open-source Object-Oriented Numerics", "nee_soon"));
     assert!(!spells("Finite-element Analysis for Reactor Reliability, Engineering Response, Plasticity And Risk", "farrer-park"));
     assert!(!spells("Consequence and Hazard Analysis for Nuclear Ground-level and atmospheric Impacts", "changhi"));
@@ -141,7 +149,7 @@ fn the_spelling_rule_accepts_marked_letters_only() {
 
 /// Every backronym spells its crate's name, or the name's first part when the
 /// crate name goes on to say what the crate is (`tuas_boussinesq_solver` is
-/// TUAS). Fifteen crates carry one (2026-10-13; sembawang alone before).
+/// TUAS). Seventeen crates carry one (2026-10-13; sembawang alone before).
 #[test]
 fn every_backronym_spells_its_crate_name() {
     let map = workspace();
@@ -155,7 +163,7 @@ fn every_backronym_spells_its_crate_name() {
     }
     with.sort_unstable();
     assert_eq!(with, [
-        "bedok", "bishan", "boon-lay", "buangkok", "changi", "dhoby-ghaut", "dover", "kaki-bukit", "pasir-ris",
-        "petir", "raffles", "redhill", "sembawang", "tampines", "tuas_boussinesq_solver",
+        "bedok", "bishan", "boon-lay", "buangkok", "changi", "dhoby-ghaut", "dover", "farrer-park", "kaki-bukit",
+        "nee_soon", "pasir-ris", "petir", "raffles", "redhill", "sembawang", "tampines", "tuas_boussinesq_solver",
     ]);
 }

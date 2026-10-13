@@ -50,8 +50,8 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
 
 ## What this is
 
-**NEE_SOON** — **N**eutron **E**nergy-dependent **S**imulation using
-**O**pen-source **O**bject-**O**riented **N**umerics.
+**NEE_SOON** — **NE**utron **E**nergy-dependent **S**imulation using
+**O**pen-source **O**bject-Oriented **N**umerics. The letters are N-E-E-S-O-O-N: ~~**N**eutron ... **O**bject-**O**riented~~ **CORRECTED 2026-10-13**, the earlier lettering spelled NESOOON.
 
 The **coupling / integration layer** of the OUTRAM PARK suite. It composes the
 neutronics + kinetics crates behind a single object-oriented facade so users
