@@ -174,3 +174,48 @@ Hence, when the pressure is supplied at median (s), it will always return 0.5
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit 9310d33f56.
+
+# Review: FailureFraction (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-failurefraction-theodoreonzgit-91b8101e"
+kind = "review"
+origin = "human"
+created = "2026-10-13T11:47:44+08:00"
+modified = "2026-10-13T11:47:44+08:00"
+target = "fn:91b8101ebd5b4ec6"
+
+[review]
+path = "crates/boon-lay/src/fuel_failure/mod.rs::FailureFraction"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-13"
+signed_at = "2026-10-13T11:47:44+08:00"
+commit = "a545924dc8a00e6ea1c2ec347a850da0e0ae9aac"
+hash = "sha256:e25ea516086e0a8fbc02c8ea06250f66767715f97c79fe584e00cef7420d6abe"
+doc_hash = "sha256:f96f0f82938286ec4ddf55657d44b14840c3233836fd56da0f822582bb467c2a"
+cargo_lock = "sha256:429b87f858825d5074269a2f185f57b1f97af45be1278c87e0a8320a81f2f550"
+no_concept = "plumbing"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "mixed"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "z4LnoKS7QNf8nVOejPQJlX/uiSniKTQ0KNyfBxVp14rdY1ZBRj2Y0iAHGIauAFQOlWYdZ0ET51ULcZzOaFzPDg=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-13, commit a545924dc8.
