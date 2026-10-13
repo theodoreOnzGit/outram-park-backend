@@ -53,3 +53,7 @@ outram-blender        = { workspace = true }
 # object-oriented surface.
 uom                   = { workspace = true }
 thiserror             = { workspace = true }
+# Saved MGXS case records (`htr10_mgxs`): the library and run metadata as JSON,
+# so an expensive Monte Carlo run is reloaded rather than repeated.
+serde                 = { workspace = true }
+serde_json            = { workspace = true }

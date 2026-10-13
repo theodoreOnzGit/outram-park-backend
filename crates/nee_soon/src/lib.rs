@@ -88,6 +88,9 @@ use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, Thermodyn
 
 pub mod htr10_rmc;
 pub mod mgxs;
+/// HTR-10 MGXS generation cases: a registry of named runs, the runner, and
+/// the record each run writes (gh:#845).
+pub mod htr10_mgxs;
 pub mod genfoam_xs;
 pub mod det_six_factor;
 pub mod rod_insertion;

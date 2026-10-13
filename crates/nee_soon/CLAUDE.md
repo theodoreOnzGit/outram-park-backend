@@ -88,6 +88,17 @@ write the figure script, results table and parameters. The shared machinery
 (majorant, source box, entropy mesh, reference interpolation, emitters) is
 `htr10_rmc::keff_vs_height`; use it rather than copying it into a new example.
 
+**HTR-10 MGXS cases (gh:#845, 2026-10-12):** `htr10_mgxs` holds a registry
+of named, fixed MGXS runs on the full core (tally once on WIMS-69 + 1 groups,
+collapse exactly to 2/4/8 with `mgxs::MgxsLibrary::collapse`), the runner,
+and the record each writes to
+`verification_and_validation/htr10_mgxs_runs/<case>/`. They are run on a
+separate machine by `examples/htr10_mgxs_case.rs` following
+`docs/htr10-mgxs-desktop-runbook.md`: **add or change runs in
+`htr10_mgxs::cases`, never in the runbook or the example**, and give a
+changed case a new name once it has a record. The scalar pass carries `Fission`
+since the same change (`mgxs::SCALAR_SCORES`, appended last).
+
 **HTR-10 bed options (2026-10-05).** Two builders share everything outside
 the bed (`htr10_rmc::core_shell`, extracted from `assemble_explicit_triso`,
 geometry verified byte-identical before/after by its `Debug` hash):

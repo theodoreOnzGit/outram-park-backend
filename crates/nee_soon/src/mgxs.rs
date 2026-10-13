@@ -61,8 +61,8 @@
 //!
 //! | pass | filters | scores |
 //! |---|---|---|
-//! | scalar | `[Material, Energy]` | `Flux, Total, Absorption, NuFission, KappaFission` |
-//! | matrix | `[Material, Energy, EnergyOut]` | `ScatterN` |
+//! | scalar | `[Material, Energy]` | `Flux, Total, Absorption, NuFission, KappaFission, Fission` |
+//! | matrix | `[Material, Energy, EnergyOut]` | `ScatterN, NuFission` (births, for `chi`) |
 //!
 //! Because the histories are identical, the flux denominator from the scalar
 //! pass is the correct denominator for the matrix pass; they are not two
@@ -76,6 +76,19 @@
 //! because silently reversing it is how an MGXS set ends up transposed, and
 //! offers [`MgxsLibrary::in_descending_energy`] for the conventional view.
 //! Nothing is reversed implicitly.
+//!
+//! ## Collapsing to a coarser structure
+//!
+//! [`MgxsLibrary::collapse`] merges groups of a library onto any structure
+//! whose edges are a subset of its own. Every constant here is a ratio of
+//! rates to flux, and both sum over the merged groups, so collapsing the
+//! means is **exact** (reaction rates are conserved to rounding), not an
+//! approximation. A run tallied once on a fine structure therefore yields
+//! every nested coarse structure without another transport pass
+//! ([`crate::htr10_mgxs`] relies on this). What it does NOT carry over is the
+//! statistical uncertainty: the tally keeps per-bin moments only, not the
+//! covariance between bins of one batch, so the uncertainty of a merged group
+//! is not recoverable from the fine one.
 //!
 //! ## What this does NOT do
 //!
@@ -93,6 +106,7 @@
 //!   constants reproducing a reference eigenvalue. Nothing here is validated.
 
 use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
+use serde::{Deserialize, Serialize};
 
 /// Errors from condensing a Monte Carlo run into group constants.
 #[derive(Debug, thiserror::Error)]
@@ -135,15 +149,42 @@ pub enum MgxsError {
         /// Outgoing-group count (1 for a scalar tally).
         out_groups: usize,
     },
+    /// A collapse target has an edge that is not an edge of the library being
+    /// collapsed, so a fine group would have to be split between two coarse
+    /// ones. Splitting needs the spectrum inside the group, which the library
+    /// does not carry; refusing is the only exact answer.
+    #[error("cannot collapse: coarse edge {edge_ev} eV is not an edge of the fine structure")]
+    NotNested {
+        /// The offending coarse edge \[eV\].
+        edge_ev: f64,
+    },
 }
 
 /// An energy group structure, as ascending bin edges in eV.
 ///
 /// `n + 1` edges define `n` groups, and **group 0 is the lowest-energy group**
 /// — see the module note on ordering.
-#[derive(Debug, Clone)]
+///
+/// Serialises as the plain edge list; deserialising re-runs [`Self::new`], so
+/// a file cannot smuggle in edges that do not ascend.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(try_from = "Vec<f64>", into = "Vec<f64>")]
 pub struct GroupStructure {
     edges: Vec<f64>,
+}
+
+impl TryFrom<Vec<f64>> for GroupStructure {
+    type Error = MgxsError;
+
+    fn try_from(edges: Vec<f64>) -> Result<Self, MgxsError> {
+        Self::new(edges)
+    }
+}
+
+impl From<GroupStructure> for Vec<f64> {
+    fn from(g: GroupStructure) -> Self {
+        g.edges
+    }
 }
 
 impl GroupStructure {
@@ -221,7 +262,7 @@ impl GroupStructure {
 /// Every vector is indexed by group in the structure's own **ascending-energy**
 /// order. Cross sections are macroscopic, in cm^-1; `kappa_fission` is a power
 /// density per unit flux (J cm^-1).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ZoneMgxs {
     /// Human-readable zone name, carried through from the material.
     pub name: String,
@@ -233,6 +274,11 @@ pub struct ZoneMgxs {
     pub total: Vec<f64>,
     /// Absorption (capture + fission) \[cm^-1\].
     pub absorption: Vec<f64>,
+    /// Fission `Sigma_f` \[cm^-1\] (added 2026-10-12, gh:#848). A multigroup
+    /// transport code needs it beside `nu * Sigma_f`: it is what `nu-bar`
+    /// and the capture/fission split at a collision are formed from
+    /// (`outram_mc_libs::physics::physics_mg::Mgxs::new`).
+    pub fission: Vec<f64>,
     /// Neutron production `nu * Sigma_f` \[cm^-1\].
     pub nu_fission: Vec<f64>,
     /// Fission energy deposition `kappa * Sigma_f` \[J cm^-1\].
@@ -347,7 +393,7 @@ impl ZoneMgxs {
 }
 
 /// A full MGXS set: one group structure, one entry per zone.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MgxsLibrary {
     /// The group structure every zone is condensed onto.
     pub groups: GroupStructure,
@@ -430,6 +476,7 @@ impl MgxsLibrary {
             flux: vec![0.0; g],
             total: vec![0.0; g],
             absorption: vec![0.0; g],
+            fission: vec![0.0; g],
             nu_fission: vec![0.0; g],
             kappa_fission: vec![0.0; g],
             scatter: vec![vec![0.0; g]; g],
@@ -445,6 +492,7 @@ impl MgxsLibrary {
                 out.flux[gi] += w;
                 out.total[gi] += z.total[gi] * w;
                 out.absorption[gi] += z.absorption[gi] * w;
+                out.fission[gi] += z.fission[gi] * w;
                 out.nu_fission[gi] += z.nu_fission[gi] * w;
                 out.kappa_fission[gi] += z.kappa_fission[gi] * w;
                 for gj in 0..g {
@@ -457,6 +505,7 @@ impl MgxsLibrary {
             if phi > 0.0 {
                 out.total[gi] /= phi;
                 out.absorption[gi] /= phi;
+                out.fission[gi] /= phi;
                 out.nu_fission[gi] /= phi;
                 out.kappa_fission[gi] /= phi;
                 for gj in 0..g {
@@ -792,6 +841,120 @@ impl MgxsLibrary {
         }
     }
 
+    /// The same library on the coarser structure `coarse`, whose edges must be
+    /// a subset of this library's.
+    ///
+    /// # Why it is exact
+    ///
+    /// Every constant is a group reaction rate over the group flux, and both
+    /// are sums over the energy range, so for a coarse group `G` made of fine
+    /// groups `g`:
+    ///
+    /// ```text
+    ///   phi_G          = sum_g phi_g
+    ///   Sigma_x,G      = sum_g Sigma_x,g phi_g / phi_G
+    ///   Sigma_s,G->G'  = sum_{g in G} sum_{g' in G'} Sigma_s,g->g' phi_g / phi_G
+    ///   chi_G'         = sum_{g' in G'} chi_g'
+    /// ```
+    ///
+    /// which is exactly what tallying on `G` directly would have produced,
+    /// history for history. `chi` is summed, not flux-weighted, because it is
+    /// a distribution over birth energy. A coarse group whose fine groups all
+    /// carry zero flux stays at zero, as in [`condense`].
+    ///
+    /// Reaction rates per zone are therefore conserved to rounding, and with
+    /// them [`Self::k_inf`]: a collapse that changes `k_inf` beyond rounding
+    /// is a defect in the collapse.
+    ///
+    /// # Errors
+    ///
+    /// [`MgxsError::NotNested`] if a coarse edge is not a fine edge (matched to
+    /// a relative 1e-9), or if `coarse` does not span the same range.
+    pub fn collapse(&self, coarse: &GroupStructure) -> Result<MgxsLibrary, MgxsError> {
+        let fine = self.groups.edges();
+        let same = |a: f64, b: f64| (a - b).abs() <= 1.0e-9 * a.abs().max(b.abs());
+        // Fine index of every coarse edge.
+        let mut at = Vec::with_capacity(coarse.edges().len());
+        for &e in coarse.edges() {
+            match fine.iter().position(|&f| same(f, e)) {
+                Some(i) => at.push(i),
+                None => return Err(MgxsError::NotNested { edge_ev: e }),
+            }
+        }
+        if at[0] != 0 {
+            return Err(MgxsError::NotNested { edge_ev: coarse.edges()[0] });
+        }
+        if at[at.len() - 1] != fine.len() - 1 {
+            return Err(MgxsError::NotNested {
+                edge_ev: coarse.edges()[coarse.edges().len() - 1],
+            });
+        }
+        let n_c = coarse.n_groups();
+        // Coarse group of each fine group.
+        let mut of = vec![0usize; self.groups.n_groups()];
+        for c in 0..n_c {
+            for slot in of.iter_mut().take(at[c + 1]).skip(at[c]) {
+                *slot = c;
+            }
+        }
+        let zones = self
+            .zones
+            .iter()
+            .map(|z| {
+                let mut out = ZoneMgxs {
+                    name: z.name.clone(),
+                    flux: vec![0.0; n_c],
+                    total: vec![0.0; n_c],
+                    absorption: vec![0.0; n_c],
+                    fission: vec![0.0; n_c],
+                    nu_fission: vec![0.0; n_c],
+                    kappa_fission: vec![0.0; n_c],
+                    scatter: vec![vec![0.0; n_c]; n_c],
+                    chi: vec![0.0; n_c],
+                };
+                // Accumulate rates, then divide by the merged flux.
+                for (g, &c) in of.iter().enumerate() {
+                    let w = z.flux[g];
+                    out.flux[c] += w;
+                    out.total[c] += z.total[g] * w;
+                    out.absorption[c] += z.absorption[g] * w;
+                    out.fission[c] += z.fission[g] * w;
+                    out.nu_fission[c] += z.nu_fission[g] * w;
+                    out.kappa_fission[c] += z.kappa_fission[g] * w;
+                    out.chi[c] += z.chi[g];
+                    for (go, &co) in of.iter().enumerate() {
+                        out.scatter[c][co] += z.scatter[g][go] * w;
+                    }
+                }
+                for c in 0..n_c {
+                    let phi = out.flux[c];
+                    if phi > 0.0 {
+                        out.total[c] /= phi;
+                        out.absorption[c] /= phi;
+                        out.fission[c] /= phi;
+                        out.nu_fission[c] /= phi;
+                        out.kappa_fission[c] /= phi;
+                        for v in &mut out.scatter[c] {
+                            *v /= phi;
+                        }
+                    } else {
+                        out.total[c] = 0.0;
+                        out.absorption[c] = 0.0;
+                        out.fission[c] = 0.0;
+                        out.nu_fission[c] = 0.0;
+                        out.kappa_fission[c] = 0.0;
+                        out.scatter[c] = vec![0.0; n_c];
+                    }
+                }
+                out
+            })
+            .collect();
+        Ok(MgxsLibrary {
+            groups: coarse.clone(),
+            zones,
+        })
+    }
+
     /// The same library with every group axis reversed, so index 0 is the
     /// **highest**-energy group — the usual reactor-physics convention.
     ///
@@ -819,6 +982,7 @@ impl MgxsLibrary {
                     flux: rev(&z.flux),
                     total: rev(&z.total),
                     absorption: rev(&z.absorption),
+                    fission: rev(&z.fission),
                     nu_fission: rev(&z.nu_fission),
                     kappa_fission: rev(&z.kappa_fission),
                     scatter,
@@ -838,21 +1002,24 @@ impl MgxsLibrary {
     }
 }
 
-/// The score order the scalar pass must declare, and that [`condense`] assumes.
-///
-/// Exposed so a caller building the tally cannot silently disagree with the
-/// reader about which score sits at which offset.
 /// Scores carried by the matrix pass, in order: the scattering matrix and the
 /// fission-birth spectrum. Both need the same `[Material, Energy, EnergyOut]`
 /// filters, so they share one tally and one transport pass.
 pub const MATRIX_SCORES: usize = 2;
 
-pub const SCALAR_SCORES: [ScoreType; 5] = [
+/// The score order the scalar pass must declare, and that [`condense`] assumes.
+///
+/// Exposed so a caller building the tally cannot silently disagree with the
+/// reader about which score sits at which offset. `Fission` was appended last
+/// (2026-10-12, gh:#848) so the offsets of the first five, which
+/// `dhoby-ghaut`'s mesh tally also reads, did not move.
+pub const SCALAR_SCORES: [ScoreType; 6] = [
     ScoreType::Flux,
     ScoreType::Total,
     ScoreType::Absorption,
     ScoreType::NuFission,
     ScoreType::KappaFission,
+    ScoreType::Fission,
 ];
 
 /// Condense a completed pair of Monte Carlo tallies into group constants.
@@ -933,6 +1100,7 @@ pub fn condense(
         let mut flux = vec![0.0; n_g];
         let mut total = vec![0.0; n_g];
         let mut absorption = vec![0.0; n_g];
+        let mut fission = vec![0.0; n_g];
         let mut nu_fission = vec![0.0; n_g];
         let mut kappa_fission = vec![0.0; n_g];
         let mut scatter = vec![vec![0.0; n_g]; n_g];
@@ -949,6 +1117,7 @@ pub fn condense(
             absorption[g] = scal(z, g, 2) / phi;
             nu_fission[g] = scal(z, g, 3) / phi;
             kappa_fission[g] = scal(z, g, 4) / phi;
+            fission[g] = scal(z, g, 5) / phi;
             for go in 0..n_g {
                 scatter[g][go] = mat(z, g, go, 0) / phi;
             }
@@ -975,6 +1144,7 @@ pub fn condense(
             flux,
             total,
             absorption,
+            fission,
             nu_fission,
             kappa_fission,
             scatter,
@@ -1157,6 +1327,8 @@ mod tests {
                 assert!((zone.absorption[gg] - 2.0).abs() < 1e-12);
                 assert!((zone.nu_fission[gg] - 3.0).abs() < 1e-12);
                 assert!((zone.kappa_fission[gg] - 4.0).abs() < 1e-12);
+                // score index 5 = Fission, appended 2026-10-12 (gh:#848).
+                assert!((zone.fission[gg] - 5.0).abs() < 1e-12);
                 for go in 0..2 {
                     let want = (gg as f64 + 1.0) * (go as f64 + 2.0);
                     assert!(
@@ -1196,9 +1368,6 @@ mod tests {
         assert_eq!(s[1][1], 0.0);
     }
 
-    /// Removal subtracts within-group scattering; the diffusion coefficient is
-    /// 1/(3 Sigma_t).
-    #[test]
     /// Rebalancing makes the solver's absorption equal the tallied absorption.
     ///
     /// # Methodology
@@ -1230,6 +1399,7 @@ mod tests {
                 // 3 % high against absorption + scatter row.
                 total: vec![(0.01 + 0.50) * 1.03, (0.02 + 0.80) * 1.03],
                 absorption: vec![0.01, 0.02],
+                fission: vec![0.006, 0.012],
                 nu_fission: vec![0.015, 0.030],
                 kappa_fission: vec![0.0, 0.0],
                 scatter: vec![vec![0.40, 0.10], vec![0.05, 0.75]],
@@ -1298,6 +1468,7 @@ mod tests {
             flux: vec![1.0],
             total: vec![sigma_t],
             absorption: vec![true_abs],
+            fission: vec![0.0],
             nu_fission: vec![0.0],
             kappa_fission: vec![0.0],
             scatter: vec![vec![row]],
@@ -1316,12 +1487,20 @@ mod tests {
         );
     }
 
+    /// Removal subtracts within-group scattering; the diffusion coefficient is
+    /// 1/(3 Sigma_t).
+    ///
+    /// This test carried no `#[test]` until 2026-10-12 (its attribute had
+    /// slid onto the rebalancing test above, which then had two), so it had
+    /// never run. Restored, it passes unchanged.
+    #[test]
     fn removal_and_diffusion_follow_their_definitions() {
         let z = ZoneMgxs {
             name: "z".into(),
             flux: vec![1.0, 1.0],
             total: vec![2.0, 4.0],
             absorption: vec![0.5, 0.5],
+            fission: vec![0.0, 0.0],
             nu_fission: vec![0.0, 0.0],
             kappa_fission: vec![0.0, 0.0],
             scatter: vec![vec![0.75, 0.25], vec![0.1, 1.5]],
@@ -1413,5 +1592,121 @@ mod tests {
         // (0,1) in a 2-group set maps to (1,0)
         assert_eq!(rev.zones[0].scatter[1][0], 9.0);
         assert_eq!(rev.zones[0].scatter[0][1], 0.0);
+    }
+
+    /// A three-group fixture with distinct numbers everywhere, so a collapse
+    /// that reads the wrong group shows up as a different number.
+    fn three_group_lib() -> MgxsLibrary {
+        let zone = |name: &str, k: f64| ZoneMgxs {
+            name: name.into(),
+            flux: vec![2.0 * k, 3.0 * k, 5.0],
+            total: vec![0.9, 0.7, 0.5],
+            absorption: vec![0.30, 0.05, 0.02],
+            fission: vec![0.10, 0.01, 0.004],
+            nu_fission: vec![0.25, 0.025, 0.011],
+            kappa_fission: vec![3.0e-12, 3.1e-13, 1.3e-13],
+            scatter: vec![
+                vec![0.40, 0.15, 0.05],
+                vec![0.02, 0.50, 0.13],
+                vec![0.0, 0.01, 0.47],
+            ],
+            chi: vec![0.0, 0.2, 0.8],
+        };
+        MgxsLibrary {
+            groups: GroupStructure::new(vec![1.0e-5, 0.625, 1.0e3, 2.0e7]).expect("ascending"),
+            zones: vec![zone("fuel", 1.0), zone("graphite", 7.0)],
+        }
+    }
+
+    /// Per-zone reaction rates `sum_g Sigma_x,g phi_g` for every reaction.
+    fn rates(z: &ZoneMgxs) -> [f64; 7] {
+        let r = |x: &[f64]| x.iter().zip(&z.flux).map(|(a, b)| a * b).sum::<f64>();
+        let s: f64 = (0..z.flux.len())
+            .map(|g| z.scatter[g].iter().sum::<f64>() * z.flux[g])
+            .sum();
+        [
+            z.flux.iter().sum(),
+            r(&z.total),
+            r(&z.absorption),
+            r(&z.fission),
+            r(&z.nu_fission),
+            r(&z.kappa_fission),
+            s,
+        ]
+    }
+
+    /// Collapsing is exact: every zone's reaction rates and `k_inf` survive
+    /// to rounding, and the merged constants are the flux-weighted means.
+    ///
+    /// # Methodology
+    ///
+    /// A two-zone, three-group library (edges 1e-5, 0.625, 1e3, 2e7 eV) with
+    /// distinct numbers in every slot is collapsed onto two groups (the
+    /// 1e3 eV edge removed) and onto one. For each target: the seven
+    /// reaction-rate totals of each zone (flux, total, absorption, fission,
+    /// nu-fission, kappa-fission, scatter) must match the fine library to a
+    /// relative 1e-12, `k_inf` must match to 1e-12, and one merged constant
+    /// is checked against hand arithmetic.
+    ///
+    /// # Result (2026-10-12)
+    ///
+    /// Passes. The hand-checked value: fuel, merged fast group of fine groups
+    /// 1 and 2 (flux 3 and 5), `Sigma_t = (0.7*3 + 0.5*5)/8 = 0.575`, and the
+    /// fast-to-fast scatter `(0.50+0.13)*3 + (0.01+0.47)*5) / 8 = 0.53625`.
+    #[test]
+    fn collapse_conserves_rates_and_k_inf() {
+        let fine = three_group_lib();
+        for edges in [vec![1.0e-5, 0.625, 2.0e7], vec![1.0e-5, 2.0e7]] {
+            let coarse = fine
+                .collapse(&GroupStructure::new(edges.clone()).expect("ascending"))
+                .expect("nested");
+            for (zf, zc) in fine.zones.iter().zip(&coarse.zones) {
+                for (a, b) in rates(zf).iter().zip(rates(zc).iter()) {
+                    assert!((a - b).abs() <= 1e-12 * a.abs().max(1.0), "{edges:?}: {a} vs {b}");
+                }
+                let chi: f64 = zc.chi.iter().sum();
+                assert!((chi - 1.0).abs() < 1e-12, "chi must still sum to 1");
+            }
+            assert!((fine.k_inf() - coarse.k_inf()).abs() < 1e-12);
+        }
+        let two = fine
+            .collapse(&GroupStructure::new(vec![1.0e-5, 0.625, 2.0e7]).expect("ascending"))
+            .expect("nested");
+        let f = &two.zones[0];
+        assert!((f.total[1] - 0.575).abs() < 1e-12);
+        assert!((f.scatter[1][1] - 0.53625).abs() < 1e-12);
+        assert!((f.scatter[0][1] - 0.20).abs() < 1e-12, "group 0 is unmerged");
+        assert!((f.chi[1] - 1.0).abs() < 1e-12);
+    }
+
+    /// A coarse edge that is not a fine edge, or a range that does not match,
+    /// is refused rather than approximated.
+    #[test]
+    fn collapse_refuses_a_structure_that_does_not_nest() {
+        let fine = three_group_lib();
+        for edges in [
+            vec![1.0e-5, 1.0, 2.0e7],
+            vec![1.0e-4, 0.625, 2.0e7],
+            vec![1.0e-5, 0.625, 1.0e7],
+        ] {
+            let coarse = GroupStructure::new(edges).expect("ascending");
+            assert!(matches!(
+                fine.collapse(&coarse),
+                Err(MgxsError::NotNested { .. })
+            ));
+        }
+    }
+
+    /// A library survives a JSON round trip unchanged, and a file whose edges
+    /// do not ascend is refused on the way in.
+    #[test]
+    fn library_round_trips_through_json_and_validates_edges() {
+        let lib = three_group_lib();
+        let text = serde_json::to_string(&lib).expect("serialise");
+        let back: MgxsLibrary = serde_json::from_str(&text).expect("deserialise");
+        assert_eq!(back, lib);
+        let mut v: serde_json::Value = serde_json::from_str(&text).expect("json");
+        v["groups"] = serde_json::json!([1.0e-5, 1.0e3, 0.625, 2.0e7]);
+        assert!(serde_json::from_value::<MgxsLibrary>(v).is_err());
     }
 }

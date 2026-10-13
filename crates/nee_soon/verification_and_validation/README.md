@@ -64,6 +64,13 @@ example (`water_critical_point_iapws95.md`).
   them. Regenerate with `cargo run --release -p nee_soon --example
   htr10_geometry_images` whenever the geometry changes.
 
+## HTR-10 multigroup cross sections
+
+- [`htr10_mgxs_runs/`](htr10_mgxs_runs/README.md) — in-core MGXS of the full
+  HTR-10 core at isothermal state points, one folder per case of
+  `nee_soon::htr10_mgxs` (gh:#845), run with `examples/htr10_mgxs_case.rs`
+  following [`../docs/htr10-mgxs-desktop-runbook.md`](../docs/htr10-mgxs-desktop-runbook.md).
+
 ## HTR-10 k against loading height
 
 - [`htr10_endf8_kvsh_quick_2026-10-02/`](htr10_endf8_kvsh_quick_2026-10-02/README.md)

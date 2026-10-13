@@ -47,6 +47,16 @@
 //!
 //! ## Results (measured 2026-09-19)
 //!
+//! **Fission score and eigenvalue check, 2026-10-12 (gh:#848).** At the
+//! test's 400 × \[10 + 40\]: fuel `nu-bar` 2.4400 / 2.4400 / 2.4322 / 2.6097
+//! (group 0 lowest), `Sigma_f <= Sigma_a` in every group, moderator
+//! `Sigma_f = 0`, and the tallied production/absorption `k_inf = 1.859698`
+//! against the driver's `k = 1.871697 ± 0.008067` (−1200 pcm, 1.5σ). Rerun
+//! once at 4000 × \[10 + 100\] to tell noise from bias: `k_inf = 1.864458`
+//! against `1.865059 ± 0.001954` (**−60 pcm, 0.3σ**), and the balance
+//! residuals fell from 1.4e-3 to 9.2e-3 down to 1.9e-4 to 1.5e-3, i.e. with
+//! the statistics. The −1200 pcm was noise.
+//!
 //! Printed by the test at run time. This is a **harness and wiring check, not
 //! physics V&V**: it shows the condensation is self-consistent against neutron
 //! balance, not that the group constants reproduce any reference eigenvalue.
@@ -210,7 +220,7 @@ fn mgxs_from_a_monte_carlo_run_satisfies_neutron_balance() {
 
     // Two passes over the same model at the same seed.
     let mut scalar = scalar_tally(1, &groups, vec![0, 1]);
-    run_keff_csg(&geom, &mats, &nucs, src, &settings(), Some(&mut scalar));
+    let mc = run_keff_csg(&geom, &mats, &nucs, src, &settings(), Some(&mut scalar));
 
     let mut matrix = matrix_tally(2, &groups, vec![0, 1]);
     run_keff_csg(&geom, &mats, &nucs, src, &settings(), Some(&mut matrix));
@@ -331,4 +341,53 @@ fn mgxs_from_a_monte_carlo_run_satisfies_neutron_balance() {
         fuel.chi[N_GROUPS - 1]
     );
     println!("non-fissioning moderator chi sums to {mod_chi} (correctly empty)");
+
+    // ── The fission score (added 2026-10-12, gh:#848) ────────────────────────
+    //
+    // Sigma_f <= Sigma_a pointwise, and both are scored on the same track, so
+    // the condensed ratio must obey it exactly. nu-bar = nu Sigma_f / Sigma_f
+    // must sit in uranium's physical range (about 2.4 thermal to 2.7 at a few
+    // MeV on this 4-group grid). A Fission score wired to the wrong rate
+    // fails one or the other.
+    for g in 0..N_GROUPS {
+        assert!(
+            fuel.fission[g] <= fuel.absorption[g] * (1.0 + 1e-12),
+            "group {g}: Sigma_f {:.6e} > Sigma_a {:.6e}",
+            fuel.fission[g],
+            fuel.absorption[g]
+        );
+        if fuel.fission[g] > 0.0 {
+            let nu = fuel.nu_fission[g] / fuel.fission[g];
+            println!("fuel g{g}: Sigma_f = {:.4e}, nu-bar = {nu:.4}", fuel.fission[g]);
+            assert!(
+                (2.3..=3.2).contains(&nu),
+                "group {g}: nu-bar {nu} is outside uranium's range"
+            );
+        }
+    }
+    assert!(
+        lib.zones[1].fission.iter().all(|f| *f == 0.0),
+        "the hydrogen moderator cannot fission"
+    );
+
+    // ── The tallies reproduce the eigenvalue ─────────────────────────────────
+    //
+    // The cell is reflective on every side, so nothing leaks and the
+    // constants' own production / absorption is a second estimate of k, made
+    // from the track-length tallies rather than the driver's collision
+    // estimator. They share histories, so agreement within 3 sigma of k is a
+    // loose bound; a miss beyond it means a tally scores the wrong rate.
+    let k_inf = lib.k_inf();
+    println!(
+        "tallied k_inf = {k_inf:.6}, driver k = {:.6} +/- {:.6} ({:+.0} pcm)",
+        mc.k_mean,
+        mc.k_std,
+        (k_inf - mc.k_mean) * 1e5
+    );
+    assert!(
+        (k_inf - mc.k_mean).abs() <= 3.0 * mc.k_std,
+        "production/absorption from the tallies ({k_inf:.6}) disagrees with the driver's k ({:.6} +/- {:.6})",
+        mc.k_mean,
+        mc.k_std
+    );
 }

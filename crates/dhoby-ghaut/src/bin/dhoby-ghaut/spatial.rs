@@ -1012,6 +1012,7 @@ mod tests {
                 flux: vec![1.0, 1.0],
                 total: t.to_vec(),
                 absorption: self.sa.to_vec(),
+                fission: self.nf.iter().map(|v| v / 2.43).collect(),
                 nu_fission: self.nf.to_vec(),
                 kappa_fission: self.nf.iter().map(|v| v / 2.43 * 3.2e-11).collect(),
                 scatter: vec![vec![self.s00, self.s01], vec![0.0, self.s11]],
