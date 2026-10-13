@@ -122,4 +122,41 @@ Recorded cases (`htr10_mgxs::cases`, run on the long-case machine):
 `cell_pebble_t300`, `cell_seker1_t300`, `cell_seker7_t300` and
 `cell_seker19_t300`, each 10 000 x [20 + 135], seed 20 261 012.
 
-Pilots on this machine (`pilot_*`, 2000 x [10 + 40], not records): PENDING.
+### Pilots on this machine
+
+The pilots are the `pilot_*` cases: 2000 x [10 + 40], seed 20 261 012,
+2026-10-13, on a 4-core Xeon @ 2.10 GHz, 925–1579 s each. They are not
+records, and their output went to `target/htr10_mgxs_pilots/`. All checks
+passed on all four, and no history was lost or leaked.
+
+The table gives one-group flux-weighted constants from the 70-group
+condensation. Their σ is propagated in quadrature from `condense`'s per-group
+σ, ignoring the correlations between groups.
+
+| cell | k (= k_inf, reflective) | kernel Σa \[1/cm\] | kernel νΣf \[1/cm\] | matrix Σt \[1/cm\] |
+|---|---|---|---|---|
+| single pebble | 1.68253 ± 0.00423 | 0.5970 ± 0.0025 | 1.0376 ± 0.0047 | 0.38280 ± 0.00030 |
+| Şeker, 1 tile | 1.74844 ± 0.00309 | 0.8283 ± 0.0038 | 1.5310 ± 0.0072 | 0.38867 ± 0.00036 |
+| Şeker, 7 tiles | 1.74364 ± 0.00334 | 0.8297 ± 0.0038 | 1.5374 ± 0.0072 | 0.38857 ± 0.00038 |
+| Şeker, 19 tiles | 1.74353 ± 0.00329 | 0.8322 ± 0.0039 | 1.5367 ± 0.0075 | 0.38864 ± 0.00037 |
+
+**What this shows:**
+
+1. **The side-face approximation is not resolved at this budget.** From 1
+   to 19 tiles, k moves −491 ± 450 pcm (1.1σ), and from 7 to 19 tiles it
+   moves −11 ± 470 pcm. The kernel constants agree within 1σ across N.
+   The record budget (15.5x the histories, σ ≈ 85 pcm per cell) resolves a
+   shift of about 250 pcm. Until those records exist, the convergence over N
+   is **not measured**, only bounded at about 1300 pcm (3σ).
+2. **The single pebble is a different neutronic cell, not a cheaper copy of
+   the bed.** Every ball in it is fuel. The Şeker cells carry the core's
+   43 % dummy (pure graphite) balls, and helium is 48 % of the pebble cell's
+   volume against 36 % in the clusters. So the pebble cell is
+   under-moderated. Its spectrum is harder: the kernel's one-group Σa is 28 %
+   lower and νΣf 32 % lower. Its k is lower by 6100 ± 536 pcm against
+   19 tiles. Constants condensed on the single pebble do **not** describe the
+   core's fuel. It remains useful as the simplest MG-against-CE gate (#850),
+   where the cell only has to be the same on both sides.
+3. **The pilot of the single pebble agrees with section 3's CSG arm**, which
+   used a different seed and budget: 1.68253 ± 0.00423 against
+   1.68619 ± 0.00223, a difference of −366 ± 478 pcm.

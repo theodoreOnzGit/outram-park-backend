@@ -113,6 +113,19 @@ convert only through explicit ablations
 (n,xn) gain since the same change. End-to-end check:
 `tests/mgxs_multiplicity_infinite_medium.rs`.
 
+**HTR-10 cells (gh:#849, 2026-10-13).** `htr10_mgxs::cells::Htr10Cell` is
+built from the core's own TRISO and pebble builders
+(`core_shell::TrisoBuild`, `core_model::build_tile_universes`, extracted; the
+core's geometry hash is unchanged). There are two kinds:
+- `single_pebble()`: a reflective 6 cm cube;
+- `seker_cluster(1..=3)`: reflective superlattice prisms of 1/7/19 tiles.
+
+They are drawn and checked in `verification_and_validation/htr10_mgxs_cells/`.
+The CSG pebble agrees with `DhUniverse::pebble` (+102 ± 347 pcm). The single
+pebble is under-moderated (no dummy balls), so its constants do not describe
+the core; use a Şeker cluster for that. The 1/7/19 convergence is not resolved
+by the pilots and waits on the `cell_*_t300` records.
+
 **HTR-10 bed options (2026-10-05).** Two builders share everything outside
 the bed (`htr10_rmc::core_shell`, extracted from `assemble_explicit_triso`,
 geometry verified byte-identical before/after by its `Debug` hash):

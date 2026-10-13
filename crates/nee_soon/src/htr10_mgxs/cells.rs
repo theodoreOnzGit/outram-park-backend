@@ -23,8 +23,14 @@
 //!
 //! One 6 cm ball in a 6 cm cube is simple cubic packing: `(pi/6) = 0.5236`
 //! of the volume is pebble. The core's bed is 0.61 (Şeker's 0.6448 in the
-//! interior). The single pebble is a deliberately simple cell; its helium
-//! fraction is too high for the core, though helium barely interacts.
+//! interior). The single pebble is a deliberately simple cell. ~~Its helium
+//! fraction is too high for the core, though helium barely interacts.~~
+//! **CORRECTED 2026-10-13 (pilots, `verification_and_validation/htr10_mgxs_cells/`):**
+//! the helium matters little, but every ball in this cell is fuel, while the
+//! core's bed is 43 % dummy graphite balls. The cell is therefore
+//! under-moderated. Its kernel's one-group Σa is 28 % below the Şeker
+//! cluster's, and its `k_inf` is 6100 ± 536 pcm lower. Its constants do not
+//! describe the core's fuel; it serves as the simplest MG-against-CE gate.
 //!
 //! # The Şeker cluster's boundary, and why it is a superlattice hexagon
 //!
