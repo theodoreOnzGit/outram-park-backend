@@ -118,8 +118,11 @@ fn incoherent_elastic_cross_section_physics() {
 #[test]
 fn thermal_table_uses_idpnc3_elastic_branch() {
     let ace = hzrh_thermal();
+    // NJOY's ZAID is the name right-justified in six columns (`"  hzrh.00t"`)
+    // since GitHub #865 made the header NJOY2016's byte for byte; the
+    // padding is part of the field, so it is trimmed before the name check.
     assert!(
-        ace.zaid.starts_with("hzrh") && ace.zaid.ends_with('t'),
+        ace.zaid.trim_start().starts_with("hzrh") && ace.zaid.ends_with('t'),
         "ZAID {}",
         ace.zaid
     );

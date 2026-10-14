@@ -289,7 +289,9 @@ impl IncoherentInelastic {
         let c = (4.0 * std::f64::consts::PI).sqrt();
 
         // Principal scatterer (thermr.f90 lines 2584–2587).
-        let teff = self.teff_ev(temp_k); // T_eff in eV
+        // T_eff in eV, at the requested temperature where calcem reads it
+        // there (`IncoherentInelastic::teff_request_k`, GitHub #866).
+        let teff = self.teff_ev(self.teff_request_k.unwrap_or(temp_k));
         let arg = (a - b).powi(2) * tev / (4.0 * a * teff) + (b + bb) / 2.0;
         let mut sig = 0.0;
         if -arg > SABFLG {
@@ -770,7 +772,11 @@ fn interp_linear(table: &[(f64, f64)], arg: f64) -> f64 {
             if (x1 - x0).abs() < 1e-30 {
                 y0
             } else {
-                y0 + (arg - x0) / (x1 - x0) * (y1 - y0)
+                // `terp1`'s grouping (`endf.f90:1431`), which `terpa` uses
+                // for `T_eff` (`thermr.f90:1833`). ~~`(arg-x0)/(x1-x0)*(y1-y0)`~~
+                // **CORRECTED 2026-10-14 (GitHub #866)**: identical at a
+                // tabulated temperature, an ulp apart between them.
+                y0 + (arg - x0) * (y1 - y0) / (x1 - x0)
             }
         }
     }

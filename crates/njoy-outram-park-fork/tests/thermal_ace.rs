@@ -64,8 +64,11 @@ fn parse_type1(text: &str) -> (Vec<i32>, Vec<i32>, Vec<f64>) {
 #[test]
 fn thermal_table_header_and_dimensions() {
     let ace = al27_thermal();
+    // NJOY's ZAID is the name right-justified in six columns (`"  al27.00t"`)
+    // since GitHub #865 made the header NJOY2016's byte for byte; the
+    // padding is part of the field, so it is trimmed before the name check.
     assert!(
-        ace.zaid.starts_with("al27") && ace.zaid.ends_with('t'),
+        ace.zaid.trim_start().starts_with("al27") && ace.zaid.ends_with('t'),
         "ZAID {}",
         ace.zaid
     );

@@ -135,7 +135,12 @@ defects below are known one by one, rather than as one residual.
 
 ## What is NOT covered
 
-- Only each evaluation's base temperature (as before).
+- ~~Only each evaluation's base temperature (as before).~~ **CORRECTED
+  2026-10-14 (GitHub #866):** graphite at 600 K and 600.5 K and H in H₂O at
+  293.6 K and 293.9 K are now gated word for word too, and the temperatures
+  NJOY2016 refuses (graphite 450 K and 603 K, water 330 K) are refused; see
+  [`acer_thermal_temperatures_2026_10_14.md`](acer_thermal_temperatures_2026_10_14.md)
+  and `tests/acer_thermal_temperature_parity.rs`.
 - Incoherent elastic (H in ZrH, `IDPNC = 3`) and mixed elastic (`IDPNC = 5`)
   are not in the word-for-word gate.
 - LASYM = 1 evaluations and `nmix > 1` are not exercised.
