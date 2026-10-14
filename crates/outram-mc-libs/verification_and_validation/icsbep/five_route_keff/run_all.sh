@@ -79,7 +79,8 @@ log "Rust-NJOY library"
 NUCS=$(grep -v '^#' "$HERE/nuclides.tsv" | awk -F'\t' '{printf " --nuclide %s:%s:%s", $1, $2, $3}')
 # shellcheck disable=SC2086
 "$WRITER" --out "$WORK/rust" $NUCS --thermal HinH2O:tsl-HinH2O.endf:1:lwtr \
-  --thermal-grid-from "$WORK/njoy/293.6K/HinH2O.ace" >> "$WORK/logs/rust_library.log" 2>&1
+  --thermal-grid-from "$WORK/njoy/293.6K/HinH2O.ace" \
+  --thermal-incident n-001_H_001-ENDF8.0-Beta6.endf:125 >> "$WORK/logs/rust_library.log" 2>&1
 for lib in njoy rust; do
   if [ ! -s "$WORK/h5_$lib/cross_sections.xml" ]; then
     log "ACE -> HDF5 ($lib)"

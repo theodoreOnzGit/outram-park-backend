@@ -44,7 +44,8 @@
 //! cargo run --release -p njoy-outram-park-fork --example write_ace_library -- \
 //!     --out <dir> --temp 293.6 \
 //!     --nuclide U235:n-092_U_235-ENDF8.0.endf:9228 [--nuclide ...] \
-//!     [--thermal HinH2O:tsl-HinH2O.endf:1:lwtr --thermal-grid-from <njoy HinH2O.ace>]
+//!     [--thermal HinH2O:tsl-HinH2O.endf:1:lwtr --thermal-grid-from <njoy HinH2O.ace>
+//!      [--thermal-incident n-001_H_001-ENDF8.0-Beta6.endf:125]]
 //! ```
 //!
 //! Tapes are resolved against `reference-data/endf/`. A table that already
@@ -53,7 +54,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use njoy_outram_park_fork::acer::thermal::{nxs as tnxs, jxs as tjxs, InelasticForm, ThermalAceOptions};
+use njoy_outram_park_fork::acer::thermal::{ace_incident_grid, nxs as tnxs, jxs as tjxs, IncidentPendf, InelasticForm, ThermalAceOptions};
 use njoy_outram_park_fork::acer::{build_full, build_full_with_purr, AceTable};
 use njoy_outram_park_fork::broadr::broaden_result;
 use njoy_outram_park_fork::endf::tape::Tape;
@@ -85,6 +86,7 @@ fn main() {
     let out = PathBuf::from(flag(&args, "--out").expect("--out <dir> is required"));
     let temp_k: f64 = flag(&args, "--temp").map_or(293.6, |s| s.parse().expect("--temp"));
     let tol: f64 = flag(&args, "--tol").map_or(1.0e-3, |s| s.parse().expect("--tol"));
+    let tol_reconr = tol;
     let hot_dir = out.join(format!("{temp_k}K"));
     let cold_dir = out.join("0K");
     std::fs::create_dir_all(&hot_dir).expect("create hot dir");
@@ -209,9 +211,44 @@ fn main() {
         let tol: f64 =
             flag(&args, "--thermal-tol").map_or(1.0e-3, |v| v.parse().expect("--thermal-tol"));
         eprintln!("    THERMR tol {tol}");
-        let t =
-            AceTable::thermal_from_mf7_with_tolerance(&mf7, temp_k, stem, 0, &grid_ev, opts, tol)
-                .unwrap_or_else(|e| panic!("thermal ACE {name}: {e:?}"));
+        // With `--thermal-incident TAPE:MAT` (2026-10-14, GitHub #865) the
+        // table is built as NJOY's deck builds it: on the incident nuclide's
+        // PENDF at this temperature, with emax the tape's B(4) as OpenMC's
+        // `make_ace_thermal` passes it. Word for word NJOY2016's on the cases
+        // in `tests/acer_thermal_word_parity.rs`. Without it, ITIX is not on
+        // that grid.
+        let t = match flag(&args, "--thermal-incident") {
+            Some(inc) => {
+                let [itape, imat] = inc.split(':').collect::<Vec<_>>()[..] else {
+                    panic!("--thermal-incident wants TAPE:MAT, got {inc}")
+                };
+                let imat: i32 = imat.parse().expect("incident MAT");
+                let it = Tape::read_file(&reference_endf_dir().join(itape))
+                    .unwrap_or_else(|e| panic!("read {itape}: {e}"));
+                let r = broaden_result(
+                    &reconr(&it, &ReconrConfig { mat: imat, tolerance: tol_reconr, temperature: 0.0 })
+                        .unwrap_or_else(|e| panic!("RECONR {itape}: {e}")),
+                    temp_k,
+                );
+                let elastic = r.sections.iter().find(|s| s.mt.number() == 2).expect("incident MT=2").pairs.clone();
+                let emax = ii.b.get(3).copied().filter(|v| *v > 0.0).expect("MF=7/MT=4 B(4) emax");
+                let grid = ace_incident_grid(emax);
+                if grid != grid_ev {
+                    eprintln!("    WARNING: ACER's grid to B(4) = {emax} eV ({} points) is not NJOY2016's ITIE ({} points); using NJOY's", grid.len(), grid_ev.len());
+                }
+                let opts = ThermalAceOptions { emax_ev: emax, ..opts };
+                let pendf = IncidentPendf {
+                    mat: imat,
+                    awr: r.material.awr,
+                    moderator_za: vec![r.material.za as i32],
+                    elastic,
+                };
+                eprintln!("    on the PENDF of {itape} (MAT {imat}), emax {emax} eV");
+                AceTable::thermal_from_mf7_on_pendf(&mf7, temp_k, stem, 0, &grid_ev, opts, tol, &pendf)
+            }
+            None => AceTable::thermal_from_mf7_with_tolerance(&mf7, temp_k, stem, 0, &grid_ev, opts, tol),
+        }
+        .unwrap_or_else(|e| panic!("thermal ACE {name}: {e:?}"));
         write(&t, &path);
         eprintln!(
             "  {name}: thermal table in {:.1} s",
