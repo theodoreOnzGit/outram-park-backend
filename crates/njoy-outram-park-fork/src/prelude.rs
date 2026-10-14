@@ -29,3 +29,9 @@ pub use crate::nuclear_data::{Mgxs, MgxsLibrary, WeightingSpectrum, ENDF_MAX_ENE
 pub use crate::errorr::groups::{neutron_group_structure, NeutronGroupStructure};
 pub use crate::groupr::panel::group_integral;
 pub use crate::reconr::reconr_background;
+
+// ── The high-level entry points (GitHub #871) ────────────────────────────────
+pub use crate::process::{
+    ace, cross_sections, thermal_ace, thermal_scattering, CrossSectionSettings, NuclearCrossSections,
+    PurrSettings, ThermalScatteringLaw, ThermalSettings,
+};

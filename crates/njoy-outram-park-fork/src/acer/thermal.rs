@@ -7,7 +7,7 @@
 //! inelastic forms (equiprobable, skewed, continuous; ~~`IFENG=0` only~~,
 //! corrected 2026-10-04) plus coherent-elastic (Bragg) data.
 //!
-//! The physics comes from [`crate::thermr`]: [`IncoherentInelastic`] provides
+//! The physics comes from [`crate::thermr`]: [`IncoherentInelastic`](crate::thermr::mf7::IncoherentInelastic) provides
 //! the inelastic cross section and equiprobable emission bins, and
 //! [`CoherentElastic`] provides the Bragg `S(E)`.
 //!
@@ -50,10 +50,9 @@
 use crate::acer::acesix::{
     acesix_equiprobable, acesix_tabulated, pendf_text, tpend_rows, AcesixPoint, BinWeights,
 };
-use crate::thermr::calcem::iform0::compute_iform0;
 use crate::thermr::calcem::types::{Iform0Table, IncidentEnergyRecord};
 use crate::thermr::inelastic::OutgoingBin;
-use crate::thermr::mf7::{IncoherentInelastic, Mf7};
+use crate::thermr::mf7::Mf7;
 use crate::NjoyError;
 
 use super::AceTable;
@@ -533,48 +532,79 @@ impl AceTable {
         tol: f64,
         incident: Option<&IncidentPendf>,
     ) -> Result<Self, NjoyError> {
-        let ii = mf7
-            .incoherent_inelastic
-            .as_ref()
-            .ok_or(NjoyError::NotPorted(
-                "thermal ACE without incoherent-inelastic (MT=4) data",
-            ))?;
-        // On NJOY's deck the temperature is resolved as THERMR resolves it
-        // (GitHub #866): `calcem`'s T/500 walk; S(alpha,beta) and kT at the
-        // tabulated temperature it finds (`tev=t*bk`, `thermr.f90:1924`) but
-        // T_eff at the requested one (`tempt=temp`, `:1812-1834`); and
-        // `rdelas`'s Bragg table.
-        let ii_at_request;
-        let ii = match incident {
-            Some(_) => {
-                let calcem_k = crate::thermr::mf7::calcem_temperature_k(&ii.tabulated_temperatures_k, temp_k)?;
-                if ii.temperature_bracket.is_some() || ii.temperature_k != calcem_k {
-                    return Err(NjoyError::ThermalTemperatureMismatch {
-                        requested_k: temp_k,
-                        calcem_k,
-                        resolved_k: ii.temperature_k,
-                        interpolated: ii.temperature_bracket.is_some(),
-                    });
-                }
-                ii_at_request = IncoherentInelastic { teff_request_k: Some(temp_k), ..ii.clone() };
-                &ii_at_request
-            }
-            None => ii,
-        };
-        let bragg_s: Option<Vec<(f64, f64)>> = match (&mf7.coherent_elastic, incident) {
-            (Some(ce), Some(_)) => Some(ce.s_of_e_rdelas(temp_k)),
-            (Some(ce), None) => Some(ce.s_of_e_at(temp_k)?),
-            (None, _) => None,
-        };
+        let thermr = crate::thermr::on_pendf::thermr_tables(
+            mf7,
+            temp_k,
+            opts.natom,
+            opts.n_cosines,
+            opts.emax_ev,
+            tol,
+            incident,
+        )?;
+        Self::thermal_from_thermr(&thermr, name, suffix, energy_grid, opts.n_outgoing, opts.form)
+    }
 
+    /// ACER's half of the thermal deck (`aceth.f90`'s `acesix` + `thrlod`):
+    /// the thermal table from what THERMR wrote
+    /// ([`crate::thermr::on_pendf::thermr_tables`]), on the incident energies
+    /// `energy_grid` \[eV\] ([`ace_incident_grid`] for NJOY's), with
+    /// `n_outgoing` outgoing energies per incident energy (ACER card 9
+    /// `nbint`) in the inelastic `form` (card 9 `iwt`). `name` is the ZAID
+    /// stem (at most 6 characters), `suffix` the two-digit ZAID suffix.
+    ///
+    /// [`Self::thermal_from_mf7_on_pendf`] is `thermr_tables` followed by this,
+    /// so a table built here from THERMR tables made on the incident PENDF is
+    /// NJOY2016's word for word under the same settings.
+    ///
+    /// # Errors
+    /// Those of the `tpend`/`acesix` read-back (a value the ENDF text field
+    /// cannot carry).
+    pub fn thermal_from_thermr(
+        thermr: &crate::thermr::on_pendf::ThermrTables,
+        name: &str,
+        suffix: u32,
+        energy_grid: &[f64],
+        n_outgoing: usize,
+        form: InelasticForm,
+    ) -> Result<Self, NjoyError> {
+        let temp_k = thermr.temperature_k;
+        let incident = thermr.incident.as_ref();
+        let bragg_s = &thermr.coherent_elastic_s;
         let nei = energy_grid.len();
-        let nieb = opts.n_outgoing;
-        let nang = opts.n_cosines;
-        // TODO(nmix>1): `natom` is a single scalar — no support for mixing
-        // multiple distinct bound-atom populations into one thermal table
-        // (`nmix` in `aceth.f90`). Every material here is treated as nmix=1.
-        let natom = opts.natom;
-
+        let nieb = n_outgoing;
+        let nang = thermr.n_cosines;
+        let natom = thermr.natom;
+        let calcem = &thermr.inelastic;
+        let (esi, xsi): (Vec<f64>, Vec<f64>) = calcem
+            .records
+            .iter()
+            .map(|r| (r.e_in_ev, r.cross_section_b))
+            .unzip();
+        // ITIX is THERMR's own `xsi` -- `calcem`'s trapezoidal E'-integral of
+        // the SAME rows the emission bins below come from (`thermr.f90:2166-
+        // 2173`), put on the PENDF grid by `terp(esi, xsi, nne, enow, nlt = 5)`
+        // (`thermr.f90:2459`) and copied by `acesix` (`aceth.f90:131`). It was
+        // `IncoherentInelastic::cross_section`, an independent analytic
+        // integral, until 2026-09-29: up to 6.6 % off NJOY2016's ITIX at
+        // 1e-5 eV on H in H2O (median 0.4 %), which is what moved the five-route
+        // study's thermal cases by ~95 pcm (route 2 vs route 1).
+        //
+        // ACER reads ITIX back from THERMR's PENDF (`aceth.f90:355`, `gety1`
+        // on MF=3), GitHub #865. On the incident nuclide's grid that is
+        // THERMR's own MF=3; without it, `calcem`'s value at each energy
+        // through the same 7-figure text, which differs between grid points.
+        let iel_mf3 = thermr.incoherent_elastic_mf3.as_ref();
+        let xs: Vec<f64> = match &thermr.inelastic_mf3 {
+            Some(mf3) => energy_grid
+                .iter()
+                .map(|&e| Ok(crate::thermr::mf3_grid::itix_at(mf3, pendf_text(e)?)))
+                .collect::<Result<_, NjoyError>>()?,
+            None => energy_grid
+                .iter()
+                .map(|&e| pendf_text(thermr_terp(&esi, &xsi, e, 5)))
+                .collect::<Result<_, _>>()?,
+        };
+        let opts = ThermalAceOptions { n_outgoing, n_cosines: nang, natom, emax_ev: thermr.emax_ev, form };
         // The emission law comes from `calcem` through the ported `acesix`,
         // which is what NJOY does: THERMR writes the MF=6 emission matrix and
         // ACER turns it into bins or into a tabulated density.
@@ -586,53 +616,12 @@ impl AceTable {
         // probabilities", `acer.f90:131`) and so takes the variable
         // `1 4 10 ... 10 4 1` pattern. Pairing either with the other flag
         // would write a table whose NXS(7) lies about its own contents.
-        let calcem = compute_iform0(ii, natom, nang, opts.emax_ev, tol)?;
-        // ITIX is THERMR's own `xsi` -- `calcem`'s trapezoidal E'-integral of
-        // the SAME rows the emission bins below come from (`thermr.f90:2166-
-        // 2173`), put on the PENDF grid by `terp(esi, xsi, nne, enow, nlt = 5)`
-        // (`thermr.f90:2459`) and copied by `acesix` (`aceth.f90:131`). It was
-        // `IncoherentInelastic::cross_section`, an independent analytic
-        // integral, until 2026-09-29: up to 6.6 % off NJOY2016's ITIX at
-        // 1e-5 eV on H in H2O (median 0.4 %), which is what moved the five-route
-        // study's thermal cases by ~95 pcm (route 2 vs route 1).
-        let (esi, xsi): (Vec<f64>, Vec<f64>) = calcem
-            .records
-            .iter()
-            .map(|r| (r.e_in_ev, r.cross_section_b))
-            .unzip();
-        // ACER reads ITIX back from THERMR's PENDF (`aceth.f90:355`, `gety1`
-        // on MF=3), GitHub #865. On the incident nuclide's grid that is
-        // THERMR's own MF=3; without it, `calcem`'s value at each energy
-        // through the same 7-figure text, which differs between grid points.
-        // THERMR's MF=3 for `mtei` too, when there is incoherent elastic and
-        // the incident PENDF is known (`iel`, see `incoherent_elastic_ace`).
-        let mut iel_mf3: Option<Vec<(f64, f64)>> = None;
-        let xs: Vec<f64> = match incident {
-            Some(inc) => {
-                use crate::thermr::mf3_grid;
-                let grid = mf3_grid::thermr_grid(&inc.elastic, opts.emax_ev, &esi, &xsi, bragg_s.as_deref(), tol)?;
-                let mf3 = mf3_grid::tpend_mf3(&grid)?;
-                if let Some(ie) = &mf7.incoherent_elastic {
-                    let dwa = ie.iel_dwa(temp_k)?;
-                    let xie: Vec<f64> = esi.iter().map(|&e| ie.iel_record(e, dwa, natom, nang).0).collect();
-                    iel_mf3 = Some(mf3_grid::incoherent_elastic_mf3(&grid, &esi, &xie)?);
-                }
-                energy_grid
-                    .iter()
-                    .map(|&e| Ok(crate::thermr::mf3_grid::itix_at(&mf3, pendf_text(e)?)))
-                    .collect::<Result<_, NjoyError>>()?
-            }
-            None => energy_grid
-                .iter()
-                .map(|&e| pendf_text(thermr_terp(&esi, &xsi, e, 5)))
-                .collect::<Result<_, _>>()?,
-        };
         let mut emission: Vec<Vec<OutgoingBin>> = Vec::new();
         let mut tabulated: Vec<Vec<AcesixPoint>> = Vec::new();
         if opts.form == InelasticForm::Continuous {
             tabulated = energy_grid
                 .iter()
-                .map(|&e| match nearest_calcem_record(&calcem, e) {
+                .map(|&e| match nearest_calcem_record(calcem, e) {
                     Some(rec) => Ok(acesix_tabulated(&tpend_rows(&rec.rows, rec.cross_section_b)?, nang)),
                     None => Ok(Vec::new()),
                 })
@@ -645,7 +634,7 @@ impl AceTable {
             emission = energy_grid
                 .iter()
                 .map(|&e| {
-                    let Some(rec) = nearest_calcem_record(&calcem, e) else {
+                    let Some(rec) = nearest_calcem_record(calcem, e) else {
                         return Ok(Vec::new());
                     };
                     Ok(acesix_equiprobable(&tpend_rows(&rec.rows, rec.cross_section_b)?, nieb, weights)
@@ -764,13 +753,13 @@ impl AceTable {
         }
 
         // Incoherent-elastic: NEE energies, σ, and NEA equally-probable cosines.
-        if let Some(ie) = &mf7.incoherent_elastic {
+        if let Some(ie) = &thermr.incoherent_elastic {
             let nea = nang; // reuse the inelastic cosine count for the elastic bins
             // `(E [eV], σ [b], cosines)` per incident energy. On the incident
             // PENDF, as ACER reads them back from THERMR's (GitHub #866):
             // `incoherent_elastic_ace`. Without it, the analytic values on
             // `energy_grid`, which are close to NJOY's but not its words.
-            let rows: Vec<(f64, f64, Vec<f64>)> = match &iel_mf3 {
+            let rows: Vec<(f64, f64, Vec<f64>)> = match iel_mf3 {
                 Some(mf3) => incoherent_elastic_ace(ie, mf3, &esi, temp_k, natom, nea, opts.emax_ev)?,
                 None => energy_grid
                     .iter()
@@ -853,7 +842,7 @@ impl AceTable {
 
         Ok(AceTable {
             zaid,
-            awr: incident.map_or(mf7.awr, |inc| inc.awr),
+            awr: incident.map_or(thermr.mf7_awr, |inc| inc.awr),
             iz,
             kt_mev,
             date: "  njoy-rust".to_string(),

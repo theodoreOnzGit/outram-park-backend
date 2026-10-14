@@ -591,7 +591,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
 /// in the library, and 293.6 K (the temperature this crate's own H-in-H₂O tests
 /// request, and a temperature the deck *does* declare) was hitting the wrong
 /// block. Nothing errored; the numbers were just wrong.
-fn temperature_block_index(deck: &LeaprDeck, temperature_k: f64) -> Result<usize, NjoyError> {
+pub(crate) fn temperature_block_index(deck: &LeaprDeck, temperature_k: f64) -> Result<usize, NjoyError> {
     let declared = deck.temperatures_k();
     let tol = crate::thermr::mf7::temperature_match_tolerance_k(temperature_k);
 

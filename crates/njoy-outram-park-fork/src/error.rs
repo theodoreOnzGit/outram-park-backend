@@ -18,6 +18,13 @@ pub enum NjoyError {
     #[error("ENDF section not found: MAT={mat} MF={mf} MT={mt}")]
     SectionNotFound { mat: i32, mf: i32, mt: i32 },
 
+    /// An argument a caller passed is outside what the routine accepts: a
+    /// negative or non-finite temperature, a tape holding no material, a
+    /// setting of zero where a count is needed. Added 2026-10-14 with
+    /// [`crate::process`] (GitHub #871); the message names the argument.
+    #[error("invalid input: {0}")]
+    InvalidInput(String),
+
     /// A numerical routine failed to converge within its iteration budget.
     #[error("numerical routine '{routine}' did not converge")]
     NotConvergent { routine: &'static str },

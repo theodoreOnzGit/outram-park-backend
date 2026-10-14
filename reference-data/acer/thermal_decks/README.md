@@ -31,7 +31,21 @@ and the NJOY2016 decks that made them.
 | `graphite_600p5k_thermal_tol0p001_njoy2016.ace.gz` | `graphite_600p5k_tol0p001.njoy` | `6cf5a577f04d33ce5493b46d1037d913b1c3146fa29813f670b6582056877d99` |
 | `hh2o_293p6k_thermal_tol0p001_njoy2016.ace.gz` | `hh2o_293p6k_tol0p001.njoy` | `f968d3f38ed36d44778b3df564e60b0cb19f86ab8526ebae0d5c671d5ab7e403` |
 | `hh2o_293p9k_thermal_tol0p001_njoy2016.ace.gz` | `hh2o_293p9k_tol0p001.njoy` | `78b85f4f732cb26ec67b837b96e7a1cae74c17f296be5d6b52f6d36e8d6cb732` |
+| `hh2o_leapr_293p6k_thermal_tol0p001_njoy2016.ace.gz` | `hh2o_leapr_293p6k_tol0p001.njoy` | `8199044bccaf9d96e7b82e891cb2f3f0161c733f3b43dee8de55e91650480d06` |
 
+
+**The LEAPR deck (GitHub #871, `tests/process_api.rs`).**
+`hh2o_leapr_293p6k_tol0p001.njoy` does not read a thermal tape: it runs
+`leapr` first, on the ENDF/B-VIII.0 H-in-H₂O deck cut to 293.6 K (the cards
+of `reference-data/leapr/tsl-HinH2O-293.6K-njoy2016-leapr.njoy-input`, whose
+LEAPR tape this run reproduces byte for byte), writing tape 24; then
+`reconr` (0.001) and `broadr` (0.001, 293.6 K) of
+`n-001_H_001-ENDF8.0-Beta6.endf` (tape 20); `thermr` on tape 24 with
+`natom = 2` and `emax = 10.00008` eV (the LEAPR law's `B(6)` and `B(4)`,
+as OpenMC's `make_ace_thermal` takes them), tol 0.001, 16 cosines; `acer`
+with 16 outgoing energies, `iwt = 1`. Run 2026-10-14 (16 s) with the same
+NJOY2016 build. It is the oracle for `process::thermal_ace`, which takes a
+LEAPR deck and never a thermal tape (GitHub #870).
 
 The H in ZrH deck (GitHub #866) reads `tsl-HinZrH-ENDF8.0.endf` (MAT 7,
 `LTHR = 2`) with `n-001_H_001-ENDF8.0-Beta6.endf` as tape 20; THERMR card 2

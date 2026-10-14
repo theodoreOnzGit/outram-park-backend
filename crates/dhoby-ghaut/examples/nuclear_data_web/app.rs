@@ -583,9 +583,9 @@ impl NdApp {
                 self.made_row(ui);
             }
             Rung::ThermalAceMake => {
-                ui.label("Your ENDF thermal scattering (MF=7) tape, or a LEAPR deck (run through the port's LEAPR first), to a thermal S(α,β) ACE table at the evaluation's base temperature.");
+                ui.label("A LEAPR deck (run through the port's LEAPR at the deck's first temperature, then THERMR and ACER), or an ENDF thermal scattering (MF=7) tape at the evaluation's base temperature, to a thermal S(α,β) ACE table.");
                 self.slot_row(ui, SLOT_THERMAL as usize);
-                ui.label("Optional: the scatterer's own incident-neutron ENDF tape (H-1 for H in H2O, C-12 for graphite). NJOY's deck runs it through RECONR and BROADR first, and the inelastic cross section is read off that grid. With it the table is NJOY2016's word for word; without it, that block and the header's MAT differ.");
+                ui.label("The scatterer's own incident-neutron ENDF tape (H-1 for H in H2O, C-12 for graphite): required with a LEAPR deck, optional with a thermal tape. NJOY's deck runs it through RECONR and BROADR first, and the inelastic cross section is read off that grid. With it the table is NJOY2016's word for word; without it, that block and the header's MAT differ.");
                 self.slot_row(ui, SLOT_INCIDENT as usize);
                 ui.horizontal(|ui| {
                     ui.label("table name (ZAID, ACER's tname)");

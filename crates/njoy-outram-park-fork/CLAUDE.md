@@ -706,6 +706,42 @@ things to know: `calcem`'s window is `T/500`, not `rdelas`'s `T/1000 + 5` K
 `calcem(temp, ...)` as "everything at the request" moved ITIX by 3e-4 and the
 gate caught it.
 
+## The high-level way in: `process` (2026-10-14, GitHub #871)
+
+Four functions in `src/process/` take an ENDF tape and a `uom` temperature to
+processed data, and run on `wasm32` (no files, threads or clocks):
+
+| function | result | NJOY chain |
+|---|---|---|
+| `process::cross_sections(&tape, T, &CrossSectionSettings)` | `NuclearCrossSections` (PENDF, PURR tables, HEATR KERMA) | RECONR → BROADR → PURR → HEATR |
+| `process::ace(..)` | `AceTable` (`.to_type1_text()`, `.to_type2_bytes()`) | the above → ACER |
+| `process::thermal_scattering(&tape, deck_text, T, &ThermalSettings)` | `ThermalScatteringLaw` (LEAPR tape, MF=7, `thermr::on_pendf::ThermrTables`) | LEAPR at `T`; RECONR → BROADR; THERMR |
+| `process::thermal_ace(..)` | thermal `AceTable` | the above → ACER |
+
+They reuse, not duplicate: `build_deck` is now `deck_modules` (PURR, HEATR) +
+`assemble` (ACER), and `thermal_from_mf7_on_pendf` is
+`thermr::on_pendf::thermr_tables` + `AceTable::thermal_from_thermr`. The
+gates on those (`acer_thermal_word_parity*.rs`, `ace_compare.rs`) are
+unchanged and pass. Settings default to NJOY's, physics on (PURR 20/64/10 000,
+HEATR, THERMR 0.001 with 16 cosines, `natom`/`emax` from the law's
+`B(6)`/`B(4)`).
+
+- **The thermal law always comes from a LEAPR deck** (#870). LEAPR runs *at*
+  the request on the deck's block for it (`leapr::run_deck_at_temperature`,
+  the `generate` module's block rule), so THERMR never interpolates.
+- **LEAPR's constants default to the deck's vintage** (its `EVAL` date, which
+  reproduces the published tape). NJOY2016 run on the same deck uses CODATA
+  2018; set `ThermalSettings::with_leapr_constants(Codata2018)` to match it.
+- **Measured** (`tests/process_api.rs`): `process::ace` on U-234 at 293.6 K is
+  NJOY2016's table in every word; `process::thermal_ace` on the ENDF/B-VIII.0
+  H-in-H₂O deck cut to 293.6 K with H-1 is NJOY2016's
+  `leapr → reconr → broadr → thermr → acer` table in every word (deck and
+  table in `reference-data/acer/thermal_decks/`).
+- **Fixed on the way:** `run_deck` wrote a cold H₂/D₂ deck as a symmetric law
+  (`isym = isabt`, `coldh`'s positive half dropped); it now builds `isym` as
+  `generate_tape` does and matches NJOY's test-22 tape
+  (`tests/leapr_run_at_temperature.rs`).
+
 ## mcnpx format, and why a read-then-write round trip is worth asserting (2026-09-22)
 
 The mcnpx variant (negative `iopt`, a 13-character ZAID) was "implemented and
