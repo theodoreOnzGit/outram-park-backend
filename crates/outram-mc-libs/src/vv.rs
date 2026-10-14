@@ -516,7 +516,8 @@ pub mod jemima {
 /// As `examples/hst009_keff.rs` transcribed it and as the five-route study
 /// runs it, with that example's three stated approximations: **U-236
 /// omitted** (8.8837e-6 /b·cm, 0.5 % of the uranium; no tape here), **O-17
-/// folded into O-16**, and **Cu and Zn omitted from the tank**. Collected
+/// folded into O-16**, and **Cu and Zn omitted from the tank**. U-236 is
+/// deferred by the maintainer (2026-10-14) and tracked on gh:#875. Collected
 /// here on 2026-10-13 (GitHub #859) for the same reason as [`jemima`];
 /// `examples/hst009_keff.rs` still carries its own copy.
 ///

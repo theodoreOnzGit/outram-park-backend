@@ -58,7 +58,9 @@
 //! Three approximations, each stated because each is a real departure:
 //!
 //! - **U-236 omitted** (8.8837e-6, 0.5 % of the uranium). A weak 1/v absorber at
-//!   0.5 % of a strongly absorbing mix; worth tens of pcm.
+//!   0.5 % of a strongly absorbing mix; worth tens of pcm. Not measured.
+//!   Deferred by the maintainer (2026-10-14): adding it needs the ENDF tape and
+//!   its NJOY2016 ACE, and is tracked on gh:#875.
 //! - **O-17 folded into O-16** (0.038 % of the oxygen). Worth single pcm.
 //! - **Cu and Zn omitted from the 1100-aluminium tank** (7.6e-5 /b·cm in a
 //!   **1.6 mm** shell). `Σ_a ≈ 2.2e-4 cm⁻¹` over 0.16 cm is an absorption

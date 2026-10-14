@@ -8,7 +8,8 @@
 //! [`outram_mc_libs::vv::hst009`], the model the recorded result (route 4 of
 //! the five-route study) and the acceptance check were measured on, with
 //! that model's three stated approximations (U-236 and the tank's Cu and Zn
-//! omitted, O-17 folded into O-16). The rung's machinery is
+//! omitted, O-17 folded into O-16). U-236 is deferred by the maintainer
+//! (2026-10-14) and tracked on gh:#875. The rung's machinery is
 //! [`crate::csgrung`].
 
 #[cfg(not(target_arch = "wasm32"))]
