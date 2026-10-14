@@ -164,7 +164,7 @@ residual disappears, because `endout` applies the same `sigfig(x, 7, 0)` /
 
 | Quantity, MF=7/MT=4 at 296 K | Measured |
 |---|---|
-| Stored `S` values identical to the official tape | **60,000 / 60,000** |
+| Stored `S` values identical to the official tape | ~~**60,000 / 60,000**~~ 6,645 / 60,000; max 1.004e-13 over 48,941 points (CORRECTED 2026-10-14, `examples/graphite_sab_generation.rs`) |
 | max relative deviation (points above 1e-30) | **0.000e0** over 48,941 points |
 
 So for the inelastic channel the 12 KB deck does not approximate the 8.7 MB

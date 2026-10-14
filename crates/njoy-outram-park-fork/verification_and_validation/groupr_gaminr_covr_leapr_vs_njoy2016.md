@@ -156,7 +156,7 @@ Against the *published* ENDF/B-VIII.0 graphite tape (a different LEAPR
 build, `tests/leapr_graphite_deck_parity.rs`): 48,941 points at 296 K, max
 4.917e-6 / RMS 6.4e-7 with the pre-2017 `k_B`, every point inside the
 tape's own 6-/7-figure printing band; end to end through `endout` the
-stored `S` values are identical at 60,000 / 60,000 points. The coherent
+stored `S` values are ~~identical at 60,000 / 60,000 points~~ 1.004e-13 max over 48,941 points, 6,645 / 60,000 bit-identical (CORRECTED 2026-10-14, `examples/graphite_sab_generation.rs`). The coherent
 elastic channel is treated in `docs/leapr-sic-coherent-elastic-vv.md`.
 
 ### 4.4 LEAPR — the whole-deck driver (`tests/leapr_run_driver_njoy_oracle.rs`, 2026-09-10)

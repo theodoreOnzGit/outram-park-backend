@@ -29,11 +29,11 @@
 //! Measured on 2026-08-13 against ENDF/B-VIII.0 crystalline graphite, in
 //! release mode:
 //!
-//! - **The generated MF=7/MT=4 section is bit-identical to the official
-//!   tape's.** Running the full path here — deck -> kernels -> [`endout`] ->
+//! - ~~**The generated MF=7/MT=4 section is bit-identical to the official
+//!   tape's.**~~ Running the full path here — deck -> kernels -> [`endout`] ->
 //!   ENDF text — and comparing the *stored* values at 296 K over the whole
-//!   150 x 400 grid gives **60,000 / 60,000 values identical**, max relative
-//!   deviation **0.000e0**. The 4.917e-6 residual the raw-kernel parity test
+//!   150 x 400 grid gives ~~**60,000 / 60,000 values identical**, max relative
+//!   deviation **0.000e0**~~ **CORRECTED 2026-10-14**: 6,645 of 60,000 stored values are bit-identical; the regenerated `S` agrees with the official tape to 1.004e-13 max (re-measured 1.002e-13 on 2026-10-04) over 48,941 points above 1e-30 (`examples/graphite_sab_generation.rs`, corrected there 2026-09-11). The 4.917e-6 residual the raw-kernel parity test
 //!   reports (`tests/leapr_graphite_deck_parity.rs`) is the tape's own
 //!   6-to-7-significant-figure storage round-off, and it vanishes once
 //!   `endout` applies the same `sigfig` rounding NJOY applies. So the
@@ -61,8 +61,8 @@
 //!
 //! | Material / channel | Status (2026-08-13) |
 //! |---|---|
-//! | `CrystallineGraphite` MF=7/**MT=4** incoherent inelastic | **Validated** — 60,000 / 60,000 stored values bit-identical to ENDF/B-VIII.0 at 296 K. |
-//! | `CrystallineGraphite` MF=7/**MT=2** coherent elastic | **Validated** — 221 / 221 Bragg grid points, max relative deviation **0.000e0** on both edge energies and `S(E)` at 296 K through this path. Across all ten temperatures, `tests/leapr_graphite_coherent_elastic_parity.rs` measures max **1.001e-13** on the raw kernel output (float round-trip noise on a 7-digit field). |
+//! | `CrystallineGraphite` MF=7/**MT=4** incoherent inelastic | **Validated** — ~~60,000 / 60,000 stored values bit-identical~~ 1.004e-13 max against ENDF/B-VIII.0 at 296 K, 6,645 / 60,000 bit-identical (CORRECTED 2026-10-14). |
+//! | `CrystallineGraphite` MF=7/**MT=2** coherent elastic | **Validated** — 221 / 221 Bragg grid points, max relative deviation ~~**0.000e0**~~ 1.001e-13 (edge energies) and 1.000e-13 (`S(E)`) at 296 K through this path (CORRECTED 2026-10-14, `examples/graphite_sab_generation.rs`, 2026-10-04). Across all ten temperatures, `tests/leapr_graphite_coherent_elastic_parity.rs` measures max **1.001e-13** on the raw kernel output (float round-trip noise on a 7-digit field). |
 //! | `ReactorGraphite10P`, `ReactorGraphite30P` (either channel) | **Not validated.** They parse and generate through the identical path, but no parity measurement has been taken. |
 //! | `HInH2O` MF=7/**MT=4** incoherent inelastic | **Not validated against the published tape** — regeneration at 293.6 K agrees with it to **~0.6 %** on σ_inel over 0.0253–8 eV and **+0.09 %** on `T_eff`, so [`SabRequest::validation`] still reports it unvalidated (`tests/leapr_h2o_secondary_scatterer.rs`). **Validated like-for-like against NJOY2016 itself** (2026-09-10): the same deck run through upstream `ac5adf5` at 293.6 K gives 44,961 `S(alpha,beta)` points identical to 1e-13 and `T_eff` 1194.341 K exactly (`tests/leapr_h2o_njoy_oracle.rs`, with `LeaprDeck::with_constants(Codata2018)`); the 0.6 % is the published tape's own build/constants. |
 //! | `DInD2O` MF=7/**MT=4** (Sköld, `nsk = 2`) | **Validated like-for-like against NJOY2016** (2026-09-10): 60,322 points at 293.6 K identical to 1e-13, `T_eff` exact (`tests/leapr_d2o_skold_njoy_oracle.rs`). Not compared with the published tape. |
