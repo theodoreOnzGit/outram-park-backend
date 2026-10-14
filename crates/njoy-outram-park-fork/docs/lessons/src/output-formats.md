@@ -54,6 +54,8 @@ structure follows `wimsr.f90` one subroutine per file:
 
 > **On the [Code Review map](../../code-review/):** start at [`run_gendf`](../../code-review/#crates/njoy-outram-park-fork/src/wimsr/mod.rs::run_gendf) and follow its callees (▸) to [`wimout`](../../code-review/#crates/njoy-outram-park-fork/src/wimsr/wimout.rs::wimout). Each card opens the function's source and shows its review stamp.
 
+> **The physics functions:** these modules reorganise data for other codes and compute no physics of their own. See [Where the physics is](./physics-functions.md#output-formats) (a proposal for maintainer review, 2026-10-14; the entry-point link above stays until it is accepted).
+
 **Reading the path.** The table below is the path the Code Review map link above follows, with what each hop does:
 
 | hop | function | upstream | resolved (kopitiam pass, 2026-10-04) |

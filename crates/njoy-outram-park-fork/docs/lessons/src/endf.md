@@ -106,6 +106,8 @@ consequence on U-234, where `LSSF = 0`: rung 4 tells that half.
 
 > **On the [Code Review map](../../code-review/):** start at [`Tape::read_file`](../../code-review/#crates/njoy-outram-park-fork/src/endf/tape.rs::Tape::read_file) and follow its callees (▸) to [`parse_endf_float`](../../code-review/#crates/njoy-outram-park-fork/src/endf/parse.rs::parse_endf_float). Each card opens the function's source and shows its review stamp.
 
+> **The physics functions:** this rung is about the format and has none proper; the nearest is the interpolation law, `terp1`. See [Where the physics is](./physics-functions.md#endf) (a proposal for maintainer review, 2026-10-14; the entry-point link above stays until it is accepted).
+
 **Reading the path.** The table below is the path the Code Review map link above follows, with what each hop does:
 
 | hop | function | where | resolved (kopitiam pass, 2026-10-04) |

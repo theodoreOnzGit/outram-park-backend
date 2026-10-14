@@ -37,6 +37,8 @@ library is needed and the crate still builds for Android and wasm.
 
 > **On the [Code Review map](../../code-review/):** start at [`write_nuclide`](../../code-review/#crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs::write_nuclide). Each card opens the function's source and shows its review stamp.
 
+> **The physics functions:** this page is format conversion and has none. See [Where the physics is](./physics-functions.md#openmc-interchange) (a proposal for maintainer review, 2026-10-14; the entry-point link above stays until it is accepted).
+
 **Reading the path.** The table below is the path the Code Review map link above follows, with what each hop does:
 
 | hop | function | what it does | resolved (kopitiam pass, 2026-10-04) |
