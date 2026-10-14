@@ -42,6 +42,7 @@
 //! `crates/njoy-outram-park-fork/verification_and_validation/ace_five_route_parity_2026_10_14.md`.
 
 use njoy_outram_park_fork::acer::compare::compare;
+use njoy_outram_park_fork::acer::photon_read::{decode_photon_production, AcePhotonEntry};
 use njoy_outram_park_fork::acer::read::{self, AceFileType};
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::process::{self, CrossSectionSettings};
@@ -76,6 +77,15 @@ fn identical_to_njoy2016(name: &str, tape_file: &str) {
         println!("  {name}: {l}");
     }
     assert!(c.identical(), "{name}: {:#?}", c.report_lines());
+    // The photon production this crate now writes must also read back with
+    // its own reader, the one the transport route uses, and decode as
+    // NJOY2016's does: the same entries, the same anisotropic ones.
+    let mine = decode_photon_production(&ours).expect("our photon blocks decode");
+    let theirs = decode_photon_production(&njoy).expect("NJOY2016's photon blocks decode");
+    assert_eq!(mine.len(), theirs.len(), "{name}: photon entries");
+    let aniso = |v: &[AcePhotonEntry]| v.iter().filter(|e| e.angular.is_some()).count();
+    assert_eq!(aniso(&mine), aniso(&theirs), "{name}: anisotropic photons");
+    println!("  {name}: {} photon entries decode, {} anisotropic", mine.len(), aniso(&mine));
 }
 
 #[test]

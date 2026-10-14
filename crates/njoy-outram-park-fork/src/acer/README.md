@@ -70,9 +70,19 @@ See `docs/porting-plan.md` §4 for the full V&V trail.
 
 ## Caveats
 
-- Not yet a *complete* CE transport library: ~~fission has no NU block (4b) and~~ **CORRECTED 2026-09-20 — the NU block is written; what remains is**
-  MF=6 continuum producers are still emitted isotropic.
-- Photoatomic/photonuclear/dosimetry classes are unported.
+- ~~Not yet a *complete* CE transport library: ~~fission has no NU block (4b) and~~ **CORRECTED 2026-09-20 — the NU block is written; what remains is**
+  MF=6 continuum producers are still emitted isotropic.~~ **CORRECTED
+  2026-10-14** (checked against the code): `acelf6` is ported
+  (`acelf6.rs`, laws 44/61/66 with their correlated angles, since
+  2026-09-26), and the five-route library's 12 nuclides are NJOY2016's
+  tables in every word at 293.6 K and 0 K, photon and charged-particle
+  blocks included (`tests/ace_five_route_parity.rs`, GitHub #872).
+- ~~Photoatomic/photonuclear/dosimetry classes are unported.~~ **CORRECTED
+  2026-10-14:** all three are ported (`photoatomic/`, `photonuclear/`,
+  `dosimetry.rs`) and byte-identical to NJOY2016 on their gates
+  (`tests/acer_photoatomic_vs_njoy2016.rs`,
+  `tests/acer_dosimetry_vs_njoy2016.rs`; photo-nuclear in the crate
+  `CLAUDE.md`).
 - The `run()` driver returns `NotPorted`; use `crate::acer` / `write_ace`.
 
 ## References

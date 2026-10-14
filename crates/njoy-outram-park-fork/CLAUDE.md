@@ -742,6 +742,46 @@ HEATR, THERMR 0.001 with 16 cosines, `natom`/`emax` from the law's
   `generate_tape` does and matches NJOY's test-22 tape
   (`tests/leapr_run_at_temperature.rs`).
 
+## The five-route library is NJOY2016's in every word (2026-10-14, GitHub #872)
+
+All 12 nuclides of the five-route ICSBEP campaign (U-234/235/238, F-19,
+O-16, H-1, Al-27, Si-28/29/30, Mn-55, B-10), at 293.6 K
+(`RECONR -> BROADR -> PURR -> ACER`) and 0 K (`RECONR -> ACER`), are
+NJOY2016's tables in every word: 24 of 24, no tolerance, no HEATR on either
+side. Gate: `tests/ace_five_route_parity.rs` (H-1, F-19, Al-27, B-10, O-16
+at 293.6 K, 1.7 s). Record:
+[`verification_and_validation/ace_five_route_parity_2026_10_14.md`](verification_and_validation/ace_five_route_parity_2026_10_14.md).
+
+Before it, the light nuclides lost whole blocks to refusals that wrote a
+legal but emptier table: H-1 had no photon production (its capture photon
+is an MF=6 LAW=2 product) and O-16 lost all 131 photons (anisotropic MF=14).
+`acelcp` wrote no charged-particle production for seven nuclides. The fixes,
+each ported from the routine that owns it:
+
+- `convr` moves **every** MF=6 photon to MF=16, LAW=2 as a discrete line;
+  its NK > 1 totals are rebuilt from their partials and its discontinuities
+  go into the grid through `unionx` (`egl`/`egh`).
+- `ptleg`/`pttab` (`acer::photon_angular`) give 32 equiprobable cosine bins;
+  with any LO=2 cascade, `convr` makes every level's MF=14 isotropic.
+- `acelcp` gained the capture recoil, MF=4 LTT=1/2 and MF=6 LAW=0/2/3/4.
+- Discrete levels given only in MF=6 (LAW=2 neutrons) carry their angles.
+
+Three things worth carrying forward:
+
+- **ACER reads its own scratch tapes back as text** in more places than
+  THERMR: `convr`'s converted MF=14 and LAW=2 photon lines and `gamsum`'s
+  MF=13 records all carry `a11`'s rounding, which keeps only **6** figures
+  for a negative number or a two-digit exponent. Each showed up as a handful
+  of words in the 7th figure.
+- **Upstream reads a variable it never set.** `acelcp`'s capture-recoil
+  branch uses `awp` without assigning it; for H-1 it holds 0. The port
+  carries it as `stale_awp` rather than guessing a "correct" value.
+- **A refusal that drops a whole block is a defect that looks like a
+  feature.** Every one of these returned a legal table (NXS(6) = 0 or
+  NXS(7) = 0), so nothing failed until a word comparison against NJOY2016
+  did. When a builder refuses, compare against upstream before trusting the
+  refusal's scope.
+
 ## mcnpx format, and why a read-then-write round trip is worth asserting (2026-09-22)
 
 The mcnpx variant (negative `iopt`, a 13-character ZAID) was "implemented and
