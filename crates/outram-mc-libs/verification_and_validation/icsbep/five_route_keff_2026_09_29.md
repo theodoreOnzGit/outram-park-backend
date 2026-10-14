@@ -21,7 +21,10 @@ licensing or safety use.
   keep NJOY2016's table, the reference.
 - **Every LCT-008 number in this record is the 11-nuclide model.** The
   full-model campaign (all five routes) has not been run: routes 1 and 2 need
-  OpenMC. Tracked in #874. The figure draws only the full-model panel; the
+  OpenMC. **First full-model numbers, routes 4 and 5, 8 seeds each
+  (2026-10-14, `five_route_keff/data/lct008_full_routes45_2026_10_14.md`):**
+  route 4 1.00118 ± 0.00019, route 5 1.00175 ± 0.00031; route 5 − route 4
+  +58 ± 36 pcm (1.6σ, not resolved). Tracked in #874. The figure draws only the full-model panel; the
   11-nuclide rows stay in `summary_keff.csv` as the smoke test's reference.
 
 **Status (2026-09-30).** All five routes are complete for all four cases.
