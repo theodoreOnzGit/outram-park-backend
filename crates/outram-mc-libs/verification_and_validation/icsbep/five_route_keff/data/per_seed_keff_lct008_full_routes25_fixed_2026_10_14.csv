@@ -1,3 +1,4 @@
 case,route,code,seed,k,k_std_internal,particles,inactive,active,threads,wall_s,load_s,n_nuclides,n_urr,n_dbrc,sab,commit,k_alt
 lct008-full,route5,outram-mc,1,1.002115,0.000605,10000,250,400,4,402.2,10.7,35,10,35,true,98cb2c8501,
 lct008-full,route5,outram-mc,2,1.001356,0.000630,10000,250,400,4,436.1,10.7,35,10,35,true,98cb2c8501,
+lct008-full,route5,outram-mc,3,1.002390,0.000600,10000,250,400,4,421.6,10.7,35,10,35,true,98cb2c8501,
