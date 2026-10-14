@@ -22,8 +22,9 @@ shape:
 2. the shortest answer;
 3. the formula;
 4. a small animation of exactly that idea (or the demo, at the right setting);
-5. the **code walk**: how the program gets from its entry point down to the
-   lines that do it, each hop linked to its exact lines;
+5. **where it is in the code**: how the program gets from its entry point down
+   to the lines that do it, as a link into the [Code Review map](../../code-review/)
+   (until 2026-10-14, a generated code walk);
 6. the measured check, where there is one;
 7. a **predict** prompt that sets up the next question.
 

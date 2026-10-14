@@ -25,7 +25,7 @@ adopted, and keep the rule itself in its owning file.
 
 | Practice | What it saves the reviewer | Authority |
 |---|---|---|
-| **Code walks show the code inline**, entry point to concept, generated and checked by a tool | Clicking through to GitHub, and trusting a hand-written chain | [`docs/lessons/lesson-philosophy.md`](../lessons/lesson-philosophy.md), section 4; `kovan-cli code-walk` |
+| ~~**Code walks show the code inline**~~ **Lessons link into the Code Review map** (since 2026-10-14, maintainer direction): entry point to concept on the generated call graph, with each function's source and review stamp | Clicking through to GitHub, trusting a hand-written chain, and keeping walks in sync | [`docs/lessons/lesson-philosophy.md`](../lessons/lesson-philosophy.md), section 4; `kovan-web` (`code-review/`) |
 | **Lesson pages carry a review stamp and a "doesn't tally" button** | Knowing what has been reviewed, and reporting a mismatch in one step | `lesson-philosophy.md`, section 7 and the checklist |
 | **Demos work on a phone and never lag** | Reviewing anywhere, without waiting on the UI | [`mobile-first-tutorials-and-demos.md`](mobile-first-tutorials-and-demos.md) |
 | **The Haiku API test** before calling an API usable | A cheap model fails where a human would stumble, before the human does | [`api-design-and-maturity.md`](api-design-and-maturity.md) |

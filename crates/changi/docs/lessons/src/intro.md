@@ -37,7 +37,8 @@ pyDOSEIA), `changi` (the Gaussian puff, decay in transit and deposition) and
 - **Core lessons: the rung ladder.** Seven rungs, each adding **one** piece
   of physics, each built as a chain of questions: the question, the shortest
   answer, the formula, an animation (from the demo, once it exists), the
-  **code walk** from an entry point down to the lines that do it, the check
+  place in the code (a link into the [Code Review map](../../code-review/)
+  from an entry point down to the lines that do it), the check
   that could have failed, and a prediction that sets up the next question.
   Read them in order.
 - **Extended deep dives.** How the code is built and why: where each piece
@@ -51,7 +52,7 @@ a background worker from `buangkok` and `changi`, except the capstone, whose
 recorded results it shows with their provenance.
 
 The [coverage table](./coverage.md) maps every public module of the three
-crates to the page that teaches it, its code walk and its V&V record; a module
+crates to the page that teaches it, its place on the Code Review map and its V&V record; a module
 with no lesson is a visible row, not a silent omission.
 
 ## Maturity, stated once
@@ -74,15 +75,8 @@ measured tracer release or a measured dose.**
 - **Code is linked, not copied.** Each "lines a–b" link is a permalink to the
   exact commit this site was built from. Snippets are pulled from the real
   source files at build time.
-- **Code walks are generated** by `kovan-cli code-walk` (gh:#523) from
-  rust-analyzer's call graph, inside `<!-- code-walk -->` blocks that
-  `kovan-cli code-walk-check` regenerates and checks. A hop the tool could not
-  resolve is marked, and a hop filled in by reading the source is labelled
-  **filled by hand**. In this book every concept chain connected without a
-  hand-filled hop. The `UNRESOLVED` lines under a walk are calls the tool
-  declines to guess: calls to a local closure variable (`closure`; the
-  closure's own body is followed as part of its enclosing function) and
-  derived `Default::default` (`other`). None is needed to connect a chain.
+- ~~**Code walks are generated** by `kovan-cli code-walk` (gh:#523) from
+  rust-analyzer's call graph.~~ **CHANGED 2026-10-14** (maintainer direction): the generated code walks were removed; each page links into the [Code Review map](../../code-review/) instead, where every card opens its function's source and shows its review stamp, and ▸ / ◂ unfold its callees and callers. The map is generated from rust-analyzer's call graph on every site build.
 - **API names** link to the rustdoc pages published beside this book.
 - **Numbers are quoted from a record** (file, date, commit) or from a run
   made for this book (settings and timing stated). A V&V number with no
