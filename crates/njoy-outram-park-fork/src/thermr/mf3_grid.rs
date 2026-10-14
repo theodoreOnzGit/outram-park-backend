@@ -119,6 +119,22 @@ pub fn inelastic_mf3(
     coherent: Option<&[(f64, f64)]>,
     tol: f64,
 ) -> Result<Vec<(f64, f64)>, NjoyError> {
+    tpend_mf3(&thermr_grid(elastic, emax, esi, xsi, coherent, tol)?)
+}
+
+/// Steps 1-3 of [`inelastic_mf3`]: THERMR's grid and its inelastic column
+/// before `tpend` rounds them, the grid `iel` then adds its own column to.
+///
+/// # Errors
+/// As [`pendf_text`].
+pub fn thermr_grid(
+    elastic: &[(f64, f64)],
+    emax: f64,
+    esi: &[f64],
+    xsi: &[f64],
+    coherent: Option<&[(f64, f64)]>,
+    tol: f64,
+) -> Result<Vec<(f64, f64)>, NjoyError> {
     // 1. The elastic grid (`thermr.f90:380-398`), as `gety1` walks it.
     let mut grid: Vec<f64> = Vec::new();
     let mut idx = 0usize;
@@ -155,13 +171,43 @@ pub fn inelastic_mf3(
     if let Some(s_of_e) = coherent {
         old = coh(&old, s_of_e, emax, tol);
     }
-    // 4. `tpend`.
-    old.iter()
+    Ok(old)
+}
+
+/// Step 4, `tpend` (`thermr.f90:3217-3221`): one MF=3 column as written,
+/// `sigfig(E,7)` and `sigfig(σ,7)` (6 below 1e-9), through the ENDF text.
+///
+/// # Errors
+/// As [`pendf_text`].
+pub fn tpend_mf3(column: &[(f64, f64)]) -> Result<Vec<(f64, f64)>, NjoyError> {
+    column
+        .iter()
         .map(|&(e, z)| {
             let z = if z >= 1.0e-9 { sigfig(z, 7, 0) } else { sigfig(z, 6, 0) };
             Ok((pendf_text(sigfig(e, 7, 0))?, pendf_text(z)?))
         })
         .collect()
+}
+
+/// THERMR's MF=3 for the incoherent-elastic MT (`mtref+1`, or `mtref+2`
+/// beside coherent elastic) as ACER reads it back: `iel` puts
+/// `terp(esi, xie, nne, E, 3)` at every point of THERMR's grid (`grid`, from
+/// [`thermr_grid`], after `coh` when there is one), the last point zero
+/// (`thermr.f90:1407-1418`), and `tpend` rounds it ([`tpend_mf3`]).
+///
+/// `esi`, `xie`: `calcem`'s incident energies (every record, including the
+/// first above `emax`) and `iel`'s cross section at each.
+///
+/// # Errors
+/// As [`pendf_text`].
+pub fn incoherent_elastic_mf3(grid: &[(f64, f64)], esi: &[f64], xie: &[f64]) -> Result<Vec<(f64, f64)>, NjoyError> {
+    let ne = grid.len();
+    let column: Vec<(f64, f64)> = grid
+        .iter()
+        .enumerate()
+        .map(|(i, &(e, _))| (e, if i + 1 == ne { 0.0 } else { thermr_terp(esi, xie, e, 3) }))
+        .collect();
+    tpend_mf3(&column)
 }
 
 /// `coh` (`thermr.f90:748-922`) on a grid of `(E, σ_inel)`: returns the merged
