@@ -641,6 +641,22 @@ rung 3. A rung 4 review written before these questions keeps rung 4 and is
 listed in the need-you queue as "rung 4 axes not recorded" until it is
 stamped again.
 
+**A skipped number guard can be waived, at a cost (2026-10-14):** "Are the
+allowable input ranges guarded?" has one more answer, "No guard, accepted
+for research use (not for a safety decision), because: ____". It needs a
+typed reason every time. The stamp is allowed, but it is capped at rung 3
+whatever the V&V answers say, and the function is listed in the need-you
+queue as "a check was waived: capped at rung 3" until a guard is added and
+it is stamped again. "A guard is missing" still refuses the stamp. Basis,
+read in the standard corpus: NUREG/BR-0167 grades software by use (§1.2;
+Level 1 is software "used in a safety decision by the NRC") and lists
+"proper handling of boundary conditions, including extreme inputs" among
+the objectives of requirements-driven testing (§3.2.4.1, p. 11), so code without
+a guard is reviewed and not V&V'd; DOE G 414.1-4 F.5.6 asks safety
+software to document "allowable or prescribed ranges for inputs and
+outputs". The older "Other: ____" and "No limits apply, explained: ____"
+answers are unchanged and carry no cap.
+
 **Code reviews on the mindmap (#844, 2026-10-13):** when the Kovan folder
 mounts a code repository (Repository management, `[[repos.code]]`), each
 entry a reviewer tied to a standard corpus concept is listed on that

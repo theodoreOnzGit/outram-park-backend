@@ -452,6 +452,11 @@ pub enum FunctionFlag {
     /// axes, physical accuracy and usability (GitHub #855): it still counts
     /// at rung 4; stamping it again records them.
     Rung4AxesNotRecorded { review: String },
+    /// A valid review waived a required check with a typed reason
+    /// ([`super::wizard::Effect::FlagCapRung3`], 2026-10-14): it counts,
+    /// capped at rung 3. `waived` are the answers as written, each
+    /// `"<question> = <option>: <reason>"`.
+    RungCappedByWaiver { review: String, waived: Vec<String> },
 }
 
 impl FunctionFlag {
@@ -462,6 +467,7 @@ impl FunctionFlag {
             Self::ImplausibleSignedAt { .. } => FlagKind::ImplausibleSigningTime,
             Self::IndependentVvNotCounted { .. } => FlagKind::IndependentVvNotCounted,
             Self::Rung4AxesNotRecorded { .. } => FlagKind::Rung4AxesNotRecorded,
+            Self::RungCappedByWaiver { .. } => FlagKind::RungCappedByWaiver,
         }
     }
 }
@@ -543,6 +549,10 @@ pub struct ReviewReport {
     /// the questions of rung 4's two axes (GitHub #855): a review written
     /// before those questions existed. It keeps its rung and is flagged.
     pub rung4_axes_unrecorded: bool,
+    /// The checks the review waived with a typed reason (`flag_cap_rung3`,
+    /// 2026-10-14), each `"<question> = <answer as written>"`: the review is
+    /// capped at rung 3 and flagged.
+    pub waived: Vec<String>,
 }
 
 /// One function, judged.
@@ -880,6 +890,11 @@ pub fn evaluate(
                 qualifications: qualification_labels(root, &b.by),
                 independent: stamp_gate(&b.checklist, Applicability::default()).independent,
                 rung4_axes_unrecorded: !stamp_gate(&b.checklist, Applicability::default()).rung4_unanswered.is_empty(),
+                waived: stamp_gate(&b.checklist, Applicability::default())
+                    .rung_capped
+                    .iter()
+                    .map(|c| format!("{} = {}", c.question, b.checklist.get(&c.question).map(String::as_str).unwrap_or(&c.option)))
+                    .collect(),
                 vv_case: Vec::new(),
                 separation_attestation: b.separation_attestation.clone(),
                 signed_at: b.signed_at.clone(),
@@ -1015,6 +1030,7 @@ pub fn evaluate(
                     separation_attestation: None,
                     signed_at: None,
                     rung4_axes_unrecorded: false,
+                    waived: Vec::new(),
                 }),
                 None => ev.orphan_unreadable.push(OrphanUnreadable {
                     dir: fr.dir.clone(),
@@ -1075,6 +1091,12 @@ pub fn evaluate(
             if r.rung4_axes_unrecorded && r.rung == Some(4) && r.state.kind().counts() {
                 fn_flags.push(FunctionFlag::Rung4AxesNotRecorded {
                     review: r.artifact.clone().unwrap_or_default(),
+                });
+            }
+            if !r.waived.is_empty() && r.state.kind().counts() {
+                fn_flags.push(FunctionFlag::RungCappedByWaiver {
+                    review: r.artifact.clone().unwrap_or_default(),
+                    waived: r.waived.clone(),
                 });
             }
         }

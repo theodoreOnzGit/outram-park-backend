@@ -238,6 +238,7 @@ fn order_report(by: &str, date: &str, signed_at: Option<&str>) -> ReviewReport {
         separation_attestation: None,
         signed_at: signed_at.map(str::to_string),
         rung4_axes_unrecorded: false,
+        waived: Vec::new(),
     }
 }
 
