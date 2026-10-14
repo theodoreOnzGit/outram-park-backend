@@ -35,7 +35,9 @@
 //!
 //! # Results (2026-10-14)
 //!
-//! All five identical in every compared word, in 13 s. Before this date the
+//! ~~All five identical in every compared word, in 13 s.~~ **UPDATED 2026-10-14:**
+//! six cases since H in ZrH was added (#866), all identical in every compared
+//! word and every byte but date and comment (40 s on 2 threads). Before this date the
 //! port differed from NJOY2016 in every block but ITIE.
 //!
 //! H in ZrH (added later 2026-10-14, GitHub #866; ACER card 9 `mte = 223`,

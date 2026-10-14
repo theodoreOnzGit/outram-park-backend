@@ -22,9 +22,9 @@ differed by up to 2.2 %; the Bragg block had 568 edges where NJOY has 309.
 | Al-27 | 20 | 0.001 | 1 | skewed (0), 16 x 16 | yes | identical |
 | H in H₂O, H-1 incident | 283.6 | 0.001 | 2 | equiprobable (1), 16 x 16 | yes | identical |
 | crystalline graphite, C-12 incident | 296 | 0.001 | 1 | equiprobable (1), 16 x 16 | yes | identical |
-| Al-27 | 20 | 0.001 | 1 | continuous (2), 16 bins | no (3.1 MB gz) | identical |
-| H in H₂O | 283.6 | 0.001 | 2 | skewed (0), 64 x 16 | no | identical |
-| H in H₂O | 283.6 | 0.001 | 2 | continuous (2), 64 x 16 | no (6.6 MB gz) | identical |
+| Al-27 | 20 | 0.001 | 1 | continuous (2), 16 bins | ~~no (3.1 MB gz)~~ submodule, gated | identical |
+| H in H₂O | 283.6 | 0.001 | 2 | skewed (0), 64 x 16 | ~~no~~ submodule, gated | identical |
+| H in H₂O | 283.6 | 0.001 | 2 | continuous (2), 64 x 16 | ~~no (6.6 MB gz)~~ submodule, gated | identical |
 
 "Identical" means `acer::compare` reports every header field (ZAID, AWR, kT,
 material, IZ/AW), NXS, JXS, every block and the whole XSS the same, with no
