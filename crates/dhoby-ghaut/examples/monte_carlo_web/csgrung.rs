@@ -58,7 +58,8 @@ use std::marker::PhantomData;
 pub struct ThermalLaw {
     /// Label shown while loading.
     pub label: &'static str,
-    /// Tape in `reference-data/endf/`.
+    /// Tape in `reference-data/endf/`, or a law LEAPR generates
+    /// ([`crate::tapes::LEAPR_H_IN_H2O`], nothing downloaded).
     pub tape: &'static str,
     /// The law's name, e.g. `c_H_in_H2O`.
     pub name: &'static str,
@@ -115,7 +116,8 @@ impl<C: CsgCase> RungBuilder for Builder<C> {
     }
     /// The next tape: RECONR + BROADR to the case's temperature at this
     /// builder's tier (URR tables and DBRC on, the library default), or
-    /// THERMR for the thermal law. The expensive half comes from `store`
+    /// THERMR for the thermal law (LEAPR when the law is generated, with
+    /// empty `bytes`). The expensive half comes from `store`
     /// when it holds it (gh:#818).
     fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         let i = self.nuclides.len();
@@ -126,6 +128,10 @@ impl<C: CsgCase> RungBuilder for Builder<C> {
             return Ok(());
         }
         match (C::thermal(), &self.law) {
+            (Some(law), None) if law.tape == crate::tapes::LEAPR_H_IN_H2O => {
+                self.law = Some(crate::tapes::leapr_h_in_h2o(store, C::TEMPERATURE_K, law.label)?);
+                Ok(())
+            }
             (Some(law), None) => {
                 let (tape, mat) = read_tape(bytes, law.label)?;
                 self.law = Some(store.thermal(bytes, &tape, mat, C::TEMPERATURE_K, law.name, law.label)?);

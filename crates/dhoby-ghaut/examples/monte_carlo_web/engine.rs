@@ -249,8 +249,14 @@ pub fn native_load(id: u32, rung: Rung, tier: Tier, store: &mut DataStore, post:
     for (index, (label, tape)) in rung.jobs_for(rung.tier(tier)).iter().enumerate() {
         post(Event::JobStarted { id, index });
         let t = std::time::Instant::now();
-        let bytes = crate::native_tape(tape).map_err(|e| format!("{label}: {e}"))?;
-        store.begin_tape(&bytes);
+        // A generated job (a LEAPR law) has no tape: empty bytes.
+        let bytes = if crate::tapes::is_generated(tape) {
+            Vec::new()
+        } else {
+            let b = crate::native_tape(tape).map_err(|e| format!("{label}: {e}"))?;
+            store.begin_tape(&b);
+            b
+        };
         b.step(&bytes, store).map_err(|e| format!("{label}: {e}"))?;
         let (source, notes) = step_report(store);
         for n in notes {
@@ -747,23 +753,41 @@ pub mod web {
         let jobs = rung.jobs_for(rung.tier(tier));
         // Every request is issued before the first (blocking) job, so the
         // downloads proceed while the first tape is being processed.
+        // A generated job (a LEAPR law) downloads nothing.
         let urls: Vec<String> = jobs.iter().map(|(_, t)| format!("data/{}", crate::tapes::wire_name(t))).collect();
-        let promises: Vec<js_sys::Promise> = urls.iter().map(|u| fetch_start(u)).collect();
+        let promises: Vec<Option<js_sys::Promise>> = jobs
+            .iter()
+            .zip(&urls)
+            .map(|((_, t), u)| (!crate::tapes::is_generated(t)).then(|| fetch_start(u)))
+            .collect();
         let mut b = rung.builder(tier);
         // The shared cache (gh:#818): each tape's products are read from
         // IndexedDB before its step and what was processed is saved after.
         // Its failures become notes; none stops the load.
         let mut store = DataStore::browser();
         let mut health = crate::processed_cache::web::Health::default();
-        for (index, (((label, _), p), url)) in jobs.iter().zip(promises).zip(&urls).enumerate() {
-            let z = fetch_promise(p, url).await?;
+        for (index, (((label, tape), p), url)) in jobs.iter().zip(promises).zip(&urls).enumerate() {
+            let z = match p {
+                Some(p) => Some(fetch_promise(p, url).await?),
+                None => None,
+            };
             if superseded() {
                 return Ok(None);
             }
             post.post(Event::JobStarted { id, index });
             let t = js_sys::Date::now();
-            let bytes = crate::tapes::decompress(&z)?;
-            crate::processed_cache::web::before_step(&mut store, &bytes, &mut health).await;
+            let bytes = match &z {
+                Some(z) => {
+                    let b = crate::tapes::decompress(z)?;
+                    crate::processed_cache::web::before_step(&mut store, &b, &mut health).await;
+                    b
+                }
+                None => {
+                    let prefix = crate::processed_cache::tape_prefix(&crate::tapes::generated_source(tape));
+                    crate::processed_cache::web::before_prefix(&mut store, &prefix, &mut health).await;
+                    Vec::new()
+                }
+            };
             b.step(&bytes, &mut store).map_err(|e| format!("{label}: {e}"))?;
             let secs = (js_sys::Date::now() - t) / 1000.0;
             crate::processed_cache::web::after_step(&mut store, &mut health).await;

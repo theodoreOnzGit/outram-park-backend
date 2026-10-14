@@ -157,7 +157,7 @@ impl McRung for Lct008 {
     fn notes() -> &'static [&'static str] {
         &[
             "Model: ICSBEP LEU-COMP-THERM-008 case 1 (Babcock & Wilcox critical lattice): 4961 rods of 2.459 w/o UO₂ in Al-6061 clad, 1.63576 cm pitch, in water with 1511 ppm boron, arranged as a 7 × 7 core lattice of 15 × 15 pin lattices. Read at run time from the committed mit-crpg/benchmarks OpenMC cards by the same code the recorded result was measured with.",
-            "Data: ENDF/B-VIII.0, processed in this browser by OUTRAM PARK's NJOY port. Watch: tolerance 0.01 (NJOY uses 0.001; measured effect on this lattice −65 ± 40 pcm). Run k_eff and the pitch view: NJOY's 0.001, as the record. Hydrogen in the water uses the H in H₂O S(α,β) thermal-scattering law. 11 nuclides: the clad's trace elements (Mg, Ti, Cr, Fe, Cu, Zn) and B-11 are left out, as in the quoted result.",
+            "Data: ENDF/B-VIII.0, processed in this browser by OUTRAM PARK's NJOY port. Watch: tolerance 0.01 (NJOY uses 0.001; measured effect on this lattice −65 ± 40 pcm). Run k_eff and the pitch view: NJOY's 0.001, as the record. Hydrogen in the water uses the H in H₂O S(α,β) thermal-scattering law, generated in this browser by OUTRAM PARK's LEAPR port from the ENDF/B-VIII.0 deck (no tape is downloaded for it). All 35 nuclides of the benchmark cards, the clad's trace elements (Mg, Ti, Cr, Fe, Cu, Zn) and B-11 included. The recorded results quoted here were measured on 11 of them, leaving those out; the 24 extra are worth −75 ± 14 pcm (32 full-model runs, 2026-10-05).",
             "Each track is one real history (a one-particle fixed-source run through the nested lattices), drawn projected from above. Chaining one neutron after the next is the illustration.",
             "Run k_eff is true Monte Carlo on the whole core: outram-mc-libs' single-thread CSG power iteration (`CsgPowerIteration`, what `run_keff_csg` runs), one generation at a time. Its default, 5000 neutrons × [40 inactive + 120 active], is sized to run in a browser, like the other benchmark rungs. It is smaller than the recorded campaign's 10 000 × [250 + 400] (96 seeds: +166 ± 8 pcm from the benchmark k of 1.0007 ± 0.0016; OpenMC on NJOY2016 data +174 ± 5), and at the default the fission source of this 1.5 m core has not fully settled: 16 native seeds gave k about 80 pcm above the campaign's. One run scatters by about 190 pcm, so that offset is inside one run's noise. For a k comparable with the record, set the campaign's numbers and wait.",
             "\"pitch k∞\" runs a real, single-threaded power iteration of ONE rod in a reflective square cell (an infinite lattice, no leakage) at the pitch you choose, on the same data, and draws it against the recorded sweep. It is k∞ of the pin lattice, not the core's k_eff.",
@@ -169,7 +169,7 @@ impl McRung for Lct008 {
         ]
     }
     fn loading_note(_tier: Tier) -> Option<&'static str> {
-        Some("Twelve tapes, including the water's thermal-scattering law: allow a few minutes in a browser, longer on a phone. Later visits read the processed data from this browser's cache.")
+        Some("35 tapes, then the water's thermal-scattering law, which LEAPR generates here: allow several minutes in a browser, longer on a phone. Later visits read the processed data from this browser's cache.")
     }
     /// 5000 neutrons × [40 inactive + 120 active], seed 1, as the other
     /// benchmark rungs: sized to run in a browser, and smaller than the
@@ -179,13 +179,15 @@ impl McRung for Lct008 {
         Some(KeffConfig { n_particles: 5000, n_inactive: 40, n_active: 120, seed: 1, point_source: false, want_sites: false })
     }
     /// Route 4 of the five-route study (outram-mc on the Rust NJOY port,
-    /// ENDF read directly; the 11-nuclide tier this rung runs), read from
-    /// the committed campaign summary.
+    /// ENDF read directly), read from the committed campaign summary. It
+    /// was measured on the 11-nuclide tier; this rung runs all 35 since
+    /// 2026-10-14, about 75 pcm lower (gh:#533), which the labels say. No
+    /// full-model campaign row exists yet.
     fn reference() -> Option<Reference> {
         crate::keff::five_route_reference(
             "lct008",
-            "five-route study route 4, 96 seeds x 10000 x [250+400], 2026-09-30, at 0414bc8277",
-            crate::route1_label!("96 seeds x 10000 x [250+400]"),
+            "five-route study route 4, 96 seeds x 10000 x [250+400], 2026-09-30, at 0414bc8277, on 11 of the 35 nuclides this demo runs (the 24 extra are worth -75 +/- 14 pcm, gh:#533)",
+            crate::route1_label!("96 seeds x 10000 x [250+400], on 11 of the 35 nuclides"),
             10_000.0 * 400.0,
             ("ICSBEP LEU-COMP-THERM-008 case 1 benchmark k, as tabulated by Mosteller (LA-UR-10-06230)", model::BENCHMARK_K, model::BENCHMARK_SIGMA),
         )
@@ -222,7 +224,7 @@ impl McRung for Lct008 {
                 "One LCT-008 rod (UO₂ 2.459 w/o, Al clad) in case-1 water with 1511 ppm boron, in a square cell with reflective walls: an infinite lattice, so this is k∞ (no leakage), not the core's k_eff.",
                 "A real power iteration by outram-mc-libs (CsgPowerIteration, the single-thread reference stepped one generation per worker message), on the data this tab processed at NJOY's tolerance 0.001, as the record.",
                 "Your ± is the standard error over the active generations of ONE run: it understates the true spread, because generations are correlated.",
-                "Recorded curves (pitch_sweep.md, 2026-10-04, seed 1, 5000 × [50 + 200], NJOY tolerance 0.001, 11 nuclides): dotted = outram-mc (ours), dashed = OpenMC 0.16.1-dev on NJOY2016 ACE, the same model (a reference code). Verification, not validation: no experiment measured these pitches.",
+                "Recorded curves (pitch_sweep.md, 2026-10-04, seed 1, 5000 × [50 + 200], NJOY tolerance 0.001, 11 nuclides): dotted = outram-mc (ours), dashed = OpenMC 0.16.1-dev on NJOY2016 ACE, the same model (a reference code). Verification, not validation: no experiment measured these pitches. Your run uses all 35 nuclides, the clad's trace elements included, so it can sit a little below the recorded curves.",
             ],
         })
     }
@@ -388,6 +390,16 @@ impl LoadedRung for Loaded {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
+
+    /// A job's bytes: the covariance-stripped tape, or nothing for a law
+    /// LEAPR generates.
+    fn job_bytes(tape: &str) -> Vec<u8> {
+        if crate::tapes::is_generated(tape) {
+            return Vec::new();
+        }
+        let raw = std::fs::read(njoy_outram_park_fork::reference_data::reference_endf(tape).expect("tape")).expect("read");
+        crate::tapes::strip_covariances(&raw)
+    }
     use super::*;
     use outram_mc_libs::physics::track_output::TrackEvent;
 
@@ -434,12 +446,11 @@ mod tests {
     /// check, not V&V: different tier, settings and random stream). Also
     /// prints the σ(E) curves' sizes and the timings quoted on gh:#549.
     #[test]
-    #[ignore = "processes 12 ENDF tapes (~1 min); run with --ignored"]
+    #[ignore = "processes 35 ENDF tapes and LEAPR (minutes); run with --ignored"]
     fn the_pitch_slider_runs_the_pin_cell() {
         let mut b = model::DataBuilder::default();
         for (_, tape) in model::JOBS {
-            let raw = std::fs::read(njoy_outram_park_fork::reference_data::reference_endf(tape).expect("tape")).expect("read");
-            b.step(&crate::tapes::strip_covariances(&raw), &mut crate::processed_cache::DataStore::off()).expect("step");
+            b.step(&job_bytes(tape), &mut crate::processed_cache::DataStore::off()).expect("step");
         }
         let mut l = Loaded { phys: sim::Physics::new(b.finish().expect("finish")), chain: sim::Chain::new(1), kinf: None, keff: None };
         let t = std::time::Instant::now();
@@ -468,14 +479,12 @@ mod tests {
     /// water-moderated lattice). Needs `reference-data/endf/` and about a
     /// minute natively, so it is opt-in, as the crate's other data tests.
     #[test]
-    #[ignore = "processes 12 ENDF tapes (~1 min); run with --ignored"]
+    #[ignore = "processes 35 ENDF tapes and LEAPR (minutes); run with --ignored"]
     fn histories_through_the_lattice_end_properly_and_thermalise() {
         let mut b = model::DataBuilder::default();
         for (label, tape) in model::JOBS {
             let t = std::time::Instant::now();
-            let path = njoy_outram_park_fork::reference_data::reference_endf(tape).expect("tape");
-            let raw = std::fs::read(path).expect("read");
-            b.step(&crate::tapes::strip_covariances(&raw), &mut crate::processed_cache::DataStore::off()).expect("step");
+            b.step(&job_bytes(tape), &mut crate::processed_cache::DataStore::off()).expect("step");
             eprintln!("  {label:<16} {:6.1} s", t.elapsed().as_secs_f64());
         }
         let phys = sim::Physics::new(b.finish().expect("finish"));

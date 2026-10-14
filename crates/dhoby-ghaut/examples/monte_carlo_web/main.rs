@@ -261,6 +261,9 @@ fn main() -> Result<(), String> {
             let mut done: Vec<&str> = Vec::new();
             for r in table::ALL {
                 for &(_, tape) in r.jobs() {
+                    if tapes::is_generated(tape) {
+                        continue; // a LEAPR law: nothing to publish
+                    }
                     if done.contains(&tape) {
                         continue; // shared between rungs (U-235, U-238)
                     }
@@ -805,7 +808,7 @@ mod tests {
     /// uniform start is short; this run cannot say more than "no gross
     /// error".
     #[test]
-    #[ignore = "processes 12 ENDF tapes (~30 s); run with --ignored"]
+    #[ignore = "processes 11 ENDF tapes and LEAPR (minutes); run with --ignored"]
     fn the_hst009_rung_thermalises_and_runs_its_keff() {
         use rungs::{LoadedRung as _, McRung as _};
         let Loaded::Hst009(mut l) = load_native(Rung::Hst009, Tier::Loose, |_, _| {}).expect("load") else { unreachable!() };
@@ -840,7 +843,7 @@ mod tests {
     /// 950 pcm below the record, 2.1 of its own σ, as expected of a source
     /// that has not converged.
     #[test]
-    #[ignore = "processes 12 ENDF tapes (~30 s); run with --ignored"]
+    #[ignore = "processes 35 ENDF tapes and LEAPR (minutes); run with --ignored"]
     fn the_lct008_rung_runs_a_whole_core_keff() {
         use rungs::LoadedRung as _;
         let Loaded::Lct008(mut l) = load_native(Rung::Lct008, Tier::Loose, |_, _| {}).expect("load") else { unreachable!() };
