@@ -102,6 +102,8 @@ what the ACE table carries. The record is §6 of the same V&V file.
 
 > **On the [Code Review map](../../code-review/):** start at [`Kerma::from_reconr`](../../code-review/#crates/njoy-outram-park-fork/src/heatr/kerma.rs::Kerma::from_reconr) and follow its callees (▸) to [`single_neutron_factor`](../../code-review/#crates/njoy-outram-park-fork/src/heatr/spectra.rs::single_neutron_factor). Each card opens the function's source and shows its review stamp.
 
+> **The physics functions:** [Where the physics is](./physics-functions.md#heatr) lists only the functions on the map that compute this rung's physics, without the entry point and plumbing above it (a proposal for maintainer review, 2026-10-14; the entry-point link above stays until it is accepted).
+
 **Reading the path.** The table below is the path the Code Review map link above follows, with what each hop does:
 
 | hop | function | what it does | resolved (kopitiam pass, 2026-10-04) |

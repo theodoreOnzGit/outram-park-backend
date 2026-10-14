@@ -97,6 +97,8 @@ nuclide from an ENDF tape, and immediately crosses into this crate.
 
 > **On the [Code Review map](../../code-review/):** start at [`Nuclide::from_endf_file_with_speed`](../../code-review/#crates/outram-mc-libs/src/material/nuclide.rs::Nuclide::from_endf_file_with_speed) and follow its callees (▸) to [`broadr_joint`](../../code-review/#crates/njoy-outram-park-fork/src/broadr/joint.rs::broadr_joint). Each card opens the function's source and shows its review stamp.
 
+> **The physics functions:** this page has none of its own; its physics is in rungs 2 and 3. See [Where the physics is](./physics-functions.md#where-sigma-comes-from) (a proposal for maintainer review, 2026-10-14; the entry-point link above stays until it is accepted).
+
 **Reading the path.** The table below is the path the Code Review map link above follows, with what each hop does:
 
 | hop | function | file | resolved (kopitiam pass, 2026-10-04) |

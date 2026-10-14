@@ -38,6 +38,8 @@ offer a caller, and how is it held together?**
 
 > **On the [Code Review map](../../code-review/):** start at [`NuclearDataLibrary::broaden`](../../code-review/#crates/njoy-outram-park-fork/src/interface.rs::NuclearDataLibrary::broaden) and follow its callees (▸) to [`broadr_joint`](../../code-review/#crates/njoy-outram-park-fork/src/broadr/joint.rs::broadr_joint). Each card opens the function's source and shows its review stamp.
 
+> **The physics functions:** this page is about the API and has none of its own; each physics function is listed under the rung that owns it. See [Where the physics is](./physics-functions.md#consumer-surface) (a proposal for maintainer review, 2026-10-14; the entry-point link above stays until it is accepted).
+
 **Reading the path.** The table below is the path the Code Review map link above follows, with what each hop does:
 
 | hop | function | what it does | resolved (kopitiam pass, 2026-10-04) |

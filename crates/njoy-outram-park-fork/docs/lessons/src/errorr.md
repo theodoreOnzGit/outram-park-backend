@@ -59,6 +59,8 @@ machinery (`samm::derivs`).
 
 > **On the [Code Review map](../../code-review/):** start at [`run_mf33`](../../code-review/#crates/njoy-outram-park-fork/src/errorr/mf33.rs::run_mf33) and follow its callees (▸) to [`covcal`](../../code-review/#crates/njoy-outram-park-fork/src/errorr/covcal.rs::covcal). Each card opens the function's source and shows its review stamp.
 
+> **The physics functions:** [Where the physics is](./physics-functions.md#errorr) lists only the functions on the map that compute this rung's physics, without the entry point and plumbing above it (a proposal for maintainer review, 2026-10-14; the entry-point link above stays until it is accepted).
+
 **Reading the path.** The table below is the path the Code Review map link above follows, with what each hop does:
 
 | hop | function | what it does | resolved (kopitiam pass, 2026-10-04) |
