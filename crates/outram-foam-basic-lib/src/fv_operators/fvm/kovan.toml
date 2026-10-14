@@ -24,6 +24,7 @@ test_ids = [
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::kinf_infinite_medium",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::null_transient_holds_steady",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::warm_start_reaches_the_same_k_in_fewer_iterations",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::dispatch_kind_and_keff_across_variants",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::scaffolds_report_not_implemented",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::scaffold_reports_not_implemented",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_approaches_diffusion_limit",
@@ -208,9 +209,14 @@ callees = [
     "fn:5054bbbfbd8e20ae",
     "fn:636ae5a21be9336b",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:5c58987100382184",
+    "fn:8d6cd763d46808ac",
+]
 reached_by = [
-    "#79",
     "#80",
+    "#81",
 ]
 
 [[module."d2dt2.rs".function]]
@@ -231,15 +237,20 @@ callees = [
     "fn:5054bbbfbd8e20ae",
     "fn:636ae5a21be9336b",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:5c58987100382184",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+]
 reached_by = [
-    "#35",
     "#36",
-    "#78",
-    "#132",
+    "#37",
+    "#79",
     "#133",
     "#134",
     "#135",
-    "#170",
+    "#136",
     "#171",
     "#172",
     "#173",
@@ -251,6 +262,7 @@ reached_by = [
     "#179",
     "#180",
     "#181",
+    "#182",
 ]
 
 [[module."d2dt2.rs".function]]
@@ -278,6 +290,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."d2dt2.rs".function]]
@@ -299,6 +318,10 @@ callees = [
     "fn:7e1e7c04e052e60f",
     "fn:9e501e5f4cce23ae",
     "fn:de831ad08ed8ee91",
+]
+uses = [
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
 ]
 test = true
 
@@ -322,6 +345,11 @@ callees = [
     "fn:acfb0f2d7b950994",
     "fn:de831ad08ed8ee91",
 ]
+uses = [
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+    "fn:f354cdd32c8e9ebe",
+]
 test = true
 
 [[module."d2dt2.rs".function]]
@@ -343,6 +371,11 @@ callees = [
     "fn:9e501e5f4cce23ae",
     "fn:acfb0f2d7b950994",
 ]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [module."ddt.rs"]
@@ -363,8 +396,11 @@ callees = [
     "fn:3c1bb92df17bd4a4",
     "fn:4aea3161a87c6021",
 ]
+uses = [
+    "fn:5283285159112606",
+    "fn:7aa70dd1c009cc88",
+]
 reached_by = [
-    "#38",
     "#39",
     "#40",
     "#41",
@@ -375,11 +411,11 @@ reached_by = [
     "#46",
     "#47",
     "#48",
-    "#52",
-    "#55",
-    "#57",
+    "#49",
+    "#53",
+    "#56",
     "#58",
-    "#67",
+    "#59",
     "#68",
     "#69",
     "#70",
@@ -389,14 +425,14 @@ reached_by = [
     "#74",
     "#75",
     "#76",
-    "#83",
+    "#77",
     "#84",
-    "#127",
+    "#85",
     "#128",
     "#129",
     "#130",
     "#131",
-    "#136",
+    "#132",
     "#137",
     "#138",
     "#139",
@@ -416,8 +452,9 @@ reached_by = [
     "#153",
     "#154",
     "#155",
-    "#158",
-    "#166",
+    "#156",
+    "#159",
+    "#167",
 ]
 
 [[module."ddt.rs".function]]
@@ -435,20 +472,24 @@ callees = [
     "fn:3c1bb92df17bd4a4",
     "fn:4aea3161a87c6021",
 ]
+uses = [
+    "fn:5283285159112606",
+    "fn:7aa70dd1c009cc88",
+]
 reached_by = [
     "#19",
-    "#30",
-    "#32",
+    "#31",
     "#33",
     "#34",
-    "#43",
+    "#35",
     "#44",
     "#45",
     "#46",
     "#47",
     "#48",
-    "#81",
+    "#49",
     "#82",
+    "#83",
 ]
 
 [[module."ddt.rs".function]]
@@ -476,6 +517,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."ddt.rs".function]]
@@ -494,6 +542,7 @@ callees = [
     "fn:9ede23afd5c79bc4",
     "fn:e7f58a77dc26235d",
 ]
+uses = ["fn:7aa70dd1c009cc88"]
 test = true
 
 [[module."ddt.rs".function]]
@@ -515,6 +564,10 @@ callees = [
     "fn:d6a9c884aaeb7775",
     "fn:e7f58a77dc26235d",
 ]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:f354cdd32c8e9ebe",
+]
 test = true
 
 [[module."ddt.rs".function]]
@@ -534,6 +587,7 @@ callees = [
     "fn:d6a9c884aaeb7775",
     "fn:e7f58a77dc26235d",
 ]
+uses = ["fn:7aa70dd1c009cc88"]
 test = true
 
 [[module."ddt.rs".function]]
@@ -554,6 +608,10 @@ callees = [
     "fn:8b1e80d2a2add1f9",
     "fn:d6a9c884aaeb7775",
     "fn:e7f58a77dc26235d",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:f354cdd32c8e9ebe",
 ]
 test = true
 
@@ -577,17 +635,21 @@ callees = [
     "fn:636ae5a21be9336b",
     "fn:65f8f3c9daf074d2",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:5c58987100382184",
+    "fn:8d6cd763d46808ac",
+]
 reached_by = [
-    "#38",
     "#39",
     "#40",
     "#41",
     "#42",
-    "#49",
-    "#51",
-    "#57",
+    "#43",
+    "#50",
+    "#52",
     "#58",
-    "#67",
+    "#59",
     "#68",
     "#69",
     "#70",
@@ -597,17 +659,18 @@ reached_by = [
     "#74",
     "#75",
     "#76",
-    "#87",
-    "#115",
-    "#127",
+    "#77",
+    "#88",
+    "#116",
     "#128",
     "#129",
     "#130",
     "#131",
-    "#139",
+    "#132",
     "#140",
     "#141",
     "#142",
+    "#143",
 ]
 
 [[module."ddt_vec.rs".function]]
@@ -627,23 +690,29 @@ callees = [
     "fn:636ae5a21be9336b",
     "fn:65f8f3c9daf074d2",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:5c58987100382184",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+]
 reached_by = [
-    "#32",
-    "#34",
-    "#43",
+    "#33",
+    "#35",
     "#44",
     "#45",
     "#46",
     "#47",
     "#48",
-    "#85",
+    "#49",
     "#86",
-    "#147",
+    "#87",
     "#148",
     "#149",
     "#150",
     "#151",
     "#152",
+    "#153",
 ]
 
 [[module."ddt_vec.rs".function]]
@@ -671,6 +740,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."ddt_vec.rs".function]]
@@ -692,6 +768,11 @@ callees = [
     "fn:9e501e5f4cce23ae",
     "fn:e822c76969fb6b42",
 ]
+uses = [
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+    "fn:f354cdd32c8e9ebe",
+]
 test = true
 
 [[module."ddt_vec.rs".function]]
@@ -712,6 +793,11 @@ callees = [
     "fn:9e501e5f4cce23ae",
     "fn:acfb0f2d7b950994",
     "fn:e822c76969fb6b42",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
 ]
 test = true
 
@@ -736,6 +822,12 @@ callees = [
     "fn:acfb0f2d7b950994",
     "fn:e822c76969fb6b42",
 ]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+    "fn:f354cdd32c8e9ebe",
+]
 test = true
 
 [module."div.rs"]
@@ -758,6 +850,13 @@ callees = [
     "fn:7fe2d8d6dcd0087d",
     "fn:fa91fa438248db77",
 ]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:293183d62b7ee5f9",
+    "fn:5283285159112606",
+    "fn:7217c4fc0f1bc32b",
+    "fn:7aa70dd1c009cc88",
+]
 reached_by = [
     "#0",
     "#1",
@@ -776,7 +875,6 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
     "#22",
     "#23",
     "#24",
@@ -784,10 +882,10 @@ reached_by = [
     "#26",
     "#27",
     "#28",
-    "#32",
+    "#29",
     "#33",
     "#34",
-    "#38",
+    "#35",
     "#39",
     "#40",
     "#41",
@@ -798,8 +896,8 @@ reached_by = [
     "#46",
     "#47",
     "#48",
-    "#52",
-    "#55",
+    "#49",
+    "#53",
     "#56",
     "#57",
     "#58",
@@ -821,22 +919,22 @@ reached_by = [
     "#74",
     "#75",
     "#76",
-    "#88",
+    "#77",
     "#89",
     "#90",
     "#91",
     "#92",
     "#93",
-    "#120",
+    "#94",
     "#121",
     "#122",
     "#123",
-    "#127",
+    "#124",
     "#128",
     "#129",
     "#130",
     "#131",
-    "#136",
+    "#132",
     "#137",
     "#138",
     "#139",
@@ -856,15 +954,16 @@ reached_by = [
     "#153",
     "#154",
     "#155",
-    "#158",
+    "#156",
     "#159",
     "#160",
-    "#164",
+    "#161",
     "#165",
     "#166",
     "#167",
     "#168",
     "#169",
+    "#170",
 ]
 
 [[module."div.rs".function]]
@@ -892,6 +991,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."div.rs".function]]
@@ -907,6 +1013,13 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:35109efd2ed02837",
     "fn:a5457a6081dc438d",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
 ]
 test = true
 
@@ -926,6 +1039,7 @@ callees = [
     "fn:aeec268f680f1686",
     "fn:c3f73100c19cafbf",
 ]
+uses = ["fn:7aa70dd1c009cc88"]
 test = true
 
 [[module."div.rs".function]]
@@ -944,6 +1058,7 @@ callees = [
     "fn:aeec268f680f1686",
     "fn:c3f73100c19cafbf",
 ]
+uses = ["fn:7aa70dd1c009cc88"]
 test = true
 
 [[module."div.rs".function]]
@@ -960,6 +1075,13 @@ callees = [
     "fn:35109efd2ed02837",
     "fn:a5457a6081dc438d",
     "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
 ]
 test = true
 
@@ -981,6 +1103,12 @@ callees = [
     "fn:ca4222e53c9b2667",
     "fn:f531c60f3cd2cf77",
     "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
 ]
 test = true
 
@@ -1010,6 +1138,11 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."div.rs".function]]
@@ -1032,6 +1165,14 @@ callees = [
     "fn:eec478c1d4816372",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+]
 test = true
 
 [[module."div.rs".function]]
@@ -1048,6 +1189,13 @@ callees = [
     "fn:35109efd2ed02837",
     "fn:a5457a6081dc438d",
     "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
 ]
 test = true
 
@@ -1068,6 +1216,10 @@ callees = [
     "fn:b692bc050120bba2",
     "fn:c3f73100c19cafbf",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+]
 test = true
 
 [[module."div.rs".function]]
@@ -1086,6 +1238,10 @@ callees = [
     "fn:b5e7ac7d52bee96b",
     "fn:b692bc050120bba2",
     "fn:c3f73100c19cafbf",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
 ]
 test = true
 
@@ -1111,10 +1267,17 @@ callees = [
     "fn:7fe2d8d6dcd0087d",
     "fn:fa91fa438248db77",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:293183d62b7ee5f9",
+    "fn:5c58987100382184",
+    "fn:7217c4fc0f1bc32b",
+    "fn:8d6cd763d46808ac",
+]
 reached_by = [
-    "#32",
-    "#34",
-    "#38",
+    "#33",
+    "#35",
     "#39",
     "#40",
     "#41",
@@ -1125,11 +1288,11 @@ reached_by = [
     "#46",
     "#47",
     "#48",
-    "#50",
+    "#49",
     "#51",
-    "#57",
+    "#52",
     "#58",
-    "#67",
+    "#59",
     "#68",
     "#69",
     "#70",
@@ -1139,23 +1302,24 @@ reached_by = [
     "#74",
     "#75",
     "#76",
-    "#94",
+    "#77",
     "#95",
-    "#127",
+    "#96",
     "#128",
     "#129",
     "#130",
     "#131",
-    "#139",
+    "#132",
     "#140",
     "#141",
     "#142",
-    "#147",
+    "#143",
     "#148",
     "#149",
     "#150",
     "#151",
     "#152",
+    "#153",
 ]
 
 [[module."div_vec.rs".function]]
@@ -1183,6 +1347,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."div_vec.rs".function]]
@@ -1202,6 +1373,14 @@ callees = [
     "fn:4a6cc3f294b0f158",
     "fn:9e501e5f4cce23ae",
     "fn:a5457a6081dc438d",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
 ]
 test = true
 
@@ -1225,10 +1404,288 @@ callees = [
     "fn:b692bc050120bba2",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [module."laplacian.rs"]
 path = "crate::fv_operators::fvm::laplacian"
+
+[[module."laplacian.rs".function]]
+id = "fn:6213b225ad6b4978"
+name = "NON_ORTH_FLOOR"
+qual = "NON_ORTH_FLOOR"
+item = "const"
+shape = "const"
+lines = [
+    29,
+    32,
+]
+hash = "sha256:ff10b9419d12916d705df7bea3fa047f648e475109e4e0e353805bb696669658"
+doc_hash = "sha256:8191ad035d816966f3449c8b4cad445e0402a0ebd4b08d28a186f2269c1c41ba"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
+    "#24",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#53",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#113",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+]
+
+[[module."laplacian.rs".function]]
+id = "fn:d2509979eb067127"
+name = "DeltaCoeff"
+qual = "DeltaCoeff"
+item = "type"
+shape = "enum"
+lines = [
+    34,
+    73,
+]
+hash = "sha256:168342800517679d423a43c94928bb2329eacc5c80ed1477e353fd41649b146d"
+doc_hash = "sha256:216ccaa01c2d52302add41cd87d03469c630be2f3a883131483a006eabd1698a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#24",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#53",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#113",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+]
 
 [[module."laplacian.rs".function]]
 id = "fn:4af3901984e0a863"
@@ -1244,7 +1701,11 @@ callees = [
     "fn:12a06403e27e4888",
     "fn:9c754bd776e5dcc8",
 ]
-reached_by = ["#100"]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:d2509979eb067127",
+]
+reached_by = ["#101"]
 
 [[module."laplacian.rs".function]]
 id = "fn:592ba81db630e42b"
@@ -1260,12 +1721,15 @@ callees = [
     "fn:0b57fe6e8041a5ae",
     "fn:12a06403e27e4888",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:d2509979eb067127",
+]
 reached_by = [
     "#9",
     "#10",
     "#11",
     "#12",
-    "#59",
     "#60",
     "#61",
     "#62",
@@ -1273,7 +1737,8 @@ reached_by = [
     "#64",
     "#65",
     "#66",
-    "#98",
+    "#67",
+    "#99",
 ]
 
 [[module."laplacian.rs".function]]
@@ -1291,6 +1756,11 @@ callees = [
     "fn:99b51c50cec539c3",
     "fn:ed7d718f646723fc",
 ]
+uses = [
+    "fn:6213b225ad6b4978",
+    "fn:d2509979eb067127",
+    "fn:ef05859ef19acee7",
+]
 reached_by = [
     "#0",
     "#1",
@@ -1309,9 +1779,8 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
-    "#23",
-    "#26",
+    "#22",
+    "#24",
     "#27",
     "#28",
     "#29",
@@ -1321,7 +1790,7 @@ reached_by = [
     "#33",
     "#34",
     "#35",
-    "#37",
+    "#36",
     "#38",
     "#39",
     "#40",
@@ -1333,8 +1802,8 @@ reached_by = [
     "#46",
     "#47",
     "#48",
-    "#52",
-    "#56",
+    "#49",
+    "#53",
     "#57",
     "#58",
     "#59",
@@ -1356,9 +1825,9 @@ reached_by = [
     "#75",
     "#76",
     "#77",
-    "#96",
+    "#78",
     "#97",
-    "#99",
+    "#98",
     "#100",
     "#101",
     "#102",
@@ -1369,23 +1838,23 @@ reached_by = [
     "#107",
     "#108",
     "#109",
-    "#112",
-    "#120",
+    "#110",
+    "#113",
     "#121",
     "#122",
     "#123",
     "#124",
-    "#126",
+    "#125",
     "#127",
     "#128",
     "#129",
     "#130",
     "#131",
-    "#139",
+    "#132",
     "#140",
     "#141",
     "#142",
-    "#147",
+    "#143",
     "#148",
     "#149",
     "#150",
@@ -1394,7 +1863,7 @@ reached_by = [
     "#153",
     "#154",
     "#155",
-    "#158",
+    "#156",
     "#159",
     "#160",
     "#161",
@@ -1406,6 +1875,7 @@ reached_by = [
     "#167",
     "#168",
     "#169",
+    "#170",
 ]
 
 [[module."laplacian.rs".function]]
@@ -1422,6 +1892,11 @@ callees = [
     "fn:636ae5a21be9336b",
     "fn:99b51c50cec539c3",
     "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:6213b225ad6b4978",
+    "fn:d2509979eb067127",
+    "fn:ef05859ef19acee7",
 ]
 reached_by = [
     "#0",
@@ -1445,9 +1920,8 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
-    "#23",
-    "#26",
+    "#22",
+    "#24",
     "#27",
     "#28",
     "#29",
@@ -1457,7 +1931,7 @@ reached_by = [
     "#33",
     "#34",
     "#35",
-    "#37",
+    "#36",
     "#38",
     "#39",
     "#40",
@@ -1469,8 +1943,8 @@ reached_by = [
     "#46",
     "#47",
     "#48",
-    "#52",
-    "#56",
+    "#49",
+    "#53",
     "#57",
     "#58",
     "#59",
@@ -1492,7 +1966,7 @@ reached_by = [
     "#75",
     "#76",
     "#77",
-    "#96",
+    "#78",
     "#97",
     "#98",
     "#99",
@@ -1506,23 +1980,23 @@ reached_by = [
     "#107",
     "#108",
     "#109",
-    "#112",
-    "#120",
+    "#110",
+    "#113",
     "#121",
     "#122",
     "#123",
     "#124",
-    "#126",
+    "#125",
     "#127",
     "#128",
     "#129",
     "#130",
     "#131",
-    "#139",
+    "#132",
     "#140",
     "#141",
     "#142",
-    "#147",
+    "#143",
     "#148",
     "#149",
     "#150",
@@ -1531,7 +2005,7 @@ reached_by = [
     "#153",
     "#154",
     "#155",
-    "#158",
+    "#156",
     "#159",
     "#160",
     "#161",
@@ -1543,6 +2017,7 @@ reached_by = [
     "#167",
     "#168",
     "#169",
+    "#170",
 ]
 
 [[module."laplacian.rs".function]]
@@ -1556,12 +2031,17 @@ lines = [
 hash = "sha256:6f43140f2a045e25fbe0b322cdf41669cda91e75ea832f66eea74231ba8cf395"
 doc_hash = "sha256:447902a6a2ab64bfed38aaa76da25fc982a12f18242536788a3d22a774edbb2b"
 callees = ["fn:6f38d5e07fe3fca5"]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:5283285159112606",
+    "fn:7aa70dd1c009cc88",
+    "fn:d2509979eb067127",
+]
 reached_by = [
-    "#32",
     "#33",
     "#34",
     "#35",
-    "#37",
+    "#36",
     "#38",
     "#39",
     "#40",
@@ -1573,10 +2053,10 @@ reached_by = [
     "#46",
     "#47",
     "#48",
-    "#52",
-    "#57",
+    "#49",
+    "#53",
     "#58",
-    "#67",
+    "#59",
     "#68",
     "#69",
     "#70",
@@ -1587,10 +2067,10 @@ reached_by = [
     "#75",
     "#76",
     "#77",
-    "#96",
+    "#78",
     "#97",
-    "#99",
-    "#102",
+    "#98",
+    "#100",
     "#103",
     "#104",
     "#105",
@@ -1598,23 +2078,23 @@ reached_by = [
     "#107",
     "#108",
     "#109",
-    "#112",
-    "#120",
+    "#110",
+    "#113",
     "#121",
     "#122",
     "#123",
     "#124",
-    "#126",
+    "#125",
     "#127",
     "#128",
     "#129",
     "#130",
     "#131",
-    "#139",
+    "#132",
     "#140",
     "#141",
     "#142",
-    "#147",
+    "#143",
     "#148",
     "#149",
     "#150",
@@ -1623,7 +2103,7 @@ reached_by = [
     "#153",
     "#154",
     "#155",
-    "#158",
+    "#156",
     "#159",
     "#160",
     "#161",
@@ -1635,6 +2115,7 @@ reached_by = [
     "#167",
     "#168",
     "#169",
+    "#170",
 ]
 
 [[module."laplacian.rs".function]]
@@ -1658,6 +2139,14 @@ callees = [
     "fn:ed7d718f646723fc",
     "fn:fa91fa438248db77",
 ]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:293183d62b7ee5f9",
+    "fn:5283285159112606",
+    "fn:7217c4fc0f1bc32b",
+    "fn:7aa70dd1c009cc88",
+    "fn:d2509979eb067127",
+]
 reached_by = [
     "#0",
     "#1",
@@ -1676,9 +2165,8 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
-    "#23",
-    "#26",
+    "#22",
+    "#24",
     "#27",
     "#28",
     "#29",
@@ -1688,7 +2176,7 @@ reached_by = [
     "#33",
     "#34",
     "#35",
-    "#37",
+    "#36",
     "#38",
     "#39",
     "#40",
@@ -1700,8 +2188,8 @@ reached_by = [
     "#46",
     "#47",
     "#48",
-    "#52",
-    "#56",
+    "#49",
+    "#53",
     "#57",
     "#58",
     "#59",
@@ -1723,9 +2211,9 @@ reached_by = [
     "#75",
     "#76",
     "#77",
-    "#96",
+    "#78",
     "#97",
-    "#99",
+    "#98",
     "#100",
     "#101",
     "#102",
@@ -1736,23 +2224,23 @@ reached_by = [
     "#107",
     "#108",
     "#109",
-    "#112",
-    "#120",
+    "#110",
+    "#113",
     "#121",
     "#122",
     "#123",
     "#124",
-    "#126",
+    "#125",
     "#127",
     "#128",
     "#129",
     "#130",
     "#131",
-    "#139",
+    "#132",
     "#140",
     "#141",
     "#142",
-    "#147",
+    "#143",
     "#148",
     "#149",
     "#150",
@@ -1761,7 +2249,7 @@ reached_by = [
     "#153",
     "#154",
     "#155",
-    "#158",
+    "#156",
     "#159",
     "#160",
     "#161",
@@ -1773,6 +2261,7 @@ reached_by = [
     "#167",
     "#168",
     "#169",
+    "#170",
 ]
 
 [[module."laplacian.rs".function]]
@@ -1800,6 +2289,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."laplacian.rs".function]]
@@ -1815,6 +2311,13 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:35109efd2ed02837",
     "fn:a5457a6081dc438d",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
 ]
 test = true
 
@@ -1834,6 +2337,7 @@ callees = [
     "fn:ac921500cca93ff9",
     "fn:d8b113fe75db64b9",
 ]
+uses = ["fn:7aa70dd1c009cc88"]
 test = true
 
 [[module."laplacian.rs".function]]
@@ -1857,6 +2361,13 @@ callees = [
     "fn:d8b113fe75db64b9",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+    "fn:f354cdd32c8e9ebe",
+]
 test = true
 
 [[module."laplacian.rs".function]]
@@ -1878,6 +2389,12 @@ callees = [
     "fn:d8b113fe75db64b9",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+]
 test = true
 
 [[module."laplacian.rs".function]]
@@ -1898,6 +2415,12 @@ callees = [
     "fn:ca4222e53c9b2667",
     "fn:d8b113fe75db64b9",
     "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
 ]
 test = true
 
@@ -1922,6 +2445,13 @@ callees = [
     "fn:d8b113fe75db64b9",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+    "fn:f354cdd32c8e9ebe",
+]
 test = true
 
 [[module."laplacian.rs".function]]
@@ -1944,6 +2474,13 @@ callees = [
     "fn:ca4222e53c9b2667",
     "fn:d8b113fe75db64b9",
     "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+    "fn:f354cdd32c8e9ebe",
 ]
 test = true
 
@@ -1973,6 +2510,11 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."laplacian.rs".function]]
@@ -1988,6 +2530,13 @@ doc_hash = "sha256:3de757770a4c7617af30c7b29a6ce699a96733e5c24e613f4649501e89eb1
 callees = [
     "fn:35109efd2ed02837",
     "fn:a5457a6081dc438d",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
 ]
 test = true
 
@@ -2014,6 +2563,11 @@ callees = [
     "fn:ce5c06050c849e86",
     "fn:ff33bf6569fc792d",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+    "fn:f354cdd32c8e9ebe",
+]
 test = true
 
 [[module."laplacian.rs".function]]
@@ -2034,6 +2588,10 @@ callees = [
     "fn:ce5c06050c849e86",
     "fn:ff33bf6569fc792d",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+]
 test = true
 
 [[module."laplacian.rs".function]]
@@ -2053,6 +2611,10 @@ callees = [
     "fn:b5e7ac7d52bee96b",
     "fn:b692bc050120bba2",
     "fn:ff33bf6569fc792d",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
 ]
 test = true
 
@@ -2082,6 +2644,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."laplacian.rs".function]]
@@ -2099,6 +2668,10 @@ callees = [
     "fn:636e75b664f14254",
     "fn:6f38d5e07fe3fca5",
     "fn:d8b113fe75db64b9",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:d2509979eb067127",
 ]
 test = true
 
@@ -2121,6 +2694,10 @@ callees = [
     "fn:d8b113fe75db64b9",
     "fn:ed7d718f646723fc",
 ]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:d2509979eb067127",
+]
 test = true
 
 [[module."laplacian.rs".function]]
@@ -2139,6 +2716,7 @@ callees = [
     "fn:5afd3b7f13055f17",
     "fn:ed7d718f646723fc",
 ]
+uses = ["fn:d2509979eb067127"]
 test = true
 
 [[module."laplacian.rs".function]]
@@ -2158,10 +2736,55 @@ callees = [
     "fn:6f38d5e07fe3fca5",
     "fn:d8b113fe75db64b9",
 ]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:d2509979eb067127",
+]
 test = true
 
 [module."laplacian_corrected.rs"]
 path = "crate::fv_operators::fvm::laplacian_corrected"
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:46c53b109be69aa0"
+name = "NON_ORTH_FLOOR"
+qual = "NON_ORTH_FLOOR"
+item = "const"
+shape = "const"
+lines = [
+    104,
+    110,
+]
+hash = "sha256:ff10b9419d12916d705df7bea3fa047f648e475109e4e0e353805bb696669658"
+doc_hash = "sha256:92ad7b0441a139b1b44ced295f0d303bacec8f5356840256e860c86c6032b1e4"
+reached_by = [
+    "#110",
+    "#111",
+    "#113",
+    "#125",
+    "#126",
+    "#127",
+]
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:c3f2c486b6b43c0a"
+name = "NonOrthoScheme"
+qual = "NonOrthoScheme"
+item = "type"
+shape = "enum"
+lines = [
+    112,
+    136,
+]
+hash = "sha256:2a44fd12f8000aed665df9125762ff51cd9c97bdece7bbee4c097a9c19ca7fc2"
+doc_hash = "sha256:030dca469e921521248aeb22d573154129daf0d99eff795468edb85abd279eec"
+reached_by = [
+    "#110",
+    "#112",
+    "#113",
+    "#125",
+    "#127",
+]
 
 [[module."laplacian_corrected.rs".function]]
 id = "fn:8ce9d825236ee8a2"
@@ -2173,12 +2796,35 @@ lines = [
 ]
 hash = "sha256:eaa768147c06686c09e0138a80f715ca590fcd0b3b9de334c2e6e6531d54e6ef"
 doc_hash = "sha256:a3a0a3c665b7164f31b4af12ed643678b34cfd8417d2442d0461a2a6041ecc55"
+uses = ["fn:c3f2c486b6b43c0a"]
 reached_by = [
-    "#109",
-    "#111",
+    "#110",
     "#112",
-    "#124",
+    "#113",
+    "#125",
+    "#127",
+]
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:656ee84dfc83efaf"
+name = "NonOrthoGeometry"
+qual = "NonOrthoGeometry"
+item = "type"
+shape = "struct"
+lines = [
+    150,
+    167,
+]
+hash = "sha256:bfa2a023caaa1d4549648cb604417240f7b5c76fdeeb9c8a4acecb3a08958b47"
+doc_hash = "sha256:b6d4ef5ea68009a3f2c3c2645d2265ba3e26d2750e2c94ecf0a1ac72eae9865b"
+uses = ["fn:ef05859ef19acee7"]
+reached_by = [
+    "#110",
+    "#111",
+    "#113",
+    "#125",
     "#126",
+    "#127",
 ]
 
 [[module."laplacian_corrected.rs".function]]
@@ -2197,13 +2843,18 @@ callees = [
     "fn:99b51c50cec539c3",
     "fn:ed7d718f646723fc",
 ]
+uses = [
+    "fn:46c53b109be69aa0",
+    "fn:656ee84dfc83efaf",
+    "fn:ef05859ef19acee7",
+]
 reached_by = [
-    "#109",
     "#110",
-    "#112",
-    "#124",
+    "#111",
+    "#113",
     "#125",
     "#126",
+    "#127",
 ]
 
 [[module."laplacian_corrected.rs".function]]
@@ -2220,10 +2871,11 @@ callees = [
     "fn:021ed5ddfcd2619c",
     "fn:12a06403e27e4888",
 ]
+uses = ["fn:05040b6b1b09bb4e"]
 reached_by = [
-    "#109",
-    "#124",
+    "#110",
     "#125",
+    "#126",
 ]
 
 [[module."laplacian_corrected.rs".function]]
@@ -2248,11 +2900,20 @@ callees = [
     "fn:99b51c50cec539c3",
     "fn:ed7d718f646723fc",
 ]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:293183d62b7ee5f9",
+    "fn:5283285159112606",
+    "fn:7217c4fc0f1bc32b",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:c3f2c486b6b43c0a",
+]
 reached_by = [
-    "#109",
-    "#112",
-    "#124",
-    "#126",
+    "#110",
+    "#113",
+    "#125",
+    "#127",
 ]
 
 [[module."laplacian_corrected.rs".function]]
@@ -2272,9 +2933,17 @@ callees = [
     "fn:b51f08d410db1219",
     "fn:e32041d842fa6ce7",
 ]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:639c94738fe92715",
+    "fn:7aa70dd1c009cc88",
+    "fn:c3f2c486b6b43c0a",
+    "fn:d6ec27e4e9b49b4e",
+    "fn:f354cdd32c8e9ebe",
+]
 reached_by = [
-    "#124",
-    "#126",
+    "#125",
+    "#127",
 ]
 
 [[module."laplacian_corrected.rs".function]]
@@ -2302,6 +2971,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."laplacian_corrected.rs".function]]
@@ -2324,6 +3000,13 @@ callees = [
     "fn:87fd00d3d79c0534",
     "fn:8bfa348bdafb8a29",
     "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:c3f2c486b6b43c0a",
+    "fn:dde232a1ea648ca8",
 ]
 test = true
 
@@ -2349,6 +3032,13 @@ callees = [
     "fn:c9732e7a28fa08b7",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:c3f2c486b6b43c0a",
+    "fn:dde232a1ea648ca8",
+]
 test = true
 
 [[module."laplacian_corrected.rs".function]]
@@ -2367,6 +3057,7 @@ callees = [
     "fn:9e501e5f4cce23ae",
     "fn:ed7d718f646723fc",
 ]
+uses = ["fn:ef05859ef19acee7"]
 test = true
 
 [[module."laplacian_corrected.rs".function]]
@@ -2380,6 +3071,7 @@ lines = [
 hash = "sha256:0988dd68439424f68237a52992a8c67a1c6adbc287f73248aaa458c4ce1aa7ab"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:8ce9d825236ee8a2"]
+uses = ["fn:c3f2c486b6b43c0a"]
 test = true
 
 [module."laplacian_vec.rs"]
@@ -2407,12 +3099,19 @@ callees = [
     "fn:ed7d718f646723fc",
     "fn:fa91fa438248db77",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:5c58987100382184",
+    "fn:7217c4fc0f1bc32b",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+]
 reached_by = [
-    "#32",
-    "#34",
+    "#33",
     "#35",
     "#36",
-    "#38",
+    "#37",
     "#39",
     "#40",
     "#41",
@@ -2423,12 +3122,12 @@ reached_by = [
     "#46",
     "#47",
     "#48",
-    "#52",
+    "#49",
     "#53",
     "#54",
-    "#57",
+    "#55",
     "#58",
-    "#67",
+    "#59",
     "#68",
     "#69",
     "#70",
@@ -2438,10 +3137,10 @@ reached_by = [
     "#74",
     "#75",
     "#76",
-    "#113",
+    "#77",
     "#114",
     "#115",
-    "#127",
+    "#116",
     "#128",
     "#129",
     "#130",
@@ -2450,19 +3149,19 @@ reached_by = [
     "#133",
     "#134",
     "#135",
-    "#139",
+    "#136",
     "#140",
     "#141",
     "#142",
-    "#147",
+    "#143",
     "#148",
     "#149",
     "#150",
     "#151",
     "#152",
-    "#156",
+    "#153",
     "#157",
-    "#170",
+    "#158",
     "#171",
     "#172",
     "#173",
@@ -2474,6 +3173,7 @@ reached_by = [
     "#179",
     "#180",
     "#181",
+    "#182",
 ]
 
 [[module."laplacian_vec.rs".function]]
@@ -2501,6 +3201,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."laplacian_vec.rs".function]]
@@ -2524,6 +3231,12 @@ callees = [
     "fn:ce5c06050c849e86",
     "fn:ea6b6e6095ea6573",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."laplacian_vec.rs".function]]
@@ -2543,6 +3256,12 @@ callees = [
     "fn:a8a8aa01bdeead4b",
     "fn:b5e7ac7d52bee96b",
     "fn:b692bc050120bba2",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
 ]
 test = true
 
@@ -2567,6 +3286,15 @@ callees = [
     "fn:a8a8aa01bdeead4b",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+    "fn:f354cdd32c8e9ebe",
+]
 test = true
 
 [module."mod.rs"]
@@ -2589,6 +3317,10 @@ callees = [
     "fn:3c1bb92df17bd4a4",
     "fn:4aea3161a87c6021",
 ]
+uses = [
+    "fn:5283285159112606",
+    "fn:7aa70dd1c009cc88",
+]
 reached_by = [
     "#0",
     "#1",
@@ -2607,7 +3339,6 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
     "#22",
     "#23",
     "#24",
@@ -2618,13 +3349,13 @@ reached_by = [
     "#29",
     "#30",
     "#31",
-    "#43",
+    "#32",
     "#44",
     "#45",
     "#46",
     "#47",
-    "#56",
-    "#59",
+    "#48",
+    "#57",
     "#60",
     "#61",
     "#62",
@@ -2632,8 +3363,8 @@ reached_by = [
     "#64",
     "#65",
     "#66",
-    "#116",
-    "#159",
+    "#67",
+    "#117",
     "#160",
     "#161",
     "#162",
@@ -2644,6 +3375,7 @@ reached_by = [
     "#167",
     "#168",
     "#169",
+    "#170",
 ]
 
 [[module."sup.rs".function]]
@@ -2661,6 +3393,10 @@ callees = [
     "fn:3c1bb92df17bd4a4",
     "fn:4aea3161a87c6021",
 ]
+uses = [
+    "fn:5283285159112606",
+    "fn:7aa70dd1c009cc88",
+]
 reached_by = [
     "#0",
     "#1",
@@ -2679,7 +3415,6 @@ reached_by = [
     "#18",
     "#19",
     "#20",
-    "#21",
     "#22",
     "#23",
     "#24",
@@ -2690,8 +3425,8 @@ reached_by = [
     "#29",
     "#30",
     "#31",
-    "#56",
-    "#59",
+    "#32",
+    "#57",
     "#60",
     "#61",
     "#62",
@@ -2699,8 +3434,8 @@ reached_by = [
     "#64",
     "#65",
     "#66",
-    "#116",
-    "#159",
+    "#67",
+    "#117",
     "#160",
     "#161",
     "#162",
@@ -2711,6 +3446,7 @@ reached_by = [
     "#167",
     "#168",
     "#169",
+    "#170",
 ]
 
 [[module."sup.rs".function]]
@@ -2728,7 +3464,11 @@ callees = [
     "fn:3c1bb92df17bd4a4",
     "fn:4aea3161a87c6021",
 ]
-reached_by = ["#118"]
+uses = [
+    "fn:5283285159112606",
+    "fn:7aa70dd1c009cc88",
+]
+reached_by = ["#119"]
 
 [[module."sup.rs".function]]
 id = "fn:f15591cb2414a42f"
@@ -2744,21 +3484,26 @@ callees = [
     "fn:4aea3161a87c6021",
     "fn:5054bbbfbd8e20ae",
 ]
+uses = [
+    "fn:5c58987100382184",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+]
 reached_by = [
-    "#32",
-    "#34",
-    "#43",
+    "#33",
+    "#35",
     "#44",
     "#45",
     "#46",
     "#47",
-    "#117",
-    "#147",
+    "#48",
+    "#118",
     "#148",
     "#149",
     "#150",
     "#151",
     "#152",
+    "#153",
 ]
 
 [[module."sup.rs".function]]
@@ -2778,7 +3523,11 @@ callees = [
     "fn:636ae5a21be9336b",
     "fn:89dc43a078f68cb7",
 ]
-reached_by = ["#117"]
+uses = [
+    "fn:5c58987100382184",
+    "fn:8d6cd763d46808ac",
+]
+reached_by = ["#118"]
 
 [[module."sup.rs".function]]
 id = "fn:e47f44b5ae14cb47"
@@ -2797,7 +3546,12 @@ callees = [
     "fn:636ae5a21be9336b",
     "fn:89dc43a078f68cb7",
 ]
-reached_by = ["#119"]
+uses = [
+    "fn:5c58987100382184",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+]
+reached_by = ["#120"]
 
 [[module."sup.rs".function]]
 id = "fn:0cc553a6337fc7c4"
@@ -2824,6 +3578,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."sup.rs".function]]
@@ -2847,6 +3608,10 @@ callees = [
     "fn:d6a9c884aaeb7775",
     "fn:eae24a63871d2132",
 ]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:f354cdd32c8e9ebe",
+]
 test = true
 
 [[module."sup.rs".function]]
@@ -2866,6 +3631,7 @@ callees = [
     "fn:5602d1fee503f549",
     "fn:636e75b664f14254",
 ]
+uses = ["fn:7aa70dd1c009cc88"]
 test = true
 
 [[module."sup.rs".function]]
@@ -2891,6 +3657,12 @@ callees = [
     "fn:acfb0f2d7b950994",
     "fn:f15591cb2414a42f",
 ]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+    "fn:f354cdd32c8e9ebe",
+]
 test = true
 
 [[module."sup.rs".function]]
@@ -2910,5 +3682,10 @@ callees = [
     "fn:636e75b664f14254",
     "fn:9e501e5f4cce23ae",
     "fn:e47f44b5ae14cb47",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
 ]
 test = true

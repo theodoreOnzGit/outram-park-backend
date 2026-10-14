@@ -8,7 +8,8 @@
 //! ```text
 //! index.json      SplitIndex: every crate's counts and file size, and every
 //!                 review stamp's state (small)
-//! <crate>.json    CrateSlice: the crate's targets, module tree and functions
+//! <crate>.json    CrateSlice: the crate's targets, module tree, functions
+//!                 and (schema 4, #843) types and constants
 //!                 WITHOUT source text, the calls into and out of it, the
 //!                 module and crate aggregates touching it, and a per-file
 //!                 `links` slot (empty for now)
@@ -105,6 +106,9 @@ pub struct CrateSlice {
     pub site_base: Option<String>,
     /// One per module file, sorted by file.
     pub files: Vec<SourceFile>,
+    /// Schema 4 (#843): the item uses whose user or item is in this crate.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub uses: Vec<Call>,
 }
 
 /// Per-file data of a [`CrateSlice`].
@@ -216,7 +220,8 @@ pub struct SearchIndex {
 pub struct SearchModule(pub usize, pub String, pub String);
 
 /// `(module index, id after "<file>::", line)`: the function id is
-/// `"{file}::{suffix}"`. Test functions are left out.
+/// `"{file}::{suffix}"`. Test functions are left out. Since schema 4 (#843)
+/// a module's types and constants follow its functions.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SearchFn(pub usize, pub String, pub u32);
 
@@ -230,7 +235,7 @@ impl SearchIndex {
                 for m in t.modules.iter().filter(|m| !m.test) {
                     let mi = ix.modules.len();
                     ix.modules.push(SearchModule(ci, m.file.clone(), m.path.clone()));
-                    for f in m.functions.iter().filter(|f| !f.test) {
+                    for f in m.functions.iter().chain(m.items.iter()).filter(|f| !f.test) {
                         let suffix = f.id.strip_prefix(&format!("{}::", m.file)).unwrap_or(&f.id).to_string();
                         ix.functions.push(SearchFn(mi, suffix, f.line));
                     }
@@ -250,7 +255,7 @@ pub fn split(doc: &CallGraphDoc) -> Vec<CrateSlice> {
         for t in c.targets.iter().chain(c.tests.iter()) {
             for m in &t.modules {
                 file_crate.insert(m.file.as_str(), c.name.as_str());
-                for f in &m.functions {
+                for f in m.functions.iter().chain(m.items.iter()) {
                     fn_crate.insert(f.id.as_str(), c.name.as_str());
                 }
             }
@@ -274,7 +279,7 @@ pub fn split(doc: &CallGraphDoc) -> Vec<CrateSlice> {
             for t in krate.targets.iter_mut().chain(krate.tests.iter_mut()) {
                 for m in &mut t.modules {
                     files.push(SourceFile { file: m.file.clone(), links: Vec::new() });
-                    for f in &mut m.functions {
+                    for f in m.functions.iter_mut().chain(m.items.iter_mut()) {
                         f.source.clear();
                     }
                 }
@@ -291,6 +296,7 @@ pub fn split(doc: &CallGraphDoc) -> Vec<CrateSlice> {
                 commit: doc.commit.clone(),
                 site_base: doc.site_base.clone(),
                 files,
+                uses: doc.uses.iter().filter(|k| touches_fn(&k.from) || touches_fn(&k.to)).cloned().collect(),
             }
         })
         .collect()
@@ -376,5 +382,44 @@ mod tests {
         assert_eq!(index.crates[0].bytes as usize, a[0].1.len());
         let back: CrateSlice = serde_json::from_str(&a[0].1).unwrap();
         assert_eq!(&back, app);
+    }
+
+    /// Methodology (#843): give the fixture's first `app` module one item
+    /// (a struct, built by [`super::super::items::items_of`]) and split.
+    /// Pass: the item is in the slice with its lines and signature and no
+    /// source text; the search index lists it after the module's functions;
+    /// the slice and the whole document round-trip through JSON; and a
+    /// document with no items serialises with no `items` or `shape` key at
+    /// all, so data written before schema 4 is unchanged in form.
+    ///
+    /// Result (2026-10-13): passes.
+    #[test]
+    fn items_are_split_without_source_and_searchable() {
+        let (mut crates, calls, outside) = fixture();
+        let plain = CallGraphDoc::assemble(crates.clone(), calls.clone(), outside.clone(), 0);
+        let plain_json = serde_json::to_string(&plain).unwrap();
+        assert!(!plain_json.contains("\"items\"") && !plain_json.contains("\"shape\""));
+        let file = crates[0].targets[0].modules[0].file.clone();
+        let items = super::super::items::items_of(&file, "/// A ball.\npub struct Ball {\n    r: f64,\n}\n", &BTreeSet::new(), false);
+        assert_eq!(items.len(), 1);
+        let app = crates.iter_mut().find(|c| c.name == "app").unwrap();
+        let m = app.targets[0].modules.iter_mut().find(|m| m.file == file).unwrap();
+        m.items = items;
+        let doc = CallGraphDoc::assemble(crates, calls, outside, 0);
+        assert_eq!(doc.items().count(), 1);
+        let back: CallGraphDoc = serde_json::from_str(&serde_json::to_string(&doc).unwrap()).unwrap();
+        assert_eq!(back, doc);
+        let parts = split(&doc);
+        let it: Vec<&super::super::Function> =
+            parts[0].krate.targets.iter().flat_map(|t| &t.modules).flat_map(|m| &m.items).collect();
+        assert_eq!(it.len(), 1);
+        assert_eq!(it[0].id, format!("{file}::Ball"));
+        assert!(it[0].source.is_empty());
+        assert_eq!((it[0].start_line, it[0].line, it[0].end_line), (1, 2, 4));
+        assert_eq!(it[0].signature, "pub struct Ball {");
+        let search = SearchIndex::build(&doc);
+        assert!(search.functions.iter().any(|f| f.1 == "Ball" && search.modules[f.0].1 == file));
+        let text = to_json(&parts[0]);
+        assert_eq!(serde_json::from_str::<CrateSlice>(&text).unwrap(), parts[0]);
     }
 }

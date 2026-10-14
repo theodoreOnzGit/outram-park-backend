@@ -149,9 +149,17 @@ impl IncoherentInelastic {
         }
         let tev = BK_EV_PER_K * temp_k;
         let a_mass = self.mass_ratio();
-
-        let beta = (ep - e) / tev; // signed β (physical)
-        let alpha = (e + ep - 2.0 * mu * (e * ep).sqrt()) / (a_mass * tev); // physical α
+        // `sig`'s own arithmetic (`thermr.f90:2504-2510`), operation for
+        // operation: `rtev = 1/tev`, `bb = (ep-e)*rtev`, `a` floored at
+        // `amin = 1e-6`, `sigc = sqrt(ep/e)*rtev/2` (GitHub #865).
+        const AMIN: f64 = 1.0e-6;
+        let rtev = 1.0 / tev;
+        let beta = (ep - e) * rtev; // signed β (physical)
+        let mut alpha = (e + ep - 2.0 * mu * (e * ep).sqrt()) / (a_mass * tev); // physical α
+        if alpha < AMIN {
+            alpha = AMIN;
+        }
+        let sigc = (ep / e).sqrt() * rtev / 2.0;
 
         // LAT=1: the table is stored at kT₀, so scale the lookup variables.
         let (a_tab, b_tab) = if self.lat == 1 {
@@ -168,7 +176,7 @@ impl IncoherentInelastic {
             .unwrap_or(0.0);
         let beta_max = self.beta.last().copied().unwrap_or(0.0);
         if a_tab > alpha_max || b_tab > beta_max {
-            return self.sct_double_differential(e, ep, mu, temp_k, natom);
+            return self.sct_double_differential(e, ep, a_tab, b_tab, temp_k, natom);
         }
 
         // NJOY's liquid small-α branch (`thermr.f90` `sig`, the test just before
@@ -180,12 +188,10 @@ impl IncoherentInelastic {
         //
         // under four conditions: `cliq ≠ 0`, `α < α₁`, `LASYM = 0`, and `|β| ≤ 0.2`.
         if let Some(s) = self.liquid_small_alpha_ln_s(tables, a_tab, b_tab) {
+            // Label 160: `sig = 0; if (s-bb/2 > sabflg) sig = exp(s-bb/2)`.
             let arg = s - beta / 2.0;
-            if arg > 20.0 {
-                return 0.0;
-            }
-            let sigc = (ep / e).sqrt() / (2.0 * tev);
-            let sig = sigc * self.sigma_bound(natom) * arg.exp();
+            let x = if arg > SABFLG { arg.exp() } else { 0.0 };
+            let sig = sigc * self.sigma_bound(natom) * x;
             return if sig.is_finite() && sig > 0.0 {
                 sig
             } else {
@@ -212,19 +218,21 @@ impl IncoherentInelastic {
         // That is a Gaussian tail where the evaluation says essentially nothing,
         // i.e. weight added where NJOY has none. See GitHub #188.
         if self.floored_corner(tables, a_tab, b_tab) {
-            return self.sct_double_differential(e, ep, mu, temp_k, natom);
+            return self.sct_double_differential(e, ep, a_tab, b_tab, temp_k, natom);
         }
         let ln_s = self.interp_ln_s(tables, a_tab, b_tab);
-        // ln of the detailed-balance factor S̃·exp(−β/2). A large positive value
-        // means deep downscatter into the many-phonon tail where S̃ has fallen
-        // below the numerical floor — the physical product is negligible, but
-        // exp(−β/2) would overflow first, so treat it as zero.
+        // ln of the detailed-balance factor S̃·exp(−β/2). ~~A large positive
+        // value means deep downscatter into the many-phonon tail where S̃ has
+        // fallen below the numerical floor — the physical product is
+        // negligible, but exp(−β/2) would overflow first, so treat it as zero.~~
+        //
+        // ~~`arg > 20` returned zero~~ **CORRECTED 2026-10-14 (GitHub #865)**:
+        // upstream has no such cap (label 160 is `sig = 0; if (s-bb/2 >
+        // sabflg) sig = exp(s-bb/2)`), and the floored-corner gate above
+        // already sends deep downscatter to the SCT kernel.
         let arg = ln_s - beta / 2.0;
-        if arg > 20.0 {
-            return 0.0;
-        }
-        let sigc = (ep / e).sqrt() / (2.0 * tev);
-        let sig = sigc * self.sigma_bound(natom) * arg.exp();
+        let x = if arg > SABFLG { arg.exp() } else { 0.0 };
+        let sig = sigc * self.sigma_bound(natom) * x;
         if sig.is_finite() && sig > 0.0 {
             sig
         } else {
@@ -261,22 +269,29 @@ impl IncoherentInelastic {
     /// THERMR) so `σ_b2 = 0` and only the principal term contributes. Because the
     /// secondary `T_eff2` table is not retained, a nonzero secondary term is
     /// skipped with its share dropped — see the module caveats.
-    fn sct_double_differential(&self, e: f64, ep: f64, mu: f64, temp_k: f64, natom: f64) -> f64 {
-        const AMIN: f64 = 1.0e-6;
+    ///
+    /// `a_tab`, `b_tab` are the table variables the caller looked up with (α
+    /// floored at `amin`, and scaled by `kT/kT₀` when `LAT = 1`); label 170
+    /// scales them back with `b*tevz*rtev`, `a*tevz*rtev`, which is not the
+    /// physical value to the last bit. ~~Recomputed α and β from `e`, `ep`,
+    /// `mu`.~~ **CORRECTED 2026-10-14 (GitHub #865)**: that differed from
+    /// NJOY2016's `sig` by up to 2e-14 on Al-27 (LAT = 1).
+    fn sct_double_differential(&self, e: f64, ep: f64, a_tab: f64, b_tab: f64, temp_k: f64, natom: f64) -> f64 {
         let tev = BK_EV_PER_K * temp_k;
-        let a_mass = self.mass_ratio();
         let rtev = 1.0 / tev;
         let bb = (ep - e) * rtev; // signed β
-        let mut a = (e + ep - 2.0 * mu * (e * ep).sqrt()) / (a_mass * tev); // physical α
-        if a < AMIN {
-            a = AMIN;
-        }
-        let b = bb.abs(); // |β|
+        let (a, b) = if self.lat == 1 {
+            (a_tab * TEVZ * rtev, b_tab * TEVZ * rtev)
+        } else {
+            (a_tab, b_tab)
+        };
         let sigc = (ep / e).sqrt() * rtev / 2.0;
         let c = (4.0 * std::f64::consts::PI).sqrt();
 
         // Principal scatterer (thermr.f90 lines 2584–2587).
-        let teff = self.teff_ev(temp_k); // T_eff in eV
+        // T_eff in eV, at the requested temperature where calcem reads it
+        // there (`IncoherentInelastic::teff_request_k`, GitHub #866).
+        let teff = self.teff_ev(self.teff_request_k.unwrap_or(temp_k));
         let arg = (a - b).powi(2) * tev / (4.0 * a * teff) + (b + bb) / 2.0;
         let mut sig = 0.0;
         if -arg > SABFLG {
@@ -685,7 +700,7 @@ impl IncoherentInelastic {
         if t0.alpha.len() < 2 || self.beta.len() < 2 {
             return None;
         }
-        let ln = |v: f64| if v > 0.0 { v.ln() } else { SABFLG };
+        let ln = |v: f64| if v > SABFLG.exp() { v.ln() } else { SABFLG };
         let (s11, s21, s12) = (ln(t0.s[0]), ln(t0.s[1]), ln(t1.s[0]));
         if !(s11 > s21) {
             return None; // cliq = 0: not the diffusive case
@@ -757,18 +772,28 @@ fn interp_linear(table: &[(f64, f64)], arg: f64) -> f64 {
             if (x1 - x0).abs() < 1e-30 {
                 y0
             } else {
-                y0 + (arg - x0) / (x1 - x0) * (y1 - y0)
+                // `terp1`'s grouping (`endf.f90:1431`), which `terpa` uses
+                // for `T_eff` (`thermr.f90:1833`). ~~`(arg-x0)/(x1-x0)*(y1-y0)`~~
+                // **CORRECTED 2026-10-14 (GitHub #866)**: identical at a
+                // tabulated temperature, an ulp apart between them.
+                y0 + (arg - x0) * (y1 - y0) / (x1 - x0)
             }
         }
     }
 }
 
 /// ENDF interpolation law 2 (lin-lin) on `(x, y)` — here `y` is always `ln S`.
+///
+/// Upstream `terp1` (`endf.f90:1420-1431`), guards and grouping included:
+/// `y1 + (x-x1)*(y2-y1)/(x2-x1)`. ~~`y1 + (y2-y1)*(x-x1)/(x2-x1)` behind a
+/// `1e-30` width test~~ **CORRECTED 2026-10-14 (GitHub #865)**: the same
+/// algebra rounds differently, and on THERMR's adaptive grids that moved
+/// emission cosines by 1e-8 against NJOY2016.
 fn terp1_lin_lin(x1: f64, y1: f64, x2: f64, y2: f64, x: f64) -> f64 {
-    if (x2 - x1).abs() < 1.0e-30 {
+    if x2 == x1 || y2 == y1 || x == x1 {
         return y1;
     }
-    y1 + (y2 - y1) * (x - x1) / (x2 - x1)
+    y1 + (x - x1) * (y2 - y1) / (x2 - x1)
 }
 
 /// ENDF interpolation law 3 (lin-log): `y` linear in `ln x`.
@@ -776,11 +801,11 @@ fn terp1_lin_log(x1: f64, y1: f64, x2: f64, y2: f64, x: f64) -> f64 {
     if !(x > 0.0 && x1 > 0.0 && x2 > 0.0) {
         return terp1_lin_lin(x1, y1, x2, y2, x);
     }
-    let (l1, l2, lx) = (x1.ln(), x2.ln(), x.ln());
-    if (l2 - l1).abs() < 1.0e-30 {
+    // Upstream `terp1`'s law 3 (`endf.f90:1435`), as for law 2 above.
+    if x2 == x1 || y2 == y1 || x == x1 {
         return y1;
     }
-    y1 + (y2 - y1) * (lx - l1) / (l2 - l1)
+    y1 + (x / x1).ln() * (y2 - y1) / (x2 / x1).ln()
 }
 
 /// **`terpq` — the three-point interpolation NJOY uses for `ln S(α,β)` on both
@@ -869,7 +894,8 @@ fn interp_alpha_ln_s(table: &AlphaTable, a: f64) -> f64 {
     if n == 0 {
         return SABFLG;
     }
-    let ln = |v: f64| if v > 0.0 { v.ln() } else { SABFLG };
+    // `thermr.f90:1748-1751`: `log(S)` above `sabmin = exp(sabflg)`, else `sabflg`.
+    let ln = |v: f64| if v > SABFLG.exp() { v.ln() } else { SABFLG };
     if a >= alpha[n - 1] {
         return SABFLG;
     }

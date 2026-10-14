@@ -2,16 +2,274 @@ schema_version = 1
 kind = "code_folder"
 crate = "tampines-steam-tables"
 dir = "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/reference_data"
-test_ids = ["crates/tampines-steam-tables/examples/tampines-steam-tables-gui/reference_data/mod.rs::row_counts_match_fixtures"]
+test_ids = [
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/app.rs::default_app_state_yields_finite_plottable_data_on_every_tab",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/export.rs::export_style_palette_reaches_the_rendered_png",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/export.rs::scenes_assemble_with_finite_ranges_and_the_required_caveats",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/export.rs::write_single_file_writes_the_exact_path_and_rejects_csv",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure/csv_export.rs::csv_export_is_byte_reproducible",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::every_reference_layer_yields_points",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::isobar_and_isotherm_layers_pair_their_line_with_published_wagner_crosses",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::layer_selection_restricts_which_isobars_and_isotherms_are_drawn",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::legend_groups_collapse_the_families_issue_26_names",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::tabulated_single_phase_axis_toggle_works_on_every_diagram",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::tabulated_single_phase_pairs_a_smooth_curve_where_not_degenerate",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::wagner_single_phase_points_respect_the_isobar_isotherm_selection",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/main.rs::headless_export_writes_valid_files_for_all_four_diagrams",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/reference_data/mod.rs::no_dataset_carries_a_non_finite_number",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/reference_data/mod.rs::row_counts_match_fixtures",
+]
 
 [module."edwards.rs"]
 path = "example:tampines-steam-tables-gui::reference_data::edwards"
 
+[[module."edwards.rs".function]]
+id = "fn:0a4ef8ccf0e05ee9"
+name = "EDWARDS_P_INIT_PA"
+qual = "EDWARDS_P_INIT_PA"
+item = "const"
+shape = "const"
+lines = [
+    47,
+    48,
+]
+hash = "sha256:3f78f3a9420db0ee8a0dba2bc623dfb9f6f5f11617d38c5393ae700540c95375"
+doc_hash = "sha256:2de5878499f4ab97c3b0bf45af1ecb7b5fdd1e7e0f3b0c9af5edf5888291661b"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."edwards.rs".function]]
+id = "fn:d2dfec0e1fcd0623"
+name = "EDWARDS_P_AMBIENT_PA"
+qual = "EDWARDS_P_AMBIENT_PA"
+item = "const"
+shape = "const"
+lines = [
+    49,
+    50,
+]
+hash = "sha256:a5a1d664beeddba9b88697920f359953e84413e56cc397d10561f2de4dbaa617"
+doc_hash = "sha256:3d980848bfe5762307de424f5f021295055a29400e2db120e41881d754c65a48"
+
+[[module."edwards.rs".function]]
+id = "fn:b596781aa4f5067a"
+name = "EDWARDS_PIPE_LENGTH_M"
+qual = "EDWARDS_PIPE_LENGTH_M"
+item = "const"
+shape = "const"
+lines = [
+    51,
+    52,
+]
+hash = "sha256:0ff75259f76b6d3cb73d6da1838909cca280368d3472bc8b394549bf0162a658"
+doc_hash = "sha256:66f43fc893ee40d5f5e6320993db57cc20fdd9436559ccb34152251f5ba1ec83"
+
+[[module."edwards.rs".function]]
+id = "fn:6e32528bcac65ae9"
+name = "EDWARDS_PIPE_ID_M"
+qual = "EDWARDS_PIPE_ID_M"
+item = "const"
+shape = "const"
+lines = [
+    53,
+    54,
+]
+hash = "sha256:e840d7c089eb76a15831c387097f5ab94fbb383ff1ba2b51e0edc15c7371347f"
+doc_hash = "sha256:170c80898a712c10d16c3417d05690c2db6cee273fb98bef71cf877aa55fc0d0"
+
+[[module."edwards.rs".function]]
+id = "fn:0c8f0e3a695ca682"
+name = "EDWARDS_NODE_CENTRE_FT"
+qual = "EDWARDS_NODE_CENTRE_FT"
+item = "const"
+shape = "const"
+lines = [
+    56,
+    61,
+]
+hash = "sha256:2715b7df0bbdd2c683428e81f8c48d0a22e2632937094bc6dc1c75a85df48f69"
+doc_hash = "sha256:a444c39eb511af349a886ebcb837847e33ee9ba3eacbe18b1e70ae54c200f499"
+reached_by = ["#14"]
+
+[[module."edwards.rs".function]]
+id = "fn:205ab34db324daef"
+name = "EDWARDS_NODE_T_DEGF"
+qual = "EDWARDS_NODE_T_DEGF"
+item = "const"
+shape = "const"
+lines = [
+    63,
+    68,
+]
+hash = "sha256:c992074aeb49f2d63b60ee2ab148a2a0816ae723515539396f2b36be71846cb2"
+doc_hash = "sha256:180c17092bf4ad51907ec29abf51d8272da386b2433e3252fde607dac94ecb69"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."edwards.rs".function]]
+id = "fn:3d4cc60c82ac8b0e"
+name = "EDWARDS_GS1_DATA_PSIA"
+qual = "EDWARDS_GS1_DATA_PSIA"
+item = "const"
+shape = "const"
+lines = [
+    70,
+    91,
+]
+hash = "sha256:d533487d6ef48a1b7b41fecf4ec8100c01e6802ac1e4f9a7912c73383db52b7e"
+doc_hash = "sha256:d2f32bb9ca3901c8ab8bc748acc8d7aaab2ad573a774ff0b155e132149d7e636"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
 [module."marviken.rs"]
 path = "example:tampines-steam-tables-gui::reference_data::marviken"
 
+[[module."marviken.rs".function]]
+id = "fn:caba4b02455cdb07"
+name = "MarvikenTest"
+qual = "MarvikenTest"
+item = "type"
+shape = "struct"
+lines = [
+    51,
+    66,
+]
+hash = "sha256:ea2e87e1286a769b005767e9cea15556d7f8d16d8af8fdba28ccb685152e555a"
+doc_hash = "sha256:7ebf188a8c341eb179a7b8b8abd6ba844be35e81fd35e08fbca8ac3a9a5e37ce"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."marviken.rs".function]]
+id = "fn:9c9f6b5772be64a9"
+name = "MARVIKEN_NOZZLE_BORE_MM"
+qual = "MARVIKEN_NOZZLE_BORE_MM"
+item = "const"
+shape = "const"
+lines = [
+    68,
+    69,
+]
+hash = "sha256:9aed2d960a1b837000b5ec951cb30d95cbca17697417dbeb871d58ec0948338d"
+doc_hash = "sha256:843e6c149f7b4a6c90b7670a5771b67fd6ceaa7f72ba65e76f5ceca1e38ee2a5"
+
+[[module."marviken.rs".function]]
+id = "fn:373db5177d961717"
+name = "MARVIKEN_NOZZLE_LENGTH_MM"
+qual = "MARVIKEN_NOZZLE_LENGTH_MM"
+item = "const"
+shape = "const"
+lines = [
+    70,
+    71,
+]
+hash = "sha256:854d55f714b21dd821f21ac29ab7fd764e90f451c45c98d8906a87d8a1405cb5"
+doc_hash = "sha256:f61866a1ed6996334dd0f49c3deb7016fae82ec663acb9c4f669caa19ad76f82"
+
+[[module."marviken.rs".function]]
+id = "fn:ab016e76d335205e"
+name = "MARVIKEN_TESTS"
+qual = "MARVIKEN_TESTS"
+item = "const"
+shape = "const"
+lines = [
+    73,
+    160,
+]
+hash = "sha256:364ed5d67e64a1773660bd521bb52ef4146bfa78b93dc7a9d87f25318bcf2002"
+doc_hash = "sha256:02ca401d4b4ab2a836d5b31bd0e84e28c4384a57ce790c90c31da401738fd677"
+uses = ["fn:caba4b02455cdb07"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
 [module."mod.rs"]
 path = "example:tampines-steam-tables-gui::reference_data"
+
+[[module."mod.rs".function]]
+id = "fn:d6ed71a2740fc3e7"
+name = "PINNED_ROW_COUNTS"
+qual = "PINNED_ROW_COUNTS"
+item = "const"
+shape = "const"
+lines = [
+    73,
+    106,
+]
+hash = "sha256:57c1f6d177e72a062b34cc9b3c917a88ca2bd0688cc8fecc74fdcbf3dbc58c2f"
+doc_hash = "sha256:1d7929b23f8e1a4465d6a6f84c31fe462c469baa6fd63227dbde72363102e65f"
+test = true
 
 [[module."mod.rs".function]]
 id = "fn:cb4f20ba4fbe695f"
@@ -23,7 +281,8 @@ lines = [
 ]
 hash = "sha256:8dfe1693b8628d712cfac7d3737ceddad9c57dd373d504f2d23afde35596860d"
 doc_hash = "sha256:7c8f610d69a90f590272c5662fce5b03745aea7bcdad9861bb743494084ff882"
-reached_by = ["#0"]
+uses = ["fn:d6ed71a2740fc3e7"]
+reached_by = ["#14"]
 
 [[module."mod.rs".function]]
 id = "fn:b686e4df475d65af"
@@ -36,6 +295,16 @@ lines = [
 hash = "sha256:09260da0b845b98fe9e54d9d3c937a7e81422b724c1a33f8a278e8f5c85efedb"
 doc_hash = "sha256:6ded7ffe8478ee72fcceeeb50f18b598c02778b0d4f5e4bbe155cdcf0c47d491"
 callees = ["fn:cb4f20ba4fbe695f"]
+uses = [
+    "fn:071235936e616598",
+    "fn:0c8f0e3a695ca682",
+    "fn:205ab34db324daef",
+    "fn:3d4cc60c82ac8b0e",
+    "fn:ab016e76d335205e",
+    "fn:b27a75f1fe3a3f55",
+    "fn:db3887c86baa3454",
+    "fn:f5b72b5b0f19602c",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -48,13 +317,228 @@ lines = [
 ]
 hash = "sha256:bac3e012a0c45ccb335194ac218167f10e7a9045c4d55e260f2ddebe15391250"
 doc_hash = "sha256:cb80fa6656a13c1d42d02a657e6809249f8b9ddf88a4c94586744fbbf16cafa0"
+uses = [
+    "fn:071235936e616598",
+    "fn:205ab34db324daef",
+    "fn:3d4cc60c82ac8b0e",
+    "fn:ab016e76d335205e",
+    "fn:b27a75f1fe3a3f55",
+    "fn:db3887c86baa3454",
+    "fn:f5b72b5b0f19602c",
+]
 test = true
 
 [module."moody.rs"]
 path = "example:tampines-steam-tables-gui::reference_data::moody"
+
+[[module."moody.rs".function]]
+id = "fn:d0115701dfb1edd4"
+name = "MoodyIsobar"
+qual = "MoodyIsobar"
+item = "type"
+shape = "struct"
+lines = [
+    50,
+    61,
+]
+hash = "sha256:8fb8d639fb12b8ea228dca8af370b209d6c5d60960f4b1d9afe2ac5b1762de2f"
+doc_hash = "sha256:d3f05376bb05acadac5c701069b25221935f4d68a3f6df066faf654b17ee61b0"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."moody.rs".function]]
+id = "fn:1977860828fae28c"
+name = "MOODY_P_REF_PSI"
+qual = "MOODY_P_REF_PSI"
+item = "const"
+shape = "const"
+lines = [
+    63,
+    64,
+]
+hash = "sha256:25b0b6b5855bff81efdd2c33e76639d4f6b12b2a83c4f0341a39d6b3275a474f"
+doc_hash = "sha256:ac96ff02ebd5674742e37d2af8f3a5da700fcc5378e87c6bb8f6a4c1f7d2ccd5"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."moody.rs".function]]
+id = "fn:e261a3126da58c5c"
+name = "MOODY_H_REF_BTU_IT_PER_LB"
+qual = "MOODY_H_REF_BTU_IT_PER_LB"
+item = "const"
+shape = "const"
+lines = [
+    65,
+    66,
+]
+hash = "sha256:25b0b6b5855bff81efdd2c33e76639d4f6b12b2a83c4f0341a39d6b3275a474f"
+doc_hash = "sha256:edf08b32cb1c84e1ab9b61275d4d2647306319a7401653da37963e888b7280c5"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."moody.rs".function]]
+id = "fn:d25465bbe5d67f0a"
+name = "MOODY_G_REF_LB_PER_S_PER_FT2"
+qual = "MOODY_G_REF_LB_PER_S_PER_FT2"
+item = "const"
+shape = "const"
+lines = [
+    67,
+    68,
+]
+hash = "sha256:d352b8523df2246bb8d69c3282d04a94301d71e3083bc458e54f1b0b4c4140cf"
+doc_hash = "sha256:8248ebd1a714aa16028dd0b2503e4d22fdc2e1ffc48ec27abc010989bfefe444"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."moody.rs".function]]
+id = "fn:071235936e616598"
+name = "MOODY_ISOBARS"
+qual = "MOODY_ISOBARS"
+item = "const"
+shape = "const"
+lines = [
+    70,
+    471,
+]
+hash = "sha256:4642c23ec896f3d63cdf10024da3a646f626dd54576af9940c89daa48b5e1741"
+doc_hash = "sha256:f487cebae26c4369154ba08e517e7b70e09762ab6381c8fd07bdfa646161bbab"
+uses = ["fn:d0115701dfb1edd4"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
 
 [module."wagner.rs"]
 path = "example:tampines-steam-tables-gui::reference_data::wagner"
 
 [module."zaloudek.rs"]
 path = "example:tampines-steam-tables-gui::reference_data::zaloudek"
+
+[[module."zaloudek.rs".function]]
+id = "fn:4c1d38b00ad2baf4"
+name = "ZaloudekQualityCurve"
+qual = "ZaloudekQualityCurve"
+item = "type"
+shape = "struct"
+lines = [
+    49,
+    58,
+]
+hash = "sha256:b94e987467dd78625f4c9fb694e0346c5dfd80321da8d6ef232644ae0393d348"
+doc_hash = "sha256:2ac365a79f403419fe8ca54650ca964521b5a7af12bc61f7747ccd16b9e9b9b6"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."zaloudek.rs".function]]
+id = "fn:b27a75f1fe3a3f55"
+name = "ZALOUDEK_CURVES"
+qual = "ZALOUDEK_CURVES"
+item = "const"
+shape = "const"
+lines = [
+    60,
+    545,
+]
+hash = "sha256:d5d05c9174f7b416c3fcabb67f814bae991a90185b4bbbfd15ccdada93f047b3"
+doc_hash = "sha256:8d16e590d65655524d3497be6eac530fad79577e1f4aefb17289ed636701c6db"
+uses = ["fn:4c1d38b00ad2baf4"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]

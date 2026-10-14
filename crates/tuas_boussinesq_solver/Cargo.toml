@@ -31,6 +31,7 @@ row = 2
 topic = "thermal-hydraulics"
 fidelity = 1
 maturity = 4
+backronym = "Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows"
 
 [features]
 # `long-tests` gates the individual tests that measure over 5 minutes, and is

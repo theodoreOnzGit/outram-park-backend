@@ -3,14 +3,80 @@ kind = "code_folder"
 crate = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan"
 dir = "crates/kovan/src/save_push"
 test_ids = [
+    "crates/kovan/src/app/advanced_git_view.rs::a_background_job_is_recorded_when_it_finishes_and_not_before",
+    "crates/kovan/src/app/advanced_git_view.rs::a_conflicted_pull_raises_the_prompt_and_says_nothing_in_red",
+    "crates/kovan/src/app/advanced_git_view.rs::a_forced_pull_names_the_branch_the_unpushed_saves_were_kept_on",
+    "crates/kovan/src/app/advanced_git_view.rs::an_ordinary_failure_still_reports_an_error_and_offers_no_forced_pull",
+    "crates/kovan/src/app/advanced_git_view.rs::corpora_that_need_overriding_are_asked_about_one_at_a_time",
+    "crates/kovan/src/app/advanced_git_view.rs::drawing_the_prompt_without_answering_it_neither_pulls_nor_cancels",
+    "crates/kovan/src/app/advanced_git_view.rs::push_results_are_listed_per_repository_and_a_problem_is_red",
+    "crates/kovan/src/app/advanced_git_view.rs::the_commit_note_survives_everything_but_a_successful_save",
+    "crates/kovan/src/app/advanced_git_view.rs::the_git_status_is_read_off_the_gui_thread",
     "crates/kovan/src/app/advanced_git_view.rs::the_push_checkbox_reflects_the_library_setting",
     "crates/kovan/src/app/advanced_git_view.rs::thousands_of_changes_do_not_push_the_save_button_off_screen",
+    "crates/kovan/src/app/axes_lock_tests.rs::a_new_figure_starts_unlocked_and_incomplete_axes_cannot_be_locked",
+    "crates/kovan/src/app/axes_lock_tests.rs::a_new_image_unlocks_and_a_restored_digitisation_comes_back_locked",
+    "crates/kovan/src/app/axes_lock_tests.rs::relocking_moved_axes_rereads_every_point_through_them",
     "crates/kovan/src/app/code_review_view.rs::a_pending_request_is_held_and_drawn_headless",
+    "crates/kovan/src/app/code_review_view.rs::an_entry_chosen_on_the_mindmap_is_remembered_until_the_data_is_ready",
     "crates/kovan/src/app/code_review_view.rs::organisations_window_and_attestation_picker_draw_headless",
     "crates/kovan/src/app/code_review_view.rs::review_mode_replaces_the_map_headless",
     "crates/kovan/src/app/code_review_view.rs::the_reconfirm_step_draws_the_callee_diff_headless",
     "crates/kovan/src/app/code_review_view.rs::the_stamp_dialog_opens_and_draws_every_step_headless",
+    "crates/kovan/src/app/edit_digitisation_tests.rs::a_changed_range_recomputes_only_after_explicit_confirmation",
+    "crates/kovan/src/app/edit_digitisation_tests.rs::a_failed_restore_keeps_the_saved_points_pending",
+    "crates/kovan/src/app/edit_digitisation_tests.rs::an_untouched_edit_after_a_hand_edited_header_keeps_every_value",
+    "crates/kovan/src/app/edit_digitisation_tests.rs::four_series_and_a_lone_early_point_survive_an_untouched_round_trip",
+    "crates/kovan/src/app/edit_digitisation_tests.rs::respelling_a_prefilled_range_is_not_a_change",
+    "crates/kovan/src/app/mod.rs::a_banked_series_is_what_gets_written_not_the_emptied_live_one",
+    "crates/kovan/src/app/mod.rs::a_corrected_range_rereads_restored_values_from_their_pixels",
+    "crates/kovan/src/app/mod.rs::a_deskew_is_recorded_as_a_resample",
+    "crates/kovan/src/app/mod.rs::a_new_image_clears_the_banked_series",
+    "crates/kovan/src/app/mod.rs::a_paper_with_an_unavailable_private_submodule_pdf_still_appears_in_the_knowledge_index",
+    "crates/kovan/src/app/mod.rs::a_paper_with_no_recorded_source_pdf_is_not_flagged_unavailable",
+    "crates/kovan/src/app/mod.rs::a_rotation_is_recorded_in_the_provenance_notes",
+    "crates/kovan/src/app/mod.rs::a_series_must_be_named_and_unique",
+    "crates/kovan/src/app/mod.rs::a_successful_save_returns_to_the_reader_and_a_failed_one_stays",
+    "crates/kovan/src/app/mod.rs::activate_paper_and_navigate_falls_back_to_kvim_editor_with_no_pdf",
+    "crates/kovan/src/app/mod.rs::activate_paper_and_navigate_lands_on_pdf_reader_when_a_pdf_is_present",
+    "crates/kovan/src/app/mod.rs::activate_paper_and_navigate_names_an_unready_private_submodule_as_the_likely_cause",
+    "crates/kovan/src/app/mod.rs::activate_paper_and_navigate_reports_a_missing_pdf_in_the_status_message",
+    "crates/kovan/src/app/mod.rs::activate_paper_fails_cleanly_with_no_root_open",
+    "crates/kovan/src/app/mod.rs::activate_paper_resolves_session_and_pdf_path",
+    "crates/kovan/src/app/mod.rs::activate_paper_succeeds_when_the_recorded_pdf_is_missing_locally",
+    "crates/kovan/src/app/mod.rs::all_series_counts_the_live_curve_only_once_it_has_points",
+    "crates/kovan/src/app/mod.rs::an_empty_optional_field_does_not_erase_what_the_crop_knew",
+    "crates/kovan/src/app/mod.rs::an_empty_series_cannot_be_banked",
+    "crates/kovan/src/app/mod.rs::banking_a_series_keeps_the_figure_and_clears_the_points",
+    "crates/kovan/src/app/mod.rs::editing_a_saved_graph_prefills_the_wizard_and_restores_its_series",
+    "crates/kovan/src/app/mod.rs::erase_near_removes_only_the_point_under_the_pointer",
+    "crates/kovan/src/app/mod.rs::load_image_from_raster_auto_fills_page_and_document_identity_from_the_active_paper",
+    "crates/kovan/src/app/mod.rs::load_image_from_raster_still_fills_page_with_no_active_paper",
+    "crates/kovan/src/app/mod.rs::opening_a_pdf_finds_its_paper_or_offers_ingest",
+    "crates/kovan/src/app/mod.rs::refresh_knowledge_populates_index_and_graph_from_the_real_library",
+    "crates/kovan/src/app/mod.rs::repo_save_fingerprint_changes_when_the_paper_markdown_is_written",
+    "crates/kovan/src/app/mod.rs::save_into_project_without_a_paper_says_to_ingest",
+    "crates/kovan/src/app/mod.rs::save_into_project_writes_into_the_active_papers_session_when_given_one",
+    "crates/kovan/src/app/mod.rs::saving_with_no_points_is_an_error_not_an_empty_artifact",
+    "crates/kovan/src/app/mod.rs::the_setup_form_autofills_the_digitiser_panel",
+    "crates/kovan/src/app/mod.rs::the_submodule_hint_is_silent_when_no_private_submodule_is_configured",
+    "crates/kovan/src/app/mod.rs::the_wizard_rotation_turns_the_raster_the_digitiser_will_use",
+    "crates/kovan/src/app/nav.rs::a_new_page_after_back_clears_forward_and_redraws_record_nothing",
+    "crates/kovan/src/app/nav.rs::kovan_opens_on_the_corpus_map",
+    "crates/kovan/src/app/nav.rs::switching_pages_records_steps_that_back_and_forward_retrace",
+    "crates/kovan/src/app/nav.rs::the_wiki_and_mindmap_share_one_concept_through_history",
     "crates/kovan/src/app/need_you_view.rs::the_panel_draws_every_row_kind_headless",
+    "crates/kovan/src/app/repo_management_view.rs::the_controls_draw_and_report_refusals_headless",
+    "crates/kovan/src/app/series_select.rs::a_rename_in_the_name_box_applies_to_the_live_series",
+    "crates/kovan/src/app/series_select.rs::an_empty_live_curve_is_not_banked",
+    "crates/kovan/src/app/series_select.rs::an_unnamed_or_duplicate_live_curve_blocks_the_switch",
+    "crates/kovan/src/app/series_select.rs::banking_a_mid_order_live_series_keeps_its_place",
+    "crates/kovan/src/app/series_select.rs::hopping_repeatedly_never_scrambles_the_order_or_loses_points",
+    "crates/kovan/src/app/series_select.rs::saving_after_hopping_writes_every_series_in_original_order",
+    "crates/kovan/src/app/series_select.rs::selecting_a_banked_series_makes_it_live_and_banks_the_old_live_one",
+    "crates/kovan/src/app/series_select.rs::selecting_the_live_series_is_a_no_op",
+    "crates/kovan/src/app/series_select.rs::the_picker_renders_headlessly",
+    "crates/kovan/src/code_connections.rs::only_a_function_with_a_valid_review_gets_a_connection",
     "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::a_proprietary_repository_is_never_pushed_to_a_public_remote",
     "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::a_repository_near_the_size_limit_is_warned_about",
     "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::a_writable_standard_repository_is_committed_and_pushed",
@@ -19,6 +85,7 @@ test_ids = [
     "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::ingest_goes_to_the_chosen_repository_and_records_it",
     "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::pulling_follows_every_repository",
     "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::save_and_push_each_repository_independently",
+    "crates/kovan/src/repo_management.rs::force_add_commit_push_takes_everything_but_ignored_files_and_never_main",
     "crates/kovan/src/save_push/safe_push/tests.rs::a_branch_that_is_not_checked_out_is_refused",
     "crates/kovan/src/save_push/safe_push/tests.rs::a_conflicting_remote_is_a_typed_error_and_the_local_commit_stays",
     "crates/kovan/src/save_push/safe_push/tests.rs::a_moved_remote_is_merged_and_pushed_keeping_the_local_commit",
@@ -47,31 +114,127 @@ test_ids = [
 path = "crate::save_push::safe_push"
 
 [[module."safe_push.rs".function]]
-id = "fn:81886391d41603c0"
-name = "fmt"
-qual = "SafePushError::fmt"
+id = "fn:51d0ea19d09bc062"
+name = "BranchRule"
+qual = "BranchRule"
+item = "type"
+shape = "enum"
 lines = [
-    96,
-    132,
+    47,
+    57,
 ]
-hash = "sha256:ec161bb42a888bdb85a0b8318ee137187f9869b87951040073e72745a57407e8"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+hash = "sha256:59521ca9cfe97283299ac389daa7265b4a4ad36de84ee9e32dc16332a351e6a7"
+doc_hash = "sha256:54cd778438bc2cfecb70d1277008f125e270bf96ff5d0475c0e9dfc32b7962ce"
+reached_by = [
+    "#9",
+    "#10",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#62",
+    "#63",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
 
 [[module."safe_push.rs".function]]
-id = "fn:4ef501a65bfe1741"
-name = "push_keeping_local"
-qual = "push_keeping_local"
+id = "fn:9db29482f70884dd"
+name = "SafePushOk"
+qual = "SafePushOk"
+item = "type"
+shape = "enum"
 lines = [
-    146,
-    210,
+    59,
+    68,
 ]
-hash = "sha256:8fa79d5a91bfdd6ea7503adc7c4cf1657ca96d71df9286931bb047f825d5e96d"
-doc_hash = "sha256:c713d72dcf614aa1387d43d96e440c1aeb9ddb31cf9815a1622a73ad819dd187"
-callees = [
-    "fn:5313a9e8344f1f52",
-    "fn:c40c60640b7f6287",
-    "fn:c557009ec7f8da6b",
+hash = "sha256:cba0e9545eaa5cba5469f62689588ebe4ce4cacb14c11c00e53ffdf000b6fd41"
+doc_hash = "sha256:1b6a9e210cd348788f0fdea6a5fa20afe1dcc071111713cf842b7db950e90286"
+reached_by = [
+    "#9",
+    "#10",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#62",
+    "#63",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
 ]
+
+[[module."safe_push.rs".function]]
+id = "fn:3c4a02d906ed1d99"
+name = "SafePushError"
+qual = "SafePushError"
+item = "type"
+shape = "enum"
+lines = [
+    70,
+    93,
+]
+hash = "sha256:aacbab40847b0d7cdfc966554db240d17db3519120fd4abd07c5412f85ff902d"
+doc_hash = "sha256:4e6d2118b890d5b0b341599aecc6f60afb4b563db7123529a2e932be8516eba8"
 reached_by = [
     "#0",
     "#1",
@@ -111,6 +274,204 @@ reached_by = [
     "#35",
     "#36",
     "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."safe_push.rs".function]]
+id = "fn:81886391d41603c0"
+name = "fmt"
+qual = "SafePushError::fmt"
+lines = [
+    96,
+    132,
+]
+hash = "sha256:41d10122ad02c0f4b8677864c60d621cae80c552f01589dc2a240aaf217ee040"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:3c4a02d906ed1d99"]
+
+[[module."safe_push.rs".function]]
+id = "fn:e3b595519faca618"
+name = "Attempt"
+qual = "Attempt"
+item = "type"
+shape = "enum"
+lines = [
+    137,
+    144,
+]
+hash = "sha256:edaa60c8b0dae20d60ad0ff2e676ca11f6623b9197ec05a439f161a5c0bdde84"
+doc_hash = "sha256:acb71b00a0c6c553056df4ef4727a0e18c59a01b0ee3fc71d5d83bc02f2e63d1"
+reached_by = [
+    "#9",
+    "#10",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#62",
+    "#63",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."safe_push.rs".function]]
+id = "fn:4ef501a65bfe1741"
+name = "push_keeping_local"
+qual = "push_keeping_local"
+lines = [
+    146,
+    210,
+]
+hash = "sha256:e95a55beffabb93fb81d2d786b5c2ebbbbf5435fdc5e22a165f0d04699349336"
+doc_hash = "sha256:c713d72dcf614aa1387d43d96e440c1aeb9ddb31cf9815a1622a73ad819dd187"
+callees = [
+    "fn:5313a9e8344f1f52",
+    "fn:c40c60640b7f6287",
+    "fn:c557009ec7f8da6b",
+]
+uses = [
+    "fn:3c4a02d906ed1d99",
+    "fn:51d0ea19d09bc062",
+    "fn:9db29482f70884dd",
+    "fn:e3b595519faca618",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#62",
+    "#63",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
 ]
 
 [[module."safe_push.rs".function]]
@@ -127,45 +488,48 @@ callees = [
     "fn:1f8cac8caefd5e27",
     "fn:c557009ec7f8da6b",
 ]
+uses = ["fn:3c4a02d906ed1d99"]
 reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
     "#9",
     "#10",
-    "#11",
-    "#12",
-    "#13",
     "#14",
-    "#15",
     "#16",
     "#17",
     "#18",
     "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
+    "#62",
+    "#63",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
 ]
 
 [[module."safe_push.rs".function]]
@@ -179,45 +543,48 @@ lines = [
 hash = "sha256:cdb9fe55b42193aa049df4cdecf846afedb6509693391522fdb4963ce79d8886"
 doc_hash = "sha256:3c9141cdd7774ecfed2441d07ba0b1f43ce1ebda0ae92709478306ae544ed503"
 callees = ["fn:1f8cac8caefd5e27"]
+uses = ["fn:e3b595519faca618"]
 reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
     "#9",
     "#10",
-    "#11",
-    "#12",
-    "#13",
     "#14",
-    "#15",
     "#16",
     "#17",
     "#18",
     "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
+    "#62",
+    "#63",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
 ]
 
 [module."tests.rs"]
@@ -275,6 +642,21 @@ callees = ["fn:a2c9f7008f4ce65c"]
 test = true
 
 [[module."tests.rs".function]]
+id = "fn:21bf35240c988ede"
+name = "Fixture"
+qual = "Fixture"
+item = "type"
+shape = "struct"
+lines = [
+    63,
+    70,
+]
+hash = "sha256:0954b857b21ced8e834e2805cef8950f337bac878f70eced7895579caf4e626a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:68e521da8942e95c"]
+test = true
+
+[[module."tests.rs".function]]
 id = "fn:d98833bfe010f8e2"
 name = "fixture"
 qual = "fixture"
@@ -299,6 +681,12 @@ callees = [
     "fn:d9332104f5e1b79f",
     "fn:ebbcd51a22060475",
 ]
+uses = [
+    "fn:21bf35240c988ede",
+    "fn:68e521da8942e95c",
+    "fn:c3ac0dde02ca5361",
+    "fn:e31225c0a738aeaa",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -315,6 +703,7 @@ callees = [
     "fn:39b8f2a919616378",
     "fn:a2c9f7008f4ce65c",
 ]
+uses = ["fn:68e521da8942e95c"]
 test = true
 
 [[module."tests.rs".function]]
@@ -353,6 +742,10 @@ callees = [
     "fn:d98833bfe010f8e2",
     "fn:db38b5d90c2f9e88",
     "fn:ebbcd51a22060475",
+]
+uses = [
+    "fn:660f7cd95750a993",
+    "fn:98fb6e3accec6d5c",
 ]
 test = true
 
@@ -405,6 +798,10 @@ callees = [
     "fn:ebbcd51a22060475",
     "fn:efddfd238f61878b",
 ]
+uses = [
+    "fn:660f7cd95750a993",
+    "fn:98fb6e3accec6d5c",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -432,6 +829,11 @@ callees = [
     "fn:ebbcd51a22060475",
     "fn:efddfd238f61878b",
 ]
+uses = [
+    "fn:3c4a02d906ed1d99",
+    "fn:660f7cd95750a993",
+    "fn:98fb6e3accec6d5c",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -454,6 +856,11 @@ callees = [
     "fn:a2c9f7008f4ce65c",
     "fn:d98833bfe010f8e2",
     "fn:ebbcd51a22060475",
+]
+uses = [
+    "fn:660f7cd95750a993",
+    "fn:68e521da8942e95c",
+    "fn:98fb6e3accec6d5c",
 ]
 test = true
 
@@ -478,6 +885,10 @@ callees = [
     "fn:d98833bfe010f8e2",
     "fn:ebbcd51a22060475",
 ]
+uses = [
+    "fn:660f7cd95750a993",
+    "fn:98fb6e3accec6d5c",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -499,6 +910,10 @@ callees = [
     "fn:d98833bfe010f8e2",
     "fn:ebbcd51a22060475",
 ]
+uses = [
+    "fn:660f7cd95750a993",
+    "fn:98fb6e3accec6d5c",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -519,6 +934,10 @@ callees = [
     "fn:d98833bfe010f8e2",
     "fn:ebbcd51a22060475",
 ]
+uses = [
+    "fn:660f7cd95750a993",
+    "fn:98fb6e3accec6d5c",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -536,6 +955,11 @@ callees = [
     "fn:92d95e990b30bedb",
     "fn:d98833bfe010f8e2",
     "fn:ebbcd51a22060475",
+]
+uses = [
+    "fn:660f7cd95750a993",
+    "fn:98fb6e3accec6d5c",
+    "fn:c3ac0dde02ca5361",
 ]
 test = true
 
@@ -555,6 +979,10 @@ callees = [
     "fn:c6db4464a242fe49",
     "fn:d98833bfe010f8e2",
     "fn:ebbcd51a22060475",
+]
+uses = [
+    "fn:660f7cd95750a993",
+    "fn:98fb6e3accec6d5c",
 ]
 test = true
 
@@ -630,6 +1058,11 @@ callees = [
     "fn:ebbcd51a22060475",
     "fn:efddfd238f61878b",
 ]
+uses = [
+    "fn:2d1f92a75509d0b8",
+    "fn:7028a8ac429bdd2d",
+    "fn:e13ced436621c36f",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -653,6 +1086,10 @@ callees = [
     "fn:d98833bfe010f8e2",
     "fn:efddfd238f61878b",
 ]
+uses = [
+    "fn:2d1f92a75509d0b8",
+    "fn:e13ced436621c36f",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -672,6 +1109,10 @@ callees = [
     "fn:c16a5e4ef0d685f0",
     "fn:c6db4464a242fe49",
     "fn:d98833bfe010f8e2",
+]
+uses = [
+    "fn:2d1f92a75509d0b8",
+    "fn:e13ced436621c36f",
 ]
 test = true
 
@@ -695,5 +1136,10 @@ callees = [
     "fn:a2c9f7008f4ce65c",
     "fn:c6db4464a242fe49",
     "fn:d98833bfe010f8e2",
+]
+uses = [
+    "fn:2d1f92a75509d0b8",
+    "fn:7028a8ac429bdd2d",
+    "fn:e13ced436621c36f",
 ]
 test = true

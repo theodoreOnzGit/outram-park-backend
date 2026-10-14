@@ -165,17 +165,28 @@ impl CodeReview {
         egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| {
             ui.spacing_mut().item_spacing = egui::vec2(0.0, 1.0);
             let first = f.start_line as usize;
-            for (k, line) in text.lines().enumerate().skip(first.saturating_sub(1)).take((f.end_line - f.start_line + 1) as usize) {
-                let n = k as u32 + 1;
+            // Syntax colours (#857): lexed from the function's first line,
+            // which is outside any block comment or string.
+            let shown: Vec<&str> = text.lines().skip(first.saturating_sub(1)).take((f.end_line - f.start_line + 1) as usize).collect();
+            let spans = crate::syntax::language_of(&file).map(|l| crate::syntax::highlight(&shown.join("\n"), l)).unwrap_or_default();
+            let dark = ui.visuals().dark_mode;
+            for (i, line) in shown.iter().enumerate() {
+                let n = (first.max(1) + i) as u32;
+                let line_spans: &[crate::syntax::HighlightSpan] = spans.get(i).map_or(&[], |s| s.as_slice());
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(format!("{n:>5}  ")).monospace().weak());
                     for (t, ident, col) in tokens(line) {
+                        let byte = line.char_indices().nth(col).map_or(line.len(), |(b, _)| b);
+                        let kind = crate::syntax::kind_at(line_spans, byte);
+                        let tinted = |rt: RichText| kind.map_or(rt.clone(), |k| rt.color(super::syntax_ui::colour(k, dark)));
                         if !ident {
-                            ui.label(RichText::new(t).monospace());
+                            ui.label(tinted(RichText::new(t).monospace()));
                             continue;
                         }
-                        let named: Vec<&String> = callees.iter().filter(|c| model::short_name(c).rsplit("::").next() == Some(t.as_str())).collect();
-                        let rt = if named.is_empty() { RichText::new(&t).monospace() } else { RichText::new(&t).monospace().color(Color32::from_rgb(130, 200, 255)) };
+                        // A name inside a comment or a string is text, not a call.
+                        let prose = matches!(kind, Some(crate::syntax::HighlightKind::Comment | crate::syntax::HighlightKind::String));
+                        let named: Vec<&String> = if prose { Vec::new() } else { callees.iter().filter(|c| model::short_name(c).rsplit("::").next() == Some(t.as_str())).collect() };
+                        let rt = if named.is_empty() { tinted(RichText::new(&t).monospace()) } else { RichText::new(&t).monospace().underline().color(Color32::from_rgb(130, 200, 255)) };
                         let mut resp = ui.add(egui::Label::new(rt).sense(Sense::click()));
                         if let Some(c) = named.first() {
                             let sig = map.as_ref().and_then(|_| snap.slice_of(c)).and_then(|s| model::find_function(&s.krate, c).map(|(_, f, _)| format!("{}\n{}", f.signature, f.doc)));

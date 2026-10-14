@@ -26,6 +26,11 @@ callees = [
     "fn:e7c1afba6b272358",
     "fn:ef0e68fb37998d86",
 ]
+uses = [
+    "fn:a5d599a6fb8c8dbb",
+    "fn:aa11b87dc61e5c93",
+    "fn:d30d4e1d748618bc",
+]
 
 [module."reactivity_insertion_transient.rs"]
 path = "example:reactivity_insertion_transient"
@@ -46,3 +51,4 @@ callees = [
     "fn:8a6dd7869c10830a",
     "fn:b12622c7ec7d2d84",
 ]
+uses = ["fn:aa11b87dc61e5c93"]

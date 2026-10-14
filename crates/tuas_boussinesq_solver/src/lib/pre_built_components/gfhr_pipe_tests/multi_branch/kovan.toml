@@ -61,8 +61,32 @@ callees = [
     "fn:f66c6613b2fa9c0c",
     "fn:fa5c92d5b6a14105",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:5e560acc677a9e36",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:9b373dcfa52e169e",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
+
+[[module."fluid_mechanics_solvers.rs".function]]
+id = "fn:5e560acc677a9e36"
+name = "FHRThermalHydraulicsState"
+qual = "FHRThermalHydraulicsState"
+item = "type"
+shape = "struct"
+lines = [
+    810,
+    890,
+]
+hash = "sha256:c1d5efd61f5414bd1387880fd4f97d675bf4f2099a416481cc103afbc0512b4c"
+doc_hash = "sha256:bf376ca5e165d5e245151d7bee8921a8961d157942468b5d91e771ec18751697"
+test = true
 
 [[module."fluid_mechanics_solvers.rs".function]]
 id = "fn:953458e81fe12829"
@@ -85,6 +109,13 @@ callees = [
     "fn:93844cc452449d04",
     "fn:e79236623dec9507",
 ]
+uses = [
+    "fn:0a50e017198e2657",
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
 test = true
 physical_interface = true
 
@@ -105,6 +136,12 @@ callees = [
     "fn:93844cc452449d04",
     "fn:d346a9dd03a97d8c",
     "fn:e79236623dec9507",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
 ]
 test = true
 physical_interface = true
@@ -128,6 +165,12 @@ callees = [
     "fn:93844cc452449d04",
     "fn:e79236623dec9507",
 ]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
 test = true
 physical_interface = true
 
@@ -147,6 +190,10 @@ callees = [
     "fn:b96c71a8e07cc6c4",
     "fn:c484cd82724148ac",
     "fn:cea03dd5d2c74e29",
+]
+uses = [
+    "fn:c077ceedfafe83f6",
+    "fn:ca62ba45b75e81ac",
 ]
 test = true
 physical_interface = true
@@ -256,6 +303,7 @@ callees = [
     "fn:e54de61a64eee6a2",
     "fn:f757d0d6ec5db07d",
 ]
+uses = ["fn:5e560acc677a9e36"]
 test = true
 
 [module."multi_branch_solvers.rs"]
@@ -272,6 +320,11 @@ lines = [
 hash = "sha256:63c7618196c23f4a15b6b6b5ac7017d5c10ba16b4f62eb61e7f94a391e247aca"
 doc_hash = "sha256:a0d036e485fb7018c6b5736afb9bfe694e2ce1e6ffe996a7e7cfc91fd997ed3e"
 callees = ["fn:169b8c5f6f6220cd"]
+uses = [
+    "fn:c077ceedfafe83f6",
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
 test = true
 physical_interface = true
 
@@ -289,6 +342,7 @@ callees = [
     "fn:758bc5578ccfb600",
     "fn:c484cd82724148ac",
 ]
+uses = ["fn:ebf3ac43832118cf"]
 test = true
 physical_interface = true
 
@@ -330,6 +384,7 @@ callees = [
     "fn:e54de61a64eee6a2",
     "fn:f757d0d6ec5db07d",
 ]
+uses = ["fn:5e560acc677a9e36"]
 test = true
 
 [[module."regression.rs".function]]
@@ -363,6 +418,11 @@ lines = [
 hash = "sha256:2938dbc8e971c0db004a74321051d4c1ccd25292f39313c9578e68bee9797a29"
 doc_hash = "sha256:6f7b1fbe8847b8f1c83d2724f50e7f64889fa5bf78a1a19b332a5c793dd8cab9"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -377,6 +437,11 @@ lines = [
 hash = "sha256:fc00eb3dd87678aac0130c1d0c509deed5a6fcd419c310871573c20affd682ef"
 doc_hash = "sha256:73dbc7c1aa4a1bbc9929f03cb2e62b5994180db8131e1e15169ea9939da583db"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -391,6 +456,11 @@ lines = [
 hash = "sha256:1aa22e2722b79eb1ceb8fc618463b1ee17c15a846e16bd258fc017b72bb4bdde"
 doc_hash = "sha256:53613920205e247a0eed373bd2f34564664ecc4e330dd0a2a21695e53e395037"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -405,6 +475,11 @@ lines = [
 hash = "sha256:6f61972e13a05e5441828f3122e93f9a419a79ecd3d6406df5094ab04f08aab1"
 doc_hash = "sha256:db357c029f8c89460e1e18002ebaf21185f9946f68f6e81a72df11a2b74fe07c"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -421,5 +496,10 @@ lines = [
 ]
 hash = "sha256:bbaaad69ec054ebf4889e677a4821a472bbb815599343beaae698b1b04d44d5a"
 doc_hash = "sha256:65a1f41af51af65e696dc5c0f9a000596aeb8715c3c04fe5f4d32f26567ae3b1"
+uses = [
+    "fn:5bcbbf392051e369",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
 test = true
 physical_interface = true

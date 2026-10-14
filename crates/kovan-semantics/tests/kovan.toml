@@ -7,6 +7,20 @@ dir = "crates/kovan-semantics/tests"
 path = "test:zotero_upstream"
 
 [[module."zotero_upstream.rs".function]]
+id = "fn:f65993319236e282"
+name = "LOCAL"
+qual = "LOCAL"
+item = "const"
+shape = "const"
+lines = [
+    55,
+    55,
+]
+hash = "sha256:1d969113861bcfcc54316267bec5cd287dcba4e7351b2157ff0fab9c0a68d1d5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_upstream.rs".function]]
 id = "fn:50e499679ab66743"
 name = "user"
 qual = "user"
@@ -16,6 +30,10 @@ lines = [
 ]
 hash = "sha256:0f948fe7d282266d7e870bf386483efd6ddd8a9b8234b7797b2936337316f587"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:f65993319236e282",
+    "fn:fb25426ffd41bbf2",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -29,6 +47,10 @@ lines = [
 hash = "sha256:82dead14cce04db6d4603839ba2df38f167038290e15541d0f3983abf137b5d9"
 doc_hash = "sha256:f2427030274f14cd0e978a83fe50576d506025b9c578da6c5223d44589af1b2c"
 callees = ["fn:ee7dfc4209de4402"]
+uses = [
+    "fn:3401e09672b3090f",
+    "fn:5315e59b99e3c06d",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -45,6 +67,10 @@ callees = [
     "fn:0aaca35e63bdf3eb",
     "fn:16721c7f3982e622",
 ]
+uses = [
+    "fn:5315e59b99e3c06d",
+    "fn:d4ea0d49816f0858",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -58,6 +84,7 @@ lines = [
 hash = "sha256:533cee7dc24788c449721d9cd5104f0ee0eb4e7f909450d6f14e40a036cfb145"
 doc_hash = "sha256:94b91a5447ad0a15e9f6d387b07c9ba206e3cef67c15d8f3f167232743bf7aa2"
 callees = ["fn:ee7dfc4209de4402"]
+uses = ["fn:5315e59b99e3c06d"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -71,6 +98,12 @@ lines = [
 hash = "sha256:56725dc403ff581ae7016ee43b15765c30dd5502364ec9a800de6ede58ac664c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:ee7dfc4209de4402"]
+uses = [
+    "fn:3401e09672b3090f",
+    "fn:5315e59b99e3c06d",
+    "fn:a88980268a226fcb",
+    "fn:fc9448e19be821dc",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -84,6 +117,10 @@ lines = [
 hash = "sha256:90de6f32c08ce675e7649cc010a43c0ba7ccfbaeb58d94268ff4644bd156c081"
 doc_hash = "sha256:d773361bde3e1117a813eb5af7f025cdbccc692c25bb2e1b6b90de2170c8632b"
 callees = ["fn:a79977ca0191ca2a"]
+uses = [
+    "fn:5315e59b99e3c06d",
+    "fn:fc9448e19be821dc",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -99,6 +136,11 @@ doc_hash = "sha256:ce2ba390484a470a03bb91426fc9e1081d66b07b89f7c02332d0fad4e0be6
 callees = [
     "fn:16721c7f3982e622",
     "fn:a79977ca0191ca2a",
+]
+uses = [
+    "fn:5315e59b99e3c06d",
+    "fn:d4ea0d49816f0858",
+    "fn:fc9448e19be821dc",
 ]
 test = true
 
@@ -116,6 +158,11 @@ callees = [
     "fn:16721c7f3982e622",
     "fn:a79977ca0191ca2a",
 ]
+uses = [
+    "fn:5315e59b99e3c06d",
+    "fn:d4ea0d49816f0858",
+    "fn:fc9448e19be821dc",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -129,6 +176,12 @@ lines = [
 hash = "sha256:5c7f42d3681c3f11ad9927d4c6ecfc4bc1547e530fb55611f31bd80aa3cccc61"
 doc_hash = "sha256:91a9da76992faa586e4e498be54832cf5a0dd55d4f865e17f1605dfc07753e7d"
 callees = ["fn:ee7dfc4209de4402"]
+uses = [
+    "fn:3401e09672b3090f",
+    "fn:4d2bc7a2050eb70b",
+    "fn:5315e59b99e3c06d",
+    "fn:8185c9e0c6849121",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -142,6 +195,10 @@ lines = [
 hash = "sha256:990fb922668a8d436ec8c46617742359f5ddf5410fd43520c84bcb13589f0490"
 doc_hash = "sha256:f24587ff79a934ff9fc9a88c169f380d5128ab1b37519387e8a23db8a833ac97"
 callees = ["fn:d9ff8c423adc97b2"]
+uses = [
+    "fn:4d2bc7a2050eb70b",
+    "fn:5315e59b99e3c06d",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -152,9 +209,13 @@ lines = [
     141,
     156,
 ]
-hash = "sha256:367281d234e9f9a856280ff63133b80ff25423ddbaec6c2ea234b34350553d99"
+hash = "sha256:607357471dacf3cfd4883dcf3fa018ce68d9dee35c3997e8b198e0286398a6e5"
 doc_hash = "sha256:746c09846a3aab0467b4efcd01cb613b798cd8f96e6d4b2d67f123d2b1e45c87"
 callees = ["fn:ee7dfc4209de4402"]
+uses = [
+    "fn:3401e09672b3090f",
+    "fn:5315e59b99e3c06d",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -167,6 +228,10 @@ lines = [
 ]
 hash = "sha256:0d77b44e175348fa3c69d906ec9a2b97ab81a8d36d283f84ebc72c37f386abf4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:5315e59b99e3c06d",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -180,6 +245,10 @@ lines = [
 hash = "sha256:d4309ec1644a925bb41358d74caa124729a818db82076a18e7679b794c4ff7e4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:386b3e5e0926f9a6"]
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:5315e59b99e3c06d",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -193,6 +262,7 @@ lines = [
 hash = "sha256:7be0a8e86b5cebf4b74aa7ec82b40fa876137fb20ee2fc05a54e7523b947934e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:0af3885f2d192ec3"]
+uses = ["fn:2f034faea09aec25"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -206,6 +276,10 @@ lines = [
 hash = "sha256:e7880fb62c2492603537494d55a36b669854c030a12fbbb5b1b58c17007647ab"
 doc_hash = "sha256:4c4542a53137fdf1378696d4edcba7931edf9c6fec8a597e73ad79f7902f429b"
 callees = ["fn:852c2cd520381e5d"]
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:3401e09672b3090f",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -219,6 +293,7 @@ lines = [
 hash = "sha256:11a1c51b8da094acc5369174c9e12ae35e9a1c4b4652f3e520c21847503a9d62"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:0af3885f2d192ec3"]
+uses = ["fn:2f034faea09aec25"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -235,6 +310,7 @@ callees = [
     "fn:0af3885f2d192ec3",
     "fn:55fdb20e2695b550",
 ]
+uses = ["fn:2f034faea09aec25"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -259,6 +335,7 @@ lines = [
 ]
 hash = "sha256:7e0274798a518480e8c863bfd438f94a4dffd2bf36437c59925e4d82b4a22f57"
 doc_hash = "sha256:db7faf47a060c93358d2f3688aeacb1972865850d8ff9ad7dacc4ba1b3621918"
+uses = ["fn:829395ae1bdc7d2b"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -275,6 +352,11 @@ callees = [
     "fn:50e499679ab66743",
     "fn:cb371f157cba4866",
 ]
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:4ceebe420df58d6d",
+    "fn:829395ae1bdc7d2b",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -290,6 +372,13 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:62a83873503c4966",
     "fn:be688cbcf2a2aab8",
+]
+uses = [
+    "fn:21b0643d86fe3a62",
+    "fn:2f034faea09aec25",
+    "fn:4ceebe420df58d6d",
+    "fn:829395ae1bdc7d2b",
+    "fn:fb25426ffd41bbf2",
 ]
 test = true
 
@@ -368,7 +457,7 @@ lines = [
     289,
     319,
 ]
-hash = "sha256:8e2bd0e680a3f2b3a9a19a58562e69fced7b0c8c018e2f42a5ead7e36f1f6595"
+hash = "sha256:7d9621ed0711a9377a53c8d0f48f2f38e8ea5a95b6de06b2221a49621344961a"
 doc_hash = "sha256:4caf845305a72e987b7b9bf59acf9b860fd742a3dd5a79f1ad2b5be246c0106c"
 callees = ["fn:a03a9e042d6421b6"]
 test = true
@@ -507,6 +596,10 @@ callees = [
     "fn:9ea6a6cbb06c6d4f",
     "fn:ba7520d7ebd88ac5",
 ]
+uses = [
+    "fn:0f1042b3c8448bdd",
+    "fn:d4ea0d49816f0858",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -524,6 +617,11 @@ callees = [
     "fn:57ac5d4b1b71e520",
     "fn:6fd2fccbfad880ef",
     "fn:9ea6a6cbb06c6d4f",
+]
+uses = [
+    "fn:0f1042b3c8448bdd",
+    "fn:2f034faea09aec25",
+    "fn:4ceebe420df58d6d",
 ]
 test = true
 
@@ -547,6 +645,10 @@ callees = [
     "fn:d6ff9207b8d85f12",
     "fn:eed01b81148d4448",
 ]
+uses = [
+    "fn:0f1042b3c8448bdd",
+    "fn:d9d3b1d953cf68fb",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -568,6 +670,7 @@ callees = [
     "fn:d6ff9207b8d85f12",
     "fn:eed01b81148d4448",
 ]
+uses = ["fn:69d76da05965d2cc"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -609,6 +712,10 @@ callees = [
     "fn:ba7520d7ebd88ac5",
     "fn:e29ab11fadf93750",
 ]
+uses = [
+    "fn:6b4fef2d980b1ede",
+    "fn:a1dcb400b46d63d4",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -629,6 +736,7 @@ callees = [
     "fn:ba7520d7ebd88ac5",
     "fn:c0d72f1e046e9839",
 ]
+uses = ["fn:e2a151ccc6356c11"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -647,6 +755,10 @@ callees = [
     "fn:3d36a6d489dedeab",
     "fn:ba7520d7ebd88ac5",
     "fn:c0d72f1e046e9839",
+]
+uses = [
+    "fn:e2a151ccc6356c11",
+    "fn:fb25426ffd41bbf2",
 ]
 test = true
 
@@ -678,6 +790,7 @@ callees = [
     "fn:45d3ca30df2e987b",
     "fn:61cf55fde625da12",
 ]
+uses = ["fn:69d76da05965d2cc"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -697,6 +810,7 @@ callees = [
     "fn:4ebe0892e4ab15ff",
     "fn:61cf55fde625da12",
 ]
+uses = ["fn:69d76da05965d2cc"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -716,6 +830,7 @@ callees = [
     "fn:61cf55fde625da12",
     "fn:bdc138336040105c",
 ]
+uses = ["fn:69d76da05965d2cc"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -731,6 +846,10 @@ doc_hash = "sha256:16c492727a2f05960b6d40697e2ac5878df2b472cc1b52a088b1b1b4730a8
 callees = [
     "fn:0aaca35e63bdf3eb",
     "fn:e29ab11fadf93750",
+]
+uses = [
+    "fn:a1dcb400b46d63d4",
+    "fn:b2c92a399b916db6",
 ]
 test = true
 
@@ -749,6 +868,10 @@ callees = [
     "fn:50e499679ab66743",
     "fn:54056f326fb7f814",
     "fn:ba7520d7ebd88ac5",
+]
+uses = [
+    "fn:403120ac37d3d1bb",
+    "fn:fb25426ffd41bbf2",
 ]
 test = true
 
@@ -831,6 +954,7 @@ callees = [
     "fn:6487865bbe0d3048",
     "fn:6ba1623d8a89d398",
 ]
+uses = ["fn:54e84c01f5810fa7"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -850,6 +974,7 @@ callees = [
     "fn:50e499679ab66743",
     "fn:55fdb20e2695b550",
 ]
+uses = ["fn:e2a151ccc6356c11"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -869,6 +994,7 @@ callees = [
     "fn:50e499679ab66743",
     "fn:55fdb20e2695b550",
 ]
+uses = ["fn:e2a151ccc6356c11"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -886,6 +1012,7 @@ callees = [
     "fn:1598eefcf7ac0587",
     "fn:50e499679ab66743",
 ]
+uses = ["fn:fb25426ffd41bbf2"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -927,6 +1054,7 @@ callees = [
     "fn:c0d72f1e046e9839",
     "fn:eed01b81148d4448",
 ]
+uses = ["fn:d9d3b1d953cf68fb"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -948,6 +1076,7 @@ callees = [
     "fn:c0d72f1e046e9839",
     "fn:eed01b81148d4448",
 ]
+uses = ["fn:d9d3b1d953cf68fb"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -978,6 +1107,7 @@ lines = [
 ]
 hash = "sha256:97d70b430d4719a2d45db692a79bbe4cdfc20dfe7c2303446b30955b2e9c9e04"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:8eae36010dc3938a"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1057,6 +1187,11 @@ callees = [
     "fn:cb371f157cba4866",
     "fn:eed01b81148d4448",
 ]
+uses = [
+    "fn:54e84c01f5810fa7",
+    "fn:d9d3b1d953cf68fb",
+    "fn:fb25426ffd41bbf2",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1077,6 +1212,7 @@ callees = [
     "fn:ba7520d7ebd88ac5",
     "fn:c0d72f1e046e9839",
 ]
+uses = ["fn:d9d3b1d953cf68fb"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1097,6 +1233,7 @@ callees = [
     "fn:ba7520d7ebd88ac5",
     "fn:c0d72f1e046e9839",
 ]
+uses = ["fn:d9d3b1d953cf68fb"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1117,6 +1254,7 @@ callees = [
     "fn:ba7520d7ebd88ac5",
     "fn:c0d72f1e046e9839",
 ]
+uses = ["fn:e2a151ccc6356c11"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1137,6 +1275,25 @@ callees = [
     "fn:c0d72f1e046e9839",
     "fn:cb371f157cba4866",
 ]
+uses = [
+    "fn:403120ac37d3d1bb",
+    "fn:54e84c01f5810fa7",
+    "fn:fb25426ffd41bbf2",
+]
+test = true
+
+[[module."zotero_upstream.rs".function]]
+id = "fn:777612b004e9888b"
+name = "TEST_PDF_MD5"
+qual = "TEST_PDF_MD5"
+item = "const"
+shape = "const"
+lines = [
+    991,
+    993,
+]
+hash = "sha256:dfe8cc37cbe3edd88e7c524a8422ec340678aa757899bbdabf8dda517bc88bb2"
+doc_hash = "sha256:0aa5b81c35ae9b2ea43eab5e0423a4275cfef7c362463b21d98ca82ec7d40dfc"
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1159,6 +1316,7 @@ callees = [
     "fn:db58245ad0195a77",
     "fn:eed01b81148d4448",
 ]
+uses = ["fn:777612b004e9888b"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1181,6 +1339,7 @@ callees = [
     "fn:db58245ad0195a77",
     "fn:eed01b81148d4448",
 ]
+uses = ["fn:777612b004e9888b"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1200,6 +1359,10 @@ callees = [
     "fn:d27e8218d5c15b51",
     "fn:d6ff9207b8d85f12",
 ]
+uses = [
+    "fn:4ceebe420df58d6d",
+    "fn:829395ae1bdc7d2b",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1216,6 +1379,7 @@ callees = [
     "fn:db58245ad0195a77",
     "fn:eed01b81148d4448",
 ]
+uses = ["fn:4ceebe420df58d6d"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1232,6 +1396,7 @@ callees = [
     "fn:db58245ad0195a77",
     "fn:eed01b81148d4448",
 ]
+uses = ["fn:4ceebe420df58d6d"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1302,6 +1467,7 @@ callees = [
     "fn:0ae0f9f399186ed5",
     "fn:a65d6f2ea6dbc7b9",
 ]
+uses = ["fn:777612b004e9888b"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1387,6 +1553,10 @@ callees = [
     "fn:db58245ad0195a77",
     "fn:eed01b81148d4448",
 ]
+uses = [
+    "fn:4d2bc7a2050eb70b",
+    "fn:777612b004e9888b",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1409,6 +1579,11 @@ callees = [
     "fn:d27e8218d5c15b51",
     "fn:d6ff9207b8d85f12",
     "fn:d9ff8c423adc97b2",
+]
+uses = [
+    "fn:4d2bc7a2050eb70b",
+    "fn:777612b004e9888b",
+    "fn:fb25426ffd41bbf2",
 ]
 test = true
 
@@ -1436,6 +1611,10 @@ callees = [
     "fn:db58245ad0195a77",
     "fn:eed01b81148d4448",
 ]
+uses = [
+    "fn:4d2bc7a2050eb70b",
+    "fn:829395ae1bdc7d2b",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1454,6 +1633,11 @@ callees = [
     "fn:8f2f61c71cfa3227",
     "fn:ba7520d7ebd88ac5",
     "fn:d6ff9207b8d85f12",
+]
+uses = [
+    "fn:4ceebe420df58d6d",
+    "fn:5315e59b99e3c06d",
+    "fn:829395ae1bdc7d2b",
 ]
 test = true
 
@@ -1512,6 +1696,7 @@ callees = [
     "fn:db58245ad0195a77",
     "fn:eed01b81148d4448",
 ]
+uses = ["fn:d4ea0d49816f0858"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1533,6 +1718,7 @@ callees = [
     "fn:db58245ad0195a77",
     "fn:eed01b81148d4448",
 ]
+uses = ["fn:d4ea0d49816f0858"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1554,6 +1740,7 @@ callees = [
     "fn:db58245ad0195a77",
     "fn:eed01b81148d4448",
 ]
+uses = ["fn:d4ea0d49816f0858"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1614,6 +1801,7 @@ callees = [
     "fn:d27e8218d5c15b51",
     "fn:d6ff9207b8d85f12",
 ]
+uses = ["fn:777612b004e9888b"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1635,6 +1823,10 @@ callees = [
     "fn:ba7520d7ebd88ac5",
     "fn:c0d72f1e046e9839",
     "fn:d27e8218d5c15b51",
+]
+uses = [
+    "fn:777612b004e9888b",
+    "fn:d9d3b1d953cf68fb",
 ]
 test = true
 
@@ -1659,6 +1851,10 @@ callees = [
     "fn:d27e8218d5c15b51",
     "fn:d6ff9207b8d85f12",
 ]
+uses = [
+    "fn:777612b004e9888b",
+    "fn:fc9448e19be821dc",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1680,6 +1876,10 @@ callees = [
     "fn:ba7520d7ebd88ac5",
     "fn:d27e8218d5c15b51",
     "fn:d6ff9207b8d85f12",
+]
+uses = [
+    "fn:777612b004e9888b",
+    "fn:fc9448e19be821dc",
 ]
 test = true
 
@@ -1704,6 +1904,10 @@ callees = [
     "fn:d27e8218d5c15b51",
     "fn:d6ff9207b8d85f12",
 ]
+uses = [
+    "fn:777612b004e9888b",
+    "fn:fc9448e19be821dc",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1727,6 +1931,7 @@ callees = [
     "fn:db58245ad0195a77",
     "fn:eed01b81148d4448",
 ]
+uses = ["fn:777612b004e9888b"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1751,6 +1956,10 @@ callees = [
     "fn:db58245ad0195a77",
     "fn:eed01b81148d4448",
 ]
+uses = [
+    "fn:4d2bc7a2050eb70b",
+    "fn:777612b004e9888b",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1771,6 +1980,7 @@ callees = [
     "fn:db58245ad0195a77",
     "fn:eed01b81148d4448",
 ]
+uses = ["fn:d9d3b1d953cf68fb"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1793,6 +2003,10 @@ callees = [
     "fn:db58245ad0195a77",
     "fn:eed01b81148d4448",
 ]
+uses = [
+    "fn:777612b004e9888b",
+    "fn:fc9448e19be821dc",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1814,6 +2028,10 @@ callees = [
     "fn:d27e8218d5c15b51",
     "fn:d6ff9207b8d85f12",
 ]
+uses = [
+    "fn:4ceebe420df58d6d",
+    "fn:5315e59b99e3c06d",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1827,6 +2045,11 @@ lines = [
 hash = "sha256:af6e28fd95a3031bbaeb814b3ab4715fb777f40eab0b1e76e5e99ac2a3bff7e3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:852c2cd520381e5d"]
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:3401e09672b3090f",
+    "fn:5315e59b99e3c06d",
+]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1839,6 +2062,7 @@ lines = [
 ]
 hash = "sha256:770738cbcc6132ab28290b59ebe7f961afcf25d39434eb35e218522b99530a09"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:5315e59b99e3c06d"]
 test = true
 
 [[module."zotero_upstream.rs".function]]
@@ -1878,6 +2102,7 @@ callees = [
     "fn:d9ff8c423adc97b2",
     "fn:eed01b81148d4448",
 ]
+uses = ["fn:4d2bc7a2050eb70b"]
 test = true
 
 [[module."zotero_upstream.rs".function]]

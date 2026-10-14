@@ -12,12 +12,15 @@
 //! - **Nuclides**: the 11-nuclide tier (`TAPES_CHEAP`), the tier the quoted
 //!   five-route result was measured on. The other 24 (B-11; Mg, Ti, Cr, Fe,
 //!   Cu, Zn in the clad) are dropped, not renormalised, as there.
-//! - **Data tolerance**: 0.01 ([`SpeedTier::VeryFast`]), not NJOY's 0.001, so
-//!   that a browser can process the tapes. That is an approximation. Its
-//!   measured effect on this lattice (32 seeds, native) is −65 ± 40 pcm
-//!   (`outram-mc-libs/docs/profiling/speed_tiers_2026_09_27.md`). The demo
+//! - **Data tolerance**: the Watch views use 0.01
+//!   ([`SpeedTier::VeryFast`]), not NJOY's 0.001, so that a browser can
+//!   process the tapes quickly. That is an approximation. Its measured effect
+//!   on this lattice (32 seeds, native) is −65 ± 40 pcm
+//!   (`outram-mc-libs/docs/profiling/speed_tiers_2026_09_27.md`). ~~The demo
 //!   is Watch-only, an illustration, so no `k` from it is compared with a
-//!   record.
+//!   record.~~ **CORRECTED 2026-10-13** (gh:#859): Run k_eff and the pitch
+//!   view compute a `k`, so they process at NJOY's 0.001, the record's own
+//!   tolerance ([`DataBuilder::at`]).
 
 use super::spec;
 use crate::tapes::read_tape;
@@ -32,11 +35,20 @@ use std::collections::BTreeMap;
 
 pub use spec::{R_CLAD, R_CORE, R_FUEL, TEMP_K, Z_HI, Z_LO};
 
-/// The data tier (see the module docs).
+/// The Watch views' data tier (see the module docs). Run k_eff and the pitch
+/// view process at [`SpeedTier::Fast`], NJOY's tolerance.
 pub const SPEED: SpeedTier = SpeedTier::VeryFast;
 
 /// The H in H₂O thermal scattering law, ENDF/B-VIII.0 (MAT 1).
 pub const SAB_TAPE: &str = "tsl-HinH2O.endf";
+/// The benchmark `k_eff` of case 1, 1.0007 ± 0.0016: the handbook value as
+/// tabulated in an open secondary source (the handbook itself is licence
+/// restricted, `DATA_POLICY.md`), Mosteller, *An Expanded Criticality
+/// Validation Suite for MCNP*, LA-UR-10-06230 (2010). The maintainer checked
+/// the row against the source page on 2026-10-13.
+pub const BENCHMARK_K: f64 = 1.0007;
+/// The benchmark's stated uncertainty on [`BENCHMARK_K`], same source.
+pub const BENCHMARK_SIGMA: f64 = 0.0016;
 
 /// Every tape, `(label, file)`: the 11-nuclide tier in `TAPES_CHEAP` order,
 /// then the S(α,β) law. Slot `i < 11` is nuclide `i`.
@@ -69,17 +81,23 @@ pub const MAT_CLAD: usize = 2;
 
 /// Incremental processing, one job per call.
 pub struct DataBuilder {
+    speed: SpeedTier,
     nuclides: Vec<Nuclide>,
     sab: Option<ThermalScattering>,
 }
 
 impl Default for DataBuilder {
+    /// The Watch tier, [`SPEED`].
     fn default() -> Self {
-        Self { nuclides: Vec::new(), sab: None }
+        Self::at(SPEED)
     }
 }
 
 impl DataBuilder {
+    /// A builder that processes at `speed`.
+    pub fn at(speed: SpeedTier) -> Self {
+        Self { speed, nuclides: Vec::new(), sab: None }
+    }
     /// Process the next job from its (covariance-stripped) tape bytes:
     /// RECONR + BROADR to [`TEMP_K`] (URR tables and DBRC on, the library
     /// default), or THERMR for the S(α,β) law.
@@ -90,7 +108,7 @@ impl DataBuilder {
         let (tape, mat) = read_tape(bytes, label)?;
         if i < N_NUCLIDES {
             let name = spec::TAPES_CHEAP[i].0;
-            let n = store.nuclide(bytes, &tape, mat, name, TEMP_K, SPEED, label)?;
+            let n = store.nuclide(bytes, &tape, mat, name, TEMP_K, self.speed, label)?;
             self.nuclides.push(n);
         } else {
             let s = store.thermal(bytes, &tape, mat, TEMP_K, "c_H_in_H2O", label)?;

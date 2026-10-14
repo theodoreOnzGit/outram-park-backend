@@ -6,10 +6,31 @@
 # Keys are STABLE: they are written into review.md (`[review.checklist]`) and
 # must never be renamed. Add a question or an option; never repurpose a key.
 #
-# applies_when: always | port | physical_interface
+# applies_when: always | port | physical_interface | rung4
 #   port               the folder's kovan.toml [upstream] table (or the
 #                      wizard's "Is this a port?") declares the function a port
 #   physical_interface a physical quantity crosses the function's interface
+#   rung4              the answers say a human wrote the validation case and
+#                      checked its result by hand (vv_case_author =
+#                      human_wrote_and_verified): the review is a rung 4
+#                      review, and the questions of its two axes are asked
+#                      (GitHub #855, maintainer 2026-10-13)
+#
+# asked_of (GitHub #843, additive; absent = function):
+#   function | any | item | record_or_cases | structured | cases |
+#   named_number | interface
+#   What kind of entry the question is asked of. `item` is every type and
+#   constant; `record_or_cases` a struct, union or enum; `structured` those
+#   and a trait; `cases` an enum; `named_number` a constant or static;
+#   `interface` a trait. A question written before #843 has none and is
+#   asked of functions only, exactly as before.
+#
+# axis (rung 4 questions): accuracy | usability, the two Bookkeeping axes.
+#
+# WORDING (maintainer, 2026-10-13): a question never assumes software
+# jargon and carries an engineering example. A reviewer reads "record"
+# (struct), "list of cases" (enum), "interface" (trait), "shorthand name"
+# (type alias) and "named number" (constant).
 #
 # effect (what choosing the option does to the stamp):
 #   none              no effect
@@ -23,6 +44,13 @@
 #                     only with both (maintainer, #769/#739, 2026-10-07:
 #                     "rung 4 = writing AND verifying a V&V case by hand").
 #                     (~~gate_rung4 alone opens rung 4~~ CORRECTED 2026-10-07)
+#   block_rung4       one of rung 4's two axes fails: the stamp is allowed,
+#                     at rung 3 (GitHub #855)
+#   flag_cap_rung3    a waiver (maintainer, 2026-10-14): a required check is
+#                     skipped with a typed reason. The stamp is allowed,
+#                     capped at rung 3 whatever the V&V answers say, and the
+#                     answer is recorded as "needs improvement" so the
+#                     function stays listed.
 #   not_independent   the reviewer is not independent of the code: the stamp
 #                     counts at rung 3 or 4 but cannot be ~~the independent
 #                     second review for rung 5~~ (CORRECTED 2026-10-08, #809)
@@ -177,6 +205,22 @@ key = "guard_missing"
 label = "A guard is missing"
 effect = "block"
 
+# The waiver (maintainer, 2026-10-14). Research code often has no guard.
+# NUREG/BR-0167 grades software by use (§1.2: Level 1 is "used in a safety
+# decision by the NRC", and the degree of applicability depends on the level
+# and "a managerial judgment of the cost effectiveness of each software
+# quality activity"), so skipping a guard is allowed here for code not used in
+# a safety decision. It costs a typed reason every time, it is listed as needs
+# improvement, and it caps the stamp at rung 3: §3.2.4.1 puts "proper handling
+# of boundary conditions, including extreme inputs" among the objectives of
+# requirements-driven testing, so the function is reviewed, not V&V'd.
+# `guard_missing` still blocks: it is the answer when no reason is offered.
+[[question.option]]
+key = "guard_waived_research"
+label = "No guard, accepted for research use (not for a safety decision), because: ____"
+effect = "flag_cap_rung3"
+requires_text = true
+
 [[question.option]]
 key = "no_limits"
 label = "No limits apply, explained: ____"
@@ -210,6 +254,13 @@ document = "nureg-br-0167"
 section = "§3.2.4.1"
 page = "11"
 
+# Added 2026-10-14 with the waiver: the grading of software by use.
+[[question.source]]
+document = "nureg-br-0167"
+section = "§1.2"
+page = "1"
+quote = "The guidelines in this document apply to Level 1 and Level 2 software only"
+
 # ---------------------------------------------------------------- 4
 # Narrowed on #769 (2026-10-07) to whether units are documented; the `uom`
 # half moved to coding_standards.
@@ -217,6 +268,7 @@ page = "11"
 key = "units_documented"
 text = "Are the units of every physical quantity at its interface documented?"
 applies_when = "physical_interface"
+asked_of = "any"
 
 [[question.option]]
 key = "yes"
@@ -404,8 +456,9 @@ page = "5"
 # ---------------------------------------------------------------- 8
 [[question]]
 key = "vv_evidence"
-text = "What verification and validation evidence covers this function?"
+text = "What verification and validation evidence covers this?"
 applies_when = "always"
+asked_of = "any"
 
 [[question.option]]
 key = "reference_code_to_code"
@@ -463,6 +516,7 @@ section = "Appendix B, Criterion III"
 key = "vv_case_author"
 text = "Who wrote the V&V case?"
 applies_when = "always"
+asked_of = "any"
 workspace_rule = "Rung 4 is a V&V case written and verified by hand by a human, without AI agents; LSP/IDE tooling allowed (maintainer, #769/#739, 2026-10-07)"
 prefill = "git_test_authorship"
 
@@ -487,6 +541,7 @@ requires_text = true
 key = "maintainability"
 text = "Could a future maintainer read and change it safely?"
 applies_when = "always"
+asked_of = "any"
 
 [[question.option]]
 key = "yes"
@@ -544,6 +599,7 @@ page = "13"
 key = "independence"
 text = "Who wrote this function? (Rung 5, independent V&V, also needs your organisation to be technically and managerially separate from the developing organisation, shown by your signed separation attestation.)"
 applies_when = "always"
+asked_of = "any"
 prefill = "git_authorship"
 
 [[question.option]]
@@ -630,6 +686,7 @@ page = "24-25"
 key = "coding_standards"
 text = "Does it follow the workspace coding rules (enums not dyn, no Box, no lifetimes, uom where a physical quantity crosses an API)?"
 applies_when = "always"
+asked_of = "any"
 workspace_rule = "Rust design rules (mandatory)"
 
 [[question.option]]
@@ -671,3 +728,395 @@ page = "18"
 # AND vv_case_author = human_wrote_and_verified AND git shows no agent
 # trailer on the reaching tests' commits; otherwise 3. review.md's `rung`
 # stores the derived value and the engine recomputes it on read.
+
+# ====================================================================
+# Types and constants (GitHub #843, maintainer 2026-10-13). These rest on
+# the maintainer's direction recorded on #843, not on a corpus clause, so
+# each names it as its workspace rule. Not asked of these: what happens
+# when something goes wrong, and numerical hazards (they are about
+# calculations; these entries hold values without calculating).
+
+[[question]]
+key = "item_matches_description"
+text = "Does it hold what its description says it holds? Example: the description says \"failure fraction of each of the three coating layers\" and the record has three fields, one per layer."
+applies_when = "always"
+asked_of = "item"
+workspace_rule = "Types and constants are reviewed like functions, with questions in plain engineering wording (maintainer, #843, 2026-10-13)"
+
+[[question.option]]
+key = "yes"
+label = "Yes"
+effect = "none"
+
+[[question.option]]
+key = "partly"
+label = "Partly: some of the description is wrong or out of date"
+effect = "prompt_needs_fix"
+
+[[question.option]]
+key = "no"
+label = "No"
+effect = "block"
+
+[[question.option]]
+key = "no_description"
+label = "It has no description"
+effect = "prompt_needs_fix"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question]]
+key = "item_upstream_fidelity"
+text = "Does it hold the same quantities as the original code? Example: the Fortran common block carries pressure, temperature and burnup; this record carries the same three."
+applies_when = "port"
+asked_of = "item"
+workspace_rule = "Debugging a port: read upstream first (HARD RULE)"
+
+[[question.option]]
+key = "matches"
+label = "Yes, the same quantities"
+effect = "none"
+
+[[question.option]]
+key = "deviation_documented"
+label = "It differs, and the difference is explained in its description"
+effect = "none"
+
+[[question.option]]
+key = "deviation_not_documented"
+label = "It differs, and the difference is not explained"
+effect = "block"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question]]
+key = "item_holds_extra"
+text = "Does it hold anything beyond what its description says? Example: a record described as \"fuel particle geometry\" that also carries a temperature."
+applies_when = "always"
+asked_of = "structured"
+workspace_rule = "Types and constants are reviewed like functions, with questions in plain engineering wording (maintainer, #843, 2026-10-13)"
+
+[[question.option]]
+key = "no"
+label = "No"
+effect = "none"
+
+[[question.option]]
+key = "yes_undocumented"
+label = "Yes, and the description does not say so"
+effect = "block"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question]]
+key = "item_test_use"
+text = "Does a test use it? Example: a test builds a FailureFractions and checks the total."
+applies_when = "always"
+asked_of = "item"
+workspace_rule = "Every function an agent writes or changes is reached by a test (HARD RULE); extended to types and constants (maintainer, #843, 2026-10-13)"
+
+[[question.option]]
+key = "used_and_checked"
+label = "Yes, and the test checks a value that depends on it"
+effect = "none"
+
+[[question.option]]
+key = "used_not_checked"
+label = "A test uses it but checks nothing that depends on it"
+effect = "flag"
+
+[[question.option]]
+key = "no_test_uses"
+label = "No test uses it (needs improvement)"
+effect = "flag"
+
+[[question.option]]
+key = "is_test_code"
+label = "It exists only for tests, not applicable"
+effect = "none"
+only_when = "test"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question]]
+key = "item_impossible_values"
+text = "Can it hold a value that is physically impossible? Example: a failure fraction of 1.3, a negative absolute temperature, a pipe with zero diameter."
+applies_when = "always"
+asked_of = "record_or_cases"
+workspace_rule = "Types and constants are reviewed like functions, with questions in plain engineering wording (maintainer, #843, 2026-10-13)"
+
+[[question.option]]
+key = "no_checked_when_built"
+label = "No: the values are checked when it is built"
+effect = "none"
+
+[[question.option]]
+key = "no_every_combination_valid"
+label = "No: every combination of values is physically meaningful"
+effect = "none"
+
+[[question.option]]
+key = "yes_nothing_stops"
+label = "Yes: nothing stops an impossible value (needs improvement)"
+effect = "flag"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question]]
+key = "item_cases_complete"
+text = "Is every case that can occur listed? Example: a coating failure mode list with pressure-vessel failure and kernel migration but no case for a particle that has not failed."
+applies_when = "always"
+asked_of = "cases"
+workspace_rule = "Types and constants are reviewed like functions, with questions in plain engineering wording (maintainer, #843, 2026-10-13)"
+
+[[question.option]]
+key = "yes"
+label = "Yes"
+effect = "none"
+
+[[question.option]]
+key = "case_missing"
+label = "No: a case that can occur is missing"
+effect = "prompt_needs_fix"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question]]
+key = "item_value_source"
+text = "Where does the value come from? Example: 5.670374e-8 W/(m2 K4) from CODATA 2018."
+applies_when = "always"
+asked_of = "named_number"
+workspace_rule = "Get the PROCESS right first: justify every input from outside the comparison (HARD RULE)"
+
+[[question.option]]
+key = "cited"
+label = "A cited paper, handbook or standard"
+effect = "none"
+
+[[question.option]]
+key = "original_code"
+label = "The original code being ported"
+effect = "none"
+
+[[question.option]]
+key = "derived_in_description"
+label = "Worked out in its description"
+effect = "none"
+
+[[question.option]]
+key = "chosen_with_reason"
+label = "A tolerance or setting chosen by the author, with the reason given"
+effect = "none"
+
+[[question.option]]
+key = "no_source"
+label = "No source given (needs improvement)"
+effect = "flag"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question]]
+key = "item_contract_stated"
+text = "Does the description say what every model behind it must guarantee? Example: \"density is returned in kg/m3 and is valid from 300 K to 1500 K\"."
+applies_when = "always"
+asked_of = "interface"
+workspace_rule = "Types and constants are reviewed like functions, with questions in plain engineering wording (maintainer, #843, 2026-10-13)"
+
+[[question.option]]
+key = "yes"
+label = "Yes"
+effect = "none"
+
+[[question.option]]
+key = "partly"
+label = "Partly: some of what a model must guarantee is left unsaid (needs improvement)"
+effect = "flag"
+
+[[question.option]]
+key = "no"
+label = "No"
+effect = "prompt_needs_fix"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+# ====================================================================
+# Rung 4: both validation axes (GitHub #855, maintainer 2026-10-13: "In
+# Rung 4, tests must pass, and be stringent enough so that passes mean
+# something ... the API should be useful and obvious enough so that it's
+# intuitive to use. Remember the two axes of validation (API + physical
+# accuracy)"). Asked once the answers say the validation case was written
+# and checked by hand. A `block_rung4` answer leaves the stamp at rung 3.
+# A rung 4 review written before these existed still reads as rung 4 and
+# is shown as "rung 4 axes not recorded" until it is stamped again.
+
+[[question]]
+key = "rung4_tests_pass"
+text = "Do the tests that reach this pass?"
+applies_when = "rung4"
+asked_of = "any"
+axis = "accuracy"
+workspace_rule = "Rung 4 checks physical accuracy and usability (maintainer, #855, 2026-10-13)"
+
+[[question.option]]
+key = "all_pass"
+label = "Yes: every test that reaches it passed in the last recorded full test run"
+effect = "none"
+
+[[question.option]]
+key = "not_all"
+label = "No: one fails, or they have not been run (rung 4 not opened)"
+effect = "block_rung4"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question]]
+key = "rung4_test_catches_wrong_physics"
+text = "Would the test fail if the physics were wrong? Example: a heat-transfer test that checks the Nusselt number against Dittus-Boelter within 2 % would catch a wrong exponent. A test that only checks \"the answer is positive\" would not."
+applies_when = "rung4"
+asked_of = "any"
+axis = "accuracy"
+workspace_rule = "Rung 4 checks physical accuracy and usability (maintainer, #855, 2026-10-13)"
+
+[[question.option]]
+key = "compared_with_tolerance"
+label = "Yes: it is compared against a published or analytical value with a stated tolerance"
+effect = "none"
+
+[[question.option]]
+key = "wrong_input_tried"
+label = "Yes: a known-wrong input was tried and the test failed"
+effect = "none"
+
+[[question.option]]
+key = "only_checks_it_runs"
+label = "No: it only checks that the code runs (rung 4 not opened)"
+effect = "block_rung4"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question]]
+key = "rung4_tolerance_justified"
+text = "Is the tolerance justified? Example: 2 % because the correlation's own scatter is 2 %, not 20 % because that made it pass."
+applies_when = "rung4"
+asked_of = "any"
+axis = "accuracy"
+workspace_rule = "Get the PROCESS right first: never move a threshold to make a test pass (HARD RULE)"
+
+[[question.option]]
+key = "from_outside"
+label = "Yes: it comes from the reference's own uncertainty or a stated requirement"
+effect = "none"
+
+[[question.option]]
+key = "no_tolerance_involved"
+label = "No tolerance is involved (an exact check)"
+effect = "none"
+
+[[question.option]]
+key = "chosen_to_pass"
+label = "No: it was widened until the test passed (rung 4 not opened)"
+effect = "block_rung4"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question]]
+key = "rung4_usable_without_source"
+text = "When you wrote the validation case, could you use this without reading its source code? Example: you needed a pebble-bed pressure drop, found the function by its name, and the inputs it asked for were the ones you had (bed height, porosity, mass flow)."
+applies_when = "rung4"
+asked_of = "any"
+axis = "usability"
+workspace_rule = "Rung 4 checks physical accuracy and usability (maintainer, #855, 2026-10-13)"
+
+[[question.option]]
+key = "from_name_and_description"
+label = "Yes, from the name and description alone"
+effect = "none"
+
+[[question.option]]
+key = "after_an_example"
+label = "Yes, after reading an example"
+effect = "none"
+
+[[question.option]]
+key = "had_to_read_code"
+label = "No, I had to read the code to work out how to use it (needs improvement, rung 4 not opened)"
+effect = "block_rung4"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
+[[question]]
+key = "rung4_wrong_quantity_by_accident"
+text = "Could you give it a wrong quantity by accident? Example: a function that takes two plain numbers for inlet and outlet temperature can have them swapped. One that takes named, unit-carrying inputs cannot be given a pressure where a temperature belongs."
+applies_when = "rung4"
+asked_of = "any"
+axis = "usability"
+workspace_rule = "Rust design rules (mandatory): uom everywhere a physical quantity crosses an API"
+
+[[question.option]]
+key = "no_named_and_unit_carrying"
+label = "No: its inputs are named and carry their units"
+effect = "none"
+
+[[question.option]]
+key = "takes_no_quantities"
+label = "It takes no physical quantities, not applicable"
+effect = "none"
+
+[[question.option]]
+key = "yes_can_be_mixed_up"
+label = "Yes: two inputs can be swapped or given the wrong unit unnoticed (rung 4 not opened)"
+effect = "block_rung4"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true

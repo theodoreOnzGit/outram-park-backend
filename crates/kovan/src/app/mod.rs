@@ -359,6 +359,8 @@ pub struct DigitiseApp {
     view: View,
     /// The major tab selected on the top row ([`tab_groups`]).
     group: tab_groups::Group,
+    /// The page last shown under each major tab (#858).
+    last_pages: tab_groups::LastPages,
     /// The Repository management page's repositories and windows (#841).
     repo_management: repo_management_view::RepoManagementView,
     /// The first-run setup dialog (#255) -- see [`setup`].
@@ -632,6 +634,7 @@ impl Default for DigitiseApp {
         Self {
             view: View::default(),
             group: tab_groups::Group::default(),
+            last_pages: tab_groups::LastPages::default(),
             repo_management: repo_management_view::RepoManagementView::default(),
             setup: setup::SetupDialog::default(),
             corpus_folder: corpus_folder::CorpusFolderDialog::default(),
@@ -1120,14 +1123,44 @@ impl DigitiseApp {
         }
     }
 
+    /// Once a frame, before the bar is drawn: the major tab follows the
+    /// page (it may have changed outside the bar: a paper opened, Back),
+    /// and the page is remembered as that tab's last (#858).
+    fn reconcile_tabs(&mut self) {
+        self.group = self.group.after(self.view);
+        self.last_pages.note(self.group, self.view);
+    }
+
+    /// A click on major tab `g` (#858): back to where that tab was left,
+    /// not always its main page, which hid an open PDF behind a tab.
+    fn major_tab_clicked(&mut self, g: tab_groups::Group) {
+        self.view = self.last_pages.on_click(self.group, g);
+        self.group = g;
+    }
+
+    /// Whether paper `citekey` is the active paper and the reader still
+    /// shows its PDF (or it has none). Opening an image or a loose PDF
+    /// clears the active paper, so this is false after either.
+    fn paper_is_showing(&self, citekey: &str) -> bool {
+        self.active_paper.as_ref().is_some_and(|p| {
+            p.session.citekey() == citekey && (p.pdf_path.is_none() || p.pdf_path == self.reader_path)
+        })
+    }
+
     /// [`Self::activate_paper`], plus switching to whichever view makes the
     /// newly active paper visible — the PDF reader when a source document
     /// is available, the kvim editor otherwise (a paper catalogued from
     /// metadata alone still has its research Markdown to read/edit). Shared
     /// by every call site that opens a paper (Wiki, Mindmap, ingestion) so
     /// they land in the same place rather than each picking its own view.
+    ///
+    /// **A paper that is already open keeps its place** (#858, maintainer
+    /// 2026-10-13): clicking it again only goes to it. ~~It was opened
+    /// again~~, which put the reader back on page 1 and reloaded the notes
+    /// editor, so the PDF seemed to have been closed.
     fn activate_paper_and_navigate(&mut self, citekey: &str) {
-        match self.activate_paper(citekey) {
+        let opened = if self.paper_is_showing(citekey) { Ok(()) } else { self.activate_paper(citekey) };
+        match opened {
             Ok(()) => {
                 let has_pdf = self
                     .active_paper
@@ -3016,14 +3049,17 @@ impl DigitiseApp {
         // 2026-09-22); the pages below keep the theme's own sizes.
         theme::navigation_style(ui);
         // The page may have changed outside the bar (a paper opened, Back).
-        self.group = self.group.after(self.view);
+        self.reconcile_tabs();
         ui.horizontal(|ui| {
             self.nav_buttons(ui);
             ui.separator();
             for g in tab_groups::Group::ALL {
-                if ui.selectable_label(self.group == g, g.label()).clicked() {
-                    self.group = g;
-                    self.view = g.main();
+                if ui
+                    .selectable_label(self.group == g, g.label())
+                    .on_hover_text("Returns to the page you were last on under this tab; click again for its main page")
+                    .clicked()
+                {
+                    self.major_tab_clicked(g);
                 }
             }
             ui.separator();
@@ -3054,6 +3090,16 @@ impl DigitiseApp {
                     .clicked()
             {
                 self.group = tab_groups::Group::CodeReview;
+                self.view = View::CodeReview;
+            }
+            // From the PDF Reader or the Bibliography opened under Code
+            // Review, straight back to the review (maintainer, 2026-10-13).
+            if self.group.offers_back_to_code_review(self.view)
+                && ui
+                    .button("Back to code review")
+                    .on_hover_text("Return to the Code Review, as you left it")
+                    .clicked()
+            {
                 self.view = View::CodeReview;
             }
             // The way back (maintainer, 2026-10-12).
@@ -3573,6 +3619,7 @@ impl eframe::App for DigitiseApp {
                 let mut sort_paper = None;
                 let mut open_setup = false;
                 let mut knowledge_changed = false;
+                let mut open_review: Option<(std::path::PathBuf, String)> = None;
                 let (index, graph) = match self.workspace.as_ref() {
                     Some(w) if root.is_some() => (Some(&w.index), Some(&w.graph)),
                     _ => (None, None),
@@ -3590,9 +3637,20 @@ impl eframe::App for DigitiseApp {
                         // leaving the request nowhere.
                         Some(MindmapAction::OpenSetup) => open_setup = true,
                         Some(MindmapAction::KnowledgeChanged) => knowledge_changed = true,
+                        Some(MindmapAction::OpenCodeReview { repo_dir, entry }) => {
+                            open_review = Some((repo_dir, entry))
+                        }
                         None => {}
                     }
                 });
+                // #844: a code review chosen on a concept opens Code Review
+                // on that mounted repository, at that entry.
+                if let Some((repo_dir, entry)) = open_review {
+                    self.code_map.load_workspace(repo_dir.clone());
+                    self.code_review.open_entry(&repo_dir, &entry);
+                    self.group = tab_groups::Group::CodeReview;
+                    self.view = View::CodeReview;
+                }
                 if knowledge_changed {
                     if let Some(root) = root.clone() {
                         self.refresh_knowledge(&root);
@@ -3650,6 +3708,9 @@ impl eframe::App for DigitiseApp {
                 self.code_map.ensure_default_workspace();
                 let workspace = self.code_map.workspace().map(std::path::Path::to_path_buf);
                 self.code_review.set_workspace(workspace.as_deref());
+                // Reviews may change here: the mindmap collects its code
+                // reviews again when it is next shown (#844).
+                self.mindmap.invalidate_code_reviews();
                 egui::CentralPanel::default().show(ui, |ui| self.code_review.ui(ui));
             }
             View::AdvancedGit => {
@@ -4270,6 +4331,58 @@ mod tests {
 
         assert_eq!(app.view, View::PdfReader);
         assert!(app.active_paper.is_some());
+    }
+
+    /// The maintainer's report (#858), through the app's own two hooks:
+    /// with the PDF Reader showing under Mindmap, a visit to Code Review and
+    /// a click on Mindmap comes back to the PDF Reader; a second click on
+    /// Mindmap reaches the mindmap canvas. Before 2026-10-13 the first
+    /// click back landed on the canvas.
+    #[test]
+    fn switching_major_tabs_comes_back_to_the_pdf_reader() {
+        use tab_groups::Group;
+        let mut app = DigitiseApp::default();
+        app.view = View::PdfReader;
+        app.reconcile_tabs();
+        assert_eq!(app.group, Group::Mindmap);
+        app.major_tab_clicked(Group::CodeReview);
+        app.reconcile_tabs();
+        assert_eq!((app.group, app.view), (Group::CodeReview, View::CodeReview));
+        app.major_tab_clicked(Group::Mindmap);
+        app.reconcile_tabs();
+        assert_eq!((app.group, app.view), (Group::Mindmap, View::PdfReader));
+        app.major_tab_clicked(Group::Mindmap);
+        assert_eq!(app.view, View::Mindmap);
+    }
+
+    /// Methodology (#858): open a paper, go to another page, click the same
+    /// paper again, then click a different paper. Pass: the second click on
+    /// the same paper returns to the reader WITHOUT opening the PDF again
+    /// (an open resets the page and the scroll), and says "opened"; a
+    /// different paper does open, and coming back to the first one then
+    /// opens it again, since the reader no longer shows it.
+    ///
+    /// Result (2026-10-13): one open, still one after the second click, two
+    /// after the other paper, three after returning.
+    #[test]
+    fn clicking_an_open_paper_again_keeps_its_place() {
+        let (dir, root) = make_root();
+        let first = ingest_one(&root, dir.path(), "Fuel Cladding Gap Conductance", Access::Open);
+        let second = ingest_one(&root, dir.path(), "Pebble Bed Packing Fraction", Access::Open);
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+
+        app.activate_paper_and_navigate(&first);
+        assert_eq!((app.view, app.pdf_reader.times_opened()), (View::PdfReader, 1));
+        app.view = View::Wiki;
+        app.activate_paper_and_navigate(&first);
+        assert_eq!((app.view, app.pdf_reader.times_opened()), (View::PdfReader, 1), "not opened again");
+        assert!(app.message.contains("opened"), "{}", app.message);
+
+        app.activate_paper_and_navigate(&second);
+        assert_eq!(app.pdf_reader.times_opened(), 2, "a different paper does open");
+        app.activate_paper_and_navigate(&first);
+        assert_eq!(app.pdf_reader.times_opened(), 3, "the reader no longer showed the first");
     }
 
     #[test]

@@ -70,6 +70,21 @@ doc_hash = "sha256:9ac460d32fd9b5bcb94739bf116b7f9f94d238ce6e05b1ac3bd3a2953ff4f
 test = true
 
 [[module."multi_repo_tests.rs".function]]
+id = "fn:347c500564b26e71"
+name = "Fixture"
+qual = "Fixture"
+item = "type"
+shape = "struct"
+lines = [
+    98,
+    107,
+]
+hash = "sha256:eed5563d8f24aea7bdcf9a2defc76709f175655538cec4721dc85c706917bfb7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:68e521da8942e95c"]
+test = true
+
+[[module."multi_repo_tests.rs".function]]
 id = "fn:890679978a7e52e4"
 name = "repo_entry"
 qual = "repo_entry"
@@ -79,6 +94,7 @@ lines = [
 ]
 hash = "sha256:b8c1c5f95f50700b57b133e3e0672d8159bfd7e59645a911e65e1cb7bc520ef1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:93e2f950a942ef39"]
 test = true
 
 [[module."multi_repo_tests.rs".function]]
@@ -110,6 +126,13 @@ callees = [
     "fn:d9332104f5e1b79f",
     "fn:ebbcd51a22060475",
 ]
+uses = [
+    "fn:2e93640e876f00f2",
+    "fn:347c500564b26e71",
+    "fn:68e521da8942e95c",
+    "fn:c3ac0dde02ca5361",
+    "fn:e31225c0a738aeaa",
+]
 test = true
 
 [[module."multi_repo_tests.rs".function]]
@@ -123,6 +146,7 @@ lines = [
 hash = "sha256:e809ec8ccf274846f688ed91f87018e61a56b30e1a3149148bb163241ee19d20"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:f885b2ddd26211db"]
+uses = ["fn:68e521da8942e95c"]
 test = true
 
 [[module."multi_repo_tests.rs".function]]
@@ -147,6 +171,7 @@ callees = [
     "fn:f301ae616c72fd07",
     "fn:fbd0c7b0d052bbca",
 ]
+uses = ["fn:f571fdeb3a0b9f49"]
 test = true
 
 [[module."multi_repo_tests.rs".function]]
@@ -170,6 +195,14 @@ callees = [
     "fn:c6db4464a242fe49",
     "fn:d82e7fdf0a39700c",
 ]
+uses = [
+    "fn:4b76a5c6079ae928",
+    "fn:57fdff2544ead69f",
+    "fn:6a7ce24a66c166a1",
+    "fn:9037e375260cfb23",
+    "fn:be2dfa5b3a2c8f30",
+    "fn:d6ab7fe09f232795",
+]
 test = true
 
 [[module."multi_repo_tests.rs".function]]
@@ -190,6 +223,13 @@ callees = [
     "fn:f301ae616c72fd07",
     "fn:fb904d35d7376782",
     "fn:fbd0c7b0d052bbca",
+]
+uses = [
+    "fn:11024646085be543",
+    "fn:171112ab604bfeaa",
+    "fn:5ec5db4ec11c76ff",
+    "fn:be2dfa5b3a2c8f30",
+    "fn:f571fdeb3a0b9f49",
 ]
 test = true
 
@@ -215,6 +255,10 @@ callees = [
     "fn:df6b0e46ee25439d",
     "fn:e92e9bb791f1e83f",
     "fn:ebbcd51a22060475",
+]
+uses = [
+    "fn:660f7cd95750a993",
+    "fn:98fb6e3accec6d5c",
 ]
 test = true
 
@@ -242,6 +286,13 @@ callees = [
     "fn:df6b0e46ee25439d",
     "fn:ebbcd51a22060475",
 ]
+uses = [
+    "fn:660f7cd95750a993",
+    "fn:6a7ce24a66c166a1",
+    "fn:9037e375260cfb23",
+    "fn:98fb6e3accec6d5c",
+    "fn:be2dfa5b3a2c8f30",
+]
 test = true
 
 [[module."multi_repo_tests.rs".function]]
@@ -267,6 +318,10 @@ callees = [
     "fn:e92e9bb791f1e83f",
     "fn:ebbcd51a22060475",
 ]
+uses = [
+    "fn:660f7cd95750a993",
+    "fn:98fb6e3accec6d5c",
+]
 test = true
 
 [[module."multi_repo_tests.rs".function]]
@@ -285,6 +340,7 @@ callees = [
     "fn:53fea56e0ce640bc",
     "fn:9f7e56925fda5833",
 ]
+uses = ["fn:e13ced436621c36f"]
 test = true
 
 [[module."multi_repo_tests.rs".function]]
@@ -314,7 +370,7 @@ lines = [
     634,
     697,
 ]
-hash = "sha256:fc2e17529132601cac92efd3a351861e7164871bbe202433bca9b19321bfa637"
+hash = "sha256:f156607c03330b1310538b7c9ff98880559a38f2ab7db67d6e5d24cc5d8f1bce"
 doc_hash = "sha256:fff6de620aa7b39af625c40646413a62fa9ea3287d3c7aa1083d78525f163dc6"
 callees = [
     "fn:10c06f7cf78be6fd",
@@ -326,5 +382,15 @@ callees = [
     "fn:97f8920e84204e94",
     "fn:b29b5d966c78c0c3",
     "fn:c6db4464a242fe49",
+]
+uses = [
+    "fn:2e93640e876f00f2",
+    "fn:68e521da8942e95c",
+    "fn:8b6d3731633dc051",
+    "fn:93e2f950a942ef39",
+    "fn:be2dfa5b3a2c8f30",
+    "fn:daea50be301732d1",
+    "fn:e31225c0a738aeaa",
+    "fn:eb8df24db49a8c70",
 ]
 test = true

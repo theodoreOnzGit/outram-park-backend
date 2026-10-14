@@ -253,9 +253,10 @@ lines = [
     4,
     97,
 ]
-hash = "sha256:0f4c69b59caf4d759e9487fbbd750804650bd2bd9627bb29674c2ad2b6a64518"
+hash = "sha256:3e7e7018ff1b7bfab6f3b15c5bd6ec4d1e0b55ee05b1647fbc5fdd31c6eb7a9c"
 doc_hash = "sha256:64406bb928268b2d5663a53f0862e4fc10f539c3fd3688d1e70727bd1d9f2fa2"
 callees = ["fn:dbeaa6f6d9da4f35"]
+uses = ["fn:540617e338f429d7"]
 physical_interface = true
 
 [[module."parallel_heat_exchangers.rs".function]]
@@ -272,6 +273,7 @@ callees = [
     "fn:30413f3df2a481f0",
     "fn:dbeaa6f6d9da4f35",
 ]
+uses = ["fn:540617e338f429d7"]
 physical_interface = true
 
 [module."thermal_resistance.rs"]
@@ -388,7 +390,7 @@ lines = [
     349,
     407,
 ]
-hash = "sha256:ab34c86a4098b4ff8b35fcc3f9920691e59b0c4a8a8ec34cb8312ab53dcd47f7"
+hash = "sha256:6a71586ba0ac6a49d00f0bf7bce94fd31eeb1daf6186cc15f23dcb215d956adb"
 doc_hash = "sha256:10866dd0f7140995f399ee1b65b63bfc68cfdf3caa1689d0ea1d6555bdb0145e"
 reached_by = [
     "#0",

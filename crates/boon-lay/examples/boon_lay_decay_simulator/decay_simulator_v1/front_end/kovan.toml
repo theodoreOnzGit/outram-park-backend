@@ -58,6 +58,7 @@ callees = [
     "fn:d86f4cfb4847b7a4",
     "fn:f5c0e84c39f13077",
 ]
+uses = ["fn:975f1ed560f2ad46"]
 
 [module."main_page.rs"]
 path = "example:boon_lay_decay_simulator::decay_simulator_v1::front_end::main_page"
@@ -76,6 +77,11 @@ callees = [
     "fn:4640c2db43fc0442",
     "fn:d84c7e41f0b78cde",
 ]
+uses = [
+    "fn:c611e024756fd19b",
+    "fn:d8d5334bcc25dadc",
+    "fn:e3d3971cf92a6302",
+]
 
 [[module."main_page.rs".function]]
 id = "fn:4640c2db43fc0442"
@@ -90,6 +96,19 @@ doc_hash = "sha256:be1cbb5b1cc047127a0e1d60b8e3663e38a5911d8ec182dda87a3fa53229c
 
 [module."mod.rs"]
 path = "example:boon_lay_decay_simulator::decay_simulator_v1::front_end"
+
+[[module."mod.rs".function]]
+id = "fn:06f3d1ff810a9738"
+name = "Panel"
+qual = "Panel"
+item = "type"
+shape = "enum"
+lines = [
+    1,
+    7,
+]
+hash = "sha256:e58559dcf9e61ad178204db0fd24600cc124706ba8584a127018b25569d19d2b"
+doc_hash = "sha256:7a123a6191300473247902a42204c1aec44ffcdebee324e95e0fecf1da05acfe"
 
 [module."periodic_table.rs"]
 path = "example:boon_lay_decay_simulator::decay_simulator_v1::front_end::periodic_table"
@@ -140,6 +159,7 @@ lines = [
 hash = "sha256:689c57d7f4454dda83f951861ce453be3541998a858c279662d1042b60300d21"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:41bb343a3f32840f"]
+uses = ["fn:ffa4da96393c3a78"]
 
 [[module."periodic_table.rs".function]]
 id = "fn:d6055cce0a28a46e"
@@ -164,6 +184,19 @@ hash = "sha256:cceac455b3809148d2eb4d410ef9d25012044b46f36613cc28baaebee5395643"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."periodic_table.rs".function]]
+id = "fn:ffa4da96393c3a78"
+name = "ElementBox"
+qual = "ElementBox"
+item = "type"
+shape = "struct"
+lines = [
+    436,
+    439,
+]
+hash = "sha256:ae3d27978625009a0fd8e284a8fb94d68bcd78778c29af163f45d94d7b24a6e3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."periodic_table.rs".function]]
 id = "fn:2667b3b69fcf3dad"
 name = "from"
 qual = "ElementBox::from"
@@ -173,6 +206,7 @@ lines = [
 ]
 hash = "sha256:9bbdfe8fb8c71bb89d9b05dc6df5dc3f38bc5fd81e191496ab15958880e42b58"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:ffa4da96393c3a78"]
 
 [[module."periodic_table.rs".function]]
 id = "fn:5013430d5eb4e9bf"
@@ -188,6 +222,10 @@ callees = [
     "fn:4640c2db43fc0442",
     "fn:cddaef1d14d36458",
     "fn:d6055cce0a28a46e",
+]
+uses = [
+    "fn:d8d5334bcc25dadc",
+    "fn:ffa4da96393c3a78",
 ]
 
 [module."side_panel.rs"]
@@ -218,6 +256,10 @@ callees = [
     "fn:b6d2e043b068416b",
     "fn:d86f4cfb4847b7a4",
     "fn:f5c0e84c39f13077",
+]
+uses = [
+    "fn:4e41f8c2e2e72b73",
+    "fn:975f1ed560f2ad46",
 ]
 
 [[module."side_panel.rs".function]]

@@ -18,6 +18,28 @@ test_ids = [
 path = "crate::solvers::rho_central_foam"
 
 [[module."mod.rs".function]]
+id = "fn:e9371b63b474da31"
+name = "GAMMA"
+qual = "GAMMA"
+item = "const"
+shape = "const"
+lines = [
+    37,
+    38,
+]
+hash = "sha256:e94c14cbcbd1607276777a07036c987c9aa1eb1b39156e42d98e410a657f40e0"
+doc_hash = "sha256:6589dc8cde223e6d4f4986e430c0928edf6e068afa2b12503bd7c09bf67dd975"
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
 id = "fn:45da647f08df728d"
 name = "velocity_component"
 qual = "velocity_component"
@@ -32,7 +54,48 @@ callees = [
     "fn:6d45af0d518e142d",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
 reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:d35627c0b0130167"
+name = "RhoCentralFoam"
+qual = "RhoCentralFoam"
+item = "type"
+shape = "struct"
+lines = [
+    143,
+    184,
+]
+hash = "sha256:e5a5d049ac0c1cf45613eede3e802c4241c9c76246a15e4510060b2bcac057ff"
+doc_hash = "sha256:74bd9e5a731aa95b55ffcc8e8686c77d70e6c0ae6399ec756e4d1c562a258d1d"
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:3f165bca5d68b785",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:b0768c6e7263ae77",
+    "fn:e0ff37b7796b05a6",
+]
+reached_by = [
+    "#0",
+    "#1",
     "#2",
     "#3",
     "#4",
@@ -57,6 +120,16 @@ callees = [
     "fn:636e75b664f14254",
     "fn:acfb0f2d7b950994",
     "fn:d6a9c884aaeb7775",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:3f165bca5d68b785",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:b0768c6e7263ae77",
+    "fn:d35627c0b0130167",
+    "fn:e0ff37b7796b05a6",
 ]
 reached_by = [
     "#0",
@@ -88,6 +161,14 @@ callees = [
     "fn:96b5c3d947f087e5",
     "fn:9e501e5f4cce23ae",
 ]
+uses = [
+    "fn:35e5ba76ac9ceafb",
+    "fn:7217c4fc0f1bc32b",
+    "fn:d35627c0b0130167",
+    "fn:e9371b63b474da31",
+    "fn:eae118e23384cf7a",
+    "fn:ef05859ef19acee7",
+]
 reached_by = [
     "#2",
     "#3",
@@ -109,6 +190,12 @@ lines = [
 hash = "sha256:2b4d85517947749a446e89ad8c217c688eb66b871e18435691d1a3ba806bfcec"
 doc_hash = "sha256:103fdcdbe6a65b00e86f9b7916b6c721de5e913f95b3d347b2564b090a82a20a"
 callees = ["fn:fff0b6206af160cb"]
+uses = [
+    "fn:35e5ba76ac9ceafb",
+    "fn:6ba3358f6a29c123",
+    "fn:d35627c0b0130167",
+    "fn:f11bcf88c9cf8afa",
+]
 reached_by = [
     "#2",
     "#3",

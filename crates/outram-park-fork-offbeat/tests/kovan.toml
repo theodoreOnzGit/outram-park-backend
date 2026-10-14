@@ -7,6 +7,160 @@ dir = "crates/outram-park-fork-offbeat/tests"
 path = "test:astest_ssnv101a"
 
 [[module."astest_ssnv101a.rs".function]]
+id = "fn:f144cb9dd9a5cb63"
+name = "YOUNG"
+qual = "YOUNG"
+item = "const"
+shape = "const"
+lines = [
+    127,
+    127,
+]
+hash = "sha256:961ff4ecac70e5b3c74c03066f15f4a0f6ba541d990d45cf3cc53daaf0459108"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."astest_ssnv101a.rs".function]]
+id = "fn:f77a55ac0993b352"
+name = "POISSON"
+qual = "POISSON"
+item = "const"
+shape = "const"
+lines = [
+    128,
+    128,
+]
+hash = "sha256:62c9183bacde6e1958962d0d5f2d746b0d41b4a695da86b0e68b79096764e866"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."astest_ssnv101a.rs".function]]
+id = "fn:05f18a36106aa0da"
+name = "STRESS_AT_UNIT_MULTIPLIER"
+qual = "STRESS_AT_UNIT_MULTIPLIER"
+item = "const"
+shape = "const"
+lines = [
+    130,
+    132,
+]
+hash = "sha256:715ff62dc298d9b0b1c992033f85e725b78807b021b2d6b50f66325ae4e8ed6f"
+doc_hash = "sha256:8da60d1328a16715705b0440930c08382eaca8a91857714724f4127e75532831"
+test = true
+
+[[module."astest_ssnv101a.rs".function]]
+id = "fn:214ae5b62a4fad86"
+name = "FINAL_INSTANT"
+qual = "FINAL_INSTANT"
+item = "const"
+shape = "const"
+lines = [
+    134,
+    135,
+]
+hash = "sha256:c61f5f03903b435e5c6e981f69301f17d00b980031564ee525d8526ed3a42574"
+doc_hash = "sha256:95809d1e59362005c0c30cd7598072e2cc5c1c10f595dab5bd7e13931b875ecb"
+test = true
+
+[[module."astest_ssnv101a.rs".function]]
+id = "fn:d79275815f6bd862"
+name = "SIXX_VALE_CALC"
+qual = "SIXX_VALE_CALC"
+item = "const"
+shape = "const"
+lines = [
+    137,
+    138,
+]
+hash = "sha256:30a205c0d47b9b4021737ef24b227a480c9294d83b81a210123a528633a9af3b"
+doc_hash = "sha256:0683db3069b4867710a64e31d30474b95587589ecf2b3798a26d3f2282166da6"
+test = true
+
+[[module."astest_ssnv101a.rs".function]]
+id = "fn:f26699de710c5968"
+name = "EPXX_VALE_CALC"
+qual = "EPXX_VALE_CALC"
+item = "const"
+shape = "const"
+lines = [
+    139,
+    139,
+]
+hash = "sha256:1e7483f0f5ad577148a33d5e84e7c413d7f15d389feadc10b6535210debbb9ec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."astest_ssnv101a.rs".function]]
+id = "fn:0e9e633fc5ceb056"
+name = "EPXY_VALE_CALC"
+qual = "EPXY_VALE_CALC"
+item = "const"
+shape = "const"
+lines = [
+    140,
+    140,
+]
+hash = "sha256:35db5c78cb96e8a9149f0b575432aa43bdb213f8b8d8049ac1e74e9ec9f55b2c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."astest_ssnv101a.rs".function]]
+id = "fn:2e970fc19ba0f5f1"
+name = "V1_VALE_CALC"
+qual = "V1_VALE_CALC"
+item = "const"
+shape = "const"
+lines = [
+    141,
+    141,
+]
+hash = "sha256:ac0ade99172656e096f65671693a5aae5e4489bb099d3a8729d776be327efc54"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."astest_ssnv101a.rs".function]]
+id = "fn:37cd0731ba69d4b6"
+name = "EPXX_VALE_REFE"
+qual = "EPXX_VALE_REFE"
+item = "const"
+shape = "const"
+lines = [
+    143,
+    144,
+]
+hash = "sha256:586a89f67b4e6215d888aed1876722b56eca16096cd2e6b748c3df48c0bf9eb1"
+doc_hash = "sha256:5a1a534fcc84cecba47bb82ca5f9c678c3667b8b9c6fbc686e4f36e704ed5067"
+test = true
+
+[[module."astest_ssnv101a.rs".function]]
+id = "fn:c1307a40a987d02b"
+name = "EPXY_VALE_REFE"
+qual = "EPXY_VALE_REFE"
+item = "const"
+shape = "const"
+lines = [
+    145,
+    145,
+]
+hash = "sha256:eb4db2642f53d315d2a4daeba935ce54acb7f33f53ec4c6e79e9d06702c7711e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."astest_ssnv101a.rs".function]]
+id = "fn:b11c1038112d53de"
+name = "SIXX_VALE_REFE"
+qual = "SIXX_VALE_REFE"
+item = "const"
+shape = "const"
+lines = [
+    146,
+    146,
+]
+hash = "sha256:30a205c0d47b9b4021737ef24b227a480c9294d83b81a210123a528633a9af3b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."astest_ssnv101a.rs".function]]
 id = "fn:151c5e7ba1d182a2"
 name = "material"
 qual = "material"
@@ -16,6 +170,10 @@ lines = [
 ]
 hash = "sha256:29107354299c99c9352c73002f6ecc283b6e19d9172c745ed56670a97e8277fc"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:1552781fd977b286",
+    "fn:6639252670a42874",
+]
 test = true
 
 [[module."astest_ssnv101a.rs".function]]
@@ -28,6 +186,7 @@ lines = [
 ]
 hash = "sha256:8fa44ed01445b2801cdf4b22d21fba9ae382140704c5a8b4ce072364028d31df"
 doc_hash = "sha256:55192e48a25fa49592551aa9ee2572725d8a899ce68473425b6e7e5189cd7ae5"
+uses = ["fn:214ae5b62a4fad86"]
 test = true
 
 [[module."astest_ssnv101a.rs".function]]
@@ -41,6 +200,24 @@ lines = [
 hash = "sha256:f8881e59ed7f1df32c3ec9486dd508b0c8b0e35de70fc11a7a14c9535e49293b"
 doc_hash = "sha256:92f509fe7991855fa6d79710ad99c4f56d1d811986ff322d404acdac805538e6"
 callees = ["fn:27e86d8fe19529a2"]
+uses = [
+    "fn:05f18a36106aa0da",
+    "fn:250c638c8bd6b322",
+]
+test = true
+
+[[module."astest_ssnv101a.rs".function]]
+id = "fn:2dfc59cbab31eb09"
+name = "STRESS_CONTROL_TOLERANCE"
+qual = "STRESS_CONTROL_TOLERANCE"
+item = "const"
+shape = "const"
+lines = [
+    190,
+    201,
+]
+hash = "sha256:2d5154459a6aa1b91acaadb18345da6bff87735beb7642e01bab3c8b6886930e"
+doc_hash = "sha256:3f1cc57538e06cd14bcaae50b21f0ebc11ba2d1f8deb691ee404a1e1d3fee6b2"
 test = true
 
 [[module."astest_ssnv101a.rs".function]]
@@ -54,6 +231,11 @@ lines = [
 hash = "sha256:333ae504b52fcecfe19952912ec8faaac8ebcf7edc30e9ec52f948b71a96762c"
 doc_hash = "sha256:ef585a1ded733eb2e05d3ea16bc209414dc79258404646167a963d8a7fed0382"
 callees = ["fn:27e86d8fe19529a2"]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:f144cb9dd9a5cb63",
+    "fn:f77a55ac0993b352",
+]
 test = true
 
 [[module."astest_ssnv101a.rs".function]]
@@ -66,6 +248,7 @@ lines = [
 ]
 hash = "sha256:3764d1ed6868bb7b2c03eb38893b8921d811d6c1dea147e35a966183c70ad1b1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:250c638c8bd6b322"]
 test = true
 
 [[module."astest_ssnv101a.rs".function]]
@@ -85,6 +268,14 @@ callees = [
     "fn:b252358e4cc99324",
     "fn:f46d85603d4d6dd1",
 ]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:2dfc59cbab31eb09",
+    "fn:6639252670a42874",
+    "fn:ad9f2fccf2ae9988",
+    "fn:bb0a408e79844e00",
+    "fn:f80e3194b1cfc976",
+]
 test = true
 
 [[module."astest_ssnv101a.rs".function]]
@@ -95,7 +286,7 @@ lines = [
     274,
     416,
 ]
-hash = "sha256:95935faec214644f4ba6cac74c1e223d6443af9fc38ba840c432946eabfa8af3"
+hash = "sha256:96575b0bdc372bab10c96c70ba933fbabce02f55de3e0f8ca16d1ce110ab2414"
 doc_hash = "sha256:b0d7f707c7279eb8f78381a4e2764150ec1f7ac24f754e5bd9d8b9cd9750aaf4"
 callees = [
     "fn:09cffd1b75030c24",
@@ -109,10 +300,97 @@ callees = [
     "fn:ea70bd070bd384f6",
     "fn:f2d2a2e9e4300904",
 ]
+uses = [
+    "fn:0e9e633fc5ceb056",
+    "fn:250c638c8bd6b322",
+    "fn:2dfc59cbab31eb09",
+    "fn:2e970fc19ba0f5f1",
+    "fn:37cd0731ba69d4b6",
+    "fn:a6e010a0013424fb",
+    "fn:ad9f2fccf2ae9988",
+    "fn:b11c1038112d53de",
+    "fn:bb0a408e79844e00",
+    "fn:c1307a40a987d02b",
+    "fn:d79275815f6bd862",
+    "fn:f144cb9dd9a5cb63",
+    "fn:f26699de710c5968",
+    "fn:f77a55ac0993b352",
+    "fn:f80e3194b1cfc976",
+]
 test = true
 
 [module."astest_ssnv126a.rs"]
 path = "test:astest_ssnv126a"
+
+[[module."astest_ssnv126a.rs".function]]
+id = "fn:d0954bcc0b1cb64f"
+name = "YOUNG"
+qual = "YOUNG"
+item = "const"
+shape = "const"
+lines = [
+    109,
+    109,
+]
+hash = "sha256:b18bd22f20fcf8e6ef3907d17488b4d41b6c1d37712412656c529915896c672b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."astest_ssnv126a.rs".function]]
+id = "fn:b9e09bb2ba3deafc"
+name = "POISSON"
+qual = "POISSON"
+item = "const"
+shape = "const"
+lines = [
+    110,
+    110,
+]
+hash = "sha256:62c9183bacde6e1958962d0d5f2d746b0d41b4a695da86b0e68b79096764e866"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."astest_ssnv126a.rs".function]]
+id = "fn:23570dfaccd22089"
+name = "AXIAL_STRAIN"
+qual = "AXIAL_STRAIN"
+item = "const"
+shape = "const"
+lines = [
+    112,
+    113,
+]
+hash = "sha256:b26b1e15119ec20a8ad6d3021a394c5c26dc003dee9e54774753b6c58a673f1e"
+doc_hash = "sha256:be83dadab57e3627dfe4072090a69665ce89e1e8ac387c69f5a632b57065c655"
+test = true
+
+[[module."astest_ssnv126a.rs".function]]
+id = "fn:a348bcb7b7993291"
+name = "SUB_STEPS"
+qual = "SUB_STEPS"
+item = "const"
+shape = "const"
+lines = [
+    115,
+    126,
+]
+hash = "sha256:cc290deeefbcd39c34eb9680b6922156246873b7d460fbc400ab9a00b8ebfaba"
+doc_hash = "sha256:c875521200f6591b28491cb878de21b37380ee735aa2211f3ac8dc8b12c359af"
+test = true
+
+[[module."astest_ssnv126a.rs".function]]
+id = "fn:aa380314ebf5d33d"
+name = "CONTROL_TOLERANCE"
+qual = "CONTROL_TOLERANCE"
+item = "const"
+shape = "const"
+lines = [
+    128,
+    132,
+]
+hash = "sha256:a4dcdac62662a00c39711d596b292ae5b1e33482498d63a0541a77cf9a71f738"
+doc_hash = "sha256:b73b00c0ecc3ab07ad67c0f97c622ff3d58025ea6f260bcc66c5ee476c8c8fc7"
+test = true
 
 [[module."astest_ssnv126a.rs".function]]
 id = "fn:3fe829b4ceb77e62"
@@ -125,6 +403,10 @@ lines = [
 hash = "sha256:87a48f2a556fae31c906d24e82b315f83038708ba0b9101326fcf07fc2d75b90"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:2ac6b30799094362"]
+uses = [
+    "fn:79c2a6f8d17b4f6b",
+    "fn:d2e3cdc78f1238af",
+]
 test = true
 
 [[module."astest_ssnv126a.rs".function]]
@@ -138,6 +420,10 @@ lines = [
 hash = "sha256:7fb754db81827e8e9f921ad7fc47909412e0e587f957455dbc75388a16934d51"
 doc_hash = "sha256:c41f185f266a3fd8bea62f964480127a42b8ed1362fd197ee6983d8e9e4b2f32"
 callees = ["fn:2ac6b30799094362"]
+uses = [
+    "fn:79c2a6f8d17b4f6b",
+    "fn:d2e3cdc78f1238af",
+]
 test = true
 
 [[module."astest_ssnv126a.rs".function]]
@@ -151,6 +437,10 @@ lines = [
 hash = "sha256:07206dc1ccadbbb618bbd118ffc834151d4b142a041bd82ad468379ed0ee5492"
 doc_hash = "sha256:d2af23fd15135d4dd7bb602b68ef43e1ad97ffa87b30e3fcaae010fa6d63fc78"
 callees = ["fn:2ac6b30799094362"]
+uses = [
+    "fn:79c2a6f8d17b4f6b",
+    "fn:d2e3cdc78f1238af",
+]
 test = true
 
 [[module."astest_ssnv126a.rs".function]]
@@ -164,6 +454,10 @@ lines = [
 hash = "sha256:33a97e8f0b5e3d3b6137cb15f8c94156d1c1ea990d6ee7de1bf86e5fc7fb89b3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:2ac6b30799094362"]
+uses = [
+    "fn:79c2a6f8d17b4f6b",
+    "fn:d2e3cdc78f1238af",
+]
 test = true
 
 [[module."astest_ssnv126a.rs".function]]
@@ -177,6 +471,10 @@ lines = [
 hash = "sha256:3907f46313df04b064774686bd9a1c74d6a505e7b34057d5351aa87664a997c5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:2ac6b30799094362"]
+uses = [
+    "fn:79c2a6f8d17b4f6b",
+    "fn:d2e3cdc78f1238af",
+]
 test = true
 
 [[module."astest_ssnv126a.rs".function]]
@@ -193,6 +491,11 @@ callees = [
     "fn:2ac6b30799094362",
     "fn:65970f6f4f745c84",
 ]
+uses = [
+    "fn:79c2a6f8d17b4f6b",
+    "fn:b8609dba56a860ac",
+    "fn:d2e3cdc78f1238af",
+]
 test = true
 
 [[module."astest_ssnv126a.rs".function]]
@@ -206,6 +509,10 @@ lines = [
 hash = "sha256:fbe05cfced5dbcc18ec9e39dd4aaf813f3ef26804762573276831b0484e53551"
 doc_hash = "sha256:822a839ad45bddcc24ba5aef14363435e224c4410b089b4233dc235466d48583"
 callees = ["fn:2ac6b30799094362"]
+uses = [
+    "fn:79c2a6f8d17b4f6b",
+    "fn:d2e3cdc78f1238af",
+]
 test = true
 
 [[module."astest_ssnv126a.rs".function]]
@@ -252,6 +559,49 @@ callees = [
     "fn:c46e6d7f8c93f2af",
     "fn:f002c303dabea238",
 ]
+uses = ["fn:e618553b0e7ec2a3"]
+test = true
+
+[[module."astest_ssnv126a.rs".function]]
+id = "fn:399c9973e987bb52"
+name = "SOLNL_REFERENCE"
+qual = "SOLNL_REFERENCE"
+item = "const"
+shape = "const"
+lines = [
+    268,
+    306,
+]
+hash = "sha256:07849d201b1d274f8d2bbef2ee6fdd27eb60e750277e0d63de415d6f6379dd30"
+doc_hash = "sha256:81fe09564f3e3e974ce13a2c703db0b9f551f9e7a65a124b519b682f2e0bef3a"
+test = true
+
+[[module."astest_ssnv126a.rs".function]]
+id = "fn:424fd5bd3ba43f7c"
+name = "SOLNL2_REFERENCE"
+qual = "SOLNL2_REFERENCE"
+item = "const"
+shape = "const"
+lines = [
+    308,
+    334,
+]
+hash = "sha256:8235563da04da664f50b265450e6ebf2d1f6de712de72c870543e7b73c6e4494"
+doc_hash = "sha256:9fbea13b51a0a1d745d20912f2a913b30ec37ac20e3c4b28eb42a86e5b96c6ba"
+test = true
+
+[[module."astest_ssnv126a.rs".function]]
+id = "fn:dd0a94731b239519"
+name = "ANALYTICAL_REFERENCE"
+qual = "ANALYTICAL_REFERENCE"
+item = "const"
+shape = "const"
+lines = [
+    336,
+    343,
+]
+hash = "sha256:06d7f144198d24d3d3dfd4ebc88bf2e766d36075cb4c9445ddbc8d3f2b720a54"
+doc_hash = "sha256:c672032d536b16956f5743f00a729d0bca40189da03b0bc70f7a8d6114c992fe"
 test = true
 
 [[module."astest_ssnv126a.rs".function]]
@@ -262,7 +612,7 @@ lines = [
     345,
     570,
 ]
-hash = "sha256:e05a8ad2d3d94689d3e453de9c437b94fc495b249b5887397873da3f73015e83"
+hash = "sha256:a8de9da4e00862058415fe17d9a224fffa071994db83133957f2aae3d962c717"
 doc_hash = "sha256:fd2333557cd69d920b21c72e995becf3b5284b46bc041981813855aedde21714"
 callees = [
     "fn:233b966c67281921",
@@ -277,6 +627,21 @@ callees = [
     "fn:c4dd26deafff8400",
     "fn:db422ed6d9b22684",
     "fn:f002c303dabea238",
+]
+uses = [
+    "fn:16120c6af40d9819",
+    "fn:1b98a6271d7e286f",
+    "fn:23570dfaccd22089",
+    "fn:250c638c8bd6b322",
+    "fn:399c9973e987bb52",
+    "fn:424fd5bd3ba43f7c",
+    "fn:6985b2b4b7f2b068",
+    "fn:727207ae78351f39",
+    "fn:a348bcb7b7993291",
+    "fn:aa380314ebf5d33d",
+    "fn:b9e09bb2ba3deafc",
+    "fn:d0954bcc0b1cb64f",
+    "fn:dd0a94731b239519",
 ]
 test = true
 

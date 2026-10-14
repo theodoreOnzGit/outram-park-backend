@@ -103,6 +103,11 @@ callees = [
     "fn:dcfe88c840191e5d",
     "fn:eabbb78407dd7db3",
 ]
+uses = [
+    "fn:359972b9e99804c1",
+    "fn:831f5a6ecd619161",
+    "fn:c609ec17a374f2d4",
+]
 reached_by = [
     "#3",
     "#4",
@@ -129,6 +134,7 @@ lines = [
 hash = "sha256:f4ccbaa5b949143b68bfbadefd4ca21b3363149d37aa252bcc071fa82ba96634"
 doc_hash = "sha256:caae537e02b7acb3612f7e7d0b5f4887c8767de80e5067df86cba92e11fa4d24"
 callees = ["fn:4bdea64528f551f6"]
+uses = ["fn:359972b9e99804c1"]
 reached_by = [
     "#0",
     "#1",

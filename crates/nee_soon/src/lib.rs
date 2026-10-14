@@ -1,7 +1,8 @@
 //! # NEE_SOON
 //!
-//! **N**eutron **E**nergy-dependent **S**imulation using **O**pen-source
-//! **O**bject-**O**riented **N**umerics.
+//! **NE**utron **E**nergy-dependent **S**imulation using **O**pen-source
+//! **O**bject-Oriented **N**umerics. (Lettering corrected 2026-10-13: it
+//! spelled NESOOON before.)
 //!
 //! NEE_SOON is the **coupling / integration layer** of the OUTRAM PARK suite.
 //! It does not implement transport, nuclear-data processing, or kinetics

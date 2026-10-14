@@ -16,6 +16,23 @@ lines = [
 ]
 hash = "sha256:3d26b796cdc3155165e41f2eed18b7c67509f6bb4e65ccbfafb5b266023936fe"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:2ae0e867e1dae4b3",
+    "fn:f232a9a6a595ee30",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f232a9a6a595ee30"
+name = "HeaterType"
+qual = "HeaterType"
+item = "type"
+shape = "enum"
+lines = [
+    41,
+    45,
+]
+hash = "sha256:edbb0dd3a48c2041fe3ab5369b83b2c7fe66c08fd647eff4d56f7b2d8b0712c5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."mod.rs".function]]
 id = "fn:eed2d4c851429a6e"
@@ -27,3 +44,4 @@ lines = [
 ]
 hash = "sha256:c06523b18a9bd0e3703d1368bd64a5665ad1b8e155f10dddf3cb76376bd6985c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:f232a9a6a595ee30"]

@@ -81,7 +81,7 @@ use kovan_common::code_index::heal::{classify, is_own_orphan, Existing};
 use kovan_common::code_index::links::{self, FileOccs, Occ, Site, LINKS_FILE};
 use kovan_common::code_index::refresh::{all_claims, refresh_folder};
 use kovan_common::code_index::{deleted, upstream_draft};
-use kovan_common::review::hash::hash_functions;
+use kovan_common::review::hash::hash_both;
 use kovan_common::review::index::{FolderIndex, TestRun};
 use kovan_common::review::review_md::{parse_review_md, ReviewDocument};
 use kovan_common::review::root::{
@@ -672,19 +672,29 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
     // 5. Inputs.
     ctl.phase("hashing functions and reading review.md / kovan.toml", 0);
     let mut hashed = BTreeMap::new();
+    let mut items = BTreeMap::new();
     let mut sources: BTreeMap<String, String> = BTreeMap::new();
-    for (_, m, _) in doc.functions() {
-        if sources.contains_key(&m.file) {
+    // Every module, not only those with functions: a file holding only
+    // types or constants has items to index (#843).
+    let module_files: Vec<String> = doc
+        .crates
+        .iter()
+        .flat_map(|c| c.targets.iter().chain(c.tests.iter()))
+        .flat_map(|t| t.modules.iter().map(|m| m.file.clone()))
+        .collect();
+    for file in module_files {
+        if sources.contains_key(&file) {
             continue;
         }
-        let Some(text) = read(&root, &m.file) else { continue };
-        match hash_functions(&text) {
-            Ok(h) => {
-                hashed.insert(m.file.clone(), h);
+        let Some(text) = read(&root, &file) else { continue };
+        match hash_both(&text) {
+            Ok((h, i)) => {
+                hashed.insert(file.clone(), h);
+                items.insert(file.clone(), i);
             }
-            Err(e) => say!(ctl, "index: {}: {e}; its functions are left out", m.file),
+            Err(e) => say!(ctl, "index: {file}: {e}; its functions are left out"),
         }
-        sources.insert(m.file.clone(), text);
+        sources.insert(file, text);
     }
     let mut quantities = kovan_common::code_index::physical::QuantityNames::default();
     quantities.learn(sources.values().map(String::as_str));
@@ -718,6 +728,7 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
     let built = build(&BuildInput {
         doc: doc.clone(),
         hashed,
+        items,
         reviews: reviews.clone(),
         previous: existing.previous.clone(),
         test_runs: existing.test_runs.clone(),
@@ -746,6 +757,9 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
     let r = &built.report;
     if !r.unhashed.is_empty() {
         say!(ctl, "index: {} function(s) have no hash yet (nested in another fn or made by a macro) and are left out; their calls count for the enclosing function", r.unhashed.len());
+    }
+    for s in &r.skipped_items {
+        say!(ctl, "index: {s} is a type or constant sharing its name with a function in the same file; it is left out");
     }
     for m in &r.moved {
         say!(ctl, "index: {} moved {} -> {} (matched by hash; acknowledge the move in kovan)", m.id, m.from.as_deref().unwrap_or("?"), m.to);

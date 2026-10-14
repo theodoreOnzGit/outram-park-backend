@@ -40,6 +40,38 @@ lines = [
 hash = "sha256:b46656a1575ee0da40acb9dfa932d9e70c50313cf43caea4ce57beed7f7915ae"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:aed6600850fa8d62"]
+uses = ["fn:fc8215d7d0dd89b8"]
+
+[[module."main.rs".function]]
+id = "fn:fc8215d7d0dd89b8"
+name = "FHRSimulatorApp"
+qual = "FHRSimulatorApp"
+item = "type"
+shape = "struct"
+lines = [
+    51,
+    64,
+]
+hash = "sha256:dbb485fe54b428d17aba69d4491cd9b64ac05f7efcc624187421234d5d453240"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:8467459c4a663c4c",
+    "fn:93ae0cbbb1308bdc",
+    "fn:c3638d9e1632899d",
+]
+
+[[module."main.rs".function]]
+id = "fn:8467459c4a663c4c"
+name = "FHRState"
+qual = "FHRState"
+item = "type"
+shape = "struct"
+lines = [
+    66,
+    129,
+]
+hash = "sha256:40bea4e7e2ab8c31c16d324c35f1b849eeb704d565a2f8f39e45e88fd1cfc812"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."main.rs".function]]
 id = "fn:a7d7dc5f1efd09d0"
@@ -51,6 +83,7 @@ lines = [
 ]
 hash = "sha256:092f30812f1acd4978c3cae3f84fa8f61d15728b1244b8fdda0b72c4257c3e10"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:8467459c4a663c4c"]
 
 [[module."main.rs".function]]
 id = "fn:a3578333988262fa"
@@ -62,6 +95,7 @@ lines = [
 ]
 hash = "sha256:551a456b2e340eeaea38af79b9518e94939be7d4a650d20e79d38ccae759fd5e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:8467459c4a663c4c"]
 physical_interface = true
 
 [[module."main.rs".function]]
@@ -80,6 +114,11 @@ callees = [
     "fn:ab825bbf9d3ef684",
     "fn:f3063bfb7f185302",
 ]
+uses = [
+    "fn:8467459c4a663c4c",
+    "fn:c3638d9e1632899d",
+    "fn:fc8215d7d0dd89b8",
+]
 
 [[module."main.rs".function]]
 id = "fn:6a3b14c2f6811704"
@@ -94,4 +133,10 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:a7d7dc5f1efd09d0",
     "fn:b412a5ee071af9f2",
+]
+uses = [
+    "fn:8467459c4a663c4c",
+    "fn:93ae0cbbb1308bdc",
+    "fn:c3638d9e1632899d",
+    "fn:fc8215d7d0dd89b8",
 ]

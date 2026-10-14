@@ -5,15 +5,15 @@
 > [`@@COMMIT_SHORT@@`](https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@).
 
 Every public module of `changi` (bar `flexpart`, deferred), `buangkok` and
-`sembawang`, mapped to the page that teaches it, the code walk that reaches
-it, and the record of how it was checked. **A blank V&V cell means there is no
+`sembawang`, mapped to the page that teaches it, the page section whose link into the
+[Code Review map](../../code-review/) reaches it (until 2026-10-14, a code walk), and the record of how it was checked. **A blank V&V cell means there is no
 check**, and the gap is said on the page. "c2c" is code-to-code against the
 upstream code the module was ported from: verification of the translation,
 never validation.
 
 ## changi
 
-| Module | Core rung | Extended page | Code walk | V&V record |
+| Module | Core rung | Extended page | Code Review map | V&V record |
 |---|---|---|---|---|
 | `puff::stability` | [2](./rungs/02-sigmas.md) | [puff internals](./puff.md) | rung 2: example → `stability_class` | c2c, 1 539 cases exact, `docs/puff-code-to-code.md` (2026-09-21) |
 | `puff::dispersion` | [2](./rungs/02-sigmas.md) | [puff internals](./puff.md) | rung 2: example → `pasquill_gifford_sigmas` | c2c, 234 cases bit-exact; sigma-set comparison in `buangkok/tests/changi_puff_train_vs_plume.rs` (reported) |
@@ -33,7 +33,7 @@ never validation.
 
 ## buangkok
 
-| Module | Core rung | Extended page | Code walk | V&V record |
+| Module | Core rung | Extended page | Code Review map | V&V record |
 |---|---|---|---|---|
 | `pydoseia::dispersion` | [1](./rungs/01-plume.md), [2](./rungs/02-sigmas.md) | [plume internals](./plume.md), [met processing](./ext/met-processing.md) | rung 1: example → `master_equation_single_plume`; rung 2 → `sigma_z` | c2c exact (`docs/pydoseia-code-to-code.md`, 2026-09-28); flux conservation `tests/plume_mass_flux_conservation.rs` (2026-10-04) |
 | `pydoseia::met` | (2) | [met processing](./ext/met-processing.md) | driver → `dilution_long_term_with_met` | c2c exact on synthetic met data; D1 corrected variant unverified |
@@ -52,7 +52,7 @@ never validation.
 
 ## sembawang
 
-| Module | Core rung | Extended page | Code walk | V&V record |
+| Module | Core rung | Extended page | Code Review map | V&V record |
 |---|---|---|---|---|
 | `scenario` | [7](./rungs/07-capstone.md) | [sembawang](./ext/sembawang.md) | rung 7 tree | unit tests |
 | `inventory` | [7](./rungs/07-capstone.md) | [sembawang](./ext/sembawang.md) | rung 7 tree | unit tests |

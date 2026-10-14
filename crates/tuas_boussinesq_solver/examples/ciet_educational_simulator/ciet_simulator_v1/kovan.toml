@@ -7,6 +7,26 @@ dir = "crates/tuas_boussinesq_solver/examples/ciet_educational_simulator/ciet_si
 path = "example:ciet_educational_simulator::ciet_simulator_v1::app"
 
 [[module."app.rs".function]]
+id = "fn:70e5323cdebe5b88"
+name = "CIETApp"
+qual = "CIETApp"
+item = "type"
+shape = "struct"
+lines = [
+    18,
+    52,
+]
+hash = "sha256:65fcd4142282df2a482f8b67f70839930fdb3db6138d9432d77793820ccda73b"
+doc_hash = "sha256:e160bdf7cde11674d702afb338945640f1e2db83ea57a57fd4737ccdafe75192"
+uses = [
+    "fn:2ae0e867e1dae4b3",
+    "fn:52e4e83f79c797bb",
+    "fn:779983fa0c4c3607",
+    "fn:821987f224600a60",
+    "fn:f232a9a6a595ee30",
+]
+
+[[module."app.rs".function]]
 id = "fn:c4ec6691ad91ff56"
 name = "default"
 qual = "CIETApp::default"
@@ -20,6 +40,14 @@ callees = [
     "fn:dabb3e6a7737a14f",
     "fn:df965f0010868bb2",
     "fn:f44878efcd217386",
+]
+uses = [
+    "fn:2ae0e867e1dae4b3",
+    "fn:52e4e83f79c797bb",
+    "fn:70e5323cdebe5b88",
+    "fn:779983fa0c4c3607",
+    "fn:821987f224600a60",
+    "fn:f232a9a6a595ee30",
 ]
 
 [[module."app.rs".function]]
@@ -37,6 +65,11 @@ callees = [
     "fn:c4ec6691ad91ff56",
     "fn:e9ee368b9fc3b537",
 ]
+uses = [
+    "fn:2ae0e867e1dae4b3",
+    "fn:52e4e83f79c797bb",
+    "fn:70e5323cdebe5b88",
+]
 
 [[module."app.rs".function]]
 id = "fn:17bdd0915bb7bb9b"
@@ -48,6 +81,7 @@ lines = [
 ]
 hash = "sha256:ee5b663383af4346062f6c5afe09f3c56f3ed9f42247d25e88d8338717248339"
 doc_hash = "sha256:05c1f790602727e494c4b0061fcf288c7b4f4052fcc9a030b2fafe7b89c27aad"
+uses = ["fn:70e5323cdebe5b88"]
 
 [[module."app.rs".function]]
 id = "fn:b897cb2a9fc00a66"
@@ -80,6 +114,12 @@ callees = [
     "fn:dda58812d1660e2f",
     "fn:e8132c57f96edcb4",
 ]
+uses = [
+    "fn:2ae0e867e1dae4b3",
+    "fn:70e5323cdebe5b88",
+    "fn:779983fa0c4c3607",
+    "fn:f232a9a6a595ee30",
+]
 
 [[module."app.rs".function]]
 id = "fn:baa7274352e8a96c"
@@ -106,3 +146,4 @@ lines = [
 hash = "sha256:c1d12fde58963d75946907f6a1d8792a4485e828479c7daf8322e3b521bd323f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:2f88d82e34ab9ce2"]
+uses = ["fn:70e5323cdebe5b88"]

@@ -34,8 +34,11 @@
 //!
 //! `calcem`'s own `sig` function — the double-differential kernel `sig` is
 //! called against at every adaptively-chosen point — is **not** reimplemented
-//! here: both [`sigl`] and [`sigu`] call
-//! [`super::mf7::IncoherentInelastic::double_differential`], which is
+//! here: both [`sigl`] and [`sigu`] call ~~[`super::mf7::IncoherentInelastic::double_differential`]~~
+//! **CORRECTED 2026-10-14 (GitHub #865):** [`sig`], which adds `sig`'s
+//! closing `sigmin = 1e-10` cut to
+//! [`super::mf7::IncoherentInelastic::double_differential`]; that kernel had
+//! left the cut out. The kernel is
 //! [`super::inelastic`]'s existing faithful port of `thermr.f90`'s `sig`
 //! (label 150/170), including the 3×3 ln-`S` `terpq` stencil, the liquid
 //! small-α branch, the floored-corner gate, and the SCT tail. Nothing in this
@@ -78,6 +81,19 @@
 //!   by the cross section (`thermr.f90:2207-2209`) — see
 //!   [`types::IncidentEnergyRecord::mubar`] for why this port always
 //!   normalizes instead (a packaging choice, not an algorithm change).
+
+/// `thermr.f90`'s `sig`, as `sigl` and `sigu` call it: the shared kernel
+/// [`IncoherentInelastic::double_differential`] with `sig`'s last line,
+/// `if (sig.lt.sigmin) sig=0`, `sigmin = 1e-10` (GitHub #865). Without it the
+/// rows ran on past the point where NJOY's go to zero: on Al-27 at 20 K every
+/// record had about 32 more outgoing energies than NJOY2016's, down to
+/// 1e-29 b/eV. The cut is applied here, on THERMR's path, and not in the
+/// kernel, so the transport route's recorded numbers are not moved by it.
+pub(crate) fn sig(ii: &super::mf7::IncoherentInelastic, e: f64, ep: f64, u: f64, temp_k: f64, natom: f64) -> f64 {
+    const SIGMIN: f64 = 1.0e-10;
+    let s = ii.double_differential(e, ep, u, temp_k, natom);
+    if s < SIGMIN { 0.0 } else { s }
+}
 
 pub mod egrid;
 pub mod iform0;

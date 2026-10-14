@@ -27,7 +27,24 @@ callees = [
     "fn:f09f00cc4fcef6cc",
     "fn:f472eb21333733c8",
 ]
+uses = [
+    "fn:56d3675cc5aad081",
+    "fn:d2bc200eb1fa4ffa",
+]
 physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:d2bc200eb1fa4ffa"
+name = "SecondaryLoopState"
+qual = "SecondaryLoopState"
+item = "type"
+shape = "struct"
+lines = [
+    168,
+    191,
+]
+hash = "sha256:b5740a2035e79b3d14b13eb6cc7d0856931c58bd1c9a17927b3d48a72b065ac4"
+doc_hash = "sha256:0fc133357fe121d5863c1a55ccfb8d7275ceff60c5a84d2c2d4a62dc469a7ca3"
 
 [module."pool_boiling.rs"]
 path = "example:fhr_sim_v1::app::thermal_hydraulics_backend::secondary_loop::pool_boiling"

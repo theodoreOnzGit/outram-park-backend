@@ -33,6 +33,7 @@ callees = [
     "fn:e614ee8a4e9e3049",
     "fn:f2a46ee63ee99d3f",
 ]
+uses = ["fn:6e3bb10a54f0f2ee"]
 
 [[module."mod.rs".function]]
 id = "fn:e614ee8a4e9e3049"
@@ -51,6 +52,13 @@ callees = [
     "fn:d0609f342aac407b",
     "fn:d115185563bbb8f3",
     "fn:eb6f838d54b58e21",
+]
+uses = [
+    "fn:243c2aeaec2904ad",
+    "fn:273d771359223f8f",
+    "fn:7b783d8b0f8ccddf",
+    "fn:b33b1bb52c704fd3",
+    "fn:e5d2a36734b99400",
 ]
 
 [[module."mod.rs".function]]
@@ -81,3 +89,4 @@ callees = [
     "fn:3ba0620451cd8859",
     "fn:b8b019c3a996720c",
 ]
+uses = ["fn:273d771359223f8f"]

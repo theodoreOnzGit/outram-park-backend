@@ -65,6 +65,16 @@ impl Chain {
         Self { rng: seed, next_index: 0, pending_fission: None }
     }
 
+    /// Make the next history start at a site of `keff`'s present fission
+    /// source (Run mode's drawn neutrons, gh:#859).
+    pub fn born_from(&mut self, keff: &Keff) {
+        let sites = keff.it.source_positions();
+        if !sites.is_empty() {
+            let i = (crate::triso::model::splitmix(&mut self.rng) % sites.len() as u64) as usize;
+            self.pending_fission = Some((sites[i], FRESH_INCIDENT_EV));
+        }
+    }
+
     pub fn run_next(&mut self, phys: &Physics) -> History {
         let u235 = &phys.data.nuclides[N_U235];
         let from_fission = self.pending_fission.is_some();
@@ -192,7 +202,7 @@ pub fn headless_keff(phys: &Physics, cfg: KeffConfig, mut out: impl FnMut(&str))
         }
     }
     let r = k.result();
-    for l in summary_lines(&active, production, cfg, r.k_mean, r.k_std, Some(super::REFERENCE)) {
+    for l in summary_lines(&active, production, cfg, r.k_mean, r.k_std, Some(super::reference_with_code())) {
         out(&l);
     }
     r
@@ -206,7 +216,12 @@ pub struct Loaded {
 }
 
 impl crate::rungs::LoadedRung for Loaded {
+    /// While a k-eigenvalue run is going, the neutron is born at a site of
+    /// its present fission source; otherwise the Watch chain's next history.
     fn run_next(&mut self) -> History {
+        if let Some(k) = self.keff.as_ref().filter(|k| !k.finished()) {
+            self.chain.born_from(k);
+        }
         self.chain.run_next(&self.phys)
     }
     fn keff_start(&mut self, cfg: KeffConfig) -> Result<Vec<[f32; 2]>, String> {

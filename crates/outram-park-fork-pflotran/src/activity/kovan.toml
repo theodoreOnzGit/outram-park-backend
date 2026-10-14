@@ -20,6 +20,77 @@ test_ids = [
 path = "crate::activity"
 
 [[module."mod.rs".function]]
+id = "fn:485342663644c769"
+name = "DH_A"
+qual = "DH_A"
+item = "const"
+shape = "const"
+lines = [
+    73,
+    75,
+]
+hash = "sha256:dbd8fc08bf8428f1595529b324eb497c4e27a327d494250a552d3d8fed2a11ca"
+doc_hash = "sha256:9cffb691bc34a716cb177567016cb793e53400587b58d55addf13fe5262dcb12"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#10",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ba7ffd71d00b57bc"
+name = "DH_B"
+qual = "DH_B"
+item = "const"
+shape = "const"
+lines = [
+    77,
+    79,
+]
+hash = "sha256:b8fbbc6ae1cfef150dc5410f6fd40bdeb213744a0b20fa839de72126b0dcafb5"
+doc_hash = "sha256:2150f49631e02fee7460f416ff01c0f817fa9dc8db63d3ff869bc55e2012c8d8"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#10",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3b6b9dc476b25e79"
+name = "ActivityModel"
+qual = "ActivityModel"
+item = "type"
+shape = "enum"
+lines = [
+    81,
+    106,
+]
+hash = "sha256:f0da84ab89b2a915a077d3780077ee855412637e08ef8f8667e1e35f2b82af88"
+doc_hash = "sha256:448abe54c68662b2068cf30f51528ae8a9fcd1ed81a7d9f548dea98067e85484"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+]
+
+[[module."mod.rs".function]]
 id = "fn:db9a52f9a9131b0e"
 name = "ionic_strength"
 qual = "ActivityModel::ionic_strength"
@@ -29,6 +100,10 @@ lines = [
 ]
 hash = "sha256:35ef4a0073b2d3ecbf93a6edfabcaf2d759e1bd9280181c7a5fd2a13966c6654"
 doc_hash = "sha256:dca6e43c107be9371c7f0bc341745840118edf7ab1a97e5d541a39f12ace48e6"
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:3b6b9dc476b25e79",
+]
 reached_by = [
     "#7",
     "#8",
@@ -45,6 +120,11 @@ lines = [
 ]
 hash = "sha256:30014e6e3018709f502429ea597e9cbd0b9bc3693551e5c9002cfc61a6bff8ed"
 doc_hash = "sha256:61599a73b0b6cdc3e9d7eed556c8e38ce75363c4ab368c2757e736d9190d9d53"
+uses = [
+    "fn:3b6b9dc476b25e79",
+    "fn:485342663644c769",
+    "fn:ba7ffd71d00b57bc",
+]
 reached_by = [
     "#1",
     "#2",
@@ -66,6 +146,7 @@ lines = [
 hash = "sha256:f0ee62d95c437124ff022a4d444eabadebc9aa01e36bacf34687eb94622482da"
 doc_hash = "sha256:56a89d0be1634c48920b19ee61ae93b65d5bcf0e8217e96d14e79f24e57892b2"
 callees = ["fn:c88e54eb1fdf400a"]
+uses = ["fn:3b6b9dc476b25e79"]
 reached_by = [
     "#1",
     "#2",
@@ -86,10 +167,29 @@ lines = [
 ]
 hash = "sha256:82dd7833bd26f0cb0e1e440ed1ca8a9da3a7e1dc71fd0b60162376cbe8978779"
 doc_hash = "sha256:80572b3dcae686578a7e37bf593ef43e099ff1b7857380e574ede0cf6418b229"
+uses = [
+    "fn:3b6b9dc476b25e79",
+    "fn:485342663644c769",
+]
 reached_by = [
     "#0",
     "#1",
 ]
+
+[[module."mod.rs".function]]
+id = "fn:e7be57f5d24ed1ee"
+name = "DAVIES"
+qual = "DAVIES"
+item = "const"
+shape = "const"
+lines = [
+    215,
+    215,
+]
+hash = "sha256:a99fdc7193a5edd841c6796b6c72de0347878fb691733a2f40eeaf61f01e7806"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:3b6b9dc476b25e79"]
+test = true
 
 [[module."mod.rs".function]]
 id = "fn:4e5848697c0ee97f"
@@ -101,6 +201,7 @@ lines = [
 ]
 hash = "sha256:723f61e8694f73999288a8f7d65820406c4d167f4ab7cad4371c3665f403b71a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:3b6b9dc476b25e79"]
 test = true
 
 [[module."mod.rs".function]]
@@ -117,6 +218,10 @@ callees = [
     "fn:4e5848697c0ee97f",
     "fn:72fce567981926e5",
 ]
+uses = [
+    "fn:3b6b9dc476b25e79",
+    "fn:e7be57f5d24ed1ee",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -130,6 +235,7 @@ lines = [
 hash = "sha256:cab62743c834031874920dab0ade4d4e1ffed368c23734932fd34d335492797d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:72fce567981926e5"]
+uses = ["fn:3b6b9dc476b25e79"]
 test = true
 
 [[module."mod.rs".function]]
@@ -146,6 +252,7 @@ callees = [
     "fn:4e5848697c0ee97f",
     "fn:72fce567981926e5",
 ]
+uses = ["fn:e7be57f5d24ed1ee"]
 test = true
 
 [[module."mod.rs".function]]
@@ -162,6 +269,7 @@ callees = [
     "fn:4e5848697c0ee97f",
     "fn:72fce567981926e5",
 ]
+uses = ["fn:e7be57f5d24ed1ee"]
 test = true
 
 [[module."mod.rs".function]]
@@ -178,6 +286,7 @@ callees = [
     "fn:4e5848697c0ee97f",
     "fn:72fce567981926e5",
 ]
+uses = ["fn:e7be57f5d24ed1ee"]
 test = true
 
 [[module."mod.rs".function]]
@@ -194,6 +303,10 @@ callees = [
     "fn:18269414623a8b8b",
     "fn:72fce567981926e5",
 ]
+uses = [
+    "fn:3b6b9dc476b25e79",
+    "fn:e7be57f5d24ed1ee",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -207,6 +320,7 @@ lines = [
 hash = "sha256:a1ff7acfca203f0a723298ab353435ab70cff6c84a327a832fe91edb7e2b4dc6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:72fce567981926e5"]
+uses = ["fn:3b6b9dc476b25e79"]
 test = true
 
 [[module."mod.rs".function]]
@@ -220,6 +334,7 @@ lines = [
 hash = "sha256:17ad6412b2b3a053170bbd2bd49a833fb9eadb118314d1d1c8b4e3244cfad6b6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:db9a52f9a9131b0e"]
+uses = ["fn:3b6b9dc476b25e79"]
 test = true
 
 [[module."mod.rs".function]]
@@ -233,6 +348,10 @@ lines = [
 hash = "sha256:2cf60ed41399d8ea52c4738ffe6b5fbe50a1a7a7df2269b22a08cc8da3b551e7"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:db9a52f9a9131b0e"]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:3b6b9dc476b25e79",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -246,6 +365,10 @@ lines = [
 hash = "sha256:3f3052052392ae174fa2aafd8d5a207366ab788d1fff4580717e56d2c444f18c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:db9a52f9a9131b0e"]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:3b6b9dc476b25e79",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -259,4 +382,5 @@ lines = [
 hash = "sha256:e482cff753c7ec8cde09fea864a7a7d3922c4fa8e1b752ebc76bdbe6181bfacd"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:18269414623a8b8b"]
+uses = ["fn:3b6b9dc476b25e79"]
 test = true

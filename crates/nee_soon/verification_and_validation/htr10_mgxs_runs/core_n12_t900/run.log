@@ -1,0 +1,25 @@
+[      0 s] case core_n12_t900: full HTR-10 core, Şeker 13-ball bed N = 12 (123.576 cm), explicit TRISO, explicit reflector, rods withdrawn, 900 K, 10000 x [20 + 135], seed 20261012, 36 threads
+[      0 s] processing nuclear data
+[    221 s] nuclear data done in 220 s
+[    433 s] scalar pass: generation 15/155, k 0.92470, 198 s
+[    617 s] scalar pass: generation 30/155, k 0.91032, 382 s
+[    805 s] scalar pass: generation 45/155, k 0.93358, 570 s
+[    992 s] scalar pass: generation 60/155, k 0.91878, 757 s
+[   1179 s] scalar pass: generation 75/155, k 0.90808, 944 s
+[   1366 s] scalar pass: generation 90/155, k 0.91742, 1131 s
+[   1553 s] scalar pass: generation 105/155, k 0.91484, 1318 s
+[   1741 s] scalar pass: generation 120/155, k 0.90593, 1505 s
+[   1928 s] scalar pass: generation 135/155, k 0.92343, 1692 s
+[   2115 s] scalar pass: generation 150/155, k 0.92599, 1880 s
+[   2177 s] scalar pass: k = 0.917189 +/- 0.001129, 1942 s
+[   2376 s] matrix pass: generation 15/155, k 0.92470, 199 s
+[   2618 s] matrix pass: generation 30/155, k 0.91032, 441 s
+[   2878 s] matrix pass: generation 45/155, k 0.93358, 701 s
+[   3135 s] matrix pass: generation 60/155, k 0.91878, 958 s
+[   3388 s] matrix pass: generation 75/155, k 0.90808, 1212 s
+[   3643 s] matrix pass: generation 90/155, k 0.91742, 1466 s
+[   3898 s] matrix pass: generation 105/155, k 0.91484, 1721 s
+[   4152 s] matrix pass: generation 120/155, k 0.90593, 1975 s
+[   4406 s] matrix pass: generation 135/155, k 0.92343, 2229 s
+[   4660 s] matrix pass: generation 150/155, k 0.92599, 2483 s
+[   4744 s] matrix pass: k = 0.917189 +/- 0.001129, 2567 s

@@ -113,6 +113,17 @@ callees = [
     "fn:fa07bb0cb8fd7b33",
     "fn:ff764db25e60524d",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:2ae0e867e1dae4b3",
+    "fn:4a19e9ba06c44963",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
 
 [module."diagnostics.rs"]
 path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages::full_simulation::diagnostics"
@@ -128,6 +139,10 @@ lines = [
 hash = "sha256:34099ea0a2e15c38ad5a179d8f83bd8f2f0d362485a241186e0cfbf9936f7d02"
 doc_hash = "sha256:32d3a92e3c5269a8e89140695257ee6ee90718a34b1d9da85ed5e50038405e38"
 callees = ["fn:5898244cb765d25d"]
+uses = [
+    "fn:9b373dcfa52e169e",
+    "fn:9cd1446ef56c9f1c",
+]
 physical_interface = true
 
 [module."fluid_solvers.rs"]
@@ -152,6 +167,14 @@ callees = [
     "fn:c5b03a40b86a1ce1",
     "fn:e79236623dec9507",
 ]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:9cd1446ef56c9f1c",
+    "fn:ca62ba45b75e81ac",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
 physical_interface = true
 
 [module."heat_transfer_solvers.rs"]
@@ -175,6 +198,15 @@ callees = [
     "fn:a3a04100486196dc",
     "fn:c9639f97ba6fc460",
 ]
+uses = [
+    "fn:0a50e017198e2657",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:9b373dcfa52e169e",
+    "fn:9cd1446ef56c9f1c",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."heat_transfer_solvers.rs".function]]
@@ -192,6 +224,12 @@ callees = [
     "fn:3f6427f87e7e0f62",
     "fn:57c29e12f6aa9e39",
     "fn:f66c6613b2fa9c0c",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:9cd1446ef56c9f1c",
+    "fn:a6efe5f766b47fef",
 ]
 physical_interface = true
 
@@ -305,6 +343,19 @@ callees = [
     "fn:f9571f9105f5c310",
     "fn:fa07bb0cb8fd7b33",
     "fn:fbfe53c7db5ca407",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:2ae0e867e1dae4b3",
+    "fn:4a19e9ba06c44963",
+    "fn:7dd4a12481be2f3d",
+    "fn:9cd1446ef56c9f1c",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f232a9a6a595ee30",
+    "fn:f811c4c8869b08b0",
 ]
 
 [module."separated_solvers.rs"]

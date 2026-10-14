@@ -4,16 +4,59 @@ crate = "boon-lay"
 dir = "crates/boon-lay/src"
 crate_root = true
 test_ids = [
+    "crates/boon-lay/src/compute.rs::default_is_cpu_single_thread",
     "crates/boon-lay/src/compute.rs::fraction_one_matches_auto",
     "crates/boon-lay/src/compute.rs::next_cycles_through_all_three",
     "crates/boon-lay/src/compute.rs::resolve_is_always_at_least_one",
     "crates/boon-lay/src/gpu.rs::best_effort_matches_crank",
+    "crates/boon-lay/src/gpu.rs::theta_table_is_monotonic",
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::cpu_single_and_multi_advance_time_and_agree",
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::gpu_selection_is_safe_and_advances",
 ]
 
 [module."compute.rs"]
 path = "crate::compute"
+
+[[module."compute.rs".function]]
+id = "fn:63beb8f8b8b7f682"
+name = "ComputeType"
+qual = "ComputeType"
+item = "type"
+shape = "enum"
+lines = [
+    20,
+    84,
+]
+hash = "sha256:bd4fe0551cfbb380dfd30174248aca3dd0a7831a0ef95edad8a06ffbe04969b2"
+doc_hash = "sha256:a254c016a19b8c70fc22e115a44a229c807b4cd376eb78a05cea9207f927a7ed"
+uses = ["fn:35b9f65b5009853b"]
+reached_by = [
+    "#0",
+    "#2",
+    "#6",
+    "#7",
+]
+
+[[module."compute.rs".function]]
+id = "fn:35b9f65b5009853b"
+name = "ThreadCount"
+qual = "ThreadCount"
+item = "type"
+shape = "enum"
+lines = [
+    86,
+    107,
+]
+hash = "sha256:75acbbfd84d290a6e7e5458ed699a614a09a0ca5c07c711ca034e79d4579fe44"
+doc_hash = "sha256:f4afb44adf83586f5469d954929d7fbf25859d274a1782d90b171515a0b8c012"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#6",
+    "#7",
+]
 
 [[module."compute.rs".function]]
 id = "fn:ef85d35748487780"
@@ -25,11 +68,12 @@ lines = [
 ]
 hash = "sha256:e6fb24c21707ee73e67c44e8974abbc92f5be2ee192dfc83e60158c9c786dd06"
 doc_hash = "sha256:e87881a9c694abf374cd58e38f0031e6d45d1891f54e3a617d12bfc795d841b7"
+uses = ["fn:35b9f65b5009853b"]
 reached_by = [
-    "#0",
-    "#2",
-    "#4",
-    "#5",
+    "#1",
+    "#3",
+    "#6",
+    "#7",
 ]
 
 [[module."compute.rs".function]]
@@ -42,6 +86,7 @@ lines = [
 ]
 hash = "sha256:1ceda00e83fd379da48df7bd6013f0f387b9f48695304bb61d1ad99458b1fa33"
 doc_hash = "sha256:ea3236fb9b496824ff6ba2cecea8de58b316ad058e6dd86e342c13e3f449d63a"
+uses = ["fn:63beb8f8b8b7f682"]
 
 [[module."compute.rs".function]]
 id = "fn:f533b6cabb93c728"
@@ -53,7 +98,11 @@ lines = [
 ]
 hash = "sha256:7ffd1d555ff5aa4c849ce3666bedd02d7434d74bd374d6ecbe5334ee9f564599"
 doc_hash = "sha256:2d2decf926a2ec5af05ccf20c9f431733c897a31600d12759399bb7f540faed3"
-reached_by = ["#1"]
+uses = [
+    "fn:35b9f65b5009853b",
+    "fn:63beb8f8b8b7f682",
+]
+reached_by = ["#2"]
 
 [[module."compute.rs".function]]
 id = "fn:4794a98989e88a54"
@@ -66,6 +115,7 @@ lines = [
 hash = "sha256:31bc3b1298c1d443103c24d229c1b7805573fe150cf7ba1cf8cbac10c746d7ed"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:ef85d35748487780"]
+uses = ["fn:35b9f65b5009853b"]
 test = true
 
 [[module."compute.rs".function]]
@@ -79,6 +129,7 @@ lines = [
 hash = "sha256:8bf3f49fe5c9bd89052de52c96d86151be892f55de8d12db5f96377217d984a1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:ef85d35748487780"]
+uses = ["fn:35b9f65b5009853b"]
 test = true
 
 [[module."compute.rs".function]]
@@ -91,6 +142,7 @@ lines = [
 ]
 hash = "sha256:63da9963a5656e97094ce097df76c8ab98a647d3e65453b60ba40353ba876293"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:63beb8f8b8b7f682"]
 test = true
 
 [[module."compute.rs".function]]
@@ -104,10 +156,78 @@ lines = [
 hash = "sha256:87cd06a5358f0f15239a1e7f0be236562b7e53550a05bd97c7cd84abd98e1b0f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:f533b6cabb93c728"]
+uses = ["fn:63beb8f8b8b7f682"]
 test = true
 
 [module."gpu.rs"]
 path = "crate::gpu"
+
+[[module."gpu.rs".function]]
+id = "fn:6100cca8bbdeb360"
+name = "THETA_TABLE_LEN"
+qual = "THETA_TABLE_LEN"
+item = "const"
+shape = "const"
+lines = [
+    51,
+    52,
+]
+hash = "sha256:6735369f59902935147229d3a516d9beb6fb9bf80791056475a2be9fa6952621"
+doc_hash = "sha256:c1b4fa51045c2cde364cc2e945f57209f5e9a6515096e61211b149542a20a55c"
+reached_by = [
+    "#4",
+    "#5",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:d3775a5f844e81e0"
+name = "MAX_HOPS"
+qual = "MAX_HOPS"
+item = "const"
+shape = "const"
+lines = [
+    53,
+    54,
+]
+hash = "sha256:01f1d3c935e880002b317b15384f83c1200aabd8370328e951d525e14a9907e0"
+doc_hash = "sha256:94a4f67ba56ed860a6e3d2593e96adbe3b5823bb656640284a752e8777e14657"
+reached_by = ["#4"]
+
+[[module."gpu.rs".function]]
+id = "fn:3a988803f149849b"
+name = "WORKGROUP_SIZE"
+qual = "WORKGROUP_SIZE"
+item = "const"
+shape = "const"
+lines = [
+    55,
+    55,
+]
+hash = "sha256:209842ade790f8677030d94fd041f32012e5d58300147127f2f81fb6bd34286c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#4",
+    "#6",
+    "#7",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:8f67a31ed0d53e40"
+name = "GpuContext"
+qual = "GpuContext"
+item = "type"
+shape = "struct"
+lines = [
+    57,
+    63,
+]
+hash = "sha256:5aa832d461302cfa7b1202784acecd76adfeb9b894fb89a9899ff2e6a7bed2c4"
+doc_hash = "sha256:723a3efa1306b1e3977242eff10a28dd3c9e105ba683774c567e20790e9f4582"
+reached_by = [
+    "#4",
+    "#6",
+    "#7",
+]
 
 [[module."gpu.rs".function]]
 id = "fn:50d9cf53439cf20c"
@@ -119,6 +239,25 @@ lines = [
 ]
 hash = "sha256:1d024c55d19123effb9b81e464aa7057b79281b8ad69ed8ccf1a14deb3c07d86"
 doc_hash = "sha256:651c33e4fe09e565d8e33ef8b0593e17b0d688adb0313b95e05aa260edded001"
+uses = ["fn:8f67a31ed0d53e40"]
+
+[[module."gpu.rs".function]]
+id = "fn:d53b50e79c131169"
+name = "GpuError"
+qual = "GpuError"
+item = "type"
+shape = "enum"
+lines = [
+    72,
+    81,
+]
+hash = "sha256:25275dcc58c65a4b3e04e4b5c88a99ddfabd02506152eb80c1f6080be5f0b949"
+doc_hash = "sha256:5678f8731726e407b2c9b5880514d42b6e77c1160a158dd9b5335a372d40d3e1"
+reached_by = [
+    "#4",
+    "#6",
+    "#7",
+]
 
 [[module."gpu.rs".function]]
 id = "fn:9fe62a3fed45b702"
@@ -130,6 +269,7 @@ lines = [
 ]
 hash = "sha256:a7b9255cc9cd31b8bdea80ddf3e4bfb9244462c889e344aea1daa4973e148ae6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:d53b50e79c131169"]
 
 [[module."gpu.rs".function]]
 id = "fn:f9a8d5e74670049e"
@@ -142,9 +282,10 @@ lines = [
 hash = "sha256:48ba447ad310bc4ee7c2d084a42a69f78371e054861960fbf4db545e2b602d8a"
 doc_hash = "sha256:288f42148452e44aaf7b3a98a189684451eb14686f5f1270d43ad81dc92b8780"
 callees = ["fn:844238c6a52e9852"]
+uses = ["fn:8f67a31ed0d53e40"]
 reached_by = [
-    "#4",
-    "#5",
+    "#6",
+    "#7",
 ]
 
 [[module."gpu.rs".function]]
@@ -170,11 +311,26 @@ lines = [
 hash = "sha256:5fef665d56bb23318e2f75c59c3f648529f8e38b12d0969a0a9266c60d32941d"
 doc_hash = "sha256:08d3769d147dd919db634f8202e19e32823fe6d11d3c55e00473a825a11cf872"
 callees = ["fn:185234af90dc43a5"]
+uses = ["fn:8f67a31ed0d53e40"]
 reached_by = [
-    "#3",
     "#4",
-    "#5",
+    "#6",
+    "#7",
 ]
+
+[[module."gpu.rs".function]]
+id = "fn:43ff3b9e34047269"
+name = "WALK_ON_SPHERES_WGSL"
+qual = "WALK_ON_SPHERES_WGSL"
+item = "const"
+shape = "const"
+lines = [
+    142,
+    214,
+]
+hash = "sha256:4875db4535b4121afae727dbde8d92069367152aded67992026c3858ed218129"
+doc_hash = "sha256:31e7cf6ed458fd601d18136bde9d5faadcd4f2902c8471686e82ebe3adc9bb15"
+reached_by = ["#4"]
 
 [[module."gpu.rs".function]]
 id = "fn:f4f7eea22fc0884a"
@@ -192,7 +348,16 @@ callees = [
     "fn:e98b0ad44e731bef",
     "fn:f23cfae2ca858daa",
 ]
-reached_by = ["#3"]
+uses = [
+    "fn:267f0b3b0f89f1ba",
+    "fn:3a988803f149849b",
+    "fn:43ff3b9e34047269",
+    "fn:6100cca8bbdeb360",
+    "fn:8f67a31ed0d53e40",
+    "fn:d3775a5f844e81e0",
+    "fn:d53b50e79c131169",
+]
+reached_by = ["#4"]
 physical_interface = true
 
 [[module."gpu.rs".function]]
@@ -210,8 +375,60 @@ callees = [
     "fn:ef570908064315a0",
     "fn:f4f7eea22fc0884a",
 ]
-reached_by = ["#3"]
+uses = ["fn:267f0b3b0f89f1ba"]
+reached_by = ["#4"]
 physical_interface = true
+
+[[module."gpu.rs".function]]
+id = "fn:847c294f84b39e68"
+name = "ML_THETA_TABLE_LEN"
+qual = "ML_THETA_TABLE_LEN"
+item = "const"
+shape = "const"
+lines = [
+    405,
+    406,
+]
+hash = "sha256:6735369f59902935147229d3a516d9beb6fb9bf80791056475a2be9fa6952621"
+doc_hash = "sha256:d40803339d29c804239e6f9653692d2661fc9f4dd749c02cb488cb392ac532f1"
+reached_by = [
+    "#6",
+    "#7",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:95e2716220f70ee3"
+name = "ML_MAX_STEPS"
+qual = "ML_MAX_STEPS"
+item = "const"
+shape = "const"
+lines = [
+    407,
+    409,
+]
+hash = "sha256:17942556c88d03a76da9b0160bcb02d4ec99371f5d60e07df48b643be46a1213"
+doc_hash = "sha256:d13f20967829ffec709de11a475cb08a3ee21b61eead4289f843cad20343cef4"
+reached_by = [
+    "#6",
+    "#7",
+]
+
+[[module."gpu.rs".function]]
+id = "fn:21eee733e3a4f826"
+name = "ADVANCE_MULTILAYER_WGSL"
+qual = "ADVANCE_MULTILAYER_WGSL"
+item = "const"
+shape = "const"
+lines = [
+    411,
+    544,
+]
+hash = "sha256:8cbfbde461079c9b01910d9ae747efee31de3516f78a514225f5056f6b59d013"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#7",
+]
 
 [[module."gpu.rs".function]]
 id = "fn:ff3e3b2a962f8dbb"
@@ -227,9 +444,10 @@ callees = [
     "fn:26c97e03e84fc754",
     "fn:39426f9d04415b8f",
 ]
+uses = ["fn:57c5c52fb5126efd"]
 reached_by = [
-    "#4",
-    "#5",
+    "#6",
+    "#7",
 ]
 
 [[module."gpu.rs".function]]
@@ -249,9 +467,10 @@ callees = [
     "fn:c8693dbb849a9fc9",
     "fn:e8bb775f59365324",
 ]
+uses = ["fn:57c5c52fb5126efd"]
 reached_by = [
-    "#4",
-    "#5",
+    "#6",
+    "#7",
 ]
 
 [[module."gpu.rs".function]]
@@ -273,9 +492,20 @@ callees = [
     "fn:e98b0ad44e731bef",
     "fn:ff3e3b2a962f8dbb",
 ]
+uses = [
+    "fn:21eee733e3a4f826",
+    "fn:3a988803f149849b",
+    "fn:57c5c52fb5126efd",
+    "fn:8024ab0e3ab9617d",
+    "fn:831f5a6ecd619161",
+    "fn:847c294f84b39e68",
+    "fn:8f67a31ed0d53e40",
+    "fn:95e2716220f70ee3",
+    "fn:d53b50e79c131169",
+]
 reached_by = [
-    "#4",
-    "#5",
+    "#6",
+    "#7",
 ]
 physical_interface = true
 
@@ -293,9 +523,14 @@ callees = [
     "fn:dd203631fea52642",
     "fn:f9a8d5e74670049e",
 ]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:8024ab0e3ab9617d",
+    "fn:831f5a6ecd619161",
+]
 reached_by = [
-    "#4",
-    "#5",
+    "#6",
+    "#7",
 ]
 physical_interface = true
 
@@ -309,9 +544,10 @@ lines = [
 ]
 hash = "sha256:2bd28c0bec65404999209c49b8ec19085da5b8b0f73af297f1e57967bd4f8811"
 doc_hash = "sha256:1b9e508f69ea18728b8dd2f6ef2bdf4e9fcd3adf177e89f86c0317b45c77df04"
+uses = ["fn:d53b50e79c131169"]
 reached_by = [
-    "#4",
-    "#5",
+    "#6",
+    "#7",
 ]
 
 [[module."gpu.rs".function]]
@@ -325,8 +561,8 @@ lines = [
 hash = "sha256:1a4abd5ae4ed087d105c2f215996c0a6bd61e314490cdc8964a8e47f458804bd"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
-    "#4",
-    "#5",
+    "#6",
+    "#7",
 ]
 
 [[module."gpu.rs".function]]
@@ -340,9 +576,9 @@ lines = [
 hash = "sha256:e40ccf976122014f42f15933b6735884bbde918299025fa5234a5cce46e12677"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
-    "#3",
     "#4",
-    "#5",
+    "#6",
+    "#7",
 ]
 
 [[module."gpu.rs".function]]
@@ -356,9 +592,9 @@ lines = [
 hash = "sha256:0393675c208b6e6f285f88827e08e39b6f72fce278529df89d6d1706896bbaf5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
-    "#3",
     "#4",
-    "#5",
+    "#6",
+    "#7",
 ]
 
 [[module."gpu.rs".function]]
@@ -372,9 +608,9 @@ lines = [
 hash = "sha256:c2fc0b6e423dd59fe4ee71e0a9bbd518bcf569db0e7d3da915d65e8a1edb59c4"
 doc_hash = "sha256:b8588282ba0f86b29bac36bee5503867b7c5c3babddf75e78d501c778ee69450"
 reached_by = [
-    "#3",
     "#4",
-    "#5",
+    "#6",
+    "#7",
 ]
 
 [[module."gpu.rs".function]]
@@ -387,6 +623,7 @@ lines = [
 ]
 hash = "sha256:2ca6e53cd321ffc30d049b5fca2885da7598c889a38749c94dc78f8036df081e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:267f0b3b0f89f1ba"]
 test = true
 physical_interface = true
 
@@ -419,6 +656,7 @@ lines = [
 hash = "sha256:72f752492b11f2fd98ffb1679bcc509b51fe85f533da45742f8a7ebcb44ec467"
 doc_hash = "sha256:f56433b429537e20d6d779d21e3e56e36f13a58bc2dbf1e0b513160d71d62e16"
 callees = ["fn:e98b0ad44e731bef"]
+uses = ["fn:6100cca8bbdeb360"]
 test = true
 
 [module."lib.rs"]
@@ -426,6 +664,19 @@ path = "crate"
 
 [module."wasm_par.rs"]
 path = "crate::wasm_par"
+
+[[module."wasm_par.rs".function]]
+id = "fn:dad466597ab552d2"
+name = "IntoParallelIterator"
+qual = "IntoParallelIterator"
+item = "type"
+shape = "trait"
+lines = [
+    51,
+    57,
+]
+hash = "sha256:afcc68cf9e67f456f4ab5c62c2a3bd8096cbc0eed25c6ce701e7bf3f422d1280"
+doc_hash = "sha256:a23396b8d7c135e4d32261be92dd374e93f6c02d5bb2f3e45f59036d74af8cea"
 
 [[module."wasm_par.rs".function]]
 id = "fn:9badc07e3902c032"
@@ -437,6 +688,20 @@ lines = [
 ]
 hash = "sha256:888ec4a675d3b3d51ba9345afcb5200b6a5425726c1854c8b3b30d3e30898611"
 doc_hash = "sha256:1ae77e88eb36e720fbffa18f62a8c5411f6dd2df0a2b96e97e953f3cf45844a3"
+uses = ["fn:dad466597ab552d2"]
+
+[[module."wasm_par.rs".function]]
+id = "fn:13947b248684a24c"
+name = "ParallelSlice"
+qual = "ParallelSlice"
+item = "type"
+shape = "trait"
+lines = [
+    61,
+    65,
+]
+hash = "sha256:cdfa353028ab3a5ba5705bd71c228c12d06d9eafffdb146ef8270c5d30ab5486"
+doc_hash = "sha256:79a5e2bea52676efbb7257cc88b7862b7fb8279ebd168e0d34f2cf44a3d314e0"
 
 [[module."wasm_par.rs".function]]
 id = "fn:2ccd79e52d706f56"
@@ -448,6 +713,7 @@ lines = [
 ]
 hash = "sha256:9bf12c5cab8c4646964a8700db863c4a70cecf10bb150d59b8588bff39a62e7e"
 doc_hash = "sha256:be20df012e4e5caa387762acfd0bd977a798ee031628e47ab8e9c0cbdd8d9c4f"
+uses = ["fn:13947b248684a24c"]
 
 [[module."wasm_par.rs".function]]
 id = "fn:54de499668aa8744"
@@ -461,6 +727,19 @@ hash = "sha256:6696bc2f44299dfef4d55fa1ef4f3f3041dd6f1425fd9b47787d442a69c823b8"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."wasm_par.rs".function]]
+id = "fn:35d2934c92d3be5d"
+name = "ParallelSliceMut"
+qual = "ParallelSliceMut"
+item = "type"
+shape = "trait"
+lines = [
+    73,
+    77,
+]
+hash = "sha256:e8a91665e3fbccfa0e5c70c4d4e948a17783cdb5f03384e91b5ef1c00c379f07"
+doc_hash = "sha256:5347593c7652564d2329ea3b0f7eec072a43232d2b9bf817e02bb8d9cbaf1d0d"
+
+[[module."wasm_par.rs".function]]
 id = "fn:deb3663537cf164b"
 name = "par_iter_mut"
 qual = "ParallelSliceMut::par_iter_mut"
@@ -470,6 +749,7 @@ lines = [
 ]
 hash = "sha256:fead7b0c2bb847262d583e2013330238ae8921dd4a91c9d8fe6576b623a4fdc8"
 doc_hash = "sha256:5b681449c7d37b836ee211da30f248c3f9cd8ea5c0adeb512d039200ebffe7c9"
+uses = ["fn:35d2934c92d3be5d"]
 
 [[module."wasm_par.rs".function]]
 id = "fn:8aaad5cb2c8bac1b"
@@ -483,6 +763,19 @@ hash = "sha256:307b1344577f83fa826aa60b84568e11e5906b67a2c6544b38549ba2895b4715"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."wasm_par.rs".function]]
+id = "fn:6613e22ca60f7128"
+name = "ThreadPoolBuilder"
+qual = "ThreadPoolBuilder"
+item = "type"
+shape = "struct"
+lines = [
+    85,
+    92,
+]
+hash = "sha256:53e344bf7bafb0759b1e4f35cd7219632529c9b336c85f268f637383cc813628"
+doc_hash = "sha256:39e7cdcd27a2c8919623ef60ed27af53cccd109f2d303fbcfff4a52d72ec5f41"
+
+[[module."wasm_par.rs".function]]
 id = "fn:cd8cc791830e249c"
 name = "new"
 qual = "ThreadPoolBuilder::new"
@@ -492,6 +785,7 @@ lines = [
 ]
 hash = "sha256:12617fe2fe1c5cceb25c6be9c4527855cd859250a7a8aa75e74bb6cdbd8ce7ab"
 doc_hash = "sha256:10b801b678dbe6a133585de7685b016b14750a7449d1a44626ec47fe18e7def7"
+uses = ["fn:6613e22ca60f7128"]
 
 [[module."wasm_par.rs".function]]
 id = "fn:9bf4cdae1ca377ec"
@@ -503,6 +797,7 @@ lines = [
 ]
 hash = "sha256:6214c290ecb8bc648bde900a4e4b5529d5144a333e3fc67bd908b3d73294e674"
 doc_hash = "sha256:46d3b989fa7e33a1b87be84efc903e6d2749b1c7a33219a98385284e968cb8cd"
+uses = ["fn:6613e22ca60f7128"]
 
 [[module."wasm_par.rs".function]]
 id = "fn:6ac36dba49732ecf"
@@ -514,6 +809,20 @@ lines = [
 ]
 hash = "sha256:35852a2dc9ef7ff792d0650aaf809a1a63c176c79a418578af3ff7c2d6fb85b0"
 doc_hash = "sha256:34ea68b4ba5c849da15d3c48ae51fb22ed8088f02a7683f954e9e4537da0fabf"
+uses = ["fn:6613e22ca60f7128"]
+
+[[module."wasm_par.rs".function]]
+id = "fn:58cca58cde2189a9"
+name = "ThreadPool"
+qual = "ThreadPool"
+item = "type"
+shape = "struct"
+lines = [
+    112,
+    114,
+]
+hash = "sha256:d8e85cf4e86a9ffcf245b2a89f27c3377f7532a361817919160fd74eb51bca8a"
+doc_hash = "sha256:c5285f509d328b895aa967fb619b53edfe596286a061a40addcbcf72f7478cd2"
 
 [[module."wasm_par.rs".function]]
 id = "fn:82f1cb4c80bac07c"
@@ -525,6 +834,7 @@ lines = [
 ]
 hash = "sha256:f7cd867cf56f5d5dbaae1de36f96f12acd7607ae759726aaa468048a871f8b97"
 doc_hash = "sha256:faf1af3abf6fd21829c1f335bd2a0c667a97339d0bddc38820e323ec86b7ef1a"
+uses = ["fn:58cca58cde2189a9"]
 
 [[module."wasm_par.rs".function]]
 id = "fn:ded2f6db1a5af813"
@@ -536,3 +846,4 @@ lines = [
 ]
 hash = "sha256:28f732560e1fa8d5284a0d597f8ca75d675b9e79a00d6644aaba7f997fa57560"
 doc_hash = "sha256:8da1a17d0c0912f8a67ba92a8b2b10dcd5a899a5b2a1876bd7f08e8072120e5c"
+uses = ["fn:58cca58cde2189a9"]

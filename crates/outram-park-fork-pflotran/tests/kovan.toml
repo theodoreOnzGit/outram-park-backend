@@ -7,6 +7,20 @@ dir = "crates/outram-park-fork-pflotran/tests"
 path = "test:integration"
 
 [[module."integration.rs".function]]
+id = "fn:484dc95670d9d867"
+name = "INFILTRATION_DECK"
+qual = "INFILTRATION_DECK"
+item = "const"
+shape = "const"
+lines = [
+    22,
+    55,
+]
+hash = "sha256:d347f993195cc9ebcb31778f9d18ed77cf4628e79651ff4cbebda023b2f23bee"
+doc_hash = "sha256:d595f07f4982ee6d2320ee12f3bb83ed4075a5a5cb64e48e9888925cc0f778cc"
+test = true
+
+[[module."integration.rs".function]]
 id = "fn:bf283510318ba68c"
 name = "infiltration_column_runs_and_is_physically_sensible"
 qual = "infiltration_column_runs_and_is_physically_sensible"
@@ -22,6 +36,10 @@ callees = [
     "fn:4499c8b925e4307c",
     "fn:cfde839e2f7c2ea5",
     "fn:d16f1a22bc4a5abf",
+]
+uses = [
+    "fn:484dc95670d9d867",
+    "fn:b586c1998d48841b",
 ]
 test = true
 
@@ -40,6 +58,11 @@ callees = [
     "fn:6397de5b764cc4aa",
     "fn:cfde839e2f7c2ea5",
     "fn:e0621c33b5028a43",
+]
+uses = [
+    "fn:484dc95670d9d867",
+    "fn:b586c1998d48841b",
+    "fn:b8168a7bc2186b97",
 ]
 test = true
 
@@ -67,6 +90,16 @@ callees = [
     "fn:f904cd6dda408658",
     "fn:fa4b52097e54c622",
 ]
+uses = [
+    "fn:1ded25b48be00a9e",
+    "fn:484dc95670d9d867",
+    "fn:64afa8f180e75eb5",
+    "fn:9e31d250d13a03ab",
+    "fn:a4da0a2e4b807f39",
+    "fn:b586c1998d48841b",
+    "fn:b98981be808c9214",
+    "fn:bef06f63e37dba1c",
+]
 test = true
 
 [[module."integration.rs".function]]
@@ -93,6 +126,16 @@ callees = [
     "fn:e9500a7a0b5808cf",
     "fn:f36c50ea2d174265",
 ]
+uses = [
+    "fn:1ded25b48be00a9e",
+    "fn:484dc95670d9d867",
+    "fn:68a598ddd78df5d6",
+    "fn:6a59ac16a3725368",
+    "fn:7037804fcd009cec",
+    "fn:b586c1998d48841b",
+    "fn:bef06f63e37dba1c",
+    "fn:e1eb2fea4cecf071",
+]
 test = true
 
 [[module."integration.rs".function]]
@@ -114,10 +157,56 @@ callees = [
     "fn:cfde839e2f7c2ea5",
     "fn:d16f1a22bc4a5abf",
 ]
+uses = [
+    "fn:484dc95670d9d867",
+    "fn:b586c1998d48841b",
+]
 test = true
 
 [module."regression.rs"]
 path = "test:regression"
+
+[[module."regression.rs".function]]
+id = "fn:82287783c386fded"
+name = "REGRESSION_DECK"
+qual = "REGRESSION_DECK"
+item = "const"
+shape = "const"
+lines = [
+    13,
+    39,
+]
+hash = "sha256:80219f38b38ba0599c10d126bdb7c1c9b87bd0b14a051f9201afcf14f3773a05"
+doc_hash = "sha256:46b6eb9b77da2a1a0c6f45a88d16cd17d312b7771114391751f2a2d995a6d9f3"
+test = true
+
+[[module."regression.rs".function]]
+id = "fn:e7026164db6cb452"
+name = "BASELINE_PRESSURE"
+qual = "BASELINE_PRESSURE"
+item = "const"
+shape = "const"
+lines = [
+    41,
+    55,
+]
+hash = "sha256:683841a4177b98f00028e122a888c7595d2d6b37e2a56531523110778e5e933c"
+doc_hash = "sha256:a3f0c4ebd18e9ed23f408049673fa3bec3e45b7d8b194a7339588d1b14340fdd"
+test = true
+
+[[module."regression.rs".function]]
+id = "fn:561f306d7c7a8b97"
+name = "BASELINE_SATURATION"
+qual = "BASELINE_SATURATION"
+item = "const"
+shape = "const"
+lines = [
+    56,
+    60,
+]
+hash = "sha256:846c447dcc2fc6035c7d1c3c1f433b39084b69ca6ead3445275ce76f5442059e"
+doc_hash = "sha256:757bc008dc6620ed2b1a6d7d6cef0f4177fe3290352d126d1ff776e82f7c56d6"
+test = true
 
 [[module."regression.rs".function]]
 id = "fn:feabb4207d7807b1"
@@ -135,6 +224,12 @@ callees = [
     "fn:4499c8b925e4307c",
     "fn:cfde839e2f7c2ea5",
     "fn:d16f1a22bc4a5abf",
+]
+uses = [
+    "fn:561f306d7c7a8b97",
+    "fn:82287783c386fded",
+    "fn:b586c1998d48841b",
+    "fn:e7026164db6cb452",
 ]
 test = true
 
@@ -155,6 +250,10 @@ callees = [
     "fn:cfde839e2f7c2ea5",
     "fn:d16f1a22bc4a5abf",
 ]
+uses = [
+    "fn:82287783c386fded",
+    "fn:b586c1998d48841b",
+]
 test = true
 
 [module."verification.rs"]
@@ -170,6 +269,12 @@ lines = [
 ]
 hash = "sha256:58f89ad398c0f79b563121af26b1d2698fa36fccec3bd362244e4c0dd0fa0599"
 doc_hash = "sha256:4fe34c446912d54271b184fbcfe98def52088445d9912eea35f8fc26781dca9c"
+uses = [
+    "fn:27c1cc67a97219c4",
+    "fn:2df9a9b46faf09cb",
+    "fn:974d04f73ccdca29",
+    "fn:9e87fc5f41a51af3",
+]
 test = true
 
 [[module."verification.rs".function]]
@@ -194,6 +299,17 @@ callees = [
     "fn:8897008b789072ea",
     "fn:948ccbd72de462b9",
     "fn:9e37996c217c2f29",
+]
+uses = [
+    "fn:1ded25b48be00a9e",
+    "fn:2961d7646334f912",
+    "fn:3ddb3ae363aa8786",
+    "fn:3e22fd948a0f97c4",
+    "fn:7fd31fcfffc266f1",
+    "fn:bef06f63e37dba1c",
+    "fn:d7460c115a5beb61",
+    "fn:f6129abc482d9044",
+    "fn:f8cc13e0467bdd14",
 ]
 test = true
 
@@ -246,6 +362,17 @@ callees = [
     "fn:8897008b789072ea",
     "fn:948ccbd72de462b9",
     "fn:9e37996c217c2f29",
+]
+uses = [
+    "fn:1ded25b48be00a9e",
+    "fn:2961d7646334f912",
+    "fn:3ddb3ae363aa8786",
+    "fn:3e22fd948a0f97c4",
+    "fn:7fd31fcfffc266f1",
+    "fn:bef06f63e37dba1c",
+    "fn:d7460c115a5beb61",
+    "fn:f6129abc482d9044",
+    "fn:f8cc13e0467bdd14",
 ]
 test = true
 

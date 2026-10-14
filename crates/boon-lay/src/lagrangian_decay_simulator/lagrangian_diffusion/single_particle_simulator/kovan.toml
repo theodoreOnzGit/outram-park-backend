@@ -27,6 +27,19 @@ test_ids = [
 path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::cached_normals"
 
 [[module."cached_normals.rs".function]]
+id = "fn:a9ba5efef58efecb"
+name = "DiffusionRandomCache"
+qual = "DiffusionRandomCache"
+item = "type"
+shape = "struct"
+lines = [
+    6,
+    14,
+]
+hash = "sha256:b04e0e78a7f8d26013bfd843a2ae56aa2ee461c5287902a26daab6220fad716e"
+doc_hash = "sha256:3dee8890cf0d24cab8d224503442f800e2c6963012098b96cfb8e5c1b9ca57e0"
+
+[[module."cached_normals.rs".function]]
 id = "fn:655c0473bdc52138"
 name = "new"
 qual = "DiffusionRandomCache::new"
@@ -37,6 +50,7 @@ lines = [
 hash = "sha256:33a5c4fd8e6790c0c4bf546056c811e8436cdfd9008304be163385a4f37d568a"
 doc_hash = "sha256:9fe5db2c8188a05cb99bc71829725a461adf2fbc2a96ea38fd2707506dde1cda"
 callees = ["fn:96ab1fac00ee309f"]
+uses = ["fn:a9ba5efef58efecb"]
 
 [[module."cached_normals.rs".function]]
 id = "fn:95336986c4cb6453"
@@ -48,6 +62,7 @@ lines = [
 ]
 hash = "sha256:358610d85ecc92a34ec4d2791733c0039b44b2c7a83f96fb0351fbda309a498f"
 doc_hash = "sha256:4a8aab16c65719229fce147f13310d3450c8e88512d159fa941e8cc50dfdcd26"
+uses = ["fn:a9ba5efef58efecb"]
 
 [[module."cached_normals.rs".function]]
 id = "fn:f3b7397b3398dbe2"
@@ -60,6 +75,7 @@ lines = [
 hash = "sha256:54dfe6f62e9b5ace58f40b08a2fc9f3987be789a41df68624d4bd8ae01d64174"
 doc_hash = "sha256:fa00e0faff4840f750f985ad7d28424f1a7490006326d597d53f2e938b1f52c8"
 callees = ["fn:95336986c4cb6453"]
+uses = ["fn:a9ba5efef58efecb"]
 
 [[module."cached_normals.rs".function]]
 id = "fn:97b783a73a328a35"
@@ -72,6 +88,7 @@ lines = [
 hash = "sha256:904946e7634242cdb6182389ed2627db0e7ff015b534e51caca48181b335f858"
 doc_hash = "sha256:2aa8f726683f002dda583e6156fe9f8b0848b605f47e62522adbeea5e2b0d96d"
 callees = ["fn:f3b7397b3398dbe2"]
+uses = ["fn:a9ba5efef58efecb"]
 
 [[module."cached_normals.rs".function]]
 id = "fn:c1034e282845548b"
@@ -83,6 +100,7 @@ lines = [
 ]
 hash = "sha256:b289e79159a20a482b87761f1c0792665af6e80cf36190be87a4a1b6767b4447"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:a9ba5efef58efecb"]
 
 [[module."cached_normals.rs".function]]
 id = "fn:698ba6fea9b4a91e"
@@ -94,6 +112,7 @@ lines = [
 ]
 hash = "sha256:811a5e99405afb215a3e2e95debff778163099fc62319623004664dc78c57670"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:a9ba5efef58efecb"]
 
 [[module."cached_normals.rs".function]]
 id = "fn:24cc4f73388417dd"
@@ -105,6 +124,7 @@ lines = [
 ]
 hash = "sha256:60161dee04e56a076da100761ef78918e5e91d32edfa580db1c4f88db3c33da8"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:a9ba5efef58efecb"]
 
 [[module."cached_normals.rs".function]]
 id = "fn:fc54416f9b7ae924"
@@ -120,6 +140,7 @@ callees = [
     "fn:decc848d43afec77",
     "fn:f3b7397b3398dbe2",
 ]
+uses = ["fn:a9ba5efef58efecb"]
 physical_interface = true
 
 [[module."cached_normals.rs".function]]
@@ -136,6 +157,7 @@ callees = [
     "fn:062a911593dca43f",
     "fn:97b783a73a328a35",
 ]
+uses = ["fn:a9ba5efef58efecb"]
 physical_interface = true
 
 [[module."cached_normals.rs".function]]
@@ -154,6 +176,10 @@ callees = [
     "fn:c393708ee2e250a5",
     "fn:fc54416f9b7ae924",
 ]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:a9ba5efef58efecb",
+]
 physical_interface = true
 
 [[module."cached_normals.rs".function]]
@@ -170,6 +196,10 @@ callees = [
     "fn:26c97e03e84fc754",
     "fn:8613e4750e36d21d",
 ]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:a9ba5efef58efecb",
+]
 physical_interface = true
 
 [[module."cached_normals.rs".function]]
@@ -185,6 +215,11 @@ doc_hash = "sha256:1a5b2d911fd304d5b04ad271b0d8e8759c9306c5f94abad106a98d900f075
 callees = [
     "fn:bd3e958040880585",
     "fn:d84c7e41f0b78cde",
+]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:a9ba5efef58efecb",
+    "fn:e3d3971cf92a6302",
 ]
 physical_interface = true
 
@@ -204,10 +239,29 @@ callees = [
     "fn:bd3e958040880585",
     "fn:d84c7e41f0b78cde",
 ]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:a9ba5efef58efecb",
+    "fn:e3d3971cf92a6302",
+]
 physical_interface = true
 
 [module."mod.rs"]
 path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator"
+
+[[module."mod.rs".function]]
+id = "fn:1b5ec3cfd38c1c2d"
+name = "SingleParticleDiffusionSimulatorMC"
+qual = "SingleParticleDiffusionSimulatorMC"
+item = "type"
+shape = "struct"
+lines = [
+    13,
+    18,
+]
+hash = "sha256:732ed2c15cbcdb2b4b6ba7326669b437158b2b9ff14876a3788f5c63b16940ec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:c609ec17a374f2d4"]
 
 [[module."mod.rs".function]]
 id = "fn:1f92a8368f2ad067"
@@ -223,6 +277,10 @@ callees = [
     "fn:1f2e5b6c50cdd294",
     "fn:5e3bc59ae3f50ddc",
 ]
+uses = [
+    "fn:1b5ec3cfd38c1c2d",
+    "fn:c609ec17a374f2d4",
+]
 
 [[module."mod.rs".function]]
 id = "fn:062a911593dca43f"
@@ -234,6 +292,7 @@ lines = [
 ]
 hash = "sha256:3fc2a8dbe94bc2130922be58aa350dee076ca6b260f005d5e54dabe9eb66c6fd"
 doc_hash = "sha256:eaf4b3677bebb486eeb63e44f7124496109aad3ee8bb662ede34956e5882c92e"
+uses = ["fn:1b5ec3cfd38c1c2d"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -246,6 +305,7 @@ lines = [
 ]
 hash = "sha256:9a490a64edd7f195c7b285b9e6c352d33688b5198bf22e89bf5eb0f0abfb07e7"
 doc_hash = "sha256:89aca43886b82dec15becdfa2bda698dc7cdebf8dc23242e04fc1f4aab64b902"
+uses = ["fn:1b5ec3cfd38c1c2d"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -263,6 +323,7 @@ callees = [
     "fn:2d8cc520595b89ed",
     "fn:a1bf7e1c579cb7f6",
 ]
+uses = ["fn:1b5ec3cfd38c1c2d"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -280,6 +341,7 @@ callees = [
     "fn:a1bf7e1c579cb7f6",
     "fn:decc848d43afec77",
 ]
+uses = ["fn:1b5ec3cfd38c1c2d"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -296,6 +358,7 @@ callees = [
     "fn:a1bf7e1c579cb7f6",
     "fn:decc848d43afec77",
 ]
+uses = ["fn:1b5ec3cfd38c1c2d"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -309,6 +372,7 @@ lines = [
 hash = "sha256:e139eefd3f83c6c0da0f3add6eea5dc941a4db71748193f6ed38dd14ac9eeb37"
 doc_hash = "sha256:e3cfc76bb6234362ef1ee7cec0c916d9b0e04d6c9a1559791fb7f9a709bbf0da"
 callees = ["fn:719418725e5855dd"]
+uses = ["fn:1b5ec3cfd38c1c2d"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -322,6 +386,7 @@ lines = [
 hash = "sha256:dfa0a49c19b3b60a2cc5166a4eb8f8bc274c3b43dbb0ba91eef3257107084ad3"
 doc_hash = "sha256:e7709bd8e358811e4e075a58c0802c4736e7e84d716dfea04ab8b4f77eb8f286"
 callees = ["fn:9126106372b2fc1f"]
+uses = ["fn:1b5ec3cfd38c1c2d"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -339,6 +404,7 @@ callees = [
     "fn:205f5800a2c21208",
     "fn:915b2fe2dafcd84b",
 ]
+uses = ["fn:1b5ec3cfd38c1c2d"]
 physical_interface = true
 
 [module."release_fraction_analytical_solution.rs"]
@@ -429,6 +495,7 @@ callees = [
     "fn:102121535cb2dea5",
     "fn:4bdea64528f551f6",
 ]
+uses = ["fn:359972b9e99804c1"]
 test = true
 
 [[module."release_fraction_analytical_solution.rs".function]]
@@ -445,6 +512,7 @@ callees = [
     "fn:102121535cb2dea5",
     "fn:4bdea64528f551f6",
 ]
+uses = ["fn:359972b9e99804c1"]
 test = true
 
 [module."release_fraction_crp_6_case_1a_1b.rs"]
@@ -464,6 +532,7 @@ callees = [
     "fn:102121535cb2dea5",
     "fn:4bdea64528f551f6",
 ]
+uses = ["fn:359972b9e99804c1"]
 test = true
 
 [[module."release_fraction_crp_6_case_1a_1b.rs".function]]
@@ -480,4 +549,5 @@ callees = [
     "fn:102121535cb2dea5",
     "fn:4bdea64528f551f6",
 ]
+uses = ["fn:359972b9e99804c1"]
 test = true

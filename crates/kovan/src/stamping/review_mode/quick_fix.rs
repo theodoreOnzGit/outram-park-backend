@@ -70,6 +70,17 @@ pub fn splice_lines(text: &str, [a, b]: [u32; 2], expected: &str, new: &str) -> 
     Some(out)
 }
 
+/// What `q` becomes once `new` has been saved over it: the same file, the
+/// lines the saved text now occupies, and that text as the new "opened"
+/// content. This is what lets `:w` save and keep the editor open, where a
+/// second save would otherwise be refused as stale.
+pub fn after_save(q: &QuickFix, new: &str) -> QuickFix {
+    let kept = new.trim_end_matches(['\n', '\r']);
+    let original = kept.lines().collect::<Vec<_>>().join("\n");
+    let count = kept.split('\n').count().max(1) as u32;
+    QuickFix { file: q.file.clone(), lines: [q.lines[0], q.lines[0] + count - 1], original }
+}
+
 /// Save `new` over the opened lines (module doc). Refused when the file
 /// changed under the editor.
 pub fn save(root: &Path, q: &QuickFix, new: &str) -> Result<(), String> {
@@ -132,6 +143,29 @@ mod tests {
         );
         assert!(open(d.path(), "src/a.rs", "S::zz").is_err());
         assert_eq!(splice_lines("a\nb\n", [3, 3], "", "x"), None);
+    }
+
+    /// Methodology: save an edit that adds a line, take [`after_save`]'s
+    /// state, and save a second edit from it without reopening (what `:w`
+    /// twice does). Pass: both saves land, the rest of the file is byte for
+    /// byte the same, and the second state covers the lines now on disk.
+    #[test]
+    fn a_second_save_works_without_reopening() {
+        let d = tempfile::tempdir().unwrap();
+        let src = "// head\nfn a() -> u8 {\n    1\n}\n// tail\n";
+        std::fs::write(d.path().join("a.rs"), src).unwrap();
+        let q = open(d.path(), "a.rs", "a").unwrap();
+        assert_eq!(q.lines, [2, 4]);
+        let first = "fn a() -> u8 {\n    let x = 2;\n    x\n}\n";
+        save(d.path(), &q, first).unwrap();
+        let q2 = after_save(&q, first);
+        assert_eq!(q2.lines, [2, 5]);
+        assert_eq!(q2.original, "fn a() -> u8 {\n    let x = 2;\n    x\n}");
+        save(d.path(), &q2, "fn a() -> u8 {\n    3\n}").unwrap();
+        assert_eq!(std::fs::read_to_string(d.path().join("a.rs")).unwrap(), "// head\nfn a() -> u8 {\n    3\n}\n// tail\n");
+        // The state from before the first save is stale now, and refused.
+        assert!(save(d.path(), &q, "x").is_err());
+        assert_eq!(after_save(&q2, "fn a() -> u8 {\n    3\n}").lines, [2, 4]);
     }
 
     /// Methodology: the template goes above the doc comment at the item's

@@ -17,6 +17,9 @@ use egui::{Color32, Rect, Stroke, Vec2};
 /// The marker type `rung_table!` names.
 pub struct Godiva;
 
+/// The recorded tracks the page ships (`--bake-tracks godiva`, gh:#859).
+const RECORDED_TRACKS: &[u8] = include_bytes!("data/tracks.bin.z");
+
 /// The recorded result for this model and data, to compare a reader's run
 /// with: **0.99994 ± 0.00005 (−6 ± 5 pcm)**, 1024 seeds × 5000 histories ×
 /// [40 inactive + 120 active], seed-to-seed sd 165 pcm,
@@ -35,7 +38,15 @@ pub const REFERENCE: Reference = Reference {
     sd_one_run: 0.00165,
     histories_one_run: 5000.0 * 120.0,
     experiment: Some(("ICSBEP HEU-MET-FAST-001", outram_mc_libs::vv::godiva::BENCHMARK_K, outram_mc_libs::vv::godiva::BENCHMARK_SIGMA)),
+    code: None,
 };
+
+/// [`REFERENCE`] with the reference code's k beside it: route 1 of the
+/// five-route study (OpenMC on NJOY2016's data), read from the committed
+/// campaign summary.
+pub fn reference_with_code() -> Reference {
+    Reference { code: crate::keff::route1_reference("godiva", crate::route1_label!("32 seeds x 5000 x [40+120]")), ..REFERENCE }
+}
 
 impl McRung for Godiva {
     const INFO: RungInfo = RungInfo {
@@ -117,13 +128,16 @@ impl McRung for Godiva {
         Some(KeffConfig { n_particles: 1000, n_inactive: 15, n_active: 15, seed: 1, point_source: true, want_sites: true })
     }
     fn reference() -> Option<Reference> {
-        Some(REFERENCE)
+        Some(reference_with_code())
     }
     fn loading_note(tier: Tier) -> Option<&'static str> {
         (tier == Tier::Exact).then_some(
             "Run k_eff processes at NJOY's tolerance 0.001, like the recorded result, so it takes about three \
              times longer than Watch mode (a fast desktop natively: about a minute; a browser or a phone: several).",
         )
+    }
+    fn recorded_tracks() -> Option<&'static [u8]> {
+        Some(RECORDED_TRACKS)
     }
 }
 

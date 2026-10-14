@@ -573,10 +573,18 @@ fn light_water_has_no_elastic_channel_and_is_unchanged() {
     // i.e. -0.001 %. It is +0.50 % from the converged 51.4301 b above, which
     // is NJOY's own quadrature residual at that tolerance: parity with the
     // library OpenMC uses is the target, not the converged integral.
+    //
+    // **Re-pinned 2026-10-14 from 51.6870 b (GitHub #865).** THERMR's `sig`
+    // now ends as upstream's does (`sigmin = 1e-10` cut, upstream's `terp1`
+    // grouping, `amin`, the LAT = 1 back-scaling in the short-collision-time
+    // branch) and `sigl` uses upstream's `third = .333333333`. The value is
+    // 51.6875 b, the NJOY2016 oracle's 51.68752 b to the pin's resolution;
+    // the thermal ACE tables built from the same code are NJOY2016's word
+    // for word (`njoy-outram-park-fork/tests/acer_thermal_word_parity.rs`).
     let anchor = w.inelastic_xs(0.0253);
     assert!(
-        (anchor - 51.6870).abs() < 5.0e-4,
-        "σ_inel(0.0253 eV, 293.6 K) for H in H2O = {anchor:.4} b, expected 51.6870"
+        (anchor - 51.6875).abs() < 5.0e-4,
+        "σ_inel(0.0253 eV, 293.6 K) for H in H2O = {anchor:.4} b, expected 51.6875"
     );
 
     // Sampling must never return E_out == E_in from a channel that does not

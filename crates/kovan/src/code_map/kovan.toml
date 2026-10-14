@@ -11,6 +11,7 @@ test_ids = [
     "crates/kovan/src/app/code_review_view.rs::the_stamp_dialog_opens_and_draws_every_step_headless",
     "crates/kovan/src/app/mod.rs::opening_a_pdf_finds_its_paper_or_offers_ingest",
     "crates/kovan/src/code_review_data.rs::the_data_folder_is_built_from_a_saved_index_and_knows_when_it_is_current",
+    "crates/kovan/src/index_fresh/tests.rs::an_index_that_matches_no_crate_is_refused_and_nothing_is_written",
     "crates/kovan/src/index_fresh/tests.rs::the_plan_of_a_single_crate_lists_its_files_and_cost",
     "crates/kovan/tests/code_map_tags.rs::every_backronym_spells_its_crate_name",
     "crates/kovan/tests/code_map_tags.rs::every_crate_is_placed_on_the_code_map_consistently_with_its_dependencies",
@@ -43,6 +44,7 @@ reached_by = [
     "#9",
     "#10",
     "#11",
+    "#12",
 ]
 
 [[module."mod.rs".function]]
@@ -59,7 +61,8 @@ callees = [
     "fn:9d4f8a029abd600c",
     "fn:eb188c5975895d69",
 ]
-reached_by = ["#8"]
+uses = ["fn:be9ebef516780172"]
+reached_by = ["#9"]
 
 [[module."mod.rs".function]]
 id = "fn:b9e79a2695de71d8"
@@ -75,8 +78,9 @@ callees = [
     "fn:7cb1666bf4e4e1fd",
     "fn:9d4f8a029abd600c",
 ]
+uses = ["fn:be9ebef516780172"]
 reached_by = [
     "#0",
     "#6",
-    "#8",
+    "#9",
 ]

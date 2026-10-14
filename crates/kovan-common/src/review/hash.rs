@@ -101,6 +101,73 @@ pub fn hash_functions(source: &str) -> Result<Vec<HashedFn>, HashError> {
         .collect())
 }
 
+/// `hash` of a non-function item's name-free text (#843). A separate domain
+/// from [`code_hash`], so an item and a function never share a hash.
+pub fn item_code_hash(code_without_name: &str) -> String {
+    let mut input = b"kovan-item-code-v1\n".to_vec();
+    input.extend_from_slice(code_without_name.as_bytes());
+    sha256_tagged(&input)
+}
+
+/// Every other reviewable item of a Rust source file (structs, enums,
+/// unions, traits, type aliases, constants and statics:
+/// [`super::rust_items`], "Which other items exist"), in source order, with
+/// its hashes. A struct, enum or union's `hash` also covers the methods
+/// written for it in the same file.
+pub fn hash_items(source: &str) -> Result<Vec<HashedFn>, HashError> {
+    let parsed = parse_file(source).map_err(HashError)?;
+    Ok(parsed
+        .items
+        .into_iter()
+        .map(|entry| {
+            let hashes = FnHashes {
+                hash: item_code_hash(&entry.code_without_name),
+                doc_hash: doc_hash(&entry.doc),
+            };
+            HashedFn { entry, hashes }
+        })
+        .collect())
+}
+
+/// Everything reviewable in a Rust source file: its functions
+/// ([`hash_functions`]), then its other items ([`hash_items`]), leaving out
+/// an item whose name a free function of the file also has (the index
+/// leaves it out too: [`crate::code_index::folders`], "Other items"). For
+/// looking an index entry up by its `qual` in a file's text.
+pub fn hash_all(source: &str) -> Result<Vec<HashedFn>, HashError> {
+    let (mut all, items) = hash_both(source)?;
+    let taken: std::collections::BTreeSet<String> = all.iter().map(|h| h.entry.qualname()).collect();
+    all.extend(items.into_iter().filter(|h| !taken.contains(&h.entry.name)));
+    Ok(all)
+}
+
+/// [`hash_functions`] and [`hash_items`] from **one** parse of the file.
+/// Parsing is the cost: a caller that wants both (the refresh, which runs
+/// over every file of a workspace) must not parse twice.
+pub fn hash_both(source: &str) -> Result<(Vec<HashedFn>, Vec<HashedFn>), HashError> {
+    let parsed = parse_file(source).map_err(HashError)?;
+    let fns = parsed
+        .fns
+        .into_iter()
+        .map(|entry| {
+            let hashes = fn_hashes(&entry);
+            HashedFn { entry, hashes }
+        })
+        .collect();
+    let items = parsed
+        .items
+        .into_iter()
+        .map(|entry| {
+            let hashes = FnHashes {
+                hash: item_code_hash(&entry.code_without_name),
+                doc_hash: doc_hash(&entry.doc),
+            };
+            HashedFn { entry, hashes }
+        })
+        .collect();
+    Ok((fns, items))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -150,6 +217,39 @@ mod tests {
         assert_ne!(rec.hash, rec3.hash);
         assert!(base.hash.starts_with("sha256:") && base.hash.len() == 71);
         assert_ne!(code_hash(""), doc_hash(""), "domain separated");
+    }
+
+    /// Methodology: an item's hashes (#843) on one struct with a method.
+    /// The hash is in the item domain (it differs from the function hash of
+    /// the same text), a method edit changes the struct's `hash` and leaves
+    /// its `doc_hash`, a doc edit does the opposite, and functions are not
+    /// listed among the items.
+    ///
+    /// Result (2026-10-13): passes.
+    #[test]
+    fn item_hash_covers_definition_and_methods() {
+        let src = "/// A ball.\nstruct Ball { r: f64 }\nimpl Ball { fn r(&self) -> f64 { self.r } }";
+        let a = hash_items(src).unwrap();
+        assert_eq!(a.len(), 1);
+        assert_eq!(a[0].hashes.hash, item_code_hash(&a[0].entry.code_without_name));
+        assert_ne!(a[0].hashes.hash, code_hash(&a[0].entry.code_without_name));
+        let method = hash_items(&src.replace("self.r }", "self.r * 2.0 }")).unwrap();
+        assert_ne!(method[0].hashes.hash, a[0].hashes.hash);
+        assert_eq!(method[0].hashes.doc_hash, a[0].hashes.doc_hash);
+        let doc = hash_items(&src.replace("A ball.", "A sphere.")).unwrap();
+        assert_eq!(doc[0].hashes.hash, a[0].hashes.hash);
+        assert_ne!(doc[0].hashes.doc_hash, a[0].hashes.doc_hash);
+        assert!(hash_items("fn (").is_err());
+        // Functions first, then items; an item named as a free function is
+        // left out.
+        let all = hash_all("const f: u8 = 1; fn f() {} struct Ball; impl Ball { fn r(&self) {} }").unwrap();
+        let names: Vec<String> = all.iter().map(|h| h.entry.qualname()).collect();
+        assert_eq!(names, ["f", "Ball::r", "Ball"]);
+        assert!(all[0].entry.shape.is_none() && all[2].entry.shape.is_some());
+        // One parse gives what the two separate calls give.
+        let (fns, items) = hash_both(src).unwrap();
+        assert_eq!(fns, hash_functions(src).unwrap());
+        assert_eq!(items, a);
     }
 
     /// Methodology: methods, generics and trait declarations drop their

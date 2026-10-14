@@ -68,6 +68,7 @@ callees = [
     "fn:b5887bca45a87622",
     "fn:c988cadfcd7ebac0",
 ]
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."graph_page.rs".function]]
 id = "fn:85089c22a4b10600"
@@ -80,6 +81,7 @@ lines = [
 hash = "sha256:b12e953c5cf547485c103c5f1e832af3b893d6b5b28b04baaec55789a7e93183"
 doc_hash = "sha256:e6da31796d3193699791da90795a1f4cd1eebaf2f91f50188d259025764b76a0"
 callees = ["fn:5d7a5338df787c0a"]
+uses = ["fn:63beb8f8b8b7f682"]
 
 [module."main_page.rs"]
 path = "example:triso_simulator::triso_simulator_v1::front_end::main_page"
@@ -101,6 +103,12 @@ callees = [
     "fn:be8dcd4d31b07c39",
     "fn:e990cee3f4776861",
 ]
+uses = [
+    "fn:985bf4f6adecc6ad",
+    "fn:c611e024756fd19b",
+    "fn:e3d3971cf92a6302",
+    "fn:eaa570630d7c6191",
+]
 
 [[module."main_page.rs".function]]
 id = "fn:84b16f16a11862d9"
@@ -115,6 +123,19 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 
 [module."mod.rs"]
 path = "example:triso_simulator::triso_simulator_v1::front_end"
+
+[[module."mod.rs".function]]
+id = "fn:49c8d375519637b9"
+name = "Panel"
+qual = "Panel"
+item = "type"
+shape = "enum"
+lines = [
+    1,
+    7,
+]
+hash = "sha256:e58559dcf9e61ad178204db0fd24600cc124706ba8584a127018b25569d19d2b"
+doc_hash = "sha256:7a123a6191300473247902a42204c1aec44ffcdebee324e95e0fecf1da05acfe"
 
 [module."periodic_table.rs"]
 path = "example:triso_simulator::triso_simulator_v1::front_end::periodic_table"
@@ -165,6 +186,7 @@ lines = [
 hash = "sha256:689c57d7f4454dda83f951861ce453be3541998a858c279662d1042b60300d21"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:28786414c144bd8a"]
+uses = ["fn:d5a4b6dd285b797d"]
 
 [[module."periodic_table.rs".function]]
 id = "fn:60a72ee2c62fd69a"
@@ -189,6 +211,19 @@ hash = "sha256:cceac455b3809148d2eb4d410ef9d25012044b46f36613cc28baaebee5395643"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."periodic_table.rs".function]]
+id = "fn:d5a4b6dd285b797d"
+name = "ElementBox"
+qual = "ElementBox"
+item = "type"
+shape = "struct"
+lines = [
+    433,
+    436,
+]
+hash = "sha256:5b69c786d6f6f2cf2f49bb6f5fe2551971bc5312efe45002c420ee0d09d3aff7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."periodic_table.rs".function]]
 id = "fn:36ba54aebb53a417"
 name = "from"
 qual = "ElementBox::from"
@@ -198,6 +233,7 @@ lines = [
 ]
 hash = "sha256:9bbdfe8fb8c71bb89d9b05dc6df5dc3f38bc5fd81e191496ab15958880e42b58"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:d5a4b6dd285b797d"]
 
 [[module."periodic_table.rs".function]]
 id = "fn:c100e0dc450c943d"
@@ -213,6 +249,10 @@ callees = [
     "fn:60a72ee2c62fd69a",
     "fn:84b16f16a11862d9",
     "fn:daddf779574b72c8",
+]
+uses = [
+    "fn:d5a4b6dd285b797d",
+    "fn:fc0aeaf3ef86ad27",
 ]
 
 [module."side_panel.rs"]
@@ -249,6 +289,10 @@ callees = [
     "fn:c86107e2f060c95b",
     "fn:eb9282d464ea2612",
 ]
+uses = [
+    "fn:2f3adfff09f93696",
+    "fn:4e41f8c2e2e72b73",
+]
 
 [[module."side_panel.rs".function]]
 id = "fn:e1a7e400d31c04c9"
@@ -265,6 +309,20 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 path = "example:triso_simulator::triso_simulator_v1::front_end::triso_particle"
 
 [[module."triso_particle.rs".function]]
+id = "fn:eaa570630d7c6191"
+name = "TrisoParticleUi"
+qual = "TrisoParticleUi"
+item = "type"
+shape = "struct"
+lines = [
+    16,
+    19,
+]
+hash = "sha256:8c8b5885df11a8f012cfccc8b6ebb9fe0335cd24ec4d516777397b9899f98a48"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:57c5c52fb5126efd"]
+
+[[module."triso_particle.rs".function]]
 id = "fn:3167189223e50a72"
 name = "default"
 qual = "TrisoParticleUi::default"
@@ -275,6 +333,10 @@ lines = [
 hash = "sha256:f84691307ab0db4faa52bd5db673dbef0440b257d5f76f8e6e8cc94a574695c2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:f0412e4748137ea3"]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:eaa570630d7c6191",
+]
 
 [[module."triso_particle.rs".function]]
 id = "fn:0190210c03db69a0"
@@ -294,6 +356,10 @@ callees = [
     "fn:7aaebc63eaa83b3b",
     "fn:84b16f16a11862d9",
 ]
+uses = [
+    "fn:eaa570630d7c6191",
+    "fn:fc0aeaf3ef86ad27",
+]
 
 [[module."triso_particle.rs".function]]
 id = "fn:4c525e49c277388a"
@@ -305,6 +371,10 @@ lines = [
 ]
 hash = "sha256:e573851dec16a234300d7d78035f07d2548ea96bdf69933ebab1dd8fa26ddaef"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:eaa570630d7c6191",
+]
 
 [[module."triso_particle.rs".function]]
 id = "fn:ffca5332a41c7542"
@@ -316,6 +386,10 @@ lines = [
 ]
 hash = "sha256:2dfe2039ba710cca33f0ccb1170b4f274754cf14f4569a1bb8b7efd8e44037b6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:eaa570630d7c6191",
+]
 
 [[module."triso_particle.rs".function]]
 id = "fn:e2e7a6557c78948c"
@@ -327,6 +401,10 @@ lines = [
 ]
 hash = "sha256:19a2cb51c08701490660a644e9e41367600d0c8d0c83bef339b08ba0d29a603a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:eaa570630d7c6191",
+]
 
 [[module."triso_particle.rs".function]]
 id = "fn:be8dcd4d31b07c39"
@@ -338,6 +416,7 @@ lines = [
 ]
 hash = "sha256:d55c38dd67e0f075b977c1cfbd0ef631548c46f54540ccc6890b0c85b36b67b3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:eaa570630d7c6191"]
 
 [[module."triso_particle.rs".function]]
 id = "fn:2749d5ef6901261f"
@@ -355,6 +434,11 @@ callees = [
     "fn:9508d8382ffc3dfd",
     "fn:d84c7e41f0b78cde",
 ]
+uses = [
+    "fn:e3d3971cf92a6302",
+    "fn:eaa570630d7c6191",
+    "fn:fc0aeaf3ef86ad27",
+]
 
 [[module."triso_particle.rs".function]]
 id = "fn:1d6f3511544e2c32"
@@ -367,6 +451,7 @@ lines = [
 hash = "sha256:6a655d8ee75add8b7eb76f8d1fa8a85dd4b0333950e356054505ac87724e74a8"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:306b8ee609baf103"]
+uses = ["fn:eaa570630d7c6191"]
 physical_interface = true
 
 [[module."triso_particle.rs".function]]
@@ -380,6 +465,7 @@ lines = [
 hash = "sha256:a25e3f6553c1540a4081321d3ec0ed5f9d65699955314dabd2db16b475b8bad6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:7a2ac2c97a7da6df"]
+uses = ["fn:eaa570630d7c6191"]
 physical_interface = true
 
 [[module."triso_particle.rs".function]]
@@ -393,6 +479,7 @@ lines = [
 hash = "sha256:23a87cd4cc0a131c3470af69656e8a7f91b38de0ce276f8b8e2cb7b795b87a00"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:c8693dbb849a9fc9"]
+uses = ["fn:eaa570630d7c6191"]
 physical_interface = true
 
 [[module."triso_particle.rs".function]]
@@ -406,6 +493,7 @@ lines = [
 hash = "sha256:38ab7ea38137eb85c2af76d79c1bb072bafff24177cf60d4eb772ccd7ff922f7"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:e8bb775f59365324"]
+uses = ["fn:eaa570630d7c6191"]
 physical_interface = true
 
 [[module."triso_particle.rs".function]]
@@ -419,6 +507,7 @@ lines = [
 hash = "sha256:79458ac47cb40a7c2a63d27c58239e172b8ceef75231708486dba2a9e7acdc79"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:c505534bed2a6989"]
+uses = ["fn:eaa570630d7c6191"]
 physical_interface = true
 
 [[module."triso_particle.rs".function]]
@@ -431,6 +520,7 @@ lines = [
 ]
 hash = "sha256:247838bb30a4ffe8b68298d1166f91a9e9da5f15c2da14cdf059e956e2811a67"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:eaa570630d7c6191"]
 physical_interface = true
 
 [[module."triso_particle.rs".function]]
@@ -443,6 +533,10 @@ lines = [
 ]
 hash = "sha256:234f47b626e85ec19e9fad4c616a711720f16bf0e9c2ac8592e3f02e41f4f18d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:eaa570630d7c6191",
+]
 
 [[module."triso_particle.rs".function]]
 id = "fn:69b7158e779ee701"
@@ -454,3 +548,7 @@ lines = [
 ]
 hash = "sha256:a491033659687d9285c9c40cef76090d0f057c23da641de8e8494b9819385531"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:eaa570630d7c6191",
+]

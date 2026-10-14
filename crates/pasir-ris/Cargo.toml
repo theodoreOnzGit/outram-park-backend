@@ -29,6 +29,7 @@ row = 4
 topic = "app"
 fidelity = [0, 1]
 maturity = 0
+backronym = "Probabilistic Assessment of Safety In Reactors: Risk & Reliability Integrated Studio"
 
 # Every PSA-related crate, all three levels, declared by maintainer direction
 # (2026-10-06: "pasir ris should depend on any PSA related crate yeah... all 3

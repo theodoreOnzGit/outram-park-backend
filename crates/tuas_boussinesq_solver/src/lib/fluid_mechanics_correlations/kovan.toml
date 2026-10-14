@@ -1115,6 +1115,7 @@ lines = [
 hash = "sha256:1f95b09bf1feb420150da08e450863413c5aae7e7a6ec7ab88a2832a58fb4deb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:34f5bf867d9e22de"]
+uses = ["fn:540617e338f429d7"]
 reached_by = [
     "#0",
     "#1",
@@ -1392,6 +1393,7 @@ lines = [
 hash = "sha256:b629cc0e161ed49f8bf202a3b335300b39043f5c3cabea9859b7435ec1618c09"
 doc_hash = "sha256:aa5edb8ac71f2741308b480eb9c5d9c1458b68cca624ddeec9d176dde503e466"
 callees = ["fn:f14a764a9cda1bd2"]
+uses = ["fn:540617e338f429d7"]
 reached_by = [
     "#0",
     "#1",
@@ -1669,6 +1671,7 @@ lines = [
 hash = "sha256:845d541a04132e50e822ebdf3f2a960c45fa4c77bff6e4f6e50dd79ff0de6e43"
 doc_hash = "sha256:d6ca131f528f8083b533a9527a3bec03a9fce1946c0b42db6ecc51c7aa12b424"
 callees = ["fn:f14a764a9cda1bd2"]
+uses = ["fn:540617e338f429d7"]
 
 [[module."churchill_friction_factor.rs".function]]
 id = "fn:1fc080be8808d1b2"
@@ -1681,6 +1684,7 @@ lines = [
 hash = "sha256:4672f799bede259303b2df2c3add6c4a80333fd861f3f322443d95528013505e"
 doc_hash = "sha256:db7b640513ade0cf6adc27923caf6ed22e16f929d973ffc9db59d8a307d124a9"
 callees = ["fn:9a9df62a2fff8ce4"]
+uses = ["fn:540617e338f429d7"]
 
 [[module."churchill_friction_factor.rs".function]]
 id = "fn:a2a8e8443ce5d445"
@@ -1693,6 +1697,7 @@ lines = [
 hash = "sha256:1b11f6894e38da4b33020f3252176e2ccd24878b0572a647cc0d4481e13b9051"
 doc_hash = "sha256:4f248f26f64d28b7a6c01ea9607fddf23af22dacfa451616be53d56744d5ddab"
 callees = ["fn:9a9df62a2fff8ce4"]
+uses = ["fn:540617e338f429d7"]
 reached_by = ["#57"]
 
 [[module."churchill_friction_factor.rs".function]]
@@ -1706,6 +1711,24 @@ lines = [
 hash = "sha256:b9eea429037bb1773c42d3c3b7fbd6001c00e548fed24da95a286647243cc86c"
 doc_hash = "sha256:d53e43c053e24f830f71cb99a194a1fb7d46ce5efb46ae90dfb6b6be1933db3c"
 callees = ["fn:a2a8e8443ce5d445"]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:afb8b88958ecff09",
+]
+reached_by = ["#57"]
+
+[[module."churchill_friction_factor.rs".function]]
+id = "fn:afb8b88958ecff09"
+name = "ReynoldsFromBejanD"
+qual = "ReynoldsFromBejanD"
+item = "type"
+shape = "struct"
+lines = [
+    295,
+    302,
+]
+hash = "sha256:e7503735e42ddfa81ef5cec90c7d0cbb67bae8c6ea4abb31509d924bc351e1dc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = ["#57"]
 
 [[module."churchill_friction_factor.rs".function]]
@@ -1719,6 +1742,7 @@ lines = [
 hash = "sha256:7469a17808820afadc1649c42297627483b44b0de89e48b42c98ab1fec5c789f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:a2a8e8443ce5d445"]
+uses = ["fn:afb8b88958ecff09"]
 
 [[module."churchill_friction_factor.rs".function]]
 id = "fn:5f1dfdbc5d9808dc"
@@ -1731,6 +1755,7 @@ lines = [
 hash = "sha256:43d42fe3677611db77776f51f95c00934cf7bf367fe39e9ce522cbea0256d2d3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:cb303f286f3ab829"]
+uses = ["fn:afb8b88958ecff09"]
 
 [[module."churchill_friction_factor.rs".function]]
 id = "fn:645f33d39b1a6bf9"
@@ -1742,6 +1767,7 @@ lines = [
 ]
 hash = "sha256:21312c922ccc34c2adf7a6e73df56667c4169a78f3a17452f3e0e0397a14a48c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:afb8b88958ecff09"]
 
 [module."courant_number.rs"]
 path = "crate::fluid_mechanics_correlations::courant_number"
@@ -1835,6 +1861,7 @@ lines = [
 ]
 hash = "sha256:87d83a3bb980c5e7afc08fcf1dd3a01f13d6771a69d958eca60c1c8d0299d7fc"
 doc_hash = "sha256:a6218c93bf1226d4aad7f0bc2eef5da47aefe7af32fde0a871e90b5afdd0a338"
+uses = ["fn:540617e338f429d7"]
 
 [[module."custom_fldk.rs".function]]
 id = "fn:a8fe224538353dac"
@@ -1850,6 +1877,7 @@ callees = [
     "fn:aaaf0b95586e1a86",
     "fn:ab4af62dd28e04c7",
 ]
+uses = ["fn:540617e338f429d7"]
 
 [[module."custom_fldk.rs".function]]
 id = "fn:006fa672248f6ba2"
@@ -1862,6 +1890,7 @@ lines = [
 hash = "sha256:64a6eeb22881c9f8abbe81c90471b90c2667ac1577d46aefcac624b1bc392a84"
 doc_hash = "sha256:e6d3b14f2365e9be659ad6b9842abb7a10474b4d6b9df81ab0caf62acf5eedb2"
 callees = ["fn:a8fe224538353dac"]
+uses = ["fn:540617e338f429d7"]
 
 [[module."custom_fldk.rs".function]]
 id = "fn:7ea97adb450bb5df"
@@ -1874,6 +1903,7 @@ lines = [
 hash = "sha256:58441f164469ec6299f182887aaa73b2dc0ed2897a80e04b7f1f17b60011059c"
 doc_hash = "sha256:0e125a9f7dbf138edd29e78f022f5995a01b092c31a0997431542278036602f8"
 callees = ["fn:aaaf0b95586e1a86"]
+uses = ["fn:540617e338f429d7"]
 
 [[module."custom_fldk.rs".function]]
 id = "fn:f01c538ff0911b58"
@@ -1886,6 +1916,24 @@ lines = [
 hash = "sha256:de62aed9236d2d868d31eb7104520b1911864dc224d526fd1e2c2f285929d433"
 doc_hash = "sha256:7d8bafe5ed22c5491fd2d0296352bbb913fd9b40e2ee3840f8431a26f616f0e0"
 callees = ["fn:7ea97adb450bb5df"]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:acd997ad1d100202",
+]
+
+[[module."custom_fldk.rs".function]]
+id = "fn:acd997ad1d100202"
+name = "ReynoldsFromBejanDCustom"
+qual = "ReynoldsFromBejanDCustom"
+item = "type"
+shape = "struct"
+lines = [
+    245,
+    253,
+]
+hash = "sha256:c6b3dd144e78cc76a8dc0f45a413b7ce78803da003fc186bd632ad44dfef0ca1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:540617e338f429d7"]
 
 [[module."custom_fldk.rs".function]]
 id = "fn:479ecdf6af8b5bd1"
@@ -1898,6 +1946,7 @@ lines = [
 hash = "sha256:3e2c7d765318c81a3ffe9db7bec790af9806af0eac5426d11d67902889774241"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:7ea97adb450bb5df"]
+uses = ["fn:acd997ad1d100202"]
 
 [[module."custom_fldk.rs".function]]
 id = "fn:bdde0f3d55b16f7c"
@@ -1910,6 +1959,7 @@ lines = [
 hash = "sha256:43d42fe3677611db77776f51f95c00934cf7bf367fe39e9ce522cbea0256d2d3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:479ecdf6af8b5bd1"]
+uses = ["fn:acd997ad1d100202"]
 
 [[module."custom_fldk.rs".function]]
 id = "fn:f36005ff3cd4883e"
@@ -1921,6 +1971,7 @@ lines = [
 ]
 hash = "sha256:21312c922ccc34c2adf7a6e73df56667c4169a78f3a17452f3e0e0397a14a48c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:acd997ad1d100202"]
 
 [module."dimensionalisation.rs"]
 path = "crate::fluid_mechanics_correlations::dimensionalisation"
@@ -2003,6 +2054,7 @@ lines = [
 hash = "sha256:9fd89e65d53f6ee4db9a2ad7de8dc13a270722837f537a37e9e4e010c1ecb863"
 doc_hash = "sha256:09a8bf7961a03f641d43b506e2bc9ae6652dbfb025192e027d42aeb01b8a7736"
 callees = ["fn:9a9df62a2fff8ce4"]
+uses = ["fn:540617e338f429d7"]
 reached_by = [
     "#0",
     "#1",
@@ -2065,6 +2117,7 @@ lines = [
 hash = "sha256:3935830c05785660e97b5257df0949c37b8a8d918cfc51768c9157ff81c4dc60"
 doc_hash = "sha256:45da7a2316f0b65e0fc9e6bc013a0dad9e591a9933a9a041a02ae6ad7e9e04c0"
 callees = ["fn:4d48ed13c092b6f6"]
+uses = ["fn:540617e338f429d7"]
 
 [[module."mod.rs".function]]
 id = "fn:42a423baad337296"
@@ -2077,6 +2130,7 @@ lines = [
 hash = "sha256:92874b1190fc86fa1300c1f3dd43f0332b8c99b64dec1150ee3e3f9611a503ac"
 doc_hash = "sha256:44dbcf6a42ef9d22320c4318b88a045a6fd0151dbcce658d16ba0913c3638115"
 callees = ["fn:1fc080be8808d1b2"]
+uses = ["fn:540617e338f429d7"]
 
 [[module."mod.rs".function]]
 id = "fn:6282fa4e2cdba133"
@@ -2089,6 +2143,7 @@ lines = [
 hash = "sha256:3cc0054edc1d79d68e2a409dceb544002a72adc4f1ea4ed0d475b56a74a3d8b7"
 doc_hash = "sha256:74e8d2253e138cd606c749ba1e334a91921246d8ad9344d69c76a942c9569f48"
 callees = ["fn:a2a8e8443ce5d445"]
+uses = ["fn:540617e338f429d7"]
 
 [[module."mod.rs".function]]
 id = "fn:4dde5117f6d03c27"
@@ -2101,6 +2156,7 @@ lines = [
 hash = "sha256:da91be30968aefff6be083902d89be6f49ec27f17caa665d6b408565d6c54bda"
 doc_hash = "sha256:3cf7ff07de891177ad38812f1f46dbbef3b1ca60da31c378bc99064d87e5a64b"
 callees = ["fn:bd0d662f5693fd6e"]
+uses = ["fn:540617e338f429d7"]
 
 [module."pipe_calculations.rs"]
 path = "crate::fluid_mechanics_correlations::pipe_calculations"
@@ -2120,6 +2176,7 @@ callees = [
     "fn:a2a8e8443ce5d445",
     "fn:f7ab4075b8705dce",
 ]
+uses = ["fn:540617e338f429d7"]
 reached_by = ["#57"]
 physical_interface = true
 
@@ -2138,5 +2195,6 @@ callees = [
     "fn:bd0d662f5693fd6e",
     "fn:f61be243352c7961",
 ]
+uses = ["fn:540617e338f429d7"]
 reached_by = ["#57"]
 physical_interface = true

@@ -317,3 +317,29 @@ use.
 from the evaluations and requires NJOY's words. The whole-table comparison is
 `examples/ace_blocks_vs_reference.rs`. It takes 4 to 8 minutes per 293.6 K
 case, so it is an instrument and not a test.
+
+## Re-run 2026-10-14, the material tag, and the gate (GitHub #862-#864)
+
+**Re-run.** `examples/ace_blocks_vs_reference.rs` on all four tables, now
+reading its word rows from the library's comparator (`acer::compare`): every
+row above is reproduced, word counts included.
+
+**The header was not fully compared until now.** The table above compares
+ZAID, AWR and kT in the header, NXS, JXS and XSS. A U-234 table built by the
+nuclear data demo's ACE generator rung in a browser (Chromium, the same deck)
+was 9 107 181 bytes, the size of NJOY2016's, and every line after the
+two-line header was identical. In the header, besides the date and the
+comment, which legitimately differ, the material tag `hm` read `mat92234` (the
+ZA) where NJOY writes `mat9225` (the MAT, `acefc.f90:4949`,
+`'   mat',i4`). `build_deck` now writes the MAT, and the comparator judges the
+tag. After the fix the browser-built table and NJOY2016's compare identical
+in the comparator rung, at desktop and phone width.
+
+**A gate.** Until this date the whole-table result was checked only by
+running the example by hand. `tests/ace_compare.rs`,
+`u234_built_here_is_njoy2016s_table_in_every_word`, now builds U-234 at
+293.6 K with the reference deck and requires it to equal NJOY2016's table in
+the judged header, NXS, JXS and all 449 695 XSS words (10 s). It runs in CI
+on Linux, Windows and macOS (`.github/workflows/njoy-ace-leapr-tests.yml`,
+run 38509618276: passed on all three). U-235 and U-238 (tables of 136 and
+127 MB) stay manual.

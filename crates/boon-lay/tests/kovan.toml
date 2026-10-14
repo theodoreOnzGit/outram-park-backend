@@ -7,6 +7,62 @@ dir = "crates/boon-lay/tests"
 path = "test:mhtgr_stoyer_workflow"
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:8e508796566df4fe"
+name = "DIR"
+qual = "DIR"
+item = "const"
+shape = "const"
+lines = [
+    122,
+    125,
+]
+hash = "sha256:1c65a7461c3900f956519fdccf236e0c993fc7a7382c9cdfd5dcab04fab35fce"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:24b9b78394837b0c"
+name = "YEAR_S"
+qual = "YEAR_S"
+item = "const"
+shape = "const"
+lines = [
+    126,
+    127,
+]
+hash = "sha256:c5e3fcdec29fdbc79637fd69a373b67e0c4ba62e4ac8aace394259ea282aacba"
+doc_hash = "sha256:03c61bcd9127d2e3f670731d9a5cbcbc5f9b95b01df0f2eb17b1a5c3fe1a44bd"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:79f7794a2eef219f"
+name = "N_AXIAL"
+qual = "N_AXIAL"
+item = "const"
+shape = "const"
+lines = [
+    128,
+    128,
+]
+hash = "sha256:0701774b3dafa0c97c7952cad8b6d2857e2c582ee55cf3a1e9c6d8c77e83ab23"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:9b0d7758d9e3ac90"
+name = "N_RADIAL"
+qual = "N_RADIAL"
+item = "const"
+shape = "const"
+lines = [
+    129,
+    129,
+]
+hash = "sha256:59a5e8ce9a05349920ac13580febb3d2df80e6fac745f9b0053099aed23b0db3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
 id = "fn:1baee06ed91589b2"
 name = "table"
 qual = "table"
@@ -16,6 +72,7 @@ lines = [
 ]
 hash = "sha256:906c8fb45b9ce4759492ee1f3e113bcbf209fa53a912c0003642e686e8cfe2af"
 doc_hash = "sha256:9064bb0ecf34b62ab4b1dabf3f86db1fb9fa27dcc8002d3d8632a7eb4d88b7f0"
+uses = ["fn:8e508796566df4fe"]
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
@@ -31,6 +88,35 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:3dab844bc23ea2bd"
+name = "Pools"
+qual = "Pools"
+item = "type"
+shape = "alias"
+lines = [
+    158,
+    159,
+]
+hash = "sha256:773d24db91ae5910200fd9060f3bedee67bce16d86c437bf02caea9ddccd8f9d"
+doc_hash = "sha256:b6133ad395df2a9c2e69146a9df3f19dca356a0f68c34ae8a86396a3698e4c44"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:4c0db62d31d996d2"
+name = "Nodal"
+qual = "Nodal"
+item = "type"
+shape = "alias"
+lines = [
+    161,
+    163,
+]
+hash = "sha256:1974b3b6d9593fc3081a314edfdf47d0314b8114563edac6d64dba38b1987cbb"
+doc_hash = "sha256:69b89cca399f885b06fdadedcd2ab7b74c535107ce093a3ad4110f0900da190b"
+uses = ["fn:dcb6acb5e841b5b0"]
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
 id = "fn:9438bd05a558783e"
 name = "port_case"
 qual = "port_case"
@@ -41,6 +127,7 @@ lines = [
 hash = "sha256:b9403c409cba326dc1f39c9c846f4a3c03c1694d485e329c18d928afa27ed36a"
 doc_hash = "sha256:2494c0dbcc8d32134465716d027264aa155998354e3b226408cc58546d1bd6e6"
 callees = ["fn:4d4282c04b9be5a5"]
+uses = ["fn:3dab844bc23ea2bd"]
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
@@ -64,6 +151,19 @@ callees = [
     "fn:9a8a6835861d321b",
     "fn:e503a3d0722ff508",
 ]
+uses = [
+    "fn:24b9b78394837b0c",
+    "fn:2816dd8674f2b148",
+    "fn:3dab844bc23ea2bd",
+    "fn:49cbfd358a6976d4",
+    "fn:4c0db62d31d996d2",
+    "fn:515e6933ab0603f9",
+    "fn:720763535406a854",
+    "fn:79f7794a2eef219f",
+    "fn:8f6c972c90fdceff",
+    "fn:9b0d7758d9e3ac90",
+    "fn:dcb6acb5e841b5b0",
+]
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
@@ -80,6 +180,7 @@ callees = [
     "fn:03f4100244ab1727",
     "fn:1baee06ed91589b2",
 ]
+uses = ["fn:3dab844bc23ea2bd"]
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
@@ -91,6 +192,20 @@ lines = [
     322,
 ]
 hash = "sha256:6c3ed178717c77dab42ad2ed0faf5260d63634da983d3a19fc2353ad13b495e7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mhtgr_stoyer_workflow.rs".function]]
+id = "fn:fb5529d08b5edfef"
+name = "CASES"
+qual = "CASES"
+item = "const"
+shape = "const"
+lines = [
+    324,
+    327,
+]
+hash = "sha256:b8d4303f659750e972945ee910c028255321b71167786ea163a0198687360e69"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -109,6 +224,7 @@ callees = [
     "fn:9438bd05a558783e",
     "fn:9ebac061e78bab77",
 ]
+uses = ["fn:fb5529d08b5edfef"]
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
@@ -127,6 +243,7 @@ callees = [
     "fn:9438bd05a558783e",
     "fn:9ebac061e78bab77",
 ]
+uses = ["fn:fb5529d08b5edfef"]
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
@@ -183,6 +300,17 @@ callees = [
     "fn:d51049d00f066bb6",
     "fn:ee64ea353c7ab103",
 ]
+uses = [
+    "fn:0c21cc39d4fb8228",
+    "fn:48f1bc7388b4aee5",
+    "fn:4c0db62d31d996d2",
+    "fn:79f7794a2eef219f",
+    "fn:9b0d7758d9e3ac90",
+    "fn:bfe17211ff4ff7f2",
+    "fn:c292835b20327ba2",
+    "fn:d9fc661a522b11ce",
+    "fn:e8bfdd8514f1aacb",
+]
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
@@ -217,6 +345,7 @@ callees = [
     "fn:9ebac061e78bab77",
     "fn:a8aed3662b6bb636",
 ]
+uses = ["fn:fb5529d08b5edfef"]
 test = true
 
 [[module."mhtgr_stoyer_workflow.rs".function]]
@@ -238,6 +367,7 @@ callees = [
     "fn:9ebac061e78bab77",
     "fn:a8aed3662b6bb636",
 ]
+uses = ["fn:fb5529d08b5edfef"]
 test = true
 
 [module."triso_atops_booth_vs_crp6.rs"]
@@ -278,6 +408,7 @@ lines = [
 ]
 hash = "sha256:5bcf112df6e36c4e6ca2264291b2957f6b176c1e4495ae03290a480247e6411b"
 doc_hash = "sha256:1767cbf4c02371b5a2b7bccb16ecccb4800112d4d31056e96c78c85a5dac213a"
+uses = ["fn:5b6ec8acc1bbca98"]
 test = true
 
 [[module."triso_atops_booth_vs_crp6.rs".function]]
@@ -288,7 +419,7 @@ lines = [
     115,
     164,
 ]
-hash = "sha256:e16ae636ddf5bd49d9ec16b0a186b01a78085d312c5b51e47e32244d89ce88f4"
+hash = "sha256:e37cccd7baffb0a42088c3a2b65667b16ff2d0c2b9b9d0249c5c80ffe30ab295"
 doc_hash = "sha256:d229186011551ac856765d41d3bb13c1a55349a9d76805683553b5c4e2d7865b"
 callees = [
     "fn:102121535cb2dea5",
@@ -335,6 +466,20 @@ test = true
 
 [module."triso_atops_code_to_code.rs"]
 path = "test:triso_atops_code_to_code"
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:bfe79a1b07be356f"
+name = "FIXTURE"
+qual = "FIXTURE"
+item = "const"
+shape = "const"
+lines = [
+    184,
+    186,
+]
+hash = "sha256:e6870b0330d99d158b355f9a38bad5cacfb6e8429ad1cb2402a46d7eb4c8567f"
+doc_hash = "sha256:d056293e360d31a5591014665d14ed27002c3bfbb6cc4985e3a8bfb7aa2d3413"
+test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
 id = "fn:03eca69c88e5bfc4"
@@ -428,6 +573,20 @@ test = true
 physical_interface = true
 
 [[module."triso_atops_code_to_code.rs".function]]
+id = "fn:7731a11c2a2d7b8f"
+name = "Case"
+qual = "Case"
+item = "type"
+shape = "struct"
+lines = [
+    211,
+    229,
+]
+hash = "sha256:169be9a5b80de36b698ed0455f2793fdec25dfcd5e9722e8499d6258a8651e2b"
+doc_hash = "sha256:ab3db4520a44336ae1901586e18597e19394c58e551b6f4e868cc673b9a09abf"
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
 id = "fn:cbc6db712729369f"
 name = "cases"
 qual = "cases"
@@ -437,6 +596,10 @@ lines = [
 ]
 hash = "sha256:5a4d41bb12a43eee881e5cea963a29c3acc5a4a050467f6bff224a5ff5f45759"
 doc_hash = "sha256:17c363fa2dc23ed3e44bf47bb2655c0abdfa8d22473a4c6f371dc1843e5b11b6"
+uses = [
+    "fn:7731a11c2a2d7b8f",
+    "fn:bfe79a1b07be356f",
+]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -459,12 +622,13 @@ lines = [
     271,
     326,
 ]
-hash = "sha256:728965cc83b6cc0dc3e6d43c47491081395eb88f8e46147a26245c6163243723"
+hash = "sha256:fad1d116c8fb6d4195902f36ec7db66fcf616c648c1d6b999ad1a80bf3164feb"
 doc_hash = "sha256:1f36a26a119581724ac9e285f7cee222c12c20e6a936fa44254b0c15286e3ae8"
 callees = [
     "fn:cbc6db712729369f",
     "fn:d7393e60c0d1208a",
 ]
+uses = ["fn:7731a11c2a2d7b8f"]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -659,6 +823,10 @@ lines = [
 hash = "sha256:5dd1cbc21ce3f3d2c8dc4270cec5b83afffbfede65ba8c3a19862e81a163a0f6"
 doc_hash = "sha256:b3c557c89f1cd4636396ce4f94c182f40d7d3953ab068e4c830cb1a52d5f6466"
 callees = ["fn:cbc6db712729369f"]
+uses = [
+    "fn:5b6ec8acc1bbca98",
+    "fn:6759d46f6358435b",
+]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -824,6 +992,10 @@ callees = [
     "fn:44fd31aa536c0e7c",
     "fn:9b8692e8da0d6c05",
 ]
+uses = [
+    "fn:2816dd8674f2b148",
+    "fn:d9fc661a522b11ce",
+]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -845,6 +1017,7 @@ callees = [
     "fn:75d7c8587a8ad74a",
     "fn:9b8692e8da0d6c05",
 ]
+uses = ["fn:d9fc661a522b11ce"]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -866,6 +1039,7 @@ callees = [
     "fn:75d7c8587a8ad74a",
     "fn:9b8692e8da0d6c05",
 ]
+uses = ["fn:d9fc661a522b11ce"]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -884,6 +1058,10 @@ callees = [
     "fn:40993ec41faa3e37",
     "fn:5c206cdbedc0c475",
     "fn:75d7c8587a8ad74a",
+]
+uses = [
+    "fn:c292835b20327ba2",
+    "fn:d9fc661a522b11ce",
 ]
 test = true
 
@@ -904,6 +1082,10 @@ callees = [
     "fn:5c206cdbedc0c475",
     "fn:75d7c8587a8ad74a",
 ]
+uses = [
+    "fn:c292835b20327ba2",
+    "fn:d9fc661a522b11ce",
+]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -922,6 +1104,7 @@ callees = [
     "fn:759c40b16c1f728e",
     "fn:a167062c8b8bf5a8",
 ]
+uses = ["fn:bfe17211ff4ff7f2"]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -935,6 +1118,7 @@ lines = [
 hash = "sha256:ac633bd8164a900db194f959ea88e4f1c798d866772aef77c0b38f45763e93c9"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:8cc2560532ada00e"]
+uses = ["fn:bfe17211ff4ff7f2"]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -948,6 +1132,7 @@ lines = [
 hash = "sha256:3e9234d7b9f6a9d0d6cf4da4d9d5e19939b35c9b340e80d2469dfcf5527bc937"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:8cc2560532ada00e"]
+uses = ["fn:bfe17211ff4ff7f2"]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -968,6 +1153,13 @@ callees = [
     "fn:9a8a6835861d321b",
     "fn:9b8692e8da0d6c05",
     "fn:a167062c8b8bf5a8",
+]
+uses = [
+    "fn:2816dd8674f2b148",
+    "fn:49cbfd358a6976d4",
+    "fn:515e6933ab0603f9",
+    "fn:8f6c972c90fdceff",
+    "fn:dcb6acb5e841b5b0",
 ]
 test = true
 
@@ -1077,6 +1269,10 @@ lines = [
 ]
 hash = "sha256:9573431cf5fa26ce0dacb5c7a7d40ee4f5965b70803036f52e69d92d9b794cd0"
 doc_hash = "sha256:9f31949156572316b6e9b7fd9bf351c9cdcfab2789998088aa8564fd22988952"
+uses = [
+    "fn:48f1bc7388b4aee5",
+    "fn:e8bfdd8514f1aacb",
+]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -1094,6 +1290,10 @@ callees = [
     "fn:40993ec41faa3e37",
     "fn:429d6161b7f8bf68",
     "fn:c20d62cce632186e",
+]
+uses = [
+    "fn:0c21cc39d4fb8228",
+    "fn:d9fc661a522b11ce",
 ]
 test = true
 
@@ -1113,6 +1313,24 @@ callees = [
     "fn:429d6161b7f8bf68",
     "fn:c20d62cce632186e",
 ]
+uses = [
+    "fn:0c21cc39d4fb8228",
+    "fn:d9fc661a522b11ce",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:dcdb921a2dbaaaec"
+name = "CoolantRow"
+qual = "CoolantRow"
+item = "type"
+shape = "struct"
+lines = [
+    875,
+    900,
+]
+hash = "sha256:3993c3cb72de4f2f3f450c7ef169d45fcaaad0ed75f5b89db535357236d1ac80"
+doc_hash = "sha256:cd927374e87add49641385408ffd6feaf24d18e9f53fe24f6d1ef98250c3922f"
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -1125,6 +1343,7 @@ lines = [
 ]
 hash = "sha256:4c1fad556ad803bd41a89642c918c32c429d6b86fbe9058291e8c54b6ce7bc3f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:dcdb921a2dbaaaec"]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -1179,6 +1398,7 @@ callees = [
     "fn:cbc6db712729369f",
     "fn:d7393e60c0d1208a",
 ]
+uses = ["fn:7731a11c2a2d7b8f"]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -1200,6 +1420,34 @@ callees = [
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
+id = "fn:818dfb9d46bd98f9"
+name = "AccidentScenario"
+qual = "AccidentScenario"
+item = "type"
+shape = "struct"
+lines = [
+    1075,
+    1100,
+]
+hash = "sha256:9b032b1ac57c7aa86a6400b6436bd4d783cc8c5633fcc99ea49c3fca2c7b299c"
+doc_hash = "sha256:d29afa36e0ab2f4a81825d266bb61f5ac2f868f3ffd8479270134e178350fcff"
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:e4dbfd7babf30155"
+name = "ACCIDENT_NUCLIDES"
+qual = "ACCIDENT_NUCLIDES"
+item = "const"
+shape = "const"
+lines = [
+    1102,
+    1104,
+]
+hash = "sha256:2ee0fdb2af19f9fbeeb97ad928788d2582649d37a036818c756c47ed52c17ec4"
+doc_hash = "sha256:ae994a6c85ca7bacc9db5ae6d0c9a16dd6f12fae7bbe53936d7c2684dee8ed9b"
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
 id = "fn:3eeab5d0d49725b3"
 name = "decode_accident_scenario"
 qual = "decode_accident_scenario"
@@ -1209,6 +1457,10 @@ lines = [
 ]
 hash = "sha256:17dcc0c05f61a0d83638ef94c2cb777739ea7153fc2b62cac706444bd22ef273"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:818dfb9d46bd98f9",
+    "fn:e4dbfd7babf30155",
+]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -1225,6 +1477,24 @@ callees = [
     "fn:3eeab5d0d49725b3",
     "fn:cbc6db712729369f",
 ]
+uses = [
+    "fn:7731a11c2a2d7b8f",
+    "fn:818dfb9d46bd98f9",
+]
+test = true
+
+[[module."triso_atops_code_to_code.rs".function]]
+id = "fn:54e61fe006335c80"
+name = "NodalRelease"
+qual = "NodalRelease"
+item = "type"
+shape = "struct"
+lines = [
+    1184,
+    1206,
+]
+hash = "sha256:6c3bb066a8b494903e5725907badabb51ae9b9b6077b4a4a28406d3b12437ba2"
+doc_hash = "sha256:a3c9428c580f46463d5a489b5f44f1898eea9c4c6e595c36fef36020da54cf8e"
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -1247,6 +1517,17 @@ callees = [
     "fn:94487e3b2a5fbffa",
     "fn:d51049d00f066bb6",
     "fn:ee64ea353c7ab103",
+]
+uses = [
+    "fn:0c21cc39d4fb8228",
+    "fn:48f1bc7388b4aee5",
+    "fn:54e61fe006335c80",
+    "fn:818dfb9d46bd98f9",
+    "fn:bfe17211ff4ff7f2",
+    "fn:c292835b20327ba2",
+    "fn:d9fc661a522b11ce",
+    "fn:e4dbfd7babf30155",
+    "fn:e8bfdd8514f1aacb",
 ]
 test = true
 
@@ -1332,6 +1613,7 @@ lines = [
 ]
 hash = "sha256:4f3bc8f66d0fd86506ce3de7aac02d46e2ae0fff3bc54a285ad58ea186b201d5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:e4dbfd7babf30155"]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -1342,13 +1624,14 @@ lines = [
     1484,
     1529,
 ]
-hash = "sha256:f6d3bed500a855967133172111153e6bbf29d0b2aba3c91ace69c813d861127b"
+hash = "sha256:2f3c0cb8ce19d9da92258ed7f203076c0bfa29cf2bdc8b3408e45bc214edb254"
 doc_hash = "sha256:7dbb9b0a966701d7f7f64ec7b1aadc7d544549469e15f5783ebc0bcf15b34b0c"
 callees = [
     "fn:cbc6db712729369f",
     "fn:d2d10361418fa791",
     "fn:d7393e60c0d1208a",
 ]
+uses = ["fn:818dfb9d46bd98f9"]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -1381,6 +1664,10 @@ callees = [
     "fn:2db20ac5ca82f2df",
     "fn:cbc6db712729369f",
 ]
+uses = [
+    "fn:720763535406a854",
+    "fn:7731a11c2a2d7b8f",
+]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -1397,6 +1684,7 @@ callees = [
     "fn:cbc6db712729369f",
     "fn:ee64ea353c7ab103",
 ]
+uses = ["fn:7731a11c2a2d7b8f"]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -1413,6 +1701,7 @@ callees = [
     "fn:3292f77e069a4060",
     "fn:cbc6db712729369f",
 ]
+uses = ["fn:7731a11c2a2d7b8f"]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -1429,6 +1718,7 @@ callees = [
     "fn:65fc83dc4226d102",
     "fn:cbc6db712729369f",
 ]
+uses = ["fn:7731a11c2a2d7b8f"]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -1445,6 +1735,10 @@ callees = [
     "fn:bb3bb965bdd5e28b",
     "fn:cbc6db712729369f",
     "fn:f5caa9d482058451",
+]
+uses = [
+    "fn:7211ef55974ed7bc",
+    "fn:7731a11c2a2d7b8f",
 ]
 test = true
 
@@ -1464,6 +1758,7 @@ callees = [
     "fn:d7393e60c0d1208a",
     "fn:e1cb570a455c31b8",
 ]
+uses = ["fn:7731a11c2a2d7b8f"]
 test = true
 
 [[module."triso_atops_code_to_code.rs".function]]
@@ -1545,6 +1840,7 @@ callees = [
     "fn:d51049d00f066bb6",
     "fn:e1cb570a455c31b8",
 ]
+uses = ["fn:d9fc661a522b11ce"]
 test = true
 
 [[module."triso_atops_fork_verification.rs".function]]
@@ -1558,6 +1854,7 @@ lines = [
 hash = "sha256:da527def72f5eaa97d71acf8a5667faf90c6c3cbff005b36f8646b2e40604a25"
 doc_hash = "sha256:8b356b2bba8f64a54bda194c325f50d31a107affb45915b81ddf4544a29818e4"
 callees = ["fn:9d27b0efc9f673f8"]
+uses = ["fn:ba64fcae0172d25c"]
 test = true
 
 [[module."triso_atops_fork_verification.rs".function]]
@@ -1583,6 +1880,10 @@ lines = [
 hash = "sha256:876f873064f19171bc8d4705a1f13e7786e874cd0de4ba418cc89d858b0f4eb0"
 doc_hash = "sha256:41a5a1d9150e620530d5509e2edadcf387adf91de8372aa8e48eb6f05aa4b8df"
 callees = ["fn:5c206cdbedc0c475"]
+uses = [
+    "fn:c292835b20327ba2",
+    "fn:d9fc661a522b11ce",
+]
 test = true
 
 [[module."triso_atops_fork_verification.rs".function]]
@@ -1599,6 +1900,7 @@ callees = [
     "fn:521d4591f6090c64",
     "fn:e1cb570a455c31b8",
 ]
+uses = ["fn:26e142a3e0e9a27f"]
 test = true
 
 [[module."triso_atops_fork_verification.rs".function]]
@@ -1639,10 +1941,31 @@ callees = [
     "fn:e1cb570a455c31b8",
     "fn:e503a3d0722ff508",
 ]
+uses = [
+    "fn:2816dd8674f2b148",
+    "fn:49cbfd358a6976d4",
+    "fn:515e6933ab0603f9",
+    "fn:8f6c972c90fdceff",
+    "fn:ba64fcae0172d25c",
+]
 test = true
 
 [module."triso_atops_upstream_run_file.rs"]
 path = "test:triso_atops_upstream_run_file"
+
+[[module."triso_atops_upstream_run_file.rs".function]]
+id = "fn:0a49d0f8d94de28d"
+name = "CASES"
+qual = "CASES"
+item = "const"
+shape = "const"
+lines = [
+    44,
+    52,
+]
+hash = "sha256:60882625948ff4de222084fcac87689cd581bdd9e19c63ddcaae570bacd8d5de"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."triso_atops_upstream_run_file.rs".function]]
 id = "fn:0e7ffa30cf9960f2"
@@ -1683,10 +2006,39 @@ callees = [
     "fn:0e7ffa30cf9960f2",
     "fn:869f01d9220c51d2",
 ]
+uses = ["fn:0a49d0f8d94de28d"]
 test = true
 
 [module."wasm_fallback.rs"]
 path = "test:wasm_fallback"
+
+[[module."wasm_fallback.rs".function]]
+id = "fn:7b33dd09d988bb10"
+name = "HISTORIES"
+qual = "HISTORIES"
+item = "const"
+shape = "const"
+lines = [
+    46,
+    50,
+]
+hash = "sha256:a9864c1649ff08c640a9fc72c43792517e2569608ba8d9ba5e56e5141adbccca"
+doc_hash = "sha256:09ac341ce34f05e7871f6076e6d2c37b63e113e75bcdb2f2784446c3a8429b0c"
+test = true
+
+[[module."wasm_fallback.rs".function]]
+id = "fn:56c313187bc704f9"
+name = "SEED"
+qual = "SEED"
+item = "const"
+shape = "const"
+lines = [
+    51,
+    51,
+]
+hash = "sha256:257a449be938ce2de242ed3d29017bedc660136cbb1d5fa76dc90e3d64af107d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."wasm_fallback.rs".function]]
 id = "fn:0c3dae2b6a210929"
@@ -1698,6 +2050,11 @@ lines = [
 ]
 hash = "sha256:4ea12b83e200ab5dae35da45ffdc4f7643dc858a507931c5fabe245f70a68bb6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:267f0b3b0f89f1ba",
+    "fn:56c313187bc704f9",
+    "fn:7b33dd09d988bb10",
+]
 test = true
 
 [[module."wasm_fallback.rs".function]]
@@ -1708,7 +2065,7 @@ lines = [
     60,
     81,
 ]
-hash = "sha256:b04abefdbad819cafdf8ff0d00692bc66d127912cf84c9b7424cc0cf01a0f20f"
+hash = "sha256:088072e24becac9a44dc060b94403eab4c4a944bc674ae46b29db402b658fbf9"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:0c3dae2b6a210929",
@@ -1724,7 +2081,7 @@ lines = [
     83,
     110,
 ]
-hash = "sha256:5272ce59a51b1cd538da3af6ae61e3a72873fe97e11c2542830cda5ed18a24be"
+hash = "sha256:bb6e8b03d977cc0bd54084bebe58977aa9a56162d19447ef7f7ab4f13dc50c23"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:0c3dae2b6a210929",
@@ -1743,4 +2100,5 @@ lines = [
 hash = "sha256:1d106e78964f00b1fbd4a2e467d0ddb3e164f62f086babbb65628ee90dd699dc"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:9144c9970e3c598f"]
+uses = ["fn:56c313187bc704f9"]
 test = true

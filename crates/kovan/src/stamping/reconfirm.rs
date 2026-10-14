@@ -15,6 +15,18 @@
 //!   the engine's `InheritedStale { blocked }`
 //!   (`TestVerdict::allows_reconfirm`).
 //!
+//! # A changed type or constant counts too (#857)
+//!
+//! Since #843 a review records the hashes of the types and constants the
+//! function uses beside its callees', and the engine reports a changed one
+//! the same way (`InheritedCause::Callees` holds its id). So a re-confirm
+//! covers it with no special case: it is listed under what changed, with
+//! its diff, and bottom-up asks for its own review first (maintainer,
+//! 2026-10-13: "quick stamp should cover changed types also"; pinned by
+//! `stamping::tests::types_and_constants_are_reviewed_bottom_up`). A type's
+//! hash includes its methods, so the listed diff of the type's own lines
+//! can be empty when only a method changed.
+//!
 //! # How a re-confirm is recorded: the conservative option
 //!
 //! Neither #739 nor #740 decides the record's form (checked 2026-10-10: no
@@ -130,8 +142,8 @@ pub fn prepare_reconfirm(
         } => c.clone(),
         other => {
             return Err(format!(
-                "re-confirm applies only to a review made stale by a callee change; {by}'s \
-                 review of {path} is {}: review it with Stamp",
+                "re-confirm applies only to a review made stale by a change in something \
+                 the function calls or uses; {by}'s review of {path} is {}: review it with Stamp",
                 other.kind().label()
             ))
         }

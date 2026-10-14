@@ -118,11 +118,9 @@ fn incoherent_elastic_cross_section_physics() {
 #[test]
 fn thermal_table_uses_idpnc3_elastic_branch() {
     let ace = hzrh_thermal();
-    assert!(
-        ace.zaid.starts_with("hzrh") && ace.zaid.ends_with('t'),
-        "ZAID {}",
-        ace.zaid
-    );
+    // `(a6,f3.2,'t')`, name right-justified in 6 columns as NJOY2016 writes
+    // it (GitHub #865); ~~`starts_with("hzrh")`~~ CORRECTED 2026-10-14.
+    assert_eq!(ace.zaid, "  hzrh.00t", "ZAID");
     assert_eq!(ace.nxs[nxs::IDPNI], 3, "S(α,β) inelastic mode");
     assert_eq!(
         ace.nxs[nxs::IDPNC],

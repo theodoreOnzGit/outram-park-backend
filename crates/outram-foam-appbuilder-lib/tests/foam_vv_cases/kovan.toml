@@ -31,6 +31,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."main.rs".function]]
@@ -41,7 +48,7 @@ lines = [
     106,
     291,
 ]
-hash = "sha256:62c6defd44c6010cc83b6908f4cf7d8d9b49a1b0071e25e2e878bbe9faabbd85"
+hash = "sha256:cd828dbbd87ddcd2c41b518e8725f2d6423207d58372c92a78c3b1d3000cd1fc"
 doc_hash = "sha256:473facd35de461183ffe4a5a8758e3c7acbb618ee143df20734f6400fdeb2798"
 callees = [
     "fn:0dae5eba52d1c8eb",
@@ -54,6 +61,15 @@ callees = [
     "fn:7ed13c51aace611b",
     "fn:a34bf592be75221c",
     "fn:fc3e9008bc829799",
+]
+uses = [
+    "fn:36e194d3fcbe0bdd",
+    "fn:3b9722db91bba537",
+    "fn:3ff7989783b3f5b9",
+    "fn:56a595a14b3ca5e9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:b11c440f559911d4",
+    "fn:cce1fb20b5334a14",
 ]
 test = true
 
@@ -77,7 +93,7 @@ lines = [
     313,
     472,
 ]
-hash = "sha256:1a18026f2e3320fcc5e93caadd8336581c7712b8a5a4d2fb09bb0c14bd9dba3d"
+hash = "sha256:52c2b96eeb82ba7d57e90d4d7aab0a6aef81250c506e34ba1aec0fde02e5f8eb"
 doc_hash = "sha256:85af500725eaf6b1af1f8b3c8dd98511f5aa76946627db919745e8cb4f485226"
 callees = [
     "fn:1063f7e05ee9bba8",
@@ -90,6 +106,12 @@ callees = [
     "fn:dea2c131aa9176a0",
     "fn:e84afd60431b7298",
 ]
+uses = [
+    "fn:8a33a24917e36113",
+    "fn:ac802c6b9c9a1213",
+    "fn:bb0d906581f1414d",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."main.rs".function]]
@@ -100,7 +122,7 @@ lines = [
     478,
     634,
 ]
-hash = "sha256:69ac7f5b52bded3aadd43fb4dcda18750906504ac93c58cf1d50e1a7c9581588"
+hash = "sha256:7b8a3f06862cd4fc6790a58409ed0e1d7e8504338ba0381d637c32dec3ac592b"
 doc_hash = "sha256:9269d844e9be7cccb333ea69edbc0b8541f90fca68a766024b2cac58e1618c1d"
 callees = [
     "fn:0938405a51285eea",
@@ -111,5 +133,12 @@ callees = [
     "fn:9707668a29a7996b",
     "fn:9c279afb77391351",
     "fn:9e501e5f4cce23ae",
+]
+uses = [
+    "fn:302c4eebe8967304",
+    "fn:44dd425f0d990f52",
+    "fn:8d6cd763d46808ac",
+    "fn:9a4ac5a6426dc2d4",
+    "fn:ef05859ef19acee7",
 ]
 test = true

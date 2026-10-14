@@ -28,6 +28,13 @@ callees = [
     "fn:be8a3aba3961e684",
     "fn:f5fc6e6d09e9c35b",
 ]
+uses = [
+    "fn:985bf4f6adecc6ad",
+    "fn:c609ec17a374f2d4",
+    "fn:c611e024756fd19b",
+    "fn:e3d3971cf92a6302",
+    "fn:eaa570630d7c6191",
+]
 
 [[module."mod.rs".function]]
 id = "fn:f91d09a02d31f9d2"
@@ -55,6 +62,10 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:390c172a67546051",
     "fn:f91d09a02d31f9d2",
+]
+uses = [
+    "fn:985bf4f6adecc6ad",
+    "fn:c609ec17a374f2d4",
 ]
 physical_interface = true
 
@@ -104,6 +115,16 @@ callees = [
     "fn:e1a7e400d31c04c9",
     "fn:e928d7994414523e",
 ]
+uses = [
+    "fn:1b5ec3cfd38c1c2d",
+    "fn:2f3adfff09f93696",
+    "fn:a9ba5efef58efecb",
+    "fn:c609ec17a374f2d4",
+    "fn:c611e024756fd19b",
+    "fn:e3d3971cf92a6302",
+    "fn:eaa570630d7c6191",
+    "fn:fc0aeaf3ef86ad27",
+]
 
 [[module."run.rs".function]]
 id = "fn:87fb6663d52fb82c"
@@ -124,6 +145,14 @@ callees = [
     "fn:d84c7e41f0b78cde",
     "fn:eabbb78407dd7db3",
 ]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:63beb8f8b8b7f682",
+    "fn:8024ab0e3ab9617d",
+    "fn:831f5a6ecd619161",
+    "fn:c609ec17a374f2d4",
+    "fn:e3d3971cf92a6302",
+]
 physical_interface = true
 
 [[module."run.rs".function]]
@@ -137,10 +166,32 @@ lines = [
 hash = "sha256:020c4bd12e72cc11b2ff9ef656b8f012378c6711abec79a12ed7fd9f039d9c5e"
 doc_hash = "sha256:1ecbaf31dc57f725bcf30ed3c2fc5708d06cfaa2b9b857e887408e940cd27838"
 callees = ["fn:ed08217f51a73691"]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:8024ab0e3ab9617d",
+    "fn:831f5a6ecd619161",
+]
 physical_interface = true
 
 [module."simulator_state.rs"]
 path = "example:triso_simulator::triso_simulator_v1::backend::simulator_state"
+
+[[module."simulator_state.rs".function]]
+id = "fn:2f3adfff09f93696"
+name = "SimulatorState"
+qual = "SimulatorState"
+item = "type"
+shape = "struct"
+lines = [
+    10,
+    40,
+]
+hash = "sha256:9cad4357cd28817d5e51b65bdc9af85f479b72c74d98dfcd6db00225dc54d70d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:63beb8f8b8b7f682",
+]
 
 [[module."simulator_state.rs".function]]
 id = "fn:cc663f02b8a1483f"
@@ -162,6 +213,12 @@ callees = [
     "fn:9cc9c8986d721ed3",
     "fn:cae3ca710ecc7387",
 ]
+uses = [
+    "fn:2f3adfff09f93696",
+    "fn:57c5c52fb5126efd",
+    "fn:63beb8f8b8b7f682",
+    "fn:eaa570630d7c6191",
+]
 
 [[module."simulator_state.rs".function]]
 id = "fn:4b84c8902e1d8886"
@@ -173,6 +230,7 @@ lines = [
 ]
 hash = "sha256:0c04165fba7475721a43e47f8405797e00f66b0cf57d55dc249041d9ffc22f99"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:6da17098849ef412"
@@ -184,6 +242,7 @@ lines = [
 ]
 hash = "sha256:a93df4021451252724b7b1949a1b4baef30e95cf7b192d1e519402654121c275"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 physical_interface = true
 
 [[module."simulator_state.rs".function]]
@@ -196,6 +255,7 @@ lines = [
 ]
 hash = "sha256:1df776400071eb82c21863ab129630795b4989b988f9134b988a62cc5589e288"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 physical_interface = true
 
 [[module."simulator_state.rs".function]]
@@ -208,6 +268,7 @@ lines = [
 ]
 hash = "sha256:a9fe3ed4b0e39da79cfca93b554e6b221a413c24ec4f5651427f2f8f80ac3dde"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 physical_interface = true
 
 [[module."simulator_state.rs".function]]
@@ -220,6 +281,7 @@ lines = [
 ]
 hash = "sha256:0d04f462f4f2c858daeb952a79379b911bd16b32e65be5d464c38158d3315a1a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 physical_interface = true
 
 [[module."simulator_state.rs".function]]
@@ -232,6 +294,7 @@ lines = [
 ]
 hash = "sha256:b9794f498f268d8a86050e996d73acbee4564a92b5f934c2946cbc6846cbca40"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 physical_interface = true
 
 [[module."simulator_state.rs".function]]
@@ -244,6 +307,7 @@ lines = [
 ]
 hash = "sha256:29cd16564251a54394b30a6be34ba8caafa127c85ccc9c051c249e925353fa66"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 physical_interface = true
 
 [[module."simulator_state.rs".function]]
@@ -257,6 +321,7 @@ lines = [
 hash = "sha256:4bca722f7a0e8fc85eeb07785dfeca9af288ba7cd62ac6ab37f974b920d5f3c1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:c86107e2f060c95b"]
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:15420676bcad898c"
@@ -268,6 +333,7 @@ lines = [
 ]
 hash = "sha256:d0c6956501c0e2f55a6b4c55bdb978206b38fa36ae8e487f15723654ec410297"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:95ab1ffaf8d0fb53"
@@ -279,6 +345,7 @@ lines = [
 ]
 hash = "sha256:b6b485a8ac3ac238d63435d30f1c05056b2555584652bab453a41f9ca93e6e2a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:4742ffff59c77c73"
@@ -290,6 +357,7 @@ lines = [
 ]
 hash = "sha256:eddf4545aafd7d4529ba63155b09725623af7b0025a8a3a45c776d29c4882586"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:469d6d440a08b80b"
@@ -301,6 +369,7 @@ lines = [
 ]
 hash = "sha256:4ac0c4d4cd4a3c0af8c1a68f6a25c44ce1a7fe420b1bf8749cc96212ca032e77"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:939fde02280326e7"
@@ -312,6 +381,7 @@ lines = [
 ]
 hash = "sha256:6d8e3f8762a4626815a78612a528f23cef8b45efd143769cc7adf99e963b58af"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:1c6a14b23c986d8d"
@@ -323,6 +393,7 @@ lines = [
 ]
 hash = "sha256:f795b24443a6c2c3c515872a4b8f7d205fb9cb6aaf4d086331fc867cf0bcc330"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:b599b6e6bf829005"
@@ -334,6 +405,7 @@ lines = [
 ]
 hash = "sha256:00bef8b47b40f382d2557705b5a5c223d838059d25835fa3ac721230acbe6121"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:045fe133b34120a3"
@@ -345,6 +417,7 @@ lines = [
 ]
 hash = "sha256:feef9c8af20f2d0d51faf6649715c74f451cf537556a00fa2c4c2eb8801b410a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:806af083067d4898"
@@ -356,6 +429,7 @@ lines = [
 ]
 hash = "sha256:fb479f04a642a07573d2de26bc1bc9c9968c8d02edc2bbacde6ef1d25f0b2834"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:63a983baca01c660"
@@ -367,6 +441,7 @@ lines = [
 ]
 hash = "sha256:37a63ad60cac54e5140513c37d4b73e4f3da4d39cfe464b24c4568978532e333"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:b5e6b62075aaca77"
@@ -378,6 +453,7 @@ lines = [
 ]
 hash = "sha256:6369eea4303d99ccc9b3b356065e6d0cb339f203a09bb682cfd28bd2d724bd10"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 physical_interface = true
 
 [[module."simulator_state.rs".function]]
@@ -390,6 +466,7 @@ lines = [
 ]
 hash = "sha256:c93b2c62f4a89f8f6571af77bc3d6f155b2adab0a07c7d5a5d18c4e738a93237"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:1afa47706d27ca41"
@@ -401,6 +478,7 @@ lines = [
 ]
 hash = "sha256:b6dfea2be49c8abd232444255761306ffb27f8e75922114894d30bf4a057acfe"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:b9c481b440d56bc3"
@@ -412,6 +490,7 @@ lines = [
 ]
 hash = "sha256:974513d429c13b591e9b7d06d3a5ff3ccb216d24e18c443b3d489ac9b72fc721"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:33fba1049a1a807e"
@@ -423,6 +502,7 @@ lines = [
 ]
 hash = "sha256:de98b1587c538677450c11a28a97d41ec60c1ddd00e356f05562c25f67e08fdd"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:edb513bd9b590ebb"
@@ -434,6 +514,7 @@ lines = [
 ]
 hash = "sha256:5eaaadfd6e13821745250eaa7001b0e7877bfa1d8adaad23a1cbb84b8a733353"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:a7935bc3a5b667c5"
@@ -445,6 +526,7 @@ lines = [
 ]
 hash = "sha256:2370ebd3793d4dad9030ac22d7d8783699b63e012791d406e36f395b2e18f8cf"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 
 [[module."simulator_state.rs".function]]
 id = "fn:8dfdb89935b1e49d"
@@ -456,6 +538,7 @@ lines = [
 ]
 hash = "sha256:535ac4993eef260e68a99d494e79263dae84ae4c7c11c1caae9161cfc4e81f24"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 physical_interface = true
 
 [[module."simulator_state.rs".function]]
@@ -468,6 +551,7 @@ lines = [
 ]
 hash = "sha256:1fb6229775ba707c3ddeb0118cb48ec91c48a6a91795651ac4ba80c1ce0ae838"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 physical_interface = true
 
 [[module."simulator_state.rs".function]]
@@ -480,6 +564,7 @@ lines = [
 ]
 hash = "sha256:d1a22786459d1d199a93d49bdeaca93bd188a08079653ff8f301974d8049c8c0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 physical_interface = true
 
 [[module."simulator_state.rs".function]]
@@ -493,6 +578,7 @@ lines = [
 hash = "sha256:00e4a7142772d4fcbaac5519430f9df8fef3b1ae3af3246a86e52bf5d04090f8"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:cae3ca710ecc7387"]
+uses = ["fn:2f3adfff09f93696"]
 physical_interface = true
 
 [[module."simulator_state.rs".function]]
@@ -506,6 +592,7 @@ lines = [
 hash = "sha256:8a82fb955562052606f4b6632deb530622a2ab5ef485dd040d38c0bc258f1665"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:6cebf98dd3497b07"]
+uses = ["fn:2f3adfff09f93696"]
 physical_interface = true
 
 [[module."simulator_state.rs".function]]
@@ -518,6 +605,7 @@ lines = [
 ]
 hash = "sha256:f3da3a8bc155314fab49edd46277e58db04e975f0f3c3d8088575229c6f27032"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 physical_interface = true
 
 [[module."simulator_state.rs".function]]
@@ -530,6 +618,7 @@ lines = [
 ]
 hash = "sha256:fd0615437602849cabaee06e5e0a1f4ba5d0a4a422733347455c583a1b5cc6e9"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 physical_interface = true
 
 [[module."simulator_state.rs".function]]
@@ -542,6 +631,7 @@ lines = [
 ]
 hash = "sha256:21e36b8281a12bc7db473836c858469c0a0b0ba30c02272172990473198d0803"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2f3adfff09f93696"]
 physical_interface = true
 
 [[module."simulator_state.rs".function]]
@@ -554,6 +644,10 @@ lines = [
 ]
 hash = "sha256:75d3e101e359a9def41d4e025c92a3eb51ca0d243774ab8a51892b504750f208"
 doc_hash = "sha256:a001c9f6d9440ce4fb9f88a8e7c2d5b8f766b8a816b4949d49deca1da50d6dae"
+uses = [
+    "fn:2f3adfff09f93696",
+    "fn:63beb8f8b8b7f682",
+]
 
 [[module."simulator_state.rs".function]]
 id = "fn:a295ccd5f6aa3787"
@@ -566,3 +660,4 @@ lines = [
 hash = "sha256:ab8cd59896934e4a908962a7112024a76db5d7a6366173acb17151a80a47598b"
 doc_hash = "sha256:7e534d9d845bae80006022c298fb577098bcc8949f5db2541917948331d74d8f"
 callees = ["fn:f533b6cabb93c728"]
+uses = ["fn:2f3adfff09f93696"]

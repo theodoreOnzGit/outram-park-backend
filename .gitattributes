@@ -1,0 +1,5 @@
+# Reference data are compared byte for byte against what NJOY2016 and other
+# codes wrote, so git must never convert their line endings. A Windows
+# checkout turned LF into CRLF and broke two byte-exact ACE tests on the CI
+# Windows runner (gh #862, 2026-10-14).
+reference-data/** -text

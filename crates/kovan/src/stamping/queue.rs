@@ -274,6 +274,13 @@ pub fn flag_detail(flag: &FunctionFlag) -> Vec<String> {
         // The #810 hook: each rung-5 (IV&V) miss in words, with who can act
         // (`kovan_common::review::ivv_view`, the same text the review bar and
         // `kovan-cli review ivv` show).
+        FunctionFlag::Rung4AxesNotRecorded { review } => vec![format!(
+            "review {review}: rung 4, written before rung 4 asked about physical accuracy and usability. It still counts. Next: stamp it again to record both."
+        )],
+        FunctionFlag::RungCappedByWaiver { review, waived } => vec![format!(
+            "review {review}: a check was waived ({}). It counts, capped at rung 3. Next: add the check, then stamp it again.",
+            waived.join("; ")
+        )],
         FunctionFlag::IndependentVvNotCounted { review, misses } => misses
             .iter()
             .map(|m| {

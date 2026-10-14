@@ -34,6 +34,7 @@
 //! Every function here reads files or runs git: call it off the UI thread
 //! (root `CLAUDE.md`, no-lag HARD RULE).
 
+pub mod code_words;
 pub mod diff;
 pub mod highlight;
 pub mod prefill;
@@ -84,14 +85,16 @@ impl Snapshot {
             .unwrap_or(StateKind::New)
     }
 
-    /// Every function's workspace callees, by `fn:` id.
+    /// Every function's workspace callees, and (#843) the types and
+    /// constants it uses, by `fn:` id: what the bottom-up rule reviews
+    /// first.
     pub fn callees(&self) -> BTreeMap<String, Vec<String>> {
         self.ws
             .indexes
             .iter()
             .flat_map(|i| {
                 i.functions()
-                    .map(|(_, f)| (f.id.clone(), f.callees.clone()))
+                    .map(|(_, f)| (f.id.clone(), f.depends_on().cloned().collect()))
             })
             .collect()
     }
@@ -137,7 +140,7 @@ pub fn plan_walk(snap: &Snapshot, function: &str) -> Result<WalkPlan, String> {
                         name: f.qual.clone(),
                         lines: f.lines[1].saturating_sub(f.lines[0]) + 1,
                         state: StateKind::New,
-                        callees: f.callees.clone(),
+                        callees: f.depends_on().cloned().collect(),
                     },
                 )
             })
@@ -260,6 +263,12 @@ pub fn describe_flag(f: &FunctionFlag) -> String {
         ),
         FunctionFlag::IndependentVvNotCounted { review, misses } => {
             format!("{label} ({review}): {misses:?}")
+        }
+        FunctionFlag::Rung4AxesNotRecorded { review } => {
+            format!("{label} ({review}): it still counts at rung 4; stamp again to record them")
+        }
+        FunctionFlag::RungCappedByWaiver { review, waived } => {
+            format!("{label} ({review}): {}", waived.join("; "))
         }
     }
 }

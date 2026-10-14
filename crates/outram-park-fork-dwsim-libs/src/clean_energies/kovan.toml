@@ -4,6 +4,7 @@ crate = "outram-park-fork-dwsim-libs"
 dir = "crates/outram-park-fork-dwsim-libs/src/clean_energies"
 test_ids = [
     "crates/outram-park-fork-dwsim-libs/src/clean_energies/hydroelectric_turbine.rs::dwsim_default_configuration_and_names",
+    "crates/outram-park-fork-dwsim-libs/src/clean_energies/hydroelectric_turbine.rs::gravity_is_dwsims_rounded_value_not_codata",
     "crates/outram-park-fork-dwsim-libs/src/clean_energies/hydroelectric_turbine.rs::outlet_enthalpy_closes_the_energy_balance",
     "crates/outram-park-fork-dwsim-libs/src/clean_energies/hydroelectric_turbine.rs::power_from_head_flow_and_efficiency",
     "crates/outram-park-fork-dwsim-libs/src/clean_energies/hydroelectric_turbine.rs::power_is_linear_in_head_flow_density_and_efficiency",
@@ -45,6 +46,7 @@ test_ids = [
     "crates/outram-park-fork-dwsim-libs/src/clean_energies/water_electrolyzer.rs::voltage_branch_energy_balance_closes",
     "crates/outram-park-fork-dwsim-libs/src/clean_energies/wind_turbine.rs::default_turbine_is_becalmed_and_names_match_upstream",
     "crates/outram-park-fork-dwsim-libs/src/clean_energies/wind_turbine.rs::disk_area_and_rotor_diameter_round_trip",
+    "crates/outram-park-fork-dwsim-libs/src/clean_energies/wind_turbine.rs::folded_betz_constant_matches_upstream_literal",
     "crates/outram-park-fork-dwsim-libs/src/clean_energies/wind_turbine.rs::humidity_scaling_and_turbine_count_scaling",
     "crates/outram-park-fork-dwsim-libs/src/clean_energies/wind_turbine.rs::power_at_a_realistic_operating_point",
     "crates/outram-park-fork-dwsim-libs/src/clean_energies/wind_turbine.rs::power_follows_an_unclamped_cubic_in_wind_speed",
@@ -63,10 +65,11 @@ lines = [
 ]
 hash = "sha256:adbe57b16977edbfa40db4a1eb5bcb7f79d9ea50e6684ac02d45a81b522d785f"
 doc_hash = "sha256:98bdb223633d5e692ab91f9d07201158737c8d95a5c6ae52fbb6b0b54748d971"
+uses = ["fn:9fcb08de017632d3"]
 reached_by = [
     "#0",
-    "#2",
-    "#4",
+    "#3",
+    "#5",
 ]
 physical_interface = true
 
@@ -82,7 +85,7 @@ hash = "sha256:b5fb198f747c96e68459dfad34d837ab424b9c12545518d94ccfbf88792281bd"
 doc_hash = "sha256:6a36d04790b715ddf4f21e89647ffcd92d35c480f1627e173faf8f5b872d3aad"
 reached_by = [
     "#0",
-    "#2",
+    "#3",
 ]
 physical_interface = true
 
@@ -96,10 +99,11 @@ lines = [
 ]
 hash = "sha256:4307c4312369f2a5b280c00e19baffbb3b3a56768f85eaed642e73eb2926edf5"
 doc_hash = "sha256:0a64316315ee267d47c8b24ca8041d6ee1336b63bac347323d1f3e538729211c"
+uses = ["fn:9fcb08de017632d3"]
 reached_by = [
     "#0",
-    "#2",
     "#3",
+    "#4",
 ]
 physical_interface = true
 
@@ -113,8 +117,22 @@ lines = [
 ]
 hash = "sha256:660263e3070decfa50afd9cf1057313a2b560e30bb4a6e2ab616bc8e6f40d7ee"
 doc_hash = "sha256:2d270ee21c8b3d5587ce0466dbe23ab19b356c3ededdcc58a8472d7addc56728"
-reached_by = ["#1"]
+reached_by = ["#2"]
 physical_interface = true
+
+[[module."hydroelectric_turbine.rs".function]]
+id = "fn:21f2719777e9ccea"
+name = "HydroelectricTurbine"
+qual = "HydroelectricTurbine"
+item = "type"
+shape = "struct"
+lines = [
+    165,
+    189,
+]
+hash = "sha256:62cb8490522fe94695abd2d5d1fea9dc8d419eb2e23a0145875d30ab06127a0b"
+doc_hash = "sha256:3eca9577d7a78088ff47b3e5910f2feab31c1e2e1dceedf934eb491ff75b5753"
+reached_by = ["#0"]
 
 [[module."hydroelectric_turbine.rs".function]]
 id = "fn:bba771cdafe2261b"
@@ -126,6 +144,7 @@ lines = [
 ]
 hash = "sha256:9024dffab41bb6df7d8e33460955c9c41deaeb8af9ae35fea00ca4ee671360b5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:21f2719777e9ccea"]
 reached_by = ["#0"]
 
 [[module."hydroelectric_turbine.rs".function]]
@@ -139,6 +158,7 @@ lines = [
 hash = "sha256:afd64089ab3f03defd47f914a7ddda3ab5d1cd3525df07e191bcd0ed6eb8623d"
 doc_hash = "sha256:342f7cb73aeb9f15dda3bac052aed2ea56627f2b66c443e368e78ae1e9d84a27"
 callees = ["fn:787345e7b41d9a55"]
+uses = ["fn:21f2719777e9ccea"]
 reached_by = ["#0"]
 physical_interface = true
 
@@ -156,6 +176,7 @@ callees = [
     "fn:43bc1e38ecceaa0f",
     "fn:e22671caabc6b3d3",
 ]
+uses = ["fn:21f2719777e9ccea"]
 reached_by = ["#0"]
 physical_interface = true
 
@@ -169,6 +190,7 @@ lines = [
 ]
 hash = "sha256:8a62c2fce2738383972026d509b7a26a6f5da3b5c9f506663481ab01e6566aba"
 doc_hash = "sha256:5ec017524666d492b047d5ff79ed03a7598ecb8a52020458344b952817eab5a8"
+uses = ["fn:21f2719777e9ccea"]
 reached_by = ["#0"]
 
 [[module."hydroelectric_turbine.rs".function]]
@@ -181,6 +203,7 @@ lines = [
 ]
 hash = "sha256:2bb310ad5f6830656363a4b15375aece3d30f944b79595762fe76698a329dc6c"
 doc_hash = "sha256:9272a4e37f52ef5d71794fe79afcd2fb257b76a597f75a0c0254d2ca3f0a221f"
+uses = ["fn:21f2719777e9ccea"]
 reached_by = ["#0"]
 
 [[module."hydroelectric_turbine.rs".function]]
@@ -197,6 +220,7 @@ callees = [
     "fn:328da05964f8713c",
     "fn:69ff29ba39b7d59b",
 ]
+uses = ["fn:21f2719777e9ccea"]
 reached_by = ["#0"]
 physical_interface = true
 
@@ -274,6 +298,7 @@ callees = [
     "fn:e1fba49f230fce6e",
     "fn:e22671caabc6b3d3",
 ]
+uses = ["fn:21f2719777e9ccea"]
 test = true
 
 [[module."hydroelectric_turbine.rs".function]]
@@ -286,10 +311,42 @@ lines = [
 ]
 hash = "sha256:488aa2f7cc24ae8110f5d2d2339dc8a2fd0024d9addf0d0fc5b15069a0e1756b"
 doc_hash = "sha256:82fc64475cbf1980db36326c141e90633a5c2151943d5e779c6a68c3c125661c"
+uses = ["fn:9fcb08de017632d3"]
 test = true
 
 [module."mod.rs"]
 path = "crate::clean_energies"
+
+[[module."mod.rs".function]]
+id = "fn:1e6b28ad4948f70d"
+name = "WeatherSource"
+qual = "WeatherSource"
+item = "type"
+shape = "enum"
+lines = [
+    147,
+    165,
+]
+hash = "sha256:d85195acf922641264d3bfc453b96d67da285f86cc0278e6ab7f665930f51d48"
+doc_hash = "sha256:45fa0b8b386343290251975fe6b30575a0b40be6117deb9400ee0ee3722dd466"
+reached_by = [
+    "#24",
+    "#25",
+    "#41",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c590429c4f39661b"
+name = "CleanEnergyUnitOp"
+qual = "CleanEnergyUnitOp"
+item = "type"
+shape = "trait"
+lines = [
+    167,
+    197,
+]
+hash = "sha256:332cdc993497a09ca5275b49d6e9e4d1f165e2ae4421a6cf47344d31528b90b7"
+doc_hash = "sha256:7df59539c924d0a787c6bc33b0c404e1c33e838d5889d5d56e5e1d19e0b236f6"
 
 [[module."mod.rs".function]]
 id = "fn:ec3e85ec9a729ac2"
@@ -301,6 +358,7 @@ lines = [
 ]
 hash = "sha256:148e3d9fa1e272a069a6475ecf83fe1c9898ce64bb7c02d810bf0d17b18da85a"
 doc_hash = "sha256:8f45b758752c11a8121e914670740f5b03f853bd83d0f95517d5ca1966618058"
+uses = ["fn:c590429c4f39661b"]
 
 [[module."mod.rs".function]]
 id = "fn:fb0e3ebe8d952108"
@@ -312,6 +370,7 @@ lines = [
 ]
 hash = "sha256:148e3d9fa1e272a069a6475ecf83fe1c9898ce64bb7c02d810bf0d17b18da85a"
 doc_hash = "sha256:93e13b1e697587b21b266f2451984680545c64678e68af5467654ab1b8a35924"
+uses = ["fn:c590429c4f39661b"]
 
 [[module."mod.rs".function]]
 id = "fn:86f48e0930a440a1"
@@ -323,7 +382,28 @@ lines = [
 ]
 hash = "sha256:e6585c9bb6444f0b3c21e802048665a634409e1af9c2b83cdfa3580621a6d76c"
 doc_hash = "sha256:df84e9e6bec3c6cf0aea04f2696a4038b704a279cb4829dd1299f0de723a94e7"
+uses = ["fn:c590429c4f39661b"]
 physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:0d6440ad0d6eb094"
+name = "CleanEnergyUnit"
+qual = "CleanEnergyUnit"
+item = "type"
+shape = "enum"
+lines = [
+    199,
+    220,
+]
+hash = "sha256:84ee2aca81426be855cb693fc549a38aee4256315f463a9b61ba74853d27c26a"
+doc_hash = "sha256:0aeb398853212d4dcb7af868395c95e52cbffa4f8f71287ac24b6668f9c1e7af"
+uses = [
+    "fn:21f2719777e9ccea",
+    "fn:a042d74e82e0b582",
+    "fn:bef7cd60f36af2a8",
+    "fn:dc10d6d9ea76b575",
+    "fn:e1a6797314d02bf2",
+]
 
 [[module."mod.rs".function]]
 id = "fn:95cc8083fc25d30d"
@@ -342,6 +422,7 @@ callees = [
     "fn:d0e8770cc67a4456",
     "fn:d3e856eb4d7f8162",
 ]
+uses = ["fn:0d6440ad0d6eb094"]
 
 [[module."mod.rs".function]]
 id = "fn:c3eefde34f3a642e"
@@ -360,6 +441,7 @@ callees = [
     "fn:b89410faec7a2c11",
     "fn:e1fba49f230fce6e",
 ]
+uses = ["fn:0d6440ad0d6eb094"]
 
 [[module."mod.rs".function]]
 id = "fn:cd74134299afc96a"
@@ -378,10 +460,329 @@ callees = [
     "fn:49818bea4364b834",
     "fn:85e5d0cda34d6f76",
 ]
+uses = ["fn:0d6440ad0d6eb094"]
 physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:6e837789738f7c76"
+name = "FARADAY_CONSTANT_C_PER_MOL"
+qual = "FARADAY_CONSTANT_C_PER_MOL"
+item = "const"
+shape = "const"
+lines = [
+    254,
+    261,
+]
+hash = "sha256:77fdb6846ab3875c68b8a72bd12462685cd21e21e93578c5b25d5e295f4fc633"
+doc_hash = "sha256:344ec7329669b781519cf024ca8cea7008e3ca74e394941c60610f43ae007f2e"
+reached_by = [
+    "#12",
+    "#13",
+    "#17",
+    "#20",
+    "#28",
+    "#29",
+    "#30",
+    "#33",
+    "#34",
+    "#37",
+    "#39",
+    "#40",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9fcb08de017632d3"
+name = "GRAVITY_M_PER_S2"
+qual = "GRAVITY_M_PER_S2"
+item = "const"
+shape = "const"
+lines = [
+    263,
+    270,
+]
+hash = "sha256:2ab6b959d54ae8f61e62d8bacef6b4fe988177fbb0f1d48cd60e488c28f6d580"
+doc_hash = "sha256:baf703049164c23a254c4cf3e36e541313488a124c5b458065dc5b0bd7199b1a"
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:808a5af874a2a48a"
+name = "CleanEnergyError"
+qual = "CleanEnergyError"
+item = "type"
+shape = "enum"
+lines = [
+    272,
+    342,
+]
+hash = "sha256:5292603422c23e0e43cebd01bc49281101d4cf7ada7102a36cd3dfa6b5145ead"
+doc_hash = "sha256:e99b12d711bdeabb6bbbc5462b9a5c07b496f8e1fc27a2bd0ddaca3d3d8ca2b7"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#13",
+    "#15",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#39",
+    "#40",
+]
 
 [module."pem_fuel_cell.rs"]
 path = "crate::clean_energies::pem_fuel_cell"
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:cef692c5c8dde380"
+name = "MolarFlowRate"
+qual = "MolarFlowRate"
+item = "type"
+shape = "alias"
+lines = [
+    113,
+    116,
+]
+hash = "sha256:77c9fa65ae57cc6b197e13bccd7d918cb7f36514a4bcb68f76e4b97462f12097"
+doc_hash = "sha256:48718aeb9230df9e819036ad7a615964b28aefe7e6c7fbda1f30b02ab538b3e8"
+reached_by = [
+    "#12",
+    "#13",
+    "#19",
+    "#20",
+]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:9573c647bd500a09"
+name = "GAS_CONSTANT_J_PER_KMOL_K"
+qual = "GAS_CONSTANT_J_PER_KMOL_K"
+item = "const"
+shape = "const"
+lines = [
+    122,
+    130,
+]
+hash = "sha256:e94e200b289f92c35d52aa3a87b74e00bb81ffe925d705c0e46b9437bffe4850"
+doc_hash = "sha256:7cf3825e6ae42af4d356f7053fb154067556f4465a2b2f662c215fc279d70eab"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#17",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:91052db8b023c2e1"
+name = "FARADAY_C_PER_KMOL"
+qual = "FARADAY_C_PER_KMOL"
+item = "const"
+shape = "const"
+lines = [
+    132,
+    139,
+]
+hash = "sha256:9c03db28461672b1929385688b1b8fd03c81cd42abc269657bb47ed638393777"
+doc_hash = "sha256:3afb483c4ccb5f9567d4be381aa46237f1b7c60155f16e74e09adc9ce0c1274f"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#17",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:2e2cf3557edcf573"
+name = "HHV_VOLTAGE"
+qual = "HHV_VOLTAGE"
+item = "const"
+shape = "const"
+lines = [
+    141,
+    147,
+]
+hash = "sha256:73ef0ab481680965fccbade3de9b7a716af41a8dc31f22b4e480515ede2f1862"
+doc_hash = "sha256:aa362d94878bf59af1372043570ee79132dbd5fb905903975b077519feffa3c9"
+reached_by = [
+    "#9",
+    "#10",
+    "#17",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:d02456b458ed4a0e"
+name = "FUEL_UTILIZATION"
+qual = "FUEL_UTILIZATION"
+item = "const"
+shape = "const"
+lines = [
+    149,
+    152,
+]
+hash = "sha256:ae21d4b3c6f40c4759b4178498c5b7194bf7f64896db599b758500926d7fe650"
+doc_hash = "sha256:6b2307b78594cd1dbf84ea11f9bd42940033ee8c6b6928a253c55b08e81053ef"
+reached_by = [
+    "#9",
+    "#10",
+    "#17",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:38be11bde70932a9"
+name = "REVERSIBLE_POTENTIAL_V"
+qual = "REVERSIBLE_POTENTIAL_V"
+item = "const"
+shape = "const"
+lines = [
+    154,
+    157,
+]
+hash = "sha256:4ff19eda16682fdbe935c7dd627e04a787850e1bfc12007a46150f7619b1ba2c"
+doc_hash = "sha256:647f9f33db326e7f016fa83e0c7f94e758b7588dae0f0431926e01d17362e5f9"
+reached_by = [
+    "#9",
+    "#10",
+    "#17",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:8852d9540ddf96b4"
+name = "XI1"
+qual = "XI1"
+item = "const"
+shape = "const"
+lines = [
+    159,
+    162,
+]
+hash = "sha256:e12ffc497e9a1b3e0fd067175ec56cf4704f57df69895f85fd3d55f5ac00fdc7"
+doc_hash = "sha256:953a7170fafbf80dcfecd44e2d23cd170f72fab1fd0b3bb87079aefc4e895ca4"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:55993a8c669a9a74"
+name = "XI3"
+qual = "XI3"
+item = "const"
+shape = "const"
+lines = [
+    164,
+    166,
+]
+hash = "sha256:2992e9e2f715a828092b9af56c3a3e736bdf49f70c3d2d2025eed0870c32ed82"
+doc_hash = "sha256:7ce4ee15dd6ed75667b465f49dea3a668e5342c1254b0b937e14d25bc5b8289d"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:5da90723dda878eb"
+name = "XI4"
+qual = "XI4"
+item = "const"
+shape = "const"
+lines = [
+    168,
+    170,
+]
+hash = "sha256:6ba1692aaa111b3ac84dcc22d7384c7d96e915be38d28f125e2b855ccfc6d1d8"
+doc_hash = "sha256:fac70427aa5950632303aab112a98f6537831a52031ed669f0cbf47c525aa18a"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:acd627e5cf8f3ef5"
+name = "ELECTRONS_PER_HYDROGEN"
+qual = "ELECTRONS_PER_HYDROGEN"
+item = "const"
+shape = "const"
+lines = [
+    172,
+    174,
+]
+hash = "sha256:1f9d6b2ed6a27c7c42760f1007661908cca5967207c725fca41570ae1129e6d6"
+doc_hash = "sha256:2f2e9aaddf72f879c63dbc371e5cdee08aa1e3d4f7c1ed7980e406ca1f083928"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#17",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."pem_fuel_cell.rs".function]]
 id = "fn:fc1acecaecce6e49"
@@ -393,18 +794,22 @@ lines = [
 ]
 hash = "sha256:038154f75d457930188a13852b7cb673ce27b2ee2653c6769e110d676178935c"
 doc_hash = "sha256:94d2375d9611727e17b2f1a1f617d912051de13e22ee44e557f4511d11728b78"
+uses = [
+    "fn:91052db8b023c2e1",
+    "fn:9573c647bd500a09",
+]
 reached_by = [
-    "#5",
     "#6",
     "#7",
     "#8",
     "#9",
     "#10",
-    "#14",
-    "#16",
-    "#20",
+    "#11",
+    "#15",
+    "#17",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -417,17 +822,18 @@ lines = [
 ]
 hash = "sha256:89d29e7ce54531b012300e4f49c5dca4dd45a4b4f4c9449e496fdc088267a6e1"
 doc_hash = "sha256:04c3ded5e40e654d567859cbb52e50161765df0cd0194a416a45cf4e2bd5502a"
+uses = ["fn:808a5af874a2a48a"]
 reached_by = [
-    "#5",
     "#6",
     "#7",
     "#8",
     "#9",
     "#10",
-    "#14",
-    "#20",
+    "#11",
+    "#15",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -441,16 +847,16 @@ lines = [
 hash = "sha256:9c488770d4658dd24770c97e395e8d8738ef944d3f759b3dffdcbfc9583723ee"
 doc_hash = "sha256:3e80b31006bf771712bcbed6ad6b1a2b65590327f6dd087cfd070648ccc12f22"
 reached_by = [
-    "#5",
     "#6",
     "#7",
     "#8",
     "#9",
     "#10",
-    "#14",
-    "#20",
+    "#11",
+    "#15",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -464,16 +870,16 @@ lines = [
 hash = "sha256:152aec39c392e8cbde9279c0149d8629b92682aa375e9de63ab8c43df9a30e0a"
 doc_hash = "sha256:606b2179ccdae302bd4db947b05521a2cd273d9a959bfc7d89af5f26fb6eac88"
 reached_by = [
-    "#5",
     "#6",
     "#7",
     "#8",
     "#9",
     "#10",
-    "#14",
-    "#20",
+    "#11",
+    "#15",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -484,19 +890,20 @@ lines = [
     258,
     303,
 ]
-hash = "sha256:4a7878a31fcb258b58f003003ffd9d7502d0d151fc0df3c4a0b02f67c7950e12"
+hash = "sha256:7c71d4776402a99ce65197badd2bfa39aaab430d0c0ea55c40307cb9222cce08"
 doc_hash = "sha256:002e68df4d655f8c154c7e5cabc133d06bce67453caa1dc52e61c6540ffa2a93"
+uses = ["fn:808a5af874a2a48a"]
 reached_by = [
-    "#5",
     "#6",
     "#7",
     "#8",
     "#9",
     "#10",
-    "#14",
-    "#20",
+    "#11",
+    "#15",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -510,17 +917,18 @@ lines = [
 hash = "sha256:5d656eac1af3a53f0bf6cc2ea77a91dad0a3a0008e544078faa2d7659c09c432"
 doc_hash = "sha256:4951c1c565e8c333e2b57938c8cced6363f2688e526b1f53ed46d3cbdd43d36d"
 callees = ["fn:948e677dcb79f468"]
+uses = ["fn:808a5af874a2a48a"]
 reached_by = [
-    "#5",
     "#6",
     "#7",
     "#8",
     "#9",
     "#10",
-    "#14",
-    "#20",
+    "#11",
+    "#15",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -537,17 +945,23 @@ callees = [
     "fn:bbf25932e049760b",
     "fn:ddda39ffab8db29c",
 ]
+uses = [
+    "fn:55993a8c669a9a74",
+    "fn:5da90723dda878eb",
+    "fn:808a5af874a2a48a",
+    "fn:8852d9540ddf96b4",
+]
 reached_by = [
-    "#5",
     "#6",
     "#7",
     "#8",
     "#9",
     "#10",
-    "#14",
-    "#20",
+    "#11",
+    "#15",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -561,17 +975,18 @@ lines = [
 hash = "sha256:15fe46b182622efba7c423f1aaf7db9d711295fd1eeac92ba9c196b586db40f9"
 doc_hash = "sha256:2393848ff3b530880d677efbdbaf4301d49f2433c9701af1d0e373cda4300f9c"
 callees = ["fn:9f4251ebc8da76ca"]
+uses = ["fn:808a5af874a2a48a"]
 reached_by = [
-    "#5",
     "#6",
     "#7",
     "#8",
     "#9",
     "#10",
-    "#14",
-    "#20",
+    "#11",
+    "#15",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -582,19 +997,20 @@ lines = [
     432,
     473,
 ]
-hash = "sha256:6c65aaa215d004e7abe304cee1398c394696534bea5807bb993de75dc66b4f93"
+hash = "sha256:b6062e8da2f64ff0b832357c9ee369f85be31b0ffac3a05a6526d69e212031ee"
 doc_hash = "sha256:99d6b52937909a5cf9c7ddf291c44482e0eb4ec298d17d3bfa0be6cbd51c81b2"
+uses = ["fn:808a5af874a2a48a"]
 reached_by = [
-    "#5",
     "#6",
     "#7",
     "#8",
     "#9",
     "#10",
-    "#14",
-    "#20",
+    "#11",
+    "#15",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -608,16 +1024,16 @@ lines = [
 hash = "sha256:bde730510692b62ad9cb3ff57a09d4a06708857a18b6cd341cfa355ec0e82853"
 doc_hash = "sha256:e4656202be030dae35d55ee239d1b235f41ea86a001a91da991cf614e6397a47"
 reached_by = [
-    "#5",
     "#6",
     "#7",
     "#8",
     "#9",
     "#10",
-    "#14",
-    "#20",
+    "#11",
+    "#15",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -630,12 +1046,16 @@ lines = [
 ]
 hash = "sha256:fa90859e71f7741f910d71c8d26209be7611f1e25a551a322cc5c96530e194b3"
 doc_hash = "sha256:77e8cb5502874efcfbdce06dc1945f917e28c4618589a8246ad18dba0687914f"
+uses = [
+    "fn:2e2cf3557edcf573",
+    "fn:d02456b458ed4a0e",
+]
 reached_by = [
-    "#8",
     "#9",
-    "#20",
+    "#10",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -649,11 +1069,11 @@ lines = [
 hash = "sha256:94279e68b2e854924c9420e9cd99995994bec9ad51c4ef47a0e68739c2d9e453"
 doc_hash = "sha256:4c2c44fd79bc571d190bc3cf66289bd069af2c922d4eda99754901be32b1d5b7"
 reached_by = [
-    "#8",
     "#9",
-    "#20",
+    "#10",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -666,12 +1086,39 @@ lines = [
 ]
 hash = "sha256:20db571723917250032b05d67bc14c00edc035b257464625f6cd6668e7669a33"
 doc_hash = "sha256:55c0e598aeb61afd4d275e78a9d4c2067e13fe59e9542c5c6f3f8c91bf85ca4a"
+uses = ["fn:38be11bde70932a9"]
 reached_by = [
-    "#8",
     "#9",
-    "#20",
+    "#10",
     "#21",
     "#22",
+    "#23",
+]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:9087468cee5932dc"
+name = "AmphlettParameters"
+qual = "AmphlettParameters"
+item = "type"
+shape = "struct"
+lines = [
+    516,
+    538,
+]
+hash = "sha256:8698f249d85ff95a62f7ef26f7264167bc056d9581c92f179ca4011f88950ba8"
+doc_hash = "sha256:4b341c9d2d5ae31e5cfe391bc7035f427dbdbba307066b098785aa6f3e369939"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#16",
+    "#21",
+    "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -684,16 +1131,70 @@ lines = [
 ]
 hash = "sha256:ee16b40a4478af4460af7f9ce4a35220f43d53ef3d00ca1a66e2b95b63250d94"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:9087468cee5932dc"]
 reached_by = [
-    "#5",
     "#6",
     "#7",
     "#8",
     "#9",
-    "#15",
-    "#20",
+    "#10",
+    "#16",
     "#21",
     "#22",
+    "#23",
+]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:86f1701623976a1b"
+name = "PemOperatingConditions"
+qual = "PemOperatingConditions"
+item = "type"
+shape = "struct"
+lines = [
+    553,
+    568,
+]
+hash = "sha256:b80b27f3adb34ea98cf93302bf51510a2fa36187a7258336f441c91dd4a6c353"
+doc_hash = "sha256:a211ccf2b9e39953996dc48d98a37c96b89647d2e2d92c10d5328b93eebca376"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#16",
+    "#19",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:71f4c751b9eca2de"
+name = "ChamberlinKimParameters"
+qual = "ChamberlinKimParameters"
+item = "type"
+shape = "struct"
+lines = [
+    570,
+    600,
+]
+hash = "sha256:5fd06faafb3c1cd9fc134006ec1a3aaeae321b68b8215b2c187ace4517ca3891"
+doc_hash = "sha256:17a19a576b2637dbf8405d8e2cba8b75de618e8792fe925bad6758388f8e85df"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#16",
+    "#21",
+    "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -706,10 +1207,37 @@ lines = [
 ]
 hash = "sha256:b9f6ba60cdcaada2b974a4ee6b018af50396b63111db11f18afe1376ba00ceb6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:71f4c751b9eca2de"]
 reached_by = [
+    "#11",
+    "#16",
+    "#23",
+]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:bfcf4e0df98740f9"
+name = "LarminieDicksParameters"
+qual = "LarminieDicksParameters"
+item = "type"
+shape = "struct"
+lines = [
+    616,
+    652,
+]
+hash = "sha256:211fd24433b6b20f25d887bf4169c3d63ea596a8f8dd5b38bc47a742cca24098"
+doc_hash = "sha256:17d71bbb62296a19d4959f998657ef85b9b7a31d50d93d204e80e33d2a7d5163"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
     "#10",
+    "#11",
     "#15",
+    "#16",
+    "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -722,9 +1250,10 @@ lines = [
 ]
 hash = "sha256:466f185deb7d2e2be6c36b978bb1a64acc5ada8a3a69d9157a092410a32ac666"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:bfcf4e0df98740f9"]
 reached_by = [
-    "#14",
     "#15",
+    "#16",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -737,7 +1266,40 @@ lines = [
 ]
 hash = "sha256:b9973d63cecd1dc423fc784eb17965a28477249d88446a18d4c511915a3a6e83"
 doc_hash = "sha256:a601d10516bb2ad8bce8bb43a3ad29ad332f3082a0447e4cdf3a50b2c2bdc2a0"
-reached_by = ["#15"]
+uses = ["fn:bfcf4e0df98740f9"]
+reached_by = ["#16"]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:7c52bc64aa4f79c5"
+name = "PemFuelCellModel"
+qual = "PemFuelCellModel"
+item = "type"
+shape = "enum"
+lines = [
+    690,
+    712,
+]
+hash = "sha256:89a5d5e90801026164389a94c94571537c0de24963da97faa4cc55a147bf9fa4"
+doc_hash = "sha256:d26cdd942d00562bbfba44fedea0ace1d2f5ef420e4fad9fb16b2adf2a295cfe"
+uses = [
+    "fn:71f4c751b9eca2de",
+    "fn:86f1701623976a1b",
+    "fn:9087468cee5932dc",
+    "fn:bfcf4e0df98740f9",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#16",
+    "#21",
+    "#22",
+    "#23",
+]
 
 [[module."pem_fuel_cell.rs".function]]
 id = "fn:7bfb214827747856"
@@ -749,13 +1311,14 @@ lines = [
 ]
 hash = "sha256:e864f6a2b96722b204c97fb191f7a6779d4f810cca21efad6d6680fdf9ee0d21"
 doc_hash = "sha256:28f1667493166524ad3df3eb04e83b1bba83e9b5a8622d4fb4171313e91bbb79"
+uses = ["fn:7c52bc64aa4f79c5"]
 reached_by = [
-    "#8",
     "#9",
-    "#15",
-    "#20",
+    "#10",
+    "#16",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -768,9 +1331,10 @@ lines = [
 ]
 hash = "sha256:d294a8261ff898221ced38948d858f4d1c9b6b0a5869490ee8433f8df1dd0cc5"
 doc_hash = "sha256:32ecdd19ce8caafba01c9086851e1891ca5ab1fb78fe525080f46a5ee3e0efda"
+uses = ["fn:7c52bc64aa4f79c5"]
 reached_by = [
-    "#15",
-    "#21",
+    "#16",
+    "#22",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -781,7 +1345,7 @@ lines = [
     735,
     829,
 ]
-hash = "sha256:fc195673d397b76aaa173b47fece9866a6fd441c8580b0d75fc90d709db17289"
+hash = "sha256:647e77ecde496215eef3deebb0de797e0847b30691b6cc4163eddd47cb9b0bed"
 doc_hash = "sha256:ebdd9be6d53b52cc6230e91d551288445b2d85581661854a58dd36cd86d140d1"
 callees = [
     "fn:308fbebf4e641342",
@@ -791,17 +1355,22 @@ callees = [
     "fn:c4053be66ac86342",
     "fn:fc1acecaecce6e49",
 ]
+uses = [
+    "fn:7c52bc64aa4f79c5",
+    "fn:808a5af874a2a48a",
+    "fn:acd627e5cf8f3ef5",
+]
 reached_by = [
-    "#5",
     "#6",
     "#7",
     "#8",
     "#9",
     "#10",
-    "#14",
-    "#20",
+    "#11",
+    "#15",
     "#21",
     "#22",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -821,12 +1390,56 @@ callees = [
     "fn:47b8f4b1467b543a",
     "fn:7bfb214827747856",
 ]
+uses = [
+    "fn:7c52bc64aa4f79c5",
+    "fn:808a5af874a2a48a",
+    "fn:a2a391fbff63d3da",
+]
 reached_by = [
-    "#8",
     "#9",
-    "#20",
+    "#10",
     "#21",
     "#22",
+    "#23",
+]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:a2a391fbff63d3da"
+name = "PemOperatingPoint"
+qual = "PemOperatingPoint"
+item = "type"
+shape = "struct"
+lines = [
+    855,
+    879,
+]
+hash = "sha256:9e9095245a0a01824577d4a570f4323249e286f4b6e67ece06a83510eb02b9dd"
+doc_hash = "sha256:50ff1542693b5e3092a09794f9fe41991b159b75e33ff38ac06a8bd44070d298"
+reached_by = [
+    "#9",
+    "#10",
+    "#21",
+    "#22",
+    "#23",
+]
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:f49a8a4bb7048ec2"
+name = "PolarizationCurve"
+qual = "PolarizationCurve"
+item = "type"
+shape = "struct"
+lines = [
+    881,
+    919,
+]
+hash = "sha256:2210a44ad26188a811065dd3ce408ceeb883b00813b9e7d954e24ed70db0e5b9"
+doc_hash = "sha256:cf7fcf249d84c9b0312748f231883a011ba02358c4a3d498b936fe7c23b111b7"
+uses = ["fn:a2a391fbff63d3da"]
+reached_by = [
+    "#9",
+    "#10",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -840,10 +1453,10 @@ lines = [
 hash = "sha256:8c1fd050277de7690fd74955757496d178b0c7acfc017d38f90fe47baf7a754d"
 doc_hash = "sha256:697126e8c8625ff71791fc18ee63d33e2b40c89f5240493dc56f7591c029b93b"
 reached_by = [
-    "#8",
     "#9",
-    "#17",
-    "#22",
+    "#10",
+    "#18",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -857,10 +1470,10 @@ lines = [
 hash = "sha256:85fe76342739af0532f152cca51e7a0df6997373c04e023c04b8971e7aa608ba"
 doc_hash = "sha256:6070e9d9a0f9445e181bdbf0e7c8fdcfa9b94a257b4ec714f7ec36c590cc75a7"
 reached_by = [
-    "#8",
     "#9",
-    "#17",
-    "#22",
+    "#10",
+    "#18",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -879,10 +1492,16 @@ callees = [
     "fn:7bfb214827747856",
     "fn:cb1427860f081076",
 ]
+uses = [
+    "fn:38be11bde70932a9",
+    "fn:7c52bc64aa4f79c5",
+    "fn:808a5af874a2a48a",
+    "fn:f49a8a4bb7048ec2",
+]
 reached_by = [
-    "#8",
     "#9",
-    "#22",
+    "#10",
+    "#23",
 ]
 
 [[module."pem_fuel_cell.rs".function]]
@@ -895,7 +1514,12 @@ lines = [
 ]
 hash = "sha256:728f7652800319afadfdd92e57e167a3c5db986026458daceb8b29280c0b5250"
 doc_hash = "sha256:e01e8b388af29e7ceed246b0cc837c1080c18e2f76e464d430a66a52dddf19d1"
-reached_by = ["#18"]
+uses = [
+    "fn:808a5af874a2a48a",
+    "fn:86f1701623976a1b",
+    "fn:cef692c5c8dde380",
+]
+reached_by = ["#19"]
 physical_interface = true
 
 [[module."pem_fuel_cell.rs".function]]
@@ -908,10 +1532,14 @@ lines = [
 ]
 hash = "sha256:d09ebe1239f5af94df57e2381ce31444894843fa28c026435c531adf60d853f6"
 doc_hash = "sha256:66c497a667a3088c2707f68f8bacda4f62d4509c9a08302dc56d534858ebcffa"
+uses = [
+    "fn:6e837789738f7c76",
+    "fn:cef692c5c8dde380",
+]
 reached_by = [
-    "#11",
     "#12",
-    "#19",
+    "#13",
+    "#20",
 ]
 physical_interface = true
 
@@ -925,9 +1553,13 @@ lines = [
 ]
 hash = "sha256:69c49fc8252473a246b7dfca760e15bc71b1966e8fe247950b197d8e8dd04590"
 doc_hash = "sha256:b2eef7508172890062733f8062f72fca670cd85dde06620b8aa8346b749b0240"
+uses = [
+    "fn:808a5af874a2a48a",
+    "fn:cef692c5c8dde380",
+]
 reached_by = [
-    "#12",
-    "#19",
+    "#13",
+    "#20",
 ]
 physical_interface = true
 
@@ -941,7 +1573,7 @@ lines = [
 ]
 hash = "sha256:c130bb40e84c556515aa5d729f3fc07bc01a6a3526c9eef077ec9c5dcf5fa064"
 doc_hash = "sha256:bbe54c81282ef229472928274a5a5957b49c89d49550a6d7ca441dbc1109ab6a"
-reached_by = ["#12"]
+reached_by = ["#13"]
 physical_interface = true
 
 [[module."pem_fuel_cell.rs".function]]
@@ -954,8 +1586,26 @@ lines = [
 ]
 hash = "sha256:d4580da5eb67587be6b4ef93dd72b1a2639d9294692f1b1da27c6e42eed76ced"
 doc_hash = "sha256:b459dd259c464cf4513f1ac432b18737db2dbd11bf77fa4d9ffb47361fb9ac3a"
-reached_by = ["#13"]
+reached_by = ["#14"]
 physical_interface = true
+
+[[module."pem_fuel_cell.rs".function]]
+id = "fn:dc10d6d9ea76b575"
+name = "PemFuelCell"
+qual = "PemFuelCell"
+item = "type"
+shape = "struct"
+lines = [
+    1310,
+    1327,
+]
+hash = "sha256:af74bfe3dc8a66d4212a9317f1486338bfb53fc5b6f78688aa3d8efef287f924"
+doc_hash = "sha256:ecce807aa3e6640e5b58ad6fe10e0d1676a41e98a6b8dc9f5affe4274f1ca4b1"
+uses = [
+    "fn:7c52bc64aa4f79c5",
+    "fn:a2a391fbff63d3da",
+]
+reached_by = ["#22"]
 
 [[module."pem_fuel_cell.rs".function]]
 id = "fn:d540a5bb731e7b65"
@@ -968,7 +1618,13 @@ lines = [
 hash = "sha256:64de07a59153e83eefb53c4a12bca9e3e19ba32d7199d22aa6ed569bba833a1d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:6771641be6dad323"]
-reached_by = ["#21"]
+uses = [
+    "fn:7c52bc64aa4f79c5",
+    "fn:86f1701623976a1b",
+    "fn:9087468cee5932dc",
+    "fn:dc10d6d9ea76b575",
+]
+reached_by = ["#22"]
 
 [[module."pem_fuel_cell.rs".function]]
 id = "fn:ee54d2476069192e"
@@ -981,7 +1637,12 @@ lines = [
 hash = "sha256:ff35b1ecc51930d673f17643c904424ddc3487281574081f1987e602da1a4d68"
 doc_hash = "sha256:731a3a88f816159163130f3c9ec6191567e426bde5ec5d3af43ff16edf8dfe96"
 callees = ["fn:0b8f7dfeccc6f5a9"]
-reached_by = ["#21"]
+uses = [
+    "fn:808a5af874a2a48a",
+    "fn:a2a391fbff63d3da",
+    "fn:dc10d6d9ea76b575",
+]
+reached_by = ["#22"]
 physical_interface = true
 
 [[module."pem_fuel_cell.rs".function]]
@@ -994,7 +1655,8 @@ lines = [
 ]
 hash = "sha256:81f69a390d6c831bc0bf29b8353a44690ba9db4ad5df12e4ab83c4f442bf7336"
 doc_hash = "sha256:cd035ec1f4783a0fccbd6ddf5bc6433d7eda9869c234fe1d6fa340846fbb8886"
-reached_by = ["#21"]
+uses = ["fn:dc10d6d9ea76b575"]
+reached_by = ["#22"]
 physical_interface = true
 
 [[module."pem_fuel_cell.rs".function]]
@@ -1007,7 +1669,8 @@ lines = [
 ]
 hash = "sha256:60c73baaaa38e5bf02d8a41f19d48275a187e4374ccf53ce188af4a7b06c2337"
 doc_hash = "sha256:9b7654d22060c13172c0746b929bc997276c4cb22e5142bde7001a731ec8f2d8"
-reached_by = ["#21"]
+uses = ["fn:dc10d6d9ea76b575"]
+reached_by = ["#22"]
 physical_interface = true
 
 [[module."pem_fuel_cell.rs".function]]
@@ -1020,7 +1683,8 @@ lines = [
 ]
 hash = "sha256:f41039ef72056b9a5a72215bafcda5688fdbed41bfc568e13eb33e90e9bafa6e"
 doc_hash = "sha256:6de6f75a8aaf7c9d7fd4af9f2535a1f3d1430d46c29bed51161384da307b452a"
-reached_by = ["#21"]
+uses = ["fn:dc10d6d9ea76b575"]
+reached_by = ["#22"]
 physical_interface = true
 
 [[module."pem_fuel_cell.rs".function]]
@@ -1034,7 +1698,8 @@ lines = [
 hash = "sha256:76fcefa21db00ab833d12a02ecf72c3e5e19806f9a8f77bae44008788adc498d"
 doc_hash = "sha256:a5a1084a5b497f3eb254f78a54010a3b18d414998c5bdb6984c0150fea00edaf"
 callees = ["fn:b4b8660199356f1c"]
-reached_by = ["#21"]
+uses = ["fn:dc10d6d9ea76b575"]
+reached_by = ["#22"]
 
 [[module."pem_fuel_cell.rs".function]]
 id = "fn:480377324cffed5d"
@@ -1046,7 +1711,8 @@ lines = [
 ]
 hash = "sha256:1e526b5ce79f165521080775f47fc743fe960bb14caee7fb0d25428b86dd088f"
 doc_hash = "sha256:20893fd57db5dff0a2e3dc1fab7d3ba5402d0b84bb90f1bc0a15a9500431c45c"
-reached_by = ["#21"]
+uses = ["fn:dc10d6d9ea76b575"]
+reached_by = ["#22"]
 
 [[module."pem_fuel_cell.rs".function]]
 id = "fn:0f2aab97b1468857"
@@ -1058,7 +1724,8 @@ lines = [
 ]
 hash = "sha256:96b55c223c7aee67300310c0875c4392e6f82ccb6e0ae1d4ae485ed8d1d23ba8"
 doc_hash = "sha256:0ecd6084b838ec2fd78f3e7f76f9c70306132b62dbef0af34179fe6550ba2727"
-reached_by = ["#21"]
+uses = ["fn:dc10d6d9ea76b575"]
+reached_by = ["#22"]
 physical_interface = true
 
 [[module."pem_fuel_cell.rs".function]]
@@ -1072,6 +1739,11 @@ lines = [
 hash = "sha256:e57f5e1f6b6ab5610d54a3c60d5c1378f1fd71292e4b6bd5152aa1508107401a"
 doc_hash = "sha256:6da5454bc8e7c55ae483566ed556bb5b05a6f679363694a328fb19ab689b96ab"
 callees = ["fn:6771641be6dad323"]
+uses = [
+    "fn:7c52bc64aa4f79c5",
+    "fn:86f1701623976a1b",
+    "fn:9087468cee5932dc",
+]
 test = true
 
 [[module."pem_fuel_cell.rs".function]]
@@ -1105,6 +1777,11 @@ callees = [
     "fn:234c002f812e9e67",
     "fn:7e48d111934c8254",
 ]
+uses = [
+    "fn:71f4c751b9eca2de",
+    "fn:7c52bc64aa4f79c5",
+    "fn:808a5af874a2a48a",
+]
 test = true
 
 [[module."pem_fuel_cell.rs".function]]
@@ -1120,6 +1797,11 @@ doc_hash = "sha256:ccf354075b8d1ecc6d966ed43410c9ffd4666ac60d211cae8c720c8a65d59
 callees = [
     "fn:0dd27631047034e2",
     "fn:234c002f812e9e67",
+]
+uses = [
+    "fn:7c52bc64aa4f79c5",
+    "fn:808a5af874a2a48a",
+    "fn:bfcf4e0df98740f9",
 ]
 test = true
 
@@ -1143,6 +1825,10 @@ callees = [
     "fn:7bf0e79429038060",
     "fn:c4053be66ac86342",
     "fn:fc1acecaecce6e49",
+]
+uses = [
+    "fn:9087468cee5932dc",
+    "fn:acd627e5cf8f3ef5",
 ]
 test = true
 
@@ -1190,6 +1876,14 @@ callees = [
     "fn:0b8f7dfeccc6f5a9",
     "fn:138f0dc771ba6113",
     "fn:6771641be6dad323",
+]
+uses = [
+    "fn:2e2cf3557edcf573",
+    "fn:38be11bde70932a9",
+    "fn:7c52bc64aa4f79c5",
+    "fn:86f1701623976a1b",
+    "fn:9087468cee5932dc",
+    "fn:d02456b458ed4a0e",
 ]
 test = true
 
@@ -1252,6 +1946,7 @@ lines = [
 hash = "sha256:8c0277fce500e6c104fbbc800081405136a70f9e9a5b7101958bd7bf6fc6e4f0"
 doc_hash = "sha256:03be00315ea3caf1d02326a6fd0ed99daab03483c670600ab589a2c06fe51930"
 callees = ["fn:4bff91586444c1a2"]
+uses = ["fn:cef692c5c8dde380"]
 test = true
 
 [[module."pem_fuel_cell.rs".function]]
@@ -1285,6 +1980,7 @@ callees = [
     "fn:242a3b3da757fb78",
     "fn:3a1257c9b7511e97",
 ]
+uses = ["fn:808a5af874a2a48a"]
 test = true
 
 [[module."pem_fuel_cell.rs".function]]
@@ -1320,6 +2016,10 @@ callees = [
     "fn:d540a5bb731e7b65",
     "fn:ee54d2476069192e",
 ]
+uses = [
+    "fn:38be11bde70932a9",
+    "fn:dc10d6d9ea76b575",
+]
 test = true
 
 [[module."pem_fuel_cell.rs".function]]
@@ -1340,6 +2040,11 @@ callees = [
     "fn:7e48d111934c8254",
     "fn:b4b8660199356f1c",
 ]
+uses = [
+    "fn:71f4c751b9eca2de",
+    "fn:7c52bc64aa4f79c5",
+    "fn:bfcf4e0df98740f9",
+]
 test = true
 
 [[module."pem_fuel_cell.rs".function]]
@@ -1353,6 +2058,15 @@ lines = [
 hash = "sha256:66b6fb07383d92eddcbf789216fdb30886043d642d03a1baae8a8f436e0b877f"
 doc_hash = "sha256:c4bbd6ce682283a4fa5a4ee838d3744984aa368350fa54da582f2114be5ea4b5"
 callees = ["fn:fc1acecaecce6e49"]
+uses = [
+    "fn:2e2cf3557edcf573",
+    "fn:38be11bde70932a9",
+    "fn:6e837789738f7c76",
+    "fn:91052db8b023c2e1",
+    "fn:9573c647bd500a09",
+    "fn:acd627e5cf8f3ef5",
+    "fn:d02456b458ed4a0e",
+]
 test = true
 
 [[module."pem_fuel_cell.rs".function]]
@@ -1370,10 +2084,32 @@ callees = [
     "fn:4ce39f65e349310b",
     "fn:7e48d111934c8254",
 ]
+uses = [
+    "fn:71f4c751b9eca2de",
+    "fn:7c52bc64aa4f79c5",
+    "fn:808a5af874a2a48a",
+]
 test = true
 
 [module."solar_panel.rs"]
 path = "crate::clean_energies::solar_panel"
+
+[[module."solar_panel.rs".function]]
+id = "fn:e90ff7ee73cedf36"
+name = "SolarPanelTechnology"
+qual = "SolarPanelTechnology"
+item = "type"
+shape = "enum"
+lines = [
+    58,
+    76,
+]
+hash = "sha256:41309e2dd1adeebda47e45cfc1e3bdc9db030d4416cc99663007bbbdc12661ba"
+doc_hash = "sha256:155c38ef619a74b5b9941bf43b157b34d6586b5062c3262888fb21201583008b"
+reached_by = [
+    "#24",
+    "#25",
+]
 
 [[module."solar_panel.rs".function]]
 id = "fn:b5fba145905577e3"
@@ -1386,10 +2122,10 @@ lines = [
 hash = "sha256:c8d1251f3b99e3f6a64c5a5d655b907b2396a03ed3aa25ed448cd2a4c1b496c6"
 doc_hash = "sha256:0bc663ce27ac60c2cd1823c1f548ef70b552d1e1bd39d7191c8416c3580e5592"
 reached_by = [
-    "#23",
     "#24",
     "#25",
     "#26",
+    "#27",
 ]
 physical_interface = true
 
@@ -1403,8 +2139,29 @@ lines = [
 ]
 hash = "sha256:f20455472507c8aba4c11a2b4cf054ba7c307d30d173ff1098abc4eef57adeff"
 doc_hash = "sha256:1d279a35c60a2caaa46f407369b6295d3daaa742b93e8d926977e894e8e37f62"
-reached_by = ["#24"]
+reached_by = ["#25"]
 physical_interface = true
+
+[[module."solar_panel.rs".function]]
+id = "fn:e1a6797314d02bf2"
+name = "SolarPanel"
+qual = "SolarPanel"
+item = "type"
+shape = "struct"
+lines = [
+    122,
+    146,
+]
+hash = "sha256:dd7fec0aa1804f7d739738e86a718425dbf911d7702ea820c3127b89803d70f1"
+doc_hash = "sha256:284db0416533034d795cdbe157cb4dda732e73ab5b5184f6ff9284ebde481fc8"
+uses = [
+    "fn:1e6b28ad4948f70d",
+    "fn:e90ff7ee73cedf36",
+]
+reached_by = [
+    "#24",
+    "#25",
+]
 
 [[module."solar_panel.rs".function]]
 id = "fn:1b4fedf067df0a5e"
@@ -1416,9 +2173,14 @@ lines = [
 ]
 hash = "sha256:70442162e8a8db8e273bca8c23d18f1d565bf821bea57dc40902ffd8ebc09b21"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:1e6b28ad4948f70d",
+    "fn:e1a6797314d02bf2",
+    "fn:e90ff7ee73cedf36",
+]
 reached_by = [
-    "#23",
     "#24",
+    "#25",
 ]
 
 [[module."solar_panel.rs".function]]
@@ -1431,7 +2193,8 @@ lines = [
 ]
 hash = "sha256:51ade8de1168a9d1d884cb66e257f11e32c496a76db2a612d69a479c3ea316a8"
 doc_hash = "sha256:05becb66088c4b8caa5cf8ded5cfbbf5c69de2e39b2d111250f69746bbd8bef8"
-reached_by = ["#23"]
+uses = ["fn:e1a6797314d02bf2"]
+reached_by = ["#24"]
 
 [[module."solar_panel.rs".function]]
 id = "fn:b89410faec7a2c11"
@@ -1443,7 +2206,8 @@ lines = [
 ]
 hash = "sha256:6b537b71669d00c2221997cc67d7868bbbcc93416aa2d56deeff9d9c7d3d6132"
 doc_hash = "sha256:63bc6b0b0a4503b96debe905d867ab0186aa609d72ad757f27321cac559e5140"
-reached_by = ["#23"]
+uses = ["fn:e1a6797314d02bf2"]
+reached_by = ["#24"]
 
 [[module."solar_panel.rs".function]]
 id = "fn:85e5d0cda34d6f76"
@@ -1456,9 +2220,10 @@ lines = [
 hash = "sha256:22ba23f6e5f4f9aaabb54beccfdb33799fd0908131d3ef026056b97dcbef37ed"
 doc_hash = "sha256:919d71896f94d0939c528bfd88e71520508eb556fc2b26937d96e717dec1add7"
 callees = ["fn:b5fba145905577e3"]
+uses = ["fn:e1a6797314d02bf2"]
 reached_by = [
-    "#23",
     "#24",
+    "#25",
 ]
 physical_interface = true
 
@@ -1503,6 +2268,7 @@ callees = [
     "fn:4ee059b73af125da",
     "fn:85e5d0cda34d6f76",
 ]
+uses = ["fn:e1a6797314d02bf2"]
 test = true
 
 [[module."solar_panel.rs".function]]
@@ -1521,10 +2287,81 @@ callees = [
     "fn:a6c6247dbed0d2ee",
     "fn:b89410faec7a2c11",
 ]
+uses = ["fn:e1a6797314d02bf2"]
 test = true
 
 [module."water_electrolyzer.rs"]
 path = "crate::clean_energies::water_electrolyzer"
+
+[[module."water_electrolyzer.rs".function]]
+id = "fn:bc0f901e34b20881"
+name = "MolarFlowRate"
+qual = "MolarFlowRate"
+item = "type"
+shape = "alias"
+lines = [
+    98,
+    101,
+]
+hash = "sha256:77c9fa65ae57cc6b197e13bccd7d918cb7f36514a4bcb68f76e4b97462f12097"
+doc_hash = "sha256:75af6b6304f5f18404fbb921b8d68ac4e8b5f7336c3cd0a09f25778ed7b5bed5"
+reached_by = [
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#39",
+    "#40",
+]
+
+[[module."water_electrolyzer.rs".function]]
+id = "fn:8c34d7491c25cf30"
+name = "ELECTRONS_PER_HYDROGEN"
+qual = "ELECTRONS_PER_HYDROGEN"
+item = "const"
+shape = "const"
+lines = [
+    103,
+    106,
+]
+hash = "sha256:1f9d6b2ed6a27c7c42760f1007661908cca5967207c725fca41570ae1129e6d6"
+doc_hash = "sha256:f64aa57a75308e5b7bcc6f6194b9f866077667fecaa7479d693813c749bd398c"
+reached_by = ["#37"]
+
+[[module."water_electrolyzer.rs".function]]
+id = "fn:481f5325d3e7b243"
+name = "ElectrolyzerTechnology"
+qual = "ElectrolyzerTechnology"
+item = "type"
+shape = "enum"
+lines = [
+    108,
+    126,
+]
+hash = "sha256:d2c99b6479d2688072b997a11d1b9cf9dfd80a2548943aca00c24706aa256fc5"
+doc_hash = "sha256:e0e2736869d859de58b94b74231de5b9eadc7712f8db3d01357462e324858280"
+reached_by = ["#39"]
+
+[[module."water_electrolyzer.rs".function]]
+id = "fn:3a5b74b9cc1fb822"
+name = "ElectrolysisChemistry"
+qual = "ElectrolysisChemistry"
+item = "type"
+shape = "enum"
+lines = [
+    128,
+    145,
+]
+hash = "sha256:8a7e72fba5cbfc382b69c526ca32176267d1ad89d81cdbc5f2e12f9063a69265"
+doc_hash = "sha256:cfc207d15dc3edb48c0bfae5c70340207c83b5907b854444bc4ed3100744d137"
+reached_by = [
+    "#31",
+    "#33",
+    "#34",
+    "#39",
+]
 
 [[module."water_electrolyzer.rs".function]]
 id = "fn:bc0027751ba31f1e"
@@ -1536,10 +2373,11 @@ lines = [
 ]
 hash = "sha256:6dbe40ea40f062a3d117b0c08b9eb56469d44782100b609b4f22bcc36c5003ab"
 doc_hash = "sha256:b681dc1b33736f7d912ae5d2217c82747d4662d98a1a85383c52ba53a8096aaf"
+uses = ["fn:3a5b74b9cc1fb822"]
 reached_by = [
-    "#30",
-    "#32",
+    "#31",
     "#33",
+    "#34",
 ]
 
 [[module."water_electrolyzer.rs".function]]
@@ -1552,7 +2390,8 @@ lines = [
 ]
 hash = "sha256:92d387bd956c4ac86b5dd5754d1b467b0bf5f994519ea86570aadc6b21c40e8e"
 doc_hash = "sha256:f0d1ef7a9f4f454129c0c1761717d7582cf230235358dd9f3fe5ab8f3d0376ee"
-reached_by = ["#30"]
+uses = ["fn:3a5b74b9cc1fb822"]
+reached_by = ["#31"]
 
 [[module."water_electrolyzer.rs".function]]
 id = "fn:5e5b5914ffb4806c"
@@ -1564,7 +2403,8 @@ lines = [
 ]
 hash = "sha256:36d95e4b7d15e4b67bf5e34f257aa4df2ccd85917c2788eb66790f8ef9157a8d"
 doc_hash = "sha256:0effa1a6d37e8977620c993ac9559b3aa9c95aab9858a4899e77ec7c35f3a1bf"
-reached_by = ["#30"]
+uses = ["fn:3a5b74b9cc1fb822"]
+reached_by = ["#31"]
 
 [[module."water_electrolyzer.rs".function]]
 id = "fn:c405e99ef55822f9"
@@ -1577,8 +2417,8 @@ lines = [
 hash = "sha256:bae0b5468df6bbd9433953cfc7ca56cc5545cd209960731d07582702c25a2555"
 doc_hash = "sha256:2f328b2574bc9ada6895848d1911def77bc5af6256ede3c51bf99af1a69ac30b"
 reached_by = [
-    "#36",
     "#37",
+    "#38",
 ]
 
 [[module."water_electrolyzer.rs".function]]
@@ -1593,8 +2433,8 @@ hash = "sha256:5d1d6fac480fe5ff5be07d90dd8bf22b48b32af068b94437b1f7b46a0f4c46d2"
 doc_hash = "sha256:8ef63b3ae3932de0470fa84d2d520c7235898e2f43f355b2cbfcb4fc2f22f3ab"
 callees = ["fn:c405e99ef55822f9"]
 reached_by = [
-    "#36",
     "#37",
+    "#38",
 ]
 
 [[module."water_electrolyzer.rs".function]]
@@ -1609,8 +2449,8 @@ hash = "sha256:c49db66c7d0cddea1ef1285af1a8884823ff179ffd39d44530664c68d2c510ab"
 doc_hash = "sha256:a55096ad93d5509213a1b6157490d035f0860edb5665c786bbe49e3ee4d0b37c"
 callees = ["fn:c405e99ef55822f9"]
 reached_by = [
-    "#36",
     "#37",
+    "#38",
 ]
 
 [[module."water_electrolyzer.rs".function]]
@@ -1625,8 +2465,8 @@ hash = "sha256:067832f9fd20bd0a6a4c70d9967cc002a73aa4fbdeee73faa0bb211526a30d00"
 doc_hash = "sha256:582051b2af176d013e527a6ef4d90150fed8ca09919cb9edb7ef5395dcc3575d"
 callees = ["fn:c405e99ef55822f9"]
 reached_by = [
-    "#36",
     "#37",
+    "#38",
 ]
 
 [[module."water_electrolyzer.rs".function]]
@@ -1639,7 +2479,7 @@ lines = [
 ]
 hash = "sha256:91b7dd527fcde6b804f63a409b42b6fd8baf5d6aab6812bed489db16170f36bb"
 doc_hash = "sha256:d960f5e452f574f00bac29109364b8a0fe82a61200c3e6a6a8224e2e19ec8480"
-reached_by = ["#35"]
+reached_by = ["#36"]
 
 [[module."water_electrolyzer.rs".function]]
 id = "fn:e3f3d1fb5623c5a9"
@@ -1656,7 +2496,7 @@ callees = [
     "fn:4fe2ed053d4a0463",
     "fn:50181bf4ea596b41",
 ]
-reached_by = ["#36"]
+reached_by = ["#37"]
 
 [[module."water_electrolyzer.rs".function]]
 id = "fn:5a717856b00855eb"
@@ -1668,7 +2508,11 @@ lines = [
 ]
 hash = "sha256:a52be88c425df7044085aea6ae2c4032255432bf7498c60e008d75d9fbeaaa7e"
 doc_hash = "sha256:5f0b092f9b1cfc6f4a50b3656d5ceedcd1760e6aaa338eb803b04af293c065e2"
-reached_by = ["#36"]
+uses = [
+    "fn:6e837789738f7c76",
+    "fn:8c34d7491c25cf30",
+]
+reached_by = ["#37"]
 physical_interface = true
 
 [[module."water_electrolyzer.rs".function]]
@@ -1681,8 +2525,57 @@ lines = [
 ]
 hash = "sha256:8a554e532611fce76f1eaeb1c4200ffdaa3e99a999c8a74e77dd73bcd95fcf59"
 doc_hash = "sha256:8f848b01b90f92935522d42b1ae4eb9812f665beb6469c88d86c8c786eaf2651"
-reached_by = ["#36"]
+uses = [
+    "fn:6e837789738f7c76",
+    "fn:8c34d7491c25cf30",
+]
+reached_by = ["#37"]
 physical_interface = true
+
+[[module."water_electrolyzer.rs".function]]
+id = "fn:0de071c9ce83c947"
+name = "ElectrolyzerSpecification"
+qual = "ElectrolyzerSpecification"
+item = "type"
+shape = "enum"
+lines = [
+    365,
+    396,
+]
+hash = "sha256:6d56fd2c458481e8996066a908670325b90cb7fe9226fe3e894c7f95e532a311"
+doc_hash = "sha256:65ae49ff4410509f2e850c7b3cf5e84e6f2c70bbd1b8a16a8265e742b77f8736"
+reached_by = [
+    "#28",
+    "#29",
+    "#30",
+    "#33",
+    "#34",
+    "#39",
+    "#40",
+]
+
+[[module."water_electrolyzer.rs".function]]
+id = "fn:ff01ca874f6c2169"
+name = "ElectrolyzerResult"
+qual = "ElectrolyzerResult"
+item = "type"
+shape = "struct"
+lines = [
+    398,
+    434,
+]
+hash = "sha256:a10e7dfab140f93d138a0ec62cd0aa4bc81f424ab30f9a7ff3b30b7cb21fb4b1"
+doc_hash = "sha256:1d62d817197e439efcbe43321776ca2abcdb8265c6f7167e3a00e18917bee5b1"
+uses = ["fn:bc0f901e34b20881"]
+reached_by = [
+    "#28",
+    "#29",
+    "#30",
+    "#33",
+    "#34",
+    "#39",
+    "#40",
+]
 
 [[module."water_electrolyzer.rs".function]]
 id = "fn:421a32685fa03ba4"
@@ -1694,14 +2587,21 @@ lines = [
 ]
 hash = "sha256:13c993b58b5ce66960c6c87eee9aa713e756cba693bf8e505af7c0ea58eda111"
 doc_hash = "sha256:28186ea0b29226ba41a9bc44ac5dee154df122f8a059bfac4b20aa955e9656d1"
+uses = [
+    "fn:0de071c9ce83c947",
+    "fn:6e837789738f7c76",
+    "fn:808a5af874a2a48a",
+    "fn:bc0f901e34b20881",
+    "fn:ff01ca874f6c2169",
+]
 reached_by = [
-    "#27",
     "#28",
     "#29",
-    "#32",
+    "#30",
     "#33",
-    "#38",
+    "#34",
     "#39",
+    "#40",
 ]
 physical_interface = true
 
@@ -1716,9 +2616,14 @@ lines = [
 hash = "sha256:af7c9c47d844ad321cdd7cf4c6826ea3b366c0ad5c0c9dab84cec56442578c62"
 doc_hash = "sha256:00b45a5ea1451117a9d7138cb31bff80a590f96e368e180a210c150c4699b3ce"
 callees = ["fn:bc0027751ba31f1e"]
+uses = [
+    "fn:3a5b74b9cc1fb822",
+    "fn:808a5af874a2a48a",
+    "fn:ff01ca874f6c2169",
+]
 reached_by = [
-    "#32",
     "#33",
+    "#34",
 ]
 
 [[module."water_electrolyzer.rs".function]]
@@ -1729,11 +2634,15 @@ lines = [
     635,
     689,
 ]
-hash = "sha256:f77c8d5177032f834e4c896c7742f41ff517d30e8aba84f1bc250b916b1a93b5"
+hash = "sha256:346ce8c822d6feeb9cd53f4565b203dd3e3a60fe0b644a6aa8b28db59dfe3fa8"
 doc_hash = "sha256:bb93b830c3034f47b02892344d28d2ea565788203832559b64a98e266a407244"
+uses = [
+    "fn:808a5af874a2a48a",
+    "fn:bc0f901e34b20881",
+]
 reached_by = [
-    "#31",
-    "#33",
+    "#32",
+    "#34",
 ]
 physical_interface = true
 
@@ -1748,8 +2657,27 @@ lines = [
 hash = "sha256:2c64e4b8d5b1c6604a9830f312249870797aaad92023c6dd08965aa5851cbbe5"
 doc_hash = "sha256:346dfce04daf9865cb8b7d12e2b0c948011677ba694ddacbbeef53fafb80f3e7"
 callees = ["fn:bc0027751ba31f1e"]
-reached_by = ["#33"]
+uses = [
+    "fn:3a5b74b9cc1fb822",
+    "fn:808a5af874a2a48a",
+    "fn:bc0f901e34b20881",
+]
+reached_by = ["#34"]
 physical_interface = true
+
+[[module."water_electrolyzer.rs".function]]
+id = "fn:f8b575ae4047c091"
+name = "OutletEnthalpyBump"
+qual = "OutletEnthalpyBump"
+item = "type"
+shape = "struct"
+lines = [
+    733,
+    764,
+]
+hash = "sha256:0554519551b973ed14c8925027b30cb9a4f85171825b242be3a58c8c635714b6"
+doc_hash = "sha256:353ee7de08f5df2d2a2adf15e542dd4ed20f3de579d0a0773c66e32afc138e10"
+reached_by = ["#35"]
 
 [[module."water_electrolyzer.rs".function]]
 id = "fn:abdb1b45cc3e288f"
@@ -1761,8 +2689,28 @@ lines = [
 ]
 hash = "sha256:f9297675dd8d2521ab64571ab46a55e0498eee8a540bc2b50d4fbcccad53bf7a"
 doc_hash = "sha256:93948653d50cc1579c6cf21a2f3dda169f0b166b7a60bbeeb3e91abff255e373"
-reached_by = ["#34"]
+uses = ["fn:f8b575ae4047c091"]
+reached_by = ["#35"]
 physical_interface = true
+
+[[module."water_electrolyzer.rs".function]]
+id = "fn:bef7cd60f36af2a8"
+name = "WaterElectrolyzer"
+qual = "WaterElectrolyzer"
+item = "type"
+shape = "struct"
+lines = [
+    793,
+    813,
+]
+hash = "sha256:f8437c1b63ea8c0fddb14f14ead01a70ac03637811c5f8d227c2a88212627914"
+doc_hash = "sha256:e4e09eff3f04f8153bbbc442e308b02f2e9e40eac274f624d7761c1db15d07aa"
+uses = [
+    "fn:3a5b74b9cc1fb822",
+    "fn:481f5325d3e7b243",
+    "fn:ff01ca874f6c2169",
+]
+reached_by = ["#39"]
 
 [[module."water_electrolyzer.rs".function]]
 id = "fn:dff2803eaca1e138"
@@ -1775,7 +2723,13 @@ lines = [
 hash = "sha256:329fc37775dc76ccaacf8d071b1e3cf4d293f9e6f0df22c4c549095b5d68d3a3"
 doc_hash = "sha256:a1cc1f6dfeb29e4f8ac98f3a8dd044558ff7d92ddd931a2ba5475c45df31e57f"
 callees = ["fn:421a32685fa03ba4"]
-reached_by = ["#38"]
+uses = [
+    "fn:0de071c9ce83c947",
+    "fn:808a5af874a2a48a",
+    "fn:bef7cd60f36af2a8",
+    "fn:ff01ca874f6c2169",
+]
+reached_by = ["#39"]
 physical_interface = true
 
 [[module."water_electrolyzer.rs".function]]
@@ -1788,6 +2742,7 @@ lines = [
 ]
 hash = "sha256:3b0521c702295375a6dbc2f001f0f85db197cfea3f6886096de7ff5371e98c97"
 doc_hash = "sha256:de1aa3e066957044f8900a0c7a111d55799876958138b71f58a727d61c9f6cfa"
+uses = ["fn:bef7cd60f36af2a8"]
 
 [[module."water_electrolyzer.rs".function]]
 id = "fn:a0539271dbe41b07"
@@ -1799,6 +2754,7 @@ lines = [
 ]
 hash = "sha256:71291960d102dc966cb111963c9e3f4a1d28ac9ddb797eee96dcaee0e0773344"
 doc_hash = "sha256:8c5d8467caf6abaa11f77849f3bfe69ee54e95090b538045fc982c64f69ba441"
+uses = ["fn:bef7cd60f36af2a8"]
 
 [[module."water_electrolyzer.rs".function]]
 id = "fn:49818bea4364b834"
@@ -1810,7 +2766,8 @@ lines = [
 ]
 hash = "sha256:f0baba4e72c2ba4821fc4fd20d386e0cf452804ec290c59e76071dc7a1ef04b1"
 doc_hash = "sha256:4206b14460781cdad5ba02dc054c72c37cc64322ee89453bad0c46b2b459a04a"
-reached_by = ["#38"]
+uses = ["fn:bef7cd60f36af2a8"]
+reached_by = ["#39"]
 physical_interface = true
 
 [[module."water_electrolyzer.rs".function]]
@@ -1823,8 +2780,22 @@ lines = [
 ]
 hash = "sha256:7500cd62114c3776d008c5fc343ebbd50a816d11cad889c10a6f6e4a790884e2"
 doc_hash = "sha256:4a6064d1d0bf403175d76e2d247b2918770b9500a0a975d7a11dc043852199b0"
-reached_by = ["#35"]
+reached_by = ["#36"]
 physical_interface = true
+
+[[module."water_electrolyzer.rs".function]]
+id = "fn:9df4f0da1145302c"
+name = "DH_298_KJ_PER_MOL"
+qual = "DH_298_KJ_PER_MOL"
+item = "const"
+shape = "const"
+lines = [
+    892,
+    897,
+]
+hash = "sha256:b20f333907f5463e1c54cfc92e4017f964ebe14f6416878e84bc93e16f8ea25d"
+doc_hash = "sha256:1cd7cd1cacc708f30a85be8e1b22d26aa0ba562017e0e86a6c65579469bccf49"
+test = true
 
 [[module."water_electrolyzer.rs".function]]
 id = "fn:00fff46f6737e5bf"
@@ -1858,6 +2829,7 @@ callees = [
     "fn:ad666409cd968338",
     "fn:e3f3d1fb5623c5a9",
 ]
+uses = ["fn:9df4f0da1145302c"]
 test = true
 
 [[module."water_electrolyzer.rs".function]]
@@ -1871,6 +2843,11 @@ lines = [
 hash = "sha256:3d363a81e98b6a1a2a6ed6efa387023a9d80789bb107c1fa2bf68b5c8c646964"
 doc_hash = "sha256:2ceb82028af55e9f617ef4b8255ae3070ddaac556da3bbe83b48216950174bb8"
 callees = ["fn:421a32685fa03ba4"]
+uses = [
+    "fn:0de071c9ce83c947",
+    "fn:6e837789738f7c76",
+    "fn:9df4f0da1145302c",
+]
 test = true
 
 [[module."water_electrolyzer.rs".function]]
@@ -1884,6 +2861,10 @@ lines = [
 hash = "sha256:ef398b2fd6f54df87ca28ba5cfde0757794e4fd937353ebb68003c0619f50238"
 doc_hash = "sha256:e40972fb06cd8e05a373c09fead180a6ecee3e03646a3f87624167c9ff080442"
 callees = ["fn:421a32685fa03ba4"]
+uses = [
+    "fn:0de071c9ce83c947",
+    "fn:9df4f0da1145302c",
+]
 test = true
 
 [[module."water_electrolyzer.rs".function]]
@@ -1897,6 +2878,10 @@ lines = [
 hash = "sha256:7cb3aa02f3c23b9689532e86294d1f1281dae223ea1eb2576358e68221b6bc5a"
 doc_hash = "sha256:6a5c0246f653d61a9a1c6421a18d041ee2c0c1a8a480fe600ab3f4aa5a8d2488"
 callees = ["fn:421a32685fa03ba4"]
+uses = [
+    "fn:0de071c9ce83c947",
+    "fn:9df4f0da1145302c",
+]
 test = true
 
 [[module."water_electrolyzer.rs".function]]
@@ -1910,6 +2895,11 @@ lines = [
 hash = "sha256:c01e660b2bc69bd26a6b48eaa35ab3c7afdd91452143212d65c0f20e6e22296a"
 doc_hash = "sha256:af1ecefefe5fa0773fba801740da1e8a6e0746e0d914b680ebe8782c36c27a1a"
 callees = ["fn:421a32685fa03ba4"]
+uses = [
+    "fn:0de071c9ce83c947",
+    "fn:808a5af874a2a48a",
+    "fn:9df4f0da1145302c",
+]
 test = true
 
 [[module."water_electrolyzer.rs".function]]
@@ -1928,6 +2918,12 @@ callees = [
     "fn:6a82fae17f1c854e",
     "fn:92ea8fcb63058af9",
 ]
+uses = [
+    "fn:0de071c9ce83c947",
+    "fn:3a5b74b9cc1fb822",
+    "fn:9df4f0da1145302c",
+    "fn:bc0f901e34b20881",
+]
 test = true
 
 [[module."water_electrolyzer.rs".function]]
@@ -1943,6 +2939,12 @@ doc_hash = "sha256:3ee28c9ce2daa79fe94ec1d86fc51e02e9d282329a012d1cf5a50430649b6
 callees = [
     "fn:421a32685fa03ba4",
     "fn:6a82fae17f1c854e",
+]
+uses = [
+    "fn:0de071c9ce83c947",
+    "fn:3a5b74b9cc1fb822",
+    "fn:808a5af874a2a48a",
+    "fn:9df4f0da1145302c",
 ]
 test = true
 
@@ -1961,6 +2963,7 @@ callees = [
     "fn:bc0027751ba31f1e",
     "fn:ef3f8013fbfae9d4",
 ]
+uses = ["fn:3a5b74b9cc1fb822"]
 test = true
 
 [[module."water_electrolyzer.rs".function]]
@@ -1989,6 +2992,11 @@ doc_hash = "sha256:2b07cad0c96e5588a0da4351ed2a941d614fa1d8079fc6ee6f589fb7dcd76
 callees = [
     "fn:49818bea4364b834",
     "fn:dff2803eaca1e138",
+]
+uses = [
+    "fn:0de071c9ce83c947",
+    "fn:9df4f0da1145302c",
+    "fn:bef7cd60f36af2a8",
 ]
 test = true
 
@@ -2019,10 +3027,48 @@ lines = [
 hash = "sha256:ad605d661a735280fe2d81201c2ce5e58c0c37369633df5372e47faab6a00a6a"
 doc_hash = "sha256:b35654e276ba872cec01ba55ea2be39f1a490362ce8c5e627a92f11df1d5494c"
 callees = ["fn:92ea8fcb63058af9"]
+uses = [
+    "fn:808a5af874a2a48a",
+    "fn:bc0f901e34b20881",
+]
 test = true
 
 [module."wind_turbine.rs"]
 path = "crate::clean_energies::wind_turbine"
+
+[[module."wind_turbine.rs".function]]
+id = "fn:8bbd68f0608f85e6"
+name = "BETZ_LIMIT"
+qual = "BETZ_LIMIT"
+item = "const"
+shape = "const"
+lines = [
+    77,
+    83,
+]
+hash = "sha256:901d3bdaa8d060df25806647fc816a1c9b673baff68276c5db2f4333a9f9c10f"
+doc_hash = "sha256:b133bcb5cd6efed417f11b50d7d10605c8d8070920841bd2868fd12cf3255948"
+reached_by = [
+    "#41",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+]
+
+[[module."wind_turbine.rs".function]]
+id = "fn:7bf718109ea90c92"
+name = "WindTurbineSiting"
+qual = "WindTurbineSiting"
+item = "type"
+shape = "enum"
+lines = [
+    85,
+    99,
+]
+hash = "sha256:396e51af1b30e7b77efd9aa560ffac737011858bd95624fa049c3cae0c7e6ab4"
+doc_hash = "sha256:f673f5bd51fe2e213d686b6fcc771c48ae67fbc368c6f7c598a7037147dd3caa"
+reached_by = ["#41"]
 
 [[module."wind_turbine.rs".function]]
 id = "fn:955e1e24eea27873"
@@ -2035,8 +3081,8 @@ lines = [
 hash = "sha256:92a20350183cfb57934bc74b46be93bf7c810194c21df9e68cceff39934029f8"
 doc_hash = "sha256:50c1363cfe50b5d30441f781a9a1c1e719eb01ed5abeefae9bb985289bb43ca9"
 reached_by = [
-    "#41",
-    "#43",
+    "#42",
+    "#45",
 ]
 physical_interface = true
 
@@ -2051,8 +3097,8 @@ lines = [
 hash = "sha256:d0713bdf727a5636043df4e4e266ef48cbe0527c987ea84e052cadcd6795eb06"
 doc_hash = "sha256:6f5c7da04195cb88e2b1de109721e6f33fc7fdc2d8ba13c78023ecda5f8209c4"
 reached_by = [
-    "#40",
     "#41",
+    "#42",
 ]
 physical_interface = true
 
@@ -2066,7 +3112,7 @@ lines = [
 ]
 hash = "sha256:a1519c4b4a2986095723861a6bae4f66d284ee79c12d20392a25cd22b4844702"
 doc_hash = "sha256:87f4c0c1672558be05fe35d46c76e02eb0b8c5490e65ace79750f99890666578"
-reached_by = ["#42"]
+reached_by = ["#44"]
 physical_interface = true
 
 [[module."wind_turbine.rs".function]]
@@ -2079,11 +3125,12 @@ lines = [
 ]
 hash = "sha256:9a58759532bac092cbfa537e7817f3005079c144d2f95886bcdfdc74f6f96f4a"
 doc_hash = "sha256:fad640613bdc319000a705116c414ed5041f48d0e2c8007b1b1f3e492bf00765"
+uses = ["fn:8bbd68f0608f85e6"]
 reached_by = [
-    "#40",
-    "#42",
-    "#43",
+    "#41",
     "#44",
+    "#45",
+    "#46",
 ]
 physical_interface = true
 
@@ -2099,12 +3146,30 @@ hash = "sha256:5138ecde2c6c37f9374114825731e9a2ee4c01e22015a062a3e8bf3677503d48"
 doc_hash = "sha256:2ea36a5391c7ca35fff8abffe03ee2a8e7d2bfed24111d4b93ef753007e99bea"
 callees = ["fn:5c9481632d75b973"]
 reached_by = [
-    "#40",
-    "#42",
-    "#43",
+    "#41",
     "#44",
+    "#45",
+    "#46",
 ]
 physical_interface = true
+
+[[module."wind_turbine.rs".function]]
+id = "fn:a042d74e82e0b582"
+name = "WindTurbine"
+qual = "WindTurbine"
+item = "type"
+shape = "struct"
+lines = [
+    202,
+    231,
+]
+hash = "sha256:90c87527d1bdae9934f17df12ed40bae5945f04c065c830478f1b5b77ebe138b"
+doc_hash = "sha256:7c3c9492a93664673e45b8111d8a2493fb8f146d4db515f4d3a84208eaa2798d"
+uses = [
+    "fn:1e6b28ad4948f70d",
+    "fn:7bf718109ea90c92",
+]
+reached_by = ["#41"]
 
 [[module."wind_turbine.rs".function]]
 id = "fn:9ff6cb878b86a75f"
@@ -2116,7 +3181,12 @@ lines = [
 ]
 hash = "sha256:a3b6135eb1c45865a20890bec92db522c802832773aacfe6c60e96c2d17c58f4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#40"]
+uses = [
+    "fn:1e6b28ad4948f70d",
+    "fn:7bf718109ea90c92",
+    "fn:a042d74e82e0b582",
+]
+reached_by = ["#41"]
 
 [[module."wind_turbine.rs".function]]
 id = "fn:d6384c5166a0268f"
@@ -2129,7 +3199,8 @@ lines = [
 hash = "sha256:4744f958dd562df96cafa326e1eb6ce841b196268b17ccbc37a15f8ec4a0d0f0"
 doc_hash = "sha256:3eecaffbfd82c18f0fdd017339e1f5dca5537abac9e936d11e3c695409dccebe"
 callees = ["fn:5c9481632d75b973"]
-reached_by = ["#40"]
+uses = ["fn:a042d74e82e0b582"]
+reached_by = ["#41"]
 physical_interface = true
 
 [[module."wind_turbine.rs".function]]
@@ -2143,7 +3214,8 @@ lines = [
 hash = "sha256:65482f6c9c563914e4398d5cb8457d5f6cd9d23c64ce20254dce7c06557ff117"
 doc_hash = "sha256:b9a7c2f0cdd583956d3e3da70d738077d66d34cf679129ddf4a202251f5d46fc"
 callees = ["fn:2131cd27c9094f9c"]
-reached_by = ["#40"]
+uses = ["fn:a042d74e82e0b582"]
+reached_by = ["#41"]
 physical_interface = true
 
 [[module."wind_turbine.rs".function]]
@@ -2156,7 +3228,8 @@ lines = [
 ]
 hash = "sha256:b77c58c6bf7b02c1aa98f473b403fcfbd77ee1c0a8e033d06e465b5d0c8f37d1"
 doc_hash = "sha256:907366a57fa2358cec64da7ecf4f141ea8332fb6b9c08d66b58586a70b4499a8"
-reached_by = ["#40"]
+uses = ["fn:a042d74e82e0b582"]
+reached_by = ["#41"]
 
 [[module."wind_turbine.rs".function]]
 id = "fn:584f501ef230a56a"
@@ -2168,7 +3241,8 @@ lines = [
 ]
 hash = "sha256:b198f9561cfbec72cb4fa73c11453a95b2941e6e00368a150cf6e09ad987b05f"
 doc_hash = "sha256:8108f7b985de8d7b79b753319b070c471d2804b2d8c7163000270254bb04fbd4"
-reached_by = ["#40"]
+uses = ["fn:a042d74e82e0b582"]
+reached_by = ["#41"]
 
 [[module."wind_turbine.rs".function]]
 id = "fn:04181a5498247329"
@@ -2181,7 +3255,8 @@ lines = [
 hash = "sha256:f7624e3d0317dd9c624801904090308074f18fb655d4a2264a5ce957c2112239"
 doc_hash = "sha256:15906b033555ec0835d14e9e01a1b335fd5f9d90043738fde890c7ccde1f9633"
 callees = ["fn:c1baee6620aec75c"]
-reached_by = ["#40"]
+uses = ["fn:a042d74e82e0b582"]
+reached_by = ["#41"]
 physical_interface = true
 
 [[module."wind_turbine.rs".function]]
@@ -2240,6 +3315,7 @@ lines = [
 ]
 hash = "sha256:578a272a1668df73d1e8996ad99aebe0ebc3d1b9216c17fca33587fc6946734b"
 doc_hash = "sha256:8e8da68d414f5eaf62921d541f91c62eeeb30fa6a46fd5d074bd3b528a70d790"
+uses = ["fn:8bbd68f0608f85e6"]
 test = true
 
 [[module."wind_turbine.rs".function]]
@@ -2276,4 +3352,5 @@ callees = [
     "fn:a71fde6590266b84",
     "fn:d6384c5166a0268f",
 ]
+uses = ["fn:a042d74e82e0b582"]
 test = true

@@ -34,6 +34,7 @@
 //!            ├─ option effect = block ───────────────────────────────> blocked_by: Answer
 //!            ├─ option effect = prompt_needs_fix ────────────────────> prompts ("Mark as Needs fix instead?")
 //!            ├─ option effect = flag ────────────────────────────────> flags (needs improvement; never blocks)
+//!            ├─ option effect = flag_cap_rung3 (a waiver, 2026-10-14) ──> flags AND rung_capped: rung 4 is closed
 //!            ├─ rung4_allowed = some gate_rung4 answer (vv_evidence)
 //!            │    AND a gate_rung4_author answer (vv_case_author =
 //!            │    human_wrote_and_verified; added 2026-10-07)
@@ -72,6 +73,7 @@ use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
 
+use super::index::ItemShape;
 use super::types::AuthorshipKind;
 
 /// The question set, embedded at compile time (works in wasm).
@@ -142,6 +144,57 @@ pub enum AppliesWhen {
     Port,
     /// A physical quantity crosses the function's interface.
     PhysicalInterface,
+    /// The answers say a human wrote the validation case and checked its
+    /// result by hand ([`Effect::GateRung4Author`]): the review is a rung 4
+    /// review and the two-axis questions are asked (GitHub #855,
+    /// maintainer 2026-10-13: "if validation code was handwritten, then the
+    /// wizard automatically knows this is a start of Rung 4").
+    Rung4,
+}
+
+/// What kind of entry a question is asked of (GitHub #843, additive: a
+/// question without `asked_of` is asked of functions, as before types and
+/// constants were reviewable).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AskedOf {
+    #[default]
+    Function,
+    /// Functions, types and constants alike.
+    Any,
+    /// Every type and constant.
+    Item,
+    /// A record or a list of cases (struct, union, enum).
+    RecordOrCases,
+    /// A record, a list of cases or an interface (struct, union, enum,
+    /// trait).
+    Structured,
+    /// A list of cases (enum).
+    Cases,
+    /// A named number (constant, static).
+    NamedNumber,
+    /// An interface (trait).
+    Interface,
+}
+
+/// Which of the two validation axes a rung 4 question checks (GitHub #855;
+/// the same two axes as each README's Bookkeeping status).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Axis {
+    /// The tests pass and are strict enough that a pass means something.
+    Accuracy,
+    /// The API is useful and obvious enough to be intuitive.
+    Usability,
+}
+
+impl Axis {
+    pub fn label(self) -> &'static str {
+        match self {
+            Axis::Accuracy => "physical accuracy",
+            Axis::Usability => "usability",
+        }
+    }
 }
 
 /// Where a question's starting answer comes from.
@@ -187,6 +240,20 @@ pub enum Effect {
     /// **CORRECTED 2026-10-07** (maintainer, #769). `no_rung4` still reads.
     #[serde(alias = "no_rung4")]
     NotIndependent,
+    /// Rung 4 is not opened by this stamp: one of its two axes fails
+    /// (GitHub #855). The stamp is allowed at rung 3.
+    BlockRung4,
+    /// A waiver: a required check was skipped with a typed reason
+    /// (maintainer, 2026-10-14; first use `limits_and_guards =
+    /// guard_waived_research`). The stamp is allowed, capped at rung 3
+    /// whatever the V&V answers say, and the answer is listed as needs
+    /// improvement ([`GateResult::flags`], [`GateResult::rung_capped`]) so a
+    /// waived function stays visible. Why rung 3 and not 4: NUREG/BR-0167
+    /// §3.2.4.1 puts "proper handling of boundary conditions, including
+    /// extreme inputs" and "adequate error detection, handling, and
+    /// recovery" among the objectives of requirements-driven testing, so a
+    /// function that skips them is reviewed (3) and not V&V'd (4).
+    FlagCapRung3,
 }
 
 /// A UI action an option offers.
@@ -205,6 +272,12 @@ pub struct Question {
     pub key: String,
     pub text: String,
     pub applies_when: AppliesWhen,
+    /// What kind of entry it is asked of; absent = functions.
+    #[serde(default, skip_serializing_if = "is_function")]
+    pub asked_of: AskedOf,
+    /// The validation axis a rung 4 question checks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub axis: Option<Axis>,
     /// The workspace rule the question rests on, where #769 records one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace_rule: Option<String>,
@@ -214,6 +287,10 @@ pub struct Question {
     pub options: Vec<WizardOption>,
     #[serde(rename = "source", default)]
     pub sources: Vec<Source>,
+}
+
+fn is_function(a: &AskedOf) -> bool {
+    *a == AskedOf::Function
 }
 
 /// One option of a question.
@@ -327,6 +404,13 @@ pub struct Applicability {
     pub is_test: bool,
     /// Git's view of who wrote the reaching tests (for the derived rung).
     pub tests: TestAuthorship,
+    /// Which kind of type or constant is under review (GitHub #843);
+    /// `None` for a function.
+    pub shape: Option<ItemShape>,
+    /// The answers say the validation case was written and checked by hand
+    /// ([`AppliesWhen::Rung4`]). Set from the answers by
+    /// [`Applicability::with_answers`]; the gate does so itself.
+    pub hand_written_vv: bool,
 }
 
 impl Applicability {
@@ -335,7 +419,41 @@ impl Applicability {
             AppliesWhen::Always => true,
             AppliesWhen::Port => self.is_port,
             AppliesWhen::PhysicalInterface => self.physical_interface,
+            AppliesWhen::Rung4 => self.hand_written_vv,
         }
+    }
+
+    /// Whether a question asked of `of` is asked of the entry under review.
+    pub fn asked(self, of: AskedOf) -> bool {
+        use ItemShape::{Const, Enum, Static, Struct, Trait, Union};
+        match (of, self.shape) {
+            (AskedOf::Any, _) => true,
+            (AskedOf::Function, s) => s.is_none(),
+            (AskedOf::Item, s) => s.is_some(),
+            (AskedOf::RecordOrCases, s) => matches!(s, Some(Struct | Union | Enum)),
+            (AskedOf::Structured, s) => matches!(s, Some(Struct | Union | Enum | Trait)),
+            (AskedOf::Cases, s) => s == Some(Enum),
+            (AskedOf::NamedNumber, s) => matches!(s, Some(Const | Static)),
+            (AskedOf::Interface, s) => s == Some(Trait),
+        }
+    }
+
+    /// Whether question `q` is asked.
+    pub fn asks(self, q: &Question) -> bool {
+        self.applies(q.applies_when) && self.asked(q.asked_of)
+    }
+
+    /// The same with [`Self::hand_written_vv`] read from `answers`: set when
+    /// one of them is the "a human wrote and checked the validation case"
+    /// answer of the embedded question set.
+    pub fn with_answers(mut self, answers: &BTreeMap<String, String>) -> Applicability {
+        let w = ReviewWizard::embedded();
+        self.hand_written_vv = answers.iter().any(|(q, raw)| {
+            w.question(q)
+                .and_then(|question| question.option(parse_answer(raw).0))
+                .is_some_and(|o| o.effect == Effect::GateRung4Author)
+        });
+        self
     }
 }
 
@@ -425,6 +543,18 @@ pub struct GateResult {
     /// `no_rung4` answer~~ CORRECTED 2026-10-07: independence does not close
     /// rung 4; the hand-written V&V case opens it with the evidence).
     pub rung4_allowed: bool,
+    /// Rung 4 questions ([`AppliesWhen::Rung4`]) that are asked and have no
+    /// answer. They never refuse the stamp here, so that a rung 4 review
+    /// written before they existed (#855) still reads as rung 4, shown as
+    /// "axes not recorded"; a **new** stamp is refused by the draft until
+    /// they are answered.
+    pub rung4_unanswered: Vec<String>,
+    /// The axes a [`Effect::BlockRung4`] answer fails, sorted: rung 4 is
+    /// not opened while there is one.
+    pub rung4_failed: Vec<Axis>,
+    /// The waivers given ([`Effect::FlagCapRung3`]): rung 4 is not opened
+    /// while there is one. Each is also in [`Self::flags`].
+    pub rung_capped: Vec<Choice>,
     /// `independence` is answered and no answer is `not_independent`: one of
     /// rung 5's conditions (~~this stamp may be the independent second review
     /// for rung 5~~ **CORRECTED 2026-10-08**, #809: rung 5 is IV&V,
@@ -558,9 +688,7 @@ impl ReviewWizard {
 
     /// The questions asked for this function, in order.
     pub fn applicable(&self, ctx: Applicability) -> impl Iterator<Item = &Question> {
-        self.questions
-            .iter()
-            .filter(move |q| ctx.applies(q.applies_when))
+        self.questions.iter().filter(move |q| ctx.asks(q))
     }
 
     /// Every standard-corpus id cited (for the corpus check in `kovan`).
@@ -581,7 +709,7 @@ impl ReviewWizard {
         let Some(q) = self.question(question) else {
             return Err(AnswerError::UnknownQuestion(question.to_string()));
         };
-        if !ctx.applies(q.applies_when) {
+        if !ctx.asks(q) {
             return Err(AnswerError::NotApplicable(question.to_string()));
         }
         let (key, text) = parse_answer(raw);
@@ -610,6 +738,7 @@ impl ReviewWizard {
 
     /// The stamp gate over this question set (see the module docs).
     pub fn stamp_gate(&self, answers: &BTreeMap<String, String>, ctx: Applicability) -> GateResult {
+        let ctx = ctx.with_answers(answers);
         let mut g = GateResult::default();
         let mut opens = false;
         let mut opens_author = false;
@@ -634,14 +763,29 @@ impl ReviewWizard {
                 Effect::GateRung4 => opens = true,
                 Effect::GateRung4Author => opens_author = true,
                 Effect::NotIndependent => not_independent = true,
+                Effect::BlockRung4 => {
+                    let axis = self.question(q).and_then(|q| q.axis).unwrap_or(Axis::Accuracy);
+                    g.rung4_failed.push(axis);
+                }
+                Effect::FlagCapRung3 => {
+                    g.flags.push(c.clone());
+                    g.rung_capped.push(c);
+                }
             }
         }
         for q in self.applicable(ctx) {
-            if !answers.contains_key(&q.key) {
+            if answers.contains_key(&q.key) {
+                continue;
+            }
+            if q.applies_when == AppliesWhen::Rung4 {
+                g.rung4_unanswered.push(q.key.clone());
+            } else {
                 g.blocked_by.push(GateReason::Unanswered(q.key.clone()));
             }
         }
-        g.rung4_allowed = opens && opens_author;
+        g.rung4_failed.sort();
+        g.rung4_failed.dedup();
+        g.rung4_allowed = opens && opens_author && g.rung4_failed.is_empty() && g.rung_capped.is_empty();
         g.independent = answers.contains_key("independence") && !not_independent;
         g.rung = rung_from(g.rung4_allowed, ctx.tests);
         g
@@ -658,6 +802,8 @@ impl ReviewWizard {
         previous: &BTreeMap<String, String>,
         ctx: Applicability,
     ) -> BTreeMap<String, String> {
+        // A previous rung 4 review's two-axis answers are kept (#855).
+        let ctx = ctx.with_answers(previous);
         previous
             .iter()
             .filter(|(q, raw)| self.check_answer(q, raw, ctx).is_ok())
@@ -684,22 +830,27 @@ fn rung_from(rung4_allowed: bool, tests: TestAuthorship) -> Rung {
 /// never chooses it): **4** when `vv_evidence` is a qualifying answer AND
 /// `vv_case_author = human_wrote_and_verified` AND git shows no agent
 /// trailer on the commits that added the tests reaching the function;
+/// AND (GitHub #855) no answer fails one of rung 4's two axes
+/// ([`Effect::BlockRung4`]) and none is a waiver ([`Effect::FlagCapRung3`],
+/// 2026-10-14);
 /// otherwise **3** (a half-done V&V case gives 3). Pure: the answers and
 /// git's [`TestAuthorship`] in, the rung out.
 pub fn derived_rung(answers: &BTreeMap<String, String>, tests: TestAuthorship) -> Rung {
     let w = ReviewWizard::embedded();
     let mut opens = false;
     let mut opens_author = false;
+    let mut axis_fails = false;
     for (q, raw) in answers {
         let Some(question) = w.question(q) else { continue };
         let (key, _) = parse_answer(raw);
         match question.option(key).map(|o| o.effect) {
             Some(Effect::GateRung4) => opens = true,
             Some(Effect::GateRung4Author) => opens_author = true,
+            Some(Effect::BlockRung4 | Effect::FlagCapRung3) => axis_fails = true,
             _ => {}
         }
     }
-    rung_from(opens && opens_author, tests)
+    rung_from(opens && opens_author && !axis_fails, tests)
 }
 
 /// [`ReviewWizard::stamp_gate`] over the embedded question set.
@@ -714,9 +865,17 @@ pub fn stamp_gate(answers: &BTreeMap<String, String>, ctx: Applicability) -> Gat
 /// option). Only starting answers: the reviewer can change each, and signs
 /// what is chosen.
 pub fn test_function_prefill() -> Vec<(&'static str, &'static str)> {
+    test_prefill_for(Applicability { is_test: true, ..Applicability::default() })
+}
+
+/// [`test_function_prefill`] for the entry `ctx` describes: the "this is a
+/// test" answers of the questions asked of it (a test function, or since
+/// #843 a type or constant that exists only for tests).
+pub fn test_prefill_for(ctx: Applicability) -> Vec<(&'static str, &'static str)> {
     ReviewWizard::embedded()
         .questions
         .iter()
+        .filter(|q| ctx.asks(q))
         .filter_map(|q| {
             q.options
                 .iter()
@@ -791,12 +950,16 @@ mod tests {
         physical_interface: false,
         is_test: false,
         tests: TestAuthorship::Unknown,
+        shape: None,
+        hand_written_vv: false,
     };
     const BOTH: Applicability = Applicability {
         is_port: true,
         physical_interface: true,
         is_test: false,
         tests: TestAuthorship::Unknown,
+        shape: None,
+        hand_written_vv: false,
     };
 
     /// Methodology: the four "this is a test" options (maintainer,
@@ -819,9 +982,13 @@ mod tests {
             ("test_reach", "is_a_test"),
             ("vv_evidence", "is_a_test"),
         ];
+        // Among the questions asked of a function; the one test-only
+        // option of the type and constant questions (#843) is checked in
+        // `types_and_constants_have_their_own_questions`.
         let restricted: Vec<(&str, &str)> = w
             .questions
             .iter()
+            .filter(|q| q.asked_of == AskedOf::Function || q.asked_of == AskedOf::Any)
             .flat_map(|q| q.options.iter().filter(|o| o.only_when.is_some()).map(move |o| (q.key.as_str(), o.key.as_str())))
             .collect();
         assert_eq!(restricted, test_only);
@@ -870,8 +1037,24 @@ mod tests {
                 "independence",
                 "unintended_function",
                 "coding_standards",
+                // Types and constants (#843).
+                "item_matches_description",
+                "item_upstream_fidelity",
+                "item_holds_extra",
+                "item_test_use",
+                "item_impossible_values",
+                "item_cases_complete",
+                "item_value_source",
+                "item_contract_stated",
+                // Rung 4, both axes (#855).
+                "rung4_tests_pass",
+                "rung4_test_catches_wrong_physics",
+                "rung4_tolerance_justified",
+                "rung4_usable_without_source",
+                "rung4_wrong_quantity_by_accident",
             ]
         );
+        // What a function is asked is unchanged by the additions.
         assert_eq!(w.applicable(NONE).count(), 11);
         assert_eq!(w.applicable(BOTH).count(), 13);
         assert_eq!(
@@ -1125,7 +1308,9 @@ requires_text = true
     fn effects_block_prompt_and_flag() {
         let w = ReviewWizard::embedded();
         let mut counts = [0usize; 3];
-        for q in &w.questions {
+        // The questions a function is asked without a rung 4 claim; the
+        // others have their own tests.
+        for q in w.questions.iter().filter(|q| BOTH.asks(q)) {
             for o in &q.options {
                 let mut m = clean();
                 m.insert("upstream_fidelity".into(), "matches".into());
@@ -1157,6 +1342,46 @@ requires_text = true
             }
         }
         assert_eq!(counts, [7, 6, 2]);
+    }
+
+    /// Methodology: the number-guard waiver (maintainer, 2026-10-14).
+    /// `limits_and_guards = guard_waived_research` is a `flag_cap_rung3`
+    /// answer. Judged on a set of answers that otherwise gives rung 4 (a
+    /// qualifying V&V case, written by hand, git agreeing): with the waiver
+    /// the stamp is allowed, the answer is in `flags` and in `rung_capped`,
+    /// rung 4 is closed and the rung is 3 from both `stamp_gate` and
+    /// `derived_rung`; the same answers with a guard give rung 4 and no
+    /// flag. The waiver needs its reason (refused without text), and
+    /// `guard_missing` still blocks the stamp.
+    ///
+    /// Result (2026-10-14): passes.
+    #[test]
+    fn a_waived_guard_is_flagged_and_caps_the_stamp_at_rung_3() {
+        let human = Applicability { tests: TestAuthorship::Human, ..NONE };
+        let w = ReviewWizard::embedded();
+        let o = w.question("limits_and_guards").unwrap().option("guard_waived_research").unwrap();
+        assert_eq!(o.effect, Effect::FlagCapRung3);
+        assert!(o.requires_text);
+        let mut m = clean();
+        m.insert("vv_evidence".into(), "analytical_case".into());
+        m.insert("vv_case_author".into(), "human_wrote_and_verified".into());
+        let g = stamp_gate(&m, human);
+        assert_eq!((g.rung, g.flags.len(), g.rung_capped.len()), (Rung::Four, 0, 0));
+
+        m.insert("limits_and_guards".into(), "guard_waived_research: scoping study, inputs come from one deck".into());
+        let g = stamp_gate(&m, human);
+        let c = Choice { question: "limits_and_guards".into(), option: "guard_waived_research".into() };
+        assert!(g.stampable(), "{:?}", g.blocked_by);
+        assert_eq!(g.flags, [c.clone()]);
+        assert_eq!(g.rung_capped, [c]);
+        assert!(!g.rung4_allowed);
+        assert_eq!(g.rung, Rung::Three);
+        assert_eq!(derived_rung(&m, TestAuthorship::Human), Rung::Three);
+
+        m.insert("limits_and_guards".into(), "guard_waived_research".into());
+        assert!(matches!(stamp_gate(&m, human).blocked_by.as_slice(), [GateReason::Invalid(_)]));
+        m.insert("limits_and_guards".into(), "guard_missing".into());
+        assert!(matches!(stamp_gate(&m, human).blocked_by.as_slice(), [GateReason::Answer(_)]));
     }
 
     /// Methodology: the derived rung (maintainer, #769, 2026-10-07: "the
@@ -1346,7 +1571,11 @@ requires_text = true
     #[test]
     fn independence_question_cites_br0167_for_ivv() {
         let w = ReviewWizard::embedded();
-        assert_eq!(w.questions.len(), 13);
+        // ~~`w.questions.len() == 13`~~ CORRECTED 2026-10-13: questions
+        // were added for types, constants (#843) and rung 4 (#855), none of
+        // them always asked of a function, so the point stands: a function
+        // is still asked the same 13 at most.
+        assert_eq!(w.applicable(BOTH).count(), 13);
         let q = w.question("independence").unwrap();
         let opts: Vec<&str> = q.options.iter().map(|o| o.key.as_str()).collect();
         assert_eq!(opts, ["someone_else", "self_check", "other"]);
@@ -1423,5 +1652,185 @@ requires_text = true
             .unwrap()
             .option(independence_prefill(true, AuthorshipKind::Human));
         assert!(o.is_some());
+    }
+
+    fn item(shape: ItemShape) -> Applicability {
+        Applicability { shape: Some(shape), ..NONE }
+    }
+
+    /// Methodology (#843): which questions each kind of type or constant
+    /// is asked, and the gate on a complete answer set for each.
+    ///
+    /// Pass: none is asked what happens when something goes wrong or about
+    /// numerical hazards; every kind is asked whether it holds what its
+    /// description says, whether a test uses it, V&V evidence, who wrote the
+    /// V&V case, maintainability, independence and coding rules; a record
+    /// and a list of cases are also asked about impossible values and
+    /// extra content, a list of cases whether every case is listed, an
+    /// interface what a model must guarantee and extra content, a named
+    /// number where its value comes from; a port adds the original-code
+    /// question and a physical quantity the units question. A complete
+    /// answer set stamps at rung 3; "no source given" flags and does not
+    /// block; a function answer on a record is refused as not applicable,
+    /// and an item answer on a function likewise. The one test-only option
+    /// is offered only for an item under test. Every question text of this
+    /// set carries an example.
+    ///
+    /// Result (2026-10-13): passes.
+    #[test]
+    fn types_and_constants_have_their_own_questions() {
+        let w = ReviewWizard::embedded();
+        let keys = |ctx: Applicability| -> Vec<&str> { w.applicable(ctx).map(|q| q.key.as_str()).collect() };
+        let common = ["vv_evidence", "vv_case_author", "maintainability", "independence", "coding_standards"];
+        let expect = |shape: ItemShape, own: &[&str]| {
+            let got = keys(item(shape));
+            let mut want: Vec<&str> = common.iter().chain(own.iter()).copied().collect();
+            want.push("item_matches_description");
+            want.push("item_test_use");
+            let (mut a, mut b) = (got.clone(), want);
+            a.sort();
+            b.sort();
+            assert_eq!(a, b, "{shape:?}");
+            assert!(!got.contains(&"error_handling") && !got.contains(&"numerical_hazards"));
+        };
+        expect(ItemShape::Struct, &["item_holds_extra", "item_impossible_values"]);
+        expect(ItemShape::Union, &["item_holds_extra", "item_impossible_values"]);
+        expect(ItemShape::Enum, &["item_holds_extra", "item_impossible_values", "item_cases_complete"]);
+        expect(ItemShape::Trait, &["item_holds_extra", "item_contract_stated"]);
+        expect(ItemShape::Alias, &[]);
+        expect(ItemShape::Const, &["item_value_source"]);
+        expect(ItemShape::Static, &["item_value_source"]);
+        let ported = Applicability { is_port: true, physical_interface: true, ..item(ItemShape::Struct) };
+        assert!(keys(ported).contains(&"item_upstream_fidelity") && keys(ported).contains(&"units_documented"));
+        assert!(!keys(ported).contains(&"upstream_fidelity"));
+
+        let konst = a(&[
+            ("item_matches_description", "yes"),
+            ("item_test_use", "used_and_checked"),
+            ("item_value_source", "cited"),
+            ("vv_evidence", "unit_tests_only"),
+            ("vv_case_author", "agent_wrote_or_cowrote"),
+            ("maintainability", "yes"),
+            ("independence", "someone_else"),
+            ("coding_standards", "yes"),
+        ]);
+        let g = w.stamp_gate(&konst, item(ItemShape::Const));
+        assert!(g.stampable() && g.flags.is_empty() && g.rung == Rung::Three, "{g:?}");
+        let mut unsourced = konst.clone();
+        unsourced.insert("item_value_source".into(), "no_source".into());
+        let g = w.stamp_gate(&unsourced, item(ItemShape::Const));
+        assert!(g.stampable(), "{g:?}");
+        assert_eq!(g.flags, [Choice { question: "item_value_source".into(), option: "no_source".into() }]);
+        // The same answers on a record lack its own questions.
+        let g = w.stamp_gate(&konst, item(ItemShape::Struct));
+        assert!(g.blocked_by.contains(&GateReason::Unanswered("item_impossible_values".into())), "{g:?}");
+        assert!(g.blocked_by.contains(&GateReason::Invalid(AnswerError::NotApplicable("item_value_source".into()))));
+        // Function answers on an item, and item answers on a function.
+        let g = w.stamp_gate(&clean(), item(ItemShape::Const));
+        assert!(g.blocked_by.contains(&GateReason::Invalid(AnswerError::NotApplicable("error_handling".into()))));
+        let g = w.stamp_gate(&konst, NONE);
+        assert!(g.blocked_by.contains(&GateReason::Invalid(AnswerError::NotApplicable("item_value_source".into()))));
+        // The test-only option.
+        let test_item = Applicability { is_test: true, ..item(ItemShape::Const) };
+        let opt = w.question("item_test_use").unwrap().option("is_test_code").unwrap();
+        assert!(opt.offered(test_item) && !opt.offered(item(ItemShape::Const)));
+        assert!(test_prefill_for(test_item).contains(&("item_test_use", "is_test_code")));
+        assert!(!test_function_prefill().iter().any(|(q, _)| q.starts_with("item_")));
+        for q in w.questions.iter().filter(|q| q.key.starts_with("item_") || (q.key.starts_with("rung4_") && q.key != "rung4_tests_pass")) {
+            assert!(q.text.contains("Example:"), "{} has no example", q.key);
+        }
+    }
+
+    /// Methodology (#855): rung 4's two axes on a function. The clean
+    /// answer set with qualifying evidence and "a human wrote and checked
+    /// the validation case", tests authored by a human.
+    ///
+    /// Pass: (1) choosing the hand-written answer is what asks the five
+    /// rung 4 questions (they are not asked otherwise, and answering one
+    /// then is refused); (2) with none answered the gate still reads rung
+    /// 4 and lists the five as unanswered, so a review written before they
+    /// existed keeps its rung; (3) all five answered well: rung 4, nothing
+    /// failed; (4) one accuracy answer that fails ("only checks that the
+    /// code runs"): the stamp is allowed at rung 3 and the accuracy axis is
+    /// named; (5) one usability answer that fails: rung 3, usability named;
+    /// (6) both: both named; (7) `derived_rung` agrees with the gate in
+    /// every case. The same holds for a record.
+    ///
+    /// Result (2026-10-13): passes.
+    #[test]
+    fn rung4_needs_both_axes() {
+        let w = ReviewWizard::embedded();
+        let rung4 = ["rung4_tests_pass", "rung4_test_catches_wrong_physics", "rung4_tolerance_justified", "rung4_usable_without_source", "rung4_wrong_quantity_by_accident"];
+        let human = Applicability { tests: TestAuthorship::Human, ..NONE };
+        assert!(w.applicable(human).all(|q| !q.key.starts_with("rung4_")));
+        let mut m = clean();
+        m.insert("rung4_tests_pass".into(), "all_pass".into());
+        let g = w.stamp_gate(&m, human);
+        assert_eq!(g.blocked_by, [GateReason::Invalid(AnswerError::NotApplicable("rung4_tests_pass".into()))]);
+
+        let mut claim = clean();
+        claim.insert("vv_evidence".into(), "analytical_case".into());
+        claim.insert("vv_case_author".into(), "human_wrote_and_verified".into());
+        let asked: Vec<&str> = w.applicable(human.with_answers(&claim)).map(|q| q.key.as_str()).filter(|k| k.starts_with("rung4_")).collect();
+        assert_eq!(asked, rung4);
+        let g = w.stamp_gate(&claim, human);
+        assert!(g.stampable() && g.rung == Rung::Four, "{g:?}");
+        assert_eq!(g.rung4_unanswered, rung4);
+
+        let mut good = claim.clone();
+        for (q, o) in [
+            ("rung4_tests_pass", "all_pass"),
+            ("rung4_test_catches_wrong_physics", "compared_with_tolerance"),
+            ("rung4_tolerance_justified", "from_outside"),
+            ("rung4_usable_without_source", "from_name_and_description"),
+            ("rung4_wrong_quantity_by_accident", "no_named_and_unit_carrying"),
+        ] {
+            good.insert(q.into(), o.into());
+        }
+        let g = w.stamp_gate(&good, human);
+        assert!(g.stampable() && g.rung == Rung::Four && g.rung4_unanswered.is_empty() && g.rung4_failed.is_empty(), "{g:?}");
+        assert_eq!(derived_rung(&good, TestAuthorship::Human), Rung::Four);
+
+        let with = |pairs: &[(&str, &str)]| {
+            let mut m = good.clone();
+            for (q, o) in pairs {
+                m.insert(q.to_string(), o.to_string());
+            }
+            m
+        };
+        for (pairs, failed) in [
+            (vec![("rung4_test_catches_wrong_physics", "only_checks_it_runs")], vec![Axis::Accuracy]),
+            (vec![("rung4_usable_without_source", "had_to_read_code")], vec![Axis::Usability]),
+            (
+                vec![("rung4_tolerance_justified", "chosen_to_pass"), ("rung4_wrong_quantity_by_accident", "yes_can_be_mixed_up")],
+                vec![Axis::Accuracy, Axis::Usability],
+            ),
+        ] {
+            let m = with(&pairs);
+            let g = w.stamp_gate(&m, human);
+            assert!(g.stampable(), "{g:?}");
+            assert_eq!(g.rung, Rung::Three, "{pairs:?}");
+            assert!(!g.rung4_allowed);
+            assert_eq!(g.rung4_failed, failed);
+            assert_eq!(derived_rung(&m, TestAuthorship::Human), Rung::Three);
+        }
+        // A record reaches rung 4 the same way.
+        let rec = Applicability { tests: TestAuthorship::Human, ..item(ItemShape::Struct) };
+        let mut r = a(&[
+            ("item_matches_description", "yes"),
+            ("item_test_use", "used_and_checked"),
+            ("item_holds_extra", "no"),
+            ("item_impossible_values", "no_checked_when_built"),
+            ("vv_evidence", "analytical_case"),
+            ("vv_case_author", "human_wrote_and_verified"),
+            ("maintainability", "yes"),
+            ("independence", "someone_else"),
+            ("coding_standards", "yes"),
+        ]);
+        for q in rung4 {
+            r.insert(q.into(), good[q].clone());
+        }
+        let g = w.stamp_gate(&r, rec);
+        assert!(g.stampable() && g.rung == Rung::Four, "{g:?}");
     }
 }

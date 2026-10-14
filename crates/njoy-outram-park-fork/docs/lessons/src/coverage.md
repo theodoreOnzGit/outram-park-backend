@@ -17,7 +17,7 @@ validation.
 partly verified (what is not is stated on the page); **U** ported, no
 cross-code record; **N** `NotPorted` stub; **T** tooling, no physics.
 
-| module | lesson section | code walk | V&V record | status |
+| module | lesson section | Code Review map | V&V record | status |
 |---|---|---|---|---|
 | `endf` | [Rung 1](./endf.md) | `Tape::read_file` (rung 1) | indirect: every NJOY comparison reads through it; float-parser defect record in `endf/parse.rs` | V |
 | `moder` | [Rung 1](./endf.md), supporting modules | `moder::select_materials` ([appendix](./call-trees.md)) | ~~none against NJOY; README says verified by hand~~ `moder_vs_njoy2016.md` (2026-10-05): selection and every `a11` field match NJOY2016's MODER; ~~text, `i11` and blank fields do not~~ all 11 793 lines byte-identical since [#553](https://github.com/theodoreOnzGit/outram-park-backend/issues/553) ([#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)) | ~~**U — gap**~~ ~~**P**~~ **V** (MF=32 and group materials not covered) |

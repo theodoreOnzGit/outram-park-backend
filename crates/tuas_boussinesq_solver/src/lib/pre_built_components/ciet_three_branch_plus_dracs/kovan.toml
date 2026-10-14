@@ -33,6 +33,11 @@ lines = [
 hash = "sha256:a9d14f95329b655c810236efaf2e83db57922b5b1d33eea9bfb6fbbeced660df"
 doc_hash = "sha256:0f10e35411565a2379019ba562e40c4b5cfe9d325a67c1d2a97fd6674e81463d"
 callees = ["fn:70cae68e0ec8771e"]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
 reached_by = [
     "#0",
     "#1",
@@ -62,6 +67,11 @@ lines = [
 hash = "sha256:48319d72e1d2ca43bdfab8fe5f81ad48f4725213bbb839cffc180343f5bb5ebd"
 doc_hash = "sha256:c15f3dc1ab1e2856d955a2c57f12e2fa5b4e7938403479bf10e6db86c0235c24"
 callees = ["fn:c79fa136163d3697"]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
 reached_by = [
     "#0",
     "#1",
@@ -101,6 +111,11 @@ callees = [
     "fn:3f6427f87e7e0f62",
     "fn:f66c6613b2fa9c0c",
 ]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:a6efe5f766b47fef",
+]
 reached_by = [
     "#0",
     "#1",
@@ -136,6 +151,14 @@ callees = [
     "fn:71e0b3e056618526",
     "fn:a3a04100486196dc",
 ]
+uses = [
+    "fn:0a50e017198e2657",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:9b373dcfa52e169e",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 reached_by = [
     "#0",
     "#1",
@@ -168,6 +191,7 @@ callees = [
     "fn:134aefb246f7d585",
     "fn:74172f53fcffc1fc",
 ]
+uses = ["fn:ca62ba45b75e81ac"]
 physical_interface = true
 
 [[module."solver_functions.rs".function]]
@@ -184,6 +208,7 @@ callees = [
     "fn:134aefb246f7d585",
     "fn:74172f53fcffc1fc",
 ]
+uses = ["fn:ca62ba45b75e81ac"]
 reached_by = [
     "#0",
     "#1",
@@ -216,6 +241,7 @@ callees = [
     "fn:134aefb246f7d585",
     "fn:74172f53fcffc1fc",
 ]
+uses = ["fn:ca62ba45b75e81ac"]
 reached_by = [
     "#0",
     "#1",
@@ -252,6 +278,13 @@ callees = [
     "fn:93844cc452449d04",
     "fn:c5b03a40b86a1ce1",
     "fn:e79236623dec9507",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
 ]
 reached_by = [
     "#0",
@@ -290,6 +323,13 @@ callees = [
     "fn:c5b03a40b86a1ce1",
     "fn:e79236623dec9507",
 ]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
 physical_interface = true
 
 [[module."solver_functions.rs".function]]
@@ -308,6 +348,13 @@ callees = [
     "fn:93844cc452449d04",
     "fn:9612be65656fcaeb",
     "fn:e79236623dec9507",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
 ]
 physical_interface = true
 
@@ -328,6 +375,13 @@ callees = [
     "fn:71e0b3e056618526",
     "fn:a3a04100486196dc",
 ]
+uses = [
+    "fn:0a50e017198e2657",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."solver_functions.rs".function]]
@@ -344,6 +398,10 @@ callees = [
     "fn:3f6427f87e7e0f62",
     "fn:f66c6613b2fa9c0c",
 ]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+]
 physical_interface = true
 
 [[module."solver_functions.rs".function]]
@@ -357,4 +415,5 @@ lines = [
 hash = "sha256:b54245e27837ac35a51454b162b3871aec5adb7225e1973701e38d1082fffe84"
 doc_hash = "sha256:25e22fedc8990b23852b599a863f8b9c53f33ba1fe4f9fcf2adbccb8b90e443b"
 callees = ["fn:5898244cb765d25d"]
+uses = ["fn:77026588fa2ba602"]
 physical_interface = true

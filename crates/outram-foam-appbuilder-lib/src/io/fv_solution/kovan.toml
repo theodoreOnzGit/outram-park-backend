@@ -5,7 +5,9 @@ dir = "crates/outram-foam-appbuilder-lib/src/io/fv_solution"
 test_ids = [
     "crates/outram-foam-appbuilder-lib/src/case_runner.rs::missing_case_directory_is_an_io_error",
     "crates/outram-foam-appbuilder-lib/src/case_runner.rs::unwired_solvers_refuse_before_reading_the_case",
+    "crates/outram-foam-appbuilder-lib/src/solvers/hrm_foam/mod.rs::default_relaxation_time_matches_downar_zapolski_constants",
     "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::attached_model_contributes_to_both_equations_after_stepping",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::boussinesq_coefficients_convert_to_kinematic_units",
     "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::hot_wall_drives_melting_with_bounded_liquid_fraction",
     "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::runs_without_any_fv_model",
     "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::temperature_solver_defaults_to_a_tight_tolerance",
@@ -48,26 +50,21 @@ test_ids = [
 path = "crate::io::fv_solution"
 
 [[module."mod.rs".function]]
-id = "fn:04fd1adc31075002"
-name = "read"
-qual = "FvSolution::read"
+id = "fn:e0ff37b7796b05a6"
+name = "FvSolution"
+qual = "FvSolution"
+item = "type"
+shape = "struct"
 lines = [
-    88,
-    100,
+    31,
+    41,
 ]
-hash = "sha256:548ca7085c1ff95abb964d155e20386743f5200bb01f6ce40cfc9cc1d5599538"
-doc_hash = "sha256:247226f9d690cd5173e6bc2b530e316d0de829dbc5409e6680b6ff7b3aff5028"
-
-[[module."mod.rs".function]]
-id = "fn:ef2ce53b0ffe996f"
-name = "default"
-qual = "LinearSolverConfig::default"
-lines = [
-    104,
-    114,
+hash = "sha256:356cf0bb5082f62c618cd5679f6620ec2144de1e8b8f32289fb0bf485ef95677"
+doc_hash = "sha256:b34c01213f38517efd329fc32df455c49f4e0e46fc0202085f8bd7b6cfe7e19a"
+uses = [
+    "fn:b767932d6424efcc",
+    "fn:f3de26539b9a6c3e",
 ]
-hash = "sha256:597fd56a10f8bfce8d6d484d79428247cb8e9105e8bead33d871e7b838e50d59"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
     "#0",
     "#1",
@@ -108,6 +105,248 @@ reached_by = [
     "#36",
     "#37",
     "#38",
+    "#39",
+    "#40",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f3de26539b9a6c3e"
+name = "LinearSolverConfig"
+qual = "LinearSolverConfig"
+item = "type"
+shape = "struct"
+lines = [
+    43,
+    53,
+]
+hash = "sha256:3704288ab9bcc25290eb129ca033756169d79a15cbbe99a487d2be1736595f87"
+doc_hash = "sha256:2a92d6220f2f470d830df7681f430566b58ae520da51513bb57668d45c3a9931"
+uses = ["fn:cc6829765d8ae4e5"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."mod.rs".function]]
+id = "fn:cc6829765d8ae4e5"
+name = "LinearSolverType"
+qual = "LinearSolverType"
+item = "type"
+shape = "enum"
+lines = [
+    55,
+    70,
+]
+hash = "sha256:0767c955ab431b1eeac9aec938472ad8b1cb967768394feabfee6ef5973afe86"
+doc_hash = "sha256:8772869e88d4962766f0a3484a7bb514758e4003e5ad264c399a1b20a748daa2"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b767932d6424efcc"
+name = "PimpleControl"
+qual = "PimpleControl"
+item = "type"
+shape = "struct"
+lines = [
+    72,
+    85,
+]
+hash = "sha256:7e20d90054feb47607e56e62d7ef17f842551c422d62ba92dd5d93ff89f7c307"
+doc_hash = "sha256:e4e07e95eb0c5ba86da4563c2b2a05c83ddecb81daaff5f4a8f77927c253d243"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."mod.rs".function]]
+id = "fn:04fd1adc31075002"
+name = "read"
+qual = "FvSolution::read"
+lines = [
+    88,
+    100,
+]
+hash = "sha256:548ca7085c1ff95abb964d155e20386743f5200bb01f6ce40cfc9cc1d5599538"
+doc_hash = "sha256:247226f9d690cd5173e6bc2b530e316d0de829dbc5409e6680b6ff7b3aff5028"
+uses = [
+    "fn:35e5ba76ac9ceafb",
+    "fn:e0ff37b7796b05a6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ef2ce53b0ffe996f"
+name = "default"
+qual = "LinearSolverConfig::default"
+lines = [
+    104,
+    114,
+]
+hash = "sha256:597fd56a10f8bfce8d6d484d79428247cb8e9105e8bead33d871e7b838e50d59"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:cc6829765d8ae4e5",
+    "fn:f3de26539b9a6c3e",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
 ]
 
 [[module."mod.rs".function]]
@@ -120,12 +359,11 @@ lines = [
 ]
 hash = "sha256:fd697f7817bc22a56bd9add5e6d46170af6a3b4959a55b81e0fbe2f9abc3b4ae"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b767932d6424efcc"]
 reached_by = [
     "#0",
     "#1",
-    "#2",
     "#3",
-    "#4",
     "#5",
     "#6",
     "#7",
@@ -160,6 +398,8 @@ reached_by = [
     "#36",
     "#37",
     "#38",
+    "#39",
+    "#40",
 ]
 
 [[module."mod.rs".function]]
@@ -176,12 +416,16 @@ callees = [
     "fn:cc6fbc9e888ba67b",
     "fn:ef2ce53b0ffe996f",
 ]
+uses = [
+    "fn:b767932d6424efcc",
+    "fn:cc6829765d8ae4e5",
+    "fn:e0ff37b7796b05a6",
+    "fn:f3de26539b9a6c3e",
+]
 reached_by = [
     "#0",
     "#1",
-    "#2",
     "#3",
-    "#4",
     "#5",
     "#6",
     "#7",
@@ -216,4 +460,6 @@ reached_by = [
     "#36",
     "#37",
     "#38",
+    "#39",
+    "#40",
 ]

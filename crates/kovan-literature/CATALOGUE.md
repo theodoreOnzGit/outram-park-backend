@@ -37,6 +37,20 @@ Bookkeeping-status sign-off block) that do not belong in a library catalogue.
 
 ## Open tier
 
+> **2026-10-13 — McSpaden et al. 2025, "The MUSIC Critical Benchmark and
+> Nuclear Data", filed into Kovan's standard corpus** (owner, on being shown
+> its licence: "add it in then"). *Nuclear Science and Engineering* 199(5),
+> 699–724, DOI 10.1080/00295639.2024.2384817, Los Alamos authors. Open
+> access under **CC BY-NC-ND 4.0**, stated on the article's first page
+> (journal page 699), so it is kept unmodified and its figures are not to be
+> reproduced in our own documents. In
+> `reactor-literature/kovan-standard-open-corpus/cc-by-nc-nd/` (ground 9),
+> SHA-256 `3b1a069c…bf7e68`; the publisher's PDF as the owner downloaded it,
+> not re-fetched. A `LITERATURE` entry in `crates/kovan/src/corpus.rs`
+> (`mcspaden-2025-music-benchmark`), filed under nuclear criticality safety
+> and nuclear data. The licence covers the article only: the MUSIC
+> evaluation itself is in the ICSBEP Handbook, which is not held here.
+
 > **2026-10-10 — six DOE Fundamentals Handbook volumes filed into Kovan's
 > standard corpus** (OUTRAM PARK #829, the Sciences concept tree; owner: "For
 > DOE, as long as redistributable, and copyright checks out and can be

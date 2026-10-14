@@ -68,6 +68,7 @@ pub(crate) mod collection_picker;
 pub mod concept_ops;
 pub mod commands;
 pub mod code_connections;
+pub mod code_review_artifacts;
 pub mod connections;
 pub mod corpus;
 pub mod corpus_repos;

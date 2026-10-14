@@ -43,6 +43,104 @@ test_ids = [
 path = "crate::interpolation::floater_hormann"
 
 [[module."floater_hormann.rs".function]]
+id = "fn:c85bc75c7cbe8fa2"
+name = "FloaterHormannError"
+qual = "FloaterHormannError"
+item = "type"
+shape = "enum"
+lines = [
+    42,
+    59,
+]
+hash = "sha256:ec350af9c136c4d0e003a31f36fd993d4bc6cd2cc5ff99e69680e54e294e9bf9"
+doc_hash = "sha256:c99b6881d8cb8a9b7efdf061a90d754acdbaf2644c1c554772eb6daf7f87191a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+]
+
+[[module."floater_hormann.rs".function]]
+id = "fn:9bd164a29d47ef95"
+name = "FloaterHormannInterpolant"
+qual = "FloaterHormannInterpolant"
+item = "type"
+shape = "struct"
+lines = [
+    61,
+    70,
+]
+hash = "sha256:cf76d628e029e9a22f95a6996dca43ed7ddc4a243481d5b41fd1006dc602b1b6"
+doc_hash = "sha256:046f31c7bad0b7599bffafeff6495ba931079cd99f4a10f66e1051bb2699e89d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+]
+
+[[module."floater_hormann.rs".function]]
 id = "fn:c191ab5b7838f13b"
 name = "new"
 qual = "FloaterHormannInterpolant::new"
@@ -52,6 +150,10 @@ lines = [
 ]
 hash = "sha256:66b7d171206b2f3a05a877d5e42025b555b81372b133ae3d85005d2aa068ba5b"
 doc_hash = "sha256:556f8be6b7f0ff01cc8ccb11e30f98268b294c3a69b5d5f23144d2c71c6d5fc6"
+uses = [
+    "fn:9bd164a29d47ef95",
+    "fn:c85bc75c7cbe8fa2",
+]
 reached_by = [
     "#0",
     "#1",
@@ -99,6 +201,7 @@ lines = [
 ]
 hash = "sha256:ae184ad5620afdb542e6850be14a0bf6c9bc48355b9cf94d531d266abda9eaec"
 doc_hash = "sha256:e4a65df9e02388beb8f3c77f9fcfe27c5e26c885fe6055ce615d53f69ad4062e"
+uses = ["fn:9bd164a29d47ef95"]
 reached_by = [
     "#0",
     "#1",
@@ -145,6 +248,7 @@ lines = [
 hash = "sha256:cff7ba78252db2e89a1f081667abb5002679a6111297e92938adae8e302636ea"
 doc_hash = "sha256:b05d0635d28c045b996c74ddf9a26c51b2477d7b0424790cdd55e8fe7125cd1c"
 callees = ["fn:faad858f0165ab9f"]
+uses = ["fn:9bd164a29d47ef95"]
 reached_by = ["#1"]
 physical_interface = true
 
@@ -162,6 +266,7 @@ callees = [
     "fn:c191ab5b7838f13b",
     "fn:faad858f0165ab9f",
 ]
+uses = ["fn:9bd164a29d47ef95"]
 test = true
 
 [[module."floater_hormann.rs".function]]
@@ -178,6 +283,7 @@ callees = [
     "fn:c191ab5b7838f13b",
     "fn:faad858f0165ab9f",
 ]
+uses = ["fn:9bd164a29d47ef95"]
 test = true
 
 [[module."floater_hormann.rs".function]]
@@ -194,6 +300,7 @@ callees = [
     "fn:c191ab5b7838f13b",
     "fn:faad858f0165ab9f",
 ]
+uses = ["fn:9bd164a29d47ef95"]
 test = true
 
 [[module."floater_hormann.rs".function]]
@@ -207,6 +314,10 @@ lines = [
 hash = "sha256:9de993aba547cdd5f6a31478e4e83adb8f7ad5a3438a65cb85efa3945624370d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:c191ab5b7838f13b"]
+uses = [
+    "fn:9bd164a29d47ef95",
+    "fn:c85bc75c7cbe8fa2",
+]
 test = true
 
 [[module."floater_hormann.rs".function]]
@@ -220,6 +331,7 @@ lines = [
 hash = "sha256:90e4350fe29e103f27aaaf9011f38c98feab7a89efe7a1576c8b7e8d8271a77a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:c191ab5b7838f13b"]
+uses = ["fn:9bd164a29d47ef95"]
 test = true
 
 [[module."floater_hormann.rs".function]]
@@ -237,6 +349,7 @@ callees = [
     "fn:c191ab5b7838f13b",
     "fn:faad858f0165ab9f",
 ]
+uses = ["fn:9bd164a29d47ef95"]
 test = true
 
 [module."mod.rs"]

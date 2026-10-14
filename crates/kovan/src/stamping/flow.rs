@@ -119,6 +119,23 @@ pub enum Purpose {
     Reconfirm,
 }
 
+/// What the wizard's comments box starts with: the comments already under
+/// this reviewer's previous review, then whatever was typed in the review
+/// panel's sidebar (maintainer, 2026-10-13). A re-stamp replaces the entry
+/// and its comments together, so starting from an empty box silently
+/// dropped what had been written before. Sidebar text already present in
+/// the previous comments is not repeated.
+pub fn starting_comments(previous: &str, seed: &str) -> String {
+    let (previous, seed) = (previous.trim(), seed.trim());
+    if seed.is_empty() || previous.contains(seed) {
+        previous.to_string()
+    } else if previous.is_empty() {
+        seed.to_string()
+    } else {
+        format!("{previous}\n\n{seed}")
+    }
+}
+
 /// The function the request names (from kovan-web's `FunctionRef`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Target {
@@ -349,10 +366,14 @@ impl WizardForm {
 
     /// The applicability the gate and the draft use: a `units_documented`
     /// answer also turns `physical_interface` on, as `draft_review` does.
+    ///
+    /// Choosing "a human wrote and checked the validation case" makes it a
+    /// rung 4 review (GitHub #855): the questions of rung 4's two axes are
+    /// then asked, and stop being asked when the answer is changed.
     pub fn applicability(&self) -> Applicability {
         let mut a = self.ctx.applicability;
         a.physical_interface |= self.options.contains_key("units_documented");
-        a
+        a.with_answers(&self.options)
     }
 
     /// The questions asked for this function, in order.
@@ -430,7 +451,16 @@ impl WizardForm {
 
     /// The live stamp gate over the answers.
     pub fn gate(&self) -> GateResult {
-        ReviewWizard::embedded().stamp_gate(&self.answers(), self.applicability())
+        let mut g = ReviewWizard::embedded().stamp_gate(&self.answers(), self.applicability());
+        // A new stamp answers the rung 4 questions once they are asked, as
+        // the draft requires (`draft_review`, #855).
+        g.blocked_by.extend(
+            g.rung4_unanswered
+                .iter()
+                .cloned()
+                .map(kovan_common::review::wizard::GateReason::Unanswered),
+        );
+        g
     }
 
     /// The note a "Mark as Needs fix instead?" starts from: each prompting
@@ -699,9 +729,10 @@ impl StampFlow {
                     self.step = Step::Refused { message, hint };
                 }
                 Some(Ok((ctx, attestations))) => {
+                    let comments = starting_comments(&ctx.previous_comments, &self.comments_seed);
                     let mut w = WizardForm::new(ctx);
                     w.attestations = attestations;
-                    w.comments = self.comments_seed.clone();
+                    w.comments = comments;
                     self.wizard = Some(w);
                     self.step = Step::Wizard;
                 }

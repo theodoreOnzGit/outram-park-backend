@@ -1,0 +1,2 @@
+case,temperature_k,k,k_sigma,k_inf_fine,histories_per_pass,threads,transport_s,checks_passed,commit
+core_n12_t900,900,0.917189,0.001129,0.915790,1550000,36,4509,true,49b7feed2f-dirty

@@ -43,8 +43,14 @@
 //!   MAT 30, MF=7/MT=4, `LAT = 1`, `LASYM = 0`, `B = [4.73918, 197.6285,
 //!   11.898, 5.000001, 0, 1]`.
 //! - **Kernel:** port of NJOY2016 `leapr.f90` (commit `ac5adf5f`).
-//! - Neither file is checked in. Tests read them from `GRAPHITE_TSL_DIR` (env
-//!   override) or the default directory below, and **skip** (print a note, pass)
+//! - ~~Neither file is checked in.~~ **CORRECTED 2026-10-14:** both are: the
+//!   deck as `src/leapr/decks/tsl-crystalline-graphite.leapr` and the tape as
+//!   `reference-data/endf/tsl-crystalline-graphite.endf`, byte-identical to
+//!   the ENDF/B-VIII.0 thermal sublibrary's copies. Until this date the tests
+//!   looked only in a fixed folder outside the repository, which was absent,
+//!   so they printed SKIP and passed without running. They now read the
+//!   committed files, or `GRAPHITE_TSL_DIR` when it is set, and still
+//!   **skip** (print a note, pass)
 //!   when absent, so the suite stays green on a machine without the data.
 //!
 //! # Methodology
@@ -161,8 +167,10 @@ use njoy_outram_park_fork::leapr::input::ElasticOption;
 use njoy_outram_park_fork::leapr::vintage::PhysicalConstants;
 use njoy_outram_park_fork::thermr::mf7::parse_mf7_at_temperature;
 
-/// Default location of the ENDF/B-VIII.0 thermal-scattering sublibrary.
-const DEFAULT_DIR: &str = "/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt";
+/// ~~Default location of the ENDF/B-VIII.0 thermal-scattering sublibrary~~
+/// **CORRECTED 2026-10-14:** the committed LEAPR decks are the default (this
+/// machine-specific folder never existed on the machine that runs the suite).
+const DEFAULT_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src/leapr/decks");
 /// The LEAPR job that generated the graphite evaluation.
 const DECK_FILE: &str = "tsl-crystalline-graphite.leapr";
 /// The ENDF tape it generated.
@@ -177,17 +185,34 @@ const BK_CRATE: f64 = 8.617_333_262e-5;
 /// SEP17 graphite evaluation was produced.
 const BK_EVAL_ERA: f64 = 8.617_385e-5;
 
-/// Resolve a data-file path (env override -> default), or `None` + a skip note.
+/// Resolve a data-file path (env override -> the committed copies), or
+/// `None` + a skip note.
 fn data_path(file: &str) -> Option<std::path::PathBuf> {
-    let dir = std::env::var("GRAPHITE_TSL_DIR").unwrap_or_else(|_| DEFAULT_DIR.to_string());
-    let p = std::path::Path::new(&dir).join(file);
-    if p.exists() {
+    let (dir, p) = match std::env::var("GRAPHITE_TSL_DIR") {
+        Ok(dir) => {
+            let p = std::path::Path::new(&dir).join(file);
+            (dir, p.exists().then_some(p))
+        }
+        Err(_) => ("the committed decks and reference-data/endf".to_string(), committed_path(file)),
+    };
+    if let Some(p) = p {
         Some(p)
     } else {
         eprintln!(
             "SKIP leapr_graphite_deck_parity: {file} not found under {dir} (set GRAPHITE_TSL_DIR)"
         );
         None
+    }
+}
+
+/// Where a graphite data file is when `GRAPHITE_TSL_DIR` is not set: the deck
+/// in this crate's committed LEAPR decks, the tape in `reference-data/endf/`.
+fn committed_path(file: &str) -> Option<std::path::PathBuf> {
+    if file.ends_with(".leapr") {
+        let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/leapr/decks").join(file);
+        p.exists().then_some(p)
+    } else {
+        njoy_outram_park_fork::reference_data::reference_endf(file)
     }
 }
 

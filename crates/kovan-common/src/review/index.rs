@@ -99,6 +99,56 @@ pub enum ItemKind {
     Type,
 }
 
+impl ItemKind {
+    /// A function; every other kind is reviewed with the item questions.
+    pub fn is_fn(self) -> bool {
+        self == ItemKind::Fn
+    }
+}
+
+/// Which kind of non-function item an entry is (GitHub #843, additive,
+/// 2026-10-13). [`ItemKind`] keeps the three coarse kinds a first-version
+/// reader knows; this says which questions the review wizard asks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ItemShape {
+    /// A record: a named group of values.
+    Struct,
+    /// A list of cases.
+    Enum,
+    Union,
+    /// An interface: what every model of some kind must provide.
+    Trait,
+    /// A shorthand name for an existing type.
+    Alias,
+    /// A named number.
+    Const,
+    Static,
+}
+
+impl ItemShape {
+    /// The coarse kind written as `item`.
+    pub fn item(self) -> ItemKind {
+        match self {
+            ItemShape::Const => ItemKind::Const,
+            ItemShape::Static => ItemKind::Static,
+            _ => ItemKind::Type,
+        }
+    }
+
+    /// The plain-language name shown to a reviewer (maintainer, #843,
+    /// 2026-10-13: no software jargon in review questions).
+    pub fn plain_name(self) -> &'static str {
+        match self {
+            ItemShape::Struct | ItemShape::Union => "record",
+            ItemShape::Enum => "list of cases",
+            ItemShape::Trait => "interface",
+            ItemShape::Alias => "shorthand name",
+            ItemShape::Const | ItemShape::Static => "named number",
+        }
+    }
+}
+
 /// One function (item) of a file.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FunctionIndex {
@@ -112,6 +162,10 @@ pub struct FunctionIndex {
     pub qual: String,
     #[serde(default, skip_serializing_if = "is_fn")]
     pub item: ItemKind,
+    /// Added 2026-10-13 (#843, additive): which kind of non-function item;
+    /// absent for a function.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shape: Option<ItemShape>,
     /// 1-based inclusive line range, doc comment included.
     pub lines: [u32; 2],
     pub hash: String,
@@ -120,6 +174,13 @@ pub struct FunctionIndex {
     /// unresolved calls are not listed).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub callees: Vec<String>,
+    /// Added 2026-10-13 (#843, additive): the workspace types and constants
+    /// this entry uses, by stable id. Kept apart from `callees` so that a
+    /// review written before items were indexed still compares its recorded
+    /// callees with `callees` alone. For a type or constant, `reached_by`
+    /// lists the tests that use it, directly or through a function.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub uses: Vec<String>,
     /// Every test that reaches the function (by test id).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub reached_by: Vec<String>,
@@ -139,6 +200,15 @@ pub struct FunctionIndex {
     /// ([`crate::code_index::physical`]).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub physical_interface: bool,
+}
+
+impl FunctionIndex {
+    /// Everything this entry rests on: the functions it calls, then the
+    /// types and constants it uses. What the bottom-up rule requires
+    /// reviewed first, and what a new review records the hashes of.
+    pub fn depends_on(&self) -> impl Iterator<Item = &String> {
+        self.callees.iter().chain(self.uses.iter())
+    }
 }
 
 fn is_fn(k: &ItemKind) -> bool {
@@ -379,6 +449,8 @@ impl FolderIndex {
             for f in &mut m.functions {
                 f.callees.sort();
                 f.callees.dedup();
+                f.uses.sort();
+                f.uses.dedup();
                 f.reached_by.sort();
                 f.reached_by.dedup();
             }
@@ -456,6 +528,8 @@ mod tests {
                     name: "flash".into(),
                     qual: "flash".into(),
                     item: ItemKind::Fn,
+                    shape: None,
+                    uses: Vec::new(),
                     lines: [10, 20],
                     hash: h('a'),
                     doc_hash: h('b'),

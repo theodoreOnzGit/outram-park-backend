@@ -22,14 +22,16 @@
 //! edge (kind `operator`) and the path edge (kind `fn_value`) and nothing
 //! else extra; neither has an `apply -> apply` edge and both mark `f(x)`
 //! `UNRESOLVED(closure)`; both mark the derived call `UNRESOLVED(other)`;
-//! the collision resolves per target; `generator` records the backend and
+//! the collision resolves per target; the SCIP graph lists which function
+//! uses the struct `Pt` (schema 4, #843); `generator` records the backend and
 //! the rust-analyzer version; a second SCIP build from the same index is
 //! byte-identical.
 //!
 //! **Gate.** Needs `rust-analyzer` on `PATH`; without it the test prints why
 //! and passes without running. The LSP daemon is stopped at the end.
 //!
-//! **Result (2026-10-07, rust-analyzer 1.98.0):** passes.
+//! **Result (2026-10-07, rust-analyzer 1.98.0):** passes. Re-run 2026-10-13
+//! with the schema-4 uses checks (rust-analyzer 1.98.0): passes.
 
 use std::path::Path;
 use std::process::Command;
@@ -149,7 +151,37 @@ fn scip_backend_agrees_with_lsp_and_adds_operators() {
     let index = root.join("target/kovan-scip/index.scip");
     assert!(index.is_file(), "the index is written under target/");
 
-    assert_eq!(scip["schema"], 3);
+    // Schema 4 since 2026-10-13 (#843: `Module.items`, `Function.shape`).
+    assert_eq!(scip["schema"], 4);
+    // Schema 4 uses (#843), against the real index: `sum` names the struct
+    // `Pt` on its signature line and in its body; the trait-impl method
+    // `Pt::add` is written for `Pt` (line 0) and names it; `leaf` names no
+    // workspace item. The LSP backend finds only the method's own type.
+    let uses = |v: &serde_json::Value, from: &str| -> Vec<(String, Vec<u64>)> {
+        v["uses"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter(|u| u["from"] == format!("crates/kern/src/lib.rs::{from}"))
+                    .map(|u| {
+                        (
+                            u["to"].as_str().unwrap().to_string(),
+                            u["lines"].as_array().unwrap().iter().map(|l| l.as_u64().unwrap()).collect(),
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let pt = "crates/kern/src/lib.rs::Pt".to_string();
+    assert_eq!(uses(&scip, "sum"), vec![(pt.clone(), vec![21, 22])]);
+    let add = uses(&scip, "Pt::add");
+    assert_eq!(add.len(), 1);
+    assert_eq!(add[0].0, pt);
+    assert!(add[0].1.contains(&0) && add[0].1.contains(&12), "{add:?}");
+    assert!(uses(&scip, "leaf").is_empty());
+    assert_eq!(uses(&lsp, "Pt::add"), vec![(pt.clone(), vec![0])]);
+    assert!(uses(&lsp, "sum").is_empty());
     assert_eq!(lsp["generator"]["backend"], "lsp");
     assert_eq!(scip["generator"]["backend"], "scip");
     assert!(scip["generator"]["rust_analyzer"]

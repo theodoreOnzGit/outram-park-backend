@@ -1953,6 +1953,37 @@ pub const LITERATURE: &[CorpusLiterature] = &[
                        section 10, ground 9). Non-commercial, no derivatives",
     },
     CorpusLiterature {
+        id: "mcspaden-2025-music-benchmark",
+        kind: LiteratureKind::Paper,
+        title: "The MUSIC Critical Benchmark and Nuclear Data (Nuclear Science and Engineering \
+                199(5), 699-724)",
+        authors: &[
+            "McSpaden, A.",
+            "Hutchinson, J.",
+            "Rising, M.",
+            "Sanchez, R.",
+            "Thompson, N.",
+            "McKenzie, G.",
+        ],
+        year: Some(2025),
+        topics: &[
+            "16-nuclear-fuel-cycle/nuclear-criticality-safety",
+            "02-nuclear-safety/nuclear-design/nuclear-data-processing",
+            "02-nuclear-safety/nuclear-design/nuclear-data-processing/nuclear-data-covariances",
+        ],
+        concept_document: None,
+        source_url: Some("https://doi.org/10.1080/00295639.2024.2384817"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-nd/mcspaden2025-music-critical-benchmark-nse.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: "CC BY-NC-ND 4.0, stated on the article's first page (journal page 699, PDF \
+                       page 2): \"This is an Open Access article distributed under the terms of \
+                       the Creative Commons Attribution-NonCommercial-NoDerivatives License\" \
+                       (read 2026-10-13; corpus README section 10, ground 9). Non-commercial, no \
+                       derivatives. Covers the article, not the ICSBEP evaluation it describes",
+    },
+    CorpusLiterature {
         id: "openstax-university-physics-1",
         kind: LiteratureKind::Book,
         title: "University Physics Volume 1 (OpenStax, Rice University)",
@@ -3318,10 +3349,12 @@ mod tests {
             // (#829; the maintainer: "split the 2e").~~
             // ~~122 since 2026-10-11: Chemistry 2e as 9 parts of at most 30 MB
             // (#829; the maintainer: "Go ahead and add it").~~
-            // 130 since 2026-10-11: Wichner 1991 (ORNL/TM-11685), Haubenreich 1970
+            // ~~130 since 2026-10-11: Wichner 1991 (ORNL/TM-11685), Haubenreich 1970
             // (ORNL-TM-3144), four MOOSE pages and two PFLOTRAN theory-guide pages
-            // (#832; the maintainer: "Nuclear chemistry is ok").
-            130,
+            // (#832; the maintainer: "Nuclear chemistry is ok").~~
+            // 131 since 2026-10-13: McSpaden et al. 2025, the MUSIC critical benchmark
+            // (CC BY-NC-ND; the maintainer: "add it in then").
+            131,
             "the maintainer's 2026-09-22 set, EPA FGR-11, FGR-13 and FGR-15 (2026-09-28), \
              the concept tree's 13 further documents (2026-10-06), and the software QA \
              set NUREG/BR-0167, DOE-STD-1172-2003 and DOE G 414.1-4 (2026-10-07, #760), Kendrick 2019 \
@@ -3332,7 +3365,7 @@ mod tests {
              University Physics Volumes 1-3, Cardiff et al. 2018 and College Physics 2e in 11 \
              parts (2026-10-10, #829), Chemistry 2e in 9 parts (2026-10-11, #829), and \
              ORNL/TM-11685, ORNL-TM-3144, four MOOSE pages and two PFLOTRAN pages \
-             (2026-10-11, #832)"
+             (2026-10-11, #832), and McSpaden et al. 2025 (2026-10-13)"
         );
         let mut ids = HashSet::new();
         for l in LITERATURE {

@@ -3,9 +3,40 @@ kind = "code_folder"
 crate = "outram-foam-cli"
 dir = "crates/outram-foam-cli/src"
 crate_root = true
+test_ids = [
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::genfoam_and_offbeat_agree_on_the_clamped_thermoelastic_bar",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_agreement_and_the_convergence_order_survive_refinement",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_two_codes_agree_through_a_transient_elastic_response",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_two_codes_disagree_on_the_thermal_load_at_a_dirichlet_boundary",
+    "crates/outram-foam-cli/tests/mesh_tools.rs::block_mesh_cavity_roundtrip",
+    "crates/outram-foam-cli/tests/mesh_tools.rs::ideas_unv_to_foam_single_hex",
+    "crates/outram-foam-cli/tests/mesh_tools.rs::poly_dual_mesh_box_roundtrip",
+]
 
 [module."lib.rs"]
 path = "crate"
+
+[[module."lib.rs".function]]
+id = "fn:b7b4c168c436333b"
+name = "CaseArgs"
+qual = "CaseArgs"
+item = "type"
+shape = "struct"
+lines = [
+    32,
+    43,
+]
+hash = "sha256:ca451bc363dfd196efa0142d3561ba9372e01b5775020ed43dc3cbe00b7abdfb"
+doc_hash = "sha256:2805a1e48764a73a9c0b5ad3278544e1b3831effdcc90c4c23d7656bb81e0cb4"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
 
 [[module."lib.rs".function]]
 id = "fn:dc13477d1f4798db"
@@ -17,6 +48,10 @@ lines = [
 ]
 hash = "sha256:831c29d4611b5eb412bea92968ee9dfe36770c6f7060ec515b6918794a0d4bcf"
 doc_hash = "sha256:e5c6fd69807bfdfb0a98d32da16d9390d43cc07a8e23ec3cbe2e82d891a78d70"
+uses = [
+    "fn:70e944b0ad99ff17",
+    "fn:b7b4c168c436333b",
+]
 
 [[module."lib.rs".function]]
 id = "fn:8fcc42431f992418"
@@ -40,3 +75,17 @@ lines = [
 hash = "sha256:3596df2012993e014f6a453477647d8d860eb08515113adedee414d6be8a20dd"
 doc_hash = "sha256:4bf127a5e6f172072c51e959e710d6a7834f09107dee8e87fefe5c8972acbc4f"
 callees = ["fn:8fcc42431f992418"]
+uses = ["fn:b7b4c168c436333b"]
+
+[[module."lib.rs".function]]
+id = "fn:70e944b0ad99ff17"
+name = "CliError"
+qual = "CliError"
+item = "type"
+shape = "enum"
+lines = [
+    96,
+    111,
+]
+hash = "sha256:ae61987894a6e59423a8f61fa80efe738c3d965640e7afb8510c3d0a8e27e9e2"
+doc_hash = "sha256:0db2aa9d1f0c20dad2e28cc84ad68e1a7aed2adf6ba74e648dfef8471ffc42d2"

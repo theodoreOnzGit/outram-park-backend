@@ -17,6 +17,7 @@ lines = [
 hash = "sha256:65463881f8c975efa057babcfa42f6656e118e43c436fe1c6c6ac4df884b542b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -30,6 +31,7 @@ lines = [
 hash = "sha256:cc8bf3d6d0f23f4d89246a62450c8e70ce6d455f0c299afe8f835234b3c209ca"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -43,6 +45,7 @@ lines = [
 hash = "sha256:51396d6718cd4e587bdba009c4d3752b3d37148d9924ca5a0e912550da1f3dfd"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -56,6 +59,7 @@ lines = [
 hash = "sha256:a514d25dd53c5e4d56ede2485984d0a6ea083b617e8804aee94c8916e7378f90"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -69,6 +73,7 @@ lines = [
 hash = "sha256:fb2d1ef8c5496632c4a62f95de32e8255d8fcdf0b2fc43c2a68201d5d75fdc43"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -82,6 +87,7 @@ lines = [
 hash = "sha256:375fa8ff4165345da96bdf72fc2a23617b7ecbdec3a915a7b91472c5d0b0d99b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -95,6 +101,7 @@ lines = [
 hash = "sha256:dcf2189bab7cb0e36970b1a02b7f8378cb974ba0c24e8b9ecbc32f8ee40e5fc1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -108,6 +115,7 @@ lines = [
 hash = "sha256:66accad3037601ce646b725e9d4640b4643fa4de7dc2441bc0202d2a7621fa73"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -121,6 +129,7 @@ lines = [
 hash = "sha256:71263b5067f8727dac8f510acb2fdd80dff5211087098e6a189c0ea5877e77ca"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -134,6 +143,7 @@ lines = [
 hash = "sha256:f3a3afb951be87600dedbe908d0d13614d684387bce88f923f40937a111fcee6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -147,6 +157,7 @@ lines = [
 hash = "sha256:27d13391ac1a16dc227d1594cd751016b1850d09325f6a24b876dfa82cfe05e4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -160,6 +171,7 @@ lines = [
 hash = "sha256:f7dcc75a54068a16acd0bbe4140823b4d64eb9bc7ed037384f5d1c51309be9d9"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -173,6 +185,7 @@ lines = [
 hash = "sha256:629d57657e996f1461fbebc5bbfd1ab281739391bd4321167c1ff26bca944d3f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -186,6 +199,7 @@ lines = [
 hash = "sha256:1b6edc371b0b96a5f7844c62034a295b36edf13a1950ec9ff767b7040dd8a149"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -199,6 +213,7 @@ lines = [
 hash = "sha256:2ad243182d8d27acb88e00714c255e444f3d148eb8c33838a59acc04876cd58e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -212,6 +227,7 @@ lines = [
 hash = "sha256:fd0202df320e63833b28e006ff2b698474220f0b32456da58c4d950330b892a2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -225,6 +241,7 @@ lines = [
 hash = "sha256:f7ee0e339bcfcb70b53791322ac17ee97d5dedb93eba19b962f417f32ce9c1d4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -238,6 +255,7 @@ lines = [
 hash = "sha256:32daa670685d69063ff03445102082c55a0461976ed674faf28a51b2087bed8a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -251,6 +269,7 @@ lines = [
 hash = "sha256:3d5052e1112aeceba4c54731d3df08f018139427063b4abb8665d574ac895c73"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -264,6 +283,7 @@ lines = [
 hash = "sha256:6e510c80b18a42d03a1177c7c863a5cce8147775929491d28df6afafb23b9c2e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -277,6 +297,7 @@ lines = [
 hash = "sha256:f16d2b6a9972216ef35effc65c618eca703d0cc0f5df424225b8055511c0b3c8"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -290,6 +311,7 @@ lines = [
 hash = "sha256:6fe03c95fe81280ad79d785448b852b960893b2f183f5982d52e0de94244be85"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -303,6 +325,7 @@ lines = [
 hash = "sha256:e65837aa2357f184983f4a2fb461678375f8daa1e356514ffd41557512a9ee07"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -316,6 +339,7 @@ lines = [
 hash = "sha256:15aab8c9433a8093c63369ddbf3b8344ec8bba4c8f16e3088e7209dbd61ad54b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -329,6 +353,7 @@ lines = [
 hash = "sha256:8ec592384ad554680e4c363e7aafbd98c3ceeee0f6ca95e898e2482a9a6c10ee"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [[module."hs_flash_regions.rs".function]]
@@ -342,6 +367,7 @@ lines = [
 hash = "sha256:3e8c68213d456164bf869c91f76350a1f3fd0a8b4805fb5d590fcb7ea18533ae"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:99702d761e99156f"]
+uses = ["fn:5cba2188e85fa435"]
 test = true
 
 [module."mod.rs"]
@@ -370,6 +396,7 @@ callees = [
     "fn:c163e9ad1c644298",
     "fn:f09f00cc4fcef6cc",
 ]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_region4_edge_and_region5.rs".function]]
@@ -390,6 +417,7 @@ callees = [
     "fn:c163e9ad1c644298",
     "fn:eff47085ca6952fe",
 ]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_region4_edge_and_region5.rs".function]]
@@ -407,6 +435,7 @@ callees = [
     "fn:7f1cf222265bca59",
     "fn:f09f00cc4fcef6cc",
 ]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_region4_edge_and_region5.rs".function]]
@@ -455,6 +484,7 @@ lines = [
 hash = "sha256:ed872e2fce5a73e79b1c238b966d5acdd65914da4c3ae59bcd2df3c1c53e1f80"
 doc_hash = "sha256:6a35b4621828fd42154c5a4854915b56e3d61011128550469707c9e493d47132"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -468,6 +498,7 @@ lines = [
 hash = "sha256:82454eaee0f51edb15dea3f7798af438ef84cfcd14661336a6d00b822cf1feb0"
 doc_hash = "sha256:4ccbd8de58a44d6db46330e730ce62cb32ac8b7f91b9beb67cdc62cf5002ca84"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -485,6 +516,7 @@ callees = [
     "fn:93ea64b91e8738ff",
     "fn:eff47085ca6952fe",
 ]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -501,6 +533,7 @@ callees = [
     "fn:7f1cf222265bca59",
     "fn:93ea64b91e8738ff",
 ]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -518,6 +551,7 @@ callees = [
     "fn:93ea64b91e8738ff",
     "fn:c163e9ad1c644298",
 ]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -531,6 +565,7 @@ lines = [
 hash = "sha256:05c996857a1390e911017afc95cfbea4172ecab1fc18e2b3e99c21ed13a8b2c5"
 doc_hash = "sha256:4a35c47bfd1bcafaeab4647ff586bb82699fc77cb0de351e1eeca6f4b3c65747"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -544,6 +579,7 @@ lines = [
 hash = "sha256:e07b1511490040408c53884d4eca991e41a7bffb477c34ef266335165548514b"
 doc_hash = "sha256:d3f1b20052df812cc83aa1891a5f46bee19a20ed60976edbbbd58e2284859562"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -557,6 +593,7 @@ lines = [
 hash = "sha256:0a30852423c74c3250b15a5c34a8ade8b4a0fef7b0f74e7774380b9b2c169e15"
 doc_hash = "sha256:4d6dfaa210490b64c4032e6f25892ad71034a0d47887d7f21e076b4a98defc55"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -574,6 +611,7 @@ callees = [
     "fn:7f1cf222265bca59",
     "fn:a6baa8d2793e0b8a",
 ]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -591,6 +629,7 @@ callees = [
     "fn:7f1cf222265bca59",
     "fn:eff47085ca6952fe",
 ]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -608,6 +647,7 @@ callees = [
     "fn:7f1cf222265bca59",
     "fn:c163e9ad1c644298",
 ]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -621,6 +661,7 @@ lines = [
 hash = "sha256:2dd89d638584cc96e35beda6863c74a0f183b0566351be6334e68d631977d8f9"
 doc_hash = "sha256:6eb876982ff93919fff58f0170960d418717c4fd99daefd191647c2f57118b29"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -634,6 +675,7 @@ lines = [
 hash = "sha256:e09a254d8aea3f3061705c5e8ee91051af68138d6a4043aec2d9ffe6ac804680"
 doc_hash = "sha256:67b0d056effaad5e6d3a14a901f46bc3e86bf025333615927f41b293388b292f"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -647,6 +689,7 @@ lines = [
 hash = "sha256:dc7c2fd1ee487caafd3bead24270902108672ae86993002355516d98e64bf9bc"
 doc_hash = "sha256:a5b59c468644ff6006a9539c1a4ff5d5d38fa31b93ed8fe89d521a51f81ae60f"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -660,6 +703,7 @@ lines = [
 hash = "sha256:c403879ccbf181d1afb17ff23c6c6c1019e5edd306dcc32b4d6a6508282e8cbb"
 doc_hash = "sha256:b1968e0106e0b10c11ae462b8b7198c3953ba9c2b959c358e75be1205da3d6e3"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -673,6 +717,7 @@ lines = [
 hash = "sha256:4c7ad3548a6d636de14122a894bd9d51c81fd7d660ac36d330dbcfbc9c875301"
 doc_hash = "sha256:8365d57fb3608f92953e56158a022cc55ea8aa4010d40ed1db5cb49edccf6119"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -686,6 +731,7 @@ lines = [
 hash = "sha256:508d5a099c083f7acb8d59d65dd412dc5279fc011e680ef575393a9f70527b0c"
 doc_hash = "sha256:0136b75c1c38bec429242aead9e7a8abcb19d38f760eb744172e9a0d3001510e"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -699,6 +745,7 @@ lines = [
 hash = "sha256:f2af24ea4e4d9c78db4b21db7dba6d5770d2bc4736f82cf5785cfd05c01d7502"
 doc_hash = "sha256:ab6a94c086eb0d35a301a06f248f3c6755c83d86cc7e13a7a35e4ede834ce614"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -712,6 +759,7 @@ lines = [
 hash = "sha256:7868907c5d613b9e2f5250eab22bca84d4c893d6d1f82562fc47ba911c705ca5"
 doc_hash = "sha256:b5ea552846d05d58197e2d8ba8ed1be30d9fd0e1a76d22132125953affa8a507"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -725,6 +773,7 @@ lines = [
 hash = "sha256:7d9704963d5759a35c042af48769875285221411772344a6447809d4d21a4b20"
 doc_hash = "sha256:74e09971442ba0aba5c7d4e2ac69c7fc55beca392f5449a6981faa176433ff74"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -738,6 +787,7 @@ lines = [
 hash = "sha256:8b94560f9e1bb83844d646ee8ae88015dfe364d74c72f2bcaf985e53a47f00fa"
 doc_hash = "sha256:0f4947130115342c2519dabe45902d1f1c4012329dfebd39b07658614721c09e"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -751,6 +801,7 @@ lines = [
 hash = "sha256:3f807ec6dfc706f09f86d1f866f938230d774478f814a07dcdf9d3e56b05c139"
 doc_hash = "sha256:99715281945436c62b60d41d317cb202f7355de6b6a2156c99ebd253e89f5746"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -764,6 +815,7 @@ lines = [
 hash = "sha256:bc7c89e2f8c821419586e8cba6fa1b07a48f155cb55bbd59ff646680fe542250"
 doc_hash = "sha256:d89af3b43113572a63c58aaf0f68863fa3f0dd2185cc5446b1c3874bf4a6c6ee"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."ph_flash_regions.rs".function]]
@@ -777,6 +829,7 @@ lines = [
 hash = "sha256:9da5d72b0347f27c060995dc30df40cc594ab8ac59ceed60d434fc743451cf47"
 doc_hash = "sha256:6d50d1a4496a45e777203916f234293b065af1524facff5bc736d9a48f11a7ac"
 callees = ["fn:7f1cf222265bca59"]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [module."region_5_flash_steam_table.rs"]
@@ -792,6 +845,11 @@ lines = [
 ]
 hash = "sha256:062601027795bdd589c16cad6634a7512e8140dfea8e6f76f022d032160f277e"
 doc_hash = "sha256:99ae4f4a9a1fac4630340c70b1e52713b52f7bef04e3e74480cd89986c531fc1"
+uses = [
+    "fn:6e0bd6260390a8e3",
+    "fn:8c9d4ac5ab2eae2e",
+    "fn:de800006fc20ba5e",
+]
 test = true
 
 [[module."region_5_flash_steam_table.rs".function]]
@@ -802,7 +860,7 @@ lines = [
     125,
     186,
 ]
-hash = "sha256:c516c5e887a885e4508ce8eb9b8cd7b85b72feb47a58b9ae777d5c3432a7cad0"
+hash = "sha256:35c1c0b39bb6c238f91a52b682b8076e1666c2f3e531e831ff965d1421fcfeeb"
 doc_hash = "sha256:93a8c3d29e8872cec5db80697fc81fe5b1791987c034613adb7855686b68b7b7"
 callees = [
     "fn:37cc24744a264da5",
@@ -812,6 +870,7 @@ callees = [
     "fn:ba0198a1efe013cb",
     "fn:f09f00cc4fcef6cc",
 ]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."region_5_flash_steam_table.rs".function]]
@@ -822,7 +881,7 @@ lines = [
     188,
     246,
 ]
-hash = "sha256:ca9adb296a583193bfe5c944b563e3fb6969e7f5a211ed3688f8351c1f0e8f1b"
+hash = "sha256:a578560a091e144c8ee66a8c9ec550496662958e75b75aea52866a6790b5db3d"
 doc_hash = "sha256:f6de08ba431b0381e1c0bfb3f10867caaa694a81736f356a1b28df1b6bec701d"
 callees = [
     "fn:6501588c6b651cf7",
@@ -832,6 +891,7 @@ callees = [
     "fn:d02d386d07946100",
     "fn:fdb738f8b3431582",
 ]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [[module."region_5_flash_steam_table.rs".function]]
@@ -842,7 +902,7 @@ lines = [
     248,
     348,
 ]
-hash = "sha256:5209697c12d2dcef1652be3a61eee0517d64cb28b662429cd3a7a94f7a7371e7"
+hash = "sha256:0d6023f9921e0edfef5d00061f367311145e98fa998438cf551904d84d558279"
 doc_hash = "sha256:774145b26f1c7976b7f7bd45b260969908736c51964dbb37bfd3ec49e1856473"
 callees = [
     "fn:37cc24744a264da5",
@@ -862,9 +922,15 @@ lines = [
     350,
     378,
 ]
-hash = "sha256:2dd55b078abef4c18176164421f04753e67f35442f5f465ab088064b3d8c144b"
+hash = "sha256:64dc250d969a8063b314ec8c17052654565a8912fd81c0871bdadfde43d596d2"
 doc_hash = "sha256:07387a91656294acd0136c87a0aa9be983e82d47e0295ea561baa0dbc1e922d4"
 callees = ["fn:ba0198a1efe013cb"]
+uses = [
+    "fn:6ad27b56e543d93a",
+    "fn:6e0bd6260390a8e3",
+    "fn:8c9d4ac5ab2eae2e",
+    "fn:de800006fc20ba5e",
+]
 test = true
 
 [[module."region_5_flash_steam_table.rs".function]]
@@ -882,5 +948,9 @@ callees = [
     "fn:37cc24744a264da5",
     "fn:475ec76fd513a3ad",
     "fn:6501588c6b651cf7",
+]
+uses = [
+    "fn:6ad27b56e543d93a",
+    "fn:de800006fc20ba5e",
 ]
 test = true

@@ -448,6 +448,15 @@ pub enum FunctionFlag {
     /// A valid review names a separation attestation (it claims rung 5,
     /// IV&V) but misses it (GitHub #809): every reason is listed.
     IndependentVvNotCounted { review: String, misses: Vec<Rung5Miss> },
+    /// A valid rung 4 review that predates the questions of rung 4's two
+    /// axes, physical accuracy and usability (GitHub #855): it still counts
+    /// at rung 4; stamping it again records them.
+    Rung4AxesNotRecorded { review: String },
+    /// A valid review waived a required check with a typed reason
+    /// ([`super::wizard::Effect::FlagCapRung3`], 2026-10-14): it counts,
+    /// capped at rung 3. `waived` are the answers as written, each
+    /// `"<question> = <option>: <reason>"`.
+    RungCappedByWaiver { review: String, waived: Vec<String> },
 }
 
 impl FunctionFlag {
@@ -457,6 +466,8 @@ impl FunctionFlag {
             Self::DuplicateCode { .. } => FlagKind::DuplicateCode,
             Self::ImplausibleSignedAt { .. } => FlagKind::ImplausibleSigningTime,
             Self::IndependentVvNotCounted { .. } => FlagKind::IndependentVvNotCounted,
+            Self::Rung4AxesNotRecorded { .. } => FlagKind::Rung4AxesNotRecorded,
+            Self::RungCappedByWaiver { .. } => FlagKind::RungCappedByWaiver,
         }
     }
 }
@@ -534,6 +545,14 @@ pub struct ReviewReport {
     /// carries none, or on an unreadable entry). Added 2026-10-10 (#770): it orders two reviews of
     /// the same date when both carry it ([`super::ivv::earliest_first`]).
     pub signed_at: Option<String>,
+    /// The answers claim a hand-written validation case and do not answer
+    /// the questions of rung 4's two axes (GitHub #855): a review written
+    /// before those questions existed. It keeps its rung and is flagged.
+    pub rung4_axes_unrecorded: bool,
+    /// The checks the review waived with a typed reason (`flag_cap_rung3`,
+    /// 2026-10-14), each `"<question> = <answer as written>"`: the review is
+    /// capped at rung 3 and flagged.
+    pub waived: Vec<String>,
 }
 
 /// One function, judged.
@@ -870,6 +889,12 @@ pub fn evaluate(
                 rung: Some(b.rung),
                 qualifications: qualification_labels(root, &b.by),
                 independent: stamp_gate(&b.checklist, Applicability::default()).independent,
+                rung4_axes_unrecorded: !stamp_gate(&b.checklist, Applicability::default()).rung4_unanswered.is_empty(),
+                waived: stamp_gate(&b.checklist, Applicability::default())
+                    .rung_capped
+                    .iter()
+                    .map(|c| format!("{} = {}", c.question, b.checklist.get(&c.question).map(String::as_str).unwrap_or(&c.option)))
+                    .collect(),
                 vv_case: Vec::new(),
                 separation_attestation: b.separation_attestation.clone(),
                 signed_at: b.signed_at.clone(),
@@ -1004,6 +1029,8 @@ pub fn evaluate(
                     vv_case: Vec::new(),
                     separation_attestation: None,
                     signed_at: None,
+                    rung4_axes_unrecorded: false,
+                    waived: Vec::new(),
                 }),
                 None => ev.orphan_unreadable.push(OrphanUnreadable {
                     dir: fr.dir.clone(),
@@ -1060,6 +1087,19 @@ pub fn evaluate(
         let ivv = judge_function(id, &cur.index.krate, &reviews, authors, root, &registry, concepts, policy);
         let rung = function_rung(&reviews, &ivv);
         let mut fn_flags = flags.remove(*id).unwrap_or_default();
+        for r in &reviews {
+            if r.rung4_axes_unrecorded && r.rung == Some(4) && r.state.kind().counts() {
+                fn_flags.push(FunctionFlag::Rung4AxesNotRecorded {
+                    review: r.artifact.clone().unwrap_or_default(),
+                });
+            }
+            if !r.waived.is_empty() && r.state.kind().counts() {
+                fn_flags.push(FunctionFlag::RungCappedByWaiver {
+                    review: r.artifact.clone().unwrap_or_default(),
+                    waived: r.waived.clone(),
+                });
+            }
+        }
         for c in &ivv.candidates {
             if c.attestation.is_some() && !c.misses.is_empty() {
                 fn_flags.push(FunctionFlag::IndependentVvNotCounted {
@@ -1094,10 +1134,10 @@ pub fn evaluate(
         .map(|(k, v)| (k.clone(), v.state.kind().counts()))
         .collect();
     for (id, cur) in &current {
+        // Callees and (#843) the types and constants it uses.
         let blocked: Vec<String> = cur
             .f
-            .callees
-            .iter()
+            .depends_on()
             .filter(|c| c.as_str() != *id && counts.get(*c) == Some(&false))
             .cloned()
             .collect();
@@ -1207,6 +1247,8 @@ fn judge(
         physical_interface: b.checklist.contains_key("units_documented"),
         is_test: cur.f.test,
         tests: tests_by,
+        shape: cur.f.shape,
+        hand_written_vv: false,
     };
     let gate = stamp_gate(&b.checklist, ctx);
     if !gate.stampable() {
@@ -1227,7 +1269,10 @@ fn judge(
             now: cur.f.hash.clone(),
         });
     }
-    let recorded: BTreeSet<&String> = b.callees.keys().collect();
+    // The types and constants a review recorded (#843) are compared by
+    // hash at step 6, not here: a review written before items were indexed
+    // records none and keeps its state.
+    let recorded: BTreeSet<&String> = b.callees.keys().filter(|k| !cur.f.uses.contains(*k)).collect();
     let now: BTreeSet<&String> = cur.f.callees.iter().collect();
     if recorded != now {
         return StampState::DirectlyStale(StaleWhy::CalleesResolveDifferently {

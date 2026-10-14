@@ -51,9 +51,17 @@
 //!   **CORRECTED 2026-10-07**: #762 landed; [`signing`] verifies ed25519
 //!   stamps against the `[[reviewer]]` registry, and its native-only
 //!   `keystore` generates and encrypts keys for desktop kovan.
-//! - Hashing nested functions, constants and types (ruled stampable on #739,
+//! - ~~Hashing nested functions, constants and types (ruled stampable on #739,
 //!   2026-10-06): [`index::ItemKind`] has room for them; only functions are
-//!   hashed by [`hash`] today.
+//!   hashed by [`hash`] today.~~ **CORRECTED 2026-10-13** (#843): structs,
+//!   enums, unions, traits, type aliases, constants and statics are hashed
+//!   ([`hash::hash_items`]), written to `kovan.toml` with `item` and
+//!   [`index::ItemShape`], and shown on the Code Review map. Still not here:
+//!   hashing functions nested in another function's body; ~~the questions a
+//!   review of a type or constant asks (stamping one is refused until they
+//!   are built); and which functions use which type~~ (both built the same
+//!   day: [`wizard::AskedOf`], [`index::FunctionIndex::uses`]); and the
+//!   methods written for a type in another file than its definition.
 //! - ~~Building `kovan.toml` from SCIP (#757) and the git side
 //!   (kovan-discovery).~~ **CORRECTED 2026-10-07**: [`crate::code_index`]
 //!   builds it (#767, `kovan-cli index`); the git facts the engine takes

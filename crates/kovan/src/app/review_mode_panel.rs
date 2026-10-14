@@ -33,7 +33,8 @@
 //! highlight and the quick-fix reads and writes all run on
 //! [`Worker`] threads; a frame only polls them with `try_write`.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use egui::{Color32, RichText};
 use kovan_common::review::signing::keystore::Keystore;
@@ -42,6 +43,7 @@ use kovan_web::ui::{FunctionRef, HostRequest};
 use super::kvim_editor::KvimEditorState;
 use crate::stamping::flow::{Purpose, Worker};
 use crate::stamping::review_mode::diff::{DiffLine, FnDiff};
+use crate::stamping::review_mode::code_words::CodeWords;
 use crate::stamping::review_mode::quick_fix::{self, QuickFix};
 use crate::stamping::review_mode::walk::{
     huge_warning, next, Next, StepOutcome, Trail, WalkPlan, WalkSummary,
@@ -89,7 +91,10 @@ pub(crate) struct Active {
     /// Comments for the stamp (the wizard's Comments seed).
     draft: KvimEditorState,
     quick: Option<(QuickFix, KvimEditorState)>,
-    quick_load: Option<Worker<Result<(QuickFix, bool), String>>>,
+    quick_load: Option<Worker<Result<(QuickFix, bool, Arc<CodeWords>), String>>>,
+    /// A quick-fix save in flight, and whether the editor closes after it
+    /// (`:wq`) or stays open (`:w`, Save).
+    quick_save: Option<(Worker<Result<QuickFix, String>>, bool)>,
     job: Option<Worker<Done>>,
     /// Selected source lines (1-based within the function) for a highlight.
     sel: Option<(usize, usize)>,
@@ -113,6 +118,7 @@ impl Active {
             draft: KvimEditorState::default(),
             quick: None,
             quick_load: None,
+            quick_save: None,
             job: None,
             sel: None,
             note: String::new(),
@@ -325,8 +331,11 @@ impl ReviewModePanel {
         }
         if let Some(j) = &a.quick_load {
             match j.try_take() {
-                Some(Ok((q, template))) => {
+                Some(Ok((q, template, words))) => {
                     let mut ed = KvimEditorState::default();
+                    // A code buffer (#857): colours, space indent, and
+                    // completion from the cached index; no language server.
+                    ed.set_code(kovan_web::syntax::language_of(&q.file), Some(words));
                     let text = if template {
                         quick_fix::with_deviation_template(&q.original)
                     } else {
@@ -339,6 +348,29 @@ impl ReviewModePanel {
                 Some(Err(e)) => {
                     self.message = Some(Err(e));
                     a.quick_load = None;
+                }
+                None => busy = true,
+            }
+        }
+        if let Some((j, close)) = &a.quick_save {
+            match j.try_take() {
+                Some(Ok(saved)) => {
+                    self.message = Some(Ok(format!("Saved {} (not committed).", saved.file)));
+                    if *close {
+                        a.quick = None;
+                    } else if let Some((q, ed)) = a.quick.as_mut() {
+                        *q = saved;
+                        ed.mark_saved();
+                    }
+                    a.quick_save = None;
+                    // The function on disk changed: re-evaluate its state.
+                    if let Some(root) = root.clone() {
+                        a.load = Some(load_view(root, a.target.id.clone()));
+                    }
+                }
+                Some(Err(e)) => {
+                    self.message = Some(Err(e));
+                    a.quick_save = None;
                 }
                 None => busy = true,
             }
@@ -623,7 +655,7 @@ fn main_view(
                 .clicked()
             {
                 let (r, file, qual) = (root.clone(), v.file.clone(), v.qual.clone());
-                a.quick_load = Some(Worker::spawn(move || quick_fix::open(&r, &file, &qual).map(|q| (q, false))));
+                a.quick_load = Some(Worker::spawn(move || open_quick_fix(&r, &file, &qual, false)));
             }
             if v.is_port
                 && ui
@@ -632,7 +664,7 @@ fn main_view(
                     .clicked()
             {
                 let (r, file, qual) = (root.clone(), v.file.clone(), v.qual.clone());
-                a.quick_load = Some(Worker::spawn(move || quick_fix::open(&r, &file, &qual).map(|q| (q, true))));
+                a.quick_load = Some(Worker::spawn(move || open_quick_fix(&r, &file, &qual, true)));
             }
         }
     });
@@ -640,36 +672,46 @@ fn main_view(
     if let Some((q, ed)) = a.quick.as_mut() {
         let mut close = false;
         let mut save = false;
+        let saving = a.quick_save.is_some();
         ui.horizontal(|ui| {
             ui.strong(format!(
                 "Quick fix: {} lines {}-{}",
                 q.file, q.lines[0], q.lines[1]
             ));
-            if ui.button("Save").clicked() {
+            if ui.add_enabled(!saving, egui::Button::new("Save")).on_hover_text(":w saves, :wq saves and closes").clicked() {
                 save = true;
             }
-            if ui.button("Close").clicked() {
+            if ui.button("Close").on_hover_text(":q closes (:q! discards unsaved edits)").clicked() {
                 close = true;
+            }
+            if saving {
+                ui.spinner();
             }
         });
         ui.weak("Saving changes the function's hash: commit it, and the review shows the new diff before a stamp.");
         if let Some(sig) = ed.ui(ui, None) {
             use super::kvim_editor::EditorSignal;
+            // `:w` saves and stays, `:q` closes, `:wq` saves and then closes
+            // (maintainer, 2026-10-13). A `:q` with unsaved edits is refused
+            // by the editor itself, which says to use `:q!`.
             match sig {
                 EditorSignal::Write => save = true,
                 EditorSignal::Quit => close = true,
-                _ => {}
+                EditorSignal::WriteThenQuit => {
+                    save = true;
+                    close = true;
+                }
+                EditorSignal::QuitUnsaved => {}
             }
         }
-        if save {
+        if save && !saving {
             if let Some(root) = root {
                 let (r, q2, text) = (root.clone(), q.clone(), ed.text());
-                a.job = Some(Worker::spawn(move || {
-                    quick_fix::save(&r, &q2, &text)
-                        .map(|_| format!("Saved {} (not committed).", q2.file))
-                }));
+                a.quick_save = Some((
+                    Worker::spawn(move || quick_fix::save(&r, &q2, &text).map(|_| quick_fix::after_save(&q2, &text))),
+                    close,
+                ));
             }
-            a.quick = None;
         } else if close {
             a.quick = None;
         }
@@ -706,6 +748,16 @@ fn main_view(
 
 /// The source with line numbers, highlights tinted, line selection and
 /// Annotate. GUI drawing code (exempt).
+/// Open a quick fix and gather the names it completes from (#857). Runs on
+/// a background worker: the workspace index comes from the in-memory cache
+/// when it is warm, and takes about a second when it is not.
+fn open_quick_fix(root: &Path, file: &str, qual: &str, template: bool) -> Result<(QuickFix, bool, Arc<CodeWords>), String> {
+    let q = quick_fix::open(root, file, qual)?;
+    // No index is no reason to refuse the fix: it opens without completion.
+    let words = crate::stamping::load_workspace(root).map(|ws| CodeWords::from_workspace(&ws, file)).unwrap_or_default();
+    Ok((q, template, Arc::new(words)))
+}
+
 fn source_view(
     ui: &mut egui::Ui,
     a: &mut Active,
@@ -775,6 +827,12 @@ fn source_view(
     }
     let tint = Color32::from_rgba_unmultiplied(255, 220, 60, 40);
     let shift = ui.input(|i| i.modifiers.shift);
+    // Syntax colours (#857), from the line lexer; no language server.
+    let spans = kovan_web::syntax::language_of(&v.file)
+        .map(|l| kovan_web::syntax::highlight(&v.source, l))
+        .unwrap_or_default();
+    let (dark, plain) = (ui.visuals().dark_mode, ui.visuals().text_color());
+    let font = egui::TextStyle::Monospace.resolve(ui.style());
     egui::ScrollArea::both()
         .id_salt("review_mode_source")
         .auto_shrink(false)
@@ -801,13 +859,22 @@ fn source_view(
                             _ => Some((n, n)),
                         };
                     }
-                    let mut t = RichText::new(line).monospace();
-                    if selected {
-                        t = t.background_color(ui.visuals().selection.bg_fill);
+                    let background = if selected {
+                        ui.visuals().selection.bg_fill
                     } else if hl.is_some() {
-                        t = t.background_color(tint);
-                    }
-                    let r = ui.label(t);
+                        tint
+                    } else {
+                        egui::Color32::TRANSPARENT
+                    };
+                    let line_spans = spans.get(i).map_or(&[][..], |s| s.as_slice());
+                    let r = ui.label(kovan_web::ui::syntax_ui::job(
+                        line,
+                        line_spans,
+                        font.clone(),
+                        plain,
+                        dark,
+                        background,
+                    ));
                     if let Some(h) = hl {
                         r.on_hover_text(format!(
                             "{}: {}{}",
@@ -1085,6 +1152,18 @@ mod tests {
     use crate::stamping::review_mode::section::{FunctionSection, SectionKind};
     use crate::stamping::review_mode::walk::WalkItem;
     use crate::stamping::review_mode::SinceReview;
+
+    /// A quick fix opens outside any indexed workspace too: with the
+    /// function's lines and an empty completion list, never an error.
+    #[test]
+    fn a_quick_fix_opens_without_an_index() {
+        let d = tempfile::tempdir().unwrap();
+        std::fs::write(d.path().join("a.rs"), "fn a() -> u8 {\n    1\n}\n").unwrap();
+        let (q, template, words) = open_quick_fix(d.path(), "a.rs", "a", true).unwrap();
+        assert_eq!((q.lines, template), ([1, 3], true));
+        assert!(words.is_empty());
+        assert!(open_quick_fix(d.path(), "a.rs", "missing", false).is_err());
+    }
 
     fn fref(name: &str) -> FunctionRef {
         FunctionRef {

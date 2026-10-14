@@ -1,7 +1,7 @@
 # FARRER PARK
 
 **F**inite-element **A**nalysis for **R**eactor **R**eliability, **E**ngineering
-**R**esponse, **P**lasticity **A**nd **R**isk.
+**R**esponse, **P**lasticity **A**nd **R**is**K**. The K is the last letter of Ris**K** (~~**R**isk~~ **CORRECTED 2026-10-13**: the earlier lettering spelled FARRER PAR).
 
 FEM structural mechanics for the OUTRAM PARK suite: small-strain elasticity,
 J2 plasticity and rate-dependent **crystal plasticity** on unstructured meshes,

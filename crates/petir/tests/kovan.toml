@@ -38,7 +38,7 @@ lines = [
     51,
     82,
 ]
-hash = "sha256:3f11dbb71c2352d68d1dd3f9325bee8b43422f651e1d411d9faa457c679e37b1"
+hash = "sha256:b733b4b14d4339c12f136109b5a56fb3331520bec5a65f981c54523c18d8a058"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:d00447dfe1d86ca0",
@@ -54,7 +54,7 @@ lines = [
     84,
     110,
 ]
-hash = "sha256:2671ee920b166ad92befbf480be0d07fba7f5d2785136869a3a86e230cfae967"
+hash = "sha256:f857e6974f7b80d046914258f668915b6174d29899c0ea6ba5a55e326050bbbe"
 doc_hash = "sha256:09d76ab3b117eef37a96e71b7e0b3bb1127862f488ff529fea8864e4e2823930"
 callees = ["fn:d24cd2d36e511eb3"]
 test = true
@@ -67,7 +67,7 @@ lines = [
     112,
     133,
 ]
-hash = "sha256:762101b942201730f99acaed481d175853d486b7f20584a6fb3c8bf56539f99e"
+hash = "sha256:a9439b4cb0c7b7ade5c434d92cdf1b8aa981d467d4af1c47b7c2ae4595315675"
 doc_hash = "sha256:c4ee1cb3dfed15345b5d40063dd538803b07edbce6a8a075dabc422601d9e078"
 callees = ["fn:d24cd2d36e511eb3"]
 test = true
@@ -108,7 +108,7 @@ lines = [
     90,
     146,
 ]
-hash = "sha256:12f7269a2e41ed19ddd9702b50f8cdc840f2d36d23331d2de1205f6960f16769"
+hash = "sha256:96767d93ff7d35d0c084c3b537c0b35c5d0d618da33e2cdf5ab63da0422109bc"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:736bf673e39f3a8c",
@@ -125,7 +125,7 @@ lines = [
     148,
     191,
 ]
-hash = "sha256:a91b06a90eada0cfa3f586f102e99014dff6f702afcf06c554f2592c219a1e18"
+hash = "sha256:cd6ba443eda08da048e0c1a4fb195bcb33b7a7a7e545fcf4abf744a27c7fcaee"
 doc_hash = "sha256:cfc5d3aa2e2a680c45fd32f6a3c2afe8c51ac68af0c1e2c7029b8e146aae7b43"
 callees = [
     "fn:821b9ab2fcd8a610",
@@ -141,7 +141,7 @@ lines = [
     193,
     228,
 ]
-hash = "sha256:aeac18856ae7b8b5dcd41c2615aa4dd46f93d1e6aaa24c9e78ff6df89055f0c4"
+hash = "sha256:8a4f32f4488e2fd4bc52281414aa55c9322118fd777a3b9b048152567f690cb5"
 doc_hash = "sha256:464837db7aa774fdf6bfe03e75762cbc6003be81d37393989f44a5d67491b96d"
 callees = ["fn:821b9ab2fcd8a610"]
 test = true
@@ -182,7 +182,7 @@ lines = [
     77,
     147,
 ]
-hash = "sha256:0256ba4b134cb7d1cd6a4a8c549edb98a31a1bde5e6321f1157a0e619f291c65"
+hash = "sha256:4bb1fae476ebf9b5f40bbfff37a16c4ac60123d50909a9cc99686a72392e321a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:b145a174105d6c1b",
@@ -199,7 +199,7 @@ lines = [
     149,
     190,
 ]
-hash = "sha256:4abfe89a8704ec284c60f2bc997e920e9dc79bd7b34ee76c373730da84d29300"
+hash = "sha256:1cca4d683ec2ee968ed8fe7dbe9b16ebef3da91fb4fc9e8a48892faa1ce03951"
 doc_hash = "sha256:4cb4f667a415a4f57b46eab539bc6176a24eadc754d65908fcccb5b03100cd7c"
 callees = [
     "fn:b145a174105d6c1b",
@@ -215,13 +215,27 @@ lines = [
     192,
     226,
 ]
-hash = "sha256:e84693fd32f141b60e229c6277dff0a18b7009cd391ad49a044c69081be0b0d2"
+hash = "sha256:023d3fced9e0e923fe2c948accf12df6b04146d908f9c8fc32745db4dfb674bc"
 doc_hash = "sha256:38e5ff14566ba7b5626ed37ae2710a00f2592c91f2038c6bd092180f360d8e9b"
 callees = ["fn:fcdb672040f501d8"]
 test = true
 
 [module."fast_math_speed.rs"]
 path = "test:fast_math_speed"
+
+[[module."fast_math_speed.rs".function]]
+id = "fn:9cf36e64e030ef91"
+name = "N"
+qual = "N"
+item = "const"
+shape = "const"
+lines = [
+    51,
+    51,
+]
+hash = "sha256:19371d7f41d14bbec41cebee0f79e060722040542d2075dfee55e519f592d9c9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."fast_math_speed.rs".function]]
 id = "fn:0c61dc8553695ff0"
@@ -251,6 +265,7 @@ callees = [
     "fn:4647d89cb0900b0c",
     "fn:f420940c421868d5",
 ]
+uses = ["fn:9cf36e64e030ef91"]
 test = true
 
 [module."fast_pow_vs_arm_optimized_routines.rs"]
@@ -289,7 +304,7 @@ lines = [
     96,
     164,
 ]
-hash = "sha256:5f4b97363f2a3dcbaac06a140fc94c66348caf9e3f58fca8eee6edc326a551de"
+hash = "sha256:96d37e4eee17e405db8c257d8b865fb2f09e13d4f22fcd3cff2ed6e919ccce0f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:56f1fed4683b9094",
@@ -306,7 +321,7 @@ lines = [
     166,
     209,
 ]
-hash = "sha256:db93b33099df5e296b7ff7ef35f6271bdbb0ac30e58637b55166201ad917ac8c"
+hash = "sha256:5f59707705a851163085673c75637b0f3af159feb9a3e104ec6e173cfc5b9801"
 doc_hash = "sha256:2e0666304231b0ecface7d9ed63442cb744fc6001c65d1f1eefe4496e0eb9f43"
 callees = [
     "fn:56f1fed4683b9094",
@@ -322,7 +337,7 @@ lines = [
     211,
     252,
 ]
-hash = "sha256:0d4cf1a768343f6861237bdf6a90825f782fec75250233b8c4a967de54dc6b88"
+hash = "sha256:45871c6db2b797039208609d004e19d7d18369294f57d570bf2ab8653c23a306"
 doc_hash = "sha256:169747f3429999d200b296b921e4963dad8bcd76a7fbcd8b95489ee8429ffe2a"
 callees = [
     "fn:56f1fed4683b9094",
@@ -374,6 +389,10 @@ callees = [
     "fn:32e8246aae6cc77e",
     "fn:ef9ddd35590bfb99",
 ]
+uses = [
+    "fn:928b77d58894c637",
+    "fn:d814990cf2d1bb7f",
+]
 test = true
 
 [[module."gauss_legendre_table_audit.rs".function]]
@@ -387,6 +406,10 @@ lines = [
 hash = "sha256:c1fffb2e364c43c49d949f1492517b4c03f7422312c95a605fc46a6d5d792da5"
 doc_hash = "sha256:bc5d8d804996077966b5ba098333a7cc9f9031bda87f00321a94f8a87eac9bc6"
 callees = ["fn:ef9ddd35590bfb99"]
+uses = [
+    "fn:928b77d58894c637",
+    "fn:d814990cf2d1bb7f",
+]
 test = true
 
 [[module."gauss_legendre_table_audit.rs".function]]
@@ -400,6 +423,10 @@ lines = [
 hash = "sha256:5956c8fd7e2a5fcfe70f0125b9bbf3c5f6f5a04aa425e84285eeb5c6f342a7e7"
 doc_hash = "sha256:ffbf68c186213ecbbadbe2f127b7fba0f754a431c1f8ddf7ada81c4a872d2174"
 callees = ["fn:ef9ddd35590bfb99"]
+uses = [
+    "fn:928b77d58894c637",
+    "fn:d814990cf2d1bb7f",
+]
 test = true
 
 [module."gsl_cheb_fit.rs"]
@@ -434,6 +461,7 @@ callees = [
     "fn:8d24e59558fe048f",
     "fn:8f651cadca6a4f3b",
 ]
+uses = ["fn:eba1bd011cf5b3f9"]
 test = true
 
 [[module."gsl_cheb_fit.rs".function]]
@@ -451,6 +479,7 @@ callees = [
     "fn:8d24e59558fe048f",
     "fn:8f651cadca6a4f3b",
 ]
+uses = ["fn:eba1bd011cf5b3f9"]
 test = true
 
 [[module."gsl_cheb_fit.rs".function]]
@@ -467,6 +496,7 @@ callees = [
     "fn:0995754d4fa11175",
     "fn:8f651cadca6a4f3b",
 ]
+uses = ["fn:eba1bd011cf5b3f9"]
 test = true
 
 [[module."gsl_cheb_fit.rs".function]]
@@ -480,6 +510,7 @@ lines = [
 hash = "sha256:4a506878c019deb64d791663cf0e0645c4bbb629f9c1952d6549c331fd1d1c11"
 doc_hash = "sha256:37181402b60ad1b89da826f5a433c8e9b70f8e2a5494bf5452a251ce17a36dd6"
 callees = ["fn:0995754d4fa11175"]
+uses = ["fn:eba1bd011cf5b3f9"]
 test = true
 
 [[module."gsl_cheb_fit.rs".function]]
@@ -493,6 +524,10 @@ lines = [
 hash = "sha256:76269a8cfe7f14922050000832086cd8b8c4b8eae23501254fe0bd1ddbbca336"
 doc_hash = "sha256:faa32686cb7776202c893e44e4178606dea630688afae59ffa9a0f33e4004f5b"
 callees = ["fn:0995754d4fa11175"]
+uses = [
+    "fn:08f93c13acb0345f",
+    "fn:eba1bd011cf5b3f9",
+]
 test = true
 
 [[module."gsl_cheb_fit.rs".function]]
@@ -506,6 +541,10 @@ lines = [
 hash = "sha256:45976b32f1ae655b15236693c30a3d66d9ab2eb4fadff7242d487f40fc7a7cc6"
 doc_hash = "sha256:092951f307145e323c0be701c87b0e409289daabf7c3389cd1c073b6995f753d"
 callees = ["fn:0995754d4fa11175"]
+uses = [
+    "fn:08f93c13acb0345f",
+    "fn:eba1bd011cf5b3f9",
+]
 test = true
 
 [[module."gsl_cheb_fit.rs".function]]
@@ -516,16 +555,31 @@ lines = [
     324,
     377,
 ]
-hash = "sha256:92193649762dbc96e5bb58fd0eb5b7a548867c4914d14b665fc13b7392e16c04"
+hash = "sha256:87e8048bae4f3e3938cc070bcd591122f16ceee373a8e361d3aab22b5c9d4633"
 doc_hash = "sha256:513ab4d6ffd3b975eacefa5af0adee2c852fad0981500add5a809b0e13cd1d82"
 callees = [
     "fn:0995754d4fa11175",
     "fn:8f651cadca6a4f3b",
 ]
+uses = ["fn:eba1bd011cf5b3f9"]
 test = true
 
 [module."gsl_cheb_mode_code_to_code.rs"]
 path = "test:gsl_cheb_mode_code_to_code"
+
+[[module."gsl_cheb_mode_code_to_code.rs".function]]
+id = "fn:14e4cd1cc436802f"
+name = "Case"
+qual = "Case"
+item = "type"
+shape = "struct"
+lines = [
+    39,
+    52,
+]
+hash = "sha256:8a070eaf1e21d93f31de4bd7315391051278ae3d290276a4cb8f5128bf249783"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."gsl_cheb_mode_code_to_code.rs".function]]
 id = "fn:295783b2590b0494"
@@ -550,6 +604,7 @@ lines = [
 hash = "sha256:cbec39fd9ccb2802e32132e6da912a62f109c6d8537ade6c7459eb85f25320b4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:295783b2590b0494"]
+uses = ["fn:14e4cd1cc436802f"]
 test = true
 
 [[module."gsl_cheb_mode_code_to_code.rs".function]]
@@ -563,6 +618,10 @@ lines = [
 hash = "sha256:d1c35a2f24acf5e553e5b73893c44b280ebb6b4f366c8771250119370b87b2bd"
 doc_hash = "sha256:dfd7023de8f5321ef355b00b471c728aa88c136ea31f3e7e8fc4eeab6ee5dcf9"
 callees = ["fn:4c95e464d36d08a3"]
+uses = [
+    "fn:14e4cd1cc436802f",
+    "fn:eba1bd011cf5b3f9",
+]
 test = true
 
 [[module."gsl_cheb_mode_code_to_code.rs".function]]
@@ -573,7 +632,7 @@ lines = [
     109,
     210,
 ]
-hash = "sha256:f1cc9140dc0f8a1ed22be2d0862eb9d99994cdaaef28845a3d67fb4c09c20058"
+hash = "sha256:f6e4de35d3c6e8e0137980a1e7523ea82306697c8aa1ea597183b114b918651d"
 doc_hash = "sha256:32901eae2f4f19869f99b8b70305a128a9eb9f3d9284937b6f2243487b3c2631"
 callees = [
     "fn:6293098aceb1b732",
@@ -583,6 +642,7 @@ callees = [
     "fn:d64743a5a5588d17",
     "fn:f30e5fb281632934",
 ]
+uses = ["fn:8eec5070d6248c3b"]
 test = true
 
 [[module."gsl_cheb_mode_code_to_code.rs".function]]
@@ -593,7 +653,7 @@ lines = [
     212,
     285,
 ]
-hash = "sha256:223c9adac1573ff5bf69a1c0d5f6e694888bcef58a4ddd9fb0edb3dc6d01f2fc"
+hash = "sha256:3ce323b6be1845dc5d29284c36972ebd2e58e216d691c287995507c2728e2d3c"
 doc_hash = "sha256:615e61c42366852529ca822486a433aad80a5c23a239186ad4ad41e054eca016"
 callees = [
     "fn:52e568ceae9dbdbd",
@@ -603,6 +663,7 @@ callees = [
     "fn:d64743a5a5588d17",
     "fn:f30e5fb281632934",
 ]
+uses = ["fn:8eec5070d6248c3b"]
 test = true
 
 [[module."gsl_cheb_mode_code_to_code.rs".function]]
@@ -613,7 +674,7 @@ lines = [
     287,
     383,
 ]
-hash = "sha256:2ad8b3843dcfa5f0e4b70262f7e3706810148f0378e7a08c102b12734ed2c115"
+hash = "sha256:ac74be7c08f395c4d6d0360465e99ef85ab9e941e9f39e8dda19c0d1f39157b5"
 doc_hash = "sha256:0e1d0cca8e1df819d76a587d3586ad6c19b79fa25c88bb4edcebea2867a24317"
 callees = [
     "fn:4c95e464d36d08a3",
@@ -621,10 +682,42 @@ callees = [
     "fn:a3270ae7326d669b",
     "fn:f30e5fb281632934",
 ]
+uses = [
+    "fn:8eec5070d6248c3b",
+    "fn:eba1bd011cf5b3f9",
+]
 test = true
 
 [module."gsl_cheb_suite.rs"]
 path = "test:gsl_cheb_suite"
+
+[[module."gsl_cheb_suite.rs".function]]
+id = "fn:8b5e514221da42fa"
+name = "TOL"
+qual = "TOL"
+item = "const"
+shape = "const"
+lines = [
+    30,
+    31,
+]
+hash = "sha256:48fc140c445f7ce5b6b8da020d90fb9ddd066546760d12f70ac4bcbaae474c34"
+doc_hash = "sha256:9c065396044174ecc6fdc7efe06e0f2c1d007fb93d986b0024d74a72388bd16d"
+test = true
+
+[[module."gsl_cheb_suite.rs".function]]
+id = "fn:3188410f351bf046"
+name = "FTOL"
+qual = "FTOL"
+item = "const"
+shape = "const"
+lines = [
+    32,
+    33,
+]
+hash = "sha256:cc2995c72536db02cde95552724d0fe4e20edc5eb64b84825f5e7194cfcbd86a"
+doc_hash = "sha256:3a2ce5c2b9c25bbbf846dadaf4640fda0300cbc8280c183cac0285dfdd1c47ff"
+test = true
 
 [[module."gsl_cheb_suite.rs".function]]
 id = "fn:8dd0473197674d27"
@@ -751,6 +844,10 @@ callees = [
     "fn:8dd0473197674d27",
     "fn:8f651cadca6a4f3b",
 ]
+uses = [
+    "fn:8b5e514221da42fa",
+    "fn:eba1bd011cf5b3f9",
+]
 test = true
 
 [[module."gsl_cheb_suite.rs".function]]
@@ -773,6 +870,10 @@ callees = [
     "fn:bb85fb338ba8c298",
     "fn:ebe01fa20daf5c1c",
 ]
+uses = [
+    "fn:8b5e514221da42fa",
+    "fn:eba1bd011cf5b3f9",
+]
 test = true
 
 [[module."gsl_cheb_suite.rs".function]]
@@ -789,6 +890,10 @@ callees = [
     "fn:4c95e464d36d08a3",
     "fn:8d24e59558fe048f",
     "fn:8dd0473197674d27",
+]
+uses = [
+    "fn:8b5e514221da42fa",
+    "fn:eba1bd011cf5b3f9",
 ]
 test = true
 
@@ -811,6 +916,11 @@ callees = [
     "fn:8f651cadca6a4f3b",
     "fn:e049831f3c9dc82f",
 ]
+uses = [
+    "fn:3188410f351bf046",
+    "fn:8b5e514221da42fa",
+    "fn:eba1bd011cf5b3f9",
+]
 test = true
 
 [[module."gsl_cheb_suite.rs".function]]
@@ -830,6 +940,10 @@ callees = [
     "fn:8dd0473197674d27",
     "fn:8f651cadca6a4f3b",
 ]
+uses = [
+    "fn:8b5e514221da42fa",
+    "fn:eba1bd011cf5b3f9",
+]
 test = true
 
 [[module."gsl_cheb_suite.rs".function]]
@@ -848,6 +962,10 @@ callees = [
     "fn:5b7311bd9b7d5a37",
     "fn:8dd0473197674d27",
     "fn:8f651cadca6a4f3b",
+]
+uses = [
+    "fn:8b5e514221da42fa",
+    "fn:eba1bd011cf5b3f9",
 ]
 test = true
 
@@ -887,6 +1005,11 @@ callees = [
     "fn:5ca180fb628f55d2",
     "fn:8b3464e5bf5e9407",
     "fn:8dd0473197674d27",
+]
+uses = [
+    "fn:3188410f351bf046",
+    "fn:8b5e514221da42fa",
+    "fn:eba1bd011cf5b3f9",
 ]
 test = true
 
@@ -937,7 +1060,7 @@ lines = [
     79,
     144,
 ]
-hash = "sha256:9acbe65fdd92a695cdf498028230ec1c0e8de8771b7d253c5502aafe4cba3f98"
+hash = "sha256:45a4fd9c2467992268d467850aaf658a90d72babcc24401126d5254c14f4cfae"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:170f12ecd283ba0f",
@@ -951,6 +1074,7 @@ callees = [
     "fn:8d24e59558fe048f",
     "fn:8f651cadca6a4f3b",
 ]
+uses = ["fn:eba1bd011cf5b3f9"]
 test = true
 
 [[module."gsl_code_to_code.rs".function]]
@@ -961,7 +1085,7 @@ lines = [
     146,
     200,
 ]
-hash = "sha256:8bfa837f6a09adff801f9437070d6a074e2c245204dd18d6462caf01d4aed13d"
+hash = "sha256:6b6eb3ac366ece40ef3bd4e6386ab95fc5f307425e80fed4625cce1be792fbe2"
 doc_hash = "sha256:98a6753f64173632783dee50efc0a2202ebbe5b6ca99dc631166a1b1cb7ab395"
 callees = [
     "fn:170f12ecd283ba0f",
@@ -972,10 +1096,68 @@ callees = [
     "fn:8b3464e5bf5e9407",
     "fn:8f651cadca6a4f3b",
 ]
+uses = ["fn:eba1bd011cf5b3f9"]
 test = true
 
 [module."gsl_deriv.rs"]
 path = "test:gsl_deriv"
+
+[[module."gsl_deriv.rs".function]]
+id = "fn:2a10d7a0de414a2e"
+name = "Case"
+qual = "Case"
+item = "type"
+shape = "alias"
+lines = [
+    16,
+    17,
+]
+hash = "sha256:4abfc8c15fbaba5a40ea296674b0826fe9acc02d5b1d005e1dbd055cf04b9db6"
+doc_hash = "sha256:6932916a3cf0301818afc15089d7334dc067809aa221b81c6481fbd613c10358"
+test = true
+
+[[module."gsl_deriv.rs".function]]
+id = "fn:89399e4b2a958b2c"
+name = "CASES"
+qual = "CASES"
+item = "const"
+shape = "const"
+lines = [
+    19,
+    28,
+]
+hash = "sha256:f5e78c853e9ca7de9fb206ee7c366a92dfb2bb4e2a89ff2721aad5c7d819663c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2a10d7a0de414a2e"]
+test = true
+
+[[module."gsl_deriv.rs".function]]
+id = "fn:3540615c4dabe701"
+name = "CENTRAL_TOL"
+qual = "CENTRAL_TOL"
+item = "const"
+shape = "const"
+lines = [
+    30,
+    31,
+]
+hash = "sha256:96d02f8b478b36fd219e1275bf75914b26445db1b08e4f8801fb6cae160b1fc6"
+doc_hash = "sha256:0894b2643307de53973c095821f56d11d8d47a150f5a1b4ed34833bca18b8ad5"
+test = true
+
+[[module."gsl_deriv.rs".function]]
+id = "fn:666c56afec71383f"
+name = "ONE_SIDED_TOL"
+qual = "ONE_SIDED_TOL"
+item = "const"
+shape = "const"
+lines = [
+    32,
+    33,
+]
+hash = "sha256:8422cad393c5957d18cc09e95d9850c17235f1de37f8243a8bdd6a6b731e41b3"
+doc_hash = "sha256:b118d630c028f180d3f7784ee046cdf17cf21749b2770db774ca3c3f4ad2f9fe"
+test = true
 
 [[module."gsl_deriv.rs".function]]
 id = "fn:d2739060a68aec75"
@@ -988,6 +1170,10 @@ lines = [
 hash = "sha256:0889fabc42f3608d8aa2330d11dd22a230826fb4772631636325468afd58e466"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:174477d7df3047f5"]
+uses = [
+    "fn:3540615c4dabe701",
+    "fn:89399e4b2a958b2c",
+]
 test = true
 
 [[module."gsl_deriv.rs".function]]
@@ -1001,6 +1187,10 @@ lines = [
 hash = "sha256:30f2671e02ed26b241f1e00b398d30fc059f19ef87a3187c3eee43cfbe4a123d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:a45210e4cf669ab9"]
+uses = [
+    "fn:666c56afec71383f",
+    "fn:89399e4b2a958b2c",
+]
 test = true
 
 [[module."gsl_deriv.rs".function]]
@@ -1014,6 +1204,10 @@ lines = [
 hash = "sha256:f92af739edef7e4991323b4e364dd2ba6adf5922be872316de585fd0977e06bf"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:cc00221d06c74723"]
+uses = [
+    "fn:666c56afec71383f",
+    "fn:89399e4b2a958b2c",
+]
 test = true
 
 [[module."gsl_deriv.rs".function]]
@@ -1031,6 +1225,7 @@ callees = [
     "fn:a45210e4cf669ab9",
     "fn:cc00221d06c74723",
 ]
+uses = ["fn:89399e4b2a958b2c"]
 test = true
 
 [[module."gsl_deriv.rs".function]]
@@ -1070,7 +1265,7 @@ lines = [
     126,
     170,
 ]
-hash = "sha256:eca6215019c129570cb172f59d0c21b57a94daf7720fc31d2de9c274d39e3cfb"
+hash = "sha256:f7b499804173cb2d460ac4c4e67d410206e907e58172c5a9790c9e52395ce5f6"
 doc_hash = "sha256:741289dca6ef0bf7a1cf130365bc2a8ca1f66f39e0ad9614066d97a7417dfa2c"
 callees = ["fn:174477d7df3047f5"]
 test = true
@@ -1089,6 +1284,7 @@ callees = [
     "fn:a45210e4cf669ab9",
     "fn:cc00221d06c74723",
 ]
+uses = ["fn:89399e4b2a958b2c"]
 test = true
 
 [[module."gsl_deriv.rs".function]]
@@ -1127,7 +1323,7 @@ lines = [
     26,
     78,
 ]
-hash = "sha256:c47c7e5956f0bf371d1a3ec75d90750feb016c17ba2a6e69244bef61a7c5aed6"
+hash = "sha256:4c12ecc6ceb4622e6bfed4a83ed0214df694ea7a710141888cdd9376a1e3c5c0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:6a1c9c133fe26ed9",
@@ -1230,6 +1426,21 @@ test = true
 path = "test:gsl_integration"
 
 [[module."gsl_integration.rs".function]]
+id = "fn:dd8b9825e97887de"
+name = "ALL_RULES"
+qual = "ALL_RULES"
+item = "const"
+shape = "const"
+lines = [
+    14,
+    21,
+]
+hash = "sha256:283f5be849e2ccfd8414081c7edc6386877af0667ff90d68649ee9b3638b2c00"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:d06fdd2bd9021334"]
+test = true
+
+[[module."gsl_integration.rs".function]]
 id = "fn:a4c960ad2547b85c"
 name = "every_rule_integrates_low_degree_polynomials_exactly"
 qual = "every_rule_integrates_low_degree_polynomials_exactly"
@@ -1240,6 +1451,7 @@ lines = [
 hash = "sha256:1ef1b93642e42d86143e668c4533cc8b7e4f1c03606b402bb64fc60a5d123762"
 doc_hash = "sha256:8a4bad69b82360f76204d6115efb77a37587d9bdd1fbd6f06cd9f63510ba996a"
 callees = ["fn:7807e4faf682ffa7"]
+uses = ["fn:dd8b9825e97887de"]
 test = true
 
 [[module."gsl_integration.rs".function]]
@@ -1253,6 +1465,7 @@ lines = [
 hash = "sha256:75c936e82a8ed51c4a6042726a64a2e9f4192bd3bd60c5b340ee53d2cc316e4e"
 doc_hash = "sha256:b3225b81f605c298c71c2cab0ef8ce755aba12d12c09f3d1372e83dd6b176d0b"
 callees = ["fn:7807e4faf682ffa7"]
+uses = ["fn:dd8b9825e97887de"]
 test = true
 
 [[module."gsl_integration.rs".function]]
@@ -1266,6 +1479,7 @@ lines = [
 hash = "sha256:b8482febc3c4c466159571ed1b695bc1355f4516584561da3fb4fc0f241e6902"
 doc_hash = "sha256:cb7b77b724c89f9d8b65e7c536f1ababfd565c16799fd4e5422bfd4d5bd6ca73"
 callees = ["fn:5075bd7ee9919333"]
+uses = ["fn:d06fdd2bd9021334"]
 test = true
 
 [[module."gsl_integration.rs".function]]
@@ -1279,6 +1493,7 @@ lines = [
 hash = "sha256:431be30c0b219251d6ad986c1761764a081090157dfed633b925f0c608abadc0"
 doc_hash = "sha256:f370f81e13b93aa89f538cd102635bc7518825d1e0e9e16761ce7c8d1f7b81d2"
 callees = ["fn:5075bd7ee9919333"]
+uses = ["fn:dd8b9825e97887de"]
 test = true
 
 [[module."gsl_integration.rs".function]]
@@ -1292,6 +1507,7 @@ lines = [
 hash = "sha256:b51c346d4d7e5249567e8703c3683b8149b0cb54f04605e6faa415daf3f4f8f6"
 doc_hash = "sha256:9f158db93961ed116a2f7962cc99e14480b04390d75c3b0161038c4c01728c06"
 callees = ["fn:5075bd7ee9919333"]
+uses = ["fn:dd8b9825e97887de"]
 test = true
 
 [[module."gsl_integration.rs".function]]
@@ -1308,6 +1524,7 @@ callees = [
     "fn:5075bd7ee9919333",
     "fn:7807e4faf682ffa7",
 ]
+uses = ["fn:d06fdd2bd9021334"]
 test = true
 
 [[module."gsl_integration.rs".function]]
@@ -1321,6 +1538,7 @@ lines = [
 hash = "sha256:07263689fc38880141d536edbdf2e7be26c6e66b556abb9fc45371bb264964b4"
 doc_hash = "sha256:f61f588bb16bd968c178268facf70ef03daebb0081f052717df9d87fe591135a"
 callees = ["fn:7807e4faf682ffa7"]
+uses = ["fn:d06fdd2bd9021334"]
 test = true
 
 [[module."gsl_integration.rs".function]]
@@ -1334,6 +1552,10 @@ lines = [
 hash = "sha256:6489028708f9f08a29f4826114b1d132d9753a706aacaf9fc49144a514b86414"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:5075bd7ee9919333"]
+uses = [
+    "fn:08f93c13acb0345f",
+    "fn:d06fdd2bd9021334",
+]
 test = true
 
 [[module."gsl_integration.rs".function]]
@@ -1347,6 +1569,10 @@ lines = [
 hash = "sha256:b885432e9a010a50c82e62be282a9e9f7302ff301df8680a96a004babc34a07a"
 doc_hash = "sha256:e57a793232365313047eac97cdcdce21d356e20d7859edb2f1b233540d560fa8"
 callees = ["fn:5075bd7ee9919333"]
+uses = [
+    "fn:08f93c13acb0345f",
+    "fn:d06fdd2bd9021334",
+]
 test = true
 
 [[module."gsl_integration.rs".function]]
@@ -1360,6 +1586,7 @@ lines = [
 hash = "sha256:5e6fd55d856fc151fd68d0c46fceb55e423dd0924903426837bbb6f64f60ede6"
 doc_hash = "sha256:585000e6346529a85f1c1985f444e20b79c8a801fddc1bd75cdb6172978dce58"
 callees = ["fn:5075bd7ee9919333"]
+uses = ["fn:d06fdd2bd9021334"]
 test = true
 
 [[module."gsl_integration.rs".function]]
@@ -1373,6 +1600,7 @@ lines = [
 hash = "sha256:226b2106198bde32c15fb652c88c956ea254777718c0634ed3fd24735a69b38c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:8d6980f8c8cca3c9"]
+uses = ["fn:d06fdd2bd9021334"]
 test = true
 
 [[module."gsl_integration.rs".function]]
@@ -1427,6 +1655,7 @@ lines = [
 hash = "sha256:acfef72b8e219b0c9d440a13c9e911878cc7d241f55e30ae93d585e519ea5e75"
 doc_hash = "sha256:7c277adbfebf171233b31ffba852f0a6b242f18ec58d7b19afe67cc292a31545"
 callees = ["fn:1b6cea2f0c08e3bc"]
+uses = ["fn:08f93c13acb0345f"]
 test = true
 
 [module."gsl_interp.rs"]
@@ -1446,6 +1675,10 @@ callees = [
     "fn:d901dc62f38f94bc",
     "fn:ed1d4830a258a957",
 ]
+uses = [
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
+]
 test = true
 
 [[module."gsl_interp.rs".function]]
@@ -1462,6 +1695,10 @@ callees = [
     "fn:7fb730a6f99d7277",
     "fn:d901dc62f38f94bc",
     "fn:ed1d4830a258a957",
+]
+uses = [
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
 ]
 test = true
 
@@ -1480,6 +1717,10 @@ callees = [
     "fn:d901dc62f38f94bc",
     "fn:ed1d4830a258a957",
 ]
+uses = [
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
+]
 test = true
 
 [[module."gsl_interp.rs".function]]
@@ -1496,6 +1737,12 @@ callees = [
     "fn:d901dc62f38f94bc",
     "fn:ed1d4830a258a957",
 ]
+uses = [
+    "fn:6877bb7803f1baeb",
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
+    "fn:c2c887f208aff7fe",
+]
 test = true
 
 [[module."gsl_interp.rs".function]]
@@ -1506,11 +1753,15 @@ lines = [
     122,
     156,
 ]
-hash = "sha256:cb49140917c03ee5710968dd2f56852af56eee22ee67efadee9cf9e346d42954"
+hash = "sha256:669cac0075cf6d88953e6986231ea5440982327840cb15269806e8516982bd2f"
 doc_hash = "sha256:c7c24b175d12abc1d3bf2156c11629bede41f83a08ca79a6314d07276e467b39"
 callees = [
     "fn:7fb730a6f99d7277",
     "fn:d901dc62f38f94bc",
+]
+uses = [
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
 ]
 test = true
 
@@ -1529,6 +1780,10 @@ callees = [
     "fn:d901dc62f38f94bc",
     "fn:ed1d4830a258a957",
 ]
+uses = [
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
+]
 test = true
 
 [[module."gsl_interp.rs".function]]
@@ -1539,11 +1794,15 @@ lines = [
     178,
     245,
 ]
-hash = "sha256:44e492fbbf086f6619e3f67194e5cd2ca157667ab9166e08efde4cc23e7a9089"
+hash = "sha256:376fada8d2e9972ae56eac756449bce4a97dbad1fac961f2ff44de5dc7605c04"
 doc_hash = "sha256:06dfa610633aa8a59a24b69f7cbcd9d5d66d8b3c844751b81900f436ffa3dd4a"
 callees = [
     "fn:d901dc62f38f94bc",
     "fn:ed1d4830a258a957",
+]
+uses = [
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
 ]
 test = true
 
@@ -1561,6 +1820,10 @@ callees = [
     "fn:d901dc62f38f94bc",
     "fn:ed1d4830a258a957",
 ]
+uses = [
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
+]
 test = true
 
 [[module."gsl_interp.rs".function]]
@@ -1571,11 +1834,15 @@ lines = [
     267,
     289,
 ]
-hash = "sha256:f1ad05ce89d7d94679f071e20fb9861bc1cbb5b7044af722cda01a1a51310ae5"
+hash = "sha256:0d29031fbdb1834aedcfb131377b3a5fd70ad427dbe9439e8809b90e394c6ca1"
 doc_hash = "sha256:6d8ad847c0a1adb6d882d9336ca0d5310723341c4d1efc470158da69199b9536"
 callees = [
     "fn:d901dc62f38f94bc",
     "fn:ed1d4830a258a957",
+]
+uses = [
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
 ]
 test = true
 
@@ -1594,6 +1861,11 @@ callees = [
     "fn:d901dc62f38f94bc",
     "fn:ed1d4830a258a957",
 ]
+uses = [
+    "fn:08f93c13acb0345f",
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
+]
 test = true
 
 [[module."gsl_interp.rs".function]]
@@ -1607,6 +1879,11 @@ lines = [
 hash = "sha256:157e30660e27d9dad232cfcee5d9b192a3ff76ef7e9968ee704bd99ebc55d478"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:d901dc62f38f94bc"]
+uses = [
+    "fn:08f93c13acb0345f",
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
+]
 test = true
 
 [[module."gsl_interp.rs".function]]
@@ -1622,6 +1899,10 @@ doc_hash = "sha256:113fbef126571ec3c772ecaaf7b263ee7394fc17ccbdf781608d49f1773a7
 callees = [
     "fn:6b4ea4b4cb5a3e96",
     "fn:d901dc62f38f94bc",
+]
+uses = [
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
 ]
 test = true
 
@@ -1639,6 +1920,10 @@ callees = [
     "fn:d901dc62f38f94bc",
     "fn:ed1d4830a258a957",
 ]
+uses = [
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
+]
 test = true
 
 [[module."gsl_interp.rs".function]]
@@ -1654,6 +1939,10 @@ doc_hash = "sha256:1056625176066ac3906d6c1e117e07f1919a0b37855b27dba61aa8b86ee48
 callees = [
     "fn:7fb730a6f99d7277",
     "fn:d901dc62f38f94bc",
+]
+uses = [
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
 ]
 test = true
 
@@ -1675,10 +1964,71 @@ callees = [
     "fn:cb4f50f37924513a",
     "fn:d901dc62f38f94bc",
 ]
+uses = [
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
+]
+test = true
+
+[[module."gsl_interp.rs".function]]
+id = "fn:6877bb7803f1baeb"
+name = "CSPLINE2_TEST_X"
+qual = "CSPLINE2_TEST_X"
+item = "const"
+shape = "const"
+lines = [
+    395,
+    448,
+]
+hash = "sha256:0520398e8d50988fc49a7a11dc59726f7819cc9e51421950cf6051f568ead88e"
+doc_hash = "sha256:a8adfa87b30d991806d8347f9c3a703706f1fbcb607123f72fc138d7f692a833"
+test = true
+
+[[module."gsl_interp.rs".function]]
+id = "fn:c2c887f208aff7fe"
+name = "CSPLINE2_TEST_Y"
+qual = "CSPLINE2_TEST_Y"
+item = "const"
+shape = "const"
+lines = [
+    450,
+    502,
+]
+hash = "sha256:44fb75fae070707dbee1da29fdec7741577ccfee1fb427113a057fee57463f5c"
+doc_hash = "sha256:3623c70412f7a2a09f26658823bd2368b5d9e7773e2e6cacb64f511c1fe12e74"
 test = true
 
 [module."gsl_min.rs"]
 path = "test:gsl_min"
+
+[[module."gsl_min.rs".function]]
+id = "fn:dc1ca69348e96bee"
+name = "METHODS"
+qual = "METHODS"
+item = "const"
+shape = "const"
+lines = [
+    13,
+    13,
+]
+hash = "sha256:e72700d63e60e513de2c6aa9d7bb57fde1a556052399f686e0f9dc33ba4e661a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:c6d8b5e2c71919d0"]
+test = true
+
+[[module."gsl_min.rs".function]]
+id = "fn:8ab1b5d3706c48b9"
+name = "FLOOR"
+qual = "FLOOR"
+item = "const"
+shape = "const"
+lines = [
+    15,
+    18,
+]
+hash = "sha256:c959324e6f12cfd0e77c4b75ba420a59bae9c53b058ac83178ef3ea48bfc795b"
+doc_hash = "sha256:4a62a4bc4559c10d909c337fe86fd5e7bd27f2f4611f526ef96aecfb9dee3ce7"
+test = true
 
 [[module."gsl_min.rs".function]]
 id = "fn:b0694bf2d5844448"
@@ -1694,6 +2044,11 @@ callees = [
     "fn:30f6c0746dd14e45",
     "fn:b5ba633223d37aeb",
     "fn:eba45618ef4eef7c",
+]
+uses = [
+    "fn:8ab1b5d3706c48b9",
+    "fn:dc1ca69348e96bee",
+    "fn:de7f97e2a94d6f16",
 ]
 test = true
 
@@ -1712,6 +2067,12 @@ callees = [
     "fn:b5ba633223d37aeb",
     "fn:eba45618ef4eef7c",
 ]
+uses = [
+    "fn:08f93c13acb0345f",
+    "fn:c6d8b5e2c71919d0",
+    "fn:dc1ca69348e96bee",
+    "fn:de7f97e2a94d6f16",
+]
 test = true
 
 [[module."gsl_min.rs".function]]
@@ -1727,6 +2088,10 @@ doc_hash = "sha256:c960de9c312cc6837009b4709131896fb3261066f347592291ec5423799da
 callees = [
     "fn:b5ba633223d37aeb",
     "fn:eba45618ef4eef7c",
+]
+uses = [
+    "fn:dc1ca69348e96bee",
+    "fn:de7f97e2a94d6f16",
 ]
 test = true
 
@@ -1745,6 +2110,11 @@ callees = [
     "fn:b5ba633223d37aeb",
     "fn:eba45618ef4eef7c",
 ]
+uses = [
+    "fn:8ab1b5d3706c48b9",
+    "fn:dc1ca69348e96bee",
+    "fn:de7f97e2a94d6f16",
+]
 test = true
 
 [[module."gsl_min.rs".function]]
@@ -1758,6 +2128,11 @@ lines = [
 hash = "sha256:c1c80e7d3867ef9845807f9c58a2989a561040ace82e449a8154aad4936a9872"
 doc_hash = "sha256:f7b15ab951afa2111d1ff2495ea07c4f901c88f2a98bc61db9bac210c6e8001a"
 callees = ["fn:eba45618ef4eef7c"]
+uses = [
+    "fn:08f93c13acb0345f",
+    "fn:c6d8b5e2c71919d0",
+    "fn:de7f97e2a94d6f16",
+]
 test = true
 
 [[module."gsl_min.rs".function]]
@@ -1776,6 +2151,10 @@ callees = [
     "fn:9ac030dc7aebb62d",
     "fn:b020e8238fac491b",
     "fn:eba45618ef4eef7c",
+]
+uses = [
+    "fn:c6d8b5e2c71919d0",
+    "fn:de7f97e2a94d6f16",
 ]
 test = true
 
@@ -1796,6 +2175,10 @@ callees = [
     "fn:c408646e24374bfa",
     "fn:eba45618ef4eef7c",
 ]
+uses = [
+    "fn:dc1ca69348e96bee",
+    "fn:de7f97e2a94d6f16",
+]
 test = true
 
 [[module."gsl_min.rs".function]]
@@ -1813,6 +2196,10 @@ callees = [
     "fn:9ac030dc7aebb62d",
     "fn:c408646e24374bfa",
     "fn:eba45618ef4eef7c",
+]
+uses = [
+    "fn:c6d8b5e2c71919d0",
+    "fn:de7f97e2a94d6f16",
 ]
 test = true
 
@@ -1832,6 +2219,10 @@ callees = [
     "fn:c408646e24374bfa",
     "fn:eba45618ef4eef7c",
 ]
+uses = [
+    "fn:c6d8b5e2c71919d0",
+    "fn:de7f97e2a94d6f16",
+]
 test = true
 
 [[module."gsl_min.rs".function]]
@@ -1849,10 +2240,29 @@ callees = [
     "fn:b5ba633223d37aeb",
     "fn:eba45618ef4eef7c",
 ]
+uses = [
+    "fn:08f93c13acb0345f",
+    "fn:c6d8b5e2c71919d0",
+    "fn:de7f97e2a94d6f16",
+]
 test = true
 
 [module."gsl_numerics_code_to_code.rs"]
 path = "test:gsl_numerics_code_to_code"
+
+[[module."gsl_numerics_code_to_code.rs".function]]
+id = "fn:2a2813ac64a386b4"
+name = "Cases"
+qual = "Cases"
+item = "type"
+shape = "alias"
+lines = [
+    70,
+    71,
+]
+hash = "sha256:f70479318272658a83fd6c73a501b309636513b3dcd8385b006d7f4bbc1ce59c"
+doc_hash = "sha256:d2c700b3b06525145a260376b342decdfa7ea92b4932f041ee122fa4d0f7407e"
+test = true
 
 [[module."gsl_numerics_code_to_code.rs".function]]
 id = "fn:5927f2e055e5f921"
@@ -1877,6 +2287,7 @@ lines = [
 hash = "sha256:0d6a4aff14938360b6643d5af22e4f46a54c0e4b0e785b847dea59eefa3917ba"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:5927f2e055e5f921"]
+uses = ["fn:2a2813ac64a386b4"]
 test = true
 
 [[module."gsl_numerics_code_to_code.rs".function]]
@@ -1892,6 +2303,20 @@ doc_hash = "sha256:d229710dadbd3630347a3fae316331f34089a9e14def90eb4e53435393b61
 test = true
 
 [[module."gsl_numerics_code_to_code.rs".function]]
+id = "fn:59e61cd36f49f37d"
+name = "Tally"
+qual = "Tally"
+item = "type"
+shape = "struct"
+lines = [
+    116,
+    123,
+]
+hash = "sha256:3c034350cefaaa064ce603a5e6a283703247bdedf8b2b1dc836bd6f52884225d"
+doc_hash = "sha256:c70e9a25e60efa5a219e080d7c6d52f7dca08ac8113600ca663a4a116ff7f7ad"
+test = true
+
+[[module."gsl_numerics_code_to_code.rs".function]]
 id = "fn:d05abf14efb293ab"
 name = "check"
 qual = "Tally::check"
@@ -1902,6 +2327,7 @@ lines = [
 hash = "sha256:453c62a711f69177911923c782d2681964599bfc1471d13932cf99c7622aafe7"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:c5ba3b9716be9d5c"]
+uses = ["fn:59e61cd36f49f37d"]
 test = true
 
 [[module."gsl_numerics_code_to_code.rs".function]]
@@ -1912,8 +2338,9 @@ lines = [
     139,
     153,
 ]
-hash = "sha256:46a6d31c9046682f892019b6fa68df5a31c4c787f83eddba9684ddf0ce789f29"
+hash = "sha256:57e9eac1276489e03b02780f6b69595ee93b6538d20903ff7ea2df887d9881ee"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:59e61cd36f49f37d"]
 test = true
 
 [[module."gsl_numerics_code_to_code.rs".function]]
@@ -1961,6 +2388,11 @@ callees = [
     "fn:d05abf14efb293ab",
     "fn:ef42f285beb9554f",
 ]
+uses = [
+    "fn:59e61cd36f49f37d",
+    "fn:635b48a499787b8d",
+    "fn:abcf87c6f11c6042",
+]
 test = true
 
 [[module."gsl_numerics_code_to_code.rs".function]]
@@ -1971,7 +2403,7 @@ lines = [
     201,
     279,
 ]
-hash = "sha256:6e90e255a7bcf7e966e33e745b33aa531ee7b81a9af96ab7fedb5de14303d56c"
+hash = "sha256:2d61dc32f21fe2484e449f0b1447896e0376dc129813a5ee681359c900fb9e89"
 doc_hash = "sha256:82597dcf21c412a7a7b498c4df095cf3ce17b0a92048382d24feee741cf59fb8"
 callees = [
     "fn:1699661c9fa3259d",
@@ -1982,6 +2414,11 @@ callees = [
     "fn:c4fd40efe6a1a950",
     "fn:d05abf14efb293ab",
     "fn:ef42f285beb9554f",
+]
+uses = [
+    "fn:01e6e952396b520f",
+    "fn:08e1fa323ffc91d5",
+    "fn:59e61cd36f49f37d",
 ]
 test = true
 
@@ -2005,6 +2442,11 @@ callees = [
     "fn:eba45618ef4eef7c",
     "fn:ef42f285beb9554f",
 ]
+uses = [
+    "fn:59e61cd36f49f37d",
+    "fn:c6d8b5e2c71919d0",
+    "fn:de7f97e2a94d6f16",
+]
 test = true
 
 [[module."gsl_numerics_code_to_code.rs".function]]
@@ -2025,6 +2467,7 @@ callees = [
     "fn:d05abf14efb293ab",
     "fn:ef42f285beb9554f",
 ]
+uses = ["fn:59e61cd36f49f37d"]
 test = true
 
 [[module."gsl_numerics_code_to_code.rs".function]]
@@ -2045,6 +2488,11 @@ callees = [
     "fn:ed1d4830a258a957",
     "fn:ef42f285beb9554f",
 ]
+uses = [
+    "fn:59e61cd36f49f37d",
+    "fn:7b1851916a2590f2",
+    "fn:967fe49bb0051c27",
+]
 test = true
 
 [[module."gsl_numerics_code_to_code.rs".function]]
@@ -2064,6 +2512,10 @@ callees = [
     "fn:d05abf14efb293ab",
     "fn:ef42f285beb9554f",
 ]
+uses = [
+    "fn:59e61cd36f49f37d",
+    "fn:d06fdd2bd9021334",
+]
 test = true
 
 [[module."gsl_numerics_code_to_code.rs".function]]
@@ -2074,7 +2526,7 @@ lines = [
     437,
     562,
 ]
-hash = "sha256:27f5f5e06d7b4b12d5d25c69569254df254e09214664fee9d3c533d851043151"
+hash = "sha256:2b5e4690b446301910027e2ce117fdaa6a5a5920ad96a3e622c097acf7101450"
 doc_hash = "sha256:5b1f35391ee360ac96eab82a119cadda1dcbd1ef48b3ede594a980e27b32562d"
 callees = [
     "fn:1c989a00673374a5",
@@ -2083,6 +2535,7 @@ callees = [
     "fn:d05abf14efb293ab",
     "fn:ef42f285beb9554f",
 ]
+uses = ["fn:59e61cd36f49f37d"]
 test = true
 
 [module."gsl_ode.rs"]
@@ -2295,6 +2748,7 @@ callees = [
     "fn:b984f5adfb37cd39",
     "fn:dc0dff6b328365fd",
 ]
+uses = ["fn:08f93c13acb0345f"]
 test = true
 
 [[module."gsl_ode.rs".function]]
@@ -2321,6 +2775,7 @@ lines = [
 hash = "sha256:3590109c0635f54fba52255608e5359dcfaa742c9cae0d399544480fd024db67"
 doc_hash = "sha256:4b72f9d1a765bbdb3794f835332a9732b5c7f0f6611a59ab8a8766c6f5e76a90"
 callees = ["fn:b984f5adfb37cd39"]
+uses = ["fn:08f93c13acb0345f"]
 test = true
 
 [[module."gsl_ode.rs".function]]
@@ -2364,6 +2819,7 @@ lines = [
 ]
 hash = "sha256:25691b307c05d77784452ad07bb722f9422a30e3429a27ac2d9f7bb8614fbac0"
 doc_hash = "sha256:8bb2e38de102ae26f4b85190679d71cd6f59e615be29cdb3cbb3c74eae5bcaea"
+uses = ["fn:08f93c13acb0345f"]
 test = true
 
 [[module."gsl_qags_code_to_code.rs".function]]
@@ -2398,7 +2854,7 @@ lines = [
     169,
     242,
 ]
-hash = "sha256:6f3e6ffe6c761c1eefab6dc427df887cf0204d9e365614f3ac948c5911bc8bcc"
+hash = "sha256:76c28256fc3f30214b2f28ff528566451e6097acc6ede0667d97a5df6feb2b6f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:22c647d42b185b3d",
@@ -2411,6 +2867,20 @@ test = true
 
 [module."gsl_qr_code_to_code.rs"]
 path = "test:gsl_qr_code_to_code"
+
+[[module."gsl_qr_code_to_code.rs".function]]
+id = "fn:d8ed817001283e92"
+name = "Case"
+qual = "Case"
+item = "type"
+shape = "struct"
+lines = [
+    58,
+    68,
+]
+hash = "sha256:edfa09172a8b699cf7d692e499064bc3049ee5f5079add69272ef501830d8a67"
+doc_hash = "sha256:e5fa168a8bebb9e9f35d980870bcfaff441b4803589baf008dec3fbb70ffcb61"
+test = true
 
 [[module."gsl_qr_code_to_code.rs".function]]
 id = "fn:6730c04067a5503c"
@@ -2435,6 +2905,7 @@ lines = [
 hash = "sha256:d87bf8f8148d66053f93ad69462757a27fdd1e7104b1669cdec08b14db928f3e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:6730c04067a5503c"]
+uses = ["fn:d8ed817001283e92"]
 test = true
 
 [[module."gsl_qr_code_to_code.rs".function]]
@@ -2451,6 +2922,7 @@ callees = [
     "fn:89bdbf25fa159f76",
     "fn:f93f4e884bc1b52a",
 ]
+uses = ["fn:18d6673008420ac6"]
 test = true
 
 [[module."gsl_qr_code_to_code.rs".function]]
@@ -2473,7 +2945,7 @@ lines = [
     179,
     258,
 ]
-hash = "sha256:c30d788ae1f3a7ff02c25d605ff61081d22b7845bf3257903acac9c8e2487ec0"
+hash = "sha256:0348f3aebe1ae47605157c0c20c5d7ecbd398be8a2431b5bb94a0fe16cba425f"
 doc_hash = "sha256:9e60fea7551a67a02c1b8ee43e7c3f8bd6643043445dc90a25c23508ee463fb6"
 callees = [
     "fn:17e823bdf9d69118",
@@ -2486,6 +2958,7 @@ callees = [
     "fn:d8887b2c322d3000",
     "fn:e251658d5e985a75",
 ]
+uses = ["fn:6c57aee03a7ea8f2"]
 test = true
 
 [[module."gsl_qr_code_to_code.rs".function]]
@@ -2496,7 +2969,7 @@ lines = [
     260,
     321,
 ]
-hash = "sha256:68fa0070f902e0e799b5de5c85ddb7d782900abcf5e660c479fd333382599550"
+hash = "sha256:1ba19e0a9f9613fb39db8caa01e2d358eb8814a148a8f2e530d2ff9266484f0b"
 doc_hash = "sha256:96f821d5debbc370e0383e09bedfb5bc5f33e8f2eba2fbb863c6b245996cf65e"
 callees = [
     "fn:17e823bdf9d69118",
@@ -2505,6 +2978,7 @@ callees = [
     "fn:a37296c2457a8bcf",
     "fn:c32be21466290fa6",
 ]
+uses = ["fn:6c57aee03a7ea8f2"]
 test = true
 
 [module."gsl_roots.rs"]
@@ -2595,6 +3069,21 @@ doc_hash = "sha256:9d5980abb3236bf61b683e1c50ad82fb5fc2e3b3cb4ecb1d35594ead8fec5
 test = true
 
 [[module."gsl_roots.rs".function]]
+id = "fn:89dbd831433aa8b5"
+name = "METHODS"
+qual = "METHODS"
+item = "const"
+shape = "const"
+lines = [
+    63,
+    67,
+]
+hash = "sha256:f319b57e14510a6f08521cc513b5b5f663eff6447ac28898f67c43d9fa9e0849"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:635b48a499787b8d"]
+test = true
+
+[[module."gsl_roots.rs".function]]
 id = "fn:0f318d8e3248b0a2"
 name = "solve_bracketed"
 qual = "solve_bracketed"
@@ -2612,6 +3101,11 @@ callees = [
     "fn:a9f8eaf01912aace",
     "fn:bc6479bd354a6eb7",
 ]
+uses = [
+    "fn:635b48a499787b8d",
+    "fn:abcf87c6f11c6042",
+    "fn:f6cb6dc027a65a38",
+]
 test = true
 
 [[module."gsl_roots.rs".function]]
@@ -2628,6 +3122,7 @@ callees = [
     "fn:0f318d8e3248b0a2",
     "fn:7ae50a43103048dd",
 ]
+uses = ["fn:89dbd831433aa8b5"]
 test = true
 
 [[module."gsl_roots.rs".function]]
@@ -2644,6 +3139,7 @@ callees = [
     "fn:0f318d8e3248b0a2",
     "fn:ea69a86d20e010a8",
 ]
+uses = ["fn:89dbd831433aa8b5"]
 test = true
 
 [[module."gsl_roots.rs".function]]
@@ -2660,6 +3156,7 @@ callees = [
     "fn:0f318d8e3248b0a2",
     "fn:f7e4d887d7cc020b",
 ]
+uses = ["fn:89dbd831433aa8b5"]
 test = true
 
 [[module."gsl_roots.rs".function]]
@@ -2676,6 +3173,7 @@ callees = [
     "fn:0f318d8e3248b0a2",
     "fn:a46c612aa17f5c4e",
 ]
+uses = ["fn:89dbd831433aa8b5"]
 test = true
 
 [[module."gsl_roots.rs".function]]
@@ -2692,6 +3190,7 @@ callees = [
     "fn:0f318d8e3248b0a2",
     "fn:40341ca3c79a6ebb",
 ]
+uses = ["fn:89dbd831433aa8b5"]
 test = true
 
 [[module."gsl_roots.rs".function]]
@@ -2712,6 +3211,11 @@ callees = [
     "fn:a9f8eaf01912aace",
     "fn:bc6479bd354a6eb7",
 ]
+uses = [
+    "fn:635b48a499787b8d",
+    "fn:abcf87c6f11c6042",
+    "fn:f6cb6dc027a65a38",
+]
 test = true
 
 [[module."gsl_roots.rs".function]]
@@ -2731,6 +3235,10 @@ callees = [
     "fn:a9f8eaf01912aace",
     "fn:bc6479bd354a6eb7",
 ]
+uses = [
+    "fn:635b48a499787b8d",
+    "fn:abcf87c6f11c6042",
+]
 test = true
 
 [[module."gsl_roots.rs".function]]
@@ -2746,6 +3254,10 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:7ae50a43103048dd",
     "fn:a9f8eaf01912aace",
+]
+uses = [
+    "fn:635b48a499787b8d",
+    "fn:abcf87c6f11c6042",
 ]
 test = true
 
@@ -2765,6 +3277,25 @@ callees = [
     "fn:7ae50a43103048dd",
     "fn:a9f8eaf01912aace",
 ]
+uses = [
+    "fn:89dbd831433aa8b5",
+    "fn:abcf87c6f11c6042",
+]
+test = true
+
+[[module."gsl_roots.rs".function]]
+id = "fn:9b433f10de8f7e94"
+name = "POLISHERS"
+qual = "POLISHERS"
+item = "const"
+shape = "const"
+lines = [
+    209,
+    213,
+]
+hash = "sha256:50d82ff2bcc1260f7d68711bc135b50c664b2553da7d4c4e5fbb06cad0113365"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:08e1fa323ffc91d5"]
 test = true
 
 [[module."gsl_roots.rs".function]]
@@ -2785,6 +3316,11 @@ callees = [
     "fn:7ae50a43103048dd",
     "fn:ec37240d3bfabd75",
 ]
+uses = [
+    "fn:01e6e952396b520f",
+    "fn:9b433f10de8f7e94",
+    "fn:f6cb6dc027a65a38",
+]
 test = true
 
 [[module."gsl_roots.rs".function]]
@@ -2803,6 +3339,10 @@ callees = [
     "fn:a6bb76db1968306e",
     "fn:ee27110dda28e40b",
 ]
+uses = [
+    "fn:01e6e952396b520f",
+    "fn:9b433f10de8f7e94",
+]
 test = true
 
 [[module."gsl_roots.rs".function]]
@@ -2820,6 +3360,10 @@ callees = [
     "fn:6e1127129062cac2",
     "fn:79366229d71d63bf",
 ]
+uses = [
+    "fn:01e6e952396b520f",
+    "fn:08e1fa323ffc91d5",
+]
 test = true
 
 [[module."gsl_roots.rs".function]]
@@ -2835,6 +3379,11 @@ doc_hash = "sha256:529b898dc698f73f7cca3463266df944c1d0ffb51a1db0d3b24100e448652
 callees = [
     "fn:1699661c9fa3259d",
     "fn:6e1127129062cac2",
+]
+uses = [
+    "fn:01e6e952396b520f",
+    "fn:08e1fa323ffc91d5",
+    "fn:08f93c13acb0345f",
 ]
 test = true
 
@@ -2854,6 +3403,11 @@ callees = [
     "fn:79366229d71d63bf",
     "fn:ee27110dda28e40b",
 ]
+uses = [
+    "fn:01e6e952396b520f",
+    "fn:08e1fa323ffc91d5",
+    "fn:08f93c13acb0345f",
+]
 test = true
 
 [[module."gsl_roots.rs".function]]
@@ -2870,6 +3424,10 @@ callees = [
     "fn:1699661c9fa3259d",
     "fn:6e1127129062cac2",
     "fn:79366229d71d63bf",
+]
+uses = [
+    "fn:01e6e952396b520f",
+    "fn:08e1fa323ffc91d5",
 ]
 test = true
 
@@ -2888,10 +3446,57 @@ callees = [
     "fn:1699661c9fa3259d",
     "fn:ee27110dda28e40b",
 ]
+uses = [
+    "fn:01e6e952396b520f",
+    "fn:08e1fa323ffc91d5",
+    "fn:635b48a499787b8d",
+]
 test = true
 
 [module."gsl_tables_audit.rs"]
 path = "test:gsl_tables_audit"
+
+[[module."gsl_tables_audit.rs".function]]
+id = "fn:e282376759bca175"
+name = "MACROS"
+qual = "MACROS"
+item = "const"
+shape = "const"
+lines = [
+    55,
+    75,
+]
+hash = "sha256:092e8471d50c1429db82a8c3ed7057026e398b5b88ff0296d10d4327691cdf0a"
+doc_hash = "sha256:e248bb2acfbc1b2354c4db7cdb258f892312178edb00e75bdfd2f252b30f7ffa"
+test = true
+
+[[module."gsl_tables_audit.rs".function]]
+id = "fn:c98f7cc0c81f564e"
+name = "TABLES"
+qual = "TABLES"
+item = "const"
+shape = "const"
+lines = [
+    77,
+    304,
+]
+hash = "sha256:c149ab70aaa0401081858adb438f7ef05bfddd3800507ca7c584bcc5c505bf20"
+doc_hash = "sha256:8d2a9d0a37ae16013609824de9ce102eb4ff197bf4a427445c801321f6770eb6"
+test = true
+
+[[module."gsl_tables_audit.rs".function]]
+id = "fn:e87506dbf55f8706"
+name = "AUDITED_ELSEWHERE"
+qual = "AUDITED_ELSEWHERE"
+item = "const"
+shape = "const"
+lines = [
+    306,
+    320,
+]
+hash = "sha256:1d9200abc66b2e408e5c298a70117e318bed99148a5bc89a03dbf1e43b88b28d"
+doc_hash = "sha256:9284d73ce96bf6d69f873ed98232d4e4483a1a110198d056f16051402337a67e"
+test = true
 
 [[module."gsl_tables_audit.rs".function]]
 id = "fn:1fd1e3e288fc2604"
@@ -2983,6 +3588,7 @@ lines = [
 ]
 hash = "sha256:28a8abe1b3f2888348ff299a132e86ba7ee96f3614b0a6c3e5d2961c357af230"
 doc_hash = "sha256:76c414947d8c7e453b17c508d825ea41db2c9ff6581edaf654b4036a1c0f862c"
+uses = ["fn:e282376759bca175"]
 test = true
 
 [[module."gsl_tables_audit.rs".function]]
@@ -3030,6 +3636,21 @@ callees = [
     "fn:588d568f4d56baa4",
     "fn:ee2d4260a5e74290",
 ]
+uses = ["fn:c98f7cc0c81f564e"]
+test = true
+
+[[module."gsl_tables_audit.rs".function]]
+id = "fn:1c9faa0b30c0acf7"
+name = "AUDITED_MODULES"
+qual = "AUDITED_MODULES"
+item = "const"
+shape = "const"
+lines = [
+    526,
+    547,
+]
+hash = "sha256:799ca759447e205db07830d7ef65260a0fe1ffd0b02daf2cbe85389dfb89030c"
+doc_hash = "sha256:0d4b7d203121978008f1beeeee94ec83ef6d3edf42d9e0dadfdd9e42738d13c6"
 test = true
 
 [[module."gsl_tables_audit.rs".function]]
@@ -3040,8 +3661,9 @@ lines = [
     549,
     604,
 ]
-hash = "sha256:d1003a3baf36457e54f84891a0ef75cb3dc5cba886e7056c53a224aa62581db1"
+hash = "sha256:c4b58312195fe7f93b3bb66311eaaa0a041a8054e1c6ebffd3151318f03f3f78"
 doc_hash = "sha256:06fce7a15ca56b7320ef936c972bfb4cd3a4b18657b23e19ac9a8b474cf1585b"
+uses = ["fn:1c9faa0b30c0acf7"]
 test = true
 
 [[module."gsl_tables_audit.rs".function]]
@@ -3052,9 +3674,14 @@ lines = [
     606,
     641,
 ]
-hash = "sha256:dc75fd321c50ea464d5904f6367d4a7953de8003dd238a5b9e74a0695e11203c"
+hash = "sha256:81add0affb3cd635fcbcadf9de475dfcfc693a688585b4c449665ca99dd7e80d"
 doc_hash = "sha256:e6aeaae8190f42b1355fafbfcafe29d3e9107ecac85a2b07ec9653d219989435"
 callees = ["fn:425f9e6cc236b39d"]
+uses = [
+    "fn:1c9faa0b30c0acf7",
+    "fn:c98f7cc0c81f564e",
+    "fn:e87506dbf55f8706",
+]
 test = true
 
 [[module."gsl_tables_audit.rs".function]]
@@ -3065,7 +3692,7 @@ lines = [
     643,
     744,
 ]
-hash = "sha256:dc19a552da455fbbbb7f6fcde7ae89cfd09471e532c6ef6447a3ee6dd55722a3"
+hash = "sha256:f365bce56558f7e8a3b4c49cc4742a56488aac31684ccda80c738b7ee994430d"
 doc_hash = "sha256:9e42521c4843c4a97fcf521a05d196cca97d134e9313ce48025518e42f778e92"
 callees = [
     "fn:03c4cd0041c32343",
@@ -3083,7 +3710,7 @@ lines = [
     746,
     833,
 ]
-hash = "sha256:a8990f531f621b1d6d4c759f4eb45eb3a7d06b4d17e832a2d481eb95cf4fc077"
+hash = "sha256:6ded57e49799d72946e90769d5062218fd7c72d1af3b8797ce3f875661cee7fe"
 doc_hash = "sha256:39971b2f2c599e97ce79854045d752f6b56b45790cbcb4cbc7a5dff478ac69f8"
 callees = [
     "fn:03c4cd0041c32343",
@@ -3091,6 +3718,7 @@ callees = [
     "fn:6afffedd0d4906bc",
     "fn:bf772a9b7b5b4fe8",
 ]
+uses = ["fn:c98f7cc0c81f564e"]
 test = true
 
 [[module."gsl_tables_audit.rs".function]]
@@ -3133,6 +3761,20 @@ test = true
 path = "test:incomplete_gamma_cross_check"
 
 [[module."incomplete_gamma_cross_check.rs".function]]
+id = "fn:1e94c2302490e976"
+name = "TOL"
+qual = "TOL"
+item = "const"
+shape = "const"
+lines = [
+    41,
+    52,
+]
+hash = "sha256:96d02f8b478b36fd219e1275bf75914b26445db1b08e4f8801fb6cae160b1fc6"
+doc_hash = "sha256:d345b15f6b43e0ab2c22fd1c80df5949dc13a3f7dbaac390cb0798f4cb5e19b6"
+test = true
+
+[[module."incomplete_gamma_cross_check.rs".function]]
 id = "fn:54ba9c83fb5d3bc8"
 name = "sample_points"
 qual = "sample_points"
@@ -3152,13 +3794,14 @@ lines = [
     67,
     118,
 ]
-hash = "sha256:ee989c55f871912ca7822401b3e8aa60974ffd4ef961625f9c7e8c6c5fca5d85"
+hash = "sha256:89668c343397e8cbe23872e89b8fd8e9d5aa499470561feeddb5fb22df9f9cf2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:2b36019ca7277b99",
     "fn:49151ae0c1448343",
     "fn:54ba9c83fb5d3bc8",
 ]
+uses = ["fn:1e94c2302490e976"]
 test = true
 
 [[module."incomplete_gamma_cross_check.rs".function]]
@@ -3233,7 +3876,7 @@ lines = [
     42,
     96,
 ]
-hash = "sha256:5c3a8a913cafd370c3973c2c481afe9e842fdab1db349cd7f0d40626dcb6ae7e"
+hash = "sha256:154d5fb7c9fd48f9baa250753596de421fb3c4ef0c1137074ae43e7479f35f8c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:10ae7b2667a6bebf",
@@ -3246,6 +3889,34 @@ test = true
 
 [module."no_panic_gate.rs"]
 path = "test:no_panic_gate"
+
+[[module."no_panic_gate.rs".function]]
+id = "fn:88d350de738ef465"
+name = "LIFTED"
+qual = "LIFTED"
+item = "const"
+shape = "const"
+lines = [
+    70,
+    126,
+]
+hash = "sha256:de506c8c5d7574fa5d1e9003e8592c114f5c490cdd0a8404616d1bcf1dcd1bb2"
+doc_hash = "sha256:c77c7de30c24a79fe45c410f250979fb8efcc4960aa329fb5238daa5e8374f03"
+test = true
+
+[[module."no_panic_gate.rs".function]]
+id = "fn:8e42b9d7a0104f70"
+name = "PANICKING"
+qual = "PANICKING"
+item = "const"
+shape = "const"
+lines = [
+    128,
+    139,
+]
+hash = "sha256:25802fe9d8932cb43b19f3fc441c408b8aaa6b86180082f16a4200a4ec61496a"
+doc_hash = "sha256:a94a252acab6881276a0b6dcbf2250af6224213fc6127e98dffac97293e97667"
+test = true
 
 [[module."no_panic_gate.rs".function]]
 id = "fn:6d3074d287ce820a"
@@ -3279,11 +3950,15 @@ lines = [
     177,
     225,
 ]
-hash = "sha256:c6d25635567fc824cd00579d1d59e292c99185ffcec5b184afaa23842d96c126"
+hash = "sha256:398912e2fcc3e13a56ee660221b8332ccb568253a486a181fb03ffaa01d17014"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:6d3074d287ce820a",
     "fn:bcde88c71c4cda0e",
+]
+uses = [
+    "fn:88d350de738ef465",
+    "fn:8e42b9d7a0104f70",
 ]
 test = true
 
@@ -3305,6 +3980,15 @@ callees = [
     "fn:a050673c24177896",
     "fn:a9f8eaf01912aace",
     "fn:eba45618ef4eef7c",
+]
+uses = [
+    "fn:08f93c13acb0345f",
+    "fn:635b48a499787b8d",
+    "fn:abcf87c6f11c6042",
+    "fn:c6d8b5e2c71919d0",
+    "fn:da0398916177f78c",
+    "fn:de7f97e2a94d6f16",
+    "fn:eba1bd011cf5b3f9",
 ]
 test = true
 
@@ -3377,7 +4061,7 @@ lines = [
     506,
     590,
 ]
-hash = "sha256:5e6c1e64a6e9668672dde4b67d753ca55e3afeac40d434b0c645aa47d494ef57"
+hash = "sha256:611cee378060d6efd95a1a735d93e8e0730b2f976c297d6b731a2bb29798c284"
 doc_hash = "sha256:bc32483a417983a4b3b153436b821423a06d85b5c85c7d606757194bbb9e34f0"
 callees = [
     "fn:2ff9106469a613ed",
@@ -3387,6 +4071,7 @@ callees = [
     "fn:b4a3f49dc1dd480b",
     "fn:bcde88c71c4cda0e",
 ]
+uses = ["fn:88d350de738ef465"]
 test = true
 
 [[module."no_panic_gate.rs".function]]
@@ -3397,12 +4082,41 @@ lines = [
     592,
     639,
 ]
-hash = "sha256:1975117e7251acf8a0ed15d542fe0b967bea21ca5355e22d788bb4db2a3771c4"
+hash = "sha256:c3608dd046112f40599a6dc0061e21895a530f3bf8d7169b0b477a121a17229f"
 doc_hash = "sha256:5212eac629b3f7ee192caf46d627801c2a04d5fb3a4808f1952c64e6bf4a86c5"
+uses = ["fn:88d350de738ef465"]
 test = true
 
 [module."roots_companion_code_to_code.rs"]
 path = "test:roots_companion_code_to_code"
+
+[[module."roots_companion_code_to_code.rs".function]]
+id = "fn:eaf9e6c4251c51b0"
+name = "REFERENCE"
+qual = "REFERENCE"
+item = "const"
+shape = "const"
+lines = [
+    34,
+    34,
+]
+hash = "sha256:ea73c919f6b8076e1d61418e9e2fc0eb0f5d021140329aadc5b1397fe757ad29"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."roots_companion_code_to_code.rs".function]]
+id = "fn:8c194d41d2153b4f"
+name = "Case"
+qual = "Case"
+item = "type"
+shape = "struct"
+lines = [
+    36,
+    40,
+]
+hash = "sha256:ce82a01e58289c4a6b30ec092d0c5f14bb79a6147b9e4a3ee28ad2cb5f663230"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."roots_companion_code_to_code.rs".function]]
 id = "fn:e43d6f872c6a3a75"
@@ -3414,6 +4128,10 @@ lines = [
 ]
 hash = "sha256:12637cf67166e7cde8c2128c4b2a3ca1e18fc25472bda8551b89ff71ca6d3695"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:8c194d41d2153b4f",
+    "fn:eaf9e6c4251c51b0",
+]
 test = true
 
 [[module."roots_companion_code_to_code.rs".function]]
@@ -3471,12 +4189,55 @@ lines = [
     203,
     276,
 ]
-hash = "sha256:62f5c7a82fb50a7a6b111e52e2091a70cf421324823701acdbfd657cf8890946"
+hash = "sha256:ed958659c90efe09a227019256a5a06434655e957dc727b70db9cd20e43fdd8e"
 doc_hash = "sha256:8d3f5e855072bfb8fb3d93f38ec476c2b0a221a2e5e08614effa7cff1e1dec9a"
+uses = ["fn:eaf9e6c4251c51b0"]
 test = true
 
 [module."tampines_interop.rs"]
 path = "test:tampines_interop"
+
+[[module."tampines_interop.rs".function]]
+id = "fn:ece61c87db72ad64"
+name = "HF_COEFFS_HEAD"
+qual = "HF_COEFFS_HEAD"
+item = "const"
+shape = "const"
+lines = [
+    45,
+    59,
+]
+hash = "sha256:5fda4fb16224abaae229975d6a9ab9b85e578752ebcbc449e81576130b8bd4b6"
+doc_hash = "sha256:7a037e0d38b69e1cc53cb1e79fc0855cca53da8c93f67f3a2f1cdfa1bf71040d"
+test = true
+
+[[module."tampines_interop.rs".function]]
+id = "fn:d7c976fb8cd84e0a"
+name = "TLO"
+qual = "TLO"
+item = "const"
+shape = "const"
+lines = [
+    61,
+    62,
+]
+hash = "sha256:9906fb86baf8367db95a17043ac00c535bdba410048464f9493e8eb7458184e6"
+doc_hash = "sha256:44ea342d14e03fbb1365b2d5a23a5f5458c0d08520bb53b4ad94e83470f6723f"
+test = true
+
+[[module."tampines_interop.rs".function]]
+id = "fn:c4546064bb414715"
+name = "THI"
+qual = "THI"
+item = "const"
+shape = "const"
+lines = [
+    63,
+    63,
+]
+hash = "sha256:43f229df2260584a827d11cb1fa4df5cbc6bd296d98bebfbdfe5dcb5118072dc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."tampines_interop.rs".function]]
 id = "fn:f0df1f563c78db45"
@@ -3510,13 +4271,19 @@ lines = [
     82,
     107,
 ]
-hash = "sha256:37bb96bc877dde4154d8d75c62ad73eff484e9b60476f7dc5281713267e6cf1a"
+hash = "sha256:0e3c72daa40f26d072ddba0a9a52ce7dedb1238a5bf1ad95f17fd9d13155b772"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:2c0e106546bb77f3",
     "fn:453f8facb464cdc4",
     "fn:8f651cadca6a4f3b",
     "fn:f0df1f563c78db45",
+]
+uses = [
+    "fn:c4546064bb414715",
+    "fn:d7c976fb8cd84e0a",
+    "fn:eba1bd011cf5b3f9",
+    "fn:ece61c87db72ad64",
 ]
 test = true
 
@@ -3534,6 +4301,12 @@ callees = [
     "fn:453f8facb464cdc4",
     "fn:5a3d8599326cd678",
     "fn:8f651cadca6a4f3b",
+]
+uses = [
+    "fn:c4546064bb414715",
+    "fn:d7c976fb8cd84e0a",
+    "fn:eba1bd011cf5b3f9",
+    "fn:ece61c87db72ad64",
 ]
 test = true
 
@@ -3617,6 +4390,7 @@ callees = [
     "fn:67800042ff7386a4",
     "fn:f0df1f563c78db45",
 ]
+uses = ["fn:ece61c87db72ad64"]
 test = true
 
 [[module."tampines_interop.rs".function]]
@@ -3651,10 +4425,43 @@ callees = [
     "fn:7e24133b2363b2e4",
     "fn:b1b9ed3dd7c57d27",
 ]
+uses = [
+    "fn:c4546064bb414715",
+    "fn:d7c976fb8cd84e0a",
+]
 test = true
 
 [module."verbatim_provenance.rs"]
 path = "test:verbatim_provenance"
+
+[[module."verbatim_provenance.rs".function]]
+id = "fn:0a160b97381f70ff"
+name = "Lift"
+qual = "Lift"
+item = "type"
+shape = "struct"
+lines = [
+    42,
+    55,
+]
+hash = "sha256:28b55b1b723cd1bdf627aad0bd283c34f775bbc3f58e6b50f6197521211d3e54"
+doc_hash = "sha256:8f62b1d26198e0a83c3565a9778b885d848c778b701da61b44d43fd9fdab3ba1"
+test = true
+
+[[module."verbatim_provenance.rs".function]]
+id = "fn:1102be9c2699510b"
+name = "LIFTS"
+qual = "LIFTS"
+item = "const"
+shape = "const"
+lines = [
+    57,
+    176,
+]
+hash = "sha256:c53d2b4a9a7a71eadd918dca8b724a62ed7f022bde4d6bffcd8ac8b0cac2d4ee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:0a160b97381f70ff"]
+test = true
 
 [[module."verbatim_provenance.rs".function]]
 id = "fn:e75ed7e10161cc86"
@@ -3700,13 +4507,14 @@ lines = [
     240,
     314,
 ]
-hash = "sha256:121fa2a9ab23c5e3eb1231785e50fb287e5ee33ba67eed67e53fa5db272b0216"
+hash = "sha256:350732dd4840c7c2d5e3a67ef7f76f945f64d3272e4cf7acb1336143e2953b31"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:95fc556903f1f2b8",
     "fn:a81aea5e6c5e64a3",
     "fn:e75ed7e10161cc86",
 ]
+uses = ["fn:1102be9c2699510b"]
 test = true
 
 [[module."verbatim_provenance.rs".function]]
@@ -3719,6 +4527,7 @@ lines = [
 ]
 hash = "sha256:076c29f97ae9dea4e64ed8abde590759f7e091c7f81c1ad472890816721981c9"
 doc_hash = "sha256:8f31a1ab25f3f1fdb78bca4e3f4e449a76c5e7d9f99a2ecde12f5e2e9cea09f8"
+uses = ["fn:1102be9c2699510b"]
 test = true
 
 [module."wgsl_gpu.rs"]
@@ -3754,6 +4563,11 @@ callees = [
     "fn:bf0a20adf1318f46",
     "fn:e723d9aa34d5b23f",
 ]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:885afb6f6236981e",
+    "fn:ad21ff3e16b0e71e",
+]
 test = true
 
 [[module."wgsl_gpu.rs".function]]
@@ -3776,6 +4590,12 @@ callees = [
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
 ]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:a2fb4a4dc25014f6",
+    "fn:ad21ff3e16b0e71e",
+    "fn:eba1bd011cf5b3f9",
+]
 test = true
 
 [[module."wgsl_gpu.rs".function]]
@@ -3795,6 +4615,11 @@ callees = [
     "fn:b5853a652e34ef38",
     "fn:cbf8dfb46ccd1226",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:0ca2701d570085bb",
+    "fn:1cd7b7a93a459c65",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -3817,6 +4642,12 @@ callees = [
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
 ]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:a2fb4a4dc25014f6",
+    "fn:ad21ff3e16b0e71e",
+    "fn:eba1bd011cf5b3f9",
+]
 test = true
 
 [[module."wgsl_gpu.rs".function]]
@@ -3838,6 +4669,11 @@ callees = [
     "fn:b8423c6617ad59f9",
     "fn:e723d9aa34d5b23f",
 ]
+uses = [
+    "fn:154976cbe2ded494",
+    "fn:1cd7b7a93a459c65",
+    "fn:ad21ff3e16b0e71e",
+]
 test = true
 
 [[module."wgsl_gpu.rs".function]]
@@ -3856,6 +4692,11 @@ callees = [
     "fn:2c1ad8f2d6972863",
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:154976cbe2ded494",
+    "fn:1cd7b7a93a459c65",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -3892,6 +4733,11 @@ callees = [
     "fn:e8e530db19d30faf",
     "fn:fdd010f0923ad234",
 ]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:95ad5324e8169a8a",
+    "fn:ad21ff3e16b0e71e",
+]
 test = true
 
 [[module."wgsl_gpu.rs".function]]
@@ -3902,7 +4748,7 @@ lines = [
     469,
     534,
 ]
-hash = "sha256:0f13e99520fdaa8746335017c53eea1cbd33af3326cc94aea77d5a063bd0fbdc"
+hash = "sha256:0a72830f64976d989a99b6f355990904b7fd7f3a62b5fcb08236d8709f5f49d0"
 doc_hash = "sha256:9869a811aa4926fdae89467df949346933d8103e1907641965e806468664c3b8"
 callees = [
     "fn:133328134291e6be",
@@ -3911,6 +4757,11 @@ callees = [
     "fn:6ba69ef71b674b95",
     "fn:dc856eadeea2f80f",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:95ad5324e8169a8a",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -3922,7 +4773,7 @@ lines = [
     536,
     627,
 ]
-hash = "sha256:1734f52866b47ae0d8cd23b1a0aa4f3c28346967d00bf7d00302bc31431886e1"
+hash = "sha256:a8fa0698be0964eed7a19817125d719db0b0e7fb5279245068ec146fcce0d706"
 doc_hash = "sha256:7d94c2a7d5f4ff7e67b65ab157698a72088e2a69091b70f255cb62ce177f79c0"
 callees = [
     "fn:133328134291e6be",
@@ -3933,6 +4784,11 @@ callees = [
     "fn:cecd72c9f8b10dc7",
     "fn:dc856eadeea2f80f",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:95ad5324e8169a8a",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -3953,6 +4809,11 @@ callees = [
     "fn:3de9f46934f2f823",
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:ad21ff3e16b0e71e",
+    "fn:e6e118d81d5b1b52",
 ]
 test = true
 
@@ -3984,6 +4845,11 @@ callees = [
     "fn:e723d9aa34d5b23f",
     "fn:eb2bcaf12e3ba145",
 ]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:70237c9bfa890c7d",
+    "fn:ad21ff3e16b0e71e",
+]
 test = true
 
 [[module."wgsl_gpu.rs".function]]
@@ -4005,6 +4871,11 @@ callees = [
     "fn:dbda79ee122d958b",
     "fn:e723d9aa34d5b23f",
 ]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:70237c9bfa890c7d",
+    "fn:ad21ff3e16b0e71e",
+]
 test = true
 
 [[module."wgsl_gpu.rs".function]]
@@ -4015,7 +4886,7 @@ lines = [
     882,
     1038,
 ]
-hash = "sha256:b156fb4006e333dd1604277fa8f145494c8d05a25b10bba3516134cc1d6b94d9"
+hash = "sha256:ae33e30503817a362ef6a24e2c71da98a4c065020f78c83373192614d1834375"
 doc_hash = "sha256:ccf30ff59bafe0e64234f20fde76330d4b4ede49c5077f932f928212c2edb6e6"
 callees = [
     "fn:133328134291e6be",
@@ -4029,6 +4900,12 @@ callees = [
     "fn:b9ab58b9c92bdce5",
     "fn:c5a323a5115d4874",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:ad21ff3e16b0e71e",
+    "fn:e208f2abdf7fc1b4",
+    "fn:e6e118d81d5b1b52",
 ]
 test = true
 
@@ -4048,6 +4925,12 @@ callees = [
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
 ]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:ad21ff3e16b0e71e",
+    "fn:e208f2abdf7fc1b4",
+    "fn:e6e118d81d5b1b52",
+]
 test = true
 
 [[module."wgsl_gpu.rs".function]]
@@ -4058,7 +4941,7 @@ lines = [
     1082,
     1182,
 ]
-hash = "sha256:3056d754b80c3a24c51b64bc05a9130950855043e8db7d37c1eb272e1bc5199b"
+hash = "sha256:8a64656d102b1087df6e3963025fc8aa89600df442775714305fee5dcd4a5263"
 doc_hash = "sha256:20b39735748492923fdc7ee14941dfba351fd6ab7533af13915a1fa700f8de03"
 callees = [
     "fn:133328134291e6be",
@@ -4066,6 +4949,11 @@ callees = [
     "fn:b20346aa62a943e4",
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:2b0f6c854792c61d",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -4077,13 +4965,19 @@ lines = [
     1184,
     1346,
 ]
-hash = "sha256:db88a71775ee50ff718100a04e7837763e39631063ac4ff80775c9d081016084"
+hash = "sha256:1a626d9ec020772ce386e0dfaa12e2669a652915f33228cca8e423a2fb7e560a"
 doc_hash = "sha256:f3072b9d4ba9e183f41fdaf9ab6707c0b08ff52a5c524c3da0958c3f135ccc00"
 callees = [
     "fn:133328134291e6be",
     "fn:1d90ef22995305dd",
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:2b0f6c854792c61d",
+    "fn:a2fb4a4dc25014f6",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -4103,6 +4997,11 @@ callees = [
     "fn:1d90ef22995305dd",
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:4375e9d65b07f8a4",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -4126,6 +5025,11 @@ callees = [
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
 ]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:96b867fe6939ab85",
+    "fn:ad21ff3e16b0e71e",
+]
 test = true
 
 [[module."wgsl_gpu.rs".function]]
@@ -4146,6 +5050,11 @@ callees = [
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
 ]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:8a6cf6ef33aff780",
+    "fn:ad21ff3e16b0e71e",
+]
 test = true
 
 [[module."wgsl_gpu.rs".function]]
@@ -4164,6 +5073,11 @@ callees = [
     "fn:442e22a7419802e4",
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:79cf26205dc95e2b",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -4184,6 +5098,11 @@ callees = [
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
 ]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:2f76e7d518180682",
+    "fn:ad21ff3e16b0e71e",
+]
 test = true
 
 [[module."wgsl_gpu.rs".function]]
@@ -4203,6 +5122,11 @@ callees = [
     "fn:c761d111161efa47",
     "fn:e723d9aa34d5b23f",
 ]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:42dd3eca9132c42b",
+    "fn:ad21ff3e16b0e71e",
+]
 test = true
 
 [[module."wgsl_gpu.rs".function]]
@@ -4213,7 +5137,7 @@ lines = [
     1841,
     2002,
 ]
-hash = "sha256:17c878a993cf85f4f2495fcc11c4790e46f2a0b0f6f40d246aefc04997e63981"
+hash = "sha256:873f904b5f6be0d979934783cbe8a13c7b47700f2d3eb549ab0d7372eddb5237"
 doc_hash = "sha256:14f80348a89f0770f2086fb0bd9023a96e51ba92a8dacdb224756a5bdbcd250a"
 callees = [
     "fn:07614c971ae40fce",
@@ -4222,6 +5146,11 @@ callees = [
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
     "fn:ffe3066c06f6271f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:4befd8b4d57edc15",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -4233,7 +5162,7 @@ lines = [
     2004,
     2186,
 ]
-hash = "sha256:ef1b89b106df1d9e7b8d69d86edb17d5bca5a3c60181ca9d6f7cfc9519f9aef3"
+hash = "sha256:0376fb7bf3bdbbfb0cfe631cec1563647ad8f34e328cebf076a0d5d3b6912928"
 doc_hash = "sha256:74b9afabd473b8570184e0b2462615b255a31a45795605dc1178f64cb0892847"
 callees = [
     "fn:0c2dcd8ddc35ba7f",
@@ -4248,6 +5177,11 @@ callees = [
     "fn:e1d5548ededc88f4",
     "fn:e723d9aa34d5b23f",
 ]
+uses = [
+    "fn:049f007efbd94179",
+    "fn:1cd7b7a93a459c65",
+    "fn:ad21ff3e16b0e71e",
+]
 test = true
 
 [[module."wgsl_gpu.rs".function]]
@@ -4258,7 +5192,7 @@ lines = [
     2188,
     2321,
 ]
-hash = "sha256:1a4be15acf109b53e5738d939908843c413b26c91df62a66730d911da3bd9266"
+hash = "sha256:e673c04462adde5ad090eaaf71d4b9ce67ab36e006e6623e2c169c86dabafc32"
 doc_hash = "sha256:79922fb1de4b5c38c6791366ee95129a4f5a874c47e2102961f480df78e15fd5"
 callees = [
     "fn:133328134291e6be",
@@ -4268,6 +5202,11 @@ callees = [
     "fn:e723d9aa34d5b23f",
     "fn:e844e47e4abc3fe7",
     "fn:ef32bf71b46310be",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:ad21ff3e16b0e71e",
+    "fn:fc2d12440422eb61",
 ]
 test = true
 
@@ -4279,7 +5218,7 @@ lines = [
     2323,
     2356,
 ]
-hash = "sha256:a701d25ac2f56b57943b5db8c5c32484a10b50efab06fdb482f9896c9eee80cf"
+hash = "sha256:2c2c30433ff71047bb43c8f5224831607b8e0ca0111375c7898d3c54e7ab9fc2"
 doc_hash = "sha256:0aafd27fad611dd7706b4e0bc84080c6ff67d0929ad0da4a8d50bbd0eae3610c"
 callees = ["fn:ea1f138057efad2e"]
 test = true
@@ -4301,6 +5240,11 @@ callees = [
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
 ]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:ad21ff3e16b0e71e",
+    "fn:d9c6c852e4132d2d",
+]
 test = true
 
 [[module."wgsl_gpu.rs".function]]
@@ -4311,7 +5255,7 @@ lines = [
     2440,
     2552,
 ]
-hash = "sha256:25ea2f36b38f93fd5f77f930ab669fc599a3d719299d47ac850ead4e35a9187e"
+hash = "sha256:51482b19945d08c658eb9022d9242b769121e56ea518cfb0259e96d49ac9c2df"
 doc_hash = "sha256:863ed4cee5ab71e842a855afe25522a9a52426aa28429bf1dc2be5e89c2e2a9d"
 callees = [
     "fn:133328134291e6be",
@@ -4320,6 +5264,11 @@ callees = [
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
     "fn:ef27c226e2fd6001",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:465c34e47089b4a5",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -4331,7 +5280,7 @@ lines = [
     2554,
     2738,
 ]
-hash = "sha256:f92a244d7d0811ee6b0d8883c662893cb1ccf165e204dec55aef7ff0c8f35b5f"
+hash = "sha256:c7a05c53ed655c030c52faee193ac18d36839c37f4ab13b6934e11880a4b1279"
 doc_hash = "sha256:a36e7de6ff133df5d006534e3291aa36e78e41444fb283272ab201613de58f6f"
 callees = [
     "fn:133328134291e6be",
@@ -4340,6 +5289,11 @@ callees = [
     "fn:b4038f4baed0b74d",
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:a59b9dce18adeba3",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -4351,13 +5305,18 @@ lines = [
     2740,
     2805,
 ]
-hash = "sha256:cf5f57c94642283591e945be3e087835951245db8b0d0cb766cf784434b5a35a"
+hash = "sha256:39bb39b06233432a1028a57d5aba9d58a8e0999bc4166e54bade12653a31733a"
 doc_hash = "sha256:3506b3a50b5fc468947e14eed91078fa564fcac246bed483bf94f06a2fa8c1a9"
 callees = [
     "fn:133328134291e6be",
     "fn:1d90ef22995305dd",
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:a59b9dce18adeba3",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -4369,13 +5328,18 @@ lines = [
     2807,
     3051,
 ]
-hash = "sha256:b9f77db5b2ce8c8c83c4a47f7e7aacb50e6d5f614073f1d673c204f17f702488"
+hash = "sha256:4e0db5124f95ee5d54b0c810fc5be17128e16ead5ad7af7e410c48e28b2c3d2c"
 doc_hash = "sha256:b5cd0e56452499f90cc61b30eded0c20400be06f861662a7a8447ab2a6c6f516"
 callees = [
     "fn:133328134291e6be",
     "fn:1d90ef22995305dd",
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:a2fb4a4dc25014f6",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -4387,7 +5351,7 @@ lines = [
     3053,
     3163,
 ]
-hash = "sha256:0989f3620fd69ed084191f83fdf6c7e5138dc5397f879bb4fdc3202dc385ec17"
+hash = "sha256:9f3ed22995033146f7ce267534f7511055e8a4346cb49303d9486cfe0e4cb7eb"
 doc_hash = "sha256:eda3bedb14da784e35deb84178f992d37292a14b29aed90d789bd0bcb2adfe76"
 callees = [
     "fn:133328134291e6be",
@@ -4395,6 +5359,11 @@ callees = [
     "fn:a5caa888c2b041c7",
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:a14e9c19fc961dcf",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -4406,7 +5375,7 @@ lines = [
     3165,
     3236,
 ]
-hash = "sha256:44952c13eb9e4348451f4f2fe39ea6d6922a670ec59eeaae8e7fc27d5d4d1f9e"
+hash = "sha256:9b4dcaf72f72af0cb0c1dea9ce986bf31e3a7d4e1f189f27de72ae5a02b8c498"
 doc_hash = "sha256:40f718c417c39d48c224d5dd9a5e76ece9a8fc064238eebdd481d0921e579735"
 callees = [
     "fn:133328134291e6be",
@@ -4415,6 +5384,11 @@ callees = [
     "fn:b792977b72d6651c",
     "fn:e41572477e00ebc5",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:a14e9c19fc961dcf",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -4426,7 +5400,7 @@ lines = [
     3238,
     3386,
 ]
-hash = "sha256:ae929555620d84833408fdf12d1089f5ed64b3c4bf5af84e065fccef0f546132"
+hash = "sha256:cdf84804fa327cdbe5028e0f4bb1afa6db5f9709deeca6478aeac65a6f99cfac"
 doc_hash = "sha256:d2211b4d5e8f49dad69210aafb349a92c0c07fa267691d25e2f6f9a1374c0ce3"
 callees = [
     "fn:133328134291e6be",
@@ -4434,6 +5408,11 @@ callees = [
     "fn:73ac4ec9b3e5268b",
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:ad21ff3e16b0e71e",
+    "fn:e7819e5a67c1f355",
 ]
 test = true
 
@@ -4445,7 +5424,7 @@ lines = [
     3388,
     3559,
 ]
-hash = "sha256:e2a9ae255f963729f81e1f0609ea522bc5acbd660236860cf91be6a0cdae5d50"
+hash = "sha256:dd6d9c35c6a61409ce37d8f33d620e9bd0c481497fc5f76e6fcc296af6df0b32"
 doc_hash = "sha256:69c332147fd23fd2f42f71b1ab3898a49584ab8fe3b809e1a3eb200fdb6b37af"
 callees = [
     "fn:133328134291e6be",
@@ -4453,6 +5432,11 @@ callees = [
     "fn:6c8a53049827265a",
     "fn:b5853a652e34ef38",
     "fn:e723d9aa34d5b23f",
+]
+uses = [
+    "fn:1cd7b7a93a459c65",
+    "fn:a76175b464de3c3e",
+    "fn:ad21ff3e16b0e71e",
 ]
 test = true
 
@@ -4473,6 +5457,12 @@ callees = [
     "fn:d6742f17dd227ae1",
     "fn:e723d9aa34d5b23f",
 ]
+uses = [
+    "fn:0ca2701d570085bb",
+    "fn:1cd7b7a93a459c65",
+    "fn:6a464a83ebece6cf",
+    "fn:ad21ff3e16b0e71e",
+]
 test = true
 
 [module."wgsl_validation.rs"]
@@ -4488,6 +5478,34 @@ lines = [
 ]
 hash = "sha256:a7f5239fe27043affdcb96b1fcda3eedc920e2c6fe0ebd6dfc8c033b48e1a1ad"
 doc_hash = "sha256:2630d825c2915c669eb8d57404d46749a7bfa73af3e0165943ebb6f624cd73ca"
+uses = [
+    "fn:049f007efbd94179",
+    "fn:0ca2701d570085bb",
+    "fn:154976cbe2ded494",
+    "fn:2b0f6c854792c61d",
+    "fn:2f76e7d518180682",
+    "fn:42dd3eca9132c42b",
+    "fn:4375e9d65b07f8a4",
+    "fn:465c34e47089b4a5",
+    "fn:4befd8b4d57edc15",
+    "fn:6a464a83ebece6cf",
+    "fn:70237c9bfa890c7d",
+    "fn:78183869322acf5c",
+    "fn:79cf26205dc95e2b",
+    "fn:885afb6f6236981e",
+    "fn:8a6cf6ef33aff780",
+    "fn:95ad5324e8169a8a",
+    "fn:96b867fe6939ab85",
+    "fn:a14e9c19fc961dcf",
+    "fn:a2fb4a4dc25014f6",
+    "fn:a59b9dce18adeba3",
+    "fn:a76175b464de3c3e",
+    "fn:d9c6c852e4132d2d",
+    "fn:e208f2abdf7fc1b4",
+    "fn:e6e118d81d5b1b52",
+    "fn:e7819e5a67c1f355",
+    "fn:fc2d12440422eb61",
+]
 test = true
 
 [[module."wgsl_validation.rs".function]]
@@ -4498,8 +5516,12 @@ lines = [
     107,
     131,
 ]
-hash = "sha256:65bf544d840c4cfad615fdfeb31e5b40a2ec99e69d43a02d2916645f0695c1d0"
+hash = "sha256:b2c5a45f3af2c9e65a06af240a648860932611cb0ac4be116cb34d427c466be5"
 doc_hash = "sha256:9d41997adf127ac1e6eb46f137206513b10e754aea523b1753a16174bfdc325f"
+uses = [
+    "fn:340f986ccb9f358d",
+    "fn:8f54c4c7850ad243",
+]
 test = true
 
 [[module."wgsl_validation.rs".function]]
@@ -4510,8 +5532,9 @@ lines = [
     133,
     188,
 ]
-hash = "sha256:d2ebf03a41eece821d07bf7e4e430ab5fa152dce5b97387d78fd148f8a05af02"
+hash = "sha256:08a5bff1c2fe72f0a511b71b8dd286ea1062e3ba358c11811a36acfc1a411f46"
 doc_hash = "sha256:ba0f5fc70175bfcc2f171f2fb6bf2021d306fe8d0c9b2f14405546d2ab7224cd"
+uses = ["fn:340f986ccb9f358d"]
 test = true
 
 [[module."wgsl_validation.rs".function]]
@@ -4528,6 +5551,10 @@ callees = [
     "fn:4195f51c6601cb47",
     "fn:89d12ba35d83587e",
 ]
+uses = [
+    "fn:340f986ccb9f358d",
+    "fn:8f54c4c7850ad243",
+]
 test = true
 
 [[module."wgsl_validation.rs".function]]
@@ -4540,6 +5567,34 @@ lines = [
 ]
 hash = "sha256:38a044d6c5ccc571344263a599a70d01b737e164eb78c873442f454485c7ca8c"
 doc_hash = "sha256:fe23b73cba1cbbbcede61e3ff05bd27c8a446015d2849a0416aa569858370780"
+uses = [
+    "fn:049f007efbd94179",
+    "fn:0ca2701d570085bb",
+    "fn:154976cbe2ded494",
+    "fn:2b0f6c854792c61d",
+    "fn:2f76e7d518180682",
+    "fn:42dd3eca9132c42b",
+    "fn:4375e9d65b07f8a4",
+    "fn:465c34e47089b4a5",
+    "fn:4befd8b4d57edc15",
+    "fn:6a464a83ebece6cf",
+    "fn:70237c9bfa890c7d",
+    "fn:78183869322acf5c",
+    "fn:79cf26205dc95e2b",
+    "fn:885afb6f6236981e",
+    "fn:8a6cf6ef33aff780",
+    "fn:95ad5324e8169a8a",
+    "fn:96b867fe6939ab85",
+    "fn:a14e9c19fc961dcf",
+    "fn:a2fb4a4dc25014f6",
+    "fn:a59b9dce18adeba3",
+    "fn:a76175b464de3c3e",
+    "fn:d9c6c852e4132d2d",
+    "fn:e208f2abdf7fc1b4",
+    "fn:e6e118d81d5b1b52",
+    "fn:e7819e5a67c1f355",
+    "fn:fc2d12440422eb61",
+]
 test = true
 
 [[module."wgsl_validation.rs".function]]
@@ -4580,6 +5635,10 @@ callees = [
     "fn:4195f51c6601cb47",
     "fn:89d12ba35d83587e",
 ]
+uses = [
+    "fn:340f986ccb9f358d",
+    "fn:8f54c4c7850ad243",
+]
 test = true
 
 [[module."wgsl_validation.rs".function]]
@@ -4590,8 +5649,9 @@ lines = [
     614,
     697,
 ]
-hash = "sha256:351bb6be61a46b0eb78a9eaee4d092fe4a7189eff4818519c5726493651b0169"
+hash = "sha256:60adca27719f964163e72da8040f127ae879753d2fac9f94ef2e4b462d6b3f54"
 doc_hash = "sha256:3e423255117750cff4985becc616a9ae8b50804762e2cee281b83eb683cdcc3a"
+uses = ["fn:340f986ccb9f358d"]
 test = true
 
 [[module."wgsl_validation.rs".function]]
@@ -4602,6 +5662,21 @@ lines = [
     699,
     957,
 ]
-hash = "sha256:a03c1a3e1bd6e85e4bc6d498eb50300aeadf8d941d6232fb1c36916c945403cc"
+hash = "sha256:2dd956f243cb454407becf2291002dd1d0aac61d90fb1bc61070417e8b1afad1"
 doc_hash = "sha256:5606331d930fabb456bf7624945f13f7d53a7451b7203054a80c74e2a5868dec"
+uses = [
+    "fn:049f007efbd94179",
+    "fn:2b0f6c854792c61d",
+    "fn:2f76e7d518180682",
+    "fn:42dd3eca9132c42b",
+    "fn:465c34e47089b4a5",
+    "fn:4befd8b4d57edc15",
+    "fn:70237c9bfa890c7d",
+    "fn:79cf26205dc95e2b",
+    "fn:96b867fe6939ab85",
+    "fn:d9c6c852e4132d2d",
+    "fn:e208f2abdf7fc1b4",
+    "fn:e6e118d81d5b1b52",
+    "fn:fc2d12440422eb61",
+]
 test = true

@@ -8,6 +8,9 @@
 //! CI). Between regenerations, edited files are refreshed here with the
 //! pure-Rust `syn` hasher only:
 //!
+//! - every other item the hasher lists (structs, enums, traits, aliases,
+//!   constants: [`crate::review::hash::hash_items`], #843) is refreshed by
+//!   the same rules as a function;
 //! - every function's `lines`, `hash` and `doc_hash` are recomputed from the
 //!   current source, and its id is kept by the same rule as a full run
 //!   ([`super::ids`], the previous `kovan.toml` serving as the priors);
@@ -15,7 +18,8 @@
 //!   previous index) keeps its committed `callees` and `reached_by`, and
 //!   its previous `index_out_of_date` flag;
 //! - a function that is **new or edited** cannot have its callees or
-//!   reaching tests recomputed without rust-analyzer: it keeps the previous
+//!   reaching tests recomputed without rust-analyzer (nor the types and
+//!   constants it uses, #843): it keeps the previous
 //!   lists (an edited one) or none (a new one) and is marked
 //!   `index_out_of_date = true`, shown as "index out of date: run kovan-cli
 //!   index", never silently trusted (Leak Before Break);
@@ -35,8 +39,8 @@
 use std::collections::BTreeMap;
 
 use crate::call_graph::function_ids;
-use crate::review::hash::hash_functions;
-use crate::review::index::{CachedReview, FolderIndex, FunctionIndex, ItemKind, ModuleIndex};
+use crate::review::hash::hash_both;
+use crate::review::index::{CachedReview, FolderIndex, FunctionIndex, ModuleIndex};
 use crate::review::review_md::ReviewDocument;
 
 use super::ids::{assign_ids, claims_from_review_md, priors_of, Claim, Located};
@@ -93,14 +97,24 @@ pub fn refresh_folder(
     let mut located = Vec::new();
     for (file, text) in files {
         let path = idx.file_path(file);
-        match hash_functions(text) {
-            Ok(fns) => {
+        match hash_both(text) {
+            Ok((fns, items)) => {
                 let quals: Vec<String> = fns
                     .iter()
                     .map(|h| h.entry.qualname().split_whitespace().collect())
                     .collect();
                 let ids = function_ids(&path, &quals);
-                for (h, (pid, _)) in fns.iter().zip(ids) {
+                // An item whose path id a function holds is left out, as
+                // in a full run.
+                let item_quals: Vec<String> = items.iter().map(|h| h.entry.name.clone()).collect();
+                let item_ids: Vec<(String, bool)> = function_ids(&path, &item_quals)
+                    .into_iter()
+                    .map(|(pid, amb)| (if ids.iter().any(|(f, _)| *f == pid) { String::new() } else { pid }, amb))
+                    .collect();
+                for (h, (pid, _)) in fns.iter().zip(ids).chain(items.iter().zip(item_ids)) {
+                    if pid.is_empty() {
+                        continue;
+                    }
                     located.push(Located {
                         path_id: pid.clone(),
                         lines: h.entry.lines,
@@ -170,11 +184,13 @@ pub fn refresh_folder(
             id,
             name: h.entry.name.clone(),
             qual,
-            item: ItemKind::Fn,
+            item: h.entry.item(),
+            shape: h.entry.shape,
             lines: h.entry.lines,
             hash: h.hashes.hash.clone(),
             doc_hash: h.hashes.doc_hash.clone(),
             callees: prev.map(|p| p.callees.clone()).unwrap_or_default(),
+            uses: prev.map(|p| p.uses.clone()).unwrap_or_default(),
             reached_by: prev.map(|p| p.reached_by.clone()).unwrap_or_default(),
             // The full run's answer (the call graph marks every function of
             // an integration-test target as test code); a new function:

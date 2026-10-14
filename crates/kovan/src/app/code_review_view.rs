@@ -84,6 +84,9 @@ struct Job {
 #[derive(Default)]
 pub(crate) struct CodeReviewView {
     workspace: Option<PathBuf>,
+    /// An entry to open as soon as the embedded UI exists
+    /// ([`Self::open_entry`]).
+    open_at: Option<String>,
     /// The embedded UI, once the data is ready.
     review: Option<kovan_web::ui::CodeReview>,
     job: Option<Job>,
@@ -158,6 +161,14 @@ impl CodeReviewView {
         }
     }
 
+    /// Open `entry` (`path/to/file.rs::qual`) of `workspace`, with its
+    /// source, once the workspace's data is loaded (GitHub #844: a code
+    /// review chosen on the mindmap).
+    pub(crate) fn open_entry(&mut self, workspace: &Path, entry: &str) {
+        self.set_workspace(Some(workspace));
+        self.open_at = Some(entry.to_string());
+    }
+
     /// An "Index fresh" of `dir` finished: rebuild its data now, in the
     /// background, so the view is ready when it is opened.
     pub(crate) fn index_finished(&mut self, dir: &Path) {
@@ -205,6 +216,9 @@ impl CodeReviewView {
         let purpose = match &req {
             HostRequest::Stamp(_) => Purpose::Stamp,
             HostRequest::NeedsFix(_) => Purpose::NeedsFix,
+            // "Quick stamp" (#857): the re-confirm step, held as a Stamp
+            // like review mode's own Re-confirm.
+            HostRequest::Reconfirm(f) => return self.open_flow(Purpose::Reconfirm, HostRequest::Stamp(f.clone())),
             // Not a stamp dialog: `take_request` opens its own window.
             HostRequest::AddConnection(_) => return,
         };
@@ -216,7 +230,10 @@ impl CodeReviewView {
     /// held as a Stamp, the request kovan-web knows).
     fn open_flow(&mut self, purpose: Purpose, req: HostRequest) {
         let f = match &req {
-            HostRequest::Stamp(f) | HostRequest::NeedsFix(f) | HostRequest::AddConnection(f) => f,
+            HostRequest::Stamp(f)
+            | HostRequest::NeedsFix(f)
+            | HostRequest::AddConnection(f)
+            | HostRequest::Reconfirm(f) => f,
         };
         let target = Target {
             function: f.id.clone(),
@@ -562,6 +579,9 @@ impl CodeReviewView {
                 ) {
                     review.navigate(link);
                 }
+                if let Some(id) = self.open_at.take() {
+                    review.navigate(kovan_web::model::DeepLink::Function { id, source: true });
+                }
                 if self.review_mode.active.is_some() {
                     self.review_mode.ui(ui);
                 } else {
@@ -743,7 +763,9 @@ mod tests {
             callees: None,
             lines: None,
         };
-        v.open_flow(Purpose::Reconfirm, HostRequest::Stamp(twice));
+        // Through the canvas's "Quick stamp" request (#857), which must
+        // reach the same re-confirm step.
+        v.open(HostRequest::Reconfirm(twice));
         v.dialog.as_mut().unwrap().wait();
         let d = v.dialog.as_ref().unwrap();
         assert_eq!(d.step, Step::Reconfirm, "{:?}", d.step);
@@ -828,6 +850,7 @@ mod tests {
             applicability: Default::default(),
             answers: [("doc_matches_behaviour".to_string(), "partly".to_string())].into(),
             restamp: true,
+            previous_comments: String::new(),
             hash: String::new(),
             no_concept: Some("other: a test".into()),
             suggested_architecture: None,
@@ -959,6 +982,7 @@ mod tests {
             applicability: Default::default(),
             answers: Default::default(),
             restamp: false,
+            previous_comments: String::new(),
             hash: String::new(),
             no_concept: None,
             suggested_architecture: None,
@@ -992,5 +1016,25 @@ mod tests {
                 "the picker keeps a valid choice and clears one with no choices"
             );
         }
+    }
+
+    /// Methodology (#844): a code review chosen on the mindmap asks the
+    /// view to open an entry of a mounted repository. Pass: the view takes
+    /// that repository as its workspace and remembers the entry; showing
+    /// the same workspace again (what the app does every frame) keeps it;
+    /// switching to another workspace drops it with the rest of the view.
+    ///
+    /// Result (2026-10-13): passes.
+    #[test]
+    fn an_entry_chosen_on_the_mindmap_is_remembered_until_the_data_is_ready() {
+        let mut v = CodeReviewView::default();
+        let (a, b) = (Path::new("/tmp/kovan-a"), Path::new("/tmp/kovan-b"));
+        v.open_entry(a, "src/lib.rs::leaf");
+        assert_eq!(v.workspace.as_deref(), Some(a));
+        assert_eq!(v.open_at.as_deref(), Some("src/lib.rs::leaf"));
+        v.set_workspace(Some(a));
+        assert_eq!(v.open_at.as_deref(), Some("src/lib.rs::leaf"));
+        v.set_workspace(Some(b));
+        assert_eq!(v.open_at, None);
     }
 }

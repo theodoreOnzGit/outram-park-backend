@@ -32,6 +32,7 @@ row = 2
 topic = "structural-mechanics"
 fidelity = 3
 maturity = 2
+backronym = "Finite-element Analysis for Reactor Reliability, Engineering Response, Plasticity And RisK"
 
 [dependencies]
 # Pure-Rust, Android-safe deps only (no BLAS, no C/Fortran toolchain).

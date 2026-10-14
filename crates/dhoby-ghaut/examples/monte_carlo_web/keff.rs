@@ -51,6 +51,94 @@ pub struct Reference {
     pub histories_one_run: f64,
     /// A measured experiment, `(k, sigma)`, if the benchmark is one.
     pub experiment: Option<(&'static str, f64, f64)>,
+    /// The same case on the reference code and data, if recorded.
+    pub code: Option<CodeReference>,
+}
+
+/// A reference code's recorded `k` for a case: here route 1 of the
+/// five-route study, OpenMC on NJOY2016's data.
+#[derive(Clone, Copy, Debug)]
+pub struct CodeReference {
+    /// The codes with their versions and commits, the run size and the date.
+    pub label: &'static str,
+    pub k: f64,
+    /// Standard error of `k`.
+    pub sem: f64,
+}
+
+/// The codes of route 1, with the versions and commits the five-route record
+/// states (`five_route_keff_2026_09_29.md`, "Routes").
+#[macro_export]
+macro_rules! route1_label {
+    ($size:literal) => {
+        concat!("OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5, five-route study route 1, ", $size, ", 2026-09-30")
+    };
+}
+
+/// Route 1's recorded `k` of `case`, read from the committed campaign summary.
+pub fn route1_reference(case: &str, label: &'static str) -> Option<CodeReference> {
+    let (k, sem, _) = five_route_row(case, "route1")?;
+    Some(CodeReference { label, k, sem })
+}
+
+/// The commit and date this page was built at, for the line beside a k the
+/// reader computed here. The site build sets both (`web/monte_carlo/build.sh`);
+/// a build without them says so and invents nothing.
+pub fn build_stamp() -> String {
+    match (option_env!("OUTRAM_PAGE_DATE"), option_env!("OUTRAM_PAGE_COMMIT")) {
+        (Some(d), Some(c)) if !d.is_empty() && !c.is_empty() => format!("computed now by the code built {d} at {c}"),
+        _ => "computed now by a local build, commit not recorded".to_string(),
+    }
+}
+
+/// The lines under a computed `k`: the experiment, the reference code and
+/// this code's own record, each with its date and commit where it has one.
+pub fn reference_lines(r: &Reference) -> Vec<String> {
+    let mut v = Vec::new();
+    if let Some((name, k, s)) = r.experiment {
+        v.push(format!(" Experiment ({name}): {k:.4} +/- {s:.4}"));
+    }
+    if let Some(c) = r.code {
+        v.push(format!(" Reference code ({}): {:.5} +/- {:.5} ({:+.0} +/- {:.0} pcm)", c.label, c.k, c.sem, (c.k - 1.0) * 1e5, c.sem * 1e5));
+    }
+    v.push(format!(" Recorded ({}): {:.5} +/- {:.5} ({:+.0} +/- {:.0} pcm)", r.label, r.k, r.sem, (r.k - 1.0) * 1e5, r.sem * 1e5));
+    v
+}
+
+/// The five-route study's campaign summary (four ICSBEP cases × five code and
+/// data routes), read at build time so no recorded `k` is retyped here.
+const FIVE_ROUTE_SUMMARY: &str =
+    include_str!("../../../outram-mc-libs/verification_and_validation/icsbep/five_route_keff/data/summary_keff.csv");
+
+/// One row of the five-route summary: `(k, standard error, seed-to-seed
+/// standard deviation)` of `case` on `route` (`route1` is OpenMC on NJOY2016
+/// data, `route4` outram-mc on the Rust NJOY port reading ENDF directly).
+pub fn five_route_row(case: &str, route: &str) -> Option<(f64, f64, f64)> {
+    let mut lines = FIVE_ROUTE_SUMMARY.lines();
+    let head: Vec<&str> = lines.next()?.split(',').collect();
+    let col = |n: &str| head.iter().position(|h| *h == n);
+    let (cc, cr, ck, cs, cd) = (col("case")?, col("route")?, col("k_mean")?, col("k_sem")?, col("k_sd_seeds")?);
+    lines.find_map(|l| {
+        let f: Vec<&str> = l.split(',').collect();
+        if f.get(cc) != Some(&case) || f.get(cr) != Some(&route) {
+            return None;
+        }
+        Some((f.get(ck)?.parse().ok()?, f.get(cs)?.parse().ok()?, f.get(cd)?.parse().ok()?))
+    })
+}
+
+/// A rung's [`Reference`] from the five-route study's route 4, the route this
+/// demo itself runs. `histories_one_run` is the campaign's active histories
+/// per seed; `experiment` is `(name, k, sigma)`.
+pub fn five_route_reference(
+    case: &str,
+    label: &'static str,
+    route1_label: &'static str,
+    histories_one_run: f64,
+    experiment: (&'static str, f64, f64),
+) -> Option<Reference> {
+    let (k, sem, sd_one_run) = five_route_row(case, "route4")?;
+    Some(Reference { label, k, sem, sd_one_run, histories_one_run, experiment: Some(experiment), code: route1_reference(case, route1_label) })
 }
 
 /// The console header, as `openmc.run()` prints it for an eigenvalue run
@@ -83,31 +171,34 @@ pub fn summary_lines(c: &HistoryCounts, production: f64, cfg: KeffConfig, k_mean
     let sources = (cfg.n_particles * cfg.n_active) as f64;
     let pct = |x: u64| 100.0 * x as f64 / t;
     v.push(String::new());
-    v.push(format!(
-        " Neutrons followed (active): {} ({} source + {} (n,xn) secondaries)",
-        c.tracked,
-        sources,
-        c.tracked as i64 - sources as i64
-    ));
-    v.push(format!("   leaked     {:>9}  {:5.1} %", c.leaked, pct(c.leaked)));
-    v.push(format!("   captured   {:>9}  {:5.1} %", c.captured, pct(c.captured)));
-    v.push(format!("   fissioned  {:>9}  {:5.1} %", f, pct(f)));
-    let [b0, b1, b2] = c.fissions_by_energy;
-    v.push(format!("   fissions by incident energy: < 0.625 eV {b0}, 0.625 eV-100 keV {b1}, > 100 keV {b2}"));
-    if f > 0 {
-        let nu = production / f as f64;
-        let p_nl = 1.0 - c.leaked as f64 / t;
-        let k_inf = nu * f as f64 / (f + c.captured) as f64;
-        v.push(format!("   nu-bar {nu:.4}   k_inf = nu F/(F+C) = {k_inf:.5}   P_NL = 1 - L/N = {p_nl:.5}"));
-        v.push(format!("   k_inf x P_NL = {:.5}   (k = nu F / source neutrons = {:.5})", k_inf * p_nl, production / sources));
+    // A CSG iteration tallies no history counts: say so instead of printing
+    // a block of zeros.
+    if c.tracked == 0 {
+        v.push(" (this iteration tallies no leaked / captured / fissioned counts)".to_string());
+    } else {
+        v.push(format!(
+            " Neutrons followed (active): {} ({} source + {} (n,xn) secondaries)",
+            c.tracked,
+            sources,
+            c.tracked as i64 - sources as i64
+        ));
+        v.push(format!("   leaked     {:>9}  {:5.1} %", c.leaked, pct(c.leaked)));
+        v.push(format!("   captured   {:>9}  {:5.1} %", c.captured, pct(c.captured)));
+        v.push(format!("   fissioned  {:>9}  {:5.1} %", f, pct(f)));
+        let [b0, b1, b2] = c.fissions_by_energy;
+        v.push(format!("   fissions by incident energy: < 0.625 eV {b0}, 0.625 eV-100 keV {b1}, > 100 keV {b2}"));
+        if f > 0 {
+            let nu = production / f as f64;
+            let p_nl = 1.0 - c.leaked as f64 / t;
+            let k_inf = nu * f as f64 / (f + c.captured) as f64;
+            v.push(format!("   nu-bar {nu:.4}   k_inf = nu F/(F+C) = {k_inf:.5}   P_NL = 1 - L/N = {p_nl:.5}"));
+            v.push(format!("   k_inf x P_NL = {:.5}   (k = nu F / source neutrons = {:.5})", k_inf * p_nl, production / sources));
+        }
     }
     v.push(String::new());
-    v.push(format!(" k-effective = {k_mean:.5} +/- {k_std:.5}   ({:+.0} +/- {:.0} pcm from 1)", (k_mean - 1.0) * 1e5, k_std * 1e5));
+    v.push(format!(" k-effective = {k_mean:.5} +/- {k_std:.5}   ({:+.0} +/- {:.0} pcm from 1), {}", (k_mean - 1.0) * 1e5, k_std * 1e5, build_stamp()));
     if let Some(r) = reference {
-        if let Some((name, k, s)) = r.experiment {
-            v.push(format!(" Experiment ({name}): {k:.4} +/- {s:.4}"));
-        }
-        v.push(format!(" Recorded ({}): {:.5} +/- {:.5} ({:+.0} +/- {:.0} pcm)", r.label, r.k, r.sem, (r.k - 1.0) * 1e5, r.sem * 1e5));
+        v.extend(reference_lines(&r));
     }
     v
 }

@@ -184,7 +184,9 @@ pub fn draft_review(input: &DraftInput) -> Result<ReviewEntry, DraftError> {
         return Err(DraftError::IndexOutOfDate { path });
     }
     let mut callees = BTreeMap::new();
-    for c in &f.callees {
+    // Callees and (#843) the types and constants used, so a later change
+    // to one of them shows as "a callee changed".
+    for c in f.depends_on() {
         let h = input
             .callee_hashes
             .get(c)
@@ -199,8 +201,14 @@ pub fn draft_review(input: &DraftInput) -> Result<ReviewEntry, DraftError> {
             || input.checklist.contains_key("units_documented"),
         is_test: f.test,
         tests: input.tests,
+        shape: f.shape,
+        hand_written_vv: false,
     };
-    let gate = stamp_gate(&input.checklist, ctx);
+    let mut gate = stamp_gate(&input.checklist, ctx);
+    // A new stamp answers the rung 4 questions once they are asked (#855);
+    // only a review written before they existed may lack them.
+    gate.blocked_by
+        .extend(gate.rung4_unanswered.iter().cloned().map(GateReason::Unanswered));
     if !gate.stampable() {
         return Err(DraftError::Gate(gate.blocked_by));
     }

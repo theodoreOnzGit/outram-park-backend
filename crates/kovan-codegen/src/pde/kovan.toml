@@ -8,6 +8,7 @@ test_ids = [
     "crates/kovan-codegen/src/lib.rs::generate_artifact_propagates_unimplemented",
     "crates/kovan-codegen/src/lib.rs::generate_dispatches_to_each_family",
     "crates/kovan-codegen/src/lib.rs::generate_is_deterministic_across_families",
+    "crates/kovan-codegen/src/lib.rs::methods_compose_from_families",
     "crates/kovan-codegen/src/lib.rs::unimplemented_catalogue_entries_report_the_method",
     "crates/kovan-codegen/src/pde/mod.rs::generate_is_deterministic",
     "crates/kovan-codegen/src/pde/mod.rs::unimplemented_variants_error",
@@ -28,10 +29,12 @@ test_ids = [
     "crates/kovan/src/tui/mod.rs::digit_six_reaches_the_ingest_tab",
     "crates/kovan/src/tui/mod.rs::editing_suppresses_global_quit_and_tab_switch_keys",
     "crates/kovan/src/tui/mod.rs::esc_also_quits_when_not_editing",
+    "crates/kovan/src/tui/mod.rs::every_tab_draws_without_panicking",
     "crates/kovan/src/tui/mod.rs::literature_i_hands_the_selected_pdf_to_the_ingest_tab",
     "crates/kovan/src/tui/mod.rs::overview_tab_ignores_navigation_keys_without_panicking",
     "crates/kovan/src/tui/mod.rs::q_quits_from_the_default_overview_tab",
     "crates/kovan/src/tui/mod.rs::quitting_is_blocked_while_an_import_is_in_flight",
+    "crates/kovan/src/tui/mod.rs::tab_bar_highlights_the_active_tab",
     "crates/kovan/src/tui/mod.rs::tab_key_cycles_forward_and_wraps",
 ]
 
@@ -39,15 +42,17 @@ test_ids = [
 path = "crate::pde"
 
 [[module."mod.rs".function]]
-id = "fn:2f202e94152117f9"
-name = "generate"
-qual = "generate"
+id = "fn:cee58e87314d867a"
+name = "PdeScheme"
+qual = "PdeScheme"
+item = "type"
+shape = "enum"
 lines = [
-    42,
-    62,
+    19,
+    32,
 ]
-hash = "sha256:687b270af53d9303fd1ab1597b3825f889cf24ad139bbf90f2132066447d3a5b"
-doc_hash = "sha256:f044a860de5e272977d1db385cb8aad05bb788cd25e62c4e0499cf3734a71182"
+hash = "sha256:c036450a1901a9fd3715d52e2c8804797f09f7185deed1c93c692a26bc84341a"
+doc_hash = "sha256:d0e4dec8c108289e72342bdf63e016121f51bbd5083b8188dceea3b8d4e1028e"
 reached_by = [
     "#0",
     "#1",
@@ -79,6 +84,56 @@ reached_by = [
     "#27",
     "#28",
     "#29",
+    "#30",
+    "#31",
+    "#32",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2f202e94152117f9"
+name = "generate"
+qual = "generate"
+lines = [
+    42,
+    62,
+]
+hash = "sha256:687b270af53d9303fd1ab1597b3825f889cf24ad139bbf90f2132066447d3a5b"
+doc_hash = "sha256:f044a860de5e272977d1db385cb8aad05bb788cd25e62c4e0499cf3734a71182"
+uses = [
+    "fn:1d0bbdacb12154cf",
+    "fn:cee58e87314d867a",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
 ]
 
 [[module."mod.rs".function]]
@@ -104,6 +159,7 @@ lines = [
 hash = "sha256:9ec8dffc425c73350fadb2d20ba279447ea8f9e599277e96e63282dceb6c1470"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:2f202e94152117f9"]
+uses = ["fn:cee58e87314d867a"]
 test = true
 
 [[module."mod.rs".function]]
@@ -117,4 +173,5 @@ lines = [
 hash = "sha256:c385d9974455e671db4ae15c59fc242dc7dcef04e6a6249b4dfc43dbde84f58e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:2f202e94152117f9"]
+uses = ["fn:cee58e87314d867a"]
 test = true

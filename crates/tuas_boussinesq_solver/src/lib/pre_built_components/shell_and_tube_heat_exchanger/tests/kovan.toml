@@ -28,6 +28,15 @@ callees = [
     "fn:a7684adf457511e5",
     "fn:f92140d5b6a1018f",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:5811ccd622a4f7ee",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
+]
 test = true
 
 [[module."basic_postprocessing.rs".function]]
@@ -47,6 +56,15 @@ callees = [
     "fn:5809a771c2fb7658",
     "fn:9cf2732f8b0c6890",
     "fn:a7684adf457511e5",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:5811ccd622a4f7ee",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
 ]
 test = true
 
@@ -119,6 +137,14 @@ callees = [
     "fn:e4bff9f30142b5cc",
     "fn:f43a7dfc3bb1f268",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:7a10a768152b5992",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
 reached_by = [
     "#0",
     "#1",
@@ -169,6 +195,13 @@ callees = [
     "fn:efdff680f4757dd0",
     "fn:fb99812124ae46b2",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
 
 [module."constructor_tests.rs"]
 path = "crate::pre_built_components::shell_and_tube_heat_exchanger::tests::constructor_tests"
@@ -192,6 +225,16 @@ callees = [
     "fn:a7684adf457511e5",
     "fn:da2ed991596bac1a",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:5811ccd622a4f7ee",
+    "fn:68ae150e37a870db",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
+]
 test = true
 
 [[module."constructor_tests.rs".function]]
@@ -212,6 +255,16 @@ callees = [
     "fn:9cf2732f8b0c6890",
     "fn:a7684adf457511e5",
     "fn:c4ca0481503a6383",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:5811ccd622a4f7ee",
+    "fn:68ae150e37a870db",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
 ]
 test = true
 
@@ -247,6 +300,18 @@ callees = [
     "fn:b113f725d215f11b",
     "fn:f92140d5b6a1018f",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
+]
 test = true
 
 [[module."heat_transfer_verification.rs".function]]
@@ -278,6 +343,18 @@ callees = [
     "fn:b113f725d215f11b",
     "fn:f92140d5b6a1018f",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
+]
 test = true
 
 [[module."heat_transfer_verification.rs".function]]
@@ -308,6 +385,18 @@ callees = [
     "fn:a7684adf457511e5",
     "fn:b113f725d215f11b",
     "fn:f92140d5b6a1018f",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
 ]
 test = true
 

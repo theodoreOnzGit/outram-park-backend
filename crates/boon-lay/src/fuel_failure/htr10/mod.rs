@@ -202,11 +202,13 @@ pub const STAND_IN_WEIBULL_MODULUS: f64 = 8.02;
 pub const STAND_IN_FLUENCE_E25_PER_M2: f64 = 1.4;
 
 /// The HTR-10 SiC layer (IAEA-TECDOC-1382 pt 2 Table 4-17).
+///
+/// Panics only if the two published constants above stop describing a shell,
+/// which is a defect in this file and not something a caller can cause;
+/// every test that builds the HTR-10 particle runs through here.
 pub fn sic_layer() -> SicLayer {
-    SicLayer {
-        inner_radius: Length::new::<micrometer>(SIC_INNER_RADIUS_UM),
-        outer_radius: Length::new::<micrometer>(SIC_OUTER_RADIUS_UM),
-    }
+    SicLayer::new(Length::new::<micrometer>(SIC_INNER_RADIUS_UM), Length::new::<micrometer>(SIC_OUTER_RADIUS_UM))
+        .expect("the published HTR-10 SiC radii describe a shell")
 }
 
 /// The kernel volume `V_k`, from the published kernel radius.

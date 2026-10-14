@@ -675,7 +675,11 @@ impl ThermalScattering {
     ///
     /// **A regenerated law is not the published evaluation.** As of 2026-08-14
     /// only crystalline graphite has been compared point-by-point against a
-    /// reference tape; light water has not. Ask the request for its standing
+    /// reference tape; ~~light water has not.~~ **CORRECTED 2026-10-14:** light
+    /// water's regenerated law reproduces the published tape's σ_inel to its
+    /// printed precision (njoy's `tests/leapr_h2o_secondary_scatterer.rs`), and
+    /// the tables baked from LEAPR's tape here are compared with the published
+    /// tape's by `tests/thermal_h2o_leapr_vs_tsl.rs`. Ask the request for its standing
     /// with
     /// [`SabRequest::validation`](njoy_outram_park_fork::leapr::generate::SabRequest::validation)
     /// rather than assuming, and treat an unvalidated material as an untrusted

@@ -62,13 +62,17 @@ pub enum DataState {
     NoScip,
     /// A SCIP index and no data yet.
     Missing,
-    /// The SCIP index is newer than the data.
+    /// The SCIP index is newer than the data, or the data was written in
+    /// an older call-graph layout (it would lack what a newer layout adds,
+    /// such as the types and constants of schema 4, #843).
     Stale,
     /// The data was built from the SCIP index that is there.
     Current,
 }
 
-/// Compare the data's `build.json` with the SCIP index, by modification time.
+/// Compare the data's `build.json` with the SCIP index, by modification
+/// time, and the call-graph layout the data was written in
+/// (`graph/index.json`'s `graph_schema`) with the one this build writes.
 pub fn data_state(workspace: &Path) -> DataState {
     let modified = |p: PathBuf| std::fs::metadata(p).and_then(|m| m.modified()).ok();
     let Some(scip) = modified(scip_path(workspace)) else {
@@ -77,7 +81,17 @@ pub fn data_state(workspace: &Path) -> DataState {
     match modified(data_dir(workspace).join("build.json")) {
         None => DataState::Missing,
         Some(built) if built < scip => DataState::Stale,
-        Some(_) => DataState::Current,
+        Some(_) => {
+            let written = std::fs::read_to_string(data_dir(workspace).join("graph/index.json"))
+                .ok()
+                .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+                .and_then(|v| v["graph_schema"].as_u64());
+            if written == Some(u64::from(kovan_common::call_graph::SCHEMA_VERSION)) {
+                DataState::Current
+            } else {
+                DataState::Stale
+            }
+        }
     }
 }
 
@@ -195,7 +209,10 @@ mod tests {
     /// build writes every file of the layout, each parses as the type
     /// `kovan-web` reads it into, the call from `f` to `g` is in the crate's
     /// slice, and the state becomes `Current`. A crate the index does not
-    /// cover is named in `build.json`. No rust-analyzer is run.
+    /// cover is named in `build.json`. No rust-analyzer is run. A struct
+    /// in `src/a.rs` is in the slice as an item (#843), and data whose
+    /// `graph_schema` is the previous layout's reads as `Stale`, so the
+    /// view rebuilds it.
     ///
     /// Result: ~~(2026-10-10, Windows 11): see the run recorded in the
     /// commit that added this test~~ **CORRECTED 2026-10-10**: that commit
@@ -216,7 +233,7 @@ mod tests {
             "src/lib.rs",
             "pub mod a;\n/// Doubles.\npub fn f(x: u32) -> u32 {\n    a::g(x) * 2\n}\n",
         );
-        put(p, "src/a.rs", "pub fn g(x: u32) -> u32 {\n    x + 1\n}\n");
+        put(p, "src/a.rs", "pub fn g(x: u32) -> u32 {\n    x + 1\n}\n\n/// A pair.\npub struct Pair {\n    pub a: u32,\n}\n");
         let ctl = RunControl::default();
         assert_eq!(data_state(p), DataState::NoScip);
         assert!(build(p, &ctl).unwrap_err().contains("Index fresh"));
@@ -252,6 +269,16 @@ mod tests {
             slice.contains("src/a.rs::g"),
             "the call to g is in the slice:\n{slice}"
         );
+        assert!(slice.contains("src/a.rs::Pair") && slice.contains("\"shape\":\"struct\""), "{slice}");
+        // The same data marked as written in the previous layout is stale.
+        let index_text = read("graph/index.json");
+        let now = format!("\"graph_schema\":{}", kovan_common::call_graph::SCHEMA_VERSION);
+        assert!(index_text.contains(&now), "{index_text}");
+        let old = index_text.replace(&now, &format!("\"graph_schema\":{}", kovan_common::call_graph::SCHEMA_VERSION - 1));
+        std::fs::write(dir.join("graph/index.json"), old).unwrap();
+        assert_eq!(data_state(p), DataState::Stale);
+        std::fs::write(dir.join("graph/index.json"), &index_text).unwrap();
+        assert_eq!(data_state(p), DataState::Current);
         let build_json: serde_json::Value = serde_json::from_str(&read("build.json")).unwrap();
         assert_eq!(build_json["call_graph"]["backend"], "scip");
         assert_eq!(

@@ -14,6 +14,25 @@
 //! out; it is counted in [`BuildReport::unhashed`]. Its calls are not
 //! lost: `callees` looks **through** it (below).
 //!
+//! # Other items (GitHub #843, 2026-10-13)
+//!
+//! Every struct, enum, union, trait, type alias, constant and static the
+//! hasher lists for a file of the call graph
+//! ([`crate::review::hash::hash_items`], passed as [`BuildInput::items`])
+//! is written beside the functions, with `item` and `shape` set. Its path
+//! id is `file::Name` ([`crate::call_graph::function_ids`] over the file's
+//! items, so two of one name get `#k`); one whose path id a function
+//! already holds is left out and counted in [`BuildReport::skipped_items`].
+//! An item is test code when it sits under `#[cfg(test)]` or in a test
+//! module or target. Its `callees` are empty.
+//!
+//! `uses` (every entry): the workspace items the call graph says it names
+//! ([`CallGraphDoc::uses`], SCIP backend), by id; a use of an item that is
+//! not indexed is dropped. An item's `reached_by` is every test that uses
+//! it: a test function that names it, a test that reaches a function that
+//! names it, and the same through an item that names it (a struct holding
+//! it).
+//!
 //! # Fields
 //!
 //! - `id`: [`super::ids`].
@@ -57,10 +76,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::call_graph::reach::tests_reaching;
-use crate::call_graph::{CallGraphDoc, TargetKind};
+use crate::call_graph::{function_ids, CallGraphDoc, TargetKind};
 use crate::review::hash::HashedFn;
 use crate::review::index::{
-    CachedReview, DeletedFolder, FolderIndex, FunctionIndex, ItemKind, ModuleIndex, TestRun,
+    CachedReview, DeletedFolder, FolderIndex, FunctionIndex, ItemKind, ItemShape, ModuleIndex, TestRun,
 };
 use crate::review::review_md::ReviewDocument;
 
@@ -74,6 +93,9 @@ pub struct BuildInput {
     /// Workspace-relative file -> its hashed functions. A file missing here
     /// (it did not parse) contributes no functions; the caller reports it.
     pub hashed: BTreeMap<String, Vec<HashedFn>>,
+    /// Workspace-relative file -> its other hashed items (module doc,
+    /// "Other items"). Empty: only functions are indexed.
+    pub items: BTreeMap<String, Vec<HashedFn>>,
     /// Workspace-relative `review.md` path -> parsed.
     pub reviews: BTreeMap<String, ReviewDocument>,
     /// Folder -> its previous, readable `kovan.toml`.
@@ -98,6 +120,8 @@ pub struct BuildReport {
     pub unmatched: Vec<Unmatched>,
     /// Out-of-scope callees with no known id (scoped runs).
     pub outside_without_id: Vec<String>,
+    /// Items whose path id a function already holds (module doc).
+    pub skipped_items: Vec<String>,
 }
 
 /// The folders' indexes and the report.
@@ -163,6 +187,9 @@ pub fn build(input: &BuildInput) -> Built {
         hash: String,
         doc_hash: String,
         lines: [u32; 2],
+        shape: Option<ItemShape>,
+        /// Carries a test attribute: an entry point of the reach walk.
+        test_fn: bool,
     }
     let mut rows: BTreeMap<String, Row> = BTreeMap::new();
     let mut folders: BTreeMap<String, FolderIndex> = BTreeMap::new();
@@ -204,11 +231,36 @@ pub fn build(input: &BuildInput) -> Built {
                                     hash: h.hashes.hash.clone(),
                                     doc_hash: h.hashes.doc_hash.clone(),
                                     lines: h.entry.lines,
+                                    shape: None,
+                                    test_fn: f.test_fn,
                                 },
                             );
                         }
                         None => report.unhashed.push(f.id.clone()),
                     }
+                }
+                let its = input.items.get(&m.file).map(Vec::as_slice).unwrap_or(&[]);
+                let quals: Vec<String> = its.iter().map(|h| h.entry.name.clone()).collect();
+                for (h, (pid, _)) in its.iter().zip(function_ids(&m.file, &quals)) {
+                    if rows.contains_key(&pid) {
+                        report.skipped_items.push(pid);
+                        continue;
+                    }
+                    rows.insert(
+                        pid,
+                        Row {
+                            dir: dir.clone(),
+                            file: file_name(&m.file).to_string(),
+                            name: h.entry.name.clone(),
+                            test: h.entry.is_test || m.test || t.kind == TargetKind::Test,
+                            physical: input.quantities.is_physical(&h.entry.code),
+                            hash: h.hashes.hash.clone(),
+                            doc_hash: h.hashes.doc_hash.clone(),
+                            lines: h.entry.lines,
+                            shape: h.entry.shape,
+                            test_fn: false,
+                        },
+                    );
                 }
             }
         }
@@ -268,10 +320,40 @@ pub fn build(input: &BuildInput) -> Built {
         out.into_iter().collect()
     };
     let reach = tests_reaching(doc);
+    // Item uses, both ways (module doc).
+    let mut uses_of: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    let mut users_of: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    for u in &doc.uses {
+        if u.from != u.to && rows.contains_key(&u.from) && rows.get(&u.to).is_some_and(|r| r.shape.is_some()) {
+            uses_of.entry(u.from.as_str()).or_default().insert(u.to.as_str());
+            users_of.entry(u.to.as_str()).or_default().insert(u.from.as_str());
+        }
+    }
+    let tests_using = |item: &str| -> Vec<String> {
+        let mut out = BTreeSet::new();
+        let mut seen: BTreeSet<&str> = BTreeSet::from([item]);
+        let mut stack: Vec<&str> = users_of.get(item).map(|s| s.iter().copied().collect()).unwrap_or_default();
+        while let Some(n) = stack.pop() {
+            if !seen.insert(n) {
+                continue;
+            }
+            let Some(r) = rows.get(n) else { continue };
+            if r.shape.is_some() {
+                stack.extend(users_of.get(n).into_iter().flatten().copied());
+            } else if r.test_fn {
+                out.insert(n.to_string());
+            } else if let Some(ts) = reach.get(n) {
+                out.extend(ts.iter().cloned());
+            }
+        }
+        out.into_iter().collect()
+    };
     // 4. Fill the folders.
     let mut missing = BTreeSet::new();
     for (pid, r) in &rows {
-        let reached_by: Vec<String> = if r.test {
+        let reached_by: Vec<String> = if r.shape.is_some() {
+            if r.test { Vec::new() } else { tests_using(pid) }
+        } else if r.test {
             Vec::new()
         } else {
             reach.get(pid).map(|s| s.iter().cloned().collect()).unwrap_or_default()
@@ -283,11 +365,18 @@ pub fn build(input: &BuildInput) -> Built {
                 .strip_prefix(&format!("{}/{}::", r.dir, r.file))
                 .unwrap_or(pid)
                 .to_string(),
-            item: ItemKind::Fn,
+            item: r.shape.map_or(ItemKind::Fn, ItemShape::item),
+            shape: r.shape,
             lines: r.lines,
             hash: r.hash.clone(),
             doc_hash: r.doc_hash.clone(),
             callees: callees_of(pid, &mut missing),
+            uses: uses_of
+                .get(pid.as_str())
+                .into_iter()
+                .flatten()
+                .filter_map(|u| ids.get(*u).cloned())
+                .collect(),
             reached_by,
             test: r.test,
             index_out_of_date: false,
@@ -302,6 +391,7 @@ pub fn build(input: &BuildInput) -> Built {
     }
     report.outside_without_id = missing.into_iter().collect();
     report.unhashed.sort();
+    report.skipped_items.sort();
     for (dir, fi) in &mut folders {
         fi.test_run = input.test_runs.get(dir).cloned();
         let md = if dir.is_empty() {

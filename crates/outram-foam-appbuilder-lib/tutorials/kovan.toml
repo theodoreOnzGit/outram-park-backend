@@ -7,6 +7,104 @@ dir = "crates/outram-foam-appbuilder-lib/tutorials"
 path = "test:tutorial_pimple_foam_cavity"
 
 [[module."pimple_foam_cavity.rs".function]]
+id = "fn:028197a40da539f2"
+name = "CASE_DIR"
+qual = "CASE_DIR"
+item = "const"
+shape = "const"
+lines = [
+    97,
+    100,
+]
+hash = "sha256:47a9e5d41589f8699b54e512b22100edd3c06a0f0f41ec2249948e766399d817"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."pimple_foam_cavity.rs".function]]
+id = "fn:8050c884ecdb38f4"
+name = "U_LID"
+qual = "U_LID"
+item = "const"
+shape = "const"
+lines = [
+    107,
+    107,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."pimple_foam_cavity.rs".function]]
+id = "fn:4e7a175e4f6aea69"
+name = "L"
+qual = "L"
+item = "const"
+shape = "const"
+lines = [
+    108,
+    108,
+]
+hash = "sha256:f851f55e16b2857b6f8941083542219d2565fe749e7a739aa151177cedb01393"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."pimple_foam_cavity.rs".function]]
+id = "fn:c099eb0f4ec7c209"
+name = "DEPTH"
+qual = "DEPTH"
+item = "const"
+shape = "const"
+lines = [
+    109,
+    109,
+]
+hash = "sha256:f12d53df162d97b5c14e423d547aafe0154243b252bb55f705532f33cde36e4f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."pimple_foam_cavity.rs".function]]
+id = "fn:c87c110396ef535f"
+name = "NU"
+qual = "NU"
+item = "const"
+shape = "const"
+lines = [
+    111,
+    111,
+]
+hash = "sha256:f12d53df162d97b5c14e423d547aafe0154243b252bb55f705532f33cde36e4f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."pimple_foam_cavity.rs".function]]
+id = "fn:c5c3cd2d1668f350"
+name = "GHIA_Y"
+qual = "GHIA_Y"
+item = "const"
+shape = "const"
+lines = [
+    115,
+    118,
+]
+hash = "sha256:7bf5a073cf8d2253db11833b1ebf4ba4b81baf19183cb6ac1ec4ed8bcb55b0e7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."pimple_foam_cavity.rs".function]]
+id = "fn:e19f36054cb8a9af"
+name = "GHIA_UX"
+qual = "GHIA_UX"
+item = "const"
+shape = "const"
+lines = [
+    119,
+    122,
+]
+hash = "sha256:cde3065180338c64a60aded1f7c573236261d17d1ffdf195c3d77aa68396c706"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."pimple_foam_cavity.rs".function]]
 id = "fn:8e51fc54e814f7f9"
 name = "case_dir"
 qual = "case_dir"
@@ -16,6 +114,7 @@ lines = [
 ]
 hash = "sha256:037388cda53dc732fec3f02e2cdfa76e95b05ded344ff4a58362313638e70942"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:028197a40da539f2"]
 test = true
 
 [[module."pimple_foam_cavity.rs".function]]
@@ -58,6 +157,11 @@ callees = [
     "fn:9c896da64af13d0d",
     "fn:abf4b590a1b83263",
 ]
+uses = [
+    "fn:028197a40da539f2",
+    "fn:4e7a175e4f6aea69",
+    "fn:c099eb0f4ec7c209",
+]
 test = true
 
 [[module."pimple_foam_cavity.rs".function]]
@@ -71,6 +175,10 @@ lines = [
 hash = "sha256:293fde73c960b7d3d5dfc87c04deecf89da6b1902d12100bfdcdb514c27fb279"
 doc_hash = "sha256:220835962d4aecbf2b5fff6c0720f45a214a6dd85ece6fc611b1fffcd09de8dd"
 callees = ["fn:1cfaf60f015c0aea"]
+uses = [
+    "fn:42e1c8f76b7043c0",
+    "fn:c87c110396ef535f",
+]
 test = true
 
 [[module."pimple_foam_cavity.rs".function]]
@@ -93,6 +201,15 @@ callees = [
     "fn:eb3004f5a8770077",
     "fn:f66e81a8a8f38feb",
     "fn:f8bf8efa3e1f4377",
+]
+uses = [
+    "fn:3f165bca5d68b785",
+    "fn:42e1c8f76b7043c0",
+    "fn:6ba3358f6a29c123",
+    "fn:7aa70dd1c009cc88",
+    "fn:b0768c6e7263ae77",
+    "fn:e0ff37b7796b05a6",
+    "fn:f11bcf88c9cf8afa",
 ]
 test = true
 
@@ -117,6 +234,15 @@ callees = [
     "fn:f66e81a8a8f38feb",
     "fn:f8bf8efa3e1f4377",
 ]
+uses = [
+    "fn:3f165bca5d68b785",
+    "fn:42e1c8f76b7043c0",
+    "fn:6ba3358f6a29c123",
+    "fn:7aa70dd1c009cc88",
+    "fn:b0768c6e7263ae77",
+    "fn:e0ff37b7796b05a6",
+    "fn:f11bcf88c9cf8afa",
+]
 test = true
 
 [[module."pimple_foam_cavity.rs".function]]
@@ -129,6 +255,11 @@ lines = [
 ]
 hash = "sha256:84f92bbf9dff58e63ba4e0d979eb183249a1473ef82b1a580bd59901ec29f3c0"
 doc_hash = "sha256:7459da877dfaf1dfa102bbadfa856a7582ea32839fff092cd3ac07c9a52d83b6"
+uses = [
+    "fn:4e7a175e4f6aea69",
+    "fn:8050c884ecdb38f4",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."pimple_foam_cavity.rs".function]]
@@ -142,6 +273,7 @@ lines = [
 hash = "sha256:7403986f973c20162c38f8b1029e870db403acaa7ce2cabc2ec57cfccc772900"
 doc_hash = "sha256:b68d53a11005c4818b6b90feb542a41183b2abf637325d5994946efb38900074"
 callees = ["fn:d8e762496a167247"]
+uses = ["fn:ef05859ef19acee7"]
 test = true
 
 [[module."pimple_foam_cavity.rs".function]]
@@ -177,6 +309,7 @@ callees = [
     "fn:bc49a724a9ab3169",
     "fn:ed7d718f646723fc",
 ]
+uses = ["fn:8050c884ecdb38f4"]
 test = true
 
 [[module."pimple_foam_cavity.rs".function]]
@@ -187,7 +320,7 @@ lines = [
     414,
     506,
 ]
-hash = "sha256:9444b2cee13abc30998539cec743e7f5d4fea6dc0730ba1d9268e4554ed77886"
+hash = "sha256:99f0813159dc4860778f7979e0ea502a64d44a8062f1b8928a7a393a1a3567c2"
 doc_hash = "sha256:6abbf77a282a60c78ce2e430522f7afa01653e8ad29388a862ebf97fd90d4523"
 callees = [
     "fn:1cfaf60f015c0aea",
@@ -196,6 +329,10 @@ callees = [
     "fn:728dbcc3b7b88abd",
     "fn:bc49a724a9ab3169",
     "fn:ddb1787e2ceced6d",
+]
+uses = [
+    "fn:c5c3cd2d1668f350",
+    "fn:e19f36054cb8a9af",
 ]
 test = true
 
@@ -207,7 +344,7 @@ lines = [
     508,
     596,
 ]
-hash = "sha256:e158420c35d038d80b7f1c22e43f3382b9410ed04648dd32fa70b2023edb4f27"
+hash = "sha256:9a888f95364d0acea3744a205a27e9df1dbc82645f5a77883b8252ffa1841fe4"
 doc_hash = "sha256:66e31c4b0f0858f153a73e07b518f84d31a6534b9cd55ef8e8f5a9c975fe40ff"
 callees = [
     "fn:3c22792b6629d904",
@@ -216,6 +353,10 @@ callees = [
     "fn:728dbcc3b7b88abd",
     "fn:d8e762496a167247",
     "fn:ddb1787e2ceced6d",
+]
+uses = [
+    "fn:c5c3cd2d1668f350",
+    "fn:e19f36054cb8a9af",
 ]
 test = true
 
@@ -233,6 +374,11 @@ callees = [
     "fn:6d45af0d518e142d",
     "fn:d8e762496a167247",
     "fn:ddb1787e2ceced6d",
+]
+uses = [
+    "fn:42e1c8f76b7043c0",
+    "fn:c5c3cd2d1668f350",
+    "fn:e19f36054cb8a9af",
 ]
 test = true
 
@@ -254,6 +400,10 @@ callees = [
     "fn:6d45af0d518e142d",
     "fn:ed7d718f646723fc",
 ]
+uses = [
+    "fn:244ef81f7a6b4900",
+    "fn:8050c884ecdb38f4",
+]
 test = true
 
 [[module."pimple_foam_cavity.rs".function]]
@@ -264,7 +414,7 @@ lines = [
     694,
     713,
 ]
-hash = "sha256:ee2e4eb1034d6d7b800c8c6f86c741bc8020a5ccc77d8d9a292f77afb4fa2cf6"
+hash = "sha256:811cc57ae98c8a47d8915b13d888d2ab6e4126b3659c141a0f9013787ba0caa6"
 doc_hash = "sha256:521d9cd649f19f885394092d941f2636fd03008bc266fd62345e43b8623fffda"
 callees = ["fn:8e51fc54e814f7f9"]
 test = true
@@ -292,6 +442,15 @@ callees = [
     "fn:f66e81a8a8f38feb",
     "fn:f8bf8efa3e1f4377",
 ]
+uses = [
+    "fn:3f165bca5d68b785",
+    "fn:42e1c8f76b7043c0",
+    "fn:6ba3358f6a29c123",
+    "fn:7aa70dd1c009cc88",
+    "fn:b0768c6e7263ae77",
+    "fn:e0ff37b7796b05a6",
+    "fn:f11bcf88c9cf8afa",
+]
 test = true
 
 [[module."pimple_foam_cavity.rs".function]]
@@ -312,6 +471,12 @@ callees = [
     "fn:d8e762496a167247",
     "fn:ddb1787e2ceced6d",
 ]
+uses = [
+    "fn:4e7a175e4f6aea69",
+    "fn:8050c884ecdb38f4",
+    "fn:c5c3cd2d1668f350",
+    "fn:e19f36054cb8a9af",
+]
 test = true
 
 [[module."pimple_foam_cavity.rs".function]]
@@ -322,17 +487,176 @@ lines = [
     803,
     980,
 ]
-hash = "sha256:a86520808772fe6efc643534dce898998651dfded8971e2bc9d2fa8b50f8870d"
+hash = "sha256:61726f4bd4ce3cb234a61e92d0cda99aa478d7e510c9a76400be1809ab398bc9"
 doc_hash = "sha256:d6d18d990e06caf2699fa4db2da79e34b070b9f4e8228e383aefbfff935ea30a"
 callees = [
     "fn:4ec83586fbdffe15",
     "fn:728dbcc3b7b88abd",
     "fn:ddb1787e2ceced6d",
 ]
+uses = ["fn:4e7a175e4f6aea69"]
 test = true
 
 [module."rho_central_foam_shock_tube.rs"]
 path = "test:tutorial_rho_central_foam_shock_tube"
+
+[[module."rho_central_foam_shock_tube.rs".function]]
+id = "fn:581d8d89bcb9c682"
+name = "CASE_DIR"
+qual = "CASE_DIR"
+item = "const"
+shape = "const"
+lines = [
+    158,
+    161,
+]
+hash = "sha256:6664eb6d04a9f7098022bae997a4227f54d2d3dcd45dac78ffd159dd77554b4f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_central_foam_shock_tube.rs".function]]
+id = "fn:1f5f141c1e1c045f"
+name = "MOL_WEIGHT"
+qual = "MOL_WEIGHT"
+item = "const"
+shape = "const"
+lines = [
+    164,
+    164,
+]
+hash = "sha256:c98fc4709a09dbfb2c485017357b3742a0eeac213fcf9a08e0e67e060a64563a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_central_foam_shock_tube.rs".function]]
+id = "fn:8dca171e5f4255a0"
+name = "R_UNIVERSAL"
+qual = "R_UNIVERSAL"
+item = "const"
+shape = "const"
+lines = [
+    165,
+    165,
+]
+hash = "sha256:b37b92bba322029fd645227629b03e411993f493925b6823550478217cce4aa9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_central_foam_shock_tube.rs".function]]
+id = "fn:d91a69f14f12cc83"
+name = "R_GAS"
+qual = "R_GAS"
+item = "const"
+shape = "const"
+lines = [
+    166,
+    166,
+]
+hash = "sha256:59fc26e75a02f35e0a2d86f0dcf32685db89aa77240f11ac9cb0b4847e189271"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:1f5f141c1e1c045f",
+    "fn:8dca171e5f4255a0",
+]
+test = true
+
+[[module."rho_central_foam_shock_tube.rs".function]]
+id = "fn:1e8f5531b3510cd5"
+name = "GAMMA"
+qual = "GAMMA"
+item = "const"
+shape = "const"
+lines = [
+    167,
+    167,
+]
+hash = "sha256:e94c14cbcbd1607276777a07036c987c9aa1eb1b39156e42d98e410a657f40e0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_central_foam_shock_tube.rs".function]]
+id = "fn:79a8cf059add210c"
+name = "P_LEFT"
+qual = "P_LEFT"
+item = "const"
+shape = "const"
+lines = [
+    171,
+    171,
+]
+hash = "sha256:e7654bbbcce0d8eaea7488cb216637b49a94ebbee6e7099a80d5154286849118"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_central_foam_shock_tube.rs".function]]
+id = "fn:7ef9e62c80130370"
+name = "RHO_LEFT"
+qual = "RHO_LEFT"
+item = "const"
+shape = "const"
+lines = [
+    172,
+    172,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_central_foam_shock_tube.rs".function]]
+id = "fn:c8380ca12e984243"
+name = "P_RIGHT"
+qual = "P_RIGHT"
+item = "const"
+shape = "const"
+lines = [
+    174,
+    174,
+]
+hash = "sha256:c1178c5ccae57df0c02d171baeaab68d148693f81a72b43357abae3c26b919f3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_central_foam_shock_tube.rs".function]]
+id = "fn:f7e9e393a98be3e1"
+name = "RHO_RIGHT"
+qual = "RHO_RIGHT"
+item = "const"
+shape = "const"
+lines = [
+    175,
+    175,
+]
+hash = "sha256:e5c97f3ef21a270ee2848c6c23cf54dbeb646fc8adecba42d2725273b88b4acc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_central_foam_shock_tube.rs".function]]
+id = "fn:9b65dff0d0bf5b4f"
+name = "X_DIAPHRAGM"
+qual = "X_DIAPHRAGM"
+item = "const"
+shape = "const"
+lines = [
+    177,
+    177,
+]
+hash = "sha256:b3018280af5e7034ba0691207878498a84783aa3653b125be64c7c0cc3c031ad"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_central_foam_shock_tube.rs".function]]
+id = "fn:59ab38e598a3a893"
+name = "T_END"
+qual = "T_END"
+item = "const"
+shape = "const"
+lines = [
+    179,
+    179,
+]
+hash = "sha256:447287cd6d356710b686419992610a8d3813fc13c6354a02b3d4ad587f8f9493"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
 
 [[module."rho_central_foam_shock_tube.rs".function]]
 id = "fn:800517e2eb2ce756"
@@ -344,6 +668,7 @@ lines = [
 ]
 hash = "sha256:037388cda53dc732fec3f02e2cdfa76e95b05ded344ff4a58362313638e70942"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:581d8d89bcb9c682"]
 test = true
 
 [[module."rho_central_foam_shock_tube.rs".function]]
@@ -395,6 +720,17 @@ callees = [
     "fn:dc1cd46c0d9ee38a",
     "fn:f66e81a8a8f38feb",
     "fn:f8bf8efa3e1f4377",
+]
+uses = [
+    "fn:1e8f5531b3510cd5",
+    "fn:3f165bca5d68b785",
+    "fn:59ab38e598a3a893",
+    "fn:6ba3358f6a29c123",
+    "fn:b0768c6e7263ae77",
+    "fn:d35627c0b0130167",
+    "fn:d91a69f14f12cc83",
+    "fn:e0ff37b7796b05a6",
+    "fn:f11bcf88c9cf8afa",
 ]
 test = true
 
@@ -450,6 +786,15 @@ callees = [
     "fn:4b5903d12ed69fd1",
     "fn:6d45af0d518e142d",
 ]
+uses = [
+    "fn:1e8f5531b3510cd5",
+    "fn:59ab38e598a3a893",
+    "fn:79a8cf059add210c",
+    "fn:7ef9e62c80130370",
+    "fn:9b65dff0d0bf5b4f",
+    "fn:c8380ca12e984243",
+    "fn:f7e9e393a98be3e1",
+]
 test = true
 
 [[module."rho_central_foam_shock_tube.rs".function]]
@@ -476,6 +821,90 @@ test = true
 path = "test:tutorial_rho_pimple_foam_aerofoil_naca0012"
 
 [[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
+id = "fn:70a3e29c7907e2ec"
+name = "CASE_DIR"
+qual = "CASE_DIR"
+item = "const"
+shape = "const"
+lines = [
+    117,
+    120,
+]
+hash = "sha256:8b0295044eff7a05fe8cedfe85fe38d33a9ff7c612b32c89bf9032cf35de5b71"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
+id = "fn:cef2c1c953f8f79a"
+name = "U_INF"
+qual = "U_INF"
+item = "const"
+shape = "const"
+lines = [
+    123,
+    123,
+]
+hash = "sha256:2bdea5c08c9a43210253460fcf20dcf9474a743211409564457ed587547fbd63"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
+id = "fn:e74d698080dbc595"
+name = "P_INF"
+qual = "P_INF"
+item = "const"
+shape = "const"
+lines = [
+    124,
+    124,
+]
+hash = "sha256:e7654bbbcce0d8eaea7488cb216637b49a94ebbee6e7099a80d5154286849118"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
+id = "fn:5be7505c4d3ed06e"
+name = "T_INF"
+qual = "T_INF"
+item = "const"
+shape = "const"
+lines = [
+    125,
+    125,
+]
+hash = "sha256:2c3184429f32925e39c80d96adcd67deacd336b3eaba1baed763ffc83ede37c3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
+id = "fn:ebcae897a63fee9c"
+name = "GAMMA"
+qual = "GAMMA"
+item = "const"
+shape = "const"
+lines = [
+    126,
+    126,
+]
+hash = "sha256:e94c14cbcbd1607276777a07036c987c9aa1eb1b39156e42d98e410a657f40e0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
+id = "fn:f9d9468b57f09d10"
+name = "R_AIR"
+qual = "R_AIR"
+item = "const"
+shape = "const"
+lines = [
+    127,
+    127,
+]
+hash = "sha256:a22a03ef0e159466a88152dfbf337f7c4bec25ef1ddaff1e96dbffed07f8e1b4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
 id = "fn:2eb94dbe3fb7fa2c"
 name = "rho_inf"
 qual = "rho_inf"
@@ -485,6 +914,11 @@ lines = [
 ]
 hash = "sha256:ca9c9dbed2b4cb848778cd3d99b1a4543be29acbb1cc3daa204aa0b221b205d5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:5be7505c4d3ed06e",
+    "fn:e74d698080dbc595",
+    "fn:f9d9468b57f09d10",
+]
 test = true
 
 [[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
@@ -497,6 +931,11 @@ lines = [
 ]
 hash = "sha256:c3785c8c936f9a9ba0826c0dcccc6bd335ecc86649e9a252219a0df3479795d3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:5be7505c4d3ed06e",
+    "fn:ebcae897a63fee9c",
+    "fn:f9d9468b57f09d10",
+]
 test = true
 
 [[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
@@ -510,6 +949,7 @@ lines = [
 hash = "sha256:c2587ca2e017f18620c31f597b2e95434e3c11cce11a0ddad5cf7885c45752e7"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:182123fcbcb3a959"]
+uses = ["fn:cef2c1c953f8f79a"]
 test = true
 
 [[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
@@ -523,6 +963,49 @@ lines = [
 hash = "sha256:d68f6a7c699aa341a691975849f1716b5b04742067c9393c060a68ec7ff69cbe"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:2eb94dbe3fb7fa2c"]
+uses = ["fn:cef2c1c953f8f79a"]
+test = true
+
+[[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
+id = "fn:06c5a1d20cc979d6"
+name = "CHORD"
+qual = "CHORD"
+item = "const"
+shape = "const"
+lines = [
+    144,
+    144,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
+id = "fn:3b16dac984b9d3e8"
+name = "REFERENCE_AVAILABLE"
+qual = "REFERENCE_AVAILABLE"
+item = "const"
+shape = "const"
+lines = [
+    148,
+    148,
+]
+hash = "sha256:41fa06571f9017c68344261158e2b4e02895b650f3d5048f70597f85211c106b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
+id = "fn:eb4a6139bb8403f7"
+name = "REFERENCE_CL"
+qual = "REFERENCE_CL"
+item = "const"
+shape = "const"
+lines = [
+    149,
+    149,
+]
+hash = "sha256:b3018280af5e7034ba0691207878498a84783aa3653b125be64c7c0cc3c031ad"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
@@ -535,6 +1018,7 @@ lines = [
 ]
 hash = "sha256:037388cda53dc732fec3f02e2cdfa76e95b05ded344ff4a58362313638e70942"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:70a3e29c7907e2ec"]
 test = true
 
 [[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
@@ -566,6 +1050,7 @@ callees = [
     "fn:abf4b590a1b83263",
     "fn:e154ad242d227ba9",
 ]
+uses = ["fn:293183d62b7ee5f9"]
 test = true
 
 [[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
@@ -582,6 +1067,10 @@ callees = [
     "fn:402a7aa650c8d1e1",
     "fn:42a2f037c5495b64",
 ]
+uses = [
+    "fn:06c5a1d20cc979d6",
+    "fn:3b16dac984b9d3e8",
+]
 test = true
 
 [[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
@@ -595,6 +1084,12 @@ lines = [
 hash = "sha256:ef37cca38a4440544a6a1891a981fc29fa822c45d988b4093365d661961a33bb"
 doc_hash = "sha256:32b756063da9be20fcaf2e21f0c738cdb5c6b71da3902df01685111f3ddef702"
 callees = ["fn:2eb94dbe3fb7fa2c"]
+uses = [
+    "fn:06c5a1d20cc979d6",
+    "fn:3b16dac984b9d3e8",
+    "fn:cef2c1c953f8f79a",
+    "fn:eb4a6139bb8403f7",
+]
 test = true
 
 [[module."rho_pimple_foam_aerofoil_naca0012.rs".function]]
@@ -608,4 +1103,5 @@ lines = [
 hash = "sha256:1fc08d87a2ded03e6691e0c22e319966c3ee7662e9e463d9e6d311031cc0c413"
 doc_hash = "sha256:48cbc173fff034d759a1ffce90bf383ed200c92468400f3ac0bb9ba5d04b8302"
 callees = ["fn:2eb94dbe3fb7fa2c"]
+uses = ["fn:cef2c1c953f8f79a"]
 test = true

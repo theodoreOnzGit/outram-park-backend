@@ -43,6 +43,7 @@ row = 2
 topic = "risk"
 fidelity = [0, 4]
 maturity = 2
+backronym = "Risk Analysis Framework For Learning & Ensemble Simulation"
 
 [dependencies]
 # ANDROID / TERMUX: keep this list pure-Rust. NOTHING here may pull system

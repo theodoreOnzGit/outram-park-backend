@@ -86,3 +86,11 @@ callees = [
     "fn:ee48fed6fbd70492",
     "fn:ee9965285e489d5b",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:2ae0e867e1dae4b3",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:f811c4c8869b08b0",
+]

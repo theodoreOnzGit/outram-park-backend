@@ -2,9 +2,276 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-mc-libs"
 dir = "crates/outram-mc-libs/src/particle"
+test_ids = [
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::a_traced_neutron_lays_out_and_steps",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::both_panes_run_the_same_neutron_from_the_same_variate",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::run_many_streams_every_method_in_turn",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::the_engine_thread_loads_traces_and_runs",
+    "crates/dhoby-ghaut/examples/mc_studio/main.rs::every_case_returns_a_finite_positive_k_with_sane_statistics",
+    "crates/dhoby-ghaut/examples/mc_studio/main.rs::the_analytic_and_csg_sphere_paths_agree",
+    "crates/dhoby-ghaut/examples/mc_studio/main.rs::the_headless_run_is_deterministic",
+    "crates/dhoby-ghaut/examples/mc_studio/main.rs::the_headless_run_matches_the_committed_fixture",
+    "crates/nee_soon/src/mgxs.rs::bin_count_mismatch_is_rejected",
+    "crates/nee_soon/src/mgxs.rs::condense_divides_the_right_rate_by_the_right_flux",
+    "crates/nee_soon/src/mgxs.rs::descending_energy_view_reverses_both_matrix_axes",
+    "crates/nee_soon/src/mgxs.rs::scatter_matrix_is_not_transposed",
+    "crates/nee_soon/src/mgxs.rs::zero_flux_group_yields_zeros_not_nan",
+    "crates/nee_soon/src/sim.rs::authored_sphere_csg_runs_and_is_near_critical",
+    "crates/nee_soon/src/sim.rs::cell_flux_tally_accumulates",
+    "crates/nee_soon/src/sim.rs::godiva_bare_sphere_is_near_critical",
+    "crates/nee_soon/src/sim.rs::no_materials_is_an_error",
+    "crates/nee_soon/tests/coupling_api.rs::defaults_are_usable_and_failures_are_actionable",
+    "crates/nee_soon/tests/coupling_api.rs::the_documented_three_call_path_works",
+    "crates/nee_soon/tests/direct_coupling_steady_state.rs::a_non_converging_solve_reports_its_residuals",
+    "crates/nee_soon/tests/direct_coupling_steady_state.rs::monte_carlo_and_genfoam_reach_a_coupled_steady_state",
+    "crates/nee_soon/tests/mc_to_genfoam_kinf.rs::genfoam_reproduces_the_monte_carlo_kinf_from_its_own_mgxs",
+    "crates/nee_soon/tests/mgxs_from_monte_carlo.rs::mgxs_from_a_monte_carlo_run_satisfies_neutron_balance",
+    "crates/outram-mc-libs/src/geometry/crossing/tests.rs::reflective_concentric_shells_do_not_leak",
+    "crates/outram-mc-libs/src/pebble_beds/fhr_pebble.rs::reflective_pebble_transport_does_not_leak",
+    "crates/outram-mc-libs/src/physics/fixed_source.rs::subcritical_multiplication_is_tracked_and_bounded",
+    "crates/outram-mc-libs/src/physics/fixed_source.rs::void_streaming_mean_path_equals_radius",
+    "crates/outram-mc-libs/src/physics/keff.rs::a_point_source_spreads_and_its_entropy_rises",
+    "crates/outram-mc-libs/src/physics/keff.rs::cpu_multi_is_reproducible",
+    "crates/outram-mc-libs/src/physics/keff.rs::godiva_converges_to_sane_keff",
+    "crates/outram-mc-libs/src/physics/keff.rs::godiva_high_fidelity_reaches_benchmark",
+    "crates/outram-mc-libs/src/physics/keff.rs::gpu_batched_timing_sweep",
+    "crates/outram-mc-libs/src/physics/keff.rs::small_sphere_is_less_reactive_than_godiva",
+    "crates/outram-mc-libs/src/physics/keff.rs::stepping_the_power_iteration_is_the_single_thread_run_bit_for_bit",
+    "crates/outram-mc-libs/src/physics/keff.rs::three_compute_modes_agree_on_godiva",
+    "crates/outram-mc-libs/src/physics/reactor_physics.rs::machinery_invariants_fast_pincell",
+    "crates/outram-mc-libs/src/physics/reactor_physics.rs::no_fuel_material_errors",
+    "crates/outram-mc-libs/src/physics/reactor_physics.rs::thicker_moderator_softens_spectrum",
+    "crates/outram-mc-libs/src/physics/state_point.rs::a_state_point_before_the_active_generations_has_no_eigenvalue",
+    "crates/outram-mc-libs/src/physics/state_point.rs::an_empty_bank_is_not_restartable",
+    "crates/outram-mc-libs/src/physics/state_point.rs::the_eigenvalue_excludes_the_inactive_generations",
+    "crates/outram-mc-libs/src/physics/state_point.rs::the_size_estimate_tracks_the_contents",
+    "crates/outram-mc-libs/src/physics/transport_csg.rs::plain_run_keff_csg_unchanged",
+    "crates/outram-mc-libs/src/physics/transport_csg.rs::reflective_sphere_has_no_leakage",
+    "crates/outram-mc-libs/src/physics/transport_csg.rs::stepping_matches_run_keff_csg_seq_bit_for_bit",
+    "crates/outram-mc-libs/src/physics/transport_csg.rs::the_progress_callback_observes_without_changing_the_run",
+    "crates/outram-mc-libs/src/physics/transport_csg.rs::vacuum_sphere_leaks",
+    "crates/outram-mc-libs/src/physics/transport_csg_distributed.rs::any_chunking_reproduces_run_keff_csg_par_bit_for_bit",
+    "crates/outram-mc-libs/src/physics/transport_csg_distributed.rs::the_reduction_refuses_incomplete_or_foreign_results",
+    "crates/outram-mc-libs/src/stats/correlated_sigma.rs::recorder_differences_running_sums",
+    "crates/outram-mc-libs/src/tally/filter.rs::energy_out_filter_bins_outgoing_not_incoming",
+    "crates/outram-mc-libs/src/tally/filter.rs::energy_out_filter_dispatches_through_filter_kind",
+    "crates/outram-mc-libs/src/tally/filter.rs::energy_out_filter_edges_are_half_open",
+    "crates/outram-mc-libs/src/tally/filter.rs::energy_out_filter_rejects_events_with_no_secondary",
+    "crates/outram-mc-libs/src/tally/filter.rs::incoming_and_outgoing_filters_together_give_a_matrix_element",
+    "crates/outram-mc-libs/src/tally/filter.rs::legendre_filter_normalizes_axis",
+    "crates/outram-mc-libs/src/tally/scoring.rs::cell_flux_collision_estimator",
+    "crates/outram-mc-libs/src/tally/scoring.rs::unstructured_mesh_filter_splits_track_length",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_n2n_multiplicity_hook_reaches_the_transport_kernel",
+    "crates/outram-mc-libs/tests/cell_translation.rs::keff_is_bit_identical_under_the_translation_identity",
+    "crates/outram-mc-libs/tests/delta_collision_estimator.rs::delta_tally_matches_surface_track_length_on_a_bcc_cell",
+    "crates/outram-mc-libs/tests/delta_collision_estimator.rs::score_collision_point_bins_at_the_point",
+    "crates/outram-mc-libs/tests/delta_tracking_audit.rs::a_void_cell_inside_a_delta_region_is_crossed",
+    "crates/outram-mc-libs/tests/delta_tracking_audit.rs::cell_filter_in_a_delta_region_matches_surface_track_length",
+    "crates/outram-mc-libs/tests/delta_tracking_audit.rs::hybrid_cost_against_surface_tracking",
+    "crates/outram-mc-libs/tests/delta_tracking_audit.rs::majorant_violations_are_counted_not_hidden",
+    "crates/outram-mc-libs/tests/delta_tracking_bit_identity.rs::hybrid_csg_paths_are_bit_identical",
+    "crates/outram-mc-libs/tests/depletion_coupled_to_transport.rs::depletion_collapses_against_a_transport_solved_spectrum_each_step",
+    "crates/outram-mc-libs/tests/distribcell_end_to_end.rs::a_distribcell_tally_distinguishes_lattice_instances",
+    "crates/outram-mc-libs/tests/distribcell_end_to_end.rs::without_the_tables_a_distribcell_tally_scores_nothing",
+    "crates/outram-mc-libs/tests/every_filter_kind_is_reachable.rs::a_diagonal_track_scores_its_crossings_in_order",
+    "crates/outram-mc-libs/tests/every_filter_kind_is_reachable.rs::a_distribcell_filter_refuses_an_event_with_no_instance",
+    "crates/outram-mc-libs/tests/every_filter_kind_is_reachable.rs::every_filter_kind_is_reachable_and_binnable",
+    "crates/outram-mc-libs/tests/every_filter_kind_is_reachable.rs::mesh_face_currents_score_both_sides_of_an_internal_crossing",
+    "crates/outram-mc-libs/tests/every_filter_kind_is_reachable.rs::the_cell_instance_filter_matches_on_both_halves",
+    "crates/outram-mc-libs/tests/every_filter_kind_is_reachable.rs::the_legendre_filter_accumulates_bare_moments",
+    "crates/outram-mc-libs/tests/every_filter_kind_is_reachable.rs::the_mesh_material_filter_needs_both_halves",
+    "crates/outram-mc-libs/tests/every_filter_kind_is_reachable.rs::the_meshborn_filter_bins_the_birth_position",
+    "crates/outram-mc-libs/tests/every_filter_kind_is_reachable.rs::the_parent_nuclide_filter_refuses_an_unknown_parent",
+    "crates/outram-mc-libs/tests/every_filter_kind_is_reachable.rs::the_particle_production_filter_can_match_one_event_many_times",
+    "crates/outram-mc-libs/tests/filter_extra_vs_upstream.rs::a_reaction_filter_scores_every_overlapping_bin",
+    "crates/outram-mc-libs/tests/filter_extra_vs_upstream.rs::edge_binned_filters_drop_what_is_outside",
+    "crates/outram-mc-libs/tests/filter_extra_vs_upstream.rs::the_collision_filter_matches_exactly",
+    "crates/outram-mc-libs/tests/filter_extra_vs_upstream.rs::the_energy_function_filter_interpolates_and_does_not_extrapolate",
+    "crates/outram-mc-libs/tests/filter_extra_vs_upstream.rs::the_from_and_born_filters_bin_their_own_field",
+    "crates/outram-mc-libs/tests/hybrid_tracking_equivalence.rs::an_absorber_outside_the_region_does_not_raise_its_cost",
+    "crates/outram-mc-libs/tests/hybrid_tracking_equivalence.rs::hybrid_and_surface_tracking_agree",
+    "crates/outram-mc-libs/tests/mesh_vs_openmc.rs::the_mesh_filter_dispatches_over_every_mesh_type",
+    "crates/outram-mc-libs/tests/openmc_notebooks/candu.rs::candu_cluster_per_pin_flux_tally",
+    "crates/outram-mc-libs/tests/openmc_notebooks/capi.rs::capi_in_memory_build_run_edit_rerun",
+    "crates/outram-mc-libs/tests/openmc_notebooks/depletion.rs::depletion_mc_transport_coupling",
+    "crates/outram-mc-libs/tests/openmc_notebooks/expansion_filters.rs::expansion_moment_filters",
+    "crates/outram-mc-libs/tests/openmc_notebooks/flux_spectrum.rs::flux_energy_spectrum",
+    "crates/outram-mc-libs/tests/openmc_notebooks/hexagonal_lattice.rs::hexagonal_lattice_keff_smoke",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::csg_multithread_agrees_with_single_thread",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_criticality_eigenvalue_via_godiva_bare_sphere",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_heterogeneous_csg_with_cell_flux_tally",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_leakage_reduces_reactivity",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_lwr_thermal_pin_benchmark",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_reflective_cell_suppresses_leakage",
+    "crates/outram-mc-libs/tests/openmc_notebooks/post_processing.rs::post_processing_statepoint",
+    "crates/outram-mc-libs/tests/openmc_notebooks/search.rs::search_for_critical_radius_godiva_bisection",
+    "crates/outram-mc-libs/tests/openmc_notebooks/search.rs::search_for_critical_radius_godiva_secant",
+    "crates/outram-mc-libs/tests/openmc_notebooks/tally_arithmetic.rs::tally_arithmetic_derived",
+    "crates/outram-mc-libs/tests/openmc_notebooks/tally_power_normalization.rs::tally_power_normalization",
+    "crates/outram-mc-libs/tests/openmc_notebooks/triso.rs::corner_reflective_cube_surface_tracking_unbiased",
+    "crates/outram-mc-libs/tests/openmc_notebooks/triso.rs::triso_delta_tracking_unbiased_vs_surface_tracking",
+    "crates/outram-mc-libs/tests/openmc_notebooks/triso.rs::triso_nested_lattice_surface_vs_delta_keff",
+    "crates/outram-mc-libs/tests/particle_clock.rs::a_polar_filter_on_a_track_length_tally_sees_the_real_direction",
+    "crates/outram-mc-libs/tests/particle_clock.rs::the_clock_does_not_perturb_the_run",
+    "crates/outram-mc-libs/tests/particle_clock.rs::the_clock_matches_the_analytic_flight_time",
+    "crates/outram-mc-libs/tests/particle_clock.rs::the_clock_never_runs_backwards",
+    "crates/outram-mc-libs/tests/scatter_matrix_tally.rs::scatter_matrix_conserves_events_and_admits_upscatter",
+    "crates/outram-mc-libs/tests/shannon_entropy_in_keff.rs::entropy_is_reported_and_plateaus",
+    "crates/outram-mc-libs/tests/shannon_entropy_vs_openmc.rs::a_fully_concentrated_source_has_zero_entropy",
+    "crates/outram-mc-libs/tests/shannon_entropy_vs_openmc.rs::a_uniform_source_reaches_the_log2_ceiling",
+    "crates/outram-mc-libs/tests/shannon_entropy_vs_openmc.rs::an_empty_or_fully_outside_bank_has_no_entropy",
+    "crates/outram-mc-libs/tests/shannon_entropy_vs_openmc.rs::an_even_two_bin_split_is_exactly_one_bit",
+    "crates/outram-mc-libs/tests/shannon_entropy_vs_openmc.rs::count_sites_accumulates_weight_not_hits",
+    "crates/outram-mc-libs/tests/shannon_entropy_vs_openmc.rs::empty_bins_do_not_poison_the_sum_with_nan",
+    "crates/outram-mc-libs/tests/shannon_entropy_vs_openmc.rs::entropy_matches_the_openmc_bank_oracle_exactly",
+    "crates/outram-mc-libs/tests/shannon_entropy_vs_openmc.rs::per_bin_weights_match_openmc_bin_for_bin",
+    "crates/outram-mc-libs/tests/stats_move_fingerprints.rs::csg_nested_lattice_keff_is_bit_identical",
+    "crates/outram-mc-libs/tests/stats_move_fingerprints.rs::godiva_csg_with_entropy_and_trigger_is_bit_identical",
+    "crates/outram-mc-libs/tests/stats_move_fingerprints.rs::godiva_run_keff_is_bit_identical",
+    "crates/outram-mc-libs/tests/stats_move_fingerprints.rs::shannon_entropy_is_bit_identical",
+    "crates/outram-mc-libs/tests/surface_source_two_stage.rs::a_replayed_crossing_carries_its_recorded_weight",
+    "crates/outram-mc-libs/tests/surface_source_two_stage.rs::a_truncated_bank_is_refused_rather_than_replayed",
+    "crates/outram-mc-libs/tests/surface_source_two_stage.rs::a_two_stage_surface_source_run_reproduces_the_single_stage_answer",
+    "crates/outram-mc-libs/tests/tally_filters_vs_definitions.rs::edge_binned_filters_handle_their_boundaries",
+    "crates/outram-mc-libs/tests/tally_filters_vs_definitions.rs::filterkind_dispatch_matches_the_concrete_filters",
+    "crates/outram-mc-libs/tests/tally_filters_vs_definitions.rs::rejecting_filters_actually_reject",
+    "crates/outram-mc-libs/tests/tally_filters_vs_definitions.rs::spherical_harmonic_moments_are_orthonormal_on_the_sphere",
+    "crates/outram-mc-libs/tests/tally_filters_vs_definitions.rs::zernike_moments_are_orthogonal_on_the_unit_disc",
+    "crates/outram-mc-libs/tests/temperature_precedence.rs::which_temperature_takes_precedence",
+    "crates/outram-mc-libs/tests/track_capture.rs::a_surface_source_records_every_crossing_with_its_weight",
+    "crates/outram-mc-libs/tests/track_capture.rs::track_capture_does_not_perturb_the_run",
+    "crates/outram-mc-libs/tests/track_capture.rs::tracks_in_a_void_sphere_are_a_straight_line_to_the_boundary",
+    "crates/outram-mc-libs/tests/tracking_trace.rs::a_surface_trace_ends_every_segment_at_the_nearer_distance",
+    "crates/outram-mc-libs/tests/tracking_trace.rs::the_two_methods_agree_within_statistics",
+    "crates/outram-mc-libs/tests/tracking_trace.rs::traced_power_iterations_are_the_untraced_ones_bit_for_bit",
+    "crates/outram-mc-libs/tests/variance_reduction_parallel_and_weighted_fission.rs::analog_fission_under_weight_windows_is_unbiased",
+    "crates/outram-mc-libs/tests/variance_reduction_parallel_and_weighted_fission.rs::parallel_path_applies_survival_biasing",
+    "crates/outram-mc-libs/tests/variance_reduction_parallel_and_weighted_fission.rs::parallel_path_honours_the_keff_trigger",
+    "crates/outram-mc-libs/tests/xs_and_tracks_plot_parity.rs::emitted_scripts_render_pixel_identical_to_openmc",
+    "crates/outram-mc-libs/tests/xs_and_tracks_plot_parity.rs::plotted_data_is_bit_identical_to_openmc",
+    "crates/outram-mc-libs/tests/xs_and_tracks_plot_parity.rs::recorded_tracks_convert_to_plot_tracks",
+    "crates/outram-park-digital-twin-engine/tests/ci_smoke/godiva.rs::godiva_keff_high_tier_local_endf",
+]
 
 [module."bank.rs"]
 path = "crate::particle::bank"
+
+[[module."bank.rs".function]]
+id = "fn:43fbb1d7e8154d99"
+name = "BankSite"
+qual = "BankSite"
+item = "type"
+shape = "struct"
+lines = [
+    10,
+    19,
+]
+hash = "sha256:f8334fa4cde913efc1eb003b7561e0c68d0d0d748504ec5c0fa6e1485424aa9d"
+doc_hash = "sha256:da7b06f9eedaf5faed42d05815615d982c474deb858e573779a6437374146a30"
+uses = [
+    "fn:006d55971bc9e1e3",
+    "fn:675edefa7ec82788",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#58",
+    "#59",
+    "#60",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#85",
+    "#86",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#134",
+    "#141",
+    "#142",
+    "#143",
+    "#147",
+]
+
+[[module."bank.rs".function]]
+id = "fn:7a39bc80b7d12ec2"
+name = "Bank"
+qual = "Bank"
+item = "type"
+shape = "struct"
+lines = [
+    21,
+    24,
+]
+hash = "sha256:a4404cd7d4c1494a4180c14dec043cb276fed703fe6eabb36835da99606e31ca"
+doc_hash = "sha256:80335355fd76cc100606dc1bf649f81d1cb6387df90aeb96e6bce97786d1451c"
+uses = ["fn:43fbb1d7e8154d99"]
 
 [[module."bank.rs".function]]
 id = "fn:af0e7f729ae9fbcd"
@@ -16,6 +283,7 @@ lines = [
 ]
 hash = "sha256:c4e30b04edd380e036c3197e008914d72df6b262e5baf74ea6f5913537492ae6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7a39bc80b7d12ec2"]
 
 [[module."bank.rs".function]]
 id = "fn:a5fbfd0251b30b43"
@@ -27,6 +295,10 @@ lines = [
 ]
 hash = "sha256:e2457e17e2455d8294d6a0f7fcca12a6988170d392cd3d2af0651d635b711243"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:43fbb1d7e8154d99",
+    "fn:7a39bc80b7d12ec2",
+]
 
 [[module."bank.rs".function]]
 id = "fn:457e4487ef7883eb"
@@ -38,6 +310,7 @@ lines = [
 ]
 hash = "sha256:6eda6e042efc9cff3b6040d15668482896848877a9261d46586e542a1dc7d453"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7a39bc80b7d12ec2"]
 
 [[module."bank.rs".function]]
 id = "fn:84564c955f8869f0"
@@ -49,6 +322,7 @@ lines = [
 ]
 hash = "sha256:78337d604f5c0baaff947a67362fa888c65c266962ab662f1dc9ded89c795d37"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7a39bc80b7d12ec2"]
 
 [[module."bank.rs".function]]
 id = "fn:a89f379e797b188f"
@@ -61,12 +335,183 @@ lines = [
 hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:af0e7f729ae9fbcd"]
+uses = ["fn:7a39bc80b7d12ec2"]
 
 [module."mod.rs"]
 path = "crate::particle"
 
 [module."particle.rs"]
 path = "crate::particle::particle"
+
+[[module."particle.rs".function]]
+id = "fn:bdad689cb0bf830e"
+name = "ParticleType"
+qual = "ParticleType"
+item = "type"
+shape = "enum"
+lines = [
+    13,
+    20,
+]
+hash = "sha256:4d9524b523ac87a5b884aba4af28ae4b5e09d1c801b61737f4efded770529c33"
+doc_hash = "sha256:17da01521e15d30f96ea868a11a242a7b5fbce68886817efe502be523c7567c0"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#96",
+    "#98",
+    "#99",
+    "#100",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#122",
+    "#123",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+]
+
+[[module."particle.rs".function]]
+id = "fn:cb6718210ca176ab"
+name = "TallyEvent"
+qual = "TallyEvent"
+item = "type"
+shape = "enum"
+lines = [
+    22,
+    32,
+]
+hash = "sha256:bd668bea5610269ae696559aefad1580492f306f9052cd97a1723525982ea0c3"
+doc_hash = "sha256:5d698ce5141a538882e29f3a97d1d4f9235e5b871a63b746c73567ff4e61a486"
+
+[[module."particle.rs".function]]
+id = "fn:9fcb31ce471fd787"
+name = "Particle"
+qual = "Particle"
+item = "type"
+shape = "struct"
+lines = [
+    34,
+    68,
+]
+hash = "sha256:8cee1e56ce45f24b6ae137db66e11ce4502a6a38ac279454db61830fb9731272"
+doc_hash = "sha256:9a7f079e4683df0bd6d512ae57dbb8cd176ad88d988b02a8280aef6c8bb06f09"
+uses = [
+    "fn:006d55971bc9e1e3",
+    "fn:675edefa7ec82788",
+    "fn:bdad689cb0bf830e",
+    "fn:cb6718210ca176ab",
+]
 
 [[module."particle.rs".function]]
 id = "fn:fd04f9c386944772"
@@ -78,3 +523,10 @@ lines = [
 ]
 hash = "sha256:38a430cea58b3f450a0b044a24cb1ef41565a401f6c7557ca5dd6e3884d46578"
 doc_hash = "sha256:62ec2ebd792af831bd0224787472614de2b69afc126106bf32fa7ffeb7464be7"
+uses = [
+    "fn:006d55971bc9e1e3",
+    "fn:675edefa7ec82788",
+    "fn:9fcb31ce471fd787",
+    "fn:bdad689cb0bf830e",
+    "fn:cb6718210ca176ab",
+]

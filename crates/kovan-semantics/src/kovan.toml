@@ -4,6 +4,25 @@ crate = "kovan-semantics"
 dir = "crates/kovan-semantics/src"
 crate_root = true
 test_ids = [
+    "crates/kovan-semantics/src/extract/cpp.rs::class_methods_qualify_same_line_brace",
+    "crates/kovan-semantics/src/extract/cpp.rs::control_flow_is_not_a_function",
+    "crates/kovan-semantics/src/extract/cpp.rs::forward_declaration_does_not_open_scope",
+    "crates/kovan-semantics/src/extract/cpp.rs::free_function_and_prototype",
+    "crates/kovan-semantics/src/extract/cpp.rs::namespace_next_line_brace_and_nesting",
+    "crates/kovan-semantics/src/extract/fortran.rs::case_insensitive_and_prefixed",
+    "crates/kovan-semantics/src/extract/fortran.rs::comments_are_stripped",
+    "crates/kovan-semantics/src/extract/fortran.rs::module_with_contained_procedures",
+    "crates/kovan-semantics/src/extract/fortran.rs::type_variable_declaration_is_not_a_definition",
+    "crates/kovan-semantics/src/extract/mod.rs::dispatch_routes_to_the_right_scanner",
+    "crates/kovan-semantics/src/extract/mod.rs::into_kovan_symbol_is_deterministic",
+    "crates/kovan-semantics/src/extract/python.rs::methods_qualify_under_class",
+    "crates/kovan-semantics/src/extract/python.rs::nested_function_qualifies_and_then_dedents",
+    "crates/kovan-semantics/src/extract/python.rs::top_level_def_and_class",
+    "crates/kovan-semantics/src/extract/rust.rs::ignores_commented_definition",
+    "crates/kovan-semantics/src/extract/rust.rs::methods_qualify_under_impl_and_mod",
+    "crates/kovan-semantics/src/extract/rust.rs::scope_closes_after_block",
+    "crates/kovan-semantics/src/extract/rust.rs::top_level_items",
+    "crates/kovan-semantics/src/extract/rust.rs::trait_impl_records_trait_for_type_but_qualifies_members_by_type",
     "crates/kovan-semantics/src/lib.rs::adapters_name_their_tools",
     "crates/kovan-semantics/src/lib.rs::catalogue_finds_this_crates_own_symbols",
     "crates/kovan-semantics/src/lib.rs::markdown_outputs_render_from_a_real_scan",
@@ -30,7 +49,48 @@ test_ids = [
     "crates/kovan-semantics/src/outputs.rs::empty_symbols_render_a_note",
     "crates/kovan-semantics/src/outputs.rs::repository_summary_counts_files_and_kinds",
     "crates/kovan-semantics/src/outputs.rs::symbols_markdown_is_deterministic_and_lists_symbols",
+    "crates/kovan/src/app/code_review_view.rs::a_pending_request_is_held_and_drawn_headless",
+    "crates/kovan/src/app/code_review_view.rs::organisations_window_and_attestation_picker_draw_headless",
+    "crates/kovan/src/app/code_review_view.rs::review_mode_replaces_the_map_headless",
+    "crates/kovan/src/app/code_review_view.rs::the_reconfirm_step_draws_the_callee_diff_headless",
+    "crates/kovan/src/app/code_review_view.rs::the_stamp_dialog_opens_and_draws_every_step_headless",
+    "crates/kovan/src/app/connection_picker.rs::a_reviewed_function_is_connected_to_a_standard_concept",
+    "crates/kovan/src/autocomplete.rs::a_subtopics_label_is_its_full_path_not_its_leaf_name",
+    "crates/kovan/src/autocomplete.rs::library_candidates_empty_query_lists_the_library_and_the_corpus",
+    "crates/kovan/src/autocomplete.rs::library_candidates_finds_artifacts_across_every_paper",
+    "crates/kovan/src/autocomplete.rs::library_candidates_finds_papers_topics_and_projects",
+    "crates/kovan/src/autocomplete.rs::library_candidates_kind_filter_restricts_search",
+    "crates/kovan/src/autocomplete.rs::library_candidates_ordering_is_deterministic_and_stable",
+    "crates/kovan/src/autocomplete.rs::library_candidates_paper_matches_author_and_title_not_just_citekey",
+    "crates/kovan/src/autocomplete.rs::library_candidates_paper_omits_bibliography_entries_with_no_library_paper",
+    "crates/kovan/src/code_connections.rs::a_corrupted_file_is_replaced_fresh_never_repaired",
+    "crates/kovan/src/code_connections.rs::connections_point_only_at_standard_corpus_concepts",
+    "crates/kovan/src/code_connections.rs::only_a_function_with_a_valid_review_gets_a_connection",
+    "crates/kovan/src/code_review_artifacts.rs::reviews_of_a_mounted_repository_are_listed_under_their_concepts",
+    "crates/kovan/src/code_review_artifacts.rs::the_mindmap_collects_a_mounted_repositorys_reviews_in_the_background",
+    "crates/kovan/src/commands/mod.rs::lang_arg_covers_every_language_adapter",
+    "crates/kovan/src/corpus.rs::a_deep_concept_path_resolves_with_its_sources",
+    "crates/kovan/src/corpus.rs::a_node_cites_its_sources_and_its_hand_filed_literature",
     "crates/kovan/src/corpus.rs::linked_topics_take_the_ontology_aliases",
+    "crates/kovan/src/corpus.rs::literature_and_connections_point_at_real_nodes",
+    "crates/kovan/src/corpus.rs::the_map_is_the_concept_tree_and_the_old_topics_are_gone",
+    "crates/kovan/src/corpus.rs::the_root_has_the_nineteen_iaea_issues_in_order",
+    "crates/kovan/src/corpus.rs::the_taxonomy_is_a_well_formed_tree",
+    "crates/kovan/src/mindmap.rs::a_concept_hyperlink_shows_as_a_link_card_from_both_ends",
+    "crates/kovan/src/mindmap.rs::a_fresh_map_shows_the_corpus_with_no_folder",
+    "crates/kovan/src/mindmap.rs::a_relation_from_a_paper_is_offered_on_the_menu_not_drawn_as_a_card",
+    "crates/kovan/src/mindmap.rs::a_relation_to_a_mirrored_library_topic_shows_on_its_corpus_node",
+    "crates/kovan/src/mindmap.rs::a_subtopic_under_a_corpus_topic_shows_beneath_it",
+    "crates/kovan/src/mindmap.rs::star_cards_show_concepts_with_papers_as_citations",
+    "crates/kovan/src/mindmap.rs::unsorted_papers_appear_under_a_synthetic_card",
+    "crates/kovan/src/runtime_graph.rs::a_folder_extends_the_corpus_and_does_not_replace_it",
+    "crates/kovan/src/runtime_graph.rs::an_empty_folder_shows_the_full_standard_map",
+    "crates/kovan/src/runtime_graph.rs::concepts_resolve_in_their_own_namespace",
+    "crates/kovan/src/runtime_graph.rs::old_nuclear_engineering_folders_stay_user_topics",
+    "crates/kovan/src/runtime_graph.rs::the_breadcrumb_names_every_ancestor",
+    "crates/kovan/src/runtime_graph.rs::up_from_a_mirrored_branch_lands_on_the_corpus_node",
+    "crates/kovan/src/runtime_graph.rs::up_one_level_climbs_to_the_top_and_stops",
+    "crates/kovan/src/runtime_graph.rs::with_no_folder_the_graph_is_the_corpus",
     "crates/kovan/src/tui/mod.rs::back_tab_cycles_backward_and_wraps_from_overview",
     "crates/kovan/src/tui/mod.rs::digit_keys_switch_tabs",
     "crates/kovan/src/tui/mod.rs::digit_seven_reaches_the_digitiser_tab",
@@ -40,6 +100,7 @@ test_ids = [
     "crates/kovan/src/tui/mod.rs::every_tab_draws_without_panicking",
     "crates/kovan/src/tui/mod.rs::literature_i_hands_the_selected_pdf_to_the_ingest_tab",
     "crates/kovan/src/tui/mod.rs::overview_tab_ignores_navigation_keys_without_panicking",
+    "crates/kovan/src/tui/mod.rs::poll_interval_is_short_only_while_work_is_in_flight",
     "crates/kovan/src/tui/mod.rs::q_quits_from_the_default_overview_tab",
     "crates/kovan/src/tui/mod.rs::quitting_is_blocked_while_an_import_is_in_flight",
     "crates/kovan/src/tui/mod.rs::tab_bar_highlights_the_active_tab",
@@ -56,6 +117,65 @@ test_ids = [
 path = "crate"
 
 [[module."lib.rs".function]]
+id = "fn:85dc5410ff538180"
+name = "LanguageAdapter"
+qual = "LanguageAdapter"
+item = "type"
+shape = "enum"
+lines = [
+    79,
+    95,
+]
+hash = "sha256:3e0c02acfaf1cce060bcf20730c5ea3874b1adb62e28543d1612a3f5b335f280"
+doc_hash = "sha256:196a99557cebc975843f27c19c168e771073875671ef45a86768c916dcb74d5e"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#64",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+]
+
+[[module."lib.rs".function]]
 id = "fn:f910cfd5724a7262"
 name = "preferred_tool"
 qual = "LanguageAdapter::preferred_tool"
@@ -65,7 +185,8 @@ lines = [
 ]
 hash = "sha256:da5e8ca7ed29dd60e1c94876e329ccf9b8e64a0b0596234206162d7420cc832f"
 doc_hash = "sha256:f81ccb885022edc2d41832e9d5442eab90f36488432dd3edebc75bf6239f918d"
-reached_by = ["#0"]
+uses = ["fn:85dc5410ff538180"]
+reached_by = ["#19"]
 
 [[module."lib.rs".function]]
 id = "fn:988e9675a0d970cc"
@@ -77,26 +198,27 @@ lines = [
 ]
 hash = "sha256:c3032e9228ed7ff7a688fbd5a2b6967808a9822479d064649712be8ffd4d68d5"
 doc_hash = "sha256:a0f09daecb52476a8fcc19c500532c5c73c3a4a1ec6ec42d1c048f1c869ece1b"
+uses = ["fn:85dc5410ff538180"]
 reached_by = [
-    "#1",
-    "#2",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
+    "#20",
+    "#21",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#94",
+    "#95",
+    "#97",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
 ]
 
 [[module."lib.rs".function]]
@@ -109,7 +231,8 @@ lines = [
 ]
 hash = "sha256:9e29cde1b54c7475b5dace23cd765f8d85af5cf03873461faa6124fb6603fa48"
 doc_hash = "sha256:7e794487c8d9cd948dbaf89ba8ece231fe200146ff7ffa928dbff6bf658b9a89"
-reached_by = ["#3"]
+uses = ["fn:85dc5410ff538180"]
+reached_by = ["#22"]
 
 [[module."lib.rs".function]]
 id = "fn:8cb3806a2693eb99"
@@ -121,27 +244,66 @@ lines = [
 ]
 hash = "sha256:245e042dbb696e88af1cca77197a74cec58962e3f16af8cd4c975abd1327df3a"
 doc_hash = "sha256:e46978c7a7a5514244fdc9d606e7963ad82ca65d701165cdfeae4505e9fd600c"
+uses = [
+    "fn:7708bd2abf4b600f",
+    "fn:85dc5410ff538180",
+]
 reached_by = [
-    "#1",
-    "#2",
-    "#3",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
+    "#20",
+    "#21",
+    "#22",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#94",
+    "#95",
+    "#97",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+]
+
+[[module."lib.rs".function]]
+id = "fn:2d10bdfb49ac5d88"
+name = "SemanticsError"
+qual = "SemanticsError"
+item = "type"
+shape = "enum"
+lines = [
+    142,
+    150,
+]
+hash = "sha256:69027b46dee3a383c444f5b45886ee946beb49c2c41f2c91626e72451b027e48"
+doc_hash = "sha256:bd1addec0fb0dce18873c0afdd03e192155ac14422815a50d6174fdbd66635df"
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#94",
+    "#95",
+    "#97",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
 ]
 
 [[module."lib.rs".function]]
@@ -154,6 +316,7 @@ lines = [
 ]
 hash = "sha256:e24cc9b8d118e6d5b0df3fe3610630e09b26d124502bcfc57647feace0374574"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2d10bdfb49ac5d88"]
 
 [[module."lib.rs".function]]
 id = "fn:123ef30ed4e23149"
@@ -171,7 +334,12 @@ callees = [
     "fn:abde0f72eecc0b94",
     "fn:ba9945a088dcd1d5",
 ]
-reached_by = ["#3"]
+uses = [
+    "fn:2d10bdfb49ac5d88",
+    "fn:85dc5410ff538180",
+    "fn:afd474e1a3d08cc1",
+]
+reached_by = ["#22"]
 
 [[module."lib.rs".function]]
 id = "fn:8003ef159e6c87c8"
@@ -187,26 +355,31 @@ callees = [
     "fn:55d6c8059e527d51",
     "fn:c2a02e5ceda3cb45",
 ]
+uses = [
+    "fn:2d10bdfb49ac5d88",
+    "fn:5aa1cade565b54af",
+    "fn:85dc5410ff538180",
+]
 reached_by = [
-    "#1",
-    "#2",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
+    "#20",
+    "#21",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#94",
+    "#95",
+    "#97",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
 ]
 
 [[module."lib.rs".function]]
@@ -223,6 +396,7 @@ callees = [
     "fn:f32dd0b33fa086c8",
     "fn:f910cfd5724a7262",
 ]
+uses = ["fn:85dc5410ff538180"]
 test = true
 
 [[module."lib.rs".function]]
@@ -236,6 +410,7 @@ lines = [
 hash = "sha256:96ffad2ad76cae4f46af20afd26f85577177fdfceea27fc26e2fde12f0742867"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:8003ef159e6c87c8"]
+uses = ["fn:85dc5410ff538180"]
 test = true
 
 [[module."lib.rs".function]]
@@ -249,6 +424,7 @@ lines = [
 hash = "sha256:a518727c0cab0869602fd00d35f53061a2de5dfcf8bb16ec62211a3c8c7c5076"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:123ef30ed4e23149"]
+uses = ["fn:85dc5410ff538180"]
 test = true
 
 [[module."lib.rs".function]]
@@ -265,10 +441,43 @@ callees = [
     "fn:5c14377cf68b43f9",
     "fn:8003ef159e6c87c8",
 ]
+uses = ["fn:85dc5410ff538180"]
 test = true
 
 [module."ontology.rs"]
 path = "crate::ontology"
+
+[[module."ontology.rs".function]]
+id = "fn:f497c008266ceaa1"
+name = "Relation"
+qual = "Relation"
+item = "type"
+shape = "enum"
+lines = [
+    81,
+    172,
+]
+hash = "sha256:057e1b72724ed878f4d66a484de074d00617557691f6d339804124851801870c"
+doc_hash = "sha256:570564d7685cad8140783c47b3bd6b93fc1be124f57878b77f1f70ed515e501f"
+reached_by = [
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
 
 [[module."ontology.rs".function]]
 id = "fn:79195e94e9a93a25"
@@ -280,7 +489,8 @@ lines = [
 ]
 hash = "sha256:8f37f2df0b705557d476133d2528f58d611f11f0535918839fedd6a2be5b90ce"
 doc_hash = "sha256:bffc51e40c97443feb82142b32f62bc8f1d0adace4968bb265bc8391fcf0eedc"
-reached_by = ["#11"]
+uses = ["fn:f497c008266ceaa1"]
+reached_by = ["#30"]
 
 [[module."ontology.rs".function]]
 id = "fn:d7ec323629246fe7"
@@ -292,7 +502,8 @@ lines = [
 ]
 hash = "sha256:15eb616c5cbfbb16f52614f847dc9e5ebf3375d819b089498733d81a188918db"
 doc_hash = "sha256:4df9c7247c9af6e82aec47a14e3144dda6a2a604cf0b4a1f2f1df71b935276af"
-reached_by = ["#15"]
+uses = ["fn:f497c008266ceaa1"]
+reached_by = ["#34"]
 
 [[module."ontology.rs".function]]
 id = "fn:60ebd87216cd09a2"
@@ -304,7 +515,98 @@ lines = [
 ]
 hash = "sha256:fc252798199b8bd010f0c20f3310c00ab75934c411f75b63a9e75f02b3faca27"
 doc_hash = "sha256:5931dfb932185573b68c65dd274c88d8cee11ac860f855afbf443b1c87b34546"
-reached_by = ["#15"]
+uses = ["fn:f497c008266ceaa1"]
+reached_by = ["#34"]
+
+[[module."ontology.rs".function]]
+id = "fn:ad2ad33c128b5833"
+name = "RelationStatus"
+qual = "RelationStatus"
+item = "type"
+shape = "enum"
+lines = [
+    233,
+    247,
+]
+hash = "sha256:91c2381e615aeb71a90c82bbe727c9685fa42efb4a0fbcefe343c274e92c399c"
+doc_hash = "sha256:cb17920154f76d6120834fd37117226c882bf0f2cb941f0dd6c41ff1473706ea"
+reached_by = [
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:3fa2d94451803ca8"
+name = "Origin"
+qual = "Origin"
+item = "type"
+shape = "enum"
+lines = [
+    249,
+    267,
+]
+hash = "sha256:1dac38acddfa61bfab93143133144f7a91846824e611adbba0dc181380f42be2"
+doc_hash = "sha256:73cae37cb9592ad8a379e3b3683c627da8ae81ec71f7e7f41824bc1dfbcdd1fa"
+reached_by = [
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:8064e1bcc9e3c716"
+name = "Applicability"
+qual = "Applicability"
+item = "type"
+shape = "struct"
+lines = [
+    269,
+    284,
+]
+hash = "sha256:5530f7ca5e4a89dfb6c88eb0f2e0bacb6cd517cbbba598db0116aa80e0d96647"
+doc_hash = "sha256:ca0b7f4d23b83f0e81af8943eacb0c3087dfe1d9b65f2540d60df04b9a2bb7f2"
+reached_by = [
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
 
 [[module."ontology.rs".function]]
 id = "fn:2a6b1176acbdc9f2"
@@ -316,16 +618,17 @@ lines = [
 ]
 hash = "sha256:547ab483cf3130a6dcc1bf0cafce3a03336ebd889e78a86bab7b18ac945b75a8"
 doc_hash = "sha256:f00ead73d7e19e1cde651c31e4c96327117f2258e946d5b55b6f813698ad2071"
+uses = ["fn:8064e1bcc9e3c716"]
 reached_by = [
-    "#4",
-    "#7",
-    "#9",
-    "#10",
-    "#13",
-    "#16",
-    "#18",
-    "#19",
-    "#21",
+    "#23",
+    "#26",
+    "#28",
+    "#29",
+    "#32",
+    "#35",
+    "#37",
+    "#38",
+    "#40",
 ]
 
 [[module."ontology.rs".function]]
@@ -338,16 +641,17 @@ lines = [
 ]
 hash = "sha256:703d8e5319c17097d60bdd24bc3ec7f00c791652c28b36e425df2dbf3ad7b2f3"
 doc_hash = "sha256:697a5ed43a77d6a6fd0fd04e5ec65c444db08756b5467e7b0655894755b37902"
+uses = ["fn:8064e1bcc9e3c716"]
 reached_by = [
-    "#4",
-    "#7",
-    "#9",
-    "#10",
-    "#13",
-    "#16",
-    "#18",
-    "#19",
-    "#21",
+    "#23",
+    "#26",
+    "#28",
+    "#29",
+    "#32",
+    "#35",
+    "#37",
+    "#38",
+    "#40",
 ]
 
 [[module."ontology.rs".function]]
@@ -360,16 +664,48 @@ lines = [
 ]
 hash = "sha256:03e2d64be8f942080ecdfdb13d2cb177c099683236ce4c1d433f84fecf8fff65"
 doc_hash = "sha256:54c0ef5ffaae5495a44bb6debae2af04875b32f1c1e745eb3dfa24055262c115"
+uses = ["fn:8064e1bcc9e3c716"]
 reached_by = [
-    "#4",
-    "#7",
-    "#9",
-    "#10",
-    "#13",
-    "#16",
-    "#18",
-    "#19",
-    "#21",
+    "#23",
+    "#26",
+    "#28",
+    "#29",
+    "#32",
+    "#35",
+    "#37",
+    "#38",
+    "#40",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:ec635dc7d800c370"
+name = "VerificationRecord"
+qual = "VerificationRecord"
+item = "type"
+shape = "struct"
+lines = [
+    306,
+    326,
+]
+hash = "sha256:e97f7e6f57e829977e48493236b664214efe4b0f425f8f041fbb0f2be7a72e05"
+doc_hash = "sha256:4e29eeb8bf4f011f958dd8add0a77d7f7b372eda1e4d258ec64dc46dd973db39"
+reached_by = [
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
 ]
 
 [[module."ontology.rs".function]]
@@ -382,17 +718,18 @@ lines = [
 ]
 hash = "sha256:2f06fc8f2e8cea6c05b7dbcd141d98a0279d2fd4580d128943e9059817acc4c6"
 doc_hash = "sha256:645a4b9ef1b0df51e2f1874e87906c429e612af5e2fe582084ed86dd8711bd09"
+uses = ["fn:ec635dc7d800c370"]
 reached_by = [
-    "#4",
-    "#7",
-    "#9",
-    "#10",
-    "#13",
-    "#16",
-    "#18",
-    "#19",
-    "#21",
-    "#22",
+    "#23",
+    "#26",
+    "#28",
+    "#29",
+    "#32",
+    "#35",
+    "#37",
+    "#38",
+    "#40",
+    "#41",
 ]
 
 [[module."ontology.rs".function]]
@@ -405,7 +742,8 @@ lines = [
 ]
 hash = "sha256:1d5021f7361352d301dc8d9b872df54c8fc515417ad07b1dec3c0e718da69b79"
 doc_hash = "sha256:31299c0db9fe46c566b4077a32730d4e6a5ed9add7a21a15385aab844c18c985"
-reached_by = ["#22"]
+uses = ["fn:ec635dc7d800c370"]
+reached_by = ["#41"]
 
 [[module."ontology.rs".function]]
 id = "fn:6bf4b5227f8ccce7"
@@ -417,7 +755,68 @@ lines = [
 ]
 hash = "sha256:24566e1e4c6b685c7a75d18cec5cb935d245f2f754c61c426eb08c6f934cc0d5"
 doc_hash = "sha256:cb7ed18717d18892cc148b574240033cd91561c507d56a16cb13812f6066b5f2"
-reached_by = ["#22"]
+uses = ["fn:ec635dc7d800c370"]
+reached_by = ["#41"]
+
+[[module."ontology.rs".function]]
+id = "fn:2a07e45931f6d610"
+name = "EdgeDetail"
+qual = "EdgeDetail"
+item = "type"
+shape = "enum"
+lines = [
+    354,
+    369,
+]
+hash = "sha256:d22d102512ca39bbaec9eab4fe980b6314cfb0eca327641b7f06000ede439ebb"
+doc_hash = "sha256:17597e8bae92397846b95f83314bf7edefd07c1969c2b3be97314aec18e685cb"
+uses = [
+    "fn:8064e1bcc9e3c716",
+    "fn:ec635dc7d800c370",
+]
+reached_by = [
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:83989542e3a7aa4d"
+name = "CoreConcept"
+qual = "CoreConcept"
+item = "type"
+shape = "trait"
+lines = [
+    371,
+    398,
+]
+hash = "sha256:88d72c0296623c76b49df8e088b0dbd48e03ec394fdac8ea4605acef5e4417d2"
+doc_hash = "sha256:d1f916bcef06ae77a2efbd4fcd8adba0b9ceebe1cacc3f9bca415c2685069b40"
+reached_by = [
+    "#23",
+    "#24",
+    "#26",
+    "#28",
+    "#29",
+    "#32",
+    "#35",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
 
 [[module."ontology.rs".function]]
 id = "fn:85372ae76289253f"
@@ -429,6 +828,7 @@ lines = [
 ]
 hash = "sha256:f2eed486f435a74757b4960fa0378a3d87891546558ff0d0c9cf70b20ae3b5db"
 doc_hash = "sha256:c4a136978f6c34f7f9a7ac3551583028531b9866ce1f38f1fb8f02c73979c373"
+uses = ["fn:83989542e3a7aa4d"]
 
 [[module."ontology.rs".function]]
 id = "fn:bf67790cc42c91c3"
@@ -440,6 +840,7 @@ lines = [
 ]
 hash = "sha256:f2eed486f435a74757b4960fa0378a3d87891546558ff0d0c9cf70b20ae3b5db"
 doc_hash = "sha256:9ed6f31bc491b90fd4518761f31188d1e0f3502e7bcac3f1a8371187aee2fecf"
+uses = ["fn:83989542e3a7aa4d"]
 
 [[module."ontology.rs".function]]
 id = "fn:b77ed9b45adf0c47"
@@ -451,6 +852,75 @@ lines = [
 ]
 hash = "sha256:6d21ba03d6e307cec9e1db3b44d09485893edaf0de7ab48ec306785e5668272f"
 doc_hash = "sha256:1ccc11dd86579d4a1c28e5400488d60ad0815b79b918fabe113d134170b2c0ee"
+uses = ["fn:83989542e3a7aa4d"]
+
+[[module."ontology.rs".function]]
+id = "fn:b0b1df8240a3ad04"
+name = "Reactor"
+qual = "Reactor"
+item = "type"
+shape = "enum"
+lines = [
+    400,
+    424,
+]
+hash = "sha256:65efacaca6f78ba3ef86206b38682f88bec089ba8793c520bdd23541786efb03"
+doc_hash = "sha256:a6f8e508a02c92ce8fd82733849f1f05f85b47bd9677bc588a730174ba75ffbf"
+reached_by = [
+    "#23",
+    "#24",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#32",
+    "#35",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+]
 
 [[module."ontology.rs".function]]
 id = "fn:8559e2101ba7dee6"
@@ -462,9 +932,10 @@ lines = [
 ]
 hash = "sha256:bc33cb3768aa531388397f0f1136490e5f0f8d15b04cebf4f2282f447197f443"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b0b1df8240a3ad04"]
 reached_by = [
-    "#8",
-    "#26",
+    "#27",
+    "#67",
 ]
 
 [[module."ontology.rs".function]]
@@ -477,7 +948,8 @@ lines = [
 ]
 hash = "sha256:1ed255293977417efabbb07d3037f871aec71ebbe829f46f40a76f18924855d6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#26"]
+uses = ["fn:b0b1df8240a3ad04"]
+reached_by = ["#67"]
 
 [[module."ontology.rs".function]]
 id = "fn:9905704199e7cc13"
@@ -489,7 +961,73 @@ lines = [
 ]
 hash = "sha256:5cd75bbcf68f9388145796836fa115b7008c4133dabfc85c3bbd46098e2ef963"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#26"]
+uses = ["fn:b0b1df8240a3ad04"]
+reached_by = ["#67"]
+
+[[module."ontology.rs".function]]
+id = "fn:73bc808fb5add9c6"
+name = "Neutronics"
+qual = "Neutronics"
+item = "type"
+shape = "enum"
+lines = [
+    461,
+    473,
+]
+hash = "sha256:13309d63fc1ecdc871051e7f23a9222f52baaee77a87efe21ba7c44b42b80427"
+doc_hash = "sha256:24114c382e08caf41136a0cc938926d8ac34d97a580348b054885847378fd279"
+reached_by = [
+    "#23",
+    "#26",
+    "#28",
+    "#29",
+    "#32",
+    "#35",
+    "#37",
+    "#38",
+    "#40",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+]
 
 [[module."ontology.rs".function]]
 id = "fn:7186e9240d69d019"
@@ -501,7 +1039,8 @@ lines = [
 ]
 hash = "sha256:657231ab9337bd4602b3712471988284d0603f6cb9e610d9a1104366d07aba03"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#26"]
+uses = ["fn:73bc808fb5add9c6"]
+reached_by = ["#67"]
 
 [[module."ontology.rs".function]]
 id = "fn:261ea969c7e3a6aa"
@@ -513,7 +1052,8 @@ lines = [
 ]
 hash = "sha256:575f460eff0e712108ba95e1599a8025c72cd207be67fd3de10ffa9ef9a84772"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#26"]
+uses = ["fn:73bc808fb5add9c6"]
+reached_by = ["#67"]
 
 [[module."ontology.rs".function]]
 id = "fn:d6c8aab599073f5d"
@@ -525,7 +1065,74 @@ lines = [
 ]
 hash = "sha256:d316bb37080df9172ce185c11e4fd4e0b0182e8cbc1610fb45ad4936a0e321d3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#26"]
+uses = ["fn:73bc808fb5add9c6"]
+reached_by = ["#67"]
+
+[[module."ontology.rs".function]]
+id = "fn:4c71b4d624098fd9"
+name = "ThermalHydraulics"
+qual = "ThermalHydraulics"
+item = "type"
+shape = "enum"
+lines = [
+    495,
+    513,
+]
+hash = "sha256:22aeb74f3913b2e95f46cfa8e91166c756f6c5293ad62fdd9ac958b03512bb83"
+doc_hash = "sha256:f4696e79efe08d2b6e920d599b94990f048825dddc00473538aa64fbd9b0e152"
+reached_by = [
+    "#23",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#32",
+    "#35",
+    "#37",
+    "#38",
+    "#40",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+]
 
 [[module."ontology.rs".function]]
 id = "fn:7ab57a443e310f8a"
@@ -537,9 +1144,10 @@ lines = [
 ]
 hash = "sha256:c1e1817e470b67d1dece207540484a30fd2b043f96c9a39fbba4797022b09b27"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:4c71b4d624098fd9"]
 reached_by = [
-    "#8",
-    "#26",
+    "#27",
+    "#67",
 ]
 
 [[module."ontology.rs".function]]
@@ -552,7 +1160,8 @@ lines = [
 ]
 hash = "sha256:9fdf5ab0697ad8e95bdb487067767c098e2816792cd479604678206ceb1be6db"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#26"]
+uses = ["fn:4c71b4d624098fd9"]
+reached_by = ["#67"]
 
 [[module."ontology.rs".function]]
 id = "fn:141b017a9c161e89"
@@ -564,7 +1173,95 @@ lines = [
 ]
 hash = "sha256:d316bb37080df9172ce185c11e4fd4e0b0182e8cbc1610fb45ad4936a0e321d3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#26"]
+uses = ["fn:4c71b4d624098fd9"]
+reached_by = ["#67"]
+
+[[module."ontology.rs".function]]
+id = "fn:430a588431a06347"
+name = "Concept"
+qual = "Concept"
+item = "type"
+shape = "struct"
+lines = [
+    541,
+    555,
+]
+hash = "sha256:3dc64942ae8ff8763f9aa4381488e44afa8a48973c25b3fadc52822c2038cc8d"
+doc_hash = "sha256:a44ec0df3815455d6f294789b36072e7f54b348d99075f9a8d23a6c3bbdf372f"
+uses = ["fn:3fa2d94451803ca8"]
+reached_by = [
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:cc2fbbdf63371c8d"
+name = "ConceptEdge"
+qual = "ConceptEdge"
+item = "type"
+shape = "struct"
+lines = [
+    557,
+    572,
+]
+hash = "sha256:dffc977943ae55e3d8c1768d5a88b3d8e71770047647474829d97f3f17d48430"
+doc_hash = "sha256:5a9f03918d35fe536c63ea97ba6c589aacff0441bdae4d33541204b2b49fbe8b"
+uses = [
+    "fn:2a07e45931f6d610",
+    "fn:ad2ad33c128b5833",
+    "fn:f497c008266ceaa1",
+]
+reached_by = [
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:5f19952d3631b079"
+name = "ResolveOutcome"
+qual = "ResolveOutcome"
+item = "type"
+shape = "enum"
+lines = [
+    574,
+    588,
+]
+hash = "sha256:8dde635ea079b4aaf2b3ed36956fcee8606d5fb5261852fbf0c4eec383f5fbd6"
+doc_hash = "sha256:ba69b043866c804cb9e098f80d1f23c02388531888aff51c381c4405122a6d0e"
+uses = ["fn:430a588431a06347"]
+reached_by = [
+    "#23",
+    "#25",
+    "#35",
+    "#36",
+    "#37",
+]
 
 [[module."ontology.rs".function]]
 id = "fn:448a259c290adb7f"
@@ -576,11 +1273,44 @@ lines = [
 ]
 hash = "sha256:7865336935200432e9c2ddb74a3104d0afe7fcedc49b26de42b19da7311d6761"
 doc_hash = "sha256:ddbe504731b575423c61ca3ce2d9dfba2304a98aa0b26d5e2515fd1e1d121f5f"
+uses = [
+    "fn:430a588431a06347",
+    "fn:5f19952d3631b079",
+]
 reached_by = [
-    "#4",
-    "#16",
-    "#17",
-    "#18",
+    "#23",
+    "#35",
+    "#36",
+    "#37",
+]
+
+[[module."ontology.rs".function]]
+id = "fn:4a7c26e606a5a7fb"
+name = "OntologyError"
+qual = "OntologyError"
+item = "type"
+shape = "enum"
+lines = [
+    604,
+    618,
+]
+hash = "sha256:aa0ba1950c9bd6e9a95fabaacb1246ede1b1994227f37ea4f061f433f9974663"
+doc_hash = "sha256:c558009a37e952f6543fe814cc643505101652a1966519c9ef2462721f581633"
+reached_by = [
+    "#23",
+    "#24",
+    "#26",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
 ]
 
 [[module."ontology.rs".function]]
@@ -593,6 +1323,41 @@ lines = [
 ]
 hash = "sha256:4085109789f7870dac0c66a62f55dbef06a20dfe65f51ed02046002b4f2ee111"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:4a7c26e606a5a7fb"]
+
+[[module."ontology.rs".function]]
+id = "fn:8dac8c3575ae0364"
+name = "ConceptGraph"
+qual = "ConceptGraph"
+item = "type"
+shape = "struct"
+lines = [
+    631,
+    640,
+]
+hash = "sha256:af5e2cc5333a78fdcabf97128419fee766459cb0560d587c88e396b52d026884"
+doc_hash = "sha256:93fa189ba485a45d6e20c1d97c56e9d650bfccbbc0a5731fbc74103d6be9e177"
+uses = [
+    "fn:430a588431a06347",
+    "fn:cc2fbbdf63371c8d",
+]
+reached_by = [
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+]
 
 [[module."ontology.rs".function]]
 id = "fn:49f3110aa3ee8965"
@@ -604,22 +1369,23 @@ lines = [
 ]
 hash = "sha256:547ab483cf3130a6dcc1bf0cafce3a03336ebd889e78a86bab7b18ac945b75a8"
 doc_hash = "sha256:af67c798b24f44ae9e20c2100a9540f6a58c1b32e3f2f1220b9880ca99b070d3"
+uses = ["fn:8dac8c3575ae0364"]
 reached_by = [
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#9",
-    "#10",
-    "#12",
-    "#13",
-    "#14",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
 ]
 
 [[module."ontology.rs".function]]
@@ -632,18 +1398,24 @@ lines = [
 ]
 hash = "sha256:308e20f912d4a1cf08187599dcf5cce6cd70f9a17f5598571b7b0de5774a824c"
 doc_hash = "sha256:2ef2e48ca572d7e6fbbfad019f673cce7f09ab41606ff1fa25dde6e2b9adf146"
+uses = [
+    "fn:3fa2d94451803ca8",
+    "fn:430a588431a06347",
+    "fn:83989542e3a7aa4d",
+    "fn:8dac8c3575ae0364",
+]
 reached_by = [
-    "#4",
-    "#5",
-    "#7",
-    "#9",
-    "#10",
-    "#13",
-    "#16",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
+    "#23",
+    "#24",
+    "#26",
+    "#28",
+    "#29",
+    "#32",
+    "#35",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
 ]
 
 [[module."ontology.rs".function]]
@@ -657,21 +1429,26 @@ lines = [
 hash = "sha256:a536480f5e7fc4c3c56bda0af21c488a39e66ee409f4e436eef5b5a5da462894"
 doc_hash = "sha256:56b872e280a7f086ad6dc8d0e2fa43b8302d5bbbe0b772b6b98042438c70f109"
 callees = ["fn:d89528961e52910e"]
+uses = [
+    "fn:3fa2d94451803ca8",
+    "fn:4a7c26e606a5a7fb",
+    "fn:8dac8c3575ae0364",
+]
 reached_by = [
-    "#4",
-    "#5",
-    "#7",
-    "#9",
-    "#10",
-    "#12",
-    "#13",
-    "#14",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
+    "#23",
+    "#24",
+    "#26",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
 ]
 
 [[module."ontology.rs".function]]
@@ -685,16 +1462,21 @@ lines = [
 hash = "sha256:f8e7da8dc379eef6c14bebf17b974d3e49bbfa86e72d2542ae1b73f933c38106"
 doc_hash = "sha256:a5b7c49976c5a5e023bc0c9fecaffb81bf3536dc0372308841bc65352c76864f"
 callees = ["fn:d89528961e52910e"]
+uses = [
+    "fn:3fa2d94451803ca8",
+    "fn:4a7c26e606a5a7fb",
+    "fn:8dac8c3575ae0364",
+]
 reached_by = [
-    "#4",
-    "#7",
-    "#9",
-    "#10",
-    "#13",
-    "#16",
-    "#18",
-    "#19",
-    "#21",
+    "#23",
+    "#26",
+    "#28",
+    "#29",
+    "#32",
+    "#35",
+    "#37",
+    "#38",
+    "#40",
 ]
 
 [[module."ontology.rs".function]]
@@ -707,21 +1489,27 @@ lines = [
 ]
 hash = "sha256:c0ff729f8894e73ce5f2e394c19099fde6f5251f0293c8f429f5aaa1b2b5014c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:3fa2d94451803ca8",
+    "fn:430a588431a06347",
+    "fn:4a7c26e606a5a7fb",
+    "fn:8dac8c3575ae0364",
+]
 reached_by = [
-    "#4",
-    "#5",
-    "#7",
-    "#9",
-    "#10",
-    "#12",
-    "#13",
-    "#14",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
+    "#23",
+    "#24",
+    "#26",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
 ]
 
 [[module."ontology.rs".function]]
@@ -735,19 +1523,26 @@ lines = [
 hash = "sha256:2e63b44efbd2f2b538a5d6d082df36a446e43155fee544055c8176c4f821361b"
 doc_hash = "sha256:9ebd487502a8cf18a84a4b64f1f50547bcf025a8a2681df889b84162683518d5"
 callees = ["fn:92ea1f900b81d974"]
+uses = [
+    "fn:2a07e45931f6d610",
+    "fn:4a7c26e606a5a7fb",
+    "fn:8dac8c3575ae0364",
+    "fn:ad2ad33c128b5833",
+    "fn:f497c008266ceaa1",
+]
 reached_by = [
-    "#4",
-    "#7",
-    "#9",
-    "#10",
-    "#12",
-    "#13",
-    "#14",
-    "#16",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
+    "#23",
+    "#26",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
 ]
 
 [[module."ontology.rs".function]]
@@ -760,19 +1555,27 @@ lines = [
 ]
 hash = "sha256:a96a8aa0c6046b2d6a02f48c8dce33bb3474605851493beee919e3674ad30a9c"
 doc_hash = "sha256:5b41eb0cfbb92a53019e9cc96d134504446dcf9c520f25792b411a358a056471"
+uses = [
+    "fn:2a07e45931f6d610",
+    "fn:4a7c26e606a5a7fb",
+    "fn:8dac8c3575ae0364",
+    "fn:ad2ad33c128b5833",
+    "fn:cc2fbbdf63371c8d",
+    "fn:f497c008266ceaa1",
+]
 reached_by = [
-    "#4",
-    "#7",
-    "#9",
-    "#10",
-    "#12",
-    "#13",
-    "#14",
-    "#16",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
+    "#23",
+    "#26",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#33",
+    "#35",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
 ]
 
 [[module."ontology.rs".function]]
@@ -785,12 +1588,13 @@ lines = [
 ]
 hash = "sha256:39c62da7d7e05964a638c260c9c3eaa83aa512334a5d81b0f723a3d4fae1aa05"
 doc_hash = "sha256:9a3e1715d38827e9935b3aa749b7ee8df793cf73d21f4d7a2b1c8d8c7c04a5d6"
+uses = ["fn:8dac8c3575ae0364"]
 reached_by = [
-    "#4",
-    "#6",
-    "#16",
-    "#17",
-    "#18",
+    "#23",
+    "#25",
+    "#35",
+    "#36",
+    "#37",
 ]
 
 [[module."ontology.rs".function]]
@@ -804,12 +1608,17 @@ lines = [
 hash = "sha256:60bdb55cf4e4c49f9a67640172db2961e3f96aeb0723ed22b0ef728613a820b7"
 doc_hash = "sha256:e125a3dc8538b48a953e19aa4721310d157e930f2811b41e9cab1003cf322b3f"
 callees = ["fn:1fb4a76edb787355"]
+uses = [
+    "fn:430a588431a06347",
+    "fn:5f19952d3631b079",
+    "fn:8dac8c3575ae0364",
+]
 reached_by = [
-    "#4",
-    "#6",
-    "#16",
-    "#17",
-    "#18",
+    "#23",
+    "#25",
+    "#35",
+    "#36",
+    "#37",
 ]
 
 [[module."ontology.rs".function]]
@@ -822,9 +1631,13 @@ lines = [
 ]
 hash = "sha256:1c3c4a855802019af72d2a61282d4f75b554ed24592cc20cca1b6a2a71b8585d"
 doc_hash = "sha256:f1f6ea29f6e5735b47892654ef14917972034eb1b34ca85ad0ff86b72a5c56b3"
+uses = [
+    "fn:430a588431a06347",
+    "fn:8dac8c3575ae0364",
+]
 reached_by = [
-    "#5",
-    "#20",
+    "#24",
+    "#39",
 ]
 
 [[module."ontology.rs".function]]
@@ -837,6 +1650,10 @@ lines = [
 ]
 hash = "sha256:0c86df5373bc380b5bbf9ee230427f1db1f9e7c62bc26ea80bebaf0775cd75af"
 doc_hash = "sha256:d968fc1efad321d65043c3f026c5acba1daeee017da7b42e1982e036756cdb17"
+uses = [
+    "fn:430a588431a06347",
+    "fn:8dac8c3575ae0364",
+]
 
 [[module."ontology.rs".function]]
 id = "fn:40ff0b57a620abaa"
@@ -848,7 +1665,11 @@ lines = [
 ]
 hash = "sha256:31dc5ac4508a6441269eacd50cb2408caf754fc13c8fb28f3b61e62033e1fe2b"
 doc_hash = "sha256:ef461c8114c1a4188b8d39d961822fc11829e8aa1b44e723b9a2daa0abb43dc7"
-reached_by = ["#19"]
+uses = [
+    "fn:8dac8c3575ae0364",
+    "fn:cc2fbbdf63371c8d",
+]
+reached_by = ["#38"]
 
 [[module."ontology.rs".function]]
 id = "fn:7e695ec8773d79ee"
@@ -860,14 +1681,19 @@ lines = [
 ]
 hash = "sha256:d0c4095a6d5164db2f23667d8a2340b1d34d908d66d572c1362a60279e52607c"
 doc_hash = "sha256:ba2b54217a9501210c1a7defac396d497c6d2cc7a001724636d57e2021836321"
+uses = [
+    "fn:8dac8c3575ae0364",
+    "fn:cc2fbbdf63371c8d",
+    "fn:f497c008266ceaa1",
+]
 reached_by = [
-    "#7",
-    "#9",
-    "#10",
-    "#12",
-    "#13",
-    "#20",
-    "#21",
+    "#26",
+    "#28",
+    "#29",
+    "#31",
+    "#32",
+    "#39",
+    "#40",
 ]
 
 [[module."ontology.rs".function]]
@@ -880,7 +1706,12 @@ lines = [
 ]
 hash = "sha256:a8c53b28e1c08aa28cb540bd0a04808d6f5b986ee1635cbb9ece18472b186310"
 doc_hash = "sha256:b4174ecc03ea6ccc46cbfdd30ab232cc2f603faf1bdf8821c3b91e1eda3a6a77"
-reached_by = ["#9"]
+uses = [
+    "fn:8dac8c3575ae0364",
+    "fn:cc2fbbdf63371c8d",
+    "fn:f497c008266ceaa1",
+]
+reached_by = ["#28"]
 
 [[module."ontology.rs".function]]
 id = "fn:89b22562da4a6727"
@@ -892,9 +1723,10 @@ lines = [
 ]
 hash = "sha256:393de144abc86aab05fb55ebdeb955914714e38291df6bb5b48d9c28b0bf02f6"
 doc_hash = "sha256:52d76ab499dbb80fee30e42cbfbd5edd8342d7ef2a1029434851731655b14258"
+uses = ["fn:8dac8c3575ae0364"]
 reached_by = [
-    "#6",
-    "#19",
+    "#25",
+    "#38",
 ]
 
 [[module."ontology.rs".function]]
@@ -907,7 +1739,8 @@ lines = [
 ]
 hash = "sha256:5c85bc2e172174aedab85de2bf9dcbe6a04857e5778d601c1ca4236c9b1afc0e"
 doc_hash = "sha256:e7f908b551e3b877a7afdf6872bd1c0c738633108250ef07884f0d14a0ee1ae5"
-reached_by = ["#6"]
+uses = ["fn:8dac8c3575ae0364"]
+reached_by = ["#25"]
 
 [[module."ontology.rs".function]]
 id = "fn:a672c152f7396ac3"
@@ -930,6 +1763,17 @@ callees = [
     "fn:9ffa609e11839a6f",
     "fn:a03e205e947e8441",
     "fn:d946d8c8f07322b2",
+]
+uses = [
+    "fn:2a07e45931f6d610",
+    "fn:4c71b4d624098fd9",
+    "fn:73bc808fb5add9c6",
+    "fn:8064e1bcc9e3c716",
+    "fn:8dac8c3575ae0364",
+    "fn:ad2ad33c128b5833",
+    "fn:b0b1df8240a3ad04",
+    "fn:ec635dc7d800c370",
+    "fn:f497c008266ceaa1",
 ]
 test = true
 
@@ -982,6 +1826,7 @@ callees = [
     "fn:a672c152f7396ac3",
     "fn:f15188241542de7f",
 ]
+uses = ["fn:5f19952d3631b079"]
 test = true
 
 [[module."ontology.rs".function]]
@@ -1000,6 +1845,10 @@ callees = [
     "fn:a03e205e947e8441",
     "fn:f15188241542de7f",
 ]
+uses = [
+    "fn:5f19952d3631b079",
+    "fn:8dac8c3575ae0364",
+]
 test = true
 
 [[module."ontology.rs".function]]
@@ -1015,6 +1864,10 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:7ab57a443e310f8a",
     "fn:8559e2101ba7dee6",
+]
+uses = [
+    "fn:4c71b4d624098fd9",
+    "fn:b0b1df8240a3ad04",
 ]
 test = true
 
@@ -1050,6 +1903,7 @@ callees = [
     "fn:a672c152f7396ac3",
     "fn:a749569203e3060b",
 ]
+uses = ["fn:f497c008266ceaa1"]
 test = true
 
 [[module."ontology.rs".function]]
@@ -1066,6 +1920,7 @@ callees = [
     "fn:7e695ec8773d79ee",
     "fn:a672c152f7396ac3",
 ]
+uses = ["fn:f497c008266ceaa1"]
 test = true
 
 [[module."ontology.rs".function]]
@@ -1086,6 +1941,12 @@ callees = [
     "fn:be53afceda2a67c7",
     "fn:d946d8c8f07322b2",
 ]
+uses = [
+    "fn:3fa2d94451803ca8",
+    "fn:8dac8c3575ae0364",
+    "fn:b0b1df8240a3ad04",
+    "fn:f497c008266ceaa1",
+]
 test = true
 
 [[module."ontology.rs".function]]
@@ -1104,6 +1965,12 @@ callees = [
     "fn:be53afceda2a67c7",
     "fn:d946d8c8f07322b2",
 ]
+uses = [
+    "fn:3fa2d94451803ca8",
+    "fn:4a7c26e606a5a7fb",
+    "fn:8dac8c3575ae0364",
+    "fn:b0b1df8240a3ad04",
+]
 test = true
 
 [[module."ontology.rs".function]]
@@ -1121,6 +1988,11 @@ callees = [
     "fn:49f3110aa3ee8965",
     "fn:a03e205e947e8441",
 ]
+uses = [
+    "fn:4a7c26e606a5a7fb",
+    "fn:8dac8c3575ae0364",
+    "fn:f497c008266ceaa1",
+]
 test = true
 
 [[module."ontology.rs".function]]
@@ -1137,6 +2009,10 @@ callees = [
     "fn:7e695ec8773d79ee",
     "fn:a672c152f7396ac3",
 ]
+uses = [
+    "fn:2a07e45931f6d610",
+    "fn:f497c008266ceaa1",
+]
 test = true
 
 [[module."ontology.rs".function]]
@@ -1152,6 +2028,10 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:7e695ec8773d79ee",
     "fn:a672c152f7396ac3",
+]
+uses = [
+    "fn:2a07e45931f6d610",
+    "fn:f497c008266ceaa1",
 ]
 test = true
 
@@ -1170,6 +2050,7 @@ callees = [
     "fn:9ffa609e11839a6f",
     "fn:ab34152d66d78f10",
 ]
+uses = ["fn:ec635dc7d800c370"]
 test = true
 
 [[module."ontology.rs".function]]
@@ -1185,6 +2066,10 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:7e695ec8773d79ee",
     "fn:a672c152f7396ac3",
+]
+uses = [
+    "fn:ad2ad33c128b5833",
+    "fn:f497c008266ceaa1",
 ]
 test = true
 
@@ -1204,6 +2089,10 @@ callees = [
     "fn:7e695ec8773d79ee",
     "fn:a03e205e947e8441",
 ]
+uses = [
+    "fn:8dac8c3575ae0364",
+    "fn:f497c008266ceaa1",
+]
 test = true
 
 [[module."ontology.rs".function]]
@@ -1217,6 +2106,7 @@ lines = [
 hash = "sha256:dd8648d337996e0cce6f40b154c59f65edf56248d044b686163cb4bbe071c229"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:79195e94e9a93a25"]
+uses = ["fn:f497c008266ceaa1"]
 test = true
 
 [[module."ontology.rs".function]]
@@ -1233,6 +2123,7 @@ callees = [
     "fn:60ebd87216cd09a2",
     "fn:d7ec323629246fe7",
 ]
+uses = ["fn:f497c008266ceaa1"]
 test = true
 
 [[module."ontology.rs".function]]
@@ -1251,10 +2142,37 @@ callees = [
     "fn:89b22562da4a6727",
     "fn:f15188241542de7f",
 ]
+uses = [
+    "fn:5f19952d3631b079",
+    "fn:8dac8c3575ae0364",
+]
 test = true
 
 [module."outputs.rs"]
 path = "crate::outputs"
+
+[[module."outputs.rs".function]]
+id = "fn:951e5882bfaa43a5"
+name = "KIND_ORDER"
+qual = "KIND_ORDER"
+item = "const"
+shape = "const"
+lines = [
+    25,
+    38,
+]
+hash = "sha256:45d515a79bbedeecd4b270b5c662be489851539170d2810e4ebbf85048a83d70"
+doc_hash = "sha256:eb11b098b246092cc8ba32058579eba625e3c1bed9f512a267ff6019449fb3e4"
+uses = ["fn:67333a403fbd1304"]
+reached_by = [
+    "#21",
+    "#42",
+    "#43",
+    "#44",
+    "#93",
+    "#99",
+    "#102",
+]
 
 [[module."outputs.rs".function]]
 id = "fn:7250816f1968360b"
@@ -1267,14 +2185,19 @@ lines = [
 hash = "sha256:54e845d45cef6b089b34972fd6a05b52169a6bd4906f65a2224aab6f115a5e0d"
 doc_hash = "sha256:ef3d0af8cc00930d30131c7279374c6a5fad3471d9e7390d2ad8a54f7729e2e4"
 callees = ["fn:5d48aa772b7be971"]
+uses = [
+    "fn:5aa1cade565b54af",
+    "fn:67333a403fbd1304",
+    "fn:951e5882bfaa43a5",
+]
 reached_by = [
-    "#2",
-    "#23",
-    "#24",
-    "#25",
-    "#33",
-    "#38",
-    "#41",
+    "#21",
+    "#42",
+    "#43",
+    "#44",
+    "#93",
+    "#99",
+    "#102",
 ]
 
 [[module."outputs.rs".function]]
@@ -1287,13 +2210,14 @@ lines = [
 ]
 hash = "sha256:32a87bc409630aca89ca54291de19f4fc2842e4f0c299bf283177bef6f859deb"
 doc_hash = "sha256:d3f8267399a8498b851c4484cae60ffef59387502eac10271e9bd873b1e519c7"
+uses = ["fn:5aa1cade565b54af"]
 reached_by = [
-    "#2",
-    "#23",
-    "#25",
-    "#33",
-    "#38",
-    "#41",
+    "#21",
+    "#42",
+    "#44",
+    "#93",
+    "#99",
+    "#102",
 ]
 
 [[module."outputs.rs".function]]
@@ -1304,20 +2228,21 @@ lines = [
     66,
     102,
 ]
-hash = "sha256:8d415202315af407f8762be232ea7afd3eeec8292b90bfe2a6bd2f07650d5689"
+hash = "sha256:19efa75283f1acbf6711bdbf549b3e97320cbb31eceaff443c2912c85236f732"
 doc_hash = "sha256:7a0ab14570be1acbdd0d69fa85183637646e1c17c86ad2b2432b7fd4f29c5c3f"
 callees = [
     "fn:27780a9646904aa8",
     "fn:5d48aa772b7be971",
     "fn:7250816f1968360b",
 ]
+uses = ["fn:5aa1cade565b54af"]
 reached_by = [
-    "#2",
-    "#23",
-    "#25",
-    "#33",
-    "#38",
-    "#41",
+    "#21",
+    "#42",
+    "#44",
+    "#93",
+    "#99",
+    "#102",
 ]
 
 [[module."outputs.rs".function]]
@@ -1328,13 +2253,17 @@ lines = [
     104,
     141,
 ]
-hash = "sha256:c78a2af944171af6622c37dc74625b31a02f6f65cbe432e9b67f3783b42ba97e"
+hash = "sha256:0f2d5f07557e64f5d1db28ac0d29b58decac3742c78c8e070bbbe81cc1c7da88"
 doc_hash = "sha256:c14c188b7c18414174c67333530d4b6298c0bd48cbd414e93984bf7e26fa6613"
 callees = [
     "fn:5d48aa772b7be971",
     "fn:7250816f1968360b",
 ]
-reached_by = ["#24"]
+uses = [
+    "fn:5aa1cade565b54af",
+    "fn:844a08cbd4b7c3fc",
+]
+reached_by = ["#43"]
 
 [[module."outputs.rs".function]]
 id = "fn:9ea94f8ecaf9256f"
@@ -1347,6 +2276,11 @@ lines = [
 hash = "sha256:86e8f961686240bba048232e08236dec5c2e6e3e82a81265c24e47c8194049a0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:5d48aa772b7be971"]
+uses = [
+    "fn:5aa1cade565b54af",
+    "fn:67333a403fbd1304",
+    "fn:dff730adc35ae86f",
+]
 test = true
 
 [[module."outputs.rs".function]]
@@ -1363,6 +2297,7 @@ callees = [
     "fn:5c14377cf68b43f9",
     "fn:9ea94f8ecaf9256f",
 ]
+uses = ["fn:67333a403fbd1304"]
 test = true
 
 [[module."outputs.rs".function]]
@@ -1391,5 +2326,9 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:9ea94f8ecaf9256f",
     "fn:a4b1877694827548",
+]
+uses = [
+    "fn:67333a403fbd1304",
+    "fn:844a08cbd4b7c3fc",
 ]
 test = true

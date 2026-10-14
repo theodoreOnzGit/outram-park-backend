@@ -28,6 +28,7 @@ row = 2
 topic = "risk"
 fidelity = 3
 maturity = 0
+backronym = "Radionuclide Effluent Dispersion solver for Hydrogeological Infiltration and Leaching through Layers"
 
 # NO DEPENDENCIES YET, deliberately.
 #

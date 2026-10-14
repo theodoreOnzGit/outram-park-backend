@@ -314,8 +314,13 @@ impl AceTable {
     ///
     /// This is the loadable-transport path: reactions listed in `emissions` get a
     /// TYR yield and a DLW law (Law 3 for discrete levels, Law 4 for continuum /
-    /// (n,xn)); their secondary angular distribution is left isotropic (an
-    /// AND-block upgrade is future work). NXS(5)=NR is set to the producer count.
+    /// (n,xn)); ~~their secondary angular distribution is left isotropic (an
+    /// AND-block upgrade is future work)~~ **CORRECTED 2026-10-14:** their
+    /// angular distributions are written too: through
+    /// [`Self::from_reconr_full_with_extras`], U-234's AND block (78 143
+    /// words, every reaction) is NJOY2016's in every word
+    /// (`tests/process_api.rs`, `tests/ace_compare.rs`). NXS(5)=NR is set to
+    /// the producer count.
     /// `heating` is the MT=301 KERMA cross section (build it with
     /// ~~[`Kerma::from_reconr`][crate::heatr::Kerma::from_reconr]~~
     /// ~~[`Kerma::from_endf`][crate::heatr::Kerma::from_endf], which deposits
@@ -885,14 +890,19 @@ impl AceTable {
         // (continuous-energy neutron), e.g. "92235.00c".
         let zaid_num = za as f64 + suffix as f64 / 100.0;
         let zaid = format!("{:9.2}c", zaid_num);
-        // `hm` is a cosmetic 10-char material tag. We do not retain the ENDF MAT
-        // in `ReconrResult`, so tag with ZA (what a reader displays anyway).
+        // `hm` is a 10-char material tag. ~~We do not retain the ENDF MAT in
+        // `ReconrResult`, so tag with ZA (what a reader displays anyway).~~
+        // CORRECTED 2026-10-14 (gh:#864): upstream writes the MAT
+        // (`acefc.f90:4949`, `'   mat',i4`), and `build_deck`, which knows
+        // it, now overwrites this tag with it; only a table built here without
+        // a deck keeps the ZA.
         let mat_id = format!("{:>10}", format!("mat{za}"));
 
         AceTable {
             zaid,
             awr,
             kt_mev,
+            iz: [0; 16],
             date: "  njoy-rust".to_string(),
             // Provenance, written into the ACE `hk` field (70 chars) so it
             // travels with the table rather than beside it: which crate

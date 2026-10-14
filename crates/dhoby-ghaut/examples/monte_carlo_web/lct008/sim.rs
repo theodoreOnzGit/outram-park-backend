@@ -60,6 +60,15 @@ impl Chain {
         Self { rng: seed, next_index: 0, pending_fission: None }
     }
 
+    /// Make the next history start at a site of `keff`'s present fission
+    /// source (Run mode's drawn neutrons, gh:#859), born as from a thermal
+    /// fission.
+    pub fn born_from(&mut self, keff: &crate::csgrung::Keff) {
+        if let Some(r) = keff.source_site(&mut self.rng) {
+            self.pending_fission = Some((r, FRESH_INCIDENT_EV));
+        }
+    }
+
     pub fn run_next(&mut self, phys: &Physics) -> History {
         let u235 = &phys.data.nuclides[N_U235];
         let from_fission = self.pending_fission.is_some();

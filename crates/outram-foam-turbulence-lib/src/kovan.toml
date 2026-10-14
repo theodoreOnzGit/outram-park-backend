@@ -7,6 +7,19 @@ crate_root = true
 [module."error.rs"]
 path = "crate::error"
 
+[[module."error.rs".function]]
+id = "fn:783b07dad10a205c"
+name = "TurbulenceError"
+qual = "TurbulenceError"
+item = "type"
+shape = "enum"
+lines = [
+    30,
+    49,
+]
+hash = "sha256:ecf5d027cd4dffaa65755687a3458d4dd9c33325d81ddce8bcabb944e3394649"
+doc_hash = "sha256:1bb6d13ede6a4cd6d00e54f2bb16e553220743e56cf2cea0787c307235add3eb"
+
 [module."lib.rs"]
 path = "crate"
 
@@ -15,6 +28,24 @@ path = "crate::prelude"
 
 [module."traits.rs"]
 path = "crate::traits"
+
+[[module."traits.rs".function]]
+id = "fn:b997bf6ed6fe8d91"
+name = "TurbulenceModel"
+qual = "TurbulenceModel"
+item = "type"
+shape = "trait"
+lines = [
+    34,
+    67,
+]
+hash = "sha256:300e5ec549d935b1ccf14a6d5048c1b9af966566ae21fbb7bcdcbbeb1b95668a"
+doc_hash = "sha256:2cfbf24d004ed8ff722747366d8c75efb1a8d42848648488d10c7f615df8b911"
+uses = [
+    "fn:5c58987100382184",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+]
 
 [[module."traits.rs".function]]
 id = "fn:ff7711f8c7d8687d"
@@ -26,6 +57,11 @@ lines = [
 ]
 hash = "sha256:06885edf1fa375198ccce0fb304dce602a8c0e9a7fd910a1ce376f2d6dc41f55"
 doc_hash = "sha256:b9c472cd8ddef01d2a2424e03484d687ddaf7e34137755e2a3268869d1057c31"
+uses = [
+    "fn:5c58987100382184",
+    "fn:8d6cd763d46808ac",
+    "fn:b997bf6ed6fe8d91",
+]
 
 [[module."traits.rs".function]]
 id = "fn:54d86fc46c130418"
@@ -37,6 +73,7 @@ lines = [
 ]
 hash = "sha256:046155cc17e6686333000af00e518e52d58815081053174619ed1e9336724768"
 doc_hash = "sha256:a5dc49ad1b01b4d50ab7e992cd3405279084ee1edf7db7bf8626b1a7379625b2"
+uses = ["fn:b997bf6ed6fe8d91"]
 
 [[module."traits.rs".function]]
 id = "fn:afe9619977a3edb8"
@@ -48,6 +85,10 @@ lines = [
 ]
 hash = "sha256:1c88c18fba0fcfe6d3cadc1525b1264b765d22fb94cf3ae32ec5b5239efcdc7d"
 doc_hash = "sha256:bc797e9936b34365c65343bcef9bcbd4a2ad7208076db6fba03ca77849e5d746"
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:b997bf6ed6fe8d91",
+]
 
 [[module."traits.rs".function]]
 id = "fn:90ac8d4795659069"
@@ -59,6 +100,10 @@ lines = [
 ]
 hash = "sha256:bc1c7d34fb99eba3a79afe406120745bcec9d4bfc568baf34e98a29713b80962"
 doc_hash = "sha256:2098691aac27da7ffe4c50325625eb77eea29dbc250fd81590a10f7100aceb83"
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:b997bf6ed6fe8d91",
+]
 
 [[module."traits.rs".function]]
 id = "fn:6ce7272fc7a27b7f"
@@ -70,3 +115,7 @@ lines = [
 ]
 hash = "sha256:e76d4e17e2aee0d3a9fa7127daf628f724187d247572baadfeb85f70cd0ca5c3"
 doc_hash = "sha256:407c2523d550aceb4a2630c265d453fd81ad8d9393011b24242699b471bbae9b"
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:b997bf6ed6fe8d91",
+]

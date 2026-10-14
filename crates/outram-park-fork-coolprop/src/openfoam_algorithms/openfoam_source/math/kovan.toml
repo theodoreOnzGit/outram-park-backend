@@ -329,6 +329,25 @@ test = true
 path = "crate::openfoam_algorithms::openfoam_source::math::inv_inc_gamma"
 
 [[module."inv_inc_gamma.rs".function]]
+id = "fn:d52e1c448d201501"
+name = "EU"
+qual = "EU"
+item = "const"
+shape = "const"
+lines = [
+    22,
+    30,
+]
+hash = "sha256:711f3e83f83ca314283f9ee7b13adf4574c3dc7056ec3177d4cbfc23a56d709a"
+doc_hash = "sha256:b8861e8c343fdba42ac4d5a23855d8173d82da4bffdf1ab7b2d2a11ba142d798"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."inv_inc_gamma.rs".function]]
 id = "fn:e21fb129710e4d72"
 name = "minimaxs"
 qual = "minimaxs"
@@ -378,6 +397,7 @@ callees = [
     "fn:9ed35cef2c5a2104",
     "fn:e21fb129710e4d72",
 ]
+uses = ["fn:d52e1c448d201501"]
 reached_by = [
     "#6",
     "#7",

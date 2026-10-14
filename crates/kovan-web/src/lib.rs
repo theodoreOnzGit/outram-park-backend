@@ -36,6 +36,8 @@
 //! - [`model`]: the pure model (module tree, crate-view layout, call
 //!   hierarchy layout, deep links, stamp lookups, rustdoc URLs, search).
 //!   No egui; tested on every target.
+//! - [`syntax`]: which runs of a source line get which colour (#857), from
+//!   the `kopitiam-syntax` line lexer; no language server.
 //! - [`data`]: background loading into `Arc<RwLock<_>>` shared state.
 //! - [`platform`]: clock, URL hash, browser differences.
 //! - `ui` (not on Android): the egui UI, [`ui::CodeReview`].
@@ -51,6 +53,7 @@ pub mod data;
 pub mod model;
 pub mod platform;
 pub mod search;
+pub mod syntax;
 #[cfg(not(target_os = "android"))]
 pub mod ui;
 

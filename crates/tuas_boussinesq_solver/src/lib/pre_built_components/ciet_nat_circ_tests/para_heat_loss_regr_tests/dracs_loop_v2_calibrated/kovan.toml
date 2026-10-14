@@ -205,6 +205,14 @@ callees = [
     "fn:ee48fed6fbd70492",
     "fn:f8b8b8874aae4e2b",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:f811c4c8869b08b0",
+]
 reached_by = [
     "#0",
     "#1",

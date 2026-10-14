@@ -4,6 +4,10 @@ crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/secondary_loop"
 test_ids = [
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/mod.rs::the_ua_slider_crossed_partway_up_at_the_nominal_operating_point",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/salt_freeze_guard.rs::a_frozen_loop_is_detected_named_and_located",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/salt_freeze_guard.rs::a_healthy_plant_is_not_reported_as_frozen",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/salt_freeze_guard.rs::the_coldest_node_is_reported_when_both_loops_freeze",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/salt_freeze_guard.rs::the_simulation_pauses_on_freeze_and_resumes_after_a_melt",
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/secondary_loop/steam_generator_duty.rs::a_throttled_intermediate_loop_crossed_on_the_salt_side",
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/secondary_loop/steam_generator_duty.rs::no_duty_flows_when_the_tube_side_is_hotter_than_the_shell",
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/secondary_loop/steam_generator_duty.rs::second_law_holds_across_the_whole_ua_slider",
@@ -13,6 +17,84 @@ test_ids = [
 
 [module."mod.rs"]
 path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::secondary_loop"
+
+[[module."mod.rs".function]]
+id = "fn:3e0428fa38b5085c"
+name = "SG_TUBE_CELLS"
+qual = "SG_TUBE_CELLS"
+item = "const"
+shape = "const"
+lines = [
+    26,
+    28,
+]
+hash = "sha256:5ff29609b49015bfcf939f017042af7a1208b68ec627e8e7124ed8327669c062"
+doc_hash = "sha256:9b207d16aad719ce971328a000d54c04a34fa72727544526fea4ca621483ec71"
+
+[[module."mod.rs".function]]
+id = "fn:e01cf59289b302b7"
+name = "SG_TUBE_LENGTH_M"
+qual = "SG_TUBE_LENGTH_M"
+item = "const"
+shape = "const"
+lines = [
+    29,
+    30,
+]
+hash = "sha256:42e089c3395003b2b1735afa39c3940d07d6e0ff3589243147e47c8e11d3b147"
+doc_hash = "sha256:bc1b34ac3d9610df74d88385e2a6b69ca6d24969c4100da61567088c320a4f8f"
+
+[[module."mod.rs".function]]
+id = "fn:b1a28c6d300079fc"
+name = "SG_TUBE_AREA_M2"
+qual = "SG_TUBE_AREA_M2"
+item = "const"
+shape = "const"
+lines = [
+    31,
+    37,
+]
+hash = "sha256:2bbe7d48224f8cd3740453af3c78d55fc6fa33584513319d4a73ba3d8b672cc9"
+doc_hash = "sha256:fe7f0d04fb973ad64fd17e12d5eef98ed51ace588c98bd3ce6d6b256e8b07d08"
+
+[[module."mod.rs".function]]
+id = "fn:50298960ca1f61ce"
+name = "SG_TUBE_NOMINAL_VELOCITY_M_PER_S"
+qual = "SG_TUBE_NOMINAL_VELOCITY_M_PER_S"
+item = "const"
+shape = "const"
+lines = [
+    38,
+    41,
+]
+hash = "sha256:c807e42b2a5632a737459b3b9ad34b2f0a16f52f0ed9b1d76458c0677ffbc069"
+doc_hash = "sha256:43d59095fb3461a2a2893b66b16d2896de54161b4946639b929d85853f06e563"
+
+[[module."mod.rs".function]]
+id = "fn:32a7092e45bccab2"
+name = "SG_TUBE_DT_S"
+qual = "SG_TUBE_DT_S"
+item = "const"
+shape = "const"
+lines = [
+    42,
+    44,
+]
+hash = "sha256:21d773f06ee3797a2aeb048544cb46c0608f699e902321adf21a4b1d39c4511e"
+doc_hash = "sha256:e10dd9ee8904db4c84ce43d011c55415f2f2c43040f0810c1af706852137cee1"
+
+[[module."mod.rs".function]]
+id = "fn:ff241ec280b187d9"
+name = "SG_TUBE_SUBSTEPS_PER_TH_STEP"
+qual = "SG_TUBE_SUBSTEPS_PER_TH_STEP"
+item = "const"
+shape = "const"
+lines = [
+    45,
+    51,
+]
+hash = "sha256:f5472170a2752139320117bba1a115e56bbfb04607a345d8d606c31f757bdfc2"
+doc_hash = "sha256:a77f90d3bb0972d0a3b80e3c10e62ec25e8e96921a4cfccaa00c7cb66b793945"
 
 [[module."mod.rs".function]]
 id = "fn:0a7f37ddc2a338e4"
@@ -30,6 +112,14 @@ callees = [
     "fn:4c5c8e9916515b40",
     "fn:a35132a84396237f",
     "fn:e3b184e79e6044fe",
+]
+uses = [
+    "fn:32a7092e45bccab2",
+    "fn:3e0428fa38b5085c",
+    "fn:50298960ca1f61ce",
+    "fn:b1a28c6d300079fc",
+    "fn:e01cf59289b302b7",
+    "fn:ed7d6d3f3ea52b6e",
 ]
 
 [[module."mod.rs".function]]
@@ -65,7 +155,31 @@ callees = [
     "fn:f241daed20aed39e",
     "fn:f472eb21333733c8",
 ]
+uses = [
+    "fn:1e9e054cc5b5a361",
+    "fn:3e0428fa38b5085c",
+    "fn:41062386b2648e49",
+    "fn:87bb457a9eec06de",
+    "fn:97fc8cbae769968e",
+    "fn:b1a28c6d300079fc",
+    "fn:ed7d6d3f3ea52b6e",
+    "fn:ff241ec280b187d9",
+]
 physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:87bb457a9eec06de"
+name = "SecondaryLoopState"
+qual = "SecondaryLoopState"
+item = "type"
+shape = "struct"
+lines = [
+    318,
+    344,
+]
+hash = "sha256:17ac87e652d40b80b80778ecf522cdb30be17160aeea7c97c2494cf99cd1e9b8"
+doc_hash = "sha256:0fc133357fe121d5863c1a55ccfb8d7275ceff60c5a84d2c2d4a62dc469a7ca3"
+uses = ["fn:1e9e054cc5b5a361"]
 
 [module."pool_boiling.rs"]
 path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::secondary_loop::pool_boiling"
@@ -86,6 +200,177 @@ physical_interface = true
 path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::secondary_loop::steam_generator_duty"
 
 [[module."steam_generator_duty.rs".function]]
+id = "fn:8795eda265b65a57"
+name = "CONDENSER_OUTLET_PRESSURE_BAR"
+qual = "CONDENSER_OUTLET_PRESSURE_BAR"
+item = "const"
+shape = "const"
+lines = [
+    71,
+    74,
+]
+hash = "sha256:a37d0d5535cd40e6053ad5a172bc54e7f6212c267e2a1d8f5f2441ed28851add"
+doc_hash = "sha256:c7406353bc6e8dd48e7fdc138fb88f4f1a8c4dbc223d5ac6a85c8ecb0aa95bfa"
+reached_by = [
+    "#0",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."steam_generator_duty.rs".function]]
+id = "fn:59e7bfcfb240474e"
+name = "CONDENSER_OUTLET_TEMPERATURE_DEGC"
+qual = "CONDENSER_OUTLET_TEMPERATURE_DEGC"
+item = "const"
+shape = "const"
+lines = [
+    75,
+    76,
+]
+hash = "sha256:81e04874cdeead56c7c576af87a5f0e11342ae7c65a169e70d66616cc99aea68"
+doc_hash = "sha256:abf793147055f956010ccbfea8992c73cd2cb792f57002ce81620a0d663c4ffc"
+reached_by = [
+    "#0",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."steam_generator_duty.rs".function]]
+id = "fn:7e6623175683fb85"
+name = "MINIMUM_PUMP_OUTLET_PRESSURE_BAR"
+qual = "MINIMUM_PUMP_OUTLET_PRESSURE_BAR"
+item = "const"
+shape = "const"
+lines = [
+    77,
+    80,
+]
+hash = "sha256:6d7f3683adbc5710b2aaffb354990a41ab3caa190ef3b61aabf11c026e496398"
+doc_hash = "sha256:a500ccd19a07de29f70930c45443bf9803e422f8a06755dff0caaf69fa534b93"
+reached_by = [
+    "#0",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."steam_generator_duty.rs".function]]
+id = "fn:ba76f12488395cc4"
+name = "IF97_MAXIMUM_TEMPERATURE_K"
+qual = "IF97_MAXIMUM_TEMPERATURE_K"
+item = "const"
+shape = "const"
+lines = [
+    82,
+    86,
+]
+hash = "sha256:9bf91e393a5df44eda27269ae8845c4216df808ef01418cc0549609b6434792c"
+doc_hash = "sha256:590e07370db7d8a6a42d873eb503b4868b94d3cecaea9dad32a285b4ac9ff56a"
+reached_by = [
+    "#0",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."steam_generator_duty.rs".function]]
+id = "fn:5b0edc27c75d472a"
+name = "SATURATION_GUARD_BAND_K"
+qual = "SATURATION_GUARD_BAND_K"
+item = "const"
+shape = "const"
+lines = [
+    88,
+    96,
+]
+hash = "sha256:f851f55e16b2857b6f8941083542219d2565fe749e7a739aa151177cedb01393"
+doc_hash = "sha256:bcc1b3a69db16b6a0cf03b38a177ee1035993ba9c42fc54e43500d4c23bc2804"
+reached_by = [
+    "#0",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."steam_generator_duty.rs".function]]
+id = "fn:97fc8cbae769968e"
+name = "FeedwaterInletState"
+qual = "FeedwaterInletState"
+item = "type"
+shape = "struct"
+lines = [
+    98,
+    117,
+]
+hash = "sha256:b014839170544d8dfd77d33f6ecb7df83d64cbcedb3a4934df2948e96015c8ef"
+doc_hash = "sha256:d1bdce2b7e1800bebff8281fce1199e1df97bc5118ee7f9a6dcd9f3b9d51772f"
+reached_by = [
+    "#0",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."steam_generator_duty.rs".function]]
+id = "fn:7c5ee630dddc8820"
+name = "SteamGeneratorDutyLimit"
+qual = "SteamGeneratorDutyLimit"
+item = "type"
+shape = "enum"
+lines = [
+    119,
+    136,
+]
+hash = "sha256:48dfe4bc7dd8041fe5d61eb3021d278ac97ce149da48f4e78725bb48b827ebf8"
+doc_hash = "sha256:f2208e28d4807e9f7037ffdec178181fa7f3329129c6ef253dd040c1eeb2deb5"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."steam_generator_duty.rs".function]]
+id = "fn:1be8442ab54a492c"
+name = "SteamGeneratorDuty"
+qual = "SteamGeneratorDuty"
+item = "type"
+shape = "struct"
+lines = [
+    138,
+    152,
+]
+hash = "sha256:11daec00cca29895840dcf30d32d5e6cb8aac4c80ae1ee1b3a92f2ac017bf7db"
+doc_hash = "sha256:a089b40034b5b292c373a42a09fe80fbe43add9b8f110b1331e7b36f071da2c5"
+uses = ["fn:7c5ee630dddc8820"]
+reached_by = [
+    "#0",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."steam_generator_duty.rs".function]]
 id = "fn:d1c084d9ef78b882"
 name = "feedwater_inlet_state"
 qual = "feedwater_inlet_state"
@@ -100,13 +385,19 @@ callees = [
     "fn:a034500d55b2a2be",
     "fn:a7e7cd55f47c47fa",
 ]
+uses = [
+    "fn:59e7bfcfb240474e",
+    "fn:7e6623175683fb85",
+    "fn:8795eda265b65a57",
+    "fn:97fc8cbae769968e",
+]
 reached_by = [
     "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
     "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
 ]
 physical_interface = true
 
@@ -124,13 +415,17 @@ callees = [
     "fn:a034500d55b2a2be",
     "fn:eff47085ca6952fe",
 ]
+uses = [
+    "fn:5b0edc27c75d472a",
+    "fn:ba76f12488395cc4",
+]
 reached_by = [
     "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
     "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
 ]
 physical_interface = true
 
@@ -145,12 +440,17 @@ lines = [
 hash = "sha256:6e0629eeb69ceefe937094bb7fc3660f0717582ac37fabc920ada58e54d515c9"
 doc_hash = "sha256:b217ad718a7867952c41ee810786af8de4c6d8b9615e4edf4b4b9981e0fe7c7a"
 callees = ["fn:3f441412e7bcbef7"]
+uses = [
+    "fn:1be8442ab54a492c",
+    "fn:7c5ee630dddc8820",
+    "fn:97fc8cbae769968e",
+]
 reached_by = [
     "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
 ]
 physical_interface = true
 
@@ -165,10 +465,24 @@ lines = [
 hash = "sha256:47b050b396230aae6de1a38ef4222c1f2749450d368a392c03b2322e37470352"
 doc_hash = "sha256:44f4f8ea140dac83cb494334be930c7864c283ff29c6a651f7b3b60e3e7d15fd"
 reached_by = [
-    "#1",
     "#5",
+    "#9",
 ]
 physical_interface = true
+
+[[module."steam_generator_duty.rs".function]]
+id = "fn:43a8fbbe4f9a9720"
+name = "SweepGrid"
+qual = "SweepGrid"
+item = "type"
+shape = "struct"
+lines = [
+    341,
+    355,
+]
+hash = "sha256:475f041a010f6f767726734fa16799b0b8c474da25d8dca9737134c172adf7c0"
+doc_hash = "sha256:81e6aafacbfdb6e008883a3b18a69721ffdbda15d97d8b934105a1533e612c17"
+test = true
 
 [[module."steam_generator_duty.rs".function]]
 id = "fn:8ec4a57cbe95233f"
@@ -180,6 +494,7 @@ lines = [
 ]
 hash = "sha256:59dc7c0698fa6516dacaab8fa51e6bbe58dec92b9665a8cfa8df73f85771c6d0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:43a8fbbe4f9a9720"]
 test = true
 
 [[module."steam_generator_duty.rs".function]]
@@ -193,6 +508,7 @@ lines = [
 hash = "sha256:c97553b93e584d0a0abd2cbfc662eb8180a01dbc91d5a1bd255f230c6d703fee"
 doc_hash = "sha256:a7cf0c73608c46ef98d222f559c4b074751f49b7f525a035eee4f8f423cd2578"
 callees = ["fn:f09f00cc4fcef6cc"]
+uses = ["fn:97fc8cbae769968e"]
 test = true
 physical_interface = true
 
@@ -204,7 +520,7 @@ lines = [
     388,
     617,
 ]
-hash = "sha256:967cc0688a686d185a11455fd613b316886c59047542d8c2e3be701b394cc7f2"
+hash = "sha256:fedcfe2045022409c1c945443bc92f4b5211f9cacffd9a8aaa3d48f7df080f4e"
 doc_hash = "sha256:a3b951bcf3916d068afacf3519151fad05c20b780ef4aed219964ce2a6d70802"
 callees = [
     "fn:126ee82fa03643bf",
@@ -214,6 +530,7 @@ callees = [
     "fn:cdbcbad941544795",
     "fn:d1c084d9ef78b882",
 ]
+uses = ["fn:de020efa1d48c9ac"]
 test = true
 
 [[module."steam_generator_duty.rs".function]]
@@ -224,7 +541,7 @@ lines = [
     619,
     783,
 ]
-hash = "sha256:a021c1744eadbb891789860f317f8755a950374cdb942de444ce306a533d141a"
+hash = "sha256:5b991fac071929c0bf06040dc37fc03de60f43f4974229842897ed5af6097e1c"
 doc_hash = "sha256:b7446ff29680b36f332e5facf98b8cf39cadce401e7f83bdfdad65d95f7ef3b7"
 callees = [
     "fn:0014b715170fce8a",
@@ -233,6 +550,7 @@ callees = [
     "fn:8ec4a57cbe95233f",
     "fn:d1c084d9ef78b882",
 ]
+uses = ["fn:de020efa1d48c9ac"]
 test = true
 
 [[module."steam_generator_duty.rs".function]]
@@ -243,7 +561,7 @@ lines = [
     785,
     915,
 ]
-hash = "sha256:f787359b3bf5fa9c6a6d1d8f73c04c74e50caf13b0372684e9fe79f884f3560a"
+hash = "sha256:b102b5f8086c147cf73cd877ddf7114092ff28fcf053e3625525c5eb3ccb7295"
 doc_hash = "sha256:097b117466045f4dab945bd405e54adde31fdfd9385f9149f4583bd92f2c3a8c"
 callees = [
     "fn:0014b715170fce8a",
@@ -252,6 +570,7 @@ callees = [
     "fn:cdbcbad941544795",
     "fn:d1c084d9ef78b882",
 ]
+uses = ["fn:de020efa1d48c9ac"]
 test = true
 
 [[module."steam_generator_duty.rs".function]]
@@ -268,6 +587,7 @@ callees = [
     "fn:cdbcbad941544795",
     "fn:d1c084d9ef78b882",
 ]
+uses = ["fn:7c5ee630dddc8820"]
 test = true
 
 [[module."steam_generator_duty.rs".function]]
@@ -284,6 +604,7 @@ callees = [
     "fn:cdbcbad941544795",
     "fn:d1c084d9ef78b882",
 ]
+uses = ["fn:7c5ee630dddc8820"]
 test = true
 
 [module."vibe_code_mass_balance.rs"]
@@ -317,4 +638,5 @@ callees = [
     "fn:6dc82a6475c2f1e2",
     "fn:a8d2c092b653387b",
 ]
+uses = ["fn:33a2eb8456953def"]
 test = true

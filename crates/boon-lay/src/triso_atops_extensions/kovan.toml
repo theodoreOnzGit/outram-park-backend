@@ -47,11 +47,35 @@ callees = [
     "fn:d51049d00f066bb6",
     "fn:f539e7a44fe9c7e3",
 ]
+uses = [
+    "fn:2816dd8674f2b148",
+    "fn:49cbfd358a6976d4",
+    "fn:546333a5363bc5a2",
+    "fn:8f6c972c90fdceff",
+    "fn:a1f17cdf51adec8f",
+    "fn:dcb6acb5e841b5b0",
+    "fn:e6c95a55e6568166",
+]
 reached_by = [
     "#0",
     "#1",
 ]
 physical_interface = true
+
+[[module."normal_operation.rs".function]]
+id = "fn:62b0c9917508518c"
+name = "FRACTIONS"
+qual = "FRACTIONS"
+item = "const"
+shape = "const"
+lines = [
+    145,
+    150,
+]
+hash = "sha256:f6a3585c5ec7d4fe7568d5f534ec35c8f5e488b482c976150420ba8023af43cf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2816dd8674f2b148"]
+test = true
 
 [[module."normal_operation.rs".function]]
 id = "fn:52a4c3498d3ff7ab"
@@ -63,6 +87,7 @@ lines = [
 ]
 hash = "sha256:af39c49bd36a456a49b789fb1bab45b9a34694bdf1b728c16a08c6dd41483395"
 doc_hash = "sha256:8488c32813ef30f462c92cf124b2f7e89bf13a69972f6db90b07989e138cba51"
+uses = ["fn:515e6933ab0603f9"]
 test = true
 
 [[module."normal_operation.rs".function]]
@@ -75,6 +100,7 @@ lines = [
 ]
 hash = "sha256:9b344ffb1390bb6eb5bd5d5346cefd944feec6d6f73305a6980bc216fb39d98c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:8f6c972c90fdceff"]
 test = true
 
 [[module."normal_operation.rs".function]]
@@ -87,6 +113,7 @@ lines = [
 ]
 hash = "sha256:40100f9cff47fcb4b8ec62c9ce94abf18146489af2a47a7365678763ef832070"
 doc_hash = "sha256:0dc537915f66769f9c4e0c7f51cf3b31aff82a6b33ccbe522bea34979b86d79d"
+uses = ["fn:dcb6acb5e841b5b0"]
 test = true
 
 [[module."normal_operation.rs".function]]
@@ -103,6 +130,14 @@ callees = [
     "fn:3253c8fec18163c8",
     "fn:44fd31aa536c0e7c",
     "fn:52a4c3498d3ff7ab",
+]
+uses = [
+    "fn:49cbfd358a6976d4",
+    "fn:546333a5363bc5a2",
+    "fn:62b0c9917508518c",
+    "fn:8f6c972c90fdceff",
+    "fn:a1f17cdf51adec8f",
+    "fn:dcb6acb5e841b5b0",
 ]
 test = true
 
@@ -129,6 +164,12 @@ callees = [
     "fn:e503a3d0722ff508",
     "fn:e51690ceac62577b",
 ]
+uses = [
+    "fn:49cbfd358a6976d4",
+    "fn:62b0c9917508518c",
+    "fn:a1f17cdf51adec8f",
+    "fn:dcb6acb5e841b5b0",
+]
 test = true
 
 [[module."normal_operation.rs".function]]
@@ -152,10 +193,44 @@ callees = [
     "fn:e3643db3289f77db",
     "fn:e503a3d0722ff508",
 ]
+uses = [
+    "fn:49cbfd358a6976d4",
+    "fn:a1f17cdf51adec8f",
+    "fn:d9fc661a522b11ce",
+    "fn:db2f598905bf3f45",
+]
 test = true
 
 [module."removal_rates.rs"]
 path = "crate::triso_atops_extensions::removal_rates"
+
+[[module."removal_rates.rs".function]]
+id = "fn:db2f598905bf3f45"
+name = "GroupRates"
+qual = "GroupRates"
+item = "type"
+shape = "struct"
+lines = [
+    50,
+    57,
+]
+hash = "sha256:d6d770394902b2f63bb63bddaa43255a0b3186070ab82ad33b2add80be0f28c4"
+doc_hash = "sha256:dd24517fce09bdf9e7567b9cc7e1a2975d3d9d55ccb8019b2b8d9bf1aa1f35ed"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
 
 [[module."removal_rates.rs".function]]
 id = "fn:7f7ae797bf59c901"
@@ -167,6 +242,7 @@ lines = [
 ]
 hash = "sha256:72dc2e86eb6a44840b7393c28cf0b733822b56013369d6791d3f24fbe89823a2"
 doc_hash = "sha256:ba867a2203cf3cc6e966448f9b5d1ab2816a8621824abba0a69f88b73299e850"
+uses = ["fn:db2f598905bf3f45"]
 reached_by = [
     "#2",
     "#4",
@@ -183,7 +259,37 @@ lines = [
 hash = "sha256:1f53352ee86325392d5b906b07bbea3d472f5e21d9738eda56beb01ee0bbcda6"
 doc_hash = "sha256:9fb04b7a258f216dde7d2673c66213def4ecc886abafcbef0e5c50be722b9dfd"
 callees = ["fn:7f7ae797bf59c901"]
+uses = ["fn:db2f598905bf3f45"]
 reached_by = ["#4"]
+
+[[module."removal_rates.rs".function]]
+id = "fn:a1f17cdf51adec8f"
+name = "RemovalRates"
+qual = "RemovalRates"
+item = "type"
+shape = "struct"
+lines = [
+    76,
+    89,
+]
+hash = "sha256:a6a882bda66ce1e87b3f50caeba0badf1fe107538e130f09d60f96523bccafa4"
+doc_hash = "sha256:325585202947a2c3fa25afe4b3b792a83b4d6abb91e2596d2b78a3a9855d2e57"
+uses = ["fn:db2f598905bf3f45"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
 
 [[module."removal_rates.rs".function]]
 id = "fn:d3507d0419becf9f"
@@ -195,6 +301,10 @@ lines = [
 ]
 hash = "sha256:1e4be38d046d61aa9941dd6a47cbdf94e1fde0e6e06c76923ddf2a7befaccccc"
 doc_hash = "sha256:373dc4153ead33b58d05c22fb37fa26ab7f4ac3ce1fe174887de9455b72f5f5f"
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:db2f598905bf3f45",
+]
 reached_by = [
     "#0",
     "#1",
@@ -222,6 +332,7 @@ lines = [
 ]
 hash = "sha256:18986c63b9b0fe7e761c6c88c9bb359eb527a2702a2c86774323be66dfe242a6"
 doc_hash = "sha256:184fd56d798705327622ca8562300a45184a7c2233362774598e082f1d517219"
+uses = ["fn:a1f17cdf51adec8f"]
 reached_by = [
     "#1",
     "#4",
@@ -238,6 +349,11 @@ lines = [
 hash = "sha256:b7495f05697a0a8cd6c0b085cbd30d7140827d0d26d76f2053854d053a5a341b"
 doc_hash = "sha256:7b580e3348b619470200dbfe63ccdf82b77207aee5b613cb8c0ed29912663d3b"
 callees = ["fn:ada5ea0a58f61554"]
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:d9fc661a522b11ce",
+    "fn:db2f598905bf3f45",
+]
 reached_by = [
     "#0",
     "#2",
@@ -253,6 +369,10 @@ lines = [
 ]
 hash = "sha256:69e212f523dda82b88a5d5476d3baa82d09eddf026461817f93babe1e16f584d"
 doc_hash = "sha256:2a4fe027577931f0fd256e2f0cd906d839f58b0e7d5758575c560a74aa2f7d0e"
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:db2f598905bf3f45",
+]
 reached_by = [
     "#0",
     "#2",
@@ -268,6 +388,11 @@ lines = [
 ]
 hash = "sha256:931e141e403d4837a178d94d07017383b80608ae6cd2c079215bfedfe9c52037"
 doc_hash = "sha256:b79c7d70edaa8db1db4574b61e24d3723a6eb653daae65966de55b36d435ae34"
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:d9fc661a522b11ce",
+    "fn:db2f598905bf3f45",
+]
 reached_by = [
     "#0",
     "#1",
@@ -294,6 +419,11 @@ lines = [
 ]
 hash = "sha256:1c17078c738e1f33510d42dba0683ce512d0dc68959e11c0565f7850583a1176"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:d9fc661a522b11ce",
+    "fn:db2f598905bf3f45",
+]
 reached_by = [
     "#0",
     "#2",
@@ -312,6 +442,11 @@ doc_hash = "sha256:8c2697cc6008cfcd6361afb2dc1f448020c91e0b18e1f465d33ba3f42e2bb
 callees = [
     "fn:2e610cfd767d4eb5",
     "fn:ce93455eba03d31d",
+]
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:d9fc661a522b11ce",
+    "fn:db2f598905bf3f45",
 ]
 reached_by = [
     "#0",
@@ -340,6 +475,10 @@ lines = [
 hash = "sha256:fb4c688b6cccd60a1e1622a7ad37dec7cfe58fda9b1e0513822c7fa0c78f535f"
 doc_hash = "sha256:26e8168efb3bfe2fa633d2b58e229180bf023d4a3646b8b00e0852a4f988bc9a"
 callees = ["fn:f539e7a44fe9c7e3"]
+uses = [
+    "fn:60da73c1a5c2618c",
+    "fn:a1f17cdf51adec8f",
+]
 reached_by = [
     "#5",
     "#6",
@@ -368,6 +507,11 @@ callees = [
     "fn:a121cb5bbac3e82f",
     "fn:ddb8066c67dc6d1e",
     "fn:f539e7a44fe9c7e3",
+]
+uses = [
+    "fn:74ae5e4416322e44",
+    "fn:a1f17cdf51adec8f",
+    "fn:db2f598905bf3f45",
 ]
 physical_interface = true
 
@@ -399,6 +543,19 @@ reached_by = ["#3"]
 physical_interface = true
 
 [[module."removal_rates.rs".function]]
+id = "fn:74ae5e4416322e44"
+name = "PerCycleRemoval"
+qual = "PerCycleRemoval"
+item = "type"
+shape = "struct"
+lines = [
+    280,
+    292,
+]
+hash = "sha256:af7f373a6e7959e666c416e8b0e42df3df3bf366d72aa701797327b5686d5f7d"
+doc_hash = "sha256:42a475f03557cf5baa5f5e17f056a27db8f26d7619635873f233deef0d4e4ffe"
+
+[[module."removal_rates.rs".function]]
 id = "fn:969715cc977ff30c"
 name = "liu_cao_2002_htr10"
 qual = "liu_cao_2002_htr10"
@@ -408,6 +565,7 @@ lines = [
 ]
 hash = "sha256:5660f2947994e283adfd629c2a1dd1d648d4ca9c9093d276ed44dae6daa52940"
 doc_hash = "sha256:55252535d9d2027930cee855103a3376ead33c8298dcb95f0a6dcb6ec6b1ac4b"
+uses = ["fn:74ae5e4416322e44"]
 
 [[module."removal_rates.rs".function]]
 id = "fn:c833166e9eac0e21"
@@ -443,6 +601,10 @@ callees = [
     "fn:e51690ceac62577b",
     "fn:f539e7a44fe9c7e3",
 ]
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:db2f598905bf3f45",
+]
 test = true
 
 [[module."removal_rates.rs".function]]
@@ -462,6 +624,11 @@ callees = [
     "fn:d3507d0419becf9f",
     "fn:ddb8066c67dc6d1e",
     "fn:f539e7a44fe9c7e3",
+]
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:d9fc661a522b11ce",
+    "fn:db2f598905bf3f45",
 ]
 test = true
 

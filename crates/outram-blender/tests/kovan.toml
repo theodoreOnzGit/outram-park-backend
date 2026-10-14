@@ -7,6 +7,21 @@ dir = "crates/outram-blender/tests"
 path = "test:gpu_csg_parity"
 
 [[module."gpu_csg_parity.rs".function]]
+id = "fn:91f74ea7e09ea50d"
+name = "T"
+qual = "T"
+item = "const"
+shape = "const"
+lines = [
+    105,
+    105,
+]
+hash = "sha256:7aa9ac40c5d0ca9013600977d1e948741b8cd4f1158693f3f9b3f65be919a94d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:37836d247be84011"]
+test = true
+
+[[module."gpu_csg_parity.rs".function]]
 id = "fn:bc2cd82fa00f199d"
 name = "hs"
 qual = "hs"
@@ -16,6 +31,10 @@ lines = [
 ]
 hash = "sha256:baaae26e4fa0140f883ce95425b3b3c58a9f3d623dfd2772bf21ed5d9af553ec"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:0101487ca706ad91",
+    "fn:647cfe485b5afd17",
+]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -28,6 +47,7 @@ lines = [
 ]
 hash = "sha256:a3f52e59123430ee44e6439ee4a19e69237798d6f06cf9269cbe231a3a36cc5d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:0101487ca706ad91"]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -40,6 +60,11 @@ lines = [
 ]
 hash = "sha256:6daf4f7289accd029d61f16f3f44789b825cc5055cd1b61cbb28fa22b137496d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:15c0bf0d621b4704",
+    "fn:8a79e8b4689769ae",
+    "fn:91f74ea7e09ea50d",
+]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -60,6 +85,24 @@ callees = [
     "fn:c3dac6f70b093b6f",
     "fn:cb1fc1a67d38f99a",
 ]
+uses = [
+    "fn:006d55971bc9e1e3",
+    "fn:0101487ca706ad91",
+    "fn:15c0bf0d621b4704",
+    "fn:286d54607f01cd59",
+    "fn:67471f938c1a6896",
+    "fn:7bd8aa8577c8f39c",
+    "fn:8a6f6c1ba4a90a90",
+    "fn:8e084736391ffc11",
+    "fn:91f74ea7e09ea50d",
+    "fn:9c3dd49a69f0dca2",
+    "fn:a2f987dbc309e6ac",
+    "fn:c4356ef17a120c1a",
+    "fn:d89a7a4cb065bdb7",
+    "fn:dbed264b4410c722",
+    "fn:f3642e11265c9d9a",
+    "fn:f9e1cb2a3dac88e1",
+]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -78,6 +121,11 @@ callees = [
     "fn:a466f7e4f7b4bc02",
     "fn:f2899d0b9b799e28",
 ]
+uses = [
+    "fn:686bbf96cde39656",
+    "fn:d913f1c8b10f3f30",
+    "fn:e20faf40d7c613cc",
+]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -93,6 +141,12 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:cb1fc1a67d38f99a",
     "fn:cbb241b81b8f27f6",
+]
+uses = [
+    "fn:006d55971bc9e1e3",
+    "fn:16caf770a42fcac8",
+    "fn:35b7a095aaee754b",
+    "fn:675edefa7ec82788",
 ]
 test = true
 
@@ -110,6 +164,11 @@ callees = [
     "fn:1a17663e4537a8c4",
     "fn:f0f061f2ed726984",
 ]
+uses = [
+    "fn:35b7a095aaee754b",
+    "fn:3cbe762590c1e19d",
+    "fn:c033624d0341847d",
+]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -123,6 +182,7 @@ lines = [
 hash = "sha256:ed0ab7e343c682c01c89bb7335742c84b4b1bfa6581a167072f2643891dd1f21"
 doc_hash = "sha256:dd558df075a617eabf35bdafbc68ee2409118e029b0fa6e6e5096c6c6dc96ffc"
 callees = ["fn:5fc49fc203f283ac"]
+uses = ["fn:440a20ac97b45685"]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -147,6 +207,7 @@ lines = [
 ]
 hash = "sha256:7f227324402116542e41d9183c2bc68e33607c37e7b2dd80187c4226988ce7db"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:d913f1c8b10f3f30"]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -159,6 +220,7 @@ lines = [
 ]
 hash = "sha256:1aea6a441b54f23ad691c7007db6f24d4122bf72e20755247672df4f48de1693"
 doc_hash = "sha256:d72c1658aa716002b52e0bd8b3494733032c7b662da72a9cdd7f41a6c2c99353"
+uses = ["fn:051abdd093828d2c"]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -192,6 +254,17 @@ callees = [
     "fn:eeb38f54c955b23d",
     "fn:f4e01e84f6ed1d1b",
 ]
+uses = [
+    "fn:006d55971bc9e1e3",
+    "fn:16caf770a42fcac8",
+    "fn:2932dee3c2ff937e",
+    "fn:2b25e43213c7bcc7",
+    "fn:3cbe762590c1e19d",
+    "fn:59542ff81772c26c",
+    "fn:86a95b12610356b0",
+    "fn:c033624d0341847d",
+    "fn:dd9da85cde5c81d7",
+]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -210,6 +283,15 @@ callees = [
     "fn:bc2cd82fa00f199d",
     "fn:eeb38f54c955b23d",
 ]
+uses = [
+    "fn:0101487ca706ad91",
+    "fn:15c0bf0d621b4704",
+    "fn:1e6dc4a4761c3a6e",
+    "fn:286d54607f01cd59",
+    "fn:67471f938c1a6896",
+    "fn:8a6f6c1ba4a90a90",
+    "fn:91f74ea7e09ea50d",
+]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -223,6 +305,11 @@ lines = [
 hash = "sha256:dafdc6d9c81e8c5a5bf5be4e5097f24f5a8679a87c84087eadd7ca6a0549a158"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:caa206087fc2a464"]
+uses = [
+    "fn:2b25e43213c7bcc7",
+    "fn:59542ff81772c26c",
+    "fn:8a6f6c1ba4a90a90",
+]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -255,5 +342,14 @@ callees = [
     "fn:d7bf3d6348577a45",
     "fn:e0b41da88f1e01d2",
     "fn:f4e01e84f6ed1d1b",
+]
+uses = [
+    "fn:006d55971bc9e1e3",
+    "fn:16caf770a42fcac8",
+    "fn:2932dee3c2ff937e",
+    "fn:59542ff81772c26c",
+    "fn:86a95b12610356b0",
+    "fn:c033624d0341847d",
+    "fn:dd9da85cde5c81d7",
 ]
 test = true

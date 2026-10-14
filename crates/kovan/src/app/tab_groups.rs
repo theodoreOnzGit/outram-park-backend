@@ -5,13 +5,18 @@
 //!  top row:    [ Mindmap ]            [ Code Map ]            [ Code Review ]
 //!  second row:  Home, Wiki, Repository Go to Code Review       PDF Reader,
 //!               management, Digitiser,  (a button)             Bibliography,
-//!               Table Digitiser, PDF                           Back to map
-//!               Reader, Kvim Editor,                           (a button, to
-//!               Bibliography                                   the Code Map)
+//!               Table Digitiser, PDF                           Back to code
+//!               Reader, Kvim Editor,                           review, Back
+//!               Bibliography                                   to map (buttons)
 //! ```
 //!
-//! A major tab's own page is the one it is named after; clicking it goes
-//! there. The PDF Reader and the Bibliography are under two major tabs: they
+//! A major tab's own page is the one it is named after. ~~Clicking it goes
+//! there.~~ **CHANGED 2026-10-13** (maintainer, #858: "every tab remembers
+//! last page"): clicking ANOTHER major tab returns to the page last shown
+//! under it ([`LastPages`]), so a PDF left open under Mindmap is still
+//! there after a visit to Code Review. Clicking the major tab that is
+//! already selected goes to its own page; that is how the mindmap canvas,
+//! which has no second-row tab, is reached. The PDF Reader and the Bibliography are under two major tabs: they
 //! are the same pages, and the major tab they were opened from stays
 //! selected. Home is kept under Mindmap (not in the maintainer's list): it
 //! is where a Kovan folder is opened or created, and other pages point the
@@ -88,6 +93,14 @@ impl Group {
 
     /// The major tab selected once the app shows `view`: this one when it
     /// holds the page, else the first that does.
+    /// Whether the second row offers "Back to code review": under Code
+    /// Review, on any page but the review itself (its PDF Reader or
+    /// Bibliography), which otherwise has no tab of its own to click back
+    /// to (maintainer, 2026-10-13).
+    pub(super) fn offers_back_to_code_review(self, view: View) -> bool {
+        self == Group::CodeReview && view != View::CodeReview
+    }
+
     pub(super) fn after(self, view: View) -> Group {
         if self.holds(view) {
             self
@@ -97,9 +110,79 @@ impl Group {
     }
 }
 
+/// The page last shown under each major tab (#858).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct LastPages([View; 3]);
+
+impl Default for LastPages {
+    /// Before a major tab has been visited, its page is its own.
+    fn default() -> Self {
+        LastPages(Group::ALL.map(Group::main))
+    }
+}
+
+impl LastPages {
+    fn slot(group: Group) -> usize {
+        match group {
+            Group::Mindmap => 0,
+            Group::CodeMap => 1,
+            Group::CodeReview => 2,
+        }
+    }
+
+    /// Record that `view` is showing under `group`. Called every frame; a
+    /// page `group` does not hold is ignored, never remembered under it.
+    pub(super) fn note(&mut self, group: Group, view: View) {
+        if group.holds(view) {
+            self.0[Self::slot(group)] = view;
+        }
+    }
+
+    /// The page to show when major tab `clicked` is clicked while `current`
+    /// is selected: `clicked`'s own page when it is the one already
+    /// selected, else the page last shown under it.
+    pub(super) fn on_click(&self, current: Group, clicked: Group) -> View {
+        if clicked == current {
+            clicked.main()
+        } else {
+            self.0[Self::slot(clicked)]
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Methodology (#858): the maintainer's case, step by step. A PDF is
+    /// open under Mindmap; Code Review is clicked; Mindmap is clicked
+    /// again. Pass: the return lands on the PDF Reader, not the mindmap
+    /// canvas; a second click on Mindmap goes to the canvas; a tab never
+    /// visited opens on its own page; Code Review remembers its own last
+    /// page separately (the Bibliography under it); and a page a tab does
+    /// not hold is never remembered under it.
+    ///
+    /// Result (2026-10-13): as stated.
+    #[test]
+    fn a_major_tab_returns_to_its_last_page() {
+        let mut last = LastPages::default();
+        for g in Group::ALL {
+            assert_eq!(last.on_click(Group::CodeMap, g), g.main(), "{g:?} not visited yet");
+        }
+        last.note(Group::Mindmap, View::PdfReader);
+        assert_eq!(last.on_click(Group::Mindmap, Group::CodeReview), View::CodeReview);
+        last.note(Group::CodeReview, View::CodeReview);
+        assert_eq!(last.on_click(Group::CodeReview, Group::Mindmap), View::PdfReader, "the PDF is still there");
+        assert_eq!(last.on_click(Group::Mindmap, Group::Mindmap), View::Mindmap, "a second click reaches the canvas");
+        // Code Review keeps its own last page, apart from Mindmap's.
+        last.note(Group::CodeReview, View::Bibliography);
+        last.note(Group::Mindmap, View::Wiki);
+        assert_eq!(last.on_click(Group::Mindmap, Group::CodeReview), View::Bibliography);
+        assert_eq!(last.on_click(Group::CodeReview, Group::Mindmap), View::Wiki);
+        // Code Map does not hold the Wiki: noting it there changes nothing.
+        last.note(Group::CodeMap, View::Wiki);
+        assert_eq!(last.on_click(Group::Mindmap, Group::CodeMap), View::CodeMap);
+    }
 
     const EVERY_VIEW: [View; 12] = [
         View::Home,
@@ -146,6 +229,18 @@ mod tests {
 
     /// A page shared by two major tabs keeps the one it was opened from; a
     /// page the selected tab does not hold moves to its own.
+    /// "Back to code review" shows on the PDF Reader and the Bibliography
+    /// under Code Review, and nowhere else: not on the review itself, and
+    /// not on the same two pages under Mindmap.
+    #[test]
+    fn back_to_code_review_is_offered_only_away_from_it() {
+        assert!(Group::CodeReview.offers_back_to_code_review(View::PdfReader));
+        assert!(Group::CodeReview.offers_back_to_code_review(View::Bibliography));
+        assert!(!Group::CodeReview.offers_back_to_code_review(View::CodeReview));
+        assert!(!Group::Mindmap.offers_back_to_code_review(View::PdfReader));
+        assert!(!Group::CodeMap.offers_back_to_code_review(View::CodeMap));
+    }
+
     #[test]
     fn the_major_tab_follows_the_page() {
         assert_eq!(Group::CodeReview.after(View::PdfReader), Group::CodeReview);

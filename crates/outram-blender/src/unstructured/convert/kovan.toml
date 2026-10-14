@@ -52,7 +52,7 @@ lines = [
     82,
     97,
 ]
-hash = "sha256:832826294bfe2a3804ff886d50b24762383f45772d5f4c1ab13cded2c8344725"
+hash = "sha256:2bac82f0f4d300431c2920cd61d4195ac09325dbc0605c81b4feb9361063a0de"
 doc_hash = "sha256:c72e4437a998b2d2cf67b8dd96b70e266d9139d595173fb26b99cefd0053211a"
 test = true
 
@@ -70,6 +70,15 @@ lines = [
 hash = "sha256:1cb3b69146c09a9c9e7f8d026c36de5436491e2ee6dc5c155eac47f8d7c790f9"
 doc_hash = "sha256:d60b6a9d8d7f032274485ace5355fb251e1389ab49a621f466a41bc401ea6131"
 callees = ["fn:70028b10e4287377"]
+uses = [
+    "fn:047fe1edace94c92",
+    "fn:1333f43089116b86",
+    "fn:16d5255f7903addf",
+    "fn:1d52ce14c252d72f",
+    "fn:2d52fb29cca42330",
+    "fn:2da6ecb1f02de92a",
+    "fn:5797c96376b0aaed",
+]
 reached_by = ["#0"]
 
 [[module."cfmesh.rs".function]]
@@ -85,6 +94,13 @@ doc_hash = "sha256:aaf3132a40b6d269726826d26f60a1c556b1bdec958e93f718ffe12b2df37
 callees = [
     "fn:2b40d650f7fb3570",
     "fn:ff6c23da399d8b45",
+]
+uses = [
+    "fn:047fe1edace94c92",
+    "fn:36e977167f45ecf1",
+    "fn:3cf9f762bd6ca5e3",
+    "fn:5797c96376b0aaed",
+    "fn:be7013441700cacd",
 ]
 
 [[module."cfmesh.rs".function]]
@@ -105,6 +121,7 @@ callees = [
     "fn:b8bb799255cf0335",
     "fn:ff6c23da399d8b45",
 ]
+uses = ["fn:be7013441700cacd"]
 test = true
 
 [module."fem.rs"]
@@ -120,6 +137,10 @@ lines = [
 ]
 hash = "sha256:27dbcf10815e85065f38821cefe15d533900f41b6e889a3736d39554b6481b22"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:24d632bf71591fe4",
+    "fn:71ddb78e491e000f",
+]
 reached_by = [
     "#1",
     "#2",
@@ -135,6 +156,10 @@ lines = [
 ]
 hash = "sha256:cdded08e1d9bc23cf626fe6335eb60c3a35aeea208af8ed31e45f81199e68463"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:24d632bf71591fe4",
+    "fn:71ddb78e491e000f",
+]
 reached_by = ["#1"]
 
 [[module."fem.rs".function]]
@@ -147,6 +172,7 @@ lines = [
 ]
 hash = "sha256:334427e17f60780fcfa093c82eb92fa3b707e2b4b59c6c901f6286fd59f80cdb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:24d632bf71591fe4"]
 reached_by = ["#1"]
 
 [[module."fem.rs".function]]
@@ -166,6 +192,14 @@ callees = [
     "fn:958d40f5af5197ca",
     "fn:a4b0a217f05f1475",
     "fn:f0becbd51623fa08",
+]
+uses = [
+    "fn:047fe1edace94c92",
+    "fn:2d52fb29cca42330",
+    "fn:5797c96376b0aaed",
+    "fn:5f7657013c60de4d",
+    "fn:672f31418606d259",
+    "fn:efa75077a281ed02",
 ]
 reached_by = [
     "#1",
@@ -194,7 +228,29 @@ callees = [
     "fn:c15f3d088b6e2192",
     "fn:dbd32f8b66329a04",
 ]
+uses = [
+    "fn:047fe1edace94c92",
+    "fn:5797c96376b0aaed",
+    "fn:efa75077a281ed02",
+]
 reached_by = ["#1"]
+
+[[module."fem.rs".function]]
+id = "fn:08bd20f5ce63f5c7"
+name = "FemGenerator"
+qual = "FemGenerator"
+item = "type"
+shape = "enum"
+lines = [
+    110,
+    153,
+]
+hash = "sha256:5faf152f8083b8e396d2e6815053af3fe0fa19965ab402eaaa47cbeb11ea2c75"
+doc_hash = "sha256:310be3fbd8cc4c26542f9b4a150e5b7f6fd2e6dbcff4bee159ff34f0d8971510"
+reached_by = [
+    "#1",
+    "#2",
+]
 
 [[module."fem.rs".function]]
 id = "fn:b68e155513b2bb24"
@@ -213,6 +269,12 @@ callees = [
     "fn:d892d1668d6ab5a9",
     "fn:e4ebad85782c93eb",
     "fn:f7db55e7c866b38e",
+]
+uses = [
+    "fn:047fe1edace94c92",
+    "fn:08bd20f5ce63f5c7",
+    "fn:5797c96376b0aaed",
+    "fn:efa75077a281ed02",
 ]
 reached_by = [
     "#1",
@@ -235,6 +297,7 @@ callees = [
     "fn:b68e155513b2bb24",
     "fn:b8bb799255cf0335",
 ]
+uses = ["fn:08bd20f5ce63f5c7"]
 test = true
 
 [[module."fem.rs".function]]
@@ -252,6 +315,7 @@ callees = [
     "fn:714810a0f722b44a",
     "fn:b68e155513b2bb24",
 ]
+uses = ["fn:08bd20f5ce63f5c7"]
 test = true
 
 [module."foam.rs"]
@@ -338,3 +402,22 @@ test = true
 
 [module."mod.rs"]
 path = "crate::unstructured::convert"
+
+[[module."mod.rs".function]]
+id = "fn:047fe1edace94c92"
+name = "ConvertError"
+qual = "ConvertError"
+item = "type"
+shape = "enum"
+lines = [
+    55,
+    84,
+]
+hash = "sha256:7247760a043355a6feef1ba795c1866c467770f973951fa64ec06cb17e984c57"
+doc_hash = "sha256:8a8c2a37d2e05d778f0f750a79e9986885d303cde64c75a9615105fb0bf99641"
+uses = ["fn:195b50e05a35fa4a"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]

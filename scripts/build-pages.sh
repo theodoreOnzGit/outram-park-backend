@@ -111,46 +111,18 @@ for f in index.html kovan_web_bg.wasm data/build.json data/code_map.json; do
   [[ -f "$OUT/code-review/$f" ]] || { echo "missing $OUT/code-review/$f" >&2; exit 1; }
 done
 
-# Code walks (gh:#523, the lesson CI of #512): every `<!-- code-walk: ... -->`
-# block in a deep dive or a tutorial is regenerated with rust-analyzer and must match what is
-# committed; a stale walk, a broken chain or a hand-filled hop whose function
-# is gone fails the build. Skipped (with a warning) when no lesson has a block
-# yet or rust-analyzer is absent, unless CODE_WALK_REQUIRED=1.
+# ~~Code walks (gh:#523): every `<!-- code-walk: ... -->` block regenerated
+# with rust-analyzer and its snippets checked here.~~ CHANGED 2026-10-14
+# (maintainer direction): the lessons no longer carry code walks; they link
+# into the Code Review map (code-review/ above), which is generated from the
+# call graph on every build, so there is nothing here to go stale.
+
+# The deep-dive and tutorial books, for the citation check below.
 walk_dirs=()
 while read -r name dir; do
   [[ -z "$name" || "$name" == \#* ]] && continue
   walk_dirs+=("$dir")
 done < <(cat docs/site/deep-dives.txt docs/site/tutorials.txt)
-if grep -rqs -- '<!-- code-walk:' "${walk_dirs[@]}"; then
-  # `command -v` is not enough: rustup installs a `rust-analyzer` proxy even
-  # when the component is absent, and that stub fails as soon as it is run
-  # (it took down every Pages build on 2026-10-04). Ask it for its version.
-  if rust-analyzer --version >/dev/null 2>&1; then
-    cargo run --release -q -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli -- \
-      code-walk-check "${walk_dirs[@]}"
-  elif [[ -n "${CODE_WALK_REQUIRED:-}" ]]; then
-    echo "code walks need rust-analyzer (rustup component add rust-analyzer)" >&2
-    exit 1
-  else
-    echo "warning: rust-analyzer not installed (gh:#544); code walks NOT checked" >&2
-  fi
-fi
-# Code walks show each hop's code inline (2026-10-05) through mdBook
-# `{{#include file:start:end}}`, with ranges fixed when the walk was
-# generated. Each snippet carries `<!-- snippet-check: <file>:<line> <text> -->`
-# comments; check them here, without rust-analyzer, so a range that drifted
-# since the walk was regenerated fails the build instead of showing the wrong
-# lines. The fix is `kovan-cli code-walk-check --update <book>`.
-bad=0
-while read -r loc needle; do
-  file="${loc%:*}"; line="${loc##*:}"
-  if ! sed -n "${line}p" "$file" 2>/dev/null | grep -qF -- "$needle"; then
-    echo "stale code-walk snippet: $file:$line no longer holds '$needle'" >&2
-    bad=1
-  fi
-done < <(grep -rhoE -- '<!-- snippet-check: [^ ]+:[0-9]+ [^>]*-->' "${walk_dirs[@]}" \
-           | sed -E 's/^<!-- snippet-check: //; s/ -->$//' | sort -u)
-(( bad == 0 )) || { echo "regenerate with: kovan-cli code-walk-check --update <book>" >&2; exit 1; }
 
 # Citations (gh:#789, #797): every `[...](#ref-KEY)` link in a deep dive or a
 # tutorial must name a key of docs/site/references.bib, and each page's
@@ -294,7 +266,8 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
   tutorials/monte-carlo/lct008.html tutorials/monte-carlo/triso.html \
   demos/triso-atops/index.html demos/triso-atops/triso_atops_web_bg.wasm \
   tutorials/triso-atops/index.html \
-  demos/dem/index.html demos/dem/dem_web_bg.wasm tutorials/monte-carlo/dem.html; do
+  demos/dem/index.html demos/dem/dem_web_bg.wasm tutorials/monte-carlo/dem.html \
+  tutorials/monte-carlo/benchmarks.html; do
   [[ -f "$OUT/$f" ]] || { echo "missing $OUT/$f" >&2; exit 1; }
 done
 

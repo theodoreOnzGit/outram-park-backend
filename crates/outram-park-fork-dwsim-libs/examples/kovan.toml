@@ -29,6 +29,14 @@ callees = [
     "fn:d6ed59e3ad732e57",
     "fn:fd2eeabac011a9c5",
 ]
+uses = [
+    "fn:11e06b8268881263",
+    "fn:5e5c06fa0d321ca8",
+    "fn:73691a54a7a8ba1a",
+    "fn:822da933dc9257f1",
+    "fn:931c0dfe6cf44cd9",
+    "fn:c971ff31acbc2d46",
+]
 
 [module."pt_flash.rs"]
 path = "example:pt_flash"
@@ -48,3 +56,4 @@ callees = [
     "fn:cfbb8a5609a498a9",
     "fn:f771bc8cb652a5d8",
 ]
+uses = ["fn:11e06b8268881263"]

@@ -22,6 +22,43 @@ test_ids = [
 path = "crate::genfoam::thermal_hydraulics::boundary_conditions::blackbody_radiation"
 
 [[module."blackbody_radiation.rs".function]]
+id = "fn:ed7890a8299bb15c"
+name = "STEFAN_BOLTZMANN_SIGMA"
+qual = "STEFAN_BOLTZMANN_SIGMA"
+item = "const"
+shape = "const"
+lines = [
+    73,
+    75,
+]
+hash = "sha256:3a8193fcd6a6ba725a7c980547cf9174f229cd65f799ea24a1a1a944d3411efb"
+doc_hash = "sha256:d7cae2bb4f75f5814296e2a7d62833f25b52b0b3421960488a95518e33d9b5b4"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+]
+
+[[module."blackbody_radiation.rs".function]]
+id = "fn:82fb944173099a77"
+name = "BlackBodyRadiationBc"
+qual = "BlackBodyRadiationBc"
+item = "type"
+shape = "struct"
+lines = [
+    77,
+    99,
+]
+hash = "sha256:2faaa8ec047fbb7504753590c2b3375abaf774fd4a7939670d357334ba1ef3cd"
+doc_hash = "sha256:a09af59081f80cd9ba1d7ccd6048ba2d54b64c979de3536ea90f3feeca5cf79d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."blackbody_radiation.rs".function]]
 id = "fn:a484d3c73824073a"
 name = "new"
 qual = "BlackBodyRadiationBc::new"
@@ -31,6 +68,7 @@ lines = [
 ]
 hash = "sha256:9b27cf606bd775ba3c771a13b335c5a917eaa324402563c2202cbd62aa9d2dfc"
 doc_hash = "sha256:9e554533559f3494ffbcf12210aa928e257d0a71f501f935dbbc28953f38c6d5"
+uses = ["fn:82fb944173099a77"]
 reached_by = [
     "#0",
     "#1",
@@ -49,6 +87,10 @@ lines = [
 ]
 hash = "sha256:1c452371a7cef0373f8ad8a9a87388e005e34ff42800e998cf737f048f8b90be"
 doc_hash = "sha256:0b68f878bfa1aa8a6fff23fc672f3e2f63c759526ea77a63fb87bb5369e05bd9"
+uses = [
+    "fn:82fb944173099a77",
+    "fn:e81f0b6f9d93f75a",
+]
 reached_by = [
     "#1",
     "#2",
@@ -66,6 +108,11 @@ lines = [
 ]
 hash = "sha256:5637516776f18e856341dda418d5910df8a50f8f29bc5e04a12c4ba70db0c41f"
 doc_hash = "sha256:d2130ce0564adbb9b575d9edfeb33d4fd4700b02e7bc875a39790ed7f7c52724"
+uses = [
+    "fn:82fb944173099a77",
+    "fn:e81f0b6f9d93f75a",
+    "fn:ed7890a8299bb15c",
+]
 reached_by = [
     "#0",
     "#2",
@@ -87,6 +134,7 @@ callees = [
     "fn:bbee2f9fb1e017a5",
     "fn:e8a34c212376f15d",
 ]
+uses = ["fn:82fb944173099a77"]
 reached_by = [
     "#2",
     "#3",
@@ -116,6 +164,7 @@ lines = [
 ]
 hash = "sha256:0a1d864e52f8dbd77a527f32212eb074a8006017e7f2f3019ff2e9a40f1d0ed2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:e81f0b6f9d93f75a"]
 test = true
 physical_interface = true
 
@@ -135,6 +184,7 @@ callees = [
     "fn:bbee2f9fb1e017a5",
     "fn:e6eb70c66edb532b",
 ]
+uses = ["fn:82fb944173099a77"]
 test = true
 
 [[module."blackbody_radiation.rs".function]]
@@ -152,6 +202,7 @@ callees = [
     "fn:a484d3c73824073a",
     "fn:e8a34c212376f15d",
 ]
+uses = ["fn:82fb944173099a77"]
 test = true
 
 [[module."blackbody_radiation.rs".function]]
@@ -171,6 +222,7 @@ callees = [
     "fn:bbee2f9fb1e017a5",
     "fn:e8a34c212376f15d",
 ]
+uses = ["fn:82fb944173099a77"]
 test = true
 
 [[module."blackbody_radiation.rs".function]]
@@ -188,6 +240,7 @@ callees = [
     "fn:77e5e6d1e4c9ad26",
     "fn:a484d3c73824073a",
 ]
+uses = ["fn:82fb944173099a77"]
 test = true
 
 [module."mod.rs"]
@@ -195,6 +248,46 @@ path = "crate::genfoam::thermal_hydraulics::boundary_conditions"
 
 [module."nusselt_baffle.rs"]
 path = "crate::genfoam::thermal_hydraulics::boundary_conditions::nusselt_baffle"
+
+[[module."nusselt_baffle.rs".function]]
+id = "fn:9f4b031996a6f5b5"
+name = "BaffleSide"
+qual = "BaffleSide"
+item = "type"
+shape = "enum"
+lines = [
+    71,
+    83,
+]
+hash = "sha256:ff78eb4f6fab41fd548bf0b601c26cdd2c782f8cfb0b660283c93f993bf6008b"
+doc_hash = "sha256:66f6ddfc6bd3847af20bf244ea8ec050940e87837cc0998e970b6ba800d896df"
+
+[[module."nusselt_baffle.rs".function]]
+id = "fn:56e7e15406f3ae34"
+name = "NusseltCorrelationCoefficients"
+qual = "NusseltCorrelationCoefficients"
+item = "type"
+shape = "struct"
+lines = [
+    85,
+    101,
+]
+hash = "sha256:7ca5bc5f11d6d15136aac683d2b7aa006c80ae5df19fc93c8a25ab54bcc6a6c4"
+doc_hash = "sha256:c75c8f01c7716ff7f483c4f67316e1c55da08de166ece037e956059506339c1f"
+
+[[module."nusselt_baffle.rs".function]]
+id = "fn:f165b2ad238270d3"
+name = "NusseltThermalBaffle1DBc"
+qual = "NusseltThermalBaffle1DBc"
+item = "type"
+shape = "struct"
+lines = [
+    103,
+    124,
+]
+hash = "sha256:ffc639b17e22f9a98d0fa5f45a1d48da6e17049a10b9195df3d5f68c2333e7ac"
+doc_hash = "sha256:08e070eba4f4f7e322050dd7cb5a0873ddec839f02f2c968bd8f7d32eb36de9d"
+uses = ["fn:56e7e15406f3ae34"]
 
 [[module."nusselt_baffle.rs".function]]
 id = "fn:a6246f16179478fd"
@@ -206,6 +299,10 @@ lines = [
 ]
 hash = "sha256:530cafb35cfcef9761601c932e82d09a229978399eb74a23796b0f4682bfaf63"
 doc_hash = "sha256:58d9606f1a0f3954f9f26c5586cf0b34fcc4ee2dace902d7bb605224452b4489"
+uses = [
+    "fn:56e7e15406f3ae34",
+    "fn:f165b2ad238270d3",
+]
 physical_interface = true
 
 [[module."nusselt_baffle.rs".function]]
@@ -218,6 +315,11 @@ lines = [
 ]
 hash = "sha256:b6dfb44c99b62696b557dc0ee225b4a666355e8dcd4e89502709e8fc84f30948"
 doc_hash = "sha256:092b8b1b2e2a2ab5b6c38bc5da9422c140101893a0ace5b6115837c205dfc11e"
+uses = [
+    "fn:86c29c1cbed08c30",
+    "fn:9f4b031996a6f5b5",
+    "fn:f165b2ad238270d3",
+]
 physical_interface = true
 
 [[module."nusselt_baffle.rs".function]]
@@ -230,10 +332,58 @@ lines = [
 ]
 hash = "sha256:63a30cd0fc3532deea1cad3ffdcceb2e3c370e99a2808b939dde0c5edfded1de"
 doc_hash = "sha256:57aec24674289f3996248a134e4c553a31764b2a17c0bf9411b2f9daebc5706d"
+uses = [
+    "fn:86c29c1cbed08c30",
+    "fn:f165b2ad238270d3",
+]
 physical_interface = true
 
 [module."time_field_table.rs"]
 path = "crate::genfoam::thermal_hydraulics::boundary_conditions::time_field_table"
+
+[[module."time_field_table.rs".function]]
+id = "fn:86b4787d24ffd5b7"
+name = "TimeFieldTableError"
+qual = "TimeFieldTableError"
+item = "type"
+shape = "enum"
+lines = [
+    83,
+    114,
+]
+hash = "sha256:4c0aa52fb6b0561be09498ff17df3625163e4cf837e16687ce69ca1d53a2f299"
+doc_hash = "sha256:226d51a1c9e12fa51035446eabe5cab7ae79564c81505388e172e4b1f3762258"
+uses = ["fn:d4fa86d8e854d7f7"]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."time_field_table.rs".function]]
+id = "fn:a695a964837b729a"
+name = "TimeFieldTable"
+qual = "TimeFieldTable"
+item = "type"
+shape = "struct"
+lines = [
+    116,
+    128,
+]
+hash = "sha256:e6c27f07f375e58bcaee8061d7a12cf4bcca6494448a848d31df796f6e260af8"
+doc_hash = "sha256:7cb14625eac9a826c2fd94165f3f8489e84ad9c305adf986d2aca86fe8dbeef4"
+uses = ["fn:8298fe5427282214"]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
 
 [[module."time_field_table.rs".function]]
 id = "fn:df594b51629b01b0"
@@ -246,6 +396,14 @@ lines = [
 hash = "sha256:0a747d3fe6a8876e75803c533368bf8973413f29a1d441f7b0c3c73eeb54e623"
 doc_hash = "sha256:b2ef698d3d1b117395d1c84907f0766c7611ef459dc7c3391c96585a754f05fa"
 callees = ["fn:7075955b006c0708"]
+uses = [
+    "fn:0ea8e6408ec256f3",
+    "fn:312797db83bb59e9",
+    "fn:8298fe5427282214",
+    "fn:86b4787d24ffd5b7",
+    "fn:a695a964837b729a",
+    "fn:d4fa86d8e854d7f7",
+]
 reached_by = [
     "#4",
     "#5",
@@ -266,6 +424,7 @@ lines = [
 ]
 hash = "sha256:3a5f1c5322a87299829dc34cf7b4641164ea470daf6c75b01a1f996b2e6bc2aa"
 doc_hash = "sha256:46f13e4ea575e4a75f3a1ce45e4b331780f699516e33a2d9e8cc882b73cc1513"
+uses = ["fn:a695a964837b729a"]
 reached_by = [
     "#7",
     "#9",
@@ -282,6 +441,7 @@ lines = [
 hash = "sha256:af4c261cdb2cc7f784dbc29d08969cc3fe1029306cd1f55e4764bc441bcb626c"
 doc_hash = "sha256:855dd6a02f09973d7ba21bc23555b9d8ee8c11c7d77c6d00f173117958efe617"
 callees = ["fn:ef130ae93e0e0bb0"]
+uses = ["fn:a695a964837b729a"]
 reached_by = [
     "#4",
     "#7",
@@ -318,6 +478,7 @@ callees = [
     "fn:e45a37bd09463afe",
     "fn:f2a33182272229a0",
 ]
+uses = ["fn:a695a964837b729a"]
 test = true
 
 [[module."time_field_table.rs".function]]
@@ -335,6 +496,7 @@ callees = [
     "fn:e45a37bd09463afe",
     "fn:f2a33182272229a0",
 ]
+uses = ["fn:a695a964837b729a"]
 test = true
 
 [[module."time_field_table.rs".function]]
@@ -350,6 +512,10 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:df594b51629b01b0",
     "fn:e45a37bd09463afe",
+]
+uses = [
+    "fn:86b4787d24ffd5b7",
+    "fn:a695a964837b729a",
 ]
 test = true
 
@@ -367,6 +533,10 @@ callees = [
     "fn:df594b51629b01b0",
     "fn:e45a37bd09463afe",
 ]
+uses = [
+    "fn:86b4787d24ffd5b7",
+    "fn:a695a964837b729a",
+]
 test = true
 
 [[module."time_field_table.rs".function]]
@@ -382,6 +552,11 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:df594b51629b01b0",
     "fn:e45a37bd09463afe",
+]
+uses = [
+    "fn:86b4787d24ffd5b7",
+    "fn:a695a964837b729a",
+    "fn:d4fa86d8e854d7f7",
 ]
 test = true
 
@@ -401,10 +576,33 @@ callees = [
     "fn:e45a37bd09463afe",
     "fn:f2a33182272229a0",
 ]
+uses = [
+    "fn:86b4787d24ffd5b7",
+    "fn:a695a964837b729a",
+    "fn:d4fa86d8e854d7f7",
+]
 test = true
 
 [module."velocity_rundown.rs"]
 path = "crate::genfoam::thermal_hydraulics::boundary_conditions::velocity_rundown"
+
+[[module."velocity_rundown.rs".function]]
+id = "fn:5d5212f5242812e3"
+name = "VelocityRundownBc"
+qual = "VelocityRundownBc"
+item = "type"
+shape = "struct"
+lines = [
+    61,
+    84,
+]
+hash = "sha256:124dc56518e7e6802c1c529322f0831adcf04b66eb7d18d838e0b18fa1a48308"
+doc_hash = "sha256:8d828e1cec8e96cea112431b6503a4b37f5562704376b0c975cb8fa2b76fe207"
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+]
 
 [[module."velocity_rundown.rs".function]]
 id = "fn:b78146083c0a5806"
@@ -416,6 +614,7 @@ lines = [
 ]
 hash = "sha256:912bcb20075c0c15ad72f9b21572c3318d6f7ebd957fb08cc21195bfc67f47e0"
 doc_hash = "sha256:77a30eb02b0835100121e445fd7930599cacfe5e89dbcda5469c6e04c52913e3"
+uses = ["fn:5d5212f5242812e3"]
 reached_by = [
     "#10",
     "#11",
@@ -433,6 +632,7 @@ lines = [
 ]
 hash = "sha256:e8cbd3e35c14bf0e1cee4cfb3e6e86d237f982dfe5aef072bd7885335c6c969c"
 doc_hash = "sha256:aa92f184d8e57716954a1305dc08d2f77f9eafacd61aad50cced702dd175d69b"
+uses = ["fn:5d5212f5242812e3"]
 reached_by = [
     "#10",
     "#11",
@@ -453,6 +653,10 @@ doc_hash = "sha256:ff571872a6cd1f1dbc4362607fa1d1e45025830e09463d73db23e63afc23c
 callees = [
     "fn:2099c6125da6b5cb",
     "fn:636ae5a21be9336b",
+]
+uses = [
+    "fn:5d5212f5242812e3",
+    "fn:ef05859ef19acee7",
 ]
 reached_by = [
     "#10",
@@ -518,6 +722,10 @@ callees = [
     "fn:b78146083c0a5806",
     "fn:e576fa489f024a73",
 ]
+uses = [
+    "fn:5d5212f5242812e3",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."velocity_rundown.rs".function]]
@@ -538,6 +746,10 @@ callees = [
     "fn:b78146083c0a5806",
     "fn:e576fa489f024a73",
 ]
+uses = [
+    "fn:5d5212f5242812e3",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."velocity_rundown.rs".function]]
@@ -557,4 +769,5 @@ callees = [
     "fn:b78146083c0a5806",
     "fn:e576fa489f024a73",
 ]
+uses = ["fn:5d5212f5242812e3"]
 test = true

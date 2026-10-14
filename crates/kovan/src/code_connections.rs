@@ -302,8 +302,9 @@ pub struct AddedForFunction {
 
 /// [`add`] for the function `function` names (an `fn:` id or a call-graph
 /// id) in the workspace at `repo`, **only when it has a valid review**: the
-/// staleness engine's state of the function is valid (stale, unverified
-/// and unreviewed functions are refused with the state named).
+/// staleness engine's state of the function is valid, or pending only a
+/// workspace test (`StateKind::review_holds`); stale, unverified and
+/// unreviewed functions are refused with the state named.
 pub fn add_for_reviewed(
     repo: &Path,
     function: &str,
@@ -323,7 +324,11 @@ pub fn add_for_reviewed(
         .functions
         .get(&source)
         .map_or(StateKind::New, |r| r.state.kind());
-    if kind != StateKind::Valid {
+    // "Pending workspace test" is a review that stands (the function is
+    // unchanged; `Cargo.lock` moved): CORRECTED 2026-10-13, it was refused,
+    // so a function reviewed before an unrelated dependency change could
+    // not be connected.
+    if !kind.review_holds() {
         return Err(CodeConnectionError::NotReviewed(format!(
             "{path} is {}",
             kind.label()

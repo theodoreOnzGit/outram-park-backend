@@ -17,6 +17,7 @@ lines = [
 hash = "sha256:9d44df1b57a3d91736370bbf7601ae35b0487ae2f7d2ec98364e94d196371275"
 doc_hash = "sha256:76bc1ff311a6e8d1696463a41c7e7ebc588a8ab31c3eb6f9b55d84e175871b47"
 callees = ["fn:03e08a20b60594d7"]
+uses = ["fn:540617e338f429d7"]
 test = true
 physical_interface = true
 
@@ -51,6 +52,11 @@ callees = [
     "fn:36d2eb492cf6dd49",
     "fn:4f08e35087543a15",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:a6efe5f766b47fef",
+    "fn:d4b239bd4b67db13",
+]
 test = true
 
 [[module."fluid_component.rs".function]]
@@ -67,6 +73,7 @@ callees = [
     "fn:457e96f4f0b76ef7",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -84,6 +91,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:7860f11bd51dbb37",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -116,6 +124,7 @@ callees = [
     "fn:9212f011bf144631",
     "fn:f8fcd27da58670ac",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -135,6 +144,7 @@ callees = [
     "fn:9212f011bf144631",
     "fn:f8fcd27da58670ac",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -152,6 +162,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:522ca19d58b3d90a",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -171,6 +182,7 @@ callees = [
     "fn:9212f011bf144631",
     "fn:f8fcd27da58670ac",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -188,6 +200,7 @@ callees = [
     "fn:1e49a2c708f64bed",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -205,6 +218,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:c1cd743e200a5b68",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -222,6 +236,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:5d36a8426cb919e3",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -239,6 +254,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:5cc3a78cc9d2e79a",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -256,6 +272,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:7860f11bd51dbb37",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -273,6 +290,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:7860f11bd51dbb37",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -290,6 +308,7 @@ callees = [
     "fn:457e96f4f0b76ef7",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -307,6 +326,7 @@ callees = [
     "fn:457e96f4f0b76ef7",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -324,6 +344,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:5dc3c4cb5f94e19e",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -341,6 +362,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:5dc3c4cb5f94e19e",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -358,6 +380,7 @@ callees = [
     "fn:129612370ebfb9ce",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -375,6 +398,7 @@ callees = [
     "fn:129612370ebfb9ce",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -392,6 +416,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:7b8091c3b21fab1e",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -409,6 +434,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:7b8091c3b21fab1e",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -426,6 +452,7 @@ callees = [
     "fn:3115510adeccfc6e",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -443,6 +470,7 @@ callees = [
     "fn:3115510adeccfc6e",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -460,6 +488,7 @@ callees = [
     "fn:3399320921e68dcb",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -477,6 +506,7 @@ callees = [
     "fn:3399320921e68dcb",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
@@ -495,11 +525,31 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:ca08e804e6e3c21c",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 test = true
 physical_interface = true
 
 [module."mod.rs"]
 path = "crate::pre_built_components::uw_madison_flibe_loop_components::flibe_loop_iteration_two::clamshell_radiative_heater"
+
+[[module."mod.rs".function]]
+id = "fn:59445fc51be9aac3"
+name = "ClamshellRadiativeHeater"
+qual = "ClamshellRadiativeHeater"
+item = "type"
+shape = "struct"
+lines = [
+    50,
+    142,
+]
+hash = "sha256:67574a5e272babb19aa0a1357311b6b25eb5f55dd77217ee244e14fb2cf03290"
+doc_hash = "sha256:b46ca1a8005f06e6114697879c91081c205d4d3503874f474423d23663ecb714"
+uses = [
+    "fn:a6efe5f766b47fef",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
+]
+test = true
 
 [module."postprocessing.rs"]
 path = "crate::pre_built_components::uw_madison_flibe_loop_components::flibe_loop_iteration_two::clamshell_radiative_heater::postprocessing"
@@ -515,6 +565,7 @@ lines = [
 hash = "sha256:280a00582663c4288ebb046c30c70112b84ba0879bbb73936afcd17219b6da94"
 doc_hash = "sha256:7ef17ad7307aa8d3122d640e1cf304d50927192ccd656dd36f942ad670e93437"
 callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
 test = true
 physical_interface = true
 
@@ -529,6 +580,7 @@ lines = [
 hash = "sha256:7ea2107427fd2bbc9cabfd70339a41b33b0cca4d09beb824d51db99255733594"
 doc_hash = "sha256:c3ad994485042858cf7392e1f478d94cea8a85499ccbf4a7bd66e6c578b24f0f"
 callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
 test = true
 physical_interface = true
 
@@ -543,6 +595,7 @@ lines = [
 hash = "sha256:410330e85254a1fbb4ac004842f785760a8ffc0c89181c0912efce22a4225fec"
 doc_hash = "sha256:3899c4d364b4d48e1422944510cf5fc20bda192fd65ebb6ece2f1847a19c8e24"
 callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
 test = true
 physical_interface = true
 
@@ -557,6 +610,7 @@ lines = [
 hash = "sha256:85204769fd75c1b508ca199663a96ac88341371c9b84d1f1dc01f874fa960e07"
 doc_hash = "sha256:45240cc29664c7205c074c9294097f01ef3e5a9b7d4a112089abc474f53c6978"
 callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
 test = true
 physical_interface = true
 
@@ -571,6 +625,7 @@ lines = [
 hash = "sha256:36c14501af048717ddd09fe6e8ae2021a17a6aef40dfea7d85310185b1741009"
 doc_hash = "sha256:ee3f059d0ea1ea3e79b2cea5bb2323ab667418972e2534bafafbdb5c6d10090f"
 callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
 test = true
 physical_interface = true
 
@@ -584,6 +639,7 @@ lines = [
 ]
 hash = "sha256:4f4ed3d9e8095a98fbcf318ac61b39475d64838e8be2613b2237db978c651d42"
 doc_hash = "sha256:9939f6ed1cb8e75cf9f4eb8d7395412517b178652c399ab585ef34ac7ee83e7e"
+uses = ["fn:540617e338f429d7"]
 test = true
 physical_interface = true
 
@@ -597,6 +653,7 @@ lines = [
 ]
 hash = "sha256:4f4ed3d9e8095a98fbcf318ac61b39475d64838e8be2613b2237db978c651d42"
 doc_hash = "sha256:83456361d9f19687af2eb1d8284050b5c8e8112b11485116c77a26aa56d843d5"
+uses = ["fn:540617e338f429d7"]
 test = true
 physical_interface = true
 
@@ -610,6 +667,7 @@ lines = [
 ]
 hash = "sha256:4f4ed3d9e8095a98fbcf318ac61b39475d64838e8be2613b2237db978c651d42"
 doc_hash = "sha256:f6e4d3683ed63bdaa093c27d4d4a1767753436f3b5e3035960a9a3f6d62d502b"
+uses = ["fn:540617e338f429d7"]
 test = true
 physical_interface = true
 
@@ -648,6 +706,11 @@ callees = [
     "fn:f99091b5e6991a28",
     "fn:fbbc51bd4baa71eb",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+]
 test = true
 physical_interface = true
 
@@ -664,6 +727,12 @@ doc_hash = "sha256:f6d57480acc62c3219a81ac14fad4c27671528132e1fe13d41a48676876c4
 callees = [
     "fn:6256de6e1d4d986a",
     "fn:6495f5fa3bc8a5b5",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:7a10a768152b5992",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
 ]
 test = true
 
@@ -683,6 +752,12 @@ callees = [
     "fn:9cb293305c961ed7",
     "fn:a2275733c3fa6168",
     "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:d4b239bd4b67db13",
 ]
 test = true
 physical_interface = true
@@ -704,6 +779,11 @@ callees = [
     "fn:e4ef3b79543287e1",
     "fn:eb89be045205dc88",
     "fn:feec71215f335f20",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:9447740069e81383",
 ]
 test = true
 physical_interface = true
@@ -741,6 +821,15 @@ callees = [
     "fn:e4ef3b79543287e1",
     "fn:eb89be045205dc88",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
 test = true
 physical_interface = true
 
@@ -776,6 +865,15 @@ callees = [
     "fn:e1ff8249ae286110",
     "fn:e4ef3b79543287e1",
     "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
 ]
 test = true
 physical_interface = true
@@ -814,6 +912,15 @@ callees = [
     "fn:e4ef3b79543287e1",
     "fn:eb89be045205dc88",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:68ae150e37a870db",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -834,6 +941,12 @@ callees = [
     "fn:a2275733c3fa6168",
     "fn:b3b7ab00acced735",
     "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:d4b239bd4b67db13",
 ]
 test = true
 physical_interface = true
@@ -856,6 +969,12 @@ callees = [
     "fn:a2275733c3fa6168",
     "fn:eb89be045205dc88",
 ]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:d4b239bd4b67db13",
+]
 test = true
 physical_interface = true
 
@@ -876,6 +995,12 @@ callees = [
     "fn:a2275733c3fa6168",
     "fn:bc8c3a3902aaddab",
     "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:d4b239bd4b67db13",
 ]
 test = true
 physical_interface = true
@@ -934,4 +1059,8 @@ lines = [
 hash = "sha256:96aba3b1789761dfd9783709257013c944384310395729fdcd2d1e2b4a1ff606"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:4f08e35087543a15"]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:d4b239bd4b67db13",
+]
 test = true

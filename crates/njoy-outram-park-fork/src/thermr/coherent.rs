@@ -15,8 +15,13 @@
 //! *energies* are temperature-independent (set by the lattice spacing); the `S`
 //! values fall with temperature through the Debye-Waller factor, so
 //! `σ_coh(E, T)` at fixed `E` *decreases* as `T` rises. Ported from the
-//! coherent-elastic branch of `thermr.f90` (`coh`/`sigcoh`; the temperature
-//! matching mirrors `rdelas`).
+//! coherent-elastic branch of `thermr.f90` (`coh`/`sigcoh`). ~~The
+//! temperature matching mirrors `rdelas`.~~ **CORRECTED 2026-10-14 (GitHub
+//! #866):** only its tolerance does. `rdelas` keeps the *last* tabulated
+//! temperature within `T/1000 + 5` K and otherwise the base table, never
+//! interpolating or refusing; [`CoherentElastic::s_of_e_at`] and the methods
+//! below take the nearest match, interpolate and refuse. `rdelas`'s own rule is
+//! [`CoherentElastic::s_of_e_rdelas`], used on the NJOY-deck thermal path.
 //!
 //! Every method takes the temperature explicitly and resolves it per the policy
 //! in the [`mf7` module docs](super::mf7): match a tabulated temperature within
@@ -100,6 +105,23 @@ impl CoherentElastic {
             .enumerate()
             .map(|(i, &e)| (e, self.s_at_index(i, &sel)))
             .collect())
+    }
+
+    /// The `(E_i, S(E_i))` table THERMR's `rdelas` keeps for `temp_k` \[K\]
+    /// (`thermr.f90:526-555`, NJOY2016 2016.79): the **last** tabulated
+    /// temperature with `abs(t - temp) < temp/1000 + 5`, and the base
+    /// temperature `T₀`'s table when none qualifies. `rdelas` sets a found
+    /// flag and never reads it, so it does not refuse; on the NJOY-deck path
+    /// `calcem` refuses first whenever MT=4 has no matching temperature
+    /// ([`super::mf7::calcem_temperature_k`]). Never interpolated. Unlike
+    /// [`Self::s_of_e_at`], which takes the nearest match, interpolates
+    /// between temperatures and refuses outside the range.
+    pub fn s_of_e_rdelas(&self, temp_k: f64) -> Vec<(f64, f64)> {
+        let j = (0..self.temperatures_k.len())
+            .rev()
+            .find(|&j| (self.temperatures_k[j] - temp_k).abs() < temp_k / 1000.0 + 5.0)
+            .unwrap_or(0);
+        self.bragg_energies_ev.iter().copied().zip(self.s_tables[j].iter().copied()).collect()
     }
 
     /// Coherent-elastic cross section \[barn\] at incident energy `e_ev` \[eV\]
@@ -290,5 +312,27 @@ mod tests {
                 "must refuse {bad} K"
             );
         }
+    }
+
+    /// `rdelas` keeps the LAST temperature within `T/1000 + 5` K (strict),
+    /// and the base table when none is: two synthetic temperatures 4 K apart
+    /// make the two rules distinguishable from the nearest-match one.
+    #[test]
+    fn rdelas_keeps_the_last_match_and_falls_back_to_base() {
+        let ce = super::CoherentElastic {
+            bragg_energies_ev: vec![1.0e-3, 2.0e-3],
+            temperatures_k: vec![296.0, 300.0, 400.0],
+            s_tables: vec![vec![1.0, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]],
+            temp_interp: vec![2, 2],
+        };
+        // 297 K: both 296 (1 K) and 300 (3 K) qualify; the last one wins,
+        // where the nearest-match rule would take 296.
+        assert_eq!(ce.s_of_e_rdelas(297.0), vec![(1.0e-3, 3.0), (2.0e-3, 4.0)]);
+        // 350 K matches nothing: base T0's table, not an interpolation.
+        assert_eq!(ce.s_of_e_rdelas(350.0), vec![(1.0e-3, 1.0), (2.0e-3, 2.0)]);
+        // Exactly T/1000 + 5 away is outside (strict `<`): 405.405 -> 400 is
+        // 5.405 K, and 405.405/1000 + 5 = 5.405405, so inside; 410 is outside.
+        assert_eq!(ce.s_of_e_rdelas(405.405)[0].1, 5.0);
+        assert_eq!(ce.s_of_e_rdelas(410.0)[0].1, 1.0);
     }
 }

@@ -17,6 +17,7 @@ lines = [
 hash = "sha256:3414b6574a901aebf35308186f3635fffc37e9eb79a563e4a115c867ee69bf07"
 doc_hash = "sha256:a9d4c1f083d0af524587e6ff14c979507ab88d44f96d4a7bc709eaf4327d2334"
 callees = ["fn:03e08a20b60594d7"]
+uses = ["fn:540617e338f429d7"]
 physical_interface = true
 
 [[module."calculation.rs".function]]
@@ -36,6 +37,20 @@ physical_interface = true
 path = "crate::pre_built_components::one_d_solid_structure"
 
 [[module."mod.rs".function]]
+id = "fn:99e18f29c62757e1"
+name = "SolidStructure"
+qual = "SolidStructure"
+item = "type"
+shape = "struct"
+lines = [
+    27,
+    53,
+]
+hash = "sha256:aedaea9a3be850ee64971a733f171639ca736e1c61c6144715019964f22aecc1"
+doc_hash = "sha256:c375e884b9fcd102f71ebdda98752021bcf37a68ec4d3958f56d0d1eb8b4a413"
+uses = ["fn:a6efe5f766b47fef"]
+
+[[module."mod.rs".function]]
 id = "fn:77475a41d0b5d9ac"
 name = "new_hollow_cylinder"
 qual = "SolidStructure::new_hollow_cylinder"
@@ -48,6 +63,12 @@ doc_hash = "sha256:3acae230be281d0f366b209a7805f128a503c723e6fa4b63b6390c31f6e23
 callees = [
     "fn:1f95f8f45b36cfb9",
     "fn:2ee4f67ebdd1986d",
+]
+uses = [
+    "fn:54679033f1efb4f4",
+    "fn:5811ccd622a4f7ee",
+    "fn:9447740069e81383",
+    "fn:99e18f29c62757e1",
 ]
 physical_interface = true
 
@@ -65,6 +86,7 @@ lines = [
 hash = "sha256:341e381f42252310be135b0cdfb41d78820556259be0a12137d79a06de40fa24"
 doc_hash = "sha256:ad193a7765c69bea56436a1efe6e0f9696cdac74a0f690193adba99e354c51ad"
 callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
 physical_interface = true
 
 [module."preprocessing.rs"]
@@ -88,6 +110,10 @@ callees = [
     "fn:eb89be045205dc88",
     "fn:f8fcd27da58670ac",
 ]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+]
 physical_interface = true
 
 [[module."preprocessing.rs".function]]
@@ -108,6 +134,10 @@ callees = [
     "fn:eb89be045205dc88",
     "fn:f8fcd27da58670ac",
 ]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+]
 physical_interface = true
 
 [[module."preprocessing.rs".function]]
@@ -123,6 +153,12 @@ doc_hash = "sha256:72abc654c764febecd429e0699d6af1705b34551f77e81ee0139af6a4b507
 callees = [
     "fn:6256de6e1d4d986a",
     "fn:6495f5fa3bc8a5b5",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:7a10a768152b5992",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
 ]
 
 [[module."preprocessing.rs".function]]
@@ -140,6 +176,12 @@ callees = [
     "fn:a2275733c3fa6168",
     "fn:eb89be045205dc88",
 ]
+uses = [
+    "fn:14cad68ccaa57f69",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+]
 physical_interface = true
 
 [[module."preprocessing.rs".function]]
@@ -156,6 +198,11 @@ callees = [
     "fn:7d9e7837937bfa18",
     "fn:a2275733c3fa6168",
     "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
 ]
 physical_interface = true
 

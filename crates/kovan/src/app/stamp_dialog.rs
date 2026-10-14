@@ -316,6 +316,14 @@ fn wizard(ui: &mut egui::Ui, f: &mut StampFlow) {
     let err = f.error.clone();
     let Some(w) = f.wizard.as_mut() else { return };
     let a = w.applicability();
+    // A type or constant says what it is in plain words (#843), and a rung
+    // 4 review says so as soon as the hand-written answer is chosen (#855).
+    if let Some(shape) = a.shape {
+        ui.label(format!("You are reviewing a {}.", shape.plain_name()));
+    }
+    if a.hand_written_vv {
+        ui.label("Rung 4 review: the questions on physical accuracy and usability are asked below. Both must pass to open rung 4.");
+    }
     ui.weak(format!(
         "Port: {} \u{b7} physical interface: {} \u{b7} git on the reaching tests: {}{}",
         if a.is_port { "yes" } else { "no" },

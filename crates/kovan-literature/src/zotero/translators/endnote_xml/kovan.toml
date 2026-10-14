@@ -104,6 +104,7 @@ test_ids = [
     "crates/kovan/src/commands/references.rs::check_reports_stale_pages_and_update_fixes_them",
     "crates/kovan/tests/zotero_cli.rs::a_folder_written_before_this_change_is_unchanged_by_an_import",
     "crates/kovan/tests/zotero_cli.rs::data_folder_import_export_reimport_round_trip",
+    "crates/kovan/tests/zotero_cli.rs::formats_lists_every_translator_once_with_its_directions",
 ]
 
 [module."export.rs"]
@@ -267,6 +268,10 @@ callees = [
     "fn:92a0b533855f7e57",
     "fn:9a1aa6402cfcd8be",
 ]
+uses = [
+    "fn:b50bb81c0f596dee",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
     "#26",
     "#27",
@@ -320,6 +325,11 @@ callees = [
     "fn:8b4aa48bb1b84d87",
     "fn:9160e07c575a767d",
     "fn:bc7a0c8c08b6ecfa",
+]
+uses = [
+    "fn:84cb0209ea2238b7",
+    "fn:b50bb81c0f596dee",
+    "fn:d7d2605aa15a13f3",
 ]
 reached_by = [
     "#26",
@@ -376,6 +386,10 @@ callees = [
     "fn:a0ca6e2fdc6e5cca",
     "fn:c78b4f8868b0c764",
 ]
+uses = [
+    "fn:b50bb81c0f596dee",
+    "fn:d7d2605aa15a13f3",
+]
 reached_by = [
     "#26",
     "#27",
@@ -428,6 +442,7 @@ callees = [
     "fn:5dd7d283a9da95ef",
     "fn:fc0fa4bfdc15f523",
 ]
+uses = ["fn:b278a27158f0ca13"]
 reached_by = [
     "#26",
     "#27",
@@ -496,6 +511,14 @@ callees = [
     "fn:f3e2b3ee3846f494",
     "fn:fb2ec7bf07e85d32",
     "fn:ff0f2370dce64749",
+]
+uses = [
+    "fn:517ff8a19a0ca2a5",
+    "fn:9f9868e613cd65c8",
+    "fn:afd468679f0a5be3",
+    "fn:cc637152d1ddfabb",
+    "fn:d7d2605aa15a13f3",
+    "fn:e367f868537bae09",
 ]
 reached_by = [
     "#26",
@@ -643,6 +666,12 @@ callees = [
     "fn:d801f3d7e2e25850",
     "fn:fb2ec7bf07e85d32",
 ]
+uses = [
+    "fn:0c0ebbeabbd712b8",
+    "fn:b50bb81c0f596dee",
+    "fn:d7d2605aa15a13f3",
+    "fn:ecd21752afe5ea1d",
+]
 reached_by = [
     "#0",
     "#1",
@@ -734,6 +763,10 @@ callees = [
     "fn:2b0ff9ba8c0b9597",
     "fn:5022538f474ba8ae",
     "fn:d3e67fe732790a6a",
+]
+uses = [
+    "fn:b50bb81c0f596dee",
+    "fn:d7d2605aa15a13f3",
 ]
 reached_by = [
     "#0",
@@ -1174,6 +1207,7 @@ lines = [
 hash = "sha256:8983afc4ccb2f7d1a0ae11a8f241fa4a0294eecc5252bec55e58310b7b84214a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:83fcbe7e1dca60e3"]
+uses = ["fn:15406dc4687bb131"]
 reached_by = [
     "#0",
     "#1",
@@ -1261,6 +1295,7 @@ lines = [
 ]
 hash = "sha256:869a044be9f34afcd20400ade4299b20a20f619774a84ff028dde8500168429e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:9f9868e613cd65c8"]
 reached_by = [
     "#0",
     "#1",
@@ -1354,6 +1389,11 @@ callees = [
     "fn:376e72bcc207d10b",
     "fn:ce652f83dcae2a14",
     "fn:cea288306c80a25a",
+]
+uses = [
+    "fn:0c0ebbeabbd712b8",
+    "fn:9f9868e613cd65c8",
+    "fn:ed0d2bf79ed574cd",
 ]
 reached_by = [
     "#0",
@@ -1472,6 +1512,15 @@ callees = [
     "fn:fb2ec7bf07e85d32",
     "fn:fcd90d1bb1abf38f",
 ]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:9f9868e613cd65c8",
+    "fn:b278a27158f0ca13",
+    "fn:b50bb81c0f596dee",
+    "fn:c6aef6f93f9888a0",
+    "fn:d7d2605aa15a13f3",
+    "fn:dc611d402b27d072",
+]
 reached_by = [
     "#0",
     "#1",
@@ -1563,6 +1612,7 @@ callees = [
     "fn:48f810720138c7d7",
     "fn:76c57208e9a9bea8",
 ]
+uses = ["fn:b278a27158f0ca13"]
 reached_by = [
     "#0",
     "#1",
@@ -1837,6 +1887,128 @@ test = true
 path = "crate::zotero::translators::endnote_xml"
 
 [[module."mod.rs".function]]
+id = "fn:6ba175a61bcbadfc"
+name = "METADATA"
+qual = "METADATA"
+item = "static"
+shape = "static"
+lines = [
+    32,
+    51,
+]
+hash = "sha256:a74e6cf6504723203d6480f8ddc86612a03575684f549451d420c4f19daaf85b"
+doc_hash = "sha256:0fbe1ab7ec43c0053f1686ffc4817e2b480ede796a57805338c60b401456baa4"
+uses = [
+    "fn:11d594cf8e55e86d",
+    "fn:2718c0bba0d5822f",
+    "fn:ab604940c4f615d6",
+    "fn:d77f6f5d4bc8b528",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+]
+
+[[module."mod.rs".function]]
 id = "fn:d2d14a74333d61fe"
 name = "detect_import"
 qual = "detect_import"
@@ -1851,6 +2023,7 @@ callees = [
     "fn:2eb7ba100b78f026",
     "fn:ff0f2370dce64749",
 ]
+uses = ["fn:ed0d2bf79ed574cd"]
 reached_by = [
     "#27",
     "#30",
@@ -1884,6 +2057,153 @@ reached_by = [
     "#93",
     "#95",
     "#96",
+]
+
+[[module."mod.rs".function]]
+id = "fn:afd468679f0a5be3"
+name = "FIELDS"
+qual = "FIELDS"
+item = "const"
+shape = "const"
+lines = [
+    69,
+    134,
+]
+hash = "sha256:4b067c559156aeb81b0f325b24d46e05c80c85ee0ed85405fdddf1283ed6d284"
+doc_hash = "sha256:e4017227cfccb475bfc41bf0f4b153ee55c6779a3127cacf0bb80d9701a99a1f"
+reached_by = [
+    "#26",
+    "#27",
+    "#28",
+    "#31",
+    "#32",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#42",
+    "#45",
+    "#50",
+    "#51",
+    "#54",
+    "#55",
+    "#58",
+    "#59",
+    "#62",
+    "#63",
+    "#65",
+    "#67",
+    "#69",
+    "#70",
+    "#73",
+    "#77",
+    "#78",
+    "#84",
+    "#85",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#94",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e367f868537bae09"
+name = "TITLE_FIELDS"
+qual = "TITLE_FIELDS"
+item = "const"
+shape = "const"
+lines = [
+    136,
+    144,
+]
+hash = "sha256:72b3d46053598628a8aa8b15ca2f2dc3f6a8ef9af15dc80d6334e3196219458b"
+doc_hash = "sha256:add787c66d198a2af040f173bc3875a72ec2f5b989d179ed7165d8fad4280a42"
+reached_by = [
+    "#26",
+    "#27",
+    "#28",
+    "#31",
+    "#32",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#42",
+    "#45",
+    "#50",
+    "#51",
+    "#54",
+    "#55",
+    "#58",
+    "#59",
+    "#62",
+    "#63",
+    "#65",
+    "#67",
+    "#69",
+    "#70",
+    "#73",
+    "#77",
+    "#78",
+    "#84",
+    "#85",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#94",
+]
+
+[[module."mod.rs".function]]
+id = "fn:517ff8a19a0ca2a5"
+name = "AUTHOR_FIELDS"
+qual = "AUTHOR_FIELDS"
+item = "const"
+shape = "const"
+lines = [
+    146,
+    153,
+]
+hash = "sha256:4a343948f2a362e854c3e6afc5833465dddeed855851b94faf50ee252a913fee"
+doc_hash = "sha256:64530902db23d07d10dbcbf1fd0f22cdc8fd85efdc4b24a069bcc4c8df7f4525"
+reached_by = [
+    "#26",
+    "#27",
+    "#28",
+    "#31",
+    "#32",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#42",
+    "#45",
+    "#50",
+    "#51",
+    "#54",
+    "#55",
+    "#58",
+    "#59",
+    "#62",
+    "#63",
+    "#65",
+    "#67",
+    "#69",
+    "#70",
+    "#73",
+    "#77",
+    "#78",
+    "#84",
+    "#85",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#94",
 ]
 
 [[module."mod.rs".function]]
@@ -2155,6 +2475,119 @@ reached_by = [
 ]
 
 [[module."mod.rs".function]]
+id = "fn:6586f258344a8d50"
+name = "Mapping"
+qual = "Mapping"
+item = "type"
+shape = "enum"
+lines = [
+    348,
+    354,
+]
+hash = "sha256:f0073913a3146057d2d59c140516f4ff3598efd310b6a531d2416c0e0031fe8d"
+doc_hash = "sha256:524f6b9a568ede4b7036221768f4b880ac5dfd31630dcd4527743e99ee9545df"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+]
+
+[[module."mod.rs".function]]
 id = "fn:e869b5421c776823"
 name = "field_map"
 qual = "field_map"
@@ -2164,6 +2597,7 @@ lines = [
 ]
 hash = "sha256:b1fdc8141056cf79874f71a0dc95ca6f860667f7df257aa2f626e2770a86b55f"
 doc_hash = "sha256:083e93be2769707722dafa253d460dba98d14554638fa22071b1afde364ce72b"
+uses = ["fn:6586f258344a8d50"]
 reached_by = [
     "#0",
     "#1",
@@ -2276,6 +2710,7 @@ lines = [
 hash = "sha256:e69d021c9cceca322956d06b525eca61de24c88a907784de78ad394e85ec6dcd"
 doc_hash = "sha256:38b56180bc15e04246845e1de88b5475bb35f54b2004ee8ffe6b9fce12d6d67e"
 callees = ["fn:e869b5421c776823"]
+uses = ["fn:6586f258344a8d50"]
 reached_by = [
     "#0",
     "#1",

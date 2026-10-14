@@ -1,0 +1,11 @@
+# Kovan code connections.
+#
+# One entry per link from a reviewed function of this repository to a
+# concept of Kovan's standard corpus. Written by desktop kovan (Code
+# Review, right-click a reviewed function). Unsigned: not part of any
+# review stamp.
+
+[[connection]]
+source = "fn:dd41ff2953124783"
+path = "crates/boon-lay/src/fuel_failure/weibull.rs::weibull_failure_fraction"
+target = "corpus:concept/02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-failure"

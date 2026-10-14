@@ -37,6 +37,7 @@ row = 3
 topic = "thermal-hydraulics"
 fidelity = 1
 maturity = 1
+backronym = "Thermal-hydraulic Artificial-intelligence Multi-Phase INtegrated Emulator System"
 
 [features]
 # `long-tests` gates the individual tests that measure over 5 minutes, and is

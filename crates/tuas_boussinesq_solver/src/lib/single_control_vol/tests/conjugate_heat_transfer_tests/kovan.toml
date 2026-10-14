@@ -33,6 +33,20 @@ callees = [
     "fn:ecd45ac50d6912be",
     "fn:efc0a2bd73065273",
 ]
+uses = [
+    "fn:036e8889bc2cf6ec",
+    "fn:1d3817b8eede3ea9",
+    "fn:4a19e9ba06c44963",
+    "fn:4f4f20c99296d4f3",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:9aef9d55f58acba3",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:b0d8ad2797566c83",
+    "fn:de020efa1d48c9ac",
+    "fn:e6f457f9221aaceb",
+]
 test = true
 
 [[module."ciet_heater_v2_single_cv.rs".function]]
@@ -61,6 +75,20 @@ callees = [
     "fn:e9d8ccbd9de53b00",
     "fn:ecd45ac50d6912be",
     "fn:efc0a2bd73065273",
+]
+uses = [
+    "fn:036e8889bc2cf6ec",
+    "fn:1d3817b8eede3ea9",
+    "fn:4a19e9ba06c44963",
+    "fn:4f4f20c99296d4f3",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:9aef9d55f58acba3",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:b0d8ad2797566c83",
+    "fn:de020efa1d48c9ac",
+    "fn:e6f457f9221aaceb",
 ]
 test = true
 
@@ -146,6 +174,10 @@ callees = [
     "fn:701c0bba7290edb4",
     "fn:a9643ecc6f3b7239",
 ]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -180,6 +212,18 @@ callees = [
     "fn:ecd45ac50d6912be",
     "fn:efc0a2bd73065273",
 ]
+uses = [
+    "fn:036e8889bc2cf6ec",
+    "fn:1d3817b8eede3ea9",
+    "fn:4a19e9ba06c44963",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:9aef9d55f58acba3",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:b0d8ad2797566c83",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [[module."ciet_heater_v2_single_cv_speedup_multithreading.rs".function]]
@@ -208,6 +252,20 @@ callees = [
     "fn:e9d8ccbd9de53b00",
     "fn:ecd45ac50d6912be",
     "fn:efc0a2bd73065273",
+]
+uses = [
+    "fn:036e8889bc2cf6ec",
+    "fn:1d3817b8eede3ea9",
+    "fn:4a19e9ba06c44963",
+    "fn:4f4f20c99296d4f3",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:9aef9d55f58acba3",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:b0d8ad2797566c83",
+    "fn:de020efa1d48c9ac",
+    "fn:e6f457f9221aaceb",
 ]
 test = true
 
@@ -293,6 +351,10 @@ callees = [
     "fn:67c4c9d566e5d94b",
     "fn:8fd741e7c0179fdf",
 ]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 physical_interface = true
 
@@ -309,6 +371,15 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:35779dd7872acf8b",
     "fn:e914b3ed909034f5",
+]
+uses = [
+    "fn:036e8889bc2cf6ec",
+    "fn:1d3817b8eede3ea9",
+    "fn:4f4f20c99296d4f3",
+    "fn:7a10a768152b5992",
+    "fn:9aef9d55f58acba3",
+    "fn:a6efe5f766b47fef",
+    "fn:e6f457f9221aaceb",
 ]
 test = true
 physical_interface = true
@@ -328,6 +399,11 @@ callees = [
     "fn:9775e3774dab067b",
     "fn:e914b3ed909034f5",
 ]
+uses = [
+    "fn:7a10a768152b5992",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+]
 test = true
 physical_interface = true
 
@@ -346,6 +422,14 @@ callees = [
     "fn:e914b3ed909034f5",
     "fn:e9d8ccbd9de53b00",
 ]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:4f4f20c99296d4f3",
+    "fn:7a10a768152b5992",
+    "fn:9aef9d55f58acba3",
+    "fn:a6efe5f766b47fef",
+    "fn:e6f457f9221aaceb",
+]
 test = true
 physical_interface = true
 
@@ -362,6 +446,14 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = [
     "fn:e914b3ed909034f5",
     "fn:e9d8ccbd9de53b00",
+]
+uses = [
+    "fn:036e8889bc2cf6ec",
+    "fn:1d3817b8eede3ea9",
+    "fn:4f4f20c99296d4f3",
+    "fn:7a10a768152b5992",
+    "fn:a6efe5f766b47fef",
+    "fn:e6f457f9221aaceb",
 ]
 test = true
 physical_interface = true
@@ -380,6 +472,12 @@ callees = [
     "fn:688af171e3e001e7",
     "fn:e914b3ed909034f5",
     "fn:e9d8ccbd9de53b00",
+]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:7a10a768152b5992",
+    "fn:a6efe5f766b47fef",
+    "fn:b0d8ad2797566c83",
 ]
 test = true
 physical_interface = true
@@ -413,6 +511,20 @@ callees = [
     "fn:ecd45ac50d6912be",
     "fn:efc0a2bd73065273",
 ]
+uses = [
+    "fn:036e8889bc2cf6ec",
+    "fn:1d3817b8eede3ea9",
+    "fn:4a19e9ba06c44963",
+    "fn:4f4f20c99296d4f3",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:9aef9d55f58acba3",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:b0d8ad2797566c83",
+    "fn:de020efa1d48c9ac",
+    "fn:e6f457f9221aaceb",
+]
 test = true
 
 [[module."ciet_heater_v2_single_cv_speedup_one_radial_steel_shell_node.rs".function]]
@@ -431,6 +543,10 @@ callees = [
     "fn:3df11185bccf1293",
     "fn:45de95a2df8c0305",
     "fn:814b8778f4ff54b0",
+]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:de020efa1d48c9ac",
 ]
 test = true
 physical_interface = true
@@ -491,6 +607,20 @@ callees = [
     "fn:ecd45ac50d6912be",
     "fn:efc0a2bd73065273",
 ]
+uses = [
+    "fn:036e8889bc2cf6ec",
+    "fn:1d3817b8eede3ea9",
+    "fn:4a19e9ba06c44963",
+    "fn:4f4f20c99296d4f3",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:9aef9d55f58acba3",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:b0d8ad2797566c83",
+    "fn:de020efa1d48c9ac",
+    "fn:e6f457f9221aaceb",
+]
 test = true
 
 [[module."ciet_heater_v2_single_cv_speedup_three_axial_nodes.rs".function]]
@@ -509,6 +639,10 @@ callees = [
     "fn:42a9a91884d5e31e",
     "fn:45de95a2df8c0305",
     "fn:c05f6da153229a90",
+]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:de020efa1d48c9ac",
 ]
 test = true
 physical_interface = true
@@ -572,6 +706,18 @@ callees = [
     "fn:ecd45ac50d6912be",
     "fn:efc0a2bd73065273",
 ]
+uses = [
+    "fn:14cad68ccaa57f69",
+    "fn:1d3817b8eede3ea9",
+    "fn:1f4a9fe6d1e170a3",
+    "fn:4a19e9ba06c44963",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:b0d8ad2797566c83",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [[module."one_dimension_heater.rs".function]]
@@ -599,6 +745,18 @@ callees = [
     "fn:e9d8ccbd9de53b00",
     "fn:ecd45ac50d6912be",
     "fn:efc0a2bd73065273",
+]
+uses = [
+    "fn:14cad68ccaa57f69",
+    "fn:1d3817b8eede3ea9",
+    "fn:1f4a9fe6d1e170a3",
+    "fn:4a19e9ba06c44963",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:b0d8ad2797566c83",
+    "fn:de020efa1d48c9ac",
 ]
 test = true
 
@@ -628,6 +786,19 @@ callees = [
     "fn:e9d8ccbd9de53b00",
     "fn:ecd45ac50d6912be",
     "fn:efc0a2bd73065273",
+]
+uses = [
+    "fn:14cad68ccaa57f69",
+    "fn:1d3817b8eede3ea9",
+    "fn:1f4a9fe6d1e170a3",
+    "fn:4a19e9ba06c44963",
+    "fn:54679033f1efb4f4",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:b0d8ad2797566c83",
+    "fn:de020efa1d48c9ac",
 ]
 test = true
 

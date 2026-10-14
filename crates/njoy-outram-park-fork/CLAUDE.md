@@ -593,8 +593,8 @@ supplies photon heating to better than 1e-4, and that is the number to quote.
 both codes reading the same PENDF so the comparison isolates `acedos`. Record:
 [`verification_and_validation/acer_dosimetry_vs_njoy2016.md`](verification_and_validation/acer_dosimetry_vs_njoy2016.md).
 
-**All 40 cases in `upstream_source/NJOY2016/tests` were checked and none runs
-`iopt = 3`.** This gate covers a path with no regression cover upstream. Worth
+~~**All 40 cases in `upstream_source/NJOY2016/tests` were checked and none runs
+`iopt = 3`.**~~ **CORRECTED 2026-10-14** (counted in the vendored upstream at `ac5adf5`): there are 86 numbered cases, 46 of which run `acer`, with `iopt` 1, 2, 4, 5 and 7; none runs `iopt = 3`. This gate covers a path with no regression cover upstream. Worth
 remembering the next time a discrepancy in a little-used module looks
 surprising: "NJOY does it this way" is only evidence that the code says so,
 not that anyone has ever run it.
@@ -648,6 +648,99 @@ densities** out of 10 518 — the first `-8.47e-16` at a final point whose CDF
 has already reached 1. An `assert!(pdf >= 0.0)` would have failed against a
 file NJOY wrote. Check what upstream actually produces before deciding what
 "obviously" must hold.
+
+## Thermal tables are NJOY2016's word for word (2026-10-14, GitHub #865)
+
+`AceTable::thermal_from_mf7_on_pendf` builds a thermal table on the incident
+nuclide's PENDF (`IncidentPendf`: MAT, AWR, card-8a ZAs, MT=2). The result is
+NJOY2016's in every word, and in every byte but the date and comment. Checked
+on Al-27 (tol 0.05 and 0.001, `iwt` 0/1/2), H in H₂O (`iwt` 0/1/2) and
+crystalline graphite. Gate: `tests/acer_thermal_word_parity.rs`. Record:
+[`verification_and_validation/acer_thermal_word_parity_2026_10_14.md`](verification_and_validation/acer_thermal_word_parity_2026_10_14.md).
+
+Three things worth carrying forward:
+
+- **ACER reads THERMR's output back from text, and that is part of the
+  algorithm.** `tpend` rounds every MF=3 point with `sigfig(·,7)`. It
+  normalises each MF=6 density by `xsi` and rounds that too. `calcem`'s rows
+  pass through a text scratch tape before any of this. With positive units
+  (OpenMC's decks) each round trip changes the table. `acesix::tpend_rows`
+  and `thermr::mf3_grid` reproduce them.
+- **Bit-level parity came from logging upstream, not from reasoning.** An
+  instrumented `thermr.f90` (`verification_and_validation/acer_thermal_word_parity/thermr_instrument.diff`)
+  logged `sig`, `sigl` and `tpend`. Each stage was then made exact before the
+  next was looked at. The defects were small and many:
+  - a missing `sigmin = 1e-10` cut;
+  - `third = .333333333`, not `1/3`;
+  - `gral=gral+A+B` evaluated as `(gral+A)+B`;
+  - `terp1`'s grouping;
+  - `tev` against `rtev`;
+  - the LAT = 1 back-scaling.
+
+  None of them shows in a 1e-3 comparison, and every one moves a printed word.
+- **ITIX depends on the incident evaluation.** ACER interpolates THERMR's
+  MF=3, which sits on the incident nuclide's elastic grid merged with `coh`'s
+  Bragg points. Without that grid, `thermal_from_mf7_with_tolerance` still
+  differs there, by up to 1.1e-3 on Al-27.
+- **Incoherent elastic is word for word too (GitHub #866).** H in ZrH at
+  296 K (`IDPNC = 3`) joined the gate. ACER takes ITCX by `gety1` on the
+  MF=3 that THERMR's `iel` writes on the same PENDF grid (order-3 `terp` of
+  `xie`, rounded by `tpend`), not from `iel`'s own value. That alone was
+  2.2e-3 at 3.75 eV. Record:
+  [`verification_and_validation/acer_thermal_incoherent_elastic_2026_10_14.md`](verification_and_validation/acer_thermal_incoherent_elastic_2026_10_14.md).
+  Mixed elastic (`IDPNC = 5`) is not gated: no `LTHR = 3` tape is held.
+
+**Away from the base temperature too (GitHub #866).** Graphite at 600 K and
+600.5 K and H in H₂O at 293.6 K and 293.9 K are word for word NJOY2016's
+(`tests/acer_thermal_temperature_parity.rs`, record
+[`acer_thermal_temperatures_2026_10_14.md`](verification_and_validation/acer_thermal_temperatures_2026_10_14.md)).
+THERMR never interpolates in temperature: `calcem` accepts a request within
+`T/500` of a tabulated MF=7 temperature and stops otherwise. The NJOY-deck path
+(`thermal_from_mf7_on_pendf`) now refuses where it stops
+(`NjoyError::TemperatureNotTabulated`); the other two entry points keep this
+crate's `LI`-law interpolation, which NJOY2016 has no counterpart for. Two
+things to know: `calcem`'s window is `T/500`, not `rdelas`'s `T/1000 + 5` K
+(603 K graphite is inside the second and refused); and on a near match
+`calcem` reads `kT` at the *tabulated* temperature but `T_eff` at the
+*requested* one (`thermr.f90:1924` against `:1812-1834`). Reading
+`calcem(temp, ...)` as "everything at the request" moved ITIX by 3e-4 and the
+gate caught it.
+
+## The high-level way in: `process` (2026-10-14, GitHub #871)
+
+Four functions in `src/process/` take an ENDF tape and a `uom` temperature to
+processed data, and run on `wasm32` (no files, threads or clocks):
+
+| function | result | NJOY chain |
+|---|---|---|
+| `process::cross_sections(&tape, T, &CrossSectionSettings)` | `NuclearCrossSections` (PENDF, PURR tables, HEATR KERMA) | RECONR → BROADR → PURR → HEATR |
+| `process::ace(..)` | `AceTable` (`.to_type1_text()`, `.to_type2_bytes()`) | the above → ACER |
+| `process::thermal_scattering(&tape, deck_text, T, &ThermalSettings)` | `ThermalScatteringLaw` (LEAPR tape, MF=7, `thermr::on_pendf::ThermrTables`) | LEAPR at `T`; RECONR → BROADR; THERMR |
+| `process::thermal_ace(..)` | thermal `AceTable` | the above → ACER |
+
+They reuse, not duplicate: `build_deck` is now `deck_modules` (PURR, HEATR) +
+`assemble` (ACER), and `thermal_from_mf7_on_pendf` is
+`thermr::on_pendf::thermr_tables` + `AceTable::thermal_from_thermr`. The
+gates on those (`acer_thermal_word_parity*.rs`, `ace_compare.rs`) are
+unchanged and pass. Settings default to NJOY's, physics on (PURR 20/64/10 000,
+HEATR, THERMR 0.001 with 16 cosines, `natom`/`emax` from the law's
+`B(6)`/`B(4)`).
+
+- **The thermal law always comes from a LEAPR deck** (#870). LEAPR runs *at*
+  the request on the deck's block for it (`leapr::run_deck_at_temperature`,
+  the `generate` module's block rule), so THERMR never interpolates.
+- **LEAPR's constants default to the deck's vintage** (its `EVAL` date, which
+  reproduces the published tape). NJOY2016 run on the same deck uses CODATA
+  2018; set `ThermalSettings::with_leapr_constants(Codata2018)` to match it.
+- **Measured** (`tests/process_api.rs`): `process::ace` on U-234 at 293.6 K is
+  NJOY2016's table in every word; `process::thermal_ace` on the ENDF/B-VIII.0
+  H-in-H₂O deck cut to 293.6 K with H-1 is NJOY2016's
+  `leapr → reconr → broadr → thermr → acer` table in every word (deck and
+  table in `reference-data/acer/thermal_decks/`).
+- **Fixed on the way:** `run_deck` wrote a cold H₂/D₂ deck as a symmetric law
+  (`isym = isabt`, `coldh`'s positive half dropped); it now builds `isym` as
+  `generate_tape` does and matches NJOY's test-22 tape
+  (`tests/leapr_run_at_temperature.rs`).
 
 ## mcnpx format, and why a read-then-write round trip is worth asserting (2026-09-22)
 

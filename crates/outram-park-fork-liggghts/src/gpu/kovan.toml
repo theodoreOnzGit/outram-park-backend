@@ -12,6 +12,60 @@ test_ids = [
 path = "crate::gpu"
 
 [[module."mod.rs".function]]
+id = "fn:dc5639c29707a69e"
+name = "MAX_BINS"
+qual = "MAX_BINS"
+item = "const"
+shape = "const"
+lines = [
+    51,
+    56,
+]
+hash = "sha256:3acf1909f58ade65aa4807679034f4f029b060df87b87e47b66bd8214b59fcde"
+doc_hash = "sha256:bfd9fd4d4c91fcd563a772480cd0d73820c7da4bc81a4822af552daf53978e7f"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b0573b852c1ea339"
+name = "WG_SIZE"
+qual = "WG_SIZE"
+item = "const"
+shape = "const"
+lines = [
+    58,
+    59,
+]
+hash = "sha256:209842ade790f8677030d94fd041f32012e5d58300147127f2f81fb6bd34286c"
+doc_hash = "sha256:2167dca9933873d04c6976fa24a44c4379ab18b41760dffe1705aeb29dde80af"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:927ebfbb61e6ff4a"
+name = "GpuContext"
+qual = "GpuContext"
+item = "type"
+shape = "struct"
+lines = [
+    61,
+    70,
+]
+hash = "sha256:ea0940dc2eb940f55c96e82a17eb5b44740e7d1b7551167939f940b28c797242"
+doc_hash = "sha256:5ae7902325f54c3eb8d5d5655505cf391449c6afb13483a92d73b827ca591bca"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
 id = "fn:2b44df282bfdcaf8"
 name = "fmt"
 qual = "GpuContext::fmt"
@@ -21,6 +75,7 @@ lines = [
 ]
 hash = "sha256:281c7a34d07e85adf9e6d400927475f54ca69e4b3c9644535eda19af01d986f6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:927ebfbb61e6ff4a"]
 
 [[module."mod.rs".function]]
 id = "fn:45bb58b1cc13c9d1"
@@ -33,6 +88,7 @@ lines = [
 hash = "sha256:d05bc90648b6ab6a0cd03af2621c4bfcc5a6720bd2e3423e76a34dfecfdecebc"
 doc_hash = "sha256:ca50e322678d2f869835a077031186d1628a312c034a5dd3aa0b7fe2d3169ce7"
 callees = ["fn:0e783ffb5a50b88c"]
+uses = ["fn:927ebfbb61e6ff4a"]
 reached_by = [
     "#0",
     "#1",
@@ -53,6 +109,11 @@ callees = [
     "fn:090248de45c18ba5",
     "fn:45bb58b1cc13c9d1",
     "fn:6be0b3ae03c70b84",
+]
+uses = [
+    "fn:b0573b852c1ea339",
+    "fn:dc5639c29707a69e",
+    "fn:ffb2806719a2b1e6",
 ]
 reached_by = [
     "#0",

@@ -94,6 +94,7 @@ callees = [
     "fn:0a1e0d6520752cd8",
     "fn:1d9d0eac090b5472",
 ]
+uses = ["fn:540617e338f429d7"]
 reached_by = [
     "#1",
     "#2",
@@ -190,6 +191,10 @@ callees = [
     "fn:e04a45132823706f",
     "fn:eedc38381fcfd405",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+]
 reached_by = [
     "#1",
     "#2",
@@ -281,6 +286,10 @@ callees = [
     "fn:eb89be045205dc88",
     "fn:eedc1a53a24de8e0",
     "fn:eedc38381fcfd405",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
 ]
 reached_by = [
     "#1",
@@ -383,6 +392,11 @@ callees = [
     "fn:f20f2546fb01bb9d",
     "fn:feec71215f335f20",
 ]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:9447740069e81383",
+]
 physical_interface = true
 
 [[module."calibration.rs".function]]
@@ -402,6 +416,10 @@ callees = [
     "fn:f20f2546fb01bb9d",
     "fn:feec71215f335f20",
 ]
+uses = [
+    "fn:5811ccd622a4f7ee",
+    "fn:9447740069e81383",
+]
 physical_interface = true
 
 [[module."calibration.rs".function]]
@@ -420,6 +438,10 @@ callees = [
     "fn:eb89be045205dc88",
     "fn:f20f2546fb01bb9d",
     "fn:feec71215f335f20",
+]
+uses = [
+    "fn:5811ccd622a4f7ee",
+    "fn:9447740069e81383",
 ]
 reached_by = [
     "#61",
@@ -460,6 +482,10 @@ callees = [
     "fn:84b7870b4d7c7d91",
     "fn:d2ef60a016252736",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:de020efa1d48c9ac",
+]
 reached_by = [
     "#61",
     "#62",
@@ -484,6 +510,10 @@ callees = [
     "fn:84b7870b4d7c7d91",
     "fn:86b916a07dca81de",
     "fn:d2ef60a016252736",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:de020efa1d48c9ac",
 ]
 reached_by = [
     "#61",
@@ -510,6 +540,10 @@ callees = [
     "fn:cb686a3a508b4a07",
     "fn:d2ef60a016252736",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."calibration.rs".function]]
@@ -527,6 +561,10 @@ callees = [
     "fn:281e000f5919abf9",
     "fn:4f08e35087543a15",
     "fn:84b7870b4d7c7d91",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:de020efa1d48c9ac",
 ]
 reached_by = [
     "#61",
@@ -551,6 +589,10 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:84b7870b4d7c7d91",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."calibration.rs".function]]
@@ -568,6 +610,10 @@ callees = [
     "fn:281e000f5919abf9",
     "fn:4f08e35087543a15",
     "fn:84b7870b4d7c7d91",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:de020efa1d48c9ac",
 ]
 reached_by = [
     "#61",
@@ -591,6 +637,10 @@ callees = [
     "fn:4cad4ddd84ccee48",
     "fn:4f08e35087543a15",
     "fn:84b7870b4d7c7d91",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:de020efa1d48c9ac",
 ]
 physical_interface = true
 
@@ -768,6 +818,11 @@ callees = [
     "fn:36d2eb492cf6dd49",
     "fn:4f08e35087543a15",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:a6efe5f766b47fef",
+    "fn:d4b239bd4b67db13",
+]
 reached_by = [
     "#0",
     "#1",
@@ -849,6 +904,10 @@ lines = [
 hash = "sha256:17aab152a186599cd95a2f6a21c7e4129e32aa27758d235e03cefaf6ddaeb91a"
 doc_hash = "sha256:4cf9358a2415fd9abbb342eb259200c907debddcd7d2d844023177103fcc7bbb"
 callees = ["fn:4f08e35087543a15"]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:d4b239bd4b67db13",
+]
 reached_by = [
     "#0",
     "#10",
@@ -918,6 +977,7 @@ callees = [
     "fn:9212f011bf144631",
     "fn:f8fcd27da58670ac",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 reached_by = [
     "#1",
     "#2",
@@ -1002,6 +1062,7 @@ callees = [
     "fn:9212f011bf144631",
     "fn:f8fcd27da58670ac",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 reached_by = [
     "#1",
     "#2",
@@ -1163,6 +1224,7 @@ callees = [
     "fn:457e96f4f0b76ef7",
     "fn:4f08e35087543a15",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 reached_by = [
     "#1",
     "#2",
@@ -1246,6 +1308,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:7b8091c3b21fab1e",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 reached_by = [
     "#61",
     "#62",
@@ -1266,6 +1329,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:7860f11bd51dbb37",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 reached_by = [
     "#1",
     "#2",
@@ -1351,6 +1415,10 @@ callees = [
     "fn:84b7870b4d7c7d91",
     "fn:d2ef60a016252736",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:de020efa1d48c9ac",
+]
 reached_by = [
     "#61",
     "#62",
@@ -1359,6 +1427,97 @@ physical_interface = true
 
 [module."mod.rs"]
 path = "crate::pre_built_components::shell_and_tube_heat_exchanger"
+
+[[module."mod.rs".function]]
+id = "fn:0a50e017198e2657"
+name = "SimpleShellAndTubeHeatExchanger"
+qual = "SimpleShellAndTubeHeatExchanger"
+item = "type"
+shape = "struct"
+lines = [
+    161,
+    259,
+]
+hash = "sha256:f44d3a5cdd9276738e391a334600fefa22525e4bafaf1cd89415edb0f1d36241"
+doc_hash = "sha256:546cad372a3cc8503873b9bbee13d54343f20acad4efce16b0300cac643a4931"
+uses = [
+    "fn:a6efe5f766b47fef",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+]
 
 [[module."mod.rs".function]]
 id = "fn:ec1bb94e3b0efdfb"
@@ -1375,6 +1534,15 @@ callees = [
     "fn:2ee4f67ebdd1986d",
     "fn:9cf2732f8b0c6890",
     "fn:a7684adf457511e5",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:5811ccd622a4f7ee",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
 ]
 reached_by = [
     "#0",
@@ -1453,6 +1621,13 @@ lines = [
 hash = "sha256:eeb0bd6c0f556728b1d7dca726b87a9db35406d92ae53ffb875da8073fecaf78"
 doc_hash = "sha256:86ff59309fe71429c3fec538f4c0d41d6b6cc1627565d4171c977ce9e3fde9b0"
 callees = ["fn:ec1bb94e3b0efdfb"]
+uses = [
+    "fn:0a50e017198e2657",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
+]
 reached_by = ["#64"]
 physical_interface = true
 
@@ -1474,6 +1649,16 @@ callees = [
     "fn:9cf2732f8b0c6890",
     "fn:a7684adf457511e5",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:5811ccd622a4f7ee",
+    "fn:68ae150e37a870db",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
+]
 reached_by = ["#63"]
 
 [module."postprocessing.rs"]
@@ -1490,6 +1675,7 @@ lines = [
 hash = "sha256:4e414c2bc782766d0a76c41486b242d8d135205f0d00078af297f2cddb34548d"
 doc_hash = "sha256:7ef17ad7307aa8d3122d640e1cf304d50927192ccd656dd36f942ad670e93437"
 callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
 physical_interface = true
 
 [[module."postprocessing.rs".function]]
@@ -1503,6 +1689,7 @@ lines = [
 hash = "sha256:cde0c50e390ce40fad58279a2009cf7c2ae96119a3f6e423e3e6f412480a3910"
 doc_hash = "sha256:c3ad994485042858cf7392e1f478d94cea8a85499ccbf4a7bd66e6c578b24f0f"
 callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
 reached_by = [
     "#57",
     "#58",
@@ -1520,6 +1707,7 @@ lines = [
 hash = "sha256:67ea3f1bc42b62af76a79cbf5f661498680878c38732a024c4e838bdbf504abb"
 doc_hash = "sha256:3899c4d364b4d48e1422944510cf5fc20bda192fd65ebb6ece2f1847a19c8e24"
 callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
 reached_by = [
     "#57",
     "#58",
@@ -1537,6 +1725,7 @@ lines = [
 hash = "sha256:a0ac493477c5fe24f7d391db5b16108ba1ce723da64ec3db0168ed3494175fd6"
 doc_hash = "sha256:d1016f16cd3cedc72ed71c1a84c875e2865391991012d63139635aa137ab7b53"
 callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
 physical_interface = true
 
 [[module."postprocessing.rs".function]]
@@ -1550,6 +1739,7 @@ lines = [
 hash = "sha256:9b54fa3c77d65b13aa015ae3149d4161ce8995a9899ed468a629e77d2a3b9347"
 doc_hash = "sha256:ee3f059d0ea1ea3e79b2cea5bb2323ab667418972e2534bafafbdb5c6d10090f"
 callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
 physical_interface = true
 
 [[module."postprocessing.rs".function]]
@@ -1570,6 +1760,7 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:584e9cd372c2d4aa",
 ]
+uses = ["fn:07c5060b9c48fc1b"]
 reached_by = [
     "#61",
     "#62",
@@ -1613,6 +1804,14 @@ callees = [
     "fn:eb89be045205dc88",
     "fn:feec71215f335f20",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
 reached_by = [
     "#59",
     "#65",
@@ -1650,6 +1849,11 @@ callees = [
     "fn:b3b9d502080e9f35",
     "fn:eb89be045205dc88",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:de020efa1d48c9ac",
+]
 reached_by = [
     "#61",
     "#62",
@@ -1675,6 +1879,10 @@ callees = [
     "fn:84b7870b4d7c7d91",
     "fn:b3b9d502080e9f35",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."postprocessing.rs".function]]
@@ -1696,6 +1904,11 @@ callees = [
     "fn:a03d943953e2b3cb",
     "fn:a2275733c3fa6168",
     "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:de020efa1d48c9ac",
 ]
 physical_interface = true
 
@@ -1725,6 +1938,12 @@ callees = [
     "fn:a2275733c3fa6168",
     "fn:e77ed27c41aab2b5",
     "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
 ]
 reached_by = [
     "#1",
@@ -1760,6 +1979,10 @@ callees = [
     "fn:84b7870b4d7c7d91",
     "fn:e77ed27c41aab2b5",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:de020efa1d48c9ac",
+]
 reached_by = [
     "#1",
     "#2",
@@ -1790,6 +2013,10 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:84b7870b4d7c7d91",
     "fn:a03d943953e2b3cb",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:de020efa1d48c9ac",
 ]
 reached_by = [
     "#1",
@@ -1825,6 +2052,11 @@ callees = [
     "fn:a2275733c3fa6168",
     "fn:eb89be045205dc88",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:de020efa1d48c9ac",
+]
 reached_by = [
     "#1",
     "#2",
@@ -1858,6 +2090,11 @@ callees = [
     "fn:a03d943953e2b3cb",
     "fn:a2275733c3fa6168",
     "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:de020efa1d48c9ac",
 ]
 reached_by = [
     "#1",
@@ -1901,6 +2138,12 @@ callees = [
     "fn:e77ed27c41aab2b5",
     "fn:eb89be045205dc88",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
 reached_by = [
     "#1",
     "#2",
@@ -1930,6 +2173,7 @@ callees = [
     "fn:9ac392fb93aa5a9b",
     "fn:eb89be045205dc88",
 ]
+uses = ["fn:5811ccd622a4f7ee"]
 reached_by = [
     "#60",
     "#61",
@@ -1957,6 +2201,7 @@ callees = [
     "fn:9ac392fb93aa5a9b",
     "fn:eb89be045205dc88",
 ]
+uses = ["fn:5811ccd622a4f7ee"]
 physical_interface = true
 
 [[module."postprocessing.rs".function]]
@@ -1973,6 +2218,7 @@ callees = [
     "fn:9ac392fb93aa5a9b",
     "fn:eb89be045205dc88",
 ]
+uses = ["fn:5811ccd622a4f7ee"]
 physical_interface = true
 
 [module."preprocessing.rs"]
@@ -2006,6 +2252,11 @@ callees = [
     "fn:be40085a8ed290cd",
     "fn:eb89be045205dc88",
     "fn:f8fcd27da58670ac",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
 ]
 reached_by = [
     "#1",
@@ -2088,6 +2339,12 @@ doc_hash = "sha256:f6d57480acc62c3219a81ac14fad4c27671528132e1fe13d41a48676876c4
 callees = [
     "fn:6256de6e1d4d986a",
     "fn:6495f5fa3bc8a5b5",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:7a10a768152b5992",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
 ]
 reached_by = [
     "#1",
@@ -2172,6 +2429,12 @@ callees = [
     "fn:9cb293305c961ed7",
     "fn:a2275733c3fa6168",
     "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:d4b239bd4b67db13",
 ]
 reached_by = [
     "#1",
@@ -2275,6 +2538,15 @@ callees = [
     "fn:e4ef3b79543287e1",
     "fn:eb89be045205dc88",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:68ae150e37a870db",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
 reached_by = [
     "#1",
     "#2",
@@ -2375,6 +2647,15 @@ callees = [
     "fn:e4ef3b79543287e1",
     "fn:e77ed27c41aab2b5",
     "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
 ]
 reached_by = [
     "#1",
@@ -2477,6 +2758,15 @@ callees = [
     "fn:e77ed27c41aab2b5",
     "fn:eb89be045205dc88",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
 reached_by = [
     "#1",
     "#2",
@@ -2562,6 +2852,11 @@ callees = [
     "fn:e4ef3b79543287e1",
     "fn:eb89be045205dc88",
     "fn:feec71215f335f20",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:9447740069e81383",
 ]
 reached_by = [
     "#1",

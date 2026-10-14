@@ -17,7 +17,9 @@
 //! The page now draws the drill-in star itself: the current concept at the
 //! centre and its sub-concepts on a ring around it, placed by
 //! [`crate::mindmap_view::star_layout`] so no two cards overlap and nothing
-//! drifts. ~~Directly classified papers were ring cards too~~ — since #244
+//! drifts. (On the standard corpus's root, since 2026-10-14, the 19 IAEA
+//! issues sit in rows of six, seven and six beneath the centre instead, in
+//! the IAEA Milestones icon chart's positions: `auto_layout`.) ~~Directly classified papers were ring cards too~~ — since #244
 //! papers are not cards: each concept card shows a citation count, its
 //! citations drop down on hover, and its right-click menu opens them (#245).
 //! A ▸ on a ring card fans its own sub-concepts outward without moving the
@@ -123,6 +125,14 @@ pub enum MindmapAction {
     /// `KnowledgeIndex` before the next frame, or the new node is on disk
     /// and absent from every view until the folder is reopened.
     KnowledgeChanged,
+    /// Something needing a Kovan folder was asked for while none is open —
+    /// A code review listed on a concept's menu was chosen (GitHub #844):
+    /// the caller opens Code Review on the mounted code repository at
+    /// `repo_dir`, at `entry` (`path/to/file.rs::qual`).
+    OpenCodeReview {
+        repo_dir: std::path::PathBuf,
+        entry: String,
+    },
     /// Something needing a Kovan folder was asked for while none is open —
     /// the caller should open the setup dialog (maintainer, 2026-09-22).
     ///
@@ -1081,6 +1091,15 @@ pub struct MindmapState {
     /// when their files change.
     links: LinkCache,
     bib: BibCache,
+    /// The code reviews of the folder's mounted code repositories, by
+    /// concept (GitHub #844): the last result of [`Self::code_reviews_job`].
+    code_reviews: Vec<crate::code_review_artifacts::CodeReviewArtifact>,
+    /// Collecting them runs the staleness engine over each repository, so
+    /// it runs on a worker and the map draws from the last result.
+    code_reviews_job: Option<crate::stamping::flow::Worker<Vec<crate::code_review_artifacts::CodeReviewArtifact>>>,
+    /// The Kovan folder `code_reviews` was collected for; `None` asks for a
+    /// fresh collection.
+    code_reviews_for: Option<std::path::PathBuf>,
 }
 
 #[cfg(all(feature = "gui", not(target_os = "android")))]
@@ -1108,6 +1127,9 @@ impl Default for MindmapState {
             hyperlink_draft: None,
             links: LinkCache::default(),
             bib: BibCache::default(),
+            code_reviews: Vec::new(),
+            code_reviews_job: None,
+            code_reviews_for: None,
         }
     }
 }
@@ -1135,8 +1157,81 @@ fn star_key(current: &Option<crate::node_id::NodeId>) -> String {
         .unwrap_or_default()
 }
 
+/// Where the star's cards go when nothing is pinned, for the star centred on
+/// `current`, whose ring card `i` shows `fan_sizes[i]` sub-concepts.
+///
+/// On the standard corpus's root the 19 IAEA infrastructure issues are laid
+/// out in rows beneath the centre, six, seven and six, read left to right in
+/// their numbered order: the positions of the IAEA's Milestones icon chart
+/// (maintainer direction, 2026-10-14; positions only, none of its visuals).
+/// Any card past the nineteenth (a user subtopic or link at the root) goes
+/// on in rows of seven ([`crate::mindmap_view::milestones_rows`]). Every
+/// other star is the ring, turned half a step when the parent card is shown
+/// (#283).
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn auto_layout(
+    current: Option<&crate::node_id::NodeId>,
+    fan_sizes: &[usize],
+    has_parent: bool,
+) -> crate::mindmap_view::StarLayout {
+    use crate::mindmap_view::{milestones_rows, rows_layout, star_layout_with_parent};
+    let at_corpus_root = current.is_some_and(|c| {
+        c.namespace == crate::node_id::Namespace::Corpus
+            && c.kind == crate::node_id::EntryKind::Concept
+            && c.path == crate::corpus::ROOT_TOPIC
+    });
+    if at_corpus_root {
+        rows_layout(fan_sizes, &milestones_rows(fan_sizes.len()))
+    } else {
+        star_layout_with_parent(fan_sizes, has_parent)
+    }
+}
+
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 impl MindmapState {
+    /// Ask for the code reviews to be collected again the next time the map
+    /// is drawn (the caller knows reviews may have changed: Code Review was
+    /// shown, or a repository was added).
+    pub fn invalidate_code_reviews(&mut self) {
+        self.code_reviews_for = None;
+    }
+
+    /// The code reviews last collected.
+    pub fn code_reviews(&self) -> &[crate::code_review_artifacts::CodeReviewArtifact] {
+        &self.code_reviews
+    }
+
+    /// Set the code reviews directly (tests; the app uses the worker).
+    pub fn set_code_reviews(&mut self, all: Vec<crate::code_review_artifacts::CodeReviewArtifact>) {
+        self.code_reviews = all;
+    }
+
+    /// Take a finished collection, and start one when the folder changed
+    /// or a fresh one was asked for. Never waits. Returns whether a
+    /// collection is running (the caller repaints to pick it up).
+    pub fn poll_code_reviews(&mut self, root: Option<&KovanRoot>) -> bool {
+        if let Some(found) = self.code_reviews_job.as_ref().and_then(|j| j.try_take()) {
+            self.code_reviews = found;
+            self.code_reviews_job = None;
+        }
+        let Some(root) = root else {
+            self.code_reviews.clear();
+            self.code_reviews_for = None;
+            return false;
+        };
+        if self.code_reviews_job.is_none() && self.code_reviews_for.as_deref() != Some(root.path()) {
+            self.code_reviews_for = Some(root.path().to_path_buf());
+            let repos = root.code_repos();
+            if repos.is_empty() {
+                self.code_reviews.clear();
+            } else {
+                self.code_reviews_job =
+                    Some(crate::stamping::flow::Worker::spawn(move || crate::code_review_artifacts::collect(&repos)));
+            }
+        }
+        self.code_reviews_job.is_some()
+    }
+
     /// The concept at the centre (`None` is the top). Read by the app's
     /// back/forward history (#242).
     pub(crate) fn current(&self) -> Option<&crate::node_id::NodeId> {
@@ -1233,12 +1328,18 @@ impl MindmapState {
     ) -> Option<MindmapAction> {
         use crate::mindmap_layout::Point;
         use crate::mindmap_view::{
-            fit_zoom, parent_position, star_bounds, star_layout_with_parent, up_button_centre,
-            CanvasLayout, CARD_SIZE, CENTRE_CARD_SIZE, UP_BUTTON_SIZE,
+            fit_zoom, parent_position, star_bounds, up_button_centre, CanvasLayout, CARD_SIZE,
+            CENTRE_CARD_SIZE, UP_BUTTON_SIZE,
         };
         use crate::node_id::{Namespace, NodeId};
 
         let mut action = None;
+        // Code reviews of the mounted code repositories (#844): collected
+        // on a worker; repaint until the result is in.
+        if self.poll_code_reviews(root) {
+            ui.ctx().request_repaint_after(std::time::Duration::from_millis(200));
+        }
+        let mut opened_review: Option<(std::path::PathBuf, String)> = None;
 
         // ── Breadcrumb ──────────────────────────────────────────────────
         let mut crumb_to: Option<Option<NodeId>> = None;
@@ -1349,7 +1450,8 @@ impl MindmapState {
         fan_sizes.extend(std::iter::repeat_n(0, links.len()));
         // #283: the ring turns half a step when the parent card is shown, so
         // nothing sits in the corridor the dotted line and the Up button use.
-        let auto = star_layout_with_parent(&fan_sizes, up.is_some());
+        // 2026-10-14: the corpus root's 19 IAEA issues go in rows instead.
+        let auto = auto_layout(self.current.as_ref(), &fan_sizes, up.is_some());
         let parent_at = up.is_some().then(|| parent_position(&auto));
         let up_button_at = up.is_some().then(|| up_button_centre(&auto));
         let here_key = star_key(&self.current);
@@ -1868,6 +1970,21 @@ impl MindmapState {
                             }
                         }
                     }
+                    // #844: the code reviews tied to this concept in the
+                    // folder's mounted code repositories, beside its
+                    // literature artefacts. Opening one opens Code Review
+                    // at that entry.
+                    let reviews = crate::code_review_artifacts::for_concept(&self.code_reviews, &concept.id);
+                    if !reviews.is_empty() {
+                        ui.separator();
+                        ui.weak(format!("{} code review(s)", reviews.len()));
+                        for a in reviews {
+                            if ui.button(a.label()).on_hover_text(a.detail()).clicked() {
+                                opened_review = Some((a.repo_dir.clone(), a.entry.clone()));
+                                ui.close();
+                            }
+                        }
+                    }
                     ui.separator();
                     if ui.button("Go here").clicked() {
                         drilled = Some(concept.id.clone());
@@ -2126,6 +2243,9 @@ impl MindmapState {
         }
         if let Some(citekey) = opened_paper {
             action = Some(MindmapAction::OpenPaper(citekey));
+        }
+        if let Some((repo_dir, entry)) = opened_review {
+            action = Some(MindmapAction::OpenCodeReview { repo_dir, entry });
         }
         if let Some(id) = opened_corpus {
             action = Some(MindmapAction::OpenCorpusLiterature(id));
@@ -2823,6 +2943,82 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
         (dir, root)
+    }
+
+    /// The standard corpus's root lays its 19 IAEA issues out as the IAEA
+    /// Milestones icon chart does (maintainer direction, 2026-10-14): three
+    /// rows beneath the centre, six, seven and six, each read left to right.
+    /// The titles are the chart's labels in the chart's reading order, except
+    /// that the chart (2024) says "Stakeholder engagement" where the concept
+    /// tree, after NG-G-3.1 Rev. 1, says "Stakeholder involvement"; the tree's
+    /// title is kept. Every other star keeps the ring.
+    #[test]
+    #[cfg(all(feature = "gui", not(target_os = "android")))]
+    fn the_corpus_root_follows_the_iaea_chart_rows() {
+        use crate::node_id::{Namespace, NodeId};
+        let chart: [[&str; 7]; 3] = [
+            [
+                "National position",
+                "Nuclear safety",
+                "Management",
+                "Funding and financing",
+                "Legal framework",
+                "Safeguards",
+                "",
+            ],
+            [
+                "Regulatory framework",
+                "Radiation protection",
+                "Electrical grid",
+                "Human resource development",
+                "Stakeholder involvement",
+                "Site and supporting facilities",
+                "Environmental protection",
+            ],
+            [
+                "Emergency planning",
+                "Nuclear security",
+                "Nuclear fuel cycle",
+                "Radioactive waste management",
+                "Industrial involvement",
+                "Procurement",
+                "",
+            ],
+        ];
+        let root = NodeId::concept(Namespace::Corpus, crate::corpus::ROOT_TOPIC);
+        let ring = crate::runtime_graph::children(None, Some(&root));
+        assert_eq!(ring.len(), 19);
+        let layout = auto_layout(Some(&root), &[0; 19], true);
+        assert_eq!(layout.ring.len(), 19);
+        let mut k = 0;
+        let mut row_y = Vec::new();
+        for (r, labels) in chart.iter().enumerate() {
+            let labels: Vec<&str> = labels.iter().copied().filter(|l| !l.is_empty()).collect();
+            let row = &layout.ring[k..k + labels.len()];
+            for (j, label) in labels.iter().enumerate() {
+                // The map shows "N. Title"; the chart has no numbers.
+                let (_, title) = ring[k + j].title.split_once(". ").expect("numbered");
+                assert_eq!(title, *label, "row {r}, column {j}");
+                assert_eq!(row[j].y, row[0].y, "{label} is level with its row");
+                if j > 0 {
+                    assert!(row[j].x > row[j - 1].x, "{label} is right of its neighbour");
+                }
+            }
+            row_y.push(row[0].y);
+            k += labels.len();
+        }
+        assert!(0.0 < row_y[0] && row_y[0] < row_y[1] && row_y[1] < row_y[2]);
+
+        // Anywhere else, the ring as before.
+        let other = NodeId::concept(Namespace::Corpus, "02-nuclear-safety");
+        assert_eq!(
+            auto_layout(Some(&other), &[0; 5], true),
+            crate::mindmap_view::star_layout_with_parent(&[0; 5], true)
+        );
+        assert_eq!(
+            auto_layout(None, &[0; 3], false),
+            crate::mindmap_view::star_layout(&[0; 3])
+        );
     }
 
     /// #285: a hyperlink the user made shows as a removable link card, on

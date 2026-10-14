@@ -147,6 +147,17 @@ fn setup() -> Setup {
     ivv.review
         .checklist
         .insert("vv_case_author".into(), "human_wrote_and_verified".into());
+    // Both of rung 4's axes answered (#855), so the only flags these tests
+    // see are the IV&V ones.
+    for (q, o) in [
+        ("rung4_tests_pass", "all_pass"),
+        ("rung4_test_catches_wrong_physics", "compared_with_tolerance"),
+        ("rung4_tolerance_justified", "from_outside"),
+        ("rung4_usable_without_source", "from_name_and_description"),
+        ("rung4_wrong_quantity_by_accident", "no_named_and_unit_carrying"),
+    ] {
+        ivv.review.checklist.insert(q.into(), o.into());
+    }
     ivv.review.separation_attestation = Some("sep-1".into());
     let mut s = Setup {
         mk,
@@ -399,6 +410,9 @@ fn ai_authored_vv_case_is_not_rung_5() {
         .review
         .checklist
         .insert("vv_case_author".into(), "agent_wrote_or_cowrote".into());
+    // Answered honestly there is no rung 4 claim, so the questions of its
+    // two axes are not asked and carry no answer (#855).
+    s.ivv.review.checklist.retain(|q, _| !q.starts_with("rung4_"));
     s.sign();
     let f = s.run();
     assert_eq!(f.rung, Some(3));

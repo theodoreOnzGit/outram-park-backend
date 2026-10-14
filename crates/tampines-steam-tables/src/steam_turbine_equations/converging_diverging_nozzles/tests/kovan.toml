@@ -54,6 +54,7 @@ callees = [
     "fn:c365ffcc3efa433e",
     "fn:d545a63120102302",
 ]
+uses = ["fn:a490e693d7e67617"]
 test = true
 
 [[module."cd_nozzle_choked_flow_overexpanded.rs".function]]
@@ -75,6 +76,7 @@ callees = [
     "fn:d3ab77d823467d99",
     "fn:d545a63120102302",
 ]
+uses = ["fn:a490e693d7e67617"]
 test = true
 
 [[module."cd_nozzle_choked_flow_overexpanded.rs".function]]
@@ -98,6 +100,7 @@ callees = [
     "fn:c365ffcc3efa433e",
     "fn:d3ab77d823467d99",
 ]
+uses = ["fn:a490e693d7e67617"]
 test = true
 
 [[module."cd_nozzle_choked_flow_overexpanded.rs".function]]
@@ -119,6 +122,7 @@ callees = [
     "fn:c365ffcc3efa433e",
     "fn:d545a63120102302",
 ]
+uses = ["fn:a490e693d7e67617"]
 test = true
 
 [module."cd_nozzle_subsonic_flow.rs"]
@@ -143,6 +147,7 @@ callees = [
     "fn:c365ffcc3efa433e",
     "fn:d545a63120102302",
 ]
+uses = ["fn:a490e693d7e67617"]
 test = true
 
 [[module."cd_nozzle_subsonic_flow.rs".function]]
@@ -164,6 +169,7 @@ callees = [
     "fn:c365ffcc3efa433e",
     "fn:d545a63120102302",
 ]
+uses = ["fn:a490e693d7e67617"]
 test = true
 
 [module."diverging_nozzle_perfectly_expanded_supersonic.rs"]
@@ -192,6 +198,7 @@ callees = [
     "fn:d545a63120102302",
     "fn:e6e3c01db2847088",
 ]
+uses = ["fn:a490e693d7e67617"]
 test = true
 
 [[module."diverging_nozzle_perfectly_expanded_supersonic.rs".function]]
@@ -217,6 +224,7 @@ callees = [
     "fn:e6e3c01db2847088",
     "fn:f357b2b40e3a9e84",
 ]
+uses = ["fn:a490e693d7e67617"]
 test = true
 
 [[module."diverging_nozzle_perfectly_expanded_supersonic.rs".function]]
@@ -244,6 +252,7 @@ callees = [
     "fn:e6e3c01db2847088",
     "fn:e9b278ccd8cf1504",
 ]
+uses = ["fn:a490e693d7e67617"]
 test = true
 
 [module."golden_section_shared_search.rs"]
@@ -260,8 +269,23 @@ lines = [
 hash = "sha256:903607aed51684ef57316f84f151b15b4110ab56425a71766849324a27f95417"
 doc_hash = "sha256:2dcc1e6da4b0073c66973ae9135803f597f148fd278aa8b37f09d01c532da3a3"
 callees = ["fn:d2f19c5ac1bd0c10"]
+uses = ["fn:8e1ddccefdf8e4c8"]
 test = true
 physical_interface = true
+
+[[module."golden_section_shared_search.rs".function]]
+id = "fn:8e1ddccefdf8e4c8"
+name = "GAUSSIAN_P_STAR_PA"
+qual = "GAUSSIAN_P_STAR_PA"
+item = "const"
+shape = "const"
+lines = [
+    181,
+    182,
+]
+hash = "sha256:14ed1b57cf486d1ca7d8b572217d1a102cc4b1e98da854827dde69ad110b6597"
+doc_hash = "sha256:32bb196b28b7b4f45dd76ce072f7cb3760791856f7f370f30cdbc2a211bfc595"
+test = true
 
 [[module."golden_section_shared_search.rs".function]]
 id = "fn:ea4e97eb7d1358ee"
@@ -271,12 +295,13 @@ lines = [
     184,
     219,
 ]
-hash = "sha256:2a730677c393522a5fcde1c8f9396d5ef13fd032ae1410cb211bffc741ce35e8"
+hash = "sha256:4f7214c7460762ce5e77d26e4fad29ffbd060097c188826427d8beebd0bcd472"
 doc_hash = "sha256:965e4ee55a7caf6bae59c2339ef3b5c267169ac3044c52553b335ffb9a3c9a78"
 callees = [
     "fn:0748383dbe9a281d",
     "fn:189c830a2de1ef4c",
 ]
+uses = ["fn:8e1ddccefdf8e4c8"]
 test = true
 
 [[module."golden_section_shared_search.rs".function]]
@@ -287,7 +312,7 @@ lines = [
     221,
     269,
 ]
-hash = "sha256:451c7619d06552a5206526188dea631c107e56d3110a783cfe590540c8cd557d"
+hash = "sha256:972454b8d0041c65dfb1c457f44c08fb3c1456be7a5bd9e677ad6555b08615ff"
 doc_hash = "sha256:fc839e97d9bdd4a16d42452c66a985663ebcb9202c375f2630677c341d6ba709"
 callees = [
     "fn:0748383dbe9a281d",
@@ -303,7 +328,7 @@ lines = [
     271,
     344,
 ]
-hash = "sha256:9a7b269c35092543f47f01a482f272e679dfa3be70cbb99870b74305e66c4f80"
+hash = "sha256:920f2252fdcc3988a20dee9cecd837360484bfba8b6855e72f88916ac64fee98"
 doc_hash = "sha256:019c2fbfc88cca407971c343045152e728c06d09f7179af1ee2c39c0b49ff60e"
 callees = [
     "fn:7f1cf222265bca59",
@@ -332,7 +357,7 @@ lines = [
     397,
     673,
 ]
-hash = "sha256:86d655bdebc201e02f3d02caff374be854c4d55abdce5ea181ef1625932f97fd"
+hash = "sha256:26a9d08e595ce63de8670f2fdc2db28b64695fccf8963e5a3f7cd168924b9b0f"
 doc_hash = "sha256:f29bc8a9705ac28beb3bdc6091f2193d309d6a366faea6822b46b2c324819a45"
 callees = [
     "fn:0748383dbe9a281d",
@@ -347,10 +372,151 @@ callees = [
     "fn:f472eb21333733c8",
     "fn:fdb738f8b3431582",
 ]
+uses = ["fn:02068af2a18e3f6a"]
 test = true
 
 [module."marviken_tests.rs"]
 path = "crate::steam_turbine_equations::converging_diverging_nozzles::tests::marviken_tests"
+
+[[module."marviken_tests.rs".function]]
+id = "fn:b5171d82a29ffd17"
+name = "NOZZLE_BORE_MM"
+qual = "NOZZLE_BORE_MM"
+item = "const"
+shape = "const"
+lines = [
+    300,
+    306,
+]
+hash = "sha256:7a31575c1a603a61f23cdf1065e778ba4d7d774c4c660bc5cbb5b5bb1364f648"
+doc_hash = "sha256:605ae1b77800a8c83ba34eb07c7843c0f8166a69de87984883347e459d7b1bee"
+test = true
+
+[[module."marviken_tests.rs".function]]
+id = "fn:2bc35ef35a8adde1"
+name = "NOZZLE_LENGTH_MM"
+qual = "NOZZLE_LENGTH_MM"
+item = "const"
+shape = "const"
+lines = [
+    308,
+    310,
+]
+hash = "sha256:d4caaab469aa60e335a929825b407e054343fb5a7eeb7500172feee466e22757"
+doc_hash = "sha256:ee17b34df53b48d1b58ee989c6b3d10052927e7021ee9ba1f230e15130ac33c3"
+test = true
+
+[[module."marviken_tests.rs".function]]
+id = "fn:a1d4e192794106b5"
+name = "TEST_23_WATER_TEMPERATURE_DEGC"
+qual = "TEST_23_WATER_TEMPERATURE_DEGC"
+item = "const"
+shape = "const"
+lines = [
+    312,
+    317,
+]
+hash = "sha256:3657b1b2fad35d9a565b23664d1e5c521aeed05a5be5acd4a73e7485908d4ebc"
+doc_hash = "sha256:8014b2a8310f250e250e669c76eeab3ccc9aa90047b74d65b742276b86ac5c6f"
+test = true
+
+[[module."marviken_tests.rs".function]]
+id = "fn:884dfd1f85103577"
+name = "TEST_24_WATER_TEMPERATURE_DEGC"
+qual = "TEST_24_WATER_TEMPERATURE_DEGC"
+item = "const"
+shape = "const"
+lines = [
+    319,
+    322,
+]
+hash = "sha256:741375ca12e987a9ccb7371b632890180141e26743dbefc3dd8feadb150fc082"
+doc_hash = "sha256:5b9ccff7b2571580ba9dfe1af504aec7e9dd4c0de39997c3e9876507a6c5554d"
+test = true
+
+[[module."marviken_tests.rs".function]]
+id = "fn:43da846d7e48c39c"
+name = "ASSUMED_BACK_PRESSURE_ATM"
+qual = "ASSUMED_BACK_PRESSURE_ATM"
+item = "const"
+shape = "const"
+lines = [
+    324,
+    327,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:ff82e9372cb30926bdcc47c0d65416717904746e2718dce11769144d9291d0db"
+test = true
+
+[[module."marviken_tests.rs".function]]
+id = "fn:1016d1ee6abbf47e"
+name = "PER_POINT_TOLERANCE"
+qual = "PER_POINT_TOLERANCE"
+item = "const"
+shape = "const"
+lines = [
+    329,
+    332,
+]
+hash = "sha256:c807e42b2a5632a737459b3b9ad34b2f0a16f52f0ed9b1d76458c0677ffbc069"
+doc_hash = "sha256:d1011c81d7c2041da0087ce05cbbac11c9d20b51523eb2b04a4d7fedbe4cb476"
+test = true
+
+[[module."marviken_tests.rs".function]]
+id = "fn:1e263a96da2e39dd"
+name = "MEAN_TOLERANCE"
+qual = "MEAN_TOLERANCE"
+item = "const"
+shape = "const"
+lines = [
+    334,
+    335,
+]
+hash = "sha256:b0f91e1caaf76efe6de3289aa20f23e675fd0b618590a912dcac0949120bee20"
+doc_hash = "sha256:f927a292bd556adb41d4a7200d4239c7df227af30862d6a177f467d0a546d0b0"
+test = true
+
+[[module."marviken_tests.rs".function]]
+id = "fn:e67d0b38eb834b47"
+name = "TEST_23_POINTS"
+qual = "TEST_23_POINTS"
+item = "const"
+shape = "const"
+lines = [
+    339,
+    379,
+]
+hash = "sha256:b7efb53440b2ace0407e2c965636f4256fa6f24446f96791e6161b8091f1c787"
+doc_hash = "sha256:5628b37f748d438828b30e8f1757f439a603fd56a184027580e33043c5a03ebb"
+test = true
+
+[[module."marviken_tests.rs".function]]
+id = "fn:b8a8c6afde354f64"
+name = "TEST_24_POINTS"
+qual = "TEST_24_POINTS"
+item = "const"
+shape = "const"
+lines = [
+    381,
+    432,
+]
+hash = "sha256:dbd2d33236ac085a2417e9fe3ec2c7e932115a36715f523313c0fbdc7077375e"
+doc_hash = "sha256:f8d44878c1d1b47ee8eb94475bc88d2e6f454e4d5bb59c79b1380594884da8e1"
+test = true
+
+[[module."marviken_tests.rs".function]]
+id = "fn:70956c3f6d073cbc"
+name = "NUREG_TABLE_8_3_ENDPOINTS"
+qual = "NUREG_TABLE_8_3_ENDPOINTS"
+item = "const"
+shape = "const"
+lines = [
+    434,
+    451,
+]
+hash = "sha256:7572208fc9106c60b48aa605a7c943d68bac1bcbf5005ba6521ddc5be0e095e1"
+doc_hash = "sha256:346ee4952c7ee43369316b48b2ed9c7ac191836c21c069b5cac430ae263469d8"
+test = true
 
 [[module."marviken_tests.rs".function]]
 id = "fn:dffc412051e73e30"
@@ -368,6 +534,7 @@ callees = [
     "fn:a9d9e8c971318dc0",
     "fn:c365ffcc3efa433e",
 ]
+uses = ["fn:a490e693d7e67617"]
 test = true
 physical_interface = true
 
@@ -409,13 +576,14 @@ lines = [
     586,
     637,
 ]
-hash = "sha256:b962913f37ed9b1463dfca2898513c940058892810d68ec11490039eb88cbf92"
+hash = "sha256:1f4a3ecb96c6cd4e44e2221346907050cd6514218df955faa2eda9b3ac7fe2d3"
 doc_hash = "sha256:fc26c373c9879d0115199b8b1bfef79514cb15590a3d229d3bcae7fc9ea183df"
 callees = [
     "fn:170287b28dbbe20d",
     "fn:91ab8346b71c5a10",
     "fn:dffc412051e73e30",
 ]
+uses = ["fn:a490e693d7e67617"]
 test = true
 
 [[module."marviken_tests.rs".function]]
@@ -428,6 +596,11 @@ lines = [
 ]
 hash = "sha256:06ec121ee1e779fe754e9d266de3986903ea92d9ab95ae3918c0b3409ef83aea"
 doc_hash = "sha256:8444c66d30676e9578e5b89e0189c003da230b5246dfe117028ae1e55fb882ff"
+uses = [
+    "fn:70956c3f6d073cbc",
+    "fn:b8a8c6afde354f64",
+    "fn:e67d0b38eb834b47",
+]
 test = true
 
 [[module."marviken_tests.rs".function]]
@@ -440,6 +613,11 @@ lines = [
 ]
 hash = "sha256:63611536e69271ae36c033bafd2e8c42e14f61e3ac9f2580c2728a2cb7e4a5f7"
 doc_hash = "sha256:eeb974cd0a7fdadafd9688dbb67e6b6670601f5b890aabeef9cd32ff6c7dd5e3"
+uses = [
+    "fn:1016d1ee6abbf47e",
+    "fn:b8a8c6afde354f64",
+    "fn:e67d0b38eb834b47",
+]
 test = true
 
 [[module."marviken_tests.rs".function]]
@@ -456,6 +634,12 @@ callees = [
     "fn:672e326ccc20a426",
     "fn:95cbf2396e3cf7e2",
 ]
+uses = [
+    "fn:1016d1ee6abbf47e",
+    "fn:1e263a96da2e39dd",
+    "fn:a1d4e192794106b5",
+    "fn:e67d0b38eb834b47",
+]
 test = true
 
 [[module."marviken_tests.rs".function]]
@@ -466,11 +650,17 @@ lines = [
     870,
     1003,
 ]
-hash = "sha256:08976186e36541a25685e83c2858616a519ed435a7a8ec578ed751bed6cf0b2d"
+hash = "sha256:0f0285f9374c8f36fa860a01ed9e5e6711e4e4cfdec7f8e5ebaa1e79252d1ae5"
 doc_hash = "sha256:89ecea35af03020046cf8b83c9687e0d7eca2a9c2da89ad9cef6a391ce894e4d"
 callees = [
     "fn:672e326ccc20a426",
     "fn:95cbf2396e3cf7e2",
+]
+uses = [
+    "fn:1016d1ee6abbf47e",
+    "fn:1e263a96da2e39dd",
+    "fn:884dfd1f85103577",
+    "fn:b8a8c6afde354f64",
 ]
 test = true
 
@@ -482,12 +672,20 @@ lines = [
     1005,
     1102,
 ]
-hash = "sha256:0113118dd1bf93ca4bae9dcb2bd478df7ce921ecae05e2f32a86980acfae97b6"
+hash = "sha256:91a678714cd23a3ed157a1a76cc64c5ae96b9ade3d647fc1644987e205de047d"
 doc_hash = "sha256:8cc5c7862354260e5a4d215a65a2b854190a68775017c992a79f1ea913bd3f01"
 callees = [
     "fn:95cbf2396e3cf7e2",
     "fn:cd95e92cdbb848ed",
     "fn:dffc412051e73e30",
+]
+uses = [
+    "fn:1e263a96da2e39dd",
+    "fn:43da846d7e48c39c",
+    "fn:884dfd1f85103577",
+    "fn:a1d4e192794106b5",
+    "fn:b8a8c6afde354f64",
+    "fn:e67d0b38eb834b47",
 ]
 test = true
 
@@ -502,6 +700,11 @@ lines = [
 hash = "sha256:d8efb1db462818552f75cc041db459782f1a6a8f26e51702aa7b1849e59b1b69"
 doc_hash = "sha256:3c68af4ec34116bed148e3ff954a6a04ad744656e36351561d8f943e5b183a4a"
 callees = ["fn:170287b28dbbe20d"]
+uses = [
+    "fn:2bc35ef35a8adde1",
+    "fn:a490e693d7e67617",
+    "fn:b5171d82a29ffd17",
+]
 test = true
 
 [module."mod.rs"]
@@ -509,6 +712,34 @@ path = "crate::steam_turbine_equations::converging_diverging_nozzles::tests"
 
 [module."moody_critical_mass_flux_homogeneous_eqm.rs"]
 path = "crate::steam_turbine_equations::converging_diverging_nozzles::tests::moody_critical_mass_flux_homogeneous_eqm"
+
+[[module."moody_critical_mass_flux_homogeneous_eqm.rs".function]]
+id = "fn:327b8ca8fd959513"
+name = "MOODY_LOG10_TOL"
+qual = "MOODY_LOG10_TOL"
+item = "const"
+shape = "const"
+lines = [
+    11,
+    15,
+]
+hash = "sha256:ad8875e7273b74a217636ea2ff8626feeae88936cbc4c22f1e2388010625a471"
+doc_hash = "sha256:3f5962211e78841c5db8fbf599f983b95c70766eaac0a9a7f70dca80b884085b"
+test = true
+
+[[module."moody_critical_mass_flux_homogeneous_eqm.rs".function]]
+id = "fn:9575bb6d620c3c73"
+name = "MOODY_DEEP_LOG10_TOL"
+qual = "MOODY_DEEP_LOG10_TOL"
+item = "const"
+shape = "const"
+lines = [
+    16,
+    29,
+]
+hash = "sha256:5b284a0c65f90a31e3dc3c444b24bf7bf75d27b6eefe17bc408b2e2a6063dc02"
+doc_hash = "sha256:73585937298b00dbff570c0bd9d2aba451b3ed221a149dd337666db4d5f09451"
+test = true
 
 [[module."moody_critical_mass_flux_homogeneous_eqm.rs".function]]
 id = "fn:d5ba3851d306ee59"
@@ -521,6 +752,7 @@ lines = [
 hash = "sha256:58b13c1b6bd7bf146ffa436ff34a4db96790b7bcd6879e2db6bee432368cf8ff"
 doc_hash = "sha256:c7b9326726983f90321a668695e747b6bf63d6d342e56ac2a9b93cc21dbb5eb4"
 callees = ["fn:7e54859ae8f2823e"]
+uses = ["fn:327b8ca8fd959513"]
 test = true
 
 [[module."moody_critical_mass_flux_homogeneous_eqm.rs".function]]
@@ -557,7 +789,7 @@ lines = [
     333,
     418,
 ]
-hash = "sha256:377ef9c7fdf0c75154e6d3daf510389dce1d2f6bcab3b5a44703027606895425"
+hash = "sha256:72bf99f02dfb27ed95f637e4a61bfbad3b777c3a618cc035726bf3560936be6f"
 doc_hash = "sha256:02a45a2dc82cfdbec5e0640c60e4184f05aec6da7193bb8f4aa56e1fc5040535"
 callees = [
     "fn:67093ab68bbef7b3",
@@ -565,6 +797,11 @@ callees = [
     "fn:8de7e9ff53be0d5a",
     "fn:a9d9e8c971318dc0",
     "fn:ebd22b2fa34affe0",
+]
+uses = [
+    "fn:02068af2a18e3f6a",
+    "fn:56b86e53fa318d99",
+    "fn:a490e693d7e67617",
 ]
 test = true
 
@@ -600,6 +837,10 @@ lines = [
 hash = "sha256:e6556205ba7471b75192b11854ab9ba5ec79b73040f930b57d93c19eecbe1e32"
 doc_hash = "sha256:ece51e8f8afb932ef9f4ac0f3a8f92082e5cfef0b62575352e6ffbd87f93de7c"
 callees = ["fn:1e8ea7ff06de9ea0"]
+uses = [
+    "fn:327b8ca8fd959513",
+    "fn:9575bb6d620c3c73",
+]
 test = true
 
 [[module."moody_critical_mass_flux_homogeneous_eqm.rs".function]]
@@ -613,6 +854,10 @@ lines = [
 hash = "sha256:cd889b3ff70cb935064966f0b1c001cc4aaec30c382823e0b9f42044f9c50c1b"
 doc_hash = "sha256:116baac0f18cff55ea17bf3f9884cc5c328abf3c16ff769f1078ce13817811c3"
 callees = ["fn:1e8ea7ff06de9ea0"]
+uses = [
+    "fn:327b8ca8fd959513",
+    "fn:9575bb6d620c3c73",
+]
 test = true
 
 [[module."moody_critical_mass_flux_homogeneous_eqm.rs".function]]
@@ -626,6 +871,10 @@ lines = [
 hash = "sha256:65252abe231ca8de6506f517f3b724bced02479b44cd9de2bbf5ef1e32c39f1a"
 doc_hash = "sha256:0b97fe0999e5e78babc58e99ef484814083ab050ccce21ef3d29457289121d03"
 callees = ["fn:1e8ea7ff06de9ea0"]
+uses = [
+    "fn:327b8ca8fd959513",
+    "fn:9575bb6d620c3c73",
+]
 test = true
 
 [[module."moody_critical_mass_flux_homogeneous_eqm.rs".function]]
@@ -639,6 +888,10 @@ lines = [
 hash = "sha256:0349ebc4ffd1eaf1c9d390d19ffc2baca1fc1743ef0a5e8aa732cdaed5ecae2e"
 doc_hash = "sha256:b83c2f8e7a2553c7c0c06643d357f30075cbce6dcea22cacded9d0b90c41c79a"
 callees = ["fn:1e8ea7ff06de9ea0"]
+uses = [
+    "fn:327b8ca8fd959513",
+    "fn:9575bb6d620c3c73",
+]
 test = true
 
 [[module."moody_critical_mass_flux_homogeneous_eqm.rs".function]]
@@ -652,6 +905,10 @@ lines = [
 hash = "sha256:285a092c9c9bd4c23b77b347406f1fbc758d0a20412474186cff37c67e26aff1"
 doc_hash = "sha256:9719bb037eee9938f1b0f3ea7ab8b6ec2c5677fc70f9b4e66c24da5d84f60bcc"
 callees = ["fn:1e8ea7ff06de9ea0"]
+uses = [
+    "fn:327b8ca8fd959513",
+    "fn:9575bb6d620c3c73",
+]
 test = true
 
 [[module."moody_critical_mass_flux_homogeneous_eqm.rs".function]]
@@ -665,6 +922,10 @@ lines = [
 hash = "sha256:ac98f1af8682674a276e06c77dce11eeb5c4238439190171d4690bed9ebc6b09"
 doc_hash = "sha256:853d8ab9bfec5b2e133416f5fbb3b0c6c0361642ef8ac3a2e97be498f5d0f5b0"
 callees = ["fn:1e8ea7ff06de9ea0"]
+uses = [
+    "fn:327b8ca8fd959513",
+    "fn:9575bb6d620c3c73",
+]
 test = true
 
 [[module."moody_critical_mass_flux_homogeneous_eqm.rs".function]]
@@ -678,6 +939,10 @@ lines = [
 hash = "sha256:f153a64e962fded086056bc0e49e2743d8172f249b71d9fcd324245d050c5354"
 doc_hash = "sha256:b2c5fafb00e0204fbf667b2ff1c546066b8079eabf06f29b076d6751cbe3d1b7"
 callees = ["fn:1e8ea7ff06de9ea0"]
+uses = [
+    "fn:327b8ca8fd959513",
+    "fn:9575bb6d620c3c73",
+]
 test = true
 
 [[module."moody_critical_mass_flux_homogeneous_eqm.rs".function]]
@@ -691,6 +956,10 @@ lines = [
 hash = "sha256:4bcd05cbb7ef30180cc8642bd08db1021bfd760e5edb95cf2346a8f40a1ecda9"
 doc_hash = "sha256:aebb259ca01cee6ba9453b431dcf1ef9dd2717d981d8b78a9d68a4bf3bcfc6df"
 callees = ["fn:1e8ea7ff06de9ea0"]
+uses = [
+    "fn:327b8ca8fd959513",
+    "fn:9575bb6d620c3c73",
+]
 test = true
 
 [[module."moody_critical_mass_flux_homogeneous_eqm.rs".function]]
@@ -704,6 +973,10 @@ lines = [
 hash = "sha256:7c1e9ffc042f178c06ceb6651f75fdb4563e3aa12d208fd35d878d6c55e8b6dc"
 doc_hash = "sha256:5b167cbe1d4958cc41eda7e831d1aed7377492e00849bed26291ae91bf254cca"
 callees = ["fn:1e8ea7ff06de9ea0"]
+uses = [
+    "fn:327b8ca8fd959513",
+    "fn:9575bb6d620c3c73",
+]
 test = true
 
 [[module."moody_critical_mass_flux_homogeneous_eqm.rs".function]]
@@ -717,6 +990,10 @@ lines = [
 hash = "sha256:64f2ef79be79b1a69d33f7aa2a5d4ada79f2f2b63157d8f59581b779ba1c553c"
 doc_hash = "sha256:fa240d24df8c092a8c1915714a082a11fb09da984b5bc98a4966b77bc20e6934"
 callees = ["fn:1e8ea7ff06de9ea0"]
+uses = [
+    "fn:327b8ca8fd959513",
+    "fn:9575bb6d620c3c73",
+]
 test = true
 
 [[module."moody_critical_mass_flux_homogeneous_eqm.rs".function]]
@@ -730,6 +1007,10 @@ lines = [
 hash = "sha256:5c75e6e234b6b1eb580d65276fef6a87145933fbfb4303835334a588b7e5d8d9"
 doc_hash = "sha256:a90d9b1f88f4b5b5e5ec34f456fd9ebc3f7de7e78434401502005cf355cb1992"
 callees = ["fn:1e8ea7ff06de9ea0"]
+uses = [
+    "fn:327b8ca8fd959513",
+    "fn:9575bb6d620c3c73",
+]
 test = true
 
 [[module."moody_critical_mass_flux_homogeneous_eqm.rs".function]]
@@ -743,4 +1024,8 @@ lines = [
 hash = "sha256:0f0514223b1c77e8bb8645fa49d4d43e1a171e17a7fc5c120ac0a90493590bde"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:1e8ea7ff06de9ea0"]
+uses = [
+    "fn:327b8ca8fd959513",
+    "fn:9575bb6d620c3c73",
+]
 test = true

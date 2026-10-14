@@ -83,9 +83,35 @@ struct Tracks {
     dots: bool,
     /// Length of bright trail behind the neutron, cm; `None` draws it all.
     trail_cm: Option<f64>,
+    /// Recorded histories to play again when the queue runs out (gh:#859);
+    /// empty for live tracks, which ask the engine for more instead.
+    replay: Vec<History>,
 }
 
 impl Tracks {
+    /// A player of recorded tracks: no engine behind it, the same histories
+    /// round and round until the live ones are ready.
+    fn recorded(histories: Vec<History>, fast: bool) -> Self {
+        Self {
+            queue: histories.iter().cloned().collect(),
+            outstanding: 0,
+            current: None,
+            past: VecDeque::new(),
+            stats: Stats::default(),
+            running: true,
+            single: false,
+            want_single: false,
+            keep: if fast { 6 } else { 0 },
+            dots: true,
+            trail_cm: if fast { None } else { Some(80.0) },
+            replay: histories,
+        }
+    }
+    /// The player beside a Run k_eff (gh:#859): empty and stopped until the
+    /// run is going, so every neutron it draws is born from the run's source.
+    fn for_run(fast: bool) -> Self {
+        Self { running: false, ..Self::recorded(Vec::new(), fast) }
+    }
     fn new(link: &McLink, fast: bool, autostart: bool) -> Self {
         link.send(Request::Run { n: PREFETCH, animate: true });
         Self {
@@ -101,6 +127,7 @@ impl Tracks {
             keep: if fast { 6 } else { 0 },
             dots: true,
             trail_cm: if fast { None } else { Some(80.0) },
+            replay: Vec::new(),
         }
     }
     fn retire(&mut self, h: History) {
@@ -110,6 +137,9 @@ impl Tracks {
         }
     }
     fn start_next(&mut self) -> bool {
+        if self.queue.is_empty() && !self.replay.is_empty() {
+            self.queue.extend(self.replay.iter().cloned());
+        }
         let Some(h) = self.queue.pop_front() else { return false };
         if let Some(a) = self.current.take() {
             if !a.counted {
@@ -496,6 +526,13 @@ pub struct McApp {
     data_notes: Vec<String>,
     /// What the cache holds, as the engine last reported it.
     cache_info: Option<String>,
+    /// Recorded tracks played over the geometry while the rung's data load
+    /// (gh:#859, [`crate::recorded`]); `None` once live tracks take over, or
+    /// for a rung or view that ships none.
+    recorded: Option<Tracks>,
+    /// Run k_eff's neutrons, drawn on the geometry beside the plots
+    /// (gh:#859); `None` outside Run mode and for a rung without tracks.
+    run_tracks: Option<Tracks>,
 }
 
 impl McApp {
@@ -546,7 +583,12 @@ impl McApp {
             data_sources: Vec::new(),
             data_notes: Vec::new(),
             cache_info: None,
+            recorded: None,
+            run_tracks: None,
         };
+        // `?particles=&inactive=&active=&seed=` (natively `--particles` …)
+        // preset the Run k_eff settings (gh:#859).
+        app.run_cfg = run_cfg_from_query(app.run_cfg, &dhoby_ghaut::web_demo::platform::query_pairs());
         match link {
             Ok(l) => {
                 l.send(Request::CacheInfo);
@@ -602,8 +644,27 @@ impl McApp {
             self.xs.clear();
             self.xs_shown.clear();
             self.phase = Phase::Loading(LoadState::new(rung, need));
+            self.recorded = Self::recorded_player(rung, mode, self.watch_view);
             if let Some(link) = &self.link {
                 link.send(Request::Load { id: self.load_id, rung, tier: need });
+            }
+        }
+    }
+
+    /// The recorded tracks to play while `rung` loads: only for the view
+    /// they illustrate (Watch, one neutron at a time) and only where the rung
+    /// ships a readable file. A file that does not decode is logged and the
+    /// view waits for the data, as a rung without one does.
+    fn recorded_player(rung: Rung, mode: Mode, view: WatchView) -> Option<Tracks> {
+        if mode != Mode::Watch || view != WatchView::Neutrons {
+            return None;
+        }
+        match crate::recorded::histories(rung.recorded_tracks()?) {
+            Ok(h) if !h.is_empty() => Some(Tracks::recorded(h, rung.info().spectrum == anim::Spectrum::Fast)),
+            Ok(_) => None,
+            Err(e) => {
+                log::warn!("{}: recorded tracks unreadable: {e}", rung.info().name);
+                None
             }
         }
     }
@@ -619,6 +680,8 @@ impl McApp {
 
     /// Build the screen for the current rung, mode and view, on loaded data.
     fn enter_screen(&mut self) {
+        self.recorded = None;
+        self.run_tracks = None;
         let Some(link) = &self.link else { return };
         let fast = self.rung.info().spectrum == anim::Spectrum::Fast;
         self.phase = Phase::Ready(match (self.mode, self.watch_view, self.rung.watch_generations()) {
@@ -627,6 +690,7 @@ impl McApp {
                 if self.autostart {
                     it.start(link);
                 }
+                self.run_tracks = self.rung.has_tracks().then(|| Tracks::for_run(fast));
                 Screen::Run(it)
             }
             (Mode::Watch, WatchView::Generations, Some(cfg)) => {
@@ -725,6 +789,11 @@ impl McApp {
                     }
                 }
                 (Phase::Ready(Screen::Tracks(t)), Event::History { h, animate }) => t.receive(h, animate),
+                (Phase::Ready(Screen::Run(_)), Event::History { h, animate }) => {
+                    if let Some(t) = self.run_tracks.as_mut() {
+                        t.receive(h, animate);
+                    }
+                }
                 (Phase::Ready(Screen::Generations(it) | Screen::Run(it)), Event::KeffStarted { sites }) => it.sites = sites,
                 (Phase::Ready(Screen::Generations(it) | Screen::Run(it)), Event::Generation(g)) => it.receive(g),
                 (Phase::Ready(Screen::Generations(it) | Screen::Run(it)), Event::KeffDone) => it.done(rung),
@@ -736,13 +805,23 @@ impl McApp {
     fn title_now(&mut self, ctx: &egui::Context) {
         let name = self.rung.info().title;
         let t = match &self.phase {
-            Phase::Loading(l) => format!("{name} · loading {}/{} · {}", l.loading.done(), l.loading.labels.len(), l.loading.status_line()),
+            Phase::Loading(l) => {
+                // What an unattended browser check reads (gh:#859).
+                let rec = self.recorded.as_ref().map_or(String::new(), |r| format!(" · recorded tracks: {} played, {} in the file", r.stats.histories, r.replay.len()));
+                format!("{name} · loading {}/{} · {}{rec}", l.loading.done(), l.loading.labels.len(), l.loading.status_line())
+            }
             Phase::Ready(Screen::Tracks(r)) => format!(
                 "{name} · {} neutrons · {} fission · {} capture · {} leak",
                 r.stats.histories, r.stats.fissions, r.stats.captures, r.stats.leaks
             ),
             Phase::Ready(Screen::Generations(it) | Screen::Run(it)) => {
-                format!("{name} · generation {}/{} · {:?}", it.gens.len(), it.total_gens(), it.state)
+                // The running mean too, so an unattended browser check can
+                // read the result (gh:#859).
+                let (m, e) = it.result();
+                let k = if m.is_finite() { format!(" · k = {m:.5} ± {e:.5} · {:.0} s", it.elapsed) } else { String::new() };
+                let h = it.gens.last().and_then(|g| g.entropy).map_or(String::new(), |h| format!(" · entropy {h:.3} bits"));
+                let tr = self.run_tracks.as_ref().map_or(String::new(), |t| format!(" · {} neutrons drawn", t.stats.histories));
+                format!("{name} · generation {}/{} · {:?}{k}{h}{tr}", it.gens.len(), it.total_gens(), it.state)
             }
             Phase::Ready(Screen::Kinf(k)) => {
                 let at = match k.case.choices.iter().find(|c| c.0 == k.running_param) {
@@ -783,6 +862,12 @@ impl eframe::App for McApp {
             match s {
                 Screen::Tracks(t) => t.top_up(link),
                 Screen::Generations(it) | Screen::Run(it) => {
+                    // Run mode's drawn neutrons: asked for only while the
+                    // run is going, so each is born from its source.
+                    if let Some(t) = self.run_tracks.as_mut() {
+                        t.running = it.state == RunState::Running;
+                        t.top_up(link);
+                    }
                     it.pump(link);
                     if it.state == RunState::Running {
                         ctx.request_repaint_after(std::time::Duration::from_millis(100));
@@ -1104,6 +1189,7 @@ impl McApp {
                     ui.end_row();
                 }
             });
+            ui.weak(format!("{}.", crate::keff::build_stamp()));
         }
         egui::CollapsingHeader::new("What this run is — and is not").default_open(false).show(ui, |ui| {
             for n in &k.case.notes {
@@ -1378,7 +1464,7 @@ impl McApp {
                 ui.add(egui::DragValue::new(&mut cfg.n_particles).range(100..=20_000).speed(50));
                 ui.end_row();
                 ui.label("inactive generations");
-                ui.add(egui::DragValue::new(&mut cfg.n_inactive).range(1..=200));
+                ui.add(egui::DragValue::new(&mut cfg.n_inactive).range(1..=1000));
                 ui.end_row();
                 ui.label("active generations");
                 ui.add(egui::DragValue::new(&mut cfg.n_active).range(2..=1000));
@@ -1419,9 +1505,9 @@ impl McApp {
         });
         ui.label(format!("{} of {} generations · {:.0} s", it.gens.len(), it.total_gens(), it.elapsed));
         ui.weak(
-            "Single-threaded, in this tab's background worker: outram-mc-libs' reference power iteration \
-             (`PowerIteration`, what `run_keff` runs), one generation at a time, on ENDF/B-VIII.0 processed at \
-             NJOY's tolerance.",
+            "Single-threaded, in this tab's background worker: outram-mc-libs' reference power iteration, one \
+             generation at a time, on ENDF/B-VIII.0 processed at NJOY's tolerance (which iteration: \
+             \"What this is\", below).",
         );
         if it.active_counts.tracked > 0 {
             ui.separator();
@@ -1432,12 +1518,16 @@ impl McApp {
             let (m, e) = it.result();
             ui.separator();
             ui.strong("Your result");
-            ui.label(RichText::new(format!("k = {m:.5} ± {e:.5}  ({:+.0} ± {:.0} pcm)", (m - 1.0) * 1e5, e * 1e5)).monospace());
+            ui.label(RichText::new(format!("k = {m:.5} ± {e:.5}  ({:+.0} ± {:.0} pcm from 1)", (m - 1.0) * 1e5, e * 1e5)).monospace());
+            ui.weak(format!("{}.", crate::keff::build_stamp()));
             if let Some(r) = rung.reference() {
                 if let Some((name, k, s)) = r.experiment {
                     ui.label(format!("Experiment ({name}): {k:.4} ± {s:.4}."));
                 }
-                ui.label(format!("Recorded: {:.5} ± {:.5} ({:+.0} ± {:.0} pcm), {}.", r.k, r.sem, (r.k - 1.0) * 1e5, r.sem * 1e5, r.label));
+                if let Some(c) = r.code {
+                    ui.label(format!("Reference code: {:.5} ± {:.5} ({:+.0} ± {:.0} pcm from 1), {}.", c.k, c.sem, (c.k - 1.0) * 1e5, c.sem * 1e5, c.label));
+                }
+                ui.label(format!("Recorded: {:.5} ± {:.5} ({:+.0} ± {:.0} pcm from 1), {}.", r.k, r.sem, (r.k - 1.0) * 1e5, r.sem * 1e5, r.label));
                 let hist = (it.cfg.n_particles * it.cfg.n_active) as f64;
                 let expect = r.sd_one_run * (r.histories_one_run / hist).sqrt();
                 ui.weak(format!(
@@ -1455,6 +1545,51 @@ impl McApp {
 }
 
 // ─── Main view ───────────────────────────────────────────────────────────────
+
+/// The Run k_eff settings a link asks for: `particles`, `inactive`, `active`
+/// and `seed` in the query replace `default`'s, each held to the range the
+/// panel's own controls allow; anything absent or unreadable keeps the default.
+fn run_cfg_from_query(default: KeffConfig, query: &[(String, String)]) -> KeffConfig {
+    let get = |name: &str, lo: u64, hi: u64, d: u64| {
+        dhoby_ghaut::web_demo::platform::query_value(query, name).and_then(|v| v.parse::<u64>().ok()).map_or(d, |v| v.clamp(lo, hi))
+    };
+    KeffConfig {
+        n_particles: get("particles", 100, 20_000, default.n_particles as u64) as usize,
+        n_inactive: get("inactive", 1, 1000, default.n_inactive as u64) as usize,
+        n_active: get("active", 2, 1000, default.n_active as u64) as usize,
+        seed: get("seed", 1, 1_000_000, default.seed),
+        ..default
+    }
+}
+
+/// Advance and draw one neutron-at-a-time view: the faded past tracks and
+/// the current one up to its head. Shared by the live view and the recorded
+/// tracks shown while a rung loads.
+fn play_tracks(ui: &egui::Ui, painter: &egui::Painter, r: &mut Tracks, speed: f64, to_screen: impl Fn(f64, f64) -> Pos2 + Copy) {
+    let dt = ui.input(|i| i.stable_dt).min(0.1) as f64;
+    if r.running || r.single {
+        match &mut r.current {
+            Some(a) if !a.finished() => a.advance(dt, speed),
+            Some(_) if r.single => r.single = false,
+            _ if r.running => {
+                r.start_next();
+            }
+            _ => {}
+        }
+        ui.ctx().request_repaint();
+    }
+    r.count_if_finished();
+    let n = r.past.len();
+    for (i, h) in r.past.iter().enumerate() {
+        let alpha = (25.0 + 45.0 * (i + 1) as f32 / n.max(1) as f32) as u8;
+        draw_track(painter, to_screen, h, None, alpha, false, None);
+    }
+    if let Some(a) = &r.current {
+        let upto = if a.finished() { None } else { Some(a.head()) };
+        let trail = r.trail_cm.map(|len| (a.cum.as_slice(), a.shown_cm.min(a.total()), len));
+        draw_track(painter, to_screen, &a.hist, upto, 255, r.dots, trail);
+    }
+}
 
 /// A plot frame with linear axes.
 struct Axes {
@@ -1564,7 +1699,16 @@ impl McApp {
         let is_layers = matches!(self.phase, Phase::Ready(Screen::Layers(_)));
         let is_beds = matches!(self.phase, Phase::Ready(Screen::Beds(_)));
         let is_slice = is_layers || matches!(self.phase, Phase::Ready(Screen::Geometry(_) | Screen::Core));
-        let (rect, xs_rect) = if !(xs_on || is_layers) {
+        // Run k_eff on a rung with tracks: the geometry and its neutrons
+        // beside the plots and the console (above them on a narrow screen).
+        let run_geo = is_run && self.run_tracks.is_some();
+        let (rect, xs_rect) = if run_geo && full.width() >= 700.0 && full.width() > full.height() {
+            let (a, b) = full.split_left_right_at_fraction(0.44);
+            (a, Some(b))
+        } else if run_geo {
+            let (a, b) = full.split_top_bottom_at_fraction(0.40);
+            (a, Some(b))
+        } else if !(xs_on || is_layers) {
             (full, None)
         } else if full.width() >= 700.0 && full.width() > full.height() {
             let (a, b) = full.split_left_right_at_fraction(0.58);
@@ -1579,7 +1723,7 @@ impl McApp {
         // zoom buttons and scale bar belong to its picture.
         let is_walk = matches!(self.phase, Phase::Ready(Screen::Walk(_)));
         let zoom_rect = if is_walk { crate::walkdemo::split(full).0 } else { rect };
-        if !is_run && !is_kinf && !is_slice && !is_beds && !is_walk {
+        if (!is_run || run_geo) && !is_kinf && !is_slice && !is_beds && !is_walk {
             self.view.handle_input(ui, &geo_resp);
             self.rung.draw(&painter, rect, &self.view);
         }
@@ -1598,35 +1742,29 @@ impl McApp {
                     (None, true) => Some(format!("So far: {}.", Source::summarize(l.sources.iter().flatten()))),
                     (Some(n), true) => Some(format!("{n}\nSo far: {}.", Source::summarize(l.sources.iter().flatten()))),
                 };
-                l.loading.card(&painter, rect, title, note.as_deref());
+                match &mut self.recorded {
+                    // Recorded tracks play over the geometry meanwhile
+                    // (gh:#859); the card moves to the top to leave it clear.
+                    Some(r) => {
+                        play_tracks(ui, &painter, r, speed, to_screen);
+                        painter.text(
+                            rect.left_bottom() + Vec2::new(16.0, -40.0),
+                            egui::Align2::LEFT_BOTTOM,
+                            "recorded tracks, shipped with the page · live ones start when the data are ready",
+                            egui::FontId::proportional(12.0),
+                            Color32::from_rgb(250, 200, 80),
+                        );
+                        let band = Rect::from_min_max(rect.min, Pos2::new(rect.right(), (rect.top() + 240.0).min(rect.bottom())));
+                        l.loading.card(&painter, band, title, note.as_deref());
+                    }
+                    None => l.loading.card(&painter, rect, title, note.as_deref()),
+                }
             }
             Phase::Failed(e) => {
                 painter.text(rect.center(), egui::Align2::CENTER_CENTER, format!("Failed: {e}"), egui::FontId::proportional(15.0), Color32::from_rgb(255, 110, 110));
             }
             Phase::Ready(Screen::Tracks(r)) => {
-                let dt = ui.input(|i| i.stable_dt).min(0.1) as f64;
-                if r.running || r.single {
-                    match &mut r.current {
-                        Some(a) if !a.finished() => a.advance(dt, speed),
-                        Some(_) if r.single => r.single = false,
-                        _ if r.running => {
-                            r.start_next();
-                        }
-                        _ => {}
-                    }
-                    ui.ctx().request_repaint();
-                }
-                r.count_if_finished();
-                let n = r.past.len();
-                for (i, h) in r.past.iter().enumerate() {
-                    let alpha = (25.0 + 45.0 * (i + 1) as f32 / n.max(1) as f32) as u8;
-                    draw_track(&painter, to_screen, h, None, alpha, false, None);
-                }
-                if let Some(a) = &r.current {
-                    let upto = if a.finished() { None } else { Some(a.head()) };
-                    let trail = r.trail_cm.map(|len| (a.cum.as_slice(), a.shown_cm.min(a.total()), len));
-                    draw_track(&painter, to_screen, &a.hist, upto, 255, r.dots, trail);
-                }
+                play_tracks(ui, &painter, r, speed, to_screen);
                 painter.text(rect.left_bottom() + Vec2::new(16.0, -40.0), egui::Align2::LEFT_BOTTOM, "illustration: real histories, chained by hand", egui::FontId::proportional(12.0), Color32::from_rgb(170, 176, 190));
                 if let Some(xr) = xs_rect {
                     // The marker rides the animated neutron; once it is
@@ -1660,11 +1798,26 @@ impl McApp {
             }
             Phase::Ready(Screen::Run(it)) => {
                 let experiment = rung.reference().and_then(|r| r.experiment).map(|(_, k, s)| (k, s));
-                match Self::run_view(ui, rect, &painter, it, self.run_text, experiment) {
+                if let Some(t) = self.run_tracks.as_mut() {
+                    play_tracks(ui, &painter, t, speed, to_screen);
+                    let note = match it.state {
+                        RunState::Idle => "the run's neutrons are drawn here once it starts",
+                        _ => "real histories born at this run's fission sites\ndrawn extra, not counted in k",
+                    };
+                    painter.text(rect.left_bottom() + Vec2::new(16.0, -40.0), egui::Align2::LEFT_BOTTOM, note, egui::FontId::proportional(12.0), Color32::from_rgb(170, 176, 190));
+                }
+                // Beside the geometry, the plots start at the pane's top; alone
+                // they leave room for the buttons over the main view.
+                let run_rect = xs_rect.unwrap_or(rect);
+                let top_pad = if run_rect.top() > full.top() + 1.0 { 6.0 } else { 52.0 };
+                match Self::run_view(ui, run_rect, &full_painter.with_clip_rect(run_rect), it, self.run_text, experiment, top_pad) {
                     RunAction::Start => {
                         if let Some(link) = &self.link {
                             it.cfg = self.run_cfg;
                             it.start(link);
+                            if let Some(t) = self.run_tracks.as_mut() {
+                                *t = Tracks::for_run(t.keep > 0);
+                            }
                         }
                     }
                     RunAction::Pause => it.state = RunState::Paused,
@@ -1762,14 +1915,14 @@ impl McApp {
         };
         if let Some(v) = &sview {
             scale_bar(&painter, sview_rect, v);
-        } else if !is_run && !is_kinf {
+        } else if (!is_run || run_geo) && !is_kinf {
             scale_bar(&painter, rect, &self.view);
         }
         self.panel.reopen_button(ui, full);
-        // + / − / Reset. In Run mode and the k∞ plot there is no geometry:
-        // they scale the text.
+        // + / − / Reset. In the k∞ plot, and in Run mode on a rung that draws
+        // no neutrons, there is no geometry: they scale the text.
         if let Some(z) = zoom_buttons(ui, zoom_rect) {
-            match (is_run || is_kinf, z) {
+            match ((is_run && !run_geo) || is_kinf, z) {
                 (false, z) => match sview {
                     Some(v) => apply_zoom(v, zoom_rect, z),
                     None => apply_zoom(&mut self.view, rect, z),
@@ -1837,13 +1990,16 @@ impl McApp {
 
     /// Run k_eff's main view: the two plots, then the console, scrolling,
     /// with Run / Pause / Resume on it (the panel is folded on a phone).
-    fn run_view(ui: &mut egui::Ui, rect: Rect, painter: &egui::Painter, it: &Iteration, text: f32, experiment: Option<(f64, f64)>) -> RunAction {
-        let top = rect.top() + 52.0;
+    fn run_view(ui: &mut egui::Ui, rect: Rect, painter: &egui::Painter, it: &Iteration, text: f32, experiment: Option<(f64, f64)>, top_pad: f32) -> RunAction {
+        let top = rect.top() + top_pad;
         let narrow = rect.width() < 700.0;
-        let plot_h = ((rect.height() - 60.0) * 0.36).clamp(110.0, 260.0);
+        // Narrow: k above the entropy, so both are always on screen.
+        let plot_h = if narrow { ((rect.height() - 60.0) * 0.50).clamp(170.0, 340.0) } else { ((rect.height() - 60.0) * 0.36).clamp(110.0, 260.0) };
         let plots = Rect::from_min_max(Pos2::new(rect.left() + 10.0, top), Pos2::new(rect.right() - 10.0, top + plot_h));
         if narrow {
-            draw_k(painter, plots, it, experiment);
+            let (a, b) = plots.split_top_bottom_at_fraction(0.5);
+            draw_k(painter, a.with_max_y(a.bottom() - 3.0), it, experiment);
+            draw_entropy(painter, b.with_min_y(b.top() + 3.0), it);
         } else {
             let (a, b) = plots.split_left_right_at_fraction(0.62);
             draw_k(painter, a, it, experiment);
@@ -2053,4 +2209,43 @@ fn draw_kinf(painter: &egui::Painter, rect: Rect, k: &KinfRun, done: &[KinfPoint
     }
     line(&|a: Pos2| { painter.circle_filled(a + Vec2::new(12.0, 0.0), 4.5, mine); }, "your runs (hollow: stopped early), ± 1σ");
     line(&|a: Pos2| { painter.circle_filled(a + Vec2::new(12.0, 0.0), 5.0, live); }, "the run in progress, mean ± σ");
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+
+    /// A link's `?particles=&inactive=&active=&seed=` preset the Run k_eff
+    /// settings, inside the panel's ranges; the rest keep the rung's default.
+    #[test]
+    fn a_link_presets_the_run_settings() {
+        let d = KeffConfig { n_particles: 5000, n_inactive: 40, n_active: 120, seed: 1, point_source: false, want_sites: false };
+        let q = |s: &[(&str, &str)]| s.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect::<Vec<_>>();
+        assert_eq!(run_cfg_from_query(d, &q(&[])), d);
+        let c = run_cfg_from_query(d, &q(&[("particles", "2000"), ("inactive", "30"), ("active", "60"), ("seed", "7")]));
+        assert_eq!((c.n_particles, c.n_inactive, c.n_active, c.seed), (2000, 30, 60, 7));
+        let c = run_cfg_from_query(d, &q(&[("particles", "9999999"), ("inactive", "0"), ("active", "x")]));
+        assert_eq!((c.n_particles, c.n_inactive, c.n_active, c.seed), (20_000, 1, 120, 1));
+    }
+
+    /// The recorded tracks a benchmark rung ships (gh:#859) play only in the
+    /// view they illustrate, and round and round: asking for the next
+    /// history past the end of the file starts the file again.
+    #[test]
+    fn recorded_tracks_play_in_a_loop_while_a_rung_loads() {
+        assert!(McApp::recorded_player(Rung::Jemima, Mode::Run, WatchView::Neutrons).is_none());
+        assert!(McApp::recorded_player(Rung::Jemima, Mode::Watch, WatchView::Generations).is_none());
+        assert!(McApp::recorded_player(Rung::Triso, Mode::Watch, WatchView::Neutrons).is_none(), "triso ships no tracks");
+        let mut t = McApp::recorded_player(Rung::Jemima, Mode::Watch, WatchView::Neutrons).expect("jemima ships tracks");
+        let n = t.replay.len();
+        assert!(n >= 30 && t.queue.len() == n && t.running && t.outstanding == 0);
+        let first = t.queue[0].index;
+        for _ in 0..n {
+            assert!(t.start_next());
+        }
+        assert!(t.queue.is_empty());
+        assert!(t.start_next(), "the file starts again");
+        assert_eq!(t.current.as_ref().map(|a| a.hist.index), Some(first));
+        assert_eq!(t.queue.len(), n - 1);
+    }
 }

@@ -48,6 +48,24 @@ physical_interface = true
 path = "crate::pre_built_components::ciet_struct_supports"
 
 [[module."mod.rs".function]]
+id = "fn:b74eec5e8e6d668d"
+name = "StructuralSupport"
+qual = "StructuralSupport"
+item = "type"
+shape = "struct"
+lines = [
+    30,
+    63,
+]
+hash = "sha256:cf72c7fdd97392fe4c782e59469872100b7aebba5be1f1e017bd5f2419b5d0ec"
+doc_hash = "sha256:0403f4311d5d7e2b5d1f6444c546638b73b6966199806d2b91c1b6d71287cc8a"
+uses = ["fn:a6efe5f766b47fef"]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."mod.rs".function]]
 id = "fn:1dbe81ba1a381e34"
 name = "new_steel_support_cylinder"
 qual = "StructuralSupport::new_steel_support_cylinder"
@@ -60,6 +78,11 @@ doc_hash = "sha256:cdce01773e98f176c48666a7fcc041757cc7ba525efa22f5ec13584f770fd
 callees = [
     "fn:9cf2732f8b0c6890",
     "fn:a1d6deda9829f241",
+]
+uses = [
+    "fn:5811ccd622a4f7ee",
+    "fn:9447740069e81383",
+    "fn:b74eec5e8e6d668d",
 ]
 reached_by = [
     "#0",
@@ -105,6 +128,7 @@ callees = [
     "fn:eb89be045205dc88",
     "fn:f8fcd27da58670ac",
 ]
+uses = ["fn:5811ccd622a4f7ee"]
 reached_by = [
     "#0",
     "#1",
@@ -124,6 +148,11 @@ callees = [
     "fn:2d0477b1a1450172",
     "fn:6256de6e1d4d986a",
     "fn:6495f5fa3bc8a5b5",
+]
+uses = [
+    "fn:7a10a768152b5992",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
 ]
 reached_by = [
     "#0",
@@ -163,6 +192,10 @@ callees = [
     "fn:eb89be045205dc88",
     "fn:eedc1a53a24de8e0",
     "fn:feec71215f335f20",
+]
+uses = [
+    "fn:5811ccd622a4f7ee",
+    "fn:9447740069e81383",
 ]
 reached_by = [
     "#0",

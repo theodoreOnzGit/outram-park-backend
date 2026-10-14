@@ -24,6 +24,11 @@ callees = [
     "fn:09632ebb2b55664e",
     "fn:e14e270bde8aa9cf",
 ]
+uses = [
+    "fn:2f81e70b0c38a8b8",
+    "fn:7c9b08e0bc1a9ec9",
+    "fn:c8f5f58ed857597c",
+]
 reached_by = [
     "#0",
     "#1",
@@ -54,6 +59,13 @@ callees = [
     "fn:c5a8ca519aafae30",
     "fn:fedb69c9749de9f4",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
 test = true
 
 [[module."adjust_phi.rs".function]]
@@ -75,6 +87,14 @@ callees = [
     "fn:a5c9ab054db5f6dc",
     "fn:be9269a88d02873a",
 ]
+uses = [
+    "fn:2f81e70b0c38a8b8",
+    "fn:55cfa8e1bccf93d0",
+    "fn:7c9b08e0bc1a9ec9",
+    "fn:97ec06680e7cc4b3",
+    "fn:c8f5f58ed857597c",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."adjust_phi.rs".function]]
@@ -93,6 +113,14 @@ callees = [
     "fn:7a1ee56033ebe84c",
     "fn:a5c9ab054db5f6dc",
     "fn:be9269a88d02873a",
+]
+uses = [
+    "fn:2f81e70b0c38a8b8",
+    "fn:55cfa8e1bccf93d0",
+    "fn:7c9b08e0bc1a9ec9",
+    "fn:97ec06680e7cc4b3",
+    "fn:c8f5f58ed857597c",
+    "fn:ef05859ef19acee7",
 ]
 test = true
 

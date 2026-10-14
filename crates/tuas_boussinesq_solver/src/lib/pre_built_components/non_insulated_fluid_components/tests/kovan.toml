@@ -32,6 +32,15 @@ callees = [
     "fn:eb89be045205dc88",
     "fn:f64ef88acd3047e2",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [[module."heated_section_only.rs".function]]
@@ -59,6 +68,15 @@ callees = [
     "fn:be40085a8ed290cd",
     "fn:eb89be045205dc88",
     "fn:f64ef88acd3047e2",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
 ]
 test = true
 
@@ -88,6 +106,15 @@ callees = [
     "fn:eb89be045205dc88",
     "fn:f64ef88acd3047e2",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [[module."heated_section_only.rs".function]]
@@ -116,6 +143,15 @@ callees = [
     "fn:eb89be045205dc88",
     "fn:f64ef88acd3047e2",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 test = true
 
 [[module."heated_section_only.rs".function]]
@@ -143,6 +179,15 @@ callees = [
     "fn:be40085a8ed290cd",
     "fn:eb89be045205dc88",
     "fn:f64ef88acd3047e2",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
 ]
 test = true
 

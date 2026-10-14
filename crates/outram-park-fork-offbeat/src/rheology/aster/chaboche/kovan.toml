@@ -17,6 +17,7 @@ lines = [
 hash = "sha256:9ac3c4f8df415eaaf0ef051d69278ab8acdc6c9871bf91836acaec5c491fec55"
 doc_hash = "sha256:ca4ea3208f84461e6de720f30e76d37570dd0e0deeb170d372cdaa5df0240d3f"
 callees = ["fn:d14ad97444ae22ac"]
+uses = ["fn:a6e010a0013424fb"]
 test = true
 
 [[module."tests.rs".function]]
@@ -30,6 +31,10 @@ lines = [
 hash = "sha256:3539f62ddfbed0b3171f93a342b8998ec8ef469fd8b168b50d008662d4897243"
 doc_hash = "sha256:a88b94109d18f08a45eb2ed8bd4f07a0a7b5601d4e14acc54f3cd0492a8e223f"
 callees = ["fn:1e18e2b2509aa7f0"]
+uses = [
+    "fn:1552781fd977b286",
+    "fn:6639252670a42874",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -42,6 +47,7 @@ lines = [
 ]
 hash = "sha256:dbc9f215591aa9d038154e4c2953718075ece19b3f8d8c88884c2493352299c2"
 doc_hash = "sha256:cd2121691619f03343739d7af8fc8c2ce15381644bde4c7aded44a3c1b8cfdc8"
+uses = ["fn:bb0a408e79844e00"]
 test = true
 
 [[module."tests.rs".function]]
@@ -55,6 +61,7 @@ lines = [
 hash = "sha256:bd53eeec19f0f5819662666cfad21463393e4ecfb6074e3b4c77ee301ecf12ff"
 doc_hash = "sha256:fe19e56930155c603018a7c81f35b93c0f5b2a92e0669a50e60341e1d800fa6d"
 callees = ["fn:27e86d8fe19529a2"]
+uses = ["fn:250c638c8bd6b322"]
 test = true
 
 [[module."tests.rs".function]]
@@ -71,6 +78,7 @@ callees = [
     "fn:81a2b448e5e79281",
     "fn:e655dba31d076665",
 ]
+uses = ["fn:250c638c8bd6b322"]
 test = true
 
 [[module."tests.rs".function]]
@@ -89,6 +97,12 @@ callees = [
     "fn:6c1a0a0da9a0efcf",
     "fn:783bfb772bb88f3a",
     "fn:b937201e7cab72b9",
+]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:6639252670a42874",
+    "fn:ad9f2fccf2ae9988",
+    "fn:f80e3194b1cfc976",
 ]
 test = true
 
@@ -112,6 +126,10 @@ callees = [
     "fn:e655dba31d076665",
     "fn:f746a52c4e2ba031",
 ]
+uses = [
+    "fn:6639252670a42874",
+    "fn:d05f6a22e628f0f2",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -133,6 +151,10 @@ callees = [
     "fn:6eef88e0aa191bac",
     "fn:b8ab4d3b168ffacb",
     "fn:fce4407a6b1f9080",
+]
+uses = [
+    "fn:1552781fd977b286",
+    "fn:6639252670a42874",
 ]
 test = true
 
@@ -159,6 +181,12 @@ callees = [
     "fn:ea70bd070bd384f6",
     "fn:f164908d02717049",
 ]
+uses = [
+    "fn:13dfdbebd88cfda4",
+    "fn:250c638c8bd6b322",
+    "fn:ad9f2fccf2ae9988",
+    "fn:f80e3194b1cfc976",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -181,6 +209,11 @@ callees = [
     "fn:b937201e7cab72b9",
     "fn:baf2ca10a09bc244",
     "fn:ea70bd070bd384f6",
+]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:ad9f2fccf2ae9988",
+    "fn:f80e3194b1cfc976",
 ]
 test = true
 
@@ -205,6 +238,11 @@ callees = [
     "fn:b937201e7cab72b9",
     "fn:ea70bd070bd384f6",
 ]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:ad9f2fccf2ae9988",
+    "fn:f80e3194b1cfc976",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -222,6 +260,10 @@ callees = [
     "fn:5d3889b915608c65",
     "fn:c06fe9e1f71d6d8b",
     "fn:ea70bd070bd384f6",
+]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:f80e3194b1cfc976",
 ]
 test = true
 
@@ -247,6 +289,13 @@ callees = [
     "fn:c06fe9e1f71d6d8b",
     "fn:ea70bd070bd384f6",
 ]
+uses = [
+    "fn:1552781fd977b286",
+    "fn:250c638c8bd6b322",
+    "fn:6639252670a42874",
+    "fn:ad9f2fccf2ae9988",
+    "fn:f80e3194b1cfc976",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -268,6 +317,10 @@ callees = [
     "fn:c06fe9e1f71d6d8b",
     "fn:ea70bd070bd384f6",
 ]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:f80e3194b1cfc976",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -288,6 +341,12 @@ callees = [
     "fn:c06fe9e1f71d6d8b",
     "fn:ea70bd070bd384f6",
 ]
+uses = [
+    "fn:1552781fd977b286",
+    "fn:250c638c8bd6b322",
+    "fn:6639252670a42874",
+    "fn:f80e3194b1cfc976",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -305,6 +364,12 @@ callees = [
     "fn:bf9dc50eaf1d391d",
     "fn:c06fe9e1f71d6d8b",
     "fn:ea70bd070bd384f6",
+]
+uses = [
+    "fn:1552781fd977b286",
+    "fn:250c638c8bd6b322",
+    "fn:6639252670a42874",
+    "fn:f80e3194b1cfc976",
 ]
 test = true
 
@@ -329,6 +394,11 @@ callees = [
     "fn:c06fe9e1f71d6d8b",
     "fn:ea70bd070bd384f6",
 ]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:ad9f2fccf2ae9988",
+    "fn:f80e3194b1cfc976",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -352,6 +422,13 @@ callees = [
     "fn:bf9dc50eaf1d391d",
     "fn:ea70bd070bd384f6",
 ]
+uses = [
+    "fn:1552781fd977b286",
+    "fn:250c638c8bd6b322",
+    "fn:6639252670a42874",
+    "fn:ad9f2fccf2ae9988",
+    "fn:f80e3194b1cfc976",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -369,6 +446,12 @@ callees = [
     "fn:bf9dc50eaf1d391d",
     "fn:c06fe9e1f71d6d8b",
     "fn:ea70bd070bd384f6",
+]
+uses = [
+    "fn:1552781fd977b286",
+    "fn:250c638c8bd6b322",
+    "fn:6639252670a42874",
+    "fn:f80e3194b1cfc976",
 ]
 test = true
 
@@ -397,6 +480,11 @@ callees = [
     "fn:db34cbee7d2e491b",
     "fn:ea70bd070bd384f6",
 ]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:ad9f2fccf2ae9988",
+    "fn:f80e3194b1cfc976",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -414,6 +502,12 @@ callees = [
     "fn:bf9dc50eaf1d391d",
     "fn:c06fe9e1f71d6d8b",
     "fn:ea70bd070bd384f6",
+]
+uses = [
+    "fn:1552781fd977b286",
+    "fn:250c638c8bd6b322",
+    "fn:6639252670a42874",
+    "fn:f80e3194b1cfc976",
 ]
 test = true
 
@@ -437,6 +531,13 @@ callees = [
     "fn:bf9dc50eaf1d391d",
     "fn:c06fe9e1f71d6d8b",
     "fn:ea70bd070bd384f6",
+]
+uses = [
+    "fn:1552781fd977b286",
+    "fn:250c638c8bd6b322",
+    "fn:6639252670a42874",
+    "fn:ad9f2fccf2ae9988",
+    "fn:f80e3194b1cfc976",
 ]
 test = true
 
@@ -463,6 +564,13 @@ callees = [
     "fn:db34cbee7d2e491b",
     "fn:ea70bd070bd384f6",
 ]
+uses = [
+    "fn:1552781fd977b286",
+    "fn:250c638c8bd6b322",
+    "fn:6639252670a42874",
+    "fn:ad9f2fccf2ae9988",
+    "fn:f80e3194b1cfc976",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -484,6 +592,12 @@ callees = [
     "fn:783bfb772bb88f3a",
     "fn:d14ad97444ae22ac",
     "fn:ea70bd070bd384f6",
+]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:a6e010a0013424fb",
+    "fn:ad9f2fccf2ae9988",
+    "fn:f80e3194b1cfc976",
 ]
 test = true
 
@@ -507,6 +621,11 @@ callees = [
     "fn:adb6ff61789851e5",
     "fn:ea70bd070bd384f6",
 ]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:ad9f2fccf2ae9988",
+    "fn:f80e3194b1cfc976",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -528,5 +647,12 @@ callees = [
     "fn:b937201e7cab72b9",
     "fn:d14ad97444ae22ac",
     "fn:ea70bd070bd384f6",
+]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:a3d963a4f0e4783d",
+    "fn:a6e010a0013424fb",
+    "fn:ad9f2fccf2ae9988",
+    "fn:f80e3194b1cfc976",
 ]
 test = true

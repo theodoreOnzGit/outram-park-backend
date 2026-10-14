@@ -24,6 +24,7 @@ mod camera;
 mod canvas;
 mod ivv;
 mod source;
+pub mod syntax_ui;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -154,6 +155,12 @@ pub enum HostRequest {
     /// function has a valid stamp. The host records a connection from it
     /// to a standard corpus concept.
     AddConnection(FunctionRef),
+    /// A function's "Quick stamp" (GitHub #857, maintainer 2026-10-13):
+    /// offered only when its stamp went stale because something it calls
+    /// changed, not its own code. The host opens the re-confirm step, which
+    /// shows what changed in the callee and signs a new review carrying the
+    /// previous answers, without the wizard.
+    Reconfirm(FunctionRef),
 }
 
 /// The Code Review UI.
@@ -232,6 +239,14 @@ impl CodeReview {
             pending: (link != DeepLink::Map).then_some(link),
             host_request: None,
             stamps: None,
+        }
+    }
+
+    /// Queue a "Quick stamp" (re-confirm) of function `id` for the host.
+    pub(crate) fn quick_stamp(&mut self, snap: &Snap, id: &str) {
+        match self.function_ref(snap, id) {
+            Some(f) => self.host_request = Some(HostRequest::Reconfirm(f)),
+            None => self.status = Some("The function is not in a loaded workspace crate.".into()),
         }
     }
 
@@ -953,12 +968,21 @@ impl CodeReview {
         let facts = snap.facts();
         let map = snap.map.clone();
         let mut pick = None;
-        for f in module.functions.iter().filter(|f| self.show_tests || !f.test) {
+        let mut items_headed = false;
+        for f in model::reviewables(&module, self.show_tests) {
+            // The module's types and constants follow its functions (#843).
+            if f.shape.is_some() && !items_headed {
+                items_headed = true;
+                ui.separator();
+                ui.label(RichText::new("Types and constants").strong());
+            }
             let sel = self.place.selected.as_deref() == Some(f.id.as_str());
             ui.horizontal_wrapped(|ui| {
-                let name = f.owner.as_ref().map(|o| format!("{o}::{}", f.name)).unwrap_or(f.name.clone());
-                if ui.selectable_label(sel, RichText::new(name).monospace().strong()).clicked() {
+                if ui.selectable_label(sel, RichText::new(model::display_name(f)).monospace().strong()).clicked() {
                     pick = Some(f.id.clone());
+                }
+                if let Some(shape) = f.shape {
+                    ui.weak(shape.plain_name());
                 }
                 let r = facts.review(&f.id);
                 ui.colored_label(bar::review_colour(&r), r.label());
@@ -1071,6 +1095,23 @@ mod tests {
             errors: vec![],
             stamps: None,
         }
+    }
+
+    /// "Quick stamp" queues a re-confirm request naming the function; a
+    /// function outside every workspace crate queues nothing and says why.
+    #[test]
+    fn quick_stamp_queues_a_reconfirm_request() {
+        let id = "crates/bl/src/chem.rs::Pool::rate";
+        let snap = snap_with_map();
+        let mut d = CodeReview::new(Mode::Desktop, DataSource::Dir { data: std::env::temp_dir(), workspace: ".".into() });
+        d.quick_stamp(&snap, id);
+        match d.take_host_request() {
+            Some(HostRequest::Reconfirm(f)) => assert_eq!((f.id.as_str(), f.name.as_str()), (id, "Pool::rate")),
+            other => panic!("{other:?}"),
+        }
+        d.quick_stamp(&snap, "vendor/x.rs::f");
+        assert_eq!(d.take_host_request(), None);
+        assert!(d.status.as_deref().is_some_and(|s| s.contains("not in a loaded workspace crate")));
     }
 
     /// Desktop: Stamp and Needs fix queue one request for the host, taken

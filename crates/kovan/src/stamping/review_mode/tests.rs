@@ -353,7 +353,7 @@ fn inherited_stale_is_reconfirmed_without_the_wizard() {
     let e = reconfirm::prepare_reconfirm(r.path(), &cg("twice"), BY).unwrap_err();
     assert!(e.starts_with("bottom-up") && e.contains("leaf"), "{e}");
     let e = reconfirm::prepare_reconfirm(r.path(), &cg("leaf"), BY).unwrap_err();
-    assert!(e.contains("only to a review made stale by a callee change"), "{e}");
+    assert!(e.contains("only to a review made stale by a change in something"), "{e}");
     let e = reconfirm::prepare_reconfirm(r.path(), &cg("twice"), "github:nobody").unwrap_err();
     assert!(e.contains("no review"), "{e}");
     r.stamp(&key, "leaf", "Re-reviewed after the change.");

@@ -23,6 +23,13 @@ callees = [
     "fn:9ed51af57e573b4c",
     "fn:a466f7e4f7b4bc02",
 ]
+uses = [
+    "fn:686bbf96cde39656",
+    "fn:8a6f6c1ba4a90a90",
+    "fn:9be2ae2488d4ae84",
+    "fn:d913f1c8b10f3f30",
+    "fn:e20faf40d7c613cc",
+]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -36,6 +43,7 @@ lines = [
 hash = "sha256:eee2b7270a5871facbac1b82f7a14be0d27017beb783fe7846767746fae323b5"
 doc_hash = "sha256:7686211eb09e9e7294cced8d632d44ae362ba0d366a238e86ce23a56f92032b1"
 callees = ["fn:cb1fc1a67d38f99a"]
+uses = ["fn:006d55971bc9e1e3"]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -55,6 +63,14 @@ callees = [
     "fn:cbb241b81b8f27f6",
     "fn:e4c8658364d11f67",
     "fn:f0f061f2ed726984",
+]
+uses = [
+    "fn:006d55971bc9e1e3",
+    "fn:16caf770a42fcac8",
+    "fn:35b7a095aaee754b",
+    "fn:3cbe762590c1e19d",
+    "fn:675edefa7ec82788",
+    "fn:c033624d0341847d",
 ]
 test = true
 
@@ -81,6 +97,7 @@ lines = [
 hash = "sha256:76d6c980df7540f67bf279cf66a199a3157dba64c8edc9b34f6fdc241f05eb47"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:5fc49fc203f283ac"]
+uses = ["fn:440a20ac97b45685"]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -97,6 +114,12 @@ callees = [
     "fn:206511b3b25543e9",
     "fn:48d617bfddc79a4e",
     "fn:a58872303a65e756",
+]
+uses = [
+    "fn:440a20ac97b45685",
+    "fn:686bbf96cde39656",
+    "fn:86a95b12610356b0",
+    "fn:cef4af3da645c255",
 ]
 test = true
 
@@ -115,6 +138,13 @@ callees = [
     "fn:cb1fc1a67d38f99a",
     "fn:cbb241b81b8f27f6",
     "fn:e1e248a14f38c41f",
+]
+uses = [
+    "fn:006d55971bc9e1e3",
+    "fn:675edefa7ec82788",
+    "fn:6b92af22ded826ca",
+    "fn:8a6f6c1ba4a90a90",
+    "fn:ccaef4c37195ff0f",
 ]
 test = true
 
@@ -152,6 +182,7 @@ callees = [
     "fn:a351d3dab87273d0",
     "fn:d8960639536478e3",
 ]
+uses = ["fn:a5eb7fe586be912f"]
 test = true
 
 [[module."gpu_csg_parity.rs".function]]
@@ -162,7 +193,7 @@ lines = [
     326,
     516,
 ]
-hash = "sha256:a6744309c31de7d863e24c779513de5d193f12a6408c0e8c81b48cbfa1f99d69"
+hash = "sha256:c5aa52b4edfe9f21b29319d6aaa56ed20f464f8aaf321f8ac63c0260e8c1d3e4"
 doc_hash = "sha256:e5611fdefff79dcc88c8400a71140332e43f04463e50ac4bba30ae57885f7e99"
 callees = [
     "fn:022d087efe93350a",
@@ -184,5 +215,18 @@ callees = [
     "fn:d4a13df2fbeb1d04",
     "fn:e3e47ff80971c0cc",
     "fn:f2899d0b9b799e28",
+]
+uses = [
+    "fn:006d55971bc9e1e3",
+    "fn:0822e701e0d7b896",
+    "fn:2b25e43213c7bcc7",
+    "fn:59542ff81772c26c",
+    "fn:86a95b12610356b0",
+    "fn:9f05cb7ffc1d7b8d",
+    "fn:c60ee79ac0406f0e",
+    "fn:cef4af3da645c255",
+    "fn:d913f1c8b10f3f30",
+    "fn:dd9da85cde5c81d7",
+    "fn:fe7a0a7e6b9a135b",
 ]
 test = true

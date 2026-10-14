@@ -7,6 +7,104 @@ dir = "crates/outram-foam-cli/tests"
 path = "test:mechanics_code_to_code"
 
 [[module."mechanics_code_to_code.rs".function]]
+id = "fn:5fe38e2268337da1"
+name = "YOUNG"
+qual = "YOUNG"
+item = "const"
+shape = "const"
+lines = [
+    108,
+    109,
+]
+hash = "sha256:6382d3c08187b958c31e843919df0a045bce322c6a427554871ac5d01bfc913b"
+doc_hash = "sha256:db550706fe1f849f3303a6fda2f418b62259897f9750caf16e78ba70e010000e"
+test = true
+
+[[module."mechanics_code_to_code.rs".function]]
+id = "fn:b4bc171d0e8d26be"
+name = "POISSON"
+qual = "POISSON"
+item = "const"
+shape = "const"
+lines = [
+    110,
+    113,
+]
+hash = "sha256:b3018280af5e7034ba0691207878498a84783aa3653b125be64c7c0cc3c031ad"
+doc_hash = "sha256:b671b4056cd0306a268196821547fa8509669091249ff31c88bbb7af59cde1e6"
+test = true
+
+[[module."mechanics_code_to_code.rs".function]]
+id = "fn:847caa3aa8b3b03e"
+name = "ALPHA"
+qual = "ALPHA"
+item = "const"
+shape = "const"
+lines = [
+    114,
+    115,
+]
+hash = "sha256:e1d1ea39bb4e80b0aef75c0bd02edb25ef06e48c9f5220327548ba1dc9c0e58c"
+doc_hash = "sha256:933f18c9df9e575dba669674144bcffa041ed7d066f1b0af75cde2538f01601c"
+test = true
+
+[[module."mechanics_code_to_code.rs".function]]
+id = "fn:7d7f5033919f2d51"
+name = "T_REF"
+qual = "T_REF"
+item = "const"
+shape = "const"
+lines = [
+    116,
+    117,
+]
+hash = "sha256:4059a3f19b19f4ef314d350c4a0980436736465e75ae680f58e1d7516426bf63"
+doc_hash = "sha256:55ff0a6fae2cff05e06f113d881d2a19e94aa6cfdcabb2374214ed724be49055"
+test = true
+
+[[module."mechanics_code_to_code.rs".function]]
+id = "fn:cfe690375de17865"
+name = "DELTA_T_PEAK"
+qual = "DELTA_T_PEAK"
+item = "const"
+shape = "const"
+lines = [
+    118,
+    119,
+]
+hash = "sha256:7a31575c1a603a61f23cdf1065e778ba4d7d774c4c660bc5cbb5b5bb1364f648"
+doc_hash = "sha256:7a8ea58e769a07845d37576103560fa5436172f80503d7af91c45c052ce0a849"
+test = true
+
+[[module."mechanics_code_to_code.rs".function]]
+id = "fn:4d51337ab7b11495"
+name = "LENGTH"
+qual = "LENGTH"
+item = "const"
+shape = "const"
+lines = [
+    120,
+    121,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:685de40a9e398cb275c64d02a5c20abe62cebc58755e1d96b89f025ffd3f6c2d"
+test = true
+
+[[module."mechanics_code_to_code.rs".function]]
+id = "fn:8936107b620a6b47"
+name = "DENSITY"
+qual = "DENSITY"
+item = "const"
+shape = "const"
+lines = [
+    122,
+    125,
+]
+hash = "sha256:c54ad81b0c33e32f4d00eb23f4c2d1299fbd9dcad122d8c1653e18d4b2127d1f"
+doc_hash = "sha256:028595033366fa88afe1e2ed4bbcbb875e358f276352f55524e599da7f48cfa0"
+test = true
+
+[[module."mechanics_code_to_code.rs".function]]
 id = "fn:68202dfe5307b6bd"
 name = "delta_t"
 qual = "delta_t"
@@ -16,6 +114,10 @@ lines = [
 ]
 hash = "sha256:68405a031f036c20bd4427d72678e0fcfad82b53e0eb945eb1bdcf016003ee51"
 doc_hash = "sha256:6324680798d12b809ca9a00e01a3f3f96e0012daacf684f9556b1cc0825dbb23"
+uses = [
+    "fn:4d51337ab7b11495",
+    "fn:cfe690375de17865",
+]
 test = true
 
 [[module."mechanics_code_to_code.rs".function]]
@@ -28,6 +130,11 @@ lines = [
 ]
 hash = "sha256:a470d800fd1fd53f91a271a67e7068372522f338fface8432561dc0522766ee1"
 doc_hash = "sha256:c32d09cbcd9aeaa76311d1976c14c46da092b3f268cfda380da53f48a0e022d5"
+uses = [
+    "fn:4d51337ab7b11495",
+    "fn:847caa3aa8b3b03e",
+    "fn:cfe690375de17865",
+]
 test = true
 
 [[module."mechanics_code_to_code.rs".function]]
@@ -40,6 +147,11 @@ lines = [
 ]
 hash = "sha256:2ce2092ddb40c77781f194a107965705a8f9e399ead87aabae464d283799509b"
 doc_hash = "sha256:ac0d952f91462ce63822cc56e550ef91dc561889c0851bd8dcc9bd2884315704"
+uses = [
+    "fn:5fe38e2268337da1",
+    "fn:847caa3aa8b3b03e",
+    "fn:cfe690375de17865",
+]
 test = true
 
 [[module."mechanics_code_to_code.rs".function]]
@@ -52,6 +164,21 @@ lines = [
 ]
 hash = "sha256:63106e1a0edbc8c9d0359315e9540f219587efaa41c364285789a06a30eef3cc"
 doc_hash = "sha256:01a73d41c994cdc2a4048c75962dccc1df337871dbc3a5d86c84dd365a14077e"
+uses = ["fn:f354cdd32c8e9ebe"]
+test = true
+
+[[module."mechanics_code_to_code.rs".function]]
+id = "fn:db8196dc25de58c0"
+name = "FIXTURE_CELLS"
+qual = "FIXTURE_CELLS"
+item = "const"
+shape = "const"
+lines = [
+    170,
+    171,
+]
+hash = "sha256:439c481ee17872e308216940d0c7a93e87299be9717ec65a9d0cebce24069757"
+doc_hash = "sha256:1c984979df722e344dd6d8e257e90055a2ef12887504c3393375a168de42dbc7"
 test = true
 
 [[module."mechanics_code_to_code.rs".function]]
@@ -62,9 +189,14 @@ lines = [
     173,
     212,
 ]
-hash = "sha256:613319ead79c0347b26fb9bacb343ba0bd14c5a0ae21c5e5898d4c914d9e5b46"
+hash = "sha256:2b07b9cbbe12ee89ce316a4fcaf374f9d625e296681c19a6f42e8088148ce960"
 doc_hash = "sha256:c358ab5433c36d0b9c244349f3bca5dfbb94f09780e8d4578a719105e72a9a15"
 callees = ["fn:abf4b590a1b83263"]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:b7b4c168c436333b",
+    "fn:db8196dc25de58c0",
+]
 test = true
 
 [[module."mechanics_code_to_code.rs".function]]
@@ -77,6 +209,7 @@ lines = [
 ]
 hash = "sha256:952896c666f1101485cb6de532e8bf6f0b265ef1b7240dad0c4248eac3fae120"
 doc_hash = "sha256:5530c03f894bd4651f4a10263039daabe9797b442806b912c66cfddfd8ec7d7e"
+uses = ["fn:05040b6b1b09bb4e"]
 test = true
 
 [[module."mechanics_code_to_code.rs".function]]
@@ -94,6 +227,11 @@ callees = [
     "fn:8d8222679b330ce7",
     "fn:df45366507ca2423",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:75b64c5620c869e8",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."mechanics_code_to_code.rs".function]]
@@ -107,6 +245,7 @@ lines = [
 hash = "sha256:cb5359262358c291c3789d3db1262c3d3b34350955ff63b919c6370359a897f5"
 doc_hash = "sha256:e015a8c510e07fcf6791b39365e3095a339f14ef4fddd152d1aa887f251df6fa"
 callees = ["fn:68202dfe5307b6bd"]
+uses = ["fn:05040b6b1b09bb4e"]
 test = true
 
 [[module."mechanics_code_to_code.rs".function]]
@@ -134,6 +273,25 @@ callees = [
     "fn:df45366507ca2423",
     "fn:f59a35e9cbd8b293",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:1aa58218af2ff1a9",
+    "fn:5752d3673b04a1de",
+    "fn:5fd2a838ef9fa8ee",
+    "fn:5fe38e2268337da1",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:7d7f5033919f2d51",
+    "fn:847caa3aa8b3b03e",
+    "fn:8936107b620a6b47",
+    "fn:8d6cd763d46808ac",
+    "fn:913d89e34de79e5f",
+    "fn:93bd20f3a924e9fd",
+    "fn:b4bc171d0e8d26be",
+    "fn:dde232a1ea648ca8",
+    "fn:e526b00b64679df5",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."mechanics_code_to_code.rs".function]]
@@ -157,6 +315,15 @@ callees = [
     "fn:b88f66231b1ba26c",
     "fn:ed290e0863126a13",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:1d99713b5b44b590",
+    "fn:5fe38e2268337da1",
+    "fn:847caa3aa8b3b03e",
+    "fn:8936107b620a6b47",
+    "fn:b4bc171d0e8d26be",
+    "fn:fe4ab311fef60459",
+]
 test = true
 
 [[module."mechanics_code_to_code.rs".function]]
@@ -175,6 +342,7 @@ callees = [
     "fn:4aea3161a87c6021",
     "fn:ed7d718f646723fc",
 ]
+uses = ["fn:8d6cd763d46808ac"]
 test = true
 
 [[module."mechanics_code_to_code.rs".function]]
@@ -185,7 +353,7 @@ lines = [
     339,
     461,
 ]
-hash = "sha256:175220e1c06a65741c6d718e993bcb75ea76d8a8932c07e708ab64773ea664cd"
+hash = "sha256:d68d86616cff5b899b28d763e08868c913a577116d867da7f216275b9df69e79"
 doc_hash = "sha256:0015fa3f0c313924b691cbb50f228a36c2c276e2ef39234dfe12ed7873262521"
 callees = [
     "fn:0a5e4a6acdb3b5b1",
@@ -202,6 +370,11 @@ callees = [
     "fn:b964e2d79a46aeaf",
     "fn:c71f5ad992b9382e",
 ]
+uses = [
+    "fn:4d51337ab7b11495",
+    "fn:847caa3aa8b3b03e",
+    "fn:cfe690375de17865",
+]
 test = true
 
 [[module."mechanics_code_to_code.rs".function]]
@@ -212,7 +385,7 @@ lines = [
     465,
     555,
 ]
-hash = "sha256:731dbc197fc2450c802d733f5b3019868ec0748d178a477b4bc1f217fc26d358"
+hash = "sha256:e1c81d9878f296baf6a3fd67964123d652d15343976ba1e5843b4984b49da1e8"
 doc_hash = "sha256:891660795070dfc574a37f07dfaea84ddf98eb635cca177f23b6810cf0142f92"
 callees = [
     "fn:26f764e51ef85fff",
@@ -228,6 +401,12 @@ callees = [
     "fn:b964e2d79a46aeaf",
     "fn:c71f5ad992b9382e",
 ]
+uses = [
+    "fn:4d51337ab7b11495",
+    "fn:7d7f5033919f2d51",
+    "fn:847caa3aa8b3b03e",
+    "fn:cfe690375de17865",
+]
 test = true
 
 [[module."mechanics_code_to_code.rs".function]]
@@ -238,7 +417,7 @@ lines = [
     559,
     657,
 ]
-hash = "sha256:562c5c004de63a82b8690efebd023f36003bb88ab1ac99ff0932fffdc377572a"
+hash = "sha256:2ae7487c88c658c72f76bbe760d6a200a3105ff83ec0f2ed8657481ca55663a0"
 doc_hash = "sha256:d1b996799f70dcd0d033ed9f129f28966762194825af316bb8ae5b9b2c1ce5ea"
 callees = [
     "fn:26f764e51ef85fff",
@@ -252,6 +431,11 @@ callees = [
     "fn:b964e2d79a46aeaf",
     "fn:c71f5ad992b9382e",
 ]
+uses = [
+    "fn:4d51337ab7b11495",
+    "fn:847caa3aa8b3b03e",
+    "fn:cfe690375de17865",
+]
 test = true
 
 [[module."mechanics_code_to_code.rs".function]]
@@ -262,7 +446,7 @@ lines = [
     661,
     762,
 ]
-hash = "sha256:18acfba64c121f39323bc8367675a66dc6fa80fa1fc8072e18ca3c8999a8103e"
+hash = "sha256:e4de950f9e540b7fc49ac6b892836e5e8cde1a355bc5bf2e51e0965175896e2b"
 doc_hash = "sha256:e7bd351bbc4f783142976e85b8cf98fc5f6bba1bbc82e23483cb6b9194c99e02"
 callees = [
     "fn:1fc75a2317890614",
@@ -275,6 +459,13 @@ callees = [
     "fn:b84391e20f12b8a1",
     "fn:b964e2d79a46aeaf",
     "fn:c71f5ad992b9382e",
+]
+uses = [
+    "fn:4d51337ab7b11495",
+    "fn:5fe38e2268337da1",
+    "fn:847caa3aa8b3b03e",
+    "fn:8936107b620a6b47",
+    "fn:cfe690375de17865",
 ]
 test = true
 
@@ -309,6 +500,10 @@ callees = [
     "fn:c3e91ccf7885de77",
     "fn:cda3436325cc639f",
 ]
+uses = [
+    "fn:b7b4c168c436333b",
+    "fn:ddbf3dac1d991d9f",
+]
 test = true
 
 [[module."mesh_tools.rs".function]]
@@ -326,6 +521,10 @@ callees = [
     "fn:2d244ac9c487a4c2",
     "fn:cda3436325cc639f",
 ]
+uses = [
+    "fn:b7b4c168c436333b",
+    "fn:ddbf3dac1d991d9f",
+]
 test = true
 
 [[module."mesh_tools.rs".function]]
@@ -342,10 +541,28 @@ callees = [
     "fn:1cd6445732a5058c",
     "fn:b5a8fe0a01201121",
 ]
+uses = [
+    "fn:b7b4c168c436333b",
+    "fn:ddbf3dac1d991d9f",
+]
 test = true
 
 [module."solvers.rs"]
 path = "test:solvers"
+
+[[module."solvers.rs".function]]
+id = "fn:346762ab6ea4bef1"
+name = "TmpCase"
+qual = "TmpCase"
+item = "type"
+shape = "struct"
+lines = [
+    73,
+    76,
+]
+hash = "sha256:562e147b46b6ebad459f9535ef1bf51920467fea21c8e295448c80e65bfa8e7f"
+doc_hash = "sha256:a2ecf2cc59494a44a0841b923b4565599dde7df32661b269321213e7334eda30"
+test = true
 
 [[module."solvers.rs".function]]
 id = "fn:66c88be690df74da"
@@ -357,6 +574,7 @@ lines = [
 ]
 hash = "sha256:0193dcc464b7f2ffe75f9d256be9cd40023fca8f83bc7a72b2e8555099370ce7"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:346762ab6ea4bef1"]
 test = true
 
 [[module."solvers.rs".function]]
@@ -369,6 +587,7 @@ lines = [
 ]
 hash = "sha256:ede92ba6d415102db5f66e66835503b046943bcee42a6fbd9c60019a27da26b1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:346762ab6ea4bef1"]
 test = true
 
 [[module."solvers.rs".function]]
@@ -385,6 +604,13 @@ callees = [
     "fn:3f65c61e733c613c",
     "fn:9e501e5f4cce23ae",
 ]
+uses = [
+    "fn:293183d62b7ee5f9",
+    "fn:7500e89f0e88845d",
+    "fn:91df6861a4ea25c2",
+    "fn:ddbf3dac1d991d9f",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."solvers.rs".function]]
@@ -398,6 +624,10 @@ lines = [
 hash = "sha256:341d871cde9c5aca20e610bdd694d10639c7cc60a65bad97ab166ec858def61a"
 doc_hash = "sha256:7285a932872e3bea31edb7361ae3c0029b442b0e565cc8410f107cfbd465d9b4"
 callees = ["fn:4a3d63f4a0e47a1c"]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:75b64c5620c869e8",
+]
 test = true
 
 [[module."solvers.rs".function]]
@@ -411,6 +641,11 @@ lines = [
 hash = "sha256:3251e1b4985b374e45a3c011e2784d5dd046fe88897c5b7c4f66ed7f2fd27813"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:13d801bd97c5b69d"]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:75b64c5620c869e8",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."solvers.rs".function]]
@@ -437,6 +672,17 @@ callees = [
     "fn:f59a35e9cbd8b293",
     "fn:f751ee2e11efac9f",
 ]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:054f836fac178e1b",
+    "fn:194b1a7e83646f91",
+    "fn:4d5c2a791c492548",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:af4c93098ccda436",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
 test = true
 
 [[module."solvers.rs".function]]
@@ -457,6 +703,7 @@ callees = [
     "fn:73210fc162ee0675",
     "fn:bbc28a9e65fe009b",
 ]
+uses = ["fn:346762ab6ea4bef1"]
 test = true
 
 [[module."solvers.rs".function]]
@@ -470,4 +717,5 @@ lines = [
 hash = "sha256:879b9047865076224590edba1fae6bea96ed49a05bc1193e581890043b78cb65"
 doc_hash = "sha256:3b0b507ec6d301b787239c47d774962d60c80817df882dd0482701b5a2dd4cd8"
 callees = ["fn:66c88be690df74da"]
+uses = ["fn:346762ab6ea4bef1"]
 test = true

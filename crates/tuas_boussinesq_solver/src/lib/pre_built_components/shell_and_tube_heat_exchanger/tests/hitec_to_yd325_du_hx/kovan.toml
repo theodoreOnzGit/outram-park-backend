@@ -68,6 +68,7 @@ lines = [
 hash = "sha256:c1772d93683c22d721fe13e9817cd1522962c07d35a991162d8c676ecf926454"
 doc_hash = "sha256:bf65ca51859154c4cf0d22908b97d73252eed149f155bdf9f6db9a63e8018e3e"
 callees = ["fn:d2ef60a016252736"]
+uses = ["fn:de020efa1d48c9ac"]
 test = true
 
 [module."mod.rs"]
@@ -117,6 +118,19 @@ callees = [
     "fn:f92140d5b6a1018f",
     "fn:feec71215f335f20",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:5811ccd622a4f7ee",
+    "fn:68ae150e37a870db",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
+]
 test = true
 
 [module."set_b.rs"]
@@ -162,6 +176,19 @@ callees = [
     "fn:e31ecee224074ed0",
     "fn:f92140d5b6a1018f",
     "fn:feec71215f335f20",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:5811ccd622a4f7ee",
+    "fn:68ae150e37a870db",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
 ]
 test = true
 
@@ -209,6 +236,19 @@ callees = [
     "fn:f92140d5b6a1018f",
     "fn:feec71215f335f20",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:5811ccd622a4f7ee",
+    "fn:68ae150e37a870db",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
+]
 test = true
 
 [module."thermophsyical_property_checks.rs"]
@@ -225,6 +265,7 @@ lines = [
 hash = "sha256:f11ac34ef057ec3d5c1f948a9715bdefc604b5330b943741120d1469bf4ea6ae"
 doc_hash = "sha256:6f8bf5aaf9bb69849110ebd92e9023405719e8451847332933bb89a6f241b312"
 callees = ["fn:a03d943953e2b3cb"]
+uses = ["fn:de020efa1d48c9ac"]
 test = true
 
 [[module."thermophsyical_property_checks.rs".function]]
@@ -238,6 +279,7 @@ lines = [
 hash = "sha256:d8b27d8e28e3bb679acb6e48a2e8da03c742a234145820bfc46699222555ca8e"
 doc_hash = "sha256:7f08f39953ab514bb11c7699b8b430704f0cb8bff5d1ba7448b76ee6f49d735a"
 callees = ["fn:a03d943953e2b3cb"]
+uses = ["fn:de020efa1d48c9ac"]
 test = true
 
 [[module."thermophsyical_property_checks.rs".function]]
@@ -251,6 +293,7 @@ lines = [
 hash = "sha256:1534b884baeed2bebe644457b8be7a4d3e251b0ff7d9361dff6d77d3cbdb5483"
 doc_hash = "sha256:e7e47fcb8fc0d000d004e60f6baf1bc11ce826b982a5c26d1cd726b02c34e5d0"
 callees = ["fn:d2ef60a016252736"]
+uses = ["fn:de020efa1d48c9ac"]
 test = true
 
 [[module."thermophsyical_property_checks.rs".function]]
@@ -264,6 +307,7 @@ lines = [
 hash = "sha256:2b0197e7051c2f509b710ba0d633e31200197885822cc9832f2338ae846fc10b"
 doc_hash = "sha256:c2f58f247facb0353c0f1dd901591fd1a95065477288f2651dd6b66afe365164"
 callees = ["fn:d2ef60a016252736"]
+uses = ["fn:de020efa1d48c9ac"]
 test = true
 
 [[module."thermophsyical_property_checks.rs".function]]
@@ -282,5 +326,11 @@ callees = [
     "fn:7c64c4f26b76ffe6",
     "fn:a03d943953e2b3cb",
     "fn:ab4af62dd28e04c7",
+]
+uses = [
+    "fn:68ae150e37a870db",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
 ]
 test = true

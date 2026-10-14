@@ -181,9 +181,11 @@ fn refusal(
     if f.doc_hash != b.doc_hash {
         return Some("its doc comment changed since the review: review it with Stamp".into());
     }
+    // Callees, and the types and constants the review recorded (#843; a
+    // review written before items were indexed records none).
     let now: BTreeMap<String, String> = f
-        .callees
-        .iter()
+        .depends_on()
+        .filter(|c| f.callees.contains(*c) || b.callees.contains_key(*c))
         .filter_map(|c| hashes.get(c).map(|h| (c.clone(), h.clone())))
         .collect();
     if now != b.callees {

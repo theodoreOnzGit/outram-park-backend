@@ -101,11 +101,21 @@ fn register_verifier(
 }
 
 /// The verifier's rung-4 answers: an analytical case written and verified
-/// by hand, independence someone else.
+/// by hand, independence someone else, and (since #855, 2026-10-13) both of
+/// rung 4's axes answered well.
 fn vv_answers() -> BTreeMap<String, String> {
     let mut a = clean();
     a.insert("vv_evidence".into(), "analytical_case".into());
     a.insert("vv_case_author".into(), "human_wrote_and_verified".into());
+    for (q, o) in [
+        ("rung4_tests_pass", "all_pass"),
+        ("rung4_test_catches_wrong_physics", "compared_with_tolerance"),
+        ("rung4_tolerance_justified", "from_outside"),
+        ("rung4_usable_without_source", "from_name_and_description"),
+        ("rung4_wrong_quantity_by_accident", "no_named_and_unit_carrying"),
+    ] {
+        a.insert(q.into(), o.into());
+    }
     a
 }
 

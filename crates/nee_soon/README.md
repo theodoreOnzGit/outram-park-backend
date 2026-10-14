@@ -14,8 +14,8 @@
 
 **Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
 
-**NEE_SOON** — **N**eutron **E**nergy-dependent **S**imulation using
-**O**pen-source **O**bject-**O**riented **N**umerics.
+**NEE_SOON** — **NE**utron **E**nergy-dependent **S**imulation using
+**O**pen-source **O**bject-Oriented **N**umerics. The letters are N-E-E-S-O-O-N: ~~**N**eutron ... **O**bject-**O**riented~~ **CORRECTED 2026-10-13**, the earlier lettering spelled NESOOON.
 
 NEE_SOON is the **coupling / integration layer** of the OUTRAM PARK suite. It
 does not implement transport, nuclear-data processing, or kinetics itself —

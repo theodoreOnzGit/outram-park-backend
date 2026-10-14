@@ -39,7 +39,8 @@ pub struct ModNode {
     pub parent: Option<usize>,
     pub children: Vec<usize>,
     pub functions: usize,
-    /// The ids of those functions, for the card's reviewed / to-review
+    /// The ids of those functions and of the module's types and constants
+    /// (#843), for the card's reviewed / to-review
     /// counts ([`Facts::review_split`]).
     pub fn_ids: Vec<String>,
     pub maturity: Option<u8>,
@@ -81,7 +82,7 @@ impl ModTree {
                     parent: m.parent.as_deref().and_then(|p| index.get(p).copied()),
                     children: Vec::new(),
                     functions: m.functions.iter().filter(|f| tests || !f.test).count(),
-                    fn_ids: m.functions.iter().filter(|f| tests || !f.test).map(|f| f.id.clone()).collect(),
+                    fn_ids: reviewables(m, tests).map(|f| f.id.clone()).collect(),
                     maturity: m.maturity,
                     test: m.test,
                 });
@@ -413,6 +414,12 @@ impl Review {
     pub fn is_valid(&self) -> bool {
         matches!(self, Review::Stamped(k, _) if k.counts())
     }
+    /// Whether a person's review of the code as it is now stands
+    /// ([`StateKind::review_holds`]): valid, or awaiting only a workspace
+    /// test run.
+    pub fn holds(&self) -> bool {
+        matches!(self, Review::Stamped(k, _) if k.review_holds())
+    }
     pub fn kind(&self) -> StateKind {
         match self {
             Review::Unreviewed => StateKind::New,
@@ -449,13 +456,15 @@ impl Facts {
         (reviewed, ids.len() - reviewed)
     }
 
-    /// The distinct workspace functions `id` calls (itself excluded), in
+    /// The distinct workspace functions `id` calls, and (schema 4, #843) the
+    /// types and constants it uses (itself excluded), in
     /// `(crate, id)` order: every resolved call in the data is to a
     /// workspace function (std and dependencies are dropped at build).
     pub fn callees(&self, map: &CodeMap, slice: &CrateSlice, id: &str) -> Vec<String> {
         let mut v: Vec<(String, String)> = slice
             .calls
             .iter()
+            .chain(slice.uses.iter())
             .filter(|c| c.from == id && c.to != id)
             .map(|c| (crate_of(map, &c.to).unwrap_or("").to_string(), c.to.clone()))
             .collect();
@@ -464,11 +473,12 @@ impl Facts {
         v.into_iter().map(|(_, id)| id).collect()
     }
 
-    /// The distinct functions that call `id` (itself excluded), sorted, from
+    /// The distinct functions that call `id`, or use it when it is a type or
+    /// constant (itself excluded), sorted, from
     /// the slice of `id`'s crate (which holds every call into it from the
     /// crates in the build's scope).
     pub fn callers(&self, slice: &CrateSlice, id: &str) -> Vec<String> {
-        let mut v: Vec<String> = slice.calls.iter().filter(|c| c.to == id && c.from != id).map(|c| c.from.clone()).collect();
+        let mut v: Vec<String> = slice.calls.iter().chain(slice.uses.iter()).filter(|c| c.to == id && c.from != id).map(|c| c.from.clone()).collect();
         v.sort();
         v.dedup();
         v
@@ -482,11 +492,51 @@ impl Facts {
     }
 }
 
-/// A function and the module it is in, by id (integration-test targets
-/// included, schema 2).
+/// Everything of a module that is reviewed: its functions, then its types
+/// and constants (schema 4, #843). Test code only when `tests`.
+pub fn reviewables(m: &Module, tests: bool) -> impl Iterator<Item = &Function> {
+    m.functions.iter().chain(m.items.iter()).filter(move |f| tests || !f.test)
+}
+
+/// The module view's ring (#867): the module's reviewables
+/// ([`reviewables`]), and, when test code is hidden, the `selected`
+/// function too if it is a test in this module, so a deep link to a test
+/// (`code-review/#<test fn id>`) lands on a card that is on screen.
+pub fn ring_ids(m: &Module, tests: bool, selected: Option<&str>) -> Vec<String> {
+    let mut v: Vec<String> = reviewables(m, tests).map(|f| f.id.clone()).collect();
+    if let Some(sel) = selected {
+        if let Some(f) = m.functions.iter().chain(m.items.iter()).find(|f| f.id == sel && f.test) {
+            if !v.contains(&f.id) {
+                v.push(f.id.clone());
+            }
+        }
+    }
+    v
+}
+
+/// What a function card says it is, before its maturity and review state:
+/// `"test · "` for test code (#867: tests are on the map among a function's
+/// callers, and must read as tests), the plain name of a type or constant's
+/// shape (#843), or nothing for an ordinary function.
+pub fn card_kind(f: &Function) -> String {
+    match (f.shape, f.test) {
+        (Some(s), _) => format!("{} \u{b7} ", s.plain_name()),
+        (None, true) => "test \u{b7} ".to_string(),
+        (None, false) => String::new(),
+    }
+}
+
+/// What a card or list row calls the entry: `Type::name` for a method, the
+/// bare name otherwise.
+pub fn display_name(f: &Function) -> String {
+    f.owner.as_ref().map(|o| format!("{o}::{}", f.name)).unwrap_or(f.name.clone())
+}
+
+/// A function, type or constant and the module it is in, by id
+/// (integration-test targets included, schema 2; items since schema 4).
 pub fn find_function<'a>(krate: &'a CrateGraph, id: &str) -> Option<(&'a Module, &'a Function, TargetKind)> {
     krate.targets.iter().chain(krate.tests.iter()).find_map(|t| {
-        t.modules.iter().find_map(|m| m.functions.iter().find(|f| f.id == id).map(|f| (m, f, t.kind)))
+        t.modules.iter().find_map(|m| m.functions.iter().chain(m.items.iter()).find(|f| f.id == id).map(|f| (m, f, t.kind)))
     })
 }
 
@@ -593,8 +643,15 @@ pub const CALL_ROW_DY: f64 = 62.0;
 /// those of the unfolded column-1 cards, and so on; callers mirror to the
 /// left. **A function already on screen is never drawn twice**: a further
 /// call to it is an edge to the card that is there, so recursion and
-/// diamonds stay finite. Ring cards unfold both ways; a callee-side card
-/// only further right, a caller-side card only further left. Each column
+/// diamonds stay finite. ~~Ring cards unfold both ways; a callee-side card
+/// only further right, a caller-side card only further left.~~
+/// **CORRECTED 2026-10-14** (#867): every card unfolds both ways, so a test
+/// that appears among a function's callers can unfold what it exercises.
+/// Ring cards put callees in column 1 and callers in column -1; any other
+/// card puts both one column further out on its own side (a caller-side
+/// test's callees go further left, with the edges drawn from the test).
+/// Levels are taken breadth first, callees before callers at each level,
+/// so the first level to reach a function places it. Each column
 /// is centred on the ring's middle, in the order its cards were reached.
 pub fn hierarchy_layout(
     ring_ids: &[String],
@@ -602,24 +659,32 @@ pub fn hierarchy_layout(
     callees: impl Fn(&str) -> Option<Vec<String>>,
     callers: impl Fn(&str) -> Option<Vec<String>>,
 ) -> HierLayout {
-    use kovan_common::mindmap_view::{star_positions, CARD_SIZE};
+    use kovan_common::mindmap_view::{star_positions, CARD_SIZE, CENTRE_CARD_SIZE};
     let ring_pts = star_positions(ring_ids.len());
     let ring: Vec<(String, Point)> = ring_ids.iter().cloned().zip(ring_pts).collect();
-    let reach = ring.iter().map(|r| r.1.x.abs()).fold(0.0_f64, f64::max) + 0.5 * CARD_SIZE.0;
+    // Columns clear the ring and the module card (a one-card ring, such as a
+    // deep-linked test alone in its file, sits narrower than the card, #867).
+    let reach = (ring.iter().map(|r| r.1.x.abs()).fold(0.0_f64, f64::max) + 0.5 * CARD_SIZE.0).max(0.5 * CENTRE_CARD_SIZE.0);
     let mut placed: BTreeSet<String> = ring_ids.iter().cloned().collect();
     let mut columns: BTreeMap<i32, Vec<String>> = BTreeMap::new();
     let mut edges: BTreeSet<(String, String)> = BTreeSet::new();
     let mut waiting = Vec::new();
-    for (dir, sign) in [(Dir::Callees, 1), (Dir::Callers, -1)] {
-        let mut frontier: Vec<String> = ring_ids.to_vec();
-        let mut depth = 0;
-        while !frontier.is_empty() && depth < 64 {
-            depth += 1;
-            let mut next = Vec::new();
-            for id in &frontier {
+    // (id, column): the ring is column 0.
+    let mut frontier: Vec<(String, i32)> = ring_ids.iter().map(|id| (id.clone(), 0)).collect();
+    let mut depth = 0;
+    while !frontier.is_empty() && depth < 64 {
+        depth += 1;
+        let mut next = Vec::new();
+        for dir in [Dir::Callees, Dir::Callers] {
+            for (id, col) in &frontier {
                 if !expanded.contains(&(id.clone(), dir)) {
                     continue;
                 }
+                let target = match (*col, dir) {
+                    (0, Dir::Callees) => 1,
+                    (0, Dir::Callers) => -1,
+                    (c, _) => c + c.signum(),
+                };
                 let found = match dir {
                     Dir::Callees => callees(id),
                     Dir::Callers => callers(id),
@@ -637,13 +702,13 @@ pub fn hierarchy_layout(
                         Dir::Callers => (other.clone(), id.clone()),
                     });
                     if placed.insert(other.clone()) {
-                        columns.entry(sign * depth).or_default().push(other.clone());
-                        next.push(other);
+                        columns.entry(target).or_default().push(other.clone());
+                        next.push((other, target));
                     }
                 }
             }
-            frontier = next;
         }
+        frontier = next;
     }
     // Every call between two cards on screen is drawn, unfolded or not, so
     // a cycle or a call back into the ring shows as an edge.
@@ -692,6 +757,7 @@ mod tests {
             unresolved: Vec::new(),
             test_fn: false,
             reached_by: None,
+            shape: None,
             cited_by: Vec::new(),
         }
     }
@@ -707,6 +773,7 @@ mod tests {
             upstream: None,
             upstream_unparsed: None,
             history: Vec::new(),
+            items: Vec::new(),
             concepts: Vec::new(),
         }
     }
@@ -913,8 +980,29 @@ mod tests {
             commit: None,
             site_base: None,
             files: vec![],
+            // Schema 4 (#843): `rate` uses the struct `Rates`.
+            uses: vec![call(&a, "crates/bl/src/chem.rs::Rates")],
         };
         let none = Facts::new(&[]);
+        // A used type blocks its user like a callee does, and the type's
+        // "callers" are the functions that use it.
+        let ty = "crates/bl/src/chem.rs::Rates".to_string();
+        assert_eq!(none.blocked_by(&map, &slice, &a), vec![ty.clone()]);
+        assert_eq!(none.callers(&slice, &ty), vec![a.clone()]);
+        assert!(Facts::new(&[StampState {
+            function: ty.clone(),
+            verdict: StampVerdict::Valid,
+            reason: String::new(),
+            rung: 3,
+            reviewer: "R".into(),
+            date: "2026-10-13".into(),
+            note: String::new(),
+            permalink: String::new(),
+            state: None,
+            ivv: None,
+        }])
+        .blocked_by(&map, &slice, &a)
+        .is_empty());
         assert_eq!(none.blocked_by(&map, &slice, &b).len(), 2);
         assert_eq!(none.review(&a), Review::Unreviewed);
         let stamp = |f: &str, v| StampState {
@@ -940,5 +1028,182 @@ mod tests {
         let live = t.find("crates/bl/src/fork/act/live_pools.rs").unwrap();
         assert_eq!(t.nodes[live].fn_ids.len(), t.nodes[live].functions);
         assert_eq!(crate_of(&map, &a), Some("bl"));
+    }
+
+    /// Methodology (#843): give `chem.rs` a struct item beside its one
+    /// function. Pass: [`reviewables`] lists the function then the struct;
+    /// [`find_function`] finds the struct by id with its module; the module
+    /// tree counts one function and carries both ids for the reviewed /
+    /// to-review split; a test-only item is hidden unless tests are shown;
+    /// and a method shows as `Type::name`, an item by its bare name.
+    ///
+    /// Result (2026-10-13): passes.
+    #[test]
+    fn types_and_constants_are_listed_with_the_functions() {
+        use kovan_common::review::index::ItemShape;
+        let mut k = krate();
+        let file = "crates/bl/src/chem.rs";
+        let m = k.targets[0].modules.iter_mut().find(|m| m.file == file).unwrap();
+        let mut rec = func(file, "Rates", 20);
+        rec.shape = Some(ItemShape::Struct);
+        let mut hidden = func(file, "Tol", 30);
+        hidden.shape = Some(ItemShape::Const);
+        hidden.test = true;
+        m.items = vec![rec, hidden];
+        let m = k.targets[0].modules.iter().find(|m| m.file == file).unwrap();
+        let ids: Vec<&str> = reviewables(m, false).map(|f| f.id.as_str()).collect();
+        assert_eq!(ids, ["crates/bl/src/chem.rs::rate", "crates/bl/src/chem.rs::Rates"]);
+        assert_eq!(reviewables(m, true).count(), 3);
+        let (found_in, f, _) = find_function(&k, "crates/bl/src/chem.rs::Rates").unwrap();
+        assert_eq!((found_in.file.as_str(), f.shape), (file, Some(ItemShape::Struct)));
+        assert_eq!(display_name(f), "Rates");
+        let mut method = func(file, "at", 5);
+        method.owner = Some("Rates".into());
+        assert_eq!(display_name(&method), "Rates::at");
+        let t = ModTree::build(&k, false);
+        let node = &t.nodes[t.find(file).unwrap()];
+        assert_eq!((node.functions, node.fn_ids.len()), (1, 2));
+    }
+
+    /// Methodology (#867): `chem.rs` gets an inline `#[cfg(test)]` test
+    /// `rate_is_positive` (calls `rate` and `fork::act::live_pools::step`),
+    /// and the crate an integration-test target `tests/it.rs` whose
+    /// `#[test] t_it` calls `rate`. Pass: `rate`'s callers are both tests;
+    /// the inline test's callees are what it calls; in the module view,
+    /// unfolding `rate`'s callers puts both tests in column -1, and
+    /// unfolding a test's callees from there puts `step` one column further
+    /// out (-2) with the edge drawn from the test; the ring hides the test
+    /// unless tests are shown or it is the deep-linked selection; the card
+    /// reads "test"; the integration test is found by id (a deep link to it
+    /// opens its module).
+    ///
+    /// Result (2026-10-14): passes.
+    #[test]
+    fn tests_are_callers_and_their_callees_unfold() {
+        let d = "crates/bl/src";
+        let (rate, step) = (format!("{d}/chem.rs::rate"), format!("{d}/fork/act/live_pools.rs::step"));
+        let inline = format!("{d}/chem.rs::rate_is_positive");
+        let it = "crates/bl/tests/it.rs::t_it".to_string();
+        let mut k = krate();
+        let chem = k.targets[0].modules.iter_mut().find(|m| m.file == format!("{d}/chem.rs")).unwrap();
+        chem.functions.push(Function { test: true, test_fn: true, ..func(&format!("{d}/chem.rs"), "rate_is_positive", 20) });
+        k.tests.push(Target {
+            kind: TargetKind::Test,
+            name: "it".into(),
+            root: "crates/bl/tests/it.rs".into(),
+            modules: vec![Module {
+                test: true,
+                ..module("crates/bl/tests/it.rs", "", None, vec![Function { test: true, test_fn: true, ..func("crates/bl/tests/it.rs", "t_it", 4) }])
+            }],
+        });
+        let call = |from: &str, to: &str| Call { from: from.into(), to: to.into(), kind: CallKind::Call, lines: vec![1] };
+        let slice = CrateSlice {
+            schema: 1,
+            krate: k.clone(),
+            calls: vec![call(&inline, &rate), call(&inline, &step), call(&it, &rate)],
+            module_calls: vec![],
+            crate_calls: vec![],
+            outside: vec![],
+            commit: None,
+            site_base: None,
+            files: vec![],
+            uses: vec![],
+        };
+        let map = CodeMap {
+            root: "r".into(),
+            crates: vec![kovan_common::code_map::CrateNode {
+                name: "bl".into(),
+                description: None,
+                backronym: None,
+                row: 2,
+                topic: kovan_common::code_map::Topic::Risk,
+                fidelity: None,
+                maturity: 1,
+                maturity_modules: vec![],
+                lib_dir: None,
+                dir: Some("crates/bl".into()),
+            }],
+            edges: vec![],
+        };
+        let facts = Facts::new(&[]);
+        let callers = facts.callers(&slice, &rate);
+        assert!(callers.contains(&inline) && callers.contains(&it), "{callers:?}");
+        assert_eq!(facts.callees(&map, &slice, &inline), vec![rate.clone(), step.clone()]);
+        assert_eq!(crate_of(&map, &it), Some("bl"));
+        let (m, f, kind) = find_function(&k, &it).unwrap();
+        assert_eq!((m.file.as_str(), kind, f.test_fn), ("crates/bl/tests/it.rs", TargetKind::Test, true));
+
+        // The module view of chem.rs, test code hidden.
+        let chem = find_module(&k, &format!("{d}/chem.rs")).unwrap().0;
+        assert_eq!(ring_ids(chem, false, None), vec![rate.clone()]);
+        assert_eq!(ring_ids(chem, false, Some(&inline)), vec![rate.clone(), inline.clone()]);
+        assert_eq!(ring_ids(chem, false, Some(&rate)), vec![rate.clone()]);
+        assert_eq!(ring_ids(chem, true, Some(&inline)), vec![rate.clone(), inline.clone()]);
+        let ring = ring_ids(chem, false, None);
+        let mut ex: BTreeSet<(String, Dir)> = BTreeSet::new();
+        ex.insert((rate.clone(), Dir::Callers));
+        ex.insert((inline.clone(), Dir::Callees));
+        let l = hierarchy_layout(&ring, &ex, |id: &str| Some(facts.callees(&map, &slice, id)), |id: &str| Some(facts.callers(&slice, id)));
+        let col = |id: &str| l.unfolded.iter().find(|u| u.0 == id).map(|u| u.2);
+        assert_eq!((col(&inline), col(&it)), (Some(-1), Some(-1)));
+        assert_eq!(col(&step), Some(-2), "the test's callee goes one column further out");
+        assert!(l.edges.contains(&(inline.clone(), step.clone())));
+        assert!(l.edges.contains(&(it.clone(), rate.clone())) && l.edges.contains(&(inline.clone(), rate.clone())));
+        assert!(l.unfolded.iter().filter(|u| u.2 == -2).all(|u| u.1.x < l.unfolded.iter().find(|v| v.0 == inline).unwrap().1.x));
+        // A one-card ring: the columns still clear the module card.
+        use kovan_common::mindmap_view::{CARD_SIZE, CENTRE_CARD_SIZE};
+        assert!(l.unfolded.iter().all(|u| u.1.x.abs() - 0.5 * CARD_SIZE.0 > 0.5 * CENTRE_CARD_SIZE.0));
+
+        // The cards say what they are.
+        let (_, tf, _) = find_function(&k, &inline).unwrap();
+        assert_eq!(card_kind(tf), "test \u{b7} ");
+        assert_eq!(card_kind(find_function(&k, &rate).unwrap().1), "");
+    }
+
+    /// Methodology (#867): the real schema-2 call graph of `bishan`
+    /// (`kovan-common/tests/data/call_graph_schema2_bishan.json`, written
+    /// by `kovan-cli call-graph` on 2026-10-06), cut into its web slice by
+    /// `split`. Pass: the slice the site publishes keeps the inline
+    /// `#[test]` functions and their calls, so `step`'s callers are its two
+    /// tests, and a test's callees list what it exercises.
+    ///
+    /// Result (2026-10-14): passes; `step` is called by exactly the two
+    /// tests `atoms_are_conserved_and_small_steps_equal_one_big_step` and
+    /// `the_steady_building_passes_inflow_less_decay`, each of which calls
+    /// `BuildingParameters::htr10`, `f` and `step`.
+    #[test]
+    fn the_published_slice_keeps_tests_and_their_calls() {
+        let doc: kovan_common::call_graph::CallGraphDoc =
+            serde_json::from_str(include_str!("../../kovan-common/tests/data/call_graph_schema2_bishan.json")).unwrap();
+        let slice = kovan_common::call_graph::split::split(&doc).remove(0);
+        let b = "crates/bishan/src/building.rs";
+        let step = format!("{b}::step");
+        let facts = Facts::new(&[]);
+        let callers = facts.callers(&slice, &step);
+        assert_eq!(
+            callers,
+            vec![format!("{b}::atoms_are_conserved_and_small_steps_equal_one_big_step"), format!("{b}::the_steady_building_passes_inflow_less_decay")]
+        );
+        assert!(callers.iter().all(|c| find_function(&slice.krate, c).is_some_and(|(_, f, _)| f.test_fn)));
+        let map = CodeMap {
+            root: "r".into(),
+            crates: vec![kovan_common::code_map::CrateNode {
+                name: "bishan".into(),
+                description: None,
+                backronym: None,
+                row: 0,
+                topic: kovan_common::code_map::Topic::Risk,
+                fidelity: None,
+                maturity: 0,
+                maturity_modules: vec![],
+                lib_dir: None,
+                dir: Some("crates/bishan".into()),
+            }],
+            edges: vec![],
+        };
+        assert_eq!(
+            facts.callees(&map, &slice, &callers[1]),
+            vec![format!("{b}::BuildingParameters::htr10"), format!("{b}::f"), step.clone()]
+        );
     }
 }

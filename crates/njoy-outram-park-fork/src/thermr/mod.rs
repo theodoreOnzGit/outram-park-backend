@@ -28,6 +28,8 @@
 //! - [`incoherent_elastic`] — **done**: incoherent-elastic cross section
 //!   σ(E,T) = (σ_b/2N)·(1−e^{−4EW'})/(2EW') and its equally-probable cosines
 //!   (closed-form CDF inversion of the exponential angular law).
+//!   `IncoherentElastic::iel_record` / `iel_dwa` are `iel`'s own arithmetic
+//!   and temperature rule, which the ACE writer uses (GitHub #866).
 //! - [`inelastic`] — **done**: incoherent-inelastic double-differential
 //!   `d²σ/dE'dμ` from S(α,β), including the **short-collision-time (SCT) tail**
 //!   beyond the tabulated `(α,β)` grid so `σ(E)` reaches the free-atom limit at
@@ -39,9 +41,17 @@
 //!   `LAW=7` output paths), `sigl`, and `sigu` — the adaptive-linearisation
 //!   machinery [`inelastic`] does not have (its own `sigma_ep_profile` uses a
 //!   fixed 200-point mu trapezoid and throws angle away; see that module's
-//!   docs). Not a production consumer yet: no MF=6 tape writer exists to
-//!   receive its output, so it returns typed Rust data instead — see that
-//!   module's own docs for exactly what is and is not covered.
+//!   docs). ~~Not a production consumer yet: no MF=6 tape writer exists to
+//!   receive its output~~ **CORRECTED 2026-10-14:** `iform = 0` is the
+//!   production path of every thermal ACE table (`acer::thermal` calls
+//!   `compute_iform0` through [`on_pendf`], gated word for word against
+//!   NJOY2016). There is still no MF=6 tape writer, so it returns typed Rust
+//!   data — see that module's own docs for exactly what is and is not covered.
+//! - [`on_pendf`] — **done** (GitHub #871): THERMR's output at one
+//!   temperature as data ([`on_pendf::ThermrTables`]): `calcem`'s table, the
+//!   MF=3 on the incident PENDF's grid, the elastic tables. The THERMR half
+//!   of the thermal ACE path; [`crate::process::thermal_scattering`] returns
+//!   it.
 //! - [`scattering`] — **done, all three channels**: the consumer surface
 //!   `outram-mc-libs` calls — [`scattering::IncoherentInelasticScattering`]
 //!   (σ_inel + emission bins), [`scattering::CoherentElasticScattering`]
@@ -68,7 +78,9 @@ pub mod calcem;
 pub mod coherent;
 pub mod incoherent_elastic;
 pub mod inelastic;
+pub mod mf3_grid;
 pub mod mf7;
+pub mod on_pendf;
 pub mod scattering;
 pub mod temperature_thinning;
 

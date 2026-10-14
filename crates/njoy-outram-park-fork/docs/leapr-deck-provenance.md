@@ -300,7 +300,7 @@ mismatches). 4.838e-6 / 5.817e-7 at 1000 K.
 
 | Quantity | Measured |
 |---|---|
-| Stored `S` values bit-identical to the official tape | **60,000 / 60,000** |
+| Stored `S` values bit-identical to the official tape | ~~**60,000 / 60,000**~~ 6,645 / 60,000; max 1.004e-13 over 48,941 points (CORRECTED 2026-10-14, `examples/graphite_sab_generation.rs`) |
 | max relative deviation (points above 1e-30) | **0.000e0** over 48,941 points |
 | RMS relative deviation | **0.000e0** |
 

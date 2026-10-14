@@ -31,6 +31,11 @@ callees = [
     "fn:9eef0e6e9f5fd6ec",
     "fn:efc8d30137b32735",
 ]
+uses = [
+    "fn:ea6d061a8880a16d",
+    "fn:f718dfa8b9e05f5d",
+    "fn:ff995b1eb3c0d651",
+]
 
 [[module."web.rs".function]]
 id = "fn:d17ba2d9f96f8a7b"
@@ -42,6 +47,25 @@ lines = [
 ]
 hash = "sha256:93ba62c0681d9979c351102834d8fccdbcfde85af73463d33186b4487fcf3a28"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:ea6d061a8880a16d",
+    "fn:f718dfa8b9e05f5d",
+    "fn:ff995b1eb3c0d651",
+]
+
+[[module."web.rs".function]]
+id = "fn:32342cb4031e4c9c"
+name = "App"
+qual = "App"
+item = "type"
+shape = "struct"
+lines = [
+    53,
+    54,
+]
+hash = "sha256:3b51b8f803d2a230d968929d9a1d2ef2bfa2d3b1fb4bd7da9698b7fcb1edc3ed"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:ff995b1eb3c0d651"]
 
 [[module."web.rs".function]]
 id = "fn:97f5989f6e364446"
@@ -53,3 +77,4 @@ lines = [
 ]
 hash = "sha256:55e64bb15fcca0e3c579eab81ff9fece8f74bcd58c056edb039a4b76c86038de"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:32342cb4031e4c9c"]

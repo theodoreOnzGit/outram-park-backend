@@ -3,6 +3,15 @@ kind = "code_folder"
 crate = "outram-park-fork-dwsim-libs"
 dir = "crates/outram-park-fork-dwsim-libs/src/pump"
 test_ids = [
+    "crates/outram-park-digital-twin-engine/src/components/pump.rs::builders_compose",
+    "crates/outram-park-digital-twin-engine/src/components/pump.rs::centrifugal_ports_are_top_left_discharge_and_right_suction",
+    "crates/outram-park-digital-twin-engine/src/components/pump.rs::fluid_colour_uses_the_shared_temperature_map",
+    "crates/outram-park-digital-twin-engine/src/components/pump.rs::negative_shaft_speed_reverses_the_rotor",
+    "crates/outram-park-digital-twin-engine/src/components/pump.rs::rotor_angle_is_kind_independent",
+    "crates/outram-park-digital-twin-engine/src/components/pump.rs::rotor_angle_is_omega_times_time",
+    "crates/outram-park-digital-twin-engine/src/components/pump.rs::stopped_pump_keeps_a_full_stationary_impeller",
+    "crates/outram-park-digital-twin-engine/src/components/pump.rs::wrapping_a_tampines_pump_invents_no_state",
+    "crates/outram-park-digital-twin-engine/src/components/pump.rs::zero_shaft_speed_gives_zero_rotor_angle",
     "crates/outram-park-fork-dwsim-libs/src/pump/modes.rs::delta_p_and_outlet_pressure_modes_agree",
     "crates/outram-park-fork-dwsim-libs/src/pump/modes.rs::npsh_none_when_at_or_below_bubble_point",
     "crates/outram-park-fork-dwsim-libs/src/pump/modes.rs::npsh_positive_when_above_bubble_point",
@@ -27,13 +36,76 @@ lines = [
 hash = "sha256:e4ce98dec867e3d3a31a88e68e3f2fd9a34f4714712652a20f9855ffcece38b3"
 doc_hash = "sha256:085b9b74bf69c412db64e2b560a032a0c55fdc4c9bf40598b823fa8b79a64dac"
 reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."modes.rs".function]]
+id = "fn:fd8d371fb0b78b11"
+name = "PumpInlet"
+qual = "PumpInlet"
+item = "type"
+shape = "struct"
+lines = [
+    25,
+    37,
+]
+hash = "sha256:5364c4a0419e77c41a2487c78108d114e3a5cdf1d44376df45e7920a42368f7c"
+doc_hash = "sha256:623bfa1d0cfaa83c03d11dddf82f7d5b2442162924b8813b0b252352e4e4435d"
+reached_by = [
+    "#9",
+    "#12",
+    "#13",
+]
+
+[[module."modes.rs".function]]
+id = "fn:dc282b94eb9a79a5"
+name = "PumpSpecification"
+qual = "PumpSpecification"
+item = "type"
+shape = "enum"
+lines = [
+    39,
+    56,
+]
+hash = "sha256:66f652eea2e8be7c5ce0c886cb49ee5017df96a73a806371e2d5c8bf0c4bf1ae"
+doc_hash = "sha256:6f5a4c22cdf73ad1915953ddfef9877a1e01e09695919d44953b59e26ea258e9"
+reached_by = [
     "#0",
     "#1",
     "#2",
     "#3",
     "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#12",
+    "#13",
 ]
-physical_interface = true
+
+[[module."modes.rs".function]]
+id = "fn:13b6cf88f750ba6f"
+name = "PumpResult"
+qual = "PumpResult"
+item = "type"
+shape = "struct"
+lines = [
+    58,
+    69,
+]
+hash = "sha256:4490a9e7d5be7b0026b8b3e18b5811231e89a8a06910c4e333e30dd96cdf83e9"
+doc_hash = "sha256:6b67225a0aaea5144b2f1d9ff6ba79a170245d4f1a20e0538ef47a3e42f7a195"
+reached_by = [
+    "#9",
+    "#12",
+    "#13",
+]
 
 [[module."modes.rs".function]]
 id = "fn:0273c9229fc97f6f"
@@ -46,10 +118,15 @@ lines = [
 hash = "sha256:4fe27549f3af3940e8159aad254993da53bfba4f6a79661fe2c0d38a4b0971f7"
 doc_hash = "sha256:46118d3f38dcc37f7fd23c1eae1ee3a12643cb4b341ceeda89e50e542044d9af"
 callees = ["fn:df33b284593cdf5b"]
+uses = [
+    "fn:13b6cf88f750ba6f",
+    "fn:dc282b94eb9a79a5",
+    "fn:fd8d371fb0b78b11",
+]
 reached_by = [
-    "#0",
-    "#3",
-    "#4",
+    "#9",
+    "#12",
+    "#13",
 ]
 physical_interface = true
 
@@ -65,8 +142,8 @@ hash = "sha256:ee057f68f299acccf15babd0ac9c03b84cd2dfa84fdc41d7f0abcb087a6a0ed7"
 doc_hash = "sha256:86ce9695a25d7e2c37b2ffe38657f8010d0d1e6e076be776045dd4ffba12dcaf"
 callees = ["fn:df33b284593cdf5b"]
 reached_by = [
-    "#1",
-    "#2",
+    "#10",
+    "#11",
 ]
 physical_interface = true
 
@@ -80,6 +157,7 @@ lines = [
 ]
 hash = "sha256:cea27300bc02d54a81dbf5b265c56b550ec7d946d0835a40c23dd3f096e0e337"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:fd8d371fb0b78b11"]
 test = true
 
 [[module."modes.rs".function]]
@@ -96,6 +174,7 @@ callees = [
     "fn:0273c9229fc97f6f",
     "fn:49607c46fa323857",
 ]
+uses = ["fn:dc282b94eb9a79a5"]
 test = true
 
 [[module."modes.rs".function]]
@@ -112,6 +191,7 @@ callees = [
     "fn:0273c9229fc97f6f",
     "fn:49607c46fa323857",
 ]
+uses = ["fn:dc282b94eb9a79a5"]
 test = true
 
 [[module."modes.rs".function]]
@@ -128,6 +208,7 @@ callees = [
     "fn:0273c9229fc97f6f",
     "fn:49607c46fa323857",
 ]
+uses = ["fn:dc282b94eb9a79a5"]
 test = true
 
 [[module."modes.rs".function]]

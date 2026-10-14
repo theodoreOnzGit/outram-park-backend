@@ -7,6 +7,84 @@ dir = "crates/tampines/examples/fhr_sim_v2/app/thermal_hydraulics_backend/second
 path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::secondary_loop"
 
 [[module."mod.rs".function]]
+id = "fn:58ddc51f3db1c446"
+name = "SG_TUBE_CELLS"
+qual = "SG_TUBE_CELLS"
+item = "const"
+shape = "const"
+lines = [
+    23,
+    25,
+]
+hash = "sha256:5ff29609b49015bfcf939f017042af7a1208b68ec627e8e7124ed8327669c062"
+doc_hash = "sha256:9b207d16aad719ce971328a000d54c04a34fa72727544526fea4ca621483ec71"
+
+[[module."mod.rs".function]]
+id = "fn:1edf2be529999646"
+name = "SG_TUBE_LENGTH_M"
+qual = "SG_TUBE_LENGTH_M"
+item = "const"
+shape = "const"
+lines = [
+    26,
+    27,
+]
+hash = "sha256:42e089c3395003b2b1735afa39c3940d07d6e0ff3589243147e47c8e11d3b147"
+doc_hash = "sha256:bc1b34ac3d9610df74d88385e2a6b69ca6d24969c4100da61567088c320a4f8f"
+
+[[module."mod.rs".function]]
+id = "fn:171a9bf90f429317"
+name = "SG_TUBE_AREA_M2"
+qual = "SG_TUBE_AREA_M2"
+item = "const"
+shape = "const"
+lines = [
+    28,
+    34,
+]
+hash = "sha256:2bbe7d48224f8cd3740453af3c78d55fc6fa33584513319d4a73ba3d8b672cc9"
+doc_hash = "sha256:fe7f0d04fb973ad64fd17e12d5eef98ed51ace588c98bd3ce6d6b256e8b07d08"
+
+[[module."mod.rs".function]]
+id = "fn:f237fa0639f07f2c"
+name = "SG_TUBE_NOMINAL_VELOCITY_M_PER_S"
+qual = "SG_TUBE_NOMINAL_VELOCITY_M_PER_S"
+item = "const"
+shape = "const"
+lines = [
+    35,
+    38,
+]
+hash = "sha256:c807e42b2a5632a737459b3b9ad34b2f0a16f52f0ed9b1d76458c0677ffbc069"
+doc_hash = "sha256:43d59095fb3461a2a2893b66b16d2896de54161b4946639b929d85853f06e563"
+
+[[module."mod.rs".function]]
+id = "fn:c2101c982edce88b"
+name = "SG_TUBE_DT_S"
+qual = "SG_TUBE_DT_S"
+item = "const"
+shape = "const"
+lines = [
+    39,
+    41,
+]
+hash = "sha256:21d773f06ee3797a2aeb048544cb46c0608f699e902321adf21a4b1d39c4511e"
+doc_hash = "sha256:e10dd9ee8904db4c84ce43d011c55415f2f2c43040f0810c1af706852137cee1"
+
+[[module."mod.rs".function]]
+id = "fn:2cd9e6ca12fbcb89"
+name = "SG_TUBE_SUBSTEPS_PER_TH_STEP"
+qual = "SG_TUBE_SUBSTEPS_PER_TH_STEP"
+item = "const"
+shape = "const"
+lines = [
+    42,
+    48,
+]
+hash = "sha256:f5472170a2752139320117bba1a115e56bbfb04607a345d8d606c31f757bdfc2"
+doc_hash = "sha256:a77f90d3bb0972d0a3b80e3c10e62ec25e8e96921a4cfccaa00c7cb66b793945"
+
+[[module."mod.rs".function]]
 id = "fn:71cc0043a0df9a2c"
 name = "build_steam_generator_tube"
 qual = "build_steam_generator_tube"
@@ -22,6 +100,14 @@ callees = [
     "fn:4c5c8e9916515b40",
     "fn:a35132a84396237f",
     "fn:e3b184e79e6044fe",
+]
+uses = [
+    "fn:171a9bf90f429317",
+    "fn:1edf2be529999646",
+    "fn:58ddc51f3db1c446",
+    "fn:c2101c982edce88b",
+    "fn:ed7d6d3f3ea52b6e",
+    "fn:f237fa0639f07f2c",
 ]
 
 [[module."mod.rs".function]]
@@ -57,7 +143,30 @@ callees = [
     "fn:f241daed20aed39e",
     "fn:f472eb21333733c8",
 ]
+uses = [
+    "fn:171a9bf90f429317",
+    "fn:1e9e054cc5b5a361",
+    "fn:2cd9e6ca12fbcb89",
+    "fn:58ddc51f3db1c446",
+    "fn:747e85a1cde79fdd",
+    "fn:d915a4ac48314f03",
+    "fn:ed7d6d3f3ea52b6e",
+]
 physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:747e85a1cde79fdd"
+name = "SecondaryLoopState"
+qual = "SecondaryLoopState"
+item = "type"
+shape = "struct"
+lines = [
+    321,
+    347,
+]
+hash = "sha256:17ac87e652d40b80b80778ecf522cdb30be17160aeea7c97c2494cf99cd1e9b8"
+doc_hash = "sha256:0fc133357fe121d5863c1a55ccfb8d7275ceff60c5a84d2c2d4a62dc469a7ca3"
+uses = ["fn:1e9e054cc5b5a361"]
 
 [module."pool_boiling.rs"]
 path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::secondary_loop::pool_boiling"
@@ -105,4 +214,5 @@ callees = [
     "fn:6dc82a6475c2f1e2",
     "fn:b67fa420ee08cc39",
 ]
+uses = ["fn:33a2eb8456953def"]
 test = true

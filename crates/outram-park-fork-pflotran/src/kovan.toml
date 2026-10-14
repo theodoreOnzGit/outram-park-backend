@@ -4,15 +4,539 @@ crate = "outram-park-fork-pflotran"
 dir = "crates/outram-park-fork-pflotran/src"
 crate_root = true
 test_ids = [
+    "crates/outram-park-fork-pflotran/src/activity/mod.rs::ionic_strength_length_mismatch_rejected",
+    "crates/outram-park-fork-pflotran/src/activity/mod.rs::ionic_strength_nacl",
+    "crates/outram-park-fork-pflotran/src/activity/mod.rs::ionic_strength_negative_concentration_rejected",
+    "crates/outram-park-fork-pflotran/src/decay/mod.rs::atom_conservation_no_branching_loss",
+    "crates/outram-park-fork-pflotran/src/decay/mod.rs::branching_loss_accounted",
+    "crates/outram-park-fork-pflotran/src/decay/mod.rs::constructor_rejects_bad_daughter_index",
+    "crates/outram-park-fork-pflotran/src/decay/mod.rs::constructor_rejects_branchings_over_one",
+    "crates/outram-park-fork-pflotran/src/decay/mod.rs::constructor_rejects_nonpositive_half_life",
+    "crates/outram-park-fork-pflotran/src/decay/mod.rs::converging_branching_chain_general_integrator",
+    "crates/outram-park-fork-pflotran/src/decay/mod.rs::decay_rejects_length_mismatch_and_bad_dt",
+    "crates/outram-park-fork-pflotran/src/decay/mod.rs::secular_equilibrium",
+    "crates/outram-park-fork-pflotran/src/decay/mod.rs::single_nuclide_matches_exponential_law",
+    "crates/outram-park-fork-pflotran/src/decay/mod.rs::stable_nuclide_is_unchanged",
+    "crates/outram-park-fork-pflotran/src/decay/mod.rs::three_member_chain_matches_bateman",
+    "crates/outram-park-fork-pflotran/src/decay/mod.rs::two_member_chain_matches_bateman_daughter",
+    "crates/outram-park-fork-pflotran/src/decay/mod.rs::zero_dt_is_identity",
+    "crates/outram-park-fork-pflotran/src/deck/mod.rs::parse_fortran_float_variants",
+    "crates/outram-park-fork-pflotran/src/deck/mod.rs::parses_full_example_deck",
+    "crates/outram-park-fork-pflotran/src/deck/mod.rs::rejects_missing_required_block",
+    "crates/outram-park-fork-pflotran/src/deck/mod.rs::rejects_unclosed_block",
+    "crates/outram-park-fork-pflotran/src/deck/mod.rs::rejects_unknown_top_level_keyword",
+    "crates/outram-park-fork-pflotran/src/deck/mod.rs::rejects_unsupported_card_in_block",
+    "crates/outram-park-fork-pflotran/src/deck/mod.rs::robust_to_comments_blanks_and_mixed_case",
+    "crates/outram-park-fork-pflotran/src/deck/mod.rs::time_to_seconds_units",
+    "crates/outram-park-fork-pflotran/src/deck/mod.rs::unknown_mode_preserved_verbatim",
+    "crates/outram-park-fork-pflotran/src/decomposition/ldu.rs::distributed_bicgstab_solves_nonsymmetric_advection_diffusion",
+    "crates/outram-park-fork-pflotran/src/decomposition/ldu.rs::distributed_solve_matches_serial_ldu_cg",
+    "crates/outram-park-fork-pflotran/src/decomposition/ldu.rs::distributed_solve_residual_is_near_zero",
+    "crates/outram-park-fork-pflotran/src/decomposition/ldu.rs::distributed_spmv_matches_real_ldu_multiply",
+    "crates/outram-park-fork-pflotran/src/decomposition/ldu.rs::local_assembly_equals_global_extract_and_solves",
+    "crates/outram-park-fork-pflotran/src/decomposition/newton.rs::distributed_newton_drives_residual_to_zero",
+    "crates/outram-park-fork-pflotran/src/decomposition/newton.rs::distributed_newton_matches_serial_on_nonlinear_diffusion",
+    "crates/outram-park-fork-pflotran/src/decomposition/transport.rs::distributed_energy_conduction_matches_serial",
+    "crates/outram-park-fork-pflotran/src/decomposition/transport.rs::distributed_pure_advection_matches_serial",
+    "crates/outram-park-fork-pflotran/src/decomposition/transport.rs::distributed_transport_matches_serial_for_nonuniform_flow",
+    "crates/outram-park-fork-pflotran/src/decomposition/transport.rs::distributed_transport_matches_serial_with_dirichlet_inflow",
+    "crates/outram-park-fork-pflotran/src/decomposition/transport.rs::distributed_transport_matches_serial_with_tvd_superbee",
+    "crates/outram-park-fork-pflotran/src/decomposition/transport.rs::distributed_transport_step_matches_serial_solute_transport",
+    "crates/outram-park-fork-pflotran/src/energy/mod.rs::closed_domain_conserves_energy",
+    "crates/outram-park-fork-pflotran/src/energy/mod.rs::constructor_validates_inputs",
+    "crates/outram-park-fork-pflotran/src/energy/mod.rs::pure_conduction_steady_is_linear",
+    "crates/outram-park-fork-pflotran/src/energy/mod.rs::steady_advection_conduction_matches_closed_form",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/brine.rs::brine_density_increases_with_salinity",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/brine.rs::brine_rejects_invalid_inputs",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/brine.rs::brine_seawater_density_about_1024",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/brine.rs::brine_viscosity_salinity_and_temperature_trends",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/co2.rs::co2_compressibility_approaches_unity_at_low_pressure",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/co2.rs::co2_density_decreases_with_temperature",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/co2.rs::co2_density_increases_with_pressure",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/co2.rs::co2_density_supercritical_40c_10mpa_rk_underpredicts",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/co2.rs::co2_rejects_invalid_inputs",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/co2.rs::co2_viscosity_dilute_gas_value_and_temperature_trend",
+    "crates/outram-park-fork-pflotran/src/eos_real/mod.rs::agrees_with_simple_slightly_compressible_model_at_25c",
+    "crates/outram-park-fork-pflotran/src/eos_real/mod.rs::density_decreases_with_temperature_at_fixed_pressure",
+    "crates/outram-park-fork-pflotran/src/eos_real/mod.rs::density_liquid_water_at_20c_is_about_998",
+    "crates/outram-park-fork-pflotran/src/eos_real/mod.rs::enthalpy_and_internal_energy_increase_with_temperature",
+    "crates/outram-park-fork-pflotran/src/eos_real/mod.rs::rejects_states_outside_region_1",
+    "crates/outram-park-fork-pflotran/src/eos_real/mod.rs::specific_heat_near_ambient_is_about_4180",
+    "crates/outram-park-fork-pflotran/src/eos_real/mod.rs::viscosity_at_20c_is_about_1_millipascal_second_and_falls_with_temperature",
+    "crates/outram-park-fork-pflotran/src/flow/mod.rs::flow_mode_reports_its_name",
+    "crates/outram-park-fork-pflotran/src/flow/mod.rs::flow_mode_step_advances_time",
+    "crates/outram-park-fork-pflotran/src/flow/richards.rs::closed_box_uniform_field_is_stationary",
+    "crates/outram-park-fork-pflotran/src/flow/richards.rs::closed_domain_conserves_total_mass",
+    "crates/outram-park-fork-pflotran/src/flow/richards.rs::haverkamp_sand_column_runs_and_wets_up",
+    "crates/outram-park-fork-pflotran/src/flow/richards.rs::saturated_1d_steady_state_is_linear",
+    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::closed_domain_conserves_water_gas_and_energy",
+    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::closed_uniform_column_is_stationary",
+    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::constructors_reject_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::isothermal_limit_reduces_to_two_phase_imbibition",
+    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::step_converges_and_stays_bounded",
+    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::thermal_coupling_hot_boundary_warms_and_changes_flow",
+    "crates/outram-park-fork-pflotran/src/geochemistry/network.rs::general_network_mass_balance_and_action",
+    "crates/outram-park-fork-pflotran/src/geochemistry/network.rs::initial_guess_reaches_same_solution",
+    "crates/outram-park-fork-pflotran/src/geochemistry/network.rs::no_secondary_returns_totals",
+    "crates/outram-park-fork-pflotran/src/geochemistry/network.rs::validation_rejects_bad_shapes_and_totals",
+    "crates/outram-park-fork-pflotran/src/geochemistry/network.rs::weak_acid_dissociation_analytical",
     "crates/outram-park-fork-pflotran/src/gpu.rs::best_effort_agrees_with_cpu_reference",
     "crates/outram-park-fork-pflotran/src/gpu.rs::cpu_reference_matches_van_genuchten",
+    "crates/outram-park-fork-pflotran/src/grid/mod.rs::index_roundtrip_is_x_fastest",
+    "crates/outram-park-fork-pflotran/src/grid/mod.rs::invalid_inputs_are_rejected",
+    "crates/outram-park-fork-pflotran/src/grid/mod.rs::ldu_addressing_matches_connections_and_owner_lt_neighbour",
+    "crates/outram-park-fork-pflotran/src/grid/mod.rs::rectilinear_connection_distance_is_half_plus_half",
+    "crates/outram-park-fork-pflotran/src/grid/mod.rs::single_cell_gets_both_min_and_max_on_each_axis",
+    "crates/outram-park-fork-pflotran/src/grid/mod.rs::three_cubed_uniform_counts",
+    "crates/outram-park-fork-pflotran/src/grid/mod.rs::two_by_one_by_one_has_one_connection_with_correct_transmissibility",
+    "crates/outram-park-fork-pflotran/src/grid/mod.rs::two_cubed_has_24_boundary_faces",
+    "crates/outram-park-fork-pflotran/src/grid/mod.rs::volume_and_center_correctness",
+    "crates/outram-park-fork-pflotran/src/hdf5_io/mod.rs::from_grid_fields_extracts_axes_and_validates_lengths",
+    "crates/outram-park-fork-pflotran/src/hdf5_io/mod.rs::round_trip_of_a_grid_snapshot_preserves_fields",
+    "crates/outram-park-fork-pflotran/src/hdf5_io/mod.rs::round_trips_through_a_real_file",
+    "crates/outram-park-fork-pflotran/src/hdf5_io/mod.rs::snapshot_round_trips_through_hdf5_bytes",
+    "crates/outram-park-fork-pflotran/src/io/parse.rs::error_on_missing_grid_block",
+    "crates/outram-park-fork-pflotran/src/io/parse.rs::error_on_out_of_range_porosity",
+    "crates/outram-park-fork-pflotran/src/io/parse.rs::error_on_unclosed_block",
+    "crates/outram-park-fork-pflotran/src/io/parse.rs::error_on_unknown_keyword_reports_line",
+    "crates/outram-park-fork-pflotran/src/io/parse.rs::error_on_wrong_arity",
+    "crates/outram-park-fork-pflotran/src/io/parse.rs::multiple_boundary_conditions_accumulate",
+    "crates/outram-park-fork-pflotran/src/io/parse.rs::parses_the_reference_example_field_by_field",
+    "crates/outram-park-fork-pflotran/src/io/parse.rs::robust_to_comments_blank_lines_mixed_case_and_whitespace",
+    "crates/outram-park-fork-pflotran/src/io/writers.rs::csv_cell_centre_coordinates_are_half_spacing",
+    "crates/outram-park-fork-pflotran/src/io/writers.rs::csv_has_header_plus_one_row_per_cell",
+    "crates/outram-park-fork-pflotran/src/io/writers.rs::csv_uses_x_fastest_ordering",
+    "crates/outram-park-fork-pflotran/src/io/writers.rs::vtk_emits_one_value_line_per_cell_per_field",
+    "crates/outram-park-fork-pflotran/src/io/writers.rs::vtk_header_is_well_formed",
+    "crates/outram-park-fork-pflotran/src/io/writers.rs::writers_reject_mismatched_slice_length",
+    "crates/outram-park-fork-pflotran/src/io/writers.rs::writers_reject_zero_dimension",
+    "crates/outram-park-fork-pflotran/src/kinetics/mod.rs::approach_to_equilibrium",
+    "crates/outram-park-fork-pflotran/src/kinetics/mod.rs::constructor_validation",
+    "crates/outram-park-fork-pflotran/src/kinetics/mod.rs::mole_conservation",
+    "crates/outram-park-fork-pflotran/src/kinetics/mod.rs::no_mineral_clamp",
+    "crates/outram-park-fork-pflotran/src/kinetics/mod.rs::supersaturated_precipitates_from_zero",
+    "crates/outram-park-fork-pflotran/src/microbial/mod.rs::constructor_validation",
+    "crates/outram-park-fork-pflotran/src/microbial/mod.rs::dual_monod_limited_by_scarce_substrate",
+    "crates/outram-park-fork-pflotran/src/microbial/mod.rs::inhibition_reduces_rate",
+    "crates/outram-park-fork-pflotran/src/microbial/mod.rs::monod_saturation_and_starvation",
+    "crates/outram-park-fork-pflotran/src/microbial/mod.rs::react_biomass_decays_when_starved",
+    "crates/outram-park-fork-pflotran/src/microbial/mod.rs::react_consumes_substrate_forms_product_grows_biomass",
+    "crates/outram-park-fork-pflotran/src/microbial/mod.rs::stoichiometric_conservation",
+    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::capillary_pressure_inverts_retention_curve",
+    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::closed_domain_conserves_phase_masses",
+    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::closed_uniform_column_is_stationary",
+    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::constructors_reject_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::imbibition_column_wets_up_and_stays_bounded",
+    "crates/outram-park-fork-pflotran/src/pitzer/mod.rs::cacl2_high_molality_upturn",
+    "crates/outram-park-fork-pflotran/src/pitzer/mod.rs::dilute_limit_recovers_unity",
+    "crates/outram-park-fork-pflotran/src/pitzer/mod.rs::ionic_strength_convention",
+    "crates/outram-park-fork-pflotran/src/pitzer/mod.rs::nacl_dips_then_rises",
+    "crates/outram-park-fork-pflotran/src/pitzer/mod.rs::nacl_mean_activity_coefficient_published",
+    "crates/outram-park-fork-pflotran/src/pitzer/mod.rs::nacl_osmotic_coefficient_published",
+    "crates/outram-park-fork-pflotran/src/pitzer/mod.rs::negative_molality_rejected",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::bc_air_entry_saturated_below_bubbling_pressure",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::constructors_reject_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::d_kr_d_se_matches_finite_difference",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::d_se_d_pc_matches_finite_difference",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::haverkamp_d_kr_d_se_matches_finite_difference",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::haverkamp_d_se_d_pc_matches_finite_difference",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::haverkamp_kr_bounds_and_endpoints",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::haverkamp_rejects_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::haverkamp_residual_is_theta_ratio",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::haverkamp_se_bounds_and_monotone",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::inputs_are_clamped",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::kr_in_unit_interval_and_endpoints",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::residual_saturation_reported",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::saturated_zone_is_fully_saturated",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::se_in_unit_interval_and_monotone_decreasing",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::vg_dkr_endpoints_no_nan",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::vg_dse_dpc_is_nonpositive",
+    "crates/outram-park-fork-pflotran/src/properties/curves.rs::vg_new_sets_m",
+    "crates/outram-park-fork-pflotran/src/properties/eos.rs::d_density_d_pressure_matches_finite_difference",
+    "crates/outram-park-fork-pflotran/src/properties/eos.rs::density_equals_reference_at_reference_pressure",
+    "crates/outram-park-fork-pflotran/src/properties/eos.rs::density_increases_with_pressure",
+    "crates/outram-park-fork-pflotran/src/properties/eos.rs::new_rejects_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/properties/eos.rs::viscosity_is_constant_and_positive",
+    "crates/outram-park-fork-pflotran/src/properties/eos.rs::water_defaults_are_valid_and_match_new",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::d_density_d_temperature_is_non_positive",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::d_density_d_temperature_matches_finite_difference",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::density_decreases_with_temperature",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::density_equals_reference_at_reference_state",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::density_increases_with_pressure",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::generic_rock_defaults_are_valid_and_match_new",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::rock_new_rejects_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::viscosity_decreases_with_temperature",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::viscosity_equals_reference_at_reference_temperature",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::water_defaults_are_valid_and_match_new",
+    "crates/outram-park-fork-pflotran/src/properties/thermal.rs::water_new_rejects_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/reactive_transport/mod.rs::closed_domain_conserves_component_mass",
+    "crates/outram-park-fork-pflotran/src/reactive_transport/mod.rs::constructor_validates_inputs",
+    "crates/outram-park-fork-pflotran/src/reactive_transport/mod.rs::post_step_speciation_is_equilibrium",
+    "crates/outram-park-fork-pflotran/src/reactive_transport/mod.rs::single_component_matches_solute_transport",
+    "crates/outram-park-fork-pflotran/src/solver/block.rs::coupled_nonlinear_newton_converges_to_manufactured",
+    "crates/outram-park-fork-pflotran/src/solver/block.rs::wrong_length_guess_is_rejected",
+    "crates/outram-park-fork-pflotran/src/solver/block.rs::zero_iteration_budget_reports_nonconvergence",
+    "crates/outram-park-fork-pflotran/src/solver/mod.rs::bratu_converges_and_residual_decreases",
+    "crates/outram-park-fork-pflotran/src/solver/mod.rs::linear_system_converges_in_one_step",
+    "crates/outram-park-fork-pflotran/src/solver/mod.rs::wrong_length_guess_is_rejected",
+    "crates/outram-park-fork-pflotran/src/solver/mod.rs::zero_iteration_budget_reports_nonconvergence",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::divalent_selectivity_preference",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::exchange_fractions_sum_to_one_and_bounded",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::freundlich_n1_reduces_to_linear",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::freundlich_value_and_derivative",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::ion_exchange_constructor_validation",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::isotherm_constructor_validation",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::langmuir_saturates_and_slope_positive_decreasing",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::raising_a_cation_raises_its_exchanger_fraction",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::symmetric_binary_splits_by_concentration",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::dilute_metal_fraction_is_independent_of_concentration",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::dlm_potential_negative_at_high_ph",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::electrostatics_shift_the_edge_and_both_converge",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::extreme_conditions_do_not_panic_or_diverge",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::input_validation_rejects_bad_parameters",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::protonation_charge_sign_flips_across_pzc",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::site_balance_conserved_all_models",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::sorption_edge_is_rising_sigmoid_crossing_half",
+    "crates/outram-park-fork-pflotran/src/surface_complexation/mod.rs::zero_metal_gives_zero_sorbed_fraction",
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::buoyancy_onset_across_critical_rayleigh",
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::constructors_reject_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::heated_from_above_stays_stable",
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::no_buoyancy_gives_pure_conduction_no_flow",
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::rayleigh_number_matches_textbook",
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::step_adaptive_covers_interval_and_advances_time",
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::step_adaptive_validates_inputs",
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::step_converges_and_energy_responds_to_heating",
+    "crates/outram-park-fork-pflotran/src/transport/mod.rs::closed_domain_conserves_mass",
+    "crates/outram-park-fork-pflotran/src/transport/mod.rs::constructor_validates_inputs",
+    "crates/outram-park-fork-pflotran/src/transport/mod.rs::linear_sorption_retards_the_front",
+    "crates/outram-park-fork-pflotran/src/transport/mod.rs::pure_diffusion_steady_is_linear",
+    "crates/outram-park-fork-pflotran/src/transport/mod.rs::radioactive_decay_halves_after_one_half_life",
+    "crates/outram-park-fork-pflotran/src/transport/mod.rs::steady_advection_diffusion_matches_closed_form",
+    "crates/outram-park-fork-pflotran/src/transport/mod.rs::tvd_reduces_numerical_diffusion_and_stays_bounded",
+    "crates/outram-park-fork-pflotran/src/transport/mod.rs::upwind_advection_is_monotone_and_advances",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::empty_grid_rejected",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::from_faces_two_cell_mesh",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::invalid_face_references_nonexistent_cell",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::invalid_internal_face_self_connection",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::invalid_mismatched_lengths",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::invalid_negative_area_or_volume",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::invalid_zero_length_normal_and_coincident_centroids",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::ldu_addressing_lengths_and_ordering",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::ldu_addressing_normalises_reversed_connection",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::reversed_normal_gives_same_positive_transmissibility",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::single_cell_column_has_no_internal_faces",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::tpfa_projection_reduces_to_area_over_distance_for_unnormalised_normal",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::transmissibility_scales_as_area_over_distance",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::uniform_column_boundary_faces_have_one_owner_each",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::uniform_column_geometry_and_connectivity",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::uniform_column_invalid_inputs",
+    "crates/outram-park-fork-pflotran/src/unstructured/mod.rs::volume_and_centroid_accessors_return_constructed_values",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::bhp_well_sign_convention",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::cell_rates_validates_pressure_length_and_indices",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::constructor_validation",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::rate_controlled_is_mobility_independent",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::rate_controlled_sums_to_target_and_splits_by_wi",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::source_sink_mass_to_volumetric",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::time_varying_interpolates_and_clamps",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::time_varying_validation",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::well_index_increases_with_permeability",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::well_index_matches_isotropic_closed_form",
+    "crates/outram-park-fork-pflotran/src/wells/mod.rs::well_index_rejects_bad_inputs",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::flow_mode_run_matches_direct_simulation",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::infiltration_column_runs_and_is_physically_sensible",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::output_writers_produce_wellformed_csv_and_vtk",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::richards_transport_coupling_advects_a_tracer",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::th_coupling_advects_a_thermal_front",
+    "crates/outram-park-fork-pflotran/tests/regression.rs::print_baseline",
+    "crates/outram-park-fork-pflotran/tests/regression.rs::transient_column_matches_frozen_baseline",
+    "crates/outram-park-fork-pflotran/tests/verification.rs::hydrostatic_column_matches_analytical_gravity",
+    "crates/outram-park-fork-pflotran/tests/verification.rs::mms_saturated_operator_is_second_order",
+    "crates/outram-park-fork-pflotran/tests/verification.rs::saturated_linear_profile_is_exact",
 ]
 
 [module."error.rs"]
 path = "crate::error"
 
+[[module."error.rs".function]]
+id = "fn:1bb0a85b7ffe5a70"
+name = "PflotranError"
+qual = "PflotranError"
+item = "type"
+shape = "enum"
+lines = [
+    10,
+    42,
+]
+hash = "sha256:7521804d16ee3717524afca129f3b08d013dfb5bce860b0fd033081a7d27757c"
+doc_hash = "sha256:cbc24e7d39ad5a4db49278682783577b2935e3f91acb22aac7720201646f92ad"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#151",
+    "#153",
+    "#159",
+    "#160",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+]
+
 [module."gpu.rs"]
 path = "crate::gpu"
+
+[[module."gpu.rs".function]]
+id = "fn:2a981184c2dc79b1"
+name = "GpuContext"
+qual = "GpuContext"
+item = "type"
+shape = "struct"
+lines = [
+    31,
+    35,
+]
+hash = "sha256:ac74f1bc47e6d75651bfa01964f10d8d4a6375636a12eb422cf8f2855a722bf7"
+doc_hash = "sha256:723a3efa1306b1e3977242eff10a28dd3c9e105ba683774c567e20790e9f4582"
+reached_by = ["#76"]
+
+[[module."gpu.rs".function]]
+id = "fn:c6465497a5d92a3c"
+name = "GpuError"
+qual = "GpuError"
+item = "type"
+shape = "enum"
+lines = [
+    37,
+    49,
+]
+hash = "sha256:5ecd79def5eb099d20a50be2f0335d0408b22ca70f84e953600a5c56a2b68a24"
+doc_hash = "sha256:5678f8731726e407b2c9b5880514d42b6e77c1160a158dd9b5335a372d40d3e1"
+reached_by = ["#76"]
 
 [[module."gpu.rs".function]]
 id = "fn:79fce62a6aa675d1"
@@ -25,7 +549,36 @@ lines = [
 hash = "sha256:3b3619babb597e5e8c1ffe0fc2aa29a03fa7e1cab786e7b63556f871b6734d66"
 doc_hash = "sha256:e8f0e230662f8c2b15ecf756b49dd8d3bfe1e96f2dcd9f663c87efed727cc830"
 callees = ["fn:3e6b81c1ffe1e55c"]
-reached_by = ["#0"]
+uses = ["fn:2a981184c2dc79b1"]
+reached_by = ["#76"]
+
+[[module."gpu.rs".function]]
+id = "fn:a88dd1b1069ea34c"
+name = "VAN_GENUCHTEN_WGSL"
+qual = "VAN_GENUCHTEN_WGSL"
+item = "const"
+shape = "const"
+lines = [
+    73,
+    90,
+]
+hash = "sha256:13023f4fe89f657ae288c004a65a0b6b3b66570f53fe1b6ff8e62f0c4028ea27"
+doc_hash = "sha256:51ced2ff2b4fc1c1afb7d5fc66efaf84cd526dd2b27260d8d23c2ec64cf39140"
+reached_by = ["#76"]
+
+[[module."gpu.rs".function]]
+id = "fn:adf2a9ae3cfbecff"
+name = "WORKGROUP_SIZE"
+qual = "WORKGROUP_SIZE"
+item = "const"
+shape = "const"
+lines = [
+    92,
+    92,
+]
+hash = "sha256:209842ade790f8677030d94fd041f32012e5d58300147127f2f81fb6bd34286c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#76"]
 
 [[module."gpu.rs".function]]
 id = "fn:385121b53ff81793"
@@ -38,8 +591,8 @@ lines = [
 hash = "sha256:a7eb29b564de256e628144d85b8deac09406ca697a238b29ee9adbc2d526ea26"
 doc_hash = "sha256:acc8c584bcbbf0e39c850688b8d847e6664aab1956d24daeb3ad43cc0a6e07e6"
 reached_by = [
-    "#0",
-    "#1",
+    "#76",
+    "#77",
 ]
 
 [[module."gpu.rs".function]]
@@ -56,7 +609,13 @@ callees = [
     "fn:99ddb2fba48f565c",
     "fn:f3bd6313c8f8f66a",
 ]
-reached_by = ["#0"]
+uses = [
+    "fn:2a981184c2dc79b1",
+    "fn:a88dd1b1069ea34c",
+    "fn:adf2a9ae3cfbecff",
+    "fn:c6465497a5d92a3c",
+]
+reached_by = ["#76"]
 
 [[module."gpu.rs".function]]
 id = "fn:ea909771e8c9b9da"
@@ -73,7 +632,7 @@ callees = [
     "fn:3a428f62b12a9bec",
     "fn:79fce62a6aa675d1",
 ]
-reached_by = ["#0"]
+reached_by = ["#76"]
 
 [[module."gpu.rs".function]]
 id = "fn:f3bd6313c8f8f66a"
@@ -85,7 +644,7 @@ lines = [
 ]
 hash = "sha256:e40ccf976122014f42f15933b6735884bbde918299025fa5234a5cce46e12677"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#0"]
+reached_by = ["#76"]
 
 [[module."gpu.rs".function]]
 id = "fn:99ddb2fba48f565c"
@@ -97,7 +656,7 @@ lines = [
 ]
 hash = "sha256:0393675c208b6e6f285f88827e08e39b6f72fce278529df89d6d1706896bbaf5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#0"]
+reached_by = ["#76"]
 
 [[module."gpu.rs".function]]
 id = "fn:3e6b81c1ffe1e55c"
@@ -109,7 +668,7 @@ lines = [
 ]
 hash = "sha256:c2fc0b6e423dd59fe4ee71e0a9bbd518bcf569db0e7d3da915d65e8a1edb59c4"
 doc_hash = "sha256:5c8aa2ef78dcdde067673df3e96f4dbfe6e24a254150f345cdd3064441522706"
-reached_by = ["#0"]
+reached_by = ["#76"]
 
 [[module."gpu.rs".function]]
 id = "fn:890dd4c62dd786e7"
@@ -143,5 +702,348 @@ test = true
 [module."lib.rs"]
 path = "crate"
 
+[[module."lib.rs".function]]
+id = "fn:c3ce6803d2775afb"
+name = "Result"
+qual = "Result"
+item = "type"
+shape = "alias"
+lines = [
+    132,
+    137,
+]
+hash = "sha256:1384c3805f17f64c3362cc8be3ea21d7eddc173028a28e8dc985379c55c77cb9"
+doc_hash = "sha256:01c5a84445e221af9aa2305b5499a02956d7bfd505d0a6f10839fa22a7de2c17"
+uses = ["fn:1bb0a85b7ffe5a70"]
+reached_by = [
+    "#60",
+    "#238",
+]
+
 [module."units.rs"]
 path = "crate::units"
+
+[[module."units.rs".function]]
+id = "fn:a242c2fd54eea7fe"
+name = "FluidPressure"
+qual = "FluidPressure"
+item = "type"
+shape = "alias"
+lines = [
+    23,
+    27,
+]
+hash = "sha256:5b688d9b11b9ee2708dc73e5148bc4c4b39ca6e52f1d357363a5b75006d8c3a8"
+doc_hash = "sha256:98e722e6c8f5c2a47ea79c8e50792375f8c9639abdd742ddd8df4ee955c0791c"
+reached_by = [
+    "#52",
+    "#62",
+    "#65",
+    "#148",
+    "#149",
+    "#150",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#241",
+    "#242",
+]
+
+[[module."units.rs".function]]
+id = "fn:4f4c09a8fdb25244"
+name = "CapillaryPressure"
+qual = "CapillaryPressure"
+item = "type"
+shape = "alias"
+lines = [
+    29,
+    33,
+]
+hash = "sha256:5b688d9b11b9ee2708dc73e5148bc4c4b39ca6e52f1d357363a5b75006d8c3a8"
+doc_hash = "sha256:1a6ad45df7f7f9d1474250eee79797ee1c72cf55ad0489f1533083411d7a83d4"
+reached_by = [
+    "#62",
+    "#63",
+    "#118",
+    "#130",
+    "#133",
+    "#135",
+    "#139",
+    "#143",
+    "#144",
+    "#146",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+]
+
+[[module."units.rs".function]]
+id = "fn:f06725995ff05a1a"
+name = "Saturation"
+qual = "Saturation"
+item = "type"
+shape = "alias"
+lines = [
+    35,
+    37,
+]
+hash = "sha256:e25ea516086e0a8fbc02c8ea06250f66767715f97c79fe584e00cef7420d6abe"
+doc_hash = "sha256:eae82426620cb9bfb2da0ce87fcc2e7e1e6e13d4f77a8e139f0b10840ce30539"
+reached_by = [
+    "#62",
+    "#63",
+    "#118",
+    "#130",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#139",
+    "#140",
+    "#141",
+    "#143",
+    "#144",
+    "#145",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+]
+
+[[module."units.rs".function]]
+id = "fn:22fe1f27048c3064"
+name = "Porosity"
+qual = "Porosity"
+item = "type"
+shape = "alias"
+lines = [
+    39,
+    41,
+]
+hash = "sha256:e25ea516086e0a8fbc02c8ea06250f66767715f97c79fe584e00cef7420d6abe"
+doc_hash = "sha256:2bd6e4efa7ca1b7b9ecf55dc5a39a0bab48e47dffc46295dc29754cfe38ad829"
+
+[[module."units.rs".function]]
+id = "fn:8ebf9b753fe51021"
+name = "RelativePermeability"
+qual = "RelativePermeability"
+item = "type"
+shape = "alias"
+lines = [
+    43,
+    46,
+]
+hash = "sha256:e25ea516086e0a8fbc02c8ea06250f66767715f97c79fe584e00cef7420d6abe"
+doc_hash = "sha256:81e3e35fa3eba623bbdb34f47bc197b13e2ae1b1aaf05d409cccaec4986abda4"
+reached_by = [
+    "#132",
+    "#134",
+    "#136",
+    "#140",
+    "#141",
+    "#241",
+    "#242",
+]
+
+[[module."units.rs".function]]
+id = "fn:05a6ac9cc96fb130"
+name = "Permeability"
+qual = "Permeability"
+item = "type"
+shape = "alias"
+lines = [
+    48,
+    52,
+]
+hash = "sha256:b81ff8139f7c2ff849b996c187215a9451e14e6384bda616e0a1f7994b27a77d"
+doc_hash = "sha256:4d709a9578834b4ea9343a5a030f97213569abb6865129a4214dc4fd74781e16"
+
+[[module."units.rs".function]]
+id = "fn:3ebf0ea1c7d50367"
+name = "DarcyVelocity"
+qual = "DarcyVelocity"
+item = "type"
+shape = "alias"
+lines = [
+    54,
+    56,
+]
+hash = "sha256:35c6ab2b0bceb5f70de6eb343165a47c4f622b30d877f85a88dc87f1e0aebaf0"
+doc_hash = "sha256:3b17e33cf42627e2917eda2714e5ad251526f0dc9f7438532aa26b5870ba42e0"
+
+[[module."units.rs".function]]
+id = "fn:6906d2d1888e80e3"
+name = "FluidDensity"
+qual = "FluidDensity"
+item = "type"
+shape = "alias"
+lines = [
+    58,
+    59,
+]
+hash = "sha256:f0126224c333665090951d9a23f3d317ed8dfa76000ccf801618212f3dc56803"
+doc_hash = "sha256:18defa63718ae7642a689ed68168c7cc8cbb8551e76d15feb17eff3067cc8d9c"
+reached_by = [
+    "#52",
+    "#62",
+    "#65",
+    "#148",
+    "#149",
+    "#150",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#241",
+    "#242",
+]
+
+[[module."units.rs".function]]
+id = "fn:930a417ccec82744"
+name = "FluidViscosity"
+qual = "FluidViscosity"
+item = "type"
+shape = "alias"
+lines = [
+    61,
+    62,
+]
+hash = "sha256:37a7ea995af3f1895682a6b6362361f85ff17d501a900c2d71a40949a471835d"
+doc_hash = "sha256:13e7369ee150854afe58af459f9936a85afc55063f752743dd5dffc6703108d9"
+reached_by = [
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#152",
+    "#161",
+    "#162",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+]
+
+[[module."units.rs".function]]
+id = "fn:8339826e03ac41ba"
+name = "FluidTemperature"
+qual = "FluidTemperature"
+item = "type"
+shape = "alias"
+lines = [
+    64,
+    66,
+]
+hash = "sha256:2e3f89396e294d300b36f3a93627965697700450bcfd2938369cb63ca5fd4b36"
+doc_hash = "sha256:d00d8968869006b2d723ec5273bfac5d8cca025f2bb168cd80c5a249a468dbd4"
+reached_by = [
+    "#65",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#161",
+    "#162",
+]
+
+[[module."units.rs".function]]
+id = "fn:797aa25531fb13c5"
+name = "GeoLength"
+qual = "GeoLength"
+item = "type"
+shape = "alias"
+lines = [
+    68,
+    69,
+]
+hash = "sha256:d58d3f6439a246ec5ec320e74b4238e6a3cc1eb18c7b791f18143ed034cb61cc"
+doc_hash = "sha256:1a3cdf513f4901d6a6e8c7cc4721fc96afc1d50309e9fe3d8011a48053bbd6f9"
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#78",
+    "#79",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#87",
+    "#88",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+]

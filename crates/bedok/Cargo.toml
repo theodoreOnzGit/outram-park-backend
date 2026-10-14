@@ -24,6 +24,7 @@ row = 3
 topic = "neutronics"
 fidelity = 3
 maturity = 2
+backronym = "Broad-scope Environment for Dual-phase advanced reactor Operation simulation Kit"
 
 [features]
 # `long-tests` (GitHub #503, 2026-10-02): the workspace rule

@@ -429,3 +429,49 @@ fn the_two_methods_agree_within_statistics() {
         "surface and delta tracking disagree by {z:.2} sigma"
     );
 }
+
+/// **The CSG iteration's source entropy** (`CsgPowerIteration::source_entropy`,
+/// GitHub #859), on the three-zone sphere, 2000 neutrons, seed 784.
+///
+/// Method and pass criteria: (1) on a one-bin mesh every site is in the same
+/// bin, so the entropy is exactly 0; (2) on a 5 × 5 × 5 mesh over the source
+/// box it lies between 0 and the ceiling log2(125) = 6.966 bits, before the
+/// first generation and after each of five; (3) a mesh that holds no site
+/// gives `None`; (4) reading it changes nothing: an iteration that is read
+/// every generation gives the same `k`, bit for bit, as one that is not.
+///
+/// Recorded 2026-10-14 (release build, one thread): initial 6.4408 bits,
+/// then 6.3695, 6.3982, 6.4036, 6.3594, and 6.3594 again after the last
+/// generation, which leaves the source as it was.
+#[test]
+fn the_csg_source_entropy_is_bounded_and_reading_it_changes_nothing() {
+    use outram_mc_libs::tally::mesh::RegularMesh;
+    let (mats, nucs) = (materials(), nuclides());
+    let geom = geometry();
+    let s = settings(2000, 2, 3, 784);
+    let b = source_box();
+    let mesh = |n: usize| RegularMesh {
+        lower_left: [b.lower.x, b.lower.y, b.lower.z],
+        upper_right: [b.upper.x, b.upper.y, b.upper.z],
+        dimension: [n; 3],
+    };
+    let away = RegularMesh { lower_left: [1.0e3; 3], upper_right: [2.0e3; 3], dimension: [2; 3] };
+    let mut read = CsgPowerIteration::new(&geom, &mats, &nucs, source_box(), &s);
+    let mut plain = CsgPowerIteration::new(&geom, &mats, &nucs, source_box(), &s);
+    let ceiling = 125f64.log2();
+    let mut seen = Vec::new();
+    loop {
+        assert_eq!(read.source_entropy(&mesh(1)), Some(0.0));
+        assert_eq!(read.source_entropy(&away), None);
+        let h = read.source_entropy(&mesh(5)).expect("sites lie in the source box");
+        assert!(h > 0.0 && h <= ceiling, "entropy {h} outside (0, {ceiling}]");
+        seen.push(h);
+        match (read.step(&geom, &mats, &nucs), plain.step(&geom, &mats, &nucs)) {
+            (Some(a), Some(c)) => assert_eq!(a.k.to_bits(), c.k.to_bits()),
+            (None, None) => break,
+            _ => panic!("the two iterations ended at different generations"),
+        }
+    }
+    assert_eq!(seen.len(), 6, "the initial source and five generations");
+    eprintln!("CSG source entropy, bits: {seen:.4?}");
+}

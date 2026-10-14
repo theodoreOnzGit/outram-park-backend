@@ -7,6 +7,32 @@ dir = "crates/njoy-outram-park-fork/examples"
 path = "example:ace_blocks_vs_reference"
 
 [[module."ace_blocks_vs_reference.rs".function]]
+id = "fn:197089cf6e2f6097"
+name = "K_BOLTZMANN_MEV"
+qual = "K_BOLTZMANN_MEV"
+item = "const"
+shape = "const"
+lines = [
+    51,
+    51,
+]
+hash = "sha256:8017040313890bfd3e42bb506066006da4d3c337a5bb79c350aae625eca4d50d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."ace_blocks_vs_reference.rs".function]]
+id = "fn:01179f3c6914f4bb"
+name = "KNOWN"
+qual = "KNOWN"
+item = "const"
+shape = "const"
+lines = [
+    53,
+    58,
+]
+hash = "sha256:08177fd2416046eae64ce2e32098388ae9c2c048bfcc5aa02bc974e6d2ea7888"
+doc_hash = "sha256:ba26aba63e6b61d308eb22b7068986e1e75b3e3b964fdd5fabd1c00e4603d118"
+
+[[module."ace_blocks_vs_reference.rs".function]]
 id = "fn:7c23a00510b234d5"
 name = "rel"
 qual = "rel"
@@ -27,6 +53,44 @@ lines = [
 ]
 hash = "sha256:e2e402dee0fd4df87814ca5838beefac47fd4888f1f2ac4e4466ad47166b82c9"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."ace_blocks_vs_reference.rs".function]]
+id = "fn:f17cec2679f49c38"
+name = "BLOCKS"
+qual = "BLOCKS"
+item = "const"
+shape = "const"
+lines = [
+    79,
+    107,
+]
+hash = "sha256:7894ed0a471b63342599881512d23550372080edeac51856b9e875f550077f2c"
+doc_hash = "sha256:8402492d7af4a6e6cd282c39ab39f21982211465c49acb61358b1f9b0423d776"
+uses = [
+    "fn:030f7d872cfc81e0",
+    "fn:099cd811c7cf974b",
+    "fn:0c20306e4f8036b4",
+    "fn:138d5b9859ff7dab",
+    "fn:190570b47d8406df",
+    "fn:1d83df9a4a45c41d",
+    "fn:242a8bfc5f2e80c7",
+    "fn:30440d30657269c9",
+    "fn:64d2b04c9064c3b7",
+    "fn:7ca9f87601a83522",
+    "fn:966a58a0729a1585",
+    "fn:98e437469a38d9f2",
+    "fn:9bb2d447211ec14b",
+    "fn:9d6a5fa66eb05227",
+    "fn:a6657e7536ed3d46",
+    "fn:b173fe3383ff96cd",
+    "fn:c305a933b2eef3a4",
+    "fn:d74932553d2ddbec",
+    "fn:db8725ec254400c4",
+    "fn:e1f9970f2f7d3cd4",
+    "fn:e80b562edc0192df",
+    "fn:f2bae28598970c9a",
+    "fn:fe44ef5d1d139131",
+]
 
 [[module."ace_blocks_vs_reference.rs".function]]
 id = "fn:b71823348e33b785"
@@ -55,6 +119,15 @@ callees = [
     "fn:ea1bd0239c09e88e",
     "fn:ffec928fff35cb32",
 ]
+uses = [
+    "fn:01179f3c6914f4bb",
+    "fn:197089cf6e2f6097",
+    "fn:358f7308eb2088af",
+    "fn:63e818b9cfcce31d",
+    "fn:c5110c1adf752f79",
+    "fn:db8725ec254400c4",
+    "fn:ea1a9906af166241",
+]
 
 [[module."ace_blocks_vs_reference.rs".function]]
 id = "fn:62040d4e779714dd"
@@ -64,7 +137,7 @@ lines = [
     178,
     441,
 ]
-hash = "sha256:4ddf78e3cf450164f5ed722311a86fd2821f2ff49965aed6d53ece677bded818"
+hash = "sha256:4aa7a46fa5dbef20a35872b7e3590834bc228db57a37051e064b3db3034713c0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:235fa48b7129b69a",
@@ -82,6 +155,36 @@ callees = [
     "fn:c6b2624aec2847da",
     "fn:cddcedda5749891c",
     "fn:ed4a271c125e62e5",
+]
+uses = [
+    "fn:030f7d872cfc81e0",
+    "fn:099cd811c7cf974b",
+    "fn:0c20306e4f8036b4",
+    "fn:138d5b9859ff7dab",
+    "fn:190570b47d8406df",
+    "fn:1d83df9a4a45c41d",
+    "fn:242a8bfc5f2e80c7",
+    "fn:30440d30657269c9",
+    "fn:64d2b04c9064c3b7",
+    "fn:7ca9f87601a83522",
+    "fn:86c11bd17577d4c7",
+    "fn:9519d40e3e732f41",
+    "fn:966a58a0729a1585",
+    "fn:98e437469a38d9f2",
+    "fn:9bb2d447211ec14b",
+    "fn:9d6a5fa66eb05227",
+    "fn:a6657e7536ed3d46",
+    "fn:b173fe3383ff96cd",
+    "fn:c305a933b2eef3a4",
+    "fn:d5acaaa545933d69",
+    "fn:d74932553d2ddbec",
+    "fn:db8725ec254400c4",
+    "fn:dca7e730ea324024",
+    "fn:e1f9970f2f7d3cd4",
+    "fn:e80b562edc0192df",
+    "fn:f17cec2679f49c38",
+    "fn:f2bae28598970c9a",
+    "fn:fe44ef5d1d139131",
 ]
 
 [[module."ace_blocks_vs_reference.rs".function]]
@@ -105,6 +208,10 @@ lines = [
 ]
 hash = "sha256:47d72163dbe97763ee0ace0567bc03a64008317bb391cba9a19635b04b2a887e"
 doc_hash = "sha256:b10fc538c19e50f9b8cee4259ce50bfb33d2d5f05994acb3266c753bebc599f0"
+uses = [
+    "fn:dca7e730ea324024",
+    "fn:f17cec2679f49c38",
+]
 
 [[module."ace_blocks_vs_reference.rs".function]]
 id = "fn:235fa48b7129b69a"
@@ -120,6 +227,7 @@ callees = [
     "fn:7c23a00510b234d5",
     "fn:af772f9fa2cbf731",
 ]
+uses = ["fn:dca7e730ea324024"]
 
 [[module."ace_blocks_vs_reference.rs".function]]
 id = "fn:7a747a05a6910ea8"
@@ -135,6 +243,7 @@ callees = [
     "fn:7c23a00510b234d5",
     "fn:af772f9fa2cbf731",
 ]
+uses = ["fn:99bce29a9c69879f"]
 
 [[module."ace_blocks_vs_reference.rs".function]]
 id = "fn:468f9beeb488f457"
@@ -155,6 +264,11 @@ callees = [
     "fn:998b281de7c785e3",
     "fn:af772f9fa2cbf731",
 ]
+uses = [
+    "fn:598281ab2791a184",
+    "fn:99bce29a9c69879f",
+    "fn:dca7e730ea324024",
+]
 
 [[module."ace_blocks_vs_reference.rs".function]]
 id = "fn:30efa971697cedd8"
@@ -170,6 +284,7 @@ callees = [
     "fn:7c23a00510b234d5",
     "fn:af772f9fa2cbf731",
 ]
+uses = ["fn:c7fd806a54a25f54"]
 
 [module."ace_vs_njoy2016.rs"]
 path = "example:ace_vs_njoy2016"
@@ -187,6 +302,19 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = ["fn:97e700b3bf9c2bd1"]
 
 [[module."ace_vs_njoy2016.rs".function]]
+id = "fn:0d7147d848e87b29"
+name = "NjoyAce"
+qual = "NjoyAce"
+item = "type"
+shape = "struct"
+lines = [
+    104,
+    119,
+]
+hash = "sha256:63761af59d5b7a14106c6bd57f3765d364df8fb2316fd0472afe1a87e9bed4ba"
+doc_hash = "sha256:1c0209091527bee5d4b86eca52e381cb37b5432e5eca7d30be581e8e680c9cbe"
+
+[[module."ace_vs_njoy2016.rs".function]]
 id = "fn:fe5d2e77fb92110e"
 name = "parse_njoy_ace"
 qual = "parse_njoy_ace"
@@ -197,6 +325,7 @@ lines = [
 hash = "sha256:c637bba5ab529bc53a38f9caff961c66ba9dcea8a332eb28ed72584290ca756c"
 doc_hash = "sha256:e1177c4f2b6441ddf13f667a66f5a18cc4dcb26ca6ce8ebe4a83887e93e1cf29"
 callees = ["fn:01f2ec1d124cc487"]
+uses = ["fn:0d7147d848e87b29"]
 
 [[module."ace_vs_njoy2016.rs".function]]
 id = "fn:e1536393febc39ef"
@@ -210,6 +339,32 @@ hash = "sha256:c42f49f7f26ed1aa9b0aed6f577daea55438d0f43387fda85c69f9c680726e93"
 doc_hash = "sha256:3063486c48fcb09127816c7e83b1b661148d678e5acfa3bb682f62d780b5c851"
 
 [[module."ace_vs_njoy2016.rs".function]]
+id = "fn:7c5da36e650b3121"
+name = "BOLTZMANN_EV_PER_K"
+qual = "BOLTZMANN_EV_PER_K"
+item = "const"
+shape = "const"
+lines = [
+    156,
+    158,
+]
+hash = "sha256:abebe3917872dbaa9708a31e3ac8eead2a5c00ff94daee7043057590c63bc596"
+doc_hash = "sha256:be9949c1113642158a5acccc077bce98c30d67c6ea5f140a43cd8150a93a8f03"
+
+[[module."ace_vs_njoy2016.rs".function]]
+id = "fn:3082bb753dff4a5f"
+name = "KNOWN"
+qual = "KNOWN"
+item = "const"
+shape = "const"
+lines = [
+    160,
+    168,
+]
+hash = "sha256:15e7821684a08e70a700fdcff667ed12498647a7b32f718ac61c5feda7986187"
+doc_hash = "sha256:41aa9e9cc097c2352b5ec6e3d99efa8abc6cb53deabd8600a39ea9c6f0b256ac"
+
+[[module."ace_vs_njoy2016.rs".function]]
 id = "fn:97e700b3bf9c2bd1"
 name = "run"
 qual = "run"
@@ -217,7 +372,7 @@ lines = [
     170,
     968,
 ]
-hash = "sha256:5e775ef8a10712e289820ed3d7632d0246fcaf43bb50d325f4350cabd47b65f0"
+hash = "sha256:0aefd7dc69aad1dc99eebbda57815de9faa8d4f8f632684a64bd11fcd71148e3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:0ad8c2483b0f1b71",
@@ -242,6 +397,40 @@ callees = [
     "fn:fb070b5043e6f476",
     "fn:fcba4b26f279ef7b",
     "fn:fe5d2e77fb92110e",
+]
+uses = [
+    "fn:030f7d872cfc81e0",
+    "fn:0d7147d848e87b29",
+    "fn:1179cf16bd7970e2",
+    "fn:138d5b9859ff7dab",
+    "fn:190570b47d8406df",
+    "fn:1c13282fc8f3390b",
+    "fn:1d83df9a4a45c41d",
+    "fn:30440d30657269c9",
+    "fn:3082bb753dff4a5f",
+    "fn:30896e294a46dea0",
+    "fn:63e818b9cfcce31d",
+    "fn:64d2b04c9064c3b7",
+    "fn:7c5da36e650b3121",
+    "fn:7ca9f87601a83522",
+    "fn:811d3e68d1253d22",
+    "fn:8916a01c41b18859",
+    "fn:966a58a0729a1585",
+    "fn:997e8b639b4a5397",
+    "fn:9bb2d447211ec14b",
+    "fn:9d6a5fa66eb05227",
+    "fn:b085d605c1818d45",
+    "fn:b173fe3383ff96cd",
+    "fn:b5b11901a913da96",
+    "fn:c305a933b2eef3a4",
+    "fn:d004913b87ed211c",
+    "fn:e1f9970f2f7d3cd4",
+    "fn:e4b5f092716882f5",
+    "fn:e80b562edc0192df",
+    "fn:ea1a9906af166241",
+    "fn:f2bae28598970c9a",
+    "fn:fd0b8b0efd90aff2",
+    "fn:fe44ef5d1d139131",
 ]
 
 [module."bake_mgxs.rs"]
@@ -272,6 +461,29 @@ callees = [
     "fn:ef1e8bf8932b7261",
     "fn:faee15db10cb45ba",
 ]
+uses = [
+    "fn:2655ebe11ef76f8f",
+    "fn:37e1b9af809e4324",
+    "fn:457d1814d17fe71c",
+    "fn:5c55a88e6607c3d2",
+    "fn:6dfcb0effb231e43",
+    "fn:ac3f3f9518440bc2",
+    "fn:e4b5f092716882f5",
+    "fn:ea1a9906af166241",
+]
+
+[[module."bake_mgxs.rs".function]]
+id = "fn:5c55a88e6607c3d2"
+name = "CORE_ZAIDS"
+qual = "CORE_ZAIDS"
+item = "const"
+shape = "const"
+lines = [
+    196,
+    213,
+]
+hash = "sha256:db3035ada81c5a93c063b1eb552924442bac72a969807b4c74ab31213166438a"
+doc_hash = "sha256:e7b42012090eae2f33a3aa7a6943528a8323f03c0ea735718bc3e175affaa6d9"
 
 [module."bake_wmp.rs"]
 path = "example:bake_wmp"
@@ -293,6 +505,24 @@ callees = [
     "fn:a713ba16a3e19348",
     "fn:bfb3e1bee74e7b97",
 ]
+uses = [
+    "fn:6dfcb0effb231e43",
+    "fn:993a28a0f2c69f32",
+    "fn:a7d1e0fba65401e0",
+]
+
+[[module."bake_wmp.rs".function]]
+id = "fn:993a28a0f2c69f32"
+name = "CORE_ZAIDS"
+qual = "CORE_ZAIDS"
+item = "const"
+shape = "const"
+lines = [
+    82,
+    101,
+]
+hash = "sha256:db3035ada81c5a93c063b1eb552924442bac72a969807b4c74ab31213166438a"
+doc_hash = "sha256:09280e12572ccafd1c3f80caf647ac72ac2f171ac9e78bb3a5d81f791bda231a"
 
 [module."dosimetry_ace_vs_njoy2016.rs"]
 path = "example:dosimetry_ace_vs_njoy2016"
@@ -315,6 +545,11 @@ callees = [
     "fn:8875e6f3be70f835",
     "fn:c569fac121216fbf",
 ]
+uses = [
+    "fn:358f7308eb2088af",
+    "fn:b5b0b734469218ea",
+    "fn:ea1a9906af166241",
+]
 
 [module."download_endf.rs"]
 path = "example:download_endf"
@@ -327,7 +562,7 @@ lines = [
     24,
     32,
 ]
-hash = "sha256:5725706cb01b0534d5c6f36b75b5230f1142c67090684ba1a3855c9fbd7d83dc"
+hash = "sha256:fab17c1432b699405a864b54ca8809028d9f1d4d4ad886b2c75ac55a377705c5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."download_endf.rs".function]]
@@ -338,8 +573,13 @@ lines = [
     34,
     92,
 ]
-hash = "sha256:2b3098aa1aae91042f4d7b722f2e779306836c2685c79958ce469b293adafa48"
+hash = "sha256:d275ac03ac59c177ff0dd0f838b5209376bf0e99b48bcddda10af0978de7258f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:0fc54b509adb4882",
+    "fn:af6cf8f807bb3de8",
+    "fn:bc81219c23c085a5",
+]
 
 [module."endf_to_broadened_xs.rs"]
 path = "example:endf_to_broadened_xs"
@@ -389,6 +629,10 @@ callees = [
     "fn:e70a582b5002ffaa",
     "fn:faee15db10cb45ba",
 ]
+uses = [
+    "fn:63e818b9cfcce31d",
+    "fn:ea1a9906af166241",
+]
 
 [[module."endf_to_broadened_xs.rs".function]]
 id = "fn:8fac7d70603c2bae"
@@ -398,12 +642,51 @@ lines = [
     296,
     445,
 ]
-hash = "sha256:18cdc9db9ec7f294d85960e13bcb04dc79bba0d4e06ef27d5e5405ed969c8876"
+hash = "sha256:af53e6eee816264a7f69efb5397c48c062acf6cffcb9b1286ba3d5dc944ac44e"
 doc_hash = "sha256:be2a483ed3b8eca76650085dacdb8bfc3343ef1fca205ee66e70f3ce18abc42e"
 callees = ["fn:113dc740eeb8eeae"]
 
 [module."extract_u238_doppler_ref.rs"]
 path = "example:extract_u238_doppler_ref"
+
+[[module."extract_u238_doppler_ref.rs".function]]
+id = "fn:316a5e5726d60411"
+name = "N_POINTS"
+qual = "N_POINTS"
+item = "const"
+shape = "const"
+lines = [
+    23,
+    25,
+]
+hash = "sha256:7045020cf98dd9012e69e89508037c329d662922067fa4d02c68bcc02c8e17ed"
+doc_hash = "sha256:f33cf0def352e0fac31c74f6cf8cc4a9a30a6695883ccf9c54f1b67076e5c7a0"
+
+[[module."extract_u238_doppler_ref.rs".function]]
+id = "fn:6c17d890ba7e243c"
+name = "E_LO"
+qual = "E_LO"
+item = "const"
+shape = "const"
+lines = [
+    26,
+    26,
+]
+hash = "sha256:4d3d652030dbb5b86297d8e9e645c299cac20d9d03b745d0a484e981aca52e14"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."extract_u238_doppler_ref.rs".function]]
+id = "fn:e4cc56490bf84ba8"
+name = "E_HI"
+qual = "E_HI"
+item = "const"
+shape = "const"
+lines = [
+    27,
+    27,
+]
+hash = "sha256:7cd5746acc5cb5b6b9c4894c314190bda9c164edf79c8c994c7cf678224648a8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."extract_u238_doppler_ref.rs".function]]
 id = "fn:1965944a757af5c8"
@@ -426,6 +709,11 @@ lines = [
 ]
 hash = "sha256:0d5287847067470caaf298d172426e9abd577263658143ac2fad564784a5e97b"
 doc_hash = "sha256:7ff988a84f3829c5ee6af74aebba23e7aee9dc56b77f098dd625cc66237b19fc"
+uses = [
+    "fn:316a5e5726d60411",
+    "fn:6c17d890ba7e243c",
+    "fn:e4cc56490bf84ba8",
+]
 
 [[module."extract_u238_doppler_ref.rs".function]]
 id = "fn:189beb59794bb71a"
@@ -477,6 +765,10 @@ callees = [
     "fn:1965944a757af5c8",
     "fn:530091b003509322",
 ]
+uses = [
+    "fn:6c17d890ba7e243c",
+    "fn:e4cc56490bf84ba8",
+]
 
 [module."gpu_wmp_bench.rs"]
 path = "example:gpu_wmp_bench"
@@ -500,7 +792,7 @@ lines = [
     60,
     314,
 ]
-hash = "sha256:a39586f0e7723e2e19ab486e4716c7fbdf888d44b765a295783bf06b6ef9de13"
+hash = "sha256:3cb415b95b836a11adf4c3e2762b5a811e7474c5ba9b7f207784c55258e59231"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:0e110f4cae152fe7",
@@ -515,6 +807,11 @@ callees = [
     "fn:ca2858b8a3916902",
     "fn:d0dfc05468610493",
     "fn:f61f60d154c013a9",
+]
+uses = [
+    "fn:6dfcb0effb231e43",
+    "fn:82854f7dc93b46d1",
+    "fn:ff0bae7e3a58bc96",
 ]
 
 [[module."gpu_wmp_bench.rs".function]]
@@ -539,11 +836,15 @@ lines = [
     54,
     90,
 ]
-hash = "sha256:da12d8c77da083c8c67c6df63524193e36361608f5dbac182ba32c4e85e0e8c2"
+hash = "sha256:3743c07364a5d0052ba5f2c607e1c2cdd2428eab199f96c53c40591e98e4ccd9"
 doc_hash = "sha256:6c9bf6d840211f5b940ef120fdc76f5a41e7cfcb05c56d7e709efecc1c398a0b"
 callees = [
     "fn:5f8fc12cbc1b43c8",
     "fn:94c7bb66940ba0a7",
+]
+uses = [
+    "fn:57b937919b208969",
+    "fn:c193bf9dd8295ea7",
 ]
 
 [[module."graphite_sab_generation.rs".function]]
@@ -554,7 +855,7 @@ lines = [
     92,
     355,
 ]
-hash = "sha256:8d00d339ba3298f4d93dc0b6559c690ff0b7b5a470fae6a1b702a89957684727"
+hash = "sha256:eb8696f2d2acdc14c49216f38a7397188366d8c58b6c830bb238b7e7b04b0175"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:2c945092147fdb01",
@@ -573,6 +874,13 @@ callees = [
     "fn:ca1f39db386ef9f7",
     "fn:ef333c7ba64a5d6b",
     "fn:fc582d571d31fa8e",
+]
+uses = [
+    "fn:435815b9f34f3ade",
+    "fn:a0d7706c7d348cd9",
+    "fn:bc83e66d138c19d9",
+    "fn:c193bf9dd8295ea7",
+    "fn:ea1a9906af166241",
 ]
 
 [module."heatr_driver_vs_njoy.rs"]
@@ -594,6 +902,10 @@ callees = [
     "fn:6eacb2bdb269f0d7",
     "fn:b7b67ecc27b6f0aa",
 ]
+uses = [
+    "fn:ea1a9906af166241",
+    "fn:f2b2de9d27443f35",
+]
 
 [[module."heatr_driver_vs_njoy.rs".function]]
 id = "fn:0be72e6c34abe841"
@@ -613,6 +925,10 @@ callees = [
     "fn:6e86b6a77bc5c4fe",
     "fn:ad4e827f88038ddc",
     "fn:faee15db10cb45ba",
+]
+uses = [
+    "fn:2a0ed67d47c6c79e",
+    "fn:ea1a9906af166241",
 ]
 
 [module."pendf_stage_vs_njoy.rs"]
@@ -641,6 +957,12 @@ callees = [
     "fn:ea1bd0239c09e88e",
     "fn:faee15db10cb45ba",
 ]
+uses = [
+    "fn:63e818b9cfcce31d",
+    "fn:d9e675243ef34701",
+    "fn:ea1a9906af166241",
+    "fn:f2b2de9d27443f35",
+]
 
 [module."photoatomic_ace_vs_njoy2016.rs"]
 path = "example:photoatomic_ace_vs_njoy2016"
@@ -653,7 +975,7 @@ lines = [
     30,
     61,
 ]
-hash = "sha256:c4788f804ac30f041fbf949146ff96bc353a617045eddccb9c7de7dfe07580d3"
+hash = "sha256:3c2c1cb3208c62ac0d6db65a8ca8470804b63e52c185889ec0722e833570b026"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."photoatomic_ace_vs_njoy2016.rs".function]]
@@ -664,7 +986,7 @@ lines = [
     63,
     318,
 ]
-hash = "sha256:9984bebe1b9d0a0931ad28aa8e127c7905d6500eba23180bf1ce48d64c05ed7f"
+hash = "sha256:cffdf2ca6e4298f84d508dce4d0bbe7a2af618c4b6e307eac0dae9feaf0f2a66"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:0232185c47f057a8",
@@ -676,6 +998,12 @@ callees = [
     "fn:d1812fc056add0c6",
     "fn:d3f0ab9ada4e33a5",
     "fn:f04d1f51b127d6f8",
+]
+uses = [
+    "fn:358f7308eb2088af",
+    "fn:dca7e730ea324024",
+    "fn:dd7717385fc3103e",
+    "fn:ea1a9906af166241",
 ]
 
 [module."photoatomic_grid_ulp_probe.rs"]
@@ -699,6 +1027,11 @@ callees = [
     "fn:9b0c5dc4dda54fbd",
     "fn:b7b67ecc27b6f0aa",
 ]
+uses = [
+    "fn:3e3668d8aa7b67b9",
+    "fn:ea1a9906af166241",
+    "fn:f2b2de9d27443f35",
+]
 
 [[module."photoatomic_grid_ulp_probe.rs".function]]
 id = "fn:c62f3368fd22ea7e"
@@ -717,6 +1050,11 @@ callees = [
     "fn:d3f0ab9ada4e33a5",
     "fn:f04d1f51b127d6f8",
 ]
+uses = [
+    "fn:358f7308eb2088af",
+    "fn:dd7717385fc3103e",
+    "fn:ea1a9906af166241",
+]
 
 [module."photoatomic_iheat_conditioning.rs"]
 path = "example:photoatomic_iheat_conditioning"
@@ -729,7 +1067,7 @@ lines = [
     38,
     99,
 ]
-hash = "sha256:90d5704661022c2f04a5d0775e08234d659afe2a1e82c48993e292e44068a4b7"
+hash = "sha256:c9bbeb974dbebbf45779d49cc2fccb74a88750a3a6cca7ce39729d2f05d8b5b2"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:2322ad376308b463",
@@ -738,6 +1076,7 @@ callees = [
     "fn:a1687483980e5c4d",
     "fn:e4e4aed615c4acb3",
 ]
+uses = ["fn:ea1a9906af166241"]
 
 [module."photonuclear_ace_vs_njoy2016.rs"]
 path = "example:photonuclear_ace_vs_njoy2016"
@@ -771,6 +1110,33 @@ callees = [
     "fn:8d5ee6d7adb08634",
     "fn:fe9c64be2d85fab3",
 ]
+uses = [
+    "fn:0876b55f0de6b39c",
+    "fn:09423ca115f72d65",
+    "fn:0963bef61c059cc8",
+    "fn:11e62781eb34f7a2",
+    "fn:1f6faa8fb3717539",
+    "fn:358f7308eb2088af",
+    "fn:36164baacb40cfd0",
+    "fn:3de45ebbe9139db4",
+    "fn:518a5bd3c7e265f9",
+    "fn:533b84d5c183244e",
+    "fn:64aad3103315d1c7",
+    "fn:6aff6aa3693d2ebc",
+    "fn:6f4e218cba534b72",
+    "fn:7a6d504744405a6e",
+    "fn:82ee57424fe546c8",
+    "fn:885cfd101bb96724",
+    "fn:92f97ecdd8da2220",
+    "fn:a11f7d8716622cfe",
+    "fn:cb3dd84178937fd5",
+    "fn:cc190e201dae6fff",
+    "fn:dca7e730ea324024",
+    "fn:dea273b085bc33e6",
+    "fn:e890266302ff7541",
+    "fn:ea1a9906af166241",
+    "fn:f89fb1cd01c04c8e",
+]
 
 [module."seam_stage_probe.rs"]
 path = "example:seam_stage_probe"
@@ -786,6 +1152,7 @@ lines = [
 hash = "sha256:d2b1494e72439b2cf0c935ed520c4e965d2c0caf9312a1963f5a4776616ec197"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:7d82113855d4f727"]
+uses = ["fn:47eb2cc3b86cff16"]
 
 [[module."seam_stage_probe.rs".function]]
 id = "fn:081f7f4e7aee3025"
@@ -825,6 +1192,37 @@ callees = [
     "fn:e70a582b5002ffaa",
     "fn:ea1bd0239c09e88e",
 ]
+uses = [
+    "fn:63e818b9cfcce31d",
+    "fn:ea1a9906af166241",
+    "fn:f2b2de9d27443f35",
+]
+
+[[module."seam_stage_probe.rs".function]]
+id = "fn:8094a34b27679135"
+name = "SEAM_EV"
+qual = "SEAM_EV"
+item = "const"
+shape = "const"
+lines = [
+    269,
+    271,
+]
+hash = "sha256:7b13430303b3f9007027757bac2e8a49030a0e9d4d58a973c522c28886630988"
+doc_hash = "sha256:2dfc35dab0e5efaeb12c5ea2d3aa29389d1b3bf21a5541b12f11a9bb7ed76ddf"
+
+[[module."seam_stage_probe.rs".function]]
+id = "fn:fcec7c1f082cf2f2"
+name = "N2N_THRESHOLD_EV"
+qual = "N2N_THRESHOLD_EV"
+item = "const"
+shape = "const"
+lines = [
+    273,
+    274,
+]
+hash = "sha256:41d7b3cbe93de714b0c4abcf703abd0fed5deecd63e108e276c85eea191876ed"
+doc_hash = "sha256:30e27ffaeb1582bbf85bbcf301b9c5a981ba5305a1d420b4ea077199028bfeb3"
 
 [[module."seam_stage_probe.rs".function]]
 id = "fn:d1843ec154bb97b0"
@@ -834,7 +1232,7 @@ lines = [
     276,
     436,
 ]
-hash = "sha256:4ca7482a614e653fe2c72250db9722887f88f82e2afb67026d3395c938b326c6"
+hash = "sha256:2e77cd91faff4e8bd8e6bf1edde3464af7767672ff62bfcd9e97b01b13fa73d2"
 doc_hash = "sha256:7880b25ff2665f3a57fe54d9c4fc2e1bcc7a3fea9670c627b9eefe9a171312f0"
 callees = [
     "fn:113dc740eeb8eeae",
@@ -842,9 +1240,107 @@ callees = [
     "fn:6e6951804fd97c5d",
     "fn:e70a582b5002ffaa",
 ]
+uses = [
+    "fn:47eb2cc3b86cff16",
+    "fn:4bdb1497e00ec58b",
+    "fn:8094a34b27679135",
+    "fn:fcec7c1f082cf2f2",
+]
 
 [module."temperature_thinning_study.rs"]
 path = "example:temperature_thinning_study"
+
+[[module."temperature_thinning_study.rs".function]]
+id = "fn:f2bfdfec94ccee64"
+name = "DEFAULT_DIR"
+qual = "DEFAULT_DIR"
+item = "const"
+shape = "const"
+lines = [
+    72,
+    72,
+]
+hash = "sha256:14467fd3fbe0839dd5d7047bcc3560d55c0894db3ffbb44a2ec20c01064dc653"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."temperature_thinning_study.rs".function]]
+id = "fn:2faadbd5786e9d60"
+name = "FILE"
+qual = "FILE"
+item = "const"
+shape = "const"
+lines = [
+    73,
+    73,
+]
+hash = "sha256:d5f6a71e4a55499def91f317d73a14fb2ad423662e7d2af01f55f951f0a82e8e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."temperature_thinning_study.rs".function]]
+id = "fn:0ad8273d17478bdb"
+name = "MAT"
+qual = "MAT"
+item = "const"
+shape = "const"
+lines = [
+    74,
+    74,
+]
+hash = "sha256:1d9a9e9063932d3546823246e6a63825a8d8708690c480422e023b663d0b3048"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."temperature_thinning_study.rs".function]]
+id = "fn:0a3edb05d4e439e1"
+name = "SIGMA_ENERGIES_EV"
+qual = "SIGMA_ENERGIES_EV"
+item = "const"
+shape = "const"
+lines = [
+    76,
+    79,
+]
+hash = "sha256:ea7917a31feced6a62714af74fe504ced5c1c65dcae5ba88a7f389b3311ae8ce"
+doc_hash = "sha256:e3cfaf234906ba8759c3efedd0da6cb584010d973c1f6192626dd7c8328810b5"
+
+[[module."temperature_thinning_study.rs".function]]
+id = "fn:dbd48e439898287e"
+name = "E_THERMAL"
+qual = "E_THERMAL"
+item = "const"
+shape = "const"
+lines = [
+    81,
+    83,
+]
+hash = "sha256:36e666f613273c7e49af68c56c511c95e29848cf75e0f2d71c33d116581e49fc"
+doc_hash = "sha256:97c31bea1ec6993ef9d1fdb6e25cdc50dca414a42bb660473aaea309ea8de905"
+
+[[module."temperature_thinning_study.rs".function]]
+id = "fn:41d277fdfd450f39"
+name = "E_RELEVANT_MAX"
+qual = "E_RELEVANT_MAX"
+item = "const"
+shape = "const"
+lines = [
+    85,
+    89,
+]
+hash = "sha256:947bb32f0af4ffaf4defe38ebac7df20e7a54005ae49c55f47cc79097d762d33"
+doc_hash = "sha256:4ac6cb4727e993d10b3e775f9e58c7b979d4325897f3b247fdd99a0258b37d81"
+uses = ["fn:dbd48e439898287e"]
+
+[[module."temperature_thinning_study.rs".function]]
+id = "fn:2eada4d754a4188a"
+name = "CANDIDATE_GRIDS"
+qual = "CANDIDATE_GRIDS"
+item = "const"
+shape = "const"
+lines = [
+    91,
+    107,
+]
+hash = "sha256:93238e8f8bd08557ce0f5d0fcc3c281f51db87c11b0cba5e2118826ae7e1a763"
+doc_hash = "sha256:967f883f41bc2f13fd7f590f1b24f527e1a57d0779e885c6a648248cc7a48045"
 
 [[module."temperature_thinning_study.rs".function]]
 id = "fn:50825bfd6c06bafa"
@@ -867,6 +1363,7 @@ lines = [
 ]
 hash = "sha256:1f0659b8373466152e45f30c5cb0b77160ae17db1fab20bd77473bda286ce2cd"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:5c9fce8ea067b6fe"]
 
 [[module."temperature_thinning_study.rs".function]]
 id = "fn:05aad7065908255a"
@@ -882,6 +1379,7 @@ callees = [
     "fn:50825bfd6c06bafa",
     "fn:bb8389b4f7675b54",
 ]
+uses = ["fn:b360054254518806"]
 
 [[module."temperature_thinning_study.rs".function]]
 id = "fn:1dae8fdae0753c3a"
@@ -891,7 +1389,7 @@ lines = [
     143,
     501,
 ]
-hash = "sha256:78e7fa3f012455e982a023e5b0680ca147343bc836335efc4e7af3277e779cff"
+hash = "sha256:61d15f30c512cdfedb8f5dbc3ab58c211754dea5dba9e379db7a7b316d870a1c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:02e189449c76a43d",
@@ -918,6 +1416,33 @@ callees = [
     "fn:f8d3fde77439d8f2",
     "fn:fc582d571d31fa8e",
 ]
+uses = [
+    "fn:0a3edb05d4e439e1",
+    "fn:0ad8273d17478bdb",
+    "fn:2eada4d754a4188a",
+    "fn:2faadbd5786e9d60",
+    "fn:41d277fdfd450f39",
+    "fn:4f903a8edb3a7d86",
+    "fn:68309221ac747f2e",
+    "fn:71ec48b67ff43772",
+    "fn:c155cb0d3a976ab2",
+    "fn:dbd48e439898287e",
+    "fn:ea1a9906af166241",
+    "fn:f2bfdfec94ccee64",
+]
+
+[[module."temperature_thinning_study.rs".function]]
+id = "fn:4f903a8edb3a7d86"
+name = "LeaveOneOut"
+qual = "LeaveOneOut"
+item = "type"
+shape = "struct"
+lines = [
+    503,
+    517,
+]
+hash = "sha256:941e847b910dbf3cd04c99780ad4c754416f02b1d3a6f458553f57b1015fa3b3"
+doc_hash = "sha256:38e61071f583d2765c131382c8bfc9278961632b60dbbab00b0bc361263d40d6"
 
 [[module."temperature_thinning_study.rs".function]]
 id = "fn:4c467998902889c4"
@@ -927,8 +1452,9 @@ lines = [
     519,
     663,
 ]
-hash = "sha256:411efba056f9f612467e36de7bc4566db116fa28b38ddeb77c1cd94f481edc94"
+hash = "sha256:821048388ac60908c0368a817e43474d74ea78c0af41d5f465f36f69e294fa13"
 doc_hash = "sha256:0079977ca55f246f5ffcf150c3c386ff0434595303320b25cd4d2d713cf02429"
+uses = ["fn:4f903a8edb3a7d86"]
 
 [module."thermal_ace_vs_njoy2016.rs"]
 path = "example:thermal_ace_vs_njoy2016"
@@ -941,7 +1467,7 @@ lines = [
     49,
     693,
 ]
-hash = "sha256:df284b50a547f2c818d1cc8411642764a81e0e2386df4e0a7eac9c3ebe4c42e1"
+hash = "sha256:2a76e4d0a143281322b03e2be8a600d0f31a69cf43ac7c17b6798f03a8115bf7"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:01f2ec1d124cc487",
@@ -949,6 +1475,30 @@ callees = [
     "fn:186da4b2e76906e3",
     "fn:2322ad376308b463",
     "fn:fc582d571d31fa8e",
+]
+uses = [
+    "fn:02d122451cfef148",
+    "fn:149c55aa1973da16",
+    "fn:1c13282fc8f3390b",
+    "fn:27c2e2e260e192ba",
+    "fn:2ff2b7cd8a90ec1e",
+    "fn:33728ea7a1b18005",
+    "fn:3e83040ce625d9fd",
+    "fn:54ecd2b916f1ffc7",
+    "fn:5506b9537646de7b",
+    "fn:66691ae554cccbb1",
+    "fn:76cb9c249d24e572",
+    "fn:7cc1c9f8f9025993",
+    "fn:9fb2061a4234c0f7",
+    "fn:af7bd4445b11a037",
+    "fn:b31f7f7569eae6c9",
+    "fn:bf143bd34bcbc4b5",
+    "fn:d2f7fc51675238a4",
+    "fn:d9629bf4bf992ee7",
+    "fn:ea1a9906af166241",
+    "fn:ed5d82d52cb97de5",
+    "fn:f245398fe8669814",
+    "fn:fe77db0b019e88bf",
 ]
 
 [module."tutorial_resonance_to_groups.rs"]
@@ -964,6 +1514,32 @@ lines = [
 ]
 hash = "sha256:038a7cb4bb1708bf49ea2ef5ed0c57276129595d19c1f0fc23c22ed9773407ef"
 doc_hash = "sha256:931de2c5d5075f892c27bec35cd50ff2c4a56fe1c4ff6abc6ae8f88fa5320922"
+
+[[module."tutorial_resonance_to_groups.rs".function]]
+id = "fn:1297ce176f0913cc"
+name = "RESONANCE_INTEGRAL_LOW_EV"
+qual = "RESONANCE_INTEGRAL_LOW_EV"
+item = "const"
+shape = "const"
+lines = [
+    87,
+    91,
+]
+hash = "sha256:adbff84824d6f3e321f28cc7fb48ab6f5435800bea4e58c97dc317891e1eae50"
+doc_hash = "sha256:df4034f08fee03e2461481e2777fcbae91eb4746cae9f0442f4a7eb5a04b2794"
+
+[[module."tutorial_resonance_to_groups.rs".function]]
+id = "fn:d2080784121bdebd"
+name = "RESONANCE_INTEGRAL_HIGH_EV"
+qual = "RESONANCE_INTEGRAL_HIGH_EV"
+item = "const"
+shape = "const"
+lines = [
+    92,
+    92,
+]
+hash = "sha256:e7654bbbcce0d8eaea7488cb216637b49a94ebbee6e7099a80d5154286849118"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."tutorial_resonance_to_groups.rs".function]]
 id = "fn:483f1bca3af6a314"
@@ -1018,7 +1594,7 @@ lines = [
     241,
     512,
 ]
-hash = "sha256:b7f307e1c747fa31325bde595ea77927b7f24cb16c970d57132c5ffdf5fdf067"
+hash = "sha256:e1b633b148e5cabc92c7257b653cf03fbfdca0acf8637d345bf7e6b70726c9b0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:032d68f67feb5a42",
@@ -1033,6 +1609,25 @@ callees = [
     "fn:ea1bd0239c09e88e",
     "fn:faee15db10cb45ba",
 ]
+uses = [
+    "fn:1297ce176f0913cc",
+    "fn:63e818b9cfcce31d",
+    "fn:d2080784121bdebd",
+    "fn:ea1a9906af166241",
+]
+
+[[module."tutorial_resonance_to_groups.rs".function]]
+id = "fn:837864e068e88dd8"
+name = "U238_CAPTURE_RI_INF_B"
+qual = "U238_CAPTURE_RI_INF_B"
+item = "const"
+shape = "const"
+lines = [
+    514,
+    529,
+]
+hash = "sha256:6097a2f668d40d2c074b193022582e5024d26ce80176434e7938a3a75ba0d6aa"
+doc_hash = "sha256:2d02eab2788140ef2664e17dd30b04b51aa56f516157a8c91401cb4f7d638207"
 
 [[module."tutorial_resonance_to_groups.rs".function]]
 id = "fn:032d68f67feb5a42"
@@ -1042,15 +1637,29 @@ lines = [
     531,
     694,
 ]
-hash = "sha256:a6e811507d8cd800cafc28eb448ba38b1eac1f05f9d0fb847bd9297ebb2798cb"
+hash = "sha256:97067842a01881d7efeb18f0f9d811d21fd2717011b1347f55f0e337b89bb596"
 doc_hash = "sha256:d327a1ceb53284ebd413366d284dbd5a8eed3c4b21afac496ff3058f0ed6af5f"
 callees = [
     "fn:113dc740eeb8eeae",
     "fn:76d287955e66f9b9",
 ]
+uses = ["fn:837864e068e88dd8"]
 
 [module."urr_kernel_dump.rs"]
 path = "example:urr_kernel_dump"
+
+[[module."urr_kernel_dump.rs".function]]
+id = "fn:cb2402ef765215a8"
+name = "SIG0"
+qual = "SIG0"
+item = "const"
+shape = "const"
+lines = [
+    21,
+    22,
+]
+hash = "sha256:9e573c50a5b06f01001a96c089c6b96999b33f22ee7c3d3d939a83e26e3e35c6"
+doc_hash = "sha256:83586dc6ab9b56512c80e9c866a3364263fd81893258da9392e07a399ad78aca"
 
 [[module."urr_kernel_dump.rs".function]]
 id = "fn:c328cb8853e85b60"
@@ -1069,6 +1678,11 @@ callees = [
     "fn:a5bcbb47fe842c32",
     "fn:b7b67ecc27b6f0aa",
     "fn:e61fac490e669815",
+]
+uses = [
+    "fn:22a246e97285fdf8",
+    "fn:cb2402ef765215a8",
+    "fn:ea1a9906af166241",
 ]
 
 [module."write_ace.rs"]
@@ -1105,6 +1719,25 @@ callees = [
     "fn:fb070b5043e6f476",
     "fn:fcba4b26f279ef7b",
 ]
+uses = [
+    "fn:1179cf16bd7970e2",
+    "fn:1c13282fc8f3390b",
+    "fn:1d83df9a4a45c41d",
+    "fn:30440d30657269c9",
+    "fn:63e818b9cfcce31d",
+    "fn:64d2b04c9064c3b7",
+    "fn:811d3e68d1253d22",
+    "fn:8916a01c41b18859",
+    "fn:9bb2d447211ec14b",
+    "fn:b085d605c1818d45",
+    "fn:b5b11901a913da96",
+    "fn:c305a933b2eef3a4",
+    "fn:d004913b87ed211c",
+    "fn:e4b5f092716882f5",
+    "fn:ea1a9906af166241",
+    "fn:fd0b8b0efd90aff2",
+    "fn:fe44ef5d1d139131",
+]
 
 [[module."write_ace.rs".function]]
 id = "fn:c34d79b9270baf41"
@@ -1116,9 +1749,67 @@ lines = [
 ]
 hash = "sha256:0166556cf56c051aa7759b6233b3066594b62a56d6c9f3897346d490ff725eaa"
 doc_hash = "sha256:98b60721b6798eee137803a5a0d1cc65cdc23ebb1657e42745339ec55e7548e1"
+uses = [
+    "fn:1179cf16bd7970e2",
+    "fn:1c13282fc8f3390b",
+    "fn:30440d30657269c9",
+    "fn:9bb2d447211ec14b",
+]
 
 [module."write_ace_library.rs"]
 path = "example:write_ace_library"
+
+[[module."write_ace_library.rs".function]]
+id = "fn:234c16ba25be5564"
+name = "K_B_MEV_PER_K"
+qual = "K_B_MEV_PER_K"
+item = "const"
+shape = "const"
+lines = [
+    64,
+    64,
+]
+hash = "sha256:8017040313890bfd3e42bb506066006da4d3c337a5bb79c350aae625eca4d50d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."write_ace_library.rs".function]]
+id = "fn:0ab717d06cf3786a"
+name = "PURR_NBIN"
+qual = "PURR_NBIN"
+item = "const"
+shape = "const"
+lines = [
+    65,
+    65,
+]
+hash = "sha256:58dfdf89180652100634d2e57efcfd8861c71765a6bcd3bcaf871ac0e36c223c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."write_ace_library.rs".function]]
+id = "fn:be3a55643217a961"
+name = "PURR_NLADR"
+qual = "PURR_NLADR"
+item = "const"
+shape = "const"
+lines = [
+    66,
+    66,
+]
+hash = "sha256:908c7e9f0491741619c1ae623c2972bd240eb1e962501711839d7d6b19472d1b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."write_ace_library.rs".function]]
+id = "fn:3ed9e36e73771496"
+name = "PURR_NSAMP"
+qual = "PURR_NSAMP"
+item = "const"
+shape = "const"
+lines = [
+    67,
+    67,
+]
+hash = "sha256:de9f1fe5beb093b2030e0749880b5fea265000ae4801656eeaaec2cf62186fee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."write_ace_library.rs".function]]
 id = "fn:808e0adb571ccceb"
@@ -1166,6 +1857,21 @@ callees = [
     "fn:e298006d7a808f98",
     "fn:ea1bd0239c09e88e",
 ]
+uses = [
+    "fn:0ab717d06cf3786a",
+    "fn:1c13282fc8f3390b",
+    "fn:234c16ba25be5564",
+    "fn:3ed9e36e73771496",
+    "fn:54ecd2b916f1ffc7",
+    "fn:5506b9537646de7b",
+    "fn:63e818b9cfcce31d",
+    "fn:76cb9c249d24e572",
+    "fn:af7bd4445b11a037",
+    "fn:be3a55643217a961",
+    "fn:d9629bf4bf992ee7",
+    "fn:ea1a9906af166241",
+    "fn:ed5d82d52cb97de5",
+]
 
 [[module."write_ace_library.rs".function]]
 id = "fn:2d432152787c5750"
@@ -1178,3 +1884,4 @@ lines = [
 hash = "sha256:3403f0b2b815b65f02e8b4374bbfa38cda98e9974ca76007beeb556dec47e774"
 doc_hash = "sha256:a99aa3d6179bbb428265bba35d8809ea717c2ab2a720f45a8ccee209845a543e"
 callees = ["fn:77d03481265faf4e"]
+uses = ["fn:1c13282fc8f3390b"]

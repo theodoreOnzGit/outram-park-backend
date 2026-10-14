@@ -424,3 +424,218 @@ fn a_test_function_starts_with_its_this_is_a_test_answers() {
     assert!(!l.applicability.is_test);
     assert!(!l.answers.values().any(|a| a.starts_with("test_") || a == "is_a_test"), "{:?}", l.answers);
 }
+
+/// The answers a named number (constant) stamps at rung 3 with.
+pub(crate) fn clean_named_number() -> BTreeMap<String, String> {
+    [
+        ("item_matches_description", "yes"),
+        ("item_test_use", "no_test_uses"),
+        ("item_value_source", "cited"),
+        ("vv_evidence", "unit_tests_only"),
+        ("vv_case_author", "agent_wrote_or_cowrote"),
+        ("maintainability", "yes"),
+        ("independence", "someone_else"),
+        ("coding_standards", "yes"),
+    ]
+    .iter()
+    .map(|(k, v)| (k.to_string(), v.to_string()))
+    .collect()
+}
+
+/// The answers a record (struct) stamps at rung 3 with.
+pub(crate) fn clean_record() -> BTreeMap<String, String> {
+    let mut m = clean_named_number();
+    m.remove("item_value_source");
+    m.insert("item_holds_extra".into(), "no".into());
+    m.insert("item_impossible_values".into(), "no_every_combination_valid".into());
+    m
+}
+
+/// Methodology (#843): add a struct with a method and a constant to the
+/// fixture's library, commit, reindex with the rust-analyzer-free refresh,
+/// and record by hand that `twice` uses the struct (the uses need
+/// rust-analyzer, as the fixture's one call does). Then review bottom-up.
+///
+/// Pass: both items are in `kovan.toml` with their shape, and the struct's
+/// entry hashes as the struct at HEAD does. `twice` cannot be stamped
+/// while the struct it uses has no valid review (the refusal names it),
+/// even after its callee `leaf` is stamped. The struct is asked the record
+/// questions and the constant the named-number ones; function answers on
+/// the struct are refused; each stamps valid at rung 3 with its own
+/// answers. `twice` then stamps, and its signed entry records the struct's
+/// hash beside `leaf`'s. Editing the struct's **method** makes the struct
+/// "changed since review" and `twice` "a callee changed"; the constant is
+/// untouched. Quick stamp (re-confirm) of `twice` is then refused until the
+/// struct is reviewed again, after which it names the struct as what
+/// changed and makes `twice` valid at rung 3 without the wizard (#857).
+///
+/// Result (2026-10-13): passes.
+#[test]
+fn types_and_constants_are_reviewed_bottom_up() {
+    use kovan_common::review::index::{FolderIndex, ItemShape};
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    let key = founder_key(&r, store.path());
+    let src = format!(
+        "{}\n/// Failure fraction of each layer.\npub struct Fractions {{\n    pub sic: f64,\n}}\n\nimpl Fractions {{\n    pub fn total(&self) -> f64 {{\n        self.sic\n    }}\n}}\n\n/// Boltzmann constant, J/K, CODATA 2018.\npub const K_B: f64 = 1.380649e-23;\n",
+        r.read(LIB)
+    );
+    r.write(LIB, &src);
+    r.commit("add a record and a named number");
+    r.reindex();
+    let toml = format!("{DIR}/kovan.toml");
+    let mut idx = FolderIndex::parse(&r.read(&toml)).unwrap();
+    let entry = |idx: &FolderIndex, q: &str| idx.modules["lib.rs"].functions.iter().find(|f| f.qual == q).cloned().unwrap();
+    assert_eq!(entry(&idx, "Fractions").shape, Some(ItemShape::Struct));
+    assert_eq!(entry(&idx, "K_B").shape, Some(ItemShape::Const));
+    assert_eq!(entry(&idx, "Fractions::total").shape, None);
+    let fractions = entry(&idx, "Fractions").id;
+    for f in &mut idx.modules.get_mut("lib.rs").unwrap().functions {
+        if f.qual == "twice" {
+            f.uses = vec![fractions.clone()];
+        }
+    }
+    r.write(&toml, &idx.to_toml().unwrap());
+    r.commit("record that twice uses Fractions");
+    let head = r.git(&["rev-parse", "HEAD"]).trim().to_string();
+    let mut cache = states::FileCache::new();
+    let at_head = states::fn_at(&mut cache, r.path(), &head, LIB, "Fractions").unwrap();
+    assert_eq!(at_head.hashes.hash, entry(&idx, "Fractions").hash);
+
+    let stamp_with = |qual: &str, checklist: BTreeMap<String, String>| -> Result<WrittenEntry, String> {
+        let req = StampRequest { function: format!("{LIB}::{qual}"), by: BY.into(), checklist, ..StampRequest::default() };
+        let mut d = draft_stamp(r.path(), &req)?;
+        key.sign_review(&mut d.entry).unwrap();
+        let w = write_review(r.path(), &d.entry, "")?;
+        r.commit(&format!("stamp {qual}"));
+        Ok(w)
+    };
+    // Bottom-up: the callee first, then the struct, then the user.
+    let e = prepare_stamp(r.path(), &format!("{LIB}::twice"), BY).unwrap_err();
+    assert!(e.contains("bottom-up"), "{e}");
+    r.stamp(&key, "leaf", "");
+    let e = prepare_stamp(r.path(), &format!("{LIB}::twice"), BY).unwrap_err();
+    assert!(e.contains("bottom-up") && e.contains("Fractions"), "{e}");
+
+    let ctx = prepare_stamp(r.path(), &format!("{LIB}::Fractions"), BY).unwrap();
+    assert_eq!(ctx.applicability.shape, Some(ItemShape::Struct));
+    let asked: Vec<&str> = ReviewWizard::embedded().applicable(ctx.applicability).map(|q| q.key.as_str()).collect();
+    assert!(asked.contains(&"item_impossible_values") && !asked.contains(&"error_handling"), "{asked:?}");
+    let e = stamp_with("Fractions", clean()).unwrap_err();
+    assert!(e.contains("error_handling") || e.contains("not applicable") || e.contains("NotApplicable"), "{e}");
+    stamp_with("Fractions", clean_record()).unwrap();
+    assert_eq!(r.state("Fractions").unwrap().kind(), StateKind::Valid);
+    assert_eq!(r.state("Fractions").unwrap().rung, 3);
+
+    let ctx = prepare_stamp(r.path(), &format!("{LIB}::K_B"), BY).unwrap();
+    assert_eq!(ctx.applicability.shape, Some(ItemShape::Const));
+    assert!(stamp_with("K_B", clean_record()).is_err());
+    stamp_with("K_B", clean_named_number()).unwrap();
+    assert_eq!(r.state("K_B").unwrap().kind(), StateKind::Valid);
+
+    let w = stamp_with("twice", clean()).unwrap();
+    assert_eq!(r.state("twice").unwrap().kind(), StateKind::Valid);
+    let written = std::fs::read_to_string(&w.review_md).unwrap();
+    assert!(written.contains(&format!("\"{fractions}\" = \"{}\"", entry(&idx, "Fractions").hash)), "{written}");
+
+    // A method of the struct changes: the struct is stale, its user needs
+    // a re-confirm, the constant is untouched.
+    r.edit("        self.sic\n", "        self.sic * 1.0\n");
+    r.commit("edit a method of Fractions");
+    r.reindex();
+    assert_eq!(r.state("Fractions").unwrap().kind(), StateKind::DirectlyStale);
+    assert_eq!(r.state("twice").unwrap().kind(), StateKind::InheritedStale);
+    assert_eq!(r.state("K_B").unwrap().kind(), StateKind::Valid);
+    assert_eq!(r.state("leaf").unwrap().kind(), StateKind::Valid);
+
+    // Quick stamp covers a changed TYPE too (#857, maintainer 2026-10-13):
+    // `twice` is stale only because the record it uses changed. Refused
+    // while the record itself has no valid review (bottom-up), then the
+    // re-confirm names the record, and signing it makes `twice` valid again
+    // with the record's new hash and the same answers.
+    let e = reconfirm::prepare_reconfirm(r.path(), &format!("{LIB}::twice"), BY).unwrap_err();
+    assert!(e.contains("bottom-up") && e.contains("Fractions"), "{e}");
+    stamp_with("Fractions", clean_record()).unwrap();
+    assert_eq!(r.state("twice").unwrap().kind(), StateKind::InheritedStale);
+    let rc = reconfirm::prepare_reconfirm(r.path(), &format!("{LIB}::twice"), BY).unwrap();
+    assert_eq!(rc.changed.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), ["Fractions"]);
+    assert_eq!(rc.changed[0].id, fractions);
+    // The record's own lines did not change (its method did), so its diff
+    // is found and empty: nothing to misread.
+    assert_eq!(rc.changed[0].diff.as_ref().map(|d| d.diff.counts()), Ok((0, 0)));
+    reconfirm::sign_reconfirm(r.path(), &rc, &key).unwrap();
+    r.commit("quick stamp twice");
+    let s = r.state("twice").unwrap();
+    assert_eq!((s.kind(), s.rung), (StateKind::Valid, 3), "{}", s.reason);
+    let md = r.read(&format!("{DIR}/review.md"));
+    assert!(md.contains("Re-confirmed on") && md.contains("Fractions changed"), "{md}");
+}
+
+/// Methodology (#856): the workspace cache against a full load, on the
+/// fixture plus a second indexed folder (`crates/demo/src/sub`). After each
+/// change below the cached load must equal [`load_workspace_uncached`]
+/// (every folder index, every `review.md`, `HEAD`), and the number of
+/// folders it refreshed must be the number the change touches:
+///
+/// 1. first load: both folders; 2. nothing changed: none;
+/// 3. one file edited to a text of the **same length**, not committed: its
+///    folder only (the edit is caught by content, since the timestamp is
+///    too fresh to trust);
+/// 4. commit and reindex, then a stamp is written (`review.md`, new
+///    `HEAD`, new claims): the stamped folder only, the other reused;
+/// 5. a new file with a new function in `sub` (its id is minted with
+///    `HEAD`): `sub` only; then a commit moves `HEAD`: `sub` again, because
+///    its minted id depends on it, while the other folder is reused;
+/// 6. the file is deleted: `sub` only; 7. `forget`: both again.
+///
+/// Result (2026-10-13): passes.
+#[test]
+fn the_cache_gives_what_a_full_load_gives() {
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    let key = founder_key(&r, store.path());
+    let sub = format!("{DIR}/sub");
+    r.write(&format!("{sub}/a.rs"), "pub fn deep() -> u8 {\n    1\n}\n");
+    r.commit("a second folder");
+    let head = r.git(&["rev-parse", "HEAD"]).trim().to_string();
+    let files = BTreeMap::from([("a.rs".to_string(), r.read(&format!("{sub}/a.rs")))]);
+    let (mut idx, _) = refresh_folder("demo", &sub, None, &files, None, &[], &head);
+    for m in idx.modules.values_mut() {
+        m.path = "crate::sub::a".into();
+        for f in &mut m.functions {
+            f.index_out_of_date = false;
+        }
+    }
+    r.write(&format!("{sub}/kovan.toml"), &idx.to_toml().unwrap());
+    r.commit("index the second folder");
+
+    let same_as_full = |what: &str| -> usize {
+        let cached = load_workspace(r.path()).unwrap();
+        let full = load_workspace_uncached(r.path()).unwrap();
+        assert_eq!(cached.indexes, full.indexes, "{what}");
+        assert_eq!(cached.reviews, full.reviews, "{what}");
+        assert_eq!(cached.head, full.head, "{what}");
+        assert_eq!(format!("{:?}", cached.review_root), format!("{:?}", full.review_root), "{what}");
+        ws_cache::refreshed_last(r.path()).unwrap()
+    };
+    ws_cache::forget(r.path());
+    assert_eq!(same_as_full("first load"), 2);
+    assert_eq!(same_as_full("nothing changed"), 0);
+    r.edit("x * 2.0", "x * 3.0");
+    assert_eq!(same_as_full("a same-length edit"), 1);
+    assert_eq!(same_as_full("after the edit, nothing more"), 0);
+    r.commit("edit leaf");
+    r.reindex();
+    assert_eq!(same_as_full("reindexed"), 1);
+    r.stamp(&key, "leaf", "");
+    assert_eq!(same_as_full("a stamp was written"), 1);
+    assert_eq!(same_as_full("after the stamp, nothing more"), 0);
+    r.write(&format!("{sub}/b.rs"), "pub fn fresh() {}\n");
+    assert_eq!(same_as_full("a new file"), 1);
+    r.commit("add b.rs");
+    assert_eq!(same_as_full("HEAD moved under a minted id"), 1);
+    std::fs::remove_file(r.path().join(format!("{sub}/b.rs"))).unwrap();
+    assert_eq!(same_as_full("a file deleted"), 1);
+    ws_cache::forget(r.path());
+    assert_eq!(same_as_full("forgotten"), 2);
+}

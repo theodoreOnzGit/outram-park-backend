@@ -17,6 +17,11 @@ lines = [
 hash = "sha256:d236b79d2378ad555e02f957175f94439924a4dc7e5f6c26f89d22cb7e44fed5"
 doc_hash = "sha256:9dd08afd2b97399fbdb2c4272ae1d2ab68b0cad8749e2d85bfcdde8fca89444b"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -30,6 +35,11 @@ lines = [
 hash = "sha256:24b332ff4b435ef40cedc8ef3e89f453d30cf51c05770bf6c8ef9a0bdb35823e"
 doc_hash = "sha256:73dbc7c1aa4a1bbc9929f03cb2e62b5994180db8131e1e15169ea9939da583db"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -43,6 +53,11 @@ lines = [
 hash = "sha256:e708bb6af52b655b89f08d4ddeb7955fa2dc32d3540391140e650b9edd93801c"
 doc_hash = "sha256:53613920205e247a0eed373bd2f34564664ecc4e330dd0a2a21695e53e395037"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -56,6 +71,11 @@ lines = [
 hash = "sha256:438c111b877a5e491a0341cef6527ab95e2c895cdbfe9be5c1e7fe37fe9f6af1"
 doc_hash = "sha256:d95c008e21682ac98bf9b1bdcf7e1aa32ef9bc11855c3f3fdc134ad2d185213d"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -69,6 +89,11 @@ lines = [
 hash = "sha256:36ad64fff8361b0cc86a235b19ed4da71081e405418c1c27a03c99e3a3336083"
 doc_hash = "sha256:62d2a815a82c7d54402e8ceeaaf0a8262c57a50e6b1cacbcff63e1ce9aeb70e1"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -82,6 +107,11 @@ lines = [
 hash = "sha256:e5644d44efaff42a48fe027c201eeafff97dfa9c0dda92c0444aca7776184ed3"
 doc_hash = "sha256:c2d979b65d47b9b2c1c476eb2af3702b34f832a791a26b566f3a252e6606734a"
 callees = ["fn:c79fa136163d3697"]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -95,6 +125,11 @@ lines = [
 hash = "sha256:6fac8873f05aafc6b8a6a80a5d151c760c829badacd94d5c4d84716821d2ce4d"
 doc_hash = "sha256:858b817ebed2df38b1e8aa602d8f1b646ac16774d08b396e7aed2badf72f7243"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -108,6 +143,11 @@ lines = [
 hash = "sha256:025a6e0e3fa1a9f3ab7ef4f417da8110b9d305d9a961532879f04cdf6d49f074"
 doc_hash = "sha256:316d46a96e728ddaa28d1f51742525f25d2b7761b887799d41c3467b20b6304f"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -125,6 +165,14 @@ callees = [
     "fn:61571eb5e1cd42ad",
     "fn:ec1bb94e3b0efdfb",
 ]
+uses = [
+    "fn:0a50e017198e2657",
+    "fn:68ae150e37a870db",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -138,6 +186,11 @@ lines = [
 hash = "sha256:a75321a3dcc37910c64a736c559fd9406d92f9efbd5970fef970cb52b7f6ece6"
 doc_hash = "sha256:27a87d7e2af3a010efd4c3d4dee25d86a54775aa17bbe336bd949ad015ee2f1c"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -151,6 +204,11 @@ lines = [
 hash = "sha256:1aea477302aff306fb8736751f59ed17efc908a7a40fb6d49406cd0491431d6e"
 doc_hash = "sha256:418a5cd147a10442ae096effcd30865fef372efc09de96e9dd9d62411651b2f5"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -164,6 +222,11 @@ lines = [
 hash = "sha256:e722b8269db33e5b0d710514d03db1dce031b85f2af1bbe397ce2298a09ce4e6"
 doc_hash = "sha256:69b9cb88f6e4a18e4b04210ca4e52ef74450aaf31ca26f89a33d9de99c628471"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -177,6 +240,11 @@ lines = [
 hash = "sha256:98982800e8c63bd495aa5fc40b2b74d0c356710af90c595f0b43480d7dc368c2"
 doc_hash = "sha256:3bf511c2405c7128d6b6c3a2b7c18eacc78410ed67c46d01bdee6e5d09f92ce5"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -190,6 +258,11 @@ lines = [
 hash = "sha256:dfb7415a3a0f7bd79330dabebc0f5bf668c9899c2ce8d4311c04c353121d11ee"
 doc_hash = "sha256:ecfcccf288137328a34e6133db1f95a657ee63cad7d6d57a8388e4b400aef648"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -203,6 +276,11 @@ lines = [
 hash = "sha256:345cd59e6a6af658d760b0d70d62d38c21c0095aecef5d8c84a5ab2453d3239d"
 doc_hash = "sha256:972995dc6f73f8055f7b552211a98a41286a846c1afabc6d6f776468e1692ffa"
 callees = ["fn:c79fa136163d3697"]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -216,6 +294,11 @@ lines = [
 hash = "sha256:d9a3ae7c5ba546ebcf07b0cc011fbb367c764e49aa60b36921de86e7f027af07"
 doc_hash = "sha256:c64b6a92ba5bf5a5ace81a5137bbd9ea92182168f2fa42834136a2c7fff99e82"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -233,6 +316,13 @@ callees = [
     "fn:4f08e35087543a15",
     "fn:c79fa136163d3697",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -246,6 +336,11 @@ lines = [
 hash = "sha256:98982800e8c63bd495aa5fc40b2b74d0c356710af90c595f0b43480d7dc368c2"
 doc_hash = "sha256:74a0bbf209ba8bfbe295670c27d54e1f2085793976b3b10dd7d9e772db7ccdc8"
 callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -262,6 +357,11 @@ callees = [
     "fn:596f306f3fb318d5",
     "fn:5e3e746d7a558eea",
     "fn:f3cde3d60d3dff8d",
+]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
 ]
 physical_interface = true
 
@@ -280,6 +380,11 @@ callees = [
     "fn:5e3e746d7a558eea",
     "fn:f3cde3d60d3dff8d",
 ]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [[module."components.rs".function]]
@@ -296,6 +401,11 @@ callees = [
     "fn:596f306f3fb318d5",
     "fn:5e3e746d7a558eea",
     "fn:f3cde3d60d3dff8d",
+]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
 ]
 physical_interface = true
 
@@ -314,10 +424,28 @@ callees = [
     "fn:5e3e746d7a558eea",
     "fn:f3cde3d60d3dff8d",
 ]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 physical_interface = true
 
 [module."fhr_thermal_hydraulics_state.rs"]
 path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::fhr_thermal_hydraulics_state"
+
+[[module."fhr_thermal_hydraulics_state.rs".function]]
+id = "fn:d915a4ac48314f03"
+name = "FHRThermalHydraulicsState"
+qual = "FHRThermalHydraulicsState"
+item = "type"
+shape = "struct"
+lines = [
+    3,
+    80,
+]
+hash = "sha256:917c36cd7056b09be32a006cf44e4077284f05594585bfa8a9d1f7e6c879e607"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [module."mod.rs"]
 path = "example:fhr_sim_v2::app::thermal_hydraulics_backend"
@@ -353,6 +481,16 @@ callees = [
     "fn:d29f0cb22c120e5f",
     "fn:f66c6613b2fa9c0c",
     "fn:fa5c92d5b6a14105",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:9b373dcfa52e169e",
+    "fn:a6efe5f766b47fef",
+    "fn:d915a4ac48314f03",
+    "fn:de020efa1d48c9ac",
 ]
 physical_interface = true
 
@@ -395,4 +533,10 @@ callees = [
     "fn:ec89969d17103889",
     "fn:f241daed20aed39e",
     "fn:feb01288f906d09a",
+]
+uses = [
+    "fn:1e9e054cc5b5a361",
+    "fn:747e85a1cde79fdd",
+    "fn:bbc1dd07cffc2c7a",
+    "fn:d915a4ac48314f03",
 ]

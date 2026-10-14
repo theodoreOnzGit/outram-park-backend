@@ -32,6 +32,11 @@ if [[ "$have" != "$want" ]]; then
 fi
 
 cd "$root"
+# The page prints the commit and date it was built at beside every k the
+# reader computes (keff.rs `build_stamp`).
+commit="${GITHUB_SHA:-$(git rev-parse HEAD)}"
+export OUTRAM_PAGE_COMMIT="${commit:0:10}"
+export OUTRAM_PAGE_DATE="$(date -u +%Y-%m-%d)"
 cargo build --release --target wasm32-unknown-unknown -p dhoby-ghaut --example monte_carlo_web
 
 rm -rf "$dist"

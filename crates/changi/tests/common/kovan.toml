@@ -7,6 +7,20 @@ dir = "crates/changi/tests/common"
 path = "test:flexpart_advance_code_to_code::common"
 
 [[module."mod.rs".function]]
+id = "fn:4688890492273a92"
+name = "Precision"
+qual = "Precision"
+item = "type"
+shape = "enum"
+lines = [
+    29,
+    36,
+]
+hash = "sha256:bf05c4d9d2b3b1cbf06d3a396a4d897d317d154d98ee7bb806ff95e204be7557"
+doc_hash = "sha256:9d984d7e82582e592e0bedf78fef75b10490833067f376134f934e232e621298"
+test = true
+
+[[module."mod.rs".function]]
 id = "fn:5688e0d9c53ad82e"
 name = "label"
 qual = "Precision::label"
@@ -16,6 +30,7 @@ lines = [
 ]
 hash = "sha256:728511af3221329be6a1119c0d9e30a0554779c3b451b479dcc56f5defe50379"
 doc_hash = "sha256:4d5cd730965a63dc66aa3054694b8312dd53002e9a4e928caf53f83eda88304e"
+uses = ["fn:4688890492273a92"]
 test = true
 
 [[module."mod.rs".function]]
@@ -28,6 +43,21 @@ lines = [
 ]
 hash = "sha256:aaf756067dbc11938be67b27406cb192edf09eba74f9aba634d62def5b49146f"
 doc_hash = "sha256:7b7c891150e1658044c2ae351c972654969a6c9fb2b6a24379ca0a79963c9bb8"
+uses = ["fn:4688890492273a92"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:276991e242a0ee48"
+name = "Row"
+qual = "Row"
+item = "type"
+shape = "struct"
+lines = [
+    56,
+    65,
+]
+hash = "sha256:fa1ef88ff8b67d93942fa935f03d3096d0e9783bf61e50678ecea46319ff5a85"
+doc_hash = "sha256:90e130173eebe868a8623de6c797e2843e9d6867750ad9ae5c5f493df4794246"
 test = true
 
 [[module."mod.rs".function]]
@@ -40,6 +70,7 @@ lines = [
 ]
 hash = "sha256:b586f87dda4102681b95415b221d5b3258bffe9d86919fed6328fcae6666be67"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:4688890492273a92"]
 test = true
 
 [[module."mod.rs".function]]
@@ -53,6 +84,25 @@ lines = [
 hash = "sha256:085b189677a10ca08a18132caf1b851add450875b2cb77393da66f0db23725e0"
 doc_hash = "sha256:ebfcc1c2039a1caccfd4f3949e903455581cd6ed0b006458a8ee3abecbc8feaa"
 callees = ["fn:28b906270af53bd4"]
+uses = [
+    "fn:276991e242a0ee48",
+    "fn:4688890492273a92",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:100a11fb01e9c9ce"
+name = "Fixtures"
+qual = "Fixtures"
+item = "type"
+shape = "struct"
+lines = [
+    107,
+    113,
+]
+hash = "sha256:df973cd17bd188149c8971c3ebf086b0eede0bdcb5eec7275877954fa0728efb"
+doc_hash = "sha256:0e1096073ae793c39dfeaeca8b8f9bdfdb95d9c5aecef2f504bd5fdd3f14c810"
+uses = ["fn:276991e242a0ee48"]
 test = true
 
 [[module."mod.rs".function]]
@@ -66,6 +116,10 @@ lines = [
 hash = "sha256:543809620d3fa2678c2f46897cd2bc93f3da0cb32f08e367a4f43b425d45c2ef"
 doc_hash = "sha256:740e3cae210378064a828b5766316f920cb330cb08af0acfa6974730e80d3a8f"
 callees = ["fn:f9acaf65a5577188"]
+uses = [
+    "fn:100a11fb01e9c9ce",
+    "fn:4688890492273a92",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -78,6 +132,11 @@ lines = [
 ]
 hash = "sha256:7057ea326b1ae8d22542a26b37ab2d293de9af6d9beb3624aca40fa7f1060a44"
 doc_hash = "sha256:7d058fed7d7cb966f378a8c2b412a041c82eb4536368e4fd47692cf5fdecc7b6"
+uses = [
+    "fn:100a11fb01e9c9ce",
+    "fn:276991e242a0ee48",
+    "fn:4688890492273a92",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -93,6 +152,49 @@ doc_hash = "sha256:9624234ee32742177d31e4474e3eef6312799fb1dd2cd2a127d982ae749dc
 test = true
 
 [[module."mod.rs".function]]
+id = "fn:3a0c11de9a82434a"
+name = "Real4Rule"
+qual = "Real4Rule"
+item = "type"
+shape = "enum"
+lines = [
+    146,
+    161,
+]
+hash = "sha256:878ae510d9bbc3033e71b2196701681c1b4446d8c60a211688f721c63232d629"
+doc_hash = "sha256:8eb117264c78200d310894ca7734011e1ab2a8fd6b92247dfee70918670a33f4"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:af11256bd515d519"
+name = "SPREAD_FACTOR"
+qual = "SPREAD_FACTOR"
+item = "const"
+shape = "const"
+lines = [
+    163,
+    166,
+]
+hash = "sha256:076e8665dfa725586e74716284e8779a44bcd419fdbb32a61ad266f06b6b58b3"
+doc_hash = "sha256:6bc0d9bd4bb1b447eb6e26b10270b8c5da0315e26dd8c6558919ba45bd1391a2"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:0cb95bcdce111928"
+name = "Bounds"
+qual = "Bounds"
+item = "type"
+shape = "struct"
+lines = [
+    168,
+    181,
+]
+hash = "sha256:2cda5f4fe937f62bebf105f869d1877a5fd614017e6b36270fdc2b069cefa2ad"
+doc_hash = "sha256:2653e2520a44c1420fa9aa04182bab0b6fc598fed8ee4adfb9515ff6831ff66d"
+uses = ["fn:3a0c11de9a82434a"]
+test = true
+
+[[module."mod.rs".function]]
 id = "fn:79bb77fa86cdad8a"
 name = "rel"
 qual = "Bounds::rel"
@@ -102,6 +204,10 @@ lines = [
 ]
 hash = "sha256:283b1bc2e0ea1b52f8e5093671b0ba7fc09dfdfe967629887f5bafec1e44efa6"
 doc_hash = "sha256:cbfbb84d25b09f0d1ebe332e836e12b19f239517ae53bed717897596620b16d4"
+uses = [
+    "fn:0cb95bcdce111928",
+    "fn:3a0c11de9a82434a",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -119,6 +225,13 @@ callees = [
     "fn:5688e0d9c53ad82e",
     "fn:ffdfe8730ae7f601",
 ]
+uses = [
+    "fn:100a11fb01e9c9ce",
+    "fn:276991e242a0ee48",
+    "fn:3a0c11de9a82434a",
+    "fn:4688890492273a92",
+    "fn:af11256bd515d519",
+]
 test = true
 
 [[module."mod.rs".function]]
@@ -132,4 +245,11 @@ lines = [
 hash = "sha256:20cc1f1352229ee55e8b924f4d5a40dab55edae790a98e767c5fb1299993d423"
 doc_hash = "sha256:5a8343c88ac43d11a9ff672f4e1421bec1c55e36dbab3969bda3eda7b04595d3"
 callees = ["fn:894757096d8858b9"]
+uses = [
+    "fn:0cb95bcdce111928",
+    "fn:100a11fb01e9c9ce",
+    "fn:276991e242a0ee48",
+    "fn:3a0c11de9a82434a",
+    "fn:4688890492273a92",
+]
 test = true

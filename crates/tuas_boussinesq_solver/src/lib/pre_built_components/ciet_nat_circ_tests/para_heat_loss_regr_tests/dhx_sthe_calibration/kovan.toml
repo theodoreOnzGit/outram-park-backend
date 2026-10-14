@@ -46,6 +46,13 @@ callees = [
     "fn:dda41651835c793f",
     "fn:e4bff9f30142b5cc",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
 reached_by = ["#8"]
 
 [module."calibration_version_2.rs"]
@@ -79,6 +86,13 @@ callees = [
     "fn:cb686a3a508b4a07",
     "fn:dda41651835c793f",
     "fn:e4bff9f30142b5cc",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
 ]
 reached_by = [
     "#0",

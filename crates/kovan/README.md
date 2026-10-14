@@ -574,6 +574,24 @@ reviewed. Save keeps what was written to `review.md`; Cancel puts it back
 as it was on entering. Logic: `src/stamping/review_mode/`; drawing:
 `src/app/review_mode_panel.rs`.
 
+Added 2026-10-13 (#857): the reviewed source is drawn with syntax colours
+(also in kovan-web's source panel), and the quick-fix editor is a code
+buffer: syntax colours, new lines indented with spaces for Rust, and names
+completed on Ctrl+N / Ctrl+P (Enter accepts, Esc closes; the list never
+opens by itself. ~~It opened as you typed, with Tab to accept~~, changed
+the same day on the maintainer's word).
+In it `:w` saves and stays open, `:q` closes, `:wq` saves and closes.
+Right-click a function whose stamp is stale only because something it
+calls or uses changed (a function, a type or a constant) and choose
+**Quick stamp**: it shows what changed there and renews the stamp with the
+same answers, without the wizard. It is refused while a reaching test
+fails or while the changed item has no valid review of its own.
+**No language server is started**: colours come from the `kopitiam-syntax`
+line lexer and completion from the cached index (`kovan.toml`), so
+completion knows names in this workspace, nearest first, but not types:
+after `x.` it does not narrow to the methods of `x`'s type, it knows
+nothing from `std` or crates.io, and there are no live diagnostics.
+
 Added 2026-10-12 (#839): right-click a function with a valid stamp and
 choose **Add connection…** to connect it to a concept of the standard
 corpus. The link is written to the code repository's
@@ -584,6 +602,73 @@ commits. It is unsigned and not part of the stamp (`src/code_connections.rs`,
 with, "this is a test" answers for a test function (limits, error
 handling, test reach, V&V evidence); they are refused on any other
 function.
+
+Added 2026-10-13 (#843, first step): a module's **types and constants**
+(structs, enums, unions, traits, type aliases, constants and statics) are
+on the Code Review map beside its functions, each card saying what it is
+in plain words (record, list of cases, interface, shorthand name, named
+number); selecting one shows its definition. `kovan-cli index` and
+`--refresh` write them into `kovan.toml` with `item` and `shape`; a
+struct's or enum's hash also covers the methods written for it in the same
+file, so a method change makes its review stale. Not built yet: the
+questions a review of one asks (asking to stamp one is refused with that
+reason), ~~which functions use which type,~~ and methods written for a type
+in another file. **Added 2026-10-13 (step 2):** the index run reads from
+rust-analyzer's SCIP index which workspace types and constants each
+function names and writes them as `uses` in `kovan.toml` (and in the map
+data, where a type unfolds to the functions that use it). The bottom-up
+rule covers them: a function cannot be stamped until the types it uses have
+a valid review, and a new stamp records their hashes, so a later change to
+a type asks for a re-confirm of its users. A review written before this
+keeps its state. A type's `reached_by` lists the tests that use it.
+**Added 2026-10-13 (step 3):** types and constants are stamped through the
+same wizard with their own questions (~~asking to stamp one is refused~~),
+worded without software jargon and each with an engineering example: does
+it hold what its description says, can it hold a physically impossible
+value (records and lists of cases), is every case listed (lists of cases),
+where does the value come from (named numbers), what must every model
+behind it guarantee (interfaces), does a test use it. "What happens when
+something goes wrong" and "numerical hazards" are not asked of them.
+
+**Rung 4 checks two axes (#855, 2026-10-13):** choosing "a human wrote the
+V&V case and verified its result by hand" makes the review a rung 4 review,
+and five more questions appear: three on physical accuracy (do the reaching
+tests pass, pre-filled from the recorded full test run; would the test fail
+if the physics were wrong; is the tolerance justified) and two on usability
+(could you use it without reading its source; could you give it a wrong
+quantity by accident). An answer that fails an axis leaves the stamp at
+rung 3. A rung 4 review written before these questions keeps rung 4 and is
+listed in the need-you queue as "rung 4 axes not recorded" until it is
+stamped again.
+
+**A skipped number guard can be waived, at a cost (2026-10-14):** "Are the
+allowable input ranges guarded?" has one more answer, "No guard, accepted
+for research use (not for a safety decision), because: ____". It needs a
+typed reason every time. The stamp is allowed, but it is capped at rung 3
+whatever the V&V answers say, and the function is listed in the need-you
+queue as "a check was waived: capped at rung 3" until a guard is added and
+it is stamped again. "A guard is missing" still refuses the stamp. Basis,
+read in the standard corpus: NUREG/BR-0167 grades software by use (§1.2;
+Level 1 is software "used in a safety decision by the NRC") and lists
+"proper handling of boundary conditions, including extreme inputs" among
+the objectives of requirements-driven testing (§3.2.4.1, p. 11), so code without
+a guard is reviewed and not V&V'd; DOE G 414.1-4 F.5.6 asks safety
+software to document "allowable or prescribed ranges for inputs and
+outputs". The older "Other: ____" and "No limits apply, explained: ____"
+answers are unchanged and carry no cap.
+
+**Code reviews on the mindmap (#844, 2026-10-13):** when the Kovan folder
+mounts a code repository (Repository management, `[[repos.code]]`), each
+entry a reviewer tied to a standard corpus concept is listed on that
+concept's right-click menu, beside its literature artefacts: the entry, the
+repository, and the review in words ("rung 3, valid", "changed since
+review"). Choosing one opens Code Review on that repository at that entry.
+An entry is tied to a concept in Code Review, by **Add connection…** or by
+the concept link chosen while stamping; both are stored in the code
+repository, nothing in the Kovan folder. The list is collected on a
+background thread and again after Code Review was shown
+(`src/code_review_artifacts.rs`). Map data written before this change is rebuilt the next time
+the Code Review view opens (no rust-analyzer run needed).
 
 Added 2026-10-12 (#838): after a **squash merge or rebase**, the commit a
 stamp certifies is no longer in the branch's history, and the stamp shows

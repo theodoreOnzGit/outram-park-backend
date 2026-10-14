@@ -7,6 +7,25 @@ dir = "crates/tampines/src/balance_of_plant"
 path = "crate::balance_of_plant"
 
 [[module."mod.rs".function]]
+id = "fn:625ac50f219d9a43"
+name = "RankineCycle"
+qual = "RankineCycle"
+item = "type"
+shape = "struct"
+lines = [
+    15,
+    32,
+]
+hash = "sha256:b301b50a1049ee4b86d8cd8ddff751d6b411d5d71a9e5cfa1f7d468756eeb5d7"
+doc_hash = "sha256:adfe9a3b6ada168c775100794a0324310cb0859dc11c4869cb06e740397e315a"
+uses = [
+    "fn:2494b122aaaf1722",
+    "fn:646c17700754ea05",
+    "fn:b26e728955cae23e",
+    "fn:cfff3fd378631416",
+]
+
+[[module."mod.rs".function]]
 id = "fn:f391d746ea3b19c3"
 name = "new"
 qual = "RankineCycle::new"
@@ -16,3 +35,10 @@ lines = [
 ]
 hash = "sha256:d9ebb92551ee1d5bf9f554200fbe06f567403ce058ed2d802a19c4abfee77f6d"
 doc_hash = "sha256:3a54b8c977ea886d25bc565c9ce25f0b23b8cc61bb03855df2c23abec3bcf5ab"
+uses = [
+    "fn:2494b122aaaf1722",
+    "fn:625ac50f219d9a43",
+    "fn:646c17700754ea05",
+    "fn:b26e728955cae23e",
+    "fn:cfff3fd378631416",
+]

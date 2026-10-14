@@ -263,8 +263,15 @@ impl NuclearDataLibrary {
     /// from the HEATR KERMA — H1–H5 kinematic terms (ν̄ from MF=1/452, χ from
     /// MF=5/18, and the (n,2n)/(n,3n)/continuum emission spectra from MF=6/MF=5)
     /// **plus the H6 energy-balance correction** (escaping photon energy from
-    /// MF=12/13/15 subtracted). Still not written: the fission ν̄ (NU) block and
-    /// non-elastic angular distributions — see [`crate::acer`] for the scope.
+    /// MF=12/13/15 subtracted). ~~Still not written: the fission ν̄ (NU) block and
+    /// non-elastic angular distributions~~ **CORRECTED 2026-10-14:** the NU
+    /// block is written (`acer::nu::build` below), and so are the non-elastic
+    /// angular distributions (the AND block of `from_reconr_full`'s
+    /// builder, word for word NJOY2016's on U-234 through
+    /// [`crate::acer::build_deck`]); not written here are the
+    /// delayed-neutron blocks, GPD, the charged-particle blocks and PURR's
+    /// tables, which [`crate::acer::build_deck`] and
+    /// [`crate::process::ace`] write — see [`crate::acer`] for the scope.
     ///
     /// # Errors
     ///

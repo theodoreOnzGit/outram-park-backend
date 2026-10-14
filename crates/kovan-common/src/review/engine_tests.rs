@@ -36,6 +36,8 @@ pub(super) fn fun(id: &str, hash: char, callees: &[&str], tests: &[&str]) -> Fun
         name: qual.rsplit("::").next().unwrap_or("").into(),
         qual,
         item: ItemKind::Fn,
+        shape: None,
+        uses: Vec::new(),
         lines: [1, 5],
         hash: h(hash),
         doc_hash: h('d'),
@@ -563,6 +565,34 @@ fn rung_is_derived_and_a_mismatch_is_invalid() {
     let f = eval(&r4, Some(&human));
     assert_eq!(f.state, StampState::Valid);
     assert_eq!(f.rung, Some(4));
+    // #855 (2026-10-13): this review predates the questions of rung 4's two
+    // axes. It keeps rung 4 and is flagged until stamped again.
+    assert_eq!(f.flags.iter().map(FunctionFlag::kind).collect::<Vec<_>>(), [FlagKind::Rung4AxesNotRecorded]);
+    let mut both = r4.clone();
+    for (q, o) in [
+        ("rung4_tests_pass", "all_pass"),
+        ("rung4_test_catches_wrong_physics", "compared_with_tolerance"),
+        ("rung4_tolerance_justified", "from_outside"),
+        ("rung4_usable_without_source", "from_name_and_description"),
+        ("rung4_wrong_quantity_by_accident", "no_named_and_unit_carrying"),
+    ] {
+        both.review.checklist.insert(q.into(), o.into());
+    }
+    let f = eval(&both, Some(&human));
+    assert_eq!((f.state.clone(), f.rung), (StampState::Valid, Some(4)));
+    assert!(f.flags.is_empty(), "{:?}", f.flags);
+    // An axis that fails gives rung 3: a recorded 4 is then a mismatch,
+    // and the same answers recorded at 3 are valid.
+    let mut fails = both.clone();
+    fails.review.checklist.insert("rung4_usable_without_source".into(), "had_to_read_code".into());
+    let f = eval(&fails, Some(&human));
+    assert_eq!(
+        f.state,
+        StampState::Invalid(InvalidReason::RungMismatch { recorded: 4, derived: 3, tests: TestAuthorship::Human })
+    );
+    fails.review.rung = 3;
+    let f = eval(&fails, Some(&human));
+    assert_eq!((f.state.clone(), f.rung), (StampState::Valid, Some(3)));
     // Git contradicts the human answer: invalid, not counted.
     let f = eval(&r4, Some(&agent));
     assert_eq!(
@@ -590,6 +620,63 @@ fn rung_is_derived_and_a_mismatch_is_invalid() {
         eval(&low, Some(&human)).state,
         StampState::Invalid(InvalidReason::RungMismatch { recorded: 3, derived: 4, .. })
     ));
+}
+
+/// Methodology: the number-guard waiver in the engine (maintainer,
+/// 2026-10-14). A review whose answers would give rung 4 (a qualifying V&V
+/// case written by hand, both rung 4 axes answered well, git showing a human
+/// wrote the reaching test) also answers `limits_and_guards =
+/// guard_waived_research: <reason>`. Recorded at rung 4 it is invalid (a
+/// rung mismatch, 4 recorded and 3 derived); recorded at rung 3 it is valid,
+/// counts at rung 3, and the function carries one `RungCappedByWaiver` flag
+/// naming the answer as written.
+///
+/// Result (2026-10-14): passes.
+#[test]
+fn a_waived_guard_caps_a_review_at_rung_3_and_flags_the_function() {
+    let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &["t::ok"])])])];
+    let eval = |r: &ReviewEntry| {
+        let revs = [reviews_in("x", D, vec![r.clone()])];
+        let mut g = git_for(&[&revs[0]]);
+        let key = ReviewKey { function: fid(F), by: M.into() };
+        g.stamps.get_mut(&key).unwrap().tests_at_review = Some(TestsAtReview {
+            reached_by: vec!["t::ok".into()],
+            commit_messages: [("t::ok".to_string(), vec!["add flash analytical test".to_string()])].into(),
+        });
+        eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked).functions[&fid(F)].clone()
+    };
+    let mut r = review(F, M, 'a', &[]);
+    r.review.rung = 4;
+    for (q, o) in [
+        ("vv_evidence", "analytical_case"),
+        ("vv_case_author", "human_wrote_and_verified"),
+        ("rung4_tests_pass", "all_pass"),
+        ("rung4_test_catches_wrong_physics", "compared_with_tolerance"),
+        ("rung4_tolerance_justified", "from_outside"),
+        ("rung4_usable_without_source", "from_name_and_description"),
+        ("rung4_wrong_quantity_by_accident", "no_named_and_unit_carrying"),
+    ] {
+        r.review.checklist.insert(q.into(), o.into());
+    }
+    let f = eval(&r);
+    assert_eq!((f.state.clone(), f.rung), (StampState::Valid, Some(4)));
+    assert!(f.flags.is_empty(), "{:?}", f.flags);
+
+    let waiver = "guard_waived_research: scoping study, inputs come from one deck";
+    r.review.checklist.insert("limits_and_guards".into(), waiver.into());
+    assert!(matches!(
+        eval(&r).state,
+        StampState::Invalid(InvalidReason::RungMismatch { recorded: 4, derived: 3, .. })
+    ));
+    r.review.rung = 3;
+    let f = eval(&r);
+    assert_eq!((f.state.clone(), f.rung), (StampState::Valid, Some(3)));
+    assert_eq!(f.flags.iter().map(FunctionFlag::kind).collect::<Vec<_>>(), [FlagKind::RungCappedByWaiver]);
+    assert!(
+        matches!(&f.flags[0], FunctionFlag::RungCappedByWaiver { waived, .. } if waived == &[format!("limits_and_guards = {waiver}")]),
+        "{:?}",
+        f.flags
+    );
 }
 
 /// The key history is append-only (#762 follow-up): against the previous
@@ -1106,4 +1193,71 @@ fn implausible_signed_at_is_flagged_and_does_not_void() {
         if matches!(problems[..], [SignedAtProblem::DateMismatch { .. }])));
     let (f, _) = flags_for(Some("2026-10-06T14:03:09+08:00"), Some(t), Some(t - 90_000));
     assert!(matches!(&f[..], [FunctionFlag::ImplausibleSignedAt { problems, .. }] if problems.len() == 3));
+}
+
+/// Methodology (#843): a function `f` that uses a struct `T` (its index
+/// entry lists `T` under `uses`). (1) A review of `f` written before types
+/// were indexed (it records no callee): it stays valid, `T` unreviewed is
+/// listed as blocking a new stamp, and `T` changing does not touch it. (2)
+/// A review of `f` that recorded `T`'s hash, `T` reviewed and unchanged:
+/// valid, nothing blocks. (3) The same with `T`'s hash changed (its
+/// definition or a method): `T` is directly stale and `f` needs a
+/// re-confirm naming `T`. A recorded use is never read as "callees resolve
+/// differently".
+///
+/// Result (2026-10-13): passes.
+#[test]
+fn a_used_type_blocks_bottom_up_and_its_change_asks_for_reconfirm() {
+    use crate::review::index::ItemShape;
+    let t = "crates/x/src/a.rs::T";
+    let ty = |hash: char| {
+        let mut i = fun(t, hash, &[], &[]);
+        i.item = ItemKind::Type;
+        i.shape = Some(ItemShape::Struct);
+        i
+    };
+    let user = || {
+        let mut f = fun(F, 'a', &[], &["t::ok"]);
+        f.uses = vec![fid(t)];
+        f
+    };
+    let idx = |hash: char| [folder("x", D, &[("a.rs", vec![user(), ty(hash)])])];
+    // (1) An older review, no callee recorded.
+    let old = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
+    for hash in ['b', 'c'] {
+        let ev = run(&old, &idx(hash));
+        assert_eq!(kind(&ev, F), StateKind::Valid);
+        assert_eq!(kind(&ev, t), StateKind::New);
+        assert_eq!(ev.functions[&fid(F)].blocked_by, vec![fid(t)]);
+    }
+    // (2) Recorded and unchanged.
+    // The struct's review carries the record answers (the gate is re-run
+    // on read with the entry's shape).
+    let mut t_review = review(t, M, 'b', &[]);
+    t_review.review.checklist = [
+        ("item_matches_description", "yes"),
+        ("item_test_use", "used_and_checked"),
+        ("item_holds_extra", "no"),
+        ("item_impossible_values", "no_checked_when_built"),
+        ("vv_evidence", "unit_tests_only"),
+        ("vv_case_author", "agent_wrote_or_cowrote"),
+        ("maintainability", "yes"),
+        ("independence", "someone_else"),
+        ("coding_standards", "yes"),
+    ]
+    .iter()
+    .map(|(k, v)| (k.to_string(), v.to_string()))
+    .collect();
+    let new = [reviews_in("x", D, vec![review(F, M, 'a', &[(t, 'b')]), t_review])];
+    let ev = run(&new, &idx('b'));
+    assert_eq!(kind(&ev, F), StateKind::Valid);
+    assert_eq!(kind(&ev, t), StateKind::Valid);
+    assert!(ev.functions[&fid(F)].blocked_by.is_empty());
+    // (3) The type changed.
+    let ev = run(&new, &idx('c'));
+    assert_eq!(kind(&ev, t), StateKind::DirectlyStale);
+    match &ev.functions[&fid(F)].state {
+        StampState::InheritedStale { cause, .. } => assert_eq!(*cause, InheritedCause::Callees(vec![fid(t)])),
+        s => panic!("{s:?}"),
+    }
 }

@@ -23,7 +23,8 @@ comes in two books, kept distinct:
   [TRISO-ATOPS and fuel failure, one rung at a time](../../tutorials/triso-atops/intro.html).
   A ladder of questions following one atom born in a TRISO particle, each
   rung adding one piece of physics, each step built the same way (question,
-  shortest answer, formula, illustration, code walk, check, prediction).
+  shortest answer, formula, illustration, where it is in the code (a link into the
+  [Code Review map](../../code-review/)), check, prediction).
   Start at [rung 1](../../tutorials/triso-atops/triso.html).
 - **This book, the extended deep dive**, is the rest of the crate for someone
   who wants to read the code, change it, or check it: architecture, the
@@ -31,7 +32,7 @@ comes in two books, kept distinct:
   compute backends, decay data and the legacy engine.
 
 A [coverage table](./coverage.md) maps every module to the page that teaches
-it (in either book), its code walk and its V&V record; a module without a
+it (in either book), its place on the Code Review map and its V&V record; a module without a
 lesson would be a visible row. The [call-tree appendices](./call-trees.md)
 give the full call tree of each lesson's entry point.
 

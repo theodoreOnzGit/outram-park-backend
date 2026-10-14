@@ -17,6 +17,26 @@ lines = [
 hash = "sha256:2d4e010ad0dd27446a11a3f51cf56f417df2faf26346e9e574a358769ad998fe"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:54fb73371ff4519d"]
+uses = ["fn:fc0aeaf3ef86ad27"]
+
+[[module."mod.rs".function]]
+id = "fn:fc0aeaf3ef86ad27"
+name = "TRISOSimApp"
+qual = "TRISOSimApp"
+item = "type"
+shape = "struct"
+lines = [
+    29,
+    56,
+]
+hash = "sha256:fbef81bf66d95f7e512ce748b486d1f1d8da788b0d14bf269f717cb816634083"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:2f3adfff09f93696",
+    "fn:49c8d375519637b9",
+    "fn:c611e024756fd19b",
+    "fn:e3d3971cf92a6302",
+]
 
 [[module."mod.rs".function]]
 id = "fn:54fb73371ff4519d"
@@ -33,6 +53,12 @@ callees = [
     "fn:85326e95ff2a7a18",
     "fn:f98a2d1ab7baa2a5",
 ]
+uses = [
+    "fn:2f3adfff09f93696",
+    "fn:c611e024756fd19b",
+    "fn:e3d3971cf92a6302",
+    "fn:fc0aeaf3ef86ad27",
+]
 
 [[module."mod.rs".function]]
 id = "fn:85326e95ff2a7a18"
@@ -48,6 +74,13 @@ callees = [
     "fn:cc663f02b8a1483f",
     "fn:d2a46fc8ae82b43e",
 ]
+uses = [
+    "fn:2f3adfff09f93696",
+    "fn:49c8d375519637b9",
+    "fn:c611e024756fd19b",
+    "fn:e3d3971cf92a6302",
+    "fn:fc0aeaf3ef86ad27",
+]
 
 [[module."mod.rs".function]]
 id = "fn:07be8a7f3f719574"
@@ -59,6 +92,7 @@ lines = [
 ]
 hash = "sha256:ee5b663383af4346062f6c5afe09f3c56f3ed9f42247d25e88d8338717248339"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:fc0aeaf3ef86ad27"]
 
 [[module."mod.rs".function]]
 id = "fn:689ce543c3a589e3"
@@ -78,6 +112,10 @@ callees = [
     "fn:e0efc40e15eb5b0d",
     "fn:ef80217d8cc242d1",
     "fn:f837a57aacc79b57",
+]
+uses = [
+    "fn:49c8d375519637b9",
+    "fn:fc0aeaf3ef86ad27",
 ]
 
 [[module."mod.rs".function]]

@@ -39,7 +39,7 @@ lines = [
     70,
     91,
 ]
-hash = "sha256:07e05ad95a68c07acb5e5a20a617d03007312c923f319a64c635c9b2c3bdde78"
+hash = "sha256:3ebac5168f489cf0dc18d4d4dd7387f7167b3f457ddc1a7400c54523909b096e"
 doc_hash = "sha256:ff97c51712a2a22f61a4b14c1edec6d2a9c1672419a68cbe30e421e78d76e4e2"
 callees = ["fn:9307c73bade589f8"]
 test = true
@@ -83,6 +83,10 @@ lines = [
 hash = "sha256:532a2981ad1aad98999059b208cd525f590d1b5996fb187f50474da8d8ca3b1a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:0183256288552f4c"]
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:5315e59b99e3c06d",
+]
 test = true
 
 [[module."zotero_accounting.rs".function]]
@@ -100,6 +104,7 @@ callees = [
     "fn:627f96f0b3f5aaea",
     "fn:9c64c14fc82f3816",
 ]
+uses = ["fn:b5ca786997fb77e4"]
 test = true
 
 [[module."zotero_accounting.rs".function]]
@@ -116,6 +121,7 @@ callees = [
     "fn:3c7f553e4a09afae",
     "fn:9c64c14fc82f3816",
 ]
+uses = ["fn:e16c14a67a161b1c"]
 test = true
 
 [[module."zotero_accounting.rs".function]]
@@ -132,6 +138,10 @@ callees = [
     "fn:3c7f553e4a09afae",
     "fn:9c64c14fc82f3816",
 ]
+uses = [
+    "fn:172326af75efdc60",
+    "fn:e16c14a67a161b1c",
+]
 test = true
 
 [[module."zotero_accounting.rs".function]]
@@ -145,6 +155,10 @@ lines = [
 hash = "sha256:d6bb111df6778790aaa87b3a3967256a47ed1ec2b261f1df54d24c3dc1c39772"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:ee7dfc4209de4402"]
+uses = [
+    "fn:3401e09672b3090f",
+    "fn:5315e59b99e3c06d",
+]
 test = true
 
 [[module."zotero_accounting.rs".function]]
@@ -164,6 +178,20 @@ callees = [
     "fn:dd27068a16821ad7",
     "fn:ee7dfc4209de4402",
 ]
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:3401e09672b3090f",
+    "fn:4d2bc7a2050eb70b",
+    "fn:4dc7413f2da0eef4",
+    "fn:5315e59b99e3c06d",
+    "fn:69d76da05965d2cc",
+    "fn:8185c9e0c6849121",
+    "fn:8cb0a05f95b036a6",
+    "fn:8eae36010dc3938a",
+    "fn:a88980268a226fcb",
+    "fn:d4ea0d49816f0858",
+    "fn:fc9448e19be821dc",
+]
 test = true
 
 [[module."zotero_accounting.rs".function]]
@@ -179,6 +207,11 @@ doc_hash = "sha256:997126df3e021b079f556e05605a28128dd585b97e25853cbb9c9c1645ce5
 callees = [
     "fn:627f96f0b3f5aaea",
     "fn:f17491e18e55dcc3",
+]
+uses = [
+    "fn:2908344534d496c8",
+    "fn:b5ca786997fb77e4",
+    "fn:c14287c2b19fa94a",
 ]
 test = true
 
@@ -197,6 +230,10 @@ callees = [
     "fn:9c64c14fc82f3816",
     "fn:f17491e18e55dcc3",
 ]
+uses = [
+    "fn:793b6d3aefac1bfa",
+    "fn:e16c14a67a161b1c",
+]
 test = true
 
 [[module."zotero_accounting.rs".function]]
@@ -214,6 +251,13 @@ callees = [
     "fn:9c64c14fc82f3816",
     "fn:dd27068a16821ad7",
     "fn:ee7dfc4209de4402",
+]
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:3401e09672b3090f",
+    "fn:5315e59b99e3c06d",
+    "fn:793b6d3aefac1bfa",
+    "fn:d4ea0d49816f0858",
 ]
 test = true
 
@@ -234,4 +278,5 @@ callees = [
     "fn:9c64c14fc82f3816",
     "fn:f17491e18e55dcc3",
 ]
+uses = ["fn:b5ca786997fb77e4"]
 test = true

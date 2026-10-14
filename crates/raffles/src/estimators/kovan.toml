@@ -148,6 +148,30 @@ test_ids = [
 path = "crate::estimators::autocorrelation"
 
 [[module."autocorrelation.rs".function]]
+id = "fn:2c024eb7d8e1e3dd"
+name = "SOKAL_WINDOW_C"
+qual = "SOKAL_WINDOW_C"
+item = "const"
+shape = "const"
+lines = [
+    68,
+    70,
+]
+hash = "sha256:d31271db9ce8f7c2c2d87f849cd604da725601b7e7decfe5a89420013bf50892"
+doc_hash = "sha256:3be563f47f7bfb0e8663da24d7f80e1ba28ddab6abe18dacde1254a8b59eafcf"
+reached_by = [
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#125",
+    "#126",
+    "#127",
+    "#136",
+    "#138",
+]
+
+[[module."autocorrelation.rs".function]]
 id = "fn:f239d0e1f1b8144b"
 name = "autocorrelation"
 qual = "autocorrelation"
@@ -157,6 +181,30 @@ lines = [
 ]
 hash = "sha256:0f18e7af2f7f3e62b266e6f554671c2c6f513f80d7003693985a252a5cf77cd5"
 doc_hash = "sha256:d59e919d76d98a92e078fc60f8be0f05d3dcb30f58611f56554e353c4a936cc2"
+reached_by = [
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#125",
+    "#126",
+    "#127",
+    "#136",
+    "#138",
+]
+
+[[module."autocorrelation.rs".function]]
+id = "fn:ee5ceec25f50adf1"
+name = "AutocorrelationTime"
+qual = "AutocorrelationTime"
+item = "type"
+shape = "struct"
+lines = [
+    99,
+    111,
+]
+hash = "sha256:46d78331391e72d9fc45487fcfd099e2070522900d0abdffbcb34ce2064e96b3"
+doc_hash = "sha256:b08133ecba4c6c8f5e99204ace4ae59e6d7d12da9ec267a82f9600c9dd5a4d5f"
 reached_by = [
     "#42",
     "#43",
@@ -180,6 +228,34 @@ lines = [
 hash = "sha256:b47597ea3e69e46f414f17c6e7ff9976754ed0738462096fc42466a605190ab5"
 doc_hash = "sha256:737a010771e37c4a6e1f569093d463742f188d8711f5db89af24c1d05ccb9c68"
 callees = ["fn:f239d0e1f1b8144b"]
+uses = [
+    "fn:2c024eb7d8e1e3dd",
+    "fn:ee5ceec25f50adf1",
+]
+reached_by = [
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#125",
+    "#126",
+    "#127",
+    "#136",
+    "#138",
+]
+
+[[module."autocorrelation.rs".function]]
+id = "fn:3b31522037b3a511"
+name = "BatchMeans"
+qual = "BatchMeans"
+item = "type"
+shape = "struct"
+lines = [
+    149,
+    164,
+]
+hash = "sha256:7ed3868dedf25354d7e877a164c28f535d40b89e47c61f6516bc25369918f2c4"
+doc_hash = "sha256:4ed8656b471ccf25c765900c96858e46544cd12814a3c14a0af202095edf6c58"
 reached_by = [
     "#42",
     "#43",
@@ -203,6 +279,7 @@ lines = [
 hash = "sha256:59aca58d76c01d467a2e9b4843a16210991079b6ddbc2a8c696e9c95d8e0861b"
 doc_hash = "sha256:db379c0e8a99f1f798c9fe6b655c188be4077ffdded02643094ddc3509f8d78d"
 callees = ["fn:44465a7ba0c2cbf5"]
+uses = ["fn:3b31522037b3a511"]
 reached_by = [
     "#42",
     "#43",
@@ -238,6 +315,34 @@ reached_by = [
 ]
 
 [[module."autocorrelation.rs".function]]
+id = "fn:7735361100092a21"
+name = "CorrelatedMean"
+qual = "CorrelatedMean"
+item = "type"
+shape = "struct"
+lines = [
+    198,
+    219,
+]
+hash = "sha256:3357696f39d8ba51caf3e828163966b477a796cdb8dd0820ece2ae71207262c0"
+doc_hash = "sha256:20e3bd72a1f6cf002d609e021f789ded1c2418c596ba9eb62939359bf1ec88f6"
+uses = [
+    "fn:3b31522037b3a511",
+    "fn:ee5ceec25f50adf1",
+]
+reached_by = [
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#125",
+    "#126",
+    "#127",
+    "#136",
+    "#138",
+]
+
+[[module."autocorrelation.rs".function]]
 id = "fn:1e9ab77e19c0ff72"
 name = "estimate"
 qual = "CorrelatedMean::estimate"
@@ -251,6 +356,7 @@ callees = [
     "fn:53e2e3091dada63b",
     "fn:af1adc016aa65a7a",
 ]
+uses = ["fn:7735361100092a21"]
 reached_by = [
     "#42",
     "#43",
@@ -279,6 +385,7 @@ callees = [
     "fn:d3a6e9193dcb5e6c",
     "fn:f4b6d7bbc257133c",
 ]
+uses = ["fn:7735361100092a21"]
 reached_by = [
     "#42",
     "#43",
@@ -301,6 +408,7 @@ lines = [
 ]
 hash = "sha256:67e1bd86e9f6c1c9e4f2f5704ee9bb46608e72b89bc56bd0342ae6efeeb2a20e"
 doc_hash = "sha256:6b3be751a7925f9c78933cfd2502dd72b1a450579d0f9fa9b5aea1d4ed3b9276"
+uses = ["fn:7735361100092a21"]
 reached_by = [
     "#125",
     "#127",
@@ -335,6 +443,7 @@ callees = [
     "fn:6010f20ccc42989c",
     "fn:f4b6d7bbc257133c",
 ]
+uses = ["fn:7735361100092a21"]
 test = true
 
 [[module."autocorrelation.rs".function]]
@@ -353,6 +462,7 @@ callees = [
     "fn:6010f20ccc42989c",
     "fn:f4b6d7bbc257133c",
 ]
+uses = ["fn:7735361100092a21"]
 test = true
 
 [[module."autocorrelation.rs".function]]
@@ -372,6 +482,7 @@ callees = [
     "fn:d3a6e9193dcb5e6c",
     "fn:f239d0e1f1b8144b",
 ]
+uses = ["fn:7735361100092a21"]
 test = true
 
 [module."mod.rs"]
@@ -629,6 +740,87 @@ reached_by = [
 ]
 
 [[module."mod.rs".function]]
+id = "fn:42122c6e41c94424"
+name = "BinStats"
+qual = "BinStats"
+item = "type"
+shape = "struct"
+lines = [
+    162,
+    172,
+]
+hash = "sha256:75d79fe7a07d64676ce216760ff5a5ce082be55e1f90cc21fedf852df802ec52"
+doc_hash = "sha256:bdcd31248643fe2fb0eeb2521c7fc7ebe4251c85e916f71734aca0bbe1572b16"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#56",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#70",
+    "#71",
+    "#73",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#80",
+    "#81",
+    "#82",
+    "#85",
+    "#87",
+    "#89",
+    "#90",
+    "#91",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#100",
+    "#101",
+    "#109",
+    "#111",
+    "#113",
+    "#116",
+    "#119",
+    "#120",
+    "#121",
+    "#128",
+    "#129",
+]
+
+[[module."mod.rs".function]]
 id = "fn:b25009df63bf37e8"
 name = "bin_uncertainty"
 qual = "bin_uncertainty"
@@ -638,6 +830,7 @@ lines = [
 ]
 hash = "sha256:bdbaa309ab3938c5452113329af32ed7825b292e6163ea41917bf70e453d4226"
 doc_hash = "sha256:2f60ea2d7936bee16367140395f406735ff85afc87da1c80133db1c83b4c890c"
+uses = ["fn:42122c6e41c94424"]
 reached_by = [
     "#1",
     "#2",
@@ -824,6 +1017,7 @@ callees = [
     "fn:81233a9a4c4e8bb4",
     "fn:b25009df63bf37e8",
 ]
+uses = ["fn:42122c6e41c94424"]
 test = true
 
 [[module."mod.rs".function]]
@@ -843,6 +1037,7 @@ callees = [
     "fn:b25009df63bf37e8",
     "fn:cf5c4b3a479ec5fa",
 ]
+uses = ["fn:42122c6e41c94424"]
 test = true
 
 [[module."mod.rs".function]]
@@ -867,6 +1062,67 @@ test = true
 path = "crate::estimators::seed_consistency"
 
 [[module."seed_consistency.rs".function]]
+id = "fn:5552fec205cdb5d6"
+name = "ConsistencyVerdict"
+qual = "ConsistencyVerdict"
+item = "type"
+shape = "enum"
+lines = [
+    61,
+    75,
+]
+hash = "sha256:2af8dd8f6337e8c14e660f7e041c42aeb1168aa7472d23899a24d3c40ea30769"
+doc_hash = "sha256:b912c1939bf3035bd2b30be8111edd0cb118ed2d823bdf0f2d0de16a49d36a53"
+reached_by = [
+    "#46",
+    "#132",
+    "#134",
+    "#135",
+]
+
+[[module."seed_consistency.rs".function]]
+id = "fn:a359e486cb605a98"
+name = "SeedOutlier"
+qual = "SeedOutlier"
+item = "type"
+shape = "struct"
+lines = [
+    77,
+    86,
+]
+hash = "sha256:1ac30758e7eb80ec9347941f9bc10aa794a046325bb432761311f99f595b3750"
+doc_hash = "sha256:33a2af003ef1ea6597092ac0f44ac949596ebea2d940f90aec83ac6cea3b4130"
+reached_by = [
+    "#46",
+    "#132",
+    "#134",
+    "#135",
+]
+
+[[module."seed_consistency.rs".function]]
+id = "fn:a0ad0f002b311fc1"
+name = "SeedConsistency"
+qual = "SeedConsistency"
+item = "type"
+shape = "struct"
+lines = [
+    88,
+    129,
+]
+hash = "sha256:2f8c9387f5470c2400b95f9dc01abe29a2e9ed8cdd4427f153746f254ba322b9"
+doc_hash = "sha256:bc1a36a961596b88069f395a38dbf3521df46cf16a8aefec053aa212dfd8eda1"
+uses = [
+    "fn:5552fec205cdb5d6",
+    "fn:a359e486cb605a98",
+]
+reached_by = [
+    "#46",
+    "#132",
+    "#134",
+    "#135",
+]
+
+[[module."seed_consistency.rs".function]]
 id = "fn:dc670997d9f1c30e"
 name = "seed_consistency"
 qual = "seed_consistency"
@@ -882,6 +1138,13 @@ callees = [
     "fn:a0ad9f0e73bf3d46",
     "fn:d9f0f5e05e7225b0",
     "fn:fc304ebc4b535928",
+]
+uses = [
+    "fn:5552fec205cdb5d6",
+    "fn:6bed5c894beebde8",
+    "fn:a0ad0f002b311fc1",
+    "fn:a344c30956c72449",
+    "fn:a359e486cb605a98",
 ]
 reached_by = [
     "#46",
@@ -928,6 +1191,24 @@ reached_by = [
 ]
 
 [[module."seed_consistency.rs".function]]
+id = "fn:71c686fb72eff1bb"
+name = "GroupMeanScatter"
+qual = "GroupMeanScatter"
+item = "type"
+shape = "struct"
+lines = [
+    274,
+    298,
+]
+hash = "sha256:3d53684168c11d550dda9adfc13fbb94dedc2ad60b72f1ca69299b4f1c28f452"
+doc_hash = "sha256:4e60871929c6dc49632504f979f4b3172d55994e492e7f58c83538392edac18f"
+reached_by = [
+    "#46",
+    "#132",
+    "#133",
+]
+
+[[module."seed_consistency.rs".function]]
 id = "fn:f0d865fa45a0877b"
 name = "group_mean_scatter"
 qual = "group_mean_scatter"
@@ -938,6 +1219,7 @@ lines = [
 hash = "sha256:eeba7d9bafeaed1aa54beae01ccb1fe5aa3a3aa201e925fdf0aeff58dcbfa7e2"
 doc_hash = "sha256:27d6c81039a9601eb2142ed6f25dbe1a67dacde424b59c1199708d9d304f0784"
 callees = ["fn:44465a7ba0c2cbf5"]
+uses = ["fn:71c686fb72eff1bb"]
 reached_by = [
     "#46",
     "#132",
@@ -984,6 +1266,7 @@ callees = [
     "fn:44465a7ba0c2cbf5",
     "fn:dc670997d9f1c30e",
 ]
+uses = ["fn:5552fec205cdb5d6"]
 test = true
 
 [[module."seed_consistency.rs".function]]
@@ -1019,6 +1302,82 @@ test = true
 path = "crate::estimators::stationarity"
 
 [[module."stationarity.rs".function]]
+id = "fn:afee429eda091c31"
+name = "MSER_BATCH"
+qual = "MSER_BATCH"
+item = "const"
+shape = "const"
+lines = [
+    67,
+    68,
+]
+hash = "sha256:5d847a8fda7180bb94a194e84161e64a71028a28dfadd272861db5b35db810d0"
+doc_hash = "sha256:6dd9eb959c34d4177403e82900a168377d6e9503a34b54fa816492b25168ce1d"
+reached_by = [
+    "#42",
+    "#43",
+    "#137",
+    "#138",
+]
+
+[[module."stationarity.rs".function]]
+id = "fn:307ad3a1a0cafbef"
+name = "GEWEKE_WINDOWS"
+qual = "GEWEKE_WINDOWS"
+item = "const"
+shape = "const"
+lines = [
+    69,
+    70,
+]
+hash = "sha256:c215ae7f20d0159ce428a2f9c4eb90d0832b76da663b2d423e94301d0824c515"
+doc_hash = "sha256:ed0cacaa144f6a1076bcb1a5934129f6ab3931c12601bb335ce2bc5a63b3b054"
+reached_by = [
+    "#42",
+    "#43",
+    "#136",
+    "#138",
+]
+
+[[module."stationarity.rs".function]]
+id = "fn:bfdafbe28f7cfdf2"
+name = "GEWEKE_Z_CRIT"
+qual = "GEWEKE_Z_CRIT"
+item = "const"
+shape = "const"
+lines = [
+    71,
+    72,
+]
+hash = "sha256:a0788180765144284ff1f067875c98de173a91d046843c171974e4f66e871258"
+doc_hash = "sha256:7fe9ddaa828b39da895f0e165fc4135aba6ae6fd8fcc06f271e8a6ee6ee0666d"
+reached_by = [
+    "#42",
+    "#43",
+    "#136",
+    "#138",
+]
+
+[[module."stationarity.rs".function]]
+id = "fn:fb85608c1e29ca3a"
+name = "MserTruncation"
+qual = "MserTruncation"
+item = "type"
+shape = "struct"
+lines = [
+    74,
+    90,
+]
+hash = "sha256:03a2872858c39a0de4e2c3748ea370f691542ce35bdd7efeaca00b1a691622b8"
+doc_hash = "sha256:3b9c3439e33b8586fa347625386d6db0306e585adc0c9af5082425f844d09744"
+reached_by = [
+    "#42",
+    "#43",
+    "#136",
+    "#138",
+]
+
+[[module."stationarity.rs".function]]
 id = "fn:d353388d64ad413c"
 name = "mser_truncation"
 qual = "mser_truncation"
@@ -1028,6 +1387,26 @@ lines = [
 ]
 hash = "sha256:72b4176001bb72cc83532e76a8306ad1ad9161ac9551f8fa04a520c05908479d"
 doc_hash = "sha256:6d97d101d653135426b03af843922dbcf5be0283c6284472c944af75ec4e136d"
+uses = ["fn:fb85608c1e29ca3a"]
+reached_by = [
+    "#42",
+    "#43",
+    "#136",
+    "#138",
+]
+
+[[module."stationarity.rs".function]]
+id = "fn:ac12c838799120a5"
+name = "GewekeTest"
+qual = "GewekeTest"
+item = "type"
+shape = "struct"
+lines = [
+    131,
+    152,
+]
+hash = "sha256:a4306925ef9c24f9b2e0f317ea54fb797abd8567ab93261941d0aa6035d744c4"
+doc_hash = "sha256:dea37dbc82bb42da9d8226026fdd76d19903ab0d5bbca98bfc17579055a5de5e"
 reached_by = [
     "#42",
     "#43",
@@ -1046,11 +1425,37 @@ lines = [
 hash = "sha256:93a12fd377f7093eea568e60836bc0349ea60331732b2fd1b798916f307f9146"
 doc_hash = "sha256:4cdaf17855422f5ff91add3dd3b550c466a87e47af7ab880994980868b062342"
 callees = ["fn:1e9ab77e19c0ff72"]
+uses = [
+    "fn:307ad3a1a0cafbef",
+    "fn:7735361100092a21",
+    "fn:ac12c838799120a5",
+    "fn:bfdafbe28f7cfdf2",
+]
 reached_by = [
     "#42",
     "#43",
     "#136",
     "#138",
+]
+
+[[module."stationarity.rs".function]]
+id = "fn:92acf218aab097a4"
+name = "ChangePoint"
+qual = "ChangePoint"
+item = "type"
+shape = "struct"
+lines = [
+    193,
+    214,
+]
+hash = "sha256:4c74a85636f1f799e7511da993fb723856b5def67564805c92ba265ff8bb8844"
+doc_hash = "sha256:05a5621733abfa7bf892d26a7f085354997ed6c0a29a1a9fd5d2f53cb48378b0"
+uses = ["fn:3d4f2b11768d663c"]
+reached_by = [
+    "#42",
+    "#43",
+    "#136",
+    "#137",
 ]
 
 [[module."stationarity.rs".function]]
@@ -1067,6 +1472,11 @@ callees = [
     "fn:06c4b14e640d0bbd",
     "fn:87e47a458d4d7af1",
     "fn:f2f958f125274c81",
+]
+uses = [
+    "fn:3a70d59e241c9c2c",
+    "fn:3d4f2b11768d663c",
+    "fn:92acf218aab097a4",
 ]
 reached_by = [
     "#42",
@@ -1103,6 +1513,7 @@ callees = [
     "fn:d353388d64ad413c",
     "fn:e38ca1e7fee4daea",
 ]
+uses = ["fn:afee429eda091c31"]
 test = true
 
 [[module."stationarity.rs".function]]
@@ -1118,6 +1529,10 @@ doc_hash = "sha256:570edac67566e090651c628374ae47476d5b78d177a9601a7f7830d9ed9d8
 callees = [
     "fn:5644135e65824a24",
     "fn:e38ca1e7fee4daea",
+]
+uses = [
+    "fn:3d4f2b11768d663c",
+    "fn:afee429eda091c31",
 ]
 test = true
 

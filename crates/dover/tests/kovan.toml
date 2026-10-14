@@ -16,6 +16,10 @@ lines = [
 ]
 hash = "sha256:0e117b7e57c1d7adc1af3c904b1f98a693d7755f9e152ed815547227452577d3"
 doc_hash = "sha256:d98761dd97693f785c4b89615f388b3e83930e1077256839b58e7f8dc6e1957b"
+uses = [
+    "fn:0d569ab1cfbcc80e",
+    "fn:e604b05713bbafc3",
+]
 test = true
 
 [[module."smr_cstr.rs".function]]
@@ -32,6 +36,7 @@ callees = [
     "fn:05f08397bd182aa6",
     "fn:cb2f49f1a1cdb8be",
 ]
+uses = ["fn:e958c295f3b34282"]
 test = true
 
 [[module."smr_cstr.rs".function]]
@@ -50,6 +55,10 @@ callees = [
     "fn:cb2f49f1a1cdb8be",
     "fn:e3efec19c9e88dc4",
 ]
+uses = [
+    "fn:1fe3201b37cd6e3d",
+    "fn:e958c295f3b34282",
+]
 test = true
 
 [[module."smr_cstr.rs".function]]
@@ -66,6 +75,10 @@ callees = [
     "fn:2c97cd3fbbc63691",
     "fn:5959bccc6fadf23a",
     "fn:5e80eb303da99b9f",
+]
+uses = [
+    "fn:20c2766f78e8a66a",
+    "fn:e958c295f3b34282",
 ]
 test = true
 
@@ -86,6 +99,7 @@ callees = [
     "fn:7e146900a5068c95",
     "fn:aa87ca086eebef5e",
 ]
+uses = ["fn:e958c295f3b34282"]
 test = true
 
 [[module."smr_cstr.rs".function]]
@@ -113,7 +127,7 @@ lines = [
     191,
     241,
 ]
-hash = "sha256:45436512d57bf853b5a78b535f89e13b1b3945c9537c8b15ac35e27acf44792e"
+hash = "sha256:9302b57ae25c706fd9a52283a1e687b370475124ab2fd0fe194acb7644808f22"
 doc_hash = "sha256:43d759a760a2c44e5ccb0c9f005d5d3eb0cd77b0bf898d901d5b2f7154673a1a"
 callees = [
     "fn:1e9559ab258b90c5",
@@ -123,6 +137,7 @@ callees = [
     "fn:d574426cf3c33fda",
     "fn:ff13c117fc0613d7",
 ]
+uses = ["fn:e958c295f3b34282"]
 test = true
 
 [[module."smr_cstr.rs".function]]
@@ -165,7 +180,7 @@ lines = [
     293,
     344,
 ]
-hash = "sha256:bc3dfd8bba9aabafbbfd0eda7fd9a75d6d179b47ab40ec40da7b0af64c5a4cef"
+hash = "sha256:1d71fb63e6504102301dedc4dfbcddbe3658de351eb97984a53a4d8c73180497"
 doc_hash = "sha256:9a5dfaac7ba99f9b1d750fbb725ef16debe9a9b980f6063b2439e27f88584dbc"
 callees = [
     "fn:1e9559ab258b90c5",
@@ -175,6 +190,7 @@ callees = [
     "fn:d574426cf3c33fda",
     "fn:ff13c117fc0613d7",
 ]
+uses = ["fn:e958c295f3b34282"]
 test = true
 
 [[module."smr_cstr.rs".function]]
@@ -201,7 +217,7 @@ lines = [
     371,
     417,
 ]
-hash = "sha256:63a5ccb797257a1b7394b93f16eff3aca93fd3c203fc31bd8390332253b6c54b"
+hash = "sha256:3f8c838db1623f9832066d817a56e1fb24d9253503032847d22ac3efaf280964"
 doc_hash = "sha256:e9bb13b24bd658141f7f1d3adbf81dd6f421df4e4365d7e67e22bd27e70f38e6"
 callees = [
     "fn:1e9559ab258b90c5",
@@ -210,6 +226,10 @@ callees = [
     "fn:5959bccc6fadf23a",
     "fn:d574426cf3c33fda",
     "fn:ff13c117fc0613d7",
+]
+uses = [
+    "fn:0d569ab1cfbcc80e",
+    "fn:e958c295f3b34282",
 ]
 test = true
 
@@ -229,6 +249,7 @@ callees = [
     "fn:d574426cf3c33fda",
     "fn:f4f2e6e16937c904",
 ]
+uses = ["fn:1fe3201b37cd6e3d"]
 test = true
 
 [[module."smr_cstr.rs".function]]
@@ -242,6 +263,7 @@ lines = [
 hash = "sha256:a3c27c2ba422239981b235ea2db8dece8331ccd8acbd27042e672bbf20fec34b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:de371805f0225295"]
+uses = ["fn:629558fb22f4b4f3"]
 test = true
 
 [[module."smr_cstr.rs".function]]
@@ -258,6 +280,7 @@ callees = [
     "fn:355f17709d2aa8a0",
     "fn:d74ee64a35481c16",
 ]
+uses = ["fn:7c31eb1d2bb2619c"]
 test = true
 
 [[module."smr_cstr.rs".function]]
@@ -271,6 +294,10 @@ lines = [
 hash = "sha256:939be49845b65c5db02020ee1c44256830a7a5ef536fb27411b43436392e6ba1"
 doc_hash = "sha256:d2b238bf89d6a63f2656a0e7558fa7352fd658cf10f3bd1ecebadd7ee9366df7"
 callees = ["fn:355f17709d2aa8a0"]
+uses = [
+    "fn:7c31eb1d2bb2619c",
+    "fn:c9ede0b5822bfde5",
+]
 test = true
 
 [[module."smr_cstr.rs".function]]
@@ -284,6 +311,10 @@ lines = [
 hash = "sha256:f38f0ca316e43d6bb65a2618605969517767b4dbc329543e76c5f56af5e2d184"
 doc_hash = "sha256:c13b6f9c30b0de792e4ce1fbb27b5ea7fbef95a48e4e81fcb9405b899a8fcb97"
 callees = ["fn:355f17709d2aa8a0"]
+uses = [
+    "fn:7c31eb1d2bb2619c",
+    "fn:c9ede0b5822bfde5",
+]
 test = true
 
 [[module."smr_cstr.rs".function]]
@@ -313,6 +344,7 @@ callees = [
     "fn:355f17709d2aa8a0",
     "fn:960240b5605d22fc",
 ]
+uses = ["fn:7c31eb1d2bb2619c"]
 test = true
 
 [[module."smr_cstr.rs".function]]
@@ -323,7 +355,7 @@ lines = [
     547,
     579,
 ]
-hash = "sha256:4cb18d511cc3fc2e8cc4405e38f4623dca66e331343fde5d8703d11af33408b2"
+hash = "sha256:514b786341fb67b085ea17c7df35071c118f75a9e87fe27e1f9d41e2a5434589"
 doc_hash = "sha256:e218e2a3b5ff1d6b31ca491748c7c148141d9d375449c4a723960974dcfebb2c"
 callees = ["fn:de371805f0225295"]
 test = true

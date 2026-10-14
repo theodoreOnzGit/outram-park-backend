@@ -20,6 +20,32 @@ test_ids = [
 path = "crate::humid_air"
 
 [[module."mod.rs".function]]
+id = "fn:507a3ab6c05627e1"
+name = "HumidAirState"
+qual = "HumidAirState"
+item = "type"
+shape = "struct"
+lines = [
+    26,
+    50,
+]
+hash = "sha256:c5bdd2f6f91378e560fccfc625a5355e9642c45a8ef55835b804974faa0dd325"
+doc_hash = "sha256:30d747c62944b6db2de8ca368a78e2c481f7e300a41a2494814c32fc0cfe1cfe"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+]
+
+[[module."mod.rs".function]]
 id = "fn:4ad42a9326b99eec"
 name = "state_from_t_p_w"
 qual = "state_from_t_p_w"
@@ -30,6 +56,11 @@ lines = [
 hash = "sha256:19090db8ba99f9865ac6d59e5176934610d518951115288fcf011ca46810c50f"
 doc_hash = "sha256:ad7b29b901a8e827454093a1b407025924ae04b5331e6e1bd2045c375d52c31a"
 callees = ["fn:69cbdc9e300c2c3d"]
+uses = [
+    "fn:507a3ab6c05627e1",
+    "fn:6eefa889d808eea4",
+    "fn:eeeec4b51b370172",
+]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -43,6 +74,11 @@ lines = [
 hash = "sha256:439707d81f2d6ffb7b85eb8855ceba53f505fc088064ff36bb6d0323753a44da"
 doc_hash = "sha256:dacecab8d54aec9948a8665ab6a8c9199c2498c782cd7e3407be2d82892c49b7"
 callees = ["fn:69cbdc9e300c2c3d"]
+uses = [
+    "fn:507a3ab6c05627e1",
+    "fn:6eefa889d808eea4",
+    "fn:eeeec4b51b370172",
+]
 reached_by = [
     "#0",
     "#1",
@@ -69,6 +105,12 @@ lines = [
 hash = "sha256:6b8816124471ffc77385fe9638b2ae64b3ace84c2fc289c9243352167ffc0925"
 doc_hash = "sha256:51747a8e3c620bd4b68af6614f4b26d39aee70056db37740714d8f72baabcee6"
 callees = ["fn:5b065f30b2d25796"]
+uses = [
+    "fn:507a3ab6c05627e1",
+    "fn:6eefa889d808eea4",
+    "fn:b8d235f81b94d4e9",
+    "fn:eeeec4b51b370172",
+]
 reached_by = [
     "#0",
     "#1",

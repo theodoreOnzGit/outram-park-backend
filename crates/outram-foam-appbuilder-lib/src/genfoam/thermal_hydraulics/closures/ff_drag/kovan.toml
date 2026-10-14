@@ -20,6 +20,70 @@ test_ids = [
 path = "crate::genfoam::thermal_hydraulics::closures::ff_drag::interfacial"
 
 [[module."interfacial.rs".function]]
+id = "fn:5d55ef4a8e24b20b"
+name = "OPENFOAM_SMALL"
+qual = "OPENFOAM_SMALL"
+item = "const"
+shape = "const"
+lines = [
+    79,
+    83,
+]
+hash = "sha256:2cfc341185c29d0c6a4d17d5bff10fe42922369443e00fb3cfeae558c7572814"
+doc_hash = "sha256:45fb239abc9add9f90920dcea36e0b5b6ad444c9468748b719d918f7256c59d9"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#6",
+    "#7",
+    "#9",
+]
+
+[[module."interfacial.rs".function]]
+id = "fn:beead102a73779ce"
+name = "FfInterfacialState"
+qual = "FfInterfacialState"
+item = "type"
+shape = "struct"
+lines = [
+    85,
+    123,
+]
+hash = "sha256:917a69dbac02bd8b821a2339a4ab34e4c705f5d85966574cc99afa1c04cde2f5"
+doc_hash = "sha256:1a7f571be3d1a5b55d281fc038fa67413e31383e8e7cdffd82bed0f0c7d47979"
+uses = ["fn:d45bd48797fb1b2f"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#6",
+    "#7",
+    "#9",
+]
+
+[[module."interfacial.rs".function]]
+id = "fn:c7fb9827b637a4a9"
+name = "FfDragCoefficient"
+qual = "FfDragCoefficient"
+item = "type"
+shape = "enum"
+lines = [
+    125,
+    173,
+]
+hash = "sha256:8a3bf4101a34c33d9632a5cc4c26e183bafa60f3d63bb299919aa4c930d6360c"
+doc_hash = "sha256:3571ec557a6e8dbfc1fff715080a97b657e1fdd4dd156eb3e01e27763b11e616"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#6",
+    "#7",
+    "#9",
+]
+
+[[module."interfacial.rs".function]]
 id = "fn:8381d27a7ff08b34"
 name = "drag_coefficient"
 qual = "FfDragCoefficient::drag_coefficient"
@@ -30,6 +94,10 @@ lines = [
 hash = "sha256:419e2f655f905fce3c5d1e97c264c0a5bb6cfa263b50e4395b1963f574edf2b0"
 doc_hash = "sha256:ec06f997df36b634d154aa35b83fb7a90aa09013ca4fcd2fb4083823cab0238a"
 callees = ["fn:afd885f68c42bdc4"]
+uses = [
+    "fn:beead102a73779ce",
+    "fn:c7fb9827b637a4a9",
+]
 reached_by = [
     "#0",
     "#1",
@@ -58,6 +126,10 @@ callees = [
     "fn:ea087919b847a431",
     "fn:ff6415de354c1086",
 ]
+uses = [
+    "fn:beead102a73779ce",
+    "fn:c7fb9827b637a4a9",
+]
 reached_by = [
     "#0",
     "#1",
@@ -77,6 +149,7 @@ lines = [
 ]
 hash = "sha256:f90b0f05bf565adf78713d4ff9550b1a7b2aa4224ae38604727717102d9ab0bb"
 doc_hash = "sha256:d3642a2741f2128555d0c572706b85bc807c824aedbbaaae16971b354e6bb469"
+uses = ["fn:c7fb9827b637a4a9"]
 reached_by = ["#6"]
 physical_interface = true
 
@@ -128,6 +201,7 @@ lines = [
 ]
 hash = "sha256:a2f14da6410d3ddcceed96cdd70fde15d810c4053a16f58c2adf25dc849dd127"
 doc_hash = "sha256:8b2ef98c6f878625c91f32335466105e452b44151ce27ca4fe32a177c605a9c2"
+uses = ["fn:5d55ef4a8e24b20b"]
 reached_by = [
     "#0",
     "#1",
@@ -201,6 +275,66 @@ path = "crate::genfoam::thermal_hydraulics::closures::ff_drag"
 path = "crate::genfoam::thermal_hydraulics::closures::ff_drag::multipliers"
 
 [[module."multipliers.rs".function]]
+id = "fn:fe481e2e2772a763"
+name = "ONE_PHASE_THRESHOLD"
+qual = "ONE_PHASE_THRESHOLD"
+item = "const"
+shape = "const"
+lines = [
+    87,
+    89,
+]
+hash = "sha256:a80348fc765e257917e29a89d9bda1ea6567b2932a82d2b66d2d69753c413324"
+doc_hash = "sha256:8248a75ba7d2a769af1ac0f04f0048fa98e12ef5c171a9df9d585d55353fbf1b"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#8",
+    "#10",
+]
+
+[[module."multipliers.rs".function]]
+id = "fn:c9f68dcfb9e11189"
+name = "LOTTES_FLINN_NGUYEN_ONE_PHASE_THRESHOLD"
+qual = "LOTTES_FLINN_NGUYEN_ONE_PHASE_THRESHOLD"
+item = "const"
+shape = "const"
+lines = [
+    91,
+    93,
+]
+hash = "sha256:c3ff4524aefd799c682a539b9648f216c2330304e0ca7ebfc7e384457f237793"
+doc_hash = "sha256:9c1adc75a41bfbd2be64f4d416006619601847692a111522a43616041f768e77"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#8",
+    "#10",
+]
+
+[[module."multipliers.rs".function]]
+id = "fn:fcf8e11c51e501d6"
+name = "TwoPhaseDragMultiplier"
+qual = "TwoPhaseDragMultiplier"
+item = "type"
+shape = "enum"
+lines = [
+    95,
+    144,
+]
+hash = "sha256:538e869a277be881fa760bbcfc01feeab6ae73cdf18c317ec94d2c7002ca63cc"
+doc_hash = "sha256:f3c5c27adb2df38ac6f10bc5fcd2a63a5690f4a8e1868823a80079a8aa2d562f"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#8",
+    "#10",
+]
+
+[[module."multipliers.rs".function]]
 id = "fn:b9227fb0736d1882"
 name = "multiplier"
 qual = "TwoPhaseDragMultiplier::multiplier"
@@ -211,6 +345,11 @@ lines = [
 hash = "sha256:61788e545864ccb477cc971a7a62d650a3bc5b204a9e95df4da65ecdc0ce7857"
 doc_hash = "sha256:b964310a01522aa1cf478007696a6ff8ba5fa549819bf3a5513ef83093906389"
 callees = ["fn:4f17f3e7db866259"]
+uses = [
+    "fn:c9f68dcfb9e11189",
+    "fn:fcf8e11c51e501d6",
+    "fn:fe481e2e2772a763",
+]
 reached_by = [
     "#3",
     "#4",
@@ -230,6 +369,7 @@ lines = [
 ]
 hash = "sha256:4833967eaa7d88bc530b5d325adae7caf184a126acfb032ed6ac4bdaec3ea283"
 doc_hash = "sha256:7301e78d6de7ed2ad62c766d9f7b8bb83ea7ca2526463789378ec3bd70559d2b"
+uses = ["fn:fcf8e11c51e501d6"]
 reached_by = [
     "#3",
     "#4",
@@ -310,6 +450,7 @@ callees = [
     "fn:eb1903bf371d0ed0",
     "fn:ef644beb4d6e08cb",
 ]
+uses = ["fn:beead102a73779ce"]
 test = true
 
 [[module."tests.rs".function]]
@@ -323,6 +464,10 @@ lines = [
 hash = "sha256:5bdba30b267e955c1d9174dc3836b7dbcbad27b482ca8c61bfd4b18080d1b79b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:8381d27a7ff08b34"]
+uses = [
+    "fn:beead102a73779ce",
+    "fn:c7fb9827b637a4a9",
+]
 test = true
 
 [[module."tests.rs".function]]
@@ -339,6 +484,7 @@ callees = [
     "fn:819f97433093cdb5",
     "fn:937630ee9f7d66ca",
 ]
+uses = ["fn:c7fb9827b637a4a9"]
 test = true
 
 [[module."tests.rs".function]]
@@ -355,6 +501,7 @@ callees = [
     "fn:819f97433093cdb5",
     "fn:937630ee9f7d66ca",
 ]
+uses = ["fn:c7fb9827b637a4a9"]
 test = true
 
 [[module."tests.rs".function]]
@@ -371,6 +518,7 @@ callees = [
     "fn:819f97433093cdb5",
     "fn:937630ee9f7d66ca",
 ]
+uses = ["fn:c7fb9827b637a4a9"]
 test = true
 
 [[module."tests.rs".function]]
@@ -387,6 +535,7 @@ callees = [
     "fn:819f97433093cdb5",
     "fn:937630ee9f7d66ca",
 ]
+uses = ["fn:c7fb9827b637a4a9"]
 test = true
 
 [[module."tests.rs".function]]
@@ -403,6 +552,7 @@ callees = [
     "fn:819f97433093cdb5",
     "fn:937630ee9f7d66ca",
 ]
+uses = ["fn:c7fb9827b637a4a9"]
 test = true
 
 [[module."tests.rs".function]]
@@ -421,6 +571,7 @@ callees = [
     "fn:819f97433093cdb5",
     "fn:937630ee9f7d66ca",
 ]
+uses = ["fn:c7fb9827b637a4a9"]
 test = true
 
 [[module."tests.rs".function]]
@@ -437,6 +588,7 @@ callees = [
     "fn:b9227fb0736d1882",
     "fn:ef644beb4d6e08cb",
 ]
+uses = ["fn:fcf8e11c51e501d6"]
 test = true
 
 [[module."tests.rs".function]]
@@ -450,6 +602,7 @@ lines = [
 hash = "sha256:38db4d87197f7b79d05e14bf786de3ce86b3091047a918bc3c1b078e38571ee5"
 doc_hash = "sha256:405d6a4476f62ba4fa21d984e0e4cbfcc7694e1d07159af16e9f73e18ca9a2dc"
 callees = ["fn:b36ffaa37114b0ce"]
+uses = ["fn:fcf8e11c51e501d6"]
 test = true
 
 [[module."tests.rs".function]]
@@ -463,6 +616,7 @@ lines = [
 hash = "sha256:94d804434f0432181d993df42701dac53e7cb832fb7dc59b29692faf22b88190"
 doc_hash = "sha256:14043a23bfaec54628556364731068637a50f24b77dc9903a61b42a9ca711fc7"
 callees = ["fn:b36ffaa37114b0ce"]
+uses = ["fn:fcf8e11c51e501d6"]
 test = true
 
 [[module."tests.rs".function]]
@@ -476,6 +630,7 @@ lines = [
 hash = "sha256:9b2bd631807367687ba790b4272d8816fe9681b6d74779a87d9c3991a853877b"
 doc_hash = "sha256:2b89a3266b92e0a72e4d00e3d47f026e928f331febcaa562664ad98ae51fa68e"
 callees = ["fn:b36ffaa37114b0ce"]
+uses = ["fn:fcf8e11c51e501d6"]
 test = true
 
 [[module."tests.rs".function]]
@@ -489,6 +644,7 @@ lines = [
 hash = "sha256:311c4eeb8786f4542ae0476e0abf0d016bf1699490d305e2fa0c7e106ca59624"
 doc_hash = "sha256:a5cf92c4dcdfbb53e310ee68f9ad04d40bae864f9cb2134813df73c39cbde24c"
 callees = ["fn:b36ffaa37114b0ce"]
+uses = ["fn:fcf8e11c51e501d6"]
 test = true
 
 [[module."tests.rs".function]]
@@ -502,4 +658,5 @@ lines = [
 hash = "sha256:6112618850d68cbeabad0750b21bcb633d4c8ba4c2818642ca839fb8475ab33a"
 doc_hash = "sha256:d5a6ef5aafd07164789897d5fd487aacfa29168371eed5834d0151a3026ca98a"
 callees = ["fn:b36ffaa37114b0ce"]
+uses = ["fn:fcf8e11c51e501d6"]
 test = true

@@ -7,6 +7,20 @@ dir = "crates/tuas_boussinesq_solver/examples/ciet_educational_simulator/ciet_si
 path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages::ciet_data"
 
 [[module."ciet_data.rs".function]]
+id = "fn:2ae0e867e1dae4b3"
+name = "CIETState"
+qual = "CIETState"
+item = "type"
+shape = "struct"
+lines = [
+    1,
+    111,
+]
+hash = "sha256:0ad3ae9c1402f09689f90d308d007117f9e366b1269b4d5c0c0a5ee83ef556d8"
+doc_hash = "sha256:06d787552f71dc056eeed758daae43ca87a002b7020b7ab8ae1adcd041a5770c"
+uses = ["fn:f232a9a6a595ee30"]
+
+[[module."ciet_data.rs".function]]
 id = "fn:dabb3e6a7737a14f"
 name = "default"
 qual = "CIETState::default"
@@ -16,6 +30,10 @@ lines = [
 ]
 hash = "sha256:5ac9388baea09ad0e60393e1f4ed967c1931cc2086fc0d5b717b502f1d9218a5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:2ae0e867e1dae4b3",
+    "fn:f232a9a6a595ee30",
+]
 
 [[module."ciet_data.rs".function]]
 id = "fn:045011bd58f386f4"
@@ -27,6 +45,7 @@ lines = [
 ]
 hash = "sha256:354584541175a474aa88fef2f22a426d4bd914f1ed92024bdc4f96524b68a0ed"
 doc_hash = "sha256:6d1d19d43d43425933122e145cb1c9b839d0b3b1969eb60621a58506ac8121a2"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:6d476dc6ddf33f8c"
@@ -38,6 +57,7 @@ lines = [
 ]
 hash = "sha256:7aab173edd3217772ee76430c71704557564d1e2f5a5c8ca01b0e590ed9fbeac"
 doc_hash = "sha256:963b2ee0bf4bb45bf049ee35ae73e145a32b9089b56c72046691384fbdf81274"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:ded2b3f97a256bbc"
@@ -49,6 +69,7 @@ lines = [
 ]
 hash = "sha256:989c6d1acafc42370c98f4b762e24ee51b5f3336974ac5cd911dddd7d99ca5e5"
 doc_hash = "sha256:4443fe0b100c1f9df6f6b46ba6cbabc24f336b5911efd13b7ceb7e6979fd7cf5"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:7ef77350dbde39bd"
@@ -60,6 +81,7 @@ lines = [
 ]
 hash = "sha256:db9f70d5de3c10d3036cc13284507221b981296155f7c0c32a3c459ebaedc9bf"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:f9571f9105f5c310"
@@ -71,6 +93,7 @@ lines = [
 ]
 hash = "sha256:97fcb0c74d88d5d329442954bb40ee754e4dee37590b42c6dfb9edfac22e1378"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:1a10c4651f78fed7"
@@ -82,6 +105,7 @@ lines = [
 ]
 hash = "sha256:5bd382af72aaaf7c8475dc29149d734e857dbbd4be5690b8262ed7f43c289aff"
 doc_hash = "sha256:8c2f76e0db862d993c4a994c75b2b7dceeefe3641b9e75f9cd40e02a6e9d0288"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:aebd06a0388f51d7"
@@ -93,6 +117,7 @@ lines = [
 ]
 hash = "sha256:9adf9ea8a3234412e4f262e8242d140622539d91528bec9f7acd7f8fb24c1ddb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:cddc8b1ca977e814"
@@ -104,6 +129,7 @@ lines = [
 ]
 hash = "sha256:634d54b9c32b726e770f057fd0a3e3dbcb1309eae0bd1c4e80a6115b53e6ab1e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:047d8092554dde26"
@@ -115,6 +141,7 @@ lines = [
 ]
 hash = "sha256:3bf8915845a40fd78c581ab3aaaf0ff012a7fb1f9c1c0ba1e7040efcacfcb89c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:e0faff442f948e02"
@@ -126,6 +153,7 @@ lines = [
 ]
 hash = "sha256:5d144ecb4f98db8de7d48bc22a08bce030999d79aa6482830ad72fc8327373b3"
 doc_hash = "sha256:972cdd70912c420caf9dc505800a1ccc24d5d7352924f1239f7ef407fa276bcf"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:d38ef4e6481e0def"
@@ -137,6 +165,7 @@ lines = [
 ]
 hash = "sha256:d1411842b7dbfa9a69ca0b9b9f9a1103f3369bfe7fe36f92a4c9a0abf1f50e01"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:0ee82ebebb31072c"
@@ -148,6 +177,7 @@ lines = [
 ]
 hash = "sha256:11d53c235afe2162b2964e1b1362f52711921aec48260e208db2e65dfedc60e4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:b128906be017e56d"
@@ -159,6 +189,7 @@ lines = [
 ]
 hash = "sha256:6aa271212f6fa6dd642b2047ccf2d7378958b19a806e068a58283028d4bec147"
 doc_hash = "sha256:ad42831f7867afef3ea33be3b58d628fed952cf05203fd372362a7577200ad4a"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:e3536ceeb87eb262"
@@ -170,6 +201,7 @@ lines = [
 ]
 hash = "sha256:d91b8e4d8424fe0a6bf0e9f830b0802c36df67f245f8d393c572f389621b5a45"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:b56c00cc152edbc2"
@@ -181,6 +213,7 @@ lines = [
 ]
 hash = "sha256:a107a84a9985e0d50cec0c1ffa74c93e23ff4c043ee8ef03ca5df202a6ef153b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:664438606e2cedb3"
@@ -192,6 +225,7 @@ lines = [
 ]
 hash = "sha256:f700a713a905e34776f771fd354a66d2fa585a9e5622239dc41ea0ff8977784e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:28ca00fee17ecb07"
@@ -203,6 +237,7 @@ lines = [
 ]
 hash = "sha256:fb76ceb90c02b8bd49aacf43fece8c42d6ba6341bf1678302a83b8ba6563860b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:2d17960e9146ebdb"
@@ -214,6 +249,7 @@ lines = [
 ]
 hash = "sha256:88dee0c4a03ac9adf74fe0451dcf33961a6ab0e6ccdd1dd4187807575c3fe7af"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:9b05e5d47d6e416e"
@@ -225,6 +261,7 @@ lines = [
 ]
 hash = "sha256:f78435f4c5be627e3372eceb3a60d1f4bb8eae9ec0decaed40f4b11f036bee7a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:8136414003d80193"
@@ -236,6 +273,7 @@ lines = [
 ]
 hash = "sha256:cbbbe01ab4c8b9336c997cbe76391c254719dbd9cb4cd95410c0acb716c99d97"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2ae0e867e1dae4b3"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:04f1b1765ba0dd4f"
@@ -246,6 +284,33 @@ lines = [
     334,
 ]
 hash = "sha256:6db5866b3150673bec0288d12da2732788f6ce290fd9d63e21f93dd7f9b7f19d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2ae0e867e1dae4b3"]
+
+[[module."ciet_data.rs".function]]
+id = "fn:52e4e83f79c797bb"
+name = "PagePlotData"
+qual = "PagePlotData"
+item = "type"
+shape = "struct"
+lines = [
+    348,
+    419,
+]
+hash = "sha256:d6cc2aeda6934c13a401cc98a45093e9e293649909886927678cf65a62d0fa59"
+doc_hash = "sha256:db66b5d0bbe5a00c0720728e582c677eb2822e4e833d83e4824fd52abcdc9913"
+
+[[module."ciet_data.rs".function]]
+id = "fn:a730683b0674a4be"
+name = "NUM_DATA_PTS_IN_PLOTS"
+qual = "NUM_DATA_PTS_IN_PLOTS"
+item = "const"
+shape = "const"
+lines = [
+    421,
+    421,
+]
+hash = "sha256:13bbe99d34c046607a90b39b85332d1ef245e30c15fe4c866859c6e6edd6ccd0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."ciet_data.rs".function]]
@@ -258,6 +323,10 @@ lines = [
 ]
 hash = "sha256:247a22bda38a3ff3c0b5870318044035b856a75c680e38f8e55db0a4df7df74e"
 doc_hash = "sha256:d7bfd07a9138e65aa608dd7c46c5a9672e9614b1f941ca3c13e90f47d4983ec4"
+uses = [
+    "fn:52e4e83f79c797bb",
+    "fn:a730683b0674a4be",
+]
 physical_interface = true
 
 [[module."ciet_data.rs".function]]
@@ -270,6 +339,10 @@ lines = [
 ]
 hash = "sha256:ee2693ebf8b7ad216813e5da4cba41fed40401d54cc9bc63ac4b4231a4c669eb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:52e4e83f79c797bb",
+    "fn:a730683b0674a4be",
+]
 physical_interface = true
 
 [[module."ciet_data.rs".function]]
@@ -282,6 +355,10 @@ lines = [
 ]
 hash = "sha256:7a0d017c631178d2381f354b99541975823bb9f36e48e20da7339b55b6a32d20"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:52e4e83f79c797bb",
+    "fn:a730683b0674a4be",
+]
 physical_interface = true
 
 [[module."ciet_data.rs".function]]
@@ -294,6 +371,7 @@ lines = [
 ]
 hash = "sha256:947654af05b9473194776ad6eb6203776ee133e500c468625d185766dcd7eda6"
 doc_hash = "sha256:c83f978799337ce75899b5234026c8a140aa336405bfe5880f3ce9a05cb1df7a"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:d8d54c707589a261"
@@ -305,6 +383,7 @@ lines = [
 ]
 hash = "sha256:33f4c89686206ec6189b6603f9959d001dd3a95235d6b9a404d25634afd93743"
 doc_hash = "sha256:eb8119a6c78656c3067e2a19773697591ea51b94c8e0970ecea5695309a89e31"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:c2c215835d514885"
@@ -316,6 +395,7 @@ lines = [
 ]
 hash = "sha256:2b7b11ce80eba41af388874bfe3c02b124478feb0b310dc63b824910a4c04fff"
 doc_hash = "sha256:9f77aeb028286617b5188efa4ea0dff17e88873a2e4438b4486ba7ff271fa35f"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:220270a25e453005"
@@ -327,6 +407,7 @@ lines = [
 ]
 hash = "sha256:dd6603f5176236bcd25775cf0a8280b9de1ff59d896e2775e916cc60bd0e1d28"
 doc_hash = "sha256:d519708f1ba01c44c53298c764bf19d51ab49389d7661ef8de822c2dedcd2d5d"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:3ae4a10ff4e1f241"
@@ -338,6 +419,7 @@ lines = [
 ]
 hash = "sha256:b8e9a2f5833369e364f8babb54d6a54ba7591dbb98600bdb4ea76747bdd9dbf3"
 doc_hash = "sha256:d5b6ca0354ec79066e23f7e4f3eec0af2f7b0c55207a2ea602e1f8fa413cce3d"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:b6dfd725a96a1f5d"
@@ -349,6 +431,7 @@ lines = [
 ]
 hash = "sha256:1c8f19b1ba43b0af196a7a49e964f79d1fef382192266f8418b173e70b3e7d84"
 doc_hash = "sha256:2843fd39eaf1cf398e34e26370de619849ffefde76f371c27e1a50ef1c1f36a2"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:8b307d413cb4849c"
@@ -360,6 +443,7 @@ lines = [
 ]
 hash = "sha256:47e1b97acd87128c948fe7693d9147363d0ab72e6cc703697fb841ed431ebfcd"
 doc_hash = "sha256:3a927bbb6846e35fe6de12f984e635d29a13d1d128645a45945fbcb662e4ce8e"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:e7fdb649111331dd"
@@ -371,6 +455,7 @@ lines = [
 ]
 hash = "sha256:916578e367af52e731b99c13a2d91908a323532166189ebd0dd1d51a51029c08"
 doc_hash = "sha256:868be008941d845a7dec4700d2cd4e3181ea400c286d6cfd8a57443e7b1aea62"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:84260210d61781da"
@@ -382,6 +467,7 @@ lines = [
 ]
 hash = "sha256:37e9387123f6c5b958fefe1563010ec8e6c7a54b46169759202f6b213c82a091"
 doc_hash = "sha256:43528ab63b67ec2a37a2cf3c33a452e20c536a865e8ccb01496aa64114dcfd12"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:563abadf31a92c5a"
@@ -393,6 +479,7 @@ lines = [
 ]
 hash = "sha256:a54693133fbe151bf624325aa3e673b3f47f7b88fe7f346dd3062cb0a216459e"
 doc_hash = "sha256:a2365211c2512e81fa44d632dbdfd974ef50e5c4c2a08a5ace921f6491aca313"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:87a10a36f9551b17"
@@ -404,6 +491,7 @@ lines = [
 ]
 hash = "sha256:83bf27a11bf964e67f3ee217ff7eb08ebeffb17c21f60922ebda267bde87cd27"
 doc_hash = "sha256:db22d56cb0d2d4e1465483c8b6e8ec2b408409bf670b1f7912cd7896cf45684f"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:1cd87bf04f48554c"
@@ -415,6 +503,10 @@ lines = [
 ]
 hash = "sha256:36030efe08e1f1cfd2c0f002930cfb0b1801877e8eb9d1b1392fc5f2c2fe3c6a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:52e4e83f79c797bb",
+    "fn:a730683b0674a4be",
+]
 physical_interface = true
 
 [[module."ciet_data.rs".function]]
@@ -427,6 +519,7 @@ lines = [
 ]
 hash = "sha256:fcbb79d1c8e5ed1d9155ee86dbd02306abfb929a6a2063964e0779faa92904e9"
 doc_hash = "sha256:9965332e722234ffeb496ea78550a61b318b4d603fa39a72d15132cb6cddec9c"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:4b3b7c80dce5f3cd"
@@ -438,6 +531,7 @@ lines = [
 ]
 hash = "sha256:6ed14522a3bb4d1b4aacff855869da40a2c12eb87856acf6c8a3472bfb5bc0a4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:6b0cf552f5c46479"
@@ -449,6 +543,7 @@ lines = [
 ]
 hash = "sha256:b16a7000275b155b702afb1ba666f3466e5129d4185a6fb43f7b3a8bec28b581"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:3ead508013368d10"
@@ -460,6 +555,10 @@ lines = [
 ]
 hash = "sha256:c1f061be65cd0a0c114a143beca8280eded51b5f7d46beb19b1ae1c78bc77078"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:52e4e83f79c797bb",
+    "fn:a730683b0674a4be",
+]
 physical_interface = true
 
 [[module."ciet_data.rs".function]]
@@ -472,6 +571,7 @@ lines = [
 ]
 hash = "sha256:02e76e4b84974c1c51867d812f06dd3548ec62fb07703ae89d359c8b4186f34f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:50f979287506e204"
@@ -483,6 +583,7 @@ lines = [
 ]
 hash = "sha256:7889b07b32e412ea4e86fd963e4309a8a3519e6f587f462bc754485f643c9986"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:81940f49abfdfb76"
@@ -494,6 +595,7 @@ lines = [
 ]
 hash = "sha256:a6c648e679c1e87ab9dbc5a856b5c37bebada42a138741dd2e0ca4084fd900ae"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:bc5ce0e327d04232"
@@ -505,6 +607,7 @@ lines = [
 ]
 hash = "sha256:1204e51a3e77d9596476d8855bf23dd09bcff548eb764585faed5e8c7a0f0956"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:4bcd9f3a48e3615d"
@@ -516,6 +619,7 @@ lines = [
 ]
 hash = "sha256:d035c512846a46f172a1093f4e2298973a8b33fc3b3ab4dc7ae30c901f46423e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:bddca8601a3069b2"
@@ -527,6 +631,7 @@ lines = [
 ]
 hash = "sha256:1f64f5f136b296554c42654d7732e65c9ffb2814d9063f9808d50e42dd35ccfd"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ciet_data.rs".function]]
 id = "fn:f44878efcd217386"
@@ -538,6 +643,10 @@ lines = [
 ]
 hash = "sha256:21b88f453d6eb31c847b0b389243ac1fafe4a6b286ddd6e5613392200511b07f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:52e4e83f79c797bb",
+    "fn:a730683b0674a4be",
+]
 
 [module."citations_and_disclaimers.rs"]
 path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages::citations_and_disclaimers"
@@ -566,6 +675,7 @@ lines = [
 ]
 hash = "sha256:9f058f2b26c321e08d3820243ec07df4eec6c677ee281ecd32b4375255f27d4c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ctah_page.rs".function]]
 id = "fn:9a90331ae58e0e9a"
@@ -584,6 +694,7 @@ callees = [
     "fn:dda58812d1660e2f",
     "fn:e7fdb649111331dd",
 ]
+uses = ["fn:52e4e83f79c797bb"]
 
 [module."ctah_pump_page.rs"]
 path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages::ctah_pump_page"
@@ -598,6 +709,7 @@ lines = [
 ]
 hash = "sha256:10195b90fc63e5a5d67eb0b57cc8f060fe4e5fe657ffab688f99f5e5ccee8751"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."ctah_pump_page.rs".function]]
 id = "fn:39bf411ed49c1232"
@@ -615,6 +727,7 @@ callees = [
     "fn:d37eb04d2725b9cf",
     "fn:dda58812d1660e2f",
 ]
+uses = ["fn:52e4e83f79c797bb"]
 
 [module."dhx_page.rs"]
 path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages::dhx_page"
@@ -629,6 +742,7 @@ lines = [
 ]
 hash = "sha256:0fad685895280c394bfe4ac715bd731f5a3ba13afa8141384c5d8ca8d4dd63bb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."dhx_page.rs".function]]
 id = "fn:744cb12f240bde21"
@@ -649,6 +763,7 @@ callees = [
     "fn:d1ca75ffc92332d4",
     "fn:dda58812d1660e2f",
 ]
+uses = ["fn:52e4e83f79c797bb"]
 
 [module."frequency_response_and_transients.rs"]
 path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages::frequency_response_and_transients"
@@ -669,6 +784,19 @@ callees = [
 ]
 
 [[module."frequency_response_and_transients.rs".function]]
+id = "fn:821987f224600a60"
+name = "FreqResponseAndTransientSettings"
+qual = "FreqResponseAndTransientSettings"
+item = "type"
+shape = "struct"
+lines = [
+    121,
+    129,
+]
+hash = "sha256:e6fe69b7bdf6a8cf71f95d9bbc85a4ee14c10d95394962a680870133bb7508ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."frequency_response_and_transients.rs".function]]
 id = "fn:e8132c57f96edcb4"
 name = "get_frequency_response_signal"
 qual = "FreqResponseAndTransientSettings::get_frequency_response_signal"
@@ -678,6 +806,7 @@ lines = [
 ]
 hash = "sha256:1e816b57e7b3c11ac7e6bf23e4b3bc24829f5727a6e409c4900db57929326519"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:821987f224600a60"]
 physical_interface = true
 
 [[module."frequency_response_and_transients.rs".function]]
@@ -690,6 +819,7 @@ lines = [
 ]
 hash = "sha256:7a6a7baed3dd814aaaff4d5fc7ba6bd3f6d47f50adc8704d52f1a05b4f09e259"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:821987f224600a60"]
 physical_interface = true
 
 [[module."frequency_response_and_transients.rs".function]]
@@ -702,6 +832,7 @@ lines = [
 ]
 hash = "sha256:7d403ff4cf27203e71fadc35eb2da6ca4ef0ba3e24529e7d52b66798a7cceccf"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:821987f224600a60"]
 
 [[module."frequency_response_and_transients.rs".function]]
 id = "fn:df965f0010868bb2"
@@ -713,6 +844,7 @@ lines = [
 ]
 hash = "sha256:2a4c992e520ed4a82a053ad052b5f05270b62372156b5e6852437cc639b410f0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:821987f224600a60"]
 
 [module."heater_page.rs"]
 path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages::heater_page"
@@ -727,6 +859,7 @@ lines = [
 ]
 hash = "sha256:030762020723130e188704e26e38f628b8d70b7f8b0746311802f259b67c9626"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."heater_page.rs".function]]
 id = "fn:cf8b50bfd6e22a15"
@@ -744,6 +877,7 @@ callees = [
     "fn:87a10a36f9551b17",
     "fn:dda58812d1660e2f",
 ]
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."heater_page.rs".function]]
 id = "fn:254effc1bcddf98b"
@@ -797,6 +931,10 @@ callees = [
     "fn:e0faff442f948e02",
     "fn:f9571f9105f5c310",
 ]
+uses = [
+    "fn:2ae0e867e1dae4b3",
+    "fn:779983fa0c4c3607",
+]
 
 [[module."main_page.rs".function]]
 id = "fn:7e62235a0a1b9c8c"
@@ -825,6 +963,19 @@ callees = ["fn:d43de390377cf9c8"]
 [module."mod.rs"]
 path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages"
 
+[[module."mod.rs".function]]
+id = "fn:779983fa0c4c3607"
+name = "Panel"
+qual = "Panel"
+item = "type"
+shape = "enum"
+lines = [
+    1,
+    12,
+]
+hash = "sha256:3f5676ed8d57bff336a62f073b274d9f45437ccd15670c26f06a1fdfde7d390e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
 [module."tchx_page.rs"]
 path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages::tchx_page"
 
@@ -838,6 +989,7 @@ lines = [
 ]
 hash = "sha256:fc2638639dd739762c0e371efcfbe344b4a8f97e4098774684ba1fc0a187605b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:52e4e83f79c797bb"]
 
 [[module."tchx_page.rs".function]]
 id = "fn:5a1cb96d834e37c2"
@@ -856,3 +1008,4 @@ callees = [
     "fn:d8d54c707589a261",
     "fn:dda58812d1660e2f",
 ]
+uses = ["fn:52e4e83f79c797bb"]

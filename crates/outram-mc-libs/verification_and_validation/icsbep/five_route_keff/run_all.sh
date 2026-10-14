@@ -78,8 +78,11 @@ WORK=$WORK sh "$HERE/scripts/make_njoy_library.sh" >> "$WORK/logs/njoy_library.l
 log "Rust-NJOY library"
 NUCS=$(grep -v '^#' "$HERE/nuclides.tsv" | awk -F'\t' '{printf " --nuclide %s:%s:%s", $1, $2, $3}')
 # shellcheck disable=SC2086
-"$WRITER" --out "$WORK/rust" $NUCS --thermal HinH2O:tsl-HinH2O.endf:1:lwtr \
-  --thermal-grid-from "$WORK/njoy/293.6K/HinH2O.ace" >> "$WORK/logs/rust_library.log" 2>&1
+# H in H2O from its LEAPR deck, not the published tape (maintainer direction
+# 2026-10-14: LEAPR always runs; tsl-*.endf tapes are oracles). Its incident
+# grid is ACER's own rule, so no NJOY2016 table is read.
+"$WRITER" --out "$WORK/rust" $NUCS \
+  --thermal-leapr HinH2O:HinH2O:n-001_H_001-ENDF8.0-Beta6.endf:lwtr >> "$WORK/logs/rust_library.log" 2>&1
 for lib in njoy rust; do
   if [ ! -s "$WORK/h5_$lib/cross_sections.xml" ]; then
     log "ACE -> HDF5 ($lib)"

@@ -64,11 +64,10 @@ fn parse_type1(text: &str) -> (Vec<i32>, Vec<i32>, Vec<f64>) {
 #[test]
 fn thermal_table_header_and_dimensions() {
     let ace = al27_thermal();
-    assert!(
-        ace.zaid.starts_with("al27") && ace.zaid.ends_with('t'),
-        "ZAID {}",
-        ace.zaid
-    );
+    // `(a6,f3.2,'t')` with the name right-justified in 6 columns
+    // (`acer.f90:386-387`, `aceth.f90:665`), as NJOY2016 writes it since
+    // GitHub #865; ~~`starts_with("al27")`~~ CORRECTED 2026-10-14.
+    assert_eq!(ace.zaid, "  al27.00t", "ZAID");
     assert_eq!(ace.nxs[nxs::IDPNI], 3, "S(α,β) inelastic mode");
     assert_eq!(ace.nxs[nxs::NIL], 7, "NIL = nang − 1 = 7");
     assert_eq!(ace.nxs[nxs::NIEB], 16, "16 outgoing energies");

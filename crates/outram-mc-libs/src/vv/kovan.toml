@@ -5,10 +5,393 @@ dir = "crates/outram-mc-libs/src/vv"
 test_ids = [
     "crates/outram-mc-libs/src/vv/ugraphite.rs::homogenised_cell_has_the_requested_ratio",
     "crates/outram-mc-libs/src/vv/ugraphite.rs::pebble_inventory_matches_the_specification",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::approaches_the_free_atom_limit_at_the_cutoff",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_cross_sections_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_kernel_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_kernel_width_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_mean_cosine_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_cross_section_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_kernel_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_kernel_width_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_law_extends_to_njoys_10_ev",
+    "crates/outram-mc-libs/tests/u238_vs_njoy_pendf_golden.rs::u238_fission_matches_njoy_where_the_channel_is_open",
+    "crates/outram-mc-libs/tests/u238_vs_njoy_pendf_golden.rs::u238_point_cross_sections_match_njoy_pendf",
 ]
 
 [module."njoy_golden.rs"]
 path = "crate::vv::njoy_golden"
+
+[[module."njoy_golden.rs".function]]
+id = "fn:6dc21d66fc48485c"
+name = "XsPoint"
+qual = "XsPoint"
+item = "type"
+shape = "alias"
+lines = [
+    34,
+    35,
+]
+hash = "sha256:33c9bcd6efee0535875983148b7882f1b475a792a7284dd1cf20ae8ae5d2e0d5"
+doc_hash = "sha256:d389ea21e18760b1d30e1b8618d321a4d79abe944d7ed961c9b4e76f2819361b"
+reached_by = [
+    "#3",
+    "#7",
+]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:576a85a189dca942"
+name = "KernelPoint"
+qual = "KernelPoint"
+item = "type"
+shape = "alias"
+lines = [
+    37,
+    38,
+]
+hash = "sha256:33c9bcd6efee0535875983148b7882f1b475a792a7284dd1cf20ae8ae5d2e0d5"
+doc_hash = "sha256:f58c06af13d62931580ec65b4034e64fac33e01dc70a8b8aaf3f14fd7fc7dd5e"
+reached_by = ["#4"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:55e17c8ebb6bfa41"
+name = "H2O_XS"
+qual = "H2O_XS"
+item = "const"
+shape = "const"
+lines = [
+    44,
+    95,
+]
+hash = "sha256:a6f6b660f709709bdfb1e50fdb6e3ef242e1a95fa9a94abb4d8dbef4cd169b19"
+doc_hash = "sha256:555b2aa32b516624ba4b64faf18a96655e5a7137db1afeb65727e7f00155e5a6"
+uses = ["fn:6dc21d66fc48485c"]
+reached_by = ["#7"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:7871984bde4bdd12"
+name = "H2O_XS_TOL"
+qual = "H2O_XS_TOL"
+item = "const"
+shape = "const"
+lines = [
+    97,
+    111,
+]
+hash = "sha256:dd75f631a877edf5e515051aa2183b211d6c2d96630286f86f0f920675d38f4c"
+doc_hash = "sha256:6394302c1647e713e0d32261ef006110ac127f06a4187d45087108992dd925d2"
+reached_by = [
+    "#7",
+    "#10",
+]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:7e3aafba5e323b3f"
+name = "H2O_LAW_UPPER_BOUND_EV"
+qual = "H2O_LAW_UPPER_BOUND_EV"
+item = "const"
+shape = "const"
+lines = [
+    118,
+    123,
+]
+hash = "sha256:96adf43476516d1a07a8e98d1de5b30331f2bf88609e6ac0e763c86f071177c9"
+doc_hash = "sha256:7737710f4003dbf5f7783eb2c31672538d3df52d51ed5bdc5378c51e81dc8b75"
+reached_by = ["#2"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:a1093b5a9e759fc0"
+name = "H2O_KERNEL"
+qual = "H2O_KERNEL"
+item = "const"
+shape = "const"
+lines = [
+    125,
+    192,
+]
+hash = "sha256:41b8a740b52a7a975d856d242dd4e355dbcbfae572b121482065035e8eb527c1"
+doc_hash = "sha256:81415db429b1ccd4451f2db5efa49bbf8099c21b195db24c28842a456715a20a"
+reached_by = ["#8"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:2776ded5a50dc7da"
+name = "H2O_KERNEL_TOL"
+qual = "H2O_KERNEL_TOL"
+item = "const"
+shape = "const"
+lines = [
+    194,
+    205,
+]
+hash = "sha256:c61f1d6829a639790650edf2eb05e9c45d9ff879900972691620d82aba6a85bd"
+doc_hash = "sha256:20296a94d4021461f2f2d618c6222c49e853ddb2e81c89cf3cc6b9a3b67f5231"
+reached_by = ["#8"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:5b0922a909df3011"
+name = "H2O_KERNEL_CROSSOVER_EV"
+qual = "H2O_KERNEL_CROSSOVER_EV"
+item = "const"
+shape = "const"
+lines = [
+    207,
+    210,
+]
+hash = "sha256:68bf542d804f95fa478134b8b8e00ccd87f04ee0dc3d08226f6a56171d727a04"
+doc_hash = "sha256:f29a865f2bb79ff40d8cf485d4e112c5e2c307ed138f9fd7d82cb561e98cf6d4"
+
+[[module."njoy_golden.rs".function]]
+id = "fn:93b7eac36bc16b77"
+name = "H2O_KERNEL_WIDTH"
+qual = "H2O_KERNEL_WIDTH"
+item = "const"
+shape = "const"
+lines = [
+    212,
+    261,
+]
+hash = "sha256:db0b1f44df6b1a3bbc69746f3e7f0dfe2457705c24434f79964a8da371cb8c3f"
+doc_hash = "sha256:d3e5ab9888cb95da2eb12422fae2c7a2e79b49e6aae8bab6c4fc1793c58e6f3f"
+reached_by = ["#9"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:fb00d1c93700ebde"
+name = "H2O_KERNEL_WIDTH_TOL"
+qual = "H2O_KERNEL_WIDTH_TOL"
+item = "const"
+shape = "const"
+lines = [
+    263,
+    292,
+]
+hash = "sha256:80123795e2d51eb2119813cc2a3003b0c84b7dc26ac4dfd7c38c956c13736dcb"
+doc_hash = "sha256:5987f109330bd92aae8a5924bd30888023c2d3abd784070f9bce1fc1bb0f2eaf"
+reached_by = ["#9"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:bee477d101571d34"
+name = "GRAPHITE_XS_INELASTIC"
+qual = "GRAPHITE_XS_INELASTIC"
+item = "const"
+shape = "const"
+lines = [
+    298,
+    325,
+]
+hash = "sha256:e535ae9d439a75b51517dde01984e2e66060aae0f8152a415c4fa6c7f9b191de"
+doc_hash = "sha256:afe21a1c054be3d80175c87ffce3438408d26723724e133d5282e80968fbbbd7"
+uses = ["fn:6dc21d66fc48485c"]
+reached_by = ["#3"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:b47cd6d31dfb50ee"
+name = "GRAPHITE_XS_COHERENT"
+qual = "GRAPHITE_XS_COHERENT"
+item = "const"
+shape = "const"
+lines = [
+    327,
+    351,
+]
+hash = "sha256:ad9f42485999bc154fdeeae459bc93faef1fc6c0292af98e014664cf271bb9dd"
+doc_hash = "sha256:ebb9cd47c72538bb9c3c08312620310f2850a26b73a086f9ad7d4edc1fa95e7e"
+uses = ["fn:6dc21d66fc48485c"]
+reached_by = ["#3"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:0526553b6fbb93f3"
+name = "GRAPHITE_XS_TOL"
+qual = "GRAPHITE_XS_TOL"
+item = "const"
+shape = "const"
+lines = [
+    353,
+    355,
+]
+hash = "sha256:8593f7c365839e0dceb088c331ae16e3e47a5fb20d7bb357483f74df246ef58d"
+doc_hash = "sha256:442401e3f3d830033504d9d981d33cde5a3fd07c4133b9acfa0529abd4db8eaf"
+reached_by = ["#3"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:222c62273d1534ab"
+name = "GRAPHITE_FIRST_BRAGG_EDGE_ABOVE_EV"
+qual = "GRAPHITE_FIRST_BRAGG_EDGE_ABOVE_EV"
+item = "const"
+shape = "const"
+lines = [
+    357,
+    359,
+]
+hash = "sha256:0ee5f095c8779115f8a48f3431222c01e3167959ffbb1c3ce06c2b8eb875d9cb"
+doc_hash = "sha256:24e618c2defbaa15346787273130f50f6041300dfec4633d3b2d9f9e77813689"
+
+[[module."njoy_golden.rs".function]]
+id = "fn:7b79437f4feff6dc"
+name = "GRAPHITE_KERNEL"
+qual = "GRAPHITE_KERNEL"
+item = "const"
+shape = "const"
+lines = [
+    361,
+    400,
+]
+hash = "sha256:8bd110d74208946ab294a9982613e0b07aeeec6451ac77b85aeb0e01bb145675"
+doc_hash = "sha256:4e5f893bc09c8782c66cc4070fb7b9b7fd030c17ae4837167123c27467530456"
+uses = ["fn:576a85a189dca942"]
+reached_by = ["#4"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:67747c7f58da2c1e"
+name = "GRAPHITE_KERNEL_TOL"
+qual = "GRAPHITE_KERNEL_TOL"
+item = "const"
+shape = "const"
+lines = [
+    402,
+    410,
+]
+hash = "sha256:1f148c20a9052f9c5f1d120aca80b136c552a15d19103a0acaa8a96ed2021013"
+doc_hash = "sha256:2c2e930e3ce727039ba6992a6761284c9ce0dc7b89651824f1ee0cef0fa0c8d7"
+reached_by = ["#4"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:014c51444b05f017"
+name = "GRAPHITE_KERNEL_CONVERGED_ABOVE_EV"
+qual = "GRAPHITE_KERNEL_CONVERGED_ABOVE_EV"
+item = "const"
+shape = "const"
+lines = [
+    412,
+    416,
+]
+hash = "sha256:6638a1db30c07440295f9257c2dbdaec04baa2e20f6638b42d7a911514280f30"
+doc_hash = "sha256:a915ea25de0449586428bcad2deba26fbcaea54a7ac01131d70e7f707a93b3d1"
+reached_by = ["#4"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:8877c522f97a33b1"
+name = "GRAPHITE_KERNEL_CONVERGED_TOL"
+qual = "GRAPHITE_KERNEL_CONVERGED_TOL"
+item = "const"
+shape = "const"
+lines = [
+    418,
+    422,
+]
+hash = "sha256:77c61e3e5e58e52ccc217f76086fa441e38cda1efab4a200b0bc5a0e0c98a88b"
+doc_hash = "sha256:48c3a2295263d35f3d2b6887692b393b4cd72e279740a070a301dacae30abbfd"
+reached_by = ["#4"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:9e2b22bfe6b07d7b"
+name = "GRAPHITE_MUBAR"
+qual = "GRAPHITE_MUBAR"
+item = "const"
+shape = "const"
+lines = [
+    424,
+    509,
+]
+hash = "sha256:929c7cb416251048de5819076fb5293eade5ab2eb2de851fad12b7202bfaa733"
+doc_hash = "sha256:f5e5024ae1f21c861920c5e73f64636112c832f414a6cae3d7fc04c21c67dedf"
+reached_by = ["#6"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:59eafee9fba5ddeb"
+name = "GRAPHITE_MUBAR_TOL"
+qual = "GRAPHITE_MUBAR_TOL"
+item = "const"
+shape = "const"
+lines = [
+    511,
+    518,
+]
+hash = "sha256:244076d3fa7c061f817900374fe67f555698e4ce46d2b128b18f31dffefc853f"
+doc_hash = "sha256:ae391e8363ce5e10cc3027f3e1eb4a4516e8c7d3180d659560fdc68f597d58a9"
+reached_by = ["#6"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:3c26b441049aa9fb"
+name = "GRAPHITE_MUBAR_ELASTIC_TOL"
+qual = "GRAPHITE_MUBAR_ELASTIC_TOL"
+item = "const"
+shape = "const"
+lines = [
+    520,
+    524,
+]
+hash = "sha256:1f148c20a9052f9c5f1d120aca80b136c552a15d19103a0acaa8a96ed2021013"
+doc_hash = "sha256:e18dfcbd0f6b51d6beefcbbe8770be7196120369a53a1a455f0370b0773c2aa6"
+reached_by = ["#6"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:84ad9ac5ad1fc804"
+name = "GRAPHITE_KERNEL_WIDTH"
+qual = "GRAPHITE_KERNEL_WIDTH"
+item = "const"
+shape = "const"
+lines = [
+    526,
+    647,
+]
+hash = "sha256:4e3ac618ce21c840b33bf1033d13b611a44249d6006c9d002145439f72d374f3"
+doc_hash = "sha256:228dede0e7621b1bac4cd11e78669ab46e8e1f9cd08865a2dba1dca02c54cf3b"
+reached_by = ["#5"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:32ab611c2d95c0d5"
+name = "GRAPHITE_KERNEL_WIDTH_TOL"
+qual = "GRAPHITE_KERNEL_WIDTH_TOL"
+item = "const"
+shape = "const"
+lines = [
+    649,
+    658,
+]
+hash = "sha256:07a3049cae25dafae7757abd3093f9b0c2375181507d41612af25a17351b4069"
+doc_hash = "sha256:c2e026bdfa90f51b7941186d1e156765fee632512c150a3f231904b1c9718a97"
+reached_by = ["#5"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:a3865a61e5069585"
+name = "GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV"
+qual = "GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV"
+item = "const"
+shape = "const"
+lines = [
+    660,
+    671,
+]
+hash = "sha256:076e8665dfa725586e74716284e8779a44bcd419fdbb32a61ad266f06b6b58b3"
+doc_hash = "sha256:4795334079badbee285eb61b3d6b0d077e7b258857a2b4530e98edca13738c13"
+reached_by = ["#5"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:45522b7961db628b"
+name = "GRAPHITE_KERNEL_WIDTH_NARROW_TOL"
+qual = "GRAPHITE_KERNEL_WIDTH_NARROW_TOL"
+item = "const"
+shape = "const"
+lines = [
+    673,
+    683,
+]
+hash = "sha256:1a90a9a84fe8986cbd55058c7212045ea54ff1251b9090461ad789bcf9e803ef"
+doc_hash = "sha256:19b356d58dd5d57414ace4eb6fef647444cba64086e70c8e0521c1465c074a01"
+reached_by = ["#5"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:29a16b48d7c70622"
+name = "GRAPHITE_KERNEL_WIDTH_BROAD_CEILING"
+qual = "GRAPHITE_KERNEL_WIDTH_BROAD_CEILING"
+item = "const"
+shape = "const"
+lines = [
+    685,
+    711,
+]
+hash = "sha256:1a90a9a84fe8986cbd55058c7212045ea54ff1251b9090461ad789bcf9e803ef"
+doc_hash = "sha256:159ac1cd0c37bf180980afabda93b876330678abccfb96110dbc9a2be8cf88b3"
+reached_by = ["#5"]
 
 [[module."njoy_golden.rs".function]]
 id = "fn:7670ec6830ebfad4"
@@ -21,8 +404,258 @@ lines = [
 hash = "sha256:dd5323922c2e54f3987ccbbc9227ee1d837ad1638668ffe67a84087ec232484d"
 doc_hash = "sha256:d10e6985937156d667be9c81d0976c88aacc991c9012bc8b4d9f1e51169b948d"
 
+[[module."njoy_golden.rs".function]]
+id = "fn:d13316bd1332d452"
+name = "TOTAL"
+qual = "TOTAL"
+item = "const"
+shape = "const"
+lines = [
+    767,
+    788,
+]
+hash = "sha256:3fb07a29b0b5bcabc0d79b57205c7f3076ace4a82485c474ad3895aa855cec08"
+doc_hash = "sha256:dd800c4764061e2498e28a76ff04c070324df187612f166d16fddb4b22e22ace"
+reached_by = ["#12"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:c774c34cb00a1983"
+name = "ELASTIC"
+qual = "ELASTIC"
+item = "const"
+shape = "const"
+lines = [
+    789,
+    810,
+]
+hash = "sha256:e07caeefdd28766145ebbb4e67d9e5c62268b141e2ca376c21a444bbe226790b"
+doc_hash = "sha256:592d0ed5c94db15bd49041a22594e504644067623ad50f3c965d0bf2110f3bed"
+reached_by = ["#12"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:31173a872d6a36d3"
+name = "CAPTURE"
+qual = "CAPTURE"
+item = "const"
+shape = "const"
+lines = [
+    811,
+    833,
+]
+hash = "sha256:6860411275810ce05c9bb1118026386259f1943c2240aac2dd504567b702e7d1"
+doc_hash = "sha256:e59b31e5637b1c89a3488bef3b9d4e1f03a81210928aed92149610233ee435dd"
+reached_by = ["#12"]
+
+[[module."njoy_golden.rs".function]]
+id = "fn:5825c8af57b4d301"
+name = "FISSION"
+qual = "FISSION"
+item = "const"
+shape = "const"
+lines = [
+    834,
+    868,
+]
+hash = "sha256:6bb7a05f9ab3c6021eedf0e9d5988b1ac1a88eaa9cba3dba8a9ca82a4784245b"
+doc_hash = "sha256:50e315345254b9a9f209f34d23a72b71c7e2a14ff50bed52bc919631f8b5aebf"
+reached_by = ["#11"]
+
 [module."ugraphite.rs"]
 path = "crate::vv::ugraphite"
+
+[[module."ugraphite.rs".function]]
+id = "fn:c338624baf1f988b"
+name = "TEMPERATURE_K"
+qual = "TEMPERATURE_K"
+item = "const"
+shape = "const"
+lines = [
+    32,
+    35,
+]
+hash = "sha256:a018d81b1f64194d21f1da36896b8ed424084042f25c32379a7e2cbfb345f8cc"
+doc_hash = "sha256:e51e1775bbedaa68752caddbe0b75d860aec9b8bd72c723cf8e8c76cdec8cbf6"
+
+[[module."ugraphite.rs".function]]
+id = "fn:5b4917ba6737f0d8"
+name = "NAT_U"
+qual = "NAT_U"
+item = "const"
+shape = "const"
+lines = [
+    37,
+    40,
+]
+hash = "sha256:ad204a0d99244b60812e136569b275b771396d430d6f18dd5cc98114569f4b29"
+doc_hash = "sha256:d605efdff234006c62e5fbb005bbd7a40b0a24175835b95f621b6976142c7626"
+reached_by = ["#0"]
+
+[[module."ugraphite.rs".function]]
+id = "fn:e54b271d6a9e9961"
+name = "RHO_U_METAL"
+qual = "RHO_U_METAL"
+item = "const"
+shape = "const"
+lines = [
+    42,
+    44,
+]
+hash = "sha256:a65e5f08f1243cac57620f366ececd22bd0f7d623cde96056b2f68e0ebfe2afa"
+doc_hash = "sha256:f517272ad17663275e522f559146b5e713947cb321f6f165b5165e19655adf84"
+reached_by = ["#0"]
+
+[[module."ugraphite.rs".function]]
+id = "fn:a4c8d95f0a164766"
+name = "TAPES"
+qual = "TAPES"
+item = "const"
+shape = "const"
+lines = [
+    46,
+    54,
+]
+hash = "sha256:bb8389c7e6a49cfb32822e39a27b65de07b8fde3b58f1921c4beb37eaeb06e82"
+doc_hash = "sha256:4224d86b7609c95e5ae2f184ffd78c6e3b196725e26651e7b94a718537939ccc"
+
+[[module."ugraphite.rs".function]]
+id = "fn:8efde9c148100a02"
+name = "GRAPHITE_TSL"
+qual = "GRAPHITE_TSL"
+item = "const"
+shape = "const"
+lines = [
+    55,
+    57,
+]
+hash = "sha256:bcea8850bb726dea7ccc7eb4e491be5aeec8c82aa3f6c57a3871b7646c67c184"
+doc_hash = "sha256:8c0c9f8e5f4b8833d7ab027694d379ad1861d80a8c6aec5a4c26765794a790e9"
+
+[[module."ugraphite.rs".function]]
+id = "fn:652d798abb56f0af"
+name = "NA_B"
+qual = "NA_B"
+item = "const"
+shape = "const"
+lines = [
+    59,
+    60,
+]
+hash = "sha256:d21a39db3f3cbfa580da73496fd4d002f39caa86edb51d512006c616ddc8a4b3"
+doc_hash = "sha256:940216aa8079c716caed17ffcf037456b456d4eed89ca6e9ef8b0ffec0055190"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."ugraphite.rs".function]]
+id = "fn:3df6d371c1c5e03e"
+name = "M_U234"
+qual = "M_U234"
+item = "const"
+shape = "const"
+lines = [
+    61,
+    61,
+]
+hash = "sha256:10539ed0bb39dbaab26822d646c7d95b09ddeb9737ce7c884f392236b6f03800"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#0"]
+
+[[module."ugraphite.rs".function]]
+id = "fn:f79bb254875a7718"
+name = "M_U235"
+qual = "M_U235"
+item = "const"
+shape = "const"
+lines = [
+    62,
+    62,
+]
+hash = "sha256:d8d1d53cfa53040317883d5e5d66781533a4e07062779accb55e098016e95c58"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."ugraphite.rs".function]]
+id = "fn:f84100f58bf4b515"
+name = "M_U238"
+qual = "M_U238"
+item = "const"
+shape = "const"
+lines = [
+    63,
+    63,
+]
+hash = "sha256:ab9de94421d37d8014e9013716d40be5d58446bc0772f484c580296d7f4f155f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."ugraphite.rs".function]]
+id = "fn:828d8c6bc3ae19a6"
+name = "M_O16"
+qual = "M_O16"
+item = "const"
+shape = "const"
+lines = [
+    64,
+    64,
+]
+hash = "sha256:1a2c062a4b66da83c32bdcfe5462754f6dd7754aa7999438d946d338351fa7a9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#1"]
+
+[[module."ugraphite.rs".function]]
+id = "fn:9d049781676f5feb"
+name = "M_C"
+qual = "M_C"
+item = "const"
+shape = "const"
+lines = [
+    65,
+    65,
+]
+hash = "sha256:352cef12208531cf5c18cedd41cb66cac84292c1b8ce4fd244773994628e7c9f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."ugraphite.rs".function]]
+id = "fn:61ed62f4a46ca2ad"
+name = "M_SI"
+qual = "M_SI"
+item = "const"
+shape = "const"
+lines = [
+    66,
+    66,
+]
+hash = "sha256:036de86f4697623ff229a4a61289e6b3f3d7f0d6e00f99308905cc56e8eb6bd0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = ["#1"]
+
+[[module."ugraphite.rs".function]]
+id = "fn:0ffa07cf16635e52"
+name = "Mix"
+qual = "Mix"
+item = "type"
+shape = "struct"
+lines = [
+    68,
+    76,
+]
+hash = "sha256:7732522d9e5f3d4cc764156eaab41052c72c28b65d076f42d5d65ffef362bbdb"
+doc_hash = "sha256:f450c4f2c7f6bb7541931beffd22cc981ba67a34b0b7cba6bdf958fafe6bf917"
+reached_by = [
+    "#0",
+    "#1",
+]
 
 [[module."ugraphite.rs".function]]
 id = "fn:a9c4f73ec3cd87ff"
@@ -34,6 +667,7 @@ lines = [
 ]
 hash = "sha256:c6c1c9baabe5f84dc294a9bf52a8f695cf1e4e1e9483513aa6769d1c503389bb"
 doc_hash = "sha256:9a23d55f81025b137af5ec3fe0fd89fabe8e88e57bcf48fe84a09cccf8551a17"
+uses = ["fn:0ffa07cf16635e52"]
 reached_by = [
     "#0",
     "#1",
@@ -49,6 +683,11 @@ lines = [
 ]
 hash = "sha256:3c303ce42f5fbb0bcfa20c8563eb8623d38716e4aaa89b84924141ae8f509329"
 doc_hash = "sha256:a83455c95199394d796f49767bce21948c1fdd83484b340d2293400b40ed1ffa"
+uses = [
+    "fn:0ff70d3d32add3eb",
+    "fn:0ffa07cf16635e52",
+    "fn:c0f5c74f0c583678",
+]
 
 [[module."ugraphite.rs".function]]
 id = "fn:f81d494cdcbf265a"
@@ -61,6 +700,12 @@ lines = [
 hash = "sha256:10bb75decc6c1c29cacef8cce925684b0aa2b7e9fa679e6010e2e40597510ac3"
 doc_hash = "sha256:0c1517ba2a6ab97da7b8ce88b44c5194277d4a4ccf18dae0bce72ac1cde7e747"
 callees = ["fn:26a670e7c3186f7a"]
+uses = [
+    "fn:0ffa07cf16635e52",
+    "fn:86fec0a94b7f6b00",
+    "fn:c338624baf1f988b",
+    "fn:f8778793521a3c25",
+]
 
 [[module."ugraphite.rs".function]]
 id = "fn:e0b9a4145efffa1c"
@@ -72,7 +717,22 @@ lines = [
 ]
 hash = "sha256:d15e7823982455a8fc72efa0bb147438522348916f16d43323d492e5c8af679d"
 doc_hash = "sha256:b33458aaee569b9b11200cfebd73ec7008a5d76bb880eb13fc24216b632835c5"
+uses = ["fn:0ffa07cf16635e52"]
 reached_by = ["#0"]
+
+[[module."ugraphite.rs".function]]
+id = "fn:bc62314d3f8d9299"
+name = "PebbleInventory"
+qual = "PebbleInventory"
+item = "type"
+shape = "struct"
+lines = [
+    124,
+    135,
+]
+hash = "sha256:430b83fe0ef917083fdc27c5b0619e40d71ee2c9de2572c90c7b7b7d3c133cd9"
+doc_hash = "sha256:1bcfca04193b3bd91021ec05b47894bba08c4bdcb8f33dd8c416e5e360e8ce9d"
+reached_by = ["#1"]
 
 [[module."ugraphite.rs".function]]
 id = "fn:ea890b26d1becb70"
@@ -88,6 +748,22 @@ callees = [
     "fn:8f0d1a3e98e2a0a9",
     "fn:afd5bfe2623e96dc",
 ]
+uses = [
+    "fn:0ffa07cf16635e52",
+    "fn:61ed62f4a46ca2ad",
+    "fn:620daa01a3f5dc9d",
+    "fn:652d798abb56f0af",
+    "fn:74592448da6672d8",
+    "fn:828d8c6bc3ae19a6",
+    "fn:9d049781676f5feb",
+    "fn:a5a9d036ecbcea45",
+    "fn:b8cb71072b193a52",
+    "fn:bc62314d3f8d9299",
+    "fn:d36401065f1468e9",
+    "fn:f79bb254875a7718",
+    "fn:f84100f58bf4b515",
+    "fn:fff0a58315442b7e",
+]
 reached_by = ["#1"]
 
 [[module."ugraphite.rs".function]]
@@ -100,6 +776,11 @@ lines = [
 ]
 hash = "sha256:64cb24c5bff909344fa4e7653d14c36a294ae1eafb097b69dddba7b2f1b49686"
 doc_hash = "sha256:d318ba19534e07321780a9ef6bde2b1f03614c04dd7b371e08e5dde082726ae2"
+uses = [
+    "fn:652d798abb56f0af",
+    "fn:9d049781676f5feb",
+    "fn:b8cb71072b193a52",
+]
 reached_by = ["#0"]
 
 [[module."ugraphite.rs".function]]
@@ -113,6 +794,10 @@ lines = [
 hash = "sha256:5449095b610e117eb1d752d854c13ce25994d957cea2cf98a66f831e17e9bbad"
 doc_hash = "sha256:197e05edd27248a9bc58bde1a0ff45ed453d23a020cd4eb3c9a06aa2d3fc7a31"
 callees = ["fn:d0260aee72c08dbf"]
+uses = [
+    "fn:0ffa07cf16635e52",
+    "fn:5b4917ba6737f0d8",
+]
 reached_by = ["#0"]
 
 [[module."ugraphite.rs".function]]
@@ -125,6 +810,15 @@ lines = [
 ]
 hash = "sha256:e98ed2f6919ae821563d60631a2d9da7b2cda0e50221f04bb38f00ec99ada7d2"
 doc_hash = "sha256:49abfc820976a69e7fdcf35e931c365d2d79f81af86127d90d53699d242ee361"
+uses = [
+    "fn:0ffa07cf16635e52",
+    "fn:3df6d371c1c5e03e",
+    "fn:5b4917ba6737f0d8",
+    "fn:652d798abb56f0af",
+    "fn:e54b271d6a9e9961",
+    "fn:f79bb254875a7718",
+    "fn:f84100f58bf4b515",
+]
 reached_by = ["#0"]
 
 [[module."ugraphite.rs".function]]
@@ -138,6 +832,7 @@ lines = [
 hash = "sha256:e738c94c93614587dcbb8b72bb7330c411f63c9006cda1dba58edaa4adc50313"
 doc_hash = "sha256:34e2b6a1b072319333f1ca6aed2ed956a678c79cac5094aafb397f58d2294bf3"
 callees = ["fn:d0260aee72c08dbf"]
+uses = ["fn:0ffa07cf16635e52"]
 reached_by = ["#0"]
 
 [[module."ugraphite.rs".function]]
@@ -202,4 +897,5 @@ callees = [
     "fn:a9c4f73ec3cd87ff",
     "fn:e0b9a4145efffa1c",
 ]
+uses = ["fn:0ffa07cf16635e52"]
 test = true

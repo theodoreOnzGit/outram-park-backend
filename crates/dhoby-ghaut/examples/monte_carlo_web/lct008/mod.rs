@@ -10,9 +10,19 @@
 //! The core is the real benchmark model: the committed `mit-crpg/benchmarks`
 //! cards, parsed by outram-mc-libs' shared `lct008_model.rs` (module
 //! [`spec`]), 4961 fuel rods in nested lattices. Each track is one real
-//! history through that lattice. No Run k_eff here: the eigenvalue of this
+//! history through that lattice. ~~No Run k_eff here: the eigenvalue of this
 //! core takes ~10⁸ histories to pin down, which is not a browser job. The
-//! lesson quotes the recorded result instead.
+//! lesson quotes the recorded result instead.~~ **CORRECTED 2026-10-13**
+//! (gh:#859): the rung has a Run k_eff, the real core on
+//! `CsgPowerIteration` ([`crate::csgrung::Keff`]) at settings the reader
+//! chooses, on data processed at NJOY's tolerance. Its default is the other
+//! benchmark rungs' 5000 × [40 + 120] (maintainer direction, 2026-10-13: the
+//! demo is acceptance, seeing it run, not validation), which is NOT the
+//! recorded campaign's 10 000 × [250 + 400]: at the default the fission
+//! source is not fully converged and `k` sits about 80 pcm above the
+//! campaign's (16 native seeds, 2026-10-13: +70 ± 28 pcm against OpenMC +
+//! NJOY2016, where the campaign size gives −8 ± 9). Pinning `k` to the
+//! record's ±8 pcm takes ~4 × 10⁸ histories and is not a browser job.
 
 pub mod model;
 #[cfg(not(target_arch = "wasm32"))]
@@ -45,7 +55,9 @@ pub const PITCH_LCT008: f64 = 1.63576;
 use crate::anim::Spectrum;
 use crate::engine::{Tier, CHAIN_SEED};
 use crate::history::History;
-use crate::keff::{csv_points, Generation, KeffConfig, KinfCase, KinfGeneration, LineStyle, RecordedCurve};
+use crate::keff::{csv_points, Generation, KeffConfig, KinfCase, KinfGeneration, LineStyle, RecordedCurve, Reference};
+use outram_mc_libs::geometry::position::Position;
+use outram_mc_libs::physics::transport_csg::SourceBox;
 use crate::xs::{Channel, XsCurve};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::physics::keff::KeffSettings;
@@ -56,6 +68,9 @@ use egui::{Color32, Rect, Sense, Stroke, Vec2};
 
 /// The marker type `rung_table!` names.
 pub struct Lct008;
+
+/// The recorded tracks the page ships (`--bake-tracks lct008`).
+const RECORDED_TRACKS: &[u8] = include_bytes!("data/tracks.bin.z");
 
 const VACUUM: Color32 = Color32::from_rgb(18, 20, 26);
 const WATER: Color32 = Color32::from_rgb(28, 62, 112);
@@ -86,16 +101,23 @@ impl McRung for Lct008 {
     fn jobs() -> &'static [(&'static str, &'static str)] {
         &model::JOBS
     }
-    /// Always the loosened 0.01 tier: Watch mode is an illustration (module
-    /// docs of [`model`]).
-    fn tier(_requested: Tier) -> Tier {
-        Tier::Loose
+    /// ~~Always the loosened 0.01 tier~~ **CORRECTED 2026-10-13** (gh:#859):
+    /// the tier asked for. Watch asks for the loosened 0.01 (an
+    /// illustration); Run k_eff and the pitch view, which compute a `k`, ask
+    /// for NJOY's 0.001, the record's own (module docs of [`model`]).
+    fn tier(requested: Tier) -> Tier {
+        requested
     }
     /// Native seconds per job at tolerance 0.01, measured 2026-10-04 by the
     /// rung's ignored test (i9-13900K, one thread, shared machine; 0.0 s
-    /// jobs floored at 0.1); progress-bar weights only.
-    fn job_weights(_tier: Tier) -> Vec<f64> {
-        vec![0.1, 0.1, 0.1, 0.8, 14.8, 13.0, 0.1, 0.1, 0.1, 0.1, 0.5, 16.2]
+    /// jobs floored at 0.1). At 0.001 the uranium tapes take the Godiva
+    /// rung's measured seconds; the light nuclides were not re-measured.
+    /// Progress-bar weights only.
+    fn job_weights(tier: Tier) -> Vec<f64> {
+        match tier {
+            Tier::Loose => vec![0.1, 0.1, 0.1, 0.8, 14.8, 13.0, 0.1, 0.1, 0.1, 0.1, 0.5, 16.2],
+            Tier::Exact => vec![0.2, 0.2, 0.2, 1.6, 29.5, 31.1, 0.2, 0.2, 0.2, 0.2, 1.0, 16.2],
+        }
     }
     fn half_extent() -> f64 {
         model::R_CORE
@@ -135,17 +157,41 @@ impl McRung for Lct008 {
     fn notes() -> &'static [&'static str] {
         &[
             "Model: ICSBEP LEU-COMP-THERM-008 case 1 (Babcock & Wilcox critical lattice): 4961 rods of 2.459 w/o UO₂ in Al-6061 clad, 1.63576 cm pitch, in water with 1511 ppm boron, arranged as a 7 × 7 core lattice of 15 × 15 pin lattices. Read at run time from the committed mit-crpg/benchmarks OpenMC cards by the same code the recorded result was measured with.",
-            "Data: ENDF/B-VIII.0, processed in this browser by OUTRAM PARK's NJOY port at tolerance 0.01 (NJOY uses 0.001; measured effect on this lattice −65 ± 40 pcm). Hydrogen in the water uses the H in H₂O S(α,β) thermal-scattering law. 11 nuclides: the clad's trace elements (Mg, Ti, Cr, Fe, Cu, Zn) and B-11 are left out, as in the quoted result.",
+            "Data: ENDF/B-VIII.0, processed in this browser by OUTRAM PARK's NJOY port. Watch: tolerance 0.01 (NJOY uses 0.001; measured effect on this lattice −65 ± 40 pcm). Run k_eff and the pitch view: NJOY's 0.001, as the record. Hydrogen in the water uses the H in H₂O S(α,β) thermal-scattering law. 11 nuclides: the clad's trace elements (Mg, Ti, Cr, Fe, Cu, Zn) and B-11 are left out, as in the quoted result.",
             "Each track is one real history (a one-particle fixed-source run through the nested lattices), drawn projected from above. Chaining one neutron after the next is the illustration.",
-            "There is no Run k_eff for this rung: pinning down this core's k takes about 10⁸ histories. The recorded result (+236 ± 8 pcm from k = 1, 96 seeds) is on the lesson page.",
+            "Run k_eff is true Monte Carlo on the whole core: outram-mc-libs' single-thread CSG power iteration (`CsgPowerIteration`, what `run_keff_csg` runs), one generation at a time. Its default, 5000 neutrons × [40 inactive + 120 active], is sized to run in a browser, like the other benchmark rungs. It is smaller than the recorded campaign's 10 000 × [250 + 400] (96 seeds: +166 ± 8 pcm from the benchmark k of 1.0007 ± 0.0016; OpenMC on NJOY2016 data +174 ± 5), and at the default the fission source of this 1.5 m core has not fully settled: 16 native seeds gave k about 80 pcm above the campaign's. One run scatters by about 190 pcm, so that offset is inside one run's noise. For a k comparable with the record, set the campaign's numbers and wait.",
             "\"pitch k∞\" runs a real, single-threaded power iteration of ONE rod in a reflective square cell (an infinite lattice, no leakage) at the pitch you choose, on the same data, and draws it against the recorded sweep. It is k∞ of the pin lattice, not the core's k_eff.",
-            "The σ(E) panel shows the cross sections this tab processed for transport (tolerance 0.01), decimated for drawing: U-238 capture (σ_a − σ_f), U-235 fission and H-1 scattering with the water's S(α,β) law below its cutoff.",
+            "The σ(E) panel shows the cross sections this tab processed for transport, decimated for drawing: U-238 capture (σ_a − σ_f), U-235 fission and H-1 scattering with the water's S(α,β) law below its cutoff.",
+            "The Shannon entropy of the fission source is on a 5 × 5 × 5 mesh over the core's bounding box, so at most 6.97 bits. A CSG run reports no leaked / captured / fissioned counts (the sphere-only iteration of the Godiva rung does).",
+            "During Run k_eff the neutrons drawn on the geometry are real histories born at sites of the run's present fission source. They are run in addition to the run's own neutrons and are not counted in k.",
             "Animation speed is proportional to the neutron's real speed (classical kinetic energy, v proportional to √E).",
             "Education and research only. Not for reactor operation, licensing or safety decisions.",
         ]
     }
     fn loading_note(_tier: Tier) -> Option<&'static str> {
-        Some("Twelve tapes, including the water's thermal-scattering law: allow a few minutes in a browser, longer on a phone.")
+        Some("Twelve tapes, including the water's thermal-scattering law: allow a few minutes in a browser, longer on a phone. Later visits read the processed data from this browser's cache.")
+    }
+    /// 5000 neutrons × [40 inactive + 120 active], seed 1, as the other
+    /// benchmark rungs: sized to run in a browser, and smaller than the
+    /// recorded campaign's run (module docs, and the rung's notes, on what
+    /// that does to `k`).
+    fn run_default() -> Option<KeffConfig> {
+        Some(KeffConfig { n_particles: 5000, n_inactive: 40, n_active: 120, seed: 1, point_source: false, want_sites: false })
+    }
+    /// Route 4 of the five-route study (outram-mc on the Rust NJOY port,
+    /// ENDF read directly; the 11-nuclide tier this rung runs), read from
+    /// the committed campaign summary.
+    fn reference() -> Option<Reference> {
+        crate::keff::five_route_reference(
+            "lct008",
+            "five-route study route 4, 96 seeds x 10000 x [250+400], 2026-09-30, at 0414bc8277",
+            crate::route1_label!("96 seeds x 10000 x [250+400]"),
+            10_000.0 * 400.0,
+            ("ICSBEP LEU-COMP-THERM-008 case 1 benchmark k, as tabulated by Mosteller (LA-UR-10-06230)", model::BENCHMARK_K, model::BENCHMARK_SIGMA),
+        )
+    }
+    fn recorded_tracks() -> Option<&'static [u8]> {
+        Some(RECORDED_TRACKS)
     }
     /// The pitch slider: k∞ of one rod in a reflective square cell. Default
     /// settings 1000 × [20 + 30]: the issue's cost reference (native, about
@@ -162,19 +208,19 @@ impl McRung for Lct008 {
             cfg: KeffConfig { n_particles: 1000, n_inactive: 20, n_active: 30, seed: 1, point_source: false, want_sites: false },
             curves: vec![
                 RecordedCurve {
-                    label: "ours: outram-mc, recorded 2026-10-04".into(),
+                    label: "ours: outram-mc, recorded 2026-10-04 at 7e9b8bd637".into(),
                     style: LineStyle::Ours,
                     points: csv_points(SWEEP_OURS_CSV, "pitch_cm", "k_inf", "k_std"),
                 },
                 RecordedCurve {
-                    label: "reference code: OpenMC, recorded 2026-10-04".into(),
+                    label: "reference code: OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5, recorded 2026-10-04".into(),
                     style: LineStyle::Reference,
                     points: csv_points(SWEEP_OPENMC_CSV, "pitch_cm", "k_gen_mean", "k_gen_sem"),
                 },
             ],
             notes: vec![
                 "One LCT-008 rod (UO₂ 2.459 w/o, Al clad) in case-1 water with 1511 ppm boron, in a square cell with reflective walls: an infinite lattice, so this is k∞ (no leakage), not the core's k_eff.",
-                "A real power iteration by outram-mc-libs (CsgPowerIteration, the single-thread reference stepped one generation per worker message), on the data this tab processed at tolerance 0.01; the record used NJOY's 0.001 (measured effect on the full lattice −65 ± 40 pcm).",
+                "A real power iteration by outram-mc-libs (CsgPowerIteration, the single-thread reference stepped one generation per worker message), on the data this tab processed at NJOY's tolerance 0.001, as the record.",
                 "Your ± is the standard error over the active generations of ONE run: it understates the true spread, because generations are correlated.",
                 "Recorded curves (pitch_sweep.md, 2026-10-04, seed 1, 5000 × [50 + 200], NJOY tolerance 0.001, 11 nuclides): dotted = outram-mc (ours), dashed = OpenMC 0.16.1-dev on NJOY2016 ACE, the same model (a reference code). Verification, not validation: no experiment measured these pitches.",
             ],
@@ -199,14 +245,14 @@ impl McRung for Lct008 {
 
 impl RungBuilder for model::DataBuilder {
     type Loaded = Loaded;
-    fn new(_tier: Tier) -> Self {
-        model::DataBuilder::default()
+    fn new(tier: Tier) -> Self {
+        model::DataBuilder::at(tier.speed())
     }
     fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         model::DataBuilder::step(self, bytes, store)
     }
     fn finish(self) -> Result<Loaded, String> {
-        Ok(Loaded { phys: sim::Physics::new(model::DataBuilder::finish(self)?), chain: sim::Chain::new(CHAIN_SEED), kinf: None })
+        Ok(Loaded { phys: sim::Physics::new(model::DataBuilder::finish(self)?), chain: sim::Chain::new(CHAIN_SEED), kinf: None, keff: None })
     }
 }
 
@@ -216,6 +262,46 @@ pub struct Loaded {
     pub chain: sim::Chain,
     /// The running pitch case, if any.
     pub kinf: Option<PinRun>,
+    /// The running whole-core `k_eff`, if any (gh:#859).
+    pub keff: Option<crate::csgrung::Keff>,
+}
+
+/// Where the whole core's first generation starts: the core cylinder's
+/// bounding box, as `lct008_keff.rs` and the five-route study start it
+/// (points are kept where the material can fission, so in the fuel).
+pub fn source_box() -> SourceBox {
+    SourceBox {
+        lower: Position::new(-model::R_CORE, -model::R_CORE, model::Z_LO),
+        upper: Position::new(model::R_CORE, model::R_CORE, model::Z_HI),
+    }
+}
+
+/// A whole-core `k_eff` run on this rung's data.
+fn core_keff(phys: &sim::Physics, cfg: KeffConfig) -> crate::csgrung::Keff {
+    crate::csgrung::Keff::new(&phys.geometry, &phys.data.materials, &phys.data.nuclides, source_box(), model::TEMP_K, cfg)
+}
+
+/// A headless whole-core Run k_eff: the console, then the result against
+/// the record. Deterministic for a given config and data. Returns `(k, σ)`.
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+pub fn headless_keff(phys: &sim::Physics, cfg: KeffConfig, mut out: impl FnMut(&str)) -> (f64, f64) {
+    let mut k = core_keff(phys, cfg);
+    for l in crate::keff::CONSOLE_HEADER {
+        out(l);
+    }
+    let mut last = (f64::NAN, f64::NAN);
+    while let Some(g) = k.step(&phys.geometry, &phys.data.materials, &phys.data.nuclides) {
+        out(&crate::keff::console_line(&g.report));
+        if let Some(m) = g.report.k_mean {
+            last = m;
+        }
+    }
+    out("");
+    out(&format!(" k-effective = {:.5} +/- {:.5}   ({:+.0} +/- {:.0} pcm from 1)", last.0, last.1, (last.0 - 1.0) * 1e5, last.1 * 1e5));
+    if let Some(r) = Lct008::reference() {
+        out(&format!(" Recorded ({}): {:.5} +/- {:.5} ({:+.0} +/- {:.0} pcm)", r.label, r.k, r.sem, (r.k - 1.0) * 1e5, r.sem * 1e5));
+    }
+    last
 }
 
 /// A pitch case in progress: its pin cell and power iteration.
@@ -255,17 +341,29 @@ impl PinRun {
 }
 
 impl LoadedRung for Loaded {
+    /// While a whole-core run is going, the neutron is born at a site of
+    /// its present fission source; otherwise the Watch chain's next history.
     fn run_next(&mut self) -> History {
+        if let Some(k) = self.keff.as_ref().filter(|k| !k.finished()) {
+            self.chain.born_from(k);
+        }
         self.chain.run_next(&self.phys)
     }
-    fn keff_start(&mut self, _cfg: KeffConfig) -> Result<Vec<[f32; 2]>, String> {
-        Err("the LCT-008 rung has no k_eff mode".into())
+    fn keff_start(&mut self, cfg: KeffConfig) -> Result<Vec<[f32; 2]>, String> {
+        let k = core_keff(&self.phys, cfg);
+        if k.finished() {
+            return Err("the initial source is empty: no fuel found in the source box".into());
+        }
+        let sites = if cfg.want_sites { k.initial_sites() } else { Vec::new() };
+        self.keff = Some(k);
+        Ok(sites)
     }
     fn keff_step(&mut self) -> Option<Generation> {
-        None
+        let p = &self.phys;
+        self.keff.as_mut().and_then(|k| k.step(&p.geometry, &p.data.materials, &p.data.nuclides))
     }
     fn keff_finished(&self) -> bool {
-        true
+        self.keff.as_ref().is_none_or(|k| k.finished())
     }
     fn kinf_start(&mut self, param: f64, cfg: KeffConfig) -> Result<(), String> {
         self.kinf = Some(PinRun::new(&self.phys, param, cfg)?);
@@ -343,7 +441,7 @@ mod tests {
             let raw = std::fs::read(njoy_outram_park_fork::reference_data::reference_endf(tape).expect("tape")).expect("read");
             b.step(&crate::tapes::strip_covariances(&raw), &mut crate::processed_cache::DataStore::off()).expect("step");
         }
-        let mut l = Loaded { phys: sim::Physics::new(b.finish().expect("finish")), chain: sim::Chain::new(1), kinf: None };
+        let mut l = Loaded { phys: sim::Physics::new(b.finish().expect("finish")), chain: sim::Chain::new(1), kinf: None, keff: None };
         let t = std::time::Instant::now();
         let xs = l.xs_curves();
         eprintln!("  sigma(E) curves in {:.2} s: {:?}", t.elapsed().as_secs_f64(), xs.iter().map(|c| (c.label.clone(), c.points.len())).collect::<Vec<_>>());

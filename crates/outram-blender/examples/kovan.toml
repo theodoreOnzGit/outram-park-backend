@@ -46,6 +46,7 @@ callees = [
     "fn:4a56c8ce864d97af",
     "fn:aa75b4bddbd1338b",
 ]
+uses = ["fn:36e977167f45ecf1"]
 
 [[module."mesh_operators.rs".function]]
 id = "fn:82110859ce1a8539"
@@ -81,6 +82,19 @@ callees = [
     "fn:f4c898439eb6ea25",
     "fn:fef803549d43379a",
 ]
+uses = [
+    "fn:2d355391b3f6a710",
+    "fn:2dc57d9860826c7b",
+    "fn:47c917ff5090ff30",
+    "fn:6ddb50c8768badca",
+    "fn:9cf56d68896428af",
+    "fn:a72138965b6e8a25",
+    "fn:c713e1206bf0ce0f",
+    "fn:cddd9ca73e00f03e",
+    "fn:d4c0a578c7ff7256",
+    "fn:da4e12fcc73a7eac",
+    "fn:f6fdcff27af1323b",
+]
 
 [[module."mesh_operators.rs".function]]
 id = "fn:8941b3852c3d1ba8"
@@ -96,6 +110,10 @@ callees = [
     "fn:2e132a5fea1bf398",
     "fn:703625cf0117bab7",
     "fn:825ea188b132b826",
+]
+uses = [
+    "fn:2d355391b3f6a710",
+    "fn:36e977167f45ecf1",
 ]
 
 [[module."mesh_operators.rs".function]]
@@ -113,6 +131,7 @@ callees = [
     "fn:703625cf0117bab7",
     "fn:825ea188b132b826",
 ]
+uses = ["fn:36e977167f45ecf1"]
 
 [[module."mesh_operators.rs".function]]
 id = "fn:7599c8099e2b4517"
@@ -129,6 +148,10 @@ callees = [
     "fn:703625cf0117bab7",
     "fn:825ea188b132b826",
     "fn:91332c6c7cc128d8",
+]
+uses = [
+    "fn:2d355391b3f6a710",
+    "fn:36e977167f45ecf1",
 ]
 
 [module."meshing_nexus_images.rs"]
@@ -148,6 +171,10 @@ callees = [
     "fn:999f9864307d35bc",
     "fn:b8bb799255cf0335",
     "fn:feb18dcf0e52e6ef",
+]
+uses = [
+    "fn:5797c96376b0aaed",
+    "fn:a8285aec32e10e0d",
 ]
 
 [[module."meshing_nexus_images.rs".function]]
@@ -170,6 +197,12 @@ callees = [
     "fn:c15f3d088b6e2192",
     "fn:f504e8ec2bfa6972",
 ]
+uses = [
+    "fn:5797c96376b0aaed",
+    "fn:dd9da85cde5c81d7",
+    "fn:e4da4da2b80ea626",
+    "fn:f824084ff400b6ef",
+]
 
 [[module."meshing_nexus_images.rs".function]]
 id = "fn:63348cbfd63197ed"
@@ -179,7 +212,7 @@ lines = [
     87,
     130,
 ]
-hash = "sha256:5f551846240f6d8d9c101b5c0b8e63fd00db96dedb68d35faf8498c7c234155d"
+hash = "sha256:dc8204693bf842a7aaa955088073105c73f43d1c6dd9b1d424e162157408bffd"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:262cfa3b2e8581eb",
@@ -190,4 +223,11 @@ callees = [
     "fn:a82f9af2fb84e735",
     "fn:b68e155513b2bb24",
     "fn:efbbdb531db808c9",
+]
+uses = [
+    "fn:08bd20f5ce63f5c7",
+    "fn:0bb173954082584d",
+    "fn:2d52fb29cca42330",
+    "fn:be7013441700cacd",
+    "fn:dd9da85cde5c81d7",
 ]

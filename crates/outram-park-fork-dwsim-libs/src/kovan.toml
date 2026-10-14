@@ -66,15 +66,73 @@ path = "crate::prelude"
 path = "crate::reactions"
 
 [[module."reactions.rs".function]]
-id = "fn:7be29599b7b98e90"
-name = "new"
-qual = "ReactionComponent::new"
+id = "fn:3757a9b113c66f59"
+name = "R_GAS"
+qual = "R_GAS"
+item = "const"
+shape = "const"
 lines = [
-    191,
-    209,
+    81,
+    87,
 ]
-hash = "sha256:ccdfdd4882502a2c38d299d9a89f78619a937cab3a73d5780573d53e4e10b532"
-doc_hash = "sha256:78e41f6cac01832a6e5f9c70cb6c06d06c5c2936b961f835fdefb853bf126341"
+hash = "sha256:98835a406f2ea08d998a4138f700c7f1f237b2d75d52fdeb3430ac25efa3a4ab"
+doc_hash = "sha256:742812ab0d46c5e25e1aedbb4004e46554104577632275e10cfa8d872041aff3"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:507109c1ceee406c"
+name = "ReactionKind"
+qual = "ReactionKind"
+item = "type"
+shape = "enum"
+lines = [
+    89,
+    126,
+]
+hash = "sha256:44a49856c18140290f551c039f28ccdfb736301edc835ee800f81a2d303d28d8"
+doc_hash = "sha256:0b0aa665d5e50d75400e416c78d2cebabf4dd564d567be085ed7774ffbca27f3"
 reached_by = [
     "#0",
     "#1",
@@ -127,6 +185,258 @@ reached_by = [
 ]
 
 [[module."reactions.rs".function]]
+id = "fn:ba9bc8da77d6b01c"
+name = "ReactionBasis"
+qual = "ReactionBasis"
+item = "type"
+shape = "enum"
+lines = [
+    128,
+    162,
+]
+hash = "sha256:032bbf8fb984fe9d07678d945e035cd659adddff2960155bb633b7e19faa0057"
+doc_hash = "sha256:b9e5b62f87acf706e7d4c3a91f22a6c960d837fd653fb17fac93d99057ab2a51"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:8aad858c8d3fe147"
+name = "ReactionComponent"
+qual = "ReactionComponent"
+item = "type"
+shape = "struct"
+lines = [
+    164,
+    188,
+]
+hash = "sha256:e6953023720512eefd4ee6a9ef715cfadc90263d31f8fad57ddaff0909d6bafd"
+doc_hash = "sha256:817cf95ea1ad4e1ab832767d2941d9a650e99485b4bd8623ac46ecb967ab62f3"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:7be29599b7b98e90"
+name = "new"
+qual = "ReactionComponent::new"
+lines = [
+    191,
+    209,
+]
+hash = "sha256:ccdfdd4882502a2c38d299d9a89f78619a937cab3a73d5780573d53e4e10b532"
+doc_hash = "sha256:78e41f6cac01832a6e5f9c70cb6c06d06c5c2936b961f835fdefb853bf126341"
+uses = ["fn:8aad858c8d3fe147"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
+id = "fn:8077e6a3f7b7bf8e"
+name = "EquilibriumConstant"
+qual = "EquilibriumConstant"
+item = "type"
+shape = "enum"
+lines = [
+    212,
+    254,
+]
+hash = "sha256:8af4e7215be25aaa8a9b4c05258c809c0c5ddede1e0aa767d382b127607ccdc5"
+doc_hash = "sha256:42bdc14b6a845ad98bdc3e4e99c340e2da4dcf249bfd44fe02096338a507dbd6"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
 id = "fn:cf3127ee88d3d1fc"
 name = "evaluate"
 qual = "EquilibriumConstant::evaluate"
@@ -136,6 +446,10 @@ lines = [
 ]
 hash = "sha256:b8ef1701bf16e78c0faf272283ad0ac3a4eb340210e0a81ff105849cfae8d109"
 doc_hash = "sha256:843078c0fe928d266e60a7774b25f482a3ce33e7dedd61b10e7268ed2771957a"
+uses = [
+    "fn:3757a9b113c66f59",
+    "fn:8077e6a3f7b7bf8e",
+]
 reached_by = [
     "#13",
     "#24",
@@ -150,6 +464,70 @@ reached_by = [
 ]
 
 [[module."reactions.rs".function]]
+id = "fn:f31b7d84fa07daa2"
+name = "AdsorptionTerm"
+qual = "AdsorptionTerm"
+item = "type"
+shape = "struct"
+lines = [
+    279,
+    316,
+]
+hash = "sha256:6e2aec986c9da6d0a58644455509899fcba5768a84ff35d7b737a11a74f1b1e5"
+doc_hash = "sha256:8b7f99eb335861065f4d232109835a1b2e81fa68104d1c2220bd7f43887cb414"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
 id = "fn:1e09045d7ac3019a"
 name = "new"
 qual = "AdsorptionTerm::new"
@@ -159,6 +537,7 @@ lines = [
 ]
 hash = "sha256:366e306d5dc558627d6d6dda3847497dd095e908d154fc1661be7f480e5f4ac6"
 doc_hash = "sha256:1065ebcfc24235d232725ad4e7029ba72ef22925fc43c84c472d888111850933"
+uses = ["fn:f31b7d84fa07daa2"]
 reached_by = [
     "#14",
     "#15",
@@ -177,6 +556,10 @@ lines = [
 ]
 hash = "sha256:e975d003b24792e6da247a7ec87700fa2edf6e1c54860bd05a7d25f71896a8e1"
 doc_hash = "sha256:f5b048224ff3159f6e5714d56c4b0332fedd324f69cc61c4619779198595b384"
+uses = [
+    "fn:3757a9b113c66f59",
+    "fn:f31b7d84fa07daa2",
+]
 reached_by = [
     "#0",
     "#1",
@@ -219,6 +602,7 @@ lines = [
 hash = "sha256:d1e2caf2edcf40a220ec05881d01f6b843aec9841ed8beacf7ac217e042611bb"
 doc_hash = "sha256:62ddb7d6889022c3da6b9bd7c0f4c8e16ebf8075b5d1c7c2b826b0f1a884dcab"
 callees = ["fn:f880637e53f784e2"]
+uses = ["fn:f31b7d84fa07daa2"]
 reached_by = [
     "#0",
     "#1",
@@ -251,6 +635,71 @@ reached_by = [
 ]
 
 [[module."reactions.rs".function]]
+id = "fn:3b4a86ff50a067e5"
+name = "LangmuirHinshelwood"
+qual = "LangmuirHinshelwood"
+item = "type"
+shape = "struct"
+lines = [
+    355,
+    381,
+]
+hash = "sha256:d2339ac855dfe2fbd75fa6ec60eac570aa7878696ad24088a48af3d7c08f56ca"
+doc_hash = "sha256:7488c62d2994fc628424af50a41462c5e152e830cb1e1c08cd05725dfd1d4476"
+uses = ["fn:f31b7d84fa07daa2"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
 id = "fn:448e20a5ff7e8bbe"
 name = "default"
 qual = "LangmuirHinshelwood::default"
@@ -260,6 +709,7 @@ lines = [
 ]
 hash = "sha256:a8a4474c91715bcecbd14dcf1e393e5eec2b99ef12e0b854d5a3856829135fc7"
 doc_hash = "sha256:d11d680989a642770db400fbcac8877cce1945bd8f0af081e5573450afdfd5ed"
+uses = ["fn:3b4a86ff50a067e5"]
 reached_by = [
     "#0",
     "#1",
@@ -321,6 +771,10 @@ lines = [
 ]
 hash = "sha256:3e475e7e049f184f849c25f4d4ee882adfba52e7a3654e83cc01df088364750d"
 doc_hash = "sha256:6cc4336007ffac11d9895a7d2100cadba3a8172d35dcbd77f23ba4c3a0bd0ff0"
+uses = [
+    "fn:3b4a86ff50a067e5",
+    "fn:f31b7d84fa07daa2",
+]
 reached_by = [
     "#14",
     "#15",
@@ -340,6 +794,7 @@ lines = [
 hash = "sha256:c63d8727cf93cd88afd9e13dda1f1ae744271ec5ebbf7ad2bda3570a5071b0bb"
 doc_hash = "sha256:8c8033f475e4efd18f55f4654e96424b19c8d99cbab91642c14795015bcdb8ed"
 callees = ["fn:683e87881b70771c"]
+uses = ["fn:3b4a86ff50a067e5"]
 reached_by = [
     "#0",
     "#1",
@@ -372,6 +827,76 @@ reached_by = [
 ]
 
 [[module."reactions.rs".function]]
+id = "fn:8dd48605f3240a27"
+name = "Reaction"
+qual = "Reaction"
+item = "type"
+shape = "struct"
+lines = [
+    421,
+    476,
+]
+hash = "sha256:2f6ab52ad4b702388c2f46ee5ae94763757f3fd9dd6ddb8c6bc3aa696b420388"
+doc_hash = "sha256:ffdca0128b9bf621158c69c8db01f0b4d4ed8829dc90c850934ddb54fcb5110e"
+uses = [
+    "fn:3b4a86ff50a067e5",
+    "fn:507109c1ceee406c",
+    "fn:8077e6a3f7b7bf8e",
+    "fn:8aad858c8d3fe147",
+    "fn:ba9bc8da77d6b01c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+]
+
+[[module."reactions.rs".function]]
 id = "fn:9b6ed9e43c277780"
 name = "new"
 qual = "Reaction::new"
@@ -382,6 +907,14 @@ lines = [
 hash = "sha256:42ff014c5f48de1b588add0bbe9c94d6ea174b03623e0ea457551b9eb3ba80c0"
 doc_hash = "sha256:ac6a679c2083500817f99b5fb86855780e65ba71489e18741fd74c1272d3abf0"
 callees = ["fn:448e20a5ff7e8bbe"]
+uses = [
+    "fn:3b4a86ff50a067e5",
+    "fn:507109c1ceee406c",
+    "fn:8077e6a3f7b7bf8e",
+    "fn:8aad858c8d3fe147",
+    "fn:8dd48605f3240a27",
+    "fn:ba9bc8da77d6b01c",
+]
 reached_by = [
     "#0",
     "#1",
@@ -443,6 +976,7 @@ lines = [
 ]
 hash = "sha256:742fc279b16e1830ef6b7994b3824d365517c1d65066331f43a1eb93cf84a404"
 doc_hash = "sha256:1cb9b372dd15901c64d10358fb7fd12f4b9755d25d04034d31e21420efe7f57a"
+uses = ["fn:8dd48605f3240a27"]
 reached_by = [
     "#0",
     "#1",
@@ -486,6 +1020,7 @@ lines = [
 ]
 hash = "sha256:3e4de97fdf0ce8ffbdbf09662e4ec6ea7739165e1b2585968e61f502255544fa"
 doc_hash = "sha256:cfed4ab10a8927969f901e1d837ab6affa018042d442f8953a288137b80db6c9"
+uses = ["fn:8dd48605f3240a27"]
 reached_by = [
     "#0",
     "#1",
@@ -515,6 +1050,10 @@ lines = [
 ]
 hash = "sha256:9e855c631cddd92a74e064ed985603649ea32e77cdc37fd134e4141dc6c1b725"
 doc_hash = "sha256:47637f867cb7edf3b57638b83b16a643e76fb38eb5326a0dcb619e6a44b2be9c"
+uses = [
+    "fn:8077e6a3f7b7bf8e",
+    "fn:8dd48605f3240a27",
+]
 reached_by = [
     "#0",
     "#1",
@@ -549,6 +1088,7 @@ lines = [
 ]
 hash = "sha256:c0bab586be782d82e7cb753644a2627b61792d6ded2364265d5e7de9749656ac"
 doc_hash = "sha256:430d010043ad92a5561744dd1753141d2002e63186a589e091280e6c2f454938"
+uses = ["fn:8dd48605f3240a27"]
 reached_by = [
     "#18",
     "#19",
@@ -571,6 +1111,7 @@ lines = [
 ]
 hash = "sha256:95bf1459d3d45723ee1d6eb5643a67b4538aa56d478696bed4b0f8827f2c76dc"
 doc_hash = "sha256:ac0c9cd2ce26c5fe9ce5b98d08301433c8c9c9820f1a5828d4385aab1b936632"
+uses = ["fn:8dd48605f3240a27"]
 reached_by = [
     "#0",
     "#1",
@@ -596,6 +1137,10 @@ lines = [
 ]
 hash = "sha256:14f38a6a67739b504f4ca7ee7a7930c58927e1a944242e03460bfeef52948376"
 doc_hash = "sha256:90716b534098e2eef61cda9a1b388563ba6a9ab4054780e41d0101012d5a97e1"
+uses = [
+    "fn:3b4a86ff50a067e5",
+    "fn:8dd48605f3240a27",
+]
 reached_by = [
     "#15",
     "#16",
@@ -613,6 +1158,7 @@ lines = [
 ]
 hash = "sha256:b197cad815f961423967c93c66789e7c7c6e0ca2ba80ae4fb9ef264749ba119d"
 doc_hash = "sha256:cd531677b85efdb5f27f43ad1694939cd244c44774ee6ef0a96b8621a0220e62"
+uses = ["fn:8dd48605f3240a27"]
 reached_by = [
     "#0",
     "#1",
@@ -660,6 +1206,7 @@ lines = [
 ]
 hash = "sha256:392b3b13425eb1113a35c6fd89f9e35cbbcdb0a0c7388d1df0346a66f0c556b6"
 doc_hash = "sha256:933c2dbd487eac3f906996b5c1df0a87d2658445dd1bb20262c9f41abdc8e17e"
+uses = ["fn:8dd48605f3240a27"]
 reached_by = [
     "#18",
     "#19",
@@ -682,6 +1229,10 @@ lines = [
 ]
 hash = "sha256:3cdb6939d707f8e5420f8a270918239263f1b9b45ba7cab9992dd9af0149c516"
 doc_hash = "sha256:0487f16a169ea8486b35b0afd0b3727632af4f5ad04485c2360a1c7403c0c03e"
+uses = [
+    "fn:3757a9b113c66f59",
+    "fn:8dd48605f3240a27",
+]
 reached_by = [
     "#0",
     "#1",
@@ -725,6 +1276,10 @@ lines = [
 ]
 hash = "sha256:2d68bfee29d91a0f954d977ea70a304989135ec2a218039e38dec26787c4fd82"
 doc_hash = "sha256:8ca20af9e4a25b9389f50b92125bffa80c77a80433999b15508723e737b011a2"
+uses = [
+    "fn:3757a9b113c66f59",
+    "fn:8dd48605f3240a27",
+]
 reached_by = [
     "#0",
     "#1",
@@ -771,6 +1326,7 @@ callees = [
     "fn:4bb86cce30dc9aa4",
     "fn:aa87ca086eebef5e",
 ]
+uses = ["fn:8dd48605f3240a27"]
 reached_by = [
     "#0",
     "#1",
@@ -816,6 +1372,7 @@ callees = [
     "fn:167b01e664ba9648",
     "fn:3d659d923581b4f7",
 ]
+uses = ["fn:8dd48605f3240a27"]
 reached_by = [
     "#0",
     "#1",
@@ -857,6 +1414,7 @@ lines = [
 hash = "sha256:ec8413a1d5f89d97f27171d2b8c01ab3152bfe3cf2805c81341a4eee32be009b"
 doc_hash = "sha256:7bf78ce719310703152dd28e96a5e2d3777ff20e6eab75b1cc48cbc42f9b7ddd"
 callees = ["fn:cf3127ee88d3d1fc"]
+uses = ["fn:8dd48605f3240a27"]
 reached_by = [
     "#24",
     "#25",
@@ -885,6 +1443,13 @@ callees = [
     "fn:9b6ed9e43c277780",
     "fn:9f5e1f557d158a5b",
 ]
+uses = [
+    "fn:3757a9b113c66f59",
+    "fn:507109c1ceee406c",
+    "fn:8aad858c8d3fe147",
+    "fn:8dd48605f3240a27",
+    "fn:ba9bc8da77d6b01c",
+]
 test = true
 
 [[module."reactions.rs".function]]
@@ -904,6 +1469,12 @@ callees = [
     "fn:9b6ed9e43c277780",
     "fn:9f5e1f557d158a5b",
 ]
+uses = [
+    "fn:507109c1ceee406c",
+    "fn:8aad858c8d3fe147",
+    "fn:8dd48605f3240a27",
+    "fn:ba9bc8da77d6b01c",
+]
 test = true
 
 [[module."reactions.rs".function]]
@@ -917,6 +1488,10 @@ lines = [
 hash = "sha256:f40fe76b5034070ebc3f197428d5a3d63bf021029fca4c4e666604bc3141b5b7"
 doc_hash = "sha256:3c5121f238b9ffeec3e2cfe99aaec2bbaa4477313a925ee6864b9e4250715068"
 callees = ["fn:cf3127ee88d3d1fc"]
+uses = [
+    "fn:3757a9b113c66f59",
+    "fn:8077e6a3f7b7bf8e",
+]
 test = true
 
 [[module."reactions.rs".function]]
@@ -939,6 +1514,14 @@ callees = [
     "fn:9b6ed9e43c277780",
     "fn:9f5e1f557d158a5b",
 ]
+uses = [
+    "fn:3b4a86ff50a067e5",
+    "fn:507109c1ceee406c",
+    "fn:8aad858c8d3fe147",
+    "fn:8dd48605f3240a27",
+    "fn:ba9bc8da77d6b01c",
+    "fn:f31b7d84fa07daa2",
+]
 test = true
 
 [[module."reactions.rs".function]]
@@ -960,6 +1543,14 @@ callees = [
     "fn:9b6ed9e43c277780",
     "fn:9f5e1f557d158a5b",
 ]
+uses = [
+    "fn:3b4a86ff50a067e5",
+    "fn:507109c1ceee406c",
+    "fn:8aad858c8d3fe147",
+    "fn:8dd48605f3240a27",
+    "fn:ba9bc8da77d6b01c",
+    "fn:f31b7d84fa07daa2",
+]
 test = true
 
 [[module."reactions.rs".function]]
@@ -976,5 +1567,10 @@ callees = [
     "fn:1e09045d7ac3019a",
     "fn:2b8f43acd7ff7072",
     "fn:3d659d923581b4f7",
+]
+uses = [
+    "fn:3757a9b113c66f59",
+    "fn:3b4a86ff50a067e5",
+    "fn:f31b7d84fa07daa2",
 ]
 test = true

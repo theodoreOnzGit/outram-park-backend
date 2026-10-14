@@ -183,6 +183,15 @@ callees = [
     "fn:f66c6613b2fa9c0c",
     "fn:ff8521081362840f",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 reached_by = [
     "#0",
     "#1",
@@ -364,6 +373,15 @@ callees = [
     "fn:e0f6ccbea3b4fcfc",
     "fn:ff8521081362840f",
 ]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
 reached_by = ["#9"]
 
 [[module."hot_leg_calibration.rs".function]]
@@ -401,6 +419,15 @@ callees = [
     "fn:dda41651835c793f",
     "fn:e0f6ccbea3b4fcfc",
     "fn:ff8521081362840f",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
 ]
 reached_by = [
     "#10",

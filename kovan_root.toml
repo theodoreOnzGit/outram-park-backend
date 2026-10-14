@@ -39,3 +39,8 @@ created = "2026-10-12"
 [[reviewer.key.history]]
 event = "created"
 date = "2026-10-12"
+
+[[code_review.rust_analyzer_used]]
+version = "1.98.0"
+date = "2026-10-13"
+commit = "9310d33f562c2cb25a2ed9e561e23596c9cbe908"

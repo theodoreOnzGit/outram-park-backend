@@ -34,9 +34,9 @@
 //!   build);
 //! - every listed module exists in the crate's source, is rated above the
 //!   crate itself, and says why;
-//! - a backronym spells the crate's name: the capital initials of its words
-//!   (a hyphenated word counts once) are the name in capitals. sembawang
-//!   carries one.
+//! - a backronym spells the crate's name, by the letters its text marks
+//!   (`spells` below). ~~sembawang carries one.~~ **CORRECTED 2026-10-13**:
+//!   seventeen crates carry one.
 //!
 //! Since 2026-10-06 (#734) the tags are read by the same parser the map is
 //! drawn from, `kovan::code_map::CodeMap::from_cargo_metadata` (which reports
@@ -89,22 +89,81 @@ fn the_real_workspace_lays_out_cleanly() {
         "raffles spans the whole Risk box: {raffles:?} in {risk:?}");
 }
 
-/// The capital initials of a backronym's words, a hyphenated word counting
-/// once: "Severe-accident Evolution and Melt ..." gives "SEM...".
-fn initials(backronym: &str) -> String {
-    backronym.split_whitespace().filter_map(|w| w.chars().next()).filter(|c| c.is_uppercase()).collect()
+/// Whether a backronym spells `name` (letters only, any case).
+///
+/// Each word gives its first letter, or nothing. It may give further letters
+/// only where the text itself marks them: capitals after the first letter
+/// ("BOmbardment" gives BO, "INtegrated" gives IN, "RisK" gives RK), or the
+/// leading letters of a word written wholly in lower case ("by" gives BY). Words split on spaces and hyphens, so
+/// "Multi-Phase" gives M and P. The letters given, in order, must be the name.
+///
+/// ~~The rule was "the capital initials of the words are the name".~~
+/// **CORRECTED 2026-10-13**: that rule fitted sembawang but refused backronyms
+/// the maintainer set, BOON LAY (BOmbardment ... and ... Yields), DHOBY GHAUT
+/// (... by GUI ...), TAMPINES (Multi-Phase INtegrated) and PASIR RIS (Risk &
+/// Reliability, where Reliability gives nothing).
+fn spells(backronym: &str, name: &str) -> bool {
+    let name: Vec<char> = name.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_uppercase).collect();
+    let mut reach = vec![false; name.len() + 1];
+    reach[0] = true;
+    for word in backronym.split(|c: char| c.is_whitespace() || c == '-') {
+        let w: Vec<char> = word.chars().collect();
+        let lower = w.iter().all(|c| !c.is_uppercase());
+        let mut next = reach.clone();
+        for p in (0..name.len()).filter(|&p| reach[p]) {
+            let mut q = p;
+            for (i, c) in w.iter().enumerate() {
+                let marked = i == 0 || lower || c.is_uppercase();
+                if !marked && !lower {
+                    continue; // an unmarked letter inside the word is skipped
+                }
+                if q >= name.len() || c.to_uppercase().next() != Some(name[q]) {
+                    break;
+                }
+                q += 1;
+                next[q] = true;
+            }
+        }
+        reach = next;
+    }
+    reach[name.len()]
 }
 
+/// The rule itself, on the maintainer's backronyms and on text that must fail.
+/// NEE SOON's and FARRER PARK's earlier README lettering is among the
+/// failures: it spelled NESOOON and FARRERPAR. Both READMEs were corrected on
+/// 2026-10-13 (NEutron, RisK) and the corrected texts pass.
+#[test]
+fn the_spelling_rule_accepts_marked_letters_only() {
+    assert!(spells("Severe-accident Evolution and Melt Behaviour Analysis Workbench for Advanced Nuclear Geometries", "sembawang"));
+    assert!(spells("BOmbardment of neutrons On Nuclides with Lagrangian transport and transmutation Yields", "boon-lay"));
+    assert!(spells("Digital High-fidelity Orchestration by GUI for a Human-friendly Automated Unified Toolkit", "dhoby-ghaut"));
+    assert!(spells("Thermal-hydraulic Artificial-intelligence Multi-Phase INtegrated Emulator System", "tampines"));
+    assert!(!spells("Severe-accident Evolution and Melt Behaviour", "sembawang"), "too short");
+    assert!(spells("NEutron Energy-dependent Simulation using Open-source Object-Oriented Numerics", "nee_soon"));
+    assert!(spells("Finite-element Analysis for Reactor Reliability, Engineering Response, Plasticity And RisK", "farrer-park"));
+    assert!(!spells("Neutron Energy-dependent Simulation using Open-source Object-Oriented Numerics", "nee_soon"));
+    assert!(!spells("Finite-element Analysis for Reactor Reliability, Engineering Response, Plasticity And Risk", "farrer-park"));
+    assert!(!spells("Consequence and Hazard Analysis for Nuclear Ground-level and atmospheric Impacts", "changhi"));
+}
+
+/// Every backronym spells its crate's name, or the name's first part when the
+/// crate name goes on to say what the crate is (`tuas_boussinesq_solver` is
+/// TUAS). Seventeen crates carry one (2026-10-13; sembawang alone before).
 #[test]
 fn every_backronym_spells_its_crate_name() {
     let map = workspace();
     let mut with = Vec::new();
     for c in &map.crates {
         if let Some(b) = &c.backronym {
-            let name: String = c.name.chars().filter(|c| c.is_alphanumeric()).collect::<String>().to_uppercase();
-            assert_eq!(initials(b), name, "{}: backronym {b:?} does not spell the name", c.name);
+            let first = c.name.split(['-', '_']).next().unwrap_or(&c.name);
+            assert!(spells(b, &c.name) || spells(b, first), "{}: backronym {b:?} does not spell the name", c.name);
             with.push(c.name.as_str());
         }
     }
-    assert!(with.contains(&"sembawang"), "sembawang carries its backronym (#815): {with:?}");
+    with.sort_unstable();
+    assert_eq!(with, [
+        "bedok", "bishan", "boon-lay", "buangkok", "changi", "dhoby-ghaut", "dover", "farrer-park", "kaki-bukit",
+        "nee_soon", "pasir-ris", "petir", "raffles", "redhill", "sembawang", "tampines", "tuas_boussinesq_solver",
+    ]);
 }

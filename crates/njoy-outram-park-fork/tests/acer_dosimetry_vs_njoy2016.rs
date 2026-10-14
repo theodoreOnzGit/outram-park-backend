@@ -29,8 +29,10 @@
 //! `MT + 1000 (10 + LFS)` (reactions 10030, 12030, 10037, 11037 in the
 //! table) and the interleaved region convention that differs from MF=3's.
 //!
-//! **NJOY's own test suite never runs `iopt = 3`** (checked over all 40
-//! cases in `upstream_source/NJOY2016/tests`), so this gate covers a path
+//! **NJOY's own test suite never runs `iopt = 3`** (~~checked over all 40
+//! cases~~ **CORRECTED 2026-10-14:** checked over all 86 numbered cases in
+//! `upstream_source/NJOY2016/tests`, 46 of which run `acer`, with `iopt` 1,
+//! 2, 4, 5 and 7), so this gate covers a path
 //! upstream does not cover itself.
 
 use njoy_outram_park_fork::acer::dosimetry::{dosimetry_ace, DosimetryOptions};

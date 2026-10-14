@@ -179,6 +179,28 @@ pub struct HeatrOutput {
     pub plot: Option<String>,
 }
 
+/// The elapsed seconds the listing prints, as upstream's `timer` does.
+/// `std::time::Instant` aborts on `wasm32-unknown-unknown` (no clock), which
+/// took down the browser demo's ACE generator whenever HEATR was in the deck
+/// ("RuntimeError: unreachable", 2026-10-14), so there the listing reads 0.0 s.
+#[derive(Clone, Copy)]
+struct Clock(#[cfg(not(target_arch = "wasm32"))] std::time::Instant);
+
+impl Clock {
+    fn start() -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        return Clock(std::time::Instant::now());
+        #[cfg(target_arch = "wasm32")]
+        return Clock();
+    }
+    fn secs(self) -> f64 {
+        #[cfg(not(target_arch = "wasm32"))]
+        return self.0.elapsed().as_secs_f64();
+        #[cfg(target_arch = "wasm32")]
+        return 0.0;
+    }
+}
+
 /// Run HEATR (`heatr.f90`'s `heatr`) on material `input.matd` of `endf`, using
 /// the pointwise cross sections of `pendf` (a RECONR/BROADR tape).
 ///
@@ -190,8 +212,8 @@ pub struct HeatrOutput {
 pub fn heatr(endf: &Tape, pendf: &Tape, input: &HeatrInput) -> Result<HeatrOutput, NjoyError> {
     const NPKMAX: usize = 28;
     const QTEST: f64 = 99.0e6;
-    let t0 = std::time::Instant::now();
-    let secs = |t0: std::time::Instant| t0.elapsed().as_secs_f64();
+    let t0 = Clock::start();
+    let secs = |t0: Clock| t0.secs();
     let mut h = Heatr::new(Tape::from_sections(String::new(), Vec::new()));
     h.listing.push_str(&format!("\n heatr...prompt kerma{:48}{:8.1}s\n", "", secs(t0)));
     h.matd = input.matd;

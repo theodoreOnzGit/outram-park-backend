@@ -30,6 +30,7 @@ row = 3
 topic = "neutronics"
 fidelity = 4
 maturity = 2
+backronym = "NEutron Energy-dependent Simulation using Open-source Object-Oriented Numerics"
 
 [features]
 default = ["long-tests"]

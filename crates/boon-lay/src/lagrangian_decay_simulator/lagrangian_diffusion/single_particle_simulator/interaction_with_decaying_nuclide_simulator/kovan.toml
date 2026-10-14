@@ -17,6 +17,7 @@ lines = [
 hash = "sha256:13bd6cf96699664a9fa6e407dafe0049b3ae0d7b7e65f3bbf18de6a3a1e8c024"
 doc_hash = "sha256:cd4748fb05a7377fff957d71312eff31ad2cd7a172475d2f1babfe09db234134"
 callees = ["fn:758333dfcd3ca042"]
+uses = ["fn:e3d3971cf92a6302"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -30,6 +31,7 @@ lines = [
 hash = "sha256:b5e7a742de0cd532aee3a4fabe0b25f83229cbf4d430b16428e412bbec12b749"
 doc_hash = "sha256:eb5fc58bfa7a61c4fbee9215d73b6c988d5b07c9fa98005b305b341eb38f318c"
 callees = ["fn:804e0f85f79eca2e"]
+uses = ["fn:e3d3971cf92a6302"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -45,6 +47,10 @@ doc_hash = "sha256:bbfa54f451fe27ba0373571b7ad8f74d74ad43029460ad78bbcd430a49729
 callees = [
     "fn:1ce3458a4f43f216",
     "fn:d84c7e41f0b78cde",
+]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:e3d3971cf92a6302",
 ]
 physical_interface = true
 
@@ -64,6 +70,10 @@ callees = [
     "fn:6490390f3a2db2f4",
     "fn:d84c7e41f0b78cde",
 ]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:e3d3971cf92a6302",
+]
 physical_interface = true
 
 [module."tests_for_auto_timestepping.rs"]
@@ -80,4 +90,5 @@ lines = [
 hash = "sha256:1a0abad9c431da4df4c8c945227271ee8af1d2906dd27f6e0da03b3348049780"
 doc_hash = "sha256:d1844f4c4221c0484efcaa251b8953004b213da911354ba8a2d11f2195176a48"
 callees = ["fn:4bdea64528f551f6"]
+uses = ["fn:359972b9e99804c1"]
 test = true

@@ -42,6 +42,7 @@ fn test_fn(id: String, name: &str) -> Function {
         source: String::new(),
         unresolved: Vec::new(),
         reached_by: None,
+        shape: None,
         cited_by: Vec::new(),
     }
 }
@@ -87,6 +88,7 @@ pub fn graph_from_folders(folders: &[FolderIndex]) -> CallGraphDoc {
                 upstream: None,
                 upstream_unparsed: None,
                 history: Vec::new(),
+                items: Vec::new(),
                 concepts: Vec::new(),
             });
         }

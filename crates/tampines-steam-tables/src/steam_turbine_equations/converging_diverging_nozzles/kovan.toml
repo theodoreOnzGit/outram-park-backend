@@ -33,6 +33,7 @@ callees = [
     "fn:67093ab68bbef7b3",
     "fn:d3ab77d823467d99",
 ]
+uses = ["fn:a490e693d7e67617"]
 physical_interface = true
 
 [[module."differential_nozzle_equations.rs".function]]
@@ -49,6 +50,7 @@ callees = [
     "fn:67093ab68bbef7b3",
     "fn:d3ab77d823467d99",
 ]
+uses = ["fn:a490e693d7e67617"]
 physical_interface = true
 
 [[module."differential_nozzle_equations.rs".function]]
@@ -68,6 +70,7 @@ callees = [
     "fn:a7990c092475f0f0",
     "fn:d3ab77d823467d99",
 ]
+uses = ["fn:a490e693d7e67617"]
 physical_interface = true
 
 [[module."differential_nozzle_equations.rs".function]]
@@ -110,6 +113,7 @@ callees = [
     "fn:d545a63120102302",
     "fn:f357b2b40e3a9e84",
 ]
+uses = ["fn:a490e693d7e67617"]
 reached_by = [
     "#1",
     "#2",
@@ -139,6 +143,7 @@ callees = [
     "fn:c365ffcc3efa433e",
     "fn:d545a63120102302",
 ]
+uses = ["fn:a490e693d7e67617"]
 reached_by = [
     "#1",
     "#2",
@@ -170,6 +175,7 @@ callees = [
     "fn:a7990c092475f0f0",
     "fn:c365ffcc3efa433e",
 ]
+uses = ["fn:a490e693d7e67617"]
 reached_by = [
     "#1",
     "#2",
@@ -203,6 +209,7 @@ callees = [
     "fn:a7990c092475f0f0",
     "fn:d545a63120102302",
 ]
+uses = ["fn:a490e693d7e67617"]
 physical_interface = true
 
 [[module."isentropic_converging_nozzle.rs".function]]
@@ -223,6 +230,7 @@ callees = [
     "fn:8ed7910b571e1ad9",
     "fn:a7990c092475f0f0",
 ]
+uses = ["fn:a490e693d7e67617"]
 reached_by = [
     "#1",
     "#2",
@@ -254,6 +262,7 @@ callees = [
     "fn:67093ab68bbef7b3",
     "fn:a9d9e8c971318dc0",
 ]
+uses = ["fn:a490e693d7e67617"]
 reached_by = [
     "#0",
     "#1",
@@ -282,6 +291,7 @@ callees = [
     "fn:a9d9e8c971318dc0",
     "fn:c365ffcc3efa433e",
 ]
+uses = ["fn:a490e693d7e67617"]
 test = true
 
 [module."mod.rs"]
@@ -308,6 +318,7 @@ callees = [
     "fn:d545a63120102302",
     "fn:e6e3c01db2847088",
 ]
+uses = ["fn:a490e693d7e67617"]
 reached_by = [
     "#1",
     "#2",
@@ -348,6 +359,7 @@ callees = [
     "fn:67093ab68bbef7b3",
     "fn:fdb738f8b3431582",
 ]
+uses = ["fn:a490e693d7e67617"]
 physical_interface = true
 
 [[module."momentum_balance_rayleigh_line.rs".function]]
@@ -366,6 +378,7 @@ callees = [
     "fn:8ed7910b571e1ad9",
     "fn:fdb738f8b3431582",
 ]
+uses = ["fn:a490e693d7e67617"]
 physical_interface = true
 
 [[module."momentum_balance_rayleigh_line.rs".function]]

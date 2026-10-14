@@ -91,9 +91,11 @@ impl AceTable {
                 date: self.date.clone(),
                 comment: self.comment.clone(),
                 mat_id: self.mat_id.clone(),
-                // A table this crate builds carries no IZ/AW pairs; upstream
-                // fills them only from ACER's `nxtra` cards.
-                iz: [0; 16],
+                // ~~A table this crate builds carries no IZ/AW pairs; upstream
+                // fills them only from ACER's `nxtra` cards.~~ CORRECTED
+                // 2026-10-14 (gh:#865): a thermal table's IZ is ACER card 8a's
+                // moderator ZA list (`acer.f90:396-399`); AW stays 0.
+                iz: self.iz,
                 aw: [0.0; 16],
             },
             nxs: self.nxs,
@@ -101,6 +103,25 @@ impl AceTable {
             xss_is_int: Some(self.xss_is_int.clone()),
             xss: self.xss.clone(),
         })
+    }
+
+    /// This table as the text of a Type-1 (ASCII) ACE file, in memory: what
+    /// [`write_type1`][Self::write_type1] writes, for a caller with no
+    /// filesystem (the browser, GitHub #871).
+    ///
+    /// # Errors
+    /// As [`Self::to_raw`].
+    pub fn to_type1_text(&self) -> Result<String, NjoyError> {
+        Ok(self.to_raw(AceFileType::Type1Ascii)?.to_type1_string())
+    }
+
+    /// This table as the bytes of a Type-2 (Fortran unformatted sequential)
+    /// ACE file, in memory: what [`write_type2`][Self::write_type2] writes.
+    ///
+    /// # Errors
+    /// As [`Self::to_raw`].
+    pub fn to_type2_bytes(&self) -> Result<Vec<u8>, NjoyError> {
+        Ok(self.to_raw(AceFileType::Type2Binary)?.to_type2_bytes())
     }
 
     /// Write this table to `path` as a Type-1 ASCII ACE file.
