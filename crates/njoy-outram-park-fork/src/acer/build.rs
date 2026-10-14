@@ -314,8 +314,13 @@ impl AceTable {
     ///
     /// This is the loadable-transport path: reactions listed in `emissions` get a
     /// TYR yield and a DLW law (Law 3 for discrete levels, Law 4 for continuum /
-    /// (n,xn)); their secondary angular distribution is left isotropic (an
-    /// AND-block upgrade is future work). NXS(5)=NR is set to the producer count.
+    /// (n,xn)); ~~their secondary angular distribution is left isotropic (an
+    /// AND-block upgrade is future work)~~ **CORRECTED 2026-10-14:** their
+    /// angular distributions are written too: through
+    /// [`Self::from_reconr_full_with_extras`], U-234's AND block (78 143
+    /// words, every reaction) is NJOY2016's in every word
+    /// (`tests/process_api.rs`, `tests/ace_compare.rs`). NXS(5)=NR is set to
+    /// the producer count.
     /// `heating` is the MT=301 KERMA cross section (build it with
     /// ~~[`Kerma::from_reconr`][crate::heatr::Kerma::from_reconr]~~
     /// ~~[`Kerma::from_endf`][crate::heatr::Kerma::from_endf], which deposits

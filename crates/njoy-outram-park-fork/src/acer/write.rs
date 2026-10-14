@@ -105,6 +105,25 @@ impl AceTable {
         })
     }
 
+    /// This table as the text of a Type-1 (ASCII) ACE file, in memory: what
+    /// [`write_type1`][Self::write_type1] writes, for a caller with no
+    /// filesystem (the browser, GitHub #871).
+    ///
+    /// # Errors
+    /// As [`Self::to_raw`].
+    pub fn to_type1_text(&self) -> Result<String, NjoyError> {
+        Ok(self.to_raw(AceFileType::Type1Ascii)?.to_type1_string())
+    }
+
+    /// This table as the bytes of a Type-2 (Fortran unformatted sequential)
+    /// ACE file, in memory: what [`write_type2`][Self::write_type2] writes.
+    ///
+    /// # Errors
+    /// As [`Self::to_raw`].
+    pub fn to_type2_bytes(&self) -> Result<Vec<u8>, NjoyError> {
+        Ok(self.to_raw(AceFileType::Type2Binary)?.to_type2_bytes())
+    }
+
     /// Write this table to `path` as a Type-1 ASCII ACE file.
     ///
     /// # Errors

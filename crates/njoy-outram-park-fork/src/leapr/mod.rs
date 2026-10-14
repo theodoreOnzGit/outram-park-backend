@@ -152,7 +152,7 @@ pub use deck::{CardCursor, LeaprDeck, LeaprTemperature, PairCorrelation};
 pub use coldh::add_cold_hydrogen;
 pub use endout::{endout, ElasticOutput, LeaprOutput, SecondaryScatterer};
 pub use frequency::FrequencyModel;
-pub use run::{run_deck, run_deck_text, LeaprRun, Mf1Header};
+pub use run::{run_deck, run_deck_at_temperature, run_deck_text, LeaprRun, Mf1Header};
 pub use vintage::{EvaluationDate, PhysicalConstants};
 pub use input::{
     ColdOption, ContinuousDist, DiscreteOscillator, ElasticOption, LeaprInput,
