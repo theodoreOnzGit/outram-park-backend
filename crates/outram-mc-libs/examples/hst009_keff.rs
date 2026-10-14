@@ -65,8 +65,11 @@
 //!   probability of 3.5e-5 per traversal, against Al-27's own `0.0138 cm⁻¹`
 //!   which is 60× larger and itself small. Worth a few pcm.
 //!
-//! None of the three is in the fuel, and together they are two orders of
-//! magnitude below the effect being tested.
+//! ~~None of the three is in the fuel, and together~~ **CORRECTED
+//! 2026-10-14**: two of the three are in the fuel (U-236 and O-17 are in the
+//! uranium oxyfluoride solution, per the table above); only Cu and Zn are
+//! outside it. The worths above are estimates, not measured. Together they
+//! are two orders of magnitude below the effect being tested.
 //!
 //! # The reference value
 //!
