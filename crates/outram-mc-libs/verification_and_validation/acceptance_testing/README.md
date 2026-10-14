@@ -182,7 +182,10 @@ title carries the state (loading step, neutrons shown, generation, running
 through the browser's debugging port. Hardware: Intel Core i9-13900K, 32
 logical cores of which the tab's worker uses one, 62 GB RAM, Linux 7.2, no
 GPU used; the machine was shared with other builds, so the seconds are
-indicative only. Nothing here was checked by eye on a screen or a phone.
+indicative only. ~~Nothing here was checked by eye on a screen or a phone.~~
+**Corrected 2026-10-14:** the rows below were read through the debugging
+port, not by eye; the maintainer has since checked the demo by eye on an
+Android phone, see "Checked on a phone" below.
 
 | rung | what was checked | result |
 |---|---|---|
@@ -213,7 +216,17 @@ in a browser at its campaign size. A CSG rung reports ~~no source entropy and~~
 no leak / capture / fission counts, which the Godiva rung does (**corrected
 2026-10-14:** the source entropy is now reported, see below; the phone-width
 check is now done for Jemima's run view, in headless Chromium at 390 × 800,
-still not on a real phone).
+~~still not on a real phone~~ and, since then, on a real phone, see the next
+paragraph).
+
+**Checked on a phone, 2026-10-14.** The maintainer reports having checked the
+browser demo on their own Android phone. This is the maintainer's check by
+eye, reported in conversation: no title, log or k value from the phone was
+captured here, and the phone model, the browser and which of the four rungs
+and modes were opened are not recorded. Earlier the same day the maintainer
+reported that the Jemima rung works. It covers the browser only: the
+command-line driver was not run in Termux on the phone (see "Android is an
+emulator" below).
 
 **Added 2026-10-14: the run view, source entropy and benchmark values.**
 At the maintainer's request Run k_eff now shows, on all four rungs, the case
