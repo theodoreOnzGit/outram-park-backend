@@ -26,8 +26,12 @@ Reference tables for `crates/njoy-outram-park-fork/tests/acer_thermal_word_parit
 
 The `.gz` files are `gzip -9 -n` of NJOY's `tape30`.
 
-**Decks whose tables are not committed** (2–7 MB gzipped; measured, see the
-V&V record `crates/njoy-outram-park-fork/verification_and_validation/acer_thermal_word_parity_2026_10_14.md`):
+~~**Decks whose tables are not committed**~~ **CORRECTED 2026-10-14:** these
+three tables are now in the `reference-data/ace` submodule
+(`reference-njoy/endf-b-viii.0/thermal/`, with stamped decks beside them) and
+gated by `tests/acer_thermal_word_parity_large.rs`. The decks here differ from
+those only in the comment card; the hashes below are of the unstamped runs
+(2–7 MB gzipped):
 
 | deck | table SHA-256 (gzipped, as measured) |
 |---|---|

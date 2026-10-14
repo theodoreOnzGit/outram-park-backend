@@ -144,7 +144,10 @@ defects below are known one by one, rather than as one residual.
 - OpenMC's complete deck is not run. It adds a free-gas `thermr` pass
   (MT 221) and a 64-bin, `iwt = 2` `acer`; the 64-bin, `iwt = 2` table itself
   was measured identical above.
-- The IFENG = 2 tables are measured, not gated, because of their size.
+- ~~The IFENG = 2 tables are measured, not gated, because of their size.~~
+  **CORRECTED 2026-10-14:** gated by `tests/acer_thermal_word_parity_large.rs`
+  (Al-27 `iwt = 2`; H in H₂O 64 bins `iwt = 0` and `2`), tables in the
+  `reference-data/ace` submodule; all three identical (43 s).
 
 ## Reproducing
 
