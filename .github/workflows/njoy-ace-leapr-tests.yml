@@ -32,6 +32,8 @@ on:
       - "scripts/njoy-ace-leapr-tests.sh"
       - "crates/njoy-outram-park-fork/**"
       - "reference-data/**"
+      # How the reference data are checked out (byte for byte, #862).
+      - ".gitattributes"
   pull_request:
     branches: [main]
   workflow_dispatch:
