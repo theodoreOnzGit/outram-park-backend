@@ -150,7 +150,12 @@ pub fn build_thermal_ace(bytes: &[u8], file_name: &str, g: ThermalGen) -> Result
         .ok_or("no incoherent inelastic (MT=4) S(α,β) on this tape")?
         .temperature_k;
     let grid: Vec<f64> = EGRID[..egrid_count(g.emax_ev)].to_vec();
-    let stem: String = file_name.split('.').next().unwrap_or("tsl").chars().filter(|c| c.is_ascii_alphanumeric()).take(6).collect();
+    // The name in the ZAID: the file's stem without the ENDF/B "tsl-" prefix,
+    // letters and digits only, at most 6 (the ZAID field is 10 characters
+    // with ".00t").
+    let base = file_name.split('.').next().unwrap_or("tsl");
+    let base = base.strip_prefix("tsl-").or_else(|| base.strip_prefix("tsl_")).unwrap_or(base);
+    let stem: String = base.chars().filter(|c| c.is_ascii_alphanumeric()).take(6).collect();
     let name = if stem.is_empty() { "tsl".to_string() } else { stem.to_lowercase() };
     let opts = ThermalAceOptions { n_outgoing: g.n_outgoing, n_cosines: g.n_cosines, emax_ev: g.emax_ev, ..Default::default() };
     let ace = AceTable::thermal_from_mf7(&mf7, temp, &name, 0, &grid, opts).map_err(|e| format!("thermal ACER: {e}"))?;
@@ -263,7 +268,7 @@ mod tests {
         let deck = std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../njoy-outram-park-fork/src/leapr/decks/tsl-HinH2O.leapr")).expect("committed deck");
         let m = build_thermal_ace(&deck, "tsl-HinH2O.leapr", ThermalGen { emax_ev: 1.0, ..ThermalGen::default() }).expect("deck to thermal ACE");
         assert!(m.lines[0].contains("LEAPR deck"), "{:?}", m.lines);
-        assert!(m.name.ends_with("t.ace"), "{}", m.name);
+        assert_eq!(m.name, "hinh2o.00t.ace", "named from the file, without its tsl- prefix");
     }
 
     /// Files the comparator cannot take are refused with their name.
