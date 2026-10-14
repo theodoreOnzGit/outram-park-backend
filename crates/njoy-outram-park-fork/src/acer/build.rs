@@ -276,7 +276,7 @@ impl AceTable {
     /// To include the elastic angular distribution, use
     /// [`from_reconr_with_angular`][Self::from_reconr_with_angular].
     pub fn from_reconr(result: &ReconrResult, kt_mev: f64, suffix: u32) -> Self {
-        Self::build(result, kt_mev, suffix, None, &[], None, None, false, None, None, None)
+        Self::build(result, kt_mev, suffix, None, &[], None, None, false, None, None, None, &[])
     }
 
     /// Assemble an ACE table including the **elastic** angular distribution.
@@ -303,8 +303,7 @@ impl AceTable {
             false,
             None,
             None,
-            None,
-        )
+            None, &[])
     }
 
     /// Assemble a full ACE table: cross sections, the elastic angular
@@ -341,8 +340,7 @@ impl AceTable {
         photons: Option<&[super::photon_blocks::PhotonEntry]>,
     ) -> Self {
         Self::build(
-            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, None, None,
-        )
+            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, None, None, &[])
     }
 
     /// [`from_reconr_full`][Self::from_reconr_full] **plus the UNR block** —
@@ -374,8 +372,7 @@ impl AceTable {
     ) -> Self {
         Self::build(
             result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, Some(urr),
-            None,
-        )
+            None, &[])
     }
 
     /// [`from_reconr_full`][Self::from_reconr_full] plus the optional blocks a
@@ -400,8 +397,32 @@ impl AceTable {
         urr: Option<&crate::purr::UrrProbabilityTables>,
         delayed: Option<&super::delayed_blocks::DelayedBlocks>,
     ) -> Self {
+        Self::from_reconr_full_with_extras_disc(
+            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, urr, delayed, &[],
+        )
+    }
+
+    /// [`Self::from_reconr_full_with_extras`] with the photon-production
+    /// discontinuities `convr` finds (`photon_blocks::gamma_discontinuities`),
+    /// which `unionx` puts into the energy grid as a pair straddling each one
+    /// (`acefc.f90:1180-1250`). The ordinary build path passes them.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_reconr_full_with_extras_disc(
+        result: &ReconrResult,
+        kt_mev: f64,
+        suffix: u32,
+        angular: Option<&ElasticAngular>,
+        emissions: &[Emission],
+        heating: Option<&crate::heatr::Kerma>,
+        nu: Option<&[f64]>,
+        mt19: bool,
+        photons: Option<&[super::photon_blocks::PhotonEntry]>,
+        urr: Option<&crate::purr::UrrProbabilityTables>,
+        delayed: Option<&super::delayed_blocks::DelayedBlocks>,
+        gamma_disc: &[f64],
+    ) -> Self {
         Self::build(
-            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, urr, delayed,
+            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, urr, delayed, gamma_disc,
         )
     }
 
@@ -418,6 +439,7 @@ impl AceTable {
         photons: Option<&[super::photon_blocks::PhotonEntry]>,
         urr: Option<&crate::purr::UrrProbabilityTables>,
         delayed: Option<&super::delayed_blocks::DelayedBlocks>,
+        gamma_disc: &[f64],
     ) -> Self {
         let za = result.material.za.round() as i32;
         let awr = result.material.awr;
@@ -533,6 +555,7 @@ impl AceTable {
         egrid.retain(|&x| x > 0.0);
         egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
         egrid.dedup_by(|a, b| (*a - *b).abs() <= 1e-10 * b.abs().max(1.0));
+        let egrid = unionx_discontinuities(&egrid, gamma_disc);
         let nes = egrid.len();
 
         // ── ESZ block: energy, total, disappearance, elastic, heating ───────
@@ -1188,11 +1211,18 @@ fn append_photon_blocks(
     // `E(1-eps)`, the threshold point itself is zero, and every value is
     // `sigfig(y, 7, 0)`. ~~Unrounded `eval_tab1` values~~, CHANGED
     // 2026-09-26 (GitHub #340).
+    // An MF=13 entry's SIGP window, as `gamsum` and `acelpp` make it
+    // (`acefc.f90:3700-3760`, `:8336-8371`). `gamsum` evaluates the cross
+    // section at every grid energy from the table's first energy on (the
+    // value is held past its last), zero at that first energy; `acelpp` then
+    // keeps the run from the last leading zero to one point past the last
+    // non-zero value. ~~The window used to stop at the table's last energy~~
+    // (CORRECTED 2026-10-14, GitHub #872): O-16's MT=4 tables run to 150 MeV
+    // with zeros above 30 MeV, which NJOY2016 does not store.
     let xs_window = |interp: &[(u32, u32)], pairs: &[(f64, f64)]| -> (i32, Vec<f64>) {
         const EPS: f64 = 1.0e-10;
-        let e_last = match pairs.last() {
-            Some(&(b, _)) => b,
-            None => return (1, Vec::new()),
+        let Some(&(thresh, _)) = pairs.first() else {
+            return (1, Vec::new());
         };
         let np = pairs.len() as i32;
         let tab = crate::endf::records::Tab1 {
@@ -1201,19 +1231,12 @@ fn append_photon_blocks(
             pairs: pairs.to_vec(),
         };
         let mut g = crate::endf::gety1::Gety1::new(&tab);
-        let thresh = g.get(0.0).xnext;
-        let Some(ie) = egrid.iter().position(|&e| e >= (1.0 - EPS) * thresh) else {
+        let _ = g.get(0.0);
+        let Some(i0) = egrid.iter().position(|&e| e >= (1.0 - EPS) * thresh) else {
             return (1, Vec::new());
         };
-        let last = egrid
-            .iter()
-            .rposition(|&e| e <= e_last)
-            .unwrap_or(egrid.len().saturating_sub(1));
-        if last < ie {
-            return (1, Vec::new());
-        }
         let nen = egrid.len();
-        let sig = (ie..=last)
+        let ys: Vec<f64> = (i0..nen)
             .map(|i| {
                 let mut e = egrid[i];
                 if i == 0 {
@@ -1226,10 +1249,35 @@ fn append_photon_blocks(
                 if i > 0 && e < thresh * (1.0 + EPS) {
                     y = 0.0;
                 }
-                sigfig(y, 7)
+                // `gamsum` writes these to a text scratch tape that `acelpp`
+                // reads back, so each value carries `a11`'s rounding (6
+                // figures for a two-digit exponent).
+                let y = sigfig(y, 7);
+                crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(y)).unwrap_or(y)
             })
             .collect();
-        (ie as i32 + 1, sig)
+        // `acelpp`'s jfirst / jlast over those values.
+        let (mut jfirst, mut jn, mut jlast) = (0usize, 0usize, 0usize);
+        let mut kept: Vec<f64> = Vec::with_capacity(ys.len());
+        for (m, &y) in ys.iter().enumerate() {
+            if y == 0.0 && jlast == 0 && jn == 1 {
+                jn = 0;
+                kept.clear();
+            }
+            if jn == 0 {
+                jfirst = m;
+            }
+            jn += 1;
+            if y != 0.0 {
+                jlast = jn;
+            }
+            kept.push(y);
+        }
+        if jlast < jn {
+            jlast += 1;
+        }
+        kept.truncate(jlast);
+        ((i0 + jfirst) as i32 + 1, kept)
     };
 
     let sigp_len = |e: &super::photon_blocks::PhotonEntry| -> i32 {
@@ -1296,11 +1344,44 @@ fn append_photon_blocks(
         }
     }
 
-    // LANDP: 0 ⇒ isotropic. Every photon this port writes is isotropic, which
-    // `photon_blocks::build` guarantees by refusing MF=14 with LI=0 outright.
+    // LANDP / ANDP (`acelpp`, `acefc.f90:8402-8478`). Each anisotropic MF=14
+    // subsection is one ANDP table, `[NE, E(NE), L(NE), 33 cosines per
+    // anisotropic energy]`, written in the order the entries carry them; a
+    // photon points at its table (1-based, ANDP-relative) or has 0.
+    let tables: Vec<&super::photon_blocks::PhotonAngularTable> =
+        entries.iter().flat_map(|e| e.andp_tables.iter()).collect();
+    let mut table_loc = Vec::with_capacity(tables.len());
+    let mut loc = 1i32;
+    for t in &tables {
+        table_loc.push(loc);
+        let aniso = t.bins.iter().filter(|b| b.is_some()).count();
+        loc += 1 + 2 * t.e_mev.len() as i32 + 33 * aniso as i32;
+    }
     let landp = b.next_locator();
-    for _ in entries {
-        b.int(0);
+    for e in entries {
+        b.int(e.landp.map_or(0, |id| table_loc[id]));
+    }
+    let andp = b.next_locator();
+    for (t, &base) in tables.iter().zip(&table_loc) {
+        let ne = t.e_mev.len() as i32;
+        b.int(ne);
+        for &e in &t.e_mev {
+            b.real(e);
+        }
+        let mut m = 0i32;
+        for bins in &t.bins {
+            if bins.is_some() {
+                b.int(base + 2 * ne + 33 * m + 1);
+                m += 1;
+            } else {
+                b.int(0);
+            }
+        }
+        for bins in t.bins.iter().flatten() {
+            for &c in bins {
+                b.real(c);
+            }
+        }
     }
 
     // LDLWP / DLWP, laid out exactly as the neutron LDLW/DLW.
@@ -1315,9 +1396,6 @@ fn append_photon_blocks(
     for &o in &header_off {
         b.int(o);
     }
-    // ANDP carries nothing, so it starts where DLWP does — the same
-    // convention NJOY writes.
-    let andp = ldlwp;
     let dlwp = b.next_locator();
     for (i, e) in entries.iter().enumerate() {
         let idat_rel = header_off[i] + HEADER;
@@ -1515,4 +1593,54 @@ fn yield_nr(interp: &[(u32, u32)]) -> usize {
     } else {
         interp.len()
     }
+}
+
+/// `unionx`'s treatment of the photon-production discontinuities on the
+/// energy grid (`acefc.f90:1180-1250`, `iskp = 0`, no thinning). For each
+/// discontinuity `d` (ascending), `egl = sigfig(d, 7, -1)` replaces the first
+/// grid energy at or above it, and the walk then jumps to
+/// `egh = sigfig(d, 7, +1)`, dropping any grid energy in between. The values
+/// at those energies are interpolated like any other grid point.
+///
+/// `unionx`'s second pair (`edl`/`edh`, for a discontinuity in MT=1 itself
+/// met at `egh`) is not reproduced: this grid has no repeated energies.
+fn unionx_discontinuities(grid: &[f64], disc: &[f64]) -> Vec<f64> {
+    const EPS: f64 = 1.0e-10;
+    const ETOP: f64 = 1.0e10;
+    if disc.is_empty() || grid.is_empty() {
+        return grid.to_vec();
+    }
+    let pair = |i: usize| -> (f64, f64) {
+        disc.get(i).map_or((ETOP, ETOP), |&d| (sigfig_dir(d, -1), sigfig_dir(d, 1)))
+    };
+    let mut iedis = 0usize;
+    let (mut egl, mut egh) = pair(iedis);
+    let mut out = Vec::with_capacity(grid.len() + 2 * disc.len());
+    let mut k = 0usize; // first grid index > e
+    let mut enext = grid[0];
+    loop {
+        let e = enext;
+        while k < grid.len() && grid[k] <= e {
+            k += 1;
+        }
+        enext = if k < grid.len() { grid[k] } else { ETOP * 100.0 };
+        if (e - egl).abs() < EPS * egl {
+            enext = egh;
+        } else if (e - egh).abs() < EPS * egh {
+            iedis += 1;
+            (egl, egh) = pair(iedis);
+        } else if enext >= (1.0 - EPS) * egl {
+            enext = egl;
+        }
+        out.push(e);
+        if enext > ETOP - ETOP / 100.0 {
+            break;
+        }
+    }
+    out
+}
+
+/// `sigfig(x, 7, idig)`.
+fn sigfig_dir(x: f64, idig: i32) -> f64 {
+    crate::mixr::mix::sigfig(x, 7, idig)
 }

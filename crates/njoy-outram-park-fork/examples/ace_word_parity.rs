@@ -16,7 +16,8 @@
 //! `acer::compare`, which names the first differing word of each block. There
 //! is no tolerance anywhere.
 //!
-//! `OUTRAM_ACE_OUT=<file>` also writes our Type-1 table there.
+//! `OUTRAM_ACE_OUT=<file>` also writes our Type-1 table there. A Type-2
+//! NJOY table is compared at Type-1 print precision (see the code).
 //!
 //! Exit code 0 when the tables are identical, 3 when they differ, 1 on an
 //! error. CLI glue; `acer::compare` and `process` are tested in the crate.
@@ -64,7 +65,25 @@ fn main() {
     }
     let ours = read::parse_type1(&text).expect("re-read ours");
     let bytes = std::fs::read(njoy_path).expect("read the NJOY table");
-    let njoy = read::read_library_from_bytes(bytes, njoy_path).expect("read NJOY's").remove(0);
+    let mut njoy = read::read_library_from_bytes(bytes, njoy_path).expect("read NJOY's").remove(0);
+    // A Type-2 (binary) NJOY table carries unrounded doubles. NJOY2016's own
+    // Type-1 writer would print it through `change`, which writes integer
+    // words with `nint` and reals to 12 figures; reproduce that with our
+    // table's integer mask (valid where the layouts agree, which NXS/JXS
+    // check separately) and compare at Type-1 print precision. NJOY2016 needs
+    // this for B-10, whose Type-1 formatter aborts (`change`, "Undefined law
+    // for dlwh block: 0").
+    if njoy.file_type == read::AceFileType::Type2Binary {
+        if njoy.xss.len() == ace.xss_is_int.len() {
+            njoy.xss_is_int = Some(ace.xss_is_int.clone());
+        }
+        let text = njoy.to_type1_string();
+        if let Ok(out) = std::env::var("OUTRAM_NJOY_OUT") {
+            std::fs::write(&out, &text).expect("write OUTRAM_NJOY_OUT");
+        }
+        njoy = read::parse_type1(&text).expect("NJOY's Type 2 as Type 1");
+        println!("(NJOY2016's table is Type 2: compared at Type-1 print precision, integer words as ours)");
+    }
     let c = compare(&ours, &njoy);
     println!("{tape_name} at {t_k} K, heatr {heatr}, purr {purr} ({:.1} s): first = ours, second = NJOY2016", t0.elapsed().as_secs_f64());
     for l in c.report_lines() {

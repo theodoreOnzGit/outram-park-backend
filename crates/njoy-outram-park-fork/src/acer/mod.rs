@@ -97,6 +97,7 @@ pub mod energy;
 pub mod fortran_fmt;
 pub mod nu;
 pub mod photoatomic;
+pub mod photon_angular;
 pub mod photon_blocks;
 pub mod photonuclear;
 
@@ -547,7 +548,7 @@ pub(crate) fn assemble(
     // them regardless of the rest of the deck (`acefc.f90:6003`). ismooth = 1
     // is upstream's default (`acer.f90:326`).
     let delayed = crate::acer::delayed_blocks::build(tape, mat, true)?;
-    let mut table = AceTable::from_reconr_full_with_extras(
+    let mut table = AceTable::from_reconr_full_with_extras_disc(
         recon,
         kt_mev,
         suffix,
@@ -559,6 +560,7 @@ pub(crate) fn assemble(
         crate::acer::photon_blocks::build_with_pendf(tape, mat, recon).as_deref(),
         urr,
         delayed.as_ref(),
+        &crate::acer::photon_blocks::gamma_discontinuities(tape, mat),
     );
     if let Some(g) = crate::acer::photon_blocks::gpd(tape, mat, recon) {
         table.insert_gpd(&g);
